@@ -1,0 +1,12 @@
+{
+  "name": "biocom-seo-dashboard-phase1",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:backend": "npm --prefix backend run build",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "typecheck:backend": "npm --prefix backend run typecheck"
+  }
+}
