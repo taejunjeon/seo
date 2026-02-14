@@ -1,31 +1,58 @@
 :root {
-  --bg-main: #f3f8f5;
-  --bg-accent: #d3e9df;
-  --ink-main: #143127;
+  /* ── 컬러 토큰 시스템 ── */
+  --color-primary: #0D9488;
+  --color-primary-light: #14b8a6;
+  --color-primary-dark: #0f766e;
+  --color-accent: #F59E0B;
+  --color-danger: #EF4444;
+  --color-success: #10B981;
+  --color-info: #3b82f6;
+
+  /* 텍스트 */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+  /* 서피스 */
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8fafc;
+  --color-surface-alt: #f1f5f9;
+  --color-border: rgba(15, 23, 42, 0.08);
+  --color-border-strong: rgba(15, 23, 42, 0.12);
+
+  /* 배경 */
+  --bg-main: #F8FAFC;
+  --bg-accent: #f0f4f8;
+  --ink-main: #0f172a;
+
   --font-sans: var(--font-space-grotesk), "Apple SD Gothic Neo", "Malgun Gothic",
     "맑은 고딕", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: var(--font-plus-jakarta), var(--font-space-grotesk), sans-serif;
 
   /* 다크 네비바 */
-  --nav-bg: #0f2b22;
-  --nav-text: #e2f0eb;
-  --nav-text-muted: #8fb5a6;
-  --nav-tab-active: #22c55e;
+  --nav-bg: #0f172a;
+  --nav-text: #e2e8f0;
+  --nav-text-muted: #94a3b8;
+  --nav-tab-active: #2dd4bf;
 
   /* 우선순위 컬러 */
-  --urgent-red: #dc2626;
-  --opportunity-amber: #d97706;
-  --trend-green: #059669;
-  --recommend-blue: #2563eb;
+  --urgent-red: #EF4444;
+  --opportunity-amber: #F59E0B;
+  --trend-green: #10B981;
+  --recommend-blue: #3b82f6;
 
   /* 점수 카드 */
-  --aeo-color: #0f7d5f;
-  --geo-color: #2563eb;
+  --aeo-color: #0D9488;
+  --geo-color: #3b82f6;
   --score-track: #e2e8f0;
 
   /* 채팅 */
   --chat-bg: #ffffff;
-  --chat-user-bg: #ecfdf5;
+  --chat-user-bg: #f0fdfa;
   --chat-ai-bg: #f1f5f9;
+
+  /* 폼 */
+  --accent: #0D9488;
 }
 
 html,
@@ -35,10 +62,11 @@ body {
 
 body {
   color: var(--ink-main);
-  background:
-    radial-gradient(circle at 16% 0%, rgba(28, 142, 109, 0.14), transparent 42%),
-    radial-gradient(circle at 82% 10%, rgba(106, 176, 153, 0.23), transparent 36%),
-    linear-gradient(160deg, var(--bg-main) 0%, var(--bg-accent) 100%);
+  background: var(--bg-main);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 10% -10%, rgba(13, 148, 136, 0.07), transparent),
+    radial-gradient(ellipse 50% 40% at 90% 0%, rgba(59, 130, 246, 0.05), transparent),
+    radial-gradient(ellipse 40% 30% at 50% 100%, rgba(13, 148, 136, 0.04), transparent);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

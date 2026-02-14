@@ -28,7 +28,7 @@
   height: 56px;
   background: var(--nav-bg);
   color: var(--nav-text);
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
 .navBrand {
@@ -41,7 +41,7 @@
 .navBrandIcon {
   font-size: 1.6rem;
   line-height: 1;
-  filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.4));
+  filter: drop-shadow(0 0 8px rgba(45, 212, 191, 0.5));
 }
 
 .navBrandText {
@@ -55,10 +55,14 @@
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--nav-text);
+  font-family: var(--font-display);
 }
 
 .navBrandAccent {
-  color: #4ade80;
+  background: linear-gradient(135deg, #2dd4bf, #38bdf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .navBrandSub {
@@ -75,25 +79,25 @@
 }
 
 .navTab {
-  padding: 8px 16px;
-  border-radius: 8px;
+  padding: 6px 16px;
+  border-radius: 9999px;
   border: none;
   background: transparent;
   color: var(--nav-text-muted);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.2s ease, background 0.2s ease;
   font-family: inherit;
 }
 
 .navTab:hover {
-  background: rgba(255, 255, 255, 0.08);
   color: var(--nav-text);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .navTabActive {
-  background: rgba(34, 197, 94, 0.15);
+  background: rgba(45, 212, 191, 0.14);
   color: var(--nav-tab-active);
   font-weight: 600;
 }
@@ -113,12 +117,12 @@
 }
 
 .statusDot[data-status="ok"] {
-  background: #22c55e;
+  background: var(--color-success);
   box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
 }
 
 .statusDot[data-status="error"] {
-  background: #ef4444;
+  background: var(--color-danger);
   box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
 }
 
@@ -136,6 +140,60 @@
   font-size: 0.78rem;
   color: var(--nav-text-muted);
   white-space: nowrap;
+}
+
+/* ── 상태 indicator 래퍼 + tooltip ── */
+.statusWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+}
+
+.statusTooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 200px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--nav-bg);
+  color: var(--nav-text);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.statusWrap:hover .statusTooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.statusTooltipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.statusTooltipRow + .statusTooltipRow {
+  margin-top: 4px;
+}
+
+.statusTooltipLabel {
+  color: var(--nav-text-muted);
+}
+
+.statusTooltipValue {
+  font-weight: 600;
 }
 
 /* ── 스크롤 캡처 ── */
@@ -168,7 +226,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 43, 34, 0.6);
+  background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(4px);
   color: #ffffff;
   font-size: 1.2rem;
@@ -178,11 +236,11 @@
 
 /* ── 공통 카드 / 패널 ── */
 .card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(25, 62, 49, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .sectionHeader {
@@ -195,7 +253,8 @@
 .sectionTitle {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
 }
 
 .sectionMeta {
@@ -211,44 +270,101 @@
 }
 
 .scoreCard {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 28px;
-  box-shadow: 0 4px 20px rgba(25, 62, 49, 0.06);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 
 .scoreCard:hover {
-  box-shadow: 0 8px 28px rgba(25, 62, 49, 0.12);
-  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 12px 36px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px) scale(1.01);
 }
 
 .scoreCardHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .scoreLabel {
   font-size: 0.88rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-secondary);
   letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .scoreFraction {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--color-text-muted);
 }
 
-.scoreValue {
-  font-size: 3rem;
+/* ── 원형 프로그레스 링 ── */
+.scoreRingWrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 20px;
+}
+
+.scoreRing {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.scoreRingTrack {
+  fill: none;
+  stroke: var(--score-track);
+  stroke-width: 10;
+}
+
+.scoreRingFill {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 326.7;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scoreRingAeo {
+  stroke: var(--aeo-color);
+}
+
+.scoreRingGeo {
+  stroke: var(--geo-color);
+}
+
+.scoreRingCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.scoreRingValue {
+  font-size: 2.4rem;
   font-weight: 800;
   line-height: 1;
-  margin-bottom: 12px;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.scoreRingMax {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-top: 2px;
 }
 
 .scoreValueAeo {
@@ -259,26 +375,38 @@
   color: var(--geo-color);
 }
 
-.progressTrack {
-  height: 10px;
-  border-radius: 5px;
+/* ── 세그먼트 바 (항목 측정 현황) ── */
+.scoreSegments {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
+
+.scoreSegment {
+  width: 24px;
+  height: 6px;
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.scoreSegmentAeo {
+  background: var(--aeo-color);
+}
+
+.scoreSegmentGeo {
+  background: var(--geo-color);
+}
+
+.scoreSegmentEmpty {
   background: var(--score-track);
-  overflow: hidden;
-  margin-bottom: 12px;
 }
 
-.progressFill {
-  height: 100%;
-  border-radius: 5px;
-  transition: width 0.6s ease;
-}
-
-.progressFillAeo {
-  background: linear-gradient(90deg, #0f7d5f, #22c55e);
-}
-
-.progressFillGeo {
-  background: linear-gradient(90deg, #2563eb, #60a5fa);
+.scoreSegmentLabel {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-left: 8px;
+  white-space: nowrap;
 }
 
 .scoreDelta {
@@ -286,6 +414,7 @@
   font-weight: 600;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
 }
 
@@ -295,8 +424,9 @@
 
 .scoreMeta {
   font-size: 0.78rem;
-  color: #6b7280;
+  color: var(--color-text-muted);
   margin-top: 4px;
+  text-align: center;
 }
 
 /* ── AEO/GEO 브레이크다운 ── */
@@ -307,87 +437,145 @@
 }
 
 .breakdownCard {
-  background: #fff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 2px 12px rgba(25, 62, 49, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .breakdownTitle {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--color-text-primary);
   margin-bottom: 16px;
+  font-family: var(--font-display);
 }
 
 .breakdownGrid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
 }
 
 .breakdownItem {
-  padding: 8px 0;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 10px;
+  border-left: 4px solid transparent;
+  transition: background 0.15s ease;
+}
+
+.breakdownItem:hover {
+  background: var(--color-surface-hover);
 }
 
 .breakdownItem:last-child {
   border-bottom: none;
 }
 
-.breakdownUnavailable {
-  opacity: 0.5;
+/* 점수별 미니카드 배경 */
+.breakdownItemGood {
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.breakdownItemWarn {
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.breakdownItemPoor {
+  background: rgba(239, 68, 68, 0.03);
+}
+
+/* 0점 항목: amber warning stripe */
+.breakdownItemZero {
+  border-left-color: var(--color-accent);
 }
 
 .breakdownItemHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .breakdownItemLabel {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.breakdownIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .breakdownItemScore {
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--nav-bg);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.breakdownScoreGood {
+  color: #065f46;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.breakdownScoreWarn {
+  color: #92400e;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.breakdownScorePoor {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .breakdownBar {
   width: 100%;
-  height: 6px;
+  height: 5px;
   background: #e5e7eb;
   border-radius: 3px;
   overflow: hidden;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .breakdownBarFill {
   height: 100%;
-  background: linear-gradient(90deg, var(--trend-green), #34d399);
   border-radius: 3px;
   transition: width 0.6s ease;
 }
 
+.breakdownBarGood {
+  background: linear-gradient(90deg, #10B981, #34d399);
+}
+
+.breakdownBarWarn {
+  background: linear-gradient(90deg, #F59E0B, #fbbf24);
+}
+
+.breakdownBarPoor {
+  background: linear-gradient(90deg, #EF4444, #f87171);
+}
+
 .breakdownDetail {
   font-size: 0.72rem;
-  color: #6b7280;
+  color: var(--color-text-muted);
   line-height: 1.4;
 }
 
 /* ── AI 인사이트 패널 ── */
 .insightsPanel {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(25, 62, 49, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .insightsPanelHeader {
@@ -400,68 +588,143 @@
 .insightsPanelTitle {
   font-size: 1rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
+  font-family: var(--font-display);
+}
+
+.insightsPanelActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .insightsPanelMeta {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--color-text-muted);
 }
 
-.insightRow {
+.insightsRefreshBtn {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.insightsRefreshBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(13, 148, 136, 0.04);
+}
+
+.insightsRefreshBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── 인사이트 카드 그리드 ── */
+.insightCards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@keyframes insightFadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.insightCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
   border-radius: 12px;
-  transition: background 0.15s ease;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid transparent;
+  background: var(--color-surface);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+  animation: insightFadeInUp 0.4s ease both;
 }
 
-.insightRow:hover {
-  background: #f8fafb;
+.insightCard:hover {
+  background: var(--color-surface-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.insightRow + .insightRow {
-  border-top: 1px solid #f1f5f9;
+/* 우선순위별 좌측 border */
+.insightBadgeUrgentBorder {
+  border-left-color: var(--urgent-red);
 }
 
-.insightBadge {
+.insightBadgeOpportunityBorder {
+  border-left-color: var(--opportunity-amber);
+}
+
+.insightBadgeTrendBorder {
+  border-left-color: var(--trend-green);
+}
+
+.insightBadgeRecommendBorder {
+  border-left-color: var(--recommend-blue);
+}
+
+/* 아이콘 원형 배경 */
+.insightIconWrap {
   flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.insightBadgeUrgent {
-  background: var(--urgent-red);
-  box-shadow: 0 0 6px rgba(220, 38, 38, 0.4);
+.insightBadgeUrgentBg {
+  background: #fef2f2;
+  color: var(--urgent-red);
 }
 
-.insightBadgeOpportunity {
-  background: var(--opportunity-amber);
-  box-shadow: 0 0 6px rgba(217, 119, 6, 0.4);
+.insightBadgeOpportunityBg {
+  background: #fffbeb;
+  color: var(--opportunity-amber);
 }
 
-.insightBadgeTrend {
-  background: var(--trend-green);
-  box-shadow: 0 0 6px rgba(5, 150, 105, 0.4);
+.insightBadgeTrendBg {
+  background: #f0fdfa;
+  color: var(--trend-green);
 }
 
-.insightBadgeRecommend {
-  background: var(--recommend-blue);
-  box-shadow: 0 0 6px rgba(37, 99, 235, 0.4);
+.insightBadgeRecommendBg {
+  background: #eff6ff;
+  color: var(--recommend-blue);
+}
+
+.insightCardBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .insightTag {
-  flex-shrink: 0;
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .insightTagUrgent {
@@ -475,7 +738,7 @@
 }
 
 .insightTagTrend {
-  background: #ecfdf5;
+  background: #f0fdfa;
   color: var(--trend-green);
 }
 
@@ -485,19 +748,18 @@
 }
 
 .insightText {
-  flex: 1;
-  font-size: 0.9rem;
-  color: #334155;
-  line-height: 1.4;
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+  line-height: 1.5;
 }
 
 /* ── 추세 차트 ── */
 .trendSection {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(25, 62, 49, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .trendPeriodBtns {
@@ -508,9 +770,9 @@
 .trendPeriodBtn {
   padding: 5px 14px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #64748b;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
@@ -547,7 +809,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .trendLegendDot {
@@ -565,15 +827,15 @@
 
 .kpiCard {
   border-radius: 16px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 18px;
-  box-shadow: 0 4px 16px rgba(25, 62, 49, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .kpiCard:hover {
-  box-shadow: 0 8px 24px rgba(25, 62, 49, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
 }
 
@@ -588,8 +850,8 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: #ecfdf5;
-  color: #0f7d5f;
+  background: #f0fdfa;
+  color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -599,16 +861,19 @@
 .kpiLabel {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   letter-spacing: 0.02em;
 }
 
 .kpiValue {
   font-size: 1.75rem;
   font-weight: 800;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   margin-top: 2px;
   line-height: 1.2;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .kpiBottom {
@@ -647,7 +912,7 @@
 
 .kpiGaugeLabel {
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   margin-top: 4px;
 }
 
@@ -660,18 +925,19 @@
 
 /* 인텐트 분석 */
 .intentPanel {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(25, 62, 49, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .intentPanelTitle {
   font-size: 1rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   margin-bottom: 20px;
+  font-family: var(--font-display);
 }
 
 .intentRow {
@@ -689,7 +955,7 @@
   width: 50px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--color-text-secondary);
   flex-shrink: 0;
 }
 
@@ -728,7 +994,7 @@
   text-align: right;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #334155;
+  color: var(--color-text-primary);
   flex-shrink: 0;
 }
 
@@ -748,16 +1014,16 @@
 .intentDetailMetaItem {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #0f3d2e;
-  background: rgba(15, 125, 95, 0.06);
-  border: 1px solid rgba(15, 125, 95, 0.12);
+  color: var(--color-text-primary);
+  background: rgba(13, 148, 136, 0.06);
+  border: 1px solid rgba(13, 148, 136, 0.12);
   padding: 4px 8px;
   border-radius: 8px;
 }
 
 .intentDetailNote {
   font-size: 0.78rem;
-  color: #475569;
+  color: var(--color-text-secondary);
   line-height: 1.35;
   margin: 0 0 12px;
 }
@@ -786,27 +1052,27 @@
 .intentDetailExampleTitle {
   font-size: 0.82rem;
   font-weight: 800;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
 }
 
 .intentDetailExampleMeta {
   font-size: 0.74rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
 .intentDetailExampleText {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--color-text-primary);
   line-height: 1.35;
 }
 
 .intentDetailEmpty {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   background: #f8fafc;
   border: 1px dashed rgba(100, 116, 139, 0.35);
   padding: 10px 12px;
@@ -815,11 +1081,11 @@
 
 /* 작업 체크리스트 */
 .taskPanel {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(25, 62, 49, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .taskPanelHeader {
@@ -832,14 +1098,15 @@
 .taskPanelTitle {
   font-size: 1rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
 }
 
 .taskPanelCount {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--trend-green);
-  background: #ecfdf5;
+  background: #f0fdfa;
   padding: 4px 10px;
   border-radius: 8px;
 }
@@ -858,7 +1125,7 @@
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 0.88rem;
-  color: #334155;
+  color: var(--color-text-primary);
   transition: background 0.15s ease;
 }
 
@@ -888,7 +1155,7 @@
 .taskDetail {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   white-space: pre-line;
   line-height: 1.35;
 }
@@ -912,7 +1179,7 @@
 
 /* ── 접이식 데이터 조회 ── */
 .collapsibleSection {
-  border-radius: 20px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 8px 32px rgba(9, 41, 34, 0.06);
   border: 1px solid rgba(20, 55, 43, 0.1);
@@ -931,16 +1198,17 @@
 }
 
 .collapsibleHeader:hover {
-  background: rgba(15, 125, 95, 0.04);
+  background: rgba(13, 148, 136, 0.04);
 }
 
 .collapsibleTitle {
   font-size: 1rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
+  font-family: var(--font-display);
 }
 
 .collapsibleChevron {
@@ -973,8 +1241,8 @@
   padding: 8px 18px;
   border-radius: 10px;
   border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #475569;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.88rem;
   font-weight: 500;
   cursor: pointer;
@@ -983,15 +1251,15 @@
 }
 
 .presetBtn:hover {
-  border-color: #1a8c68;
-  color: #1a8c68;
-  background: #f0fdf4;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #f0fdfa;
 }
 
 .presetActive {
-  background: #0f7d5f;
+  background: var(--color-primary);
   color: #ffffff;
-  border-color: #0f7d5f;
+  border-color: var(--color-primary);
 }
 
 .presetActive:hover {
@@ -1023,7 +1291,7 @@
   display: grid;
   gap: 6px;
   font-size: 0.85rem;
-  color: #475569;
+  color: var(--color-text-secondary);
   font-weight: 600;
 }
 
@@ -1034,14 +1302,14 @@
   padding: 0 12px;
   font-size: 0.92rem;
   color: #1e293b;
-  background: #ffffff;
+  background: var(--color-surface);
   transition: border-color 0.15s ease;
   font-family: inherit;
 }
 
 .fieldLabel input:focus {
   outline: none;
-  border-color: #1a8c68;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(26, 140, 104, 0.12);
 }
 
@@ -1050,26 +1318,26 @@
   padding: 0 28px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0f7d5f, #1a8c68);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
   color: #ffffff;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(15, 125, 95, 0.3);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
   font-family: inherit;
 }
 
 .submitBtn:hover {
   background: linear-gradient(135deg, #0d6b51, #158a63);
-  box-shadow: 0 4px 14px rgba(15, 125, 95, 0.35);
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
   transform: translateY(-1px);
 }
 
 .submitBtn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(15, 125, 95, 0.25);
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
 }
 
 .submitBtn:disabled {
@@ -1084,7 +1352,7 @@
   border-radius: 10px;
   background: #fef2f2;
   border: 1px solid #fecaca;
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 0.88rem;
   font-weight: 500;
 }
@@ -1102,27 +1370,27 @@
 }
 
 .tableHeader h2 {
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   font-size: 1.05rem;
   font-weight: 700;
 }
 
 .tableHeader p {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.88rem;
 }
 
 .tableWrap {
   overflow-x: auto;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
 }
 
 .tableWrap table {
   width: 100%;
   border-collapse: collapse;
   min-width: 820px;
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .tableWrap th,
@@ -1135,7 +1403,7 @@
 
 .tableWrap th {
   background: #f8fafb;
-  color: #475569;
+  color: var(--color-text-secondary);
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1144,12 +1412,12 @@
 }
 
 .tableWrap td {
-  color: #334155;
+  color: var(--color-text-primary);
   font-size: 0.88rem;
 }
 
 .tableWrap tbody tr:hover {
-  background: #f0fdf4;
+  background: #f0fdfa;
 }
 
 .tableWrap tbody tr:nth-child(even) {
@@ -1157,12 +1425,12 @@
 }
 
 .tableWrap tbody tr:nth-child(even):hover {
-  background: #f0fdf4;
+  background: #f0fdfa;
 }
 
 .queryCell {
   font-weight: 600;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1174,7 +1442,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #475569;
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
 }
 
@@ -1200,14 +1468,14 @@
 }
 
 .emptyContent p {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.92rem;
 }
 
 /* ── 칼럼별 분석 ── */
 .columnTitleCell {
   font-weight: 600;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   max-width: 260px;
 }
 
@@ -1242,11 +1510,11 @@
 }
 
 .scoreSegmentSearch {
-  background: #0f7d5f;
+  background: var(--color-primary);
 }
 
 .scoreSegmentTech {
-  background: #2563eb;
+  background: var(--color-info);
 }
 
 .scoreSegmentEngage {
@@ -1260,7 +1528,7 @@
 .scoreNumber {
   font-size: 0.82rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   min-width: 28px;
   text-align: right;
 }
@@ -1280,7 +1548,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .scoreLegendDot {
@@ -1306,7 +1574,7 @@
 
 .kwTagGeneral {
   background: #f1f5f9;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .kwTagFeatured {
@@ -1376,8 +1644,8 @@
   margin-top: 12px;
   padding: 14px;
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .keywordDateActions {
@@ -1390,9 +1658,9 @@
 .keywordActionBtn {
   padding: 6px 14px;
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #475569;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -1401,9 +1669,9 @@
 }
 
 .keywordActionBtn:hover {
-  border-color: #1a8c68;
-  color: #1a8c68;
-  background: #f0fdf4;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #f0fdfa;
 }
 
 .keywordActionBtn:disabled {
@@ -1449,7 +1717,7 @@
   width: min(760px, 100%);
   max-height: 80vh;
   overflow: auto;
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 18px;
   border: 1px solid rgba(18, 85, 63, 0.14);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
@@ -1468,7 +1736,7 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 800;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
 }
 
 .opportunityKeyword {
@@ -1481,9 +1749,9 @@
 .opportunityCloseBtn {
   padding: 6px 12px;
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #475569;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -1493,9 +1761,9 @@
 }
 
 .opportunityCloseBtn:hover {
-  border-color: #1a8c68;
-  color: #1a8c68;
-  background: #f0fdf4;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #f0fdfa;
 }
 
 .opportunityExplain {
@@ -1510,7 +1778,7 @@
 
 .opportunityExplainText {
   margin: 0 0 6px;
-  color: #334155;
+  color: var(--color-text-primary);
   font-size: 0.92rem;
   line-height: 1.5;
 }
@@ -1525,12 +1793,12 @@
 .opportunityMetricCard {
   border-radius: 14px;
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   padding: 10px 12px;
 }
 
 .opportunityMetricLabel {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -1541,26 +1809,28 @@
   font-size: 1.05rem;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
 .opportunitySubTitle {
   margin: 0 0 8px;
   font-size: 0.92rem;
   font-weight: 800;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
 }
 
 .opportunityList {
   margin: 0 0 10px;
   padding-left: 18px;
-  color: #334155;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
   line-height: 1.5;
 }
 
 .opportunityNote {
   margin: 0;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.78rem;
   line-height: 1.4;
 }
@@ -1568,7 +1838,7 @@
 .opportunityOl {
   margin: 0;
   padding-left: 18px;
-  color: #334155;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -1597,7 +1867,7 @@
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -1606,8 +1876,8 @@
 }
 
 .strategyBtnActive {
-  background: #ffffff;
-  color: #0f3d2e;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -1620,20 +1890,20 @@
 
 .cwvScoreCard {
   border-radius: 16px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 2px 12px rgba(25, 62, 49, 0.04);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .cwvScoreLabel {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   margin-top: 10px;
 }
 
@@ -1646,11 +1916,11 @@
 
 .cwvMetricCard {
   border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 16px;
   text-align: center;
-  box-shadow: 0 2px 12px rgba(25, 62, 49, 0.04);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .cwvMetricValue {
@@ -1658,6 +1928,9 @@
   font-weight: 800;
   line-height: 1.2;
   margin-bottom: 2px;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .cwvMetricUnit {
@@ -1668,7 +1941,7 @@
 .cwvMetricLabel {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   margin-top: 6px;
 }
 
@@ -1694,7 +1967,7 @@
 }
 
 .cwvStatusGood {
-  background: #ecfdf5;
+  background: #f0fdfa;
   color: var(--trend-green);
 }
 
@@ -1710,11 +1983,11 @@
 
 /* ── 사용자 행동 ── */
 .funnelSection {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(25, 62, 49, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .funnelSteps {
@@ -1734,7 +2007,7 @@
   width: 130px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--color-text-secondary);
   text-align: right;
   flex-shrink: 0;
 }
@@ -1750,7 +2023,7 @@
 .funnelBar {
   height: 100%;
   border-radius: 6px;
-  background: linear-gradient(90deg, #0f7d5f, #22c55e);
+  background: linear-gradient(90deg, var(--color-primary-dark), var(--color-primary-light));
   transition: width 0.5s ease;
   display: flex;
   align-items: center;
@@ -1768,8 +2041,160 @@
   width: 50px;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   flex-shrink: 0;
+}
+
+/* ── 퍼널 인사이트 ── */
+.funnelInsights {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.funnelInsightsTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 14px;
+  font-family: var(--font-display);
+}
+
+.funnelKpiRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.funnelKpiCard {
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.funnelKpiLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.funnelKpiValue {
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.funnelKpiSub {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.funnelDropoffs {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 16px;
+}
+
+.funnelDropoffRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.funnelDropoffRow:last-child {
+  border-bottom: none;
+}
+
+.funnelDropoffRow:hover {
+  background: var(--color-surface-hover);
+}
+
+.funnelDropoffArrow {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.funnelDropoffLabel {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.funnelDropoffRate {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.funnelDropoffGood {
+  background: rgba(16, 185, 129, 0.1);
+  color: #065f46;
+}
+
+.funnelDropoffWarn {
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+}
+
+.funnelDropoffPoor {
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+}
+
+.funnelDropoffBar {
+  width: 80px;
+  height: 6px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.funnelDropoffBarFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.funnelInsightNote {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f0fdfa;
+  border-left: 3px solid var(--color-primary);
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.funnelInsightNoteTitle {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+@media (max-width: 640px) {
+  .funnelKpiRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .beusableBtn {
@@ -1778,9 +2203,9 @@
   gap: 6px;
   padding: 6px 14px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #475569;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
@@ -1809,7 +2234,7 @@
   color: #ffffff;
   font-size: 1.5rem;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(15, 43, 34, 0.35);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.35);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -1818,7 +2243,7 @@
 
 .chatFab:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 28px rgba(15, 43, 34, 0.45);
+  box-shadow: 0 6px 28px rgba(15, 23, 42, 0.45);
 }
 
 .chatPanel {
@@ -1828,7 +2253,7 @@
   z-index: 200;
   width: 380px;
   max-height: 480px;
-  border-radius: 20px;
+  border-radius: 16px;
   background: var(--chat-bg);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
   border: 1px solid rgba(18, 85, 63, 0.12);
@@ -1899,14 +2324,14 @@
 
 .chatBubbleAi {
   background: var(--chat-ai-bg);
-  color: #334155;
+  color: var(--color-text-primary);
   align-self: flex-start;
   border-bottom-left-radius: 4px;
 }
 
 .chatBubbleUser {
   background: var(--chat-user-bg);
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   align-self: flex-end;
   border-bottom-right-radius: 4px;
 }
@@ -1921,19 +2346,19 @@
 .chatInput {
   flex: 1;
   height: 38px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 0 12px;
   font-size: 0.86rem;
-  color: #334155;
+  color: var(--color-text-primary);
   background: #f8fafb;
   font-family: inherit;
 }
 
 .chatInput:focus {
   outline: none;
-  border-color: #1a8c68;
-  background: #ffffff;
+  border-color: var(--color-primary);
+  background: var(--color-surface);
 }
 
 .chatSendBtn {
@@ -1975,18 +2400,32 @@
 .liveBadge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   padding: 2px 10px;
   border-radius: 6px;
   font-size: 0.7rem;
   font-weight: 700;
-  background: #d1fae5;
-  color: #065f46;
-  border: 1px solid #6ee7b7;
+  background: #ccfbf1;
+  color: #0f766e;
+  border: 1px solid #5eead4;
   letter-spacing: 0.02em;
   white-space: nowrap;
   vertical-align: middle;
   margin-left: 8px;
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 4px rgba(16, 185, 129, 0.6);
+  animation: livePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
 }
 
 .configBadge {
@@ -2017,7 +2456,7 @@
 .cwvTestInput {
   flex: 1;
   padding: 8px 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 0.88rem;
   background: #f8fafc;
@@ -2053,23 +2492,23 @@
 
 /* ── KPI 하락 델타 ── */
 .kpiDeltaDown {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 /* ── CWV 개선: 설명/진단 ── */
 .cwvDesc {
-  color: #475569;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.6;
   margin: 0 0 20px;
   padding: 12px 16px;
-  background: #f0fdf4;
+  background: #f0fdfa;
   border-radius: 8px;
   border-left: 3px solid var(--accent);
 }
 
 .cwvDescSmall {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.82rem;
   margin: 0 0 12px;
 }
@@ -2096,7 +2535,7 @@
   justify-content: center;
   padding: 10px 0 0;
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .cwvScaleItem {
@@ -2119,7 +2558,7 @@
 }
 
 .cwvDetailCard {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 18px 20px;
   background: #fff;
@@ -2145,7 +2584,7 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   background: #f1f5f9;
-  color: #475569;
+  color: var(--color-text-secondary);
   margin-right: 8px;
 }
 
@@ -2164,6 +2603,9 @@
 .cwvDetailValue {
   font-size: 1.6rem;
   font-weight: 800;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .cwvDetailUnit {
@@ -2173,7 +2615,7 @@
 
 .cwvDetailDesc {
   font-size: 0.82rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   line-height: 1.5;
   margin: 0 0 10px;
 }
@@ -2215,7 +2657,7 @@
 
 .cwvDetailComment {
   font-size: 0.82rem;
-  color: #334155;
+  color: var(--color-text-primary);
   line-height: 1.5;
   margin: 0;
   padding: 8px 12px;
@@ -2225,8 +2667,8 @@
 }
 
 .cwvDetailCard.cwvStatusGood .cwvDetailComment {
-  border-left-color: #059669;
-  background: #f0fdf4;
+  border-left-color: var(--color-success);
+  background: #f0fdfa;
 }
 
 .cwvDetailCard.cwvStatusWarning .cwvDetailComment {
@@ -2235,14 +2677,14 @@
 }
 
 .cwvDetailCard.cwvStatusPoor .cwvDetailComment {
-  border-left-color: #dc2626;
+  border-left-color: var(--color-danger);
   background: #fef2f2;
 }
 
 /* ── 솔루션 소개 페이지 ── */
 .introHero {
   border-radius: 24px;
-  background: linear-gradient(135deg, #0f2b22 0%, #1a4a3a 50%, #0f7d5f 100%);
+  background: linear-gradient(135deg, var(--nav-bg) 0%, #1e3a5f 50%, var(--color-primary) 100%);
   padding: 48px 40px;
   color: #ffffff;
   text-align: center;
@@ -2258,6 +2700,7 @@
   font-weight: 800;
   margin-bottom: 8px;
   letter-spacing: -0.02em;
+  font-family: var(--font-display);
 }
 
 .introHeroSub {
@@ -2271,7 +2714,7 @@
 .introHeroSite {
   display: inline-block;
   padding: 6px 18px;
-  border-radius: 20px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.2);
   font-size: 0.88rem;
@@ -2286,17 +2729,17 @@
 }
 
 .introCard {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 28px;
-  box-shadow: 0 4px 20px rgba(25, 62, 49, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
 }
 
 .introCardTitle {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
@@ -2305,7 +2748,7 @@
 
 .introCardDesc {
   font-size: 0.88rem;
-  color: #475569;
+  color: var(--color-text-secondary);
   line-height: 1.7;
   margin-bottom: 16px;
 }
@@ -2318,17 +2761,17 @@
 
 .introDataSource {
   border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid rgba(18, 85, 63, 0.1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   padding: 20px;
   text-align: center;
-  box-shadow: 0 2px 12px rgba(25, 62, 49, 0.04);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .introDataSource:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(25, 62, 49, 0.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
 .introDataSourceIcon {
@@ -2339,7 +2782,7 @@
 .introDataSourceName {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   margin-bottom: 4px;
 }
 
@@ -2353,23 +2796,23 @@
 }
 
 .introPhase1 {
-  background: #ecfdf5;
-  color: #059669;
+  background: #f0fdfa;
+  color: var(--color-success);
 }
 
 .introPhase2 {
   background: #eff6ff;
-  color: #2563eb;
+  color: var(--color-info);
 }
 
 .introPhaseHold {
   background: #f1f5f9;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .introDataSourceDesc {
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   line-height: 1.5;
 }
 
@@ -2397,7 +2840,7 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #0f7d5f, #22c55e);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
   color: #ffffff;
   font-size: 0.78rem;
   font-weight: 800;
@@ -2409,13 +2852,13 @@
 .introFeatureName {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   margin-bottom: 2px;
 }
 
 .introFeatureDesc {
   font-size: 0.82rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   line-height: 1.4;
 }
 
@@ -2434,13 +2877,13 @@
 
 .introScoreTable th {
   background: #f8fafb;
-  color: #475569;
+  color: var(--color-text-secondary);
   font-weight: 600;
   font-size: 0.8rem;
 }
 
 .introScoreTable td {
-  color: #334155;
+  color: var(--color-text-primary);
 }
 
 .introScoreBar {
@@ -2477,7 +2920,7 @@
 .introRoadmapWeek {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--color-text-muted);
   margin-bottom: 4px;
 }
 
@@ -2490,8 +2933,8 @@
 }
 
 .introStatusDone {
-  background: #ecfdf5;
-  color: #059669;
+  background: #f0fdfa;
+  color: var(--color-success);
 }
 
 .introStatusProgress {
@@ -2501,7 +2944,7 @@
 
 .introStatusPending {
   background: #f1f5f9;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .introRoadmapRight {
@@ -2511,7 +2954,7 @@
 .introRoadmapTitle {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
   margin-bottom: 6px;
 }
 
@@ -2524,7 +2967,7 @@
 
 .introRoadmapItem {
   font-size: 0.82rem;
-  color: #475569;
+  color: var(--color-text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2545,7 +2988,7 @@
 
 .introMetricLabel {
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 600;
   margin-bottom: 4px;
 }
@@ -2553,7 +2996,7 @@
 .introMetricTarget {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #0f7d5f;
+  color: var(--color-primary);
 }
 
 /* ── 반응형 ── */
@@ -2743,20 +3186,20 @@
 /* ── PageSpeed 보고서 ── */
 .reportLoading {
   margin: 0;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
 .reportError {
   margin: 0;
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 0.9rem;
   font-weight: 600;
 }
 
 .reportContent {
   line-height: 1.7;
-  color: #334155;
+  color: var(--color-text-primary);
   font-size: 0.95rem;
   word-break: break-word;
 }
@@ -2765,21 +3208,21 @@
   margin: 0 0 14px;
   font-size: 1.35rem;
   font-weight: 800;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
 }
 
 .reportContent h2 {
   margin: 18px 0 10px;
   font-size: 1.12rem;
   font-weight: 800;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
 }
 
 .reportContent h3 {
   margin: 14px 0 8px;
   font-size: 1rem;
   font-weight: 800;
-  color: #0f3d2e;
+  color: var(--color-text-primary);
 }
 
 .reportContent p {
@@ -2804,7 +3247,7 @@
 
 .reportContent code {
   background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 1px 6px;
   font-size: 0.85em;
@@ -2838,7 +3281,7 @@
 }
 
 .diagSchemaPresent {
-  background: #f0fdf4;
+  background: #f0fdfa;
   border-color: #86efac;
 }
 
@@ -2891,10 +3334,10 @@
   padding: 3px 10px;
   border-radius: 6px;
   background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   font-size: 0.78rem;
   font-weight: 500;
-  color: #475569;
+  color: var(--color-text-secondary);
 }
 
 /* ── 콘텐츠 구조 카드 그리드 ── */
@@ -2912,7 +3355,7 @@
 }
 
 .diagContentGood {
-  background: #f0fdf4;
+  background: #f0fdfa;
   border-color: #86efac;
 }
 
@@ -2967,7 +3410,7 @@
 }
 
 .diagDotUrgent {
-  background: #dc2626;
+  background: var(--color-danger);
   box-shadow: 0 0 6px rgba(220, 38, 38, 0.4);
 }
 
@@ -2977,7 +3420,7 @@
 }
 
 .diagDotOptional {
-  background: #2563eb;
+  background: var(--color-info);
   box-shadow: 0 0 6px rgba(37, 99, 235, 0.4);
 }
 
@@ -2993,7 +3436,7 @@
 
 .diagPriorityUrgent {
   background: #fef2f2;
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .diagPriorityImportant {
@@ -3003,7 +3446,7 @@
 
 .diagPriorityOptional {
   background: #eff6ff;
-  color: #2563eb;
+  color: var(--color-info);
 }
 
 .diagIssueContent {

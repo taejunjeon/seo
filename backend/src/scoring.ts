@@ -32,6 +32,16 @@ export const calculateAeoScore = (data: {
   schema: SchemaInfo | null;
   content: ContentStructure | null;
   performanceScore: number | null;
+  aiCitation: {
+    sampled: number;
+    aiOverviewPresent: number;
+    citedQueries: number;
+    citedReferences: number;
+    citationRateAmongAiOverview: number;
+    siteHost: string;
+    measuredAt: string;
+    samples: { query: string; cited: boolean }[];
+  } | null;
   aiTraffic: {
     startDate: string;
     endDate: string;
@@ -129,14 +139,41 @@ export const calculateAeoScore = (data: {
   }
 
   // 5. AI 인용 빈도 (20점) — 유료 API 필요
-  breakdown.push({
-    name: "aiCitation",
-    label: "AI 답변 인용 빈도",
-    score: 0,
-    maxScore: 20,
-    status: "unavailable",
-    detail: "유료 API 필요 (SerpAPI/Perplexity) — Phase D 예정",
-  });
+  if (data.aiCitation) {
+    const citedRate = data.aiCitation.citationRateAmongAiOverview; // 0~1
+    // 10% 이상이면 20점(만점)으로 보는 보수적 스케일
+    const score = Math.min(20, Math.round(citedRate * 200));
+    const citedExamples = data.aiCitation.samples
+      .filter((s) => s.cited)
+      .slice(0, 3)
+      .map((s) => s.query)
+      .join(" / ");
+
+    breakdown.push({
+      name: "aiCitation",
+      label: "AI 답변 인용 빈도",
+      score,
+      maxScore: 20,
+      status: "measured",
+      detail: [
+        `표본 ${data.aiCitation.sampled}개 키워드`,
+        `AI Overview ${data.aiCitation.aiOverviewPresent}개`,
+        `${data.aiCitation.siteHost} 인용 ${data.aiCitation.citedQueries}개 (${(citedRate * 100).toFixed(1)}%)`,
+        `인용 링크 ${data.aiCitation.citedReferences}개`,
+        citedExamples ? `예시: ${citedExamples}` : "예시: —",
+        `측정: ${new Date(data.aiCitation.measuredAt).toLocaleString("ko-KR")}`,
+      ].join(" · "),
+    });
+  } else {
+    breakdown.push({
+      name: "aiCitation",
+      label: "AI 답변 인용 빈도",
+      score: 0,
+      maxScore: 20,
+      status: "unavailable",
+      detail: "SerpAPI/Perplexity 설정 필요 (SERP_API_KEY / PERPLEXITY_API_KEY)",
+    });
+  }
 
   // 6. AI 유입 트래픽 (10점) — GA4 기반(휴리스틱)
   if (data.aiTraffic) {
@@ -213,18 +250,55 @@ export const calculateGeoScore = (data: {
   ctrPrevious: number;
   schema: SchemaInfo | null;
   content: ContentStructure | null;
+  aiCitation: {
+    sampled: number;
+    aiOverviewPresent: number;
+    citedQueries: number;
+    citedReferences: number;
+    citationRateAmongAiOverview: number;
+    siteHost: string;
+    measuredAt: string;
+    samples: { query: string; cited: boolean }[];
+  } | null;
 }): AeoGeoResult => {
   const breakdown: ScoreBreakdown[] = [];
 
-  // 1. AI Overview 노출율 (25점) — 유료 SERP API 필요
-  breakdown.push({
-    name: "aiOverview",
-    label: "AI Overview 노출",
-    score: 0,
-    maxScore: 25,
-    status: "unavailable",
-    detail: "유료 SERP API 필요 (SerpAPI/DataForSEO) — Phase D 예정",
-  });
+  // 1. AI Overview 노출율 (25점) — SerpAPI 기반 측정
+  if (data.aiCitation) {
+    const presentRate = data.aiCitation.sampled > 0
+      ? data.aiCitation.aiOverviewPresent / data.aiCitation.sampled
+      : 0;
+    // AI Overview가 표본 키워드의 30% 이상에서 노출되면 만점(25)
+    const overviewScore = Math.min(25, Math.round(presentRate * (25 / 0.3)));
+    const citedExamples = data.aiCitation.samples
+      .filter((s) => s.cited)
+      .slice(0, 3)
+      .map((s) => s.query)
+      .join(" / ");
+
+    breakdown.push({
+      name: "aiOverview",
+      label: "AI Overview 노출",
+      score: overviewScore,
+      maxScore: 25,
+      status: "measured",
+      detail: [
+        `표본 ${data.aiCitation.sampled}개 키워드 중 AI Overview ${data.aiCitation.aiOverviewPresent}개 (${(presentRate * 100).toFixed(1)}%)`,
+        `${data.aiCitation.siteHost} 인용 ${data.aiCitation.citedQueries}개 (인용률 ${(data.aiCitation.citationRateAmongAiOverview * 100).toFixed(1)}%)`,
+        citedExamples ? `인용 예시: ${citedExamples}` : "",
+        `측정: ${new Date(data.aiCitation.measuredAt).toLocaleString("ko-KR")}`,
+      ].filter(Boolean).join(" · "),
+    });
+  } else {
+    breakdown.push({
+      name: "aiOverview",
+      label: "AI Overview 노출",
+      score: 0,
+      maxScore: 25,
+      status: "unavailable",
+      detail: "유료 SERP API 필요 (SerpAPI/DataForSEO) — SERP_API_KEY 설정 후 측정",
+    });
+  }
 
   // 2. 검색 순위 기반 (20점)
   const top3Ratio = data.totalKeywords > 0 ? data.keywordsInTop3 / data.totalKeywords : 0;

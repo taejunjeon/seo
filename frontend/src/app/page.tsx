@@ -399,9 +399,9 @@ function cwvStatus(metric: string, value: number): { label: string; cls: string;
 }
 
 function gaugeColor(score: number): string {
-  if (score >= 90) return "#059669";
-  if (score >= 50) return "#d97706";
-  return "#dc2626";
+  if (score >= 90) return "#10B981";
+  if (score >= 50) return "#F59E0B";
+  return "#EF4444";
 }
 
 function WipBadge() {
@@ -409,7 +409,12 @@ function WipBadge() {
 }
 
 function LiveBadge() {
-  return <span className={styles.liveBadge}>📡 실시간</span>;
+  return (
+    <span className={styles.liveBadge}>
+      <span className={styles.liveDot} />
+      실시간
+    </span>
+  );
 }
 
 function ConfigBadge() {
@@ -610,6 +615,7 @@ export default function Home() {
   const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   /* 스크롤 캡처 */
+  const pageRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [capturing, setCapturing] = useState(false);
 
@@ -661,13 +667,16 @@ export default function Home() {
 
   /* ── 스크롤 캡처 핸들러 ── */
   const handleScrollCapture = useCallback(async () => {
+    const page = pageRef.current;
     const main = mainRef.current;
-    if (!main || capturing) return;
+    // nav까지 포함하려면 page를 캡처 대상으로 사용합니다.
+    const target = page ?? main;
+    if (!target || capturing) return;
 
     setCapturing(true);
 
     // 캡처 준비: sticky nav → static, chatFab 숨기기
-    const nav = main.previousElementSibling as HTMLElement | null;
+    const nav = (main?.previousElementSibling as HTMLElement | null) ?? null;
     const chatFab = document.querySelector(`.${styles.chatFab}`) as HTMLElement | null;
     const chatPanel = document.querySelector(`.${styles.chatPanel}`) as HTMLElement | null;
 
@@ -686,8 +695,10 @@ export default function Home() {
       if (chatFab) chatFab.style.display = "none";
       if (chatPanel) chatPanel.style.display = "none";
 
-      const totalHeight = main.scrollHeight;
-      const totalWidth = main.scrollWidth;
+      // scrollHeight, offsetHeight, getBoundingClientRect 중 가장 큰 값 사용
+      const rect = target.getBoundingClientRect();
+      const totalHeight = Math.max(target.scrollHeight, target.offsetHeight, Math.ceil(rect.height));
+      const totalWidth = Math.max(target.scrollWidth, target.offsetWidth, Math.ceil(rect.width));
       const segmentHeight = 2000;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const segmentCount = Math.ceil(totalHeight / segmentHeight);
@@ -704,13 +715,44 @@ export default function Home() {
         const y = i * segmentHeight;
         const height = Math.min(segmentHeight, totalHeight - y);
 
-        const segCanvas = await html2canvas(main, {
+        const segCanvas = await html2canvas(target, {
           y,
           height,
           width: totalWidth,
           scale: dpr,
           useCORS: true,
           logging: false,
+          // 캡처용 UI 오버레이(회색 마스크)는 결과 이미지에 포함되지 않게 제외합니다.
+          ignoreElements: (el) => (el as HTMLElement | null)?.classList?.contains(styles.captureOverlay) ?? false,
+          // html2canvas는 DOM을 클론해서 렌더링하는데, 클론 시점에 CSS animation이 "초기 상태"로
+          // 다시 시작되면(특히 delay가 있으면) 일부 섹션이 투명(=빈 화면)으로 캡처될 수 있습니다.
+          // 캡처용 클론 DOM에서만 애니메이션/트랜지션을 비활성화해 항상 최종 상태로 렌더링합니다.
+          onclone: (doc) => {
+            const style = doc.createElement("style");
+            style.textContent = `
+              *, *::before, *::after {
+                animation: none !important;
+                transition: none !important;
+              }
+              .${styles.insightCard} {
+                opacity: 1 !important;
+                transform: none !important;
+              }
+              /* html2canvas는 background-clip:text를 지원하지 않아 gradient가 박스로 보임 → fallback */
+              .${styles.navBrandAccent} {
+                background: none !important;
+                -webkit-background-clip: unset !important;
+                background-clip: unset !important;
+                -webkit-text-fill-color: #2dd4bf !important;
+                color: #2dd4bf !important;
+              }
+              /* 캡처 시 overflow 강제 해제하여 하단 콘텐츠 누락 방지 */
+              .${styles.page}, .${styles.main} {
+                overflow: visible !important;
+              }
+            `;
+            doc.head.appendChild(style);
+          },
           windowHeight: totalHeight,
         });
 
@@ -1386,13 +1428,13 @@ export default function Home() {
           </text>
         ))}
         <polyline points={impPts} fill="none" stroke="#60a5fa" strokeWidth="2" opacity="0.6" />
-        <polyline points={clkPts} fill="none" stroke="#0f7d5f" strokeWidth="2.5" />
+        <polyline points={clkPts} fill="none" stroke="#0D9488" strokeWidth="2.5" />
       </svg>
     );
   }, [trendSource]);
 
   return (
-    <div className={styles.page}>
+    <div ref={pageRef} className={styles.page}>
       {/* ════════ 네비바 ════════ */}
       <nav className={styles.topNav}>
         <div className={styles.navBrand}>
@@ -1424,8 +1466,22 @@ export default function Home() {
           >
             📸
           </button>
-          <span className={styles.statusDot} data-status={connectionStatus} />
-          <span className={styles.statusText}>{connectionLabel}</span>
+          <div className={styles.statusWrap}>
+            <span className={styles.statusDot} data-status={connectionStatus} />
+            <span className={styles.statusText}>
+              {connectionStatus === "ok" ? "Connected" : connectionStatus === "error" ? "Disconnected" : "Checking..."}
+            </span>
+            <div className={styles.statusTooltip}>
+              <div className={styles.statusTooltipRow}>
+                <span className={styles.statusTooltipLabel}>Backend</span>
+                <span className={styles.statusTooltipValue}>{API_BASE_URL}</span>
+              </div>
+              <div className={styles.statusTooltipRow}>
+                <span className={styles.statusTooltipLabel}>Status</span>
+                <span className={styles.statusTooltipValue}>{connectionLabel}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </nav>
 
@@ -1450,15 +1506,27 @@ export default function Home() {
                       <span className={styles.scoreLabel}>{label}{isLive ? <LiveBadge /> : <WipBadge />}</span>
                       <span className={styles.scoreFraction}>{score}/{max}</span>
                     </div>
-                    <p className={`${styles.scoreValue} ${idx === 0 ? styles.scoreValueAeo : styles.scoreValueGeo}`}>{score}</p>
-                    <div className={styles.progressTrack}>
-                      <div
-                        className={`${styles.progressFill} ${idx === 0 ? styles.progressFillAeo : styles.progressFillGeo}`}
-                        style={{ width: `${score}%` }}
-                      />
+                    <div className={styles.scoreRingWrap}>
+                      <svg className={styles.scoreRing} viewBox="0 0 120 120">
+                        <circle className={styles.scoreRingTrack} cx="60" cy="60" r="52" />
+                        <circle
+                          className={`${styles.scoreRingFill} ${idx === 0 ? styles.scoreRingAeo : styles.scoreRingGeo}`}
+                          cx="60" cy="60" r="52"
+                          style={{ strokeDashoffset: `${326.7 - (326.7 * score) / 100}` }}
+                        />
+                      </svg>
+                      <div className={styles.scoreRingCenter}>
+                        <span className={`${styles.scoreRingValue} ${idx === 0 ? styles.scoreValueAeo : styles.scoreValueGeo}`}>{score}</span>
+                        <span className={styles.scoreRingMax}>/100</span>
+                      </div>
                     </div>
                     {isLive ? (
-                      <p className={styles.scoreMeta}>{measured}/{total} 항목 측정 완료 · {data!.totalScore}/{data!.maxPossible}점</p>
+                      <div className={styles.scoreSegments}>
+                        {Array.from({ length: total }, (_, i) => (
+                          <div key={i} className={`${styles.scoreSegment} ${i < measured ? (idx === 0 ? styles.scoreSegmentAeo : styles.scoreSegmentGeo) : styles.scoreSegmentEmpty}`} />
+                        ))}
+                        <span className={styles.scoreSegmentLabel}>{measured}/{total} 항목 측정 완료</span>
+                      </div>
                     ) : (
                       <p className={`${styles.scoreDelta} ${styles.scoreDeltaUp}`}>▲ +{fallback.delta} {fallback.deltaLabel}</p>
                     )}
@@ -1474,18 +1542,34 @@ export default function Home() {
                   <div key={result!.type} className={styles.breakdownCard}>
                     <h3 className={styles.breakdownTitle}>{result!.type} Score 상세 ({result!.normalizedScore}점)</h3>
                     <div className={styles.breakdownGrid}>
-                      {result!.breakdown.map((b) => (
-                        <div key={b.name} className={`${styles.breakdownItem} ${b.status === "unavailable" ? styles.breakdownUnavailable : ""}`}>
-                          <div className={styles.breakdownItemHeader}>
-                            <span className={styles.breakdownItemLabel}>{b.label}</span>
-                            <span className={styles.breakdownItemScore}>{b.score}/{b.maxScore}</span>
+                      {result!.breakdown.map((b) => {
+                        const pct = b.maxScore > 0 ? (b.score / b.maxScore) * 100 : 0;
+                        const level = pct >= 80 ? "good" : pct >= 50 ? "warn" : "poor";
+                        return (
+                          <div
+                            key={b.name}
+                            className={`${styles.breakdownItem} ${b.score === 0 ? styles.breakdownItemZero : ""} ${level === "good" ? styles.breakdownItemGood : level === "warn" ? styles.breakdownItemWarn : styles.breakdownItemPoor}`}
+                          >
+                            <div className={styles.breakdownItemHeader}>
+                              <span className={styles.breakdownItemLabel}>
+                                {pct >= 80 ? (
+                                  <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#10B981" strokeWidth="1.5"/><path d="M5 8l2 2 4-4" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                ) : pct > 0 ? (
+                                  <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#F59E0B" strokeWidth="1.5"/><path d="M8 5v3.5M8 10.5h.01" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                                ) : (
+                                  <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#EF4444" strokeWidth="1.5"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                                )}
+                                {b.label}
+                              </span>
+                              <span className={`${styles.breakdownItemScore} ${level === "good" ? styles.breakdownScoreGood : level === "warn" ? styles.breakdownScoreWarn : styles.breakdownScorePoor}`}>{b.score}/{b.maxScore}</span>
+                            </div>
+                            <div className={styles.breakdownBar}>
+                              <div className={`${styles.breakdownBarFill} ${level === "good" ? styles.breakdownBarGood : level === "warn" ? styles.breakdownBarWarn : styles.breakdownBarPoor}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <p className={styles.breakdownDetail}>{b.detail}</p>
                           </div>
-                          <div className={styles.breakdownBar}>
-                            <div className={styles.breakdownBarFill} style={{ width: b.maxScore > 0 ? `${(b.score / b.maxScore) * 100}%` : "0%" }} />
-                          </div>
-                          <p className={styles.breakdownDetail}>{b.detail}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -1496,21 +1580,70 @@ export default function Home() {
             <section className={styles.insightsPanel}>
               <div className={styles.insightsPanelHeader}>
                 <h2 className={styles.insightsPanelTitle}>🤖 AI 에이전트 활동 상태{aiInsights ? <LiveBadge /> : <WipBadge />}</h2>
-                <span className={styles.insightsPanelMeta}>
-                  {aiInsightsLoading
-                    ? "AI 분석 중..."
-                    : aiInsightsTime
-                      ? `분석: ${new Date(aiInsightsTime).toLocaleString("ko-KR")}`
-                      : "마지막 분석: —"}
-                </span>
-              </div>
-              {(aiInsights ?? AI_INSIGHTS).map((ins, idx) => (
-                <div key={`${ins.tag}-${idx}`} className={styles.insightRow}>
-                  <span className={`${styles.insightBadge} ${styles[BADGE_CLASS_MAP[ins.priority]] ?? ""}`} />
-                  <span className={`${styles.insightTag} ${styles[TAG_CLASS_MAP[ins.priority]] ?? ""}`}>{ins.tag}</span>
-                  <span className={styles.insightText}>{ins.text}</span>
+                <div className={styles.insightsPanelActions}>
+                  <span className={styles.insightsPanelMeta}>
+                    {aiInsightsLoading
+                      ? "AI 분석 중..."
+                      : aiInsightsTime
+                        ? (() => {
+                            const diff = Math.floor((Date.now() - new Date(aiInsightsTime).getTime()) / 1000);
+                            if (diff < 60) return "방금 전";
+                            if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+                            if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+                            return `${Math.floor(diff / 86400)}일 전`;
+                          })()
+                        : "분석 대기"}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.insightsRefreshBtn}
+                    title="다시 분석"
+                    disabled={aiInsightsLoading}
+                    onClick={() => {
+                      setAiInsightsLoading(true);
+                      fetch(`${API_BASE_URL}/api/ai/insights`)
+                        .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+                        .then((d: { insights?: AiInsight[]; generatedAt?: string }) => {
+                          if (d.insights && d.insights.length > 0) {
+                            setAiInsights(d.insights);
+                            if (d.generatedAt) setAiInsightsTime(d.generatedAt);
+                          }
+                        })
+                        .catch(() => {})
+                        .finally(() => setAiInsightsLoading(false));
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M8 1v3h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
                 </div>
-              ))}
+              </div>
+              <div className={styles.insightCards}>
+                {(aiInsights ?? AI_INSIGHTS).map((ins, idx) => {
+                  const iconMap: Record<string, React.ReactNode> = {
+                    "키워드": <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l3 3 7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+                    "스키마": <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>,
+                    "추세": <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12l4-5 3 3 5-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+                    "콘텐츠": <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.4"/><path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+                    "기기": <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4"/><path d="M5 14h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
+                  };
+                  const icon = iconMap[ins.tag] ?? iconMap["콘텐츠"];
+                  return (
+                    <div
+                      key={`${ins.tag}-${idx}`}
+                      className={`${styles.insightCard} ${styles[BADGE_CLASS_MAP[ins.priority] + "Border"] ?? ""}`}
+                      style={{ animationDelay: `${idx * 0.08}s` }}
+                    >
+                      <div className={`${styles.insightIconWrap} ${styles[BADGE_CLASS_MAP[ins.priority] + "Bg"] ?? ""}`}>
+                        {icon}
+                      </div>
+                      <div className={styles.insightCardBody}>
+                        <span className={`${styles.insightTag} ${styles[TAG_CLASS_MAP[ins.priority]] ?? ""}`}>{ins.tag}</span>
+                        <span className={styles.insightText}>{ins.text}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </section>
 
             {/* 30일 추세 차트 */}
@@ -1525,7 +1658,7 @@ export default function Home() {
               </div>
               <div className={styles.trendChartWrap}>{trendSvg}</div>
               <div className={styles.trendLegend}>
-                <span className={styles.trendLegendItem}><span className={styles.trendLegendDot} style={{ background: "#0f7d5f" }} /> 클릭수</span>
+                <span className={styles.trendLegendItem}><span className={styles.trendLegendDot} style={{ background: "#0D9488" }} /> 클릭수</span>
                 <span className={styles.trendLegendItem}><span className={styles.trendLegendDot} style={{ background: "#60a5fa" }} /> 노출수</span>
               </div>
             </section>
@@ -1538,7 +1671,7 @@ export default function Home() {
                     <p className={styles.kpiLabel}>총 클릭수{kpiData ? <LiveBadge /> : null}</p>
                     <p className={styles.kpiValue}>{numberFormatter.format(kpiClicks)}</p>
                   </div>
-                  <Sparkline data={kpiSparkClicks} color="#0f7d5f" />
+                  <Sparkline data={kpiSparkClicks} color="#0D9488" />
                 </div>
                 <div className={styles.kpiBottom}>
                   {kpiData ? (
@@ -1829,7 +1962,7 @@ export default function Home() {
 	                </table>
 	              </div>
               <div className={styles.scoreLegend}>
-                <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#0f7d5f" }} /> 검색 성과 (40%)</span>
+                <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#0D9488" }} /> 검색 성과 (40%)</span>
                 <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#2563eb" }} /> 기술 성능 (20%)</span>
                 <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#f59e0b" }} /> 사용자 체류 (25%)</span>
                 <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#8b5cf6" }} /> AEO/GEO (15%)</span>
@@ -2122,8 +2255,8 @@ export default function Home() {
 
               {/* 점수 기준 안내 */}
               <div className={styles.cwvScaleGuide}>
-                <span className={styles.cwvScaleItem}><span className={styles.cwvScaleDot} style={{ background: "#059669" }} /> 90~100 좋음</span>
-                <span className={styles.cwvScaleItem}><span className={styles.cwvScaleDot} style={{ background: "#d97706" }} /> 50~89 개선 필요</span>
+                <span className={styles.cwvScaleItem}><span className={styles.cwvScaleDot} style={{ background: "#10B981" }} /> 90~100 좋음</span>
+                <span className={styles.cwvScaleItem}><span className={styles.cwvScaleDot} style={{ background: "#F59E0B" }} /> 50~89 개선 필요</span>
                 <span className={styles.cwvScaleItem}><span className={styles.cwvScaleDot} style={{ background: "#dc2626" }} /> 0~49 나쁨</span>
               </div>
             </section>
@@ -2312,7 +2445,7 @@ export default function Home() {
                     {cwvPages.map((p) => (
                       <tr key={p.url}>
                         <td className={styles.queryCell}>{p.label}</td>
-                        <td className={styles.numCell}><span className={gaugeColor(p.performance) === "#059669" ? styles.cwvGood : gaugeColor(p.performance) === "#d97706" ? styles.cwvNeedsImprovement : styles.cwvPoor} style={{ fontWeight: 700 }}>{p.performance}</span></td>
+                        <td className={styles.numCell}><span className={gaugeColor(p.performance) === "#10B981" ? styles.cwvGood : gaugeColor(p.performance) === "#F59E0B" ? styles.cwvNeedsImprovement : styles.cwvPoor} style={{ fontWeight: 700 }}>{p.performance}</span></td>
                         <td className={styles.numCell}>{p.seo}</td>
                         <td className={`${styles.numCell} ${cwvStatus("lcp", p.lcp).cls}`}>{p.lcp >= 1000 ? `${(p.lcp / 1000).toFixed(1)}초` : `${p.lcp}ms`}</td>
                         <td className={`${styles.numCell} ${cwvStatus("fcp", p.fcp).cls}`}>{p.fcp >= 1000 ? `${(p.fcp / 1000).toFixed(1)}초` : `${p.fcp}ms`}</td>
@@ -2473,7 +2606,7 @@ export default function Home() {
                         <td className={styles.queryCell}>{b.page}</td>
                         <td className={styles.numCell}>{numberFormatter.format(b.sessions)}</td>
                         <td className={styles.numCell}>{numberFormatter.format(b.users)}</td>
-                        <td className={styles.numCell}>{Math.floor(b.avgTime / 60)}분 {b.avgTime % 60}초</td>
+                        <td className={styles.numCell}>{Math.floor(b.avgTime / 60)}분 {(b.avgTime % 60).toFixed(2)}초</td>
                         <td className={`${styles.numCell} ${b.bounceRate > 45 ? styles.kwDeltaDown : ""}`}>{decimalFormatter.format(b.bounceRate)}%</td>
                         <td className={styles.numCell}>{b.scrollDepth}%</td>
                         <td className={styles.numCell}>{b.conversions}</td>
@@ -2503,6 +2636,103 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+
+              {/* ── 퍼널 인사이트 ── */}
+              {liveFunnel.length >= 2 && (() => {
+                const first = liveFunnel[0];
+                const last = liveFunnel[liveFunnel.length - 1];
+                const overallRate = first.value > 0 ? (last.value / first.value * 100) : 0;
+                const pagesPerSession = first.value > 0 ? (liveFunnel[1]?.value ?? 0) / first.value : 0;
+
+                const dropoffs = liveFunnel.slice(1).map((step, idx) => {
+                  const prev = liveFunnel[idx];
+                  const rate = prev.value > 0 ? (step.value / prev.value * 100) : 0;
+                  const lost = prev.value - step.value;
+                  return { from: prev.label, to: step.label, rate, lost };
+                });
+
+                const worstDrop = dropoffs.reduce((a, b) => a.rate < b.rate ? a : b, dropoffs[0]);
+                const bestDrop = dropoffs.reduce((a, b) => a.rate > b.rate ? a : b, dropoffs[0]);
+
+                const engageStep = liveFunnel.find(s => s.label.includes("참여") || s.label.includes("세션"));
+                const engageRate = first.value > 0 && engageStep ? (engageStep.value / first.value * 100) : 0;
+
+                return (
+                  <div className={styles.funnelInsights}>
+                    <div className={styles.funnelInsightsTitle}>퍼널 핵심 지표</div>
+
+                    <div className={styles.funnelKpiRow}>
+                      <div className={styles.funnelKpiCard}>
+                        <div className={styles.funnelKpiLabel}>전체 전환율</div>
+                        <div className={styles.funnelKpiValue} style={{ color: overallRate >= 2 ? "var(--trend-green)" : overallRate >= 1 ? "var(--opportunity-amber)" : "var(--urgent-red)" }}>
+                          {overallRate.toFixed(1)}%
+                        </div>
+                        <div className={styles.funnelKpiSub}>{first.label} → {last.label}</div>
+                      </div>
+                      <div className={styles.funnelKpiCard}>
+                        <div className={styles.funnelKpiLabel}>페이지/세션</div>
+                        <div className={styles.funnelKpiValue} style={{ color: "var(--color-primary)" }}>
+                          {pagesPerSession.toFixed(1)}
+                        </div>
+                        <div className={styles.funnelKpiSub}>유입 대비 페이지 조회</div>
+                      </div>
+                      <div className={styles.funnelKpiCard}>
+                        <div className={styles.funnelKpiLabel}>참여율</div>
+                        <div className={styles.funnelKpiValue} style={{ color: engageRate >= 80 ? "var(--trend-green)" : engageRate >= 50 ? "var(--opportunity-amber)" : "var(--urgent-red)" }}>
+                          {engageRate > 0 ? `${engageRate.toFixed(1)}%` : "-"}
+                        </div>
+                        <div className={styles.funnelKpiSub}>참여 세션 / 유입</div>
+                      </div>
+                      <div className={styles.funnelKpiCard}>
+                        <div className={styles.funnelKpiLabel}>최대 이탈 구간</div>
+                        <div className={styles.funnelKpiValue} style={{ color: "var(--urgent-red)" }}>
+                          {worstDrop ? `${Math.abs(100 - worstDrop.rate).toFixed(0)}%` : "-"}
+                        </div>
+                        <div className={styles.funnelKpiSub}>{worstDrop ? worstDrop.from : "-"} 이탈</div>
+                      </div>
+                    </div>
+
+                    <div className={styles.funnelInsightsTitle}>단계별 전환율</div>
+                    <div className={styles.funnelDropoffs}>
+                      {dropoffs.map((d, idx) => {
+                        const level = d.rate >= 70 ? "Good" : d.rate >= 30 ? "Warn" : "Poor";
+                        const barColor = level === "Good" ? "#10B981" : level === "Warn" ? "#F59E0B" : "#EF4444";
+                        return (
+                          <div key={idx} className={styles.funnelDropoffRow}>
+                            <span className={styles.funnelDropoffArrow}>{d.from} →</span>
+                            <span className={styles.funnelDropoffLabel}>{d.to}</span>
+                            <div className={styles.funnelDropoffBar}>
+                              <div className={styles.funnelDropoffBarFill} style={{ width: `${Math.min(d.rate, 100)}%`, background: barColor }} />
+                            </div>
+                            <span className={`${styles.funnelDropoffRate} ${styles[`funnelDropoff${level}` as keyof typeof styles]}`}>
+                              {d.rate.toFixed(1)}%
+                            </span>
+                            <span style={{ fontSize: "0.72rem", color: "#94a3b8", flexShrink: 0, width: 80, textAlign: "right" }}>
+                              {d.lost > 0 ? `-${numberFormatter.format(d.lost)}명` : `+${numberFormatter.format(Math.abs(d.lost))}명`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className={styles.funnelInsightNote}>
+                      <div className={styles.funnelInsightNoteTitle}>AI 인사이트</div>
+                      {worstDrop && worstDrop.rate < 50 ? (
+                        <span>
+                          가장 큰 이탈이 <strong>{worstDrop.from}</strong> → <strong>{worstDrop.to}</strong> 구간에서 발생 (전환율 {worstDrop.rate.toFixed(1)}%, {numberFormatter.format(Math.abs(worstDrop.lost))}명 이탈).
+                          이 구간의 CTA 배치, 페이지 로딩 속도, 콘텐츠 연관성을 점검하면 전체 전환율을 크게 개선할 수 있소.
+                        </span>
+                      ) : (
+                        <span>
+                          전체 퍼널의 최종 전환율은 <strong>{overallRate.toFixed(1)}%</strong>이오.
+                          {bestDrop && ` 가장 전환이 잘 되는 구간은 ${bestDrop.from} → ${bestDrop.to} (${bestDrop.rate.toFixed(1)}%)이오.`}
+                          {engageRate > 0 && ` 참여율 ${engageRate.toFixed(1)}%로 유입 대비 콘텐츠 몰입도가 ${engageRate >= 80 ? "우수" : engageRate >= 50 ? "보통" : "낮은 편"}이오.`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
 
             {/* 뷰저블 바로가기 */}
@@ -2822,7 +3052,7 @@ export default function Home() {
                   </thead>
                   <tbody>
                     <tr>
-                      <td><span className={styles.introScoreBar} style={{ width: 40, background: "#0f7d5f" }} />검색 성과</td>
+                      <td><span className={styles.introScoreBar} style={{ width: 40, background: "#0D9488" }} />검색 성과</td>
                       <td><strong>40%</strong></td>
                       <td>클릭수 + CTR + 순위 종합</td>
                     </tr>

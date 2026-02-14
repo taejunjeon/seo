@@ -13,6 +13,8 @@ const envSchema = z.object({
   PAGESPEED_API_KEY: z.string().optional(),
   GA4_PROPERTY_ID: z.string().optional(),
   GA4_SERVICE_ACCOUNT_KEY: z.string().optional(),
+  SERP_API_KEY: z.string().optional(),
+  PERPLEXITY_API_KEY: z.string().optional(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(8).optional(),

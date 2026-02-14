@@ -19,6 +19,8 @@ import { crawlAndAnalyze, type CrawlResult } from "./crawl";
 import { calculateAeoScore, calculateGeoScore } from "./scoring";
 import { generateInsights, chat as aiChat, isOpenAIConfigured, type ChatMessage } from "./ai";
 import { classifyKeywordIntents } from "./intent";
+import { fetchSerpApiAccount, isSerpApiConfigured } from "./serpapi";
+import { measureAiCitation } from "./aiCitation";
 
 const app = express();
 
@@ -150,10 +152,33 @@ app.get("/health", (_req: Request, res: Response) => {
       gsc: !!env.GSC_SERVICE_ACCOUNT_KEY,
       pagespeed: !!env.PAGESPEED_API_KEY,
       ga4: !!env.GA4_PROPERTY_ID && !!env.GA4_SERVICE_ACCOUNT_KEY,
+      serpapi: isSerpApiConfigured(),
+      perplexity: !!env.PERPLEXITY_API_KEY,
       supabase: !!env.NEXT_PUBLIC_SUPABASE_URL && !!env.SUPABASE_SERVICE_ROLE_KEY,
       openai: isOpenAIConfigured(),
     },
   });
+});
+
+/* GET /api/serpapi/account — SerpAPI Key 정상 여부 확인(키 노출 없이) */
+app.get("/api/serpapi/account", async (_req: Request, res: Response) => {
+  try {
+    if (!isSerpApiConfigured()) {
+      res.status(400).json({ error: "serpapi_not_configured", message: "SERP_API_KEY is not configured" });
+      return;
+    }
+
+    const account = await fetchSerpApiAccount();
+    res.json({
+      ok: true,
+      planName: account.plan_name ?? null,
+      thisMonthUsage: account.this_month_usage ?? null,
+      searchesLeft: account.searches_left ?? null,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "SerpAPI request failed";
+    res.status(500).json({ error: "serpapi_error", message });
+  }
 });
 
 /* ═══════════════════════════════════════
@@ -980,13 +1005,16 @@ app.get("/api/aeo/score", async (req: Request, res: Response) => {
     let opportunityKeywords = 0;
     let keywordsInTop3 = 0;
     let keywordsInTop10 = 0;
+    const keywordMetrics: { query: string; impressions: number; clicks: number }[] = [];
 
     for (const row of rows) {
       const query = ((row.keys as string[]) ?? [])[0] ?? "";
       const position = (row.position as number) ?? 999;
       const impressions = (row.impressions as number) ?? 0;
+      const clicks = (row.clicks as number) ?? 0;
       const ctr = (row.ctr as number) ?? 0;
 
+      if (query) keywordMetrics.push({ query, impressions, clicks });
       if (isQAKeyword(query)) qaKeywords++;
       if (impressions > 500 && ctr < 0.02) opportunityKeywords++;
       if (position <= 3) keywordsInTop3++;
@@ -1018,6 +1046,36 @@ app.get("/api/aeo/score", async (req: Request, res: Response) => {
       aiTraffic = null;
     }
 
+    // 5) SerpAPI: AI 답변(=Google AI Overview) 인용 빈도(표본 측정 + 캐시)
+    let aiCitation: {
+      sampled: number;
+      aiOverviewPresent: number;
+      citedQueries: number;
+      citedReferences: number;
+      citationRateAmongAiOverview: number;
+      siteHost: string;
+      measuredAt: string;
+      samples: { query: string; cited: boolean }[];
+    } | null = null;
+    try {
+      const forceRefresh = req.query.refresh === "1";
+      const measured = await measureAiCitation({ keywords: keywordMetrics, sampleSize: 5, forceRefresh });
+      aiCitation = measured
+        ? {
+            sampled: measured.sampled,
+            aiOverviewPresent: measured.aiOverviewPresent,
+            citedQueries: measured.citedQueries,
+            citedReferences: measured.citedReferences,
+            citationRateAmongAiOverview: measured.citationRateAmongAiOverview,
+            siteHost: measured.siteHost,
+            measuredAt: measured.measuredAt,
+            samples: measured.samples.map((s) => ({ query: s.query, cited: s.cited })),
+          }
+        : null;
+    } catch {
+      aiCitation = null;
+    }
+
     const result = calculateAeoScore({
       totalKeywords,
       qaKeywords,
@@ -1027,6 +1085,7 @@ app.get("/api/aeo/score", async (req: Request, res: Response) => {
       schema: crawlData?.schema ?? null,
       content: crawlData?.content ?? null,
       performanceScore: psResult?.performanceScore ?? null,
+      aiCitation,
       aiTraffic,
     });
 
@@ -1108,6 +1167,41 @@ app.get("/api/geo/score", async (req: Request, res: Response) => {
     // 4) PageSpeed
     const psResult = targetUrl ? getCachedResult(targetUrl, "mobile") : undefined;
 
+    // 5) SerpAPI: AI Overview 인용 측정 (캐시 공유)
+    let aiCitationGeo: {
+      sampled: number;
+      aiOverviewPresent: number;
+      citedQueries: number;
+      citedReferences: number;
+      citationRateAmongAiOverview: number;
+      siteHost: string;
+      measuredAt: string;
+      samples: { query: string; cited: boolean }[];
+    } | null = null;
+    if (isSerpApiConfigured()) {
+      try {
+        const keywordMetrics = rows.map((r) => ({
+          query: ((r.keys as string[]) ?? [""])[0],
+          clicks: (r.clicks as number) ?? 0,
+        }));
+        const measured = await measureAiCitation({ keywords: keywordMetrics, sampleSize: 5, forceRefresh: false });
+        aiCitationGeo = measured
+          ? {
+              sampled: measured.sampled,
+              aiOverviewPresent: measured.aiOverviewPresent,
+              citedQueries: measured.citedQueries,
+              citedReferences: measured.citedReferences,
+              citationRateAmongAiOverview: measured.citationRateAmongAiOverview,
+              siteHost: measured.siteHost,
+              measuredAt: measured.measuredAt,
+              samples: measured.samples.map((s) => ({ query: s.query, cited: s.cited })),
+            }
+          : null;
+      } catch {
+        aiCitationGeo = null;
+      }
+    }
+
     const result = calculateGeoScore({
       totalKeywords,
       keywordsInTop3,
@@ -1118,6 +1212,7 @@ app.get("/api/geo/score", async (req: Request, res: Response) => {
       ctrPrevious,
       schema: crawlData?.schema ?? null,
       content: crawlData?.content ?? null,
+      aiCitation: aiCitationGeo,
     });
 
     res.json(result);
