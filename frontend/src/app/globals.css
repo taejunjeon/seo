@@ -17,11 +17,11 @@
   --color-surface: #ffffff;
   --color-surface-hover: #f8fafc;
   --color-surface-alt: #f1f5f9;
-  --color-border: rgba(15, 23, 42, 0.08);
+  --color-border: rgba(15, 23, 42, 0.10);
   --color-border-strong: rgba(15, 23, 42, 0.12);
 
   /* 배경 */
-  --bg-main: #F8FAFC;
+  --bg-main: #F8FAFB;
   --bg-accent: #f0f4f8;
   --ink-main: #0f172a;
 

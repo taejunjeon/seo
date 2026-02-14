@@ -546,16 +546,59 @@ app.get("/api/gsc/keywords", async (req: Request, res: Response) => {
 app.get("/api/gsc/columns", async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string, 10) || 30;
+    const categoryRaw = typeof req.query.category === "string" ? req.query.category : "all";
+    const category = categoryRaw === "columns" ? "columns" : "all";
     const strategyRaw = typeof req.query.strategy === "string" ? req.query.strategy : "mobile";
     const strategy: PageSpeedStrategy = strategyRaw === "desktop" ? "desktop" : "mobile";
-    const startDate = daysAgo(10);
-    const endDate = daysAgo(3);
+
+    const startDateQuery = typeof req.query.startDate === "string" ? req.query.startDate : undefined;
+    const endDateQuery = typeof req.query.endDate === "string" ? req.query.endDate : undefined;
+    const daysQuery = typeof req.query.days === "string" ? parseInt(req.query.days, 10) : Number.NaN;
+    const isDateString = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+    let startDate = daysAgo(10);
+    let endDate = daysAgo(3);
+
+    if (startDateQuery && endDateQuery) {
+      if (isDateString(startDateQuery) && isDateString(endDateQuery) && startDateQuery <= endDateQuery) {
+        startDate = startDateQuery;
+        endDate = endDateQuery;
+      }
+    } else if (Number.isFinite(daysQuery) && daysQuery > 0) {
+      const days = Math.min(Math.max(daysQuery, 1), 180);
+      endDate = daysAgo(3);
+      startDate = daysAgo(days + 3);
+    }
+
+    const dimensionFilterGroups =
+      category === "columns"
+        ? [
+            {
+              // 칼럼(healthinfo) + 소개/랜딩(what_biohacking)만 포함
+              // NOTE: groupType OR 조합은 구현/버전에 따라 예상대로 동작하지 않을 수 있어,
+              //       1개의 includingRegex 필터로 안전하게 포함 범위를 지정합니다.
+              filters: [
+                {
+                  dimension: "page",
+                  operator: "includingRegex",
+                  expression: ".*(/healthinfo|/what_biohacking).*",
+                },
+              ],
+            },
+          ]
+        : undefined;
+
+    const pageQueryRowLimit =
+      category === "columns"
+        ? Math.min(25000, Math.max(5000, limit * 200))
+        : Math.min(25000, Math.max(1000, limit * 400));
 
     const [pageResult, pageQueryResult, ga4Result] = await Promise.allSettled([
       queryGscSearchAnalytics({
         startDate,
         endDate,
         dimensions: ["page"],
+        dimensionFilterGroups,
         rowLimit: limit,
         startRow: 0,
       }),
@@ -564,7 +607,8 @@ app.get("/api/gsc/columns", async (req: Request, res: Response) => {
         startDate,
         endDate,
         dimensions: ["page", "query"],
-        rowLimit: Math.min(25000, Math.max(1000, limit * 400)),
+        dimensionFilterGroups,
+        rowLimit: pageQueryRowLimit,
         startRow: 0,
       }),
       // GA4가 활성화된 경우에만 사용자 행동 점수 반영 (실패해도 columns는 계속 반환)
@@ -987,6 +1031,8 @@ app.post("/api/crawl/analyze", async (req: Request, res: Response) => {
 app.get("/api/aeo/score", async (req: Request, res: Response) => {
   try {
     const targetUrl = typeof req.query.url === "string" ? req.query.url : "";
+    const strategyRaw = typeof req.query.strategy === "string" ? req.query.strategy : "mobile";
+    const strategy: PageSpeedStrategy = strategyRaw === "desktop" ? "desktop" : "mobile";
     const startDate = daysAgo(10);
     const endDate = daysAgo(3);
 
@@ -1036,7 +1082,10 @@ app.get("/api/aeo/score", async (req: Request, res: Response) => {
     }
 
     // 3) PageSpeed 성능 점수
-    const psResult = targetUrl ? getCachedResult(targetUrl, "mobile") : undefined;
+    const psResult = targetUrl
+      ? (getCachedResult(targetUrl, strategy) ??
+          getCachedResult(targetUrl, strategy === "mobile" ? "desktop" : "mobile"))
+      : undefined;
 
     // 4) GA4: AI 추천(referral) 유입 트래픽 (최근 30일)
     let aiTraffic: { startDate: string; endDate: string; aiSessions: number; totalSessions: number; sources: { source: string; sessions: number }[] } | null = null;
@@ -1099,6 +1148,8 @@ app.get("/api/aeo/score", async (req: Request, res: Response) => {
 app.get("/api/geo/score", async (req: Request, res: Response) => {
   try {
     const targetUrl = typeof req.query.url === "string" ? req.query.url : "";
+    const strategyRaw = typeof req.query.strategy === "string" ? req.query.strategy : "mobile";
+    const strategy: PageSpeedStrategy = strategyRaw === "desktop" ? "desktop" : "mobile";
     const startDate = daysAgo(10);
     const endDate = daysAgo(3);
 
@@ -1165,7 +1216,10 @@ app.get("/api/geo/score", async (req: Request, res: Response) => {
     }
 
     // 4) PageSpeed
-    const psResult = targetUrl ? getCachedResult(targetUrl, "mobile") : undefined;
+    const psResult = targetUrl
+      ? (getCachedResult(targetUrl, strategy) ??
+          getCachedResult(targetUrl, strategy === "mobile" ? "desktop" : "mobile"))
+      : undefined;
 
     // 5) SerpAPI: AI Overview 인용 측정 (캐시 공유)
     let aiCitationGeo: {

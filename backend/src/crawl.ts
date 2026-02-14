@@ -59,17 +59,39 @@ export const crawlAndAnalyze = async (url: string): Promise<CrawlResult> => {
   $('script[type="application/ld+json"]').each((_, el) => {
     try {
       const data = JSON.parse($(el).html() ?? "");
-      const extractTypes = (obj: Record<string, unknown>) => {
-        if (obj["@type"]) {
-          const types = Array.isArray(obj["@type"]) ? obj["@type"] : [obj["@type"]];
-          schemaTypes.push(...(types as string[]));
+
+      // JSON-LD는 @type이 중첩(author 안의 Person 등)될 수 있어 전체 트리를 순회합니다.
+      const extractTypes = (node: unknown, depth: number = 0) => {
+        if (depth > 20) return;
+        if (!node) return;
+
+        if (Array.isArray(node)) {
+          for (const item of node) extractTypes(item, depth + 1);
+          return;
         }
-        if (obj["@graph"] && Array.isArray(obj["@graph"])) {
-          for (const item of obj["@graph"]) {
-            extractTypes(item as Record<string, unknown>);
+
+        if (typeof node !== "object") return;
+        const obj = node as Record<string, unknown>;
+
+        const t = obj["@type"];
+        if (typeof t === "string") schemaTypes.push(t);
+        else if (Array.isArray(t)) {
+          for (const tt of t) {
+            if (typeof tt === "string") schemaTypes.push(tt);
           }
         }
+
+        // @graph도 일반 속성으로 순회하되, 명시적으로 한번 더 커버합니다.
+        const graph = obj["@graph"];
+        if (Array.isArray(graph)) {
+          for (const item of graph) extractTypes(item, depth + 1);
+        }
+
+        for (const value of Object.values(obj)) {
+          extractTypes(value, depth + 1);
+        }
       };
+
       extractTypes(data);
     } catch {
       // invalid JSON-LD, skip

@@ -1,0 +1,144 @@
+/* ══════════════════════════════════════
+   KPI Card — 통일 카드 디자인
+   ══════════════════════════════════════ */
+
+.card {
+  border-radius: 16px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  padding: 20px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  border-color: #d1d5db;
+}
+
+/* 상단: 레이블 + 상태 dot */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #64748b);
+  letter-spacing: 0.02em;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+}
+
+/* 중앙: 핵심 숫자 */
+.valueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-bottom: 2px;
+}
+
+.value {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--color-text-primary, #0f172a);
+  line-height: 1.15;
+  font-family: var(--font-display, sans-serif);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.unit {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+/* CWV 전용: 점수 색상 */
+.valuePoor {
+  color: #dc2626;
+}
+.valueWarn {
+  color: #d97706;
+}
+.valueGood {
+  color: #059669;
+}
+
+/* CWV 인라인 바 */
+.cwvBar {
+  width: 100%;
+  height: 5px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.cwvBarFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.cwvBarPoor {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.cwvBarWarn {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.cwvBarGood {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+/* 하단: 변화량 + 스파크라인 */
+.bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.changeWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.changeIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.changeUp {
+  color: #059669;
+}
+
+.changeDown {
+  color: #dc2626;
+}
+
+.changeNeutral {
+  color: #94a3b8;
+}
+
+.changeValue {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.changeSub {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}

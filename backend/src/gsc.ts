@@ -17,6 +17,7 @@ export type GscQueryParams = {
   startDate: string;
   endDate: string;
   dimensions: GscDimension[];
+  dimensionFilterGroups?: searchconsole_v1.Schema$ApiDimensionFilterGroup[];
   rowLimit: number;
   startRow: number;
   type?: "web" | "image" | "video" | "news" | "discover" | "googleNews";
@@ -75,6 +76,7 @@ export const queryGscSearchAnalytics = async (params: GscQueryParams) => {
       startDate: params.startDate,
       endDate: params.endDate,
       dimensions: params.dimensions,
+      dimensionFilterGroups: params.dimensionFilterGroups,
       rowLimit: params.rowLimit,
       startRow: params.startRow,
       type: params.type,

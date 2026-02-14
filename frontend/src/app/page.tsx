@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import html2canvas from "html2canvas";
 
 import styles from "./page.module.css";
+import KpiCard from "@/components/dashboard/KpiCard";
 
 /* ═══════════════════════════════════════
    기존 타입
@@ -338,21 +339,6 @@ const DIAG_PRIORITY_MAP: Record<DiagnosisItem["priority"], { dot: string; label:
 /* ═══════════════════════════════════════
    SVG 헬퍼 컴포넌트
    ═══════════════════════════════════════ */
-function Sparkline({ data, color, width = 80, height = 26 }: { data: number[]; color: string; width?: number; height?: number }) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const pad = 2;
-  const points = data
-    .map((v, i) => `${pad + (i / (data.length - 1)) * (width - pad * 2)},${pad + (1 - (v - min) / range) * (height - pad * 2)}`)
-    .join(" ");
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function ScoreGauge({ score, size = 80, color }: { score: number; size?: number; color: string }) {
   const r = (size - 10) / 2;
   const cx = size / 2;
@@ -434,6 +420,73 @@ const resolveContentUrl = (rawUrl: string) => {
   if (url.startsWith("//")) return `https:${url}`;
   if (url.startsWith("/")) return `${CONTENT_ORIGIN}${url}`;
   return `${CONTENT_ORIGIN}/${url}`;
+};
+
+const isColumnLikePage = (rawUrl: string) => {
+  const full = resolveContentUrl(rawUrl);
+  try {
+    const u = new URL(full);
+    const pathname = (u.pathname || "/").replace(/\/+$/, "") || "/";
+    // biocom 칼럼은 주로 /healthinfo 아래에 존재합니다.
+    return (
+      pathname === "/healthinfo" ||
+      pathname.startsWith("/healthinfo/") ||
+      pathname === "/what_biohacking" ||
+      pathname.startsWith("/what_biohacking/")
+    );
+  } catch {
+    const p = rawUrl.trim();
+    return (
+      p === "/healthinfo" ||
+      p.startsWith("/healthinfo/") ||
+      p.startsWith("/healthinfo?") ||
+      p === "/what_biohacking" ||
+      p.startsWith("/what_biohacking/") ||
+      p.startsWith("/what_biohacking?")
+    );
+  }
+};
+
+const normalizeComparableUrl = (rawUrl: string) => {
+  const full = resolveContentUrl(rawUrl);
+  if (!full) return "";
+  try {
+    const u = new URL(full);
+    u.hash = "";
+    if (u.pathname !== "/" && u.pathname.endsWith("/")) {
+      u.pathname = u.pathname.slice(0, -1);
+    }
+    return u.toString();
+  } catch {
+    return full.replace(/#.*$/, "");
+  }
+};
+
+const isColumnIndexUrl = (rawUrl: string) => {
+  const full = resolveContentUrl(rawUrl);
+  if (!full) return false;
+  try {
+    const u = new URL(full);
+    const pathname = (u.pathname || "/").replace(/\/+$/, "") || "/";
+    const hasQuery = !!u.search && u.search !== "?";
+    return (pathname === "/healthinfo" || pathname === "/what_biohacking") && !hasQuery;
+  } catch {
+    const trimmed = rawUrl.trim();
+    return trimmed === "/healthinfo" || trimmed === "/what_biohacking";
+  }
+};
+
+const pickRepresentativeColumnUrl = (urls: string[]) => {
+  const cleaned = urls.map((u) => u?.trim()).filter(Boolean) as string[];
+  if (cleaned.length === 0) return "";
+
+  const preferDetail = cleaned.find((u) => isColumnLikePage(u) && !isColumnIndexUrl(u) && /(bmode=view|idx=)/i.test(u));
+  if (preferDetail) return preferDetail;
+
+  const anyDetail = cleaned.find((u) => isColumnLikePage(u) && !isColumnIndexUrl(u));
+  if (anyDetail) return anyDetail;
+
+  return cleaned[0] ?? "";
 };
 
 type PageSpeedReportResponse = {
@@ -562,6 +615,11 @@ export default function Home() {
   const [dataQueryOpen, setDataQueryOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [cwvStrategy, setCwvStrategy] = useState<"mobile" | "desktop">("mobile");
+  const cwvStrategyRef = useRef(cwvStrategy);
+
+  useEffect(() => {
+    cwvStrategyRef.current = cwvStrategy;
+  }, [cwvStrategy]);
 
   /* API 데이터 state */
   const [kpiData, setKpiData] = useState<KpiApiData | null>(null);
@@ -576,6 +634,7 @@ export default function Home() {
   const [keywordsError, setKeywordsError] = useState<string | null>(null);
   const [opportunityKeyword, setOpportunityKeyword] = useState<KeywordData | null>(null);
   const [columnsData, setColumnsData] = useState<ColumnData[] | null>(null);
+  const [columnPagesData, setColumnPagesData] = useState<ColumnData[] | null>(null);
   const [columnsDateRange, setColumnsDateRange] = useState<{ start: string; end: string } | null>(null);
   const [cwvRealData, setCwvRealData] = useState<CwvPageData[] | null>(null);
   const [cwvLoading, setCwvLoading] = useState(false);
@@ -618,6 +677,23 @@ export default function Home() {
   const pageRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [capturing, setCapturing] = useState(false);
+  const [isAeoOpen, setIsAeoOpen] = useState(false);
+  const [isGeoOpen, setIsGeoOpen] = useState(false);
+  const [openBreakdownItems, setOpenBreakdownItems] = useState<Record<string, boolean>>({});
+
+  /* 칼럼 분석 탭 state */
+  const [colShowAll, setColShowAll] = useState(false);
+  const [colSearch, setColSearch] = useState("");
+  const [colSortKey, setColSortKey] = useState<"clicks" | "impressions" | "ctr" | "position" | "score">("clicks");
+  const [colSortAsc, setColSortAsc] = useState(false);
+  const [otherShowAll, setOtherShowAll] = useState(false);
+  const [otherSortKey, setOtherSortKey] = useState<"clicks" | "impressions" | "ctr" | "position" | "score">("clicks");
+  const [otherSortAsc, setOtherSortAsc] = useState(false);
+  const [colRangePreset, setColRangePreset] = useState<KeywordRangePreset>("7d");
+  const [colDatePickerOpen, setColDatePickerOpen] = useState(false);
+  const [colStartInput, setColStartInput] = useState(dateNDaysAgo(10));
+  const [colEndInput, setColEndInput] = useState(dateNDaysAgo(3));
+  const [colLoading, setColLoading] = useState(false);
 
   /* 페이지 진단 state */
   const [diagUrl, setDiagUrl] = useState("https://biocom.kr/healthinfo");
@@ -842,6 +918,33 @@ export default function Home() {
     }
   }, []);
 
+  const loadColumns = useCallback(async (params: { days?: 7 | 30; startDate?: string; endDate?: string }) => {
+    setColLoading(true);
+    const qs = new URLSearchParams({ limit: "60", category: "columns" });
+    if (params.days) qs.set("days", String(params.days));
+    if (params.startDate) qs.set("startDate", params.startDate);
+    if (params.endDate) qs.set("endDate", params.endDate);
+    const mapCol = (c: { title: string; url: string; clicks: number; impressions: number; ctr: number; position: number; score: number; search: number; tech: number; engage: number; aeo: number }) => ({
+      title: c.title, url: c.url, clicks: c.clicks, impressions: c.impressions, ctr: c.ctr, position: c.position, score: c.score, search: c.search, tech: c.tech, engage: c.engage, aeo: c.aeo,
+    });
+    try {
+      const [colRes, allRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/gsc/columns?${qs.toString()}`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/api/gsc/columns?${new URLSearchParams({ limit: "30", ...(params.days ? { days: String(params.days) } : {}), ...(params.startDate ? { startDate: params.startDate, endDate: params.endDate! } : {}) }).toString()}`, { cache: "no-store" }),
+      ]);
+      const colData = await colRes.json().catch(() => null) as (ApiColumnsResponse & { startDate?: string; endDate?: string }) | null;
+      const allData = await allRes.json().catch(() => null) as (ApiColumnsResponse & { startDate?: string; endDate?: string }) | null;
+      if (colData?.startDate && colData?.endDate) {
+        setColumnsDateRange({ start: colData.startDate, end: colData.endDate });
+        setColStartInput(colData.startDate);
+        setColEndInput(colData.endDate);
+      }
+      if (colData?.columns) setColumnPagesData(colData.columns.map(mapCol));
+      if (allData?.columns) setColumnsData(allData.columns.map(mapCol));
+    } catch { /* ignore */ }
+    setColLoading(false);
+  }, []);
+
   const BEHAVIOR_PRESET_DAYS: Record<Exclude<BehaviorRangePreset, "custom">, number> = { "7d": 7, "30d": 30, "90d": 90 };
 
   const loadBehavior = useCallback(async (params: { days?: number; startDate?: string; endDate?: string; signal?: AbortSignal }) => {
@@ -935,6 +1038,26 @@ export default function Home() {
     }
   }, []);
 
+  const refreshAeoGeoScores = useCallback(async (params: { targetUrl: string | null; strategy?: "mobile" | "desktop"; signal?: AbortSignal }) => {
+    try {
+      const strategy = params.strategy ?? cwvStrategyRef.current;
+      const qs = new URLSearchParams();
+      if (params.targetUrl) qs.set("url", params.targetUrl);
+      qs.set("strategy", strategy);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+
+      const [aeoRes, geoRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/aeo/score${suffix}`, { signal: params.signal, cache: "no-store" }).then((r) => (r.ok ? r.json() : null)),
+        fetch(`${API_BASE_URL}/api/geo/score${suffix}`, { signal: params.signal, cache: "no-store" }).then((r) => (r.ok ? r.json() : null)),
+      ]);
+
+      if (aeoRes?.type === "AEO") setAeoScore(aeoRes as AeoGeoApiResult);
+      if (geoRes?.type === "GEO") setGeoScore(geoRes as AeoGeoApiResult);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   /* 기존 useEffect */
   useEffect(() => {
     const controller = new AbortController();
@@ -950,6 +1073,20 @@ export default function Home() {
     void checkBackendConnection();
     return () => controller.abort();
   }, []);
+
+  // PageSpeed 히스토리에 "대표 URL" 측정 리포트가 들어오면 GEO의 기술 점수 등을 갱신합니다.
+  useEffect(() => {
+    if (!aeoGeoTargetUrl) return;
+    if (!pageSpeedHistory || pageSpeedHistory.length === 0) return;
+
+    const targetKey = normalizeComparableUrl(aeoGeoTargetUrl);
+    if (!targetKey) return;
+
+    const hasTarget = pageSpeedHistory.some((r) => normalizeComparableUrl(r.url) === targetKey);
+    if (!hasTarget) return;
+
+    void refreshAeoGeoScores({ targetUrl: aeoGeoTargetUrl });
+  }, [aeoGeoTargetUrl, pageSpeedHistory, refreshAeoGeoScores]);
 
   /* ── PageSpeed 보고서 로드(탭 진입 시) ── */
   useEffect(() => {
@@ -1046,6 +1183,29 @@ export default function Home() {
       })
       .catch(() => {});
 
+    // 칼럼(콘텐츠) 전용 조회: 전체 Top 페이지에 밀려 칼럼이 적게 노출되는 문제를 보완합니다.
+    fetch(`${API_BASE_URL}/api/gsc/columns?limit=60&category=columns`, { signal: sig })
+      .then((r) => r.json())
+      .then((d: ApiColumnsResponse & { startDate?: string; endDate?: string }) => {
+        if (d.startDate && d.endDate) setColumnsDateRange({ start: d.startDate, end: d.endDate });
+        if (d.columns) {
+          setColumnPagesData(d.columns.map((c) => ({
+            title: c.title,
+            url: c.url,
+            clicks: c.clicks,
+            impressions: c.impressions,
+            ctr: c.ctr,
+            position: c.position,
+            score: c.score,
+            search: c.search,
+            tech: c.tech,
+            engage: c.engage,
+            aeo: c.aeo,
+          })));
+        }
+      })
+      .catch(() => {});
+
     // GA4 Engagement (기본 30일)
     void loadBehavior({ days: 30, signal: sig });
 
@@ -1059,30 +1219,18 @@ export default function Home() {
     void loadPageSpeedHistory({ signal: sig, limit: 50 });
 
     // AEO/GEO Score — GSC 상위 페이지 URL 기반 크롤링 포함
-    fetch(`${API_BASE_URL}/api/gsc/columns?limit=1`, { signal: sig })
+    fetch(`${API_BASE_URL}/api/gsc/columns?limit=60&category=columns`, { signal: sig, cache: "no-store" })
       .then((r) => r.json())
       .then((d: { columns?: { url: string }[] }) => {
-        const topUrl = d.columns?.[0]?.url ?? "";
+        const urls = (d.columns ?? []).map((c) => c.url).filter(Boolean);
+        const topUrl = pickRepresentativeColumnUrl(urls);
         setAeoGeoTargetUrl(topUrl || null);
-        const urlParam = topUrl ? `?url=${encodeURIComponent(topUrl)}` : "";
-        // AEO
-        fetch(`${API_BASE_URL}/api/aeo/score${urlParam}`, { signal: sig })
-          .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-          .then((res: AeoGeoApiResult) => { if (res.type === "AEO") setAeoScore(res); })
-          .catch(() => {});
-        // GEO
-        fetch(`${API_BASE_URL}/api/geo/score${urlParam}`, { signal: sig })
-          .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-          .then((res: AeoGeoApiResult) => { if (res.type === "GEO") setGeoScore(res); })
-          .catch(() => {});
+        void refreshAeoGeoScores({ targetUrl: topUrl || null, signal: sig });
       })
       .catch(() => {
         // fallback: URL 없이 호출
         setAeoGeoTargetUrl(null);
-        fetch(`${API_BASE_URL}/api/aeo/score`, { signal: sig })
-          .then((r) => r.json()).then((d: AeoGeoApiResult) => { if (d.type === "AEO") setAeoScore(d); }).catch(() => {});
-        fetch(`${API_BASE_URL}/api/geo/score`, { signal: sig })
-          .then((r) => r.json()).then((d: AeoGeoApiResult) => { if (d.type === "GEO") setGeoScore(d); }).catch(() => {});
+        void refreshAeoGeoScores({ targetUrl: null, signal: sig });
       });
 
     // 키워드 인텐트 분석
@@ -1109,7 +1257,7 @@ export default function Home() {
       .finally(() => setAiInsightsLoading(false));
 
     return () => ac.abort();
-  }, [loadKeywords, loadBehavior, loadPageSpeedHistory]);
+  }, [loadKeywords, loadBehavior, loadPageSpeedHistory, refreshAeoGeoScores]);
 
   /* ── PageSpeed 수동 테스트 ── */
   const handleCwvTest = async () => {
@@ -1181,7 +1329,10 @@ export default function Home() {
       const crawlData = (await crawlRes.json()) as CrawlAnalysisResult;
       setDiagCrawlResult(crawlData);
 
-      const urlParam = `?url=${encodeURIComponent(diagUrl.trim())}`;
+      const qs = new URLSearchParams();
+      qs.set("url", diagUrl.trim());
+      qs.set("strategy", cwvStrategyRef.current);
+      const urlParam = `?${qs.toString()}`;
       const [aeoRes, geoRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/aeo/score${urlParam}`).then((r) => (r.ok ? r.json() : null)),
         fetch(`${API_BASE_URL}/api/geo/score${urlParam}`).then((r) => (r.ok ? r.json() : null)),
@@ -1192,6 +1343,275 @@ export default function Home() {
       setDiagError(e instanceof Error ? e.message : "진단에 실패했습니다.");
     } finally {
       setDiagLoading(false);
+    }
+  };
+
+  const aeoGeoTargetResolved = useMemo(() => {
+    return aeoGeoTargetUrl ? resolveContentUrl(aeoGeoTargetUrl) : "";
+  }, [aeoGeoTargetUrl]);
+
+  const toggleBreakdownItem = useCallback((type: "AEO" | "GEO", name: string) => {
+    const key = `${type}:${name}`;
+    setOpenBreakdownItems((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const renderBreakdownExplain = (type: "AEO" | "GEO", item: ScoreBreakdown) => {
+    const target = aeoGeoTargetResolved;
+    const targetShort = target ? target.replace(/^https?:\/\//i, "") : "";
+
+    const keywordWindowHint = keywordsDateRange?.start && keywordsDateRange?.end
+      ? `참고: 키워드/순위는 GSC 기준 ${keywordsDateRange.start} ~ ${keywordsDateRange.end} 데이터를 사용합니다.`
+      : "참고: 키워드/순위는 GSC 최신 지연(약 2~3일)을 고려해 '약 최근 7일' 구간으로 측정합니다.";
+
+    switch (item.name) {
+      case "schema":
+      case "schemaGeo": {
+        const scoreRules = item.name === "schema"
+          ? "점수 기준: FAQPage(+7) · Article(+5) · 저자(Person)(+4) · HowTo(+2) · Medical(+2) = 최대 20점"
+          : "점수 기준: FAQPage(+8) · Article(+5) · 저자(Person)(+4) · Speakable(+3) = 최대 20점";
+
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              이 항목은 대표 URL 1개를 크롤링해서 JSON-LD(Structured Data) 존재 여부를 확인합니다. 페이지 유형(메인/목록/상품/칼럼 상세)에 따라 Article/저자 정보가 없을 수도 있어, 결과가 다르게 나올 수 있습니다.
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>{scoreRules}</li>
+              <li>현재 대표 URL: {target ? <code>{targetShort}</code> : "미지정"}</li>
+              <li>칼럼 목록 페이지(예: <code>biocom.kr/healthinfo</code>)는 Article/저자 스키마가 없어도 정상입니다.</li>
+              <li>칼럼 상세 페이지(예: <code>biocom.kr/healthinfo?bmode=view&amp;idx=...</code>)는 NewsArticle/Person(author) 스키마가 포함될 수 있습니다.</li>
+              <li>참고: JSON-LD의 <code>@type</code>은 중첩 구조(예: author 객체)에서도 탐지되도록 개선되어, 칼럼 상세 페이지의 저자 정보도 정상 감지됩니다.</li>
+              <li>{keywordWindowHint}</li>
+            </ul>
+            <div className={styles.breakdownActionRow}>
+              <button
+                type="button"
+                className={styles.breakdownActionBtn}
+                onClick={() => {
+                  if (!target) return;
+                  setDiagUrl(target);
+                  setActiveTab(6);
+                }}
+                disabled={!target}
+              >
+                페이지 진단에서 확인
+              </button>
+            </div>
+          </>
+        );
+      }
+      case "qaKeywords": {
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              검색어 중 ‘질문형(Q&amp;A)’ 의도를 가진 키워드 비중을 측정합니다. (예: “~이란”, “~하는 법”, “왜”, “어떻게”, “추천” 등)
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: Q&amp;A 비중(%)을 0~20점으로 환산 (20% 이상이면 만점)</li>
+              <li>개선 액션: Q&amp;A형 제목/소제목 추가, 본문에 짧은 결론(1~2문장) + 근거 + FAQ 섹션 구성</li>
+              <li>개선 액션: People Also Ask/관련 질문을 기준으로 “질문-답변” 구조의 단락을 늘리기</li>
+              <li>{keywordWindowHint}</li>
+            </ul>
+          </>
+        );
+      }
+      case "visibility": {
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              전체 키워드 중 TOP3에 랭크된 키워드 비중을 가시성으로 환산합니다.
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: TOP3 비중을 0~15점으로 환산 (약 30% 이상이면 만점)</li>
+              <li>개선 액션: 상위 노출이 필요한 핵심 칼럼의 제목/H1, 서브토픽(H2) 정렬, 내부링크(관련 글/제품) 강화</li>
+              <li>개선 액션: 검색 의도에 맞는 “정의/비교/추천/부작용/복용법” 등 섹션 보강</li>
+              <li>{keywordWindowHint}</li>
+            </ul>
+          </>
+        );
+      }
+      case "contentStructure": {
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              대표 URL의 콘텐츠 구조(H2/H3, 목록/표/인용, 메타 디스크립션 등)를 점수화합니다. 칼럼 페이지처럼 정보성 콘텐츠에서 가장 영향이 큽니다.
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: H2(4) · H3(3) · 목록(3) · 표(2) · 인용(2) · 메타 디스크립션(1) = 최대 15점</li>
+              <li>개선 액션: H2를 “문제/원인/해결/주의/FAQ” 등으로 3개 이상 구성</li>
+              <li>개선 액션: 체크리스트/비교표/근거 인용 블록을 최소 1개 이상 추가</li>
+              <li>개선 액션: 메타 디스크립션 50~160자 내로 요약(‘누가/무엇을/왜/어떻게’) 추가</li>
+            </ul>
+            <div className={styles.breakdownActionRow}>
+              <button
+                type="button"
+                className={styles.breakdownActionBtn}
+                onClick={() => {
+                  if (!target) return;
+                  setDiagUrl(target);
+                  setActiveTab(6);
+                }}
+                disabled={!target}
+              >
+                페이지 진단으로 구조 확인
+              </button>
+            </div>
+          </>
+        );
+      }
+      case "aiCitation": {
+        const unavailable = item.status === "unavailable";
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              표본 키워드에서 Google AI Overview가 노출될 때, AI 답변의 ‘참고 링크’에 biocom.kr이 인용되는 빈도를 측정합니다. (SerpAPI 기반)
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: 인용률 10% 이상이면 20점 만점(보수적 스케일)</li>
+              <li>개선 액션: 칼럼 본문에 1~2문장 요약(Answer-first), 근거(연구/가이드) 인용, Author/Organization 스키마 강화</li>
+              <li>개선 액션: 동일 주제의 ‘핵심 질문’들을 FAQ로 확장하고 내부링크로 묶기</li>
+              {unavailable ? <li>현재 상태: SerpAPI 미설정이면 측정 불가(SERP_API_KEY 필요)</li> : null}
+            </ul>
+          </>
+        );
+      }
+      case "aiTraffic": {
+        const unavailable = item.status === "unavailable";
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              GA4에서 AI 추천 유입(예: chatgpt, perplexity, gemini 등)으로 들어온 세션 비중/절대량을 휴리스틱으로 점수화합니다.
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: 비중(%) 또는 절대 세션 수(건) 중 더 높은 기준으로 0~10점 산정</li>
+              <li>개선 액션: AI가 인용하기 쉬운 형태(정의/요약/표/FAQ)로 칼럼을 리라이팅하고 공유 가능한 랜딩 구성</li>
+              <li>개선 액션: GA4에서 referral/source 분류가 깨지지 않도록 도메인/리디렉션/UTM 정리</li>
+              {unavailable ? <li>현재 상태: GA4 API 미설정 또는 조회 실패(서비스 계정/속성 연결 확인 필요)</li> : null}
+            </ul>
+          </>
+        );
+      }
+      case "aiOverview": {
+        const unavailable = item.status === "unavailable";
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              표본 키워드에서 Google AI Overview 노출 비중을 측정합니다. (SerpAPI 기반)
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: 표본의 30% 이상에서 AI Overview가 나오면 25점 만점</li>
+              <li>개선 액션: Q&amp;A형 커버리지 확대 + FAQ/Article/Author 스키마 적용 + 근거/출처 보강</li>
+              {unavailable ? <li>현재 상태: 유료 SERP API 미설정이면 측정 불가(SERP_API_KEY 필요)</li> : null}
+            </ul>
+          </>
+        );
+      }
+      case "searchRank": {
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              사이트 전체 키워드의 TOP3/TOP10 분포를 기반으로 GEO의 ‘검색 경쟁력’을 계산합니다.
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: TOP3 비중을 더 크게 반영(+40 가중)하고 TOP10 비중도 일부 반영(+10 가중)해 0~20점 산정</li>
+              <li>개선 액션: TOP4~10 구간 키워드(‘올라갈 여지’가 큰 키워드)에 집중해 제목/본문/내부링크/스키마를 보강</li>
+              <li>{keywordWindowHint}</li>
+            </ul>
+          </>
+        );
+      }
+      case "contentTrust": {
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              대표 URL의 신뢰도 신호(근거 인용, 데이터 표, 체계적 목록, 충분한 분량)를 점수화합니다. YMYL(건강) 주제에서 특히 중요합니다.
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: 인용(5) · 표(4) · 목록(3) · 1000단어+(3) = 최대 15점</li>
+              <li>개선 액션: 근거 링크/출처를 인용 블록으로 분리하고, 핵심 수치/요약을 표로 정리</li>
+              <li>개선 액션: 글 말미에 ‘요약/주의사항/FAQ’로 구조를 고정</li>
+            </ul>
+            <div className={styles.breakdownActionRow}>
+              <button
+                type="button"
+                className={styles.breakdownActionBtn}
+                onClick={() => {
+                  if (!target) return;
+                  setDiagUrl(target);
+                  setActiveTab(6);
+                }}
+                disabled={!target}
+              >
+                페이지 진단으로 근거/구조 확인
+              </button>
+            </div>
+          </>
+        );
+      }
+      case "cwv": {
+        const latest = (() => {
+          if (!target) return null;
+          const key = normalizeComparableUrl(target);
+          const strategy = cwvStrategyRef.current;
+          const match = (pageSpeedHistory ?? []).find((r) => normalizeComparableUrl(r.url) === key && r.strategy === strategy);
+          return match ?? null;
+        })();
+
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              PageSpeed Insights의 Performance 점수를 기반으로 기술 성능을 0~10점으로 환산합니다. (예: Performance 83점 → 8/10)
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: Performance 점수 / 10 → 0~10점</li>
+              <li>현재 대표 URL: {target ? <code>{targetShort}</code> : "미지정"}</li>
+              {latest ? (
+                <li>
+                  최근 측정({latest.strategy}): Performance {latest.performanceScore}점 · LCP {numberFormatter.format(latest.lcpMs)}ms · FCP {numberFormatter.format(latest.fcpMs)}ms · 측정 {new Date(latest.measuredAt).toLocaleString("ko-KR")}
+                </li>
+              ) : (
+                <li>최근 측정 리포트가 없습니다. 아래 버튼으로 바로 측정할 수 있습니다.</li>
+              )}
+            </ul>
+            <div className={styles.breakdownActionRow}>
+              <button
+                type="button"
+                className={styles.breakdownActionBtn}
+                onClick={() => {
+                  if (!target) return;
+                  setCwvTestUrl(target);
+                  setActiveTab(4);
+                }}
+                disabled={!target}
+              >
+                Core Web Vitals에서 이 URL 측정
+              </button>
+            </div>
+          </>
+        );
+      }
+      case "ctrTrend": {
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              최근 7일과 이전 7일의 평균 CTR 변화를 비교해 GEO 점수에 반영합니다.
+            </p>
+            <ul className={styles.breakdownExplainList}>
+              <li>점수 기준: 5점을 기준으로 CTR 변화폭(+/-)에 따라 0~10점으로 조정</li>
+              <li>개선 액션: TOP 노출 페이지의 타이틀/메타 디스크립션을 ‘검색 의도+혜택’ 중심으로 개선, 구조화 데이터로 리치 결과 확보</li>
+              <li>{keywordWindowHint}</li>
+            </ul>
+          </>
+        );
+      }
+      default:
+        return (
+          <>
+            <p className={styles.breakdownExplainLead}>
+              이 항목은 {type} 점수 산출의 하위 지표입니다. 현재 값과 개선 액션은 상세 로직(backend scoring)을 기준으로 표시됩니다.
+            </p>
+          </>
+        );
     }
   };
 
@@ -1255,6 +1675,46 @@ export default function Home() {
   const liveColumns = columnsData ?? MOCK_COLUMNS;
   const liveBehavior = behaviorData ?? MOCK_BEHAVIOR;
   const liveFunnel = funnelData ?? FUNNEL_STEPS;
+  const columnOnlyPages = useMemo(() => {
+    const base = columnPagesData && columnPagesData.length > 0 ? columnPagesData : liveColumns;
+    return base.filter((c) => isColumnLikePage(c.url));
+  }, [columnPagesData, liveColumns]);
+  const otherPages = useMemo(() => liveColumns.filter((c) => !isColumnLikePage(c.url)), [liveColumns]);
+  const columnKpis = useMemo(() => {
+    const cols = columnOnlyPages;
+    const total = cols.length;
+    const clicked = cols.filter((c) => (c.clicks ?? 0) > 0).length;
+    const avgScore = total > 0 ? cols.reduce((s, c) => s + (c.score ?? 0), 0) / total : 0;
+    const top10 = [...cols].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 10);
+    const top10AvgCtr = top10.length > 0 ? top10.reduce((s, c) => s + (c.ctr ?? 0), 0) / top10.length : 0;
+    const clickedRate = total > 0 ? (clicked / total) * 100 : 0;
+    return { total, clicked, clickedRate, top10AvgCtr, avgScore };
+  }, [columnOnlyPages]);
+
+  /* 칼럼 테이블 정렬·검색·페이징 */
+  const sortCol = useCallback((arr: typeof columnOnlyPages, key: typeof colSortKey, asc: boolean) => {
+    return [...arr].sort((a, b) => {
+      const va = key === "score" ? (a.score ?? 0) : key === "clicks" ? (a.clicks ?? 0) : key === "impressions" ? (a.impressions ?? 0) : key === "ctr" ? (a.ctr ?? 0) : (a.position ?? 0);
+      const vb = key === "score" ? (b.score ?? 0) : key === "clicks" ? (b.clicks ?? 0) : key === "impressions" ? (b.impressions ?? 0) : key === "ctr" ? (b.ctr ?? 0) : (b.position ?? 0);
+      return asc ? va - vb : vb - va;
+    });
+  }, []);
+  const filteredCols = useMemo(() => {
+    const q = colSearch.trim().toLowerCase();
+    const base = q ? columnOnlyPages.filter((c) => c.title.toLowerCase().includes(q) || c.url.toLowerCase().includes(q)) : columnOnlyPages;
+    return sortCol(base, colSortKey, colSortAsc);
+  }, [columnOnlyPages, colSearch, colSortKey, colSortAsc, sortCol]);
+  const visibleCols = colShowAll ? filteredCols : filteredCols.slice(0, 10);
+  const sortedOther = useMemo(() => sortCol(otherPages, otherSortKey, otherSortAsc), [otherPages, otherSortKey, otherSortAsc, sortCol]);
+  const visibleOther = otherShowAll ? sortedOther : sortedOther.slice(0, 10);
+
+  const handleColSort = (key: typeof colSortKey) => {
+    if (colSortKey === key) { setColSortAsc((v) => !v); } else { setColSortKey(key); setColSortAsc(false); }
+  };
+  const handleOtherSort = (key: typeof otherSortKey) => {
+    if (otherSortKey === key) { setOtherSortAsc((v) => !v); } else { setOtherSortKey(key); setOtherSortAsc(false); }
+  };
+
   const keywordRangeLabel = keywordRangePreset === "7d" ? "최근 7일" : keywordRangePreset === "30d" ? "최근 30일" : "기간 지정";
   const behaviorRangeLabel = behaviorRangePreset === "7d" ? "최근 7일" : behaviorRangePreset === "30d" ? "최근 30일" : behaviorRangePreset === "90d" ? "최근 90일" : "기간 지정";
 
@@ -1417,8 +1877,21 @@ export default function Home() {
     const gridLines = [0, 0.25, 0.5, 0.75, 1].map((f) => padT + f * ch);
     const labelCount = Math.min(trendSource.length, 4);
     const labelIndices = Array.from({ length: labelCount }, (_, i) => Math.round(i * (trendSource.length - 1) / (labelCount - 1)));
+    /* 그라디언트 fill용 폴리곤 포인트 (라인 아래 영역) */
+    const clkAreaPts = `${padL + 0},${padT + ch} ${clkPts} ${padL + (n / n) * cw},${padT + ch}`;
+    const impAreaPts = `${padL + 0},${padT + ch} ${impPts} ${padL + (n / n) * cw},${padT + ch}`;
     return (
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="clickGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0D9488" stopOpacity={0.12} />
+            <stop offset="100%" stopColor="#0D9488" stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="impGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#64748B" stopOpacity={0.08} />
+            <stop offset="100%" stopColor="#64748B" stopOpacity={0} />
+          </linearGradient>
+        </defs>
         {gridLines.map((y) => (
           <line key={y} x1={padL} y1={y} x2={w - padR} y2={y} stroke="#f1f5f9" strokeWidth="1" />
         ))}
@@ -1427,7 +1900,9 @@ export default function Home() {
             {idx + 1}일
           </text>
         ))}
-        <polyline points={impPts} fill="none" stroke="#60a5fa" strokeWidth="2" opacity="0.6" />
+        <polygon points={impAreaPts} fill="url(#impGradient)" />
+        <polyline points={impPts} fill="none" stroke="#64748B" strokeWidth="2" opacity="0.7" />
+        <polygon points={clkAreaPts} fill="url(#clickGradient)" />
         <polyline points={clkPts} fill="none" stroke="#0D9488" strokeWidth="2.5" />
       </svg>
     );
@@ -1437,48 +1912,53 @@ export default function Home() {
     <div ref={pageRef} className={styles.page}>
       {/* ════════ 네비바 ════════ */}
       <nav className={styles.topNav}>
-        <div className={styles.navBrand}>
-          <span className={styles.navBrandIcon}>🧠</span>
-          <div className={styles.navBrandText}>
-            <span className={styles.navBrandTitle}>Biocom <span className={styles.navBrandAccent}>AI Agent</span></span>
-            <span className={styles.navBrandSub}>AEO/GEO Intelligence</span>
+        <div className={styles.navInner}>
+          <div className={styles.navBrand}>
+            <span className={styles.navBrandIcon}>🧠</span>
+            <div className={styles.navBrandText}>
+              <span className={styles.navBrandTitle}>Biocom <span className={styles.navBrandAccent}>AI Agent</span></span>
+              <span className={styles.navBrandSub}>AEO/GEO Intelligence</span>
+            </div>
           </div>
-        </div>
-        <div className={styles.navTabs}>
-          {NAV_TABS.map((tab, i) => (
+          <div className={styles.navTabs}>
+            {NAV_TABS.map((tab, i) => (
+              <button
+                key={tab}
+                type="button"
+                className={`${styles.navTab} ${activeTab === i ? styles.navTabActive : ""}`}
+                onClick={() => setActiveTab(i)}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+          <div className={styles.navRight}>
             <button
-              key={tab}
               type="button"
-              className={`${styles.navTab} ${activeTab === i ? styles.navTabActive : ""}`}
-              onClick={() => setActiveTab(i)}
+              className={`${styles.captureBtn} ${capturing ? styles.captureBtnActive : ""}`}
+              onClick={handleScrollCapture}
+              disabled={capturing}
+              title="현재 탭 전체 캡처"
             >
-              {tab}
+              📸
             </button>
-          ))}
-        </div>
-        <div className={styles.navRight}>
-          <button
-            type="button"
-            className={`${styles.captureBtn} ${capturing ? styles.captureBtnActive : ""}`}
-            onClick={handleScrollCapture}
-            disabled={capturing}
-            title="현재 탭 전체 캡처"
-          >
-            📸
-          </button>
-          <div className={styles.statusWrap}>
-            <span className={styles.statusDot} data-status={connectionStatus} />
-            <span className={styles.statusText}>
-              {connectionStatus === "ok" ? "Connected" : connectionStatus === "error" ? "Disconnected" : "Checking..."}
-            </span>
-            <div className={styles.statusTooltip}>
-              <div className={styles.statusTooltipRow}>
-                <span className={styles.statusTooltipLabel}>Backend</span>
-                <span className={styles.statusTooltipValue}>{API_BASE_URL}</span>
-              </div>
-              <div className={styles.statusTooltipRow}>
-                <span className={styles.statusTooltipLabel}>Status</span>
-                <span className={styles.statusTooltipValue}>{connectionLabel}</span>
+            <div className={styles.statusWrap}>
+              <span className={styles.statusDotWrap}>
+                <span className={styles.statusDotPing} data-status={connectionStatus} />
+                <span className={styles.statusDot} data-status={connectionStatus} />
+              </span>
+              <span className={styles.statusText}>
+                {connectionStatus === "ok" ? "Connected" : connectionStatus === "error" ? "Disconnected" : "Checking..."}
+              </span>
+              <div className={styles.statusTooltip}>
+                <div className={styles.statusTooltipRow}>
+                  <span className={styles.statusTooltipLabel}>Backend</span>
+                  <span className={styles.statusTooltipValue}>{API_BASE_URL}</span>
+                </div>
+                <div className={styles.statusTooltipRow}>
+                  <span className={styles.statusTooltipLabel}>Status</span>
+                  <span className={styles.statusTooltipValue}>{connectionLabel}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1535,44 +2015,113 @@ export default function Home() {
               })}
             </section>
 
-            {/* AEO/GEO 상세 브레이크다운 */}
+            {/* AEO/GEO 상세 브레이크다운 (아코디언) */}
             {(aeoScore || geoScore) && (
               <section className={styles.breakdownSection}>
-                {[aeoScore, geoScore].filter(Boolean).map((result) => (
-                  <div key={result!.type} className={styles.breakdownCard}>
-                    <h3 className={styles.breakdownTitle}>{result!.type} Score 상세 ({result!.normalizedScore}점)</h3>
-                    <div className={styles.breakdownGrid}>
-                      {result!.breakdown.map((b) => {
-                        const pct = b.maxScore > 0 ? (b.score / b.maxScore) * 100 : 0;
-                        const level = pct >= 80 ? "good" : pct >= 50 ? "warn" : "poor";
-                        return (
-                          <div
-                            key={b.name}
-                            className={`${styles.breakdownItem} ${b.score === 0 ? styles.breakdownItemZero : ""} ${level === "good" ? styles.breakdownItemGood : level === "warn" ? styles.breakdownItemWarn : styles.breakdownItemPoor}`}
-                          >
-                            <div className={styles.breakdownItemHeader}>
-                              <span className={styles.breakdownItemLabel}>
-                                {pct >= 80 ? (
-                                  <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#10B981" strokeWidth="1.5"/><path d="M5 8l2 2 4-4" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                ) : pct > 0 ? (
-                                  <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#F59E0B" strokeWidth="1.5"/><path d="M8 5v3.5M8 10.5h.01" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                                ) : (
-                                  <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#EF4444" strokeWidth="1.5"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                                )}
-                                {b.label}
-                              </span>
-                              <span className={`${styles.breakdownItemScore} ${level === "good" ? styles.breakdownScoreGood : level === "warn" ? styles.breakdownScoreWarn : styles.breakdownScorePoor}`}>{b.score}/{b.maxScore}</span>
-                            </div>
-                            <div className={styles.breakdownBar}>
-                              <div className={`${styles.breakdownBarFill} ${level === "good" ? styles.breakdownBarGood : level === "warn" ? styles.breakdownBarWarn : styles.breakdownBarPoor}`} style={{ width: `${pct}%` }} />
-                            </div>
-                            <p className={styles.breakdownDetail}>{b.detail}</p>
+                {[
+                  { result: aeoScore, isOpen: isAeoOpen, toggle: () => setIsAeoOpen((v) => !v) },
+                  { result: geoScore, isOpen: isGeoOpen, toggle: () => setIsGeoOpen((v) => !v) },
+                ].filter((d) => d.result).map(({ result, isOpen, toggle }) => {
+                  const items = result!.breakdown;
+                  const lowCount = items.filter((b) => b.maxScore > 0 && (b.score / b.maxScore) < 0.5).length;
+                  return (
+                    <div key={result!.type} className={styles.breakdownCard}>
+                      {/* 아코디언 헤더 */}
+                      <div className={styles.breakdownHeader} onClick={toggle} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } }}>
+                        <div className={styles.breakdownHeaderLeft}>
+                          <h3 className={styles.breakdownTitle}>{result!.type} Score 상세 ({result!.normalizedScore}점)</h3>
+                          <div className={styles.breakdownMiniBar}>
+                            {items.map((b) => {
+                              const pct = b.maxScore > 0 ? (b.score / b.maxScore) * 100 : 0;
+                              const cls = pct >= 80 ? styles.breakdownMiniSegGood : pct >= 50 ? styles.breakdownMiniSegWarn : styles.breakdownMiniSegPoor;
+                              return <span key={b.name} className={`${styles.breakdownMiniSeg} ${cls}`} title={`${b.label}: ${b.score}/${b.maxScore}`} />;
+                            })}
                           </div>
-                        );
-                      })}
+                          {lowCount > 0 && (
+                            <span className={styles.breakdownBadge}>{lowCount}개 개선 필요</span>
+                          )}
+                        </div>
+                        <svg className={`${styles.breakdownChevron} ${isOpen ? styles.breakdownChevronOpen : ""}`} viewBox="0 0 20 20" fill="none">
+                          <path d="M5 7.5l5 5 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+	                      {/* 아코디언 본문 */}
+	                      <div className={`${styles.breakdownBody} ${isOpen ? styles.breakdownBodyOpen : ""}`}>
+	                        <div className={styles.breakdownMetaRow}>
+	                          <span className={styles.breakdownMetaLabel}>대표 URL</span>
+	                          {aeoGeoTargetResolved ? (
+	                            <a className={styles.breakdownMetaLink} href={aeoGeoTargetResolved} target="_blank" rel="noreferrer">
+	                              {aeoGeoTargetResolved.replace(/^https?:\/\//i, "")}
+	                            </a>
+	                          ) : (
+	                            <span className={styles.breakdownMetaEmpty}>미지정</span>
+	                          )}
+	                          <span className={styles.breakdownMetaHint}>구조화 데이터/콘텐츠/기술 성능 항목은 이 URL을 기준으로 측정됩니다.</span>
+	                        </div>
+	                        <div className={styles.breakdownGrid}>
+	                          {items.map((b) => {
+	                            const pct = b.maxScore > 0 ? (b.score / b.maxScore) * 100 : 0;
+	                            const level = pct >= 80 ? "good" : pct >= 50 ? "warn" : "poor";
+	                            const itemKey = `${result!.type}:${b.name}`;
+	                            const isItemOpen = !!openBreakdownItems[itemKey];
+	                            const detailId = `breakdown-${result!.type}-${b.name}`;
+	                            return (
+	                              <div
+	                                key={b.name}
+	                                className={`${styles.breakdownItem} ${b.score === 0 ? styles.breakdownItemZero : ""} ${level === "good" ? styles.breakdownItemGood : level === "warn" ? styles.breakdownItemWarn : styles.breakdownItemPoor}`}
+	                              >
+	                                <div
+	                                  className={styles.breakdownItemSummary}
+	                                  role="button"
+	                                  tabIndex={0}
+	                                  aria-expanded={isItemOpen}
+	                                  aria-controls={detailId}
+	                                  onClick={() => toggleBreakdownItem(result!.type, b.name)}
+	                                  onKeyDown={(e) => {
+	                                    if (e.key === "Enter" || e.key === " ") {
+	                                      e.preventDefault();
+	                                      toggleBreakdownItem(result!.type, b.name);
+	                                    }
+	                                  }}
+	                                >
+	                                  <div className={styles.breakdownItemHeader}>
+	                                    <span className={styles.breakdownItemLabel}>
+	                                      {pct >= 80 ? (
+	                                        <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#10B981" strokeWidth="1.5"/><path d="M5 8l2 2 4-4" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+	                                      ) : pct > 0 ? (
+	                                        <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#F59E0B" strokeWidth="1.5"/><path d="M8 5v3.5M8 10.5h.01" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/></svg>
+	                                      ) : (
+	                                        <svg className={styles.breakdownIcon} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#EF4444" strokeWidth="1.5"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/></svg>
+	                                      )}
+	                                      {b.label}
+	                                    </span>
+	                                    <span className={styles.breakdownItemHeaderRight}>
+	                                      <span className={`${styles.breakdownItemScore} ${level === "good" ? styles.breakdownScoreGood : level === "warn" ? styles.breakdownScoreWarn : styles.breakdownScorePoor}`}>{b.score}/{b.maxScore}</span>
+	                                      <svg className={`${styles.breakdownItemChevron} ${isItemOpen ? styles.breakdownItemChevronOpen : ""}`} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+	                                        <path d="M5 7.5l5 5 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+	                                      </svg>
+	                                    </span>
+	                                  </div>
+	                                  <div className={styles.breakdownBar}>
+	                                    <div className={`${styles.breakdownBarFill} ${level === "good" ? styles.breakdownBarGood : level === "warn" ? styles.breakdownBarWarn : styles.breakdownBarPoor}`} style={{ width: `${pct}%` }} />
+	                                  </div>
+	                                  <p className={styles.breakdownDetail}>{b.detail}</p>
+	                                  <span className={styles.breakdownExpandHint}>{isItemOpen ? "접기" : "자세히"}</span>
+	                                </div>
+
+	                                {isItemOpen && (
+	                                  <div id={detailId} className={styles.breakdownExplain}>
+	                                    {renderBreakdownExplain(result!.type, b)}
+	                                  </div>
+	                                )}
+	                              </div>
+	                            );
+	                          })}
+	                        </div>
+	                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </section>
             )}
 
@@ -1659,76 +2208,71 @@ export default function Home() {
               <div className={styles.trendChartWrap}>{trendSvg}</div>
               <div className={styles.trendLegend}>
                 <span className={styles.trendLegendItem}><span className={styles.trendLegendDot} style={{ background: "#0D9488" }} /> 클릭수</span>
-                <span className={styles.trendLegendItem}><span className={styles.trendLegendDot} style={{ background: "#60a5fa" }} /> 노출수</span>
+                <span className={styles.trendLegendItem}><span className={styles.trendLegendDot} style={{ background: "#64748B" }} /> 노출수</span>
               </div>
             </section>
 
-            {/* KPI 카드 (PRD: 총클릭 + 스파크라인, 평균CTR + 스파크라인, 평균순위 + 스파크라인, CWV 게이지) */}
+            {/* KPI 카드 4개 (통일 디자인) */}
             <section className={styles.kpiGrid}>
-              <article className={styles.kpiCard}>
-                <div className={styles.kpiCardTop}>
-                  <div>
-                    <p className={styles.kpiLabel}>총 클릭수{kpiData ? <LiveBadge /> : null}</p>
-                    <p className={styles.kpiValue}>{numberFormatter.format(kpiClicks)}</p>
-                  </div>
-                  <Sparkline data={kpiSparkClicks} color="#0D9488" />
-                </div>
-                <div className={styles.kpiBottom}>
-                  {kpiData ? (
-                    <span className={`${styles.kpiDelta} ${kpiData.delta.clicks >= 0 ? styles.kpiDeltaUp : styles.kpiDeltaDown}`}>
-                      {kpiData.delta.clicks >= 0 ? "▲" : "▼"} {kpiData.delta.clicks >= 0 ? "+" : ""}{kpiData.delta.clicks}%
-                    </span>
-                  ) : (
-                    <span className={`${styles.kpiDelta} ${styles.kpiDeltaUp}`}>▲ +12.3%</span>
-                  )}
-                  <span className={styles.kpiSub}>지난 7일</span>
-                </div>
-              </article>
-              <article className={styles.kpiCard}>
-                <div className={styles.kpiCardTop}>
-                  <div>
-                    <p className={styles.kpiLabel}>평균 CTR{kpiData ? <LiveBadge /> : null}</p>
-                    <p className={styles.kpiValue}>{decimalFormatter.format(kpiCtr)}%</p>
-                  </div>
-                  <Sparkline data={kpiSparkCtr} color="#2563eb" />
-                </div>
-                <div className={styles.kpiBottom}>
-                  {kpiData ? (
-                    <span className={`${styles.kpiDelta} ${kpiData.delta.ctr >= 0 ? styles.kpiDeltaUp : styles.kpiDeltaDown}`}>
-                      {kpiData.delta.ctr >= 0 ? "▲" : "▼"} {kpiData.delta.ctr >= 0 ? "+" : ""}{kpiData.delta.ctr}%p
-                    </span>
-                  ) : (
-                    <span className={`${styles.kpiDelta} ${styles.kpiDeltaUp}`}>▲ +0.8%p</span>
-                  )}
-                  <span className={styles.kpiSub}>지난 7일</span>
-                </div>
-              </article>
-              <article className={styles.kpiCard}>
-                <div className={styles.kpiCardTop}>
-                  <div>
-                    <p className={styles.kpiLabel}>평균 순위{kpiData ? <LiveBadge /> : null}</p>
-                    <p className={styles.kpiValue}>{decimalFormatter.format(kpiPosition)}</p>
-                  </div>
-                  <Sparkline data={kpiSparkPosition} color="#f59e0b" />
-                </div>
-                <div className={styles.kpiBottom}>
-                  {kpiData ? (
-                    <span className={`${styles.kpiDelta} ${kpiData.delta.position >= 0 ? styles.kpiDeltaUp : styles.kpiDeltaDown}`}>
-                      {kpiData.delta.position >= 0 ? "▲" : "▼"} {kpiData.delta.position >= 0 ? "+" : ""}{kpiData.delta.position}
-                    </span>
-                  ) : (
-                    <span className={`${styles.kpiDelta} ${styles.kpiDeltaUp}`}>▲ +1.2</span>
-                  )}
-                  <span className={styles.kpiSub}>지난 7일</span>
-                </div>
-              </article>
-              <article className={styles.kpiCard}>
-                <p className={styles.kpiLabel}>CWV 점수{cwvHasReal ? <LiveBadge /> : <WipBadge />}</p>
-                <div className={styles.kpiGaugeWrap}>
-                  <ScoreGauge score={cwvAvg.performance} size={90} color={gaugeColor(cwvAvg.performance)} />
-                  <span className={styles.kpiGaugeLabel}>Performance</span>
-                </div>
-              </article>
+              {(() => {
+                /* 클릭수 */
+                const clicksChange = kpiData ? kpiData.delta.clicks : 12.3;
+                const clicksStatus: "up" | "down" | "neutral" = clicksChange > 0 ? "up" : clicksChange < 0 ? "down" : "neutral";
+                /* CTR */
+                const ctrChange = kpiData ? kpiData.delta.ctr : 0.8;
+                const ctrStatus: "up" | "down" | "neutral" = ctrChange > 0 ? "up" : ctrChange < 0 ? "down" : "neutral";
+                /* 순위: 숫자 감소 = 개선 = 초록 (역방향) */
+                const posChange = kpiData ? kpiData.delta.position : -1.2;
+                const posStatus: "up" | "down" | "neutral" = posChange < 0 ? "up" : posChange > 0 ? "down" : "neutral";
+                /* CWV */
+                const cwvPerf = cwvAvg.performance;
+                return (
+                  <>
+                    <KpiCard
+                      label="총 클릭수"
+                      value={numberFormatter.format(kpiClicks)}
+                      change={clicksChange}
+                      changeUnit="%"
+                      changeLabel="전주 7일"
+                      status={clicksStatus}
+                      sparklineData={kpiSparkClicks}
+                      sparklineColor="#0D9488"
+                    />
+                    <KpiCard
+                      label="평균 CTR"
+                      value={decimalFormatter.format(kpiCtr)}
+                      unit="%"
+                      change={ctrChange}
+                      changeUnit="%p"
+                      changeLabel="전주 7일"
+                      status={ctrStatus}
+                      sparklineData={kpiSparkCtr}
+                      sparklineColor="#2563eb"
+                    />
+                    <KpiCard
+                      label="평균 순위"
+                      value={decimalFormatter.format(kpiPosition)}
+                      change={posChange}
+                      changeUnit=""
+                      changeLabel="전주 7일"
+                      status={posStatus}
+                      sparklineData={kpiSparkPosition}
+                      sparklineColor="#f59e0b"
+                    />
+                    <KpiCard
+                      label="CWV 점수"
+                      value={String(cwvPerf)}
+                      unit="점"
+                      change={0}
+                      changeUnit="점"
+                      changeLabel="전주"
+                      status="neutral"
+                      isCwv
+                      cwvScore={cwvPerf}
+                    />
+                  </>
+                );
+              })()}
             </section>
 
             {/* 인텐트 + 작업 */}
@@ -1903,69 +2447,295 @@ export default function Home() {
           <>
             <section className={styles.card}>
               <div className={styles.sectionHeader}>
-                <h2 className={styles.sectionTitle}>칼럼별 성과 분석{columnsData ? <LiveBadge /> : <WipBadge />}</h2>
-                <span className={styles.sectionMeta}>
-                  {columnsData
-                    ? `📅 ${columnsDateRange?.start ?? ""} ~ ${columnsDateRange?.end ?? ""} (최근 7일) · GSC 실데이터`
-                    : "Mock 샘플 데이터"
-                  } · 종합 스코어 = 검색 40% + 기술 20% + 체류 25% + AEO/GEO 15%
-                </span>
+                <h2 className={styles.sectionTitle}>칼럼별 성과 분석{(columnsData || columnPagesData) ? <LiveBadge /> : <WipBadge />}</h2>
+                <div className={`${styles.sectionMeta} ${styles.keywordMeta}`}>
+                  <div className={styles.keywordMetaTop}>
+                    <div className={styles.keywordRangeBtns}>
+                      <button
+                        type="button"
+                        className={`${styles.trendPeriodBtn} ${colRangePreset === "7d" ? styles.trendPeriodBtnActive : ""}`}
+                        onClick={() => { setColRangePreset("7d"); setColDatePickerOpen(false); void loadColumns({ days: 7 }); }}
+                        disabled={colLoading}
+                      >7일</button>
+                      <button
+                        type="button"
+                        className={`${styles.trendPeriodBtn} ${colRangePreset === "30d" ? styles.trendPeriodBtnActive : ""}`}
+                        onClick={() => { setColRangePreset("30d"); setColDatePickerOpen(false); void loadColumns({ days: 30 }); }}
+                        disabled={colLoading}
+                      >30일</button>
+                      <button
+                        type="button"
+                        className={`${styles.trendPeriodBtn} ${colRangePreset === "custom" || colDatePickerOpen ? styles.trendPeriodBtnActive : ""}`}
+                        onClick={() => setColDatePickerOpen((p) => !p)}
+                        disabled={colLoading}
+                        title="기간 직접 지정"
+                      >📅</button>
+                    </div>
+                    <span className={styles.keywordRangeText}>
+                      {(columnsData || columnPagesData)
+                        ? `📅 ${columnsDateRange?.start ?? ""} ~ ${columnsDateRange?.end ?? ""} (${colRangePreset === "7d" ? "최근 7일" : colRangePreset === "30d" ? "최근 30일" : "기간 지정"}) · GSC 실데이터`
+                        : "Mock 샘플 데이터"
+                      }
+                    </span>
+                  </div>
+                  <span className={styles.keywordMetaBottom}>
+                    {colLoading ? "조회 중... · " : ""}종합 스코어 = 검색 40% + 기술 20% + 체류 25% + AEO/GEO 15%
+                  </span>
+                </div>
               </div>
-	              <div className={styles.tableWrap}>
-	                <table>
-	                  <thead>
-	                    <tr>
+              {colDatePickerOpen && (
+                <div className={styles.keywordDatePicker}>
+                  <div className={styles.dateInputs}>
+                    <label className={styles.fieldLabel}>시작일<input type="date" value={colStartInput} onChange={(e) => setColStartInput(e.target.value)} required /></label>
+                    <label className={styles.fieldLabel}>종료일<input type="date" value={colEndInput} onChange={(e) => setColEndInput(e.target.value)} required /></label>
+                  </div>
+                  <div className={styles.keywordDateActions}>
+                    <button
+                      type="button"
+                      className={styles.keywordActionBtn}
+                      onClick={() => {
+                        if (!colStartInput || !colEndInput || colStartInput > colEndInput) return;
+                        setColRangePreset("custom");
+                        setColDatePickerOpen(false);
+                        void loadColumns({ startDate: colStartInput, endDate: colEndInput });
+                      }}
+                      disabled={colLoading}
+                    >적용</button>
+                    <button type="button" className={styles.keywordActionBtn} onClick={() => setColDatePickerOpen(false)} disabled={colLoading}>닫기</button>
+                  </div>
+                </div>
+              )}
+              <div className={styles.miniKpiGrid}>
+                <div className={styles.miniKpiCard}>
+                  <div className={styles.miniKpiLabel}>총 칼럼 수</div>
+                  <div className={styles.miniKpiValue}>{numberFormatter.format(columnKpis.total)}개</div>
+                  <div className={styles.miniKpiSub}>/healthinfo, /what_biohacking 기준</div>
+                </div>
+                <div className={styles.miniKpiCard}>
+                  <div className={styles.miniKpiLabel}>클릭 발생 칼럼</div>
+                  <div className={styles.miniKpiValue}>{numberFormatter.format(columnKpis.clicked)}개</div>
+                  <div className={styles.miniKpiSub}>클릭 &gt; 0 ({columnKpis.clickedRate.toFixed(0)}%)</div>
+                </div>
+                <div className={styles.miniKpiCard}>
+                  <div className={styles.miniKpiLabel}>TOP 10 평균 CTR</div>
+                  <div className={styles.miniKpiValue}>{decimalFormatter.format(columnKpis.top10AvgCtr)}%</div>
+                  <div className={styles.miniKpiSub}>종합 스코어 상위 10개 평균</div>
+                </div>
+                <div className={styles.miniKpiCard}>
+                  <div className={styles.miniKpiLabel}>종합 스코어 평균</div>
+                  <div className={styles.miniKpiValue}>{columnKpis.avgScore.toFixed(1)}점</div>
+                  <div className={styles.miniKpiSub}>전체 칼럼 평균(0~100)</div>
+                </div>
+              </div>
+              {/* 필터 바 */}
+              <div className={styles.colFilterBar}>
+                <div className={styles.colSearchWrap}>
+                  <svg className={styles.colSearchIcon} viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5"/><path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  <input className={styles.colSearchInput} placeholder="칼럼 검색..." value={colSearch} onChange={(e) => setColSearch(e.target.value)} />
+                </div>
+              </div>
+              <div className={styles.tableWrap}>
+                <table>
+                  <thead>
+                    <tr>
                       <th>칼럼</th>
-                      <th>클릭수</th>
-                      <th>노출수</th>
-                      <th>CTR</th>
-                      <th>순위</th>
-                      <th>종합 스코어</th>
+                      <th className={styles.sortableTh} onClick={() => handleColSort("clicks")}>
+                        클릭수
+                        <svg className={`${styles.sortIcon} ${colSortKey === "clicks" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={colSortKey === "clicks" && colSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                      <th className={styles.sortableTh} onClick={() => handleColSort("impressions")}>
+                        노출수
+                        <svg className={`${styles.sortIcon} ${colSortKey === "impressions" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={colSortKey === "impressions" && colSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                      <th className={styles.sortableTh} onClick={() => handleColSort("ctr")}>
+                        CTR
+                        <svg className={`${styles.sortIcon} ${colSortKey === "ctr" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={colSortKey === "ctr" && colSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                      <th className={styles.sortableTh} onClick={() => handleColSort("position")}>
+                        순위
+                        <svg className={`${styles.sortIcon} ${colSortKey === "position" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={colSortKey === "position" && colSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                      <th className={styles.sortableTh} onClick={() => handleColSort("score")}>
+                        종합 스코어
+                        <svg className={`${styles.sortIcon} ${colSortKey === "score" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={colSortKey === "score" && colSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
                     </tr>
-	                  </thead>
-	                  <tbody>
-	                    {liveColumns.map((col) => {
-	                      const href = resolveContentUrl(col.url);
-	                      return (
-	                      <tr key={col.url}>
-	                        <td>
-	                          <a
-	                            href={href || undefined}
-	                            target="_blank"
-	                            rel="noopener noreferrer"
-	                            style={{ display: "block", color: "inherit", textDecoration: "none" }}
-	                            title={href ? `열기: ${href}` : undefined}
-	                          >
-	                            <div className={styles.columnTitleCell}>{col.title}</div>
-	                            <div className={styles.columnUrlCell}>{col.url}</div>
-	                          </a>
-	                        </td>
-	                        <td className={styles.numCell}>{numberFormatter.format(col.clicks)}</td>
-	                        <td className={styles.numCell}>{numberFormatter.format(col.impressions)}</td>
-	                        <td className={styles.numCell}>{decimalFormatter.format(col.ctr)}%</td>
-	                        <td className={styles.numCell}>{decimalFormatter.format(col.position)}</td>
-	                        <td>
-                          <div className={styles.scoreBarWrap}>
-                            <div className={styles.scoreBarTrack}>
-                              <div className={`${styles.scoreSegment} ${styles.scoreSegmentSearch}`} style={{ width: `${col.search}%` }} />
-                              <div className={`${styles.scoreSegment} ${styles.scoreSegmentTech}`} style={{ width: `${col.tech}%` }} />
-                              <div className={`${styles.scoreSegment} ${styles.scoreSegmentEngage}`} style={{ width: `${col.engage}%` }} />
-                              <div className={`${styles.scoreSegment} ${styles.scoreSegmentAeo}`} style={{ width: `${col.aeo}%` }} />
-                            </div>
-                            <span className={styles.scoreNumber}>{col.score}</span>
-	                          </div>
-	                        </td>
-	                      </tr>
-	                      );
-	                    })}
-	                  </tbody>
-	                </table>
-	              </div>
+                  </thead>
+                  <tbody>
+                    {filteredCols.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className={styles.empty}>
+                          <div className={styles.emptyContent}>
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className={styles.emptyIcon}>
+                              <circle cx="18" cy="18" r="12" stroke="currentColor" strokeWidth="2" />
+                              <path d="M27 27L35 35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                            <p>{colSearch ? "검색 결과가 없습니다." : "해당 기간에 칼럼 성과 데이터가 없습니다."}</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <>
+                        {visibleCols.map((col, idx) => {
+                          const href = resolveContentUrl(col.url);
+                          const scoreCls = (col.score ?? 0) >= 40 ? styles.scoreNumberGood : (col.score ?? 0) >= 25 ? styles.scoreNumberWarn : styles.scoreNumberPoor;
+                          return (
+                            <tr key={col.url} className={`${styles.colRow} ${idx % 2 === 1 ? styles.colRowStripe : ""} ${(col.clicks ?? 0) === 0 ? styles.colRowDimmed : ""} ${idx < 3 ? styles.colRowTop3 : ""}`}>
+                              <td>
+                                <a href={href || undefined} target="_blank" rel="noopener noreferrer" style={{ display: "block", color: "inherit", textDecoration: "none" }} title={col.title}>
+                                  <div className={styles.columnTitleCell}>{col.title}</div>
+                                  <div className={styles.columnUrlCell}>
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2L7 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                    {col.url.replace("https://biocom.kr", "")}
+                                  </div>
+                                </a>
+                              </td>
+                              <td className={styles.numCell}>{numberFormatter.format(col.clicks)}</td>
+                              <td className={styles.numCell}>{numberFormatter.format(col.impressions)}</td>
+                              <td className={styles.numCell}>{decimalFormatter.format(col.ctr)}%</td>
+                              <td className={styles.numCell}>{decimalFormatter.format(col.position)}</td>
+                              <td>
+                                <div className={styles.scoreBarWrap}>
+                                  <div className={styles.scoreBarTrack}>
+                                    <div className={`${styles.scoreSegment} ${styles.scoreSegmentSearch}`} style={{ width: `${col.search}%` }} />
+                                    <div className={`${styles.scoreSegment} ${styles.scoreSegmentTech}`} style={{ width: `${col.tech}%` }} />
+                                    <div className={`${styles.scoreSegment} ${styles.scoreSegmentEngage}`} style={{ width: `${col.engage}%` }} />
+                                    <div className={`${styles.scoreSegment} ${styles.scoreSegmentAeo}`} style={{ width: `${col.aeo}%` }} />
+                                  </div>
+                                  <span className={`${styles.scoreNumber} ${scoreCls}`}>{col.score}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filteredCols.length > 10 && (
+                          <tr className={styles.showMoreRow}>
+                            <td colSpan={6}>
+                              <button type="button" className={styles.showMoreBtn} onClick={() => setColShowAll((v) => !v)}>
+                                {colShowAll ? "접기" : `나머지 ${filteredCols.length - 10}개 칼럼 더 보기`}
+                                <svg className={`${styles.showMoreIcon} ${colShowAll ? styles.showMoreIconUp : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              </button>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
               <div className={styles.scoreLegend}>
                 <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#0D9488" }} /> 검색 성과 (40%)</span>
                 <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#2563eb" }} /> 기술 성능 (20%)</span>
                 <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#f59e0b" }} /> 사용자 체류 (25%)</span>
                 <span className={styles.scoreLegendItem}><span className={styles.scoreLegendDot} style={{ background: "#8b5cf6" }} /> AEO/GEO (15%)</span>
+              </div>
+            </section>
+
+            {/* 섹션 구분 디바이더 */}
+            <div className={styles.sectionDivider}>
+              <div className={styles.sectionDividerLine} />
+              <span className={styles.sectionDividerText}>기타 페이지 분석</span>
+              <div className={styles.sectionDividerLine} />
+            </div>
+
+            <section className={styles.card}>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>상품 및 기타 페이지 성과 분석{columnsData ? <LiveBadge /> : <WipBadge />}</h2>
+                <span className={styles.sectionMeta}>
+                  {columnsData
+                    ? `📅 ${columnsDateRange?.start ?? ""} ~ ${columnsDateRange?.end ?? ""} (최근 7일) · GSC 실데이터`
+                    : "Mock 샘플 데이터"
+                  } · 칼럼(/healthinfo, /what_biohacking) 제외
+                </span>
+              </div>
+              <div className={styles.tableWrap}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>페이지</th>
+                      <th className={styles.sortableTh} onClick={() => handleOtherSort("clicks")}>
+                        클릭수
+                        <svg className={`${styles.sortIcon} ${otherSortKey === "clicks" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={otherSortKey === "clicks" && otherSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                      <th className={styles.sortableTh} onClick={() => handleOtherSort("impressions")}>
+                        노출수
+                        <svg className={`${styles.sortIcon} ${otherSortKey === "impressions" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={otherSortKey === "impressions" && otherSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                      <th className={styles.sortableTh} onClick={() => handleOtherSort("ctr")}>
+                        CTR
+                        <svg className={`${styles.sortIcon} ${otherSortKey === "ctr" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={otherSortKey === "ctr" && otherSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                      <th className={styles.sortableTh} onClick={() => handleOtherSort("position")}>
+                        순위
+                        <svg className={`${styles.sortIcon} ${otherSortKey === "position" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={otherSortKey === "position" && otherSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                      <th className={styles.sortableTh} onClick={() => handleOtherSort("score")}>
+                        종합 스코어
+                        <svg className={`${styles.sortIcon} ${otherSortKey === "score" ? styles.sortIconActive : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform={otherSortKey === "score" && otherSortAsc ? "rotate(180 8 8)" : ""}/></svg>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedOther.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className={styles.empty}>
+                          <div className={styles.emptyContent}>
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className={styles.emptyIcon}>
+                              <circle cx="18" cy="18" r="12" stroke="currentColor" strokeWidth="2" />
+                              <path d="M27 27L35 35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                            <p>해당 기간에 상품/기타 페이지 성과 데이터가 없습니다.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <>
+                        {visibleOther.map((col, idx) => {
+                          const href = resolveContentUrl(col.url);
+                          const scoreCls = (col.score ?? 0) >= 40 ? styles.scoreNumberGood : (col.score ?? 0) >= 25 ? styles.scoreNumberWarn : styles.scoreNumberPoor;
+                          return (
+                            <tr key={col.url} className={`${styles.colRow} ${idx % 2 === 1 ? styles.colRowStripe : ""} ${(col.clicks ?? 0) === 0 ? styles.colRowDimmed : ""} ${idx < 3 ? styles.colRowTop3 : ""}`}>
+                              <td>
+                                <a href={href || undefined} target="_blank" rel="noopener noreferrer" style={{ display: "block", color: "inherit", textDecoration: "none" }} title={col.title}>
+                                  <div className={styles.columnTitleCell}>{col.title}</div>
+                                  <div className={styles.columnUrlCell}>
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2L7 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                    {col.url.replace("https://biocom.kr", "")}
+                                  </div>
+                                </a>
+                              </td>
+                              <td className={styles.numCell}>{numberFormatter.format(col.clicks)}</td>
+                              <td className={styles.numCell}>{numberFormatter.format(col.impressions)}</td>
+                              <td className={styles.numCell}>{decimalFormatter.format(col.ctr)}%</td>
+                              <td className={styles.numCell}>{decimalFormatter.format(col.position)}</td>
+                              <td>
+                                <div className={styles.scoreBarWrap}>
+                                  <div className={styles.scoreBarTrack}>
+                                    <div className={`${styles.scoreSegment} ${styles.scoreSegmentSearch}`} style={{ width: `${col.search}%` }} />
+                                    <div className={`${styles.scoreSegment} ${styles.scoreSegmentTech}`} style={{ width: `${col.tech}%` }} />
+                                    <div className={`${styles.scoreSegment} ${styles.scoreSegmentEngage}`} style={{ width: `${col.engage}%` }} />
+                                    <div className={`${styles.scoreSegment} ${styles.scoreSegmentAeo}`} style={{ width: `${col.aeo}%` }} />
+                                  </div>
+                                  <span className={`${styles.scoreNumber} ${scoreCls}`}>{col.score}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {sortedOther.length > 10 && (
+                          <tr className={styles.showMoreRow}>
+                            <td colSpan={6}>
+                              <button type="button" className={styles.showMoreBtn} onClick={() => setOtherShowAll((v) => !v)}>
+                                {otherShowAll ? "접기" : `나머지 ${sortedOther.length - 10}개 페이지 더 보기`}
+                                <svg className={`${styles.showMoreIcon} ${otherShowAll ? styles.showMoreIconUp : ""}`} viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              </button>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </section>
           </>
