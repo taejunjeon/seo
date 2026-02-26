@@ -12,15 +12,18 @@ import {
   type PageSpeedStrategy,
   type PageSpeedResult,
 } from "./pagespeed";
-import { queryGA4AiTraffic, queryGA4Engagement, queryGA4Funnel } from "./ga4";
+import { queryGA4AiTraffic, queryGA4AiTrafficDetailed, queryGA4AiTrafficUserType, queryGA4Engagement, queryGA4Funnel, queryGA4TopSources } from "./ga4";
 import { getSupabaseAdminClient } from "./supabase";
 import { resolvePageTitles } from "./pageTitle";
-import { crawlAndAnalyze, type CrawlResult } from "./crawl";
+import { crawlAndAnalyze, discoverSubpages, type CrawlResult } from "./crawl";
 import { calculateAeoScore, calculateGeoScore } from "./scoring";
 import { generateInsights, chat as aiChat, isOpenAIConfigured, type ChatMessage } from "./ai";
 import { classifyKeywordIntents } from "./intent";
 import { fetchSerpApiAccount, isSerpApiConfigured } from "./serpapi";
 import { measureAiCitation } from "./aiCitation";
+import { measureAiCitationMulti } from "./aiCitationMulti";
+import { matchesHostBroad } from "./urlMatch";
+import { resolveIsoDateRange } from "./dateRange";
 
 const app = express();
 
@@ -86,6 +89,55 @@ const daysAgo = (n: number) => {
   d.setDate(d.getDate() - n);
   return toDateString(d);
 };
+
+const withConcurrency = async <T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, idx: number) => Promise<R>,
+): Promise<R[]> => {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+
+  const runners = Array.from({ length: Math.max(1, Math.min(concurrency, items.length)) }, async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= items.length) break;
+      results[idx] = await worker(items[idx] as T, idx);
+    }
+  });
+
+  await Promise.all(runners);
+  return results;
+};
+
+type AiTrafficTopicQuery = {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+};
+
+type AiTrafficTopicsPageRow = {
+  landingPagePlusQueryString: string;
+  aiSessions: number;
+  aiActiveUsers: number;
+  ecommercePurchases: number;
+  grossPurchaseRevenue: number;
+  gscTopQueries: AiTrafficTopicQuery[];
+};
+
+type AiTrafficTopicsResponse = {
+  range: { startDate: string; endDate: string };
+  topPages: number;
+  topQueries: number;
+  pages: AiTrafficTopicsPageRow[];
+  debug: { notes: string[] };
+};
+
+const AI_TRAFFIC_TOPICS_CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+const aiTrafficTopicsCache = new Map<string, { measuredAtMs: number; value: AiTrafficTopicsResponse }>();
+const aiTrafficTopicsInflight = new Map<string, Promise<AiTrafficTopicsResponse>>();
 
 /* Q&A 키워드 자동 분류 패턴 */
 const QA_PATTERNS = [
@@ -178,6 +230,238 @@ app.get("/api/serpapi/account", async (_req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "SerpAPI request failed";
     res.status(500).json({ error: "serpapi_error", message });
+  }
+});
+
+/* GET /api/ai/citation — AI 답변 인용도(멀티 프로바이더) 디버그용 */
+app.get("/api/ai/citation", async (req: Request, res: Response) => {
+  try {
+    const sampleSize = Math.max(1, Math.min(20, Number(req.query.sampleSize ?? "5") || 5));
+    const forceRefresh = req.query.refresh === "1";
+    const matchModeRaw = typeof req.query.matchMode === "string" ? req.query.matchMode.trim() : "strict";
+    const matchMode = matchModeRaw === "broad" || matchModeRaw === "both" ? matchModeRaw : "strict";
+    if (matchModeRaw && !["strict", "broad", "both"].includes(matchModeRaw)) {
+      res.status(400).json({ error: "validation_error", message: "Invalid matchMode. Allowed: strict, broad, both" });
+      return;
+    }
+
+    const rawProviders = typeof req.query.providers === "string" ? req.query.providers : "";
+    const providers = rawProviders
+      ? rawProviders.split(",").map((p) => p.trim()).filter(Boolean)
+      : undefined;
+
+    const allowedProviders = new Set(["google_ai_overview", "chatgpt_search", "perplexity"]);
+    if (providers?.some((p) => !allowedProviders.has(p))) {
+      res.status(400).json({
+        error: "validation_error",
+        message: `Invalid providers. Allowed: ${[...allowedProviders].join(", ")}`,
+      });
+      return;
+    }
+
+    const rawQueries =
+      typeof req.query.queries === "string"
+        ? req.query.queries
+        : Array.isArray(req.query.queries)
+          ? req.query.queries.join("\n")
+          : "";
+
+    const queries = rawQueries
+      ? rawQueries.split(/[\n,]+/).map((q) => q.trim()).filter(Boolean).slice(0, 50)
+      : [];
+
+    // refresh=1은 비용/쿼터 영향이 커서, 프로덕션에서는 CRON_SECRET이 설정된 경우에만 허용합니다.
+    if (forceRefresh && env.NODE_ENV === "production") {
+      if (!env.CRON_SECRET) {
+        res.status(403).json({ error: "forbidden", message: "refresh is disabled in production unless CRON_SECRET is configured" });
+        return;
+      }
+      const headerSecret = req.header("x-cron-secret");
+      const querySecret = typeof req.query.secret === "string" ? req.query.secret : undefined;
+      const provided = headerSecret ?? querySecret;
+      if (provided !== env.CRON_SECRET) {
+        res.status(401).json({ error: "unauthorized", message: "Missing or invalid cron secret" });
+        return;
+      }
+    }
+
+    const keywordMetrics =
+      queries.length > 0
+        ? []
+        : (() => {
+            // 쿼리를 직접 넣지 않은 경우에만, GSC에서 표본 키워드를 가져옵니다.
+            // (이 API는 디버그 목적이므로 rowLimit/기간은 고정)
+            return queryGscSearchAnalytics({
+              startDate: daysAgo(10),
+              endDate: daysAgo(3),
+              dimensions: ["query"],
+              rowLimit: 500,
+              startRow: 0,
+            }).then((keywordResult) => {
+              const rows = keywordResult.rows as Record<string, unknown>[];
+              return rows
+                .map((row) => ({
+                  query: (((row.keys as string[]) ?? [])[0] ?? "").trim(),
+                  impressions: (row.impressions as number) ?? 0,
+                  clicks: (row.clicks as number) ?? 0,
+                }))
+                .filter((k) => k.query);
+            });
+          })();
+
+    const keywords = Array.isArray(keywordMetrics) ? keywordMetrics : await keywordMetrics;
+
+    const result = await measureAiCitationMulti({
+      keywords,
+      queries,
+      providers: providers as ("google_ai_overview" | "chatgpt_search" | "perplexity")[] | undefined,
+      sampleSize,
+      forceRefresh,
+    });
+    if (!result) {
+      res.status(503).json({
+        error: "citation_unavailable",
+        message: "No citation providers configured or all providers failed. Check SERP_API_KEY / OPENAI_API_KEY / PERPLEXITY_API_KEY.",
+      });
+      return;
+    }
+
+    const verdictStrict =
+      result.eligibleTotal === 0
+        ? "exposure_zero"
+        : result.citedQueriesTotal === 0
+          ? "citation_zero"
+          : "cited";
+
+    let payloadResult: unknown = result;
+    let verdictBroad: typeof verdictStrict | undefined;
+
+    if (matchMode !== "strict") {
+      // Broad match는 redirect/canonical을 따라가므로 네트워크 비용이 발생합니다. (디버그용)
+      const enriched = JSON.parse(JSON.stringify(result)) as typeof result & {
+        broad?: {
+          citedQueriesTotalBroad: number;
+          citedReferencesTotalBroad: number;
+          citationRateOverallBroad: number;
+          note: string;
+        };
+      };
+
+      type Target = { providerIdx: number; sampleIdx: number };
+      const linkTargets = new Map<string, { ref: unknown; targets: Target[] }>();
+      const broadMaps = enriched.providers.map((p) =>
+        p.samples.map((s) => {
+          const entries = (s.matchedReferences ?? [])
+            .map((r): [string, unknown] | null => {
+              const link = (r as { link?: unknown } | null)?.link;
+              return typeof link === "string" && link ? [link, r] : null;
+            })
+            .filter((v): v is [string, unknown] => v !== null);
+          return new Map<string, unknown>(entries);
+        }),
+      );
+
+      for (let pIdx = 0; pIdx < enriched.providers.length; pIdx++) {
+        const p = enriched.providers[pIdx]!;
+        for (let sIdx = 0; sIdx < p.samples.length; sIdx++) {
+          const s = p.samples[sIdx] as { references?: unknown[]; matchedReferences?: unknown[] } | undefined;
+          const refs = Array.isArray(s?.references) ? s!.references : [];
+          const broadMap = broadMaps[pIdx]![sIdx]!;
+
+          for (const r of refs) {
+            const link = (r as { link?: unknown } | null)?.link;
+            if (typeof link !== "string" || !link) continue;
+            if (broadMap.has(link)) continue; // strict match 포함
+
+            const existing = linkTargets.get(link);
+            const target = { providerIdx: pIdx, sampleIdx: sIdx };
+            if (existing) {
+              existing.targets.push(target);
+            } else {
+              linkTargets.set(link, { ref: r, targets: [target] });
+            }
+          }
+        }
+      }
+
+      const entries = [...linkTargets.entries()];
+      await withConcurrency(entries, 3, async ([link, item]) => {
+        const ok = await matchesHostBroad(link, enriched.siteHost);
+        if (!ok) return false;
+        for (const t of item.targets) {
+          broadMaps[t.providerIdx]![t.sampleIdx]!.set(link, item.ref);
+        }
+        return true;
+      });
+
+      let citedQueriesTotalBroad = 0;
+      let citedReferencesTotalBroad = 0;
+
+      for (let pIdx = 0; pIdx < enriched.providers.length; pIdx++) {
+        const p = enriched.providers[pIdx] as unknown as {
+          eligible: number;
+          samples: Array<{ eligible: boolean } & Record<string, unknown>>;
+          [k: string]: unknown;
+        };
+
+        let citedQueriesBroad = 0;
+        let citedReferencesBroad = 0;
+
+        for (let sIdx = 0; sIdx < p.samples.length; sIdx++) {
+          const s = p.samples[sIdx]!;
+          const broadRefs = [...broadMaps[pIdx]![sIdx]!.values()] as unknown[];
+          (s as Record<string, unknown>).matchedReferencesBroad = broadRefs;
+          (s as Record<string, unknown>).citedBroad = broadRefs.length > 0;
+
+          if (s.eligible && broadRefs.length > 0) citedQueriesBroad++;
+          citedReferencesBroad += broadRefs.length;
+        }
+
+        (p as Record<string, unknown>).citedQueriesBroad = citedQueriesBroad;
+        (p as Record<string, unknown>).citedReferencesBroad = citedReferencesBroad;
+        (p as Record<string, unknown>).citationRateBroad = p.eligible > 0 ? citedQueriesBroad / p.eligible : 0;
+
+        citedQueriesTotalBroad += citedQueriesBroad;
+        citedReferencesTotalBroad += citedReferencesBroad;
+      }
+
+      enriched.broad = {
+        citedQueriesTotalBroad,
+        citedReferencesTotalBroad,
+        citationRateOverallBroad: enriched.eligibleTotal > 0 ? citedQueriesTotalBroad / enriched.eligibleTotal : 0,
+        note: "Broad match: redirect/canonical로 최종 도메인을 추적해 매칭(Strict + 추가 매칭).",
+      };
+
+      verdictBroad =
+        enriched.eligibleTotal === 0
+          ? "exposure_zero"
+          : citedQueriesTotalBroad === 0
+            ? "citation_zero"
+            : "cited";
+
+      payloadResult = enriched;
+    }
+
+    res.json({
+      verdict: verdictStrict,
+      ...(verdictBroad ? { verdictBroad } : {}),
+      availability: {
+        google_ai_overview: { configured: isSerpApiConfigured() },
+        chatgpt_search: { configured: !!env.OPENAI_API_KEY },
+        perplexity: { configured: !!env.PERPLEXITY_API_KEY },
+      },
+      requested: {
+        sampleSize,
+        providers: providers ?? [...allowedProviders],
+        queriesProvided: queries.length,
+        forceRefresh,
+        matchMode,
+      },
+      ...(payloadResult as Record<string, unknown>),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI citation measurement failed";
+    res.status(500).json({ error: "citation_error", message });
   }
 });
 
@@ -917,6 +1201,280 @@ app.get("/api/ga4/funnel", async (req: Request, res: Response) => {
   }
 });
 
+app.get("/api/ga4/ai-traffic", async (req: Request, res: Response) => {
+  const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+  const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+  const limitRaw = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : Number.NaN;
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 20;
+  const referralOnly = req.query.referralOnly === "1" || req.query.referralOnly === "true";
+  const forceRefresh = req.query.refresh === "1";
+
+  const matchedPatterns = [
+    "(^|.*\\.)chatgpt\\.com$",
+    "(^|.*\\.)chat\\.openai\\.com$",
+    "(^|.*\\.)perplexity\\.ai$",
+    "(^|.*\\.)claude\\.ai$",
+    "(^|.*\\.)gemini\\.google\\.com$",
+    "(^|.*\\.)bard\\.google\\.com$",
+    "(^|.*\\.)copilot\\.microsoft\\.com$",
+    "(^|.*\\.)you\\.com$",
+    "(^|.*\\.)komo\\.ai$",
+    "(^|.*\\.)phind\\.com$",
+    "(^|.*\\.)meta\\.ai$",
+    "(^|.*\\.)search\\.brave\\.com$",
+  ];
+
+  try {
+    const result = await queryGA4AiTrafficDetailed({ startDate, endDate, limit, referralOnly, forceRefresh });
+    res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "GA4 AI traffic query failed";
+
+    // 프론트가 안정적으로 렌더링할 수 있도록, GA4 미설정은 200 + 0값 구조로 반환합니다.
+    if (message.includes("GA4_PROPERTY_ID is not configured")) {
+      res.json({
+        range: { startDate, endDate },
+        definition: "AI traffic identified by sessionSource(referrer) with ChatGPT UTM supplement(sessionManualSource)",
+        identification: { method: "referrer" },
+        totals: {
+          sessions: 0,
+          activeUsers: 0,
+          ecommercePurchases: 0,
+          grossPurchaseRevenue: 0,
+          totalUsers: 0,
+          newUsers: 0,
+          engagedSessions: 0,
+          bounceRate: 0,
+          engagementRate: 0,
+          averageSessionDuration: 0,
+          screenPageViews: 0,
+        },
+        bySource: [],
+        byLandingPage: [],
+        debug: { matchedPatterns, notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+      });
+      return;
+    }
+
+    res.status(500).json({ error: "ga4_ai_traffic_error", message });
+  }
+});
+
+app.get("/api/ga4/ai-traffic/user-type", async (req: Request, res: Response) => {
+  const startDateParam = typeof req.query.startDate === "string" ? req.query.startDate : undefined;
+  const endDateParam = typeof req.query.endDate === "string" ? req.query.endDate : undefined;
+  const limitRaw = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : Number.NaN;
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 200;
+
+  const range = resolveIsoDateRange({
+    startDateParam,
+    endDateParam,
+    defaultStartDate: daysAgo(30),
+    defaultEndDate: toDateString(new Date()),
+  });
+
+  if (!range.ok) {
+    res.status(400).json({ error: range.error, details: range.details });
+    return;
+  }
+
+  const { startDate, endDate } = range;
+
+  try {
+    const result = await queryGA4AiTrafficUserType({ startDate, endDate, limit });
+    res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "GA4 user-type query failed";
+
+    if (message.includes("GA4_PROPERTY_ID is not configured")) {
+      const emptySummary = {
+        sessions: 0,
+        activeUsers: 0,
+        engagedSessions: 0,
+        bounceRate: 0,
+        engagementRate: 0,
+        averageSessionDuration: 0,
+        ecommercePurchases: 0,
+        grossPurchaseRevenue: 0,
+      };
+      res.json({
+        period: { startDate, endDate },
+        identification: { method: "referrer" },
+        summary: {
+          new: emptySummary,
+          returning: emptySummary,
+        },
+        bySourceAndType: [],
+        debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+      });
+      return;
+    }
+
+    const msgLower = message.toLowerCase();
+    if (message.includes("RESOURCE_EXHAUSTED") || message.includes("429") || msgLower.includes("quota")) {
+      res.status(429).json({ error: "GA4 API 할당량 초과. 잠시 후 다시 시도해주세요.", retryAfter: 60 });
+      return;
+    }
+
+    if (message.includes("UNAUTHENTICATED") || message.includes("401") || msgLower.includes("unauthenticated")) {
+      res.status(401).json({ error: "GA4 인증 실패. 서비스 계정 설정을 확인하세요." });
+      return;
+    }
+
+    res.status(500).json({ error: "ga4_ai_traffic_user_type_error", message });
+  }
+});
+
+app.get("/api/ga4/top-sources", async (req: Request, res: Response) => {
+  const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+  const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+  const limitRaw = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : Number.NaN;
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 200;
+  const forceRefresh = req.query.refresh === "1";
+
+  try {
+    const result = await queryGA4TopSources({ startDate, endDate, limit, forceRefresh });
+    res.json({ ...result, debug: { notes: ["필터 없이 sessionSource 상위 목록 반환"] } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "GA4 top sources query failed";
+    if (message.includes("GA4_PROPERTY_ID is not configured")) {
+      res.json({
+        range: { startDate, endDate },
+        rows: [],
+        debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+      });
+      return;
+    }
+    res.status(500).json({ error: "ga4_top_sources_error", message });
+  }
+});
+
+app.get("/api/ai-traffic/topics", async (req: Request, res: Response) => {
+  const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+  const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+  const topPagesRaw = typeof req.query.topPages === "string" ? parseInt(req.query.topPages, 10) : Number.NaN;
+  const topQueriesRaw = typeof req.query.topQueries === "string" ? parseInt(req.query.topQueries, 10) : Number.NaN;
+  const topPages = Number.isFinite(topPagesRaw) ? Math.max(1, Math.min(50, topPagesRaw)) : 10;
+  const topQueries = Number.isFinite(topQueriesRaw) ? Math.max(1, Math.min(10, topQueriesRaw)) : 3;
+  const referralOnly = req.query.referralOnly === "1" || req.query.referralOnly === "true";
+  const forceRefresh = req.query.refresh === "1";
+  const cacheKey = [startDate, endDate, topPages, topQueries, referralOnly ? "referralOnly" : "any"].join("|");
+
+  if (!forceRefresh) {
+    const cached = aiTrafficTopicsCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && now - cached.measuredAtMs < AI_TRAFFIC_TOPICS_CACHE_TTL_MS) {
+      res.json(cached.value);
+      return;
+    }
+
+    const running = aiTrafficTopicsInflight.get(cacheKey);
+    if (running) {
+      res.json(await running);
+      return;
+    }
+  }
+
+  const promise = (async (): Promise<AiTrafficTopicsResponse> => {
+    const notes: string[] = [];
+    let landingRows: { landingPagePlusQueryString: string; sessions: number; activeUsers: number; ecommercePurchases: number; grossPurchaseRevenue: number }[] = [];
+
+    try {
+      const ai = await queryGA4AiTrafficDetailed({ startDate, endDate, limit: topPages, referralOnly, forceRefresh });
+      landingRows = (ai.byLandingPage ?? []).map((r) => ({
+        landingPagePlusQueryString: r.landingPagePlusQueryString,
+        sessions: r.sessions,
+        activeUsers: r.activeUsers,
+        ecommercePurchases: r.ecommercePurchases,
+        grossPurchaseRevenue: r.grossPurchaseRevenue,
+      }));
+      notes.push(`GA4: AI 유입 랜딩 TOP ${landingRows.length}건`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 AI traffic query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        notes.push("GA4 API 미설정: GA4_PROPERTY_ID 누락");
+      } else {
+        notes.push(`GA4 조회 실패: ${message}`);
+      }
+      landingRows = [];
+    }
+
+    const pages = await withConcurrency(
+      landingRows,
+      3,
+      async (row): Promise<AiTrafficTopicsPageRow> => {
+        const landingPath = (row.landingPagePlusQueryString || "").split("?")[0] ?? "";
+        const gscTopQueries: AiTrafficTopicQuery[] = [];
+
+        if (landingPath) {
+          try {
+            const gsc = await queryGscSearchAnalytics({
+              startDate,
+              endDate,
+              dimensions: ["query"],
+              rowLimit: topQueries,
+              startRow: 0,
+              dimensionFilterGroups: [
+                {
+                  filters: [
+                    {
+                      dimension: "page",
+                      operator: "contains",
+                      expression: landingPath,
+                    },
+                  ],
+                },
+              ],
+            });
+
+            const rows = gsc.rows as Record<string, unknown>[];
+            for (const r of rows) {
+              const query = ((r.keys as string[]) ?? [])[0] ?? "";
+              if (!query) continue;
+              gscTopQueries.push({
+                query,
+                clicks: (r.clicks as number) ?? 0,
+                impressions: (r.impressions as number) ?? 0,
+                ctr: (r.ctr as number) ?? 0,
+                position: (r.position as number) ?? 0,
+              });
+            }
+          } catch {
+            // best-effort: GSC 미설정/실패 시 빈 배열 유지
+          }
+        }
+
+        return {
+          landingPagePlusQueryString: row.landingPagePlusQueryString,
+          aiSessions: row.sessions,
+          aiActiveUsers: row.activeUsers,
+          ecommercePurchases: row.ecommercePurchases,
+          grossPurchaseRevenue: row.grossPurchaseRevenue,
+          gscTopQueries,
+        };
+      },
+    );
+
+    const value: AiTrafficTopicsResponse = {
+      range: { startDate, endDate },
+      topPages,
+      topQueries,
+      pages,
+      debug: { notes },
+    };
+
+    aiTrafficTopicsCache.set(cacheKey, { measuredAtMs: Date.now(), value });
+    return value;
+  })();
+
+  aiTrafficTopicsInflight.set(cacheKey, promise);
+  try {
+    res.json(await promise);
+  } finally {
+    aiTrafficTopicsInflight.delete(cacheKey);
+  }
+});
+
 /* ═══════════════════════════════════════
    통합 대시보드 데이터 (한번에 조회)
    ═══════════════════════════════════════ */
@@ -1011,6 +1569,25 @@ app.get("/api/dashboard/overview", async (_req: Request, res: Response) => {
 
 // 크롤 결과 메모리 캐시 (URL → CrawlResult)
 const crawlCache = new Map<string, CrawlResult>();
+const crawlInflight = new Map<string, Promise<CrawlResult>>();
+
+const getCrawlData = async (url: string): Promise<CrawlResult> => {
+  const cached = crawlCache.get(url);
+  if (cached) return cached;
+
+  const running = crawlInflight.get(url);
+  if (running) return running;
+
+  const promise = crawlAndAnalyze(url).then((result) => {
+    crawlCache.set(url, result);
+    return result;
+  }).finally(() => {
+    crawlInflight.delete(url);
+  });
+
+  crawlInflight.set(url, promise);
+  return promise;
+};
 
 app.post("/api/crawl/analyze", async (req: Request, res: Response) => {
   try {
@@ -1019,12 +1596,114 @@ app.post("/api/crawl/analyze", async (req: Request, res: Response) => {
       res.status(400).json({ error: "validation_error", message: "url is required" });
       return;
     }
-    const result = await crawlAndAnalyze(url);
-    crawlCache.set(url, result);
+    const result = await getCrawlData(url);
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Crawl failed";
     res.status(500).json({ error: "crawl_error", message });
+  }
+});
+
+/* ── 하위 페이지 발견 ── */
+app.post("/api/crawl/subpages", async (req: Request, res: Response) => {
+  try {
+    const { url, maxLinks } = req.body as { url?: string; maxLinks?: number };
+    if (!url) {
+      res.status(400).json({ error: "validation_error", message: "url is required" });
+      return;
+    }
+    const links = await discoverSubpages(url, maxLinks ?? 50);
+    res.json({ parentUrl: url, subpages: links, count: links.length });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Subpage discovery failed";
+    res.status(500).json({ error: "crawl_error", message });
+  }
+});
+
+/* ── 진단 히스토리 (JSON 파일 기반) ── */
+import { promises as fsPromises } from "node:fs";
+import path from "node:path";
+
+const HISTORY_DIR = path.join(process.cwd(), "data");
+const HISTORY_FILE = path.join(HISTORY_DIR, "diagnosis-history.json");
+
+type DiagnosisRecord = {
+  id: string;
+  url: string;
+  mode: "quick" | "detailed";
+  aeoScore: number | null;
+  geoScore: number | null;
+  crawlSummary: {
+    schemaTypes: string[];
+    wordCount: number;
+    h2Count: number;
+    h3Count: number;
+    hasMetaDescription: boolean;
+  } | null;
+  createdAt: string;
+};
+
+const loadHistory = async (): Promise<DiagnosisRecord[]> => {
+  try {
+    const raw = await fsPromises.readFile(HISTORY_FILE, "utf-8");
+    return JSON.parse(raw) as DiagnosisRecord[];
+  } catch {
+    return [];
+  }
+};
+
+const saveHistory = async (records: DiagnosisRecord[]): Promise<void> => {
+  await fsPromises.mkdir(HISTORY_DIR, { recursive: true });
+  await fsPromises.writeFile(HISTORY_FILE, JSON.stringify(records, null, 2), "utf-8");
+};
+
+app.get("/api/diagnosis/history", async (_req: Request, res: Response) => {
+  try {
+    const records = await loadHistory();
+    res.json({ records, count: records.length });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load history";
+    res.status(500).json({ error: "history_error", message });
+  }
+});
+
+app.post("/api/diagnosis/save", async (req: Request, res: Response) => {
+  try {
+    const body = req.body as Partial<DiagnosisRecord>;
+    if (!body.url) {
+      res.status(400).json({ error: "validation_error", message: "url is required" });
+      return;
+    }
+    const record: DiagnosisRecord = {
+      id: `diag_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      url: body.url,
+      mode: body.mode ?? "quick",
+      aeoScore: body.aeoScore ?? null,
+      geoScore: body.geoScore ?? null,
+      crawlSummary: body.crawlSummary ?? null,
+      createdAt: new Date().toISOString(),
+    };
+    const records = await loadHistory();
+    records.unshift(record); // 최신순
+    // 최대 100건 유지
+    if (records.length > 100) records.length = 100;
+    await saveHistory(records);
+    res.json({ success: true, record });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save history";
+    res.status(500).json({ error: "history_error", message });
+  }
+});
+
+app.delete("/api/diagnosis/history/:id", async (req: Request, res: Response) => {
+  try {
+    const records = await loadHistory();
+    const filtered = records.filter((r) => r.id !== req.params.id);
+    await saveHistory(filtered);
+    res.json({ success: true, remaining: filtered.length });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to delete record";
+    res.status(500).json({ error: "history_error", message });
   }
 });
 
@@ -1070,14 +1749,11 @@ app.get("/api/aeo/score", async (req: Request, res: Response) => {
     // 2) 크롤 데이터 (캐시 or 실시간)
     let crawlData: CrawlResult | null = null;
     if (targetUrl) {
-      crawlData = crawlCache.get(targetUrl) ?? null;
-      if (!crawlData) {
-        try {
-          crawlData = await crawlAndAnalyze(targetUrl);
-          crawlCache.set(targetUrl, crawlData);
-        } catch {
-          // crawl failure is non-fatal
-        }
+      try {
+        crawlData = await getCrawlData(targetUrl);
+      } catch {
+        // crawl failure is non-fatal
+        crawlData = null;
       }
     }
 
@@ -1095,32 +1771,18 @@ app.get("/api/aeo/score", async (req: Request, res: Response) => {
       aiTraffic = null;
     }
 
-    // 5) SerpAPI: AI 답변(=Google AI Overview) 인용 빈도(표본 측정 + 캐시)
-    let aiCitation: {
-      sampled: number;
-      aiOverviewPresent: number;
-      citedQueries: number;
-      citedReferences: number;
-      citationRateAmongAiOverview: number;
-      siteHost: string;
-      measuredAt: string;
-      samples: { query: string; cited: boolean }[];
-    } | null = null;
+    // 5) AI 답변 인용 빈도(표본 측정 + 캐시) — Google AIO + ChatGPT(Search) + Perplexity
+    let aiCitation = null;
     try {
       const forceRefresh = req.query.refresh === "1";
-      const measured = await measureAiCitation({ keywords: keywordMetrics, sampleSize: 5, forceRefresh });
-      aiCitation = measured
-        ? {
-            sampled: measured.sampled,
-            aiOverviewPresent: measured.aiOverviewPresent,
-            citedQueries: measured.citedQueries,
-            citedReferences: measured.citedReferences,
-            citationRateAmongAiOverview: measured.citationRateAmongAiOverview,
-            siteHost: measured.siteHost,
-            measuredAt: measured.measuredAt,
-            samples: measured.samples.map((s) => ({ query: s.query, cited: s.cited })),
-          }
-        : null;
+      // KR 운영 점수는 ChatGPT(Search)/Perplexity 중심으로 보고, SerpAPI(Google AIO)는 필요 시 디버그 API로만 호출하는 편이 비용/신뢰도 측면에서 유리합니다.
+      const providers: ("google_ai_overview" | "chatgpt_search" | "perplexity")[] = [];
+      if (env.OPENAI_API_KEY) providers.push("chatgpt_search");
+      if (env.PERPLEXITY_API_KEY) providers.push("perplexity");
+      aiCitation = await measureAiCitationMulti({ keywords: keywordMetrics, sampleSize: 5, forceRefresh, providers });
+      if (!aiCitation && isSerpApiConfigured()) {
+        aiCitation = await measureAiCitationMulti({ keywords: keywordMetrics, sampleSize: 5, forceRefresh, providers: ["google_ai_overview"] });
+      }
     } catch {
       aiCitation = null;
     }
@@ -1204,14 +1866,10 @@ app.get("/api/geo/score", async (req: Request, res: Response) => {
     // 3) 크롤 데이터
     let crawlData: CrawlResult | null = null;
     if (targetUrl) {
-      crawlData = crawlCache.get(targetUrl) ?? null;
-      if (!crawlData) {
-        try {
-          crawlData = await crawlAndAnalyze(targetUrl);
-          crawlCache.set(targetUrl, crawlData);
-        } catch {
-          // non-fatal
-        }
+      try {
+        crawlData = await getCrawlData(targetUrl);
+      } catch {
+        crawlData = null;
       }
     }
 
