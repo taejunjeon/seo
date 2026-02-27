@@ -13,18 +13,36 @@ import {
 import styles from "./TrendChart.module.css";
 
 /* ── 타입 ── */
-type TrendPoint = { date: string; clicks: number; impressions: number };
 type MetricKey = "clicks" | "impressions" | "ctr" | "position";
 type PeriodKey = "7d" | "30d" | "90d";
+
+type TrendsPoint = { date: string; value: number };
+type TrendsPeriodSeries = {
+  startDate: string;
+  endDate: string;
+  data: TrendsPoint[];
+  total: number;
+  average: number;
+};
+type TrendsApiResponse = {
+  metric: MetricKey;
+  period: PeriodKey;
+  compare: string;
+  current: TrendsPeriodSeries;
+  previous: TrendsPeriodSeries;
+  change: { absolute: number; percentage: number; direction: "up" | "down" | "flat" };
+};
+
+type ChartRow = { date: string; current: number; previous?: number };
 
 interface TrendChartProps {
   apiBaseUrl: string;
 }
 
-const PERIOD_OPTIONS: { key: PeriodKey; label: string; days: number }[] = [
-  { key: "7d", label: "7일", days: 7 },
-  { key: "30d", label: "30일", days: 30 },
-  { key: "90d", label: "90일", days: 90 },
+const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
+  { key: "7d", label: "7일" },
+  { key: "30d", label: "30일" },
+  { key: "90d", label: "90일" },
 ];
 
 const METRIC_OPTIONS: { key: MetricKey; label: string }[] = [
@@ -41,13 +59,28 @@ const METRIC_COLORS: Record<MetricKey, string> = {
   position: "#F59E0B",
 };
 
+/* ── 값 포맷 함수 ── */
+function formatChartValue(v: number, m: MetricKey): number {
+  if (m === "ctr") return Math.round(v * 10000) / 100; // 0.0234 → 2.34
+  if (m === "position") return Math.round(v * 10) / 10;
+  return Math.round(v);
+}
+
+function formatDisplayValue(v: number, m: MetricKey): string {
+  if (m === "ctr") return `${(v * 100).toFixed(2)}%`;
+  if (m === "position") return v.toFixed(1);
+  return v.toLocaleString("ko-KR");
+}
+
 /* ── 커스텀 툴팁 ── */
-function CustomTooltip({ active, payload, label }: {
+function CustomTooltip({ active, payload, label, metric }: {
   active?: boolean;
-  payload?: { value: number; name: string; color: string }[];
+  payload?: { value: number; name: string; color: string; dataKey: string }[];
   label?: string;
+  metric?: MetricKey;
 }) {
   if (!active || !payload || payload.length === 0) return null;
+  const m = metric ?? "clicks";
   return (
     <div className={styles.tooltip}>
       <p className={styles.tooltipDate}>{label}</p>
@@ -56,7 +89,7 @@ function CustomTooltip({ active, payload, label }: {
           <span className={styles.tooltipDot} style={{ background: entry.color }} />
           <span className={styles.tooltipLabel}>{entry.name}</span>
           <span className={styles.tooltipValue}>
-            {typeof entry.value === "number" ? entry.value.toLocaleString("ko-KR") : entry.value}
+            {m === "ctr" ? `${entry.value.toFixed(2)}%` : entry.value.toLocaleString("ko-KR")}
           </span>
         </p>
       ))}
@@ -66,30 +99,27 @@ function CustomTooltip({ active, payload, label }: {
 
 /* ── TrendChart 컴포넌트 ── */
 export default function TrendChart({ apiBaseUrl }: TrendChartProps) {
-  const [data, setData] = useState<TrendPoint[]>([]);
+  const [trendsData, setTrendsData] = useState<TrendsApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [period, setPeriod] = useState<PeriodKey>("30d");
   const [metric, setMetric] = useState<MetricKey>("clicks");
-  const [isLive, setIsLive] = useState(false);
+  const [compareOn, setCompareOn] = useState(false);
 
-  const fetchTrend = useCallback(async (days: number) => {
+  const fetchTrend = useCallback(async (m: MetricKey, p: PeriodKey) => {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(`${apiBaseUrl}/api/gsc/trends?days=${days}`);
+      const res = await fetch(`${apiBaseUrl}/api/trends?metric=${m}&period=${p}&compare=previous`);
       if (!res.ok) throw new Error();
-      const d = await res.json() as { trend?: TrendPoint[] };
-      if (d.trend && d.trend.length > 0) {
-        setData(d.trend);
-        setIsLive(true);
+      const d = await res.json() as TrendsApiResponse;
+      if (d.current?.data?.length > 0) {
+        setTrendsData(d);
       } else {
-        setData([]);
-        setIsLive(false);
+        setTrendsData(null);
       }
     } catch {
-      setData([]);
-      setIsLive(false);
+      setTrendsData(null);
       setError(true);
     } finally {
       setLoading(false);
@@ -97,20 +127,22 @@ export default function TrendChart({ apiBaseUrl }: TrendChartProps) {
   }, [apiBaseUrl]);
 
   useEffect(() => {
-    const days = PERIOD_OPTIONS.find((p) => p.key === period)?.days ?? 30;
-    void fetchTrend(days);
-  }, [period, fetchTrend]);
+    void fetchTrend(metric, period);
+  }, [metric, period, fetchTrend]);
 
   /* 차트 데이터 가공 */
-  const chartData = useMemo(() => {
-    return data.map((d) => ({
-      date: d.date ? d.date.slice(5) : "", // MM-DD
-      clicks: d.clicks,
-      impressions: d.impressions,
-      ctr: d.impressions > 0 ? Math.round((d.clicks / d.impressions) * 10000) / 100 : 0,
-      position: 0, // TODO: /api/trends 연동 시 position 데이터 추가
+  const chartData = useMemo((): ChartRow[] => {
+    if (!trendsData) return [];
+    const currentData = trendsData.current.data;
+    const previousData = trendsData.previous.data;
+    return currentData.map((pt, i) => ({
+      date: pt.date.slice(5), // MM-DD
+      current: formatChartValue(pt.value, metric),
+      ...(compareOn && previousData[i] != null
+        ? { previous: formatChartValue(previousData[i].value, metric) }
+        : {}),
     }));
-  }, [data]);
+  }, [trendsData, compareOn, metric]);
 
   /* X축 tick 간격 */
   const tickInterval = useMemo(() => {
@@ -122,8 +154,10 @@ export default function TrendChart({ apiBaseUrl }: TrendChartProps) {
 
   const color = METRIC_COLORS[metric];
   const gradientId = `trendGrad_${metric}`;
-
   const metricLabel = METRIC_OPTIONS.find((m) => m.key === metric)?.label ?? "클릭";
+  const isLive = trendsData !== null;
+  const change = trendsData?.change;
+  const isSumMetric = metric === "clicks" || metric === "impressions";
 
   return (
     <section className={styles.section}>
@@ -135,6 +169,11 @@ export default function TrendChart({ apiBaseUrl }: TrendChartProps) {
           ) : error ? (
             <span className={styles.badgeNo}>데이터 없음</span>
           ) : null}
+          {isLive && change && change.direction !== "flat" && (
+            <span className={`${styles.changeBadge} ${change.direction === "up" ? styles.changeBadgeUp : styles.changeBadgeDown}`}>
+              {change.direction === "up" ? "▲" : "▼"} {Math.abs(change.percentage)}%
+            </span>
+          )}
         </h2>
         <div className={styles.controls}>
           <div className={styles.pillGroup}>
@@ -161,8 +200,42 @@ export default function TrendChart({ apiBaseUrl }: TrendChartProps) {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            className={`${styles.pill} ${compareOn ? styles.pillActive : ""}`}
+            onClick={() => setCompareOn((v) => !v)}
+            title="이전 기간과 비교"
+          >
+            비교
+          </button>
         </div>
       </div>
+
+      {/* 비교 요약 */}
+      {compareOn && trendsData && (
+        <div className={styles.compareSummary}>
+          <div className={styles.compareSummaryItem}>
+            <span className={styles.compareSummaryLabel}>현재</span>
+            <span className={styles.compareSummaryDate}>
+              {trendsData.current.startDate.slice(5)} ~ {trendsData.current.endDate.slice(5)}
+            </span>
+            <span className={styles.compareSummaryValue}>
+              {isSumMetric ? "합계" : "평균"}{" "}
+              {formatDisplayValue(isSumMetric ? trendsData.current.total : trendsData.current.average, metric)}
+            </span>
+          </div>
+          <div className={`${styles.compareSummaryItem} ${styles.compareSummaryPrev}`}>
+            <span className={styles.compareSummaryLabel}>이전</span>
+            <span className={styles.compareSummaryDate}>
+              {trendsData.previous.startDate.slice(5)} ~ {trendsData.previous.endDate.slice(5)}
+            </span>
+            <span className={styles.compareSummaryValue}>
+              {isSumMetric ? "합계" : "평균"}{" "}
+              {formatDisplayValue(isSumMetric ? trendsData.previous.total : trendsData.previous.average, metric)}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className={styles.chartWrap}>
         {loading ? (
@@ -170,10 +243,7 @@ export default function TrendChart({ apiBaseUrl }: TrendChartProps) {
         ) : chartData.length === 0 ? (
           <div className={styles.empty}>
             <p>추이 데이터가 없습니다</p>
-            <button type="button" className={styles.retryBtn} onClick={() => {
-              const days = PERIOD_OPTIONS.find((p) => p.key === period)?.days ?? 30;
-              void fetchTrend(days);
-            }}>
+            <button type="button" className={styles.retryBtn} onClick={() => void fetchTrend(metric, period)}>
               새로고침
             </button>
           </div>
@@ -203,10 +273,24 @@ export default function TrendChart({ apiBaseUrl }: TrendChartProps) {
                   metric === "ctr" ? `${v}%` : metric === "position" ? String(v) : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
                 }
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip metric={metric} />} />
+              {compareOn && (
+                <Area
+                  type="monotone"
+                  dataKey="previous"
+                  name="이전 기간"
+                  stroke={color}
+                  strokeWidth={1.5}
+                  strokeDasharray="5 3"
+                  strokeOpacity={0.45}
+                  fill="none"
+                  dot={false}
+                  activeDot={{ r: 3, strokeWidth: 1, stroke: color, fill: "#fff" }}
+                />
+              )}
               <Area
                 type="monotone"
-                dataKey={metric}
+                dataKey="current"
                 name={metricLabel}
                 stroke={color}
                 strokeWidth={2.5}

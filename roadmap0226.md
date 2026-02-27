@@ -1,6 +1,6 @@
 # Biocom AI Agent Dashboard — 로드맵 & 진행률
 
-> 최종 업데이트: 2026-02-27
+> 최종 업데이트: 2026-02-27 (Sprint 1~5 완료 반영)
 > 검증 기준: 로컬 코드 `/Users/vibetj/coding/seo/` + 워킹트리 변경 포함
 > 기술 스택 (실제 repo 기준): **Next.js 16.1.6** + TypeScript 5.9.3 + CSS Modules + Recharts
 > ※ Notion 원본 문서의 "Next.js 14 + Tailwind + shadcn/ui"는 초기 기획 스택이며, 실제 구현은 상이함
@@ -33,18 +33,18 @@
 | Phase | 이름 | Notion 원본 | repo 기준 (갱신) | 상태 |
 |-------|------|:-----------:|:----------------:|------|
 | Phase 0 | 기획 및 PRD | 100% | 100% | ✅ 완료 |
-| Phase 1 | MVP 기반 구축 | 100% | 95% | ✅ 거의 완료 |
-| Phase 2 | Tab 0 UI 품질 개선 | 20% | **90%** | 🔄 거의 완료 |
-| Phase 2.5 | UI/UX 디자인 세련화 | 60% | **85%** | 🔄 진행 중 |
-| Phase 3 | 백엔드 고도화 | 0% | **70%** | 🔄 진행 중 |
+| Phase 1 | MVP 기반 구축 | 100% | **100%** | ✅ 완료 |
+| Phase 2 | Tab 0 UI 품질 개선 | 20% | **98%** | ✅ 거의 완료 |
+| Phase 2.5 | UI/UX 디자인 세련화 | 60% | **95%** | ✅ 거의 완료 |
+| Phase 3 | 백엔드 고도화 | 0% | **90%** | ✅ 거의 완료 |
 | Phase 4 | AEO 콘텐츠 전략 실행 | 0% | 0% | ⬜ 미착수 |
 | Phase 5 | 리텐션 및 그로스 루프 | 0% | 0% | ⬜ 미착수 |
 
-**전체 프로젝트 진행률: 약 45~50%** (코드 구현도 기준 55~65%)
+**전체 프로젝트 진행률: 약 60~65%** (코드 구현도 기준 75~80%)
 
 > **참고**: 진행률은 2축으로 해석 가능
-> - **코드 구현도**: 기능이 코드로 존재하고 로컬에서 동작 가능한가 → 55~65%
-> - **운영 준비도**: 키/권한/배포/크론/모니터링까지 갖춰 운영 가능한가 → 35~40%
+> - **코드 구현도**: 기능이 코드로 존재하고 로컬에서 동작 가능한가 → 75~80%
+> - **운영 준비도**: 키/권한/배포/크론/모니터링까지 갖춰 운영 가능한가 → 55~60%
 
 ---
 
@@ -70,13 +70,14 @@
 - ✅ 데이터 소스 태깅 (`_meta` live/cache)
 - ✅ AI Provider 호출 (SerpAPI, OpenAI, Perplexity)
 
-### 프론트엔드 ✅ 대부분 완료
+### 프론트엔드 ✅ 완료
 - ✅ 8개 탭 구조 대시보드 UI 구현
 - ✅ 오버뷰 KPI 카드, 차트, 칼럼 분석 테이블
 - ✅ AEO/GEO 원형 게이지 (카운트업 애니메이션)
 - ✅ 페이지 진단 도구 (pageanal1.0) 구현
-- ⚠️ page.tsx 4371줄 — 컴포넌트 분리 진행 중 (일부 완료)
-- ⚠️ 프론트에 mock 데이터가 일부 잔존 (칼럼/키워드/CWV/행동 등)
+- ✅ page.tsx 컴포넌트 분리 완료 — **4,371줄 → 1,762줄** (59.7% 감소, 14개 파일 분리)
+- ✅ Mock 데이터 전부 제거 완료 — 전 탭 API 응답 기반, 데이터 없으면 empty state 표시
+- ⬜ page.tsx 상태 관리 정리 (useState 83개 → 커스텀 훅으로 정리, 목표 ~800줄)
 
 ---
 
@@ -98,7 +99,7 @@
 - ✅ ⑤ 키워드 인텐트: `IntentChart.tsx` (Recharts PieChart 도넛, 가중치 토글, Top 키워드 Accordion)
 
 ### 잔여 (P2)
-- ⬜ F2 소스별 CSS 변수 색상 (ChatGPT/Perplexity 등 개별 색상)
+- ✅ F2 소스별 CSS 색상 완료 — ChatGPT(#10A37F), Perplexity(#5A67D8), Gemini(#4285F4), Claude(#D97706), Copilot(#0EA5E9) 등 9개 소스 브랜드 색상 매핑
 - ⬜ F5 topKeywords 클릭/순위 데이터 보강 (API 응답 필드 확장 필요)
 
 ---
@@ -115,20 +116,27 @@
 - ✅ AEO/GEO 상세 독립 Accordion (F8, 2026-02-26)
 - ✅ DataTable 공통 컴포넌트 생성 (검색/정렬/페이지네이션)
 
-### 미완료
-- ✅ KPI 카드 디자인 통일 (CWV 카드와 일반 KPI 카드 불일치)
-- ✅ DataTable을 Tab 1/Tab 2에 실제 적용 (기존 인라인 테이블 교체)
+### 미완료 → 대부분 완료
+- ✅ KPI 카드 디자인 통일 — 전체 카드 border-radius 16px / padding 20px 통일
+- ✅ DataTable을 Tab 1/Tab 2에 실제 적용 — 정렬/검색/페이지네이션 자동 지원
+- ✅ AEO Score 분포 바 추가 — Tab 1에 AEO 컬럼 독립 색상 막대 (빨강/노랑/초록)
+- ✅ page.tsx 컴포넌트 분리 — **4,371줄 → 1,762줄** (목표 2,000줄 **초과 달성**)
 - ⬜ 컬러 의미 체계 CSS 변수 문서화
-- ⬜ page.tsx 추가 컴포넌트 분리 (4371줄 → 2000줄 목표)
+- ⬜ page.tsx 상태 관리 정리 (useState 83개 → 커스텀 훅으로 추출, 목표 ~800줄)
 
 ---
 
-## Phase 3: 백엔드 고도화 (70% 🔄)
+## Phase 3: 백엔드 고도화 (90% ✅)
 
-### 3-A: 수집 자동화 — 부분 완료
+### 3-A: 수집 자동화 + 운영 인프라 — 거의 완료
 - ✅ `/api/cron/gsc/daily` 크론 엔드포인트 존재
 - ✅ AI Insights 캐싱 레이어 구현 (B0-B6, in-memory cache)
 - ✅ 일일 자동 데이터 수집 Cron Job 체계화 (외부 스케줄러 연동: GitHub Actions)
+- ✅ Rate Limiting 추가 — `express-rate-limit` (GSC: 60/min, AI: 10/min)
+- ✅ Request Logging — `pino` + `pino-http` 요청/응답 로깅 (민감 헤더 redact)
+- ✅ Circuit Breaker — SerpAPI/Perplexity 연속 실패 시 503 fast-fail + Retry-After
+- ✅ Redis 캐시 전환 (옵션) — `REDIS_URL` 있으면 Redis, 없으면 in-memory TTL
+- ✅ GA4 Fallback 제거 — 미설정/인증 실패 시 `_meta.type: "empty"` + 0값 구조 반환
 - ⬜ AI 요약 파이프라인 이력 저장 (DB 영속화)
 
 ### 3-B: 신규 API 개발 — 부분 완료
@@ -138,12 +146,18 @@
 - ✅ Comparison API (기간 대비 비교 분석: `/api/comparison?compare=previous|yoy|mom`)
 - ✅ 키워드 인텐트 가중치 개선 (개수 → 클릭/노출 가중치 서버 사이드: `/api/keywords/intent?weight=clicks|impressions|count`)
 
-### 3-C: AI 유입 트래픽 고도화 — 부분 완료
+### 3-C: AI 유입 트래픽 고도화 — 거의 완료
 - ✅ GA4 allowlist EXACT 매칭 전환 (FULL_REGEXP allowlist 기반)
 - ✅ AI 유입 전용 전환 퍼널 (`/api/ga4/ai-funnel`)
 - ✅ 랜딩페이지 콘텐츠 토픽 추출 (LLM/휴리스틱: `/api/ai/landing-topics`)
 - ✅ AI 유입 vs 유기검색 비교 리포트 (`/api/ga4/ai-vs-organic`)
 - ⬜ 커스텀 GA4 이벤트 (GTM AI referrer 감지)
+
+### 3-D: server.ts 구조 정리 ✅ 완료
+- ✅ server.ts 라우터 분리 — **2,901줄 → 118줄** (96% 감소)
+- ✅ 6개 라우터 파일: `routes/gsc.ts`, `routes/ga4.ts`, `routes/pagespeed.ts`, `routes/ai.ts`, `routes/diagnosis.ts`, `routes/crawl.ts`
+- ✅ 2개 유틸: `utils/dateUtils.ts`, `utils/ga4Meta.ts`
+- ✅ 공통 에러 처리: `middleware/errorHandler.ts`
 
 ---
 
@@ -175,13 +189,17 @@
 
 | 순위 | 작업 | 담당 | 비고 |
 |:----:|------|------|------|
-| P0 | DataTable → Tab 1/Tab 2 적용 | Claude Code | Phase 2.5 잔여 |
-| P0 | page.tsx 컴포넌트 분리 (4371줄 → 2000줄) | Claude Code | Phase 2.5 잔여 |
-| P1 | Comparison API 개발 | Codex/백엔드 | Phase 3-B |
-| P1 | AEO Score 분포 바 (Tab 1) | Claude Code | Phase 2 잔여 |
-| P1 | Tab 5 KpiCard 3개 + 소스별 색상 | Claude Code | Phase 2 잔여 |
-| P2 | Phase 3-C AI 유입 고도화 전체 | Codex/백엔드 | 1-2일 |
+| ~~P0~~ | ~~DataTable → Tab 1/Tab 2 적용~~ | ~~Claude Code~~ | ✅ Sprint 3에서 완료 |
+| ~~P0~~ | ~~page.tsx 컴포넌트 분리 (4371줄 → 2000줄)~~ | ~~Claude Code~~ | ✅ 1,762줄 달성 (목표 초과) |
+| ~~P1~~ | ~~Comparison API 개발~~ | ~~Codex~~ | ✅ Sprint 5에서 완료 |
+| ~~P1~~ | ~~AEO Score 분포 바 (Tab 1)~~ | ~~Claude Code~~ | ✅ Sprint 3에서 완료 |
+| ~~P1~~ | ~~Tab 5 KpiCard 3개 + 소스별 색상~~ | ~~Claude Code~~ | ✅ Sprint 3에서 완료 |
+| ~~P2~~ | ~~Phase 3-C AI 유입 고도화 전체~~ | ~~Codex~~ | ✅ Sprint 5에서 완료 |
+| P1 | page.tsx 상태 관리 정리 (useState 83개 → 커스텀 훅) | Claude Code | Phase 2.5 잔여 |
+| P1 | Sprint 5 신규 API 프론트 연동 | Claude Code | Phase 3 API → UI |
 | P2 | 반응형 모바일 최적화 | Claude Code | Phase 2.5 확장 |
+| P2 | CSS 변수 디자인 토큰 문서화 | Claude Code | Phase 2.5 잔여 |
+| P3 | Phase 4 AEO 콘텐츠 전략 착수 | TJ님 방향 결정 | 미착수 |
 
 ---
 
@@ -224,8 +242,8 @@ frontend/src/components/common/DataTable.tsx (+css)
 | FE 프레임워크 | Next.js 14 | Next.js **16.1.6** |
 | CSS | Tailwind + shadcn/ui | **CSS Modules** (Tailwind/shadcn 미사용) |
 | 차트 | Recharts (계획) | **Recharts** (2026-02-26 설치 완료) |
-| page.tsx | 420줄 분리 | **4371줄** (분리 진행 중) |
-| Phase 3 | 0% | **~20%** (B0-B6 백엔드 기반 구현됨) |
+| page.tsx | 420줄 분리 | **1,762줄** (4,371→59.7% 감소, 14개 파일 분리 완료) |
+| Phase 3 | 0% | **~90%** (Sprint 4+5 백엔드 인프라+API 완료) |
 
 ---
 
