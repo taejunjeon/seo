@@ -1,5 +1,7 @@
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
 
+import { FUNNEL_CONFIG, type FunnelType } from "./config/funnel-config";
+import { AI_REFERRAL_SOURCE_PATTERNS_ALLOWLIST, matchAiReferrer } from "./config/ai-referrers";
 import { env } from "./env";
 
 const parseServiceAccountKey = (rawKey: string) => {
@@ -11,12 +13,11 @@ const parseServiceAccountKey = (rawKey: string) => {
 };
 
 const createGA4Client = (): BetaAnalyticsDataClient => {
-  if (env.GA4_SERVICE_ACCOUNT_KEY) {
-    const credentials = parseServiceAccountKey(env.GA4_SERVICE_ACCOUNT_KEY);
-    return new BetaAnalyticsDataClient({ credentials });
+  if (!env.GA4_SERVICE_ACCOUNT_KEY) {
+    throw new Error("GA4_SERVICE_ACCOUNT_KEY is not configured");
   }
-  // Fall back to Application Default Credentials
-  return new BetaAnalyticsDataClient();
+  const credentials = parseServiceAccountKey(env.GA4_SERVICE_ACCOUNT_KEY);
+  return new BetaAnalyticsDataClient({ credentials });
 };
 
 export type GA4EngagementRow = {
@@ -234,6 +235,129 @@ export const queryGA4Funnel = async (
   return steps;
 };
 
+export type GA4EcommerceFunnelStep = {
+  name: string;
+  event: string;
+  sessions: number;
+  /** 이전 단계 대비 전환율(%) */
+  conversionRate: number;
+};
+
+export type GA4EcommerceFunnelDropoff = {
+  from: string;
+  to: string;
+  /** dropRate(%) = 100 - (to.sessions / from.sessions * 100) */
+  dropRate: number;
+};
+
+export type GA4EcommerceFunnelResult = {
+  range: { startDate: string; endDate: string };
+  type: FunnelType;
+  label: string;
+  steps: GA4EcommerceFunnelStep[];
+  overallConversion: number;
+  biggestDropoff: GA4EcommerceFunnelDropoff;
+  debug?: { notes: string[] };
+};
+
+// Ecommerce 이벤트 기반 "의사결정용" 퍼널(검사/영양제).
+// NOTE: GA4 Data API에 공식 Funnel 차원이 없어서, 각 eventName별 "sessions"를 단계 값으로 사용합니다.
+export const queryGA4EcommerceFunnel = async (params: {
+  type: FunnelType;
+  startDate: string;
+  endDate: string;
+}): Promise<GA4EcommerceFunnelResult> => {
+  if (!env.GA4_PROPERTY_ID) {
+    throw new Error("GA4_PROPERTY_ID is not configured");
+  }
+
+  const client = createGA4Client();
+  const startDate = params.startDate || "30daysAgo";
+  const endDate = params.endDate || "yesterday";
+  const config = FUNNEL_CONFIG[params.type];
+  const notes: string[] = [];
+
+  const eventNameOr = {
+    orGroup: {
+      expressions: config.steps.map((step) => ({
+        filter: {
+          fieldName: "eventName",
+          stringFilter: { matchType: "EXACT" as const, value: step.event },
+        },
+      })),
+    },
+  };
+
+  const typeOr = {
+    orGroup: {
+      expressions: config.filter.values.map((value) => ({
+        filter: {
+          fieldName: config.filter.fieldName,
+          stringFilter: { matchType: config.filter.matchType as "EXACT" | "CONTAINS" | "FULL_REGEXP", value },
+        },
+      })),
+    },
+  };
+
+  const dimensionFilter = { andGroup: { expressions: [eventNameOr, typeOr] } };
+
+  const [res] = await client.runReport({
+    property: `properties/${env.GA4_PROPERTY_ID}`,
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: "eventName" }],
+    metrics: [{ name: "sessions" }],
+    dimensionFilter,
+    limit: 50,
+  });
+
+  const sessionsByEvent = new Map<string, number>();
+  for (const row of res.rows ?? []) {
+    const dims = row.dimensionValues ?? [];
+    const mets = row.metricValues ?? [];
+    const eventName = dims[0]?.value ?? "";
+    if (!eventName) continue;
+    const sessionsRaw = Number.parseInt(mets[0]?.value ?? "0", 10);
+    sessionsByEvent.set(eventName, Number.isFinite(sessionsRaw) ? sessionsRaw : 0);
+  }
+
+  const steps: GA4EcommerceFunnelStep[] = [];
+  for (const step of config.steps) {
+    const sessions = sessionsByEvent.get(step.event) ?? 0;
+    const prevSessions = steps.length > 0 ? steps[steps.length - 1]?.sessions ?? 0 : 0;
+    const conversionRate =
+      steps.length === 0 ? 100 : prevSessions > 0 ? +((sessions / prevSessions) * 100).toFixed(1) : 0;
+    steps.push({ name: step.name, event: step.event, sessions, conversionRate });
+  }
+
+  const first = steps[0]?.sessions ?? 0;
+  const last = steps[steps.length - 1]?.sessions ?? 0;
+  const overallConversion = first > 0 ? +((last / first) * 100).toFixed(1) : 0;
+
+  let biggestDropoff: GA4EcommerceFunnelDropoff = { from: steps[0]?.name ?? "", to: steps[1]?.name ?? "", dropRate: 0 };
+  for (let i = 0; i < steps.length - 1; i++) {
+    const from = steps[i]!;
+    const to = steps[i + 1]!;
+    if (from.sessions <= 0) continue;
+    const raw = ((from.sessions - to.sessions) / from.sessions) * 100;
+    const dropRate = raw > 0 ? +raw.toFixed(1) : 0;
+    if (!biggestDropoff.from || dropRate > biggestDropoff.dropRate) {
+      biggestDropoff = { from: from.name, to: to.name, dropRate };
+    }
+  }
+
+  notes.push(`filter: ${config.filter.fieldName} ${config.filter.matchType} (${config.filter.values.join(", ")})`);
+
+  return {
+    range: { startDate, endDate },
+    type: params.type,
+    label: config.label,
+    steps,
+    overallConversion,
+    biggestDropoff,
+    ...(notes.length > 0 ? { debug: { notes } } : {}),
+  };
+};
+
 /* ── AI 추천(referral) 유입 트래픽 ──
    GA4 Data API에서 "sessionSource" 기준으로 AI 서비스 도메인을 필터링하여 집계합니다.
    NOTE: GA4에 "AI 유입"이라는 공식 차원이 있는 것은 아니므로, referrer/source 기반 휴리스틱입니다.
@@ -381,6 +505,19 @@ export type GA4AiTrafficIdentification = {
   method: "referrer" | "utm" | "both";
 };
 
+export type DataSourceMeta = {
+  /** "live" = GA4 실시간 조회 결과, "empty" = GA4 미연결/권한 문제 등으로 빈값 */
+  type: "live" | "empty";
+  /** GA4 property ID (live일 때만) */
+  propertyId?: string;
+  /** 조회 시각 ISO */
+  queriedAt: string;
+  /** 조회 기간 */
+  period: { startDate: string; endDate: string };
+  /** empty일 때 안내 메시지 */
+  notice?: string;
+};
+
 export type GA4AiTrafficReport = {
   range: { startDate: string; endDate: string };
   definition: string;
@@ -395,6 +532,8 @@ export type GA4TopSourceRow = {
   sessionSource: string;
   category: TrafficCategory;
   sessions: number;
+  matched: boolean;
+  label: string | null;
 };
 
 export type GA4TopSourcesResult = {
@@ -403,24 +542,6 @@ export type GA4TopSourcesResult = {
 };
 
 export type TrafficCategory = "ai_referral" | "search_legacy" | "organic";
-
-// NOTE: GA4 stringFilter.matchType=FULL_REGEXP requires a full regex match.
-// We keep the regex "domain-anchored" and also allow subdomains:
-//   (^|.*\\.)example\\.com$  -> matches example.com, www.example.com, a.b.example.com
-const AI_REFERRAL_SOURCE_PATTERNS_ALLOWLIST = [
-  "(^|.*\\.)chatgpt\\.com$",
-  "(^|.*\\.)chat\\.openai\\.com$",
-  "(^|.*\\.)perplexity\\.ai$",
-  "(^|.*\\.)claude\\.ai$",
-  "(^|.*\\.)gemini\\.google\\.com$",
-  "(^|.*\\.)bard\\.google\\.com$",
-  "(^|.*\\.)copilot\\.microsoft\\.com$",
-  "(^|.*\\.)you\\.com$",
-  "(^|.*\\.)komo\\.ai$",
-  "(^|.*\\.)phind\\.com$",
-  "(^|.*\\.)meta\\.ai$",
-  "(^|.*\\.)search\\.brave\\.com$",
-] as const;
 
 const SEARCH_LEGACY_SOURCE_PATTERNS = [
   "(^|.*\\.)bing\\.com$",
@@ -788,6 +909,413 @@ export const queryGA4AiTrafficDetailed = async (params: {
   }
 };
 
+/* ═══════════════════════════════════════
+   GA4: AI 유입 전용 전환 퍼널 (best-effort)
+   ═══════════════════════════════════════ */
+
+export type GA4AiConversionFunnelStep = {
+  name: string;
+  key: "sessions" | "engagedSessions" | "view_item" | "add_to_cart" | "begin_checkout" | "purchase";
+  /** sessions 기준 값 */
+  sessions: number;
+  /** 이전 단계 대비 전환율(%) */
+  conversionRate: number;
+};
+
+export type GA4AiConversionFunnelDropoff = {
+  from: string;
+  to: string;
+  /** dropRate(%) = 100 - (to.sessions / from.sessions * 100) */
+  dropRate: number;
+};
+
+export type GA4AiConversionFunnelReport = {
+  range: { startDate: string; endDate: string };
+  identification: GA4AiTrafficIdentification;
+  referralOnly: boolean;
+  steps: GA4AiConversionFunnelStep[];
+  overallConversion: number;
+  biggestDropoff: GA4AiConversionFunnelDropoff;
+  totals: Pick<GA4AiTrafficTotals, "sessions" | "engagedSessions" | "ecommercePurchases" | "grossPurchaseRevenue"> & {
+    conversions: number;
+  };
+  debug: { matchedPatterns: string[]; notes: string[] };
+};
+
+export const queryGA4AiConversionFunnel = async (params: {
+  startDate: string;
+  endDate: string;
+  referralOnly?: boolean;
+  patterns?: string[];
+}): Promise<GA4AiConversionFunnelReport> => {
+  if (!env.GA4_PROPERTY_ID) {
+    throw new Error("GA4_PROPERTY_ID is not configured");
+  }
+
+  const client = createGA4Client();
+  const startDate = params.startDate || "30daysAgo";
+  const endDate = params.endDate || "yesterday";
+  const referralOnly = !!params.referralOnly;
+  const patterns = (params.patterns && params.patterns.length > 0 ? params.patterns : [...AI_REFERRAL_SOURCE_PATTERNS_ALLOWLIST])
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const notes: string[] = [];
+
+  const filterReferrerSourceOr = makeFullRegexpOrGroup("sessionSource", patterns);
+  const filterUtmSourceOr = makeFullRegexpOrGroup("sessionManualSource", CHATGPT_UTM_SOURCE_PATTERNS);
+  const referralMediumFilter = {
+    filter: {
+      fieldName: "sessionMedium",
+      stringFilter: { matchType: "EXACT" as const, value: "referral" },
+    },
+  };
+
+  const dimensionFilterReferrer = referralOnly
+    ? { andGroup: { expressions: [filterReferrerSourceOr, referralMediumFilter] } }
+    : filterReferrerSourceOr;
+
+  const dimensionFilterUtmSupplement = referralOnly
+    ? {
+        andGroup: {
+          expressions: [
+            filterUtmSourceOr,
+            { notExpression: filterReferrerSourceOr },
+            referralMediumFilter,
+          ],
+        },
+      }
+    : {
+        andGroup: {
+          expressions: [
+            filterUtmSourceOr,
+            { notExpression: filterReferrerSourceOr },
+          ],
+        },
+      };
+
+  const dimensionFilterUnion = {
+    orGroup: {
+      expressions: [dimensionFilterReferrer, dimensionFilterUtmSupplement],
+    },
+  };
+
+  notes.push(referralOnly ? "보조 필터: sessionMedium=referral 적용" : "보조 필터 없음(allowlist 기반 sessionSource FULL_REGEXP만 적용)");
+  notes.push(`UTM 보충: sessionManualSource FULL_REGEXP (${CHATGPT_UTM_SOURCE_PATTERNS.join(" | ")}) + NOT(sessionSource allowlist)`);
+
+  const [totalsRes, eventsRes, utmSupplementRes] = await Promise.all([
+    client.runReport({
+      property: `properties/${env.GA4_PROPERTY_ID}`,
+      dateRanges: [{ startDate, endDate }],
+      metrics: [
+        { name: "sessions" },
+        { name: "engagedSessions" },
+        { name: "conversions" },
+        { name: "ecommercePurchases" },
+        { name: "grossPurchaseRevenue" },
+      ],
+      dimensionFilter: dimensionFilterUnion,
+    }),
+    client.runReport({
+      property: `properties/${env.GA4_PROPERTY_ID}`,
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "eventName" }],
+      metrics: [{ name: "sessions" }],
+      dimensionFilter: {
+        andGroup: {
+          expressions: [
+            dimensionFilterUnion,
+            {
+              orGroup: {
+                expressions: ["view_item", "add_to_cart", "begin_checkout", "purchase"].map((eventName) => ({
+                  filter: {
+                    fieldName: "eventName",
+                    stringFilter: { matchType: "EXACT" as const, value: eventName },
+                  },
+                })),
+              },
+            },
+          ],
+        },
+      },
+      limit: 50,
+    }),
+    client.runReport({
+      property: `properties/${env.GA4_PROPERTY_ID}`,
+      dateRanges: [{ startDate, endDate }],
+      metrics: [{ name: "sessions" }],
+      dimensionFilter: dimensionFilterUtmSupplement,
+    }),
+  ]);
+
+  const totalsValues = totalsRes[0].rows?.[0]?.metricValues ?? [];
+  const totals = {
+    sessions: toNumber(totalsValues[0]?.value),
+    engagedSessions: toNumber(totalsValues[1]?.value),
+    conversions: toNumber(totalsValues[2]?.value),
+    ecommercePurchases: toNumber(totalsValues[3]?.value),
+    grossPurchaseRevenue: toNumber(totalsValues[4]?.value),
+  };
+
+  const utmSupplementSessions = toNumber(utmSupplementRes[0].rows?.[0]?.metricValues?.[0]?.value);
+  const referrerSessions = Math.max(0, totals.sessions - utmSupplementSessions);
+  const identification: GA4AiTrafficIdentification = {
+    method:
+      referrerSessions > 0 && utmSupplementSessions > 0
+        ? "both"
+        : utmSupplementSessions > 0
+          ? "utm"
+          : "referrer",
+  };
+  notes.push(
+    `식별 방식: ${identification.method} (referrer 세션: ${referrerSessions}, utm 보충 세션: ${utmSupplementSessions}, 합계: ${totals.sessions})`,
+  );
+
+  const sessionsByEvent = new Map<string, number>();
+  for (const row of eventsRes[0].rows ?? []) {
+    const dims = row.dimensionValues ?? [];
+    const mets = row.metricValues ?? [];
+    const eventName = dims[0]?.value ?? "";
+    if (!eventName) continue;
+    sessionsByEvent.set(eventName, toNumber(mets[0]?.value));
+  }
+
+  const steps: GA4AiConversionFunnelStep[] = [];
+  const pushStep = (name: GA4AiConversionFunnelStep["name"], key: GA4AiConversionFunnelStep["key"], sessions: number) => {
+    const prevSessions = steps.length > 0 ? steps[steps.length - 1]?.sessions ?? 0 : 0;
+    const conversionRate =
+      steps.length === 0 ? 100 : prevSessions > 0 ? +((sessions / prevSessions) * 100).toFixed(1) : 0;
+    steps.push({ name, key, sessions, conversionRate });
+  };
+
+  pushStep("AI 유입 세션", "sessions", totals.sessions);
+  pushStep("참여 세션", "engagedSessions", totals.engagedSessions);
+  pushStep("상품 조회", "view_item", sessionsByEvent.get("view_item") ?? 0);
+  pushStep("장바구니", "add_to_cart", sessionsByEvent.get("add_to_cart") ?? 0);
+  pushStep("결제 시작", "begin_checkout", sessionsByEvent.get("begin_checkout") ?? 0);
+  pushStep("구매", "purchase", sessionsByEvent.get("purchase") ?? 0);
+
+  const first = steps[0]?.sessions ?? 0;
+  const last = steps[steps.length - 1]?.sessions ?? 0;
+  const overallConversion = first > 0 ? +((last / first) * 100).toFixed(1) : 0;
+
+  let biggestDropoff: GA4AiConversionFunnelDropoff = { from: steps[0]?.name ?? "", to: steps[1]?.name ?? "", dropRate: 0 };
+  for (let i = 0; i < steps.length - 1; i++) {
+    const from = steps[i]!;
+    const to = steps[i + 1]!;
+    if (from.sessions <= 0) continue;
+    const raw = ((from.sessions - to.sessions) / from.sessions) * 100;
+    const dropRate = raw > 0 ? +raw.toFixed(1) : 0;
+    if (!biggestDropoff.from || dropRate > biggestDropoff.dropRate) {
+      biggestDropoff = { from: from.name, to: to.name, dropRate };
+    }
+  }
+
+  return {
+    range: { startDate, endDate },
+    identification,
+    referralOnly,
+    steps,
+    overallConversion,
+    biggestDropoff,
+    totals,
+    debug: { matchedPatterns: patterns, notes },
+  };
+};
+
+/* ═══════════════════════════════════════
+   GA4: AI vs Organic 비교 리포트 (채널 품질 비교)
+   ═══════════════════════════════════════ */
+
+export type GA4ChannelQualitySummary = {
+  sessions: number;
+  newUsers: number;
+  engagedSessions: number;
+  bounceRate: number; // fraction (0-1)
+  engagementRate: number; // fraction (0-1)
+  averageSessionDuration: number; // seconds
+  screenPageViews: number;
+  conversions: number;
+  ecommercePurchases: number;
+  grossPurchaseRevenue: number;
+  /** derived: screenPageViews / sessions */
+  pagesPerSession: number;
+  /** derived: conversions / sessions * 100 */
+  conversionRate: number;
+  /** derived: ecommercePurchases / sessions * 100 */
+  purchaseConversionRate: number;
+};
+
+export type GA4AiVsOrganicReport = {
+  range: { startDate: string; endDate: string };
+  identification: GA4AiTrafficIdentification;
+  referralOnly: boolean;
+  ai: GA4ChannelQualitySummary;
+  organic: GA4ChannelQualitySummary;
+  debug: { matchedPatterns: string[]; notes: string[] };
+};
+
+export const queryGA4AiVsOrganicReport = async (params: {
+  startDate: string;
+  endDate: string;
+  referralOnly?: boolean;
+  patterns?: string[];
+}): Promise<GA4AiVsOrganicReport> => {
+  if (!env.GA4_PROPERTY_ID) {
+    throw new Error("GA4_PROPERTY_ID is not configured");
+  }
+
+  const client = createGA4Client();
+  const startDate = params.startDate || "30daysAgo";
+  const endDate = params.endDate || "yesterday";
+  const referralOnly = !!params.referralOnly;
+  const patterns = (params.patterns && params.patterns.length > 0 ? params.patterns : [...AI_REFERRAL_SOURCE_PATTERNS_ALLOWLIST])
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const notes: string[] = [];
+
+  const filterReferrerSourceOr = makeFullRegexpOrGroup("sessionSource", patterns);
+  const filterUtmSourceOr = makeFullRegexpOrGroup("sessionManualSource", CHATGPT_UTM_SOURCE_PATTERNS);
+  const referralMediumFilter = {
+    filter: {
+      fieldName: "sessionMedium",
+      stringFilter: { matchType: "EXACT" as const, value: "referral" },
+    },
+  };
+
+  const dimensionFilterReferrer = referralOnly
+    ? { andGroup: { expressions: [filterReferrerSourceOr, referralMediumFilter] } }
+    : filterReferrerSourceOr;
+
+  const dimensionFilterUtmSupplement = referralOnly
+    ? {
+        andGroup: {
+          expressions: [
+            filterUtmSourceOr,
+            { notExpression: filterReferrerSourceOr },
+            referralMediumFilter,
+          ],
+        },
+      }
+    : {
+        andGroup: {
+          expressions: [
+            filterUtmSourceOr,
+            { notExpression: filterReferrerSourceOr },
+          ],
+        },
+      };
+
+  const dimensionFilterUnion = {
+    orGroup: {
+      expressions: [dimensionFilterReferrer, dimensionFilterUtmSupplement],
+    },
+  };
+
+  const organicFilter = {
+    filter: {
+      fieldName: "sessionDefaultChannelGroup",
+      stringFilter: { matchType: "EXACT" as const, value: "Organic Search" },
+    },
+  };
+
+  const metrics = [
+    { name: "sessions" },
+    { name: "newUsers" },
+    { name: "engagedSessions" },
+    { name: "bounceRate" },
+    { name: "engagementRate" },
+    { name: "averageSessionDuration" },
+    { name: "screenPageViews" },
+    { name: "conversions" },
+    { name: "ecommercePurchases" },
+    { name: "grossPurchaseRevenue" },
+  ] as const;
+
+  notes.push(referralOnly ? "보조 필터: sessionMedium=referral 적용" : "보조 필터 없음(allowlist 기반 sessionSource FULL_REGEXP만 적용)");
+  notes.push(`UTM 보충: sessionManualSource FULL_REGEXP (${CHATGPT_UTM_SOURCE_PATTERNS.join(" | ")}) + NOT(sessionSource allowlist)`);
+
+  const [aiRes, organicRes, utmSupplementRes] = await Promise.all([
+    client.runReport({
+      property: `properties/${env.GA4_PROPERTY_ID}`,
+      dateRanges: [{ startDate, endDate }],
+      metrics: [...metrics],
+      dimensionFilter: dimensionFilterUnion,
+    }),
+    client.runReport({
+      property: `properties/${env.GA4_PROPERTY_ID}`,
+      dateRanges: [{ startDate, endDate }],
+      metrics: [...metrics],
+      dimensionFilter: organicFilter,
+    }),
+    client.runReport({
+      property: `properties/${env.GA4_PROPERTY_ID}`,
+      dateRanges: [{ startDate, endDate }],
+      metrics: [{ name: "sessions" }],
+      dimensionFilter: dimensionFilterUtmSupplement,
+    }),
+  ]);
+
+  const parseSummary = (report: {
+    rows?: ({ metricValues?: ({ value?: string | null } | null)[] | null } | null)[] | null;
+  } | null | undefined): GA4ChannelQualitySummary => {
+    const values = report?.rows?.[0]?.metricValues ?? [];
+    const sessions = toNumber(values[0]?.value);
+    const newUsers = toNumber(values[1]?.value);
+    const engagedSessions = toNumber(values[2]?.value);
+    const bounceRate = toNumber(values[3]?.value);
+    const engagementRate = toNumber(values[4]?.value);
+    const averageSessionDuration = toNumber(values[5]?.value);
+    const screenPageViews = toNumber(values[6]?.value);
+    const conversions = toNumber(values[7]?.value);
+    const ecommercePurchases = toNumber(values[8]?.value);
+    const grossPurchaseRevenue = toNumber(values[9]?.value);
+
+    const pagesPerSession = sessions > 0 ? +(screenPageViews / sessions).toFixed(2) : 0;
+    const conversionRate = sessions > 0 ? +((conversions / sessions) * 100).toFixed(2) : 0;
+    const purchaseConversionRate = sessions > 0 ? +((ecommercePurchases / sessions) * 100).toFixed(2) : 0;
+
+    return {
+      sessions,
+      newUsers,
+      engagedSessions,
+      bounceRate,
+      engagementRate,
+      averageSessionDuration,
+      screenPageViews,
+      conversions,
+      ecommercePurchases,
+      grossPurchaseRevenue,
+      pagesPerSession,
+      conversionRate,
+      purchaseConversionRate,
+    };
+  };
+
+  const aiSummary = parseSummary(aiRes[0]);
+  const utmSupplementSessions = toNumber(utmSupplementRes[0].rows?.[0]?.metricValues?.[0]?.value);
+  const referrerSessions = Math.max(0, aiSummary.sessions - utmSupplementSessions);
+  const identification: GA4AiTrafficIdentification = {
+    method:
+      referrerSessions > 0 && utmSupplementSessions > 0
+        ? "both"
+        : utmSupplementSessions > 0
+          ? "utm"
+          : "referrer",
+  };
+  notes.push(
+    `식별 방식: ${identification.method} (referrer 세션: ${referrerSessions}, utm 보충 세션: ${utmSupplementSessions}, 합계: ${aiSummary.sessions})`,
+  );
+
+  return {
+    range: { startDate, endDate },
+    identification,
+    referralOnly,
+    ai: aiSummary,
+    organic: parseSummary(organicRes[0]),
+    debug: { matchedPatterns: patterns, notes },
+  };
+};
+
 export const queryGA4TopSources = async (params: {
   startDate: string;
   endDate: string;
@@ -827,10 +1355,15 @@ export const queryGA4TopSources = async (params: {
       const dims = row.dimensionValues ?? [];
       const mets = row.metricValues ?? [];
       const sessionSource = dims[0]?.value ?? "";
+      const category = categorizeTrafficSource(sessionSource);
+      const matchedInfo = matchAiReferrer(sessionSource);
+      const matched = category === "ai_referral" && matchedInfo.matched;
       return {
         sessionSource,
-        category: categorizeTrafficSource(sessionSource),
+        category,
         sessions: toNumber(mets[0]?.value),
+        matched,
+        label: matched ? matchedInfo.label : null,
       };
     }).filter((r) => r.sessionSource);
 

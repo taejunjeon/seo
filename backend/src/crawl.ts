@@ -141,3 +141,77 @@ export const crawlAndAnalyze = async (url: string): Promise<CrawlResult> => {
     crawledAt: new Date().toISOString(),
   };
 };
+
+/* ═══════════════════════════════════════
+   하위 페이지 링크 추출
+   ═══════════════════════════════════════ */
+
+export type SubpageLink = {
+  url: string;
+  title: string;
+};
+
+/**
+ * 부모 URL을 크롤링하여 동일 도메인 하위 페이지 링크를 추출합니다.
+ * @param parentUrl 부모 URL
+ * @param maxLinks 최대 추출 링크 수 (기본 50)
+ */
+export const discoverSubpages = async (parentUrl: string, maxLinks = 50): Promise<SubpageLink[]> => {
+  const response = await fetch(parentUrl, {
+    headers: {
+      "User-Agent": "BiocomAI-SEO-Crawler/1.0",
+      "Accept": "text/html",
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${parentUrl}: ${response.status}`);
+  }
+
+  const html = await response.text();
+  const $ = cheerio.load(html);
+
+  const parentUrlObj = new URL(parentUrl);
+  const parentHost = parentUrlObj.hostname;
+  const parentPath = parentUrlObj.pathname.replace(/\/$/, "");
+
+  const seen = new Set<string>();
+  const links: SubpageLink[] = [];
+
+  $("a[href]").each((_, el) => {
+    if (links.length >= maxLinks) return false;
+
+    const href = $(el).attr("href") ?? "";
+    const title = $(el).text().trim().replace(/\s+/g, " ").slice(0, 120);
+    if (!href || !title) return;
+
+    try {
+      const resolved = new URL(href, parentUrl);
+      // 동일 호스트만
+      if (resolved.hostname !== parentHost) return;
+      const resolvedPath = resolved.pathname.replace(/\/$/, "");
+      // 부모 경로 하위이거나, 동일 경로이지만 쿼리 파라미터가 다른 경우
+      const isSamePath = resolvedPath === parentPath;
+      const isSubPath = resolvedPath.startsWith(parentPath + "/");
+      if (!isSamePath && !isSubPath) return;
+      // 자기 자신 제외 (경로+쿼리 모두 동일)
+      if (isSamePath && resolved.search === parentUrlObj.search) return;
+      // 동일 경로이면 쿼리 파라미터가 있어야 하위 페이지로 간주
+      if (isSamePath && !resolved.search) return;
+
+      const fullUrl = resolved.href;
+      if (seen.has(fullUrl)) return;
+      seen.add(fullUrl);
+
+      // 파일 확장자 필터 (이미지, PDF 등 제외)
+      if (/\.(jpg|jpeg|png|gif|svg|pdf|zip|css|js)$/i.test(resolvedPath)) return;
+
+      links.push({ url: fullUrl, title });
+    } catch {
+      // 잘못된 URL 무시
+    }
+  });
+
+  return links;
+};

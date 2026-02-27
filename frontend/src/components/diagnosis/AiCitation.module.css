@@ -1,0 +1,404 @@
+/* ═══════════════════════════════════════
+   AI Citation Section Styles
+   ═══════════════════════════════════════ */
+
+.citationSection {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.citationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.citationTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #0f172a);
+  margin: 0;
+}
+
+.citationProviderCount {
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #94a3b8);
+  background: var(--color-surface, #f8fafc);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.citationNotice {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary, #475569);
+  background: #f0f9ff;
+  border-left: 3px solid #3b82f6;
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── URL 인용 배너 ── */
+.urlCitedBanner {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #a7f3d0;
+  text-align: center;
+}
+
+/* ── Verdict row ── */
+.verdictRow {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.verdictCard {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+
+.verdictExposureZero {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.verdictCitationZero {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.verdictCited {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.verdictIcon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.verdictText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.verdictLabel {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.verdictDesc {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary, #475569);
+  line-height: 1.4;
+}
+
+.summaryMetrics {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.summaryMetric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 16px;
+  background: var(--color-surface, #f8fafc);
+  border-radius: 10px;
+  min-width: 80px;
+}
+
+.summaryMetricLabel {
+  font-size: 0.7rem;
+  color: var(--color-text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.summaryMetricValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #0f172a);
+}
+
+/* ── Provider Section ── */
+.providerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.providerGroupTitle {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #475569);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin: 0;
+  padding-left: 2px;
+}
+
+/* ── Provider Cards Grid ── */
+.providerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.providerCard {
+  background: var(--color-surface, #f8fafc);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.providerCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.providerIcon {
+  font-size: 1.2rem;
+}
+
+.providerName {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #0f172a);
+  flex: 1;
+}
+
+.providerStatusBadge {
+  font-size: 0.85rem;
+}
+
+.providerMetrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.providerMetric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 50px;
+}
+
+.providerMetricLabel {
+  font-size: 0.65rem;
+  color: var(--color-text-muted, #94a3b8);
+  text-transform: uppercase;
+}
+
+.providerMetricValue {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.providerBar {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.providerBarFill {
+  height: 100%;
+  border-radius: 2px;
+  min-width: 2px;
+  transition: width 0.4s ease;
+}
+
+.providerLatency {
+  font-size: 0.68rem;
+  color: var(--color-text-muted, #94a3b8);
+  text-align: right;
+}
+
+.providerCardBench {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.providerCardInactive {
+  opacity: 0.6;
+}
+
+.providerWeightBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #0d9488;
+  background: #ccfbf1;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.providerBenchBadge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.providerInactiveBadge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #9ca3af;
+  background: #f9fafb;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+/* ── Accordion ── */
+.accordionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #0f172a);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.accordionBtn:hover {
+  background: var(--color-surface, #f8fafc);
+}
+
+.sampleHint {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+/* ── Samples / Competitor Table ── */
+.samplesSection,
+.competitorSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.samplesTableWrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.samplesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.samplesTable th {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  background: var(--color-surface, #f8fafc);
+  color: var(--color-text-secondary, #475569);
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.samplesTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.samplesTable tbody tr:hover {
+  background: #f8fafc;
+}
+
+.samplesQueryCell {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.samplesCenterCell {
+  text-align: center;
+}
+
+.samplesRowHighlight {
+  background: #ecfdf5 !important;
+}
+
+.cellCited { color: #10b981; }
+.cellExposure { color: #f59e0b; }
+.cellNone { color: #94a3b8; }
+
+.citedBadge {
+  display: inline-block;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.notCitedBadge {
+  display: inline-block;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.selfBadge {
+  display: inline-block;
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+}
+
+.providerMiniTag {
+  font-size: 0.9rem;
+  margin-right: 2px;
+}

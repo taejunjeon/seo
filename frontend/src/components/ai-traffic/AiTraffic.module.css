@@ -1,0 +1,715 @@
+/* ═══════════════════════════════════════
+   AI Traffic 컴포넌트 스타일
+   page.module.css의 aiTraffic 스타일을 컴포넌트로 분리
+   ═══════════════════════════════════════ */
+
+/* ── 공통 ── */
+.section {
+  margin-top: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aiIcon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.5);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.definition {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  padding: 10px 14px;
+  background: rgba(99, 102, 241, 0.04);
+  border-radius: 8px;
+  border-left: 3px solid #a855f7;
+  margin-bottom: 16px;
+}
+
+/* ── 기간 선택 ── */
+.periodBtns {
+  display: flex;
+  gap: 4px;
+}
+
+.periodBtn {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.periodBtn:hover {
+  color: #1e293b;
+  background: #f1f5f9;
+}
+
+.periodBtnActive {
+  background: #1e293b;
+  color: #fff;
+}
+
+.periodBtnActive:hover {
+  background: #334155;
+  color: #fff;
+}
+
+.metaText {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.datePicker {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.dateLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #475569;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dateLabel input {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.dateActions {
+  display: flex;
+  gap: 6px;
+}
+
+.dateActionBtn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  transition: all 0.15s;
+}
+
+.dateActionBtn:hover {
+  background: #e2e8f0;
+}
+
+/* ── KPI 그리드 ── */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.kpiItem {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+}
+
+.kpiValue {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #6366f1;
+  line-height: 1.1;
+}
+
+.kpiLabel {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.kpiSub {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* ── 신규 vs 재방문 ── */
+.userTypeCard {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.userTypeTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.userTypeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.userTypeItem {
+  text-align: center;
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.userTypeNew {
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.userTypeReturning {
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.userTypeValue {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.userTypeNewValue {
+  color: #10b981;
+}
+
+.userTypeReturningValue {
+  color: #6366f1;
+}
+
+.userTypeLabel {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.userTypeBar {
+  margin-top: 10px;
+  height: 8px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  overflow: hidden;
+  display: flex;
+}
+
+.userTypeBarNew {
+  background: #10b981;
+  transition: width 0.3s;
+}
+
+.userTypeBarReturning {
+  background: #6366f1;
+  transition: width 0.3s;
+}
+
+/* ── 테이블 공통 ── */
+.tablesWrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tableCard {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 12px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.tableTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tableTitle svg {
+  width: 14px;
+  height: 14px;
+  color: #6366f1;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.table th:not(:first-child) {
+  text-align: right;
+}
+
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+  color: #334155;
+}
+
+.table td:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.sourceCell {
+  font-weight: 500;
+  color: #1e293b;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landingCell {
+  font-weight: 500;
+  color: #1e293b;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.landingCell:hover {
+  color: #6366f1;
+  text-decoration: underline;
+}
+
+.diagBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  background: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.diagBtn:hover {
+  background: rgba(99, 102, 241, 0.16);
+}
+
+/* ── Empty / Skeleton ── */
+.empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.emptyIcon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.emptyText {
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.emptyHint {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.skeleton {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.skeletonItem {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  height: 70px;
+  border-radius: 10px;
+}
+
+.skeletonTable {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  height: 180px;
+  border-radius: 10px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Badge ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.badgeLive {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.badgeFallback {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.badgeLoading {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── 카테고리 뱃지 ── */
+.categoryBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.categoryAi {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.categoryOther {
+  background: rgba(100, 116, 139, 0.1);
+  color: #64748b;
+}
+
+/* ── 필터 토글 ── */
+.filterToggle {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: transparent;
+  color: #64748b;
+  transition: all 0.15s;
+}
+
+.filterToggle:hover {
+  background: #f1f5f9;
+}
+
+.filterToggleActive {
+  background: #6366f1;
+  color: #fff;
+  border-color: #6366f1;
+}
+
+.filterToggleActive:hover {
+  background: #4f46e5;
+}
+
+/* ── 미분류 안내 ── */
+.userTypeNotice {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: #f59e0b;
+  text-align: center;
+}
+
+/* ── Notice 텍스트 ── */
+.noticeText {
+  font-size: 0.68rem;
+  color: #f59e0b;
+  margin-left: 4px;
+}
+
+/* ── 에러 상태 ── */
+.error {
+  text-align: center;
+  padding: 32px 16px;
+  color: #ef4444;
+  font-size: 0.85rem;
+}
+
+.errorIcon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  opacity: 0.6;
+}
+
+.errorText {
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.retryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  transition: all 0.15s;
+}
+
+.retryBtn:hover {
+  background: rgba(239, 68, 68, 0.16);
+}
+
+/* ═══════════════════════════════════
+   Tab 0 — 요약 카드 (Summary)
+   ═══════════════════════════════════ */
+.summaryCard {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(168, 85, 247, 0.06) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-top: 24px;
+}
+
+.summaryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.summaryTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summaryIcon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.summaryKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.summaryKpiItem {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+}
+
+.summaryKpiValue {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #6366f1;
+  line-height: 1.1;
+}
+
+.summaryKpiLabel {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.summarySources {
+  font-size: 0.75rem;
+  color: #475569;
+  margin-bottom: 10px;
+}
+
+.summaryNote {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border-left: 3px solid #a855f7;
+}
+
+.summaryHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.summaryDetailLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.summaryDetailLink:hover {
+  background: rgba(99, 102, 241, 0.16);
+}
+
+/* ── 변화량 표시 ── */
+.changeUp {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #10b981;
+  vertical-align: middle;
+}
+
+.changeDown {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #ef4444;
+  vertical-align: middle;
+}
+
+.summarySkeleton {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.summarySkeletonItem {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  height: 60px;
+  border-radius: 10px;
+}
+
+.summaryPeriod {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .tablesWrap {
+    grid-template-columns: 1fr;
+  }
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

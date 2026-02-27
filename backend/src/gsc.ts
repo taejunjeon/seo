@@ -4,6 +4,14 @@ import { env } from "./env";
 
 const GSC_SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"];
 
+export type GscSearchAnalyticsResponse = {
+  siteUrl: string;
+  startDate: string;
+  endDate: string;
+  rows: searchconsole_v1.Schema$ApiDataRow[];
+  responseAggregationType?: string | null;
+};
+
 export type GscDimension =
   | "date"
   | "query"
@@ -61,35 +69,92 @@ const createSearchConsoleClient = (): searchconsole_v1.Searchconsole => {
   });
 };
 
+let cachedClient: searchconsole_v1.Searchconsole | null = null;
+
+const getSearchConsoleClient = (): searchconsole_v1.Searchconsole => {
+  if (cachedClient) return cachedClient;
+  cachedClient = createSearchConsoleClient();
+  return cachedClient;
+};
+
+const QUERY_CACHE_TTL_MS = 60_000; // 1m: reduce duplicate queries during initial dashboard load
+const queryCache = new Map<string, { measuredAtMs: number; value: GscSearchAnalyticsResponse }>();
+const inflight = new Map<string, Promise<GscSearchAnalyticsResponse>>();
+
+const serializeFilters = (groups: searchconsole_v1.Schema$ApiDimensionFilterGroup[] | undefined) => {
+  if (!groups) return "";
+  try {
+    return JSON.stringify(groups);
+  } catch {
+    return "[unserializable_filters]";
+  }
+};
+
+const makeQueryCacheKey = (params: GscQueryParams, siteUrl: string) => {
+  return [
+    siteUrl,
+    params.startDate,
+    params.endDate,
+    params.dimensions.join(","),
+    params.rowLimit,
+    params.startRow,
+    params.type ?? "web",
+    params.aggregationType ?? "auto",
+    serializeFilters(params.dimensionFilterGroups),
+  ].join("|");
+};
+
 export const listGscSites = async () => {
-  const client = createSearchConsoleClient();
+  const client = getSearchConsoleClient();
   const response = await client.sites.list();
   return response.data.siteEntry ?? [];
 };
 
-export const queryGscSearchAnalytics = async (params: GscQueryParams) => {
-  const client = createSearchConsoleClient();
+export const queryGscSearchAnalytics = async (params: GscQueryParams): Promise<GscSearchAnalyticsResponse> => {
+  const client = getSearchConsoleClient();
+  const resolvedSiteUrl = params.siteUrl ?? env.GSC_SITE_URL;
+  const cacheKey = makeQueryCacheKey(params, resolvedSiteUrl);
+  const cached = queryCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && now - cached.measuredAtMs < QUERY_CACHE_TTL_MS) {
+    return cached.value;
+  }
 
-  const response = await client.searchanalytics.query({
-    siteUrl: params.siteUrl ?? env.GSC_SITE_URL,
-    requestBody: {
+  const running = inflight.get(cacheKey);
+  if (running) return running;
+
+  const promise = (async () => {
+    const response = await client.searchanalytics.query({
+      siteUrl: resolvedSiteUrl,
+      requestBody: {
+        startDate: params.startDate,
+        endDate: params.endDate,
+        dimensions: params.dimensions,
+        dimensionFilterGroups: params.dimensionFilterGroups,
+        rowLimit: params.rowLimit,
+        startRow: params.startRow,
+        type: params.type,
+        aggregationType: params.aggregationType,
+        dataState: "final",
+      },
+    });
+
+    const value: GscSearchAnalyticsResponse = {
+      siteUrl: resolvedSiteUrl,
       startDate: params.startDate,
       endDate: params.endDate,
-      dimensions: params.dimensions,
-      dimensionFilterGroups: params.dimensionFilterGroups,
-      rowLimit: params.rowLimit,
-      startRow: params.startRow,
-      type: params.type,
-      aggregationType: params.aggregationType,
-      dataState: "final",
-    },
-  });
+      rows: response.data.rows ?? [],
+      responseAggregationType: response.data.responseAggregationType ?? null,
+    };
 
-  return {
-    siteUrl: params.siteUrl ?? env.GSC_SITE_URL,
-    startDate: params.startDate,
-    endDate: params.endDate,
-    rows: response.data.rows ?? [],
-    responseAggregationType: response.data.responseAggregationType,
-  };
+    queryCache.set(cacheKey, { measuredAtMs: Date.now(), value });
+    return value;
+  })();
+
+  inflight.set(cacheKey, promise);
+  try {
+    return await promise;
+  } finally {
+    inflight.delete(cacheKey);
+  }
 };

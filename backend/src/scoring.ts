@@ -1,4 +1,5 @@
 import type { SchemaInfo, ContentStructure } from "./crawl";
+import type { AiCitationMultiResult } from "./aiCitationMulti";
 
 /* ═══════════════════════════════════════
    AEO / GEO 점수 산출 엔진
@@ -32,16 +33,7 @@ export const calculateAeoScore = (data: {
   schema: SchemaInfo | null;
   content: ContentStructure | null;
   performanceScore: number | null;
-  aiCitation: {
-    sampled: number;
-    aiOverviewPresent: number;
-    citedQueries: number;
-    citedReferences: number;
-    citationRateAmongAiOverview: number;
-    siteHost: string;
-    measuredAt: string;
-    samples: { query: string; cited: boolean }[];
-  } | null;
+  aiCitation: AiCitationMultiResult | null;
   aiTraffic: {
     startDate: string;
     endDate: string;
@@ -139,30 +131,92 @@ export const calculateAeoScore = (data: {
   }
 
   // 5. AI 인용 빈도 (20점) — 유료 API 필요
+  // KR 운영 기준: Google AIO는 점수 산식 제외(참고용 벤치마크).
+  // 점수 산식: ChatGPT(Search) 가중치 0.8 + Perplexity 가중치 0.2
+  // 활성 프로바이더: eligible >= 3인 프로바이더만 점수에 반영 (재정규화)
   if (data.aiCitation) {
-    const citedRate = data.aiCitation.citationRateAmongAiOverview; // 0~1
+    const PROVIDER_WEIGHTS: Record<string, number> = {
+      chatgpt_search: 0.8,
+      perplexity: 0.2,
+    };
+    const MIN_ELIGIBLE = 3;
+
+    const providerLabel = (p: AiCitationMultiResult["providers"][number]["provider"]) => {
+      switch (p) {
+        case "google_ai_overview": return "Google AIO";
+        case "chatgpt_search": return "ChatGPT(Search)";
+        case "perplexity": return "Perplexity";
+      }
+    };
+
+    // 점수 대상 프로바이더: Google AIO 제외 + eligible >= MIN_ELIGIBLE만 활성
+    const scoringCandidates = data.aiCitation.providers.filter(
+      (p) => p.provider !== "google_ai_overview" && (PROVIDER_WEIGHTS[p.provider] ?? 0) > 0,
+    );
+    const activeProviders = scoringCandidates.filter((p) => p.eligible >= MIN_ELIGIBLE);
+
+    // 가중치 재정규화: 활성 프로바이더의 가중치 합으로 나눠 1.0으로 정규화
+    const totalWeight = activeProviders.reduce((s, p) => s + (PROVIDER_WEIGHTS[p.provider] ?? 0), 0);
+    const weightedRate = totalWeight > 0
+      ? activeProviders.reduce((s, p) => s + (PROVIDER_WEIGHTS[p.provider] ?? 0) * p.citationRate, 0) / totalWeight
+      : 0;
+
     // 10% 이상이면 20점(만점)으로 보는 보수적 스케일
-    const score = Math.min(20, Math.round(citedRate * 200));
-    const citedExamples = data.aiCitation.samples
-      .filter((s) => s.cited)
+    const score = Math.min(20, Math.round(weightedRate * 200));
+
+    const scoringEligible = activeProviders.reduce((s, p) => s + p.eligible, 0);
+    const scoringCitedQueries = activeProviders.reduce((s, p) => s + p.citedQueries, 0);
+    const scoringCitedReferences = activeProviders.reduce((s, p) => s + p.citedReferences, 0);
+
+    const citedExamples = Array.from(
+      new Set(
+        activeProviders
+          .flatMap((p) => p.samples.filter((s) => s.eligible && s.cited).map((s) => s.query)),
+      ),
+    )
       .slice(0, 3)
-      .map((s) => s.query)
       .join(" / ");
+
+    const providerStats = data.aiCitation.providers
+      .map((p) => {
+        const w = PROVIDER_WEIGHTS[p.provider];
+        const tag = w != null ? `w=${(w * 100).toFixed(0)}%` : "참고";
+        const active = w != null && p.eligible >= MIN_ELIGIBLE ? "" : "(미활성)";
+        return `${providerLabel(p.provider)} ${p.citedQueries}/${p.eligible} (${(p.citationRate * 100).toFixed(1)}%) [${tag}${active}]`;
+      })
+      .join(" · ");
+
+    const activeNames = activeProviders.map((p) => {
+      const w = PROVIDER_WEIGHTS[p.provider] ?? 0;
+      return `${providerLabel(p.provider)} ${(w * 100).toFixed(0)}%`;
+    }).join(" + ");
+
+    const citationVerdict =
+      scoringEligible === 0
+        ? "상태: 노출/출처 0(eligible=0)"
+        : scoringCitedQueries === 0
+          ? "상태: 인용 0"
+          : "상태: 인용됨";
 
     breakdown.push({
       name: "aiCitation",
       label: "AI 답변 인용 빈도",
       score,
       maxScore: 20,
-      status: "measured",
+      status: activeProviders.length > 0 ? "measured" : "estimated",
       detail: [
+        `산식: ${activeNames || "활성 프로바이더 없음"} (Google AIO는 참고)`,
+        `활성 기준: eligible >= ${MIN_ELIGIBLE}`,
+        citationVerdict,
         `표본 ${data.aiCitation.sampled}개 키워드`,
-        `AI Overview ${data.aiCitation.aiOverviewPresent}개`,
-        `${data.aiCitation.siteHost} 인용 ${data.aiCitation.citedQueries}개 (${(citedRate * 100).toFixed(1)}%)`,
-        `인용 링크 ${data.aiCitation.citedReferences}개`,
+        `가중 인용률 ${(weightedRate * 100).toFixed(1)}%`,
+        `측정 기회(점수 기준) ${scoringEligible}회`,
+        `${data.aiCitation.siteHost} 인용(점수 기준) ${scoringCitedQueries}회`,
+        providerStats ? `프로바이더: ${providerStats}` : "",
+        `인용 링크(점수 기준) ${scoringCitedReferences}개`,
         citedExamples ? `예시: ${citedExamples}` : "예시: —",
         `측정: ${new Date(data.aiCitation.measuredAt).toLocaleString("ko-KR")}`,
-      ].join(" · "),
+      ].filter(Boolean).join(" · "),
     });
   } else {
     breakdown.push({
@@ -171,7 +225,7 @@ export const calculateAeoScore = (data: {
       score: 0,
       maxScore: 20,
       status: "unavailable",
-      detail: "SerpAPI/Perplexity 설정 필요 (SERP_API_KEY / PERPLEXITY_API_KEY)",
+      detail: "AI 인용도 측정 설정 필요 (SERP_API_KEY 또는 OPENAI_API_KEY 또는 PERPLEXITY_API_KEY)",
     });
   }
 

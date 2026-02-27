@@ -15,6 +15,8 @@ export type KeywordIntent = {
   confidence: "high" | "medium" | "low";
 };
 
+export type IntentWeight = "clicks" | "impressions" | "count";
+
 export type IntentSummary = {
   categories: {
     label: string;
@@ -22,10 +24,16 @@ export type IntentSummary = {
     percent: number;
     count: number;
     colorClass: string;
+    totalClicks: number;
+    totalImpressions: number;
+    topKeywords: string[];
   }[];
   keywords: KeywordIntent[];
   totalKeywords: number;
   method: "rule" | "hybrid";
+  weightedBy: IntentWeight;
+  totalClicks: number;
+  totalImpressions: number;
 };
 
 /* ── 규칙 기반 분류 패턴 ── */
@@ -168,6 +176,7 @@ async function classifyWithGPT(keywords: string[]): Promise<Map<string, IntentTy
 /* ── 메인 분류 함수 ── */
 export async function classifyKeywordIntents(
   keywords: { query: string; clicks?: number; impressions?: number }[],
+  options?: { weight?: IntentWeight },
 ): Promise<IntentSummary> {
   // 1차: 규칙 기반 분류
   const results: KeywordIntent[] = keywords.map((kw) => classifyByRules(kw.query));
@@ -191,18 +200,62 @@ export async function classifyKeywordIntents(
   }
 
   // 집계
-  const counts: Record<IntentType, number> = {
-    informational: 0,
-    commercial: 0,
-    navigational: 0,
-    brand: 0,
+  const enriched = results.map((r, idx) => ({
+    ...r,
+    clicks: keywords[idx]?.clicks ?? 0,
+    impressions: keywords[idx]?.impressions ?? 0,
+  }));
+
+  const sums: Record<
+    IntentType,
+    {
+      count: number;
+      clicks: number;
+      impressions: number;
+      top: { query: string; clicks: number; impressions: number }[];
+    }
+  > = {
+    informational: { count: 0, clicks: 0, impressions: 0, top: [] },
+    commercial: { count: 0, clicks: 0, impressions: 0, top: [] },
+    navigational: { count: 0, clicks: 0, impressions: 0, top: [] },
+    brand: { count: 0, clicks: 0, impressions: 0, top: [] },
   };
 
-  for (const r of results) {
-    counts[r.intent]++;
+  for (const item of enriched) {
+    const intent = item.intent;
+    sums[intent].count += 1;
+    sums[intent].clicks += item.clicks;
+    sums[intent].impressions += item.impressions;
+    sums[intent].top.push({ query: item.query, clicks: item.clicks, impressions: item.impressions });
   }
 
-  const total = results.length || 1;
+  const totalKeywords = enriched.length;
+  const totalClicks = enriched.reduce((s, r) => s + r.clicks, 0);
+  const totalImpressions = enriched.reduce((s, r) => s + r.impressions, 0);
+
+  const requestedWeight = options?.weight ?? "clicks";
+  const weightedBy: IntentWeight =
+    requestedWeight === "clicks" && totalClicks === 0
+      ? (totalImpressions > 0 ? "impressions" : "count")
+      : requestedWeight;
+
+  const totalWeight =
+    weightedBy === "clicks"
+      ? totalClicks
+      : weightedBy === "impressions"
+        ? totalImpressions
+        : totalKeywords;
+
+  const computePercent = (intent: IntentType) => {
+    if (totalWeight <= 0) return 0;
+    const w =
+      weightedBy === "clicks"
+        ? sums[intent].clicks
+        : weightedBy === "impressions"
+          ? sums[intent].impressions
+          : sums[intent].count;
+    return Math.round((w / totalWeight) * 100);
+  };
 
   const LABEL_MAP: Record<IntentType, { label: string; colorClass: string }> = {
     informational: { label: "정보성", colorClass: "intentBarInfo" },
@@ -211,12 +264,19 @@ export async function classifyKeywordIntents(
     brand: { label: "브랜드", colorClass: "intentBarBrand" },
   };
 
-  const categories = (Object.keys(counts) as IntentType[]).map((type) => ({
+  const categories = (Object.keys(sums) as IntentType[]).map((type) => ({
     label: LABEL_MAP[type].label,
     type,
-    percent: Math.round((counts[type] / total) * 100),
-    count: counts[type],
+    percent: computePercent(type),
+    count: sums[type].count,
     colorClass: LABEL_MAP[type].colorClass,
+    totalClicks: sums[type].clicks,
+    totalImpressions: sums[type].impressions,
+    topKeywords: sums[type].top
+      .slice()
+      .sort((a, b) => (b.clicks - a.clicks) || (b.impressions - a.impressions))
+      .slice(0, 3)
+      .map((k) => k.query),
   }));
 
   // 비율 합 100% 보정
@@ -224,14 +284,21 @@ export async function classifyKeywordIntents(
   if (sumPercent !== 100 && categories.length > 0) {
     const diff = 100 - sumPercent;
     // 가장 큰 카테고리에 차이를 더함
-    const maxCat = categories.reduce((a, b) => (a.count > b.count ? a : b));
+    const maxCat = categories.reduce((a, b) => {
+      const aWeight = weightedBy === "clicks" ? a.totalClicks : weightedBy === "impressions" ? a.totalImpressions : a.count;
+      const bWeight = weightedBy === "clicks" ? b.totalClicks : weightedBy === "impressions" ? b.totalImpressions : b.count;
+      return aWeight > bWeight ? a : b;
+    });
     maxCat.percent += diff;
   }
 
   return {
     categories,
     keywords: results,
-    totalKeywords: results.length,
+    totalKeywords,
     method,
+    weightedBy,
+    totalClicks,
+    totalImpressions,
   };
 }

@@ -150,8 +150,13 @@ GA4_SERVICE_ACCOUNT_KEY='{"type":"service_account", ... }'
 활성화 절차(개요):
 1. SerpAPI 가입
 2. API Key 발급
-3. (향후 구현 시) 백엔드 env에 키 추가(예: `SERPAPI_API_KEY=...`)
+3. 백엔드 env에 키 추가(예: `SERP_API_KEY=...`)
 4. 키워드 리스트(Top queries)를 대상으로 주기적으로 호출하여 인용/노출을 저장/집계
+
+프로젝트에서 키 정상 여부 확인(키 노출 없이):
+```bash
+curl -sS http://localhost:7020/api/serpapi/account
+```
 
 주의:
 - 비용은 호출량 기반(플랜별 상이)
@@ -188,4 +193,3 @@ GA4_SERVICE_ACCOUNT_KEY='{"type":"service_account", ... }'
 저장 방식은 2가지가 있습니다.
 - (간단) 메모리 캐시 + 최근 N건만 노출
 - (권장) Supabase 테이블에 일/주 단위 집계 저장 (단, DB 스키마 변경은 사전 승인 필요)
-
