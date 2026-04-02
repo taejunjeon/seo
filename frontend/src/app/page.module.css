@@ -83,16 +83,17 @@
 }
 
 .navTab {
-  padding: 10px 20px;
+  padding: 8px 14px;
   border-radius: 9999px;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .navTab:hover {

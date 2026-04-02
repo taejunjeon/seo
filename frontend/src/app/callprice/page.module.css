@@ -1,0 +1,850 @@
+/* ══════════════════════════════════════
+   CallPrice Analytics Dashboard
+   ══════════════════════════════════════ */
+
+/* ── 페이지 레이아웃 ── */
+.page {
+  min-height: 100vh;
+  padding: 0 0 48px;
+}
+
+.main {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+
+/* ── 헤더 (글래스모피즘) ── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.headerInner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.headerTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.headerSub {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: rgba(13, 148, 136, 0.08);
+  transition: background 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.backLink:hover {
+  background: rgba(13, 148, 136, 0.15);
+  color: var(--color-primary-dark);
+}
+
+/* ── 히어로 KPI 카드 ── */
+.heroCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.heroCard {
+  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.heroCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 12px 36px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.heroLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.heroValue {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.heroUnit {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-left: 4px;
+}
+
+.heroNote {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 6px;
+}
+
+.heroPositive {
+  color: var(--color-success);
+}
+
+.heroNegative {
+  color: var(--color-danger);
+}
+
+/* ── 히어로 카드 아코디언 ── */
+.heroCardClickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.heroToggle {
+  font-size: 0.6rem;
+  margin-left: 6px;
+  color: var(--color-text-muted);
+  vertical-align: middle;
+}
+
+.heroDetail {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.heroDetailTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+}
+
+.heroDetailTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.heroDetailTable td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.heroDetailTable tr:last-child td {
+  border-bottom: none;
+}
+
+.heroDetailHighlight td {
+  background: rgba(13, 148, 136, 0.05);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.heroDetailNote {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 10px;
+  line-height: 1.6;
+  padding: 8px 10px;
+  background: var(--color-surface-alt);
+  border-radius: 6px;
+}
+
+/* ── 컨트롤 바 ── */
+.controlsBar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.controlLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.controlSelect {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+.controlSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+
+.controlInput {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.controlInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+
+/* ── 섹션 카드 ── */
+.section {
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.sectionTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  margin-bottom: 8px;
+}
+
+.sectionDesc {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+/* ── 테이블 ── */
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.85rem;
+}
+
+.table th,
+.table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tableHead {
+  background: var(--color-surface-alt);
+}
+
+.tableHead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.tableRow:nth-child(even) {
+  background: var(--color-surface-hover);
+}
+
+.tableRow:hover {
+  background: rgba(13, 148, 136, 0.04);
+}
+
+.tableCellRight {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 뱃지 ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badgeStable {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--color-success);
+}
+
+.badgeWatch {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-accent);
+}
+
+.badgeTypical {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+.badgeSmall {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+}
+
+.badgeInactive {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--color-text-muted);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.tableRowInactive {
+  opacity: 0.55;
+}
+
+/* ── 비교 그리드 ── */
+.comparisonGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.comparisonCard {
+  border-radius: 12px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.comparisonCard:hover {
+  transform: translateY(-1px);
+}
+
+.comparisonLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.comparisonValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.dayTypeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dayTypeCard,
+.dayTypeSummaryCard {
+  border-radius: 12px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  padding: 20px;
+  text-align: center;
+}
+
+.dayTypeSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.trendChart {
+  display: grid;
+  gap: 14px;
+}
+
+.trendRow {
+  border-radius: 12px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  padding: 16px;
+}
+
+.trendRowHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.trendMeta {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.trendBarTrack {
+  width: 100%;
+  height: 10px;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.16);
+  overflow: hidden;
+}
+
+.trendBarFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f766e, #14b8a6);
+}
+
+.checkpointGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.checkpointCard {
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.05), rgba(37, 99, 235, 0.04));
+  border: 1px solid rgba(15, 118, 110, 0.14);
+  padding: 20px;
+}
+
+.checkpointHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  font-size: 1rem;
+  margin-bottom: 14px;
+}
+
+.checkpointMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checkpointMetrics > div {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid var(--color-border);
+  padding: 14px;
+}
+
+.checkpointMetrics strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkpointGuide {
+  margin-top: 14px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.starterGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.starterCard {
+  border-radius: 12px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.starterCard strong {
+  font-size: 1.05rem;
+  color: var(--color-text-primary);
+}
+
+.csoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.csoCard {
+  border-radius: 12px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  padding: 20px;
+}
+
+.csoTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 12px;
+}
+
+.csoList {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+  color: var(--color-text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
+/* ── 시나리오 패널 ── */
+.scenarioPanel {
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.04), rgba(59, 130, 246, 0.04));
+  border: 1px solid rgba(13, 148, 136, 0.12);
+  padding: 24px;
+}
+
+.scenarioGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.scenarioItem {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--color-border);
+  padding: 16px;
+  text-align: center;
+}
+
+/* ── 대기 손실 플레이스홀더 ── */
+.waitLossPlaceholder {
+  border-radius: 12px;
+  border: 2px dashed var(--color-border);
+  background: var(--color-surface-alt);
+  padding: 40px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.waitLossIcon {
+  font-size: 2.5rem;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.waitLossTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.waitLossDesc {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.waitLossFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.waitLossFields span {
+  display: inline-flex;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(13, 148, 136, 0.08);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* ── 해석 블록 ── */
+.interpretBlock {
+  border-radius: 10px;
+  background: rgba(13, 148, 136, 0.04);
+  border-left: 4px solid var(--color-primary);
+  padding: 16px 20px;
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+/* ── 노트 리스트 ── */
+.notesList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.noteItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.noteItem::before {
+  content: "\2022";
+  color: var(--color-primary);
+  font-weight: bold;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── 로딩 / 에러 상태 ── */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 16px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 12px;
+  padding: 24px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: var(--color-danger);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ══════════════════════════════════════
+   반응형
+   ══════════════════════════════════════ */
+
+/* 태블릿 */
+@media (max-width: 1024px) {
+  .heroCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .comparisonGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dayTypeGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .checkpointGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .starterGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .csoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .scenarioGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 모바일 */
+@media (max-width: 768px) {
+  .main {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .headerInner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .headerTitle {
+    font-size: 1.1rem;
+  }
+
+  .heroCards {
+    grid-template-columns: 1fr;
+  }
+
+  .heroValue {
+    font-size: 1.5rem;
+  }
+
+  .controlsBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .controlGroup {
+    min-width: 0;
+  }
+
+  .comparisonGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dayTypeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dayTypeSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .checkpointMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .starterGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .scenarioGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .section {
+    padding: 16px;
+  }
+
+  .table {
+    font-size: 0.78rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 8px 10px;
+  }
+
+  .interpretBlock {
+    padding: 12px 16px;
+  }
+}

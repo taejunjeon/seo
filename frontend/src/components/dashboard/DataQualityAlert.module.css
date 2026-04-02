@@ -1,0 +1,169 @@
+/* ══════════════════════════════════════
+   Data Quality Alert — 데이터 품질 경고 박스
+   ══════════════════════════════════════ */
+
+.wrapper {
+  margin-bottom: 20px;
+}
+
+.box {
+  border-radius: 14px;
+  padding: 16px 20px;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(6px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.iconGood {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.iconWarn {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.iconBad {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.scoreLabel {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.scoreValue {
+  font-weight: 700;
+}
+
+.scoreGood { color: #16a34a; }
+.scoreWarn { color: #d97706; }
+.scoreBad { color: #dc2626; }
+
+.toggle {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.issues {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.issueError {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.issueWarning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.issueInfo {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.issueBadge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+.badgeError {
+  background: #dc2626;
+  color: #fff;
+}
+
+.badgeWarning {
+  background: #d97706;
+  color: #fff;
+}
+
+.badgeInfo {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.issueBody {
+  flex: 1;
+}
+
+.issueTitle {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.issueDetail {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.noIssues {
+  text-align: center;
+  padding: 12px;
+  font-size: 0.82rem;
+  color: #16a34a;
+}
+
+.loading {
+  text-align: center;
+  padding: 12px;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}

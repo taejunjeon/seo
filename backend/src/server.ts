@@ -14,11 +14,20 @@ import {
   type PageSpeedStrategy,
 } from "./pagespeed";
 import { createAiRouter } from "./routes/ai";
+import { createAttributionRouter } from "./routes/attribution";
+import { createCallpriceRouter } from "./routes/callprice";
+import { createCrmPhase1Router } from "./routes/crmPhase1";
+import { createCrmLocalRouter } from "./routes/crmLocal";
+import { getDbStats as getCrmLocalStats } from "./crmLocalDb";
 import { createCrawlRouter } from "./routes/crawl";
 import { createDiagnosisRouter } from "./routes/diagnosis";
 import { createGa4Router } from "./routes/ga4";
 import { createGscRouter } from "./routes/gsc";
+import { createChannelTalkRouter } from "./routes/channeltalk";
+import { createConsultationRouter } from "./routes/consultation";
+import { createAligoRouter } from "./routes/aligo";
 import { createPageSpeedRouter, persistPageSpeedResult } from "./routes/pagespeed";
+import { createTossRouter } from "./routes/toss";
 import { isSerpApiConfigured } from "./serpapi";
 
 const app = express();
@@ -56,7 +65,18 @@ app.use(
 );
 
 // CORS: multi-origin support (local dev + configured frontend origin)
-const allowedOrigins = [env.FRONTEND_ORIGIN, "http://localhost:3000", "http://localhost:7010"];
+const allowedOrigins = [
+  env.FRONTEND_ORIGIN,
+  "http://localhost:3000",
+  "http://localhost:7010",
+  "https://thecleancoffee.com",
+  "https://www.thecleancoffee.com",
+  "https://thecleancoffee.imweb.me",
+  "https://biocom.kr",
+  "https://www.biocom.kr",
+  "https://aibio.ai",
+  "https://www.aibio.ai",
+];
 
 app.use(
   cors({
@@ -70,6 +90,7 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(express.text({ type: "text/plain" })); // sendBeacon은 text/plain으로 보냄
 
 // Rate limiting (Sprint 4.1)
 const gscLimiter = rateLimit({
@@ -116,7 +137,44 @@ app.get("/health", (_req: Request, res: Response) => {
       serpapi: isSerpApiConfigured(),
       perplexity: !!env.PERPLEXITY_API_KEY,
       supabase: !!env.NEXT_PUBLIC_SUPABASE_URL && !!env.SUPABASE_SERVICE_ROLE_KEY,
+      database: !!env.DATABASE_URL,
       openai: isOpenAIConfigured(),
+      channeltalk: {
+        sdk: !!env.CHANNELTALK_PLUGIN_KEY,
+        openApi: !!env.CHANNELTALK_ACCESS_KEY && !!env.CHANNELTALK_ACCESS_SECRET,
+        memberHash: !!env.CHANNELTALK_MEMBER_HASH_SECRET,
+        marketing: env.CHANNELTALK_MARKETING_ENABLED,
+      },
+      kakao: {
+        restApi: !!env.KAKAO_REST_API_KEY,
+        javascript: !!env.KAKAO_JAVASCRIPT_KEY,
+        admin: !!env.KAKAO_ADMIN_KEY,
+      },
+      aligo: {
+        apiKey: !!env.ALIGO_API_KEY,
+        userId: !!env.ALIGO_USER_ID,
+        senderKey: !!env.ALIGO_SENDER_KEY,
+        senderPhone: !!env.ALIGO_SENDER_PHONE,
+        kakaoChannelId: !!env.ALIGO_KAKAOCHANNEL_ID,
+        ready: !!env.ALIGO_API_KEY && !!env.ALIGO_USER_ID && !!env.ALIGO_SENDER_KEY,
+      },
+      toss: {
+        shopId: !!env.TOSS_SHOP_ID,
+        liveKey: !!env.TOSS_LIVE_SECRET_KEY,
+        testKey: !!env.TOSS_TEST_SECRET_KEY,
+        ready: !!env.TOSS_LIVE_SECRET_KEY,
+      },
+      imweb: {
+        apiKey: !!env.IMWEB_API_KEY,
+        secretKey: !!env.IMWEB_SECRET_KEY,
+        ready: !!env.IMWEB_API_KEY && !!env.IMWEB_SECRET_KEY,
+      },
+      playauto: {
+        apiKey: !!env.PLAYAUTO_API_KEY,
+        email: !!env.PLAYAUTO_EMAIL,
+        ready: !!env.PLAYAUTO_API_KEY && !!env.PLAYAUTO_EMAIL && !!env.PLAYAUTO_PASSWORD,
+      },
+      crmLocal: (() => { try { return getCrmLocalStats(); } catch { return { error: "init failed" }; } })(),
     },
   });
 });
@@ -125,6 +183,14 @@ app.get("/health", (_req: Request, res: Response) => {
 app.use(createGscRouter());
 app.use(createGa4Router());
 app.use(createPageSpeedRouter());
+app.use(createChannelTalkRouter());
+app.use(createTossRouter());
+app.use(createAligoRouter());
+app.use(createAttributionRouter());
+app.use(createCallpriceRouter());
+app.use(createCrmPhase1Router());
+app.use(createCrmLocalRouter());
+app.use(createConsultationRouter());
 app.use(createAiRouter());
 app.use(createCrawlRouter());
 app.use(createDiagnosisRouter());

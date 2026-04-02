@@ -9,7 +9,7 @@ import { LiveBadge } from "@/components/common/Badges";
 import OverviewTab from "@/components/tabs/OverviewTab";
 import ColumnAnalysisTab from "@/components/tabs/ColumnAnalysisTab";
 import KeywordAnalysisTab from "@/components/tabs/KeywordAnalysisTab";
-import PageSpeedReportTab from "@/components/tabs/PageSpeedReportTab";
+import { AiReportTab } from "@/components/ai-report";
 import CoreWebVitalsTab from "@/components/tabs/CoreWebVitalsTab";
 import UserBehaviorTab from "@/components/tabs/UserBehaviorTab";
 import DiagnosisTab from "@/components/tabs/DiagnosisTab";
@@ -20,7 +20,7 @@ import type {
   AiInsight, IntentApiResponse, ColumnData, KeywordData, CwvPageData,
   BehaviorData, FunnelStep, KpiApiData, TrendPoint, ApiKeywordsResponse,
   ApiColumnsResponse, PageSpeedApiResult, ScoreBreakdown, AeoGeoApiResult,
-  CrawlAnalysisResult, DiagnosisItem, PageSpeedReportResponse,
+  CrawlAnalysisResult, DiagnosisItem,
   OptimizationTask,
 } from "@/types/page";
 
@@ -28,6 +28,8 @@ import {
   NAV_TABS, PRESET_DAYS,
   API_BASE_URL,
 } from "@/constants/pageData";
+
+import { setPage, resolveTabPageName } from "@/lib/channeltalk";
 
 import {
   resolveContentUrl, isColumnLikePage, normalizeComparableUrl,
@@ -101,9 +103,6 @@ export default function Home() {
   const [aeoGeoScoresLoading, setAeoGeoScoresLoading] = useState(true);
   const [aeoGeoScoresProgress, setAeoGeoScoresProgress] = useState<number | null>(null);
   const aeoGeoProgressTimerRef = useRef<number | null>(null);
-  const [pageSpeedReport, setPageSpeedReport] = useState<PageSpeedReportResponse | null>(null);
-  const [pageSpeedReportLoading, setPageSpeedReportLoading] = useState(false);
-  const [pageSpeedReportError, setPageSpeedReportError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -586,35 +585,6 @@ export default function Home() {
     void refreshAeoGeoScores({ targetUrl: aeoGeoTargetUrl });
   }, [aeoGeoTargetUrl, pageSpeedHistory, refreshAeoGeoScores]);
 
-  /* ── PageSpeed 보고서 로드(탭 진입 시) ── */
-  useEffect(() => {
-    if (activeTab !== 3) return;
-
-    const controller = new AbortController();
-    setPageSpeedReportLoading(true);
-    setPageSpeedReportError(null);
-
-    fetch("/api/pagespeed-report", { signal: controller.signal, cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) {
-          const err = (await r.json().catch(() => null)) as { message?: string } | null;
-          throw new Error(err?.message ?? "보고서를 불러오지 못했습니다.");
-        }
-        return r.json() as Promise<PageSpeedReportResponse>;
-      })
-      .then((d) => {
-        setPageSpeedReport(d);
-      })
-      .catch((e: unknown) => {
-        if ((e as { name?: string } | null)?.name === "AbortError") return;
-        setPageSpeedReportError(e instanceof Error ? e.message : "보고서를 불러오지 못했습니다.");
-      })
-      .finally(() => {
-        setPageSpeedReportLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [activeTab]);
 
   /* ── 키워드 기회 상세(모달) ── */
   useEffect(() => {
@@ -637,6 +607,28 @@ export default function Home() {
   useEffect(() => {
     if (activeTab !== 2) setOpportunityKeyword(null);
   }, [activeTab]);
+
+  // ChannelTalk: 탭 전환 시 setPage 호출
+  useEffect(() => {
+    const tabLabel = NAV_TABS[activeTab];
+    if (tabLabel) setPage(resolveTabPageName(tabLabel));
+  }, [activeTab]);
+
+  // CRM 포털 KPI (탭 7 선택 시 1회 fetch)
+  const [crmKpi, setCrmKpi] = useState<{ completed: number; customers: number; rate: number; converted: number; matured: number; revenue: number } | null>(null);
+  useEffect(() => {
+    if (activeTab !== 7) return;
+    if (crmKpi) return; // 이미 로드됨
+    const ac = new AbortController();
+    fetch(`${API_BASE_URL}/api/callprice/overview?maturity_days=90&start_date=2025-04-01&end_date=2026-03-27`, { signal: ac.signal })
+      .then((r) => r.json())
+      .then((d) => {
+        const s = d?.data?.summary;
+        if (s) setCrmKpi({ completed: s.completed_consultations, customers: s.unique_completed_customers, rate: s.conversion_rate, converted: s.converted_customers, matured: s.matured_customers, revenue: s.estimated_incremental_revenue });
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, [activeTab, crmKpi]);
 
   /* ── 실데이터 fetch (마운트 시) ── */
   useEffect(() => {
@@ -1676,9 +1668,9 @@ export default function Home() {
 
 
 
-        {/* ════════ TAB 3: PageSpeed 보고서 ════════ */}
+        {/* ════════ TAB 3: AI 분석 보고서 ════════ */}
         {activeTab === 3 && (
-          <PageSpeedReportTab report={pageSpeedReport} loading={pageSpeedReportLoading} error={pageSpeedReportError} />
+          <AiReportTab apiBaseUrl={API_BASE_URL} />
         )}
 
         {/* ════════ TAB 5: 사용자 행동 ════════ */}
@@ -1717,8 +1709,73 @@ export default function Home() {
           />
         )}
 
-        {/* ════════ TAB 7: 솔루션 소개 ════════ */}
-        {activeTab === 7 && <SolutionIntroTab />}
+        {/* ════════ TAB 7: AI CRM 포털 ════════ */}
+        {activeTab === 7 && (
+          <div style={{ display: "grid", gap: 20 }}>
+            {/* CRM KPI 요약 */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+              {(crmKpi ? [
+                { label: "완료 상담", value: `${crmKpi.completed.toLocaleString("ko-KR")}건`, sub: `고유 고객 ${crmKpi.customers.toLocaleString("ko-KR")}명` },
+                { label: "90일 전환율", value: `${(crmKpi.rate * 100).toFixed(1)}%`, sub: `전환 ${crmKpi.converted.toLocaleString("ko-KR")}명 / 성숙 ${crmKpi.matured.toLocaleString("ko-KR")}명` },
+                { label: "상담 효과 추정 매출", value: `${(crmKpi.revenue / 1_0000_0000).toFixed(1)}억원`, sub: "상담 고객 vs 미상담 고객 매출 차이" },
+              ] : [
+                { label: "완료 상담", value: "로딩 중...", sub: "" },
+                { label: "90일 전환율", value: "로딩 중...", sub: "" },
+                { label: "상담 효과 추정 매출", value: "로딩 중...", sub: "" },
+              ]).map((card) => (
+                <div key={card.label} style={{
+                  padding: "20px 24px", borderRadius: 12,
+                  background: "white", border: "1px solid rgba(15,23,42,0.08)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                }}>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{card.label}</div>
+                  <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text-primary)", marginTop: 6 }}>{card.value}</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 4 }}>{card.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 바로가기 카드 */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+              {[
+                { href: "/callprice", title: "상담사 가치 분석", desc: "상담사별 성과, 상담 효과 추정, 충원 시나리오 시뮬레이션", icon: "📊" },
+                { href: "/cohort", title: "코호트 · 북극성 지표", desc: "성숙 기간별 전환율/매출 비교, 90일 재구매 순이익 추적", icon: "📈" },
+                { href: "/crm", title: "CRM 관리 허브", desc: "후속 관리 대상, 실험 운영, 결제 귀속 진단", icon: "🎯" },
+                { href: "/coffee", title: "더클린커피 CRM", desc: "재구매/LTR 분석, VIP 전략, 쿠폰 실험, 리드 마그넷", icon: "☕" },
+                { href: "/coffee-pricing", title: "커피 가격 전략", desc: "원가 분석, 가격 인상/인하 판단, 경쟁사 비교, 마진 시뮬레이션", icon: "💲" },
+                { href: "/coupon", title: "쿠폰 CRM 분석", desc: "쿠폰 발급/사용률, ROI 분석, 할인 최적화 전략", icon: "🎟" },
+                { href: "/crm?tab=messaging", title: "알림톡 발송", desc: "카카오 알림톡 발송, 템플릿 선택, 테스트/실발송, 이력 확인", icon: "💬" },
+                { href: "/solution", title: "솔루션 소개", desc: "Biocom Growth AI Agent — 분석에서 실행까지 연결하는 AI CRM", icon: "🧠" },
+              ].map((card) => (
+                <a key={card.href} href={card.href} style={{
+                  display: "flex", flexDirection: "column" as const, gap: 10,
+                  padding: "24px", borderRadius: 14, textDecoration: "none",
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))",
+                  border: "1px solid rgba(15,23,42,0.08)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                  transition: "transform 0.15s, box-shadow 0.15s",
+                }}>
+                  <span style={{ fontSize: "1.8rem" }}>{card.icon}</span>
+                  <strong style={{ fontSize: "1rem", color: "var(--color-text-primary)" }}>{card.title}</strong>
+                  <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>{card.desc}</span>
+                </a>
+              ))}
+            </div>
+
+            {/* 안내 */}
+            <div style={{
+              borderLeft: "3px solid var(--color-primary)", background: "rgba(13,148,136,0.03)",
+              borderRadius: "0 8px 8px 0", padding: "14px 18px",
+              fontSize: "0.82rem", color: "var(--color-text-secondary)", lineHeight: 1.7,
+            }}>
+              <strong>AI CRM 포털</strong>: 상담사 가치 분석, 재구매 코호트, CRM 운영 관리, 알림톡 발송을 한눈에 접근할 수 있는 허브입니다.
+              각 카드를 클릭하면 상세 화면으로 이동합니다.
+            </div>
+          </div>
+        )}
+
+        {/* ════════ TAB 8: 솔루션 소개 ════════ */}
+        {activeTab === 8 && <SolutionIntroTab />}
       </main>
 
       {/* ════════ 캡처 오버레이 ════════ */}

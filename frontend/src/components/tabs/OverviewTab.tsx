@@ -3,6 +3,9 @@
 import React, { FormEvent } from "react";
 import styles from "@/app/page.module.css";
 import KpiCard from "@/components/dashboard/KpiCard";
+import RevenueKpiSection from "@/components/dashboard/RevenueKpiSection";
+import DataQualityAlert from "@/components/dashboard/DataQualityAlert";
+import SeoConversionDiagnosis from "@/components/dashboard/SeoConversionDiagnosis";
 import TrendChart from "@/components/dashboard/TrendChart";
 import OptimizationChecklist from "@/components/dashboard/OptimizationChecklist";
 import type { OptimizationTask as ChecklistTask } from "@/components/dashboard/OptimizationChecklist";
@@ -368,6 +371,15 @@ export default function OverviewTab({
         </>
         )}
       </section>
+
+      {/* 매출 핵심 KPI (피드백 대응: 맨 위를 "돈" 중심으로) */}
+      <RevenueKpiSection />
+
+      {/* 데이터 품질 경고 (피드백 대응: 데이터 품질 경고 박스) */}
+      <DataQualityAlert />
+
+      {/* SEO 전환 숫자 역전 진단 (피드백 #3 대응) */}
+      <SeoConversionDiagnosis />
 
       {/* 30일 추세 차트 */}
       <TrendChart apiBaseUrl={API_BASE_URL} />

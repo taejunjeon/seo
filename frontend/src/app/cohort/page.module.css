@@ -1,0 +1,76 @@
+.page { min-height: 100vh; padding: 0 0 48px; }
+.main { max-width: 1400px; margin: 0 auto; display: grid; gap: 24px; padding: 24px; }
+
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,0.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.headerInner { max-width: 1400px; margin: 0 auto; padding: 16px 24px; }
+.headerTitle { font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary); font-family: var(--font-display); }
+.headerSub { font-size: 0.8rem; color: var(--color-text-muted); margin-top: 2px; }
+.backLink { font-size: 0.75rem; color: var(--color-primary); text-decoration: none; font-weight: 500; }
+.backLink:hover { text-decoration: underline; }
+
+/* 북극성 카드 */
+.northStarCard {
+  border-radius: 16px; padding: 28px;
+  background: linear-gradient(135deg, rgba(13,148,136,0.06), rgba(59,130,246,0.04));
+  border: 2px solid rgba(13,148,136,0.2);
+}
+.northStarLabel { font-size: 0.72rem; font-weight: 600; color: var(--color-primary); text-transform: uppercase; letter-spacing: 0.06em; }
+.northStarValue { font-size: 1.4rem; font-weight: 700; color: var(--color-text-primary); margin-top: 8px; font-family: var(--font-display); }
+.northStarSub { font-size: 0.78rem; color: var(--color-text-muted); margin-top: 6px; line-height: 1.6; }
+
+/* 실행 지표 그리드 */
+.metricsGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.metricCard {
+  display: flex; flex-direction: column; gap: 6px; padding: 18px;
+  border-radius: 12px; background: var(--color-surface); border: 1px solid var(--color-border);
+}
+.metricLabel { font-size: 0.7rem; font-weight: 500; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.metricValue { font-size: 1.1rem; font-weight: 700; color: var(--color-text-primary); }
+.metricSub { font-size: 0.72rem; color: var(--color-text-muted); }
+
+/* 섹션 */
+.section {
+  border-radius: 12px; background: var(--color-surface); border: 1px solid var(--color-border);
+  padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.sectionTitle { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+.sectionDesc { font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 16px; }
+
+/* 테이블 */
+.table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.table th, .table td { padding: 10px 12px; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+.tableHead th { font-size: 0.72rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; background: var(--color-surface-alt); }
+.tableRow:hover { background: rgba(13,148,136,0.03); }
+.right { text-align: right; font-variant-numeric: tabular-nums; }
+.highlight { background: rgba(13,148,136,0.04); }
+.highlight td { font-weight: 600; }
+.starBadge {
+  display: inline-block; margin-left: 6px; padding: 2px 8px;
+  border-radius: 9999px; font-size: 0.6rem; font-weight: 600;
+  background: rgba(13,148,136,0.1); color: var(--color-primary);
+}
+
+/* 해석 블록 */
+.interpretBlock {
+  border-left: 3px solid var(--color-primary); background: rgba(13,148,136,0.03);
+  border-radius: 0 8px 8px 0; padding: 16px 20px; font-size: 0.82rem; color: var(--color-text-secondary); line-height: 1.7;
+}
+
+/* placeholder */
+.placeholder {
+  border: 2px dashed var(--color-border-strong); border-radius: 12px;
+  padding: 24px; background: var(--color-surface-alt); font-size: 0.82rem; color: var(--color-text-muted);
+}
+.placeholder h3 { font-size: 0.95rem; color: var(--color-text-secondary); margin-bottom: 8px; }
+.placeholder ul { padding-left: 20px; line-height: 1.8; }
+
+@media (max-width: 1024px) { .metricsGrid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) {
+  .main { padding: 16px; gap: 16px; }
+  .metricsGrid { grid-template-columns: 1fr; }
+  .section { padding: 16px; }
+}

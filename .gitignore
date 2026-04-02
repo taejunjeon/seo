@@ -1,6 +1,8 @@
 .DS_Store
+.vscode/
 .obsidian/
 *.bak.*
+*.bak_*
 
 frontend/node_modules
 frontend/.next
@@ -11,3 +13,4 @@ backend/dist
 backend/.env
 backend/credentials/
 backend/artifacts/
+backend/logs/

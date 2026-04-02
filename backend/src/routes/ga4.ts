@@ -12,12 +12,22 @@ import {
   queryGA4AiConversionFunnel,
   queryGA4AiVsOrganicReport,
   queryGA4EcommerceFunnel,
+  queryGA4EcommerceFunnelByDevice,
+  queryGA4RealFunnel,
+  queryGA4SeoConversionDiagnostic,
+  queryGA4TopProducts,
+  queryGA4SourceConversion,
   queryGA4Engagement,
   queryGA4Funnel,
+  queryGA4RevenueKpi,
+  queryGA4DataQuality,
   queryGA4TopSources,
   type GA4AiConversionFunnelReport,
   type GA4AiVsOrganicReport,
 } from "../ga4";
+import { getGa4CutoverPlan } from "../ga4Cutover";
+import { getGa4RevenueOpsPlan } from "../ga4RevenueOpsPlan";
+import { aggregateByPageGroup } from "../utils/pageGroup";
 
 const withConcurrency = async <T, R>(
   items: T[],
@@ -776,6 +786,403 @@ export const createGa4Router = () => {
       res.json(await promise);
     } finally {
       aiTrafficTopicsInflight.delete(cacheKey);
+    }
+  });
+
+  /* ── 전자상거래 퍼널 디바이스별 (Q1 대응) ── */
+  router.get("/api/ga4/ecommerce-funnel-by-device", async (req: Request, res: Response) => {
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+    const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+
+    try {
+      const result = await queryGA4EcommerceFunnelByDevice({ startDate, endDate });
+      res.json({ _meta: makeLiveMeta({ startDate, endDate }), ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 ecommerce funnel by device query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          devices: [],
+          allDevices: { steps: [], overallConversion: 0, biggestDropoff: { from: "", to: "", dropRate: 0 } },
+          debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+        });
+        return;
+      }
+      if (isGa4CredentialError(message)) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          devices: [],
+          allDevices: { steps: [], overallConversion: 0, biggestDropoff: { from: "", to: "", dropRate: 0 } },
+          debug: { notes: ["GA4 미연결(인증 실패 또는 credential 미설정)"] },
+        });
+        return;
+      }
+      res.status(500).json({ error: "ga4_ecommerce_funnel_by_device_error", message });
+    }
+  });
+
+  /* ── 매출 중심 KPI ── */
+  router.get("/api/ga4/revenue-kpi", async (req: Request, res: Response) => {
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+    const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+
+    try {
+      const result = await queryGA4RevenueKpi({ startDate, endDate });
+      res.json({ _meta: makeLiveMeta({ startDate, endDate }), ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 revenue KPI query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          totalRevenue: 0, totalPurchases: 0, totalSessions: 0,
+          purchaseConversionRate: 0, averageOrderValue: 0, revenuePerSession: 0,
+          reportViews: 0, revenuePerReportView: 0,
+          debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+        });
+        return;
+      }
+      if (isGa4CredentialError(message)) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          totalRevenue: 0, totalPurchases: 0, totalSessions: 0,
+          purchaseConversionRate: 0, averageOrderValue: 0, revenuePerSession: 0,
+          reportViews: 0, revenuePerReportView: 0,
+          debug: { notes: ["GA4 미연결(인증 실패 또는 credential 미설정)"] },
+        });
+        return;
+      }
+      res.status(500).json({ error: "ga4_revenue_kpi_error", message });
+    }
+  });
+
+  /* ── 데이터 품질 진단 ── */
+  router.get("/api/ga4/data-quality", async (req: Request, res: Response) => {
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+    const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+
+    try {
+      const result = await queryGA4DataQuality({ startDate, endDate });
+      res.json({ _meta: makeLiveMeta({ startDate, endDate }), ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 data quality query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          score: 0, issues: [],
+          stats: { totalPagePaths: 0, duplicateUrlGroups: 0, notSetLandingRatio: 0, queryParamPageRatio: 0, purchaseCount: 0, beginCheckoutCount: 0, pageViewSessions: 0, totalSessions: 0, pageViewMissingRatio: 0 },
+          debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+        });
+        return;
+      }
+      if (isGa4CredentialError(message)) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          score: 0, issues: [],
+          stats: { totalPagePaths: 0, duplicateUrlGroups: 0, notSetLandingRatio: 0, queryParamPageRatio: 0, purchaseCount: 0, beginCheckoutCount: 0, pageViewSessions: 0, totalSessions: 0, pageViewMissingRatio: 0 },
+          debug: { notes: ["GA4 미연결(인증 실패 또는 credential 미설정)"] },
+        });
+        return;
+      }
+      res.status(500).json({ error: "ga4_data_quality_error", message });
+    }
+  });
+
+  /* ── SEO 전환 숫자 역전 진단 ── */
+  router.get("/api/ga4/seo-conversion-diagnosis", async (req: Request, res: Response) => {
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+    const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+
+    try {
+      const result = await queryGA4SeoConversionDiagnostic({ startDate, endDate });
+      res.json({ _meta: makeLiveMeta({ startDate, endDate }), ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 SEO conversion diagnosis query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          summary: {
+            range: { startDate, endDate },
+            organicSessionScope: {
+              sessions: 0,
+              entrances: 0,
+              ecommercePurchases: 0,
+              keyEvents: 0,
+              grossPurchaseRevenue: 0,
+            },
+            organicFirstUserScope: {
+              totalUsers: 0,
+              ecommercePurchases: 0,
+              grossPurchaseRevenue: 0,
+            },
+            queryStringSignals: {
+              shopViewPathViews: 0,
+              shopViewVariantCount: 0,
+              shopViewVariantViews: 0,
+              topShopViewVariants: [],
+            },
+            sourceSignals: {
+              notSetRevenue: 0,
+              notSetPurchases: 0,
+              selfReferralRevenue: 0,
+              selfReferralPurchases: 0,
+              suspiciousSources: [],
+            },
+            funnelSignals: {
+              method: "eventCount_fallback",
+              purchaseUsers: 0,
+              totalPurchases: 0,
+            },
+            dataQualitySignals: {
+              notSetLandingRatio: 0,
+            },
+            transactionSignals: {
+              distinctTransactionIds: 0,
+              totalPurchaseEvents: 0,
+              blankTransactionEvents: 0,
+              duplicatePurchaseEvents: 0,
+              transactionCoverageRatio: 0,
+            },
+          },
+          issues: [],
+          recommendedChecks: [],
+          debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+        });
+        return;
+      }
+      if (isGa4CredentialError(message)) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          summary: {
+            range: { startDate, endDate },
+            organicSessionScope: {
+              sessions: 0,
+              entrances: 0,
+              ecommercePurchases: 0,
+              keyEvents: 0,
+              grossPurchaseRevenue: 0,
+            },
+            organicFirstUserScope: {
+              totalUsers: 0,
+              ecommercePurchases: 0,
+              grossPurchaseRevenue: 0,
+            },
+            queryStringSignals: {
+              shopViewPathViews: 0,
+              shopViewVariantCount: 0,
+              shopViewVariantViews: 0,
+              topShopViewVariants: [],
+            },
+            sourceSignals: {
+              notSetRevenue: 0,
+              notSetPurchases: 0,
+              selfReferralRevenue: 0,
+              selfReferralPurchases: 0,
+              suspiciousSources: [],
+            },
+            funnelSignals: {
+              method: "eventCount_fallback",
+              purchaseUsers: 0,
+              totalPurchases: 0,
+            },
+            dataQualitySignals: {
+              notSetLandingRatio: 0,
+            },
+            transactionSignals: {
+              distinctTransactionIds: 0,
+              totalPurchaseEvents: 0,
+              blankTransactionEvents: 0,
+              duplicatePurchaseEvents: 0,
+              transactionCoverageRatio: 0,
+            },
+          },
+          issues: [],
+          recommendedChecks: [],
+          debug: { notes: ["GA4 미연결(인증 실패 또는 credential 미설정)"] },
+        });
+        return;
+      }
+      res.status(500).json({ error: "ga4_seo_conversion_diagnosis_error", message });
+    }
+  });
+
+  /* ── GTM / GA4 컷오버 계획 ── */
+  router.get("/api/ga4/cutover-plan", (_req: Request, res: Response) => {
+    res.json({
+      _meta: {
+        type: "static_plan",
+        generatedAt: new Date().toISOString(),
+      },
+      ...getGa4CutoverPlan(),
+    });
+  });
+
+  /* ── GA4 매출 정합성 / 가상계좌 / 아임웹 이관 계획 ── */
+  router.get("/api/ga4/revenue-ops-plan", (_req: Request, res: Response) => {
+    res.json({
+      _meta: {
+        type: "static_plan",
+        generatedAt: new Date().toISOString(),
+      },
+      ...getGa4RevenueOpsPlan(),
+    });
+  });
+
+  /* ── 페이지 그룹 집계 ── */
+  router.get("/api/ga4/page-groups", async (req: Request, res: Response) => {
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+    const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+
+    try {
+      const engagement = await queryGA4Engagement(startDate, endDate, 500);
+      const groups = aggregateByPageGroup(
+        engagement.rows.map((r) => ({
+          pagePath: r.pagePath,
+          sessions: r.sessions,
+          users: r.users,
+          bounceRate: r.bounceRate,
+        })),
+      );
+      res.json({
+        _meta: makeLiveMeta({ startDate, endDate }),
+        range: { startDate, endDate },
+        groups,
+        debug: { notes: [`${engagement.rows.length}개 페이지를 ${groups.length}개 그룹으로 분류`] },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 page groups query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          groups: [],
+          debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+        });
+        return;
+      }
+      if (isGa4CredentialError(message)) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          groups: [],
+          debug: { notes: ["GA4 미연결(인증 실패 또는 credential 미설정)"] },
+        });
+        return;
+      }
+      res.status(500).json({ error: "ga4_page_groups_error", message });
+    }
+  });
+
+  /* ── 진짜 퍼널 (runFunnelReport v1alpha + eventCount fallback) ── */
+  router.get("/api/ga4/real-funnel", async (req: Request, res: Response) => {
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+    const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+
+    try {
+      const result = await queryGA4RealFunnel({ startDate, endDate });
+      res.json({ _meta: makeLiveMeta({ startDate, endDate }), ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 real funnel query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          method: "eventCount_fallback",
+          devices: [],
+          allDevices: { steps: [], overallConversion: 0 },
+          debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+        });
+        return;
+      }
+      if (isGa4CredentialError(message)) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          method: "eventCount_fallback",
+          devices: [],
+          allDevices: { steps: [], overallConversion: 0 },
+          debug: { notes: ["GA4 미연결(인증 실패 또는 credential 미설정)"] },
+        });
+        return;
+      }
+      res.status(500).json({ error: "ga4_real_funnel_error", message });
+    }
+  });
+
+  /* ── 구매 상위 상품 ── */
+  router.get("/api/ga4/top-products", async (req: Request, res: Response) => {
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+    const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+    const limitRaw = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : Number.NaN;
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(50, limitRaw)) : 10;
+
+    try {
+      const result = await queryGA4TopProducts({ startDate, endDate, limit });
+      res.json({ _meta: makeLiveMeta({ startDate, endDate }), ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 top products query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          products: [],
+          debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+        });
+        return;
+      }
+      if (isGa4CredentialError(message)) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          products: [],
+          debug: { notes: ["GA4 미연결(인증 실패 또는 credential 미설정)"] },
+        });
+        return;
+      }
+      res.status(500).json({ error: "ga4_top_products_error", message });
+    }
+  });
+
+  /* ── 소스별 매출/전환 통합 리포트 ── */
+  router.get("/api/ga4/source-conversion", async (req: Request, res: Response) => {
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : daysAgo(30);
+    const endDate = typeof req.query.endDate === "string" ? req.query.endDate : daysAgo(1);
+    const limitRaw = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : Number.NaN;
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 100;
+
+    try {
+      const result = await queryGA4SourceConversion({ startDate, endDate, limit });
+      res.json({ _meta: makeLiveMeta({ startDate, endDate }), ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GA4 source conversion query failed";
+      if (message.includes("GA4_PROPERTY_ID is not configured")) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          rows: [],
+          byChannel: [],
+          debug: { notes: ["GA4 API 미설정: GA4_PROPERTY_ID 누락"] },
+        });
+        return;
+      }
+      if (isGa4CredentialError(message)) {
+        res.json({
+          _meta: makeEmptyMeta({ startDate, endDate }),
+          range: { startDate, endDate },
+          rows: [],
+          byChannel: [],
+          debug: { notes: ["GA4 미연결(인증 실패 또는 credential 미설정)"] },
+        });
+        return;
+      }
+      res.status(500).json({ error: "ga4_source_conversion_error", message });
     }
   });
 

@@ -1,0 +1,72 @@
+.page { min-height: 100vh; padding: 0 0 48px; }
+.main { max-width: 1400px; margin: 0 auto; display: grid; gap: 24px; padding: 24px; }
+
+.header { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.headerInner { max-width: 1400px; margin: 0 auto; padding: 16px 24px; }
+.headerTitle { font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary); font-family: var(--font-display); }
+.headerSub { font-size: 0.8rem; color: var(--color-text-muted); margin-top: 2px; }
+.backLink { font-size: 0.75rem; color: var(--color-primary); text-decoration: none; font-weight: 500; }
+.backLink:hover { text-decoration: underline; }
+
+.hero { padding: 32px; border-radius: 16px; background: linear-gradient(135deg, rgba(236,72,153,0.06), rgba(13,148,136,0.04)); border: 1px solid rgba(236,72,153,0.15); }
+.hero h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }
+.hero p { font-size: 0.9rem; color: var(--color-text-secondary); line-height: 1.8; }
+
+.section { border-radius: 14px; background: var(--color-surface); border: 1px solid var(--color-border); padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.sectionTitle { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+.sectionDesc { font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 16px; }
+
+/* 진단 문항 */
+.questionGrid { display: grid; gap: 12px; }
+.questionCard { display: flex; gap: 14px; padding: 16px 18px; border-radius: 12px; background: var(--color-surface-hover); border: 1px solid var(--color-border); }
+.questionNum { min-width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+.questionCard strong { font-size: 0.88rem; display: block; margin-bottom: 6px; }
+.optionList { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.optionChip { padding: 4px 10px; border-radius: 9999px; font-size: 0.72rem; background: rgba(13,148,136,0.08); color: var(--color-primary); font-weight: 500; }
+.questionTag { font-size: 0.68rem; color: var(--color-text-muted); font-style: italic; }
+
+/* 결과 유형 */
+.resultGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.resultCard { border-radius: 14px; border: 1px solid var(--color-border); border-top: 4px solid; overflow: hidden; background: var(--color-surface); }
+.resultHeader { display: flex; gap: 14px; align-items: center; padding: 18px 20px 0; }
+.resultProduct { display: block; font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px; }
+.resultBody { padding: 12px 20px; }
+.resultHeadline { font-size: 0.95rem; font-weight: 600; color: var(--color-text-primary); margin-bottom: 6px; font-style: italic; }
+.resultBody p { font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.6; margin: 0 0 12px; }
+.resultCta { display: inline-block; padding: 8px 20px; border-radius: 8px; color: #fff; font-size: 0.82rem; font-weight: 600; }
+.resultFollowup { padding: 12px 20px 16px; background: var(--color-surface-alt); font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.7; }
+.resultFollowup strong { color: var(--color-text-secondary); }
+
+/* 기술 명세 */
+.specGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.specCard { padding: 20px; border-radius: 12px; background: var(--color-surface-hover); border: 1px solid var(--color-border); }
+.specCard h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 10px; }
+.specCard ul { padding-left: 18px; font-size: 0.78rem; line-height: 1.8; color: var(--color-text-secondary); }
+.specCard code { font-size: 0.72rem; padding: 1px 5px; background: rgba(0,0,0,0.04); border-radius: 4px; }
+
+/* 테이블 */
+.table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.table th, .table td { padding: 10px 12px; border-bottom: 1px solid var(--color-border); text-align: left; }
+.tableHead th { font-size: 0.72rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; background: var(--color-surface-alt); }
+.tableRow:hover { background: rgba(13,148,136,0.03); }
+.priorityBadge { padding: 2px 8px; border-radius: 9999px; font-size: 0.68rem; font-weight: 600; }
+
+/* 실험 설계 */
+.experimentDesign { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.experimentGroup { padding: 20px; border-radius: 12px; border: 2px solid; background: var(--color-surface); }
+.experimentLabel { display: inline-block; padding: 3px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; color: #fff; background: var(--color-text-muted); margin-bottom: 8px; }
+.experimentGroup strong { display: block; font-size: 0.88rem; margin-bottom: 6px; }
+.experimentGroup p { font-size: 0.78rem; color: var(--color-text-secondary); line-height: 1.6; margin: 0; }
+
+.interpretBlock { border-left: 3px solid var(--color-primary); background: rgba(13,148,136,0.03); border-radius: 0 8px 8px 0; padding: 14px 18px; font-size: 0.82rem; color: var(--color-text-secondary); line-height: 1.7; }
+
+/* CRM 퍼널 */
+.funnelGrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.funnelCard { padding: 20px; border-radius: 12px; background: var(--color-surface-hover); border: 1px solid var(--color-border); }
+.funnelCard h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; }
+.timeline { display: grid; gap: 8px; }
+.timelineItem { display: flex; gap: 10px; font-size: 0.76rem; line-height: 1.5; color: var(--color-text-secondary); }
+.timelineDay { min-width: 38px; font-weight: 700; color: var(--color-primary); flex-shrink: 0; }
+
+@media (max-width: 1024px) { .resultGrid, .specGrid, .experimentDesign, .funnelGrid { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .main { padding: 16px; gap: 16px; } .section { padding: 16px; } }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { AiTrafficBySourceRow } from "./types";
 import styles from "./AiTraffic.module.css";
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+const won = (n: number) => n > 0 ? `₩${fmt(Math.round(n))}` : "—";
 
 /** AI 소스별 브랜드 색상 매핑 */
 const SOURCE_COLORS: Record<string, { bg: string; text: string; label: string }> = {
@@ -34,7 +35,14 @@ type Props = {
 
 export default function AiTrafficBySourceTable({ rows }: Props) {
   const [aiOnly, setAiOnly] = useState(false);
-  const filtered = aiOnly ? rows.filter((r) => r.category === "ai_referral") : rows;
+  const filtered = useMemo(() => {
+    const base = aiOnly ? rows.filter((r) => r.category === "ai_referral") : rows;
+    return [...base].sort((a, b) => {
+      const rpsA = a.sessions > 0 ? a.grossPurchaseRevenue / a.sessions : 0;
+      const rpsB = b.sessions > 0 ? b.grossPurchaseRevenue / b.sessions : 0;
+      return rpsB - rpsA;
+    });
+  }, [rows, aiOnly]);
 
   return (
     <div className={styles.tableCard}>
@@ -54,7 +62,7 @@ export default function AiTrafficBySourceTable({ rows }: Props) {
           <tr>
             <th>소스</th>
             <th>세션</th>
-            <th>사용자</th>
+            <th>매출/세션</th>
             <th>참여율</th>
             <th>구매</th>
             <th>매출</th>
@@ -81,10 +89,10 @@ export default function AiTrafficBySourceTable({ rows }: Props) {
                   )}
                 </td>
                 <td>{fmt(row.sessions)}</td>
-                <td>{fmt(row.activeUsers)}</td>
+                <td style={{ fontWeight: 600 }}>{won(row.sessions > 0 ? row.grossPurchaseRevenue / row.sessions : 0)}</td>
                 <td>{pct(row.engagementRate)}</td>
                 <td>{row.ecommercePurchases}</td>
-                <td>{row.grossPurchaseRevenue ? `₩${fmt(Math.round(row.grossPurchaseRevenue))}` : "-"}</td>
+                <td>{won(row.grossPurchaseRevenue)}</td>
               </tr>
             );
           }) : (

@@ -1,0 +1,504 @@
+.page {
+  min-height: 100vh;
+  padding: 0 0 48px;
+  background:
+    radial-gradient(circle at top left, rgba(13, 148, 136, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 1));
+}
+
+.main {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.08);
+}
+
+.headerInner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.headerTitle {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+}
+
+.headerSub {
+  margin-top: 4px;
+  font-size: 0.84rem;
+  color: var(--color-text-muted);
+}
+
+.backLink {
+  font-size: 0.76rem;
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.headerMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.headerMeta span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.05);
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.section,
+.panel {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.section {
+  padding: 22px;
+}
+
+.panel {
+  padding: 20px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.sectionTitle,
+.panelTitle {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.sectionDesc {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.tabSelector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.tabButton,
+.scenarioBtn,
+.experimentCard,
+.retryButton {
+  font-family: inherit;
+}
+
+.tabButton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.94));
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.tabButton strong {
+  font-size: 0.94rem;
+  color: var(--color-text-primary);
+}
+
+.tabButton span {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.tabButton:hover,
+.scenarioBtn:hover,
+.experimentCard:hover {
+  transform: translateY(-1px);
+  border-color: rgba(13, 148, 136, 0.35);
+}
+
+.tabButtonActive,
+.scenarioBtnActive,
+.experimentCardActive {
+  border-color: rgba(13, 148, 136, 0.6);
+  box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.22);
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.98), rgba(255, 255, 255, 0.96));
+}
+
+.scenarioSelector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.scenarioBtn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--color-surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenarioBtn strong {
+  font-size: 0.92rem;
+  color: var(--color-text-primary);
+}
+
+.scenarioBtnDesc {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.controlsBar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.controlLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.controlSelect,
+.retryButton {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: white;
+  color: var(--color-text-primary);
+}
+
+.controlSelect {
+  min-width: 110px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+}
+
+.retryButton {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.resultInfo {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.summaryGrid,
+.detailGrid {
+  display: grid;
+  gap: 14px;
+}
+
+.summaryGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 6px;
+}
+
+.detailGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+}
+
+.summaryCardWarn {
+  background: linear-gradient(180deg, rgba(255, 251, 235, 0.98), rgba(255, 255, 255, 0.96));
+}
+
+.summaryCardSuccess {
+  background: linear-gradient(180deg, rgba(236, 253, 245, 0.98), rgba(255, 255, 255, 0.96));
+}
+
+.summaryLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.summaryValue {
+  font-size: 1.15rem;
+  color: var(--color-text-primary);
+}
+
+.summarySub {
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.experimentList {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.experimentCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: white;
+  text-align: left;
+  cursor: pointer;
+}
+
+.experimentCard strong {
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+}
+
+.experimentCard span {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.experimentStatus {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(13, 148, 136, 0.08);
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.table th,
+.table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  white-space: nowrap;
+}
+
+.tableHead th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.tableRow:hover {
+  background: rgba(13, 148, 136, 0.03);
+}
+
+.tableCellRight {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.phone {
+  font-family: var(--font-fira-code), monospace;
+  font-size: 0.76rem;
+  color: var(--color-text-secondary);
+}
+
+.statusBadge,
+.actionBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.statusCompleted {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-success);
+}
+
+.statusNoAnswer {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--color-accent);
+}
+
+.statusOther {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--color-text-muted);
+}
+
+.actionBadge {
+  border: 1px solid currentColor;
+  background: transparent;
+}
+
+.loading,
+.empty {
+  padding: 40px 18px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 12px;
+  border: 3px solid rgba(148, 163, 184, 0.24);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.errorBox,
+.warningBox,
+.interpretBlock {
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.errorBox {
+  background: rgba(254, 242, 242, 0.96);
+  border: 1px solid rgba(239, 68, 68, 0.16);
+  color: var(--color-danger);
+}
+
+.warningBox {
+  margin-top: 18px;
+  background: rgba(255, 251, 235, 0.96);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  color: #92400e;
+}
+
+.warningBox strong,
+.errorBox strong,
+.interpretBlock strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.flatList {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}
+
+.interpretBlock {
+  border-left: 4px solid var(--color-primary);
+  background: rgba(13, 148, 136, 0.05);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1100px) {
+  .summaryGrid,
+  .experimentList,
+  .detailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: 16px;
+  }
+
+  .headerInner {
+    padding: 16px;
+    flex-direction: column;
+  }
+
+  .tabSelector,
+  .scenarioSelector,
+  .summaryGrid,
+  .experimentList,
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .controlsBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .resultInfo {
+    margin-left: 0;
+  }
+}

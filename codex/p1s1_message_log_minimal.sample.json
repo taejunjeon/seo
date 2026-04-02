@@ -1,0 +1,10 @@
+[
+  {
+    "customer_key": "ck_f18a74c42227db21ba3e44d0",
+    "provider_status": "prepared",
+    "payload": {
+      "campaign_key": "shadow-local-sample",
+      "page_name": "campaign:shadow-local-sample"
+    }
+  }
+]

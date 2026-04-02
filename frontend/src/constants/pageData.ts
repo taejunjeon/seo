@@ -19,7 +19,7 @@ export const TAG_CLASS_MAP: Record<AiInsight["priority"], string> = {
   recommend: "insightTagRecommend",
 };
 
-export const NAV_TABS = ["오버뷰", "칼럼 분석", "키워드 분석", "PageSpeed 보고서", "Core Web Vitals", "사용자 행동", "페이지 진단", "솔루션 소개"];
+export const NAV_TABS = ["오버뷰", "칼럼", "키워드", "AI 보고서", "CWV", "행동", "진단", "AI CRM", "솔루션"];
 
 /* ── 진단 탭: CSS 클래스 매핑 ── */
 export const DIAG_PRIORITY_MAP: Record<DiagnosisItem["priority"], { dot: string; label: string; cls: string }> = {
