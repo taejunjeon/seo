@@ -29,6 +29,7 @@ import { createAligoRouter } from "./routes/aligo";
 import { createPageSpeedRouter, persistPageSpeedResult } from "./routes/pagespeed";
 import { createTossRouter } from "./routes/toss";
 import { isSerpApiConfigured } from "./serpapi";
+import { getTossStoreHealth } from "./tossConfig";
 
 const app = express();
 
@@ -126,6 +127,8 @@ app.use((req, res, next) => {
 
 // Health
 app.get("/health", (_req: Request, res: Response) => {
+  const tossStoreHealth = getTossStoreHealth();
+
   res.json({
     status: "ok",
     service: "biocom-seo-backend",
@@ -163,6 +166,7 @@ app.get("/health", (_req: Request, res: Response) => {
         liveKey: !!env.TOSS_LIVE_SECRET_KEY,
         testKey: !!env.TOSS_TEST_SECRET_KEY,
         ready: !!env.TOSS_LIVE_SECRET_KEY,
+        stores: tossStoreHealth,
       },
       imweb: {
         apiKey: !!env.IMWEB_API_KEY,
@@ -248,4 +252,5 @@ app.listen(env.PORT, () => {
       console.log("[CWV auto] done");
     }, 30_000);
   }
+
 });
