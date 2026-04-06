@@ -149,14 +149,14 @@ curl -H "Authorization: Basic ${AUTH}" https://api.tosspayments.com/v1/transacti
 `GET /v1/transactions`는 `limit=100`이 최대이고, `startingAfter` 파라미터로 페이지네이션이 가능하다.
 한 달에 2,000건이면 20번 호출 필요. 15개월 × 20회 = 300회 호출로 전체 데이터 적재 가능.
 
-### 로컬 SQLite 적재 계획
+### 로컬 SQLite 적재 결과 및 운영 활용
 
-Toss API에서 2025-01 ~ 현재까지 전체 거래+정산을 가져와 `backend/data/crm.sqlite3`에 적재하면:
+Toss API에서 2025-01 ~ 현재까지 전체 거래+정산을 `backend/data/crm.sqlite3`에 적재하는 경로는 이미 확보되었다. 현재 기준 활용 포인트는 다음과 같다.
 
-1. **커피 VIP LTR 정확 산출** — 현재 2개월 데이터라 VIP LTR이 과소. 15개월 데이터면 정확
-2. **월별 매출 추이** — 운영 DB 의존 없이 Toss 직접 조회
-3. **API 호출 최소화** — 한 번 적재 후 로컬 조회, 일간 증분만 API 호출
-4. **PlayAuto 크로스 조인 범위 확대** — 2025 전체 기간으로 매칭률 향상
+1. **커피 VIP LTR 재산출 가능** — 기존 2개월 기준 과소추정 문제를 15개월 범위로 다시 계산할 수 있다
+2. **월별 매출 추이 확보** — 운영 DB 의존 없이 Toss 직접 조회 데이터로 확인 가능하다
+3. **API 호출 최소화** — 한 번 적재 후 로컬 조회, 일간 증분만 API 호출하면 된다
+4. **PlayAuto 크로스 조인 범위 확대** — 2025 전체 기간 기준으로 매칭률을 다시 계산할 수 있다
 
 적재할 테이블:
 - `toss_transactions` — transactionKey, paymentKey, orderId, method, status, transactionAt, amount, mId
@@ -235,19 +235,20 @@ POST /api/toss/sync?mode=backfill&startDate=2025-01-01
 | MID | 용도 | Toss API 키 | 로컬 적재 |
 |-----|------|------------|----------|
 | `iw_biocomo8tx` | 바이오컴 | 라이브 키 확보 | **32,916건** (15개월) |
-| `iw_thecleaz5j` | 더클린커피 | **미확보** | 687건 (운영 DB에서 복사, 2개월) |
+| `iw_thecleaz5j` | 더클린커피 | **라이브 키 반영 완료 (0406)** | **5,043건** (2025-01 ~ 2026-02, local backfill 완료) |
 
-- 바이오컴 키로 커피 orderId 조회 → `NOT_FOUND_PAYMENT` (404) — MID가 다르므로 불가
-- 커피 전용 Toss Secret Key(`TOSS_SECRET_KEY_COFFEE`)가 필요하지만 `.env`에 없음
-- revenue 코드에 `TOSS_SECRET_KEY_COFFEE` 설정 슬롯은 존재 (`revenue/backend/app/tasks/tossApi/api_client.py`)
+- 과거에는 바이오컴 키로 커피 orderId 조회 시 `NOT_FOUND_PAYMENT` (404)였다
+- 2026-04-06 현재 `seo/backend`가 `store=biocom|coffee` 분기를 지원하며, coffee orderId 상세 조회 실검증까지 완료했다
+- `POST /api/toss/sync?store=coffee&mode=backfill&startDate=2025-01-01&endDate=2026-04-06` 실행 결과, `transactions 4,356건 / settlements 1,400건` 추가 적재됐다
+- 남은 것은 키 확보가 아니라 coffee LTR/재구매 지표 갱신이다
 
 ### 커피 15개월 데이터 확보 방법
 
-1. **커피 Toss Secret Key 확보** → `.env`에 추가 → backfill 실행 (가장 정확)
-2. PlayAuto 기반 분석 유지 (현재 방식, LTR은 과소추정)
-3. 운영 DB `tb_sales_toss` 동기화 범위 확대 요청 (개발팀)
+1. **완료**: 커피 Toss backfill 실행 → `.env` 반영된 live key로 2025~현재 local 재적재
+2. PlayAuto 기반 분석 유지 (현재 방식, LTR은 여전히 과소추정 가능)
+3. 운영 DB `tb_sales_toss` 동기화 범위 확대 요청 (개발팀, 보조 경로)
 
-### 현재 크로스 조인 결과 (커피 2개월)
+### 현재 크로스 조인 결과 (구버전 2개월 기준)
 
 | 세그먼트 | 고객 | 평균 LTR | 재구매율 |
 |---------|------|---------|---------|
@@ -256,7 +257,7 @@ POST /api/toss/sync?mode=backfill&startDate=2025-01-01
 | 1회 | 409명 | ₩45,352 | - |
 | **전체** | **517명** | **₩58,383** | **20.9%** |
 
-→ 2개월 데이터라 VIP가 거의 잡히지 않음. 커피 Secret Key 확보 시 15개월 기준 정확 산출 가능.
+→ 이 표는 backfill 전 2개월 기준으로 만든 값이다. 0406 local backfill 완료 후에는 15개월 기준으로 다시 계산해야 한다.
 
 ## 11. 다음 단계
 
