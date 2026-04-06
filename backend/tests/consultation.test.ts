@@ -4,11 +4,13 @@ import test from "node:test";
 import {
   categorizeProductName,
   fetchConsultationCandidates,
+  fetchConsultationManagers,
   fetchConsultationOrderMatch,
   fetchConsultationSummary,
   getDefaultConsultationRange,
   normalizeConsultationStatus,
 } from "../src/consultation";
+import { resolveConsultationRangeFromQuery } from "../src/routes/consultation";
 
 const makeResult = <TRow extends Record<string, unknown>>(rows: TRow[]) =>
   ({
@@ -89,6 +91,32 @@ test("consultation: summary response maps aggregates into API shape", async () =
   assert.equal(summary.analysisTypeBreakdown[1]?.count, 774);
 });
 
+test("consultation: managers response maps rates into API shape", async () => {
+  const runner = createQueuedRunner([
+    {
+      manager: "민정",
+      consultation_rows: "12",
+      distinct_contacts: "10",
+      completed_rows: "9",
+      matched_order_contacts: "8",
+    },
+  ]);
+
+  const managers = await fetchConsultationManagers(
+    {
+      range: { startDate: "2025-12-28", endDate: "2026-03-27" },
+      limit: 20,
+    },
+    runner as any,
+  );
+
+  assert.equal(managers.ok, true);
+  assert.equal(managers.items[0]?.manager, "민정");
+  assert.equal(managers.items[0]?.consultationRows, 12);
+  assert.equal(managers.items[0]?.completedRate, 0.75);
+  assert.equal(managers.items[0]?.orderMatchRate, 0.8);
+});
+
 test("consultation: order-match computes rates from overlap totals", async () => {
   const runner = createQueuedRunner([
     {
@@ -114,6 +142,37 @@ test("consultation: order-match computes rates from overlap totals", async () =>
   assert.equal(orderMatch.totals.ltrMatchRate, 0.735);
   assert.equal(orderMatch.filters.manager, "민정");
   assert.equal(orderMatch.filters.statusGroup, "completed");
+});
+
+test("consultation: route query parser accepts snake_case and camelCase dates", () => {
+  const snakeCase = resolveConsultationRangeFromQuery({
+    start_date: "2025-04-01",
+    end_date: "2026-03-27",
+  } as any);
+  const camelCase = resolveConsultationRangeFromQuery({
+    startDate: "2025-04-01",
+    endDate: "2026-03-27",
+  } as any);
+
+  assert.equal(snakeCase.ok, true);
+  if (!snakeCase.ok) {
+    throw new Error("snake_case query parsing failed");
+  }
+  assert.deepEqual(snakeCase, {
+    ok: true,
+    startDate: "2025-04-01",
+    endDate: "2026-03-27",
+  });
+
+  assert.equal(camelCase.ok, true);
+  if (!camelCase.ok) {
+    throw new Error("camelCase query parsing failed");
+  }
+  assert.deepEqual(camelCase, {
+    ok: true,
+    startDate: "2025-04-01",
+    endDate: "2026-03-27",
+  });
 });
 
 test("consultation: candidates use scenario-specific window and response mapping", async () => {

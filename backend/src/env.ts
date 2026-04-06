@@ -8,8 +8,32 @@ const envSource = {
   KAKAO_REST_API_KEY: process.env.KAKAO_REST_API_KEY ?? process.env.KAKAO_BIOCOM_REST_API_KEY,
   KAKAO_JAVASCRIPT_KEY: process.env.KAKAO_JAVASCRIPT_KEY ?? process.env.KAKAO_BIOCOM_JavaScript_KEY,
   KAKAO_ADMIN_KEY: process.env.KAKAO_ADMIN_KEY ?? process.env.KAKAO_BIOCOM_Admin_KEY,
-  TOSS_LIVE_SECRET_KEY: process.env.TOSS_LIVE_SECRET_KEY,
-  TOSS_LIVE_CLIENT_KEY: process.env.TOSS_LIVE_CLIENT_KEY ?? process.env.TEST_LIVE_CLIENT_KEY,
+  TOSS_SHOP_ID: process.env.TOSS_SHOP_ID ?? process.env.TOSS_SHOP_ID_BIOCOM,
+  TOSS_SHOP_ID_BIOCOM: process.env.TOSS_SHOP_ID_BIOCOM ?? process.env.TOSS_SHOP_ID,
+  TOSS_SHOP_ID_COFFEE: process.env.TOSS_SHOP_ID_COFFEE,
+  TOSS_LIVE_SECRET_KEY: process.env.TOSS_LIVE_SECRET_KEY ?? process.env.TOSS_LIVE_SECRET_KEY_BIOCOM,
+  TOSS_LIVE_SECRET_KEY_BIOCOM:
+    process.env.TOSS_LIVE_SECRET_KEY_BIOCOM ?? process.env.TOSS_LIVE_SECRET_KEY,
+  TOSS_LIVE_SECRET_KEY_COFFEE:
+    process.env.TOSS_LIVE_SECRET_KEY_COFFEE ?? process.env.TOSS_LIVE_SECRET_KEY_COFFEE_API,
+  TOSS_LIVE_CLIENT_KEY:
+    process.env.TOSS_LIVE_CLIENT_KEY
+    ?? process.env.TOSS_LIVE_CLIENT_KEY_BIOCOM
+    ?? process.env.TEST_LIVE_CLIENT_KEY,
+  TOSS_LIVE_CLIENT_KEY_BIOCOM:
+    process.env.TOSS_LIVE_CLIENT_KEY_BIOCOM ?? process.env.TOSS_LIVE_CLIENT_KEY,
+  TOSS_LIVE_CLIENT_KEY_COFFEE:
+    process.env.TOSS_LIVE_CLIENT_KEY_COFFEE ?? process.env.TOSS_LIVE_CLIENT_KEY_COFFEE_API,
+  TOSS_TEST_CLIENT_KEY: process.env.TOSS_TEST_CLIENT_KEY ?? process.env.TOSS_TEST_CLIENT_KEY_BIOCOM,
+  TOSS_TEST_CLIENT_KEY_BIOCOM:
+    process.env.TOSS_TEST_CLIENT_KEY_BIOCOM ?? process.env.TOSS_TEST_CLIENT_KEY,
+  TOSS_TEST_CLIENT_KEY_COFFEE:
+    process.env.TOSS_TEST_CLIENT_KEY_COFFEE ?? process.env.TOSS_TEST_CLIENT_KEY_COFFEE_API,
+  TOSS_TEST_SECRET_KEY: process.env.TOSS_TEST_SECRET_KEY ?? process.env.TOSS_TEST_SECRET_KEY_BIOCOM,
+  TOSS_TEST_SECRET_KEY_BIOCOM:
+    process.env.TOSS_TEST_SECRET_KEY_BIOCOM ?? process.env.TOSS_TEST_SECRET_KEY,
+  TOSS_TEST_SECRET_KEY_COFFEE:
+    process.env.TOSS_TEST_SECRET_KEY_COFFEE ?? process.env.TOSS_TEST_SECRET_KEY_COFFEE_API,
   ALIGO_SENDER_KEY:
     process.env.ALIGO_SENDER_KEY
     ?? process.env.ALIGO_Senderkey
@@ -22,6 +46,9 @@ const envSource = {
     process.env.CHANNELTALK_MEMBER_HASH_SECRET ?? process.env.CHANNELTALK_MEMBERHASHSECRET,
   CHANNELTALK_MARKETING_ENABLED:
     process.env.CHANNELTALK_MARKETING_ENABLED ?? process.env.CHANNELTALK_MARKETINGENABLED,
+  META_PIXEL_ID_BIOCOM: process.env.META_PIXEL_ID_BIOCOM ?? "1283400029487161",
+  META_PIXEL_ID_COFFEE: process.env.META_PIXEL_ID_COFFEE ?? "1186437633687388",
+  META_PIXEL_ID_AIBIO: process.env.META_PIXEL_ID_AIBIO ?? "1068377347547682",
 };
 
 const envSchema = z.object({
@@ -38,6 +65,10 @@ const envSchema = z.object({
   PAGESPEED_API_KEY: z.string().optional(),
   GA4_PROPERTY_ID: z.string().optional(),
   GA4_SERVICE_ACCOUNT_KEY: z.string().optional(),
+  GA4_BIOCOM_PROPERTY_ID: z.string().optional(),
+  GA4_BIOCOM_SERVICE_ACCOUNT_KEY: z.string().optional(),
+  GA4_COFFEE_PROPERTY_ID: z.string().optional(),
+  GA4_AIBIOCOM_PROPERTY_ID: z.string().optional(),
   SERP_API_KEY: z.string().optional(),
   PERPLEXITY_API_KEY: z.string().optional(),
   PERPLEXITY_MODEL: z.string().default("sonar-pro"),
@@ -76,10 +107,26 @@ const envSchema = z.object({
   PLAYAUTO_EMAIL: z.string().min(1).optional(),
   PLAYAUTO_PASSWORD: z.string().min(1).optional(),
   PLAYAUTO_BASE_URL: z.string().url().optional(),
+  META_ADMANAGER_API_KEY: z.string().min(1).optional(),
+  META_APP_SECRET_CODE: z.string().min(1).optional(),
+  META_PIXEL_ID_BIOCOM: z.string().min(1).default("1283400029487161"),
+  META_PIXEL_ID_COFFEE: z.string().min(1).default("1186437633687388"),
+  META_PIXEL_ID_AIBIO: z.string().min(1).default("1068377347547682"),
   TOSS_SHOP_ID: z.string().min(1).optional(),
+  TOSS_SHOP_ID_BIOCOM: z.string().min(1).optional(),
+  TOSS_SHOP_ID_COFFEE: z.string().min(1).optional(),
   TOSS_LIVE_SECRET_KEY: z.string().min(1).optional(),
+  TOSS_LIVE_SECRET_KEY_BIOCOM: z.string().min(1).optional(),
+  TOSS_LIVE_SECRET_KEY_COFFEE: z.string().min(1).optional(),
   TOSS_LIVE_CLIENT_KEY: z.string().min(1).optional(),
+  TOSS_LIVE_CLIENT_KEY_BIOCOM: z.string().min(1).optional(),
+  TOSS_LIVE_CLIENT_KEY_COFFEE: z.string().min(1).optional(),
+  TOSS_TEST_CLIENT_KEY: z.string().min(1).optional(),
+  TOSS_TEST_CLIENT_KEY_BIOCOM: z.string().min(1).optional(),
+  TOSS_TEST_CLIENT_KEY_COFFEE: z.string().min(1).optional(),
   TOSS_TEST_SECRET_KEY: z.string().min(1).optional(),
+  TOSS_TEST_SECRET_KEY_BIOCOM: z.string().min(1).optional(),
+  TOSS_TEST_SECRET_KEY_COFFEE: z.string().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse(envSource);

@@ -7,20 +7,20 @@
  */
 
 import express, { type Request, type Response } from "express";
-import { env } from "../env";
 import { getCrmDb } from "../crmLocalDb";
+import { getTossBasicAuth, getTossStoreConfig, normalizeTossStore, type TossStore } from "../tossConfig";
 
 const TOSS_BASE = "https://api.tosspayments.com";
 
-function getTossAuth(): string | null {
-  const key = env.TOSS_LIVE_SECRET_KEY?.trim();
-  if (!key) return null;
-  return `Basic ${Buffer.from(`${key}:`).toString("base64")}`;
-}
-
-async function tossGet<T>(path: string): Promise<T> {
-  const auth = getTossAuth();
-  if (!auth) throw new Error("TOSS_LIVE_SECRET_KEY 미설정");
+async function tossGet<T>(path: string, store: TossStore = "biocom"): Promise<T> {
+  const auth = getTossBasicAuth(store, "live");
+  if (!auth) {
+    throw new Error(
+      store === "coffee"
+        ? "TOSS_LIVE_SECRET_KEY_COFFEE 미설정"
+        : "TOSS_LIVE_SECRET_KEY_BIOCOM 미설정",
+    );
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -73,15 +73,17 @@ export const createTossRouter = () => {
   // 거래내역 조회
   router.get("/api/toss/transactions", async (req: Request, res: Response) => {
     try {
+      const store = normalizeTossStore(req.query.store as string | undefined);
       const startDate = (req.query.startDate as string) || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
       const endDate = (req.query.endDate as string) || new Date().toISOString().slice(0, 10);
       const limit = Math.min(Number(req.query.limit) || 100, 100);
 
       const data = await tossGet<TossTransaction[]>(
         `/v1/transactions?startDate=${startDate}&endDate=${endDate}&limit=${limit}`,
+        store,
       );
 
-      res.json({ ok: true, count: data.length, transactions: data });
+      res.json({ ok: true, store, count: data.length, transactions: data });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Toss API error" });
     }
@@ -90,15 +92,17 @@ export const createTossRouter = () => {
   // 정산내역 조회
   router.get("/api/toss/settlements", async (req: Request, res: Response) => {
     try {
+      const store = normalizeTossStore(req.query.store as string | undefined);
       const startDate = (req.query.startDate as string) || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
       const endDate = (req.query.endDate as string) || new Date().toISOString().slice(0, 10);
       const limit = Math.min(Number(req.query.limit) || 100, 100);
 
       const data = await tossGet<TossSettlement[]>(
         `/v1/settlements?startDate=${startDate}&endDate=${endDate}&limit=${limit}`,
+        store,
       );
 
-      res.json({ ok: true, count: data.length, settlements: data });
+      res.json({ ok: true, store, count: data.length, settlements: data });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Toss API error" });
     }
@@ -107,12 +111,14 @@ export const createTossRouter = () => {
   // orderId로 결제 상세 조회
   router.get("/api/toss/payments/orders/:orderId", async (req: Request, res: Response) => {
     try {
+      const store = normalizeTossStore(req.query.store as string | undefined);
       const rawOrderId = req.params.orderId;
       const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
       const data = await tossGet<Record<string, unknown>>(
         `/v1/payments/orders/${encodeURIComponent(orderId)}`,
+        store,
       );
-      res.json({ ok: true, payment: data });
+      res.json({ ok: true, store, payment: data });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Toss API error" });
     }
@@ -121,11 +127,13 @@ export const createTossRouter = () => {
   // 일별 요약 집계
   router.get("/api/toss/daily-summary", async (req: Request, res: Response) => {
     try {
+      const store = normalizeTossStore(req.query.store as string | undefined);
       const startDate = (req.query.startDate as string) || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
       const endDate = (req.query.endDate as string) || new Date().toISOString().slice(0, 10);
 
       const settlements = await tossGet<TossSettlement[]>(
         `/v1/settlements?startDate=${startDate}&endDate=${endDate}&limit=100`,
+        store,
       );
 
       // 일별 집계
@@ -155,7 +163,7 @@ export const createTossRouter = () => {
           : 0,
       };
 
-      res.json({ ok: true, totals, daily: summary });
+      res.json({ ok: true, store, totals, daily: summary });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Toss API error" });
     }
@@ -164,9 +172,18 @@ export const createTossRouter = () => {
   // Toss → 로컬 SQLite 동기화
   router.post("/api/toss/sync", async (req: Request, res: Response) => {
     try {
+      const store = normalizeTossStore(req.query.store as string | undefined);
       const mode = (req.query.mode as string) || "incremental";
-      const auth = getTossAuth();
-      if (!auth) { res.status(503).json({ ok: false, error: "TOSS_LIVE_SECRET_KEY 미설정" }); return; }
+      const auth = getTossBasicAuth(store, "live");
+      if (!auth) {
+        const config = getTossStoreConfig(store, "live");
+        res.status(503).json({
+          ok: false,
+          store,
+          error: `${config.store === "coffee" ? "TOSS_LIVE_SECRET_KEY_COFFEE" : "TOSS_LIVE_SECRET_KEY_BIOCOM"} 미설정`,
+        });
+        return;
+      }
 
       const db = getCrmDb();
       const insertTxn = db.prepare(`
@@ -215,7 +232,7 @@ export const createTossRouter = () => {
           if (lastKey) url += `&startingAfter=${encodeURIComponent(lastKey)}`;
 
           try {
-            const txns = await tossGet<TossTransaction[]>(url);
+            const txns = await tossGet<TossTransaction[]>(url, store);
             for (const t of txns) {
               insertTxn.run(t.transactionKey, t.paymentKey, t.orderId, t.method, t.status, t.transactionAt, t.currency, t.amount, t.mId);
               totalTxn++;
@@ -234,6 +251,7 @@ export const createTossRouter = () => {
         try {
           const settlements = await tossGet<TossSettlement[]>(
             `/v1/settlements?startDate=${m.start}&endDate=${m.end}&limit=100`,
+            store,
           );
           for (const s of settlements) {
             insertSettle.run(
@@ -261,6 +279,7 @@ export const createTossRouter = () => {
 
       res.json({
         ok: true,
+        store,
         mode,
         range: { startDate, endDate },
         monthsProcessed: months.length,

@@ -15,12 +15,25 @@ import {
 import { isDatabaseConfigured } from "../postgres";
 
 const parseString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+const pickFirstString = (...values: unknown[]) => {
+  for (const value of values) {
+    const parsed = parseString(value);
+    if (parsed) return parsed;
+  }
+  return "";
+};
 
 const parseOptionalLimit = (value: unknown) => {
   if (typeof value !== "string" || !value.trim()) return undefined;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : undefined;
 };
+
+export const resolveConsultationRangeFromQuery = (query: Request["query"]) =>
+  resolveConsultationDateRange({
+    startDateParam: pickFirstString(query.start_date, query.startDate),
+    endDateParam: pickFirstString(query.end_date, query.endDate),
+  });
 
 const isValidStatusGroup = (value: string): value is ConsultationStatusGroup =>
   CONSULTATION_STATUS_GROUPS.includes(value as ConsultationStatusGroup);
@@ -45,10 +58,7 @@ export const createConsultationRouter = () => {
 
   router.get("/api/consultation/summary", async (req: Request, res: Response) => {
     try {
-      const range = resolveConsultationDateRange({
-        startDateParam: parseString(req.query.startDate),
-        endDateParam: parseString(req.query.endDate),
-      });
+      const range = resolveConsultationRangeFromQuery(req.query);
 
       if (!range.ok) {
         res.status(400).json(range);
@@ -64,10 +74,7 @@ export const createConsultationRouter = () => {
 
   router.get("/api/consultation/managers", async (req: Request, res: Response) => {
     try {
-      const range = resolveConsultationDateRange({
-        startDateParam: parseString(req.query.startDate),
-        endDateParam: parseString(req.query.endDate),
-      });
+      const range = resolveConsultationRangeFromQuery(req.query);
 
       if (!range.ok) {
         res.status(400).json(range);
@@ -88,10 +95,7 @@ export const createConsultationRouter = () => {
 
   router.get("/api/consultation/order-match", async (req: Request, res: Response) => {
     try {
-      const range = resolveConsultationDateRange({
-        startDateParam: parseString(req.query.startDate),
-        endDateParam: parseString(req.query.endDate),
-      });
+      const range = resolveConsultationRangeFromQuery(req.query);
 
       if (!range.ok) {
         res.status(400).json(range);
@@ -125,10 +129,7 @@ export const createConsultationRouter = () => {
 
   router.get("/api/consultation/product-followup", async (req: Request, res: Response) => {
     try {
-      const range = resolveConsultationDateRange({
-        startDateParam: parseString(req.query.startDate),
-        endDateParam: parseString(req.query.endDate),
-      });
+      const range = resolveConsultationRangeFromQuery(req.query);
 
       if (!range.ok) {
         res.status(400).json(range);
