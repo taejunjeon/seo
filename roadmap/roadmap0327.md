@@ -1,6 +1,6 @@
 # Revenue CRM/실험 로드맵
 
-기준일: 2026-03-27 (최종 업데이트: 2026-04-06 #24 — Toss biocom/coffee multi-store 키 반영, coffee orderId 크로스 검증 + local backfill 5,043건 완료, P5.5 전체 완료 유지)
+기준일: 2026-03-27 (최종 업데이트: 2026-04-08 #30 — coffee fetch-fix v2 live 검증 + payment_status 구분 확인 + GA4 `(not set)` 다음 계획 반영)
 
 > 이 문서는 **Phase별 요약**만 담는다. 각 Phase의 상세 내역은 개별 문서를 참조.
 >
@@ -13,7 +13,7 @@
 | Phase | 제목 | 완료 | 상세 문서 | 핵심 산출물 |
 |-------|------|------|----------|-----------|
 | **P0** | 구조 고정 · 데이터 계약 | **100%** | [phase0.md](phase0.md) | customer_key, 이벤트 명세, ontology |
-| **P1** | CRM 실험 원장 MVP | **100%/85%** | [phase1.md](phase1.md) | 실험 장부, PG attribution, live row + UTM |
+| **P1** | CRM 실험 원장 MVP | **100%/90%** | [phase1.md](phase1.md) | 실험 장부, status-aware attribution ledger, live row + UTM |
 | **P1.5** | AIBIO 광고 최적화 | **90%/진행중** | [../aibio/aibio.md](../aibio/aibio.md) | GTM 정리, Meta/Google/당근 광고 계획, 50명 유입 목표 |
 | **P2** | 상담 원장 · 상담사 가치 | **100%** | [phase2.md](phase2.md) | callprice API 10개, /callprice 대시보드 |
 | **P2.5** | 프리-구매 리드 마그넷 | **10%** | [phase2_5.md](phase2_5.md) | 진단형 퀴즈 설계 |
@@ -39,9 +39,23 @@
 └── GA4 3사이트 연동 + 생일 필드 sync + 아임웹 캠페인 분석
 
 현재 진행 중 (이번 주)
+├── ✅ 최우선 운영 기준 고정: `WAITING_FOR_DEPOSIT` 등 가상계좌 미입금 주문은 `pending`으로만 남기고 `confirmedRevenue`/메인 ROAS에서는 제외
 ├── ✅ CAPI 자동화 완료 (30분 주기 서버 내장 sync)
+├── ✅ status-aware attribution ledger 완료 (SQLite + `payment_status` + Toss sync route)
+├── ✅ biocom fetch-fix caller live 검증 (`orderId 202604081311774`, `snippetVersion 2026-04-08-fetchfix`, `ga_session_id 1775652461`)
+├── ✅ biocom Imweb local sync 실실행 (`imweb_orders` latest 5,750건)
+├── ✅ Toss settlement backfill 실실행 (latest local `toss_settlements` 20,388건)
+├── ✅ biocom reconcile age bucket 분해 (`0-1일 45.77% / 31일+ 76.71%`)
+├── ✅ `/api/toss/sync` completion signal 추가 (`runId / pagesRead / rowsAdded / done`)
+├── ✅ `/ads` 메인 ROAS를 attribution 기준으로 정렬 (`/ads/roas`와 primary source 통일)
+├── ✅ public backend 최신 dedupe 정책 배포 (`caller-coverage` public `200`, AIBIO 10분 이내 재제출 적재 확인)
+├── ✅ AIBIO form-submit v5 live 검증 (`2026-04-08 23:22:56 / 23:23:26 KST` 연속 제출 모두 `201`)
+├── ✅ thecleancoffee payment_success fetch-fix v2 live 검증 (`orderId 202604080749309`, `snippetVersion 2026-04-08-coffee-fetchfix-v2`, all-three `1건`)
+├── biocom payment page GTM custom script 오류 정리 (`GTM-W7VXS4D8`, 리인벤팅 협의 후 `tag_id 44` null-safe patch 또는 payment page 제외/태그 제거 검토)
+├── GA4 `(not set)` 원인 좁히기: BigQuery raw export + hourly compare + caller coverage 일일 루틴 고정
 ├── P3 마감: 첫 operational live (세그먼트 선택 → 알림톡/SMS 발송 → 전환 추적)
 ├── 더클린커피 Meta 계정 권한 확보 + coffee KPI 재산출
+├── 일일 데이터 정합성 체크 루틴 고정 (`ledger` / `sync-status` / `toss-join` / `crm-phase1`)
 ├── CAPI 효과 검증: 04/12 전환 증가, 04/19 CPA 하락 확인
 └── Meta Conversion Lift 실험 시작 (iROAS 정밀 측정)
 
@@ -66,6 +80,57 @@
 구매 전환율 25%는 업계 상위이나, **발송 성공률 50%가 병목**(카카오 채널 미구독).
 우리 솔루션의 SMS fallback으로 실패분을 복구하면 매출 ~2배 가능.
 상세: [phase3.md > 더클린커피 아임웹 CRM 캠페인 현황 분석](phase3.md)
+
+## 0406 데이터 정합성 체크 반영
+
+`data/datacheck0406.md`와 `gptfeedback_0406_2reply.md` 기준으로, P1 운영 판단 숫자는 이제 아래 순서로 읽는다.
+
+1. `GET /api/attribution/ledger`
+   - source-of-truth for `payment_status`, `confirmedRevenue`, `pendingRevenue`, `canceledRevenue`
+2. `POST /api/attribution/sync-status/toss?dryRun=true`
+   - pending row가 Toss 상태와 실제로 닫히는지 preview 확인
+3. `GET /api/attribution/toss-join`
+   - paymentKey/orderId 기준 조인율 확인
+4. `GET /api/crm-phase1/ops`
+   - CRM 화면용 요약, GA4 `(not set)` 비교, next action 확인
+
+현재 0406 로컬 기준 핵심 수치:
+
+- attribution ledger `344건`
+- `payment_success 342건`
+- capture mode: `live 335 / replay 5 / smoke 4`
+- payment status: `pending 276 / confirmed 65 / canceled 1`
+- status별 금액: `confirmed ₩13,465,104 / pending ₩584,216,825 / canceled ₩78,088`
+
+이 루틴은 `P1 숫자를 믿어도 되는가`를 매일 확인하는 최소 check로 본다.
+
+## 0408 운영 검증 반영
+
+`data/datacheck0406.md`와 `gptfeedback_0408_1reply.md` 기준으로, 이번 턴에는 "문서상 계획"이 아니라 실제 실행 결과를 아래처럼 확보했다.
+
+1. `GET /api/attribution/caller-coverage`
+   - baseline은 `payment_success 452건`, `ga_session_id / client_id / user_pseudo_id` all-three `0%`에서 시작했다
+   - 현재 local/public 최신 기준 `payment_success 560건`, all-three coverage `8건 (1.43%)`, biocom 단독 기준 `491건 중 7건 (1.43%)`, thecleancoffee 단독 기준 `62건 중 1건 (1.61%)`까지 올라왔다
+   - public `https://att.ainativeos.net/api/attribution/caller-coverage`도 이제 `200`으로 열려 있고, 최신 backend dedupe 정책이 실제 운영 프로세스에 반영됐다
+2. `POST /api/crm-local/imweb/sync-orders` (`site=biocom`)
+   - latest local `imweb_orders 5,750건`, `firstOrderAt 2026-01-27`, `lastOrderAt 2026-04-07`
+   - biocom도 이제 coffee처럼 `Imweb ↔ Toss` reconcile 숫자를 바로 볼 수 있고, age bucket으로 최근 지연과 오래된 누락을 분리해서 읽을 수 있다
+3. `POST /api/toss/sync?store=biocom&mode=backfill`
+   - latest local `toss_settlements 20,388건`, `totalPayout ₩4,720,106,642`
+   - 정산 원장은 크게 확장됐고, `/api/toss/sync` 응답에는 `runId / startedAt / finishedAt / pagesRead / rowsAdded / done` completion signal이 추가됐다. 다만 장거리 backfill의 완료 응답/최종 coverage 산출은 아직 별도 점검이 필요하다
+4. `GA4 property access`
+   - `304759974 (biocom)`, `326949178 (coffee)`, `326993019 (aibio)` 3개 property Data API access를 모두 확인
+   - coffee viewer 추가는 실제 조회 가능 상태로 검증됐다
+5. `live footer / console check`
+   - `biocom.kr`는 fetch-fix caller가 실제 homepage HTML에 반영됐고, latest live `payment_success 491건`, `ga_session_id 11건`, `client_id/user_pseudo_id 7건`, all-three `7건`까지 확인됐다
+   - `thecleancoffee.com`는 `snippetVersion=2026-04-08-coffee-fetchfix-v2` 기준 실제 가상계좌 주문 `202604080749309`가 `2026-04-08 23:53:44 KST`에 `pending`으로 적재됐고, `ga_session_id / client_id / user_pseudo_id` 3종이 모두 들어온 첫 live row를 확인했다
+   - `aibio.ai`는 쇼핑몰 purchase가 아니라 `form_submit`을 표준 원장으로 보고, `snippetVersion=2026-04-08-formfetchfix-v5` 기준 live `6건`, `2026-04-08 23:22:56 / 23:23:26 KST` 30초 간격 재제출 모두 `201` 저장을 확인했다
+   - 같은 payment_complete 페이지에서 `gtm.js?id=GTM-W7VXS4D8 ... includes` 오류가 관찰됐고, public 컨테이너 파싱 기준 culprit은 리인벤팅 W7 `tag_id 44` `Custom HTML`의 `c.includes("RETOUS_")`로 좁혀졌다
+   - 이 태그는 단순 잡음이 아니라 `c_retous_crm_open` 이벤트 생산자라서, 리인벤팅이 아직 실제로 쓰는지 먼저 협의해야 한다. 계속 쓴다면 null-safe patch, 안 쓴다면 payment page 제외 또는 W7 제거와 협업 중단 검토가 다음 액션이다
+6. `payment_status / GA4 (not set) 운영 해석`
+   - attribution ledger는 이미 `pending / confirmed / canceled`를 분리해서 읽을 수 있고, `WAITING_FOR_DEPOSIT` 같은 가상계좌 미입금 주문은 `pending`으로 남는다
+   - 다만 최신 주문은 바로 `confirmed`가 되지 않는다. 예를 들어 coffee `202604080749309`는 현재 `pending`이고, `POST /api/attribution/sync-status/toss?dryRun=true&limit=5` 시점에는 아직 `unmatched`였다
+   - 따라서 `GA4 (not set)` 문제도 이제 "결제완료 caller가 전혀 식별자를 못 보낸다" 단계는 지났다. 실마리는 보였고, 다음은 `BigQuery raw export + hourly compare + caller coverage`로 historical row와 biocom GTM 오류 구간을 분리해 읽는 것이다
 
 ---
 
@@ -153,7 +218,7 @@ STEP 04 — Evolve (AI 피드백 루프 진화) → Phase 9
 
 | | 바이오컴 | 더클린커피 | AIBIO |
 |---|---------|----------|-------|
-| 결제 추적 | ✅ live + Toss 검증 | ✅ live + UTM | ⏸ 쇼핑몰 대기 |
+| 결제/폼 추적 | ✅ fetch-fix live + Toss 검증 | ✅ payment_success fetch-fix v2 live + all-three 첫 row 확인 | ✅ form_submit v5 live + 10분 이내 재제출 적재 |
 | 회원 sync | ✅ 69,681명 | ✅ 13,236명 | ✅ 100명 |
 | SMS 동의 | 47.5% | (사이트별 미분리) | |
 | Meta 광고 | 미집행 | 캠페인 없음 | ✅ 월 ₩148만 |

@@ -4,14 +4,27 @@ import path from "node:path";
 import type { Request } from "express";
 import { z } from "zod";
 
+import {
+  getAttributionLedgerStorageRef,
+  insertAttributionLedgerEntries,
+  insertAttributionLedgerEntry,
+  listAttributionLedgerEntries,
+} from "./attributionLedgerDb";
+import { normalizeOrderIdBase, normalizePhoneDigits } from "./orderKeys";
+
 export type AttributionTouchpoint = "checkout_started" | "payment_success" | "form_submit";
 export type AttributionCaptureMode = "live" | "replay" | "smoke";
+export type AttributionPaymentStatus = "pending" | "confirmed" | "canceled";
 
 export type AttributionCaptureModeCounts = Record<AttributionCaptureMode, number>;
+export type AttributionPaymentStatusCounts = Record<AttributionPaymentStatus, number>;
+export type AttributionPaymentStatusRevenue = Record<AttributionPaymentStatus, number>;
+export type AttributionIdentityField = "gaSessionId" | "clientId" | "userPseudoId";
 
 export type AttributionLedgerEntry = {
   touchpoint: AttributionTouchpoint;
   captureMode: AttributionCaptureMode;
+  paymentStatus: AttributionPaymentStatus | null;
   loggedAt: string;
   orderId: string;
   paymentKey: string;
@@ -68,6 +81,43 @@ export type AttributionHourlyCompareRow = {
   diagnosticLabel: string;
 };
 
+export type AttributionCallerCoverageSummary = {
+  total: number;
+  withGaSessionId: number;
+  withClientId: number;
+  withUserPseudoId: number;
+  withAllThree: number;
+  gaSessionIdRate: number;
+  clientIdRate: number;
+  userPseudoIdRate: number;
+  allThreeRate: number;
+};
+
+export type AttributionCallerCoverageSample = {
+  loggedAt: string;
+  touchpoint: AttributionTouchpoint;
+  captureMode: AttributionCaptureMode;
+  orderId: string;
+  paymentKey: string;
+  source: string;
+  store: string;
+  landing: string;
+  orderIdBase: string;
+  normalizedPhone: string;
+  gaSessionId: string;
+  clientId: string;
+  userPseudoId: string;
+  missingFields: AttributionIdentityField[];
+};
+
+export type AttributionCallerCoverageReport = {
+  paymentSuccess: AttributionCallerCoverageSummary;
+  checkoutStarted: AttributionCallerCoverageSummary;
+  recentMissingPayments: AttributionCallerCoverageSample[];
+  recentMissingCheckouts: AttributionCallerCoverageSample[];
+  notes: string[];
+};
+
 export type TossReplayPlan = {
   summary: {
     tossRows: number;
@@ -86,6 +136,7 @@ export type TossReplayPlan = {
 
 const stringField = z.string().trim().max(5000).optional().default("");
 const CAPTURE_MODES = ["live", "replay", "smoke"] as const;
+const PAYMENT_STATUSES = ["pending", "confirmed", "canceled"] as const;
 
 const normalizedPayloadSchema = z.object({
   orderId: stringField,
@@ -105,21 +156,42 @@ const normalizedPayloadSchema = z.object({
   fbclid: stringField,
   ttclid: stringField,
   captureMode: z.enum(CAPTURE_MODES).optional(),
+  paymentStatus: z.enum(PAYMENT_STATUSES).nullable().optional().default(null),
   metadata: z.record(z.string(), z.unknown()).optional().default({}),
 });
 
-const DEFAULT_LEDGER_PATH = path.resolve(__dirname, "..", "logs", "checkout-attribution-ledger.jsonl");
+const LEGACY_LEDGER_PATH = path.resolve(__dirname, "..", "logs", "checkout-attribution-ledger.jsonl");
 const KST_TIMEZONE = "Asia/Seoul";
 const CAPTURE_MODE_PRIORITY: Record<AttributionCaptureMode, number> = {
   live: 3,
   replay: 2,
   smoke: 1,
 };
+const PAYMENT_STATUS_PRIORITY: Record<AttributionPaymentStatus, number> = {
+  pending: 1,
+  confirmed: 2,
+  canceled: 3,
+};
+const CONFIRMED_STATUS_KEYWORDS = ["DONE", "PAID", "APPROVED", "SUCCESS", "SUCCEEDED", "CONFIRMED", "COMPLETED", "COMPLETE"];
+const PENDING_STATUS_KEYWORDS = ["WAITING_FOR_DEPOSIT", "PENDING", "WAITING", "READY", "DEPOSIT", "REQUESTED", "IN_PROGRESS"];
+const CANCELED_STATUS_KEYWORDS = ["CANCEL", "FAIL", "ABORT", "REFUND", "EXPIRE", "VOID"];
 
 const createCaptureModeCounts = (): AttributionCaptureModeCounts => ({
   live: 0,
   replay: 0,
   smoke: 0,
+});
+
+const createPaymentStatusCounts = (): AttributionPaymentStatusCounts => ({
+  pending: 0,
+  confirmed: 0,
+  canceled: 0,
+});
+
+const createPaymentStatusRevenue = (): AttributionPaymentStatusRevenue => ({
+  pending: 0,
+  confirmed: 0,
+  canceled: 0,
 });
 
 const REFERRER_PAYMENT_KEYS = [
@@ -130,6 +202,27 @@ const REFERRER_PAYMENT_KEYS = [
   "paymentKey",
   "amount",
 ] as const;
+const PHONE_FIELD_KEYS = [
+  "phone",
+  "phoneNumber",
+  "phone_number",
+  "mobile",
+  "mobilePhone",
+  "mobile_phone",
+  "customerPhone",
+  "customer_phone",
+  "customerMobilePhone",
+  "customer_mobile_phone",
+  "buyerPhone",
+  "buyer_phone",
+  "ordererCall",
+  "orderer_call",
+  "callnum",
+  "customerKey",
+  "customer_key",
+] as const;
+const CLIENT_ID_FIELD_KEYS = ["clientId", "client_id", "gaClientId", "ga_client_id"] as const;
+const USER_PSEUDO_ID_FIELD_KEYS = ["userPseudoId", "user_pseudo_id", "gaUserPseudoId", "ga_user_pseudo_id"] as const;
 
 const parseReferrerPaymentParams = (
   referrerUrl: string,
@@ -168,7 +261,47 @@ const objectValue = (input: Record<string, unknown>, keys: string[]): Record<str
   return {};
 };
 
-export const resolveLedgerPath = (overridePath?: string) => overridePath || DEFAULT_LEDGER_PATH;
+const firstNumber = (input: Record<string, unknown>, keys: string[]): number | undefined => {
+  for (const key of keys) {
+    const value = input[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value.trim());
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return undefined;
+};
+
+export const normalizePaymentStatus = (value: unknown): AttributionPaymentStatus | undefined => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "pending" || normalized === "confirmed" || normalized === "canceled") {
+    return normalized;
+  }
+
+  const upper = trimmed.toUpperCase();
+  if (CANCELED_STATUS_KEYWORDS.some((keyword) => upper.includes(keyword))) {
+    return "canceled";
+  }
+  if (PENDING_STATUS_KEYWORDS.some((keyword) => upper.includes(keyword))) {
+    return "pending";
+  }
+  if (CONFIRMED_STATUS_KEYWORDS.some((keyword) => upper.includes(keyword))) {
+    return "confirmed";
+  }
+
+  return undefined;
+};
+
+export const resolveLedgerPath = (overridePath?: string) => overridePath || LEGACY_LEDGER_PATH;
 
 const normalizeCaptureMode = (value: unknown): AttributionCaptureMode | undefined => {
   if (typeof value !== "string") return undefined;
@@ -177,6 +310,22 @@ const normalizeCaptureMode = (value: unknown): AttributionCaptureMode | undefine
     return normalized;
   }
   return undefined;
+};
+
+const resolvePaymentStatus = (params: {
+  touchpoint: AttributionTouchpoint;
+  paymentStatus?: AttributionPaymentStatus | null;
+  metadata: Record<string, unknown>;
+}) => {
+  if (params.touchpoint !== "payment_success") {
+    return null;
+  }
+
+  const metadataStatus = normalizePaymentStatus(
+    firstString(params.metadata, ["paymentStatus", "payment_status", "status"]),
+  );
+  const explicitStatus = normalizePaymentStatus(params.paymentStatus);
+  return explicitStatus ?? metadataStatus ?? "pending";
 };
 
 export const buildRequestContext = (req: Request) => ({
@@ -210,10 +359,40 @@ export const normalizeAttributionPayload = (raw: unknown) => {
   const existingMetadata = objectValue(input, ["metadata", "meta"]);
   const source = firstString(input, ["source"]);
   const clientObservedAt = firstString(input, ["clientObservedAt", "client_observed_at"]);
+  const gaSessionId =
+    firstString(input, ["gaSessionId", "ga_session_id"]) ||
+    firstString(existingMetadata, ["gaSessionId", "ga_session_id"]);
+  const clientId =
+    firstString(input, [...CLIENT_ID_FIELD_KEYS]) ||
+    firstString(existingMetadata, [...CLIENT_ID_FIELD_KEYS]);
+  const userPseudoId =
+    firstString(input, [...USER_PSEUDO_ID_FIELD_KEYS]) ||
+    firstString(existingMetadata, [...USER_PSEUDO_ID_FIELD_KEYS]);
+  const normalizedPhone = normalizePhoneDigits(
+    firstString(input, [...PHONE_FIELD_KEYS]) ||
+      firstString(existingMetadata, [...PHONE_FIELD_KEYS]),
+  );
+  const paymentStatus =
+    normalizePaymentStatus(firstString(input, ["paymentStatus", "payment_status"])) ??
+    normalizePaymentStatus(firstString(existingMetadata, ["paymentStatus", "payment_status", "status"])) ??
+    null;
+  const orderIdBase = normalizeOrderIdBase(
+    firstString(input, ["orderIdBase", "order_id_base"]) ||
+      firstString(existingMetadata, ["orderIdBase", "order_id_base"]) ||
+      orderId ||
+      referrerParams.orderId ||
+      referrerParams.orderNo ||
+      "",
+  );
 
   const enrichedMetadata: Record<string, unknown> = { ...existingMetadata };
   if (source) enrichedMetadata.source = source;
   if (clientObservedAt) enrichedMetadata.clientObservedAt = clientObservedAt;
+  if (orderIdBase) enrichedMetadata.orderIdBase = orderIdBase;
+  if (normalizedPhone) enrichedMetadata.normalizedPhone = normalizedPhone;
+  if (gaSessionId) enrichedMetadata.gaSessionId = gaSessionId;
+  if (clientId) enrichedMetadata.clientId = clientId;
+  if (userPseudoId) enrichedMetadata.userPseudoId = userPseudoId;
   if (Object.keys(referrerParams).length > 0) {
     enrichedMetadata.referrerPayment = referrerParams;
   }
@@ -229,10 +408,10 @@ export const normalizeAttributionPayload = (raw: unknown) => {
     paymentKey,
     approvedAt: firstString(input, ["approvedAt", "approved_at"]),
     checkoutId: firstString(input, ["checkoutId", "checkout_id"]),
-    customerKey: firstString(input, ["customerKey", "customer_key"]),
+    customerKey: firstString(input, ["customerKey", "customer_key"]) || normalizedPhone,
     landing: firstString(input, ["landing", "landingPath", "landing_path"]),
     referrer: referrerRaw,
-    gaSessionId: firstString(input, ["gaSessionId", "ga_session_id"]),
+    gaSessionId,
     utmSource: firstString(input, ["utmSource", "utm_source"]),
     utmMedium: firstString(input, ["utmMedium", "utm_medium"]),
     utmCampaign: firstString(input, ["utmCampaign", "utm_campaign"]),
@@ -244,6 +423,7 @@ export const normalizeAttributionPayload = (raw: unknown) => {
     captureMode: normalizeCaptureMode(
       firstString(input, ["captureMode", "capture_mode", "sourceMode", "source_mode"]),
     ),
+    paymentStatus,
     metadata: enrichedMetadata,
   });
 };
@@ -317,74 +497,128 @@ export const buildLedgerEntry = (
     loggedAt,
     ...payload,
     captureMode: inferCaptureMode(payload, requestContext),
+    paymentStatus: resolvePaymentStatus({
+      touchpoint,
+      paymentStatus: payload.paymentStatus,
+      metadata: payload.metadata,
+    }),
     requestContext,
   };
 };
 
-export const appendLedgerEntry = async (
-  entry: AttributionLedgerEntry,
-  ledgerPath?: string,
-) => {
-  const targetPath = resolveLedgerPath(ledgerPath);
-  await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  await fs.appendFile(targetPath, `${JSON.stringify(entry)}\n`, "utf8");
-  return targetPath;
+const normalizeLedgerRequestContext = (
+  requestContext: Partial<AttributionLedgerEntry["requestContext"]> | undefined,
+): AttributionLedgerEntry["requestContext"] => ({
+  ip: requestContext?.ip ?? "",
+  userAgent: requestContext?.userAgent ?? "",
+  origin: requestContext?.origin ?? "",
+  requestReferer: requestContext?.requestReferer ?? "",
+  method: requestContext?.method ?? "",
+  path: requestContext?.path ?? "",
+});
+
+const coerceLedgerEntry = (parsed: Partial<AttributionLedgerEntry>): AttributionLedgerEntry => {
+  const touchpoint =
+    parsed.touchpoint === "payment_success"
+      ? "payment_success"
+      : parsed.touchpoint === "form_submit"
+        ? "form_submit"
+        : "checkout_started";
+  const metadata = parsed.metadata ?? {};
+  const requestContext = normalizeLedgerRequestContext(parsed.requestContext);
+
+  return {
+    touchpoint,
+    captureMode: resolveCaptureMode({
+      captureMode: normalizeCaptureMode(parsed.captureMode),
+      metadata,
+      utmMedium: typeof parsed.utmMedium === "string" ? parsed.utmMedium : "",
+      requestContext,
+    }),
+    paymentStatus: resolvePaymentStatus({
+      touchpoint,
+      paymentStatus: normalizePaymentStatus(parsed.paymentStatus),
+      metadata,
+    }),
+    loggedAt: parsed.loggedAt ?? "",
+    orderId: parsed.orderId ?? "",
+    paymentKey: parsed.paymentKey ?? "",
+    approvedAt: parsed.approvedAt ?? "",
+    checkoutId: parsed.checkoutId ?? "",
+    customerKey: parsed.customerKey ?? "",
+    landing: parsed.landing ?? "",
+    referrer: parsed.referrer ?? "",
+    gaSessionId: parsed.gaSessionId ?? "",
+    utmSource: parsed.utmSource ?? "",
+    utmMedium: parsed.utmMedium ?? "",
+    utmCampaign: parsed.utmCampaign ?? "",
+    utmTerm: parsed.utmTerm ?? "",
+    utmContent: parsed.utmContent ?? "",
+    gclid: parsed.gclid ?? "",
+    fbclid: parsed.fbclid ?? "",
+    ttclid: parsed.ttclid ?? "",
+    metadata,
+    requestContext,
+  };
 };
 
-export const readLedgerEntries = async (ledgerPath?: string): Promise<AttributionLedgerEntry[]> => {
-  const targetPath = resolveLedgerPath(ledgerPath);
+const readLegacyLedgerEntries = async (ledgerPath: string): Promise<AttributionLedgerEntry[]> => {
   try {
-    const content = await fs.readFile(targetPath, "utf8");
+    const content = await fs.readFile(ledgerPath, "utf8");
     return content
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => {
-        const parsed = JSON.parse(line) as Partial<AttributionLedgerEntry>;
-        const requestContext = {
-          ip: parsed.requestContext?.ip ?? "",
-          userAgent: parsed.requestContext?.userAgent ?? "",
-          origin: parsed.requestContext?.origin ?? "",
-          requestReferer: parsed.requestContext?.requestReferer ?? "",
-          method: parsed.requestContext?.method ?? "",
-          path: parsed.requestContext?.path ?? "",
-        };
-
-        return {
-          touchpoint: parsed.touchpoint === "payment_success" ? "payment_success" : parsed.touchpoint === "form_submit" ? "form_submit" : "checkout_started",
-          captureMode: resolveCaptureMode({
-            captureMode: normalizeCaptureMode(parsed.captureMode),
-            metadata: parsed.metadata ?? {},
-            utmMedium: typeof parsed.utmMedium === "string" ? parsed.utmMedium : "",
-            requestContext,
-          }),
-          loggedAt: parsed.loggedAt ?? "",
-          orderId: parsed.orderId ?? "",
-          paymentKey: parsed.paymentKey ?? "",
-          approvedAt: parsed.approvedAt ?? "",
-          checkoutId: parsed.checkoutId ?? "",
-          customerKey: parsed.customerKey ?? "",
-          landing: parsed.landing ?? "",
-          referrer: parsed.referrer ?? "",
-          gaSessionId: parsed.gaSessionId ?? "",
-          utmSource: parsed.utmSource ?? "",
-          utmMedium: parsed.utmMedium ?? "",
-          utmCampaign: parsed.utmCampaign ?? "",
-          utmTerm: parsed.utmTerm ?? "",
-          utmContent: parsed.utmContent ?? "",
-          gclid: parsed.gclid ?? "",
-          fbclid: parsed.fbclid ?? "",
-          ttclid: parsed.ttclid ?? "",
-          metadata: parsed.metadata ?? {},
-          requestContext,
-        } satisfies AttributionLedgerEntry;
-      })
+      .map((line) => coerceLedgerEntry(JSON.parse(line) as Partial<AttributionLedgerEntry>))
       .sort((a, b) => b.loggedAt.localeCompare(a.loggedAt));
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message.includes("ENOENT")) return [];
     throw error;
   }
+};
+
+let defaultLedgerMigrationPromise: Promise<void> | null = null;
+
+const ensureDefaultLedgerMigrated = async () => {
+  if (!defaultLedgerMigrationPromise) {
+    defaultLedgerMigrationPromise = (async () => {
+      const legacyEntries = await readLegacyLedgerEntries(LEGACY_LEDGER_PATH);
+      if (legacyEntries.length > 0) {
+        insertAttributionLedgerEntries(legacyEntries);
+      }
+    })().catch((error) => {
+      defaultLedgerMigrationPromise = null;
+      throw error;
+    });
+  }
+
+  await defaultLedgerMigrationPromise;
+};
+
+export const appendLedgerEntry = async (
+  entry: AttributionLedgerEntry,
+  ledgerPath?: string,
+) => {
+  if (ledgerPath) {
+    const targetPath = resolveLedgerPath(ledgerPath);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.appendFile(targetPath, `${JSON.stringify(entry)}\n`, "utf8");
+    return targetPath;
+  }
+
+  await ensureDefaultLedgerMigrated();
+  insertAttributionLedgerEntry(entry);
+  return getAttributionLedgerStorageRef();
+};
+
+export const readLedgerEntries = async (ledgerPath?: string): Promise<AttributionLedgerEntry[]> => {
+  if (ledgerPath) {
+    return readLegacyLedgerEntries(resolveLedgerPath(ledgerPath));
+  }
+
+  await ensureDefaultLedgerMigrated();
+  return listAttributionLedgerEntries();
 };
 
 export const filterLedgerEntries = (
@@ -402,25 +636,58 @@ export const filterLedgerEntries = (
   });
 };
 
+export const resolveLedgerRevenueValue = (entry: AttributionLedgerEntry): number => {
+  if (entry.touchpoint !== "payment_success") return 0;
+
+  const direct = firstNumber(entry.metadata, ["value", "amount", "totalAmount"]);
+  if (typeof direct === "number" && direct > 0) {
+    return direct;
+  }
+
+  const referrerPayment = objectValue(entry.metadata, ["referrerPayment"]);
+  const referrerAmount = firstNumber(referrerPayment, ["amount"]);
+  if (typeof referrerAmount === "number" && referrerAmount > 0) {
+    return referrerAmount;
+  }
+
+  return 0;
+};
+
 export const buildLedgerSummary = (entries: AttributionLedgerEntry[]) => {
   const countsByTouchpoint: Record<string, number> = {};
   const countsByCaptureMode = createCaptureModeCounts();
   const paymentSuccessByCaptureMode = createCaptureModeCounts();
+  const paymentSuccessByPaymentStatus = createPaymentStatusCounts();
+  const paymentRevenueByPaymentStatus = createPaymentStatusRevenue();
   const checkoutByCaptureMode = createCaptureModeCounts();
   const countsBySource: Record<string, number> = {};
   let withPaymentKey = 0;
   let withOrderId = 0;
   let withGaSessionId = 0;
+  let withClientId = 0;
+  let withUserPseudoId = 0;
+  let withNormalizedPhone = 0;
+  let withOrderIdBase = 0;
   let withReferrerPayment = 0;
 
   for (const entry of entries) {
     countsByTouchpoint[entry.touchpoint] = (countsByTouchpoint[entry.touchpoint] ?? 0) + 1;
     countsByCaptureMode[entry.captureMode] += 1;
-    if (entry.touchpoint === "payment_success") paymentSuccessByCaptureMode[entry.captureMode] += 1;
+    if (entry.touchpoint === "payment_success") {
+      paymentSuccessByCaptureMode[entry.captureMode] += 1;
+      if (entry.paymentStatus) {
+        paymentSuccessByPaymentStatus[entry.paymentStatus] += 1;
+        paymentRevenueByPaymentStatus[entry.paymentStatus] += resolveLedgerRevenueValue(entry);
+      }
+    }
     if (entry.touchpoint === "checkout_started") checkoutByCaptureMode[entry.captureMode] += 1;
     if (entry.paymentKey) withPaymentKey += 1;
     if (entry.orderId) withOrderId += 1;
     if (entry.gaSessionId) withGaSessionId += 1;
+    if (typeof entry.metadata?.clientId === "string" && entry.metadata.clientId.trim()) withClientId += 1;
+    if (typeof entry.metadata?.userPseudoId === "string" && entry.metadata.userPseudoId.trim()) withUserPseudoId += 1;
+    if (typeof entry.metadata?.normalizedPhone === "string" && entry.metadata.normalizedPhone.trim()) withNormalizedPhone += 1;
+    if (typeof entry.metadata?.orderIdBase === "string" && entry.metadata.orderIdBase.trim()) withOrderIdBase += 1;
     const source = typeof entry.metadata?.source === "string" ? entry.metadata.source : "(none)";
     countsBySource[source] = (countsBySource[source] ?? 0) + 1;
     if (entry.metadata?.referrerPayment) withReferrerPayment += 1;
@@ -431,13 +698,138 @@ export const buildLedgerSummary = (entries: AttributionLedgerEntry[]) => {
     countsByTouchpoint,
     countsByCaptureMode,
     paymentSuccessByCaptureMode,
+    paymentSuccessByPaymentStatus,
+    paymentRevenueByPaymentStatus,
+    confirmedRevenue: paymentRevenueByPaymentStatus.confirmed,
+    pendingRevenue: paymentRevenueByPaymentStatus.pending,
+    canceledRevenue: paymentRevenueByPaymentStatus.canceled,
     checkoutByCaptureMode,
     countsBySource,
     entriesWithPaymentKey: withPaymentKey,
     entriesWithOrderId: withOrderId,
     entriesWithGaSessionId: withGaSessionId,
+    entriesWithClientId: withClientId,
+    entriesWithUserPseudoId: withUserPseudoId,
+    entriesWithNormalizedPhone: withNormalizedPhone,
+    entriesWithOrderIdBase: withOrderIdBase,
     entriesWithReferrerPayment: withReferrerPayment,
     latestLoggedAt: entries[0]?.loggedAt ?? null,
+  };
+};
+
+const roundCoverageRate = (value: number) => Number(value.toFixed(2));
+
+const hasClientId = (entry: AttributionLedgerEntry) =>
+  typeof entry.metadata?.clientId === "string" && entry.metadata.clientId.trim().length > 0;
+
+const hasUserPseudoId = (entry: AttributionLedgerEntry) =>
+  typeof entry.metadata?.userPseudoId === "string" && entry.metadata.userPseudoId.trim().length > 0;
+
+const resolveCallerCoverageSummary = (entries: AttributionLedgerEntry[]): AttributionCallerCoverageSummary => {
+  let withGaSessionId = 0;
+  let withClientId = 0;
+  let withUserPseudoId = 0;
+  let withAllThree = 0;
+
+  for (const entry of entries) {
+    const gaSessionIdPresent = entry.gaSessionId.trim().length > 0;
+    const clientIdPresent = hasClientId(entry);
+    const userPseudoIdPresent = hasUserPseudoId(entry);
+
+    if (gaSessionIdPresent) withGaSessionId += 1;
+    if (clientIdPresent) withClientId += 1;
+    if (userPseudoIdPresent) withUserPseudoId += 1;
+    if (gaSessionIdPresent && clientIdPresent && userPseudoIdPresent) withAllThree += 1;
+  }
+
+  const total = entries.length;
+  const toRate = (count: number) => (total > 0 ? roundCoverageRate((count / total) * 100) : 0);
+
+  return {
+    total,
+    withGaSessionId,
+    withClientId,
+    withUserPseudoId,
+    withAllThree,
+    gaSessionIdRate: toRate(withGaSessionId),
+    clientIdRate: toRate(withClientId),
+    userPseudoIdRate: toRate(withUserPseudoId),
+    allThreeRate: toRate(withAllThree),
+  };
+};
+
+const resolveCallerMissingFields = (entry: AttributionLedgerEntry): AttributionIdentityField[] => {
+  const missingFields: AttributionIdentityField[] = [];
+
+  if (!entry.gaSessionId.trim()) missingFields.push("gaSessionId");
+  if (!hasClientId(entry)) missingFields.push("clientId");
+  if (!hasUserPseudoId(entry)) missingFields.push("userPseudoId");
+
+  return missingFields;
+};
+
+const toCallerCoverageSample = (entry: AttributionLedgerEntry): AttributionCallerCoverageSample => ({
+  loggedAt: entry.loggedAt,
+  touchpoint: entry.touchpoint,
+  captureMode: entry.captureMode,
+  orderId: entry.orderId,
+  paymentKey: entry.paymentKey,
+  source: typeof entry.metadata?.source === "string" ? entry.metadata.source : "",
+  store: typeof entry.metadata?.store === "string" ? entry.metadata.store : "",
+  landing: entry.landing,
+  orderIdBase: typeof entry.metadata?.orderIdBase === "string" ? entry.metadata.orderIdBase : "",
+  normalizedPhone: typeof entry.metadata?.normalizedPhone === "string" ? entry.metadata.normalizedPhone : "",
+  gaSessionId: entry.gaSessionId,
+  clientId: typeof entry.metadata?.clientId === "string" ? entry.metadata.clientId : "",
+  userPseudoId: typeof entry.metadata?.userPseudoId === "string" ? entry.metadata.userPseudoId : "",
+  missingFields: resolveCallerMissingFields(entry),
+});
+
+export const buildAttributionCallerCoverageReport = (
+  entries: AttributionLedgerEntry[],
+  options?: { paymentLimit?: number; checkoutLimit?: number },
+): AttributionCallerCoverageReport => {
+  const paymentLimit = Math.max(1, Math.min(options?.paymentLimit ?? 20, 100));
+  const checkoutLimit = Math.max(1, Math.min(options?.checkoutLimit ?? 10, 100));
+
+  const livePayments = entries.filter(
+    (entry) => entry.captureMode === "live" && entry.touchpoint === "payment_success",
+  );
+  const liveCheckouts = entries.filter(
+    (entry) => entry.captureMode === "live" && entry.touchpoint === "checkout_started",
+  );
+
+  const recentMissingPayments = livePayments
+    .filter((entry) => resolveCallerMissingFields(entry).length > 0)
+    .slice(0, paymentLimit)
+    .map(toCallerCoverageSample);
+  const recentMissingCheckouts = liveCheckouts
+    .filter((entry) => resolveCallerMissingFields(entry).length > 0)
+    .slice(0, checkoutLimit)
+    .map(toCallerCoverageSample);
+
+  const paymentSummary = resolveCallerCoverageSummary(livePayments);
+  const checkoutSummary = resolveCallerCoverageSummary(liveCheckouts);
+  const notes: string[] = [];
+
+  if (paymentSummary.total === 0) {
+    notes.push("live payment_success row가 아직 없어 caller 식별자 실유입을 결제 체인에서 검증할 수 없음.");
+  } else if (paymentSummary.allThreeRate < 80) {
+    notes.push(`live payment_success의 all-three coverage가 ${paymentSummary.allThreeRate}%로 낮다. 외부 checkout/payment_success caller 수정이 아직 필요함.`);
+  }
+
+  if (checkoutSummary.total === 0) {
+    notes.push("live checkout_started row가 아직 없어 체크아웃 시작 지점의 GA 식별자 누락률을 판단하기 어려움.");
+  } else if (checkoutSummary.allThreeRate < 80) {
+    notes.push(`live checkout_started의 all-three coverage가 ${checkoutSummary.allThreeRate}%다. 체크아웃 진입 시점 caller도 같이 점검해야 함.`);
+  }
+
+  return {
+    paymentSuccess: paymentSummary,
+    checkoutStarted: checkoutSummary,
+    recentMissingPayments,
+    recentMissingCheckouts,
+    notes,
   };
 };
 
