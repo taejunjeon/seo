@@ -11,8 +11,14 @@ import { getCrmDb } from "../crmLocalDb";
 import { getTossBasicAuth, getTossStoreConfig, normalizeTossStore, type TossStore } from "../tossConfig";
 
 const TOSS_BASE = "https://api.tosspayments.com";
+const DEFAULT_TOSS_TIMEOUT_MS = 10000;
+const TOSS_SETTLEMENT_TIMEOUT_MS = 65000;
 
-async function tossGet<T>(path: string, store: TossStore = "biocom"): Promise<T> {
+async function tossGet<T>(
+  path: string,
+  store: TossStore = "biocom",
+  options?: { timeoutMs?: number },
+): Promise<T> {
   const auth = getTossBasicAuth(store, "live");
   if (!auth) {
     throw new Error(
@@ -23,7 +29,7 @@ async function tossGet<T>(path: string, store: TossStore = "biocom"): Promise<T>
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), options?.timeoutMs ?? DEFAULT_TOSS_TIMEOUT_MS);
 
   try {
     const res = await fetch(`${TOSS_BASE}${path}`, {
@@ -39,6 +45,63 @@ async function tossGet<T>(path: string, store: TossStore = "biocom"): Promise<T>
     clearTimeout(timeout);
   }
 }
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const fetchTossSettlementPage = async (params: {
+  store: TossStore;
+  startDate: string;
+  endDate: string;
+  page: number;
+  size: number;
+}) => {
+  const query = new URLSearchParams({
+    startDate: params.startDate,
+    endDate: params.endDate,
+    page: String(params.page),
+    size: String(params.size),
+  });
+  return tossGet<TossSettlement[]>(
+    `/v1/settlements?${query.toString()}`,
+    params.store,
+    { timeoutMs: TOSS_SETTLEMENT_TIMEOUT_MS },
+  );
+};
+
+const fetchAllTossSettlements = async (params: {
+  store: TossStore;
+  startDate: string;
+  endDate: string;
+  size?: number;
+  maxPages?: number;
+}) => {
+  const size = Math.min(params.size ?? 100, 100);
+  const maxPages = params.maxPages ?? 200;
+  const settlements: TossSettlement[] = [];
+  let pagesFetched = 0;
+  let done = false;
+  let lastPageCount = 0;
+
+  for (let page = 1; page <= maxPages; page++) {
+    const current = await fetchTossSettlementPage({
+      store: params.store,
+      startDate: params.startDate,
+      endDate: params.endDate,
+      page,
+      size,
+    });
+    settlements.push(...current);
+    pagesFetched += 1;
+    lastPageCount = current.length;
+    if (current.length < size) {
+      done = true;
+      break;
+    }
+    await sleep(300);
+  }
+
+  return { settlements, pagesFetched, done, lastPageCount };
+};
 
 type TossTransaction = {
   mId: string;
@@ -95,14 +158,12 @@ export const createTossRouter = () => {
       const store = normalizeTossStore(req.query.store as string | undefined);
       const startDate = (req.query.startDate as string) || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
       const endDate = (req.query.endDate as string) || new Date().toISOString().slice(0, 10);
-      const limit = Math.min(Number(req.query.limit) || 100, 100);
+      const page = Math.max(Number(req.query.page) || 1, 1);
+      const size = Math.min(Number(req.query.size ?? req.query.limit) || 100, 100);
 
-      const data = await tossGet<TossSettlement[]>(
-        `/v1/settlements?startDate=${startDate}&endDate=${endDate}&limit=${limit}`,
-        store,
-      );
+      const data = await fetchTossSettlementPage({ store, startDate, endDate, page, size });
 
-      res.json({ ok: true, store, count: data.length, settlements: data });
+      res.json({ ok: true, store, page, size, count: data.length, settlements: data });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Toss API error" });
     }
@@ -131,10 +192,11 @@ export const createTossRouter = () => {
       const startDate = (req.query.startDate as string) || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
       const endDate = (req.query.endDate as string) || new Date().toISOString().slice(0, 10);
 
-      const settlements = await tossGet<TossSettlement[]>(
-        `/v1/settlements?startDate=${startDate}&endDate=${endDate}&limit=100`,
+      const { settlements, pagesFetched } = await fetchAllTossSettlements({
         store,
-      );
+        startDate,
+        endDate,
+      });
 
       // 일별 집계
       const daily = new Map<string, { date: string; count: number; amount: number; fee: number; payout: number; cardCount: number; vaCount: number; cancelCount: number }>();
@@ -163,7 +225,7 @@ export const createTossRouter = () => {
           : 0,
       };
 
-      res.json({ ok: true, store, totals, daily: summary });
+      res.json({ ok: true, store, pagesFetched, totals, daily: summary });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Toss API error" });
     }
@@ -205,10 +267,23 @@ export const createTossRouter = () => {
         startDate = d.toISOString().slice(0, 10);
       }
       const endDate = (req.query.endDate as string) || new Date().toISOString().slice(0, 10);
+      const runStartedAt = new Date().toISOString();
+      const runStartedMs = Date.now();
+      const runId = `toss-sync:${store}:${mode}:${runStartedAt}`;
 
       let totalTxn = 0;
       let totalSettle = 0;
+      let fetchedTxnRows = 0;
+      let fetchedSettlementRows = 0;
+      let transactionPagesFetched = 0;
+      let settlementPagesFetched = 0;
       const errors: string[] = [];
+      const monthReports: Array<{
+        startDate: string;
+        endDate: string;
+        transactions: { pagesRead: number; rowsRead: number; rowsAdded: number; done: boolean };
+        settlements: { pagesRead: number; rowsRead: number; rowsAdded: number; done: boolean };
+      }> = [];
 
       // 월 단위로 반복
       const months: Array<{ start: string; end: string }> = [];
@@ -224,49 +299,86 @@ export const createTossRouter = () => {
       }
 
       for (const m of months) {
+        const monthReport = {
+          startDate: m.start,
+          endDate: m.end,
+          transactions: { pagesRead: 0, rowsRead: 0, rowsAdded: 0, done: true },
+          settlements: { pagesRead: 0, rowsRead: 0, rowsAdded: 0, done: true },
+        };
+
         // 거래내역 페이지네이션
         let lastKey: string | null = null;
         let page = 0;
+        let lastTxnBatchSize = 0;
         while (page < 50) { // 최대 50페이지 (5,000건/월)
           let url = `/v1/transactions?startDate=${m.start}&endDate=${m.end}&limit=100`;
           if (lastKey) url += `&startingAfter=${encodeURIComponent(lastKey)}`;
 
           try {
             const txns = await tossGet<TossTransaction[]>(url, store);
+            lastTxnBatchSize = txns.length;
+            transactionPagesFetched += 1;
+            monthReport.transactions.pagesRead += 1;
+            monthReport.transactions.rowsRead += txns.length;
+            fetchedTxnRows += txns.length;
             for (const t of txns) {
-              insertTxn.run(t.transactionKey, t.paymentKey, t.orderId, t.method, t.status, t.transactionAt, t.currency, t.amount, t.mId);
-              totalTxn++;
+              const inserted = insertTxn.run(t.transactionKey, t.paymentKey, t.orderId, t.method, t.status, t.transactionAt, t.currency, t.amount, t.mId);
+              totalTxn += inserted.changes;
+              monthReport.transactions.rowsAdded += inserted.changes;
             }
             if (txns.length < 100) break;
+            if (page === 49) {
+              monthReport.transactions.done = false;
+              errors.push(`txn ${m.start}: page limit reached (50)`);
+              break;
+            }
             lastKey = txns[txns.length - 1].transactionKey;
             page++;
-            await new Promise((r) => setTimeout(r, 300)); // rate limit
+            await sleep(300); // rate limit
           } catch (err) {
+            monthReport.transactions.done = false;
             errors.push(`txn ${m.start}: ${err instanceof Error ? err.message : "error"}`);
             break;
           }
         }
+        if (lastTxnBatchSize === 100 && page >= 49) {
+          monthReport.transactions.done = false;
+        }
 
-        // 정산내역 (페이지네이션 없이 100건씩)
+        // 정산내역 페이지네이션
         try {
-          const settlements = await tossGet<TossSettlement[]>(
-            `/v1/settlements?startDate=${m.start}&endDate=${m.end}&limit=100`,
+          const { settlements, pagesFetched, done } = await fetchAllTossSettlements({
             store,
-          );
+            startDate: m.start,
+            endDate: m.end,
+            size: 100,
+            maxPages: 200,
+          });
+          settlementPagesFetched += pagesFetched;
+          monthReport.settlements.pagesRead = pagesFetched;
+          monthReport.settlements.rowsRead = settlements.length;
+          monthReport.settlements.done = done;
+          fetchedSettlementRows += settlements.length;
           for (const s of settlements) {
-            insertSettle.run(
+            const inserted = insertSettle.run(
               s.paymentKey, s.orderId, s.method, s.amount, s.fee, s.payOutAmount,
               s.soldDate, s.paidOutDate, s.approvedAt,
               s.card?.issuerCode ?? null, s.card?.cardType ?? null,
               0,
             );
-            totalSettle++;
+            totalSettle += inserted.changes;
+            monthReport.settlements.rowsAdded += inserted.changes;
+          }
+          if (!done) {
+            errors.push(`settle ${m.start}: page limit reached (200)`);
           }
         } catch (err) {
+          monthReport.settlements.done = false;
           errors.push(`settle ${m.start}: ${err instanceof Error ? err.message : "error"}`);
         }
 
-        await new Promise((r) => setTimeout(r, 500)); // 월 간격
+        monthReports.push(monthReport);
+        await sleep(500); // 월 간격
       }
 
       // 결과 확인
@@ -276,6 +388,9 @@ export const createTossRouter = () => {
         earliestTxn: (db.prepare("SELECT MIN(transaction_at) as v FROM toss_transactions").get() as { v: string | null }).v,
         latestTxn: (db.prepare("SELECT MAX(transaction_at) as v FROM toss_transactions").get() as { v: string | null }).v,
       };
+      const runFinishedAt = new Date().toISOString();
+      const done = errors.length === 0
+        && monthReports.every((report) => report.transactions.done && report.settlements.done);
 
       res.json({
         ok: true,
@@ -283,7 +398,27 @@ export const createTossRouter = () => {
         mode,
         range: { startDate, endDate },
         monthsProcessed: months.length,
+        settlementPagesFetched,
         inserted: { transactions: totalTxn, settlements: totalSettle },
+        fetched: { transactions: fetchedTxnRows, settlements: fetchedSettlementRows },
+        syncRun: {
+          runId,
+          startedAt: runStartedAt,
+          finishedAt: runFinishedAt,
+          durationMs: Date.now() - runStartedMs,
+          done,
+          pagesRead: {
+            transactions: transactionPagesFetched,
+            settlements: settlementPagesFetched,
+            total: transactionPagesFetched + settlementPagesFetched,
+          },
+          rowsAdded: {
+            transactions: totalTxn,
+            settlements: totalSettle,
+            total: totalTxn + totalSettle,
+          },
+          monthReports,
+        },
         dbTotals: stats,
         errors: errors.length > 0 ? errors : undefined,
       });

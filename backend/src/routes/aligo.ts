@@ -1,4 +1,6 @@
 import express, { type Request, type Response } from "express";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 
 import {
   createAligoTemplate,
@@ -18,6 +20,17 @@ import {
 import { renderAligoPreview } from "../aligo";
 
 const ALIGO_RECEIVER_WHITELIST = ["01039348641"];
+const SEND_LOG_PATH = path.resolve(__dirname, "..", "..", "logs", "aligo-sends.jsonl");
+
+async function appendSendLog(entry: Record<string, unknown>) {
+  try {
+    const dir = path.dirname(SEND_LOG_PATH);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.appendFile(SEND_LOG_PATH, `${JSON.stringify(entry)}\n`, "utf8");
+  } catch {
+    console.error("[aligo] send log write failed");
+  }
+}
 
 export const createAligoRouter = () => {
   const router = express.Router();
@@ -129,7 +142,7 @@ export const createAligoRouter = () => {
   });
 
   router.post("/api/aligo/send", async (req: Request, res: Response) => {
-    const { tplCode, receiver, recvname, subject, message, emtitle, button, testMode } =
+    const { tplCode, receiver, recvname, subject, message, emtitle, button, testMode, consentStatus, adminOverride: reqAdminOverride, daysSinceLastPurchase, source: sendSource } =
       (req.body ?? {}) as Record<string, unknown>;
 
     const normalizedTplCode = readRequiredString(tplCode);
@@ -174,11 +187,60 @@ export const createAligoRouter = () => {
       button,
       testMode: normalizedTestMode,
     });
+
+    const body = (result.ok ? result.body : result.body) as Record<string, unknown> | undefined;
+    await appendSendLog({
+      timestamp,
+      channel: "alimtalk",
+      receiver: normalizedReceiver,
+      recvname: normalizedRecvname,
+      tplCode: normalizedTplCode,
+      subject: normalizedSubject,
+      testMode: normalizedTestMode,
+      consentStatus: consentStatus ?? null,
+      adminOverride: reqAdminOverride === true || reqAdminOverride === "true",
+      daysSinceLastPurchase: typeof daysSinceLastPurchase === "number" ? daysSinceLastPurchase : null,
+      source: sendSource ?? null,
+      ok: result.ok,
+      mid: (body?.info as Record<string, unknown>)?.mid ?? null,
+      errorCode: body?.code ?? null,
+      errorMessage: result.ok ? null : (body?.message ?? null),
+    });
+
+    // SMS fallback: 알림톡 실패 시 자동 SMS 발송
+    const { fallbackSms, fallbackMessage } = (req.body ?? {}) as Record<string, unknown>;
+    if (!result.ok && fallbackSms && normalizedMessage) {
+      const smsMsg = readOptionalString(fallbackMessage) ?? normalizedMessage;
+      const smsResult = await sendAligoSms({
+        receiver: normalizedReceiver,
+        message: smsMsg,
+        testMode: normalizedTestMode,
+      });
+      const smsBody = (smsResult.ok ? smsResult.body : smsResult.body) as Record<string, unknown> | undefined;
+      await appendSendLog({
+        timestamp: new Date().toISOString(),
+        channel: "sms_fallback",
+        receiver: normalizedReceiver,
+        message: smsMsg,
+        testMode: normalizedTestMode,
+        ok: smsResult.ok,
+        mid: (smsBody?.info as Record<string, unknown>)?.mid ?? smsBody?.msg_id ?? null,
+        originalChannel: "alimtalk",
+        originalError: body?.code ?? null,
+      });
+      res.status(smsResult.ok ? 200 : smsResult.status ?? 502).json({
+        ...smsResult,
+        fallback: true,
+        originalAlimtalkError: body?.message ?? "알림톡 발송 실패",
+      });
+      return;
+    }
+
     res.status(result.ok ? 200 : result.status ?? 502).json(result);
   });
 
   router.post("/api/aligo/sms", async (req: Request, res: Response) => {
-    const { receiver, message, testMode } = (req.body ?? {}) as Record<string, unknown>;
+    const { receiver, message, testMode, consentStatus: smsConsentStatus, adminOverride: smsAdminOverride, daysSinceLastPurchase: smsDays, source: smsSource } = (req.body ?? {}) as Record<string, unknown>;
     const normalizedReceiver = normalizePhoneNumber(receiver);
     const normalizedMessage = readRequiredString(message);
     const normalizedTestMode = resolveAligoTestMode(testMode);
@@ -197,6 +259,24 @@ export const createAligoRouter = () => {
       message: normalizedMessage,
       testMode: normalizedTestMode,
     });
+
+    const smsBody = (result.ok ? result.body : result.body) as Record<string, unknown> | undefined;
+    await appendSendLog({
+      timestamp: new Date().toISOString(),
+      channel: "sms",
+      consentStatus: smsConsentStatus ?? null,
+      adminOverride: smsAdminOverride === true || smsAdminOverride === "true",
+      daysSinceLastPurchase: typeof smsDays === "number" ? smsDays : null,
+      source: smsSource ?? null,
+      receiver: normalizedReceiver,
+      message: normalizedMessage,
+      testMode: normalizedTestMode,
+      ok: result.ok,
+      mid: (smsBody?.info as Record<string, unknown>)?.mid ?? smsBody?.msg_id ?? null,
+      errorCode: smsBody?.result_code ?? null,
+      errorMessage: result.ok ? null : (smsBody?.message ?? null),
+    });
+
     res.status(result.ok ? 200 : result.status ?? 502).json(result);
   });
 
@@ -294,6 +374,18 @@ export const createAligoRouter = () => {
     }
     const result = await deleteAligoTemplate(tplCode);
     res.status(result.ok ? 200 : result.status ?? 502).json(result);
+  });
+
+  // 발송 로그 조회
+  router.get("/api/aligo/send-log", async (_req: Request, res: Response) => {
+    try {
+      const raw = await fs.readFile(SEND_LOG_PATH, "utf8").catch(() => "");
+      const lines = raw.trim().split("\n").filter(Boolean);
+      const entries = lines.map((line) => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
+      res.json({ ok: true, total: entries.length, entries: entries.slice(-100).reverse() });
+    } catch {
+      res.json({ ok: true, total: 0, entries: [] });
+    }
   });
 
   return router;

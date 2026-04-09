@@ -1,5 +1,7 @@
 # 더클린커피 아임웹 코드 삽입 검증 보고서
 
+> **주의**: 이 문서는 2026-04-01 시점 스냅샷. 0404 기준으로 푸터 코드가 추가되어 payment_success live 20건 가동 중. 최신 현황은 `coffeedata.md` 참조.
+
 검증일: 2026-04-01
 대상 사이트: https://thecleancoffee.com/
 검증 방법: `curl` HTML 소스 분석 + 패턴 매칭

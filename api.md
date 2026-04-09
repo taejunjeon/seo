@@ -237,9 +237,99 @@
 | 쿠폰 발급 (특정 회원에게) | 가능 | `shop-coupon/{code}/issue` POST |
 | 쿠폰 사용이 재구매로 이어졌는지 | 가능 | 쿠폰 사용 주문 + 동일 고객 후속 주문 조인 |
 
+---
+
+## 10. Meta 광고관리자 API 연동 (0403)
+
+### 토큰 검증 결과
+
+| 항목 | 값 |
+|------|-----|
+| 토큰 유형 | USER (사용자 토큰) |
+| 유효 | ✅ True |
+| App ID | `1019654940324559` |
+| 사용자 | 정희용 (ID: `1509979824181418`) |
+| **만료** | **⚠️ 단기 토큰 — 약 1~2시간 유효** |
+| 권한 | `ads_management`, `ads_read`, `business_management`, `pages_show_list`, `pages_read_engagement`, `email`, `public_profile` |
+
+### ⚠️ 토큰 만료 문제
+
+현재 토큰은 **단기 토큰 (Short-lived)**으로 약 1~2시간 후 만료. 운영 연동을 위해서는:
+
+1. **App Secret** 확보 필요 (Meta for Developers > 앱 설정 > 기본 설정)
+2. 장기 토큰 교환 API: `GET /oauth/access_token?grant_type=fb_exchange_token&client_id={APP_ID}&client_secret={APP_SECRET}&fb_exchange_token={단기토큰}`
+3. 장기 토큰은 **60일** 유효
+
+### 광고 계정 목록 (7개)
+
+| 계정 ID | 이름 | 상태 | 비즈니스 |
+|---------|------|------|---------|
+| `act_3744078992317776` | 정희용 | **ACTIVE** | 바이오컴 |
+| `act_1298365387330231` | 바이오컴펫 | **ACTIVE** | 바이오컴 |
+| `act_3138805896402376` | 바이오컴_임시 | **ACTIVE** | |
+| `act_528011015492161` | 바이오컴 | UNSETTLED | (주)바이오컴 |
+| `act_1382574315626662` | 더클린커피 | **ACTIVE** | (주)바이오컴 |
+| `act_853441229535835` | 더클린커피 | CLOSED | |
+| `act_377604674894011` | AIBIO 리커버리랩스 | **ACTIVE** | |
+
+### 캠페인 현황
+
+**AIBIO 리커버리랩스** — ACTIVE 1개:
+- `26.01.16 리커버리랩 예약 캠페인` | 목표: OUTCOME_TRAFFIC | 일 ₩50,000
+
+**바이오컴** — ACTIVE 2개 (lifetime budget), PAUSED 2개
+
+**더클린커피** — 캠페인 없음 (계정은 ACTIVE)
+
+### AIBIO 최근 30일 성과
+
+| 지표 | 값 |
+|------|-----|
+| 노출 | **469,873회** |
+| 클릭 | **17,575회** |
+| 비용 | **₩1,482,522** |
+| CPC | **₩84** (매우 저렴) |
+| CPM | **₩3,155** |
+| 랜딩 뷰 | 15,588회 |
+| 전환 | **1건** (메시징 연결) |
+
+**해석**: CPC ₩84는 매우 저렴하나, 15,588 랜딩 뷰 대비 전환 1건 = **전환율 0.006%**. 랜딩 페이지 개선 또는 Meta Lead Form 전환이 급선무.
+
+### API 테스트 결과
+
+| 엔드포인트 | 상태 |
+|-----------|------|
+| `GET /debug_token` | ✅ |
+| `GET /me` | ✅ |
+| `GET /me/adaccounts` | ✅ 7개 |
+| `GET /{account}/campaigns` | ✅ |
+| `GET /{account}/insights` | ✅ 노출/클릭/비용/CPC/CPM |
+
+### .env 현재/필요
+
+```
+# 현재
+META_ADMANAGER_API_KEY=EAAOfX...(단기 토큰)
+
+# 추가 필요
+META_APP_ID=1019654940324559
+META_APP_SECRET=(Meta for Developers에서 확인 필요)
+```
+
+### 다음 액션
+
+1. **App Secret 확보 → 장기 토큰 교환** (긴급 — 현재 토큰 만료 임박)
+2. `env.ts` + `routes/meta.ts` 백엔드 구현
+3. AIBIO 전환율 개선 (Lead Form 또는 랜딩 개선)
+4. 더클린커피 캠페인 생성
+
+---
+
 ## 9. 참고 문서
 
 - Channel Developers Introduction: https://developers.channel.io/en/categories/Introduction-a04bb274
 - Get a Channel: https://developers.channel.io/docs/get-a-channel-1
 - Marketing Campaigns: https://docs.channel.io/help/en/articles/Marketing-Campaigns--9064c609
 - 아임웹 Open API: https://developers-docs.imweb.me/reference
+- Meta Graph API: https://developers.facebook.com/docs/graph-api
+- Meta Marketing API: https://developers.facebook.com/docs/marketing-apis

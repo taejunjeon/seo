@@ -16,6 +16,9 @@ import {
   getImwebMemberByPhone,
   getImwebMemberConsentStats,
   getImwebOrderStats,
+  getImwebTossReconcileReport,
+  listRepurchaseCandidates,
+  listBirthdayMembers,
   getLeadOverview,
   listAssignments,
   listExperiments,
@@ -423,6 +426,7 @@ export const createCrmLocalRouter = () => {
     name: String(m.name ?? ""),
     callnum: String(m.callnum ?? ""),
     email: String(m.email ?? ""),
+    birth: String(m.birth ?? ""),
     marketing_agree_sms: String(m.marketing_agree_sms ?? "N"),
     marketing_agree_email: String(m.marketing_agree_email ?? "N"),
     third_party_agree: String(m.third_party_agree ?? "N"),
@@ -720,6 +724,84 @@ export const createCrmLocalRouter = () => {
       res.json({ ok: true, ...getImwebOrderStats(site) });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Order stats failed" });
+    }
+  });
+
+  router.get("/api/crm-local/imweb/toss-reconcile", (req: Request, res: Response) => {
+    try {
+      const site = readParam(req.query.site as string | string[] | undefined);
+      if (!site) {
+        res.status(400).json({ ok: false, error: "site 파라미터 필요" });
+        return;
+      }
+
+      const limit = Math.min(Math.max(Number(readParam(req.query.limit as string | string[] | undefined)) || 20, 1), 100);
+      const lookbackDays = Math.min(Math.max(Number(readParam(req.query.lookbackDays as string | string[] | undefined)) || 90, 1), 3650);
+
+      const report = getImwebTossReconcileReport({ site, limit, lookbackDays });
+      res.json({ ok: true, report });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Imweb/Toss reconcile failed" });
+    }
+  });
+
+  router.get("/api/crm-local/repurchase-candidates", (req: Request, res: Response) => {
+    try {
+      const site = readParam(req.query.site as string | string[] | undefined);
+      if (!site) {
+        res.status(400).json({ ok: false, error: "site 파라미터 필요" });
+        return;
+      }
+
+      const minDaysSinceLastPurchase = Math.max(Number(readParam(req.query.minDaysSinceLastPurchase as string | string[] | undefined)) || 30, 0);
+      const maxDaysSinceLastPurchase = Math.max(Number(readParam(req.query.maxDaysSinceLastPurchase as string | string[] | undefined)) || 180, 0);
+      const minPurchaseCount = Math.max(Number(readParam(req.query.minPurchaseCount as string | string[] | undefined)) || 1, 1);
+      const limit = Math.min(Math.max(Number(readParam(req.query.limit as string | string[] | undefined)) || 50, 1), 5000);
+
+      if (maxDaysSinceLastPurchase < minDaysSinceLastPurchase) {
+        res.status(400).json({ ok: false, error: "maxDaysSinceLastPurchase는 minDaysSinceLastPurchase 이상이어야 함" });
+        return;
+      }
+
+      const candidates = listRepurchaseCandidates({
+        site,
+        minDaysSinceLastPurchase,
+        maxDaysSinceLastPurchase,
+        minPurchaseCount,
+        limit,
+      });
+
+      res.json({
+        ok: true,
+        filters: {
+          site,
+          minDaysSinceLastPurchase,
+          maxDaysSinceLastPurchase,
+          minPurchaseCount,
+          limit,
+        },
+        total: candidates.length,
+        candidates,
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Repurchase candidates failed" });
+    }
+  });
+
+  router.get("/api/crm-local/birthday-members", (req: Request, res: Response) => {
+    try {
+      const site = readParam(req.query.site as string | string[] | undefined) ?? undefined;
+      const month = Number(readParam(req.query.month as string | string[] | undefined)) || undefined;
+      const members = listBirthdayMembers({ site, month, limit: 5000 });
+      res.json({
+        ok: true,
+        month: month ?? (new Date().getMonth() + 1),
+        site: site ?? "all",
+        total: members.length,
+        members,
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Birthday query failed" });
     }
   });
 

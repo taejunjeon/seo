@@ -34,6 +34,9 @@ const KEYWORDS = [
 
 const LIVE_URLS = ["https://biocom.kr", "https://www.biocom.kr", "https://biocom.imweb.me"];
 
+const resolveGa4ServiceAccountKey = (): string | undefined =>
+  process.env.GA4_SERVICE_ACCOUNT_KEY ?? process.env.GA4_BIOCOM_SERVICE_ACCOUNT_KEY;
+
 type RepoScanSummary = {
   label: string;
   root: string;
@@ -134,12 +137,12 @@ const fetchHtml = async (url: string): Promise<string> => {
 };
 
 const checkPropertyAccess = async (propertyIds: string[]): Promise<PropertyAccessSummary[]> => {
-  const rawCredentials = process.env.GA4_SERVICE_ACCOUNT_KEY;
+  const rawCredentials = resolveGa4ServiceAccountKey();
   if (!rawCredentials) {
     return propertyIds.map((propertyId) => ({
       propertyId,
       ok: false,
-      message: "GA4_SERVICE_ACCOUNT_KEY is not configured",
+      message: "GA4 service account key is not configured",
     }));
   }
 
@@ -198,6 +201,9 @@ const toMarkdown = async () => {
 
   const propertyIds = new Set<string>();
   if (process.env.GA4_PROPERTY_ID) propertyIds.add(process.env.GA4_PROPERTY_ID);
+  if (process.env.GA4_BIOCOM_PROPERTY_ID) propertyIds.add(process.env.GA4_BIOCOM_PROPERTY_ID);
+  if (process.env.GA4_COFFEE_PROPERTY_ID) propertyIds.add(process.env.GA4_COFFEE_PROPERTY_ID);
+  if (process.env.GA4_AIBIOCOM_PROPERTY_ID) propertyIds.add(process.env.GA4_AIBIOCOM_PROPERTY_ID);
   for (const propertyId of resolveArgList("--property")) propertyIds.add(propertyId);
   const propertyAccess = propertyIds.size > 0 ? await checkPropertyAccess([...propertyIds]) : [];
 

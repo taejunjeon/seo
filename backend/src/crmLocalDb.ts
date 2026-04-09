@@ -17,6 +17,8 @@
 
 import Database from "better-sqlite3";
 import path from "node:path";
+import { inferTossStoreFromPaymentKey } from "./tossConfig";
+import { normalizeOrderIdBase, normalizePhoneDigits } from "./orderKeys";
 
 const DEFAULT_DB_PATH = path.join(__dirname, "..", "data", "crm.sqlite3");
 
@@ -33,6 +35,7 @@ export function getCrmDb(): Database.Database {
     db.pragma("foreign_keys = ON");
     initTables(db);
     ensureColumn(db, "imweb_members", "site", "TEXT DEFAULT 'biocom'");
+    ensureColumn(db, "imweb_members", "birth", "TEXT DEFAULT ''");
   }
   return db;
 }
@@ -149,6 +152,7 @@ function initTables(db: Database.Database) {
       name TEXT,
       callnum TEXT,
       email TEXT,
+      birth TEXT DEFAULT '',
       marketing_agree_sms TEXT DEFAULT 'N',
       marketing_agree_email TEXT DEFAULT 'N',
       third_party_agree TEXT DEFAULT 'N',
@@ -464,6 +468,63 @@ export function getExperimentResults(experimentKey: string): {
   });
 
   return { experiment, variant_summary };
+}
+
+export type ExperimentActivityWindow = {
+  experiment_key: string;
+  start_at: string | null;
+  end_at: string | null;
+  first_assignment_at: string | null;
+  last_assignment_at: string | null;
+  first_conversion_at: string | null;
+  last_conversion_at: string | null;
+};
+
+export function getExperimentActivityWindow(experimentKey: string): ExperimentActivityWindow | null {
+  const experiment = getExperiment(experimentKey);
+  if (!experiment) return null;
+
+  const database = getCrmDb();
+  const assignmentRange = database.prepare(`
+    SELECT
+      MIN(assigned_at) AS first_assignment_at,
+      MAX(assigned_at) AS last_assignment_at
+    FROM crm_assignment_log
+    WHERE experiment_key = ?
+  `).get(experimentKey) as {
+    first_assignment_at: string | null;
+    last_assignment_at: string | null;
+  };
+
+  const conversionRange = database.prepare(`
+    SELECT
+      MIN(occurred_at) AS first_conversion_at,
+      MAX(occurred_at) AS last_conversion_at
+    FROM crm_conversion_log
+    WHERE experiment_key = ?
+  `).get(experimentKey) as {
+    first_conversion_at: string | null;
+    last_conversion_at: string | null;
+  };
+
+  const startAt = experiment.start_at
+    ?? assignmentRange.first_assignment_at
+    ?? conversionRange.first_conversion_at
+    ?? null;
+  const endAt = experiment.end_at
+    ?? conversionRange.last_conversion_at
+    ?? assignmentRange.last_assignment_at
+    ?? startAt;
+
+  return {
+    experiment_key: experiment.experiment_key,
+    start_at: startAt,
+    end_at: endAt,
+    first_assignment_at: assignmentRange.first_assignment_at,
+    last_assignment_at: assignmentRange.last_assignment_at,
+    first_conversion_at: conversionRange.first_conversion_at,
+    last_conversion_at: conversionRange.last_conversion_at,
+  };
 }
 
 /* ── 메시지 로그 ── */
@@ -799,6 +860,7 @@ export type ImwebMemberRow = {
   name: string;
   callnum: string;
   email: string;
+  birth: string;
   marketing_agree_sms: string;
   marketing_agree_email: string;
   third_party_agree: string;
@@ -811,10 +873,10 @@ export type ImwebMemberRow = {
 export function upsertImwebMember(row: ImwebMemberRow) {
   const db = getCrmDb();
   db.prepare(`
-    INSERT INTO imweb_members (member_code, uid, name, callnum, email, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, synced_at)
-    VALUES (@member_code, @uid, @name, @callnum, @email, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, datetime('now'))
+    INSERT INTO imweb_members (member_code, uid, name, callnum, email, birth, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, synced_at)
+    VALUES (@member_code, @uid, @name, @callnum, @email, @birth, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, datetime('now'))
     ON CONFLICT(member_code) DO UPDATE SET
-      uid=excluded.uid, name=excluded.name, callnum=excluded.callnum, email=excluded.email,
+      uid=excluded.uid, name=excluded.name, callnum=excluded.callnum, email=excluded.email, birth=excluded.birth,
       marketing_agree_sms=excluded.marketing_agree_sms, marketing_agree_email=excluded.marketing_agree_email,
       third_party_agree=excluded.third_party_agree, member_grade=excluded.member_grade,
       join_time=excluded.join_time, last_login_time=excluded.last_login_time, site=excluded.site, synced_at=datetime('now')
@@ -824,10 +886,10 @@ export function upsertImwebMember(row: ImwebMemberRow) {
 export function upsertImwebMembers(rows: ImwebMemberRow[]) {
   const db = getCrmDb();
   const stmt = db.prepare(`
-    INSERT INTO imweb_members (member_code, uid, name, callnum, email, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, synced_at)
-    VALUES (@member_code, @uid, @name, @callnum, @email, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, datetime('now'))
+    INSERT INTO imweb_members (member_code, uid, name, callnum, email, birth, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, synced_at)
+    VALUES (@member_code, @uid, @name, @callnum, @email, @birth, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, datetime('now'))
     ON CONFLICT(member_code) DO UPDATE SET
-      uid=excluded.uid, name=excluded.name, callnum=excluded.callnum, email=excluded.email,
+      uid=excluded.uid, name=excluded.name, callnum=excluded.callnum, email=excluded.email, birth=excluded.birth,
       marketing_agree_sms=excluded.marketing_agree_sms, marketing_agree_email=excluded.marketing_agree_email,
       third_party_agree=excluded.third_party_agree, member_grade=excluded.member_grade,
       join_time=excluded.join_time, last_login_time=excluded.last_login_time, site=excluded.site, synced_at=datetime('now')
@@ -985,4 +1047,381 @@ export function getImwebOrderStats(site?: string) {
       lastSyncedAt: row.last_synced_at ? String(row.last_synced_at) : null,
     })),
   };
+}
+
+export type ImwebTossReconcileItem = {
+  orderIdBase: string;
+  orderNo: string;
+  paymentKey: string | null;
+  imwebPaymentAmount: number | null;
+  tossAmount: number | null;
+  tossStatus: string | null;
+  normalizedPhone: string;
+  orderTime: string | null;
+  transactionAt: string | null;
+};
+
+export type ImwebTossReconcileReport = {
+  site: string;
+  tossStore: "biocom" | "coffee";
+  lookbackDays: number;
+  imwebOrders: number;
+  tossOrders: number;
+  matchedOrders: number;
+  missingInToss: number;
+  missingInImweb: number;
+  amountMismatchCount: number;
+  coverageRate: number;
+  ageBuckets: Array<{
+    key: "0_1d" | "2_7d" | "8_30d" | "31d_plus";
+    label: string;
+    minAgeDays: number;
+    maxAgeDays: number | null;
+    imwebOrders: number;
+    matchedOrders: number;
+    missingInToss: number;
+    amountMismatchCount: number;
+    coverageRate: number;
+  }>;
+  samples: {
+    missingInToss: ImwebTossReconcileItem[];
+    missingInImweb: ImwebTossReconcileItem[];
+    amountMismatches: ImwebTossReconcileItem[];
+  };
+};
+
+const RECONCILE_AGE_BUCKETS = [
+  { key: "0_1d" as const, label: "0-1일", minAgeDays: 0, maxAgeDays: 1 },
+  { key: "2_7d" as const, label: "2-7일", minAgeDays: 2, maxAgeDays: 7 },
+  { key: "8_30d" as const, label: "8-30일", minAgeDays: 8, maxAgeDays: 30 },
+  { key: "31d_plus" as const, label: "31일 이상", minAgeDays: 31, maxAgeDays: null },
+];
+
+function buildEmptyReconcileAgeBuckets() {
+  return RECONCILE_AGE_BUCKETS.map((bucket) => ({
+    ...bucket,
+    imwebOrders: 0,
+    matchedOrders: 0,
+    missingInToss: 0,
+    amountMismatchCount: 0,
+    coverageRate: 0,
+  }));
+}
+
+function resolveReconcileAgeBucket(ageDays: number) {
+  return RECONCILE_AGE_BUCKETS.find((bucket) => (
+    ageDays >= bucket.minAgeDays
+      && (bucket.maxAgeDays == null || ageDays <= bucket.maxAgeDays)
+  )) ?? RECONCILE_AGE_BUCKETS[RECONCILE_AGE_BUCKETS.length - 1];
+}
+
+function computeOrderAgeDays(timestamp: string | null, nowMs: number) {
+  if (!timestamp) return null;
+  const eventMs = new Date(timestamp).getTime();
+  if (!Number.isFinite(eventMs)) return null;
+  return Math.max(Math.floor((nowMs - eventMs) / 86400000), 0);
+}
+
+type ImwebOrderForReconcile = {
+  order_no: string;
+  payment_amount: number;
+  order_time: string | null;
+  complete_time: string | null;
+  orderer_call: string;
+};
+
+type TossTransactionForReconcile = {
+  payment_key: string;
+  order_id: string;
+  amount: number;
+  status: string | null;
+  transaction_at: string | null;
+};
+
+export function getImwebTossReconcileReport(input: {
+  site: string;
+  limit: number;
+  lookbackDays?: number;
+  now?: string;
+}): ImwebTossReconcileReport {
+  const db = getCrmDb();
+  const tossStore = input.site === "thecleancoffee" ? "coffee" : "biocom";
+  const lookbackDays = Math.max(input.lookbackDays ?? 90, 1);
+  const limit = Math.min(Math.max(input.limit, 1), 100);
+  const nowMs = input.now ? new Date(input.now).getTime() : Date.now();
+  const cutoffDate = new Date(nowMs - lookbackDays * 86400000).toISOString();
+  const ageBuckets = buildEmptyReconcileAgeBuckets();
+  const ageBucketMap = new Map(ageBuckets.map((bucket) => [bucket.key, bucket]));
+
+  const imwebOrders = db.prepare(`
+    SELECT order_no, payment_amount, order_time, complete_time, orderer_call
+    FROM imweb_orders
+    WHERE site = ?
+      AND COALESCE(NULLIF(complete_time, ''), NULLIF(order_time, ''), '') >= ?
+    ORDER BY COALESCE(NULLIF(complete_time, ''), NULLIF(order_time, '')) DESC, order_no DESC
+  `).all(input.site, cutoffDate) as ImwebOrderForReconcile[];
+
+  const tossTransactions = db.prepare(`
+    SELECT payment_key, order_id, amount, status, transaction_at
+    FROM toss_transactions
+    WHERE COALESCE(transaction_at, '') >= ?
+    ORDER BY COALESCE(transaction_at, '') DESC, order_id DESC
+  `).all(cutoffDate) as TossTransactionForReconcile[];
+
+  const tossByOrderIdBase = new Map<string, TossTransactionForReconcile>();
+  for (const row of tossTransactions) {
+    if (inferTossStoreFromPaymentKey(row.payment_key, tossStore) !== tossStore) {
+      continue;
+    }
+    const orderIdBase = normalizeOrderIdBase(row.order_id);
+    if (!orderIdBase) continue;
+    if (!tossByOrderIdBase.has(orderIdBase)) {
+      tossByOrderIdBase.set(orderIdBase, row);
+    }
+  }
+
+  const missingInToss: ImwebTossReconcileItem[] = [];
+  const amountMismatches: ImwebTossReconcileItem[] = [];
+  const matchedOrderIds = new Set<string>();
+  let amountMismatchCount = 0;
+
+  for (const row of imwebOrders) {
+    const orderIdBase = normalizeOrderIdBase(row.order_no);
+    if (!orderIdBase) continue;
+    const normalizedPhone = normalizePhoneDigits(row.orderer_call);
+    const orderTimestamp = row.complete_time || row.order_time;
+    const ageDays = computeOrderAgeDays(orderTimestamp, nowMs);
+    const ageBucket = ageBucketMap.get(resolveReconcileAgeBucket(ageDays ?? 31).key);
+    if (ageBucket) {
+      ageBucket.imwebOrders += 1;
+    }
+    const matched = tossByOrderIdBase.get(orderIdBase);
+    if (!matched) {
+      if (ageBucket) {
+        ageBucket.missingInToss += 1;
+      }
+      if (missingInToss.length < limit) {
+        missingInToss.push({
+          orderIdBase,
+          orderNo: row.order_no,
+          paymentKey: null,
+          imwebPaymentAmount: Number(row.payment_amount) || 0,
+          tossAmount: null,
+          tossStatus: null,
+          normalizedPhone,
+          orderTime: orderTimestamp,
+          transactionAt: null,
+        });
+      }
+      continue;
+    }
+
+    matchedOrderIds.add(orderIdBase);
+    if (ageBucket) {
+      ageBucket.matchedOrders += 1;
+    }
+    const imwebPaymentAmount = Number(row.payment_amount) || 0;
+    const tossAmount = Number(matched.amount) || 0;
+    if (imwebPaymentAmount > 0 && tossAmount > 0 && imwebPaymentAmount !== tossAmount) {
+      amountMismatchCount += 1;
+      if (ageBucket) {
+        ageBucket.amountMismatchCount += 1;
+      }
+      if (amountMismatches.length < limit) {
+        amountMismatches.push({
+          orderIdBase,
+          orderNo: row.order_no,
+          paymentKey: matched.payment_key || null,
+          imwebPaymentAmount,
+          tossAmount,
+          tossStatus: matched.status || null,
+          normalizedPhone,
+          orderTime: orderTimestamp,
+          transactionAt: matched.transaction_at,
+        });
+      }
+    }
+  }
+
+  const missingInImweb: ImwebTossReconcileItem[] = [];
+  for (const [orderIdBase, row] of tossByOrderIdBase.entries()) {
+    if (matchedOrderIds.has(orderIdBase)) continue;
+    if (missingInImweb.length >= limit) continue;
+    missingInImweb.push({
+      orderIdBase,
+      orderNo: row.order_id,
+      paymentKey: row.payment_key || null,
+      imwebPaymentAmount: null,
+      tossAmount: Number(row.amount) || 0,
+      tossStatus: row.status || null,
+      normalizedPhone: "",
+      orderTime: null,
+      transactionAt: row.transaction_at,
+    });
+  }
+
+  const matchedOrders = matchedOrderIds.size;
+  const imwebOrderCount = imwebOrders.filter((row) => Boolean(normalizeOrderIdBase(row.order_no))).length;
+  const tossOrderCount = tossByOrderIdBase.size;
+  const finalAgeBuckets = ageBuckets.map((bucket) => ({
+    ...bucket,
+    coverageRate: bucket.imwebOrders > 0
+      ? Number(((bucket.matchedOrders / bucket.imwebOrders) * 100).toFixed(2))
+      : 0,
+  }));
+
+  return {
+    site: input.site,
+    tossStore,
+    lookbackDays,
+    imwebOrders: imwebOrderCount,
+    tossOrders: tossOrderCount,
+    matchedOrders,
+    missingInToss: Math.max(imwebOrderCount - matchedOrders, 0),
+    missingInImweb: Math.max(tossOrderCount - matchedOrders, 0),
+    amountMismatchCount,
+    coverageRate: imwebOrderCount > 0 ? Number(((matchedOrders / imwebOrderCount) * 100).toFixed(2)) : 0,
+    ageBuckets: finalAgeBuckets,
+    samples: {
+      missingInToss,
+      missingInImweb,
+      amountMismatches,
+    },
+  };
+}
+
+export type RepurchaseCandidateRow = {
+  memberCode: string;
+  name: string | null;
+  phone: string | null;
+  totalOrders: number;
+  totalSpent: number;
+  firstOrderDate: string | null;
+  lastOrderDate: string | null;
+  daysSinceLastPurchase: number;
+  avgOrderAmount: number;
+  consentSms: boolean;
+  consentEmail: boolean;
+};
+
+export function listRepurchaseCandidates(input: {
+  site: string;
+  minDaysSinceLastPurchase: number;
+  maxDaysSinceLastPurchase: number;
+  minPurchaseCount: number;
+  limit: number;
+}): RepurchaseCandidateRow[] {
+  const db = getCrmDb();
+  const rows = db.prepare(`
+    WITH order_agg AS (
+      SELECT
+        o.member_code AS member_code,
+        COUNT(*) AS total_orders,
+        COALESCE(SUM(o.payment_amount), 0) AS total_spent,
+        MIN(COALESCE(NULLIF(o.complete_time, ''), NULLIF(o.order_time, ''))) AS first_order_date,
+        MAX(COALESCE(NULLIF(o.complete_time, ''), NULLIF(o.order_time, ''))) AS last_order_date,
+        CAST(
+          julianday('now') - julianday(MAX(COALESCE(NULLIF(o.complete_time, ''), NULLIF(o.order_time, ''))))
+          AS INTEGER
+        ) AS days_since_last_purchase,
+        COALESCE(AVG(o.payment_amount), 0) AS avg_order_amount,
+        MIN(NULLIF(o.orderer_name, '')) AS fallback_name,
+        MIN(NULLIF(o.orderer_call, '')) AS fallback_phone
+      FROM imweb_orders o
+      WHERE
+        o.site = ?
+        AND NULLIF(TRIM(o.member_code), '') IS NOT NULL
+      GROUP BY o.member_code
+    )
+    SELECT
+      agg.member_code AS member_code,
+      COALESCE(NULLIF(m.name, ''), agg.fallback_name) AS name,
+      COALESCE(NULLIF(m.callnum, ''), agg.fallback_phone) AS phone,
+      agg.total_orders AS total_orders,
+      agg.total_spent AS total_spent,
+      agg.first_order_date AS first_order_date,
+      agg.last_order_date AS last_order_date,
+      agg.days_since_last_purchase AS days_since_last_purchase,
+      agg.avg_order_amount AS avg_order_amount,
+      CASE WHEN COALESCE(m.marketing_agree_sms, 'N') = 'Y' THEN 1 ELSE 0 END AS consent_sms,
+      CASE WHEN COALESCE(m.marketing_agree_email, 'N') = 'Y' THEN 1 ELSE 0 END AS consent_email
+    FROM order_agg agg
+    LEFT JOIN imweb_members m
+      ON m.member_code = agg.member_code
+      AND m.site = ?
+    WHERE
+      agg.total_orders >= ?
+      AND agg.days_since_last_purchase >= ?
+      AND agg.days_since_last_purchase <= ?
+    ORDER BY agg.days_since_last_purchase DESC, agg.total_spent DESC, agg.member_code
+    LIMIT ?
+  `).all(
+    input.site,
+    input.site,
+    input.minPurchaseCount,
+    input.minDaysSinceLastPurchase,
+    input.maxDaysSinceLastPurchase,
+    input.limit,
+  ) as Array<Record<string, unknown>>;
+
+  return rows.map((row) => ({
+    memberCode: String(row.member_code),
+    name: row.name ? String(row.name) : null,
+    phone: row.phone ? String(row.phone) : null,
+    totalOrders: Number(row.total_orders) || 0,
+    totalSpent: Number(row.total_spent) || 0,
+    firstOrderDate: row.first_order_date ? String(row.first_order_date) : null,
+    lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
+    daysSinceLastPurchase: Number(row.days_since_last_purchase) || 0,
+    avgOrderAmount: Number(row.avg_order_amount) || 0,
+    consentSms: Number(row.consent_sms) === 1,
+    consentEmail: Number(row.consent_email) === 1,
+  }));
+}
+
+export function getImwebMembersByPhones(phones: string[]): ImwebMemberRow[] {
+  const normalizedPhones = [...new Set(
+    phones
+      .map((phone) => phone.replace(/[^0-9]/g, ""))
+      .filter((phone) => phone.length > 0),
+  )];
+
+  if (normalizedPhones.length === 0) {
+    return [];
+  }
+
+  const placeholders = normalizedPhones.map(() => "?").join(", ");
+  return getCrmDb()
+    .prepare(`
+      SELECT *
+      FROM imweb_members
+      WHERE REPLACE(REPLACE(callnum, '-', ''), ' ', '') IN (${placeholders})
+    `)
+    .all(...normalizedPhones) as ImwebMemberRow[];
+}
+
+/** 이번 달 또는 지정 월의 생일 고객 목록 조회 */
+export function listBirthdayMembers(input: {
+  site?: string;
+  month?: number; // 1~12, 미지정 시 이번 달
+  limit?: number;
+}): Array<{ member_code: string; name: string; callnum: string; email: string; birth: string; site: string; marketing_agree_sms: string }> {
+  const db = getCrmDb();
+  const month = input.month ?? (new Date().getMonth() + 1);
+  const monthStr = String(month).padStart(2, "0");
+  const limitVal = input.limit ?? 5000;
+
+  const siteClause = input.site ? "AND site = ?" : "";
+  const params: unknown[] = [`%-${monthStr}-%`];
+  if (input.site) params.push(input.site);
+  params.push(limitVal);
+
+  return db.prepare(`
+    SELECT member_code, name, callnum, email, birth, site, marketing_agree_sms
+    FROM imweb_members
+    WHERE birth LIKE ? AND birth != '0000-00-00' AND birth != ''
+    ${siteClause}
+    ORDER BY SUBSTR(birth, 6) ASC
+    LIMIT ?
+  `).all(...params) as Array<{ member_code: string; name: string; callnum: string; email: string; birth: string; site: string; marketing_agree_sms: string }>;
 }

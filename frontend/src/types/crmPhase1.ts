@@ -86,6 +86,19 @@ export type CrmPhase1OpsSnapshot = {
         replay: number;
         smoke: number;
       };
+      paymentSuccessByPaymentStatus: {
+        pending: number;
+        confirmed: number;
+        canceled: number;
+      };
+      paymentRevenueByPaymentStatus: {
+        pending: number;
+        confirmed: number;
+        canceled: number;
+      };
+      confirmedRevenue: number;
+      pendingRevenue: number;
+      canceledRevenue: number;
       checkoutByCaptureMode: {
         live: number;
         replay: number;

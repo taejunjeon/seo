@@ -99,3 +99,156 @@ test("crmLocal imweb orders: upsert and stats aggregate by site", () => {
   assert.equal(coffeeStats.bySite[0]?.site, "thecleancoffee");
   assert.equal(dbStats.imwebOrders, 2);
 });
+
+test("crmLocal imweb orders: reconcile report matches Imweb base order ids against Toss", () => {
+  crmLocal.upsertImwebOrders([
+    {
+      order_key: "biocom:matched",
+      site: "biocom",
+      order_no: "202604055309687",
+      order_code: "code-1",
+      channel_order_no: "",
+      order_type: "shopping",
+      sale_channel_idx: 1,
+      device_type: "mobile",
+      order_time_unix: 1775109060,
+      order_time: "2026-04-05T01:11:00.000Z",
+      complete_time_unix: null,
+      complete_time: null,
+      member_code: "member-1",
+      orderer_name: "홍길동",
+      orderer_call: "010-1234-5678",
+      pay_type: "card",
+      pg_type: "tosspayments",
+      price_currency: "KRW",
+      total_price: 113000,
+      payment_amount: 113000,
+      coupon_amount: 0,
+      delivery_price: 0,
+      use_issue_coupon_codes: "[]",
+      raw_json: "{\"order_no\":\"202604055309687\"}",
+    },
+    {
+      order_key: "biocom:mismatch",
+      site: "biocom",
+      order_no: "202604056847482",
+      order_code: "code-2",
+      channel_order_no: "",
+      order_type: "shopping",
+      sale_channel_idx: 1,
+      device_type: "desktop",
+      order_time_unix: 1775195460,
+      order_time: "2026-04-05T02:11:00.000Z",
+      complete_time_unix: null,
+      complete_time: null,
+      member_code: "",
+      orderer_name: "김철수",
+      orderer_call: "01087654321",
+      pay_type: "card",
+      pg_type: "tosspayments",
+      price_currency: "KRW",
+      total_price: 283000,
+      payment_amount: 283000,
+      coupon_amount: 0,
+      delivery_price: 0,
+      use_issue_coupon_codes: "[]",
+      raw_json: "{\"order_no\":\"202604056847482\"}",
+    },
+    {
+      order_key: "biocom:missing",
+      site: "biocom",
+      order_no: "202604057391762",
+      order_code: "code-3",
+      channel_order_no: "",
+      order_type: "shopping",
+      sale_channel_idx: 1,
+      device_type: "desktop",
+      order_time_unix: 1775199460,
+      order_time: "2026-04-05T03:11:00.000Z",
+      complete_time_unix: null,
+      complete_time: null,
+      member_code: "",
+      orderer_name: "박영희",
+      orderer_call: "01099998888",
+      pay_type: "card",
+      pg_type: "tosspayments",
+      price_currency: "KRW",
+      total_price: 245000,
+      payment_amount: 245000,
+      coupon_amount: 0,
+      delivery_price: 0,
+      use_issue_coupon_codes: "[]",
+      raw_json: "{\"order_no\":\"202604057391762\"}",
+    },
+  ]);
+
+  const db = crmLocal.getCrmDb();
+  db.prepare(`
+    INSERT INTO toss_transactions (transaction_key, payment_key, order_id, method, status, transaction_at, currency, amount, m_id, synced_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(
+    "txn-1",
+    "iw_bi20260405004559w8bc6",
+    "202604055309687-P1",
+    "카드",
+    "DONE",
+    "2026-04-05T04:00:00.000Z",
+    "KRW",
+    113000,
+    "m_bi",
+  );
+  db.prepare(`
+    INSERT INTO toss_transactions (transaction_key, payment_key, order_id, method, status, transaction_at, currency, amount, m_id, synced_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(
+    "txn-2",
+    "iw_bi20260405014051sGXQ8",
+    "202604056847482-P1",
+    "카드",
+    "DONE",
+    "2026-04-05T04:10:00.000Z",
+    "KRW",
+    280000,
+    "m_bi",
+  );
+  db.prepare(`
+    INSERT INTO toss_transactions (transaction_key, payment_key, order_id, method, status, transaction_at, currency, amount, m_id, synced_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(
+    "txn-3",
+    "iw_bi20260405030000extra",
+    "202604059999999-P1",
+    "카드",
+    "DONE",
+    "2026-04-05T05:00:00.000Z",
+    "KRW",
+    99000,
+    "m_bi",
+  );
+
+  const report = crmLocal.getImwebTossReconcileReport({
+    site: "biocom",
+    limit: 10,
+    lookbackDays: 365,
+    now: "2026-04-06T00:00:00.000Z",
+  });
+
+  assert.equal(report.tossStore, "biocom");
+  assert.equal(report.imwebOrders, 3);
+  assert.equal(report.tossOrders, 3);
+  assert.equal(report.matchedOrders, 2);
+  assert.equal(report.missingInToss, 1);
+  assert.equal(report.missingInImweb, 1);
+  assert.equal(report.amountMismatchCount, 1);
+  assert.equal(report.coverageRate, 66.67);
+  assert.equal(report.ageBuckets[0]?.key, "0_1d");
+  assert.equal(report.ageBuckets[0]?.imwebOrders, 3);
+  assert.equal(report.ageBuckets[0]?.matchedOrders, 2);
+  assert.equal(report.ageBuckets[0]?.missingInToss, 1);
+  assert.equal(report.ageBuckets[0]?.amountMismatchCount, 1);
+  assert.equal(report.ageBuckets[0]?.coverageRate, 66.67);
+  assert.equal(report.samples.missingInToss[0]?.orderIdBase, "202604057391762");
+  assert.equal(report.samples.missingInImweb[0]?.orderIdBase, "202604059999999");
+  assert.equal(report.samples.amountMismatches[0]?.paymentKey, "iw_bi20260405014051sGXQ8");
+  assert.equal(report.samples.amountMismatches[0]?.normalizedPhone, "01087654321");
+});

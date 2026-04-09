@@ -10,13 +10,13 @@
 const POLICY_VERSION = "p1-s1b-v1-ts";
 const TIMEZONE = "Asia/Seoul";
 const QUIET_HOURS = { startHour: 21, endHour: 8 };
-const COOLDOWN_HOURS: Record<string, number> = { channeltalk: 24, aligo: 24 };
-const MAX_MESSAGES_7D: Record<string, number> = { channeltalk: 3, aligo: 2 };
+const COOLDOWN_HOURS: Record<string, number> = { channeltalk: 24, aligo: 24, sms: 24 };
+const MAX_MESSAGES_7D: Record<string, number> = { channeltalk: 3, aligo: 2, sms: 2 };
 const RECENT_PURCHASE_SUPPRESSION_DAYS = 7;
 const RECENT_CONSULTATION_SUPPRESSION_DAYS = 2;
 const ALLOWED_CONSENT = new Set(["opt_in", "granted", "marketing_opt_in", "subscribed"]);
 const ALLOWED_CLAIM_REVIEW = new Set(["approved", "reviewed", "safe"]);
-const FALLBACK: Record<string, string | null> = { channeltalk: "aligo", aligo: null };
+const FALLBACK: Record<string, string | null> = { channeltalk: "aligo", aligo: "sms", sms: null };
 
 export type BlockedReason = {
   code: string;
@@ -60,7 +60,7 @@ function isQuietHours(): boolean {
 
 export function evaluateContactPolicy(
   candidate: ContactPolicyInput,
-  channel: "channeltalk" | "aligo",
+  channel: "channeltalk" | "aligo" | "sms",
   options?: { adminOverride?: boolean },
 ): ContactPolicyResult {
   const blocked: BlockedReason[] = [];
@@ -149,11 +149,11 @@ export function evaluateContactPolicy(
     });
   }
 
-  // 8. 연락처 확인 (알리고는 전화번호 필수)
-  if (channel === "aligo" && !candidate.customerPhone?.replace(/[^0-9]/g, "")) {
+  // 8. 연락처 확인 (알리고/SMS는 전화번호 필수)
+  if ((channel === "aligo" || channel === "sms") && !candidate.customerPhone?.replace(/[^0-9]/g, "")) {
     blocked.push({
       code: "missing_phone",
-      message: "알리고 알림톡은 전화번호가 필수인데 전화번호가 없다",
+      message: channel === "sms" ? "SMS는 전화번호가 필수인데 전화번호가 없다" : "알리고 알림톡은 전화번호가 필수인데 전화번호가 없다",
       severity: "hard",
     });
   }

@@ -614,22 +614,6 @@ export default function Home() {
     if (tabLabel) setPage(resolveTabPageName(tabLabel));
   }, [activeTab]);
 
-  // CRM 포털 KPI (탭 7 선택 시 1회 fetch)
-  const [crmKpi, setCrmKpi] = useState<{ completed: number; customers: number; rate: number; converted: number; matured: number; revenue: number } | null>(null);
-  useEffect(() => {
-    if (activeTab !== 7) return;
-    if (crmKpi) return; // 이미 로드됨
-    const ac = new AbortController();
-    fetch(`${API_BASE_URL}/api/callprice/overview?maturity_days=90&start_date=2025-04-01&end_date=2026-03-27`, { signal: ac.signal })
-      .then((r) => r.json())
-      .then((d) => {
-        const s = d?.data?.summary;
-        if (s) setCrmKpi({ completed: s.completed_consultations, customers: s.unique_completed_customers, rate: s.conversion_rate, converted: s.converted_customers, matured: s.matured_customers, revenue: s.estimated_incremental_revenue });
-      })
-      .catch(() => {});
-    return () => ac.abort();
-  }, [activeTab, crmKpi]);
-
   /* ── 실데이터 fetch (마운트 시) ── */
   useEffect(() => {
     const ac = new AbortController();
@@ -1712,32 +1696,10 @@ export default function Home() {
         {/* ════════ TAB 7: AI CRM 포털 ════════ */}
         {activeTab === 7 && (
           <div style={{ display: "grid", gap: 20 }}>
-            {/* CRM KPI 요약 */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-              {(crmKpi ? [
-                { label: "완료 상담", value: `${crmKpi.completed.toLocaleString("ko-KR")}건`, sub: `고유 고객 ${crmKpi.customers.toLocaleString("ko-KR")}명` },
-                { label: "90일 전환율", value: `${(crmKpi.rate * 100).toFixed(1)}%`, sub: `전환 ${crmKpi.converted.toLocaleString("ko-KR")}명 / 성숙 ${crmKpi.matured.toLocaleString("ko-KR")}명` },
-                { label: "상담 효과 추정 매출", value: `${(crmKpi.revenue / 1_0000_0000).toFixed(1)}억원`, sub: "상담 고객 vs 미상담 고객 매출 차이" },
-              ] : [
-                { label: "완료 상담", value: "로딩 중...", sub: "" },
-                { label: "90일 전환율", value: "로딩 중...", sub: "" },
-                { label: "상담 효과 추정 매출", value: "로딩 중...", sub: "" },
-              ]).map((card) => (
-                <div key={card.label} style={{
-                  padding: "20px 24px", borderRadius: 12,
-                  background: "white", border: "1px solid rgba(15,23,42,0.08)",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                }}>
-                  <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{card.label}</div>
-                  <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text-primary)", marginTop: 6 }}>{card.value}</div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 4 }}>{card.sub}</div>
-                </div>
-              ))}
-            </div>
-
             {/* 바로가기 카드 */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
               {[
+                { href: "/onboarding", title: "온보딩 체크사항", desc: "BigQuery·GA4·개발팀/마케팅팀 확인 항목, 요청 메모, 추후 기록", icon: "🧭" },
                 { href: "/callprice", title: "상담사 가치 분석", desc: "상담사별 성과, 상담 효과 추정, 충원 시나리오 시뮬레이션", icon: "📊" },
                 { href: "/cohort", title: "코호트 · 북극성 지표", desc: "성숙 기간별 전환율/매출 비교, 90일 재구매 순이익 추적", icon: "📈" },
                 { href: "/crm", title: "CRM 관리 허브", desc: "후속 관리 대상, 실험 운영, 결제 귀속 진단", icon: "🎯" },
@@ -1745,6 +1707,9 @@ export default function Home() {
                 { href: "/coffee-pricing", title: "커피 가격 전략", desc: "원가 분석, 가격 인상/인하 판단, 경쟁사 비교, 마진 시뮬레이션", icon: "💲" },
                 { href: "/coupon", title: "쿠폰 CRM 분석", desc: "쿠폰 발급/사용률, ROI 분석, 할인 최적화 전략", icon: "🎟" },
                 { href: "/crm?tab=messaging", title: "알림톡 발송", desc: "카카오 알림톡 발송, 템플릿 선택, 테스트/실발송, 이력 확인", icon: "💬" },
+                { href: "/ads", title: "광고 성과", desc: "Meta 광고 캠페인별 노출/클릭/비용/전환 실시간 모니터링", icon: "📊" },
+                { href: "/ads/roas", title: "ROAS · iROAS", desc: "광고비 대비 매출(ROAS) + 증분 광고수익률(iROAS) 모니터링", icon: "📉" },
+                { href: "/ads/landing", title: "랜딩뷰 · Clarity", desc: "클릭→랜딩뷰 이탈 분석, UX 히트맵, 전환율 개선 인사이트", icon: "🔍" },
                 { href: "/solution", title: "솔루션 소개", desc: "Biocom Growth AI Agent — 분석에서 실행까지 연결하는 AI CRM", icon: "🧠" },
               ].map((card) => (
                 <a key={card.href} href={card.href} style={{
@@ -1768,7 +1733,7 @@ export default function Home() {
               borderRadius: "0 8px 8px 0", padding: "14px 18px",
               fontSize: "0.82rem", color: "var(--color-text-secondary)", lineHeight: 1.7,
             }}>
-              <strong>AI CRM 포털</strong>: 상담사 가치 분석, 재구매 코호트, CRM 운영 관리, 알림톡 발송을 한눈에 접근할 수 있는 허브입니다.
+              <strong>AI CRM 포털</strong>: 상담사 가치 분석, 재구매 코호트, CRM 운영 관리, 알림톡 발송, ROAS/iROAS 모니터링을 한눈에 접근할 수 있는 허브입니다. 각 카드를 클릭하면 상세 화면으로 이동합니다.
               각 카드를 클릭하면 상세 화면으로 이동합니다.
             </div>
           </div>

@@ -2,7 +2,7 @@ import express, { type Request, type Response } from "express";
 
 import { getChannelTalkConfigStatus, verifyChannelTalkAccess, normalizeChannelTalkConfig } from "../channeltalk";
 import { evaluateContactPolicy, getContactPolicyContract, type ContactPolicyInput } from "../contactPolicy";
-import { getImwebMemberByPhone } from "../crmLocalDb";
+import { getImwebMemberByPhone, getImwebMembersByPhones } from "../crmLocalDb";
 
 type ChannelTalkUserSummary = {
   userId: string;
@@ -197,9 +197,9 @@ export const createChannelTalkRouter = () => {
   });
 
   router.post("/api/contact-policy/evaluate", (req: Request, res: Response) => {
-    const channel = (req.body?.channel ?? "aligo") as "channeltalk" | "aligo";
-    if (channel !== "channeltalk" && channel !== "aligo") {
-      res.status(400).json({ error: `지원하지 않는 채널: ${channel}. channeltalk 또는 aligo만 가능` });
+    const channel = (req.body?.channel ?? "aligo") as "channeltalk" | "aligo" | "sms";
+    if (channel !== "channeltalk" && channel !== "aligo" && channel !== "sms") {
+      res.status(400).json({ error: `지원하지 않는 채널: ${channel}. channeltalk, aligo, sms만 가능` });
       return;
     }
 
@@ -229,6 +229,85 @@ export const createChannelTalkRouter = () => {
     const adminOverride = req.body?.adminOverride === true;
     const result = evaluateContactPolicy(candidate, channel, { adminOverride });
     res.json({ ...result, consentSource });
+  });
+
+  router.post("/api/contact-policy/evaluate-batch", (req: Request, res: Response) => {
+    const channel = (req.body?.channel ?? "aligo") as "channeltalk" | "aligo" | "sms";
+    if (channel !== "channeltalk" && channel !== "aligo" && channel !== "sms") {
+      res.status(400).json({ error: `지원하지 않는 채널: ${channel}. channeltalk, aligo, sms만 가능` });
+      return;
+    }
+
+    if (!Array.isArray(req.body?.phones) || req.body.phones.length === 0) {
+      res.status(400).json({ error: "phones 배열이 필요하다" });
+      return;
+    }
+
+    const phones = req.body.phones.map((phone: unknown) => String(phone ?? ""));
+    const normalizedPhones = phones.map((phone: string) => phone.replace(/[^0-9]/g, ""));
+    const members = getImwebMembersByPhones(normalizedPhones);
+    const memberByPhone = new Map<string, (typeof members)[number]>();
+
+    for (const member of members) {
+      const normalizedPhone = member.callnum.replace(/[^0-9]/g, "");
+      if (normalizedPhone && !memberByPhone.has(normalizedPhone)) {
+        memberByPhone.set(normalizedPhone, member);
+      }
+    }
+
+    const adminOverride = req.body?.adminOverride === true;
+    const sharedInput = {
+      claimReviewStatus: req.body?.claimReviewStatus ?? null,
+      recentMessageCount7d: req.body?.recentMessageCount7d ?? null,
+      hoursSinceLastMessage: req.body?.hoursSinceLastMessage ?? null,
+      daysSinceLastPurchase: req.body?.daysSinceLastPurchase ?? null,
+      daysSinceLastConsultation: req.body?.daysSinceLastConsultation ?? null,
+      suppressionUntil: req.body?.suppressionUntil ?? null,
+    };
+
+    const results = phones.map((phone: string) => {
+      const normalizedPhone = phone.replace(/[^0-9]/g, "");
+      const member = memberByPhone.get(normalizedPhone);
+
+      let resolvedConsent = req.body?.consentStatus ?? null;
+      let consentSource: string | null = null;
+      if (!resolvedConsent && member) {
+        resolvedConsent = member.marketing_agree_sms === "Y" ? "marketing_opt_in" : "not_agreed";
+        consentSource = "imweb_members_batch";
+      }
+
+      const candidate: ContactPolicyInput = {
+        consentStatus: resolvedConsent,
+        claimReviewStatus: sharedInput.claimReviewStatus,
+        recentMessageCount7d: sharedInput.recentMessageCount7d,
+        hoursSinceLastMessage: sharedInput.hoursSinceLastMessage,
+        daysSinceLastPurchase: sharedInput.daysSinceLastPurchase,
+        daysSinceLastConsultation: sharedInput.daysSinceLastConsultation,
+        suppressionUntil: sharedInput.suppressionUntil,
+        customerPhone: normalizedPhone || null,
+        customerEmail: member?.email ?? null,
+      };
+
+      const evaluation = evaluateContactPolicy(candidate, channel, { adminOverride });
+
+      return {
+        phone,
+        normalizedPhone: normalizedPhone || null,
+        memberCode: member?.member_code ?? null,
+        name: member?.name ?? null,
+        consentSource,
+        ...evaluation,
+      };
+    });
+
+    const eligible = results.filter((result: { eligible: boolean }) => result.eligible).length;
+
+    res.json({
+      total: results.length,
+      eligible,
+      blocked: results.length - eligible,
+      results,
+    });
   });
 
   return router;

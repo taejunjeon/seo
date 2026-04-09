@@ -3,7 +3,32 @@ import { AlphaAnalyticsDataClient } from "@google-analytics/data/build/src/v1alp
 
 import { FUNNEL_CONFIG, type FunnelType } from "./config/funnel-config";
 import { AI_REFERRAL_SOURCE_PATTERNS_ALLOWLIST, matchAiReferrer } from "./config/ai-referrers";
-import { env } from "./env";
+import { env as rawEnv } from "./env";
+
+/*
+ * GA4 멀티 property 지원:
+ * .env에서 GA4_BIOCOM_PROPERTY_ID / GA4_BIOCOM_SERVICE_ACCOUNT_KEY로 변수명이 바뀜.
+ * 기존 코드 60곳이 env.GA4_PROPERTY_ID / env.GA4_SERVICE_ACCOUNT_KEY를 참조하므로,
+ * 여기서 새 변수명 → 옛 변수명으로 resolve해서 기존 코드를 깨지 않게 한다.
+ */
+const env = {
+  ...rawEnv,
+  GA4_PROPERTY_ID: rawEnv.GA4_PROPERTY_ID ?? rawEnv.GA4_BIOCOM_PROPERTY_ID,
+  GA4_SERVICE_ACCOUNT_KEY: rawEnv.GA4_SERVICE_ACCOUNT_KEY ?? rawEnv.GA4_BIOCOM_SERVICE_ACCOUNT_KEY,
+};
+
+/** 사이트 코드 → GA4 property ID 매핑 */
+export const GA4_PROPERTY_MAP: Record<string, string | undefined> = {
+  biocom: rawEnv.GA4_BIOCOM_PROPERTY_ID,
+  thecleancoffee: rawEnv.GA4_COFFEE_PROPERTY_ID,
+  aibio: rawEnv.GA4_AIBIOCOM_PROPERTY_ID,
+};
+
+/** site 코드로 property ID를 가져온다. 없으면 기본값(바이오컴). */
+export const resolveGA4PropertyId = (site?: string): string => {
+  if (site && GA4_PROPERTY_MAP[site]) return GA4_PROPERTY_MAP[site]!;
+  return env.GA4_PROPERTY_ID ?? "";
+};
 
 const parseServiceAccountKey = (rawKey: string) => {
   try {
