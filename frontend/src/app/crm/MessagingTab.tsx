@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
+import PhonePreview from "./PhonePreview";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
 
@@ -93,8 +94,20 @@ export default function MessagingTab() {
   const nameFromUrl = msgSearchParams.get("name") ?? "";
   const channelFromUrl = msgSearchParams.get("channel") as MsgChannel | null;
   const adminOverrideFromUrl = msgSearchParams.get("adminOverride") === "true";
+  const memberCodeFromUrl = msgSearchParams.get("memberCode") ?? "";
+  const daysSinceFromUrl = msgSearchParams.get("daysSince") ?? "";
+  const groupIdFromUrl = msgSearchParams.get("groupId") ?? "";
   const [receiver, setReceiver] = useState(phoneFromUrl || "010-3934-8641");
   const [recvName, setRecvName] = useState(nameFromUrl || "TJ (테스트)");
+  const [memberCode, setMemberCode] = useState(memberCodeFromUrl);
+  const [daysSinceLastPurchase, setDaysSinceLastPurchase] = useState(daysSinceFromUrl ? Number(daysSinceFromUrl) : null);
+
+  // 그룹 발송 상태
+  const [groupId, setGroupId] = useState(groupIdFromUrl);
+  const [groupMembers, setGroupMembers] = useState<Array<{ phone: string; name: string | null; member_code: string | null }>>([]);
+  const [groupName, setGroupName] = useState("");
+  const [batchSending, setBatchSending] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ total: 0, sent: 0, failed: 0, current: "" });
 
   // URL 파라미터가 변경되면 수신자 + 채널 + 관리자 모드 자동 업데이트
   useEffect(() => {
@@ -102,7 +115,26 @@ export default function MessagingTab() {
     if (nameFromUrl) setRecvName(nameFromUrl);
     if (channelFromUrl === "sms" || channelFromUrl === "alimtalk") setMsgChannel(channelFromUrl);
     if (adminOverrideFromUrl) setAdminOverride(true);
-  }, [phoneFromUrl, nameFromUrl, channelFromUrl, adminOverrideFromUrl]);
+    if (memberCodeFromUrl) setMemberCode(memberCodeFromUrl);
+    if (daysSinceFromUrl) setDaysSinceLastPurchase(Number(daysSinceFromUrl));
+    if (groupIdFromUrl) { setGroupId(groupIdFromUrl); setSourceType("followup"); }
+  }, [phoneFromUrl, nameFromUrl, channelFromUrl, adminOverrideFromUrl, memberCodeFromUrl, daysSinceFromUrl, groupIdFromUrl]);
+
+  // 그룹 멤버 로드
+  useEffect(() => {
+    if (!groupId) { setGroupMembers([]); setGroupName(""); return; }
+    (async () => {
+      try {
+        const [membersRes, groupsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/crm-local/groups/${groupId}/members?limit=5000`).then((r) => r.json()),
+          fetch(`${API_BASE}/api/crm-local/groups`).then((r) => r.json()),
+        ]);
+        setGroupMembers(membersRes.members ?? []);
+        const grp = (groupsRes.groups ?? []).find((g: { group_id: string }) => g.group_id === groupId);
+        setGroupName(grp?.name ?? groupId);
+      } catch { /* ignore */ }
+    })();
+  }, [groupId]);
   const [msgChannel, setMsgChannel] = useState<MsgChannel>("alimtalk");
   const [smsMessage, setSmsMessage] = useState("");
   const [sourceType, setSourceType] = useState<"manual" | "followup" | "experiment">("manual");
@@ -162,7 +194,9 @@ export default function MessagingTab() {
 
   const normalizedWhitelist = whitelist.map((w) => w.replace(/[^0-9]/g, ""));
   const receiverNormalized = receiver.replace(/[^0-9]/g, "");
-  const isWhitelisted = normalizedWhitelist.includes(receiverNormalized);
+  const isInWhitelist = normalizedWhitelist.includes(receiverNormalized);
+  // 실험/CRM에서 넘어온 경우(memberCode 있음) 또는 관리자 오버라이드 시 화이트리스트 우회
+  const isWhitelisted = isInWhitelist || !!memberCode || adminOverride;
 
   // 수신자 변경 시 contact policy 평가
   useEffect(() => {
@@ -226,6 +260,9 @@ export default function MessagingTab() {
           testMode: testMode ? "Y" : "N",
           consentStatus: policyResult?.eligible ? "consented" : "not_consented",
           adminOverride,
+          memberCode: memberCode || undefined,
+          daysSinceLastPurchase: daysSinceLastPurchase ?? undefined,
+          source: "crm_messaging",
         }),
       });
       setSendResult(await res.json());
@@ -235,6 +272,53 @@ export default function MessagingTab() {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleBatchSmsSend = async () => {
+    if (!smsMessage.trim() || groupMembers.length === 0) return;
+    const msg = `${groupMembers.length}명에게 SMS를 ${testMode ? "테스트" : "실제"} 배치 발송하시겠습니까?`;
+    if (!confirm(msg)) return;
+
+    setBatchSending(true);
+    setBatchProgress({ total: groupMembers.length, sent: 0, failed: 0, current: "" });
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const member of groupMembers) {
+      const phone = member.phone.replace(/[^0-9]/g, "");
+      if (!phone) { failed++; continue; }
+
+      setBatchProgress((p) => ({ ...p, current: `${member.name || phone}` }));
+
+      try {
+        const res = await fetch(`${API_BASE}/api/aligo/sms`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            receiver: phone,
+            message: smsWithOptOut,
+            testMode: testMode ? "Y" : "N",
+            consentStatus: "batch",
+            adminOverride: true,
+            memberCode: member.member_code || undefined,
+            source: "crm_batch",
+          }),
+        });
+        const result = await res.json();
+        if (result.ok) { sent++; } else { failed++; }
+      } catch {
+        failed++;
+      }
+
+      setBatchProgress((p) => ({ ...p, sent, failed }));
+      // 300ms throttle
+      await new Promise((r) => setTimeout(r, 300));
+    }
+
+    setBatchSending(false);
+    setBatchProgress({ total: groupMembers.length, sent, failed, current: "" });
+    loadData();
   };
 
   const handleSend = async () => {
@@ -255,6 +339,9 @@ export default function MessagingTab() {
           testMode: testMode ? "Y" : "N",
           consentStatus: policyResult?.eligible ? "consented" : "not_consented",
           adminOverride,
+          memberCode: memberCode || undefined,
+          daysSinceLastPurchase: daysSinceLastPurchase ?? undefined,
+          source: "crm_messaging",
         }),
       });
       setSendResult(await res.json());
@@ -396,23 +483,53 @@ export default function MessagingTab() {
             {/* SMS Step 1: 수신자 */}
             <div className={styles.panel} style={{ opacity: step >= 1 ? 1 : 0.4 }}>
               <h3 className={styles.panelTitle}>1. 수신자</h3>
-              <div className={styles.controlGroup} style={{ marginTop: 12 }}>
-                <label className={styles.controlLabel}>전화번호</label>
-                <input className={styles.controlSelect} value={receiver} onChange={(e) => { setReceiver(e.target.value); setStep(1); }} style={{ width: "100%" }} />
-              </div>
-              <div className={styles.controlGroup} style={{ marginTop: 8 }}>
-                <label className={styles.controlLabel}>수신자명</label>
-                <input className={styles.controlSelect} value={recvName} onChange={(e) => setRecvName(e.target.value)} style={{ width: "100%" }} />
-              </div>
-              {isWhitelisted ? (
-                <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#16a34a", fontWeight: 600 }}>화이트리스트 확인됨</div>
+              {groupId && groupMembers.length > 0 ? (
+                /* 그룹 발송 모드 */
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ padding: "12px 16px", borderRadius: 8, background: "#eef2ff", border: "1px solid #c7d2fe" }}>
+                    <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#4f46e5", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>그룹 발송 모드</div>
+                    <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#1e293b", marginTop: 6 }}>{groupName}</div>
+                    <div style={{ fontSize: "0.82rem", color: "#475569", marginTop: 4 }}>
+                      총 예상 발송 대상: <strong style={{ color: "#6366f1" }}>{groupMembers.length}명</strong>
+                    </div>
+                  </div>
+                  <details style={{ marginTop: 10 }}>
+                    <summary style={{ fontSize: "0.76rem", color: "#64748b", cursor: "pointer" }}>수신자 목록 미리보기 ({groupMembers.length}명)</summary>
+                    <div style={{ maxHeight: 160, overflow: "auto", marginTop: 6, fontSize: "0.72rem", color: "#475569", fontFamily: "monospace" }}>
+                      {groupMembers.slice(0, 50).map((m, i) => (
+                        <div key={i}>{m.phone} {m.name || ""}</div>
+                      ))}
+                      {groupMembers.length > 50 && <div style={{ color: "#94a3b8" }}>...외 {groupMembers.length - 50}명</div>}
+                    </div>
+                  </details>
+                  {step === 1 && (
+                    <button type="button" className={styles.retryButton} onClick={() => setStep(2)} style={{ marginTop: 10, background: "#6366f1", color: "#fff", border: "none", width: "100%" }}>
+                      다음: 메시지 작성 →
+                    </button>
+                  )}
+                </div>
               ) : (
-                <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>화이트리스트에 없음 — 발송 불가</div>
-              )}
-              {isWhitelisted && step === 1 && (
-                <button type="button" className={styles.retryButton} onClick={() => setStep(2)} style={{ marginTop: 10, background: "#6366f1", color: "#fff", border: "none" }}>
-                  다음: 메시지 작성 →
-                </button>
+                /* 단건 발송 모드 */
+                <>
+                  <div className={styles.controlGroup} style={{ marginTop: 12 }}>
+                    <label className={styles.controlLabel}>전화번호</label>
+                    <input className={styles.controlSelect} value={receiver} onChange={(e) => { setReceiver(e.target.value); setStep(1); }} style={{ width: "100%" }} />
+                  </div>
+                  <div className={styles.controlGroup} style={{ marginTop: 8 }}>
+                    <label className={styles.controlLabel}>수신자명</label>
+                    <input className={styles.controlSelect} value={recvName} onChange={(e) => setRecvName(e.target.value)} style={{ width: "100%" }} />
+                  </div>
+                  {isWhitelisted ? (
+                    <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#16a34a", fontWeight: 600 }}>화이트리스트 확인됨</div>
+                  ) : (
+                    <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>화이트리스트에 없음 — 발송 불가</div>
+                  )}
+                  {isWhitelisted && step === 1 && (
+                    <button type="button" className={styles.retryButton} onClick={() => setStep(2)} style={{ marginTop: 10, background: "#6366f1", color: "#fff", border: "none" }}>
+                      다음: 메시지 작성 →
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
@@ -454,18 +571,29 @@ export default function MessagingTab() {
             <div className={styles.panel} style={{ marginTop: 18 }}>
               <h3 className={styles.panelTitle}>3. 정책 확인 및 발송</h3>
 
-              {/* 미리보기 */}
-              <div style={{ padding: 14, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0", marginTop: 12, fontSize: "0.84rem", lineHeight: 1.7 }}>
-                <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: 6, fontWeight: 600 }}>실제 발송될 메시지</div>
-                <div style={{ whiteSpace: "pre-wrap" }}>{smsWithOptOut}</div>
-                <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#64748b" }}>
-                  수신: {receiver} ({recvName}) · {calcSmsBytes(smsWithOptOut) > 90 ? "LMS" : "SMS"} · {calcSmsBytes(smsWithOptOut)}바이트
-                </div>
-                {!smsMessage.includes("080-") && (
-                  <div style={{ marginTop: 4, fontSize: "0.68rem", color: "#d97706" }}>
-                    수신거부번호가 자동 추가됨 (홍보성 SMS 법적 의무)
+              {/* SMS 폰 미리보기 + 텍스트 */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16, marginTop: 12 }}>
+                <div style={{ padding: 14, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.84rem", lineHeight: 1.7 }}>
+                  <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: 6, fontWeight: 600 }}>실제 발송될 메시지</div>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{smsWithOptOut}</div>
+                  <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#64748b" }}>
+                    수신: {receiver} ({recvName}) · {calcSmsBytes(smsWithOptOut) > 90 ? "LMS" : "SMS"} · {calcSmsBytes(smsWithOptOut)}바이트
                   </div>
-                )}
+                  {!smsMessage.includes("080-") && (
+                    <div style={{ marginTop: 4, fontSize: "0.68rem", color: "#d97706" }}>
+                      수신거부번호가 자동 추가됨 (홍보성 SMS 법적 의무)
+                    </div>
+                  )}
+                </div>
+                <PhonePreview
+                  channel="sms"
+                  senderName="더클린커피"
+                  body={smsWithOptOut}
+                  receiver={receiver}
+                  charCount={calcSmsBytes(smsWithOptOut)}
+                  charLimit={90}
+                  costEstimate={calcSmsBytes(smsWithOptOut) > 90 ? "~₩45 (LMS)" : "~₩16 (SMS)"}
+                />
               </div>
 
               {/* 정책 결과 */}
@@ -496,19 +624,60 @@ export default function MessagingTab() {
 
               {/* 발송 버튼 */}
               <div style={{ marginTop: 16, display: "flex", gap: 12, alignItems: "center" }}>
-                <button
-                  type="button"
-                  className={styles.retryButton}
-                  onClick={handleSmsSend}
-                  disabled={sending || !isWhitelisted || !smsMessage.trim()}
-                  style={{ background: sending ? "#94a3b8" : "#6366f1", color: "#fff", border: "none", padding: "12px 24px" }}
-                >
-                  {sending ? "발송 중..." : `SMS ${testMode ? "테스트" : "실제"} 발송`}
-                </button>
+                {groupId && groupMembers.length > 0 ? (
+                  /* 그룹 배치 발송 */
+                  <button
+                    type="button"
+                    className={styles.retryButton}
+                    onClick={handleBatchSmsSend}
+                    disabled={batchSending || !smsMessage.trim()}
+                    style={{ background: batchSending ? "#94a3b8" : testMode ? "#6366f1" : "#dc2626", color: "#fff", border: "none", padding: "12px 24px" }}
+                  >
+                    {batchSending ? `발송 중 (${batchProgress.sent + batchProgress.failed}/${batchProgress.total})...` : `${groupMembers.length}명 ${testMode ? "테스트" : "실제"} 배치 발송`}
+                  </button>
+                ) : (
+                  /* 단건 발송 */
+                  <button
+                    type="button"
+                    className={styles.retryButton}
+                    onClick={handleSmsSend}
+                    disabled={sending || !isWhitelisted || !smsMessage.trim()}
+                    style={{ background: sending ? "#94a3b8" : "#6366f1", color: "#fff", border: "none", padding: "12px 24px" }}
+                  >
+                    {sending ? "발송 중..." : `SMS ${testMode ? "테스트" : "실제"} 발송`}
+                  </button>
+                )}
                 <button type="button" className={styles.retryButton} onClick={() => setStep(2)} style={{ fontSize: "0.78rem" }}>
                   ← 메시지 수정
                 </button>
               </div>
+
+              {/* 배치 발송 진행 표시 */}
+              {batchSending && (
+                <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#16a34a" }}>
+                    배치 발송 진행 중: {batchProgress.sent + batchProgress.failed} / {batchProgress.total}
+                  </div>
+                  <div style={{ marginTop: 6, height: 6, borderRadius: 3, background: "#e2e8f0", overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 3, background: "#16a34a", width: `${batchProgress.total > 0 ? ((batchProgress.sent + batchProgress.failed) / batchProgress.total * 100) : 0}%`, transition: "width 0.3s" }} />
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: "0.72rem", color: "#64748b" }}>
+                    성공: {batchProgress.sent} / 실패: {batchProgress.failed} / 현재: {batchProgress.current}
+                  </div>
+                </div>
+              )}
+
+              {/* 배치 발송 완료 결과 */}
+              {!batchSending && batchProgress.total > 0 && batchProgress.sent + batchProgress.failed >= batchProgress.total && (
+                <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#16a34a" }}>
+                    배치 발송 완료: 총 {batchProgress.total}명
+                  </div>
+                  <div style={{ fontSize: "0.76rem", color: "#475569", marginTop: 4 }}>
+                    성공: {batchProgress.sent}건 / 실패: {batchProgress.failed}건
+                  </div>
+                </div>
+              )}
 
               {/* 발송 결과 */}
               {sendResult && (
@@ -716,31 +885,35 @@ export default function MessagingTab() {
               background: step === 3 ? "rgba(99,102,241,0.04)" : "rgba(255,255,255,0.6)",
               border: step >= 3 && selectedTemplate ? "2px solid #6366f1" : "1px solid #e2e8f0",
             }}>
-              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1e293b", marginBottom: 8 }}>3. 미리보기</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1e293b" }}>3. 미리보기</div>
+                {selectedTemplate && (
+                  <span style={{
+                    padding: "2px 8px", borderRadius: 4, fontSize: "0.62rem", fontWeight: 700,
+                    background: selectedTemplate.templateType === "AD" ? "#fef3c7" : "#dbeafe",
+                    color: selectedTemplate.templateType === "AD" ? "#92400e" : "#1e40af",
+                  }}>
+                    {selectedTemplate.templateType === "AD" ? "광고" : "정보"}
+                  </span>
+                )}
+              </div>
               {selectedTemplate ? (
                 <>
                   <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#475569", marginBottom: 6 }}>
                     {selectedTemplate.templtName} <span style={{ color: "#94a3b8" }}>({selectedTemplate.templtCode})</span>
                   </div>
-                  {/* 미리보기 본문 (변수 치환 반영) */}
-                  <div style={{
-                    background: "#fff", padding: 12, borderRadius: 8, border: "1px solid #f1f5f9",
-                    fontSize: "0.78rem", color: "#1e293b", whiteSpace: "pre-wrap", lineHeight: 1.6,
-                    maxHeight: 250, overflow: "auto",
-                  }}>
-                    {previewResult?.renderedBody ?? selectedTemplate.templtContent}
-                  </div>
-                  {/* 버튼 미리보기 */}
-                  {selectedTemplate.buttons && selectedTemplate.buttons.length > 0 && (
-                    <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-                      {selectedTemplate.buttons.map((btn, i) => (
-                        <span key={i} style={{
-                          padding: "7px 14px", borderRadius: 6, fontSize: "0.78rem", fontWeight: 600,
-                          background: "#fee500", color: "#3c1e1e",
-                        }}>{btn.name}</span>
-                      ))}
-                    </div>
-                  )}
+                  {/* 카카오톡 스타일 폰 미리보기 */}
+                  <PhonePreview
+                    channel="alimtalk"
+                    senderName="더클린커피"
+                    messageType={selectedTemplate.templateType as "BA" | "AD"}
+                    body={previewResult?.renderedBody ?? selectedTemplate.templtContent}
+                    buttons={selectedTemplate.buttons}
+                    receiver={receiver}
+                    charCount={(previewResult?.renderedBody ?? selectedTemplate.templtContent).length}
+                    charLimit={1000}
+                    costEstimate="~₩8/건"
+                  />
                   {/* 변수 입력 폼 */}
                   {previewResult?.variablesFound && previewResult.variablesFound.length > 0 && (
                     <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 8, background: "#fefce8", border: "1px solid #fde68a" }}>

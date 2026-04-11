@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect, react/no-unescaped-entities */
+
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -62,10 +64,10 @@ const SITE_KPI: Record<SiteValue, { label: string; value: string; sub?: string }
     { label: "Toss 연동", value: "live", sub: "MID: iw_biocomo8tx" },
   ],
   thecleancoffee: [
-    { label: "회원 수", value: "13,236명", sub: "전체의 15.9%" },
-    { label: "Live Row", value: "3건", sub: "결제 추적 가동 중" },
+    { label: "회원 수", value: "13,236명", sub: "전체 83,017명 중 더클린커피 비율" },
+    { label: "Live Row", value: "3건", sub: "결제 완료 시 UTM·GA4 정보를 기록한 귀속 원장 행 수" },
     { label: "UTM 추적", value: "활성", sub: "아임웹 푸터 코드 설치" },
-    { label: "Meta 광고", value: "미집행", sub: "캠페인 없음" },
+    { label: "Meta 광고", value: "집행 중", sub: "A+SC 캠페인 2개 운영 중" },
   ],
   aibio: [
     { label: "회원 수", value: "100명", sub: "성장 초기" },
@@ -86,13 +88,14 @@ const ALL_TABS: Record<string, TabItem> = {
   leads: { value: "leads", label: "리드 관리", desc: "광고로 유입된 잠재 고객의 전환 현황을 본다" },
   orders: { value: "orders", label: "구매 현황", desc: "최근 주문과 매출 추이를 확인한다" },
   repurchase: { value: "repurchase", label: "재구매 관리", desc: "첫 구매 후 재구매하지 않은 고객을 찾아 관리한다" },
+  groups: { value: "groups", label: "고객 그룹", desc: "발송 대상 그룹을 관리하고 메시지 이력을 확인한다" },
   comparison: { value: "comparison", label: "사이트 비교", desc: "3사이트의 핵심 지표를 나란히 비교한다" },
 };
 
 const SITE_TABS: Record<SiteValue, TabItem[]> = {
   all: [ALL_TABS.comparison!, ALL_TABS.experiments!, ALL_TABS.messaging!, ALL_TABS.attribution!],
   biocom: [ALL_TABS.consultation!, ALL_TABS.experiments!, ALL_TABS.messaging!, ALL_TABS.attribution!],
-  thecleancoffee: [ALL_TABS.orders!, ALL_TABS.repurchase!, ALL_TABS.messaging!, ALL_TABS.attribution!],
+  thecleancoffee: [ALL_TABS.orders!, ALL_TABS.repurchase!, ALL_TABS.groups!, ALL_TABS.messaging!, ALL_TABS.attribution!],
   aibio: [ALL_TABS.ads!, ALL_TABS.leads!, ALL_TABS.messaging!, ALL_TABS.attribution!],
 };
 
@@ -1705,6 +1708,11 @@ REVENUE_API_BEARER_TOKEN=여기에_토큰_입력`}
           <CoffeeRepurchaseTab />
         ) : null}
 
+        {/* ── 고객 그룹 탭 ── */}
+        {tab === "groups" ? (
+          <CustomerGroupsTab />
+        ) : null}
+
         {/* ── 전체: 사이트 비교 탭 ── */}
         {tab === "comparison" ? (
           <SiteComparisonTab />
@@ -1922,6 +1930,548 @@ function CoffeeOrdersTab() {
   );
 }
 
+/* ─── A/B 테스트 섹션 ─── */
+
+type AbVariant = {
+  variant_key: string;
+  assigned: number;
+  sent: number;
+  sendFailed: number;
+  purchased: number;
+  purchaseRate: number;
+  revenue: number;
+  avgOrderAmount: number;
+};
+
+type AbExperiment = {
+  experiment_key: string;
+  name: string;
+  status: string;
+  channel: string;
+  hypothesis: string;
+  conversion_window_days: number;
+  created_at: string;
+};
+
+type AbSummaryResponse = {
+  ok: boolean;
+  experiment: AbExperiment;
+  variants: AbVariant[];
+  conversionWindowDays: number;
+};
+
+/* ─── 고객 그룹 관리 탭 ─── */
+
+type GroupInfo = { group_id: string; name: string; description: string | null; member_count: number; created_at: string; updated_at: string };
+type GroupMember = { phone: string; name: string | null; member_code: string | null; consent_sms: boolean; added_at: string };
+
+function CustomerGroupsTab() {
+  const [groups, setGroups] = useState<GroupInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newPhones, setNewPhones] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [membersTotal, setMembersTotal] = useState(0);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [msgLog, setMsgLog] = useState<Array<Record<string, unknown>>>([]);
+  const [msgTotal, setMsgTotal] = useState(0);
+  const [showLog, setShowLog] = useState(false);
+  const router = useRouter();
+
+  const loadGroups = () => {
+    setLoading(true);
+    fetch(`${API_BASE}/api/crm-local/groups`)
+      .then((r) => r.json())
+      .then((d) => setGroups(d.groups ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadGroups(); }, []);
+
+  useEffect(() => {
+    if (!selectedGroup) { setMembers([]); setMembersTotal(0); return; }
+    setMembersLoading(true);
+    fetch(`${API_BASE}/api/crm-local/groups/${selectedGroup}/members?limit=100`)
+      .then((r) => r.json())
+      .then((d) => { setMembers(d.members ?? []); setMembersTotal(d.total ?? 0); })
+      .catch(() => {})
+      .finally(() => setMembersLoading(false));
+  }, [selectedGroup]);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/crm-local/groups`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (data.ok && newPhones.trim()) {
+        const phoneList = newPhones.split(/[\n,]+/).map((p) => p.trim()).filter(Boolean);
+        await fetch(`${API_BASE}/api/crm-local/groups/${data.group.group_id}/members`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ members: phoneList.map((p) => ({ phone: p })) }),
+        });
+      }
+      setNewName(""); setNewDesc(""); setNewPhones(""); setShowCreate(false);
+      loadGroups();
+    } catch { /* ignore */ } finally { setCreating(false); }
+  };
+
+  const handleDelete = async (groupId: string) => {
+    if (!confirm("이 그룹을 삭제하시겠습니까?")) return;
+    await fetch(`${API_BASE}/api/crm-local/groups/${groupId}`, { method: "DELETE" });
+    if (selectedGroup === groupId) setSelectedGroup(null);
+    loadGroups();
+  };
+
+  const handleSendToGroup = (groupId: string) => {
+    const params = new URLSearchParams();
+    params.set("site", "thecleancoffee");
+    params.set("tab", "messaging");
+    params.set("groupId", groupId);
+    params.set("channel", "sms");
+    params.set("adminOverride", "true");
+    window.location.search = params.toString();
+  };
+
+  const loadMsgLog = () => {
+    setShowLog(true);
+    fetch(`${API_BASE}/api/crm-local/message-log?limit=50`)
+      .then((r) => r.json())
+      .then((d) => { setMsgLog(d.messages ?? []); setMsgTotal(d.total ?? 0); })
+      .catch(() => {});
+  };
+
+  return (
+    <>
+      {/* 그룹 목록 */}
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <div>
+            <h2 className={styles.sectionTitle}>고객 그룹 목록</h2>
+            <p className={styles.sectionDesc}>A/B 실험 생성 시 자동으로 그룹이 생성된다. 직접 그룹을 만들 수도 있다.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowCreate(!showCreate)} style={{
+              padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer",
+              background: "#fee500", color: "#3c1e1e", fontWeight: 700, fontSize: "0.82rem",
+            }}>+ 신규그룹 만들기</button>
+            <button onClick={loadMsgLog} style={{
+              padding: "8px 16px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer",
+              background: "#fff", color: "#475569", fontWeight: 600, fontSize: "0.82rem",
+            }}>메시지 이력</button>
+          </div>
+        </div>
+
+        {/* 신규 그룹 생성 폼 */}
+        {showCreate && (
+          <div style={{ padding: 18, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", marginBottom: 16 }}>
+            <div style={{ fontSize: "0.82rem", fontWeight: 700, marginBottom: 12 }}>신규그룹 만들기</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <label style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>그룹명</label>
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="그룹명을 입력하세요"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: "0.82rem", marginTop: 4 }} />
+                <div style={{ textAlign: "right", fontSize: "0.68rem", color: "#94a3b8" }}>{newName.length}/20자</div>
+              </div>
+              <div>
+                <label style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>그룹 설명</label>
+                <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="그룹 설명을 입력하세요"
+                  rows={2} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: "0.82rem", marginTop: 4, resize: "vertical" }} />
+                <div style={{ textAlign: "right", fontSize: "0.68rem", color: "#94a3b8" }}>{newDesc.length}/60자</div>
+              </div>
+              <div>
+                <label style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>전화번호 직접 입력</label>
+                <textarea value={newPhones} onChange={(e) => setNewPhones(e.target.value)}
+                  placeholder={"전화번호를 한 줄에 하나씩 추가해주세요.\nex)\n010-0000-0000\n010-1111-1111"}
+                  rows={5} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: "0.82rem", marginTop: 4, resize: "vertical", fontFamily: "monospace" }} />
+                <div style={{ textAlign: "right", fontSize: "0.68rem", color: "#94a3b8" }}>
+                  {newPhones.split(/[\n,]+/).filter((p) => p.trim()).length}/10,000개
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                <button onClick={() => setShowCreate(false)} style={{ padding: "8px 20px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: "0.82rem" }}>취소</button>
+                <button onClick={handleCreate} disabled={creating || !newName.trim()} style={{
+                  padding: "8px 20px", borderRadius: 6, border: "none", cursor: creating ? "not-allowed" : "pointer",
+                  background: "#fee500", color: "#3c1e1e", fontWeight: 700, fontSize: "0.82rem",
+                }}>{creating ? "생성 중..." : "그룹등록"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 그룹 테이블 */}
+        {loading ? <div style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>로딩 중...</div> : (
+          <>
+            <div style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 8 }}>전체 그룹 <span style={{ color: "#6366f1" }}>{groups.length}개</span></div>
+            <table className={styles.table}>
+              <thead>
+                <tr className={styles.tableHead}>
+                  <th>그룹명</th>
+                  <th className={styles.tableCellRight}>인원수</th>
+                  <th>생성일시</th>
+                  <th>설명</th>
+                  <th>액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((g) => (
+                  <tr key={g.group_id} className={styles.tableRow} style={{ cursor: "pointer", background: selectedGroup === g.group_id ? "#eef2ff" : undefined }}
+                    onClick={() => setSelectedGroup(selectedGroup === g.group_id ? null : g.group_id)}>
+                    <td><strong>{g.name}</strong></td>
+                    <td className={styles.tableCellRight}><span style={{ color: "#6366f1", fontWeight: 600 }}>{g.member_count}명</span></td>
+                    <td style={{ fontSize: "0.76rem", color: "#64748b" }}>{g.created_at?.slice(0, 16)}</td>
+                    <td style={{ fontSize: "0.76rem", color: "#94a3b8" }}>{g.description || "-"}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleSendToGroup(g.group_id)} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #6366f1", background: "#eef2ff", color: "#4f46e5", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>발송</button>
+                        <button onClick={() => handleDelete(g.group_id)} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>삭제</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {groups.length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: "center", padding: 24, color: "#94a3b8" }}>생성된 고객 그룹이 없다. A/B 실험 생성 시 자동으로 그룹이 만들어진다.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {/* 선택된 그룹 멤버 목록 */}
+        {selectedGroup && (
+          <div style={{ marginTop: 16, padding: 16, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: "0.82rem", fontWeight: 700, marginBottom: 8 }}>
+              그룹 멤버 — {groups.find((g) => g.group_id === selectedGroup)?.name} (<span style={{ color: "#6366f1" }}>{membersTotal}명</span>)
+            </div>
+            {membersLoading ? <div style={{ color: "#94a3b8" }}>로딩 중...</div> : (
+              <table className={styles.table}>
+                <thead>
+                  <tr className={styles.tableHead}>
+                    <th>전화번호</th>
+                    <th>고객명</th>
+                    <th>고객번호</th>
+                    <th>SMS 동의</th>
+                    <th>등록일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {members.slice(0, 30).map((m) => (
+                    <tr key={m.phone} className={styles.tableRow}>
+                      <td style={{ fontFamily: "monospace", fontSize: "0.78rem" }}>{m.phone}</td>
+                      <td>{m.name || "-"}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: "0.72rem", color: "#64748b" }}>{m.member_code || "-"}</td>
+                      <td><span className={`${styles.statusBadge} ${m.consent_sms ? styles.statusCompleted : styles.statusOther}`}>{m.consent_sms ? "동의" : "미동의"}</span></td>
+                      <td style={{ fontSize: "0.72rem", color: "#94a3b8" }}>{m.added_at?.slice(0, 16)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {membersTotal > 30 && <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#94a3b8" }}>외 {membersTotal - 30}명 더 있음</div>}
+          </div>
+        )}
+      </section>
+
+      {/* 메시지 이력 */}
+      {showLog && (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2 className={styles.sectionTitle}>메시지 이력</h2>
+              <p className={styles.sectionDesc}>총 {msgTotal}건</p>
+            </div>
+          </div>
+          <table className={styles.table}>
+            <thead>
+              <tr className={styles.tableHead}>
+                <th>발송일시</th>
+                <th>채널</th>
+                <th>고객번호</th>
+                <th>템플릿</th>
+                <th>상태</th>
+                <th>실험</th>
+              </tr>
+            </thead>
+            <tbody>
+              {msgLog.map((m, i) => (
+                <tr key={i} className={styles.tableRow}>
+                  <td style={{ fontSize: "0.76rem" }}>{String(m.sent_at ?? "").slice(0, 16)}</td>
+                  <td><span style={{ padding: "2px 8px", borderRadius: 4, fontSize: "0.68rem", fontWeight: 600, background: m.channel === "alimtalk" ? "#fee500" : "#dbeafe", color: m.channel === "alimtalk" ? "#3c1e1e" : "#1e40af" }}>{String(m.channel)}</span></td>
+                  <td style={{ fontFamily: "monospace", fontSize: "0.72rem" }}>{String(m.customer_key ?? "-")}</td>
+                  <td style={{ fontSize: "0.76rem", color: "#475569" }}>{String(m.template_code ?? "-")}</td>
+                  <td><span className={`${styles.statusBadge} ${m.provider_status === "success" ? styles.statusCompleted : styles.statusOther}`}>{String(m.provider_status ?? "-")}</span></td>
+                  <td style={{ fontSize: "0.72rem", color: "#94a3b8" }}>{String(m.experiment_key ?? "-")}</td>
+                </tr>
+              ))}
+              {msgLog.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", padding: 20, color: "#94a3b8" }}>발송 이력 없음</td></tr>}
+            </tbody>
+          </table>
+        </section>
+      )}
+    </>
+  );
+}
+
+function CoffeeAbTestSection({ minDays, maxDays, minOrders, candidates }: {
+  minDays: number;
+  maxDays: number;
+  minOrders: number;
+  candidates: { consentSms: boolean; phone: string; name: string; memberCode: string; daysSinceLastPurchase: number }[];
+}) {
+  const [experiments, setExperiments] = useState<Array<{ experiment_key: string; name: string; status: string; channel: string; created_at: string }>>([]);
+  const [creating, setCreating] = useState(false);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [summary, setSummary] = useState<AbSummaryResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // 기존 실험 목록 로드
+  useEffect(() => {
+    fetch(`${API_BASE}/api/crm-local/experiments?meta=true`)
+      .then((r) => r.json())
+      .then((d) => {
+        const abExps = (d.experiments ?? []).filter((e: { channel?: string }) => e.channel?.includes("+"));
+        setExperiments(abExps);
+        if (abExps.length > 0 && !selectedKey) setSelectedKey(abExps[0].experiment_key);
+      })
+      .catch(() => {});
+  }, []);
+
+  // 선택된 실험 결과 로드
+  useEffect(() => {
+    if (!selectedKey) { setSummary(null); return; }
+    setSummaryLoading(true);
+    fetch(`${API_BASE}/api/crm-local/experiments/${selectedKey}/ab-summary`)
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setSummary(d); })
+      .catch(() => {})
+      .finally(() => setSummaryLoading(false));
+  }, [selectedKey]);
+
+  const [testType, setTestType] = useState<"channel" | "consent">("channel");
+  const withPhone = candidates.filter((c) => c.phone);
+  const consentCount = withPhone.filter((c) => c.consentSms).length;
+  const nonConsentCount = withPhone.length - consentCount;
+
+  const TEST_TYPES = [
+    { key: "channel" as const, label: "SMS vs 알림톡", desc: "동의 고객을 채널별로 나누어 비교", targetCount: consentCount },
+    { key: "consent" as const, label: "동의 vs 미동의", desc: "양군 모두 SMS 발송, 동의 여부별 전환율 비교", targetCount: withPhone.length },
+  ];
+
+  const currentType = TEST_TYPES.find((t) => t.key === testType)!;
+
+  const handleCreate = async () => {
+    const isConsent = testType === "consent";
+    const msg = isConsent
+      ? `전체 ${withPhone.length}명을 동의(${consentCount}명) vs 미동의(${nonConsentCount}명)로 나누어 실험을 생성하시겠습니까?`
+      : `SMS 동의 고객 ${consentCount}명을 SMS/알림톡 두 그룹으로 나누어 실험을 생성하시겠습니까?`;
+    if (!confirm(msg)) return;
+    setCreating(true);
+    try {
+      const body = isConsent
+        ? { site: "thecleancoffee", minDays, maxDays, minOrders, variantA: "consent_sms", variantB: "noconsent_sms", splitBy: "consent", conversionWindowDays: 3 }
+        : { site: "thecleancoffee", minDays, maxDays, minOrders, variantA: "sms", variantB: "alimtalk", splitBy: "channel", conversionWindowDays: 3 };
+      const res = await fetch(`${API_BASE}/api/crm-local/experiments/repurchase-ab`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const counts = Object.entries(data.assigned ?? {}).map(([k, v]) => `${k}: ${v}명`).join("\n");
+        setExperiments((prev) => [{ experiment_key: data.experiment.experiment_key, name: data.experiment.name, status: data.experiment.status, channel: data.experiment.channel, created_at: data.experiment.created_at }, ...prev]);
+        setSelectedKey(data.experiment.experiment_key);
+
+        // 실험 생성 후 메시지 발송 탭으로 이동
+        const firstConsent = candidates.find((c) => c.consentSms && c.phone);
+        if (firstConsent) {
+          const goToMessaging = confirm(`실험 생성 완료\n\n${counts}\n제외: ${data.excludedNoConsent ?? 0}명\n\n메시지 작성 화면으로 이동하시겠습니까?`);
+          if (goToMessaging) {
+            const params = new URLSearchParams();
+            params.set("site", "thecleancoffee");
+            params.set("tab", "messaging");
+            params.set("phone", firstConsent.phone);
+            params.set("name", firstConsent.name);
+            params.set("channel", "sms");
+            params.set("memberCode", firstConsent.memberCode);
+            params.set("daysSince", String(firstConsent.daysSinceLastPurchase));
+            params.set("adminOverride", "true");
+            window.location.search = params.toString();
+          }
+        } else {
+          alert(`실험 생성 완료\n\n${counts}\n제외: ${data.excludedNoConsent ?? 0}명`);
+        }
+      } else {
+        alert(`실험 생성 실패: ${data.error}`);
+      }
+    } catch (err) {
+      alert(`오류: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <section className={styles.section} style={{ background: "linear-gradient(180deg, rgba(238,242,255,0.5), rgba(255,255,255,0.9))", border: "1px solid rgba(99,102,241,0.2)" }}>
+      <div className={styles.sectionHeader}>
+        <div>
+          <h2 className={styles.sectionTitle}>A/B 테스트</h2>
+          <p className={styles.sectionDesc}>
+            재구매 후보를 두 그룹으로 나누어 전환율을 비교한다. 발송 후 3일 뒤 구매 전환을 측정한다.
+          </p>
+        </div>
+      </div>
+
+      {/* 실험 유형 선택 */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        {TEST_TYPES.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTestType(t.key)}
+            style={{
+              padding: "8px 16px", borderRadius: 8, fontSize: "0.78rem", fontWeight: 600, cursor: "pointer",
+              border: testType === t.key ? "2px solid #6366f1" : "1px solid #e2e8f0",
+              background: testType === t.key ? "#eef2ff" : "#fff",
+              color: testType === t.key ? "#4f46e5" : "#64748b",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 실험 생성 */}
+      <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 18, padding: "14px 18px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#334155" }}>
+            현재 필터: {minDays}~{maxDays}일 미구매 / {minOrders}회 이상 구매
+          </div>
+          <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 4 }}>
+            {testType === "consent" ? (
+              <>전체 대상: <strong>{withPhone.length}명</strong> (동의 {consentCount}명 / 미동의 {nonConsentCount}명)</>
+            ) : (
+              <>SMS 동의 대상: <strong>{consentCount}명</strong> → 각 그룹 약 {Math.floor(consentCount / 2)}명</>
+            )}
+          </div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 2 }}>{currentType.desc}</div>
+        </div>
+        <button
+          onClick={handleCreate}
+          disabled={creating || currentType.targetCount < 2}
+          style={{
+            padding: "10px 20px", borderRadius: 8, border: "none", cursor: creating || currentType.targetCount < 2 ? "not-allowed" : "pointer",
+            background: creating || currentType.targetCount < 2 ? "#94a3b8" : "#6366f1", color: "#fff", fontWeight: 600, fontSize: "0.82rem",
+          }}
+        >
+          {creating ? "생성 중..." : "A/B 실험 생성"}
+        </button>
+      </div>
+
+      {/* 기존 실험 목록 */}
+      {experiments.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: "0.76rem", fontWeight: 600, color: "#64748b", marginBottom: 8 }}>실험 목록</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {experiments.map((exp) => (
+              <button
+                key={exp.experiment_key}
+                onClick={() => setSelectedKey(exp.experiment_key)}
+                style={{
+                  padding: "8px 14px", borderRadius: 8, fontSize: "0.76rem", fontWeight: 600, cursor: "pointer",
+                  border: selectedKey === exp.experiment_key ? "2px solid #6366f1" : "1px solid #e2e8f0",
+                  background: selectedKey === exp.experiment_key ? "#eef2ff" : "#fff",
+                  color: selectedKey === exp.experiment_key ? "#4f46e5" : "#64748b",
+                }}
+              >
+                {exp.name}
+                <span style={{ marginLeft: 6, fontSize: "0.68rem", color: "#94a3b8" }}>
+                  {exp.created_at?.slice(0, 10)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 선택된 실험 결과 */}
+      {summaryLoading && <div style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>로딩 중...</div>}
+
+      {summary && !summaryLoading && (
+        <div>
+          <div style={{ fontSize: "0.76rem", color: "#64748b", marginBottom: 4 }}>
+            전환 윈도우: {summary.conversionWindowDays}일 / 상태: {summary.experiment.status}
+          </div>
+
+          {/* 그룹별 비교 카드 */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
+            {summary.variants.map((v, vi) => {
+              const isFirst = vi === 0;
+              const accent = isFirst ? "#2563eb" : "#7c3aed";
+              const bg = isFirst ? "linear-gradient(180deg, #eff6ff, #fff)" : "linear-gradient(180deg, #f5f3ff, #fff)";
+              const border = isFirst ? "#bfdbfe" : "#ddd6fe";
+              const VARIANT_LABELS: Record<string, string> = {
+                sms: "SMS", alimtalk: "알림톡",
+                consent_sms: "동의 고객 (SMS)", noconsent_sms: "미동의 고객 (SMS)",
+              };
+              const label = VARIANT_LABELS[v.variant_key] ?? v.variant_key;
+              return (
+                <div key={v.variant_key} style={{ padding: 18, borderRadius: 14, background: bg, border: `1px solid ${border}` }}>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 700, color: accent, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>
+                    {isFirst ? "A" : "B"}그룹: {label}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
+                    <div>
+                      <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>배정</div>
+                      <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#334155" }}>{v.assigned}명</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>발송</div>
+                      <div style={{ fontSize: "1.2rem", fontWeight: 700, color: v.sent > 0 ? "#16a34a" : "#94a3b8" }}>{v.sent}건</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>구매 전환</div>
+                      <div style={{ fontSize: "1.2rem", fontWeight: 700, color: accent }}>{v.purchased}건</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>전환율</div>
+                      <div style={{ fontSize: "1.2rem", fontWeight: 700, color: accent }}>
+                        {v.assigned > 0 ? (v.purchaseRate * 100).toFixed(1) : "0.0"}%
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 14, padding: "8px 12px", borderRadius: 8, background: "rgba(255,255,255,0.7)", fontSize: "0.76rem", color: "#475569" }}>
+                    매출: {fmtKRW(Math.round(v.revenue))} / 객단가: {fmtKRW(Math.round(v.avgOrderAmount))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 실험이 있지만 아직 발송 전인 경우 안내 */}
+          {summary.variants.length > 0 && summary.variants.every((v) => v.sent === 0) && (
+            <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 8, background: "#fffbeb", border: "1px solid #fde68a", fontSize: "0.76rem", color: "#92400e", lineHeight: 1.7 }}>
+              <strong>다음 단계:</strong> 그룹 배정 완료. 알림톡 발송 탭에서 각 그룹 대상으로 메시지를 발송한 뒤, 3일 후 전환 동기화를 실행하면 결과가 여기에 표시된다.
+            </div>
+          )}
+        </div>
+      )}
+
+      {experiments.length === 0 && !summaryLoading && (
+        <div style={{ padding: 24, textAlign: "center", color: "#94a3b8", fontSize: "0.82rem" }}>
+          아직 생성된 A/B 실험이 없다. 위 버튼으로 첫 실험을 시작할 수 있다.
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* ─── 더클린커피 재구매 관리 탭 컴포넌트 ─── */
 type RepurchaseCandidate = {
   memberCode: string;
@@ -1982,6 +2532,8 @@ function CoffeeRepurchaseTab() {
     params.set("phone", first.phone);
     params.set("name", first.name);
     params.set("channel", channel);
+    params.set("memberCode", first.memberCode);
+    params.set("daysSince", String(first.daysSinceLastPurchase));
     router.replace(`?${params.toString()}`, { scroll: false });
   };
 
@@ -2058,6 +2610,7 @@ function CoffeeRepurchaseTab() {
                 <table className={styles.table}>
                   <thead>
                     <tr className={styles.tableHead}>
+                      <th>고객번호</th>
                       <th>고객명</th>
                       <th>연락처</th>
                       <th className={styles.tableCellRight}>구매 횟수</th>
@@ -2070,6 +2623,7 @@ function CoffeeRepurchaseTab() {
                   <tbody>
                     {candidates.slice(0, tableShowCount).map((c) => (
                       <tr key={c.memberCode} className={styles.tableRow}>
+                        <td style={{ fontSize: "0.72rem", color: "#64748b", fontFamily: "monospace" }}>{c.memberCode}</td>
                         <td><strong>{c.name || "-"}</strong></td>
                         <td className={styles.phone}>{c.phone}</td>
                         <td className={styles.tableCellRight}>{c.totalOrders}회</td>
@@ -2185,6 +2739,9 @@ function CoffeeRepurchaseTab() {
           </>
         )}
       </section>
+
+      {/* A/B 테스트 */}
+      <CoffeeAbTestSection minDays={minDays} maxDays={maxDays} minOrders={minOrders} candidates={candidates} />
 
       {/* 동의/미동의 전환율 가설 */}
       {candidates.length > 0 && (
@@ -2380,7 +2937,7 @@ function SiteComparisonTab() {
             <tr className={styles.tableRow}>
               <td><strong>Meta 광고</strong></td>
               <td className={styles.tableCellRight} style={{ color: "#94a3b8" }}>미집행</td>
-              <td className={styles.tableCellRight} style={{ color: "#94a3b8" }}>캠페인 없음</td>
+              <td className={styles.tableCellRight} style={{ color: "#16a34a", fontWeight: 600 }}>집행 중 (A+SC 2개)</td>
               <td className={styles.tableCellRight} style={{ color: "#6366f1", fontWeight: 600 }}>₩148만/월</td>
             </tr>
             <tr className={styles.tableRow}>

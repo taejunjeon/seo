@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect, react/no-unescaped-entities */
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -10,7 +12,7 @@ const fmtNum = (v: number) => v.toLocaleString("ko-KR");
 const SITES = [
   { key: "biocom", label: "바이오컴", accountId: "act_3138805896402376" },
   { key: "aibio", label: "AIBIO 리커버리랩", accountId: "act_377604674894011" },
-  { key: "thecleancoffee", label: "더클린커피", accountId: "act_1382574315626662" },
+  { key: "thecleancoffee", label: "더클린커피", accountId: "act_654671961007474" },
 ];
 
 type SiteData = {

@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect, react/no-unescaped-entities */
+
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -151,10 +153,92 @@ type AliasReviewResponse = {
   error?: string;
 };
 
+type CapiLogSegmentCounts = {
+  operational: number;
+  manual: number;
+  test: number;
+};
+
+type CapiOrderEventDuplicateSample = {
+  orderId: string;
+  eventName: string;
+  count: number;
+  uniqueEventIds: number;
+  firstSentAt: string;
+  lastSentAt: string;
+  classification: "same_event_id_retry_like" | "multiple_event_ids_duplicate_risk";
+  eventIds: string[];
+  segments: CapiLogSegmentCounts;
+  success: number;
+  failure: number;
+};
+
+type CapiDedupCandidateDetail = Omit<CapiOrderEventDuplicateSample, "segments" | "success" | "failure" | "eventIds"> & {
+  rows: Array<{
+    createdAt: string;
+    eventId: string;
+    responseStatus: number;
+    pixelId: string;
+    eventSourceUrl: string;
+    mode: "operational" | "manual" | "test";
+    sendPath: "auto_sync" | "manual_api" | "test_event" | "unknown";
+    orderId: string;
+    paymentKey: string;
+    touchpoint: string;
+    captureMode: string;
+    source: string;
+    approvedAt: string;
+    loggedAt: string;
+    ledgerLanding: string;
+    ledgerReferrer: string;
+    requestOrigin: string;
+    requestPath: string;
+  }>;
+};
+
+type CapiLogSummary = {
+  total: number;
+  success: number;
+  failure: number;
+  countsByPixelId: Record<string, number>;
+  countsBySegment: CapiLogSegmentCounts;
+  uniqueEventIds: number;
+  duplicateEventIds: number;
+  duplicateEventIdGroups: number;
+  uniqueOrderEventKeys: number;
+  duplicateOrderEventKeys: number;
+  duplicateOrderEventGroups: number;
+  duplicateOrderEventBreakdown: {
+    retryLikeGroups: number;
+    retryLikeRows: number;
+    multiEventIdGroups: number;
+    multiEventIdRows: number;
+  };
+  duplicateOrderEventSamples: CapiOrderEventDuplicateSample[];
+};
+
+type CallerCoverageSummary = {
+  total: number;
+  withGaSessionId: number;
+  withClientId: number;
+  withUserPseudoId: number;
+  withAllThree: number;
+  gaSessionIdRate: number;
+  clientIdRate: number;
+  userPseudoIdRate: number;
+  allThreeRate: number;
+};
+
+type CallerCoverageReport = {
+  paymentSuccess: CallerCoverageSummary;
+  checkoutStarted: CallerCoverageSummary;
+  notes: string[];
+};
+
 const SITES = [
   { site: "biocom", label: "바이오컴", account_id: "act_3138805896402376" },
   { site: "aibio", label: "AIBIO 리커버리랩", account_id: "act_377604674894011" },
-  { site: "thecleancoffee", label: "더클린커피", account_id: "act_1382574315626662" },
+  { site: "thecleancoffee", label: "더클린커피", account_id: "act_654671961007474" },
 ];
 
 const DATE_PRESETS = [
@@ -163,12 +247,19 @@ const DATE_PRESETS = [
   { value: "last_30d", label: "최근 30일" },
   { value: "last_90d", label: "최근 90일" },
 ];
+const DATE_PRESET_DAY_COUNTS: Record<string, number> = {
+  last_7d: 7,
+  last_14d: 14,
+  last_30d: 30,
+  last_90d: 90,
+};
 const ROAS_LAG_NOTE = "confirmed ledger만 메인 ROAS에 반영한다. 오늘/최근 1~2일 수치는 pending 결제와 PG 확정 지연 때문에 잠정치로 낮게 보일 수 있다.";
+const META_PRIMARY_ATTR_WINDOW = "1d_click";
 
 const ATTR_WINDOWS = [
-  { value: "", label: "기본 (7d클릭+1d조회)", desc: "Meta 기본 설정. 클릭 7일 + 조회 1일" },
-  { value: "1d_click", label: "클릭 1일", desc: "광고 클릭 후 24시간 내 구매만 집계" },
-  { value: "7d_click", label: "클릭 7일", desc: "광고 클릭 후 7일 내 구매 집계" },
+  { value: "1d_click", label: "클릭 1일 (운영 기준)", desc: "광고 클릭 후 24시간 내 구매만 집계. 앞으로 Meta ROAS 기준값" },
+  { value: "", label: "Meta 기본 (7d클릭+1d조회)", desc: "Ads Manager 기본 설정. 클릭 7일 + 조회 1일" },
+  { value: "7d_click", label: "클릭 7일", desc: "광고 클릭 후 7일 내 구매 집계. 보조 비교값" },
   { value: "28d_click", label: "클릭 28일", desc: "광고 클릭 후 28일 내 구매 집계" },
   { value: "1d_view", label: "조회 1일", desc: "광고를 보기만 하고 24시간 내 구매" },
 ];
@@ -198,8 +289,8 @@ const summarizeAliasReviewItems = (items: AliasReviewItem[]) => ({
 
 export default function AdsPage() {
   const [selectedSite, setSelectedSite] = useState(SITES[0]);
-  const [datePreset, setDatePreset] = useState("last_30d");
-  const [attrWindow, setAttrWindow] = useState("");
+  const [datePreset, setDatePreset] = useState("last_7d");
+  const [attrWindow, setAttrWindow] = useState(META_PRIMARY_ATTR_WINDOW);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [campaignSummary, setCampaignSummary] = useState<{ totalImpressions: number; totalClicks: number; totalSpend: number; avgCpc: number; totalLandingViews: number; totalLeads: number; totalPurchases: number; totalPurchaseValue?: number } | null>(null);
   const [daily, setDaily] = useState<DailyRow[]>([]);
@@ -210,10 +301,11 @@ export default function AdsPage() {
   const loadSiteData = useCallback(async () => {
     setLoading(true);
     try {
+      const attrWindowQuery = attrWindow ? `&attribution_window=${attrWindow}` : "";
       const [insightsRes, dailyRes, siteSummaryRes, campaignRoasRes] = await Promise.all([
-        fetch(`${API_BASE}/api/meta/insights?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindow ? `&attribution_window=${attrWindow}` : ""}`),
-        fetch(`${API_BASE}/api/ads/roas/daily?account_id=${selectedSite.account_id}&date_preset=${datePreset}`),
-        fetch(`${API_BASE}/api/ads/site-summary?date_preset=${datePreset}`),
+        fetch(`${API_BASE}/api/meta/insights?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindowQuery}`),
+        fetch(`${API_BASE}/api/ads/roas/daily?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindowQuery}`),
+        fetch(`${API_BASE}/api/ads/site-summary?date_preset=${datePreset}${attrWindowQuery}`),
         fetch(`${API_BASE}/api/ads/roas?account_id=${selectedSite.account_id}&date_preset=${datePreset}`),
       ]);
       const insightsData = await insightsRes.json();
@@ -260,6 +352,10 @@ export default function AdsPage() {
     && selectedMetaPurchaseRoas != null
       ? selectedMetaPurchaseRoas / selectedAttributedRoas
       : null;
+  const currentPresetLabel = DATE_PRESETS.find((preset) => preset.value === datePreset)?.label ?? "선택 기간";
+  const currentAttrWindowLabel = ATTR_WINDOWS.find((window) => window.value === attrWindow)?.label ?? attrWindow;
+  const currentPresetDays = DATE_PRESET_DAY_COUNTS[datePreset] ?? 30;
+  const isLongWindow = datePreset === "last_30d" || datePreset === "last_90d";
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
@@ -342,7 +438,7 @@ export default function AdsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ fontSize: "0.78rem", color: "#94a3b8", paddingTop: 8 }}>최근 30일 광고 집행 없음</div>
+                  <div style={{ fontSize: "0.78rem", color: "#94a3b8", paddingTop: 8 }}>{currentPresetLabel} 광고 집행 없음</div>
                 )}
               </div>
             );
@@ -360,6 +456,19 @@ export default function AdsPage() {
         <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>로딩 중...</div>
       ) : (
         <>
+          {campaignSummary && (
+            <div style={{ marginBottom: 20, padding: "16px 18px", borderRadius: 14, background: "#fff7ed", border: "1px solid #fdba74", fontSize: "0.78rem", color: "#7c2d12", lineHeight: 1.8 }}>
+              <strong style={{ color: "#9a3412" }}>운영 headline</strong>
+              <div>운영 메인: <strong>{currentPresetLabel} Attribution confirmed {fmtRoasX(selectedAttributedRoas)}</strong></div>
+              <div>운영 보조: <strong>confirmed+pending {fmtRoasX(selectedPotentialRoas)}</strong></div>
+              <div>플랫폼 참고: <strong>Meta purchase {currentAttrWindowLabel} {fmtRoasX(selectedMetaPurchaseRoas)}</strong> (Ads Manager `결과 ROAS`/`결과 값` 대응)</div>
+              <div>
+                해석: Meta가 내부 confirmed보다 더 넓게 잡고 있소. <strong>30일 값은 rollout bias가 섞인 보수치</strong>라서 운영 기본 탭은 최근 7일로 두었고,
+                <strong> 잠정 상한선</strong>은 Ads Manager export/timezone 최종 대조 전까지 사이트 전체 confirmed 기준의 임시 상한으로 읽어야 하오.
+              </div>
+            </div>
+          )}
+
           {/* KPI 카드 */}
           {campaignSummary && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 24 }}>
@@ -388,8 +497,10 @@ export default function AdsPage() {
                   {fmtRoasX(selectedMetaPurchaseRoas)}
                 </div>
                 <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 6, lineHeight: 1.5 }}>
-                  Ads Manager purchase value <strong>{fmtKRW(selectedMetaPurchaseValue)}</strong> / 광고비 <strong>{fmtKRW(campaignSummary.totalSpend)}</strong> 기준이오.
+                  Meta <strong>action_values[purchase]</strong> <strong>{fmtKRW(selectedMetaPurchaseValue)}</strong> / 광고비 <strong>{fmtKRW(campaignSummary.totalSpend)}</strong> 기준이오.
+                  현재 API는 <strong>action_report_time=conversion</strong>, <strong>{attrWindow ? `attribution_window=${attrWindow}` : "use_unified_attribution_setting=true"}</strong> 기준으로 맞춰 두었소.
                   Meta purchase 이벤트 {fmtNum(campaignSummary.totalPurchases)}건을 같이 보되, 운영 메인값으로는 쓰지 않소.
+                  Ads Manager 화면과 맞출 때는 큰 <strong>구매 전환값</strong> 열보다 <strong>결과 ROAS</strong>와 그에 대응하는 <strong>결과 값</strong> 계열을 우선 비교하시오.
                 </div>
               </div>
               <div style={{ padding: "16px 18px", borderRadius: 12, background: "linear-gradient(180deg, #f0fdf4, #fff)", border: "1px solid #bbf7d0" }}>
@@ -413,13 +524,13 @@ export default function AdsPage() {
                 </div>
               </div>
               <div style={{ padding: "16px 18px", borderRadius: 12, background: "linear-gradient(180deg, #eff6ff, #fff)", border: "1px solid #bfdbfe" }}>
-                <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: 4 }}>best-case ceiling</div>
+                <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: 4 }}>잠정 상한선</div>
                 <div style={{ fontSize: "1.3rem", fontWeight: 700, color: "#2563eb" }}>
                   {fmtRoasX(selectedBestCaseCeilingRoas)}
                 </div>
                 <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 6, lineHeight: 1.5 }}>
-                  선택 사이트 confirmed 매출 전체 <strong>{fmtKRW(selectedSiteConfirmedRevenue)}</strong>를 전부 Meta에 몰아준 상한선이오.
-                  Meta purchase ROAS가 이 값보다 과하게 크면, 플랫폼 귀속 과대나 이벤트 품질 문제를 더 의심해야 하오.
+                  선택 사이트 confirmed 매출 전체 <strong>{fmtKRW(selectedSiteConfirmedRevenue)}</strong>를 현재 spend에 나눈 임시 상한선이오.
+                  Ads Manager export/timezone 최종 대조 전까지 확정 상한이 아니라 <strong>잠정 상한선</strong>으로 읽어야 하며, Meta purchase ROAS가 이 값보다 과하게 크면 플랫폼 귀속 과대나 이벤트 품질 문제를 더 의심해야 하오.
                 </div>
               </div>
             </div>
@@ -428,10 +539,13 @@ export default function AdsPage() {
           {campaignSummary && (
             <div style={{ marginBottom: 24, padding: "14px 16px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.76rem", color: "#475569", lineHeight: 1.7 }}>
               <strong style={{ color: "#0f172a" }}>ROAS 기준 정리</strong>: 이 페이지와 <Link href="/ads/roas" style={{ color: "#6366f1", fontWeight: 600, textDecoration: "none" }}>/ads/roas</Link>는 모두 <strong>Attribution 기준 ROAS</strong>를 메인으로 사용한다.
+              <strong> 현재 30일 값은 rollout bias가 섞인 보수치</strong>이므로 운영 기본값은 최근 7일이오.
               Meta 구매 이벤트 기준 ROAS는
               {" "}
               <strong>{selectedMetaPurchaseRoas != null ? `${selectedMetaPurchaseRoas.toFixed(2)}x` : "—"}</strong>
-              로 별도 참고만 하시오. 픽셀 purchase value는 쿠키 차단, 가상계좌, CAPI 누락 여부에 따라 실제 Toss 확정 매출과 차이가 날 수 있소. 또한 {ROAS_LAG_NOTE}
+              로 별도 참고만 하시오. 이 값의 분자는 PG 확정 매출이 아니라 <strong>Meta가 광고에 귀속한 conversion value</strong>이며, 현재 집계는 <strong>conversion-day</strong>와 <strong>{currentAttrWindowLabel}</strong> 기준으로 맞춰 두었소.
+              Meta UI에서는 <strong>결과 ROAS</strong>와 그 옆 <strong>결과 값</strong> 계열을 비교 대상으로 고정하고, 큰 <strong>구매 전환값</strong> 열과 섞어 읽지 마시오.
+              픽셀 purchase value는 쿠키 차단, 가상계좌, CAPI 누락 여부에 따라 실제 Toss 확정 매출과 차이가 날 수 있소. 또한 {ROAS_LAG_NOTE}
             </div>
           )}
 
@@ -442,7 +556,7 @@ export default function AdsPage() {
               {selectedMetaPurchaseRoas != null && selectedAttributedRoas != null && (
                 <>
                   {" "}
-                  현재 선택 사이트 기준으로는 광고비 <strong>{fmtKRW(campaignSummary.totalSpend)}</strong>에 대해,
+                  현재 선택 사이트 {currentPresetLabel} 기준으로는 광고비 <strong>{fmtKRW(campaignSummary.totalSpend)}</strong>에 대해,
                   Meta purchase value는 <strong>{fmtKRW(selectedMetaPurchaseValue)}</strong>라서 <strong>{selectedMetaPurchaseRoas.toFixed(2)}x</strong>,
                   confirmed attribution revenue는 <strong>{fmtKRW(selectedAttributedRevenue)}</strong>라서 <strong>{selectedAttributedRoas.toFixed(2)}x</strong>,
                   confirmed+pending은 <strong>{fmtKRW(selectedPotentialRevenue)}</strong>라서 <strong>{selectedPotentialRoas != null ? `${selectedPotentialRoas.toFixed(2)}x` : "—"}</strong>요.
@@ -450,7 +564,9 @@ export default function AdsPage() {
                 </>
               )}
               {" "}
-              특히 최근 30일·90일처럼 범위를 넓히면 attribution live rollout 이전 광고비가 같이 들어와 ROAS가 더 낮아 보일 수 있으니, 비교할 때는 최근 7일·14일과 함께 읽는 편이 안전하오.
+              {isLongWindow
+                ? `현재 ${currentPresetLabel}는 attribution live rollout 이전 광고비가 섞인 보수치라서 운영 판단 headline으로 바로 쓰기보다 최근 7일·14일과 함께 읽어야 하오.`
+                : `현재 기본 탭인 ${currentPresetLabel}는 fetch-fix 이후 품질을 더 잘 반영하는 구간이오.`}
             </div>
           )}
 
@@ -616,7 +732,7 @@ export default function AdsPage() {
             const convRate = campaignSummary.totalPurchases / Math.max(campaignSummary.totalLandingViews, 1);
             const metaRoas = (campaignSummary.totalPurchaseValue ?? 0) > 0 ? campaignSummary.totalPurchaseValue! / campaignSummary.totalSpend : 0;
             const avgOrderValue = campaignSummary.totalPurchases > 0 ? (campaignSummary.totalPurchaseValue ?? 0) / campaignSummary.totalPurchases : 0;
-            const dailySpend = campaignSummary.totalSpend / 30;
+            const dailySpend = campaignSummary.totalSpend / currentPresetDays;
 
             return (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 24 }}>
@@ -674,16 +790,16 @@ export default function AdsPage() {
                   <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #e0e7ff", marginBottom: 12 }}>
                     <strong style={{ color: "#4338ca" }}>4. Attribution Window 권장 — Claude Code 의견</strong>
                     <p style={{ margin: "6px 0 0" }}>
-                      <strong>권장: 7d_click (클릭 7일)</strong>을 기본 기준으로 쓸 것.
+                      <strong>권장: 1d_click (클릭 1일)</strong>을 운영 메인 기준으로 쓸 것.
                     </p>
                     <ul style={{ margin: "6px 0 0", paddingLeft: 16 }}>
-                      <li><strong>1d_click</strong>은 너무 보수적 — 검사키트/영양제는 고관여 상품이라 클릭 당일 바로 사지 않음. 비교/검토 시간이 필요.</li>
-                      <li><strong>7d_click</strong>이 가장 현실적 — 건강기능식품/검사키트의 평균 구매 결정 기간은 2~5일. 클릭 후 7일이면 대부분의 진짜 전환을 잡음.</li>
+                      <li><strong>1d_click</strong>은 가장 보수적이고 즉시성 높은 기준 — Meta 과대 귀속을 줄이고 Attribution confirmed ROAS와 비교하기 좋음.</li>
+                      <li><strong>7d_click</strong>은 보조 기준 — 검사키트/영양제처럼 고민 기간이 있는 상품의 지연 구매를 참고할 때만 같이 봄.</li>
                       <li><strong>28d_click</strong>은 과대 계상 위험 — 28일이면 다른 채널(검색, 직접 방문)에서 자연 유입된 구매도 Meta 전환으로 잡힐 가능성. 실제 광고 효과보다 부풀어 보임.</li>
                       <li><strong>1d_view</strong>는 참고용만 — "광고를 보기만 하고 구매"는 우연의 일치일 가능성이 높음. 예산 판단에는 사용하지 않을 것.</li>
                     </ul>
                     <p style={{ margin: "6px 0 0", color: "#6366f1", fontWeight: 600, fontSize: "0.76rem" }}>
-                      실무 팁: Meta 광고 관리자의 "기여 설정"과 이 대시보드의 기준을 7d_click으로 통일하면, 양쪽 숫자가 일치하여 보고 시 혼동이 없어짐.
+                      실무 팁: Ads Manager 기본값은 참고값으로 남기되, TJ님과 논의하는 Meta ROAS headline은 클릭 1일 기준으로 통일함.
                     </p>
                   </div>
 
@@ -718,7 +834,7 @@ export default function AdsPage() {
                       Meta 기준 전환 {fmtNum(campaignSummary.totalPurchases)}건 · 매출 {(campaignSummary.totalPurchaseValue ?? 0) > 0 ? fmtKRW(campaignSummary.totalPurchaseValue!) : "미수집"}. 이 숫자를 그대로 믿으면 안 되는 이유가 3가지 있음.
                     </p>
                     <ul style={{ margin: "6px 0 0", paddingLeft: 16 }}>
-                      <li><strong>Attribution window</strong>: Meta는 "클릭 7일 + 조회 1일" 기여 모델을 사용. 고객이 광고를 보고 3일 후에 직접 URL 입력해서 구매해도 Meta 전환으로 잡힘. GA4 "마지막 클릭" 기준과 차이가 남.</li>
+                      <li><strong>Attribution window</strong>: Ads Manager 기본값은 "클릭 7일 + 조회 1일"이라 과대 가능성이 있다. 이 페이지의 운영 기준은 클릭 1일이고, default는 보조 비교값으로만 본다.</li>
                       <li><strong>iOS 14+ 누락</strong>: 현재 브라우저 픽셀만 사용 중이라 iOS Safari 사용자의 전환이 30~50% 누락될 수 있음. 즉, 실제 전환은 {fmtNum(campaignSummary.totalPurchases)}건보다 더 많을 가능성.</li>
                       <li><strong>가상계좌 이슈</strong>: 아임웹에서 가상계좌 주문도 결제 완료 페이지에 도달하여 픽셀이 발화됨. 미입금 취소 건이 전환에 포함됐을 수 있음.</li>
                     </ul>
@@ -759,16 +875,16 @@ export default function AdsPage() {
                   <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #bbf7d0", marginBottom: 12 }}>
                     <strong style={{ color: "#166534" }}>4. Attribution Window 권장 — Codex 의견</strong>
                     <p style={{ margin: "6px 0 0" }}>
-                      <strong>데이터 엔지니어 관점에서 7d_click을 기본으로 하되, 1d_click과 병행 모니터링</strong>할 것.
+                      <strong>데이터 엔지니어 관점에서 1d_click을 운영 기준으로 두고, 7d_click/default를 보조 비교값으로 병행</strong>할 것.
                     </p>
                     <ul style={{ margin: "6px 0 0", paddingLeft: 16 }}>
-                      <li><strong>왜 7d_click인가</strong>: Meta 광고 관리자의 기본 최적화 기준이 "7일 클릭 + 1일 조회"임. 우리 대시보드도 같은 기준을 쓰면 Meta Ads Manager와 숫자가 비슷해져서 크로스체크가 가능.</li>
-                      <li><strong>왜 1d_click도 봐야 하는가</strong>: 1d_click은 "광고가 즉시 행동을 유발한" 가장 순수한 신호. 이게 높은 캠페인은 소재/오퍼가 강력하다는 증거. ROAS 최적화 시 1d_click ROAS가 높은 캠페인부터 예산을 늘리는 게 안전.</li>
+                      <li><strong>왜 1d_click인가</strong>: "광고 클릭 후 24시간 내 구매"만 보므로 view-through와 긴 고민 기간이 섞이는 과대 효과를 줄일 수 있음.</li>
+                      <li><strong>왜 7d_click도 봐야 하는가</strong>: 7d_click은 지연 구매를 보는 보조값. 1d_click 대비 7d_click이 과도하게 높으면 리타겟팅/검색/재방문 기여가 섞였을 가능성을 점검함.</li>
                       <li><strong>28d_click은 전략 점검용</strong>: 28d와 7d의 차이가 큰 캠페인은 "고객이 오래 고민하고 사는" 상품. 이런 캠페인에는 리타겟팅을 강화하면 7d 전환을 끌어올릴 수 있음.</li>
                       <li><strong>CAPI와의 관계</strong>: 서버사이드 전환(CAPI)을 켜면 1d_click 숫자가 가장 많이 올라감. iOS에서 누락되던 즉시 전환이 복구되기 때문. CAPI 적용 전/후를 1d_click 기준으로 비교하면 CAPI 효과를 가장 명확하게 측정 가능.</li>
                     </ul>
                     <p style={{ margin: "6px 0 0", color: "#16a34a", fontWeight: 600, fontSize: "0.76rem" }}>
-                      자동화 제안: 매주 월요일 7d_click vs 28d_click 전환 비율을 자동 산출하여, 비율 변화가 크면 알림. 비율이 갑자기 올라가면 "고객 구매 결정이 느려지고 있다"는 시그널 → 오퍼/가격/UX 점검 필요.
+                      자동화 제안: 매주 월요일 1d_click vs 7d_click/default 전환 비율을 자동 산출하여, 지연 전환과 view-through 의존도가 커지는 캠페인을 분리함.
                     </p>
                   </div>
 
@@ -797,6 +913,9 @@ export default function AdsPage() {
 
           {/* CAPI 현황 + 가설 검증 */}
           <CapiStatusSection />
+
+          {/* 결제완료 식별자 품질 */}
+          <AttributionCallerCoverageSection />
 
           {/* 캠페인 관리 */}
           <CampaignManagerSection selectedSite={selectedSite!} />
@@ -1146,8 +1265,9 @@ function CampaignAliasReviewSection({ selectedSite }: { selectedSite: { site: st
         <div>
           <h3 style={{ fontSize: "0.92rem", fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>utm_campaign alias 검토</h3>
           <div style={{ fontSize: "0.75rem", color: "#64748b", lineHeight: 1.7 }}>
-            JSON 대신 여기서 alias 후보를 보고 <strong>yes / no</strong>를 누르면 수동 seed에 바로 반영되오.
-            현재는 <strong>link_url만으로는 부족</strong>하므로, campaign spend, adset/ad 이름, landing URL 유무를 같이 보고 판단하시오.
+            내부 주문의 <strong>utm_campaign alias</strong>가 어떤 Meta 캠페인인지 확인하는 수동 검토 영역이오.
+            <strong>yes</strong>는 이 alias가 해당 campaign이라고 확정할 때만 누르고, <strong>no</strong>는 이 후보 campaign만 제외한다는 뜻이오.
+            애매하면 yes를 누르지 말고 Meta 광고관리자에서 campaign/adset/ad 이름과 URL 태그를 먼저 대조하시오.
           </div>
           <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 6 }}>
             마지막 audit 생성 시각: {review?.generated_at ? formatDateTime(review.generated_at) : "—"}
@@ -2086,25 +2206,32 @@ function CloneAsLeadsSection({ accountId, campaigns, onDone }: { accountId: stri
 
 function CapiStatusSection() {
   const [capiLog, setCapiLog] = useState<{
-    total: number;
-    countsByPixelId: Record<string, number>;
+    summary: CapiLogSummary;
+    dedupCandidateDetails: CapiDedupCandidateDetail[];
     latestSentAt: string;
   } | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/meta/capi/log?limit=500`)
+    fetch(`${API_BASE}/api/meta/capi/log?limit=500&scope=recent_operational&since_days=7&include_dedup_candidates=1&dedup_candidate_limit=3`)
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
           setCapiLog({
-            total: d.summary?.total ?? 0,
-            countsByPixelId: d.summary?.countsByPixelId ?? {},
-            latestSentAt: d.entries?.[0]?.sent_at ?? "",
+            summary: d.summary,
+            dedupCandidateDetails: d.dedupCandidateDetails ?? [],
+            latestSentAt: d.items?.[0]?.timestamp ?? "",
           });
         }
       })
       .catch(() => {});
   }, []);
+
+  const capiSummary = capiLog?.summary ?? null;
+  const capiBreakdown = capiSummary?.duplicateOrderEventBreakdown ?? null;
+  const highRiskDetails = capiLog?.dedupCandidateDetails ?? [];
+  const highRiskSamples = capiSummary?.duplicateOrderEventSamples
+    .filter((sample) => sample.classification === "multiple_event_ids_duplicate_risk")
+    .slice(0, 3) ?? [];
 
   return (
     <div style={{ padding: "24px", borderRadius: 14, background: "linear-gradient(180deg, #faf5ff, #fff)", border: "1px solid #e9d5ff", marginTop: 24 }}>
@@ -2117,25 +2244,82 @@ function CapiStatusSection() {
       {/* CAPI 상태 KPI */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 18 }}>
         <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #f3e8ff" }}>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>총 전송</div>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#7c3aed" }}>{capiLog ? fmtNum(capiLog.total) + "건" : "—"}</div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>최근 7일 운영 성공 로그</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#7c3aed" }}>{capiSummary ? fmtNum(capiSummary.total) + "건" : "—"}</div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>테스트/수동 호출 제외</div>
         </div>
         <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #f3e8ff" }}>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>자동 sync</div>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#16a34a" }}>30분 주기</div>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>서버 내장 자동화</div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>동일 event_id 중복</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#d97706" }}>{capiSummary ? `${fmtNum(capiSummary.duplicateEventIdGroups)}그룹` : "—"}</div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>중복 row {capiSummary ? fmtNum(capiSummary.duplicateEventIds) : "—"}건</div>
         </div>
         <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #f3e8ff" }}>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>가상계좌 필터</div>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#16a34a" }}>자동 차단</div>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>미입금/취소 제외</div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>같은 주문+이벤트 중복</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#d97706" }}>{capiSummary ? `${fmtNum(capiSummary.duplicateOrderEventGroups)}그룹` : "—"}</div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>중복 row {capiSummary ? fmtNum(capiSummary.duplicateOrderEventKeys) : "—"}건</div>
         </div>
         <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #f3e8ff" }}>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>운영 시작</div>
-          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#7c3aed" }}>0405</div>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>125건 첫 전송</div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>차단 후보</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#dc2626" }}>{capiBreakdown ? `${fmtNum(capiBreakdown.multiEventIdGroups)}그룹` : "—"}</div>
+          <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>event_id 여러 개: {capiBreakdown ? fmtNum(capiBreakdown.multiEventIdRows) : "—"}건</div>
         </div>
       </div>
+
+      {capiSummary && (
+        <div style={{ padding: "16px 18px", borderRadius: 12, background: "#fff", border: "1px solid #f3e8ff", marginBottom: 18 }}>
+          <strong style={{ fontSize: "0.85rem", color: "#7c3aed" }}>CAPI 중복 분리 진단</strong>
+          <p style={{ fontSize: "0.76rem", color: "#64748b", margin: "6px 0 12px", lineHeight: 1.6 }}>
+            현재 표시는 최근 7일, 운영 결제, Meta 2xx 성공 로그만 본다. 같은 event_id 반복은 재시도형으로 보고, 같은 주문+이벤트에 event_id가 여러 개면 재전송 차단 후보로 본다. 브라우저 Pixel과 서버 CAPI가 동시에 들어왔는지는 이 서버 로그만으로 확정할 수 없어 Events Manager의 event_id 매칭 확인이 필요하다.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: highRiskSamples.length ? 12 : 0 }}>
+            <div style={{ padding: "10px 12px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>운영/수동/테스트</div>
+              <div style={{ fontSize: "0.82rem", color: "#334155", fontWeight: 700 }}>
+                {fmtNum(capiSummary.countsBySegment.operational)} / {fmtNum(capiSummary.countsBySegment.manual)} / {fmtNum(capiSummary.countsBySegment.test)}
+              </div>
+            </div>
+            <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fffbeb", border: "1px solid #fde68a" }}>
+              <div style={{ fontSize: "0.68rem", color: "#92400e" }}>재시도형 중복</div>
+              <div style={{ fontSize: "0.82rem", color: "#92400e", fontWeight: 700 }}>
+                {fmtNum(capiBreakdown?.retryLikeGroups ?? 0)}그룹 · {fmtNum(capiBreakdown?.retryLikeRows ?? 0)}건
+              </div>
+            </div>
+            <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca" }}>
+              <div style={{ fontSize: "0.68rem", color: "#991b1b" }}>재전송 차단 후보</div>
+              <div style={{ fontSize: "0.82rem", color: "#991b1b", fontWeight: 700 }}>
+                {fmtNum(capiBreakdown?.multiEventIdGroups ?? 0)}그룹 · {fmtNum(capiBreakdown?.multiEventIdRows ?? 0)}건
+              </div>
+            </div>
+          </div>
+          {highRiskDetails.length > 0 ? (
+            <div style={{ display: "grid", gap: 8 }}>
+              {highRiskDetails.map((candidate) => (
+                <div key={`${candidate.orderId}-${candidate.eventName}`} style={{ padding: "10px 12px", borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: "0.74rem", color: "#9a3412", lineHeight: 1.5 }}>
+                  <strong>{candidate.orderId}</strong> · {candidate.eventName} · {fmtNum(candidate.count)}회 전송 · event_id {fmtNum(candidate.uniqueEventIds)}개
+                  <div style={{ color: "#c2410c", marginTop: 3 }}>판정: 같은 주문에 서로 다른 event_id가 있어 Meta dedup이 안 될 수 있음. 이후 차단 규칙 후보.</div>
+                  <div style={{ display: "grid", gap: 4, marginTop: 8 }}>
+                    {candidate.rows.map((row) => (
+                      <div key={`${row.eventId}-${row.createdAt}`} style={{ padding: "8px 10px", borderRadius: 8, background: "#fff", border: "1px solid #ffedd5", color: "#7c2d12" }}>
+                        {formatDateTime(row.createdAt)} · {row.eventId} · {row.sendPath} · {row.mode} · HTTP {row.responseStatus}
+                        <div style={{ color: "#9a3412" }}>source_url: {row.eventSourceUrl || row.ledgerLanding || row.ledgerReferrer || "로그/원장에 없음"}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : highRiskSamples.length > 0 && (
+            <div style={{ display: "grid", gap: 8 }}>
+              {highRiskSamples.map((sample) => (
+                <div key={`${sample.orderId}-${sample.eventName}`} style={{ padding: "10px 12px", borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: "0.74rem", color: "#9a3412", lineHeight: 1.5 }}>
+                  <strong>{sample.orderId}</strong> · {sample.eventName} · {fmtNum(sample.count)}회 전송 · event_id {fmtNum(sample.uniqueEventIds)}개
+                  <div style={{ color: "#c2410c" }}>판정: 같은 주문에 서로 다른 event_id가 있어 Meta dedup이 안 될 수 있음. 이후 차단 규칙 후보.</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 가설 검증 타임라인 */}
       <div style={{ padding: "16px 18px", borderRadius: 12, background: "#fff", border: "1px solid #f3e8ff" }}>
@@ -2164,8 +2348,8 @@ function CapiStatusSection() {
             {
               period: "14~30일", date: "~05/05",
               hypothesis: "ROAS 5.03x → 6~7.5x 개선",
-              metric: "7d_click ROAS",
-              check: "이 대시보드에서 '클릭 7일' 기준 ROAS를 04/05 전후로 비교. 2.38x → 3.0x+ 이면 CAPI 효과.",
+              metric: "1d_click ROAS",
+              check: "이 대시보드에서 '클릭 1일' 기준 ROAS를 04/05 전후로 비교. 즉시 전환 ROAS가 오르면 CAPI/식별자 개선 효과로 해석 가능.",
               status: "대기",
               color: "#6366f1", bg: "#eef2ff", border: "#c7d2fe",
             },
@@ -2190,12 +2374,130 @@ function CapiStatusSection() {
       </div>
 
       {/* CAPI 전송 요약 */}
-      {capiLog && capiLog.total > 0 && (
+      {capiSummary && capiSummary.total > 0 && (
         <div style={{ marginTop: 12, fontSize: "0.76rem", color: "#64748b", lineHeight: 1.6 }}>
-          Pixel별 전송: {Object.entries(capiLog.countsByPixelId).map(([pid, cnt]) => `${pid.slice(-6)}... ${cnt}건`).join(" · ")}
-          {capiLog.latestSentAt && ` · 최근 전송: ${capiLog.latestSentAt.slice(0, 16).replace("T", " ")}`}
+          Pixel별 전송: {Object.entries(capiSummary.countsByPixelId).map(([pid, cnt]) => `${pid.slice(-6)}... ${cnt}건`).join(" · ")}
+          {capiLog?.latestSentAt && ` · 최근 전송: ${capiLog.latestSentAt.slice(0, 16).replace("T", " ")}`}
         </div>
       )}
+    </div>
+  );
+}
+
+function AttributionCallerCoverageSection() {
+  const [coverageReport, setCoverageReport] = useState<CallerCoverageReport | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/attribution/caller-coverage?limit=5`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d.ok) {
+          setCoverageReport(d.report ?? null);
+          setLoadError(null);
+        } else {
+          setLoadError(d.error ?? "caller coverage load failed");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("caller coverage load failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const payment = coverageReport?.paymentSuccess ?? null;
+  const checkout = coverageReport?.checkoutStarted ?? null;
+  const fmtRate = (value: number | null | undefined) => (value != null ? `${value.toFixed(2)}%` : "—");
+  const identityCards = [
+    {
+      label: "결제완료 기록",
+      value: payment ? `${fmtNum(payment.total)}건` : "—",
+      note: "전태준 대표님 자체 솔루션 원장에 적재된 payment_success",
+      color: "#0369a1",
+      bg: "#eff6ff",
+      border: "#bfdbfe",
+    },
+    {
+      label: "3개 식별자 모두 있음",
+      value: payment ? fmtRate(payment.allThreeRate) : "—",
+      note: payment ? `${fmtNum(payment.withAllThree)}건 / ${fmtNum(payment.total)}건` : "ga_session_id + client_id + user_pseudo_id",
+      color: payment && payment.allThreeRate >= 50 ? "#16a34a" : "#dc2626",
+      bg: payment && payment.allThreeRate >= 50 ? "#f0fdf4" : "#fef2f2",
+      border: payment && payment.allThreeRate >= 50 ? "#bbf7d0" : "#fecaca",
+    },
+    {
+      label: "ga_session_id 있음",
+      value: payment ? fmtRate(payment.gaSessionIdRate) : "—",
+      note: payment ? `${fmtNum(payment.withGaSessionId)}건` : "GA4 세션 연결용 식별자",
+      color: "#475569",
+      bg: "#f8fafc",
+      border: "#e2e8f0",
+    },
+    {
+      label: "client_id / user_pseudo_id",
+      value: payment ? `${fmtRate(payment.clientIdRate)} / ${fmtRate(payment.userPseudoIdRate)}` : "—",
+      note: payment ? `${fmtNum(payment.withClientId)}건 / ${fmtNum(payment.withUserPseudoId)}건` : "브라우저 사용자 연결용 식별자",
+      color: "#475569",
+      bg: "#f8fafc",
+      border: "#e2e8f0",
+    },
+  ];
+
+  return (
+    <div style={{ padding: "24px", borderRadius: 14, background: "linear-gradient(180deg, #eff6ff, #fff)", border: "1px solid #bfdbfe", marginTop: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <strong style={{ fontSize: "0.92rem", color: "#0369a1" }}>결제완료 식별자 품질</strong>
+        <span style={{ fontSize: "0.68rem", padding: "3px 8px", borderRadius: 6, background: "#fee2e2", color: "#dc2626", fontWeight: 700 }}>개선 필요</span>
+      </div>
+
+      <p style={{ fontSize: "0.78rem", color: "#475569", lineHeight: 1.7, margin: "0 0 14px" }}>
+        이 섹션은 전태준 대표님이 구축한 자체 솔루션 원장에 쌓이는 결제완료 기록이 광고/GA4 식별자를 얼마나 같이 갖고 오는지 본다. 식별자가 부족하면 주문은 잡혀도 광고 클릭, GA4 세션, Meta CAPI 이벤트를 한 사람의 흐름으로 묶기 어려워진다.
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+        {identityCards.map((card) => (
+          <div key={card.label} style={{ padding: "12px 14px", borderRadius: 10, background: card.bg, border: `1px solid ${card.border}` }}>
+            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>{card.label}</div>
+            <div style={{ fontSize: "1.05rem", fontWeight: 800, color: card.color }}>{card.value}</div>
+            <div style={{ fontSize: "0.68rem", color: "#64748b", lineHeight: 1.5 }}>{card.note}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ padding: "14px 16px", borderRadius: 12, background: "#fff", border: "1px solid #dbeafe", fontSize: "0.76rem", color: "#475569", lineHeight: 1.7 }}>
+          <strong style={{ color: "#0369a1" }}>현재 해석</strong>
+          <p style={{ margin: "6px 0 0" }}>
+            {payment
+              ? `결제완료 ${fmtNum(payment.total)}건 중 ga_session_id, client_id, user_pseudo_id가 모두 있는 건은 ${fmtNum(payment.withAllThree)}건(${fmtRate(payment.allThreeRate)})이다. 아직 낮아서 결제완료 페이지 또는 외부 결제완료 호출부에서 식별자 전달을 더 보강해야 한다.`
+              : "caller coverage 데이터를 불러오는 중이다."}
+          </p>
+          {checkout && (
+            <p style={{ margin: "8px 0 0" }}>
+              결제 시작 단계 기록은 현재 {fmtNum(checkout.total)}건이다. 이 값이 0이면 결제 이전 단계부터 광고/GA4 식별자를 이어받는 흐름은 아직 확인되지 않은 상태다.
+            </p>
+          )}
+        </div>
+
+        <div style={{ padding: "14px 16px", borderRadius: 12, background: "#fff", border: "1px solid #dbeafe", fontSize: "0.76rem", color: "#475569", lineHeight: 1.7 }}>
+          <strong style={{ color: "#0369a1" }}>개발 요청 기준</strong>
+          <p style={{ margin: "6px 0 0" }}>
+            결제완료 페이지와 결제완료 서버 호출에서 `ga_session_id`, `client_id`, `user_pseudo_id`를 자체 솔루션 원장에 같이 저장해야 한다. 그래야 Meta CAPI 중복 여부와 실제 광고 기여 주문을 주문 단위로 더 정확히 비교할 수 있다.
+          </p>
+          {coverageReport?.notes?.length ? (
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+              {coverageReport.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          ) : null}
+          {loadError && <p style={{ margin: "8px 0 0", color: "#dc2626" }}>불러오기 실패: {loadError}</p>}
+        </div>
+      </div>
     </div>
   );
 }

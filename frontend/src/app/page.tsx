@@ -1702,6 +1702,7 @@ export default function Home() {
                 { href: "/onboarding", title: "온보딩 체크사항", desc: "BigQuery·GA4·개발팀/마케팅팀 확인 항목, 요청 메모, 추후 기록", icon: "🧭" },
                 { href: "/callprice", title: "상담사 가치 분석", desc: "상담사별 성과, 상담 효과 추정, 충원 시나리오 시뮬레이션", icon: "📊" },
                 { href: "/cohort", title: "코호트 · 북극성 지표", desc: "성숙 기간별 전환율/매출 비교, 90일 재구매 순이익 추적", icon: "📈" },
+                { href: "/biocom-ltv-cac", title: "바이오컴 재구매율 및 LTV/CAC", desc: "검사 후 영양제 전환, 재구매, 정기구독, Meta/Attribution ROAS 운영 판단", icon: "💎" },
                 { href: "/crm", title: "CRM 관리 허브", desc: "후속 관리 대상, 실험 운영, 결제 귀속 진단", icon: "🎯" },
                 { href: "/coffee", title: "더클린커피 CRM", desc: "재구매/LTR 분석, VIP 전략, 쿠폰 실험, 리드 마그넷", icon: "☕" },
                 { href: "/coffee-pricing", title: "커피 가격 전략", desc: "원가 분석, 가격 인상/인하 판단, 경쟁사 비교, 마진 시뮬레이션", icon: "💲" },
@@ -1709,6 +1710,7 @@ export default function Home() {
                 { href: "/crm?tab=messaging", title: "알림톡 발송", desc: "카카오 알림톡 발송, 템플릿 선택, 테스트/실발송, 이력 확인", icon: "💬" },
                 { href: "/ads", title: "광고 성과", desc: "Meta 광고 캠페인별 노출/클릭/비용/전환 실시간 모니터링", icon: "📊" },
                 { href: "/ads/roas", title: "ROAS · iROAS", desc: "광고비 대비 매출(ROAS) + 증분 광고수익률(iROAS) 모니터링", icon: "📉" },
+                { href: "/tracking-integrity", title: "추적 코드 및 데이터 정합성", desc: "아임웹 헤더·푸터 추적 코드, CAPI, Meta ROAS 차이와 보정 로드맵", icon: "🧩" },
                 { href: "/ads/landing", title: "랜딩뷰 · Clarity", desc: "클릭→랜딩뷰 이탈 분석, UX 히트맵, 전환율 개선 인사이트", icon: "🔍" },
                 { href: "/solution", title: "솔루션 소개", desc: "Biocom Growth AI Agent — 분석에서 실행까지 연결하는 AI CRM", icon: "🧠" },
               ].map((card) => (
