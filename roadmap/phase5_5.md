@@ -1,7 +1,9 @@
 # Phase 5.5 (NEW) — ROAS/iROAS 분석 모니터링 대시보드
 
-> **최종 업데이트**: 2026-04-08 (`/ads` 메인 ROAS source-of-truth 정렬 + confirmed-only lag warning 반영)
+> **최종 업데이트**: 2026-04-11 (`roasphase.md` source-of-truth 연결 + W7 제거 반영 + 더클린커피 ROAS 비교 blocker 정리)
 > **담당**: Codex (백엔드/설계) + Claude Code (프론트/UXUI)
+>
+> Meta ROAS / Attribution ROAS 정합성 판단은 [data/roasphase.md](/Users/vibetj/coding/seo/data/roasphase.md)를 현재 source로 본다. 앞으로 Meta ROAS headline은 `1d_click` 기준으로 읽고, Meta default는 Ads Manager parity 참고값으로만 둔다.
 
 ## 왜 필요한가
 
@@ -23,7 +25,7 @@ Meta 광고비를 쓰고 있지만, 캠페인별 실질 ROAS와 증분 ROAS(iROA
 - 광고 계정 7개 확인
 - **✅ P5-S1 백엔드 6개 엔드포인트 가동 중** (`routes/meta.ts`): status, accounts, campaigns, insights, insights/daily, overview
 - **✅ P5-S2 `/ads` 대시보드 가동 중**: 3사이트 개요 카드, 일별 비용/클릭 차트, 전환 퍼널, 캠페인별 성과 테이블
-- **✅ 0408 정렬 완료**: `/ads`의 메인 ROAS는 이제 `/ads/roas`와 같은 attribution/site-summary 기준을 primary로 쓴다. Meta purchase ROAS는 reference only다.
+- **✅ 0408 정렬 완료**: `/ads`의 메인 ROAS는 이제 `/ads/roas`와 같은 attribution/site-summary 기준을 primary로 쓴다. Meta purchase ROAS는 reference only이며, 2026-04-11부터 기본 표시 window는 `1d_click`이다.
 - **최우선 운영 기준 중 하나**: `WAITING_FOR_DEPOSIT` 같은 가상계좌 미입금 주문은 `pending`으로만 남기고, `confirmed` 기준 ROAS와 메인 매출에서는 제외한다. 그렇지 않으면 광고 효율이 즉시 과대평가된다.
 - AIBIO 실측: 30일간 노출 480,492 / 클릭 18,015 / 비용 ₩1,513,916 / CPC ₩84
 - P5.5는 이 기반 위에 **ROAS 계산 로직 + 채널 비교 + iROAS**를 추가하는 단계
@@ -31,7 +33,7 @@ Meta 광고비를 쓰고 있지만, 캠페인별 실질 ROAS와 증분 ROAS(iROA
 ### 선행 Phase 의존성
 - **P5 (Meta 광고 데이터 연동)**: ✅ P5-S1 백엔드 완료, P5-S2 `/ads` 대시보드 완료. `routes/meta.ts`에 accounts/campaigns/insights/insights-daily/overview 6개 엔드포인트 이미 가동 중. P5.5는 이 기반 위에 ROAS 계산 + 채널 비교 + iROAS를 추가하는 것임.
 - **P7 (1차 증분 실험 라이브)**: iROAS 계산에 필요한 control/treatment 실험 결과가 있어야 함
-- **P1-S1A (결제 귀속)**: 광고 클릭 → 구매 전환 연결이 되어야 채널별 매출 귀속이 가능. `biocom.kr` fetch-fix, `thecleancoffee.com` fetch-fix v2, `aibio.ai` form-submit v5 live 검증까지 끝났고, 이제 남은 건 biocom payment page GTM 오류와 `GA4 (not set)` historical row 진단이다.
+- **P1-S1A (결제 귀속)**: 광고 클릭 → 구매 전환 연결이 되어야 채널별 매출 귀속이 가능. `biocom.kr` fetch-fix, 새 푸터 `checkout_started`, `thecleancoffee.com` fetch-fix v2, `aibio.ai` form-submit v5 live 검증까지 끝났다. `GTM-W7VXS4D8` payment page 오류는 2026-04-11 제거 검증 완료 상태이며, 남은 건 `GA4 (not set)` historical row 진단, CAPI/Pixel 주문 단위 dedup 확인, 더클린커피 token/sync 복구다.
 
 ### 0408 계측 품질 메모
 
@@ -39,8 +41,14 @@ Meta 광고비를 쓰고 있지만, 캠페인별 실질 ROAS와 증분 ROAS(iROA
 - `thecleancoffee.com`도 `snippetVersion=2026-04-08-coffee-fetchfix-v2` 기준 실제 주문 `202604080749309`에서 `ga_session_id / client_id / user_pseudo_id` 3종이 모두 들어온 첫 live row가 확인됐다.
 - `aibio.ai`는 `payment_success`가 아니라 `form_submit`이 표준 전환이며, `snippetVersion=2026-04-08-formfetchfix-v5` 기준 10분 이내 재제출도 별도 적재된다.
 - recent live row 기준 `client_id / user_pseudo_id`는 이미 ledger metadata에 보존된다. 이제 남은 핵심은 historical row와 biocom payment page 오류 구간을 분리해 `GA4 (not set)`을 줄여 읽는 운영 루틴이다.
-- biocom 결제완료 페이지에서는 `gtm.js?id=GTM-W7VXS4D8 ... includes` 오류가 관찰돼, ROAS source-of-truth 신뢰도를 지키려면 GTM custom script 정리도 병행해야 한다.
-- public 컨테이너 파싱 기준 culprit은 리인벤팅 `tag_id 44` `Custom HTML`의 `c.includes("RETOUS_")`다. 이 태그는 `c_retous_crm_open` 이벤트 생산자라서, 리인벤팅이 아직 실사용 중인지 먼저 확인하고 `null-safe patch` 또는 payment page 제외를 결정해야 한다. 사용 근거를 못 주면 W7 제거와 협업 중단 검토까지 포함해 source-of-truth를 더 단순하게 만드는 편이 맞다.
+- 2026-04-11 기준 리인벤팅 CRM 협업 종료에 따라 `GTM-W7VXS4D8`는 제거됐고, live HTML/Headless Chrome 검증에서 기존 `Cannot read properties of null (reading 'includes')` 오류가 사라졌다. 상세 검증은 [data/redelete.md](/Users/vibetj/coding/seo/data/redelete.md)를 본다.
+
+### 0411 ROAS 정합성 운영 메모
+
+- biocom 최근 7일(2026-04-04 - 2026-04-10)은 Attribution confirmed ROAS `1.05x`, confirmed+pending ROAS `1.07x`, Meta `1d_click` ROAS `3.11x`, Meta default purchase ROAS `4.80x`다.
+- Meta purchases `525건`이 내부 site confirmed orders `381건`보다 많다. 따라서 단순 window 차이뿐 아니라 주문 단위 Purchase 중복, Pixel/CAPI `event_id` 공유 여부, 같은 채널 내 중복 전송을 확인해야 한다.
+- 더클린커피는 아직 biocom처럼 비교하면 안 된다. coffee Meta token은 만료 오류로 조회 실패하고, `thecleancoffee_imweb` live `payment_success` 81건은 전부 `pending`이며 confirmed가 0건이다.
+- 더클린커피 비교 순서는 `coffee Meta token 재발급 -> Imweb orders 최신 sync -> Toss/local PG sync 또는 direct fallback -> pending status sync -> window별 ROAS 표 고정`이다.
 
 ---
 

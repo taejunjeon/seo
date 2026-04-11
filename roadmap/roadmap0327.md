@@ -1,10 +1,12 @@
 # Revenue CRM/실험 로드맵
 
-기준일: 2026-03-27 (최종 업데이트: 2026-04-08 #30 — coffee fetch-fix v2 live 검증 + payment_status 구분 확인 + GA4 `(not set)` 다음 계획 반영)
+기준일: 2026-03-27 (최종 업데이트: 2026-04-11 #31 — W7 제거 검증 + ROAS 정합성 phase 문서 연결 + 더클린커피 ROAS 비교 blocker 정리)
 
 > 이 문서는 **Phase별 요약**만 담는다. 각 Phase의 상세 내역은 개별 문서를 참조.
 >
 > 원본 전체 로드맵: `roadmap0327_full_backup_0403.md` (2,480줄)
+>
+> Meta ROAS / Attribution ROAS 정합성 판단은 [data/roasphase.md](/Users/vibetj/coding/seo/data/roasphase.md)를 현재 source로 본다. 앞으로 Meta ROAS headline은 `1d_click` 기준으로 읽고, Meta default는 Ads Manager parity 참고값으로만 둔다. 리인벤팅 W7 제거 검증은 [data/redelete.md](/Users/vibetj/coding/seo/data/redelete.md)를 source로 본다.
 
 ---
 
@@ -20,7 +22,7 @@
 | **P3** | 실행 채널 연동 | **85%** | [phase3.md](phase3.md) | S1~S3 완료, S4 발송 UI 75%, **S5 커피 재구매 관리 80%**, **S6 SMS 발송 70%**. 아임웹 캠페인 분석 완료 → SMS fallback 기회 확인 |
 | **P4** | 재구매 코호트 · 북극성 | **95%** | [phase4.md](phase4.md) | 90일 재구매 순매출 ₩45M, /cohort 대시보드 |
 | **P5** | Meta 광고 데이터 연동 | **100%** | [phase5.md](phase5.md) | ✅ S1 백엔드 + S2 대시보드 + **S3 CAPI 운영 전환 완료 (0405)**. 125건 실전 전송 성공 |
-| **★ P5.5** | **ROAS/iROAS 모니터링 대시보드** | **100%** | [phase5_5.md](phase5_5.md) | ✅ S1 ROAS 백엔드 + S2 대시보드 + **S3 iROAS 엔진** 모두 완료. ROAS 2.85x, 증분 매출 ₩9.1M |
+| **★ P5.5** | **ROAS/iROAS 모니터링 대시보드** | **100% + 정합성 검증 진행** | [phase5_5.md](phase5_5.md) | ✅ S1 ROAS 백엔드 + S2 대시보드 + **S3 iROAS 엔진** 완료. 운영 판단은 [roasphase.md](/Users/vibetj/coding/seo/data/roasphase.md)의 Meta/Attribution 정합성 체크 기준을 따른다 |
 | **P6** | 카카오 CRM 실행 레이어 | **0%** | [phase6.md](phase6.md) | 카카오 고객파일, 발송 로그 |
 | **P7** | 1차 증분 실험 라이브 | **0%** | [phase7.md](phase7.md) | iROAS 첫 산출, checkout abandon 실험 |
 | **P8** | UX 정성 데이터 · 도구 판단 | **0%** | [phase8.md](phase8.md) | Hotjar/BigQuery 도입 판단 |
@@ -51,11 +53,11 @@
 ├── ✅ public backend 최신 dedupe 정책 배포 (`caller-coverage` public `200`, AIBIO 10분 이내 재제출 적재 확인)
 ├── ✅ AIBIO form-submit v5 live 검증 (`2026-04-08 23:22:56 / 23:23:26 KST` 연속 제출 모두 `201`)
 ├── ✅ thecleancoffee payment_success fetch-fix v2 live 검증 (`orderId 202604080749309`, `snippetVersion 2026-04-08-coffee-fetchfix-v2`, all-three `1건`)
-├── biocom payment page GTM custom script 오류 정리 (`GTM-W7VXS4D8`, 리인벤팅 협의 후 `tag_id 44` null-safe patch 또는 payment page 제외/태그 제거 검토)
+├── ✅ biocom 리인벤팅 W7 제거 검증 완료 (`GTM-W7VXS4D8` 호출과 `Cannot read properties of null (reading 'includes')` 오류 사라짐)
 ├── GA4 `(not set)` 원인 좁히기: BigQuery raw export + hourly compare + caller coverage 일일 루틴 고정
 ├── P3 마감: 첫 operational live (세그먼트 선택 → 알림톡/SMS 발송 → 전환 추적)
-├── 더클린커피 Meta 계정 권한 확보 + coffee KPI 재산출
-├── 일일 데이터 정합성 체크 루틴 고정 (`ledger` / `sync-status` / `toss-join` / `crm-phase1`)
+├── 더클린커피 ROAS 비교 준비: coffee Meta token 재발급 + Imweb/Toss local sync 최신화 + pending status sync 후 coffee KPI 재산출
+├── 일일 데이터 정합성 체크 루틴 고정 (`ledger` / `sync-status` / `toss-join` / `crm-phase1` / `roasphase`)
 ├── CAPI 효과 검증: 04/12 전환 증가, 04/19 CPA 하락 확인
 └── Meta Conversion Lift 실험 시작 (iROAS 정밀 측정)
 
@@ -104,6 +106,25 @@
 
 이 루틴은 `P1 숫자를 믿어도 되는가`를 매일 확인하는 최소 check로 본다.
 
+## 0411 ROAS 정합성 체크 반영
+
+[data/roasphase.md](/Users/vibetj/coding/seo/data/roasphase.md) 기준으로, 이제 Meta ROAS headline은 `1d_click`로 읽는다. Meta default는 Ads Manager parity 참고값이고, 운영 판단은 `Attribution confirmed`, `confirmed+pending`, `Meta 1d_click`, `Meta attribution window별 ROAS`, `site-wide ceiling`, `CAPI/Pixel 중복 위험`을 같이 읽는다.
+
+현재 biocom 최근 7일(2026-04-04 - 2026-04-10) 운영 판단값:
+
+- Attribution confirmed ROAS: `1.05x`
+- Attribution confirmed+pending ROAS: `1.07x`
+- Meta `1d_click` purchase ROAS: `3.11x`
+- Meta default purchase ROAS: `4.80x` (보조 참고값)
+- Meta purchases `525건`이 내부 site confirmed orders `381건`보다 많아, window 차이뿐 아니라 Purchase 이벤트 중복/정의 차이를 주문 단위로 확인해야 한다
+
+더클린커피는 아직 같은 품질로 비교하면 안 된다.
+
+- coffee Meta token은 설정되어 있지만 Meta가 만료 토큰으로 거절한다
+- `thecleancoffee_imweb` live `payment_success` 81건이 전부 `pending`이고 confirmed가 0건이다
+- coffee Imweb local cache 최신 주문은 2026-04-04 10:38 KST, Toss coffee local transaction 최신은 2026-02-23 16:21 KST라 최신 ROAS 비교력이 낮다
+- 따라서 순서는 `coffee Meta token 재발급 -> coffee Imweb/Toss sync 최신화 -> pending status sync -> biocom과 같은 window별 ROAS 비교`가 맞다
+
 ## 0408 운영 검증 반영
 
 `data/datacheck0406.md`와 `gptfeedback_0408_1reply.md` 기준으로, 이번 턴에는 "문서상 계획"이 아니라 실제 실행 결과를 아래처럼 확보했다.
@@ -126,11 +147,11 @@
    - `thecleancoffee.com`는 `snippetVersion=2026-04-08-coffee-fetchfix-v2` 기준 실제 가상계좌 주문 `202604080749309`가 `2026-04-08 23:53:44 KST`에 `pending`으로 적재됐고, `ga_session_id / client_id / user_pseudo_id` 3종이 모두 들어온 첫 live row를 확인했다
    - `aibio.ai`는 쇼핑몰 purchase가 아니라 `form_submit`을 표준 원장으로 보고, `snippetVersion=2026-04-08-formfetchfix-v5` 기준 live `6건`, `2026-04-08 23:22:56 / 23:23:26 KST` 30초 간격 재제출 모두 `201` 저장을 확인했다
    - 같은 payment_complete 페이지에서 `gtm.js?id=GTM-W7VXS4D8 ... includes` 오류가 관찰됐고, public 컨테이너 파싱 기준 culprit은 리인벤팅 W7 `tag_id 44` `Custom HTML`의 `c.includes("RETOUS_")`로 좁혀졌다
-   - 이 태그는 단순 잡음이 아니라 `c_retous_crm_open` 이벤트 생산자라서, 리인벤팅이 아직 실제로 쓰는지 먼저 협의해야 한다. 계속 쓴다면 null-safe patch, 안 쓴다면 payment page 제외 또는 W7 제거와 협업 중단 검토가 다음 액션이다
+   - 2026-04-11 기준 리인벤팅 CRM 협업 종료에 따라 W7 코드는 제거됐고, live HTML/Headless Chrome 검증에서 `GTM-W7VXS4D8` 호출과 기존 `Cannot read properties of null (reading 'includes')` 오류가 사라졌다
 6. `payment_status / GA4 (not set) 운영 해석`
    - attribution ledger는 이미 `pending / confirmed / canceled`를 분리해서 읽을 수 있고, `WAITING_FOR_DEPOSIT` 같은 가상계좌 미입금 주문은 `pending`으로 남는다
    - 다만 최신 주문은 바로 `confirmed`가 되지 않는다. 예를 들어 coffee `202604080749309`는 현재 `pending`이고, `POST /api/attribution/sync-status/toss?dryRun=true&limit=5` 시점에는 아직 `unmatched`였다
-   - 따라서 `GA4 (not set)` 문제도 이제 "결제완료 caller가 전혀 식별자를 못 보낸다" 단계는 지났다. 실마리는 보였고, 다음은 `BigQuery raw export + hourly compare + caller coverage`로 historical row와 biocom GTM 오류 구간을 분리해 읽는 것이다
+   - 따라서 `GA4 (not set)` 문제도 이제 "결제완료 caller가 전혀 식별자를 못 보낸다" 단계는 지났다. 실마리는 보였고, 다음은 `BigQuery raw export + hourly compare + caller coverage + 새 푸터 이후 live row`로 historical row와 최신 계측 품질을 분리해 읽는 것이다
 
 ---
 
@@ -163,11 +184,11 @@
 - 채널별 비교: Meta vs Google vs 당근 vs 자연유입
 
 **현재 확보된 데이터:**
-| 계정 | 30일 노출 | 30일 클릭 | 30일 비용 | CPC |
-|------|---------|---------|---------|-----|
-| AIBIO 리커버리랩 | 469,873 | 17,575 | ₩1,482,522 | ₩84 |
-| 바이오컴 | - | - | - | 최근 미집행 |
-| 더클린커피 | - | - | - | 캠페인 없음 |
+| 계정 | 현재 상태 | 비고 |
+|------|---------|------|
+| AIBIO 리커버리랩 | Meta API 조회 가능 | 기존 30일 실측 노출/클릭/비용은 별도 AIBIO 문서 기준으로 본다 |
+| 바이오컴 | 최근 7일 spend/ROAS 조회 가능 | 상세 수치는 [roasphase.md](/Users/vibetj/coding/seo/data/roasphase.md) 기준 |
+| 더클린커피 | Meta API 비교 보류 | coffee token 만료 + confirmed 0건 + local order/PG cache stale 복구 후 비교 |
 
 ---
 
@@ -202,7 +223,7 @@ STEP 04 — Evolve (AI 피드백 루프 진화) → Phase 9
 | 서비스 | 상태 | 비고 |
 |--------|------|------|
 | Toss Payments | ✅ 연동 완료 | 바이오컴 + 더클린커피 MID 분기, 거래/정산/결제 상세 |
-| Meta Marketing API | ✅ 장기토큰 (60일, ~06/02) | 7개 광고 계정, insights 조회 가능 |
+| Meta Marketing API | ⚠️ 사이트별 상태 분리 필요 | biocom은 조회 가능, 더클린커피 coffee token은 2026-04-11 기준 만료 오류로 재발급 필요 |
 | 아임웹 API | ✅ 3사이트 연동 | 회원 83,017명 consent 동기화 |
 | 알리고 | ✅ 알림톡 + SMS | live 발송 확인, 템플릿 생성/검수 API |
 | ChannelTalk | ✅ Webhook 수신 중 | 101건 수신, 실시간 이벤트 적재 |
@@ -221,7 +242,7 @@ STEP 04 — Evolve (AI 피드백 루프 진화) → Phase 9
 | 결제/폼 추적 | ✅ fetch-fix live + Toss 검증 | ✅ payment_success fetch-fix v2 live + all-three 첫 row 확인 | ✅ form_submit v5 live + 10분 이내 재제출 적재 |
 | 회원 sync | ✅ 69,681명 | ✅ 13,236명 | ✅ 100명 |
 | SMS 동의 | 47.5% | (사이트별 미분리) | |
-| Meta 광고 | 미집행 | 캠페인 없음 | ✅ 월 ₩148만 |
+| Meta 광고 | ✅ 조회 가능, ROAS 정합성 검증 중 | ⚠️ token 만료 + confirmed 0건으로 비교 보류 | ✅ 조회 가능, 별도 AIBIO 문서 기준 |
 | Cloudflare | ✅ att.ainativeos.net (공유) |
 
 ---

@@ -1,5 +1,122 @@
 # API 체크 메모
 
+## 0. 더클린커피 Meta API 토큰 발급 방법 (0410 상단 메모)
+
+이 문서에는 이미 아래 `## 10. Meta 광고관리자 API 연동 (0403)` 섹션에 Meta API 연동 메모가 있다.
+
+다만 기존 메모는 **단기 사용자 토큰** 검증 결과 중심이다. 운영용으로는 만료 리스크가 크므로, 더클린커피는 아래 방식으로 **시스템 사용자 토큰**을 발급하는 것이 우선이다.
+
+### 현재 더클린커피 Meta 기준값
+
+| 항목 | 값 |
+|------|-----|
+| 더클린커피 광고 계정 (팀키토 비즈니스) | `act_654671961007474` |
+| 더클린커피 광고 계정 (바이오컴 비즈니스, 미사용) | `act_1382574315626662` |
+| 광고 계정 상태 | `ACTIVE` |
+| 비즈니스 | `(주)바이오컴` |
+| 더클린커피 Pixel ID | `1186437633687388` |
+| 현재 백엔드 토큰 env | `META_ADMANAGER_API_KEY` |
+| 현재 백엔드 Pixel env | `META_PIXEL_ID_COFFEE=1186437633687388` |
+
+주의: 현재 백엔드는 Meta API 토큰을 사이트별로 나누지 않고 `META_ADMANAGER_API_KEY` 하나로 읽는다. 바이오컴/더클린커피/AIBIO를 서로 다른 토큰으로 운영하려면 `META_ADMANAGER_API_KEY_COFFEE` 같은 env 분리와 라우팅 코드 보강이 필요하다. 지금 단계에서는 `(주)바이오컴` 비즈니스 안의 더클린커피 광고 계정과 Pixel 권한을 모두 가진 토큰 하나를 쓰는 편이 가장 단순하다.
+
+### 권장 방식: 시스템 사용자 토큰
+
+목적:
+
+- 백엔드에서 Ads Insights를 안정적으로 조회
+- 필요 시 캠페인 생성/중지/복제 API 사용
+- 필요 시 더클린커피 Pixel로 Conversions API 이벤트 전송
+
+발급 절차:
+
+1. Meta Business Settings로 이동한다.
+2. `(주)바이오컴` 비즈니스가 맞는지 확인한다.
+3. `Users > System Users`에서 운영용 시스템 사용자를 만든다. 이름 예시: `seo-backend-meta-api`.
+4. 시스템 사용자에게 더클린커피 광고 계정 `act_1382574315626662`를 할당한다.
+5. 읽기 전용 대시보드만 필요하면 `ads_read` 권한이면 충분하다.
+6. 현재 백엔드의 캠페인 생성/중지/복제 라우트까지 쓸 계획이면 `ads_management`도 필요하다.
+7. 더클린커피 CAPI까지 보낼 계획이면 Pixel/Data Source `1186437633687388`도 같은 시스템 사용자 또는 앱에 할당한다.
+8. `Generate New Token`에서 앱 `1019654940324559`를 선택한다.
+9. 필요한 권한을 선택하고 토큰을 발급한다.
+10. 발급된 토큰은 문서나 Slack에 붙이지 말고 비밀 저장소 또는 로컬 `.env`에만 넣는다.
+
+권장 권한:
+
+| 목적 | 권한 |
+|------|------|
+| 광고 성과 조회만 | `ads_read` |
+| 캠페인 생성/수정/중지 | `ads_management` |
+| 비즈니스 자산 접근/시스템 사용자 운영 | `business_management` |
+
+최소 운영 시작값:
+
+```env
+META_ADMANAGER_API_KEY=<발급받은 시스템 사용자 토큰>
+META_PIXEL_ID_COFFEE=1186437633687388
+```
+
+### 임시 방식: 단기 사용자 토큰 → 장기 사용자 토큰
+
+급하게 테스트만 해야 한다면 Graph API Explorer나 기존 사용자 토큰으로 시작할 수 있다. 다만 이 방식은 사람 계정에 묶이고 회전 주기가 생기므로 운영 장기안으로 보지 않는다.
+
+절차:
+
+1. Meta for Developers에서 앱 `1019654940324559`를 선택한다.
+2. Graph API Explorer에서 사용자 토큰을 발급한다.
+3. 권한은 테스트 목적에 맞게 `ads_read`, 필요 시 `ads_management`, `business_management`를 선택한다.
+4. 단기 토큰으로 API가 되는지 확인한다.
+5. 앱 Secret을 확보한 뒤 장기 토큰으로 교환한다.
+
+장기 토큰 교환 예시:
+
+```bash
+curl -G "https://graph.facebook.com/v22.0/oauth/access_token" \
+  --data-urlencode "grant_type=fb_exchange_token" \
+  --data-urlencode "client_id=$META_APP_ID" \
+  --data-urlencode "client_secret=$META_APP_SECRET_CODE" \
+  --data-urlencode "fb_exchange_token=$SHORT_LIVED_USER_TOKEN"
+```
+
+주의:
+
+- 장기 사용자 토큰도 보통 60일 단위로 만료 관리가 필요하다.
+- 운영 백엔드에는 시스템 사용자 토큰이 더 적합하다.
+- 현재 백엔드 env 스키마의 앱 Secret 변수명은 `META_APP_SECRET_CODE`다.
+- 앱 Secret과 토큰은 절대 저장소에 커밋하지 않는다.
+
+### 발급 후 검증
+
+Meta 쪽 직접 검증:
+
+```bash
+curl -G "https://graph.facebook.com/v22.0/act_1382574315626662/insights" \
+  --data-urlencode "fields=spend,impressions,clicks,cpc,cpm" \
+  --data-urlencode "date_preset=last_7d" \
+  --data-urlencode "access_token=$META_ADMANAGER_API_KEY"
+```
+
+로컬 백엔드 검증:
+
+```bash
+curl "http://localhost:7020/api/meta/status"
+curl "http://localhost:7020/api/meta/accounts"
+curl "http://localhost:7020/api/meta/insights?account_id=act_1382574315626662&date_preset=last_7d"
+```
+
+성공 기준:
+
+- `/api/meta/status`에서 `configured=true`
+- `/api/meta/accounts`에 `act_1382574315626662` 표시
+- `/api/meta/insights?account_id=act_1382574315626662`에서 최근 7일 spend/impressions/clicks 반환
+
+참고 문서:
+
+- Meta Marketing API: https://developers.facebook.com/docs/marketing-apis
+- Meta Marketing API Insights: https://developers.facebook.com/docs/marketing-api/insights
+- Meta Graph API Access Tokens: https://developers.facebook.com/docs/facebook-login/access-tokens
+- Meta Conversions API 시작 문서: https://developers.facebook.com/docs/marketing-api/conversions-api/get-started
+
 기준일: 2026-03-27
 
 ## 1. ChannelTalk 현재 상태

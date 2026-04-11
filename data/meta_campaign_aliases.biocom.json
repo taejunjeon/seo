@@ -3,7 +3,7 @@
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_yeonddle_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "influencer_partner_igg",
     "candidate_campaign_ids": [
       "120242626179290396",
@@ -15,12 +15,25 @@
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "alias가 인플루언서명 기반이고 audit에서 link_url이 대부분 비어 있어 adset/ad name 수동 검증이 필요함",
+    "confidence": "manual_verified",
+    "review_reason": "2026-04-11 Meta 광고 상세 수동 확인: 연뜰살뜰 2차공구 광고의 소스 URL/웹사이트 URL에 utm_campaign=meta_biocom_yeonddle_igg가 직접 존재함",
     "evidence": {
       "confirmed_orders": 13,
-      "confirmed_revenue": 4460250
-    }
+      "confirmed_revenue": 4460250,
+      "manual_url_evidence": {
+        "checked_at_kst": "2026-04-11 14:08:40 KST",
+        "evidence_type": "source_url_and_website_url",
+        "ad_id": "120242626208430396",
+        "ad_name": "[연뜰살뜰x음과검] 2차공구 - 사본 - 사본",
+        "source_url": "https://biocom.kr/igg_store/?idx=85&utm_source=meta_biocom_yeonddle_igg&utm_medium=meta_biocom_yeonddle_igg&utm_campaign=meta_biocom_yeonddle_igg&utm_content=meta_biocom_yeonddle_igg",
+        "website_url": "https://biocom.kr/igg_store/?idx=85&utm_source=meta_biocom_yeonddle_igg&utm_medium=meta_biocom_yeonddle_igg&utm_campaign=meta_biocom_yeonddle_igg&utm_content=meta_biocom_yeonddle_igg",
+        "url_parameters_field": "key1=value1&key2=value2"
+      }
+    },
+    "selected_campaign_id": "120242626179290396",
+    "selected_campaign_name": "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+    "reviewed_at": "2026-04-11T05:08:40Z",
+    "rejected_campaign_ids": []
   },
   {
     "site": "biocom",
@@ -233,7 +246,7 @@
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_hyunseo01_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "influencer_partner_igg",
     "candidate_campaign_ids": [
       "120242626179290396",
@@ -245,12 +258,67 @@
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "개인명 계열 alias로 공동구매 파트너 campaign 가능성이 높음",
+    "confidence": "manual_verified",
+    "review_reason": "2026-04-11 Meta 광고 상세 수동 확인: 현서 광고의 소스 URL/웹사이트 URL에 utm_campaign=meta_biocom_hyunseo01_igg가 직접 존재함",
     "evidence": {
       "confirmed_orders": 1,
-      "confirmed_revenue": 675000
-    }
+      "confirmed_revenue": 675000,
+      "manual_url_evidence": {
+        "checked_at_kst": "2026-04-11 14:08:40 KST",
+        "evidence_type": "source_url_and_website_url",
+        "ad_id": "120243162846260396",
+        "ad_name": "[현서쓰고그리다x음과검] 04.01-05",
+        "source_url": "https://biocom.kr/hyunseo1?utm_source=meta_biocom_hyunseo01_igg&utm_medium=meta_biocom_hyunseo01_igg&utm_campaign=meta_biocom_hyunseo01_igg&utm_content=meta_biocom_hyunseo01_igg",
+        "website_url": "https://biocom.kr/hyunseo1?utm_source=meta_biocom_hyunseo01_igg&utm_medium=meta_biocom_hyunseo01_igg&utm_campaign=meta_biocom_hyunseo01_igg&utm_content=meta_biocom_hyunseo01_igg",
+        "url_parameters_field": "key1=value1&key2=value2"
+      }
+    },
+    "selected_campaign_id": "120242626179290396",
+    "selected_campaign_name": "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+    "reviewed_at": "2026-04-11T05:08:40Z",
+    "rejected_campaign_ids": []
+  },
+  {
+    "site": "biocom",
+    "channel": "meta",
+    "alias_key": "meta_biocom_songyuul08",
+    "status": "manual_verified",
+    "family_hint": "influencer_partner_igg",
+    "candidate_campaign_ids": [
+      "120242626179290396"
+    ],
+    "candidate_campaign_names": [
+      "공동구매 인플루언서 파트너 광고 모음_3 (260323)"
+    ],
+    "valid_from": "2026-04-08",
+    "valid_to": null,
+    "confidence": "manual_verified",
+    "review_reason": "2026-04-11 Meta 광고 상세 수동 확인: 송율 광고의 소스 URL/웹사이트 URL에 utm_campaign=meta_biocom_songyuul08이 직접 존재함. 2026-04-11 15시대 재확인 결과 기존 pending 9건은 2026-04-09 01:34 KST 생성된 stale audit 값이며, 최신 로컬 attribution/imweb 원장 기준 송율 payment_success pending은 가상계좌 1건만 남아 있음",
+    "evidence": {
+      "confirmed_orders": 29,
+      "confirmed_revenue": 8316200,
+      "pending_orders": 1,
+      "pending_revenue": 268200,
+      "canceled_orders": 1,
+      "canceled_revenue": 234000,
+      "current_status_checked_at_kst": "2026-04-11 15:00 KST",
+      "current_status_scope": "local attribution_ledger + imweb_orders, utm_campaign=meta_biocom_songyuul08, touchpoint=payment_success, all available rows",
+      "current_pending_payment_method": "virtual",
+      "stale_audit_note": "data/meta_campaign_alias_audit.biocom.json generatedAt=2026-04-08T16:34:01.492Z showed pending 9 / ₩2,378,500. The same amount now appears as 2026-04-08 KST confirmed card orders, so the old pending count was caused by status sync lag.",
+      "manual_url_evidence": {
+        "checked_at_kst": "2026-04-11 14:08:40 KST",
+        "evidence_type": "source_url_and_website_url",
+        "ad_id": "120243539487070396",
+        "ad_name": "[송율x바이오컴] 04.08-04.15",
+        "source_url": "https://biocom.kr/songyuul08?utm_source=meta_biocom_songyuul08&utm_medium=meta_biocom_songyuul08&utm_campaign=meta_biocom_songyuul08&utm_content=meta_biocom_songyuul08",
+        "website_url": "https://biocom.kr/songyuul08?utm_source=meta_biocom_songyuul08&utm_medium=meta_biocom_songyuul08&utm_campaign=meta_biocom_songyuul08&utm_content=meta_biocom_songyuul08",
+        "url_parameters_field": "key1=value1&key2=value2"
+      }
+    },
+    "selected_campaign_id": "120242626179290396",
+    "selected_campaign_name": "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+    "reviewed_at": "2026-04-11T05:08:40Z",
+    "rejected_campaign_ids": []
   },
   {
     "site": "biocom",

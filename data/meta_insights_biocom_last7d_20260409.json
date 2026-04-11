@@ -1,0 +1,191 @@
+{
+  "ok": true,
+  "account_id": "act_3138805896402376",
+  "date_preset": "last_7d",
+  "level": "campaign",
+  "meta_reference": {
+    "mode": "ads_manager_parity",
+    "actionReportTime": "conversion",
+    "useUnifiedAttributionSetting": true,
+    "requestedAttributionWindow": null,
+    "appliedAttributionWindows": null,
+    "actionValueField": "action_values[purchase]",
+    "purchaseRoasField": "purchase_roas",
+    "websitePurchaseRoasField": "website_purchase_roas",
+    "numeratorDefinition": "Meta ROAS 분자는 PG 확정매출이 아니라 Meta가 광고에 귀속한 conversion value임",
+    "comparisonGuidance": "운영 메인값은 Attribution confirmed ROAS, Meta purchase ROAS는 platform reference로만 사용"
+  },
+  "summary": {
+    "totalImpressions": 1307320,
+    "totalClicks": 37430,
+    "totalSpend": 27727240,
+    "avgCpc": 740.7758482500668,
+    "totalLandingViews": 21382,
+    "totalLeads": 0,
+    "totalPurchases": 491,
+    "totalPurchaseValue": 121715603
+  },
+  "rows": [
+    {
+      "campaign_name": "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)",
+      "campaign_id": "120213362391690396",
+      "impressions": 296360,
+      "clicks": 7108,
+      "spend": 5440394,
+      "cpc": 765.390264,
+      "cpm": 18357.382913,
+      "ctr": 2.398434,
+      "date_start": "2026-04-02",
+      "date_stop": "2026-04-08",
+      "link_clicks": 6500,
+      "landing_page_views": 3621,
+      "leads": 0,
+      "purchases": 109,
+      "purchase_value": 28048647,
+      "purchase_windows": {
+        "1d_click": 0,
+        "7d_click": 0,
+        "28d_click": 0,
+        "1d_view": 0
+      }
+    },
+    {
+      "campaign_name": "[바이오컴] 건강기능식품 - 클린, 풍성, 바이오",
+      "campaign_id": "120215102309650396",
+      "impressions": 56675,
+      "clicks": 2017,
+      "spend": 2245744,
+      "cpc": 1113.408032,
+      "cpm": 39624.949272,
+      "ctr": 3.558888,
+      "date_start": "2026-04-02",
+      "date_stop": "2026-04-08",
+      "link_clicks": 1836,
+      "landing_page_views": 1679,
+      "leads": 0,
+      "purchases": 91,
+      "purchase_value": 9053954,
+      "purchase_windows": {
+        "1d_click": 0,
+        "7d_click": 0,
+        "28d_click": 0,
+        "1d_view": 0
+      }
+    },
+    {
+      "campaign_name": "[바이오컴] 영양중금속검사 전환 캠페인",
+      "campaign_id": "120218496689750396",
+      "impressions": 101226,
+      "clicks": 1779,
+      "spend": 2130027,
+      "cpc": 1197.317032,
+      "cpm": 21042.291506,
+      "ctr": 1.757454,
+      "date_start": "2026-04-02",
+      "date_stop": "2026-04-08",
+      "link_clicks": 1795,
+      "landing_page_views": 1260,
+      "leads": 0,
+      "purchases": 53,
+      "purchase_value": 12715855,
+      "purchase_windows": {
+        "1d_click": 0,
+        "7d_click": 0,
+        "28d_click": 0,
+        "1d_view": 0
+      }
+    },
+    {
+      "campaign_name": "[바이오컴] 호르몬 검사 바이럴 소재 캠페인_0811",
+      "campaign_id": "120231749833120396",
+      "impressions": 57370,
+      "clicks": 1111,
+      "spend": 1044647,
+      "cpc": 940.276328,
+      "cpm": 18208.941956,
+      "ctr": 1.936552,
+      "date_start": "2026-04-02",
+      "date_stop": "2026-04-08",
+      "link_clicks": 1005,
+      "landing_page_views": 691,
+      "leads": 0,
+      "purchases": 16,
+      "purchase_value": 4144644,
+      "purchase_windows": {
+        "1d_click": 0,
+        "7d_click": 0,
+        "28d_click": 0,
+        "1d_view": 0
+      }
+    },
+    {
+      "campaign_name": "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)",
+      "campaign_id": "120235591897270396",
+      "impressions": 498871,
+      "clicks": 16544,
+      "spend": 8230355,
+      "cpc": 497.482773,
+      "cpm": 16497.962399,
+      "ctr": 3.316288,
+      "date_start": "2026-04-02",
+      "date_stop": "2026-04-08",
+      "link_clicks": 15360,
+      "landing_page_views": 7994,
+      "leads": 0,
+      "purchases": 104,
+      "purchase_value": 32014492,
+      "purchase_windows": {
+        "1d_click": 0,
+        "7d_click": 0,
+        "28d_click": 0,
+        "1d_view": 0
+      }
+    },
+    {
+      "campaign_name": "[바이오컴] 종합대사기능검사 전환캠페인(11/4~) - 사본",
+      "campaign_id": "120237452088280396",
+      "impressions": 97462,
+      "clicks": 1879,
+      "spend": 3073721,
+      "cpc": 1635.8281,
+      "cpm": 31537.635181,
+      "ctr": 1.927931,
+      "date_start": "2026-04-02",
+      "date_stop": "2026-04-08",
+      "link_clicks": 1719,
+      "landing_page_views": 1359,
+      "leads": 0,
+      "purchases": 38,
+      "purchase_value": 12411270,
+      "purchase_windows": {
+        "1d_click": 0,
+        "7d_click": 0,
+        "28d_click": 0,
+        "1d_view": 0
+      }
+    },
+    {
+      "campaign_name": "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+      "campaign_id": "120242626179290396",
+      "impressions": 199356,
+      "clicks": 6992,
+      "spend": 5562352,
+      "cpc": 795.530892,
+      "cpm": 27901.603162,
+      "ctr": 3.507293,
+      "date_start": "2026-04-02",
+      "date_stop": "2026-04-08",
+      "link_clicks": 5407,
+      "landing_page_views": 4778,
+      "leads": 0,
+      "purchases": 80,
+      "purchase_value": 23326741,
+      "purchase_windows": {
+        "1d_click": 0,
+        "7d_click": 0,
+        "28d_click": 0,
+        "1d_view": 0
+      }
+    }
+  ]
+}

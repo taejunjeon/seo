@@ -1,7 +1,9 @@
 # Phase 5 — Meta 광고 데이터 연동
 
-> **최종 업데이트**: 2026-04-08
+> **최종 업데이트**: 2026-04-11
 > **담당**: Codex (백엔드/설계) + Claude Code (프론트/UXUI)
+>
+> Meta ROAS / Attribution ROAS 정합성 판단은 [data/roasphase.md](/Users/vibetj/coding/seo/data/roasphase.md)를 현재 source로 본다. 앞으로 Meta ROAS headline은 `1d_click` 기준으로 읽는다.
 
 ## 왜 필요한가
 
@@ -106,18 +108,21 @@
 
 ---
 
-## 0408 후속 메모
+## 0408-0411 후속 메모
 
 - `biocom.kr` 결제완료 페이지에서 payment_success fetch-fix caller는 실제 적재까지 확인했다. 가상계좌 테스트 주문 `202604081311774`가 `pending`으로 ledger에 들어왔고 `snippetVersion=2026-04-08-fetchfix`, `ga_session_id=1775652461`까지 확인됐다.
-- 다만 같은 결제완료 페이지 콘솔에서 `gtm.js?id=GTM-W7VXS4D8 ... includes` 오류가 관찰됐다. attribution 적재 성공과는 별개로, GTM custom script/tag 품질 문제로 보고 따로 정리해야 한다.
+- 같은 결제완료 페이지 콘솔에서 관찰됐던 `gtm.js?id=GTM-W7VXS4D8 ... includes` 오류는 2026-04-11 리인벤팅 CRM 코드 제거 후 사라졌다. live HTML/Headless Chrome 검증에서 W7 호출과 `Cannot read properties of null (reading 'includes')` 오류가 재현되지 않았다. 상세는 [data/redelete.md](/Users/vibetj/coding/seo/data/redelete.md)를 본다.
 - `thecleancoffee.com`는 `snippetVersion=2026-04-08-coffee-fetchfix-v2` 기준 실제 가상계좌 주문 `202604080749309`가 `pending`으로 적재됐고, `ga_session_id / client_id / user_pseudo_id` 3종이 모두 들어왔다.
 - `aibio.ai`는 쇼핑몰 purchase가 아니라 `form_submit`을 표준 전환으로 보고, `snippetVersion=2026-04-08-formfetchfix-v5` 기준 10분 이내 재제출도 별도 적재되는 것을 확인했다.
+- biocom 최근 7일은 Attribution confirmed ROAS `1.05x`, Meta `1d_click` ROAS `3.11x`, Meta default purchase ROAS `4.80x`로 차이가 크다. 특히 Meta purchases `525건`이 내부 site confirmed orders `381건`보다 많아 CAPI/Pixel 주문 단위 dedup 확인이 필요하다.
+- 더클린커피는 현재 Meta token 만료, confirmed 0건, Imweb/Toss local cache stale 때문에 biocom과 같은 품질로 ROAS 비교를 하면 안 된다.
 
 ### 남은 광고/계측 후속 작업
 
-1. biocom payment page GTM custom script 오류 원인 확인 및 수정
+1. Events Manager에서 최근 2-3일 주문 샘플 기준 Pixel/CAPI Purchase `event_id` 공유 여부와 같은 채널 내 중복 전송 여부 확인
 2. `GA4 (not set)`을 BigQuery raw export + hourly compare + caller coverage로 다시 좁혀 Meta/GA 전환 비교 기준 고정
 3. `payment_status=pending/confirmed/canceled` 분리와 `confirmed_revenue` 기준이 광고/CAPI 리포트에 계속 유지되는지 점검
+4. 더클린커피 coffee Meta token 재발급 + Imweb/Toss local sync 최신화 + pending status sync 후 ROAS 비교 재실행
 
 ---
 

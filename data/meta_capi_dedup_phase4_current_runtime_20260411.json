@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "generatedAt": "2026-04-11T07:24:24.744Z",
+  "filters": {
+    "scope": "operational",
+    "response_status_class": "success",
+    "days": 3,
+    "since": "2026-04-11T15:18:27+09:00",
+    "until": null
+  },
+  "summary": {
+    "total": 1,
+    "success": 1,
+    "failure": 0,
+    "countsByPixelId": {
+      "1283400029487161": 1
+    },
+    "countsBySegment": {
+      "operational": 1,
+      "manual": 0,
+      "test": 0
+    },
+    "uniqueEventIds": 1,
+    "duplicateEventIds": 0,
+    "duplicateEventIdGroups": 0,
+    "duplicateEventIdSamples": [],
+    "uniqueOrderEventKeys": 1,
+    "duplicateOrderEventKeys": 0,
+    "duplicateOrderEventGroups": 0,
+    "duplicateOrderEventBreakdown": {
+      "retryLikeGroups": 0,
+      "retryLikeRows": 0,
+      "multiEventIdGroups": 0,
+      "multiEventIdRows": 0
+    },
+    "duplicateOrderEventSamples": []
+  },
+  "multiEventIdDetails": [],
+  "retryLikeDetails": []
+}

@@ -1,8 +1,10 @@
 # Phase 3 진행 보고서
 
 > **Phase 3**: 실행 채널 연동 (채널톡 · 알리고)
-> **최종 업데이트**: 2026-04-08 (coffee fetch-fix v2 live 검증 + `GA4 (not set)` 다음 진단 계획 반영)
+> **최종 업데이트**: 2026-04-11 (W7 제거 검증 + ROAS 정합성 source 연결 + 더클린커피 ROAS 비교 blocker 반영)
 > **담당**: Claude Code (프론트/UXUI) + Codex (백엔드/설계)
+>
+> Meta ROAS / Attribution ROAS 정합성 판단은 [data/roasphase.md](/Users/vibetj/coding/seo/data/roasphase.md)를 현재 source로 본다. 앞으로 Meta ROAS headline은 `1d_click` 기준으로 읽는다.
 
 ---
 
@@ -10,11 +12,11 @@
 
 ### 왜 Phase 3가 지금 최우선인가
 
-결제 귀속(P1-S1A)은 `status-aware ledger`, biocom fetch-fix live 검증, public backend 최신 dedupe 배포, AIBIO form-submit v5 운영 검증, thecleancoffee fetch-fix v2 live 검증까지 닫혔다. 지금 cross-phase 후속은 **biocom payment page GTM 오류와 `GA4 (not set)` 진단 루틴 고정**으로 줄었다. 그와 별개로 **실행과 행동 데이터가 덜 닫혀** 있어서 첫 operational live를 아직 바로 시작하긴 어렵다.
+결제 귀속(P1-S1A)은 `status-aware ledger`, biocom fetch-fix live 검증, 새 푸터 `checkout_started` 수집 시작, public backend 최신 dedupe 배포, AIBIO form-submit v5 운영 검증, thecleancoffee fetch-fix v2 live 검증까지 닫혔다. 2026-04-11 기준 biocom W7 payment page 오류는 제거 검증 완료 상태다. 지금 cross-phase 후속은 **GA4 `(not set)` 진단 루틴 고정, CAPI/Pixel 주문 단위 dedup 확인, 더클린커피 token/sync 복구**로 줄었다. 그와 별개로 **실행과 행동 데이터가 덜 닫혀** 있어서 첫 operational live를 아직 바로 시작하긴 어렵다.
 
 | 영역 | 현재 상태 | 병목 |
 |------|----------|------|
-| 결제 귀속 (P1-S1A) | 운영 가능 / 후속 남음 | biocom GTM payment page 오류, `GA4 (not set)` historical row 진단 |
+| 결제 귀속 (P1-S1A) | 운영 가능 / 후속 남음 | `GA4 (not set)` historical row 진단, CAPI/Pixel dedup 확인, 더클린커피 token/sync 복구 |
 | ChannelTalk 사용자 데이터 | ✅ 프로필 조회 가능 | - |
 | ChannelTalk 행동 데이터 | ✅ **Webhook 101건 수신 (0402)** | - |
 | Aligo 알림톡 발송 | ✅ **live 1건 수신 확인 (0402)** | dormant 템플릿 주의 |
@@ -22,16 +24,17 @@
 | 발송 정책 (contact policy) | ✅ 8규칙 구현 + consent 자동 조회 | - |
 | 발송 UI | 60~75% | **세그먼트 선택 + exact-match 연동 미완** |
 
-### 0408 cross-phase 메모
+### 0408-0411 cross-phase 메모
 
 - `biocom.kr`는 fetch-fix footer publish 후 실제 가상계좌 주문 `202604081311774`가 `pending`으로 적재됐고, `snippetVersion=2026-04-08-fetchfix`, `ga_session_id=1775652461`까지 확인됐다.
 - public `https://att.ainativeos.net/api/attribution/caller-coverage`가 이제 `200`으로 열리고, 최신 backend dedupe 정책이 실제 운영 프로세스에 반영됐다.
 - `aibio.ai`는 `payment_success`가 아니라 `form_submit` 원장 기준으로 보며, `snippetVersion=2026-04-08-formfetchfix-v5` 기준 live `6건`과 `2026-04-08 23:22:56 / 23:23:26 KST` 30초 간격 재제출 2건 모두 `201` 저장을 확인했다.
 - `thecleancoffee.com`도 `snippetVersion=2026-04-08-coffee-fetchfix-v2`로 교체 완료됐고, 실제 가상계좌 주문 `202604080749309`가 `2026-04-08 23:53:44 KST`에 `pending`으로 적재됐다. 이 row에는 `ga_session_id / client_id / user_pseudo_id` 3종이 모두 들어왔다.
-- biocom 결제완료 페이지에서는 `gtm.js?id=GTM-W7VXS4D8 ... includes` 오류가 관찰됐다. attribution 적재는 성공했지만, payment page stability와 태그 품질 측면에서 GTM custom script 정리가 필요하다.
-- live public W7 컨테이너 파싱 기준 culprit은 리인벤팅 `tag_id 44` `Custom HTML`의 `c.includes("RETOUS_")`다. 다만 이 태그가 `c_retous_crm_open` 이벤트 생산자라서, 리인벤팅이 아직 실제로 쓰는지 먼저 협의한 뒤 `null-safe patch → payment page 제외 → W7 제거/협업 중단 검토` 순으로 판단하는 것이 맞다.
+- 0408에는 biocom 결제완료 페이지에서 `gtm.js?id=GTM-W7VXS4D8 ... includes` 오류가 관찰됐지만, 0411 리인벤팅 CRM 코드 제거 후 live HTML/Headless Chrome 검증에서 W7 호출과 기존 `Cannot read properties of null (reading 'includes')` 오류가 사라졌다. 상세는 [data/redelete.md](/Users/vibetj/coding/seo/data/redelete.md)를 본다.
+- biocom 최근 7일은 Attribution confirmed ROAS `1.05x`, Meta `1d_click` ROAS `3.11x`, Meta default purchase ROAS `4.80x`로 차이가 크고, Meta purchases `525건`이 내부 site confirmed orders `381건`보다 많다. 실행 채널 성과 해석 전 주문 단위 Purchase dedup 확인이 필요하다.
+- 더클린커피는 coffee Meta token 만료, confirmed 0건, Imweb/Toss local cache stale 때문에 아직 biocom과 같은 품질로 Meta ROAS vs Attribution ROAS 비교를 하면 안 된다.
 - `payment_status`로 가상계좌 미입금(`pending`)과 입금 완료(`confirmed`)를 원장에서 구분할 수 있고, recent order는 `POST /api/attribution/sync-status/toss`로 후속 승격된다. 다만 최신 row는 바로 `confirmed`가 되지 않을 수 있어 daily sync preview를 같이 봐야 한다.
-- `(not set)` 문제도 이제 "footer caller가 식별자를 못 보낸다" 단계는 벗어났다. 다음 진단은 `BigQuery raw export + hourly compare + caller coverage + biocom GTM 오류`를 같은 날짜 범위로 묶어 historical row와 payment page 품질 이슈를 분리하는 것이다.
+- `(not set)` 문제도 이제 "footer caller가 식별자를 못 보낸다" 단계는 벗어났다. 다음 진단은 `BigQuery raw export + hourly compare + caller coverage + 새 푸터 이후 live row`를 같은 날짜 범위로 묶어 historical row와 최신 품질을 분리하는 것이다.
 
 ### 실행 계획 — 3트랙 병렬 추진
 
