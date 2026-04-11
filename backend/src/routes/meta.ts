@@ -1,12 +1,31 @@
 import express, { type Request, type Response } from "express";
 import { env } from "../env";
 import {
+  buildMetaCapiDedupCandidateDetails,
+  buildMetaCapiLogDiagnostics,
+  classifyMetaCapiLogSegment,
   readMetaCapiSendLogs,
   sendMetaConversion,
   syncMetaConversionsFromLedger,
 } from "../metaCapi";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
+const META_DEFAULT_ACTION_REPORT_TIME = "conversion";
+const META_DEFAULT_ATTRIBUTION_WINDOWS = ["7d_click", "1d_view"] as const;
+const META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING = true;
+
+type MetaReference = {
+  mode: "ads_manager_parity" | "custom_window_override";
+  actionReportTime: string;
+  useUnifiedAttributionSetting: boolean;
+  requestedAttributionWindow: string | null;
+  appliedAttributionWindows: string[] | null;
+  actionValueField: string;
+  purchaseRoasField: string;
+  websitePurchaseRoasField: string;
+  numeratorDefinition: string;
+  comparisonGuidance: string;
+};
 
 type MetaAccount = {
   id: string;
@@ -38,6 +57,8 @@ type MetaInsight = {
   date_stop: string;
   actions?: Array<{ action_type: string; value: string; "1d_click"?: string; "7d_click"?: string; "28d_click"?: string; "1d_view"?: string }>;
   action_values?: Array<{ action_type: string; value: string; "1d_click"?: string; "7d_click"?: string; "28d_click"?: string; "1d_view"?: string }>;
+  purchase_roas?: Array<{ action_type: string; value: string; "1d_click"?: string; "7d_click"?: string; "28d_click"?: string; "1d_view"?: string }>;
+  website_purchase_roas?: Array<{ action_type: string; value: string; "1d_click"?: string; "7d_click"?: string; "28d_click"?: string; "1d_view"?: string }>;
 };
 
 type MetaCampaignCreateInput = {
@@ -53,7 +74,19 @@ type MetaCampaignCreateResult = {
   [key: string]: unknown;
 };
 
-const getToken = () => env.META_ADMANAGER_API_KEY ?? "";
+const COFFEE_ACCOUNT_IDS = new Set(["act_654671961007474"]);
+
+const getToken = (accountId?: string) => {
+  if (accountId && COFFEE_ACCOUNT_IDS.has(accountId)) {
+    return env.META_ADMANAGER_API_KEY_COFFEE ?? env.META_ADMANAGER_API_KEY ?? "";
+  }
+  return env.META_ADMANAGER_API_KEY ?? "";
+};
+
+const resolveTokenFromPath = (path: string): string => {
+  const match = path.match(/^\/(act_\d+)/);
+  return getToken(match?.[1]);
+};
 
 const parseBody = (body: unknown): Record<string, unknown> => {
   if (typeof body === "string") {
@@ -107,6 +140,19 @@ const parsePositiveInt = (value: unknown, fallback: number, max: number) => {
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(1, Math.min(max, parsed));
+};
+
+const parseBooleanFlag = (value: unknown) => {
+  if (typeof value !== "string") return false;
+  return ["1", "true", "yes", "y"].includes(value.trim().toLowerCase());
+};
+
+const parseOptionalTimestampMs = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const timestampMs = Date.parse(trimmed);
+  return Number.isFinite(timestampMs) ? timestampMs : Number.NaN;
 };
 
 const requestIp = (req: Request) => {
@@ -211,7 +257,7 @@ type MetaApiError = {
 };
 
 const fetchMeta = async <T>(path: string, params: Record<string, string> = {}, method: "GET" | "POST" = "GET"): Promise<{ ok: true; data: T } | { ok: false; error: string; errorDetail?: MetaApiError }> => {
-  const token = getToken();
+  const token = resolveTokenFromPath(path);
   if (!token) return { ok: false, error: "META_ADMANAGER_API_KEY 미설정" };
 
   const url = new URL(`${META_GRAPH_URL}${path}`);
@@ -256,16 +302,44 @@ const ACCOUNT_STATUS: Record<number, string> = {
   202: "ANY_CLOSED",
 };
 
+const buildMetaReference = (params?: {
+  mode?: MetaReference["mode"];
+  requestedAttributionWindow?: string | null;
+  appliedAttributionWindows?: string[] | null;
+}): MetaReference => {
+  const mode = params?.mode ?? "ads_manager_parity";
+  return {
+    mode,
+    actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
+    useUnifiedAttributionSetting: mode === "ads_manager_parity"
+      ? META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING
+      : false,
+    requestedAttributionWindow: params?.requestedAttributionWindow ?? null,
+    appliedAttributionWindows: params?.appliedAttributionWindows ?? null,
+    actionValueField: "action_values[purchase]",
+    purchaseRoasField: "purchase_roas",
+    websitePurchaseRoasField: "website_purchase_roas",
+    numeratorDefinition: "Meta ROAS 분자는 PG 확정매출이 아니라 Meta가 광고에 귀속한 conversion value임",
+    comparisonGuidance: "운영 메인값은 Attribution confirmed ROAS, Meta purchase ROAS는 platform reference로만 사용",
+  };
+};
+
 export const createMetaRouter = () => {
   const router = express.Router();
 
   // 상태 확인
   router.get("/api/meta/status", (_req: Request, res: Response) => {
     const token = getToken();
+    const coffeeToken = env.META_ADMANAGER_API_KEY_COFFEE ?? "";
     res.json({
       ok: true,
       configured: !!token,
       tokenLength: token.length,
+      coffee: {
+        configured: !!coffeeToken,
+        tokenLength: coffeeToken.length,
+        accountId: "act_654671961007474",
+      },
     });
   });
 
@@ -319,15 +393,22 @@ export const createMetaRouter = () => {
       const VALID_WINDOWS = ["1d_click", "7d_click", "28d_click", "1d_view"];
 
       const fetchParams: Record<string, string> = {
-        fields: "campaign_name,campaign_id,impressions,clicks,spend,cpc,cpm,ctr,actions,action_values",
+        fields: "campaign_name,campaign_id,impressions,clicks,spend,cpc,cpm,ctr,actions,action_values,purchase_roas,website_purchase_roas",
         date_preset: datePreset,
         level,
         limit: "100",
+        action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
       };
+      let metaReference = buildMetaReference();
       if (VALID_WINDOWS.includes(attrWindow)) {
         fetchParams.action_attribution_windows = JSON.stringify([attrWindow]);
+        metaReference = buildMetaReference({
+          mode: "custom_window_override",
+          requestedAttributionWindow: attrWindow,
+          appliedAttributionWindows: [attrWindow],
+        });
       } else {
-        fetchParams.action_attribution_windows = JSON.stringify(["1d_click", "7d_click", "28d_click", "1d_view"]);
+        fetchParams.use_unified_attribution_setting = "true";
       }
 
       const result = await fetchMeta<{ data: MetaInsight[] }>(`/${accountId}/insights`, fetchParams);
@@ -338,6 +419,12 @@ export const createMetaRouter = () => {
           return Number((a as Record<string, string>)[attrWindow] ?? 0);
         }
         return Number(a.value ?? 0);
+      };
+      const pickRoasValue = (stats: MetaInsight["purchase_roas"]): number | null => {
+        const stat = stats?.find((item) => item.action_type === "purchase")
+          ?? stats?.find((item) => item.action_type.includes("purchase"))
+          ?? stats?.[0];
+        return stat ? pickValue(stat) : null;
       };
 
       const rows = (result.data.data ?? []).map((r) => {
@@ -371,6 +458,8 @@ export const createMetaRouter = () => {
           leads: actions.lead ?? actions["offsite_conversion.fb_pixel_lead"] ?? 0,
           purchases: actions.purchase ?? actions["offsite_conversion.fb_pixel_purchase"] ?? 0,
           purchase_value: actionValues.purchase ?? actionValues["offsite_conversion.fb_pixel_purchase"] ?? 0,
+          purchase_roas: pickRoasValue(r.purchase_roas),
+          website_purchase_roas: pickRoasValue(r.website_purchase_roas),
           purchase_windows: purchaseWindows,
         };
       });
@@ -386,7 +475,15 @@ export const createMetaRouter = () => {
         totalPurchaseValue: rows.reduce((s, r) => s + r.purchase_value, 0),
       };
 
-      res.json({ ok: true, account_id: accountId, date_preset: datePreset, level, summary, rows });
+      res.json({
+        ok: true,
+        account_id: accountId,
+        date_preset: datePreset,
+        level,
+        meta_reference: metaReference,
+        summary,
+        rows,
+      });
     } catch (error) {
       res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "insights failed" });
     }
@@ -405,6 +502,8 @@ export const createMetaRouter = () => {
         date_preset: datePreset,
         time_increment: "1",
         limit: "90",
+        action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
+        use_unified_attribution_setting: "true",
       });
       if (!result.ok) { res.status(502).json(result); return; }
 
@@ -422,7 +521,15 @@ export const createMetaRouter = () => {
         };
       });
 
-      res.json({ ok: true, account_id: accountId, date_preset: datePreset, rows });
+      res.json({
+        ok: true,
+        account_id: accountId,
+        date_preset: datePreset,
+        meta_reference: buildMetaReference({
+          appliedAttributionWindows: [...META_DEFAULT_ATTRIBUTION_WINDOWS],
+        }),
+        rows,
+      });
     } catch (error) {
       res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "daily insights failed" });
     }
@@ -433,7 +540,7 @@ export const createMetaRouter = () => {
     try {
       const SITE_ACCOUNTS: Array<{ site: string; account_id: string }> = [
         { site: "biocom", account_id: "act_3138805896402376" },
-        { site: "thecleancoffee", account_id: "act_1382574315626662" },
+        { site: "thecleancoffee", account_id: "act_654671961007474" },
         { site: "aibio", account_id: "act_377604674894011" },
       ];
 
@@ -443,6 +550,8 @@ export const createMetaRouter = () => {
           fields: "impressions,clicks,spend,cpc,cpm,actions",
           date_preset: "last_30d",
           limit: "10",
+          action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
+          use_unified_attribution_setting: "true",
         });
         if (result.ok && result.data.data?.length) {
           const r = result.data.data[0];
@@ -471,7 +580,15 @@ export const createMetaRouter = () => {
         spend: results.reduce((s, r) => s + r.spend, 0),
       };
 
-      res.json({ ok: true, date_preset: "last_30d", sites: results, total });
+      res.json({
+        ok: true,
+        date_preset: "last_30d",
+        meta_reference: buildMetaReference({
+          appliedAttributionWindows: [...META_DEFAULT_ATTRIBUTION_WINDOWS],
+        }),
+        sites: results,
+        total,
+      });
     } catch (error) {
       res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "overview failed" });
     }
@@ -1123,11 +1240,15 @@ export const createMetaCapiRouter = () => {
       const body = parseBody(req.body);
       const queryLimit = typeof req.query.limit === "string" ? req.query.limit : undefined;
       const queryTestEventCode = typeof req.query.test_event_code === "string" ? req.query.test_event_code : "";
+      const queryOrderId = typeof req.query.order_id === "string" ? req.query.order_id : "";
+      const queryPaymentKey = typeof req.query.payment_key === "string" ? req.query.payment_key : "";
       const rawLimit = queryLimit ?? body.limit;
 
       const result = await syncMetaConversionsFromLedger({
         limit: rawLimit === undefined ? undefined : parsePositiveInt(rawLimit, 500, 2000),
         testEventCode: queryTestEventCode || firstString(body, ["testEventCode", "test_event_code"]),
+        orderId: queryOrderId || firstString(body, ["orderId", "order_id"]),
+        paymentKey: queryPaymentKey || firstString(body, ["paymentKey", "payment_key"]),
       });
 
       res.json(result);
@@ -1142,27 +1263,94 @@ export const createMetaCapiRouter = () => {
       const limit = parsePositiveInt(req.query.limit, 50, 500);
       const pixelId = typeof req.query.pixel_id === "string" ? req.query.pixel_id.trim() : "";
       const responseStatus = typeof req.query.response_status === "string" ? Number.parseInt(req.query.response_status, 10) : Number.NaN;
+      const responseStatusClass = typeof req.query.response_status_class === "string"
+        ? req.query.response_status_class.trim()
+        : "";
+      const scope = typeof req.query.scope === "string" ? req.query.scope.trim() : "";
+      const includeDedupCandidates = parseBooleanFlag(req.query.include_dedup_candidates);
+      const dedupCandidateLimit = parsePositiveInt(req.query.dedup_candidate_limit, 3, 50);
+      const dedupCandidateClassification = typeof req.query.dedup_candidate_classification === "string"
+        ? req.query.dedup_candidate_classification.trim()
+        : "multiple_event_ids_duplicate_risk";
+      const rawSinceDays = typeof req.query.since_days === "string" || typeof req.query.since_days === "number"
+        ? req.query.since_days
+        : undefined;
+      const sinceDays = rawSinceDays !== undefined
+        ? parsePositiveInt(rawSinceDays, 7, 365)
+        : scope === "recent_operational"
+          ? 7
+          : null;
+      const explicitSinceTimestampMs = parseOptionalTimestampMs(req.query.since);
+      const explicitUntilTimestampMs = parseOptionalTimestampMs(req.query.until);
+      if (Number.isNaN(explicitSinceTimestampMs)) {
+        res.status(400).json({ ok: false, error: "since must be an ISO timestamp" });
+        return;
+      }
+      if (Number.isNaN(explicitUntilTimestampMs)) {
+        res.status(400).json({ ok: false, error: "until must be an ISO timestamp" });
+        return;
+      }
+      if (
+        explicitSinceTimestampMs !== null &&
+        explicitUntilTimestampMs !== null &&
+        explicitSinceTimestampMs > explicitUntilTimestampMs
+      ) {
+        res.status(400).json({ ok: false, error: "since must be earlier than until" });
+        return;
+      }
+      const sinceTimestampMs = explicitSinceTimestampMs ?? (sinceDays ? Date.now() - sinceDays * 24 * 60 * 60 * 1000 : null);
+      const untilTimestampMs = explicitUntilTimestampMs;
 
       const logs = await readMetaCapiSendLogs();
       const filtered = logs.filter((row) => {
+        const segment = classifyMetaCapiLogSegment(row);
+        const isSuccess = row.response_status >= 200 && row.response_status < 300;
+        if (scope === "recent_operational" && segment !== "operational") return false;
+        if (scope === "recent_operational" && !isSuccess) return false;
         if (pixelId && row.pixel_id !== pixelId) return false;
         if (Number.isFinite(responseStatus) && row.response_status !== responseStatus) return false;
+        if (responseStatusClass === "success" && !isSuccess) return false;
+        if (responseStatusClass === "failure" && isSuccess) return false;
+        if (sinceTimestampMs !== null) {
+          const timestampMs = Date.parse(row.timestamp);
+          if (!Number.isFinite(timestampMs) || timestampMs < sinceTimestampMs) return false;
+        }
+        if (untilTimestampMs !== null) {
+          const timestampMs = Date.parse(row.timestamp);
+          if (!Number.isFinite(timestampMs) || timestampMs > untilTimestampMs) return false;
+        }
         return true;
       });
-
-      const countsByPixelId = filtered.reduce<Record<string, number>>((acc, row) => {
-        acc[row.pixel_id] = (acc[row.pixel_id] ?? 0) + 1;
-        return acc;
-      }, {});
+      const diagnostics = buildMetaCapiLogDiagnostics(filtered);
+      const dedupCandidateDetails = includeDedupCandidates
+        ? await buildMetaCapiDedupCandidateDetails(filtered, {
+          limit: dedupCandidateLimit,
+          classification:
+            dedupCandidateClassification === "all"
+            || dedupCandidateClassification === "same_event_id_retry_like"
+            || dedupCandidateClassification === "multiple_event_ids_duplicate_risk"
+              ? dedupCandidateClassification
+              : "multiple_event_ids_duplicate_risk",
+        })
+        : undefined;
 
       res.json({
         ok: true,
-        summary: {
-          total: filtered.length,
-          success: filtered.filter((row) => row.response_status >= 200 && row.response_status < 300).length,
-          failure: filtered.filter((row) => row.response_status < 200 || row.response_status >= 300).length,
-          countsByPixelId,
+        filters: {
+          limit,
+          pixel_id: pixelId || null,
+          response_status: Number.isFinite(responseStatus) ? responseStatus : null,
+          response_status_class: responseStatusClass || (scope === "recent_operational" ? "success" : null),
+          scope: scope || "all",
+          since_days: sinceDays,
+          since: explicitSinceTimestampMs === null ? null : new Date(explicitSinceTimestampMs).toISOString(),
+          until: explicitUntilTimestampMs === null ? null : new Date(explicitUntilTimestampMs).toISOString(),
+          include_dedup_candidates: includeDedupCandidates,
+          dedup_candidate_limit: includeDedupCandidates ? dedupCandidateLimit : null,
+          dedup_candidate_classification: includeDedupCandidates ? dedupCandidateClassification : null,
         },
+        summary: diagnostics,
+        ...(dedupCandidateDetails ? { dedupCandidateDetails } : {}),
         items: filtered.slice(0, limit),
       });
     } catch (error) {

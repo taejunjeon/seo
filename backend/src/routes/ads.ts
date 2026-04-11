@@ -34,9 +34,15 @@ const KST_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   day: "2-digit",
 });
+const META_DEFAULT_ACTION_REPORT_TIME = "conversion";
+const META_DEFAULT_ATTRIBUTION_WINDOWS = ["7d_click", "1d_view"] as const;
+const META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING = true;
+const ADS_DEFAULT_DATE_PRESET = "last_7d";
+const VALID_META_ATTRIBUTION_WINDOWS = ["1d_click", "7d_click", "28d_click", "1d_view"] as const;
 
 export type SiteKey = "biocom" | "thecleancoffee" | "aibio";
 type AdsChannel = "meta" | "google" | "daangn";
+type MetaAttributionWindow = typeof VALID_META_ATTRIBUTION_WINDOWS[number];
 
 type DateRange = {
   startDate: string;
@@ -46,7 +52,7 @@ type DateRange = {
 type MetaInsightAction = {
   action_type: string;
   value: string;
-};
+} & Partial<Record<MetaAttributionWindow, string>>;
 
 type MetaInsightRow = {
   campaign_name: string;
@@ -66,6 +72,19 @@ type MetaInsightRow = {
 type MetaFetchResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+type MetaReference = {
+  mode: "ads_manager_parity" | "custom_window_override";
+  actionReportTime: string;
+  useUnifiedAttributionSetting: boolean;
+  requestedAttributionWindow: string | null;
+  appliedAttributionWindows: string[] | null;
+  actionValueField: string;
+  purchaseRoasField: string;
+  websitePurchaseRoasField: string;
+  numeratorDefinition: string;
+  comparisonGuidance: string;
+};
 
 type MetaCampaignAggregate = {
   campaignId: string;
@@ -154,7 +173,7 @@ const SITE_ACCOUNTS: Array<{ site: SiteKey; accountId: string; hosts: string[] }
   },
   {
     site: "thecleancoffee",
-    accountId: "act_1382574315626662",
+    accountId: "act_654671961007474",
     hosts: ["thecleancoffee.com", "www.thecleancoffee.com", "thecleancoffee.imweb.me"],
   },
   {
@@ -163,6 +182,18 @@ const SITE_ACCOUNTS: Array<{ site: SiteKey; accountId: string; hosts: string[] }
     hosts: ["aibio.ai", "www.aibio.ai", "aibio.imweb.me"],
   },
 ];
+
+const findSiteAccountByAccountId = (accountId: string) =>
+  SITE_ACCOUNTS.find((site) => site.accountId === accountId.trim()) ?? null;
+
+const filterOrdersForAccount = (
+  orders: NormalizedLedgerOrder[],
+  accountId: string,
+): NormalizedLedgerOrder[] => {
+  const siteAccount = findSiteAccountByAccountId(accountId);
+  if (!siteAccount) return orders;
+  return orders.filter((order) => order.site === siteAccount.site);
+};
 
 const CAPTURE_MODE_PRIORITY: Record<AttributionCaptureMode, number> = {
   live: 3,
@@ -210,21 +241,22 @@ export const resolveDatePresetRange = (
   datePreset: string,
   today: string = getKstToday(),
 ): DateRange | null => {
+  // Meta's rolling date_preset windows such as last_7d use completed days ending yesterday.
+  const lastCompletedDate = shiftIsoDateByDays(today, -1);
   switch (datePreset) {
     case "today":
       return { startDate: today, endDate: today };
     case "yesterday": {
-      const date = shiftIsoDateByDays(today, -1);
-      return { startDate: date, endDate: date };
+      return { startDate: lastCompletedDate, endDate: lastCompletedDate };
     }
     case "last_7d":
-      return { startDate: shiftIsoDateByDays(today, -6), endDate: today };
+      return { startDate: shiftIsoDateByDays(lastCompletedDate, -6), endDate: lastCompletedDate };
     case "last_14d":
-      return { startDate: shiftIsoDateByDays(today, -13), endDate: today };
+      return { startDate: shiftIsoDateByDays(lastCompletedDate, -13), endDate: lastCompletedDate };
     case "last_30d":
-      return { startDate: shiftIsoDateByDays(today, -29), endDate: today };
+      return { startDate: shiftIsoDateByDays(lastCompletedDate, -29), endDate: lastCompletedDate };
     case "last_90d":
-      return { startDate: shiftIsoDateByDays(today, -89), endDate: today };
+      return { startDate: shiftIsoDateByDays(lastCompletedDate, -89), endDate: lastCompletedDate };
     case "this_month":
       return { startDate: firstDayOfMonth(today), endDate: today };
     case "last_month": {
@@ -267,12 +299,21 @@ const resolveOptionalRange = (req: Request): { range: DateRange; datePreset: str
 
   const requestedDatePreset = typeof req.query.date_preset === "string"
     ? req.query.date_preset.trim()
-    : "last_30d";
+    : ADS_DEFAULT_DATE_PRESET;
   const range = resolveDatePresetRange(requestedDatePreset);
   if (!range) {
     throw new Error(`지원하지 않는 date_preset: ${requestedDatePreset}`);
   }
   return { range, datePreset: requestedDatePreset };
+};
+
+const parseMetaAttributionWindow = (value: unknown): MetaAttributionWindow | null => {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const requested = value.trim();
+  if (!VALID_META_ATTRIBUTION_WINDOWS.includes(requested as MetaAttributionWindow)) {
+    throw new Error(`지원하지 않는 attribution_window: ${requested}`);
+  }
+  return requested as MetaAttributionWindow;
 };
 
 const normalizeDateLike = (value: string): string | null => {
@@ -296,13 +337,19 @@ const resolveHost = (value: string): string => {
   }
 };
 
-const getMetaToken = () => env.META_ADMANAGER_API_KEY ?? "";
+const getMetaToken = (accountId?: string) => {
+  if (accountId === "act_654671961007474") {
+    return env.META_ADMANAGER_API_KEY_COFFEE ?? env.META_ADMANAGER_API_KEY ?? "";
+  }
+  return env.META_ADMANAGER_API_KEY ?? "";
+};
 
 const fetchMeta = async <T>(
   path: string,
   params: Record<string, string> = {},
 ): Promise<MetaFetchResult<T>> => {
-  const token = getMetaToken();
+  const accountId = path.match(/^\/(act_\d+)/)?.[1];
+  const token = getMetaToken(accountId);
   if (!token) return { ok: false, error: "META_ADMANAGER_API_KEY 미설정" };
 
   const url = new URL(`${META_GRAPH_URL}${path}`);
@@ -330,6 +377,9 @@ const fetchMetaInsights = async (params: {
   datePreset?: string;
   range?: DateRange;
   limit?: string;
+  actionReportTime?: string;
+  useUnifiedAttributionSetting?: boolean;
+  actionAttributionWindows?: string[];
 }): Promise<MetaFetchResult<MetaInsightRow[]>> => {
   const query: Record<string, string> = {
     fields: params.fields,
@@ -338,6 +388,13 @@ const fetchMetaInsights = async (params: {
 
   if (params.level) query.level = params.level;
   if (params.timeIncrement) query.time_increment = params.timeIncrement;
+  if (params.actionReportTime) query.action_report_time = params.actionReportTime;
+  if (params.useUnifiedAttributionSetting) {
+    query.use_unified_attribution_setting = "true";
+  }
+  if (params.actionAttributionWindows?.length) {
+    query.action_attribution_windows = JSON.stringify(params.actionAttributionWindows);
+  }
   if (params.range) {
     query.time_range = JSON.stringify({
       since: params.range.startDate,
@@ -356,10 +413,40 @@ const fetchMetaInsights = async (params: {
   return { ok: true, data: result.data.data ?? [] };
 };
 
-const parseActions = (actions: MetaInsightAction[] | undefined) => {
+const buildMetaReference = (params?: {
+  mode?: MetaReference["mode"];
+  requestedAttributionWindow?: string | null;
+  appliedAttributionWindows?: string[] | null;
+}): MetaReference => {
+  const mode = params?.mode ?? "ads_manager_parity";
+  return {
+    mode,
+    actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
+    useUnifiedAttributionSetting: mode === "ads_manager_parity"
+      ? META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING
+      : false,
+    requestedAttributionWindow: params?.requestedAttributionWindow ?? null,
+    appliedAttributionWindows: params?.appliedAttributionWindows ?? null,
+    actionValueField: "action_values[purchase]",
+    purchaseRoasField: "purchase_roas",
+    websitePurchaseRoasField: "website_purchase_roas",
+    numeratorDefinition: "Meta ROAS 분자는 PG confirmed revenue가 아니라 Meta가 광고에 귀속한 conversion value임",
+    comparisonGuidance: "운영 메인은 Attribution confirmed ROAS, Meta purchase ROAS는 platform reference로만 해석",
+  };
+};
+
+const pickActionValue = (
+  action: MetaInsightAction,
+  attributionWindow: MetaAttributionWindow | null,
+) => toNumber(attributionWindow ? action[attributionWindow] ?? action.value : action.value);
+
+const parseActions = (
+  actions: MetaInsightAction[] | undefined,
+  attributionWindow: MetaAttributionWindow | null = null,
+) => {
   const actionMap: Record<string, number> = {};
   for (const action of actions ?? []) {
-    actionMap[action.action_type] = toNumber(action.value);
+    actionMap[action.action_type] = pickActionValue(action, attributionWindow);
   }
   return {
     landingPageViews: actionMap.landing_page_view ?? 0,
@@ -368,19 +455,27 @@ const parseActions = (actions: MetaInsightAction[] | undefined) => {
   };
 };
 
-const parsePurchaseValue = (actionValues: MetaInsightAction[] | undefined) =>
-  toNumber(actionValues?.find((action) => action.action_type === "purchase")?.value);
+const parsePurchaseValue = (
+  actionValues: MetaInsightAction[] | undefined,
+  attributionWindow: MetaAttributionWindow | null = null,
+) => {
+  const action = actionValues?.find((item) => item.action_type === "purchase");
+  return action ? pickActionValue(action, attributionWindow) : 0;
+};
 
-const summarizeMetaRows = (rows: MetaInsightRow[]): MetaTotals => {
+const summarizeMetaRows = (
+  rows: MetaInsightRow[],
+  attributionWindow: MetaAttributionWindow | null = null,
+): MetaTotals => {
   const totals = rows.reduce<MetaTotals>((sum, row) => {
-    const actions = parseActions(row.actions);
+    const actions = parseActions(row.actions, attributionWindow);
     sum.impressions += toNumber(row.impressions);
     sum.clicks += toNumber(row.clicks);
     sum.spend += toNumber(row.spend);
     sum.landingPageViews += actions.landingPageViews;
     sum.leads += actions.leads;
     sum.purchases += actions.purchases;
-    sum.purchaseValue += parsePurchaseValue(row.action_values);
+    sum.purchaseValue += parsePurchaseValue(row.action_values, attributionWindow);
     return sum;
   }, {
     impressions: 0,
@@ -701,6 +796,7 @@ export const buildDailyRoasRows = (params: {
   metaRows: MetaInsightRow[];
   orders: NormalizedLedgerOrder[];
   ledgerAvailable: boolean;
+  attributionWindow?: MetaAttributionWindow | null;
 }): DailyRoasRow[] => {
   const spendByDate = new Map<string, number>();
   const metaPurchaseValueByDate = new Map<string, number>();
@@ -708,7 +804,10 @@ export const buildDailyRoasRows = (params: {
     const date = normalizeDateLike(row.date_start);
     if (!date) continue;
     spendByDate.set(date, (spendByDate.get(date) ?? 0) + toNumber(row.spend));
-    metaPurchaseValueByDate.set(date, (metaPurchaseValueByDate.get(date) ?? 0) + parsePurchaseValue(row.action_values));
+    metaPurchaseValueByDate.set(
+      date,
+      (metaPurchaseValueByDate.get(date) ?? 0) + parsePurchaseValue(row.action_values, params.attributionWindow ?? null),
+    );
   }
 
   const confirmedRevenueByDate = new Map<string, number>();
@@ -764,6 +863,7 @@ const fetchSiteMetaSummary = async (params: {
   accountId: string;
   range: DateRange;
   datePreset: string | null;
+  attributionWindow?: MetaAttributionWindow | null;
 }): Promise<SiteMetaSummary> => {
   const result = await fetchMetaInsights({
     accountId: params.accountId,
@@ -771,6 +871,13 @@ const fetchSiteMetaSummary = async (params: {
     datePreset: params.datePreset ?? undefined,
     range: params.datePreset ? undefined : params.range,
     limit: "10",
+    actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
+    useUnifiedAttributionSetting: params.attributionWindow
+      ? false
+      : META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
+    actionAttributionWindows: params.attributionWindow
+      ? [params.attributionWindow]
+      : undefined,
   });
 
   if (!result.ok) {
@@ -793,7 +900,7 @@ const fetchSiteMetaSummary = async (params: {
   return {
     site: params.site,
     accountId: params.accountId,
-    ...summarizeMetaRows(result.data),
+    ...summarizeMetaRows(result.data, params.attributionWindow ?? null),
     metaError: null,
   };
 };
@@ -1058,7 +1165,7 @@ export const createAdsRouter = () => {
 
       const datePreset = typeof req.query.date_preset === "string"
         ? req.query.date_preset.trim()
-        : "last_30d";
+        : ADS_DEFAULT_DATE_PRESET;
       const range = resolveDatePresetRange(datePreset);
       if (!range) {
         res.status(400).json({ ok: false, error: `지원하지 않는 date_preset: ${datePreset}` });
@@ -1072,6 +1179,8 @@ export const createAdsRouter = () => {
           level: "campaign",
           datePreset,
           limit: "100",
+          actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
+          useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
         }),
         loadLedgerOrders(),
       ]);
@@ -1081,7 +1190,7 @@ export const createAdsRouter = () => {
         return;
       }
 
-      const filteredOrders = filterOrdersByRange(ledger.orders, range);
+      const filteredOrders = filterOrdersByRange(filterOrdersForAccount(ledger.orders, accountId), range);
       const campaigns = buildCampaignRoasRows({
         metaRows: metaResult.data,
         orders: filteredOrders,
@@ -1096,6 +1205,7 @@ export const createAdsRouter = () => {
         account_id: accountId,
         date_preset: datePreset,
         range,
+        meta_reference: buildMetaReference(),
         campaigns,
         summary: {
           spend: totalSpend,
@@ -1121,6 +1231,7 @@ export const createAdsRouter = () => {
       }
 
       const { range, datePreset } = resolveOptionalRange(req);
+      const attributionWindow = parseMetaAttributionWindow(req.query.attribution_window);
       const [metaResult, ledger] = await Promise.all([
         fetchMetaInsights({
           accountId,
@@ -1129,6 +1240,11 @@ export const createAdsRouter = () => {
           range: datePreset ? undefined : range,
           timeIncrement: "1",
           limit: "400",
+          actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
+          useUnifiedAttributionSetting: attributionWindow
+            ? false
+            : META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
+          actionAttributionWindows: attributionWindow ? [attributionWindow] : undefined,
         }),
         loadLedgerOrders(),
       ]);
@@ -1141,8 +1257,9 @@ export const createAdsRouter = () => {
       const rows = buildDailyRoasRows({
         range,
         metaRows: metaResult.data,
-        orders: filterOrdersByDateRange(ledger.orders, range),
+        orders: filterOrdersByDateRange(filterOrdersForAccount(ledger.orders, accountId), range),
         ledgerAvailable: ledger.entries.length > 0,
+        attributionWindow,
       });
       const totalSpend = round2(rows.reduce((sum, row) => sum + row.spend, 0));
       const totalRevenue = round2(rows.reduce((sum, row) => sum + row.revenue, 0));
@@ -1153,6 +1270,11 @@ export const createAdsRouter = () => {
         date_preset: datePreset,
         start_date: range.startDate,
         end_date: range.endDate,
+        meta_reference: buildMetaReference(attributionWindow ? {
+          mode: "custom_window_override",
+          requestedAttributionWindow: attributionWindow,
+          appliedAttributionWindows: [attributionWindow],
+        } : undefined),
         rows,
         summary: {
           spend: totalSpend,
@@ -1176,7 +1298,7 @@ export const createAdsRouter = () => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "daily roas failed";
-      const status = message.includes("YYYY-MM-DD") || message.includes("start_date") ? 400 : 500;
+      const status = message.includes("YYYY-MM-DD") || message.includes("start_date") || message.includes("attribution_window") ? 400 : 500;
       res.status(status).json({ ok: false, error: message });
     }
   });
@@ -1272,12 +1394,14 @@ export const createAdsRouter = () => {
   router.get("/api/ads/site-summary", async (req: Request, res: Response) => {
     try {
       const { range, datePreset } = resolveOptionalRange(req);
+      const attributionWindow = parseMetaAttributionWindow(req.query.attribution_window);
       const [siteResults, ledger] = await Promise.all([
         Promise.all(SITE_ACCOUNTS.map((site) => fetchSiteMetaSummary({
           site: site.site,
           accountId: site.accountId,
           range,
           datePreset,
+          attributionWindow,
         }))),
         loadLedgerOrders(),
       ]);
@@ -1335,6 +1459,11 @@ export const createAdsRouter = () => {
         date_preset: datePreset,
         start_date: range.startDate,
         end_date: range.endDate,
+        meta_reference: buildMetaReference(attributionWindow ? {
+          mode: "custom_window_override",
+          requestedAttributionWindow: attributionWindow,
+          appliedAttributionWindows: [attributionWindow],
+        } : undefined),
         sites,
         total: {
           impressions: sites.reduce((sum, site) => sum + site.impressions, 0),
@@ -1354,7 +1483,7 @@ export const createAdsRouter = () => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "site summary failed";
-      const status = message.includes("YYYY-MM-DD") || message.includes("date_preset") ? 400 : 500;
+      const status = message.includes("YYYY-MM-DD") || message.includes("date_preset") || message.includes("attribution_window") ? 400 : 500;
       res.status(status).json({ ok: false, error: message });
     }
   });

@@ -18,6 +18,7 @@ import {
   verifyAligoAccess,
 } from "../aligo";
 import { renderAligoPreview } from "../aligo";
+import { recordMessage } from "../crmLocalDb";
 
 const ALIGO_RECEIVER_WHITELIST = ["01039348641"];
 const SEND_LOG_PATH = path.resolve(__dirname, "..", "..", "logs", "aligo-sends.jsonl");
@@ -142,7 +143,7 @@ export const createAligoRouter = () => {
   });
 
   router.post("/api/aligo/send", async (req: Request, res: Response) => {
-    const { tplCode, receiver, recvname, subject, message, emtitle, button, testMode, consentStatus, adminOverride: reqAdminOverride, daysSinceLastPurchase, source: sendSource } =
+    const { tplCode, receiver, recvname, subject, message, emtitle, button, testMode, consentStatus, adminOverride: reqAdminOverride, daysSinceLastPurchase, source: sendSource, memberCode } =
       (req.body ?? {}) as Record<string, unknown>;
 
     const normalizedTplCode = readRequiredString(tplCode);
@@ -169,10 +170,11 @@ export const createAligoRouter = () => {
       return;
     }
 
-    if (!ALIGO_RECEIVER_WHITELIST.includes(normalizedReceiver)) {
+    const isAdminOverride = reqAdminOverride === true || reqAdminOverride === "true";
+    if (!ALIGO_RECEIVER_WHITELIST.includes(normalizedReceiver) && !isAdminOverride) {
       res.status(403).json({
         ok: false,
-        message: "수신자가 허용 목록에 없습니다",
+        message: "수신자가 허용 목록에 없습니다. 관리자 강제 발송(adminOverride)을 사용하세요.",
       });
       return;
     }
@@ -200,12 +202,25 @@ export const createAligoRouter = () => {
       consentStatus: consentStatus ?? null,
       adminOverride: reqAdminOverride === true || reqAdminOverride === "true",
       daysSinceLastPurchase: typeof daysSinceLastPurchase === "number" ? daysSinceLastPurchase : null,
+      memberCode: typeof memberCode === "string" && memberCode ? memberCode : null,
       source: sendSource ?? null,
       ok: result.ok,
       mid: (body?.info as Record<string, unknown>)?.mid ?? null,
       errorCode: body?.code ?? null,
       errorMessage: result.ok ? null : (body?.message ?? null),
     });
+
+    // crm_message_log에도 기록 (memberCode가 있을 때)
+    if (typeof memberCode === "string" && memberCode) {
+      try {
+        recordMessage({
+          customer_key: memberCode,
+          channel: "alimtalk",
+          provider_status: result.ok ? "success" : "fail",
+          template_code: normalizedTplCode,
+        });
+      } catch { /* 로그 실패는 무시 */ }
+    }
 
     // SMS fallback: 알림톡 실패 시 자동 SMS 발송
     const { fallbackSms, fallbackMessage } = (req.body ?? {}) as Record<string, unknown>;
@@ -240,7 +255,7 @@ export const createAligoRouter = () => {
   });
 
   router.post("/api/aligo/sms", async (req: Request, res: Response) => {
-    const { receiver, message, testMode, consentStatus: smsConsentStatus, adminOverride: smsAdminOverride, daysSinceLastPurchase: smsDays, source: smsSource } = (req.body ?? {}) as Record<string, unknown>;
+    const { receiver, message, testMode, consentStatus: smsConsentStatus, adminOverride: smsAdminOverride, daysSinceLastPurchase: smsDays, source: smsSource, memberCode: smsMemberCode } = (req.body ?? {}) as Record<string, unknown>;
     const normalizedReceiver = normalizePhoneNumber(receiver);
     const normalizedMessage = readRequiredString(message);
     const normalizedTestMode = resolveAligoTestMode(testMode);
@@ -249,8 +264,9 @@ export const createAligoRouter = () => {
       res.status(400).json({ ok: false, error: "receiver, message are required" });
       return;
     }
-    if (!ALIGO_RECEIVER_WHITELIST.includes(normalizedReceiver)) {
-      res.status(403).json({ ok: false, message: "수신자가 허용 목록에 없습니다" });
+    const isSmsAdminOverride = smsAdminOverride === true || smsAdminOverride === "true";
+    if (!ALIGO_RECEIVER_WHITELIST.includes(normalizedReceiver) && !isSmsAdminOverride) {
+      res.status(403).json({ ok: false, message: "수신자가 허용 목록에 없습니다. 관리자 강제 발송(adminOverride)을 사용하세요." });
       return;
     }
 
@@ -267,6 +283,7 @@ export const createAligoRouter = () => {
       consentStatus: smsConsentStatus ?? null,
       adminOverride: smsAdminOverride === true || smsAdminOverride === "true",
       daysSinceLastPurchase: typeof smsDays === "number" ? smsDays : null,
+      memberCode: typeof smsMemberCode === "string" && smsMemberCode ? smsMemberCode : null,
       source: smsSource ?? null,
       receiver: normalizedReceiver,
       message: normalizedMessage,
@@ -276,6 +293,17 @@ export const createAligoRouter = () => {
       errorCode: smsBody?.result_code ?? null,
       errorMessage: result.ok ? null : (smsBody?.message ?? null),
     });
+
+    // crm_message_log에도 기록 (memberCode가 있을 때)
+    if (typeof smsMemberCode === "string" && smsMemberCode) {
+      try {
+        recordMessage({
+          customer_key: smsMemberCode,
+          channel: "sms",
+          provider_status: result.ok ? "success" : "fail",
+        });
+      } catch { /* 로그 실패는 무시 */ }
+    }
 
     res.status(result.ok ? 200 : result.status ?? 502).json(result);
   });

@@ -46,6 +46,7 @@ const envSource = {
     process.env.CHANNELTALK_MEMBER_HASH_SECRET ?? process.env.CHANNELTALK_MEMBERHASHSECRET,
   CHANNELTALK_MARKETING_ENABLED:
     process.env.CHANNELTALK_MARKETING_ENABLED ?? process.env.CHANNELTALK_MARKETINGENABLED,
+  META_ADMANAGER_API_KEY_COFFEE: process.env.META_ADMANAGER_API_KEY_COFFEE,
   META_PIXEL_ID_BIOCOM: process.env.META_PIXEL_ID_BIOCOM ?? "1283400029487161",
   META_PIXEL_ID_COFFEE: process.env.META_PIXEL_ID_COFFEE ?? "1186437633687388",
   META_PIXEL_ID_AIBIO: process.env.META_PIXEL_ID_AIBIO ?? "1068377347547682",
@@ -108,6 +109,7 @@ const envSchema = z.object({
   PLAYAUTO_PASSWORD: z.string().min(1).optional(),
   PLAYAUTO_BASE_URL: z.string().url().optional(),
   META_ADMANAGER_API_KEY: z.string().min(1).optional(),
+  META_ADMANAGER_API_KEY_COFFEE: z.string().min(1).optional(),
   META_APP_SECRET_CODE: z.string().min(1).optional(),
   META_PIXEL_ID_BIOCOM: z.string().min(1).default("1283400029487161"),
   META_PIXEL_ID_COFFEE: z.string().min(1).default("1186437633687388"),

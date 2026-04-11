@@ -16,8 +16,19 @@ import {
   normalizeAttributionPayload,
   readLedgerEntries,
 } from "../src/attribution";
-import { selectMetaCapiSyncCandidates } from "../src/metaCapi";
-import { buildAttributionPaymentStatusSyncPlan, findDuplicateFormSubmitEntry } from "../src/routes/attribution";
+import {
+  buildMetaCapiDedupCandidateDetails,
+  buildMetaCapiEventId,
+  buildMetaCapiLogDiagnostics,
+  buildMetaCapiOrderEventSuccessKey,
+  buildMetaCapiSyncAlreadyRunningResult,
+  selectMetaCapiSyncCandidates,
+} from "../src/metaCapi";
+import {
+  buildAttributionPaymentDecision,
+  buildAttributionPaymentStatusSyncPlan,
+  findDuplicateFormSubmitEntry,
+} from "../src/routes/attribution";
 
 test("attribution: normalizeAttributionPayload accepts snake_case and camelCase fields", () => {
   const normalized = normalizeAttributionPayload({
@@ -45,6 +56,264 @@ test("attribution: normalizeAttributionPayload accepts snake_case and camelCase 
   assert.equal(normalized.fbclid, "fbclid-1");
 });
 
+test("meta capi: log diagnostics surfaces duplicate event and order-event keys", () => {
+  const diagnostics = buildMetaCapiLogDiagnostics([
+    {
+      event_id: "order-1_Purchase_1",
+      pixel_id: "pixel-1",
+      event_name: "Purchase",
+      timestamp: "2026-04-10T00:00:01.000Z",
+      response_status: 200,
+      ledger_entry: {
+        orderId: "order-1",
+        paymentKey: "pay-1",
+        touchpoint: "payment_success",
+        captureMode: "live",
+        source: "biocom_imweb",
+        approvedAt: "2026-04-10T09:00:00+09:00",
+        loggedAt: "2026-04-10T00:00:00.000Z",
+        value: 10000,
+      },
+    },
+    {
+      event_id: "order-1_Purchase_1",
+      pixel_id: "pixel-1",
+      event_name: "Purchase",
+      timestamp: "2026-04-10T00:00:02.000Z",
+      response_status: 200,
+      ledger_entry: {
+        orderId: "order-1",
+        paymentKey: "pay-1",
+        touchpoint: "payment_success",
+        captureMode: "live",
+        source: "biocom_imweb",
+        approvedAt: "2026-04-10T09:00:00+09:00",
+        loggedAt: "2026-04-10T00:00:00.000Z",
+        value: 10000,
+      },
+    },
+    {
+      event_id: "order-1_Purchase_2",
+      pixel_id: "pixel-1",
+      event_name: "Purchase",
+      timestamp: "2026-04-10T00:00:03.000Z",
+      response_status: 500,
+      ledger_entry: {
+        orderId: "order-1",
+        paymentKey: "pay-1",
+        touchpoint: "payment_success",
+        captureMode: "live",
+        source: "biocom_imweb",
+        approvedAt: "2026-04-10T09:00:00+09:00",
+        loggedAt: "2026-04-10T00:00:00.000Z",
+        value: 10000,
+      },
+    },
+  ]);
+
+  assert.equal(diagnostics.total, 3);
+  assert.equal(diagnostics.success, 2);
+  assert.equal(diagnostics.failure, 1);
+  assert.deepEqual(diagnostics.countsBySegment, { operational: 3, manual: 0, test: 0 });
+  assert.equal(diagnostics.uniqueEventIds, 2);
+  assert.equal(diagnostics.duplicateEventIds, 1);
+  assert.equal(diagnostics.duplicateEventIdGroups, 1);
+  assert.deepEqual(diagnostics.duplicateEventIdSamples, [
+    {
+      eventId: "order-1_Purchase_1",
+      count: 2,
+      orderEventKeys: 1,
+      firstSentAt: "2026-04-10T00:00:01.000Z",
+      lastSentAt: "2026-04-10T00:00:02.000Z",
+      segments: { operational: 2, manual: 0, test: 0 },
+    },
+  ]);
+  assert.equal(diagnostics.uniqueOrderEventKeys, 1);
+  assert.equal(diagnostics.duplicateOrderEventKeys, 2);
+  assert.equal(diagnostics.duplicateOrderEventGroups, 1);
+  assert.deepEqual(diagnostics.duplicateOrderEventBreakdown, {
+    retryLikeGroups: 0,
+    retryLikeRows: 0,
+    multiEventIdGroups: 1,
+    multiEventIdRows: 3,
+  });
+  assert.deepEqual(diagnostics.duplicateOrderEventSamples, [
+    {
+      orderId: "order-1",
+      eventName: "Purchase",
+      count: 3,
+      uniqueEventIds: 2,
+      firstSentAt: "2026-04-10T00:00:01.000Z",
+      lastSentAt: "2026-04-10T00:00:03.000Z",
+      classification: "multiple_event_ids_duplicate_risk",
+      eventIds: ["order-1_Purchase_1", "order-1_Purchase_2"],
+      segments: { operational: 3, manual: 0, test: 0 },
+      success: 2,
+      failure: 1,
+    },
+  ]);
+});
+
+test("meta capi: dedup candidate details focus multi-event-id duplicate risk", async () => {
+  const details = await buildMetaCapiDedupCandidateDetails([
+    {
+      event_id: "dedup-test-order-1_Purchase_1",
+      pixel_id: "pixel-1",
+      event_name: "Purchase",
+      timestamp: "2026-04-10T00:00:01.000Z",
+      response_status: 200,
+      event_source_url: "https://biocom.kr/order/complete",
+      send_path: "auto_sync",
+      ledger_entry: {
+        orderId: "dedup-test-order-1",
+        paymentKey: "dedup-test-pay-1",
+        touchpoint: "payment_success",
+        captureMode: "live",
+        source: "biocom_imweb",
+        approvedAt: "2026-04-10T09:00:00+09:00",
+        loggedAt: "2026-04-10T00:00:00.000Z",
+        value: 10000,
+      },
+    },
+    {
+      event_id: "dedup-test-order-1_Purchase_2",
+      pixel_id: "pixel-1",
+      event_name: "Purchase",
+      timestamp: "2026-04-10T00:00:02.000Z",
+      response_status: 200,
+      send_path: "auto_sync",
+      ledger_entry: {
+        orderId: "dedup-test-order-1",
+        paymentKey: "dedup-test-pay-1",
+        touchpoint: "payment_success",
+        captureMode: "live",
+        source: "biocom_imweb",
+        approvedAt: "2026-04-10T09:00:00+09:00",
+        loggedAt: "2026-04-10T00:00:00.000Z",
+        value: 10000,
+        landing: "https://biocom.kr/order/complete?from=ledger",
+      },
+    },
+    {
+      event_id: "dedup-test-order-2_Purchase_1",
+      pixel_id: "pixel-1",
+      event_name: "Purchase",
+      timestamp: "2026-04-10T00:00:03.000Z",
+      response_status: 200,
+      send_path: "auto_sync",
+      ledger_entry: {
+        orderId: "dedup-test-order-2",
+        paymentKey: "dedup-test-pay-2",
+        touchpoint: "payment_success",
+        captureMode: "live",
+        source: "biocom_imweb",
+        approvedAt: "2026-04-10T09:00:00+09:00",
+        loggedAt: "2026-04-10T00:00:00.000Z",
+        value: 10000,
+      },
+    },
+    {
+      event_id: "dedup-test-order-2_Purchase_1",
+      pixel_id: "pixel-1",
+      event_name: "Purchase",
+      timestamp: "2026-04-10T00:00:04.000Z",
+      response_status: 200,
+      send_path: "auto_sync",
+      ledger_entry: {
+        orderId: "dedup-test-order-2",
+        paymentKey: "dedup-test-pay-2",
+        touchpoint: "payment_success",
+        captureMode: "live",
+        source: "biocom_imweb",
+        approvedAt: "2026-04-10T09:00:00+09:00",
+        loggedAt: "2026-04-10T00:00:00.000Z",
+        value: 10000,
+      },
+    },
+  ]);
+
+  assert.equal(details.length, 1);
+  assert.equal(details[0].orderId, "dedup-test-order-1");
+  assert.equal(details[0].classification, "multiple_event_ids_duplicate_risk");
+  assert.equal(details[0].count, 2);
+  assert.equal(details[0].uniqueEventIds, 2);
+  assert.equal(details[0].rows[0].eventSourceUrl, "https://biocom.kr/order/complete");
+  assert.equal(details[0].rows[1].eventSourceUrl, "https://biocom.kr/order/complete?from=ledger");
+  assert.equal(details[0].rows[0].sendPath, "auto_sync");
+  assert.equal(details[0].rows[0].mode, "operational");
+});
+
+test("meta capi: purchase event id is stable by normalized order id", () => {
+  const approvedAt = "2026-04-08T10:27:59+09:00";
+  const eventIdA = buildMetaCapiEventId({
+    orderId: "202604083892378-P1",
+    approvedAt,
+    loggedAt: "2026-04-08T02:43:32.705Z",
+  });
+  const eventIdB = buildMetaCapiEventId({
+    orderId: "202604083892378",
+    approvedAt,
+    loggedAt: "2026-04-08T01:28:03.662Z",
+  });
+
+  assert.equal(eventIdA, eventIdB);
+  assert.equal(eventIdA, "purchase:202604083892378");
+  assert.equal(buildMetaCapiEventId({ orderId: "202604083892378" }, "AddPaymentInfo"), "add_payment_info:202604083892378");
+});
+
+test("meta capi: purchase event id matches Imweb browser pixel order code when present", () => {
+  assert.equal(
+    buildMetaCapiEventId({
+      orderId: "202604110037075",
+      metadata: {
+        referrerPayment: {
+          orderCode: "o202604111e6d6e78c02e9",
+        },
+      },
+    }),
+    "Purchase.o202604111e6d6e78c02e9",
+  );
+
+  assert.equal(
+    buildMetaCapiEventId({
+      orderId: "202604110037075",
+      landing: "https://biocom.kr/shop_payment/?order_code=o202604111e6d6e78c02e9&order_no=202604110037075",
+    }),
+    "Purchase.o202604111e6d6e78c02e9",
+  );
+});
+
+test("meta capi: order-event success key prefers paymentKey and normalizes product suffix", () => {
+  assert.equal(
+    buildMetaCapiOrderEventSuccessKey({
+      paymentKey: " iw_bi20260408102731qpmS8 ",
+      orderId: "202604083892378-P1",
+      eventName: "Purchase",
+    }),
+    "payment:iw_bi20260408102731qpmS8|Purchase",
+  );
+  assert.equal(
+    buildMetaCapiOrderEventSuccessKey({
+      orderId: "202604083892378-P2",
+      eventName: "Purchase",
+    }),
+    "order:202604083892378|Purchase",
+  );
+});
+
+test("meta capi: already running sync is reported as a skipped operational guard", () => {
+  const result = buildMetaCapiSyncAlreadyRunningResult();
+
+  assert.equal(result.ok, true);
+  assert.equal(result.sent, 0);
+  assert.equal(result.failed, 0);
+  assert.equal(result.skipped, 1);
+  assert.equal(result.skippedAlreadySent, 0);
+  assert.equal(result.skippedSyncAlreadyRunning, 1);
+  assert.equal(result.items[0]?.status, "skipped");
+  assert.equal(result.items[0]?.reason, "sync_already_running");
+});
+
 test("attribution: normalizeAttributionPayload enriches standard order and identity keys", () => {
   const normalized = normalizeAttributionPayload({
     order_id: "202604017770927-P1",
@@ -60,6 +329,21 @@ test("attribution: normalizeAttributionPayload enriches standard order and ident
   assert.equal(normalized.metadata.gaSessionId, "ga-session-2");
   assert.equal(normalized.metadata.clientId, "cid-2");
   assert.equal(normalized.metadata.userPseudoId, "up-2");
+});
+
+test("attribution: normalizeAttributionPayload falls back user pseudo id and stores Meta browser ids", () => {
+  const normalized = normalizeAttributionPayload({
+    order_id: "order-identity-fallback",
+    client_id: "cid-fallback",
+    fbc: "fb.1.1775608079000.fbclid-1",
+    fbp: "fb.1.1775608079000.1234567890",
+  });
+
+  assert.equal(normalized.metadata.clientId, "cid-fallback");
+  assert.equal(normalized.metadata.userPseudoId, "cid-fallback");
+  assert.equal(normalized.metadata.userPseudoIdStrategy, "client_id_fallback");
+  assert.equal(normalized.metadata.fbc, "fb.1.1775608079000.fbclid-1");
+  assert.equal(normalized.metadata.fbp, "fb.1.1775608079000.1234567890");
 });
 
 test("attribution: normalizeAttributionPayload keeps captureMode when provided", () => {
@@ -811,6 +1095,180 @@ test("attribution: buildAttributionPaymentStatusSyncPlan upgrades pending entrie
   assert.equal(plan.items[2]?.reason, "toss status still pending");
 });
 
+test("attribution: buildAttributionPaymentStatusSyncPlan marks Toss direct fallback rows", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+
+  const pending = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-direct-1",
+      paymentKey: "pay-direct-1",
+      metadata: {
+        status: "WAITING_FOR_DEPOSIT",
+        totalAmount: 50000,
+      },
+    },
+    requestContext,
+    "2026-04-10T10:00:00.000Z",
+  );
+
+  const plan = buildAttributionPaymentStatusSyncPlan(
+    [pending],
+    [
+      {
+        paymentKey: "pay-direct-1",
+        orderId: "order-direct-1",
+        approvedAt: "2026-04-10T23:34:21+09:00",
+        status: "DONE",
+        channel: "카드",
+        store: "biocom",
+        totalAmount: 50000,
+        syncSource: "toss_direct_api_fallback",
+      },
+    ],
+    10,
+    "2026-04-10T14:40:00.000Z",
+  );
+
+  assert.equal(plan.totalCandidates, 1);
+  assert.equal(plan.matchedRows, 1);
+  assert.equal(plan.updatedRows, 1);
+  assert.equal(plan.items[0]?.matchType, "direct_payment_key");
+  assert.equal(plan.updates[0]?.nextEntry.paymentStatus, "confirmed");
+  assert.equal(plan.updates[0]?.nextEntry.approvedAt, "2026-04-10T14:34:21.000Z");
+  assert.equal(plan.updates[0]?.nextEntry.metadata.tossSyncSource, "toss_direct_api_fallback");
+  assert.equal(plan.updates[0]?.nextEntry.metadata.tossDirectFallbackAt, "2026-04-10T14:40:00.000Z");
+});
+
+test("attribution: payment decision allows only confirmed server status", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+  const pendingEntry = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202604123890630",
+      metadata: {
+        status: "WAITING_FOR_DEPOSIT",
+        referrerPayment: {
+          orderCode: "o20260411a9f1cba638b60",
+          paymentCode: "pa2026041183a3aba83dac2",
+        },
+      },
+    },
+    requestContext,
+    "2026-04-11T16:45:00.000Z",
+  );
+  const confirmedEntry = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202604123633105",
+      metadata: {
+        status: "DONE",
+        referrerPayment: {
+          orderCode: "o20260411ffcf4b110f72e",
+          paymentCode: "pa202604114e7d185d01605",
+        },
+      },
+    },
+    requestContext,
+    "2026-04-11T16:55:00.000Z",
+  );
+
+  const pending = buildAttributionPaymentDecision(
+    [pendingEntry, confirmedEntry],
+    {
+      orderId: "",
+      orderNo: "202604123890630",
+      orderCode: "o20260411a9f1cba638b60",
+      paymentCode: "pa2026041183a3aba83dac2",
+      paymentKey: "",
+      store: "biocom",
+    },
+  );
+  assert.equal(pending.status, "pending");
+  assert.equal(pending.browserAction, "block_purchase_virtual_account");
+  assert.equal(pending.matchedBy, "ledger_order_id");
+
+  const confirmed = buildAttributionPaymentDecision(
+    [pendingEntry, confirmedEntry],
+    {
+      orderId: "",
+      orderNo: "",
+      orderCode: "o20260411ffcf4b110f72e",
+      paymentCode: "",
+      paymentKey: "",
+      store: "biocom",
+    },
+  );
+  assert.equal(confirmed.status, "confirmed");
+  assert.equal(confirmed.browserAction, "allow_purchase");
+  assert.equal(confirmed.matchedBy, "ledger_order_code");
+});
+
+test("attribution: payment decision prefers current Toss direct status over ledger", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+  const pendingLedgerEntry = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202604123633105",
+      metadata: {
+        status: "WAITING_FOR_DEPOSIT",
+      },
+    },
+    requestContext,
+    "2026-04-11T16:55:00.000Z",
+  );
+
+  const decision = buildAttributionPaymentDecision(
+    [pendingLedgerEntry],
+    {
+      orderId: "",
+      orderNo: "202604123633105",
+      orderCode: "",
+      paymentCode: "",
+      paymentKey: "",
+      store: "biocom",
+    },
+    [
+      {
+        paymentKey: "iw_bi_payment_key",
+        orderId: "202604123633105",
+        approvedAt: "2026-04-11T16:56:00+09:00",
+        status: "DONE",
+        channel: "카드",
+        store: "biocom",
+        totalAmount: 35000,
+        syncSource: "toss_direct_api_fallback",
+      },
+    ],
+  );
+
+  assert.equal(decision.status, "confirmed");
+  assert.equal(decision.browserAction, "allow_purchase");
+  assert.equal(decision.matchedBy, "toss_direct_order_id");
+  assert.equal(decision.matched?.source, "toss_direct_api");
+});
+
 test("attribution: selectMetaCapiSyncCandidates keeps confirmed live payments only", () => {
   const requestContext = {
     ip: "127.0.0.1",
@@ -859,6 +1317,47 @@ test("attribution: selectMetaCapiSyncCandidates keeps confirmed live payments on
   assert.equal(candidates[0]?.orderId, "order-confirmed");
   assert.equal(candidates[0]?.paymentStatus, "confirmed");
   assert.equal(candidates[0]?.captureMode, "live");
+});
+
+test("attribution: selectMetaCapiSyncCandidates filters target before limit", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+
+  const candidates = selectMetaCapiSyncCandidates(
+    [
+      buildLedgerEntry(
+        "payment_success",
+        {
+          orderId: "order-a",
+          paymentKey: "pay-a",
+          metadata: { status: "DONE" },
+        },
+        requestContext,
+        "2026-04-06T03:00:00.000Z",
+      ),
+      buildLedgerEntry(
+        "payment_success",
+        {
+          orderId: "order-b",
+          paymentKey: "pay-b",
+          metadata: { status: "DONE" },
+        },
+        requestContext,
+        "2026-04-06T03:10:00.000Z",
+      ),
+    ],
+    1,
+    { orderId: "order-b" },
+  );
+
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.orderId, "order-b");
 });
 
 test("attribution: normalizeApprovedAtToIso handles toss style local datetime", () => {

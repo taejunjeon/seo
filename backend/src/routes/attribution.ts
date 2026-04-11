@@ -18,7 +18,9 @@ import {
   type TossJoinRow,
 } from "../attribution";
 import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
+import { normalizeOrderIdBase } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
+import { getTossBasicAuth, inferTossStoreFromPaymentKey, normalizeTossStore, type TossStore } from "../tossConfig";
 
 type TossRow = {
   paymentKey: string | null;
@@ -30,7 +32,21 @@ type TossRow = {
   totalAmount: number | null;
 };
 
-type AttributionStatusSyncMatchType = "payment_key" | "order_id" | "unmatched";
+type TossPaymentDetail = {
+  paymentKey?: string;
+  orderId?: string;
+  approvedAt?: string;
+  status?: string;
+  method?: string;
+  totalAmount?: number;
+};
+
+type AttributionStatusSyncMatchType =
+  | "payment_key"
+  | "order_id"
+  | "direct_payment_key"
+  | "direct_order_id"
+  | "unmatched";
 
 export type AttributionStatusSyncItem = {
   orderId: string;
@@ -52,11 +68,60 @@ export type AttributionStatusSyncResult = {
   writtenRows: number;
   skippedNoMatchRows: number;
   skippedPendingRows: number;
+  directFallbackRows: number;
+  directFallbackErrors: string[];
   items: AttributionStatusSyncItem[];
 };
 
-type AttributionStatusSyncPlan = Omit<AttributionStatusSyncResult, "ok" | "dryRun" | "writtenRows"> & {
+type AttributionStatusSyncPlan = Omit<
+  AttributionStatusSyncResult,
+  "ok" | "dryRun" | "writtenRows" | "directFallbackRows" | "directFallbackErrors"
+> & {
   updates: Array<{ previousEntry: AttributionLedgerEntry; nextEntry: AttributionLedgerEntry }>;
+};
+
+type PaymentDecisionLookup = {
+  orderId: string;
+  orderNo: string;
+  orderCode: string;
+  paymentCode: string;
+  paymentKey: string;
+  store: TossStore;
+};
+
+type PaymentDecisionMatchType =
+  | "toss_direct_payment_key"
+  | "toss_direct_order_id"
+  | "ledger_payment_key"
+  | "ledger_order_id"
+  | "ledger_order_code"
+  | "ledger_payment_code"
+  | "none";
+
+type PaymentDecisionBrowserAction =
+  | "allow_purchase"
+  | "block_purchase_virtual_account"
+  | "block_purchase"
+  | "hold_or_block_purchase";
+
+export type AttributionPaymentDecision = {
+  status: AttributionPaymentStatus | "unknown";
+  browserAction: PaymentDecisionBrowserAction;
+  confidence: "high" | "medium" | "low";
+  matchedBy: PaymentDecisionMatchType;
+  reason: string;
+  notes: string[];
+  matched?: {
+    source: "toss_direct_api" | "attribution_ledger";
+    orderId: string;
+    paymentKey: string;
+    status: string;
+    approvedAt: string;
+    channel: string;
+    store: string;
+    loggedAt?: string;
+    captureMode?: string;
+  };
 };
 
 const STATUS_RANK: Record<AttributionPaymentStatus, number> = {
@@ -64,6 +129,8 @@ const STATUS_RANK: Record<AttributionPaymentStatus, number> = {
   confirmed: 2,
   canceled: 3,
 };
+const TOSS_BASE_URL = "https://api.tosspayments.com";
+const TOSS_DIRECT_FALLBACK_TIMEOUT_MS = 10000;
 
 const parsePositiveInt = (value: unknown, fallback: number, max: number) => {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number.NaN;
@@ -79,6 +146,32 @@ const parseBooleanish = (value: unknown, fallback: boolean) => {
     if (["0", "false", "n", "no"].includes(normalized)) return false;
   }
   return fallback;
+};
+
+const readOne = (value: unknown) => {
+  if (Array.isArray(value)) return typeof value[0] === "string" ? value[0].trim() : "";
+  return typeof value === "string" ? value.trim() : "";
+};
+
+const getQueryParamFromUrl = (urlValue: string, key: string) => {
+  if (!urlValue) return "";
+  try {
+    const parsed = new URL(urlValue, "https://biocom.kr");
+    return parsed.searchParams.get(key)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const getNestedRecord = (value: unknown): Record<string, unknown> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+};
+
+const readNestedString = (value: unknown, key: string) => {
+  const record = getNestedRecord(value);
+  const raw = record[key];
+  return typeof raw === "string" ? raw.trim() : "";
 };
 
 const resolveKstDate = (value: unknown) => {
@@ -102,6 +195,7 @@ const mapTossRow = (row: TossRow): TossJoinRow => ({
   channel: row.channel ?? "",
   store: row.store ?? "",
   totalAmount: Number(row.totalAmount ?? 0),
+  syncSource: "tb_sales_toss",
 });
 
 const fetchTossRows = async (startDate: string, endDate: string, limit: number) => {
@@ -179,6 +273,168 @@ const fetchTossRowsByPendingEntries = async (
   return result.rows.map(mapTossRow);
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const parseTossPaymentDetail = (body: unknown): TossPaymentDetail => {
+  if (!isRecord(body)) return {};
+
+  return {
+    paymentKey: typeof body.paymentKey === "string" ? body.paymentKey : undefined,
+    orderId: typeof body.orderId === "string" ? body.orderId : undefined,
+    approvedAt: typeof body.approvedAt === "string" ? body.approvedAt : undefined,
+    status: typeof body.status === "string" ? body.status : undefined,
+    method: typeof body.method === "string" ? body.method : undefined,
+    totalAmount: typeof body.totalAmount === "number" ? body.totalAmount : undefined,
+  };
+};
+
+const toTossDirectJoinRow = (
+  payment: TossPaymentDetail,
+  store: TossStore,
+): TossJoinRow | undefined => {
+  if (!payment.paymentKey && !payment.orderId) return undefined;
+
+  return {
+    paymentKey: payment.paymentKey ?? "",
+    orderId: payment.orderId ?? "",
+    approvedAt: payment.approvedAt ?? "",
+    status: payment.status ?? "",
+    channel: payment.method ?? "toss_direct_api",
+    store,
+    totalAmount: Number(payment.totalAmount ?? 0),
+    syncSource: "toss_direct_api_fallback",
+  };
+};
+
+const getNestedString = (value: unknown, key: string) => {
+  if (!isRecord(value)) return "";
+  const raw = value[key];
+  return typeof raw === "string" ? raw.trim() : "";
+};
+
+const getDirectTossLookupKeys = (entry: AttributionLedgerEntry) => {
+  const referrerPayment = entry.metadata?.referrerPayment;
+  const paymentKey = entry.paymentKey || getNestedString(referrerPayment, "paymentKey");
+  const referrerOrderId = getNestedString(referrerPayment, "orderId");
+  const orderId = referrerOrderId || (paymentKey ? entry.orderId : "");
+
+  if (!paymentKey && !orderId) return undefined;
+  return { paymentKey, orderId };
+};
+
+const resolveTossStoreForEntry = (
+  entry: AttributionLedgerEntry,
+  paymentKey?: string,
+): TossStore => {
+  if (paymentKey) {
+    return inferTossStoreFromPaymentKey(paymentKey);
+  }
+
+  const metadataStore = typeof entry.metadata?.store === "string" ? entry.metadata.store : "";
+  const metadataSource = typeof entry.metadata?.source === "string" ? entry.metadata.source : "";
+  const hint = [
+    metadataStore,
+    metadataSource,
+    entry.landing,
+    entry.referrer,
+    entry.requestContext.origin,
+    entry.requestContext.requestReferer,
+  ].join(" ").toLowerCase();
+
+  if (hint.includes("coffee") || hint.includes("thecleancoffee")) return "coffee";
+  return normalizeTossStore(metadataStore || metadataSource);
+};
+
+const fetchTossPaymentDetail = async (
+  path: string,
+  store: TossStore,
+): Promise<TossPaymentDetail> => {
+  const auth = getTossBasicAuth(store, "live");
+  if (!auth) {
+    throw new Error(
+      store === "coffee"
+        ? "TOSS_LIVE_SECRET_KEY_COFFEE 미설정"
+        : "TOSS_LIVE_SECRET_KEY_BIOCOM 미설정",
+    );
+  }
+
+  const res = await fetch(`${TOSS_BASE_URL}${path}`, {
+    headers: { Authorization: auth },
+    signal: AbortSignal.timeout(TOSS_DIRECT_FALLBACK_TIMEOUT_MS),
+  });
+  const text = await res.text();
+  let body: unknown = {};
+  try {
+    body = text ? JSON.parse(text) as unknown : {};
+  } catch {
+    body = {};
+  }
+
+  if (!res.ok) {
+    throw new Error(`Toss API ${res.status}: ${text.slice(0, 200)}`);
+  }
+
+  return parseTossPaymentDetail(body);
+};
+
+const fetchDirectTossRowForEntry = async (
+  entry: AttributionLedgerEntry,
+): Promise<TossJoinRow | undefined> => {
+  const lookup = getDirectTossLookupKeys(entry);
+  if (!lookup) return undefined;
+
+  const store = resolveTossStoreForEntry(entry, lookup.paymentKey);
+  let paymentKeyError: Error | undefined;
+
+  if (lookup.paymentKey) {
+    try {
+      return toTossDirectJoinRow(
+        await fetchTossPaymentDetail(`/v1/payments/${encodeURIComponent(lookup.paymentKey)}`, store),
+        store,
+      );
+    } catch (error) {
+      paymentKeyError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  if (lookup.orderId) {
+    return toTossDirectJoinRow(
+      await fetchTossPaymentDetail(`/v1/payments/orders/${encodeURIComponent(lookup.orderId)}`, store),
+      store,
+    );
+  }
+
+  if (paymentKeyError) throw paymentKeyError;
+  return undefined;
+};
+
+const fetchDirectTossRowsByPendingEntries = async (
+  entries: AttributionLedgerEntry[],
+  limit: number,
+): Promise<{ rows: TossJoinRow[]; errors: string[] }> => {
+  const rows: TossJoinRow[] = [];
+  const errors: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of entries.slice(0, limit)) {
+    const lookup = getDirectTossLookupKeys(entry);
+    const key = lookup?.paymentKey || lookup?.orderId;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+
+    try {
+      const row = await fetchDirectTossRowForEntry(entry);
+      if (row) rows.push(row);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`${entry.orderId || "-"} / ${entry.paymentKey || "-"}: ${message}`);
+    }
+  }
+
+  return { rows, errors };
+};
+
 const buildTossStatusIndexes = (rows: TossJoinRow[]) => {
   const byPaymentKey = new Map<string, TossJoinRow>();
   const byOrderId = new Map<string, TossJoinRow>();
@@ -199,26 +455,298 @@ const buildTossStatusIndexes = (rows: TossJoinRow[]) => {
   return { byPaymentKey, byOrderId };
 };
 
+const normalizeDecisionOrderKey = (value: string) => normalizeOrderIdBase(value.trim());
+
+const parsePaymentDecisionLookup = (req: Request): PaymentDecisionLookup => {
+  const orderId = readOne(req.query.orderId ?? req.query.order_id);
+  const orderNo = readOne(req.query.orderNo ?? req.query.order_no);
+  const orderCode = readOne(req.query.orderCode ?? req.query.order_code);
+  const paymentCode = readOne(req.query.paymentCode ?? req.query.payment_code);
+  const paymentKey = readOne(req.query.paymentKey ?? req.query.payment_key);
+  const storeHint = readOne(req.query.store ?? req.query.site);
+
+  return {
+    orderId,
+    orderNo,
+    orderCode,
+    paymentCode,
+    paymentKey,
+    store: normalizeTossStore(storeHint || undefined),
+  };
+};
+
+const getEntryReferrerPaymentValue = (entry: AttributionLedgerEntry, key: string) => {
+  const referrerPayment = entry.metadata?.referrerPayment;
+  return readNestedString(referrerPayment, key);
+};
+
+const getEntryUrlParam = (entry: AttributionLedgerEntry, key: string) =>
+  getQueryParamFromUrl(entry.landing, key) ||
+  getQueryParamFromUrl(entry.referrer, key) ||
+  getQueryParamFromUrl(entry.requestContext.requestReferer, key);
+
+const getEntryOrderCode = (entry: AttributionLedgerEntry) =>
+  getEntryReferrerPaymentValue(entry, "orderCode") ||
+  getEntryReferrerPaymentValue(entry, "order_code") ||
+  getEntryUrlParam(entry, "order_code") ||
+  getEntryUrlParam(entry, "orderCode");
+
+const getEntryPaymentCode = (entry: AttributionLedgerEntry) =>
+  getEntryReferrerPaymentValue(entry, "paymentCode") ||
+  getEntryReferrerPaymentValue(entry, "payment_code") ||
+  getEntryUrlParam(entry, "payment_code") ||
+  getEntryUrlParam(entry, "paymentCode");
+
+const findLedgerDecisionMatch = (
+  entries: AttributionLedgerEntry[],
+  lookup: PaymentDecisionLookup,
+): { entry: AttributionLedgerEntry; matchedBy: PaymentDecisionMatchType } | undefined => {
+  const paymentEntries = entries.filter((entry) => entry.touchpoint === "payment_success");
+  const lookupOrderKeys = [
+    lookup.orderId,
+    lookup.orderNo,
+  ].map(normalizeDecisionOrderKey).filter(Boolean);
+
+  if (lookup.paymentKey) {
+    const entry = paymentEntries.find((candidate) => candidate.paymentKey === lookup.paymentKey);
+    if (entry) return { entry, matchedBy: "ledger_payment_key" };
+  }
+
+  if (lookupOrderKeys.length > 0) {
+    const entry = paymentEntries.find((candidate) => {
+      const candidateKeys = [
+        candidate.orderId,
+        getEntryReferrerPaymentValue(candidate, "orderId"),
+        getEntryReferrerPaymentValue(candidate, "orderNo"),
+        getEntryUrlParam(candidate, "order_id"),
+        getEntryUrlParam(candidate, "orderId"),
+        getEntryUrlParam(candidate, "order_no"),
+        getEntryUrlParam(candidate, "orderNo"),
+      ].map(normalizeDecisionOrderKey).filter(Boolean);
+      return candidateKeys.some((key) => lookupOrderKeys.includes(key));
+    });
+    if (entry) return { entry, matchedBy: "ledger_order_id" };
+  }
+
+  if (lookup.orderCode) {
+    const entry = paymentEntries.find((candidate) => getEntryOrderCode(candidate) === lookup.orderCode);
+    if (entry) return { entry, matchedBy: "ledger_order_code" };
+  }
+
+  if (lookup.paymentCode) {
+    const entry = paymentEntries.find((candidate) => getEntryPaymentCode(candidate) === lookup.paymentCode);
+    if (entry) return { entry, matchedBy: "ledger_payment_code" };
+  }
+
+  return undefined;
+};
+
+const findTossDecisionMatch = (
+  rows: TossJoinRow[],
+  lookup: PaymentDecisionLookup,
+): { row: TossJoinRow; matchedBy: PaymentDecisionMatchType } | undefined => {
+  if (lookup.paymentKey) {
+    const row = rows.find((candidate) => candidate.paymentKey === lookup.paymentKey);
+    if (row) return { row, matchedBy: "toss_direct_payment_key" };
+  }
+
+  const lookupOrderKeys = [
+    lookup.orderId,
+    lookup.orderNo,
+  ].map(normalizeDecisionOrderKey).filter(Boolean);
+  if (lookupOrderKeys.length === 0) return undefined;
+
+  const row = rows.find((candidate) => lookupOrderKeys.includes(normalizeDecisionOrderKey(candidate.orderId)));
+  return row ? { row, matchedBy: "toss_direct_order_id" } : undefined;
+};
+
+const decisionFromStatus = (
+  status: AttributionPaymentStatus | "unknown",
+  params: {
+    matchedBy: PaymentDecisionMatchType;
+    confidence: AttributionPaymentDecision["confidence"];
+    reason: string;
+    notes?: string[];
+    matched?: AttributionPaymentDecision["matched"];
+  },
+): AttributionPaymentDecision => {
+  if (status === "confirmed") {
+    return {
+      status,
+      browserAction: "allow_purchase",
+      confidence: params.confidence,
+      matchedBy: params.matchedBy,
+      reason: params.reason,
+      notes: params.notes ?? [],
+      matched: params.matched,
+    };
+  }
+
+  if (status === "pending") {
+    return {
+      status,
+      browserAction: "block_purchase_virtual_account",
+      confidence: params.confidence,
+      matchedBy: params.matchedBy,
+      reason: params.reason,
+      notes: params.notes ?? [],
+      matched: params.matched,
+    };
+  }
+
+  if (status === "canceled") {
+    return {
+      status,
+      browserAction: "block_purchase",
+      confidence: params.confidence,
+      matchedBy: params.matchedBy,
+      reason: params.reason,
+      notes: params.notes ?? [],
+      matched: params.matched,
+    };
+  }
+
+  return {
+    status: "unknown",
+    browserAction: "hold_or_block_purchase",
+    confidence: params.confidence,
+    matchedBy: params.matchedBy,
+    reason: params.reason,
+    notes: params.notes ?? [
+      "unknown은 confirmed가 아니므로 Meta Browser Purchase를 바로 보내지 않는 정책이 데이터 정합성에는 더 안전하다.",
+      "단, 서버 endpoint 장애가 길어지면 카드 매출 Browser Purchase가 누락될 수 있으므로 운영 배포 전 안정성 검증이 필요하다.",
+    ],
+    matched: params.matched,
+  };
+};
+
+export const buildAttributionPaymentDecision = (
+  entries: AttributionLedgerEntry[],
+  lookup: PaymentDecisionLookup,
+  tossRows: TossJoinRow[] = [],
+): AttributionPaymentDecision => {
+  const tossMatch = findTossDecisionMatch(tossRows, lookup);
+  if (tossMatch) {
+    const status = normalizePaymentStatus(tossMatch.row.status) ?? "unknown";
+    return decisionFromStatus(status, {
+      matchedBy: tossMatch.matchedBy,
+      confidence: status === "unknown" ? "medium" : "high",
+      reason: "toss_direct_api_status",
+      matched: {
+        source: "toss_direct_api",
+        orderId: tossMatch.row.orderId,
+        paymentKey: tossMatch.row.paymentKey,
+        status: tossMatch.row.status,
+        approvedAt: tossMatch.row.approvedAt,
+        channel: tossMatch.row.channel,
+        store: tossMatch.row.store,
+      },
+    });
+  }
+
+  const ledgerMatch = findLedgerDecisionMatch(entries, lookup);
+  if (ledgerMatch) {
+    const status = ledgerMatch.entry.paymentStatus ?? "unknown";
+    return decisionFromStatus(status, {
+      matchedBy: ledgerMatch.matchedBy,
+      confidence: status === "unknown" ? "medium" : "high",
+      reason: "attribution_ledger_status",
+      matched: {
+        source: "attribution_ledger",
+        orderId: ledgerMatch.entry.orderId,
+        paymentKey: ledgerMatch.entry.paymentKey,
+        status: ledgerMatch.entry.paymentStatus ?? "",
+        approvedAt: ledgerMatch.entry.approvedAt,
+        channel: typeof ledgerMatch.entry.metadata?.channel === "string" ? ledgerMatch.entry.metadata.channel : "",
+        store: typeof ledgerMatch.entry.metadata?.store === "string" ? ledgerMatch.entry.metadata.store : "",
+        loggedAt: ledgerMatch.entry.loggedAt,
+        captureMode: ledgerMatch.entry.captureMode,
+      },
+    });
+  }
+
+  return decisionFromStatus("unknown", {
+    matchedBy: "none",
+    confidence: "low",
+    reason: "no_toss_or_ledger_match",
+  });
+};
+
+const fetchTossDecisionRows = async (
+  lookup: PaymentDecisionLookup,
+): Promise<{ rows: TossJoinRow[]; errors: string[]; attempted: boolean }> => {
+  const rows: TossJoinRow[] = [];
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  const store = lookup.paymentKey
+    ? inferTossStoreFromPaymentKey(lookup.paymentKey, lookup.store)
+    : lookup.store;
+
+  const addRow = (row: TossJoinRow | undefined) => {
+    if (!row) return;
+    const key = `${row.paymentKey || "-"}|${normalizeDecisionOrderKey(row.orderId) || "-"}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push(row);
+  };
+
+  if (lookup.paymentKey) {
+    try {
+      addRow(toTossDirectJoinRow(
+        await fetchTossPaymentDetail(`/v1/payments/${encodeURIComponent(lookup.paymentKey)}`, store),
+        store,
+      ));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`paymentKey ${lookup.paymentKey}: ${message}`);
+    }
+  }
+
+  const orderLookup = lookup.orderId || lookup.orderNo;
+  if (orderLookup) {
+    try {
+      addRow(toTossDirectJoinRow(
+        await fetchTossPaymentDetail(`/v1/payments/orders/${encodeURIComponent(orderLookup)}`, store),
+        store,
+      ));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`orderId ${orderLookup}: ${message}`);
+    }
+  }
+
+  return {
+    rows,
+    errors,
+    attempted: Boolean(lookup.paymentKey || orderLookup),
+  };
+};
+
 const buildSyncedLedgerEntry = (
   entry: AttributionLedgerEntry,
   row: TossJoinRow,
   nextStatus: AttributionPaymentStatus,
   syncedAt: string,
-): AttributionLedgerEntry => ({
-  ...entry,
-  paymentStatus: nextStatus,
-  approvedAt: row.approvedAt ? normalizeApprovedAtToIso(row.approvedAt, entry.approvedAt || entry.loggedAt) : entry.approvedAt,
-  metadata: {
-    ...entry.metadata,
+): AttributionLedgerEntry => {
+  const tossSyncSource = row.syncSource ?? "tb_sales_toss";
+
+  return {
+    ...entry,
     paymentStatus: nextStatus,
-    status: row.status || entry.metadata?.status,
-    channel: row.channel || entry.metadata?.channel,
-    store: row.store || entry.metadata?.store,
-    totalAmount: row.totalAmount > 0 ? row.totalAmount : entry.metadata?.totalAmount,
-    tossSyncSource: "tb_sales_toss",
-    tossSyncedAt: syncedAt,
-  },
-});
+    approvedAt: row.approvedAt ? normalizeApprovedAtToIso(row.approvedAt, entry.approvedAt || entry.loggedAt) : entry.approvedAt,
+    metadata: {
+      ...entry.metadata,
+      paymentStatus: nextStatus,
+      status: row.status || entry.metadata?.status,
+      channel: row.channel || entry.metadata?.channel,
+      store: row.store || entry.metadata?.store,
+      totalAmount: row.totalAmount > 0 ? row.totalAmount : entry.metadata?.totalAmount,
+      tossSyncSource,
+      tossSyncedAt: syncedAt,
+      ...(tossSyncSource === "toss_direct_api_fallback" ? { tossDirectFallbackAt: syncedAt } : {}),
+    },
+  };
+};
 
 export const syncAttributionPaymentStatusesFromToss = async (params?: {
   limit?: number;
@@ -231,7 +759,14 @@ export const syncAttributionPaymentStatusesFromToss = async (params?: {
     .filter((entry) => entry.touchpoint === "payment_success" && entry.paymentStatus === "pending")
     .slice(0, limit);
   const tossRows = await fetchTossRowsByPendingEntries(pendingCandidates, limit);
-  const plan = buildAttributionPaymentStatusSyncPlan(entries, tossRows, limit);
+  const tossIndex = buildTossStatusIndexes(tossRows);
+  const directFallbackCandidates = pendingCandidates.filter((entry) => {
+    const matchedByPaymentKey = entry.paymentKey ? tossIndex.byPaymentKey.get(entry.paymentKey) : undefined;
+    const matchedByOrderId = !matchedByPaymentKey && entry.orderId ? tossIndex.byOrderId.get(entry.orderId) : undefined;
+    return !matchedByPaymentKey && !matchedByOrderId && (entry.paymentKey || entry.orderId);
+  });
+  const directFallback = await fetchDirectTossRowsByPendingEntries(directFallbackCandidates, limit);
+  const plan = buildAttributionPaymentStatusSyncPlan(entries, [...tossRows, ...directFallback.rows], limit);
   const writtenRows = dryRun ? 0 : updateAttributionLedgerEntries(plan.updates);
 
   return {
@@ -243,6 +778,8 @@ export const syncAttributionPaymentStatusesFromToss = async (params?: {
     writtenRows,
     skippedNoMatchRows: plan.skippedNoMatchRows,
     skippedPendingRows: plan.skippedPendingRows,
+    directFallbackRows: directFallback.rows.length,
+    directFallbackErrors: directFallback.errors,
     items: plan.items,
   };
 };
@@ -268,8 +805,11 @@ export const buildAttributionPaymentStatusSyncPlan = (
     const matchedByPaymentKey = entry.paymentKey ? tossIndex.byPaymentKey.get(entry.paymentKey) : undefined;
     const matchedByOrderId = !matchedByPaymentKey && entry.orderId ? tossIndex.byOrderId.get(entry.orderId) : undefined;
     const matched = matchedByPaymentKey ?? matchedByOrderId;
-    const matchType: AttributionStatusSyncMatchType =
-      matchedByPaymentKey ? "payment_key" : matchedByOrderId ? "order_id" : "unmatched";
+    const matchType: AttributionStatusSyncMatchType = matchedByPaymentKey
+      ? matchedByPaymentKey.syncSource === "toss_direct_api_fallback" ? "direct_payment_key" : "payment_key"
+      : matchedByOrderId
+        ? matchedByOrderId.syncSource === "toss_direct_api_fallback" ? "direct_order_id" : "order_id"
+        : "unmatched";
 
     if (!matched) {
       skippedNoMatchRows += 1;
@@ -487,6 +1027,77 @@ export const createAttributionRouter = () => {
     }
   });
 
+  router.get("/api/attribution/payment-decision", async (req: Request, res: Response) => {
+    try {
+      const lookup = parsePaymentDecisionLookup(req);
+      const tossEnabled = parseBooleanish(req.query.toss ?? req.query.directToss, true);
+      const debug = parseBooleanish(req.query.debug, false);
+      const entries = await readLedgerEntries();
+      const directToss = tossEnabled
+        ? await fetchTossDecisionRows(lookup)
+        : { rows: [], errors: [], attempted: false };
+      const ledgerFallbackMatch = findLedgerDecisionMatch(entries, lookup);
+
+      if (
+        tossEnabled &&
+        directToss.rows.length === 0 &&
+        ledgerFallbackMatch?.entry.paymentKey &&
+        ledgerFallbackMatch.entry.paymentKey !== lookup.paymentKey
+      ) {
+        const paymentKeyFallback = await fetchTossDecisionRows({
+          ...lookup,
+          orderId: "",
+          orderNo: "",
+          paymentKey: ledgerFallbackMatch.entry.paymentKey,
+        });
+        directToss.rows.push(...paymentKeyFallback.rows);
+        directToss.errors.push(...paymentKeyFallback.errors.map((message) => `ledger paymentKey fallback: ${message}`));
+        directToss.attempted = directToss.attempted || paymentKeyFallback.attempted;
+      }
+
+      const decision = buildAttributionPaymentDecision(entries, lookup, directToss.rows);
+
+      res.json({
+        ok: true,
+        decision: {
+          status: decision.status,
+          browserAction: decision.browserAction,
+          confidence: decision.confidence,
+          matchedBy: decision.matchedBy,
+          reason: decision.reason,
+          notes: decision.notes,
+        },
+        lookup: {
+          orderId: lookup.orderId || null,
+          orderNo: lookup.orderNo || null,
+          orderCode: lookup.orderCode || null,
+          paymentCode: lookup.paymentCode || null,
+          paymentKey: lookup.paymentKey ? "***" : null,
+          store: lookup.store,
+        },
+        directToss: {
+          attempted: directToss.attempted,
+          matchedRows: directToss.rows.length,
+          errors: directToss.errors.length,
+        },
+        debug: debug
+          ? {
+              matched: decision.matched,
+              directTossErrors: directToss.errors,
+            }
+          : undefined,
+        notes: [
+          "브라우저 문구가 아니라 서버가 아는 결제 상태로 Browser Purchase 허용 여부를 판단하는 read-only endpoint다.",
+          "confirmed만 allow_purchase다. pending은 VirtualAccountIssued로 낮추고, canceled/unknown은 Purchase를 보내지 않는 정책이 데이터 정합성에 안전하다.",
+          "운영 헤더 코드에서 사용하려면 이 endpoint가 노트북이 아니라 안정적인 VM/Cloud Run에서 먼저 배포되어야 한다.",
+        ],
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "payment decision failed";
+      res.status(500).json({ ok: false, error: "attribution_payment_decision_error", message });
+    }
+  });
+
   router.get("/api/attribution/ledger", async (req: Request, res: Response) => {
     try {
       const allEntries = await readLedgerEntries();
@@ -643,10 +1254,14 @@ export const createAttributionRouter = () => {
           writtenRows: result.writtenRows,
           skippedNoMatchRows: result.skippedNoMatchRows,
           skippedPendingRows: result.skippedPendingRows,
+          directFallbackRows: result.directFallbackRows,
+          directFallbackErrors: result.directFallbackErrors.length,
         },
         items: result.items.slice(0, 20),
+        directFallbackErrors: result.directFallbackErrors.slice(0, 20),
         notes: [
           "pending payment_success row를 tb_sales_toss 상태와 대조해 confirmed/canceled로 승격한다.",
+          "tb_sales_toss에 아직 없지만 paymentKey/orderId가 있는 최신 pending row는 Toss 직접 결제 상세 API fallback으로 확인한다.",
           "dryRun=true면 preview만 보고 SQLite ledger는 갱신하지 않는다.",
           "status가 아직 WAITING/PENDING이면 유지하고 다음 배치에서 다시 확인한다.",
         ],

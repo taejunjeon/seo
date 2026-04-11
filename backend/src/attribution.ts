@@ -61,6 +61,7 @@ export type TossJoinRow = {
   channel: string;
   store: string;
   totalAmount: number;
+  syncSource?: "tb_sales_toss" | "toss_direct_api_fallback";
 };
 
 export type TossHourlyRow = {
@@ -365,9 +366,12 @@ export const normalizeAttributionPayload = (raw: unknown) => {
   const clientId =
     firstString(input, [...CLIENT_ID_FIELD_KEYS]) ||
     firstString(existingMetadata, [...CLIENT_ID_FIELD_KEYS]);
-  const userPseudoId =
+  const explicitUserPseudoId =
     firstString(input, [...USER_PSEUDO_ID_FIELD_KEYS]) ||
     firstString(existingMetadata, [...USER_PSEUDO_ID_FIELD_KEYS]);
+  const userPseudoId = explicitUserPseudoId || clientId;
+  const fbc = firstString(input, ["fbc"]) || firstString(existingMetadata, ["fbc"]);
+  const fbp = firstString(input, ["fbp"]) || firstString(existingMetadata, ["fbp"]);
   const normalizedPhone = normalizePhoneDigits(
     firstString(input, [...PHONE_FIELD_KEYS]) ||
       firstString(existingMetadata, [...PHONE_FIELD_KEYS]),
@@ -393,6 +397,11 @@ export const normalizeAttributionPayload = (raw: unknown) => {
   if (gaSessionId) enrichedMetadata.gaSessionId = gaSessionId;
   if (clientId) enrichedMetadata.clientId = clientId;
   if (userPseudoId) enrichedMetadata.userPseudoId = userPseudoId;
+  if (userPseudoId && !explicitUserPseudoId && clientId && !enrichedMetadata.userPseudoIdStrategy) {
+    enrichedMetadata.userPseudoIdStrategy = "client_id_fallback";
+  }
+  if (fbc) enrichedMetadata.fbc = fbc;
+  if (fbp) enrichedMetadata.fbp = fbp;
   if (Object.keys(referrerParams).length > 0) {
     enrichedMetadata.referrerPayment = referrerParams;
   }

@@ -100,6 +100,86 @@ test("crmLocal imweb orders: upsert and stats aggregate by site", () => {
   assert.equal(dbStats.imwebOrders, 2);
 });
 
+test("crmLocal imweb coupons: map issue coupon codes from cached orders", () => {
+  crmLocal.upsertImwebOrders([
+    {
+      order_key: "biocom:coupon-order",
+      site: "biocom",
+      order_no: "202604101234567",
+      order_code: "order-code-1",
+      channel_order_no: "",
+      order_type: "shopping",
+      sale_channel_idx: 1,
+      device_type: "mobile",
+      order_time_unix: 1775793060,
+      order_time: "2026-04-10T01:11:00.000Z",
+      complete_time_unix: null,
+      complete_time: null,
+      member_code: "member-1",
+      orderer_name: "홍길동",
+      orderer_call: "01012345678",
+      pay_type: "card",
+      pg_type: "tosspayments",
+      price_currency: "KRW",
+      total_price: 260000,
+      payment_amount: 245000,
+      coupon_amount: 15000,
+      delivery_price: 0,
+      use_issue_coupon_codes: "[\"issue-1\"]",
+      raw_json: "{\"order_no\":\"202604101234567\"}",
+    },
+  ]);
+
+  assert.deepEqual(crmLocal.listUnmappedImwebIssueCouponCodes("biocom", 10), [
+    { issue_coupon_code: "issue-1" },
+  ]);
+
+  crmLocal.upsertImwebCouponMasters([
+    {
+      coupon_key: "biocom:coupon-1",
+      site: "biocom",
+      coupon_code: "coupon-1",
+      name: "신규가입 1만5천원 쿠폰",
+      status: "progress",
+      type: "create",
+      apply_sale_price: 15000,
+      apply_sale_percent: 0,
+      type_coupon_create_count: 1,
+      type_coupon_use_count: 1,
+      raw_json: "{\"coupon_code\":\"coupon-1\"}",
+    },
+  ]);
+  crmLocal.upsertImwebIssueCoupons([
+    {
+      issue_key: "biocom:issue-1",
+      site: "biocom",
+      issue_coupon_code: "issue-1",
+      coupon_code: "coupon-1",
+      name: "신규가입 1만5천원 쿠폰",
+      status: "complete",
+      type: "create",
+      coupon_issue_code: "PUBLIC-CODE",
+      shop_order_code: "order-code-1",
+      use_date: "2026-04-10 10:00:00",
+      raw_json: "{\"coupon_code\":\"coupon-1\",\"name\":\"신규가입 1만5천원 쿠폰\"}",
+    },
+  ]);
+
+  assert.deepEqual(crmLocal.listUnmappedImwebIssueCouponCodes("biocom", 10), []);
+
+  const stats = crmLocal.getImwebCouponBackfillStats("biocom");
+  assert.equal(stats.couponMasters, 1);
+  assert.equal(stats.sourceIssueCouponCodes, 1);
+  assert.equal(stats.mappedIssueCoupons, 1);
+  assert.equal(stats.mappedIssueCouponsWithName, 1);
+  assert.equal(stats.topNames[0]?.name, "신규가입 1만5천원 쿠폰");
+  assert.equal(stats.topNames[0]?.issueCount, 1);
+
+  const dbStats = crmLocal.getDbStats();
+  assert.equal(dbStats.imwebCouponMasters, 1);
+  assert.equal(dbStats.imwebIssueCoupons, 1);
+});
+
 test("crmLocal imweb orders: reconcile report matches Imweb base order ids against Toss", () => {
   crmLocal.upsertImwebOrders([
     {
