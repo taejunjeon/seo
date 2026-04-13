@@ -97,6 +97,8 @@ export default function MessagingTab() {
   const memberCodeFromUrl = msgSearchParams.get("memberCode") ?? "";
   const daysSinceFromUrl = msgSearchParams.get("daysSince") ?? "";
   const groupIdFromUrl = msgSearchParams.get("groupId") ?? "";
+  const selectedOnlyFromUrl = msgSearchParams.get("selectedOnly") === "true";
+  const experimentKeyFromUrl = msgSearchParams.get("experimentKey") ?? "";
   const [receiver, setReceiver] = useState(phoneFromUrl || "010-3934-8641");
   const [recvName, setRecvName] = useState(nameFromUrl || "TJ (테스트)");
   const [memberCode, setMemberCode] = useState(memberCodeFromUrl);
@@ -104,10 +106,17 @@ export default function MessagingTab() {
 
   // 그룹 발송 상태
   const [groupId, setGroupId] = useState(groupIdFromUrl);
+  const [experimentKey, setExperimentKey] = useState(experimentKeyFromUrl);
   const [groupMembers, setGroupMembers] = useState<Array<{ phone: string; name: string | null; member_code: string | null }>>([]);
   const [groupName, setGroupName] = useState("");
   const [batchSending, setBatchSending] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ total: 0, sent: 0, failed: 0, current: "" });
+
+  // 예약 발송 상태
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [scheduleCreating, setScheduleCreating] = useState(false);
+  const [scheduleResult, setScheduleResult] = useState<{ ok: boolean; id?: number; scheduledAt?: string; error?: string } | null>(null);
 
   // URL 파라미터가 변경되면 수신자 + 채널 + 관리자 모드 자동 업데이트
   useEffect(() => {
@@ -118,23 +127,31 @@ export default function MessagingTab() {
     if (memberCodeFromUrl) setMemberCode(memberCodeFromUrl);
     if (daysSinceFromUrl) setDaysSinceLastPurchase(Number(daysSinceFromUrl));
     if (groupIdFromUrl) { setGroupId(groupIdFromUrl); setSourceType("followup"); }
-  }, [phoneFromUrl, nameFromUrl, channelFromUrl, adminOverrideFromUrl, memberCodeFromUrl, daysSinceFromUrl, groupIdFromUrl]);
+    if (experimentKeyFromUrl) setExperimentKey(experimentKeyFromUrl);
+  }, [phoneFromUrl, nameFromUrl, channelFromUrl, adminOverrideFromUrl, memberCodeFromUrl, daysSinceFromUrl, groupIdFromUrl, experimentKeyFromUrl]);
 
-  // 그룹 멤버 로드
+  // 그룹 멤버 로드 (selectedOnly일 때는 sessionStorage에서)
   useEffect(() => {
     if (!groupId) { setGroupMembers([]); setGroupName(""); return; }
     (async () => {
       try {
-        const [membersRes, groupsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/crm-local/groups/${groupId}/members?limit=5000`).then((r) => r.json()),
-          fetch(`${API_BASE}/api/crm-local/groups`).then((r) => r.json()),
-        ]);
-        setGroupMembers(membersRes.members ?? []);
+        // selectedOnly면 sessionStorage의 선택 멤버만 사용
+        if (selectedOnlyFromUrl) {
+          const stored = sessionStorage.getItem("crm_selected_members");
+          if (stored) {
+            const parsed = JSON.parse(stored) as Array<{ phone: string; name: string | null; member_code: string | null }>;
+            setGroupMembers(parsed);
+          }
+        } else {
+          const membersRes = await fetch(`${API_BASE}/api/crm-local/groups/${groupId}/members?limit=5000`).then((r) => r.json());
+          setGroupMembers(membersRes.members ?? []);
+        }
+        const groupsRes = await fetch(`${API_BASE}/api/crm-local/groups`).then((r) => r.json());
         const grp = (groupsRes.groups ?? []).find((g: { group_id: string }) => g.group_id === groupId);
         setGroupName(grp?.name ?? groupId);
       } catch { /* ignore */ }
     })();
-  }, [groupId]);
+  }, [groupId, selectedOnlyFromUrl]);
   const [msgChannel, setMsgChannel] = useState<MsgChannel>("alimtalk");
   const [smsMessage, setSmsMessage] = useState("");
   const [sourceType, setSourceType] = useState<"manual" | "followup" | "experiment">("manual");
@@ -262,6 +279,8 @@ export default function MessagingTab() {
           adminOverride,
           memberCode: memberCode || undefined,
           daysSinceLastPurchase: daysSinceLastPurchase ?? undefined,
+          experimentKey: experimentKey || undefined,
+          groupId: groupId || undefined,
           source: "crm_messaging",
         }),
       });
@@ -302,6 +321,8 @@ export default function MessagingTab() {
             consentStatus: "batch",
             adminOverride: true,
             memberCode: member.member_code || undefined,
+            experimentKey: experimentKey || undefined,
+            groupId: groupId || undefined,
             source: "crm_batch",
           }),
         });
@@ -319,6 +340,49 @@ export default function MessagingTab() {
     setBatchSending(false);
     setBatchProgress({ total: groupMembers.length, sent, failed, current: "" });
     loadData();
+  };
+
+  const handleScheduleSend = async (channel: "alimtalk" | "sms") => {
+    if (!groupId) { alert("예약 발송은 그룹 기반에서만 가능합니다."); return; }
+    if (!scheduleAt) { alert("발송 시각을 선택해 주세요."); return; }
+    const scheduledDate = new Date(scheduleAt);
+    if (Number.isNaN(scheduledDate.getTime())) { alert("올바른 시각 형식이 아닙니다."); return; }
+    if (scheduledDate.getTime() < Date.now() - 60_000) { alert("과거 시각으로는 예약할 수 없습니다."); return; }
+
+    const payload: Record<string, unknown> = {
+      groupId,
+      channel,
+      scheduledAt: scheduledDate.toISOString(),
+      adminOverride,
+      testMode,
+      experimentKey: experimentKey || undefined,
+      createdBy: "crm_messaging_ui",
+    };
+    if (channel === "alimtalk") {
+      if (!selectedTemplate) { alert("알림톡 예약은 먼저 템플릿을 선택해야 합니다."); return; }
+      payload.templateCode = selectedTemplate.templtCode;
+      payload.subject = selectedTemplate.templtName;
+      payload.message = previewResult?.renderedBody ?? selectedTemplate.templtContent;
+    } else {
+      if (!smsMessage.trim()) { alert("SMS 메시지를 입력해 주세요."); return; }
+      payload.message = smsWithOptOut;
+    }
+
+    setScheduleCreating(true);
+    setScheduleResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/crm-local/scheduled-sends`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      setScheduleResult(data);
+    } catch (err) {
+      setScheduleResult({ ok: false, error: err instanceof Error ? err.message : "예약 실패" });
+    } finally {
+      setScheduleCreating(false);
+    }
   };
 
   const handleSend = async () => {
@@ -341,6 +405,8 @@ export default function MessagingTab() {
           adminOverride,
           memberCode: memberCode || undefined,
           daysSinceLastPurchase: daysSinceLastPurchase ?? undefined,
+          experimentKey: experimentKey || undefined,
+          groupId: groupId || undefined,
           source: "crm_messaging",
         }),
       });
@@ -623,17 +689,17 @@ export default function MessagingTab() {
               </div>
 
               {/* 발송 버튼 */}
-              <div style={{ marginTop: 16, display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ marginTop: 16, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                 {groupId && groupMembers.length > 0 ? (
                   /* 그룹 배치 발송 */
                   <button
                     type="button"
                     className={styles.retryButton}
                     onClick={handleBatchSmsSend}
-                    disabled={batchSending || !smsMessage.trim()}
-                    style={{ background: batchSending ? "#94a3b8" : testMode ? "#6366f1" : "#dc2626", color: "#fff", border: "none", padding: "12px 24px" }}
+                    disabled={batchSending || !smsMessage.trim() || scheduleEnabled}
+                    style={{ background: batchSending ? "#94a3b8" : testMode ? "#6366f1" : "#dc2626", color: "#fff", border: "none", padding: "12px 24px", opacity: scheduleEnabled ? 0.5 : 1 }}
                   >
-                    {batchSending ? `발송 중 (${batchProgress.sent + batchProgress.failed}/${batchProgress.total})...` : `${groupMembers.length}명 ${testMode ? "테스트" : "실제"} 배치 발송`}
+                    {batchSending ? `발송 중 (${batchProgress.sent + batchProgress.failed}/${batchProgress.total})...` : `${groupMembers.length}명 ${testMode ? "테스트" : "실제"} 즉시 배치 발송`}
                   </button>
                 ) : (
                   /* 단건 발송 */
@@ -651,6 +717,49 @@ export default function MessagingTab() {
                   ← 메시지 수정
                 </button>
               </div>
+
+              {/* 예약 발송 (그룹 모드에서만 활성) */}
+              {groupId && groupMembers.length > 0 && (
+                <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.78rem", fontWeight: 700, color: "#334155", cursor: "pointer" }}>
+                    <input type="checkbox" checked={scheduleEnabled} onChange={(e) => setScheduleEnabled(e.target.checked)} />
+                    예약 발송으로 전환
+                  </label>
+                  {scheduleEnabled && (
+                    <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                      <input
+                        type="datetime-local"
+                        value={scheduleAt}
+                        onChange={(e) => setScheduleAt(e.target.value)}
+                        style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.82rem" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleScheduleSend("sms")}
+                        disabled={scheduleCreating || !scheduleAt || !smsMessage.trim()}
+                        style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: scheduleCreating ? "#94a3b8" : "#059669", color: "#fff", fontSize: "0.82rem", fontWeight: 600, cursor: scheduleCreating ? "not-allowed" : "pointer" }}
+                      >
+                        {scheduleCreating ? "등록 중..." : `${groupMembers.length}명 SMS 예약 등록`}
+                      </button>
+                      <span style={{ fontSize: "0.68rem", color: "#94a3b8" }}>
+                        서버 스케줄러가 지정 시각에 자동 발송.
+                      </span>
+                    </div>
+                  )}
+                  {scheduleResult && (
+                    <div style={{
+                      marginTop: 10, padding: "8px 12px", borderRadius: 6,
+                      background: scheduleResult.ok ? "#f0fdf4" : "#fef2f2",
+                      border: `1px solid ${scheduleResult.ok ? "#bbf7d0" : "#fecaca"}`,
+                      fontSize: "0.76rem", color: scheduleResult.ok ? "#166534" : "#991b1b",
+                    }}>
+                      {scheduleResult.ok
+                        ? `예약 등록 완료 (id: ${scheduleResult.id}, 시각: ${scheduleResult.scheduledAt ? new Date(scheduleResult.scheduledAt).toLocaleString("ko-KR") : "-"})`
+                        : `예약 실패: ${scheduleResult.error ?? "알 수 없음"}`}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 배치 발송 진행 표시 */}
               {batchSending && (
@@ -747,14 +856,53 @@ export default function MessagingTab() {
                 </div>
               )}
               {sourceType === "followup" && (
-                <div style={{ padding: 12, borderRadius: 8, background: "#fef3c7", fontSize: "0.78rem", color: "#92400e" }}>
-                  후속 관리 탭에서 대상자를 선택 후 연동 예정. 현재는 수동 테스트만 가능.
-                </div>
+                groupId ? (
+                  <div style={{ padding: 12, borderRadius: 8, background: "#eef2ff", border: "1px solid #c7d2fe", fontSize: "0.78rem", color: "#3730a3", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ fontWeight: 700 }}>
+                      그룹: {groupName || groupId}
+                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "#4f46e5" }}>
+                      발송 대상 <strong>{groupMembers.length}명</strong>
+                      {selectedOnlyFromUrl ? " (선택 멤버)" : ""}
+                      {adminOverride ? " · 관리자 권한 (미동의 포함)" : " · 동의 고객만"}
+                    </div>
+                    <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                      템플릿을 선택하면 3열에서 배치 발송을 실행한다.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: 12, borderRadius: 8, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: "0.78rem", color: "#9a3412", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div>먼저 대상 그룹을 선택해야 한다.</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <a href="?site=thecleancoffee&tab=repurchase" style={{ padding: "6px 10px", borderRadius: 6, background: "#6366f1", color: "#fff", fontSize: "0.72rem", fontWeight: 600, textDecoration: "none" }}>재구매 관리 탭 →</a>
+                      <a href="?site=thecleancoffee&tab=groups" style={{ padding: "6px 10px", borderRadius: 6, background: "#fff", color: "#4f46e5", border: "1px solid #c7d2fe", fontSize: "0.72rem", fontWeight: 600, textDecoration: "none" }}>고객 그룹 →</a>
+                      <a href="?site=thecleancoffee&tab=behavior" style={{ padding: "6px 10px", borderRadius: 6, background: "#fff", color: "#4f46e5", border: "1px solid #c7d2fe", fontSize: "0.72rem", fontWeight: 600, textDecoration: "none" }}>고객 행동 →</a>
+                    </div>
+                  </div>
+                )
               )}
               {sourceType === "experiment" && (
-                <div style={{ padding: 12, borderRadius: 8, background: "#fef3c7", fontSize: "0.78rem", color: "#92400e" }}>
-                  실험 운영 탭에서 treatment 그룹 연동 예정. 현재는 수동 테스트만 가능.
-                </div>
+                experimentKey ? (
+                  <div style={{ padding: 12, borderRadius: 8, background: "#f5f3ff", border: "1px solid #ddd6fe", fontSize: "0.78rem", color: "#5b21b6", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ fontWeight: 700 }}>
+                      실험: {experimentKey}
+                    </div>
+                    {groupId ? (
+                      <div style={{ fontSize: "0.72rem", color: "#6d28d9" }}>
+                        연결된 그룹 <strong>{groupName || groupId}</strong> · {groupMembers.length}명
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: "0.72rem", color: "#7c3aed" }}>
+                        실험 배정 결과가 전달됨. 그룹 멤버가 비어 있으면 A/B 실험 생성 직후 그룹 탭에서 한번 더 열어라.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: 12, borderRadius: 8, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: "0.78rem", color: "#9a3412", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div>먼저 A/B 실험을 생성해야 한다.</div>
+                    <a href="?site=thecleancoffee&tab=repurchase" style={{ alignSelf: "flex-start", padding: "6px 10px", borderRadius: 6, background: "#7c3aed", color: "#fff", fontSize: "0.72rem", fontWeight: 600, textDecoration: "none" }}>재구매 관리 → A/B 실험 생성 →</a>
+                  </div>
+                )
               )}
 
               {!isWhitelisted && sourceType === "manual" && receiver.trim() && (
@@ -1041,17 +1189,58 @@ export default function MessagingTab() {
                     <input type="checkbox" checked={testMode} onChange={(e) => setTestMode(e.target.checked)} />
                     테스트 모드
                   </label>
-                  <button onClick={handleSend} disabled={!canSend || sending || previewResult?.exactMatch === false}
+                  <button onClick={handleSend} disabled={!canSend || sending || previewResult?.exactMatch === false || scheduleEnabled}
                     style={{
                       padding: "10px 24px", borderRadius: 8, border: "none",
                       background: !canSend || sending ? "#e2e8f0" : testMode ? "#6366f1" : "#dc2626",
                       color: "#fff", fontSize: "0.85rem", fontWeight: 600,
-                      cursor: !canSend || sending ? "not-allowed" : "pointer",
+                      cursor: !canSend || sending || scheduleEnabled ? "not-allowed" : "pointer",
+                      opacity: scheduleEnabled ? 0.5 : 1,
                     }}>
-                    {sending ? "발송 중..." : testMode ? "테스트 발송" : "실제 발송"}
+                    {sending ? "발송 중..." : testMode ? "테스트 발송" : "즉시 발송"}
                   </button>
-                  {!testMode && <span style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>실제 카카오톡 발송</span>}
+                  {!testMode && !scheduleEnabled && <span style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>실제 카카오톡 발송</span>}
                 </div>
+
+                {/* 알림톡 예약 발송 (그룹 모드에서만) */}
+                {groupId && groupMembers.length > 0 && (
+                  <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.76rem", fontWeight: 700, color: "#334155", cursor: "pointer" }}>
+                      <input type="checkbox" checked={scheduleEnabled} onChange={(e) => setScheduleEnabled(e.target.checked)} />
+                      예약 발송으로 전환
+                    </label>
+                    {scheduleEnabled && (
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <input
+                          type="datetime-local"
+                          value={scheduleAt}
+                          onChange={(e) => setScheduleAt(e.target.value)}
+                          style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.78rem" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleScheduleSend("alimtalk")}
+                          disabled={scheduleCreating || !scheduleAt || !selectedTemplate}
+                          style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: scheduleCreating ? "#94a3b8" : "#059669", color: "#fff", fontSize: "0.78rem", fontWeight: 600, cursor: scheduleCreating ? "not-allowed" : "pointer" }}
+                        >
+                          {scheduleCreating ? "등록 중..." : `${groupMembers.length}명 알림톡 예약 등록`}
+                        </button>
+                      </div>
+                    )}
+                    {scheduleResult && (
+                      <div style={{
+                        marginTop: 8, padding: "6px 10px", borderRadius: 6,
+                        background: scheduleResult.ok ? "#f0fdf4" : "#fef2f2",
+                        border: `1px solid ${scheduleResult.ok ? "#bbf7d0" : "#fecaca"}`,
+                        fontSize: "0.74rem", color: scheduleResult.ok ? "#166534" : "#991b1b",
+                      }}>
+                        {scheduleResult.ok
+                          ? `예약 등록 완료 (id: ${scheduleResult.id}, 시각: ${scheduleResult.scheduledAt ? new Date(scheduleResult.scheduledAt).toLocaleString("ko-KR") : "-"})`
+                          : `예약 실패: ${scheduleResult.error ?? "알 수 없음"}`}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {sendResult && (
                   <div style={{
