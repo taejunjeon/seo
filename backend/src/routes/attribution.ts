@@ -1029,6 +1029,7 @@ export const createAttributionRouter = () => {
 
   router.get("/api/attribution/payment-decision", async (req: Request, res: Response) => {
     try {
+      res.set("Cache-Control", "no-store");
       const lookup = parsePaymentDecisionLookup(req);
       const tossEnabled = parseBooleanish(req.query.toss ?? req.query.directToss, true);
       const debug = parseBooleanish(req.query.debug, false);
@@ -1059,6 +1060,8 @@ export const createAttributionRouter = () => {
 
       res.json({
         ok: true,
+        version: "2026-04-12.payment-decision.v1",
+        generatedAt: new Date().toISOString(),
         decision: {
           status: decision.status,
           browserAction: decision.browserAction,

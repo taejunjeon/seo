@@ -30,6 +30,22 @@ export const buildHealthPayload = () => {
     status: "ok",
     service: "biocom-seo-backend",
     timestamp: new Date().toISOString(),
+    backgroundJobs: {
+      enabled: env.BACKGROUND_JOBS_ENABLED,
+      cwvAutoSync: {
+        enabled: env.CWV_AUTO_SYNC_ENABLED,
+      },
+      attributionStatusSync: {
+        enabled: env.ATTRIBUTION_STATUS_SYNC_ENABLED,
+        intervalMs: env.ATTRIBUTION_STATUS_SYNC_INTERVAL_MS,
+        limit: env.ATTRIBUTION_STATUS_SYNC_LIMIT,
+      },
+      capiAutoSync: {
+        enabled: env.CAPI_AUTO_SYNC_ENABLED,
+        intervalMs: env.CAPI_AUTO_SYNC_INTERVAL_MS,
+        limit: env.CAPI_AUTO_SYNC_LIMIT,
+      },
+    },
     apis: {
       gsc: !!env.GSC_SERVICE_ACCOUNT_KEY,
       pagespeed: !!env.PAGESPEED_API_KEY,

@@ -29,6 +29,8 @@ const allowedOrigins = [
   "https://thecleancoffee.imweb.me",
   "https://biocom.kr",
   "https://www.biocom.kr",
+  "https://m.biocom.kr",
+  "https://biocom.imweb.me",
   "https://aibio.ai",
   "https://www.aibio.ai",
 ];
