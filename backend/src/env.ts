@@ -56,6 +56,35 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   TRUST_PROXY: z.enum(["0", "1"]).default("0"),
   PORT: z.coerce.number().int().positive().default(7020),
+  BACKGROUND_JOBS_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false" && value !== "0"),
+  CWV_AUTO_SYNC_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false" && value !== "0"),
+  CAPI_AUTO_SYNC_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false" && value !== "0"),
+  CAPI_AUTO_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(30 * 60 * 1000),
+  CAPI_AUTO_SYNC_LIMIT: z.coerce.number().int().positive().default(100),
+  ATTRIBUTION_STATUS_SYNC_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false" && value !== "0"),
+  ATTRIBUTION_STATUS_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  ATTRIBUTION_STATUS_SYNC_LIMIT: z.coerce.number().int().positive().default(100),
+  SCHEDULED_SEND_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false"),
+  SCHEDULED_SEND_POLL_MS: z.coerce.number().int().positive().default(60 * 1000),
+  TEMP_GROUP_CLEANUP_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false"),
   FRONTEND_ORIGIN: z.string().url().default("http://localhost:7010"),
   DATABASE_URL: z.string().min(1).optional(),
   REVENUE_API_BASE_URL: z.string().url().optional(),

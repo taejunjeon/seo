@@ -19,6 +19,12 @@ import {
 } from "../aligo";
 import { renderAligoPreview } from "../aligo";
 import { recordMessage } from "../crmLocalDb";
+import {
+  evaluateForEnforcement,
+  type ContactPolicyEnforcementResult,
+  type EnforcementSeverity,
+} from "../contactPolicy";
+import { log, obsEvents } from "../obs";
 
 const ALIGO_RECEIVER_WHITELIST = ["01039348641"];
 const SEND_LOG_PATH = path.resolve(__dirname, "..", "..", "logs", "aligo-sends.jsonl");
@@ -143,7 +149,7 @@ export const createAligoRouter = () => {
   });
 
   router.post("/api/aligo/send", async (req: Request, res: Response) => {
-    const { tplCode, receiver, recvname, subject, message, emtitle, button, testMode, consentStatus, adminOverride: reqAdminOverride, daysSinceLastPurchase, source: sendSource, memberCode } =
+    const { tplCode, receiver, recvname, subject, message, emtitle, button, testMode, consentStatus, adminOverride: reqAdminOverride, daysSinceLastPurchase, source: sendSource, memberCode, experimentKey, groupId, templateType } =
       (req.body ?? {}) as Record<string, unknown>;
 
     const normalizedTplCode = readRequiredString(tplCode);
@@ -162,16 +168,48 @@ export const createAligoRouter = () => {
       testMode: normalizedTestMode,
     });
 
-    if (!normalizedTplCode || !normalizedReceiver || !normalizedSubject || !normalizedMessage) {
+    const requiredErrors = [
+      ...(!normalizedTplCode ? [{ field: "tplCode", code: "required", message: "tplCode 필요" }] : []),
+      ...(!normalizedReceiver ? [{ field: "receiver", code: "required", message: "receiver 필요" }] : []),
+      ...(!normalizedSubject ? [{ field: "subject", code: "required", message: "subject 필요" }] : []),
+      ...(!normalizedMessage ? [{ field: "message", code: "required", message: "message 필요" }] : []),
+    ];
+    if (requiredErrors.length > 0) {
       res.status(400).json({
         ok: false,
-        error: "tplCode, receiver, subject, message are required",
+        error: requiredErrors[0].message,
+        errors: requiredErrors,
       });
       return;
     }
+    const tplCodeForSend = normalizedTplCode!;
+    const receiverForSend = normalizedReceiver!;
+    const subjectForSend = normalizedSubject!;
+    const messageForSend = normalizedMessage!;
 
     const isAdminOverride = reqAdminOverride === true || reqAdminOverride === "true";
-    if (!ALIGO_RECEIVER_WHITELIST.includes(normalizedReceiver) && !isAdminOverride) {
+    const policy = evaluateForEnforcement({
+      channel: "alimtalk",
+      receiver: receiverForSend,
+      memberCode: typeof memberCode === "string" ? memberCode : null,
+      templateCode: tplCodeForSend,
+      templateType: typeof templateType === "string" ? templateType : null,
+      body: messageForSend,
+      source: typeof sendSource === "string" ? sendSource : null,
+      groupId: typeof groupId === "string" ? groupId : null,
+      adminOverride: isAdminOverride,
+    });
+    if (sendPolicyBlockedResponse(res, policy, {
+      channel: "alimtalk",
+      receiver: receiverForSend,
+      templateCode: tplCodeForSend,
+      groupId: typeof groupId === "string" ? groupId : null,
+      source: typeof sendSource === "string" ? sendSource : null,
+    })) {
+      return;
+    }
+
+    if (!ALIGO_RECEIVER_WHITELIST.includes(receiverForSend) && !isAdminOverride) {
       res.status(403).json({
         ok: false,
         message: "수신자가 허용 목록에 없습니다. 관리자 강제 발송(adminOverride)을 사용하세요.",
@@ -180,11 +218,11 @@ export const createAligoRouter = () => {
     }
 
     const result = await sendAligo({
-      tplCode: normalizedTplCode,
-      receiver: normalizedReceiver,
+      tplCode: tplCodeForSend,
+      receiver: receiverForSend,
       recvname: normalizedRecvname ?? undefined,
-      subject: normalizedSubject,
-      message: normalizedMessage,
+      subject: subjectForSend,
+      message: messageForSend,
       emtitle: normalizedEmtitle ?? undefined,
       button,
       testMode: normalizedTestMode,
@@ -194,10 +232,10 @@ export const createAligoRouter = () => {
     await appendSendLog({
       timestamp,
       channel: "alimtalk",
-      receiver: normalizedReceiver,
+      receiver: receiverForSend,
       recvname: normalizedRecvname,
-      tplCode: normalizedTplCode,
-      subject: normalizedSubject,
+      tplCode: tplCodeForSend,
+      subject: subjectForSend,
       testMode: normalizedTestMode,
       consentStatus: consentStatus ?? null,
       adminOverride: reqAdminOverride === true || reqAdminOverride === "true",
@@ -210,24 +248,45 @@ export const createAligoRouter = () => {
       errorMessage: result.ok ? null : (body?.message ?? null),
     });
 
-    // crm_message_log에도 기록 (memberCode가 있을 때)
-    if (typeof memberCode === "string" && memberCode) {
+    // crm_message_log에 기록 (전화번호 기준 — 실험 배정 키와 일치)
+    if (receiverForSend) {
       try {
         recordMessage({
-          customer_key: memberCode,
+          experiment_key: typeof experimentKey === "string" && experimentKey ? experimentKey : undefined,
+          customer_key: receiverForSend,
           channel: "alimtalk",
           provider_status: result.ok ? "success" : "fail",
-          template_code: normalizedTplCode,
+          template_code: tplCodeForSend,
         });
       } catch { /* 로그 실패는 무시 */ }
     }
 
     // SMS fallback: 알림톡 실패 시 자동 SMS 발송
     const { fallbackSms, fallbackMessage } = (req.body ?? {}) as Record<string, unknown>;
-    if (!result.ok && fallbackSms && normalizedMessage) {
-      const smsMsg = readOptionalString(fallbackMessage) ?? normalizedMessage;
+    if (!result.ok && fallbackSms && messageForSend) {
+      const smsMsg = readOptionalString(fallbackMessage) ?? messageForSend;
+      const fallbackPolicy = evaluateForEnforcement({
+        channel: "sms",
+        receiver: receiverForSend,
+        memberCode: typeof memberCode === "string" ? memberCode : null,
+        templateCode: tplCodeForSend,
+        templateType: typeof templateType === "string" ? templateType : null,
+        body: smsMsg,
+        source: typeof sendSource === "string" ? sendSource : null,
+        groupId: typeof groupId === "string" ? groupId : null,
+        adminOverride: isAdminOverride,
+      });
+      if (sendPolicyBlockedResponse(res, fallbackPolicy, {
+        channel: "sms_fallback",
+        receiver: receiverForSend,
+        templateCode: tplCodeForSend,
+        groupId: typeof groupId === "string" ? groupId : null,
+        source: typeof sendSource === "string" ? sendSource : null,
+      })) {
+        return;
+      }
       const smsResult = await sendAligoSms({
-        receiver: normalizedReceiver,
+        receiver: receiverForSend,
         message: smsMsg,
         testMode: normalizedTestMode,
       });
@@ -235,7 +294,7 @@ export const createAligoRouter = () => {
       await appendSendLog({
         timestamp: new Date().toISOString(),
         channel: "sms_fallback",
-        receiver: normalizedReceiver,
+        receiver: receiverForSend,
         message: smsMsg,
         testMode: normalizedTestMode,
         ok: smsResult.ok,
@@ -255,24 +314,52 @@ export const createAligoRouter = () => {
   });
 
   router.post("/api/aligo/sms", async (req: Request, res: Response) => {
-    const { receiver, message, testMode, consentStatus: smsConsentStatus, adminOverride: smsAdminOverride, daysSinceLastPurchase: smsDays, source: smsSource, memberCode: smsMemberCode } = (req.body ?? {}) as Record<string, unknown>;
+    const { receiver, message, testMode, consentStatus: smsConsentStatus, adminOverride: smsAdminOverride, daysSinceLastPurchase: smsDays, source: smsSource, memberCode: smsMemberCode, experimentKey: smsExperimentKey, groupId: smsGroupId, templateCode: smsTemplateCode, templateType: smsTemplateType } = (req.body ?? {}) as Record<string, unknown>;
     const normalizedReceiver = normalizePhoneNumber(receiver);
     const normalizedMessage = readRequiredString(message);
     const normalizedTestMode = resolveAligoTestMode(testMode);
 
-    if (!normalizedReceiver || !normalizedMessage) {
-      res.status(400).json({ ok: false, error: "receiver, message are required" });
+    const requiredErrors = [
+      ...(!normalizedReceiver ? [{ field: "receiver", code: "required", message: "receiver 필요" }] : []),
+      ...(!normalizedMessage ? [{ field: "message", code: "required", message: "message 필요" }] : []),
+    ];
+    if (requiredErrors.length > 0) {
+      res.status(400).json({ ok: false, error: requiredErrors[0].message, errors: requiredErrors });
       return;
     }
+    const smsReceiverForSend = normalizedReceiver!;
+    const smsMessageForSend = normalizedMessage!;
     const isSmsAdminOverride = smsAdminOverride === true || smsAdminOverride === "true";
-    if (!ALIGO_RECEIVER_WHITELIST.includes(normalizedReceiver) && !isSmsAdminOverride) {
+    const normalizedSmsTemplateCode = readOptionalString(smsTemplateCode);
+    const smsPolicy = evaluateForEnforcement({
+      channel: "sms",
+      receiver: smsReceiverForSend,
+      memberCode: typeof smsMemberCode === "string" ? smsMemberCode : null,
+      templateCode: normalizedSmsTemplateCode,
+      templateType: typeof smsTemplateType === "string" ? smsTemplateType : null,
+      body: smsMessageForSend,
+      source: typeof smsSource === "string" ? smsSource : null,
+      groupId: typeof smsGroupId === "string" ? smsGroupId : null,
+      adminOverride: isSmsAdminOverride,
+    });
+    if (sendPolicyBlockedResponse(res, smsPolicy, {
+      channel: "sms",
+      receiver: smsReceiverForSend,
+      templateCode: normalizedSmsTemplateCode,
+      groupId: typeof smsGroupId === "string" ? smsGroupId : null,
+      source: typeof smsSource === "string" ? smsSource : null,
+    })) {
+      return;
+    }
+
+    if (!ALIGO_RECEIVER_WHITELIST.includes(smsReceiverForSend) && !isSmsAdminOverride) {
       res.status(403).json({ ok: false, message: "수신자가 허용 목록에 없습니다. 관리자 강제 발송(adminOverride)을 사용하세요." });
       return;
     }
 
     const result = await sendAligoSms({
-      receiver: normalizedReceiver,
-      message: normalizedMessage,
+      receiver: smsReceiverForSend,
+      message: smsMessageForSend,
       testMode: normalizedTestMode,
     });
 
@@ -285,8 +372,8 @@ export const createAligoRouter = () => {
       daysSinceLastPurchase: typeof smsDays === "number" ? smsDays : null,
       memberCode: typeof smsMemberCode === "string" && smsMemberCode ? smsMemberCode : null,
       source: smsSource ?? null,
-      receiver: normalizedReceiver,
-      message: normalizedMessage,
+      receiver: smsReceiverForSend,
+      message: smsMessageForSend,
       testMode: normalizedTestMode,
       ok: result.ok,
       mid: (smsBody?.info as Record<string, unknown>)?.mid ?? smsBody?.msg_id ?? null,
@@ -294,13 +381,15 @@ export const createAligoRouter = () => {
       errorMessage: result.ok ? null : (smsBody?.message ?? null),
     });
 
-    // crm_message_log에도 기록 (memberCode가 있을 때)
-    if (typeof smsMemberCode === "string" && smsMemberCode) {
+    // crm_message_log에 기록 (전화번호 기준)
+    if (smsReceiverForSend) {
       try {
         recordMessage({
-          customer_key: smsMemberCode,
+          experiment_key: typeof smsExperimentKey === "string" && smsExperimentKey ? smsExperimentKey : undefined,
+          customer_key: smsReceiverForSend,
           channel: "sms",
           provider_status: result.ok ? "success" : "fail",
+          template_code: normalizedSmsTemplateCode ?? undefined,
         });
       } catch { /* 로그 실패는 무시 */ }
     }
@@ -468,3 +557,71 @@ const readOptionalStringRecord = (
 
   return normalized;
 };
+
+function sendPolicyBlockedResponse(
+  res: Response,
+  policy: ContactPolicyEnforcementResult,
+  context: {
+    channel: string;
+    receiver: string | null;
+    templateCode?: string | null;
+    groupId?: string | null;
+    source?: string | null;
+  },
+): boolean {
+  const hardLegalReasons = policy.blockedReasons.filter((reason) => reason.severity === "hard_legal");
+  if (hardLegalReasons.length > 0) {
+    log.warn({
+      event: obsEvents.contactPolicyDecision,
+      decision: "blocked",
+      severity: "hard_legal",
+      reasons: hardLegalReasons,
+      ...context,
+    });
+    res.status(451).json(toPolicyBlockedBody("hard_legal", hardLegalReasons));
+    return true;
+  }
+
+  const hardPolicyReasons = policy.blockedReasons.filter((reason) => reason.severity === "hard_policy");
+  if (hardPolicyReasons.length > 0 && !policy.adminOverride) {
+    log.warn({
+      event: obsEvents.contactPolicyDecision,
+      decision: "blocked",
+      severity: "hard_policy",
+      reasons: hardPolicyReasons,
+      ...context,
+    });
+    res.status(403).json(toPolicyBlockedBody("hard_policy", hardPolicyReasons));
+    return true;
+  }
+
+  if (policy.adminOverride && policy.blockedReasons.length > 0) {
+    log.warn({
+      event: obsEvents.contactPolicyDecision,
+      decision: "admin_override_allowed",
+      severity: highestPolicySeverity(policy),
+      reasons: policy.blockedReasons,
+      ...context,
+    });
+  }
+
+  return false;
+}
+
+function toPolicyBlockedBody(
+  severity: EnforcementSeverity,
+  reasons: ContactPolicyEnforcementResult["blockedReasons"],
+) {
+  return {
+    ok: false,
+    blocked_by_policy: true,
+    severity,
+    reasons,
+  };
+}
+
+function highestPolicySeverity(policy: ContactPolicyEnforcementResult): EnforcementSeverity {
+  if (policy.blockedReasons.some((reason) => reason.severity === "hard_legal")) return "hard_legal";
+  if (policy.blockedReasons.some((reason) => reason.severity === "hard_policy")) return "hard_policy";
+  return "soft";
+}

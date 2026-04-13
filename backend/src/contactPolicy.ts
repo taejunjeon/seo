@@ -4,8 +4,10 @@
  * "이 고객에게 지금 메시지를 보내도 되는가?"를 판단한다.
  * 판단 기준: 수신 동의, 문구 검토, 야간시간, 쿨다운, 빈도 제한, 최근 구매/상담, 연락처 유무
  *
- * 순수 함수 — DB를 직접 조회하지 않고, 호출하는 쪽이 고객 정보를 넘기면 결과를 반환한다.
+ * evaluateContactPolicy는 순수 함수다. evaluateForEnforcement는 실제 발송 차단을 위해 로컬 CRM DB를 조회한다.
  */
+
+import { getCrmDb, getImwebMemberByMemberCode, getImwebMemberByPhone } from "./crmLocalDb";
 
 const POLICY_VERSION = "p1-s1b-v1-ts";
 const TIMEZONE = "Asia/Seoul";
@@ -46,6 +48,37 @@ export type ContactPolicyResult = {
   evaluatedAt: string;
 };
 
+export type EnforcementSeverity = "hard_legal" | "hard_policy" | "soft";
+
+export type EnforcementBlockedReason = {
+  code: "LH-1" | "LH-2" | "PH-1" | "PH-2" | "SO-1" | "SO-2" | "SO-3";
+  severity: EnforcementSeverity;
+  message: string;
+};
+
+export type ContactPolicyEnforcementInput = {
+  channel: "alimtalk" | "aligo" | "sms" | "channeltalk";
+  receiver?: string | null;
+  memberCode?: string | null;
+  templateCode?: string | null;
+  templateType?: string | null;
+  body?: string | null;
+  source?: string | null;
+  groupId?: string | null;
+  batchSize?: number | null;
+  adminOverride?: boolean;
+  now?: Date;
+};
+
+export type ContactPolicyEnforcementResult = {
+  policyVersion: string;
+  eligible: boolean;
+  adminOverride: boolean;
+  isAdvertising: boolean;
+  blockedReasons: EnforcementBlockedReason[];
+  evaluatedAt: string;
+};
+
 function getKstHour(): number {
   const now = new Date();
   // KST = UTC+9
@@ -56,6 +89,186 @@ function getKstHour(): number {
 function isQuietHours(): boolean {
   const hour = getKstHour();
   return hour >= QUIET_HOURS.startHour || hour < QUIET_HOURS.endHour;
+}
+
+function isQuietHoursAt(now: Date): boolean {
+  const kstMs = now.getTime() + 9 * 60 * 60 * 1000;
+  const hour = new Date(kstMs).getUTCHours();
+  return hour >= QUIET_HOURS.startHour || hour < QUIET_HOURS.endHour;
+}
+
+function normalizePhone(value: string | null | undefined): string {
+  const digits = String(value ?? "").replace(/[^0-9]/g, "");
+  if (digits.startsWith("82")) return `0${digits.slice(2)}`;
+  return digits;
+}
+
+function normalizeTemplateType(value: string | null | undefined): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function isAdvertisingMessage(input: ContactPolicyEnforcementInput): boolean {
+  const type = normalizeTemplateType(input.templateType);
+  if (type === "BA") return false;
+  if (type === "AD") return true;
+  return true;
+}
+
+function getMemberForPolicy(input: ContactPolicyEnforcementInput) {
+  const memberCode = String(input.memberCode ?? "").trim();
+  if (memberCode) {
+    const byCode = getImwebMemberByMemberCode(memberCode);
+    if (byCode) return byCode;
+  }
+
+  const phone = normalizePhone(input.receiver);
+  return phone ? getImwebMemberByPhone(phone) : undefined;
+}
+
+function hasLatestSmsRefusal(input: ContactPolicyEnforcementInput): boolean {
+  const phone = normalizePhone(input.receiver);
+  const member = getMemberForPolicy(input);
+  const memberCode = String(input.memberCode ?? member?.member_code ?? "").trim();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (memberCode) {
+    conditions.push("member_code = ?");
+    params.push(memberCode);
+  }
+  if (phone) {
+    conditions.push("REPLACE(REPLACE(REPLACE(COALESCE(phone, ''), '-', ''), ' ', ''), '+82', '0') = ?");
+    params.push(phone);
+  }
+  if (conditions.length === 0) return false;
+
+  const row = getCrmDb().prepare(`
+    SELECT new_value
+    FROM crm_consent_change_log
+    WHERE field = 'marketing_agree_sms'
+      AND (${conditions.join(" OR ")})
+    ORDER BY datetime(changed_at) DESC, changed_at DESC, id DESC
+    LIMIT 1
+  `).get(...params) as { new_value: string | null } | undefined;
+
+  return String(row?.new_value ?? "").trim().toUpperCase() === "N";
+}
+
+function hasSmsConsent(input: ContactPolicyEnforcementInput): boolean {
+  const member = getMemberForPolicy(input);
+  return String(member?.marketing_agree_sms ?? "").trim().toUpperCase() === "Y";
+}
+
+function getGroupConsentRatio(groupId: string | null | undefined): number | null {
+  const normalized = String(groupId ?? "").trim();
+  if (!normalized) return null;
+  const row = getCrmDb().prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN consent_sms = 1 THEN 1 ELSE 0 END) AS consented
+    FROM crm_customer_group_members
+    WHERE group_id = ?
+  `).get(normalized) as { total: number; consented: number | null } | undefined;
+
+  const total = Number(row?.total) || 0;
+  if (total === 0) return null;
+  return (Number(row?.consented) || 0) / total;
+}
+
+function hasSuccessfulDuplicateWithin24h(input: ContactPolicyEnforcementInput): boolean {
+  const phone = normalizePhone(input.receiver);
+  const templateCode = String(input.templateCode ?? "").trim();
+  if (!phone || !templateCode) return false;
+  const row = getCrmDb().prepare(`
+    SELECT 1
+    FROM crm_message_log
+    WHERE customer_key = ?
+      AND template_code = ?
+      AND provider_status = 'success'
+      AND sent_at >= datetime('now', '-24 hours')
+    LIMIT 1
+  `).get(phone, templateCode);
+  return Boolean(row);
+}
+
+function hasUnfilledTemplatePlaceholders(body: string | null | undefined): boolean {
+  return /#\{[^}]+\}/.test(String(body ?? ""));
+}
+
+export function evaluateForEnforcement(input: ContactPolicyEnforcementInput): ContactPolicyEnforcementResult {
+  const blockedReasons: EnforcementBlockedReason[] = [];
+  const now = input.now ?? new Date();
+  const adminOverride = input.adminOverride === true;
+  const isAdvertising = isAdvertisingMessage(input);
+
+  if (isAdvertising && isQuietHoursAt(now)) {
+    blockedReasons.push({
+      code: "LH-1",
+      severity: "hard_legal",
+      message: "광고성 메시지는 21시~08시 발송 금지",
+    });
+  }
+
+  if (hasLatestSmsRefusal(input)) {
+    blockedReasons.push({
+      code: "LH-2",
+      severity: "hard_legal",
+      message: "수신거부 최신 이력이 있어 발송할 수 없다",
+    });
+  }
+
+  if (isAdvertising && !hasSmsConsent(input)) {
+    blockedReasons.push({
+      code: "PH-1",
+      severity: "hard_policy",
+      message: "SMS 마케팅 수신 동의가 확인되지 않은 광고성 발송",
+    });
+  }
+
+  const groupConsentRatio = getGroupConsentRatio(input.groupId);
+  if (isAdvertising && groupConsentRatio !== null && groupConsentRatio < 0.5) {
+    blockedReasons.push({
+      code: "PH-2",
+      severity: "hard_policy",
+      message: `그룹 SMS 동의율이 ${(groupConsentRatio * 100).toFixed(1)}%로 50% 미만`,
+    });
+  }
+
+  if (hasSuccessfulDuplicateWithin24h(input)) {
+    blockedReasons.push({
+      code: "SO-1",
+      severity: "soft",
+      message: "최근 24시간 내 같은 수신자에게 같은 템플릿 성공 발송 이력이 있다",
+    });
+  }
+
+  if (typeof input.batchSize === "number" && input.batchSize > 1000) {
+    blockedReasons.push({
+      code: "SO-2",
+      severity: "soft",
+      message: "1000명 초과 배치 발송",
+    });
+  }
+
+  if (hasUnfilledTemplatePlaceholders(input.body)) {
+    blockedReasons.push({
+      code: "SO-3",
+      severity: "soft",
+      message: "템플릿에 채워지지 않은 #{변수} 플레이스홀더가 있다",
+    });
+  }
+
+  const hasHardLegal = blockedReasons.some((reason) => reason.severity === "hard_legal");
+  const hasHardPolicy = blockedReasons.some((reason) => reason.severity === "hard_policy");
+
+  return {
+    policyVersion: POLICY_VERSION,
+    eligible: !hasHardLegal && (!hasHardPolicy || adminOverride),
+    adminOverride,
+    isAdvertising,
+    blockedReasons,
+    evaluatedAt: now.toISOString(),
+  };
 }
 
 export function evaluateContactPolicy(

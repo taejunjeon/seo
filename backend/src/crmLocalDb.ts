@@ -9,9 +9,12 @@
  * - crm_assignment_log: 고객별 실험군/대조군 배정
  * - crm_conversion_log: 구매/환불 전환 기록
  * - crm_message_log: 발송 기록
+ * - crm_scheduled_send: 그룹 예약 발송 작업
+ * - crm_saved_segments: 저장 세그먼트 조건 AST
  * - crm_lead_profile: 구매 전 리드 프로필
  * - crm_lead_event_log: 리드 마그넷/상담 예약/첫 구매 이벤트
  * - crm_consent_log: 리드 수신 동의 상태
+ * - crm_consent_change_log: 아임웹 회원 SMS/email 동의 변경 감사 로그
  * - imweb_orders: 아임웹 주문 원장 로컬 캐시
  */
 
@@ -36,6 +39,9 @@ export function getCrmDb(): Database.Database {
     initTables(db);
     ensureColumn(db, "imweb_members", "site", "TEXT DEFAULT 'biocom'");
     ensureColumn(db, "imweb_members", "birth", "TEXT DEFAULT ''");
+    ensureColumn(db, "crm_scheduled_send", "template_type", "TEXT DEFAULT NULL");
+    ensureCustomerGroupLifecycleColumns(db);
+    backfillCustomerGroupKinds(db);
   }
   return db;
 }
@@ -109,6 +115,9 @@ function initTables(db: Database.Database) {
       group_id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
+      group_kind TEXT DEFAULT 'manual',
+      source_ref TEXT DEFAULT NULL,
+      archived_at TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -119,10 +128,52 @@ function initTables(db: Database.Database) {
       phone TEXT NOT NULL,
       name TEXT,
       member_code TEXT,
-      consent_sms INTEGER DEFAULT 0,
+      consent_sms INTEGER DEFAULT NULL,
       added_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(group_id, phone)
     );
+
+    CREATE TABLE IF NOT EXISTS crm_saved_segments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      site TEXT NOT NULL,
+      query_json TEXT NOT NULL,
+      description TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_evaluated_at TEXT,
+      last_result_count INTEGER
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_saved_segments_site ON crm_saved_segments(site);
+
+    CREATE TABLE IF NOT EXISTS crm_scheduled_send (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      template_code TEXT,
+      template_type TEXT,
+      subject TEXT,
+      message TEXT NOT NULL,
+      scheduled_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      started_at TEXT,
+      finished_at TEXT,
+      total_count INTEGER DEFAULT 0,
+      success_count INTEGER DEFAULT 0,
+      fail_count INTEGER DEFAULT 0,
+      error_message TEXT,
+      admin_override INTEGER NOT NULL DEFAULT 0,
+      test_mode INTEGER NOT NULL DEFAULT 0,
+      experiment_key TEXT,
+      note TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_scheduled_status_time ON crm_scheduled_send(status, scheduled_at);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_group ON crm_scheduled_send(group_id);
 
     CREATE TABLE IF NOT EXISTS crm_lead_profile (
       lead_id TEXT PRIMARY KEY,
@@ -164,6 +215,22 @@ function initTables(db: Database.Database) {
       occurred_at TEXT NOT NULL DEFAULT (datetime('now')),
       payload_json TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS crm_consent_change_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site TEXT NOT NULL,
+      member_code TEXT NOT NULL,
+      phone TEXT,
+      field TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      source TEXT NOT NULL,
+      changed_at TEXT NOT NULL,
+      note TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_consent_member ON crm_consent_change_log(member_code);
+    CREATE INDEX IF NOT EXISTS idx_consent_changed_at ON crm_consent_change_log(changed_at);
 
     CREATE TABLE IF NOT EXISTS imweb_members (
       member_code TEXT PRIMARY KEY,
@@ -904,12 +971,51 @@ function inferFunnelStage(eventName?: string | null) {
   return "pre_purchase";
 }
 
-function ensureColumn(db: Database.Database, tableName: string, columnName: string, definition: string) {
+function tableHasColumn(db: Database.Database, tableName: string, columnName: string): boolean {
   const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
-  if (columns.some((column) => column.name === columnName)) {
+  return columns.some((column) => column.name === columnName);
+}
+
+function ensureColumn(db: Database.Database, tableName: string, columnName: string, definition: string) {
+  if (tableHasColumn(db, tableName, columnName)) {
     return;
   }
   db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+}
+
+function ensureCustomerGroupLifecycleColumns(db: Database.Database) {
+  ensureColumn(db, "crm_customer_groups", "group_kind", "TEXT DEFAULT 'manual'");
+  ensureColumn(db, "crm_customer_groups", "source_ref", "TEXT DEFAULT NULL");
+  ensureColumn(db, "crm_customer_groups", "archived_at", "TEXT DEFAULT NULL");
+  ensureColumn(db, "crm_customer_group_members", "consent_sms", "INTEGER DEFAULT NULL");
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_customer_groups_kind ON crm_customer_groups(group_kind, archived_at);
+    CREATE INDEX IF NOT EXISTS idx_customer_groups_source_ref ON crm_customer_groups(source_ref);
+  `);
+}
+
+function backfillCustomerGroupKinds(db: Database.Database) {
+  db.exec(`
+    UPDATE crm_customer_groups
+    SET group_kind = 'manual'
+    WHERE group_kind IS NULL OR TRIM(group_kind) = '';
+
+    UPDATE crm_customer_groups
+    SET group_kind = 'repurchase_temp'
+    WHERE group_kind != 'repurchase_temp'
+      AND (
+        name LIKE '재구매%'
+        OR name LIKE '[임시] 재구매%'
+      );
+
+    UPDATE crm_customer_groups
+    SET group_kind = 'experiment_snapshot'
+    WHERE group_kind NOT IN ('repurchase_temp', 'experiment_snapshot')
+      AND (
+        name LIKE '실험-%'
+        OR COALESCE(description, '') LIKE '실험 %'
+      );
+  `);
 }
 
 // ── 아임웹 회원 동기화 ──
@@ -930,9 +1036,119 @@ export type ImwebMemberRow = {
   site: string;
 };
 
+export type ConsentChangeEntry = {
+  id: number;
+  site: string;
+  member_code: string;
+  phone: string | null;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  source: string;
+  changed_at: string;
+  note: string | null;
+};
+
+export type ConsentChangeParams = {
+  site: string;
+  member_code: string;
+  phone?: string | null;
+  field: string;
+  old_value?: string | null;
+  new_value?: string | null;
+  source: string;
+  changed_at?: string | null;
+  note?: string | null;
+};
+
+type ExistingImwebConsentRow = {
+  site: string | null;
+  member_code: string;
+  callnum: string | null;
+  marketing_agree_sms: string | null;
+  marketing_agree_email: string | null;
+};
+
+const normalizeConsentForCompare = (value: unknown) => String(value ?? "").trim();
+
+function insertConsentChange(db: Database.Database, input: ConsentChangeParams): number {
+  const result = db.prepare(`
+    INSERT INTO crm_consent_change_log (
+      site, member_code, phone, field, old_value, new_value, source, changed_at, note
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?)
+  `).run(
+    input.site,
+    input.member_code,
+    input.phone ?? null,
+    input.field,
+    input.old_value ?? null,
+    input.new_value ?? null,
+    input.source,
+    input.changed_at ?? null,
+    input.note ?? null,
+  );
+  return Number(result.lastInsertRowid);
+}
+
+export function recordConsentChange(params: ConsentChangeParams): number {
+  return insertConsentChange(getCrmDb(), params);
+}
+
+export function getConsentChangeById(id: number): ConsentChangeEntry | null {
+  const row = getCrmDb().prepare(`
+    SELECT id, site, member_code, phone, field, old_value, new_value, source, changed_at, note
+    FROM crm_consent_change_log
+    WHERE id = ?
+  `).get(id) as ConsentChangeEntry | undefined;
+  return row ?? null;
+}
+
+function recordImwebConsentChanges(
+  db: Database.Database,
+  row: ImwebMemberRow,
+  existing: ExistingImwebConsentRow | undefined,
+  source: string,
+  note: string,
+) {
+  const fields = [
+    ["marketing_agree_sms", existing?.marketing_agree_sms ?? null, row.marketing_agree_sms],
+    ["marketing_agree_email", existing?.marketing_agree_email ?? null, row.marketing_agree_email],
+  ] as const;
+
+  const isNewMember = !existing;
+  const noteForChange = isNewMember ? `${note} (initial)` : note;
+
+  for (const [field, oldValueRaw, newValueRaw] of fields) {
+    const oldValue = normalizeConsentForCompare(oldValueRaw);
+    const newValue = normalizeConsentForCompare(newValueRaw);
+    // 기존 회원은 변화가 없으면 스킵. 신규 회원은 new_value가 비어있지 않으면 초기값으로 기록.
+    if (isNewMember) {
+      if (!newValue) continue;
+    } else {
+      if (oldValue === newValue) continue;
+    }
+    insertConsentChange(db, {
+      site: row.site || existing?.site || "biocom",
+      member_code: row.member_code,
+      phone: row.callnum || existing?.callnum || null,
+      field,
+      old_value: isNewMember ? null : oldValue,
+      new_value: newValue,
+      source,
+      note: noteForChange,
+    });
+  }
+}
+
 export function upsertImwebMember(row: ImwebMemberRow) {
   const db = getCrmDb();
-  db.prepare(`
+  const existing = db.prepare(`
+    SELECT site, member_code, callnum, marketing_agree_sms, marketing_agree_email
+    FROM imweb_members
+    WHERE member_code = ?
+  `).get(row.member_code) as ExistingImwebConsentRow | undefined;
+  const stmt = db.prepare(`
     INSERT INTO imweb_members (member_code, uid, name, callnum, email, birth, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, synced_at)
     VALUES (@member_code, @uid, @name, @callnum, @email, @birth, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, datetime('now'))
     ON CONFLICT(member_code) DO UPDATE SET
@@ -940,11 +1156,21 @@ export function upsertImwebMember(row: ImwebMemberRow) {
       marketing_agree_sms=excluded.marketing_agree_sms, marketing_agree_email=excluded.marketing_agree_email,
       third_party_agree=excluded.third_party_agree, member_grade=excluded.member_grade,
       join_time=excluded.join_time, last_login_time=excluded.last_login_time, site=excluded.site, synced_at=datetime('now')
-  `).run(row);
+  `);
+  const tx = db.transaction((item: ImwebMemberRow) => {
+    recordImwebConsentChanges(db, item, existing, "imweb_member_sync", "upsertImwebMember");
+    stmt.run(item);
+  });
+  tx(row);
 }
 
 export function upsertImwebMembers(rows: ImwebMemberRow[]) {
   const db = getCrmDb();
+  const existingStmt = db.prepare(`
+    SELECT site, member_code, callnum, marketing_agree_sms, marketing_agree_email
+    FROM imweb_members
+    WHERE member_code = ?
+  `);
   const stmt = db.prepare(`
     INSERT INTO imweb_members (member_code, uid, name, callnum, email, birth, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, synced_at)
     VALUES (@member_code, @uid, @name, @callnum, @email, @birth, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, datetime('now'))
@@ -955,9 +1181,53 @@ export function upsertImwebMembers(rows: ImwebMemberRow[]) {
       join_time=excluded.join_time, last_login_time=excluded.last_login_time, site=excluded.site, synced_at=datetime('now')
   `);
   const tx = db.transaction((items: ImwebMemberRow[]) => {
-    for (const row of items) stmt.run(row);
+    for (const row of items) {
+      const existing = existingStmt.get(row.member_code) as ExistingImwebConsentRow | undefined;
+      recordImwebConsentChanges(db, row, existing, "imweb_member_sync", "upsertImwebMembers");
+      stmt.run(row);
+    }
   });
   tx(rows);
+}
+
+export function listConsentChanges(input: {
+  site?: string;
+  memberCode?: string;
+  limit?: number;
+  offset?: number;
+}): { total: number; entries: ConsentChangeEntry[] } {
+  const db = getCrmDb();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (input.site) {
+    conditions.push("site = ?");
+    params.push(input.site);
+  }
+  if (input.memberCode) {
+    conditions.push("member_code = ?");
+    params.push(input.memberCode);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = Math.max(1, Math.min(input.limit ?? 100, 500));
+  const offset = Math.max(0, input.offset ?? 0);
+
+  const total = (db.prepare(`
+    SELECT COUNT(*) AS cnt
+    FROM crm_consent_change_log
+    ${where}
+  `).get(...params) as { cnt: number }).cnt;
+
+  const entries = db.prepare(`
+    SELECT id, site, member_code, phone, field, old_value, new_value, source, changed_at, note
+    FROM crm_consent_change_log
+    ${where}
+    ORDER BY changed_at DESC, id DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset) as ConsentChangeEntry[];
+
+  return { total, entries };
 }
 
 export function getImwebMemberConsentStats(site?: string) {
@@ -978,6 +1248,12 @@ export function getImwebMemberByPhone(phone: string) {
   const db = getCrmDb();
   const normalized = phone.replace(/[^0-9]/g, "");
   return db.prepare("SELECT * FROM imweb_members WHERE REPLACE(REPLACE(callnum, '-', ''), ' ', '') = ?").get(normalized) as ImwebMemberRow | undefined;
+}
+
+export function getImwebMemberByMemberCode(memberCode: string) {
+  const normalized = memberCode.trim();
+  if (!normalized) return undefined;
+  return getCrmDb().prepare("SELECT * FROM imweb_members WHERE member_code = ?").get(normalized) as ImwebMemberRow | undefined;
 }
 
 // ── 아임웹 주문 동기화 ──
@@ -1851,12 +2127,250 @@ export function getAbSummary(experimentKey: string): {
   return { experiment, variants, conversionWindowDays: experiment.conversion_window_days };
 }
 
+/* ── 예약 발송 ── */
+
+export type ScheduledSendStatus =
+  | "pending"
+  | "running"
+  | "success"
+  | "partial"
+  | "fail"
+  | "canceled";
+
+export type ScheduledSendChannel = "alimtalk" | "sms";
+
+export type ScheduledSendRow = {
+  id: number;
+  group_id: string;
+  channel: ScheduledSendChannel;
+  template_code: string | null;
+  template_type: string | null;
+  subject: string | null;
+  message: string;
+  scheduled_at: string;
+  status: ScheduledSendStatus;
+  created_by: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  total_count: number;
+  success_count: number;
+  fail_count: number;
+  error_message: string | null;
+  admin_override: number;
+  test_mode: number;
+  experiment_key: string | null;
+  note: string | null;
+};
+
+export type ScheduledSendInput = {
+  group_id: string;
+  channel: ScheduledSendChannel;
+  template_code?: string | null;
+  template_type?: string | null;
+  subject?: string | null;
+  message: string;
+  scheduled_at: string;
+  created_by?: string | null;
+  admin_override?: boolean | number;
+  test_mode?: boolean | number;
+  experiment_key?: string | null;
+  note?: string | null;
+};
+
+export function createScheduledSend(input: ScheduledSendInput): { id: number; status: "pending" } {
+  const result = getCrmDb().prepare(`
+    INSERT INTO crm_scheduled_send (
+      group_id, channel, template_code, template_type, subject, message, scheduled_at,
+      created_by, admin_override, test_mode, experiment_key, note
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    input.group_id,
+    input.channel,
+    input.template_code ?? null,
+    input.template_type ?? null,
+    input.subject ?? null,
+    input.message,
+    input.scheduled_at,
+    input.created_by ?? null,
+    input.admin_override ? 1 : 0,
+    input.test_mode ? 1 : 0,
+    input.experiment_key ?? null,
+    input.note ?? null,
+  );
+  return { id: Number(result.lastInsertRowid), status: "pending" };
+}
+
+export function listScheduledSends(input: {
+  status?: ScheduledSendStatus;
+  groupId?: string;
+  limit?: number;
+  offset?: number;
+} = {}): { total: number; rows: ScheduledSendRow[] } {
+  const db = getCrmDb();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  if (input.status) {
+    conditions.push("status = ?");
+    params.push(input.status);
+  }
+  if (input.groupId) {
+    conditions.push("group_id = ?");
+    params.push(input.groupId);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = Math.max(1, Math.min(input.limit ?? 50, 500));
+  const offset = Math.max(0, input.offset ?? 0);
+  const total = (db.prepare(`
+    SELECT COUNT(*) AS cnt
+    FROM crm_scheduled_send
+    ${where}
+  `).get(...params) as { cnt: number }).cnt;
+  const rows = db.prepare(`
+    SELECT *
+    FROM crm_scheduled_send
+    ${where}
+    ORDER BY scheduled_at DESC, id DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset) as ScheduledSendRow[];
+  return { total, rows };
+}
+
+export function getScheduledSend(id: number): ScheduledSendRow | null {
+  const row = getCrmDb().prepare("SELECT * FROM crm_scheduled_send WHERE id = ?").get(id) as ScheduledSendRow | undefined;
+  return row ?? null;
+}
+
+export function cancelScheduledSend(id: number): boolean {
+  const result = getCrmDb().prepare(`
+    UPDATE crm_scheduled_send
+    SET status = 'canceled', finished_at = datetime('now')
+    WHERE id = ? AND status = 'pending'
+  `).run(id);
+  return result.changes > 0;
+}
+
+export function claimDueScheduledSends(now: string, limit = 10): ScheduledSendRow[] {
+  return getCrmDb().prepare(`
+    UPDATE crm_scheduled_send
+    SET status = 'running', started_at = datetime('now'), error_message = NULL
+    WHERE id IN (
+      SELECT id
+      FROM crm_scheduled_send
+      WHERE status = 'pending' AND scheduled_at <= ?
+      ORDER BY scheduled_at ASC, id ASC
+      LIMIT ?
+    )
+    RETURNING *
+  `).all(now, Math.max(1, limit)) as ScheduledSendRow[];
+}
+
+export function finishScheduledSend(id: number, input: {
+  status: Extract<ScheduledSendStatus, "success" | "partial" | "fail">;
+  successCount: number;
+  failCount: number;
+  errorMessage?: string | null;
+}): void {
+  const successCount = Math.max(0, input.successCount);
+  const failCount = Math.max(0, input.failCount);
+  getCrmDb().prepare(`
+    UPDATE crm_scheduled_send
+    SET
+      status = ?,
+      finished_at = datetime('now'),
+      total_count = ?,
+      success_count = ?,
+      fail_count = ?,
+      error_message = ?
+    WHERE id = ?
+  `).run(
+    input.status,
+    successCount + failCount,
+    successCount,
+    failCount,
+    input.errorMessage ?? null,
+    id,
+  );
+}
+
+/* ── 저장 세그먼트 ── */
+
+export type SavedSegmentRow = {
+  id: number;
+  name: string;
+  site: string;
+  query_json: string;
+  description: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  last_evaluated_at: string | null;
+  last_result_count: number | null;
+};
+
+export function createSavedSegment(input: {
+  name: string;
+  site: string;
+  queryJson: string;
+  description?: string | null;
+  createdBy?: string | null;
+  resultCount: number;
+}): SavedSegmentRow {
+  const result = getCrmDb().prepare(`
+    INSERT INTO crm_saved_segments (
+      name, site, query_json, description, created_by, last_evaluated_at, last_result_count
+    )
+    VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
+  `).run(
+    input.name,
+    input.site,
+    input.queryJson,
+    input.description ?? null,
+    input.createdBy ?? null,
+    input.resultCount,
+  );
+  return getSavedSegment(Number(result.lastInsertRowid))!;
+}
+
+export function listSavedSegments(site: string): SavedSegmentRow[] {
+  return getCrmDb().prepare(`
+    SELECT id, name, site, query_json, description, created_by, created_at, updated_at, last_evaluated_at, last_result_count
+    FROM crm_saved_segments
+    WHERE site = ?
+    ORDER BY created_at DESC, id DESC
+  `).all(site) as SavedSegmentRow[];
+}
+
+export function getSavedSegment(id: number): SavedSegmentRow | null {
+  const row = getCrmDb().prepare(`
+    SELECT id, name, site, query_json, description, created_by, created_at, updated_at, last_evaluated_at, last_result_count
+    FROM crm_saved_segments
+    WHERE id = ?
+  `).get(id) as SavedSegmentRow | undefined;
+  return row ?? null;
+}
+
+export function deleteSavedSegment(id: number): boolean {
+  const result = getCrmDb().prepare("DELETE FROM crm_saved_segments WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
 /* ── 고객 그룹 관리 ── */
+
+export type CustomerGroupKind =
+  | "manual"
+  | "repurchase_temp"
+  | "experiment_snapshot"
+  | "segment_snapshot";
 
 export type CustomerGroup = {
   group_id: string;
   name: string;
   description: string | null;
+  group_kind: CustomerGroupKind;
+  source_ref: string | null;
+  archived_at: string | null;
   member_count: number;
   created_at: string;
   updated_at: string;
@@ -1866,33 +2380,150 @@ export type CustomerGroupMember = {
   phone: string;
   name: string | null;
   member_code: string | null;
-  consent_sms: boolean;
+  consent_sms: boolean | null;
   added_at: string;
 };
 
-export function listCustomerGroups(): CustomerGroup[] {
+export function listCustomerGroups(input: {
+  kind?: CustomerGroupKind | "all";
+  includeArchived?: boolean;
+} = {}): CustomerGroup[] {
   const db = getCrmDb();
+  const kind = input.kind ?? "manual";
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (kind !== "all") {
+    conditions.push("COALESCE(g.group_kind, 'manual') = ?");
+    params.push(kind);
+    if (!input.includeArchived) {
+      conditions.push("g.archived_at IS NULL");
+    }
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   return db.prepare(`
-    SELECT g.group_id, g.name, g.description, g.created_at, g.updated_at,
+    SELECT
+      g.group_id,
+      g.name,
+      g.description,
+      COALESCE(g.group_kind, 'manual') AS group_kind,
+      g.source_ref,
+      g.archived_at,
+      g.created_at,
+      g.updated_at,
       (SELECT COUNT(*) FROM crm_customer_group_members m WHERE m.group_id = g.group_id) AS member_count
     FROM crm_customer_groups g
+    ${where}
     ORDER BY g.created_at DESC
-  `).all() as CustomerGroup[];
+  `).all(...params) as CustomerGroup[];
 }
 
-export function createCustomerGroup(input: { name: string; description?: string }): CustomerGroup {
+export function getCustomerGroup(groupId: string): CustomerGroup | null {
+  return listCustomerGroups({ kind: "all" }).find((g) => g.group_id === groupId) ?? null;
+}
+
+export function getCustomerGroupStats(): Record<CustomerGroupKind | "archived", number> {
+  const rows = getCrmDb().prepare(`
+    SELECT COALESCE(group_kind, 'manual') AS group_kind, COUNT(*) AS cnt
+    FROM crm_customer_groups
+    WHERE archived_at IS NULL
+    GROUP BY COALESCE(group_kind, 'manual')
+  `).all() as Array<{ group_kind: CustomerGroupKind; cnt: number }>;
+  const archived = (getCrmDb().prepare(`
+    SELECT COUNT(*) AS cnt
+    FROM crm_customer_groups
+    WHERE archived_at IS NOT NULL
+  `).get() as { cnt: number }).cnt;
+  const counts: Record<CustomerGroupKind | "archived", number> = {
+    manual: 0,
+    repurchase_temp: 0,
+    experiment_snapshot: 0,
+    segment_snapshot: 0,
+    archived,
+  };
+  for (const row of rows) {
+    if (row.group_kind in counts) {
+      counts[row.group_kind] = Number(row.cnt) || 0;
+    }
+  }
+  return counts;
+}
+
+function normalizeCustomerGroupKind(value: unknown): CustomerGroupKind {
+  return value === "repurchase_temp"
+    || value === "experiment_snapshot"
+    || value === "segment_snapshot"
+    || value === "manual"
+    ? value
+    : "manual";
+}
+
+export function createCustomerGroup(input: {
+  name: string;
+  description?: string;
+  kind?: CustomerGroupKind;
+  sourceRef?: string | null;
+}): CustomerGroup {
   const db = getCrmDb();
   const groupId = `grp-${Date.now()}`;
+  const kind = normalizeCustomerGroupKind(input.kind);
   db.prepare(`
-    INSERT INTO crm_customer_groups (group_id, name, description) VALUES (?, ?, ?)
-  `).run(groupId, input.name, input.description ?? null);
-  return listCustomerGroups().find((g) => g.group_id === groupId)!;
+    INSERT INTO crm_customer_groups (group_id, name, description, group_kind, source_ref)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(groupId, input.name, input.description ?? null, kind, input.sourceRef ?? null);
+  return getCustomerGroup(groupId)!;
 }
 
 export function deleteCustomerGroup(groupId: string): void {
   const db = getCrmDb();
   db.prepare("DELETE FROM crm_customer_group_members WHERE group_id = ?").run(groupId);
   db.prepare("DELETE FROM crm_customer_groups WHERE group_id = ?").run(groupId);
+}
+
+export function canArchiveGroup(groupId: string): { canArchive: boolean; reason?: string } {
+  const normalized = groupId.trim();
+  if (!normalized) {
+    return { canArchive: false, reason: "groupId가 필요하다" };
+  }
+  const db = getCrmDb();
+  const recurrenceCondition = tableHasColumn(db, "crm_scheduled_send", "recurrence_rule")
+    ? "COALESCE(recurrence_rule, '') != ''"
+    : "0";
+  const row = db.prepare(`
+    SELECT id, status
+    FROM crm_scheduled_send
+    WHERE group_id = ?
+      AND (
+        status IN ('pending', 'running')
+        OR (status = 'success' AND ${recurrenceCondition})
+      )
+    LIMIT 1
+  `).get(normalized) as { id: number; status: string } | undefined;
+
+  if (!row) return { canArchive: true };
+  return {
+    canArchive: false,
+    reason: `예약 발송 #${row.id}(${row.status})이 이 그룹을 참조 중이다`,
+  };
+}
+
+export function archiveCustomerGroup(groupId: string): boolean {
+  const result = getCrmDb().prepare(`
+    UPDATE crm_customer_groups
+    SET archived_at = datetime('now'), updated_at = datetime('now')
+    WHERE group_id = ?
+  `).run(groupId);
+  return result.changes > 0;
+}
+
+export function listArchivedCustomerGroupsForCleanup(): Array<{ group_id: string; name: string; group_kind: CustomerGroupKind; archived_at: string }> {
+  return getCrmDb().prepare(`
+    SELECT group_id, name, COALESCE(group_kind, 'manual') AS group_kind, archived_at
+    FROM crm_customer_groups
+    WHERE archived_at IS NOT NULL
+      AND archived_at < datetime('now', '-30 days')
+  `).all() as Array<{ group_id: string; name: string; group_kind: CustomerGroupKind; archived_at: string }>;
 }
 
 export function listGroupMembers(groupId: string, limit = 500, offset = 0): { total: number; members: CustomerGroupMember[] } {
@@ -1908,13 +2539,13 @@ export function listGroupMembers(groupId: string, limit = 500, offset = 0): { to
       phone: String(r.phone),
       name: r.name ? String(r.name) : null,
       member_code: r.member_code ? String(r.member_code) : null,
-      consent_sms: Number(r.consent_sms) === 1,
+      consent_sms: r.consent_sms === null || r.consent_sms === undefined ? null : Number(r.consent_sms) === 1,
       added_at: String(r.added_at),
     })),
   };
 }
 
-export function addGroupMembers(groupId: string, members: Array<{ phone: string; name?: string; member_code?: string; consent_sms?: boolean }>): number {
+export function addGroupMembers(groupId: string, members: Array<{ phone: string; name?: string; member_code?: string; consent_sms?: boolean | null }>): number {
   const db = getCrmDb();
   const stmt = db.prepare(`
     INSERT OR IGNORE INTO crm_customer_group_members (group_id, phone, name, member_code, consent_sms) VALUES (?, ?, ?, ?, ?)
@@ -1924,13 +2555,32 @@ export function addGroupMembers(groupId: string, members: Array<{ phone: string;
     for (const m of members) {
       const normalized = m.phone.replace(/[^0-9]/g, "");
       if (!normalized) continue;
-      const result = stmt.run(groupId, normalized, m.name ?? null, m.member_code ?? null, m.consent_sms ? 1 : 0);
+      const consentSms = typeof m.consent_sms === "boolean" ? (m.consent_sms ? 1 : 0) : null;
+      const result = stmt.run(groupId, normalized, m.name ?? null, m.member_code ?? null, consentSms);
       if (result.changes > 0) added++;
     }
   });
   insertMany();
   db.prepare("UPDATE crm_customer_groups SET updated_at = datetime('now') WHERE group_id = ?").run(groupId);
   return added;
+}
+
+export function createRepurchaseTempGroup(input: {
+  name: string;
+  description?: string;
+  sourceRef?: string | null;
+  members: Array<{ phone: string; name?: string; member_code?: string; consent_sms?: boolean | null }>;
+}): CustomerGroup {
+  const group = createCustomerGroup({
+    name: input.name,
+    description: input.description,
+    kind: "repurchase_temp",
+    sourceRef: input.sourceRef ?? null,
+  });
+  if (input.members.length > 0) {
+    addGroupMembers(group.group_id, input.members);
+  }
+  return getCustomerGroup(group.group_id)!;
 }
 
 export function deleteGroupMembers(groupId: string, phones: string[]): number {
@@ -1946,19 +2596,36 @@ export function deleteGroupMembers(groupId: string, phones: string[]): number {
 
 export function createGroupFromExperiment(experimentKey: string, variantKey: string, groupName: string): CustomerGroup {
   const db = getCrmDb();
-  const group = createCustomerGroup({ name: groupName, description: `실험 ${experimentKey} - ${variantKey}` });
+  const group = createCustomerGroup({
+    name: groupName,
+    description: `실험 ${experimentKey} - ${variantKey}`,
+    kind: "experiment_snapshot",
+    sourceRef: `experiment:${experimentKey}:${variantKey}`,
+  });
 
-  const assignments = db.prepare(`
-    SELECT a.customer_key AS phone
+  // assignment_log의 customer_key(정규화 전화번호)로 imweb_members를 조인하여 이름/고객번호/동의 가져오기
+  const rows = db.prepare(`
+    SELECT
+      a.customer_key AS phone,
+      COALESCE(m.name, '') AS name,
+      COALESCE(m.member_code, '') AS member_code,
+      CASE WHEN COALESCE(m.marketing_agree_sms, 'N') = 'Y' THEN 1 ELSE 0 END AS consent_sms
     FROM crm_assignment_log a
+    LEFT JOIN imweb_members m
+      ON REPLACE(REPLACE(REPLACE(m.callnum, '-', ''), ' ', ''), '+82', '0') = a.customer_key
     WHERE a.experiment_key = ? AND a.variant_key = ?
-  `).all(experimentKey, variantKey) as Array<{ phone: string }>;
+  `).all(experimentKey, variantKey) as Array<{ phone: string; name: string; member_code: string; consent_sms: number }>;
 
-  if (assignments.length > 0) {
-    addGroupMembers(group.group_id, assignments.map((a) => ({ phone: a.phone })));
+  if (rows.length > 0) {
+    addGroupMembers(group.group_id, rows.map((r) => ({
+      phone: r.phone,
+      name: r.name || undefined,
+      member_code: r.member_code || undefined,
+      consent_sms: r.consent_sms === 1,
+    })));
   }
 
-  return listCustomerGroups().find((g) => g.group_id === group.group_id)!;
+  return getCustomerGroup(group.group_id)!;
 }
 
 export function listMessageLog(input: { limit?: number; offset?: number; channel?: string }): { total: number; messages: Array<Record<string, unknown>> } {
@@ -1973,4 +2640,317 @@ export function listMessageLog(input: { limit?: number; offset?: number; channel
   `).all(...params, input.limit ?? 50, input.offset ?? 0) as Array<Record<string, unknown>>;
 
   return { total, messages };
+}
+
+/* ─── Phase 2: 고객 목록 / 등급 / 세그먼트 ─── */
+
+export function listCustomers(input: {
+  site: string;
+  search?: string;
+  grade?: string;
+  consentSms?: boolean;
+  limit?: number;
+  offset?: number;
+}): {
+  total: number;
+  customers: Array<{
+    member_code: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    member_grade: string | null;
+    join_time: string | null;
+    marketing_agree_sms: string;
+    total_orders: number;
+    total_spent: number;
+    last_order_date: string | null;
+  }>;
+} {
+  const db = getCrmDb();
+  const conditions: string[] = ["m.site = ?"];
+  const params: unknown[] = [input.site];
+
+  if (input.search) {
+    const like = `%${input.search}%`;
+    conditions.push("(m.name LIKE ? OR m.callnum LIKE ? OR m.email LIKE ?)");
+    params.push(like, like, like);
+  }
+  if (input.grade) {
+    conditions.push("m.member_grade = ?");
+    params.push(input.grade);
+  }
+  if (input.consentSms !== undefined) {
+    conditions.push("m.marketing_agree_sms = ?");
+    params.push(input.consentSms ? "Y" : "N");
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = Math.min(input.limit ?? 50, 200);
+  const offset = input.offset ?? 0;
+
+  const total = (
+    db.prepare(`SELECT COUNT(*) AS cnt FROM imweb_members m ${where}`).get(...params) as { cnt: number }
+  ).cnt;
+
+  const rows = db.prepare(`
+    SELECT
+      m.member_code,
+      m.name,
+      m.callnum AS phone,
+      m.email,
+      m.member_grade,
+      m.join_time,
+      m.marketing_agree_sms,
+      COALESCE(o.total_orders, 0) AS total_orders,
+      COALESCE(o.total_spent, 0) AS total_spent,
+      o.last_order_date
+    FROM imweb_members m
+    LEFT JOIN (
+      SELECT member_code,
+             COUNT(*) AS total_orders,
+             SUM(payment_amount) AS total_spent,
+             MAX(order_time) AS last_order_date
+      FROM imweb_orders
+      WHERE site = ?
+      GROUP BY member_code
+    ) o ON m.member_code = o.member_code
+    ${where}
+    ORDER BY m.join_time DESC
+    LIMIT ? OFFSET ?
+  `).all(input.site, ...params, limit, offset) as Array<{
+    member_code: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    member_grade: string | null;
+    join_time: string | null;
+    marketing_agree_sms: string;
+    total_orders: number;
+    total_spent: number;
+    last_order_date: string | null;
+  }>;
+
+  return { total, customers: rows };
+}
+
+export function listShoppingGrades(site: string): Array<{ grade: string; count: number }> {
+  const db = getCrmDb();
+  return db.prepare(`
+    SELECT COALESCE(member_grade, '(없음)') AS grade, COUNT(*) AS count
+    FROM imweb_members
+    WHERE site = ?
+    GROUP BY member_grade
+    ORDER BY count DESC
+  `).all(site) as Array<{ grade: string; count: number }>;
+}
+
+export function queryCustomerSegment(input: {
+  site: string;
+  segment: string;
+  params?: Record<string, string>;
+}): {
+  total: number;
+  customers: Array<{ member_code: string; name: string | null; phone: string | null; email: string | null }>;
+} {
+  const db = getCrmDb();
+  const { site, segment } = input;
+  let sql: string;
+  const sqlParams: unknown[] = [site];
+
+  switch (segment) {
+    case "no_repurchase":
+      // Members with exactly 1 order
+      sql = `
+        SELECT m.member_code, m.name, m.callnum AS phone, m.email
+        FROM imweb_members m
+        INNER JOIN (
+          SELECT member_code, COUNT(*) AS cnt
+          FROM imweb_orders WHERE site = ?
+          GROUP BY member_code HAVING cnt = 1
+        ) o ON m.member_code = o.member_code
+        WHERE m.site = ?
+      `;
+      sqlParams.push(site); // second ? for m.site
+      break;
+    case "birthday_month":
+      // Members whose birth month matches current month
+      sql = `
+        SELECT m.member_code, m.name, m.callnum AS phone, m.email
+        FROM imweb_members m
+        WHERE m.site = ?
+          AND m.birth IS NOT NULL AND m.birth != ''
+          AND CAST(SUBSTR(m.birth, 5, 2) AS INTEGER) = CAST(STRFTIME('%m', 'now') AS INTEGER)
+      `;
+      break;
+    case "high_spender":
+      // Members with total_spent > 300000
+      sql = `
+        SELECT m.member_code, m.name, m.callnum AS phone, m.email
+        FROM imweb_members m
+        INNER JOIN (
+          SELECT member_code, SUM(payment_amount) AS total_spent
+          FROM imweb_orders WHERE site = ?
+          GROUP BY member_code HAVING total_spent > 300000
+        ) o ON m.member_code = o.member_code
+        WHERE m.site = ?
+      `;
+      sqlParams.push(site);
+      break;
+    case "inactive_90d":
+      // Members with no order in 90 days but had at least 1 order
+      sql = `
+        SELECT m.member_code, m.name, m.callnum AS phone, m.email
+        FROM imweb_members m
+        INNER JOIN (
+          SELECT member_code, MAX(order_time) AS last_order
+          FROM imweb_orders WHERE site = ?
+          GROUP BY member_code
+          HAVING DATE(last_order) < DATE('now', '-90 days')
+        ) o ON m.member_code = o.member_code
+        WHERE m.site = ?
+      `;
+      sqlParams.push(site);
+      break;
+    case "new_member_30d":
+      // Members who joined in the last 30 days
+      sql = `
+        SELECT m.member_code, m.name, m.callnum AS phone, m.email
+        FROM imweb_members m
+        WHERE m.site = ?
+          AND m.join_time IS NOT NULL
+          AND DATE(m.join_time) >= DATE('now', '-30 days')
+      `;
+      break;
+    default:
+      return { total: 0, customers: [] };
+  }
+
+  const rows = db.prepare(sql).all(...sqlParams) as Array<{
+    member_code: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+  }>;
+
+  return { total: rows.length, customers: rows };
+}
+
+/* ── 캠페인 성과 퍼널 ── */
+
+export type FunnelStep = { label: string; count: number; rate: number };
+export type FunnelVariant = { variant_key: string; sent: number; delivered: number; visited: number; purchased: number; revenue: number; purchase_rate: number };
+
+export function getExperimentFunnel(experimentKey: string): {
+  experiment: CrmExperiment | null;
+  funnel: { sent: number; delivered: number; visited: number; purchased: number; revenue: number };
+  rates: { delivery_rate: number; visit_rate: number; purchase_rate: number; overall_rate: number };
+  variants: FunnelVariant[];
+} {
+  const experiment = getExperiment(experimentKey);
+  if (!experiment) return { experiment: null, funnel: { sent: 0, delivered: 0, visited: 0, purchased: 0, revenue: 0 }, rates: { delivery_rate: 0, visit_rate: 0, purchase_rate: 0, overall_rate: 0 }, variants: [] };
+
+  const db = getCrmDb();
+  const windowDays = experiment.conversion_window_days;
+
+  // 발송/성공 집계. Frontend: this endpoint now includes a visited stage between delivered and purchased.
+  const sendRows = db.prepare(`
+    SELECT
+      a.variant_key,
+      COUNT(DISTINCT a.customer_key) AS assigned,
+      COUNT(DISTINCT CASE WHEN m.id IS NOT NULL THEN a.customer_key END) AS sent,
+      COUNT(DISTINCT CASE WHEN m.provider_status = 'success' THEN a.customer_key END) AS delivered
+    FROM crm_assignment_log a
+    LEFT JOIN crm_message_log m
+      ON m.experiment_key = a.experiment_key AND m.customer_key = a.customer_key
+    WHERE a.experiment_key = ?
+    GROUP BY a.variant_key
+  `).all(experimentKey) as Array<Record<string, unknown>>;
+
+  const attributionTable = db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'attribution_ledger'
+  `).get() as { name: string } | undefined;
+  const visitRows = attributionTable ? db.prepare(`
+    WITH first_success AS (
+      SELECT experiment_key, customer_key, MIN(sent_at) AS sent_at
+      FROM crm_message_log
+      WHERE experiment_key = ? AND provider_status = 'success'
+      GROUP BY experiment_key, customer_key
+    )
+    SELECT
+      a.variant_key,
+      COUNT(DISTINCT a.customer_key) AS visited
+    FROM crm_assignment_log a
+    INNER JOIN first_success m
+      ON m.experiment_key = a.experiment_key AND m.customer_key = a.customer_key
+    INNER JOIN attribution_ledger l
+      ON (
+        l.customer_key = a.customer_key
+        OR COALESCE(json_extract(l.metadata_json, '$.normalizedPhone'), '') = a.customer_key
+      )
+      AND julianday(l.logged_at) >= julianday(m.sent_at)
+      AND julianday(l.logged_at) <= julianday(m.sent_at) + ?
+    WHERE a.experiment_key = ?
+    GROUP BY a.variant_key
+  `).all(experimentKey, windowDays, experimentKey) as Array<Record<string, unknown>> : [];
+
+  // 구매 전환 집계 (발송 성공 후 window 내 구매)
+  const purchaseRows = db.prepare(`
+    SELECT
+      a.variant_key,
+      COUNT(DISTINCT o.member_code) AS purchased,
+      COALESCE(SUM(o.payment_amount), 0) AS revenue
+    FROM crm_assignment_log a
+    INNER JOIN crm_message_log m
+      ON m.experiment_key = a.experiment_key AND m.customer_key = a.customer_key
+      AND m.provider_status = 'success'
+    LEFT JOIN imweb_members mb
+      ON REPLACE(REPLACE(REPLACE(mb.callnum, '-', ''), ' ', ''), '+82', '0') = a.customer_key
+    LEFT JOIN imweb_orders o
+      ON o.member_code = mb.member_code
+      AND o.site = 'thecleancoffee'
+      AND NULLIF(o.complete_time, '') IS NOT NULL
+      AND julianday(o.complete_time) >= julianday(m.sent_at)
+      AND julianday(o.complete_time) <= julianday(m.sent_at) + ?
+    WHERE a.experiment_key = ?
+    GROUP BY a.variant_key
+  `).all(windowDays, experimentKey) as Array<Record<string, unknown>>;
+
+  const purchaseMap = new Map<string, { purchased: number; revenue: number }>();
+  for (const r of purchaseRows) {
+    purchaseMap.set(String(r.variant_key), { purchased: Number(r.purchased) || 0, revenue: Number(r.revenue) || 0 });
+  }
+
+  // attribution_ledger has no experiment_key. We only count visits when its customer_key
+  // or metadata.normalizedPhone matches the experiment's normalized phone; anonymous GA/session-only visits stay unassigned.
+  const visitMap = new Map<string, number>();
+  for (const r of visitRows) {
+    visitMap.set(String(r.variant_key), Number(r.visited) || 0);
+  }
+
+  let totalSent = 0, totalDelivered = 0, totalVisited = 0, totalPurchased = 0, totalRevenue = 0;
+  const variants: FunnelVariant[] = sendRows.map((r) => {
+    const vk = String(r.variant_key);
+    const sent = Number(r.sent) || 0;
+    const delivered = Number(r.delivered) || 0;
+    const visited = visitMap.get(vk) ?? 0;
+    const p = purchaseMap.get(vk) ?? { purchased: 0, revenue: 0 };
+    totalSent += sent;
+    totalDelivered += delivered;
+    totalVisited += visited;
+    totalPurchased += p.purchased;
+    totalRevenue += p.revenue;
+    return { variant_key: vk, sent, delivered, visited, purchased: p.purchased, revenue: p.revenue, purchase_rate: visited > 0 ? p.purchased / visited : 0 };
+  });
+
+  return {
+    experiment,
+    funnel: { sent: totalSent, delivered: totalDelivered, visited: totalVisited, purchased: totalPurchased, revenue: totalRevenue },
+    rates: {
+      delivery_rate: totalSent > 0 ? totalDelivered / totalSent : 0,
+      visit_rate: totalDelivered > 0 ? totalVisited / totalDelivered : 0,
+      purchase_rate: totalVisited > 0 ? totalPurchased / totalVisited : 0,
+      overall_rate: totalSent > 0 ? totalPurchased / totalSent : 0,
+    },
+    variants,
+  };
 }

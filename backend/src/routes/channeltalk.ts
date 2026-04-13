@@ -1,7 +1,7 @@
 import express, { type Request, type Response } from "express";
 
 import { getChannelTalkConfigStatus, verifyChannelTalkAccess, normalizeChannelTalkConfig } from "../channeltalk";
-import { evaluateContactPolicy, getContactPolicyContract, type ContactPolicyInput } from "../contactPolicy";
+import { evaluateContactPolicy, evaluateForEnforcement, getContactPolicyContract, type ContactPolicyInput } from "../contactPolicy";
 import { getImwebMemberByPhone, getImwebMembersByPhones } from "../crmLocalDb";
 
 type ChannelTalkUserSummary = {
@@ -228,7 +228,19 @@ export const createChannelTalkRouter = () => {
     };
     const adminOverride = req.body?.adminOverride === true;
     const result = evaluateContactPolicy(candidate, channel, { adminOverride });
-    res.json({ ...result, consentSource });
+    const enforcement = evaluateForEnforcement({
+      channel,
+      receiver: req.body?.customerPhone ?? null,
+      memberCode: req.body?.memberCode ?? null,
+      templateCode: req.body?.templateCode ?? req.body?.tplCode ?? null,
+      templateType: req.body?.templateType ?? null,
+      body: req.body?.message ?? req.body?.body ?? null,
+      source: req.body?.source ?? null,
+      groupId: req.body?.groupId ?? null,
+      batchSize: typeof req.body?.batchSize === "number" ? req.body.batchSize : null,
+      adminOverride,
+    });
+    res.json({ ...result, consentSource, enforcement });
   });
 
   router.post("/api/contact-policy/evaluate-batch", (req: Request, res: Response) => {
