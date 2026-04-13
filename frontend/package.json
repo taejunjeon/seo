@@ -6,7 +6,13 @@
     "dev": "next dev --port 7010",
     "build": "next build",
     "start": "next start --port 7010",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:crm:smoke": "playwright test tests/crm-smoke.spec.ts",
+    "test:crm:flow": "playwright test tests/crm-full-flow.spec.ts",
+    "test:crm:visual": "playwright test tests/crm-visual-diff.spec.ts",
+    "test:crm:invariants": "playwright test tests/invariants.spec.ts",
+    "test:crm:screenshots": "playwright test tests/crm-screenshots.spec.ts",
+    "test:crm": "playwright test tests/crm-smoke.spec.ts tests/crm-full-flow.spec.ts tests/crm-visual-diff.spec.ts tests/invariants.spec.ts --reporter=list,json --output=test-results/crm"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
@@ -16,12 +22,20 @@
     "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@playwright/test": "^1.59.1",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "ajv": "^8.18.0",
+    "better-sqlite3": "^12.8.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
     "typescript": "^5"
   }
 }
