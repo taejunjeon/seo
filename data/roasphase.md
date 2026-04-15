@@ -1,6 +1,6 @@
 # ROAS 정합성 Phase 정리
 
-작성 시각: 2026-04-11 16:55 KST 기준
+작성 시각: 2026-04-12 13:40 KST 기준
 
 ## 바로 다음에 뭐할지
 
@@ -10,10 +10,10 @@
 
 | 우선순위 | 연결 Phase                                                         | 현재 표시        | 바로 할 일                                                                                                                                  | 완료 기준                                                        |
 | ---: | ---------------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-|    1 | [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]]              | 가상계좌 Purchase 차단 스니펫 작성 완료, 운영 검증 필요 | [header_purchase_guard_0412.md](/Users/vibetj/coding/seo/footer/header_purchase_guard_0412.md)를 아임웹 헤더 코드 상단에 넣고, 가상계좌 미입금 주문완료와 카드 결제 주문완료를 각각 Pixel Helper로 확인한다. | 가상계좌 미입금 주문완료에서는 Browser `Purchase`가 사라지고 `VirtualAccountIssued`만 보인다. 카드 결제 주문완료에서는 `Purchase`가 정상 유지된다. |
-|    2 | [[#Phase 6 Detail\|Phase 6. 같은 기준 ROAS 비교 뷰]]                    | 대부분 완료       | 정기 보고 snapshot과 `/ads/roas`에도 `Meta 1d_click` headline 기준을 명시한다.                                                                        | 모든 ROAS 화면/문서에서 “Meta ROAS = 1d_click”이 기본값으로 일관된다.          |
-|    3 | [[#Phase 5 Detail\|Phase 5. Campaign-level ROAS / alias review]] | 부분 완료        | `campaign-url-evidence`에서 `landingUrl=null` 고지출 광고와 여러 campaign에 걸친 alias만 추려 “예외 검토 리스트”를 만든다.                                         | 수동 확인 대상이 전체 광고가 아니라 상위 예외 목록으로 줄어든다.                        |
-|    4 | [[#Phase 3 Detail\|Phase 3. 식별자 품질 / checkout_started]]          | 1차 완료 후 관찰 중 | 새 푸터 이후 최근 24시간/48시간 기준 `checkout_started`, `payment_success`, `fbclid/fbc/fbp`, GA 3종, `checkout_id` coverage 리포트를 만든다.                | 실제 운영 데이터에서 식별자 품질이 개선되는지 숫자로 본다.                            |
+|    1 | [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]]              | 자사몰 카드/가상계좌 1차 통과, VM active origin 완료 | post-server-decision-guard 이후 24시간 운영 로그에서 `pending -> Purchase` 누락, `VirtualAccountIssued`, `payment-decision unknown`, CAPI failure를 확인한다. | 실제 운영분에서도 pending 주문이 Browser/Server `Purchase`로 오염되지 않는다. |
+|    2 | [[#Phase 3 Detail\|Phase 3. 식별자 품질 / checkout_started]]          | 1차 완료 후 관찰 중 | 새 푸터 이후 최근 24시간/48시간 기준 `checkout_started`, `payment_success`, `fbclid/fbc/fbp`, GA 3종, `checkout_id` coverage 리포트를 만든다.                | 실제 운영 데이터에서 식별자 품질이 개선되는지 숫자로 본다.                            |
+|    3 | [[#Phase 6 Detail\|Phase 6. 같은 기준 ROAS 비교 뷰]]                    | 대부분 완료       | 정기 보고 snapshot과 `/ads/roas`에도 `Meta 1d_click` headline 기준을 명시한다.                                                                        | 모든 ROAS 화면/문서에서 “Meta ROAS = 1d_click”이 기본값으로 일관된다.          |
+|    4 | [[#Phase 5 Detail\|Phase 5. Campaign-level ROAS / alias review]] | 부분 완료        | `campaign-url-evidence`에서 `landingUrl=null` 고지출 광고와 여러 campaign에 걸친 alias만 추려 “예외 검토 리스트”를 만든다.                                         | 수동 확인 대상이 전체 광고가 아니라 상위 예외 목록으로 줄어든다.                        |
 |    5 | [[#Phase 2 Detail\|Phase 2. Site-level ROAS 일일 보고]]              | 대부분 완료       | 보고서 수치 383건과 local ledger 381건 차이를 주문 단위로 reconcile한다.                                                                                  | site-wide confirmed orders/revenue 수치의 source mismatch가 닫힌다. |
 
 ### 시간이 지나야 확인 가능한 것
@@ -21,7 +21,7 @@
 | 우선순위 | 연결 Phase                                                         | 현재 표시          | 기다릴 조건                                                    | 확인할 일                                                                                                                                                       |
 | ---: | ---------------------------------------------------------------- | -------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 |    1 | [[#Phase 3 Detail\|Phase 3. 식별자 품질 / checkout_started]]          | 관찰 중           | 새 푸터 적용 후 실제 운영 유입 24시간 이상 누적                             | 테스트가 아니라 실제 Meta 광고 클릭 주문에서 `_fbc`, `_fbp`, `checkout_id`, GA 식별자가 결제완료까지 유지되는지 본다.                                                                         |
-|    2 | [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]]              | 서버 전송 완료, UI 확인은 보류 가능 | 카드 결제 완료 테스트 주문 `202604110037075` 사용 | `POST /api/meta/capi/sync` 전송은 완료. 운영/수동 Test Event 모두 `Purchase.o202604111e6d6e78c02e9`와 HTTP 200으로 확인됐으므로, Meta UI 확인은 추가 증빙 수준으로 둔다. |
+|    2 | [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]]              | post-guard 관찰 필요 | VM 전환 및 서버형 guard 적용 후 실제 주문 24시간 이상 누적 | 자사몰 카드/가상계좌 단건 테스트는 통과했으므로, 이제 실제 운영 로그에서 confirmed/pending 분리가 유지되는지 본다. |
 |    3 | [[#Phase 1 Detail\|Phase 1. Shadow Ledger 강화]]                   | 진행 중           | 가상계좌 테스트 주문 `202604115025096`, `202604110479067` 입금 또는 만료 | 입금 후 local status sync 또는 Toss direct fallback으로 `pending -> confirmed`가 되는지 확인한다.                                                                          |
 |    4 | [[#Phase 5 Detail\|Phase 5. Campaign-level ROAS / alias review]] | rate limit 대기  | Meta API `User request limit reached` 해제                  | `campaign-url-evidence`를 재생성해 `creativeId`, `effectiveObjectStoryId`, `instagramPermalinkUrl` 추가 필드가 들어오는지 확인한다.                                            |
 
@@ -29,7 +29,7 @@
 
 | 우선순위 | 연결 Phase | 현재 표시 | 필요한 외부 조건 | 해야 할 일 |
 |---:|---|---|---|---|
-| 1 | [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]] | 운영 화면 필요 | 아임웹 헤더 코드 상단 반영 권한 | 가상계좌 미입금 주문완료에서는 Browser `Purchase`가 차단되고 `VirtualAccountIssued`가 뜨는지, 카드 결제 주문완료에서는 `Purchase`가 유지되는지 확인한다. |
+| 1 | [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]] | 네이버페이 별도 처리 | 네이버페이/아임웹 설정 확인 또는 주문 API 확인 | 결제 완료 후 `orders.pay.naver.com`에 머무는 네이버페이는 Browser Pixel이 아니라 Server CAPI confirmed-only 경로로 별도 처리한다. |
 | 2 | [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]] | 외부 화면 필요, 우선순위 낮춤 | Meta Events Manager Test Events 접근 | 카드 결제 완료 주문에서 Browser Purchase와 Server Purchase의 `event_id`가 `Purchase.{아임웹 order_code}`로 같은지 확인한다. 서버 200 성공 로그가 있으므로 UI 확인은 추가 증빙으로 둔다. |
 | 3 | [[#Phase 5 Detail\|Phase 5. Campaign-level ROAS / alias review]] | 외부 권한 필요 | 회사에서 마케팅팀 폰 또는 2FA 가능한 기기 확보 | `pages_read_engagement` 또는 Page Public Content Access 권한을 검토한다. Ads Manager UI에는 보이지만 API에서는 `landingUrl=null`인 공동구매 광고 URL 자동 수집을 목표로 한다. |
 | 4 | [[#Phase 7 Detail\|Phase 7. 더클린커피 ROAS 비교 준비]] | 외부 토큰 필요 | coffee Meta token 재발급, coffee 주문/PG sync 권한 | coffee Meta token, Imweb 주문 최신 sync, PG/Toss sync 또는 direct fallback, pending status sync를 순서대로 닫는다. |
@@ -39,9 +39,10 @@
 - [[#Phase 0 Detail\|Phase 0]]: 운영 DB 직접 수정 대신 SEO local ledger/API fallback 기준으로 분석한다는 방향은 완료.
 - [[#Phase 2 Detail\|Phase 2]]: site-level 최근 7일 ROAS 대시보드와 기본 7일 기준은 1차 완료.
 - [[#Phase 3 Detail\|Phase 3]]: `checkout_started=0` blocker는 새 푸터 테스트로 1차 해소.
-- [[#Phase 4 Detail\|Phase 4]]: Events Manager 샘플 활동 CSV 분석과 Browser Pixel Event ID 확인은 완료. Server CAPI Test Events 전송 후 dedup 성공 판정은 아직 미완료.
-- [[#Phase 4 Detail\|Phase 4]]: Server CAPI Test Event 수동 전송도 완료. Meta UI 확인은 추가 증빙으로 낮추고, 지금은 가상계좌 미입금 Browser Purchase 차단 검증으로 넘어간다.
-- [[#Phase 4 Detail\|Phase 4]]: 가상계좌 미입금 Browser Purchase 차단용 헤더 스니펫 [header_purchase_guard_0412.md](/Users/vibetj/coding/seo/footer/header_purchase_guard_0412.md) 작성과 로컬 시뮬레이션은 완료.
+- [[#Phase 4 Detail\|Phase 4]]: Events Manager 샘플 활동 CSV 분석, Browser Pixel Event ID 확인, Server CAPI 수동 전송은 완료. Meta UI 확인은 추가 증빙으로 둔다.
+- [[#Phase 4 Detail\|Phase 4]]: 서버형 payment-decision guard를 아임웹 헤더 상단에 반영했고, 자사몰 카드 confirmed는 `Purchase`, 자사몰 가상계좌 pending은 `VirtualAccountIssued`로 1차 통과했다.
+- [[#Phase 4 Detail\|Phase 4]]: `att.ainativeos.net` backend는 GCP VM active origin으로 전환 완료했다. 노트북 backend/tunnel 의존은 제거됐다.
+- [[#Phase 4 Detail\|Phase 4]]: 네이버페이는 결제 완료 후 `orders.pay.naver.com`에 머물러 Browser Pixel이 실행되지 않으므로 Server CAPI confirmed-only 별도 Phase로 분리한다.
 - [[#Phase 5 Detail\|Phase 5]]: 연뜰살뜰, 현서, 송율 3개 alias manual verified와 최신 audit 재생성은 완료.
 - [[#Phase 6 Detail\|Phase 6]]: `/ads`와 `/ads/roas`의 Meta 참고 기준을 `1d_click`로 바꾼 것은 완료.
 
@@ -71,7 +72,9 @@
 - 2026-04-11 Meta Events Manager 샘플 활동 CSV를 확인했다. Server Purchase 44건, Browser Purchase 33건으로 서버 이벤트가 더 많고, Server `order_id` 커버리지는 20.5%, Server `content_ids/contents` 커버리지는 31.8%에 그쳤다. 이 결과는 [metareport.md](/Users/vibetj/coding/seo/meta/metareport.md)를 source로 본다.
 - 2026-04-11 가상계좌 미입금 주문 `202604114568447`에서 Browser Pixel Purchase가 `value=39000`, `currency=KRW`로 발화하는 것이 확인됐다. 이 주문은 local ledger 기준 `pending`이고 서버 CAPI에는 전송되지 않았다. 즉 Meta 과대 원인에는 dedup뿐 아니라 **브라우저 Pixel이 미입금 가상계좌를 Purchase로 잡는 문제**도 포함된다.
 - 2026-04-11 카드 결제 완료 주문 `202604110037075`에서 Browser Pixel Purchase Event ID가 `Purchase.o202604111e6d6e78c02e9`로 확인됐다. `o202604111e6d6e78c02e9`는 아임웹 `order_code`이므로 서버 CAPI도 Purchase에서는 이 값을 우선 사용하도록 수정했다.
-- 2026-04-12 가상계좌 미입금 Browser Purchase 차단용 헤더 스니펫을 작성했다. 로컬 시뮬레이션에서 카드 결제 문구는 `Purchase` 통과, 가상계좌/입금대기 문구는 `Purchase` 차단 후 `VirtualAccountIssued` 전환으로 확인됐다. 운영 반영은 아임웹 헤더 코드 상단이어야 한다.
+- 2026-04-12 서버형 payment-decision guard를 아임웹 헤더 상단에 반영했고, 자사몰 카드 confirmed 주문은 `ev=Purchase`, 가상계좌 pending 주문은 `ev=VirtualAccountIssued`로 1차 통과했다.
+- 2026-04-12 `att.ainativeos.net` backend는 GCP VM active origin으로 전환됐다. `CAPI_AUTO_SYNC_ENABLED=true`, `ATTRIBUTION_STATUS_SYNC_ENABLED=true`, `CWV_AUTO_SYNC_ENABLED=false` 상태이며 노트북 backend/tunnel 의존은 제거됐다.
+- 네이버페이는 결제 완료 후 `orders.pay.naver.com/order/result/mall/...`에 머물러 우리 헤더/푸터 코드와 Pixel이 실행되지 않는다. 이 흐름은 Browser Pixel이 아니라 Server CAPI confirmed-only로 별도 처리한다.
 
 ## 현재 방향
 
@@ -107,7 +110,7 @@
 | [[#Phase 1 Detail\|Phase 1. Shadow Ledger 강화]] | 82% | local ledger 총 732건. `payment_success` 714건, `checkout_started` 4건, `form_submit` 14건. `payment_success` 상태는 confirmed 482건, pending 219건, canceled 13건이다. | 가상계좌 테스트 주문 2건 입금 후 pending -> confirmed 전환을 확인한다. local `/api/toss/sync` 또는 direct fallback 결과를 일별 snapshot으로 남긴다. |
 | [[#Phase 2 Detail\|Phase 2. Site-level ROAS 일일 보고]] | 90% | 최근 7일 biocom 기준 spend 27,137,819원, Attribution confirmed ROAS 1.05x, confirmed+pending 1.07x, Meta `1d_click` ROAS 3.11x, Meta default ROAS 4.80x까지 재현된다. | `/ads` 기본 Meta window는 `1d_click`로 고정 완료. 다음은 `/ads/roas`와 정기 snapshot에도 같은 기준을 명시한다. |
 | [[#Phase 3 Detail\|Phase 3. 식별자 품질 / checkout_started]] | 76% | `checkout_started=0` blocker는 1차 해소됐다. 새 푸터 이후 `checkout_started` 3건, `payment_success` 2건이 들어왔고 모두 `checkout_id`와 GA 3종 식별자가 있다. | 실제 운영 24시간 기준으로 `checkout_started`, `payment_success`, all-three, `fbclid/fbc/fbp`, `checkout_id` 연결률을 본다. 실제 Meta 광고 클릭에서 생성된 `fbclid`도 테스트한다. |
-| [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]] | 86% | 로컬 dedup 자동 리포트 생성 완료. 최근 3일 운영 성공 CAPI 471건 중 multi-event-id risk는 1그룹이고, 2026-04-10 00:00 KST 이후 post-fix 구간은 multi-event-id risk 0그룹이다. 현재 백엔드 런타임 시작 이후에는 운영 CAPI 1건, 중복 0건이다. 카드 confirmed 주문은 Browser/Server event_id를 `Purchase.{orderCode}`로 맞췄고, 서버 수동 Test Event도 200 성공했다. 가상계좌 미입금 Browser Purchase 차단 스니펫도 작성했다. | 아임웹 헤더 코드 상단에 가드 스니펫을 반영한 뒤, 가상계좌 미입금은 `Purchase` 차단/`VirtualAccountIssued` 전환, 카드 결제는 `Purchase` 유지가 되는지 확인한다. |
+| [[#Phase 4 Detail\|Phase 4. CAPI / Pixel dedup 검증]] | 92% | 로컬 dedup 자동 리포트 생성 완료. 자사몰 카드 confirmed는 `Purchase.o2026041258d9051379e47`, 가상계좌 pending은 `VirtualAccountIssued.o20260412cdb6664e94ccb`로 실전 확인했다. `att.ainativeos.net`은 VM active origin으로 전환됐고 CAPI/Attribution sync가 켜져 있다. | 24시간 이상 실제 운영 로그에서 pending 주문이 Browser/Server `Purchase`로 오염되지 않는지, `payment-decision unknown` 비율이 높지 않은지 확인한다. 네이버페이는 별도 Server CAPI 경로로 분리한다. |
 | [[#Phase 5 Detail\|Phase 5. Campaign-level ROAS / alias review]] | 45% | 연뜰살뜰, 현서, 송율 3개 alias는 `manual_verified`로 반영 완료. 최신 audit 재생성도 완료. `campaign-url-evidence`에서 410개 광고 중 340개는 `utm_campaign`을 자동 추출했다. | Meta API rate limit 해제 후 URL evidence를 재생성한다. `landingUrl=null` 고지출 광고와 여러 campaign에 걸친 alias만 예외 검토한다. |
 | [[#Phase 6 Detail\|Phase 6. 같은 기준 ROAS 비교 뷰]] | 78% | API로 Meta attribution window별 조회가 가능하고, `/ads`와 `/ads/roas`의 Meta 참고값 요청 기준을 `1d_click`로 바꿨다. 최근 7일 기준 1d_click, 7d_click, 1d_view 값도 확인했다. | 정기 보고 snapshot에도 `Meta 1d_click`을 headline으로 고정한다. default는 Ads Manager parity 참고값으로만 둔다. |
 | [[#Phase 7 Detail\|Phase 7. 더클린커피 ROAS 비교 준비]] | 25% | 더클린커피 attribution ledger는 live `payment_success` 81건, confirmed 0건, pending 4,048,651원이다. Meta API는 coffee 토큰 만료로 실패한다. | coffee Meta token 재발급, Imweb orders 최신 sync, Toss coffee/local PG sync 또는 direct fallback, pending status sync를 먼저 닫은 뒤 biocom과 같은 window별 ROAS 표를 만든다. |
@@ -335,9 +338,9 @@ Phase 4. CAPI / Pixel dedup 검증
 
 현재 상태:
 
-- 최우선 blocker.
-- 서버 CAPI는 2xx 성공이지만, Meta purchase 수가 내부 전체 확정 주문 수보다 많다.
-- 보고서는 이 구조를 단순 attribution window가 아니라 dedup failure 또는 payment complete multiple firing의 강한 신호로 본다.
+- 핵심 blocker는 1차 해소됐고, 현재는 post-guard 운영 관찰 단계다.
+- 서버 CAPI는 2xx 성공이지만, Meta purchase 수가 내부 전체 확정 주문 수보다 많다는 구조는 여전히 확인 대상이다.
+- 보고서는 이 구조를 단순 attribution window가 아니라 dedup failure, payment complete multiple firing, 가상계좌 미입금 Browser Purchase 오염의 복합 신호로 본다.
 - 2026-04-11 로컬 자동 리포트 생성 완료:
 - [최근 3일 전체 리포트](/Users/vibetj/coding/seo/data/meta_capi_dedup_phase4_20260411.md): 운영 성공 CAPI 471건, retry-like 140그룹/405 rows, multi-event-id risk 1그룹/6 rows.
 - [post-fix 리포트](/Users/vibetj/coding/seo/data/meta_capi_dedup_phase4_postfix_20260411.md): 2026-04-10 00:00 KST 이후 운영 성공 CAPI 204건, retry-like 53그룹/144 rows, multi-event-id risk 0그룹.
@@ -361,24 +364,25 @@ Phase 4. CAPI / Pixel dedup 검증
 - Server CAPI event_id 생성 규칙은 Purchase에서 `metadata.referrerPayment.orderCode`, `metadata.orderCode`, URL의 `order_code/orderCode`를 순서대로 찾아 `Purchase.{orderCode}`로 맞추도록 수정했다. order_code가 없을 때만 내부 주문번호 기반 fallback을 쓴다.
 - 2026-04-12 00:05 KST에 같은 주문 `202604110037075`을 `test_event_code=TEST95631`로 서버 CAPI 수동 전송했다. Meta 응답은 HTTP 200, `events_received=1`, Server event_id는 `Purchase.o202604111e6d6e78c02e9`다.
 - 이 주문은 수동 전송 전 2026-04-11 23:58:45 KST 운영 auto-sync에서도 이미 같은 event_id로 1회 전송됐다. 즉 서버 쪽 신규 event_id 생성 규칙은 운영/테스트 모두 적용됐다.
-- 2026-04-12 가상계좌 미입금 Browser Purchase 차단 스니펫 [header_purchase_guard_0412.md](/Users/vibetj/coding/seo/footer/header_purchase_guard_0412.md)을 작성했다. 이 스니펫은 서버 CAPI가 아니라 브라우저 `fbq` 호출만 감싼다.
-- 스니펫은 결제완료 페이지에서 `Purchase` 호출을 700ms 보류하고, 화면 텍스트에 `가상계좌`, `무통장`, `계좌번호`, `입금기한`, `입금대기`, `입금확인` 같은 문구 조합이 있으면 `Purchase`를 차단한 뒤 `VirtualAccountIssued`로 낮춘다. 단어 하나만으로 막지 않도록 강한 가상계좌 문구 조합 중심으로 판정한다.
-- 로컬 시뮬레이션에서는 카드 문구(`신용카드`)가 있으면 `Purchase`가 통과했고, 가상계좌/입금대기 문구가 있으면 `Purchase`가 차단됐다.
+- 2026-04-12 문구 기반 스니펫은 서버형 payment-decision guard로 대체했다. 서버형 guard는 `FB_PIXEL.Purchase`와 직접 `fbq('track', 'Purchase')`를 감싸고, `att.ainativeos.net/api/attribution/payment-decision` 결과로 confirmed/pending을 판정한다.
+- 2026-04-12 카드 confirmed 주문 `o2026041258d9051379e47 / 202604127697550`에서 `ev=Purchase`, `eid=Purchase.o2026041258d9051379e47`, HTTP 200을 확인했다.
+- 2026-04-12 가상계좌 pending 주문 `o20260412cdb6664e94ccb / 202604126682764`에서 `ev=VirtualAccountIssued`, `eid=VirtualAccountIssued.o20260412cdb6664e94ccb`, HTTP 200을 확인했고 Browser `Purchase`는 보이지 않았다.
+- 2026-04-12 `att.ainativeos.net` backend는 GCP VM active origin으로 전환됐다. PM2 `seo-backend`와 `seo-cloudflared`가 online이고, health 기준 `CAPI_AUTO_SYNC_ENABLED=true`, `ATTRIBUTION_STATUS_SYNC_ENABLED=true`, `CWV_AUTO_SYNC_ENABLED=false`다.
+- 2026-04-12 네이버페이 주문 `2026041289545040`은 결제 완료 후 `orders.pay.naver.com/order/result/mall/2026041289545040`에 머물렀고 Pixel Helper는 `No Pixels found on this page`였다. 네이버페이는 Browser Pixel이 아니라 Server CAPI confirmed-only 별도 경로로 처리한다.
 
 완료하려면:
 
-- [header_purchase_guard_0412.md](/Users/vibetj/coding/seo/footer/header_purchase_guard_0412.md)를 아임웹 헤더 코드 상단 또는 Meta Pixel/GTM보다 먼저 실행되는 위치에 넣는다.
-- 가상계좌 미입금 주문완료 화면에서는 Browser `Purchase`가 막히고 `VirtualAccountIssued`만 뜨는지 확인한다.
-- 카드 결제 주문완료 화면에서는 Browser `Purchase`가 계속 정상 발화하는지 확인한다.
+- post-server-decision-guard 이후 24시간 이상 실제 운영 로그를 본다.
+- 가상계좌 pending이 Browser `Purchase`나 Server CAPI `Purchase`로 나가지 않는지 확인한다.
+- 카드 confirmed가 Browser `Purchase`와 Server CAPI `Purchase`로 유지되는지 확인한다.
+- `payment-decision unknown` 비율이 높으면 원인 주문을 샘플링한다.
 - confirmed 기준 Purchase는 서버 CAPI를 정본으로 삼는다. 가상계좌는 입금 완료 후 CAPI Purchase만 전송한다.
 - CAPI `event_source_url`을 항상 절대 URL로 만든다. `/shop_payment_complete` 같은 상대경로는 `https://biocom.kr/shop_payment_complete`로 정규화한다.
 - Server Purchase payload에 `custom_data.order_id`가 항상 들어가는지 로컬 응답과 Meta Test Events에서 확인한다.
 - Server Purchase payload에 가능한 경우 `content_ids`, `contents`를 붙인다. 상품 단위 품질을 높이는 작업이며, dedup 1순위는 여전히 `event_id`다.
-- Meta Test Events에서 새 테스트 주문 1건을 넣고 Pixel의 `eventID`와 CAPI의 `event_id`가 같은 문자열인지 본다. 현재 기준 기대값은 `Purchase.o202604111e6d6e78c02e9` 같은 `Purchase.{아임웹 order_code}` 형식이다.
-- 주문 `202604110037075`의 서버 CAPI Test Event 전송은 이미 완료했다. Meta 화면에서 확인해야 할 값은 `Server Purchase`, `event_id=Purchase.o202604111e6d6e78c02e9`, `order_id=202604110037075`, `event_source_url`, `value=39000`, `currency=KRW`다.
-- 새 테스트 주문을 서버 CAPI로 다시 띄울 때는 아래처럼 특정 주문만 전송한다.
-- `curl -X POST "http://localhost:7020/api/meta/capi/sync" -H "Content-Type: application/json" -d '{"order_id":"테스트주문번호","test_event_code":"현재 Test Events 화면의 코드","limit":1}'`
-- 가상계좌 미입금 주문은 `paymentStatus=confirmed`가 아니므로 이 sync 후보에서 제외된다. 최종 dedup 검증은 카드 결제 또는 입금 완료된 테스트 주문으로 하는 것이 가장 정확하다.
+- Meta Test Events UI 확인은 추가 증빙으로 낮춘다. 서버 응답과 Network 200이 이미 확인됐기 때문이다.
+- 새 테스트 주문을 계속 만들기보다 실제 운영분에서 CAPI log와 payment-decision log를 본다.
+- 가상계좌 미입금 주문은 `paymentStatus=confirmed`가 아니므로 CAPI Purchase 후보에서 제외된다. 최종 dedup 검증은 카드 결제 또는 입금 완료된 테스트 주문으로 하는 것이 가장 정확하다.
 - 가능하면 Events Manager에서 orderId `202604083892378` 또는 post-fix retry-like 샘플 주문을 열어 주문 1건당 Purchase 이벤트 수를 확인한다. 다만 샘플 활동 CSV만으로는 이 확인이 불가능하다.
 - `Purchase` vs `purchase`처럼 event name 대소문자가 다르지 않은지 확인한다.
 - Pixel과 CAPI 전송 간격이 48시간 이내인지 확인한다.
@@ -390,8 +394,9 @@ Phase 4. CAPI / Pixel dedup 검증
 
 - `Meta purchases 525건 > 내부 확정 주문 381건`의 원인이 dedup 실패, view-through/long click attribution, 내부 유실 중 어디인지 주문 단위로 분해된다.
 - 중복 전송이면 차단 규칙 또는 shared `event_id` 규칙까지 반영된다.
-- 가상계좌 미입금 주문완료는 Meta Browser `Purchase`로 집계되지 않는다.
-- 카드 결제 또는 입금 완료 주문은 Browser Pixel과 Server CAPI의 `event_id`가 `Purchase.{아임웹 order_code}`로 일치한다.
+- 자사몰 가상계좌 미입금 주문완료는 Meta Browser `Purchase`로 집계되지 않는다.
+- 자사몰 카드 결제 또는 입금 완료 주문은 Browser Pixel과 Server CAPI의 `event_id`가 `Purchase.{아임웹 order_code}`로 일치한다.
+- 네이버페이는 자사몰 Browser guard의 완료 기준에서 분리하고, Server CAPI confirmed-only 별도 처리 기준으로 본다.
 
 ### Phase 5 Detail
 
