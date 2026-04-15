@@ -1383,13 +1383,161 @@ export const buildMetaCapiSyncAlreadyRunningResult = (): MetaCapiSyncResult => (
   ],
 });
 
-export const sendMetaConversion = async (input: MetaCapiSendInput): Promise<MetaCapiSendResult> => {
-  const token = env.META_ADMANAGER_API_KEY?.trim();
-  if (!token) {
-    throw new Error("META_ADMANAGER_API_KEY 미설정");
+const resolveCapiToken = (pixelId: string): { token: string; kind: "coffee_system_user" | "coffee_app" | "global"; } => {
+  if (pixelId && pixelId === env.META_PIXEL_ID_COFFEE) {
+    const sysUser = env.COFFEE_META_TOKEN?.trim();
+    if (sysUser) return { token: sysUser, kind: "coffee_system_user" };
+    const coffeeApp = env.META_ADMANAGER_API_KEY_COFFEE?.trim();
+    if (coffeeApp) return { token: coffeeApp, kind: "coffee_app" };
+  }
+  const global = env.META_ADMANAGER_API_KEY?.trim() ?? "";
+  return { token: global, kind: "global" };
+};
+
+// Funnel 이벤트 (ViewContent · AddToCart · InitiateCheckout · Lead) 전용 경량 전송 함수.
+// sendMetaConversion 은 Purchase 중심이라 orderId/PII 필수 구조 — funnel 은 익명 브라우저 행동이라 별도 경로.
+// 상세 설계: meta/capimeta.md §Funnel 이벤트 확장 개선 계획 §4 Day 1
+export type FunnelEventName = "ViewContent" | "AddToCart" | "InitiateCheckout" | "Lead" | "Search";
+
+export type FunnelEventInput = {
+  eventName: FunnelEventName;
+  pixelId: string;
+  eventId: string;
+  eventSourceUrl: string;
+  clientIpAddress?: string;
+  clientUserAgent?: string;
+  fbp?: string;
+  fbc?: string;
+  contentIds?: string[];
+  contentType?: "product" | "product_group";
+  value?: number;
+  currency?: string;
+  testEventCode?: string;
+};
+
+export type FunnelEventResult = {
+  ok: boolean;
+  pixelId: string;
+  eventId: string;
+  eventName: FunnelEventName;
+  status: number;
+  tokenKind: "coffee_system_user" | "coffee_app" | "global";
+  response: MetaCapiResponseBody;
+};
+
+export const sendFunnelEvent = async (input: FunnelEventInput): Promise<FunnelEventResult> => {
+  if (!input.pixelId) {
+    throw new Error("funnel event: pixelId 필수");
+  }
+  if (!input.eventId) {
+    throw new Error("funnel event: eventId 필수 (브라우저↔서버 디둡 키)");
   }
 
+  const { token, kind: tokenKind } = resolveCapiToken(input.pixelId);
+  if (!token) {
+    throw new Error(`Meta CAPI 토큰 미설정 (pixel=${input.pixelId}, 시도한 경로=${tokenKind})`);
+  }
+
+  const url = new URL(`${META_GRAPH_URL}/${input.pixelId}/events`);
+  url.searchParams.set("access_token", token);
+
+  const now = Math.floor(Date.now() / 1000);
+  const customData: Record<string, unknown> = {};
+  if (input.contentIds && input.contentIds.length > 0) {
+    customData.content_ids = input.contentIds;
+    customData.content_type = input.contentType ?? "product";
+  }
+  if (typeof input.value === "number" && Number.isFinite(input.value)) {
+    customData.value = input.value;
+    customData.currency = input.currency ?? "KRW";
+  }
+
+  const requestBody: Record<string, unknown> = {
+    data: [
+      {
+        event_name: input.eventName,
+        event_time: now,
+        event_id: input.eventId,
+        event_source_url: input.eventSourceUrl,
+        action_source: "website",
+        user_data: {
+          client_ip_address: input.clientIpAddress,
+          client_user_agent: input.clientUserAgent,
+          fbp: input.fbp,
+          fbc: input.fbc,
+        },
+        ...(Object.keys(customData).length > 0 ? { custom_data: customData } : {}),
+      },
+    ],
+  };
+  if (input.testEventCode?.trim()) {
+    requestBody.test_event_code = input.testEventCode.trim();
+  }
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const responseBody = await toResponseBody(res);
+
+  // Minimal ledger stub — funnel 이벤트는 attribution ledger 와 연결되지 않지만 로그 스키마 호환용.
+  const stubLedger: LedgerEntrySummary = {
+    orderId: "",
+    paymentKey: "",
+    touchpoint: "funnel_browser",
+    captureMode: "live",
+    source: input.eventSourceUrl,
+    approvedAt: "",
+    loggedAt: new Date(now * 1000).toISOString(),
+    value: typeof input.value === "number" ? input.value : null,
+    landing: input.eventSourceUrl,
+    referrer: "",
+    requestOrigin: input.eventSourceUrl,
+    requestPath: "",
+  };
+
+  await appendMetaCapiLog({
+    event_id: input.eventId,
+    pixel_id: input.pixelId,
+    event_name: input.eventName,
+    timestamp: new Date().toISOString(),
+    response_status: res.status,
+    response_body: responseBody,
+    event_source_url: input.eventSourceUrl,
+    send_path: input.testEventCode?.trim() ? "test_event" : "manual_api",
+    ...(input.testEventCode?.trim() ? { test_event_code: input.testEventCode.trim() } : {}),
+    ledger_entry: stubLedger,
+  });
+
+  if (!res.ok) {
+    const errorMessage = typeof responseBody === "string"
+      ? responseBody
+      : typeof responseBody.error === "object" && responseBody.error
+        ? JSON.stringify(responseBody.error)
+        : JSON.stringify(responseBody);
+    throw new Error(`Meta CAPI funnel ${res.status}: ${errorMessage.slice(0, 300)}`);
+  }
+
+  return {
+    ok: true,
+    pixelId: input.pixelId,
+    eventId: input.eventId,
+    eventName: input.eventName,
+    status: res.status,
+    tokenKind,
+    response: responseBody,
+  };
+};
+
+export const sendMetaConversion = async (input: MetaCapiSendInput): Promise<MetaCapiSendResult> => {
   const prepared = prepareMetaCapiSend(input);
+  const { token, kind: tokenKind } = resolveCapiToken(prepared.pixelId);
+  if (!token) {
+    throw new Error(`Meta CAPI 토큰 미설정 (pixel=${prepared.pixelId}, 시도한 경로=${tokenKind})`);
+  }
+
   const url = new URL(`${META_GRAPH_URL}/${prepared.pixelId}/events`);
   url.searchParams.set("access_token", token);
 

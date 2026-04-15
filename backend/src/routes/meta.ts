@@ -5,7 +5,9 @@ import {
   buildMetaCapiLogDiagnostics,
   classifyMetaCapiLogSegment,
   readMetaCapiSendLogs,
+  sendFunnelEvent,
   sendMetaConversion,
+  type FunnelEventName,
   syncMetaConversionsFromLedger,
 } from "../metaCapi";
 
@@ -78,7 +80,12 @@ const COFFEE_ACCOUNT_IDS = new Set(["act_654671961007474"]);
 
 const getToken = (accountId?: string) => {
   if (accountId && COFFEE_ACCOUNT_IDS.has(accountId)) {
-    return env.META_ADMANAGER_API_KEY_COFFEE ?? env.META_ADMANAGER_API_KEY ?? "";
+    return (
+      env.COFFEE_META_TOKEN
+      ?? env.META_ADMANAGER_API_KEY_COFFEE
+      ?? env.META_ADMANAGER_API_KEY
+      ?? ""
+    );
   }
   return env.META_ADMANAGER_API_KEY ?? "";
 };
@@ -327,18 +334,185 @@ const buildMetaReference = (params?: {
 export const createMetaRouter = () => {
   const router = express.Router();
 
+  // 토큰 live probe — 각 토큰에 대해 Meta debug_token 을 실제로 호출해 유효성·만료·권한을 확인한다.
+  // 만료된 토큰은 자기 자신으로 debug 불가 → 유효한 resolver 토큰(시스템 유저 → 글로벌 순)을 사용.
+  router.get("/api/meta/health", async (_req: Request, res: Response) => {
+    type ProbeResult = {
+      label: "main" | "coffee_system_user" | "coffee_app";
+      configured: boolean;
+      ok: boolean;
+      is_valid: boolean | null;
+      type: string | null;
+      app_id: string | null;
+      user_id: string | null;
+      expires_at: number | null; // unix seconds; 0 = never
+      expires_in_days: number | null; // null = never or unknown
+      scopes: string[] | null;
+      error: string | null;
+      mismatch?: { expectedUserId: string; actualUserId: string } | null;
+    };
+
+    const coffeeSystemUserToken = env.COFFEE_META_TOKEN?.trim() ?? "";
+    const coffeeAppToken = env.META_ADMANAGER_API_KEY_COFFEE?.trim() ?? "";
+    const mainToken = env.META_ADMANAGER_API_KEY?.trim() ?? "";
+
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    // debug_token 은 input_token 과 access_token(resolver)이 **같은 앱**에 속해야 한다.
+    // 만료된 토큰은 자기 자신으로 debug 불가 → 자기 자신 먼저 시도, 실패하면 다른 토큰들을 resolver 로 순차 시도.
+    const callDebugToken = async (targetToken: string, resolverToken: string) => {
+      const url = new URL(`${META_GRAPH_URL}/debug_token`);
+      url.searchParams.set("input_token", targetToken);
+      url.searchParams.set("access_token", resolverToken);
+      const r = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) });
+      return (await r.json()) as { data?: Record<string, unknown>; error?: { message?: string } };
+    };
+
+    const probeToken = async (
+      label: ProbeResult["label"],
+      token: string,
+    ): Promise<ProbeResult> => {
+      const base: ProbeResult = {
+        label,
+        configured: !!token,
+        ok: false,
+        is_valid: null,
+        type: null,
+        app_id: null,
+        user_id: null,
+        expires_at: null,
+        expires_in_days: null,
+        scopes: null,
+        error: null,
+      };
+      if (!token) {
+        base.error = "missing";
+        return base;
+      }
+      // Resolver 후보: 자기 자신 우선 → 다른 토큰들 순차 시도. 첫 번째 '앱 일치' 응답 채택.
+      const resolverCandidates = [token, coffeeSystemUserToken, mainToken, coffeeAppToken]
+        .filter((t, idx, arr) => t && arr.indexOf(t) === idx);
+      let lastError = "no resolver succeeded";
+      for (const resolver of resolverCandidates) {
+        try {
+          const body = await callDebugToken(token, resolver);
+          if (body.error) {
+            lastError = body.error.message ?? "debug_token error";
+            continue;
+          }
+          const data = body.data ?? {};
+          // 만료 토큰이 자기 자신으로 호출됐을 때 Meta 는 `data` 가 비어있거나 error 필드를 하위로 반환.
+          // 'App_id in the input_token did not match the Viewing App' 같은 앱 불일치면 다음 resolver 시도.
+          const embeddedError = (data as { error?: { message?: string; code?: number } }).error;
+          if (embeddedError?.message && /App_id|Viewing App|Invalid OAuth/i.test(embeddedError.message)) {
+            lastError = embeddedError.message;
+            continue;
+          }
+          const isValid = data.is_valid === true;
+          const rawExpires = typeof data.expires_at === "number" ? (data.expires_at as number) : null;
+          base.is_valid = isValid;
+          base.ok = isValid;
+          base.type = typeof data.type === "string" ? (data.type as string) : null;
+          base.app_id = data.app_id != null ? String(data.app_id) : null;
+          base.user_id = data.user_id != null ? String(data.user_id) : null;
+          base.expires_at = rawExpires;
+          base.expires_in_days = rawExpires === 0 || rawExpires === null
+            ? null
+            : Math.floor((rawExpires - nowSec) / 86400);
+          base.scopes = Array.isArray(data.scopes) ? (data.scopes as string[]) : null;
+          if (embeddedError?.message) base.error = embeddedError.message;
+          if (label === "coffee_system_user" && env.COFFEE_META_SYSTEM_USERID && base.user_id) {
+            if (base.user_id !== env.COFFEE_META_SYSTEM_USERID) {
+              base.mismatch = {
+                expectedUserId: env.COFFEE_META_SYSTEM_USERID,
+                actualUserId: base.user_id,
+              };
+            }
+          }
+          return base;
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err);
+          continue;
+        }
+      }
+      base.error = lastError;
+      return base;
+    };
+
+    const checks = await Promise.all([
+      probeToken("main", mainToken),
+      probeToken("coffee_system_user", coffeeSystemUserToken),
+      probeToken("coffee_app", coffeeAppToken),
+    ]);
+
+    const warnings: string[] = [];
+    let alertLevel: "ok" | "warning" | "critical" = "ok";
+    for (const c of checks) {
+      if (!c.configured) {
+        warnings.push(`${c.label}: not configured`);
+        continue;
+      }
+      if (c.is_valid === false) {
+        warnings.push(`${c.label}: invalid (${c.error ?? "unknown"})`);
+        alertLevel = "critical";
+        continue;
+      }
+      if (c.expires_in_days !== null) {
+        if (c.expires_in_days < 0) {
+          warnings.push(`${c.label}: expired ${Math.abs(c.expires_in_days)}d ago`);
+          alertLevel = "critical";
+        } else if (c.expires_in_days < 7) {
+          warnings.push(`${c.label}: expires in ${c.expires_in_days}d`);
+          if (alertLevel === "ok") alertLevel = "critical";
+        } else if (c.expires_in_days < 14) {
+          warnings.push(`${c.label}: expires in ${c.expires_in_days}d`);
+          if (alertLevel === "ok") alertLevel = "warning";
+        }
+      }
+      if (c.mismatch) {
+        warnings.push(`${c.label}: userId mismatch (expected ${c.mismatch.expectedUserId}, got ${c.mismatch.actualUserId})`);
+        if (alertLevel === "ok") alertLevel = "warning";
+      }
+    }
+
+    res.json({
+      ok: true,
+      checked_at: new Date().toISOString(),
+      alert_level: alertLevel,
+      warnings,
+      checks,
+    });
+  });
+
   // 상태 확인
   router.get("/api/meta/status", (_req: Request, res: Response) => {
     const token = getToken();
-    const coffeeToken = env.META_ADMANAGER_API_KEY_COFFEE ?? "";
+    const coffeeSystemUserToken = env.COFFEE_META_TOKEN ?? "";
+    const coffeeAppToken = env.META_ADMANAGER_API_KEY_COFFEE ?? "";
+    const coffeeActive = getToken("act_654671961007474");
+    const activeTokenKind = coffeeSystemUserToken && coffeeActive === coffeeSystemUserToken
+      ? "system_user"
+      : coffeeAppToken && coffeeActive === coffeeAppToken
+      ? "app"
+      : "fallback_global";
     res.json({
       ok: true,
       configured: !!token,
       tokenLength: token.length,
       coffee: {
-        configured: !!coffeeToken,
-        tokenLength: coffeeToken.length,
+        configured: !!coffeeActive,
+        tokenLength: coffeeActive.length,
         accountId: "act_654671961007474",
+        activeTokenKind,
+        systemUser: {
+          configured: !!coffeeSystemUserToken,
+          tokenLength: coffeeSystemUserToken.length,
+          userId: env.COFFEE_META_SYSTEM_USERID ?? null,
+        },
+        appToken: {
+          configured: !!coffeeAppToken,
+          tokenLength: coffeeAppToken.length,
+        },
       },
     });
   });
@@ -1198,6 +1372,151 @@ export const createMetaRouter = () => {
 
 export const createMetaCapiRouter = () => {
   const router = express.Router();
+
+  // ── Funnel 이벤트 경량 트래킹 ────────────────────────────────────────────────
+  // 브라우저(아임웹 상품 페이지) → 서버 → Meta CAPI. ViewContent/AddToCart/InitiateCheckout 용.
+  // 상세 설계: meta/capimeta.md §Funnel 이벤트 확장 §4 Day 1
+  const FUNNEL_ALLOWED_ORIGINS = new Set<string>([
+    "https://biocom.kr",
+    "https://www.biocom.kr",
+    "https://thecleancoffee.com",
+    "https://www.thecleancoffee.com",
+    "https://thecleancoffee.imweb.me",
+    "http://localhost:7010",
+  ]);
+  const FUNNEL_ALLOWED_EVENT_NAMES = new Set<FunnelEventName>([
+    "ViewContent",
+    "AddToCart",
+    "InitiateCheckout",
+    "Lead",
+    "Search",
+  ]);
+  // 픽셀 ID 화이트리스트 — 임의 픽셀로 스팸 못하도록 env 에 등록된 값만 허용
+  const getAllowedPixelIds = (): Set<string> => {
+    const ids = new Set<string>();
+    if (env.META_PIXEL_ID_BIOCOM) ids.add(env.META_PIXEL_ID_BIOCOM);
+    if (env.META_PIXEL_ID_COFFEE) ids.add(env.META_PIXEL_ID_COFFEE);
+    if (env.META_PIXEL_ID_AIBIO) ids.add(env.META_PIXEL_ID_AIBIO);
+    return ids;
+  };
+
+  // Rate limit: IP 당 30초 window 에 300회 초과 차단 (≈ 10 req/s)
+  const funnelRateLimit = new Map<string, { count: number; windowStart: number }>();
+  const FUNNEL_RATE_WINDOW_MS = 30_000;
+  const FUNNEL_RATE_MAX = 300;
+  const checkFunnelRate = (ip: string): boolean => {
+    const now = Date.now();
+    const entry = funnelRateLimit.get(ip);
+    if (!entry || now - entry.windowStart > FUNNEL_RATE_WINDOW_MS) {
+      funnelRateLimit.set(ip, { count: 1, windowStart: now });
+      return true;
+    }
+    entry.count += 1;
+    if (entry.count > FUNNEL_RATE_MAX) return false;
+    return true;
+  };
+  // 주기적 청소 (60초마다 stale entry 제거)
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of funnelRateLimit.entries()) {
+      if (now - entry.windowStart > FUNNEL_RATE_WINDOW_MS * 2) {
+        funnelRateLimit.delete(ip);
+      }
+    }
+  }, 60_000).unref();
+
+  // CORS preflight
+  router.options("/api/meta/capi/track", (req: Request, res: Response) => {
+    const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+    if (FUNNEL_ALLOWED_ORIGINS.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      res.setHeader("Access-Control-Max-Age", "86400");
+    }
+    res.status(204).end();
+  });
+
+  router.post("/api/meta/capi/track", async (req: Request, res: Response) => {
+    const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+    if (FUNNEL_ALLOWED_ORIGINS.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
+    try {
+      // Origin 검증 — 화이트리스트 외 차단
+      if (!origin || !FUNNEL_ALLOWED_ORIGINS.has(origin)) {
+        res.status(403).json({ ok: false, error: "origin_not_allowed", origin });
+        return;
+      }
+      // Rate limit
+      const clientIp = requestIp(req) || req.ip || "unknown";
+      if (!checkFunnelRate(clientIp)) {
+        res.status(429).json({ ok: false, error: "rate_limit_exceeded" });
+        return;
+      }
+
+      const body = parseBody(req.body);
+      const eventNameRaw = firstString(body, ["eventName", "event_name"]);
+      if (!FUNNEL_ALLOWED_EVENT_NAMES.has(eventNameRaw as FunnelEventName)) {
+        res.status(400).json({
+          ok: false,
+          error: "invalid_event_name",
+          allowed: Array.from(FUNNEL_ALLOWED_EVENT_NAMES),
+          got: eventNameRaw,
+        });
+        return;
+      }
+      const pixelId = firstString(body, ["pixelId", "pixel_id"]);
+      const allowedPixels = getAllowedPixelIds();
+      if (!allowedPixels.has(pixelId)) {
+        res.status(400).json({
+          ok: false,
+          error: "pixel_not_allowed",
+          allowed: Array.from(allowedPixels),
+          got: pixelId,
+        });
+        return;
+      }
+      const eventId = firstString(body, ["eventId", "event_id"]);
+      if (!eventId) {
+        res.status(400).json({ ok: false, error: "event_id_required" });
+        return;
+      }
+
+      // content_ids 는 배열 또는 단일값 허용
+      const rawContentIds = body.contentIds ?? body.content_ids;
+      const contentIds: string[] | undefined = Array.isArray(rawContentIds)
+        ? rawContentIds.map((v) => String(v)).filter(Boolean)
+        : typeof rawContentIds === "string" && rawContentIds
+          ? [rawContentIds]
+          : undefined;
+      const contentTypeRaw = firstString(body, ["contentType", "content_type"]);
+      const contentType: "product" | "product_group" | undefined =
+        contentTypeRaw === "product_group" ? "product_group" : contentTypeRaw === "product" ? "product" : undefined;
+
+      const result = await sendFunnelEvent({
+        eventName: eventNameRaw as FunnelEventName,
+        pixelId,
+        eventId,
+        eventSourceUrl: firstString(body, ["eventSourceUrl", "event_source_url", "landing"]) || origin,
+        clientIpAddress: clientIp,
+        clientUserAgent: firstString(body, ["clientUserAgent", "client_user_agent"]) || requestUserAgent(req),
+        fbp: firstString(body, ["fbp"]) || undefined,
+        fbc: firstString(body, ["fbc"]) || undefined,
+        contentIds,
+        contentType,
+        value: firstNumber(body, ["value", "amount"]) || undefined,
+        currency: firstString(body, ["currency"]) || "KRW",
+        testEventCode: firstString(body, ["testEventCode", "test_event_code"]) || undefined,
+      });
+      res.status(200).json({ ok: true, result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "meta capi track failed";
+      const status = message.startsWith("Meta CAPI ") ? 502 : 400;
+      res.status(status).json({ ok: false, error: "meta_capi_track_error", message });
+    }
+  });
 
   router.post("/api/meta/capi/send", async (req: Request, res: Response) => {
     try {

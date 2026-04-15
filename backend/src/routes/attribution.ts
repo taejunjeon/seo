@@ -704,15 +704,28 @@ const fetchTossDecisionRows = async (
 
   const orderLookup = lookup.orderId || lookup.orderNo;
   if (orderLookup) {
-    try {
-      addRow(toTossDirectJoinRow(
-        await fetchTossPaymentDetail(`/v1/payments/orders/${encodeURIComponent(orderLookup)}`, store),
-        store,
-      ));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      errors.push(`orderId ${orderLookup}: ${message}`);
+    const orderCandidates = orderLookup.endsWith("-P1")
+      ? [orderLookup]
+      : [orderLookup, `${orderLookup}-P1`];
+    let matched = false;
+    for (const candidate of orderCandidates) {
+      try {
+        const row = toTossDirectJoinRow(
+          await fetchTossPaymentDetail(`/v1/payments/orders/${encodeURIComponent(candidate)}`, store),
+          store,
+        );
+        if (row) {
+          addRow(row);
+          matched = true;
+          break;
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        errors.push(`orderId ${candidate}: ${message}`);
+        if (!/NOT_FOUND_PAYMENT|Toss API 404/.test(message)) break;
+      }
     }
+    void matched;
   }
 
   return {

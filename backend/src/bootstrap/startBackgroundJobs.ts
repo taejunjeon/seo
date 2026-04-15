@@ -72,7 +72,14 @@ export const startBackgroundJobs = () => {
   const capiSyncLimit = env.CAPI_AUTO_SYNC_LIMIT;
   const attributionStatusSyncIntervalMs = env.ATTRIBUTION_STATUS_SYNC_INTERVAL_MS;
   const attributionStatusSyncLimit = env.ATTRIBUTION_STATUS_SYNC_LIMIT;
+  const imwebAutoSyncIntervalMs = env.IMWEB_AUTO_SYNC_INTERVAL_MS;
+  const imwebAutoSyncMaxPage = env.IMWEB_AUTO_SYNC_MAX_PAGE;
+  const tossAutoSyncIntervalMs = env.TOSS_AUTO_SYNC_INTERVAL_MS;
+  const tossAutoSyncWindowHours = env.TOSS_AUTO_SYNC_WINDOW_HOURS;
   const scheduledSendPollMs = env.SCHEDULED_SEND_POLL_MS;
+
+  // Self-call base URL — pm2 single instance 에서 같은 프로세스 express 서버로 HTTP 호출
+  const selfBaseUrl = `http://127.0.0.1:${env.PORT}`;
 
   const runCapiSync = async () => {
     try {
@@ -84,6 +91,91 @@ export const startBackgroundJobs = () => {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("[CAPI auto-sync] 오류:", error instanceof Error ? error.message : error);
+    }
+  };
+
+  // imweb 주문 증분 sync — 15분 주기. 두 사이트(biocom, thecleancoffee) 순차 호출.
+  // 기존 POST /api/crm-local/imweb/sync-orders 엔드포인트를 self-call 로 재사용 → 로직 중복 없음.
+  const runImwebOrdersSync = async () => {
+    const sites = ["biocom", "thecleancoffee"] as const;
+    for (const site of sites) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 90_000);
+        const response = await fetch(`${selfBaseUrl}/api/crm-local/imweb/sync-orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ site, maxPage: imwebAutoSyncMaxPage }),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+        const body = (await response.json().catch(() => null)) as
+          | { ok?: boolean; synced?: number; sites?: Array<{ site: string; synced: number; totalCount: number; error: string | null }> }
+          | null;
+        if (response.ok && body?.ok) {
+          const siteResult = body.sites?.find((s) => s.site === site);
+          // eslint-disable-next-line no-console
+          console.log(
+            `[Imweb orders sync] ${site} — upsert ${siteResult?.synced ?? body.synced ?? 0} (totalCount ${siteResult?.totalCount ?? "?"})`,
+          );
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(`[Imweb orders sync] ${site} 실패: HTTP ${response.status}`);
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[Imweb orders sync] ${site} 오류:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+  };
+
+  // Toss settlements 증분 sync — 15분 주기. biocom / coffee 순차.
+  const runTossSettlementsSync = async () => {
+    const stores = ["biocom", "thecleancoffee"] as const;
+    for (const store of stores) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 90_000);
+        const url = new URL(`${selfBaseUrl}/api/toss/sync`);
+        url.searchParams.set("store", store);
+        url.searchParams.set("mode", "incremental");
+        url.searchParams.set("windowHours", String(tossAutoSyncWindowHours));
+        const response = await fetch(url.toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+        const body = (await response.json().catch(() => null)) as
+          | {
+              ok?: boolean;
+              inserted?: { transactions: number; settlements: number };
+              range?: { startDate: string; endDate: string };
+            }
+          | null;
+        if (response.ok && body?.ok) {
+          const inserted = body.inserted;
+          const added = (inserted?.transactions ?? 0) + (inserted?.settlements ?? 0);
+          if (added > 0) {
+            // eslint-disable-next-line no-console
+            console.log(
+              `[Toss settlements sync] ${store} — tx ${inserted?.transactions ?? 0} / settle ${inserted?.settlements ?? 0} (range ${body.range?.startDate ?? "?"}~${body.range?.endDate ?? "?"})`,
+            );
+          }
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(`[Toss settlements sync] ${store} 실패: HTTP ${response.status}`);
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[Toss settlements sync] ${store} 오류:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
     }
   };
 
@@ -130,6 +222,36 @@ export const startBackgroundJobs = () => {
   } else {
     // eslint-disable-next-line no-console
     console.log("[CAPI auto-sync] disabled by CAPI_AUTO_SYNC_ENABLED=0");
+  }
+
+  // Imweb 주문 증분 sync — 다른 job 과 tick 겹치지 않도록 +3분 offset (180s)
+  if (env.IMWEB_AUTO_SYNC_ENABLED) {
+    setTimeout(() => {
+      runImwebOrdersSync();
+      setInterval(runImwebOrdersSync, imwebAutoSyncIntervalMs);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[Imweb orders sync] 활성화 — ${imwebAutoSyncIntervalMs / 60000}분 주기, maxPage=${imwebAutoSyncMaxPage}`,
+      );
+    }, 180_000);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[Imweb orders sync] disabled by IMWEB_AUTO_SYNC_ENABLED=0");
+  }
+
+  // Toss settlements 증분 sync — +8분 offset (480s), imweb 과 5분 간격
+  if (env.TOSS_AUTO_SYNC_ENABLED) {
+    setTimeout(() => {
+      runTossSettlementsSync();
+      setInterval(runTossSettlementsSync, tossAutoSyncIntervalMs);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[Toss settlements sync] 활성화 — ${tossAutoSyncIntervalMs / 60000}분 주기, windowHours=${tossAutoSyncWindowHours}`,
+      );
+    }, 480_000);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[Toss settlements sync] disabled by TOSS_AUTO_SYNC_ENABLED=0");
   }
 
   if (env.SCHEDULED_SEND_ENABLED) {

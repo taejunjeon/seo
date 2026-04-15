@@ -45,6 +45,16 @@ export const buildHealthPayload = () => {
         intervalMs: env.CAPI_AUTO_SYNC_INTERVAL_MS,
         limit: env.CAPI_AUTO_SYNC_LIMIT,
       },
+      imwebAutoSync: {
+        enabled: env.IMWEB_AUTO_SYNC_ENABLED,
+        intervalMs: env.IMWEB_AUTO_SYNC_INTERVAL_MS,
+        maxPage: env.IMWEB_AUTO_SYNC_MAX_PAGE,
+      },
+      tossAutoSync: {
+        enabled: env.TOSS_AUTO_SYNC_ENABLED,
+        intervalMs: env.TOSS_AUTO_SYNC_INTERVAL_MS,
+        windowHours: env.TOSS_AUTO_SYNC_WINDOW_HOURS,
+      },
     },
     apis: {
       gsc: !!env.GSC_SERVICE_ACCOUNT_KEY,

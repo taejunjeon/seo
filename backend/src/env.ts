@@ -10,12 +10,16 @@ const envSource = {
   KAKAO_ADMIN_KEY: process.env.KAKAO_ADMIN_KEY ?? process.env.KAKAO_BIOCOM_Admin_KEY,
   TOSS_SHOP_ID: process.env.TOSS_SHOP_ID ?? process.env.TOSS_SHOP_ID_BIOCOM,
   TOSS_SHOP_ID_BIOCOM: process.env.TOSS_SHOP_ID_BIOCOM ?? process.env.TOSS_SHOP_ID,
-  TOSS_SHOP_ID_COFFEE: process.env.TOSS_SHOP_ID_COFFEE,
+  TOSS_SHOP_ID_COFFEE:
+    process.env.TOSS_SHOP_ID_NEWCOFFEE
+    ?? process.env.TOSS_SHOP_ID_COFFEE,
   TOSS_LIVE_SECRET_KEY: process.env.TOSS_LIVE_SECRET_KEY ?? process.env.TOSS_LIVE_SECRET_KEY_BIOCOM,
   TOSS_LIVE_SECRET_KEY_BIOCOM:
     process.env.TOSS_LIVE_SECRET_KEY_BIOCOM ?? process.env.TOSS_LIVE_SECRET_KEY,
   TOSS_LIVE_SECRET_KEY_COFFEE:
-    process.env.TOSS_LIVE_SECRET_KEY_COFFEE ?? process.env.TOSS_LIVE_SECRET_KEY_COFFEE_API,
+    process.env.TOSS_NEW_COFFEE_API_SECRET_KEY
+    ?? process.env.TOSS_LIVE_SECRET_KEY_COFFEE
+    ?? process.env.TOSS_LIVE_SECRET_KEY_COFFEE_API,
   TOSS_LIVE_CLIENT_KEY:
     process.env.TOSS_LIVE_CLIENT_KEY
     ?? process.env.TOSS_LIVE_CLIENT_KEY_BIOCOM
@@ -23,17 +27,23 @@ const envSource = {
   TOSS_LIVE_CLIENT_KEY_BIOCOM:
     process.env.TOSS_LIVE_CLIENT_KEY_BIOCOM ?? process.env.TOSS_LIVE_CLIENT_KEY,
   TOSS_LIVE_CLIENT_KEY_COFFEE:
-    process.env.TOSS_LIVE_CLIENT_KEY_COFFEE ?? process.env.TOSS_LIVE_CLIENT_KEY_COFFEE_API,
+    process.env.TOSS_NEW_COFFEE_API_LIVE_CLIENT_KEY
+    ?? process.env.TOSS_LIVE_CLIENT_KEY_COFFEE
+    ?? process.env.TOSS_LIVE_CLIENT_KEY_COFFEE_API,
   TOSS_TEST_CLIENT_KEY: process.env.TOSS_TEST_CLIENT_KEY ?? process.env.TOSS_TEST_CLIENT_KEY_BIOCOM,
   TOSS_TEST_CLIENT_KEY_BIOCOM:
     process.env.TOSS_TEST_CLIENT_KEY_BIOCOM ?? process.env.TOSS_TEST_CLIENT_KEY,
   TOSS_TEST_CLIENT_KEY_COFFEE:
-    process.env.TOSS_TEST_CLIENT_KEY_COFFEE ?? process.env.TOSS_TEST_CLIENT_KEY_COFFEE_API,
+    process.env.TOSS_CLIENT_KEY_NEW_COFFEE
+    ?? process.env.TOSS_TEST_CLIENT_KEY_COFFEE
+    ?? process.env.TOSS_TEST_CLIENT_KEY_COFFEE_API,
   TOSS_TEST_SECRET_KEY: process.env.TOSS_TEST_SECRET_KEY ?? process.env.TOSS_TEST_SECRET_KEY_BIOCOM,
   TOSS_TEST_SECRET_KEY_BIOCOM:
     process.env.TOSS_TEST_SECRET_KEY_BIOCOM ?? process.env.TOSS_TEST_SECRET_KEY,
   TOSS_TEST_SECRET_KEY_COFFEE:
-    process.env.TOSS_TEST_SECRET_KEY_COFFEE ?? process.env.TOSS_TEST_SECRET_KEY_COFFEE_API,
+    process.env.TOSS_SECRET_KEY_NEW_COFFEE
+    ?? process.env.TOSS_TEST_SECRET_KEY_COFFEE
+    ?? process.env.TOSS_TEST_SECRET_KEY_COFFEE_API,
   ALIGO_SENDER_KEY:
     process.env.ALIGO_SENDER_KEY
     ?? process.env.ALIGO_Senderkey
@@ -47,6 +57,8 @@ const envSource = {
   CHANNELTALK_MARKETING_ENABLED:
     process.env.CHANNELTALK_MARKETING_ENABLED ?? process.env.CHANNELTALK_MARKETINGENABLED,
   META_ADMANAGER_API_KEY_COFFEE: process.env.META_ADMANAGER_API_KEY_COFFEE,
+  COFFEE_META_TOKEN: process.env.COFFEE_META_TOKEN,
+  COFFEE_META_SYSTEM_USERID: process.env.COFFEE_META_SYSTEM_USERID,
   META_PIXEL_ID_BIOCOM: process.env.META_PIXEL_ID_BIOCOM ?? "1283400029487161",
   META_PIXEL_ID_COFFEE: process.env.META_PIXEL_ID_COFFEE ?? "1186437633687388",
   META_PIXEL_ID_AIBIO: process.env.META_PIXEL_ID_AIBIO ?? "1068377347547682",
@@ -76,6 +88,18 @@ const envSchema = z.object({
     .transform((value) => value !== "false" && value !== "0"),
   ATTRIBUTION_STATUS_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   ATTRIBUTION_STATUS_SYNC_LIMIT: z.coerce.number().int().positive().default(100),
+  IMWEB_AUTO_SYNC_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
+  IMWEB_AUTO_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  IMWEB_AUTO_SYNC_MAX_PAGE: z.coerce.number().int().positive().default(30),
+  TOSS_AUTO_SYNC_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
+  TOSS_AUTO_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  TOSS_AUTO_SYNC_WINDOW_HOURS: z.coerce.number().int().positive().default(6),
   SCHEDULED_SEND_ENABLED: z
     .string()
     .optional()
@@ -139,6 +163,8 @@ const envSchema = z.object({
   PLAYAUTO_BASE_URL: z.string().url().optional(),
   META_ADMANAGER_API_KEY: z.string().min(1).optional(),
   META_ADMANAGER_API_KEY_COFFEE: z.string().min(1).optional(),
+  COFFEE_META_TOKEN: z.string().min(1).optional(),
+  COFFEE_META_SYSTEM_USERID: z.string().min(1).optional(),
   META_APP_SECRET_CODE: z.string().min(1).optional(),
   META_PIXEL_ID_BIOCOM: z.string().min(1).default("1283400029487161"),
   META_PIXEL_ID_COFFEE: z.string().min(1).default("1186437633687388"),

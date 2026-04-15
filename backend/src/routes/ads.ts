@@ -339,7 +339,12 @@ const resolveHost = (value: string): string => {
 
 const getMetaToken = (accountId?: string) => {
   if (accountId === "act_654671961007474") {
-    return env.META_ADMANAGER_API_KEY_COFFEE ?? env.META_ADMANAGER_API_KEY ?? "";
+    return (
+      env.COFFEE_META_TOKEN
+      ?? env.META_ADMANAGER_API_KEY_COFFEE
+      ?? env.META_ADMANAGER_API_KEY
+      ?? ""
+    );
   }
   return env.META_ADMANAGER_API_KEY ?? "";
 };
