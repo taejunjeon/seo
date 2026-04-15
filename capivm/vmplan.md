@@ -1,24 +1,25 @@
-# GCE VM 임시 운영 전환 계획 - 2026-04-11
+# GCE VM 임시 운영 전환 계획 - 2026-04-12 갱신
 
 ## 바로 결론
 
-지금은 VM 배포를 바로 실행하기보다 **계획과 컷오버 절차만 확정하고, 먼저 CAPI Purchase 정합성 작업을 마무리하는 순서**가 맞다.
+이제 VM 배포 준비 단계로 넘어간다. Next.js 전환은 하지 않고, **backend Node/Express를 그대로 VM에 올리는 최소 배포**로 진행한다.
 
-이유는 단순하다. 현재 Meta ROAS 차이의 핵심 후보가 아직 정리 중이다.
+현재 CAPI Purchase 정합성의 1차 기준은 통과했다.
 
-- 가상계좌 미입금 주문에서도 Browser Pixel `Purchase`가 발화하는 문제.
-- Browser Purchase와 Server CAPI Purchase의 `event_id` dedup 검증.
-- CAPI payload의 `order_id`, `content_ids`, `contents`, `event_source_url` 일관성.
-- 결제완료 식별자 품질과 pending/confirmed 구분.
+- 자사몰 카드 confirmed 주문: Browser Pixel `Purchase` 전송 확인.
+- 자사몰 가상계좌 pending 주문: Browser Pixel `Purchase` 차단, `VirtualAccountIssued` 전송 확인.
+- 네이버페이: 자사몰 완료 페이지로 돌아오지 않으므로 다음 Phase의 서버 CAPI 보강으로 분리.
 
-이 상태에서 노트북 백엔드와 VM 백엔드가 동시에 돌면 결제상태 sync, CAPI auto-sync, 로그 적재가 중복될 수 있다. 그러면 “Meta가 과대 집계하는 이유”를 더 보기 어려워진다.
+이번에 배포 준비를 위해 백그라운드 잡 on/off 환경변수를 추가했다. 따라서 VM을 먼저 띄울 때는 auto-sync를 끈 상태로 health와 endpoint를 검증하고, 노트북 백엔드를 끈 뒤 VM에서만 CAPI/결제상태 sync를 켤 수 있다.
 
-따라서 순서는 다음이 맞다.
+추가된 실행 문서와 산출물:
 
-1. CAPI Purchase 기준을 먼저 마무리한다.
-2. VM 전환 계획과 체크리스트를 고정한다.
-3. 노트북 origin에서 VM origin으로 한 번에 컷오버한다.
-4. 컷오버 후 24시간 동안 중복 전송과 누락을 모니터링한다.
+- `capivm/vmdeploy.md`
+- `capivm/backend.env.vm.example`
+- `capivm/ecosystem.config.cjs`
+- `capivm/setup-backend-vm.sh`
+
+실제 GCE 생성/배포는 이 Mac에 `gcloud`가 없고 VM 접속 정보가 아직 없어 여기서 바로 완료하지 못했다. VM 정보가 준비되면 `capivm/vmdeploy.md` 절차대로 실행한다.
 
 ## VM으로 옮기는 목적
 
