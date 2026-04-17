@@ -145,6 +145,8 @@ export default function CallpricePage() {
   const [rampupProbation, setRampupProbation] = useState<CallpriceRampupResponse | null>(null);
   const [ltr6m, setLtr6m] = useState<CallpriceOverviewResponse | null>(null);
   const [ltr1y, setLtr1y] = useState<CallpriceOverviewResponse | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [supplementFirstLtv, setSupplementFirstLtv] = useState<any>(null);
   // P2-S5 상품 믹스 데이터
   const [productMix, setProductMix] = useState<Array<{ statusGroup: string; productCategory: string; customerCount: number; orderCount: number; totalRevenue: number; avgOrderValue: number }> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -186,7 +188,7 @@ export default function CallpricePage() {
         analysis_type: analysisType || undefined,
       };
 
-      const [ov, mg, at, atByType, sc, dt, st, sr, ss, ru, ru30, l6m, l1y, pm] = await Promise.all([
+      const [ov, mg, at, atByType, sc, dt, st, sr, ss, ru, ru30, l6m, l1y, pm, sfl] = await Promise.all([
         fetch(`${API_BASE}/api/callprice/overview${qs(common)}`, { signal }).then((r) => r.json()),
         fetch(`${API_BASE}/api/callprice/managers${qs(common)}`, { signal }).then((r) => r.json()),
         fetch(`${API_BASE}/api/callprice/analysis-types${qs({ ...common, manager: manager || undefined })}`, { signal }).then((r) => r.json()),
@@ -208,6 +210,7 @@ export default function CallpricePage() {
         fetch(`${API_BASE}/api/callprice/overview${qs({ ...ltrBase, maturity_days: 180 })}`, { signal }).then((r) => r.json()).catch(() => null),
         fetch(`${API_BASE}/api/callprice/overview${qs({ ...ltrBase, maturity_days: 365 })}`, { signal }).then((r) => r.json()).catch(() => null),
         fetch(`${API_BASE}/api/consultation/product-followup?startDate=${startDate}&endDate=${endDate}`, { signal }).then((r) => r.json()).catch(() => null),
+        fetch(`${API_BASE}/api/callprice/supplement-first-ltv?start_date=${startDate}&end_date=${endDate}`, { signal }).then((r) => r.json()).catch(() => null),
       ]);
       setOverview(ov);
       setManagers(mg);
@@ -223,6 +226,7 @@ export default function CallpricePage() {
       setLtr6m(l6m);
       setLtr1y(l1y);
       if (pm?.items) setProductMix(pm.items);
+      if (sfl?.ok) setSupplementFirstLtv(sfl.data);
     } catch (err) {
       if (signal.aborted) return;
       setError(err instanceof Error ? err.message : "데이터를 불러오지 못했습니다.");
@@ -251,9 +255,39 @@ export default function CallpricePage() {
   const allMgRows = managers?.data?.items ?? [];
   const activeMgRows = allMgRows.filter((r: CallpriceManagersRow) => !INACTIVE_MANAGERS.has(r.manager));
   const inactiveMgRows = allMgRows.filter((r: CallpriceManagersRow) => INACTIVE_MANAGERS.has(r.manager));
-  const atRows = (analysisTypesByType?.data?.items ?? analysisTypes?.data?.items ?? []).filter(
+  const atRowsRaw = (analysisTypesByType?.data?.items ?? analysisTypes?.data?.items ?? []).filter(
     (row: CallpriceAnalysisTypeRow) => row.analysis_type !== "펫",
   );
+  // 종합(소표본)을 유기산에 합산 (동일 리포트 유형: 종합대사기능)
+  const atRows = (() => {
+    const jh = atRowsRaw.find((r: CallpriceAnalysisTypeRow) => r.analysis_type === "종합");
+    if (!jh) return atRowsRaw.filter((r: CallpriceAnalysisTypeRow) => r.analysis_type !== "종합");
+    return atRowsRaw.filter((r: CallpriceAnalysisTypeRow) => r.analysis_type !== "종합").map((r: CallpriceAnalysisTypeRow) => {
+      if (r.analysis_type !== "유기산") return r;
+      const totalMatured = r.matured_customers + jh.matured_customers;
+      const totalCompleted = r.completed_consultations + jh.completed_consultations;
+      const totalConverted = r.converted_customers + jh.converted_customers;
+      const avgRev = totalMatured > 0 ? (r.matured_customers * r.avg_revenue_per_customer + jh.matured_customers * jh.avg_revenue_per_customer) / totalMatured : r.avg_revenue_per_customer;
+      const convRate = totalMatured > 0 ? totalConverted / totalMatured : r.conversion_rate;
+      const baseline = r.baseline_avg_revenue_per_customer;
+      const incr = avgRev - baseline;
+      return {
+        ...r,
+        analysis_type: "유기산(종합 포함)",
+        completed_consultations: totalCompleted,
+        unique_completed_customers: r.unique_completed_customers + jh.unique_completed_customers,
+        matched_order_customers: r.matched_order_customers + jh.matched_order_customers,
+        matured_customers: totalMatured,
+        converted_customers: totalConverted,
+        conversion_rate: convRate,
+        avg_revenue_per_customer: avgRev,
+        estimated_incremental_value_per_customer: incr,
+        estimated_incremental_revenue: incr * totalConverted,
+        estimated_value_per_consultation: totalCompleted > 0 ? (incr * totalConverted) / totalCompleted : 0,
+        sample_size_grade: r.sample_size_grade,
+      } as CallpriceAnalysisTypeRow;
+    });
+  })();
   const analysisTypeNotes = analysisTypesByType?.notes ?? [];
   const analysisTypeFallbackNotes = analysisTypeNotes.filter(
     (note) => (note.includes("비교군") || note.includes("대체했습니다.")) && !note.includes("'펫'"),
@@ -1230,6 +1264,37 @@ export default function CallpricePage() {
                   </>
                 )}
               </div>
+
+              {/* 인사이트: 알러지 vs 음식물 라벨 차이 분석 */}
+              <div style={{ marginTop: 16, padding: "16px 18px", borderRadius: 12, background: "linear-gradient(135deg, #fffbeb, #fef3c7)", border: "1px solid #fcd34d" }}>
+                <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#92400e", marginBottom: 8 }}>인사이트: &quot;알러지&quot; vs &quot;음식물&quot; 상담효과 차이 분석</div>
+                <div style={{ fontSize: "0.74rem", color: "#78350f", lineHeight: 1.8 }}>
+                  <p style={{ margin: "0 0 8px" }}>
+                    <strong>결론:</strong> 알러지와 음식물은 <strong>동일 검사</strong>(음식물 과민증)이오. CRM 라벨만 다르오.
+                    2024년까지 &quot;음식물과민증&quot;으로 기록, 2025년부터 &quot;알러지&quot;로 전환되었소.
+                  </p>
+                  <p style={{ margin: "0 0 8px" }}>
+                    <strong>상담효과 2배 차이 원인 (3가지 복합):</strong>
+                  </p>
+                  <ol style={{ margin: "0 0 8px", paddingLeft: 20 }}>
+                    <li style={{ marginBottom: 4 }}>
+                      <strong>시기 차이:</strong> 음식물 = 주로 2024년 데이터, 알러지 = 2025~26년 데이터. 시간 경과에 따라 영양제 제품 라인업 확대·가격 조정·상담 프로세스 개선으로 고객당 매출이 상승 추세 (2024H1 ₩33K → 2024H2 ₩81K → 2025H2 ₩54K → 2026 ₩68K).
+                    </li>
+                    <li style={{ marginBottom: 4 }}>
+                      <strong>라벨 자체가 상담 품질의 proxy:</strong> 같은 시기(2024H2)·같은 상담사(민정)에서도 &quot;음식물&quot; ₩63,589 vs &quot;알러지&quot; ₩39,189로 차이 발생. &quot;음식물과민증&quot;이라고 구체적으로 기록한 상담은 검사 결과가 명확하고 고객 구매 의향이 높은 케이스였을 가능성이 높소.
+                    </li>
+                    <li style={{ marginBottom: 4 }}>
+                      <strong>상담사 구성 변화:</strong> 2025년부터 선희(고객당매출 ₩109K, 전환율 34.8%)가 합류하여 &quot;알러지&quot; 평균을 끌어올리는 중이지만, 음식물 시기에는 이 상담사가 없었소.
+                    </li>
+                  </ol>
+                  <p style={{ margin: "0 0 4px" }}>
+                    <strong>LTV 추정 시 권장:</strong> 두 라벨을 합산하되, 최근 데이터(2025H2~2026)에 가중치를 두어 사용. 음식물 단독 ₩126K는 2024년 과거 수치로, 현재 적용 시 과대평가 위험이 있소.
+                  </p>
+                  <p style={{ margin: 0, fontSize: "0.68rem", color: "#a16207" }}>
+                    종합(3건)은 유기산과 동일 리포트 유형(종합대사기능)이며, 소표본이므로 유기산 데이터와 합산하여 해석하시오.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* ═══ 6. 코호트 비교 (상담군 vs 미상담군) ═══ */}
@@ -2205,7 +2270,143 @@ export default function CallpricePage() {
               );
             })()}
 
-            {/* ═══ 12. API 주석 ═══ */}
+            {/* ═══ 12. 영양제 첫구매 고객 LTV 분석 ═══ */}
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>첫구매 유형별 LTV 비교: 검사권 vs 영양제</h2>
+              <p className={styles.sectionDesc}>
+                고객의 <strong>첫 구매 상품</strong>이 검사권인지 영양제인지에 따라 재구매율과 LTV가 크게 다르다.
+                검사 퍼널 외에 영양제 직접 판매 광고의 예산 배분 근거로 활용할 수 있다.
+              </p>
+              {supplementFirstLtv ? (() => {
+                const segs = supplementFirstLtv.segments ?? [];
+                const testFirst = segs.find((s: { segment: string }) => s.segment === "test_kit_first");
+                const suppFirst = segs.find((s: { segment: string }) => s.segment === "supplement_first");
+                const fmtW = (v: number) => `₩${Math.round(v).toLocaleString("ko-KR")}`;
+                const fmtP = (v: number) => `${(v * 100).toFixed(1)}%`;
+                return (
+                  <>
+                    {/* 핵심 비교 카드 */}
+                    {testFirst && suppFirst && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12, marginBottom: 16 }}>
+                        <div style={{ padding: "16px 18px", borderRadius: 12, background: "#f0f9ff", border: "1px solid #93c5fd" }}>
+                          <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#1e40af", marginBottom: 8 }}>검사권 첫구매</div>
+                          <div style={{ fontSize: "0.72rem", color: "#1e3a5f", lineHeight: 2 }}>
+                            <div>고객수: <strong>{testFirst.customerCount.toLocaleString()}명</strong></div>
+                            <div>첫주문 평균가: <strong>{fmtW(testFirst.avgFirstOrderValue)}</strong></div>
+                            <div>고객당 총매출 <span style={{ fontSize: "0.62rem", color: "#64748b" }}>(조회 전기간)</span>: <strong>{fmtW(testFirst.avgRevenuePerCustomer)}</strong></div>
+                            <div>6개월 LTR: <strong style={{ color: "#1e40af" }}>{fmtW(testFirst.ltvWindows?.find((w: { days: number }) => w.days === 180)?.avgRevenue ?? 0)}</strong></div>
+                            <div>재구매율: <strong>{fmtP(testFirst.repeatPurchaseRate)}</strong></div>
+                            <div>365일 재구매율: <strong>{fmtP(testFirst.ltvWindows?.find((w: { days: number }) => w.days === 365)?.repeatRate ?? 0)}</strong></div>
+                            <div>재구매 고객 추가매출: <strong>{fmtW(testFirst.avgRepeatRevenue)}</strong></div>
+                          </div>
+                        </div>
+                        <div style={{ padding: "16px 18px", borderRadius: 12, background: "#f0fdf4", border: "1px solid #86efac" }}>
+                          <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#166534", marginBottom: 8 }}>영양제 첫구매</div>
+                          <div style={{ fontSize: "0.72rem", color: "#14532d", lineHeight: 2 }}>
+                            <div>고객수: <strong>{suppFirst.customerCount.toLocaleString()}명</strong></div>
+                            <div>첫주문 평균가: <strong>{fmtW(suppFirst.avgFirstOrderValue)}</strong></div>
+                            <div>고객당 총매출 <span style={{ fontSize: "0.62rem", color: "#64748b" }}>(조회 전기간)</span>: <strong>{fmtW(suppFirst.avgRevenuePerCustomer)}</strong></div>
+                            <div>6개월 LTR: <strong style={{ color: "#16a34a" }}>{fmtW(suppFirst.ltvWindows?.find((w: { days: number }) => w.days === 180)?.avgRevenue ?? 0)}</strong></div>
+                            <div>재구매율: <strong style={{ color: "#16a34a" }}>{fmtP(suppFirst.repeatPurchaseRate)}</strong> ({(suppFirst.repeatPurchaseRate / testFirst.repeatPurchaseRate).toFixed(1)}배)</div>
+                            <div>365일 재구매율: <strong style={{ color: "#16a34a" }}>{fmtP(suppFirst.ltvWindows?.find((w: { days: number }) => w.days === 365)?.repeatRate ?? 0)}</strong></div>
+                            <div>재구매 고객 추가매출: <strong>{fmtW(suppFirst.avgRepeatRevenue)}</strong></div>
+                            {suppFirst.conversionToTest != null && (
+                              <div>→ 검사 전환율: <strong>{fmtP(suppFirst.conversionToTest)}</strong></div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* LTV 윈도우 비교 테이블 */}
+                    {testFirst && suppFirst && (
+                      <div style={{ overflowX: "auto", marginBottom: 16 }}>
+                        <table className={styles.table}>
+                          <thead>
+                            <tr className={styles.tableHead}>
+                              <th>기간</th>
+                              <th className={styles.tableCellRight}>검사권 - 평균매출</th>
+                              <th className={styles.tableCellRight}>검사권 - 재구매율</th>
+                              <th className={styles.tableCellRight}>영양제 - 평균매출</th>
+                              <th className={styles.tableCellRight}>영양제 - 재구매율</th>
+                              <th className={styles.tableCellRight}>영양제 - 평균주문수</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(testFirst.ltvWindows ?? []).map((tw: { days: number; avgRevenue: number; repeatRate: number; avgOrders: number }, i: number) => {
+                              const sw = suppFirst.ltvWindows?.[i];
+                              return (
+                                <tr key={tw.days} className={styles.tableRow}>
+                                  <td><strong>{tw.days}일</strong></td>
+                                  <td className={styles.tableCellRight}>{fmtW(tw.avgRevenue)}</td>
+                                  <td className={styles.tableCellRight}>{fmtP(tw.repeatRate)}</td>
+                                  <td className={styles.tableCellRight}>{sw ? fmtW(sw.avgRevenue) : "—"}</td>
+                                  <td className={styles.tableCellRight} style={{ color: sw && sw.repeatRate > tw.repeatRate ? "#16a34a" : undefined, fontWeight: sw && sw.repeatRate > tw.repeatRate ? 700 : undefined }}>
+                                    {sw ? fmtP(sw.repeatRate) : "—"}
+                                  </td>
+                                  <td className={styles.tableCellRight}>{sw ? `${sw.avgOrders.toFixed(1)}건` : "—"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* 연도별 첫구매 상품 Top3 */}
+                    {suppFirst?.topFirstProductsByYear?.length > 0 && (
+                      <div style={{ padding: "12px 16px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0", marginBottom: 12 }}>
+                        <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "#475569", marginBottom: 8 }}>영양제 첫구매 고객 — 어떤 제품으로 첫구매를 시작했는가 (연도별 Top3)</div>
+                        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(suppFirst.topFirstProductsByYear.length, 4)}, 1fr)`, gap: 12 }}>
+                          {suppFirst.topFirstProductsByYear.map((yr: { year: string; products: Array<{ product: string; count: number }> }) => (
+                            <div key={yr.year} style={{ padding: "10px 12px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0" }}>
+                              <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#1e293b", marginBottom: 6 }}>{yr.year}년</div>
+                              <div style={{ fontSize: "0.68rem", color: "#475569", lineHeight: 1.8 }}>
+                                {yr.products.map((p: { product: string; count: number }, i: number) => (
+                                  <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{i + 1}. {p.product}</span>
+                                    <strong style={{ flexShrink: 0 }}>{p.count.toLocaleString()}건</strong>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 인사이트 */}
+                    {testFirst && suppFirst && (
+                      <div style={{ padding: "14px 16px", borderRadius: 12, background: "linear-gradient(135deg, #fffbeb, #fef3c7)", border: "1px solid #fcd34d" }}>
+                        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#92400e", marginBottom: 6 }}>인사이트</div>
+                        <div style={{ fontSize: "0.72rem", color: "#78350f", lineHeight: 1.8 }}>
+                          <p style={{ margin: "0 0 6px" }}>
+                            영양제 첫구매 고객은 재구매율이 <strong>{fmtP(suppFirst.repeatPurchaseRate)}</strong>로
+                            검사권 첫구매({fmtP(testFirst.repeatPurchaseRate)})의 <strong>{(suppFirst.repeatPurchaseRate / testFirst.repeatPurchaseRate).toFixed(1)}배</strong>이오.
+                            정기구독 중심의 반복 구매가 주요 원인이오.
+                          </p>
+                          <p style={{ margin: "0 0 6px" }}>
+                            다만 고객당 총매출은 검사권 첫구매({fmtW(testFirst.avgRevenuePerCustomer)})가
+                            영양제 첫구매({fmtW(suppFirst.avgRevenuePerCustomer)})보다 높은데,
+                            이는 검사권 단가(평균 {fmtW(testFirst.avgFirstOrderValue)})가 영양제(평균 {fmtW(suppFirst.avgFirstOrderValue)})보다 크기 때문이오.
+                          </p>
+                          {suppFirst.conversionToTest != null && suppFirst.conversionToTest > 0 && (
+                            <p style={{ margin: 0 }}>
+                              영양제로 시작한 고객 중 <strong>{fmtP(suppFirst.conversionToTest)}</strong>가 이후 검사를 구매했소 (역방향 퍼널).
+                              이 그룹의 LTV가 가장 높을 가능성이 있으므로, 영양제 → 검사 전환 유도 상담이 매출 극대화에 유효하오.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })() : (
+                <div style={{ marginTop: 12, fontSize: "0.74rem", color: "#94a3b8" }}>데이터 로딩 중...</div>
+              )}
+            </div>
+
+            {/* ═══ 13. API 주석 ═══ */}
             {notes.length > 0 && (
               <div className={styles.notesList}>
                 {notes.map((note, i) => (

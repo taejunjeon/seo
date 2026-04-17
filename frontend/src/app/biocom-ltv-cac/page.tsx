@@ -12,9 +12,48 @@ import type {
 import styles from "./page.module.css";
 
 const API_BASE = "http://localhost:7020";
+const ADS_API_BASE = "https://att.ainativeos.net";
 const START_DATE = "2025-04-01";
 const END_DATE = "2026-03-27";
 const MATURITY_DAYS = [30, 60, 90, 180, 365] as const;
+
+const CAMPAIGN_SELECTION_ROWS = [
+  {
+    campaignId: "120242626179290396",
+    campaignName: "공동구매 인플루언서 파트너 광고 모음_3",
+    confirmedSignal: "13건 / ₩4,015,700",
+    followupSignal: "상담·영양제 후속 조인 전",
+    decision: "보류",
+  },
+  {
+    campaignId: "120213362391690396",
+    campaignName: "음식물 과민증 검사 전환캠페인",
+    confirmedSignal: "4건 / ₩1,209,000",
+    followupSignal: "검사 후 영양제 후속 가능성이 큰 상품군",
+    decision: "우선 확인",
+  },
+  {
+    campaignId: "120237452088280396",
+    campaignName: "종합대사기능검사 전환캠페인",
+    confirmedSignal: "2건 / ₩536,400",
+    followupSignal: "상담·영양제 후속 조인 필요",
+    decision: "확인 후 소액 테스트",
+  },
+  {
+    campaignId: "120218496689750396",
+    campaignName: "영양중금속검사 전환 캠페인",
+    confirmedSignal: "1건 / ₩268,200",
+    followupSignal: "표본 추가 필요",
+    decision: "보류",
+  },
+  {
+    campaignId: "120235591897270396",
+    campaignName: "음식물 과민증 검사 어드밴티지+캠페인",
+    confirmedSignal: "1건 / ₩245,000",
+    followupSignal: "표본 추가 필요",
+    decision: "보류",
+  },
+] as const;
 
 type ProductFollowupItem = {
   statusGroup: string;
@@ -55,6 +94,9 @@ type SiteSummarySite = {
 
 type SiteSummaryResponse = {
   ok?: boolean;
+  date_preset?: string;
+  start_date?: string;
+  end_date?: string;
   total: {
     spend: number;
     confirmedRevenue: number;
@@ -88,6 +130,38 @@ type CampaignRoasResponse = {
   };
 };
 
+type CampaignLtvRoasResponse = {
+  ok: boolean;
+  range: { startDate: string; endDate: string };
+  ltv_window_days: number;
+  rows: Array<{
+    campaignId: string | null;
+    campaignName: string;
+    spend: number;
+    attributedRevenue: number;
+    roas: number | null;
+    orders: number;
+    ltvRevenue: number;
+    repeatRevenue: number;
+    supplementRevenue: number;
+    ltvRoas: number | null;
+    matchedCustomers: number;
+    consultedCustomers: number;
+    supplementCustomers: number;
+    ltvStatus: "ready" | "low_sample" | "identity_missing" | "no_attribution" | "blocked";
+    ltvBlocker: string | null;
+  }>;
+  summary: {
+    attributedRevenue: number;
+    ltvRevenue: number;
+    repeatRevenue: number;
+    supplementRevenue: number;
+    ltvRoas: number | null;
+    readyCampaigns: number;
+    blockedCampaigns: number;
+  };
+};
+
 type LoadedData = {
   overviews: Array<{ maturity: number; response: CallpriceOverviewResponse | null }>;
   timing: CallpriceSupplementPurchaseTimingResponse | null;
@@ -97,6 +171,7 @@ type LoadedData = {
   productFollowup: ProductFollowupResponse | null;
   siteSummary: SiteSummaryResponse | null;
   campaignRoas: CampaignRoasResponse | null;
+  campaignLtvRoas: CampaignLtvRoasResponse | null;
 };
 
 const fmtNum = (value: number | null | undefined) =>
@@ -132,9 +207,9 @@ const buildCallpriceQuery = (maturityDays?: number) => {
   return params.toString();
 };
 
-const fetchJson = async <T,>(path: string, signal: AbortSignal): Promise<T | null> => {
+const fetchJson = async <T,>(path: string, signal: AbortSignal, base = API_BASE): Promise<T | null> => {
   try {
-    const response = await fetch(`${API_BASE}${path}`, { signal });
+    const response = await fetch(`${base}${path}`, { signal });
     if (!response.ok) return null;
     return (await response.json()) as T;
   } catch (error) {
@@ -164,6 +239,7 @@ export default function BiocomLtvCacPage() {
         productFollowup,
         siteSummary,
         campaignRoas,
+        campaignLtvRoas,
       ] = await Promise.all([
         Promise.all(
           MATURITY_DAYS.map(async (maturity) => ({
@@ -194,10 +270,20 @@ export default function BiocomLtvCacPage() {
           `/api/consultation/product-followup?startDate=${START_DATE}&endDate=${END_DATE}`,
           abortController.signal,
         ),
-        fetchJson<SiteSummaryResponse>("/api/ads/site-summary?date_preset=last_7d", abortController.signal),
+        fetchJson<SiteSummaryResponse>(
+          "/api/ads/site-summary?date_preset=last_7d",
+          abortController.signal,
+          ADS_API_BASE,
+        ),
         fetchJson<CampaignRoasResponse>(
           "/api/ads/roas?account_id=act_3138805896402376&date_preset=last_7d",
           abortController.signal,
+          API_BASE,
+        ),
+        fetchJson<CampaignLtvRoasResponse>(
+          "/api/ads/campaign-ltv-roas?account_id=act_3138805896402376&date_preset=last_7d&ltv_window_days=180",
+          abortController.signal,
+          API_BASE,
         ),
       ]);
 
@@ -211,6 +297,7 @@ export default function BiocomLtvCacPage() {
           productFollowup,
           siteSummary,
           campaignRoas,
+          campaignLtvRoas,
         });
         setError(overviews.some((item) => item.response) ? null : "상담/코호트 API 응답을 불러오지 못했습니다.");
         setLoading(false);
@@ -249,6 +336,13 @@ export default function BiocomLtvCacPage() {
     const supplementOrdersPerCustomer = safeDiv(completedSupplement?.orderCount, completedSupplement?.customerCount);
     const metaVsAttributionGap = safeDiv(biocomAd?.metaPurchaseRoas, biocomAd?.roas);
     const unmappedCampaign = data.campaignRoas?.campaigns.find((campaign) => campaign.campaignName === "(unmapped)");
+    const campaignLtvRows = (data.campaignLtvRoas?.rows ?? []).filter((row) => row.campaignId);
+    const campaignMappingCoverage = safeDiv(data.campaignRoas?.summary.attributedRevenue, biocomAd?.confirmedRevenue);
+    const adsRangeLabel = data.campaignRoas?.range
+      ? `${data.campaignRoas.range.startDate} - ${data.campaignRoas.range.endDate}`
+      : data.siteSummary?.start_date && data.siteSummary?.end_date
+        ? `${data.siteSummary.start_date} - ${data.siteSummary.end_date}`
+        : "last_7d";
 
     return {
       overview90,
@@ -269,6 +363,9 @@ export default function BiocomLtvCacPage() {
       supplementOrdersPerCustomer,
       metaVsAttributionGap,
       unmappedCampaign,
+      campaignLtvRows,
+      campaignMappingCoverage,
+      adsRangeLabel,
     };
   }, [data]);
 
@@ -307,7 +404,8 @@ export default function BiocomLtvCacPage() {
                 <span className={styles.heroLabel}>운영 판단</span>
                 <span className={styles.heroPanelValue}>유지 / 선별 증액</span>
                 <span className={styles.heroPanelNote}>
-                  Meta 4.80x만 보고 전체 증액하지 않습니다. Attribution 1.02x만 보고 전체 중단하지도 않습니다.
+                  Meta {fmtRoas(computed.biocomAd?.metaPurchaseRoas)}만 보고 전체 증액하지 않습니다. Attribution{" "}
+                  {fmtRoas(computed.biocomAd?.roas)}만 보고 전체 중단하지도 않습니다.
                 </span>
               </div>
             </section>
@@ -374,6 +472,133 @@ export default function BiocomLtvCacPage() {
                   있습니다. 따라서 광고는 계속하되, Meta ROAS만 보고 전체 예산을 크게 늘리지 말고, 상담·영양제
                   전환이 확인되는 캠페인만 소액 증액 테스트하는 것이 맞습니다.
                 </div>
+              </div>
+            </section>
+
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h2 className={styles.sectionTitle}>소액 증액 후보를 발라내는 방법</h2>
+                  <p className={styles.sectionDesc}>
+                    증액 후보는 Meta ROAS가 아니라 campaign id가 확인된 confirmed 주문과 상담·영양제 후속 전환이 함께
+                    붙은 캠페인에서만 고릅니다.
+                  </p>
+                </div>
+                <span className={`${styles.badge} ${styles.warningBadge}`}>+10-15% 제한 테스트</span>
+              </div>
+
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>게이트</th>
+                      <th>통과 기준</th>
+                      <th>탈락 기준</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>캠페인 식별</td>
+                      <td>`utm_id` campaign id 직접 일치 또는 `utm_term` adset id의 부모 campaign 확인</td>
+                      <td>`fbclid` only, `meta_*` source only, 내부 배너·네이버·파트너 유입</td>
+                    </tr>
+                    <tr>
+                      <td>결제 상태</td>
+                      <td>Toss/Attribution `confirmed` 주문</td>
+                      <td>가상계좌 pending, 테스트 이벤트, CAPI retry/duplicate 의심 이벤트</td>
+                    </tr>
+                    <tr>
+                      <td>상담·영양제 후속</td>
+                      <td>고객 식별자 기준 상담 완료 또는 90/180일 내 영양제 주문</td>
+                      <td>1차 구매만 있고 상담·영양제 후속 연결이 없는 캠페인</td>
+                    </tr>
+                    <tr>
+                      <td>테스트 규모</td>
+                      <td>clean window confirmed 2건 이상 또는 ₩500,000 이상</td>
+                      <td>표본 1건, 매핑 보류, 전체 ROAS만 좋은 캠페인</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className={styles.tableWrap} style={{ marginTop: 16 }}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>캠페인</th>
+                      <th>confirmed 신호</th>
+                      <th>상담·영양제 신호</th>
+                      <th>현재 판단</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {CAMPAIGN_SELECTION_ROWS.map((row) => (
+                      <tr key={row.campaignId}>
+                        <td>
+                          <strong>{row.campaignName}</strong>
+                          <br />
+                          <span className={styles.metricSub}>{row.campaignId}</span>
+                        </td>
+                        <td>{row.confirmedSignal}</td>
+                        <td>{row.followupSignal}</td>
+                        <td>{row.decision}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className={styles.tableWrap} style={{ marginTop: 16 }}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>캠페인</th>
+                      <th>Att ROAS</th>
+                      <th>LTV 기준 ROAS</th>
+                      <th>후속 매출</th>
+                      <th>상담/영양제 고객</th>
+                      <th>판정</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {computed.campaignLtvRows.map((row) => (
+                      <tr key={row.campaignId ?? row.campaignName}>
+                        <td>
+                          <strong>{row.campaignName}</strong>
+                          <br />
+                          <span className={styles.metricSub}>{row.campaignId}</span>
+                        </td>
+                        <td className={styles.right}>{fmtRoas(row.roas)}</td>
+                        <td className={styles.right}>{fmtRoas(row.ltvRoas)}</td>
+                        <td className={styles.right}>
+                          {fmtKRW(row.repeatRevenue)}
+                          <br />
+                          <span className={styles.metricSub}>영양제 {fmtKRW(row.supplementRevenue)}</span>
+                        </td>
+                        <td className={styles.right}>
+                          {fmtNum(row.consultedCustomers)} / {fmtNum(row.supplementCustomers)}
+                          <br />
+                          <span className={styles.metricSub}>매칭 고객 {fmtNum(row.matchedCustomers)}</span>
+                        </td>
+                        <td>
+                          {row.ltvStatus === "ready" ? "계산 가능" : row.ltvBlocker ?? row.ltvStatus}
+                        </td>
+                      </tr>
+                    ))}
+                    {computed.campaignLtvRows.length === 0 && (
+                      <tr>
+                        <td colSpan={6}>캠페인별 LTV ROAS API 응답 대기 중</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className={styles.decision} style={{ marginTop: 18 }}>
+                <strong>운영 원칙:</strong> 지금 표는 증액 승인 목록이 아니라 선별 순서입니다. 먼저 캠페인 매핑을 확정하고,
+                그 주문 고객이 상담 완료 또는 영양제 후속 구매로 이어졌는지 조인합니다. 이 조인을 통과한 캠페인만
+                전체 예산 안에서 +10-15% 소액 증액 테스트합니다. 캠페인별 LTV ROAS는 localhost alias/LTV 계산 기준이고,
+                VM 최신 confirmed 매출 대비 매핑 커버리지는 {fmtPct(computed.campaignMappingCoverage)}라 아직 후보 선별용입니다.
               </div>
             </section>
 
@@ -505,7 +730,7 @@ export default function BiocomLtvCacPage() {
                 <div>
                   <h2 className={styles.sectionTitle}>최근 7일 ROAS와 광고비 운영 의견</h2>
                   <p className={styles.sectionDesc}>
-                    기준 기간은 광고 API last_7d, 현재 응답 기준 2026-04-04 - 2026-04-10입니다.
+                    기준 기간은 VM 광고 API `last_7d`, 현재 응답 기준 {computed.adsRangeLabel}입니다.
                   </p>
                 </div>
                 <span className={`${styles.badge} ${styles.dangerBadge}`}>Meta 단독 증액 금지</span>
@@ -543,7 +768,7 @@ export default function BiocomLtvCacPage() {
                       <td className={styles.right} colSpan={3}>
                         {computed.unmappedCampaign
                           ? `(unmapped) ${fmtKRW(computed.unmappedCampaign.attributedRevenue)} / ${fmtNum(computed.unmappedCampaign.orders)}건`
-                          : "확인 필요"}
+                          : `확정 alias 기준 매핑 커버리지 ${fmtPct(computed.campaignMappingCoverage)}`}
                       </td>
                     </tr>
                   </tbody>

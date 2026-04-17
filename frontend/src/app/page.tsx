@@ -53,8 +53,19 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "ok" | "error">("checking");
   const [datePreset, setDatePreset] = useState<DatePreset>("28d");
 
-  /* 새 state */
-  const [activeTab, setActiveTab] = useState(0);
+  /* 새 state — 탭을 URL hash로 동기화 */
+  const TAB_SLUGS = useMemo(() => ["overview", "column", "keyword", "ai-report", "cwv", "behavior", "diagnosis", "ai-crm", "solution"], []);
+  const [activeTab, setActiveTabRaw] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const hash = window.location.hash.replace("#", "");
+    const idx = TAB_SLUGS.indexOf(hash);
+    return idx >= 0 ? idx : 0;
+  });
+  const setActiveTab = useCallback((i: number) => {
+    setActiveTabRaw(i);
+    const slug = TAB_SLUGS[i];
+    if (slug) window.history.replaceState(null, "", i === 0 ? window.location.pathname : `#${slug}`);
+  }, [TAB_SLUGS]);
   const [dataQueryOpen, setDataQueryOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [cwvStrategy, setCwvStrategy] = useState<"mobile" | "desktop">("mobile");
@@ -607,6 +618,17 @@ export default function Home() {
   useEffect(() => {
     if (activeTab !== 2) setOpportunityKeyword(null);
   }, [activeTab]);
+
+  // popstate: 브라우저 뒤로/앞으로 시 hash에서 탭 복원
+  useEffect(() => {
+    const onPop = () => {
+      const hash = window.location.hash.replace("#", "");
+      const idx = TAB_SLUGS.indexOf(hash);
+      setActiveTabRaw(idx >= 0 ? idx : 0);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [TAB_SLUGS]);
 
   // ChannelTalk: 탭 전환 시 setPage 호출
   useEffect(() => {
@@ -1708,7 +1730,9 @@ export default function Home() {
                 { href: "/coffee-pricing", title: "커피 가격 전략", desc: "원가 분석, 가격 인상/인하 판단, 경쟁사 비교, 마진 시뮬레이션", icon: "💲" },
                 { href: "/coupon", title: "쿠폰 CRM 분석", desc: "쿠폰 발급/사용률, ROI 분석, 할인 최적화 전략", icon: "🎟" },
                 { href: "/crm?tab=messaging", title: "알림톡 발송", desc: "카카오 알림톡 발송, 템플릿 선택, 테스트/실발송, 이력 확인", icon: "💬" },
-                { href: "/ads", title: "광고 성과", desc: "Meta 광고 캠페인별 노출/클릭/비용/전환 실시간 모니터링", icon: "📊" },
+                { href: "/ads", title: "Meta 광고성과", desc: "Meta 광고 캠페인별 노출/클릭/비용/전환 실시간 모니터링", icon: "📊" },
+                { href: "/ads/tiktok", title: "틱톡 광고성과", desc: "TikTok 유입 전환, pending 주문, ROAS 비교 가능 여부 점검", icon: "🎵" },
+                { href: "/acquisition-analysis", title: "유입분석", desc: "AIBIO·더클린커피·바이오컴 주요 전환 유입원과 캠페인 인사이트", icon: "🧭" },
                 { href: "/ads/roas", title: "ROAS · iROAS", desc: "광고비 대비 매출(ROAS) + 증분 광고수익률(iROAS) 모니터링", icon: "📉" },
                 { href: "/tracking-integrity", title: "추적 코드 및 데이터 정합성", desc: "아임웹 헤더·푸터 추적 코드, CAPI, Meta ROAS 차이와 보정 로드맵", icon: "🧩" },
                 { href: "/ads/landing", title: "랜딩뷰 · Clarity", desc: "클릭→랜딩뷰 이탈 분석, UX 히트맵, 전환율 개선 인사이트", icon: "🔍" },

@@ -4,6 +4,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import GlobalNav from "@/components/common/GlobalNav";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
@@ -26,6 +27,20 @@ type CampaignRow = {
   leads: number;
   purchases: number;
   purchase_value?: number;
+  view_content?: number;
+  add_to_cart?: number;
+  initiate_checkout?: number;
+};
+
+type CampaignSummary = {
+  totalImpressions: number;
+  totalClicks: number;
+  totalSpend: number;
+  avgCpc: number;
+  totalLandingViews: number;
+  totalLeads: number;
+  totalPurchases: number;
+  totalPurchaseValue?: number;
 };
 
 type DailyRow = {
@@ -94,6 +109,39 @@ type AttributionCampaignRoasResponse = {
     roas: number | null;
     orders: number;
   };
+};
+
+type CampaignLtvRoasRow = AttributionCampaignRoasRow & {
+  ltvRevenue: number;
+  repeatRevenue: number;
+  supplementRevenue: number;
+  ltvRoas: number | null;
+  matchedCustomers: number;
+  consultedCustomers: number;
+  supplementCustomers: number;
+  identityMatchedOrders: number;
+  ltvStatus: "ready" | "low_sample" | "identity_missing" | "no_attribution" | "blocked";
+  ltvBlocker: string | null;
+};
+
+type CampaignLtvRoasResponse = {
+  ok: boolean;
+  account_id: string;
+  date_preset: string;
+  ltv_window_days: number;
+  ltv_definition: string;
+  rows: CampaignLtvRoasRow[];
+  summary: {
+    spend: number;
+    attributedRevenue: number;
+    ltvRevenue: number;
+    repeatRevenue: number;
+    supplementRevenue: number;
+    ltvRoas: number | null;
+    readyCampaigns: number;
+    blockedCampaigns: number;
+  };
+  error?: string;
 };
 
 type AliasReviewCandidate = {
@@ -235,6 +283,40 @@ type CallerCoverageReport = {
   notes: string[];
 };
 
+type AcquisitionDimensionRow = {
+  label: string;
+  count: number;
+  share: number;
+  revenue?: number;
+  examples?: string[];
+};
+
+type AcquisitionChannelRow = AcquisitionDimensionRow & {
+  key: string;
+  description?: string;
+  confirmedCount?: number;
+  pendingCount?: number;
+  canceledCount?: number;
+  pendingRevenue?: number;
+};
+
+type AibioAcquisitionSite = {
+  key: string;
+  name: string;
+  conversionName: string;
+  operationalConversions: number;
+  rawConversions: number;
+  excludedConversions: number;
+  latestLoggedAt: string | null;
+  identityCoverageRate: number;
+  topChannel: AcquisitionChannelRow | null;
+  channels: AcquisitionChannelRow[];
+  campaigns: AcquisitionDimensionRow[];
+  landings: AcquisitionDimensionRow[];
+  insights?: string[];
+  dataWarnings?: string[];
+};
+
 const SITES = [
   { site: "biocom", label: "바이오컴", account_id: "act_3138805896402376" },
   { site: "aibio", label: "AIBIO 리커버리랩", account_id: "act_377604674894011" },
@@ -266,23 +348,104 @@ const ATTR_WINDOWS = [
 
 const REVIEW_TARGET_SITES = new Set(["biocom"]);
 
-// CAPI 최신화 스냅샷 (post-server-decision-guard v3) — 2026-04-12 21:52 KST
-// 바이오컴 자사몰 Browser Purchase가 서버 결제 판정을 따라가도록 전환된 시점.
-// 이후 Meta Purchase ROAS가 confirmed ROAS로 수렴하는지 모니터링용.
+// 캠페인명 → 검사유형 매핑 (callprice LTV 데이터 연동용)
+// 알러지=음식물과민증 (CRM 라벨 차이일 뿐 동일 검사 — 2024년까지 "음식물", 2025년부터 "알러지"로 전환)
+// 유기산=종합대사기능 (동일 리포트 유형)
+// 아래 값은 알러지+음식물 합산 기준 (표본 3,675명, 가장 안정적)
+const CAMPAIGN_LTV_MAP: Record<string, { analysisType: string; ltvNoConsult: number; ltvConsulted: number; consultRate: number }> = {
+  "음식물 과민증": { analysisType: "음식물과민증(알러지+음식물 합산)", ltvNoConsult: 20177, ltvConsulted: 80173, consultRate: 0.234 },
+  "영양중금속": { analysisType: "중금속", ltvNoConsult: 69509, ltvConsulted: 153046, consultRate: 0.352 },
+  "종합대사기능": { analysisType: "유기산(종합대사기능)", ltvNoConsult: 61266, ltvConsulted: 234383, consultRate: 0.467 },
+  "호르몬": { analysisType: "호르몬", ltvNoConsult: 66983, ltvConsulted: 268852, consultRate: 0.401 },
+  // 영양제 직접판매 캠페인 — 상담 모델 아님. supplement-first 180일 LTR 기반 재구매 추가매출
+  // 180일 LTR ₩209,550, 첫주문 평균 ₩69,585 → 추가매출 ₩139,965. 재구매율 43%
+  "건강기능식품": { analysisType: "영양제(180일 재구매 기반)", ltvNoConsult: 0, ltvConsulted: 139965, consultRate: 1.0 },
+};
+const matchCampaignLtv = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes("음식물") || n.includes("과민증") || n.includes("알러지")) return CAMPAIGN_LTV_MAP["음식물 과민증"];
+  if (n.includes("중금속") || n.includes("영양중금속")) return CAMPAIGN_LTV_MAP["영양중금속"];
+  if (n.includes("종합대사") || n.includes("유기산")) return CAMPAIGN_LTV_MAP["종합대사기능"];
+  if (n.includes("호르몬")) return CAMPAIGN_LTV_MAP["호르몬"];
+  if (n.includes("건강기능식품") || n.includes("영양제")) return CAMPAIGN_LTV_MAP["건강기능식품"];
+  return null;
+};
+
+// CAPI 최신화 스냅샷 (post-server-decision-guard v3) — 2026-04-12 21:52 KST.
+// 2026-04-14 22:00 ~ 2026-04-15 20:17 KST 사이 footer source-label 오염은
+// 2026-04-15 20:53 KST에 source + metadata_json.source 모두 SQL 교정 완료.
+// 따라서 이 카드는 교정된 VM ledger 기준으로 2026-04-13 KST부터 POST 창에 포함한다.
 const CAPI_SNAPSHOT_KST = "2026-04-12 21:52 KST";
 const CAPI_SNAPSHOT_UTC_MS = Date.UTC(2026, 3, 12, 12, 52, 0); // 2026-04-12T12:52:00Z
-// 스냅샷 당일(2026-04-12)은 22시간의 pre-snapshot 오염이 섞이므로
-// post-CAPI 창은 다음 KST 날짜(2026-04-13)부터로 본다.
-const CAPI_POST_START_DATE = "2026-04-13"; // KST 기준
+const CAPI_SOURCE_LABEL_FIX_KST = "2026-04-15 20:17 KST";
+const CAPI_SOURCE_LABEL_REPAIR_KST = "2026-04-15 20:53 KST";
+const CAPI_REPAIRED_POLLUTION_WINDOW = "2026-04-14 22:00 ~ 2026-04-15 20:17 KST (276건 SQL 교정 완료)";
+const CAPI_POST_START_DATE = "2026-04-13"; // 교정된 VM ledger 기준 post-CAPI 첫 full-day KST 날짜
 // 2026-04-13 00:00 KST를 UTC ms로 환산: 2026-04-12 15:00 UTC
 const CAPI_POST_START_KST_UTC_MS = Date.UTC(2026, 3, 12, 15, 0, 0);
 const CAPI_PRE_WINDOW_DAYS = 7; // 비교용 스냅샷 직전 7일
 const CAPI_PRE_END_DATE = "2026-04-11"; // 2026-04-12 pre-snapshot 당일 제외
 const CAPI_PRE_START_DATE = "2026-04-05"; // 2026-04-05 ~ 2026-04-11 (7일)
+const COFFEE_CAPI_SNAPSHOT_KST = "2026-04-15 KST";
+const COFFEE_CAPI_SOURCE_REPAIR_KST = "2026-04-15 20:53 KST";
+const COFFEE_CAPI_CLEAN_START_DATE = "2026-04-16";
+const COFFEE_FIRST_CLOSED_DAY_KST = "2026-04-17 아침";
+const COFFEE_FIRST_3D_SIGNAL_KST = "2026-04-19 아침";
+const COFFEE_FIRST_7D_BASELINE_KST = "2026-04-23 아침";
+const BIOCOM_BUDGET_DECISION = {
+  window: "2026-04-13~15 닫힌 3일",
+  spend: 12361899,
+  attrRevenue: 23428300,
+  attrRoas: 1.9,
+  metaValue: 37841869,
+  metaRoas: 3.06,
+  gapRatio: 1.61,
+  pendingRevenue: 260000,
+};
+const BIOCOM_CAMPAIGN_SELECTION_CANDIDATES = [
+  {
+    campaignId: "120242626179290396",
+    campaignName: "공동구매 인플루언서 파트너 광고 모음_3",
+    confirmedSignal: "13건 / ₩4,015,700",
+    followupGate: "상담·영양제 후속 조인 전",
+    action: "증액 보류",
+  },
+  {
+    campaignId: "120213362391690396",
+    campaignName: "음식물 과민증 검사 전환캠페인",
+    confirmedSignal: "4건 / ₩1,209,000",
+    followupGate: "검사 후 영양제 후속 가능성이 큰 상품군",
+    action: "우선 확인",
+  },
+  {
+    campaignId: "120237452088280396",
+    campaignName: "종합대사기능검사 전환캠페인",
+    confirmedSignal: "2건 / ₩536,400",
+    followupGate: "상담·영양제 후속 조인 필요",
+    action: "확인 후 +10~15%",
+  },
+  {
+    campaignId: "120218496689750396",
+    campaignName: "영양중금속검사 전환 캠페인",
+    confirmedSignal: "1건 / ₩268,200",
+    followupGate: "표본 추가 필요",
+    action: "보류",
+  },
+  {
+    campaignId: "120235591897270396",
+    campaignName: "음식물 과민증 검사 어드밴티지+캠페인",
+    confirmedSignal: "1건 / ₩245,000",
+    followupGate: "표본 추가 필요",
+    action: "보류",
+  },
+] as const;
 // VM endpoint: CAPI auto-sync / attribution status sync는 현재 VM에서만 돌고
 // 로컬 노트북 백엔드는 cutover 이후 sync가 꺼져 있어 ledger가 오래됨.
 // 따라서 이 카드는 VM endpoint를 직접 조회해 "실시간" post-CAPI 상태를 보여준다.
 const CAPI_VM_BASE = "https://att.ainativeos.net";
+// 광고 ROAS 리포팅도 VM ledger 기준으로 통일한다.
+// localhost:7020은 2026-04-13 이후 attribution sync가 꺼져 있어 일자별 Attr 값이 0으로 보일 수 있다.
+const ADS_REPORTING_API_BASE = CAPI_VM_BASE;
 
 const formatDateTime = (value: string | null) => {
   if (!value) return "—";
@@ -310,10 +473,12 @@ export default function AdsPage() {
   const [datePreset, setDatePreset] = useState("last_7d");
   const [attrWindow, setAttrWindow] = useState(META_PRIMARY_ATTR_WINDOW);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
-  const [campaignSummary, setCampaignSummary] = useState<{ totalImpressions: number; totalClicks: number; totalSpend: number; avgCpc: number; totalLandingViews: number; totalLeads: number; totalPurchases: number; totalPurchaseValue?: number } | null>(null);
+  const [campaignSummary, setCampaignSummary] = useState<CampaignSummary | null>(null);
   const [daily, setDaily] = useState<DailyRow[]>([]);
   const [siteSummary, setSiteSummary] = useState<{ sites: SiteRoasSummary[]; total: { impressions: number; clicks: number; spend: number; revenue: number; roas: number | null; orders: number } } | null>(null);
   const [campaignRoas, setCampaignRoas] = useState<AttributionCampaignRoasResponse | null>(null);
+  const [campaignLtvRoas, setCampaignLtvRoas] = useState<CampaignLtvRoasResponse | null>(null);
+  const [campaignLtvRoasError, setCampaignLtvRoasError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [metaStatus, setMetaStatus] = useState<{
     coffee?: {
@@ -323,8 +488,11 @@ export default function AdsPage() {
       appToken: { configured: boolean };
     };
   } | null>(null);
+  const [aibioAcquisition, setAibioAcquisition] = useState<AibioAcquisitionSite | null>(null);
+  const [aibioAcquisitionLoading, setAibioAcquisitionLoading] = useState(false);
+  const [aibioAcquisitionError, setAibioAcquisitionError] = useState<string | null>(null);
 
-  // Post-CAPI 스냅샷 바이오컴 비교 상태 (2026-04-13~today vs 2026-04-05~2026-04-11)
+  // Post-CAPI 바이오컴 비교 상태 (교정된 VM ledger 기준 2026-04-13~today vs 2026-04-05~2026-04-11)
   type CapiRoasWindow = {
     start_date: string;
     end_date: string;
@@ -339,12 +507,54 @@ export default function AdsPage() {
   };
   const [capiWindows, setCapiWindows] = useState<{ pre: CapiRoasWindow | null; post: CapiRoasWindow | null } | null>(null);
   const [capiWindowsLoading, setCapiWindowsLoading] = useState(false);
+  const [capiNowMs, setCapiNowMs] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/meta/status`)
       .then((r) => r.json())
       .then((data) => { if (data?.ok) setMetaStatus(data); })
       .catch(() => { /* ignore */ });
+  }, []);
+
+  useEffect(() => {
+    if (selectedSite.site !== "aibio") {
+      setAibioAcquisition(null);
+      setAibioAcquisitionError(null);
+      setAibioAcquisitionLoading(false);
+      return;
+    }
+
+    const ac = new AbortController();
+    const rangeDays = DATE_PRESET_DAY_COUNTS[datePreset] ?? 30;
+    setAibioAcquisitionLoading(true);
+    setAibioAcquisitionError(null);
+
+    fetch(`${API_BASE}/api/attribution/acquisition-summary?rangeDays=${rangeDays}&dataSource=vm`, { signal: ac.signal })
+      .then((r) => r.json())
+      .then((data: { ok?: boolean; sites?: AibioAcquisitionSite[]; error?: string }) => {
+        if (!data?.ok || !Array.isArray(data.sites)) {
+          throw new Error(data?.error ?? "AIBIO acquisition summary unavailable");
+        }
+        setAibioAcquisition(data.sites.find((site) => site.key === "aibio") ?? null);
+      })
+      .catch((error) => {
+        if (!ac.signal.aborted) {
+          setAibioAcquisition(null);
+          setAibioAcquisitionError(error instanceof Error ? error.message : "AIBIO acquisition summary unavailable");
+        }
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setAibioAcquisitionLoading(false);
+      });
+
+    return () => ac.abort();
+  }, [selectedSite.site, datePreset]);
+
+  useEffect(() => {
+    const updateNow = () => setCapiNowMs(Date.now());
+    updateNow();
+    const id = window.setInterval(updateNow, 60 * 60 * 1000);
+    return () => window.clearInterval(id);
   }, []);
 
   // 바이오컴 선택 시 post-CAPI 스냅샷 기준 ROAS 차이 로드 (1d_click 고정)
@@ -400,22 +610,58 @@ export default function AdsPage() {
       .catch(() => { /* ignore */ })
       .finally(() => { if (!ac.signal.aborted) setCapiWindowsLoading(false); });
     return () => ac.abort();
+  }, [selectedSite.site]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // CAPI 카드 자동 갱신: 매 1시간마다 (페이지를 오래 열어두면 자동 최신화)
+  useEffect(() => {
+    if (selectedSite.site !== "biocom") return;
+    const interval = setInterval(() => {
+      const today = new Date();
+      const kstShifted = new Date(today.getTime() + 9 * 60 * 60 * 1000);
+      const todayIsoKst = kstShifted.toISOString().slice(0, 10);
+      const postEndDate = todayIsoKst >= CAPI_POST_START_DATE ? todayIsoKst : CAPI_POST_START_DATE;
+      const buildUrl = (start: string, end: string) =>
+        `${CAPI_VM_BASE}/api/ads/site-summary?start_date=${start}&end_date=${end}&attribution_window=1d_click`;
+      Promise.all([
+        fetch(buildUrl(CAPI_PRE_START_DATE, CAPI_PRE_END_DATE)).then((r) => r.json()).catch(() => null),
+        fetch(buildUrl(CAPI_POST_START_DATE, postEndDate)).then((r) => r.json()).catch(() => null),
+      ]).then(([preData, postData]) => {
+        const parseW = (data: Record<string, unknown> | null, s: string, e: string) => {
+          if (!data || !data.ok || !Array.isArray(data.sites)) return null;
+          const row = (data.sites as Array<Record<string, unknown>>).find((x) => x.site === "biocom");
+          if (!row) return null;
+          const spend = Number(row.spend ?? 0);
+          const attrR = typeof row.roas === "number" ? (row.roas as number) : null;
+          const metaR = typeof row.metaPurchaseRoas === "number" ? (row.metaPurchaseRoas as number) : null;
+          const gapR = attrR != null && attrR > 0 && metaR != null ? metaR / attrR : null;
+          const gapP = attrR != null && attrR > 0 && metaR != null ? (metaR - attrR) / attrR : null;
+          return { start_date: s, end_date: e, spend, attrConfirmedRoas: attrR, metaPurchaseRoas: metaR, gapRatio: gapR, gapPct: gapP, orders: Number(row.orders ?? 0), revenue: Number(row.revenue ?? 0), metaPurchaseValue: Number(row.metaPurchaseValue ?? 0) };
+        };
+        setCapiWindows({ pre: parseW(preData, CAPI_PRE_START_DATE, CAPI_PRE_END_DATE), post: parseW(postData, CAPI_POST_START_DATE, postEndDate) });
+      }).catch(() => {});
+    }, 60 * 60 * 1000); // 1시간
+    return () => clearInterval(interval);
   }, [selectedSite.site]);
 
   const loadSiteData = useCallback(async () => {
     setLoading(true);
     try {
       const attrWindowQuery = attrWindow ? `&attribution_window=${attrWindow}` : "";
+      const campaignRoasApiBase = selectedSite.site === "biocom" ? API_BASE : ADS_REPORTING_API_BASE;
       const [insightsRes, dailyRes, siteSummaryRes, campaignRoasRes] = await Promise.all([
-        fetch(`${API_BASE}/api/meta/insights?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindowQuery}`),
-        fetch(`${API_BASE}/api/ads/roas/daily?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindowQuery}`),
-        fetch(`${API_BASE}/api/ads/site-summary?date_preset=${datePreset}${attrWindowQuery}`),
-        fetch(`${API_BASE}/api/ads/roas?account_id=${selectedSite.account_id}&date_preset=${datePreset}`),
+        fetch(`${ADS_REPORTING_API_BASE}/api/meta/insights?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindowQuery}`),
+        fetch(`${ADS_REPORTING_API_BASE}/api/ads/roas/daily?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindowQuery}`),
+        fetch(`${ADS_REPORTING_API_BASE}/api/ads/site-summary?date_preset=${datePreset}${attrWindowQuery}`),
+        fetch(`${campaignRoasApiBase}/api/ads/roas?account_id=${selectedSite.account_id}&date_preset=${datePreset}`),
       ]);
+      const campaignLtvRoasRes = selectedSite.site === "biocom"
+        ? await fetch(`${API_BASE}/api/ads/campaign-ltv-roas?account_id=${selectedSite.account_id}&date_preset=${datePreset}&ltv_window_days=180`).catch(() => null)
+        : null;
       const insightsData = await insightsRes.json();
       const dailyData = await dailyRes.json();
       const siteSummaryData = await siteSummaryRes.json();
       const campaignRoasData = await campaignRoasRes.json();
+      const campaignLtvRoasData = campaignLtvRoasRes ? await campaignLtvRoasRes.json().catch(() => null) as CampaignLtvRoasResponse | null : null;
       if (insightsData.ok) {
         setCampaigns(insightsData.rows ?? []);
         setCampaignSummary(insightsData.summary ?? null);
@@ -423,6 +669,17 @@ export default function AdsPage() {
       if (dailyData.ok) setDaily(dailyData.rows ?? []);
       if (siteSummaryData.ok) setSiteSummary(siteSummaryData);
       if (campaignRoasData.ok) setCampaignRoas(campaignRoasData);
+      if (campaignLtvRoasData?.ok) {
+        setCampaignLtvRoas(campaignLtvRoasData);
+        setCampaignLtvRoasError(null);
+      } else {
+        setCampaignLtvRoas(null);
+        setCampaignLtvRoasError(
+          selectedSite.site === "biocom"
+            ? campaignLtvRoasData?.error ?? "campaign LTV ROAS API 응답 없음"
+            : null,
+        );
+      }
     } catch { /* ignore */ }
     setLoading(false);
   }, [selectedSite, datePreset, attrWindow]);
@@ -446,7 +703,20 @@ export default function AdsPage() {
   const selectedSiteConfirmedRevenue = selectedSiteSummary?.siteConfirmedRevenue ?? 0;
   const selectedBestCaseCeilingRoas = selectedSiteSummary?.bestCaseCeilingRoas ?? null;
   const unmappedRow = campaignRoas?.campaigns.find((row) => row.campaignName === "(unmapped)") ?? null;
+  const attributionRoasByCampaignId = new Map(
+    (campaignRoas?.campaigns ?? [])
+      .filter((row): row is AttributionCampaignRoasRow & { campaignId: string } => Boolean(row.campaignId))
+      .map((row) => [row.campaignId, row]),
+  );
+  const ltvRoasByCampaignId = new Map(
+    (campaignLtvRoas?.rows ?? [])
+      .filter((row): row is CampaignLtvRoasRow & { campaignId: string } => Boolean(row.campaignId))
+      .map((row) => [row.campaignId, row]),
+  );
   const totalAttributedRevenueForMapping = campaignRoas?.summary.attributedRevenue ?? 0;
+  const campaignRoasCoverageAgainstVm = selectedSiteConfirmedRevenue > 0 && campaignRoas
+    ? campaignRoas.summary.attributedRevenue / selectedSiteConfirmedRevenue
+    : null;
   const unmappedRevenueShare = unmappedRow && totalAttributedRevenueForMapping > 0
     ? unmappedRow.attributedRevenue / totalAttributedRevenueForMapping
     : null;
@@ -460,18 +730,37 @@ export default function AdsPage() {
   const currentAttrWindowLabel = ATTR_WINDOWS.find((window) => window.value === attrWindow)?.label ?? attrWindow;
   const currentPresetDays = DATE_PRESET_DAY_COUNTS[datePreset] ?? 30;
   const isLongWindow = datePreset === "last_30d" || datePreset === "last_90d";
+  const selectedMetaPurchases = campaignSummary?.totalPurchases ?? 0;
+  const selectedMetaAov = selectedMetaPurchases > 0 ? selectedMetaPurchaseValue / selectedMetaPurchases : null;
+  const selectedMetaCpa = campaignSummary && selectedMetaPurchases > 0 ? campaignSummary.totalSpend / selectedMetaPurchases : null;
+  const selectedClickToLandingRate = campaignSummary && campaignSummary.totalClicks > 0
+    ? campaignSummary.totalLandingViews / campaignSummary.totalClicks
+    : null;
+  const selectedLandingToPurchaseRate = campaignSummary && campaignSummary.totalLandingViews > 0
+    ? campaignSummary.totalPurchases / campaignSummary.totalLandingViews
+    : null;
+  const selectedAttShareOfMetaPurchases = selectedMetaPurchases > 0
+    ? selectedAttributedOrders / selectedMetaPurchases
+    : null;
+  const selectedAttShareOfSiteOrders = selectedSiteSummary?.siteConfirmedOrders
+    ? selectedAttributedOrders / selectedSiteSummary.siteConfirmedOrders
+    : null;
 
   return (
+    <>
+    <GlobalNav activeSlug="ai-crm" />
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
       {/* 헤더 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
-          <Link href="/" style={{ fontSize: "0.78rem", color: "#6366f1", textDecoration: "none" }}>← 대시보드로 돌아가기</Link>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", margin: "4px 0" }}>광고 성과 대시보드</h1>
+          <Link href="/#ai-crm" style={{ fontSize: "0.78rem", color: "#6366f1", textDecoration: "none" }}>← 대시보드로 돌아가기</Link>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0f172a", margin: "4px 0" }}>Meta 광고성과 대시보드</h1>
           <p style={{ fontSize: "0.82rem", color: "#64748b", margin: 0 }}>
             Meta 집행 지표와 Attribution 기준 ROAS를 함께 본다
             {" · "}
             <Link href="/ads/roas" style={{ color: "#6366f1", fontWeight: 600, textDecoration: "none" }}>ROAS 대시보드 →</Link>
+            {" · "}
+            <Link href="/ads/tiktok" style={{ color: "#0f766e", fontWeight: 600, textDecoration: "none" }}>틱톡 광고성과 →</Link>
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -498,6 +787,58 @@ export default function AdsPage() {
           }}>{aw.label}</button>
         ))}
       </div>
+
+      {selectedSite.site === "biocom" && (
+        <div style={{
+          marginBottom: 20,
+          padding: "16px 18px",
+          borderRadius: 8,
+          background: "#fff",
+          border: "1px solid #cbd5e1",
+          boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div style={{ flex: "1 1 520px" }}>
+              <div style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.04em", marginBottom: 4 }}>
+                운영 의견 · 바이오컴 광고비
+              </div>
+              <div style={{ fontSize: "1rem", fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
+                전체 예산은 유지. 무차별 증액은 보류하고, 우수 캠페인만 +10~15% 제한 테스트.
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "#475569", lineHeight: 1.75 }}>
+                {BIOCOM_BUDGET_DECISION.window} 기준 Attribution ROAS는 <strong>{BIOCOM_BUDGET_DECISION.attrRoas.toFixed(2)}x</strong>,
+                Meta ROAS는 <strong>{BIOCOM_BUDGET_DECISION.metaRoas.toFixed(2)}x</strong>입니다.
+                Meta/Attribution 격차는 <strong>{BIOCOM_BUDGET_DECISION.gapRatio.toFixed(2)}배</strong>이고,
+                pending은 {fmtKRW(BIOCOM_BUDGET_DECISION.pendingRevenue)}뿐이라 현재 격차의 주범은 미입금이 아니라 Meta의 넓은 매칭과 내부 캠페인 매핑 미완성입니다.
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(110px, 1fr))", gap: 8, flex: "1 1 520px" }}>
+              {[
+                { label: "광고비", value: fmtKRW(BIOCOM_BUDGET_DECISION.spend), color: "#ef4444" },
+                { label: "Attr 매출", value: fmtKRW(BIOCOM_BUDGET_DECISION.attrRevenue), color: "#16a34a" },
+                { label: "Attr ROAS", value: `${BIOCOM_BUDGET_DECISION.attrRoas.toFixed(2)}x`, color: "#16a34a" },
+                { label: "Meta ROAS", value: `${BIOCOM_BUDGET_DECISION.metaRoas.toFixed(2)}x`, color: "#8b5cf6" },
+              ].map((item) => (
+                <div key={item.label} style={{ padding: "10px 12px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: "0.65rem", color: "#94a3b8", fontWeight: 700 }}>{item.label}</div>
+                  <div style={{ fontSize: "0.9rem", color: item.color, fontWeight: 800 }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, fontSize: "0.72rem", color: "#475569", lineHeight: 1.65 }}>
+            <div style={{ padding: "9px 10px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+              <strong style={{ color: "#166534" }}>증액 조건:</strong> Meta ROAS 상위 캠페인만 +10~15%, 48~72시간 관찰.
+            </div>
+            <div style={{ padding: "9px 10px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fed7aa" }}>
+              <strong style={{ color: "#9a3412" }}>보류 조건:</strong> 내부 캠페인 매출이 unmapped라 전체 증액 판단은 아직 금지.
+            </div>
+            <div style={{ padding: "9px 10px", borderRadius: 8, background: "#eff6ff", border: "1px solid #bfdbfe" }}>
+              <strong style={{ color: "#1d4ed8" }}>다음 검증:</strong> 7일 clean baseline 후 holdout/iROAS 설계 실행.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3사이트 오버뷰 */}
       {siteSummary && (
@@ -606,20 +947,102 @@ export default function AdsPage() {
             </div>
           )}
 
+          {selectedSite.site === "aibio" && campaignSummary && (
+            <AibioCsoStrategySection
+              campaignSummary={campaignSummary}
+              acquisition={aibioAcquisition}
+              acquisitionLoading={aibioAcquisitionLoading}
+              acquisitionError={aibioAcquisitionError}
+              currentPresetLabel={currentPresetLabel}
+            />
+          )}
+
+          {selectedSite.site === "thecleancoffee" && campaignSummary && selectedSiteSummary && (
+            <div style={{
+              marginBottom: 20,
+              padding: "18px 20px",
+              borderRadius: 14,
+              background: "#f8fafc",
+              border: "1px solid #cbd5e1",
+              fontSize: "0.76rem",
+              color: "#334155",
+              lineHeight: 1.75,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ flex: "1 1 520px" }}>
+                  <strong style={{ fontSize: "0.92rem", color: "#0f172a" }}>더클린커피 Att ROAS 낮음 원인 분해</strong>
+                  <div style={{ color: "#64748b", marginTop: 4 }}>
+                    Meta 광고 계정은 연동 완료. 현재 낮은 Att ROAS는 "광고가 곧바로 나쁘다"보다
+                    <strong> CAPI 전환일이 너무 최신이고, payment_success 식별자 커버리지가 낮아 내부 광고 귀속이 덜 잡히는 상태</strong>로 해석하는 것이 맞습니다.
+                  </div>
+                </div>
+                <span style={{ padding: "5px 10px", borderRadius: 999, background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a", fontSize: "0.68rem", fontWeight: 800 }}>
+                  clean baseline 대기
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 12 }}>
+                {[
+                  { label: "Meta ROAS", value: fmtRoasX(selectedMetaPurchaseRoas), note: `${fmtNum(selectedMetaPurchases)}건 · ${fmtKRW(selectedMetaPurchaseValue)}`, color: "#8b5cf6" },
+                  { label: "Att ROAS", value: fmtRoasX(selectedAttributedRoas), note: `${fmtNum(selectedAttributedOrders)}건 · ${fmtKRW(selectedAttributedRevenue)}`, color: "#16a34a" },
+                  { label: "사이트 전체 상한", value: fmtRoasX(selectedBestCaseCeilingRoas), note: `${fmtNum(selectedSiteSummary.siteConfirmedOrders)}건 · ${fmtKRW(selectedSiteConfirmedRevenue)}`, color: "#2563eb" },
+                  { label: "광고 귀속률", value: selectedAttShareOfMetaPurchases != null ? `${(selectedAttShareOfMetaPurchases * 100).toFixed(1)}%` : "—", note: `Att 주문 / Meta 구매`, color: "#d97706" },
+                ].map((item) => (
+                  <div key={item.label} style={{ padding: "10px 12px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
+                    <div style={{ fontSize: "0.66rem", color: "#94a3b8", marginBottom: 3 }}>{item.label}</div>
+                    <div style={{ fontSize: "1rem", fontWeight: 800, color: item.color }}>{item.value}</div>
+                    <div style={{ fontSize: "0.66rem", color: "#64748b" }}>{item.note}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
+                  <strong style={{ color: "#0f172a" }}>왜 낮게 보이나</strong>
+                  <p style={{ margin: "6px 0 0" }}>
+                    최근 7일 기준 Meta 구매는 {fmtNum(selectedMetaPurchases)}건인데 내부 Attribution confirmed는 {fmtNum(selectedAttributedOrders)}건입니다.
+                    사이트 전체 confirmed 주문 {fmtNum(selectedSiteSummary.siteConfirmedOrders)}건 중 광고 귀속은
+                    {" "}
+                    <strong>{selectedAttShareOfSiteOrders != null ? `${(selectedAttShareOfSiteOrders * 100).toFixed(1)}%` : "—"}</strong>만 잡힙니다.
+                    즉 전환 자체보다 주문 단위 광고 연결이 병목입니다.
+                  </p>
+                </div>
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
+                  <strong style={{ color: "#0f172a" }}>CAPI 신뢰 시작일</strong>
+                  <p style={{ margin: "6px 0 0" }}>
+                    footer/CAPI v3 스냅샷: <strong>{COFFEE_CAPI_SNAPSHOT_KST}</strong>.
+                    source-label 교정: <strong>{COFFEE_CAPI_SOURCE_REPAIR_KST}</strong>.
+                    신뢰 시작일은 <strong>{COFFEE_CAPI_CLEAN_START_DATE}</strong>로 둡니다.
+                    첫 1일 신호는 {COFFEE_FIRST_CLOSED_DAY_KST}, 3일 신호는 {COFFEE_FIRST_3D_SIGNAL_KST}, 7일 baseline은 {COFFEE_FIRST_7D_BASELINE_KST}입니다.
+                  </p>
+                </div>
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
+                  <strong style={{ color: "#0f172a" }}>지금 운영 판단</strong>
+                  <p style={{ margin: "6px 0 0" }}>
+                    클릭→랜딩 {selectedClickToLandingRate != null ? `${(selectedClickToLandingRate * 100).toFixed(1)}%` : "—"},
+                    랜딩→구매 {selectedLandingToPurchaseRate != null ? `${(selectedLandingToPurchaseRate * 100).toFixed(2)}%` : "—"}라 UX 퍼널은 강합니다.
+                    CPA는 {selectedMetaCpa != null ? fmtKRW(selectedMetaCpa) : "—"}, Meta AOV는 {selectedMetaAov != null ? fmtKRW(selectedMetaAov) : "—"}입니다.
+                    7일 clean baseline 전까지 감액보다 유지하면서 식별자 보강을 우선합니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* CAPI 최신화 스냅샷 이후 ROAS 수렴 모니터링 (바이오컴 전용) */}
           {selectedSite.site === "biocom" && (() => {
             const post = capiWindows?.post ?? null;
             const pre = capiWindows?.pre ?? null;
             // 2026-04-13 00:00 KST를 기준으로 "POST 창이 몇 일째인지" 계산
             // (KST 자정 경계로 카운트하므로 2026-04-13 = 1일차, 04-14 = 2일차)
+            const now = capiNowMs ?? CAPI_SNAPSHOT_UTC_MS;
             const postDaysInWindow = (() => {
-              const now = Date.now();
               if (now < CAPI_POST_START_KST_UTC_MS) return 0;
               return Math.floor((now - CAPI_POST_START_KST_UTC_MS) / (24 * 60 * 60 * 1000)) + 1;
             })();
             // "충분한 관측 시간"은 POST 창이 완전히 닫힌 일수 기준 (= postDaysInWindow - 1)
             const postFullDaysClosed = Math.max(0, postDaysInWindow - 1);
-            const hoursSinceSnapshot = Math.max(0, Math.floor((Date.now() - CAPI_SNAPSHOT_UTC_MS) / (60 * 60 * 1000)));
+            const hoursSinceSnapshot = Math.max(0, Math.floor((now - CAPI_SNAPSHOT_UTC_MS) / (60 * 60 * 1000)));
             const hasMeaningfulPostSpend = post != null && post.spend > 0;
             const hasAttributionData = post != null && (post.orders > 0 || post.revenue > 0);
             // 판단: 완전히 닫힌 일수 기준 (오늘은 아직 집계 중이라 미포함)
@@ -656,13 +1079,15 @@ export default function AdsPage() {
                     </strong>
                     <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
                       스냅샷 시점: <strong style={{ color: "#0f172a" }}>{CAPI_SNAPSHOT_KST}</strong>
-                      {" · "}서버 결제 판정 가드 v3 배포 후
+                      {" · "}source-label SQL 교정: <strong style={{ color: "#0f172a" }}>{CAPI_SOURCE_LABEL_REPAIR_KST}</strong>
                       {" · "}경과 {Math.floor(hoursSinceSnapshot / 24)}일 {hoursSinceSnapshot % 24}시간
                       {" · "}POST 창 {postDaysInWindow}일차 (닫힌 일수 {postFullDaysClosed}일)
                     </div>
                     <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 2 }}>
                       데이터 소스: VM <code>att.ainativeos.net</code>
                       {" (로컬 노트북 백엔드는 cutover 이후 attribution sync가 꺼져 있어 VM을 직접 조회합니다)"}
+                      {" · "}오염 창: {CAPI_REPAIRED_POLLUTION_WINDOW}
+                      {" · "}footer fix: {CAPI_SOURCE_LABEL_FIX_KST}
                     </div>
                   </div>
                   <span style={{
@@ -677,7 +1102,7 @@ export default function AdsPage() {
 
                 <div style={{ fontSize: "0.74rem", color: "#475569", marginBottom: 12, padding: "8px 12px", background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
                   <strong>왜 보는가 · 한 줄 설명:</strong> 스냅샷 이전 바이오컴 자사몰은 가상계좌 미입금까지 Browser Pixel이 Purchase로 잡아서 Meta ROAS가 내부 Attribution ROAS보다 구조적으로 높았습니다.
-                  서버 결제 판정 가드가 붙은 뒤에는 Meta Purchase가 confirmed 기준으로 수렴해야 정상입니다. 이 카드는 <strong>"Meta/Attribution 격차가 줄었는지"</strong>만 봅니다.
+                  서버 결제 판정 가드가 붙은 뒤에는 Meta Purchase가 confirmed 기준으로 수렴해야 정상입니다. 이 카드는 <strong>SQL 교정된 VM ledger</strong>를 쓰므로 source-label 오염 창까지 복구 반영된 POST 구간으로 봅니다.
                 </div>
 
                 {capiWindowsLoading ? (
@@ -686,7 +1111,7 @@ export default function AdsPage() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                     {/* Pre 컬럼 */}
                     <div style={{ padding: "14px 16px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
-                      <div style={{ fontSize: "0.68rem", color: "#94a3b8", fontWeight: 600 }}>PRE (스냅샷 직전 7일)</div>
+                      <div style={{ fontSize: "0.68rem", color: "#94a3b8", fontWeight: 600 }}>PRE (스냅샷 직전 {CAPI_PRE_WINDOW_DAYS}일)</div>
                       <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>{CAPI_PRE_START_DATE} ~ {CAPI_PRE_END_DATE}</div>
                       {pre ? (
                         <div style={{ marginTop: 8, fontSize: "0.74rem", color: "#475569", lineHeight: 1.8 }}>
@@ -707,9 +1132,9 @@ export default function AdsPage() {
 
                     {/* Post 컬럼 */}
                     <div style={{ padding: "14px 16px", borderRadius: 10, background: "#ecfdf5", border: "1px solid #86efac" }}>
-                      <div style={{ fontSize: "0.68rem", color: "#16a34a", fontWeight: 700 }}>POST (CAPI 스냅샷 이후)</div>
+                      <div style={{ fontSize: "0.68rem", color: "#16a34a", fontWeight: 700 }}>POST (CAPI 스냅샷 이후 · 교정 반영)</div>
                       <div style={{ fontSize: "0.68rem", color: "#16a34a" }}>
-                        {post?.start_date ?? CAPI_POST_START_DATE} ~ {post?.end_date ?? CAPI_POST_START_DATE}
+                        {post?.start_date ?? CAPI_POST_START_DATE} ~ {post?.end_date ?? CAPI_POST_START_DATE} (어제 자정 KST 기준 마감, 매일 페이지 로드 시 갱신)
                       </div>
                       {post ? (
                         <div style={{ marginTop: 8, fontSize: "0.74rem", color: "#166534", lineHeight: 1.8 }}>
@@ -804,31 +1229,40 @@ export default function AdsPage() {
                   <summary style={{ cursor: "pointer", fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
                     언제 무엇을 할지 (체크리스트)
                   </summary>
-                  <div style={{ marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.72rem", color: "#475569", lineHeight: 1.8 }}>
-                    <div>
-                      <strong>지금 (2026-04-14):</strong>{" "}
-                      POST 창 2일차. 매 아침 이 카드 + <code>att.ainativeos.net/api/meta/capi/log</code> total/success/failure 추이를 확인합니다.
-                      가상계좌 미입금이 실제로 차단되는지 로그에서 <code>VirtualAccountIssued</code> 이벤트가 <code>Purchase</code>보다 많이 나타나면 가드가 제대로 작동 중입니다.
-                      오늘 Attribution 값은 자정까지 계속 늘어날 수 있으니 고정값으로 읽지 마세요.
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <strong>D+3 (완전히 닫힌 3일차 · 2026-04-16 아침):</strong>{" "}
-                      2026-04-13·14·15 3일치가 완전히 닫힌 상태로 쌓입니다. 이 카드 배지가 "초기 신호"로 바뀌면 격차 방향성을 처음으로 메모합니다. 의사결정은 아직 내리지 않습니다.
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <strong>D+7 (완전히 닫힌 7일차 · 2026-04-20 아침):</strong>{" "}
-                      "추세 판정 가능" 배지로 전환됩니다. 격차가 <strong>PRE 대비 30% 이상 축소</strong>(3.06x → 2.14x 이하)되었으면 운영 headline에 Meta ROAS도 참고값으로 편입 검토합니다.
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <strong>D+14 (완전히 닫힌 14일차 · 2026-04-27 아침):</strong>{" "}
-                      2주 누적으로 격차가 PRE 대비 <strong>40% 이상</strong> 줄었고 pending 주문 비중이 5% 이하면, Ads Manager export와 최종 대조 후 "잠정 상한선" 카드를 "확정 상한선"으로 승격합니다.
-                    </div>
-                    <div style={{ marginTop: 6 }}>
-                      <strong>격차가 줄지 않을 경우 (D+7 판정 기준):</strong>{" "}
-                      (1) CAPI <code>server_event_time</code> / <code>action_source</code> 필드가 실제 이벤트와 일치하는지 sampling, (2) Meta Events Manager의 이벤트 품질 점수 재확인, (3) 자사몰 외부 채널(파트너사·제휴) Purchase 오염 여부 점검.
-                      관련 디버깅 절차는 <code>capivm/capi.md</code>의 "완료된 것" 섹션 이후에 기록하기로 합니다.
-                    </div>
-                  </div>
+                  {(() => {
+                    // 동적 날짜 계산
+                    const d3Date = new Date(CAPI_POST_START_KST_UTC_MS + 3 * 86400000); // POST +3일
+                    const d7Date = new Date(CAPI_POST_START_KST_UTC_MS + 7 * 86400000); // POST +7일
+                    const d14Date = new Date(CAPI_POST_START_KST_UTC_MS + 14 * 86400000); // POST +14일
+                    const fmtD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                    const todayStr = new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
+                    return (
+                      <div style={{ marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.72rem", color: "#475569", lineHeight: 1.8 }}>
+                        <div>
+                          <strong>현재 (POST {postDaysInWindow}일차, 닫힌 {postFullDaysClosed}일):</strong>{" "}
+                          매 아침 이 카드 + <code>att.ainativeos.net/api/meta/capi/log</code> total/success/failure 추이를 확인합니다.
+                          가상계좌 미입금이 실제로 차단되는지 로그에서 <code>VirtualAccountIssued</code> 이벤트가 <code>Purchase</code>보다 많이 나타나면 가드가 제대로 작동 중입니다.
+                          오늘 Attribution 값은 자정까지 계속 늘어날 수 있으니 고정값으로 읽지 마세요.
+                        </div>
+                        <div style={{ marginTop: 6, opacity: postFullDaysClosed >= 3 ? 0.5 : 1 }}>
+                          <strong>{postFullDaysClosed >= 3 ? "✅ " : ""}D+3 ({fmtD(d3Date)} 아침):</strong>{" "}
+                          3일치가 완전히 닫힌 상태로 쌓입니다. &quot;초기 신호&quot; 배지로 전환되면 격차 방향성을 처음으로 메모합니다.
+                        </div>
+                        <div style={{ marginTop: 6, opacity: postFullDaysClosed >= 7 ? 0.5 : 1 }}>
+                          <strong>{postFullDaysClosed >= 7 ? "✅ " : ""}D+7 ({fmtD(d7Date)} 아침):</strong>{" "}
+                          &quot;추세 판정 가능&quot; 배지로 전환됩니다. 격차가 <strong>PRE 대비 30% 이상 축소</strong>되었으면 Meta ROAS도 참고값으로 편입 검토합니다.
+                        </div>
+                        <div style={{ marginTop: 6 }}>
+                          <strong>D+14 ({fmtD(d14Date)} 아침):</strong>{" "}
+                          2주 누적으로 격차가 PRE 대비 <strong>40% 이상</strong> 줄었고 pending 주문 비중이 5% 이하면 &quot;확정 상한선&quot;으로 승격합니다.
+                        </div>
+                        <div style={{ marginTop: 6 }}>
+                          <strong>격차가 줄지 않을 경우 (D+7 판정 기준):</strong>{" "}
+                          (1) CAPI server_event_time / action_source 필드 sampling, (2) Meta Events Manager 이벤트 품질 점수 재확인, (3) 자사몰 외부 채널 Purchase 오염 여부 점검.
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </details>
               </div>
             );
@@ -948,6 +1382,76 @@ export default function AdsPage() {
             </div>
           )}
 
+          {selectedSite.site === "biocom" && (
+            <div style={{ marginBottom: 24, padding: "18px 20px", borderRadius: 14, background: "linear-gradient(180deg, #ecfdf5, #fff)", border: "1px solid #bbf7d0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <h3 style={{ fontSize: "0.9rem", fontWeight: 800, color: "#14532d", marginBottom: 6 }}>상담·영양제 전환 캠페인 선별 게이트</h3>
+                  <div style={{ fontSize: "0.75rem", color: "#166534", lineHeight: 1.8 }}>
+                    소액 증액은 Meta ROAS 상위 캠페인이 아니라, <strong>campaign id 확정 → confirmed 결제 → 상담 완료/영양제 후속 주문</strong>까지 연결된 캠페인만 통과시킵니다.
+                    통과 캠페인만 전체 예산 안에서 +10~15%로 제한 테스트합니다.
+                  </div>
+                </div>
+                <span style={{ padding: "5px 10px", borderRadius: 999, background: campaignLtvRoas ? "#dcfce7" : "#fee2e2", color: campaignLtvRoas ? "#166534" : "#991b1b", fontSize: "0.68rem", fontWeight: 800, whiteSpace: "nowrap" }}>
+                  {campaignLtvRoas ? `LTV API ready ${campaignLtvRoas.summary.readyCampaigns}건` : "LTV API 확인 필요"}
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 12 }}>
+                {[
+                  { label: "1. 캠페인 확정", value: "utm_id 또는 utm_term/adset", color: "#0f766e" },
+                  { label: "2. 결제 확정", value: "confirmed만 포함", color: "#16a34a" },
+                  { label: "3. 후속 전환", value: "상담 완료·영양제 주문", color: "#2563eb" },
+                  { label: "4. 테스트 조건", value: "2건 이상 또는 ₩50만+", color: "#d97706" },
+                ].map((gate) => (
+                  <div key={gate.label} style={{ padding: "10px 12px", borderRadius: 10, background: "#fff", border: "1px solid #d1fae5" }}>
+                    <div style={{ fontSize: "0.64rem", color: "#94a3b8", marginBottom: 3 }}>{gate.label}</div>
+                    <div style={{ fontSize: "0.74rem", fontWeight: 800, color: gate.color }}>{gate.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.74rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #bbf7d0" }}>
+                      {["1차 후보 캠페인", "campaign confirmed", "상담·영양제 게이트", "현재 액션"].map((h) => (
+                        <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "#166534", fontWeight: 800 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {BIOCOM_CAMPAIGN_SELECTION_CANDIDATES.map((row) => (
+                      <tr key={row.campaignId} style={{ borderBottom: "1px solid #ecfdf5" }}>
+                        <td style={{ padding: "8px 10px", color: "#0f172a", fontWeight: 700 }}>
+                          {row.campaignName}
+                          <div style={{ color: "#94a3b8", fontSize: "0.65rem", marginTop: 2 }}>{row.campaignId}</div>
+                        </td>
+                        <td style={{ padding: "8px 10px", color: "#16a34a", fontWeight: 700 }}>{row.confirmedSignal}</td>
+                        <td style={{ padding: "8px 10px", color: "#475569" }}>{row.followupGate}</td>
+                        <td style={{ padding: "8px 10px", color: row.action.includes("보류") ? "#92400e" : "#166534", fontWeight: 800 }}>{row.action}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {!campaignLtvRoas && (
+                <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", fontSize: "0.73rem", lineHeight: 1.7 }}>
+                  LTV 기준 ROAS 계산은 백엔드가 `campaign → confirmed order → customer_number → 180일 후속 주문`을 조인해야 합니다.
+                  현재 상태: {campaignLtvRoasError ?? "응답 대기"}. 이 상태에서는 캠페인별 성과 표의 LTV ROAS를 보류값으로 읽어야 합니다.
+                </div>
+              )}
+              {campaignLtvRoas && campaignRoasCoverageAgainstVm != null && campaignRoasCoverageAgainstVm < 0.8 && (
+                <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", fontSize: "0.73rem", lineHeight: 1.7 }}>
+                  캠페인별 Att/LTV ROAS는 현재 <strong>localhost:7020 alias mapper</strong> 기준입니다. VM 최신 confirmed 매출 대비
+                  캠페인 매핑 커버리지가 <strong>{(campaignRoasCoverageAgainstVm * 100).toFixed(1)}%</strong>라서,
+                  지금 표는 “증액 후보 선별용”이고 전체 예산 판단은 위의 VM 일별 ROAS를 우선합니다.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 일별 추이 차트 */}
           {daily.length > 0 && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
@@ -984,6 +1488,9 @@ export default function AdsPage() {
           {daily.length > 0 && (
             <div style={{ padding: "16px 20px", borderRadius: 14, background: "#fff", border: "1px solid #f1f5f9", marginBottom: 24 }}>
               <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", marginBottom: 12 }}>일자별 비교표</h3>
+              <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: 8 }}>
+                Attribution 원장 기준: VM <code>att.ainativeos.net</code> · 로컬 백엔드 sync 지연값 제외
+              </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem" }}>
                   <thead>
@@ -1049,33 +1556,82 @@ export default function AdsPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                      {["캠페인", "노출", "클릭", "CTR", "비용", "CPC", "CPM", "랜딩뷰", "전환", "전환매출", "ROAS"].map((h) => (
+                      {["캠페인", "노출", "클릭", "CTR", "비용", "랜딩뷰", "전환", "Meta 매출", "Meta ROAS", "Att 매출", "Att ROAS", "LTV ROAS", "추정 LTV ROAS"].map((h) => (
                         <th key={h} style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#64748b" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {campaigns.map((c) => (
-                      <tr key={c.campaign_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                        <td style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#1e293b", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.campaign_name}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtNum(c.impressions)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtNum(c.clicks)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{c.ctr.toFixed(2)}%</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#ef4444" }}>{fmtKRW(c.spend)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtKRW(c.cpc)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtKRW(c.cpm)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", color: "#10b981" }}>{fmtNum(c.landing_page_views)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{c.leads + c.purchases}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", color: (c.purchase_value ?? 0) > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
-                          {(c.purchase_value ?? 0) > 0 ? fmtKRW(c.purchase_value!) : "—"}
-                        </td>
-                        <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: c.spend > 0 && (c.purchase_value ?? 0) > 0 ? (c.purchase_value! / c.spend >= 3 ? "#16a34a" : c.purchase_value! / c.spend >= 1 ? "#d97706" : "#dc2626") : "#94a3b8" }}>
-                          {c.spend > 0 && (c.purchase_value ?? 0) > 0 ? `${(c.purchase_value! / c.spend).toFixed(2)}x` : "—"}
-                        </td>
-                      </tr>
-                    ))}
+                    {campaigns.map((c) => {
+                      const metaRoas = c.spend > 0 && (c.purchase_value ?? 0) > 0 ? c.purchase_value! / c.spend : null;
+                      const attrRow = attributionRoasByCampaignId.get(c.campaign_id);
+                      const ltvRow = ltvRoasByCampaignId.get(c.campaign_id);
+                      // 추정 LTV ROAS: callprice 검사유형별 LTV 승수 × Meta ROAS
+                      // 광고 유입 보정: 전체 모수 재구매율의 50%만 적용 (광고 유입 고객은 자연유입 대비 재구매율 30~50% 낮음)
+                      const AD_CHANNEL_DISCOUNT = 0.5;
+                      const ltvMatch = matchCampaignLtv(c.campaign_name);
+                      const estLtvRoas = (() => {
+                        if (!ltvMatch || metaRoas == null || c.purchases <= 0) return null;
+                        const avgOv = (c.purchase_value ?? 0) / c.purchases;
+                        if (avgOv <= 0) return null;
+                        const weightedLtv = (1 - ltvMatch.consultRate) * ltvMatch.ltvNoConsult + ltvMatch.consultRate * ltvMatch.ltvConsulted;
+                        const adjustedLtv = weightedLtv * AD_CHANNEL_DISCOUNT;
+                        const multiplier = (avgOv + adjustedLtv) / avgOv;
+                        return metaRoas * multiplier;
+                      })();
+                      const ltvColor = ltvRow?.ltvStatus === "ready"
+                        ? "#16a34a"
+                        : ltvRow?.ltvStatus === "low_sample"
+                          ? "#d97706"
+                          : ltvRow
+                            ? "#64748b"
+                            : "#94a3b8";
+
+                      return (
+                        <tr key={c.campaign_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#1e293b", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.campaign_name}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtNum(c.impressions)}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtNum(c.clicks)}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{c.ctr.toFixed(2)}%</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#ef4444" }}>{fmtKRW(c.spend)}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: "#10b981" }}>{fmtNum(c.landing_page_views)}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{c.leads + c.purchases}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: (c.purchase_value ?? 0) > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
+                            {(c.purchase_value ?? 0) > 0 ? fmtKRW(c.purchase_value!) : "—"}
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: metaRoas != null ? (metaRoas >= 3 ? "#16a34a" : metaRoas >= 1 ? "#d97706" : "#dc2626") : "#94a3b8" }}>
+                            {fmtRoasX(metaRoas)}
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: attrRow && attrRow.attributedRevenue > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
+                            {attrRow && attrRow.attributedRevenue > 0 ? fmtKRW(attrRow.attributedRevenue) : "—"}
+                          </td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: attrRow?.roas != null ? (attrRow.roas >= 3 ? "#16a34a" : attrRow.roas >= 1 ? "#d97706" : "#dc2626") : "#94a3b8" }}>
+                            {fmtRoasX(attrRow?.roas)}
+                          </td>
+                          <td title={ltvRow?.ltvBlocker ?? `180일 LTV 매출 ${ltvRow ? fmtKRW(ltvRow.ltvRevenue) : "계산 전"}`} style={{ padding: "8px 10px", textAlign: "right", fontWeight: 800, color: ltvColor }}>
+                            {fmtRoasX(ltvRow?.ltvRoas)}
+                            {ltvRow?.ltvStatus === "low_sample" && <div style={{ fontSize: "0.62rem", color: "#d97706", marginTop: 2 }}>표본 부족</div>}
+                            {ltvRow?.ltvStatus === "identity_missing" && <div style={{ fontSize: "0.62rem", color: "#64748b", marginTop: 2 }}>ID 미매칭</div>}
+                          </td>
+                          <td title={ltvMatch ? `검사유형: ${ltvMatch.analysisType} · 상담전환율 ${(ltvMatch.consultRate * 100).toFixed(0)}% · 미상담 추가매출 ₩${ltvMatch.ltvNoConsult.toLocaleString()} · 상담 추가매출 ₩${ltvMatch.ltvConsulted.toLocaleString()}` : "검사유형 매핑 없음"} style={{ padding: "8px 10px", textAlign: "right", fontWeight: 800, color: estLtvRoas != null ? (estLtvRoas >= 3 ? "#16a34a" : estLtvRoas >= 1 ? "#2563eb" : "#dc2626") : "#94a3b8" }}>
+                            {estLtvRoas != null ? `${estLtvRoas.toFixed(2)}x` : "—"}
+                            {ltvMatch && <div style={{ fontSize: "0.56rem", color: "#64748b", marginTop: 1 }}>{ltvMatch.analysisType}</div>}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
+              </div>
+              <div style={{ marginTop: 10, fontSize: "0.7rem", color: "#64748b", lineHeight: 1.7 }}>
+                <strong>Meta ROAS</strong>는 Meta purchase value / spend, <strong>Att ROAS</strong>는 Attribution confirmed revenue / spend,
+                <strong> LTV ROAS</strong>는 campaign에 귀속된 confirmed 주문 고객의 180일 후속 주문 매출까지 포함한 값입니다.
+                <strong> 추정 LTV ROAS</strong>는 callprice 검사유형별 상담 전환율·추가 매출 데이터로 Meta ROAS에 LTV 승수를 곱한 추정치입니다 (검사 이후 영양제·추가검사 매출 반영).
+                <strong style={{ color: "#d97706" }}> 광고 유입 보정 50% 적용</strong>: 전체 모수 재구매율의 절반만 반영 (광고 유입 고객은 자연유입 대비 재구매율이 낮은 업계 통상 기준).
+                Meta 유입 코호트 초기 실측: 전체 Meta 유입 47명 중 재구매 6명(<strong>12.8%</strong>), 건강기능식품 캠페인 14명 중 재구매 3명(<strong>21.4%</strong>) — 50% 보정(22%)과 거의 일치. 표본 50건+ 모이면 확정 전환.
+                {selectedSite.site === "biocom" ? " 바이오컴 캠페인별 Att/LTV는 확정 alias가 반영된 localhost:7020 계산값이며, VM 최신 원장 배포 전까지 후보 선별용으로만 봅니다." : ""}
+                {campaignLtvRoas ? ` 현재 LTV 계산 가능 캠페인 ${campaignLtvRoas.summary.readyCampaigns}개, 보류 ${campaignLtvRoas.summary.blockedCampaigns}개입니다.` : ` 현재 LTV 계산 상태: ${campaignLtvRoasError ?? "확인 중"}.`}
+                {campaignRoasCoverageAgainstVm != null && campaignRoasCoverageAgainstVm < 0.8 ? ` VM confirmed 매출 대비 캠페인 매핑 커버리지는 ${(campaignRoasCoverageAgainstVm * 100).toFixed(1)}%입니다.` : ""}
               </div>
             </div>
           )}
@@ -1086,6 +1642,9 @@ export default function AdsPage() {
               {selectedSite.label}에 해당 기간 광고 데이터가 없습니다.
             </div>
           )}
+
+          {/* CAPI 퍼널 분석 */}
+          <CampaignFunnelSection campaigns={campaigns} datePreset={datePreset} onDatePresetChange={setDatePreset} />
 
           <CampaignAliasReviewSection selectedSite={selectedSite} />
 
@@ -1175,7 +1734,7 @@ export default function AdsPage() {
                         <strong>캠페인별 ROAS 정리</strong>: 위 테이블에서 전환 0인 캠페인의 예산을 ROAS 상위 3개에 재배분 → 같은 예산으로 전환 20~30% 증가 기대.
                       </li>
                       <li style={{ marginBottom: 4 }}>
-                        <strong>CAPI 활성화</strong>: 현재 브라우저 픽셀만 사용 중. 서버사이드 전환(CAPI)을 켜면 iOS 사용자 전환이 30~50% 더 잡혀 Meta AI 최적화 품질이 올라감. <a href="/ads/roas" style={{ color: "#6366f1" }}>ROAS 대시보드</a>에서 CAPI 전송 현황 확인 가능.
+                        <strong>CAPI/식별자 품질 점검</strong>: Purchase CAPI는 운영 중입니다. 다음 병목은 payment_success에서 GA/Meta 식별자가 빠지는 주문을 줄이는 것입니다. <a href="/ads/roas" style={{ color: "#6366f1" }}>ROAS 대시보드</a>와 아래 식별자 품질 카드를 같이 보세요.
                       </li>
                       <li>
                         <strong>리타겟팅 세분화</strong>: 랜딩뷰 {fmtNum(campaignSummary.totalLandingViews)}명 중 구매 안 한 {fmtNum(campaignSummary.totalLandingViews - campaignSummary.totalPurchases)}명을 대상으로 7일/14일 리타겟팅 광고 세트 분리. 통상 리타겟팅 ROAS는 프로스펙팅의 2~5배.
@@ -1200,11 +1759,11 @@ export default function AdsPage() {
                     </p>
                     <ul style={{ margin: "6px 0 0", paddingLeft: 16 }}>
                       <li><strong>Attribution window</strong>: Ads Manager 기본값은 "클릭 7일 + 조회 1일"이라 과대 가능성이 있다. 이 페이지의 운영 기준은 클릭 1일이고, default는 보조 비교값으로만 본다.</li>
-                      <li><strong>iOS 14+ 누락</strong>: 현재 브라우저 픽셀만 사용 중이라 iOS Safari 사용자의 전환이 30~50% 누락될 수 있음. 즉, 실제 전환은 {fmtNum(campaignSummary.totalPurchases)}건보다 더 많을 가능성.</li>
+                      <li><strong>식별자 누락</strong>: 서버 CAPI가 있어도 결제완료 원장에 `ga_session_id`, `client_id`, `user_pseudo_id`가 빠지면 Meta CAPI 중복 여부와 실제 광고 기여 주문을 주문 단위로 비교하기 어렵다.</li>
                       <li><strong>가상계좌 이슈</strong>: 아임웹에서 가상계좌 주문도 결제 완료 페이지에 도달하여 픽셀이 발화됨. 미입금 취소 건이 전환에 포함됐을 수 있음.</li>
                     </ul>
                     <p style={{ margin: "6px 0 0", color: "#16a34a", fontWeight: 600, fontSize: "0.76rem" }}>
-                      해결: CAPI(서버사이드 전환)를 활성화하고, Toss API로 DONE 상태만 전송하면 위 3가지 문제가 모두 완화됨. 이미 구현 완료(Phase 5-S3), 테스트 발송만 남음.
+                      해결: Purchase CAPI 운영 상태는 유지하고, Toss DONE 확정 주문만 서버 전송한다. 동시에 checkout_started에서 확보한 GA/Meta 식별자를 payment_success까지 이어 붙이는 작업이 다음 병목이다.
                     </p>
                   </div>
 
@@ -1257,7 +1816,7 @@ export default function AdsPage() {
                     <strong style={{ color: "#166534" }}>5. 로드맵 — 다음에 개발할 것</strong>
                     <ol style={{ margin: "6px 0 0", paddingLeft: 18 }}>
                       <li style={{ marginBottom: 4 }}>
-                        <strong>CAPI 테스트 발송</strong> → Events Manager에서 수신 확인 → 운영 전환. iOS 전환 복구로 Meta AI 최적화 품질 향상.
+                        <strong>CAPI dedup/EMQ 점검</strong> → Events Manager에서 browser/server 중복 제거, 이벤트 매칭 품질, event_id 경고 확인.
                       </li>
                       <li style={{ marginBottom: 4 }}>
                         <strong>캠페인별 ROAS 자동 경고</strong>: ROAS가 1x 미만으로 3일 연속 떨어지면 슬랙/알림톡으로 자동 알림. 예산 낭비 조기 차단.
@@ -1398,14 +1957,33 @@ export default function AdsPage() {
                         </div>
                       </>
                     ) : selectedSite.site === "thecleancoffee" ? (
-                      <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fffbeb", border: "1px solid #fde68a" }}>
-                        <strong style={{ color: "#d97706" }}>Meta 광고 계정 미연동</strong>
-                        <p style={{ margin: "4px 0 0" }}>
-                          더클린커피 Meta 광고 데이터가 연결되지 않아 퍼널 분석 불가.
-                          Clarity는 설치 완료 — 사이트 방문자 UX 분석은 가능.
-                          광고 계정 연동 후 퍼널 데이터 확인 가능.
-                        </p>
-                      </div>
+                      <>
+                        <div style={{ padding: "10px 12px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 10 }}>
+                          <strong style={{ color: "#16a34a" }}>Meta 광고 계정 연동 완료 — 퍼널은 양호</strong>
+                          <p style={{ margin: "4px 0 0" }}>
+                            최근 7일 1d_click 기준 클릭 {fmtNum(campaignSummary.totalClicks)}건 → 랜딩뷰 {fmtNum(campaignSummary.totalLandingViews)}건
+                            ({(clickToLanding * 100).toFixed(1)}%) → 구매 {fmtNum(campaignSummary.totalPurchases)}건
+                            ({(landingToConv * 100).toFixed(2)}%).
+                            클릭→랜딩 {(clickToLanding * 100).toFixed(1)}%는 정상 이상이고, 랜딩→구매 {(landingToConv * 100).toFixed(2)}%는 일반 커머스 벤치마크 1~3%보다 높다.
+                          </p>
+                        </div>
+                        <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fed7aa", marginBottom: 10 }}>
+                          <strong style={{ color: "#d97706" }}>Att ROAS 낮음은 UX보다 식별자/귀속 문제</strong>
+                          <p style={{ margin: "4px 0 0" }}>
+                            Meta 구매 {fmtNum(campaignSummary.totalPurchases)}건 중 내부 Attribution confirmed는 {fmtNum(selectedAttributedOrders)}건입니다.
+                            사이트 전체 confirmed 주문 {fmtNum(selectedSiteSummary?.siteConfirmedOrders ?? 0)}건과 비교해도 광고 귀속 주문이 적습니다.
+                            먼저 결제완료 식별자 coverage와 clean baseline을 보강해야 합니다.
+                          </p>
+                        </div>
+                        <div style={{ padding: "10px 12px", borderRadius: 8, background: "#eef2ff", border: "1px solid #c7d2fe" }}>
+                          <strong style={{ color: "#4338ca" }}>Clarity에서 확인할 것</strong>
+                          <ol style={{ margin: "6px 0 0", paddingLeft: 16 }}>
+                            <li style={{ marginBottom: 3 }}>모바일 상품 옵션 선택 후 장바구니/구매 버튼까지 막힘 없는지</li>
+                            <li style={{ marginBottom: 3 }}>네이버페이·카카오싱크·토스 복귀 구간에서 결제완료 페이지 진입이 끊기는지</li>
+                            <li>구매하지 않은 랜딩뷰 {fmtNum(Math.max(0, campaignSummary.totalLandingViews - campaignSummary.totalPurchases))}명의 Dead click/Rage click 패턴</li>
+                          </ol>
+                        </div>
+                      </>
                     ) : (
                       <>
                         <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", marginBottom: 10 }}>
@@ -1463,14 +2041,31 @@ export default function AdsPage() {
                         </div>
                       </>
                     ) : selectedSite.site === "thecleancoffee" ? (
-                      <div style={{ padding: "10px 12px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-                        <strong style={{ color: "#166534" }}>Clarity만으로 가능한 분석</strong>
-                        <p style={{ margin: "4px 0 0" }}>
-                          Meta 연동 전이라도 자연 유입 방문자의 UX 분석 가능.
-                          상품 페이지 Dead clicks, 장바구니 이탈, 모바일 결제 UX를 먼저 분석.
-                          광고 계정 연동 후 캠페인별 UTM 필터링으로 광고 유입 분석 시작.
-                        </p>
-                      </div>
+                      <>
+                        <div style={{ padding: "10px 12px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 10 }}>
+                          <strong style={{ color: "#166534" }}>데이터 판단</strong>
+                          <p style={{ margin: "4px 0 0" }}>
+                            더클린커피는 페이지 도달과 구매 전환이 약하지 않습니다.
+                            Meta ROAS {fmtRoasX(selectedMetaPurchaseRoas)}, Att ROAS {fmtRoasX(selectedAttributedRoas)}, 사이트 전체 상한 {fmtRoasX(selectedBestCaseCeilingRoas)}의 간격이 크므로
+                            UX 개선보다 payment_success identity carry-over가 우선입니다.
+                          </p>
+                        </div>
+                        <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fff", border: "1px solid #bbf7d0", marginBottom: 10 }}>
+                          <strong style={{ color: "#166534" }}>신뢰 가능한 날짜</strong>
+                          <p style={{ margin: "4px 0 0" }}>
+                            CAPI/footer v3는 {COFFEE_CAPI_SNAPSHOT_KST} 배포, source-label 교정은 {COFFEE_CAPI_SOURCE_REPAIR_KST}.
+                            2026-04-16부터 clean day로 보고, 2026-04-23 아침 7일 baseline이 쌓이면 광고 효율 판단에 쓸 수 있습니다.
+                          </p>
+                        </div>
+                        <div style={{ padding: "10px 12px", borderRadius: 8, background: "#ecfdf5", border: "1px solid #bbf7d0" }}>
+                          <strong style={{ color: "#166534" }}>다음 액션</strong>
+                          <ol style={{ margin: "6px 0 0", paddingLeft: 16 }}>
+                            <li style={{ marginBottom: 3 }}>결제완료 식별자 coverage를 80% 이상으로 올림</li>
+                            <li style={{ marginBottom: 3 }}>Clarity에서 결제 복귀/완료 페이지 세션 리플레이 20건 수동 확인</li>
+                            <li>릴스/스토리와 이미지 캠페인을 Meta ROAS, Att ROAS, clean baseline으로 재비교</li>
+                          </ol>
+                        </div>
+                      </>
                     ) : (
                       <>
                         <div style={{ padding: "10px 12px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 10 }}>
@@ -1526,6 +2121,534 @@ export default function AdsPage() {
           })()}
         </>
       )}
+    </div>
+    </>
+  );
+}
+
+function AibioMetricCard({
+  label,
+  value,
+  note,
+  color,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  color: string;
+}) {
+  return (
+    <div style={{ padding: "12px 14px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0" }}>
+      <div style={{ fontSize: "0.68rem", color: "#64748b", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: "1.08rem", fontWeight: 900, color }}>{value}</div>
+      <div style={{ fontSize: "0.68rem", color: "#64748b", lineHeight: 1.5, marginTop: 4 }}>{note}</div>
+    </div>
+  );
+}
+
+function AibioStrategyBox({
+  title,
+  children,
+  accent,
+}: {
+  title: string;
+  children: React.ReactNode;
+  accent: string;
+}) {
+  return (
+    <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fff", border: `1px solid ${accent}55`, fontSize: "0.76rem", color: "#334155", lineHeight: 1.75 }}>
+      <strong style={{ color: accent, fontSize: "0.82rem" }}>{title}</strong>
+      <div style={{ marginTop: 6 }}>{children}</div>
+    </div>
+  );
+}
+
+function AibioCsoStrategySection({
+  campaignSummary,
+  acquisition,
+  acquisitionLoading,
+  acquisitionError,
+  currentPresetLabel,
+}: {
+  campaignSummary: CampaignSummary;
+  acquisition: AibioAcquisitionSite | null;
+  acquisitionLoading: boolean;
+  acquisitionError: string | null;
+  currentPresetLabel: string;
+}) {
+  const fmtPct = (value: number | null | undefined) => (
+    value != null && Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—"
+  );
+  const spend = campaignSummary.totalSpend;
+  const clickToLanding = campaignSummary.totalClicks > 0
+    ? campaignSummary.totalLandingViews / campaignSummary.totalClicks
+    : null;
+  const internalForms = acquisition?.operationalConversions ?? 0;
+  const rawForms = acquisition?.rawConversions ?? 0;
+  const excludedForms = acquisition?.excludedConversions ?? 0;
+  const metaChannel = acquisition?.channels.find((channel) => channel.key === "meta") ?? null;
+  const metaForms = metaChannel?.count ?? 0;
+  const internalFormRate = campaignSummary.totalLandingViews > 0 && internalForms > 0
+    ? internalForms / campaignSummary.totalLandingViews
+    : null;
+  const cplByInternal = internalForms > 0 ? spend / internalForms : null;
+  const cplByMetaForms = metaForms > 0 ? spend / metaForms : null;
+  const topLanding = acquisition?.landings[0] ?? null;
+  const topCampaign = acquisition?.campaigns.find((row) => row.label !== "(campaign 없음)") ?? acquisition?.campaigns[0] ?? null;
+  const platformLeadEvents = campaignSummary.totalLeads;
+  const platformPurchaseEvents = campaignSummary.totalPurchases;
+  const hasInternalButNoMetaLead = internalForms > 0 && platformLeadEvents === 0;
+
+  return (
+    <div style={{ marginBottom: 24, padding: "18px 20px", borderRadius: 8, background: "#f8fafc", border: "1px solid #cbd5e1", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 14 }}>
+        <div style={{ flex: "1 1 620px" }}>
+          <div style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 800, marginBottom: 4 }}>
+            AIBIO CSO 판단 · 리커버리랩 전환 설계
+          </div>
+          <div style={{ fontSize: "1.02rem", fontWeight: 900, color: "#0f172a", lineHeight: 1.55 }}>
+            전체 Meta를 끄기보다, 전환 계측을 먼저 맞추고 트래픽 목표 예산만 통제하는 쪽이 맞습니다.
+          </div>
+          <div style={{ marginTop: 6, fontSize: "0.78rem", color: "#475569", lineHeight: 1.75 }}>
+            현재 광고는 사람을 데려오고 있습니다. 문제는 수요 부재가 아니라
+            <strong> Meta API Lead {fmtNum(platformLeadEvents)}건</strong>과 <strong>내부 form_submit {acquisitionLoading ? "확인 중" : `${fmtNum(internalForms)}건`}</strong>이 갈라진 상태입니다.
+            이 상태에서 예산을 크게 늘리면 Meta는 아직 "좋은 리드"를 학습하지 못하고, 반대로 전부 멈추면 이미 들어오는 상담 신호를 잃습니다.
+          </div>
+        </div>
+        <span style={{
+          padding: "6px 12px",
+          borderRadius: 8,
+          background: hasInternalButNoMetaLead ? "#fff7ed" : "#ecfdf5",
+          color: hasInternalButNoMetaLead ? "#9a3412" : "#047857",
+          border: `1px solid ${hasInternalButNoMetaLead ? "#fed7aa" : "#a7f3d0"}`,
+          fontSize: "0.7rem",
+          fontWeight: 900,
+          whiteSpace: "nowrap",
+        }}>
+          {hasInternalButNoMetaLead ? "계측 정합성 우선" : "전환 신호 확인 중"}
+        </span>
+      </div>
+
+      {acquisitionError && (
+        <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", fontSize: "0.74rem" }}>
+          AIBIO 내부 전환 원장 조회 실패: {acquisitionError}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10, marginBottom: 14 }}>
+        <AibioMetricCard
+          label="선택 기간 광고비"
+          value={fmtKRW(spend)}
+          note={`${currentPresetLabel} · Meta API 기준`}
+          color="#ef4444"
+        />
+        <AibioMetricCard
+          label="Meta API Lead"
+          value={`${fmtNum(platformLeadEvents)}건`}
+          note={`Purchase ${fmtNum(platformPurchaseEvents)}건 · Ads Manager 학습 신호는 아직 약함`}
+          color={platformLeadEvents > 0 ? "#16a34a" : "#dc2626"}
+        />
+        <AibioMetricCard
+          label="내부 form_submit"
+          value={acquisitionLoading ? "확인 중" : `${fmtNum(internalForms)}건`}
+          note={acquisition ? `raw ${fmtNum(rawForms)}건 중 테스트 ${fmtNum(excludedForms)}건 제외` : "VM attribution 원장 기준"}
+          color={internalForms > 0 ? "#16a34a" : "#d97706"}
+        />
+        <AibioMetricCard
+          label="Meta/Instagram 폼"
+          value={acquisitionLoading ? "확인 중" : `${fmtNum(metaForms)}건`}
+          note={metaChannel ? `내부 폼의 ${metaChannel.share.toFixed(1)}% · ${metaChannel.examples?.slice(0, 2).join(", ") ?? "campaign 확인"}` : "fbclid/fbc/fbp/Instagram referrer 기준"}
+          color="#2563eb"
+        />
+        <AibioMetricCard
+          label="내부 기준 CPL"
+          value={cplByInternal != null ? fmtKRW(cplByInternal) : "—"}
+          note={cplByMetaForms != null ? `Meta 유입 폼 기준 ${fmtKRW(cplByMetaForms)}/건` : "폼 표본이 쌓이면 판단 가능"}
+          color="#0f766e"
+        />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>
+        <AibioStrategyBox title="1. 전환은 하나가 아니라 단계로 쪼갭니다" accent="#0f766e">
+          <p style={{ margin: 0 }}>
+            메인 전환은 계속 <strong>form_submit</strong>입니다. 보조 전환은
+            <strong> 카카오톡 클릭</strong>, <strong>채널톡 열기</strong>, <strong>체험권 결제 시작</strong>,
+            <strong> 1분 체류</strong>, <strong>90% 스크롤</strong>, <strong>CTA 클릭</strong>으로 나눕니다.
+            보조 전환은 ROAS 분자가 아니라 리타겟팅과 UX 병목 찾기용입니다.
+          </p>
+          <p style={{ margin: "8px 0 0", color: "#64748b" }}>
+            GTM 이벤트명 제안: <code>aibio_kakao_click</code>, <code>aibio_channeltalk_open</code>,
+            <code>aibio_ticket_checkout</code>, <code>aibio_engaged_60s</code>, <code>aibio_scroll_90</code>.
+          </p>
+        </AibioStrategyBox>
+
+        <AibioStrategyBox title="2. 카카오톡은 즉시, 채널톡은 운영 준비 후" accent="#2563eb">
+          <p style={{ margin: 0 }}>
+            AIBIO는 고관여 오프라인 서비스라 즉시 질문 채널이 전환율에 영향을 줍니다.
+            <strong> 카카오톡 버튼은 우선 적용</strong>이 맞습니다. 이미 GTM에 카톡채널 클릭 트리거가 있으므로, 고정 CTA와 클릭 이벤트만 안정화하면 됩니다.
+          </p>
+          <p style={{ margin: "8px 0 0", color: "#64748b" }}>
+            채널톡은 응답 담당자, 운영 시간, FAQ, 리드 소유자 필드가 준비될 때 붙입니다. 응답이 느리면 위젯은 신뢰를 깎으므로 카카오톡보다 늦게 여는 편이 낫습니다.
+          </p>
+        </AibioStrategyBox>
+
+        <AibioStrategyBox title="3. shop은 전체 상점보다 체험권 1개부터" accent="#d97706">
+          <p style={{ margin: 0 }}>
+            {topLanding ? (
+              <>
+                현재 내부 폼의 <strong>{topLanding.share.toFixed(1)}%</strong>가 <strong>{topLanding.label}</strong>에서 나옵니다.
+                이미 shop_view 맥락이 리드를 만들고 있으므로, 전체 쇼핑몰보다 <strong>예약금형 체험권</strong> 1개를 먼저 테스트하는 게 맞습니다.
+              </>
+            ) : (
+              <>체험권은 가능하지만 전체 shop을 먼저 키우면 폼 제출보다 마찰이 커질 수 있습니다.</>
+            )}
+          </p>
+          <p style={{ margin: "8px 0 0", color: "#64748b" }}>
+            추천 상품은 무료 상담을 대체하는 고가 상품이 아니라, 환불 가능하거나 방문 시 차감되는 소액 예약금입니다.
+            결제 시작과 구매가 생기면 Meta에는 더 강한 가치 신호가 생깁니다.
+          </p>
+        </AibioStrategyBox>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+        <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0", fontSize: "0.76rem", color: "#334155", lineHeight: 1.75 }}>
+          <strong style={{ color: "#0f172a", fontSize: "0.82rem" }}>Meta 광고 운영안</strong>
+          <ol style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+            <li style={{ marginBottom: 5 }}>
+              <strong>전체 중단은 하지 않습니다.</strong> 내부 원장에는 폼이 들어오고, 그중 Meta/Instagram 비중이 높습니다. 수요가 없는 캠페인으로 단정하기 이릅니다.
+            </li>
+            <li style={{ marginBottom: 5 }}>
+              <strong>증액은 금지합니다.</strong> Meta Lead가 0인 동안은 알고리즘이 리드 품질을 못 배우므로, 예산 확대보다 Lead 이벤트 정합성 확인이 먼저입니다.
+            </li>
+            <li style={{ marginBottom: 5 }}>
+              <strong>트래픽 목표 캠페인은 감액/일시정지 후보입니다.</strong> 랜딩뷰 최적화는 싼 클릭을 잘 만들지만 상담 가능성이 높은 사람을 찾는 목표가 아닙니다.
+            </li>
+            <li>
+              <strong>48시간 게이트:</strong> Events Manager와 Ads API에서 Lead가 보이면 리드 캠페인만 유지, 계속 0이면 태그/맞춤전환을 고친 뒤 재개합니다.
+            </li>
+          </ol>
+        </div>
+
+        <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0", fontSize: "0.76rem", color: "#334155", lineHeight: 1.75 }}>
+          <strong style={{ color: "#0f172a", fontSize: "0.82rem" }}>다음 의사결정 기준</strong>
+          <div style={{ marginTop: 8 }}>
+            <div>클릭→랜딩: <strong>{fmtPct(clickToLanding)}</strong></div>
+            <div>랜딩→내부 폼: <strong>{fmtPct(internalFormRate)}</strong></div>
+            <div>상위 원장 캠페인: <strong>{topCampaign?.label ?? "확인 중"}</strong></div>
+            <div>최신 폼 제출: <strong>{formatDateTime(acquisition?.latestLoggedAt ?? null)}</strong></div>
+          </div>
+          <p style={{ margin: "8px 0 0", color: "#64748b" }}>
+            진짜 CSO 지표는 폼 제출 수가 아니라 <strong>폼 제출→상담 연결→예약 확정→방문→체험권/본상품 결제</strong>입니다.
+            이 후속 전환율이 붙기 전까지 Meta ROAS 대신 CPL과 상담 연결률로 판단해야 합니다.
+          </p>
+        </div>
+      </div>
+
+      {acquisition?.dataWarnings?.length ? (
+        <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: "#fffbeb", border: "1px solid #fde68a", fontSize: "0.72rem", color: "#92400e", lineHeight: 1.65 }}>
+          <strong>데이터 주의:</strong> {acquisition.dataWarnings.join(" ")}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   CAPI 퍼널 분석 섹션
+   ══════════════════════════════════════════ */
+function CampaignFunnelSection({ campaigns, datePreset, onDatePresetChange }: { campaigns: CampaignRow[]; datePreset: string; onDatePresetChange: (v: string) => void }) {
+  const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
+
+  const funnelCampaigns = campaigns.filter((c) => c.spend > 0).sort((a, b) => b.spend - a.spend);
+  if (funnelCampaigns.length === 0) return null;
+
+  const hasCapi = (c: CampaignRow): boolean =>
+    (c.view_content ?? 0) > 0 || (c.add_to_cart ?? 0) > 0 || (c.initiate_checkout ?? 0) > 0;
+  const hasAnyCapi = funnelCampaigns.some(hasCapi);
+
+  const calcRate = (from: number, to: number): number | null => from <= 0 ? null : to / from;
+  const fmtPct = (rate: number | null): string => rate == null ? "—" : `${(rate * 100).toFixed(1)}%`;
+
+  // 퍼널 건강 점수 (0~100)
+  const calcFunnelScore = (c: CampaignRow): { score: number; grade: string; color: string; reasons: string[] } => {
+    const reasons: string[] = [];
+    let score = 50; // 기본
+    const cHasCapi = hasCapi(c);
+
+    // 1. 클릭→랜딩 전환율 (Meta 서버 측정 기준) — 임계값 rateColor와 통일: 0.7/0.5
+    const clkToLand = c.clicks > 0 ? c.landing_page_views / c.clicks : 0;
+    if (clkToLand >= 0.7) { score += 10; reasons.push(`클릭→랜딩 ${(clkToLand * 100).toFixed(0)}% 우수`); }
+    else if (clkToLand >= 0.5) { score += 5; }
+    else if (clkToLand > 0) { score -= 5; reasons.push(`클릭→랜딩 ${(clkToLand * 100).toFixed(0)}%, 이탈 높음`); }
+
+    if (cHasCapi) {
+      const vc = c.view_content ?? 0;
+      const atc = c.add_to_cart ?? 0;
+      const ic = c.initiate_checkout ?? 0;
+
+      // 2. 장바구니 담기율 (ViewContent 대비) — 0건도 치명 병목으로 감지
+      if (vc > 0) {
+        const cartRate = atc / vc;
+        if (atc === 0) { score -= 15; reasons.push(`조회 ${vc.toLocaleString()}건인데 장바구니 0건 → 상품/가격 점검`); }
+        else if (cartRate >= 0.03) { score += 15; reasons.push(`장바구니율 ${(cartRate * 100).toFixed(1)}% 양호`); }
+        else if (cartRate >= 0.01) { score += 5; }
+        else { score -= 10; reasons.push(`장바구니율 ${(cartRate * 100).toFixed(1)}%, 기준 1% 미만`); }
+      }
+
+      // 3. 결제 완료율 (결제 시작 대비) — 0건도 감지
+      if (ic > 0) {
+        const purchaseRate = c.purchases / ic;
+        if (c.purchases === 0) { score -= 15; reasons.push(`결제시작 ${ic}건인데 구매 0건 → 결제 UX/PG 점검`); }
+        else if (purchaseRate >= 0.4) { score += 15; reasons.push(`결제완료율 ${(purchaseRate * 100).toFixed(0)}% 우수`); }
+        else if (purchaseRate >= 0.2) { score += 5; }
+        else { score -= 10; reasons.push(`결제완료율 ${(purchaseRate * 100).toFixed(0)}%, 이탈 높음`); }
+      }
+
+      // 4. 전체 통과율 (ViewContent → Purchase)
+      if (vc > 0) {
+        const throughRate = c.purchases / vc;
+        if (throughRate >= 0.02) { score += 10; reasons.push(`전체 통과율 ${(throughRate * 100).toFixed(2)}% 양호`); }
+        else if (throughRate < 0.005) { score -= 10; reasons.push(`전체 통과율 ${(throughRate * 100).toFixed(2)}% 매우 낮음`); }
+      }
+    } else {
+      // CAPI 없을 때 랜딩→구매로만 판단
+      const landToPurch = c.landing_page_views > 0 ? c.purchases / c.landing_page_views : 0;
+      if (landToPurch >= 0.02) { score += 15; reasons.push(`랜딩→구매 ${(landToPurch * 100).toFixed(1)}% 양호`); }
+      else if (landToPurch >= 0.01) { score += 5; }
+      else if (landToPurch > 0) { score -= 5; reasons.push(`랜딩→구매 ${(landToPurch * 100).toFixed(1)}% 낮음`); }
+      else { score -= 15; reasons.push("구매 전환 없음"); }
+    }
+
+    // 5. 구매 볼륨 보정
+    if (c.purchases >= 50) { score += 5; }
+    else if (c.purchases < 10) { score -= 5; reasons.push("구매 건수 적어 통계 신뢰도 낮음"); }
+
+    // 6. CPA 보조 지표 (ROAS 대용)
+    if (c.purchases > 0) {
+      const cpa = c.spend / c.purchases;
+      const avgValue = (c.purchase_value ?? 0) / c.purchases;
+      if (avgValue > 0 && cpa < avgValue * 0.5) { score += 5; reasons.push(`CPA ₩${Math.round(cpa).toLocaleString()} < 객단가 절반`); }
+      else if (avgValue > 0 && cpa > avgValue) { score -= 5; reasons.push(`CPA ₩${Math.round(cpa).toLocaleString()} > 객단가 ₩${Math.round(avgValue).toLocaleString()}`); }
+    }
+
+    score = Math.min(100, Math.max(0, score));
+    const grade = score >= 80 ? "A" : score >= 60 ? "B" : score >= 40 ? "C" : "D";
+    const color = score >= 80 ? "#16a34a" : score >= 60 ? "#3b82f6" : score >= 40 ? "#d97706" : "#dc2626";
+    return { score, grade, color, reasons };
+  };
+
+  type FunnelStep = { key: string; label: string; value: number; color: string; source: string };
+
+  const buildFunnel = (c: CampaignRow): FunnelStep[] => [
+    { key: "impressions", label: "노출", value: c.impressions, color: "#94a3b8", source: "Meta Ads" },
+    { key: "clicks", label: "클릭", value: c.clicks, color: "#64748b", source: "Meta Ads" },
+    { key: "landing", label: "랜딩뷰", value: c.landing_page_views, color: "#3b82f6", source: "Meta Ads" },
+    { key: "view_content", label: "상품 조회", value: c.view_content ?? 0, color: "#8b5cf6", source: "imweb Pixel" },
+    { key: "add_to_cart", label: "장바구니", value: c.add_to_cart ?? 0, color: "#f59e0b", source: "imweb Pixel" },
+    { key: "checkout", label: "결제 시작", value: c.initiate_checkout ?? 0, color: "#f97316", source: "imweb Pixel" },
+    { key: "purchase", label: "구매 완료", value: c.purchases, color: "#16a34a", source: "Pixel+서버CAPI" },
+  ];
+
+  // 임계값을 calcFunnelScore와 통일 (landing: 0.7/0.5, cart: 0.03/0.01)
+  const rateColor = (rate: number | null, step: string): string => {
+    if (rate == null) return "#94a3b8";
+    if (step === "cart") return rate >= 0.03 ? "#16a34a" : rate >= 0.01 ? "#d97706" : "#dc2626";
+    if (step === "land_checkout") return rate >= 0.03 ? "#16a34a" : rate >= 0.01 ? "#d97706" : "#dc2626"; // 랜딩→결제시작 (장바구니 스킵 포함)
+    if (step === "checkout") return rate >= 0.3 ? "#16a34a" : rate >= 0.1 ? "#d97706" : "#dc2626";
+    if (step === "purchase") return rate >= 0.4 ? "#16a34a" : rate >= 0.2 ? "#d97706" : "#dc2626";
+    if (step === "landing") return rate >= 0.7 ? "#16a34a" : rate >= 0.5 ? "#d97706" : "#dc2626";
+    if (step === "overall") return rate >= 0.02 ? "#16a34a" : rate >= 0.005 ? "#d97706" : "#dc2626";
+    return "#64748b";
+  };
+
+  // 기간 계산
+  const presetDays = DATE_PRESET_DAY_COUNTS[datePreset] ?? 7;
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() - 1); // Meta는 어제까지 집계
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - presetDays + 1);
+  const fmtDate = (d: Date) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+  const presetLabel = DATE_PRESETS.find((p) => p.value === datePreset)?.label ?? datePreset;
+
+  return (
+    <div style={{ padding: "20px 22px", borderRadius: 14, background: "linear-gradient(180deg, #f8fafc, #fff)", border: "1px solid #e2e8f0", marginBottom: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <h3 style={{ fontSize: "0.92rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>퍼널 분석</h3>
+          <span style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 500 }}>{fmtDate(startDate)} ~ {fmtDate(endDate)}</span>
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          {DATE_PRESETS.map((dp) => (
+            <button
+              key={dp.value}
+              onClick={() => onDatePresetChange(dp.value)}
+              style={{
+                padding: "4px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: "0.66rem", fontWeight: 600, cursor: "pointer",
+                background: datePreset === dp.value ? "#6366f1" : "#fff",
+                color: datePreset === dp.value ? "#fff" : "#64748b",
+                transition: "all 0.15s",
+              }}
+            >
+              {dp.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: 14, lineHeight: 1.6 }}>
+        노출·클릭·랜딩뷰 = <span style={{ color: "#3b82f6", fontWeight: 600 }}>Meta Ads 서버 측정</span> &nbsp;|&nbsp;
+        상품조회·장바구니·결제시작 = <span style={{ color: "#8b5cf6", fontWeight: 600 }}>Meta Pixel (imweb 쇼핑몰 자동 발화)</span> &nbsp;|&nbsp;
+        구매 = <span style={{ color: "#16a34a", fontWeight: 600 }}>Pixel + 자체 서버 CAPI</span>
+        {hasAnyCapi && <span> &nbsp;|&nbsp; 조회 &gt; 랜딩인 경우 = Meta 뷰스루 어트리뷰션 포함</span>}
+        <br />
+        <span style={{ color: "#64748b" }}>랜딩뷰 = 광고 클릭 후 페이지가 실제로 로드 완료된 횟수 (클릭했지만 로딩 전 이탈한 경우 제외)</span>
+        <br />
+        <span style={{ color: "#b45309" }}>구매 건수는 해당 캠페인 광고를 통해 유입된 사용자의 전체 구매이며, 광고 상품이 아닌 다른 상품 구매도 포함됨 (Meta 어트리뷰션 특성)</span>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.74rem" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+              <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>캠페인</th>
+              <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, color: "#64748b", width: 60 }}>점수</th>
+              <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#64748b" }}>비용</th>
+              <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#64748b" }}>구매</th>
+              <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, color: "#64748b", fontSize: "0.66rem" }}>클릭→랜딩</th>
+              {hasAnyCapi && <>
+                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, color: "#64748b", fontSize: "0.66rem" }}>조회→장바구니</th>
+                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, color: "#64748b", fontSize: "0.66rem" }}>랜딩→결제</th>
+                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, color: "#64748b", fontSize: "0.66rem" }}>결제→구매</th>
+              </>}
+              <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, color: "#64748b", fontSize: "0.66rem" }}>랜딩→구매</th>
+              <th style={{ padding: "8px 10px", width: 24 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {funnelCampaigns.map((c) => {
+              const isExpanded = expandedCampaign === c.campaign_id;
+              const fs = calcFunnelScore(c);
+              const funnel = buildFunnel(c);
+              const clkLand = calcRate(c.clicks, c.landing_page_views);
+              const vcCart = hasAnyCapi ? calcRate(c.view_content ?? 0, c.add_to_cart ?? 0) : null;
+              const landCheckout = hasAnyCapi ? calcRate(c.landing_page_views, c.initiate_checkout ?? 0) : null;
+              const icPurch = hasAnyCapi ? calcRate(c.initiate_checkout ?? 0, c.purchases) : null;
+              const landPurch = calcRate(c.landing_page_views, c.purchases);
+              // CAPI 구간에서 가장 큰 이탈 찾기
+              const vc = c.view_content ?? 0; const atc = c.add_to_cart ?? 0; const ic = c.initiate_checkout ?? 0;
+              const drops = [
+                vc > 0 ? { label: "상품 조회 → 장바구니", rate: atc > 0 ? atc / vc : 0, fix: atc === 0 ? "장바구니 0건: 상품 상세/가격/CTA 전면 점검" : "가격, 상품 구성, CTA 위치 점검" } : null,
+                atc > 0 ? { label: "장바구니 → 결제 시작", rate: ic > 0 ? ic / atc : 0, fix: ic === 0 ? "결제시작 0건: 배송비/회원가입 장벽 제거" : "배송비, 추가 비용, 회원가입 장벽 점검" } : null,
+                ic > 0 ? { label: "결제 시작 → 구매 완료", rate: c.purchases > 0 ? c.purchases / ic : 0, fix: c.purchases === 0 ? "구매 0건: PG 오류/결제 수단 즉시 점검" : "결제 수단, PG 오류, 결제 UX 점검" } : null,
+              ].filter(Boolean) as { label: string; rate: number; fix: string }[];
+              const worstDrop = drops.length > 0 ? drops.reduce((a, b) => a.rate < b.rate ? a : b) : null;
+
+              const colCount = hasAnyCapi ? 10 : 7;
+
+              return (
+                <React.Fragment key={c.campaign_id}>
+                  <tr onClick={() => setExpandedCampaign(isExpanded ? null : c.campaign_id)}
+                    style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: isExpanded ? "#f0f9ff" : undefined }}>
+                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {c.campaign_name}
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                      <span style={{
+                        display: "inline-block", minWidth: 36, padding: "3px 8px", borderRadius: 6, fontWeight: 800, fontSize: "0.72rem",
+                        color: "#fff", background: fs.color,
+                      }}>{fs.grade}</span>
+                      <div style={{ fontSize: "0.58rem", color: fs.color, fontWeight: 700, marginTop: 1 }}>{fs.score}점</div>
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#ef4444", fontWeight: 600, fontSize: "0.72rem" }}>{fmtKRW(c.spend)}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: c.purchases > 0 ? "#16a34a" : "#94a3b8" }}>{c.purchases || "0"}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: rateColor(clkLand, "landing") }}>{fmtPct(clkLand)}</td>
+                    {hasAnyCapi && <>
+                      <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: rateColor(vcCart, "cart") }}>{fmtPct(vcCart)}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: rateColor(landCheckout, "land_checkout") }}>{fmtPct(landCheckout)}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: rateColor(icPurch, "purchase") }}>{fmtPct(icPurch)}</td>
+                    </>}
+                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: rateColor(landPurch, "overall") }}>{fmtPct(landPurch)}</td>
+                    <td style={{ padding: "8px 4px", textAlign: "center", color: "#94a3b8", fontSize: "0.64rem" }}>{isExpanded ? "▲" : "▼"}</td>
+                  </tr>
+
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={colCount} style={{ padding: "16px 20px", background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                        <div style={{ display: "flex", gap: 20 }}>
+                          {/* 퍼널 바 */}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {funnel.map((step, i) => {
+                                const maxVal = Math.max(...funnel.map((s) => s.value));
+                                const barW = maxVal > 0 ? Math.max((step.value / maxVal) * 100, step.value > 0 ? 2 : 0) : 0;
+                                const prev = i > 0 ? funnel[i - 1].value : 0;
+                                const stepRate = prev > 0 && step.value > 0 ? step.value / prev : null;
+                                const isBottleneck = worstDrop && (
+                                  (step.key === "add_to_cart" && worstDrop.label.includes("장바구니")) ||
+                                  (step.key === "checkout" && worstDrop.label.includes("결제 시작")) ||
+                                  (step.key === "purchase" && worstDrop.label.includes("구매 완료"))
+                                );
+                                return (
+                                  <div key={step.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <div style={{ width: 56, textAlign: "right", fontSize: "0.68rem", color: "#64748b", flexShrink: 0 }}>
+                                      {step.label}
+                                    </div>
+                                    <div style={{ width: 40, textAlign: "right", fontSize: "0.58rem", color: "#a1a1aa", flexShrink: 0 }}>
+                                      {step.source}
+                                    </div>
+                                    <div style={{ flex: 1, height: 20, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+                                      <div style={{
+                                        height: "100%", borderRadius: 4,
+                                        background: isBottleneck ? "#fca5a5" : step.color, opacity: step.value === 0 ? 0.2 : 0.8,
+                                        width: `${barW}%`, transition: "width 0.3s",
+                                      }} />
+                                    </div>
+                                    <div style={{ width: 65, fontSize: "0.72rem", fontWeight: 700, color: step.value > 0 ? "#0f172a" : "#cbd5e1", flexShrink: 0, textAlign: "right" }}>
+                                      {step.value > 0 ? fmtNum(step.value) : "—"}
+                                    </div>
+                                    <div style={{ width: 50, fontSize: "0.66rem", fontWeight: 600, flexShrink: 0, textAlign: "right" }}>
+                                      {i > 0 && stepRate != null && stepRate <= 1 ? (
+                                        <span style={{ color: isBottleneck ? "#dc2626" : "#64748b" }}>{fmtPct(stepRate)}</span>
+                                      ) : i > 0 && stepRate != null && stepRate > 1 ? (
+                                        <span style={{ color: "#8b5cf6", fontSize: "0.6rem" }} title="Meta 뷰스루 어트리뷰션 포함">{fmtPct(stepRate)}</span>
+                                      ) : ""}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* 점수 & 진단 */}
+                          <div style={{ width: 240, flexShrink: 0 }}>
+                            <div style={{ textAlign: "center", marginBottom: 12 }}>
+                              <div style={{ fontSize: "2rem", fontWeight: 900, color: fs.color }}>{fs.grade}</div>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 700, color: fs.color }}>{fs.score}점</div>
+                            </div>
+                            <ul style={{ margin: 0, paddingLeft: 16, fontSize: "0.7rem", color: "#475569", lineHeight: 1.8 }}>
+                              {fs.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                            </ul>
+                            {worstDrop && (
+                              <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", fontSize: "0.7rem", color: "#991b1b", lineHeight: 1.6 }}>
+                                <strong>병목:</strong> {worstDrop.label} ({fmtPct(worstDrop.rate)})
+                                <div style={{ marginTop: 2, color: "#b91c1c" }}>{worstDrop.fix}</div>
+                              </div>
+                            )}
+                            {(vc > c.landing_page_views) && vc > 0 && (
+                              <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#f5f3ff", border: "1px solid #ddd6fe", fontSize: "0.66rem", color: "#6d28d9", lineHeight: 1.5 }}>
+                                조회({fmtNum(vc)}) &gt; 랜딩({fmtNum(c.landing_page_views)}): Meta 뷰스루 어트리뷰션(광고를 보고 직접 방문한 사용자)이 포함됨
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1618,58 +2741,224 @@ function CampaignAliasReviewSection({ selectedSite }: { selectedSite: { site: st
     }
   };
 
+  const [expandedAlias, setExpandedAlias] = useState<string | null>(null);
+  const [expandedDetail, setExpandedDetail] = useState<string | null>(null);
+
   if (!REVIEW_TARGET_SITES.has(selectedSite.site)) return null;
 
-  const visibleItems = showResolved
-    ? review?.items ?? []
-    : (review?.items ?? []).filter((item) => item.status === "needs_manual_review");
+  const pendingItems = (review?.items ?? []).filter((i) => i.status === "needs_manual_review");
+  const resolvedItems = (review?.items ?? []).filter((i) => i.status !== "needs_manual_review");
+
+  const confidenceLabel = (c: string) => {
+    if (c === "auto_url_match") return { text: "URL 자동 매칭", bg: "#dbeafe", fg: "#1d4ed8" };
+    if (c === "auto_spend_heuristic") return { text: "집행비 기반 자동", bg: "#e0e7ff", fg: "#4338ca" };
+    if (c === "manual_verified") return { text: "수동 확정", bg: "#dcfce7", fg: "#166534" };
+    return { text: c, bg: "#f1f5f9", fg: "#64748b" };
+  };
+
+  const renderCandidate = (item: AliasReviewItem, candidate: AliasReviewCandidate) => {
+    const decisionPrefix = `${item.aliasKey}:${candidate.campaignId}:`;
+    const metaRoas = candidate.spend > 0 && candidate.purchaseValue > 0
+      ? candidate.purchaseValue / candidate.spend : null;
+    const detailKey = `${item.aliasKey}:${candidate.campaignId}`;
+    const isDetailOpen = expandedDetail === detailKey;
+
+    // === 추천 이유 & 자신감 점수 계산 ===
+    const reasons: string[] = [];
+    let confidence = 30; // base
+
+    // 1. URL 증거
+    const aliasInUrl = candidate.landingUrlExamples.some((u: string) => u.includes(item.aliasKey));
+    if (aliasInUrl) {
+      reasons.push("광고 랜딩 URL에 이 UTM 태그가 직접 포함됨");
+      confidence += 30;
+    } else if (candidate.landingUrlExamples.length > 0) {
+      reasons.push("캠페인 내 광고에 UTM 태그가 설정된 랜딩 URL 존재");
+      confidence += 15;
+    }
+
+    // 2. 유일한 후보
+    const nonRejected = item.candidates.filter((c) => !c.rejected);
+    if (nonRejected.length === 1 && !candidate.rejected) {
+      reasons.push("유일한 후보 캠페인");
+      confidence += 20;
+    }
+
+    // 3. 활성 상태
+    if (candidate.activeAds > 0) {
+      reasons.push(`현재 활성 광고 ${candidate.activeAds}개 집행 중`);
+      confidence += 10;
+    } else {
+      reasons.push("현재 활성 광고 없음 — 과거 캠페인일 수 있음");
+      confidence -= 10;
+    }
+
+    // 4. 집행비 우위
+    const totalSpend = item.candidates.reduce((s, c) => s + c.spend, 0);
+    if (totalSpend > 0 && candidate.spend > 0) {
+      const spendShare = candidate.spend / totalSpend;
+      if (spendShare > 0.8) {
+        reasons.push(`전체 후보 집행비의 ${Math.round(spendShare * 100)}% 차지`);
+        confidence += 15;
+      } else if (spendShare > 0.5) {
+        reasons.push(`집행비 비중 ${Math.round(spendShare * 100)}%로 최다`);
+        confidence += 5;
+      }
+    }
+
+    // 5. 광고명에 alias 키워드 포함 여부
+    const aliasKeyword = item.aliasKey.replace(/^meta_biocom_/, "").replace(/^inpork_biocom_/, "").replace(/_igg$/, "").toLowerCase();
+    const adNamesMatch = candidate.adSamples.some((ad: string) => ad.toLowerCase().includes(aliasKeyword));
+    if (adNamesMatch) {
+      reasons.push("광고명에 alias 키워드가 직접 포함됨");
+      confidence += 15;
+    }
+
+    confidence = Math.min(95, Math.max(10, confidence));
+    const confColor = confidence >= 80 ? "#16a34a" : confidence >= 60 ? "#d97706" : "#dc2626";
+    const confLabel = confidence >= 80 ? "높음" : confidence >= 60 ? "보통" : "낮음";
+
+    return (
+      <div key={candidate.campaignId} style={{
+        padding: "12px 14px", borderRadius: 10,
+        border: candidate.selected ? "2px solid #16a34a" : candidate.rejected ? "1px solid #e2e8f0" : "1px solid #dbeafe",
+        background: candidate.selected ? "#f0fdf4" : candidate.rejected ? "#fafafa" : "#fff",
+        opacity: candidate.rejected ? 0.55 : 1,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>{candidate.campaignName}</div>
+            <div style={{ display: "flex", gap: 10, fontSize: "0.7rem", color: "#64748b", flexWrap: "wrap" }}>
+              <span>집행 <strong style={{ color: "#ef4444" }}>{fmtKRW(candidate.spend)}</strong></span>
+              <span>전환매출 <strong style={{ color: "#16a34a" }}>{fmtKRW(candidate.purchaseValue)}</strong></span>
+              <span>ROAS <strong style={{ color: "#d97706" }}>{metaRoas != null ? `${metaRoas.toFixed(1)}x` : "—"}</strong></span>
+              <span>활성 광고 <strong>{candidate.activeAds}</strong>개</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+            {candidate.selected && <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#16a34a", marginRight: 4 }}>확정됨</span>}
+            {candidate.rejected && <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", marginRight: 4 }}>제외</span>}
+            <button type="button" disabled={Boolean(actionLoading)}
+              onClick={() => void handleDecision(item.aliasKey, candidate.campaignId, "yes")}
+              style={{
+                padding: "6px 14px", borderRadius: 8, border: "1px solid #16a34a", fontSize: "0.72rem", fontWeight: 700,
+                background: candidate.selected ? "#16a34a" : "#fff", color: candidate.selected ? "#fff" : "#16a34a",
+                cursor: actionLoading ? "not-allowed" : "pointer",
+                opacity: actionLoading && actionLoading !== `${decisionPrefix}yes` ? 0.4 : 1,
+              }}
+            >{actionLoading === `${decisionPrefix}yes` ? "..." : "yes"}</button>
+            <button type="button" disabled={Boolean(actionLoading)}
+              onClick={() => void handleDecision(item.aliasKey, candidate.campaignId, "no")}
+              style={{
+                padding: "6px 14px", borderRadius: 8, border: "1px solid #dc2626", fontSize: "0.72rem", fontWeight: 700,
+                background: candidate.rejected ? "#dc2626" : "#fff", color: candidate.rejected ? "#fff" : "#dc2626",
+                cursor: actionLoading ? "not-allowed" : "pointer",
+                opacity: actionLoading && actionLoading !== `${decisionPrefix}no` ? 0.4 : 1,
+              }}
+            >{actionLoading === `${decisionPrefix}no` ? "..." : "no"}</button>
+          </div>
+        </div>
+
+        {/* 추천 이유 & 자신감 점수 */}
+        <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#f0f9ff", border: "1px solid #e0f2fe" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: "0.66rem", fontWeight: 700, color: "#0369a1", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>AI 추천 근거</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: "0.66rem", color: "#64748b" }}>예상 정확도</span>
+              <span style={{
+                fontSize: "0.72rem", fontWeight: 800, color: confColor,
+                padding: "2px 8px", borderRadius: 999,
+                background: confidence >= 80 ? "#dcfce7" : confidence >= 60 ? "#fef3c7" : "#fee2e2",
+              }}>{confidence}% {confLabel}</span>
+            </div>
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 16, fontSize: "0.72rem", color: "#334155", lineHeight: 1.8 }}>
+            {reasons.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+        </div>
+
+        {/* 상세 토글 */}
+        <div style={{ marginTop: 8 }}>
+          <button type="button" onClick={() => setExpandedDetail(isDetailOpen ? null : detailKey)}
+            style={{ background: "none", border: "none", padding: 0, color: "#6366f1", fontSize: "0.68rem", cursor: "pointer", fontWeight: 600 }}>
+            {isDetailOpen ? "상세 접기 ▲" : "광고세트 · 광고명 · URL 보기 ▼"}
+          </button>
+          {isDetailOpen && (
+            <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ padding: "8px 10px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: "0.62rem", color: "#94a3b8", marginBottom: 3 }}>대표 광고세트</div>
+                <div style={{ fontSize: "0.7rem", color: "#334155", lineHeight: 1.6 }}>
+                  {candidate.adsetSamples.length > 0 ? candidate.adsetSamples.map((s: string, i: number) => <div key={i}>{s}</div>) : "—"}
+                </div>
+              </div>
+              <div style={{ padding: "8px 10px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: "0.62rem", color: "#94a3b8", marginBottom: 3 }}>대표 광고</div>
+                <div style={{ fontSize: "0.7rem", color: "#334155", lineHeight: 1.6 }}>
+                  {candidate.adSamples.length > 0 ? candidate.adSamples.map((s: string, i: number) => <div key={i}>{s}</div>) : "—"}
+                </div>
+              </div>
+              {candidate.landingUrlExamples.length > 0 && (
+                <div style={{ gridColumn: "1 / -1", padding: "8px 10px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: "0.62rem", color: "#94a3b8", marginBottom: 3 }}>랜딩 URL</div>
+                  <div style={{ fontSize: "0.66rem", color: "#475569", lineHeight: 1.6, wordBreak: "break-all" }}>
+                    {candidate.landingUrlExamples.map((u: string, i: number) => <div key={i}>{u}</div>)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div style={{ padding: "20px 22px", borderRadius: 14, background: "linear-gradient(180deg, #f8fafc, #fff)", border: "1px solid #e2e8f0", marginBottom: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-        <div>
-          <h3 style={{ fontSize: "0.92rem", fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>utm_campaign alias 검토</h3>
-          <div style={{ fontSize: "0.75rem", color: "#64748b", lineHeight: 1.7 }}>
-            내부 주문의 <strong>utm_campaign alias</strong>가 어떤 Meta 캠페인인지 확인하는 수동 검토 영역이오.
-            <strong>yes</strong>는 이 alias가 해당 campaign이라고 확정할 때만 누르고, <strong>no</strong>는 이 후보 campaign만 제외한다는 뜻이오.
-            애매하면 yes를 누르지 말고 Meta 광고관리자에서 campaign/adset/ad 이름과 URL 태그를 먼저 대조하시오.
-          </div>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 6 }}>
-            마지막 audit 생성 시각: {review?.generated_at ? formatDateTime(review.generated_at) : "—"}
-          </div>
+      {/* 헤더 */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h3 style={{ fontSize: "0.92rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
+          캠페인 Alias 매핑
+        </h3>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {review?.generated_at && (
+            <span style={{ fontSize: "0.66rem", color: "#94a3b8" }}>audit: {formatDateTime(review.generated_at)}</span>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => setShowResolved((current) => !current)}
-          style={{
-            padding: "7px 12px",
-            borderRadius: 8,
-            border: "1px solid #cbd5e1",
-            background: "#fff",
-            color: "#475569",
-            cursor: "pointer",
-            fontSize: "0.72rem",
-            fontWeight: 700,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {showResolved ? "검토 필요만 보기" : "완료 항목도 보기"}
-        </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 14 }}>
-        {[
-          { label: "전체 alias", value: review?.summary.totalAliases ?? 0, color: "#0f172a" },
-          { label: "검토 필요", value: review?.summary.pendingReview ?? 0, color: "#d97706" },
-          { label: "yes 확정", value: review?.summary.manualVerified ?? 0, color: "#16a34a" },
-          { label: "전부 no", value: review?.summary.rejectedAll ?? 0, color: "#dc2626" },
-        ].map((item) => (
-          <div key={item.label} style={{ padding: "10px 12px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>{item.label}</div>
-            <div style={{ fontSize: "1.08rem", fontWeight: 800, color: item.color }}>{fmtNum(item.value)}</div>
+      {/* 요약 바 */}
+      {review && (
+        <div style={{ display: "flex", gap: 16, padding: "12px 16px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0", marginBottom: 16, alignItems: "center" }}>
+          <div style={{ fontSize: "0.76rem", color: "#0f172a" }}>
+            전체 <strong>{review.summary.totalAliases}</strong>
           </div>
-        ))}
-      </div>
+          <div style={{ width: 1, height: 20, background: "#e2e8f0" }} />
+          <div style={{ fontSize: "0.76rem", color: review.summary.pendingReview > 0 ? "#d97706" : "#16a34a", fontWeight: 700 }}>
+            {review.summary.pendingReview > 0 ? `검토 필요 ${review.summary.pendingReview}건` : "전부 확정됨"}
+          </div>
+          <div style={{ width: 1, height: 20, background: "#e2e8f0" }} />
+          <div style={{ fontSize: "0.76rem", color: "#16a34a" }}>
+            확정 <strong>{review.summary.manualVerified}</strong>
+          </div>
+          {review.summary.rejectedAll > 0 && (
+            <>
+              <div style={{ width: 1, height: 20, background: "#e2e8f0" }} />
+              <div style={{ fontSize: "0.76rem", color: "#dc2626" }}>
+                거절 <strong>{review.summary.rejectedAll}</strong>
+              </div>
+            </>
+          )}
+          {/* 진행률 바 */}
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
+            <div style={{
+              height: "100%", borderRadius: 3,
+              background: review.summary.pendingReview === 0 ? "#16a34a" : "linear-gradient(90deg, #16a34a, #22c55e)",
+              width: `${review.summary.totalAliases > 0 ? (review.summary.manualVerified / review.summary.totalAliases) * 100 : 0}%`,
+              transition: "width 0.3s ease",
+            }} />
+          </div>
+        </div>
+      )}
 
       {error && (
         <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "0.76rem" }}>
@@ -1678,177 +2967,171 @@ function CampaignAliasReviewSection({ selectedSite }: { selectedSite: { site: st
       )}
 
       {loading ? (
-        <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: "0.78rem" }}>alias review 로딩 중...</div>
-      ) : visibleItems.length === 0 ? (
-        <div style={{ padding: 24, textAlign: "center", color: "#94a3b8", background: "#fff", borderRadius: 12, border: "1px dashed #cbd5e1", fontSize: "0.78rem" }}>
-          {showResolved ? "표시할 alias review 항목이 없소." : "현재 남은 미확정 alias가 없소."}
-        </div>
+        <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: "0.78rem" }}>로딩 중...</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {visibleItems.map((item) => {
-            const statusStyle = item.status === "manual_verified"
-              ? { background: "#dcfce7", color: "#166534", label: "yes 확정" }
-              : item.status === "rejected_all_candidates"
-                ? { background: "#fee2e2", color: "#991b1b", label: "전부 no" }
-                : { background: "#fef3c7", color: "#92400e", label: "검토 필요" };
+        <>
+          {/* 검토 필요 섹션 */}
+          {pendingItems.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: "0.74rem", fontWeight: 700, color: "#92400e", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", display: "inline-block" }} />
+                검토 필요 ({pendingItems.length})
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {pendingItems.map((item) => {
+                  const isExpanded = expandedAlias === item.aliasKey;
+                  const shortName = item.aliasKey.replace(/^meta_biocom_/, "").replace(/^inpork_biocom_/, "inpork_").replace(/_igg$/, "");
+                  const totalActiveAds = item.candidates.reduce((s, c) => s + c.activeAds, 0);
+                  const periodLabel = item.validFrom
+                    ? `${item.validFrom} ~ ${review?.generated_at ? review.generated_at.slice(0, 10) : "현재"}`
+                    : `~ ${review?.generated_at ? review.generated_at.slice(0, 10) : "현재"}`;
+                  // AI 분석 생성
+                  const aiAnalysis = (() => {
+                    if (item.candidates.length === 0) return "Meta 광고에서 이 UTM 태그를 사용하는 캠페인을 찾지 못했소. 삭제된 광고이거나 외부 유입일 수 있소.";
+                    if (item.candidates.length === 1) {
+                      const c = item.candidates[0];
+                      return c.activeAds > 0
+                        ? `후보 캠페인 1개 발견. 현재 활성 광고 ${c.activeAds}개가 돌고 있소. 확인 후 yes를 누르시오.`
+                        : `후보 캠페인 1개 발견되었으나 현재 활성 광고가 없소. 과거 집행된 캠페인일 수 있소.`;
+                    }
+                    const activeOnes = item.candidates.filter(c => c.activeAds > 0 && c.spend > 0);
+                    if (activeOnes.length > 1) {
+                      return `${item.candidates.length}개 캠페인에서 이 UTM 태그가 발견되었고, ${activeOnes.length}개가 동시에 활성 상태라 자동 확정이 어려웠소. Meta 광고관리자에서 어느 캠페인의 광고에 이 UTM이 설정되어 있는지 확인 필요.`;
+                    }
+                    return `${item.candidates.length}개 후보 캠페인이 있으나 활성 상태가 아닌 캠페인도 포함되어 있소.`;
+                  })();
 
-            return (
-              <div key={item.aliasKey} style={{ padding: "16px 18px", borderRadius: 12, background: "#fff", border: "1px solid #e2e8f0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
-                  <div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
-                      <strong style={{ fontSize: "0.84rem", color: "#0f172a" }}>{item.aliasKey}</strong>
-                      <span style={{
-                        fontSize: "0.66rem",
-                        fontWeight: 700,
-                        padding: "3px 7px",
-                        borderRadius: 999,
-                        background: statusStyle.background,
-                        color: statusStyle.color,
-                      }}>
-                        {statusStyle.label}
-                      </span>
-                      {item.familyHint && (
-                        <span style={{ fontSize: "0.66rem", color: "#6366f1", background: "#eef2ff", padding: "3px 7px", borderRadius: 999, fontWeight: 700 }}>
-                          {item.familyHint}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: "0.74rem", color: "#475569", lineHeight: 1.7 }}>
-                      {item.reviewReason}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: "0.68rem", color: "#94a3b8", textAlign: "right", whiteSpace: "nowrap" }}>
-                    reviewed: {formatDateTime(item.reviewedAt)}
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 12 }}>
-                  {[
-                    { label: "confirmed", value: `${fmtNum(item.evidence.confirmedOrders)}건 · ${fmtKRW(item.evidence.confirmedRevenue)}`, color: "#16a34a" },
-                    { label: "pending", value: `${fmtNum(item.evidence.pendingOrders)}건 · ${fmtKRW(item.evidence.pendingRevenue)}`, color: "#d97706" },
-                    { label: "전체 주문", value: `${fmtNum(item.evidence.totalOrders)}건`, color: "#0f172a" },
-                    { label: "선택 결과", value: item.selectedCampaignName ?? "아직 없음", color: item.selectedCampaignName ? "#16a34a" : "#64748b" },
-                  ].map((meta) => (
-                    <div key={meta.label} style={{ padding: "9px 10px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-                      <div style={{ fontSize: "0.64rem", color: "#94a3b8" }}>{meta.label}</div>
-                      <div style={{ fontSize: "0.76rem", fontWeight: 700, color: meta.color, lineHeight: 1.5 }}>{meta.value}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {item.candidates.map((candidate) => {
-                    const decisionPrefix = `${item.aliasKey}:${candidate.campaignId}:`;
-                    const metaRoas = candidate.spend > 0 && candidate.purchaseValue > 0
-                      ? candidate.purchaseValue / candidate.spend
-                      : null;
-
-                    return (
-                      <div key={candidate.campaignId} style={{
-                        padding: "14px 16px",
-                        borderRadius: 12,
-                        border: candidate.selected
-                          ? "2px solid #16a34a"
-                          : candidate.rejected
-                            ? "1px solid #fecaca"
-                            : "1px solid #dbeafe",
-                        background: candidate.selected
-                          ? "#f0fdf4"
-                          : candidate.rejected
-                            ? "#fef2f2"
-                            : "#f8fafc",
-                      }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 8 }}>
-                          <div>
-                            <div style={{ fontSize: "0.79rem", fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{candidate.campaignName}</div>
-                            <div style={{ fontSize: "0.67rem", color: "#94a3b8" }}>{candidate.campaignId}</div>
+                  return (
+                    <div key={item.aliasKey} style={{ borderRadius: 12, border: "1px solid #fbbf24", background: "#fffbeb", overflow: "hidden" }}>
+                      {/* 요약 행 — 클릭으로 펼침 */}
+                      <div
+                        onClick={() => setExpandedAlias(isExpanded ? null : item.aliasKey)}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer", userSelect: "none" }}
+                      >
+                        <span style={{ fontSize: "0.72rem", color: "#92400e", fontWeight: 700, width: 16 }}>{isExpanded ? "▼" : "▶"}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#0f172a" }}>
+                            {shortName}
                           </div>
-                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                            <button
-                              type="button"
-                              disabled={Boolean(actionLoading)}
-                              onClick={() => void handleDecision(item.aliasKey, candidate.campaignId, "yes")}
-                              style={{
-                                padding: "7px 12px",
-                                borderRadius: 8,
-                                border: "1px solid #16a34a",
-                                background: candidate.selected ? "#16a34a" : "#fff",
-                                color: candidate.selected ? "#fff" : "#16a34a",
-                                cursor: actionLoading ? "not-allowed" : "pointer",
-                                fontSize: "0.72rem",
-                                fontWeight: 700,
-                                opacity: actionLoading && actionLoading !== `${decisionPrefix}yes` ? 0.5 : 1,
-                              }}
-                            >
-                              {actionLoading === `${decisionPrefix}yes` ? "저장 중..." : "yes"}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={Boolean(actionLoading)}
-                              onClick={() => void handleDecision(item.aliasKey, candidate.campaignId, "no")}
-                              style={{
-                                padding: "7px 12px",
-                                borderRadius: 8,
-                                border: "1px solid #dc2626",
-                                background: candidate.rejected ? "#dc2626" : "#fff",
-                                color: candidate.rejected ? "#fff" : "#dc2626",
-                                cursor: actionLoading ? "not-allowed" : "pointer",
-                                fontSize: "0.72rem",
-                                fontWeight: 700,
-                                opacity: actionLoading && actionLoading !== `${decisionPrefix}no` ? 0.5 : 1,
-                              }}
-                            >
-                              {actionLoading === `${decisionPrefix}no` ? "저장 중..." : "no"}
-                            </button>
+                          <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 2 }}>
+                            {totalActiveAds > 0
+                              ? <span style={{ color: "#16a34a" }}>현재 광고 집행 중 · 활성 광고 {totalActiveAds}개</span>
+                              : <span style={{ color: "#94a3b8" }}>현재 활성 광고 없음</span>
+                            }
+                            {item.candidates.length === 0 && <span style={{ color: "#dc2626" }}> · 매칭 후보 없음</span>}
                           </div>
                         </div>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 10 }}>
-                          {[
-                            { label: "spend", value: fmtKRW(candidate.spend), color: "#ef4444" },
-                            { label: "purchase value", value: fmtKRW(candidate.purchaseValue), color: "#16a34a" },
-                            { label: "Meta ROAS", value: metaRoas != null ? `${metaRoas.toFixed(2)}x` : "—", color: "#d97706" },
-                            { label: "active adsets", value: fmtNum(candidate.activeAdsets), color: "#0f172a" },
-                            { label: "active ads", value: fmtNum(candidate.activeAds), color: "#0f172a" },
-                          ].map((stat) => (
-                            <div key={stat.label} style={{ padding: "8px 9px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0" }}>
-                              <div style={{ fontSize: "0.62rem", color: "#94a3b8" }}>{stat.label}</div>
-                              <div style={{ fontSize: "0.74rem", fontWeight: 700, color: stat.color }}>{stat.value}</div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 10 }}>
-                          <div style={{ padding: "9px 10px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0" }}>
-                            <div style={{ fontSize: "0.64rem", color: "#94a3b8", marginBottom: 4 }}>landing URL 힌트</div>
-                            <div style={{ fontSize: "0.7rem", color: "#334155", lineHeight: 1.6, wordBreak: "break-all" }}>
-                              {candidate.landingUrlExamples.length > 0
-                                ? candidate.landingUrlExamples.join(" | ")
-                                : "audit에서 link_url 대부분 null. adset/ad name 기준으로 수동 판단 필요"}
-                            </div>
-                          </div>
-                          <div style={{ padding: "9px 10px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0" }}>
-                            <div style={{ fontSize: "0.64rem", color: "#94a3b8", marginBottom: 4 }}>대표 adset</div>
-                            <div style={{ fontSize: "0.7rem", color: "#334155", lineHeight: 1.6 }}>
-                              {candidate.adsetSamples.length > 0 ? candidate.adsetSamples.join(" · ") : "—"}
-                            </div>
-                          </div>
-                          <div style={{ padding: "9px 10px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0" }}>
-                            <div style={{ fontSize: "0.64rem", color: "#94a3b8", marginBottom: 4 }}>대표 ad</div>
-                            <div style={{ fontSize: "0.7rem", color: "#334155", lineHeight: 1.6 }}>
-                              {candidate.adSamples.length > 0 ? candidate.adSamples.join(" · ") : "—"}
-                            </div>
-                          </div>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                          <span style={{ fontSize: "0.76rem", color: "#16a34a", fontWeight: 700 }}>{fmtNum(item.evidence.confirmedOrders)}건 · {fmtKRW(item.evidence.confirmedRevenue)}</span>
+                          <span style={{ fontSize: "0.64rem", color: "#94a3b8" }}>{periodLabel}</span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* 펼침 영역 */}
+                      {isExpanded && (
+                        <div style={{ padding: "0 16px 16px", borderTop: "1px solid #fde68a" }}>
+                          {/* 확인된 사실 */}
+                          <div style={{ margin: "12px 0", padding: "10px 14px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0" }}>
+                            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#64748b", marginBottom: 6, textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>확인된 사실</div>
+                            <div style={{ fontSize: "0.74rem", color: "#334155", lineHeight: 1.8 }}>
+                              <div>이 UTM 태그(<code style={{ fontSize: "0.68rem", background: "#f1f5f9", padding: "1px 4px", borderRadius: 3 }}>{item.aliasKey}</code>)로 유입된 확정 주문 <strong>{fmtNum(item.evidence.confirmedOrders)}건</strong>, 매출 <strong style={{ color: "#16a34a" }}>{fmtKRW(item.evidence.confirmedRevenue)}</strong></div>
+                              <div style={{ color: "#94a3b8", fontSize: "0.68rem" }}>집계 기간: {periodLabel}{item.evidence.pendingOrders > 0 && ` · 미확정 ${item.evidence.pendingOrders}건 ₩${item.evidence.pendingRevenue.toLocaleString("ko-KR")} 별도`}</div>
+                              {item.candidates.length > 0 && (
+                                <div style={{ marginTop: 4 }}>Meta 광고 중 <strong>{item.candidates.length}개 캠페인</strong>에서 이 UTM 태그를 사용하는 광고가 발견됨</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* AI 분석 */}
+                          <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "#eff6ff", border: "1px solid #bfdbfe" }}>
+                            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#1e40af", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>AI 분석</div>
+                            <div style={{ fontSize: "0.74rem", color: "#1e3a8a", lineHeight: 1.7 }}>{aiAnalysis}</div>
+                          </div>
+
+                          {/* 후보 캠페인 */}
+                          {item.candidates.length > 0 && (
+                            <div>
+                              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#64748b", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>
+                                후보 캠페인 ({item.candidates.length})
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                {item.candidates.map((c) => renderCandidate(item, c))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+
+          {pendingItems.length === 0 && !showResolved && (
+            <div style={{ padding: 20, textAlign: "center", color: "#16a34a", background: "#f0fdf4", borderRadius: 12, border: "1px solid #bbf7d0", fontSize: "0.8rem", fontWeight: 600 }}>
+              모든 alias가 확정되었소.
+            </div>
+          )}
+
+          {/* 확정 완료 섹션 — 토글 */}
+          {resolvedItems.length > 0 && (
+            <div>
+              <button type="button" onClick={() => setShowResolved((v) => !v)}
+                style={{
+                  background: "none", border: "none", padding: "8px 0", cursor: "pointer",
+                  fontSize: "0.74rem", fontWeight: 700, color: "#64748b", display: "flex", alignItems: "center", gap: 6,
+                }}>
+                <span>{showResolved ? "▼" : "▶"}</span>
+                확정 완료 ({resolvedItems.length})
+              </button>
+
+              {showResolved && (
+                <div style={{ marginTop: 6 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.72rem" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+                        <th style={{ textAlign: "left", padding: "6px 8px", color: "#94a3b8", fontWeight: 600 }}>Alias</th>
+                        <th style={{ textAlign: "left", padding: "6px 8px", color: "#94a3b8", fontWeight: 600 }}>매칭 캠페인</th>
+                        <th style={{ textAlign: "right", padding: "6px 8px", color: "#94a3b8", fontWeight: 600 }}>매출</th>
+                        <th style={{ textAlign: "right", padding: "6px 8px", color: "#94a3b8", fontWeight: 600 }}>주문</th>
+                        <th style={{ textAlign: "center", padding: "6px 8px", color: "#94a3b8", fontWeight: 600 }}>방법</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resolvedItems.map((item) => {
+                        const conf = confidenceLabel(item.confidence);
+                        return (
+                          <tr key={item.aliasKey} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                            <td style={{ padding: "8px", color: "#334155", fontWeight: 600 }}>
+                              {item.aliasKey.replace(/^meta_biocom_/, "").replace(/_igg$/, "")}
+                            </td>
+                            <td style={{ padding: "8px", color: "#475569" }}>
+                              {item.selectedCampaignName
+                                ? item.selectedCampaignName.replace(/^\[바이오컴\]\s*/, "")
+                                : item.status === "rejected_all_candidates" ? <span style={{ color: "#dc2626" }}>전부 거절</span> : "—"}
+                            </td>
+                            <td style={{ padding: "8px", textAlign: "right", color: "#16a34a", fontWeight: 600 }}>
+                              {fmtKRW(item.evidence.confirmedRevenue)}
+                            </td>
+                            <td style={{ padding: "8px", textAlign: "right", color: "#0f172a" }}>
+                              {fmtNum(item.evidence.confirmedOrders)}건
+                            </td>
+                            <td style={{ padding: "8px", textAlign: "center" }}>
+                              <span style={{ padding: "2px 8px", borderRadius: 999, background: conf.bg, color: conf.fg, fontSize: "0.64rem", fontWeight: 700 }}>
+                                {conf.text}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -2577,7 +3860,7 @@ function CapiStatusSection() {
   } | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/meta/capi/log?limit=500&scope=recent_operational&since_days=7&include_dedup_candidates=1&dedup_candidate_limit=3`)
+    fetch(`${ADS_REPORTING_API_BASE}/api/meta/capi/log?limit=500&scope=recent_operational&since_days=7&include_dedup_candidates=1&dedup_candidate_limit=3`)
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
@@ -2751,19 +4034,23 @@ function CapiStatusSection() {
 
 function AttributionCallerCoverageSection() {
   const [coverageReport, setCoverageReport] = useState<CallerCoverageReport | null>(null);
+  const [coffeeCoverageReport, setCoffeeCoverageReport] = useState<CallerCoverageReport | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE}/api/attribution/caller-coverage?limit=5`)
-      .then((r) => r.json())
-      .then((d) => {
+    Promise.all([
+      fetch(`${ADS_REPORTING_API_BASE}/api/attribution/caller-coverage?paymentLimit=5&checkoutLimit=5`).then((r) => r.json()),
+      fetch(`${ADS_REPORTING_API_BASE}/api/attribution/caller-coverage?source=thecleancoffee_imweb&paymentLimit=5&checkoutLimit=5`).then((r) => r.json()),
+    ])
+      .then(([allData, coffeeData]) => {
         if (cancelled) return;
-        if (d.ok) {
-          setCoverageReport(d.report ?? null);
+        if (allData.ok) {
+          setCoverageReport(allData.report ?? null);
+          setCoffeeCoverageReport(coffeeData?.ok ? coffeeData.report ?? null : null);
           setLoadError(null);
         } else {
-          setLoadError(d.error ?? "caller coverage load failed");
+          setLoadError(allData.error ?? "caller coverage load failed");
         }
       })
       .catch(() => {
@@ -2776,6 +4063,8 @@ function AttributionCallerCoverageSection() {
 
   const payment = coverageReport?.paymentSuccess ?? null;
   const checkout = coverageReport?.checkoutStarted ?? null;
+  const coffeePayment = coffeeCoverageReport?.paymentSuccess ?? null;
+  const coffeeCheckout = coffeeCoverageReport?.checkoutStarted ?? null;
   const fmtRate = (value: number | null | undefined) => (value != null ? `${value.toFixed(2)}%` : "—");
   const identityCards = [
     {
@@ -2820,7 +4109,8 @@ function AttributionCallerCoverageSection() {
       </div>
 
       <p style={{ fontSize: "0.78rem", color: "#475569", lineHeight: 1.7, margin: "0 0 14px" }}>
-        이 섹션은 전태준 대표님이 구축한 자체 솔루션 원장에 쌓이는 결제완료 기록이 광고/GA4 식별자를 얼마나 같이 갖고 오는지 본다. 식별자가 부족하면 주문은 잡혀도 광고 클릭, GA4 세션, Meta CAPI 이벤트를 한 사람의 흐름으로 묶기 어려워진다.
+        이 섹션은 전태준 대표님이 구축한 자체 솔루션 원장에 쌓이는 결제완료 기록이 광고/GA4 식별자를 얼마나 같이 갖고 오는지 본다.
+        데이터 소스는 VM 최신 원장 <code>att.ainativeos.net</code>이다. 식별자가 부족하면 주문은 잡혀도 광고 클릭, GA4 세션, Meta CAPI 이벤트를 한 사람의 흐름으로 묶기 어려워진다.
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
@@ -2833,17 +4123,53 @@ function AttributionCallerCoverageSection() {
         ))}
       </div>
 
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+        {[
+          {
+            label: "전체 payment_success",
+            value: payment ? fmtRate(payment.allThreeRate) : "—",
+            note: payment ? `${fmtNum(payment.withAllThree)} / ${fmtNum(payment.total)}건 all-three` : "VM 최신 전체",
+            color: payment && payment.allThreeRate >= 80 ? "#16a34a" : "#dc2626",
+          },
+          {
+            label: "전체 checkout_started",
+            value: checkout ? fmtRate(checkout.allThreeRate) : "—",
+            note: checkout ? `${fmtNum(checkout.withAllThree)} / ${fmtNum(checkout.total)}건 all-three` : "VM 최신 전체",
+            color: checkout && checkout.allThreeRate >= 80 ? "#16a34a" : "#dc2626",
+          },
+          {
+            label: "커피 payment_success",
+            value: coffeePayment ? fmtRate(coffeePayment.allThreeRate) : "—",
+            note: coffeePayment ? `${fmtNum(coffeePayment.withAllThree)} / ${fmtNum(coffeePayment.total)}건 all-three` : "thecleancoffee_imweb",
+            color: coffeePayment && coffeePayment.allThreeRate >= 80 ? "#16a34a" : "#dc2626",
+          },
+          {
+            label: "커피 checkout_started",
+            value: coffeeCheckout ? fmtRate(coffeeCheckout.allThreeRate) : "—",
+            note: coffeeCheckout ? `${fmtNum(coffeeCheckout.withAllThree)} / ${fmtNum(coffeeCheckout.total)}건 all-three` : "thecleancoffee_imweb",
+            color: coffeeCheckout && coffeeCheckout.allThreeRate >= 80 ? "#16a34a" : "#dc2626",
+          },
+        ].map((card) => (
+          <div key={card.label} style={{ padding: "12px 14px", borderRadius: 10, background: "#fff", border: "1px solid #dbeafe" }}>
+            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>{card.label}</div>
+            <div style={{ fontSize: "1.05rem", fontWeight: 800, color: card.color }}>{card.value}</div>
+            <div style={{ fontSize: "0.68rem", color: "#64748b", lineHeight: 1.5 }}>{card.note}</div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div style={{ padding: "14px 16px", borderRadius: 12, background: "#fff", border: "1px solid #dbeafe", fontSize: "0.76rem", color: "#475569", lineHeight: 1.7 }}>
           <strong style={{ color: "#0369a1" }}>현재 해석</strong>
           <p style={{ margin: "6px 0 0" }}>
             {payment
-              ? `결제완료 ${fmtNum(payment.total)}건 중 ga_session_id, client_id, user_pseudo_id가 모두 있는 건은 ${fmtNum(payment.withAllThree)}건(${fmtRate(payment.allThreeRate)})이다. 아직 낮아서 결제완료 페이지 또는 외부 결제완료 호출부에서 식별자 전달을 더 보강해야 한다.`
+              ? `VM 최신 전체 기준 결제완료 ${fmtNum(payment.total)}건 중 ga_session_id, client_id, user_pseudo_id가 모두 있는 건은 ${fmtNum(payment.withAllThree)}건(${fmtRate(payment.allThreeRate)})이다. 이전 로컬 snapshot의 29.37%보다는 개선됐지만, 목표 80% 대비 아직 낮다. 더클린커피만 보면 ${coffeePayment ? `${fmtNum(coffeePayment.withAllThree)}건 / ${fmtNum(coffeePayment.total)}건(${fmtRate(coffeePayment.allThreeRate)})` : "로딩 중"}이다.`
               : "caller coverage 데이터를 불러오는 중이다."}
           </p>
           {checkout && (
             <p style={{ margin: "8px 0 0" }}>
-              결제 시작 단계 기록은 현재 {fmtNum(checkout.total)}건이다. 이 값이 0이면 결제 이전 단계부터 광고/GA4 식별자를 이어받는 흐름은 아직 확인되지 않은 상태다.
+              결제 시작 단계는 전체 {fmtNum(checkout.total)}건 중 all-three {fmtRate(checkout.allThreeRate)}, 커피 {coffeeCheckout ? fmtRate(coffeeCheckout.allThreeRate) : "—"}다.
+              즉 checkout_started는 대체로 식별자를 갖고 있고, 병목은 외부 결제/아임웹 결제완료 복귀 후 payment_success에서 식별자가 끊기는 경로다.
             </p>
           )}
         </div>
@@ -2861,6 +4187,30 @@ function AttributionCallerCoverageSection() {
             </ul>
           ) : null}
           {loadError && <p style={{ margin: "8px 0 0", color: "#dc2626" }}>불러오기 실패: {loadError}</p>}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <div style={{ padding: "14px 16px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.74rem", color: "#475569", lineHeight: 1.7 }}>
+          <strong style={{ color: "#0f172a" }}>내부 개발팀이 할 수 있는 일</strong>
+          <p style={{ margin: "6px 0 0" }}>
+            주 책임은 내부 구현이다. checkout_started 시점의 first-party storage/원장 식별자를 order_code, order_no, paymentKey, orderId에 묶고,
+            payment_success 서버 호출이 들어오면 같은 키로 carry-over해서 `ga_session_id`, `client_id`, `user_pseudo_id`를 저장한다.
+          </p>
+        </div>
+        <div style={{ padding: "14px 16px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.74rem", color: "#475569", lineHeight: 1.7 }}>
+          <strong style={{ color: "#0f172a" }}>아임웹에 확인할 것</strong>
+          <p style={{ margin: "6px 0 0" }}>
+            결제완료 페이지 커스텀 스크립트가 실행되는 정확한 시점, `order_code/order_no/payment_code` 접근 가능 여부,
+            결제완료 서버 호출에 커스텀 파라미터 또는 쿠키/세션 값을 안정적으로 실을 수 있는지 확인한다. 아임웹이 최종 페이지를 렌더링하므로 UX/스크립트 슬롯 확인은 아임웹 쪽이 핵심이다.
+          </p>
+        </div>
+        <div style={{ padding: "14px 16px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.74rem", color: "#475569", lineHeight: 1.7 }}>
+          <strong style={{ color: "#0f172a" }}>토스페이먼츠에 확인할 것</strong>
+          <p style={{ margin: "6px 0 0" }}>
+            Toss는 결제 승인/리다이렉트/웹훅의 `paymentKey`, `orderId`, 결제 상태 확인 역할이다.
+            GA 식별자를 Toss에 저장시키는 방향은 맞지 않다. 다만 successUrl query 유지, 웹훅 DONE 상태, orderId 매칭 안정성은 Toss 문서 기준으로 확인한다.
+          </p>
         </div>
       </div>
     </div>
