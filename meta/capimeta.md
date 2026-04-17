@@ -1,6 +1,97 @@
 # Meta Conversions API (CAPI) 운영 가이드
 
-> **기준일**: 2026-04-05 · 최신 섹션 추가: 2026-04-15
+> **기준일**: 2026-04-05 · 최신 섹션 추가: 2026-04-16
+
+---
+
+## 2026-04-16 최신 운영 판단 — 바이오컴 광고비와 ROAS
+
+### 결론
+
+**전체 광고비는 유지한다. 무차별 증액은 아직 하지 않는다.**
+다만 Meta 캠페인 ROAS가 명확히 높은 캠페인은 **+10~15% 이내의 제한적 증액 테스트**, 낮은 캠페인은 **-20~30% 감액 또는 소재 교체**를 검토한다. 현재는 "전체 예산을 키울 단계"가 아니라 **동일 예산 안에서 정합성 보정 + 캠페인별 재배분 판단력을 올릴 단계**다.
+
+### 근거 숫자 (VM 기준, 1d click, 2026-04-13~15 닫힌 3일)
+
+| 지표 | 값 |
+|---|---:|
+| 광고비 | **₩12,361,899** |
+| 내부 Attribution confirmed 매출 | **₩23,428,300** |
+| 내부 Attribution ROAS | **1.90x** |
+| pending 포함 potential ROAS | 1.92x |
+| Meta Purchase value | **₩37,841,869** |
+| Meta ROAS | **3.06x** |
+| Meta / Attribution 격차 | **1.61배** |
+| 바이오컴 전체 confirmed 매출 (광고 귀속 여부 무관) | ₩65,048,157 |
+
+일별로 보면 격차는 빠르게 줄고 있다.
+
+| 날짜 | Attribution ROAS | Meta ROAS | 격차 |
+|---|---:|---:|---:|
+| 2026-04-13 | 1.75x | 3.95x | 2.26배 |
+| 2026-04-14 | 1.62x | 2.20x | 1.36배 |
+| 2026-04-15 | 2.35x | 3.13x | 1.33배 |
+
+해석: 3일 평균 격차 1.61배는 여전히 크지만, 대부분은 4/13 전환일 효과가 만든다. 4/14~15만 보면 Meta/Attribution 격차는 약 1.34배로 내려왔다. 따라서 **CAPI/Purchase Guard가 실패했다기보다, Meta의 넓은 매칭과 내부 Attribution의 보수적 매칭 차이가 남아 있는 상태**로 본다.
+
+### 이 ROAS가 비즈니스 성장에 도움이 되는가
+
+**도움은 되지만, 이 숫자만으로 공격적 증액을 정당화하기에는 부족하다.**
+
+- Attribution ROAS 1.90x는 "광고 흔적이 명시적으로 남은 confirmed 매출"만 본 보수값이다.
+- Meta ROAS 3.06x는 "Meta가 광고 기여로 판단한 매출"이며 CAPI/Pixel/Meta 매칭 그래프가 반영된 값이다.
+- 1차 구매 기준 손익분기 ROAS는 기여이익률에 따라 달라진다.
+
+| 기여이익률 | 손익분기 ROAS |
+|---:|---:|
+| 40% | 2.50x |
+| 45% | 2.22x |
+| 50% | 2.00x |
+| 55% | 1.82x |
+| 60% | 1.67x |
+
+따라서 현재 Attribution ROAS 1.90x는 **기여이익률 53% 전후가 손익분기**다. 제품 원가, 배송, PG, CS, 환불을 뺀 실제 기여이익률이 50% 미만이면 1차 구매만으로는 보수적으로 봐야 한다. 반대로 재구매/LTV가 강하거나 신규 고객 비중이 높으면 현재 광고비는 성장에 기여한다.
+
+### CAPI와 Meta ROAS 관계 — "CAPI가 반영 안 되는가?"
+
+반영된다. 다만 **Meta ROAS가 내부 Attribution ROAS와 같아지는 방식으로 반영되는 것은 아니다.**
+
+- 서버 CAPI는 confirmed Purchase를 Meta에 전달한다.
+- Meta Ads Manager는 그 이벤트 중 Meta가 광고 기여로 판단한 value만 특정 광고 계정/캠페인에 귀속한다.
+- 내부 Attribution은 `fbclid` 또는 `utm_source=fb/facebook` 같은 명시적 흔적이 남은 confirmed 주문만 Meta 귀속으로 본다.
+- 즉 CAPI는 Meta의 매칭력을 강화하지만, 내부 Attribution의 보수적 기준으로 Meta를 제한하지 않는다.
+
+현재 확인값:
+
+| 항목 | 확인 결과 |
+|---|---|
+| VM CAPI health | background jobs enabled, CAPI auto-sync enabled |
+| 최근 4일 operational CAPI | **313/313 성공, failure 0** |
+| pixel 분포 | biocom 235건, coffee 78건 |
+| 2026-04-13 이후 duplicate event/order group | **0건** |
+| 과거 7일 duplicate sample | 대부분 2026-04-08 backfill/retry-like. 현재 clean window 증거 아님 |
+
+따라서 "Meta ROAS가 높은 이유 = CAPI가 안 먹음"은 아니다. 현재 더 그럴듯한 원인은 **Meta의 더 넓은 attribution/matching 범위**와 **내부 캠페인 매핑 미완성**이다.
+
+### 지금 정합성을 더 올리기 위해 할 일
+
+1. **/ads와 의사결정 화면은 VM 원장만 사용**
+   로컬 `localhost:7020`은 2026-04-13 이후 attribution sync가 꺼져 일자별 Attr 값이 0으로 보였다. 운영 판단은 `https://att.ainativeos.net` 기준으로 통일한다.
+
+2. **캠페인 매핑 보정**
+   2026-04-13~15 내부 Attribution 캠페인 매출이 `(unmapped)`로 몰려 있다. 전체 ROAS 판단은 가능하지만 캠페인별 증액/감액에는 부족하다. `utm_campaign`, `utm_id`, Meta campaign id alias 매핑을 먼저 보정해야 한다.
+
+3. **CAPI event_id 감사 자동화**
+   2026-04-13 이후 중복은 없지만, 2026-04-08 backfill 구간에는 retry-like 중복과 multi-event-id 1건이 있었다. 매일 `same_event_id_retry_like`와 `multiple_event_ids_duplicate_risk`를 분리해 알림화한다.
+
+4. **Events Manager에서 Purchase dedup/EMQ 수동 확인**
+   API 로그는 서버 CAPI 성공과 서버 내부 중복 여부를 보여준다. 브라우저 Pixel과 서버 CAPI의 최종 dedup 품질은 Meta Events Manager의 dedup/EMQ 화면으로 확인해야 한다.
+
+5. **Funnel CAPI Phase 9를 test event로 검증 후 단계적 ON**
+   현재 Purchase-only 구조는 Meta 최적화 신호가 부족하다. ViewContent/AddToCart/InitiateCheckout을 같은 `event_id`로 browser+server 병행 전송하면 EMQ와 학습 신호가 개선될 가능성이 높다. 단, 운영 ON 전 Test Events에서 dedup을 먼저 확인한다.
+
+6. **Incrementality는 설계부터 시작하고, live 실험은 7일 clean baseline 이후**
+   현재 3일 데이터는 방향성 판단에는 충분하지만, holdout으로 예산 의사결정을 바꾸기엔 짧다. 지금은 실험 설계와 assignment 준비를 시작하고, live holdout은 2026-04-20 이후 7일 clean window를 본 뒤 진행한다.
 
 ---
 
@@ -1969,7 +2060,7 @@ grep -oE 'initDetail\([^)]{0,200}' /tmp/biocom_product.html
 - 인라인 스크립트로 `initDetail({"prod_idx":N, "prod_code":"s...", "prod_price":N, ...})` 호출.
 - DOM 텍스트 파싱보다 **JS 숫자 필드를 그대로** 읽는 게 우아하고 안정적.
 - 다만 `window` 에 노출되는 함수인지 불명 — 스크립트 내부에서만 호출되고 사라질 가능성. 실험으로 확인 필요.
-- **Fallback 전략**: 
+- **Fallback 전략**:
   1. `window.__initDetailData` 같은 전역 변수가 있으면 사용 (실측 후 확인)
   2. 없으면 `document.querySelector('script[src*="shop_view"]')` 내용에서 정규식으로 파싱
   3. 최종 fallback: DOM 셀렉터 조합 (`.real_price` + `[data-bs-prod-code]`)

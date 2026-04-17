@@ -54,16 +54,75 @@
 5. **실험과 재검증이 있어야 학습한다.** iROAS, holdout, Conversion Lift, 캠페인 성과 퍼널이 에이전트의 feedback 데이터가 된다.
 6. **Google/TikTok 확장은 Meta 정합성 루프가 안정된 뒤다.** Google Ads 계정 3종 공존, TikTok 집행 여부 미확인은 사람 확인이 먼저다.
 
+## 2026-04-17 운영 보정 — 정본 우선, loop는 얇게 병렬
+
+2026-04-17 기준 다음 개발 우선순위는 **정본/freshness 작업 80%, 얇은 운영 loop 20%**로 둔다.
+
+즉, `loopagent1.md`, `loopagent2.md`의 구조를 지금 전면 구현하지 않는다. `.codex/agents`, `.claude/agents`, 자동 PR, recursive fan-out은 보류한다. 대신 현재 진행 중인 정본 작업마다 `plans/*.md` 실행 기록, evidence-first 보고, 재검증 task만 얇게 병렬 적용한다.
+
+이 판단의 이유는 단순하다. 지금 가장 큰 병목은 에이전트 수가 부족한 것이 아니라, 에이전트와 운영 화면이 믿고 쓸 **정본 전환**, **데이터 freshness**, **source-of-truth**가 아직 승인된 계약으로 잠기지 않은 것이다.
+
+| 구분 | 2026-04-17 판단 |
+|---|---|
+| 최우선 | Conversion Dictionary v1 승인 패키지, freshness/source-of-truth 표 고정 |
+| 다음 | CAPI/Purchase Guard/sync 정합성 검증, coffee/biocom 실주문 confirmed 검증 |
+| 병렬 허용 | 복잡한 작업에만 `plans/*.md`, evidence 정리, 재검증 task 기록 |
+| 보류 | 대량 에이전트 디렉터리, 자동 PR/merge, production write-back 자동화 |
+| 판별 기준 | loop 도입 후 TJ님 개입 감소, evidence 품질 증가, 중요한 작업 집중도가 좋아져야 확장 |
+
+### Conversion Dictionary v1 현재 상태
+
+Conversion Dictionary v1은 **초안 작성은 완료**, **운영 승인과 구현 반영은 미완료** 상태다.
+
+완료된 것:
+
+- `roadmap/phase0_codex_draft.md`에 `paid`, `confirmed`, `pending`, `canceled`, `refunded`, `VirtualAccountIssued` 정의 초안 작성.
+- Imweb, Toss, Attribution Ledger, Meta CAPI log, GA4, Browser Pixel 기준의 상태 매핑표 초안 작성.
+- GA4, Meta Insights, CAPI log, Imweb, Toss, Attribution Ledger, CRM DB의 freshness 판정 규칙 초안 작성.
+- `/api/integrity/health`, `/dictionary`, `/source-of-truth`, `/summary` 계열 backend contract 초안 작성.
+- `roadmap/phase0.md`에 Phase 0 상태를 "설계 초안 완료 -> TJ님 승인 대기"로 정리.
+
+아직 남은 것:
+
+- TJ님이 운영 `confirmed` 기준을 Imweb `PURCHASE_CONFIRMATION`으로 둘지, Toss PG 승인으로 둘지 승인해야 한다.
+- `paid`를 ROAS 분자에서 제외하고 `paidRevenue/provisionalRevenue`로만 둘지 승인해야 한다.
+- 환불/부분환불, 배송비/VAT 포함 여부, CAPI Purchase 전송 기준을 승인해야 한다.
+- 승인된 정의를 `/api/integrity/*`와 `/ads`, `/tracking-integrity` 화면 언어로 반영해야 한다.
+
+따라서 현재 Phase 0은 "문서 초안은 있음" 단계이며, 다음 액션은 새 리서치가 아니라 **승인 패키지 압축과 계약 고정**이다.
+
+## 2026-04-16 운영 보정 — 광고비와 Incrementality 우선순위
+
+2026-04-16 현재 바이오컴은 CAPI/Purchase Guard 이후의 첫 clean 판단 구간이 생겼다. VM 기준 2026-04-13~15 닫힌 3일의 Attribution ROAS는 **1.90x**, Meta ROAS는 **3.06x**다. 4/14~15만 보면 격차는 약 1.34배로 내려와, 대규모 측정 실패라기보다 Meta의 넓은 매칭과 내부 Attribution의 보수적 매칭 차이가 남은 상태로 본다.
+
+광고비 의사결정은 아래로 고정한다.
+
+| 항목 | 판단 |
+|---|---|
+| 전체 광고비 | **유지**. 지금은 전체 증액/감액보다 정합성 보정과 재배분 판단력이 더 중요 |
+| 증액 | Meta ROAS가 높은 캠페인만 +10~15% 제한 테스트. 48~72시간 관찰 |
+| 감액 | Meta ROAS 낮고 내부 Attribution도 0인 캠페인은 -20~30% 또는 소재 교체 후보 |
+| 공격적 스케일 | 보류. 내부 캠페인 Attribution이 `(unmapped)`로 몰려 있어 캠페인별 확신이 부족 |
+| 비즈니스 성장성 | Attribution ROAS 1.90x는 기여이익률 53% 전후가 1차 구매 손익분기. LTV/재구매/신규고객 비중 확인 전에는 Meta ROAS 3.06x만으로 증액하면 안 됨 |
+
+Incrementality는 **지금 당장 설계는 시작 가능**하지만, live holdout은 바로 시작하지 않는다. 이유는 세 가지다.
+
+1. CAPI/Purchase Guard clean baseline이 아직 3일치다. 최소 닫힌 7일(2026-04-13~19, 2026-04-20 아침 확인)이 필요하다.
+2. 내부 캠페인 매출 매핑이 `(unmapped)`에 몰려 있어 어떤 캠페인을 holdout 대상으로 삼을지 불명확하다.
+3. 현재 가장 큰 임팩트는 예산 총량 실험보다 **측정 정합성 + 캠페인 매핑 + 제한적 재배분**이다.
+
+따라서 Phase 5는 "설계 착수"만 앞으로 당기고, live 실험은 Phase 1의 7일 baseline과 캠페인 매핑 보정 후 실행한다.
+
 ## Phase 재정렬 요약
 
 | 우선 | 신규 Phase | 기존 관련 Phase | 핵심 목적 | 현재 완성도 | 상태 |
 |---|---|---|---|---:|---|
-| 0 | 운영 기준선 고정 | P0, P1, P5.5, P9 | 정본 전환, 데이터 계약, freshness 상태 정의 | 65% | 즉시 |
-| 1 | Measurement Integrity 안정화 | P5, P5.5, capivm, meta Phase 1b/1c | CAPI/Purchase Guard, sync, post-guard ROAS 구간 분리 | 58% | 최우선 |
+| 0 | 운영 기준선 고정 | P0, P1, P5.5, P9 | 정본 전환, 데이터 계약, freshness 상태 정의 | 70% | 최우선 |
+| 1 | Measurement Integrity 안정화 | P5, P5.5, capivm, meta Phase 1b/1c | CAPI/Purchase Guard, sync, post-guard ROAS 구간 분리 | 68% | 최우선 |
 | 2 | Revenue Integrity Agent read-only MVP | P9 신규 중심 | 숫자 불일치 incident를 자동 생성하고 증거와 액션을 제시 | 15% | 최우선 다음 |
 | 3 | Signal Quality 확장 | meta Phase 3, CAPIG-style 개선 | ViewContent/AddToCart/InitiateCheckout, EMQ, dedup, CAPI health | 35% | 병렬 가능 |
 | 4 | CRM Execution Loop | 기존 P3, P6, crmux0412 | 그룹, 발송, 행동 세그먼트, 캠페인 퍼널로 실행 레이어 완성 | 60% | 병렬 가능 |
-| 5 | Incrementality & Experiment OS | P7, P5.5, P4 | holdout, iROAS, Conversion Lift, 실험 승패 판정 | 25% | Phase 2/4 후 |
+| 5 | Incrementality & Experiment OS | P7, P5.5, P4 | holdout, iROAS, Conversion Lift, 실험 승패 판정 | 28% | 설계 착수, live는 Phase 1/매핑 후 |
 | 6 | Multi-Platform Conversion OS | 0414 Google/TikTok 확장 계획 | Google OCI/EC, TikTok Events API, 통합 ROAS 정합성 | 10% | 계정 확인 후 |
 | 7 | AI Native Operating System | P9 고도화 | 승인, 액션센터, 메모리, runbook, Slack/알림, 재검증 루프 | 10% | 지속 |
 | 8 | Scale & Governance | P8, CAPIG trigger, 보안 | BigQuery/Hotjar 판단, CAPIG trigger, 권한/감사/비용 | 25% | 월간 |
@@ -74,12 +133,12 @@
 
 | 신규 Phase | 현재 완성도 | 근거 | 100%까지 남은 핵심 |
 |---|---:|---|---|
-| Phase 0. 운영 기준선 고정 | 65% | 기존 P0/P1 데이터 계약, attribution ledger, `confirmed/pending/canceled` 분리는 상당 부분 구현됨. 다만 Agent용 Conversion Dictionary와 freshness 정책은 문서/화면/계약으로 아직 고정되지 않음 | Conversion Dictionary v1 승인, freshness 상태 정의, 사이트별 source-of-truth 표 고정 |
-| Phase 1. Measurement Integrity 안정화 | 58% | Meta CAPI 기본 전송과 biocom guard는 완료. 커피 guard는 복제본과 선결 코드가 준비됐지만 admin 설치/실주문 테스트가 남음. 가상계좌 입금 후 confirmed 전환 검증도 미완료 | coffee guard live 3건 테스트, VM auto sync 활성화 검증, biocom pending->confirmed CAPI 1회 전송 확인 |
+| Phase 0. 운영 기준선 고정 | 70% | 기존 P0/P1 데이터 계약, attribution ledger, `confirmed/pending/canceled` 분리는 상당 부분 구현됨. `roadmap/phase0_codex_draft.md`에 Conversion Dictionary v1, freshness, source-of-truth, backend contract 초안도 작성됨. 다만 TJ님 승인과 운영 화면/API 계약 반영은 아직 미완료 | Conversion Dictionary v1 승인, freshness 상태 정의, 사이트별 source-of-truth 표 고정, `/api/integrity/*` 계약 반영 |
+| Phase 1. Measurement Integrity 안정화 | 68% | Meta CAPI 기본 전송과 biocom guard는 완료. VM health에서 CAPI/Imweb/Toss auto sync enabled 확인. 2026-04-13 이후 operational CAPI 313/313 성공, duplicate event/order group 0. `/ads`는 VM 원장 기준으로 수정됨 | 7일 clean baseline 확보, Events Manager dedup/EMQ 수동 확인, 캠페인 매핑 보정, coffee 입금 후 confirmed 검증 |
 | Phase 2. Revenue Integrity Agent read-only MVP | 15% | PRD와 문제 정의는 명확하고 기존 `/ads`, `/tracking-integrity`, attribution API 자산은 있음. 하지만 전용 incident schema/API/주문 탐색기/승인 피드백 루프는 아직 없음 | `/api/integrity/*` API, incident taxonomy, evidence query, 6개 핵심 화면 MVP |
 | Phase 3. Signal Quality 확장 | 35% | `sendFunnelEvent`와 `POST /api/meta/capi/track` 등 Day 1 서버 인프라는 완료된 상태로 판단. ViewContent/AddToCart/InitiateCheckout 브라우저 훅과 EMQ 측정 자동화는 남음 | 아임웹 funnel script 카나리/확대, CAPI health, EMQ proxy, retry/backoff, event_id audit |
 | Phase 4. CRM Execution Loop | 60% | 기존 P3 실행 채널, 알리고/SMS, CRM 일부 화면은 상당히 진행. 다만 crmux0412의 A/B 그룹 정보 누락, groupId 전달, 선택 멤버 발송, 고객 행동 관리가 남음 | 즉시 버그 2건 수정, 그룹 상세/선택 발송, 고객 목록/행동 세그먼트, 성과 퍼널 |
-| Phase 5. Incrementality & Experiment OS | 25% | P5.5 iROAS 엔진과 ROAS 대시보드 자산은 있으나, 실제 holdout 실험과 Conversion Lift 운영, 실험 결과의 다음 가설 반영은 아직 시작 전 | checkout abandon holdout, iROAS 운영 판정, 실험 결과 API/화면, 재검증 task |
+| Phase 5. Incrementality & Experiment OS | 28% | P5.5 iROAS 엔진과 ROAS 대시보드 자산은 있고, 0416 기준으로 holdout 설계 착수 조건은 갖춰짐. 다만 clean baseline 7일과 캠페인 매핑 보정 전 live 실험은 이르다 | holdout 설계 문서, 캠페인/세그먼트 후보, iROAS 운영 판정, 7일 clean baseline 이후 live |
 | Phase 6. Multi-Platform Conversion OS | 10% | Google/TikTok 확장 계획과 Google Ads 계정 3종 공존 이슈는 파악됨. Google Ads API/OCI/Enhanced Conversions와 TikTok Events API는 미구현 | Google 계정 공유 의사결정, API 권한 확보, EC/OCI 설계, TikTok 집행 여부 확인 |
 | Phase 7. AI Native Operating System | 10% | Agent PRD와 로드맵 구조는 생겼지만 work queue, approval gate, evidence store, notification layer는 아직 제품화 전 | Agent Registry, Action Center, Decision Log, Runbook Library, Slack/알림 승인 인터페이스 |
 | Phase 8. Scale & Governance | 25% | CAPIG build-vs-buy 판단과 재검토 trigger는 잘 정리됨. BigQuery/Hotjar/권한/감사/월간 health report 자동화는 미완료 | 월간 trigger report, BigQuery 전환 판단, 권한/감사 정책, 비용/성능 dashboard |
@@ -131,15 +190,22 @@ Sprint 번호는 전체 로드맵에서 연속으로 부여한다. 기간은 고
 
 Sprint 실행 원칙:
 
+- 2026-04-17 기준 실행 비중은 Phase 0~1 정본/freshness 작업 80%, 얇은 loop 운영 방식 20%로 둔다. loop는 별도 제품이 아니라 현재 작업의 계획/evidence/재검증 기록 방식으로만 병렬 적용한다.
 - 스프린트 3~6은 다른 작업보다 먼저 끝내야 한다. 여기서 숫자 신뢰도가 닫히지 않으면 Agent MVP가 가짜 경고를 만들 가능성이 높다.
 - 스프린트 7~11과 스프린트 16~19는 병렬 가능하다. Codex가 backend incident/CRM query를 맡고 Claude Code가 UI/UX를 맡으면 충돌이 작다.
 - 스프린트 12~15는 아임웹 admin 스크립트 설치가 필요하므로 guard 설치와 같은 시간대에 겹치지 않게 운영한다.
 - 스프린트 24 이후는 외부 계정 권한이 blocker다. TJ님 확인 없이는 설계까지만 진행한다.
-- 스프린트 28 이후는 제품 기능보다 운영 체계다. Action Center, evidence, approval, notification이 붙어야 AI Native OS로 격상된다.
+- 스프린트 28 이후는 제품 기능보다 운영 체계다. Action Center, evidence, approval, notification이 붙어야 AI Native OS로 격상된다. 단, `.codex/agents`, `.claude/agents`, 자동 PR/recursive fan-out은 Verification Harness가 생긴 뒤 2주 비교 실험 결과가 좋을 때만 확장한다.
 
 ## Phase 0. 운영 기준선 고정
 
 목표: 에이전트가 판단할 기준을 먼저 고정한다. 이 단계가 없으면 이후 모든 AI 설명은 멋있지만 위험하다.
+
+2026-04-17 현재 상태:
+
+- `roadmap/phase0_codex_draft.md` 기준으로 Conversion Dictionary v1 초안은 작성되어 있다.
+- `roadmap/phase0.md` 기준으로 Phase 0은 "설계 초안 완료, TJ님 승인 대기" 상태다.
+- 따라서 Codex의 다음 작업은 정의를 새로 만드는 것이 아니라, TJ님 승인 항목을 압축하고 승인된 기준을 backend/API/UI 계약으로 고정하는 것이다.
 
 핵심 산출물:
 
@@ -148,11 +214,11 @@ Sprint 실행 원칙:
 - 사이트별 source-of-truth 표: biocom, thecleancoffee, AIBIO 각각 어떤 이벤트를 정본으로 보는지 정의.
 - 로컬 DB와 VM DB 구분 규칙: 운영 판단은 VM DB 기준, 로컬 Mac DB는 개발/검증용.
 
-| 담당 | 할 일 |
-|---|---|
-| Codex | Conversion Dictionary 초안, 상태 매핑표, freshness 판정 규칙, backend contract 설계 |
-| TJ님 | `confirmed` 기준, 환불/배송비/VAT 반영 기준, 운영에서 보는 매출 기준 승인 |
-| Claude Code | 사람이 읽는 용어집, 운영 화면 문구, tooltip/empty state copy 작성 |
+| 담당          | 할 일                                                                    |
+| ----------- | ---------------------------------------------------------------------- |
+| Codex       | Conversion Dictionary 초안, 상태 매핑표, freshness 판정 규칙, backend contract 설계 |
+| TJ님         | `confirmed` 기준, 환불/배송비/VAT 반영 기준, 운영에서 보는 매출 기준 승인                     |
+| Claude Code | 사람이 읽는 용어집, 운영 화면 문구, tooltip/empty state copy 작성                      |
 
 병렬 처리 가능:
 
@@ -361,6 +427,8 @@ MVP 범위:
 
 목표: 광고/CRM 실행이 실제로 증분 매출을 만들었는지 판정한다. 이 단계에서 OS는 "보고서"에서 "학습 시스템"으로 넘어간다.
 
+2026-04-16 판단: **지금 할 수 있는 것은 설계와 사전 계산이고, live holdout은 아직 이르다.** 바이오컴은 2026-04-13~15 clean 3일 기준 Attribution ROAS 1.90x / Meta ROAS 3.06x까지 확인했지만, 증분성 판단에는 최소 닫힌 7일 baseline과 캠페인 매핑 보정이 필요하다. 따라서 스프린트 20은 앞당겨 착수하되, 스프린트 21 live 실행은 Phase 1의 7일 baseline 이후로 둔다.
+
 핵심 작업:
 
 1. 체크아웃 이탈 holdout 실험.
@@ -488,19 +556,19 @@ OS 구성요소:
 - CAPIG/BigQuery/Hotjar 같은 도구 도입이 감이 아니라 trigger 기반으로 결정된다.
 - 토큰, 배포, guard, sync, incident 대응 runbook이 최신 상태로 유지된다.
 
-## 0415 기준 72시간 실행안
+## 0417 보정 72시간 실행안
 
-가장 먼저 끝내야 할 작업만 적는다.
+2026-04-17 기준으로 실행 순서를 보정한다. 가장 먼저 끝내야 할 작업만 적는다.
 
 | 순서 | 작업 | 담당 | 완료 조건 |
 |---|---|---|---|
-| 1 | 커피 guard admin 설치 준비 상태 재확인 | Codex + TJ님 | `site=thecleancoffee`, CORS, sync freshness, script 버전 확인 |
-| 2 | VM에 Imweb/Toss auto sync env 활성화 및 재배포 확인 | Codex + TJ님 | `/health`에서 `imwebAutoSync.enabled=true`, `tossAutoSync.enabled=true` |
-| 3 | 커피 실주문 3건 테스트 | TJ님 + Codex | 카드 Purchase, 가상계좌 pending 차단, 입금 후 confirmed/CAPI |
-| 4 | biocom 기존 가상계좌 입금 후 confirmed 검증 | TJ님 + Codex | `Purchase.o20260412cdb6664e94ccb` 1회 전송 |
-| 5 | Integrity Agent 데이터 계약 초안 | Codex | incident taxonomy, API contract, Conversion Dictionary v1 |
-| 6 | Agent UI 와이어 6화면 | Claude Code | 홈, 이슈 상세, 주문 탐색기, 변환 사전, 진단 센터, 승인 센터 |
-| 7 | CRM Phase 1 버그 2건 처리 계획 | Codex + Claude Code | group join, groupId 전달, 선택 멤버 발송 방식 확정 |
+| 1 | Conversion Dictionary v1 승인 패키지 압축 | Codex + TJ님 | `confirmed`, `paid`, 환불, 배송비/VAT, CAPI Purchase 기준 승인 항목이 1페이지로 정리됨 |
+| 2 | Freshness/source-of-truth 표 고정 | Codex | biocom, thecleancoffee, AIBIO별 primary/secondary source와 `실시간 추정/잠정/확정/stale` 기준 확정 |
+| 3 | CAPI/Purchase Guard/sync 검증 evidence 정리 | Codex + TJ님 | VM `/health`, CAPI log, Events Manager 확인, coffee/biocom pending->confirmed 검증 증거가 한 묶음으로 남음 |
+| 4 | 커피 실주문 3종 테스트 | TJ님 + Codex | 카드 Purchase 허용, 가상계좌 pending 차단, 입금 후 confirmed/CAPI 1회 확인 |
+| 5 | Integrity Agent 데이터 계약 초안 보정 | Codex | incident taxonomy, API contract가 승인된 Conversion Dictionary 기준으로 맞춰짐 |
+| 6 | 얇은 loop 운영 방식 적용 | Codex | 복잡한 작업에만 `plans/*.md`, evidence-first 보고, 재검증 task를 남김 |
+| 7 | Agent UI 와이어 6화면 | Claude Code | 데이터 계약이 흔들리지 않는 범위에서 홈, 이슈 상세, 주문 탐색기, 변환 사전, 진단 센터, 승인 센터 초안 |
 
 ## 병렬 처리 맵
 
@@ -513,6 +581,7 @@ OS 구성요소:
 | Track C. CRM Execution | group/segment backend | 발송 정책 승인 | CRM 탭/그룹 상세 UX | 발송 live는 사람 승인 전 금지 |
 | Track D. Funnel Signal | CAPI health, event audit | Meta EMQ 확인, 카나리 승인 | 설치/rollback 가이드 | guard와 funnel script 설치 순서 관리 |
 | Track E. Experiment OS | holdout/iROAS 설계 | 실험 허용 범위 승인 | 결과 해석 UI | CRM 실행 전 실험 시작 금지 |
+| Track F. Thin Loop Ops | `plans/*.md`, evidence, 재검증 task | 승인/보류 판단 | runbook/copy 보조 | loop 구조가 정본 작업보다 앞서면 안 됨 |
 
 ## 하단 인사이트: AI Native 조직의 OS와 에이전트 루프가 되려면
 
@@ -574,9 +643,47 @@ AI Native OS의 마지막 단계는 자동 보고서가 아니라 자동 hypothe
 
 1. 정본과 freshness를 고정한다.
 2. CAPI/Purchase Guard/sync 정합성을 닫는다.
-3. Revenue Integrity Agent를 read-only로 만든다.
-4. CRM 실행과 funnel signal을 병렬로 강화한다.
-5. iROAS와 holdout으로 학습 루프를 닫는다.
-6. 승인, 증거, runbook, 재검증을 OS 레이어로 만든다.
+3. 복잡한 작업에만 얇은 loop를 붙여 evidence와 재검증 task를 남긴다.
+4. Revenue Integrity Agent를 read-only로 만든다.
+5. CRM 실행과 funnel signal을 병렬로 강화한다.
+6. iROAS와 holdout으로 학습 루프를 닫는다.
+7. 승인, 증거, runbook, 재검증을 OS 레이어로 만든다.
 
 이 순서로 가면 이 솔루션은 "광고/CRM 대시보드"가 아니라, AI 에이전트가 매일 매출 운영의 이상을 발견하고, 사람에게 승인 가능한 액션으로 바꾸고, 실행 후 재검증까지 돌리는 AI Native Revenue OS가 된다.
+
+---
+
+## 2026-04-17 추가: 광고 LTV 기반 예산 최적화 워크스트림
+
+### 배경
+
+캠페인별 Meta ROAS만으로는 검사 이후 발생하는 영양제·추가검사 매출(LTV)이 반영되지 않아 예산 판단이 왜곡된다.
+callprice 상담 효과 데이터와 영양제 첫구매 LTV를 결합하면 캠페인별 추정 LTV ROAS를 산출할 수 있다.
+
+### 완료 (2026-04-17)
+
+| 항목 | 상태 |
+|------|------|
+| VM 배포: CAPI 퍼널 필드 (view_content/add_to_cart/initiate_checkout) | ✅ |
+| /ads 퍼널 분석 UI (점수/병목/기간선택) | ✅ |
+| 캠페인별 추정 LTV ROAS (callprice 기반) | ✅ |
+| 알러지/음식물 통합 + 종합→유기산 합산 | ✅ |
+| 영양제 첫구매 LTV API (`/api/callprice/supplement-first-ltv`) | ✅ |
+| Attribution ledger 점검 (VM에 331건, Meta 48건 확인) | ✅ |
+| 광고 유입 보정: 재구매율 50% 할인 적용 | ✅ |
+
+### 진행 중 (2026-04-17~)
+
+| 항목 | 기한 | 상세 |
+|------|------|------|
+| Meta 유입 건강기능식품 코호트 추적 | 4/30 | ledger 13건 + member_code → 코호트 LTV. 표본 50건+ 필요 |
+| 영양중금속·호르몬 UTM 추가 | 4/18 | Meta Ads Manager에서 활성 광고 URL 수정 |
+| YouTube UTM 체계화 | 4/25 | 영상 설명란·고정댓글에 체계적 UTM 태깅 |
+
+### 대기
+
+| 항목 | 선행 조건 |
+|------|----------|
+| 건강기능식품 캠페인 증액 판단 | 광고 유입 전용 LTV ROAS 산출 (코호트 50건+) |
+| 아임웹 openapi OAuth 확보 | 유입분석(referrer) API 접근 필요. 현재 v2 API에 없음 |
+| content_ids 추가 (상품별 Purchase 분리) | CAPI/Pixel에 SKU 파라미터 추가 → 교차 상품 어트리뷰션 분리 |

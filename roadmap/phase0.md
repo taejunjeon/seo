@@ -1,4 +1,73 @@
-# Phase 0 — 구조 고정 · 데이터 계약
+# Phase 0 — 운영 기준선 고정
+
+> **최종 업데이트**: 2026-04-16
+> **기준 로드맵**: `roadmap/roadmap0415.md` (lines 162-188)
+> **담당**: Codex (백엔드/계약) + Claude Code (화면 언어/copy) + TJ님 (매출/전환 기준 승인)
+> **상태**: 설계 초안 완료 (Codex draft) → TJ님 승인 대기
+
+## 왜 필요한가
+
+에이전트와 운영 화면이 같은 정의로 숫자를 판단하려면, "비교 가능한 숫자인지"를 먼저 말할 수 있는 기준선이 있어야 하오. 기준선이 없으면 AI가 아무리 잘 설명해도 잘못된 의사결정을 강화하오.
+
+핵심 산출물 4가지:
+
+1. **Conversion Dictionary v1** — `paid`, `confirmed`, `pending`, `canceled`, `refunded`, `VirtualAccountIssued` 정의
+2. **상태 매핑표** — Imweb/Toss/Ledger/CAPI/GA4/Pixel × 6개 상태 매트릭스, 사이트별 primary/secondary 표기
+3. **Freshness 판정 규칙** — 7개 소스 × `실시간 추정/잠정/확정/stale` 4단계
+4. **Backend contract 설계** — `/api/integrity/{health, dictionary, source-of-truth, summary}` 4개 엔드포인트
+
+## 작업 분담
+
+| 담당 | 할 일 | 상태 |
+|---|---|---|
+| Codex | Conversion Dictionary 초안, 상태 매핑표, freshness 판정 규칙, backend contract 설계 | 완료 — `roadmap/phase0_codex_draft.md` |
+| TJ님 | `confirmed` 기준, 환불/배송비/VAT 반영 기준, 운영에서 보는 매출 기준 승인 | 대기 |
+| Claude Code | 사람이 읽는 용어집, 운영 화면 문구, tooltip/empty state copy 작성 | 대기 |
+
+## Codex 산출물 요약
+
+전체 본문은 `roadmap/phase0_codex_draft.md` 참고. 주요 설계 결정은 다음과 같소.
+
+- 운영 `confirmed`의 primary source는 `imweb_orders.imweb_status = 'PURCHASE_CONFIRMATION'`로 둠. 현재 ledger의 `payment_status='confirmed'`는 PG 승인에 가까워 secondary로 분리함.
+- `paid`는 Toss transaction/settlement 기준 PG 승인만 포착하고, 기본 ROAS 분자에 포함하지 않음 (`paidRevenue` 별도 버킷).
+- `VirtualAccountIssued`는 pending의 하위 상태로 두고 `block_purchase_virtual_account` 정책과 연결함.
+- CAPI Purchase는 `touchpoint=payment_success` + `captureMode=live` + `paymentStatus=confirmed` + no-successful-log 조건만 자동 전송 (`backend/src/metaCapi.ts:254`).
+- `aibio`의 Toss 경로는 현재 `tossConfig` store enum이 `biocom|coffee`뿐이라 `n/a`로 표기. Toss store 추가는 TJ 승인 필요.
+- Backend contract는 4개 endpoint로 고정: `GET /api/integrity/health`, `/dictionary`, `/source-of-truth?site=`, `/summary?site=&from=&to=`. 정합성 점수는 `freshness(0.30) + definitionCoverage(0.20) + revenueReconciliation(0.25) + eventCompleteness(0.15) + identityCoverage(0.10)` 가중 평균.
+- Freshness는 7개 source 모두 4단계 정의 (GA4, Meta Insights, Meta CAPI log, Imweb Orders local, Toss Settlements local, Attribution Ledger, CRM Local DB). stale 판정은 `roadmap0415.md:266-270`의 incident taxonomy로 매핑.
+- 운영 판단은 VM DB 기준, 로컬 Mac SQLite는 개발/검증 mirror로만 해석함.
+
+## TJ님 승인 필요 항목
+
+- [ ] 운영 `confirmed` 기준을 Imweb `PURCHASE_CONFIRMATION`으로 확정할지 Toss PG 승인으로 둘지
+- [ ] `paid`를 ROAS에서 제외하고 `paidRevenue/provisionalRevenue`로만 둘지
+- [ ] 환불/부분환불을 gross ROAS에서 분리 표시하고 net ROAS에서 차감할지
+- [ ] 배송비/VAT를 `payment_amount`에서 제외할지 포함할지
+- [ ] CAPI Purchase 전송 기준을 `confirmed only`로 잠글지 PG paid도 허용할지
+- [ ] aibio의 Toss source-of-truth를 `n/a`로 유지할지 별도 Toss store/env를 추가할지
+
+## 검증 결과
+
+- Codex draft의 file:line 인용 스팟 체크 3건 모두 일치 (`backend/src/attribution.ts:17`, `backend/src/routes/crmLocal.ts:501`, `backend/src/attributionLedgerDb.ts:45`).
+- 코드 변경 없음 → tsc/테스트 재실행 불필요.
+- frontend/ 수정 없음.
+- 미해결: aibio ledger row 실존성, GA4 `transaction_id`와 Imweb `order_no` 매칭성, VM DB vs local DB 차이 검증 쿼리는 Phase 1 이후로 이관.
+
+## 완료 기준
+
+- [x] Conversion Dictionary v1 초안 작성 (`phase0_codex_draft.md` §1)
+- [x] 상태 매핑표 작성 (§2)
+- [x] Freshness 판정 규칙 작성 (§3)
+- [x] Backend contract 설계 작성 (§4)
+- [ ] TJ님 매출/전환 기준 승인
+- [ ] Claude Code가 사람이 읽는 용어집/화면 문구 작성
+- [ ] 어떤 숫자가 왜 다른지 판단하기 전에 "비교 가능한 숫자인지"를 먼저 말할 수 있는 상태
+
+---
+
+# Archive — P0 이전본 (구조 고정 · 데이터 계약, 2026-04-03 완료)
+
+> 아래는 roadmap0415 이전의 원래 Phase 0 (CRM customer_key/이벤트 명세/운영 화면 IA)이오. 완료된 산출물이라 역사적 맥락으로만 보존하오.
 
 > **최종 업데이트**: 2026-04-03
 > **담당**: Codex (백엔드/설계) + Claude Code (프론트/UXUI)
