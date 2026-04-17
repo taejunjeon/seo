@@ -1,4 +1,6 @@
 import express, { type Request, type Response } from "express";
+import { promises as fs } from "fs";
+import path from "path";
 
 import type {
   AttributionCaptureMode,
@@ -25,8 +27,11 @@ import {
   loadAliasReviewItems,
   type AliasReviewDecision,
 } from "../metaCampaignAliasReview";
+import { isDatabaseConfigured, queryPg } from "../postgres";
+import { categorizeProductName, normalizePhone } from "../consultation";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
+const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
 const KST_TIMEZONE = "Asia/Seoul";
 const KST_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: KST_TIMEZONE,
@@ -119,11 +124,15 @@ export type NormalizedLedgerOrder = {
   approvedDate: string | null;
   amount: number | null;
   site: SiteKey | null;
+  customerKey: string;
   utmSource: string;
   utmCampaign: string;
+  utmTerm: string;
   fbclid: string;
   gclid: string;
   ttclid: string;
+  campaignIdHint: string;
+  adsetIdHint: string;
   captureMode: AttributionCaptureMode;
   paymentStatus: AttributionPaymentStatus;
   status: string;
@@ -138,6 +147,19 @@ export type CampaignRoasRow = {
   attributedRevenue: number;
   roas: number | null;
   orders: number;
+};
+
+export type CampaignLtvRoasRow = CampaignRoasRow & {
+  ltvRevenue: number;
+  repeatRevenue: number;
+  supplementRevenue: number;
+  ltvRoas: number | null;
+  matchedCustomers: number;
+  consultedCustomers: number;
+  supplementCustomers: number;
+  identityMatchedOrders: number;
+  ltvStatus: "ready" | "low_sample" | "identity_missing" | "no_attribution" | "blocked";
+  ltvBlocker: string | null;
 };
 
 export type DailyRoasRow = {
@@ -229,6 +251,28 @@ const toObject = (value: unknown): Record<string, unknown> => (
 );
 
 const firstNonEmpty = (values: string[]) => values.find((value) => value.trim()) ?? "";
+
+const firstMetadataString = (metadata: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+};
+
+const extractUrlParam = (value: string, key: string) => {
+  if (!value.trim()) return "";
+  try {
+    const parsed = new URL(value);
+    return parsed.searchParams.get(key)?.trim() ?? "";
+  } catch {
+    const match = value.match(new RegExp(`[?&]${key}=([^&#\\s]+)`));
+    return match?.[1] ? decodeURIComponent(match[1]).trim() : "";
+  }
+};
+
+const extractFirstUrlParam = (values: string[], key: string) =>
+  firstNonEmpty(values.map((value) => extractUrlParam(value, key)));
 
 const getKstToday = () => KST_DATE_FORMATTER.format(new Date());
 
@@ -416,6 +460,85 @@ const fetchMetaInsights = async (params: {
 
   if (!result.ok) return result;
   return { ok: true, data: result.data.data ?? [] };
+};
+
+type LocalAliasAuditFile = {
+  campaigns?: Array<{
+    campaignId?: string;
+    campaignName?: string;
+    adsets?: Array<{
+      adsetId?: string;
+      adsetName?: string;
+    }>;
+  }>;
+};
+
+const loadLocalAuditAdsetCampaignMap = async (
+  site: SiteKey | null,
+): Promise<AdsetCampaignMap> => {
+  const map: AdsetCampaignMap = new Map();
+  if (!site) return map;
+
+  try {
+    const raw = await fs.readFile(path.resolve(DATA_DIR, `meta_campaign_alias_audit.${site}.json`), "utf8");
+    const audit = JSON.parse(raw) as LocalAliasAuditFile;
+    for (const campaign of audit.campaigns ?? []) {
+      const campaignId = campaign.campaignId?.trim() ?? "";
+      if (!campaignId) continue;
+      for (const adset of campaign.adsets ?? []) {
+        const adsetId = adset.adsetId?.trim() ?? "";
+        if (!adsetId) continue;
+        map.set(adsetId, {
+          campaignId,
+          campaignName: campaign.campaignName?.trim() ?? "",
+          adsetName: adset.adsetName?.trim() ?? "",
+        });
+      }
+    }
+  } catch {
+    return map;
+  }
+
+  return map;
+};
+
+const fetchMetaAdsetCampaignMap = async (
+  accountId: string,
+): Promise<{ map: AdsetCampaignMap; error: string | null }> => {
+  const result = await fetchMeta<{
+    data: Array<{
+      id: string;
+      name?: string;
+      campaign_id?: string;
+      campaign?: { id?: string; name?: string };
+    }>;
+  }>(
+    `/${accountId}/adsets`,
+    { fields: "id,name,campaign_id,campaign{id,name}", limit: "500" },
+  );
+
+  if (!result.ok) {
+    const siteAccount = findSiteAccountByAccountId(accountId);
+    const fallbackMap = await loadLocalAuditAdsetCampaignMap(siteAccount?.site ?? null);
+    return {
+      map: fallbackMap,
+      error: fallbackMap.size > 0
+        ? `${result.error}; local alias audit fallback adsets=${fallbackMap.size}`
+        : result.error,
+    };
+  }
+
+  const map: AdsetCampaignMap = new Map();
+  for (const adset of result.data.data ?? []) {
+    const campaignId = adset.campaign_id ?? adset.campaign?.id ?? "";
+    if (!adset.id || !campaignId) continue;
+    map.set(adset.id, {
+      campaignId,
+      campaignName: adset.campaign?.name ?? "",
+      adsetName: adset.name ?? "",
+    });
+  }
+  return { map, error: null };
 };
 
 const buildMetaReference = (params?: {
@@ -645,6 +768,18 @@ export const buildNormalizedLedgerOrders = (
       || b.loggedAt.localeCompare(a.loggedAt)
     ))[0];
     const status = extractStatus(statusCarrier) || paymentStatus.toUpperCase();
+    const urlCandidates = preferred.flatMap((entry) => [
+      entry.landing,
+      entry.referrer,
+      firstMetadataString(entry.metadata, [
+        "imweb_landing_url",
+        "checkout_started_landing",
+        "checkoutUrl",
+        "initial_referrer",
+        "original_referrer",
+      ]),
+    ]);
+    const utmTerm = attributionCarrier?.utmTerm ?? "";
 
     return {
       key,
@@ -653,11 +788,15 @@ export const buildNormalizedLedgerOrders = (
       approvedDate,
       amount,
       site,
+      customerKey: firstNonEmpty(preferred.map((entry) => normalizePhone(entry.customerKey))),
       utmSource: attributionCarrier?.utmSource ?? "",
       utmCampaign: attributionCarrier?.utmCampaign ?? "",
+      utmTerm,
       fbclid: attributionCarrier?.fbclid ?? "",
       gclid: attributionCarrier?.gclid ?? "",
       ttclid: attributionCarrier?.ttclid ?? "",
+      campaignIdHint: extractFirstUrlParam(urlCandidates, "utm_id"),
+      adsetIdHint: firstNonEmpty([utmTerm, extractFirstUrlParam(urlCandidates, "utm_term")]),
       captureMode: attributionCarrier?.captureMode ?? preferred[0]?.captureMode ?? "live",
       paymentStatus,
       status,
@@ -677,7 +816,16 @@ const inDateRange = (date: string | null, range: DateRange) =>
 
 const isMetaAttributedOrder = (order: NormalizedLedgerOrder) => {
   const source = normalizeSource(order.utmSource);
-  return source === "fb" || source.includes("facebook") || Boolean(order.fbclid.trim());
+  const campaign = normalizeSource(order.utmCampaign);
+  return (
+    source === "fb"
+    || source.includes("facebook")
+    || source.includes("meta")
+    || campaign.includes("meta")
+    || Boolean(order.fbclid.trim())
+    || Boolean(order.campaignIdHint.trim())
+    || Boolean(order.adsetIdHint.trim())
+  );
 };
 
 const isGoogleAttributedOrder = (order: NormalizedLedgerOrder) => {
@@ -724,6 +872,60 @@ const sumRevenue = (orders: NormalizedLedgerOrder[]) =>
 const normalizeCampaignKey = (value: string) =>
   value.trim().toLowerCase().replace(/[^a-z0-9가-힣]+/g, "");
 
+type AdsetCampaignMatch = {
+  campaignId: string;
+  campaignName: string;
+  adsetName: string;
+};
+
+type AdsetCampaignMap = Map<string, AdsetCampaignMatch>;
+
+type CampaignAliasMatch = {
+  campaignId: string;
+  campaignName: string | null;
+  validFrom: string | null;
+  validTo: string | null;
+  confidence: string;
+};
+
+type CampaignAliasMap = Map<string, CampaignAliasMatch[]>;
+
+const fetchManualVerifiedAliasMap = async (
+  site: SiteKey | null,
+): Promise<{ map: CampaignAliasMap; error: string | null }> => {
+  const map: CampaignAliasMap = new Map();
+  if (!site) return { map, error: null };
+
+  try {
+    const review = await loadAliasReviewItems(site);
+    for (const item of review.items) {
+      if (item.status !== "manual_verified" || !item.selectedCampaignId) continue;
+      const aliasKey = normalizeCampaignKey(item.aliasKey);
+      if (!aliasKey) continue;
+      const bucket = map.get(aliasKey) ?? [];
+      bucket.push({
+        campaignId: item.selectedCampaignId,
+        campaignName: item.selectedCampaignName,
+        validFrom: item.validFrom,
+        validTo: item.validTo,
+        confidence: item.confidence,
+      });
+      map.set(aliasKey, bucket);
+    }
+    return { map, error: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { map, error: message };
+  }
+};
+
+const isAliasMatchActive = (match: CampaignAliasMatch, orderDate: string | null) => {
+  if (!orderDate) return true;
+  if (match.validFrom && orderDate < match.validFrom) return false;
+  if (match.validTo && orderDate > match.validTo) return false;
+  return true;
+};
+
 const matchCampaignId = (
   utmCampaign: string,
   campaigns: MetaCampaignAggregate[],
@@ -745,10 +947,42 @@ const matchCampaignId = (
   return fuzzyMatches.length === 1 ? fuzzyMatches[0]?.campaignId ?? null : null;
 };
 
+const matchCampaignIdForOrder = (
+  order: NormalizedLedgerOrder,
+  campaigns: MetaCampaignAggregate[],
+  adsetCampaignMap: AdsetCampaignMap = new Map(),
+  campaignAliasMap: CampaignAliasMap = new Map(),
+): string | null => {
+  const campaignIdHint = order.campaignIdHint.trim();
+  if (campaignIdHint && campaigns.some((campaign) => campaign.campaignId === campaignIdHint)) {
+    return campaignIdHint;
+  }
+
+  const adsetMatch = adsetCampaignMap.get(order.adsetIdHint.trim());
+  if (adsetMatch && campaigns.some((campaign) => campaign.campaignId === adsetMatch.campaignId)) {
+    return adsetMatch.campaignId;
+  }
+
+  const directMatch = matchCampaignId(order.utmCampaign, campaigns);
+  if (directMatch) return directMatch;
+
+  const aliasKey = normalizeCampaignKey(firstNonEmpty([order.utmCampaign, order.utmSource]));
+  const activeAliasCampaignIds = new Set(
+    (campaignAliasMap.get(aliasKey) ?? [])
+      .filter((match) => isAliasMatchActive(match, order.approvedDate))
+      .filter((match) => campaigns.some((campaign) => campaign.campaignId === match.campaignId))
+      .map((match) => match.campaignId),
+  );
+
+  return activeAliasCampaignIds.size === 1 ? [...activeAliasCampaignIds][0] ?? null : null;
+};
+
 export const buildCampaignRoasRows = (params: {
   metaRows: MetaInsightRow[];
   orders: NormalizedLedgerOrder[];
   ledgerAvailable: boolean;
+  adsetCampaignMap?: AdsetCampaignMap;
+  campaignAliasMap?: CampaignAliasMap;
 }): CampaignRoasRow[] => {
   const campaigns = aggregateMetaCampaigns(params.metaRows);
   const revenueByCampaignId = new Map<string, { revenue: number; orders: number }>();
@@ -756,7 +990,12 @@ export const buildCampaignRoasRows = (params: {
   let unmappedOrders = 0;
 
   for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
-    const matchedCampaignId = matchCampaignId(order.utmCampaign, campaigns);
+    const matchedCampaignId = matchCampaignIdForOrder(
+      order,
+      campaigns,
+      params.adsetCampaignMap,
+      params.campaignAliasMap,
+    );
     if (!matchedCampaignId) {
       unmappedRevenue += order.amount ?? 0;
       unmappedOrders += 1;
@@ -794,6 +1033,313 @@ export const buildCampaignRoasRows = (params: {
   }
 
   return rows.sort((a, b) => b.spend - a.spend || b.attributedRevenue - a.attributedRevenue);
+};
+
+const ADS_ORDER_DATE_SQL = `
+  case
+    when trim(coalesce(payment_complete_time::text, '')) ~ '^\\d{4}-\\d{2}-\\d{2}' then left(trim(payment_complete_time::text), 10)::date
+    when trim(coalesce(order_date::text, '')) ~ '^\\d{4}-\\d{2}-\\d{2}' then left(trim(order_date::text), 10)::date
+    else null
+  end
+`;
+const ADS_ORDER_REVENUE_SQL = `
+  greatest(
+    coalesce(nullif(final_order_amount, 0), nullif(paid_price, 0), nullif(total_price, 0), 0)
+      - coalesce(total_refunded_price, 0),
+    0
+  )
+`;
+const ADS_NORMALIZED_PHONE_SQL = `regexp_replace(coalesce(customer_number::text, ''), '[^0-9]', '', 'g')`;
+const ADS_NORMALIZED_CONTACT_SQL = `regexp_replace(coalesce(customer_contact::text, ''), '[^0-9]', '', 'g')`;
+
+type AdsOrderIdentityRow = {
+  order_number: string;
+  normalized_phone: string;
+  order_date: string;
+  net_revenue: number | string;
+  product_names: string[] | null;
+};
+
+type AdsOrderFact = {
+  orderNumber: string;
+  normalizedPhone: string;
+  orderDate: string;
+  netRevenue: number;
+  productCategories: Set<"test_kit" | "supplement" | "other">;
+};
+
+const normalizeProductNames = (value: unknown): string[] => (
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
+);
+
+const mapOrderFact = (row: AdsOrderIdentityRow): AdsOrderFact | null => {
+  const normalizedPhone = normalizePhone(row.normalized_phone);
+  const orderDate = normalizeDateLike(String(row.order_date ?? ""));
+  if (!row.order_number || !normalizedPhone || !orderDate) return null;
+  return {
+    orderNumber: row.order_number,
+    normalizedPhone,
+    orderDate,
+    netRevenue: toNumber(row.net_revenue),
+    productCategories: new Set(normalizeProductNames(row.product_names).map(categorizeProductName)),
+  };
+};
+
+const fetchOrderFactsByOrderNumbers = async (orderNumbers: string[]) => {
+  const uniqueOrderNumbers = [...new Set(orderNumbers.filter((value) => value.trim()))];
+  if (uniqueOrderNumbers.length === 0) return new Map<string, AdsOrderFact>();
+
+  const result = await queryPg<AdsOrderIdentityRow>(
+    `
+      select
+        order_number::text as order_number,
+        ${ADS_NORMALIZED_PHONE_SQL} as normalized_phone,
+        ${ADS_ORDER_DATE_SQL}::text as order_date,
+        max(${ADS_ORDER_REVENUE_SQL}) as net_revenue,
+        array_agg(distinct coalesce(nullif(trim(product_name), ''), '미분류')) as product_names
+      from public.tb_iamweb_users
+      where order_number::text = any($1::text[])
+        and ${ADS_ORDER_DATE_SQL} is not null
+        and ${ADS_ORDER_REVENUE_SQL} > 0
+        and (cancellation_reason is null or trim(cancellation_reason::text) in ('', 'nan'))
+        and (return_reason is null or trim(return_reason::text) in ('', 'nan'))
+      group by order_number::text, ${ADS_NORMALIZED_PHONE_SQL}, ${ADS_ORDER_DATE_SQL}
+    `,
+    [uniqueOrderNumbers],
+  );
+
+  const facts = new Map<string, AdsOrderFact>();
+  for (const row of result.rows) {
+    const fact = mapOrderFact(row);
+    if (fact) facts.set(fact.orderNumber, fact);
+  }
+  return facts;
+};
+
+const fetchOrderFactsByPhones = async (phones: string[], startDate: string, endDate: string) => {
+  const uniquePhones = [...new Set(phones.map(normalizePhone).filter(Boolean))];
+  if (uniquePhones.length === 0) return new Map<string, AdsOrderFact[]>();
+
+  const result = await queryPg<AdsOrderIdentityRow>(
+    `
+      select
+        order_number::text as order_number,
+        ${ADS_NORMALIZED_PHONE_SQL} as normalized_phone,
+        ${ADS_ORDER_DATE_SQL}::text as order_date,
+        max(${ADS_ORDER_REVENUE_SQL}) as net_revenue,
+        array_agg(distinct coalesce(nullif(trim(product_name), ''), '미분류')) as product_names
+      from public.tb_iamweb_users
+      where ${ADS_NORMALIZED_PHONE_SQL} = any($1::text[])
+        and ${ADS_ORDER_DATE_SQL} between $2::date and $3::date
+        and ${ADS_ORDER_REVENUE_SQL} > 0
+        and (cancellation_reason is null or trim(cancellation_reason::text) in ('', 'nan'))
+        and (return_reason is null or trim(return_reason::text) in ('', 'nan'))
+      group by order_number::text, ${ADS_NORMALIZED_PHONE_SQL}, ${ADS_ORDER_DATE_SQL}
+      order by ${ADS_NORMALIZED_PHONE_SQL} asc, ${ADS_ORDER_DATE_SQL} asc, order_number::text asc
+    `,
+    [uniquePhones, startDate, endDate],
+  );
+
+  const grouped = new Map<string, AdsOrderFact[]>();
+  for (const row of result.rows) {
+    const fact = mapOrderFact(row);
+    if (!fact) continue;
+    const bucket = grouped.get(fact.normalizedPhone) ?? [];
+    bucket.push(fact);
+    grouped.set(fact.normalizedPhone, bucket);
+  }
+  return grouped;
+};
+
+const fetchCompletedConsultationPhones = async (phones: string[]) => {
+  const uniquePhones = [...new Set(phones.map(normalizePhone).filter(Boolean))];
+  if (uniquePhones.length === 0) return new Set<string>();
+
+  const result = await queryPg<{ normalized_phone: string }>(
+    `
+      select distinct ${ADS_NORMALIZED_CONTACT_SQL} as normalized_phone
+      from public.tb_consultation_records
+      where ${ADS_NORMALIZED_CONTACT_SQL} = any($1::text[])
+        and coalesce(consultation_status::text, '') like '%완료%'
+    `,
+    [uniquePhones],
+  );
+
+  return new Set(result.rows.map((row) => normalizePhone(row.normalized_phone)).filter(Boolean));
+};
+
+const buildCampaignOrderMap = (params: {
+  campaigns: MetaCampaignAggregate[];
+  orders: NormalizedLedgerOrder[];
+  adsetCampaignMap?: AdsetCampaignMap;
+  campaignAliasMap?: CampaignAliasMap;
+}) => {
+  const matched = new Map<string, NormalizedLedgerOrder[]>();
+  for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
+    const campaignId = matchCampaignIdForOrder(
+      order,
+      params.campaigns,
+      params.adsetCampaignMap,
+      params.campaignAliasMap,
+    );
+    if (!campaignId) continue;
+    const bucket = matched.get(campaignId) ?? [];
+    bucket.push(order);
+    matched.set(campaignId, bucket);
+  }
+  return matched;
+};
+
+const buildBlockedLtvRows = (campaignRows: CampaignRoasRow[], ltvWindowDays: number, blocker: string) =>
+  campaignRows.map((row): CampaignLtvRoasRow => ({
+    ...row,
+    ltvRevenue: row.attributedRevenue,
+    repeatRevenue: 0,
+    supplementRevenue: 0,
+    ltvRoas: computeRoas(row.attributedRevenue, row.spend, true),
+    matchedCustomers: 0,
+    consultedCustomers: 0,
+    supplementCustomers: 0,
+    identityMatchedOrders: 0,
+    ltvStatus: "blocked",
+    ltvBlocker: `${blocker} (window=${ltvWindowDays}d)`,
+  }));
+
+const buildCampaignLtvRoasRows = async (params: {
+  campaignRows: CampaignRoasRow[];
+  campaigns: MetaCampaignAggregate[];
+  orders: NormalizedLedgerOrder[];
+  range: DateRange;
+  adsetCampaignMap?: AdsetCampaignMap;
+  campaignAliasMap?: CampaignAliasMap;
+  ltvWindowDays: number;
+}): Promise<CampaignLtvRoasRow[]> => {
+  if (!isDatabaseConfigured()) {
+    return buildBlockedLtvRows(params.campaignRows, params.ltvWindowDays, "DATABASE_URL 미설정");
+  }
+
+  const campaignOrderMap = buildCampaignOrderMap({
+    campaigns: params.campaigns,
+    orders: params.orders,
+    adsetCampaignMap: params.adsetCampaignMap,
+    campaignAliasMap: params.campaignAliasMap,
+  });
+  const orderNumbers = [...campaignOrderMap.values()].flat().map((order) => order.orderId);
+  const orderFactsByOrderNumber = await fetchOrderFactsByOrderNumbers(orderNumbers);
+  const phones = [...new Set([...orderFactsByOrderNumber.values()].map((fact) => fact.normalizedPhone))];
+  const futureOrdersByPhone = await fetchOrderFactsByPhones(
+    phones,
+    params.range.startDate,
+    shiftIsoDateByDays(params.range.endDate, params.ltvWindowDays),
+  );
+  const completedConsultationPhones = await fetchCompletedConsultationPhones(phones);
+
+  return params.campaignRows.map((row) => {
+    if (!row.campaignId) {
+      return {
+        ...row,
+        ltvRevenue: row.attributedRevenue,
+        repeatRevenue: 0,
+        supplementRevenue: 0,
+        ltvRoas: null,
+        matchedCustomers: 0,
+        consultedCustomers: 0,
+        supplementCustomers: 0,
+        identityMatchedOrders: 0,
+        ltvStatus: "no_attribution",
+        ltvBlocker: "캠페인 미매핑 버킷",
+      };
+    }
+
+    const campaignOrders = campaignOrderMap.get(row.campaignId) ?? [];
+    if (campaignOrders.length === 0) {
+      return {
+        ...row,
+        ltvRevenue: 0,
+        repeatRevenue: 0,
+        supplementRevenue: 0,
+        ltvRoas: computeRoas(0, row.spend, true),
+        matchedCustomers: 0,
+        consultedCustomers: 0,
+        supplementCustomers: 0,
+        identityMatchedOrders: 0,
+        ltvStatus: "no_attribution",
+        ltvBlocker: "confirmed attribution 주문 없음",
+      };
+    }
+
+    const ordersByPhone = new Map<string, NormalizedLedgerOrder[]>();
+    let identityMatchedOrders = 0;
+    let unmatchedAttributedRevenue = 0;
+
+    for (const order of campaignOrders) {
+      const fact = orderFactsByOrderNumber.get(order.orderId);
+      const phone = fact?.normalizedPhone ?? normalizePhone(order.customerKey);
+      if (!phone) {
+        unmatchedAttributedRevenue += order.amount ?? 0;
+        continue;
+      }
+      identityMatchedOrders += 1;
+      const bucket = ordersByPhone.get(phone) ?? [];
+      bucket.push(order);
+      ordersByPhone.set(phone, bucket);
+    }
+
+    let ltvRevenue = unmatchedAttributedRevenue;
+    let supplementRevenue = 0;
+    let consultedCustomers = 0;
+    let supplementCustomers = 0;
+
+    for (const [phone, orders] of ordersByPhone.entries()) {
+      const anchorDate = orders
+        .map((order) => order.approvedDate)
+        .filter((date): date is string => Boolean(date))
+        .sort()[0] ?? params.range.startDate;
+      const attributedRevenueForPhone = orders.reduce((sum, order) => sum + (order.amount ?? 0), 0);
+      const windowEnd = shiftIsoDateByDays(anchorDate, params.ltvWindowDays);
+      const ltvOrders = (futureOrdersByPhone.get(phone) ?? []).filter(
+        (order) => order.orderDate >= anchorDate && order.orderDate <= windowEnd,
+      );
+      const phoneLtvRevenue = ltvOrders.reduce((sum, order) => sum + order.netRevenue, 0);
+      const phoneSupplementRevenue = ltvOrders
+        .filter((order) => order.productCategories.has("supplement"))
+        .reduce((sum, order) => sum + order.netRevenue, 0);
+
+      ltvRevenue += Math.max(phoneLtvRevenue, attributedRevenueForPhone);
+      supplementRevenue += phoneSupplementRevenue;
+      if (phoneSupplementRevenue > 0) supplementCustomers += 1;
+      if (completedConsultationPhones.has(phone)) consultedCustomers += 1;
+    }
+
+    const roundedLtvRevenue = round2(ltvRevenue);
+    const repeatRevenue = Math.max(0, roundedLtvRevenue - row.attributedRevenue);
+    const matchedCustomers = ordersByPhone.size;
+    const ltvStatus: CampaignLtvRoasRow["ltvStatus"] =
+      matchedCustomers === 0
+        ? "identity_missing"
+        : identityMatchedOrders < 2 || row.attributedRevenue < 500_000
+          ? "low_sample"
+          : "ready";
+
+    return {
+      ...row,
+      ltvRevenue: roundedLtvRevenue,
+      repeatRevenue: round2(repeatRevenue),
+      supplementRevenue: round2(supplementRevenue),
+      ltvRoas: computeRoas(roundedLtvRevenue, row.spend, true),
+      matchedCustomers,
+      consultedCustomers,
+      supplementCustomers,
+      identityMatchedOrders,
+      ltvStatus,
+      ltvBlocker:
+        ltvStatus === "identity_missing"
+          ? "order_number/customer phone 매칭 실패"
+          : ltvStatus === "low_sample"
+            ? "표본 부족: confirmed 2건 이상 또는 ₩500,000 이상 필요"
+            : null,
+    };
+  });
 };
 
 export const buildDailyRoasRows = (params: {
@@ -1177,7 +1723,8 @@ export const createAdsRouter = () => {
         return;
       }
 
-      const [metaResult, ledger] = await Promise.all([
+      const siteAccount = findSiteAccountByAccountId(accountId);
+      const [metaResult, adsetCampaigns, aliasCampaigns, ledger] = await Promise.all([
         fetchMetaInsights({
           accountId,
           fields: "campaign_name,campaign_id,impressions,clicks,spend",
@@ -1187,6 +1734,8 @@ export const createAdsRouter = () => {
           actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
           useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
         }),
+        fetchMetaAdsetCampaignMap(accountId),
+        fetchManualVerifiedAliasMap(siteAccount?.site ?? null),
         loadLedgerOrders(),
       ]);
 
@@ -1200,6 +1749,8 @@ export const createAdsRouter = () => {
         metaRows: metaResult.data,
         orders: filteredOrders,
         ledgerAvailable: ledger.entries.length > 0,
+        adsetCampaignMap: adsetCampaigns.map,
+        campaignAliasMap: aliasCampaigns.map,
       });
       const totalSpend = round2(campaigns.reduce((sum, row) => sum + row.spend, 0));
       const totalAttributedRevenue = round2(campaigns.reduce((sum, row) => sum + row.attributedRevenue, 0));
@@ -1211,6 +1762,8 @@ export const createAdsRouter = () => {
         date_preset: datePreset,
         range,
         meta_reference: buildMetaReference(),
+        adset_mapping_error: adsetCampaigns.error,
+        alias_mapping_error: aliasCampaigns.error,
         campaigns,
         summary: {
           spend: totalSpend,
@@ -1223,6 +1776,101 @@ export const createAdsRouter = () => {
       res.status(500).json({
         ok: false,
         error: error instanceof Error ? error.message : "ads roas failed",
+      });
+    }
+  });
+
+  router.get("/api/ads/campaign-ltv-roas", async (req: Request, res: Response) => {
+    try {
+      const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
+      if (!accountId) {
+        res.status(400).json({ ok: false, error: "account_id 필요" });
+        return;
+      }
+
+      const datePreset = typeof req.query.date_preset === "string"
+        ? req.query.date_preset.trim()
+        : ADS_DEFAULT_DATE_PRESET;
+      const range = resolveDatePresetRange(datePreset);
+      if (!range) {
+        res.status(400).json({ ok: false, error: `지원하지 않는 date_preset: ${datePreset}` });
+        return;
+      }
+      const ltvWindowDays = Math.min(
+        365,
+        Math.max(30, Number.parseInt(typeof req.query.ltv_window_days === "string" ? req.query.ltv_window_days : "180", 10) || 180),
+      );
+
+      const siteAccount = findSiteAccountByAccountId(accountId);
+      const [metaResult, adsetCampaigns, aliasCampaigns, ledger] = await Promise.all([
+        fetchMetaInsights({
+          accountId,
+          fields: "campaign_name,campaign_id,impressions,clicks,spend",
+          level: "campaign",
+          datePreset,
+          limit: "100",
+          actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
+          useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
+        }),
+        fetchMetaAdsetCampaignMap(accountId),
+        fetchManualVerifiedAliasMap(siteAccount?.site ?? null),
+        loadLedgerOrders(),
+      ]);
+
+      if (!metaResult.ok) {
+        res.status(502).json(metaResult);
+        return;
+      }
+
+      const filteredOrders = filterOrdersByRange(filterOrdersForAccount(ledger.orders, accountId), range);
+      const campaigns = aggregateMetaCampaigns(metaResult.data);
+      const campaignRoasRows = buildCampaignRoasRows({
+        metaRows: metaResult.data,
+        orders: filteredOrders,
+        ledgerAvailable: ledger.entries.length > 0,
+        adsetCampaignMap: adsetCampaigns.map,
+        campaignAliasMap: aliasCampaigns.map,
+      });
+      const rows = await buildCampaignLtvRoasRows({
+        campaignRows: campaignRoasRows,
+        campaigns,
+        orders: filteredOrders,
+        range,
+        adsetCampaignMap: adsetCampaigns.map,
+        campaignAliasMap: aliasCampaigns.map,
+        ltvWindowDays,
+      });
+
+      const mappedRows = rows.filter((row) => row.campaignId);
+      res.json({
+        ok: true,
+        account_id: accountId,
+        date_preset: datePreset,
+        range,
+        ltv_window_days: ltvWindowDays,
+        ltv_definition: "campaign에 귀속된 confirmed 주문 고객을 order_number/customer_number로 조인하고, anchor date 이후 LTV window 안의 전체 후속 주문 매출을 포함한다.",
+        adset_mapping_error: adsetCampaigns.error,
+        alias_mapping_error: aliasCampaigns.error,
+        rows,
+        summary: {
+          spend: round2(mappedRows.reduce((sum, row) => sum + row.spend, 0)),
+          attributedRevenue: round2(mappedRows.reduce((sum, row) => sum + row.attributedRevenue, 0)),
+          ltvRevenue: round2(mappedRows.reduce((sum, row) => sum + row.ltvRevenue, 0)),
+          repeatRevenue: round2(mappedRows.reduce((sum, row) => sum + row.repeatRevenue, 0)),
+          supplementRevenue: round2(mappedRows.reduce((sum, row) => sum + row.supplementRevenue, 0)),
+          ltvRoas: computeRoas(
+            mappedRows.reduce((sum, row) => sum + row.ltvRevenue, 0),
+            mappedRows.reduce((sum, row) => sum + row.spend, 0),
+            ledger.entries.length > 0,
+          ),
+          readyCampaigns: mappedRows.filter((row) => row.ltvStatus === "ready").length,
+          blockedCampaigns: mappedRows.filter((row) => row.ltvStatus === "blocked" || row.ltvStatus === "identity_missing").length,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: error instanceof Error ? error.message : "campaign ltv roas failed",
       });
     }
   });

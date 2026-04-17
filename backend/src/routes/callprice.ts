@@ -14,6 +14,7 @@ import {
   fetchCallpriceSubscriptionStatus,
   fetchCallpriceSupplementRepeatPattern,
   fetchCallpriceSupplementPurchaseTiming,
+  fetchSupplementFirstLtv,
   parseCallpriceMaturityDays,
   resolveCallpriceDateRange,
   type CallpriceBaselineScope,
@@ -477,6 +478,20 @@ export const createCallpriceRouter = () => {
           ? error.message
           : "Failed to load callprice supplement repeat pattern";
       res.status(500).json({ error: "callprice_supplement_repeat_pattern_error", message });
+    }
+  });
+
+  router.get("/api/callprice/supplement-first-ltv", async (req: Request, res: Response) => {
+    try {
+      res.json(
+        await fetchSupplementFirstLtv({
+          startDate: pickFirstString(req.query.start_date, req.query.startDate) || undefined,
+          endDate: pickFirstString(req.query.end_date, req.query.endDate) || undefined,
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load supplement-first LTV";
+      res.status(500).json({ error: "supplement_first_ltv_error", message });
     }
   });
 

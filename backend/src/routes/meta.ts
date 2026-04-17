@@ -635,6 +635,10 @@ export const createMetaRouter = () => {
           purchase_roas: pickRoasValue(r.purchase_roas),
           website_purchase_roas: pickRoasValue(r.website_purchase_roas),
           purchase_windows: purchaseWindows,
+          // CAPI 퍼널 이벤트
+          view_content: actions["offsite_conversion.fb_pixel_view_content"] ?? actions.view_content ?? 0,
+          add_to_cart: actions["offsite_conversion.fb_pixel_add_to_cart"] ?? actions.add_to_cart ?? 0,
+          initiate_checkout: actions["offsite_conversion.fb_pixel_initiate_checkout"] ?? actions.initiate_checkout ?? 0,
         };
       });
 

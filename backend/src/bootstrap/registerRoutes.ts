@@ -1,6 +1,7 @@
 import { type Application, type Request, type Response } from "express";
 
 import { errorHandler } from "../middleware/errorHandler";
+import { createAcquisitionRouter } from "../routes/acquisition";
 import { createAiRouter } from "../routes/ai";
 import { createAligoRouter } from "../routes/aligo";
 import { createAttributionRouter } from "../routes/attribution";
@@ -28,6 +29,7 @@ export const registerRoutes = (app: Application) => {
   app.use(createMetaRouter());
   app.use(createMetaCapiRouter());
   app.use(createAligoRouter());
+  app.use(createAcquisitionRouter());
   app.use(createAttributionRouter());
   app.use(createCallpriceRouter());
   app.use(createCrmPhase1Router());

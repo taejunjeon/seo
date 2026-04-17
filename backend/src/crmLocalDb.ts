@@ -40,6 +40,8 @@ export function getCrmDb(): Database.Database {
     ensureColumn(db, "imweb_members", "site", "TEXT DEFAULT 'biocom'");
     ensureColumn(db, "imweb_members", "birth", "TEXT DEFAULT ''");
     ensureColumn(db, "crm_scheduled_send", "template_type", "TEXT DEFAULT NULL");
+    ensureColumn(db, "imweb_orders", "imweb_status", "TEXT DEFAULT NULL");
+    ensureColumn(db, "imweb_orders", "imweb_status_synced_at", "TEXT DEFAULT NULL");
     ensureCustomerGroupLifecycleColumns(db);
     backfillCustomerGroupKinds(db);
   }

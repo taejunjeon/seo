@@ -3114,3 +3114,247 @@ export const parseCallpriceMaturityDays = (value: unknown, fallback: CallpriceMa
   const parsed = Number.parseInt(value, 10);
   return isValidMaturityDays(parsed) ? parsed : null;
 };
+
+// ═══════════════════════════════════════════════════════════════
+// 영양제 첫구매 고객 LTV 분석
+// ═══════════════════════════════════════════════════════════════
+
+type SupplementFirstLtvSegment = {
+  segment: "supplement_first" | "test_kit_first" | "other_first";
+  label: string;
+  customerCount: number;
+  totalOrders: number;
+  totalRevenue: number;
+  avgOrdersPerCustomer: number;
+  avgRevenuePerCustomer: number;
+  avgFirstOrderValue: number;
+  repeatPurchaseRate: number; // 2회 이상 구매 비율
+  repeatCustomers: number;
+  avgRepeatRevenue: number; // 첫 구매 제외 추가 매출 평균
+  ltvWindows: Array<{
+    days: number;
+    avgRevenue: number;
+    repeatRate: number;
+    avgOrders: number;
+  }>;
+  topRepeatProducts: Array<{ product: string; count: number }>;
+  topFirstProducts: Array<{ product: string; count: number }>; // 첫구매 상품 Top
+  topFirstProductsByYear: Array<{ year: string; products: Array<{ product: string; count: number }> }>;
+  conversionToTest: number | null; // 영양제-먼저 → 이후 검사 구매 비율 (supplement_first만)
+};
+
+export const fetchSupplementFirstLtv = async (params: {
+  startDate?: string;
+  endDate?: string;
+}): Promise<{ ok: true; data: { segments: SupplementFirstLtvSegment[]; notes: string[]; queryDate: string } }> => {
+  const endDate = params.endDate || new Date().toISOString().slice(0, 10);
+  const startDate = params.startDate || shiftIsoDateByYears(endDate, -2);
+  const notes: string[] = [];
+
+  // 1. 전체 주문 가져오기 (고객별 상품 카테고리 포함)
+  const ordersResult = await queryPg<{
+    normalized_phone: string;
+    order_date: string;
+    net_revenue: number | string;
+    product_name: string;
+  }>(
+    `
+      select
+        ${NORMALIZED_PHONE_SQL} as normalized_phone,
+        ${ORDER_DATE_SQL}::text as order_date,
+        ${ORDER_REVENUE_SQL} as net_revenue,
+        coalesce(nullif(trim(product_name), ''), '미분류') as product_name
+      from public.tb_iamweb_users
+      where ${NORMALIZED_PHONE_SQL} <> ''
+        and ${ORDER_DATE_SQL} is not null
+        and ${ORDER_DATE_SQL} >= $1::date
+        and ${ORDER_DATE_SQL} <= $2::date
+        and ${ORDER_REVENUE_SQL} > 0
+        and (cancellation_reason is null or trim(cancellation_reason::text) in ('', 'nan'))
+        and (return_reason is null or trim(return_reason::text) in ('', 'nan'))
+      order by ${NORMALIZED_PHONE_SQL} asc, ${ORDER_DATE_SQL} asc
+    `,
+    [startDate, endDate],
+  );
+
+  // 2. 고객별로 그룹핑
+  const customerOrders = new Map<string, Array<{
+    orderDate: string;
+    netRevenue: number;
+    productName: string;
+    category: "test_kit" | "supplement" | "other";
+  }>>();
+
+  for (const row of ordersResult.rows) {
+    const phone = row.normalized_phone?.trim();
+    if (!phone || phone.length < 10) continue;
+    const orderDate = row.order_date ? String(row.order_date).slice(0, 10) : null;
+    if (!orderDate) continue;
+
+    const orders = customerOrders.get(phone) ?? [];
+    orders.push({
+      orderDate,
+      netRevenue: typeof row.net_revenue === "string" ? Number(row.net_revenue) : (row.net_revenue ?? 0),
+      productName: row.product_name,
+      category: categorizeProductName(row.product_name),
+    });
+    customerOrders.set(phone, orders);
+  }
+
+  notes.push(`총 고객 수: ${customerOrders.size}명, 주문 수: ${ordersResult.rows.length}건 (${startDate} ~ ${endDate})`);
+
+  // 3. 첫 구매 카테고리 기준으로 세그먼트 분류
+  const segments: Record<string, {
+    customers: Array<{
+      phone: string;
+      firstOrderDate: string;
+      firstOrderValue: number;
+      firstCategory: string;
+      orders: typeof customerOrders extends Map<string, infer V> ? V : never;
+    }>;
+  }> = {
+    supplement_first: { customers: [] },
+    test_kit_first: { customers: [] },
+    other_first: { customers: [] },
+  };
+
+  for (const [phone, orders] of customerOrders) {
+    if (orders.length === 0) continue;
+    // 첫 주문의 카테고리로 세그먼트 결정
+    const first = orders[0];
+    const segKey = first.category === "supplement" ? "supplement_first"
+      : first.category === "test_kit" ? "test_kit_first"
+      : "other_first";
+    segments[segKey].customers.push({
+      phone,
+      firstOrderDate: first.orderDate,
+      firstOrderValue: first.netRevenue,
+      firstCategory: first.category,
+      orders,
+    });
+  }
+
+  // 4. 각 세그먼트별 LTV 메트릭 계산
+  const LTV_WINDOWS = [30, 90, 180, 365];
+  const result: SupplementFirstLtvSegment[] = [];
+
+  for (const [segKey, seg] of Object.entries(segments)) {
+    if (seg.customers.length === 0) continue;
+
+    const customerCount = seg.customers.length;
+    let totalOrders = 0;
+    let totalRevenue = 0;
+    let totalFirstOrderValue = 0;
+    let repeatCustomers = 0;
+    let totalRepeatRevenue = 0;
+    let testConversions = 0;
+    const firstProductCounts = new Map<string, number>();
+    const firstProductByYear = new Map<string, Map<string, number>>();
+
+    // LTV window accumulators
+    const windowStats = LTV_WINDOWS.map(() => ({ totalRevenue: 0, totalOrders: 0, repeatCustomers: 0, eligibleCustomers: 0 }));
+
+    // Top repeat products
+    const productCounts = new Map<string, number>();
+
+    for (const cust of seg.customers) {
+      const orders = cust.orders;
+      totalOrders += orders.length;
+      const custRevenue = orders.reduce((s, o) => s + o.netRevenue, 0);
+      totalRevenue += custRevenue;
+      totalFirstOrderValue += cust.firstOrderValue;
+
+      if (orders.length > 1) {
+        repeatCustomers++;
+        totalRepeatRevenue += custRevenue - cust.firstOrderValue;
+      }
+
+      // 영양제-먼저 → 검사 전환 체크
+      if (segKey === "supplement_first") {
+        const hasTest = orders.some((o, i) => i > 0 && o.category === "test_kit");
+        if (hasTest) testConversions++;
+      }
+
+      // LTV window 계산
+      const firstDate = new Date(cust.firstOrderDate);
+      for (let wi = 0; wi < LTV_WINDOWS.length; wi++) {
+        const windowEnd = new Date(firstDate.getTime() + LTV_WINDOWS[wi] * 86400000);
+        const cutoffDate = new Date(endDate);
+        // 윈도우가 아직 안 끝난 고객 제외
+        if (windowEnd > cutoffDate) continue;
+        windowStats[wi].eligibleCustomers++;
+        const windowOrders = orders.filter((o) => new Date(o.orderDate) <= windowEnd);
+        windowStats[wi].totalRevenue += windowOrders.reduce((s, o) => s + o.netRevenue, 0);
+        windowStats[wi].totalOrders += windowOrders.length;
+        if (windowOrders.length > 1) windowStats[wi].repeatCustomers++;
+      }
+
+      // 반복 구매 상품 집계 (첫 주문 제외)
+      for (let i = 1; i < orders.length; i++) {
+        const name = orders[i].productName;
+        productCounts.set(name, (productCounts.get(name) ?? 0) + 1);
+      }
+
+      // 첫구매 상품 집계
+      firstProductCounts.set(cust.orders[0].productName, (firstProductCounts.get(cust.orders[0].productName) ?? 0) + 1);
+      const year = cust.firstOrderDate.slice(0, 4);
+      const yearMap = firstProductByYear.get(year) ?? new Map<string, number>();
+      yearMap.set(cust.orders[0].productName, (yearMap.get(cust.orders[0].productName) ?? 0) + 1);
+      firstProductByYear.set(year, yearMap);
+    }
+
+    const topRepeatProducts = [...productCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([product, count]) => ({ product, count }));
+
+    const topFirstProducts = [...firstProductCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([product, count]) => ({ product, count }));
+
+    const topFirstProductsByYear = [...firstProductByYear.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([year, prods]) => ({
+        year,
+        products: [...prods.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([product, count]) => ({ product, count })),
+      }));
+
+    const label = segKey === "supplement_first" ? "영양제 첫구매"
+      : segKey === "test_kit_first" ? "검사권 첫구매"
+      : "기타 첫구매";
+
+    result.push({
+      segment: segKey as SupplementFirstLtvSegment["segment"],
+      label,
+      customerCount,
+      totalOrders,
+      totalRevenue,
+      avgOrdersPerCustomer: customerCount > 0 ? totalOrders / customerCount : 0,
+      avgRevenuePerCustomer: customerCount > 0 ? totalRevenue / customerCount : 0,
+      avgFirstOrderValue: customerCount > 0 ? totalFirstOrderValue / customerCount : 0,
+      repeatPurchaseRate: customerCount > 0 ? repeatCustomers / customerCount : 0,
+      repeatCustomers,
+      avgRepeatRevenue: repeatCustomers > 0 ? totalRepeatRevenue / repeatCustomers : 0,
+      ltvWindows: LTV_WINDOWS.map((days, wi) => ({
+        days,
+        avgRevenue: windowStats[wi].eligibleCustomers > 0 ? windowStats[wi].totalRevenue / windowStats[wi].eligibleCustomers : 0,
+        repeatRate: windowStats[wi].eligibleCustomers > 0 ? windowStats[wi].repeatCustomers / windowStats[wi].eligibleCustomers : 0,
+        avgOrders: windowStats[wi].eligibleCustomers > 0 ? windowStats[wi].totalOrders / windowStats[wi].eligibleCustomers : 0,
+      })),
+      topRepeatProducts,
+      topFirstProducts,
+      topFirstProductsByYear,
+      conversionToTest: segKey === "supplement_first" ? (customerCount > 0 ? testConversions / customerCount : 0) : null,
+    });
+  }
+
+  return {
+    ok: true,
+    data: {
+      segments: result.sort((a, b) => b.customerCount - a.customerCount),
+      notes,
+      queryDate: endDate,
+    },
+  };
+};

@@ -1,5 +1,6 @@
 import express, { type Request, type Response } from "express";
 
+import { buildAcquisitionSummaryReport } from "../acquisitionAnalysis";
 import {
   appendLedgerEntry,
   type AttributionLedgerEntry,
@@ -131,6 +132,15 @@ const STATUS_RANK: Record<AttributionPaymentStatus, number> = {
 };
 const TOSS_BASE_URL = "https://api.tosspayments.com";
 const TOSS_DIRECT_FALLBACK_TIMEOUT_MS = 10000;
+const OPERATIONAL_ATTRIBUTION_BASE_URL =
+  process.env.ATTRIBUTION_OPERATIONAL_BASE_URL?.trim() || "https://att.ainativeos.net";
+const ACQUISITION_REMOTE_LEDGER_SOURCES = [
+  "biocom_imweb",
+  "thecleancoffee_imweb",
+  "aibio_imweb",
+] as const;
+const ACQUISITION_REMOTE_LEDGER_LIMIT = 200;
+const ACQUISITION_REMOTE_LEDGER_TIMEOUT_MS = 15000;
 
 const parsePositiveInt = (value: unknown, fallback: number, max: number) => {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number.NaN;
@@ -287,6 +297,129 @@ const parseTossPaymentDetail = (body: unknown): TossPaymentDetail => {
     method: typeof body.method === "string" ? body.method : undefined,
     totalAmount: typeof body.totalAmount === "number" ? body.totalAmount : undefined,
   };
+};
+
+const readStringField = (record: Record<string, unknown>, key: string) => {
+  const raw = record[key];
+  return typeof raw === "string" ? raw.trim() : "";
+};
+
+const normalizeRemoteTouchpoint = (value: unknown): AttributionLedgerEntry["touchpoint"] | null => {
+  if (value === "checkout_started" || value === "payment_success" || value === "form_submit") {
+    return value;
+  }
+  return null;
+};
+
+const normalizeRemoteCaptureMode = (value: unknown): AttributionLedgerEntry["captureMode"] => {
+  if (value === "replay" || value === "smoke") return value;
+  return "live";
+};
+
+const normalizeRemotePaymentStatus = (value: unknown): AttributionLedgerEntry["paymentStatus"] => {
+  if (value === "pending" || value === "confirmed" || value === "canceled") return value;
+  return null;
+};
+
+const normalizeRemoteLedgerEntry = (value: unknown): AttributionLedgerEntry | null => {
+  if (!isRecord(value)) return null;
+
+  const touchpoint = normalizeRemoteTouchpoint(value.touchpoint);
+  const loggedAt = readStringField(value, "loggedAt");
+  if (!touchpoint || !loggedAt) return null;
+
+  const metadata = isRecord(value.metadata) ? value.metadata : {};
+  const requestContext = isRecord(value.requestContext) ? value.requestContext : {};
+
+  return {
+    touchpoint,
+    captureMode: normalizeRemoteCaptureMode(value.captureMode),
+    paymentStatus: normalizeRemotePaymentStatus(value.paymentStatus),
+    loggedAt,
+    orderId: readStringField(value, "orderId"),
+    paymentKey: readStringField(value, "paymentKey"),
+    approvedAt: readStringField(value, "approvedAt"),
+    checkoutId: readStringField(value, "checkoutId"),
+    customerKey: readStringField(value, "customerKey"),
+    landing: readStringField(value, "landing"),
+    referrer: readStringField(value, "referrer"),
+    gaSessionId: readStringField(value, "gaSessionId"),
+    utmSource: readStringField(value, "utmSource"),
+    utmMedium: readStringField(value, "utmMedium"),
+    utmCampaign: readStringField(value, "utmCampaign"),
+    utmTerm: readStringField(value, "utmTerm"),
+    utmContent: readStringField(value, "utmContent"),
+    gclid: readStringField(value, "gclid"),
+    fbclid: readStringField(value, "fbclid"),
+    ttclid: readStringField(value, "ttclid"),
+    metadata,
+    requestContext: {
+      ip: readStringField(requestContext, "ip"),
+      userAgent: readStringField(requestContext, "userAgent"),
+      origin: readStringField(requestContext, "origin"),
+      requestReferer: readStringField(requestContext, "requestReferer"),
+      method: readStringField(requestContext, "method"),
+      path: readStringField(requestContext, "path"),
+    },
+  };
+};
+
+const buildRemoteLedgerUrl = (source: string) => {
+  const url = new URL("/api/attribution/ledger", OPERATIONAL_ATTRIBUTION_BASE_URL);
+  url.searchParams.set("source", source);
+  url.searchParams.set("limit", String(ACQUISITION_REMOTE_LEDGER_LIMIT));
+  return url.toString();
+};
+
+const buildLedgerDedupeKey = (entry: AttributionLedgerEntry) =>
+  [
+    entry.touchpoint,
+    entry.loggedAt,
+    entry.orderId,
+    entry.paymentKey,
+    entry.checkoutId,
+    entry.landing,
+    typeof entry.metadata.source === "string" ? entry.metadata.source : "",
+    typeof entry.metadata.formId === "string" ? entry.metadata.formId : "",
+  ].join("|");
+
+const fetchRemoteLedgerEntriesForAcquisition = async () => {
+  const entries: AttributionLedgerEntry[] = [];
+  const warnings: string[] = [];
+  const seen = new Set<string>();
+
+  for (const source of ACQUISITION_REMOTE_LEDGER_SOURCES) {
+    try {
+      const response = await fetch(buildRemoteLedgerUrl(source), {
+        signal: AbortSignal.timeout(ACQUISITION_REMOTE_LEDGER_TIMEOUT_MS),
+      });
+      const body = await response.json() as unknown;
+      const items = isRecord(body) && Array.isArray(body.items) ? body.items : [];
+      if (!response.ok || !isRecord(body) || body.ok !== true) {
+        warnings.push(`${source} 운영 원장 응답 확인 필요: HTTP ${response.status}`);
+        continue;
+      }
+
+      for (const item of items) {
+        const entry = normalizeRemoteLedgerEntry(item);
+        if (!entry) continue;
+        const key = buildLedgerDedupeKey(entry);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        entries.push(entry);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`${source} 운영 원장 조회 실패: ${message}`);
+    }
+  }
+
+  return { entries, warnings };
+};
+
+const shouldUseRemoteAcquisitionLedger = (value: unknown) => {
+  const dataSource = readOne(value).toLowerCase();
+  return ["vm", "remote", "operational", "operation"].includes(dataSource);
 };
 
 const toTossDirectJoinRow = (
@@ -919,6 +1052,79 @@ const parseBody = (body: unknown): Record<string, unknown> => {
   return (body as Record<string, unknown>) ?? {};
 };
 
+/**
+ * Origin ↔ source 정합성 가드 (2026-04-15 신설)
+ *
+ * 배경: 2026-04-14 biocom footer 가 coffee 라벨 템플릿으로 교체되어 biocom.kr
+ * 에서 발생한 이벤트 276건이 source='thecleancoffee_imweb' 로 오염되는 사건
+ * 이 발생. 아래 매핑은 origin 별 정답 source 를 강제하여 향후 footer 에서 또
+ * 다른 라벨 오염이 생기면 서버에서 즉시 auto-correct + warn log 남김.
+ *
+ * 정책: 화이트리스트에 있는 origin 이면 source 를 해당 매핑으로 덮어쓴다.
+ * 화이트리스트에 없는 origin (CRON, curl test, localhost 등) 은 그대로 통과.
+ */
+const ORIGIN_SOURCE_MAP: Record<string, string> = {
+  "https://biocom.kr": "biocom_imweb",
+  "https://www.biocom.kr": "biocom_imweb",
+  "https://biocom.imweb.me": "biocom_imweb",
+  "https://thecleancoffee.com": "thecleancoffee_imweb",
+  "https://www.thecleancoffee.com": "thecleancoffee_imweb",
+  "https://thecleancoffee.imweb.me": "thecleancoffee_imweb",
+  "https://aibio.ai": "aibio_imweb",
+  "https://www.aibio.ai": "aibio_imweb",
+};
+
+type OriginSourceGuardResult =
+  | { status: "clean"; expected: string; received: string }
+  | { status: "corrected"; expected: string; received: string }
+  | { status: "unknown_origin"; received: string }
+  | { status: "no_source_field"; received: "" };
+
+const enforceOriginSourceMatch = (
+  req: Request,
+  body: Record<string, unknown>,
+  touchpoint: string,
+): OriginSourceGuardResult => {
+  const originRaw = typeof req.headers.origin === "string" ? req.headers.origin : "";
+  const originKey = originRaw.replace(/\/$/, "").toLowerCase();
+  const expected = ORIGIN_SOURCE_MAP[originKey];
+  const receivedRaw = typeof body.source === "string" ? body.source.trim() : "";
+
+  if (!expected) {
+    return { status: "unknown_origin", received: receivedRaw };
+  }
+
+  if (!receivedRaw) {
+    // body.source 가 비어 있으면 origin 기준으로 채워 넣는다.
+    body.source = expected;
+    if (body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)) {
+      (body.metadata as Record<string, unknown>).source = expected;
+    }
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[attribution-origin-guard] source 미지정 → origin 기반 자동 설정: ` +
+        `touchpoint=${touchpoint} origin=${originRaw} expected=${expected}`,
+    );
+    return { status: "corrected", expected, received: "" };
+  }
+
+  if (receivedRaw === expected) {
+    return { status: "clean", expected, received: receivedRaw };
+  }
+
+  // Mismatch detected — auto-correct
+  body.source = expected;
+  if (body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)) {
+    (body.metadata as Record<string, unknown>).source = expected;
+  }
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[attribution-origin-guard] source 불일치 자동 보정: ` +
+      `touchpoint=${touchpoint} origin=${originRaw} received="${receivedRaw}" → "${expected}"`,
+  );
+  return { status: "corrected", expected, received: receivedRaw };
+};
+
 export const findDuplicateFormSubmitEntry = (
   entries: AttributionLedgerEntry[],
   body: Record<string, unknown>,
@@ -958,6 +1164,7 @@ export const createAttributionRouter = () => {
   router.post("/api/attribution/form-submit", async (req: Request, res: Response) => {
     try {
       const body = parseBody(req.body);
+      enforceOriginSourceMatch(req, body, "form_submit");
       const entry = buildLedgerEntry("form_submit", body, buildRequestContext(req));
 
       const existing = await readLedgerEntries();
@@ -987,7 +1194,9 @@ export const createAttributionRouter = () => {
 
   router.post("/api/attribution/checkout-context", async (req: Request, res: Response) => {
     try {
-      const entry = buildLedgerEntry("checkout_started", parseBody(req.body), buildRequestContext(req));
+      const body = parseBody(req.body);
+      enforceOriginSourceMatch(req, body, "checkout_started");
+      const entry = buildLedgerEntry("checkout_started", body, buildRequestContext(req));
       const ledgerPath = await appendLedgerEntry(entry);
       res.status(201).json({
         ok: true,
@@ -1003,7 +1212,9 @@ export const createAttributionRouter = () => {
 
   router.post("/api/attribution/payment-success", async (req: Request, res: Response) => {
     try {
-      const entry = buildLedgerEntry("payment_success", parseBody(req.body), buildRequestContext(req));
+      const body = parseBody(req.body);
+      enforceOriginSourceMatch(req, body, "payment_success");
+      const entry = buildLedgerEntry("payment_success", body, buildRequestContext(req));
 
       // 중복 방지: 같은 orderId가 최근 5분 내에 이미 적재되었으면 skip
       if (entry.orderId) {
@@ -1148,6 +1359,39 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "attribution ledger read failed";
       res.status(500).json({ ok: false, error: "attribution_ledger_read_error", message });
+    }
+  });
+
+  router.get("/api/attribution/acquisition-summary", async (req: Request, res: Response) => {
+    try {
+      const rangeDays = parsePositiveInt(req.query.rangeDays, 30, 365);
+      const useRemoteLedger = shouldUseRemoteAcquisitionLedger(req.query.dataSource);
+      const remoteWarnings: string[] = [];
+      let allEntries = await readLedgerEntries();
+      let dataSource = "local_ledger";
+
+      if (useRemoteLedger) {
+        const remoteLedger = await fetchRemoteLedgerEntriesForAcquisition();
+        remoteWarnings.push(...remoteLedger.warnings);
+        if (remoteLedger.entries.length > 0) {
+          allEntries = remoteLedger.entries;
+          dataSource = "operational_vm_ledger";
+        } else {
+          remoteWarnings.push("운영 VM 원장 row를 가져오지 못해 로컬 원장으로 fallback했다.");
+        }
+      }
+
+      const report = buildAcquisitionSummaryReport(allEntries, { rangeDays });
+
+      res.json({
+        ok: true,
+        dataSource,
+        remoteWarnings,
+        ...report,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "acquisition summary failed";
+      res.status(500).json({ ok: false, error: "attribution_acquisition_summary_error", message });
     }
   });
 

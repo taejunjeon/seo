@@ -495,6 +495,64 @@ export const createCrmLocalRouter = () => {
     };
   };
 
+  // Imweb 주문관리 v2 status 필터 — 2026-04-15 확인:
+  // 응답 body에는 status 필드가 없으므로, 각 status로 list 모드 호출하고 반환된 order_no를 그 status로 라벨링한다.
+  // 이게 Imweb v2 legacy API에서 "구매 확정" 등 라이프사이클 상태를 로컬에 가져오는 유일한 경로.
+  const IMWEB_STATUS_VALUES = [
+    "PAY_WAIT",
+    "PAY_COMPLETE",
+    "STANDBY",
+    "DELIVERING",
+    "COMPLETE",
+    "PURCHASE_CONFIRMATION",
+    "CANCEL",
+    "RETURN",
+    "EXCHANGE",
+  ] as const;
+  type ImwebStatus = (typeof IMWEB_STATUS_VALUES)[number];
+
+  const fetchImwebOrdersByStatusOnce = async (
+    token: string,
+    status: ImwebStatus,
+    page: number,
+    limit = 100,
+  ) => {
+    const res = await fetch(
+      `https://api.imweb.me/v2/shop/orders?status=${encodeURIComponent(status)}&offset=${page}&limit=${limit}`,
+      { headers: { "Content-Type": "application/json", "access-token": token } },
+    );
+    const data = (await res.json()) as {
+      code?: number;
+      msg?: string;
+      data?: {
+        list?: Array<Record<string, unknown>>;
+        pagenation?: { data_count?: string | number; total_page?: string | number };
+      };
+    };
+    return {
+      list: data.data?.list ?? [],
+      totalCount: Number.parseInt(String(data.data?.pagenation?.data_count ?? "0"), 10),
+      totalPage: Number.parseInt(String(data.data?.pagenation?.total_page ?? "0"), 10),
+      error: data.code && data.code !== 200 ? data.msg ?? `status=${status} code ${data.code}` : null,
+    };
+  };
+
+  const fetchImwebOrdersByStatus = async (
+    token: string,
+    status: ImwebStatus,
+    page: number,
+    limit = 100,
+  ) => {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const result = await fetchImwebOrdersByStatusOnce(token, status, page, limit);
+      if (!result.error) return result;
+      const upper = result.error.toUpperCase();
+      if (!upper.includes("TOO MANY REQUEST") && !upper.includes("429")) return result;
+      await wait(1500 + attempt * 800);
+    }
+    return fetchImwebOrdersByStatusOnce(token, status, page, limit);
+  };
+
   const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
   const fetchImwebCouponMastersPage = async (token: string, page: number, limit = 100) => {
@@ -716,6 +774,84 @@ export const createCrmLocalRouter = () => {
     }
 
     return { site: cfg.site, synced: totalSynced, totalCount, totalPage, error: null };
+  };
+
+  // imweb_orders.imweb_status 컬럼을 Imweb v2 status 필터 기반 list 호출로 채운다.
+  // 응답 body에 status가 없는 제약 때문에 "status로 필터한 결과에 나온 order_no = 그 status"로 간접 라벨링한다.
+  const syncOneSiteOrderStatuses = async (cfg: ImwebSiteConfig, pageLimit = 100) => {
+    const token = await fetchImwebToken(cfg.key, cfg.secret);
+    if (!token) {
+      return {
+        site: cfg.site,
+        ok: false,
+        error: "토큰 발급 실패",
+        statusCounts: {} as Record<string, number>,
+        updatedRows: 0,
+      };
+    }
+
+    const db = getCrmDb();
+    const updateStmt = db.prepare(`
+      UPDATE imweb_orders
+      SET imweb_status = @imweb_status, imweb_status_synced_at = datetime('now')
+      WHERE site = @site AND order_no = @order_no
+    `);
+    const txn = db.transaction((rows: Array<{ site: string; order_no: string; imweb_status: string }>) => {
+      for (const row of rows) updateStmt.run(row);
+    });
+
+    const statusCounts: Record<string, number> = {};
+    let updatedRows = 0;
+    const errors: Array<{ status: string; error: string }> = [];
+
+    for (const status of IMWEB_STATUS_VALUES) {
+      let page = 1;
+      let emptyStreak = 0;
+      const collected: string[] = [];
+
+      while (page <= 500) {
+        const result = await fetchImwebOrdersByStatus(token, status, page, pageLimit);
+        if (result.error) {
+          errors.push({ status, error: result.error });
+          break;
+        }
+        if (result.list.length === 0) {
+          emptyStreak++;
+          if (emptyStreak >= 3) break;
+          page++;
+          await wait(200);
+          continue;
+        }
+        emptyStreak = 0;
+        for (const item of result.list) {
+          const orderNo = String((item as { order_no?: unknown }).order_no ?? "");
+          if (orderNo) collected.push(orderNo);
+        }
+        if (result.totalPage > 0 && page >= result.totalPage) break;
+        page++;
+        await wait(200);
+      }
+
+      statusCounts[status] = collected.length;
+
+      if (collected.length > 0) {
+        const rows = collected.map((orderNo) => ({
+          site: cfg.site,
+          order_no: orderNo,
+          imweb_status: status,
+        }));
+        txn(rows);
+        updatedRows += collected.length;
+      }
+    }
+
+    return {
+      site: cfg.site,
+      ok: true,
+      error: errors.length > 0 ? errors : null,
+      statusCounts,
+      updatedRows,
+    };
   };
 
   const syncOneSiteCoupons = async (
@@ -1073,6 +1209,69 @@ export const createCrmLocalRouter = () => {
       });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Order sync failed" });
+    }
+  });
+
+  router.post("/api/crm-local/imweb/sync-order-statuses", async (req: Request, res: Response) => {
+    try {
+      if (IMWEB_SITES.length === 0) {
+        res.status(400).json({ ok: false, error: "IMWEB API 키 미설정" });
+        return;
+      }
+      const targetSite = typeof req.body?.site === "string" ? req.body.site : null;
+      const sites = targetSite ? IMWEB_SITES.filter((s) => s.site === targetSite) : IMWEB_SITES;
+      if (sites.length === 0) {
+        res.status(404).json({ ok: false, error: "해당 site 설정을 찾지 못함" });
+        return;
+      }
+      const pageLimit = Math.min(Math.max(Number(req.body?.pageLimit) || 100, 10), 100);
+
+      const results = [];
+      for (const cfg of sites) {
+        results.push(await syncOneSiteOrderStatuses(cfg, pageLimit));
+      }
+      res.json({ ok: true, sites: results });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "Order status sync failed" });
+    }
+  });
+
+  router.get("/api/crm-local/imweb/purchase-confirm-stats", (req: Request, res: Response) => {
+    try {
+      const db = getCrmDb();
+      const site = typeof req.query.site === "string" ? req.query.site : "biocom";
+      const distribution = db
+        .prepare(
+          `SELECT COALESCE(imweb_status,'_null_') AS status, COUNT(*) AS cnt, SUM(payment_amount) AS amount
+           FROM imweb_orders WHERE site=? GROUP BY COALESCE(imweb_status,'_null_')`,
+        )
+        .all(site) as Array<{ status: string; cnt: number; amount: number | null }>;
+
+      const total = distribution.reduce((sum, row) => sum + row.cnt, 0);
+      const byStatus = Object.fromEntries(
+        distribution.map((row) => [row.status, { count: row.cnt, amount: Number(row.amount ?? 0) }]),
+      );
+      const confirmed = byStatus["PURCHASE_CONFIRMATION"]?.count ?? 0;
+      const confirmedAmount = byStatus["PURCHASE_CONFIRMATION"]?.amount ?? 0;
+      const latestSync = db
+        .prepare("SELECT MAX(imweb_status_synced_at) AS m FROM imweb_orders WHERE site=?")
+        .get(site) as { m: string | null };
+
+      res.json({
+        ok: true,
+        site,
+        total,
+        confirmed,
+        confirmedAmount,
+        byStatus,
+        latestStatusSyncAt: latestSync?.m ?? null,
+        coverageNote:
+          "이 집계는 Imweb v2 주문 헤더 기준. 바이오컴 아임웹 결제 주문에 한함. 쿠팡·네이버·수동 주문은 포함되지 않음(플레이오토 필수).",
+      });
+    } catch (err) {
+      res
+        .status(500)
+        .json({ ok: false, error: err instanceof Error ? err.message : "purchase-confirm-stats failed" });
     }
   });
 

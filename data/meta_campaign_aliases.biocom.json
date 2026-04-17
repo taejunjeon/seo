@@ -39,7 +39,7 @@
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_proteinstory_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "influencer_partner_igg",
     "candidate_campaign_ids": [
       "120242626179290396",
@@ -51,18 +51,22 @@
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
+    "confidence": "manual_verified",
     "review_reason": "proteinstory alias가 campaign명과 직접 일치하지 않음. 공동구매/인플루언서 계열 가능성이 높아 adset/ad name 확인 필요",
     "evidence": {
       "confirmed_orders": 7,
       "confirmed_revenue": 2211200
-    }
+    },
+    "selected_campaign_id": "120242626179290396",
+    "selected_campaign_name": "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+    "rejected_campaign_ids": [],
+    "reviewed_at": "2026-04-16T13:01:17.015Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_iggspring",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "igg_family",
     "candidate_campaign_ids": [
       "120235591897270396",
@@ -76,18 +80,21 @@
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "IGG keyword만으로는 음식물과민증 검사 캠페인과 공동구매 인플루언서 캠페인을 분리하기 어려움",
+    "confidence": "auto_spend_heuristic",
+    "review_reason": "2026-04-16 Phase2 자동 분류: 2개 캠페인에 동일 utm_campaign 존재하나, 상대 캠페인 spend=₩0, active=0. spend+active 기준으로 확정 (auto_spend_heuristic)",
     "evidence": {
       "confirmed_orders": 5,
       "confirmed_revenue": 1716200
-    }
+    },
+    "selected_campaign_id": "120213362391690396",
+    "selected_campaign_name": "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)",
+    "reviewed_at": "2026-04-16T11:52:16Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_mingzzinginstatoon_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "influencer_partner_igg",
     "candidate_campaign_ids": [
       "120242626179290396",
@@ -99,18 +106,22 @@
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
+    "confidence": "manual_verified",
     "review_reason": "인플루언서명 계열 alias. link_url 증거 부족으로 adset/ad name 수동 확인 필요",
     "evidence": {
       "confirmed_orders": 4,
       "confirmed_revenue": 980000
-    }
+    },
+    "selected_campaign_id": "120242626179290396",
+    "selected_campaign_name": "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+    "rejected_campaign_ids": [],
+    "reviewed_at": "2026-04-16T13:01:22.407Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_allhormon_miraclemorningstory",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "hormone",
     "candidate_campaign_ids": [
       "120212507802440396",
@@ -122,18 +133,21 @@
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "allhormon 키워드는 호르몬 검사 family를 강하게 시사하지만, 전환캠페인과 바이럴 소재 캠페인 중 어느 쪽인지는 수동 확인 필요",
+    "confidence": "auto_url_match",
+    "review_reason": "2026-04-16 Phase1 자동 분류: audit 데이터에서 해당 utm_campaign이 정확히 1개 캠페인의 광고 랜딩 URL에만 존재함 (auto_url_match)",
     "evidence": {
       "confirmed_orders": 2,
       "confirmed_revenue": 870200
-    }
+    },
+    "selected_campaign_id": "120231749833120396",
+    "selected_campaign_name": "[바이오컴] 호르몬 검사 바이럴 소재 캠페인_0811",
+    "reviewed_at": "2026-04-16T11:48:05Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_kimteamjang_supplements",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "supplements",
     "candidate_campaign_ids": [
       "120215102309650396"
@@ -143,104 +157,127 @@
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "supplements 키워드는 건강기능식품 캠페인을 강하게 시사하나, 실제 adset/ad name 교차 확인 전까지 확정하지 않음",
+    "confidence": "auto_url_match",
+    "review_reason": "2026-04-16 Phase1 자동 분류: audit 데이터에서 해당 utm_campaign이 정확히 1개 캠페인의 광고 랜딩 URL에만 존재함 (auto_url_match)",
     "evidence": {
       "confirmed_orders": 13,
       "confirmed_revenue": 817240
-    }
+    },
+    "selected_campaign_id": "120215102309650396",
+    "selected_campaign_name": "[바이오컴] 건강기능식품 - 클린, 풍성, 바이오",
+    "reviewed_at": "2026-04-16T11:48:05Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_sikdanstory_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "influencer_partner_igg",
     "candidate_campaign_ids": [
       "120242626179290396",
-      "120240314792490396"
+      "120240314792490396",
+      "120235591897270396"
     ],
     "candidate_campaign_names": [
       "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
-      "(NEW)공동구매 인플루언서 파트너 광고 모음(260126)"
+      "(NEW)공동구매 인플루언서 파트너 광고 모음(260126)",
+      "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "스토리형 인플루언서 alias로 보이지만 campaign family cross-check 필요",
+    "confidence": "auto_url_match",
+    "review_reason": "2026-04-16 Phase1 자동 분류: audit 데이터에서 해당 utm_campaign이 정확히 1개 캠페인의 광고 랜딩 URL에만 존재함 (auto_url_match)",
     "evidence": {
       "confirmed_orders": 1,
       "confirmed_revenue": 750000
-    }
+    },
+    "selected_campaign_id": "120235591897270396",
+    "selected_campaign_name": "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)",
+    "reviewed_at": "2026-04-16T11:48:05Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_igevsiggblog_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "influencer_partner_igg",
     "candidate_campaign_ids": [
       "120242626179290396",
-      "120240314792490396"
+      "120240314792490396",
+      "120213362391690396"
     ],
     "candidate_campaign_names": [
       "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
-      "(NEW)공동구매 인플루언서 파트너 광고 모음(260126)"
+      "(NEW)공동구매 인플루언서 파트너 광고 모음(260126)",
+      "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "블로그/인플루언서 계열 alias. 링크 신호 부족",
+    "confidence": "auto_spend_heuristic",
+    "review_reason": "2026-04-16 Phase2 자동 분류: 2개 캠페인에 동일 utm_campaign 존재하나, 상대 캠페인 spend=₩0, active=0. spend+active 기준으로 확정 (auto_spend_heuristic)",
     "evidence": {
       "confirmed_orders": 3,
       "confirmed_revenue": 750000
-    }
+    },
+    "selected_campaign_id": "120213362391690396",
+    "selected_campaign_name": "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)",
+    "reviewed_at": "2026-04-16T11:52:16Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_iggunboxing_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "influencer_partner_igg",
     "candidate_campaign_ids": [
       "120242626179290396",
-      "120240314792490396"
+      "120240314792490396",
+      "120235591897270396"
     ],
     "candidate_campaign_names": [
       "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
-      "(NEW)공동구매 인플루언서 파트너 광고 모음(260126)"
+      "(NEW)공동구매 인플루언서 파트너 광고 모음(260126)",
+      "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "언박싱 소재 계열 alias로 보이며 공동구매 캠페인 가능성이 높음",
+    "confidence": "auto_spend_heuristic",
+    "review_reason": "2026-04-16 Phase2 자동 분류: 2개 캠페인에 동일 utm_campaign 존재하나, 상대 캠페인 spend=₩0, active=0. spend+active 기준으로 확정 (auto_spend_heuristic)",
     "evidence": {
       "confirmed_orders": 2,
       "confirmed_revenue": 729500
-    }
+    },
+    "selected_campaign_id": "120235591897270396",
+    "selected_campaign_name": "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)",
+    "reviewed_at": "2026-04-16T11:52:16Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_iggacidset_2026",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "igg_family",
     "candidate_campaign_ids": [
       "120235591897270396",
-      "120213362391690396"
+      "120213362391690396",
+      "120237452088280396"
     ],
     "candidate_campaign_names": [
       "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)",
-      "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+      "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)",
+      "[바이오컴] 종합대사기능검사 전환캠페인(11/4~) - 사본"
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "acid/igg 조합은 음식물 과민증 검사 family 가능성이 높지만 exact campaign 구분은 추가 확인 필요",
+    "confidence": "auto_spend_heuristic",
+    "review_reason": "2026-04-16 Phase2 자동 분류: 2개 캠페인에 동일 utm_campaign 존재하나, 상대 캠페인 spend=₩0, active=0. spend+active 기준으로 확정 (auto_spend_heuristic)",
     "evidence": {
       "confirmed_orders": 2,
       "confirmed_revenue": 716200
-    }
+    },
+    "selected_campaign_id": "120237452088280396",
+    "selected_campaign_name": "[바이오컴] 종합대사기능검사 전환캠페인(11/4~) - 사본",
+    "reviewed_at": "2026-04-16T11:52:16Z"
   },
   {
     "site": "biocom",
@@ -347,53 +384,63 @@
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_channelA_acid",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "igg_family",
     "candidate_campaign_ids": [
       "120235591897270396",
-      "120213362391690396"
+      "120213362391690396",
+      "120237452088280396"
     ],
     "candidate_campaign_names": [
       "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)",
-      "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+      "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)",
+      "[바이오컴] 종합대사기능검사 전환캠페인(11/4~) - 사본"
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "acid 키워드는 음식물 과민증 family 가능성이 높으나 channelA 의미 확인 필요",
+    "confidence": "auto_url_match",
+    "review_reason": "2026-04-16 Phase1 자동 분류: audit 데이터에서 해당 utm_campaign이 정확히 1개 캠페인의 광고 랜딩 URL에만 존재함 (auto_url_match)",
     "evidence": {
       "confirmed_orders": 1,
       "confirmed_revenue": 283000
-    }
+    },
+    "selected_campaign_id": "120237452088280396",
+    "selected_campaign_name": "[바이오컴] 종합대사기능검사 전환캠페인(11/4~) - 사본",
+    "reviewed_at": "2026-04-16T11:48:05Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_skincare_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "supplements_or_partner",
     "candidate_campaign_ids": [
       "120215102309650396",
-      "120242626179290396"
+      "120242626179290396",
+      "120235591897270396"
     ],
     "candidate_campaign_names": [
       "[바이오컴] 건강기능식품 - 클린, 풍성, 바이오",
-      "공동구매 인플루언서 파트너 광고 모음_3 (260323)"
+      "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+      "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "skincare alias는 제품군/소재명 성격이 강해서 campaign family를 자동 결정하기 어려움",
+    "confidence": "auto_spend_heuristic",
+    "review_reason": "2026-04-16 Phase2 자동 분류: 2개 캠페인에 동일 utm_campaign 존재하나, 상대 캠페인 spend=₩0, active=0. spend+active 기준으로 확정 (auto_spend_heuristic)",
     "evidence": {
       "confirmed_orders": 1,
       "confirmed_revenue": 245000
-    }
+    },
+    "selected_campaign_id": "120235591897270396",
+    "selected_campaign_name": "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)",
+    "reviewed_at": "2026-04-16T11:52:16Z"
   },
   {
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_iggpost_igg",
-    "status": "needs_manual_review",
+    "status": "manual_verified",
     "family_hint": "influencer_partner_igg",
     "candidate_campaign_ids": [
       "120242626179290396",
@@ -405,11 +452,67 @@
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
+    "confidence": "manual_verified",
     "review_reason": "post/igg 계열 alias. 인플루언서 공동구매 계열 후보",
     "evidence": {
       "confirmed_orders": 1,
       "confirmed_revenue": 245000
-    }
+    },
+    "selected_campaign_id": "120242626179290396",
+    "selected_campaign_name": "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+    "rejected_campaign_ids": [],
+    "reviewed_at": "2026-04-16T13:04:09.553Z"
+  },
+  {
+    "site": "biocom",
+    "channel": "meta",
+    "alias_key": "meta_master_slow",
+    "status": "manual_verified",
+    "family_hint": "supplements",
+    "candidate_campaign_ids": [
+      "120215102309650396"
+    ],
+    "candidate_campaign_names": [
+      "[바이오컴] 건강기능식품 - 클린, 풍성, 바이오"
+    ],
+    "valid_from": "2026-03-11",
+    "valid_to": null,
+    "confidence": "auto_url_match",
+    "review_reason": "2026-04-16 Phase1 자동 분류: audit 데이터에서 해당 utm_campaign이 정확히 1개 캠페인의 광고 랜딩 URL에만 존재함 (auto_url_match)",
+    "evidence": {
+      "confirmed_orders": 1,
+      "confirmed_revenue": 35000
+    },
+    "selected_campaign_id": "120215102309650396",
+    "selected_campaign_name": "[바이오컴] 건강기능식품 - 클린, 풍성, 바이오",
+    "reviewed_at": "2026-04-16T11:48:05Z",
+    "rejected_campaign_ids": []
+  },
+  {
+    "site": "biocom",
+    "channel": "meta",
+    "alias_key": "meta_biocom_happynewyear_igg",
+    "status": "manual_verified",
+    "family_hint": "igg_family",
+    "candidate_campaign_ids": [
+      "120213362391690396",
+      "120235591897270396"
+    ],
+    "candidate_campaign_names": [
+      "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)",
+      "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+    ],
+    "valid_from": "2026-03-11",
+    "valid_to": null,
+    "confidence": "auto_spend_heuristic",
+    "review_reason": "2026-04-16 Phase2 자동 분류: 2개 캠페인에 동일 utm_campaign 존재하나, 상대 캠페인 spend=₩0, active=0. spend+active 기준으로 확정 (auto_spend_heuristic)",
+    "evidence": {
+      "confirmed_orders": 1,
+      "confirmed_revenue": 484500
+    },
+    "selected_campaign_id": "120213362391690396",
+    "selected_campaign_name": "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)",
+    "reviewed_at": "2026-04-16T11:52:16Z",
+    "rejected_campaign_ids": []
   }
 ]
