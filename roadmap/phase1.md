@@ -1,6 +1,16 @@
 # Phase 1 메모
 
 기준일: 2026-04-11
+최종 업데이트: 2026-04-18
+
+## 2026-04-18 업데이트 — Confirmed Stop-line 워크스트림 편입
+
+Meta CAPI Purchase 기준 논쟁이 **C안(Official=business_confirmed / Fast Signal=paid + Refund 보정)**으로 v1 stop-line 확정됐다. 실행 Sprint 3개(`/ads` Official/Fast 분리 / CANCEL 서브카테고리 분리 / Meta CAPI Refund + GA4 MP Refund)가 Phase 1로 편입됐다.
+
+- 워크스트림 상세: `roadmap/confirmed_stopline.md` §C-Sprint 2~4
+- 근거: `data/confirmedreport.md` v4, `confirmedfeedback.md`
+- 새 우선순위: `identity coverage 개선(현재 ~50%) > campaign mapping > confirmed 정의 고도화` (feedback 자신감 95%)
+- 실측: biocom 카드 p50 42h / p90 91h, coffee 카드 p50 36h / p90 66h, ≤72h 도달률 77~91%
 
 ## Source Of Truth
 

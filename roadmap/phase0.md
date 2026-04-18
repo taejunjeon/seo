@@ -1,9 +1,11 @@
 # Phase 0 — 운영 기준선 고정
 
-> **최종 업데이트**: 2026-04-16
-> **기준 로드맵**: `roadmap/roadmap0415.md` (lines 162-188)
+> **최종 업데이트**: 2026-04-18
+> **기준 로드맵**: `roadmap/roadmap0415.md` (§2026-04-18 보정)
 > **담당**: Codex (백엔드/계약) + Claude Code (화면 언어/copy) + TJ님 (매출/전환 기준 승인)
-> **상태**: 설계 초안 완료 (Codex draft) → TJ님 승인 대기
+> **상태**: 설계 초안 완료 + **Confirmed 항목은 C안 v1 stop-line 확정** → TJ님 stop-line 문장 승인 대기 → freshness/source-of-truth만 남음
+
+> **2026-04-18 업데이트**: Conversion Dictionary v1의 `confirmed` 정의는 별도 워크스트림 `roadmap/confirmed_stopline.md`로 분리해 `business_confirmed` / `paid fast signal` 2원화로 v1 stop-line 확정. 이 Phase에서 남은 Dictionary 작업은 `pending / canceled / refunded / VirtualAccountIssued` 정의 확정과 freshness·source-of-truth 표 고정.
 
 ## 왜 필요한가
 

@@ -133,10 +133,10 @@ Incrementality는 **지금 당장 설계는 시작 가능**하지만, live holdo
 
 | 신규 Phase | 현재 완성도 | 근거 | 100%까지 남은 핵심 |
 |---|---:|---|---|
-| Phase 0. 운영 기준선 고정 | 70% | 기존 P0/P1 데이터 계약, attribution ledger, `confirmed/pending/canceled` 분리는 상당 부분 구현됨. `roadmap/phase0_codex_draft.md`에 Conversion Dictionary v1, freshness, source-of-truth, backend contract 초안도 작성됨. 다만 TJ님 승인과 운영 화면/API 계약 반영은 아직 미완료 | Conversion Dictionary v1 승인, freshness 상태 정의, 사이트별 source-of-truth 표 고정, `/api/integrity/*` 계약 반영 |
-| Phase 1. Measurement Integrity 안정화 | 68% | Meta CAPI 기본 전송과 biocom guard는 완료. VM health에서 CAPI/Imweb/Toss auto sync enabled 확인. 2026-04-13 이후 operational CAPI 313/313 성공, duplicate event/order group 0. `/ads`는 VM 원장 기준으로 수정됨 | 7일 clean baseline 확보, Events Manager dedup/EMQ 수동 확인, 캠페인 매핑 보정, coffee 입금 후 confirmed 검증 |
+| Phase 0. 운영 기준선 고정 | 75% | 2026-04-18 `confirmed` 정의 C안 v1 stop-line 확정(`confirmed_stopline.md`). Conversion Dictionary v1의 `paid/confirmed` 2원화 완료. freshness·source-of-truth 표 작업만 남음 | freshness 상태 정의, 사이트별 source-of-truth 표 고정, `/api/integrity/*` 계약 반영 |
+| Phase 1. Measurement Integrity 안정화 | 70% | 기존 68%에서 `/ads` Official/Fast 분리·CANCEL 서브카테고리·Refund 이벤트 3개 sprint가 2026-04-18 stop-line으로 편입됨. Meta CAPI 기본 전송과 biocom guard는 완료. VM health에서 CAPI/Imweb/Toss auto sync enabled 확인 | 7일 clean baseline 확보, Events Manager dedup/EMQ 수동 확인, 캠페인 매핑 보정, coffee 입금 후 confirmed 검증, **C-Sprint 2~4 (`/ads` 분리 / CANCEL 서브 / Refund)** |
 | Phase 2. Revenue Integrity Agent read-only MVP | 15% | PRD와 문제 정의는 명확하고 기존 `/ads`, `/tracking-integrity`, attribution API 자산은 있음. 하지만 전용 incident schema/API/주문 탐색기/승인 피드백 루프는 아직 없음 | `/api/integrity/*` API, incident taxonomy, evidence query, 6개 핵심 화면 MVP |
-| Phase 3. Signal Quality 확장 | 35% | `sendFunnelEvent`와 `POST /api/meta/capi/track` 등 Day 1 서버 인프라는 완료된 상태로 판단. ViewContent/AddToCart/InitiateCheckout 브라우저 훅과 EMQ 측정 자동화는 남음 | 아임웹 funnel script 카나리/확대, CAPI health, EMQ proxy, retry/backoff, event_id audit |
+| Phase 3. Signal Quality 확장 | 35% | `sendFunnelEvent`와 `POST /api/meta/capi/track` 등 Day 1 서버 인프라는 완료된 상태로 판단. ViewContent/AddToCart/InitiateCheckout 브라우저 훅과 EMQ 측정 자동화는 남음. **2026-04-18 보정: identity coverage 개선이 이 Phase의 새 P0 작업으로 편입됨** (VM 기준 all-three 유입률 ~50%) | 아임웹 funnel script 카나리/확대, CAPI health, EMQ proxy, retry/backoff, event_id audit, **C-Sprint 5~6 (identity coverage / campaign mapping)** |
 | Phase 4. CRM Execution Loop | 60% | 기존 P3 실행 채널, 알리고/SMS, CRM 일부 화면은 상당히 진행. 다만 crmux0412의 A/B 그룹 정보 누락, groupId 전달, 선택 멤버 발송, 고객 행동 관리가 남음 | 즉시 버그 2건 수정, 그룹 상세/선택 발송, 고객 목록/행동 세그먼트, 성과 퍼널 |
 | Phase 5. Incrementality & Experiment OS | 28% | P5.5 iROAS 엔진과 ROAS 대시보드 자산은 있고, 0416 기준으로 holdout 설계 착수 조건은 갖춰짐. 다만 clean baseline 7일과 캠페인 매핑 보정 전 live 실험은 이르다 | holdout 설계 문서, 캠페인/세그먼트 후보, iROAS 운영 판정, 7일 clean baseline 이후 live |
 | Phase 6. Multi-Platform Conversion OS | 10% | Google/TikTok 확장 계획과 Google Ads 계정 3종 공존 이슈는 파악됨. Google Ads API/OCI/Enhanced Conversions와 TikTok Events API는 미구현 | Google 계정 공유 의사결정, API 권한 확보, EC/OCI 설계, TikTok 집행 여부 확인 |
@@ -555,6 +555,54 @@ OS 구성요소:
 
 - CAPIG/BigQuery/Hotjar 같은 도구 도입이 감이 아니라 trigger 기반으로 결정된다.
 - 토큰, 배포, guard, sync, incident 대응 runbook이 최신 상태로 유지된다.
+
+## 2026-04-18 보정 — Confirmed Stop-line 확정과 Identity Coverage 승격
+
+2026-04-18 `data/confirmedreport.md` v4 분석과 `confirmedfeedback.md` 피드백 기준으로 아래 3가지를 운영 기준으로 잠근다. 상세 워크스트림은 별도 문서 `roadmap/confirmed_stopline.md` (신규 작성)로 분리했다.
+
+### 1) Confirmed 정의는 C안 v1으로 stop-line
+
+실측 결과: biocom 카드 p50 42h / p90 91h, coffee 카드 p50 36h / p90 66h. Toss API는 구매확정 시각을 구조적으로 제공하지 않고, 아임웹 v2 API는 `complete_time` 하나만 제공해 상태 이력 추적은 불가능하다. 그래서 정의를 더 깊이 파는 대신 아래 문장으로 고정한다.
+
+> **운영 공식 성과판단은 `business_confirmed` 기준으로 본다. 메타 최적화 신호는 `paid` 기반 fast signal을 유지하되, 환불/취소 정정 이벤트를 추가한다. confirmed 정의 고도화는 v1 기준에서 고정하고 후순위로 넘기며, 다음 우선순위는 identity coverage와 campaign mapping이다.**
+
+Phase 0 Conversion Dictionary v1은 이 문장 승인으로 **Phase 0 Confirmed 항목만 closable**. freshness와 source-of-truth 표 작업은 남아 있음.
+
+### 2) 이번 주 구현 3개 (Phase 1로 편입)
+
+아래 3개가 붙으면 C안이 말이 아니라 실제 운영 기준이 된다.
+
+| 신규 Sprint | 대응 Phase | 담당 | 완료 기준 |
+|---|---|---|---|
+| 스프린트 6.5 `/ads` Official / Fast Signal 두 줄 분리 | Phase 0 + Phase 1 | Claude Code + Codex | 화면에 2개 ROAS가 나란히 보이고 차이 설명 툴팁 |
+| 스프린트 6.6 CANCEL 서브카테고리 4종 분리 | Phase 1 | Codex | `actual_canceled / vbank_expired / partial_canceled / legacy_uncertain` 분리 반환 |
+| 스프린트 6.7 Meta CAPI Refund + GA4 MP Refund | Phase 1 + 필요 시 Phase 8 | TJ + Codex | Toss `DONE → CANCELED/PARTIAL_CANCELED` 전이 시 두 채널에 Refund 전송 |
+
+상세: `roadmap/confirmed_stopline.md` §C-Sprint 2~4.
+
+### 3) 다음 배치 — identity coverage가 confirmed 정의 고도화를 앞섭니다
+
+feedback의 자신감 95% 판단: 지금 가장 비싼 문제는 "정의"가 아니라 **"연결 끊김"**. VM 실측 `payment_success` 식별자 all-three 유입률이 50% 수준이라 절반 주문이 "어느 광고에서 왔는지" 추적 불가능.
+
+| 기존 Phase | 새 우선순위 이동 |
+|---|---|
+| Phase 3. Signal Quality — identity coverage 원인 분해 | **P0 → 이번 달 착수** (기존 P1이었음) |
+| Phase 3. Signal Quality — campaign mapping | P0 후속 (기존 P2) |
+| AIBIO 센터 Supabase 접근 | 별도 트랙 — biocom/coffee 진행 블록 안 함 |
+| 아임웹 OpenAPI OAuth | **후순위** (feedback §지금 안 할 것 반영) |
+
+### 4) AIBIO 재정의
+
+env 186-193에 AIBIO 센터 CRM Supabase 로그인 자격(`AIBIO_SUPABASE_ID/PASS/PROJECT`)이 이미 있다. aibio는 **shop 주문이 거의 없고 결제는 센터 CRM DB**에 적재되므로, 이 보고서의 "paid → complete_time 지연" 프레임이 애초에 맞지 않는다. aibio는 별도 트랙에서 "상담 예약 → 센터 결제 전환" 프레임으로 재설계한다.
+
+### 연관 문서
+
+- 워크스트림 상세: `roadmap/confirmed_stopline.md`
+- 결과보고서: `data/confirmedreport.md` v4
+- 피드백 원본: `confirmedfeedback.md`
+- 정책 설계서: `capivm/capi.md` §0 (A + C + B 금지)
+- CANCEL 서브카테고리 설계: `data/!datacheckplan.md` Phase2-Sprint4
+- identity coverage 원인 분해: `data/!datacheckplan.md` Phase3-Sprint5
 
 ## 0417 보정 72시간 실행안
 
