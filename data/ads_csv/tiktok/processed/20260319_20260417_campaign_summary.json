@@ -1,0 +1,113 @@
+{
+  "source_file": "data/ads_csv/tiktok/raw/20260319_20260417_campaign_report.xlsx",
+  "report_start": "2026-03-19",
+  "report_end": "2026-04-17",
+  "campaign_rows": 6,
+  "active_spend_campaign_rows": 4,
+  "total_row_present": true,
+  "duplicate_headers": {
+    "총 구매 수(모든 채널)": 2
+  },
+  "totals_from_campaign_rows": {
+    "spend": 28363230,
+    "net_cost": 28363230,
+    "impressions": 13262333,
+    "destination_clicks": 365991,
+    "conversions": 321,
+    "all_channels_total_purchases": 321,
+    "all_channels_value_per_purchase_weighted": 2836856.55,
+    "all_channels_purchase_value_inferred": 910630953,
+    "platform_roas_from_inferred_purchase_value": 32.106038,
+    "website_vta_purchase_roas_total_row": 0.49,
+    "website_cta_purchase_roas_total_row": 31.26,
+    "currency": "KRW"
+  },
+  "total_row_values": {
+    "spend": 28363230,
+    "net_cost": 28363230,
+    "impressions": 13262333,
+    "destination_clicks": 365991,
+    "conversions": 321,
+    "all_channels_total_purchases": 321,
+    "all_channels_value_per_purchase": 2836857,
+    "all_channels_purchase_value_inferred": 910630953,
+    "website_vta_purchase_roas": 0.49,
+    "website_cta_purchase_roas": 31.26,
+    "currency": "KRW"
+  },
+  "derived": {
+    "avg_destination_cpc": 77.5,
+    "avg_cpm": 2138.63,
+    "destination_ctr": 0.027596,
+    "cost_per_conversion": 88358.97,
+    "conversion_rate_per_destination_click": 0.000877
+  },
+  "campaigns": [
+    {
+      "campaign_name": "음과검 스마트+ 캠페인",
+      "campaign_id": "1854347729644690",
+      "spend": 14143071,
+      "purchases": 143,
+      "purchase_value_inferred": 746835717,
+      "platform_roas_from_inferred_purchase_value": 52.805767,
+      "website_vta_purchase_roas": 0.44,
+      "website_cta_purchase_roas": 52.2
+    },
+    {
+      "campaign_name": "종합대사기능 분석 스마트+캠페인",
+      "campaign_id": "1854918885396689",
+      "spend": 8222937,
+      "purchases": 75,
+      "purchase_value_inferred": 126692609,
+      "platform_roas_from_inferred_purchase_value": 15.407221,
+      "website_vta_purchase_roas": 0.42,
+      "website_cta_purchase_roas": 14.51
+    },
+    {
+      "campaign_name": "건강기능식품 스마트+캠페인",
+      "campaign_id": "1858788275666081",
+      "spend": 2999202,
+      "purchases": 62,
+      "purchase_value_inferred": 23091112,
+      "platform_roas_from_inferred_purchase_value": 7.699085,
+      "website_vta_purchase_roas": 1.02,
+      "website_cta_purchase_roas": 6.33
+    },
+    {
+      "campaign_name": "영양중금속분석 스마트+ 캠페인",
+      "campaign_id": "1856156648605858",
+      "spend": 2998020,
+      "purchases": 41,
+      "purchase_value_inferred": 14011515,
+      "platform_roas_from_inferred_purchase_value": 4.67359,
+      "website_vta_purchase_roas": 0.37,
+      "website_cta_purchase_roas": 3.35
+    },
+    {
+      "campaign_name": "호르몬 검사 캠페인",
+      "campaign_id": "1856728035726529",
+      "spend": 0,
+      "purchases": 0,
+      "purchase_value_inferred": 0,
+      "platform_roas_from_inferred_purchase_value": 0,
+      "website_vta_purchase_roas": 0.0,
+      "website_cta_purchase_roas": 0.0
+    },
+    {
+      "campaign_name": "음식물과민증검사 캠페인",
+      "campaign_id": "1854281861468210",
+      "spend": 0,
+      "purchases": 0,
+      "purchase_value_inferred": 0,
+      "platform_roas_from_inferred_purchase_value": 0,
+      "website_vta_purchase_roas": 0.0,
+      "website_cta_purchase_roas": 0.0
+    }
+  ],
+  "limitations": [
+    "No date column; this is campaign-level total for the whole selected range, not daily data.",
+    "No attribution_window column in export.",
+    "Korean export has duplicate \"총 구매 수(모든 채널)\" header. The second occurrence is inferred as purchase value and must be confirmed against Ads Manager UI.",
+    "The period ends one day before enforce was applied; useful for pre-guard historical validation at campaign-range level."
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "source": "local backend/data/crm.sqlite3 snapshot",
+  "report_start": "2026-03-19",
+  "report_end": "2026-04-17",
+  "platform": {
+    "spend": 28363230,
+    "purchase_value_inferred": 910630953,
+    "roas": 32.106038
+  },
+  "local_ledger_coverage": {
+    "min_logged_at": "2026-03-29T10:26:32.010Z",
+    "max_logged_at": "2026-04-12T04:13:40.581Z",
+    "rows": 992
+  },
+  "tiktok_attributed_payment_success_local": {
+    "canceled": {
+      "orders": 1,
+      "ledger_rows": 1,
+      "imweb_amount": 750000
+    },
+    "pending": {
+      "orders": 48,
+      "ledger_rows": 48,
+      "imweb_amount": 551074000
+    }
+  },
+  "join_quality": {
+    "rows": 49,
+    "imweb_missing": 0
+  },
+  "preliminary_gap": {
+    "confirmed_revenue": 0,
+    "pending_amount": 551074000,
+    "canceled_amount": 750000,
+    "platform_minus_confirmed": 910630953,
+    "platform_minus_confirmed_and_pending": 359556953,
+    "confirmed_roas_on_platform_spend": 0.0,
+    "potential_roas_confirmed_plus_pending_on_platform_spend": 19.429169
+  },
+  "limitations": [
+    "Local attribution_ledger snapshot only covers 2026-03-29T10:26:32Z to 2026-04-12T04:13:40Z, not the full TikTok report period.",
+    "Use this as a directional local-snapshot check only. Final judgment requires VM ledger full export or pagination for 2026-03-19 to 2026-04-17.",
+    "TikTok purchase value is inferred from duplicate Korean header and should be checked against Ads Manager UI."
+  ]
+}

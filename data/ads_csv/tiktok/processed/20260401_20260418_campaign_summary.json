@@ -1,0 +1,90 @@
+{
+  "source_file": "data/ads_csv/tiktok/raw/20260401_20260418_campaign_report.xlsx",
+  "report_start": "2026-04-01",
+  "report_end": "2026-04-18",
+  "campaign_rows": 6,
+  "active_spend_campaign_rows": 4,
+  "total_row_present": true,
+  "totals_from_campaign_rows": {
+    "spend": 16277105,
+    "net_cost": 16148559,
+    "impressions": 7763802,
+    "destination_clicks": 242884,
+    "conversions": 184,
+    "conversion_time_conversions": 194,
+    "purchase_roas_all_channels": 0,
+    "currency": "KRW"
+  },
+  "total_row_values": {
+    "spend": 16277105,
+    "net_cost": 16148559,
+    "impressions": 7763802,
+    "destination_clicks": 242884,
+    "conversions": 184,
+    "conversion_time_conversions": 194,
+    "currency": "KRW"
+  },
+  "derived": {
+    "avg_destination_cpc": 67.02,
+    "avg_cpm": 2096.54,
+    "destination_ctr": 0.031284,
+    "cost_per_conversion": 88462.53,
+    "conversion_rate_per_destination_click": 0.000758
+  },
+  "top_campaigns_by_spend": [
+    {
+      "campaign_name": "음과검 스마트+ 캠페인",
+      "campaign_id": "1854347729644690",
+      "spend": 8258613,
+      "conversions": 76,
+      "destination_clicks": 144117,
+      "purchase_roas_all_channels": 0.0
+    },
+    {
+      "campaign_name": "종합대사기능 분석 스마트+캠페인",
+      "campaign_id": "1854918885396689",
+      "spend": 4595661,
+      "conversions": 37,
+      "destination_clicks": 37159,
+      "purchase_roas_all_channels": 0.0
+    },
+    {
+      "campaign_name": "영양중금속분석 스마트+ 캠페인",
+      "campaign_id": "1856156648605858",
+      "spend": 1712213,
+      "conversions": 25,
+      "destination_clicks": 38357,
+      "purchase_roas_all_channels": 0.0
+    },
+    {
+      "campaign_name": "건강기능식품 스마트+캠페인",
+      "campaign_id": "1858788275666081",
+      "spend": 1710618,
+      "conversions": 46,
+      "destination_clicks": 23251,
+      "purchase_roas_all_channels": 0.0
+    },
+    {
+      "campaign_name": "호르몬 검사 캠페인",
+      "campaign_id": "1856728035726529",
+      "spend": 0,
+      "conversions": 0,
+      "destination_clicks": 0,
+      "purchase_roas_all_channels": 0.0
+    },
+    {
+      "campaign_name": "음식물과민증검사 캠페인",
+      "campaign_id": "1854281861468210",
+      "spend": 0,
+      "conversions": 0,
+      "destination_clicks": 0,
+      "purchase_roas_all_channels": 0.0
+    }
+  ],
+  "limitations": [
+    "No date column; this is campaign-level total for the whole selected range, not daily data.",
+    "No attribution_window column in export.",
+    "No purchase value column; purchase ROAS columns are 0, so TikTok platform purchase value cannot be recovered from this file.",
+    "Campaign ID is present; campaign-level matching is possible, but daily ROAS chart is not possible with this export alone."
+  ]
+}

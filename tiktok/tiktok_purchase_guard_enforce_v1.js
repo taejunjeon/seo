@@ -29,7 +29,7 @@
     replacementEventName: "PlaceAnOrder",
     sendReplacementForPending: true,
     allowOnUnknown: true,
-    debug: true
+    debug: false
   };
 
   var activeTiktokPixel = w.TIKTOK_PIXEL;
