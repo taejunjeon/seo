@@ -15,6 +15,7 @@ import { createDiagnosisRouter } from "../routes/diagnosis";
 import { createGa4Router } from "../routes/ga4";
 import { createGscRouter } from "../routes/gsc";
 import { createPageSpeedRouter } from "../routes/pagespeed";
+import { createRefundRouter } from "../routes/refund";
 import { createTossRouter } from "../routes/toss";
 import { createAdsRouter } from "../routes/ads";
 import { createMetaCapiRouter, createMetaRouter } from "../routes/meta";
@@ -38,6 +39,7 @@ export const registerRoutes = (app: Application) => {
   app.use(createAiRouter());
   app.use(createCrawlRouter());
   app.use(createDiagnosisRouter());
+  app.use(createRefundRouter());
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({

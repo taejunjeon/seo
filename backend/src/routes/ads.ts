@@ -9,6 +9,7 @@ import type {
 } from "../attribution";
 import { readLedgerEntries } from "../attribution";
 import {
+  getCrmDb,
   getExperimentActivityWindow,
   getExperimentResults,
   listExperiments,
@@ -29,6 +30,8 @@ import {
 } from "../metaCampaignAliasReview";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import { categorizeProductName, normalizePhone } from "../consultation";
+import { normalizeOrderIdBase } from "../orderKeys";
+import { buildTikTokRoasComparison } from "../tiktokRoasComparison";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -137,6 +140,9 @@ export type NormalizedLedgerOrder = {
   paymentStatus: AttributionPaymentStatus;
   status: string;
   completed: boolean;
+  businessConfirmed: boolean;
+  businessConfirmedDate: string | null;
+  businessConfirmedAmount: number | null;
   entryCount: number;
 };
 
@@ -172,8 +178,44 @@ export type DailyRoasRow = {
   potentialRevenue: number;
   metaPurchaseValue: number;
   confirmedRoas: number | null;
+  officialRoas: number | null;
+  fastSignalRoas: number | null;
+  roasGap: number | null;
   potentialRoas: number | null;
   metaPurchaseRoas: number | null;
+};
+
+export type SiteRoasSummary = {
+  site: SiteKey;
+  account_id: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  cpc: number;
+  cpm: number;
+  landing_page_views: number;
+  leads: number;
+  purchases: number;
+  purchase_value: number;
+  revenue: number;
+  roas: number | null;
+  orders: number;
+  confirmedRevenue: number;
+  confirmedOrders: number;
+  pendingRevenue: number;
+  pendingOrders: number;
+  potentialRevenue: number;
+  confirmedRoas: number | null;
+  officialRoas: number | null;
+  fastSignalRoas: number | null;
+  roasGap: number | null;
+  potentialRoas: number | null;
+  metaPurchaseValue: number;
+  metaPurchaseRoas: number | null;
+  siteConfirmedRevenue: number;
+  siteConfirmedOrders: number;
+  bestCaseCeilingRoas: number | null;
+  metaError: string | null;
 };
 
 export type ChannelComparisonRow = {
@@ -739,8 +781,120 @@ const resolveLedgerOrderDate = (entry: AttributionLedgerEntry): string | null =>
 const getOrderKey = (entry: AttributionLedgerEntry, index: number) =>
   entry.paymentKey || entry.orderId || `ledger:${index}:${entry.loggedAt}`;
 
+type BusinessConfirmedImwebOrder = {
+  site: SiteKey | null;
+  completeDate: string | null;
+  amount: number | null;
+};
+
+type BusinessConfirmedImwebOrderMap = Map<string, BusinessConfirmedImwebOrder[]>;
+
+type BusinessConfirmedImwebOrderRow = {
+  site: string | null;
+  order_no: string | null;
+  order_code: string | null;
+  complete_time: string | null;
+  payment_amount: number | null;
+};
+
+const normalizeOrderMatchKey = (value: unknown) =>
+  normalizeOrderIdBase(typeof value === "string" ? value : "").toLowerCase();
+
+const addOrderMatchKey = (keys: Set<string>, value: unknown) => {
+  const key = normalizeOrderMatchKey(value);
+  if (key) keys.add(key);
+};
+
+const addUrlOrderMatchKeys = (keys: Set<string>, value: string) => {
+  for (const param of ["order_no", "orderNo", "order_id", "orderId", "order_code", "orderCode"]) {
+    addOrderMatchKey(keys, extractUrlParam(value, param));
+  }
+};
+
+const addMetadataOrderMatchKeys = (keys: Set<string>, metadata: Record<string, unknown>) => {
+  const orderKeys = [
+    "orderIdBase",
+    "order_id_base",
+    "orderId",
+    "order_id",
+    "orderNo",
+    "order_no",
+    "orderCode",
+    "order_code",
+    "imwebOrderCode",
+    "imweb_order_code",
+  ];
+
+  for (const key of orderKeys) {
+    addOrderMatchKey(keys, metadata[key]);
+  }
+
+  for (const nestedKey of ["referrerPayment", "payment", "imweb", "order", "checkout"]) {
+    const nested = toObject(metadata[nestedKey]);
+    for (const key of orderKeys) {
+      addOrderMatchKey(keys, nested[key]);
+    }
+  }
+};
+
+const getLedgerOrderMatchKeys = (entries: AttributionLedgerEntry[]) => {
+  const keys = new Set<string>();
+  for (const entry of entries) {
+    addOrderMatchKey(keys, entry.orderId);
+    addMetadataOrderMatchKeys(keys, entry.metadata);
+    addUrlOrderMatchKeys(keys, entry.landing);
+    addUrlOrderMatchKeys(keys, entry.referrer);
+    addUrlOrderMatchKeys(keys, entry.requestContext.requestReferer);
+  }
+  return keys;
+};
+
+const loadBusinessConfirmedImwebOrderMap = (): BusinessConfirmedImwebOrderMap => {
+  const rows = getCrmDb().prepare(`
+    SELECT site, order_no, order_code, complete_time, payment_amount
+    FROM imweb_orders
+    WHERE complete_time IS NOT NULL
+      AND TRIM(complete_time) != ''
+  `).all() as BusinessConfirmedImwebOrderRow[];
+
+  const map: BusinessConfirmedImwebOrderMap = new Map();
+  for (const row of rows) {
+    const item: BusinessConfirmedImwebOrder = {
+      site: row.site ? resolveSiteFromString(row.site) : null,
+      completeDate: row.complete_time ? normalizeDateLike(row.complete_time) : null,
+      amount: row.payment_amount !== null && Number.isFinite(Number(row.payment_amount))
+        ? Number(row.payment_amount)
+        : null,
+    };
+    const keys = new Set<string>();
+    addOrderMatchKey(keys, row.order_no ?? "");
+    addOrderMatchKey(keys, row.order_code ?? "");
+    for (const key of keys) {
+      const bucket = map.get(key) ?? [];
+      bucket.push(item);
+      map.set(key, bucket);
+    }
+  }
+  return map;
+};
+
+const findBusinessConfirmedOrder = (
+  entries: AttributionLedgerEntry[],
+  businessConfirmedOrders: BusinessConfirmedImwebOrderMap,
+  site: SiteKey | null,
+): BusinessConfirmedImwebOrder | null => {
+  for (const key of getLedgerOrderMatchKeys(entries)) {
+    const matches = businessConfirmedOrders.get(key);
+    if (!matches?.length) continue;
+    const siteMatch = site ? matches.find((match) => match.site === site) : null;
+    return siteMatch ?? matches[0] ?? null;
+  }
+  return null;
+};
+
 export const buildNormalizedLedgerOrders = (
   entries: AttributionLedgerEntry[],
+  businessConfirmedOrders: BusinessConfirmedImwebOrderMap = new Map(),
 ): NormalizedLedgerOrder[] => {
   const grouped = new Map<string, AttributionLedgerEntry[]>();
 
@@ -762,6 +916,7 @@ export const buildNormalizedLedgerOrders = (
     const amount = preferred.map(extractLedgerAmount).find((value) => value !== null) ?? null;
     const site = preferred.map(inferSiteFromLedgerEntry).find((value) => value !== null) ?? null;
     const approvedDate = preferred.map(resolveLedgerOrderDate).find((value) => value !== null) ?? null;
+    const businessConfirmedOrder = findBusinessConfirmedOrder(preferred, businessConfirmedOrders, site);
     const paymentStatus = resolveOrderPaymentStatus(preferred);
     const statusCarrier = [...preferred].sort((a, b) => (
       PAYMENT_STATUS_PRIORITY[b.paymentStatus ?? "pending"] - PAYMENT_STATUS_PRIORITY[a.paymentStatus ?? "pending"]
@@ -801,6 +956,9 @@ export const buildNormalizedLedgerOrders = (
       paymentStatus,
       status,
       completed: paymentStatus === "confirmed",
+      businessConfirmed: Boolean(businessConfirmedOrder),
+      businessConfirmedDate: businessConfirmedOrder?.completeDate ?? null,
+      businessConfirmedAmount: businessConfirmedOrder?.amount ?? null,
       entryCount: group.length,
     };
   }).sort((a, b) => (
@@ -868,6 +1026,23 @@ const computeObservedRoas = (value: number, spend: number) => {
 
 const sumRevenue = (orders: NormalizedLedgerOrder[]) =>
   round2(orders.reduce((sum, order) => sum + (order.amount ?? 0), 0));
+
+const getOfficialRevenueAmount = (order: NormalizedLedgerOrder) =>
+  order.businessConfirmedAmount ?? order.amount ?? 0;
+
+const sumOfficialRevenue = (orders: NormalizedLedgerOrder[]) =>
+  round2(orders.reduce((sum, order) => (
+    order.businessConfirmed ? sum + getOfficialRevenueAmount(order) : sum
+  ), 0));
+
+const computeRoasGap = (
+  officialRoas: number | null,
+  fastSignalRoas: number | null,
+) => (
+  officialRoas === null || fastSignalRoas === null
+    ? null
+    : round2(officialRoas - fastSignalRoas)
+);
 
 const normalizeCampaignKey = (value: string) =>
   value.trim().toLowerCase().replace(/[^a-z0-9가-힣]+/g, "");
@@ -1363,8 +1538,15 @@ export const buildDailyRoasRows = (params: {
 
   const confirmedRevenueByDate = new Map<string, number>();
   const pendingRevenueByDate = new Map<string, number>();
+  const officialRevenueByDate = new Map<string, number>();
   for (const order of params.orders.filter(isMetaAttributedOrder)) {
     if (!order.approvedDate) continue;
+    if (order.businessConfirmed) {
+      officialRevenueByDate.set(
+        order.approvedDate,
+        (officialRevenueByDate.get(order.approvedDate) ?? 0) + getOfficialRevenueAmount(order),
+      );
+    }
     if (order.paymentStatus === "confirmed") {
       confirmedRevenueByDate.set(
         order.approvedDate,
@@ -1389,18 +1571,24 @@ export const buildDailyRoasRows = (params: {
     const spend = round2(spendByDate.get(date) ?? 0);
     const confirmedRevenue = round2(confirmedRevenueByDate.get(date) ?? 0);
     const pendingRevenue = round2(pendingRevenueByDate.get(date) ?? 0);
+    const officialRevenue = round2(officialRevenueByDate.get(date) ?? 0);
     const potentialRevenue = round2(confirmedRevenue + pendingRevenue);
     const metaPurchaseValue = round2(metaPurchaseValueByDate.get(date) ?? 0);
+    const confirmedRoas = computeRoas(confirmedRevenue, spend, params.ledgerAvailable);
+    const officialRoas = computeRoas(officialRevenue, spend, params.ledgerAvailable);
     rows.push({
       date,
       spend,
       revenue: confirmedRevenue,
-      roas: computeRoas(confirmedRevenue, spend, params.ledgerAvailable),
+      roas: confirmedRoas,
       confirmedRevenue,
       pendingRevenue,
       potentialRevenue,
       metaPurchaseValue,
-      confirmedRoas: computeRoas(confirmedRevenue, spend, params.ledgerAvailable),
+      confirmedRoas,
+      officialRoas,
+      fastSignalRoas: confirmedRoas,
+      roasGap: computeRoasGap(officialRoas, confirmedRoas),
       potentialRoas: computeRoas(potentialRevenue, spend, params.ledgerAvailable),
       metaPurchaseRoas: computeObservedRoas(metaPurchaseValue, spend),
     });
@@ -1458,9 +1646,10 @@ const fetchSiteMetaSummary = async (params: {
 
 const loadLedgerOrders = async () => {
   const entries = await readLedgerEntries();
+  const businessConfirmedOrders = loadBusinessConfirmedImwebOrderMap();
   return {
     entries,
-    orders: buildNormalizedLedgerOrders(entries),
+    orders: buildNormalizedLedgerOrders(entries, businessConfirmedOrders),
   };
 };
 
@@ -1706,6 +1895,31 @@ const loadExperimentIroasSnapshots = async () => {
 export const createAdsRouter = () => {
   const router = express.Router();
 
+  router.get("/api/ads/tiktok/roas-comparison", async (req: Request, res: Response) => {
+    try {
+      const startDate = typeof req.query.start_date === "string" ? req.query.start_date.trim() : undefined;
+      const endDate = typeof req.query.end_date === "string" ? req.query.end_date.trim() : undefined;
+      const invalidRange =
+        (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate))
+        || (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))
+        || Boolean((startDate && !endDate) || (!startDate && endDate));
+
+      if (invalidRange) {
+        res.status(400).json({
+          ok: false,
+          error: "start_date/end_date는 둘 다 YYYY-MM-DD 형식으로 전달해야 한다.",
+        });
+        return;
+      }
+
+      const payload = await buildTikTokRoasComparison({ startDate, endDate });
+      res.json(payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "tiktok roas comparison failed";
+      res.status(500).json({ ok: false, error: message });
+    }
+  });
+
   router.get("/api/ads/roas", async (req: Request, res: Response) => {
     try {
       const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
@@ -1907,15 +2121,21 @@ export const createAdsRouter = () => {
         return;
       }
 
+      const dailyOrders = filterOrdersByDateRange(filterOrdersForAccount(ledger.orders, accountId), range);
       const rows = buildDailyRoasRows({
         range,
         metaRows: metaResult.data,
-        orders: filterOrdersByDateRange(filterOrdersForAccount(ledger.orders, accountId), range),
+        orders: dailyOrders,
         ledgerAvailable: ledger.entries.length > 0,
         attributionWindow,
       });
       const totalSpend = round2(rows.reduce((sum, row) => sum + row.spend, 0));
       const totalRevenue = round2(rows.reduce((sum, row) => sum + row.revenue, 0));
+      const totalPotentialRevenue = round2(rows.reduce((sum, row) => sum + row.potentialRevenue, 0));
+      const totalMetaPurchaseValue = round2(rows.reduce((sum, row) => sum + row.metaPurchaseValue, 0));
+      const totalOfficialRevenue = sumOfficialRevenue(dailyOrders.filter(isMetaAttributedOrder));
+      const totalConfirmedRoas = computeRoas(totalRevenue, totalSpend, ledger.entries.length > 0);
+      const totalOfficialRoas = computeRoas(totalOfficialRevenue, totalSpend, ledger.entries.length > 0);
 
       res.json({
         ok: true,
@@ -1934,19 +2154,15 @@ export const createAdsRouter = () => {
           revenue: totalRevenue,
           confirmedRevenue: totalRevenue,
           pendingRevenue: round2(rows.reduce((sum, row) => sum + row.pendingRevenue, 0)),
-          potentialRevenue: round2(rows.reduce((sum, row) => sum + row.potentialRevenue, 0)),
-          metaPurchaseValue: round2(rows.reduce((sum, row) => sum + row.metaPurchaseValue, 0)),
-          roas: computeRoas(totalRevenue, totalSpend, ledger.entries.length > 0),
-          confirmedRoas: computeRoas(totalRevenue, totalSpend, ledger.entries.length > 0),
-          potentialRoas: computeRoas(
-            round2(rows.reduce((sum, row) => sum + row.potentialRevenue, 0)),
-            totalSpend,
-            ledger.entries.length > 0,
-          ),
-          metaPurchaseRoas: computeObservedRoas(
-            round2(rows.reduce((sum, row) => sum + row.metaPurchaseValue, 0)),
-            totalSpend,
-          ),
+          potentialRevenue: totalPotentialRevenue,
+          metaPurchaseValue: totalMetaPurchaseValue,
+          roas: totalConfirmedRoas,
+          confirmedRoas: totalConfirmedRoas,
+          officialRoas: totalOfficialRoas,
+          fastSignalRoas: totalConfirmedRoas,
+          roasGap: computeRoasGap(totalOfficialRoas, totalConfirmedRoas),
+          potentialRoas: computeRoas(totalPotentialRevenue, totalSpend, ledger.entries.length > 0),
+          metaPurchaseRoas: computeObservedRoas(totalMetaPurchaseValue, totalSpend),
         },
       });
     } catch (error) {
@@ -2059,18 +2275,24 @@ export const createAdsRouter = () => {
         loadLedgerOrders(),
       ]);
 
+      const ledgerAvailable = ledger.entries.length > 0;
       const filteredOrders = filterOrdersByRange(ledger.orders, range).filter(isMetaAttributedOrder);
       const datedOrders = filterOrdersByDateRange(ledger.orders, range);
-      const sites = siteResults.map((site) => {
+      const sites: SiteRoasSummary[] = siteResults.map((site) => {
         const siteOrders = filteredOrders.filter((order) => order.site === site.site);
         const sitePendingOrders = datedOrders.filter((order) =>
           order.site === site.site && isMetaAttributedOrder(order) && order.paymentStatus === "pending");
         const siteAllConfirmedOrders = datedOrders.filter((order) =>
           order.site === site.site && order.paymentStatus === "confirmed");
+        const siteOfficialOrders = datedOrders.filter((order) =>
+          order.site === site.site && isMetaAttributedOrder(order) && order.businessConfirmed);
         const revenue = sumRevenue(siteOrders);
         const pendingRevenue = sumRevenue(sitePendingOrders);
         const potentialRevenue = round2(revenue + pendingRevenue);
         const siteConfirmedRevenue = sumRevenue(siteAllConfirmedOrders);
+        const officialRevenue = sumOfficialRevenue(siteOfficialOrders);
+        const confirmedRoas = computeRoas(revenue, site.spend, ledgerAvailable);
+        const officialRoas = computeRoas(officialRevenue, site.spend, ledgerAvailable);
         return {
           site: site.site,
           account_id: site.accountId,
@@ -2084,19 +2306,23 @@ export const createAdsRouter = () => {
           purchases: site.purchases,
           purchase_value: round2(site.purchaseValue),
           revenue,
-          roas: computeRoas(revenue, site.spend, ledger.entries.length > 0),
+          roas: confirmedRoas,
           orders: siteOrders.length,
           confirmedRevenue: revenue,
           confirmedOrders: siteOrders.length,
           pendingRevenue,
           pendingOrders: sitePendingOrders.length,
           potentialRevenue,
-          potentialRoas: computeRoas(potentialRevenue, site.spend, ledger.entries.length > 0),
+          confirmedRoas,
+          officialRoas,
+          fastSignalRoas: confirmedRoas,
+          roasGap: computeRoasGap(officialRoas, confirmedRoas),
+          potentialRoas: computeRoas(potentialRevenue, site.spend, ledgerAvailable),
           metaPurchaseValue: round2(site.purchaseValue),
           metaPurchaseRoas: computeObservedRoas(round2(site.purchaseValue), site.spend),
           siteConfirmedRevenue,
           siteConfirmedOrders: siteAllConfirmedOrders.length,
-          bestCaseCeilingRoas: computeRoas(siteConfirmedRevenue, site.spend, ledger.entries.length > 0),
+          bestCaseCeilingRoas: computeRoas(siteConfirmedRevenue, site.spend, ledgerAvailable),
           metaError: site.metaError,
         };
       });
@@ -2106,6 +2332,11 @@ export const createAdsRouter = () => {
       const totalPendingRevenue = round2(sites.reduce((sum, site) => sum + site.pendingRevenue, 0));
       const totalPotentialRevenue = round2(sites.reduce((sum, site) => sum + site.potentialRevenue, 0));
       const totalMetaPurchaseValue = round2(sites.reduce((sum, site) => sum + site.metaPurchaseValue, 0));
+      const totalOfficialRevenue = sumOfficialRevenue(
+        datedOrders.filter((order) => isMetaAttributedOrder(order) && order.businessConfirmed),
+      );
+      const totalConfirmedRoas = computeRoas(totalRevenue, totalSpend, ledgerAvailable);
+      const totalOfficialRoas = computeRoas(totalOfficialRevenue, totalSpend, ledgerAvailable);
 
       res.json({
         ok: true,
@@ -2123,13 +2354,16 @@ export const createAdsRouter = () => {
           clicks: sites.reduce((sum, site) => sum + site.clicks, 0),
           spend: totalSpend,
           revenue: totalRevenue,
-          roas: computeRoas(totalRevenue, totalSpend, ledger.entries.length > 0),
+          roas: totalConfirmedRoas,
           confirmedRevenue: totalRevenue,
           pendingRevenue: totalPendingRevenue,
           potentialRevenue: totalPotentialRevenue,
           metaPurchaseValue: totalMetaPurchaseValue,
-          confirmedRoas: computeRoas(totalRevenue, totalSpend, ledger.entries.length > 0),
-          potentialRoas: computeRoas(totalPotentialRevenue, totalSpend, ledger.entries.length > 0),
+          confirmedRoas: totalConfirmedRoas,
+          officialRoas: totalOfficialRoas,
+          fastSignalRoas: totalConfirmedRoas,
+          roasGap: computeRoasGap(totalOfficialRoas, totalConfirmedRoas),
+          potentialRoas: computeRoas(totalPotentialRevenue, totalSpend, ledgerAvailable),
           metaPurchaseRoas: computeObservedRoas(totalMetaPurchaseValue, totalSpend),
           orders: sites.reduce((sum, site) => sum + site.orders, 0),
         },

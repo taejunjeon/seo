@@ -42,6 +42,11 @@ export function getCrmDb(): Database.Database {
     ensureColumn(db, "crm_scheduled_send", "template_type", "TEXT DEFAULT NULL");
     ensureColumn(db, "imweb_orders", "imweb_status", "TEXT DEFAULT NULL");
     ensureColumn(db, "imweb_orders", "imweb_status_synced_at", "TEXT DEFAULT NULL");
+    // C-Sprint 4 v1.5 — refund 옵션 C (Refund custom event + Purchase 음수 value 이중 전송).
+    // 기존 refund_dispatch_log 행에도 purchase_refund_* 컬럼 backfill 가능하게 ensureColumn 으로 추가.
+    ensureColumn(db, "refund_dispatch_log", "purchase_refund_dispatched", "INTEGER NOT NULL DEFAULT 0");
+    ensureColumn(db, "refund_dispatch_log", "purchase_refund_dispatched_at", "TEXT");
+    ensureColumn(db, "refund_dispatch_log", "purchase_refund_error", "TEXT");
     ensureCustomerGroupLifecycleColumns(db);
     backfillCustomerGroupKinds(db);
   }
@@ -288,6 +293,25 @@ function initTables(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_imweb_orders_member_code ON imweb_orders(member_code);
     CREATE INDEX IF NOT EXISTS idx_imweb_orders_orderer_call ON imweb_orders(orderer_call);
 
+    CREATE TABLE IF NOT EXISTS imweb_order_items (
+      line_key TEXT PRIMARY KEY,
+      site TEXT,
+      order_no TEXT NOT NULL,
+      line_no TEXT DEFAULT '',
+      shop_name TEXT DEFAULT '',
+      item_name TEXT NOT NULL DEFAULT '',
+      opt_name TEXT DEFAULT '',
+      sale_cnt INTEGER DEFAULT 0,
+      pay_amt INTEGER DEFAULT 0,
+      order_htel TEXT DEFAULT '',
+      ord_time TEXT DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'playauto',
+      synced_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_imweb_order_items_order_no ON imweb_order_items(order_no);
+    CREATE INDEX IF NOT EXISTS idx_imweb_order_items_ord_time ON imweb_order_items(ord_time);
+
     CREATE TABLE IF NOT EXISTS imweb_coupon_masters (
       coupon_key TEXT PRIMARY KEY,
       site TEXT NOT NULL DEFAULT 'biocom',
@@ -366,6 +390,33 @@ function initTables(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_toss_txn_order ON toss_transactions(order_id);
     CREATE INDEX IF NOT EXISTS idx_toss_txn_date ON toss_transactions(transaction_at);
     CREATE INDEX IF NOT EXISTS idx_toss_settle_sold ON toss_settlements(sold_date);
+
+    -- C-Sprint 4 (confirmed_stopline v1): Toss DONE → CANCELED / PARTIAL_CANCELED 전이를
+    -- Meta CAPI Refund + GA4 MP Refund 로 뒤따라 보내기 위한 dispatch log.
+    -- UNIQUE (order_id, toss_status) 로 동일 전이에 대한 중복 전송을 막는다.
+    CREATE TABLE IF NOT EXISTS refund_dispatch_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id TEXT NOT NULL,
+      payment_key TEXT NOT NULL,
+      toss_status TEXT NOT NULL,
+      total_amount INTEGER NOT NULL DEFAULT 0,
+      cancel_amount INTEGER NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'KRW',
+      method TEXT,
+      site TEXT,
+      transaction_at TEXT,
+      detected_at TEXT NOT NULL DEFAULT (datetime('now')),
+      mode TEXT NOT NULL,
+      meta_dispatched INTEGER NOT NULL DEFAULT 0,
+      meta_dispatched_at TEXT,
+      meta_error TEXT,
+      ga4_dispatched INTEGER NOT NULL DEFAULT 0,
+      ga4_dispatched_at TEXT,
+      ga4_error TEXT,
+      UNIQUE(order_id, toss_status)
+    );
+    CREATE INDEX IF NOT EXISTS idx_refund_dispatch_detected ON refund_dispatch_log(detected_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_refund_dispatch_site ON refund_dispatch_log(site, detected_at DESC);
   `);
 
   ensureColumn(db, "crm_experiments", "funnel_stage", "TEXT NOT NULL DEFAULT 'post_purchase'");

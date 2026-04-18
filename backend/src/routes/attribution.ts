@@ -2,6 +2,16 @@ import express, { type Request, type Response } from "express";
 
 import { buildAcquisitionSummaryReport } from "../acquisitionAnalysis";
 import {
+  buildAttributionCohortLtrReport,
+  buildChannelCategoryRepeatReport,
+  buildReverseFunnelReport,
+  CohortValidationError,
+  extractItemNamesFromRawJson,
+  type FirstPurchaseCategory,
+  parseAcquisitionChannelFilter,
+} from "../acquisitionCohort";
+import { categorizeProductName } from "../consultation";
+import {
   appendLedgerEntry,
   type AttributionLedgerEntry,
   type AttributionPaymentStatus,
@@ -19,7 +29,8 @@ import {
   type TossJoinRow,
 } from "../attribution";
 import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
-import { normalizeOrderIdBase } from "../orderKeys";
+import { getCrmDb } from "../crmLocalDb";
+import { normalizeOrderIdBase, normalizePhoneDigits } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import { getTossBasicAuth, inferTossStoreFromPaymentKey, normalizeTossStore, type TossStore } from "../tossConfig";
 
@@ -139,8 +150,9 @@ const ACQUISITION_REMOTE_LEDGER_SOURCES = [
   "thecleancoffee_imweb",
   "aibio_imweb",
 ] as const;
-const ACQUISITION_REMOTE_LEDGER_LIMIT = 200;
-const ACQUISITION_REMOTE_LEDGER_TIMEOUT_MS = 15000;
+const ACQUISITION_REMOTE_LEDGER_LIMIT = 10000;
+const ACQUISITION_REMOTE_LEDGER_TIMEOUT_MS = 30000;
+const ACQUISITION_REMOTE_LEDGER_LOOKBACK_DAYS = 365;
 
 const parsePositiveInt = (value: unknown, fallback: number, max: number) => {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number.NaN;
@@ -368,6 +380,11 @@ const buildRemoteLedgerUrl = (source: string) => {
   const url = new URL("/api/attribution/ledger", OPERATIONAL_ATTRIBUTION_BASE_URL);
   url.searchParams.set("source", source);
   url.searchParams.set("limit", String(ACQUISITION_REMOTE_LEDGER_LIMIT));
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - ACQUISITION_REMOTE_LEDGER_LOOKBACK_DAYS);
+  url.searchParams.set("startAt", start.toISOString());
+  url.searchParams.set("endAt", end.toISOString());
   return url.toString();
 };
 
@@ -383,7 +400,132 @@ const buildLedgerDedupeKey = (entry: AttributionLedgerEntry) =>
     typeof entry.metadata.formId === "string" ? entry.metadata.formId : "",
   ].join("|");
 
-const fetchRemoteLedgerEntriesForAcquisition = async () => {
+export type RemoteLedgerIdentityDiagnostics = {
+  total: number;
+  filled: number;
+  empty: number;
+  bySource: {
+    vm_native: number;
+    imweb_order_lookup: number;
+    ga_session_link: number;
+    ga_session_synthetic: number;
+    empty: number;
+  };
+};
+
+const CUSTOMER_KEY_SOURCE_META_FIELD = "customer_key_source";
+
+type EnrichedRemoteLedger = {
+  entries: AttributionLedgerEntry[];
+  warnings: string[];
+  identity: RemoteLedgerIdentityDiagnostics;
+};
+
+const buildOrderIdToPhoneMap = (orderIds: Set<string>): Map<string, string> => {
+  const map = new Map<string, string>();
+  if (orderIds.size === 0) return map;
+  try {
+    const db = getCrmDb();
+    const ids = [...orderIds];
+    const chunkSize = 500;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => "?").join(",");
+      const rows = db
+        .prepare(
+          `SELECT order_no, orderer_call FROM imweb_orders WHERE order_no IN (${placeholders})`,
+        )
+        .all(...chunk) as Array<{ order_no: string; orderer_call: string | null }>;
+      for (const row of rows) {
+        const phone = normalizePhoneDigits(row.orderer_call);
+        if (phone) map.set(row.order_no, phone);
+      }
+    }
+  } catch {
+    // CRM DB 없거나 imweb_orders 테이블 비어도 단순히 비어 있는 map 반환
+  }
+  return map;
+};
+
+const enrichRemoteLedgerCustomerKeys = (
+  entries: AttributionLedgerEntry[],
+): { entries: AttributionLedgerEntry[]; identity: RemoteLedgerIdentityDiagnostics } => {
+  const orderIds = new Set<string>();
+  for (const entry of entries) {
+    const trimmed = entry.orderId?.trim();
+    if (trimmed) orderIds.add(trimmed);
+  }
+  const orderIdToPhone = buildOrderIdToPhoneMap(orderIds);
+
+  // 2-pass: 같은 gaSessionId에 속한 entry 중 하나라도 orderId로 phone이 나오면 해당 session 전체에 전파
+  const sessionToPhone = new Map<string, string>();
+  for (const entry of entries) {
+    const session = entry.gaSessionId?.trim();
+    if (!session || sessionToPhone.has(session)) continue;
+    const phoneFromOrder = entry.orderId ? orderIdToPhone.get(entry.orderId.trim()) : undefined;
+    if (phoneFromOrder) sessionToPhone.set(session, phoneFromOrder);
+  }
+
+  let fromVm = 0;
+  let fromOrder = 0;
+  let fromSession = 0;
+  let fromGaSynthetic = 0;
+  let empty = 0;
+
+  const enriched = entries.map((entry) => {
+    const existingKey = entry.customerKey?.trim();
+    if (existingKey) {
+      fromVm += 1;
+      return entry;
+    }
+    const phoneFromOrder = entry.orderId ? orderIdToPhone.get(entry.orderId.trim()) : undefined;
+    if (phoneFromOrder) {
+      fromOrder += 1;
+      return {
+        ...entry,
+        customerKey: phoneFromOrder,
+        metadata: { ...entry.metadata, [CUSTOMER_KEY_SOURCE_META_FIELD]: "imweb_order_lookup" },
+      };
+    }
+    const phoneFromSession = entry.gaSessionId ? sessionToPhone.get(entry.gaSessionId.trim()) : undefined;
+    if (phoneFromSession) {
+      fromSession += 1;
+      return {
+        ...entry,
+        customerKey: phoneFromSession,
+        metadata: { ...entry.metadata, [CUSTOMER_KEY_SOURCE_META_FIELD]: "ga_session_link" },
+      };
+    }
+    const session = entry.gaSessionId?.trim();
+    if (session) {
+      fromGaSynthetic += 1;
+      return {
+        ...entry,
+        customerKey: `ga:${session}`,
+        metadata: { ...entry.metadata, [CUSTOMER_KEY_SOURCE_META_FIELD]: "ga_session_synthetic" },
+      };
+    }
+    empty += 1;
+    return entry;
+  });
+
+  const filled = fromVm + fromOrder + fromSession + fromGaSynthetic;
+  const identity: RemoteLedgerIdentityDiagnostics = {
+    total: entries.length,
+    filled,
+    empty,
+    bySource: {
+      vm_native: fromVm,
+      imweb_order_lookup: fromOrder,
+      ga_session_link: fromSession,
+      ga_session_synthetic: fromGaSynthetic,
+      empty,
+    },
+  };
+  return { entries: enriched, identity };
+};
+
+const fetchRemoteLedgerEntriesForAcquisition = async (): Promise<EnrichedRemoteLedger> => {
   const entries: AttributionLedgerEntry[] = [];
   const warnings: string[] = [];
   const seen = new Set<string>();
@@ -414,12 +556,36 @@ const fetchRemoteLedgerEntriesForAcquisition = async () => {
     }
   }
 
-  return { entries, warnings };
+  const { entries: enriched, identity } = enrichRemoteLedgerCustomerKeys(entries);
+  return { entries: enriched, warnings, identity };
 };
 
 const shouldUseRemoteAcquisitionLedger = (value: unknown) => {
   const dataSource = readOne(value).toLowerCase();
   return ["vm", "remote", "operational", "operation"].includes(dataSource);
+};
+
+const resolveAcquisitionCohortLedger = async (value: unknown): Promise<{
+  dataSource: "local" | "operational_vm_ledger";
+  remoteWarnings: string[];
+  ledgerEntries?: AttributionLedgerEntry[];
+}> => {
+  if (!shouldUseRemoteAcquisitionLedger(value)) {
+    return { dataSource: "local", remoteWarnings: [] };
+  }
+
+  const remoteLedger = await fetchRemoteLedgerEntriesForAcquisition();
+  const remoteWarnings = [...remoteLedger.warnings];
+  if (remoteLedger.entries.length === 0) {
+    remoteWarnings.push("운영 VM 원장 row를 가져오지 못해 로컬 원장으로 fallback했다.");
+    return { dataSource: "local", remoteWarnings };
+  }
+
+  return {
+    dataSource: "operational_vm_ledger",
+    remoteWarnings,
+    ledgerEntries: remoteLedger.entries,
+  };
 };
 
 const toTossDirectJoinRow = (
@@ -1330,20 +1496,42 @@ export const createAttributionRouter = () => {
       const allEntries = await readLedgerEntries();
       const source = typeof req.query.source === "string" ? req.query.source.trim() : "";
       const captureMode = typeof req.query.captureMode === "string" ? req.query.captureMode.trim() : "";
-      const limit = parsePositiveInt(req.query.limit, 50, 200);
+      const limit = parsePositiveInt(req.query.limit, 50, 10000);
+      const startAt = typeof req.query.startAt === "string" ? req.query.startAt.trim() : "";
+      const endAt = typeof req.query.endAt === "string" ? req.query.endAt.trim() : "";
 
-      const filtered = (source || captureMode)
+      const startMs = startAt ? Date.parse(startAt) : Number.NaN;
+      const endMs = endAt ? Date.parse(endAt) : Number.NaN;
+      const hasStartFilter = Number.isFinite(startMs);
+      const hasEndFilter = Number.isFinite(endMs);
+
+      const withinRange = (entry: AttributionLedgerEntry) => {
+        if (!hasStartFilter && !hasEndFilter) return true;
+        const loggedMs = Date.parse(entry.loggedAt);
+        if (!Number.isFinite(loggedMs)) return true;
+        if (hasStartFilter && loggedMs < startMs) return false;
+        if (hasEndFilter && loggedMs > endMs) return false;
+        return true;
+      };
+
+      const base = (source || captureMode)
         ? filterLedgerEntries(allEntries, {
             source: source || undefined,
             captureMode: captureMode || undefined,
           })
         : allEntries;
+      const filtered = (hasStartFilter || hasEndFilter) ? base.filter(withinRange) : base;
 
       res.json({
         ok: true,
-        filters: { source: source || null, captureMode: captureMode || null },
+        filters: {
+          source: source || null,
+          captureMode: captureMode || null,
+          startAt: startAt || null,
+          endAt: endAt || null,
+        },
         summary: buildLedgerSummary(filtered),
-        allEntriesSummary: (source || captureMode) ? buildLedgerSummary(allEntries) : undefined,
+        allEntriesSummary: (source || captureMode || hasStartFilter || hasEndFilter) ? buildLedgerSummary(allEntries) : undefined,
         items: filtered.slice(0, limit),
         codebaseDiscovery: {
           successHandlerFoundInWorkspace: false,
@@ -1359,6 +1547,306 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "attribution ledger read failed";
       res.status(500).json({ ok: false, error: "attribution_ledger_read_error", message });
+    }
+  });
+
+  router.get("/api/attribution/cohort-ltr", async (req: Request, res: Response) => {
+    try {
+      const startAt = readOne(req.query.startAt);
+      const endAt = readOne(req.query.endAt);
+      const channels = parseAcquisitionChannelFilter(readOne(req.query.channel));
+      const cohortLedger = await resolveAcquisitionCohortLedger(req.query.dataSource);
+      const report = buildAttributionCohortLtrReport({
+        startAt,
+        endAt,
+        channels,
+        ledgerEntries: cohortLedger.ledgerEntries,
+      });
+
+      res.json({
+        ok: true,
+        dataSource: cohortLedger.dataSource,
+        remoteWarnings: cohortLedger.remoteWarnings,
+        ...report,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "attribution cohort LTR failed";
+      if (error instanceof CohortValidationError) {
+        res.status(400).json({ ok: false, error: "validation_error", message });
+        return;
+      }
+      res.status(500).json({ ok: false, error: "attribution_cohort_ltr_error", message });
+    }
+  });
+
+  router.get("/api/attribution/channel-category-repeat", async (req: Request, res: Response) => {
+    try {
+      const startAt = readOne(req.query.startAt);
+      const endAt = readOne(req.query.endAt);
+      const cohortLedger = await resolveAcquisitionCohortLedger(req.query.dataSource);
+      const report = buildChannelCategoryRepeatReport({
+        startAt,
+        endAt,
+        ledgerEntries: cohortLedger.ledgerEntries,
+      });
+
+      res.json({
+        ok: true,
+        dataSource: cohortLedger.dataSource,
+        remoteWarnings: cohortLedger.remoteWarnings,
+        ...report,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "channel category repeat failed";
+      if (error instanceof CohortValidationError) {
+        res.status(400).json({ ok: false, error: "validation_error", message });
+        return;
+      }
+      res.status(500).json({ ok: false, error: "attribution_channel_category_repeat_error", message });
+    }
+  });
+
+  router.get("/api/attribution/reverse-funnel", async (req: Request, res: Response) => {
+    try {
+      const startAt = readOne(req.query.startAt);
+      const endAt = readOne(req.query.endAt);
+      const cohortLedger = await resolveAcquisitionCohortLedger(req.query.dataSource);
+      const report = buildReverseFunnelReport({
+        startAt,
+        endAt,
+        ledgerEntries: cohortLedger.ledgerEntries,
+      });
+
+      res.json({
+        ok: true,
+        dataSource: cohortLedger.dataSource,
+        remoteWarnings: cohortLedger.remoteWarnings,
+        ...report,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "reverse funnel failed";
+      if (error instanceof CohortValidationError) {
+        res.status(400).json({ ok: false, error: "validation_error", message });
+        return;
+      }
+      res.status(500).json({ ok: false, error: "attribution_reverse_funnel_error", message });
+    }
+  });
+
+  router.get("/api/attribution/identity-diagnostics", async (req: Request, res: Response) => {
+    try {
+      const useRemoteLedger = shouldUseRemoteAcquisitionLedger(req.query.dataSource);
+      if (!useRemoteLedger) {
+        res.json({
+          ok: true,
+          dataSource: "local",
+          generatedAt: new Date().toISOString(),
+          identity: { total: 0, filled: 0, empty: 0, bySource: { vm_native: 0, imweb_order_lookup: 0, ga_session_link: 0, ga_session_synthetic: 0, empty: 0 } },
+          note: "로컬 원장은 수신 시 customerKey를 이미 정규화 phone 으로 채운다. 이 엔드포인트는 VM 원장(dataSource=vm) 진단용이다.",
+        });
+        return;
+      }
+      const remote = await fetchRemoteLedgerEntriesForAcquisition();
+      const { identity } = remote;
+      const fillRate = identity.total > 0 ? +(identity.filled / identity.total * 100).toFixed(1) : 0;
+      const joinableRate = identity.total > 0
+        ? +((identity.bySource.vm_native + identity.bySource.imweb_order_lookup + identity.bySource.ga_session_link) / identity.total * 100).toFixed(1)
+        : 0;
+      const touchpointByEmpty: Record<string, number> = {};
+      for (const entry of remote.entries) {
+        if (entry.customerKey) continue;
+        touchpointByEmpty[entry.touchpoint] = (touchpointByEmpty[entry.touchpoint] ?? 0) + 1;
+      }
+      res.json({
+        ok: true,
+        dataSource: "operational_vm_ledger",
+        generatedAt: new Date().toISOString(),
+        identity,
+        fillRatePercent: fillRate,
+        joinableRatePercent: joinableRate,
+        emptyRowsByTouchpoint: touchpointByEmpty,
+        remoteWarnings: remote.warnings,
+        note: "joinable = VM native + imweb order lookup + ga session link. ga_session_synthetic 은 customerKey는 채워졌지만 imweb_orders 와 직접 조인되지 않는다.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ ok: false, error: "attribution_identity_diagnostics_error", message });
+    }
+  });
+
+  router.get("/api/attribution/diagnostics/item-coverage", async (req: Request, res: Response) => {
+    try {
+      const sampleLimit = parsePositiveInt(req.query.sampleLimit, 50, 500);
+      const site = typeof req.query.site === "string" ? req.query.site.trim() : "";
+
+      const db = getCrmDb();
+
+      const itemTable = db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get("imweb_order_items") as { name: string } | undefined;
+
+      let itemTableRowCount: number | null = null;
+      let itemTableColumns: string[] = [];
+      if (itemTable) {
+        itemTableRowCount = (db.prepare("SELECT COUNT(*) AS n FROM imweb_order_items").get() as { n: number }).n;
+        itemTableColumns = (db.prepare("PRAGMA table_info(imweb_order_items)").all() as Array<{ name: string }>).map((c) => c.name);
+      }
+
+      const orderFilters: string[] = [];
+      const orderParams: unknown[] = [];
+      if (site) {
+        orderFilters.push("site = ?");
+        orderParams.push(site);
+      }
+      const whereClause = orderFilters.length ? `WHERE ${orderFilters.join(" AND ")}` : "";
+
+      const orderTotals = db
+        .prepare(
+          `SELECT
+             COUNT(*) AS n,
+             SUM(CASE WHEN raw_json IS NOT NULL AND TRIM(raw_json) <> '' AND TRIM(raw_json) <> '{}' THEN 1 ELSE 0 END) AS with_raw,
+             SUM(CASE WHEN site = 'biocom' THEN 1 ELSE 0 END) AS biocom,
+             SUM(CASE WHEN site = 'thecleancoffee' THEN 1 ELSE 0 END) AS thecleancoffee,
+             SUM(CASE WHEN site = 'aibio' THEN 1 ELSE 0 END) AS aibio,
+             MIN(order_time) AS earliest,
+             MAX(order_time) AS latest
+           FROM imweb_orders ${whereClause}`,
+        )
+        .get(...orderParams) as {
+        n: number;
+        with_raw: number;
+        biocom: number;
+        thecleancoffee: number;
+        aibio: number;
+        earliest: string | null;
+        latest: string | null;
+      };
+
+      const sampleRows = db
+        .prepare(
+          `SELECT order_key, site, order_no, order_time, raw_json
+           FROM imweb_orders ${whereClause}
+           ORDER BY order_time DESC
+           LIMIT ?`,
+        )
+        .all(...orderParams, sampleLimit) as Array<{
+        order_key: string;
+        site: string;
+        order_no: string;
+        order_time: string | null;
+        raw_json: string | null;
+      }>;
+
+      let rawJsonYieldsItems = 0;
+      let rawJsonYieldsZero = 0;
+      let rawJsonUnparseable = 0;
+      const categoryDist: Record<string, number> = { test_kit: 0, supplement: 0, other: 0 };
+      const sampleDetail: Array<{
+        order_key: string;
+        site: string;
+        order_no: string;
+        order_time: string | null;
+        item_count_from_raw: number;
+        sample_item_names: string[];
+        inferred_category: string;
+      }> = [];
+
+      for (const row of sampleRows) {
+        let names: string[] = [];
+        try {
+          names = extractItemNamesFromRawJson(row.raw_json);
+        } catch {
+          rawJsonUnparseable += 1;
+          continue;
+        }
+        if (names.length > 0) {
+          rawJsonYieldsItems += 1;
+          let category: FirstPurchaseCategory = "other";
+          for (const name of names) {
+            const c = categorizeProductName(name);
+            if (c === "test_kit") { category = "test_kit"; break; }
+            if (c === "supplement" && category === "other") category = "supplement";
+          }
+          categoryDist[category] = (categoryDist[category] ?? 0) + 1;
+        } else {
+          rawJsonYieldsZero += 1;
+          categoryDist.other += 1;
+        }
+        if (sampleDetail.length < 10) {
+          sampleDetail.push({
+            order_key: row.order_key,
+            site: row.site,
+            order_no: row.order_no,
+            order_time: row.order_time,
+            item_count_from_raw: names.length,
+            sample_item_names: names.slice(0, 3),
+            inferred_category:
+              names.length === 0
+                ? "other"
+                : names.reduce<FirstPurchaseCategory>((acc, name) => {
+                  const c = categorizeProductName(name);
+                  if (c === "test_kit") return "test_kit";
+                  if (c === "supplement" && acc === "other") return "supplement";
+                  return acc;
+                }, "other"),
+          });
+        }
+      }
+
+      const sampleSize = sampleRows.length;
+      const rawJsonYieldRate = sampleSize > 0 ? +(rawJsonYieldsItems / sampleSize * 100).toFixed(1) : 0;
+
+      const verdict = (() => {
+        if (!itemTable && rawJsonYieldRate >= 80) {
+          return "imweb_order_items 테이블은 없지만 imweb_orders.raw_json 경로가 정상 작동. 카테고리 분류가 실패하는 이유는 다른 경로(예: Sprint6 cohort 내 row 필터) 문제일 가능성.";
+        }
+        if (!itemTable && rawJsonYieldRate < 20) {
+          return "imweb_order_items 테이블 없음 + raw_json에서도 item 이름 추출 실패. 주문 동기화 때 item 정보가 raw_json에 포함되지 않음. 동기화 로직 수정 또는 items 테이블 생성·적재 필요.";
+        }
+        if (itemTable && (itemTableRowCount ?? 0) === 0) {
+          return "imweb_order_items 테이블은 있지만 비어 있음. 적재 잡이 한 번도 실행되지 않았거나 실패. 일회성 backfill 필요.";
+        }
+        if (itemTable && (itemTableRowCount ?? 0) > 0) {
+          return "imweb_order_items 테이블 정상 적재. 카테고리 분류가 실패하면 join 키(order_key/order_no) 불일치 또는 item_name 컬럼 매핑 문제일 가능성.";
+        }
+        return "조건 판정 불명확 — 원본 숫자 참조.";
+      })();
+
+      res.json({
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        filters: { site: site || null, sampleLimit },
+        imwebOrderItems: {
+          tableExists: Boolean(itemTable),
+          rowCount: itemTableRowCount,
+          columns: itemTableColumns,
+        },
+        imwebOrders: {
+          total: orderTotals.n,
+          withRawJson: orderTotals.with_raw,
+          rawJsonCoverageRate: orderTotals.n > 0 ? +(orderTotals.with_raw / orderTotals.n * 100).toFixed(1) : 0,
+          bySite: {
+            biocom: orderTotals.biocom,
+            thecleancoffee: orderTotals.thecleancoffee,
+            aibio: orderTotals.aibio,
+          },
+          earliestOrderTime: orderTotals.earliest,
+          latestOrderTime: orderTotals.latest,
+        },
+        rawJsonParseSample: {
+          size: sampleSize,
+          yieldedItemNames: rawJsonYieldsItems,
+          yieldedZero: rawJsonYieldsZero,
+          unparseable: rawJsonUnparseable,
+          yieldRatePercent: rawJsonYieldRate,
+          categoryDistribution: categoryDist,
+        },
+        sampleDetail,
+        verdict,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ ok: false, error: "attribution_item_coverage_diagnostics_error", message });
     }
   });
 

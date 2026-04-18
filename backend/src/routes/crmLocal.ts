@@ -1212,6 +1212,25 @@ export const createCrmLocalRouter = () => {
     }
   });
 
+  router.post("/api/crm-local/imweb/sync-order-items", async (req: Request, res: Response) => {
+    try {
+      const { syncImwebOrderItemsFromPlayauto } = await import("../imwebOrderItemsSync");
+      const modeRaw = typeof req.body?.mode === "string" ? req.body.mode.trim() : "incremental";
+      const mode = modeRaw === "full" ? "full" : "incremental";
+      const sinceHoursRaw =
+        typeof req.body?.sinceHours === "number" ? req.body.sinceHours : Number(req.body?.sinceHours);
+      const sinceHours = Number.isFinite(sinceHoursRaw) ? sinceHoursRaw : undefined;
+      const dryRun = Boolean(req.body?.dryRun);
+      const result = await syncImwebOrderItemsFromPlayauto({ mode, sinceHours, dryRun });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "Order items sync failed",
+      });
+    }
+  });
+
   router.post("/api/crm-local/imweb/sync-order-statuses", async (req: Request, res: Response) => {
     try {
       if (IMWEB_SITES.length === 0) {
@@ -1257,6 +1276,58 @@ export const createCrmLocalRouter = () => {
         .prepare("SELECT MAX(imweb_status_synced_at) AS m FROM imweb_orders WHERE site=?")
         .get(site) as { m: string | null };
 
+      // C-Sprint 3 (confirmed_stopline v1): Imweb CANCEL 주문을 Toss 상태와 교차해 4종으로 분리.
+      //  - actual_canceled : Toss DONE → CANCELED 로 전이 (실제 환불)
+      //  - partial_canceled : Toss PARTIAL_CANCELED (부분 환불)
+      //  - vbank_expired   : 가상계좌 미입금 만료 (Toss WAITING_FOR_DEPOSIT 또는 virtual pay_type + Toss 없음)
+      //  - legacy_uncertain: Toss 미매칭 + 위 어느 것도 아님 (원인 불명, 수동 확인 대상)
+      const cancelBreakdown = db
+        .prepare(
+          `SELECT
+             CASE
+               WHEN t.status = 'CANCELED' THEN 'actual_canceled'
+               WHEN t.status = 'PARTIAL_CANCELED' THEN 'partial_canceled'
+               WHEN t.status = 'WAITING_FOR_DEPOSIT'
+                 OR (t.status IS NULL AND i.pay_type = 'virtual') THEN 'vbank_expired'
+               ELSE 'legacy_uncertain'
+             END AS subcategory,
+             COUNT(*) AS cnt,
+             COALESCE(SUM(i.payment_amount), 0) AS amount,
+             COALESCE(SUM(CASE WHEN t.status = 'PARTIAL_CANCELED' THEN t.amount ELSE 0 END), 0) AS partial_cancel_amount
+           FROM imweb_orders i
+           LEFT JOIN toss_transactions t
+             ON t.order_id = i.order_no || '-P1'
+            AND t.status IN ('CANCELED','PARTIAL_CANCELED','WAITING_FOR_DEPOSIT','DONE')
+           WHERE i.site = ? AND i.imweb_status = 'CANCEL'
+           GROUP BY subcategory`,
+        )
+        .all(site) as Array<{ subcategory: string; cnt: number; amount: number; partial_cancel_amount: number }>;
+
+      const zero = { count: 0, amount: 0 };
+      const cancelSubcategories: Record<
+        "actual_canceled" | "partial_canceled" | "vbank_expired" | "legacy_uncertain",
+        { count: number; amount: number }
+      > = {
+        actual_canceled: { ...zero },
+        partial_canceled: { ...zero },
+        vbank_expired: { ...zero },
+        legacy_uncertain: { ...zero },
+      };
+      let partialCancelRefundedAmount = 0;
+      for (const row of cancelBreakdown) {
+        const key = row.subcategory as keyof typeof cancelSubcategories;
+        if (key in cancelSubcategories) {
+          cancelSubcategories[key] = { count: row.cnt, amount: Number(row.amount ?? 0) };
+        }
+        if (row.subcategory === "partial_canceled") {
+          partialCancelRefundedAmount = Number(row.partial_cancel_amount ?? 0);
+        }
+      }
+      const cancelTotal = Object.values(cancelSubcategories).reduce(
+        (acc, row) => ({ count: acc.count + row.count, amount: acc.amount + row.amount }),
+        { count: 0, amount: 0 },
+      );
+
       res.json({
         ok: true,
         site,
@@ -1265,6 +1336,15 @@ export const createCrmLocalRouter = () => {
         confirmedAmount,
         byStatus,
         latestStatusSyncAt: latestSync?.m ?? null,
+        cancelSubcategories,
+        cancelTotal,
+        partialCancelRefundedAmount,
+        cancelSubcategoryDefinitions: {
+          actual_canceled: "Toss DONE → CANCELED 로 전이된 실제 환불 주문",
+          partial_canceled: "Toss PARTIAL_CANCELED 부분 환불 주문. partialCancelRefundedAmount 는 Toss 기준 환불된 금액 합계",
+          vbank_expired: "가상계좌 미입금 만료 (Toss WAITING_FOR_DEPOSIT 또는 virtual pay_type + Toss 미존재). 매출 아님 — /ads net 에서 차감하지 않음",
+          legacy_uncertain: "Toss 미매칭 + 위 어느 것도 아님. 수동 확인 대상",
+        },
         coverageNote:
           "이 집계는 Imweb v2 주문 헤더 기준. 바이오컴 아임웹 결제 주문에 한함. 쿠팡·네이버·수동 주문은 포함되지 않음(플레이오토 필수).",
       });
