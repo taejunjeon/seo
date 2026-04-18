@@ -619,15 +619,21 @@ export default function Home() {
     if (activeTab !== 2) setOpportunityKeyword(null);
   }, [activeTab]);
 
-  // popstate: 브라우저 뒤로/앞으로 시 hash에서 탭 복원
+  // URL hash 기반 이동: 외부 페이지에서 /#ai-crm 등으로 들어올 때 탭 복원
   useEffect(() => {
-    const onPop = () => {
+    const syncTabFromLocation = () => {
       const hash = window.location.hash.replace("#", "");
       const idx = TAB_SLUGS.indexOf(hash);
       setActiveTabRaw(idx >= 0 ? idx : 0);
     };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+
+    syncTabFromLocation();
+    window.addEventListener("popstate", syncTabFromLocation);
+    window.addEventListener("hashchange", syncTabFromLocation);
+    return () => {
+      window.removeEventListener("popstate", syncTabFromLocation);
+      window.removeEventListener("hashchange", syncTabFromLocation);
+    };
   }, [TAB_SLUGS]);
 
   // ChannelTalk: 탭 전환 시 setPage 호출

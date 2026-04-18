@@ -60,6 +60,10 @@ type DailyRow = {
   confirmedRoas: number | null;
   potentialRoas: number | null;
   metaPurchaseRoas: number | null;
+  officialRevenue?: number;
+  officialRoas?: number | null;
+  fastSignalRoas?: number | null;
+  roasGap?: number | null;
 };
 
 type SiteRoasSummary = {
@@ -87,6 +91,11 @@ type SiteRoasSummary = {
   siteConfirmedRevenue: number;
   siteConfirmedOrders: number;
   bestCaseCeilingRoas: number | null;
+  officialRevenue?: number;
+  officialOrders?: number;
+  officialRoas?: number | null;
+  fastSignalRoas?: number | null;
+  roasGap?: number | null;
 };
 
 type AttributionCampaignRoasRow = {
@@ -492,6 +501,33 @@ export default function AdsPage() {
   const [aibioAcquisitionLoading, setAibioAcquisitionLoading] = useState(false);
   const [aibioAcquisitionError, setAibioAcquisitionError] = useState<string | null>(null);
 
+  // C-Sprint 3 (confirmed_stopline v1): Imweb CANCEL 서브카테고리 breakdown (biocom 전체 기간 누적)
+  type CancelSubcategoryBucket = { count: number; amount: number };
+  type PurchaseConfirmStats = {
+    site: string;
+    total: number;
+    confirmed: number;
+    confirmedAmount: number;
+    cancelSubcategories?: {
+      actual_canceled: CancelSubcategoryBucket;
+      partial_canceled: CancelSubcategoryBucket;
+      vbank_expired: CancelSubcategoryBucket;
+      legacy_uncertain: CancelSubcategoryBucket;
+    };
+    cancelTotal?: { count: number; amount: number };
+    partialCancelRefundedAmount?: number;
+  };
+  const [cancelBreakdown, setCancelBreakdown] = useState<PurchaseConfirmStats | null>(null);
+
+  // C-Sprint 4 v1.5: Refund dispatch 관측 — 옵션 C 로 Refund custom event + Purchase 음수 value 병행 전송
+  type RefundSummaryResp = {
+    windowStart: string;
+    totals: { cases: number; amount: number; metaSent: number; ga4Sent: number; purchaseRefundSent: number };
+    bySite: Array<{ site: string; cases: number; amount: number; metaSent: number; ga4Sent: number; purchaseRefundSent: number }>;
+    latestDetectedAt: string | null;
+  };
+  const [refundSummary, setRefundSummary] = useState<RefundSummaryResp | null>(null);
+
   // Post-CAPI 바이오컴 비교 상태 (교정된 VM ledger 기준 2026-04-13~today vs 2026-04-05~2026-04-11)
   type CapiRoasWindow = {
     start_date: string;
@@ -514,6 +550,30 @@ export default function AdsPage() {
       .then((r) => r.json())
       .then((data) => { if (data?.ok) setMetaStatus(data); })
       .catch(() => { /* ignore */ });
+  }, []);
+
+  // C-Sprint 3: biocom 선택 시 CANCEL 서브카테고리 breakdown 로드
+  useEffect(() => {
+    if (selectedSite.site !== "biocom") {
+      setCancelBreakdown(null);
+      return;
+    }
+    const ac = new AbortController();
+    fetch(`${API_BASE}/api/crm-local/imweb/purchase-confirm-stats?site=biocom`, { signal: ac.signal })
+      .then((r) => r.json())
+      .then((data) => { if (data?.ok) setCancelBreakdown(data as PurchaseConfirmStats); })
+      .catch(() => { /* ignore */ });
+    return () => ac.abort();
+  }, [selectedSite.site]);
+
+  // C-Sprint 4: Refund dispatch 관측 (최근 90일)
+  useEffect(() => {
+    const ac = new AbortController();
+    fetch(`${API_BASE}/api/refund/summary?windowDays=90`, { signal: ac.signal })
+      .then((r) => r.json())
+      .then((data) => { if (data?.ok) setRefundSummary(data as RefundSummaryResp); })
+      .catch(() => { /* ignore */ });
+    return () => ac.abort();
   }, []);
 
   useEffect(() => {
@@ -840,54 +900,214 @@ export default function AdsPage() {
         </div>
       )}
 
-      {/* 3사이트 오버뷰 */}
+      {/* 3사이트 오버뷰 — Official vs Fast Signal 분리 (C-Sprint 2) */}
       {siteSummary && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
-          {SITES.map((s) => {
-            const data = siteSummary.sites.find((o) => o.site === s.site);
-            const isActive = data && data.spend > 0;
-            const isSelected = selectedSite.site === s.site;
-            return (
-              <div key={s.site} onClick={() => setSelectedSite(s)} style={{
-                padding: "16px 20px", borderRadius: 14, cursor: "pointer", transition: "all 0.15s",
-                border: isSelected ? "2px solid #6366f1" : "1px solid #e2e8f0",
-                background: isSelected ? "rgba(99,102,241,0.04)" : "#fff",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "#1e293b" }}>{s.label}</span>
-                  <span style={{
-                    fontSize: "0.65rem", fontWeight: 600, padding: "2px 6px", borderRadius: 4,
-                    background: isActive ? "#f0fdf4" : "#f1f5f9",
-                    color: isActive ? "#16a34a" : "#94a3b8",
-                  }}>{isActive ? "집행 중" : "미집행"}</span>
-                </div>
-                {data && data.spend > 0 ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                    <div>
-                      <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>비용</div>
-                      <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>{fmtKRW(data.spend)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>ROAS</div>
-                      <div style={{ fontSize: "0.95rem", fontWeight: 700, color: data.roas != null && data.roas >= 1 ? "#16a34a" : data.roas != null ? "#dc2626" : "#94a3b8" }}>
-                        {data.roas != null ? `${data.roas.toFixed(2)}x` : "—"}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>광고 귀속 매출</div>
-                      <div style={{ fontSize: "0.82rem", color: "#475569" }}>{fmtKRW(data.revenue)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>주문</div>
-                      <div style={{ fontSize: "0.82rem", color: "#475569" }}>{fmtNum(data.orders)}건</div>
-                    </div>
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
+            <div style={{ fontSize: "0.7rem", color: "#64748b" }}>
+              <strong style={{ color: "#1e293b" }}>Official</strong>은 Imweb 구매확정(business_confirmed) 기준 · 결제 후 <strong>~72시간 뒤</strong> 최종 확정 ·{" "}
+              <strong style={{ color: "#1e293b" }}>Fast Signal</strong>은 결제 승인(paid) 기준 Meta 학습 신호와 동일
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
+            {SITES.map((s) => {
+              const data = siteSummary.sites.find((o) => o.site === s.site);
+              const isActive = data && data.spend > 0;
+              const isSelected = selectedSite.site === s.site;
+              const officialRoas = data?.officialRoas ?? null;
+              const fastRoas = data?.fastSignalRoas ?? data?.roas ?? null;
+              const gap = data?.roasGap ?? (officialRoas != null && fastRoas != null ? Number((officialRoas - fastRoas).toFixed(2)) : null);
+              const roasColor = (v: number | null) => v == null ? "#94a3b8" : v >= 1 ? "#16a34a" : "#dc2626";
+              return (
+                <div key={s.site} onClick={() => setSelectedSite(s)} style={{
+                  padding: "16px 20px", borderRadius: 14, cursor: "pointer", transition: "all 0.15s",
+                  border: isSelected ? "2px solid #6366f1" : "1px solid #e2e8f0",
+                  background: isSelected ? "rgba(99,102,241,0.04)" : "#fff",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "#1e293b" }}>{s.label}</span>
+                    <span style={{
+                      fontSize: "0.65rem", fontWeight: 600, padding: "2px 6px", borderRadius: 4,
+                      background: isActive ? "#f0fdf4" : "#f1f5f9",
+                      color: isActive ? "#16a34a" : "#94a3b8",
+                    }}>{isActive ? "집행 중" : "미집행"}</span>
                   </div>
-                ) : (
-                  <div style={{ fontSize: "0.78rem", color: "#94a3b8", paddingTop: 8 }}>{currentPresetLabel} 광고 집행 없음</div>
-                )}
+                  {data && data.spend > 0 ? (
+                    <>
+                      {/* Official / Fast Signal 두 줄 */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10, paddingBottom: 10, borderBottom: "1px dashed #e2e8f0" }}>
+                        <div title="Official ROAS = Imweb 구매확정(business_confirmed) 매출 ÷ 광고비. 결제 후 약 72시간 뒤 최종 확정되는 회사 공식 성과 숫자.">
+                          <div style={{ fontSize: "0.62rem", color: "#64748b", fontWeight: 600, letterSpacing: "0.02em", marginBottom: 2 }}>
+                            Official <span style={{ fontSize: "0.6rem", color: "#94a3b8", fontWeight: 500 }}>ⓘ</span>
+                          </div>
+                          <div style={{ fontSize: "1.05rem", fontWeight: 700, color: roasColor(officialRoas) }}>
+                            {officialRoas != null ? `${officialRoas.toFixed(2)}x` : "—"}
+                          </div>
+                          <div style={{ fontSize: "0.58rem", color: "#94a3b8", marginTop: 2 }}>~72h 뒤 확정</div>
+                        </div>
+                        <div title="Fast Signal ROAS = 결제 승인(paid) 매출 ÷ 광고비. Meta CAPI Purchase 학습 신호와 동일한 빠른 숫자. 환불/취소 반영 전.">
+                          <div style={{ fontSize: "0.62rem", color: "#64748b", fontWeight: 600, letterSpacing: "0.02em", marginBottom: 2 }}>
+                            Fast Signal <span style={{ fontSize: "0.6rem", color: "#94a3b8", fontWeight: 500 }}>ⓘ</span>
+                          </div>
+                          <div style={{ fontSize: "1.05rem", fontWeight: 700, color: roasColor(fastRoas) }}>
+                            {fastRoas != null ? `${fastRoas.toFixed(2)}x` : "—"}
+                          </div>
+                          <div style={{ fontSize: "0.58rem", color: "#94a3b8", marginTop: 2 }}>
+                            Gap {gap != null ? `${gap >= 0 ? "+" : ""}${gap.toFixed(2)}` : "—"}
+                          </div>
+                        </div>
+                      </div>
+                      {/* 비용 / 광고 귀속 매출 / 주문 */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                        <div>
+                          <div style={{ fontSize: "0.62rem", color: "#94a3b8" }}>비용</div>
+                          <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>{fmtKRW(data.spend)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: "0.62rem", color: "#94a3b8" }}>주문</div>
+                          <div style={{ fontSize: "0.85rem", color: "#475569", fontWeight: 600 }}>{fmtNum(data.orders)}건</div>
+                        </div>
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <div style={{ fontSize: "0.62rem", color: "#94a3b8" }}>광고 귀속 매출 (Fast Signal)</div>
+                          <div style={{ fontSize: "0.78rem", color: "#475569" }}>{fmtKRW(data.revenue)}</div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: "0.78rem", color: "#94a3b8", paddingTop: 8 }}>{currentPresetLabel} 광고 집행 없음</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* C-Sprint 3: CANCEL 서브카테고리 breakdown (biocom 전체 기간 누적) */}
+      {selectedSite.site === "biocom" && cancelBreakdown?.cancelSubcategories && (
+        <div style={{ marginBottom: 24, padding: "14px 18px", borderRadius: 12, background: "#fafafa", border: "1px solid #e2e8f0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+            <div>
+              <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b" }}>매출 보정 내역</span>
+              <span style={{ fontSize: "0.68rem", color: "#94a3b8", marginLeft: 8 }}>biocom 전체 기간 · Imweb CANCEL 분리</span>
+            </div>
+            <div style={{ fontSize: "0.65rem", color: "#64748b" }} title="gross CANCEL을 4가지로 분리해 net 매출을 계산. vbank_expired는 가상계좌 미입금 만료라 매출이 아니었으므로 net 차감하지 않음.">
+              전체 CANCEL {fmtNum(cancelBreakdown.cancelTotal?.count ?? 0)}건 / {fmtKRW(cancelBreakdown.cancelTotal?.amount ?? 0)} ⓘ
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+            {(() => {
+              const c = cancelBreakdown.cancelSubcategories!;
+              const partialRefunded = cancelBreakdown.partialCancelRefundedAmount ?? 0;
+              const cells: Array<{ label: string; sub: string; count: number; amount: number; tag: string; tagColor: string; tooltip: string; extra?: string }> = [
+                {
+                  label: "실제 환불",
+                  sub: "actual_canceled",
+                  count: c.actual_canceled.count,
+                  amount: c.actual_canceled.amount,
+                  tag: "net 차감",
+                  tagColor: "#dc2626",
+                  tooltip: "Toss DONE → CANCELED 전이된 실제 환불. ROAS net에서 차감한다.",
+                },
+                {
+                  label: "부분 환불",
+                  sub: "partial_canceled",
+                  count: c.partial_canceled.count,
+                  amount: c.partial_canceled.amount,
+                  tag: "부분 차감",
+                  tagColor: "#d97706",
+                  tooltip: "Toss PARTIAL_CANCELED. 주문 총액이 아니라 실제 Toss 환불 금액만 net에서 차감.",
+                  extra: `Toss 환불 ${fmtKRW(partialRefunded)}`,
+                },
+                {
+                  label: "가상계좌 만료",
+                  sub: "vbank_expired",
+                  count: c.vbank_expired.count,
+                  amount: c.vbank_expired.amount,
+                  tag: "매출 아님",
+                  tagColor: "#64748b",
+                  tooltip: "가상계좌 발급 후 미입금 만료. 애초에 매출이 아니었으므로 net에서 차감하지 않음.",
+                },
+                {
+                  label: "원인 불명",
+                  sub: "legacy_uncertain",
+                  count: c.legacy_uncertain.count,
+                  amount: c.legacy_uncertain.amount,
+                  tag: "수동 확인",
+                  tagColor: "#7c3aed",
+                  tooltip: "Toss 미매칭 + 위 3종 아님. net 자동 차감 안 함. 운영팀이 원인 확인 필요.",
+                },
+              ];
+              return cells.map((cell) => (
+                <div key={cell.sub} title={cell.tooltip} style={{ padding: "10px 12px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#1e293b" }}>{cell.label}</span>
+                    <span style={{ fontSize: "0.58rem", fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: `${cell.tagColor}15`, color: cell.tagColor }}>{cell.tag}</span>
+                  </div>
+                  <div style={{ fontSize: "0.6rem", color: "#94a3b8", marginBottom: 2 }}>{cell.sub}</div>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1e293b" }}>{fmtKRW(cell.amount)}</div>
+                  <div style={{ fontSize: "0.65rem", color: "#64748b" }}>{fmtNum(cell.count)}건{cell.extra ? ` · ${cell.extra}` : ""}</div>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* C-Sprint 4: Refund Dispatch 관측 (dry-run 또는 enforce) */}
+      {refundSummary && refundSummary.totals.cases > 0 && (
+        <div style={{ marginBottom: 24, padding: "12px 16px", borderRadius: 10, background: "#fdf4ff", border: "1px solid #f0abfc" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+            <div>
+              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#86198f" }}>Refund Dispatch · 최근 90일</span>
+              <span style={{ fontSize: "0.62rem", color: "#a21caf", marginLeft: 8 }}>
+                Toss DONE → CANCELED/PARTIAL 전이를 감지해 Meta CAPI Refund + GA4 MP Refund로 정정 발송 준비
+              </span>
+            </div>
+            <div
+              style={{ fontSize: "0.62rem", fontWeight: 600, color: refundSummary.totals.metaSent > 0 ? "#047857" : "#a16207", padding: "2px 8px", borderRadius: 4, background: refundSummary.totals.metaSent > 0 ? "#ecfdf5" : "#fef9c3" }}
+              title="dry_run: 감지·로그만. 실제 Meta/GA4 전송 없음. enforce: REFUND_DISPATCH_ENFORCE=true + GA4_MP_API_SECRET_* 가 있어야 실 전송."
+            >
+              {refundSummary.totals.metaSent > 0 || refundSummary.totals.ga4Sent > 0 ? "enforce 활성" : "dry_run (전송 대기)"}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 8 }}>
+            <div>
+              <div style={{ fontSize: "0.6rem", color: "#86198f" }}>감지 건수</div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>{fmtNum(refundSummary.totals.cases)}건</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "0.6rem", color: "#86198f" }}>환불 금액</div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>{fmtKRW(refundSummary.totals.amount)}</div>
+            </div>
+            <div title="Meta CAPI 로 event_name=Refund custom event 전송 성공 (관측용)">
+              <div style={{ fontSize: "0.6rem", color: "#86198f" }}>Meta Refund</div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 700, color: refundSummary.totals.metaSent > 0 ? "#047857" : "#94a3b8" }}>
+                {fmtNum(refundSummary.totals.metaSent)}건
               </div>
-            );
-          })}
+            </div>
+            <div title="Meta CAPI 로 event_name=Purchase value 음수 전송 (ROAS 차감 반영용). event_id=Refund-As-Purchase.{order_code} 로 dedup 안전.">
+              <div style={{ fontSize: "0.6rem", color: "#86198f" }}>Meta Purchase(-)</div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 700, color: refundSummary.totals.purchaseRefundSent > 0 ? "#047857" : "#94a3b8" }}>
+                {fmtNum(refundSummary.totals.purchaseRefundSent)}건
+              </div>
+            </div>
+            <div title="GA4 Measurement Protocol로 refund event 전송 성공">
+              <div style={{ fontSize: "0.6rem", color: "#86198f" }}>GA4 Refund</div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 700, color: refundSummary.totals.ga4Sent > 0 ? "#047857" : "#94a3b8" }}>
+                {fmtNum(refundSummary.totals.ga4Sent)}건
+              </div>
+            </div>
+          </div>
+          {refundSummary.bySite.length > 0 && (
+            <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap", fontSize: "0.68rem", color: "#6b21a8" }}>
+              {refundSummary.bySite.map((s) => (
+                <span key={s.site} style={{ background: "#fff", padding: "2px 8px", borderRadius: 4, border: "1px solid #e9d5ff" }}>
+                  {s.site} {fmtNum(s.cases)}건 · {fmtKRW(s.amount)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

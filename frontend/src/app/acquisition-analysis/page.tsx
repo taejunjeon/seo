@@ -571,6 +571,9 @@ export default function AcquisitionAnalysisPage() {
 
             {/* GA4 채널별 결제 분석 */}
             <GA4ChannelAnalysis />
+
+            {/* Sprint9 결과: 유입채널 × 상품 카테고리 × 재구매 교차 */}
+            <CohortCategoryCard />
           </>
         )}
       </main>
@@ -616,33 +619,67 @@ const classifyLtv = (source: string): { additional: number; label: string } | nu
   return null;
 };
 
-const DATE_RANGES = [
-  { value: "7", label: "최근 7일" },
-  { value: "14", label: "최근 14일" },
-  { value: "30", label: "최근 30일" },
-  { value: "90", label: "최근 90일" },
+type DateRange = {
+  value: string;
+  label: string;
+  mode: "days" | "year";
+  days?: number;
+  year?: number;
+};
+
+const CURRENT_YEAR = new Date().getFullYear();
+
+const DATE_RANGES: DateRange[] = [
+  { value: "7", label: "최근 7일", mode: "days", days: 7 },
+  { value: "14", label: "최근 14일", mode: "days", days: 14 },
+  { value: "30", label: "최근 30일", mode: "days", days: 30 },
+  { value: "90", label: "최근 90일", mode: "days", days: 90 },
+  { value: "y2024", label: "2024년", mode: "year", year: 2024 },
+  { value: "y2025", label: "2025년", mode: "year", year: 2025 },
+  { value: "y2026", label: `${CURRENT_YEAR}년 YTD`, mode: "year", year: CURRENT_YEAR },
 ];
 
 function GA4ChannelAnalysis() {
   const [ga4Data, setGa4Data] = useState<{ rows: GA4Row[]; byChannel: GA4ChannelGroup[] } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [days, setDays] = useState("30");
+  const [rangeValue, setRangeValue] = useState("30");
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
+
+  const selectedRange = useMemo(
+    () => DATE_RANGES.find((r) => r.value === rangeValue) ?? DATE_RANGES[2],
+    [rangeValue],
+  );
+
+  const resolvedRange = useMemo(() => {
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    if (selectedRange.mode === "year" && selectedRange.year != null) {
+      const year = selectedRange.year;
+      const startDate = `${year}-01-01`;
+      const lastDay = new Date(year, 11, 31);
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const endDate = fmt(year === yesterday.getFullYear() ? yesterday : lastDay);
+      return { startDate, endDate };
+    }
+    const days = selectedRange.days ?? 30;
+    const end = new Date();
+    end.setDate(end.getDate() - 1);
+    const start = new Date(end);
+    start.setDate(start.getDate() - days + 1);
+    return { startDate: fmt(start), endDate: fmt(end) };
+  }, [selectedRange]);
 
   const loadGA4 = useCallback(async () => {
     setLoading(true);
     try {
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() - 1);
-      const startDate = new Date(endDate);
-      startDate.setDate(startDate.getDate() - Number(days) + 1);
-      const fmt = (d: Date) => d.toISOString().slice(0, 10);
-      const res = await fetch(`${API_BASE}/api/ga4/source-conversion?site=biocom&startDate=${fmt(startDate)}&endDate=${fmt(endDate)}&limit=300`);
+      const res = await fetch(
+        `${API_BASE}/api/ga4/source-conversion?site=biocom&startDate=${resolvedRange.startDate}&endDate=${resolvedRange.endDate}&limit=500`,
+      );
       const d = await res.json();
       setGa4Data({ rows: d.rows ?? [], byChannel: d.byChannel ?? [] });
     } catch { /* ignore */ }
     setLoading(false);
-  }, [days]);
+  }, [resolvedRange]);
 
   useEffect(() => {
     void Promise.resolve().then(loadGA4);
@@ -691,9 +728,9 @@ function GA4ChannelAnalysis() {
         <h2 className={styles.sectionTitle} style={{ margin: 0 }}>GA4 채널별 결제 분석 (바이오컴)</h2>
         <div style={{ display: "flex", gap: 4 }}>
           {DATE_RANGES.map((dr) => (
-            <button key={dr.value} onClick={() => setDays(dr.value)} style={{
+            <button key={dr.value} onClick={() => setRangeValue(dr.value)} style={{
               padding: "4px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: "0.68rem", fontWeight: 600, cursor: "pointer",
-              background: days === dr.value ? "#6366f1" : "#fff", color: days === dr.value ? "#fff" : "#64748b",
+              background: rangeValue === dr.value ? "#6366f1" : "#fff", color: rangeValue === dr.value ? "#fff" : "#64748b",
             }}>{dr.label}</button>
           ))}
         </div>
@@ -701,6 +738,10 @@ function GA4ChannelAnalysis() {
       <p style={{ fontSize: "0.72rem", color: "#64748b", marginBottom: 16, lineHeight: 1.6 }}>
         GA4 ecommerce Purchase 이벤트 기준. sessionSource/sessionMedium로 유입 채널 식별.
         추정 LTV는 광고 유입 보정(50% 할인) 적용.
+        <br />
+        <span style={{ color: "#475569" }}>
+          조회 기간: <strong>{resolvedRange.startDate} ~ {resolvedRange.endDate}</strong>
+        </span>
         <br />
         <span style={{ color: "#d97706", fontWeight: 600 }}>코호트 실측 진행 중: Meta 유입 47명 중 재구매 12.8% (50% 보정 추정치와 일치)</span>
       </p>
@@ -802,13 +843,400 @@ function GA4ChannelAnalysis() {
                 표본 50건+ 모이면 광고 유입 전용 LTV multiplier로 전환 예정.
               </p>
               <p style={{ margin: "0 0 6px" }}>
-                <strong>YouTube UTM 체계화 필요:</strong> 현재 3개 UTM만 추적 중. 모든 영상에 체계적 UTM 태깅 시 영상별 ROI 정밀 측정 가능.
+                <strong>YouTube UTM 체계화 필요:</strong> 이 기간의 YouTube 관련 유입원은 <strong>{youtubeRows.length}개</strong> (유기 referrer + 기존 utm_source 태깅 조합).
+                유기 `youtube.com/referral` 세션은 영상이 특정되지 않아 ROI 추적이 불가하고, 기존 태깅은 `youtube_teamketo_0527...` 같은
+                채널·에피소드 단위로 일관되지 않소. 모든 영상에 `utm_source=youtube` + `utm_campaign=&lt;video_id&gt;` 같은
+                표준 스킴을 붙이면 영상별 ROI 정밀 측정 가능.
               </p>
               <p style={{ margin: 0 }}>
                 <strong>아임웹 API 한계:</strong> 유입분석(referrer) API 없음. GA4 API가 유일한 채널별 결제 분석 소스.
                 openapi.imweb.me OAuth 확보 시 추가 가능성 있으나 미확인.
               </p>
             </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+/* ══════════════════════════════════════════
+   유입채널 × 상품 카테고리 × 재구매 코호트 (Sprint6·9 결과)
+   ══════════════════════════════════════════ */
+
+type CohortWindowSummary = { n: number; revenue: number; median: number | null };
+type CohortChannel = {
+  channel: string;
+  customerCount: number;
+  matureCohort: { d30: CohortWindowSummary; d90: CohortWindowSummary; d180: CohortWindowSummary };
+};
+type CohortLtrResponse = {
+  ok: boolean;
+  dataSource?: string;
+  range?: { startAt: string; endAt: string };
+  channels: CohortChannel[];
+};
+
+type CategoryRepeatCell = {
+  channel: string;
+  category: "test_kit" | "supplement" | "other";
+  isDangdangcare: boolean;
+  customerCount: number;
+  repeaterCount: number;
+  repeatRate: number;
+  medianFirstPurchaseAmount: number | null;
+  median180dLtr: number | null;
+};
+type ChannelCategoryRepeatResponse = {
+  ok: boolean;
+  dataSource?: string;
+  cells: CategoryRepeatCell[];
+};
+
+type ReverseFunnelByChannel = {
+  channel: string;
+  supplementFirstBuyers: number;
+  convertedToTest: number;
+  rate: number;
+};
+type ReverseFunnelResponse = {
+  ok: boolean;
+  overall: ReverseFunnelByChannel;
+  byChannel: ReverseFunnelByChannel[];
+};
+
+type IdentityDiagnosticsResponse = {
+  ok: boolean;
+  identity: {
+    total: number;
+    filled: number;
+    empty: number;
+    bySource: {
+      vm_native: number;
+      imweb_order_lookup: number;
+      ga_session_link: number;
+      ga_session_synthetic: number;
+      empty: number;
+    };
+  };
+  fillRatePercent: number;
+  joinableRatePercent: number;
+  emptyRowsByTouchpoint?: Record<string, number>;
+};
+
+const CHANNEL_DISPLAY: Record<string, { label: string; color: string }> = {
+  youtube: { label: "YouTube", color: "#dc2626" },
+  meta: { label: "Meta", color: "#1877f2" },
+  tiktok: { label: "TikTok", color: "#000000" },
+  google: { label: "Google", color: "#ea4335" },
+  other: { label: "기타/Direct", color: "#64748b" },
+};
+
+const CATEGORY_DISPLAY: Record<CategoryRepeatCell["category"], { label: string; color: string }> = {
+  test_kit: { label: "검사권", color: "#0ea5e9" },
+  supplement: { label: "영양제", color: "#16a34a" },
+  other: { label: "기타", color: "#94a3b8" },
+};
+
+function CohortCategoryCard() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cohort, setCohort] = useState<CohortLtrResponse | null>(null);
+  const [cells, setCells] = useState<CategoryRepeatCell[]>([]);
+  const [funnel, setFunnel] = useState<ReverseFunnelResponse | null>(null);
+  const [diag, setDiag] = useState<IdentityDiagnosticsResponse | null>(null);
+
+  // 기본 조회 범위: 최근 365일 (VM 원장 기본 lookback과 일치)
+  const [range] = useState(() => {
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(start.getDate() - 365);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    return { startAt: fmt(start), endAt: fmt(end) };
+  });
+
+  useEffect(() => {
+    const abort = new AbortController();
+    const base = `${API_BASE}/api/attribution`;
+    const params = `startAt=${range.startAt}&endAt=${range.endAt}&dataSource=vm`;
+    Promise.all([
+      fetch(`${base}/cohort-ltr?${params}`, { signal: abort.signal }).then((r) => r.json()),
+      fetch(`${base}/channel-category-repeat?${params}`, { signal: abort.signal }).then((r) => r.json()),
+      fetch(`${base}/reverse-funnel?${params}`, { signal: abort.signal }).then((r) => r.json()),
+      fetch(`${base}/identity-diagnostics?dataSource=vm`, { signal: abort.signal }).then((r) => r.json()),
+    ])
+      .then(([c, r, f, d]) => {
+        setCohort(c);
+        setCells((r?.cells as CategoryRepeatCell[]) ?? []);
+        setFunnel(f);
+        setDiag(d);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if ((err as DOMException)?.name === "AbortError") return;
+        setError((err as Error).message ?? "cohort fetch failed");
+        setLoading(false);
+      });
+    return () => abort.abort();
+  }, [range]);
+
+  const totalCustomers = useMemo(
+    () => cohort?.channels.reduce((sum, c) => sum + c.customerCount, 0) ?? 0,
+    [cohort],
+  );
+
+  const nonzeroCells = useMemo(
+    () => cells.filter((c) => c.customerCount > 0).sort((a, b) => b.customerCount - a.customerCount),
+    [cells],
+  );
+
+  const fmtW = (n: number | null | undefined) => (n == null ? "—" : `₩${Math.round(n).toLocaleString("ko-KR")}`);
+  const fmtRate = (n: number) => `${(n * 100).toFixed(1)}%`;
+
+  return (
+    <section className={styles.section} style={{ marginTop: 32 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+        <div>
+          <h2 className={styles.sectionTitle} style={{ margin: 0 }}>
+            유입채널 × 상품 카테고리 × 재구매 코호트
+          </h2>
+          <p style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 4, marginBottom: 0 }}>
+            Attribution 원장(VM) · Imweb 주문(로컬 SQLite) · Playauto 상품 라인(Postgres)을 join한 고객 단위 집계. 론 코하비
+            6체크(Twyman·SRM·Selection·Survivorship·OEC·Power) 기준으로 읽을 것.
+          </p>
+        </div>
+        <span style={{ fontSize: "0.66rem", color: "#64748b", padding: "4px 8px", background: "#f1f5f9", borderRadius: 6 }}>
+          조회 범위 {range.startAt} ~ {range.endAt} · dataSource=vm
+        </span>
+      </div>
+
+      {loading && <div style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>코호트 집계를 불러오는 중...</div>}
+      {error && <div style={{ padding: 12, color: "#dc2626", background: "#fef2f2", borderRadius: 8 }}>로드 실패: {error}</div>}
+
+      {!loading && !error && (
+        <>
+          {/* 관측 가능 기간 + ID 진단 */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 10,
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ padding: 12, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: "0.68rem", color: "#64748b", marginBottom: 4 }}>관측 가능 고객 수</div>
+              <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "#1e293b" }}>
+                {totalCustomers.toLocaleString("ko-KR")}명
+              </div>
+              <div style={{ fontSize: "0.62rem", color: "#94a3b8", marginTop: 4 }}>
+                VM 원장에서 first_touch가 잡힌 고유 고객 합계
+              </div>
+            </div>
+            {diag && (
+              <>
+                <div style={{ padding: 12, borderRadius: 10, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                  <div style={{ fontSize: "0.68rem", color: "#166534", marginBottom: 4 }}>customerKey 채움률</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "#166534" }}>{diag.fillRatePercent}%</div>
+                  <div style={{ fontSize: "0.62rem", color: "#16a34a", marginTop: 4 }}>
+                    filled {diag.identity.filled.toLocaleString("ko-KR")} / total {diag.identity.total.toLocaleString("ko-KR")}
+                  </div>
+                </div>
+                <div style={{ padding: 12, borderRadius: 10, background: "#eff6ff", border: "1px solid #bfdbfe" }}>
+                  <div style={{ fontSize: "0.68rem", color: "#1d4ed8", marginBottom: 4 }}>imweb_orders 조인 가능</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "#1d4ed8" }}>{diag.joinableRatePercent}%</div>
+                  <div style={{ fontSize: "0.62rem", color: "#2563eb", marginTop: 4 }}>
+                    vm_native {diag.identity.bySource.vm_native} · imweb lookup {diag.identity.bySource.imweb_order_lookup} · session
+                    link {diag.identity.bySource.ga_session_link}
+                  </div>
+                </div>
+                <div style={{ padding: 12, borderRadius: 10, background: "#fef3c7", border: "1px solid #fcd34d" }}>
+                  <div style={{ fontSize: "0.68rem", color: "#92400e", marginBottom: 4 }}>조인 불가(ga 합성)</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "#92400e" }}>
+                    {diag.identity.bySource.ga_session_synthetic.toLocaleString("ko-KR")}건
+                  </div>
+                  <div style={{ fontSize: "0.62rem", color: "#b45309", marginTop: 4 }}>
+                    customerKey는 채웠지만 imweb_orders 직접 매치 불가 — 주문 없는 touch
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 채널 × 카테고리 × 당당케어 교차 */}
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1e293b", marginBottom: 6 }}>
+              채널 × 카테고리 × 재구매 교차 표
+            </h3>
+            <p style={{ fontSize: "0.66rem", color: "#64748b", marginBottom: 8 }}>
+              `customerCount` = 해당 채널 유입 중 해당 카테고리로 첫 구매한 고객 수. `rep` = 그 중 180일 내 재구매자. 숫자 옆의
+              「N= 관측」은 관찰 데이터임을 명시 — 인과 주장 금지, 표본 50 미만이면 외부 인용 금지.
+            </p>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.72rem" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
+                    {["채널", "카테고리", "당당케어", "n(고객)", "rep(재구매)", "재구매율", "중앙 첫구매액"].map((h) => (
+                      <th key={h} style={{ padding: "8px 10px", textAlign: "right", color: "#64748b", fontWeight: 600 }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {nonzeroCells.length === 0 && (
+                    <tr>
+                      <td colSpan={7} style={{ padding: 16, textAlign: "center", color: "#94a3b8" }}>
+                        customerCount 0. VM 원장이 비어 있거나 조회 범위 밖일 수 있소.
+                      </td>
+                    </tr>
+                  )}
+                  {nonzeroCells.map((c) => {
+                    const chDisp = CHANNEL_DISPLAY[c.channel] ?? { label: c.channel, color: "#64748b" };
+                    const catDisp = CATEGORY_DISPLAY[c.category];
+                    const underPower = c.customerCount < 50;
+                    return (
+                      <tr key={`${c.channel}-${c.category}-${c.isDangdangcare}`} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "6px 10px", textAlign: "left" }}>
+                          <span style={{ color: chDisp.color, fontWeight: 600 }}>{chDisp.label}</span>
+                        </td>
+                        <td style={{ padding: "6px 10px", textAlign: "left" }}>
+                          <span style={{ color: catDisp.color, fontWeight: 600 }}>{catDisp.label}</span>
+                        </td>
+                        <td style={{ padding: "6px 10px", textAlign: "center" }}>
+                          {c.isDangdangcare ? (
+                            <span style={{ color: "#dc2626", fontWeight: 700 }}>★ 당당케어</span>
+                          ) : (
+                            <span style={{ color: "#cbd5e1" }}>-</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700 }}>
+                          {c.customerCount.toLocaleString("ko-KR")}
+                          {underPower && (
+                            <span style={{ fontSize: "0.56rem", color: "#dc2626", marginLeft: 4 }}>N&lt;50</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "6px 10px", textAlign: "right" }}>{c.repeaterCount}</td>
+                        <td
+                          style={{
+                            padding: "6px 10px",
+                            textAlign: "right",
+                            fontWeight: 700,
+                            color:
+                              c.customerCount < 10
+                                ? "#94a3b8"
+                                : c.repeatRate >= 0.1
+                                ? "#16a34a"
+                                : c.repeatRate >= 0.03
+                                ? "#d97706"
+                                : "#94a3b8",
+                          }}
+                        >
+                          {c.customerCount > 0 ? fmtRate(c.repeatRate) : "—"}
+                        </td>
+                        <td style={{ padding: "6px 10px", textAlign: "right" }}>{fmtW(c.medianFirstPurchaseAmount)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 역퍼널 */}
+          {funnel && (
+            <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bfdbfe" }}>
+              <h3 style={{ fontSize: "0.82rem", fontWeight: 700, color: "#1e40af", marginBottom: 6 }}>
+                역퍼널: 영양제 첫 구매 → 180일 내 검사권 전환
+              </h3>
+              <p style={{ fontSize: "0.66rem", color: "#1e3a8a", marginBottom: 8 }}>
+                /callprice 전사 평균은 7.0%. 아래는 채널별 분해. 표본 제약으로 채널별 비교는 아직 유의하지 않음.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+                <div style={{ padding: 8, background: "#fff", borderRadius: 8, border: "1px solid #bfdbfe" }}>
+                  <div style={{ fontSize: "0.62rem", color: "#1d4ed8" }}>전체</div>
+                  <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{fmtRate(funnel.overall.rate)}</div>
+                  <div style={{ fontSize: "0.58rem", color: "#64748b" }}>
+                    {funnel.overall.convertedToTest}/{funnel.overall.supplementFirstBuyers}
+                  </div>
+                </div>
+                {funnel.byChannel.map((b) => {
+                  const chDisp = CHANNEL_DISPLAY[b.channel] ?? { label: b.channel, color: "#64748b" };
+                  return (
+                    <div key={b.channel} style={{ padding: 8, background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                      <div style={{ fontSize: "0.62rem", color: chDisp.color, fontWeight: 600 }}>{chDisp.label}</div>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>
+                        {b.supplementFirstBuyers > 0 ? fmtRate(b.rate) : "—"}
+                      </div>
+                      <div style={{ fontSize: "0.58rem", color: "#64748b" }}>
+                        {b.convertedToTest}/{b.supplementFirstBuyers}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 관측 한계 / 검토 내역 */}
+          <div
+            style={{
+              padding: "14px 16px",
+              borderRadius: 10,
+              background: "#fffbeb",
+              border: "1px solid #fcd34d",
+              fontSize: "0.72rem",
+              color: "#78350f",
+              lineHeight: 1.6,
+            }}
+          >
+            <h3 style={{ fontSize: "0.82rem", fontWeight: 700, color: "#92400e", marginTop: 0, marginBottom: 6 }}>
+              현재 관측 한계 + 다른 데이터로 유입분석이 되는가에 대한 검토
+            </h3>
+            <p style={{ margin: "0 0 6px" }}>
+              <strong>문제</strong>: 위 표에서 대부분 cell의 `n` 이 10~50 사이인 이유는 VM attribution 원장이 <strong>2026-04-12 cutover
+              이후 17일치</strong>만 쌓여 있기 때문. first_touch_at 이 전부 최근 17일 안이라, 180일 LTR·재구매 분석의 성숙 cohort가
+              형성되지 않는다. /callprice 전사 평균(영양제 재구매율 45.1%, 역퍼널 7.0%)과 정면 비교하려면 VM이 최소 90~180일
+              누적돼야 한다.
+            </p>
+            <p style={{ margin: "0 0 6px" }}>
+              <strong>다른 데이터로 유입분석이 가능한가</strong>: 검토한 대안 4가지 모두 "채널 × 고객 × 재구매" 3축 동시 조인이
+              안 된다.
+            </p>
+            <ul style={{ margin: "0 0 6px 16px", padding: 0 }}>
+              <li>
+                <strong>GA4 (2024~2026 전체)</strong>: 세션·매체 단위 집계는 가능(본 페이지 상단 &lt;GA4 채널별 결제 분석&gt;이 이
+                방식). 그러나 GA4 client_id 는 imweb member_code 와 매칭 불가 → 고객 단위 LTV 연결 못 한다.
+              </li>
+              <li>
+                <strong>Imweb/Playauto 주문 (2023-07 ~ 2026-04, 3년)</strong>: 상품 × 재구매는 본 Sprint9 로 확보됨. 그러나 주문
+                row 자체에 유입 채널 정보가 없음(UTM·referrer 미저장).
+              </li>
+              <li>
+                <strong>Meta CAPI 로그</strong>: fbclid → imweb 주문 join 은 ROAS 추적에서 이미 쓰이는 중. 그러나 이건 Meta 한
+                채널에만 해당하고, 해당 주문의 &quot;첫 터치 유입&quot; 시점 원장은 여전히 VM attribution_ledger.
+              </li>
+              <li>
+                <strong>로컬 노트북 attribution_ledger</strong>: 2026-04-12 이전 데이터가 있지만 개발·디버그 섞인 표본이라 운영
+                지표로 쓰기 어렵다.
+              </li>
+            </ul>
+            <p style={{ margin: "0 0 6px" }}>
+              <strong>결론</strong>: 유입 × 고객 × 재구매 3축 동시 분석은 <strong>VM attribution_ledger 가 유일한 원천</strong>. 따라서
+              시간이 쌓이기를 기다리는 것 외에 지금 당장 숫자를 키우는 방법은 없다. 대신 아래 두 갈래로 보완한다.
+            </p>
+            <ul style={{ margin: "0 0 0 16px", padding: 0 }}>
+              <li>
+                채널·세션 수준 분석은 본 페이지 상단 &lt;GA4 채널별 결제 분석&gt;에서 2024/2025/2026 YTD 로 이미 보고 있음.
+              </li>
+              <li>
+                상품·재구매 수준 분석은 /callprice 전사 평균(상담 분석)에서 이미 보고 있음.
+              </li>
+              <li>
+                두 축의 교차(= 이 카드)는 VM 히스토리 누적 대기. 90일 시점(~2026-07)에 1차 중간 점검, 180일 시점(~2026-10)에 론
+                코하비 6체크 돌리고 YouTube LTV 주장을 확정/기각한다.
+              </li>
+            </ul>
           </div>
         </>
       )}

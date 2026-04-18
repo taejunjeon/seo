@@ -1,4 +1,5 @@
 import Link from "next/link";
+import GlobalNav from "@/components/common/GlobalNav";
 import styles from "../coupon/page.module.css";
 
 const projectCards = [
@@ -215,10 +216,11 @@ const reinventingGtmNotes = [
 export default function OnboardingPage() {
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
+      <GlobalNav activeSlug="ai-crm" />
+      <header className={styles.header} style={{ position: "static" }}>
         <div className={styles.headerInner}>
           <div>
-            <Link href="/" className={styles.backLink}>← AI CRM으로 돌아가기</Link>
+            <Link href="/#ai-crm" className={styles.backLink}>← AI CRM으로 돌아가기</Link>
             <h1 className={styles.headerTitle}>온보딩 체크사항</h1>
             <p className={styles.headerSub}>BigQuery · GA4 · 개발팀/마케팅팀 확인 항목 · 2026-04-08 메모</p>
           </div>
