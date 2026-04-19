@@ -8,6 +8,21 @@ const envSource = {
   KAKAO_REST_API_KEY: process.env.KAKAO_REST_API_KEY ?? process.env.KAKAO_BIOCOM_REST_API_KEY,
   KAKAO_JAVASCRIPT_KEY: process.env.KAKAO_JAVASCRIPT_KEY ?? process.env.KAKAO_BIOCOM_JavaScript_KEY,
   KAKAO_ADMIN_KEY: process.env.KAKAO_ADMIN_KEY ?? process.env.KAKAO_BIOCOM_Admin_KEY,
+  KAKAO_ADMIN_KEY_COFFEE:
+    process.env.KAKAO_ADMIN_KEY_COFFEE
+    ?? process.env.KAKAO_COFFEE_ADMIN_KEY
+    ?? process.env.KAKAO_COFFEE_Admin_KEY
+    ?? process.env.KAKAO_THECLEANCOFFEE_Admin_KEY,
+  KAKAO_CHANNEL_PUBLIC_ID_COFFEE:
+    // Kakao API의 channel_public_id는 URL 경로용 ID (ex: _JwdMs).
+    // @더클린커피 같은 검색 ID가 아니라 pf.kakao.com/{public_id} 의 public_id를 써야 함.
+    process.env.KAKAO_CHANNEL_PUBLIC_ID_COFFEE
+    ?? process.env.KAKAO_COFFEE_PUBLIC_ID
+    ?? process.env.KAKAO_COFFEE_CHANNEL_ID,
+  KAKAO_CHANNEL_PUBLIC_ID_BIOCOM:
+    process.env.KAKAO_CHANNEL_PUBLIC_ID_BIOCOM
+    ?? process.env.KAKAO_BIOCOM_PUBLIC_ID
+    ?? process.env.KAKAO_BIOCOM_CHANNEL_ID,
   TOSS_SHOP_ID: process.env.TOSS_SHOP_ID ?? process.env.TOSS_SHOP_ID_BIOCOM,
   TOSS_SHOP_ID_BIOCOM: process.env.TOSS_SHOP_ID_BIOCOM ?? process.env.TOSS_SHOP_ID,
   TOSS_SHOP_ID_COFFEE:
@@ -155,6 +170,9 @@ const envSchema = z.object({
   KAKAO_REST_API_KEY: z.string().min(1).optional(),
   KAKAO_JAVASCRIPT_KEY: z.string().min(1).optional(),
   KAKAO_ADMIN_KEY: z.string().min(1).optional(),
+  KAKAO_ADMIN_KEY_COFFEE: z.string().min(1).optional(),
+  KAKAO_CHANNEL_PUBLIC_ID_COFFEE: z.string().min(1).optional(),
+  KAKAO_CHANNEL_PUBLIC_ID_BIOCOM: z.string().min(1).optional(),
   ALIGO_API_KEY: z.string().min(1).optional(),
   ALIGO_USER_ID: z.string().min(1).optional(),
   ALIGO_SENDER_KEY: z.string().min(1).optional(),

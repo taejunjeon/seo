@@ -78,23 +78,52 @@ export function CoffeeAbTestSection({ minDays, maxDays, minOrders, candidates }:
       .finally(() => setSummaryLoading(false));
   }, [selectedKey]);
 
-  const [testType, setTestType] = useState<"channel" | "consent">("channel");
+  const [testType, setTestType] = useState<"channel" | "consent">("consent");
   const withPhone = candidates.filter((c) => c.phone);
   const consentCount = withPhone.filter((c) => c.consentSms).length;
   const nonConsentCount = withPhone.length - consentCount;
 
   const TEST_TYPES = [
-    { key: "channel" as const, label: "SMS vs 알림톡", desc: "동의 고객을 채널별로 나누어 비교", targetCount: consentCount },
     { key: "consent" as const, label: "동의 vs 미동의", desc: "양군 모두 SMS 발송, 동의 여부별 전환율 비교", targetCount: withPhone.length },
+    { key: "channel" as const, label: "SMS vs 알림톡", desc: "동의 고객을 채널별로 나누어 비교", targetCount: consentCount },
   ];
 
   const currentType = TEST_TYPES.find((t) => t.key === testType)!;
 
+  const isConsentType = testType === "consent";
+  const groupAPreview = isConsentType
+    ? { label: "동의 고객 (SMS)", count: consentCount }
+    : { label: "SMS", count: Math.floor(consentCount / 2) };
+  const groupBPreview = isConsentType
+    ? { label: "미동의 고객 (SMS)", count: nonConsentCount }
+    : { label: "알림톡", count: consentCount - Math.floor(consentCount / 2) };
+  const excludedPreview = isConsentType
+    ? candidates.length - withPhone.length
+    : candidates.length - consentCount;
+
+  const inferExperimentType = (channel?: string): "consent" | "channel" | null => {
+    if (!channel) return null;
+    if (channel.includes("동의")) return "consent";
+    if (channel.includes("sms+alimtalk") || channel.includes("alimtalk+sms")) return "channel";
+    return null;
+  };
+  const experimentTypeLabel = (channel?: string): string => {
+    const t = inferExperimentType(channel);
+    if (t === "consent") return "동의 vs 미동의";
+    if (t === "channel") return "SMS vs 알림톡";
+    return "A/B";
+  };
+
+  // 메시지 예상 비용 (VAT 10% 포함): 일반 15원, 타겟 20원
+  const SMS_UNIT_NORMAL = 15;
+  const SMS_UNIT_TARGET = 20;
+  const estimateCost = (count: number, unit: number) => Math.round(count * unit * 1.1);
+
   const handleCreate = async () => {
     const isConsent = testType === "consent";
     const msg = isConsent
-      ? `전체 ${withPhone.length}명을 동의(${consentCount}명) vs 미동의(${nonConsentCount}명)로 나누어 실험을 생성하시겠습니까?`
-      : `SMS 동의 고객 ${consentCount}명을 SMS/알림톡 두 그룹으로 나누어 실험을 생성하시겠습니까?`;
+      ? `[동의 vs 미동의 A/B 테스트]\n\nA그룹 (동의 고객, SMS): ${consentCount}명\nB그룹 (미동의 고객, SMS): ${nonConsentCount}명\n\n실험을 생성하시겠습니까?`
+      : `[SMS vs 알림톡 A/B 테스트]\n\nA그룹 (SMS): 약 ${Math.floor(consentCount / 2)}명\nB그룹 (알림톡): 약 ${consentCount - Math.floor(consentCount / 2)}명\n대상: SMS 동의 고객 ${consentCount}명\n\n실험을 생성하시겠습니까?`;
     if (!confirm(msg)) return;
     setCreating(true);
     try {
@@ -150,70 +179,116 @@ export function CoffeeAbTestSection({ minDays, maxDays, minOrders, candidates }:
         </div>
       </div>
 
+      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+        ① 테스트 유형을 선택하시오
+      </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         {TEST_TYPES.map((t) => (
           <button
             key={t.key}
             onClick={() => setTestType(t.key)}
             style={{
-              padding: "8px 16px", borderRadius: 8, fontSize: "0.78rem", fontWeight: 600, cursor: "pointer",
+              padding: "10px 18px", borderRadius: 8, fontSize: "0.82rem", fontWeight: 700, cursor: "pointer",
               border: testType === t.key ? "2px solid #6366f1" : "1px solid #e2e8f0",
               background: testType === t.key ? "#eef2ff" : "#fff",
               color: testType === t.key ? "#4f46e5" : "#64748b",
+              display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, textAlign: "left",
             }}
           >
-            {t.label}
+            <span>{testType === t.key ? "✓ " : ""}{t.label}</span>
+            <span style={{ fontSize: "0.68rem", fontWeight: 400, color: testType === t.key ? "#6366f1" : "#94a3b8" }}>{t.desc}</span>
           </button>
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 18, padding: "14px 18px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#334155" }}>
-            현재 필터: {minDays}~{maxDays}일 미구매 / {minOrders}회 이상 구매
-          </div>
-          <div style={{ fontSize: "0.76rem", color: "#64748b", marginTop: 4 }}>
-            {testType === "consent" ? (
-              <>전체 대상: <strong>{withPhone.length}명</strong> (동의 {consentCount}명 / 미동의 {nonConsentCount}명)</>
-            ) : (
-              <>SMS 동의 대상: <strong>{consentCount}명</strong> → 각 그룹 약 {Math.floor(consentCount / 2)}명</>
-            )}
-          </div>
-          <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 2 }}>{currentType.desc}</div>
+      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+        ② 아래 배정 내용을 확인 후 실험을 생성하시오
+      </div>
+      <div style={{ marginBottom: 18, padding: "14px 18px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+        <div style={{ fontSize: "0.76rem", fontWeight: 700, color: "#4f46e5", marginBottom: 8 }}>
+          생성할 실험: <span style={{ color: "#1e293b" }}>{currentType.label}</span>
+          <span style={{ marginLeft: 8, fontSize: "0.68rem", fontWeight: 400, color: "#94a3b8" }}>
+            필터 {minDays}~{maxDays}일 미구매 · {minOrders}회 이상 구매
+          </span>
         </div>
-        <button
-          onClick={handleCreate}
-          disabled={creating || currentType.targetCount < 2}
-          style={{
-            padding: "10px 20px", borderRadius: 8, border: "none", cursor: creating || currentType.targetCount < 2 ? "not-allowed" : "pointer",
-            background: creating || currentType.targetCount < 2 ? "#94a3b8" : "#6366f1", color: "#fff", fontWeight: 600, fontSize: "0.82rem",
-          }}
-        >
-          {creating ? "생성 중..." : "A/B 실험 생성"}
-        </button>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "stretch" }}>
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "#eff6ff", border: "1px solid #bfdbfe" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#2563eb", letterSpacing: "0.05em" }}>A그룹</div>
+            <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#1e293b", marginTop: 2 }}>{groupAPreview.label}</div>
+            <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#2563eb", marginTop: 4 }}>{groupAPreview.count}명</div>
+            <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed #bfdbfe", fontSize: "0.68rem", color: "#475569", lineHeight: 1.5 }}>
+              <div>일반 {fmtKRW(estimateCost(groupAPreview.count, SMS_UNIT_NORMAL))}</div>
+              <div>타겟 {fmtKRW(estimateCost(groupAPreview.count, SMS_UNIT_TARGET))}</div>
+            </div>
+          </div>
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "#f5f3ff", border: "1px solid #ddd6fe" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#7c3aed", letterSpacing: "0.05em" }}>B그룹</div>
+            <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#1e293b", marginTop: 2 }}>{groupBPreview.label}</div>
+            <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#7c3aed", marginTop: 4 }}>{groupBPreview.count}명</div>
+            <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed #ddd6fe", fontSize: "0.68rem", color: "#475569", lineHeight: 1.5 }}>
+              <div>일반 {fmtKRW(estimateCost(groupBPreview.count, SMS_UNIT_NORMAL))}</div>
+              <div>타겟 {fmtKRW(estimateCost(groupBPreview.count, SMS_UNIT_TARGET))}</div>
+            </div>
+          </div>
+          <button
+            onClick={handleCreate}
+            disabled={creating || currentType.targetCount < 2}
+            style={{
+              padding: "10px 20px", borderRadius: 8, border: "none", cursor: creating || currentType.targetCount < 2 ? "not-allowed" : "pointer",
+              background: creating || currentType.targetCount < 2 ? "#94a3b8" : "#6366f1", color: "#fff", fontWeight: 700, fontSize: "0.82rem",
+              minWidth: 180,
+            }}
+          >
+            {creating ? "생성 중..." : `${currentType.label} 실험 생성`}
+          </button>
+        </div>
+        <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 6, background: "#fff", border: "1px solid #e2e8f0", fontSize: "0.7rem", color: "#475569", lineHeight: 1.6 }}>
+          <div><strong>합계 예상 비용 (VAT 10% 포함)</strong></div>
+          <div>
+            일반(15원): <strong>{fmtKRW(estimateCost(groupAPreview.count + groupBPreview.count, SMS_UNIT_NORMAL))}</strong>
+            {" · "}
+            타겟(20원): <strong>{fmtKRW(estimateCost(groupAPreview.count + groupBPreview.count, SMS_UNIT_TARGET))}</strong>
+          </div>
+          <div style={{ fontSize: "0.66rem", color: "#94a3b8", marginTop: 2 }}>
+            제외 {excludedPreview}명 ({isConsentType ? "연락처 없는 고객" : "SMS 미동의 고객"}) · 유료 발송수 기준, 알림톡 성공분은 실제 과금 시 별도 단가 적용
+          </div>
+        </div>
       </div>
 
       {experiments.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: "0.76rem", fontWeight: 600, color: "#64748b", marginBottom: 8 }}>실험 목록</div>
+        <div style={{ marginTop: 28, paddingTop: 20, borderTop: "2px dashed #cbd5e1", marginBottom: 18 }}>
+          <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#334155", marginBottom: 4 }}>과거 실험 내역</div>
+          <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginBottom: 10 }}>
+            이미 생성된 실험의 결과를 조회한다. 필터를 바꿔도 과거 결과 숫자는 변하지 않는다.
+          </div>
+          <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#64748b", marginBottom: 6 }}>실험 목록 (클릭하여 결과 조회)</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {experiments.map((exp) => (
-              <button
-                key={exp.experiment_key}
-                onClick={() => setSelectedKey(exp.experiment_key)}
-                style={{
-                  padding: "8px 14px", borderRadius: 8, fontSize: "0.76rem", fontWeight: 600, cursor: "pointer",
-                  border: selectedKey === exp.experiment_key ? "2px solid #6366f1" : "1px solid #e2e8f0",
-                  background: selectedKey === exp.experiment_key ? "#eef2ff" : "#fff",
-                  color: selectedKey === exp.experiment_key ? "#4f46e5" : "#64748b",
-                }}
-              >
-                {exp.name}
-                <span style={{ marginLeft: 6, fontSize: "0.68rem", color: "#94a3b8" }}>
-                  {exp.created_at?.slice(0, 10)}
-                </span>
-              </button>
-            ))}
+            {experiments.map((exp) => {
+              const expType = inferExperimentType(exp.channel);
+              const typeColor = expType === "consent" ? "#059669" : expType === "channel" ? "#6366f1" : "#64748b";
+              const typeBg = expType === "consent" ? "#ecfdf5" : expType === "channel" ? "#eef2ff" : "#f1f5f9";
+              return (
+                <button
+                  key={exp.experiment_key}
+                  onClick={() => setSelectedKey(exp.experiment_key)}
+                  style={{
+                    padding: "8px 14px", borderRadius: 8, fontSize: "0.76rem", fontWeight: 600, cursor: "pointer",
+                    border: selectedKey === exp.experiment_key ? "2px solid #6366f1" : "1px solid #e2e8f0",
+                    background: selectedKey === exp.experiment_key ? "#eef2ff" : "#fff",
+                    color: selectedKey === exp.experiment_key ? "#4f46e5" : "#64748b",
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  <span style={{ padding: "2px 6px", borderRadius: 4, fontSize: "0.64rem", fontWeight: 700, color: typeColor, background: typeBg }}>
+                    {experimentTypeLabel(exp.channel)}
+                  </span>
+                  {exp.name}
+                  <span style={{ fontSize: "0.68rem", color: "#94a3b8" }}>
+                    {exp.created_at?.slice(0, 10)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -221,9 +296,18 @@ export function CoffeeAbTestSection({ minDays, maxDays, minOrders, candidates }:
       {summaryLoading && <div style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>로딩 중...</div>}
 
       {summary && !summaryLoading && (
-        <div>
+        <div style={{ padding: 14, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+          <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b", marginBottom: 6, letterSpacing: "0.05em" }}>선택한 과거 실험 결과</div>
+          <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#334155", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: "0.7rem", fontWeight: 700,
+              color: inferExperimentType(summary.experiment.channel) === "consent" ? "#059669" : "#6366f1",
+              background: inferExperimentType(summary.experiment.channel) === "consent" ? "#ecfdf5" : "#eef2ff" }}>
+              {experimentTypeLabel(summary.experiment.channel)}
+            </span>
+            <span>{summary.experiment.name}</span>
+          </div>
           <div style={{ fontSize: "0.76rem", color: "#64748b", marginBottom: 4 }}>
-            전환 윈도우: {summary.conversionWindowDays}일 / 상태: {summary.experiment.status}
+            전환 윈도우: {summary.conversionWindowDays}일 / 상태: {summary.experiment.status} / 생성일: {summary.experiment.created_at?.slice(0, 10)}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
@@ -264,6 +348,17 @@ export function CoffeeAbTestSection({ minDays, maxDays, minOrders, candidates }:
                   </div>
                   <div style={{ marginTop: 14, padding: "8px 12px", borderRadius: 8, background: "rgba(255,255,255,0.7)", fontSize: "0.76rem", color: "#475569" }}>
                     매출: {fmtKRW(Math.round(v.revenue))} / 객단가: {fmtKRW(Math.round(v.avgOrderAmount))}
+                  </div>
+                  <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "rgba(255,255,255,0.7)", fontSize: "0.72rem", color: "#475569", lineHeight: 1.6 }}>
+                    <div style={{ fontWeight: 700, color: "#334155" }}>예상 비용 (VAT 10%)</div>
+                    <div>
+                      일반: <strong>{fmtKRW(estimateCost(v.sent || v.assigned, SMS_UNIT_NORMAL))}</strong>
+                      {" · "}
+                      타겟: <strong>{fmtKRW(estimateCost(v.sent || v.assigned, SMS_UNIT_TARGET))}</strong>
+                    </div>
+                    <div style={{ fontSize: "0.66rem", color: "#94a3b8" }}>
+                      기준: {v.sent > 0 ? `발송 ${v.sent}건` : `배정 ${v.assigned}명`}
+                    </div>
                   </div>
                 </div>
               );

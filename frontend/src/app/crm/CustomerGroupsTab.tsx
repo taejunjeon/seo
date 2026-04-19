@@ -205,6 +205,52 @@ export function CustomerGroupsTab() {
     window.location.search = params.toString();
   };
 
+  const handleKakaoUpload = async (groupId: string, groupName: string) => {
+    if (!confirm(`[${groupName}] 을(를) 카카오톡 채널 파트너센터에 고객파일로 업로드하시겠습니까?\n\n• 업로드 후 파트너센터 > 친구그룹 관리에서 조건별 필터 사용 가능\n• 발송은 파트너센터 UI에서 진행`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/crm-local/groups/${groupId}/kakao-upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site: "thecleancoffee", fileName: groupName }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        const stageMsg = Array.isArray(data.errors) && data.errors.length > 0
+          ? data.errors.map((e: { stage: string; message: string }) => `[${e.stage}] ${e.message}`).join("\n")
+          : (data.error ?? "업로드 실패");
+        alert(`카카오 업로드 실패:\n${stageMsg}`);
+        return;
+      }
+      alert(`카카오 업로드 성공\n\n파일 ID: ${data.fileId}\n등록: ${data.addedUsers}/${data.totalUsers}명\n\n파트너센터에서 친구그룹을 만들어 발송할 수 있습니다.`);
+    } catch (err) {
+      alert(`카카오 업로드 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+    }
+  };
+
+  const handleExportGroup = async (groupId: string, groupName: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/crm-local/groups/${groupId}/members.csv`);
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "");
+        alert(`내보내기 실패 (${res.status}): ${msg || "서버 오류"}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const safeName = (groupName || groupId).replace(/[\\/:*?"<>|]/g, "_").slice(0, 50);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `고객그룹_${safeName}_${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`내보내기 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+    }
+  };
+
   const loadMsgLog = () => {
     setShowLog(true);
     fetch(`${API_BASE}/api/crm-local/message-log?limit=50`)
@@ -340,6 +386,8 @@ export function CustomerGroupsTab() {
                     <td>
                       <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => handleSendToGroup(g.group_id)} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #6366f1", background: "#eef2ff", color: "#4f46e5", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>발송</button>
+                        <button onClick={() => handleExportGroup(g.group_id, g.name)} disabled={g.member_count === 0} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #16a34a", background: g.member_count === 0 ? "#f1f5f9" : "#f0fdf4", color: g.member_count === 0 ? "#94a3b8" : "#166534", fontSize: "0.72rem", fontWeight: 600, cursor: g.member_count === 0 ? "not-allowed" : "pointer" }}>엑셀</button>
+                        <button onClick={() => handleKakaoUpload(g.group_id, g.name)} disabled={g.member_count === 0} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #f59e0b", background: g.member_count === 0 ? "#f1f5f9" : "#fffbeb", color: g.member_count === 0 ? "#94a3b8" : "#92400e", fontSize: "0.72rem", fontWeight: 600, cursor: g.member_count === 0 ? "not-allowed" : "pointer" }}>카카오</button>
                         <button onClick={() => handleDelete(g.group_id)} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>삭제</button>
                       </div>
                     </td>
@@ -379,6 +427,26 @@ export function CustomerGroupsTab() {
                 )}
                 <button onClick={() => { setSelectedPhones(new Set(members.map((m) => m.phone))); }} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: "0.72rem", cursor: "pointer" }}>전체 선택</button>
                 {selectedPhones.size > 0 && <button onClick={() => setSelectedPhones(new Set())} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: "0.72rem", cursor: "pointer" }}>선택 해제</button>}
+                <button
+                  onClick={() => {
+                    const g = groups.find((g) => g.group_id === selectedGroup);
+                    if (g) handleExportGroup(g.group_id, g.name);
+                  }}
+                  disabled={membersTotal === 0}
+                  style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #16a34a", background: membersTotal === 0 ? "#f1f5f9" : "#f0fdf4", color: membersTotal === 0 ? "#94a3b8" : "#166534", fontSize: "0.76rem", fontWeight: 600, cursor: membersTotal === 0 ? "not-allowed" : "pointer" }}
+                >
+                  📥 엑셀 내보내기 ({membersTotal}명)
+                </button>
+                <button
+                  onClick={() => {
+                    const g = groups.find((g) => g.group_id === selectedGroup);
+                    if (g) handleKakaoUpload(g.group_id, g.name);
+                  }}
+                  disabled={membersTotal === 0}
+                  style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #f59e0b", background: membersTotal === 0 ? "#f1f5f9" : "#fffbeb", color: membersTotal === 0 ? "#94a3b8" : "#92400e", fontSize: "0.76rem", fontWeight: 600, cursor: membersTotal === 0 ? "not-allowed" : "pointer" }}
+                >
+                  💬 카카오 파트너센터 업로드 ({membersTotal}명)
+                </button>
               </div>
             </div>
             {membersLoading ? <div style={{ color: "#94a3b8" }}>로딩 중...</div> : (

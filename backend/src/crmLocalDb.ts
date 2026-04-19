@@ -39,6 +39,12 @@ export function getCrmDb(): Database.Database {
     initTables(db);
     ensureColumn(db, "imweb_members", "site", "TEXT DEFAULT 'biocom'");
     ensureColumn(db, "imweb_members", "birth", "TEXT DEFAULT ''");
+    // 아임웹 API v2/member/members 반환 필드 추가 수집 (원본이 비어도 DB에 저장해둠)
+    ensureColumn(db, "imweb_members", "gender", "TEXT DEFAULT ''");
+    ensureColumn(db, "imweb_members", "addr_post", "TEXT DEFAULT ''");
+    ensureColumn(db, "imweb_members", "addr", "TEXT DEFAULT ''");
+    ensureColumn(db, "imweb_members", "addr_detail", "TEXT DEFAULT ''");
+    ensureColumn(db, "imweb_members", "point_amount", "INTEGER DEFAULT 0");
     ensureColumn(db, "crm_scheduled_send", "template_type", "TEXT DEFAULT NULL");
     ensureColumn(db, "imweb_orders", "imweb_status", "TEXT DEFAULT NULL");
     ensureColumn(db, "imweb_orders", "imweb_status_synced_at", "TEXT DEFAULT NULL");
@@ -1087,6 +1093,11 @@ export type ImwebMemberRow = {
   join_time: string;
   last_login_time: string;
   site: string;
+  gender: string;
+  addr_post: string;
+  addr: string;
+  addr_detail: string;
+  point_amount: number;
 };
 
 export type ConsentChangeEntry = {
@@ -1202,13 +1213,15 @@ export function upsertImwebMember(row: ImwebMemberRow) {
     WHERE member_code = ?
   `).get(row.member_code) as ExistingImwebConsentRow | undefined;
   const stmt = db.prepare(`
-    INSERT INTO imweb_members (member_code, uid, name, callnum, email, birth, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, synced_at)
-    VALUES (@member_code, @uid, @name, @callnum, @email, @birth, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, datetime('now'))
+    INSERT INTO imweb_members (member_code, uid, name, callnum, email, birth, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, gender, addr_post, addr, addr_detail, point_amount, synced_at)
+    VALUES (@member_code, @uid, @name, @callnum, @email, @birth, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, @gender, @addr_post, @addr, @addr_detail, @point_amount, datetime('now'))
     ON CONFLICT(member_code) DO UPDATE SET
       uid=excluded.uid, name=excluded.name, callnum=excluded.callnum, email=excluded.email, birth=excluded.birth,
       marketing_agree_sms=excluded.marketing_agree_sms, marketing_agree_email=excluded.marketing_agree_email,
       third_party_agree=excluded.third_party_agree, member_grade=excluded.member_grade,
-      join_time=excluded.join_time, last_login_time=excluded.last_login_time, site=excluded.site, synced_at=datetime('now')
+      join_time=excluded.join_time, last_login_time=excluded.last_login_time, site=excluded.site,
+      gender=excluded.gender, addr_post=excluded.addr_post, addr=excluded.addr, addr_detail=excluded.addr_detail,
+      point_amount=excluded.point_amount, synced_at=datetime('now')
   `);
   const tx = db.transaction((item: ImwebMemberRow) => {
     recordImwebConsentChanges(db, item, existing, "imweb_member_sync", "upsertImwebMember");
@@ -1225,13 +1238,15 @@ export function upsertImwebMembers(rows: ImwebMemberRow[]) {
     WHERE member_code = ?
   `);
   const stmt = db.prepare(`
-    INSERT INTO imweb_members (member_code, uid, name, callnum, email, birth, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, synced_at)
-    VALUES (@member_code, @uid, @name, @callnum, @email, @birth, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, datetime('now'))
+    INSERT INTO imweb_members (member_code, uid, name, callnum, email, birth, marketing_agree_sms, marketing_agree_email, third_party_agree, member_grade, join_time, last_login_time, site, gender, addr_post, addr, addr_detail, point_amount, synced_at)
+    VALUES (@member_code, @uid, @name, @callnum, @email, @birth, @marketing_agree_sms, @marketing_agree_email, @third_party_agree, @member_grade, @join_time, @last_login_time, @site, @gender, @addr_post, @addr, @addr_detail, @point_amount, datetime('now'))
     ON CONFLICT(member_code) DO UPDATE SET
       uid=excluded.uid, name=excluded.name, callnum=excluded.callnum, email=excluded.email, birth=excluded.birth,
       marketing_agree_sms=excluded.marketing_agree_sms, marketing_agree_email=excluded.marketing_agree_email,
       third_party_agree=excluded.third_party_agree, member_grade=excluded.member_grade,
-      join_time=excluded.join_time, last_login_time=excluded.last_login_time, site=excluded.site, synced_at=datetime('now')
+      join_time=excluded.join_time, last_login_time=excluded.last_login_time, site=excluded.site,
+      gender=excluded.gender, addr_post=excluded.addr_post, addr=excluded.addr, addr_detail=excluded.addr_detail,
+      point_amount=excluded.point_amount, synced_at=datetime('now')
   `);
   const tx = db.transaction((items: ImwebMemberRow[]) => {
     for (const row of items) {
@@ -2596,6 +2611,122 @@ export function listGroupMembers(groupId: string, limit = 500, offset = 0): { to
       added_at: String(r.added_at),
     })),
   };
+}
+
+export type GroupMemberExportRow = {
+  앱유저아이디: string;
+  이름: string;
+  생년월일: string;
+  지역: string;
+  성별: string;
+  연령: string;
+  구매금액: string;
+  포인트: string;
+  멤버십등급: string;
+  가입일: string;
+  최근구매일: string;
+  응모일: string;
+};
+
+function formatBirthDots(birth: string | null | undefined): string {
+  if (!birth) return "";
+  const s = String(birth).trim();
+  if (!s || s === "0000-00-00") return "";
+  // Accept YYYY-MM-DD / YYYYMMDD / YYYY.MM.DD → YYYY.M.D
+  const digits = s.replace(/[^0-9]/g, "");
+  if (digits.length < 8) return s;
+  const y = digits.slice(0, 4);
+  const m = String(Number(digits.slice(4, 6)));
+  const d = String(Number(digits.slice(6, 8)));
+  return `${y}.${m}.${d}`;
+}
+
+function calcAge(birth: string | null | undefined): string {
+  if (!birth) return "";
+  const digits = String(birth).replace(/[^0-9]/g, "");
+  if (digits.length < 4) return "";
+  const year = Number(digits.slice(0, 4));
+  if (!year || year < 1900) return "";
+  const nowYear = new Date().getFullYear();
+  const age = nowYear - year;
+  return age >= 0 && age < 150 ? String(age) : "";
+}
+
+function formatDateDots(ts: string | null | undefined): string {
+  if (!ts) return "";
+  const s = String(ts).trim();
+  if (!s) return "";
+  const digits = s.replace(/[^0-9]/g, "");
+  if (digits.length < 8) return "";
+  const y = digits.slice(0, 4);
+  const m = String(Number(digits.slice(4, 6)));
+  const d = String(Number(digits.slice(6, 8)));
+  return `${y}.${m}.${d}`;
+}
+
+function normalizeGender(g: string | null | undefined): string {
+  const s = (g ?? "").trim().toUpperCase();
+  if (s === "M" || s === "MALE" || s === "남" || s === "남성") return "남";
+  if (s === "F" || s === "FEMALE" || s === "여" || s === "여성") return "여";
+  return "";
+}
+
+function extractRegion(addr: string | null | undefined): string {
+  const s = (addr ?? "").trim();
+  if (!s) return "";
+  // 주소 첫 단어(시·도)만 추출. 예: "서울특별시 강남구 ..." → "서울"
+  const first = s.split(/\s+/)[0] ?? "";
+  return first
+    .replace(/특별시$|광역시$|특별자치시$|특별자치도$|도$/u, "")
+    .replace(/^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주).*/u, "$1");
+}
+
+export function exportGroupMembersForCsv(groupId: string): GroupMemberExportRow[] {
+  const db = getCrmDb();
+  const rows = db.prepare(`
+    SELECT
+      gm.phone AS phone,
+      gm.name AS gm_name,
+      gm.member_code AS gm_member_code,
+      gm.added_at AS added_at,
+      im.name AS im_name,
+      im.uid AS uid,
+      im.birth AS birth,
+      im.gender AS gender,
+      im.addr AS addr,
+      im.addr_detail AS addr_detail,
+      im.point_amount AS point_amount,
+      im.member_grade AS member_grade,
+      im.join_time AS join_time,
+      (SELECT MAX(o.order_time) FROM imweb_orders o WHERE o.member_code = gm.member_code) AS last_order_time,
+      (SELECT COALESCE(SUM(o.payment_amount), 0) FROM imweb_orders o WHERE o.member_code = gm.member_code) AS total_spent
+    FROM crm_customer_group_members gm
+    LEFT JOIN imweb_members im ON im.member_code = gm.member_code
+    WHERE gm.group_id = ?
+    ORDER BY gm.added_at DESC
+  `).all(groupId) as Array<Record<string, unknown>>;
+
+  return rows.map((r) => {
+    const memberCode = r.gm_member_code ? String(r.gm_member_code) : "";
+    const uid = r.uid ? String(r.uid) : "";
+    const birth = r.birth ? String(r.birth) : "";
+    const spent = Number(r.total_spent ?? 0) || 0;
+    const points = Number(r.point_amount ?? 0) || 0;
+    return {
+      앱유저아이디: memberCode || uid || String(r.phone ?? ""),
+      이름: r.gm_name ? String(r.gm_name) : (r.im_name ? String(r.im_name) : ""),
+      생년월일: formatBirthDots(birth),
+      지역: extractRegion(r.addr as string | null | undefined),
+      성별: normalizeGender(r.gender as string | null | undefined),
+      연령: calcAge(birth),
+      구매금액: spent > 0 ? String(spent) : "0",
+      포인트: points > 0 ? String(points) : "",
+      멤버십등급: r.member_grade ? String(r.member_grade) : "",
+      가입일: formatDateDots(r.join_time as string | null | undefined),
+      최근구매일: formatDateDots(r.last_order_time as string | null | undefined),
+      응모일: formatDateDots(r.added_at as string | null | undefined),
+    };
+  });
 }
 
 export function addGroupMembers(groupId: string, members: Array<{ phone: string; name?: string; member_code?: string; consent_sms?: boolean | null }>): number {

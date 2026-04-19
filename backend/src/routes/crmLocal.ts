@@ -51,6 +51,7 @@ import {
   createCustomerGroup,
   deleteCustomerGroup,
   listGroupMembers,
+  exportGroupMembersForCsv,
   addGroupMembers,
   deleteGroupMembers,
   createGroupFromExperiment,
@@ -615,6 +616,11 @@ export const createCrmLocalRouter = () => {
     join_time: String(m.join_time ?? ""),
     last_login_time: String(m.last_login_time ?? ""),
     site,
+    gender: String(m.gender ?? ""),
+    addr_post: String(m.addr_post ?? ""),
+    addr: String(m.addr ?? ""),
+    addr_detail: String(m.addr_detail ?? ""),
+    point_amount: Number(m.point_amount) || 0,
   });
 
   const toIsoDateTime = (value: unknown) => {
@@ -1937,6 +1943,65 @@ export const createCrmLocalRouter = () => {
       res.json({ ok: true, ...listGroupMembers(readParam(req.params.id), limit, offset) });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "members list failed" });
+    }
+  });
+
+  router.post("/api/crm-local/groups/:id/kakao-upload", async (req: Request, res: Response) => {
+    try {
+      const groupId = readParam(req.params.id);
+      if (!groupId) { res.status(400).json({ ok: false, error: "groupId 필요" }); return; }
+      const site = typeof req.body?.site === "string" ? req.body.site : "thecleancoffee";
+      const fileName = typeof req.body?.fileName === "string" ? req.body.fileName : undefined;
+      const { uploadGroupToKakaoChannel } = await import("../kakaoChannelCustomerFile");
+      const result = await uploadGroupToKakaoChannel(groupId, site, fileName);
+      if (!result.ok) {
+        const { ok: _ok, ...rest } = result;
+        res.status(400).json({ ok: false, ...rest });
+        return;
+      }
+      const { ok: _ok, ...rest } = result;
+      res.json({ ok: true, ...rest });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "kakao upload failed" });
+    }
+  });
+
+  router.get("/api/crm-local/groups/:id/members.csv", (req: Request, res: Response) => {
+    try {
+      const groupId = readParam(req.params.id);
+      if (!groupId) { res.status(400).json({ ok: false, error: "groupId 필요" }); return; }
+      const group = getCustomerGroup(groupId);
+      if (!group) { res.status(404).json({ ok: false, error: "그룹 없음" }); return; }
+      const rows = exportGroupMembersForCsv(groupId);
+
+      const headers = [
+        "앱유저아이디", "이름", "생년월일", "지역", "성별", "연령",
+        "구매금액", "포인트", "멤버십등급", "가입일", "최근구매일", "응모일",
+      ] as const;
+
+      const escape = (v: string) => {
+        const s = v ?? "";
+        if (s.includes(",") || s.includes("\"") || s.includes("\n") || s.includes("\r")) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+      const lines = [headers.join(",")];
+      for (const row of rows) {
+        lines.push(headers.map((h) => escape((row as Record<string, string>)[h] ?? "")).join(","));
+      }
+      const csv = "\ufeff" + lines.join("\r\n") + "\r\n";
+
+      const safeName = (group.name ?? groupId).replace(/[\\/:*?"<>|]/g, "_").slice(0, 50);
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="group_${stamp}.csv"; filename*=UTF-8''${encodeURIComponent(`고객그룹_${safeName}_${stamp}.csv`)}`,
+      );
+      res.status(200).send(csv);
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "csv export failed" });
     }
   });
 
