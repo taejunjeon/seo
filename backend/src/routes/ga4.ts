@@ -28,6 +28,7 @@ import {
 import { getGa4CutoverPlan } from "../ga4Cutover";
 import { getGa4RevenueOpsPlan } from "../ga4RevenueOpsPlan";
 import { aggregateByPageGroup } from "../utils/pageGroup";
+import { getCoffeeBigQueryDiagnostics } from "../coffeeBigQueryDiagnostics";
 
 const withConcurrency = async <T, R>(
   items: T[],
@@ -91,6 +92,21 @@ const aiVsOrganicInflight = new Map<string, Promise<GA4AiVsOrganicReport>>();
 
 export const createGa4Router = () => {
   const router = express.Router();
+
+  router.get("/api/ga4/coffee-bigquery/diagnostics", async (req: Request, res: Response) => {
+    try {
+      const startSuffix = typeof req.query.startSuffix === "string" ? req.query.startSuffix : undefined;
+      const endSuffix = typeof req.query.endSuffix === "string" ? req.query.endSuffix : undefined;
+      const diagnostics = await getCoffeeBigQueryDiagnostics({ startSuffix, endSuffix });
+      res.json(diagnostics);
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: "coffee_bigquery_diagnostics_error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 
   router.get("/api/ga4/engagement", async (req: Request, res: Response) => {
     try {

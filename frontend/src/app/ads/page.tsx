@@ -66,6 +66,28 @@ type DailyRow = {
   roasGap?: number | null;
 };
 
+type SourceFreshnessStatus = "fresh" | "warn" | "stale" | "empty" | "missing" | "error";
+
+type SourceFreshnessResult = {
+  source: string;
+  storage: "bigquery" | "postgres" | "sqlite";
+  table: string;
+  status: SourceFreshnessStatus;
+  totalRows: number | null;
+  freshnessAt: string | null;
+  freshnessColumn: string | null;
+  ageHours: number | null;
+  note: string;
+};
+
+type SourceFreshnessResponse = {
+  ok: boolean;
+  checkedAt: string;
+  results: SourceFreshnessResult[];
+  error?: string;
+  message?: string;
+};
+
 type SiteRoasSummary = {
   site: string;
   account_id: string;
@@ -356,6 +378,30 @@ const ATTR_WINDOWS = [
 ];
 
 const REVIEW_TARGET_SITES = new Set(["biocom"]);
+const SOURCE_FRESHNESS_LABELS: Record<string, string> = {
+  toss_operational: "Toss 운영",
+  playauto_operational: "PlayAuto 운영",
+  ga4_bigquery_thecleancoffee: "커피 GA4 BQ",
+  imweb_local_orders: "Imweb local",
+  attribution_ledger: "Attribution ledger",
+};
+const SOURCE_FRESHNESS_PRIMARY = ["toss_operational", "playauto_operational", "ga4_bigquery_thecleancoffee"];
+const SOURCE_FRESHNESS_PRIORITY: Record<SourceFreshnessStatus, number> = {
+  error: 6,
+  missing: 5,
+  stale: 4,
+  warn: 3,
+  empty: 2,
+  fresh: 1,
+};
+const SOURCE_FRESHNESS_COLORS: Record<SourceFreshnessStatus, { bg: string; border: string; text: string }> = {
+  fresh: { bg: "#f0fdf4", border: "#bbf7d0", text: "#166534" },
+  warn: { bg: "#fffbeb", border: "#fde68a", text: "#92400e" },
+  stale: { bg: "#fff7ed", border: "#fed7aa", text: "#9a3412" },
+  empty: { bg: "#f8fafc", border: "#e2e8f0", text: "#475569" },
+  missing: { bg: "#fef2f2", border: "#fecaca", text: "#991b1b" },
+  error: { bg: "#fef2f2", border: "#fecaca", text: "#991b1b" },
+};
 
 // 캠페인명 → 검사유형 매핑 (callprice LTV 데이터 연동용)
 // 알러지=음식물과민증 (CRM 라벨 차이일 뿐 동일 검사 — 2024년까지 "음식물", 2025년부터 "알러지"로 전환)
@@ -489,6 +535,8 @@ export default function AdsPage() {
   const [campaignLtvRoas, setCampaignLtvRoas] = useState<CampaignLtvRoasResponse | null>(null);
   const [campaignLtvRoasError, setCampaignLtvRoasError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sourceFreshness, setSourceFreshness] = useState<SourceFreshnessResponse | null>(null);
+  const [sourceFreshnessError, setSourceFreshnessError] = useState<string | null>(null);
   const [metaStatus, setMetaStatus] = useState<{
     coffee?: {
       configured: boolean;
@@ -550,6 +598,24 @@ export default function AdsPage() {
       .then((r) => r.json())
       .then((data) => { if (data?.ok) setMetaStatus(data); })
       .catch(() => { /* ignore */ });
+  }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetch(`${API_BASE}/api/source-freshness`, { signal: ac.signal })
+      .then((r) => r.json())
+      .then((data: SourceFreshnessResponse) => {
+        if (!data?.ok) throw new Error(data?.message ?? data?.error ?? "source freshness unavailable");
+        setSourceFreshness(data);
+        setSourceFreshnessError(null);
+      })
+      .catch((error) => {
+        if (!ac.signal.aborted) {
+          setSourceFreshness(null);
+          setSourceFreshnessError(error instanceof Error ? error.message : "source freshness unavailable");
+        }
+      });
+    return () => ac.abort();
   }, []);
 
   // C-Sprint 3: biocom 선택 시 CANCEL 서브카테고리 breakdown 로드
@@ -805,6 +871,16 @@ export default function AdsPage() {
   const selectedAttShareOfSiteOrders = selectedSiteSummary?.siteConfirmedOrders
     ? selectedAttributedOrders / selectedSiteSummary.siteConfirmedOrders
     : null;
+  const primaryFreshnessRows = SOURCE_FRESHNESS_PRIMARY
+    .map((source) => sourceFreshness?.results.find((result) => result.source === source))
+    .filter((result): result is SourceFreshnessResult => Boolean(result));
+  const worstFreshnessStatus = sourceFreshness?.results.reduce<SourceFreshnessStatus>(
+    (worst, result) => SOURCE_FRESHNESS_PRIORITY[result.status] > SOURCE_FRESHNESS_PRIORITY[worst] ? result.status : worst,
+    "fresh",
+  ) ?? null;
+  const staleSourceCount = sourceFreshness?.results.filter((result) =>
+    ["error", "missing", "stale"].includes(result.status),
+  ).length ?? 0;
 
   return (
     <>
@@ -846,6 +922,73 @@ export default function AdsPage() {
             color: attrWindow === aw.value ? "#6d28d9" : "#64748b",
           }}>{aw.label}</button>
         ))}
+      </div>
+
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+        marginBottom: 16,
+        padding: "12px 14px",
+        borderRadius: 8,
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+      }}>
+        <div>
+          <div style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>
+            데이터 기준 시각
+          </div>
+          <div style={{ marginTop: 4, fontSize: "0.78rem", color: "#334155", lineHeight: 1.5 }}>
+            {sourceFreshness
+              ? `${formatDateTime(sourceFreshness.checkedAt)} 조회 · 전체 원천 ${staleSourceCount > 0 ? `${staleSourceCount}개 점검 필요` : "정상"}`
+              : sourceFreshnessError
+                ? `점검 실패: ${sourceFreshnessError}`
+                : "원천 최신성 확인 중"}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {primaryFreshnessRows.map((row) => {
+            const color = SOURCE_FRESHNESS_COLORS[row.status];
+            return (
+              <span key={row.source} title={`${row.table} · ${row.note}`} style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                minHeight: 30,
+                padding: "5px 9px",
+                borderRadius: 8,
+                background: color.bg,
+                border: `1px solid ${color.border}`,
+                color: color.text,
+                fontSize: "0.72rem",
+                fontWeight: 800,
+                fontVariantNumeric: "tabular-nums",
+              }}>
+                <span>{SOURCE_FRESHNESS_LABELS[row.source] ?? row.source}</span>
+                <span>{row.status}</span>
+                <span style={{ fontWeight: 700, color: "#64748b" }}>{row.ageHours != null ? `${row.ageHours}h` : "—"}</span>
+              </span>
+            );
+          })}
+          {!sourceFreshness && !sourceFreshnessError && (
+            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 700 }}>loading</span>
+          )}
+          {worstFreshnessStatus && (
+            <span style={{
+              padding: "5px 9px",
+              borderRadius: 8,
+              background: SOURCE_FRESHNESS_COLORS[worstFreshnessStatus].bg,
+              border: `1px solid ${SOURCE_FRESHNESS_COLORS[worstFreshnessStatus].border}`,
+              color: SOURCE_FRESHNESS_COLORS[worstFreshnessStatus].text,
+              fontSize: "0.72rem",
+              fontWeight: 800,
+            }}>
+              worst {worstFreshnessStatus}
+            </span>
+          )}
+        </div>
       </div>
 
       {selectedSite.site === "biocom" && (

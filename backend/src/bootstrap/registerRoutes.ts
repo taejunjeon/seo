@@ -19,6 +19,7 @@ import { createRefundRouter } from "../routes/refund";
 import { createTossRouter } from "../routes/toss";
 import { createAdsRouter } from "../routes/ads";
 import { createMetaCapiRouter, createMetaRouter } from "../routes/meta";
+import { createSourceFreshnessRouter } from "../routes/sourceFreshness";
 
 export const registerRoutes = (app: Application) => {
   app.use(createGscRouter());
@@ -35,6 +36,7 @@ export const registerRoutes = (app: Application) => {
   app.use(createCallpriceRouter());
   app.use(createCrmPhase1Router());
   app.use(createCrmLocalRouter());
+  app.use(createSourceFreshnessRouter());
   app.use(createConsultationRouter());
   app.use(createAiRouter());
   app.use(createCrawlRouter());

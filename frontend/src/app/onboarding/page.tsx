@@ -11,7 +11,7 @@ const projectCards = [
   {
     label: "더클린커피",
     value: "BigQuery 링크 완료",
-    sub: "새 GCP 프로젝트에 Daily export 연결 완료",
+    sub: "Daily export 연결, raw table 조회 확인 완료",
   },
   {
     label: "biocom.kr",
@@ -235,11 +235,12 @@ export default function OnboardingPage() {
           border: "2px solid rgba(13,148,136,0.12)",
         }}>
           <div style={{ fontSize: "1.08rem", fontWeight: 700, marginBottom: 8 }}>
-            현재 결론: AIBIO와 더클린커피는 새 프로젝트로 진행, biocom은 기존 hurdlers export 상태부터 확인
+            현재 결론: AIBIO와 더클린커피는 새 프로젝트로 진행, 더클린커피 raw 조회 완료, biocom은 기존 hurdlers export 상태부터 확인
           </div>
           <div style={{ fontSize: "0.84rem", color: "var(--color-text-secondary)", lineHeight: 1.75 }}>
             GA4 raw export는 GCP 콘솔이 아니라 <strong>GA4 Admin &gt; BigQuery 링크</strong>에서 관리한다.
             새 프로젝트는 현재 임시로 <strong>My First Project (`project-dadba7dd-0229-4ff6-81c`)</strong>에 연결되었고,
+            더클린커피 dataset은 서비스 계정으로 read-only 조회가 확인됐다.
             biocom은 이미 <strong>hurdlers-naver-pay</strong>에 raw export 링크가 존재해 추가 링크 생성이 막혀 있다.
           </div>
         </div>
@@ -262,8 +263,19 @@ export default function OnboardingPage() {
               <strong>새 프로젝트 상태</strong>
               <div className={styles.compRow}><span>프로젝트명</span><span>My First Project</span></div>
               <div className={styles.compRow}><span>프로젝트 ID</span><span>project-dadba7dd-0229-4ff6-81c</span></div>
+              <div className={styles.compRow}><span>프로젝트 번호</span><span>269220955383</span></div>
               <div className={styles.compRow}><span>리전</span><span>asia-northeast3 (Seoul)</span></div>
+              <div className={styles.compRow}><span>생성자</span><span>biocom015@gmail.com</span></div>
+              <div className={styles.compRow}><span>생성일</span><span>2026. 4. 7.</span></div>
               <div className={styles.compRow}><span>export 방식</span><span>Daily only</span></div>
+            </div>
+            <div className={styles.compCard} style={{ borderTopColor: "var(--color-info)" }}>
+              <strong>더클린커피 raw 상태</strong>
+              <div className={styles.compRow}><span>GA4 property</span><span>326949178</span></div>
+              <div className={styles.compRow}><span>스트림 ID</span><span>3970736456</span></div>
+              <div className={styles.compRow}><span>측정 ID</span><span>G-JLSBXX7300</span></div>
+              <div className={styles.compRow}><span>dataset</span><span>analytics_326949178</span></div>
+              <div className={styles.compRow}><span>최신 table</span><span>events_20260417</span></div>
             </div>
             <div className={styles.compCard} style={{ borderTopColor: "var(--color-accent)" }}>
               <strong>biocom 기존 링크 상태</strong>
