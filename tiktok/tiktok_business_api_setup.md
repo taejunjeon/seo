@@ -1,6 +1,7 @@
 # TikTok Business API 설정 런북
 
 작성 시각: 2026-04-18 05:35 KST
+업데이트: 2026-04-18 13:33 KST
 
 ## 목적
 
@@ -15,7 +16,7 @@
 
 ## 현재 결론
 
-Codex 단독으로는 TikTok Ads Manager 데이터를 API로 받을 수 없다. 필요한 값이 로컬에 없다.
+Codex 단독으로는 TikTok Ads Manager 데이터를 API로 받을 수 없다. 필요한 값이 로컬에 없다. 또한 2026-04-18 현재 developer app은 Pending 상태이므로 API 승인을 기다리는 동안에도 수동 Custom report + scheduled export 경로로 Phase 1을 계속 진행한다.
 
 필요한 값:
 
@@ -117,10 +118,10 @@ curl --globoff 'https://business-api.tiktok.com/open_api/v1.3/report/integrated/
 
 ## 요청할 리포트 형태
 
-우선순위 1: 캠페인 × 일자
+우선순위 1: 캠페인 × 일자. API 승인 전에는 같은 포맷을 Ads Manager Custom report로 export한다.
 
 - dimensions: `campaign_id`, `campaign_name`, `stat_time_day`
-- metrics: spend, impressions, clicks, conversions, purchase count, purchase value, purchase ROAS
+- metrics: spend, net cost, impressions, destination clicks, conversions, purchase count, purchase value, CTA purchase, EVTA purchase, VTA purchase, CTA purchase ROAS, EVTA purchase ROAS, VTA purchase ROAS
 
 우선순위 2: 캠페인 기간 합계
 
@@ -151,10 +152,21 @@ curl --globoff 'https://business-api.tiktok.com/open_api/v1.3/report/integrated/
 
 ## 이번 프로젝트 판단
 
-지금은 수동 export가 이미 들어왔으므로 API 설정은 Sprint 2의 필수 선행 조건은 아니다. 다만 과거 기간을 반복 조회하거나 일자별 데이터를 여러 번 뽑아야 하면 API가 낫다.
+지금은 수동 export가 이미 들어왔으므로 API 설정은 Sprint 2의 필수 선행 조건은 아니다. 핵심 병목은 API가 아니라 metric dictionary, attribution window, source 분류 정밀도, pending fate 검증이다. 다만 과거 기간을 반복 조회하거나 일자별 데이터를 여러 번 뽑아야 하면 API가 낫다.
 
 현재 우선순위:
 
 1. 수동 export를 올바른 컬럼으로 한 번 더 받는다.
-2. 그 파일로 ROAS gap 계산 가능성을 검증한다.
-3. 반복 작업이 생기면 API read-only 자동화를 붙인다.
+2. scheduled export를 켜서 같은 포맷을 반복 수집한다.
+3. `tiktok_ads_daily`에 적재한다.
+4. 그 파일로 ROAS gap 계산 가능성을 검증한다.
+5. 반복 작업이 생기면 API read-only 자동화를 붙인다.
+
+## API 승인 전 체크리스트
+
+- [ ] Ads Manager Custom report에 `Date`, `Campaign ID`, `Campaign name` 차원 추가
+- [ ] `Cost`, `Purchase count`, `Purchase value`, `CTA/EVTA/VTA purchase`, `CTA/EVTA/VTA ROAS` 지표 추가
+- [ ] attribution window 화면 설정값 캡처 또는 수동 기록
+- [ ] scheduled export 이메일 수신 설정
+- [ ] export 파일을 `data/ads_csv/tiktok/raw/`에 원본 보관
+- [ ] 로컬 dry-run 파서로 `tiktok_ads_daily` 적재 전 숫자 대조

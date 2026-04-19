@@ -3,6 +3,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import GlobalNav from "@/components/common/GlobalNav";
 import { API_BASE_URL } from "@/constants/pageData";
@@ -10,6 +20,12 @@ import { API_BASE_URL } from "@/constants/pageData";
 type Tone = "green" | "amber" | "red" | "blue" | "neutral";
 
 type StatusAggregate = {
+  orders: number;
+  rows: number;
+  amount: number;
+};
+
+type SourceReasonAggregate = {
   orders: number;
   rows: number;
   amount: number;
@@ -43,6 +59,50 @@ type SampleOrder = {
   utmSource: string;
   utmCampaign: string;
   hasTtclid: boolean;
+  sourceMatchReasons: string[];
+  precisionTier: "high" | "medium" | "low";
+};
+
+type PendingAuditOrder = SampleOrder & {
+  paymentKey: string;
+  evidence: string;
+};
+
+type DailyComparisonRow = {
+  date: string;
+  guardPhase: "pre_guard" | "guard_start" | "post_guard";
+  spend: number;
+  platformPurchases: number;
+  platformPurchaseValue: number;
+  platformRoas: number | null;
+  ctaPurchaseValue: number;
+  vtaPurchaseValue: number;
+  confirmedOrders: number;
+  pendingOrders: number;
+  canceledOrders: number;
+  confirmedRevenue: number;
+  pendingRevenue: number;
+  canceledRevenue: number;
+  confirmedRoas: number | null;
+  potentialRoas: number | null;
+  platformMinusConfirmed: number;
+  platformMinusConfirmedAndPending: number;
+};
+
+type DailyComparisonSummary = {
+  days: number;
+  daysWithSpend: number;
+  platformSpend: number;
+  platformPurchaseValue: number;
+  platformPurchases: number;
+  platformRoas: number | null;
+  confirmedRevenue: number;
+  pendingRevenue: number;
+  canceledRevenue: number;
+  confirmedRoas: number | null;
+  potentialRoas: number | null;
+  platformMinusConfirmed: number;
+  platformMinusConfirmedAndPending: number;
 };
 
 type TikTokRoasResponse = {
@@ -60,6 +120,15 @@ type TikTokRoasResponse = {
     name: string;
     importedRows: number;
     matchedRows: number;
+    daily: {
+      name: string;
+      importedRows: number;
+      rows: number;
+      minDate: string | null;
+      maxDate: string | null;
+      readyForImport: boolean;
+      note: string;
+    };
     availableRanges: AvailableRange[];
   };
   ads_report: {
@@ -85,6 +154,8 @@ type TikTokRoasResponse = {
     fetchedEntries: number;
     tiktokPaymentSuccessRows: number;
     byStatus: Record<"confirmed" | "pending" | "canceled" | "unknown", StatusAggregate>;
+    sourceReasonSummary: Record<string, SourceReasonAggregate>;
+    pendingAuditTop20: PendingAuditOrder[];
     sampleOrders: SampleOrder[];
   };
   gap: {
@@ -97,6 +168,12 @@ type TikTokRoasResponse = {
     confirmedRoas: number | null;
     potentialRoas: number | null;
     overstatementVsConfirmedRatio: number | null;
+  };
+  daily_comparison: {
+    source: string;
+    summary: DailyComparisonSummary;
+    guardBreakdown: Record<"pre_guard" | "guard_start_and_after", Omit<DailyComparisonSummary, "daysWithSpend" | "platformPurchases" | "canceledRevenue">>;
+    rows: DailyComparisonRow[];
   };
   warnings: string[];
   notes: string[];
@@ -134,6 +211,14 @@ const fmtRoas = (value: number | null | undefined) =>
 const fmtPct = (value: number | null | undefined) =>
   value == null ? "-" : `${value.toFixed(1)}%`;
 
+const fmtCompactKRW = (value: number | null | undefined) => {
+  if (value == null) return "-";
+  const absolute = Math.abs(value);
+  if (absolute >= 100000000) return `${(value / 100000000).toFixed(1)}억`;
+  if (absolute >= 10000) return `${Math.round(value / 10000)}만`;
+  return fmtNum(value);
+};
+
 const fmtKst = (value: string | null | undefined) => {
   if (!value) return "-";
   const parsed = new Date(value);
@@ -153,6 +238,43 @@ const statusTone = (status: string): Tone => {
   if (status === "canceled") return "red";
   if (status === "pending") return "amber";
   return "neutral";
+};
+
+const precisionTone = (tier: "high" | "medium" | "low"): Tone => {
+  if (tier === "high") return "green";
+  if (tier === "medium") return "amber";
+  return "red";
+};
+
+const reasonLabel = (reason: string) => ({
+  ttclid_direct: "ttclid 직접",
+  ttclid_url: "URL ttclid",
+  metadata_ttclid_url: "metadata ttclid",
+  utm_source_tiktok: "UTM source",
+  utm_medium_tiktok: "UTM medium",
+  utm_campaign_tiktok: "UTM campaign",
+  utm_content_tiktok: "UTM content",
+  utm_term_tiktok: "UTM term",
+  landing_tiktok: "landing URL",
+  referrer_tiktok: "referrer",
+  metadata_url_tiktok: "metadata URL",
+}[reason] ?? reason);
+
+const formatReasons = (reasons: string[]) =>
+  reasons.length ? reasons.map(reasonLabel).join(", ") : "-";
+
+const guardPhaseLabel = (phase: DailyComparisonRow["guardPhase"]) => ({
+  pre_guard: "Guard 전",
+  guard_start: "Guard 적용일",
+  post_guard: "Guard 후",
+}[phase]);
+
+const formatRoasTooltip = (value: unknown, name: unknown) => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return [
+    Number.isFinite(numeric) ? fmtRoas(numeric) : String(value),
+    String(name),
+  ] as [string, string];
 };
 
 function MetricCard({
@@ -211,6 +333,7 @@ function StatusBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
 export default function TikTokAdsPerformancePage() {
   const [startDate, setStartDate] = useState(DEFAULT_RANGE.startDate);
   const [endDate, setEndDate] = useState(DEFAULT_RANGE.endDate);
+  const [dailyRevenueMode, setDailyRevenueMode] = useState<"confirmed" | "potential">("potential");
   const [data, setData] = useState<TikTokRoasResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -256,6 +379,25 @@ export default function TikTokAdsPerformancePage() {
     return total > 0 ? pending.orders / total * 100 : null;
   }, [confirmed.orders, pending.orders, canceled.orders]);
   const availableRanges = data?.local_table.availableRanges ?? [];
+  const sourceReasonRows = Object.entries(data?.operational_ledger.sourceReasonSummary ?? {})
+    .sort(([, left], [, right]) => right.amount - left.amount);
+  const pendingAuditRows = data?.operational_ledger.pendingAuditTop20 ?? [];
+  const dailyRows = useMemo(() => data?.daily_comparison.rows ?? [], [data?.daily_comparison.rows]);
+  const dailySummary = data?.daily_comparison.summary;
+  const dailyGuard = data?.daily_comparison.guardBreakdown;
+  const dailyModeIsPotential = dailyRevenueMode === "potential";
+  const dailySelectedRevenue = dailyModeIsPotential
+    ? (dailySummary?.confirmedRevenue ?? 0) + (dailySummary?.pendingRevenue ?? 0)
+    : dailySummary?.confirmedRevenue ?? 0;
+  const dailySelectedRoas = dailyModeIsPotential ? dailySummary?.potentialRoas : dailySummary?.confirmedRoas;
+  const dailySelectedGap = dailyModeIsPotential
+    ? dailySummary?.platformMinusConfirmedAndPending
+    : dailySummary?.platformMinusConfirmed;
+  const dailyChartRows = useMemo(() => dailyRows.map((row) => ({
+    date: row.date.slice(5),
+    platformRoas: row.platformRoas ?? 0,
+    internalRoas: dailyModeIsPotential ? row.potentialRoas ?? 0 : row.confirmedRoas ?? 0,
+  })), [dailyRows, dailyModeIsPotential]);
 
   const verdictTone: Tone = loading ? "neutral" : error ? "red" : data?.gap.confirmedRevenue === 0 ? "red" : "amber";
   const verdict = loading
@@ -403,13 +545,173 @@ export default function TikTokAdsPerformancePage() {
               border: "1px solid #cbd5e1",
               borderRadius: 8,
               background: "#ffffff",
+              padding: 20,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 14,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>일별 ROAS 추세</h2>
+                <p style={{ margin: "7px 0 0", color: "#64748b", fontSize: "0.8rem", lineHeight: 1.65 }}>
+                  TikTok 일별 export와 운영 VM TikTok 주문을 KST 날짜 기준으로 맞췄습니다.
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[
+                  { key: "confirmed" as const, label: "confirmed 기준" },
+                  { key: "potential" as const, label: "confirmed+pending 기준" },
+                ].map((option) => {
+                  const active = dailyRevenueMode === option.key;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setDailyRevenueMode(option.key)}
+                      style={{
+                        border: `1px solid ${active ? "#0f766e" : "#cbd5e1"}`,
+                        borderRadius: 8,
+                        background: active ? "#0f766e" : "#ffffff",
+                        color: active ? "#ffffff" : "#475569",
+                        cursor: "pointer",
+                        fontSize: "0.76rem",
+                        fontWeight: 800,
+                        padding: "8px 12px",
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+              <StatusBadge tone="blue">일자 {fmtNum(dailySummary?.days)}개</StatusBadge>
+              <StatusBadge tone="neutral">광고비 {fmtKRW(dailySummary?.platformSpend)}</StatusBadge>
+              <StatusBadge tone="amber">플랫폼 ROAS {fmtRoas(dailySummary?.platformRoas)}</StatusBadge>
+              <StatusBadge tone={dailySelectedRevenue > 0 ? "green" : "red"}>
+                운영 기준 매출 {fmtKRW(dailySelectedRevenue)}
+              </StatusBadge>
+              <StatusBadge tone={dailySelectedRoas && dailySelectedRoas > 0 ? "green" : "red"}>
+                운영 ROAS {fmtRoas(dailySelectedRoas)}
+              </StatusBadge>
+              <StatusBadge tone="red">선택 기준 gap {fmtKRW(dailySelectedGap)}</StatusBadge>
+            </div>
+
+            {dailyGuard ? (
+              <p style={{ margin: "12px 0 0", color: "#475569", fontSize: "0.8rem", lineHeight: 1.7 }}>
+                Guard 전 {fmtNum(dailyGuard.pre_guard.days)}일은 플랫폼 ROAS {fmtRoas(dailyGuard.pre_guard.platformRoas)},
+                운영 potential ROAS {fmtRoas(dailyGuard.pre_guard.potentialRoas)}입니다. Guard 적용일 이후는
+                {fmtNum(dailyGuard.guard_start_and_after.days)}일이며 플랫폼 구매값은 {fmtKRW(dailyGuard.guard_start_and_after.platformPurchaseValue)}입니다.
+              </p>
+            ) : null}
+
+            <div style={{ width: "100%", height: 300, marginTop: 18 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dailyChartRows} margin={{ top: 12, right: 20, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} />
+                  <YAxis tickFormatter={(value: number) => `${value.toFixed(0)}x`} tick={{ fontSize: 11, fill: "#64748b" }} />
+                  <Tooltip formatter={formatRoasTooltip} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="platformRoas"
+                    name="TikTok 플랫폼 ROAS"
+                    stroke="#d97706"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="internalRoas"
+                    name={dailyModeIsPotential ? "운영 potential ROAS" : "운영 confirmed ROAS"}
+                    stroke="#16a34a"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={{ marginTop: 16, overflowX: "auto" }}>
+              <table style={{ width: "100%", minWidth: 980, borderCollapse: "collapse", fontSize: "0.76rem" }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", color: "#475569" }}>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>날짜</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>구분</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>비용</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>플랫폼 구매값</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>플랫폼 ROAS</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>운영 기준 매출</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>운영 ROAS</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>gap</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyRows.length ? dailyRows.map((row) => {
+                    const internalRevenue = dailyModeIsPotential
+                      ? row.confirmedRevenue + row.pendingRevenue
+                      : row.confirmedRevenue;
+                    const internalRoas = dailyModeIsPotential ? row.potentialRoas : row.confirmedRoas;
+                    const gap = dailyModeIsPotential ? row.platformMinusConfirmedAndPending : row.platformMinusConfirmed;
+                    return (
+                      <tr key={row.date}>
+                        <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", fontWeight: 800 }}>
+                          {row.date}
+                        </td>
+                        <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0" }}>
+                          {guardPhaseLabel(row.guardPhase)}
+                        </td>
+                        <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                          {fmtCompactKRW(row.spend)}
+                        </td>
+                        <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                          {fmtKRW(row.platformPurchaseValue)}
+                        </td>
+                        <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: 900 }}>
+                          {fmtRoas(row.platformRoas)}
+                        </td>
+                        <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                          {fmtKRW(internalRevenue)}
+                        </td>
+                        <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                          {fmtRoas(internalRoas)}
+                        </td>
+                        <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                          {fmtKRW(gap)}
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr>
+                      <td colSpan={8} style={{ padding: 14, color: "#64748b" }}>일별 비교 행이 없습니다.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section
+            style={{
+              border: "1px solid #cbd5e1",
+              borderRadius: 8,
+              background: "#ffffff",
               overflow: "hidden",
             }}
           >
             <div style={{ padding: "18px 20px", borderBottom: "1px solid #e2e8f0" }}>
               <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>캠페인별 플랫폼 ROAS</h2>
               <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: "0.8rem", lineHeight: 1.65 }}>
-                현재 export는 일자 컬럼이 없어 캠페인 기간 합계 기준입니다.
+                기간 합계 테이블 기준입니다. 일자별 export는 별도 daily 테이블에 적재되어 Guard 전후 비교에 사용할 수 있습니다.
               </p>
             </div>
             <div style={{ overflowX: "auto" }}>
@@ -495,6 +797,121 @@ export default function TikTokAdsPerformancePage() {
                 현재 선택 기간 매칭 행은 {fmtNum(data?.local_table.matchedRows)}개입니다.
               </p>
             </article>
+            <article style={{ border: "1px solid #bbf7d0", borderRadius: 8, background: "#f0fdf4", padding: 18 }}>
+              <h3 style={{ margin: 0, color: "#166534", fontSize: "0.95rem", fontWeight: 900 }}>일자별 export 계약</h3>
+              <p style={{ margin: "10px 0 0", color: "#166534", fontSize: "0.82rem", lineHeight: 1.75 }}>
+                `{data?.local_table.daily.name ?? "tiktok_ads_daily"}`에 일자별 export를 적재했습니다.
+                현재 행은 {fmtNum(data?.local_table.daily.rows)}개이고, 이번 호출 upsert는 {fmtNum(data?.local_table.daily.importedRows)}행입니다.
+                {data?.local_table.daily.note ? ` ${data.local_table.daily.note}` : ""}
+              </p>
+            </article>
+          </section>
+
+          <section
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <article style={{ border: "1px solid #cbd5e1", borderRadius: 8, background: "#ffffff", padding: 18 }}>
+              <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 900 }}>TikTok 분류 사유</h2>
+              <p style={{ margin: "8px 0 14px", color: "#64748b", fontSize: "0.78rem", lineHeight: 1.65 }}>
+                극단적인 gap을 바로 결론으로 쓰지 않기 위해, TikTok 귀속으로 잡힌 이유를 분리했습니다.
+              </p>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", minWidth: 520, borderCollapse: "collapse", fontSize: "0.76rem" }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc", color: "#475569" }}>
+                      <th style={{ textAlign: "left", padding: "9px 10px", borderBottom: "1px solid #e2e8f0" }}>사유</th>
+                      <th style={{ textAlign: "right", padding: "9px 10px", borderBottom: "1px solid #e2e8f0" }}>주문</th>
+                      <th style={{ textAlign: "right", padding: "9px 10px", borderBottom: "1px solid #e2e8f0" }}>금액</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sourceReasonRows.length ? sourceReasonRows.map(([reason, aggregate]) => (
+                      <tr key={reason}>
+                        <td style={{ padding: "10px", borderBottom: "1px solid #e2e8f0", fontWeight: 800 }}>
+                          {reasonLabel(reason)}
+                        </td>
+                        <td style={{ padding: "10px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                          {fmtNum(aggregate.orders)}
+                        </td>
+                        <td style={{ padding: "10px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                          {fmtKRW(aggregate.amount)}
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={3} style={{ padding: 12, color: "#64748b" }}>분류 사유가 없습니다.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fffbeb", padding: 18 }}>
+              <h2 style={{ margin: 0, color: "#92400e", fontSize: "1rem", fontWeight: 900 }}>표본 감정 기준</h2>
+              <p style={{ margin: "10px 0 0", color: "#92400e", fontSize: "0.82rem", lineHeight: 1.75 }}>
+                pending 상위 20건을 금액순으로 뽑았습니다. `ttclid`가 있으면 high, UTM만 있으면 medium,
+                URL·metadata 텍스트만 있으면 low로 표시합니다. 이 표본으로 오탐 룰과 실제 미입금 여부를 먼저 점검합니다.
+              </p>
+            </article>
+          </section>
+
+          <section
+            style={{
+              border: "1px solid #cbd5e1",
+              borderRadius: 8,
+              background: "#ffffff",
+              padding: 20,
+            }}
+          >
+            <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>pending 상위 20건 감정</h2>
+            <p style={{ margin: "8px 0 14px", color: "#64748b", fontSize: "0.8rem", lineHeight: 1.65 }}>
+              API 승인 전에도 source precision과 pending fate를 확인할 수 있는 최소 표본입니다.
+            </p>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", minWidth: 980, borderCollapse: "collapse", fontSize: "0.76rem" }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", color: "#475569" }}>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>시간</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>정밀도</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>주문번호</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>금액</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>분류 사유</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>근거</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingAuditRows.length ? pendingAuditRows.map((row) => (
+                    <tr key={`${row.loggedAt}-${row.orderId}-${row.paymentKey}`}>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>
+                        {fmtKst(row.loggedAt)}
+                      </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0" }}>
+                        <StatusBadge tone={precisionTone(row.precisionTier)}>{row.precisionTier}</StatusBadge>
+                      </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0" }}>{row.orderId}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: 900 }}>
+                        {fmtKRW(row.amount)}
+                      </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0" }}>
+                        {formatReasons(row.sourceMatchReasons)}
+                      </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", wordBreak: "break-word", color: "#64748b" }}>
+                        {row.evidence || "-"}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 14, color: "#64748b" }}>pending audit 대상이 없습니다.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
 
           <section

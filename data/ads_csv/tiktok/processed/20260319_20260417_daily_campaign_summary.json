@@ -1,0 +1,82 @@
+{
+  "source_file": "data/ads_csv/tiktok/raw/20260319_20260417_daily_ad_report.csv",
+  "raw_rows_including_total": 286,
+  "raw_date_ad_rows": 285,
+  "daily_campaign_rows": 147,
+  "date_min": "2026-03-19",
+  "date_max": "2026-04-17",
+  "unique_dates": 30,
+  "unique_campaigns": 5,
+  "unique_ads": 10,
+  "totals": {
+    "spend": 28363230,
+    "impressions": 13262333,
+    "destination_clicks": 365991,
+    "conversions": 321,
+    "purchase_count": 321,
+    "purchase_value": 910630953,
+    "platform_roas": 32.106038,
+    "vta_purchase_count": 90,
+    "cta_purchase_count": 189,
+    "evta_purchase_count": 42,
+    "vta_purchase_value": 13825423,
+    "cta_purchase_value": 886614137
+  },
+  "campaigns": [
+    {
+      "campaign_id": "1854347729644690",
+      "campaign_name": "음과검 스마트+ 캠페인",
+      "days": 30,
+      "raw_ad_rows": 60,
+      "spend": 14143071,
+      "purchase_count": 143,
+      "purchase_value": 746835717,
+      "platform_roas": 52.805767
+    },
+    {
+      "campaign_id": "1854918885396689",
+      "campaign_name": "종합대사기능 분석 스마트+캠페인",
+      "days": 30,
+      "raw_ad_rows": 60,
+      "spend": 8222937,
+      "purchase_count": 75,
+      "purchase_value": 126692609,
+      "platform_roas": 15.407221
+    },
+    {
+      "campaign_id": "1858788275666081",
+      "campaign_name": "건강기능식품 스마트+캠페인",
+      "days": 30,
+      "raw_ad_rows": 87,
+      "spend": 2999202,
+      "purchase_count": 62,
+      "purchase_value": 23091112,
+      "platform_roas": 7.699085
+    },
+    {
+      "campaign_id": "1856156648605858",
+      "campaign_name": "영양중금속분석 스마트+ 캠페인",
+      "days": 30,
+      "raw_ad_rows": 30,
+      "spend": 2998020,
+      "purchase_count": 41,
+      "purchase_value": 14011515,
+      "platform_roas": 4.67359
+    },
+    {
+      "campaign_id": "1856728035726529",
+      "campaign_name": "호르몬 검사 캠페인",
+      "days": 27,
+      "raw_ad_rows": 48,
+      "spend": 0,
+      "purchase_count": 0,
+      "purchase_value": 0,
+      "platform_roas": null
+    }
+  ],
+  "notes": [
+    "First duplicate 총 구매 수(모든 채널) was treated as purchase_count.",
+    "Second duplicate 총 구매 수(모든 채널)__2 was treated as purchase_value after cross-checking against purchase ROAS.",
+    "EVTA purchase value/ROAS columns are absent in this export, so evta_purchase_value and evta_purchase_roas are 0."
+  ]
+}
