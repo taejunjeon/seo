@@ -127,6 +127,16 @@ type AttributionCampaignRoasRow = {
   attributedRevenue: number;
   roas: number | null;
   orders: number;
+  // 2026-04-20: 공동구매 캠페인 분리. "공동구매"/"공구" 키워드로 백엔드에서 태깅.
+  campaignType?: "general" | "coop";
+};
+
+type AttributionCampaignRoasSummaryBucket = {
+  spend: number;
+  attributedRevenue: number;
+  roas: number | null;
+  orders: number;
+  campaignCount?: number;
 };
 
 type AttributionCampaignRoasResponse = {
@@ -139,6 +149,8 @@ type AttributionCampaignRoasResponse = {
     attributedRevenue: number;
     roas: number | null;
     orders: number;
+    general?: AttributionCampaignRoasSummaryBucket;
+    coop?: AttributionCampaignRoasSummaryBucket;
   };
 };
 
@@ -532,6 +544,8 @@ export default function AdsPage() {
   const [daily, setDaily] = useState<DailyRow[]>([]);
   const [siteSummary, setSiteSummary] = useState<{ sites: SiteRoasSummary[]; total: { impressions: number; clicks: number; spend: number; revenue: number; roas: number | null; orders: number } } | null>(null);
   const [campaignRoas, setCampaignRoas] = useState<AttributionCampaignRoasResponse | null>(null);
+  // 2026-04-20: 공동구매 캠페인 분리 표시 필터 (§ H/I). 기본 general만 보기.
+  const [campaignTypeFilter, setCampaignTypeFilter] = useState<"all" | "general" | "coop">("general");
   const [campaignLtvRoas, setCampaignLtvRoas] = useState<CampaignLtvRoasResponse | null>(null);
   const [campaignLtvRoasError, setCampaignLtvRoasError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -575,6 +589,18 @@ export default function AdsPage() {
     latestDetectedAt: string | null;
   };
   const [refundSummary, setRefundSummary] = useState<RefundSummaryResp | null>(null);
+
+  // C-Sprint 5: Identity coverage 진단 (BigQuery 대기 중에도 가능한 범위)
+  type IdentityCoverageResp = {
+    generatedAt: string;
+    fetchFixDate: string;
+    totalPaymentSuccess: number;
+    byEra: Array<{ era: "before_fix" | "after_fix"; total: number; allThreePct: number; gaSessionIdPct: number; clientIdPct: number }>;
+    historicalShare: { beforeFix: number; afterFix: number; beforeFixPct: number };
+    duplicateOrders: { totalDuplicateOrders: number; extraRows: number };
+    fieldCoverage: Array<{ field: string; total: number; present: number; pct: number }>;
+  };
+  const [identityCoverage, setIdentityCoverage] = useState<IdentityCoverageResp | null>(null);
 
   // Post-CAPI 바이오컴 비교 상태 (교정된 VM ledger 기준 2026-04-13~today vs 2026-04-05~2026-04-11)
   type CapiRoasWindow = {
@@ -638,6 +664,16 @@ export default function AdsPage() {
     fetch(`${API_BASE}/api/refund/summary?windowDays=90`, { signal: ac.signal })
       .then((r) => r.json())
       .then((data) => { if (data?.ok) setRefundSummary(data as RefundSummaryResp); })
+      .catch(() => { /* ignore */ });
+    return () => ac.abort();
+  }, []);
+
+  // C-Sprint 5: Identity coverage summary
+  useEffect(() => {
+    const ac = new AbortController();
+    fetch(`${API_BASE}/api/identity-coverage/summary`, { signal: ac.signal })
+      .then((r) => r.json())
+      .then((data) => { if (data?.ok) setIdentityCoverage(data.summary as IdentityCoverageResp); })
       .catch(() => { /* ignore */ });
     return () => ac.abort();
   }, []);
@@ -834,6 +870,13 @@ export default function AdsPage() {
       .filter((row): row is AttributionCampaignRoasRow & { campaignId: string } => Boolean(row.campaignId))
       .map((row) => [row.campaignId, row]),
   );
+  // 2026-04-20: 공동구매 캠페인 필터링 (§ H/I). 기본 'general'로 노출해 일반 광고 효율만 표시, 토글로 전체·공동구매만 볼 수 있게.
+  const isCoopCampaignName = (name: string) => name.includes("공동구매") || name.includes("공구");
+  const getCampaignType = (c: { campaign_id: string; campaign_name: string }): "general" | "coop" => {
+    const attrType = attributionRoasByCampaignId.get(c.campaign_id)?.campaignType;
+    if (attrType) return attrType;
+    return isCoopCampaignName(c.campaign_name) ? "coop" : "general";
+  };
   const ltvRoasByCampaignId = new Map(
     (campaignLtvRoas?.rows ?? [])
       .filter((row): row is CampaignLtvRoasRow & { campaignId: string } => Boolean(row.campaignId))
@@ -923,6 +966,26 @@ export default function AdsPage() {
           }}>{aw.label}</button>
         ))}
       </div>
+
+      {/* 공동구매 분리 해석 배너 (§ H/I, 2026-04-20): 표시된 ROAS가 공동구매 캠페인을 포함하는지 알려준다. */}
+      {campaignRoas?.summary?.coop && (campaignRoas.summary.coop.spend > 0 || campaignRoas.summary.coop.attributedRevenue > 0) && (
+        <div style={{
+          marginBottom: 12,
+          padding: "10px 14px",
+          borderRadius: 8,
+          background: "#fffbeb",
+          border: "1px solid #fde68a",
+          color: "#92400e",
+          fontSize: "0.78rem",
+          lineHeight: 1.5,
+        }}>
+          <strong>⚠️ 공동구매 캠페인 포함 중</strong> — 아래 전체 ROAS에는 <strong>공동구매 {campaignRoas.summary.coop.campaignCount ?? 0}개</strong>가 섞여 있다.
+          {" "}전체 ROAS {(campaignRoas.summary.roas ?? 0).toFixed(2)}x = 일반 ROAS{" "}
+          <strong>{(campaignRoas.summary.general?.roas ?? 0).toFixed(2)}x</strong>{" "}
+          × 공동구매 ROAS <strong>{(campaignRoas.summary.coop.roas ?? 0).toFixed(2)}x</strong> 혼합.
+          {" "}일반 광고 효율만 보려면 하단 캠페인 표에서 <strong>공동구매 태그</strong> 캠페인을 필터하시오.
+        </div>
+      )}
 
       <div style={{
         display: "flex",
@@ -1253,6 +1316,87 @@ export default function AdsPage() {
           )}
         </div>
       )}
+
+      {/* C-Sprint 5: Identity Coverage 진단 (BigQuery 없이 가능한 범위) */}
+      {identityCoverage && identityCoverage.totalPaymentSuccess > 0 && (() => {
+        const cov = identityCoverage;
+        const afterFix = cov.byEra.find((e) => e.era === "after_fix");
+        const beforeFix = cov.byEra.find((e) => e.era === "before_fix");
+        const topFields = cov.fieldCoverage.slice(0, 8);
+        return (
+          <div style={{ marginBottom: 24, padding: "12px 16px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <div>
+                <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#0369a1" }}>Identity Coverage · payment_success</span>
+                <span style={{ fontSize: "0.62rem", color: "#0284c7", marginLeft: 8 }}>
+                  광고 식별자 유입률 진단 — BQ 쿼리 1/2/3/4 완료, 원인 4/5 확정
+                </span>
+              </div>
+              <div style={{ fontSize: "0.6rem", color: "#64748b" }} title={`fetch-fix 기점: ${cov.fetchFixDate}`}>
+                전체 {fmtNum(cov.totalPaymentSuccess)} row · fix={cov.fetchFixDate}
+              </div>
+            </div>
+            {/* GA4 Unwanted Referrals 설정 알림 (2026-04-20) */}
+            <div
+              style={{ marginTop: 6, padding: "6px 10px", borderRadius: 6, background: "#ecfdf5", border: "1px solid #a7f3d0", fontSize: "0.62rem", color: "#047857", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}
+              title="2026-04-20 17:45 KST biocom + coffee 모두 원치 않는 추천에 tosspayments / nicepay / orders.pay.naver / new.kakaopay / pg.innopay 7개 추가. GA4 반영 24~48h 후 (direct) fallback 1,158건(26%) 감소 기대."
+            >
+              <span>✓ <strong>GA4 Unwanted Referrals 설정 완료 (2026-04-20)</strong> — tosspayments 등 PG 7개 추가로 session_lost 26% 해결 기대</span>
+              <span style={{ color: "#0284c7" }}>→ 2026-04-22 이후 효과 측정 (쿼리 재실행)</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 10 }}>
+              <div title="fetch-fix (2026-04-08) 이전 row 의 비율. 이 구간은 clientId/gaSessionId 를 snippet 이 수집하지 않던 구조라 식별자 거의 0% — 이미 구조적으로 해결됨.">
+                <div style={{ fontSize: "0.6rem", color: "#0369a1" }}>historical 비중</div>
+                <div style={{ fontSize: "1.0rem", fontWeight: 700, color: "#0369a1" }}>{cov.historicalShare.beforeFixPct.toFixed(1)}%</div>
+                <div style={{ fontSize: "0.58rem", color: "#64748b" }}>
+                  before {fmtNum(cov.historicalShare.beforeFix)} · after {fmtNum(cov.historicalShare.afterFix)}
+                </div>
+              </div>
+              <div title="fetch-fix 이후 row 의 clientId+userPseudoId+gaSessionId all-three 유입률. 신규 row 의 실제 커버리지.">
+                <div style={{ fontSize: "0.6rem", color: "#0369a1" }}>after_fix all-three</div>
+                <div style={{ fontSize: "1.0rem", fontWeight: 700, color: (afterFix?.allThreePct ?? 0) >= 70 ? "#047857" : "#d97706" }}>
+                  {afterFix ? `${afterFix.allThreePct.toFixed(1)}%` : "—"}
+                </div>
+                <div style={{ fontSize: "0.58rem", color: "#64748b" }}>
+                  before {beforeFix?.allThreePct.toFixed(1) ?? "—"}% → after {afterFix?.allThreePct.toFixed(1) ?? "—"}%
+                </div>
+              </div>
+              <div title="같은 order_id 에 여러 payment_success row 가 들어온 케이스. duplicate_sender 의 직접 증거.">
+                <div style={{ fontSize: "0.6rem", color: "#0369a1" }}>duplicate order</div>
+                <div style={{ fontSize: "1.0rem", fontWeight: 700, color: cov.duplicateOrders.totalDuplicateOrders > 0 ? "#d97706" : "#047857" }}>
+                  {fmtNum(cov.duplicateOrders.totalDuplicateOrders)}건
+                </div>
+                <div style={{ fontSize: "0.58rem", color: "#64748b" }}>extra rows {fmtNum(cov.duplicateOrders.extraRows)}</div>
+              </div>
+              <div title="BQ 쿼리 1/2/3/4 실측 완료. session_lost 26% 확증 → Unwanted Referrals 설정으로 해결 진행 중. 5/5 중 4개 확정, 마지막 raw_export_unknown 은 접근 확보됨.">
+                <div style={{ fontSize: "0.6rem", color: "#0369a1" }}>진단 상태</div>
+                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#047857" }}>4/5 확정</div>
+                <div style={{ fontSize: "0.58rem", color: "#64748b" }}>session_lost 26% 해결 중</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px dashed #bae6fd" }}>
+              <div style={{ fontSize: "0.6rem", color: "#0369a1", marginBottom: 4 }}>metadata 필드 커버리지 (전체 payment_success 기준)</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {topFields.map((f) => (
+                  <span
+                    key={f.field}
+                    title={`${f.present}/${f.total}`}
+                    style={{
+                      fontSize: "0.62rem",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: f.pct >= 70 ? "#d1fae5" : f.pct >= 30 ? "#fef3c7" : "#fee2e2",
+                      color: f.pct >= 70 ? "#047857" : f.pct >= 30 ? "#92400e" : "#991b1b",
+                    }}
+                  >
+                    {f.field} {f.pct.toFixed(1)}%
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 선택된 사이트 상세 */}
       <div style={{ marginBottom: 16 }}>
@@ -1914,7 +2058,34 @@ export default function AdsPage() {
           {/* 캠페인별 테이블 */}
           {campaigns.length > 0 && (
             <div style={{ padding: "16px 20px", borderRadius: 14, background: "#fff", border: "1px solid #f1f5f9", marginBottom: 24 }}>
-              <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", marginBottom: 12 }}>캠페인별 성과</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+                <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", margin: 0 }}>캠페인별 성과</h3>
+                {/* 공동구매 분리 필터 (§ H/I): 기본은 일반만 노출, 토글로 전체·공동구매만 비교 */}
+                <div style={{ display: "flex", gap: 4, fontSize: "0.72rem" }}>
+                  {(["general", "all", "coop"] as const).map((opt) => {
+                    const labelMap = { general: "일반만", all: "전체", coop: "공동구매만" };
+                    const active = campaignTypeFilter === opt;
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setCampaignTypeFilter(opt)}
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          border: active ? "1px solid #2563eb" : "1px solid #e2e8f0",
+                          background: active ? "#eff6ff" : "#fff",
+                          color: active ? "#1d4ed8" : "#64748b",
+                          fontWeight: active ? 700 : 500,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {labelMap[opt]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
                   <thead>
@@ -1925,7 +2096,13 @@ export default function AdsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {campaigns.map((c) => {
+                    {campaigns
+                      .filter((c) => {
+                        if (campaignTypeFilter === "all") return true;
+                        const t = getCampaignType(c);
+                        return t === campaignTypeFilter;
+                      })
+                      .map((c) => {
                       const metaRoas = c.spend > 0 && (c.purchase_value ?? 0) > 0 ? c.purchase_value! / c.spend : null;
                       const attrRow = attributionRoasByCampaignId.get(c.campaign_id);
                       const ltvRow = ltvRoasByCampaignId.get(c.campaign_id);
@@ -1950,9 +2127,15 @@ export default function AdsPage() {
                             ? "#64748b"
                             : "#94a3b8";
 
+                      const cType = getCampaignType(c);
                       return (
-                        <tr key={c.campaign_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#1e293b", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.campaign_name}</td>
+                        <tr key={c.campaign_id} style={{ borderBottom: "1px solid #f1f5f9", background: cType === "coop" ? "#fffbeb" : undefined }}>
+                          <td style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#1e293b", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {cType === "coop" && (
+                              <span style={{ display: "inline-block", padding: "1px 6px", marginRight: 6, borderRadius: 4, background: "#fef3c7", color: "#92400e", fontSize: "0.64rem", fontWeight: 700, verticalAlign: "middle" }}>공동구매</span>
+                            )}
+                            {c.campaign_name}
+                          </td>
                           <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtNum(c.impressions)}</td>
                           <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtNum(c.clicks)}</td>
                           <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{c.ctr.toFixed(2)}%</td>

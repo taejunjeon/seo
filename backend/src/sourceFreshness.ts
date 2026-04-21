@@ -6,17 +6,24 @@ import dotenv from "dotenv";
 import { google, type bigquery_v2 } from "googleapis";
 import { Pool } from "pg";
 
-export type SourceFreshnessStatus = "fresh" | "warn" | "stale" | "empty" | "missing" | "error";
+export type SourceFreshnessStatus = "fresh" | "warn" | "stale" | "empty" | "missing" | "error" | "data_sparse";
+
+// 운영자 친화 용어. status → severity 매핑.
+export type SourceFreshnessSeverity = "ok" | "watch" | "alert" | "critical";
 
 export type SourceFreshnessResult = {
   source: string;
   storage: "bigquery" | "postgres" | "sqlite";
   table: string;
   status: SourceFreshnessStatus;
+  severity: SourceFreshnessSeverity;
+  action: string | null;
   totalRows: number | null;
   freshnessAt: string | null;
   freshnessColumn: string | null;
   ageHours: number | null;
+  warnHours: number;
+  staleHours: number;
   eventMax: Record<string, string | null>;
   syncMax: Record<string, string | null>;
   note: string;
@@ -26,6 +33,67 @@ export type SourceFreshnessOptions = {
   crmDbPath: string;
   warnHours: number;
   staleHours: number;
+};
+
+// 2026-04-20: TJ 승인 stale 기준 v1. 원천별 임계값.
+// - Toss/PlayAuto operational: 결제·주문 장부. 실시간성 요구. 24h 주의 / 36h 위험.
+// - Imweb local orders: 24h 주의 / 48h 위험.
+// - GA4 BigQuery daily export: 48h 주의 / 72h 위험 (구글이 T+24~36h 배포).
+// - local mirror (Toss/Imweb 로컬 캐시): 72h 주의 / 120h 위험 (정본 아니라 소음 방지 위해 완화).
+// - attribution_ledger: 12h 주의 / 24h 위험. 단 `data_sparse` 는 stale과 분리 판정 필요.
+type PerSourceThreshold = { warnHours: number; staleHours: number; action: string };
+const PER_SOURCE_THRESHOLDS: Record<string, PerSourceThreshold> = {
+  toss_operational: { warnHours: 24, staleHours: 36, action: "Toss 운영 DB 수집 스케줄 확인, tb_sales_toss 적재 경로 점검" },
+  playauto_operational: { warnHours: 24, staleHours: 36, action: "PlayAuto 주문 수집 스케줄 점검, tb_playauto_orders 갱신 확인" },
+  imweb_local_orders: { warnHours: 24, staleHours: 48, action: "POST /api/crm-local/imweb/sync-orders 재실행 후 imweb_status_synced_at 확인" },
+  ga4_bigquery_thecleancoffee: { warnHours: 48, staleHours: 72, action: "GA4 daily export 허들러스에 지연 여부 확인, BigQuery events_* 최신 suffix 점검" },
+  ga4_bigquery_biocom: { warnHours: 48, staleHours: 72, action: "허들러스 hurdlers-naver-pay 프로젝트의 biocom raw export 적재 지연 확인. 우리 service account 권한 확보 필요 시 에러로 표시됨" },
+  toss_local_transactions: { warnHours: 72, staleHours: 120, action: "Toss 로컬 미러 싱크 스케줄 점검 (정본은 toss_operational)" },
+  toss_local_settlements: { warnHours: 72, staleHours: 120, action: "Toss 정산 미러 스케줄 점검 (정본은 toss_operational)" },
+  attribution_ledger: { warnHours: 12, staleHours: 24, action: "VM att.ainativeos.net 헬스 체크, webhook·payment_success 이벤트 수신 여부 확인" },
+};
+// Attribution ledger "저트래픽 예외" 기준:
+// MAX(logged_at)만 보면 주문이 적은 새벽에 과한 경고가 날 수 있다.
+// 최근 24시간 내 이벤트 개수가 임계 아래면 `data_sparse`로 분리 판정.
+const ATTRIBUTION_DATA_SPARSE_MIN_EVENTS_24H = 3;
+
+const resolvePerSourceThresholds = (
+  source: string,
+  fallback: Pick<SourceFreshnessOptions, "warnHours" | "staleHours">,
+): PerSourceThreshold => (
+  PER_SOURCE_THRESHOLDS[source] ?? {
+    warnHours: fallback.warnHours,
+    staleHours: fallback.staleHours,
+    action: "기본 임계값 적용. 원천별 임계값 등록 권장.",
+  }
+);
+
+const statusToSeverity = (status: SourceFreshnessStatus): SourceFreshnessSeverity => {
+  switch (status) {
+    case "fresh": return "ok";
+    case "empty":
+    case "data_sparse":
+    case "warn": return "watch";
+    case "stale": return "alert";
+    case "missing":
+    case "error": return "critical";
+    default: return "watch";
+  }
+};
+
+const resolveAction = (
+  source: string,
+  status: SourceFreshnessStatus,
+  baseAction: string,
+): string | null => {
+  if (status === "fresh") return null;
+  if (status === "empty") return `${source} 데이터가 비어있음. 수집 경로 확인.`;
+  if (status === "data_sparse") return `최근 이벤트 수 적음. 주문 없는 구간인지 수집 장애인지 구분 필요.`;
+  if (status === "missing") return `${source} 테이블·원천 연결 자체가 없음. 운영팀 에스컬레이션.`;
+  if (status === "error") return `${source} 조회 실패. 에러 메시지 확인.`;
+  if (status === "warn") return `추이 모니터링. 악화되면: ${baseAction}`;
+  if (status === "stale") return baseAction;
+  return null;
 };
 
 type SqliteSourceConfig = {
@@ -106,6 +174,15 @@ const BIGQUERY_SOURCES: BigQuerySourceConfig[] = [
     dataset: `analytics_${process.env.GA4_COFFEE_PROPERTY_ID?.trim() || "326949178"}`,
     tablePrefix: "events_",
   },
+  // C-Sprint 5: biocom raw export 는 허들러스 소유 프로젝트에 있음 (2026-04-20 biocomkr.sns@gmail.com 권한 부여 완료).
+  // 우리 service account `seo-656@seo-aeo-487113` 에도 BigQuery Data Viewer + Job User 권한 요청 중.
+  // 권한 도착 시 이 config 가 자동으로 freshness check 를 돌린다.
+  {
+    source: "ga4_bigquery_biocom",
+    projectId: "hurdlers-naver-pay",
+    dataset: `analytics_${process.env.GA4_BIOCOM_PROPERTY_ID?.trim() || "304759974"}`,
+    tablePrefix: "events_",
+  },
 ];
 
 const quoteIdent = (value: string) => `"${value.replaceAll('"', '""')}"`;
@@ -151,13 +228,51 @@ const ageHours = (value: string | null, now: Date) => {
 const statusFromAge = (
   totalRows: number | null,
   age: number | null,
-  options: Pick<SourceFreshnessOptions, "warnHours" | "staleHours">,
+  thresholds: Pick<PerSourceThreshold, "warnHours" | "staleHours">,
 ): SourceFreshnessStatus => {
   if (!totalRows) return "empty";
   if (age === null) return "warn";
-  if (age >= options.staleHours) return "stale";
-  if (age >= options.warnHours) return "warn";
+  if (age >= thresholds.staleHours) return "stale";
+  if (age >= thresholds.warnHours) return "warn";
   return "fresh";
+};
+
+/**
+ * SourceFreshnessResult 생성기 — 모든 브랜치(missing·error·정상)에서 재사용.
+ * per-source 임계값·severity·action 자동 반영.
+ */
+const buildFreshnessResult = (params: {
+  source: string;
+  storage: SourceFreshnessResult["storage"];
+  table: string;
+  status: SourceFreshnessStatus;
+  totalRows: number | null;
+  freshnessAt: string | null;
+  freshnessColumn: string | null;
+  ageHours: number | null;
+  eventMax: Record<string, string | null>;
+  syncMax: Record<string, string | null>;
+  note: string;
+  fallback: Pick<SourceFreshnessOptions, "warnHours" | "staleHours">;
+}): SourceFreshnessResult => {
+  const threshold = resolvePerSourceThresholds(params.source, params.fallback);
+  return {
+    source: params.source,
+    storage: params.storage,
+    table: params.table,
+    status: params.status,
+    severity: statusToSeverity(params.status),
+    action: resolveAction(params.source, params.status, threshold.action),
+    totalRows: params.totalRows,
+    freshnessAt: params.freshnessAt,
+    freshnessColumn: params.freshnessColumn,
+    ageHours: params.ageHours,
+    warnHours: threshold.warnHours,
+    staleHours: threshold.staleHours,
+    eventMax: params.eventMax,
+    syncMax: params.syncMax,
+    note: params.note,
+  };
 };
 
 const pickFreshness = (
@@ -198,21 +313,16 @@ const checkSqliteSource = (
   options: SourceFreshnessOptions,
   now: Date,
 ): SourceFreshnessResult => {
+  const fallback = { warnHours: options.warnHours, staleHours: options.staleHours };
+  const threshold = resolvePerSourceThresholds(config.source, fallback);
+
   const columns = getSqliteColumns(db, config.table);
   if (!columns) {
-    return {
-      source: config.source,
-      storage: "sqlite",
-      table: config.table,
-      status: "missing",
-      totalRows: null,
-      freshnessAt: null,
-      freshnessColumn: null,
-      ageHours: null,
-      eventMax: {},
-      syncMax: {},
-      note: "table missing",
-    };
+    return buildFreshnessResult({
+      source: config.source, storage: "sqlite", table: config.table,
+      status: "missing", totalRows: null, freshnessAt: null, freshnessColumn: null,
+      ageHours: null, eventMax: {}, syncMax: {}, note: "table missing", fallback,
+    });
   }
 
   const eventColumns = config.eventColumns.filter((column) => columns.has(column));
@@ -220,19 +330,11 @@ const checkSqliteSource = (
   const selectedColumns = [...eventColumns, ...syncColumns];
 
   if (selectedColumns.length === 0) {
-    return {
-      source: config.source,
-      storage: "sqlite",
-      table: config.table,
-      status: "missing",
-      totalRows: null,
-      freshnessAt: null,
-      freshnessColumn: null,
-      ageHours: null,
-      eventMax: {},
-      syncMax: {},
-      note: "freshness columns missing",
-    };
+    return buildFreshnessResult({
+      source: config.source, storage: "sqlite", table: config.table,
+      status: "missing", totalRows: null, freshnessAt: null, freshnessColumn: null,
+      ageHours: null, eventMax: {}, syncMax: {}, note: "freshness columns missing", fallback,
+    });
   }
 
   const row = db
@@ -249,19 +351,29 @@ const checkSqliteSource = (
   const totalRows = parseCount(row.total_rows);
   const age = ageHours(freshness.value, now);
 
-  return {
-    source: config.source,
-    storage: "sqlite",
-    table: config.table,
-    status: statusFromAge(totalRows, age, options),
-    totalRows,
-    freshnessAt: freshness.value,
-    freshnessColumn: freshness.column,
-    ageHours: age,
-    eventMax,
-    syncMax,
-    note: "read-only local SQLite",
-  };
+  let status = statusFromAge(totalRows, age, threshold);
+  let note = "read-only local SQLite";
+
+  // Attribution ledger 저트래픽 예외 (TJ 2026-04-20 승인):
+  // "no recent event"와 "source broken"을 분리. 최근 24h 이벤트 개수가 적으면 `data_sparse`로 판정해
+  // stale 알람을 띄우지 않음. 실제 수집 장애인지 주문이 없는 구간인지 구분.
+  if (config.source === "attribution_ledger" && status === "stale") {
+    const sinceIso = new Date(now.getTime() - 24 * 3_600_000).toISOString();
+    const recent = db.prepare(
+      `SELECT COUNT(*) AS cnt FROM ${quoteIdent(config.table)}
+       WHERE logged_at >= ? AND touchpoint IN ('payment_success','checkout_started')`
+    ).get(sinceIso) as { cnt: number };
+    if (recent.cnt < ATTRIBUTION_DATA_SPARSE_MIN_EVENTS_24H) {
+      status = "data_sparse";
+      note = `attribution ledger recent 24h events=${recent.cnt} (< ${ATTRIBUTION_DATA_SPARSE_MIN_EVENTS_24H}); 저트래픽 구간일 수 있어 stale 알람 억제`;
+    }
+  }
+
+  return buildFreshnessResult({
+    source: config.source, storage: "sqlite", table: config.table,
+    status, totalRows, freshnessAt: freshness.value, freshnessColumn: freshness.column,
+    ageHours: age, eventMax, syncMax, note, fallback,
+  });
 };
 
 const getPgColumns = async (pool: Pool, table: string) => {
@@ -284,21 +396,16 @@ const checkPgSource = async (
   options: SourceFreshnessOptions,
   now: Date,
 ): Promise<SourceFreshnessResult> => {
+  const fallback = { warnHours: options.warnHours, staleHours: options.staleHours };
+  const threshold = resolvePerSourceThresholds(config.source, fallback);
+
   const columns = await getPgColumns(pool, config.table);
   if (!columns) {
-    return {
-      source: config.source,
-      storage: "postgres",
-      table: config.table,
-      status: "missing",
-      totalRows: null,
-      freshnessAt: null,
-      freshnessColumn: null,
-      ageHours: null,
-      eventMax: {},
-      syncMax: {},
-      note: "table missing",
-    };
+    return buildFreshnessResult({
+      source: config.source, storage: "postgres", table: config.table,
+      status: "missing", totalRows: null, freshnessAt: null, freshnessColumn: null,
+      ageHours: null, eventMax: {}, syncMax: {}, note: "table missing", fallback,
+    });
   }
 
   const eventColumns = config.eventColumns.filter((column) => columns.has(column));
@@ -306,19 +413,11 @@ const checkPgSource = async (
   const selectedColumns = [...eventColumns, ...syncColumns];
 
   if (selectedColumns.length === 0) {
-    return {
-      source: config.source,
-      storage: "postgres",
-      table: config.table,
-      status: "missing",
-      totalRows: null,
-      freshnessAt: null,
-      freshnessColumn: null,
-      ageHours: null,
-      eventMax: {},
-      syncMax: {},
-      note: "freshness columns missing",
-    };
+    return buildFreshnessResult({
+      source: config.source, storage: "postgres", table: config.table,
+      status: "missing", totalRows: null, freshnessAt: null, freshnessColumn: null,
+      ageHours: null, eventMax: {}, syncMax: {}, note: "freshness columns missing", fallback,
+    });
   }
 
   const result = await pool.query<Record<string, unknown>>(`
@@ -333,20 +432,13 @@ const checkPgSource = async (
   const freshness = pickFreshness(eventMax, syncMax);
   const totalRows = parseCount(row.total_rows);
   const age = ageHours(freshness.value, now);
+  const status = statusFromAge(totalRows, age, threshold);
 
-  return {
-    source: config.source,
-    storage: "postgres",
-    table: config.table,
-    status: statusFromAge(totalRows, age, options),
-    totalRows,
-    freshnessAt: freshness.value,
-    freshnessColumn: freshness.column,
-    ageHours: age,
-    eventMax,
-    syncMax,
-    note: "read-only operational Postgres",
-  };
+  return buildFreshnessResult({
+    source: config.source, storage: "postgres", table: config.table,
+    status, totalRows, freshnessAt: freshness.value, freshnessColumn: freshness.column,
+    ageHours: age, eventMax, syncMax, note: "read-only operational Postgres", fallback,
+  });
 };
 
 const runBigQuery = async (
@@ -376,6 +468,9 @@ const checkBigQuerySource = async (
   options: SourceFreshnessOptions,
   now: Date,
 ): Promise<SourceFreshnessResult> => {
+  const fallback = { warnHours: options.warnHours, staleHours: options.staleHours };
+  const threshold = resolvePerSourceThresholds(config.source, fallback);
+
   try {
     await bq.datasets.get({ projectId: config.projectId, datasetId: config.dataset });
     const tableResponse = await bq.tables.list({
@@ -391,19 +486,12 @@ const checkBigQuerySource = async (
       .at(-1);
 
     if (!latestTable) {
-      return {
-        source: config.source,
-        storage: "bigquery",
+      return buildFreshnessResult({
+        source: config.source, storage: "bigquery",
         table: `${config.projectId}.${config.dataset}.${config.tablePrefix}*`,
-        status: "empty",
-        totalRows: 0,
-        freshnessAt: null,
-        freshnessColumn: null,
-        ageHours: null,
-        eventMax: {},
-        syncMax: {},
-        note: "no events tables",
-      };
+        status: "empty", totalRows: 0, freshnessAt: null, freshnessColumn: null,
+        ageHours: null, eventMax: {}, syncMax: {}, note: "no events tables", fallback,
+      });
     }
 
     const suffix = latestTable.slice(config.tablePrefix.length);
@@ -432,33 +520,23 @@ const checkBigQuerySource = async (
     const purchaseEvents = parseCount(row.purchase_events);
     const distinctPurchaseTransactionIds = parseCount(row.distinct_purchase_transaction_ids);
 
-    return {
-      source: config.source,
-      storage: "bigquery",
+    return buildFreshnessResult({
+      source: config.source, storage: "bigquery",
       table: `${config.projectId}.${config.dataset}.${latestTable}`,
-      status: statusFromAge(totalRows, age, options),
-      totalRows,
-      freshnessAt,
-      freshnessColumn: "event_timestamp",
-      ageHours: age,
-      eventMax: { event_timestamp: freshnessAt },
-      syncMax: {},
+      status: statusFromAge(totalRows, age, threshold),
+      totalRows, freshnessAt, freshnessColumn: "event_timestamp",
+      ageHours: age, eventMax: { event_timestamp: freshnessAt }, syncMax: {},
       note: `latest table ${latestTable}; purchase ${purchaseEvents ?? 0}; distinct txn ${distinctPurchaseTransactionIds ?? 0}`,
-    };
+      fallback,
+    });
   } catch (error) {
-    return {
-      source: config.source,
-      storage: "bigquery",
+    return buildFreshnessResult({
+      source: config.source, storage: "bigquery",
       table: `${config.projectId}.${config.dataset}.${config.tablePrefix}*`,
-      status: "error",
-      totalRows: null,
-      freshnessAt: null,
-      freshnessColumn: null,
-      ageHours: null,
-      eventMax: {},
-      syncMax: {},
-      note: error instanceof Error ? error.message : String(error),
-    };
+      status: "error", totalRows: null, freshnessAt: null, freshnessColumn: null,
+      ageHours: null, eventMax: {}, syncMax: {},
+      note: error instanceof Error ? error.message : String(error), fallback,
+    });
   }
 };
 
@@ -479,19 +557,13 @@ export const collectSourceFreshness = async (
     }
   } else {
     for (const source of SQLITE_SOURCES) {
-      results.push({
-        source: source.source,
-        storage: "sqlite",
-        table: source.table,
-        status: "missing",
-        totalRows: null,
-        freshnessAt: null,
-        freshnessColumn: null,
-        ageHours: null,
-        eventMax: {},
-        syncMax: {},
+      results.push(buildFreshnessResult({
+        source: source.source, storage: "sqlite", table: source.table,
+        status: "missing", totalRows: null, freshnessAt: null, freshnessColumn: null,
+        ageHours: null, eventMax: {}, syncMax: {},
         note: `crm db missing: ${options.crmDbPath}`,
-      });
+        fallback: { warnHours: options.warnHours, staleHours: options.staleHours },
+      }));
     }
   }
 
@@ -511,19 +583,14 @@ export const collectSourceFreshness = async (
     }
   } else {
     for (const source of BIGQUERY_SOURCES) {
-      results.push({
-        source: source.source,
-        storage: "bigquery",
+      results.push(buildFreshnessResult({
+        source: source.source, storage: "bigquery",
         table: `${source.projectId}.${source.dataset}.${source.tablePrefix}*`,
-        status: "missing",
-        totalRows: null,
-        freshnessAt: null,
-        freshnessColumn: null,
-        ageHours: null,
-        eventMax: {},
-        syncMax: {},
+        status: "missing", totalRows: null, freshnessAt: null, freshnessColumn: null,
+        ageHours: null, eventMax: {}, syncMax: {},
         note: "GA4 service account key missing",
-      });
+        fallback: { warnHours: options.warnHours, staleHours: options.staleHours },
+      }));
     }
   }
 
@@ -538,38 +605,24 @@ export const collectSourceFreshness = async (
       const note = error instanceof Error ? error.message : String(error);
       for (const source of PG_SOURCES) {
         if (results.some((result) => result.source === source.source)) continue;
-        results.push({
-          source: source.source,
-          storage: "postgres",
-          table: source.table,
-          status: "error",
-          totalRows: null,
-          freshnessAt: null,
-          freshnessColumn: null,
-          ageHours: null,
-          eventMax: {},
-          syncMax: {},
-          note,
-        });
+        results.push(buildFreshnessResult({
+          source: source.source, storage: "postgres", table: source.table,
+          status: "error", totalRows: null, freshnessAt: null, freshnessColumn: null,
+          ageHours: null, eventMax: {}, syncMax: {}, note,
+          fallback: { warnHours: options.warnHours, staleHours: options.staleHours },
+        }));
       }
     } finally {
       await pool.end();
     }
   } else {
     for (const source of PG_SOURCES) {
-      results.push({
-        source: source.source,
-        storage: "postgres",
-        table: source.table,
-        status: "missing",
-        totalRows: null,
-        freshnessAt: null,
-        freshnessColumn: null,
-        ageHours: null,
-        eventMax: {},
-        syncMax: {},
-        note: "DATABASE_URL missing",
-      });
+      results.push(buildFreshnessResult({
+        source: source.source, storage: "postgres", table: source.table,
+        status: "missing", totalRows: null, freshnessAt: null, freshnessColumn: null,
+        ageHours: null, eventMax: {}, syncMax: {}, note: "DATABASE_URL missing",
+        fallback: { warnHours: options.warnHours, staleHours: options.staleHours },
+      }));
     }
   }
 

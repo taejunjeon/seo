@@ -25,6 +25,7 @@ import { ConsentAuditTab } from "./ConsentAuditTab";
 import { ConsultationSection } from "./ConsultationSection";
 import { AttributionTrackingSection } from "./AttributionTrackingSection";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { SourceFreshnessBadge } from "./SourceFreshnessBadge";
 
 type CandidateItem = {
   normalizedPhone: string;
@@ -461,6 +462,11 @@ function CrmPageInner() {
       </header>
 
       <main className={styles.main}>
+        {/* 데이터 원천 최신성 배지 (2026-04-20: /ads와 동일 API·색상 기준 재사용) */}
+        <section className={styles.section}>
+          <SourceFreshnessBadge />
+        </section>
+
         {/* 솔루션 필터 바 */}
         <section className={styles.section}>
           <div className={styles.siteSelector}>

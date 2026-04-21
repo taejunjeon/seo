@@ -48,6 +48,11 @@ export function getCrmDb(): Database.Database {
     ensureColumn(db, "crm_scheduled_send", "template_type", "TEXT DEFAULT NULL");
     ensureColumn(db, "imweb_orders", "imweb_status", "TEXT DEFAULT NULL");
     ensureColumn(db, "imweb_orders", "imweb_status_synced_at", "TEXT DEFAULT NULL");
+    // 쿠폰 마스터에 운영 분류 라벨을 붙여, 공동구매·신규가입 등을 쿠폰 이름 regex로 구분한다.
+    // 주문→쿠폰 조인으로 공동구매 매출 등을 분리 집계할 때 사용.
+    ensureColumn(db, "imweb_coupon_masters", "classification", "TEXT DEFAULT NULL");
+    ensureColumn(db, "imweb_coupon_masters", "classification_synced_at", "TEXT DEFAULT NULL");
+    backfillCouponClassification(db);
     // C-Sprint 4 v1.5 — refund 옵션 C (Refund custom event + Purchase 음수 value 이중 전송).
     // 기존 refund_dispatch_log 행에도 purchase_refund_* 컬럼 backfill 가능하게 ensureColumn 으로 추가.
     ensureColumn(db, "refund_dispatch_log", "purchase_refund_dispatched", "INTEGER NOT NULL DEFAULT 0");
@@ -1077,6 +1082,274 @@ function backfillCustomerGroupKinds(db: Database.Database) {
   `);
 }
 
+// ── 쿠폰 분류 (운영 용도) ──
+
+/**
+ * 쿠폰 이름을 기반으로 운영 카테고리를 부여한다.
+ * 우선순위: 공동구매/인플루언서 → 신규가입 → 생일 → 상담 → 멤버십 → 건강기능식품 → general
+ *
+ * 공동구매 분류 기준 (2026-04-20 실측):
+ * - "공동구매", "공구", "인플루언서" 키워드 포함
+ * - 바이오컴에서만 사용되는 채널 (더클린커피·aibio 없음)
+ * - 예: `[하림 공동구매] 영양중금속검사 10% 할인쿠폰`, `[인플루언서 귤님] ...`
+ */
+export type CouponClassification =
+  | "coop"          // 공동구매·인플루언서 (파트너 채널 매출)
+  | "newbie"        // 신규가입 환영
+  | "birthday"      // 생일 축하
+  | "consultation"  // 상담 후속
+  | "membership"    // 멤버십·플친
+  | "supplement"    // 건강기능식품 전용
+  | "general";      // 그 외
+
+export function classifyCouponByName(name: string | null | undefined): CouponClassification {
+  const n = String(name ?? "").trim();
+  if (!n) return "general";
+
+  // 공동구매·인플루언서: "공동구매", "공구" (단 "공구_" prefix 등도 포함), "인플루언서"
+  if (/공동\s*구매|공구(?![가-힣])|인플루언서|공구_/u.test(n)) return "coop";
+
+  // 신규가입
+  if (/신규\s*가입|신규가입|환영쿠폰|첫\s*주문|첫주문/u.test(n)) return "newbie";
+
+  // 생일
+  if (/생일/u.test(n)) return "birthday";
+
+  // 상담 후속 (상담자 전용 등)
+  if (/상담(자|고객)?\s*전용|상담\s*고객|상담 고객/u.test(n)) return "consultation";
+
+  // 멤버십·플친
+  if (/멤버십|플친|카톡\s*친구|카카오톡\s*친구/u.test(n)) return "membership";
+
+  // 건강기능식품 전용 (일반 할인 쿠폰과 구분)
+  if (/건강기능식품\s*전용|영양제\s*전용/u.test(n)) return "supplement";
+
+  return "general";
+}
+
+function backfillCouponClassification(db: Database.Database) {
+  // 기존 행 중 classification이 NULL/빈 행만 업데이트 (신규 sync 시에도 유지)
+  const rows = db.prepare(`
+    SELECT coupon_key, name FROM imweb_coupon_masters
+    WHERE classification IS NULL OR TRIM(classification) = ''
+  `).all() as Array<{ coupon_key: string; name: string | null }>;
+  if (rows.length === 0) return;
+
+  const stmt = db.prepare(`
+    UPDATE imweb_coupon_masters
+    SET classification = ?, classification_synced_at = datetime('now')
+    WHERE coupon_key = ?
+  `);
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      stmt.run(classifyCouponByName(row.name), row.coupon_key);
+    }
+  });
+  tx();
+}
+
+/**
+ * 쿠폰 분류별 통계 (운영 리포트용).
+ */
+export function getCouponClassificationStats(site?: string): Array<{
+  site: string;
+  classification: CouponClassification;
+  coupon_cnt: number;
+  issue_cnt: number;
+  use_cnt: number;
+}> {
+  const db = getCrmDb();
+  const where = site ? "WHERE site = ?" : "";
+  const params = site ? [site] : [];
+  return db.prepare(`
+    SELECT
+      site,
+      COALESCE(classification, 'general') AS classification,
+      COUNT(*) AS coupon_cnt,
+      SUM(COALESCE(type_coupon_create_count, 0)) AS issue_cnt,
+      SUM(COALESCE(type_coupon_use_count, 0)) AS use_cnt
+    FROM imweb_coupon_masters
+    ${where}
+    GROUP BY site, COALESCE(classification, 'general')
+    ORDER BY site, use_cnt DESC
+  `).all(...params) as Array<{
+    site: string;
+    classification: CouponClassification;
+    coupon_cnt: number;
+    issue_cnt: number;
+    use_cnt: number;
+  }>;
+}
+
+/**
+ * 공동구매 주문을 **비공개 랜딩 URL**로 식별한다.
+ *
+ * 2026년 이후 바이오컴 공동구매는 쿠폰이 아니라 인플루언서별 비공개 경로 (`biocom.kr/{influencer}`)
+ * 로 진행되고, 해당 경로로 접속하면 할인가가 자동 적용되는 구조. 2026-04-20 실측 확인:
+ * - `songyuul08` (송율08): 34건 9.5M원 (2026-04-08~12)
+ * - `kimteamjang` (김팀장): 20건 1.5M원 (2026-04-02~08)
+ *
+ * 공개 경로 화이트리스트:
+ *   /shop_*, /*_store/, /HealthFood, /site_*, / (홈), ?NaPm (네이버 브랜드), ?serial=WITHBIOCOM
+ * 이 외의 biocom.kr 하위 path는 공동구매 후보로 분류.
+ */
+export function getCoopOrderStatsByLanding(
+  site: string,
+  options: { startDate?: string; endDate?: string } = {},
+): {
+  orders: number;
+  revenue: number;
+  byInfluencer: Array<{ influencer: string; orders: number; revenue: number; firstDate: string; lastDate: string }>;
+} {
+  const db = getCrmDb();
+  const domain = site === "biocom" ? "biocom.kr" : site === "thecleancoffee" ? "thecleancoffee.com" : null;
+  if (!domain) {
+    return { orders: 0, revenue: 0, byInfluencer: [] };
+  }
+
+  const dateClause = options.startDate && options.endDate
+    ? "AND substr(i.order_time, 1, 10) BETWEEN ? AND ?"
+    : "";
+  const dateParams = options.startDate && options.endDate ? [options.startDate, options.endDate] : [];
+
+  const rows = db.prepare(`
+    WITH coop_landing_raw AS (
+      SELECT DISTINCT al.order_id,
+        substr(
+          al.landing,
+          length('https://${domain}/') + 1,
+          COALESCE(
+            NULLIF(instr(substr(al.landing, length('https://${domain}/') + 1) || '?', '?'), 0),
+            100
+          ) - 1
+        ) AS path_name
+      FROM attribution_ledger al
+      WHERE al.touchpoint = 'payment_success'
+        AND al.landing LIKE 'https://${domain}/%'
+        AND al.landing NOT LIKE 'https://${domain}/shop_%'
+        AND al.landing NOT LIKE 'https://${domain}/%_store%'
+        AND al.landing NOT LIKE 'https://${domain}/HealthFood%'
+        AND al.landing NOT LIKE 'https://${domain}/site_%'
+        AND al.landing NOT LIKE 'https://${domain}/?%'
+        AND al.landing != 'https://${domain}/'
+        AND al.landing != 'https://${domain}'
+        AND al.landing NOT LIKE '%serial=WITHBIOCOM%'
+        AND al.landing NOT LIKE '%NaPm=%'
+    ),
+    coop_landing AS (
+      SELECT DISTINCT order_id, path_name
+      FROM coop_landing_raw
+      WHERE path_name != ''
+        AND LENGTH(path_name) < 30
+        AND path_name NOT LIKE '%/%'
+    )
+    SELECT
+      cl.path_name AS influencer,
+      COUNT(DISTINCT cl.order_id) AS orders,
+      COALESCE(SUM(i.payment_amount), 0) AS revenue,
+      MIN(SUBSTR(i.order_time, 1, 10)) AS first_date,
+      MAX(SUBSTR(i.order_time, 1, 10)) AS last_date
+    FROM coop_landing cl
+    JOIN imweb_orders i ON i.order_no = cl.order_id AND i.site = ?
+    WHERE 1=1 ${dateClause}
+    GROUP BY cl.path_name
+    ORDER BY revenue DESC
+  `).all(site, ...dateParams) as Array<{
+    influencer: string;
+    orders: number;
+    revenue: number;
+    first_date: string;
+    last_date: string;
+  }>;
+
+  const byInfluencer = rows.map((row) => ({
+    influencer: row.influencer,
+    orders: row.orders,
+    revenue: row.revenue,
+    firstDate: row.first_date,
+    lastDate: row.last_date,
+  }));
+
+  return {
+    orders: byInfluencer.reduce((sum, r) => sum + r.orders, 0),
+    revenue: byInfluencer.reduce((sum, r) => sum + r.revenue, 0),
+    byInfluencer,
+  };
+}
+
+/**
+ * 주문 단위 공동구매 분류 (쿠폰 기반). Landing URL 경로는 `getCoopOrderStatsByLanding` 참조.
+ *
+ * 완전한 주문↔쿠폰 조인을 위해선 `imweb_issue_coupons`에 공동구매 쿠폰의 개별 발행 이력이
+ * 백필되어 있어야 한다. 현재는 대부분 누락 상태이므로 이 함수는 "매칭 가능한 분만" 반환.
+ */
+export function getCoopOrderStats(site: string, options: { startDate?: string; endDate?: string } = {}): {
+  matchedOrders: number;
+  matchedAmount: number;
+  coopCouponMasters: number;
+  coopIssueInLocal: number;
+  unmatchedReason: string;
+} {
+  const db = getCrmDb();
+  const coopMasters = db.prepare(`
+    SELECT COUNT(*) AS cnt FROM imweb_coupon_masters
+    WHERE site = ? AND classification = 'coop'
+  `).get(site) as { cnt: number };
+
+  const coopIssue = db.prepare(`
+    SELECT COUNT(*) AS cnt
+    FROM imweb_issue_coupons ic
+    JOIN imweb_coupon_masters m ON m.site = ic.site AND m.coupon_code = ic.coupon_code
+    WHERE ic.site = ? AND m.classification = 'coop'
+  `).get(site) as { cnt: number };
+
+  if (coopIssue.cnt === 0) {
+    return {
+      matchedOrders: 0,
+      matchedAmount: 0,
+      coopCouponMasters: coopMasters.cnt,
+      coopIssueInLocal: 0,
+      unmatchedReason: "imweb_issue_coupons에 공동구매 쿠폰의 개별 발행 이력이 아직 백필되지 않음. issue backfill 필요.",
+    };
+  }
+
+  const dateClause = options.startDate && options.endDate
+    ? "AND substr(i.order_time, 1, 10) BETWEEN ? AND ?"
+    : "";
+  const dateParams = options.startDate && options.endDate ? [options.startDate, options.endDate] : [];
+
+  const result = db.prepare(`
+    WITH coop_issue AS (
+      SELECT DISTINCT ic.issue_coupon_code
+      FROM imweb_issue_coupons ic
+      JOIN imweb_coupon_masters m ON m.site = ic.site AND m.coupon_code = ic.coupon_code
+      WHERE ic.site = ? AND m.classification = 'coop'
+    ),
+    orders_exploded AS (
+      SELECT i.order_no, i.payment_amount, ice.value AS issue_code
+      FROM imweb_orders i, json_each(i.use_issue_coupon_codes) ice
+      WHERE i.site = ?
+        AND i.use_issue_coupon_codes NOT IN ('', '[]')
+        ${dateClause}
+    ),
+    coop_orders AS (
+      SELECT DISTINCT order_no, payment_amount
+      FROM orders_exploded
+      WHERE issue_code IN (SELECT issue_coupon_code FROM coop_issue)
+    )
+    SELECT COUNT(*) AS cnt, COALESCE(SUM(payment_amount), 0) AS amount
+    FROM coop_orders
+  `).get(site, site, ...dateParams) as { cnt: number; amount: number };
+
+  return {
+    matchedOrders: result.cnt,
+    matchedAmount: result.amount,
+    coopCouponMasters: coopMasters.cnt,
+    coopIssueInLocal: coopIssue.cnt,
+    unmatchedReason: "",
+  };
+}
+
 // ── 아임웹 회원 동기화 ──
 
 export type ImwebMemberRow = {
@@ -1490,12 +1763,12 @@ export function upsertImwebCouponMasters(rows: ImwebCouponMasterRow[]) {
     INSERT INTO imweb_coupon_masters (
       coupon_key, site, coupon_code, name, status, type,
       apply_sale_price, apply_sale_percent, type_coupon_create_count, type_coupon_use_count,
-      raw_json, synced_at
+      raw_json, classification, classification_synced_at, synced_at
     )
     VALUES (
       @coupon_key, @site, @coupon_code, @name, @status, @type,
       @apply_sale_price, @apply_sale_percent, @type_coupon_create_count, @type_coupon_use_count,
-      @raw_json, datetime('now')
+      @raw_json, @classification, datetime('now'), datetime('now')
     )
     ON CONFLICT(coupon_key) DO UPDATE SET
       site=excluded.site,
@@ -1508,14 +1781,20 @@ export function upsertImwebCouponMasters(rows: ImwebCouponMasterRow[]) {
       type_coupon_create_count=excluded.type_coupon_create_count,
       type_coupon_use_count=excluded.type_coupon_use_count,
       raw_json=excluded.raw_json,
+      classification=excluded.classification,
+      classification_synced_at=datetime('now'),
       synced_at=datetime('now')
   `);
-  const tx = db.transaction((items: ImwebCouponMasterRow[]) => {
+  const tx = db.transaction((items: Array<ImwebCouponMasterRow & { classification: CouponClassification }>) => {
     for (const row of items) {
       stmt.run(row);
     }
   });
-  tx(rows);
+  const enriched = rows.map((row) => ({
+    ...row,
+    classification: classifyCouponByName(row.name),
+  }));
+  tx(enriched);
 }
 
 export function upsertImwebIssueCoupons(rows: ImwebIssueCouponRow[]) {

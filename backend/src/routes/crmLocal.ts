@@ -52,6 +52,9 @@ import {
   deleteCustomerGroup,
   listGroupMembers,
   exportGroupMembersForCsv,
+  getCouponClassificationStats,
+  getCoopOrderStats,
+  getCoopOrderStatsByLanding,
   addGroupMembers,
   deleteGroupMembers,
   createGroupFromExperiment,
@@ -602,6 +605,41 @@ export const createCrmLocalRouter = () => {
     return fetchImwebIssueCoupon(token, issueCouponCode);
   };
 
+  // 공동구매·인플루언서 쿠폰의 모든 issue 이력을 받아오는 엔드포인트.
+  // `GET /v2/shop/coupons/{coupon_code}/issue-coupons?offset=N&limit=100` — 2026-04-20 실측 확인.
+  // 응답 list[].code = i... (issue_coupon_code), shop_order_code = 주문번호, use_date 포함.
+  const fetchImwebCouponIssuesPage = async (token: string, couponCode: string, page: number, limit = 100) => {
+    const res = await fetch(
+      `https://api.imweb.me/v2/shop/coupons/${encodeURIComponent(couponCode)}/issue-coupons?offset=${page}&limit=${limit}`,
+      { headers: { "Content-Type": "application/json", "access-token": token } },
+    );
+    const data = (await res.json()) as {
+      code?: number;
+      msg?: string;
+      data?: {
+        list?: Array<Record<string, unknown>>;
+        pagenation?: { data_count?: string | number; total_page?: string | number };
+      };
+    };
+    return {
+      list: data.data?.list ?? [],
+      totalCount: Number.parseInt(String(data.data?.pagenation?.data_count ?? "0"), 10),
+      totalPage: Number.parseInt(String(data.data?.pagenation?.total_page ?? "0"), 10),
+      error: data.code && data.code !== 200 ? data.msg ?? `Imweb coupon issues API code ${data.code}` : null,
+    };
+  };
+
+  const fetchImwebCouponIssuesWithRetry = async (token: string, couponCode: string, page: number, limit = 100) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const result = await fetchImwebCouponIssuesPage(token, couponCode, page, limit);
+      if (!result.error) return result;
+      const upper = result.error.toUpperCase();
+      if (!upper.includes("TOO MANY REQUEST") && !upper.includes("429")) return result;
+      await wait(1500 + attempt * 800);
+    }
+    return fetchImwebCouponIssuesPage(token, couponCode, page, limit);
+  };
+
   const toImwebRow = (m: Record<string, unknown>, site = "biocom"): ImwebMemberRow => ({
     member_code: String(m.member_code ?? ""),
     uid: String(m.uid ?? ""),
@@ -999,6 +1037,110 @@ export const createCrmLocalRouter = () => {
     };
   };
 
+  /**
+   * 특정 분류(예: "coop")의 쿠폰 마스터 전체를 순회하며, 각 마스터의 모든 issue를 가져와 upsert한다.
+   * 기존 `syncOneSiteCoupons`가 주문 `use_issue_coupon_codes` 역방향으로 백필하던 것과 달리,
+   * 이 함수는 **마스터 순방향**으로 전체 issue(사용 안 된 것까지)를 수집한다.
+   */
+  const syncCouponIssuesForClassification = async (
+    cfg: ImwebSiteConfig,
+    classification: string,
+    options: { pageLimit: number; waitMs: number; maxMasters: number } = { pageLimit: 100, waitMs: 150, maxMasters: 500 },
+  ) => {
+    const db = getCrmDb();
+    const masters = db.prepare(`
+      SELECT coupon_code, name, type_coupon_use_count
+      FROM imweb_coupon_masters
+      WHERE site = ? AND classification = ?
+      ORDER BY COALESCE(type_coupon_use_count, 0) DESC
+      LIMIT ?
+    `).all(cfg.site, classification, options.maxMasters) as Array<{ coupon_code: string; name: string; type_coupon_use_count: number }>;
+
+    if (masters.length === 0) {
+      return {
+        site: cfg.site,
+        classification,
+        mastersVisited: 0,
+        issuesFetched: 0,
+        error: `분류 ${classification}에 해당하는 쿠폰 마스터가 없음`,
+      };
+    }
+
+    let token = await fetchImwebToken(cfg.key, cfg.secret);
+    if (!token) {
+      return {
+        site: cfg.site,
+        classification,
+        mastersVisited: 0,
+        issuesFetched: 0,
+        error: "토큰 발급 실패",
+      };
+    }
+
+    let mastersVisited = 0;
+    let issuesFetched = 0;
+    const errors: Array<{ couponCode: string; error: string }> = [];
+
+    for (const master of masters) {
+      if (mastersVisited % 20 === 0 && mastersVisited > 0) {
+        // 토큰 주기적 갱신 (만료 대비)
+        token = (await fetchImwebToken(cfg.key, cfg.secret)) ?? token;
+      }
+
+      let page = 1;
+      let masterTotalIssues = 0;
+      while (page <= 500) {
+        const result = await fetchImwebCouponIssuesWithRetry(token, master.coupon_code, page, options.pageLimit);
+        if (result.error) {
+          errors.push({ couponCode: master.coupon_code, error: result.error });
+          break;
+        }
+        if (result.list.length === 0) break;
+
+        const rows = result.list.map((item) => {
+          const issueCode = String((item as { code?: unknown }).code ?? "");
+          return {
+            issue_key: `${cfg.site}:${issueCode}`,
+            site: cfg.site,
+            issue_coupon_code: issueCode,
+            coupon_code: master.coupon_code,
+            name: master.name,
+            status: String((item as { status?: unknown }).status ?? ""),
+            type: String((item as { type?: unknown }).type ?? ""),
+            coupon_issue_code: String((item as { coupon_issue_code?: unknown }).coupon_issue_code ?? ""),
+            shop_order_code: String((item as { shop_order_code?: unknown }).shop_order_code ?? ""),
+            use_date: String((item as { use_date?: unknown }).use_date ?? ""),
+            raw_json: JSON.stringify(item),
+          };
+        }).filter((row) => row.issue_coupon_code.length > 0);
+
+        if (rows.length > 0) {
+          upsertImwebIssueCoupons(rows);
+          issuesFetched += rows.length;
+          masterTotalIssues += rows.length;
+        }
+
+        if (result.totalPage > 0 && page >= result.totalPage) break;
+        page++;
+        await wait(options.waitMs);
+      }
+
+      mastersVisited++;
+      await wait(options.waitMs);
+      void masterTotalIssues; // 현재는 개별 마스터 단위 통계는 리턴 안 함 (필요 시 확장)
+    }
+
+    return {
+      site: cfg.site,
+      classification,
+      mastersVisited,
+      issuesFetched,
+      errorCount: errors.length,
+      errors: errors.slice(0, 20),
+      error: null,
+    };
+  };
+
   const inspectImwebOrderPagination = async (cfg: ImwebSiteConfig, maxPage: number) => {
     const token = await fetchImwebToken(cfg.key, cfg.secret);
     if (!token) {
@@ -1282,28 +1424,43 @@ export const createCrmLocalRouter = () => {
         .prepare("SELECT MAX(imweb_status_synced_at) AS m FROM imweb_orders WHERE site=?")
         .get(site) as { m: string | null };
 
-      // C-Sprint 3 (confirmed_stopline v1): Imweb CANCEL 주문을 Toss 상태와 교차해 4종으로 분리.
+      // C-Sprint 3 v2 (confirmed_stopline, 2026-04-20 fix): Imweb CANCEL 주문을 Toss 상태와 교차해 4종으로 분리.
       //  - actual_canceled : Toss DONE → CANCELED 로 전이 (실제 환불)
       //  - partial_canceled : Toss PARTIAL_CANCELED (부분 환불)
       //  - vbank_expired   : 가상계좌 미입금 만료 (Toss WAITING_FOR_DEPOSIT 또는 virtual pay_type + Toss 없음)
       //  - legacy_uncertain: Toss 미매칭 + 위 어느 것도 아님 (원인 불명, 수동 확인 대상)
+      //
+      // 2026-04-20 버그 수정: 원래 쿼리는 `t.status IN ('CANCELED','PARTIAL_CANCELED','WAITING_FOR_DEPOSIT','DONE')` 로 LEFT JOIN
+      // 했는데, Imweb 주문 1건에 Toss transaction이 2건+(예: DONE + CANCELED)이면 row가 복제되어 `DONE` 행이 먼저 매칭되면
+      // `actual_canceled` 케이스를 덮어쓰고 `legacy_uncertain`으로 잘못 분류됨. Codex 분석(data/legacy_uncertain_biocom_top20.md)
+      // 결과 상위 20건 중 19건이 이 패턴이었음. 수정: 주문당 **우선순위 가장 높은 상태 1개**만 뽑아 조인.
       const cancelBreakdown = db
         .prepare(
           `SELECT
              CASE
-               WHEN t.status = 'CANCELED' THEN 'actual_canceled'
-               WHEN t.status = 'PARTIAL_CANCELED' THEN 'partial_canceled'
-               WHEN t.status = 'WAITING_FOR_DEPOSIT'
-                 OR (t.status IS NULL AND i.pay_type = 'virtual') THEN 'vbank_expired'
+               WHEN t.priority_status = 'CANCELED' THEN 'actual_canceled'
+               WHEN t.priority_status = 'PARTIAL_CANCELED' THEN 'partial_canceled'
+               WHEN t.priority_status = 'WAITING_FOR_DEPOSIT'
+                 OR (t.priority_status IS NULL AND i.pay_type = 'virtual') THEN 'vbank_expired'
                ELSE 'legacy_uncertain'
              END AS subcategory,
              COUNT(*) AS cnt,
              COALESCE(SUM(i.payment_amount), 0) AS amount,
-             COALESCE(SUM(CASE WHEN t.status = 'PARTIAL_CANCELED' THEN t.amount ELSE 0 END), 0) AS partial_cancel_amount
+             COALESCE(SUM(t.partial_cancel_amount), 0) AS partial_cancel_amount
            FROM imweb_orders i
-           LEFT JOIN toss_transactions t
-             ON t.order_id = i.order_no || '-P1'
-            AND t.status IN ('CANCELED','PARTIAL_CANCELED','WAITING_FOR_DEPOSIT','DONE')
+           LEFT JOIN (
+             SELECT order_id,
+               CASE
+                 WHEN SUM(CASE WHEN status = 'CANCELED' THEN 1 ELSE 0 END) > 0 THEN 'CANCELED'
+                 WHEN SUM(CASE WHEN status = 'PARTIAL_CANCELED' THEN 1 ELSE 0 END) > 0 THEN 'PARTIAL_CANCELED'
+                 WHEN SUM(CASE WHEN status = 'WAITING_FOR_DEPOSIT' THEN 1 ELSE 0 END) > 0 THEN 'WAITING_FOR_DEPOSIT'
+                 WHEN SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) > 0 THEN 'DONE'
+                 ELSE NULL
+               END AS priority_status,
+               COALESCE(SUM(CASE WHEN status = 'PARTIAL_CANCELED' THEN amount ELSE 0 END), 0) AS partial_cancel_amount
+             FROM toss_transactions
+             GROUP BY order_id
+           ) t ON t.order_id = i.order_no || '-P1'
            WHERE i.site = ? AND i.imweb_status = 'CANCEL'
            GROUP BY subcategory`,
         )
@@ -1358,6 +1515,64 @@ export const createCrmLocalRouter = () => {
       res
         .status(500)
         .json({ ok: false, error: err instanceof Error ? err.message : "purchase-confirm-stats failed" });
+    }
+  });
+
+  router.get("/api/crm-local/imweb/coupon-classification", (req: Request, res: Response) => {
+    try {
+      const site = typeof req.query.site === "string" ? req.query.site.trim() : undefined;
+      const startDate = typeof req.query.startDate === "string" ? req.query.startDate.trim() : undefined;
+      const endDate = typeof req.query.endDate === "string" ? req.query.endDate.trim() : undefined;
+      const stats = getCouponClassificationStats(site || undefined);
+      const coopCouponStats = site ? getCoopOrderStats(site, { startDate, endDate }) : null;
+      const coopLandingStats = site ? getCoopOrderStatsByLanding(site, { startDate, endDate }) : null;
+      res.json({
+        ok: true,
+        stats,
+        coopCouponStats,
+        coopLandingStats,
+        // 기존 호환성 유지
+        coopStats: coopCouponStats,
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "coupon classification failed" });
+    }
+  });
+
+  router.post("/api/crm-local/imweb/sync-coupon-issues-by-classification", async (req: Request, res: Response) => {
+    try {
+      if (IMWEB_SITES.length === 0) {
+        res.status(400).json({ ok: false, error: "IMWEB API 키 미설정" });
+        return;
+      }
+      const targetSite = typeof req.body?.site === "string" ? req.body.site : null;
+      const classification = typeof req.body?.classification === "string" ? req.body.classification.trim() : "coop";
+      const pageLimit = Math.min(Math.max(Number(req.body?.pageLimit) || 100, 10), 200);
+      const waitMs = Math.min(Math.max(Number(req.body?.waitMs) || 150, 50), 2000);
+      const maxMasters = Math.min(Math.max(Number(req.body?.maxMasters) || 500, 1), 2000);
+
+      const sites = targetSite ? IMWEB_SITES.filter((s) => s.site === targetSite) : IMWEB_SITES;
+      if (sites.length === 0) {
+        res.status(404).json({ ok: false, error: "해당 site 설정을 찾지 못함" });
+        return;
+      }
+
+      const results = [];
+      for (const cfg of sites) {
+        results.push(await syncCouponIssuesForClassification(cfg, classification, { pageLimit, waitMs, maxMasters }));
+      }
+
+      res.json({
+        ok: true,
+        classification,
+        sites: results,
+        coopStats: targetSite ? getCoopOrderStats(targetSite) : null,
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "coupon issue backfill by classification failed",
+      });
     }
   });
 

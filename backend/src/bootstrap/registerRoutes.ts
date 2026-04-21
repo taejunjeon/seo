@@ -14,6 +14,7 @@ import { createCrmPhase1Router } from "../routes/crmPhase1";
 import { createDiagnosisRouter } from "../routes/diagnosis";
 import { createGa4Router } from "../routes/ga4";
 import { createGscRouter } from "../routes/gsc";
+import { createIdentityCoverageRouter } from "../routes/identityCoverage";
 import { createPageSpeedRouter } from "../routes/pagespeed";
 import { createRefundRouter } from "../routes/refund";
 import { createTossRouter } from "../routes/toss";
@@ -42,6 +43,7 @@ export const registerRoutes = (app: Application) => {
   app.use(createCrawlRouter());
   app.use(createDiagnosisRouter());
   app.use(createRefundRouter());
+  app.use(createIdentityCoverageRouter());
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({

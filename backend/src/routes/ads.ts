@@ -153,6 +153,16 @@ export type CampaignRoasRow = {
   attributedRevenue: number;
   roas: number | null;
   orders: number;
+  // 2026-04-20: 공동구매 전용 Meta 캠페인 분리 (§ H/I 참조).
+  // 기준: 캠페인 이름에 "공동구매" 또는 "공구" 포함.
+  // 공동구매는 일반 Meta 광고와 별도 버킷으로 분리해 평가한다 (할인가 기준 매출이므로 일반 ROAS와 직접 비교 금지).
+  campaignType: "general" | "coop";
+};
+
+// 캠페인 이름으로 공동구매 Meta 캠페인 식별. 실측 확인된 단순 키워드 규칙.
+export const isCoopCampaignByName = (name: string | null | undefined): boolean => {
+  const n = String(name ?? "");
+  return n.includes("공동구매") || n.includes("공구");
 };
 
 export type CampaignLtvRoasRow = CampaignRoasRow & {
@@ -1193,6 +1203,7 @@ export const buildCampaignRoasRows = (params: {
       attributedRevenue,
       roas: computeRoas(attributedRevenue, campaign.spend, params.ledgerAvailable),
       orders: attribution?.orders ?? 0,
+      campaignType: isCoopCampaignByName(campaign.campaignName) ? "coop" : "general",
     };
   });
 
@@ -1204,6 +1215,7 @@ export const buildCampaignRoasRows = (params: {
       attributedRevenue: round2(unmappedRevenue),
       roas: params.ledgerAvailable ? null : null,
       orders: unmappedOrders,
+      campaignType: "general",
     });
   }
 
@@ -1970,6 +1982,16 @@ export const createAdsRouter = () => {
       const totalAttributedRevenue = round2(campaigns.reduce((sum, row) => sum + row.attributedRevenue, 0));
       const totalOrders = campaigns.reduce((sum, row) => sum + row.orders, 0);
 
+      // 공동구매 분리 (§ H/I 참조). 일반 Meta ROAS를 공동구매가 끌어올리는 편향 제거용.
+      const coopRows = campaigns.filter((row) => row.campaignType === "coop");
+      const generalRows = campaigns.filter((row) => row.campaignType === "general");
+      const coopSpend = round2(coopRows.reduce((sum, row) => sum + row.spend, 0));
+      const coopRevenue = round2(coopRows.reduce((sum, row) => sum + row.attributedRevenue, 0));
+      const coopOrders = coopRows.reduce((sum, row) => sum + row.orders, 0);
+      const generalSpend = round2(generalRows.reduce((sum, row) => sum + row.spend, 0));
+      const generalRevenue = round2(generalRows.reduce((sum, row) => sum + row.attributedRevenue, 0));
+      const generalOrders = generalRows.reduce((sum, row) => sum + row.orders, 0);
+
       res.json({
         ok: true,
         account_id: accountId,
@@ -1984,6 +2006,20 @@ export const createAdsRouter = () => {
           attributedRevenue: totalAttributedRevenue,
           roas: computeRoas(totalAttributedRevenue, totalSpend, ledger.entries.length > 0),
           orders: totalOrders,
+          // 공동구매 분리 지표 (§ I): 기본 ROAS는 "일반 캠페인만", 전체/공동구매는 토글로 비교
+          general: {
+            spend: generalSpend,
+            attributedRevenue: generalRevenue,
+            roas: computeRoas(generalRevenue, generalSpend, ledger.entries.length > 0),
+            orders: generalOrders,
+          },
+          coop: {
+            spend: coopSpend,
+            attributedRevenue: coopRevenue,
+            roas: computeRoas(coopRevenue, coopSpend, ledger.entries.length > 0),
+            orders: coopOrders,
+            campaignCount: coopRows.length,
+          },
         },
       });
     } catch (error) {
