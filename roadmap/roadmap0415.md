@@ -134,9 +134,9 @@ Incrementality는 **지금 당장 설계는 시작 가능**하지만, live holdo
 | 신규 Phase | 현재 완성도 | 근거 | 100%까지 남은 핵심 |
 |---|---:|---|---|
 | Phase 0. 운영 기준선 고정 | 75% | 2026-04-18 `confirmed` 정의 C안 v1 stop-line 확정(`confirmed_stopline.md`). Conversion Dictionary v1의 `paid/confirmed` 2원화 완료. freshness·source-of-truth 표 작업만 남음 | freshness 상태 정의, 사이트별 source-of-truth 표 고정, `/api/integrity/*` 계약 반영 |
-| Phase 1. Measurement Integrity 안정화 | 70% | 기존 68%에서 `/ads` Official/Fast 분리·CANCEL 서브카테고리·Refund 이벤트 3개 sprint가 2026-04-18 stop-line으로 편입됨. Meta CAPI 기본 전송과 biocom guard는 완료. VM health에서 CAPI/Imweb/Toss auto sync enabled 확인 | 7일 clean baseline 확보, Events Manager dedup/EMQ 수동 확인, 캠페인 매핑 보정, coffee 입금 후 confirmed 검증, **C-Sprint 2~4 (`/ads` 분리 / CANCEL 서브 / Refund)** |
+| Phase 1. Measurement Integrity 안정화 | 78% | 기존 68% → **C-Sprint 2/3/4 전부 실질 완료** (2026-04-18~20). `/ads` Official/Fast 분리, CANCEL 4종 서브, Meta Purchase(-)·GA4 MP Refund 1,844/1,844 전송 완료. Meta UI Refund 등록은 정책 한계로 포기 (내부 DB/GA4 로 관측 커버). | 7일 clean baseline 확보, Events Manager dedup/EMQ 수동 확인, 캠페인 매핑 보정, coffee 입금 후 confirmed 검증, coffee GA4 MP secret 발급(소량 잔여) |
 | Phase 2. Revenue Integrity Agent read-only MVP | 15% | PRD와 문제 정의는 명확하고 기존 `/ads`, `/tracking-integrity`, attribution API 자산은 있음. 하지만 전용 incident schema/API/주문 탐색기/승인 피드백 루프는 아직 없음 | `/api/integrity/*` API, incident taxonomy, evidence query, 6개 핵심 화면 MVP |
-| Phase 3. Signal Quality 확장 | 35% | `sendFunnelEvent`와 `POST /api/meta/capi/track` 등 Day 1 서버 인프라는 완료된 상태로 판단. ViewContent/AddToCart/InitiateCheckout 브라우저 훅과 EMQ 측정 자동화는 남음. **2026-04-18 보정: identity coverage 개선이 이 Phase의 새 P0 작업으로 편입됨** (VM 기준 all-three 유입률 ~50%) | 아임웹 funnel script 카나리/확대, CAPI health, EMQ proxy, retry/backoff, event_id audit, **C-Sprint 5~6 (identity coverage / campaign mapping)** |
+| Phase 3. Signal Quality 확장 | 45% | 기존 35% → **C-Sprint 5 BigQuery 없이 3/5 원인 정량화 완료** (2026-04-20). historical 60% 비중이 누락의 주요 원인이고 이미 구조적으로 해결됨이 실측으로 확정. `/ads` Identity Coverage 카드로 실시간 관측. session_lost / raw_export_unknown 은 BigQuery 접근 대기 | 아임웹 funnel script 카나리/확대, CAPI health, EMQ proxy, retry/backoff, event_id audit, **C-Sprint 5 잔여 2/5 (BQ 접근 후) / C-Sprint 6 (campaign mapping)** |
 | Phase 4. CRM Execution Loop | 60% | 기존 P3 실행 채널, 알리고/SMS, CRM 일부 화면은 상당히 진행. 다만 crmux0412의 A/B 그룹 정보 누락, groupId 전달, 선택 멤버 발송, 고객 행동 관리가 남음 | 즉시 버그 2건 수정, 그룹 상세/선택 발송, 고객 목록/행동 세그먼트, 성과 퍼널 |
 | Phase 5. Incrementality & Experiment OS | 28% | P5.5 iROAS 엔진과 ROAS 대시보드 자산은 있고, 0416 기준으로 holdout 설계 착수 조건은 갖춰짐. 다만 clean baseline 7일과 캠페인 매핑 보정 전 live 실험은 이르다 | holdout 설계 문서, 캠페인/세그먼트 후보, iROAS 운영 판정, 7일 clean baseline 이후 live |
 | Phase 6. Multi-Platform Conversion OS | 10% | Google/TikTok 확장 계획과 Google Ads 계정 3종 공존 이슈는 파악됨. Google Ads API/OCI/Enhanced Conversions와 TikTok Events API는 미구현 | Google 계정 공유 의사결정, API 권한 확보, EC/OCI 설계, TikTok 집행 여부 확인 |
@@ -555,6 +555,63 @@ OS 구성요소:
 
 - CAPIG/BigQuery/Hotjar 같은 도구 도입이 감이 아니라 trigger 기반으로 결정된다.
 - 토큰, 배포, guard, sync, incident 대응 runbook이 최신 상태로 유지된다.
+
+## 2026-04-21 01:50 보정 — BigQuery 자체 이전 계획 수립
+
+허들러스 프로젝트 `hurdlers-naver-pay.analytics_304759974` 에 전적으로 의존하는 biocom GA4 raw export 를 자체 프로젝트 `seo-aeo-487113` 로 이전하는 계획 문서 작성: `data/bigquery_migration_plan_20260421.md`. 권장 타이밍 **2026-05-05** (v136/v137 효과 baseline 2주 확보 후), 옵션 A (신규 GA4 BigQuery Link) + 옵션 B 과거 table 일회성 copy 혼합. 비용 월 $1 미만. 사전 작업 5개 + 병행 기간 1~2주 + Day 14 전환. Claude service account 권한 이슈 근본 해결, 백엔드 freshness 자동화, C-Sprint 5 identity coverage session_lost/raw_export_unknown 확장 가능.
+
+---
+
+## 2026-04-21 01:40 보정 — vbank Exception Trigger v137 publish 완료
+
+가상계좌 미입금 GA4 purchase 차단. 변수 [252] `JS - vbank blocked` + 트리거 [253] Exception + 태그 [143]/[48]/[154] blockingTriggerId 연결 + 태그 [251] prep v3 (dataLayer.set + server-branch guard). Preview A (카드 11,900원)/B (가상계좌 35,000원) 양쪽 통과 후 `backend/gtm_publish.mjs` 로 workspace 146 → v137 → live 매칭 확인. 이전까지 Meta/TikTok 만 차단되고 GA4 는 가상계좌 미입금 주문도 purchase 로 기록되던 C-Sprint 3 `vbank_expired` ₩966M 의 GA4 확장 이슈 해결. 상세: `GA4/gtm_exception_trigger_draft_20260421.md`.
+
+---
+
+## 2026-04-21 보정 — NPay Return 누락 이슈 신규 발견 + Phase5-Sprint9 신설
+
+2026-04-21 00:47 KST GTM Preview Run 2 (NPay 실제 결제 시나리오) 에서 **네이버페이 결제 완료 후 biocom.kr 로 복귀되지 않음**이 확인됐다. `shop_payment_complete` URL 미도달로 client-side GA4 / Meta CAPI / Meta Pixel / TikTok Pixel purchase 이벤트가 **전부 발사 기회를 잃는다**. Google Ads [248] `TechSol-NPAY구매` 는 **버튼 클릭 시점**에 발사되어 "NPay 구매 전환"을 실제 결제 완료가 아닌 클릭 수로 기록 중이다.
+
+| 항목 | 2026-04-21 판단 |
+|---|---|
+| 즉시 영향 | NPay 결제분이 GA4 revenue / Meta ROAS 에서 누락. Google Ads 는 과다집계 위험 |
+| Backend DB 영향 | 없음 — `attribution_ledger` / `imweb_orders` / `toss_transactions` 정상 수신 |
+| 상세 분석 문서 | `GA4/npay_return_missing_20260421.md` (신규) |
+| `data/!datacheckplan.md` | **Phase5-Sprint9 신설** (NPay return 누락 감사 + 제거 A/B, 10% / 0%) |
+| `GA4/gtm.md` | v4, §연관 이슈 섹션으로 링크 |
+| TJ 의사결정 옵션 | (a) NPay 유지 + server-side MP purchase 보정, (b) NPay 버튼 제거 + 시계열 A/B 비교, (c) 아임웹 관리자 설정 수정으로 return URL 정상화 |
+| 1순위 감사 | biocom `imweb_orders.pay_type='npay'` 비중 쿼리 + GA4 raw `add_payment_info vs purchase (pay_method=npay)` 비교 |
+
+Phase 1 Measurement Integrity 에 이 이슈는 새 차원의 누락 신호로 편입된다. v136 GTM publish (2026-04-20) 로 `(not set)` 520건 1층 문제는 닫혔으나, NPay return 누락은 별개 구조 이슈로 분리 관리.
+
+---
+
+## 2026-04-20 보정 — C-Sprint 5 BigQuery 없이 가능한 범위 착수
+
+오후 15:20 KST 시점 추가 진행.
+
+- `attribution_ledger` 기반 `identityCoverage` 서비스 + `/api/identity-coverage/*` 2 라우트 신규 구현
+- `/ads` Identity Coverage 카드 신설 — historical 비중(59.9%) / after_fix all-three(72.6%) / duplicate order(13건) / 진단 3/5 표시
+- **핵심 실측**: 식별자 누락의 60%가 2026-04-08 fetch-fix 이전 historical. **구조 문제가 아니라 과거 누적** — 이미 해결됨. 신규 row 는 72.6% 커버
+- session_lost / raw_export_unknown 은 BigQuery 접근 확보 후. 나머지 3/5 원인은 카드로 관측 가능
+
+Phase 3 Signal Quality 완성도 35% → 45% 조정.
+
+---
+
+## 2026-04-20 오전 — C-Sprint 4 실질 완료 + Meta UI 한계 확인
+
+2026-04-20 13:15 KST TJ 가 Meta Events Manager 에서 Refund custom event UI 등록 경로(AEM 다이얼로그)를 시도했으나, 이 경로는 표준 17개 이벤트에 없는 이름을 일반 이벤트 목록에 가시화하는 용도가 아니었다. **Meta 는 표준 외 custom event 를 UI 에서 별도 등록하는 경로를 제공하지 않음**이 정책상 확정됐다.
+
+영향:
+
+- C-Sprint 4 의 실질적 core 는 **Purchase 음수 value 1,844건** 이고 이는 이미 전송 완료. 24~48h 뒤 Meta Ads Manager 캠페인 리포트에서 ROAS 하락으로 육안 확인.
+- Refund 관측(건수·금액)은 `/ads` Refund 카드 + `refund_dispatch_log` DB + GA4 Realtime 으로 커버. Meta UI 경로는 포기.
+- Phase 1 Measurement Integrity 완성도 재산정 — C-Sprint 4 실질 완료 반영.
+
+상세 워크스트림: `roadmap/confirmed_stopline.md` v1.6, 메모리 `reference_meta_custom_event_policy.md`.
+
+---
 
 ## 2026-04-18 보정 — Confirmed Stop-line 확정과 Identity Coverage 승격
 

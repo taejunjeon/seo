@@ -3,6 +3,16 @@
 기준일: 2026-04-11
 최종 업데이트: 2026-04-18
 
+## 2026-04-20 업데이트 — C-Sprint 2~4 실질 완료
+
+2026-04-18~20 사이 stop-line 3개 sprint 전부 구현·backfill 완료.
+
+- **C-Sprint 2** `/ads` Official/Fast Signal 두 줄 분리 — API·UI 완료, biocom total `official=0.26 / fast=0.28 / gap=-0.02` 확인
+- **C-Sprint 3** CANCEL 서브카테고리 4종 (actual_canceled / partial_canceled / vbank_expired / legacy_uncertain) — 가상계좌 만료 ₩966M (CANCEL gross 의 83%) net 에서 제외 확정
+- **C-Sprint 4** Meta Purchase(-) 1,844건 + GA4 MP refund 1,821건 전송 완료. Meta custom `Refund` event UI 등록은 Meta 정책상 불가로 포기. 내부 `refund_dispatch_log` + `/ads` 카드 + GA4 Realtime 로 관측 커버.
+
+상세: `roadmap/confirmed_stopline.md` v1.6. Phase 1 완성도 68% → 78%.
+
 ## 2026-04-18 업데이트 — Confirmed Stop-line 워크스트림 편입
 
 Meta CAPI Purchase 기준 논쟁이 **C안(Official=business_confirmed / Fast Signal=paid + Refund 보정)**으로 v1 stop-line 확정됐다. 실행 Sprint 3개(`/ads` Official/Fast 분리 / CANCEL 서브카테고리 분리 / Meta CAPI Refund + GA4 MP Refund)가 Phase 1로 편입됐다.
