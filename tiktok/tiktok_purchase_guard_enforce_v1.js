@@ -1,5 +1,5 @@
 /* TikTok Purchase Guard enforce candidate
- * Version: 2026-04-17.tiktok-purchase-guard-enforce.v1
+ * Version: 2026-04-23.tiktok-purchase-guard-enforce.v2-event-log
  *
  * Blocks only high-confidence pending virtual-account Purchase events.
  * Confirmed Purchase events are released after payment-decision.
@@ -8,7 +8,7 @@
 (function (w) {
   "use strict";
 
-  var VERSION = "2026-04-17.tiktok-purchase-guard-enforce.v1";
+  var VERSION = "2026-04-23.tiktok-purchase-guard-enforce.v2-event-log";
   var GUARD_KEY = "__BIOCOM_TIKTOK_PURCHASE_GUARD__";
   var WRAP_KEY = "__BIOCOM_TIKTOK_PURCHASE_GUARD_WRAPPED__";
   var RAW_KEY = "__BIOCOM_TIKTOK_PURCHASE_GUARD_RAW__";
@@ -19,6 +19,8 @@
   var CONFIG = {
     version: VERSION,
     endpoint: "https://att.ainativeos.net/api/attribution/payment-decision",
+    eventLogEndpoint: "https://att.ainativeos.net/api/attribution/tiktok-pixel-event",
+    enableEventLog: true,
     store: "biocom",
     timeoutMs: 1800,
     scanIntervalMs: 100,
@@ -240,6 +242,104 @@
     });
   }
 
+  function copyForEventLog(value, depth) {
+    if (depth > 2) return safeString(value);
+    if (value === null || value === undefined) return value;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+    if (Array.isArray(value)) {
+      return value.slice(0, 20).map(function (item) {
+        return copyForEventLog(item, depth + 1);
+      });
+    }
+    if (!isObject(value)) return safeString(value);
+
+    var result = {};
+    Object.keys(value).slice(0, 60).forEach(function (key) {
+      result[key] = copyForEventLog(value[key], depth + 1);
+    });
+    return result;
+  }
+
+  function buildTrackingFields() {
+    return {
+      ttclid: getUrlParam("ttclid"),
+      utm_source: getUrlParam("utm_source"),
+      utm_medium: getUrlParam("utm_medium"),
+      utm_campaign: getUrlParam("utm_campaign"),
+      utm_content: getUrlParam("utm_content"),
+      utm_term: getUrlParam("utm_term")
+    };
+  }
+
+  function sendEventLog(action, context, body, params, options, replacementEventName) {
+    if (!CONFIG.enableEventLog || !CONFIG.eventLogEndpoint) return;
+
+    try {
+      var decision = body && body.decision ? body.decision : {};
+      var tracking = buildTrackingFields();
+      var payload = {
+        action: action,
+        clientObservedAt: new Date().toISOString(),
+        source: context.source,
+        eventName: context.eventName,
+        eventId: context.eventId,
+        originalEventName: context.originalEventName,
+        originalEventId: context.eventId,
+        replacementEventName: replacementEventName || "",
+        orderCode: context.orderCode,
+        orderNo: context.orderNo,
+        paymentCode: context.paymentCode,
+        paymentKeyPresent: context.paymentKey ? "yes" : "no",
+        value: context.value,
+        currency: context.currency,
+        status: decision.status || "unknown",
+        browserAction: decision.browserAction || "unknown",
+        matchedBy: decision.matchedBy || "unknown",
+        reason: decision.reason || "",
+        decision: copyForEventLog(decision, 0),
+        params: copyForEventLog(params, 0),
+        options: copyForEventLog(options, 0),
+        url: context.url,
+        referrer: safeString(document.referrer),
+        ttclid: tracking.ttclid,
+        utm_source: tracking.utm_source,
+        utm_medium: tracking.utm_medium,
+        utm_campaign: tracking.utm_campaign,
+        utm_content: tracking.utm_content,
+        utm_term: tracking.utm_term
+      };
+      var payloadJson = JSON.stringify(payload);
+      var sent = false;
+      if (w.navigator && typeof w.navigator.sendBeacon === "function" && typeof w.Blob === "function") {
+        try {
+          sent = w.navigator.sendBeacon(
+            CONFIG.eventLogEndpoint,
+            new w.Blob([payloadJson], { type: "application/json" })
+          );
+        } catch (error) {
+          sent = false;
+        }
+      }
+      if (!sent && typeof fetch === "function") {
+        fetch(CONFIG.eventLogEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payloadJson,
+          cache: "no-store",
+          keepalive: true,
+          credentials: "omit"
+        }).catch(function () {
+          /* ignore */
+        });
+      }
+    } catch (error) {
+      log("event_log_error", {
+        action: action,
+        message: error && error.message ? error.message : safeString(error)
+      });
+    }
+  }
+
   function persist() {
     try {
       w.sessionStorage.setItem(CONFIG.storageKey, JSON.stringify(state.rows.slice(-CONFIG.maxRows)));
@@ -337,18 +437,28 @@
       paymentCode: context.paymentCode,
       hasPaymentKey: Boolean(context.paymentKey)
     }, true);
+    sendEventLog("purchase_intercepted", context, null, params, options);
 
     queryDecision(context).then(function (body) {
       var decision = body && body.decision ? body.decision : {};
       record("decision_received", context, body);
+      sendEventLog("decision_received", context, body, params, options);
 
       if (shouldRelease(decision)) {
         withPassthrough(invokeOriginal);
         record(decision.browserAction === "allow_purchase" ? "released_confirmed_purchase" : "released_unknown_purchase", context, body);
+        sendEventLog(
+          decision.browserAction === "allow_purchase" ? "released_confirmed_purchase" : "released_unknown_purchase",
+          context,
+          body,
+          params,
+          options
+        );
         return;
       }
 
       record("blocked_pending_purchase", context, body);
+      sendEventLog("blocked_pending_purchase", context, body, params, options);
       if (
         CONFIG.sendReplacementForPending &&
         decision.browserAction === "block_purchase_virtual_account" &&
@@ -358,6 +468,7 @@
           invokeReplacement(CONFIG.replacementEventName, makeReplacementParams(params, context));
         });
         record("sent_replacement_place_an_order", context, body);
+        sendEventLog("sent_replacement_place_an_order", context, body, params, options, CONFIG.replacementEventName);
       }
     });
 

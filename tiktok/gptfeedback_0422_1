@@ -1,0 +1,478 @@
+결론부터 말하면, **TikTok ROAS 정합성 프로젝트는 이제 “API/데이터 확보 단계”는 거의 끝났고, 진짜 핵심인 “TikTok이 주장한 구매값 9.1억이 실제 확정매출인지 검증하는 단계”로 넘어왔습니다.**
+
+현재 숫자만 보면 매우 심각합니다.
+
+| 기준                     |           매출 |         광고비 |      ROAS |
+| ---------------------- | -----------: | ----------: | --------: |
+| TikTok 플랫폼 주장          | 910,630,888원 | 28,363,230원 | **32.11** |
+| 내부 확정매출 기준             |           0원 | 28,363,230원 |  **0.00** |
+| 내부 pending 포함 최대 잠재 기준 | 551,095,900원 | 28,363,230원 | **19.43** |
+
+즉, **엄격한 실제 확정매출 기준으로는 TikTok ROAS 32.11이 아니라 0입니다.**
+다만 pending 49건이 전부 나중에 입금된다고 가정하면 최대 잠재 ROAS는 **19.43**입니다. 그래도 TikTok 플랫폼 ROAS 32.11보다 **12.68배수 낮고**, 금액으로는 약 **3.6억 원 차이**가 납니다.
+
+---
+
+# 1. 지금 가장 중요한 해석
+
+## TikTok ROAS는 지금 “확정매출”이 아니라 “플랫폼이 구매로 본 신호”입니다
+
+TikTok은 2026-03-19에서 2026-04-17 동안 구매수 321건, 구매값 약 9.1억 원, ROAS 32.11이라고 보고 있습니다. Business API dry-run도 CSV와 거의 완전히 일치합니다. API 기준 비용, 클릭, 구매수는 CSV와 같고, 구매값도 65원 차이까지 맞았습니다. 즉 **TikTok 데이터 수집 자체는 이제 믿어도 됩니다.**
+
+문제는 TikTok 데이터가 맞느냐가 아니라,
+**TikTok이 “구매”라고 본 것이 진짜 확정매출이냐**입니다.
+
+현재 내부 운영 VM 기준으로 같은 기간 TikTok 귀속 결제는:
+
+* confirmed: **0건 / 0원**
+* pending: **49건 / 551,095,900원**
+* canceled: **1건 / 750,000원**
+
+입니다.
+
+쉽게 말하면, TikTok은 “9.1억 팔았다”고 말하는데, 우리 장부는 “확정 입금된 TikTok 매출은 아직 0원이고, 미입금/대기 상태로 보이는 게 5.5억 있다”고 말하는 상황입니다.
+
+---
+
+# 2. 현재 완성도
+
+제 판단으로는 전체 완성도는 이렇습니다.
+
+| 영역                |      완성도 | 평가                                                    |
+| ----------------- | -------: | ----------------------------------------------------- |
+| TikTok 이벤트 오염 제거  | **100%** | 가상계좌 미입금 Purchase 차단은 완료                              |
+| TikTok 플랫폼 데이터 확보 |  **92%** | API 승인, 토큰 저장, 147행 dry-run, CSV 대조 완료                |
+| 일자별 플랫폼 데이터 적재    |  **85%** | CSV는 적재 완료, API 자동 upsert만 남음                         |
+| 내부 확정매출 비교        |  **75%** | VM confirmed/pending/canceled 비교 완료, pending fate 미확정 |
+| gap 원인 분해         |  **55%** | 큰 차이는 보이지만 pending이 진짜 입금될지 아직 모름                     |
+| 운영 의사결정 가능성       |  **60%** | “TikTok 숫자를 그대로 믿으면 안 된다”는 결론은 가능, 예산 조정 폭은 아직 보류     |
+| 전체 프로젝트           |  **72%** | API 병목은 해소. 이제 pending fate와 attribution 정밀도가 핵심      |
+
+요약하면, **기술적 데이터 확보는 80% 이상 왔고, 비즈니스 판단은 60% 수준**입니다.
+
+---
+
+# 3. TikTok ROAS 차이는 얼마나 큰가
+
+## 3-1. 가장 보수적인 실제 ROAS
+
+기준: **내부 confirmed만 실제 매출로 인정**
+
+* TikTok 플랫폼 구매값: 910,630,888원
+* 내부 confirmed 매출: 0원
+* 차이: **910,630,888원**
+* TikTok 플랫폼 ROAS: **32.11**
+* 실제 confirmed ROAS: **0.00**
+
+이 기준이면 TikTok 플랫폼 숫자는 **현재 운영 장부 기준으로 전액 과대**입니다.
+
+## 3-2. pending을 전부 살린 최대 잠재 ROAS
+
+기준: **pending 49건 551,095,900원이 전부 나중에 입금된다고 가정**
+
+* TikTok 플랫폼 구매값: 910,630,888원
+* confirmed + pending 잠재 매출: 551,095,900원
+* 차이: **359,534,988원**
+* TikTok 플랫폼 ROAS: **32.11**
+* 잠재 최대 ROAS: **19.43**
+
+이 기준으로도 TikTok 플랫폼은 내부 잠재매출보다 **약 1.65배 높게 보고** 있습니다.
+
+즉, 최대로 좋게 봐도 TikTok ROAS 32.11은 과장됐을 가능성이 큽니다.
+
+---
+
+# 4. 왜 이렇게 차이나나
+
+## 원인 1. 과거에는 가상계좌 미입금도 Purchase로 잡혔을 가능성이 큽니다
+
+이건 이미 Sprint 1에서 고쳤습니다. 가상계좌는 실제 입금 전에는 매출이 아닌데, 과거에는 TikTok Pixel이 Purchase로 볼 수 있었습니다. 이제는 가상계좌 미입금이면 Purchase를 막고 `PlaceAnOrder`로 낮추는 구조가 적용됐습니다.
+
+비유하면, 예전에는 **“입금하겠다고 주문서만 쓴 사람”**도 매출로 세고 있었습니다.
+이제는 **“돈이 들어온 사람만 구매”**로 보도록 바꾼 겁니다.
+
+## 원인 2. TikTok attribution window와 내부 attribution 기준이 다를 수 있습니다
+
+TikTok은 광고 클릭/조회 후 일정 기간 안의 구매를 자기 성과로 봅니다. 내부 장부는 `ttclid`, UTM, referrer, metadata URL 같은 직접 근거를 봅니다. 같은 주문도 TikTok은 “내 광고 영향”이라고 볼 수 있고, 내부는 “근거 부족” 또는 “pending”으로 볼 수 있습니다.
+
+다만 이번 데이터에서는 CTA 구매값이 대부분이고 VTA는 상대적으로 작아서, **뷰 어트리뷰션만으로 9.1억 차이를 설명하긴 어렵습니다.**
+
+## 원인 3. pending 49건의 실제 운명이 아직 안 닫혔습니다
+
+이게 현재 제일 중요합니다.
+
+pending 49건 / 5.5억 원 중 일부가 실제 입금되면 ROAS가 올라갑니다.
+반대로 대부분 미입금/취소라면 TikTok 플랫폼 ROAS는 거의 허수입니다.
+
+특히 상위 pending 표본에 **2.6억 원짜리 주문**이 있어서, 상위 몇 건의 실제 상태가 전체 결론을 크게 바꿀 수 있습니다.
+
+---
+
+# 5. 앞으로 ROAS gap을 어떻게 줄일 수 있나
+
+gap을 줄인다는 건 두 가지 뜻입니다.
+
+1. **실제 오염을 줄인다**
+   잘못된 Purchase가 TikTok에 들어가지 않게 한다.
+
+2. **보고 기준을 맞춘다**
+   TikTok 숫자와 내부 장부를 같은 기준으로 비교한다.
+
+둘 다 필요합니다.
+
+---
+
+# Phase별 로드맵
+
+## Phase 0. 데이터 확보와 API 자동화
+
+**목표**
+TikTok Ads Manager 숫자를 수동 CSV가 아니라 API로 안정적으로 가져옵니다.
+
+**현재 상태**
+거의 완료입니다. Business API 승인이 끝났고, 대표 광고 계정 `(주)바이오컴_adv / 7593201373714595856`도 확인됐습니다. 2026-03-19에서 2026-04-17 기간 API dry-run은 CSV와 거의 완전히 일치합니다.
+
+**완성도**
+**92%**
+
+**남은 일**
+
+* API 결과를 기존 `tiktok_ads_daily` 적재 경로에 붙이기
+* 반복 실행 스크립트화
+* API 장애 시 CSV/scheduled export를 백업 경로로 유지
+
+**제 의견**
+API → `tiktok_ads_daily` upsert는 **승인해도 됩니다.**
+CSV와 비용/구매수/구매값이 거의 완전히 맞았기 때문에, DB 적재 경로만 조심해서 붙이면 됩니다.
+
+자신감: **94%**
+
+---
+
+## Phase 1. TikTok 구매 이벤트 오염 제거
+
+**목표**
+가상계좌 미입금이 Purchase로 들어가지 않게 합니다.
+
+**현재 상태**
+완료입니다. 가상계좌 미입금은 Purchase를 차단하고, `PlaceAnOrder`로 낮추는 구조가 적용됐습니다. 문서상 Sprint 1은 운영 기준 100%로 되어 있습니다.
+
+**완성도**
+**100%**
+
+**남은 일**
+
+* 2026-04-18 이후 post-guard 기간에서 TikTok 플랫폼 구매값이 실제로 줄었는지 확인
+* `Purchase` 감소와 `PlaceAnOrder` 증가가 Events Manager에서 정상인지 확인
+
+**제 의견**
+이 Phase는 더 개발하지 말고, **효과 관측**으로 넘어가면 됩니다.
+
+---
+
+## Phase 2. 플랫폼 ROAS vs 내부 ROAS gap 확정
+
+**목표**
+TikTok ROAS 32.11이 실제로 얼마나 과대인지 숫자로 확정합니다.
+
+**현재 상태**
+중요한 1차 비교는 완료됐습니다.
+
+* TikTok 플랫폼 ROAS: **32.11**
+* 내부 confirmed ROAS: **0.00**
+* pending 포함 잠재 ROAS: **19.43**
+
+입니다.
+
+**완성도**
+**75%**
+
+**남은 일**
+
+1. pending 상위 20건 실제 상태 확인
+
+   * 미입금 유지인지
+   * 후속 입금됐는지
+   * 취소됐는지
+   * TikTok 귀속 근거가 강한지
+
+2. pending 49건 전체 fate 분류
+
+   * confirmed_later
+   * expired_unpaid
+   * canceled
+   * false_attribution
+   * still_pending
+
+3. gap waterfall 작성
+   예:
+
+   * TikTok 플랫폼 구매값 910.6M
+   * 미입금 pending 제외
+   * false attribution 제외
+   * attribution window 차이 제외
+   * 최종 내부 confirmed
+
+**제 의견**
+여기가 지금 제일 파급력 큽니다.
+pending 상위 20건만 봐도 결론이 크게 바뀔 수 있습니다.
+
+자신감: **96%**
+
+---
+
+## Phase 3. Post-Guard 기간 재검증
+
+**목표**
+2026-04-17 guard 이후 TikTok 플랫폼 ROAS가 실제로 깨끗해졌는지 확인합니다.
+
+**현재 상태**
+아직 부족합니다. 현재 핵심 비교 기간은 2026-03-19에서 2026-04-17, 즉 대부분 guard 이전입니다. Guard 이후 데이터는 충분히 쌓이지 않았습니다.
+
+**완성도**
+**35%**
+
+**해야 할 일**
+
+* API로 2026-04-18 이후 일자별 리포트 수집
+* 내부 운영 VM에서 같은 기간 TikTok attributed confirmed/pending/canceled 조회
+* guard 전후를 분리해서 비교
+
+권장 비교:
+
+* 2026-03-19에서 2026-04-16: guard 전
+* 2026-04-18에서 2026-04-24: guard 후 1차
+* 2026-04-18에서 2026-05-01: guard 후 2차
+
+**합격 기준**
+
+* 플랫폼 Purchase 수 감소
+* pending 비율 감소
+* confirmed ROAS와 platform ROAS gap 축소
+* `PlaceAnOrder`는 늘고 Purchase 오염은 줄어야 함
+
+**제 의견**
+이걸 해야 “우리가 고친 게 실제로 TikTok 플랫폼 숫자를 정상화했는지” 알 수 있습니다.
+
+자신감: **92%**
+
+---
+
+## Phase 4. Source Precision 정리
+
+**목표**
+TikTok 귀속 주문이 진짜 TikTok에서 온 것인지 확인합니다.
+
+**현재 상태**
+source reason 코드는 이미 좋습니다. `ttclid_direct`, `ttclid_url`, `utm_source_tiktok`, `referrer_tiktok` 등으로 분류하고 있습니다. pending 상위 20건 audit도 화면에 들어갔습니다.
+
+**완성도**
+**70%**
+
+**해야 할 일**
+
+* high / medium / low source별 ROAS 분리
+* low source는 official 판단에서 제외하거나 별도 표시
+* `ttclid_direct`만 official TikTok attribution으로 보는 보수 기준도 추가
+* pending top 20에 source reason을 같이 보고 실제 주문 화면과 대조
+
+**제 의견**
+TikTok을 무조건 나쁘게 보는 것도 위험합니다.
+진짜 `ttclid_direct`가 있는 주문과, 단순 referrer/metadata만 있는 주문은 신뢰도가 다릅니다.
+
+따라서 ROAS도 이렇게 나누는 게 좋습니다.
+
+| 기준                          | 의미                         |
+| --------------------------- | -------------------------- |
+| TikTok High-confidence ROAS | ttclid 직접 근거               |
+| TikTok Medium ROAS          | UTM/캠페인 근거                 |
+| TikTok Broad ROAS           | referrer/metadata 포함 넓은 기준 |
+
+이렇게 해야 “TikTok이 전혀 안 된다”와 “TikTok attribution이 넓게 잡힌다”를 구분할 수 있습니다.
+
+---
+
+## Phase 5. Events API 도입 여부 결정
+
+**목표**
+TikTok Events API를 붙일지 말지 결정합니다.
+
+**현재 상태**
+아직 대기입니다. 이 판단은 아직 하지 마세요. 문서도 조건부 도입으로 잡고 있습니다.
+
+**완성도**
+**20%**
+
+**도입 조건**
+아래 세 조건이 모두 맞으면 검토합니다.
+
+1. Guard 이후에도 실제 confirmed 구매가 TikTok에 적게 잡힘
+2. 가상계좌가 나중에 입금됐을 때 서버 Purchase를 보내야 할 필요가 있음
+3. 웹 Purchase와 서버 Purchase의 `event_id` dedup 규칙을 맞출 수 있음
+
+**제 의견**
+지금 Events API를 붙이면 오히려 오염이 커질 수 있습니다.
+먼저 Phase 2-4를 닫고, “웹만으로 부족하다”가 숫자로 확인될 때 들어가야 합니다.
+
+자신감: **90%**
+
+---
+
+# 지금 당장 해야 할 일 우선순위
+
+## 1순위. API → `tiktok_ads_daily` 적재 경로 연결
+
+API가 CSV와 거의 일치하므로, 이제 수동 export에 기대지 않아도 됩니다.
+단, 첫 구현은 **upsert 전 dry-run 비교 → 로컬 DB upsert → 검증 리포트** 순서로 가세요.
+
+**판정: Go**
+자신감: **94%**
+
+---
+
+## 2순위. pending 상위 20건 fate 확인
+
+이게 사업 판단에 가장 중요합니다.
+
+특히 상위 pending 20건의 총액이 크면, 이 20건만 확인해도
+**TikTok이 진짜 성과가 있었는지, 가상계좌 허수였는지** 큰 방향이 나옵니다.
+
+**판정: 최우선 수동 확인**
+자신감: **96%**
+
+---
+
+## 3순위. 2026-04-18 이후 post-guard API 수집
+
+guard 이후 데이터가 있어야 개선 효과를 봅니다.
+
+API로 바로 뽑으면 됩니다.
+
+추천 기간:
+
+* 2026-04-18에서 2026-04-21
+* 2026-04-18에서 2026-04-24
+* 2026-04-18에서 2026-05-01
+
+**판정: Go**
+자신감: **92%**
+
+---
+
+## 4순위. ROAS Gap Waterfall 만들기
+
+현재는 “차이가 크다”까지는 보입니다.
+다음은 “왜 차이가 크다”를 숫자로 나눠야 합니다.
+
+예시:
+
+```text
+TikTok 플랫폼 구매값 910.6M
+- 내부 pending 551.1M
+= 설명 안 된 gap 359.5M
+
+pending 551.1M 중
+- 실제 후속 입금
+- 미입금 만료
+- 취소
+- false attribution
+으로 분해
+```
+
+이걸 `/ads/tiktok`에 넣으면 대표 보고가 쉬워집니다.
+
+**판정: Go**
+자신감: **91%**
+
+---
+
+# 지금 하지 말아야 할 일
+
+## 1. TikTok Events API 바로 붙이기
+
+아직 이릅니다.
+지금은 오염 제거와 gap 분해 단계입니다.
+
+## 2. TikTok 예산 즉시 증액
+
+현재 confirmed ROAS는 0입니다.
+pending 포함해도 플랫폼보다 낮습니다. 지금 숫자로는 증액 근거가 약합니다.
+
+## 3. TikTok 완전 중단도 아직 이릅니다
+
+pending 49건의 fate가 아직 안 닫혔습니다.
+상위 pending이 실제 입금됐거나, 입금 지연 구조라면 TikTok이 완전히 나쁜 채널은 아닐 수 있습니다.
+
+지금 의사결정은:
+
+* **증액 No**
+* **완전 중단 보류**
+* **pending fate 확인 전까지 보수 운영**
+
+이 맞습니다.
+
+---
+
+# 제 최종 판단
+
+TikTok 플랫폼 ROAS는 현재 **32.11**로 보이지만, 내부 확정매출 기준 실제 ROAS는 **0.00**입니다.
+pending을 전부 인정해도 최대 **19.43**입니다. 따라서 현재 TikTok 플랫폼 ROAS는 실제보다 최소 **12.68배수**, 금액으로는 최소 **3.6억 원 이상** 높게 보였을 가능성이 큽니다.
+
+하지만 API 연결은 매우 잘 됐습니다. 이제부터는 데이터 수집 문제가 아니라 **pending fate와 source precision 문제**입니다.
+
+제가 보는 현재 프로젝트 상태는:
+
+> **데이터 파이프라인은 85% 이상 완료, 비즈니스 판단은 60% 완료.**
+
+다음 한 주의 핵심은 딱 두 가지입니다.
+
+1. **API 자동 수집을 `tiktok_ads_daily`에 붙인다.**
+2. **pending 상위 20건의 실제 운명을 확인한다.**
+
+이 두 개가 닫히면 TikTok 예산 판단은 훨씬 명확해집니다.
+
+---
+
+## 개발AI에게 줄 지시문
+
+```text
+TikTok ROAS 정합성 다음 단계는 아래 순서로 진행한다.
+
+1. Business API 결과를 tiktok_ads_daily 적재 경로에 연결하는 dry-run + upsert draft를 만든다.
+   - source='business_api'
+   - 기존 CSV source와 같은 합계 검증
+   - spend/clicks/impressions/complete_payment/derived_complete_payment_value 필수
+   - 운영 DB write 금지, 로컬 SQLite만 대상
+   - 적용 전/후 row count와 합계 비교 리포트 출력
+
+2. 2026-04-18 이후 post-guard 기간 API 리포트를 수집한다.
+   - 2026-04-18~2026-04-21
+   - 2026-04-18~2026-04-24
+   - 가능하면 daily_comparison에 연결
+
+3. pending 상위 20건 audit 표를 확장한다.
+   - order_id/order_no
+   - amount
+   - current payment_status
+   - first_seen_at
+   - last_status_at
+   - source_reason
+   - source_tier
+   - fate: confirmed_later / expired_unpaid / canceled / false_attribution / still_pending
+
+4. /ads/tiktok에 ROAS Gap Waterfall 카드 초안을 추가한다.
+   - TikTok platform value
+   - internal confirmed
+   - internal pending
+   - unexplained gap
+   - high-confidence TikTok attribution value
+   - low-confidence excluded value
+```
+
+---
+
+## Q1-Q3
+
+Q1. pending 상위 20건은 TJ님이 운영 화면에서 직접 확인 가능합니까, 아니면 Claude Code가 운영 DB read-only로 fate를 더 뽑게 할까요?
+Q2. TikTok 예산은 pending fate 확인 전까지 **현상 유지/축소/중단** 중 어느 쪽으로 임시 운영할까요?
+Q3. API → `tiktok_ads_daily` 로컬 upsert는 승인해도 될까요? 제 의견은 **승인 가능**입니다.

@@ -29,6 +29,7 @@ import {
   buildAttributionPaymentStatusSyncPlan,
   findDuplicateFormSubmitEntry,
 } from "../src/routes/attribution";
+import { normalizeTikTokPixelEventPayload } from "../src/tiktokPixelEvents";
 
 test("attribution: normalizeAttributionPayload accepts snake_case and camelCase fields", () => {
   const normalized = normalizeAttributionPayload({
@@ -54,6 +55,75 @@ test("attribution: normalizeAttributionPayload accepts snake_case and camelCase 
   assert.equal(normalized.utmSource, "meta");
   assert.equal(normalized.utmCampaign, "spring");
   assert.equal(normalized.fbclid, "fbclid-1");
+});
+
+test("attribution: normalizeAttributionPayload extracts Imweb order keys from landing URL", () => {
+  const normalized = normalizeAttributionPayload({
+    landing:
+      "https://biocom.kr/shop_payment/?order_code=o20260418abc123&order_no=202604188765432&payment_code=pa20260418abc",
+    ttclid: "ttclid-1",
+    source: "biocom_imweb",
+  });
+
+  assert.equal(normalized.orderId, "202604188765432");
+  assert.equal(normalized.ttclid, "ttclid-1");
+  assert.equal(normalized.metadata.orderNo, "202604188765432");
+  assert.equal(normalized.metadata.orderCode, "o20260418abc123");
+  assert.equal(normalized.metadata.paymentCode, "pa20260418abc");
+  assert.deepEqual(normalized.metadata.landingPayment, {
+    orderCode: "o20260418abc123",
+    orderNo: "202604188765432",
+    paymentCode: "pa20260418abc",
+  });
+});
+
+test("tiktok pixel events: normalize payload keeps event-level order and decision keys", () => {
+  const event = normalizeTikTokPixelEventPayload(
+    {
+      action: "released_confirmed_purchase",
+      source: "TIKTOK_PIXEL.track",
+      eventName: "Purchase",
+      eventId: "Purchase_o20260418abc123",
+      orderCode: "o20260418abc123",
+      orderNo: "202604188765432",
+      paymentCode: "pa20260418abc",
+      value: "35000",
+      currency: "KRW",
+      status: "confirmed",
+      browserAction: "allow_purchase",
+      matchedBy: "toss_direct_payment_key",
+      reason: "toss_direct_api_status",
+      url:
+        "https://biocom.kr/shop_payment_complete?order_code=o20260418abc123&order_no=202604188765432&ttclid=tt-1",
+      decision: {
+        status: "confirmed",
+        browserAction: "allow_purchase",
+        matchedBy: "toss_direct_payment_key",
+      },
+    },
+    {
+      ip: "127.0.0.1",
+      userAgent: "node-test",
+      origin: "https://biocom.kr",
+      requestReferer: "https://biocom.kr/shop_payment_complete",
+      method: "POST",
+      path: "/api/attribution/tiktok-pixel-event",
+    },
+    "biocom_imweb",
+    "2026-04-18T01:00:00.000Z",
+  );
+
+  assert.equal(event.siteSource, "biocom_imweb");
+  assert.equal(event.pixelSource, "TIKTOK_PIXEL.track");
+  assert.equal(event.action, "released_confirmed_purchase");
+  assert.equal(event.orderCode, "o20260418abc123");
+  assert.equal(event.orderNo, "202604188765432");
+  assert.equal(event.value, 35000);
+  assert.equal(event.decisionStatus, "confirmed");
+  assert.equal(event.decisionBranch, "allow_purchase");
+  assert.equal(event.decisionMatchedBy, "toss_direct_payment_key");
+  assert.equal(event.ttclid, "tt-1");
+  assert.ok(event.eventLogId.length > 20);
 });
 
 test("meta capi: log diagnostics surfaces duplicate event and order-event keys", () => {
@@ -1145,6 +1215,128 @@ test("attribution: buildAttributionPaymentStatusSyncPlan marks Toss direct fallb
   assert.equal(plan.updates[0]?.nextEntry.approvedAt, "2026-04-10T14:34:21.000Z");
   assert.equal(plan.updates[0]?.nextEntry.metadata.tossSyncSource, "toss_direct_api_fallback");
   assert.equal(plan.updates[0]?.nextEntry.metadata.tossDirectFallbackAt, "2026-04-10T14:40:00.000Z");
+});
+
+test("attribution: buildAttributionPaymentStatusSyncPlan marks Imweb overdue virtual accounts as canceled", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+
+  const pending = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202604052259913-P1",
+      paymentKey: "iw_bi202604052826virtual",
+      metadata: {
+        status: "WAITING_FOR_DEPOSIT",
+        totalAmount: 260100000,
+      },
+    },
+    requestContext,
+    "2026-04-05T09:28:37.000Z",
+  );
+
+  const plan = buildAttributionPaymentStatusSyncPlan(
+    [pending],
+    [
+      {
+        paymentKey: "",
+        orderId: "202604052259913",
+        approvedAt: "",
+        status: "CANCELLED_BEFORE_DEPOSIT",
+        channel: "imweb",
+        store: "biocom",
+        totalAmount: 260100000,
+        syncSource: "tb_iamweb_users_overdue",
+        imwebPaymentMethod: "VIRTUAL",
+        imwebPaymentStatus: "PAYMENT_OVERDUE",
+        imwebCancellationReason: "입금기간 마감으로 인한 자동 취소",
+        imwebOrderDate: "2026-04-05 18:26:53",
+      },
+    ],
+    10,
+    "2026-04-23T02:42:00.000Z",
+  );
+
+  assert.equal(plan.totalCandidates, 1);
+  assert.equal(plan.matchedRows, 1);
+  assert.equal(plan.updatedRows, 1);
+  assert.equal(plan.items[0]?.matchType, "imweb_overdue_order_id");
+  assert.equal(plan.updates[0]?.nextEntry.paymentStatus, "canceled");
+  assert.equal(plan.updates[0]?.nextEntry.metadata.fate, "vbank_expired");
+  assert.equal(plan.updates[0]?.nextEntry.metadata.vbankExpired, true);
+  assert.equal(plan.updates[0]?.nextEntry.metadata.imwebPaymentStatus, "PAYMENT_OVERDUE");
+  assert.equal(plan.updates[0]?.nextEntry.metadata.imwebCancellationReason, "입금기간 마감으로 인한 자동 취소");
+});
+
+test("attribution: buildAttributionPaymentStatusSyncPlan prefers Imweb overdue over still-pending direct fallback", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+
+  const pending = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202604052259913-P1",
+      paymentKey: "pay_pending_123",
+      metadata: {
+        status: "WAITING_FOR_DEPOSIT",
+        totalAmount: 260100000,
+      },
+    },
+    requestContext,
+    "2026-04-05T09:28:37.000Z",
+  );
+
+  const plan = buildAttributionPaymentStatusSyncPlan(
+    [pending],
+    [
+      {
+        paymentKey: "pay_pending_123",
+        orderId: "202604052259913-P1",
+        approvedAt: "",
+        status: "WAITING_FOR_DEPOSIT",
+        channel: "toss",
+        store: "biocom",
+        totalAmount: 260100000,
+        syncSource: "toss_direct_api_fallback",
+      },
+      {
+        paymentKey: "",
+        orderId: "202604052259913",
+        approvedAt: "",
+        status: "CANCELLED_BEFORE_DEPOSIT",
+        channel: "imweb",
+        store: "biocom",
+        totalAmount: 260100000,
+        syncSource: "tb_iamweb_users_overdue",
+        imwebPaymentMethod: "VIRTUAL",
+        imwebPaymentStatus: "PAYMENT_OVERDUE",
+        imwebCancellationReason: "입금기간 마감으로 인한 자동 취소",
+        imwebOrderDate: "2026-04-05 18:26:53",
+      },
+    ],
+    10,
+    "2026-04-23T03:20:00.000Z",
+  );
+
+  assert.equal(plan.totalCandidates, 1);
+  assert.equal(plan.matchedRows, 1);
+  assert.equal(plan.updatedRows, 1);
+  assert.equal(plan.items[0]?.matchType, "imweb_overdue_order_id");
+  assert.equal(plan.updates[0]?.nextEntry.paymentStatus, "canceled");
+  assert.equal(plan.updates[0]?.nextEntry.metadata.paymentStatusSyncSource, "tb_iamweb_users_overdue");
+  assert.equal(plan.updates[0]?.nextEntry.metadata.vbankExpired, true);
 });
 
 test("attribution: payment decision allows only confirmed server status", () => {

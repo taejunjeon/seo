@@ -1,0 +1,62 @@
+{
+  "_meta": {
+    "schema_version": "1.0",
+    "site": "biocom",
+    "source_doc": "공동구매내역.md",
+    "source_section": "세트 상품 언분해",
+    "updated_at": "2026-04-21",
+    "note": "v1.0 초안. Q1 biocom 실측 스캔에서 식별한 세트 상품 4종. 분해 로직은 공동구매내역.md `§세트 상품 언분해 - 분해 로직`에 정리. `pay_amt` = 0이라 매출 배분은 qty 기반만 가능 (정가 기준 배분은 단품 정가 수집 후 2차 도입). `두피 월동 준비 SET`, `클린 이너뷰티 SET`은 구성 미확정이라 이번 파일에 미포함."
+  },
+  "sets": [
+    {
+      "item_name": "종합 대사기능&음식물 과민증 검사 Set",
+      "alias_patterns": [
+        "%종합 대사기능&음식물 과민증%Set",
+        "%음식물 과민증 & 종합 대사기능 분석"
+      ],
+      "components": [
+        {"sku": "음과검", "name": "음식물 과민증 분석", "qty_per_set": 1},
+        {"sku": "종대사", "name": "종합 대사기능 분석", "qty_per_set": 1}
+      ],
+      "start_date": "2025-01-01",
+      "end_date": null,
+      "notes": "일반 판매 + 공구 접두사 변형(예: `[공구] 연뜰살뜰 6차 종합 대사기능&음식물 과민증 검사 Set`). Q1 2026 biocom 322주문/322개 qty."
+    },
+    {
+      "item_name": "[공구] 연뜰살뜰 6차 종합 대사기능&음식물 과민증 검사 Set",
+      "alias_patterns": [
+        "[공구] 연뜰살뜰 6차 종합 대사기능&음식물 과민증%Set"
+      ],
+      "components": [
+        {"sku": "음과검", "name": "음식물 과민증 분석", "qty_per_set": 1},
+        {"sku": "종대사", "name": "종합 대사기능 분석", "qty_per_set": 1}
+      ],
+      "start_date": "2026-02-11",
+      "end_date": "2026-02-18",
+      "notes": "연뜰살뜰 6차 공구 전용 세트. Q1 2026 biocom 27주문/30qty."
+    },
+    {
+      "item_name": "[공구] 연뜰살뜰 8차 (SET) 음식물 과민증 & 종합 대사기능 분석",
+      "alias_patterns": [
+        "[공구] 연뜰살뜰 8차 (SET) 음식물 과민증%종합 대사기능%"
+      ],
+      "components": [
+        {"sku": "음과검", "name": "음식물 과민증 분석", "qty_per_set": 1},
+        {"sku": "종대사", "name": "종합 대사기능 분석", "qty_per_set": 1}
+      ],
+      "start_date": "2026-03-28",
+      "end_date": "2026-03-31",
+      "notes": "연뜰살뜰 8차 공구 전용 세트. Q1 2026 biocom 7주문/6qty."
+    },
+    {
+      "item_name": "[KOLAS 인정 획득 기념] 종합 호르몬균형 분석 1+1",
+      "alias_patterns": [],
+      "components": [
+        {"sku": "호르몬", "name": "종합 호르몬균형 분석", "qty_per_set": 2}
+      ],
+      "start_date": "2025-01-01",
+      "end_date": null,
+      "notes": "동일 상품 2개 번들. KOLAS 인증 기념 프로모션. 공동구매 아님. Q1 2026 biocom 5주문/5qty."
+    }
+  ]
+}

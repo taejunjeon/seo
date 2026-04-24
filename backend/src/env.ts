@@ -86,6 +86,32 @@ const envSource = {
   GA4_MEASUREMENT_ID_BIOCOM: process.env.GA4_MEASUREMENT_ID_BIOCOM ?? "G-WJFXN5E2Q1",
   GA4_MEASUREMENT_ID_COFFEE: process.env.GA4_MEASUREMENT_ID_COFFEE,
   REFUND_DISPATCH_ENFORCE: process.env.REFUND_DISPATCH_ENFORCE,
+  AIBIO_SUPABASE_PROJECT_ID: process.env.AIBIO_SUPABASE_PROJECT_ID,
+  AIBIO_SUPABASE_SECRET_KEY:
+    process.env.AIBIO_SUPABASE_SECRET_KEY
+    ?? process.env.AIBIO_SUPABASE_Secret_Keys
+    ?? process.env.AIBIO_SUPABASE_Secret_Key,
+  AIBIO_SUPABASE_PUBLISHABLE_KEY:
+    process.env.AIBIO_SUPABASE_PUBLISHABLE_KEY
+    ?? process.env.AIBIO_SUPABASE_Pubilshable_key
+    ?? process.env.AIBIO_SUPABASE_Publishable_key,
+  COUPANG_BIOCOM_CODE: process.env.COUPANG_BIOCOM_CODE,
+  COUPANG_BIOCOM_ACCESS_KEY:
+    process.env.COUPANG_BIOCOM_ACCESS_KEY ?? process.env.COUPANG_BIOCOM_Access_Key,
+  COUPANG_BIOCOM_SECRET_KEY:
+    process.env.COUPANG_BIOCOM_SECRET_KEY ?? process.env.COUPANG_BIOCOM_Secret_Key,
+  COUPANG_TEAMKETO_CODE: process.env.COUPANG_TEAMKETO_CODE,
+  COUPANG_TEAMKETO_ACCESS_KEY:
+    process.env.COUPANG_TEAMKETO_ACCESS_KEY ?? process.env.COUPANG_TEAMKETO_Access_Key,
+  COUPANG_TEAMKETO_SECRET_KEY:
+    process.env.COUPANG_TEAMKETO_SECRET_KEY ?? process.env.COUPANG_TEAMKETO_Secret_Key,
+  // 더클린커피 정기구독 트랙 알림톡 템플릿 코드 (알리고 검수 후 발급)
+  ALIGO_TPL_COFFEE_SUBSCRIBER: process.env.ALIGO_TPL_COFFEE_SUBSCRIBER,
+  ALIGO_TPL_COFFEE_LOYALIST: process.env.ALIGO_TPL_COFFEE_LOYALIST,
+  ALIGO_TPL_COFFEE_MANIAC: process.env.ALIGO_TPL_COFFEE_MANIAC,
+  ALIGO_TPL_COFFEE_EVERGREEN: process.env.ALIGO_TPL_COFFEE_EVERGREEN,
+  ALIGO_TPL_COFFEE_CHURN_30: process.env.ALIGO_TPL_COFFEE_CHURN_30,
+  ALIGO_TPL_COFFEE_CHURN_60: process.env.ALIGO_TPL_COFFEE_CHURN_60,
 };
 
 const envSchema = z.object({
@@ -219,6 +245,21 @@ const envSchema = z.object({
   TOSS_TEST_SECRET_KEY: z.string().min(1).optional(),
   TOSS_TEST_SECRET_KEY_BIOCOM: z.string().min(1).optional(),
   TOSS_TEST_SECRET_KEY_COFFEE: z.string().min(1).optional(),
+  AIBIO_SUPABASE_PROJECT_ID: z.string().min(1).optional(),
+  AIBIO_SUPABASE_SECRET_KEY: z.string().min(1).optional(),
+  AIBIO_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
+  COUPANG_BIOCOM_CODE: z.string().min(1).optional(),
+  COUPANG_BIOCOM_ACCESS_KEY: z.string().min(1).optional(),
+  COUPANG_BIOCOM_SECRET_KEY: z.string().min(1).optional(),
+  COUPANG_TEAMKETO_CODE: z.string().min(1).optional(),
+  COUPANG_TEAMKETO_ACCESS_KEY: z.string().min(1).optional(),
+  COUPANG_TEAMKETO_SECRET_KEY: z.string().min(1).optional(),
+  ALIGO_TPL_COFFEE_SUBSCRIBER: z.string().min(1).optional(),
+  ALIGO_TPL_COFFEE_LOYALIST: z.string().min(1).optional(),
+  ALIGO_TPL_COFFEE_MANIAC: z.string().min(1).optional(),
+  ALIGO_TPL_COFFEE_EVERGREEN: z.string().min(1).optional(),
+  ALIGO_TPL_COFFEE_CHURN_30: z.string().min(1).optional(),
+  ALIGO_TPL_COFFEE_CHURN_60: z.string().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse(envSource);

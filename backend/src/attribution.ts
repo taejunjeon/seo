@@ -61,7 +61,11 @@ export type TossJoinRow = {
   channel: string;
   store: string;
   totalAmount: number;
-  syncSource?: "tb_sales_toss" | "toss_direct_api_fallback";
+  syncSource?: "tb_sales_toss" | "toss_direct_api_fallback" | "tb_iamweb_users_overdue";
+  imwebPaymentMethod?: string;
+  imwebPaymentStatus?: string;
+  imwebCancellationReason?: string;
+  imwebOrderDate?: string;
 };
 
 export type TossHourlyRow = {
@@ -242,6 +246,30 @@ const parseReferrerPaymentParams = (
   }
 };
 
+const parseUrlPaymentParams = (urlValue: string): Record<string, string> => {
+  if (!urlValue) return {};
+  try {
+    const url = new URL(urlValue, "https://biocom.kr");
+    const result: Record<string, string> = {};
+    for (const key of REFERRER_PAYMENT_KEYS) {
+      const value = url.searchParams.get(key);
+      if (value) result[key] = value;
+    }
+
+    const snakeOrderCode = url.searchParams.get("order_code");
+    const snakeOrderNo = url.searchParams.get("order_no");
+    const snakePaymentCode = url.searchParams.get("payment_code");
+    const snakePaymentKey = url.searchParams.get("payment_key");
+    if (snakeOrderCode) result.orderCode = snakeOrderCode;
+    if (snakeOrderNo) result.orderNo = snakeOrderNo;
+    if (snakePaymentCode) result.paymentCode = snakePaymentCode;
+    if (snakePaymentKey) result.paymentKey = snakePaymentKey;
+    return result;
+  } catch {
+    return {};
+  }
+};
+
 const firstString = (input: Record<string, unknown>, keys: string[]): string => {
   for (const key of keys) {
     const value = input[key];
@@ -346,15 +374,36 @@ export const normalizeAttributionPayload = (raw: unknown) => {
 
   const referrerRaw = firstString(input, ["referrer", "referer"]);
   const referrerParams = parseReferrerPaymentParams(referrerRaw);
+  const landing = firstString(input, ["landing", "landingPath", "landing_path"]);
+  const landingParams = parseUrlPaymentParams(landing);
 
   const orderId =
     firstString(input, ["orderId", "order_id"]) ||
+    firstString(input, ["orderNo", "order_no"]) ||
     referrerParams.orderNo ||
     referrerParams.orderId ||
+    landingParams.orderNo ||
+    landingParams.orderId ||
     "";
   const paymentKey =
     firstString(input, ["paymentKey", "payment_key"]) ||
     referrerParams.paymentKey ||
+    landingParams.paymentKey ||
+    "";
+  const orderCode =
+    firstString(input, ["orderCode", "order_code"]) ||
+    referrerParams.orderCode ||
+    landingParams.orderCode ||
+    "";
+  const paymentCode =
+    firstString(input, ["paymentCode", "payment_code"]) ||
+    referrerParams.paymentCode ||
+    landingParams.paymentCode ||
+    "";
+  const orderNo =
+    firstString(input, ["orderNo", "order_no"]) ||
+    referrerParams.orderNo ||
+    landingParams.orderNo ||
     "";
 
   const existingMetadata = objectValue(input, ["metadata", "meta"]);
@@ -386,6 +435,8 @@ export const normalizeAttributionPayload = (raw: unknown) => {
       orderId ||
       referrerParams.orderId ||
       referrerParams.orderNo ||
+      landingParams.orderId ||
+      landingParams.orderNo ||
       "",
   );
 
@@ -402,8 +453,14 @@ export const normalizeAttributionPayload = (raw: unknown) => {
   }
   if (fbc) enrichedMetadata.fbc = fbc;
   if (fbp) enrichedMetadata.fbp = fbp;
+  if (orderNo) enrichedMetadata.orderNo = orderNo;
+  if (orderCode) enrichedMetadata.orderCode = orderCode;
+  if (paymentCode) enrichedMetadata.paymentCode = paymentCode;
   if (Object.keys(referrerParams).length > 0) {
     enrichedMetadata.referrerPayment = referrerParams;
+  }
+  if (Object.keys(landingParams).length > 0) {
+    enrichedMetadata.landingPayment = landingParams;
   }
   const formId = firstString(input, ["formId", "form_id"]);
   if (formId) enrichedMetadata.formId = formId;
@@ -418,7 +475,7 @@ export const normalizeAttributionPayload = (raw: unknown) => {
     approvedAt: firstString(input, ["approvedAt", "approved_at"]),
     checkoutId: firstString(input, ["checkoutId", "checkout_id"]),
     customerKey: firstString(input, ["customerKey", "customer_key"]) || normalizedPhone,
-    landing: firstString(input, ["landing", "landingPath", "landing_path"]),
+    landing,
     referrer: referrerRaw,
     gaSessionId,
     utmSource: firstString(input, ["utmSource", "utm_source"]),

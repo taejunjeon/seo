@@ -1,7 +1,7 @@
 # TikTok Business API 설정 런북
 
 작성 시각: 2026-04-18 05:35 KST
-업데이트: 2026-04-18 13:33 KST
+업데이트: 2026-04-22 00:36 KST
 
 ## 목적
 
@@ -16,35 +16,56 @@
 
 ## 현재 결론
 
-Codex 단독으로는 TikTok Ads Manager 데이터를 API로 받을 수 없다. 필요한 값이 로컬에 없다. 또한 2026-04-18 현재 developer app은 Pending 상태이므로 API 승인을 기다리는 동안에도 수동 Custom report + scheduled export 경로로 Phase 1을 계속 진행한다.
+2026-04-22 기준 TikTok Business API developer app 승인이 완료됐고, OAuth `auth_code`를 Business API access token으로 교환했다. 토큰 값은 문서에 기록하지 않고 `backend/.env`에만 저장했다. `backend/.env`는 Git ignore 대상이다.
 
-필요한 값:
+현재 로컬에 저장된 값:
 
-- TikTok Business API app ID
-- TikTok Business API app secret
-- OAuth authorization code 또는 이미 발급된 access token
-- advertiser ID, 즉 TikTok ad account ID
-- 리포트 조회 권한이 있는 TikTok 계정 권한
+- `TIKTOK_BUSINESS_APP_ID`
+- `TIKTOK_BUSINESS_APP_SECRET`
+- `TIKTOK_BUSINESS_ACCESS_TOKEN`
+- `TIKTOK_ADVERTISER_ID=7593201373714595856`
+- `TIKTOK_ADVERTISER_IDS=7593201373714595856,7593240809332555793`
 
-이 값들은 저장소에 커밋하지 않는다. 로컬 `.env.local` 또는 일회성 쉘 환경변수로만 사용한다.
+광고주 목록:
+
+| advertiser_id | advertiser_name | 판단 |
+|---|---|---|
+| `7593201373714595856` | `(주)바이오컴_adv` | 대표 계정. 현재 ROAS 검증 기본값 |
+| `7593240809332555793` | `바이오컴0109` | 보조 계정 후보. 별도 검증 전에는 기본값으로 쓰지 않음 |
+
+Business API Reporting dry-run 결과:
+
+- endpoint: `GET /open_api/v1.3/report/integrated/get/`
+- advertiser: `7593201373714595856`
+- 기간: 2026-03-19 ~ 2026-04-17
+- dimensions: `campaign_id`, `stat_time_day`
+- 반환 행: 147행
+- 비용 합계: 28,363,230원
+- 구매수: `conversion` 321건, `complete_payment` 321건
+- 구매값 복원: `complete_payment * value_per_complete_payment` = 910,630,888원
+- 기존 CSV 구매값 910,630,953원 대비 차이: 65원
+- 저장 스크립트: `backend/scripts/tiktok-business-report-dry-run.ts`
+- 저장 위치: `data/ads_csv/tiktok/api/tiktok_business_api_campaign_daily_20260319_20260417.{json,csv}`
+
+따라서 반복 조회는 API 경로로 가능하다. 운영 DB insert 또는 스키마 변경은 별도 승인 후 진행한다.
 
 ## 공식 근거
 
-- API for Business는 TikTok Ads Manager 기능을 프로그램으로 조회·관리할 수 있고, Marketing API는 데이터를 programmatically query할 수 있다.  
+- API for Business는 TikTok Ads Manager 기능을 프로그램으로 조회·관리할 수 있고, Marketing API는 데이터를 programmatically query할 수 있다.
   https://ads.tiktok.com/help/article/marketing-api?lang=en
-- 공식 Help Center는 다음 단계로 API for Business Homepage에서 개발자 등록을 안내한다.  
+- 공식 Help Center는 다음 단계로 API for Business Homepage에서 개발자 등록을 안내한다.
   https://ads.tiktok.com/help/article/marketing-api?lang=en
-- Custom report는 Ads Manager에서 dimension/metric/time range를 선택하고 export할 수 있다.  
+- Custom report는 Ads Manager에서 dimension/metric/time range를 선택하고 export할 수 있다.
   https://ads.tiktok.com/help/article/create-manage-reports?redirected=1
-- Business Center에서 ad account 접근을 요청하려면 Business Center admin이어야 하며, Analyst 권한은 광고와 성과 데이터를 볼 수 있다.  
+- Business Center에서 ad account 접근을 요청하려면 Business Center admin이어야 하며, Analyst 권한은 광고와 성과 데이터를 볼 수 있다.
   https://ads.tiktok.com/help/article/request-access-to-ad-accounts-in-business-center
-- Ad account ID는 Ads Manager의 Account Name > ID 또는 URL에서 확인할 수 있다.  
+- Ad account ID는 Ads Manager의 Account Name > ID 또는 URL에서 확인할 수 있다.
   https://ads.tiktok.com/help/article/find-your-ad-account-id?lang=en
-- TikTok Business API v1.3 공개 Postman 컬렉션 기준 synchronous report endpoint는 `GET /open_api/v1.3/report/integrated/get/`이고 `Access-Token` 헤더를 사용한다.  
+- TikTok Business API v1.3 공개 Postman 컬렉션 기준 synchronous report endpoint는 `GET /open_api/v1.3/report/integrated/get/`이고 `Access-Token` 헤더를 사용한다.
   https://www.postman.com/tiktok/tiktok-api-for-business/request/7d5ufux/run-a-synchronous-report
-- 같은 Postman 컬렉션 기준 OAuth token 교환은 `POST /open_api/v1.3/oauth2/access_token/`에 `app_id`, `secret`, `auth_code`를 전달한다.  
+- 같은 Postman 컬렉션 기준 OAuth token 교환은 `POST /open_api/v1.3/oauth2/access_token/`에 `app_id`, `secret`, `auth_code`를 전달한다.
   https://www.postman.com/tiktok/tiktok-api-for-business/request/36d76ip/tt-user-oauth2-token
-- Events API access token은 Events Manager의 Pixel 설정에서 생성하는 별도 토큰이다. Reporting API 토큰과 혼동하면 안 된다.  
+- Events API access token은 Events Manager의 Pixel 설정에서 생성하는 별도 토큰이다. Reporting API 토큰과 혼동하면 안 된다.
   https://ads.tiktok.com/help/article/how-to-get-tiktok-access-token-for-shoplazza
 
 ## TJ 준비 작업
@@ -102,18 +123,21 @@ curl --globoff 'https://business-api.tiktok.com/open_api/v1.3/report/integrated/
 3. metric 이름 확정
    - 비용: `spend`
    - 노출: `impressions`
-   - 클릭: `clicks` 또는 목적지 클릭 metric
-   - 구매수: TikTok 문서/응답에서 확인
-   - 구매값: TikTok 문서/응답에서 확인
-   - ROAS: TikTok 문서/응답에서 확인
+   - 클릭: `clicks`
+   - 구매수: `conversion` 또는 `complete_payment` (`2026-03-19 ~ 2026-04-17` 합계 둘 다 321건)
+   - 구매값: 직접 `complete_payment_value` metric은 invalid. `complete_payment * value_per_complete_payment`로 복원한다.
+   - ROAS: `complete_payment_roas`는 유효하나 row 단위 소수 2자리 반올림값이다. 구매값 복원에는 `value_per_complete_payment`를 우선한다.
 
 4. 기간 확장
-   - 2026-04-01 ~ 2026-04-18
-   - Guard 적용 전 최대 가능 기간
+   - 2026-03-19 ~ 2026-04-17 dry-run 성공
+   - 이후 필요한 기간은 API로 반복 조회 가능
    - 처음에는 DB insert 없이 JSON/CSV 파일 저장만 수행
 
 5. 프로젝트 적재
-   - dry-run 숫자가 Ads Manager 화면과 맞을 때만 DB 테이블 생성/insert 검토
+   - dry-run 숫자는 기존 CSV와 비용/구매수 기준 일치한다
+   - 구매값은 `complete_payment * value_per_complete_payment` 경로로 CSV와 65원 차이까지 맞는다
+   - API 응답은 `backend/scripts/tiktok-business-report-dry-run.ts`로 표준 CSV/JSON 저장 가능하다
+   - 다음 단계는 기존 `tiktok_ads_daily` 적재 경로와 API source를 연결하는 것이다
    - DB 변경은 TJ 승인 후 진행
 
 ## 요청할 리포트 형태
@@ -137,6 +161,7 @@ curl --globoff 'https://business-api.tiktok.com/open_api/v1.3/report/integrated/
 - access token, app secret, auth code는 Git에 커밋 금지
 - 문서에는 실제 토큰 일부도 기록하지 않음
 - API 조회는 read-only 권한만 사용
+- `auth_code`는 1회성이다. token 교환 후 재사용하면 `Auth_code is used, please re-authorize.`가 반환된다.
 - 운영 DB insert 전에는 JSON/CSV dry-run만 수행
 - Events API 송신 토큰과 Reporting API access token을 분리
 
@@ -152,21 +177,25 @@ curl --globoff 'https://business-api.tiktok.com/open_api/v1.3/report/integrated/
 
 ## 이번 프로젝트 판단
 
-지금은 수동 export가 이미 들어왔으므로 API 설정은 Sprint 2의 필수 선행 조건은 아니다. 핵심 병목은 API가 아니라 metric dictionary, attribution window, source 분류 정밀도, pending fate 검증이다. 다만 과거 기간을 반복 조회하거나 일자별 데이터를 여러 번 뽑아야 하면 API가 낫다.
+API 승인은 완료됐다. 핵심 병목은 API가 아니라 attribution window 확인, source 분류 정밀도, pending fate 검증이다. 과거 기간을 반복 조회하거나 일자별 데이터를 여러 번 뽑는 작업은 이제 API 경로가 CSV보다 낫다.
 
 현재 우선순위:
 
-1. 수동 export를 올바른 컬럼으로 한 번 더 받는다.
-2. scheduled export를 켜서 같은 포맷을 반복 수집한다.
-3. `tiktok_ads_daily`에 적재한다.
-4. 그 파일로 ROAS gap 계산 가능성을 검증한다.
-5. 반복 작업이 생기면 API read-only 자동화를 붙인다.
+1. API 응답을 표준 JSON/CSV로 저장하는 read-only 스크립트를 만든다. — 완료
+2. API JSON/CSV와 기존 Ads Manager CSV 합계를 자동 비교한다.
+3. 비교가 안정되면 기존 `tiktok_ads_daily` 적재 경로에 API source를 추가한다.
+4. DB 변경은 TJ 승인 후 진행한다.
+5. scheduled export는 API 장애 시 백업 경로로 유지한다.
 
 ## API 승인 전 체크리스트
 
-- [ ] Ads Manager Custom report에 `Date`, `Campaign ID`, `Campaign name` 차원 추가
-- [ ] `Cost`, `Purchase count`, `Purchase value`, `CTA/EVTA/VTA purchase`, `CTA/EVTA/VTA ROAS` 지표 추가
+- [x] Ads Manager Custom report에 `Date`, `Campaign ID`, `Campaign name` 차원 추가
+- [x] `Cost`, `Purchase count`, `Purchase value`, `CTA/EVTA/VTA purchase`, `CTA/EVTA/VTA ROAS` 지표 추가
 - [ ] attribution window 화면 설정값 캡처 또는 수동 기록
 - [ ] scheduled export 이메일 수신 설정
-- [ ] export 파일을 `data/ads_csv/tiktok/raw/`에 원본 보관
-- [ ] 로컬 dry-run 파서로 `tiktok_ads_daily` 적재 전 숫자 대조
+- [x] export 파일을 `data/ads_csv/tiktok/raw/`에 원본 보관
+- [x] 로컬 dry-run 파서로 `tiktok_ads_daily` 적재 전 숫자 대조
+- [x] Business API token 교환
+- [x] advertiser list 조회
+- [x] Reporting API 2026-03-19 ~ 2026-04-17 dry-run
+- [x] Reporting API JSON/CSV 저장 스크립트 생성

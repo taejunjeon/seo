@@ -6,6 +6,7 @@ import { getCrmDb } from "./crmLocalDb";
 const TIKTOK_ADS_TABLE = "tiktok_ads_campaign_range";
 const TIKTOK_ADS_DAILY_TABLE = "tiktok_ads_daily";
 const TIKTOK_SOURCE = "biocom_imweb";
+const VIRTUAL_ACCOUNT_EXPIRY_HOURS = 24;
 const OPERATIONAL_ATTRIBUTION_BASE_URL =
   process.env.ATTRIBUTION_OPERATIONAL_BASE_URL?.trim() || "https://att.ainativeos.net";
 const PROCESSED_DIR = path.resolve(__dirname, "..", "..", "data", "ads_csv", "tiktok", "processed");
@@ -100,6 +101,9 @@ type SourceReasonAggregate = {
   amount: number;
 };
 
+type SourcePrecisionTier = "high" | "medium" | "low";
+type TikTokAuditFate = "confirmed_later" | "expired_unpaid" | "canceled" | "false_attribution" | "still_pending";
+
 type DailyStatusAggregate = StatusAggregate & { orderSet: Set<string> };
 
 type DailyAdsAggregate = {
@@ -130,7 +134,13 @@ type TikTokAuditOrder = {
   utmCampaign: string;
   hasTtclid: boolean;
   sourceMatchReasons: string[];
-  precisionTier: "high" | "medium" | "low";
+  precisionTier: SourcePrecisionTier;
+  ageHours: number | null;
+  overVirtualAccountExpiry: boolean;
+  expiryCutoffAt: string;
+  firstSeenAt: string;
+  lastStatusAt: string;
+  fate: TikTokAuditFate;
   evidence: string;
 };
 
@@ -199,6 +209,8 @@ export type TikTokRoasComparison = {
     tiktokPaymentSuccessRows: number;
     byStatus: Record<"confirmed" | "pending" | "canceled" | "unknown", StatusAggregate>;
     sourceReasonSummary: Record<string, SourceReasonAggregate>;
+    sourcePrecisionSummary: Record<SourcePrecisionTier, SourceReasonAggregate>;
+    pendingFateSummary: Record<TikTokAuditFate, SourceReasonAggregate>;
     pendingAuditTop20: TikTokAuditOrder[];
     sampleOrders: Array<{
       loggedAt: string;
@@ -209,7 +221,7 @@ export type TikTokRoasComparison = {
       utmCampaign: string;
       hasTtclid: boolean;
       sourceMatchReasons: string[];
-      precisionTier: "high" | "medium" | "low";
+      precisionTier: SourcePrecisionTier;
     }>;
   };
   gap: {
@@ -299,6 +311,32 @@ const round = (value: number, digits = 6) => {
 };
 
 const toRoas = (revenue: number, spend: number) => (spend > 0 ? round(revenue / spend) : null);
+
+const hoursSince = (value: unknown, nowMs = Date.now()) => {
+  const text = readString(value);
+  if (!text) return null;
+  const parsed = Date.parse(text);
+  if (!Number.isFinite(parsed)) return null;
+  return round((nowMs - parsed) / (60 * 60 * 1000), 1);
+};
+
+const isoAfterHours = (value: unknown, hours: number) => {
+  const text = readString(value);
+  if (!text) return "";
+  const parsed = Date.parse(text);
+  if (!Number.isFinite(parsed)) return "";
+  return new Date(parsed + hours * 60 * 60 * 1000).toISOString();
+};
+
+const pendingFateForStatus = (
+  status: "confirmed" | "pending" | "canceled" | "unknown",
+  overVirtualAccountExpiry: boolean,
+): TikTokAuditFate => {
+  if (status === "confirmed") return "confirmed_later";
+  if (status === "canceled") return "canceled";
+  if (status === "pending" && overVirtualAccountExpiry) return "expired_unpaid";
+  return "still_pending";
+};
 
 const kstDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "Asia/Seoul",
@@ -677,7 +715,7 @@ const importProcessedDailyCsvFiles = async () => {
 
 const listAvailableRanges = () => {
   ensureTikTokAdsSchema();
-  return getCrmDb().prepare(`
+  const campaignRanges = getCrmDb().prepare(`
     SELECT
       report_start AS start_date,
       report_end AS end_date,
@@ -694,16 +732,89 @@ const listAvailableRanges = () => {
     spend: number;
     purchaseValue: number;
   }>;
+  const dailyRanges = getCrmDb().prepare(`
+    SELECT
+      MIN(report_date) AS start_date,
+      MAX(report_date) AS end_date,
+      COUNT(*) AS rows,
+      COALESCE(SUM(spend), 0) AS spend,
+      COALESCE(SUM(purchase_value), 0) AS purchaseValue
+    FROM ${TIKTOK_ADS_DAILY_TABLE}
+    WHERE source_file LIKE '%_daily_campaign.csv'
+    GROUP BY source_file
+    HAVING start_date IS NOT NULL AND end_date IS NOT NULL
+  `).all() as Array<{
+    start_date: string;
+    end_date: string;
+    rows: number;
+    spend: number;
+    purchaseValue: number;
+  }>;
+
+  const byRange = new Map<string, {
+    start_date: string;
+    end_date: string;
+    rows: number;
+    spend: number;
+    purchaseValue: number;
+  }>();
+  for (const range of [...campaignRanges, ...dailyRanges]) {
+    const key = `${range.start_date}:${range.end_date}`;
+    if (!byRange.has(key)) byRange.set(key, range);
+  }
+
+  return [...byRange.values()].sort((left, right) =>
+    right.start_date.localeCompare(left.start_date) || right.end_date.localeCompare(left.end_date),
+  );
 };
 
 const loadAdsRows = (startDate: string, endDate: string) => {
   ensureTikTokAdsSchema();
-  return getCrmDb().prepare(`
+  const campaignRangeRows = getCrmDb().prepare(`
     SELECT *
     FROM ${TIKTOK_ADS_TABLE}
     WHERE report_start = ? AND report_end = ?
     ORDER BY spend DESC, campaign_name ASC
   `).all(startDate, endDate) as TikTokAdsCampaignRangeRow[];
+  if (campaignRangeRows.length > 0) return campaignRangeRows;
+
+  return getCrmDb().prepare(`
+    SELECT
+      ? AS report_start,
+      ? AS report_end,
+      'daily_campaign_aggregate' AS granularity,
+      campaign_id,
+      campaign_name,
+      COALESCE(campaign_status, '') AS status,
+      0 AS campaign_budget,
+      COALESCE(currency, 'KRW') AS currency,
+      COALESCE(SUM(spend), 0) AS spend,
+      COALESCE(SUM(net_cost), 0) AS net_cost,
+      COALESCE(SUM(impressions), 0) AS impressions,
+      COALESCE(SUM(destination_clicks), 0) AS destination_clicks,
+      COALESCE(SUM(conversions), 0) AS conversions,
+      COALESCE(SUM(purchase_count), 0) AS all_channels_total_purchases,
+      COALESCE(SUM(purchase_value), 0) AS all_channels_purchase_value_inferred,
+      CASE WHEN COALESCE(SUM(spend), 0) > 0
+        THEN COALESCE(SUM(purchase_value), 0) / COALESCE(SUM(spend), 0)
+        ELSE 0
+      END AS platform_roas_from_inferred_purchase_value,
+      CASE WHEN COALESCE(SUM(spend), 0) > 0
+        THEN COALESCE(SUM(cta_purchase_value), 0) / COALESCE(SUM(spend), 0)
+        ELSE 0
+      END AS website_cta_purchase_roas,
+      CASE WHEN COALESCE(SUM(spend), 0) > 0
+        THEN COALESCE(SUM(vta_purchase_value), 0) / COALESCE(SUM(spend), 0)
+        ELSE 0
+      END AS website_vta_purchase_roas,
+      MIN(source_file) AS source_file,
+      MAX(attribution_window_note) AS attribution_window_note,
+      MAX(imported_at) AS imported_at
+    FROM ${TIKTOK_ADS_DAILY_TABLE}
+    WHERE report_date BETWEEN ? AND ?
+    GROUP BY campaign_id, campaign_name, campaign_status, currency
+    ORDER BY spend DESC, campaign_name ASC
+  `).all(startDate, endDate, startDate, endDate) as TikTokAdsCampaignRangeRow[];
 };
 
 const loadDailyAdsRows = (startDate: string, endDate: string) => {
@@ -801,7 +912,7 @@ const getTikTokMatchReasons = (entry: RemoteLedgerEntry) => {
   return [...reasons].sort();
 };
 
-const precisionTierForReasons = (reasons: string[]): TikTokAuditOrder["precisionTier"] => {
+const precisionTierForReasons = (reasons: string[]): SourcePrecisionTier => {
   if (reasons.some((reason) => reason.includes("ttclid"))) return "high";
   if (reasons.some((reason) => reason.startsWith("utm_"))) return "medium";
   return "low";
@@ -886,6 +997,18 @@ const buildOperationalSummary = (entries: RemoteLedgerEntry[]) => {
     unknown: { orders: 0, rows: 0, amount: 0, orderSet: new Set() },
   };
   const sourceReasonSummary: Record<string, SourceReasonAggregate & { orderSet: Set<string> }> = {};
+  const sourcePrecisionSummary: Record<SourcePrecisionTier, SourceReasonAggregate & { orderSet: Set<string> }> = {
+    high: { rows: 0, orders: 0, amount: 0, orderSet: new Set() },
+    medium: { rows: 0, orders: 0, amount: 0, orderSet: new Set() },
+    low: { rows: 0, orders: 0, amount: 0, orderSet: new Set() },
+  };
+  const pendingFateSummary: Record<TikTokAuditFate, SourceReasonAggregate & { orderSet: Set<string> }> = {
+    confirmed_later: { rows: 0, orders: 0, amount: 0, orderSet: new Set() },
+    expired_unpaid: { rows: 0, orders: 0, amount: 0, orderSet: new Set() },
+    canceled: { rows: 0, orders: 0, amount: 0, orderSet: new Set() },
+    false_attribution: { rows: 0, orders: 0, amount: 0, orderSet: new Set() },
+    still_pending: { rows: 0, orders: 0, amount: 0, orderSet: new Set() },
+  };
   const samples: TikTokRoasComparison["operational_ledger"]["sampleOrders"] = [];
   const pendingAuditCandidates: TikTokAuditOrder[] = [];
 
@@ -896,6 +1019,8 @@ const buildOperationalSummary = (entries: RemoteLedgerEntry[]) => {
     const orderKey = readString(entry.orderId) || readString(entry.paymentKey) || readString(entry.loggedAt);
     const sourceMatchReasons = getTikTokMatchReasons(entry);
     const precisionTier = precisionTierForReasons(sourceMatchReasons);
+    const ageHours = hoursSince(entry.loggedAt);
+    const overVirtualAccountExpiry = ageHours !== null && ageHours >= VIRTUAL_ACCOUNT_EXPIRY_HOURS;
     const auditOrder: TikTokAuditOrder = {
       loggedAt: readString(entry.loggedAt),
       orderId: readString(entry.orderId),
@@ -907,12 +1032,21 @@ const buildOperationalSummary = (entries: RemoteLedgerEntry[]) => {
       hasTtclid: Boolean(readString(entry.ttclid)) || sourceMatchReasons.some((reason) => reason.includes("ttclid")),
       sourceMatchReasons,
       precisionTier,
+      ageHours,
+      overVirtualAccountExpiry,
+      expiryCutoffAt: isoAfterHours(entry.loggedAt, VIRTUAL_ACCOUNT_EXPIRY_HOURS),
+      firstSeenAt: readString(entry.loggedAt),
+      lastStatusAt: readString(entry.loggedAt),
+      fate: pendingFateForStatus(key, overVirtualAccountExpiry),
       evidence: evidenceForEntry(entry),
     };
 
     aggregate.rows += 1;
     aggregate.amount += amount;
     aggregate.orderSet.add(orderKey);
+    sourcePrecisionSummary[precisionTier].rows += 1;
+    sourcePrecisionSummary[precisionTier].amount += amount;
+    sourcePrecisionSummary[precisionTier].orderSet.add(orderKey);
     for (const reason of sourceMatchReasons) {
       const reasonAggregate = sourceReasonSummary[reason] ?? {
         rows: 0,
@@ -925,7 +1059,13 @@ const buildOperationalSummary = (entries: RemoteLedgerEntry[]) => {
       reasonAggregate.orderSet.add(orderKey);
       sourceReasonSummary[reason] = reasonAggregate;
     }
-    if (key === "pending") pendingAuditCandidates.push(auditOrder);
+    if (key === "pending") {
+      const fateAggregate = pendingFateSummary[auditOrder.fate];
+      fateAggregate.rows += 1;
+      fateAggregate.amount += amount;
+      fateAggregate.orderSet.add(orderKey);
+      pendingAuditCandidates.push(auditOrder);
+    }
     if (samples.length < 10) {
       samples.push({
         loggedAt: auditOrder.loggedAt,
@@ -963,11 +1103,33 @@ const buildOperationalSummary = (entries: RemoteLedgerEntry[]) => {
         },
       ]),
   );
+  const cleanedPrecisionSummary = Object.fromEntries(
+    Object.entries(sourcePrecisionSummary).map(([key, value]) => [
+      key,
+      {
+        rows: value.rows,
+        orders: value.orderSet.size,
+        amount: Math.round(value.amount),
+      },
+    ]),
+  ) as Record<SourcePrecisionTier, SourceReasonAggregate>;
+  const cleanedPendingFateSummary = Object.fromEntries(
+    Object.entries(pendingFateSummary).map(([key, value]) => [
+      key,
+      {
+        rows: value.rows,
+        orders: value.orderSet.size,
+        amount: Math.round(value.amount),
+      },
+    ]),
+  ) as Record<TikTokAuditFate, SourceReasonAggregate>;
 
   return {
     byStatus: cleaned,
     tiktokPaymentSuccessRows: Object.values(cleaned).reduce((sum, value) => sum + value.rows, 0),
     sourceReasonSummary: cleanedReasonSummary,
+    sourcePrecisionSummary: cleanedPrecisionSummary,
+    pendingFateSummary: cleanedPendingFateSummary,
     pendingAuditTop20: pendingAuditCandidates
       .sort((left, right) => right.amount - left.amount)
       .slice(0, 20),
@@ -991,6 +1153,27 @@ const adsSummary = (rows: TikTokAdsCampaignRangeRow[]) => {
     ctaPurchaseRoas: null as number | null,
     vtaPurchaseRoas: null as number | null,
     currency: rows.find((row) => row.currency)?.currency ?? "KRW",
+  };
+};
+
+const dailyAdsSummary = (rows: DailyAdsAggregate[]): TikTokRoasComparison["ads_report"]["summary"] => {
+  const spend = rows.reduce((sum, row) => sum + row.spend, 0);
+  const netCost = rows.reduce((sum, row) => sum + row.netCost, 0);
+  const purchaseValue = rows.reduce((sum, row) => sum + row.platformPurchaseValue, 0);
+  const ctaPurchaseValue = rows.reduce((sum, row) => sum + row.ctaPurchaseValue, 0);
+  const vtaPurchaseValue = rows.reduce((sum, row) => sum + row.vtaPurchaseValue, 0);
+  return {
+    spend: Math.round(spend),
+    netCost: Math.round(netCost),
+    impressions: rows.reduce((sum, row) => sum + row.impressions, 0),
+    destinationClicks: rows.reduce((sum, row) => sum + row.destinationClicks, 0),
+    conversions: rows.reduce((sum, row) => sum + row.conversions, 0),
+    purchases: rows.reduce((sum, row) => sum + row.platformPurchases, 0),
+    purchaseValue: Math.round(purchaseValue),
+    platformRoas: spend > 0 ? round(purchaseValue / spend) : null,
+    ctaPurchaseRoas: spend > 0 && ctaPurchaseValue > 0 ? round(ctaPurchaseValue / spend) : null,
+    vtaPurchaseRoas: spend > 0 && vtaPurchaseValue > 0 ? round(vtaPurchaseValue / spend) : null,
+    currency: "KRW",
   };
 };
 
@@ -1159,13 +1342,16 @@ export const buildTikTokRoasComparison = async (params: {
   const dailyAdsRows = loadDailyAdsRows(startDate, endDate);
   const warnings: string[] = [];
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && dailyAdsRows.length === 0) {
     warnings.push(`TikTok Ads 로컬 테이블에 ${startDate} ~ ${endDate} 행이 없다.`);
+  }
+  if (rows.length === 0 && dailyAdsRows.length > 0) {
+    warnings.push(`기간 합계 테이블에는 ${startDate} ~ ${endDate} 행이 없어 일자별 TikTok Ads 테이블 합계로 상단 요약을 계산한다.`);
   }
 
   const remoteEntries = await fetchOperationalLedger(startDate, endDate);
   const operational = buildOperationalSummary(remoteEntries);
-  const summary = adsSummary(rows);
+  const summary = rows.length > 0 ? adsSummary(rows) : dailyAdsSummary(dailyAdsRows);
   const dailyComparison = buildDailyComparison(startDate, endDate, dailyAdsRows, remoteEntries);
   const confirmedRevenue = operational.byStatus.confirmed.amount;
   const pendingRevenue = operational.byStatus.pending.amount;
@@ -1181,6 +1367,7 @@ export const buildTikTokRoasComparison = async (params: {
   if (rows.some((row) => row.all_channels_purchase_value_inferred > 0)) {
     warnings.push("한국어 export의 중복 구매 헤더를 구매값으로 추정했다. Ads Manager 화면에서 한 번 대조 필요.");
   }
+  const campaignRowsFromDailyAggregate = rows.some((row) => row.granularity === "daily_campaign_aggregate");
 
   return {
     ok: true,
@@ -1231,6 +1418,8 @@ export const buildTikTokRoasComparison = async (params: {
       tiktokPaymentSuccessRows: operational.tiktokPaymentSuccessRows,
       byStatus: operational.byStatus,
       sourceReasonSummary: operational.sourceReasonSummary,
+      sourcePrecisionSummary: operational.sourcePrecisionSummary,
+      pendingFateSummary: operational.pendingFateSummary,
       pendingAuditTop20: operational.pendingAuditTop20,
       sampleOrders: operational.samples,
     },
@@ -1250,6 +1439,9 @@ export const buildTikTokRoasComparison = async (params: {
     notes: [
       "운영 VM은 read-only 조회만 수행한다.",
       "로컬 SQLite 테이블은 TikTok XLSX/CSV 처리 결과를 조회하기 위한 캐시다.",
+      campaignRowsFromDailyAggregate
+        ? "캠페인별 플랫폼 ROAS는 기간 합계 export가 없으면 일자별 campaign 테이블을 캠페인 단위로 합산해 계산한다."
+        : "캠페인별 플랫폼 ROAS는 기간 합계 export 테이블 기준이다.",
       dailyTableState.rows > 0
         ? "일자별 export는 tiktok_ads_daily에 적재했지만, 현재 gap summary는 기간 합계 테이블 기준이다."
         : "일자별 export가 없으므로 현재 결과는 캠페인 기간 합계 기준이다.",

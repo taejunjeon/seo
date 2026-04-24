@@ -21,6 +21,9 @@ import { createTossRouter } from "../routes/toss";
 import { createAdsRouter } from "../routes/ads";
 import { createMetaCapiRouter, createMetaRouter } from "../routes/meta";
 import { createSourceFreshnessRouter } from "../routes/sourceFreshness";
+import { createAibioRouter } from "../routes/aibio";
+import { createCoffeeRouter } from "../routes/coffee";
+import { createCoupangRouter } from "../routes/coupang";
 
 export const registerRoutes = (app: Application) => {
   app.use(createGscRouter());
@@ -44,6 +47,9 @@ export const registerRoutes = (app: Application) => {
   app.use(createDiagnosisRouter());
   app.use(createRefundRouter());
   app.use(createIdentityCoverageRouter());
+  app.use(createAibioRouter());
+  app.use(createCoffeeRouter());
+  app.use(createCoupangRouter());
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({

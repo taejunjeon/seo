@@ -428,6 +428,267 @@ function initTables(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_refund_dispatch_detected ON refund_dispatch_log(detected_at DESC);
     CREATE INDEX IF NOT EXISTS idx_refund_dispatch_site ON refund_dispatch_log(site, detected_at DESC);
+
+    CREATE TABLE IF NOT EXISTS aibio_customers (
+      customer_id INTEGER PRIMARY KEY,
+      name TEXT,
+      phone TEXT,
+      phone_normalized TEXT,
+      email TEXT,
+      gender TEXT,
+      birth_year INTEGER,
+      region TEXT,
+      referral_source TEXT,
+      first_visit_date TEXT,
+      last_visit_date TEXT,
+      total_visits INTEGER DEFAULT 0,
+      total_revenue INTEGER DEFAULT 0,
+      customer_status TEXT,
+      membership_level TEXT,
+      is_registered INTEGER DEFAULT 0,
+      deleted INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      synced_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_aibio_cust_phone ON aibio_customers(phone_normalized);
+    CREATE INDEX IF NOT EXISTS idx_aibio_cust_status ON aibio_customers(customer_status);
+
+    CREATE TABLE IF NOT EXISTS aibio_payments (
+      payment_id INTEGER PRIMARY KEY,
+      customer_id INTEGER,
+      payment_date TEXT NOT NULL,
+      amount INTEGER NOT NULL DEFAULT 0,
+      payment_method TEXT,
+      approval_number TEXT,
+      card_holder_name TEXT,
+      payment_number TEXT,
+      notes TEXT,
+      is_refund INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      synced_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_aibio_pay_cust ON aibio_payments(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_aibio_pay_date ON aibio_payments(payment_date);
+    CREATE INDEX IF NOT EXISTS idx_aibio_pay_refund ON aibio_payments(is_refund);
+
+    -- 아임웹 어드민 엑셀 다운로드(주문 기본 양식) 적재 테이블
+    -- phone 비마스킹 · 이메일 · 취소사유 등 PG에 없는 정보 보유
+    -- 한 행은 옵션·품목 단위 (주문 1건이 여러 행으로 펼쳐짐)
+    CREATE TABLE IF NOT EXISTS coffee_orders_excel (
+      row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      channel TEXT,
+      order_no TEXT NOT NULL,
+      status TEXT,
+      total_item_amount INTEGER,
+      total_discount INTEGER,
+      total_shipping INTEGER,
+      total_points_used INTEGER,
+      final_amount INTEGER,
+      orderer_name TEXT,
+      orderer_email TEXT,
+      orderer_phone TEXT,
+      orderer_phone_norm TEXT,
+      ship_method TEXT,
+      ship_pay_method TEXT,
+      invoice_no TEXT,
+      section_no TEXT,
+      section_item_no TEXT,
+      qty INTEGER,
+      product_name TEXT,
+      option_name TEXT,
+      unit_price INTEGER,
+      item_grade_discount INTEGER,
+      item_points_used INTEGER,
+      item_coupon_discount INTEGER,
+      item_paid_price INTEGER,
+      receiver_name TEXT,
+      receiver_phone TEXT,
+      receiver_phone_norm TEXT,
+      ship_country_code TEXT,
+      ship_zip TEXT,
+      ship_addr1 TEXT,
+      ship_addr2 TEXT,
+      ship_memo TEXT,
+      carrier TEXT,
+      cancel_reason TEXT,
+      return_reason TEXT,
+      cancel_reason_detail TEXT,
+      return_reason_detail TEXT,
+      ordered_at TEXT,
+      product_uniq_no TEXT,
+      source_file TEXT,
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(order_no, section_item_no, source_file)
+    );
+    CREATE INDEX IF NOT EXISTS idx_coe_phone ON coffee_orders_excel(orderer_phone_norm);
+    CREATE INDEX IF NOT EXISTS idx_coe_orderno ON coffee_orders_excel(order_no);
+    CREATE INDEX IF NOT EXISTS idx_coe_date ON coffee_orders_excel(ordered_at);
+    CREATE INDEX IF NOT EXISTS idx_coe_status ON coffee_orders_excel(status);
+    CREATE INDEX IF NOT EXISTS idx_coe_channel ON coffee_orders_excel(channel);
+
+    -- 아임웹 어드민 엑셀(결제 기본 양식) 적재 테이블
+    -- 주문 1건이 1결제번호로 1:1 매핑 · 결제수단 분리 · PG거래번호로 Toss 직접 매칭 가능
+    -- 환불은 음수 금액 + payment_kind='환불'
+    CREATE TABLE IF NOT EXISTS coffee_payments_excel (
+      row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_no TEXT NOT NULL,           -- 주문번호 (orders 매칭 키)
+      payment_no TEXT NOT NULL,         -- 결제번호 (UNIQUE)
+      payment_status TEXT,              -- 결제완료/전체환불/부분환불/입금전 취소/결제기한초과
+      payment_at TEXT,                  -- 결제시간 datetime
+      payment_method TEXT,              -- 카드/네이버페이/정기결제/무통장입금/가상계좌/실시간계좌이체/무료결제
+      payment_kind TEXT,                -- 결제 / 환불
+      amount INTEGER,                   -- 음수 = 환불
+      pay_detail TEXT,                  -- 간편결제 잔액 상세정보
+      pg_order_no TEXT,                 -- PG주문번호 (pa20251231xxx 등)
+      pg_tx_no TEXT,                    -- PG거래번호 (iw_th... = Toss MID, IBclean... = 이니시스 빌링)
+      bank_name TEXT,
+      bank_account TEXT,
+      account_holder TEXT,
+      depositor_name TEXT,
+      expired_at TEXT,
+      cash_receipt_request TEXT,
+      cash_receipt_no TEXT,
+      cash_receipt_at TEXT,
+      is_refund INTEGER GENERATED ALWAYS AS (CASE WHEN amount < 0 OR payment_kind='환불' THEN 1 ELSE 0 END) STORED,
+      pg_provider TEXT GENERATED ALWAYS AS (
+        CASE
+          WHEN pg_tx_no LIKE 'iw_th%' THEN 'toss'
+          WHEN pg_tx_no LIKE 'IBclean%' THEN 'inicis_billing'
+          WHEN pg_order_no LIKE 'pa%' THEN 'naverpay'
+          ELSE NULL
+        END
+      ) STORED,
+      source_file TEXT,
+      imported_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(payment_no, source_file)
+    );
+    CREATE INDEX IF NOT EXISTS idx_cpe_order ON coffee_payments_excel(order_no);
+    CREATE INDEX IF NOT EXISTS idx_cpe_paymentno ON coffee_payments_excel(payment_no);
+    CREATE INDEX IF NOT EXISTS idx_cpe_status ON coffee_payments_excel(payment_status);
+    CREATE INDEX IF NOT EXISTS idx_cpe_method ON coffee_payments_excel(payment_method);
+    CREATE INDEX IF NOT EXISTS idx_cpe_pgtx ON coffee_payments_excel(pg_tx_no);
+    CREATE INDEX IF NOT EXISTS idx_cpe_pgorder ON coffee_payments_excel(pg_order_no);
+    CREATE INDEX IF NOT EXISTS idx_cpe_at ON coffee_payments_excel(payment_at);
+    CREATE INDEX IF NOT EXISTS idx_cpe_provider ON coffee_payments_excel(pg_provider);
+
+    -- 더클린커피 정기구독 트랙 (전략 3 운영 테이블)
+    -- 매 결제 sync 후 카운터 갱신, 트랙 자동 업데이트
+    -- 트랙: NONE(0회) → SUBSCRIBER(1회+) → LOYALIST(6회+) → MANIAC(12회+) → EVERGREEN(24회+)
+    CREATE TABLE IF NOT EXISTS coffee_subscriber_track (
+      phone_normalized TEXT PRIMARY KEY,
+      member_code TEXT,                          -- imweb_members 조인 가능 (선택)
+      total_payments_lifetime INTEGER NOT NULL DEFAULT 0,
+      total_payments_12m INTEGER NOT NULL DEFAULT 0,
+      total_amount_lifetime INTEGER NOT NULL DEFAULT 0,
+      total_amount_12m INTEGER NOT NULL DEFAULT 0,
+      first_payment_at TEXT,
+      last_payment_at TEXT,
+      current_track TEXT NOT NULL DEFAULT 'NONE',  -- NONE/SUBSCRIBER/LOYALIST/MANIAC/EVERGREEN
+      previous_track TEXT,
+      track_changed_at TEXT,                       -- 등급 변경 시 알림톡 트리거 기준
+      churn_risk INTEGER NOT NULL DEFAULT 0,       -- 0/1 — 직전 30일 결제 없음
+      last_calculated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cst_track ON coffee_subscriber_track(current_track);
+    CREATE INDEX IF NOT EXISTS idx_cst_changed ON coffee_subscriber_track(track_changed_at);
+    CREATE INDEX IF NOT EXISTS idx_cst_churn ON coffee_subscriber_track(churn_risk);
+    CREATE INDEX IF NOT EXISTS idx_cst_member ON coffee_subscriber_track(member_code);
+
+    -- 트랙 변경 이력 (알림톡 발송·이탈 분석용)
+    CREATE TABLE IF NOT EXISTS coffee_subscriber_track_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phone_normalized TEXT NOT NULL,
+      from_track TEXT,
+      to_track TEXT NOT NULL,
+      payments_12m INTEGER NOT NULL,
+      amount_12m INTEGER NOT NULL,
+      changed_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cstl_phone ON coffee_subscriber_track_log(phone_normalized);
+    CREATE INDEX IF NOT EXISTS idx_cstl_changed ON coffee_subscriber_track_log(changed_at DESC);
+
+    -- 정기구독 알림톡·이탈방지 발송 이력 (중복 방지 + 운영 추적)
+    CREATE TABLE IF NOT EXISTS coffee_notification_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phone_normalized TEXT NOT NULL,
+      template_key TEXT NOT NULL,            -- TRACK_SUBSCRIBER_WELCOME / ... / CHURN_30_GENTLE 등
+      template_code TEXT,                    -- 알리고 발급 tpl_code
+      track_at_send TEXT,                    -- 발송 시점 트랙
+      payments_12m_at_send INTEGER,
+      receiver_name TEXT,
+      message_preview TEXT,
+      send_status TEXT NOT NULL,             -- queued / sent / failed / skipped
+      send_response TEXT,                    -- 알리고 응답 JSON 일부
+      test_mode INTEGER NOT NULL DEFAULT 1,  -- 1 = test (default), 0 = live
+      sent_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cnl_phone ON coffee_notification_log(phone_normalized);
+    CREATE INDEX IF NOT EXISTS idx_cnl_template ON coffee_notification_log(template_key);
+    CREATE INDEX IF NOT EXISTS idx_cnl_status ON coffee_notification_log(send_status);
+    CREATE INDEX IF NOT EXISTS idx_cnl_sent ON coffee_notification_log(sent_at DESC);
+    -- 같은 phone × 같은 템플릿 30일 내 재발송 방지용 인덱스
+    CREATE INDEX IF NOT EXISTS idx_cnl_dedup ON coffee_notification_log(phone_normalized, template_key, sent_at DESC);
+
+    -- 쿠팡 Wing Open API ordersheets 적재 테이블
+    -- shipment_box_id(배송번호) 단위 UNIQUE · 한 order_id가 여러 shipment_box로 분할될 수 있음
+    CREATE TABLE IF NOT EXISTS coupang_ordersheets_api (
+      shipment_box_id INTEGER PRIMARY KEY,
+      vendor_id TEXT NOT NULL,
+      order_id INTEGER,
+      ordered_at TEXT,
+      paid_at TEXT,
+      status TEXT,
+      orderer_name TEXT,
+      orderer_safe_number TEXT,
+      orderer_email TEXT,
+      receiver_name TEXT,
+      receiver_safe_number TEXT,
+      receiver_addr1 TEXT,
+      receiver_addr2 TEXT,
+      total_price INTEGER,
+      discount_price INTEGER,
+      delivery_price INTEGER,
+      item_count INTEGER,
+      raw_json TEXT,
+      synced_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_coa_vendor ON coupang_ordersheets_api(vendor_id);
+    CREATE INDEX IF NOT EXISTS idx_coa_order ON coupang_ordersheets_api(order_id);
+    CREATE INDEX IF NOT EXISTS idx_coa_status ON coupang_ordersheets_api(status);
+    CREATE INDEX IF NOT EXISTS idx_coa_ordered ON coupang_ordersheets_api(ordered_at);
+
+    -- 쿠팡 정산 내역 (settlement-histories API)
+    -- Wing "최종지급액" = finalAmount · 월별·vendor별 매출 분석 원장
+    -- brand_project 는 초기 null · 상품명 매칭 Phase 2 에서 태깅
+    CREATE TABLE IF NOT EXISTS coupang_settlements_api (
+      settlement_id TEXT PRIMARY KEY,
+      vendor_id TEXT NOT NULL,
+      brand_project TEXT,
+      settlement_type TEXT,
+      settlement_date TEXT,
+      recognition_year_month TEXT,
+      recognition_date_from TEXT,
+      recognition_date_to TEXT,
+      total_sale INTEGER,
+      service_fee INTEGER,
+      settlement_target_amount INTEGER,
+      settlement_amount INTEGER,
+      last_amount INTEGER,
+      deduction_amount INTEGER,
+      seller_discount_coupon INTEGER,
+      downloadable_coupon INTEGER,
+      final_amount INTEGER NOT NULL DEFAULT 0,
+      status TEXT,
+      raw_json TEXT,
+      synced_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cs_vendor ON coupang_settlements_api(vendor_id);
+    CREATE INDEX IF NOT EXISTS idx_cs_ym ON coupang_settlements_api(recognition_year_month);
+    CREATE INDEX IF NOT EXISTS idx_cs_date ON coupang_settlements_api(settlement_date);
+    CREATE INDEX IF NOT EXISTS idx_cs_brand ON coupang_settlements_api(brand_project);
+    CREATE INDEX IF NOT EXISTS idx_cs_type ON coupang_settlements_api(settlement_type);
   `);
 
   ensureColumn(db, "crm_experiments", "funnel_stage", "TEXT NOT NULL DEFAULT 'post_purchase'");

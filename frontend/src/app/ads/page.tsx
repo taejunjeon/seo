@@ -154,6 +154,30 @@ type AttributionCampaignRoasResponse = {
   };
 };
 
+// 2026-04-21 Phase3-Sprint7. /api/ads/coop-order-summary 엔드포인트 응답 타입.
+// 주문 단위로 공동구매를 분류한 결과. allowlist/utm/landing/product_family/product_name_pattern 6개 신호 분해.
+type CoopBasisCount = { orders: number; revenue: number };
+type CoopCampaignRow = {
+  campaign_id: string;
+  partner: string;
+  round: number | null;
+  orders: number;
+  revenue: number;
+};
+type CoopOrderSummaryV2 = {
+  ok: boolean;
+  site: string;
+  range: { start: string; end: string };
+  campaigns_loaded: number;
+  orders: {
+    total_in_range: number;
+    coop_matched: number;
+    coop_revenue: number;
+  };
+  by_basis: Record<string, CoopBasisCount>;
+  by_campaign: CoopCampaignRow[];
+};
+
 type CampaignLtvRoasRow = AttributionCampaignRoasRow & {
   ltvRevenue: number;
   repeatRevenue: number;
@@ -546,6 +570,9 @@ export default function AdsPage() {
   const [campaignRoas, setCampaignRoas] = useState<AttributionCampaignRoasResponse | null>(null);
   // 2026-04-20: 공동구매 캠페인 분리 표시 필터 (§ H/I). 기본 general만 보기.
   const [campaignTypeFilter, setCampaignTypeFilter] = useState<"all" | "general" | "coop">("general");
+  // 2026-04-21 Phase3-Sprint7 공동구매 주문 단위 분리 v2. Q1 2026 기준 고정 조회.
+  const [coopOrderSummary, setCoopOrderSummary] = useState<CoopOrderSummaryV2 | null>(null);
+  const [coopOrderSummaryError, setCoopOrderSummaryError] = useState<string | null>(null);
   const [campaignLtvRoas, setCampaignLtvRoas] = useState<CampaignLtvRoasResponse | null>(null);
   const [campaignLtvRoasError, setCampaignLtvRoasError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -711,6 +738,30 @@ export default function AdsPage() {
 
     return () => ac.abort();
   }, [selectedSite.site, datePreset]);
+
+  // 2026-04-21 Phase3-Sprint7. 공동구매 주문 단위 분리 v2 (biocom Q1 2026 고정).
+  useEffect(() => {
+    if (selectedSite.site !== "biocom") {
+      setCoopOrderSummary(null);
+      setCoopOrderSummaryError(null);
+      return;
+    }
+    const ac = new AbortController();
+    setCoopOrderSummaryError(null);
+    fetch(`${API_BASE}/api/ads/coop-order-summary?site=biocom&start_date=2026-01-01&end_date=2026-04-01`, { signal: ac.signal })
+      .then((r) => r.json())
+      .then((data: CoopOrderSummaryV2 & { error?: string }) => {
+        if (!data?.ok) throw new Error(data?.error ?? "coop-order-summary unavailable");
+        setCoopOrderSummary(data);
+      })
+      .catch((error) => {
+        if (!ac.signal.aborted) {
+          setCoopOrderSummary(null);
+          setCoopOrderSummaryError(error instanceof Error ? error.message : "coop-order-summary unavailable");
+        }
+      });
+    return () => ac.abort();
+  }, [selectedSite.site]);
 
   useEffect(() => {
     const updateNow = () => setCapiNowMs(Date.now());
@@ -984,6 +1035,130 @@ export default function AdsPage() {
           <strong>{(campaignRoas.summary.general?.roas ?? 0).toFixed(2)}x</strong>{" "}
           × 공동구매 ROAS <strong>{(campaignRoas.summary.coop.roas ?? 0).toFixed(2)}x</strong> 혼합.
           {" "}일반 광고 효율만 보려면 하단 캠페인 표에서 <strong>공동구매 태그</strong> 캠페인을 필터하시오.
+          <div style={{ marginTop: 6, fontSize: "0.72rem", color: "#b45309", lineHeight: 1.45 }}>
+            v1 분리 기준: Meta 캠페인명에 <code>공동구매</code> 또는 <code>공구</code> 포함.
+            UTM · landing · 상품명 <code>[공구]</code>/<code>[파트너명]</code> 기반 주문 식별은 v2 카드(아래) 참조.
+          </div>
+        </div>
+      )}
+
+      {/* 2026-04-21 Phase3-Sprint7. 공동구매 주문 단위 분리 v2 카드. biocom Q1 2026 고정. */}
+      {selectedSite.site === "biocom" && coopOrderSummary && (
+        <div style={{
+          marginBottom: 12,
+          padding: "12px 14px",
+          borderRadius: 8,
+          background: "#f0fdf4",
+          border: "1px solid #bbf7d0",
+          color: "#166534",
+          fontSize: "0.78rem",
+          lineHeight: 1.5,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
+            <strong style={{ fontSize: "0.86rem" }}>📦 공동구매 주문 단위 분리 v2 (2026 Q1 전체, biocom)</strong>
+            <span style={{ fontSize: "0.7rem", color: "#64748b" }}>
+              마스터 {coopOrderSummary.campaigns_loaded}개 · {coopOrderSummary.range.start} ~ {coopOrderSummary.range.end}
+            </span>
+          </div>
+          <div style={{
+            display: "inline-block",
+            marginBottom: 8,
+            padding: "2px 8px",
+            borderRadius: 4,
+            background: "#fef3c7",
+            color: "#92400e",
+            fontSize: "0.66rem",
+            fontWeight: 700,
+            letterSpacing: "0.02em",
+          }}>
+            ⚠️ 2026 Q1 회고용 · 현재 기간 필터와 무관 · v1.0 stop-line
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            전체 주문 <strong>{coopOrderSummary.orders.total_in_range.toLocaleString()}</strong>건 중 공동구매{" "}
+            <strong>{coopOrderSummary.orders.coop_matched.toLocaleString()}</strong>건 ·{" "}
+            <strong>{coopOrderSummary.orders.coop_revenue.toLocaleString()}원</strong>{" "}
+            ({((coopOrderSummary.orders.coop_matched / Math.max(1, coopOrderSummary.orders.total_in_range)) * 100).toFixed(1)}%).
+            <span style={{ color: "#64748b", marginLeft: 6 }}>
+              Meta 캠페인명 기준 v1은 상단 배너, 여기는 주문 단위 6개 신호 OR 매칭.
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 10 }}>
+            {(["allowlist", "utm_campaign", "utm_source", "landing", "product_family", "product_name_pattern"] as const).map((key) => {
+              const bucket = coopOrderSummary.by_basis[key] ?? { orders: 0, revenue: 0 };
+              const labels: Record<string, string> = {
+                allowlist: "주문번호 allowlist (신뢰 1.0)",
+                utm_campaign: "UTM 캠페인 (0.9)",
+                utm_source: "UTM 소스 (0.85)",
+                landing: "랜딩 경로 (0.85)",
+                product_family: "상품 패턴 — 마스터 (0.6)",
+                product_name_pattern: "상품 접두사 fallback (0.5)",
+              };
+              return (
+                <div key={key} style={{
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  background: bucket.orders > 0 ? "#fff" : "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  opacity: bucket.orders > 0 ? 1 : 0.6,
+                }}>
+                  <div style={{ fontSize: "0.66rem", color: "#64748b", marginBottom: 2 }}>{labels[key]}</div>
+                  <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#0f172a" }}>
+                    {bucket.orders.toLocaleString()}건 · {bucket.revenue.toLocaleString()}원
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <details>
+            <summary style={{ cursor: "pointer", fontSize: "0.72rem", color: "#166534", fontWeight: 600 }}>
+              Top 공구 {Math.min(10, coopOrderSummary.by_campaign.length)}개 펼치기
+            </summary>
+            <table style={{ width: "100%", marginTop: 6, fontSize: "0.72rem", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#ecfdf5", color: "#065f46" }}>
+                  <th style={{ textAlign: "left", padding: "4px 6px" }}>공구</th>
+                  <th style={{ textAlign: "right", padding: "4px 6px" }}>주문</th>
+                  <th style={{ textAlign: "right", padding: "4px 6px" }}>매출</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coopOrderSummary.by_campaign.slice(0, 10).map((c) => (
+                  <tr key={c.campaign_id} style={{ borderBottom: "1px solid #d1fae5" }}>
+                    <td style={{ padding: "4px 6px" }}>{c.partner} {c.round ? `${c.round}차` : ""}</td>
+                    <td style={{ padding: "4px 6px", textAlign: "right" }}>{c.orders.toLocaleString()}</td>
+                    <td style={{ padding: "4px 6px", textAlign: "right" }}>{c.revenue.toLocaleString()}원</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        </div>
+      )}
+      {selectedSite.site === "biocom" && coopOrderSummaryError && (
+        <div style={{
+          marginBottom: 12,
+          padding: "8px 12px",
+          borderRadius: 6,
+          background: "#fee2e2",
+          color: "#991b1b",
+          fontSize: "0.72rem",
+        }}>
+          ⚠️ 공동구매 v2 로드 실패: {coopOrderSummaryError}
+        </div>
+      )}
+      {/* biocom 외 사이트 안내 (v1.0 stop-line: 현재 biocom만 마스터 존재) */}
+      {selectedSite.site !== "biocom" && (
+        <div style={{
+          marginBottom: 12,
+          padding: "6px 10px",
+          borderRadius: 6,
+          background: "#f8fafc",
+          color: "#64748b",
+          fontSize: "0.7rem",
+          border: "1px dashed #cbd5e1",
+        }}>
+          📦 공동구매 v2 카드는 biocom 전용입니다. {selectedSite.site}는 아직{" "}
+          <code>data/coop_campaigns.{selectedSite.site}.json</code> 마스터가 없어 표시하지 않습니다.
         </div>
       )}
 

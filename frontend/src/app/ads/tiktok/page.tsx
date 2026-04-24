@@ -63,8 +63,16 @@ type SampleOrder = {
   precisionTier: "high" | "medium" | "low";
 };
 
+type PendingAuditFate = "confirmed_later" | "expired_unpaid" | "canceled" | "false_attribution" | "still_pending";
+
 type PendingAuditOrder = SampleOrder & {
   paymentKey: string;
+  ageHours: number | null;
+  overVirtualAccountExpiry: boolean;
+  expiryCutoffAt: string;
+  firstSeenAt: string;
+  lastStatusAt: string;
+  fate: PendingAuditFate;
   evidence: string;
 };
 
@@ -155,6 +163,8 @@ type TikTokRoasResponse = {
     tiktokPaymentSuccessRows: number;
     byStatus: Record<"confirmed" | "pending" | "canceled" | "unknown", StatusAggregate>;
     sourceReasonSummary: Record<string, SourceReasonAggregate>;
+    sourcePrecisionSummary: Record<"high" | "medium" | "low", SourceReasonAggregate>;
+    pendingFateSummary: Record<PendingAuditFate, SourceReasonAggregate>;
     pendingAuditTop20: PendingAuditOrder[];
     sampleOrders: SampleOrder[];
   };
@@ -180,8 +190,8 @@ type TikTokRoasResponse = {
 };
 
 const DEFAULT_RANGE = {
-  startDate: "2026-03-19",
-  endDate: "2026-04-17",
+  startDate: "2026-04-18",
+  endDate: "2026-04-22",
 };
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
@@ -244,6 +254,21 @@ const precisionTone = (tier: "high" | "medium" | "low"): Tone => {
   if (tier === "high") return "green";
   if (tier === "medium") return "amber";
   return "red";
+};
+
+const fateLabel = (fate: PendingAuditOrder["fate"]) => ({
+  confirmed_later: "후속 입금",
+  expired_unpaid: "미입금 만료",
+  canceled: "취소",
+  false_attribution: "오귀속",
+  still_pending: "대기",
+}[fate] ?? fate);
+
+const fateTone = (fate: PendingAuditOrder["fate"]): Tone => {
+  if (fate === "confirmed_later") return "green";
+  if (fate === "still_pending") return "amber";
+  if (fate === "expired_unpaid" || fate === "canceled" || fate === "false_attribution") return "red";
+  return "neutral";
 };
 
 const reasonLabel = (reason: string) => ({
@@ -382,6 +407,57 @@ export default function TikTokAdsPerformancePage() {
   const sourceReasonRows = Object.entries(data?.operational_ledger.sourceReasonSummary ?? {})
     .sort(([, left], [, right]) => right.amount - left.amount);
   const pendingAuditRows = data?.operational_ledger.pendingAuditTop20 ?? [];
+  const pendingFateSummary = data?.operational_ledger.pendingFateSummary;
+  const stillPending = pendingFateSummary?.still_pending ?? { rows: 0, orders: 0, amount: 0 };
+  const expiredUnpaid = pendingFateSummary?.expired_unpaid ?? { rows: 0, orders: 0, amount: 0 };
+  const stillPendingShare = pending.orders > 0 ? stillPending.orders / pending.orders * 100 : null;
+  const precisionSummary = data?.operational_ledger.sourcePrecisionSummary ?? {
+    high: { rows: 0, orders: 0, amount: 0 },
+    medium: { rows: 0, orders: 0, amount: 0 },
+    low: { rows: 0, orders: 0, amount: 0 },
+  };
+  const highConfidenceAmount = precisionSummary.high.amount;
+  const broadAttributionAmount = precisionSummary.high.amount + precisionSummary.medium.amount + precisionSummary.low.amount;
+  const lowConfidenceAmount = precisionSummary.low.amount;
+  const unexplainedGap = Math.max(0, (summary?.purchaseValue ?? 0) - (confirmed.amount + pending.amount));
+  const waterfallRows = [
+    {
+      label: "TikTok 플랫폼 구매값",
+      value: summary?.purchaseValue ?? 0,
+      detail: `${fmtNum(summary?.purchases)}건`,
+      tone: "amber" as const,
+    },
+    {
+      label: "내부 confirmed",
+      value: confirmed.amount,
+      detail: `${fmtNum(confirmed.orders)}건`,
+      tone: confirmed.amount > 0 ? "green" as const : "red" as const,
+    },
+    {
+      label: "내부 pending",
+      value: pending.amount,
+      detail: `${fmtNum(pending.orders)}건`,
+      tone: "amber" as const,
+    },
+    {
+      label: "설명 안 된 gap",
+      value: unexplainedGap,
+      detail: "플랫폼 구매값 - confirmed - pending",
+      tone: unexplainedGap > 0 ? "red" as const : "green" as const,
+    },
+    {
+      label: "High 근거 금액",
+      value: highConfidenceAmount,
+      detail: `${fmtNum(precisionSummary.high.orders)}건 · ttclid 직접/URL 근거`,
+      tone: "green" as const,
+    },
+    {
+      label: "Low 제외 후보",
+      value: lowConfidenceAmount,
+      detail: `${fmtNum(precisionSummary.low.orders)}건 · referrer/metadata 넓은 기준`,
+      tone: lowConfidenceAmount > 0 ? "red" as const : "neutral" as const,
+    },
+  ];
   const dailyRows = useMemo(() => data?.daily_comparison.rows ?? [], [data?.daily_comparison.rows]);
   const dailySummary = data?.daily_comparison.summary;
   const dailyGuard = data?.daily_comparison.guardBreakdown;
@@ -491,8 +567,55 @@ export default function TikTokAdsPerformancePage() {
                 ? "로컬 TikTok Ads 테이블과 운영 VM 원장을 조회하고 있습니다."
                 : error
                   ? error
-                  : `TikTok 플랫폼은 구매값 ${fmtKRW(summary?.purchaseValue)}와 ROAS ${fmtRoas(summary?.platformRoas)}를 보고하지만, 운영 VM 원장의 TikTok 귀속 confirmed 매출은 ${fmtKRW(data?.gap.confirmedRevenue)}입니다. pending은 ${fmtKRW(data?.gap.pendingRevenue)}로 분리됩니다.`}
+                  : `TikTok 플랫폼은 구매값 ${fmtKRW(summary?.purchaseValue)}와 ROAS ${fmtRoas(summary?.platformRoas)}를 보고하지만, 운영 VM 원장의 TikTok 귀속 confirmed 매출은 ${fmtKRW(data?.gap.confirmedRevenue)}입니다. pending ${fmtNum(pending.orders)}건 중 24시간 미만 대기는 ${fmtNum(stillPending.orders)}건이고, 24시간 초과 미입금 만료 후보는 ${fmtNum(expiredUnpaid.orders)}건 ${fmtKRW(expiredUnpaid.amount)}입니다.`}
             </p>
+          </section>
+
+          <section
+            style={{
+              border: "1px solid #cbd5e1",
+              borderRadius: 8,
+              background: "#ffffff",
+              padding: 20,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>ROAS Gap Waterfall</h2>
+                <p style={{ margin: "7px 0 0", color: "#64748b", fontSize: "0.8rem", lineHeight: 1.65 }}>
+                  TikTok 구매값에서 내부 confirmed와 pending을 빼고, 남은 gap과 source precision을 나눠 봅니다.
+                </p>
+              </div>
+              <StatusBadge tone="neutral">Broad 근거 합계 {fmtKRW(broadAttributionAmount)}</StatusBadge>
+            </div>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 10,
+              marginTop: 14,
+            }}>
+              {waterfallRows.map((row) => (
+                <div
+                  key={row.label}
+                  style={{
+                    border: `1px solid ${toneMap[row.tone].border}`,
+                    borderRadius: 8,
+                    background: toneMap[row.tone].background,
+                    padding: 14,
+                  }}
+                >
+                  <div style={{ color: toneMap[row.tone].text, fontSize: "0.72rem", fontWeight: 900 }}>
+                    {row.label}
+                  </div>
+                  <div style={{ marginTop: 7, fontSize: "1.05rem", fontWeight: 900, color: "#0f172a" }}>
+                    {loading ? "로딩 중" : fmtKRW(row.value)}
+                  </div>
+                  <div style={{ marginTop: 5, color: "#64748b", fontSize: "0.72rem", lineHeight: 1.45 }}>
+                    {row.detail}
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
 
           <section
@@ -531,6 +654,18 @@ export default function TikTokAdsPerformancePage() {
               value={loading ? "로딩 중" : fmtKRW(data?.gap.pendingRevenue)}
               detail={`${fmtNum(pending.orders)}건. 전체 TikTok 주문 중 ${fmtPct(pendingShare)}`}
               tone={pending.amount > 0 ? "amber" : "neutral"}
+            />
+            <MetricCard
+              label="24h 미만 pending"
+              value={loading ? "로딩 중" : fmtKRW(stillPending.amount)}
+              detail={`${fmtNum(stillPending.orders)}건. pending 중 ${fmtPct(stillPendingShare)}`}
+              tone={stillPending.amount > 0 ? "amber" : "green"}
+            />
+            <MetricCard
+              label="미입금 만료 후보"
+              value={loading ? "로딩 중" : fmtKRW(expiredUnpaid.amount)}
+              detail={`${fmtNum(expiredUnpaid.orders)}건. 원장 write 전에는 표시 보정값`}
+              tone={expiredUnpaid.amount > 0 ? "red" : "neutral"}
             />
             <MetricCard
               label="confirmed 기준 gap"
@@ -709,9 +844,9 @@ export default function TikTokAdsPerformancePage() {
             }}
           >
             <div style={{ padding: "18px 20px", borderBottom: "1px solid #e2e8f0" }}>
-              <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>캠페인별 플랫폼 ROAS</h2>
+              <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>캠페인별 TikTok 주장 ROAS</h2>
               <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: "0.8rem", lineHeight: 1.65 }}>
-                기간 합계 테이블 기준입니다. 일자별 export는 별도 daily 테이블에 적재되어 Guard 전후 비교에 사용할 수 있습니다.
+                TikTok Ads/API가 캠페인에 귀속한 구매값 기준입니다. 내부 확정매출 ROAS가 아니며, 기간 합계가 없으면 일자별 campaign 데이터를 합산합니다.
               </p>
             </div>
             <div style={{ overflowX: "auto" }}>
@@ -722,7 +857,7 @@ export default function TikTokAdsPerformancePage() {
                     <th style={{ textAlign: "right", padding: "11px 14px", borderBottom: "1px solid #e2e8f0" }}>비용</th>
                     <th style={{ textAlign: "right", padding: "11px 14px", borderBottom: "1px solid #e2e8f0" }}>구매수</th>
                     <th style={{ textAlign: "right", padding: "11px 14px", borderBottom: "1px solid #e2e8f0" }}>구매값</th>
-                    <th style={{ textAlign: "right", padding: "11px 14px", borderBottom: "1px solid #e2e8f0" }}>ROAS</th>
+                    <th style={{ textAlign: "right", padding: "11px 14px", borderBottom: "1px solid #e2e8f0" }}>TikTok 주장 ROAS</th>
                     <th style={{ textAlign: "right", padding: "11px 14px", borderBottom: "1px solid #e2e8f0" }}>CTA</th>
                     <th style={{ textAlign: "right", padding: "11px 14px", borderBottom: "1px solid #e2e8f0" }}>VTA</th>
                   </tr>
@@ -855,7 +990,8 @@ export default function TikTokAdsPerformancePage() {
               <h2 style={{ margin: 0, color: "#92400e", fontSize: "1rem", fontWeight: 900 }}>표본 감정 기준</h2>
               <p style={{ margin: "10px 0 0", color: "#92400e", fontSize: "0.82rem", lineHeight: 1.75 }}>
                 pending 상위 20건을 금액순으로 뽑았습니다. `ttclid`가 있으면 high, UTM만 있으면 medium,
-                URL·metadata 텍스트만 있으면 low로 표시합니다. 이 표본으로 오탐 룰과 실제 미입금 여부를 먼저 점검합니다.
+                URL·metadata 텍스트만 있으면 low로 표시합니다. 바이오컴 가상계좌는 주문 후 24시간 이내 미입금 시 취소되므로,
+                24시간이 지난 pending은 미입금 만료로 표시합니다.
               </p>
             </article>
           </section>
@@ -877,7 +1013,9 @@ export default function TikTokAdsPerformancePage() {
                 <thead>
                   <tr style={{ background: "#f8fafc", color: "#475569" }}>
                     <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>시간</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>경과</th>
                     <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>정밀도</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>fate</th>
                     <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>주문번호</th>
                     <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>금액</th>
                     <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>분류 사유</th>
@@ -890,8 +1028,17 @@ export default function TikTokAdsPerformancePage() {
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>
                         {fmtKst(row.loggedAt)}
                       </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>
+                        {typeof row.ageHours === "number" ? `${row.ageHours.toFixed(1)}h` : "-"}
+                        {row.overVirtualAccountExpiry ? (
+                          <span style={{ display: "block", marginTop: 4, color: "#b91c1c", fontWeight: 800 }}>24h 초과</span>
+                        ) : null}
+                      </td>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0" }}>
                         <StatusBadge tone={precisionTone(row.precisionTier)}>{row.precisionTier}</StatusBadge>
+                      </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0" }}>
+                        <StatusBadge tone={fateTone(row.fate)}>{fateLabel(row.fate)}</StatusBadge>
                       </td>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0" }}>{row.orderId}</td>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: 900 }}>
@@ -906,7 +1053,7 @@ export default function TikTokAdsPerformancePage() {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={6} style={{ padding: 14, color: "#64748b" }}>pending audit 대상이 없습니다.</td>
+                      <td colSpan={8} style={{ padding: 14, color: "#64748b" }}>pending audit 대상이 없습니다.</td>
                     </tr>
                   )}
                 </tbody>

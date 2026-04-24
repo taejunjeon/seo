@@ -32,6 +32,12 @@ import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
+import {
+  appendTikTokPixelEvent,
+  buildTikTokPixelEventSummary,
+  listTikTokPixelEvents,
+  normalizeTikTokPixelEventPayload,
+} from "../tiktokPixelEvents";
 import { getTossBasicAuth, inferTossStoreFromPaymentKey, normalizeTossStore, type TossStore } from "../tossConfig";
 
 type TossRow = {
@@ -53,11 +59,22 @@ type TossPaymentDetail = {
   totalAmount?: number;
 };
 
+type ImwebOverdueRow = {
+  orderNumber: string | null;
+  paymentMethod: string | null;
+  paymentStatus: string | null;
+  cancellationReason: string | null;
+  orderDate: string | null;
+  paidPriceSum: number | string | null;
+  totalPriceSum: number | string | null;
+};
+
 type AttributionStatusSyncMatchType =
   | "payment_key"
   | "order_id"
   | "direct_payment_key"
   | "direct_order_id"
+  | "imweb_overdue_order_id"
   | "unmatched";
 
 export type AttributionStatusSyncItem = {
@@ -81,13 +98,14 @@ export type AttributionStatusSyncResult = {
   skippedNoMatchRows: number;
   skippedPendingRows: number;
   directFallbackRows: number;
+  imwebOverdueRows: number;
   directFallbackErrors: string[];
   items: AttributionStatusSyncItem[];
 };
 
 type AttributionStatusSyncPlan = Omit<
   AttributionStatusSyncResult,
-  "ok" | "dryRun" | "writtenRows" | "directFallbackRows" | "directFallbackErrors"
+  "ok" | "dryRun" | "writtenRows" | "directFallbackRows" | "imwebOverdueRows" | "directFallbackErrors"
 > & {
   updates: Array<{ previousEntry: AttributionLedgerEntry; nextEntry: AttributionLedgerEntry }>;
 };
@@ -220,6 +238,31 @@ const mapTossRow = (row: TossRow): TossJoinRow => ({
   syncSource: "tb_sales_toss",
 });
 
+const parseNullableNumber = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/,/g, "").trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const mapImwebOverdueRow = (row: ImwebOverdueRow): TossJoinRow => ({
+  paymentKey: "",
+  orderId: row.orderNumber ?? "",
+  approvedAt: "",
+  status: "CANCELLED_BEFORE_DEPOSIT",
+  channel: "imweb",
+  store: "biocom",
+  totalAmount: parseNullableNumber(row.paidPriceSum) || parseNullableNumber(row.totalPriceSum),
+  syncSource: "tb_iamweb_users_overdue",
+  imwebPaymentMethod: row.paymentMethod ?? "",
+  imwebPaymentStatus: row.paymentStatus ?? "",
+  imwebCancellationReason: row.cancellationReason ?? "",
+  imwebOrderDate: row.orderDate ?? "",
+});
+
 const fetchTossRows = async (startDate: string, endDate: string, limit: number) => {
   if (!isDatabaseConfigured()) {
     return [];
@@ -293,6 +336,52 @@ const fetchTossRowsByPendingEntries = async (
   );
 
   return result.rows.map(mapTossRow);
+};
+
+const fetchImwebOverdueRowsByPendingEntries = async (
+  entries: AttributionLedgerEntry[],
+  limit: number,
+): Promise<TossJoinRow[]> => {
+  if (!isDatabaseConfigured() || entries.length === 0) {
+    return [];
+  }
+
+  const orderIds = [
+    ...new Set(
+      entries
+        .flatMap((entry) => [entry.orderId, normalizeOrderIdBase(entry.orderId)])
+        .map((value) => value?.trim() ?? "")
+        .filter(Boolean),
+    ),
+  ];
+
+  if (orderIds.length === 0) {
+    return [];
+  }
+
+  const result = await queryPg<ImwebOverdueRow>(
+    `
+      SELECT
+        order_number AS "orderNumber",
+        MAX(payment_method) AS "paymentMethod",
+        MAX(payment_status) AS "paymentStatus",
+        MAX(cancellation_reason) AS "cancellationReason",
+        MAX(order_date) AS "orderDate",
+        SUM(COALESCE(paid_price, 0))::bigint AS "paidPriceSum",
+        SUM(COALESCE(total_price, 0))::bigint AS "totalPriceSum"
+      FROM public.tb_iamweb_users
+      WHERE order_number = ANY($1::text[])
+        AND UPPER(COALESCE(payment_method, '')) = 'VIRTUAL'
+        AND UPPER(COALESCE(payment_status, '')) = 'PAYMENT_OVERDUE'
+        AND COALESCE(cancellation_reason, '') LIKE '%입금기간 마감%'
+      GROUP BY order_number
+      ORDER BY SUM(COALESCE(paid_price, 0)) DESC
+      LIMIT $2
+    `,
+    [orderIds, Math.max(limit * 5, 100)],
+  );
+
+  return result.rows.map(mapImwebOverdueRow);
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -747,11 +836,38 @@ const buildTossStatusIndexes = (rows: TossJoinRow[]) => {
       byPaymentKey.set(row.paymentKey, row);
     }
     if (row.orderId && (!currentOrderId || STATUS_RANK[normalizedStatus] > STATUS_RANK[normalizePaymentStatus(currentOrderId.status) ?? "pending"])) {
-      byOrderId.set(row.orderId, row);
+      for (const key of [row.orderId, normalizeOrderIdBase(row.orderId)].filter(Boolean)) {
+        byOrderId.set(key, row);
+      }
     }
   }
 
   return { byPaymentKey, byOrderId };
+};
+
+const betterStatusRow = (left: TossJoinRow | undefined, right: TossJoinRow | undefined) => {
+  if (!left) return right;
+  if (!right) return left;
+  const leftStatus = normalizePaymentStatus(left.status) ?? "pending";
+  const rightStatus = normalizePaymentStatus(right.status) ?? "pending";
+  return STATUS_RANK[rightStatus] > STATUS_RANK[leftStatus] ? right : left;
+};
+
+const matchTypeForRow = (
+  row: TossJoinRow | undefined,
+  byPaymentKey: TossJoinRow | undefined,
+  byOrderId: TossJoinRow | undefined,
+): AttributionStatusSyncMatchType => {
+  if (!row) return "unmatched";
+  if (row === byPaymentKey) {
+    return row.syncSource === "toss_direct_api_fallback" ? "direct_payment_key" : "payment_key";
+  }
+  if (row === byOrderId) {
+    if (row.syncSource === "toss_direct_api_fallback") return "direct_order_id";
+    if (row.syncSource === "tb_iamweb_users_overdue") return "imweb_overdue_order_id";
+    return "order_id";
+  }
+  return "unmatched";
 };
 
 const normalizeDecisionOrderKey = (value: string) => normalizeOrderIdBase(value.trim());
@@ -1040,7 +1156,7 @@ const buildSyncedLedgerEntry = (
   nextStatus: AttributionPaymentStatus,
   syncedAt: string,
 ): AttributionLedgerEntry => {
-  const tossSyncSource = row.syncSource ?? "tb_sales_toss";
+  const paymentStatusSyncSource = row.syncSource ?? "tb_sales_toss";
 
   return {
     ...entry,
@@ -1053,9 +1169,21 @@ const buildSyncedLedgerEntry = (
       channel: row.channel || entry.metadata?.channel,
       store: row.store || entry.metadata?.store,
       totalAmount: row.totalAmount > 0 ? row.totalAmount : entry.metadata?.totalAmount,
-      tossSyncSource,
+      paymentStatusSyncSource,
+      tossSyncSource: paymentStatusSyncSource,
       tossSyncedAt: syncedAt,
-      ...(tossSyncSource === "toss_direct_api_fallback" ? { tossDirectFallbackAt: syncedAt } : {}),
+      ...(paymentStatusSyncSource === "toss_direct_api_fallback" ? { tossDirectFallbackAt: syncedAt } : {}),
+      ...(paymentStatusSyncSource === "tb_iamweb_users_overdue"
+        ? {
+            fate: "vbank_expired",
+            vbankExpired: true,
+            imwebPaymentMethod: row.imwebPaymentMethod,
+            imwebPaymentStatus: row.imwebPaymentStatus,
+            imwebCancellationReason: row.imwebCancellationReason,
+            imwebOrderDate: row.imwebOrderDate,
+            imwebOverdueSyncedAt: syncedAt,
+          }
+        : {}),
     },
   };
 };
@@ -1063,12 +1191,24 @@ const buildSyncedLedgerEntry = (
 export const syncAttributionPaymentStatusesFromToss = async (params?: {
   limit?: number;
   dryRun?: boolean;
+  orderIds?: string[];
 }): Promise<AttributionStatusSyncResult> => {
   const dryRun = params?.dryRun ?? false;
   const limit = Math.max(1, Math.min(params?.limit ?? 100, 500));
+  const orderIdFilter = new Set(
+    (params?.orderIds ?? [])
+      .flatMap((orderId) => [orderId, normalizeOrderIdBase(orderId)])
+      .map((orderId) => orderId.trim())
+      .filter(Boolean),
+  );
   const entries = await readLedgerEntries();
   const pendingCandidates = entries
     .filter((entry) => entry.touchpoint === "payment_success" && entry.paymentStatus === "pending")
+    .filter((entry) => {
+      if (orderIdFilter.size === 0) return true;
+      const keys = [entry.orderId, normalizeOrderIdBase(entry.orderId)].map((orderId) => orderId.trim());
+      return keys.some((orderId) => orderIdFilter.has(orderId));
+    })
     .slice(0, limit);
   const tossRows = await fetchTossRowsByPendingEntries(pendingCandidates, limit);
   const tossIndex = buildTossStatusIndexes(tossRows);
@@ -1078,7 +1218,12 @@ export const syncAttributionPaymentStatusesFromToss = async (params?: {
     return !matchedByPaymentKey && !matchedByOrderId && (entry.paymentKey || entry.orderId);
   });
   const directFallback = await fetchDirectTossRowsByPendingEntries(directFallbackCandidates, limit);
-  const plan = buildAttributionPaymentStatusSyncPlan(entries, [...tossRows, ...directFallback.rows], limit);
+  const imwebOverdueRows = await fetchImwebOverdueRowsByPendingEntries(pendingCandidates, limit);
+  const plan = buildAttributionPaymentStatusSyncPlan(
+    pendingCandidates,
+    [...tossRows, ...directFallback.rows, ...imwebOverdueRows],
+    limit,
+  );
   const writtenRows = dryRun ? 0 : updateAttributionLedgerEntries(plan.updates);
 
   return {
@@ -1091,6 +1236,7 @@ export const syncAttributionPaymentStatusesFromToss = async (params?: {
     skippedNoMatchRows: plan.skippedNoMatchRows,
     skippedPendingRows: plan.skippedPendingRows,
     directFallbackRows: directFallback.rows.length,
+    imwebOverdueRows: imwebOverdueRows.length,
     directFallbackErrors: directFallback.errors,
     items: plan.items,
   };
@@ -1115,13 +1261,11 @@ export const buildAttributionPaymentStatusSyncPlan = (
   for (const entry of candidates) {
     const previousStatus = entry.paymentStatus ?? "pending";
     const matchedByPaymentKey = entry.paymentKey ? tossIndex.byPaymentKey.get(entry.paymentKey) : undefined;
-    const matchedByOrderId = !matchedByPaymentKey && entry.orderId ? tossIndex.byOrderId.get(entry.orderId) : undefined;
-    const matched = matchedByPaymentKey ?? matchedByOrderId;
-    const matchType: AttributionStatusSyncMatchType = matchedByPaymentKey
-      ? matchedByPaymentKey.syncSource === "toss_direct_api_fallback" ? "direct_payment_key" : "payment_key"
-      : matchedByOrderId
-        ? matchedByOrderId.syncSource === "toss_direct_api_fallback" ? "direct_order_id" : "order_id"
-        : "unmatched";
+    const matchedByExactOrderId = entry.orderId ? tossIndex.byOrderId.get(entry.orderId) : undefined;
+    const matchedByBaseOrderId = entry.orderId ? tossIndex.byOrderId.get(normalizeOrderIdBase(entry.orderId)) : undefined;
+    const matchedByOrderId = betterStatusRow(matchedByExactOrderId, matchedByBaseOrderId);
+    const matched = betterStatusRow(matchedByPaymentKey, matchedByOrderId);
+    const matchType = matchTypeForRow(matched, matchedByPaymentKey, matchedByOrderId);
 
     if (!matched) {
       skippedNoMatchRows += 1;
@@ -1291,6 +1435,12 @@ const enforceOriginSourceMatch = (
   return { status: "corrected", expected, received: receivedRaw };
 };
 
+const resolveOriginSiteSource = (req: Request) => {
+  const originRaw = typeof req.headers.origin === "string" ? req.headers.origin : "";
+  const originKey = originRaw.replace(/\/$/, "").toLowerCase();
+  return ORIGIN_SOURCE_MAP[originKey] ?? "";
+};
+
 export const findDuplicateFormSubmitEntry = (
   entries: AttributionLedgerEntry[],
   body: Record<string, unknown>,
@@ -1414,6 +1564,62 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "payment attribution logging failed";
       res.status(400).json({ ok: false, error: "payment_attribution_log_error", message });
+    }
+  });
+
+  router.post("/api/attribution/tiktok-pixel-event", async (req: Request, res: Response) => {
+    try {
+      const body = parseBody(req.body);
+      const event = normalizeTikTokPixelEventPayload(
+        body,
+        buildRequestContext(req),
+        resolveOriginSiteSource(req),
+      );
+      const writtenRows = appendTikTokPixelEvent(event);
+      res.status(writtenRows > 0 ? 201 : 200).json({
+        ok: true,
+        receiver: "tiktok_pixel_event",
+        writtenRows,
+        event,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "TikTok pixel event logging failed";
+      res.status(400).json({ ok: false, error: "tiktok_pixel_event_log_error", message });
+    }
+  });
+
+  router.get("/api/attribution/tiktok-pixel-events", async (req: Request, res: Response) => {
+    try {
+      const items = listTikTokPixelEvents({
+        startAt: readOne(req.query.startAt),
+        endAt: readOne(req.query.endAt),
+        siteSource: readOne(req.query.siteSource),
+        eventName: readOne(req.query.eventName),
+        action: readOne(req.query.action),
+        orderCode: readOne(req.query.orderCode),
+        orderNo: readOne(req.query.orderNo),
+        limit: parsePositiveInt(req.query.limit, 100, 10000),
+      });
+
+      res.json({
+        ok: true,
+        dataSource: "operational_or_local_sqlite_tiktok_pixel_events",
+        storage: "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
+        filters: {
+          startAt: readOne(req.query.startAt) || null,
+          endAt: readOne(req.query.endAt) || null,
+          siteSource: readOne(req.query.siteSource) || null,
+          eventName: readOne(req.query.eventName) || null,
+          action: readOne(req.query.action) || null,
+          orderCode: readOne(req.query.orderCode) || null,
+          orderNo: readOne(req.query.orderNo) || null,
+        },
+        summary: buildTikTokPixelEventSummary(items),
+        items,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "TikTok pixel event read failed";
+      res.status(500).json({ ok: false, error: "tiktok_pixel_event_read_error", message });
     }
   });
 
@@ -1990,11 +2196,25 @@ export const createAttributionRouter = () => {
         500,
       );
       const dryRun = parseBooleanish(req.body?.dryRun ?? req.query.dryRun, true);
-      const result = await syncAttributionPaymentStatusesFromToss({ limit, dryRun });
+      const rawOrderIds: unknown[] = Array.isArray(req.body?.orderIds)
+        ? req.body.orderIds
+        : typeof req.query.orderIds === "string"
+          ? req.query.orderIds.split(",")
+          : [];
+      const orderIds = rawOrderIds
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, 500);
+      const result = await syncAttributionPaymentStatusesFromToss({ limit, dryRun, orderIds });
 
       res.json({
         ok: true,
         dryRun,
+        filters: {
+          limit,
+          orderIds: orderIds.length,
+        },
         summary: {
           totalCandidates: result.totalCandidates,
           matchedRows: result.matchedRows,
@@ -2003,6 +2223,7 @@ export const createAttributionRouter = () => {
           skippedNoMatchRows: result.skippedNoMatchRows,
           skippedPendingRows: result.skippedPendingRows,
           directFallbackRows: result.directFallbackRows,
+          imwebOverdueRows: result.imwebOverdueRows,
           directFallbackErrors: result.directFallbackErrors.length,
         },
         items: result.items.slice(0, 20),
@@ -2010,6 +2231,7 @@ export const createAttributionRouter = () => {
         notes: [
           "pending payment_success row를 tb_sales_toss 상태와 대조해 confirmed/canceled로 승격한다.",
           "tb_sales_toss에 아직 없지만 paymentKey/orderId가 있는 최신 pending row는 Toss 직접 결제 상세 API fallback으로 확인한다.",
+          "가상계좌 24시간 미입금 자동취소는 tb_iamweb_users PAYMENT_OVERDUE 보조 판정으로 canceled/vbank_expired 승격 후보에 포함한다.",
           "dryRun=true면 preview만 보고 SQLite ledger는 갱신하지 않는다.",
           "status가 아직 WAITING/PENDING이면 유지하고 다음 배치에서 다시 확인한다.",
         ],

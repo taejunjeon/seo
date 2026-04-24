@@ -1,5 +1,7 @@
 # TikTok Purchase Guard enforce v1 Imweb 삽입 후보
 
+> 2026-04-23 주의: 이 문서는 2026-04-17 v1 운영 적용 기록이다. 이벤트 단위 로깅까지 포함한 최신 후보는 `tiktok/tiktok_purchase_guard_enforce_v1.js`의 `2026-04-23.tiktok-purchase-guard-enforce.v2-event-log` 버전을 기준으로 한다. 운영 VM에 `POST /api/attribution/tiktok-pixel-event` 배포가 끝나기 전에는 v2를 아임웹에 붙이지 않는다.
+
 작성일: 2026-04-17
 
 ## 현재 판단

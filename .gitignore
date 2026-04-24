@@ -21,3 +21,12 @@ backend/.env
 backend/credentials/
 backend/artifacts/
 backend/logs/
+
+# Local analysis exports / generated artifacts
+data/coffee/*.xlsx
+data/screenshot/*.pdf
+data/*공동구매*.xlsx
+backend/scripts/*.out.json
+
+# Contains copied secret values; keep local only.
+naver/npayfeedbackreply.md

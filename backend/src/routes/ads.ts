@@ -160,9 +160,165 @@ export type CampaignRoasRow = {
 };
 
 // 캠페인 이름으로 공동구매 Meta 캠페인 식별. 실측 확인된 단순 키워드 규칙.
+// v1 기준 1번. 현재 /ads 라이브에 적용.
 export const isCoopCampaignByName = (name: string | null | undefined): boolean => {
   const n = String(name ?? "");
   return n.includes("공동구매") || n.includes("공구");
+};
+
+// 2026-04-21 v1 확장: 주문 단위 공동구매 식별 helper.
+// Meta 캠페인 레벨에서는 캠페인명 키워드만으로 판정하지만(isCoopCampaignByName),
+// 실제 주문은 UTM/landing/상품명에 흔적이 남는 경우가 있다. 이 helper는 attribution_ledger
+// 주문 또는 imweb_order_items 라인을 받아 coop_campaigns.biocom.json 마스터와 매칭한다.
+// 현재 /ads 라우트에서는 아직 사용하지 않는다. v2에서 주문 분리 카드를 추가할 때 사용한다.
+export type CoopCampaignMasterRecord = {
+  campaign_id: string;
+  partner: string;
+  round: number | null;
+  product_families: string[];
+  start_date: string | null;
+  end_date: string | null;
+  coupon_codes: string[];
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  landing_path_pattern: string | null;
+  order_no_allowlist: string[];
+  revenue_source: string | null;
+  classification_basis: string | null;
+  classification_confidence: number | null;
+  notes: string | null;
+};
+
+type CoopMasterCache = {
+  records: CoopCampaignMasterRecord[];
+  loadedAt: number;
+};
+const coopMasterCache: Map<SiteKey, CoopMasterCache> = new Map();
+const COOP_MASTER_TTL_MS = 60_000;
+
+export const loadCoopCampaignsMaster = async (
+  site: SiteKey,
+): Promise<CoopCampaignMasterRecord[]> => {
+  const cached = coopMasterCache.get(site);
+  if (cached && Date.now() - cached.loadedAt < COOP_MASTER_TTL_MS) {
+    return cached.records;
+  }
+  const filePath = path.resolve(process.cwd(), "..", "data", `coop_campaigns.${site}.json`);
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw) as { campaigns?: CoopCampaignMasterRecord[] };
+    const records = Array.isArray(parsed?.campaigns) ? parsed.campaigns : [];
+    coopMasterCache.set(site, { records, loadedAt: Date.now() });
+    return records;
+  } catch {
+    coopMasterCache.set(site, { records: [], loadedAt: Date.now() });
+    return [];
+  }
+};
+
+export type CoopOrderSignals = {
+  orderNo?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  landing?: string | null;
+  itemNames?: string[];
+  orderTime?: string | null;
+};
+
+export type CoopOrderMatch = {
+  isCoop: boolean;
+  campaignId: string | null;
+  basis:
+    | "allowlist"
+    | "utm_campaign"
+    | "utm_source"
+    | "landing"
+    | "product_family"
+    | "product_name_pattern"
+    | null;
+  confidence: number;
+};
+
+// v1 기준 2~4번 대응. 신호 우선순위 전수 스캔: allowlist > coupon > utm > landing > product_family > pattern.
+// `classification_basis='time+product_candidate'` 또는 `'allowlist_pending'` 레코드는 product_family 매칭에서 제외(false match 방지).
+export const classifyCoopOrder = (
+  signals: CoopOrderSignals,
+  master: CoopCampaignMasterRecord[],
+): CoopOrderMatch => {
+  const orderNo = signals.orderNo ?? "";
+  const utmSource = (signals.utmSource ?? "").toLowerCase();
+  const utmCampaign = (signals.utmCampaign ?? "").toLowerCase();
+  const landing = signals.landing ?? "";
+  const itemNames = signals.itemNames ?? [];
+
+  // Phase 1: allowlist 전수 스캔 (가장 강한 신호)
+  if (orderNo) {
+    for (const rec of master) {
+      if (rec.order_no_allowlist?.includes(orderNo)) {
+        return { isCoop: true, campaignId: rec.campaign_id, basis: "allowlist", confidence: 1.0 };
+      }
+    }
+  }
+  // Phase 2: utm_campaign 전수 스캔
+  if (utmCampaign) {
+    for (const rec of master) {
+      if (rec.utm_campaign && utmCampaign === rec.utm_campaign.toLowerCase()) {
+        return { isCoop: true, campaignId: rec.campaign_id, basis: "utm_campaign", confidence: 0.9 };
+      }
+    }
+  }
+  // Phase 3: utm_source 전수 스캔
+  if (utmSource) {
+    for (const rec of master) {
+      if (rec.utm_source && utmSource === rec.utm_source.toLowerCase()) {
+        return { isCoop: true, campaignId: rec.campaign_id, basis: "utm_source", confidence: 0.85 };
+      }
+    }
+  }
+  // Phase 4: landing_path 전수 스캔
+  if (landing) {
+    for (const rec of master) {
+      if (rec.landing_path_pattern && landing.includes(rec.landing_path_pattern)) {
+        return { isCoop: true, campaignId: rec.campaign_id, basis: "landing", confidence: 0.85 };
+      }
+    }
+  }
+  // Phase 5: product_family 매칭 (time+product_candidate / allowlist_pending 마스터 제외)
+  if (itemNames.length) {
+    for (const rec of master) {
+      if (rec.classification_basis === "time+product_candidate" || rec.classification_basis === "allowlist_pending") {
+        continue;
+      }
+      if (!rec.product_families?.length) continue;
+      const match = itemNames.find((n) => rec.product_families.some((p) => n.includes(p)));
+      if (match) {
+        return {
+          isCoop: true,
+          campaignId: rec.campaign_id,
+          basis: "product_family",
+          confidence: 0.6,
+        };
+      }
+    }
+  }
+  // Phase 6: 공구 마스터에 없어도 상품명에 [공구]/[파트너명] 접두사가 있으면 coop 후보로 본다
+  // 공동구매내역 SQL 넓은 기준과 일치: `[` 시작 + 정기구독/비밀링크/KOLAS 제외
+  const EXCLUDED_PREFIXES = /^\[(정기구독|비밀링크|KOLAS|공지|안내)/;
+  const hasBracketPartner = itemNames.some((n) => {
+    if (EXCLUDED_PREFIXES.test(n)) return false;
+    return /^\[/.test(n);
+  });
+  if (hasBracketPartner) {
+    return {
+      isCoop: true,
+      campaignId: null,
+      basis: "product_name_pattern",
+      confidence: 0.5,
+    };
+  }
+  return { isCoop: false, campaignId: null, basis: null, confidence: 0 };
 };
 
 export type CampaignLtvRoasRow = CampaignRoasRow & {
@@ -2657,6 +2813,138 @@ export const createAdsRouter = () => {
       res.status(500).json({
         ok: false,
         error: error instanceof Error ? error.message : "iroas trend failed",
+      });
+    }
+  });
+
+  // 2026-04-21 Phase3-Sprint7. 공동구매 주문 단위 분리 v2 엔드포인트 스켈레톤.
+  // classifyCoopOrder helper를 실제로 호출해 주문 단위로 공동구매 여부 판정. campaigns 마스터 기반.
+  router.get("/api/ads/coop-order-summary", async (req: Request, res: Response) => {
+    try {
+      const siteParam: SiteKey = resolveSiteFromString(String(req.query.site ?? "biocom")) ?? "biocom";
+      const startDate = String(req.query.start_date ?? "").trim() || "2026-01-01";
+      const endDate = String(req.query.end_date ?? "").trim() || "2026-04-01";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+        res.status(400).json({ ok: false, error: "start_date / end_date must be YYYY-MM-DD" });
+        return;
+      }
+
+      const master = await loadCoopCampaignsMaster(siteParam);
+      const db = getCrmDb();
+
+      const orders = db
+        .prepare(
+          `SELECT o.order_no, o.payment_amount, o.order_time
+           FROM imweb_orders o
+           WHERE o.site = ? AND o.order_time >= ? AND o.order_time < ?`,
+        )
+        .all(siteParam, `${startDate}T00:00:00.000Z`, `${endDate}T00:00:00.000Z`) as Array<{
+          order_no: string;
+          payment_amount: number;
+          order_time: string;
+        }>;
+
+      const itemsStmt = db.prepare(
+        `SELECT item_name FROM imweb_order_items WHERE site = ? AND order_no = ?`,
+      );
+      // attribution_ledger 조인은 선택적 (2026-03-29 이후 데이터만 존재)
+      const attrStmt = db.prepare(
+        `SELECT utm_source, utm_campaign, landing
+         FROM attribution_ledger
+         WHERE order_id = ?
+         ORDER BY logged_at DESC LIMIT 1`,
+      );
+
+      type BasisCount = { orders: number; revenue: number };
+      const emptyBasis = (): BasisCount => ({ orders: 0, revenue: 0 });
+      const byBasis: Record<string, BasisCount> = {
+        allowlist: emptyBasis(),
+        utm_campaign: emptyBasis(),
+        utm_source: emptyBasis(),
+        landing: emptyBasis(),
+        product_family: emptyBasis(),
+        product_name_pattern: emptyBasis(),
+        unmatched: emptyBasis(),
+      };
+
+      const byCampaign = new Map<
+        string,
+        { campaign_id: string; partner: string; round: number | null; orders: number; revenue: number }
+      >();
+
+      let coopOrders = 0;
+      let coopRevenue = 0;
+
+      for (const o of orders) {
+        const items = itemsStmt.all(siteParam, o.order_no) as Array<{ item_name: string }>;
+        const attr = attrStmt.get(o.order_no) as
+          | { utm_source?: string; utm_campaign?: string; landing?: string }
+          | undefined;
+        const match = classifyCoopOrder(
+          {
+            orderNo: o.order_no,
+            utmSource: attr?.utm_source ?? null,
+            utmCampaign: attr?.utm_campaign ?? null,
+            landing: attr?.landing ?? null,
+            itemNames: items.map((i) => i.item_name),
+            orderTime: o.order_time,
+          },
+          master,
+        );
+
+        if (!match.isCoop) {
+          byBasis.unmatched.orders += 1;
+          byBasis.unmatched.revenue += Number(o.payment_amount ?? 0);
+          continue;
+        }
+        coopOrders += 1;
+        coopRevenue += Number(o.payment_amount ?? 0);
+
+        const basisKey = match.basis ?? "unmatched";
+        if (byBasis[basisKey]) {
+          byBasis[basisKey].orders += 1;
+          byBasis[basisKey].revenue += Number(o.payment_amount ?? 0);
+        }
+
+        if (match.campaignId) {
+          const rec = master.find((m) => m.campaign_id === match.campaignId);
+          const key = match.campaignId;
+          const existing =
+            byCampaign.get(key) ??
+            {
+              campaign_id: match.campaignId,
+              partner: rec?.partner ?? "",
+              round: rec?.round ?? null,
+              orders: 0,
+              revenue: 0,
+            };
+          existing.orders += 1;
+          existing.revenue += Number(o.payment_amount ?? 0);
+          byCampaign.set(key, existing);
+        }
+      }
+
+      res.json({
+        ok: true,
+        site: siteParam,
+        range: { start: startDate, end: endDate },
+        campaigns_loaded: master.length,
+        orders: {
+          total_in_range: orders.length,
+          coop_matched: coopOrders,
+          coop_revenue: round2(coopRevenue),
+        },
+        by_basis: Object.fromEntries(
+          Object.entries(byBasis).map(([k, v]) => [k, { orders: v.orders, revenue: round2(v.revenue) }]),
+        ),
+        by_campaign: Array.from(byCampaign.values())
+          .map((c) => ({ ...c, revenue: round2(c.revenue) }))
+          .sort((a, b) => b.revenue - a.revenue),
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: error instanceof Error ? error.message : "coop-order-summary failed",
       });
     }
   });
