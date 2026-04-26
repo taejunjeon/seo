@@ -343,6 +343,9 @@ export function AibioNativeAdmin() {
         <div className="header-actions">
           <button type="button" onClick={() => void load()} disabled={loading}>새로고침</button>
           <a href="/aibio-native">공개 페이지</a>
+          <a href="/aibio-native/admin/forms">입력폼</a>
+          <a href="/aibio-native/admin/content">상세페이지 편집</a>
+          <a href="/aibio-native/admin/access">권한</a>
         </div>
       </header>
 
@@ -408,7 +411,7 @@ export function AibioNativeAdmin() {
       <section className="fallback-board" aria-label="아임웹 30일 병행 대조">
         <div className="fallback-copy">
           <p>Fallback comparison</p>
-          <h2>최근 30일 자체 폼과 아임웹 입력폼 대조</h2>
+          <h2>팀 리뷰 이후 30일 병행 운영 대조</h2>
           <span>
             window: {fallbackComparison?.window.startDate ?? "-"} ~ {fallbackComparison?.window.endDate ?? "-"}
             {" · "}native latest: {fmtDateTime(fallbackComparison?.freshness.latestNativeLeadAt ?? null)}
@@ -589,7 +592,7 @@ export function AibioNativeAdmin() {
           <li>신규 리드를 확인하고 유입, 랜딩, 상담 목적을 본다.</li>
           <li>연락 결과를 연락중, 상담완료, 예약확정 중 하나로 바꾼다.</li>
           <li>방문 후 방문완료, 노쇼, 결제완료를 같은 행에서 갱신한다.</li>
-          <li>30일 동안 아임웹 폼 원장과 fallback 대조 후 종료 여부를 판단한다.</li>
+          <li>팀 리뷰와 사용법 설명 후 30일 병행 운영을 시작하고 아임웹 폼 원장과 fallback 대조를 본다.</li>
         </ol>
       </section>
 

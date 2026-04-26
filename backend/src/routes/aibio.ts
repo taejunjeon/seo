@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { type Request, type Response, Router } from "express";
 
 import type { AttributionLedgerEntry } from "../attribution";
@@ -18,6 +20,16 @@ import { listAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import { env } from "../env";
 import {
+  AIBIO_NATIVE_ASSET_DIR,
+  AIBIO_NATIVE_CONTENT_VERSION,
+  getAibioAdminAccess,
+  getAibioPageContent,
+  resolveAibioAssetPath,
+  safeAssetFilename,
+  saveAibioAdminAccess,
+  saveAibioPageContent,
+} from "../aibioNativeContentStore";
+import {
   getAibioStats,
   isAibioConfigured,
   syncAibioCustomers,
@@ -28,6 +40,7 @@ const AIBIO_AD_CRM_ATTRIBUTION_VERSION = "2026-04-26.aibio-ad-crm-attribution.v1
 const AIBIO_ATTRIBUTION_SOURCE = "aibio_imweb";
 const AIBIO_REMOTE_LEDGER_TIMEOUT_MS = 8_000;
 const AIBIO_SUPABASE_TIMEOUT_MS = 15_000;
+const AIBIO_ADMIN_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
 
 type AibioAdCrmDataSource = "vm" | "local";
 
@@ -86,6 +99,42 @@ type AibioPaymentJoinRow = {
   amount?: number | string | null;
   created_at?: string | null;
   is_refund?: boolean | number | null;
+};
+
+type UploadedMemoryFile = {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+};
+
+type RequestWithMemoryFile = Request & {
+  file?: UploadedMemoryFile;
+};
+
+type MulterFactory = {
+  memoryStorage: () => unknown;
+  (options: {
+    storage: unknown;
+    limits: { fileSize: number };
+    fileFilter: (
+      req: Request,
+      file: UploadedMemoryFile,
+      cb: (error: Error | null, acceptFile?: boolean) => void,
+    ) => void;
+  }): {
+    single: (fieldName: string) => (req: Request, res: Response, next: (error?: unknown) => void) => void;
+  };
+};
+
+type XlsxModule = {
+  read: (buffer: Buffer, options: { type: "buffer" }) => {
+    SheetNames: string[];
+    Sheets: Record<string, unknown>;
+  };
+  utils: {
+    sheet_to_json: (sheet: unknown, options: { header: 1; defval: string; raw: false }) => unknown[][];
+  };
 };
 
 type AibioRelatedRows = {
@@ -177,6 +226,152 @@ const requireAibioNativeContactAccess = (req: Request, res: Response) => {
     return false;
   }
   return true;
+};
+
+const loadMulter = () => {
+  try {
+    return require("multer") as MulterFactory;
+  } catch {
+    return null;
+  }
+};
+
+const loadXlsx = () => {
+  try {
+    return require("xlsx") as XlsxModule;
+  } catch {
+    return null;
+  }
+};
+
+const isAllowedAdminUpload = (file: UploadedMemoryFile) => {
+  const extension = path.extname(file.originalname).toLowerCase();
+  if ([".xlsx", ".xls", ".csv"].includes(extension)) return true;
+  if ([".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(extension)) return file.mimetype.startsWith("image/");
+  return false;
+};
+
+const createAibioAdminUploadMiddleware = () => {
+  const multer = loadMulter();
+  if (!multer) {
+    throw new Error("multer_dependency_missing");
+  }
+  return multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: AIBIO_ADMIN_UPLOAD_MAX_BYTES },
+    fileFilter: (_req, file, cb) => {
+      if (!isAllowedAdminUpload(file)) {
+        cb(new Error("unsupported_upload_file"));
+        return;
+      }
+      cb(null, true);
+    },
+  }).single("file");
+};
+
+const parseUploadTable = (file: UploadedMemoryFile) => {
+  const extension = path.extname(file.originalname).toLowerCase();
+  if (extension === ".csv") {
+    return file.buffer.toString("utf8").split(/\r?\n/).map((line) => line.split(",").map((cell) => cell.trim()));
+  }
+  const xlsx = loadXlsx();
+  if (!xlsx) throw new Error("xlsx_dependency_missing");
+  const workbook = xlsx.read(file.buffer, { type: "buffer" });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = sheetName ? workbook.Sheets[sheetName] : null;
+  return sheet ? xlsx.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false }) : [];
+};
+
+const normalizeHeader = (value: unknown) => String(value ?? "").trim();
+
+const countValues = (values: string[], maxItems = 20) => {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const key = value.trim() || "(blank)";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
+    .slice(0, maxItems);
+};
+
+const analyzeAibioFormExport = (file: UploadedMemoryFile) => {
+  const table = parseUploadTable(file);
+  const headers = (table[0] ?? []).map(normalizeHeader);
+  const rows = table.slice(1).filter((row) => row.some((cell) => String(cell ?? "").trim()));
+  const indexOf = (aliases: string[]) => headers.findIndex((header) => aliases.includes(header));
+  const readCell = (row: unknown[], aliases: string[]) => {
+    const index = indexOf(aliases);
+    return index >= 0 ? String(row[index] ?? "").trim() : "";
+  };
+  const responseTimes = rows
+    .map((row) => readCell(row, ["응답시간", "response_time", "created_at"]))
+    .filter(Boolean)
+    .sort();
+  const phoneHashes = rows
+    .map((row) => normalizePhoneDigits(readCell(row, ["연락처", "전화번호", "휴대폰", "phone"])))
+    .filter(Boolean)
+    .map((phone) => sha256Hex(phone));
+  const uniquePhones = new Set(phoneHashes);
+  const purposeValues = rows.flatMap((row) =>
+    readCell(row, ["상담 목적 (다중 선택 가능)", "상담 목적", "purpose"])
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+  const empty = (aliases: string[]) => rows.filter((row) => !readCell(row, aliases)).length;
+
+  return {
+    ok: true,
+    version: AIBIO_NATIVE_CONTENT_VERSION,
+    source: "uploaded_imweb_form_export",
+    file: {
+      name: file.originalname,
+      size: file.size,
+      mimeType: file.mimetype,
+    },
+    generatedAt: new Date().toISOString(),
+    privacy: {
+      rawPiiReturned: false,
+      phoneHashOnly: true,
+      note: "분석 응답에는 이름, 연락처, IP 주소 원문을 반환하지 않는다.",
+    },
+    shape: {
+      sheetRows: table.length,
+      dataRows: rows.length,
+      columns: headers.length,
+      headers,
+    },
+    freshness: {
+      firstResponseAt: responseTimes[0] ?? null,
+      latestResponseAt: responseTimes.at(-1) ?? null,
+    },
+    quality: {
+      missingNameRows: empty(["이름", "성함", "name"]),
+      missingPhoneRows: empty(["연락처", "전화번호", "휴대폰", "phone"]),
+      uniquePhoneHashes: uniquePhones.size,
+      duplicatePhoneHashRows: phoneHashes.length - uniquePhones.size,
+      privacyConsentRows: rows.filter((row) => readCell(row, ["개인정보 수집동의", "privacy_consent"]) === "Y").length,
+      thirdPartyConsentRows: rows.filter((row) => readCell(row, ["개인정보 제3자 제공동의", "third_party_consent"]) === "Y").length,
+    },
+    distributions: {
+      age: countValues(rows.map((row) => readCell(row, ["나이", "나이대", "age", "ageRange"]))),
+      purpose: countValues(purposeValues),
+      channel: countValues(rows.map((row) => readCell(row, ["알게 된 경로", "유입 경로", "channel"]))),
+      consultationType: countValues(rows.map((row) => readCell(row, ["상담 신청 유형", "상담유형", "preferred_contact_type"]))),
+    },
+    recommendedNativeFields: [
+      { sourceHeader: "응답시간", nativeField: "createdAt", note: "아임웹 제출 시각. 병행 대조 기준 시각" },
+      { sourceHeader: "개인정보 수집동의", nativeField: "privacyConsent", note: "필수 동의" },
+      { sourceHeader: "이름", nativeField: "name", note: "원문은 서버에만 저장, 목록은 마스킹" },
+      { sourceHeader: "연락처", nativeField: "phone + phoneHashSha256", note: "중복 대조 기준" },
+      { sourceHeader: "나이", nativeField: "ageRange", note: "현재 아임웹에는 나이대와 생년월일형 값이 섞여 있어 정규화 필요" },
+      { sourceHeader: "상담 목적 (다중 선택 가능)", nativeField: "purpose[]", note: "현재 자체 폼은 단일 선택이라 다중 선택 전환 권장" },
+      { sourceHeader: "알게 된 경로", nativeField: "channel", note: "광고/인스타그램/유튜브 등 운영 분류" },
+      { sourceHeader: "상담 신청 유형", nativeField: "preferredContactType", note: "문자/전화/카톡 선호 연락 방식" },
+    ],
+  };
 };
 
 const nestedRecord = (value: unknown, key: string) => {
@@ -546,6 +741,142 @@ const summarizeCustomerJourney = (
 
 export const createAibioRouter = () => {
   const router = Router();
+  const adminUpload = createAibioAdminUploadMiddleware();
+
+  router.get("/api/aibio/content/:slug", async (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const content = await getAibioPageContent(readOne(req.params.slug) || "shop-view-25");
+      res.json({ ok: true, version: AIBIO_NATIVE_CONTENT_VERSION, content });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "aibio content read failed" });
+    }
+  });
+
+  router.patch("/api/aibio/admin/content/:slug", async (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!allowAibioNativeAdminWrite(req)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const content = await saveAibioPageContent(readOne(req.params.slug) || "shop-view-25", {
+        ...req.body,
+        updatedBy: req.body?.updatedBy ?? "aibio-native-admin",
+      });
+      res.json({ ok: true, version: AIBIO_NATIVE_CONTENT_VERSION, content });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "aibio content save failed" });
+    }
+  });
+
+  router.get("/api/aibio/admin/access", async (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!allowAibioNativeAdminWrite(req)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const access = await getAibioAdminAccess();
+      res.json({ ok: true, version: AIBIO_NATIVE_CONTENT_VERSION, access });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "aibio access read failed" });
+    }
+  });
+
+  router.put("/api/aibio/admin/access", async (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!allowAibioNativeAdminWrite(req)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const access = await saveAibioAdminAccess(req.body, "aibio-native-admin");
+      res.json({ ok: true, version: AIBIO_NATIVE_CONTENT_VERSION, access });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "aibio access save failed" });
+    }
+  });
+
+  router.post("/api/aibio/admin/form-export/analyze", adminUpload, (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!allowAibioNativeAdminWrite(req)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const file = (req as RequestWithMemoryFile).file;
+      if (!file) {
+        res.status(422).json({ ok: false, error: "file_required" });
+        return;
+      }
+      if (![".xlsx", ".xls", ".csv"].includes(path.extname(file.originalname).toLowerCase())) {
+        res.status(415).json({ ok: false, error: "unsupported_form_export_file" });
+        return;
+      }
+      res.json(analyzeAibioFormExport(file));
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "form export analyze failed" });
+    }
+  });
+
+  router.post("/api/aibio/admin/assets", adminUpload, async (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!allowAibioNativeAdminWrite(req)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const file = (req as RequestWithMemoryFile).file;
+      if (!file) {
+        res.status(422).json({ ok: false, error: "file_required" });
+        return;
+      }
+      if (!file.mimetype.startsWith("image/")) {
+        res.status(415).json({ ok: false, error: "unsupported_asset_file" });
+        return;
+      }
+      await fs.mkdir(AIBIO_NATIVE_ASSET_DIR, { recursive: true });
+      const filename = safeAssetFilename(file.originalname, file.mimetype);
+      await fs.writeFile(path.join(AIBIO_NATIVE_ASSET_DIR, filename), file.buffer);
+      res.status(201).json({
+        ok: true,
+        version: AIBIO_NATIVE_CONTENT_VERSION,
+        asset: {
+          filename,
+          url: `/api/aibio/assets/${filename}`,
+          size: file.size,
+          mimeType: file.mimetype,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "asset upload failed" });
+    }
+  });
+
+  router.get("/api/aibio/assets/:filename", async (req: Request, res: Response) => {
+    try {
+      const filename = readOne(req.params.filename);
+      const assetPath = resolveAibioAssetPath(filename);
+      if (!assetPath) {
+        res.status(404).json({ ok: false, error: "asset_not_found" });
+        return;
+      }
+      const buffer = await fs.readFile(assetPath);
+      const extension = path.extname(filename).toLowerCase();
+      const mimeType = extension === ".png"
+        ? "image/png"
+        : extension === ".webp"
+          ? "image/webp"
+          : extension === ".gif"
+            ? "image/gif"
+            : "image/jpeg";
+      res.set("Cache-Control", "public, max-age=31536000, immutable");
+      res.type(mimeType).send(buffer);
+    } catch {
+      res.status(404).json({ ok: false, error: "asset_not_found" });
+    }
+  });
 
   router.post("/api/aibio/native-leads", (req: Request, res: Response) => {
     try {

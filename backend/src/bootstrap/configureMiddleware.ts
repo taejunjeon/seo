@@ -15,6 +15,7 @@ const createLogger = () =>
         "req.headers.cookie",
         "req.headers['x-cron-secret']",
         "req.headers['x-api-key']",
+        "req.headers['x-admin-token']",
       ],
       remove: true,
     },

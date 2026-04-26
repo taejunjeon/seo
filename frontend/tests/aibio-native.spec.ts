@@ -89,7 +89,7 @@ test.describe("AIBIO native MVP", () => {
     await expect(ctaBar.getByRole("link", { name: "카카오 상담" })).toBeVisible();
     await expect(ctaBar.getByRole("link", { name: "첫방문 상담 신청" })).toBeVisible();
 
-    await page.getByRole("link", { name: "첫방문 상담 신청" }).click();
+    await ctaBar.getByRole("link", { name: "첫방문 상담 신청" }).click();
     await page.getByLabel("연락처").fill("0101234");
     await page.getByLabel("연락처").blur();
     await expect(page.getByText("010으로 시작하는 휴대폰 번호를 입력해 주세요.")).toBeVisible();
@@ -314,7 +314,7 @@ test.describe("AIBIO native MVP", () => {
 
     await expect(page.getByRole("heading", { name: /자체 리드 원장과 주간 퍼널/ })).toBeVisible();
     const fallbackRegion = page.getByRole("region", { name: "아임웹 30일 병행 대조" });
-    await expect(page.getByRole("heading", { name: "최근 30일 자체 폼과 아임웹 입력폼 대조" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "팀 리뷰 이후 30일 병행 운영 대조" })).toBeVisible();
     await expect(fallbackRegion.getByText("아임웹 폼", { exact: true })).toBeVisible();
     await expect(fallbackRegion.getByText("11", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "운영 리드 리스트" })).toBeVisible();
@@ -340,5 +340,120 @@ test.describe("AIBIO native MVP", () => {
       visitAt: "2026-04-28T11:00",
     });
     expect(savedAdminToken).toBe("test-admin-token");
+  });
+
+  test("상세페이지 편집 관리자가 문구를 저장한다", async ({ page }) => {
+    let savedToken = "";
+    let savedTitle = "";
+    const content = {
+      slug: "shop-view-25",
+      route: "/shop_view?idx=25",
+      status: "draft",
+      updatedAt: "2026-04-26T06:00:00.000Z",
+      updatedBy: "system",
+      hero: {
+        eyebrow: "AIBIO Recovery Lab Offer",
+        title: "붓기와 식욕 리듬을 먼저 확인하는 첫방문 체험 상담",
+        body: "테스트 본문",
+        primaryCta: "첫방문 상담 신청",
+        secondaryCta: "카카오 상담",
+        imageUrl: "https://cdn.imweb.me/thumbnail/20250124/e96dc62d45b13.jpg",
+      },
+      strip: [
+        { label: "핵심 CTA", value: "상담 신청" },
+        { label: "저장 위치", value: "Native Lead Ledger" },
+        { label: "광고키", value: "UTM · fbclid · gclid" },
+      ],
+      program: { eyebrow: "Program", title: "프로그램", body: "프로그램 본문", imageUrl: "https://cdn.imweb.me/thumbnail/20250124/340d5a869a6b2.jpg" },
+      offerPoints: [
+        { label: "첫 방문", title: "대사 리듬 상담", body: "상담 방향을 정합니다." },
+        { label: "센터 체험", title: "리커버리 장비 안내", body: "체험 순서를 안내합니다." },
+        { label: "운영 원장", title: "상담 상태 추적", body: "자체 리드 원장에 남깁니다." },
+      ],
+      flow: [
+        { step: "01", title: "신청", body: "정보를 남깁니다." },
+        { step: "02", title: "상담", body: "상담합니다." },
+        { step: "03", title: "예약", body: "확정합니다." },
+        { step: "04", title: "방문", body: "기록합니다." },
+      ],
+      proof: { eyebrow: "Measurement", title: "측정", body: "저장합니다.", imageUrl: "https://cdn.imweb.me/thumbnail/20250124/1312356faa028.jpg" },
+      form: { eyebrow: "First Visit Lead", title: "첫방문 체험 상담을 신청합니다.", description: "저장됩니다.", submitLabel: "첫방문 상담 신청 저장" },
+    };
+
+    await page.route("**/api/aibio/content/shop-view-25", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, content }) });
+    });
+    await page.route("**/api/aibio/admin/content/shop-view-25", async (route) => {
+      savedToken = route.request().headers()["x-admin-token"] ?? "";
+      const payload = route.request().postDataJSON() as typeof content;
+      savedTitle = payload.hero.title;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, content: { ...payload, updatedAt: "2026-04-26T10:00:00.000Z", updatedBy: "aibio-native-admin" } }),
+      });
+    });
+
+    await page.goto(`${BASE}/aibio-native/admin/content`);
+    await expect(page.getByRole("heading", { name: "상세페이지 문구와 이미지를 직접 바꿉니다." })).toBeVisible();
+    await page.getByRole("textbox", { name: "관리자 토큰" }).fill("test-admin-token");
+    await page.getByRole("button", { name: "세션 저장" }).click();
+    await page.getByRole("textbox", { name: "큰 제목" }).fill("운영자가 바꾼 첫방문 체험 상담");
+    await page.getByRole("button", { name: "상세페이지 저장" }).click();
+
+    await expect(page.getByText("저장되었습니다. 공개 랜딩 새로고침 시 반영됩니다.")).toBeVisible();
+    expect(savedToken).toBe("test-admin-token");
+    expect(savedTitle).toBe("운영자가 바꾼 첫방문 체험 상담");
+  });
+
+  test("입력폼 분석 관리자가 엑셀 집계를 확인한다", async ({ page }) => {
+    let savedToken = "";
+    await page.route("**/api/aibio/admin/form-export/analyze", async (route) => {
+      savedToken = route.request().headers()["x-admin-token"] ?? "";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          generatedAt: "2026-04-26T10:00:00.000Z",
+          file: { name: "diet.xlsx", size: 1024, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+          privacy: { rawPiiReturned: false, phoneHashOnly: true, note: "PII 없음" },
+          shape: { sheetRows: 107, dataRows: 106, columns: 12, headers: ["이름", "연락처"] },
+          freshness: { firstResponseAt: "2024-11-10 21:37:49", latestResponseAt: "2026-04-26 01:12:47" },
+          quality: {
+            missingNameRows: 0,
+            missingPhoneRows: 0,
+            uniquePhoneHashes: 99,
+            duplicatePhoneHashRows: 7,
+            privacyConsentRows: 106,
+            thirdPartyConsentRows: 0,
+          },
+          distributions: {
+            age: [{ key: "40대", count: 20 }],
+            purpose: [{ key: "체중 감량", count: 96 }],
+            channel: [{ key: "유튜브", count: 56 }],
+            consultationType: [{ key: "(blank)", count: 88 }],
+          },
+          recommendedNativeFields: [
+            { sourceHeader: "상담 목적 (다중 선택 가능)", nativeField: "purpose[]", note: "다중 선택 전환 권장" },
+          ],
+        }),
+      });
+    });
+
+    await page.goto(`${BASE}/aibio-native/admin/forms`);
+    await expect(page.getByRole("heading", { name: "아임웹 입력폼 엑셀을 자체 원장 필드와 대조합니다." })).toBeVisible();
+    await page.getByRole("textbox", { name: "관리자 토큰" }).fill("test-admin-token");
+    await page.getByRole("button", { name: "세션 저장" }).click();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "diet.xlsx",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: Buffer.from("fake"),
+    });
+
+    await expect(page.getByText("입력폼 엑셀 분석이 완료되었습니다. 원문 이름, 전화번호, IP는 화면에 반환하지 않습니다.")).toBeVisible();
+    await expect(page.getByText("체중 감량")).toBeVisible();
+    await expect(page.getByText("purpose[]")).toBeVisible();
+    expect(savedToken).toBe("test-admin-token");
   });
 });

@@ -1,38 +1,33 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AibioNativeLeadForm } from "../aibio-native/AibioNativeLeadForm";
+import {
+  AIBIO_NATIVE_API_BASE,
+  DEFAULT_SHOP_VIEW_25_CONTENT,
+  type AibioNativePageContent,
+} from "@/lib/aibio-native";
 
 const KAKAO_CHAT_URL = "https://pf.kakao.com/_jRxcPK/chat";
-const HERO_IMAGE = "https://cdn.imweb.me/thumbnail/20250124/e96dc62d45b13.jpg";
-const PROGRAM_IMAGE = "https://cdn.imweb.me/thumbnail/20250124/340d5a869a6b2.jpg";
-const RESULT_IMAGE = "https://cdn.imweb.me/thumbnail/20250124/1312356faa028.jpg";
-
-const OFFER_POINTS = [
-  {
-    label: "첫 방문",
-    title: "대사 리듬 상담",
-    body: "생활 패턴, 붓기, 식욕, 수면 상태를 함께 보고 방문 상담의 방향을 정합니다.",
-  },
-  {
-    label: "센터 체험",
-    title: "리커버리 장비 안내",
-    body: "방문 전 상담 목적을 남기면 운영팀이 적합한 체험 순서를 안내합니다.",
-  },
-  {
-    label: "운영 원장",
-    title: "상담 상태 추적",
-    body: "광고 유입부터 상담 신청, 예약, 방문 가능성까지 자체 리드 원장에 남깁니다.",
-  },
-];
-
-const FLOW = [
-  ["01", "신청", "이름, 연락처, 관심 목적을 남깁니다."],
-  ["02", "상담", "운영팀이 연락 가능 시간에 맞춰 상담합니다."],
-  ["03", "예약", "방문 시간과 체험 구성을 확정합니다."],
-  ["04", "방문", "센터에서 상담 결과와 다음 단계를 기록합니다."],
-];
 
 export function RecoveryLabOfferLanding() {
+  const [content, setContent] = useState<AibioNativePageContent>(DEFAULT_SHOP_VIEW_25_CONTENT);
+
+  useEffect(() => {
+    let alive = true;
+    void fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/content/shop-view-25`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((body: { ok?: boolean; content?: AibioNativePageContent }) => {
+        if (alive && body.ok && body.content) setContent(body.content);
+      })
+      .catch(() => {
+        // Content fallback keeps the landing usable when the admin API is unavailable.
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <main className="offer-page">
       <header className="offer-header" aria-label="AIBIO Recovery Lab">
@@ -45,21 +40,18 @@ export function RecoveryLabOfferLanding() {
           <a href="#flow">진행 흐름</a>
           <a href="#apply">상담 신청</a>
         </nav>
-        <a className="header-cta" href="#apply">첫방문 신청</a>
+        <a className="header-cta" href="#apply">{content.hero.primaryCta}</a>
       </header>
 
       <section id="top" className="hero" aria-label="AIBIO 첫방문 체험 상담">
         <div className="hero-copy">
-          <p className="eyebrow">AIBIO Recovery Lab Offer</p>
-          <h1>붓기와 식욕 리듬을 먼저 확인하는 첫방문 체험 상담</h1>
-          <p>
-            아임웹 `/shop_view?idx=25`에서 유입되던 리커버리랩 체험 성격의 랜딩을 자체 폼으로 옮기는 1차 실험입니다.
-            상담 신청은 AIBIO 자체 리드 원장에 저장됩니다.
-          </p>
+          <p className="eyebrow">{content.hero.eyebrow}</p>
+          <h1>{content.hero.title}</h1>
+          <p>{content.hero.body}</p>
           <div className="hero-actions">
-            <a className="primary-action" href="#apply">상담 신청하기</a>
+            <a className="primary-action" href="#apply">{content.hero.primaryCta}</a>
             <a className="secondary-action" href={KAKAO_CHAT_URL} target="_blank" rel="noreferrer">
-              카카오 상담
+              {content.hero.secondaryCta}
             </a>
           </div>
         </div>
@@ -71,34 +63,25 @@ export function RecoveryLabOfferLanding() {
       </section>
 
       <section className="offer-strip" aria-label="첫방문 상담 핵심">
-        <div>
-          <span>핵심 CTA</span>
-          <strong>상담 신청</strong>
-        </div>
-        <div>
-          <span>저장 위치</span>
-          <strong>Native Lead Ledger</strong>
-        </div>
-        <div>
-          <span>광고키</span>
-          <strong>UTM · fbclid · gclid</strong>
-        </div>
+        {content.strip.map((item) => (
+          <div key={`${item.label}-${item.value}`}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
       </section>
 
       <section id="program" className="program-section">
         <div className="program-copy">
-          <p className="eyebrow">Program</p>
-          <h2>방문 전부터 상담 목적을 분명히 잡습니다.</h2>
-          <p>
-            AIBIO 센터는 단순 상품 주문보다 상담 연결과 방문 예약이 중요합니다.
-            그래서 이 랜딩은 체험권 판매보다 리드 품질과 방문 가능성 기록에 초점을 둡니다.
-          </p>
+          <p className="eyebrow">{content.program.eyebrow}</p>
+          <h2>{content.program.title}</h2>
+          <p>{content.program.body}</p>
         </div>
         <div className="program-visual" role="img" aria-label="AIBIO 리커버리랩 프로그램 이미지" />
       </section>
 
       <section className="offer-grid" aria-label="첫방문 체험 상담 구성">
-        {OFFER_POINTS.map((point) => (
+        {content.offerPoints.map((point) => (
           <article key={point.title}>
             <span>{point.label}</span>
             <h3>{point.title}</h3>
@@ -113,11 +96,11 @@ export function RecoveryLabOfferLanding() {
           <h2>광고 클릭 이후의 흐름을 끊기지 않게 남깁니다.</h2>
         </div>
         <div className="flow-grid">
-          {FLOW.map(([step, title, body]) => (
-            <article key={step}>
-              <span>{step}</span>
-              <h3>{title}</h3>
-              <p>{body}</p>
+          {content.flow.map((item) => (
+            <article key={item.step}>
+              <span>{item.step}</span>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
             </article>
           ))}
         </div>
@@ -126,21 +109,18 @@ export function RecoveryLabOfferLanding() {
       <section className="proof-section" aria-label="방문 전 확인 항목">
         <div className="proof-image" role="img" aria-label="AIBIO 변화 후기 이미지" />
         <div className="proof-copy">
-          <p className="eyebrow">Measurement</p>
-          <h2>이번 route의 목표는 예쁜 페이지가 아니라 리드와 유입의 연결입니다.</h2>
-          <p>
-            제출 시점의 landing path, referrer, UTM, fbclid, gclid, _fbc, _fbp, _ga를 함께 저장합니다.
-            운영자는 이후 연락중, 예약확정, 방문완료, 결제완료 상태를 같은 원장에 남길 수 있습니다.
-          </p>
+          <p className="eyebrow">{content.proof.eyebrow}</p>
+          <h2>{content.proof.title}</h2>
+          <p>{content.proof.body}</p>
         </div>
       </section>
 
       <AibioNativeLeadForm
         sectionId="apply"
-        eyebrow="First Visit Lead"
-        title="첫방문 체험 상담을 신청합니다."
-        description="제출한 정보는 AIBIO 자체 리드 원장에 저장됩니다. 운영자는 이 기록으로 연락 상태, 예약 여부, 방문 여부를 이어서 관리합니다."
-        submitLabel="첫방문 상담 신청 저장"
+        eyebrow={content.form.eyebrow}
+        title={content.form.title}
+        description={content.form.description}
+        submitLabel={content.form.submitLabel}
         storageSource="aibio_shop_view_idx_25_offer"
         variant="offer"
       />
@@ -152,10 +132,10 @@ export function RecoveryLabOfferLanding() {
 
       <div className="mobile-cta-bar" aria-label="모바일 빠른 상담 메뉴" role="navigation">
         <a className="mobile-cta-secondary" href={KAKAO_CHAT_URL} target="_blank" rel="noreferrer">
-          <span>카카오 상담</span>
+          <span>{content.hero.secondaryCta}</span>
         </a>
         <a className="mobile-cta-primary" href="#apply">
-          <span>첫방문 상담 신청</span>
+          <span>{content.hero.primaryCta}</span>
         </a>
       </div>
 
@@ -260,7 +240,7 @@ export function RecoveryLabOfferLanding() {
           padding: 92px 56px;
           background-image:
             linear-gradient(90deg, rgba(8, 22, 50, 0.96) 0%, rgba(8, 22, 50, 0.82) 44%, rgba(8, 22, 50, 0.1) 76%),
-            url("${HERO_IMAGE}");
+            url("${content.hero.imageUrl}");
           background-size: cover;
           background-position: right center;
           overflow: hidden;
@@ -414,11 +394,11 @@ export function RecoveryLabOfferLanding() {
         }
 
         .program-visual {
-          background-image: url("${PROGRAM_IMAGE}");
+          background-image: url("${content.program.imageUrl}");
         }
 
         .proof-image {
-          background-image: url("${RESULT_IMAGE}");
+          background-image: url("${content.proof.imageUrl}");
           background-position: right center;
         }
 
@@ -612,7 +592,7 @@ export function RecoveryLabOfferLanding() {
             padding: 54px 18px 172px;
             background-image:
               linear-gradient(180deg, rgba(8, 22, 50, 0.9) 0%, rgba(8, 22, 50, 0.68) 50%, rgba(8, 22, 50, 0.28) 100%),
-              url("${HERO_IMAGE}");
+              url("${content.hero.imageUrl}");
             background-position: center;
           }
 
