@@ -20,8 +20,8 @@ AIBIO는 아임웹 관리자 전체를 복제할 필요가 없다. 자체 개발
 |---|---|---|---|---|---|
 | Phase0 | [[#Phase0-Sprint1]] | 화면/데이터 기준선 고정 | TJ + Codex | 70% / 0% | [[#Phase0-Sprint1\|이동]] |
 | Phase1 | [[#Phase1-Sprint2]] | 플랫폼 골격 결정 | TJ + Codex | 20% / 0% | [[#Phase1-Sprint2\|이동]] |
-| Phase2 | [[#Phase2-Sprint3]] | 공개 홈페이지/랜딩 자체화 | Codex + Claude Code | 20% / 0% | [[#Phase2-Sprint3\|이동]] |
-| Phase3 | [[#Phase3-Sprint4]] | 폼/예약/리드 원장 | Codex | 10% / 0% | [[#Phase3-Sprint4\|이동]] |
+| Phase2 | [[#Phase2-Sprint3]] | 공개 홈페이지/랜딩 자체화 | Codex + Claude Code | 40% / 0% | [[#Phase2-Sprint3\|이동]] |
+| Phase3 | [[#Phase3-Sprint4]] | 폼/예약/리드 원장 | Codex | 25% / 0% | [[#Phase3-Sprint4\|이동]] |
 | Phase4 | [[#Phase4-Sprint5]] | 통계/성장 도구 최소 구현 | Codex + Claude Code | 10% / 0% | [[#Phase4-Sprint5\|이동]] |
 | Phase5 | [[#Phase5-Sprint6]] | 예약금/체험권 Toss 결제 | TJ + Codex | 10% / 0% | [[#Phase5-Sprint6\|이동]] |
 | Phase6 | [[#Phase6-Sprint7]] | 운영 관리자/RBAC | Codex + Claude Code | 대기 | [[#Phase6-Sprint7\|이동]] |
@@ -886,7 +886,40 @@ MVP:
 5. AIBIO 아임웹 기존 URL -> 자체 URL 301 redirect 계획 수립
 6. 바이오컴/더클린커피는 별도 검토 일정으로 분리
 
-## 16. 근거와 참고
+## 16. 개발 진행 기록
+
+### 2026-04-26 09:08 KST
+
+우리 기준 개발을 시작했다. 운영 DB, 운영 배포, 아임웹 관리자 설정은 건드리지 않았다.
+
+| 항목 | 결과 | 운영 반영 |
+|---|---|---|
+| AIBIO 자체 홈페이지 MVP route | `frontend/src/app/aibio-native/page.tsx` 추가 | 미반영 |
+| 공개 화면 컴포넌트 | `frontend/src/app/aibio-native/AibioNativeExperience.tsx` 추가 | 미반영 |
+| 리드 draft API | `frontend/src/app/api/aibio-native/lead-draft/route.ts` 추가. 원문 전화번호는 응답하지 않고 SHA-256 hash만 반환 | 미반영 |
+| 자동 검증 | `frontend/tests/aibio-native.spec.ts` 추가 | 로컬 검증 완료 |
+| 화면 검증 | Playwright desktop/mobile screenshot 생성 | 로컬 검증 완료 |
+
+검증 결과:
+
+- `npm --prefix frontend run lint -- src/app/aibio-native/page.tsx src/app/aibio-native/AibioNativeExperience.tsx src/app/api/aibio-native/lead-draft/route.ts tests/aibio-native.spec.ts`: 통과
+- `cd frontend && npx tsc --noEmit --pretty false --incremental false`: 통과
+- `PLAYWRIGHT_BASE_URL=http://localhost:7011 npx playwright test tests/aibio-native.spec.ts --reporter=list`: 2 passed
+
+현재 의미:
+
+- Phase2-Sprint3은 홈페이지/랜딩의 첫 구현물이 생겼으므로 `40% / 0%`로 올린다.
+- Phase3-Sprint4는 실제 DB 저장 전 단계의 lead draft API와 폼 검증이 생겼으므로 `25% / 0%`로 올린다.
+- 운영 기준은 아직 0%다. 이유는 아임웹 redirect, 운영 DB 저장, GTM/GA4/CAPI 연결, 실운영 상담 프로세스가 아직 붙지 않았기 때문이다.
+
+다음 개발 순서:
+
+1. `/aibio-native`에 URL/UTM/fbc/fbp/client_id 수집을 붙인다.
+2. lead draft API 응답을 NestJS 또는 Express native API 계약으로 옮길 수 있게 schema를 분리한다.
+3. AIBIO 인기 URL `/shop_view`, `/main`, `/bio_pulse_M`, `/56`, `/59` redirect map 초안을 만든다.
+4. 운영 DB 스키마 변경은 TJ님 승인 전에는 하지 않는다.
+
+## 17. 근거와 참고
 
 ### 로컬 자료
 
@@ -908,6 +941,10 @@ MVP:
 - `aibio/aibio_sync_design.md`
 - `aibio/gtm.md`
 - `frontend/src/app/aibio-funnel/page.tsx`
+- `frontend/src/app/aibio-native/page.tsx`
+- `frontend/src/app/aibio-native/AibioNativeExperience.tsx`
+- `frontend/src/app/api/aibio-native/lead-draft/route.ts`
+- `frontend/tests/aibio-native.spec.ts`
 - `frontend/src/app/crm/*`
 - `frontend/src/app/acquisition-analysis/page.tsx`
 
@@ -930,7 +967,7 @@ MVP:
 - OpenAI GPT-5.5 announcement: https://openai.com/index/introducing-gpt-5-5/
 - Anthropic Claude Opus 4.7 announcement: https://www.anthropic.com/news/claude-opus-4-7
 
-## 17. 데이터 정확성 기록
+## 18. 데이터 정확성 기록
 
 | 항목 | Source | 기준 시각/문서일 | Window | Site | Freshness | Confidence |
 |---|---|---|---|---|---|---|
@@ -947,3 +984,4 @@ MVP:
 | Imweb 신규 주문 API 범위 | Imweb Developers 공식 문서 | 2026-04-26 조회 | 주문관리시스템 v2 | all | 높음 | 높음 |
 | 첨부 관리자/디자인 화면 | TJ님 대화 첨부 Image #1~#10, `imweb/aibio-admin-screenshots.md` | 2026-04-26 판독 | 화면 캡처 시점 | aibio | 중간 | 중간, 원본 파일 export 필요 |
 | GPT-5.5 vs Claude Opus 4.7 | OpenAI/Anthropic 공식 발표 | 2026-04-26 조회 | 2026-04 발표 자료 | all | 높음 | 중간, AIBIO 내부 비교 테스트 필요 |
+| AIBIO native MVP 개발 | 로컬 코드와 Playwright 테스트 | 2026-04-26 09:08 KST | 로컬 dev server 7011 | aibio | 높음 | 높음, 운영 미반영 |
