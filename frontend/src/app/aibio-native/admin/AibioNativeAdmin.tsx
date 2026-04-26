@@ -44,6 +44,50 @@ type FunnelResponse = {
   confidence: string;
 };
 
+type FallbackComparisonResponse = {
+  ok: boolean;
+  generatedAt: string;
+  source: {
+    native: string;
+    fallback: string;
+  };
+  window: {
+    startAt: string;
+    endAt: string;
+    startDate: string;
+    endDate: string;
+    rangeDays: number;
+  };
+  freshness: {
+    latestNativeLeadAt: string | null;
+    latestFallbackAt: string | null;
+  };
+  counts: {
+    nativeRows: number;
+    nativeUniquePhones: number;
+    fallbackRows: number;
+    fallbackUniquePhones: number;
+    overlapUniquePhones: number;
+    nativeOnlyUniquePhones: number;
+    fallbackOnlyUniquePhones: number;
+  };
+  rates: {
+    nativeOnlyRate: number | null;
+    fallbackOnlyRate: number | null;
+    overlapRateAgainstNative: number | null;
+    overlapRateAgainstFallback: number | null;
+  };
+  warnings?: string[];
+  notes?: string[];
+};
+
+type LeadOpsDraft = {
+  assignedTo: string;
+  operatorMemo: string;
+  reservationAt: string;
+  visitAt: string;
+};
+
 const purposeLabel: Record<string, string> = {
   metabolism: "대사/붓기 관리",
   appetite: "식욕 조절",
@@ -76,6 +120,25 @@ const fmtPct = (value: number | null) => {
   return `${Math.round(value * 100)}%`;
 };
 
+const fmtCount = (value: number | null | undefined) => {
+  if (value == null) return "-";
+  return new Intl.NumberFormat("ko-KR").format(value);
+};
+
+const toDateTimeLocal = (value: string | null) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return date.toISOString().slice(0, 16);
+};
+
+const draftFromLead = (lead: AibioNativeLead): LeadOpsDraft => ({
+  assignedTo: lead.assignedTo ?? "",
+  operatorMemo: lead.operatorMemo ?? "",
+  reservationAt: toDateTimeLocal(lead.reservationAt),
+  visitAt: toDateTimeLocal(lead.visitAt),
+});
+
 const sourceLabel = (lead: AibioNativeLead) =>
   lead.utm.source || channelLabel[lead.channel] || lead.channel || "(없음)";
 
@@ -83,6 +146,8 @@ export function AibioNativeAdmin() {
   const [leads, setLeads] = useState<AibioNativeLead[]>([]);
   const [listSummary, setListSummary] = useState<LeadListResponse["summary"] | null>(null);
   const [funnel, setFunnel] = useState<FunnelResponse | null>(null);
+  const [fallbackComparison, setFallbackComparison] = useState<FallbackComparisonResponse | null>(null);
+  const [leadOpsDrafts, setLeadOpsDrafts] = useState<Record<string, LeadOpsDraft>>({});
   const [statusFilter, setStatusFilter] = useState<"" | AibioNativeLeadStatus>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,17 +159,22 @@ export function AibioNativeAdmin() {
     setLoading(true);
     setError(null);
     try {
-      const [leadRes, funnelRes] = await Promise.all([
+      const [leadRes, funnelRes, fallbackRes] = await Promise.all([
         fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/native-leads?${params.toString()}`, { cache: "no-store" }),
         fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/native-leads/funnel?days=7`, { cache: "no-store" }),
+        fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/native-leads/fallback-comparison?rangeDays=30`, { cache: "no-store" }),
       ]);
       const leadBody = (await leadRes.json()) as LeadListResponse;
       const funnelBody = (await funnelRes.json()) as FunnelResponse;
+      const fallbackBody = (await fallbackRes.json()) as FallbackComparisonResponse;
       if (!leadRes.ok || !leadBody.ok) throw new Error("리드 목록을 읽지 못했습니다.");
       if (!funnelRes.ok || !funnelBody.ok) throw new Error("퍼널 요약을 읽지 못했습니다.");
+      if (!fallbackRes.ok || !fallbackBody.ok) throw new Error("아임웹 병행 대조 리포트를 읽지 못했습니다.");
       setLeads(leadBody.leads);
       setListSummary(leadBody.summary);
       setFunnel(funnelBody);
+      setFallbackComparison(fallbackBody);
+      setLeadOpsDrafts(Object.fromEntries(leadBody.leads.map((lead) => [lead.leadId, draftFromLead(lead)])));
     } catch (err) {
       setError(err instanceof Error ? err.message : "관리자 데이터를 읽지 못했습니다.");
     } finally {
@@ -116,21 +186,70 @@ export function AibioNativeAdmin() {
     void load();
   }, [load]);
 
+  const updateDraft = (leadId: string, patch: Partial<LeadOpsDraft>) => {
+    const emptyDraft: LeadOpsDraft = {
+      assignedTo: "",
+      operatorMemo: "",
+      reservationAt: "",
+      visitAt: "",
+    };
+    setLeadOpsDrafts((current) => ({
+      ...current,
+      [leadId]: {
+        ...emptyDraft,
+        ...(current[leadId] ?? {}),
+        ...patch,
+      },
+    }));
+  };
+
+  const patchLead = async (leadId: string, status: AibioNativeLeadStatus) => {
+    const draft = leadOpsDrafts[leadId];
+    const response = await fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/native-leads/${encodeURIComponent(leadId)}/status`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        status,
+        changedBy: "aibio-native-admin",
+        assignedTo: draft?.assignedTo ?? "",
+        memo: draft?.operatorMemo ?? "",
+        reservationAt: draft?.reservationAt || null,
+        visitAt: draft?.visitAt || null,
+      }),
+    });
+    const body = (await response.json()) as { ok: boolean; lead?: AibioNativeLead; error?: string };
+    if (!response.ok || !body.ok || !body.lead) throw new Error(body.error ?? "리드 운영 정보 저장 실패");
+    return body.lead;
+  };
+
+  const mergeLead = (nextLead: AibioNativeLead) => {
+    setLeads((current) => current.map((lead) => (lead.leadId === nextLead.leadId ? nextLead : lead)));
+    setLeadOpsDrafts((current) => ({ ...current, [nextLead.leadId]: draftFromLead(nextLead) }));
+  };
+
   const updateStatus = async (leadId: string, status: AibioNativeLeadStatus) => {
     setUpdatingLeadId(leadId);
     setError(null);
     try {
-      const response = await fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/native-leads/${encodeURIComponent(leadId)}/status`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status, changedBy: "aibio-native-admin" }),
-      });
-      const body = (await response.json()) as { ok: boolean; lead?: AibioNativeLead; error?: string };
-      if (!response.ok || !body.ok || !body.lead) throw new Error(body.error ?? "상태 변경 실패");
-      setLeads((current) => current.map((lead) => (lead.leadId === leadId ? body.lead! : lead)));
+      const lead = await patchLead(leadId, status);
+      mergeLead(lead);
       void load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "상태 변경 실패");
+    } finally {
+      setUpdatingLeadId(null);
+    }
+  };
+
+  const saveOperations = async (lead: AibioNativeLead) => {
+    setUpdatingLeadId(lead.leadId);
+    setError(null);
+    try {
+      const nextLead = await patchLead(lead.leadId, lead.status);
+      mergeLead(nextLead);
+      void load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "운영 정보 저장 실패");
     } finally {
       setUpdatingLeadId(null);
     }
@@ -193,6 +312,37 @@ export function AibioNativeAdmin() {
         </div>
       </section>
 
+      <section className="fallback-board" aria-label="아임웹 30일 병행 대조">
+        <div className="fallback-copy">
+          <p>Fallback comparison</p>
+          <h2>최근 30일 자체 폼과 아임웹 입력폼 대조</h2>
+          <span>
+            window: {fallbackComparison?.window.startDate ?? "-"} ~ {fallbackComparison?.window.endDate ?? "-"}
+            {" · "}native latest: {fmtDateTime(fallbackComparison?.freshness.latestNativeLeadAt ?? null)}
+            {" · "}fallback latest: {fmtDateTime(fallbackComparison?.freshness.latestFallbackAt ?? null)}
+          </span>
+        </div>
+        <div className="fallback-metrics">
+          {[
+            ["자체 리드", fmtCount(fallbackComparison?.counts.nativeRows), "native rows"],
+            ["아임웹 폼", fmtCount(fallbackComparison?.counts.fallbackRows), "fallback rows"],
+            ["양쪽 중복", fmtCount(fallbackComparison?.counts.overlapUniquePhones), "phone hash overlap"],
+            ["자체만 있음", fmtCount(fallbackComparison?.counts.nativeOnlyUniquePhones), `rate ${fmtPct(fallbackComparison?.rates.nativeOnlyRate ?? null)}`],
+            ["아임웹만 있음", fmtCount(fallbackComparison?.counts.fallbackOnlyUniquePhones), `rate ${fmtPct(fallbackComparison?.rates.fallbackOnlyRate ?? null)}`],
+          ].map(([label, value, note]) => (
+            <article key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+              <small>{note}</small>
+            </article>
+          ))}
+        </div>
+        <div className="fallback-notes">
+          <span>source: {fallbackComparison ? `${fallbackComparison.source.native} / ${fallbackComparison.source.fallback}` : "-"}</span>
+          {fallbackComparison?.warnings?.length ? <span>warning: {fallbackComparison.warnings[0]}</span> : <span>phone hash 기준 대조</span>}
+        </div>
+      </section>
+
       <section className="board" aria-label="리드 목록">
         <div className="board-head">
           <div>
@@ -222,57 +372,104 @@ export function AibioNativeAdmin() {
                 <th>랜딩</th>
                 <th>광고키</th>
                 <th>상태</th>
+                <th>운영 정보</th>
                 <th>중복</th>
               </tr>
             </thead>
             <tbody>
-              {leads.map((lead) => (
-                <tr key={lead.leadId}>
-                  <td>
-                    <strong>{fmtDateTime(lead.createdAt)}</strong>
-                    <span className="sub">{lead.leadId.slice(0, 26)}</span>
-                  </td>
-                  <td>
-                    <strong>{lead.customerNameMasked}</strong>
-                    <span className="sub">{lead.customerPhoneMasked}</span>
-                  </td>
-                  <td>
-                    <strong>{purposeLabel[lead.purpose] ?? lead.purpose}</strong>
-                    <span className="sub">{lead.preferredTime}</span>
-                  </td>
-                  <td>
-                    <strong>{sourceLabel(lead)}</strong>
-                    <span className="sub">{lead.utm.campaign ?? lead.channel}</span>
-                  </td>
-                  <td>
-                    <strong>{lead.landingPath || "-"}</strong>
-                    <span className="sub">{lead.referrer ?? "referrer 없음"}</span>
-                  </td>
-                  <td>
-                    <strong>{lead.attributionKeys.length}개</strong>
-                    <span className="sub">{lead.adKeys.fbclid ? "fbclid " : ""}{lead.adKeys.gclid ? "gclid " : ""}{lead.adKeys.fbc ? "_fbc " : ""}{lead.adKeys.fbp ? "_fbp " : ""}{lead.adKeys.gaClientId ? "_ga" : ""}</span>
-                  </td>
-                  <td>
-                    <select
-                      value={lead.status}
-                      disabled={updatingLeadId === lead.leadId}
-                      onChange={(event) => void updateStatus(lead.leadId, event.target.value as AibioNativeLeadStatus)}
-                    >
-                      {STATUS_OPTIONS.map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <span className={`pill ${lead.isDuplicate ? "amber" : "green"}`}>
-                      {lead.isDuplicate ? "후보" : "정상"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {leads.map((lead) => {
+                const draft = leadOpsDrafts[lead.leadId] ?? draftFromLead(lead);
+                return (
+                  <tr key={lead.leadId}>
+                    <td>
+                      <strong>{fmtDateTime(lead.createdAt)}</strong>
+                      <span className="sub">{lead.leadId.slice(0, 26)}</span>
+                    </td>
+                    <td>
+                      <strong>{lead.customerNameMasked}</strong>
+                      <span className="sub">{lead.customerPhoneMasked}</span>
+                    </td>
+                    <td>
+                      <strong>{purposeLabel[lead.purpose] ?? lead.purpose}</strong>
+                      <span className="sub">{lead.preferredTime}</span>
+                    </td>
+                    <td>
+                      <strong>{sourceLabel(lead)}</strong>
+                      <span className="sub">{lead.utm.campaign ?? lead.channel}</span>
+                    </td>
+                    <td>
+                      <strong>{lead.landingPath || "-"}</strong>
+                      <span className="sub">{lead.referrer ?? "referrer 없음"}</span>
+                    </td>
+                    <td>
+                      <strong>{lead.attributionKeys.length}개</strong>
+                      <span className="sub">{lead.adKeys.fbclid ? "fbclid " : ""}{lead.adKeys.gclid ? "gclid " : ""}{lead.adKeys.fbc ? "_fbc " : ""}{lead.adKeys.fbp ? "_fbp " : ""}{lead.adKeys.gaClientId ? "_ga" : ""}</span>
+                    </td>
+                    <td>
+                      <select
+                        value={lead.status}
+                        disabled={updatingLeadId === lead.leadId}
+                        onChange={(event) => void updateStatus(lead.leadId, event.target.value as AibioNativeLeadStatus)}
+                      >
+                        {STATUS_OPTIONS.map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="ops-cell">
+                      <div className="ops-grid">
+                        <label>
+                          담당자
+                          <input
+                            value={draft.assignedTo}
+                            disabled={updatingLeadId === lead.leadId}
+                            onChange={(event) => updateDraft(lead.leadId, { assignedTo: event.target.value })}
+                            placeholder="예: 상담팀"
+                          />
+                        </label>
+                        <label>
+                          예약일
+                          <input
+                            type="datetime-local"
+                            value={draft.reservationAt}
+                            disabled={updatingLeadId === lead.leadId}
+                            onChange={(event) => updateDraft(lead.leadId, { reservationAt: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          방문일
+                          <input
+                            type="datetime-local"
+                            value={draft.visitAt}
+                            disabled={updatingLeadId === lead.leadId}
+                            onChange={(event) => updateDraft(lead.leadId, { visitAt: event.target.value })}
+                          />
+                        </label>
+                        <label className="memo">
+                          메모
+                          <textarea
+                            value={draft.operatorMemo}
+                            disabled={updatingLeadId === lead.leadId}
+                            onChange={(event) => updateDraft(lead.leadId, { operatorMemo: event.target.value })}
+                            placeholder="상담 결과, 다음 연락 내용"
+                          />
+                        </label>
+                        <button type="button" onClick={() => void saveOperations(lead)} disabled={updatingLeadId === lead.leadId}>
+                          {updatingLeadId === lead.leadId ? "저장 중" : "운영 정보 저장"}
+                        </button>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`pill ${lead.isDuplicate ? "amber" : "green"}`}>
+                        {lead.isDuplicate ? "후보" : "정상"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
               {leads.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={8} className="empty">아직 자체 리드 원장에 저장된 상담 신청이 없습니다.</td>
+                  <td colSpan={9} className="empty">아직 자체 리드 원장에 저장된 상담 신청이 없습니다.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -301,7 +498,8 @@ export function AibioNativeAdmin() {
 
         .admin-header,
         .board-head,
-        .funnel-board {
+        .funnel-board,
+        .fallback-board {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
@@ -314,7 +512,8 @@ export function AibioNativeAdmin() {
 
         .admin-header p,
         .board-head p,
-        .funnel-board p {
+        .funnel-board p,
+        .fallback-board p {
           margin: 0 0 8px;
           color: #2563eb;
           font-size: 0.74rem;
@@ -325,6 +524,7 @@ export function AibioNativeAdmin() {
         .admin-header h1,
         .board-head h2,
         .funnel-board h2,
+        .fallback-board h2,
         .workflow h2 {
           margin: 0;
           color: #172554;
@@ -375,6 +575,7 @@ export function AibioNativeAdmin() {
 
         .summary-grid article,
         .funnel-board,
+        .fallback-board,
         .board,
         .workflow {
           border-radius: 8px;
@@ -414,7 +615,19 @@ export function AibioNativeAdmin() {
           font-size: 1.14rem;
         }
 
-        .funnel-board > div > span {
+        .fallback-board {
+          flex-direction: column;
+          padding: 20px;
+          margin-bottom: 16px;
+        }
+
+        .fallback-board h2 {
+          font-size: 1.14rem;
+        }
+
+        .funnel-board > div > span,
+        .fallback-copy > span,
+        .fallback-notes span {
           display: block;
           margin-top: 8px;
           color: #64748b;
@@ -445,6 +658,43 @@ export function AibioNativeAdmin() {
           font-weight: 900;
         }
 
+        .fallback-metrics {
+          width: 100%;
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .fallback-metrics article {
+          min-height: 92px;
+          padding: 14px;
+          border-radius: 7px;
+          background: #f8fbff;
+          border: 1px solid rgba(37, 99, 235, 0.1);
+        }
+
+        .fallback-metrics span,
+        .fallback-metrics small {
+          display: block;
+          color: #64748b;
+          font-size: 0.74rem;
+          font-weight: 850;
+        }
+
+        .fallback-metrics strong {
+          display: block;
+          margin: 7px 0 6px;
+          color: #1d4ed8;
+          font-size: 1.36rem;
+          font-weight: 900;
+        }
+
+        .fallback-notes {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px 18px;
+        }
+
         .board {
           overflow: hidden;
         }
@@ -468,13 +718,28 @@ export function AibioNativeAdmin() {
           font-weight: 900;
         }
 
-        select {
+        select,
+        input,
+        textarea {
           min-height: 34px;
           border: 1px solid rgba(37, 99, 235, 0.18);
           border-radius: 6px;
           color: #172554;
           background: #ffffff;
           font-weight: 850;
+        }
+
+        input,
+        textarea {
+          width: 100%;
+          padding: 8px 10px;
+          font: inherit;
+          font-size: 0.78rem;
+        }
+
+        textarea {
+          min-height: 62px;
+          resize: vertical;
         }
 
         .notice {
@@ -497,7 +762,7 @@ export function AibioNativeAdmin() {
 
         table {
           width: 100%;
-          min-width: 1180px;
+          min-width: 1580px;
           border-collapse: collapse;
         }
 
@@ -554,6 +819,46 @@ export function AibioNativeAdmin() {
           color: #64748b;
         }
 
+        .ops-cell {
+          width: 360px;
+        }
+
+        .ops-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .ops-grid label {
+          display: grid;
+          gap: 5px;
+          color: #64748b;
+          font-size: 0.72rem;
+          font-weight: 900;
+        }
+
+        .ops-grid .memo,
+        .ops-grid button {
+          grid-column: 1 / -1;
+        }
+
+        .ops-grid button {
+          min-height: 36px;
+          border: 0;
+          border-radius: 6px;
+          color: #ffffff;
+          background: #3758d4;
+          font: inherit;
+          font-size: 0.8rem;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .ops-grid button:disabled {
+          cursor: wait;
+          opacity: 0.66;
+        }
+
         .workflow {
           margin-top: 16px;
           padding: 22px;
@@ -582,7 +887,8 @@ export function AibioNativeAdmin() {
 
         @media (max-width: 1100px) {
           .summary-grid,
-          .funnel-steps {
+          .funnel-steps,
+          .fallback-metrics {
             grid-template-columns: repeat(3, minmax(0, 1fr));
           }
 
@@ -605,6 +911,7 @@ export function AibioNativeAdmin() {
 
           .summary-grid,
           .funnel-steps,
+          .fallback-metrics,
           .workflow ol {
             grid-template-columns: 1fr;
           }

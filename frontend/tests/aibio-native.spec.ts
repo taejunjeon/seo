@@ -113,6 +113,8 @@ test.describe("AIBIO native MVP", () => {
   });
 
   test("운영자 리드 관리자가 실제 API 응답으로 로드된다", async ({ page }) => {
+    let savedPayload: Record<string, unknown> | null = null;
+
     await page.route("**/api/aibio/native-leads?**", async (route) => {
       await route.fulfill({
         status: 200,
@@ -161,8 +163,8 @@ test.describe("AIBIO native MVP", () => {
               attributionKeys: ["fbclid", "utm_campaign", "utm_medium", "utm_source"],
               isDuplicate: false,
               duplicateOfLeadId: null,
-              assignedTo: null,
-              operatorMemo: null,
+              assignedTo: "",
+              operatorMemo: "",
               reservationAt: null,
               visitAt: null,
               paymentAmount: null,
@@ -171,6 +173,48 @@ test.describe("AIBIO native MVP", () => {
               updatedAt: "2026-04-26T09:30:00.000Z",
             },
           ],
+        }),
+      });
+    });
+    await page.route("**/api/aibio/native-leads/fallback-comparison?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          generatedAt: "2026-04-26T09:30:00.000Z",
+          source: {
+            native: "local_sqlite_aibio_native_leads",
+            fallback: "local_sqlite_ledger",
+          },
+          window: {
+            startAt: "2026-03-27T00:00:00.000Z",
+            endAt: "2026-04-26T00:00:00.000Z",
+            startDate: "2026-03-27",
+            endDate: "2026-04-26",
+            rangeDays: 30,
+          },
+          freshness: {
+            latestNativeLeadAt: "2026-04-26T09:30:00.000Z",
+            latestFallbackAt: "2026-04-25T09:30:00.000Z",
+          },
+          counts: {
+            nativeRows: 10,
+            nativeUniquePhones: 9,
+            fallbackRows: 11,
+            fallbackUniquePhones: 10,
+            overlapUniquePhones: 8,
+            nativeOnlyUniquePhones: 1,
+            fallbackOnlyUniquePhones: 2,
+          },
+          rates: {
+            nativeOnlyRate: 1 / 9,
+            fallbackOnlyRate: 0.2,
+            overlapRateAgainstNative: 8 / 9,
+            overlapRateAgainstFallback: 0.8,
+          },
+          warnings: [],
+          notes: ["전화번호 hash 기준 대조"],
         }),
       });
     });
@@ -188,12 +232,68 @@ test.describe("AIBIO native MVP", () => {
         }),
       });
     });
+    await page.route("**/api/aibio/native-leads/*/status", async (route) => {
+      savedPayload = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          lead: {
+            leadId: "aibio_native_test_001",
+            status: "new",
+            statusLabel: "신규",
+            statusUpdatedAt: "2026-04-26T09:31:00.000Z",
+            customerNameMasked: "테*트",
+            customerPhoneMasked: "010-****-0000",
+            phoneHashSha256: "a".repeat(64),
+            ageRange: "30s",
+            purpose: "metabolism",
+            channel: "instagram",
+            preferredTime: "afternoon",
+            privacyConsent: true,
+            marketingConsent: true,
+            landingPath: "/aibio-native",
+            referrer: null,
+            utm: { source: "meta", medium: "paid_social", campaign: "aibio_native_test", content: null, term: null },
+            adKeys: { fbclid: true, gclid: false, fbc: false, fbp: false, gaClientId: false },
+            attributionKeys: ["fbclid", "utm_campaign", "utm_medium", "utm_source"],
+            isDuplicate: false,
+            duplicateOfLeadId: null,
+            assignedTo: "김상담",
+            operatorMemo: "오전 재연락",
+            reservationAt: "2026-04-27T10:00:00.000Z",
+            visitAt: "2026-04-28T11:00:00.000Z",
+            paymentAmount: null,
+            paymentAt: null,
+            createdAt: "2026-04-26T09:30:00.000Z",
+            updatedAt: "2026-04-26T09:31:00.000Z",
+          },
+        }),
+      });
+    });
 
     await page.goto(`${BASE}/aibio-native/admin`);
 
     await expect(page.getByRole("heading", { name: /자체 리드 원장과 주간 퍼널/ })).toBeVisible();
+    const fallbackRegion = page.getByRole("region", { name: "아임웹 30일 병행 대조" });
+    await expect(page.getByRole("heading", { name: "최근 30일 자체 폼과 아임웹 입력폼 대조" })).toBeVisible();
+    await expect(fallbackRegion.getByText("아임웹 폼", { exact: true })).toBeVisible();
+    await expect(fallbackRegion.getByText("11", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "운영 리드 리스트" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "상태" })).toBeVisible();
     await expect(page.getByText("aibio_native_test_001")).toBeVisible();
+    await page.getByLabel("담당자").fill("김상담");
+    await page.getByLabel("예약일").fill("2026-04-27T10:00");
+    await page.getByLabel("방문일").fill("2026-04-28T11:00");
+    await page.getByLabel("메모").fill("오전 재연락");
+    await page.getByRole("button", { name: "운영 정보 저장" }).click();
+
+    await expect.poll(() => savedPayload).toMatchObject({
+      assignedTo: "김상담",
+      memo: "오전 재연락",
+      reservationAt: "2026-04-27T10:00",
+      visitAt: "2026-04-28T11:00",
+    });
   });
 });
