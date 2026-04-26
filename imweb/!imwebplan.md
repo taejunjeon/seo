@@ -1,29 +1,29 @@
 # AIBIO 아임웹 탈출 및 자체 홈페이지/예약 결제 개발 검토
 
-작성 시각: 2026-04-26 14:30 KST
+작성 시각: 2026-04-26 15:04 KST
 기준일: 2026-04-26
 대상 사이트: AIBIO 센터 우선
 보류 사이트: 바이오컴, 더클린커피는 추후 별도 검토
 작성 목적: AIBIO 센터 홈페이지를 아임웹에서 단계적으로 탈출시키기 위해, 현재 확인 가능한 기능 인벤토리와 자체 개발 범위, PG사 토스페이먼츠 직접 연동 가능성, NestJS 기반 통합 백엔드 전략을 검토한다.
-문서 작성 규칙: `docurule.md` v3 기준. 실행 단계는 `무엇/왜/어떻게/산출물/검증/담당`을 모두 적는다.
+문서 작성 규칙: `docurule.md` v4 기준. 실행 단계는 `무엇/왜/어떻게/산출물/검증/담당`을 모두 적고, TJ 승인 요청은 추천안·대안·자신감·YES/NO 답변 형식으로 제시한다.
 
 ## 다음 할일
 
-| 순서 | 담당 | 할일 | 구체 내용 |
-|---:|---|---|---|
-| 1 | Codex | 완료: 첫 실험 랜딩을 자체 route로 만든다 | 무엇: `/shop_view?idx=25` 성격의 이벤트/체험권 랜딩을 Next.js route로 만들었다. 왜: 전체 홈페이지를 한 번에 옮기지 않고 고유입 랜딩 1개에서 리드 원장을 실운영 검증하기 위해서다. 어떻게: `frontend/src/app/shop_view/page.tsx`, `RecoveryLabOfferLanding.tsx`, 공용 `AibioNativeLeadForm.tsx`를 추가했다. 산출물/검증: PC·모바일 screenshot, Playwright 4 passed, local backend 저장 smoke 통과. |
-| 2 | Codex | 완료: 아임웹 병행 대조 리포트를 운영자가 볼 수 있게 만든다 | 무엇: 자체 리드 수, 아임웹 fallback 수, 중복 후보, 누락 후보를 30일 window로 보여준다. 왜: 아임웹 입력폼을 끌지 말지 숫자로 판단해야 하기 때문이다. 어떻게: `GET /api/aibio/native-leads/fallback-comparison?rangeDays=30` 결과를 `/aibio-native/admin`에 연결했다. 산출물/검증: 누락률·중복률·source·기준시각 표시, Playwright 통과, local API smoke 통과. |
-| 3 | Codex | 완료: 운영자 리드 리스트에 담당자와 메모 저장 UI를 붙인다 | 무엇: 상태 변경 중심 화면에 담당자, 메모, 예약일, 방문일 입력을 추가했다. 왜: 상담원이 실제로 쓰려면 “누가 처리 중인지”와 “다음 연락 내용”이 남아야 한다. 어떻게: 기존 `PATCH /api/aibio/native-leads/:leadId/status`에 `assignedTo`, `memo`, `reservationAt`, `visitAt`를 전송한다. 산출물/검증: Playwright payload 검증, local PATCH smoke 통과. |
-| 4 | Claude Code | 완료: 모바일 CTA와 폼 UX를 리뷰하고 일부 수정했다 | 무엇: 모바일 하단 CTA, 전화번호 자동 하이픈, 개인정보 동의 자세히, 사용자 친화 성공/실패 문구를 적용했다. 왜: 모바일 광고 유입에서 폼 이탈과 잘못된 번호 저장을 줄이기 위해서다. 어떻게: `/aibio-native`, `/shop_view?idx=25` 공용 폼과 랜딩 컴포넌트를 수정했다. 산출물/검증: `imweb/aibio-mobile-cta-form-ux-review.md`. |
-| 5 | Codex | 완료: Claude Code 변경분을 회귀 테스트와 문서에 반영했다 | 무엇: 기존 Playwright 기대값을 새 UX 문구와 모바일 CTA에 맞췄다. 왜: 화면은 좋아졌지만 테스트가 예전 내부 용어를 찾으면 이후 수정 때 품질 기준이 깨지기 때문이다. 어떻게: `frontend/tests/aibio-native.spec.ts`를 업데이트하고 7010 서버를 재빌드/재시작했다. 산출물/검증: `tsc`, `eslint`, Playwright 5 passed, wiki 링크 검증 통과. |
-| 6 | TJ | 리드 상태값 추천안에 YES/NO로 답한다 | 무엇: `imweb/aibio-lead-status-decision.md`의 추천안 A를 승인하거나 수정한다. 왜: “후보를 보고 알아서 결정”이 아니라 TJ님이 한 줄로 결정할 수 있어야 실행이 멈추지 않기 때문이다. 어떻게: `YES`, `NO: 기존명 유지`, `NO: 수정사항` 중 하나로 답한다. Codex 추천은 `신규, 연락중, 상담완료, 예약확정, 방문완료, 결제완료, 노쇼, 제외`다. 자신감: 76%. |
-| 7 | TJ | `AIBIO_NATIVE_ADMIN_TOKEN` 운영 secret을 확정한다 | 무엇: 원문 연락처 조회와 상태 변경에 쓸 관리자 token을 안전한 방식으로 정한다. 왜: 리드 목록에는 개인정보가 있어 공개 API처럼 열어둘 수 없기 때문이다. 어떻게: 운영 환경의 `.env` 또는 secret manager에만 저장하고 저장소에는 커밋하지 않는다. 산출물/검증: 운영 서버에서 관리자 API가 token 없이는 401 또는 403, token 있으면 200을 반환한다. 의존성: 선행필수. |
-| 8 | TJ + Codex | 30일 병행 운영 시작일과 Go/No-Go 기준을 확정한다 | 무엇: 자체 폼과 아임웹 폼을 같이 받을 시작일, 종료 후보일, 누락률 기준을 정한다. 왜: 감으로 아임웹을 종료하면 리드 누락 리스크가 생긴다. 어떻게: 시작일을 문서에 박고, 정상 저장률 99% 이상·누락률 3% 이하·상태 입력률 80% 이상 기준으로 매주 확인한다. 산출물/검증: `imweb/!imwebplan.md`와 운영 리포트에 기준일·window·source가 기록된다. |
-| 9 | TJ | 첫 실험 랜딩 노출 방식을 승인한다 | 무엇: 자체 `/shop_view?idx=25` route를 광고 URL 일부로 쓸지, 내부 테스트만 할지, 아임웹 페이지에서 링크로만 보낼지 결정한다. 왜: 전체 홈페이지 전환 전에 리스크를 작게 두고 실운영 리드를 모아야 하기 때문이다. 어떻게: 광고 URL 일부 교체, 내부 테스트 URL 공유, 아임웹 CTA 링크 추가 중 하나를 고른다. 산출물/검증: 어떤 유입이 자체 랜딩으로 들어오는지 문서에 남는다. |
+|  순서 | 담당          | 할일                                         | 구체 내용                                                                                                                                                                                                                                                                                                            |
+| --: | ----------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   1 | Codex       | 완료: 첫 실험 랜딩을 자체 route로 만든다                 | 무엇: `/shop_view?idx=25` 성격의 이벤트/체험권 랜딩을 Next.js route로 만들었다. 왜: 전체 홈페이지를 한 번에 옮기지 않고 고유입 랜딩 1개에서 리드 원장을 실운영 검증하기 위해서다. 어떻게: `frontend/src/app/shop_view/page.tsx`, `RecoveryLabOfferLanding.tsx`, 공용 `AibioNativeLeadForm.tsx`를 추가했다. 산출물/검증: PC·모바일 screenshot, Playwright 4 passed, local backend 저장 smoke 통과. |
+|   2 | Codex       | 완료: 아임웹 병행 대조 리포트를 운영자가 볼 수 있게 만든다         | 무엇: 자체 리드 수, 아임웹 fallback 수, 중복 후보, 누락 후보를 30일 window로 보여준다. 왜: 아임웹 입력폼을 끌지 말지 숫자로 판단해야 하기 때문이다. 어떻게: `GET /api/aibio/native-leads/fallback-comparison?rangeDays=30` 결과를 `/aibio-native/admin`에 연결했다. 산출물/검증: 누락률·중복률·source·기준시각 표시, Playwright 통과, local API smoke 통과.                                         |
+|   3 | Codex       | 완료: 운영자 리드 리스트에 담당자와 메모 저장 UI를 붙인다         | 무엇: 상태 변경 중심 화면에 담당자, 메모, 예약일, 방문일 입력을 추가했다. 왜: 상담원이 실제로 쓰려면 “누가 처리 중인지”와 “다음 연락 내용”이 남아야 한다. 어떻게: 기존 `PATCH /api/aibio/native-leads/:leadId/status`에 `assignedTo`, `memo`, `reservationAt`, `visitAt`를 전송한다. 산출물/검증: Playwright payload 검증, local PATCH smoke 통과.                                               |
+|   4 | Claude Code | 완료: 모바일 CTA와 폼 UX를 리뷰하고 일부 수정했다            | 무엇: 모바일 하단 CTA, 전화번호 자동 하이픈, 개인정보 동의 자세히, 사용자 친화 성공/실패 문구를 적용했다. 왜: 모바일 광고 유입에서 폼 이탈과 잘못된 번호 저장을 줄이기 위해서다. 어떻게: `/aibio-native`, `/shop_view?idx=25` 공용 폼과 랜딩 컴포넌트를 수정했다. 산출물/검증: `imweb/aibio-mobile-cta-form-ux-review.md`.                                                                                    |
+|   5 | Codex       | 완료: Claude Code 변경분을 회귀 테스트와 문서에 반영했다      | 무엇: 기존 Playwright 기대값을 새 UX 문구와 모바일 CTA에 맞췄다. 왜: 화면은 좋아졌지만 테스트가 예전 내부 용어를 찾으면 이후 수정 때 품질 기준이 깨지기 때문이다. 어떻게: `frontend/tests/aibio-native.spec.ts`를 업데이트하고 7010 서버를 재빌드/재시작했다. 산출물/검증: `tsc`, `eslint`, Playwright 5 passed, wiki 링크 검증 통과.                                                                       |
+|   6 | TJ + Codex  | 완료: 리드 상태값 추천안 A를 승인하고 반영한다              | 무엇: `imweb/aibio-lead-status-decision.md` 추천안 A를 승인했다. 왜: 상담원이 다음 행동을 쉽게 판단하게 하기 위해서다. 어떻게: 내부 코드는 유지하고 화면 표시명을 `신규, 연락중, 상담완료, 예약확정, 방문완료, 결제완료, 노쇼, 제외`로 바꾼다. 산출물/검증: admin 드롭다운, API status label, 문서, Playwright 테스트 반영. 자신감: 76%.                                                                                      |
+|   7 | Codex       | 완료: 자체 관리자 token 방식을 정하고 화면에 붙인다          | 무엇: `AIBIO_NATIVE_ADMIN_TOKEN`은 우리 자체 AIBIO 관리자 API 토큰으로 정했다. 왜: 원문 연락처 조회와 상태 변경은 개인정보·운영 변경이라 공개 API처럼 열면 안 되기 때문이다. 어떻게: 백엔드는 서버 `.env`/secret manager의 `AIBIO_NATIVE_ADMIN_TOKEN`을 보고, 프론트 admin은 세션 저장 토큰을 `x-admin-token` 헤더로 보낸다. 산출물/검증: `.env.example`, `/aibio-native/admin` 토큰 입력 UI, PATCH header 테스트.                                     |
+|   8 | TJ + Codex  | 30일 병행 운영 시작일과 Go/No-Go 기준을 확정한다           | 무엇: 자체 폼과 아임웹 폼을 같이 받을 시작일, 종료 후보일, 누락률 기준을 정한다. 왜: 감으로 아임웹을 종료하면 리드 누락 리스크가 생긴다. 어떻게: 시작일을 문서에 박고, 정상 저장률 99% 이상·누락률 3% 이하·상태 입력률 80% 이상 기준으로 매주 확인한다. 산출물/검증: `imweb/!imwebplan.md`와 운영 리포트에 기준일·window·source가 기록된다.                                                                                          |
+|   9 | TJ          | 첫 실험 랜딩 노출 방식을 승인한다                        | 무엇: 자체 `/shop_view?idx=25` route를 광고 URL 일부로 쓸지, 내부 테스트만 할지, 아임웹 페이지에서 링크로만 보낼지 결정한다. 왜: 전체 홈페이지 전환 전에 리스크를 작게 두고 실운영 리드를 모아야 하기 때문이다. 어떻게: 광고 URL 일부 교체, 내부 테스트 URL 공유, 아임웹 CTA 링크 추가 중 하나를 고른다. 산출물/검증: 어떤 유입이 자체 랜딩으로 들어오는지 문서에 남는다.                                                                          |
 
 ## 10초 요약
 
-AIBIO는 아임웹 관리자 전체를 복제할 필요가 없다. 2026-04-26 14:12 KST 기준 1순위는 홈페이지 전체 완성이 아니라 `자체 리드/예약 원장`이다. 공개 폼과 `/shop_view?idx=25` 첫 실험 랜딩은 로컬 SQLite 원장 저장까지 연결했고, 운영자 화면에서 30일 아임웹 병행 대조와 담당자/메모/예약일/방문일 저장까지 가능해졌다. Claude Code가 모바일 CTA와 폼 UX를 개선했고, Codex는 회귀 테스트와 실행 문서를 이어서 정리 중이다. 운영 기준은 아직 0%다. 이유는 운영 배포, 권한, 실제 상담원 사용, 아임웹 30일 병행 운영 시작이 아직 남아 있기 때문이다.
+AIBIO는 아임웹 관리자 전체를 복제할 필요가 없다. 2026-04-26 15:04 KST 기준 1순위는 홈페이지 전체 완성이 아니라 `자체 리드/예약 원장`이다. 공개 폼과 `/shop_view?idx=25` 첫 실험 랜딩은 로컬 SQLite 원장 저장까지 연결했고, 운영자 화면에서 30일 아임웹 병행 대조와 담당자/메모/예약일/방문일 저장까지 가능해졌다. 리드 상태값 추천안 A는 승인되어 `연락중/상담완료/예약확정/제외` 표시명으로 반영 중이고, 자체 관리자 token은 `AIBIO_NATIVE_ADMIN_TOKEN` + admin 화면 세션 토큰 입력 방식으로 정했다. 운영 기준은 아직 0%다. 이유는 운영 배포, 실제 상담원 사용, 아임웹 30일 병행 운영 시작이 아직 남아 있기 때문이다.
 
 쉽게 말하면, 아임웹이라는 큰 쇼핑몰 관리 도구를 그대로 다시 만드는 일이 아니다. 우리 센터 운영에 실제로 쓰는 접수대, 상담 장부, 방문 기록, 결제 영수증만 먼저 만드는 일이다. 첫 실험 랜딩은 `/shop_view?idx=25` 성격의 이벤트/체험권 랜딩으로 잡는다.
 
@@ -530,18 +530,18 @@ Phase3가 가장 파급력이 크다. 홈페이지 전체를 먼저 완성하는
 
 #### 리드 상태값 정본 v1
 
-2026-04-26 14:30 KST 기준 이 표는 `기술 구현 v1`이다. 운영 승인안은 `imweb/aibio-lead-status-decision.md`에 별도로 만들었다. Codex 추천은 내부 코드는 유지하고 화면 표시명을 `연락중`, `상담완료`, `예약확정`, `제외`로 더 쉽게 바꾸는 것이다. 추천 자신감은 76%다.
+2026-04-26 15:04 KST 기준 추천안 A가 승인됐다. 내부 상태 코드는 유지하고 화면 표시명을 `연락중`, `상담완료`, `예약확정`, `제외`로 바꾼다. 추천 자신감은 76%였다.
 
 | 내부 상태 | 화면 표시 | 의미 |
 |---|---|---|
 | `new` | 신규 | 폼 제출 직후 |
-| `contact_attempted` | 연락시도 | 상담원이 전화/카톡 등으로 연락 시도 |
-| `contacted` | 연락완료 | 통화/채팅 연결 |
-| `reserved` | 예약완료 | 방문 예약 확정 |
+| `contact_attempted` | 연락중 | 상담원이 전화/카톡 등으로 연락 시도했지만 상담이 아직 끝나지 않음 |
+| `contacted` | 상담완료 | 통화/채팅으로 상담 목적과 다음 단계를 확인 |
+| `reserved` | 예약확정 | 방문 날짜와 시간이 확정 |
 | `visited` | 방문완료 | 실제 방문 |
 | `paid` | 결제완료 | 센터 결제 또는 체험권 결제 |
 | `no_show` | 노쇼 | 예약 후 미방문 |
-| `invalid_duplicate` | 불량/중복 | 테스트, 중복, 연락 불가 후보 |
+| `invalid_duplicate` | 제외 | 테스트, 중복, 연락처 오류, 대상 아님, 장기 무응답 등 퍼널에서 뺄 리드 |
 
 #### 2026-04-26 구현 상태
 
@@ -596,9 +596,10 @@ Phase3가 가장 파급력이 크다. 홈페이지 전체를 먼저 완성하는
 3. [x] [Codex] 운영자 리드 리스트를 실제 API에 연결했다 — 무엇: `/aibio-native/admin` 화면이 mock 대신 `GET /api/aibio/native-leads`와 funnel API를 읽는다. 왜: 상담원이 실제 리드 목록을 봐야 아임웹 탈출 판단이 가능하기 때문이다. 어떻게: `AibioNativeAdmin.tsx`에서 목록, 상태 변경, 주간 퍼널을 API 기반으로 바꿨다. 산출물: 운영자 리드 화면. 검증: Playwright admin smoke 통과.
 4. [x] [Codex] phone hash 기반 아임웹 fallback 대조 API와 운영자 화면을 연결했다 — 무엇: 30일 window에서 native lead와 아임웹 fallback 후보를 비교해 `/aibio-native/admin`에 표시한다. 왜: 자체 폼 누락률과 중복률을 숫자로 봐야 아임웹 입력폼을 줄일 수 있기 때문이다. 어떻게: `GET /api/aibio/native-leads/fallback-comparison?rangeDays=30` 결과의 counts/rates/source/freshness를 카드로 표시했다. 산출물: 병행 대조 API + 운영자 대조 카드. 검증: Playwright와 local API smoke 통과.
 5. [x] [Codex] 운영자 리드 리스트에 담당자/메모/예약일/방문일 저장 UI를 붙였다 — 무엇: 리드 행에서 담당자, 메모, 예약일, 방문일을 입력하고 저장한다. 왜: 상담원이 실제로 쓰려면 “누가 처리 중인지”와 “다음 연락 내용”이 남아야 하기 때문이다. 어떻게: `PATCH /api/aibio/native-leads/:leadId/status`에 `assignedTo`, `memo`, `reservationAt`, `visitAt`를 함께 전송한다. 산출물: 운영 정보 저장 UI. 검증: Playwright payload 검증과 local PATCH smoke 통과.
-6. [TJ] 실제 상담원이 쓰는 상태값을 최종 승인한다 — 무엇: 신규, 연락시도, 연락완료, 예약완료, 방문완료, 결제완료, 노쇼, 불량/중복의 이름과 의미를 확정한다. 왜: 상태가 현장 언어와 다르면 상담원이 입력하지 않아 퍼널 리포트가 무너진다. 어떻게: 상담원이 실제 쓰는 표현 기준으로 상태명을 유지/수정/삭제한다. 산출물: 리드 상태값 v1 승인. 검증: 승인된 상태만 admin UI에 노출한다. 의존성: 부분병렬.
+6. [x] [TJ+Codex] 리드 상태값 추천안 A를 승인하고 반영한다 — 무엇: 신규, 연락중, 상담완료, 예약확정, 방문완료, 결제완료, 노쇼, 제외를 화면 표시명으로 쓴다. 왜: 상담원이 다음 행동을 쉽게 판단하고 주간 퍼널을 같은 기준으로 보기 위해서다. 어떻게: 내부 상태 코드는 유지하고 `AIBIO_NATIVE_STATUS_LABELS`와 admin 문구만 바꾼다. 산출물: 승인 기록 `imweb/aibio-lead-status-decision.md`, API/admin 표시명 업데이트. 검증: Playwright admin 테스트에서 `예약확정`과 토큰 header를 확인한다. 의존성: 승인완료.
 7. [Claude Code] 모바일 고정 CTA와 폼 화면 구성을 리뷰한다 — 무엇: 모바일 하단 CTA, 전화번호 입력, 개인정보 동의, 에러/성공 문구를 점검한다. 왜: 광고 유입 사용자가 모바일에서 폼을 끝까지 제출해야 리드 원장이 쌓인다. 어떻게: `/aibio-native`와 첫 실험 랜딩 screenshot을 기준으로 UX 문제를 표시한다. 산출물: UX 수정 제안과 우선순위. 검증: CTA는 첫 화면 또는 고정 영역에서 보이고 입력 오류는 사용자가 이해할 수 있어야 한다. 의존성: 병렬가능.
 8. [Codex] `/shop_view?idx=25` 성격의 고유입 랜딩 1개를 자체 폼으로 병행 운영한다 — 무엇: 첫 실험 랜딩의 CTA가 자체 native lead API로 저장되게 한다. 왜: 홈페이지 전체 완성 전에도 광고->랜딩->리드 원장 연결 효과를 검증하기 위해서다. 어떻게: 랜딩 route에 attribution capture와 native form submit을 붙이고 아임웹 입력폼은 fallback으로 유지한다. 산출물: 자체 랜딩 1개와 병행 리포트. 검증: 30일간 정상 저장률 99% 이상, 누락률 3% 이하를 본다. 의존성: 운영 배포 승인.
+9. [x] [Codex] 자체 관리자 token 방식을 구현한다 — 무엇: `AIBIO_NATIVE_ADMIN_TOKEN`을 우리 자체 AIBIO 관리자 API의 보호 토큰으로 쓴다. 왜: 상태 변경과 원문 연락처 조회는 개인정보와 운영 데이터 변경이라 공개 API처럼 열면 안 되기 때문이다. 어떻게: 백엔드는 서버 secret의 token과 `x-admin-token` 헤더를 비교하고, admin 화면은 브라우저 sessionStorage에만 토큰을 저장해 PATCH 때 헤더로 보낸다. 산출물: `.env.example` 안내, admin token UI, Playwright header 검증. 검증: token 없는 운영 환경에서는 403, token 입력 후 status PATCH header 포함.
 
 **다음 Phase에 주는 가치**: 방문/결제 전환 품질을 광고비와 연결할 수 있다.
 

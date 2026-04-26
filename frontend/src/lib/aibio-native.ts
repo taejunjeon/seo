@@ -56,13 +56,13 @@ export type AibioNativeLeadStatus =
 
 export const AIBIO_NATIVE_STATUS_LABELS: Record<AibioNativeLeadStatus, string> = {
   new: "신규",
-  contact_attempted: "연락시도",
-  contacted: "연락완료",
-  reserved: "예약완료",
+  contact_attempted: "연락중",
+  contacted: "상담완료",
+  reserved: "예약확정",
   visited: "방문완료",
   paid: "결제완료",
   no_show: "노쇼",
-  invalid_duplicate: "불량/중복",
+  invalid_duplicate: "제외",
 };
 
 export type AibioNativeLead = {

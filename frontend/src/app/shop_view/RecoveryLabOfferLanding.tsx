@@ -130,7 +130,7 @@ export function RecoveryLabOfferLanding() {
           <h2>이번 route의 목표는 예쁜 페이지가 아니라 리드와 유입의 연결입니다.</h2>
           <p>
             제출 시점의 landing path, referrer, UTM, fbclid, gclid, _fbc, _fbp, _ga를 함께 저장합니다.
-            운영자는 이후 연락시도, 예약완료, 방문완료, 결제완료 상태를 같은 원장에 남길 수 있습니다.
+            운영자는 이후 연락중, 예약확정, 방문완료, 결제완료 상태를 같은 원장에 남길 수 있습니다.
           </p>
         </div>
       </section>

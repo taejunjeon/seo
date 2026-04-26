@@ -1,20 +1,20 @@
 # AIBIO 아임웹 탈출 — TJ님 다음 실행 체크리스트
 
-작성 시각: 2026-04-26 14:30 KST
+작성 시각: 2026-04-26 15:04 KST
 기준일: 2026-04-26
 대상: AIBIO 센터 자체 리드/예약 원장, 첫 실험 랜딩 `/shop_view?idx=25`
 작성 목적: Claude Code 리뷰 이후 TJ님이 직접 해야 하는 일과 Codex/Claude Code가 먼저 처리할 일을 분리한다.
 
 ## 10초 요약
 
-지금 개발팀이 먼저 할 수 있는 일은 대부분 로컬에서 진행 중이다. TJ님이 직접 해야 하는 일은 외부 계정, 운영 승인, 실제 상담원 기준처럼 자동화할 수 없는 결정이다. 리드 상태값은 더 이상 “직접 비교해서 승인”이 아니라, `imweb/aibio-lead-status-decision.md`의 추천안 A에 대해 `YES` 또는 `NO + 수정사항`으로 답하면 된다.
+지금 개발팀이 먼저 할 수 있는 일은 대부분 로컬에서 진행 중이다. 리드 상태값은 추천안 A로 승인됐고, 자체 관리자 token 방식은 Codex가 `AIBIO_NATIVE_ADMIN_TOKEN` + admin 화면 세션 토큰 입력으로 진행한다. TJ님에게 남은 결정은 30일 병행 운영 시작일, 첫 실험 랜딩 노출 방식, 아임웹 export 제공, 대표 전화번호, 운영자 계정 범위다.
 
 ## TJ님이 직접 해야 할 일
 
 | 순서 | 할 일 | TJ님 답변 방식 | Codex 추천 | 추천 자신감 | 완료 기준 |
 |---:|---|---|---|---:|---|
-| 1 | 리드 상태값 승인 | `YES` 또는 `NO + 수정사항` | `imweb/aibio-lead-status-decision.md` 추천안 A. 표시명은 신규, 연락중, 상담완료, 예약확정, 방문완료, 결제완료, 노쇼, 제외 | 76% | TJ님이 `YES`를 주면 Codex가 admin 표시명과 문서를 반영한다. |
-| 2 | 운영 관리자 token 방식 승인 | `YES: 운영 secret 사용` 또는 `NO: 로컬 검증만` | 운영 환경에만 `AIBIO_NATIVE_ADMIN_TOKEN` 저장. Git/문서/채팅에는 값 기록 금지 | 90% | token 없이 관리자 write/contact API는 401 또는 403, token 있으면 200이 나온다. |
+| 1 | 리드 상태값 승인 | 완료 | 승인안 A: 신규, 연락중, 상담완료, 예약확정, 방문완료, 결제완료, 노쇼, 제외 | 76% | Codex가 admin 표시명, API label, 테스트, 문서에 반영한다. |
+| 2 | 운영 관리자 token 방식 | Codex 진행 | 자체 AIBIO 관리자 API 토큰은 `AIBIO_NATIVE_ADMIN_TOKEN`으로 두고, 운영 값은 서버 secret에만 저장한다. admin 화면은 세션 저장 token을 `x-admin-token`으로 보낸다 | 90% | token 없이 관리자 write/contact API는 401 또는 403, token 있으면 200이 나온다. |
 | 3 | 30일 병행 운영 시작일 확정 | `YES: YYYY-MM-DD 시작` 또는 `NO: 보류` | 시작일을 정하고 정상 저장률 99% 이상, 아임웹 대비 누락률 3% 이하, 운영자 상태 입력률 80% 이상을 Go 기준으로 둔다 | 82% | `imweb/!imwebplan.md`와 운영 리포트에 시작일, window, source, Go 기준이 기록된다. |
 | 4 | 첫 실험 랜딩 노출 방식 승인 | `YES: 광고 일부 교체`, `YES: 내부 테스트만`, `YES: 아임웹 CTA 링크`, 또는 `NO: 보류` | 처음에는 광고 URL 일부 교체보다 내부 테스트 또는 아임웹 CTA 링크가 안전하다 | 70% | 어떤 유입이 자체 랜딩으로 가는지 기록되고, 기존 아임웹 폼 fallback은 유지된다. |
 | 5 | 아임웹 입력폼 export 제공 | `YES: export 가능` 또는 `NO: 지금 불가` | 30일 대조 기준 데이터라 가능한 빨리 필요하다 | 88% | 파일 또는 캡처에 기준일, 기간, 페이지 수, 폼 제출 수가 같이 남는다. |
@@ -31,6 +31,8 @@
 | Claude Code 변경 검증 | 완료 | 모바일 CTA, 전화번호 포맷, 개인정보 동의, 성공/실패 문구 변경을 기존 테스트 기준에 맞게 갱신했다. | `tsc`, `eslint`, Playwright 5 passed. |
 | 문서 정리 | 완료 | 이 문서와 `imweb/!imwebplan.md`에 역할과 다음 실행 순서를 반영했다. | `scripts/validate_wiki_links.py` 통과. |
 | 상태값 승인안 | 완료 | TJ님이 `YES` 또는 `NO + 수정사항`으로 답할 수 있도록 상태값 추천안 A를 만들었다. | `imweb/aibio-lead-status-decision.md` |
+| 상태값 반영 | 진행 | 추천안 A 승인에 따라 API/admin 표시명을 `연락중`, `상담완료`, `예약확정`, `제외`로 바꾼다. | Playwright admin 테스트 |
+| 자체 관리자 token | 진행 | status PATCH에 `x-admin-token`을 보내는 admin 화면 세션 토큰 입력을 추가한다. | Playwright header 검증 |
 
 ## Claude Code가 처리한 일
 

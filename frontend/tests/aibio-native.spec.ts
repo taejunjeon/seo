@@ -132,6 +132,8 @@ test.describe("AIBIO native MVP", () => {
 
   test("운영자 리드 관리자가 실제 API 응답으로 로드된다", async ({ page }) => {
     let savedPayload: Record<string, unknown> | null = null;
+    let savedAdminToken = "";
+    let savedContactToken = "";
 
     await page.route("**/api/aibio/native-leads?**", async (route) => {
       await route.fulfill({
@@ -252,6 +254,7 @@ test.describe("AIBIO native MVP", () => {
     });
     await page.route("**/api/aibio/native-leads/*/status", async (route) => {
       savedPayload = route.request().postDataJSON() as Record<string, unknown>;
+      savedAdminToken = route.request().headers()["x-admin-token"] ?? "";
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -290,6 +293,22 @@ test.describe("AIBIO native MVP", () => {
         }),
       });
     });
+    await page.route("**/api/aibio/native-leads/*/contact", async (route) => {
+      savedContactToken = route.request().headers()["x-admin-token"] ?? "";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          contact: {
+            leadId: "aibio_native_test_001",
+            name: "테스트",
+            phone: "01012345678",
+            phoneHashSha256: "a".repeat(64),
+          },
+        }),
+      });
+    });
 
     await page.goto(`${BASE}/aibio-native/admin`);
 
@@ -300,7 +319,14 @@ test.describe("AIBIO native MVP", () => {
     await expect(fallbackRegion.getByText("11", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "운영 리드 리스트" })).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "상태" })).toBeVisible();
+    await expect(page.getByLabel("상태 필터")).toContainText("예약확정");
+    await page.getByRole("textbox", { name: "관리자 토큰" }).fill("test-admin-token");
+    await page.getByRole("button", { name: "세션에 저장" }).click();
+    await expect(page.getByText("토큰 입력됨")).toBeVisible();
     await expect(page.getByText("aibio_native_test_001")).toBeVisible();
+    await page.getByRole("button", { name: "원문 연락처 보기" }).click();
+    await expect(page.getByText("테스트 · 01012345678")).toBeVisible();
+    expect(savedContactToken).toBe("test-admin-token");
     await page.getByLabel("담당자").fill("김상담");
     await page.getByLabel("예약일").fill("2026-04-27T10:00");
     await page.getByLabel("방문일").fill("2026-04-28T11:00");
@@ -313,5 +339,6 @@ test.describe("AIBIO native MVP", () => {
       reservationAt: "2026-04-27T10:00",
       visitAt: "2026-04-28T11:00",
     });
+    expect(savedAdminToken).toBe("test-admin-token");
   });
 });

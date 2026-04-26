@@ -9,6 +9,7 @@ import {
 } from "@/lib/aibio-native";
 
 const STATUS_OPTIONS = Object.entries(AIBIO_NATIVE_STATUS_LABELS) as Array<[AibioNativeLeadStatus, string]>;
+const ADMIN_TOKEN_STORAGE_KEY = "aibio-native-admin-token";
 
 type LeadListResponse = {
   ok: boolean;
@@ -88,6 +89,13 @@ type LeadOpsDraft = {
   visitAt: string;
 };
 
+type AibioNativeLeadContact = {
+  leadId: string;
+  name: string;
+  phone: string;
+  phoneHashSha256: string;
+};
+
 const purposeLabel: Record<string, string> = {
   metabolism: "대사/붓기 관리",
   appetite: "식욕 조절",
@@ -148,10 +156,20 @@ export function AibioNativeAdmin() {
   const [funnel, setFunnel] = useState<FunnelResponse | null>(null);
   const [fallbackComparison, setFallbackComparison] = useState<FallbackComparisonResponse | null>(null);
   const [leadOpsDrafts, setLeadOpsDrafts] = useState<Record<string, LeadOpsDraft>>({});
+  const [contactsByLeadId, setContactsByLeadId] = useState<Record<string, AibioNativeLeadContact>>({});
+  const [adminToken, setAdminToken] = useState("");
+  const [adminTokenDraft, setAdminTokenDraft] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | AibioNativeLeadStatus>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
+  const [revealingContactLeadId, setRevealingContactLeadId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? "";
+    setAdminToken(stored);
+    setAdminTokenDraft(stored);
+  }, []);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ limit: "100" });
@@ -207,7 +225,10 @@ export function AibioNativeAdmin() {
     const draft = leadOpsDrafts[leadId];
     const response = await fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/native-leads/${encodeURIComponent(leadId)}/status`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(adminToken ? { "x-admin-token": adminToken } : {}),
+      },
       body: JSON.stringify({
         status,
         changedBy: "aibio-native-admin",
@@ -218,8 +239,53 @@ export function AibioNativeAdmin() {
       }),
     });
     const body = (await response.json()) as { ok: boolean; lead?: AibioNativeLead; error?: string };
-    if (!response.ok || !body.ok || !body.lead) throw new Error(body.error ?? "리드 운영 정보 저장 실패");
+    if (!response.ok || !body.ok || !body.lead) {
+      if (response.status === 403) throw new Error("관리자 토큰이 없거나 맞지 않습니다.");
+      throw new Error(body.error ?? "리드 운영 정보 저장 실패");
+    }
     return body.lead;
+  };
+
+  const saveAdminToken = () => {
+    const nextToken = adminTokenDraft.trim();
+    setAdminToken(nextToken);
+    if (nextToken) {
+      window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, nextToken);
+    } else {
+      window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+    }
+  };
+
+  const clearAdminToken = () => {
+    setAdminToken("");
+    setAdminTokenDraft("");
+    setContactsByLeadId({});
+    window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+  };
+
+  const revealContact = async (leadId: string) => {
+    if (!adminToken) {
+      setError("원문 연락처 조회에는 관리자 토큰이 필요합니다.");
+      return;
+    }
+    setRevealingContactLeadId(leadId);
+    setError(null);
+    try {
+      const response = await fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/native-leads/${encodeURIComponent(leadId)}/contact`, {
+        headers: { "x-admin-token": adminToken },
+        cache: "no-store",
+      });
+      const body = (await response.json()) as { ok: boolean; contact?: AibioNativeLeadContact; error?: string };
+      if (!response.ok || !body.ok || !body.contact) {
+        if (response.status === 403) throw new Error("관리자 토큰이 없거나 맞지 않습니다.");
+        throw new Error(body.error ?? "원문 연락처 조회 실패");
+      }
+      setContactsByLeadId((current) => ({ ...current, [leadId]: body.contact as AibioNativeLeadContact }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "원문 연락처 조회 실패");
+    } finally {
+      setRevealingContactLeadId(null);
+    }
   };
 
   const mergeLead = (nextLead: AibioNativeLead) => {
@@ -260,7 +326,7 @@ export function AibioNativeAdmin() {
     return [
       { label: "전체 리드", value: String(listSummary?.total ?? 0) },
       { label: "신규", value: String(byStatus?.new ?? 0) },
-      { label: "예약완료", value: String(byStatus?.reserved ?? 0) },
+      { label: "예약확정", value: String(byStatus?.reserved ?? 0) },
       { label: "방문/결제", value: String((byStatus?.visited ?? 0) + (byStatus?.paid ?? 0)) },
       { label: "광고키 저장률", value: fmtPct(listSummary?.adKeyCoverageRate ?? null) },
       { label: "중복 후보", value: String(listSummary?.duplicates ?? 0) },
@@ -280,6 +346,33 @@ export function AibioNativeAdmin() {
         </div>
       </header>
 
+      <section className="token-board" aria-label="관리자 토큰 설정">
+        <div>
+          <p>Admin token</p>
+          <h2>상태 변경과 원문 연락처 조회는 자체 관리자 토큰으로 보호합니다.</h2>
+          <span>
+            이 토큰은 AIBIO 자체 솔루션용 내부 토큰입니다. 브라우저에는 세션 동안만 저장하고, Git이나 문서에는 값을 남기지 않습니다.
+          </span>
+        </div>
+        <div className="token-controls">
+          <label>
+            관리자 토큰
+            <input
+              type="password"
+              value={adminTokenDraft}
+              onChange={(event) => setAdminTokenDraft(event.target.value)}
+              placeholder="운영 secret 값 입력"
+              autoComplete="off"
+            />
+          </label>
+          <button type="button" onClick={saveAdminToken}>세션에 저장</button>
+          <button type="button" className="secondary" onClick={clearAdminToken}>지우기</button>
+          <span className={`token-state ${adminToken ? "ready" : ""}`}>
+            {adminToken ? "토큰 입력됨" : "운영에서는 토큰 필요"}
+          </span>
+        </div>
+      </section>
+
       <section className="summary-grid" aria-label="리드 요약">
         {summaryItems.map((item) => (
           <article key={item.label}>
@@ -298,9 +391,9 @@ export function AibioNativeAdmin() {
         <div className="funnel-steps">
           {[
             ["리드", funnel?.funnel.leads ?? 0],
-            ["연락시작", funnel?.funnel.contactStarted ?? 0],
-            ["연락완료", funnel?.funnel.contacted ?? 0],
-            ["예약완료", funnel?.funnel.reserved ?? 0],
+            ["연락중", funnel?.funnel.contactStarted ?? 0],
+            ["상담완료", funnel?.funnel.contacted ?? 0],
+            ["예약확정", funnel?.funnel.reserved ?? 0],
             ["방문완료", funnel?.funnel.visited ?? 0],
             ["결제완료", funnel?.funnel.paid ?? 0],
           ].map(([label, value]) => (
@@ -379,6 +472,7 @@ export function AibioNativeAdmin() {
             <tbody>
               {leads.map((lead) => {
                 const draft = leadOpsDrafts[lead.leadId] ?? draftFromLead(lead);
+                const contact = contactsByLeadId[lead.leadId];
                 return (
                   <tr key={lead.leadId}>
                     <td>
@@ -388,6 +482,18 @@ export function AibioNativeAdmin() {
                     <td>
                       <strong>{lead.customerNameMasked}</strong>
                       <span className="sub">{lead.customerPhoneMasked}</span>
+                      {contact ? (
+                        <span className="raw-contact">{contact.name} · {contact.phone}</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-action"
+                          disabled={revealingContactLeadId === lead.leadId}
+                          onClick={() => void revealContact(lead.leadId)}
+                        >
+                          {revealingContactLeadId === lead.leadId ? "조회 중" : "원문 연락처 보기"}
+                        </button>
+                      )}
                     </td>
                     <td>
                       <strong>{purposeLabel[lead.purpose] ?? lead.purpose}</strong>
@@ -481,7 +587,7 @@ export function AibioNativeAdmin() {
         <h2>운영 처리 순서</h2>
         <ol>
           <li>신규 리드를 확인하고 유입, 랜딩, 상담 목적을 본다.</li>
-          <li>연락 결과를 연락시도, 연락완료, 예약완료 중 하나로 바꾼다.</li>
+          <li>연락 결과를 연락중, 상담완료, 예약확정 중 하나로 바꾼다.</li>
           <li>방문 후 방문완료, 노쇼, 결제완료를 같은 행에서 갱신한다.</li>
           <li>30일 동안 아임웹 폼 원장과 fallback 대조 후 종료 여부를 판단한다.</li>
         </ol>
@@ -498,6 +604,7 @@ export function AibioNativeAdmin() {
 
         .admin-header,
         .board-head,
+        .token-board,
         .funnel-board,
         .fallback-board {
           display: flex;
@@ -512,6 +619,7 @@ export function AibioNativeAdmin() {
 
         .admin-header p,
         .board-head p,
+        .token-board p,
         .funnel-board p,
         .fallback-board p {
           margin: 0 0 8px;
@@ -523,6 +631,7 @@ export function AibioNativeAdmin() {
 
         .admin-header h1,
         .board-head h2,
+        .token-board h2,
         .funnel-board h2,
         .fallback-board h2,
         .workflow h2 {
@@ -574,6 +683,7 @@ export function AibioNativeAdmin() {
         }
 
         .summary-grid article,
+        .token-board,
         .funnel-board,
         .fallback-board,
         .board,
@@ -603,6 +713,69 @@ export function AibioNativeAdmin() {
           color: #172554;
           font-size: 1.7rem;
           font-weight: 900;
+        }
+
+        .token-board {
+          align-items: center;
+          padding: 18px 20px;
+          margin-bottom: 16px;
+        }
+
+        .token-board h2 {
+          font-size: 1.08rem;
+        }
+
+        .token-board > div > span,
+        .token-state {
+          display: block;
+          margin-top: 8px;
+          color: #64748b;
+          font-size: 0.78rem;
+          font-weight: 800;
+        }
+
+        .token-controls {
+          min-width: min(420px, 100%);
+          display: grid;
+          grid-template-columns: minmax(180px, 1fr) auto auto;
+          gap: 8px;
+          align-items: end;
+        }
+
+        .token-controls label {
+          display: grid;
+          gap: 6px;
+          color: #64748b;
+          font-size: 0.74rem;
+          font-weight: 900;
+        }
+
+        .token-controls button {
+          min-height: 38px;
+          border: 0;
+          border-radius: 6px;
+          padding: 0 12px;
+          color: #ffffff;
+          background: #3758d4;
+          font: inherit;
+          font-size: 0.78rem;
+          font-weight: 900;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .token-controls button.secondary {
+          color: #172554;
+          background: #e0e7ff;
+        }
+
+        .token-state {
+          grid-column: 1 / -1;
+          margin-top: 0;
+        }
+
+        .token-state.ready {
+          color: #047857;
         }
 
         .funnel-board {
@@ -792,6 +965,36 @@ export function AibioNativeAdmin() {
           font-weight: 900;
         }
 
+        .raw-contact {
+          display: inline-flex;
+          margin-top: 8px;
+          padding: 5px 7px;
+          border-radius: 5px;
+          color: #991b1b;
+          background: #fee2e2;
+          font-size: 0.74rem;
+          font-weight: 900;
+        }
+
+        .text-action {
+          min-height: 28px;
+          margin-top: 8px;
+          padding: 0;
+          border: 0;
+          color: #1d4ed8;
+          background: transparent;
+          font: inherit;
+          font-size: 0.74rem;
+          font-weight: 900;
+          text-decoration: underline;
+          cursor: pointer;
+        }
+
+        .text-action:disabled {
+          color: #94a3b8;
+          cursor: wait;
+        }
+
         .pill {
           min-height: 28px;
           display: inline-flex;
@@ -904,12 +1107,14 @@ export function AibioNativeAdmin() {
           }
 
           .admin-header,
-          .board-head {
+          .board-head,
+          .token-board {
             flex-direction: column;
             align-items: stretch;
           }
 
           .summary-grid,
+          .token-controls,
           .funnel-steps,
           .fallback-metrics,
           .workflow ol {
