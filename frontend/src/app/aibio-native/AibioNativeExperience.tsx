@@ -1,27 +1,17 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import {
+  AIBIO_ATTRIBUTION_KEYS,
+  type AibioAttributionSnapshot,
+  type AibioLeadDraft,
+  type AibioLeadDraftReceipt,
+} from "@/lib/aibio-native";
 
 const KAKAO_CHAT_URL = "https://pf.kakao.com/_jRxcPK/chat";
 const HERO_IMAGE = "https://cdn.imweb.me/thumbnail/20250124/e96dc62d45b13.jpg";
 const PROGRAM_IMAGE = "https://cdn.imweb.me/thumbnail/20250124/340d5a869a6b2.jpg";
 const RESULT_IMAGE = "https://cdn.imweb.me/thumbnail/20250124/1312356faa028.jpg";
-
-type LeadDraft = {
-  name: string;
-  phone: string;
-  ageRange: string;
-  purpose: string;
-  channel: string;
-  preferredTime: string;
-  consent: boolean;
-};
-
-type LeadDraftReceipt = {
-  leadId: string;
-  receivedAt: string;
-  nextStatus: string;
-};
 
 const PROGRAMS = [
   {
@@ -55,7 +45,7 @@ const TRAFFIC_SOURCES = [
   { label: "Naver", value: "202+", tone: "mint" },
 ];
 
-const initialLead: LeadDraft = {
+const initialLead: AibioLeadDraft = {
   name: "",
   phone: "",
   ageRange: "",
@@ -65,10 +55,59 @@ const initialLead: LeadDraft = {
   consent: false,
 };
 
+function readCookie(name: string) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function safeReadJson(key: string): AibioAttributionSnapshot {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as AibioAttributionSnapshot) : {};
+  } catch {
+    return {};
+  }
+}
+
+function collectAttribution(): AibioAttributionSnapshot {
+  const params = new URLSearchParams(window.location.search);
+  const snapshot: AibioAttributionSnapshot = {
+    landing_path: window.location.pathname,
+    referrer: document.referrer || "",
+    fbc: readCookie("_fbc"),
+    fbp: readCookie("_fbp"),
+    ga_client_id: readCookie("_ga"),
+  };
+
+  for (const key of AIBIO_ATTRIBUTION_KEYS) {
+    const value = params.get(key);
+    if (value) snapshot[key] = value;
+  }
+
+  return Object.fromEntries(Object.entries(snapshot).filter(([, value]) => value));
+}
+
+function collectAndPersistAttribution(): AibioAttributionSnapshot {
+  const latest = collectAttribution();
+  const first = safeReadJson("_aibio_native_first_touch");
+  const firstTouch = Object.keys(first).length > 0 ? first : { ...latest, capturedAt: new Date().toISOString() };
+  const lastTouch = { ...latest, capturedAt: new Date().toISOString() };
+
+  try {
+    window.localStorage.setItem("_aibio_native_first_touch", JSON.stringify(firstTouch));
+    window.localStorage.setItem("_aibio_native_last_touch", JSON.stringify(lastTouch));
+  } catch {
+    // Attribution capture failure must not block the MVP page.
+  }
+
+  return { ...firstTouch, ...lastTouch };
+}
+
 export function AibioNativeExperience() {
-  const [lead, setLead] = useState<LeadDraft>(initialLead);
+  const [lead, setLead] = useState<AibioLeadDraft>(initialLead);
   const [status, setStatus] = useState<"idle" | "submitting" | "ready" | "blocked" | "failed">("idle");
-  const [receipt, setReceipt] = useState<LeadDraftReceipt | null>(null);
+  const [receipt, setReceipt] = useState<AibioLeadDraftReceipt | null>(null);
 
   const filledRequiredCount = useMemo(() => {
     return [lead.name, lead.phone, lead.ageRange, lead.purpose, lead.channel, lead.preferredTime].filter(Boolean).length;
@@ -83,12 +122,14 @@ export function AibioNativeExperience() {
 
     try {
       setStatus("submitting");
+      const attribution = collectAndPersistAttribution();
       const response = await fetch("/api/aibio-native/lead-draft", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...lead,
           landingPath: window.location.pathname,
+          attribution,
         }),
       });
       const body = await response.json();
@@ -100,6 +141,7 @@ export function AibioNativeExperience() {
         leadId: String(body.leadId),
         receivedAt: String(body.receivedAt),
         nextStatus: String(body.nextStatus),
+        attributionKeys: Array.isArray(body.attributionKeys) ? body.attributionKeys.map(String) : [],
       };
       setReceipt(nextReceipt);
       window.localStorage.setItem(
@@ -261,6 +303,10 @@ export function AibioNativeExperience() {
             <span>필수 입력 {filledRequiredCount}/6</span>
             <div><i style={{ width: `${(filledRequiredCount / 6) * 100}%` }} /></div>
           </div>
+          <div className="attribution-preview" aria-label="수집된 유입 키">
+            <span>수집된 유입 키</span>
+            <strong>{receipt ? `${receipt.attributionKeys.length}개` : "제출 시"}</strong>
+          </div>
         </div>
 
         <form className="lead-form" onSubmit={submitLead}>
@@ -338,6 +384,7 @@ export function AibioNativeExperience() {
           {status === "ready" && (
             <p className="form-message success">
               원문 연락처 저장 없이 접수 초안이 만들어졌습니다. 접수번호: {receipt?.leadId}
+              {receipt && receipt.attributionKeys.length > 0 ? ` · 유입 키 ${receipt.attributionKeys.length}개 확인` : ""}
             </p>
           )}
         </form>
@@ -728,6 +775,27 @@ export function AibioNativeExperience() {
         .field-progress {
           margin-top: 28px;
           max-width: 420px;
+        }
+
+        .attribution-preview {
+          max-width: 420px;
+          min-height: 64px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-top: 16px;
+          padding: 14px 16px;
+          border-radius: 8px;
+          color: #dbeafe;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .attribution-preview span,
+        .attribution-preview strong {
+          font-size: 0.86rem;
+          font-weight: 900;
         }
 
         .field-progress span {

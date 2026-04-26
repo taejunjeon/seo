@@ -4,7 +4,7 @@ const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:7010";
 
 test.describe("AIBIO native MVP", () => {
   test("공개 홈페이지 MVP와 상담 폼이 동작한다", async ({ page }) => {
-    await page.goto(`${BASE}/aibio-native`);
+    await page.goto(`${BASE}/aibio-native?utm_source=meta&utm_medium=paid_social&utm_campaign=aibio_native_test&fbclid=test_click_id`);
 
     await expect(page.getByRole("heading", { name: /상담 예약부터 방문 전환까지/ })).toBeVisible();
     await expect(page.getByRole("link", { name: "카카오 상담" })).toHaveAttribute("href", /pf\.kakao\.com/);
@@ -20,6 +20,7 @@ test.describe("AIBIO native MVP", () => {
     await page.getByRole("button", { name: "상담 신청 임시 저장" }).click();
 
     await expect(page.getByText(/원문 연락처 저장 없이 접수 초안/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/유입 키 \d+개 확인/)).toBeVisible();
   });
 
   test("lead draft API는 전화번호 원문을 응답하지 않는다", async ({ request }) => {
@@ -33,6 +34,13 @@ test.describe("AIBIO native MVP", () => {
         preferredTime: "afternoon",
         consent: true,
         landingPath: "/aibio-native",
+        attribution: {
+          utm_source: "meta",
+          utm_medium: "paid_social",
+          utm_campaign: "aibio_native_test",
+          fbclid: "test_click_id",
+          ignored: "not_allowed",
+        },
       },
     });
 
@@ -41,7 +49,9 @@ test.describe("AIBIO native MVP", () => {
     expect(body.ok).toBe(true);
     expect(body.mode).toBe("dry_run_no_persistence");
     expect(body.phoneHashSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(body.attributionKeys).toEqual(["fbclid", "utm_campaign", "utm_medium", "utm_source"]);
     expect(JSON.stringify(body)).not.toContain("010-0000-0000");
     expect(JSON.stringify(body)).not.toContain("테스트");
+    expect(JSON.stringify(body)).not.toContain("test_click_id");
   });
 });

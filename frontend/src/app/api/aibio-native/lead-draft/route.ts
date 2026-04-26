@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { AIBIO_ATTRIBUTION_KEYS } from "@/lib/aibio-native";
 
 type LeadDraftPayload = {
   name?: unknown;
@@ -10,7 +11,10 @@ type LeadDraftPayload = {
   preferredTime?: unknown;
   consent?: unknown;
   landingPath?: unknown;
+  attribution?: unknown;
 };
+
+const ATTRIBUTION_ALLOWLIST = new Set<string>(AIBIO_ATTRIBUTION_KEYS);
 
 const REQUIRED_FIELDS: Array<keyof LeadDraftPayload> = [
   "name",
@@ -31,6 +35,19 @@ function normalizePhone(value: unknown) {
 
 function hashPhone(phoneDigits: string) {
   return createHash("sha256").update(phoneDigits).digest("hex");
+}
+
+function pickAttribution(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const result: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (!ATTRIBUTION_ALLOWLIST.has(key)) continue;
+    const text = normalizeText(raw);
+    if (!text) continue;
+    result[key] = text.slice(0, 512);
+  }
+  return result;
 }
 
 export async function POST(request: NextRequest) {
@@ -67,6 +84,7 @@ export async function POST(request: NextRequest) {
   const receivedAt = new Date().toISOString();
   const phoneHash = hashPhone(phoneDigits);
   const leadId = `aibio_native_${receivedAt.replace(/[-:.TZ]/g, "")}_${phoneHash.slice(0, 10)}`;
+  const attribution = pickAttribution(payload.attribution);
 
   return NextResponse.json({
     ok: true,
@@ -75,6 +93,7 @@ export async function POST(request: NextRequest) {
     phoneHashSha256: phoneHash,
     receivedAt,
     nextStatus: "needs_operator_follow_up",
+    attributionKeys: Object.keys(attribution).sort(),
     storedFields: {
       name: false,
       phoneRaw: false,
@@ -85,6 +104,7 @@ export async function POST(request: NextRequest) {
       preferredTime: true,
       consent: true,
       landingPath: normalizeText(payload.landingPath) || "/aibio-native",
+      attribution: true,
     },
   });
 }
