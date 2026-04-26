@@ -1,13 +1,13 @@
 # AIBIO 아임웹 탈출 — TJ님 다음 실행 체크리스트
 
-작성 시각: 2026-04-26 15:50 KST
+작성 시각: 2026-04-26 23:55 KST
 기준일: 2026-04-26
 대상: AIBIO 센터 자체 리드/예약 원장, 첫 실험 랜딩 `/shop_view?idx=25`
 작성 목적: Claude Code 리뷰 이후 TJ님이 직접 해야 하는 일과 Codex/Claude Code가 먼저 처리할 일을 분리한다.
 
 ## 10초 요약
 
-지금 개발팀이 먼저 할 수 있는 일은 대부분 로컬에서 진행 중이다. 리드 상태값과 자체 관리자 token은 반영됐고, 고객/리드 관리자, 입력폼 엑셀 분석, 상세페이지 편집, 관리자 권한 명부 초안까지 로컬 화면이 생겼다. 30일 병행 운영은 지금 시작하지 않고, 2~3일 뒤 팀 리뷰와 기능/사용법 설명 이후 시작일을 정한다.
+지금 개발팀이 먼저 할 수 있는 일은 대부분 로컬에서 진행 중이다. 리드 상태값과 자체 관리자 token은 반영됐고, 고객/리드 관리자, 입력폼 엑셀 분석, 상세페이지 편집, 관리자 권한 명부 초안까지 로컬 화면이 생겼다. NestJS 적용 범위도 `현재 Express 유지 + 신규 인증/RBAC/감사로그/결제 NestJS-first`로 문서화했다. 30일 병행 운영은 지금 시작하지 않고, 2~3일 뒤 팀 리뷰와 기능/사용법 설명 이후 시작일을 정한다.
 
 ## TJ님이 직접 해야 할 일
 
@@ -20,6 +20,7 @@
 | 5 | 첫 실험 랜딩 노출 방식 승인 | `YES: 내부 테스트만`, `YES: 아임웹 CTA 링크`, `YES: 광고 일부 교체`, 또는 `NO: 보류` | 처음에는 광고 URL 일부 교체보다 내부 테스트 또는 아임웹 CTA 링크가 안전하다 | 70% | 어떤 유입이 자체 랜딩으로 가는지 기록되고, 기존 아임웹 폼 fallback은 유지된다. |
 | 6 | AIBIO 대표 전화번호 확정 | `YES: 번호 확정` 또는 `NO: 카카오/폼만 유지` | 번호 확정 전에는 전화 CTA를 추가하지 않는다 | 74% | `tel:` 버튼 추가 여부와 번호가 문서에 기록된다. |
 | 7 | 운영자 계정/역할 승인 | `/aibio-native/admin/access`에서 초안 수정 후 `YES` | 초기에는 관리자 1명 + 상담원 1~2명 + 디자이너 1명으로 제한한다 | 78% | 운영자 권한표 v1이 확정되고 퇴사자/외부 계정이 제외된다. |
+| 8 | NestJS skeleton 병행 여부 승인 | `YES: NestJS skeleton 병행` 또는 `NO: AIBIO는 Express MVP 우선` | YES. 단, 현재 Express 리드 원장은 유지하고 신규 로그인/RBAC/감사로그/Toss confirm부터 NestJS 후보로 둔다 | 82% | `imweb/aibio-nestjs-skeleton.md` 기준으로 코드 skeleton 생성 여부가 결정된다. |
 
 ## Codex가 먼저 진행한 일
 
@@ -36,6 +37,7 @@
 | 상세페이지 편집 | 완료 | `/aibio-native/admin/content`에서 첫 실험 랜딩 문구, 이미지 URL/업로드, CTA를 수정한다. | content 저장 테스트 |
 | 입력폼 분석 | 완료 | `/aibio-native/admin/forms`에서 아임웹 입력폼 엑셀을 업로드해 집계와 필드 매핑을 본다. | PII 미반환 분석 테스트 |
 | 권한 명부 | 완료 | `/aibio-native/admin/access`에서 owner/manager/marketer/designer/viewer 역할과 운영자 명부를 지정한다. | access API smoke |
+| NestJS 적용 범위 | 완료 | `imweb/aibio-nestjs-skeleton.md`에서 Express 유지 API와 NestJS 목표 module을 분리했다. | AIBIO/Toss/Attribution 주요 route가 module별로 분류됨 |
 
 ## Claude Code가 처리한 일
 
@@ -55,6 +57,7 @@
 5. 팀 리뷰에서 `/aibio-native/admin`, `/forms`, `/content`, `/access` 사용법을 설명하고 수정 요청을 모은다.
 6. 수정 요청을 반영한 뒤 30일 병행 운영 시작일을 확정한다.
 7. 병행 운영 중 매주 native lead와 아임웹 fallback 누락률을 확인한다.
+8. TJ님이 `YES: NestJS skeleton 병행`으로 승인하면 Codex가 `backend-nest/` 최소 skeleton을 만든다.
 
 ## 지금 막히는 지점
 
