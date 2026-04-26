@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import {
   AIBIO_ATTRIBUTION_KEYS,
+  AIBIO_NATIVE_API_BASE,
   type AibioAttributionSnapshot,
   type AibioLeadDraft,
   type AibioLeadDraftReceipt,
@@ -53,6 +54,7 @@ const initialLead: AibioLeadDraft = {
   channel: "",
   preferredTime: "",
   consent: false,
+  marketingConsent: false,
 };
 
 function readCookie(name: string) {
@@ -73,11 +75,12 @@ function safeReadJson(key: string): AibioAttributionSnapshot {
 function collectAttribution(): AibioAttributionSnapshot {
   const params = new URLSearchParams(window.location.search);
   const snapshot: AibioAttributionSnapshot = {
-    landing_path: window.location.pathname,
+    landing_path: `${window.location.pathname}${window.location.search}`,
     referrer: document.referrer || "",
     fbc: readCookie("_fbc"),
     fbp: readCookie("_fbp"),
     ga_client_id: readCookie("_ga"),
+    capturedAt: new Date().toISOString(),
   };
 
   for (const key of AIBIO_ATTRIBUTION_KEYS) {
@@ -88,7 +91,7 @@ function collectAttribution(): AibioAttributionSnapshot {
   return Object.fromEntries(Object.entries(snapshot).filter(([, value]) => value));
 }
 
-function collectAndPersistAttribution(): AibioAttributionSnapshot {
+function collectAndPersistAttribution() {
   const latest = collectAttribution();
   const first = safeReadJson("_aibio_native_first_touch");
   const firstTouch = Object.keys(first).length > 0 ? first : { ...latest, capturedAt: new Date().toISOString() };
@@ -101,7 +104,11 @@ function collectAndPersistAttribution(): AibioAttributionSnapshot {
     // Attribution capture failure must not block the MVP page.
   }
 
-  return { ...firstTouch, ...lastTouch };
+  return {
+    attribution: { ...firstTouch, ...lastTouch },
+    firstTouch,
+    lastTouch,
+  };
 }
 
 export function AibioNativeExperience() {
@@ -122,14 +129,17 @@ export function AibioNativeExperience() {
 
     try {
       setStatus("submitting");
-      const attribution = collectAndPersistAttribution();
-      const response = await fetch("/api/aibio-native/lead-draft", {
+      const { attribution, firstTouch, lastTouch } = collectAndPersistAttribution();
+      const response = await fetch(`${AIBIO_NATIVE_API_BASE}/api/aibio/native-leads`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...lead,
-          landingPath: window.location.pathname,
+          privacyConsent: lead.consent,
+          landingPath: `${window.location.pathname}${window.location.search}`,
           attribution,
+          firstTouch,
+          lastTouch,
         }),
       });
       const body = await response.json();
@@ -141,6 +151,8 @@ export function AibioNativeExperience() {
         leadId: String(body.leadId),
         receivedAt: String(body.receivedAt),
         nextStatus: String(body.nextStatus),
+        nextStatusLabel: String(body.nextStatusLabel ?? body.nextStatus),
+        duplicateOfLeadId: body.duplicateOfLeadId ? String(body.duplicateOfLeadId) : null,
         attributionKeys: Array.isArray(body.attributionKeys) ? body.attributionKeys.map(String) : [],
       };
       setReceipt(nextReceipt);
@@ -149,9 +161,16 @@ export function AibioNativeExperience() {
         JSON.stringify({
           ...nextReceipt,
           source: "aibio_native_mvp",
-          mode: "dry_run_no_persistence",
+          mode: "local_sqlite_persistence",
         }),
       );
+      (window as Window & { dataLayer?: { push?: (event: Record<string, unknown>) => void } }).dataLayer?.push?.({
+        event: "aibio_native_lead_submit",
+        lead_id: nextReceipt.leadId,
+        lead_status: nextReceipt.nextStatus,
+        duplicate_of_lead_id: nextReceipt.duplicateOfLeadId,
+        attribution_key_count: nextReceipt.attributionKeys.length,
+      });
       setLead(initialLead);
       setStatus("ready");
     } catch {
@@ -295,9 +314,9 @@ export function AibioNativeExperience() {
       <section id="lead" className="lead-section" aria-label="상담 신청 폼">
         <div className="lead-copy">
           <p className="eyebrow">Native Lead Form</p>
-          <h2>운영 DB 연결 전, 로컬 MVP 폼으로 UX와 필드부터 고정합니다.</h2>
+          <h2>자체 리드 원장에 상담 신청을 바로 저장합니다.</h2>
           <p>
-            이 화면의 제출은 운영 서버나 광고 플랫폼으로 전송하지 않습니다. 필수 필드와 동의 UX를 검증하기 위해 브라우저 로컬 저장소에만 임시 저장합니다.
+            이름과 연락처는 서버 원장에 저장하고, 목록 화면에는 마스킹해서 표시합니다. UTM, 광고 클릭 ID, 쿠키 기반 광고 키, referrer도 함께 남깁니다.
           </p>
           <div className="field-progress">
             <span>필수 입력 {filledRequiredCount}/6</span>
@@ -376,15 +395,24 @@ export function AibioNativeExperience() {
             />
             개인정보 수집 및 상담 연락에 동의합니다.
           </label>
+          <label className="consent">
+            <input
+              type="checkbox"
+              checked={lead.marketingConsent}
+              onChange={(event) => setLead({ ...lead, marketingConsent: event.target.checked })}
+            />
+            마케팅 정보 수신에 동의합니다. 선택 항목입니다.
+          </label>
           <button type="submit" disabled={status === "submitting"}>
-            {status === "submitting" ? "검증 중" : "상담 신청 임시 저장"}
+            {status === "submitting" ? "저장 중" : "상담 신청 저장"}
           </button>
           {status === "blocked" && <p className="form-message error">필수 항목과 동의를 확인해 주세요.</p>}
-          {status === "failed" && <p className="form-message error">로컬 API 검증에 실패했습니다. 서버 상태를 확인해야 합니다.</p>}
+          {status === "failed" && <p className="form-message error">리드 원장 저장에 실패했습니다. 백엔드 서버 상태를 확인해야 합니다.</p>}
           {status === "ready" && (
             <p className="form-message success">
-              원문 연락처 저장 없이 접수 초안이 만들어졌습니다. 접수번호: {receipt?.leadId}
+              운영 리드 원장에 저장되었습니다. 접수번호: {receipt?.leadId} · 상태: {receipt?.nextStatusLabel}
               {receipt && receipt.attributionKeys.length > 0 ? ` · 유입 키 ${receipt.attributionKeys.length}개 확인` : ""}
+              {receipt?.duplicateOfLeadId ? " · 30일 내 중복 접수 후보" : ""}
             </p>
           )}
         </form>

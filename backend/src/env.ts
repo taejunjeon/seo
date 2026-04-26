@@ -105,6 +105,7 @@ const envSource = {
     process.env.AIBIO_SUPABASE_PUBLISHABLE_KEY
     ?? process.env.AIBIO_SUPABASE_Pubilshable_key
     ?? process.env.AIBIO_SUPABASE_Publishable_key,
+  AIBIO_NATIVE_ADMIN_TOKEN: process.env.AIBIO_NATIVE_ADMIN_TOKEN,
   COUPANG_BIOCOM_CODE: process.env.COUPANG_BIOCOM_CODE,
   COUPANG_BIOCOM_ACCESS_KEY:
     process.env.COUPANG_BIOCOM_ACCESS_KEY ?? process.env.COUPANG_BIOCOM_Access_Key,
@@ -263,6 +264,7 @@ const envSchema = z.object({
   AIBIO_SUPABASE_PROJECT_ID: z.string().min(1).optional(),
   AIBIO_SUPABASE_SECRET_KEY: z.string().min(1).optional(),
   AIBIO_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
+  AIBIO_NATIVE_ADMIN_TOKEN: z.string().min(8).optional(),
   COUPANG_BIOCOM_CODE: z.string().min(1).optional(),
   COUPANG_BIOCOM_ACCESS_KEY: z.string().min(1).optional(),
   COUPANG_BIOCOM_SECRET_KEY: z.string().min(1).optional(),

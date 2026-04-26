@@ -4,6 +4,24 @@ const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:7010";
 
 test.describe("AIBIO native MVP", () => {
   test("공개 홈페이지 MVP와 상담 폼이 동작한다", async ({ page }) => {
+    await page.route("**/api/aibio/native-leads", async (route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          mode: "local_sqlite_persistence",
+          leadId: "aibio_native_test_001",
+          receivedAt: "2026-04-26T09:30:00.000Z",
+          nextStatus: "new",
+          nextStatusLabel: "신규",
+          duplicateOfLeadId: null,
+          phoneHashSha256: "a".repeat(64),
+          attributionKeys: ["fbclid", "utm_campaign", "utm_medium", "utm_source"],
+        }),
+      });
+    });
+
     await page.goto(`${BASE}/aibio-native?utm_source=meta&utm_medium=paid_social&utm_campaign=aibio_native_test&fbclid=test_click_id`);
 
     await expect(page.getByRole("heading", { name: /상담 예약부터 방문 전환까지/ })).toBeVisible();
@@ -17,9 +35,10 @@ test.describe("AIBIO native MVP", () => {
     await page.getByLabel("알게 된 경로").selectOption("instagram");
     await page.getByLabel("연락 희망 시간").selectOption("afternoon");
     await page.getByLabel("개인정보 수집 및 상담 연락에 동의합니다.").check();
-    await page.getByRole("button", { name: "상담 신청 임시 저장" }).click();
+    await page.getByLabel("마케팅 정보 수신에 동의합니다. 선택 항목입니다.").check();
+    await page.getByRole("button", { name: "상담 신청 저장" }).click();
 
-    await expect(page.getByText(/원문 연락처 저장 없이 접수 초안/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/운영 리드 원장에 저장되었습니다/)).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/유입 키 \d+개 확인/)).toBeVisible();
   });
 
@@ -55,12 +74,88 @@ test.describe("AIBIO native MVP", () => {
     expect(JSON.stringify(body)).not.toContain("test_click_id");
   });
 
-  test("운영자 리드 관리자 mock이 로드된다", async ({ page }) => {
+  test("운영자 리드 관리자가 실제 API 응답으로 로드된다", async ({ page }) => {
+    await page.route("**/api/aibio/native-leads?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          total: 1,
+          summary: {
+            total: 1,
+            byStatus: {
+              new: 1,
+              contact_attempted: 0,
+              contacted: 0,
+              reserved: 0,
+              visited: 0,
+              paid: 0,
+              no_show: 0,
+              invalid_duplicate: 0,
+            },
+            byLanding: [{ key: "/aibio-native", count: 1 }],
+            bySource: [{ key: "meta", count: 1 }],
+            withAdKey: 1,
+            adKeyCoverageRate: 1,
+            duplicates: 0,
+            duplicateRate: 0,
+          },
+          leads: [
+            {
+              leadId: "aibio_native_test_001",
+              status: "new",
+              statusLabel: "신규",
+              statusUpdatedAt: "2026-04-26T09:30:00.000Z",
+              customerNameMasked: "테*트",
+              customerPhoneMasked: "010-****-0000",
+              phoneHashSha256: "a".repeat(64),
+              ageRange: "30s",
+              purpose: "metabolism",
+              channel: "instagram",
+              preferredTime: "afternoon",
+              privacyConsent: true,
+              marketingConsent: true,
+              landingPath: "/aibio-native",
+              referrer: null,
+              utm: { source: "meta", medium: "paid_social", campaign: "aibio_native_test", content: null, term: null },
+              adKeys: { fbclid: true, gclid: false, fbc: false, fbp: false, gaClientId: false },
+              attributionKeys: ["fbclid", "utm_campaign", "utm_medium", "utm_source"],
+              isDuplicate: false,
+              duplicateOfLeadId: null,
+              assignedTo: null,
+              operatorMemo: null,
+              reservationAt: null,
+              visitAt: null,
+              paymentAmount: null,
+              paymentAt: null,
+              createdAt: "2026-04-26T09:30:00.000Z",
+              updatedAt: "2026-04-26T09:30:00.000Z",
+            },
+          ],
+        }),
+      });
+    });
+    await page.route("**/api/aibio/native-leads/funnel?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          source: "local_sqlite_aibio_native_leads",
+          window: { startAt: "2026-04-19T00:00:00.000Z", endAt: "2026-04-26T00:00:00.000Z", days: 7 },
+          freshness: { latestLeadAt: "2026-04-26T09:30:00.000Z", latestStatusUpdatedAt: "2026-04-26T09:30:00.000Z" },
+          funnel: { leads: 1, contactStarted: 0, contacted: 0, reserved: 0, visited: 0, paid: 0, noShow: 0, invalidDuplicate: 0 },
+          confidence: "low_sample",
+        }),
+      });
+    });
+
     await page.goto(`${BASE}/aibio-native/admin`);
 
-    await expect(page.getByRole("heading", { name: /리드, 예약, 방문, 결제 상태/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "운영자 입력 컬럼 초안" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "상담 상태" })).toBeVisible();
-    await expect(page.getByText("L-0426-001")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /자체 리드 원장과 주간 퍼널/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "운영 리드 리스트" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "상태" })).toBeVisible();
+    await expect(page.getByText("aibio_native_test_001")).toBeVisible();
   });
 });

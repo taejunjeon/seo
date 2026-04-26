@@ -2,6 +2,18 @@ import { createHash } from "node:crypto";
 import { type Request, type Response, Router } from "express";
 
 import type { AttributionLedgerEntry } from "../attribution";
+import {
+  AIBIO_NATIVE_LEAD_STATUSES,
+  AIBIO_NATIVE_LEAD_VERSION,
+  AIBIO_NATIVE_STATUS_LABELS,
+  createAibioNativeLead,
+  getAibioNativeLeadContact,
+  getAibioNativeLeadFunnel,
+  isValidAibioNativeLeadStatus,
+  listAibioNativeLeadHashes,
+  listAibioNativeLeads,
+  updateAibioNativeLeadStatus,
+} from "../aibioNativeLeadLedger";
 import { listAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import { env } from "../env";
@@ -138,6 +150,34 @@ const metadataSource = (entry: AttributionLedgerEntry) =>
 
 const isAibioFormSubmit = (entry: AttributionLedgerEntry) =>
   entry.touchpoint === "form_submit" && metadataSource(entry) === AIBIO_ATTRIBUTION_SOURCE;
+
+const errorStatusCode = (error: unknown) => {
+  if (isRecord(error) && typeof error.statusCode === "number") return error.statusCode;
+  return 500;
+};
+
+const allowAibioNativeAdminWrite = (req: Request) => {
+  const configured = env.AIBIO_NATIVE_ADMIN_TOKEN?.trim();
+  if (!configured) return env.NODE_ENV !== "production";
+  return req.header("x-admin-token") === configured;
+};
+
+const requireAibioNativeContactAccess = (req: Request, res: Response) => {
+  const configured = env.AIBIO_NATIVE_ADMIN_TOKEN?.trim();
+  if (!configured) {
+    res.status(503).json({
+      ok: false,
+      error: "aibio_native_admin_token_not_configured",
+      message: "원문 연락처 조회는 AIBIO_NATIVE_ADMIN_TOKEN 설정 후에만 허용한다.",
+    });
+    return false;
+  }
+  if (req.header("x-admin-token") !== configured) {
+    res.status(403).json({ ok: false, error: "forbidden" });
+    return false;
+  }
+  return true;
+};
 
 const nestedRecord = (value: unknown, key: string) => {
   if (!isRecord(value)) return {};
@@ -506,6 +546,197 @@ const summarizeCustomerJourney = (
 
 export const createAibioRouter = () => {
   const router = Router();
+
+  router.post("/api/aibio/native-leads", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const result = createAibioNativeLead(req.body);
+      res.status(201).json({
+        ok: true,
+        version: AIBIO_NATIVE_LEAD_VERSION,
+        mode: "local_sqlite_persistence",
+        leadId: result.lead.leadId,
+        receivedAt: result.lead.createdAt,
+        nextStatus: result.lead.status,
+        nextStatusLabel: result.lead.statusLabel,
+        phoneHashSha256: result.phoneHashSha256,
+        duplicateOfLeadId: result.duplicateOfLeadId,
+        attributionKeys: result.lead.attributionKeys,
+        storedFields: {
+          name: true,
+          phoneRaw: "server_only",
+          phoneHashSha256: true,
+          ageRange: true,
+          purpose: true,
+          channel: true,
+          preferredTime: true,
+          privacyConsent: true,
+          marketingConsent: true,
+          landingPath: true,
+          attribution: true,
+        },
+        privacy: {
+          listApiReturnsMaskedPii: true,
+          rawContactRequiresAdminToken: true,
+        },
+      });
+    } catch (err) {
+      const status = errorStatusCode(err);
+      res.status(status).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "native lead create failed",
+        missing: isRecord(err) && Array.isArray(err.missing) ? err.missing : undefined,
+      });
+    }
+  });
+
+  router.get("/api/aibio/native-leads", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const status = readOne(req.query.status).trim();
+      if (status && !isValidAibioNativeLeadStatus(status)) {
+        res.status(422).json({ ok: false, error: "invalid_status", allowed: AIBIO_NATIVE_LEAD_STATUSES });
+        return;
+      }
+      const payload = listAibioNativeLeads({
+        limit: parsePositiveInt(req.query.limit, 50, 200),
+        offset: Math.max(Number.parseInt(readOne(req.query.offset), 10) || 0, 0),
+        status: status || undefined,
+        startAt: readOne(req.query.startAt) || undefined,
+        endAt: readOne(req.query.endAt) || undefined,
+      });
+      res.json({
+        ok: true,
+        version: AIBIO_NATIVE_LEAD_VERSION,
+        source: "local_sqlite_aibio_native_leads",
+        generatedAt: new Date().toISOString(),
+        statusLabels: AIBIO_NATIVE_STATUS_LABELS,
+        ...payload,
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "native lead list failed" });
+    }
+  });
+
+  router.get("/api/aibio/native-leads/funnel", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      res.json({
+        ok: true,
+        version: AIBIO_NATIVE_LEAD_VERSION,
+        ...getAibioNativeLeadFunnel({
+          days: parsePositiveInt(req.query.days, 7, 90),
+          endAt: readOne(req.query.endAt) || undefined,
+        }),
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "native lead funnel failed" });
+    }
+  });
+
+  router.get("/api/aibio/native-leads/fallback-comparison", async (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const window = resolveDateWindow(req);
+      const dataSource: AibioAdCrmDataSource = readOne(req.query.dataSource).toLowerCase() === "local" ? "local" : "vm";
+      const limit = parsePositiveInt(req.query.limit, 5000, 10000);
+      const native = listAibioNativeLeadHashes(window.startAt, window.endAt);
+      const ledger = await readAibioLedgerEntries(dataSource, window, limit);
+      const fallbackForms = ledger.entries.filter(isAibioFormSubmit).filter((entry) => !isTestOrDebugForm(entry));
+      const fallbackHashes = fallbackForms.map(extractPhoneHash).filter(Boolean);
+      const nativeHashes = native.map((row) => row.customer_phone_hash).filter(Boolean);
+      const fallbackSet = new Set(fallbackHashes);
+      const nativeSet = new Set(nativeHashes);
+      const overlap = [...nativeSet].filter((hash) => fallbackSet.has(hash));
+      const nativeOnly = [...nativeSet].filter((hash) => !fallbackSet.has(hash));
+      const fallbackOnly = [...fallbackSet].filter((hash) => !nativeSet.has(hash));
+      const latestNativeLeadAt = native.map((row) => row.created_at).sort().at(-1) ?? null;
+      const latestFallbackAt = fallbackForms.map((entry) => entry.loggedAt).filter(Boolean).sort().at(-1) ?? null;
+
+      res.json({
+        ok: true,
+        version: AIBIO_NATIVE_LEAD_VERSION,
+        generatedAt: new Date().toISOString(),
+        source: {
+          native: "local_sqlite_aibio_native_leads",
+          fallback: ledger.source,
+        },
+        window,
+        freshness: {
+          latestNativeLeadAt,
+          latestFallbackAt,
+        },
+        counts: {
+          nativeRows: native.length,
+          nativeUniquePhones: nativeSet.size,
+          fallbackRows: fallbackForms.length,
+          fallbackUniquePhones: fallbackSet.size,
+          overlapUniquePhones: overlap.length,
+          nativeOnlyUniquePhones: nativeOnly.length,
+          fallbackOnlyUniquePhones: fallbackOnly.length,
+        },
+        rates: {
+          nativeOnlyRate: nativeSet.size > 0 ? nativeOnly.length / nativeSet.size : null,
+          fallbackOnlyRate: fallbackSet.size > 0 ? fallbackOnly.length / fallbackSet.size : null,
+          overlapRateAgainstNative: nativeSet.size > 0 ? overlap.length / nativeSet.size : null,
+          overlapRateAgainstFallback: fallbackSet.size > 0 ? overlap.length / fallbackSet.size : null,
+        },
+        warnings: ledger.warnings,
+        notes: [
+          "전화번호 원문이 아니라 normalized phone SHA-256 hash로만 병행 대조한다.",
+          "아임웹 폼 쪽은 기존 attribution ledger에 phone_hash_sha256이 들어온 제출만 정확히 비교된다.",
+          "운영 종료 판단은 최소 30일 병행 후 nativeOnly/fallbackOnly 원인 표본 확인이 필요하다.",
+        ],
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "fallback comparison failed" });
+    }
+  });
+
+  router.patch("/api/aibio/native-leads/:leadId/status", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!allowAibioNativeAdminWrite(req)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const lead = updateAibioNativeLeadStatus({
+        leadId: readOne(req.params.leadId),
+        status: req.body?.status,
+        changedBy: req.body?.changedBy,
+        memo: req.body?.memo,
+        assignedTo: req.body?.assignedTo,
+        reservationAt: req.body?.reservationAt,
+        visitAt: req.body?.visitAt,
+        paymentAmount: req.body?.paymentAmount,
+        paymentAt: req.body?.paymentAt,
+      });
+      res.json({ ok: true, version: AIBIO_NATIVE_LEAD_VERSION, lead });
+    } catch (err) {
+      const status = errorStatusCode(err);
+      res.status(status).json({ ok: false, error: err instanceof Error ? err.message : "native lead status update failed" });
+    }
+  });
+
+  router.get("/api/aibio/native-leads/:leadId/contact", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!requireAibioNativeContactAccess(req, res)) return;
+      const contact = getAibioNativeLeadContact(readOne(req.params.leadId));
+      if (!contact) {
+        res.status(404).json({ ok: false, error: "lead_not_found" });
+        return;
+      }
+      res.json({
+        ok: true,
+        version: AIBIO_NATIVE_LEAD_VERSION,
+        contact,
+        privacy: "raw contact access requires x-admin-token and should be audited before production use",
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "native lead contact failed" });
+    }
+  });
 
   router.get("/api/aibio/ad-crm-attribution", async (req: Request, res: Response) => {
     try {
