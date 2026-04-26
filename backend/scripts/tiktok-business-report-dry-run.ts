@@ -21,10 +21,18 @@ type OutputRow = {
   impressions: number;
   clicks: number;
   conversion: number;
+  cta_conversion: number;
+  vta_conversion: number;
   complete_payment: number;
   value_per_complete_payment: number;
   derived_complete_payment_value: number;
   complete_payment_roas: number;
+  cta_purchase: number;
+  evta_purchase: number;
+  vta_purchase: number;
+  cost_per_cta_purchase: number;
+  cost_per_evta_purchase: number;
+  cost_per_vta_purchase: number;
 };
 
 const DEFAULT_METRICS = [
@@ -34,11 +42,19 @@ const DEFAULT_METRICS = [
   "conversion",
   "cost_per_conversion",
   "conversion_rate",
+  "cta_conversion",
+  "vta_conversion",
   "complete_payment",
   "complete_payment_rate",
   "cost_per_complete_payment",
   "complete_payment_roas",
   "value_per_complete_payment",
+  "cta_purchase",
+  "evta_purchase",
+  "vta_purchase",
+  "cost_per_cta_purchase",
+  "cost_per_evta_purchase",
+  "cost_per_vta_purchase",
 ];
 
 const getArgValue = (name: string): string | undefined => {
@@ -161,10 +177,18 @@ const normalizeRow = (row: TikTokReportRow): OutputRow => {
     impressions: readNumber(metrics.impressions),
     clicks: readNumber(metrics.clicks),
     conversion: readNumber(metrics.conversion),
+    cta_conversion: readNumber(metrics.cta_conversion),
+    vta_conversion: readNumber(metrics.vta_conversion),
     complete_payment: completePayment,
     value_per_complete_payment: valuePerCompletePayment,
     derived_complete_payment_value: completePayment * valuePerCompletePayment,
     complete_payment_roas: readNumber(metrics.complete_payment_roas),
+    cta_purchase: readNumber(metrics.cta_purchase),
+    evta_purchase: readNumber(metrics.evta_purchase),
+    vta_purchase: readNumber(metrics.vta_purchase),
+    cost_per_cta_purchase: readNumber(metrics.cost_per_cta_purchase),
+    cost_per_evta_purchase: readNumber(metrics.cost_per_evta_purchase),
+    cost_per_vta_purchase: readNumber(metrics.cost_per_vta_purchase),
   };
 };
 
@@ -220,10 +244,18 @@ const writeCsv = async (filePath: string, rows: OutputRow[]) => {
     "impressions",
     "clicks",
     "conversion",
+    "cta_conversion",
+    "vta_conversion",
     "complete_payment",
     "value_per_complete_payment",
     "derived_complete_payment_value",
     "complete_payment_roas",
+    "cta_purchase",
+    "evta_purchase",
+    "vta_purchase",
+    "cost_per_cta_purchase",
+    "cost_per_evta_purchase",
+    "cost_per_vta_purchase",
   ];
   const lines = [headers.join(",")];
   for (const row of rows) {
@@ -260,11 +292,18 @@ const writeProcessedDailyCsv = async (filePath: string, rows: OutputRow[], campa
     "attribution_window_note",
   ];
   const sourceFile = `api/${path.basename(filePath)}`;
-  const note = "TikTok Business API report/integrated/get. Attribution window assumed TikTok default click 7d / view 1d unless Ads Manager says otherwise.";
+  const note = [
+    "TikTok Business API report/integrated/get.",
+    "Attribution window assumed TikTok default click 7d / view 1d unless Ads Manager says otherwise.",
+    "API does not expose website CTA/VTA purchase value here; CTA/VTA counts use cta_conversion/vta_conversion fallback when purchase split metrics are empty.",
+  ].join(" ");
   const lines = [headers.join(",")];
 
   for (const row of rows) {
     const platformRoas = row.spend > 0 ? row.derived_complete_payment_value / row.spend : 0;
+    const ctaPurchaseCount = row.cta_purchase || row.cta_conversion;
+    const evtaPurchaseCount = row.evta_purchase;
+    const vtaPurchaseCount = row.vta_purchase || row.vta_conversion;
     lines.push([
       row.report_date,
       row.campaign_id,
@@ -278,9 +317,9 @@ const writeProcessedDailyCsv = async (filePath: string, rows: OutputRow[], campa
       row.conversion,
       row.complete_payment,
       row.derived_complete_payment_value,
-      0,
-      0,
-      0,
+      ctaPurchaseCount,
+      evtaPurchaseCount,
+      vtaPurchaseCount,
       0,
       0,
       0,
@@ -303,8 +342,23 @@ const summarize = (rows: OutputRow[]) =>
       acc.impressions += row.impressions;
       acc.clicks += row.clicks;
       acc.conversion += row.conversion;
+      acc.cta_conversion += row.cta_conversion;
+      acc.vta_conversion += row.vta_conversion;
       acc.complete_payment += row.complete_payment;
       acc.derived_complete_payment_value += row.derived_complete_payment_value;
+      acc.cta_purchase += row.cta_purchase;
+      acc.evta_purchase += row.evta_purchase;
+      acc.vta_purchase += row.vta_purchase;
+      acc.cta_attribution_conversion += row.cta_purchase || row.cta_conversion;
+      acc.evta_attribution_conversion += row.evta_purchase;
+      acc.vta_attribution_conversion += row.vta_purchase || row.vta_conversion;
+      acc.unclassified_conversion += Math.max(
+        0,
+        row.complete_payment
+          - (row.cta_purchase || row.cta_conversion)
+          - row.evta_purchase
+          - (row.vta_purchase || row.vta_conversion),
+      );
       return acc;
     },
     {
@@ -312,8 +366,17 @@ const summarize = (rows: OutputRow[]) =>
       impressions: 0,
       clicks: 0,
       conversion: 0,
+      cta_conversion: 0,
+      vta_conversion: 0,
       complete_payment: 0,
       derived_complete_payment_value: 0,
+      cta_purchase: 0,
+      evta_purchase: 0,
+      vta_purchase: 0,
+      cta_attribution_conversion: 0,
+      evta_attribution_conversion: 0,
+      vta_attribution_conversion: 0,
+      unclassified_conversion: 0,
     },
   );
 

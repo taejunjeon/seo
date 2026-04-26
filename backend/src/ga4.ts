@@ -2514,6 +2514,113 @@ export const queryGA4SourceConversion = async (params: {
   };
 };
 
+export type GA4TikTokTransactionRow = {
+  date: string;
+  transactionId: string;
+  sessionSource: string;
+  sessionMedium: string;
+  eventCount: number;
+  grossPurchaseRevenue: number;
+};
+
+export type GA4TikTokTransactionResult = {
+  range: { startDate: string; endDate: string };
+  rows: GA4TikTokTransactionRow[];
+  totals: {
+    rows: number;
+    eventCount: number;
+    grossPurchaseRevenue: number;
+    numericTransactionRows: number;
+    npayTransactionRows: number;
+    blankTransactionRows: number;
+    blankTransactionEvents: number;
+    blankTransactionRevenue: number;
+  };
+};
+
+export const queryGA4TikTokTransactions = async (params: {
+  startDate: string;
+  endDate: string;
+}): Promise<GA4TikTokTransactionResult> => {
+  if (!env.GA4_PROPERTY_ID) throw new Error("GA4_PROPERTY_ID is not configured");
+
+  const client = createGA4Client();
+  const { startDate, endDate } = params;
+
+  const [report] = await client.runReport({
+    property: `properties/${env.GA4_PROPERTY_ID}`,
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [
+      { name: "date" },
+      { name: "transactionId" },
+      { name: "sessionSource" },
+      { name: "sessionMedium" },
+    ],
+    metrics: [{ name: "eventCount" }, { name: "grossPurchaseRevenue" }],
+    dimensionFilter: {
+      andGroup: {
+        expressions: [
+          {
+            filter: {
+              fieldName: "eventName",
+              stringFilter: { matchType: "EXACT" as const, value: "purchase" },
+            },
+          },
+          {
+            orGroup: {
+              expressions: [
+                {
+                  filter: {
+                    fieldName: "sessionSource",
+                    stringFilter: { matchType: "CONTAINS" as const, value: "tiktok", caseSensitive: false },
+                  },
+                },
+                {
+                  filter: {
+                    fieldName: "sessionMedium",
+                    stringFilter: { matchType: "CONTAINS" as const, value: "tiktok", caseSensitive: false },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    orderBys: [{ dimension: { dimensionName: "date" } }],
+    limit: 10000,
+  });
+
+  const rows: GA4TikTokTransactionRow[] = (report.rows ?? []).map((row) => ({
+    date: normalizeGa4Date(row.dimensionValues?.[0]?.value ?? ""),
+    transactionId: row.dimensionValues?.[1]?.value ?? "",
+    sessionSource: row.dimensionValues?.[2]?.value ?? "(not set)",
+    sessionMedium: row.dimensionValues?.[3]?.value ?? "(none)",
+    eventCount: toNumber(row.metricValues?.[0]?.value),
+    grossPurchaseRevenue: toNumber(row.metricValues?.[1]?.value),
+  }));
+
+  const blankRows = rows.filter((row) => {
+    const normalized = row.transactionId.trim().toLowerCase();
+    return !normalized || normalized === "(not set)" || normalized === "not set";
+  });
+
+  return {
+    range: { startDate, endDate },
+    rows,
+    totals: {
+      rows: rows.length,
+      eventCount: rows.reduce((sum, row) => sum + row.eventCount, 0),
+      grossPurchaseRevenue: rows.reduce((sum, row) => sum + row.grossPurchaseRevenue, 0),
+      numericTransactionRows: rows.filter((row) => /^\d{12,}$/.test(row.transactionId)).length,
+      npayTransactionRows: rows.filter((row) => /^NPAY\s-/i.test(row.transactionId)).length,
+      blankTransactionRows: blankRows.length,
+      blankTransactionEvents: blankRows.reduce((sum, row) => sum + row.eventCount, 0),
+      blankTransactionRevenue: blankRows.reduce((sum, row) => sum + row.grossPurchaseRevenue, 0),
+    },
+  };
+};
+
 export type GA4NotSetDailyRevenueRow = {
   date: string;
   ecommercePurchases: number;

@@ -39,10 +39,10 @@ type OpsRow = {
   payment_method: string | null;
   pg_name: string | null;
   payment_status: string | null;
-  sum_total_price: string;
-  sum_final: string;
-  sum_paid: string;
-  sum_coupon: string;
+  order_total_price: string;
+  order_final: string;
+  order_paid: string;
+  order_coupon: string;
   delivery_price: string;
   refunded: string;
   row_count: string;
@@ -98,12 +98,12 @@ const main = async () => {
               MAX(payment_method) AS payment_method,
               MAX(pg_name) AS pg_name,
               MAX(payment_status) AS payment_status,
-              SUM(COALESCE(total_price, 0))::text AS sum_total_price,
-              SUM(COALESCE(final_order_amount, 0))::text AS sum_final,
-              SUM(COALESCE(paid_price, 0))::text AS sum_paid,
-              SUM(COALESCE(coupon_discount, 0))::text AS sum_coupon,
+              MAX(COALESCE(total_price, 0))::text AS order_total_price,
+              MAX(COALESCE(final_order_amount, 0))::text AS order_final,
+              MAX(COALESCE(paid_price, 0))::text AS order_paid,
+              MAX(COALESCE(coupon_discount, 0))::text AS order_coupon,
               MAX(COALESCE(delivery_price, 0))::text AS delivery_price,
-              SUM(COALESCE(total_refunded_price, 0))::text AS refunded,
+              MAX(COALESCE(total_refunded_price, 0))::text AS refunded,
               COUNT(*)::text AS row_count
        FROM public.tb_iamweb_users
        WHERE order_number = ANY($1::text[])
@@ -132,10 +132,10 @@ const main = async () => {
         continue;
       }
       const payType = mapPayType(row.payment_method);
-      const paymentAmount = Number(row.sum_final ?? "0");
-      const paidPrice = Number(row.sum_paid ?? "0");
-      const totalPrice = Number(row.sum_total_price ?? "0");
-      const couponAmount = Number(row.sum_coupon ?? "0");
+      const paymentAmount = Number(row.order_final ?? "0");
+      const paidPrice = Number(row.order_paid ?? "0");
+      const totalPrice = Number(row.order_total_price ?? "0");
+      const couponAmount = Number(row.order_coupon ?? "0");
       const deliveryPrice = Number(row.delivery_price ?? "0");
       totalPaid += paidPrice;
       totalFinal += paymentAmount;
@@ -182,8 +182,8 @@ const main = async () => {
     }
 
     console.log(`\n## prepared ${inserts.length} rows (skipped ${skipped})`);
-    console.log(`   total payment_amount (SUM final): ${totalFinal.toLocaleString()}원`);
-    console.log(`   total paid_price         (SUM paid):  ${totalPaid.toLocaleString()}원`);
+    console.log(`   total payment_amount (order final): ${totalFinal.toLocaleString()}원`);
+    console.log(`   total paid_price      (order paid):  ${totalPaid.toLocaleString()}원`);
     console.log("   by pay_type:");
     for (const [k, v] of Object.entries(byPayType)) {
       console.log(`     ${k}: ${v.n} rows, ${v.amount.toLocaleString()}원`);

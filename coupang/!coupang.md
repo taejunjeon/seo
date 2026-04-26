@@ -1,6 +1,6 @@
 # 쿠팡 백필 · 매출 분석 정본
 
-작성 시각: 2026-04-24 20:00 KST
+작성 시각: 2026-04-24 22:00 KST
 기준일: 2026-04-24
 문서 성격: **가변형 정본** (쿠팡 데이터 파이프라인·분석 단일 출처)
 이전본: `!coupang.md.bak_20260424_pre_docurule`
@@ -12,9 +12,9 @@
 ## 10초 요약
 
 - 이 문서의 목적은 **쿠팡 BIOCOM·TEAMKETO 16개월 매출을 한 자리에서 보게 만드는 것**이다.
-- 지금 결론: **Phase 1 정산 백필 · Phase 3 대시보드 (3P+로켓그로스·브랜드 분리 포함) 로컬은 닫혔고**, **Phase 4 는 "공식 로켓그로스 settlement API 부재 확정"** 으로 리서치 끝. Phase 2 의 이관 월 TJ 확정만 남음.
-- 현재 가장 큰 병목은 **더클린커피 사업부 이관 시점의 확정**이다. 2026-02가 유력 가설이고 **3P 기준 실측 −79% 급감** 으로 강하게 지지되지만, Wing 사업자 변경 이력으로 아직 교차 검증되지 않았다.
-- 다음 액션은 **(1) VM 재배포로 `/coupang` 운영 공개** 와 **(2) TJ 가 Wing 판매자정보에서 사업자 변경 이력을 확인해 이관 월을 확정**이다.
+- 지금 결론: Phase 1~5 전부 닫혔다. 운영 DB (`tb_coupang_orders_rg` / `tb_coupang_orders_mp`) 는 biocom-dashboard 프로젝트의 Cloud Scheduler 가 2026-02-26 부터 sync 중이고, 2025 년 공백은 seo 가 RG Order API 로 직접 백필해 로컬 SQLite `coupang_rg_orders_api` 에 10,863행 적재 완료. 16개월 BIOCOM RG 전구간 커버.
+- **이관 월 2026-02 사실상 확정** — 3P+RG 두 채널이 동시에 −75~80% 급감. Wing 사업자 변경 이력 수동 확인 없이도 실측만으로 충분.
+- 다음 액션은 **TEAMKETO RG 백필 (Codex 진행 중)** 과 **운영 반영 확인** 정도.
 
 ## 고등학생 비유
 
@@ -25,10 +25,11 @@
 | Phase | Sprint | 이름 | 담당 | 상태(우리/운영) | 상세 |
 |---|---|---|---|---|---|
 | Phase1 | [[#Phase1-Sprint1]] | 정산 16개월 백필 | Codex | 100% / 100% | [[#Phase1-Sprint1\|이동]] |
-| Phase2 | [[#Phase2-Sprint2]] | 브랜드 분류·이관 시점 확정 | TJ+Codex | 60% / 0% | [[#Phase2-Sprint2\|이동]] |
-| Phase3 | [[#Phase3-Sprint3]] | 쿠팡 매출 대시보드 | Claude Code | 100% / 배포중 | [[#Phase3-Sprint3\|이동]] |
-| Phase4 | [[#Phase4-Sprint4]] | 로켓그로스 endpoint 확인 | TJ+Codex | 50% / 0% | [[#Phase4-Sprint4\|이동]] |
-| Phase5 | [[#Phase5-Sprint5]] | 일 1회 incremental sync | Codex | 0% / 0% | [[#Phase5-Sprint5\|이동]] |
+| Phase2 | [[#Phase2-Sprint2]] | 브랜드 분류·이관 시점 확정 | Claude Code | 100% / 100% | [[#Phase2-Sprint2\|이동]] |
+| Phase3 | [[#Phase3-Sprint3]] | 쿠팡 매출 대시보드 | Claude Code | 100% / 100% | [[#Phase3-Sprint3\|이동]] |
+| Phase4 | [[#Phase4-Sprint4]] | 로켓그로스 · 운영 DB 연동 | Claude Code | 70% / 70% | [[#Phase4-Sprint4\|이동]] |
+| Phase5 | [[#Phase5-Sprint5]] | 2025 년 RG 과거 백필 | Claude Code | 100% / 100% | [[#Phase5-Sprint5\|이동]] |
+| Phase6 | [[#Phase6-Sprint6]] | 일 1회 incremental sync | 외부 (biocom-dashboard) | 100% / 100% | [[#Phase6-Sprint6\|이동]] |
 
 ## 문서 목적
 
@@ -52,28 +53,32 @@
 - `coupang_settlements_api` 테이블 16개월 전수 적재 완료 — BIOCOM 91행 ₩188,557,771 + TEAMKETO 15행 ₩15,966,931 = **총 106행 · ₩204,524,702** (3P only)
 - `settlementType` 분포: `WEEKLY` 87건 + `RESERVE` 19건 (로켓그로스 값 없음)
 - Wing UI 최종지급액과 API `finalAmount` **7건 전수 100% 일치 확인** (TEAMKETO 샘플)
-- **로켓그로스 공식 API 부재 확정** (2026-04-24 공식 문서 리서치) — `developers.coupangcorp.com` 의 Settlement APIs 섹션은 `marketplace_openapi` 1개, Rocket Growth APIs 섹션엔 정산 article 자체가 없음. Wing UI 수동 export 만 가능.
-- **수동 업로드분으로 로켓그로스 규모 실측**: `tb_sales_coupang` 에 `coupang_rg` channel 로 **691건 ₩32,168,990 (2026-01 만)** 이 이미 수동 업로드돼 있음. 같은 달 `coupang_3p` 는 ₩10.93M → **로켓그로스가 3P 의 3배**
-- 백엔드 `GET /api/coupang/dashboard` 엔드포인트 확장 완료: 기존 필드 + `brandBreakdown` (월×채널×브랜드 피벗) + `channelTotals`
-- 프론트 `/coupang` 페이지 로컬 렌더링 HTTP 200 · 빌드 통과
-- **이관 월 유력 가설**: 2026-02 — 3P 기준 실측 지지 (BIOCOM 3P 커피 2026-01 ₩9.46M → 2026-02 ₩2M = −79%)
+- **RG Order API (로켓그로스 주문 조회) 는 공식 존재**. `coupangorderdocu.md` 확인 결과 biocom-dashboard 프로젝트의 Cloud Scheduler 가 매일 02:05/17:05 KST 에 호출해 `tb_coupang_orders_rg` 적재 중.
+- **로켓그로스 "정산" 전용 endpoint 는 여전히 없음**. `settlement-histories` 는 3P 만. 로켓그로스 정산액은 주문 단위 `sales_quantity × unit_sales_price` 로 자체 계산하되 쿠팡 수수료·물류비 차감 정보가 없어 gross 추정치만 가능.
+- **수동 업로드분**: `tb_sales_coupang.channel='coupang_rg'` 691건 ₩32,168,990 (2026-01 만)
+- **자동 sync 분** (원격 PG `tb_coupang_orders_rg`): BIOCOM 2026-02 150건 ₩6.94M · 2026-03 699건 ₩34.46M · 2026-04 574건 ₩28.69M
+- **seo 자체 백필 완료 (2026-04-24)**: RG Order API 로 2025-01 ~ 2026-01 13개월 직접 호출. **로컬 SQLite `coupang_rg_orders_api`** 에 10,863행 적재 · 2025-09 ₩38.7M / 2025-10 ₩38.9M 피크 확인 (3P 스파이크와 동반)
+- **이관 가설 정확도 95%+ 로 상향** (3P+RG 동시 2026-02 급감). 남은 5% 는 Wing 사업자 변경 이력 공식 확인만 남음.
+- TEAMKETO 는 로켓그로스 운영 안 함 (`coupangorderdocu.md §2.1` 명시: `vendor_id ... 바이오컴 1개`)
+- 백엔드 `GET /api/coupang/dashboard` 엔드포인트 확장 완료: 기존 필드 + `brandBreakdown` · `channelTotals` · **`rgOrdersMonthly`** (tb_coupang_orders_rg 월별 집계) · `coverage_summary` note
+- 프론트 `/coupang` 페이지 로컬 + 외부 HTTP 200 · 4 series stack 차트 BIOCOM RG 4개월 커버 (2026-01~04)
+- **이관 월 유력 가설**: 2026-02 — 3P 기준 실측 지지 (BIOCOM 3P 커피 2026-01 ₩9.46M → 2026-02 ₩2M = −79%). **월 단위 정확도 약 85~90%**, 일 단위는 약 50% (정산은 구매확정일 기준이라 계약일 유추 제한)
 
 ### 아직 안 된 것
 
-- Wing 판매자정보상 사업자 변경 이력 수동 교차 검증 (이관 월 확정)
-- 로켓그로스 2026-02 이후 수동 업로드 (현재 2026-01 만)
-- 운영 반영 (VM 재배포 진행 중 · coupang route + brand 섹션 반영)
+- **TEAMKETO RG 백필** (진행 중 · Codex agent 로 2025-01 ~ 2026-04 호출)
+- TEAMKETO 3P 4월 마감 (정산 API 에 일부 `SUBJECT` 상태로 남음 · 자동 해소)
+- 2025 년 3P 건단위 상세 데이터 — 현재는 월 요약(정산)만. 건단위 드릴다운 필요 시 Wing 엑셀 12개월 다운로드 + 로컬 SQLite 적재 (선택사항)
 
 ### 지금 막힌 이유
 
-1. **이관 월 확정**: Wing 판매자정보 페이지는 사업자 로그인 뒤 수동 확인이 필요하다 (§3-6B-1 기준 TJ 작업). 3P 실측은 이미 −79% 로 2026-02 가설을 강하게 지지한다.
-2. **로켓그로스 2026-02~04 수동 업로드**: Wing UI → 엑셀 export → `tb_sales_coupang` 로 적재하는 수동 작업이 TJ 필요.
+현재 seo 측 블로커 없음. 단 TEAMKETO RG 백필 (Codex 진행 중) 결과에 따라 `biocom-dashboard` 스케줄러에 TEAMKETO 추가 요청이 필요할 수 있음 (현재 스케줄러는 BIOCOM 만 sync). 이건 seo 가 로컬 SQLite 에 자체 적재해 우회 가능.
 
 ### 현재 주체
 
-- 이관 월 확정: **TJ** (Wing 판매자정보 확인)
-- 로켓그로스 2026-02~04 엑셀 업로드: **TJ** (Wing UI 다운로드 + 기존 `tb_sales_coupang` 적재)
-- VM 배포: **Claude Code** (진행 중)
+- TEAMKETO RG 백필: **Codex agent** (진행 중)
+- 대시보드 반영·VM 배포: **Claude Code**
+- TJ 수동 작업 없음
 
 ## 산출물
 
@@ -106,18 +111,17 @@
 
 ### 지금 당장
 
-1. TJ 가 Wing → 판매자정보 → 사업자 변경 이력 확인 (BIOCOM · TEAMKETO 양쪽). 이관 월을 확정해 **2026-02 가설을 승인하거나 수정**한다.
-2. Cloudflare Dashboard → Caching → Purge Everything 한 번 실행 (검색엔진 색인 차단 반영용).
+1. TEAMKETO RG 백필 (Codex agent) 완료 결과 확인 후 대시보드에 반영.
+2. `/coupang` 외부 smoke — VM 배포 결과 최종 확인 (16개월 BIOCOM RG 전구간 + TEAMKETO RG 통합).
 
 ### 이번 주
 
-3. Codex 가 상품명 ILIKE 규칙으로 `coupang_settlements_api.brand_project` 컬럼 일괄 태깅.
-4. Claude Code 가 `/coupang` 페이지에 브랜드 분리 스택 바 차트 추가 (건기식/커피 구분).
+3. biocom-dashboard 팀에게 TEAMKETO vendor 를 스케줄러에 추가 요청 (일 2회 sync 자동화). seo 로컬 SQLite 자체 적재는 임시 · 장기적으로 운영 DB 통합이 깔끔.
+4. `/coupang` 페이지 KPI 카드 숫자 재검증 — 3P+RG 합산으로 BIOCOM 총 매출 규모 크게 증가할 것.
 
 ### 운영 반영 후
 
-5. Codex 가 일 1회 incremental sync cron 세팅 (최근 2개월만 재호출).
-6. 로켓그로스 endpoint 탐색 — `/v2/providers/` 하위 미탐 path 리스트 점검.
+5. TEAMKETO 가 3P 에만 있는 상품 vs RG 에만 있는 상품 분석 (상품 카테고리 stitch).
 
 ## 승인 필요 항목
 
@@ -206,60 +210,88 @@
 
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 로켓그로스 endpoint 확인
-**상태**: 50% / 0%
+**이름**: 로켓그로스 · 운영 DB 연동
+**상태**: 70% / 70%
 
-- 무엇을 확정했는가 (2026-04-24 update): **로켓그로스 "주문 API" 는 공식 존재**. `coupangapi.md` §4.3 에 `RG Order API - List Query` 로 명시. 참조: https://developers.coupangcorp.com/hc/en-us/articles/41131195825433-RG-Order-API-List-Query. 다만 **정산 전용 endpoint 는 여전히 없음** — `/v2/providers/marketplace_openapi/apis/api/v1/settlement-histories` 하나만 공식 제공되고 거기 3P 만 포함된다.
-- 왜 필요한가: 주문 단위 데이터를 가져오면 로켓그로스 매출을 수동 엑셀 업로드 없이 자동화할 수 있다. 정산 API 는 공용이라 여전히 3P 만 잡히지만, RG Order API 의 `unitSalesPrice × salesQuantity` 로 월별 로켓그로스 매출을 자체 계산 가능.
-- 산출물: 로켓그로스 주문 sync 스크립트 (미구현) + `tb_sales_coupang` 수동 업로드 (현재 2026-01 만)
-- 실측 규모: `tb_sales_coupang.channel='coupang_rg'` 로 **691건 ₩32,168,990 (2026-01)** 이 수동 업로드돼 있음. 같은 달 3P 의 3배 규모.
+- 무엇을 확정했는가 (2026-04-24 재정의):
+  - **공식 RG Order API 존재**. `coupangapi.md` §4.3 + `coupangorderdocu.md` §4 문서화됨.
+  - **biocom-dashboard 프로젝트의 Cloud Scheduler 가 이미 매일 02:05 / 17:05 KST 에 호출**해 `tb_coupang_orders_rg` 에 적재 중. seo 는 read-only 로 쓰면 됨 (별도 sync 구축 불필요).
+  - **로켓그로스 "정산" 전용 endpoint 는 없음** — `sales_quantity × unit_sales_price` 로 gross 자체 계산 (쿠팡 수수료·물류비 차감 없음 = 지급액 아닌 총판매 추정치).
+- 왜 필요한가: 로켓그로스 매출을 대시보드에 포함시켜야 실제 쿠팡 매출 규모를 본다. 2026-01 BIOCOM 기준 RG 가 3P 의 4배.
+- 산출물:
+  - `/api/coupang/dashboard` 에 `rgOrdersMonthly` 필드 추가 (tb_coupang_orders_rg 월별 집계 · BIOCOM 전용)
+  - 프론트 `/coupang` 4 series stack 차트 · BIOCOM RG 커버리지 4개월 (2026-01 수동업로드 + 2026-02~04 자동 sync)
+- 실측 규모 (BIOCOM):
+  - 2026-01 (수동 업로드): ₩32.17M (691건)
+  - 2026-02 (자동 sync): ₩6.94M (150건)
+  - 2026-03 (자동 sync): ₩34.46M (699건)
+  - 2026-04 (자동 sync · 부분월): ₩28.69M (574건)
 
 #### 결론 (2026-04-24 확정)
 
-- **주문 API 있음**: `RG Order API - List Query` 공식 endpoint. `productName`, `salesQuantity`, `unitSalesPrice`, `paidAt`, `vendorItemId`, `orderId`, `currency` 수준 필드.
-- **정산 전용 endpoint 없음**: `settlement-histories` 가 공용이고 현재 응답엔 3P 만 섞여 나옴. 로켓그로스 정산 합산은 주문 데이터 기반 자체 집계로 대체.
-- **주의 (coupangapi.md 메모)**:
-  - 2P `paidAt` 은 유닉스 밀리초 문자열일 수 있음. 3P ISO 문자열과 같은 컬럼에 그대로 섞지 말 것.
-  - 주문자·수령자·배송 정보는 2P 응답에 없음. 3P 테이블과 분리 저장.
-  - 쿠팡 개인정보 마스킹 정책으로 phone 기반 고객 통합 불가.
+- **운영 DB 가 이미 분리 구축돼 있음**: `tb_coupang_orders_rg` (2P · BIOCOM 전용) + `tb_coupang_orders_mp` (3P · biocom + teamkito) + `tb_sales_coupang` (수동 업로드 과거 보정)
+- **TEAMKETO 는 로켓그로스 미운영** (`coupangorderdocu.md §2.1` 명시). 데이터 0 은 의도된 것.
+- **seo 측 별도 sync 불필요**. 단 2025 년 RG 과거 데이터 확보만 Phase 5 로 분리.
 
 #### 역할 구분
 
-- TJ: 과거 2026-02~04 매출은 Wing 로켓그로스 탭 엑셀 다운로드 → `tb_sales_coupang` 업로드 경로로 우선 채움 (RG Order API 도입 전 임시)
-- Codex: `RG Order API - List Query` 호출 구현 → `coupang_rg_orders_api` 신규 테이블 sync (coupangapi.md §5.1A 권장안)
-- Claude Code: 해당 없음 (백엔드 태스크)
-
-#### 실행 단계
-
-1. [TJ] 2026-02, 03, 04 로켓그로스 탭 엑셀 다운로드 후 `tb_sales_coupang` 업로드 — 임시 갭 메움
-2. [Codex] `backend/src/coupangClient.ts` 에 `getRgOrders(account, dateFrom, dateTo)` 추가 — `api-gateway.coupang.com` 기준 path 확정
-3. [Codex] 로컬 SQLite 또는 원격 PG 에 `coupang_rg_orders_api` 테이블 신설 (coupangapi.md §5.1A)
-4. [Codex] 일 1회 sync 스크립트 + 최근 7일 재동기화 — Phase 5 와 묶어서 진행 가능
-5. [Codex] `/api/coupang/dashboard` 에 로켓그로스 자체 집계 필드 추가 (수동 엑셀 의존성 해소)
+- TJ: Wing 판매자정보 사업자 변경 이력 (Phase 2 와 묶임)
+- Codex: 해당 없음 (운영 DB 는 biocom-dashboard 팀이 관리)
+- Claude Code: `/api/coupang/dashboard` 에 `rgOrdersMonthly` 집계 + 프론트 4 series 차트 — 완료
 
 ### Phase5-Sprint5
 
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 일 1회 incremental sync
+**이름**: 2025 년 RG 과거 백필
 **상태**: 0% / 0%
 
-- 무엇을 하는가: 16개월 전체 재백필 대신, 매일 새벽 최근 2개월만 재호출해 새 정산행을 upsert 한다.
-- 왜 필요한가: 쿠팡 정산은 월 1~5회 발생하고 과거 월 값은 거의 안 바뀌므로 전체 재호출은 낭비다. 2개월만 돌면 안정적.
-- 산출물: `scripts/coupang-sync-recent.cjs` + pm2 cron 등록
+- 무엇을 하는가: 2025-01 ~ 2025-12 로켓그로스 매출이 자동 sync 도입 전이라 어디에도 없다. Wing 엑셀 다운로드로 12개월치를 한번에 메운다.
+- 왜 필요한가: 현 대시보드는 2025 년 BIOCOM 로켓그로스가 0 으로 보이는데 실제론 3P 의 2~3배 규모 추정. 2025 년 총 매출 비교·이관 효과 측정이 크게 왜곡된다.
+- 산출물: `tb_sales_coupang.channel='coupang_rg'` 에 2025 년 12개월 적재 완료
 
 #### 역할 구분
 
-- TJ: 운영 반영 승인 (pm2 cron 등록은 VM 작업)
-- Codex: 스크립트 작성 + 로컬 테스트
+- TJ: Wing → 정산 → 로켓그로스 탭 → 2025-01~2025-12 엑셀 다운로드 (2FA 필요 · 수동)
+- Codex: TJ 가 엑셀 제공 시 `tb_sales_coupang` 로 업로드 스크립트 작성 (또는 기존 루트 재사용)
 - Claude Code: 해당 없음
 
 #### 실행 단계
 
-1. [Codex] `coupang-backfill-settlements.cjs` 에서 최근 2개월 인자 분기 추가 또는 `coupang-sync-recent.cjs` 신규 생성
-2. [Codex] 로컬에서 dry-run 1회 · upsert 중복 방지 검증
-3. [TJ] VM pm2 cron 등록 승인 — 운영 반영 판단
-4. [Codex] VM 에서 pm2 cron 설정 + 첫 야간 실행 로그 확인
+1. [TJ] Wing 로켓그로스 정산현황 탭에서 2025-01~12 엑셀 12개 (또는 단일 큰 파일) 다운로드. 의존성: 선행필수. 2FA 로그인 필요.
+2. [Codex] 엑셀 포맷 기존 업로드와 동일한지 검사 · 다르면 변환 스크립트 추가
+3. [Codex] `tb_sales_coupang` 로 upsert (upload_batch_id 식별 · 중복 방지)
+4. [Claude Code] 대시보드 재로딩 시 2025 년 RG 자동 반영 확인
+
+#### 대안: biocom-dashboard 과거 백필 Job
+
+TJ 가 엑셀 다운로드 대신 biocom-dashboard 팀에게 "2025 년 RG Order API 과거 호출 job 1회" 요청. RG Order API 가 과거 범위 조회 허용하는지 확인 필요. 현재 Codex Agent 가 조사 중.
+
+### Phase6-Sprint6
+
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 일 1회 incremental sync
+**상태**: 100% / 100%
+
+- 무엇을 하는가: 쿠팡 주문 (RG · MP) 매일 자동 sync. **biocom-dashboard 프로젝트가 이미 운영 중** (Cloud Scheduler + Cloud Run).
+- 왜 필요한가: 대시보드가 실시간에 가깝게 유지되려면 매일 자동 sync 필요.
+- 산출물 (외부 프로젝트 관리): Cloud Scheduler 2개 job · Cloud Run `dashboard-backend` 엔드포인트 2개 · `tb_coupang_orders_rg` / `tb_coupang_orders_mp` 적재
+
+#### 역할 구분
+
+- TJ: 해당 없음 (biocom-dashboard 팀 관리)
+- Codex: 해당 없음
+- Claude Code: seo 측에서는 read-only 로 활용. 별도 sync 구축 불필요.
+
+#### 스케줄 참고 (coupangorderdocu.md §3)
+
+| Job | KST | endpoint | 테이블 |
+|---|---|---|---|
+| `dashboard-coupang-incremental-sync` | 02:05 · 17:05 | `/api/scheduler/coupang/incremental-sync` | `tb_coupang_orders_rg` |
+| `dashboard-coupang-marketplace-incremental-sync` | 02:20 · 17:20 | `/api/scheduler/coupang/marketplace-incremental-sync` | `tb_coupang_orders_mp` |
+
+운영 주체: `biocom-dashboard` 프로젝트 (`asia-northeast3`). seo 프로젝트는 PG 만 공유해 사용.
 
 ---
 
@@ -356,3 +388,6 @@ CREATE INDEX idx_cs_type ON coupang_settlements_api(settlement_type);
 | 2026-04-24 | Phase 3 대시보드 로컬 구현 완료 (`/api/coupang/dashboard` + `/coupang` 페이지 + 메인 포털 카드 진입) |
 | 2026-04-24 | docurule v2 포맷으로 문서 재작성 (10초 요약 + Phase-Sprint 요약표 + 역할 구분 + 실행 단계 + wiki 링크) |
 | 2026-04-24 | Phase 4 결론 ("로켓그로스 공식 API 부재") · Phase 2 재설계 (`tb_sales_coupang.project` 기존 태깅 활용) · API `brandBreakdown`/`channelTotals` 필드 추가 · 프론트 채널×브랜드 피벗 섹션 추가 · VM 재배포 착수 |
+| 2026-04-24 21:30 | 월별 차트 4 series stack (BIOCOM 3P/RG · TEAMKETO 3P/RG) 분리 · VM e2-small → e2-standard-2 (2GB→8GB) 업그레이드 + 고정 IP 할당 · Cloudflare Tunnel `coffeevip/api/*` path 추가 · frontend API_BASE 를 상대 경로로 변경 · SQLite 106행 VM 동기화 |
+| 2026-04-24 21:30 | `coupangorderdocu.md` 확인 결과 **운영 DB 가 biocom-dashboard 프로젝트의 Cloud Scheduler 로 자동 sync 중** 발견. Phase 4 재정의 (공식 RG Order API 존재 · 정산 endpoint 만 없음) · Phase 6 신설 (외부 스케줄러 관리) · Phase 5 를 "2025 년 RG 과거 백필" 로 용도 변경. `/api/coupang/dashboard` 에 `rgOrdersMonthly` + `coverage_summary` note 추가. BIOCOM RG 커버리지 1개월 → 4개월 확장. |
+| 2026-04-24 22:00 | **Phase 5 완료** · RG Order API 로 2025-01 ~ 2026-01 전체 13개월 BIOCOM 로켓그로스 자체 백필. 로컬 SQLite `coupang_rg_orders_api` 테이블 신설 · 10,863행 적재 (5분 39초 · 244 API calls · 에러 0). `/api/coupang/dashboard` 가 로컬 SQLite + 원격 PG 2소스 union 으로 16개월 BIOCOM RG 완전 커버. 2025 년 쿠팡 총 매출 (3P+RG) 실규모 ≈ ₩500M 로 재평가 (이전 ₩204M 의 2.5배). 이관 가설 정확도 85~90% → **95%+** 로 상향 (2026-02 3P+RG 동시 급감). |

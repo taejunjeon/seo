@@ -13,6 +13,7 @@ import { createCrmLocalRouter } from "../routes/crmLocal";
 import { createCrmPhase1Router } from "../routes/crmPhase1";
 import { createDiagnosisRouter } from "../routes/diagnosis";
 import { createGa4Router } from "../routes/ga4";
+import { createGoogleAdsRouter } from "../routes/googleAds";
 import { createGscRouter } from "../routes/gsc";
 import { createIdentityCoverageRouter } from "../routes/identityCoverage";
 import { createPageSpeedRouter } from "../routes/pagespeed";
@@ -24,6 +25,7 @@ import { createSourceFreshnessRouter } from "../routes/sourceFreshness";
 import { createAibioRouter } from "../routes/aibio";
 import { createCoffeeRouter } from "../routes/coffee";
 import { createCoupangRouter } from "../routes/coupang";
+import { createNpayRouter } from "../routes/npay";
 
 export const registerRoutes = (app: Application) => {
   app.use(createGscRouter());
@@ -32,6 +34,7 @@ export const registerRoutes = (app: Application) => {
   app.use(createChannelTalkRouter());
   app.use(createTossRouter());
   app.use(createAdsRouter());
+  app.use(createGoogleAdsRouter());
   app.use(createMetaRouter());
   app.use(createMetaCapiRouter());
   app.use(createAligoRouter());
@@ -50,6 +53,7 @@ export const registerRoutes = (app: Application) => {
   app.use(createAibioRouter());
   app.use(createCoffeeRouter());
   app.use(createCoupangRouter());
+  app.use(createNpayRouter());
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({

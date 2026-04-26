@@ -24,6 +24,8 @@ const allowedOrigins = [
   env.FRONTEND_ORIGIN,
   "http://localhost:3000",
   "http://localhost:7010",
+  "http://localhost:7011",
+  "http://localhost:7012",
   "https://thecleancoffee.com",
   "https://www.thecleancoffee.com",
   "https://thecleancoffee.imweb.me",
@@ -76,6 +78,7 @@ export const configureMiddleware = (app: Application) => {
           callback(new Error(`CORS blocked: ${origin}`));
         }
       },
+      credentials: true,
     }),
   );
 

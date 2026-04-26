@@ -85,6 +85,16 @@ const envSource = {
   GA4_MP_API_SECRET_COFFEE: process.env.GA4_MP_API_SECRET_COFFEE,
   GA4_MEASUREMENT_ID_BIOCOM: process.env.GA4_MEASUREMENT_ID_BIOCOM ?? "G-WJFXN5E2Q1",
   GA4_MEASUREMENT_ID_COFFEE: process.env.GA4_MEASUREMENT_ID_COFFEE,
+  GOOGLE_ADS_DEVELOPER_TOKEN:
+    process.env.GOOGLE_ADS_DEVELOPER_TOKEN ?? process.env.API_TOKEN_BIOCOM,
+  GOOGLE_ADS_CUSTOMER_ID:
+    process.env.GOOGLE_ADS_CUSTOMER_ID
+    ?? process.env.GOOGLE_ADS_CLIENT_CUSTOMER_ID
+    ?? "2149990943",
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+  GOOGLE_ADS_API_VERSION: process.env.GOOGLE_ADS_API_VERSION ?? "v22",
+  ATTRIBUTION_OPERATIONAL_BASE_URL:
+    process.env.ATTRIBUTION_OPERATIONAL_BASE_URL ?? "https://att.ainativeos.net",
   REFUND_DISPATCH_ENFORCE: process.env.REFUND_DISPATCH_ENFORCE,
   AIBIO_SUPABASE_PROJECT_ID: process.env.AIBIO_SUPABASE_PROJECT_ID,
   AIBIO_SUPABASE_SECRET_KEY:
@@ -226,6 +236,11 @@ const envSchema = z.object({
   GA4_MP_API_SECRET_COFFEE: z.string().min(1).optional(),
   GA4_MEASUREMENT_ID_BIOCOM: z.string().min(1).default("G-WJFXN5E2Q1"),
   GA4_MEASUREMENT_ID_COFFEE: z.string().min(1).optional(),
+  GOOGLE_ADS_DEVELOPER_TOKEN: z.string().min(1).optional(),
+  GOOGLE_ADS_CUSTOMER_ID: z.string().min(1).default("2149990943"),
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID: z.string().min(1).optional(),
+  GOOGLE_ADS_API_VERSION: z.string().min(1).default("v22"),
+  ATTRIBUTION_OPERATIONAL_BASE_URL: z.string().url().default("https://att.ainativeos.net"),
   REFUND_DISPATCH_ENFORCE: z
     .string()
     .optional()

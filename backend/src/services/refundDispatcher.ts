@@ -3,7 +3,8 @@
  * Meta CAPI Refund 와 GA4 Measurement Protocol Refund 를 뒤따라 전송한다.
  *
  * 모드:
- *  - dry_run : diff 만 `refund_dispatch_log` 에 기록. 외부 호출 없음. 관측용.
+ *  - dry_run : 후보 diff 만 반환. 외부 호출/로그 기록 없음. 관측용.
+ *              예전처럼 관측 로그를 남겨야 할 때만 `recordDryRun=true` 를 명시한다.
  *  - enforce : log 기록 + Meta CAPI + GA4 MP 실제 전송. `REFUND_DISPATCH_ENFORCE=true` 와
  *              해당 site 의 `GA4_MP_API_SECRET_*` 가 모두 설정됐을 때만 실제 호출.
  *              자격증명이 없으면 이벤트별로 `meta_error` / `ga4_error` 에 skip 사유를 기록한다.
@@ -64,6 +65,7 @@ export type RefundDispatchRecord = {
 export type RefundDispatchSummary = {
   mode: RefundDispatchMode;
   enforceRequested: boolean;
+  recordDryRun: boolean;
   processed: number;
   newlyDetected: number;
   metaSent: number;
@@ -75,9 +77,31 @@ export type RefundDispatchSummary = {
   skipReasons: Record<string, number>;
 };
 
+type RefundSite = "biocom" | "thecleancoffee" | "aibio";
+
+const normalizeRefundSite = (site: string | null | undefined): RefundSite | null => {
+  if (site === "biocom" || site === "thecleancoffee" || site === "aibio") return site;
+  return null;
+};
+
+const inferRefundSite = (site: string | null | undefined, paymentKey: string | null | undefined): RefundSite | null => {
+  const normalized = normalizeRefundSite(site);
+  if (normalized) return normalized;
+  const key = paymentKey ?? "";
+  if (key.startsWith("iw_bi")) return "biocom";
+  if (key.startsWith("iw_th")) return "thecleancoffee";
+  return null;
+};
+
+const unresolvedSiteError = (candidate: Pick<RefundCandidate, "payment_key" | "order_id">): string => {
+  if (!candidate.payment_key) return "refund_site_unresolved:payment_key_missing";
+  return `refund_site_unresolved:${candidate.payment_key.slice(0, 5) || candidate.order_id}`;
+};
+
 /**
  * Toss 에 기록된 CANCELED / PARTIAL_CANCELED 중 아직 refund_dispatch_log 에 없는 건을 반환한다.
- * 과거 취소 건까지 포함되므로 첫 dry_run 시 한꺼번에 잡힌다 — 그 이후로는 신규 전이만 잡힌다.
+ * 과거 취소 건까지 포함되므로 첫 enforce 시 한꺼번에 잡힌다.
+ * dry_run 은 기본적으로 기록하지 않아 여러 번 실행해도 enforce 후보를 소모하지 않는다.
  */
 export function detectPendingRefundCandidates(limit = 500): RefundCandidate[] {
   const db = getCrmDb();
@@ -107,18 +131,21 @@ export function detectPendingRefundCandidates(limit = 500): RefundCandidate[] {
     )
     .all(limit) as Array<Record<string, unknown>>;
 
-  return rows.map((row) => ({
-    order_id: String(row.order_id ?? ""),
-    payment_key: String(row.payment_key ?? ""),
-    toss_status: row.toss_status === "PARTIAL_CANCELED" ? "PARTIAL_CANCELED" : "CANCELED",
-    method: row.method ? String(row.method) : null,
-    total_amount: Number(row.total_amount ?? 0),
-    cancel_amount: Number(row.cancel_amount ?? 0),
-    currency: (row.currency as string) || "KRW",
-    transaction_at: row.transaction_at ? String(row.transaction_at) : null,
-    site: row.site ? String(row.site) : null,
-    order_code: row.order_code ? String(row.order_code) : null,
-  }));
+  return rows.map((row) => {
+    const paymentKey = String(row.payment_key ?? "");
+    return {
+      order_id: String(row.order_id ?? ""),
+      payment_key: paymentKey,
+      toss_status: row.toss_status === "PARTIAL_CANCELED" ? "PARTIAL_CANCELED" : "CANCELED",
+      method: row.method ? String(row.method) : null,
+      total_amount: Number(row.total_amount ?? 0),
+      cancel_amount: Number(row.cancel_amount ?? 0),
+      currency: (row.currency as string) || "KRW",
+      transaction_at: row.transaction_at ? String(row.transaction_at) : null,
+      site: inferRefundSite(row.site ? String(row.site) : null, paymentKey),
+      order_code: row.order_code ? String(row.order_code) : null,
+    };
+  });
 }
 
 const pickMetaCredentials = (site: string | null): { pixelId: string | null; token: string | null; missing: string | null } => {
@@ -130,7 +157,9 @@ const pickMetaCredentials = (site: string | null): { pixelId: string | null; tok
   if (site === "aibio") {
     return { pixelId: env.META_PIXEL_ID_AIBIO || null, token: null, missing: "aibio_meta_token_not_configured" };
   }
-  // biocom 및 unknown 은 공통 META_ADMANAGER_API_KEY 가 있는 경우에만.
+  if (site !== "biocom") {
+    return { pixelId: null, token: null, missing: "refund_site_unresolved" };
+  }
   const pixelId = env.META_PIXEL_ID_BIOCOM || null;
   const token = env.META_ADMANAGER_API_KEY?.trim() || null;
   return { pixelId, token, missing: token ? null : "biocom_meta_token_missing" };
@@ -147,6 +176,9 @@ const pickGa4Credentials = (site: string | null): { measurementId: string | null
   if (site === "aibio") {
     return { measurementId: null, apiSecret: null, missing: "ga4_mp_not_configured_for_aibio" };
   }
+  if (site !== "biocom") {
+    return { measurementId: null, apiSecret: null, missing: "refund_site_unresolved" };
+  }
   return {
     measurementId: env.GA4_MEASUREMENT_ID_BIOCOM || null,
     apiSecret: env.GA4_MP_API_SECRET_BIOCOM || null,
@@ -155,6 +187,7 @@ const pickGa4Credentials = (site: string | null): { measurementId: string | null
 };
 
 const sendMetaRefund = async (candidate: RefundCandidate): Promise<{ ok: boolean; error: string | null }> => {
+  if (!candidate.site) return { ok: false, error: unresolvedSiteError(candidate) };
   const { pixelId, token, missing } = pickMetaCredentials(candidate.site);
   if (missing || !pixelId || !token) return { ok: false, error: missing ?? "meta_credentials_missing" };
   const refundEventId = `Refund.${candidate.order_code ?? candidate.order_id}`;
@@ -214,6 +247,7 @@ const sendMetaRefund = async (candidate: RefundCandidate): Promise<{ ok: boolean
  * `Refund-As-Purchase.{order_code}` 를 쓴다. 원 Purchase 참조는 custom_data.original_purchase_event_id 로 보존.
  */
 const sendMetaPurchaseRefund = async (candidate: RefundCandidate): Promise<{ ok: boolean; error: string | null }> => {
+  if (!candidate.site) return { ok: false, error: unresolvedSiteError(candidate) };
   const { pixelId, token, missing } = pickMetaCredentials(candidate.site);
   if (missing || !pixelId || !token) return { ok: false, error: missing ?? "meta_credentials_missing" };
   const refundAsPurchaseEventId = `Refund-As-Purchase.${candidate.order_code ?? candidate.order_id}`;
@@ -266,6 +300,7 @@ const sendMetaPurchaseRefund = async (candidate: RefundCandidate): Promise<{ ok:
 };
 
 const sendGa4Refund = async (candidate: RefundCandidate): Promise<{ ok: boolean; error: string | null }> => {
+  if (!candidate.site) return { ok: false, error: unresolvedSiteError(candidate) };
   const { measurementId, apiSecret, missing } = pickGa4Credentials(candidate.site);
   if (missing || !measurementId || !apiSecret) return { ok: false, error: missing ?? "ga4_credentials_missing" };
   const clientId = `refund-dispatcher-${candidate.order_id}`;
@@ -351,15 +386,17 @@ const insertDispatchRow = (
 };
 
 export async function dispatchRefunds(
-  options: { mode: RefundDispatchMode; limit?: number } = { mode: "dry_run" },
+  options: { mode: RefundDispatchMode; limit?: number; recordDryRun?: boolean } = { mode: "dry_run" },
 ): Promise<RefundDispatchSummary> {
   const enforceRequested = options.mode === "enforce" && env.REFUND_DISPATCH_ENFORCE === true;
   const effectiveMode: RefundDispatchMode = enforceRequested ? "enforce" : "dry_run";
+  const recordDryRun = effectiveMode === "dry_run" && options.recordDryRun === true;
   const candidates = detectPendingRefundCandidates(options.limit ?? 500);
 
   const summary: RefundDispatchSummary = {
     mode: effectiveMode,
     enforceRequested,
+    recordDryRun,
     processed: 0,
     newlyDetected: candidates.length,
     metaSent: 0,
@@ -404,7 +441,9 @@ export async function dispatchRefunds(
       purchaseRefundResult = { ok: false, error: "dry_run" };
     }
 
-    insertDispatchRow(candidate, effectiveMode, metaResult, ga4Result, purchaseRefundResult);
+    if (effectiveMode === "enforce" || recordDryRun) {
+      insertDispatchRow(candidate, effectiveMode, metaResult, ga4Result, purchaseRefundResult);
+    }
     summary.processed += 1;
   }
 
@@ -461,16 +500,17 @@ export async function backfillPurchaseRefunds(limit = 5000): Promise<{
   );
 
   for (const row of rows) {
+    const paymentKey = String(row.payment_key ?? "");
     const candidate: RefundCandidate = {
       order_id: String(row.order_id ?? ""),
-      payment_key: String(row.payment_key ?? ""),
+      payment_key: paymentKey,
       toss_status: row.toss_status === "PARTIAL_CANCELED" ? "PARTIAL_CANCELED" : "CANCELED",
       method: row.method ? String(row.method) : null,
       total_amount: Number(row.total_amount ?? 0),
       cancel_amount: Number(row.cancel_amount ?? 0),
       currency: (row.currency as string) || "KRW",
       transaction_at: row.transaction_at ? String(row.transaction_at) : null,
-      site: row.site ? String(row.site) : null,
+      site: inferRefundSite(row.site ? String(row.site) : null, paymentKey),
       order_code: null, // backfill 시 imweb_orders 재조인은 생략 — order_id 로 external_id 생성
     };
     const result = await sendMetaPurchaseRefund(candidate);

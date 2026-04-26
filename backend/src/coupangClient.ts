@@ -143,6 +143,32 @@ export type CoupangOrderSheet = {
   [key: string]: unknown;
 };
 
+export type CoupangRgOrderItem = {
+  vendorItemId?: number;
+  productName?: string;
+  salesQuantity?: number;
+  unitSalesPrice?: number;
+  salesPrice?: number | string;
+  currency?: string;
+  [key: string]: unknown;
+};
+
+export type CoupangRgOrder = {
+  orderId?: number;
+  vendorId?: string;
+  paidAt?: string;
+  orderItems?: CoupangRgOrderItem[];
+  [key: string]: unknown;
+};
+
+function normalizePaidDate(value: string): string {
+  const compact = value.trim().replaceAll("-", "");
+  if (!/^\d{8}$/.test(compact)) {
+    throw new Error(`Invalid paidDate format: "${value}" (expected YYYYMMDD or YYYY-MM-DD)`);
+  }
+  return compact;
+}
+
 /**
  * v5 일단위 페이징 조회 — 날짜는 yyyy-MM-dd (하루 전체)
  * 권장: 백필·일일 sync
@@ -223,4 +249,40 @@ export async function getSettlementHistories(
   const wrap = res as { data?: unknown };
   if (Array.isArray(wrap?.data)) return wrap.data as Array<Record<string, unknown>>;
   return [];
+}
+
+/**
+ * RG Order API List Query (2P Rocket Growth)
+ * paidDate: YYYYMMDD (YYYY-MM-DD 입력도 허용)
+ */
+export async function getRgOrders(
+  account: CoupangAccount,
+  dateFrom: string,
+  dateTo: string,
+  options: { nextToken?: string; timeoutMs?: number } = {},
+): Promise<{ code?: number; message?: string; data: CoupangRgOrder[]; nextToken?: string }> {
+  const { vendorId } = getCredentials(account);
+  const res = await coupangRequest<{
+    code?: number;
+    message?: string;
+    data?: CoupangRgOrder[];
+    nextToken?: string;
+  }>(
+    account,
+    `/v2/providers/rg_open_api/apis/api/v1/vendors/${vendorId}/rg/orders`,
+    {
+      query: {
+        paidDateFrom: normalizePaidDate(dateFrom),
+        paidDateTo: normalizePaidDate(dateTo),
+        nextToken: options.nextToken,
+      },
+      timeoutMs: options.timeoutMs,
+    },
+  );
+  return {
+    code: typeof res?.code === "number" ? res.code : undefined,
+    message: typeof res?.message === "string" ? res.message : undefined,
+    data: Array.isArray(res?.data) ? res.data : [],
+    nextToken: typeof res?.nextToken === "string" ? res.nextToken : undefined,
+  };
 }

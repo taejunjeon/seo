@@ -1,7 +1,8 @@
 /**
  * C-Sprint 4 (confirmed_stopline v1): Refund dispatch 라우트.
  *
- *  - POST /api/refund/dispatch?mode=dry_run|enforce  (enforce 는 REFUND_DISPATCH_ENFORCE=true 필요)
+ *  - POST /api/refund/dispatch?mode=dry_run|enforce  (dry_run 기본 무기록, enforce 는 REFUND_DISPATCH_ENFORCE=true 필요)
+ *    예전처럼 dry_run 관측 로그를 남겨야 할 때만 recordDryRun=true 또는 record=true 를 명시한다.
  *  - GET  /api/refund/log?limit=50&site=biocom
  *  - GET  /api/refund/summary?windowDays=7            — 최근 N 일 집계
  */
@@ -18,6 +19,9 @@ import {
   getRefundDispatchSummary,
   listRefundDispatchLog,
 } from "../services/refundDispatcher";
+
+const readBooleanFlag = (value: unknown): boolean =>
+  value === true || value === "true" || value === "1" || value === 1;
 
 const runGa4RefundRealtimeCheck = async (site: string) => {
   const propertyId = GA4_PROPERTY_MAP[site];
@@ -46,7 +50,16 @@ export const createRefundRouter = () => {
     try {
       const mode = (req.query.mode === "enforce" || req.body?.mode === "enforce") ? "enforce" : "dry_run";
       const limit = Number(req.query.limit ?? req.body?.limit ?? 500);
-      const summary = await dispatchRefunds({ mode, limit: Number.isFinite(limit) && limit > 0 ? limit : 500 });
+      const recordDryRun =
+        readBooleanFlag(req.query.recordDryRun) ||
+        readBooleanFlag(req.query.record) ||
+        readBooleanFlag(req.body?.recordDryRun) ||
+        readBooleanFlag(req.body?.record);
+      const summary = await dispatchRefunds({
+        mode,
+        limit: Number.isFinite(limit) && limit > 0 ? limit : 500,
+        recordDryRun,
+      });
       res.json({ ok: true, summary });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "refund dispatch failed" });

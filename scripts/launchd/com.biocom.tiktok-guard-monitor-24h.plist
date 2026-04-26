@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.biocom.tiktok-guard-monitor-24h</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/vibetj/.nvm/versions/node/v20.19.2/bin/node</string>
+    <string>/Users/vibetj/coding/seo/backend/scripts/tiktok-guard-monitor.cjs</string>
+    <string>--label</string>
+    <string>24h</string>
+    <string>--windowHours</string>
+    <string>24</string>
+    <string>--selfRemovePlist</string>
+    <string>/Users/vibetj/Library/LaunchAgents/com.biocom.tiktok-guard-monitor-24h.plist</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/vibetj/coding/seo</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>SEO_REPO_ROOT</key>
+    <string>/Users/vibetj/coding/seo</string>
+    <key>ATTRIBUTION_BASE_URL</key>
+    <string>https://att.ainativeos.net</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StartInterval</key>
+  <integer>86400</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/vibetj/coding/seo/backend/logs/tiktok-guard-monitor-24h.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/vibetj/coding/seo/backend/logs/tiktok-guard-monitor-24h.stderr.log</string>
+</dict>
+</plist>

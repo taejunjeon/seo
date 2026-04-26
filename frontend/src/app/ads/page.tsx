@@ -1005,6 +1005,77 @@ export default function AdsPage() {
         </div>
       </div>
 
+      <section style={{
+        marginBottom: 18,
+        padding: "18px 20px",
+        borderRadius: 16,
+        background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 52%, #0f766e 100%)",
+        color: "#f8fafc",
+        boxShadow: "0 18px 42px rgba(15, 23, 42, 0.18)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div style={{ maxWidth: 720 }}>
+            <div style={{ fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "#bfdbfe", marginBottom: 6 }}>
+              읽는 법 · Meta ROAS와 내부 ROAS는 같은 장부가 아니다
+            </div>
+            <h2 style={{ margin: "0 0 8px", fontSize: "1.18rem", lineHeight: 1.35, fontWeight: 900 }}>
+              Meta 숫자는 "광고가 공을 가져간 매출", 내부 숫자는 "실제로 결제 확정된 매출"이다.
+            </h2>
+            <p style={{ margin: 0, fontSize: "0.84rem", lineHeight: 1.65, color: "#dbeafe" }}>
+              Meta 화면 ROAS는 Meta가 광고 노출·클릭·참여 기록과 attribution window를 보고
+              "이 구매는 이 광고 영향"이라고 배정한 conversion value를 광고비로 나눈 값이다.
+              이 페이지의 운영 메인값은 Toss/Imweb/attribution ledger에서 실제 결제 확정된 매출을
+              클릭 1일 기준으로 캠페인에 연결한 <strong style={{ color: "#fff" }}>Attribution confirmed ROAS</strong>다.
+            </p>
+          </div>
+          <div style={{
+            minWidth: 260,
+            flex: "1 1 320px",
+            padding: "12px 14px",
+            borderRadius: 12,
+            background: "rgba(255,255,255,0.12)",
+            border: "1px solid rgba(255,255,255,0.18)",
+          }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "#ccfbf1", marginBottom: 6 }}>운영 판단 순서</div>
+            <ol style={{ margin: 0, paddingLeft: 18, fontSize: "0.78rem", lineHeight: 1.62, color: "#ecfeff" }}>
+              <li><strong>예산 증감</strong>은 내부 confirmed ROAS와 campaign mapping이 닫힌 캠페인만 본다.</li>
+              <li><strong>Meta ROAS</strong>는 Meta 머신러닝과 플랫폼 보고가 어떻게 반응하는지 보는 참고값이다.</li>
+              <li><strong>pending·가상계좌·취소·환불</strong>은 메인 ROAS에 섞지 말고 보조/차감 지표로 분리한다.</li>
+            </ol>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 14 }}>
+          {[
+            {
+              title: "A광고 클릭 → B광고 클릭 → 구매",
+              body: "Meta도 내부 attribution도 보통 구매 직전 B 클릭에 매출을 붙인다. A가 최초 유입을 만들었어도 last-touch 기준에서는 B가 공로를 가져간다.",
+            },
+            {
+              title: "A광고 클릭 → 3일 뒤 직접 구매",
+              body: "Meta가 7일 클릭 기준이면 A 성과로 볼 수 있다. 내부 운영 기준은 클릭 1일이라 A 매출로 잡지 않을 수 있다.",
+            },
+            {
+              title: "광고를 보기만 하고 구매",
+              body: "Meta 기본값은 1일 조회 전환을 포함할 수 있다. 내부 예산 판단에서는 보기만 한 접점은 메인 매출 귀속으로 쓰지 않는다.",
+            },
+            {
+              title: "NPay·refund·CAPI 누락",
+              body: "실제 매출이 있어도 구매완료 이벤트가 빠지면 Meta는 모를 수 있고, 환불 전송이 틀리면 Meta ROAS는 gross로 남거나 잘못 차감된다.",
+            },
+          ].map((item) => (
+            <div key={item.title} style={{
+              padding: "11px 12px",
+              borderRadius: 12,
+              background: "rgba(15,23,42,0.38)",
+              border: "1px solid rgba(226,232,240,0.18)",
+            }}>
+              <div style={{ fontSize: "0.76rem", fontWeight: 850, color: "#ffffff", marginBottom: 4 }}>{item.title}</div>
+              <div style={{ fontSize: "0.72rem", lineHeight: 1.55, color: "#dbeafe" }}>{item.body}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Attribution Window 필터 */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <span style={{ fontSize: "0.72rem", fontWeight: 600, color: "#94a3b8", textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>전환 기준</span>

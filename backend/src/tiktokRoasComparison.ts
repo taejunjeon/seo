@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { getCrmDb } from "./crmLocalDb";
+import { queryGA4TikTokTransactions, type GA4TikTokTransactionRow } from "./ga4";
 
 const TIKTOK_ADS_TABLE = "tiktok_ads_campaign_range";
 const TIKTOK_ADS_DAILY_TABLE = "tiktok_ads_daily";
@@ -85,6 +86,32 @@ type RemoteLedgerEntry = {
 
 type RemoteLedgerBody = {
   ok?: unknown;
+  items?: unknown;
+  summary?: unknown;
+};
+
+type RemoteTikTokPixelEvent = {
+  loggedAt?: unknown;
+  action?: unknown;
+  eventName?: unknown;
+  eventId?: unknown;
+  originalEventId?: unknown;
+  replacementEventName?: unknown;
+  orderCode?: unknown;
+  orderNo?: unknown;
+  paymentCode?: unknown;
+  value?: unknown;
+  currency?: unknown;
+  decisionStatus?: unknown;
+  decisionBranch?: unknown;
+  decisionReason?: unknown;
+  decisionMatchedBy?: unknown;
+};
+
+type RemoteTikTokPixelEventsBody = {
+  ok?: unknown;
+  dataSource?: unknown;
+  storage?: unknown;
   items?: unknown;
   summary?: unknown;
 };
@@ -196,8 +223,12 @@ export type TikTokRoasComparison = {
       conversions: number;
       purchases: number;
       purchaseValue: number;
+      ctaPurchaseCount: number;
+      evtaPurchaseCount: number;
+      vtaPurchaseCount: number;
       platformRoas: number | null;
       ctaPurchaseRoas: number | null;
+      evtaPurchaseRoas: number | null;
       vtaPurchaseRoas: number | null;
       currency: string;
     };
@@ -224,6 +255,82 @@ export type TikTokRoasComparison = {
       precisionTier: SourcePrecisionTier;
     }>;
   };
+  ga4_cross_check: {
+    source: "ga4_session_source_transaction_joined_with_operational_vm_ledger";
+    dataSource: "GA4 Data API + operational_vm_ledger";
+    available: boolean;
+    confidence: "medium" | "unavailable";
+    warning: string | null;
+    totals: {
+      ga4Rows: number;
+      ga4Events: number;
+      ga4Revenue: number;
+      numericTransactionRows: number;
+      npayTransactionRows: number;
+      blankTransactionEvents: number;
+      blankTransactionRevenue: number;
+      ledgerConfirmedRows: number;
+      ledgerConfirmedRevenue: number;
+      ledgerConfirmedAmount: number;
+      ledgerCanceledRows: number;
+      ledgerCanceledRevenue: number;
+      noLedgerMatchRows: number;
+      noLedgerMatchRevenue: number;
+      confirmedWithTikTokLedgerSignals: number;
+      confirmedWithOtherLedgerSource: number;
+      confirmedWithMissingLedgerSource: number;
+    };
+    notes: string[];
+    samples: Array<{
+      date: string;
+      transactionId: string;
+      sessionSource: string;
+      sessionMedium: string;
+      ga4Revenue: number;
+      ledgerStatus: string;
+      ledgerAmount: number;
+      ledgerUtmSource: string;
+      ledgerUtmMedium: string;
+      ledgerTikTokMatchReasons: string[];
+    }>;
+  };
+  tiktok_event_log: {
+    source: "operational_vm_tiktok_pixel_events";
+    storage: string;
+    startAt: string;
+    endAt: string;
+    fetchedEvents: number;
+    uniqueOrderKeys: number;
+    countsByAction: Record<string, number>;
+    countsByDecisionStatus: Record<string, number>;
+    countsByDecisionBranch: Record<string, number>;
+    finalActionSummary: {
+      releasedConfirmedPurchase: number;
+      blockedPendingPurchase: number;
+      sentReplacementPlaceAnOrder: number;
+      releasedUnknownPurchase: number;
+      requestError: number;
+      missingFinalActionOrders: number;
+      anomalyCount: number;
+      warningCount: number;
+    };
+    sampleOrders: Array<{
+      loggedAt: string;
+      orderKey: string;
+      orderNo: string;
+      paymentCode: string;
+      value: number | null;
+      currency: string;
+      finalAction: string;
+      actions: string[];
+      decisionStatus: string;
+      decisionBranch: string;
+      replacementEventName: string;
+      eventId: string;
+    }>;
+    anomalies: string[];
+    warnings: string[];
+  };
   gap: {
     confirmedRevenue: number;
     pendingRevenue: number;
@@ -243,6 +350,10 @@ export type TikTokRoasComparison = {
       platformSpend: number;
       platformPurchaseValue: number;
       platformPurchases: number;
+      ctaPurchaseCount: number;
+      evtaPurchaseCount: number;
+      vtaPurchaseCount: number;
+      unclassifiedPurchaseCount: number;
       platformRoas: number | null;
       confirmedRevenue: number;
       pendingRevenue: number;
@@ -256,6 +367,11 @@ export type TikTokRoasComparison = {
       days: number;
       platformSpend: number;
       platformPurchaseValue: number;
+      platformPurchases: number;
+      ctaPurchaseCount: number;
+      evtaPurchaseCount: number;
+      vtaPurchaseCount: number;
+      unclassifiedPurchaseCount: number;
       platformRoas: number | null;
       confirmedRevenue: number;
       pendingRevenue: number;
@@ -267,11 +383,17 @@ export type TikTokRoasComparison = {
     rows: Array<{
       date: string;
       guardPhase: "pre_guard" | "guard_start" | "post_guard";
+      hasAdsData: boolean;
       spend: number;
       platformPurchases: number;
       platformPurchaseValue: number;
       platformRoas: number | null;
+      ctaPurchaseCount: number;
+      evtaPurchaseCount: number;
+      vtaPurchaseCount: number;
+      unclassifiedPurchaseCount: number;
       ctaPurchaseValue: number;
+      evtaPurchaseValue: number;
       vtaPurchaseValue: number;
       confirmedOrders: number;
       pendingOrders: number;
@@ -965,6 +1087,188 @@ const readEntryAmount = (entry: RemoteLedgerEntry) => {
   return 0;
 };
 
+const ledgerOrderKeys = (entry: RemoteLedgerEntry) => {
+  const metadata = getMetadata(entry);
+  const referrerPayment = isRecord(metadata.referrerPayment) ? metadata.referrerPayment : {};
+  const keys = new Set<string>();
+  const candidates = [
+    entry.orderId,
+    metadata.orderNo,
+    metadata.order_no,
+    metadata.orderIdBase,
+    metadata.order_id_base,
+    referrerPayment.orderNo,
+    referrerPayment.order_no,
+    referrerPayment.orderId,
+    referrerPayment.order_id,
+  ];
+  for (const candidate of candidates) {
+    const value = readString(candidate);
+    if (!value) continue;
+    keys.add(value);
+    keys.add(value.replace(/-P\d+$/, ""));
+  }
+  return [...keys].filter(Boolean);
+};
+
+const bestLedgerEntryForOrder = (entries: RemoteLedgerEntry[]) => {
+  const paymentEntries = entries.filter((entry) => entry.touchpoint === "payment_success");
+  return (
+    paymentEntries.find((entry) => readString(entry.paymentStatus) === "confirmed")
+    ?? paymentEntries[0]
+    ?? entries[0]
+    ?? null
+  );
+};
+
+const buildGa4CrossCheckUnavailable = (warning: string): TikTokRoasComparison["ga4_cross_check"] => ({
+  source: "ga4_session_source_transaction_joined_with_operational_vm_ledger",
+  dataSource: "GA4 Data API + operational_vm_ledger",
+  available: false,
+  confidence: "unavailable",
+  warning,
+  totals: {
+    ga4Rows: 0,
+    ga4Events: 0,
+    ga4Revenue: 0,
+    numericTransactionRows: 0,
+    npayTransactionRows: 0,
+    blankTransactionEvents: 0,
+    blankTransactionRevenue: 0,
+    ledgerConfirmedRows: 0,
+    ledgerConfirmedRevenue: 0,
+    ledgerConfirmedAmount: 0,
+    ledgerCanceledRows: 0,
+    ledgerCanceledRevenue: 0,
+    noLedgerMatchRows: 0,
+    noLedgerMatchRevenue: 0,
+    confirmedWithTikTokLedgerSignals: 0,
+    confirmedWithOtherLedgerSource: 0,
+    confirmedWithMissingLedgerSource: 0,
+  },
+  notes: [
+    "GA4 교차검증은 운영 Attribution strict confirmed를 대체하지 않는다.",
+    "GA4 session source가 TikTok이어도 운영 ledger의 landing/UTM/ttclid와 충돌하면 중간 신뢰 지표로만 본다.",
+  ],
+  samples: [],
+});
+
+const buildGa4CrossCheck = async (
+  startDate: string,
+  endDate: string,
+  ledgerEntries: RemoteLedgerEntry[],
+): Promise<TikTokRoasComparison["ga4_cross_check"]> => {
+  let ga4Rows: GA4TikTokTransactionRow[] = [];
+  let warning: string | null = null;
+  try {
+    const ga4 = await queryGA4TikTokTransactions({ startDate, endDate });
+    ga4Rows = ga4.rows;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "GA4 TikTok transaction query failed";
+    return buildGa4CrossCheckUnavailable(message);
+  }
+
+  const ledgerByOrder = new Map<string, RemoteLedgerEntry[]>();
+  for (const entry of ledgerEntries) {
+    for (const key of ledgerOrderKeys(entry)) {
+      const bucket = ledgerByOrder.get(key) ?? [];
+      bucket.push(entry);
+      ledgerByOrder.set(key, bucket);
+    }
+  }
+
+  const numericRows = ga4Rows.filter((row) => /^\d{12,}$/.test(row.transactionId));
+  const joined = numericRows.map((row) => {
+    const entries = ledgerByOrder.get(row.transactionId) ?? [];
+    const best = bestLedgerEntryForOrder(entries);
+    const reasons = best ? getTikTokMatchReasons(best) : [];
+    const metadata = best ? getMetadata(best) : {};
+    return {
+      row,
+      entries,
+      best,
+      reasons,
+      ledgerAmount: best ? readEntryAmount(best) : 0,
+      ledgerStatus: best ? readString(best.paymentStatus) : "",
+      ledgerUtmSource: best ? readString(best.utmSource) : "",
+      ledgerUtmMedium: best ? readString(best.utmMedium) : "",
+      hasAnyLedgerSource: Boolean(
+        readString(best?.utmSource)
+        || readString(best?.utmMedium)
+        || readString(best?.utmCampaign)
+        || readString(best?.landing)
+        || readString(metadata.imweb_landing_url)
+        || readString(metadata.initial_referrer)
+        || readString(metadata.original_referrer),
+      ),
+    };
+  });
+
+  const blankRows = ga4Rows.filter((row) => {
+    const normalized = row.transactionId.trim().toLowerCase();
+    return !normalized || normalized === "(not set)" || normalized === "not set";
+  });
+
+  const ledgerConfirmed = joined.filter((item) => item.ledgerStatus === "confirmed");
+  const ledgerCanceled = joined.filter((item) => item.ledgerStatus === "canceled");
+  const noLedgerMatch = joined.filter((item) => item.entries.length === 0);
+  const confirmedWithTikTokLedgerSignals = ledgerConfirmed.filter((item) => item.reasons.length > 0);
+  const confirmedWithOtherLedgerSource = ledgerConfirmed.filter(
+    (item) => item.reasons.length === 0 && item.hasAnyLedgerSource,
+  );
+  const confirmedWithMissingLedgerSource = ledgerConfirmed.filter(
+    (item) => item.reasons.length === 0 && !item.hasAnyLedgerSource,
+  );
+
+  if (ga4Rows.length > 0 && numericRows.length === 0) {
+    warning = "GA4 TikTok session-source 구매는 있으나 숫자형 transactionId가 없어 운영 주문 원장과 조인하지 못했다.";
+  }
+
+  return {
+    source: "ga4_session_source_transaction_joined_with_operational_vm_ledger",
+    dataSource: "GA4 Data API + operational_vm_ledger",
+    available: true,
+    confidence: "medium",
+    warning,
+    totals: {
+      ga4Rows: ga4Rows.length,
+      ga4Events: ga4Rows.reduce((sum, row) => sum + row.eventCount, 0),
+      ga4Revenue: Math.round(ga4Rows.reduce((sum, row) => sum + row.grossPurchaseRevenue, 0)),
+      numericTransactionRows: numericRows.length,
+      npayTransactionRows: ga4Rows.filter((row) => /^NPAY\s-/i.test(row.transactionId)).length,
+      blankTransactionEvents: blankRows.reduce((sum, row) => sum + row.eventCount, 0),
+      blankTransactionRevenue: Math.round(blankRows.reduce((sum, row) => sum + row.grossPurchaseRevenue, 0)),
+      ledgerConfirmedRows: ledgerConfirmed.length,
+      ledgerConfirmedRevenue: Math.round(ledgerConfirmed.reduce((sum, item) => sum + item.row.grossPurchaseRevenue, 0)),
+      ledgerConfirmedAmount: Math.round(ledgerConfirmed.reduce((sum, item) => sum + item.ledgerAmount, 0)),
+      ledgerCanceledRows: ledgerCanceled.length,
+      ledgerCanceledRevenue: Math.round(ledgerCanceled.reduce((sum, item) => sum + item.row.grossPurchaseRevenue, 0)),
+      noLedgerMatchRows: noLedgerMatch.length,
+      noLedgerMatchRevenue: Math.round(noLedgerMatch.reduce((sum, item) => sum + item.row.grossPurchaseRevenue, 0)),
+      confirmedWithTikTokLedgerSignals: confirmedWithTikTokLedgerSignals.length,
+      confirmedWithOtherLedgerSource: confirmedWithOtherLedgerSource.length,
+      confirmedWithMissingLedgerSource: confirmedWithMissingLedgerSource.length,
+    },
+    notes: [
+      "GA4 sessionSource/sessionMedium에 tiktok이 포함된 purchase를 transactionId로 운영 ledger와 조인했다.",
+      "이 값은 TikTok high-confidence confirmed가 아니라 GA4 session-source 중간 신뢰 검산이다.",
+      "운영 ledger의 ttclid/UTM/landing에 TikTok 신호가 없으면 strict internal confirmed에는 반영하지 않는다.",
+    ],
+    samples: joined.slice(0, 24).map((item) => ({
+      date: item.row.date,
+      transactionId: item.row.transactionId,
+      sessionSource: item.row.sessionSource,
+      sessionMedium: item.row.sessionMedium,
+      ga4Revenue: Math.round(item.row.grossPurchaseRevenue),
+      ledgerStatus: item.ledgerStatus || "no_ledger_match",
+      ledgerAmount: Math.round(item.ledgerAmount),
+      ledgerUtmSource: item.ledgerUtmSource,
+      ledgerUtmMedium: item.ledgerUtmMedium,
+      ledgerTikTokMatchReasons: item.reasons,
+    })),
+  };
+};
+
 const fetchOperationalLedger = async (startDate: string, endDate: string) => {
   const url = new URL("/api/attribution/ledger", OPERATIONAL_ATTRIBUTION_BASE_URL);
   url.searchParams.set("source", TIKTOK_SOURCE);
@@ -981,6 +1285,169 @@ const fetchOperationalLedger = async (startDate: string, endDate: string) => {
     throw new Error(`operational VM ledger fetch failed: HTTP ${response.status}`);
   }
   return body.items.filter(isRecord) as RemoteLedgerEntry[];
+};
+
+const fetchOperationalTikTokPixelEvents = async (startDate: string, endDate: string) => {
+  const startAt = toKstStartIso(startDate);
+  const endAt = toKstEndExclusiveIso(endDate);
+  const url = new URL("/api/attribution/tiktok-pixel-events", OPERATIONAL_ATTRIBUTION_BASE_URL);
+  url.searchParams.set("startAt", startAt);
+  url.searchParams.set("endAt", endAt);
+  url.searchParams.set("limit", "10000");
+
+  const response = await fetch(url, {
+    headers: { "user-agent": "biocom-seo-local-tiktok-roas/1.0" },
+    signal: AbortSignal.timeout(30000),
+  });
+  const body = await response.json() as RemoteTikTokPixelEventsBody;
+  if (!response.ok || body.ok !== true || !Array.isArray(body.items)) {
+    throw new Error(`operational VM TikTok pixel event fetch failed: HTTP ${response.status}`);
+  }
+
+  return {
+    startAt,
+    endAt,
+    storage: readString(body.storage) || "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
+    events: body.items.filter(isRecord) as RemoteTikTokPixelEvent[],
+  };
+};
+
+const eventOrderKey = (event: RemoteTikTokPixelEvent) =>
+  readString(event.orderCode) || readString(event.orderNo) || readString(event.eventId) || "(unknown)";
+
+const countEventsBy = (
+  events: RemoteTikTokPixelEvent[],
+  pick: (event: RemoteTikTokPixelEvent) => string,
+) => {
+  const result: Record<string, number> = {};
+  for (const event of events) {
+    const key = pick(event) || "(none)";
+    result[key] = (result[key] ?? 0) + 1;
+  }
+  return result;
+};
+
+const buildTikTokEventLogSummary = (
+  params: {
+    startAt: string;
+    endAt: string;
+    storage: string;
+    events: RemoteTikTokPixelEvent[];
+    fetchWarning?: string;
+  },
+): TikTokRoasComparison["tiktok_event_log"] => {
+  const productionEvents = params.events.filter((event) => readString(event.action) !== "smoke_test");
+  const grouped = new Map<string, RemoteTikTokPixelEvent[]>();
+  const anomalies: string[] = [];
+  const warnings: string[] = [];
+  if (params.fetchWarning) warnings.push(params.fetchWarning);
+
+  for (const event of productionEvents) {
+    const key = eventOrderKey(event);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)?.push(event);
+  }
+
+  let missingFinalActionOrders = 0;
+  for (const [orderKey, events] of grouped.entries()) {
+    const actionSet = new Set(events.map((event) => readString(event.action)));
+    if (actionSet.has("purchase_intercepted")) {
+      const hasFinal =
+        actionSet.has("released_confirmed_purchase") ||
+        actionSet.has("released_unknown_purchase") ||
+        actionSet.has("blocked_pending_purchase") ||
+        actionSet.has("request_error");
+      if (!hasFinal) {
+        missingFinalActionOrders += 1;
+        warnings.push(`final action missing for ${orderKey}`);
+      }
+    }
+    if (actionSet.has("sent_replacement_place_an_order") && !actionSet.has("blocked_pending_purchase")) {
+      anomalies.push(`replacement without blocked_pending_purchase for ${orderKey}`);
+    }
+  }
+
+  for (const event of productionEvents) {
+    const action = readString(event.action);
+    const status = readString(event.decisionStatus);
+    const branch = readString(event.decisionBranch);
+    const orderKey = eventOrderKey(event);
+    if (action === "released_confirmed_purchase" && (status !== "confirmed" || branch !== "allow_purchase")) {
+      anomalies.push(`non-confirmed release for ${orderKey}: ${status}/${branch}`);
+    }
+    if (action === "blocked_pending_purchase" && (status !== "pending" || branch !== "block_purchase_virtual_account")) {
+      warnings.push(`non-standard pending block for ${orderKey}: ${status}/${branch}`);
+    }
+    if (action === "released_unknown_purchase") {
+      warnings.push(`fail-open unknown release for ${orderKey}`);
+    }
+    if (action === "request_error") {
+      warnings.push(`request_error for ${orderKey}`);
+    }
+  }
+
+  const finalPriority = [
+    "released_confirmed_purchase",
+    "released_unknown_purchase",
+    "blocked_pending_purchase",
+    "request_error",
+    "sent_replacement_place_an_order",
+    "decision_received",
+    "purchase_intercepted",
+  ];
+  const sampleOrders = [...grouped.entries()]
+    .map(([orderKey, events]) => {
+      const sorted = events
+        .slice()
+        .sort((left, right) => readString(right.loggedAt).localeCompare(readString(left.loggedAt)));
+      const finalEvent =
+        finalPriority
+          .map((action) => sorted.find((event) => readString(event.action) === action))
+          .find(Boolean) ?? sorted[0];
+      return {
+        loggedAt: readString(finalEvent?.loggedAt),
+        orderKey,
+        orderNo: [...new Set(events.map((event) => readString(event.orderNo)).filter(Boolean))].join(", "),
+        paymentCode: [...new Set(events.map((event) => readString(event.paymentCode)).filter(Boolean))].join(", "),
+        value: finalEvent ? parseNumber(finalEvent.value) : null,
+        currency: readString(finalEvent?.currency) || "KRW",
+        finalAction: readString(finalEvent?.action),
+        actions: [...new Set(events.map((event) => readString(event.action)).filter(Boolean))],
+        decisionStatus: readString(finalEvent?.decisionStatus) || "unknown",
+        decisionBranch: readString(finalEvent?.decisionBranch) || "unknown",
+        replacementEventName: readString(finalEvent?.replacementEventName),
+        eventId: readString(finalEvent?.eventId),
+      };
+    })
+    .sort((left, right) => right.loggedAt.localeCompare(left.loggedAt))
+    .slice(0, 12);
+
+  const countsByAction = countEventsBy(productionEvents, (event) => readString(event.action));
+
+  return {
+    source: "operational_vm_tiktok_pixel_events",
+    storage: params.storage,
+    startAt: params.startAt,
+    endAt: params.endAt,
+    fetchedEvents: productionEvents.length,
+    uniqueOrderKeys: grouped.size,
+    countsByAction,
+    countsByDecisionStatus: countEventsBy(productionEvents, (event) => readString(event.decisionStatus)),
+    countsByDecisionBranch: countEventsBy(productionEvents, (event) => readString(event.decisionBranch)),
+    finalActionSummary: {
+      releasedConfirmedPurchase: countsByAction.released_confirmed_purchase ?? 0,
+      blockedPendingPurchase: countsByAction.blocked_pending_purchase ?? 0,
+      sentReplacementPlaceAnOrder: countsByAction.sent_replacement_place_an_order ?? 0,
+      releasedUnknownPurchase: countsByAction.released_unknown_purchase ?? 0,
+      requestError: countsByAction.request_error ?? 0,
+      missingFinalActionOrders,
+      anomalyCount: anomalies.length,
+      warningCount: warnings.length,
+    },
+    sampleOrders,
+    anomalies,
+    warnings,
+  };
 };
 
 const statusKey = (entry: RemoteLedgerEntry): "confirmed" | "pending" | "canceled" | "unknown" => {
@@ -1149,8 +1616,12 @@ const adsSummary = (rows: TikTokAdsCampaignRangeRow[]) => {
     conversions: rows.reduce((sum, row) => sum + row.conversions, 0),
     purchases: rows.reduce((sum, row) => sum + row.all_channels_total_purchases, 0),
     purchaseValue: Math.round(purchaseValue),
+    ctaPurchaseCount: 0,
+    evtaPurchaseCount: 0,
+    vtaPurchaseCount: 0,
     platformRoas: spend > 0 ? round(purchaseValue / spend) : null,
     ctaPurchaseRoas: null as number | null,
+    evtaPurchaseRoas: null as number | null,
     vtaPurchaseRoas: null as number | null,
     currency: rows.find((row) => row.currency)?.currency ?? "KRW",
   };
@@ -1161,6 +1632,7 @@ const dailyAdsSummary = (rows: DailyAdsAggregate[]): TikTokRoasComparison["ads_r
   const netCost = rows.reduce((sum, row) => sum + row.netCost, 0);
   const purchaseValue = rows.reduce((sum, row) => sum + row.platformPurchaseValue, 0);
   const ctaPurchaseValue = rows.reduce((sum, row) => sum + row.ctaPurchaseValue, 0);
+  const evtaPurchaseValue = rows.reduce((sum, row) => sum + row.evtaPurchaseValue, 0);
   const vtaPurchaseValue = rows.reduce((sum, row) => sum + row.vtaPurchaseValue, 0);
   return {
     spend: Math.round(spend),
@@ -1170,8 +1642,12 @@ const dailyAdsSummary = (rows: DailyAdsAggregate[]): TikTokRoasComparison["ads_r
     conversions: rows.reduce((sum, row) => sum + row.conversions, 0),
     purchases: rows.reduce((sum, row) => sum + row.platformPurchases, 0),
     purchaseValue: Math.round(purchaseValue),
+    ctaPurchaseCount: rows.reduce((sum, row) => sum + row.ctaPurchaseCount, 0),
+    evtaPurchaseCount: rows.reduce((sum, row) => sum + row.evtaPurchaseCount, 0),
+    vtaPurchaseCount: rows.reduce((sum, row) => sum + row.vtaPurchaseCount, 0),
     platformRoas: spend > 0 ? round(purchaseValue / spend) : null,
     ctaPurchaseRoas: spend > 0 && ctaPurchaseValue > 0 ? round(ctaPurchaseValue / spend) : null,
+    evtaPurchaseRoas: spend > 0 && evtaPurchaseValue > 0 ? round(evtaPurchaseValue / spend) : null,
     vtaPurchaseRoas: spend > 0 && vtaPurchaseValue > 0 ? round(vtaPurchaseValue / spend) : null,
     currency: "KRW",
   };
@@ -1240,6 +1716,9 @@ const summarizeDailyComparisonRows = (rows: TikTokRoasComparison["daily_comparis
   const platformSpend = rows.reduce((sum, row) => sum + row.spend, 0);
   const platformPurchaseValue = rows.reduce((sum, row) => sum + row.platformPurchaseValue, 0);
   const platformPurchases = rows.reduce((sum, row) => sum + row.platformPurchases, 0);
+  const ctaPurchaseCount = rows.reduce((sum, row) => sum + row.ctaPurchaseCount, 0);
+  const evtaPurchaseCount = rows.reduce((sum, row) => sum + row.evtaPurchaseCount, 0);
+  const vtaPurchaseCount = rows.reduce((sum, row) => sum + row.vtaPurchaseCount, 0);
   const confirmedRevenue = rows.reduce((sum, row) => sum + row.confirmedRevenue, 0);
   const pendingRevenue = rows.reduce((sum, row) => sum + row.pendingRevenue, 0);
   const canceledRevenue = rows.reduce((sum, row) => sum + row.canceledRevenue, 0);
@@ -1249,6 +1728,10 @@ const summarizeDailyComparisonRows = (rows: TikTokRoasComparison["daily_comparis
     platformSpend,
     platformPurchaseValue,
     platformPurchases,
+    ctaPurchaseCount,
+    evtaPurchaseCount,
+    vtaPurchaseCount,
+    unclassifiedPurchaseCount: Math.max(0, platformPurchases - ctaPurchaseCount - evtaPurchaseCount - vtaPurchaseCount),
     platformRoas: toRoas(platformPurchaseValue, platformSpend),
     confirmedRevenue,
     pendingRevenue,
@@ -1266,6 +1749,11 @@ const summarizeDailyGuardRows = (rows: TikTokRoasComparison["daily_comparison"][
     days: summary.days,
     platformSpend: summary.platformSpend,
     platformPurchaseValue: summary.platformPurchaseValue,
+    platformPurchases: summary.platformPurchases,
+    ctaPurchaseCount: summary.ctaPurchaseCount,
+    evtaPurchaseCount: summary.evtaPurchaseCount,
+    vtaPurchaseCount: summary.vtaPurchaseCount,
+    unclassifiedPurchaseCount: summary.unclassifiedPurchaseCount,
     platformRoas: summary.platformRoas,
     confirmedRevenue: summary.confirmedRevenue,
     pendingRevenue: summary.pendingRevenue,
@@ -1285,6 +1773,7 @@ const buildDailyComparison = (
   const platformByDate = new Map(dailyAdsRows.map((row) => [row.date, row]));
   const operationalByDate = buildDailyOperationalMap(operationalEntries, startDate, endDate);
   const rows = eachDateInRange(startDate, endDate).map((date) => {
+    const hasAdsData = platformByDate.has(date);
     const platform = platformByDate.get(date) ?? emptyDailyAdsAggregate(date);
     const operational = operationalByDate.get(date) ?? emptyDailyStatuses();
     const confirmedRevenue = Math.round(operational.confirmed.amount);
@@ -1292,14 +1781,24 @@ const buildDailyComparison = (
     const canceledRevenue = Math.round(operational.canceled.amount);
     const spend = Math.round(platform.spend);
     const platformPurchaseValue = Math.round(platform.platformPurchaseValue);
+    const platformPurchases = Math.round(platform.platformPurchases);
+    const ctaPurchaseCount = Math.round(platform.ctaPurchaseCount);
+    const evtaPurchaseCount = Math.round(platform.evtaPurchaseCount);
+    const vtaPurchaseCount = Math.round(platform.vtaPurchaseCount);
     return {
       date,
       guardPhase: guardPhaseForDate(date),
+      hasAdsData,
       spend,
-      platformPurchases: Math.round(platform.platformPurchases),
+      platformPurchases,
       platformPurchaseValue,
       platformRoas: toRoas(platformPurchaseValue, spend),
+      ctaPurchaseCount,
+      evtaPurchaseCount,
+      vtaPurchaseCount,
+      unclassifiedPurchaseCount: Math.max(0, platformPurchases - ctaPurchaseCount - evtaPurchaseCount - vtaPurchaseCount),
       ctaPurchaseValue: Math.round(platform.ctaPurchaseValue),
+      evtaPurchaseValue: Math.round(platform.evtaPurchaseValue),
       vtaPurchaseValue: Math.round(platform.vtaPurchaseValue),
       confirmedOrders: operational.confirmed.orderSet.size,
       pendingOrders: operational.pending.orderSet.size,
@@ -1350,7 +1849,20 @@ export const buildTikTokRoasComparison = async (params: {
   }
 
   const remoteEntries = await fetchOperationalLedger(startDate, endDate);
+  const pixelEventsResult = await fetchOperationalTikTokPixelEvents(startDate, endDate)
+    .catch((error) => ({
+      startAt: toKstStartIso(startDate),
+      endAt: toKstEndExclusiveIso(endDate),
+      storage: "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
+      events: [] as RemoteTikTokPixelEvent[],
+      fetchWarning: error instanceof Error ? error.message : "operational VM TikTok pixel event fetch failed",
+    }));
   const operational = buildOperationalSummary(remoteEntries);
+  const ga4CrossCheck = await buildGa4CrossCheck(startDate, endDate, remoteEntries)
+    .catch((error) => buildGa4CrossCheckUnavailable(
+      error instanceof Error ? error.message : "GA4 TikTok cross-check failed",
+    ));
+  const tiktokEventLog = buildTikTokEventLogSummary(pixelEventsResult);
   const summary = rows.length > 0 ? adsSummary(rows) : dailyAdsSummary(dailyAdsRows);
   const dailyComparison = buildDailyComparison(startDate, endDate, dailyAdsRows, remoteEntries);
   const confirmedRevenue = operational.byStatus.confirmed.amount;
@@ -1423,6 +1935,8 @@ export const buildTikTokRoasComparison = async (params: {
       pendingAuditTop20: operational.pendingAuditTop20,
       sampleOrders: operational.samples,
     },
+    ga4_cross_check: ga4CrossCheck,
+    tiktok_event_log: tiktokEventLog,
     gap: {
       confirmedRevenue,
       pendingRevenue,

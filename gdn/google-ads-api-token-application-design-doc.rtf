@@ -1,0 +1,73 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Arial;}}
+\fs24
+\b Google Ads API Token Application Design Document\b0\par
+\par
+Date: 2026-04-25 KST\par
+Company: Biocom\par
+Primary website: https://biocom.kr\par
+Google Ads manager account: Biocom API Manager, 454-088-2676\par
+Google Ads client account for reporting: 214-999-0943\par
+Google Cloud project: seo-aeo-487113\par
+Service account: seo-656@seo-aeo-487113.iam.gserviceaccount.com\par
+Requested access: Basic Access\par
+Permissible use requested: Reporting / read-only\par
+\par
+\b 1. Summary\b0\par
+Biocom is requesting Basic Access for the Google Ads API to support internal read-only reporting and conversion data reconciliation for Biocom's own Google Ads accounts. The tool is not a public SaaS product, agency platform, bid management platform, or third-party client-facing product. It is used only by internal employees and authorized contractors who support Biocom's advertising measurement and data quality work.\par
+\par
+The API will be used to retrieve Google Ads performance metrics, cost, conversion counts, conversion value, and conversion action configuration. These data points will be compared with GA4, Google Tag Manager, BigQuery, and internal order and revenue records to identify missing conversions, duplicate conversions, incorrect conversion actions, and ROAS discrepancies.\par
+\par
+\b 2. Business model and Google Ads use\b0\par
+Biocom operates an ecommerce business and uses Google Ads to acquire traffic and sales for its own products. Google Ads performance is evaluated using campaign cost, conversion count, conversion value, and return on ad spend. Accurate conversion data is important because incorrect conversion actions or duplicated conversion tracking can cause misleading ROAS and poor budget decisions.\par
+\par
+\b 3. Users and access\b0\par
+The tool is for internal users only. Users are Biocom employees or authorized contractors who support marketing analytics, data quality checks, and advertising operations. The tool will not be made available to external customers, the general public, or unrelated third parties.\par
+\par
+Access to the Google Ads API credentials is limited to authorized technical operators. Credentials are stored in environment variables or restricted secret storage and are not committed to source control. The Google Ads service account has read-only access in the Google Ads account.\par
+\par
+\b 4. Authentication and authorization\b0\par
+The implementation uses Google OAuth 2.0 with a Google Cloud service account. The service account is granted read-only access to the relevant Google Ads account. API requests include the developer token, OAuth access token, and target customer ID. The OAuth scope used is https://www.googleapis.com/auth/adwords.\par
+\par
+The current service account is seo-656@seo-aeo-487113.iam.gserviceaccount.com in Google Cloud project seo-aeo-487113. The Google Ads API has been enabled in that Google Cloud project.\par
+\par
+\b 5. API services and methods\b0\par
+The intended use is read-only reporting. The primary service will be GoogleAdsService.Search or GoogleAdsService.SearchStream. The tool may query the following types of resources and fields:\par
+\par
+- customer account metadata, such as customer ID and descriptive name\par
+- campaign and ad group performance\par
+- campaign cost, impressions, clicks, conversions, conversion value, and ROAS-related metrics\par
+- daily performance segmented by date and campaign\par
+- conversion_action settings, including name, status, category, type, primary/secondary goal use, counting type, and conversion windows\par
+\par
+The tool will not use Google Ads API mutation methods for campaign creation, ad creation, bid changes, budget changes, keyword creation, billing changes, or user access changes.\par
+\par
+\b 6. Data flow\b0\par
+1. An internal operator runs a reporting or audit job.\par
+2. The job authenticates with the Google Cloud service account and developer token.\par
+3. The job sends read-only GoogleAdsService.Search or SearchStream requests to Google Ads.\par
+4. The response is stored as an internal audit snapshot or used to create internal reports.\par
+5. Google Ads results are compared with GA4, GTM, BigQuery, and internal order/revenue records.\par
+6. The output is an internal report showing whether ROAS and conversion values are consistent across systems.\par
+\par
+\b 7. Data handled\b0\par
+The tool primarily handles advertising account metrics and conversion configuration. It does not retrieve personal user profile data from Google Ads. Internal ecommerce order data may be used separately for reconciliation, but that data remains in Biocom-controlled systems and is not sent back to Google Ads through this tool.\par
+\par
+\b 8. Security and compliance controls\b0\par
+- The developer token and service account key are treated as secrets.\par
+- Secrets are stored outside source control.\par
+- API access is limited to read-only reporting use.\par
+- Only authorized internal operators can run the scripts.\par
+- Reports are used internally for measurement, audit, and ROAS validation.\par
+- No external users can access the tool.\par
+- No automated campaign, ad, bidding, budget, billing, or user permission changes are performed.\par
+\par
+\b 9. Expected API volume\b0\par
+The expected volume is low. The tool will run periodic reporting and audit queries for Biocom's own Google Ads accounts. Basic Access is sufficient for the expected daily operation volume.\par
+\par
+\b 10. Current implementation status\b0\par
+The Google Cloud project and service account authentication are prepared. The Google Ads API is enabled in the Google Cloud project. Test API calls currently reach the Google Ads API but production account reads are blocked because the developer token only has Test Account Access. Basic Access is requested so the tool can read Biocom's production Google Ads account for reporting and reconciliation.\par
+\par
+\b 11. Explicit non-goals\b0\par
+The tool does not create or modify campaigns, ads, ad groups, keywords, bids, budgets, billing settings, invoices, or user permissions. The tool is not used for keyword planning, recommendation generation, account creation, or external client management. The tool is not used with the App Conversion Tracking and Remarketing API.\par
+}

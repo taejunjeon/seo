@@ -1,17 +1,18 @@
 # biocom GTM 컨테이너 상태 정리
 
-작성 시각: 2026-04-20 18:30 KST (v3 업데이트: 2026-04-20 23:55 KST)
+작성 시각: 2026-04-20 18:30 KST (v8 업데이트: 2026-04-24 23:45 KST)
 작성자: Claude Code (GTM API 직접 조회)
-근거: GTM API v2 snapshot (workspace 145, `/tmp/gtm_snapshot.json` 311KB)
+근거: GTM API v2 snapshot, live version 138, `gtmaudit/gtm-ga4-purchase-duplicates-result-20260424144504.json`
 대상 컨테이너: `GTM-W2Z6PHN` (biocom.kr)
 관련 문서: [[confirmed_stopline|roadmap/confirmed_stopline.md]] C-Sprint 5, [[transaction_id_not_set_investigation|data/analysis/transaction_id_not_set_investigation.md]]
 
 ## 10초 요약
 
-- biocom GTM 에는 `event_name='purchase'` 태그가 **3개 활성 + 1개 일시중단**. 이 중 **`transaction_id` 파라미터를 명시한 태그는 [143] 단 1개**였음.
-- 나머지 활성 purchase 태그 **[43] GA4_구매전환_Npay**, **[48] GA4_구매전환_홈피구매**는 `transaction_id` 파라미터가 아예 **없어서** GA4 에 도달 시 자동 `(not set)` 처리.
-- **오늘 수정**: 변수 [250] `JS - Purchase Transaction ID (fallback chain)` 신규 생성 + 태그 [143] 의 transaction_id 를 이 변수로 교체. **Workspace 145 에만 커밋, publish 안 함**. TJ Preview 검증 후 수동 publish 필요.
-- **후속 권장**: [43] / [48] 에도 `transaction_id = {{JS - Purchase Transaction ID (fallback chain)}}` 파라미터 추가 (TJ 승인 시 즉시 자동화 가능). 이 조치를 해야 `(not set)` 520건의 나머지 원인까지 커버.
+- 2026-04-24 23:45 KST 현재 live version은 `138` (`ga4_purchase_duplicate_fix_20260424`)이다.
+- canonical GA4 `purchase`는 **[143] HURDLERS - [이벤트전송] 구매**로 둔다. `transaction_id={{JS - Purchase Transaction ID (fallback chain)}}`, `pay_method=homepage`가 들어간다.
+- **[48] GA4_구매전환_홈피구매**는 v138에서 pause했다. 동일 transactionId의 HURDLERS purchase와 중복 집계되던 homepage purchase를 막기 위한 조치다.
+- **[43] GA4_구매전환_Npay**는 v138에서 `purchase`가 아니라 `add_payment_info`로 강등했다. NPay 버튼 클릭 시점 이벤트가 실제 주문 생성 전 purchase 매출을 만들지 않게 한 것이다.
+- 남은 검증은 v138 이후 24~48h 신규 GA4 row에서 duplicate extra event와 `transactionId` 결측이 줄었는지 확인하는 일이다.
 
 ## 컨테이너 메타
 
@@ -21,11 +22,11 @@
 | Container public ID | `GTM-W2Z6PHN` |
 | Container numeric ID | `13158774` |
 | Usage context | `web` |
-| Default Workspace | id=`145` path=`accounts/4703003246/containers/13158774/workspaces/145` |
+| Default Workspace | 최신 live 기준 새 작업은 별도 workspace 생성 후 publish. v138 작업 workspace=`148` |
 | Variables total | 59 (custom 47 + built-in 12 이상) |
 | Tags total | 56 |
 | Triggers total | 80 |
-| Live container version | 스냅샷 시점 snapshot 기준 (workspace 145 에만 pending change 있음) |
+| Live container version | `138` (`ga4_purchase_duplicate_fix_20260424`) |
 
 다른 사이트 컨테이너 (참고, 이 문서 범위 밖):
 - `GTM-5M33GC4` — thecleancoffee.com (containerId=`91608400`)
@@ -37,13 +38,13 @@
 - 현재 권한 상태: **biocom.kr 컨테이너에 Publish 권한 보유 (2026-04-20 TJ 부여)**. 변수/태그/트리거 조회·생성·수정·버전 생성·게시 모두 API 로 가능.
 - 스코프: `tagmanager.readonly` / `tagmanager.edit.containers` / `tagmanager.edit.containerversions` / `tagmanager.publish` 중 `edit.containers` 로 현재 작업 수행.
 
-## GA4 Purchase 태그 완전 목록 (`eventName='purchase'`)
+## GA4 구매 관련 태그 현황
 
 | tagId | 이름 | 활성 | measurementId | `transaction_id` 파라미터 | 트리거 조건 |
 |---|---|---|---|---|---|
-| **143** | **HURDLERS - [이벤트전송] 구매** | ✅ | `{{HURDLERS - GA4 아이디}}` | **`{{JS - Purchase Transaction ID (fallback chain)}}` ← 오늘 교체됨** | `{{_event}} equals hurdlers_purchase` (DL [154] 이 발사) |
-| 43 | GA4_구매전환_Npay | ✅ | `G-WJFXN5E2Q1` | ❌ **없음** | npay 버튼 클릭 (`npay_logo`/`npay_btn_pay` 등) + `{{_event}} equals conversion` |
-| 48 | GA4_구매전환_홈피구매 | ✅ | `G-WJFXN5E2Q1` | ❌ **없음** | `Page Path contains shop_payment_complete` & `{{dlv_price_vlaue}} greater 0` & `{{_event}} equals conversion` |
+| **143** | **HURDLERS - [이벤트전송] 구매** | ✅ `purchase` | `{{HURDLERS - GA4 아이디}}` | **`{{JS - Purchase Transaction ID (fallback chain)}}`**, `pay_method=homepage` | `{{_event}} equals hurdlers_purchase` (DL [154] 이 발사) |
+| 43 | GA4_구매전환_Npay | ✅ `add_payment_info` | `G-WJFXN5E2Q1` | `{{JS - Purchase Transaction ID (fallback chain)}}`, `pay_method=npay` | npay 버튼 클릭 (`npay_logo`/`npay_btn_pay` 등) + `{{_event}} equals conversion` |
+| 48 | GA4_구매전환_홈피구매 | ⏸ PAUSED `purchase` | `G-WJFXN5E2Q1` | `{{JS - Purchase Transaction ID (fallback chain)}}`, `pay_method=homepage` | `Page Path contains shop_payment_complete` & `{{dlv_price_vlaue}} greater 0` & `{{_event}} equals conversion` |
 | 98 | GA4_구매전환_Npay 2 | ⏸ PAUSED | `G-8GZ48B1S59` | ❌ 없음 | npay 버튼 클릭 (일시중단) |
 
 ### 태그 [143] (핵심 purchase 태그) 상세
@@ -53,6 +54,7 @@
 - Event settings (오늘 수정 후 최신):
   - `items = {{HURDLERS - GA4 상품정보}}`
   - **`transaction_id = {{JS - Purchase Transaction ID (fallback chain)}}`** ← 이전 값 `{{HURDLERS - GA4 Transaction_id}}` 에서 교체
+  - **`pay_method = homepage`** ← v138에서 추가
   - `value = {{HURDLERS - GA4 Value}}`
   - `shipping = {{HURDLERS - GA4 shipping}}`
   - `currency = KRW`
@@ -61,23 +63,24 @@
   - `utm_source / utm_medium / utm_campaign / utm_content / utm_term / member_code` — Retous 변수 사용
 - Trigger: `HURDLERS - [맞춤 이벤트] hurdlers_purchase` (`{{_event}} equals hurdlers_purchase`)
 - 발사 순서: `HURDLERS 플러그인 [146]` → `HURDLERS - [데이터레이어] 구매 [154]` (html 태그가 `hurdlers_purchase` 이벤트를 dataLayer 에 push) → 태그 [143] 이 그 이벤트로 발사
-- Fingerprint: `1776693227352` (fingerprint 값은 변경 시마다 새로 생성됨)
+- Fingerprint: `1777041911030` (v138 적용 시점, fingerprint 값은 변경 시마다 새로 생성됨)
 
-### 태그 [43] GA4_구매전환_Npay (위험 요소)
+### 태그 [43] GA4_구매전환_Npay (v138 이후 purchase 아님)
 
-- Type: `gaawe`, eventName=`purchase`, measurementId=`G-WJFXN5E2Q1`
-- Event settings: `currency=KRW`, `pay_method=npay`, `value={{dlv_price_vlaue}}`, `user_time={{USER_TIME}}`
-- **문제**: `transaction_id` 파라미터 **없음**. npay 버튼 클릭 시 발사되면 GA4 는 `transaction_id='(not set)'` 로 저장
+- Type: `gaawe`, eventName=`add_payment_info`, measurementId=`G-WJFXN5E2Q1`
+- Event settings: `currency=KRW`, `pay_method=npay`, `value={{dlv_price_vlaue}}`, `user_time={{USER_TIME}}`, `transaction_id={{JS - Purchase Transaction ID (fallback chain)}}`
+- **v138 조치**: NPay 버튼 클릭 시점 이벤트는 실제 주문 생성 전이므로 `purchase`에서 제외했다. 이제 이 태그는 purchase 매출/건수를 만들지 않아야 한다.
 - Trigger: 네이버페이 버튼 클릭 감지용 `customEvent` 2개 (`purchase_npay_mo`, `purchase_npay_pc`)
-- **가설**: HURDLERS 태그 [143] 과 동시에 발사되면 purchase 이벤트가 중복 집계됨. 그러나 이 태그만 단독 발사되는 edge case (HURDLERS dataLayer push 실패/ Npay 팝업 내 이벤트 순서 꼬임)에는 `(not set)` 520건 중 일부 원인일 가능성 높음.
+- Fingerprint: `1777041913098` (v138 적용 시점)
 
-### 태그 [48] GA4_구매전환_홈피구매 (위험 요소)
+### 태그 [48] GA4_구매전환_홈피구매 (v138 이후 paused)
 
 - Type: `gaawe`, eventName=`purchase`, measurementId=`G-WJFXN5E2Q1`
-- Event settings: `currency=KRW`, `pay_method=homepage`, `value={{dlv_price_vlaue}}`, `user_time={{USER_TIME}}`
-- **문제**: `transaction_id` 파라미터 **없음**.
+- Status: ⏸ PAUSED
+- Event settings: `currency=KRW`, `pay_method=homepage`, `value={{dlv_price_vlaue}}`, `user_time={{USER_TIME}}`, `transaction_id={{JS - Purchase Transaction ID (fallback chain)}}`
+- **v138 조치**: HURDLERS [143]와 동일 transactionId를 중복 purchase로 집계하던 legacy homepage purchase 태그라 pause했다.
 - Trigger: `{{Page Path}} contains shop_payment_complete AND {{dlv_price_vlaue}} greater 0 AND {{_event}} equals conversion`
-- **가설**: 결제완료 페이지에서 `dlv_price_vlaue>0` 이면 발사. 네이버페이가 아닌 홈페이지 일반 결제(카드/계좌이체) 주문이 여기에 해당. transaction_id 없이 발사되므로 **`(not set)` 520건의 주범 후보**. Codex 보고서 root cause (`GTM purchase 태그가 URL fallback 없이 dataLayer 만 읽음`) 와 정확히 일치.
+- Fingerprint: `1777041912345` (v138 적용 시점)
 
 ## GA4 Ecommerce 이벤트 태그 (purchase 외)
 
@@ -146,7 +149,18 @@ function() {
 - **우선순위 3 (핵심)**: URL query string 에서 `order_no` 추출. 결제완료 페이지 URL `shop_payment_complete?order_code=...&order_no=...` 가 이미 가지고 있는 값. Codex 조사 §권장 A 정확히 구현.
 - 전부 비어도 빈 문자열 `''` 반환 → GA4 는 이 값을 `(not set)` 으로 저장. 현상은 유지되지만 fallback 이 먹히는 비율만큼 `(not set)` 감소 예상.
 
-## 오늘 적용한 변경 (Workspace 145 pending, 미publish)
+## 2026-04-24 적용한 변경 (live v138)
+
+| 시각 | 객체 | 변경 종류 | 내용 |
+|---|---|---|---|
+| 2026-04-24 23:45 KST | tag 143 | **UPDATE** | `HURDLERS - [이벤트전송] 구매`의 `eventSettingsTable`에 `pay_method=homepage` 추가. canonical GA4 purchase로 유지. |
+| 2026-04-24 23:45 KST | tag 48 | **UPDATE** | `GA4_구매전환_홈피구매` pause. `[143]`와 같은 주문번호를 중복 purchase로 잡던 구조 차단. |
+| 2026-04-24 23:45 KST | tag 43 | **UPDATE** | `GA4_구매전환_Npay`의 `eventName`을 `purchase`에서 `add_payment_info`로 변경. NPay 클릭 시점 purchase 제거. |
+| 2026-04-24 23:45 KST | version 138 | **PUBLISH** | `ga4_purchase_duplicate_fix_20260424` publish 완료. backup/result: `gtmaudit/gtm-ga4-purchase-duplicates-*.json`. |
+
+자동화 스크립트: `backend/scripts/gtm-fix-ga4-purchase-duplicates.mjs`.
+
+## 2026-04-20 적용한 변경 (v136/v137 이전 기록)
 
 | 시각 | 객체 | 변경 종류 | 내용 |
 |---|---|---|---|
@@ -155,11 +169,11 @@ function() {
 | 2026-04-20 23:25 KST | tag 48 | **UPDATE** | `GA4_구매전환_홈피구매` eventSettingsTable 에 `transaction_id = {{JS - Purchase Transaction ID (fallback chain)}}` row **append**. fingerprint `1776177502777` → `1776695972175`. 근거: [[gptfeedback_gtm_0420_1]] + [[gptfeedback_gtm_0420_1reply]]. |
 | 2026-04-20 23:25 KST | tag 43 | **UPDATE** | `GA4_구매전환_Npay` eventSettingsTable 에 `transaction_id = {{JS - Purchase Transaction ID (fallback chain)}}` row **append** (draft — publish 전 Npay 결제 Preview 확인 필요). fingerprint `1776177408254` → `1776695974548`. |
 
-Workspace status API 결과에서 위 4개 change pending 상태로 관측. 다른 객체는 변경 없음.
+당시 workspace 145 pending 변경은 이후 v136 publish로 live에 반영됐고, 2026-04-21 v137에서 가상계좌 차단이 추가됐다.
 
 자동화 스크립트: `backend/gtm_apply.mjs` (향후 재실행 시 이미 생성됐으므로 create 는 409 Conflict 로 실패할 것 — 새로 돌리려면 새 변수명 + 태그 수정만 돌리도록 수정 필요).
 
-## Publish 전 사전 검증 (2026-04-20 18:45 KST 완료)
+## 2026-04-20 publish 전 사전 검증 기록
 
 Claude Code 가 publish 전에 두 가지 방법으로 fallback 로직을 검증했음.
 
@@ -202,38 +216,14 @@ https://biocom.kr/?gtm_auth=7dcQqU0pawu9frI4OqNyww&gtm_preview=env-5&gtm_debug=x
 
 **결론**: 로직 자체는 확실히 동작. publish 후 기존 정상 케이스 영향 없음. 520건 중 URL 에 `order_no` 가 있는 케이스가 순차 복구됨.
 
-## TJ 다음 단계 (publish 진행)
+## v138 이후 다음 검증
 
-1. **GTM UI 접속**: https://tagmanager.google.com/#/container/accounts/4703003246/containers/13158774/workspaces/145
-2. **변수 확인**: 좌측 "변수" → 사용자 정의 변수 → `JS - Purchase Transaction ID (fallback chain)` 찾아 열기 → 코드 확인
-3. **태그 확인**: 좌측 "태그" → `HURDLERS - [이벤트전송] 구매` 열기 → 이벤트 매개변수 `transaction_id` 의 값이 `{{JS - Purchase Transaction ID (fallback chain)}}` 인지 확인
-4. **Preview (미리보기) 모드**:
-   - 우상단 **미리보기** 클릭 → `https://biocom.kr` 입력 → 연결
-   - 실제 결제 플로우 1건 진행 (상품 선택 → 장바구니 → 주문서 작성 → 결제)
-   - 결제완료 페이지에서 Tag Assistant 의 "Variables" 탭에서 `JS - Purchase Transaction ID (fallback chain)` 값이 `order_no` 와 일치하는지 확인
-   - "Tags fired" 에 `HURDLERS - [이벤트전송] 구매` 가 있고, transaction_id 가 빈 값이 아닌지 확인
-5. **Publish**: Preview 로 값이 정상 들어가는 것을 확인한 후 우상단 **제출** → 버전 이름 `purchase_transaction_id_fallback_2026-04-20` + 설명 `(not set) 520건 대응: URL order_no fallback` → **게시**
-6. **publish 후 검증**: 게시 후 24h 내 GA4 Realtime → `purchase` 이벤트 → `transaction_id` 차원에서 `(not set)` 비율 하락 확인. 48~72h 후 `data/sql/biocom_ga4_identity_coverage.sql` 쿼리 3 재실행해 event_count 비교.
+1. 2026-04-25 23:45 KST 이후 GA4 Data API로 v138 이후 신규 `purchase` row를 다시 집계한다.
+2. 확인 차원은 `transactionId`, `customEvent:pay_method`, `pagePath`, `eventCount`, `purchaseRevenue`다.
+3. 기대값은 `[43]`발 `/shop_cart` purchase 0건, `[48]`발 `homepage` purchase 0건, `[143]`발 `pay_method=homepage` row 증가다.
+4. 남은 중복이 있으면 `[143]` 자체 double fire다. 이 경우 태그 [143] 트리거 지연/guard 또는 [154] dataLayer push 조건을 다시 봐야 한다.
 
-## 후속 권장 작업 (TJ 승인 시 즉시 자동화)
-
-### 1순위 — 태그 [43] / [48] 에 transaction_id 파라미터 추가
-
-태그 [43] `GA4_구매전환_Npay` 과 [48] `GA4_구매전환_홈피구매` 는 **eventName=purchase 인데 transaction_id 를 아예 안 보냄**. 이 두 태그가 단독으로 발사될 때는 100% `(not set)` 확정. Codex 보고서 root cause 와 일치하는 최대 위험 요소.
-
-자동화 방법: `backend/gtm_apply.mjs` 에 두 태그의 `eventSettingsTable.list` 에 다음 row 를 append 하는 스크립트를 추가해 1분 내 완료.
-
-```js
-{
-  type: 'map',
-  map: [
-    { type: 'template', key: 'parameter', value: 'transaction_id' },
-    { type: 'template', key: 'parameterValue', value: '{{JS - Purchase Transaction ID (fallback chain)}}' }
-  ]
-}
-```
-
-다만 이 태그들이 HURDLERS 태그 [143] 과 동시 발사되어 **중복 purchase** 를 유발하는지 먼저 Preview 로 확인 필요. 이 두 태그가 legacy 중복 이벤트면 transaction_id 추가하기보다 **태그 자체를 일시중단(paused)** 하는 게 맞을 수 있음. TJ 판단 필요.
+## 남은 후속 작업
 
 ### 2순위 — Trigger guard (500ms 지연)
 
@@ -244,7 +234,7 @@ GTM 에서 구현하려면:
 - 태그 [143] 트리거를 `hurdlers_purchase_delayed` 로 교체.
 - 혹은 태그 순서 제어로 [146] HURDLERS 플러그인 먼저 완료 후 [154] DL 구매 → [143] 발사 보장.
 
-이건 Preview 결과에 따라 추가하거나 생략 가능. 1순위 + 오늘 변경만으로도 대부분의 `(not set)` 는 커버될 전망.
+이건 v138 이후에도 `[143]` 단독 중복이 남을 때만 진행한다.
 
 ### 3순위 — 리허설 workspace 운영
 
@@ -252,15 +242,16 @@ GTM 에서 구현하려면:
 
 ## 이슈 / 알려진 리스크
 
-- **Publish 전**이므로 라이브 트래픽에는 아직 영향 없음. Preview 로만 테스트됨.
+- v138은 이미 live publish 완료 상태다. 라이브 트래픽에 적용돼 있으므로 추가 변경은 새 workspace와 백업을 먼저 만든다.
 - 변수 [250] Priority 3 는 `URLSearchParams(location.search)` 만 본다. Hash fragment (`#order_no=...`) 나 iframe 내부 URL 은 못 읽음. biocom 결제완료 URL 은 query string 형식이라 문제 없을 전망.
 - 변수 [250] Priority 2 는 `window.dataLayer` 전체를 역순 순회. 큰 dataLayer 에서는 성능 영향 극미 (1ms 미만 예상). 필요 시 최근 50개만 보도록 제한 가능.
 - HURDLERS 플러그인이 향후 업그레이드 시 `hurdlers_ga4.transaction_id` 를 다른 키로 바꾸면 Priority 1 이 깨지지만, Priority 3 URL fallback 이 살아 있어 `(not set)` 은 여전히 방어됨.
-- 태그 [143] 하나만 수정했기 때문에 **[43]/[48] 단독 발사 케이스 커버 안 됨**. 위 "후속 권장 작업 §1순위" 를 적용해야 완전한 해결.
+- v138은 `[43] purchase`와 `[48] purchase`를 제거했지만, `[143]` 자체가 같은 주문에서 두 번 발사되는 케이스까지 아직 증명하지는 못했다. 이 판단은 v138 이후 GA4 신규 row로 확인한다.
 
 ## 자동화 스크립트
 
 - `backend/gtm_apply.mjs` — 변수 250 생성 + 태그 143 교체 (이미 실행 완료). 재실행 시 변수 생성은 409 Conflict 발생할 것.
+- `backend/scripts/gtm-fix-ga4-purchase-duplicates.mjs` — v138 적용 스크립트. dry-run은 백업/계획 출력, `--apply --publish`는 새 workspace 생성 후 [143]/[48]/[43] 수정과 publish까지 실행.
 - `/tmp/gtm_snapshot.json` — 스냅샷 시점 전체 워크스페이스 JSON (임시, 재현 필요 시 `gtm_snapshot.mjs` 재실행).
 - Service account: `seo-656@seo-aeo-487113.iam.gserviceaccount.com` — GA4_BIOCOM_SERVICE_ACCOUNT_KEY env 로 로드.
 
@@ -279,6 +270,7 @@ GTM 에서 구현하려면:
 
 ## 버전 기록
 
+- **v8** (2026-04-24 23:45 KST): **v138 publish 완료**. containerVersionId `138`, name `ga4_purchase_duplicate_fix_20260424`. [143] `pay_method=homepage` 추가, [48] pause, [43] `purchase -> add_payment_info`. GTM API live 매칭 확인. 근거: `backend/scripts/gtm-fix-ga4-purchase-duplicates.mjs`, `gtmaudit/gtm-ga4-purchase-duplicates-result-20260424144504.json`.
 - **v7** (2026-04-21 01:40 KST): **🎉 v137 publish 완료**. containerVersionId `137`, name `vbank_exception_trigger_2026-04-21`. Preview A (카드 11,900원) + B (가상계좌 35,000원) 양쪽 통과 후 배포. live 매칭 확인. 이제 모든 biocom 방문자 대상으로 가상계좌 미입금 GA4 purchase 차단 + [251] prep 태그 활성. workspace 146 → 자동 147 로 rollover.
 - **v6** (2026-04-21 01:30 KST): Exception Trigger draft 완료. 변수 [252] `JS - vbank blocked` + 트리거 [253] + 태그 [143]/[48]/[154] blockingTrigger 연결. workspace 146 pending 6건. publish 금지. 상세: [[gtm_exception_trigger_draft_20260421]].
 - **v5** (2026-04-21 01:20 KST): Preview Run 3 가상계좌 발견 — GA4 는 server-decision-guard 의 vbank 차단을 받지 못함. [251] HTML v3 업데이트 (server-branch guard 추가). 근본 해결: GTM Exception Trigger 별도 sprint.

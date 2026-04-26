@@ -21,12 +21,23 @@ backend/.env
 backend/credentials/
 backend/artifacts/
 backend/logs/
+backend/data/
 
 # Local analysis exports / generated artifacts
 data/coffee/*.xlsx
 data/screenshot/*.pdf
 data/*공동구매*.xlsx
 backend/scripts/*.out.json
+
+# Local agent backups and runtime logs
+.codex-backups/
+frontend/server-*.log
+*.launchd.*.log
+
+# GTM operation backups/results are reproducible local artifacts.
+gtmaudit/*.log
+gtmaudit/*backup*.json
+gtmaudit/*result*.json
 
 # Contains copied secret values; keep local only.
 naver/npayfeedbackreply.md
