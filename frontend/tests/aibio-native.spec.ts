@@ -42,6 +42,44 @@ test.describe("AIBIO native MVP", () => {
     await expect(page.getByText(/유입 키 \d+개 확인/)).toBeVisible();
   });
 
+  test("/shop_view?idx=25 첫 실험 랜딩이 자체 리드 API에 저장한다", async ({ page }) => {
+    await page.route("**/api/aibio/native-leads", async (route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          mode: "local_sqlite_persistence",
+          leadId: "aibio_offer_test_001",
+          receivedAt: "2026-04-26T10:30:00.000Z",
+          nextStatus: "new",
+          nextStatusLabel: "신규",
+          duplicateOfLeadId: null,
+          phoneHashSha256: "b".repeat(64),
+          attributionKeys: ["fbclid", "utm_campaign", "utm_medium", "utm_source"],
+        }),
+      });
+    });
+
+    await page.goto(`${BASE}/shop_view?idx=25&utm_source=meta&utm_medium=paid_social&utm_campaign=shop_view_25_test&fbclid=offer_click_id`);
+
+    await expect(page.getByRole("heading", { name: /붓기와 식욕 리듬을 먼저 확인/ })).toBeVisible();
+    await expect(page.getByText("/shop_view?idx=25", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "첫방문 체험 상담을 신청합니다." })).toBeVisible();
+
+    await page.getByLabel("이름").fill("오퍼테스트");
+    await page.getByLabel("연락처").fill("010-1111-2222");
+    await page.getByLabel("나이대").selectOption("40s");
+    await page.getByLabel("상담 목적").selectOption("appetite");
+    await page.getByLabel("알게 된 경로").selectOption("facebook");
+    await page.getByLabel("연락 희망 시간").selectOption("morning");
+    await page.getByLabel("개인정보 수집 및 상담 연락에 동의합니다.").check();
+    await page.getByRole("button", { name: "첫방문 상담 신청 저장" }).click();
+
+    await expect(page.getByText(/운영 리드 원장에 저장되었습니다/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/접수번호: aibio_offer_test_001/)).toBeVisible();
+  });
+
   test("lead draft API는 전화번호 원문을 응답하지 않는다", async ({ request }) => {
     const response = await request.post(`${BASE}/api/aibio-native/lead-draft`, {
       data: {
