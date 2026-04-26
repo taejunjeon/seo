@@ -34,12 +34,13 @@ test.describe("AIBIO native MVP", () => {
     await page.getByLabel("상담 목적").selectOption("metabolism");
     await page.getByLabel("알게 된 경로").selectOption("instagram");
     await page.getByLabel("연락 희망 시간").selectOption("afternoon");
-    await page.getByLabel("개인정보 수집 및 상담 연락에 동의합니다.").check();
-    await page.getByLabel("마케팅 정보 수신에 동의합니다. 선택 항목입니다.").check();
-    await page.getByRole("button", { name: "상담 신청 저장" }).click();
+    await page.getByLabel(/개인정보 수집·이용에 동의합니다/).check();
+    await page.getByLabel(/이벤트·할인 안내 메시지 수신에 동의합니다/).check();
+    await page.getByRole("button", { name: "상담 신청하기" }).click();
 
-    await expect(page.getByText(/운영 리드 원장에 저장되었습니다/)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/유입 키 \d+개 확인/)).toBeVisible();
+    await expect(page.getByText("상담 신청이 접수되었습니다.")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/영업일 기준 24시간 안에/)).toBeVisible();
+    await expect(page.getByText(/접수번호/)).toBeVisible();
   });
 
   test("/shop_view?idx=25 첫 실험 랜딩이 자체 리드 API에 저장한다", async ({ page }) => {
@@ -73,11 +74,28 @@ test.describe("AIBIO native MVP", () => {
     await page.getByLabel("상담 목적").selectOption("appetite");
     await page.getByLabel("알게 된 경로").selectOption("facebook");
     await page.getByLabel("연락 희망 시간").selectOption("morning");
-    await page.getByLabel("개인정보 수집 및 상담 연락에 동의합니다.").check();
+    await page.getByLabel(/개인정보 수집·이용에 동의합니다/).check();
     await page.getByRole("button", { name: "첫방문 상담 신청 저장" }).click();
 
-    await expect(page.getByText(/운영 리드 원장에 저장되었습니다/)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/접수번호: aibio_offer_test_001/)).toBeVisible();
+    await expect(page.getByText("상담 신청이 접수되었습니다.")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/접수번호/)).toBeVisible();
+  });
+
+  test("모바일 CTA와 전화번호 검증 UX가 보인다", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${BASE}/shop_view?idx=25&utm_source=meta`);
+
+    const ctaBar = page.getByRole("navigation", { name: "모바일 빠른 상담 메뉴" });
+    await expect(ctaBar.getByRole("link", { name: "카카오 상담" })).toBeVisible();
+    await expect(ctaBar.getByRole("link", { name: "첫방문 상담 신청" })).toBeVisible();
+
+    await page.getByRole("link", { name: "첫방문 상담 신청" }).click();
+    await page.getByLabel("연락처").fill("0101234");
+    await page.getByLabel("연락처").blur();
+    await expect(page.getByText("010으로 시작하는 휴대폰 번호를 입력해 주세요.")).toBeVisible();
+
+    await page.getByLabel("연락처").fill("01012345678");
+    await expect(page.getByLabel("연락처")).toHaveValue("010-1234-5678");
   });
 
   test("lead draft API는 전화번호 원문을 응답하지 않는다", async ({ request }) => {

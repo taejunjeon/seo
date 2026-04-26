@@ -150,12 +150,35 @@ export function RecoveryLabOfferLanding() {
         <span>Fallback 비교 전까지 아임웹 입력폼 병행</span>
       </footer>
 
+      <div className="mobile-cta-bar" aria-label="모바일 빠른 상담 메뉴" role="navigation">
+        <a className="mobile-cta-secondary" href={KAKAO_CHAT_URL} target="_blank" rel="noreferrer">
+          <span>카카오 상담</span>
+        </a>
+        <a className="mobile-cta-primary" href="#apply">
+          <span>첫방문 상담 신청</span>
+        </a>
+      </div>
+
+      <style jsx global>{`
+        html {
+          scroll-behavior: smooth;
+        }
+      `}</style>
+
       <style jsx>{`
         .offer-page {
           min-height: 100vh;
           color: #15223f;
           background: #f5f8fb;
           font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        section[id] {
+          scroll-margin-top: 88px;
+        }
+
+        .mobile-cta-bar {
+          display: none;
         }
 
         .offer-header {
@@ -474,6 +497,46 @@ export function RecoveryLabOfferLanding() {
         }
 
         @media (max-width: 980px) {
+          .offer-page {
+            padding-bottom: 76px;
+          }
+
+          .mobile-cta-bar {
+            position: fixed;
+            inset: auto 0 0 0;
+            z-index: 40;
+            display: grid;
+            grid-template-columns: 1fr 1.4fr;
+            gap: 8px;
+            padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+            background: rgba(255, 255, 255, 0.98);
+            border-top: 1px solid rgba(15, 23, 42, 0.12);
+            box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+          }
+
+          .mobile-cta-bar a {
+            min-height: 52px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 0.96rem;
+            font-weight: 900;
+            text-decoration: none;
+          }
+
+          .mobile-cta-secondary {
+            color: #10213d;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+          }
+
+          .mobile-cta-primary {
+            color: #ffffff;
+            background: #2764d8;
+            border: 1px solid #2764d8;
+          }
+
           .offer-header {
             padding: 0 22px;
           }
