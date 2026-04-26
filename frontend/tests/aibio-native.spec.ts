@@ -54,4 +54,13 @@ test.describe("AIBIO native MVP", () => {
     expect(JSON.stringify(body)).not.toContain("테스트");
     expect(JSON.stringify(body)).not.toContain("test_click_id");
   });
+
+  test("운영자 리드 관리자 mock이 로드된다", async ({ page }) => {
+    await page.goto(`${BASE}/aibio-native/admin`);
+
+    await expect(page.getByRole("heading", { name: /리드, 예약, 방문, 결제 상태/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "운영자 입력 컬럼 초안" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "상담 상태" })).toBeVisible();
+    await expect(page.getByText("L-0426-001")).toBeVisible();
+  });
 });

@@ -24,7 +24,7 @@ AIBIO는 아임웹 관리자 전체를 복제할 필요가 없다. 자체 개발
 | Phase3 | [[#Phase3-Sprint4]] | 폼/예약/리드 원장 | Codex | 35% / 0% | [[#Phase3-Sprint4\|이동]] |
 | Phase4 | [[#Phase4-Sprint5]] | 통계/성장 도구 최소 구현 | Codex + Claude Code | 10% / 0% | [[#Phase4-Sprint5\|이동]] |
 | Phase5 | [[#Phase5-Sprint6]] | 예약금/체험권 Toss 결제 | TJ + Codex | 10% / 0% | [[#Phase5-Sprint6\|이동]] |
-| Phase6 | [[#Phase6-Sprint7]] | 운영 관리자/RBAC | Codex + Claude Code | 대기 | [[#Phase6-Sprint7\|이동]] |
+| Phase6 | [[#Phase6-Sprint7]] | 운영 관리자/RBAC | Codex + Claude Code | 10% / 0% | [[#Phase6-Sprint7\|이동]] |
 | Phase7 | [[#Phase7-Sprint8]] | 아임웹 종료 판단 | TJ + Codex | 대기 | [[#Phase7-Sprint8\|이동]] |
 
 ## 1. 결론
@@ -900,26 +900,28 @@ MVP:
 | API 계약 분리 | `frontend/src/lib/aibio-native.ts` 추가 | 미반영 |
 | 유입 키 수집 | URL UTM, `fbclid`, `gclid`, `_fbc`, `_fbp`, `_ga`, referrer key 수집. API 응답은 key 목록만 반환 | 미반영 |
 | redirect map 초안 | `imweb/aibio-redirect-map.md` 추가 | 미반영 |
+| 운영자 리드 관리자 mock | `frontend/src/app/aibio-native/admin/page.tsx`, `frontend/src/app/aibio-native/admin/AibioNativeAdmin.tsx` 추가 | 미반영 |
 | 자동 검증 | `frontend/tests/aibio-native.spec.ts` 추가 | 로컬 검증 완료 |
 | 화면 검증 | Playwright desktop/mobile screenshot 생성 | 로컬 검증 완료 |
 
 검증 결과:
 
-- `npm --prefix frontend run lint -- src/app/aibio-native/page.tsx src/app/aibio-native/AibioNativeExperience.tsx src/app/api/aibio-native/lead-draft/route.ts src/lib/aibio-native.ts tests/aibio-native.spec.ts`: 통과
+- `npm --prefix frontend run lint -- src/app/aibio-native/page.tsx src/app/aibio-native/AibioNativeExperience.tsx src/app/aibio-native/admin/page.tsx src/app/aibio-native/admin/AibioNativeAdmin.tsx src/app/api/aibio-native/lead-draft/route.ts src/lib/aibio-native.ts tests/aibio-native.spec.ts`: 통과
 - `cd frontend && npx tsc --noEmit --pretty false --incremental false`: 통과
-- `PLAYWRIGHT_BASE_URL=http://localhost:7011 npx playwright test tests/aibio-native.spec.ts --reporter=list`: 2 passed
+- `PLAYWRIGHT_BASE_URL=http://localhost:7011 npx playwright test tests/aibio-native.spec.ts --reporter=list`: 3 passed
 
 현재 의미:
 
 - Phase2-Sprint3은 홈페이지/랜딩의 첫 구현물이 생겼으므로 `40% / 0%`로 올린다.
 - Phase3-Sprint4는 실제 DB 저장 전 단계의 lead draft API, attribution key 수집, 폼 검증이 생겼으므로 `35% / 0%`로 올린다.
+- Phase6-Sprint7은 운영자 관리자 mock이 생겼으므로 `10% / 0%`로 올린다.
 - 운영 기준은 아직 0%다. 이유는 아임웹 redirect, 운영 DB 저장, GTM/GA4/CAPI 연결, 실운영 상담 프로세스가 아직 붙지 않았기 때문이다.
 
 다음 개발 순서:
 
 1. lead draft API 응답을 NestJS 또는 Express native API 계약으로 옮긴다.
 2. AIBIO 인기 URL `/shop_view`, `/main`, `/bio_pulse_M`, `/56`, `/59` redirect map을 아임웹 export와 대조한다.
-3. 자체 관리자용 리드 리스트 mock을 만든다.
+3. 자체 관리자용 리드 리스트 mock을 실제 lead draft API 응답과 연결한다.
 4. 운영 DB 스키마 변경은 TJ님 승인 전에는 하지 않는다.
 
 ## 17. 근거와 참고
@@ -946,6 +948,8 @@ MVP:
 - `frontend/src/app/aibio-funnel/page.tsx`
 - `frontend/src/app/aibio-native/page.tsx`
 - `frontend/src/app/aibio-native/AibioNativeExperience.tsx`
+- `frontend/src/app/aibio-native/admin/page.tsx`
+- `frontend/src/app/aibio-native/admin/AibioNativeAdmin.tsx`
 - `frontend/src/app/api/aibio-native/lead-draft/route.ts`
 - `frontend/src/lib/aibio-native.ts`
 - `frontend/tests/aibio-native.spec.ts`
