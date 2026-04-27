@@ -5,7 +5,7 @@ import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 
 type Decision = {
-  key: "B" | "C";
+  key: "C";
   question: string;
   recommendation: string;
   conditions: string;
@@ -15,25 +15,6 @@ type Decision = {
 };
 
 const DECISIONS: Decision[] = [
-  {
-    key: "B",
-    question: "운영팀이 그대로 작업할 수 있는 URL 정리 요청서를 만들까요?",
-    recommendation: "YES (운영 반영이 아니라 요청서 「초안」을 만드는 것입니다)",
-    conditions: "리뷰/검색 URL의 검색결과 숨김(noindex)은 보류 가능",
-    yesAnswer: "YES: URL 정리 요청서 만들기",
-    yesProduces: [
-      "아임웹 작업 요청서 1개 (어느 URL을 어떻게 처리할지 표 형식)",
-      "URL 종류별 대표 URL 목록",
-      "검색결과에서 숨길 URL 목록 (noindex 후보)",
-      "검색엔진 제출 URL 목록에서 뺄 URL 목록 (sitemap 제외 후보)",
-      "롤백 기준 (이렇게 되면 되돌리기)",
-    ],
-    noImpact: [
-      "검색엔진 설명서 코드(JSON-LD)에 어느 URL을 적을지 결정 불가",
-      "구글에 다시 제출할 URL 확정 지연",
-      "구글 검색 성과 분석에서 같은 상품이 여러 줄로 흩어져 보고가 계속 부정확",
-    ],
-  },
   {
     key: "C",
     question: "상품 4개 텍스트 초안을 콘텐츠팀에 검토 의뢰할까요?",
@@ -55,14 +36,14 @@ const DECISIONS: Decision[] = [
 ];
 
 export default function TopDecisionBox() {
-  const [openKey, setOpenKey] = useState<"B" | "C" | null>(null);
+  const [openKey, setOpenKey] = useState<"C" | null>(null);
 
   return (
     <section className={styles.decisionBox}>
       <div className={styles.decisionHead}>
         <div>
-          <span className={styles.decisionLabel}>오늘 TJ님 결정 2개</span>
-          <h2 className={styles.decisionTitle}>둘 다 운영 사이트 변경이 아니라, 「작업 요청서·초안」을 만들지 결정하는 것입니다.</h2>
+          <span className={styles.decisionLabel}>오늘 TJ님 결정 1개 (B는 ✅ 완료)</span>
+          <h2 className={styles.decisionTitle}>승인안 B는 진행 완료 — 산출물 6개 reports/seo/imweb_*.* 생성됨. 승인안 C만 남았습니다.</h2>
         </div>
         <span className={styles.decisionSubInfo}>아래 카드의 답변 코드를 복사해 채팅으로 회신하면 됩니다.</span>
       </div>
@@ -87,7 +68,7 @@ export default function TopDecisionBox() {
                 <button
                   type="button"
                   className={styles.decisionExpandBtn}
-                  onClick={() => setOpenKey(open ? null : d.key)}
+                  onClick={() => setOpenKey(open ? null : "C")}
                 >
                   {open ? "▲ 결정 결과물 접기" : "▼ YES/NO 하면 무엇이 생기는지 보기"}
                 </button>
