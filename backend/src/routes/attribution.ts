@@ -30,6 +30,7 @@ import {
 } from "../attribution";
 import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
+import { getNpayIntentSummary, listNpayIntents, recordNpayIntent } from "../npayIntentLog";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import {
@@ -1476,6 +1477,48 @@ export const findDuplicateFormSubmitEntry = (
 
 export const createAttributionRouter = () => {
   const router = express.Router();
+
+  router.post("/api/attribution/npay-intent", (req: Request, res: Response) => {
+    try {
+      const body = parseBody(req.body);
+      const result = recordNpayIntent(body, buildRequestContext(req));
+
+      res.status(result.deduped ? 200 : 201).json({
+        ok: true,
+        receiver: "npay_intent",
+        storedAt: "npay_intent_log",
+        intent_id: result.intent.id,
+        intent_key: result.intent.intentKey,
+        deduped: result.deduped,
+        match_status: result.intent.matchStatus,
+        captured_at: result.intent.capturedAt,
+        environment: result.intent.environment,
+        site: result.intent.site,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "npay intent logging failed";
+      res.status(400).json({ ok: false, error: "npay_intent_log_error", message });
+    }
+  });
+
+  router.get("/api/attribution/npay-intents", (req: Request, res: Response) => {
+    try {
+      const site = readOne(req.query.site) || "biocom";
+      const matchStatus = readOne(req.query.matchStatus || req.query.status);
+      const limit = parsePositiveInt(readOne(req.query.limit), 50, 200);
+      const items = listNpayIntents({ site, matchStatus, limit });
+      res.json({
+        ok: true,
+        source: "local_crm_sqlite.npay_intent_log",
+        generatedAt: new Date().toISOString(),
+        summary: getNpayIntentSummary(site),
+        items,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "npay intent list failed";
+      res.status(500).json({ ok: false, error: "npay_intent_list_error", message });
+    }
+  });
 
   router.post("/api/attribution/form-submit", async (req: Request, res: Response) => {
     try {
