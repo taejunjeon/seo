@@ -16,6 +16,18 @@ import {
   listAibioNativeLeads,
   updateAibioNativeLeadStatus,
 } from "../aibioNativeLeadLedger";
+import {
+  AIBIO_CONTACT_DASHBOARD_VERSION,
+  getContactDashboardLead,
+  getContactDashboardSummary,
+  listAuditLogs,
+  listContactDashboardEnums,
+  listContactDashboardLeads,
+  listContactEvents,
+  listContactTasks,
+  recordAuditLog,
+  recordContactEvent,
+} from "../aibioContactDashboardLedger";
 import { listAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import { env } from "../env";
@@ -1377,6 +1389,230 @@ export const createAibioRouter = () => {
       res.json({ ok: true, basedOn: "aibio_payments (12 months)", tiers: rows });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "query failed" });
+    }
+  });
+
+  router.get("/api/aibio/contact-dashboard/enums", (_req: Request, res: Response) => {
+    res.set("Cache-Control", "no-store");
+    res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, enums: listContactDashboardEnums() });
+  });
+
+  router.get("/api/aibio/contact-dashboard/summary", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const rangeDays = Number(req.query.rangeDays);
+      const summary = getContactDashboardSummary({
+        rangeDays: Number.isFinite(rangeDays) ? Math.round(rangeDays) : undefined,
+      });
+      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, summary });
+    } catch (err) {
+      res.status(errorStatusCode(err)).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "summary_failed",
+      });
+    }
+  });
+
+  router.get("/api/aibio/contact-dashboard/leads", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const requestedReveal = readOne(req.query.reveal) === "true";
+      const reveal = requestedReveal && allowAibioNativeAdminWrite(req);
+      if (requestedReveal && !reveal) {
+        res.status(403).json({ ok: false, error: "reveal_forbidden" });
+        return;
+      }
+      const limit = Number(req.query.limit);
+      const offset = Number(req.query.offset);
+      const result = listContactDashboardLeads({
+        status: readOne(req.query.status),
+        assignedTo: readOne(req.query.assignedTo),
+        bucket: readOne(req.query.bucket),
+        search: readOne(req.query.search),
+        limit: Number.isFinite(limit) ? Math.round(limit) : undefined,
+        offset: Number.isFinite(offset) ? Math.round(offset) : undefined,
+        reveal,
+      });
+      if (reveal && result.leads.length > 0) {
+        recordAuditLog({
+          operatorId: readOne(req.header("x-operator-id")) || "operator",
+          action: "reveal_lead_list",
+          leadId: null,
+          targetField: `customer_name+phone:${result.leads.length}`,
+          ip: (req.ip ?? req.socket?.remoteAddress ?? null) || null,
+          userAgent: readOne(req.header("user-agent")) || null,
+        });
+      }
+      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, ...result });
+    } catch (err) {
+      res.status(errorStatusCode(err)).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "leads_failed",
+      });
+    }
+  });
+
+  router.get("/api/aibio/contact-dashboard/leads/:leadId", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const requestedReveal = readOne(req.query.reveal) === "true";
+      const reveal = requestedReveal && allowAibioNativeAdminWrite(req);
+      if (requestedReveal && !reveal) {
+        res.status(403).json({ ok: false, error: "reveal_forbidden" });
+        return;
+      }
+      const leadId = readOne(req.params.leadId);
+      const detail = getContactDashboardLead(leadId, { reveal });
+      if (!detail) {
+        res.status(404).json({ ok: false, error: "lead_not_found" });
+        return;
+      }
+      if (reveal) {
+        recordAuditLog({
+          operatorId: readOne(req.header("x-operator-id")) || "operator",
+          action: "reveal_lead_detail",
+          leadId,
+          targetField: "customer_name+phone",
+          ip: (req.ip ?? req.socket?.remoteAddress ?? null) || null,
+          userAgent: readOne(req.header("user-agent")) || null,
+        });
+      }
+      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, ...detail });
+    } catch (err) {
+      res.status(errorStatusCode(err)).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "lead_detail_failed",
+      });
+    }
+  });
+
+  router.get("/api/aibio/contact-dashboard/leads/:leadId/contact", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!requireAibioNativeContactAccess(req, res)) return;
+      const leadId = readOne(req.params.leadId);
+      const contact = getAibioNativeLeadContact(leadId);
+      if (!contact) {
+        res.status(404).json({ ok: false, error: "lead_not_found" });
+        return;
+      }
+      const operatorId = readOne(req.header("x-operator-id")) || "operator";
+      recordAuditLog({
+        operatorId,
+        action: "view_contact",
+        leadId,
+        targetField: "customer_phone",
+        ip: (req.ip ?? req.socket?.remoteAddress ?? null) || null,
+        userAgent: readOne(req.header("user-agent")) || null,
+      });
+      res.json({
+        ok: true,
+        version: AIBIO_CONTACT_DASHBOARD_VERSION,
+        contact,
+        privacyNotice: "원문 연락처 조회는 audit log에 기록됩니다.",
+      });
+    } catch (err) {
+      res.status(errorStatusCode(err)).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "contact_failed",
+      });
+    }
+  });
+
+  router.get("/api/aibio/contact-dashboard/leads/:leadId/timeline", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const events = listContactEvents(readOne(req.params.leadId));
+      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, events });
+    } catch (err) {
+      res.status(errorStatusCode(err)).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "timeline_failed",
+      });
+    }
+  });
+
+  router.post("/api/aibio/contact-dashboard/leads/:leadId/events", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!allowAibioNativeAdminWrite(req)) {
+        res.status(403).json({ ok: false, error: "forbidden" });
+        return;
+      }
+      const leadId = readOne(req.params.leadId);
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const event = recordContactEvent({
+        leadId,
+        operatorId: body.operatorId,
+        channel: body.channel,
+        direction: body.direction,
+        outcome: body.outcome,
+        customerReaction: body.customerReaction,
+        customerTemperature: body.customerTemperature,
+        note: body.note,
+        nextAction: body.nextAction,
+        nextActionAt: body.nextActionAt,
+        reservationAt: body.reservationAt,
+        excludedReason: body.excludedReason,
+        occurredAt: body.occurredAt,
+      });
+      recordAuditLog({
+        operatorId: typeof body.operatorId === "string" ? body.operatorId : "operator",
+        action: "record_contact_event",
+        leadId,
+        targetField: "contact_event",
+        ip: (req.ip ?? req.socket?.remoteAddress ?? null) || null,
+        userAgent: readOne(req.header("user-agent")) || null,
+      });
+      const detail = getContactDashboardLead(leadId);
+      res.status(201).json({
+        ok: true,
+        version: AIBIO_CONTACT_DASHBOARD_VERSION,
+        event,
+        lead: detail?.lead ?? null,
+      });
+    } catch (err) {
+      res.status(errorStatusCode(err)).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "event_failed",
+      });
+    }
+  });
+
+  router.get("/api/aibio/contact-dashboard/tasks", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const limit = Number(req.query.limit);
+      const tasks = listContactTasks({
+        ownerId: readOne(req.query.ownerId),
+        status: readOne(req.query.status),
+        leadId: readOne(req.query.leadId),
+        limit: Number.isFinite(limit) ? Math.round(limit) : undefined,
+      });
+      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, tasks });
+    } catch (err) {
+      res.status(errorStatusCode(err)).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "tasks_failed",
+      });
+    }
+  });
+
+  router.get("/api/aibio/contact-dashboard/audit-log", (req: Request, res: Response) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      if (!requireAibioNativeContactAccess(req, res)) return;
+      const limit = Number(req.query.limit);
+      const audits = listAuditLogs({
+        leadId: readOne(req.query.leadId),
+        limit: Number.isFinite(limit) ? Math.round(limit) : undefined,
+      });
+      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, audits });
+    } catch (err) {
+      res.status(errorStatusCode(err)).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "audit_failed",
+      });
     }
   });
 

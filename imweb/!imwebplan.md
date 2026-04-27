@@ -6,6 +6,7 @@
 보류 사이트: 바이오컴, 더클린커피는 추후 별도 검토
 작성 목적: AIBIO 센터 홈페이지를 아임웹에서 단계적으로 탈출시키기 위해, 현재 확인 가능한 기능 인벤토리와 자체 개발 범위, PG사 토스페이먼츠 직접 연동 가능성, NestJS 기반 통합 백엔드 전략을 검토한다.
 문서 작성 규칙: `docurule.md` v4 기준. 실행 단계는 `무엇/왜/어떻게/산출물/검증/담당`을 모두 적고, TJ 승인 요청은 추천안·대안·자신감·YES/NO 답변 형식으로 제시한다.
+연결 문서: [[contactdashboard]] — 접수 폼별 컨택 여부, 고객 반응, 다음 액션, 예약/방문/결제 연결을 관리하는 상담 운영 대시보드 정본 설계.
 
 ## 다음 할일
 
@@ -13,6 +14,7 @@
 |---:|---|---|---|
 | 1 | Codex | 완료: 첫 실험 랜딩을 자체 route로 만든다 | 무엇: `/shop_view?idx=25` 성격의 이벤트/체험권 랜딩을 Next.js route로 만들었다. 왜: 전체 홈페이지를 한 번에 옮기지 않고 고유입 랜딩 1개에서 리드 원장을 검증하기 위해서다. 어떻게: `frontend/src/app/shop_view/page.tsx`, `RecoveryLabOfferLanding.tsx`, 공용 `AibioNativeLeadForm.tsx`를 추가했다. 산출물/검증: PC·모바일 screenshot, Playwright 통과, local backend 저장 smoke 통과. |
 | 2 | Codex | 완료: 운영자 고객/리드 리스트를 실제 API에 연결한다 | 무엇: `/aibio-native/admin`에서 자체 리드, 유입, 상태, 담당자, 메모, 예약일, 방문일을 본다. 왜: 상담원이 실제로 쓸 수 있어야 아임웹 탈출 검토가 가능하기 때문이다. 어떻게: `GET /api/aibio/native-leads`, funnel, fallback comparison API를 연결했다. 산출물/검증: Playwright payload 검증, local PATCH smoke 통과. |
+| 2.1 | Codex + Claude Code | 신규: 접수 폼 컨택 관리 대시보드 설계를 구현한다 | 무엇: 상담원이 고객에게 컨택했는지, 고객 반응이 어땠는지, 다음 액션이 무엇인지 기록하는 운영 화면을 만든다. 왜: 상태와 메모만으로는 실제 상담 처리 품질과 광고 리드 품질을 판단할 수 없기 때문이다. 어떻게: `imweb/contactdashboard.md`를 정본으로 두고 백엔드는 컨택 이벤트 불변 로그/API/감사로그를 설계하며, 프론트는 Claude Code가 리스트+상세 패널+타임라인으로 구현한다. 산출물/검증: 컨택 기록 저장, 고객 반응 저장, 원문 연락처 조회 audit, 첫 컨택률/예약률 리포트. |
 | 3 | Codex | 완료: 상세페이지 편집 관리자 초안을 만든다 | 무엇: `/aibio-native/admin/content`에서 첫 실험 랜딩의 히어로 문구, CTA, 이미지 URL/업로드, 카드, 흐름, 폼 문구를 수정한다. 왜: 개발자나 디자이너가 코드 수정 없이 이미지와 상세페이지 내용을 바꿀 수 있어야 하기 때문이다. 어떻게: DB 스키마 변경 없이 `backend/data/aibio-native-content.json` 파일 저장 API를 만들었다. 산출물/검증: content GET/PATCH API, 이미지 업로드 API, Playwright 저장 테스트. |
 | 4 | Codex | 완료: 입력폼 엑셀 분석 관리자 초안을 만든다 | 무엇: `/aibio-native/admin/forms`에서 아임웹 입력폼 엑셀을 업로드하면 행수, 컬럼, 동의, 중복 연락처 hash, 상담 목적/경로/유형 집계를 본다. 왜: 30일 병행 전 기존 입력폼 구조를 자체 원장 필드에 맞춰야 하기 때문이다. 어떻게: `POST /api/aibio/admin/form-export/analyze`가 원문 PII를 반환하지 않고 집계만 반환한다. 산출물/검증: `imweb/aibio-form-export-analysis-20260426.md`, Playwright 업로드 테스트. |
 | 5 | Codex | 완료: 관리자 권한 명부 초안을 만든다 | 무엇: `/aibio-native/admin/access`에서 owner/manager/marketer/designer/viewer 역할과 운영자 명부를 지정한다. 왜: 새 AIBIO 센터 홈페이지에는 고객 목록, 원문 연락처, 상세페이지 편집 권한을 분리해야 하기 때문이다. 어떻게: 정식 로그인 전 단계로 `AIBIO_NATIVE_ADMIN_TOKEN` 보호 + 파일 기반 operator 명부를 구현했다. 산출물/검증: access GET/PUT API와 권한 기준표 화면. |
@@ -32,6 +34,7 @@
 | 입력폼 분석 | `http://localhost:7010/aibio-native/admin/forms` | 아임웹 입력폼 엑셀 업로드와 집계/필드 매핑 확인 | 로컬 |
 | 상세페이지 편집 | `http://localhost:7010/aibio-native/admin/content` | 랜딩 문구, CTA, 이미지 URL/업로드 편집 | 로컬 |
 | 관리자 권한 | `http://localhost:7010/aibio-native/admin/access` | 운영자 명부와 역할 권한 초안 | 로컬 |
+| 컨택 관리 설계 | `obsidian://open?vault=seo&file=imweb%2Fcontactdashboard` | 접수 폼 컨택 여부, 고객 반응, 다음 액션, 예약/방문/결제 연결 설계 | 문서 |
 | Backend health | `http://localhost:7020/health` | 백엔드 설정/상태 확인 | 로컬 |
 
 ## 10초 요약
