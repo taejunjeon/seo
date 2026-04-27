@@ -1,125 +1,83 @@
-• 문서 반영은 끝났소. data/datacheck0406.md, roadmap/roadmap0327.md, roadmap/phase1.md까지 맞춰 두었고, 새 Phase 문서는 만들지
-  않고 기존 phase1.md에 정합성 체크 루틴을 녹였소.
+# BigQuery Current Decision
 
-  빅쿼리는 “지금 분석을 시작”보다 “지금부터 raw 데이터를 쌓아두기”가 목적이니, 아래 순서로 준비하면 되오.
+작성 시각: 2026-04-27 16:58 KST
+기준일: 2026-04-27
+문서 성격: BigQuery 현재 판단 요약
+정본 실행 계획: `data/bigquery_hurdlers_cutover_20260427.md`
+이전 참고 문서: `data/bigquery0409.md`, `data/bigquery_migration_plan_20260421.md`
 
-  핵심 판단
+## 10초 요약
 
-  1. 지금 바로 해야 할 것은 GA4 -> BigQuery export를 켜는 일이오.
-  2. 다만 “히스토리를 쌓아두자”가 목적이면 BigQuery sandbox는 권하지 않소.
-     이유: sandbox는 테이블이 60일 뒤 자동 만료되고 streaming도 안 되오.
-  3. 따라서 실무 권장은 billing 연결된 BigQuery 프로젝트 하나를 만들고, 여기에 3개 GA4 property를 모두 연결하는 것이오.
+결론은 **이전 bigquery 메모 그대로 진행하면 안 된다**.
+예전 메모의 큰 방향, 즉 GA4 raw event를 BigQuery에 쌓아야 한다는 판단은 맞지만, 현재 구조는 더 복잡하다.
+더클린커피 BigQuery는 이미 `project-dadba7dd-0229-4ff6-81c`에서 정상 조회되고, biocom만 `hurdlers-naver-pay` 권한에 막혀 있으므로 biocom 이관 계획을 별도로 진행해야 한다.
+2026-04-27 TJ 화면에서 biocom BigQuery Link는 이미 한도에 도달한 상태로 확인됐다.
+따라서 새 링크를 병행 생성하는 방식은 불가하고, 단기적으로는 허들러스 dataset read 권한을 받는 것이 먼저다.
 
-  이 프로젝트 기준 권장 구조
+## 지금 결론
 
-  1. GCP 프로젝트를 1개 정하시오.
-     추천 이름(추론): seo-ga4-prod 또는 seo-warehouse-prod
-     운영 목적이면 프로젝트를 쪼개지 말고 하나로 가는 편이 낫소.
-  2. 지역은 처음에 한번만 정하시오.
-     BigQuery dataset location은 생성 후 못 바꾸오.
-     실무 추천(추론): 한국 운영이면 asia-northeast3 (Seoul) 하나로 통일하시오.
-  3. raw dataset은 GA4가 자동 생성하오.
-     이름은 analytics_<property_id> 형식이오.
-  4. 별도로 수동 dataset 하나를 만드시오.
-     이름 예시: seo_marts
-     이건 나중에 GA4 + Toss + attribution ledger 조인용 view/table을 두는 곳이오.
+추천안은 `data/bigquery_hurdlers_cutover_20260427.md`의 A다.
 
-  GA4에서 실제로 누를 것
+- 허들러스 `hurdlers-naver-pay.analytics_304759974`에 우리 서비스 계정 read 권한을 먼저 받는다.
+- 현재 링크를 삭제하기 전까지 우리 쪽 프로젝트에 biocom을 새로 병행 연결할 수 없다.
+- 과거 table 보존 방식이 정해진 뒤에만 기존 링크 삭제와 새 링크 생성을 검토한다.
+- 재연결한다면 1순위 후보는 coffee가 이미 있는 `project-dadba7dd-0229-4ff6-81c`, 2순위 후보는 `seo-aeo-487113`이다.
 
-  1. Google Cloud Console에서 프로젝트를 만들고 BigQuery API를 켜시오.
-  2. GA4 Admin으로 가시오.
-  3. 각 property에서 Product Links -> BigQuery Links -> Link로 들어가시오.
-  4. BigQuery 프로젝트를 선택하시오.
-  5. location을 고르시오.
-  6. export할 data stream을 고르시오.
-  7. export 방식은 우선 Daily만 켜시오.
-     지금 목적은 히스토리 적재라서 이걸로 충분하오.
-  8. Streaming은 당장 꼭 필요할 때만 추가하시오.
-     비용이 붙고, 새 사용자/새 세션 attribution 데이터는 streaming에서 불완전할 수 있소.
-  9. 연결 후 24시간 안에 첫 데이터가 들어오기 시작하오.
+## 왜 예전 메모만으로 부족한가
 
-  어떤 property를 켜야 하느냐
-  현재 코드상 사이트 매핑은 backend/src/ga4.ts에 이미 잡혀 있소.
+예전 메모는 `billing 연결된 BigQuery 프로젝트 1개에 3개 GA4 property를 모두 연결`하는 일반론이었다.
+하지만 현재 프로젝트의 실제 상태는 아래와 다르다.
 
-  - biocom -> GA4_BIOCOM_PROPERTY_ID
-  - thecleancoffee -> GA4_COFFEE_PROPERTY_ID
-  - aibio -> GA4_AIBIOCOM_PROPERTY_ID
+| 항목 | 예전 메모 | 2026-04-27 현재 판단 |
+|---|---|---|
+| 목표 구조 | 새 프로젝트 1개에 3개 property 연결 | coffee는 이미 `project-dadba7dd-0229-4ff6-81c`에서 정상. biocom만 별도 이관 |
+| biocom | 바로 새 연결 | 링크 한도 도달. 허들러스 read 권한 확보가 먼저 |
+| coffee | 권한 확보 후 추가 | 이미 read-only freshness 정상 |
+| aibio | 같은 방식으로 추가 | 별도 확인 필요. 이번 문서는 biocom cutover 우선 |
+| streaming | 필요 시 추가 | 초기에는 Daily만 추천. 운영 판단은 stable daily table 기준 |
+| 해제 순서 | 언급 약함 | 새 export 검증과 과거 table 보존 뒤 허들러스 해제 |
 
-  즉, 최종적으로는 3개 property를 다 켜야 하오.
-  다만 커피 property 접근 권한이 아직 없으면 biocom, aibio부터 먼저 켜고 coffee는 권한 확보 즉시 추가하면 되오.
+## 현재 실측 상태
 
-  권한 준비
+2026-04-27 16:52 KST에 `backend/scripts/check-source-freshness.ts --json`을 read-only로 실행했다.
 
-  1. GA4 쪽에서는 해당 property Editor 이상 권한이 필요하오.
-  2. GCP 쪽에서는 BigQuery 프로젝트 Owner 권한이 필요하오.
-  3. 연결이 되면 Google이 firebase-measurement@system.gserviceaccount.com 계정을 만들고, 이 계정이 BigQuery에 써야 하오.
-  4. 연결 뒤에는 그 서비스 계정이 프로젝트에 있고, dataset에 쓸 수 있는지 확인하시오.
+| source | site | freshness | 결과 | confidence |
+|---|---|---|---|---|
+| `ga4_bigquery_thecleancoffee` | thecleancoffee | fresh | `events_20260426`, rows `1,459`, purchase `11`, distinct transaction `11` | A |
+| `ga4_bigquery_biocom` | biocom | blocked | `hurdlers-naver-pay.analytics_304759974`에서 `bigquery.datasets.get denied` | D |
+| TJ GA4 Admin 화면 | biocom | link exists | project `hurdlers-naver-pay`, location `서울(asia-northeast3)`, 만든 사람 `team@hurdlers.kr`, 작성일 `2024. 9. 9.`, Daily ON | A |
+| TJ GA4 Admin 화면 | biocom | link limit reached | `연결` 버튼 비활성화, `링크 한도에 도달했습니다` 표시 | A |
 
-  미리 꼭 정해둘 운영 규칙
+이 결과 때문에 biocom은 `새 프로젝트에 하나 더 연결`로 풀 수 없다.
+허들러스 read 권한을 먼저 받고, 완전 이관은 단절형 재연결로 별도 승인해야 한다.
 
-  1. raw export dataset은 손대지 말고 그대로 두시오.
-  2. 사람이 직접 쿼리할 것은 seo_marts 같은 별도 dataset에 view/table로 만드시오.
-  3. 3개 property 모두 같은 region으로 두시오.
-     region이 다르면 나중에 cross-query가 귀찮아지오.
-  4. BigQuery 예산 알림을 걸어두시오.
-     예: 월 1만원, 3만원, 5만원 알림.
-  5. 디버그/스모크 이벤트를 분리하시오.
-     지금은 raw를 최대한 남기되, 나중에 export volume이 커지면 staging/debug event만 제외하시오.
-     purchase, begin_checkout, page_view를 너무 일찍 빼면 나중에 후회하오.
+## 실행 정본
 
-  이 프로젝트에서 특히 중요한 점
-  BigQuery를 켠다고 바로 귀속 문제가 해결되진 않소. 지금 병목은 raw data 부재보다 공통 join key 부족이오.
-  그래서 export와 함께 아래를 계속 챙겨야 하오.
+실행은 아래 문서를 따른다.
 
-  1. payment_success payload에 orderId, paymentKey를 계속 남기시오.
-  2. 가능하면 웹 이벤트에 user_pseudo_id, ga_session_id 계열도 같이 남기시오.
-  3. 나중에 warehouse에서 GA4 purchase와 attribution_ledger를 붙이려면 최소 site, event_date, transaction_id/orderId,
-     paymentKey, user_pseudo_id 중 일부가 필요하오.
+- `data/bigquery_hurdlers_cutover_20260427.md`
 
-  첫날 검증용 쿼리
-  첫 데이터가 들어온 뒤에는 아래 두 개만 먼저 돌리면 되오.
+핵심 순서:
 
-  SELECT
-    COUNT(*) AS events,
-    COUNTIF(event_name = 'purchase') AS purchase_events
-  FROM `YOUR_PROJECT.analytics_PROPERTY_ID.events_*`
-  WHERE _TABLE_SUFFIX = FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE('Asia/Seoul'), INTERVAL 1 DAY));
+1. TJ가 허들러스에 `dataset 존재`, `latest events table`, `dataset location`, `read 권한`, `2026-04-01 이후 table copy 가능 여부`를 요청한다.
+2. 허들러스가 서비스 계정 권한을 주면 Codex가 freshness와 raw sanity query를 실행한다.
+3. 과거 table 보존 또는 보존 불가 사유를 확정한다.
+4. 재연결 필요성이 있으면 기존 링크 삭제와 새 링크 생성을 별도 승인한다.
+5. 새 링크 생성 후 첫 daily table이 생기면 Codex가 event count, purchase, distinct transaction_id를 검증한다.
+6. 검증 후 `backend/src/sourceFreshness.ts`의 biocom BigQuery source를 전환한다.
 
-  SELECT
-    COUNTIF(event_name = 'purchase') AS purchase_events,
-    COUNT(DISTINCT (
-      SELECT ep.value.string_value
-      FROM UNNEST(event_params) ep
-      WHERE ep.key = 'transaction_id'
-    )) AS distinct_transaction_ids,
-    COUNTIF(user_pseudo_id IS NULL) AS missing_user_pseudo_id,
-    COUNTIF(collected_traffic_source.manual_source IS NULL) AS missing_manual_source
-  FROM `YOUR_PROJECT.analytics_PROPERTY_ID.events_*`
-  WHERE _TABLE_SUFFIX BETWEEN '20260401' AND '20260406';
+## 지금 TJ 결정이 필요한 것
 
-  이 두 개로
+추천안 A: 허들러스 `analytics_304759974` read 권한을 먼저 받는다.
 
-  - export가 실제로 들어오는지
-  - purchase가 쌓이는지
-    바로 알 수 있소.
+제 추천: **YES**
+추천 자신감: **90%**
+이유: 링크 한도 때문에 병행 신규 연결이 막혔고, 현재 export는 이미 허들러스에서 Daily로 쌓이고 있다.
+부족 데이터: 허들러스가 서비스 계정 권한과 과거 table copy를 허용할지.
+답변 형식: `YES` 또는 `NO: 바로 재연결 검토`
 
-  제가 권하는 실제 실행 순서
+## 공식 근거
 
-  1. billing 연결된 GCP 프로젝트 1개 생성
-  2. BigQuery API 활성화
-  3. biocom property BigQuery link
-  4. aibio property BigQuery link
-  5. coffee property는 접근 권한 확보 즉시 link
-  6. seo_marts dataset 생성
-  7. 예산 알림 생성
-  8. 첫 export 확인 후 제가 ga4_purchase_base, ga4_not_set_daily, ga4_toss_reconcile용 SQL 초안까지 바로 잡겠소
-
-  출처:
-
-  - GA4 BigQuery export 설정: https://support.google.com/analytics/answer/9823238?hl=en
-  - GA4 BigQuery export 동작/제한: https://support.google.com/analytics/answer/9358801?hl=en
-  - GA4 BigQuery export schema: https://support.google.com/analytics/answer/7029846?hl=en
-  - BigQuery dataset 생성/지역 제한: https://cloud.google.com/bigquery/docs/datasets
-  - BigQuery sandbox 제한: https://docs.cloud.google.com/bigquery/docs/sandbox
-
-  원하시면 다음 턴에서 바로 TJ님이 콘솔에서 그대로 따라할 10분짜리 체크리스트 형식으로 더 짧고 실행형으로 줄여드리겠소.
+- GA4 BigQuery Export 설정과 삭제는 GA4 Admin > Product Links > BigQuery Links에서 한다. 출처: https://support.google.com/analytics/answer/9823238
+- daily export는 안정적인 전날 raw event table이고, streaming은 빠르지만 attribution data 제한이 있다. 출처: https://support.google.com/analytics/answer/9358801
+- GA4 BigQuery dataset 이름은 `analytics_<property_id>`이고 daily table은 `events_YYYYMMDD` 형식이다. 출처: https://support.google.com/analytics/answer/7029846

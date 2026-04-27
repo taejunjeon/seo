@@ -1,12 +1,12 @@
 # Data Check Plan
 
 작성 시각: 2026-04-17 19:05 KST
-최종 업데이트: 2026-04-25 11:12 KST
+최종 업데이트: 2026-04-27 16:58 KST
 기준일: 2026-04-17
 문서 성격: 가변형 기준 문서
 참조 고정 스냅샷: `data/datacheck0406.md`, `data/datacheck0415.md`, `운영db.md`, `capivm/capi.md`
 참조 증거 저장소: `data/roasphase.md` (2026-04-12 기준 Meta ROAS / CAPI dedup / 식별자 품질 / campaign alias의 주문 단위 증거)
-참조 sub-plan: `data/!coffee_excel_backfill_plan.md` (더클린커피 엑셀 백필 정본 · phone 비마스킹 LTV 산정), `data/dbstructure.md` (3채널 DB 구조 · SQLite vs PG 검토)
+참조 sub-plan: `data/!coffee_excel_backfill_plan.md` (더클린커피 엑셀 백필 정본 · phone 비마스킹 LTV 산정), `data/dbstructure.md` (3채널 DB 구조 · SQLite vs PG 검토), `data/bigquery_hurdlers_cutover_20260427.md` (biocom GA4 BigQuery 허들러스 해제·우리 쪽 이관 정본)
 
 ## 다음 할일로 임팩트가 큰 일 (2026-04-25 11:12 KST 기준)
 
@@ -17,6 +17,15 @@
 3. [Codex] NPay 매출 비중을 최근 30/60/90일 로컬/운영 원장 기준으로 산출한다. 이유: v138로 NPay 클릭 purchase 오염은 막았지만, NPay 실제 결제 후 biocom 복귀 누락은 여전히 GA4/Meta 암흑 매출이다. 비중을 알아야 `server-side 보정`, `NPay 제거`, `아임웹 설정 수정` 중 하나를 결정할 수 있다.
 4. [TJ] Meta Events Manager에서 biocom pixel `1283400029487161`의 2026-04-18 12:00 KST Purchase spike와 custom `Refund` 수신 여부를 캡처한다. 이유: 서버 로그와 Graph stats는 수신 정황을 보여주지만, 운영 증빙은 Events Manager UI가 가장 빠르다.
 5. [Codex] VM API 500은 위 1~4가 닫힌 뒤 처리한다. 이유: TJ 확인대로 `https://att.ainativeos.net/`은 일부 프론트만 VM에 올린 상태라 현재 blocker가 아니다.
+
+### 2026-04-27 BigQuery 판단 보강
+
+biocom BigQuery는 기존 `data/bigquery.md`의 일반론대로 바로 진행하지 않는다.
+2026-04-27 16:52 KST read-only freshness 기준 더클린커피 `project-dadba7dd-0229-4ff6-81c.analytics_326949178`은 fresh지만, biocom `hurdlers-naver-pay.analytics_304759974`는 `bigquery.datasets.get denied`로 막혀 있다.
+TJ GA4 화면에서는 biocom BigQuery Link가 `hurdlers-naver-pay`, location `서울(asia-northeast3)`, 만든 사람 `team@hurdlers.kr`, 작성일 `2024. 9. 9.`, Daily ON으로 확인됐고, `링크 한도에 도달했습니다`가 표시됐다.
+정본 실행 계획은 `data/bigquery_hurdlers_cutover_20260427.md`로 고정한다.
+핵심 순서는 `허들러스 read 권한 확보 -> raw sanity query -> 2026-04-01 이후 허들러스 table 보존 확인 -> 재연결 승인 여부 결정 -> 기존 링크 삭제 후 새 링크 생성 -> source freshness 전환`이다.
+허들러스 해제는 첫 단계가 아니라, 과거 table 보존과 재연결 승인 뒤에만 진행한다.
 
 ### P0. 데이터 원천 교차검증 운영 프로토콜
 
