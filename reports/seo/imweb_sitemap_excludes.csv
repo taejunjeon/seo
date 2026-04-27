@@ -1,0 +1,8 @@
+priority,url_pattern,current_in_sitemap,action,reason,verification_step
+P0,/login*,NO (이미 없음),sitemap에 들어오지 않도록 모니터링,로그인 URL은 색인 대상 아님,1주일 후 sitemap.xml 직접 다운로드해서 검색
+P0,/?q=*,NO,모니터링,내부 검색결과,동일
+P0,/*interlock=shop_review*,NO,모니터링,리뷰 잡음,동일
+P0,/shop_cart,NO,모니터링,장바구니,동일
+P0,/site_join_*,NO,모니터링,회원가입 단계,동일
+P1,/healthinfo/?bmode=view&idx=*,NO (현재는 상위 칼럼만 포함),상위 칼럼과 주요 글만 sitemap 포함 유지. 모든 글을 추가하지는 말 것,글이 너무 많으면 색인 예산 분산,sitemap loc 수가 시간이 지나도 폭증하지 않는지 모니터링
+INFO,sitemap 자체 상태,sitemap URL 239개 / parameter URL 0개 / 제외 후보 0개,(추가 작업 없음),이번 라운드 기준 sitemap.xml 자체는 깨끗함,1주일 후 동일 측정

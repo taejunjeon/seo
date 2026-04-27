@@ -1,0 +1,12 @@
+priority,url_pattern,reason,imweb_action,verification_step,risk
+P0,/login (모든 변형),로그인 페이지는 검색결과에 노출할 가치 없음. back_url 파라미터로 인해 같은 페이지가 여러 URL로 흩어짐 (3건 확인),페이지 SEO 「검색엔진 색인 차단 (noindex)」 체크,시크릿 모드에서 view-source 확인 → meta name=robots content=noindex 존재,낮음
+P0,/site_join_pattern_choice,회원가입 단계 페이지. back_url 파라미터로 잡음,동일 (noindex),동일,낮음
+P0,/site_join_type_choice,동일,동일 (noindex),동일,낮음
+P0,/membership,사용자 전용 페이지,동일 (noindex),동일,낮음
+P0,/shop_cart,장바구니. 사용자별이라 검색결과 무의미,동일 (noindex),동일,낮음
+P0,/shop_mypage (있다면),마이페이지. 사용자별,동일 (noindex),동일,낮음
+P0,/?q=* (모든 검색결과 페이지),내부 검색결과는 검색엔진에 무의미. 페이지네이션과 only_photo로 무한 변형,robots.txt에 Disallow: /?q= 와 Disallow: /*?q=* 추가,robots.txt 직접 열어 규칙 확인 + GSC URL 검사로 차단됨 확인,낮음
+P0,/*interlock=shop_review*,같은 리뷰가 여러 URL로 검색결과에 떠서 클릭률 떨어뜨림. 잡음 그룹 10건,robots.txt에 Disallow: /*interlock=shop_review* 추가,동일,낮음
+P0,/*&page=*&only_photo=*,검색결과 페이지네이션 잡음,robots.txt에 Disallow: /*&page=*&only_photo=* 추가,동일,낮음
+P1,/?mode=privacy,홈의 별칭. 정책 본문 페이지로 redirect 또는 noindex,redirect to 정책 페이지 또는 noindex 적용,redirect 후 mode=privacy 열어서 정책 페이지로 이동 확인,낮음
+P1,/?mode=policy,동일,동일,동일,낮음
