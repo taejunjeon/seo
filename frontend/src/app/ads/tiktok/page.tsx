@@ -1105,7 +1105,7 @@ export default function TikTokAdsPerformancePage() {
                   : missingAdsDates.length > 0
                     ? `선택 기간 중 ${missingAdsDates.join(", ")} TikTok Ads 일별 데이터가 아직 로컬에 없습니다. 해당 날짜의 비용 0원은 실제 무집행 확정값이 아니라 미수집 표시입니다. 현재 Ads 일별 데이터 범위는 ${adsCoverageText}입니다.`
                   : guardVerified
-                    ? `TJ 관리 Attribution VM tiktok_pixel_events 기준으로 확정 Purchase 허용 ${fmtNum(eventFinal?.releasedConfirmedPurchase)}건, pending Purchase 차단 ${fmtNum(eventFinal?.blockedPendingPurchase)}건, PlaceAnOrder 대체 ${fmtNum(eventFinal?.sentReplacementPlaceAnOrder)}건이 확인됐습니다. 이상 release, request error, final 누락은 없습니다.`
+                    ? `TJ 관리 Attribution VM tiktok_pixel_events 기준으로 결제완료라 Purchase 전송 ${fmtNum(eventFinal?.releasedConfirmedPurchase)}건, 미입금이라 Purchase 차단 ${fmtNum(eventFinal?.blockedPendingPurchase)}건, PlaceAnOrder 대체 ${fmtNum(eventFinal?.sentReplacementPlaceAnOrder)}건이 확인됐습니다. 이 값은 TikTok 광고 귀속 구매 수가 아니라 Pixel 처리 로그입니다.`
                     : `TikTok 플랫폼은 구매값 ${fmtKRW(summary?.purchaseValue)}와 ROAS ${fmtRoas(summary?.platformRoas)}를 보고하지만, TJ 관리 Attribution VM 원장의 TikTok 귀속 confirmed 매출은 ${fmtKRW(data?.gap.confirmedRevenue)}입니다. pending ${fmtNum(pending.orders)}건 중 24시간 미만 대기는 ${fmtNum(stillPending.orders)}건이고, 24시간 초과 미입금 만료 후보는 ${fmtNum(expiredUnpaid.orders)}건 ${fmtKRW(expiredUnpaid.amount)}입니다.`}
             </p>
           </section>
