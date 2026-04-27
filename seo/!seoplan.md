@@ -1,7 +1,7 @@
 # 바이오컴 SEO/AEO 실행 플랜
 
 작성 시각: 2026-04-27 18:54 KST  
-최근 업데이트: 2026-04-28 KST (GSC 도메인 속성 권한 추가 + UX 고도화)  
+최근 업데이트: 2026-04-28 KST (UX 2차 고도화 — 결정 박스·업무 언어·문제만 보기·결정 결과물·GSC baseline·canonical 검증·AEO 설명)  
 기준일: 2026-04-28  
 연결 문서: [[seofeedback0427|seo/seofeedback0427.md]], [[seofeedback0427reply|seo/seofeedback0427reply.md]], [[!frontmenu|seo/!frontmenu.md]], [[docurule|docurule.md]]  
 스크린샷: [seo/screnshot/](./screnshot/) (00_full_page · 01_overview · 02_live_gsc · 03_url_policy · 04_jsonld · 05_product_text · 06_checklist · 07_approvals)  
@@ -90,7 +90,50 @@ Confidence: 87%
 - 상품 텍스트 매트릭스: `reports/seo/product_text_block_matrix.csv`
 - 운영 반영 체크리스트: `reports/seo/operation_change_checklist.md`
 
-### 2026-04-28 진행 (GSC 도메인 속성 권한 + UX 고도화)
+### 2026-04-28 진행 (UX 2차 고도화 + GSC P0 작업 진수)
+
+#### 표현 수정 (B 승인안 명확화)
+
+- **이전**: 「대표 URL 정책 발행 → 아임웹·robots·sitemap 반영」 (운영 반영처럼 읽힘)
+- **변경**: 「운영팀이 그대로 작업할 수 있는 URL 정리 요청서 만들기」 (요청서 「초안」을 만드는 단계임을 명확화). 답변 코드도 "YES: URL 정리 요청서 만들기 (운영 반영은 별도 승인)"으로 수정.
+- **C 승인안도 동일하게**: 「상품 4개 텍스트 초안을 콘텐츠팀에 검토 의뢰」 (의뢰만 함, 운영 반영은 별도). 답변: "YES: 상품 4개 텍스트 초안 검토 의뢰 (운영 반영은 별도 승인)"
+
+#### 신규 컴포넌트 (UX 2차)
+
+- `TopDecisionBox.tsx` — `/seo` 최상단 sticky 박스. B/C 결정만 노란 강조로 띄우고 답변 한 클릭 복사 + 「YES/NO 하면 무엇이 생기는지」 펼침
+- `BaselineSection.tsx` — GSC 7/28/90일 baseline KPI 3장 + 검색어/페이지 TOP5 비교 (P0)
+- `CanonicalDistributionCard.tsx` — 시범 6개 묶음 (상품 4 + 홈 + 칼럼 1)에 대해 같은 상품이 여러 URL로 흩어졌는지 GSC 28일 노출 분포로 자동 분석. 「판정」 카드 (B 승인 권장 / 검토 필요 / 정리됨) 노출 (P0)
+- `AeoExplainerSection.tsx` — AEO 확장이 무엇·왜·파급력. 질문형 검색 패턴 6종 표 + 3단계 작업 흐름 (각 단계가 운영 영향 0인지 있는지 명시)
+- `ImpactBadge.tsx` — 「읽기 전용 / 사이트 변경 없음」 vs 「제안서 생성 / 팀 협의 없이 바로 가능」 vs 「운영 반영 필요 / TJ 승인 필요」 vs 「실시간 데이터」 4종 배지
+- `PlainTerm.tsx` — 쉬운말 + 괄호에 전문용어 + 한 줄 설명 패턴
+
+#### 섹션별 개선
+
+- 모든 섹션 헤더에 ImpactBadge 1개 부착 → 사용자가 「이 카드가 운영을 바꾸는 카드인지 분석 카드인지」 한 눈에 판단
+- 「URL 정책」 → 「URL 종류별 처리 기준표 (URL 정책)」 형식으로 헤더 변경
+- 「JSON-LD」 → 「검색엔진 설명서 코드 (JSON-LD · 구조화 데이터)」
+- 「상품 텍스트」 → 「상품 텍스트 초안 (콘텐츠팀 의뢰용)」
+- URL 인벤토리: 기본은 「⚠️ 문제 있는 URL만 (parameter · 잡음 유형 · 200 아닌 응답 · redirect 후보)」 표시, 「전체 URL 보기」 토글로 분석가 모드
+- 승인안 카드: 「✅ YES 하면 생성되는 것」 (실제 산출물 5개), 「⚠️ NO 하면 발생하는 일」 (구체적 영향 3~4개) 리스트로 재구성. 「다음 단계」 항목 추가로 YES 후 흐름 안내
+- 용어 통일: canonical→대표 URL · noindex→검색결과에서 숨김 · sitemap→검색엔진에 제출할 URL 목록 · JSON-LD→검색엔진 설명서 코드 · GSC→구글 검색 성과 · Rich Results→검색결과 부가 표시
+
+#### 사이드 nav 재정렬 (10개 섹션)
+
+종합 점수 → 지금 검색 성과 → 성과 기준선 → 대표 URL 검증 → URL 처리 기준표 → 검색엔진 설명서 → 상품 텍스트 초안 → AEO 확장 → 운영 체크리스트 → 승인 현황. TopDecisionBox는 sidebar에는 없고 본문 최상단 고정.
+
+### 2026-04-28 진행 (GSC 도메인 속성 권한 + UX 1차 고도화)
+
+#### GSC P0 작업 진수 결과 (2차 라운드)
+
+| 작업 | 상태 | 위치 | 비고 |
+|---|---|---|---|
+| baseline 7/28/90일 | 완료 | `BaselineSection.tsx` | sc-domain:biocom.kr 기준. 검색어/페이지 TOP5 비교 토글 |
+| canonical 정책 검증 | 완료 (시범 6개) | `CanonicalDistributionCard.tsx` | 매처가 시범 패턴이라 일부 상품은 매칭률 낮음. 다음 라운드에서 reports/seo/url_inventory.csv 자동 매핑으로 확장 |
+| URL별 GSC 성과 통합 | 완료 (canonical 카드 안에서) | 같은 카드 | 변형 URL별 노출/클릭/CTR/share % 표시 |
+| AEO 질문형 query 자동 추출 | 설명만 (Phase3-Sprint9) | `AeoExplainerSection.tsx` | TJ가 「AEO 진행해」 회신하면 Codex가 GSC에서 자동 추출 |
+| 시범 4개 상품 시계열 | 다음 라운드 | — | baseline 카드에 페이지 필터 옵션 추가 예정 |
+
+API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않고 상위 데이터 위주」 경고 명시.
 
 #### GSC API 연동 상태 변경
 

@@ -5,6 +5,7 @@ import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 import WhyCallout from "./WhyCallout";
 import Glossary from "./Glossary";
+import ImpactBadge from "./ImpactBadge";
 import type { JsonLdResponse } from "./seo.types";
 
 type Props = {
@@ -54,23 +55,26 @@ export default function JsonLdSection({ data }: Props) {
   return (
     <section id="jsonld" className={styles.section}>
       <div className={styles.sectionHead}>
-        <h2 className={styles.sectionH}>JSON-LD (구조화 데이터)</h2>
+        <div className={styles.sectionTitleGroup}>
+          <h2 className={styles.sectionH}>검색엔진 설명서 코드 <span className={styles.sectionHTech}>(JSON-LD · 구조화 데이터)</span></h2>
+          <ImpactBadge variant="readonly" />
+        </div>
         <span className={styles.sectionTag}>jsonld_validation_matrix.csv · jsonld_insertion_snippets.md</span>
       </div>
 
-      <WhyCallout tone="info" title="JSON-LD가 뭐고 왜 필요한가요">
+      <WhyCallout tone="info" title="검색엔진 설명서 코드가 뭐고 왜 필요한가요">
         <p style={{ marginBottom: 8 }}>
-          <strong>JSON-LD</strong>는 페이지 안에 숨겨두는 작은 코드(<code>&lt;script type=「application/ld+json」&gt;</code>)입니다.
+          <strong>검색엔진 설명서 코드(JSON-LD)</strong>는 페이지 안에 숨겨두는 작은 코드(<code>&lt;script type=「application/ld+json」&gt;</code>)입니다.
           사람 눈에는 안 보이지만, 검색엔진과 AI에게 「이 페이지는 상품이고, 가격은 X원, 평점은 Y, 작성자는 Z」처럼
           본문을 추측할 필요 없이 직접 정확하게 알려주는 역할을 합니다.
         </p>
         <p style={{ marginBottom: 8 }}>
           <strong>없으면 무엇이 문제?</strong> 검색엔진은 본문 텍스트만 보고 추측하기 때문에 (1) 별점·가격·재고 같은
-          <strong> 리치 결과(Rich Results)가 검색결과에 안 뜨고</strong>, (2) 같은 노출수에서 다른 사이트 대비 클릭률이 떨어지고,
+          <strong> 검색결과 부가 표시(Rich Results)가 안 뜨고</strong>, (2) 같은 노출수에서 다른 사이트 대비 클릭률이 떨어지고,
           (3) AI 검색(ChatGPT, Perplexity)이 우리 상품·칼럼을 인용할 가능성이 줄어듭니다.
         </p>
         <p>
-          <strong>현재 상태</strong>: 핵심 6개 페이지 모두 JSON-LD 0개. 운영 영향이 거의 없는 안전한 작업이라 시범 삽입 1순위입니다.
+          <strong>현재 상태</strong>: 핵심 6개 페이지 모두 검색엔진 설명서 코드 0개. 이 화면은 「복사해서 어디에 붙여 넣을지」 안내만 — 실제 게시는 별도 승인입니다.
         </p>
       </WhyCallout>
 
@@ -118,16 +122,15 @@ export default function JsonLdSection({ data }: Props) {
         ))}
       </ol>
 
-      <h3 className={styles.colH} style={{ marginTop: 28 }}>삽입 스니펫 ({data.snippets.length})</h3>
-      <WhyCallout tone="info">
-        아래 5개 코드 블록은 「바로 복사해서 붙여 넣을 수 있는 형태」입니다.
-        각 카드를 펼치면 <strong>이 스니펫이 무엇을, 왜, 어디에 넣어야 하는지</strong>가 함께 나옵니다.
-        「코드 복사」 버튼을 누르고 아임웹 페이지 <code>&lt;head&gt;</code> 또는 GTM 사용자 정의 HTML 태그에 붙여 넣으세요.
-        반영 후{" "}
-        <Glossary term="Rich Results Test" short="구글이 제공하는 JSON-LD 검증 도구.">
-          search.google.com/test/rich-results 에서 URL을 입력하면 JSON-LD가 잘 인식되는지 즉시 확인 가능.
+      <h3 className={styles.colH} style={{ marginTop: 28 }}>삽입 스니펫 ({data.snippets.length}) <ImpactBadge variant="needs-approval" /></h3>
+      <WhyCallout tone="warning">
+        아래 5개 코드 블록은 「복사해서 어디에 붙여 넣을지」 안내입니다. <strong>실제 사이트 게시는 운영 반영이라 별도 TJ 승인이 필요합니다</strong>.
+        각 카드를 펼치면 무엇을, 왜, 어디에 넣어야 하는지 안내가 함께 나옵니다.
+        게시 후에는{" "}
+        <Glossary term="검색결과 부가 표시 검증 (Rich Results Test)" short="구글이 제공하는 무료 검증 도구.">
+          search.google.com/test/rich-results 에 URL을 넣으면 검색엔진 설명서 코드가 잘 인식되는지 즉시 확인 가능.
         </Glossary>
-        로 한 번 검증한 다음, Search Console에서 색인 요청을 보내면 1~7일 안에 검색 결과에 반영됩니다.
+        로 검증 → 구글 검색 콘솔에서 색인 요청 → 1~7일 안에 검색결과에 반영.
       </WhyCallout>
       <div className={styles.snippetList}>
         {data.snippets.map((s, idx) => {

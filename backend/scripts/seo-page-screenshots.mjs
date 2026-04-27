@@ -10,11 +10,14 @@ const URL = process.env.SEO_URL || "http://localhost:7010/seo";
 const SECTIONS = [
   { id: "overview", file: "01_overview.png" },
   { id: "live-gsc", file: "02_live_gsc.png" },
-  { id: "url-policy", file: "03_url_policy.png" },
-  { id: "jsonld", file: "04_jsonld.png" },
-  { id: "product-text", file: "05_product_text.png" },
-  { id: "checklist", file: "06_checklist.png" },
-  { id: "approvals", file: "07_approvals.png" },
+  { id: "baseline", file: "03_baseline.png" },
+  { id: "canonical-check", file: "04_canonical_check.png" },
+  { id: "url-policy", file: "05_url_policy.png" },
+  { id: "jsonld", file: "06_jsonld.png" },
+  { id: "product-text", file: "07_product_text.png" },
+  { id: "aeo-explainer", file: "08_aeo_explainer.png" },
+  { id: "checklist", file: "09_checklist.png" },
+  { id: "approvals", file: "10_approvals.png" },
 ];
 
 async function main() {

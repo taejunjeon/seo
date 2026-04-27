@@ -4,6 +4,7 @@ import { useState } from "react";
 import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 import WhyCallout from "./WhyCallout";
+import ImpactBadge from "./ImpactBadge";
 import type { ProductDraft, ProductTextResponse } from "./seo.types";
 
 type Props = {
@@ -38,7 +39,10 @@ export default function ProductTextSection({ data }: Props) {
   return (
     <section id="product-text" className={styles.section}>
       <div className={styles.sectionHead}>
-        <h2 className={styles.sectionH}>상품 텍스트</h2>
+        <div className={styles.sectionTitleGroup}>
+          <h2 className={styles.sectionH}>상품 텍스트 초안 (콘텐츠팀 의뢰용)</h2>
+          <ImpactBadge variant="draft" />
+        </div>
         <span className={styles.sectionTag}>product_text_block_matrix.csv · product_text_block_drafts.md</span>
       </div>
 

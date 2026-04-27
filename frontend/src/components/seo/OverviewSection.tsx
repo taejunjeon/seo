@@ -3,6 +3,7 @@
 import styles from "./seo.module.css";
 import WhyCallout from "./WhyCallout";
 import Glossary from "./Glossary";
+import ImpactBadge from "./ImpactBadge";
 import type { AuditResponse } from "./seo.types";
 
 type Props = {
@@ -91,7 +92,10 @@ export default function OverviewSection({ audit }: Props) {
   return (
     <section id="overview" className={styles.section}>
       <div className={styles.sectionHead}>
-        <h2 className={styles.sectionH}>종합 점수</h2>
+        <div className={styles.sectionTitleGroup}>
+          <h2 className={styles.sectionH}>종합 점수</h2>
+          <ImpactBadge variant="readonly" />
+        </div>
         <span className={styles.sectionTag}>seo_audit_summary.md</span>
       </div>
 

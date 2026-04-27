@@ -3,45 +3,87 @@
 import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 import WhyCallout from "./WhyCallout";
+import ImpactBadge from "./ImpactBadge";
 
-const APPROVALS = [
+type Approval = {
+  key: "A" | "B" | "C";
+  title: string;
+  status: string;
+  confidence: number;
+  scope: "draft" | "needs-approval" | "done";
+  whatItIs: string;
+  currentState: string;
+  reason: string;
+  yesProduces: string[];
+  yesNextSteps: string;
+  noImpact: string[];
+  answer: string;
+};
+
+const APPROVALS: Approval[] = [
   {
     key: "A",
-    title: "Phase1~Phase2 진단·설계 묶음",
+    title: "Phase1~Phase2 진단·설계 묶음 (이미 완료)",
     status: "이미 완료 · 운영 반영 없음",
     confidence: 86,
-    whatItIs: "공개 URL 진단(Phase1) + 대표 URL 정책 추천서·JSON-LD 샘플(Phase2)까지 운영 사이트를 건드리지 않고 데이터만 만드는 묶음.",
-    currentState: "Codex가 reports/seo/* 산출물 17종(MD 8 + CSV 7 + JSON 5)을 모두 생성. 운영 변경 0건.",
-    reason: "여기까지는 운영 영향이 없으므로 별도 승인 없이 진행 완료. 다음 단계(B/C)부터는 외부 시스템(아임웹·검색 도구·콘텐츠팀)이 관여하므로 TJ 결정이 필요.",
-    yesAction: "이 단계는 이미 YES 처리됨. Codex가 운영 반영 체크리스트와 JSON-LD 삽입 코드 블록을 최종본으로 정리할 다음 작업으로 자동 이행.",
-    noAction: "(해당 없음)",
+    scope: "done",
+    whatItIs: "공개 URL을 읽기 전용으로 진단하고(Phase1), 대표 URL 정책 추천서와 검색엔진 설명서 코드 샘플을 만든 묶음(Phase2). 사이트는 손대지 않고 데이터·문서만 생성.",
+    currentState: "Codex가 reports/seo/* 산출물 17종(MD 8 + CSV 7 + JSON 5)을 모두 생성 완료. 운영 변경 0건.",
+    reason: "운영 영향 0이라 별도 승인 없이 진행. B/C부터 외부 시스템(아임웹·검색 도구·콘텐츠팀)이 관여해서 TJ 결정 필요.",
+    yesProduces: [],
+    yesNextSteps: "이미 YES 처리됨. 운영 반영 체크리스트와 검색엔진 설명서 코드 최종본 정리로 자동 이행.",
+    noImpact: [],
     answer: "YES (이미 처리됨)",
   },
   {
     key: "B",
-    title: "대표 URL 정책 발행 → 아임웹·robots·sitemap 반영",
+    title: "운영팀이 그대로 작업할 수 있는 URL 정리 요청서 만들기",
     status: "TJ 응답 대기",
     confidence: 78,
-    whatItIs: "URL 정책 매트릭스(이 화면 'URL 정책' 섹션)를 운영 요청서로 만들고, 그 표대로 (1) 아임웹 관리자에서 canonical/noindex 수정, (2) robots.txt의 sitemap 지시문 정리, (3) sitemap.xml에서 잡음 URL 제외하는 작업 묶음.",
-    currentState: "추천서·매트릭스·CSV는 다 만들어져 있음. 다만 운영 반영은 시작 안 함. 현재 sitemap에는 parameter URL이 없지만 내부 링크와 최종 URL에는 ?idx=, ?q=, 리뷰 board URL이 섞여 있는 상태.",
-    reason: "URL 정책을 먼저 고정해야 (1) JSON-LD url 필드를 무엇으로 쓸지 결정 가능, (2) Search Console 색인 요청을 다시 보낼 때 어느 URL을 밀어 넣을지 결정 가능. 정책 없이 다음 단계 가면 두 번 작업이 됨.",
-    yesAction: "Codex가 url_policy_recommendations.md의 정책안 A를 운영 요청서로 변환 → 아임웹 담당자에게 「이 표 그대로 canonical/noindex 수정해주세요」 형태로 전달 → 작업 완료 후 robots.txt와 sitemap.xml 정리 → Search Console에서 URL 검사로 1차 확인.",
-    noAction: "특정 URL 유형(예: 리뷰/검색)은 보류한다고 답하면 그 행만 정책 매트릭스에서 제외하고 나머지 진행. 「전체 NO」면 Phase3 상품 텍스트만 먼저 진행하고 정책은 다음 라운드로.",
-    answer: "YES 또는 NO: 리뷰/검색 URL noindex는 보류",
+    scope: "draft",
+    whatItIs: "이 화면 「URL 정책」 섹션의 표를 아임웹 운영팀이 한 줄씩 보고 작업할 수 있는 「작업 요청서 문서」로 변환하는 일. 운영 사이트는 아직 안 바꿉니다 — 작업 요청서 「초안」을 만드는 단계.",
+    currentState: "추천서·매트릭스·CSV는 다 만들어져 있음. 운영 반영은 시작 안 함. 현재 검색엔진 제출 URL 목록(sitemap)에는 parameter URL이 없지만, 내부 링크와 최종 URL에는 ?idx=, ?q=, 리뷰 board URL이 섞여 있는 상태.",
+    reason: "URL 정리 요청서를 먼저 만들어야 (1) 검색엔진 설명서 코드(JSON-LD)에 어느 URL을 적을지 결정 가능, (2) 구글에 다시 제출할 URL 확정 가능. 요청서 없이 다음 단계 가면 두 번 작업이 됨.",
+    yesProduces: [
+      "아임웹 작업 요청서 1개 (어느 URL을 어떻게 처리할지 표 형식)",
+      "URL 종류별 대표 URL 목록 (대표 URL = canonical 목적지)",
+      "검색결과에서 숨길 URL 목록 (로그인·장바구니·내부 검색 결과)",
+      "검색엔진 제출 URL 목록에서 뺄 URL 목록 (잡음 parameter URL)",
+      "롤백 기준 (이렇게 되면 되돌리기)",
+    ],
+    yesNextSteps: "Codex가 정책안 A를 「아임웹 작업 요청서」 형태로 변환 → TJ 다시 검토 → 그 다음 라운드에서 「실제 아임웹 반영」 여부를 별도로 결정.",
+    noImpact: [
+      "검색엔진 설명서 코드(JSON-LD)에 어느 URL을 적을지 결정 불가",
+      "구글에 다시 제출할 URL 확정 지연",
+      "구글 검색 성과(GSC) 분석에서 같은 상품이 여러 줄로 흩어져 보고가 계속 부정확",
+      "다음 단계인 시범 페이지 선정에서도 기준이 흔들림",
+    ],
+    answer: "YES: URL 정리 요청서 만들기 (운영 반영은 별도 승인)",
   },
   {
     key: "C",
-    title: "상품 4개 텍스트 블록 → 콘텐츠팀 검토 의뢰",
+    title: "상품 4개 텍스트 초안을 콘텐츠팀에 검토 의뢰",
     status: "TJ 응답 대기",
     confidence: 72,
-    whatItIs: "이 화면 '상품 텍스트' 섹션에 있는 4개 상품(검사권 2 + 영양제 2)의 H1/H2/H3/FAQ 초안을 콘텐츠팀에 「이 톤·길이로 표시 가능 문구로 다듬어주세요」라고 의뢰하는 작업.",
+    scope: "draft",
+    whatItIs: "이 화면 「상품 텍스트」 섹션의 4개 상품(검사권 2 + 영양제 2) H1/H2/H3/FAQ 초안을 콘텐츠팀에 「이 톤·길이로 표시 가능 문구로 다듬어주세요」라고 「검토 의뢰」하는 일. 운영 사이트는 아직 안 바꿉니다 — 콘텐츠팀에 「초안」을 넘기는 단계.",
     currentState: "구조 초안은 완성. 실제 운영 페이지에 들어갈 최종 문구는 아직 아님. 건강기능식품 표시 기준·검사 진행 안내 등 법무·브랜드 검토가 필요한 표현이 섞여 있음.",
     reason: "숨김 텍스트 없이 사용자에게 보이는 구조라 SEO 리스크는 낮지만, 효능·검사 표현은 운영 반영 전에 (1) 최신 상품 상세 안내문과 일치, (2) 표시 가능 문구 내에서만 사용, 두 가지를 콘텐츠팀이 다듬어야 안전.",
-    yesAction: "Claude Code가 콘텐츠팀에 보낼 요청서를 reports/seo/content_team_request.md 형태로 정리 → 콘텐츠팀이 4개 상품 문구를 다듬음 → 디자인팀이 PC/모바일 시안 → TJ 최종 승인 → 아임웹 게시.",
-    noAction: "특정 상품(예: 뉴로마스터)을 제외하고 싶다면 그 상품만 빼고 나머지 3개로 진행. 전체 NO면 진단·설계만 사용하고 텍스트 추가는 다음 라운드로.",
-    answer: "YES 또는 NO: 뉴로마스터는 제외",
+    yesProduces: [
+      "콘텐츠팀 요청서 1개 (상품 4개 H1/H2/H3/FAQ 구조 + 톤 가이드)",
+      "각 상품별 검색 의도와 핵심 키워드",
+      "건강·검사 표현 검수 체크리스트 (식약처 기준)",
+      "다듬어진 문구가 들어올 자리 (운영 반영은 별도 승인)",
+    ],
+    yesNextSteps: "Claude Code가 reports/seo/content_team_request.md 형태로 요청서 정리 → 콘텐츠팀이 다듬은 결과를 받으면 다시 TJ 검토 → 그 다음 라운드에서 「실제 아임웹 게시」 여부를 별도로 결정.",
+    noImpact: [
+      "통이미지 위주 상품 상세의 검색엔진 본문 인식 점수(현재 7/15) 정체",
+      "「지연성 알러지 검사」 같은 검색 키워드의 클릭률 개선 지연",
+      "AI 검색(ChatGPT, Perplexity)이 상품을 추천할 때 인용할 본문 부족",
+    ],
+    answer: "YES: 상품 4개 텍스트 초안 검토 의뢰 (운영 반영은 별도 승인)",
   },
-] as const;
+];
 
 const SEPARATE_APPROVALS = [
   {
@@ -80,7 +122,9 @@ export default function ApprovalsSection() {
   return (
     <section id="approvals" className={styles.section}>
       <div className={styles.sectionHead}>
-        <h2 className={styles.sectionH}>승인 현황</h2>
+        <div className={styles.sectionTitleGroup}>
+          <h2 className={styles.sectionH}>승인 현황</h2>
+        </div>
         <span className={styles.sectionTag}>!seoplan.md 승인 섹션</span>
       </div>
 
@@ -106,7 +150,11 @@ export default function ApprovalsSection() {
                   <div className={styles.approvalKey}>승인안 {a.key}</div>
                   <div className={styles.approvalTitle}>{a.title}</div>
                 </div>
-                <span className={styles.approvalBadge} data-waiting={waiting}>{a.status}</span>
+                <div className={styles.approvalBadgeStack}>
+                  <span className={styles.approvalBadge} data-waiting={waiting}>{a.status}</span>
+                  {a.scope === "draft" && <ImpactBadge variant="draft" />}
+                  {a.scope === "needs-approval" && <ImpactBadge variant="needs-approval" />}
+                </div>
               </div>
               <div className={styles.approvalConfRow}>
                 <span className={styles.approvalConfLabel}>추천 자신감</span>
@@ -128,16 +176,26 @@ export default function ApprovalsSection() {
                 <div className={styles.approvalSectionLabel}>왜 결정이 필요해요</div>
                 <p className={styles.approvalSectionText}>{a.reason}</p>
               </div>
-              <div className={styles.approvalAction} data-tone="yes">
-                <span className={styles.approvalActionLabel}>YES 하면</span>
-                <span>{a.yesAction}</span>
-              </div>
-              {a.noAction && a.noAction !== "(해당 없음)" && (
-                <div className={styles.approvalAction} data-tone="no">
-                  <span className={styles.approvalActionLabel}>NO 하면</span>
-                  <span>{a.noAction}</span>
+
+              {a.yesProduces.length > 0 && (
+                <div className={styles.approvalDeliv} data-tone="yes">
+                  <div className={styles.approvalDelivLabel}>✅ YES 하면 생성되는 것</div>
+                  <ul>{a.yesProduces.map((x) => <li key={x}>{x}</li>)}</ul>
                 </div>
               )}
+              {a.yesNextSteps && (
+                <div className={styles.approvalAction} data-tone="yes">
+                  <span className={styles.approvalActionLabel}>다음 단계</span>
+                  <span>{a.yesNextSteps}</span>
+                </div>
+              )}
+              {a.noImpact.length > 0 && (
+                <div className={styles.approvalDeliv} data-tone="no">
+                  <div className={styles.approvalDelivLabel}>⚠️ NO 하면 발생하는 일</div>
+                  <ul>{a.noImpact.map((x) => <li key={x}>{x}</li>)}</ul>
+                </div>
+              )}
+
               <div className={styles.approvalAnswerRow}>
                 <code className={styles.approvalAnswer}>{a.answer}</code>
                 <CopyButton size="sm" label="답변 복사" value={a.answer} />

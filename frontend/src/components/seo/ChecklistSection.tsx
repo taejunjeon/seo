@@ -2,6 +2,7 @@
 
 import styles from "./seo.module.css";
 import WhyCallout from "./WhyCallout";
+import ImpactBadge from "./ImpactBadge";
 import type { ChecklistResponse } from "./seo.types";
 
 type Props = {
@@ -46,7 +47,10 @@ export default function ChecklistSection({ data }: Props) {
   return (
     <section id="checklist" className={styles.section}>
       <div className={styles.sectionHead}>
-        <h2 className={styles.sectionH}>운영 체크리스트</h2>
+        <div className={styles.sectionTitleGroup}>
+          <h2 className={styles.sectionH}>운영 체크리스트</h2>
+          <ImpactBadge variant="needs-approval" />
+        </div>
         <span className={styles.sectionTag}>operation_change_checklist.md · action_plan.csv</span>
       </div>
 

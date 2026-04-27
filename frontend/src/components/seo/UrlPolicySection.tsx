@@ -5,7 +5,8 @@ import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 import WhyCallout from "./WhyCallout";
 import Glossary from "./Glossary";
-import type { UrlPolicyResponse } from "./seo.types";
+import ImpactBadge from "./ImpactBadge";
+import type { InventoryRow, UrlPolicyResponse } from "./seo.types";
 
 type Props = {
   data: UrlPolicyResponse | null;
@@ -36,17 +37,27 @@ function statusMeta(code: number) {
   return STATUS_LABEL[code] ?? { label: `${code}`, tone: code >= 400 ? ("danger" as const) : code >= 300 ? ("warn" as const) : ("ok" as const) };
 }
 
+const PROBLEM_TYPES = new Set(["noisy parameter URL", "cart/login/member", "search/filter", "review/board"]);
+
+function isProblemUrl(r: InventoryRow): boolean {
+  if (r.isParameterUrl) return true;
+  if (PROBLEM_TYPES.has(r.type)) return true;
+  if (r.statusCode !== 200) return true;
+  if (r.finalUrl !== r.url) return true; // redirect 후보
+  return false;
+}
+
 export default function UrlPolicySection({ data }: Props) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [paramOnly, setParamOnly] = useState(false);
+  const [mode, setMode] = useState<"problems" | "all">("problems"); // 기본: 문제 있는 것만
 
   const filteredInventory = useMemo(() => {
     if (!data) return [];
     const q = search.trim().toLowerCase();
     return data.inventory.rows.filter((r) => {
+      if (mode === "problems" && !isProblemUrl(r)) return false;
       if (typeFilter !== "all" && r.type !== typeFilter) return false;
-      if (paramOnly && !r.isParameterUrl) return false;
       if (!q) return true;
       return (
         r.url.toLowerCase().includes(q) ||
@@ -54,7 +65,12 @@ export default function UrlPolicySection({ data }: Props) {
         r.finalUrl.toLowerCase().includes(q)
       );
     });
-  }, [data, search, typeFilter, paramOnly]);
+  }, [data, search, typeFilter, mode]);
+
+  const problemCount = useMemo(() => {
+    if (!data) return 0;
+    return data.inventory.rows.filter(isProblemUrl).length;
+  }, [data]);
 
   if (!data) {
     return (
@@ -68,7 +84,10 @@ export default function UrlPolicySection({ data }: Props) {
   return (
     <section id="url-policy" className={styles.section}>
       <div className={styles.sectionHead}>
-        <h2 className={styles.sectionH}>URL 정책</h2>
+        <div className={styles.sectionTitleGroup}>
+          <h2 className={styles.sectionH}>URL 종류별 처리 기준표 <span className={styles.sectionHTech}>(URL 정책)</span></h2>
+          <ImpactBadge variant="readonly" />
+        </div>
         <span className={styles.sectionTag}>url_policy_matrix.csv · duplicate_url_groups.csv · url_inventory.csv</span>
       </div>
 
@@ -79,21 +98,21 @@ export default function UrlPolicySection({ data }: Props) {
           승인된 정책은 아임웹·robots.txt·sitemap.xml에 그대로 적용됩니다.
         </p>
         <p>
-          핵심 용어:{" "}
-          <Glossary term="canonical" short="여러 URL 중 '이게 대표' 라고 검색엔진에 알려주는 HTML 태그(rel='canonical').">
-            예: /shop/123, /shop/123?ref=ad, /shop/123?utm=a 가 모두 동일 상품이라면 셋 다 canonical로 /shop/123을 가리키도록 설정. 검색 점수가 한 URL에 모입니다.
+          핵심 용어 (쉬운 말로):{" "}
+          <Glossary term="대표 URL (canonical)" short="여러 URL 중 「이게 원본입니다」라고 검색엔진에 알려주는 표시.">
+            예: /shop/123, /shop/123?ref=ad, /shop/123?utm=a 가 같은 상품이라면 셋 다 「대표 URL은 /shop/123」이라고 표시. 검색 점수가 한 URL에 모입니다.
           </Glossary>
           {" · "}
-          <Glossary term="sitemap" short="우리 사이트의 색인 가능한 URL 목록 XML 파일.">
-            구글봇이 사이트를 빨리 발견하도록 도와줍니다. 잡음 URL을 빼야 색인 예산이 좋은 페이지에 쓰입니다.
+          <Glossary term="검색엔진에 제출할 URL 목록 (sitemap)" short="구글에 「우리 사이트의 진짜 페이지 목록은 이거예요」라고 보내는 파일.">
+            구글봇이 사이트를 빨리 발견하도록 도와줍니다. 잡음 URL을 빼야 좋은 페이지에 색인 예산이 쓰입니다.
           </Glossary>
           {" · "}
-          <Glossary term="noindex" short="이 페이지는 검색결과에 노출하지 말라는 신호.">
-            로그인·장바구니·내부 검색 결과처럼 사용자에게는 필요하지만 검색결과에 뜰 필요가 없는 페이지에 사용.
+          <Glossary term="검색결과에서 숨김 (noindex)" short="이 페이지는 구글 검색결과에 노출하지 말라는 표시.">
+            로그인·장바구니·내부 검색결과처럼 사용자에게는 필요하지만 검색결과에 뜰 필요는 없는 페이지에 사용.
           </Glossary>
           {" · "}
-          <Glossary term="parameter URL" short="?로 시작하는 query string이 붙은 URL.">
-            ?idx=, ?q=, ?bmode= 같은 형태. 같은 페이지의 변형이거나, 검색·필터 결과인 경우가 많아 잡음을 만듭니다.
+          <Glossary term="parameter URL" short="? 뒤에 query string이 붙은 URL.">
+            ?idx=, ?q=, ?bmode= 같은 형태. 같은 페이지의 변형이거나 검색·필터 결과인 경우가 많아 잡음을 만듭니다.
           </Glossary>
         </p>
       </WhyCallout>
@@ -162,22 +181,27 @@ export default function UrlPolicySection({ data }: Props) {
         ))}
       </div>
 
-      <h3 className={styles.colH} style={{ marginTop: 28 }}>URL 인벤토리 ({data.inventory.total})</h3>
+      <h3 className={styles.colH} style={{ marginTop: 28 }}>URL 인벤토리</h3>
       <WhyCallout tone="info">
         공개 사이트에서 수집한 전체 URL {data.inventory.total}건의 장부입니다.
-        검색·필터로 좁혀보세요. 각 컬럼이 의미하는 것:{" "}
-        <Glossary term="status" short="HTTP 응답 코드.">
-          200 = 정상 / 301·302 = 다른 URL로 이동 / 404 = 페이지 없음 / 500 = 서버 오류. 200이 아닌 URL이 sitemap에 들어 있으면 검색엔진이 헛걸음하고 색인 점수가 떨어집니다.
+        기본은 <strong>「문제 있는 URL만」</strong>(parameter URL · 잡음 유형 · 200 아닌 응답 · redirect 후보) 표시 — 처리 우선순위가 높은 것만 먼저 봅니다.
+        분석가가 전수 검토하려면 「전체 보기」로 전환하세요.{" "}
+        <Glossary term="응답 상태 (status)" short="HTTP 응답 코드.">
+          200 = 정상 / 301·302 = 다른 URL로 이동 / 404 = 페이지 없음 / 500 = 서버 오류. 200이 아닌 URL이 검색엔진 제출 목록(sitemap)에 들어 있으면 구글이 헛걸음하고 색인 점수가 떨어집니다.
         </Glossary>
         {" · "}
-        <Glossary term="최종 URL" short="이 URL을 열었을 때 실제로 도착하는 주소.">
-          예: /organicacid 를 누르면 실제로는 /organicacid_store/?idx=259 로 가는 식. 원래 URL과 다르면 redirect가 걸려 있다는 뜻이라 정리 후보.
-        </Glossary>
-        {" · "}
-        <Glossary term="parameter" short="?로 시작하는 query string이 붙은 URL.">
-          같은 페이지의 변형일 가능성이 큽니다. canonical과 sitemap 정책으로 정리해야 합니다.
+        <Glossary term="최종 도착 URL" short="이 URL을 열었을 때 실제로 도착하는 주소.">
+          예: /organicacid 를 누르면 실제로는 /organicacid_store/?idx=259 로 이동. 원래 URL과 다르면 redirect가 걸려 있다는 뜻 — 대표 URL 정리 후보.
         </Glossary>
       </WhyCallout>
+      <div className={styles.invModeToggle}>
+        <button type="button" className={`${styles.invModeBtn} ${mode === "problems" ? styles.invModeBtnActive : ""}`} onClick={() => setMode("problems")}>
+          ⚠️ 문제 있는 URL만 ({problemCount}건)
+        </button>
+        <button type="button" className={`${styles.invModeBtn} ${mode === "all" ? styles.invModeBtnActive : ""}`} onClick={() => setMode("all")}>
+          전체 URL 보기 ({data.inventory.total}건)
+        </button>
+      </div>
       <div className={styles.invToolbar}>
         <input
           type="text"
@@ -187,15 +211,11 @@ export default function UrlPolicySection({ data }: Props) {
           className={styles.invSearch}
         />
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={styles.invSelect}>
-          <option value="all">전체 유형 ({data.inventory.total})</option>
+          <option value="all">전체 유형</option>
           {data.inventory.typeCounts.map((t) => (
             <option key={t.type} value={t.type}>{TYPE_BADGES[t.type] ?? t.type} ({t.count})</option>
           ))}
         </select>
-        <label className={styles.invToggle}>
-          <input type="checkbox" checked={paramOnly} onChange={(e) => setParamOnly(e.target.checked)} />
-          parameter URL만 ({data.inventory.parameterCount})
-        </label>
         <span className={styles.invCount}>{filteredInventory.length}건 표시</span>
         <CopyButton
           label="URL 복사"

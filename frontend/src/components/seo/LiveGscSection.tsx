@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import styles from "./seo.module.css";
 import WhyCallout from "./WhyCallout";
 import Glossary from "./Glossary";
+import ImpactBadge from "./ImpactBadge";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
 
@@ -71,15 +72,18 @@ export default function LiveGscSection() {
   return (
     <section id="live-gsc" className={styles.section}>
       <div className={styles.sectionHead}>
-        <h2 className={styles.sectionH}>실시간 검색 노출 (Google Search Console)</h2>
+        <div className={styles.sectionTitleGroup}>
+          <h2 className={styles.sectionH}>지금 구글 검색 성과 <span className={styles.sectionHTech}>(GSC 라이브 KPI · 7일)</span></h2>
+          <ImpactBadge variant="live-data" />
+        </div>
         <span className={styles.sectionTag}>backend /api/gsc/kpi · sc-domain:biocom.kr</span>
       </div>
 
       <WhyCallout tone="info" title="이 카드는 무엇을 보여주나요">
-        <Glossary term="GSC" short="Google Search Console" >
-          구글이 우리 사이트에 직접 보내주는 공식 검색 통계 도구. 어떤 키워드로 노출됐는지, 클릭됐는지, 평균 순위가 몇 위인지 등 매일 업데이트해줌.
+        <Glossary term="구글 검색 성과 (GSC)" short="Google Search Console — 구글이 우리 사이트에 직접 보내주는 공식 검색 통계 도구.">
+          어떤 키워드로 노출됐는지, 클릭됐는지, 평균 순위가 몇 위인지 등을 매일 업데이트해줍니다.
         </Glossary>
-        의 최근 7일 데이터입니다. 위쪽 정적 진단(`reports/seo/*`)은 운영 영향이 없는 사진 한 장이라면, 이 카드는 살아 있는 검색 성과를 보여줍니다.
+        의 최근 7일 데이터입니다. 위쪽 정적 진단(<code>reports/seo/*</code>)은 운영 영향이 없는 사진 한 장이라면, 이 카드는 살아 있는 검색 성과를 보여줍니다.
         지금 우리가 SEO 작업을 하는 이유는 결국 <strong>이 4개 숫자</strong>를 좋아지게 만들기 위함입니다.
       </WhyCallout>
 
