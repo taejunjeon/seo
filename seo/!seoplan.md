@@ -1,7 +1,7 @@
 # 바이오컴 SEO/AEO 실행 플랜
 
 작성 시각: 2026-04-27 18:54 KST  
-최근 업데이트: 2026-04-28 KST (UX 2차 고도화 — 결정 박스·업무 언어·문제만 보기·결정 결과물·GSC baseline·canonical 검증·AEO 설명)  
+최근 업데이트: 2026-04-28 KST (✅ 승인안 B 진행 완료 — 아임웹 URL 정리 작업 요청서 6개 산출물 생성)  
 기준일: 2026-04-28  
 연결 문서: [[seofeedback0427|seo/seofeedback0427.md]], [[seofeedback0427reply|seo/seofeedback0427reply.md]], [[!frontmenu|seo/!frontmenu.md]], [[docurule|docurule.md]]  
 스크린샷: [seo/screnshot/](./screnshot/) (00_full_page · 01_overview · 02_live_gsc · 03_url_policy · 04_jsonld · 05_product_text · 06_checklist · 07_approvals)  
@@ -89,6 +89,38 @@ Confidence: 87%
 - 상품 텍스트 블록 초안: `reports/seo/product_text_block_drafts.md`
 - 상품 텍스트 매트릭스: `reports/seo/product_text_block_matrix.csv`
 - 운영 반영 체크리스트: `reports/seo/operation_change_checklist.md`
+
+### 2026-04-28 진행 (✅ 승인안 B 완료 — 아임웹 URL 정리 작업 요청서)
+
+#### 승인 결정
+
+- **TJ 회신**: "승인안 B 운영팀이 그대로 작업할 수 있는 URL 정리 요청서 만들기 진행해" (2026-04-28)
+- **범위**: 정책안 A 전체 (제외 조건 없음)
+- **운영 영향**: 0 (요청서·CSV·MD 산출물만 생성. 실제 아임웹 반영은 별도 승인)
+
+#### 생성된 산출물 (6종)
+
+| 파일 | 용도 | 행수 |
+|---|---|---|
+| `reports/seo/imweb_url_cleanup_workorder.md` | 운영팀이 한 줄씩 보고 작업 가능한 정본 (절차·검증·롤백 통합) | ~7섹션 |
+| `reports/seo/imweb_canonical_targets.csv` | 대표 URL 통일 대상 9건 (P0/P1) | 9 |
+| `reports/seo/imweb_noindex_targets.csv` | 검색결과 숨김 대상 11건 (P0/P1) | 11 |
+| `reports/seo/imweb_sitemap_excludes.csv` | sitemap 정리·모니터링 대상 6건 | 6 |
+| `reports/seo/imweb_robots_txt_revision.md` | robots.txt 수정안 (Markdown 링크 → 일반 URL + 잡음 차단 6 규칙) | — |
+| `reports/seo/imweb_rollback_criteria.md` | 즉시/1주일/2주 롤백 신호 + 부분 롤백 매핑 | — |
+
+#### 화면 반영
+
+- `/seo` 승인 현황 카드 B: status "✅ 2026-04-28 완료" + 산출물 6개 그린 체크 리스트
+- 본문 최상단 결정 박스: "오늘 TJ님 결정 1개 (B는 ✅ 완료)" 헤더, C 카드만 잔존
+
+#### 다음 단계 (TJ 결정 필요)
+
+1. 운영팀에 요청서 6종 전달 (Slack / 이메일 / 별도 채팅)
+2. 운영팀이 작업 진행 — `imweb_url_cleanup_workorder.md`의 §2 체크리스트 따라
+3. 작업 완료 1주일 후: §3 1주일 점검 (GSC 색인·트래픽·핵심 페이지 상태)
+4. 작업 완료 2주일 후: 같은 키워드 검색 결과에서 우리 페이지가 1개 URL로 모이는지 확인
+5. 추가 라운드: 효과 측정 baseline (`/seo > 성과 기준선`) 비교 → 승인안 D 결정 (텍스트 블록 운영 반영)
 
 ### 2026-04-28 진행 (UX 2차 고도화 + GSC P0 작업 진수)
 
@@ -494,15 +526,17 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 답변 형식: `YES: 대표 URL 정책안 A로 운영 요청서 작성` 또는 `NO: 상품 URL은 기존 /HealthFood/?idx= 형태 유지`  
 YES 이후 Codex 작업: 운영 반영 체크리스트와 JSON-LD 삽입 코드 블록을 최종본으로 정리한다.
 
-### 승인안 B
+### 승인안 B ✅ 2026-04-28 완료
 
 추천안 B: `reports/seo/url_policy_recommendations.md`의 정책안 A를 기준으로 운영 요청서를 만든다. 상품/검사권은 canonical 목적지와 JSON-LD url을 일치시키고, 리뷰/검색/로그인 계열은 sitemap 제외와 noindex 후보로 둔다.
 
-제 추천: YES  
-추천 자신감: 78%  
-이유: 현재 sitemap에는 parameter URL이 없지만 내부 링크와 최종 URL에는 `?idx=`, `?q=`, 리뷰 board URL이 섞여 있다. 대표 URL 정책을 먼저 고정해야 JSON-LD와 Search Console 제출이 흔들리지 않는다.  
-부족 데이터: 아임웹 관리자에서 canonical 목적지를 직접 바꿀 수 있는지, Search Console에 실제 색인된 잡음 URL 수  
-답변 형식: `YES` 또는 `NO: 리뷰/검색 URL noindex는 보류`
+**TJ 회신**: "승인안 B 운영팀이 그대로 작업할 수 있는 URL 정리 요청서 만들기 진행해" (2026-04-28)
+**범위**: 정책안 A 전체 (제외 조건 없음)
+**산출물**: `reports/seo/imweb_*.md/csv` 6종 (위 「2026-04-28 진행 (✅ 승인안 B 완료)」 섹션 참고)
+**운영 영향**: 0 (요청서·CSV·MD 생성만. 실제 아임웹 반영은 별도 승인 필요)
+**다음 단계**: 운영팀에 요청서 전달 → 작업 진행 → 1주일/2주 검증 → 효과 측정 후 승인안 D (텍스트 블록 반영) 결정
+
+추천 자신감: 78%
 
 ### 승인안 C
 
