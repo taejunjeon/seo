@@ -2088,6 +2088,28 @@ export const createAdsRouter = () => {
     }
   });
 
+  router.post("/api/ads/tiktok/ingest-daily", async (req: Request, res: Response) => {
+    try {
+      const startDate = typeof req.body?.start_date === "string" ? req.body.start_date.trim() : undefined;
+      const endDate = typeof req.body?.end_date === "string" ? req.body.end_date.trim() : undefined;
+      const { ensureTikTokDailyUpToYesterday, ensureTikTokDailyCovers } = await import("../tiktokAdsAutoSync");
+      if (startDate && endDate) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+          res.status(400).json({ ok: false, error: "start_date/end_date는 YYYY-MM-DD" });
+          return;
+        }
+        const result = await ensureTikTokDailyCovers(startDate, endDate);
+        res.json({ ok: true, result });
+        return;
+      }
+      const result = await ensureTikTokDailyUpToYesterday();
+      res.json({ ok: true, result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "tiktok daily ingest failed";
+      res.status(500).json({ ok: false, error: message });
+    }
+  });
+
   router.get("/api/ads/roas", async (req: Request, res: Response) => {
     try {
       const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";

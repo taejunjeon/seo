@@ -123,6 +123,40 @@ export type AttributionCallerCoverageReport = {
   notes: string[];
 };
 
+export type AttributionFirstTouchSnapshot = {
+  schemaVersion: string;
+  touchpoint: AttributionTouchpoint;
+  source: string;
+  loggedAt: string;
+  orderId: string;
+  checkoutId: string;
+  gaSessionId: string;
+  clientId: string;
+  userPseudoId: string;
+  landing: string;
+  referrer: string;
+  utmSource: string;
+  utmMedium: string;
+  utmCampaign: string;
+  utmTerm: string;
+  utmContent: string;
+  gclid: string;
+  fbclid: string;
+  ttclid: string;
+  tiktokMatchReasons: string[];
+};
+
+export type AttributionFirstTouchMatchMetadata = {
+  schemaVersion: string;
+  source: "checkout_started";
+  matchedAt: string;
+  matchedBy: string[];
+  matchScore: number;
+  checkoutLoggedAt: string;
+  storage: "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.firstTouch";
+  tiktokMatchReasons: string[];
+};
+
 export type TossReplayPlan = {
   summary: {
     tossRows: number;
@@ -570,6 +604,246 @@ export const buildLedgerEntry = (
     }),
     requestContext,
   };
+};
+
+const FIRST_TOUCH_SCHEMA_VERSION = "2026-04-27.first-touch.v1";
+const FIRST_TOUCH_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+const FIRST_TOUCH_FUTURE_TOLERANCE_MS = 10 * 60 * 1000;
+const FIRST_TOUCH_STORAGE_REF = "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.firstTouch" as const;
+
+const metadataString = (entry: AttributionLedgerEntry, key: string) => {
+  const value = entry.metadata[key];
+  return typeof value === "string" ? value.trim() : "";
+};
+
+const entrySource = (entry: AttributionLedgerEntry) => metadataString(entry, "source");
+
+const hasStoredFirstTouch = (entry: AttributionLedgerEntry) => {
+  const existing = entry.metadata.firstTouch;
+  return Boolean(existing) && typeof existing === "object" && !Array.isArray(existing);
+};
+
+const attributionTextIncludesTikTok = (value: unknown) =>
+  typeof value === "string" && value.trim().toLowerCase().includes("tiktok");
+
+const attributionUrlHasParam = (value: unknown, param: string) => {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    return Boolean(new URL(value, "https://biocom.kr").searchParams.get(param));
+  } catch {
+    return value.toLowerCase().includes(`${param.toLowerCase()}=`);
+  }
+};
+
+export const getAttributionTikTokMatchReasons = (entry: AttributionLedgerEntry) => {
+  const reasons = new Set<string>();
+
+  if (entry.ttclid) reasons.add("ttclid_direct");
+  if (metadataString(entry, "ttclid")) reasons.add("metadata_ttclid");
+  if (attributionUrlHasParam(entry.landing, "ttclid") || attributionUrlHasParam(entry.referrer, "ttclid")) {
+    reasons.add("ttclid_url");
+  }
+  if (attributionTextIncludesTikTok(entry.utmSource)) reasons.add("utm_source_tiktok");
+  if (attributionTextIncludesTikTok(entry.utmMedium)) reasons.add("utm_medium_tiktok");
+  if (attributionTextIncludesTikTok(entry.utmCampaign)) reasons.add("utm_campaign_tiktok");
+  if (attributionTextIncludesTikTok(entry.utmTerm)) reasons.add("utm_term_tiktok");
+  if (attributionTextIncludesTikTok(entry.utmContent)) reasons.add("utm_content_tiktok");
+  if (attributionTextIncludesTikTok(entry.landing)) reasons.add("landing_tiktok");
+  if (attributionTextIncludesTikTok(entry.referrer)) reasons.add("referrer_tiktok");
+
+  const metadataUrlKeys = [
+    "imweb_landing_url",
+    "initial_referrer",
+    "original_referrer",
+    "checkoutUrl",
+    "landing",
+    "referrer",
+  ];
+  for (const key of metadataUrlKeys) {
+    const value = entry.metadata[key];
+    if (attributionTextIncludesTikTok(value)) reasons.add("metadata_url_tiktok");
+    if (attributionUrlHasParam(value, "ttclid")) reasons.add("metadata_ttclid_url");
+  }
+
+  return [...reasons].sort();
+};
+
+export const buildAttributionFirstTouchSnapshot = (
+  entry: AttributionLedgerEntry,
+): AttributionFirstTouchSnapshot => ({
+  schemaVersion: FIRST_TOUCH_SCHEMA_VERSION,
+  touchpoint: entry.touchpoint,
+  source: entrySource(entry),
+  loggedAt: entry.loggedAt,
+  orderId: entry.orderId,
+  checkoutId: entry.checkoutId,
+  gaSessionId: entry.gaSessionId,
+  clientId: metadataString(entry, "clientId"),
+  userPseudoId: metadataString(entry, "userPseudoId"),
+  landing: entry.landing,
+  referrer: entry.referrer,
+  utmSource: entry.utmSource,
+  utmMedium: entry.utmMedium,
+  utmCampaign: entry.utmCampaign,
+  utmTerm: entry.utmTerm,
+  utmContent: entry.utmContent,
+  gclid: entry.gclid,
+  fbclid: entry.fbclid,
+  ttclid: entry.ttclid,
+  tiktokMatchReasons: getAttributionTikTokMatchReasons(entry),
+});
+
+type FirstTouchCandidateScore = {
+  entry: AttributionLedgerEntry;
+  matchedBy: string[];
+  score: number;
+  tiktokMatchReasons: string[];
+};
+
+const timestampMs = (value: string) => {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const scoreFirstTouchCandidate = (
+  payment: AttributionLedgerEntry,
+  candidate: AttributionLedgerEntry,
+): FirstTouchCandidateScore | null => {
+  if (candidate.touchpoint !== "checkout_started") return null;
+
+  const paymentSource = entrySource(payment);
+  const candidateSource = entrySource(candidate);
+  if (paymentSource && candidateSource && paymentSource !== candidateSource) return null;
+
+  const paymentMs = timestampMs(payment.loggedAt);
+  const candidateMs = timestampMs(candidate.loggedAt);
+  if (paymentMs !== null && candidateMs !== null) {
+    const deltaMs = paymentMs - candidateMs;
+    if (deltaMs < -FIRST_TOUCH_FUTURE_TOLERANCE_MS) return null;
+    if (deltaMs > FIRST_TOUCH_LOOKBACK_MS) return null;
+  }
+
+  let score = 0;
+  const matchedBy: string[] = [];
+  const addMatch = (label: string, left: string, right: string, points: number) => {
+    if (!left || !right || left !== right) return;
+    score += points;
+    matchedBy.push(label);
+  };
+
+  addMatch("checkout_id", payment.checkoutId, candidate.checkoutId, 120);
+  addMatch("order_id", payment.orderId, candidate.orderId, 110);
+  addMatch(
+    "order_id_base",
+    metadataString(payment, "orderIdBase") || normalizeOrderIdBase(payment.orderId),
+    metadataString(candidate, "orderIdBase") || normalizeOrderIdBase(candidate.orderId),
+    90,
+  );
+  addMatch("ga_session_id", payment.gaSessionId, candidate.gaSessionId, 50);
+  addMatch("client_id", metadataString(payment, "clientId"), metadataString(candidate, "clientId"), 45);
+  addMatch(
+    "user_pseudo_id",
+    metadataString(payment, "userPseudoId"),
+    metadataString(candidate, "userPseudoId"),
+    40,
+  );
+  addMatch("customer_key", payment.customerKey, candidate.customerKey, 35);
+  addMatch(
+    "normalized_phone",
+    metadataString(payment, "normalizedPhone"),
+    metadataString(candidate, "normalizedPhone"),
+    35,
+  );
+
+  if (matchedBy.length === 0) return null;
+
+  const tiktokMatchReasons = getAttributionTikTokMatchReasons(candidate);
+  if (tiktokMatchReasons.length > 0) score += 20;
+  if (paymentMs !== null && candidateMs !== null && paymentMs >= candidateMs) score += 5;
+
+  return { entry: candidate, matchedBy, score, tiktokMatchReasons };
+};
+
+const selectFirstTouchCheckoutCandidate = (
+  payment: AttributionLedgerEntry,
+  existingEntries: AttributionLedgerEntry[],
+) => {
+  return existingEntries
+    .map((candidate) => scoreFirstTouchCandidate(payment, candidate))
+    .filter((candidate): candidate is FirstTouchCandidateScore => candidate !== null)
+    .sort((left, right) =>
+      right.score - left.score ||
+      right.entry.loggedAt.localeCompare(left.entry.loggedAt),
+    )[0] ?? null;
+};
+
+const buildFirstTouchMatchMetadata = (
+  matchedAt: string,
+  candidate: FirstTouchCandidateScore,
+): AttributionFirstTouchMatchMetadata => ({
+  schemaVersion: FIRST_TOUCH_SCHEMA_VERSION,
+  source: "checkout_started",
+  matchedAt,
+  matchedBy: candidate.matchedBy,
+  matchScore: candidate.score,
+  checkoutLoggedAt: candidate.entry.loggedAt,
+  storage: FIRST_TOUCH_STORAGE_REF,
+  tiktokMatchReasons: candidate.tiktokMatchReasons,
+});
+
+const attachFirstTouchMetadata = (
+  entry: AttributionLedgerEntry,
+  snapshot: AttributionFirstTouchSnapshot,
+  match: AttributionFirstTouchMatchMetadata,
+): AttributionLedgerEntry => {
+  const metadata: Record<string, unknown> = {
+    ...entry.metadata,
+    firstTouch: snapshot,
+    firstTouchMatch: match,
+  };
+
+  if (snapshot.tiktokMatchReasons.length > 0) {
+    metadata.tiktokFirstTouchCandidate = true;
+    metadata.tiktokFirstTouchMatchReasons = snapshot.tiktokMatchReasons;
+  }
+
+  return { ...entry, metadata };
+};
+
+export const enrichCheckoutStartedFirstTouch = (
+  entry: AttributionLedgerEntry,
+  nowIso = new Date().toISOString(),
+): AttributionLedgerEntry => {
+  if (entry.touchpoint !== "checkout_started" || hasStoredFirstTouch(entry)) return entry;
+
+  const snapshot = buildAttributionFirstTouchSnapshot(entry);
+  return attachFirstTouchMetadata(entry, snapshot, {
+    schemaVersion: FIRST_TOUCH_SCHEMA_VERSION,
+    source: "checkout_started",
+    matchedAt: nowIso,
+    matchedBy: ["self_checkout_started"],
+    matchScore: 1000,
+    checkoutLoggedAt: entry.loggedAt,
+    storage: FIRST_TOUCH_STORAGE_REF,
+    tiktokMatchReasons: snapshot.tiktokMatchReasons,
+  });
+};
+
+export const enrichPaymentSuccessFirstTouch = (
+  entry: AttributionLedgerEntry,
+  existingEntries: AttributionLedgerEntry[],
+  nowIso = new Date().toISOString(),
+): AttributionLedgerEntry => {
+  if (entry.touchpoint !== "payment_success" || hasStoredFirstTouch(entry)) return entry;
+
+  const candidate = selectFirstTouchCheckoutCandidate(entry, existingEntries);
+  if (!candidate) return entry;
+
+  return attachFirstTouchMetadata(
+    entry,
+    buildAttributionFirstTouchSnapshot(candidate.entry),
+    buildFirstTouchMatchMetadata(nowIso, candidate),
+  );
 };
 
 const normalizeLedgerRequestContext = (

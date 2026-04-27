@@ -27,6 +27,9 @@
 ## 보안 · 설정
 - 시크릿은 커밋 금지. `.env.local` 사용, `.env.example` 갱신.
 - 대형 산출물은 저장소 밖에 보관.
+- 운영DB: 개발팀 관리 PostgreSQL dashboard DB. 대표 테이블은 dashboard.public.tb_iamweb_users.
+- TJ 관리 Attribution VM: att.ainativeos.net 서버와 그 안의 SQLite. 운영DB가 아니라 TJ님 관리 수집/보조 원장.
+- 로컬 개발 DB: 이 노트북 /Users/vibetj/coding/seo/backend/data/crm.sqlite3.
 
 ## 에이전트 전용 지침 (AGENTS.md 반영)
 - 세션 재개·압축 후: 반드시 루트 `AGENTS.md` 재독, 프로젝트별 `AGENTS.md` 우선.

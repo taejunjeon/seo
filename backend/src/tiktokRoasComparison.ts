@@ -193,6 +193,15 @@ export type TikTokRoasComparison = {
       maxDate: string | null;
       readyForImport: boolean;
       note: string;
+      autoIngest: {
+        attempted: boolean;
+        ok: boolean;
+        message: string | null;
+        startDate: string | null;
+        endDate: string | null;
+        rows: number | null;
+        fetchedAt: string | null;
+      };
     };
     availableRanges: Array<{
       start_date: string;
@@ -254,6 +263,29 @@ export type TikTokRoasComparison = {
       sourceMatchReasons: string[];
       precisionTier: SourcePrecisionTier;
     }>;
+  };
+  first_touch_attribution: {
+    source: "tj_managed_attribution_vm_first_touch";
+    storage: "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.firstTouch";
+    candidatePaymentSuccessRows: number;
+    strictOverlapRows: number;
+    byStatus: Record<"confirmed" | "pending" | "canceled" | "unknown", StatusAggregate>;
+    sourceReasonSummary: Record<string, SourceReasonAggregate>;
+    sampleOrders: Array<{
+      loggedAt: string;
+      orderId: string;
+      paymentStatus: string;
+      amount: number;
+      firstTouchLoggedAt: string;
+      firstTouchSource: string;
+      firstTouchUtmSource: string;
+      firstTouchUtmCampaign: string;
+      firstTouchHasTtclid: boolean;
+      firstTouchMatchReasons: string[];
+      matchedBy: string[];
+      matchScore: number;
+    }>;
+    note: string;
   };
   ga4_cross_check: {
     source: "ga4_session_source_transaction_joined_with_operational_vm_ledger";
@@ -597,7 +629,7 @@ const ensureTikTokAdsSchema = () => {
   `);
 };
 
-const getDailyTableState = () => {
+export const getDailyTableState = () => {
   ensureTikTokAdsSchema();
   return getCrmDb().prepare(`
     SELECT
@@ -616,7 +648,7 @@ const rowObject = (headers: string[], values: string[]) => {
   return record;
 };
 
-const importProcessedCsvFiles = async () => {
+export const importProcessedCsvFiles = async () => {
   ensureTikTokAdsSchema();
 
   let importedRows = 0;
@@ -715,7 +747,7 @@ const importProcessedCsvFiles = async () => {
   return importedRows;
 };
 
-const importProcessedDailyCsvFiles = async () => {
+export const importProcessedDailyCsvFiles = async () => {
   ensureTikTokAdsSchema();
 
   let importedRows = 0;
@@ -1034,6 +1066,48 @@ const getTikTokMatchReasons = (entry: RemoteLedgerEntry) => {
   return [...reasons].sort();
 };
 
+const getFirstTouchMetadata = (entry: RemoteLedgerEntry) => {
+  const metadata = getMetadata(entry);
+  return isRecord(metadata.firstTouch) ? metadata.firstTouch : {};
+};
+
+const getFirstTouchMatchMetadata = (entry: RemoteLedgerEntry) => {
+  const metadata = getMetadata(entry);
+  return isRecord(metadata.firstTouchMatch) ? metadata.firstTouchMatch : {};
+};
+
+const readStringArray = (value: unknown) =>
+  Array.isArray(value)
+    ? value.map(readString).filter(Boolean)
+    : [];
+
+const getFirstTouchTikTokMatchReasons = (entry: RemoteLedgerEntry) => {
+  const firstTouch = getFirstTouchMetadata(entry);
+  const firstTouchMatch = getFirstTouchMatchMetadata(entry);
+  const reasons = new Set<string>();
+
+  for (const reason of [
+    ...readStringArray(firstTouch.tiktokMatchReasons),
+    ...readStringArray(firstTouchMatch.tiktokMatchReasons),
+  ]) {
+    reasons.add(`first_touch_${reason}`);
+  }
+
+  if (readString(firstTouch.ttclid)) reasons.add("first_touch_ttclid_direct");
+  if (urlHasParam(firstTouch.landing, "ttclid") || urlHasParam(firstTouch.referrer, "ttclid")) {
+    reasons.add("first_touch_ttclid_url");
+  }
+  if (textIncludesTikTok(firstTouch.utmSource)) reasons.add("first_touch_utm_source_tiktok");
+  if (textIncludesTikTok(firstTouch.utmMedium)) reasons.add("first_touch_utm_medium_tiktok");
+  if (textIncludesTikTok(firstTouch.utmCampaign)) reasons.add("first_touch_utm_campaign_tiktok");
+  if (textIncludesTikTok(firstTouch.utmContent)) reasons.add("first_touch_utm_content_tiktok");
+  if (textIncludesTikTok(firstTouch.utmTerm)) reasons.add("first_touch_utm_term_tiktok");
+  if (textIncludesTikTok(firstTouch.landing)) reasons.add("first_touch_landing_tiktok");
+  if (textIncludesTikTok(firstTouch.referrer)) reasons.add("first_touch_referrer_tiktok");
+
+  return [...reasons].sort();
+};
+
 const precisionTierForReasons = (reasons: string[]): SourcePrecisionTier => {
   if (reasons.some((reason) => reason.includes("ttclid"))) return "high";
   if (reasons.some((reason) => reason.startsWith("utm_"))) return "medium";
@@ -1147,8 +1221,8 @@ const buildGa4CrossCheckUnavailable = (warning: string): TikTokRoasComparison["g
     confirmedWithMissingLedgerSource: 0,
   },
   notes: [
-    "GA4 교차검증은 운영 Attribution strict confirmed를 대체하지 않는다.",
-    "GA4 session source가 TikTok이어도 운영 ledger의 landing/UTM/ttclid와 충돌하면 중간 신뢰 지표로만 본다.",
+    "GA4 교차검증은 TJ 관리 Attribution VM strict confirmed를 대체하지 않는다.",
+    "GA4 session source가 TikTok이어도 TJ 관리 Attribution VM ledger의 landing/UTM/ttclid와 충돌하면 중간 신뢰 지표로만 본다.",
   ],
   samples: [],
 });
@@ -1250,9 +1324,9 @@ const buildGa4CrossCheck = async (
       confirmedWithMissingLedgerSource: confirmedWithMissingLedgerSource.length,
     },
     notes: [
-      "GA4 sessionSource/sessionMedium에 tiktok이 포함된 purchase를 transactionId로 운영 ledger와 조인했다.",
+      "GA4 sessionSource/sessionMedium에 tiktok이 포함된 purchase를 transactionId로 TJ 관리 Attribution VM ledger와 조인했다.",
       "이 값은 TikTok high-confidence confirmed가 아니라 GA4 session-source 중간 신뢰 검산이다.",
-      "운영 ledger의 ttclid/UTM/landing에 TikTok 신호가 없으면 strict internal confirmed에는 반영하지 않는다.",
+      "TJ 관리 Attribution VM ledger의 ttclid/UTM/landing에 TikTok 신호가 없으면 strict internal confirmed에는 반영하지 않는다.",
     ],
     samples: joined.slice(0, 24).map((item) => ({
       date: item.row.date,
@@ -1604,6 +1678,108 @@ const buildOperationalSummary = (entries: RemoteLedgerEntry[]) => {
   };
 };
 
+const buildFirstTouchAttributionSummary = (
+  entries: RemoteLedgerEntry[],
+): TikTokRoasComparison["first_touch_attribution"] => {
+  const byStatus: Record<"confirmed" | "pending" | "canceled" | "unknown", StatusAggregate & { orderSet: Set<string> }> = {
+    confirmed: { orders: 0, rows: 0, amount: 0, orderSet: new Set() },
+    pending: { orders: 0, rows: 0, amount: 0, orderSet: new Set() },
+    canceled: { orders: 0, rows: 0, amount: 0, orderSet: new Set() },
+    unknown: { orders: 0, rows: 0, amount: 0, orderSet: new Set() },
+  };
+  const sourceReasonSummary: Record<string, SourceReasonAggregate & { orderSet: Set<string> }> = {};
+  const sampleOrders: TikTokRoasComparison["first_touch_attribution"]["sampleOrders"] = [];
+  let candidatePaymentSuccessRows = 0;
+  let strictOverlapRows = 0;
+
+  for (const entry of entries.filter((item) => item.touchpoint === "payment_success")) {
+    const firstTouchMatchReasons = getFirstTouchTikTokMatchReasons(entry);
+    if (firstTouchMatchReasons.length === 0) continue;
+
+    if (getTikTokMatchReasons(entry).length > 0) {
+      strictOverlapRows += 1;
+      continue;
+    }
+
+    candidatePaymentSuccessRows += 1;
+    const key = statusKey(entry);
+    const aggregate = byStatus[key];
+    const amount = readEntryAmount(entry);
+    const orderKey = readString(entry.orderId) || readString(entry.paymentKey) || readString(entry.loggedAt);
+    aggregate.rows += 1;
+    aggregate.amount += amount;
+    aggregate.orderSet.add(orderKey);
+
+    for (const reason of firstTouchMatchReasons) {
+      const reasonAggregate = sourceReasonSummary[reason] ?? {
+        rows: 0,
+        orders: 0,
+        amount: 0,
+        orderSet: new Set<string>(),
+      };
+      reasonAggregate.rows += 1;
+      reasonAggregate.amount += amount;
+      reasonAggregate.orderSet.add(orderKey);
+      sourceReasonSummary[reason] = reasonAggregate;
+    }
+
+    if (sampleOrders.length < 10) {
+      const firstTouch = getFirstTouchMetadata(entry);
+      const firstTouchMatch = getFirstTouchMatchMetadata(entry);
+      sampleOrders.push({
+        loggedAt: readString(entry.loggedAt),
+        orderId: readString(entry.orderId),
+        paymentStatus: key,
+        amount,
+        firstTouchLoggedAt: readString(firstTouch.loggedAt),
+        firstTouchSource: readString(firstTouch.source),
+        firstTouchUtmSource: readString(firstTouch.utmSource),
+        firstTouchUtmCampaign: readString(firstTouch.utmCampaign),
+        firstTouchHasTtclid: Boolean(readString(firstTouch.ttclid)) ||
+          firstTouchMatchReasons.some((reason) => reason.includes("ttclid")),
+        firstTouchMatchReasons,
+        matchedBy: readStringArray(firstTouchMatch.matchedBy),
+        matchScore: parseNumber(firstTouchMatch.matchScore),
+      });
+    }
+  }
+
+  const cleaned = Object.fromEntries(
+    Object.entries(byStatus).map(([key, value]) => [
+      key,
+      {
+        rows: value.rows,
+        orders: value.orderSet.size,
+        amount: Math.round(value.amount),
+      },
+    ]),
+  ) as TikTokRoasComparison["first_touch_attribution"]["byStatus"];
+
+  const cleanedReasonSummary = Object.fromEntries(
+    Object.entries(sourceReasonSummary)
+      .sort(([, left], [, right]) => right.amount - left.amount)
+      .map(([key, value]) => [
+        key,
+        {
+          rows: value.rows,
+          orders: value.orderSet.size,
+          amount: Math.round(value.amount),
+        },
+      ]),
+  );
+
+  return {
+    source: "tj_managed_attribution_vm_first_touch",
+    storage: "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.firstTouch",
+    candidatePaymentSuccessRows,
+    strictOverlapRows,
+    byStatus: cleaned,
+    sourceReasonSummary: cleanedReasonSummary,
+    sampleOrders,
+    note: "strict TikTok payment_success에는 직접 포함하지 않는다. checkout_started firstTouch에 TikTok UTM/ttclid가 보존된 payment_success 후보만 별도 집계한다.",
+  };
+};
+
 const adsSummary = (rows: TikTokAdsCampaignRangeRow[]) => {
   const spend = rows.reduce((sum, row) => sum + row.spend, 0);
   const netCost = rows.reduce((sum, row) => sum + row.net_cost, 0);
@@ -1827,14 +2003,46 @@ const buildDailyComparison = (
 export const buildTikTokRoasComparison = async (params: {
   startDate?: string;
   endDate?: string;
+  autoIngest?: boolean;
 }): Promise<TikTokRoasComparison> => {
   const importedRows = await importProcessedCsvFiles();
-  const dailyImportedRows = await importProcessedDailyCsvFiles();
+  let dailyImportedRows = await importProcessedDailyCsvFiles();
   const selected = params.startDate && params.endDate
     ? { start_date: params.startDate, end_date: params.endDate }
     : defaultRange();
   const startDate = selected.start_date;
   const endDate = selected.end_date;
+  const autoIngestState: TikTokRoasComparison["local_table"]["daily"]["autoIngest"] = {
+    attempted: false,
+    ok: false,
+    message: null,
+    startDate: null,
+    endDate: null,
+    rows: null,
+    fetchedAt: null,
+  };
+
+  if (params.autoIngest !== false) {
+    try {
+      const { ensureTikTokDailyCovers } = await import("./tiktokAdsAutoSync");
+      const result = await ensureTikTokDailyCovers(startDate, endDate);
+      autoIngestState.attempted = result.attempted;
+      autoIngestState.ok = result.ok;
+      autoIngestState.message = result.message ?? null;
+      autoIngestState.startDate = result.startDate;
+      autoIngestState.endDate = result.endDate;
+      autoIngestState.rows = result.rows;
+      autoIngestState.fetchedAt = result.fetchedAt;
+      if (result.attempted && result.ok) {
+        dailyImportedRows += await importProcessedDailyCsvFiles();
+      }
+    } catch (error) {
+      autoIngestState.attempted = true;
+      autoIngestState.ok = false;
+      autoIngestState.message = error instanceof Error ? error.message : "auto ingest failed";
+    }
+  }
+
   const availableRanges = listAvailableRanges();
   const dailyTableState = getDailyTableState();
   const rows = loadAdsRows(startDate, endDate);
@@ -1858,6 +2066,7 @@ export const buildTikTokRoasComparison = async (params: {
       fetchWarning: error instanceof Error ? error.message : "operational VM TikTok pixel event fetch failed",
     }));
   const operational = buildOperationalSummary(remoteEntries);
+  const firstTouchAttribution = buildFirstTouchAttributionSummary(remoteEntries);
   const ga4CrossCheck = await buildGa4CrossCheck(startDate, endDate, remoteEntries)
     .catch((error) => buildGa4CrossCheckUnavailable(
       error instanceof Error ? error.message : "GA4 TikTok cross-check failed",
@@ -1905,6 +2114,7 @@ export const buildTikTokRoasComparison = async (params: {
         note: dailyTableState.rows > 0
           ? "일자별 TikTok Ads export가 적재되어 있다."
           : "아직 Date dimension이 있는 TikTok Ads export가 없어 스키마만 준비했다.",
+        autoIngest: autoIngestState,
       },
       availableRanges,
     },
@@ -1935,6 +2145,7 @@ export const buildTikTokRoasComparison = async (params: {
       pendingAuditTop20: operational.pendingAuditTop20,
       sampleOrders: operational.samples,
     },
+    first_touch_attribution: firstTouchAttribution,
     ga4_cross_check: ga4CrossCheck,
     tiktok_event_log: tiktokEventLog,
     gap: {
@@ -1951,8 +2162,9 @@ export const buildTikTokRoasComparison = async (params: {
     daily_comparison: dailyComparison,
     warnings,
     notes: [
-      "운영 VM은 read-only 조회만 수행한다.",
+      "TJ 관리 Attribution VM은 read-only 조회만 수행한다.",
       "로컬 SQLite 테이블은 TikTok XLSX/CSV 처리 결과를 조회하기 위한 캐시다.",
+      "first_touch_attribution은 TJ 관리 Attribution VM SQLite metadata_json.firstTouch 후보이며 strict confirmed 매출로 합산하지 않는다.",
       campaignRowsFromDailyAggregate
         ? "캠페인별 플랫폼 ROAS는 기간 합계 export가 없으면 일자별 campaign 테이블을 캠페인 단위로 합산해 계산한다."
         : "캠페인별 플랫폼 ROAS는 기간 합계 export 테이블 기준이다.",

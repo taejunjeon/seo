@@ -7,11 +7,14 @@ import test from "node:test";
 import {
   appendLedgerEntry,
   buildAttributionCallerCoverageReport,
+  buildAttributionFirstTouchSnapshot,
   buildAttributionHourlyCompare,
   buildLedgerEntry,
   buildLedgerSummary,
   buildTossReplayPlan,
   buildTossJoinReport,
+  enrichCheckoutStartedFirstTouch,
+  enrichPaymentSuccessFirstTouch,
   normalizeApprovedAtToIso,
   normalizeAttributionPayload,
   readLedgerEntries,
@@ -75,6 +78,113 @@ test("attribution: normalizeAttributionPayload extracts Imweb order keys from la
     orderNo: "202604188765432",
     paymentCode: "pa20260418abc",
   });
+});
+
+test("attribution: firstTouch snapshot preserves checkout TikTok and caller IDs", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/checkout-context",
+  };
+  const checkout = buildLedgerEntry(
+    "checkout_started",
+    {
+      orderId: "202604271234567",
+      checkoutId: "checkout-1",
+      landing: "https://biocom.kr/shop_payment/?order_no=202604271234567&ttclid=tt-1",
+      utmSource: "tiktok",
+      utmCampaign: "campaign-a",
+      ttclid: "tt-1",
+      metadata: {
+        source: "biocom_imweb",
+        clientId: "349382661.1770783461",
+        userPseudoId: "349382661.1770783461",
+      },
+    },
+    requestContext,
+    "2026-04-27T01:00:00.000Z",
+  );
+
+  const snapshot = buildAttributionFirstTouchSnapshot(checkout);
+  const enriched = enrichCheckoutStartedFirstTouch(checkout, "2026-04-27T01:00:01.000Z");
+  const storedFirstTouch = enriched.metadata.firstTouch as Record<string, unknown>;
+
+  assert.equal(snapshot.source, "biocom_imweb");
+  assert.equal(snapshot.clientId, "349382661.1770783461");
+  assert.equal(snapshot.ttclid, "tt-1");
+  assert.ok(snapshot.tiktokMatchReasons.includes("ttclid_direct"));
+  assert.equal(storedFirstTouch.ttclid, "tt-1");
+  assert.equal(enriched.metadata.tiktokFirstTouchCandidate, true);
+});
+
+test("attribution: payment_success carries checkout firstTouch without overwriting strict fields", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+  const checkout = enrichCheckoutStartedFirstTouch(
+    buildLedgerEntry(
+      "checkout_started",
+      {
+        orderId: "202604271234568",
+        checkoutId: "checkout-2",
+        landing: "https://biocom.kr/shop_payment/?order_no=202604271234568&ttclid=tt-2",
+        utmSource: "tiktok",
+        utmCampaign: "campaign-b",
+        ttclid: "tt-2",
+        metadata: {
+          source: "biocom_imweb",
+          clientId: "client-2",
+          userPseudoId: "client-2",
+        },
+      },
+      { ...requestContext, path: "/api/attribution/checkout-context" },
+      "2026-04-27T02:00:00.000Z",
+    ),
+    "2026-04-27T02:00:01.000Z",
+  );
+  const payment = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202604271234568",
+      paymentKey: "pay-2",
+      checkoutId: "checkout-2",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        value: 11900,
+        clientId: "client-2",
+        userPseudoId: "client-2",
+      },
+    },
+    requestContext,
+    "2026-04-27T02:05:00.000Z",
+  );
+
+  const enriched = enrichPaymentSuccessFirstTouch(
+    payment,
+    [checkout],
+    "2026-04-27T02:05:01.000Z",
+  );
+  const firstTouch = enriched.metadata.firstTouch as Record<string, unknown>;
+  const firstTouchMatch = enriched.metadata.firstTouchMatch as Record<string, unknown>;
+  const matchedBy = firstTouchMatch.matchedBy as string[];
+
+  assert.equal(enriched.ttclid, "");
+  assert.equal(enriched.utmSource, "");
+  assert.equal(firstTouch.ttclid, "tt-2");
+  assert.equal(firstTouch.utmSource, "tiktok");
+  assert.equal(enriched.metadata.tiktokFirstTouchCandidate, true);
+  assert.ok(matchedBy.includes("checkout_id"));
+  assert.ok(matchedBy.includes("order_id"));
+  assert.ok(matchedBy.includes("client_id"));
 });
 
 test("tiktok pixel events: normalize payload keeps event-level order and decision keys", () => {

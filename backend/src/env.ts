@@ -161,6 +161,11 @@ const envSchema = z.object({
     .transform((value) => value === "true" || value === "1"),
   TOSS_AUTO_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   TOSS_AUTO_SYNC_WINDOW_HOURS: z.coerce.number().int().positive().default(6),
+  TIKTOK_ADS_AUTO_SYNC_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false" && value !== "0"),
+  TIKTOK_ADS_AUTO_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(60 * 60 * 1000),
   SCHEDULED_SEND_ENABLED: z
     .string()
     .optional()

@@ -14,6 +14,7 @@ import {
 } from "../crmLocalDb";
 import { evaluateForEnforcement, type ContactPolicyEnforcementResult, type EnforcementSeverity } from "../contactPolicy";
 import { syncMetaConversionsFromLedger } from "../metaCapi";
+import { ensureTikTokDailyUpToYesterday } from "../tiktokAdsAutoSync";
 import { log, obsEvents } from "../obs";
 import {
   getCachedResult,
@@ -252,6 +253,38 @@ export const startBackgroundJobs = () => {
   } else {
     // eslint-disable-next-line no-console
     console.log("[Toss settlements sync] disabled by TOSS_AUTO_SYNC_ENABLED=0");
+  }
+
+  if (env.TIKTOK_ADS_AUTO_SYNC_ENABLED && process.env.TIKTOK_BUSINESS_ACCESS_TOKEN && process.env.TIKTOK_ADVERTISER_ID) {
+    const tiktokIntervalMs = env.TIKTOK_ADS_AUTO_SYNC_INTERVAL_MS;
+    let tiktokRunning = false;
+    const runTikTokDailySync = async () => {
+      if (tiktokRunning) return;
+      tiktokRunning = true;
+      try {
+        const result = await ensureTikTokDailyUpToYesterday();
+        if (result.attempted) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `[TikTok daily sync] ${result.ok ? "ok" : "fail"} ${result.startDate}~${result.endDate} rows=${result.rows ?? "-"} ${result.message ?? ""}`,
+          );
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("[TikTok daily sync] 오류:", error instanceof Error ? error.message : error);
+      } finally {
+        tiktokRunning = false;
+      }
+    };
+    setTimeout(() => {
+      void runTikTokDailySync();
+      setInterval(() => { void runTikTokDailySync(); }, tiktokIntervalMs);
+      // eslint-disable-next-line no-console
+      console.log(`[TikTok daily sync] 활성화 — ${tiktokIntervalMs / 60000}분 주기`);
+    }, 600_000);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[TikTok daily sync] disabled (TIKTOK_ADS_AUTO_SYNC_ENABLED=0 또는 TikTok env 누락)");
   }
 
   if (env.SCHEDULED_SEND_ENABLED) {

@@ -22,6 +22,8 @@ import {
   buildTossJoinReport,
   buildTossReplayPlan,
   buildRequestContext,
+  enrichCheckoutStartedFirstTouch,
+  enrichPaymentSuccessFirstTouch,
   filterLedgerEntries,
   normalizeApprovedAtToIso,
   normalizePaymentStatus,
@@ -192,6 +194,38 @@ const parseBooleanish = (value: unknown, fallback: boolean) => {
 const readOne = (value: unknown) => {
   if (Array.isArray(value)) return typeof value[0] === "string" ? value[0].trim() : "";
   return typeof value === "string" ? value.trim() : "";
+};
+
+const readBearerToken = (req: Request) => {
+  const authorization = req.header("authorization") ?? "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+};
+
+const getNpayIntentAdminToken = () =>
+  process.env.NPAY_INTENT_ADMIN_TOKEN?.trim() ||
+  process.env.AIBIO_NATIVE_ADMIN_TOKEN?.trim() ||
+  "";
+
+const requireNpayIntentReadAccess = (req: Request, res: Response) => {
+  const configured = getNpayIntentAdminToken();
+  if (!configured) {
+    if (process.env.NODE_ENV !== "production") return true;
+    res.status(503).json({
+      ok: false,
+      error: "npay_intent_admin_token_not_configured",
+      message: "NPay intent 조회 API는 NPAY_INTENT_ADMIN_TOKEN 설정 후에만 운영에서 허용한다.",
+    });
+    return false;
+  }
+
+  const supplied = req.header("x-admin-token")?.trim() || readBearerToken(req);
+  if (supplied !== configured) {
+    res.status(403).json({ ok: false, error: "forbidden" });
+    return false;
+  }
+
+  return true;
 };
 
 const getQueryParamFromUrl = (urlValue: string, key: string) => {
@@ -1503,6 +1537,8 @@ export const createAttributionRouter = () => {
 
   router.get("/api/attribution/npay-intents", (req: Request, res: Response) => {
     try {
+      if (!requireNpayIntentReadAccess(req, res)) return;
+
       const site = readOne(req.query.site) || "biocom";
       const matchStatus = readOne(req.query.matchStatus || req.query.status);
       const limit = parsePositiveInt(readOne(req.query.limit), 50, 200);
@@ -1555,7 +1591,9 @@ export const createAttributionRouter = () => {
     try {
       const body = parseBody(req.body);
       enforceOriginSourceMatch(req, body, "checkout_started");
-      const entry = buildLedgerEntry("checkout_started", body, buildRequestContext(req));
+      const entry = enrichCheckoutStartedFirstTouch(
+        buildLedgerEntry("checkout_started", body, buildRequestContext(req)),
+      );
       const ledgerPath = await appendLedgerEntry(entry);
       res.status(201).json({
         ok: true,
@@ -1573,11 +1611,14 @@ export const createAttributionRouter = () => {
     try {
       const body = parseBody(req.body);
       enforceOriginSourceMatch(req, body, "payment_success");
-      const entry = buildLedgerEntry("payment_success", body, buildRequestContext(req));
+      const existing = await readLedgerEntries();
+      const entry = enrichPaymentSuccessFirstTouch(
+        buildLedgerEntry("payment_success", body, buildRequestContext(req)),
+        existing,
+      );
 
       // 중복 방지: 같은 orderId가 최근 5분 내에 이미 적재되었으면 skip
       if (entry.orderId) {
-        const existing = await readLedgerEntries();
         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         const duplicate = existing.find(
           (e) =>

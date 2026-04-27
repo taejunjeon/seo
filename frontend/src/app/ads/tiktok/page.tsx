@@ -160,6 +160,15 @@ type TikTokRoasResponse = {
       maxDate: string | null;
       readyForImport: boolean;
       note: string;
+      autoIngest: {
+        attempted: boolean;
+        ok: boolean;
+        message: string | null;
+        startDate: string | null;
+        endDate: string | null;
+        rows: number | null;
+        fetchedAt: string | null;
+      };
     };
     availableRanges: AvailableRange[];
   };
@@ -195,6 +204,29 @@ type TikTokRoasResponse = {
     pendingFateSummary: Record<PendingAuditFate, SourceReasonAggregate>;
     pendingAuditTop20: PendingAuditOrder[];
     sampleOrders: SampleOrder[];
+  };
+  first_touch_attribution: {
+    source: string;
+    storage: string;
+    candidatePaymentSuccessRows: number;
+    strictOverlapRows: number;
+    byStatus: Record<"confirmed" | "pending" | "canceled" | "unknown", StatusAggregate>;
+    sourceReasonSummary: Record<string, SourceReasonAggregate>;
+    sampleOrders: Array<{
+      loggedAt: string;
+      orderId: string;
+      paymentStatus: string;
+      amount: number;
+      firstTouchLoggedAt: string;
+      firstTouchSource: string;
+      firstTouchUtmSource: string;
+      firstTouchUtmCampaign: string;
+      firstTouchHasTtclid: boolean;
+      firstTouchMatchReasons: string[];
+      matchedBy: string[];
+      matchScore: number;
+    }>;
+    note: string;
   };
   ga4_cross_check: {
     source: string;
@@ -349,9 +381,45 @@ type ChannelBenchmarkState = {
   error: string | null;
 };
 
-const DEFAULT_RANGE = {
-  startDate: "2026-04-18",
-  endDate: "2026-04-24",
+const MIN_DAILY_START_DATE = "2026-04-18";
+
+const kstDateOnly = (date: Date) => {
+  const utc = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  const year = utc.getUTCFullYear();
+  const month = String(utc.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(utc.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const addDays = (yyyyMmDd: string, days: number) => {
+  const parsed = new Date(`${yyyyMmDd}T00:00:00Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return kstDateOnly(parsed);
+};
+
+const yesterdayKst = () => {
+  const now = new Date();
+  now.setUTCDate(now.getUTCDate() - 1);
+  return kstDateOnly(now);
+};
+
+const clampStart = (target: string) => (target < MIN_DAILY_START_DATE ? MIN_DAILY_START_DATE : target);
+
+const buildDefaultRange = () => {
+  const endDate = yesterdayKst();
+  const startDate = clampStart(addDays(endDate, -6));
+  return { startDate, endDate };
+};
+
+const buildQuickRanges = (todayBased = false) => {
+  const anchor = todayBased ? kstDateOnly(new Date()) : yesterdayKst();
+  return [
+    { key: "yesterday", label: "어제", startDate: anchor, endDate: anchor },
+    { key: "last3", label: "최근 3일", startDate: clampStart(addDays(anchor, -2)), endDate: anchor },
+    { key: "last7", label: "최근 7일", startDate: clampStart(addDays(anchor, -6)), endDate: anchor },
+    { key: "last14", label: "최근 14일", startDate: clampStart(addDays(anchor, -13)), endDate: anchor },
+    { key: "last28", label: "최근 28일", startDate: clampStart(addDays(anchor, -27)), endDate: anchor },
+  ];
 };
 
 const META_BIOCOM_ACCOUNT_ID = "act_3138805896402376";
@@ -546,9 +614,12 @@ function StatusBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
   );
 }
 
+const INITIAL_RANGE = buildDefaultRange();
+
 export default function TikTokAdsPerformancePage() {
-  const [startDate, setStartDate] = useState(DEFAULT_RANGE.startDate);
-  const [endDate, setEndDate] = useState(DEFAULT_RANGE.endDate);
+  const [startDate, setStartDate] = useState(INITIAL_RANGE.startDate);
+  const [endDate, setEndDate] = useState(INITIAL_RANGE.endDate);
+  const [quickRanges, setQuickRanges] = useState(() => buildQuickRanges());
   const [dailyRevenueMode, setDailyRevenueMode] = useState<"confirmed" | "potential">("potential");
   const [data, setData] = useState<TikTokRoasResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -566,6 +637,10 @@ export default function TikTokAdsPerformancePage() {
 
   useEffect(() => {
     setMounted(true);
+    const fresh = buildDefaultRange();
+    setStartDate((current) => (current === INITIAL_RANGE.startDate ? fresh.startDate : current));
+    setEndDate((current) => (current === INITIAL_RANGE.endDate ? fresh.endDate : current));
+    setQuickRanges(buildQuickRanges());
   }, []);
 
   useEffect(() => {
@@ -696,22 +771,41 @@ export default function TikTokAdsPerformancePage() {
   const confirmed = ledger?.confirmed ?? { rows: 0, orders: 0, amount: 0 };
   const pending = ledger?.pending ?? { rows: 0, orders: 0, amount: 0 };
   const canceled = ledger?.canceled ?? { rows: 0, orders: 0, amount: 0 };
+  const firstTouch = data?.first_touch_attribution;
+  const firstTouchConfirmed = firstTouch?.byStatus.confirmed ?? { rows: 0, orders: 0, amount: 0 };
+  const firstTouchPending = firstTouch?.byStatus.pending ?? { rows: 0, orders: 0, amount: 0 };
+  const firstTouchCandidateRows = firstTouch?.candidatePaymentSuccessRows ?? 0;
   const pendingShare = useMemo(() => {
     const total = confirmed.orders + pending.orders + canceled.orders;
     return total > 0 ? pending.orders / total * 100 : null;
   }, [confirmed.orders, pending.orders, canceled.orders]);
-  const availableRanges = data?.local_table.availableRanges ?? [];
-  const rangeButtons = [
-    {
-      label: "v2 검증 포함",
-      start_date: "2026-04-18",
-      end_date: "2026-04-24",
-      rows: 0,
-      spend: summary?.spend ?? 0,
-      purchaseValue: summary?.purchaseValue ?? 0,
-    },
-    ...availableRanges.filter((range) => !(range.start_date === "2026-04-18" && range.end_date === "2026-04-24")),
-  ];
+  const dailyMaxDate = data?.local_table.daily.maxDate ?? null;
+  const dailyMinDate = data?.local_table.daily.minDate ?? null;
+  const yesterdayLabel = useMemo(() => yesterdayKst(), []);
+  const dailyMaxLagDays = useMemo(() => {
+    if (!dailyMaxDate) return null;
+    const end = new Date(`${yesterdayLabel}T00:00:00Z`).getTime();
+    const last = new Date(`${dailyMaxDate}T00:00:00Z`).getTime();
+    return Math.max(0, Math.round((end - last) / (24 * 60 * 60 * 1000)));
+  }, [dailyMaxDate, yesterdayLabel]);
+  const autoIngestState = data?.local_table.daily.autoIngest;
+  const freshnessTone: Tone = !dailyMaxDate
+    ? "amber"
+    : dailyMaxLagDays != null && dailyMaxLagDays <= 1
+      ? "green"
+      : dailyMaxLagDays != null && dailyMaxLagDays <= 3
+        ? "amber"
+        : "red";
+  const freshnessText = dailyMaxDate
+    ? dailyMaxLagDays === 0
+      ? `최신 적재일 ${dailyMaxDate} (어제까지 반영)`
+      : `최신 적재일 ${dailyMaxDate} (어제 기준 ${dailyMaxLagDays}일 지연)`
+    : "TikTok 일자별 데이터 미적재";
+  const autoIngestLabel = autoIngestState?.attempted
+    ? autoIngestState.ok
+      ? `자동 적재 ${autoIngestState.startDate}~${autoIngestState.endDate} (${fmtNum(autoIngestState.rows)}행)`
+      : `자동 적재 실패: ${autoIngestState.message ?? "알 수 없음"}`
+    : "자동 적재: 변동 없음";
   const sourceReasonRows = Object.entries(data?.operational_ledger.sourceReasonSummary ?? {})
     .sort(([, left], [, right]) => right.amount - left.amount);
   const pendingAuditRows = data?.operational_ledger.pendingAuditTop20 ?? [];
@@ -818,7 +912,7 @@ export default function TikTokAdsPerformancePage() {
 
   const verdictTone: Tone = loading ? "neutral" : error ? "red" : guardVerified ? "green" : data?.gap.confirmedRevenue === 0 ? "red" : "amber";
   const verdict = loading
-    ? "운영 VM 확인 중"
+    ? "Attribution VM 확인 중"
     : error
       ? "API 확인 필요"
       : guardVerified
@@ -843,7 +937,7 @@ export default function TikTokAdsPerformancePage() {
     : "Meta/Google 우선";
   const tiktokStrategyReason = tiktokHasInternalConfirmed
     ? `TikTok 내부 confirmed가 ${fmtKRW(tiktokInternalConfirmedRevenue)} 발생했지만, 아직 소재팀 주력 채널로 올리기 전 표본 확대가 필요합니다.`
-    : `TikTok은 선택 기간 광고비 ${fmtKRW(tiktokSelectedSpend)}를 쓰고 플랫폼 구매값 ${fmtKRW(tiktokPlatformPurchaseValue)}를 주장하지만, 운영 VM TikTok payment_success는 ${fmtNum(tiktokPaymentSuccessRows)}행입니다.`;
+    : `TikTok은 선택 기간 광고비 ${fmtKRW(tiktokSelectedSpend)}를 쓰고 플랫폼 구매값 ${fmtKRW(tiktokPlatformPurchaseValue)}를 주장하지만, TJ 관리 Attribution VM TikTok payment_success는 ${fmtNum(tiktokPaymentSuccessRows)}행입니다.`;
   const metaTone: Tone = benchmarks.meta?.roas == null
     ? "neutral"
     : benchmarks.meta.roas >= 1
@@ -890,40 +984,105 @@ export default function TikTokAdsPerformancePage() {
                 틱톡 ROAS 정합성
               </h1>
               <p style={{ margin: 0, color: "#475569", fontSize: "0.9rem", lineHeight: 1.75 }}>
-                TikTok Ads Manager XLSX에서 가져온 플랫폼 구매값과 운영 VM Attribution 원장의 실제 결제 상태를 같은
-                기간으로 비교합니다.
+                TikTok이 보고하는 광고비·구매값과 우리가 직접 결제 처리한 매출(내부 confirmed)을 같은 날짜로
+                나란히 놓아, 광고가 실제 매출을 만들었는지를 사람이 한눈에 판단할 수 있게 합니다.
               </p>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              {rangeButtons.length > 0 ? rangeButtons.map((range) => {
-                const active = range.start_date === startDate && range.end_date === endDate;
-                return (
-                  <button
-                    key={`${range.start_date}-${range.end_date}`}
-                    type="button"
-                    onClick={() => {
-                      setStartDate(range.start_date);
-                      setEndDate(range.end_date);
-                    }}
-                    style={{
-                      border: `1px solid ${active ? "#0f766e" : "#cbd5e1"}`,
-                      borderRadius: 8,
-                      background: active ? "#0f766e" : "#ffffff",
-                      color: active ? "#ffffff" : "#475569",
-                      cursor: "pointer",
-                      fontSize: "0.76rem",
-                      fontWeight: 800,
-                      padding: "8px 12px",
-                    }}
-                  >
-                    {"label" in range ? `${range.label}: ` : ""}{range.start_date} ~ {range.end_date}
-                  </button>
-                );
-              }) : (
-                <StatusBadge tone="neutral">{startDate} ~ {endDate}</StatusBadge>
-              )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {quickRanges.map((range) => {
+                  const active = range.startDate === startDate && range.endDate === endDate;
+                  return (
+                    <button
+                      key={range.key}
+                      type="button"
+                      onClick={() => {
+                        setStartDate(range.startDate);
+                        setEndDate(range.endDate);
+                      }}
+                      style={{
+                        border: `1px solid ${active ? "#0f766e" : "#cbd5e1"}`,
+                        borderRadius: 8,
+                        background: active ? "#0f766e" : "#ffffff",
+                        color: active ? "#ffffff" : "#475569",
+                        cursor: "pointer",
+                        fontSize: "0.76rem",
+                        fontWeight: 800,
+                        padding: "8px 12px",
+                      }}
+                    >
+                      {range.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <label style={{ color: "#475569", fontSize: "0.72rem", fontWeight: 700 }}>
+                  시작
+                  <input
+                    type="date"
+                    value={startDate}
+                    min={MIN_DAILY_START_DATE}
+                    max={endDate}
+                    onChange={(event) => setStartDate(event.target.value)}
+                    style={{ marginLeft: 6, padding: "4px 6px", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: "0.76rem" }}
+                  />
+                </label>
+                <label style={{ color: "#475569", fontSize: "0.72rem", fontWeight: 700 }}>
+                  종료
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    max={yesterdayLabel}
+                    onChange={(event) => setEndDate(event.target.value)}
+                    style={{ marginLeft: 6, padding: "4px 6px", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: "0.76rem" }}
+                  />
+                </label>
+                <StatusBadge tone={freshnessTone}>{freshnessText}</StatusBadge>
+              </div>
             </div>
           </header>
+
+          <section
+            style={{
+              border: "1px solid #cbd5e1",
+              borderRadius: 8,
+              background: "#ffffff",
+              padding: 18,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>한 줄 요약 — {startDate} ~ {endDate}</h2>
+                <p style={{ margin: "8px 0 0", color: "#475569", fontSize: "0.9rem", lineHeight: 1.75 }}>
+                  {loading
+                    ? "데이터를 가져오는 중입니다."
+                    : error
+                      ? error
+                      : `이 기간 동안 TikTok 광고비는 ${fmtKRW(summary?.spend)}, TikTok이 자기 기준으로 보고한 매출은 ${fmtKRW(summary?.purchaseValue)} (ROAS ${fmtRoas(summary?.platformRoas)})입니다. 그러나 우리 결제 시스템에 실제로 카드 승인된 매출(내부 confirmed)은 ${fmtKRW(data?.gap.confirmedRevenue)}이고, 결제 대기 중인 가상계좌까지 합쳐도 ${fmtKRW((data?.gap.confirmedRevenue ?? 0) + (data?.gap.pendingRevenue ?? 0))} 수준입니다. → "${verdict}".`}
+                </p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                <StatusBadge tone={verdictTone}>{verdict}</StatusBadge>
+                <span style={{ color: "#64748b", fontSize: "0.72rem" }}>{autoIngestLabel}</span>
+                {dailyMinDate ? (
+                  <span style={{ color: "#94a3b8", fontSize: "0.7rem" }}>적재 범위: {dailyMinDate} ~ {dailyMaxDate ?? "-"}</span>
+                ) : null}
+              </div>
+            </div>
+            <details style={{ marginTop: 14, color: "#475569", fontSize: "0.78rem", lineHeight: 1.7 }}>
+              <summary style={{ cursor: "pointer", fontWeight: 800 }}>이 페이지에 나오는 용어 풀이</summary>
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                <li><strong>플랫폼 구매값/ROAS</strong>: TikTok이 자기네 픽셀로 추정한 매출과 그 매출/광고비. 이중집계, 미결제 포함 가능.</li>
+                <li><strong>내부 confirmed</strong>: Toss 결제 승인이 완료된 실제 매출. 광고비 효율 판단의 정본.</li>
+                <li><strong>pending</strong>: 가상계좌 등 입금 대기 중. 24시간 내 미입금 시 자동 취소.</li>
+                <li><strong>CTA / VTA</strong>: Click-Through / View-Through Attribution. CTA가 있을수록 클릭→구매로 이어진 신호가 강함.</li>
+                <li><strong>v2 Guard</strong>: pending 가상계좌 주문에서 TikTok이 Purchase를 가짜로 잡지 못하게 차단하는 로직.</li>
+                <li><strong>firstTouch</strong>: 결제 직전이 아니라 첫 진입 시점의 유입 정보. 신규 주문부터 metadata에 보존.</li>
+              </ul>
+            </details>
+          </section>
 
           <section
             style={{
@@ -940,14 +1099,14 @@ export default function TikTokAdsPerformancePage() {
             </div>
             <p style={{ margin: "14px 0 0", color: toneMap[verdictTone].text, fontSize: "0.9rem", lineHeight: 1.8 }}>
               {loading
-                ? "로컬 TikTok Ads 테이블과 운영 VM 원장을 조회하고 있습니다."
+                ? "로컬 TikTok Ads 테이블과 TJ 관리 Attribution VM 원장을 조회하고 있습니다."
                 : error
                   ? error
                   : missingAdsDates.length > 0
                     ? `선택 기간 중 ${missingAdsDates.join(", ")} TikTok Ads 일별 데이터가 아직 로컬에 없습니다. 해당 날짜의 비용 0원은 실제 무집행 확정값이 아니라 미수집 표시입니다. 현재 Ads 일별 데이터 범위는 ${adsCoverageText}입니다.`
                   : guardVerified
-                    ? `운영 VM tiktok_pixel_events 기준으로 확정 Purchase 허용 ${fmtNum(eventFinal?.releasedConfirmedPurchase)}건, pending Purchase 차단 ${fmtNum(eventFinal?.blockedPendingPurchase)}건, PlaceAnOrder 대체 ${fmtNum(eventFinal?.sentReplacementPlaceAnOrder)}건이 확인됐습니다. 이상 release, request error, final 누락은 없습니다.`
-                    : `TikTok 플랫폼은 구매값 ${fmtKRW(summary?.purchaseValue)}와 ROAS ${fmtRoas(summary?.platformRoas)}를 보고하지만, 운영 VM 원장의 TikTok 귀속 confirmed 매출은 ${fmtKRW(data?.gap.confirmedRevenue)}입니다. pending ${fmtNum(pending.orders)}건 중 24시간 미만 대기는 ${fmtNum(stillPending.orders)}건이고, 24시간 초과 미입금 만료 후보는 ${fmtNum(expiredUnpaid.orders)}건 ${fmtKRW(expiredUnpaid.amount)}입니다.`}
+                    ? `TJ 관리 Attribution VM tiktok_pixel_events 기준으로 확정 Purchase 허용 ${fmtNum(eventFinal?.releasedConfirmedPurchase)}건, pending Purchase 차단 ${fmtNum(eventFinal?.blockedPendingPurchase)}건, PlaceAnOrder 대체 ${fmtNum(eventFinal?.sentReplacementPlaceAnOrder)}건이 확인됐습니다. 이상 release, request error, final 누락은 없습니다.`
+                    : `TikTok 플랫폼은 구매값 ${fmtKRW(summary?.purchaseValue)}와 ROAS ${fmtRoas(summary?.platformRoas)}를 보고하지만, TJ 관리 Attribution VM 원장의 TikTok 귀속 confirmed 매출은 ${fmtKRW(data?.gap.confirmedRevenue)}입니다. pending ${fmtNum(pending.orders)}건 중 24시간 미만 대기는 ${fmtNum(stillPending.orders)}건이고, 24시간 초과 미입금 만료 후보는 ${fmtNum(expiredUnpaid.orders)}건 ${fmtKRW(expiredUnpaid.amount)}입니다.`}
             </p>
           </section>
 
@@ -986,7 +1145,7 @@ export default function TikTokAdsPerformancePage() {
               <MetricCard
                 label="TikTok"
                 value={loading ? "로딩 중" : resourceRecommendation}
-                detail={loading ? "운영 VM과 Ads API를 조회하고 있습니다." : tiktokStrategyReason}
+                detail={loading ? "TJ 관리 Attribution VM과 Ads API를 조회하고 있습니다." : tiktokStrategyReason}
                 tone={strategyTone}
               />
               <MetricCard
@@ -1000,7 +1159,7 @@ export default function TikTokAdsPerformancePage() {
                 value={loading ? "로딩 중" : fmtKRW(ga4Totals?.ledgerConfirmedAmount)}
                 detail={
                   ga4CrossCheck?.available
-                    ? `GA4 session-source 주문번호 ${fmtNum(ga4Totals?.ledgerConfirmedRows)}건이 운영 confirmed와 맞습니다. 단, 운영 ledger에서 TikTok 직접 근거는 ${fmtNum(ga4Totals?.confirmedWithTikTokLedgerSignals)}건입니다.`
+                    ? `GA4 session-source 주문번호 ${fmtNum(ga4Totals?.ledgerConfirmedRows)}건이 Attribution VM confirmed와 맞습니다. 단, Attribution VM ledger에서 TikTok 직접 근거는 ${fmtNum(ga4Totals?.confirmedWithTikTokLedgerSignals)}건입니다.`
                     : ga4CrossCheck?.warning ?? "GA4 transaction_id 교차검증 대기"
                 }
                 tone={(ga4Totals?.ledgerConfirmedAmount ?? 0) > 0 ? "amber" : "neutral"}
@@ -1091,7 +1250,7 @@ export default function TikTokAdsPerformancePage() {
               <div>
                 <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>v2 Guard 운영 이벤트 원장</h2>
                 <p style={{ margin: "7px 0 0", color: toneMap[eventLogTone].text, fontSize: "0.82rem", lineHeight: 1.7 }}>
-                  위치: 운영 VM SQLite `CRM_LOCAL_DB_PATH#tiktok_pixel_events`. 카드 confirmed는 Purchase를 통과시키고, 가상계좌 pending은 Purchase를 막은 뒤 PlaceAnOrder로 낮춥니다.
+                  위치: TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#tiktok_pixel_events`. 카드 confirmed는 Purchase를 통과시키고, 가상계좌 pending은 Purchase를 막은 뒤 PlaceAnOrder로 낮춥니다.
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -1268,16 +1427,28 @@ export default function TikTokAdsPerformancePage() {
               tone="amber"
             />
             <MetricCard
-              label="운영 confirmed"
+              label="Attribution confirmed"
               value={loading ? "로딩 중" : fmtKRW(data?.gap.confirmedRevenue)}
               detail={`${fmtNum(confirmed.orders)}건. Toss DONE 기준 확정매출`}
               tone={confirmed.amount > 0 ? "green" : "red"}
             />
             <MetricCard
-              label="운영 pending"
+              label="firstTouch 후보 confirmed"
+              value={loading ? "로딩 중" : fmtKRW(firstTouchConfirmed.amount)}
+              detail={`${fmtNum(firstTouchConfirmed.orders)}건. strict와 별도, ${firstTouch?.storage ?? "metadata_json.firstTouch"}`}
+              tone={firstTouchConfirmed.amount > 0 ? "amber" : "neutral"}
+            />
+            <MetricCard
+              label="Attribution pending"
               value={loading ? "로딩 중" : fmtKRW(data?.gap.pendingRevenue)}
               detail={`${fmtNum(pending.orders)}건. 전체 TikTok 주문 중 ${fmtPct(pendingShare)}`}
               tone={pending.amount > 0 ? "amber" : "neutral"}
+            />
+            <MetricCard
+              label="firstTouch 후보 pending"
+              value={loading ? "로딩 중" : fmtKRW(firstTouchPending.amount)}
+              detail={`${fmtNum(firstTouchPending.orders)}건. checkout TikTok 신호 보존 후보`}
+              tone={firstTouchPending.amount > 0 ? "amber" : "neutral"}
             />
             <MetricCard
               label="24h 미만 pending"
@@ -1311,13 +1482,13 @@ export default function TikTokAdsPerformancePage() {
               <div>
                 <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>GA4 주문번호 교차검증</h2>
                 <p style={{ margin: "7px 0 0", color: "#475569", fontSize: "0.82rem", lineHeight: 1.7 }}>
-                  GA4 session source가 TikTok인 purchase를 `transaction_id`로 운영 VM Attribution 원장과 붙였습니다. 이 값은
+                  GA4 session source가 TikTok인 purchase를 `transaction_id`로 TJ 관리 Attribution VM 원장과 붙였습니다. 이 값은
                   strict internal confirmed를 대체하지 않고, TikTok 가능성을 보는 중간 신뢰 지표입니다.
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <StatusBadge tone={(ga4Totals?.ledgerConfirmedAmount ?? 0) > 0 ? "amber" : "neutral"}>
-                  운영 confirmed 매칭 {fmtKRW(ga4Totals?.ledgerConfirmedAmount)}
+                  VM confirmed 매칭 {fmtKRW(ga4Totals?.ledgerConfirmedAmount)}
                 </StatusBadge>
                 <StatusBadge tone={(ga4Totals?.confirmedWithTikTokLedgerSignals ?? 0) > 0 ? "green" : "red"}>
                   TikTok 직접근거 {fmtNum(ga4Totals?.confirmedWithTikTokLedgerSignals)}건
@@ -1347,7 +1518,7 @@ export default function TikTokAdsPerformancePage() {
               <MetricCard
                 label="다른 채널 근거 충돌"
                 value={loading ? "로딩 중" : `${fmtNum(ga4Totals?.confirmedWithOtherLedgerSource)}건`}
-                detail="운영 ledger UTM/landing이 Meta, Naver, CRM 등으로 남은 주문"
+                detail="TJ 관리 Attribution VM ledger UTM/landing이 Meta, Naver, CRM 등으로 남은 주문"
                 tone={(ga4Totals?.confirmedWithOtherLedgerSource ?? 0) > 0 ? "red" : "green"}
               />
               <MetricCard
@@ -1379,7 +1550,7 @@ export default function TikTokAdsPerformancePage() {
               <div>
                 <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>일별 ROAS 추세</h2>
                 <p style={{ margin: "7px 0 0", color: "#64748b", fontSize: "0.8rem", lineHeight: 1.65 }}>
-                  TikTok 일별 export와 운영 VM TikTok 주문을 KST 날짜 기준으로 맞췄습니다.
+                  TikTok 일별 export와 TJ 관리 Attribution VM TikTok 주문을 KST 날짜 기준으로 맞췄습니다.
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1469,7 +1640,7 @@ export default function TikTokAdsPerformancePage() {
                   <Line
                     type="monotone"
                     dataKey="internalRoas"
-                    name={dailyModeIsPotential ? "운영 potential ROAS" : "운영 confirmed ROAS"}
+                    name={dailyModeIsPotential ? "Attribution potential ROAS" : "Attribution confirmed ROAS"}
                     stroke="#16a34a"
                     strokeWidth={2}
                     dot={false}
@@ -1642,15 +1813,16 @@ export default function TikTokAdsPerformancePage() {
             <article style={{ border: "1px solid #fecaca", borderRadius: 8, background: "#fef2f2", padding: 18 }}>
               <h3 style={{ margin: 0, color: "#991b1b", fontSize: "0.95rem", fontWeight: 900 }}>gap 판정</h3>
               <p style={{ margin: "10px 0 0", color: "#991b1b", fontSize: "0.82rem", lineHeight: 1.75 }}>
-                플랫폼 구매값에서 운영 confirmed 매출을 빼면 {fmtKRW(data?.gap.platformMinusConfirmed)}입니다. confirmed와
+                플랫폼 구매값에서 Attribution confirmed 매출을 빼면 {fmtKRW(data?.gap.platformMinusConfirmed)}입니다. confirmed와
                 pending을 모두 포함해도 gap은 {fmtKRW(data?.gap.platformMinusConfirmedAndPending)}입니다.
               </p>
             </article>
             <article style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fffbeb", padding: 18 }}>
-              <h3 style={{ margin: 0, color: "#92400e", fontSize: "0.95rem", fontWeight: 900 }}>운영 VM 상태</h3>
+              <h3 style={{ margin: 0, color: "#92400e", fontSize: "0.95rem", fontWeight: 900 }}>Attribution VM 상태</h3>
               <p style={{ margin: "10px 0 0", color: "#92400e", fontSize: "0.82rem", lineHeight: 1.75 }}>
                 VM에서 {fmtNum(data?.operational_ledger.fetchedEntries)}개 원장을 읽었고, TikTok payment_success는
-                {fmtNum(data?.operational_ledger.tiktokPaymentSuccessRows)}행입니다. 운영 원장은 읽기 전용으로만 조회했습니다.
+                {fmtNum(data?.operational_ledger.tiktokPaymentSuccessRows)}행입니다. firstTouch 후보는
+                {fmtNum(firstTouchCandidateRows)}행이며, strict confirmed에는 합산하지 않습니다.
               </p>
             </article>
             <article style={{ border: "1px solid #bfdbfe", borderRadius: 8, background: "#eff6ff", padding: 18 }}>
@@ -1797,7 +1969,7 @@ export default function TikTokAdsPerformancePage() {
               padding: 20,
             }}
           >
-            <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>운영 VM TikTok 주문 샘플</h2>
+            <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>Attribution VM TikTok 주문 샘플</h2>
             <div style={{ marginTop: 14, overflowX: "auto" }}>
               <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", fontSize: "0.78rem" }}>
                 <thead>
@@ -1847,7 +2019,7 @@ export default function TikTokAdsPerformancePage() {
 
           <footer style={{ color: "#64748b", fontSize: "0.76rem", lineHeight: 1.7 }}>
             <p style={{ margin: 0 }}>
-              데이터 소스: TikTok XLSX local SQLite + 운영 VM Attribution ledger ·{" "}
+              데이터 소스: TikTok XLSX local SQLite + TJ 관리 Attribution VM ledger ·{" "}
               <Link href="/ads" style={{ color: "#0f766e", fontWeight: 800 }}>Meta 광고성과</Link>
               {" / "}
               <Link href="/ads/roas" style={{ color: "#0f766e", fontWeight: 800 }}>ROAS 대시보드</Link>

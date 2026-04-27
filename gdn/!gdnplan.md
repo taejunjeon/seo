@@ -290,7 +290,7 @@ Google Ads도 2026-04-25 11:06 KST 기준 **탐색기 액세스로 read-only 조
 
 ## 참고한 내부 문서
 
-- [[tiktokroasplan|tiktok/tiktokroasplan.md]]: 플랫폼 ROAS와 내부 confirmed ROAS를 분리한 선례.
+- [[!tiktokroasplan|tiktok/tiktokroasplan.md]]: 플랫폼 ROAS와 내부 confirmed ROAS를 분리한 선례.
 - [[!datacheckplan|data/!datacheckplan.md]]: Toss, Imweb, GA4, Attribution ledger의 역할 기준.
 - [[GA4검증|GA4/GA4검증.md]]: v136/v137 이후 GA4 purchase 오염 감소와 잔여 이상치 분해.
 - [[npay_return_missing_20260421|GA4/npay_return_missing_20260421.md]]: NPay 결제 완료 후 자사몰 리턴 누락과 Google Ads 클릭 전환 위험.
