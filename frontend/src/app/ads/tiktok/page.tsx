@@ -531,13 +531,13 @@ const formatReasons = (reasons: string[]) =>
   reasons.length ? reasons.map(reasonLabel).join(", ") : "-";
 
 const pixelActionLabel = (action: string) => ({
-  purchase_intercepted: "Purchase 감지",
-  decision_received: "판정 수신",
-  released_confirmed_purchase: "확정 Purchase 허용",
-  released_unknown_purchase: "unknown fail-open",
-  blocked_pending_purchase: "pending Purchase 차단",
-  sent_replacement_place_an_order: "PlaceAnOrder 대체",
-  request_error: "판정 요청 실패",
+  purchase_intercepted: "Purchase 호출 감지",
+  decision_received: "결제상태 확인",
+  released_confirmed_purchase: "결제완료라 Purchase 전송",
+  released_unknown_purchase: "판정 불가라 Purchase 통과",
+  blocked_pending_purchase: "미입금이라 Purchase 차단",
+  sent_replacement_place_an_order: "PlaceAnOrder로 대체",
+  request_error: "결제상태 확인 실패",
 }[action] ?? action);
 
 const pixelActionTone = (action: string): Tone => {
@@ -1060,7 +1060,7 @@ export default function TikTokAdsPerformancePage() {
                     ? "데이터를 가져오는 중입니다."
                     : error
                       ? error
-                      : `이 기간 동안 TikTok 광고비는 ${fmtKRW(summary?.spend)}, TikTok이 자기 기준으로 보고한 매출은 ${fmtKRW(summary?.purchaseValue)} (ROAS ${fmtRoas(summary?.platformRoas)})입니다. 그러나 우리 결제 시스템에 실제로 카드 승인된 매출(내부 confirmed)은 ${fmtKRW(data?.gap.confirmedRevenue)}이고, 결제 대기 중인 가상계좌까지 합쳐도 ${fmtKRW((data?.gap.confirmedRevenue ?? 0) + (data?.gap.pendingRevenue ?? 0))} 수준입니다. → "${verdict}".`}
+                      : `이 기간 동안 TikTok 광고비는 ${fmtKRW(summary?.spend)}, TikTok이 자기 기준으로 보고한 매출은 ${fmtKRW(summary?.purchaseValue)} (ROAS ${fmtRoas(summary?.platformRoas)})입니다. 그러나 TJ 관리 Attribution VM에서 TikTok 유입 근거가 남은 결제완료 매출(내부 confirmed)은 ${fmtKRW(data?.gap.confirmedRevenue)}이고, 결제 대기 중인 가상계좌까지 합쳐도 ${fmtKRW((data?.gap.confirmedRevenue ?? 0) + (data?.gap.pendingRevenue ?? 0))} 수준입니다. 이 0원은 자사몰 전체 매출 0원이 아니라 TikTok 귀속 내부 매출 0원이라는 뜻입니다. → "${verdict}".`}
                 </p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
@@ -1075,7 +1075,7 @@ export default function TikTokAdsPerformancePage() {
               <summary style={{ cursor: "pointer", fontWeight: 800 }}>이 페이지에 나오는 용어 풀이</summary>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                 <li><strong>플랫폼 구매값/ROAS</strong>: TikTok이 자기네 픽셀로 추정한 매출과 그 매출/광고비. 이중집계, 미결제 포함 가능.</li>
-                <li><strong>내부 confirmed</strong>: Toss 결제 승인이 완료된 실제 매출. 광고비 효율 판단의 정본.</li>
+                <li><strong>내부 confirmed</strong>: TJ 관리 Attribution VM에서 TikTok 유입 근거가 남아 있고 Toss 결제 승인이 완료된 매출. 전체 자사몰 카드 매출이 아니라 TikTok 귀속 내부 매출.</li>
                 <li><strong>pending</strong>: 가상계좌 등 입금 대기 중. 24시간 내 미입금 시 자동 취소.</li>
                 <li><strong>CTA / VTA</strong>: Click-Through / View-Through Attribution. CTA가 있을수록 클릭→구매로 이어진 신호가 강함.</li>
                 <li><strong>v2 Guard</strong>: pending 가상계좌 주문에서 TikTok이 Purchase를 가짜로 잡지 못하게 차단하는 로직.</li>
@@ -1250,7 +1250,9 @@ export default function TikTokAdsPerformancePage() {
               <div>
                 <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>v2 Guard 운영 이벤트 원장</h2>
                 <p style={{ margin: "7px 0 0", color: toneMap[eventLogTone].text, fontSize: "0.82rem", lineHeight: 1.7 }}>
-                  위치: TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#tiktok_pixel_events`. 카드 confirmed는 Purchase를 통과시키고, 가상계좌 pending은 Purchase를 막은 뒤 PlaceAnOrder로 낮춥니다.
+                  위치: TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#tiktok_pixel_events`. 이 원장은 TikTok 광고 귀속 원장이 아니라
+                  사이트에서 발생한 TikTok Pixel Purchase 호출을 결제상태별로 처리한 기록입니다. 카드/입금완료는 Purchase를 전송하고,
+                  가상계좌 미입금은 Purchase를 막은 뒤 PlaceAnOrder로 낮춥니다.
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -1276,13 +1278,13 @@ export default function TikTokAdsPerformancePage() {
                 tone="blue"
               />
               <MetricCard
-                label="확정 Purchase 허용"
+                label="결제완료 Purchase 전송"
                 value={loading ? "로딩 중" : fmtNum(eventFinal?.releasedConfirmedPurchase)}
-                detail="decision confirmed / allow_purchase"
+                detail="내부 결제상태가 confirmed라 TikTok Pixel Purchase를 보냄. TikTok 광고 귀속 확정이라는 뜻은 아님"
                 tone="green"
               />
               <MetricCard
-                label="pending Purchase 차단"
+                label="미입금 Purchase 차단"
                 value={loading ? "로딩 중" : fmtNum(eventFinal?.blockedPendingPurchase)}
                 detail={`PlaceAnOrder 대체 ${fmtNum(eventFinal?.sentReplacementPlaceAnOrder)}건`}
                 tone="blue"
@@ -1300,7 +1302,7 @@ export default function TikTokAdsPerformancePage() {
                 <thead>
                   <tr style={{ background: "#ffffff", color: "#475569" }}>
                     <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>시간</th>
-                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>최종 action</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>픽셀 처리 결과</th>
                     <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>주문</th>
                     <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>금액</th>
                     <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>decision</th>
@@ -1349,7 +1351,7 @@ export default function TikTokAdsPerformancePage() {
               </ul>
             ) : (
               <p style={{ margin: "14px 0 0", color: toneMap[eventLogTone].text, fontSize: "0.8rem", lineHeight: 1.7 }}>
-                현재 선택 기간에는 비정상 release, request error, final action 누락이 없습니다.
+                현재 선택 기간에는 비정상 Purchase 전송, 결제상태 확인 실패, 최종 처리 누락이 없습니다.
               </p>
             )}
           </section>
