@@ -1,10 +1,52 @@
 # TikTok ROAS 정합성 프로젝트 로드맵
 
-작성 시각: 2026-04-28 00:23 KST
+작성 시각: 2026-04-28 08:45 KST
 기준일: 2026-04-28
-버전: v3.20-card-firsttouch-purchase-verified (이전본: `tiktok/tiktokroasplan.md.bak_20260428_card_firsttouch_verify`)
+버전: v3.21-gap-eventlog-wording-clarified (이전본: `tiktok/!tiktokroasplan.md.bak_20260428_gap_eventlog_relabel`)
 
 ## 2026-04-25 최신 상태
+
+## 2026-04-28 최근 7일 gap 재점검
+
+질문: TikTok 플랫폼 구매값 `21건 / 7,367,960원`인데 내부 confirmed/pending이 모두 0원인 것이 정상인가?
+
+결론: **정상이라고 단정할 수는 없지만, 현재 데이터 구조에서는 설명 가능한 상태다.** 지금 숫자는 “TikTok이 돈을 벌었다”가 아니라 “TikTok 플랫폼이 자기 어트리뷰션 기준으로 21건을 주장하지만, 우리 high-confidence 내부 원장에는 TikTok 귀속 결제완료가 아직 0건”이라는 뜻이다.
+
+기준 기간: 2026-04-21 ~ 2026-04-27
+
+| 기준 | 값 | 데이터 위치 |
+|---|---:|---|
+| TikTok Ads 플랫폼 구매 | 21건 / 7,367,960원 | 로컬 개발 DB `/Users/vibetj/coding/seo/backend/data/crm.sqlite3#tiktok_ads_daily` + TikTok Business API |
+| TikTok Ads 비용 | 5,381,601원 | 로컬 개발 DB `#tiktok_ads_daily` |
+| 내부 strict TikTok confirmed | 0건 / 0원 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` |
+| 내부 strict TikTok pending | 0건 / 0원 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` |
+| firstTouch TikTok 후보 payment_success | 0건 / 0원 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.firstTouch` |
+| 설명 안 된 gap | 7,367,960원 | 플랫폼 구매값 - 내부 confirmed - 내부 pending |
+| TikTok UTM/`ttclid` 결제페이지 진입 후보 | 16건 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` |
+| 위 16건의 개발팀 관리 운영DB 주문 매칭 | 0/16건 | 개발팀 관리 운영DB PostgreSQL `dashboard.public.tb_iamweb_users` |
+| v2 TikTok Pixel 이벤트 원장 | 196개 주문키 / 616 row | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#tiktok_pixel_events` |
+| v2 이벤트 중 결제완료라 Purchase 전송 | 154건 | `CRM_LOCAL_DB_PATH#tiktok_pixel_events` |
+| v2 이벤트 중 미입금이라 Purchase 차단 | 28건 | `CRM_LOCAL_DB_PATH#tiktok_pixel_events` |
+
+핵심 해석:
+
+- `tiktok_pixel_events`의 “결제완료라 Purchase 전송”은 **TikTok 광고 귀속 확정**이 아니다. 사이트에서 TikTok Pixel `Purchase` 호출이 발생했는데, 서버 결제상태가 confirmed라서 막지 않고 통과시켰다는 뜻이다.
+- 예: 2026-04-27 23:57 KST 주문 `202604278349685`, 금액 485,000원은 실제 카드 결제완료가 맞다. 하지만 TJ 관리 Attribution VM 원장 유입은 `meta_biocom_igevsiggblog_igg`, firstTouch도 Meta다. 그래서 TikTok ROAS confirmed에 넣으면 안 된다.
+- 최근 7일 TikTok UTM/`ttclid`가 있는 결제페이지 진입 후보 16건은 모두 `payment_success`가 아니라 checkout 단계에 머물렀고, 개발팀 관리 운영DB `tb_iamweb_users`에도 주문번호가 없다. 즉 “가상계좌 미입금 주문”이라기보다 “결제페이지/로그인/임시 주문 단계까지 갔으나 실제 운영 주문으로 성립하지 않은 후보”로 보는 것이 맞다.
+- GA4 session-source 기준으로는 TikTok 계열 purchase가 보인다. 같은 기간 GA4 TikTok session-source purchase는 37건 / 14,124,068원이고, 이 중 숫자형 transaction_id 28건 중 23건 / 7,136,068원이 Attribution VM confirmed와 매칭된다. 그러나 이 23건도 Attribution VM 원장에는 TikTok 직접근거가 없고 다른 source로 남아 있다. 따라서 GA4는 medium-confidence 검산이지 high-confidence TikTok ROAS 확정값이 아니다.
+
+해결 가능성:
+
+- 과거 21건을 order-level로 완전히 복원하는 것은 현재 자료만으로는 어렵다. TikTok Ads API 플랫폼 리포트는 집계값 중심이고, 지금 확보한 자료에는 TikTok이 주장한 21건 각각의 `event_id/order_code/order_no`가 없다.
+- 앞으로는 해결 가능성이 높다. v2 event log와 firstTouch 보강 이후에는 `order_code/order_no/payment_code/decision/firstTouch`가 남는다. 단, 실제 TikTok UTM/`ttclid`가 있는 유입이 결제완료까지 이어지는 표본이 필요하다.
+- 현재 판단 자신감: **88%**. gap이 “정상 매출 누락”이라기보다 “플랫폼 집계와 내부 high-confidence 귀속 기준 차이”라는 판단은 강하다. 다만 GA4 TikTok session-source confirmed 23건의 세부 경로는 추가 검산 가치가 있다.
+
+프론트 문구 정정:
+
+- 기존 `확정 Purchase 허용`은 사람이 “TikTok 광고가 확정 구매를 만들었다”고 오해할 수 있었다.
+- `/ads/tiktok` 화면 문구를 `결제완료라 Purchase 전송`으로 바꾼다.
+- 테이블 헤더 `최종 action`도 `픽셀 처리 결과`로 바꾼다.
+- 설명 문구에 “이 원장은 TikTok 광고 귀속 원장이 아니라 사이트에서 발생한 TikTok Pixel Purchase 호출 처리 기록”이라고 명시한다.
 
 ## 다음 할일
 
@@ -1417,6 +1459,7 @@ TJ 확인값인 “가상계좌 24시간 미입금 시 취소”를 기준으로
 
 ### 버전 기록
 
+- **v3.21-gap-eventlog-wording-clarified** (2026-04-28 08:45 KST): 최근 7일 TikTok Ads 주장 구매 `21건 / 7,367,960원`과 내부 strict confirmed/pending 0원 gap을 재점검. TikTok UTM/`ttclid` checkout 후보 16건은 개발팀 관리 운영DB 주문 매칭 0건, v2 event log의 `released_confirmed_purchase`는 광고 귀속이 아니라 결제상태 confirmed라 Pixel Purchase를 전송했다는 뜻임을 문서화했다. `/ads/tiktok` 문구도 `확정 Purchase 허용`에서 `결제완료라 Purchase 전송`으로 바꾼다.
 - **v3.20-card-firsttouch-purchase-verified** (2026-04-28 00:23 KST): 배포 후 카드 주문 `202604289758373` 검증. TikTok Pixel Helper는 `Purchase` 확인, VM `tiktok_pixel_events`에는 confirmed release 3행 기록, `payment-decision`은 `confirmed / allow_purchase / high`, `payment_success.metadata_json.firstTouch` 생성 및 status sync 후 `paymentStatus=confirmed` 확인. 유입은 direct라 TikTok match reason은 없음.
 - **v3.19-vbank-firsttouch-verified** (2026-04-27 22:58 KST): 배포 후 가상계좌 주문 `202604275818534` 검증. TikTok Pixel Helper는 `PlaceAnOrder`만 확인, VM `tiktok_pixel_events`에는 pending block/replacement 4행 기록, `payment_success.metadata_json.firstTouch` 생성 확인. 유입은 direct라 TikTok match reason은 없음.
 - **v3.18-first-touch-vm-deployed** (2026-04-27 21:08 KST): TJ 관리 Attribution VM backend `seo-backend` 배포 완료. DB/dist 백업 생성, 선별 파일 반영, PM2 restart/save, health/ROAS/ledger/tiktok_pixel_events smoke 통과. 기존 과거 구간 firstTouch 후보 0행은 정상이며 신규 주문부터 검증한다.
