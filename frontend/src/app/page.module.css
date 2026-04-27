@@ -108,6 +108,28 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
+.navDivider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: rgba(15, 23, 42, 0.12);
+  margin: 0 4px;
+  align-self: center;
+}
+
+.navTabAccent {
+  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(13, 148, 136, 0.32);
+  text-decoration: none;
+}
+
+.navTabAccent:hover {
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  color: #ffffff;
+}
+
 .navRight {
   display: flex;
   align-items: center;

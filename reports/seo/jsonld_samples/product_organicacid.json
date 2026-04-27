@@ -1,0 +1,21 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "종합 대사기능 분석",
+  "description": "내 몸의 대사 상태는 어떨까? 종합 대사기능 분석은 소변 유기산 검사를 통해 탄수화물, 지방 대사 효율과 에너지 생성 과정을 정밀하게 측정합니다. 느린 대사나 영양 불균형의 원인을 파악하고, 데이터 기반의 맞춤형 건강 관리 솔루션을 확인해보세요.",
+  "brand": {
+    "@type": "Brand",
+    "name": "Biocom"
+  },
+  "url": "https://biocom.kr/organicacid_store/?idx=259",
+  "image": [
+    "https://cdn.imweb.me/thumbnail/20260421/dae2c15bb7074.png"
+  ],
+  "offers": {
+    "@type": "Offer",
+    "url": "https://biocom.kr/organicacid_store/?idx=259",
+    "priceCurrency": "KRW",
+    "price": "298000",
+    "availability": "https://schema.org/InStock"
+  }
+}

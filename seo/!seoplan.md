@@ -1,0 +1,540 @@
+# 바이오컴 SEO/AEO 실행 플랜
+
+작성 시각: 2026-04-27 18:54 KST  
+최근 업데이트: 2026-04-28 KST (GSC 도메인 속성 권한 추가 + UX 고도화)  
+기준일: 2026-04-28  
+연결 문서: [[seofeedback0427|seo/seofeedback0427.md]], [[seofeedback0427reply|seo/seofeedback0427reply.md]], [[!frontmenu|seo/!frontmenu.md]], [[docurule|docurule.md]]  
+스크린샷: [seo/screnshot/](./screnshot/) (00_full_page · 01_overview · 02_live_gsc · 03_url_policy · 04_jsonld · 05_product_text · 06_checklist · 07_approvals)  
+Primary source: 로컬 저장소 구조, 공개 URL 읽기 전용 진단 결과, GSC 라이브 데이터, `seofeedback0427.md`  
+Freshness: 2026-04-28 KST `/seo` 내부 진단 대시보드 + GSC 라이브 KPI 카드 진수 기준  
+Confidence: 87%
+
+## 10초 요약
+
+이 플랜의 목표는 바이오컴 SEO를 작은 태그 수정이 아니라 `검색엔진과 AI가 상품, 검사권, 칼럼을 정확히 이해하는 구조`로 다시 정리하는 것이다. 2026-04-27 21:17 KST 기준 공개 URL 읽기 전용 진단은 완료됐고, 현재 점수는 54/100이다. 2026-04-28 KST에 운영 영향 없는 내부 대시보드 `/seo`(프론트 7010)도 진수했다. 다음 병목은 운영 반영이 아니라 대표 URL 정책과 JSON-LD 삽입 방식을 TJ님 승인안으로 좁히는 일이다.
+
+## 고등학생 비유
+
+이 플랜은 도서관 책 정리와 같다. 책 내용이 좋아도 제목표, 분류표, 목차, 책 위치가 엉키면 사람이든 검색엔진이든 좋은 책을 찾기 어렵다.
+
+## Phase-Sprint 요약표
+
+| Phase | Sprint | 이름 | 담당 | 상태(우리/운영) | 상세 |
+|---|---|---|---|---|---|
+| Phase1 | [[#Phase1-Sprint1]] | URL 인벤토리 | Codex | 100% / 0% | [[#Phase1-Sprint1\|이동]] |
+| Phase1 | [[#Phase1-Sprint2]] | robots와 sitemap 진단 | Codex | 100% / 0% | [[#Phase1-Sprint2\|이동]] |
+| Phase1 | [[#Phase1-Sprint3]] | SEO 태그와 canonical 진단 | Codex | 100% / 0% | [[#Phase1-Sprint3\|이동]] |
+| Phase1 | [[#Phase1-Sprint4]] | 본문 텍스트와 구조화 데이터 현황 | Codex | 100% / 0% | [[#Phase1-Sprint4\|이동]] |
+| Phase1 | [[#Phase1-Sprint5]] | 속도와 리소스 진단 | Codex | 90% / 0% | [[#Phase1-Sprint5\|이동]] |
+| Phase2 | [[#Phase2-Sprint6]] | 대표 URL 정책 | TJ + Codex | 75% / 0% | [[#Phase2-Sprint6\|이동]] |
+| Phase2 | [[#Phase2-Sprint7]] | JSON-LD 샘플 | Codex + Claude Code | 90% / 0% | [[#Phase2-Sprint7\|이동]] |
+| Phase3 | [[#Phase3-Sprint8]] | 상품 상세 텍스트 시범개선 | TJ + Claude Code + Codex | 55% / 0% | [[#Phase3-Sprint8\|이동]] |
+| Phase3 | [[#Phase3-Sprint9]] | 칼럼과 FAQ AEO 구조 | Claude Code + Codex | 0% / 0% | [[#Phase3-Sprint9\|이동]] |
+| Phase4 | [[#Phase4-Sprint10]] | 제출과 모니터링 | TJ + Codex | 20% / 0% | [[#Phase4-Sprint10\|이동]] |
+| Phase4 | [[#Phase4-Sprint11]] | 내부 모니터링 화면(/seo) | Claude Code | 70% / 0% | [[#Phase4-Sprint11\|이동]] |
+
+## 문서 목적
+
+이 문서는 바이오컴 SEO/AEO 작업을 누가, 어떤 순서로, 어떤 산출물과 검증 기준으로 진행할지 정리한다.
+
+## 지표 체계
+
+- 회사 북극성: 검색과 AI 답변에서 들어온 방문이 실제 상담, 검사권 구매, 영양제 구매로 이어지는가.
+- 팀 핵심 지표: GSC 클릭, 노출, CTR, 평균 순위, 색인 가능 대표 URL 수, 중복 URL 비율, Product/Article 구조화 데이터 유효 페이지 수.
+- 진단 지표: canonical 일치율, sitemap 정상 URL 비율, HTML 본문 핵심 문장 수, alt 누락 이미지 수, 모바일 PageSpeed 점수, LCP, CLS.
+- source 기준: 공개 URL과 sitemap이 primary, GSC와 Search Console 제출 상태가 cross-check, GA4와 아임웹 매출 데이터가 fallback이다.
+
+## 핵심 원칙
+
+1. 먼저 읽기 전용으로 숫자를 뽑는다.
+2. 숨김 텍스트는 쓰지 않는다. 사람에게도 보이는 텍스트 구조만 쓴다.
+3. canonical, 내부 링크, sitemap, noindex 정책은 한 세트로 맞춘다.
+4. 상품 상세 전체를 한 번에 바꾸지 않는다. 검사권 2개와 영양제 2개만 시범 개선한다.
+5. 운영 변경은 아임웹 관리자, GTM 게시, Search Console 제출처럼 영향이 있는 항목마다 TJ 승인 뒤 진행한다.
+
+## 현재 확인된 프로젝트 구조
+
+| 영역 | 확인된 구조 | SEO 작업에 주는 의미 |
+|---|---|---|
+| 루트 | `frontend`, `backend`, `data`, `docs`, `seo`, `scripts` | 문서, 진단 코드, 데이터 산출물을 같은 저장소에서 관리할 수 있다. |
+| 프론트 | Next.js 16, React 19, 기본 포트 7010 | SEO 대시보드와 진단 화면 확장이 가능하다. |
+| 백엔드 | Express 5, TypeScript, 기본 포트 7020 | 공개 URL 크롤, GSC, GA4, PageSpeed API를 서버에서 묶을 수 있다. |
+| 기존 SEO 부품 | `gsc`, `pagespeed`, `crawl`, `diagnosis` 라우트 | 완전 신규 개발보다 기존 부품 보강이 빠르다. |
+| 현재 crawler | `backend/scripts/seo-readonly-audit.mjs` | canonical, sitemap, duplicate, raw/rendered, 리소스 관측까지 읽기 전용으로 처리한다. |
+
+## 2026-04-27 진행 기록
+
+### 확인된 숫자
+
+| 항목 | 값 | source | 기준 시각 | confidence |
+|---|---:|---|---|---|
+| SEO 감사 점수 | 54/100 | `reports/seo/seo_audit_summary.md` | 2026-04-27 21:17 KST | 78% |
+| 수집 URL | 300개 | `reports/seo/url_inventory.csv` | 2026-04-27 21:17 KST | 86% |
+| parameter URL | 53개 / 300개 | `reports/seo/canonical_duplicate_risk.md` | 2026-04-27 21:17 KST | 76% |
+| sitemap URL | 239개 | `reports/seo/robots_sitemap_audit.md` | 2026-04-27 21:17 KST | 86% |
+| sitemap 안 parameter URL | 0개 | `reports/seo/robots_sitemap_audit.md` | 2026-04-27 21:17 KST | 86% |
+| 핵심 페이지 JSON-LD | 0개 / 6페이지 | `reports/seo/page_seo_audit.md` | 2026-04-27 21:17 KST | 82% |
+| alt 없는 이미지 | 199개 / 핵심 6페이지 | `reports/seo/page_seo_audit.md` | 2026-04-27 21:17 KST | 82% |
+| 중복 의심 그룹 | 4개 | `reports/seo/duplicate_url_groups.csv` | 2026-04-27 21:17 KST | 76% |
+
+### 생성된 산출물
+
+- 읽기 전용 감사 스크립트: `backend/scripts/seo-readonly-audit.mjs`
+- 후속 정책 패키지 스크립트: `backend/scripts/seo-followup-pack.mjs`
+- 감사 요약: `reports/seo/seo_audit_summary.md`
+- URL 정책 추천서: `reports/seo/url_policy_recommendations.md`
+- URL 정책 매트릭스: `reports/seo/url_policy_matrix.csv`
+- JSON-LD 검증 매트릭스: `reports/seo/jsonld_validation_matrix.md`
+- JSON-LD 삽입 스니펫: `reports/seo/jsonld_insertion_snippets.md`
+- 상품 텍스트 블록 초안: `reports/seo/product_text_block_drafts.md`
+- 상품 텍스트 매트릭스: `reports/seo/product_text_block_matrix.csv`
+- 운영 반영 체크리스트: `reports/seo/operation_change_checklist.md`
+
+### 2026-04-28 진행 (GSC 도메인 속성 권한 + UX 고도화)
+
+#### GSC API 연동 상태 변경
+
+- **변경**: 서비스 계정 `seo-656@seo-aeo-487113.iam.gserviceaccount.com`이 이전에는 `https://biocom.kr/`(URL-prefix 속성)에만 추가되어 있었음. 2026-04-28에 TJ가 `sc-domain:biocom.kr`(도메인 속성)에도 「전체」 권한으로 추가.
+- **검증 결과**: `/api/gsc/sites` 응답에 두 속성 모두 `siteFullUser`로 등장. 도메인 속성 기준 라이브 쿼리 5종(KPI/trends/keywords/query·query/query·page) 전부 200 OK.
+- **현재 데이터 (sc-domain:biocom.kr 기준 7일)**: 클릭 416 · 노출 10,994 · CTR 3.78% · 평균순위 5.87. 상위 키워드 「바이오컴」 121클릭(CTR 68.36%, pos 1).
+
+#### GSC API 권한 추가로 가능해진 작업 (Phase4-Sprint11/12 보강)
+
+| 가능해진 작업 | 사용 데이터 | 적용 위치 |
+|---|---|---|
+| **(이미 완료) /seo 라이브 KPI 카드** | `/api/gsc/kpi` 7일 합계 + 일별 sparkline 4종 | `LiveGscSection.tsx` |
+| **운영 반영 전후 비교 baseline** | 7일/28일/90일 클릭·노출·CTR·순위 시계열 | Phase4-Sprint10 baseline 산출물 |
+| **JSON-LD 시범 페이지 우선순위 결정** | URL별 노출/클릭 (page 차원) | 노출 많은데 CTR 낮은 페이지부터 JSON-LD 시범 적용 |
+| **상품 텍스트 시범 4개 검증 KPI** | 시범 페이지(`/organicacid_store/?idx=259`, `/HealthFood/?idx=97`, `/igg_store/?idx=85`, `/HealthFood/?idx=198`)별 GSC 시계열 | 텍스트 블록 추가 후 7/14/28일 비교 |
+| **질문형 query → FAQ 후보 도출** | query 차원, 「무엇/어떻게/효능/차이/추천」 패턴 매칭 | Phase3-Sprint9 (칼럼·FAQ AEO 구조) |
+| **canonical 정책 검증** | URL별 노출 분산 확인 → 같은 상품인데 여러 URL이 노출되면 정책 시급 신호 | Phase2-Sprint6 보강 |
+| **opportunity keywords 자동 추출** | 노출 100+ & CTR 5% 미만 키워드 | 메인 대시보드 `/#keyword` 탭에서 이미 자동 분석 중. 향후 `/seo`에도 합류 가능 |
+| **Naver Search Advisor 보완** | (별개 작업) 네이버는 GSC와 별도 API. 후속 라운드에서 검토 |  |
+
+#### `/seo` UX 고도화 (Claude Code 작업)
+
+- **인라인 설명 도입**: 모든 섹션에 「이 섹션은 무엇을 위한 것인가요」 안내 + 핵심 용어에 클릭 가능한 Glossary 팝오버(canonical, sitemap, noindex, parameter URL, JSON-LD, status, 최종 URL, GSC, Rich Results Test 등 9종)
+- **종합 점수 6항목 각각에 「이게 뭐예요 / 왜 이 점수예요 / 어떻게 올려요」 3줄 설명 추가**
+- **가장 큰 문제 5개 각각에 「왜 / 영향 / 해결」 상세 설명 추가**
+- **승인안 카드 보강**: 「이게 뭐예요 / 지금 상태 / 왜 결정이 필요해요 / YES 하면 / NO 하면 / 답변 코드」 6개 블록으로 재구성
+- **운영 반영 7단계 각 단계마다 「이 단계가 무엇을 바꾸는지」 1줄 설명**
+- **별도 승인 표에 「실제로 무엇을 하는가 (어떻게)」 컬럼 추가** (예: Search Console/Naver 제출 = (1) 좌측 메뉴 Sitemaps에서 sitemap 제출 (2) URL 검사 도구로 핵심 6개 색인 요청 (3) Naver Search Advisor 동일 절차)
+- **JSON-LD 5개 스니펫 각각에 「이게 뭐예요 / 왜 넣어요 / 어디에 넣어요」 펼침 설명 추가**
+- **URL 인벤토리 status 컬럼 한국어화**: 200 → 「200 정상」, 301 → 「301 영구이동」, 404 → 「404 없음」 등
+- **컴포넌트 신설**: `WhyCallout.tsx`, `Glossary.tsx`, `LiveGscSection.tsx`
+- **스크린샷 정본화**: `seo/screnshot/` 7개 (`backend/scripts/seo-page-screenshots.mjs`로 재생성 가능)
+
+### 2026-04-28 진행 (Claude Code · 프론트 진수)
+
+- 신규 라우트: `frontend/src/app/seo/page.tsx` (포트 7010 기준 `http://localhost:7010/seo`)
+- 좌측 sticky 사이드바 + scroll-spy + URL hash 동기화 (`#overview`, `#url-policy`, `#jsonld`, `#product-text`, `#checklist`, `#approvals`)
+- 6개 섹션 모두 `reports/seo/*` 정적 산출물에서 직접 읽음 — 운영 사이트·아임웹·GTM 변경 0
+- 신규 컴포넌트: `frontend/src/components/seo/{SeoShell,SeoHeader,OverviewSection,UrlPolicySection,JsonLdSection,ProductTextSection,ChecklistSection,ApprovalsSection,CopyButton}.tsx`
+- CSV/MD 파서 + 타입: `frontend/src/components/seo/seo.utils.ts`, `seo.types.ts`
+- API: `frontend/src/app/seo/api/{audit,url-policy,jsonld,product-text,checklist}/route.ts` (모두 nodejs runtime, no-store)
+- 핵심 UX: 점수 게이지 + 4개 KPI 헤더, URL 인벤토리 검색·필터·복사, JSON-LD 스니펫 한 클릭 복사, 상품 4개 모바일 미리보기, 운영 게이트의 `TJ 응답 대기` 펄스 뱃지
+- 기획 문서: `seo/!frontmenu.md`
+
+### 현재 판단
+
+사실: 핵심 6개 페이지의 canonical은 존재한다.  
+사실: 핵심 6개 페이지의 JSON-LD는 0개다.  
+사실: robots.txt에는 sitemap 지시문이 2개 있고, 그중 1개는 Markdown 링크 형식이다.  
+현재 판단: sitemap 자체보다 내부 링크와 최종 URL의 parameter 혼선이 더 큰 문제다.  
+유력 가설: Product/Article/BreadcrumbList JSON-LD와 보이는 텍스트 블록을 먼저 넣으면 구조화 데이터 점수와 AI 이해도는 빠르게 올라갈 수 있다.
+
+## Phase별 계획
+
+### Phase 1
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 읽기 전용 SEO 현황 진단
+
+- 목표: 운영 사이트를 바꾸지 않고 현재 문제를 숫자로 확인한다.
+- 왜 지금 해야 하는가: 지금은 URL, sitemap, canonical, 본문 구조 문제가 얼마나 큰지 확정되지 않았다.
+- 산출물: URL 장부, sitemap 진단서, 페이지 SEO 점검표, 본문 텍스트 진단서, 속도 진단서.
+- 완료 기준: 대상 URL과 핵심 페이지 6개가 모두 측정되고, 각 숫자에 source와 기준 시각이 붙는다.
+- 다음 Phase에 주는 가치: 대표 URL 정책과 구조화 데이터 삽입 범위를 감이 아니라 숫자로 결정할 수 있다.
+
+#### Phase1-Sprint1
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: URL 인벤토리  
+**상태**: 100% / 0%
+
+- 무엇을 하는가: 공개 사이트에서 내부 링크와 sitemap URL을 모아 대표 URL, parameter URL, 잡음 URL을 분류한다.
+- 왜 필요한가: 같은 내용이 여러 URL로 보이면 검색엔진과 성과 분석이 모두 흐려진다.
+- 산출물: URL 장부, 중복 의심 그룹 초안.
+- 우리 프로젝트에 주는 도움: GSC와 GA4에서 어떤 URL을 기준으로 봐야 하는지 정할 수 있다.
+
+##### 역할 구분
+
+- TJ: 해당 없음
+- Codex: 공개 URL 수집, 분류 규칙 작성, CSV/MD 산출물 생성
+- Claude Code: 해당 없음
+
+##### 실행 단계
+
+1. [Codex] 내부 URL을 수집한다 — 완료. 무엇: `https://biocom.kr/`에서 시작해 동일 도메인 URL 300개를 모았다. 왜: 실제 색인 후보를 한 표로 봐야 하기 때문이다. 어떻게: `backend/scripts/seo-readonly-audit.mjs`를 사용했다. 산출물: `reports/seo/url_inventory.csv`. 검증: `url`, `normalized_url`, `type`, `status_code`, `final_url`, `is_parameter_url` 컬럼이 채워졌다.
+2. [Codex] URL을 유형별로 분류한다 — 완료. 무엇: home, category, product, lab/test service, article, review, cart/login/member, noisy parameter URL로 나눴다. 왜: sitemap과 canonical 정책을 페이지 유형별로 다르게 잡기 위해서다. 어떻게: path, query, anchor text, source page를 기준으로 분류했다. 산출물: `reports/seo/canonical_duplicate_risk.md`. 검증: parameter URL 53개, noisy parameter URL 25개가 기록됐다. 의존성: 선행필수, 1번 URL 수집 결과를 사용했다.
+
+#### Phase1-Sprint2
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: robots와 sitemap 진단  
+**상태**: 100% / 0%
+
+- 무엇을 하는가: robots.txt와 sitemap.xml 응답, URL 수, parameter URL 비중, 제외해야 할 URL 포함 여부를 확인한다.
+- 왜 필요한가: 검색엔진에 알려주는 URL 목록이 엉키면 좋은 페이지보다 잡음 URL이 먼저 발견될 수 있다.
+- 산출물: robots/sitemap 진단서.
+- 우리 프로젝트에 주는 도움: Search Console과 Naver Search Advisor 제출 전 정리할 URL을 확정한다.
+
+##### 역할 구분
+
+- TJ: Search Console/Naver 제출 상태 확인이 필요하면 화면 제공
+- Codex: 공개 robots.txt, sitemap.xml, HTTP 응답 확인
+- Claude Code: 해당 없음
+
+##### 실행 단계
+
+1. [Codex] robots.txt와 sitemap.xml을 확인한다 — 완료. 무엇: status code, content-type, final URL, sitemap 내용이다. 왜: robots가 sitemap을 가리켜도 실제 응답이 깨질 수 있기 때문이다. 어떻게: 공개 응답과 XML 파서를 사용했다. 산출물: `reports/seo/robots_sitemap_audit.md`. 검증: robots 200, sitemap 200, sitemap URL 239개, parameter URL 0개가 기록됐다.
+2. [Codex] sitemap에 들어가면 안 되는 URL을 찾는다 — 완료. 무엇: login, cart, join, board 잡음, 검색 파라미터 URL이다. 왜: 검색엔진이 중요하지 않은 페이지를 따라가지 않게 하기 위해서다. 어떻게: URL 인벤토리와 sitemap URL을 대조했다. 산출물: `reports/seo/robots_sitemap_audit.md`. 검증: sitemap 제외 후보 0개로 기록됐다. 의존성: 부분병렬, Phase1-Sprint1 결과를 사용했다.
+3. [TJ] 제출 상태를 확인한다 — 무엇: Search Console과 Naver Search Advisor의 sitemap 제출 URL, 마지막 처리일, 오류 여부다. 왜: 로그인과 2FA가 필요할 수 있기 때문이다. 어떻게: 관리자 화면에서 제출 상태를 확인한다. 산출물: 제출 상태 메모. 검증: 제출 URL과 오류 여부가 기록된다. 의존성: 부분병렬, 공개 응답 진단은 먼저 진행 가능하다.
+
+#### Phase1-Sprint3
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: SEO 태그와 canonical 진단  
+**상태**: 100% / 0%
+
+- 무엇을 하는가: 핵심 페이지의 title, description, canonical, robots meta, OG, heading, 중복 URL 위험을 확인한다.
+- 왜 필요한가: 검색엔진이 어떤 제목과 대표 URL을 믿어야 하는지 명확해야 한다.
+- 산출물: 페이지 SEO 점검표, canonical 중복 위험 보고서.
+- 우리 프로젝트에 주는 도움: 아임웹에서 무엇을 수정해야 할지 구체적인 요청서로 만들 수 있다.
+
+##### 역할 구분
+
+- TJ: 아임웹 관리자에서 수정 가능 범위 확인이 필요할 때 승인 또는 화면 제공
+- Codex: 공개 페이지 raw HTML과 rendered DOM 점검
+- Claude Code: 화면 반영안이 필요할 때 참여
+
+##### 실행 단계
+
+1. [Codex] 핵심 페이지 6개를 측정한다 — 완료. 무엇: homepage, service, organicacid product, HealthFood product, healthinfo list, healthinfo article이다. 왜: 페이지 유형별 문제가 다르기 때문이다. 어떻게: raw HTML과 Playwright 렌더링 DOM을 비교했다. 산출물: `reports/seo/page_seo_audit.csv`, `reports/seo/page_seo_audit.md`. 검증: 각 페이지에 title, description, canonical, robots meta, OG, h1/h2/h3 결과가 있다.
+2. [Codex] 중복 URL과 canonical 위험을 묶는다 — 완료. 무엇: `/index`, `?q=`, `?idx=`, `interlock=shop_review`, `t=board` 유형이다. 왜: 대표 URL이 흔들리면 순위와 리포트가 흔들린다. 어떻게: URL 패턴, 본문 해시, title, canonical, final URL을 비교했다. 산출물: `reports/seo/canonical_duplicate_risk.md`, `reports/seo/duplicate_url_groups.csv`. 검증: 중복 의심 그룹 4개가 기록됐다. 의존성: 부분병렬, URL 인벤토리를 사용했다.
+
+#### Phase1-Sprint4
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 본문 텍스트와 구조화 데이터 현황  
+**상태**: 100% / 0%
+
+- 무엇을 하는가: 상품 상세 본문이 실제 HTML 텍스트인지, 이미지인지, alt에만 있는지 구분한다.
+- 왜 필요한가: 검색엔진과 AI가 제품의 핵심 가치를 읽어야 검색과 답변 노출이 좋아진다.
+- 산출물: 상품 상세 본문 진단서, 구조화 데이터 현황표.
+- 우리 프로젝트에 주는 도움: 상세페이지를 전부 갈아엎지 않고도 어떤 텍스트 블록만 추가할지 정할 수 있다.
+
+##### 역할 구분
+
+- TJ: 상품 우선순위와 실제 노출 정보 승인
+- Codex: 텍스트/이미지/alt/JSON-LD 측정
+- Claude Code: 텍스트 블록 시안이 필요할 때 참여
+
+##### 실행 단계
+
+1. [Codex] 상품 상세 2개를 먼저 분석한다 — 완료. 무엇: `organicacid_store/?idx=259`, `HealthFood/?idx=97` 본문 구조다. 왜: 검사권과 영양제 유형을 각각 대표하기 때문이다. 어떻게: raw HTML, rendered DOM, 이미지 alt, heading을 비교했다. 산출물: `reports/seo/product_detail_content_audit.md`. 검증: 두 상품 모두 이미지 의존 위험 `높음`으로 기록됐다.
+2. [Codex] 구조화 데이터 존재 여부를 확인한다 — 완료. 무엇: Product, Offer, AggregateRating, Review, Article, Organization, WebSite, BreadcrumbList, FAQPage다. 왜: 검색 결과와 AI 이해를 돕는 기본 신호이기 때문이다. 어떻게: JSON-LD script와 microdata를 모두 탐색했다. 산출물: `reports/seo/page_seo_audit.md`, `reports/seo/jsonld_validation_matrix.md`. 검증: 핵심 6개 페이지 JSON-LD 0개가 기록됐다. 의존성: 병렬가능, 공개 HTML 기준으로 완료했다.
+
+#### Phase1-Sprint5
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 속도와 리소스 진단  
+**상태**: 90% / 0%
+
+- 무엇을 하는가: 모바일 기준 PageSpeed, 이미지 용량, JS/CSS/폰트, 외부 스크립트 수를 확인한다.
+- 왜 필요한가: 상품 상세가 통이미지 위주면 검색 이해뿐 아니라 로딩 속도도 나빠질 수 있다.
+- 산출물: 속도와 리소스 진단서.
+- 우리 프로젝트에 주는 도움: SEO 개선과 전환율 개선을 같은 우선순위표에서 판단할 수 있다.
+
+##### 역할 구분
+
+- TJ: PageSpeed API 키나 외부 계정 확인이 막힐 때 지원
+- Codex: PageSpeed API 또는 Playwright 기반 측정
+- Claude Code: 이미지/프론트 최적화 반영안이 필요할 때 참여
+
+##### 실행 단계
+
+1. [Codex] 모바일 PageSpeed를 측정한다 — 부분 완료. 무엇: 핵심 URL의 performance, seo, accessibility, LCP, FCP, CLS, INP, TTFB다. 왜: 느린 페이지는 검색과 전환을 같이 깎는다. 어떻게: 이번 턴에서는 PageSpeed API가 아니라 Playwright 리소스 관측을 사용했다. 산출물: `reports/seo/performance_resource_audit.md`. 검증: URL별 request count와 큰 리소스가 기록됐다.
+2. [Codex] 리소스 용량을 확인한다 — 완료. 무엇: HTML, JS, CSS, 이미지, 폰트, 외부 스크립트 수와 큰 파일 목록이다. 왜: PageSpeed 점수만으로는 무엇을 줄여야 하는지 알기 어렵다. 어떻게: Playwright 네트워크 로그를 수집했다. 산출물: `reports/seo/performance_resource_audit.md`. 검증: 홈페이지 366요청, 종합 대사기능 327요청, 바이오밸런스 327요청으로 기록됐다. 의존성: 병렬가능, 공개 URL만 사용했다.
+
+### Phase 2
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 대표 URL과 구조화 데이터 설계
+
+- 목표: 진단 숫자를 기준으로 검색엔진에 보여줄 대표 URL과 JSON-LD 삽입 방식을 정한다.
+- 왜 지금 해야 하는가: 본문 개선 전에 대표 URL과 구조화 데이터 기준을 잡아야 중복 작업을 줄일 수 있다.
+- 산출물: 대표 URL 정책서, JSON-LD 샘플, 개발팀 요청서.
+- 완료 기준: 상품/검사권/칼럼별 대표 URL, canonical, sitemap 포함 기준, JSON-LD 샘플이 정해진다.
+- 다음 Phase에 주는 가치: 콘텐츠팀과 개발팀이 같은 구조로 시범 개선할 수 있다.
+
+#### Phase2-Sprint6
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 대표 URL 정책  
+**상태**: 75% / 0%
+
+- 무엇을 하는가: 상품, 검사권, 칼럼, 게시판, 리뷰, 장바구니/로그인 URL의 검색 노출 정책을 정한다.
+- 왜 필요한가: canonical만 넣고 내부 링크와 sitemap이 다르면 검색엔진이 다른 URL을 고를 수 있다.
+- 산출물: 대표 URL 정책서, 아임웹 수정 요청서.
+- 우리 프로젝트에 주는 도움: GSC 페이지 리포트를 대표 URL 기준으로 읽을 수 있다.
+
+##### 역할 구분
+
+- TJ: canonical/noindex/리다이렉트 운영 반영 승인
+- Codex: 정책 초안과 요청서 작성
+- Claude Code: 내부 링크 또는 화면 수정안이 필요할 때 참여
+
+##### 실행 단계
+
+1. [Codex] 대표 URL 추천표를 만든다 — 완료. 무엇: URL 유형별 canonical, sitemap 포함, noindex, redirect 여부다. 왜: 운영 반영 전에 정책이 명확해야 한다. 어떻게: Phase1 산출물을 기준으로 분류했다. 산출물: `reports/seo/url_policy_recommendations.md`, `reports/seo/url_policy_matrix.csv`. 검증: 각 정책에 evidence file과 confidence가 붙었다.
+2. [TJ] 운영 반영 후보에 답한다 — 무엇: canonical, noindex, redirect, sitemap 제외 항목 승인이다. 왜: 검색 노출과 기존 공유 URL에 영향을 줄 수 있기 때문이다. 어떻게: 추천안 A를 보고 `YES` 또는 수정사항으로 답한다. 산출물: 승인 결과. 검증: 승인된 항목만 운영 요청서에 남는다. 의존성: 선행필수, 운영 변경은 승인 뒤 진행한다.
+
+#### Phase2-Sprint7
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: JSON-LD 샘플  
+**상태**: 90% / 0%
+
+- 무엇을 하는가: 상품, 검사권, 칼럼, 조직, breadcrumb 구조화 데이터 샘플을 만든다.
+- 왜 필요한가: 검색엔진에 가격, 후기, 상품명, 글 제목, 조직 정보를 명확히 알려야 한다.
+- 산출물: JSON-LD 샘플 파일과 삽입 방식 비교표.
+- 우리 프로젝트에 주는 도움: 아임웹 직접 삽입과 GTM/사용자 코드 삽입 중 어떤 방식이 안전한지 판단할 수 있다.
+
+##### 역할 구분
+
+- TJ: 실제 화면에 보이는 상품 정보와 삽입 방식 승인
+- Codex: JSON-LD 샘플 생성과 유효성 기준 정리
+- Claude Code: 아임웹/사용자 코드 삽입 시안 또는 프론트 화면 샘플 작성
+
+##### 실행 단계
+
+1. [Codex] 실제 페이지 값으로 샘플을 만든다 — 완료. 무엇: 상품명, 가격, 이미지 URL, breadcrumb, article 제목이다. 왜: 구조화 데이터는 화면에 보이는 정보와 맞아야 하기 때문이다. 어떻게: Phase1 측정값에서 추출했다. 산출물: `reports/seo/jsonld_samples/*`. 검증: JSON 샘플 5개가 파싱 통과했다.
+2. [Codex] 삽입 방식을 비교한다 — 완료. 무엇: 아임웹 직접 수정, GTM/사용자 코드, 서버 렌더링 가능성이다. 왜: 가격과 후기처럼 바뀌는 정보는 삽입 방식에 따라 위험이 다르다. 어떻게: 변경 난이도, 데이터 신뢰, 테스트 가능성을 표로 비교했다. 산출물: `reports/seo/jsonld_recommendations.md`, `reports/seo/jsonld_validation_matrix.md`. 검증: 추천안, 위험, 롤백 전제, 운영 전 검증 기준이 있다. 의존성: 병렬가능, 운영 삽입은 아직 하지 않는다.
+
+### Phase 3
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 콘텐츠 구조 시범개선
+
+- 목표: 전환율을 해치지 않으면서 검색엔진과 AI가 읽을 수 있는 본문 구조를 추가한다.
+- 왜 지금 해야 하는가: 진단과 설계가 끝나면 실제 검색 이해를 높이는 콘텐츠가 필요하다.
+- 산출물: 상품 상세 텍스트 블록, 칼럼/FAQ 구조, 콘텐츠팀 요청서.
+- 완료 기준: 우선 상품 4개와 칼럼 10개에 적용할 텍스트 구조가 승인된다.
+- 다음 Phase에 주는 가치: 검색 제출과 모니터링에서 개선 전후 비교가 가능해진다.
+
+#### Phase3-Sprint8
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 상품 상세 텍스트 시범개선  
+**상태**: 55% / 0%
+
+- 무엇을 하는가: 검사권 2개와 영양제 2개에 사용자에게 보이는 텍스트형 상세 구조를 추가한다.
+- 왜 필요한가: 통이미지 본문만으로는 검색엔진과 AI가 제품의 장점과 대상 고객을 충분히 읽기 어렵다.
+- 산출물: 상품 상세 텍스트 블록 초안, 콘텐츠/디자인팀 요청서.
+- 우리 프로젝트에 주는 도움: 검색 이해와 전환율을 같이 보는 시범 개선을 만들 수 있다.
+
+##### 역할 구분
+
+- TJ: 우선 상품 4개와 문구 방향 승인
+- Codex: SEO 구조와 keyword/source 근거 정리
+- Claude Code: PC/모바일 상세 블록 시안 작성
+
+##### 실행 단계
+
+1. [Codex] 상품 4개 구조 초안을 만든다 — 완료. 무엇: `종합 대사기능 분석`, `음식물 과민증 분석`, `바이오밸런스`, `뉴로마스터`의 H1/H2/H3 구조다. 왜: 검사권과 영양제 유형을 같이 검증하기 위해서다. 어떻게: Phase1 본문 진단과 URL 인벤토리를 대조했다. 산출물: `reports/seo/product_text_block_drafts.md`, `reports/seo/product_text_block_matrix.csv`. 검증: 각 상품에 대상 고객, 분석/성분, 기대 도움, FAQ가 있다.
+2. [TJ] 우선 상품과 문구 방향을 승인한다 — 무엇: 상품 4개와 `숨김 없는 텍스트 블록` 방향이다. 왜: 상세페이지 전환율과 브랜드 표현에 영향을 주기 때문이다. 어떻게: 추천안 A에 `YES` 또는 수정사항으로 답한다. 산출물: 승인 결과. 검증: 승인된 상품과 문구 톤이 기록된다. 의존성: 선행필수, 운영 적용은 승인 뒤 가능하다.
+3. [Claude Code] 상세 블록 시안을 만든다 — 무엇: 모바일 전환율을 해치지 않는 PC/공통 텍스트 블록이다. 왜: 검색엔진용이 아니라 사용자에게도 보여야 안전하다. 어떻게: 기존 상세 이미지 아래 또는 설명 영역에 들어갈 구조를 만든다. 산출물: 콘텐츠/디자인팀 요청서 또는 화면 시안. 검증: 텍스트가 숨김 처리되지 않고, 주요 heading이 보인다. 의존성: 부분병렬, 구조 초안은 먼저 만들 수 있다.
+
+#### Phase3-Sprint9
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 칼럼과 FAQ AEO 구조  
+**상태**: 20% / 0%
+
+- 무엇을 하는가: 칼럼 10개에 Article 구조와 실제 화면에 보이는 FAQ 후보를 정리한다.
+- 왜 필요한가: AI 검색은 질문형 문장과 명확한 답변 구조를 잘 읽는다.
+- 산출물: 칼럼 Article JSON-LD 후보, FAQ 콘텐츠 후보, 콘텐츠팀 요청서.
+- 우리 프로젝트에 주는 도움: 단순 검색 유입뿐 아니라 AI 답변 인용 가능성을 높인다.
+
+##### 역할 구분
+
+- TJ: 의료/건강 표현 수위와 FAQ 공개 여부 승인
+- Codex: GSC 질문형 query와 Article/FAQ 구조 기준 정리
+- Claude Code: 칼럼 템플릿과 FAQ 화면 구조 작성
+
+##### 실행 단계
+
+1. [Codex] 질문형 query와 칼럼 URL을 묶는다 — 무엇: GSC query 중 무엇, 어떻게, 증상, 효과, 부작용, 차이, 추천 유형이다. 왜: FAQ와 칼럼 구조를 실제 검색어에 맞추기 위해서다. 어떻게: `backend/src/routes/gsc.ts`의 query 조회를 사용한다. 산출물: 칼럼별 질문 후보표. 검증: query, page, impressions, clicks, position이 있다.
+2. [Claude Code] 칼럼 구조 초안을 만든다 — 무엇: Article heading, 요약, 핵심 답변, FAQ 화면 구조다. 왜: AI가 짧은 답변과 근거 문단을 같이 읽게 하기 위해서다. 어떻게: 기존 칼럼 템플릿에 맞춰 보이는 문단을 제안한다. 산출물: 콘텐츠팀 요청서. 검증: FAQPage는 실제 화면에 보이는 질문답변만 대상으로 한다. 의존성: 부분병렬, query 후보가 있으면 정확도가 높다.
+3. [TJ] 건강 표현 수위를 승인한다 — 무엇: 효능, 검사, 치료, 질병 관련 표현의 사용 범위다. 왜: 건강 콘텐츠는 과장 표현 리스크가 크기 때문이다. 어떻게: 콘텐츠팀 요청서의 문구 예시를 보고 답한다. 산출물: 승인 또는 수정 지시. 검증: 금지 표현과 허용 표현이 기록된다. 의존성: 선행필수, 운영 게시 전 필요하다.
+
+### Phase 4
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 검색 제출과 모니터링
+
+- 목표: 반영한 URL과 구조를 Google, Naver, 내부 대시보드에서 추적한다.
+- 왜 지금 해야 하는가: 개선 후 검색엔진이 언제 무엇을 다시 읽었는지 확인해야 한다.
+- 산출물: 제출 체크리스트, 모니터링 대시보드 항목, 주간 점검 표.
+- 완료 기준: 대표 URL 제출 상태, GSC 변화, 구조화 데이터 유효성, PageSpeed 변화가 주간 단위로 보인다.
+- 다음 Phase에 주는 가치: 검색 유입 증가와 매출/상담 연결을 장기적으로 비교할 수 있다.
+
+#### Phase4-Sprint10
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 제출과 모니터링  
+**상태**: 0% / 0%
+
+- 무엇을 하는가: sitemap 제출, URL 검사, 구조화 데이터 테스트, 주간 GSC/PageSpeed 추적을 묶는다.
+- 왜 필요한가: 운영에 반영해도 검색엔진이 읽지 않으면 효과가 늦거나 확인되지 않는다.
+- 산출물: 제출 체크리스트, 주간 SEO 모니터링 표, 대시보드 연결 요청서.
+- 우리 프로젝트에 주는 도움: SEO 작업이 실제 검색 노출과 전환에 어떤 변화를 만들었는지 볼 수 있다.
+
+##### 역할 구분
+
+- TJ: Search Console/Naver Search Advisor 로그인과 제출 승인
+- Codex: 제출 체크리스트, GSC/PageSpeed 주간 측정, 대시보드 API 보강
+- Claude Code: 대시보드 화면 보강이 필요할 때 참여
+
+##### 실행 단계
+
+1. [Codex] 제출 체크리스트를 만든다 — 완료. 무엇: 제출할 대표 URL, sitemap, 구조화 데이터 테스트 URL, 제외 URL이다. 왜: 제출 전에 잘못된 URL을 다시 밀어 넣는 것을 막기 위해서다. 어떻게: Phase2 정책과 Phase3 적용 결과를 대조했다. 산출물: `reports/seo/operation_change_checklist.md`. 검증: 운영 전 확인, 운영 반영 순서, rollback 기준이 있다.
+2. [TJ] 검색 도구에서 제출한다 — 무엇: Google Search Console과 Naver Search Advisor의 sitemap 제출과 핵심 URL 검사 요청이다. 왜: 로그인과 2FA가 필요한 운영 계정 작업이기 때문이다. 어떻게: 체크리스트 순서대로 제출한다. 산출물: 제출 완료 기록. 검증: 제출 시각, 계정 화면 상태, 오류 여부가 기록된다. 의존성: 선행필수, 운영 계정 접근 필요.
+3. [Codex] 주간 모니터링을 붙인다 — 무엇: GSC 클릭/노출/CTR/순위, 색인 오류, PageSpeed, 구조화 데이터 유효성이다. 왜: 개선 효과와 부작용을 빨리 발견하기 위해서다. 어떻게: 기존 GSC/PageSpeed 라우트와 대시보드 탭을 보강한다. 산출물: 주간 SEO 모니터링 표 또는 화면. 검증: 기준 시각, window, site, freshness, confidence가 함께 기록된다. 의존성: 부분병렬, 제출 전에도 baseline은 만들 수 있다.
+
+#### Phase4-Sprint11
+[[#Phase-Sprint 요약표|▲ 요약표로]]
+
+**이름**: 내부 모니터링 화면 `/seo`  
+**상태**: 70% / 0%
+
+- 무엇을 하는가: `reports/seo/*` 산출물을 한 화면에서 검토·복사·승인할 수 있는 내부 대시보드를 만든다.
+- 왜 필요한가: 정적 MD/CSV로는 승인 게이트와 KPI를 한 눈에 보기 어렵고, 내부 의사결정 속도가 느려진다.
+- 산출물: `frontend/src/app/seo/page.tsx`, `frontend/src/components/seo/*`, `frontend/src/app/seo/api/*` 5개 라우트.
+- 우리 프로젝트에 주는 도움: 승인안 B/C 답변을 화면에서 바로 복사하고, JSON-LD 스니펫과 텍스트 블록을 콘텐츠팀·운영팀에 그대로 전달할 수 있다.
+
+##### 역할 구분
+
+- TJ: `/seo` 화면에서 승인안 B/C 답변, 운영 반영 체크리스트 점검
+- Codex: 후속 reports 산출물 갱신 (사이드바·헤더·표가 이를 그대로 반영)
+- Claude Code: 화면 컴포넌트와 API 라우트 구현·유지
+
+##### 실행 단계
+
+1. [Claude Code] `/seo` 라우트와 6개 섹션 컴포넌트 구현 — 완료. 무엇: 좌측 사이드바, 점수 헤더, Overview, URL 정책, JSON-LD, 상품 텍스트, 운영 체크리스트, 승인 현황. 왜: 정적 문서로는 한 눈에 볼 수 없기 때문이다. 어떻게: Next.js 16 App Router + Node.js runtime API 라우트 5개로 reports/seo/* 파싱. 산출물: `frontend/src/app/seo/page.tsx`, `frontend/src/components/seo/*`, `frontend/src/app/seo/api/*`. 검증: `npx tsc --noEmit` 통과, `npx eslint src/app/seo src/components/seo --max-warnings 0` 통과, `npx next build` 성공(routes 등록).
+2. [TJ] dev 서버 재기동 후 `http://localhost:7010/seo` 진입 — 무엇: 6개 섹션 검토, 승인안 B/C에 답변. 왜: 화면 작동을 직접 보고 답변 흐름을 확정하기 위해서다. 어떻게: 기존 `next-server` 종료 후 `npm run dev -- --port 7010` 재시작 (현재 포트 7010에는 prod next-server 16530이 실행 중이라 새 라우트가 보이지 않음). 산출물: 승인 답변. 의존성: 선행필수.
+3. [Claude Code] 후속 보강 (선택) — 무엇: GSC 라이브 데이터 합류, 감사 다시 돌리기 버튼, 구조화 데이터 유효성 자동 호출 연결. 왜: 정적 산출물 외 라이브 지표까지 한 화면에서 보기 위해서다. 어떻게: Phase4-Sprint10의 GSC/PageSpeed 라우트와 결합. 산출물: 추가 섹션 또는 KPI. 의존성: 부분병렬, baseline 화면이 안정화된 뒤 진행.
+
+## 승인 필요 항목
+
+### 승인안 A
+
+추천안 A: 먼저 Phase1-Sprint1부터 Phase2-Sprint7까지 진행한다. 즉, 공개 URL 읽기 전용 진단과 JSON-LD 샘플 생성까지 승인하고, 아임웹 운영 반영은 아직 하지 않는다.
+
+상태: Codex가 공개 URL 기준으로 이미 진행 완료. 운영 반영은 아직 하지 않았다.
+
+제 추천: YES 유지  
+추천 자신감: 86%  
+이유: 공개 URL 진단, URL 정책 추천서, JSON-LD 샘플, 상품 텍스트 초안까지 운영 변경 없이 만들어졌다. 이제 승인 없이 더 밀 수 있는 범위는 제한적이고, 다음은 아임웹/검색도구 운영 판단이 필요하다.  
+부족 데이터: 실제 GSC 최근 90일 landing page 데이터, Search Console sitemap 제출 상태, 아임웹 관리자 canonical/noindex 제어 가능 범위  
+답변 형식: `YES: 대표 URL 정책안 A로 운영 요청서 작성` 또는 `NO: 상품 URL은 기존 /HealthFood/?idx= 형태 유지`  
+YES 이후 Codex 작업: 운영 반영 체크리스트와 JSON-LD 삽입 코드 블록을 최종본으로 정리한다.
+
+### 승인안 B
+
+추천안 B: `reports/seo/url_policy_recommendations.md`의 정책안 A를 기준으로 운영 요청서를 만든다. 상품/검사권은 canonical 목적지와 JSON-LD url을 일치시키고, 리뷰/검색/로그인 계열은 sitemap 제외와 noindex 후보로 둔다.
+
+제 추천: YES  
+추천 자신감: 78%  
+이유: 현재 sitemap에는 parameter URL이 없지만 내부 링크와 최종 URL에는 `?idx=`, `?q=`, 리뷰 board URL이 섞여 있다. 대표 URL 정책을 먼저 고정해야 JSON-LD와 Search Console 제출이 흔들리지 않는다.  
+부족 데이터: 아임웹 관리자에서 canonical 목적지를 직접 바꿀 수 있는지, Search Console에 실제 색인된 잡음 URL 수  
+답변 형식: `YES` 또는 `NO: 리뷰/검색 URL noindex는 보류`
+
+### 승인안 C
+
+추천안 C: `reports/seo/product_text_block_drafts.md`의 상품 4개 텍스트 블록 초안을 콘텐츠팀 검토로 넘긴다.
+
+제 추천: YES  
+추천 자신감: 72%  
+이유: 숨김 텍스트 없이 사용자에게 보이는 구조라 SEO 리스크가 낮다. 다만 건강·검사 표현은 운영 반영 전 최신 상품 상세와 표시 가능 문구를 맞춰야 한다.  
+부족 데이터: 각 상품의 최신 성분표, 검사 진행 방식, 표시 가능 효능 문구  
+답변 형식: `YES` 또는 `NO: 뉴로마스터는 제외`
+
+### 운영 반영 전 별도 승인
+
+| 승인 항목 | 왜 TJ 승인이 필요한가 | Codex 사전 시도 |
+|---|---|---|
+| 아임웹 canonical/noindex/redirect 수정 | 검색 노출과 기존 공유 URL에 영향 | 공개 URL 진단과 정책 초안 작성 |
+| GTM 또는 사용자 코드 게시 | 운영 사이트 스크립트가 바뀜 | JSON-LD 샘플과 테스트 코드 작성 |
+| Search Console/Naver 제출 | 2FA 로그인과 운영 계정 필요 | 제출 URL 체크리스트 작성 |
+| 상품 상세 텍스트 반영 | 브랜드 문구와 전환율에 영향 | 텍스트 구조 초안 작성 |
+| 건강/검사 표현 확정 | 법무/브랜드 리스크 | 질문형 query와 문구 후보 정리 |
+
+## 현재 병목
+
+- 공개 URL 기준 숫자는 확보됐다.
+- 아임웹 관리자에서 canonical, noindex, sitemap, 사용자 코드 삽입을 어디까지 제어할 수 있는지 확정되지 않았다.
+- 상품 상세 본문은 텍스트가 일부 잡히지만, 이미지 100개 안팎과 alt 누락이 많아 이미지 의존 위험이 높다.
+- Search Console과 Naver Search Advisor 제출 상태는 로그인 확인이 필요하다.
+- PageSpeed API 점수는 아직 측정하지 않았고, 이번 턴은 Playwright 리소스 관측으로 대체했다.
+
+## 다음 액션
+
+- 지금 당장: TJ님이 `http://localhost:7010/seo`에서 승인안 B와 C에 답한다. 각 카드 하단의 답변 코드 한 줄 복사 → 채팅 회신.
+- 이번 주: 승인된 대표 URL 정책 기준으로 아임웹 수정 요청서와 JSON-LD 삽입 최종본을 만든다. GSC URL별 노출 데이터로 시범 페이지 우선순위 결정.
+- 승인 후: canonical/noindex, robots.txt sitemap 지시문, 구조화 데이터 삽입, 상품 상세 텍스트 블록, Search Console/Naver 제출을 운영에 반영. 7/14/28일 단위로 GSC KPI 비교.
+
+## 개발 부록
+
+| 산출물 이름 | 파일 경로 후보 | 설명 |
+|---|---|---|
+| URL 장부 | `reports/seo/url_inventory.csv` | 내부 URL, 정규화 URL, 유형, 상태 코드, 중복 그룹 |
+| robots/sitemap 진단서 | `reports/seo/robots_sitemap_audit.md` | sitemap 응답, URL 수, 제외 후보 |
+| 페이지 SEO 점검표 | `reports/seo/page_seo_audit.csv` | title, description, canonical, robots meta, OG, heading, JSON-LD |
+| 페이지 SEO 보고서 | `reports/seo/page_seo_audit.md` | 비개발자용 요약 |
+| canonical 위험 보고서 | `reports/seo/canonical_duplicate_risk.md` | 중복 URL과 대표 URL 추천 |
+| 중복 그룹 장부 | `reports/seo/duplicate_url_groups.csv` | 중복 의심 그룹별 URL |
+| 상품 본문 진단서 | `reports/seo/product_detail_content_audit.md` | 텍스트/이미지/alt 의존 영역 |
+| JSON-LD 추천서 | `reports/seo/jsonld_recommendations.md` | 삽입 방식과 위험 |
+| JSON-LD 샘플 | `reports/seo/jsonld_samples/` | Product, Article, Organization, Breadcrumb 샘플 |
+| 속도 진단서 | `reports/seo/performance_resource_audit.md` | PageSpeed와 큰 리소스 목록 |
+| 최종 요약 | `reports/seo/seo_audit_summary.md` | 점수, 문제 5개, 오늘/이번 주/다음 배치 할 일 |
+| 실행 표 | `reports/seo/action_plan.csv` | priority, owner, impact, difficulty, evidence |
+| 개발팀 요청서 | `reports/seo/dev_team_request.md` | 아임웹/코드 수정 요청 |
+| 콘텐츠팀 요청서 | `reports/seo/content_team_request.md` | 상품 상세와 칼럼 문구 요청 |
+| 대표 URL 정책 추천서 | `reports/seo/url_policy_recommendations.md` | canonical, sitemap, noindex 운영 정책 초안 |
+| 대표 URL 정책 매트릭스 | `reports/seo/url_policy_matrix.csv` | 유형별 대표 URL 후보와 confidence |
+| JSON-LD 검증 매트릭스 | `reports/seo/jsonld_validation_matrix.md` | 페이지별 권장 schema와 막힌 점 |
+| 상품 텍스트 블록 초안 | `reports/seo/product_text_block_drafts.md` | 상품 4개 H2/H3/FAQ 초안 |
+| 상품 텍스트 매트릭스 | `reports/seo/product_text_block_matrix.csv` | 상품 4개 검색 의도와 문구 구조 |
+| JSON-LD 삽입 스니펫 | `reports/seo/jsonld_insertion_snippets.md` | 아임웹/GTM 게시 전 검증용 `<script>` 초안 |
+| 운영 반영 체크리스트 | `reports/seo/operation_change_checklist.md` | 승인 전 확인, 운영 반영 순서, rollback 기준 |
+| 읽기 전용 감사 스크립트 | `backend/scripts/seo-readonly-audit.mjs` | 공개 URL 감사 자동 생성 |
+| 후속 패키지 스크립트 | `backend/scripts/seo-followup-pack.mjs` | URL 정책과 상품 텍스트 초안 생성 |
+| 내부 SEO 대시보드 | `frontend/src/app/seo/page.tsx` (+ `components/seo/*`, `app/seo/api/*`) | reports/seo/* 산출물 + GSC 라이브 KPI를 한 화면에서 확인·복사·승인 |
+| 프론트 메뉴 계획 | `seo/!frontmenu.md` | `/seo` 정보 구조·라우트·API·검증 체크리스트 |
+| 라이브 GSC KPI 카드 | `frontend/src/components/seo/LiveGscSection.tsx` | 클릭/노출/CTR/평균순위 4종 + 7일 sparkline |
+| 인라인 설명 부품 | `frontend/src/components/seo/{WhyCallout,Glossary}.tsx` | 섹션 안내문 + 용어 정의 팝오버 |
+| /seo 스크린샷 자동화 | `backend/scripts/seo-page-screenshots.mjs` | Playwright로 7개 섹션 + full page 캡처 → `seo/screnshot/` 저장 |
+
+## 점수 기준
+
+| 항목 | 배점 | 측정 기준 |
+|---|---:|---|
+| URL/Canonical | 20점 | 대표 URL 일치, 중복 URL 위험, 내부 링크 정리 |
+| Indexing/Sitemap/Robots | 15점 | sitemap 정상 응답, 색인 제외 URL, 제출 상태 |
+| On-page SEO | 20점 | title, description, heading, OG, robots meta |
+| Structured Data | 15점 | Product, Article, Organization, BreadcrumbList, FAQPage |
+| Content Readability for Search/AI | 15점 | HTML 본문 핵심 문장, 통이미지 의존도, FAQ 구조 |
+| Performance | 15점 | 모바일 PageSpeed, LCP, CLS, 이미지/스크립트 용량 |

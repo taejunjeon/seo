@@ -1,0 +1,30 @@
+User-agent: *
+Allow: /
+Disallow: /site_join
+Disallow: /site_join_agree
+Disallow: /login
+Disallow: /logout.cm
+Disallow: /shop_cart
+Disallow: /?mode*
+Disallow: /admin
+User-agent: *
+# 불필요한 커머스 경로 차단 (크롤링 예산 절약)
+Disallow: /admin/
+Disallow: /cart/
+Disallow: /order/
+Disallow: /mypage/
+Disallow: /login/
+Disallow: /join/
+
+# 저가치 및 중복 콘텐츠 경로 차단
+Disallow: /search/
+Disallow: /shipping-info/
+Disallow: /policy/
+Disallow: /*?search=
+
+# AI 크롤러 전용 요약 파일 경로 허용 및 명시
+Allow: /llms.txt
+
+# 사이트맵 경로 안내
+Sitemap: [https://biocom.kr/sitemap.xml](https://biocom.kr/sitemap.xml)
+Sitemap: https://biocom.kr/sitemap.xml

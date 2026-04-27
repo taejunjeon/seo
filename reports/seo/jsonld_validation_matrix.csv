@@ -1,0 +1,7 @@
+page,url,jsonld_count,recommended_schema,blocker,confidence
+홈페이지,https://biocom.kr/,0,"Organization, WebSite",현재 JSON-LD 없음,88%
+서비스,https://biocom.kr/service,0,"WebPage, BreadcrumbList",현재 JSON-LD 없음,88%
+종합 대사기능 분석 상품,https://biocom.kr/organicacid_store/?idx=259,0,"Product, Offer, BreadcrumbList",현재 JSON-LD 없음,88%
+바이오밸런스 상품,https://biocom.kr/HealthFood/?idx=97,0,"Product, Offer, BreadcrumbList",현재 JSON-LD 없음,88%
+건강정보 목록,https://biocom.kr/healthinfo,0,ItemList 또는 CollectionPage,현재 JSON-LD 없음,88%
+건강정보 글,https://biocom.kr/healthinfo/?bmode=view&idx=5764202,0,"Article, BreadcrumbList",현재 JSON-LD 없음,88%

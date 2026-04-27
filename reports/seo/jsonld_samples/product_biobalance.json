@@ -1,0 +1,21 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "바이오밸런스 90정 (1개월분)",
+  "description": "지친 몸에 활력을 채우는 올인원 멀티 미네랄, 바이오 밸런스입니다. 건조효모 아연, 마그네슘, 셀레늄, 비타민D, 크롬, 망간, 몰리브덴 등 필수 영양소를 체계적으로 배합해 기초 대사와 면역력을 높여줍니다. 온 가족 피로 회복을 위한 스마트한 밸런스 케어를 시작하세요.",
+  "brand": {
+    "@type": "Brand",
+    "name": "Biocom"
+  },
+  "url": "https://biocom.kr/HealthFood/?idx=97",
+  "image": [
+    "https://cdn.imweb.me/thumbnail/20251201/0d5d5421f678f.jpg"
+  ],
+  "offers": {
+    "@type": "Offer",
+    "url": "https://biocom.kr/HealthFood/?idx=97",
+    "priceCurrency": "KRW",
+    "price": "39000",
+    "availability": "https://schema.org/InStock"
+  }
+}

@@ -1,0 +1,11 @@
+type,representative_url,current_examples,canonical_policy,sitemap_policy,noindex_policy,action,confidence
+home,https://biocom.kr/,"https://biocom.kr/index, https://biocom.kr/?mode=policy",홈은 https://biocom.kr/ 하나로 고정,포함,색인 허용,"index, mode 파라미터 URL은 canonical을 홈으로 보내고 sitemap 제외",86%
+service/category,https://biocom.kr/service,https://biocom.kr/service,서비스 소개 대표 URL 유지,포함,색인 허용,"title/description 보강, h1 추가 필요",78%
+lab/test service,https://biocom.kr/organicacid_store/?idx=259,"https://biocom.kr/organicacid, https://biocom.kr/organicacid_store, https://biocom.kr/organicacid_store/?idx=259",현재 canonical인 /shop_view/?idx=259 또는 최종 상품 URL 중 하나로 통일,대표 URL만 포함,색인 허용,"내부 링크, sitemap, canonical 목적지를 같은 URL로 맞춤",74%
+lab/test service,https://biocom.kr/igg_store/?idx=85,"https://biocom.kr/igg, https://biocom.kr/igg_store, https://biocom.kr/igg_store/?idx=85",음식물 과민증 분석 대표 URL 1개로 통일,대표 URL만 포함,색인 허용,canonical 목적지 확인 후 내부 구매 링크 정리,72%
+product,https://biocom.kr/HealthFood/?idx=97,"https://biocom.kr/HealthFood, https://biocom.kr/HealthFood/?idx=97, https://biocom.kr/shop_view/97",상품 상세 대표 URL 1개로 통일,대표 URL만 포함,색인 허용,Product JSON-LD와 canonical 목적지 URL 일치,80%
+product,https://biocom.kr/HealthFood/?idx=198,https://biocom.kr/HealthFood/?idx=198,상품 상세 대표 URL 유지,대표 URL만 포함,색인 허용,Product JSON-LD 시범 대상에 포함,76%
+article/column,https://biocom.kr/healthinfo/?bmode=view&idx=5764202,"https://biocom.kr/healthinfo, /healthinfo/?bmode=view&idx=...",글 상세는 idx별 canonical 유지,상위 칼럼과 주요 글만 포함,색인 허용,Article JSON-LD와 h1/description 길이 정리,78%
+review/board,상품 상세 페이지,https://biocom.kr/?q=...&bmode=view&interlock=shop_review&idx=...&t=board,개별 리뷰 URL은 상품 상세나 리뷰 목록으로 정리,제외,noindex 권장,검색 결과에 리뷰 잡음 URL이 뜨는지 GSC로 확인,70%
+cart/login/member,색인 대상 아님,"/login, /site_join_pattern_choice, /shop_cart",필요 없음,제외,noindex 권장,robots 차단과 meta robots 병행 가능 여부 확인,84%
+search/filter,색인 대상 아님,https://biocom.kr/?q=...&page=...,상위 목록이나 홈으로 통일,제외,noindex 권장,내부 페이지네이션과 검색 결과 링크가 sitemap에 들어가지 않도록 유지,82%

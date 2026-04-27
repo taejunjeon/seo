@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import html2canvas from "html2canvas";
 
 import styles from "./page.module.css";
@@ -1555,6 +1556,13 @@ export default function Home() {
                 {tab}
               </button>
             ))}
+            <span className={styles.navDivider} aria-hidden="true" />
+            <Link
+              href="/seo"
+              className={`${styles.navTab} ${styles.navTabAccent}`}
+            >
+              SEO 분석
+            </Link>
           </div>
           <div className={styles.navRight}>
             <button

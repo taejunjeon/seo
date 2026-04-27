@@ -1,0 +1,5 @@
+priority,task,owner,expected_impact,difficulty,risk,evidence_file,recommended_deadline
+P0,대표 URL과 canonical 정책 확정,Codex+TJ,중복 색인과 GSC 분석 혼선 감소,중간,운영 URL 변경 승인 필요,reports/seo/canonical_duplicate_risk.md,2026-05-01
+P0,sitemap 제외 후보 정리,Codex,검색엔진 크롤 예산 낭비 감소,낮음,제외 기준 과도 적용 주의,reports/seo/robots_sitemap_audit.md,2026-05-01
+P1,Product JSON-LD 시범 삽입,Codex+Claude Code,상품 검색 결과 이해도 개선,중간,화면 값과 JSON-LD 값 불일치,reports/seo/jsonld_recommendations.md,2026-05-04
+P1,상품 상세 보이는 텍스트 블록 작성,Claude Code+TJ,검색엔진과 AI의 상품 이해 개선,중간,전환율 영향,reports/seo/product_detail_content_audit.md,2026-05-04

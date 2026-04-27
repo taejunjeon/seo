@@ -1,0 +1,8 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Biocom",
+  "url": "https://biocom.kr/",
+  "logo": "https://cdn.imweb.me/upload/S20190715619285c855898/1b85236645e9b.png",
+  "sameAs": []
+}

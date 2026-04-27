@@ -9,6 +9,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7
 const NAV_TABS = ["오버뷰", "칼럼", "키워드", "AI 보고서", "CWV", "행동", "진단", "AI CRM", "솔루션"];
 const TAB_SLUGS = ["overview", "column", "keyword", "ai-report", "cwv", "behavior", "diagnosis", "ai-crm", "solution"];
 
+const ROUTE_TABS: { label: string; href: string; slug: string; accent?: boolean }[] = [
+  { label: "SEO 분석", href: "/seo", slug: "seo", accent: true },
+];
+
 export default function GlobalNav({ activeSlug }: { activeSlug?: string }) {
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "ok" | "error">("checking");
 
@@ -41,6 +45,19 @@ export default function GlobalNav({ activeSlug }: { activeSlug?: string }) {
                 className={`${styles.navTab} ${isActive ? styles.navTabActive : ""}`}
               >
                 {tab}
+              </Link>
+            );
+          })}
+          <span className={styles.navDivider} aria-hidden="true" />
+          {ROUTE_TABS.map((tab) => {
+            const isActive = activeSlug === tab.slug;
+            return (
+              <Link
+                key={tab.slug}
+                href={tab.href}
+                className={`${styles.navTab} ${tab.accent ? styles.navTabAccent : ""} ${isActive ? styles.navTabActive : ""}`}
+              >
+                {tab.label}
               </Link>
             );
           })}

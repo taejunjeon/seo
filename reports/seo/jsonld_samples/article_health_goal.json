@@ -1,0 +1,18 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "새해 신년 건강 목표를 설정하는 방법",
+  "description": "새해 건강 목표를 설정하는 방법을 현실적인 목표, 생활 루틴, 측정 가능한 기준으로 나누어 설명하는 바이오컴 건강 전문가 칼럼입니다.",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://biocom.kr/healthinfo/?bmode=view&idx=5764202"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Biocom",
+    "url": "https://biocom.kr/"
+  },
+  "image": [
+    "https://cdn.imweb.me/thumbnail/20210121/16db3df349ee7.jpg"
+  ]
+}
