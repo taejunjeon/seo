@@ -1,8 +1,8 @@
 # biocom GTM 컨테이너 상태 정리
 
-작성 시각: 2026-04-20 18:30 KST (v8 업데이트: 2026-04-24 23:45 KST)
-작성자: Claude Code (GTM API 직접 조회)
-근거: GTM API v2 snapshot, live version 138, `gtmaudit/gtm-ga4-purchase-duplicates-result-20260424144504.json`
+작성 시각: 2026-04-20 18:30 KST (v10 업데이트: 2026-04-27 18:18 KST)
+작성자: Claude Code + Codex (GTM API 직접 조회)
+근거: GTM API v2 snapshot, live version 138, `gtmaudit/gtm-ga4-purchase-duplicates-result-20260424144504.json`, Workspace 147 tag 118 quick_preview
 대상 컨테이너: `GTM-W2Z6PHN` (biocom.kr)
 관련 문서: [[confirmed_stopline|roadmap/confirmed_stopline.md]] C-Sprint 5, [[transaction_id_not_set_investigation|data/analysis/transaction_id_not_set_investigation.md]]
 
@@ -12,7 +12,10 @@
 - canonical GA4 `purchase`는 **[143] HURDLERS - [이벤트전송] 구매**로 둔다. `transaction_id={{JS - Purchase Transaction ID (fallback chain)}}`, `pay_method=homepage`가 들어간다.
 - **[48] GA4_구매전환_홈피구매**는 v138에서 pause했다. 동일 transactionId의 HURDLERS purchase와 중복 집계되던 homepage purchase를 막기 위한 조치다.
 - **[43] GA4_구매전환_Npay**는 v138에서 `purchase`가 아니라 `add_payment_info`로 강등했다. NPay 버튼 클릭 시점 이벤트가 실제 주문 생성 전 purchase 매출을 만들지 않게 한 것이다.
-- 남은 검증은 v138 이후 24~48h 신규 GA4 row에서 duplicate extra event와 `transactionId` 결측이 줄었는지 확인하는 일이다.
+- 2026-04-27 18:10 KST 현재 live version은 `139` (`npay_intent_only_live_20260427`)이다. NPay 버튼 클릭 intent 수집만 운영 반영했다.
+- 이 변경은 purchase가 아니라 `POST /api/attribution/npay-intent` 수집만 추가한다. GA4 purchase, Meta CAPI Purchase, Google Ads 전환 설정은 바꾸지 않았다.
+- Default Workspace 147은 publish하지 않았다. 겉으로는 tag 118만 updated였지만, live v138 이전 상태를 일부 물고 있어 [43]/[48]/[143]이 되돌아갈 위험이 있었다. 그래서 live v138 기준의 새 Workspace 150을 만들고 tag 118만 반영해 publish했다.
+- 남은 검증은 v138 이후 24~48h 신규 GA4 row에서 duplicate extra event와 `transactionId` 결측이 줄었는지 확인하는 일, 그리고 NPay intent 24시간 수집 품질과 7일 주문 매칭 dry-run이다.
 
 ## 컨테이너 메타
 
@@ -26,7 +29,9 @@
 | Variables total | 59 (custom 47 + built-in 12 이상) |
 | Tags total | 56 |
 | Triggers total | 80 |
-| Live container version | `138` (`ga4_purchase_duplicate_fix_20260424`) |
+| Live container version | `139` (`npay_intent_only_live_20260427`) |
+| Publish workspace | `150` (`npay_intent_only_live_2026-04-27`) |
+| Abandoned workspace | `147` Default Workspace. stale pre-v138 상태가 섞여 publish하지 않음 |
 
 다른 사이트 컨테이너 (참고, 이 문서 범위 밖):
 - `GTM-5M33GC4` — thecleancoffee.com (containerId=`91608400`)
@@ -96,6 +101,140 @@
 | 179 | ga4 장바구니 이벤트 | `add_to_cart_view_custom` | `G-WJFXN5E2Q1` | ✅ | — |
 
 그외 conversion/event 태그: `G4_주문완료_요소공개 [70]` (eventName=`test`, 테스트용), `G4_주문완료_요소공개2 [100]` (eventName=`test`, 테스트용), `GA4_회원가입 [49]` (`sign_up`) 등.
+
+## 2026-04-27 NPay Intent-Only Live 반영
+
+이 섹션은 GA4 purchase 태그 변경이 아니다. 네이버페이 버튼 클릭 시점에 원래 브라우저의 `client_id`, `ga_session_id`, 상품, 페이지 정보를 우리 서버에 남기는 GTM Custom HTML 보강이다.
+
+### 결론
+
+| 항목 | 상태 |
+|---|---|
+| live publish | 완료. live version `139` |
+| 승인 문서 | [[naver/npay-intent-live-publish-approval-20260427|NPay Intent-Only Live Publish 승인안]] |
+| Codex 추천 | 승인 반영 완료 |
+| 자신감 | 92% |
+| 구매 전환 전송 | 없음 |
+| Meta CAPI Purchase | 없음 |
+| Google Ads 전환 변경 | 없음 |
+
+### GTM 객체
+
+| 항목 | 값 |
+|---|---|
+| Preview Workspace | Default Workspace `147` |
+| Publish Workspace | Fresh Workspace `150` |
+| 대상 tag | `[118] HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)` |
+| published tag fingerprint | `1777280990939` |
+| endpoint | `https://att.ainativeos.net/api/attribution/npay-intent` |
+| live 값 | `ENVIRONMENT="live"`, `DEBUG_MODE=false` |
+| quick_preview | `compilerError: false`, tagCount 57 |
+| pre-publish status | Workspace 150 변경 1건, tag 118만 updated, merge conflict 0 |
+| live version | `139`, `npay_intent_only_live_20260427` |
+
+### Publish 직전 체크
+
+| 체크 | 결과 |
+|---|---|
+| Workspace 변경 | Workspace 150에서 tag 118만 updated |
+| merge conflict | 0건 |
+| diff | live v138 tag 118에 NPay intent beacon block만 추가. Beacon 내부는 승인된 `ENVIRONMENT="live"`, `DEBUG_MODE=false` |
+| quick_preview | `compilerError: false` |
+| purchase 코드 | tag 118 beacon block 안에 `gtag('event','purchase')`, Meta Purchase, Google Ads conversion call 없음 |
+
+### Default Workspace 147 처리
+
+Default Workspace 147은 publish하지 않았다. 이유는 publish 직전 확인 중 live v138 이전 상태가 섞인 것을 발견했기 때문이다.
+
+| 항목 | Workspace 147 | live v138 |
+|---|---|---|
+| tag 43 | `purchase` | `add_payment_info` |
+| tag 48 | paused 아님으로 보이는 stale 상태 | paused |
+| tag 143 | old fingerprint | v138 fingerprint |
+
+이 상태에서 Workspace 147을 publish하면 v138의 purchase 중복 방지 조치가 되돌아갈 수 있었다. 그래서 Workspace 150을 새로 만들고 live v138에서 tag 118만 수정했다.
+
+### Preview 검증 결과
+
+2026-04-27 16:42 KST에 TJ님이 NPay 버튼을 1회 클릭했다.
+
+| 필드 | 결과 | 판단 |
+|---|---|---|
+| 저장 row | 최신 1건 | 통과 |
+| environment | `preview` | 의도한 상태 |
+| duplicate_count | 0 | 중복 저장 없음 |
+| client_id | `395345677.1775926422` | 정상 |
+| ga_cookie_raw | `GA1.1.395345677.1775926422` | 정상 |
+| ga_session_id | `1777275745` | 정상 |
+| ga_session_number | `15` | 정상 |
+| product_idx | `423` | 정상 |
+| product_name | `팀키토 저포드맵 도시락 7종 골라담기` | 정상 |
+| page_location | `https://biocom.kr/DietMealBox/?idx=423` | 정상 |
+| match_status | `pending` | 주문 매칭 전 상태로 정상 |
+
+### Live Smoke 결과
+
+2026-04-27 18:16 KST에 Codex가 운영 페이지에서 실제 `.npay_btn_pay` 버튼을 1회 클릭했다. 결제 완료는 하지 않았다.
+
+| 필드 | 결과 | 판단 |
+|---|---|---|
+| captured_at | 2026-04-27 18:16:44 KST | smoke 시각과 일치 |
+| environment | `live` | 정상 |
+| duplicate_count | 0 | 중복 저장 없음 |
+| client_id | `1759636711.1777281392` | 정상 |
+| ga_session_id | `1777281391` | 정상 |
+| ga_session_number | `1` | 정상 |
+| product_idx | `423` | 정상 |
+| product_name | `팀키토 저포드맵 도시락 7종 골라담기` | 정상 |
+| product_price | 8,900원 | 정상 |
+| page_location | `https://biocom.kr/DietMealBox/?idx=423` | 정상 |
+| match_status | `pending` | 주문 매칭 전 상태로 정상 |
+| GA4 purchase | 관측 없음 | 정상 |
+| Meta Purchase | 관측 없음 | 정상 |
+| Google Ads | 기존 page_view/config 계열 호출만 관측 | 구매 전환 변경 없음 |
+
+### 반영된 변경
+
+tag 118의 beacon 블록은 live 값으로 반영됐다.
+
+```js
+var ENVIRONMENT = "live";
+var DEBUG_MODE = false;
+```
+
+아래는 바꾸지 않았다.
+
+| 항목 | 상태 |
+|---|---|
+| `[143] HURDLERS - [이벤트전송] 구매` | 변경 없음 |
+| `[43] GA4_구매전환_Npay` | 변경 없음. 계속 `add_payment_info` |
+| `[48] GA4_구매전환_홈피구매` | 변경 없음. 계속 paused |
+| GA4 `purchase` | 버튼 클릭만으로 전송 없음 |
+| Meta CAPI Purchase | 전송 없음 |
+| Google Ads 전환 | 변경 없음 |
+
+### 24시간 확인 기준
+
+| 기준 | 성공 |
+|---|---|
+| client_id 채움률 | 90% 이상 |
+| ga_session_id 채움률 | 80-90% 이상 |
+| product_idx 채움률 | 80-90% 이상 |
+| 과도한 중복 row | 없어야 함 |
+| duplicate_count 비정상 급증 | 없어야 함 |
+| 버튼 클릭 후 결제 흐름 방해 | 없어야 함 |
+
+### Rollback 기준
+
+아래 중 하나라도 발생하면 이전 live version 138로 rollback하거나 tag 118 백업을 복원한다.
+
+| 조건 | 조치 |
+|---|---|
+| GTM 오류 발생 | rollback |
+| NPay 결제 흐름 방해 | rollback |
+| 버튼 1회 클릭당 intent 과다 증가 | rollback 후 selector 재검토 |
+| purchase 이벤트 발생 | 즉시 rollback |
+
 
 ## 주요 GA4 변수 현황
 

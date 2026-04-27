@@ -23,6 +23,7 @@ export type NpayIntentRow = {
   capturedAt: string;
   receivedAt: string;
   clientId: string;
+  gaCookieRaw: string;
   gaSessionId: string;
   gaSessionNumber: string;
   gclid: string;
@@ -71,6 +72,7 @@ type NpayIntentDbRow = {
   captured_at: string;
   received_at: string;
   client_id: string;
+  ga_cookie_raw?: string;
   ga_session_id: string;
   ga_session_number: string;
   gclid: string;
@@ -117,6 +119,7 @@ const MAX_RAW_PAYLOAD_LENGTH = 12000;
 
 const FIELD_ALIASES = {
   clientId: ["client_id", "clientId", "ga_client_id", "gaClientId", "cid"],
+  gaCookieRaw: ["ga_cookie_raw", "gaCookieRaw", "_ga", "ga_cookie"],
   gaSessionId: ["ga_session_id", "gaSessionId", "session_id", "sessionId", "sid"],
   gaSessionNumber: ["ga_session_number", "gaSessionNumber", "session_number", "sessionNumber"],
   pageLocation: ["page_location", "pageLocation", "landing", "landing_url", "url"],
@@ -133,9 +136,13 @@ const FIELD_ALIASES = {
 } as const;
 
 const SENSITIVE_RAW_KEYS = new Set([
+  "address",
+  "auth",
+  "auth_token",
   "phone",
   "phone_number",
   "phoneNumber",
+  "tel",
   "mobile",
   "mobile_phone",
   "mobilePhone",
@@ -153,11 +160,78 @@ const SENSITIVE_RAW_KEYS = new Set([
   "customerName",
   "member_name",
   "memberName",
+  "name",
+  "order_no",
+  "orderNo",
   "orderer_name",
   "ordererName",
+  "token",
+  "access_token",
 ]);
 
+const SENSITIVE_RAW_KEY_NORMALIZED = new Set([
+  "address",
+  "auth",
+  "authtoken",
+  "phone",
+  "phonenumber",
+  "tel",
+  "mobile",
+  "mobilephone",
+  "callnum",
+  "orderercall",
+  "email",
+  "useremail",
+  "ordereremail",
+  "customeremail",
+  "customername",
+  "membername",
+  "name",
+  "orderno",
+  "orderername",
+  "token",
+  "accesstoken",
+]);
+
+const URL_RAW_KEYS = new Set([
+  "page_location",
+  "pagelocation",
+  "landing",
+  "landing_url",
+  "url",
+  "page_referrer",
+  "pagereferrer",
+  "referrer",
+  "referer",
+]);
+
+const PAGE_LOCATION_QUERY_ALLOWLIST = new Set([
+  "idx",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "fbclid",
+]);
+
+const DUPLICATE_LOOKBACK_MS = 30_000;
+
 let npayIntentTableReady = false;
+
+const ensureColumn = (
+  db: Database.Database,
+  table: string,
+  column: string,
+  definition: string,
+) => {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (columns.some((row) => row.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+};
 
 const ensureNpayIntentTables = (db: Database.Database) => {
   if (npayIntentTableReady) return;
@@ -173,6 +247,7 @@ const ensureNpayIntentTables = (db: Database.Database) => {
       captured_at TEXT NOT NULL,
       received_at TEXT NOT NULL,
       client_id TEXT DEFAULT '',
+      ga_cookie_raw TEXT DEFAULT '',
       ga_session_id TEXT DEFAULT '',
       ga_session_number TEXT DEFAULT '',
       gclid TEXT DEFAULT '',
@@ -221,6 +296,8 @@ const ensureNpayIntentTables = (db: Database.Database) => {
     CREATE INDEX IF NOT EXISTS idx_npay_intent_product ON npay_intent_log(product_idx, captured_at DESC);
     CREATE INDEX IF NOT EXISTS idx_npay_intent_order ON npay_intent_log(matched_order_no);
   `);
+
+  ensureColumn(db, "npay_intent_log", "ga_cookie_raw", "TEXT DEFAULT ''");
 
   npayIntentTableReady = true;
 };
@@ -339,12 +416,41 @@ const extractQueryParam = (pageLocation: string, key: string): string => {
   return parsed?.searchParams.get(key)?.trim() ?? "";
 };
 
+const sanitizeUrlForStorage = (value: string): string => {
+  if (!value.trim()) return "";
+
+  const parsed = parseUrl(value);
+  if (!parsed) {
+    return truncate(value.split("#")[0].split("?")[0].trim(), 2000);
+  }
+
+  const nextSearch = new URLSearchParams();
+  parsed.searchParams.forEach((paramValue, paramKey) => {
+    if (PAGE_LOCATION_QUERY_ALLOWLIST.has(paramKey.toLowerCase())) {
+      nextSearch.append(paramKey, truncate(paramValue, 500));
+    }
+  });
+
+  parsed.search = nextSearch.toString();
+  parsed.hash = "";
+  return truncate(parsed.toString(), 2000);
+};
+
+const normalizeRawKey = (key: string) => key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+const isSensitiveRawKey = (key: string) =>
+  SENSITIVE_RAW_KEYS.has(key) ||
+  SENSITIVE_RAW_KEYS.has(key.toLowerCase()) ||
+  SENSITIVE_RAW_KEY_NORMALIZED.has(normalizeRawKey(key));
+
 const sanitizeRawPayload = (input: Record<string, unknown>, normalized: Record<string, unknown>) => {
   const safeInput: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(input)) {
-    if (SENSITIVE_RAW_KEYS.has(key)) continue;
+    if (isSensitiveRawKey(key)) continue;
     if (typeof value === "string") {
-      safeInput[key] = truncate(value, 1000);
+      safeInput[key] = URL_RAW_KEYS.has(key.toLowerCase())
+        ? sanitizeUrlForStorage(value)
+        : truncate(value, 1000);
     } else if (typeof value === "number" || typeof value === "boolean" || value === null) {
       safeInput[key] = value;
     }
@@ -365,26 +471,25 @@ const createIntentKey = (input: {
   source: string;
   capturedAt: string;
   clientId: string;
+  gaCookieRaw: string;
   gaSessionId: string;
   pageLocation: string;
   productIdx: string;
   productName: string;
-  gtmEventId: string;
 }) => {
   const capturedMs = Date.parse(input.capturedAt);
   const bucket = Number.isFinite(capturedMs) ? Math.floor(capturedMs / 10_000) : 0;
-  const basis = input.gtmEventId
-    ? `${input.site}:${input.source}:gtm:${input.gtmEventId}`
-    : [
-        input.site,
-        input.source,
-        input.clientId,
-        input.gaSessionId,
-        input.pageLocation,
-        input.productIdx,
-        input.productName,
-        bucket,
-      ].join("|");
+  const basis = [
+    input.site,
+    input.source,
+    input.clientId,
+    input.gaCookieRaw,
+    input.gaSessionId,
+    input.pageLocation,
+    input.productIdx,
+    input.productName,
+    bucket,
+  ].join("|");
   return createHash("sha256").update(basis).digest("hex");
 };
 
@@ -398,6 +503,7 @@ const parseRow = (row: NpayIntentDbRow): NpayIntentRow => ({
   capturedAt: row.captured_at,
   receivedAt: row.received_at,
   clientId: row.client_id,
+  gaCookieRaw: row.ga_cookie_raw ?? "",
   gaSessionId: row.ga_session_id,
   gaSessionNumber: row.ga_session_number,
   gclid: row.gclid,
@@ -445,6 +551,81 @@ const selectByIntentKey = (db: Database.Database, intentKey: string): NpayIntent
   return row ? parseRow(row) : null;
 };
 
+const selectRecentDuplicateIntent = (
+  db: Database.Database,
+  input: {
+    site: string;
+    source: string;
+    capturedAt: string;
+    clientId: string;
+    gaCookieRaw: string;
+    gaSessionId: string;
+    pageLocation: string;
+    productIdx: string;
+    productName: string;
+    userAgentHash: string;
+    ipHash: string;
+  },
+): NpayIntentRow | null => {
+  const capturedMs = Date.parse(input.capturedAt);
+  if (!Number.isFinite(capturedMs)) return null;
+
+  const from = new Date(capturedMs - DUPLICATE_LOOKBACK_MS).toISOString();
+  const to = new Date(capturedMs + DUPLICATE_LOOKBACK_MS).toISOString();
+  const hasGaIdentity = Boolean(input.clientId || input.gaCookieRaw);
+  const row = db.prepare(`
+    SELECT * FROM npay_intent_log
+    WHERE site = ?
+      AND source = ?
+      AND ga_session_id = ?
+      AND page_location = ?
+      AND product_idx = ?
+      AND product_name = ?
+      AND user_agent_hash = ?
+      AND ip_hash = ?
+      AND captured_at BETWEEN ? AND ?
+      AND (
+        (? = 1 AND (client_id = ? OR ga_cookie_raw = ?))
+        OR (? = 0 AND client_id = '' AND ga_cookie_raw = '')
+      )
+    ORDER BY captured_at DESC
+    LIMIT 1
+  `).get(
+    input.site,
+    input.source,
+    input.gaSessionId,
+    input.pageLocation,
+    input.productIdx,
+    input.productName,
+    input.userAgentHash,
+    input.ipHash,
+    from,
+    to,
+    hasGaIdentity ? 1 : 0,
+    input.clientId,
+    input.gaCookieRaw,
+    hasGaIdentity ? 1 : 0,
+  ) as NpayIntentDbRow | undefined;
+
+  return row ? parseRow(row) : null;
+};
+
+const markDuplicateIntent = (
+  db: Database.Database,
+  intentKey: string,
+  receivedAt: string,
+  fallback: NpayIntentRow,
+): NpayIntentRow => {
+  db.prepare(`
+    UPDATE npay_intent_log
+    SET duplicate_count = duplicate_count + 1,
+        updated_at = ?
+    WHERE intent_key = ?
+  `).run(receivedAt, intentKey);
+
+  return selectByIntentKey(db, intentKey) ?? fallback;
+};
+
 export const recordNpayIntent = (
   rawInput: unknown,
   requestContext: NpayIntentRequestContext,
@@ -460,29 +641,32 @@ export const recordNpayIntent = (
   const site = normalizeSite(input.site);
   const source = readString(input, ["source"], 80) || "gtm_118";
   const environment = normalizeEnvironment(input.environment, debugMode);
-  const pageLocation =
+  const rawPageLocation =
     readString(input, FIELD_ALIASES.pageLocation, 2000) ||
     requestContext.requestReferer ||
     requestContext.origin;
-  const pageReferrer = readString(input, FIELD_ALIASES.pageReferrer, 2000);
+  const rawPageReferrer = readString(input, FIELD_ALIASES.pageReferrer, 2000);
 
-  assertBiocomPageLocation(pageLocation, requestContext);
+  assertBiocomPageLocation(rawPageLocation, requestContext);
 
+  const pageLocation = sanitizeUrlForStorage(rawPageLocation);
+  const pageReferrer = sanitizeUrlForStorage(rawPageReferrer);
   const clientId = readString(input, FIELD_ALIASES.clientId, 200);
+  const gaCookieRaw = readString(input, FIELD_ALIASES.gaCookieRaw, 200);
   const gaSessionId = readString(input, FIELD_ALIASES.gaSessionId, 120);
   const gaSessionNumber = readString(input, FIELD_ALIASES.gaSessionNumber, 120);
-  const gclid = readString(input, ["gclid"], 500) || extractQueryParam(pageLocation, "gclid");
-  const gbraid = readString(input, ["gbraid"], 500) || extractQueryParam(pageLocation, "gbraid");
-  const wbraid = readString(input, ["wbraid"], 500) || extractQueryParam(pageLocation, "wbraid");
-  const fbclid = readString(input, ["fbclid"], 500) || extractQueryParam(pageLocation, "fbclid");
+  const gclid = readString(input, ["gclid"], 500) || extractQueryParam(rawPageLocation, "gclid");
+  const gbraid = readString(input, ["gbraid"], 500) || extractQueryParam(rawPageLocation, "gbraid");
+  const wbraid = readString(input, ["wbraid"], 500) || extractQueryParam(rawPageLocation, "wbraid");
+  const fbclid = readString(input, ["fbclid"], 500) || extractQueryParam(rawPageLocation, "fbclid");
   const fbp = readString(input, ["fbp", "_fbp"], 500);
   const fbc = readString(input, ["fbc", "_fbc"], 500);
-  const utmSource = readString(input, ["utm_source", "utmSource"], 300) || extractQueryParam(pageLocation, "utm_source");
-  const utmMedium = readString(input, ["utm_medium", "utmMedium"], 300) || extractQueryParam(pageLocation, "utm_medium");
-  const utmCampaign = readString(input, ["utm_campaign", "utmCampaign"], 300) || extractQueryParam(pageLocation, "utm_campaign");
-  const utmContent = readString(input, ["utm_content", "utmContent"], 300) || extractQueryParam(pageLocation, "utm_content");
-  const utmTerm = readString(input, ["utm_term", "utmTerm"], 300) || extractQueryParam(pageLocation, "utm_term");
-  const productIdx = readString(input, FIELD_ALIASES.productIdx, 200) || extractQueryParam(pageLocation, "idx");
+  const utmSource = readString(input, ["utm_source", "utmSource"], 300) || extractQueryParam(rawPageLocation, "utm_source");
+  const utmMedium = readString(input, ["utm_medium", "utmMedium"], 300) || extractQueryParam(rawPageLocation, "utm_medium");
+  const utmCampaign = readString(input, ["utm_campaign", "utmCampaign"], 300) || extractQueryParam(rawPageLocation, "utm_campaign");
+  const utmContent = readString(input, ["utm_content", "utmContent"], 300) || extractQueryParam(rawPageLocation, "utm_content");
+  const utmTerm = readString(input, ["utm_term", "utmTerm"], 300) || extractQueryParam(rawPageLocation, "utm_term");
+  const productIdx = readString(input, FIELD_ALIASES.productIdx, 200) || extractQueryParam(rawPageLocation, "idx");
   const productName = readString(input, FIELD_ALIASES.productName, 500);
   const productPrice = readNumber(input, FIELD_ALIASES.productPrice);
   const memberCode = readString(input, FIELD_ALIASES.memberCode, 200);
@@ -496,11 +680,11 @@ export const recordNpayIntent = (
     source,
     capturedAt,
     clientId,
+    gaCookieRaw,
     gaSessionId,
     pageLocation,
     productIdx,
     productName,
-    gtmEventId,
   });
   const ipHash = hashValue(requestContext.ip, "ip");
   const userAgentHash = hashValue(requestContext.userAgent, "ua");
@@ -510,6 +694,7 @@ export const recordNpayIntent = (
     environment,
     captured_at: capturedAt,
     client_id: clientId,
+    ga_cookie_raw: gaCookieRaw,
     ga_session_id: gaSessionId,
     product_idx: productIdx,
     page_location: pageLocation,
@@ -525,20 +710,31 @@ export const recordNpayIntent = (
 
   const existing = selectByIntentKey(db, intentKey);
   if (existing) {
-    db.prepare(`
-      UPDATE npay_intent_log
-      SET duplicate_count = duplicate_count + 1,
-          updated_at = ?
-      WHERE intent_key = ?
-    `).run(receivedAt, intentKey);
-    return { intent: selectByIntentKey(db, intentKey) ?? existing, deduped: true };
+    return { intent: markDuplicateIntent(db, existing.intentKey, receivedAt, existing), deduped: true };
+  }
+
+  const recentDuplicate = selectRecentDuplicateIntent(db, {
+    site,
+    source,
+    capturedAt,
+    clientId,
+    gaCookieRaw,
+    gaSessionId,
+    pageLocation,
+    productIdx,
+    productName,
+    userAgentHash,
+    ipHash,
+  });
+  if (recentDuplicate) {
+    return { intent: markDuplicateIntent(db, recentDuplicate.intentKey, receivedAt, recentDuplicate), deduped: true };
   }
 
   const id = randomUUID();
   db.prepare(`
     INSERT INTO npay_intent_log (
       id, intent_key, site, source, environment, match_status, captured_at, received_at,
-      client_id, ga_session_id, ga_session_number, gclid, gbraid, wbraid, fbp, fbc, fbclid,
+      client_id, ga_cookie_raw, ga_session_id, ga_session_number, gclid, gbraid, wbraid, fbp, fbc, fbclid,
       utm_source, utm_medium, utm_campaign, utm_content, utm_term,
       page_location, page_referrer, product_idx, product_name, product_price,
       member_code, member_hash, phone_hash, email_hash, user_agent_hash, ip_hash,
@@ -546,7 +742,7 @@ export const recordNpayIntent = (
     )
     VALUES (
       @id, @intentKey, @site, @source, @environment, 'pending', @capturedAt, @receivedAt,
-      @clientId, @gaSessionId, @gaSessionNumber, @gclid, @gbraid, @wbraid, @fbp, @fbc, @fbclid,
+      @clientId, @gaCookieRaw, @gaSessionId, @gaSessionNumber, @gclid, @gbraid, @wbraid, @fbp, @fbc, @fbclid,
       @utmSource, @utmMedium, @utmCampaign, @utmContent, @utmTerm,
       @pageLocation, @pageReferrer, @productIdx, @productName, @productPrice,
       @memberCode, @memberHash, @phoneHash, @emailHash, @userAgentHash, @ipHash,
@@ -561,6 +757,7 @@ export const recordNpayIntent = (
     capturedAt,
     receivedAt,
     clientId,
+    gaCookieRaw,
     gaSessionId,
     gaSessionNumber,
     gclid,
