@@ -1,13 +1,13 @@
 # 바이오컴 SEO/AEO 실행 플랜
 
 작성 시각: 2026-04-27 18:54 KST  
-최근 업데이트: 2026-04-28 KST (✅ 승인안 B 진행 완료 — 아임웹 URL 정리 작업 요청서 6개 산출물 생성)  
+최근 업데이트: 2026-04-28 KST (B 작업 요청서를 별도 페이지 `/seo/url-cleanup` 으로 분리 — 체크리스트 + robots before/after + 진행률)  
 기준일: 2026-04-28  
 연결 문서: [[seofeedback0427|seo/seofeedback0427.md]], [[seofeedback0427reply|seo/seofeedback0427reply.md]], [[!frontmenu|seo/!frontmenu.md]], [[docurule|docurule.md]]  
-스크린샷: [seo/screnshot/](./screnshot/) (00_full_page · 01_overview · 02_live_gsc · 03_url_policy · 04_jsonld · 05_product_text · 06_checklist · 07_approvals)  
+스크린샷: [seo/screnshot/](./screnshot/) (10개 섹션) · [seo/screnshot/url-cleanup/](./screnshot/url-cleanup/) (B 작업 요청서 화면 9개 섹션)  
 Primary source: 로컬 저장소 구조, 공개 URL 읽기 전용 진단 결과, GSC 라이브 데이터, `seofeedback0427.md`  
-Freshness: 2026-04-28 KST `/seo` 내부 진단 대시보드 + GSC 라이브 KPI 카드 진수 기준  
-Confidence: 87%
+Freshness: 2026-04-28 KST `/seo` 메인 + `/seo/url-cleanup` 작업 요청서 화면 진수 기준  
+Confidence: 90%
 
 ## 10초 요약
 
@@ -31,7 +31,7 @@ Confidence: 87%
 | Phase3 | [[#Phase3-Sprint8]] | 상품 상세 텍스트 시범개선 | TJ + Claude Code + Codex | 55% / 0% | [[#Phase3-Sprint8\|이동]] |
 | Phase3 | [[#Phase3-Sprint9]] | 칼럼과 FAQ AEO 구조 | Claude Code + Codex | 0% / 0% | [[#Phase3-Sprint9\|이동]] |
 | Phase4 | [[#Phase4-Sprint10]] | 제출과 모니터링 | TJ + Codex | 20% / 0% | [[#Phase4-Sprint10\|이동]] |
-| Phase4 | [[#Phase4-Sprint11]] | 내부 모니터링 화면(/seo) | Claude Code | 70% / 0% | [[#Phase4-Sprint11\|이동]] |
+| Phase4 | [[#Phase4-Sprint11]] | 내부 모니터링 화면(/seo) | Claude Code + Codex | 85% / 0% | [[#Phase4-Sprint11\|이동]] |
 
 ## 문서 목적
 
@@ -89,6 +89,47 @@ Confidence: 87%
 - 상품 텍스트 블록 초안: `reports/seo/product_text_block_drafts.md`
 - 상품 텍스트 매트릭스: `reports/seo/product_text_block_matrix.csv`
 - 운영 반영 체크리스트: `reports/seo/operation_change_checklist.md`
+
+### 2026-04-28 진행 (B 작업 요청서 「화면」 분리 — `/seo/url-cleanup`)
+
+#### 왜 화면으로 분리했나
+
+- TJ 피드백: "마크다운/CSV로 컨펌 진행하니 직관적이지 않음"
+- `/seo` 메인 페이지에 다 합치면 정보량이 너무 많아짐 (이미 10개 섹션)
+
+#### 새 페이지 구성 (9개 섹션 + 사이드바 + 진행률)
+
+| # | 섹션 | 무엇을 보여주나 |
+|---|---|---|
+| 0 | 작업 개요 | 무엇을 하는가 + 사전 확인 4건 체크박스 |
+| 1 | URL 종류별 처리 기준표 | workorder.md §1의 12행 표 |
+| 2-1 | 검색결과 숨김 처리 (noindex) | 11건 카드. 우선순위 뱃지 + 이유/아임웹 작업/검증/리스크 |
+| 2-2 | 대표 URL 통일 (canonical) | 8건 카드. 대표 URL + 흡수할 변형 + 검증 |
+| 2-3 | robots.txt | 현재(빨강) vs 수정 후(초록) side-by-side + 「전체 복사」 버튼 |
+| 2-4 | sitemap 정리·모니터링 | 7건 표. 체크박스 |
+| 3 | 1주일 점검 | GSC·시크릿모드·상품검색 4건 체크리스트 |
+| 5 | 롤백 기준 | 즉시(0~24h) 5건 + 1주(7d) 4건 + 2주 검증(14d) 4건 |
+| 6 | 보고 양식 | TJ 회신용 템플릿 + 「전체 복사」 |
+
+#### 핵심 UX
+
+- **localStorage 기반 진행률**: 사이드바 상단에 "X / Y 완료" + 게이지 바. 새로고침 후에도 체크 유지. 리셋 버튼 1개
+- **사이드바 scroll-spy**: 9개 섹션 클릭 또는 스크롤로 자동 활성화 + URL hash 동기화
+- **체크 가능한 모든 항목**: noindex/canonical 카드 11+8건, robots 적용/검증 2건, sitemap 7건, 사전확인 4건, 1주일 점검 4건 = **총 36개 체크포인트**
+- **GlobalNav 유지**: 상단에 「오버뷰 ··· SEO 분석」 메인 nav 그대로. 사이드바의 "← /seo 대시보드" 링크로 메인 복귀
+
+#### `/seo` 메인 페이지에서의 진입 동선
+
+- 본문 최상단 결정 박스: 「📋 B 작업 요청서 화면 열기」 진한 갈색 버튼 추가
+- 승인 현황 섹션 B 카드: 「📋 작업 요청서 화면 열기 (체크리스트 + robots.txt 적용본 + 롤백 표)」 노란 그라데이션 CTA 버튼 추가
+
+#### 신규 파일
+
+- `frontend/src/app/seo/url-cleanup/page.tsx` (메인 페이지, ~440줄)
+- `frontend/src/app/seo/url-cleanup/url-cleanup.module.css` (전용 스타일)
+- `frontend/src/app/seo/api/url-cleanup/route.ts` (6개 imweb_*.md/csv를 합쳐 JSON 응답)
+- `backend/scripts/seo-url-cleanup-screenshots.mjs` (Playwright 자동 캡처)
+- `seo/screnshot/url-cleanup/` (00_full_page + 01~09 섹션)
 
 ### 2026-04-28 진행 (✅ 승인안 B 완료 — 아임웹 URL 정리 작업 요청서)
 
@@ -152,6 +193,56 @@ Confidence: 87%
 #### 사이드 nav 재정렬 (10개 섹션)
 
 종합 점수 → 지금 검색 성과 → 성과 기준선 → 대표 URL 검증 → URL 처리 기준표 → 검색엔진 설명서 → 상품 텍스트 초안 → AEO 확장 → 운영 체크리스트 → 승인 현황. TopDecisionBox는 sidebar에는 없고 본문 최상단 고정.
+
+### 2026-04-28 진행 (Codex 검수 + GSC KPI 보정)
+
+#### 결론
+
+Claude Code가 만든 `/seo` 프론트는 우리 기준으로 계속 진행 가능하다. 2026-04-28 09:30 KST 기준 빌드, SEO 경로 타깃 lint, 5개 내부 API, 실제 브라우저 렌더링을 통과했다. 운영 사이트·아임웹·GTM·Search Console 변경은 0이다.
+
+#### 확인된 것
+
+| 항목 | 결과 | source | 기준 시각 | confidence |
+|---|---|---|---|---|
+| `/seo` 페이지 | 200 OK | `curl -I http://localhost:7010/seo` | 2026-04-28 09:30 KST | 95% |
+| SEO 내부 API 5종 | 모두 200 JSON | `/seo/api/{audit,url-policy,jsonld,product-text,checklist}` | 2026-04-28 09:30 KST | 95% |
+| 프론트 빌드 | 통과 | `npm --prefix frontend run build` | 2026-04-28 09:30 KST | 95% |
+| SEO 경로 lint | 통과 | `npm --prefix frontend run lint -- src/app/seo src/components/seo` | 2026-04-28 09:30 KST | 95% |
+| 브라우저 검증 | `/seo` 200, GSC live 값 렌더링, console error 0개 | Playwright headless | 2026-04-28 09:30 KST | 92% |
+| 노출수 sparkline | 백엔드 응답에 `sparklines.impressions` 7개 포함, 화면 렌더링 정상 | `/api/gsc/kpi` + Playwright | 2026-04-28 09:30 KST | 92% |
+| repo-wide lint | 실패 | `npm --prefix frontend run lint` | 2026-04-28 09:26 KST | 75% |
+
+repo-wide lint 실패는 `/seo` 신규 경로가 아니라 기존 화면들의 lint 위반 때문이다. 확인된 예시는 `acquisition-analysis`, `coffee`, `crm`, `tracking-integrity`, `ai-report` 계열이다.
+
+#### 개발 보정
+
+- 수정 파일: `backend/src/routes/gsc.ts`
+- 무엇을 고쳤는가: `/api/gsc/kpi`의 현재 7일 구간이 실제로는 8일로 잡히던 문제를 7일로 맞췄다.
+- 왜 필요한가: `/seo > 지금 검색 성과` 카드가 "7일"이라고 설명하면서 8일 데이터를 보여주면 기준선 비교가 틀어진다.
+- 추가 보정: 평균 순위 변화값을 프론트 기대값과 맞췄다. 이제 `delta.position`은 `현재 평균순위 - 이전 평균순위`다. 값이 양수면 순위가 나빠진 것이고, 값이 음수면 좋아진 것이다.
+- 추가 보정: 노출수 카드의 작은 선 그래프가 CTR 배열을 대신 쓰던 문제를 고쳤다. 이제 `/api/gsc/kpi`가 `sparklines.impressions`를 내려주고, `/seo` 노출수 카드는 그 배열을 그린다.
+- 검증: `npm --prefix backend run typecheck`, `npm --prefix backend run build`, `npm --prefix frontend run build`, SEO 경로 타깃 lint가 통과했다. 7010/7020 로컬 서버를 새 빌드로 재시작한 뒤 브라우저 검증도 통과했다.
+
+#### 보정 후 라이브 KPI
+
+| 지표 | 값 | source | 기준 시각 | confidence |
+|---|---:|---|---|---|
+| 현재 클릭 | 416 | `curl http://localhost:7020/api/gsc/kpi` | 2026-04-28 09:30 KST | 90% |
+| 현재 노출 | 9,546 | 같은 API | 2026-04-28 09:30 KST | 90% |
+| 현재 CTR | 4.36% | 같은 API | 2026-04-28 09:30 KST | 90% |
+| 현재 평균 순위 | 6.20위 | 같은 API | 2026-04-28 09:30 KST | 90% |
+| 현재 기간 | 7일 | 같은 API | 2026-04-28 09:30 KST | 95% |
+| 비교 기간 | 7일 | 같은 API | 2026-04-28 09:30 KST | 95% |
+| 평균 순위 변화 | +0.8계단 | 같은 API | 2026-04-28 09:30 KST | 90% |
+| 노출수 sparkline | 7개 | 같은 API | 2026-04-28 09:30 KST | 92% |
+
+해석: 평균 순위 변화 `+0.8`은 좋아진 값이 아니라 나빠진 값이다. 숫자가 커질수록 검색 결과에서 더 뒤로 밀린다는 뜻이기 때문이다.
+
+#### 서버 상태
+
+- 프론트: `http://localhost:7010/seo` 기존 `next-server` 유지.
+- 백엔드: `http://localhost:7020` 새 빌드로 재시작 완료.
+- 운영 영향: 0. 로컬 개발 서버와 내부 대시보드만 확인했다.
 
 ### 2026-04-28 진행 (GSC 도메인 속성 권한 + UX 1차 고도화)
 

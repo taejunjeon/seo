@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 import WhyCallout from "./WhyCallout";
@@ -190,6 +191,12 @@ export default function ApprovalsSection() {
                   <div className={styles.approvalDelivLabel}>⚠️ NO 하면 발생하는 일</div>
                   <ul>{a.noImpact.map((x) => <li key={x}>{x}</li>)}</ul>
                 </div>
+              )}
+
+              {a.key === "B" && a.scope === "done" && (
+                <Link href="/seo/url-cleanup" className={styles.approvalCtaLink}>
+                  📋 작업 요청서 화면 열기 (체크리스트 + robots.txt 적용본 + 롤백 표) →
+                </Link>
               )}
 
               <div className={styles.approvalAnswerRow}>

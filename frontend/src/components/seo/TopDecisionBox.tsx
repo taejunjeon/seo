@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 
@@ -43,7 +44,10 @@ export default function TopDecisionBox() {
       <div className={styles.decisionHead}>
         <div>
           <span className={styles.decisionLabel}>오늘 TJ님 결정 1개 (B는 ✅ 완료)</span>
-          <h2 className={styles.decisionTitle}>승인안 B는 진행 완료 — 산출물 6개 reports/seo/imweb_*.* 생성됨. 승인안 C만 남았습니다.</h2>
+          <h2 className={styles.decisionTitle}>승인안 B는 진행 완료 — 운영팀에 전달할 작업 요청서가 준비됐습니다. 승인안 C만 남았습니다.</h2>
+          <Link href="/seo/url-cleanup" className={styles.decisionLinkBtn}>
+            📋 B 작업 요청서 화면 열기 (체크리스트 + robots.txt 적용본 + 롤백 표) →
+          </Link>
         </div>
         <span className={styles.decisionSubInfo}>아래 카드의 답변 코드를 복사해 채팅으로 회신하면 됩니다.</span>
       </div>
