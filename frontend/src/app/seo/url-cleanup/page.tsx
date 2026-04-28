@@ -262,34 +262,17 @@ export default function UrlCleanupPage() {
                 </div>
               </section>
 
-              {/* 1. URL types */}
+              {/* 1. URL types - action cards */}
               <section id="overview" className={styles.section}>
-                <h2 className={styles.sectionH}>1. URL 종류별 처리 기준표 (한눈에 보기)</h2>
-                <div className={styles.tableWrap}>
-                  <table className={styles.dataTable}>
-                    <thead>
-                      <tr>
-                        <th>URL 유형</th>
-                        <th>예시</th>
-                        <th>canonical</th>
-                        <th>sitemap</th>
-                        <th>noindex</th>
-                        <th>우선순위</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.overviewRows.map((r, i) => (
-                        <tr key={i}>
-                          <td><strong>{r.type}</strong></td>
-                          <td><code className={styles.codeCell}>{r.example}</code></td>
-                          <td>{r.canonical}</td>
-                          <td>{r.sitemap}</td>
-                          <td>{r.noindex}</td>
-                          <td><PriorityBadge p={r.priority} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <h2 className={styles.sectionH}>1. URL 종류별 — 무엇을 어떻게 할지 (12개 유형)</h2>
+                <WhyCallout tone="info">
+                  사이트의 URL을 12개 유형으로 나눠서 「이 유형은 무엇을 어디서 어떻게 하면 되는지」 적어 둡니다.
+                  대부분은 §2-1 / §2-2 / §2-3 의 체크리스트로 자동 처리됩니다 — 여기서는 「왜 그렇게 처리하는지」와 유형별 추가 작업이 있는 경우만 표시.
+                </WhyCallout>
+                <div className={styles.typeGuideList}>
+                  {data.overviewRows.map((r, i) => (
+                    <TypeGuideCard key={i} row={r} idx={i} done={done} toggle={toggle} />
+                  ))}
                 </div>
               </section>
 
@@ -483,6 +466,170 @@ export default function UrlCleanupPage() {
         </main>
       </div>
     </>
+  );
+}
+
+type TypeGuide = {
+  whatToDo: string;
+  whereInImweb: string;
+  verify: string;
+  crossRef?: { sectionId: string; label: string };
+  affectedCount?: string;
+  alreadyApplied?: boolean;
+};
+
+const TYPE_GUIDES: Record<string, TypeGuide> = {
+  "홈": {
+    whatToDo: "홈 페이지의 Canonical URL 입력란이 https://biocom.kr/ 로 되어 있는지 확인합니다. 비어 있으면 https://biocom.kr/ 입력. (대부분 이미 적용되어 있음 — 확인만)",
+    whereInImweb: "대시보드 > 사이트 관리 > SEO 설정 > 홈페이지 > Canonical URL",
+    verify: "시크릿 모드에서 https://biocom.kr/ 열어 view-source. <link rel=\"canonical\" href=\"https://biocom.kr/\"> 가 있는지 확인.",
+    affectedCount: "1건",
+  },
+  "/index 별칭": {
+    whatToDo: "/index 페이지의 Canonical URL을 https://biocom.kr/ 로 입력 + 「검색엔진 색인 차단(noindex)」 체크. 또는 가능하다면 /index → / 로 301 redirect 설정 (권장).",
+    whereInImweb: "대시보드 > 페이지 관리 > /index > 설정 (canonical + noindex). redirect는 사이트 관리 > URL 리디렉션 메뉴",
+    verify: "/index 직접 열어 / 로 자동 이동하거나, view-source에서 noindex 메타 + canonical=https://biocom.kr/ 확인.",
+    affectedCount: "1건",
+  },
+  "홈의 ?mode=privacy/?mode=policy": {
+    whatToDo: "아임웹은 ?mode= 같은 query string에 대해 페이지별 SEO 설정을 직접 적용하기 어렵습니다. 따라서 §2-3 robots.txt에 Disallow 규칙으로 차단합니다 (이미 적용본에 포함됨). 추가로 정책 본문 페이지가 따로 있다면 ?mode=privacy → 정책 본문 URL로 redirect 설정.",
+    whereInImweb: "robots.txt (이미 §2-3 적용본에 Disallow: /?mode=privacy 포함). 정책 본문 redirect는 사이트 관리 > URL 리디렉션",
+    verify: "https://biocom.kr/robots.txt 열어 Disallow: /?mode=privacy 확인.",
+    crossRef: { sectionId: "robots", label: "§2-3 robots.txt 적용본에 포함" },
+    affectedCount: "2건",
+    alreadyApplied: true,
+  },
+  "카테고리/서비스": {
+    whatToDo: "카테고리 페이지(`/service`, `/healthinfo`, `/HealthFood` 등) 각각의 SEO 설정에서 Canonical URL이 자기 자신을 가리키는지 확인. 비어 있으면 채우기. (대부분 이미 적용됨 — 확인만)",
+    whereInImweb: "대시보드 > 페이지 관리 > 각 카테고리 페이지 > SEO 설정",
+    verify: "각 카테고리 페이지 view-source에서 canonical 태그 존재 확인. 핵심 3개 페이지만 점검해도 충분.",
+    affectedCount: "주요 카테고리 5~10개",
+  },
+  "상품 상세": {
+    whatToDo: "§2-2 「대표 URL 통일」 카드에서 상품별로 정확한 대표 URL이 적힌 8건 카드를 따라 작업. 자기 자신을 canonical로 명시 + 변형 URL이 있으면 흡수.",
+    whereInImweb: "대시보드 > 상품 관리 > 각 상품 > SEO 설정 > Canonical URL",
+    verify: "§2-2 카드의 「검증」 단계 따라.",
+    crossRef: { sectionId: "canonical", label: "§2-2 대표 URL 통일 8건 카드 참조" },
+    affectedCount: "시범 4개 + 카탈로그 전체",
+  },
+  "검사권 상세": {
+    whatToDo: "상품 상세와 동일한 방식. §2-2의 검사권 행 (종합 대사기능 분석, 음식물 과민증 분석) 참조.",
+    whereInImweb: "대시보드 > 상품 관리 > 검사권 상품 > SEO 설정",
+    verify: "§2-2 카드의 「검증」 단계 따라.",
+    crossRef: { sectionId: "canonical", label: "§2-2 대표 URL 통일에 포함" },
+    affectedCount: "검사권 4개",
+  },
+  "같은 상품 다른 경로": {
+    whatToDo: "/shop_view/?idx=97, /HealthFood/97 같이 같은 상품을 가리키는 변형 URL의 canonical을 「대표 상품 URL」로 통일. 즉 변형 URL의 SEO 설정에서 Canonical을 대표 URL로 입력.",
+    whereInImweb: "변형 URL이 별도 페이지로 존재하면: 페이지 관리 > 해당 변형 페이지 > SEO 설정. 자동 생성된 별칭이라면 별도 redirect 규칙으로 처리.",
+    verify: "변형 URL을 시크릿 모드로 열어 view-source에서 canonical이 대표 URL을 가리키는지 확인. GSC URL 검사로 「표준 URL」 일치 확인.",
+    crossRef: { sectionId: "canonical", label: "§2-2의 「흡수할 변형 URL」 컬럼에 명시됨" },
+    affectedCount: "상품별 1~3개",
+  },
+  "칼럼 글": {
+    whatToDo: "각 칼럼 글 상세 페이지는 자기 자신(idx별 URL)을 canonical로 유지. 추가 작업: sitemap.xml에 「모든 칼럼 글」이 자동으로 포함되지 않도록 자동 생성 옵션 점검 — 상위 칼럼 페이지 (/healthinfo) 와 주요 글만 포함하도록.",
+    whereInImweb: "대시보드 > 사이트 관리 > sitemap 자동 생성 설정. 「블로그/게시판 글 자동 포함」 옵션이 있으면 끄거나 「최근 N건」으로 제한.",
+    verify: "https://biocom.kr/sitemap.xml 다운로드해서 칼럼 글 idx URL 수가 폭증하지 않는지(예: 50개 이내) 확인.",
+    affectedCount: "칼럼 글 전체",
+  },
+  "리뷰/게시판 잡음": {
+    whatToDo: "이건 페이지별 SEO 설정으로 잡기 어려운 query string 잡음입니다. §2-3 robots.txt에 Disallow: /*interlock=shop_review* 규칙으로 차단 (이미 적용본에 포함).",
+    whereInImweb: "robots.txt (이미 §2-3 적용본에 포함됨). 페이지 관리에서 별도 작업 불필요.",
+    verify: "https://biocom.kr/robots.txt 열어 해당 규칙 확인. GSC URL 검사로 리뷰 잡음 URL 1개 입력 → 「robots.txt에 의해 차단됨」 표시 확인.",
+    crossRef: { sectionId: "robots", label: "§2-3 robots.txt 적용본에 포함" },
+    affectedCount: "10건+",
+    alreadyApplied: true,
+  },
+  "검색 결과 페이지": {
+    whatToDo: "내부 검색 결과 페이지 (/?q=*&page=*&only_photo=*) 차단. §2-3 robots.txt 적용본에 Disallow: /?q= 와 Disallow: /*?q=* 규칙으로 포함됨.",
+    whereInImweb: "robots.txt (이미 §2-3 적용본에 포함됨).",
+    verify: "https://biocom.kr/robots.txt 열어 Disallow: /?q= 확인. GSC에서 site:biocom.kr ?q= 검색 → 결과 0건 또는 급감 확인.",
+    crossRef: { sectionId: "robots", label: "§2-3 robots.txt 적용본에 포함" },
+    affectedCount: "10건+",
+    alreadyApplied: true,
+  },
+  "로그인/회원가입": {
+    whatToDo: "각 로그인·회원가입 단계 페이지의 SEO 설정에서 「검색엔진 색인 차단(noindex)」 체크. §2-1 noindex 카드 11건에 모두 포함됨.",
+    whereInImweb: "페이지 관리 > /login, /site_join_pattern_choice, /site_join_type_choice, /membership 각각 > SEO > noindex 체크",
+    verify: "각 URL 시크릿 모드로 열어 view-source. <meta name=\"robots\" content=\"noindex\"> 확인.",
+    crossRef: { sectionId: "noindex", label: "§2-1 검색결과 숨김 11건 체크리스트 참조" },
+    affectedCount: "5건",
+  },
+  "장바구니/마이페이지": {
+    whatToDo: "/shop_cart, /shop_mypage 의 SEO 설정에서 noindex 체크. §2-1 noindex 카드에 포함됨.",
+    whereInImweb: "페이지 관리 > /shop_cart, /shop_mypage > SEO > noindex 체크",
+    verify: "시크릿 모드 view-source 확인.",
+    crossRef: { sectionId: "noindex", label: "§2-1 검색결과 숨김 체크리스트 참조" },
+    affectedCount: "2건",
+  },
+};
+
+function TypeGuideCard({
+  row, idx, done, toggle,
+}: { row: OverviewRow; idx: number; done: Record<string, boolean>; toggle: (k: string) => void }) {
+  const guide = TYPE_GUIDES[row.type];
+  const k = `type:${idx}`;
+  const isDone = !!done[k];
+
+  return (
+    <article className={`${styles.typeGuideCard} ${isDone ? styles.typeGuideCardDone : ""}`}>
+      <div className={styles.typeGuideHead}>
+        <input type="checkbox" checked={isDone} onChange={() => toggle(k)} className={styles.checkInput} />
+        <div className={styles.typeGuideHeadBody}>
+          <div className={styles.typeGuideTitleRow}>
+            <PriorityBadge p={row.priority} />
+            <h3 className={styles.typeGuideTitle}>{row.type}</h3>
+            {guide?.alreadyApplied && <span className={styles.typeGuideApplied}>✅ §2-3 robots.txt 적용본에 자동 포함</span>}
+            {guide?.affectedCount && <span className={styles.typeGuideCount}>{guide.affectedCount}</span>}
+          </div>
+          <div className={styles.typeGuideExample}>
+            예: <code className={styles.codeCell}>{row.example}</code>
+          </div>
+        </div>
+      </div>
+
+      {guide ? (
+        <div className={styles.typeGuideBody}>
+          <div className={styles.typeGuideSection}>
+            <span className={styles.typeGuideSectionLabel}>① 무엇을 해요</span>
+            <p className={styles.typeGuideSectionText}>{guide.whatToDo}</p>
+          </div>
+          <div className={styles.typeGuideSection}>
+            <span className={styles.typeGuideSectionLabel}>② 아임웹 어디서</span>
+            <p className={styles.typeGuideSectionText}>{guide.whereInImweb}</p>
+          </div>
+          <div className={styles.typeGuideSection}>
+            <span className={styles.typeGuideSectionLabel}>③ 어떻게 확인</span>
+            <p className={styles.typeGuideSectionText}>{guide.verify}</p>
+          </div>
+          {guide.crossRef && (
+            <a
+              href={`#${guide.crossRef.sectionId}`}
+              className={styles.typeGuideCrossRef}
+              onClick={(e) => {
+                e.preventDefault();
+                const el = document.getElementById(guide.crossRef!.sectionId);
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  window.history.replaceState(null, "", `#${guide.crossRef!.sectionId}`);
+                }
+              }}
+            >
+              → {guide.crossRef.label}
+            </a>
+          )}
+          <div className={styles.typeGuideMeta}>
+            <span>canonical: {row.canonical}</span>
+            <span>sitemap: {row.sitemap}</span>
+            <span>noindex: {row.noindex}</span>
+          </div>
+        </div>
+      ) : (
+        <div className={styles.typeGuideBody}>
+          <p className={styles.typeGuideSectionText}>(가이드 누락)</p>
+        </div>
+      )}
+    </article>
   );
 }
 
