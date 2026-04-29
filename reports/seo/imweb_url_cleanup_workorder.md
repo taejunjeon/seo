@@ -37,7 +37,7 @@
 
 | # | URL 유형 | 예시 | canonical 처리 | sitemap 포함 | noindex 처리 | 우선순위 |
 |---|---|---|---|---|---|---|
-| 1 | 홈 | `/` | 자기 자신 | YES | NO | P0 |
+| 1 | 홈 | `/` | 자기 자신 | YES | NO | INFO |
 | 2 | `/index` 별칭 | `/index` | → `/` 로 redirect 또는 canonical | NO | YES | P1 |
 | 3 | 홈의 `?mode=privacy`/`?mode=policy` | `/?mode=privacy` | → 해당 정책 페이지로 | NO | YES | P1 |
 | 4 | 카테고리/서비스 | `/service`, `/healthinfo`, `/HealthFood` | 자기 자신 | YES | NO | P0 |
@@ -73,21 +73,45 @@
 
 **검증**: 작업 후 각 URL을 시크릿 모드에서 열어 `<meta name="robots" content="noindex">` 또는 `Disallow:` 적용 확인.
 
-### 2-2. P0 작업 — 대표 URL 통일 (같은 상품 여러 URL)
+### 2-2. P0/확인 작업 — 대표 URL 확인 (같은 상품 여러 URL)
 
-**목적**: 같은 상품/검사권을 가리키는 여러 URL의 canonical 목적지를 1개로 고정.
+**목적**: 같은 상품/검사권을 가리키는 여러 URL의 canonical이 현재 어떻게 자동 생성되는지 확인하고, GSC에서 Google이 어떤 표준 URL을 선택하는지 추적.
 
-**아임웹 작업 위치**: 대시보드 > 페이지 관리 > 해당 페이지 > SEO 설정 > Canonical URL
+**아임웹 작업 위치**: 없음. 2026-04-28 아임웹 AI 답변 기준 특정 URL을 다른 URL로 301 리디렉션하거나 페이지별 canonical을 임의 URL로 직접 지정하는 기능은 제공하지 않는다. Canonical Tag는 아임웹이 자동 삽입한다.
+
+**운영 방식 변경**: 이 단계는 더 이상 "canonical 입력 작업"이 아니다. 공개 HTML과 GSC URL 검사로 자동 canonical을 기록하고, 문제가 큰 항목만 상담원에게 예외 처리 가능 여부를 확인한다.
+
+**확인 완료 · 작업 없음**: 아래 항목은 이미 정상 확인됐으므로 아임웹에서 입력하거나 상담할 일이 없다. 정기 점검 때만 다시 본다.
+
+| URL | 상태 | 사유 |
+|---|---|---|
+| `https://biocom.kr/` (홈) | 완료 | 공개 HTML canonical이 `https://biocom.kr/`로 정상 확인됨. 아임웹 canonical 입력란이 없는 것도 정상 |
+| `https://biocom.kr/service` (서비스 소개) | 완료 | 공개 HTML canonical이 `https://biocom.kr/service`로 정상 확인됨. 직접 입력 작업 없음 |
+
+**남은 작업 체크리스트**: 아래는 실제로 확인하거나 상담원에게 물어볼 항목만 남긴다.
 
 | 체크 | 대표 URL (목적지) | 합쳐야 할 다른 URL | 비고 |
 |---|---|---|---|
-| ☐ | `https://biocom.kr/HealthFood/?idx=97` (바이오밸런스) | `/HealthFood/97`, `/shop_view/?idx=97` 등 변형 | 상품 상세 1개로 모음 |
-| ☐ | `https://biocom.kr/HealthFood/?idx=198` (뉴로마스터) | 변형 있다면 동일 처리 | |
-| ☐ | `https://biocom.kr/organicacid_store/?idx=259` (종합 대사기능 분석) | `/organicacid`, `/organicacid_store`, `/shop_view/?idx=259` | 4개 → 1개 |
-| ☐ | `https://biocom.kr/igg_store/?idx=85` (음식물 과민증 분석) | `/igg`, `/igg_store` | 3개 → 1개 |
-| ☐ | `https://biocom.kr/` (홈) | `/index` | 별칭 1개 → 1개 |
+| ☐ | `https://biocom.kr/HealthFood/?idx=97` (바이오밸런스) | `/HealthFood/97`, `/shop_view/?idx=97` 등 변형 | 공개 HTML canonical 정상 확인. GSC 표준 URL 추적 |
+| ☐ | `https://biocom.kr/HealthFood/?idx=198` (뉴로마스터) | 변형 있다면 동일 처리 | 직접 변경 불가 전제. GSC 표준 URL 추적 |
+| ☐ | `https://biocom.kr/organicacid_store/?idx=259` (종합 대사기능 분석) | `/organicacid`, `/organicacid_store`, `/shop_view/?idx=259` | 현재 canonical이 `/shop_view/?idx=259`로 확인됨. 상담원 예외 처리 가능 여부 확인 |
+| ☐ | `https://biocom.kr/igg_store/?idx=85` (음식물 과민증 분석) | `/igg`, `/igg_store` | 직접 변경 불가 전제. 공개 HTML/GSC 추적 |
+| ☐ | `https://biocom.kr/` (`/index` 홈 별칭) | `/index` | 홈 자체는 작업 없음. `/index`만 직접 301/canonical 설정 지원 안 됨으로 GSC 표준 URL 추적 |
 
-**검증**: 각 변형 URL을 열고 `<head>` 안에 `<link rel="canonical" href="https://biocom.kr/HealthFood/?idx=97">` 같은 식으로 대표 URL이 잡혔는지 확인.
+**검증**: 각 변형 URL을 열고 `<head>` 안의 `<link rel="canonical" ...>` 값을 기록한다. 이후 GSC URL 검사에서 "사용자가 선언한 표준 URL"과 "Google이 선택한 표준 URL"을 함께 본다. 홈은 이미 `<link rel="canonical" href="https://biocom.kr/" />`로 확인됐으므로 체크리스트에서 제외한다.
+
+**아임웹 상담원 문의가 필요한 경우**: AI 답변은 직접 설정 불가라고 했지만, `/organicacid_store/?idx=259`처럼 실제 canonical이 기대와 다르게 잡힌 항목은 예외 처리나 앱/코드 방식이 있는지 상담원에게 확인한다.
+
+```
+아임웹 AI 답변으로는 페이지별 canonical 직접 지정과 301 리디렉션 기능이 제공되지 않는다고 안내받았습니다.
+이 전제는 이해했습니다.
+
+다만 https://biocom.kr/organicacid_store/?idx=259 페이지의 공개 HTML canonical이
+https://biocom.kr/shop_view/?idx=259 로 잡혀 있습니다.
+
+이 canonical을 현재 상품 URL인 https://biocom.kr/organicacid_store/?idx=259 로 바꾸는 예외 처리,
+또는 /shop_view 자동 URL이 검색 표준 URL로 잡히지 않게 하는 운영 권장 방식이 있는지 상담원 확인 부탁드립니다.
+```
 
 ### 2-3. P1 작업 — robots.txt 정리
 

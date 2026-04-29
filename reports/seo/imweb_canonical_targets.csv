@@ -1,9 +1,9 @@
 priority,page_label,canonical_target,variant_urls_to_redirect,imweb_action,verification_step,confidence
-P0,홈,https://biocom.kr/,https://biocom.kr/index | https://biocom.kr/?mode=privacy | https://biocom.kr/?mode=policy,페이지 SEO에서 canonical을 https://biocom.kr/ 로 명시. /index는 별도로 noindex 처리,view-source에서 link rel=canonical href=https://biocom.kr/ 확인,86%
-P0,서비스 소개,https://biocom.kr/service,(없음 - 자기 자신),canonical을 https://biocom.kr/service 로 명시 (자기 자신),view-source에서 canonical 확인,78%
-P0,바이오밸런스 (영양제),https://biocom.kr/HealthFood/?idx=97,/HealthFood/97 | /shop_view/?idx=97,상품 상세 SEO에서 canonical을 https://biocom.kr/HealthFood/?idx=97 로 통일,Google Search Console > URL 검사로 표준 URL 확인,80%
-P0,뉴로마스터 (영양제),https://biocom.kr/HealthFood/?idx=198,/HealthFood/198 | /shop_view/?idx=198,동일 (canonical을 idx=198 형태로),동일,76%
-P0,종합 대사기능 분석 (검사권),https://biocom.kr/organicacid_store/?idx=259,/organicacid | /organicacid_store | /shop_view/?idx=259,canonical을 organicacid_store/?idx=259 로 통일. /organicacid는 redirect 권장,view-source에서 canonical + 변형 URL 열어서 동일 canonical 잡히는지 확인,74%
-P0,음식물 과민증 분석 (검사권),https://biocom.kr/igg_store/?idx=85,/igg | /igg_store,canonical을 igg_store/?idx=85 로 통일,동일,72%
-P1,건강정보 칼럼 글,https://biocom.kr/healthinfo/?bmode=view&idx=*,(글 idx별 자기 자신),각 글마다 자기 자신을 canonical로 (이미 적용되어 있으면 유지),view-source canonical 확인,78%
-P1,/index (홈 별칭),https://biocom.kr/,https://biocom.kr/index,canonical을 https://biocom.kr/ 로 또는 301 redirect to /,redirect 후 /index 열면 /로 이동하는지,86%
+INFO,홈,https://biocom.kr/,https://biocom.kr/index | https://biocom.kr/?mode=privacy | https://biocom.kr/?mode=policy,확인 완료 · 작업 없음. 홈은 공개 HTML에서 canonical=https://biocom.kr/ 확인 완료. 아임웹에서 입력하거나 수정할 항목이 없다.,정기 점검 때 view-source에서 link rel=canonical href=https://biocom.kr/ 재확인,86%
+INFO,서비스 소개,https://biocom.kr/service,(없음 - 자기 자신),확인 완료 · 작업 없음. 공개 HTML에서 canonical=https://biocom.kr/service 확인 완료. 직접 입력 작업 없음,정기 점검 때 view-source에서 canonical 재확인,78%
+P0,바이오밸런스 (영양제),https://biocom.kr/HealthFood/?idx=97,/HealthFood/97 | /shop_view/?idx=97,아임웹 자동 canonical 확인 항목. 공개 HTML에서 canonical=https://biocom.kr/HealthFood/?idx=97 확인 완료. /shop_view 변형은 GSC 표준 URL로 추적,Google Search Console > URL 검사로 표준 URL 확인,80%
+P0,뉴로마스터 (영양제),https://biocom.kr/HealthFood/?idx=198,/HealthFood/198 | /shop_view/?idx=198,아임웹 자동 canonical 확인 항목. 직접 변경 불가 전제로 공개 HTML과 GSC 표준 URL 추적,동일,76%
+P0,종합 대사기능 분석 (검사권),https://biocom.kr/organicacid_store/?idx=259,/organicacid | /organicacid_store | /shop_view/?idx=259,현재 공개 HTML은 /organicacid_store/?idx=259 가 /shop_view/?idx=259 를 canonical로 내고 있음. 아임웹 AI 답변 기준 직접 변경 불가. 상담원에게 예외 처리 가능 여부만 확인,view-source에서 canonical + GSC 표준 URL 기록,74%
+P0,음식물 과민증 분석 (검사권),https://biocom.kr/igg_store/?idx=85,/igg | /igg_store,아임웹 자동 canonical 확인 항목. 직접 변경 불가 전제로 공개 HTML과 GSC 표준 URL 추적,동일,72%
+P1,건강정보 칼럼 글,https://biocom.kr/healthinfo/?bmode=view&idx=*,(글 idx별 자기 자신),아임웹 자동 canonical 확인 항목. 각 글마다 자기 자신 canonical이면 유지,view-source canonical 확인,78%
+P1,/index (홈 별칭),https://biocom.kr/,https://biocom.kr/index,현재 /index는 자기 자신을 canonical로 내고 있음. 아임웹 AI 답변 기준 /index → / 301 리디렉션과 canonical 직접 지정은 지원하지 않음. GSC에서 Google 선택 표준 URL 추적,GSC URL 검사에서 Google 선택 표준 URL이 https://biocom.kr/ 로 잡히는지 확인,86%

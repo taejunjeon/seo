@@ -334,6 +334,10 @@
   border-color: #6ee7b7;
   opacity: 0.85;
 }
+.typeGuideCardNoAction {
+  background: #f8fafc;
+  border-color: #bbf7d0;
+}
 .typeGuideHead {
   display: flex;
   align-items: flex-start;
@@ -356,6 +360,30 @@
   font-weight: 800;
   color: var(--color-text-primary);
   margin: 0;
+}
+.typeGuideFixedIcon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 24px;
+  border-radius: 6px;
+  background: #dcfce7;
+  color: #047857;
+  border: 1px solid #86efac;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+.typeGuideNoActionBadge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #047857;
+  background: #dcfce7;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 .typeGuideApplied {
   font-size: 0.7rem;
@@ -484,6 +512,67 @@
   letter-spacing: 0.02em;
 }
 
+.completedNotice {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  border-radius: 12px;
+  padding: 14px;
+}
+.completedNoticeHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+  color: #065f46;
+  margin-bottom: 10px;
+}
+.completedBadge {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #047857;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.completedGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.completedItem {
+  border-top: 1px dashed #86efac;
+  padding-top: 10px;
+}
+.completedItemTitle {
+  font-weight: 900;
+  color: #064e3b;
+  font-size: 0.86rem;
+  margin-bottom: 4px;
+}
+.completedItemUrl {
+  display: inline-block;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.76rem;
+  color: #065f46;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #bbf7d0;
+  border-radius: 4px;
+  padding: 1px 6px;
+  word-break: break-all;
+}
+.completedItem p {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: #166534;
+}
+@media (max-width: 760px) {
+  .completedGrid { grid-template-columns: 1fr; }
+}
+
 /* ── 데이터 테이블 ── */
 .tableWrap {
   overflow-x: auto;
@@ -563,6 +652,9 @@
 .robotsColLabel[data-state="after"] {
   color: var(--color-success);
 }
+.robotsColLabel[data-state="current"] {
+  color: var(--color-success);
+}
 .robotsColLabelRow {
   display: flex;
   justify-content: space-between;
@@ -587,6 +679,9 @@
 }
 .robotsCode[data-state="after"] {
   border-color: rgba(16, 185, 129, 0.3);
+}
+.robotsCode[data-state="current"] {
+  border-color: rgba(16, 185, 129, 0.45);
 }
 
 /* ── 보고 양식 ── */

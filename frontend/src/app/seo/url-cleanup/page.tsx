@@ -81,13 +81,42 @@ const SECTIONS = [
   { id: "cover", label: "0. 작업 개요", hint: "사전 확인" },
   { id: "overview", label: "1. URL 종류별 표", hint: "12종 한눈에" },
   { id: "noindex", label: "2-1. 검색결과 숨김", hint: "noindex 11건" },
-  { id: "canonical", label: "2-2. 대표 URL 통일", hint: "canonical 9건" },
+  { id: "canonical", label: "2-2. 대표 URL 통일", hint: "작업/완료 분리" },
   { id: "robots", label: "2-3. robots.txt", hint: "before/after" },
   { id: "sitemap", label: "2-4. sitemap 정리", hint: "모니터링 6건" },
   { id: "weekly", label: "3. 1주일 점검", hint: "GSC 검증" },
   { id: "rollback", label: "5. 롤백 기준", hint: "즉시/1주/2주" },
   { id: "report", label: "6. 보고 양식", hint: "복사 후 회신" },
 ];
+
+function inspectRobotsTxt(value: string) {
+  const lines = value.split(/\r?\n/);
+  const sitemapLines = lines.filter((line) => line.trim().startsWith("Sitemap:"));
+  const hasMarkdownSitemap = sitemapLines.some((line) => line.includes("]("));
+  const hasTrailingDot = sitemapLines.some((line) => line.trim().endsWith("."));
+  const hasSingleCleanSitemap =
+    sitemapLines.length === 1 && sitemapLines[0].trim() === "Sitemap: https://biocom.kr/sitemap.xml";
+  return {
+    sitemapLines,
+    hasMarkdownSitemap,
+    hasTrailingDot,
+    hasSingleCleanSitemap,
+    isClean: !hasMarkdownSitemap && !hasTrailingDot && hasSingleCleanSitemap,
+  };
+}
+
+function isCanonicalAction(row: CanonicalRow) {
+  const actionText = row.imwebAction;
+  return !(
+    row.priority === "INFO" ||
+    actionText.includes("작업 없음") ||
+    actionText.includes("수정 작업 없이 확인만")
+  );
+}
+
+function canonicalProgressKey(row: CanonicalRow) {
+  return `canonical:${row.pageLabel}`;
+}
 
 function PriorityBadge({ p }: { p: string }) {
   const meta = PRIORITY_BADGE[p] ?? { label: p, tone: "info" as const };
@@ -148,7 +177,7 @@ export default function UrlCleanupPage() {
   const totals = useMemo(() => {
     if (!data) return { total: 0, done: 0, pct: 0 };
     const keys: string[] = [
-      ...data.canonicals.map((_, i) => `canonical:${i}`),
+      ...data.canonicals.filter(isCanonicalAction).map(canonicalProgressKey),
       ...data.noindexes.map((_, i) => `noindex:${i}`),
       ...data.sitemaps.map((_, i) => `sitemap:${i}`),
       "robots:apply",
@@ -161,6 +190,19 @@ export default function UrlCleanupPage() {
     const doneCount = keys.filter((k) => done[k]).length;
     return { total: keys.length, done: doneCount, pct: keys.length === 0 ? 0 : (doneCount / keys.length) * 100 };
   }, [data, done]);
+
+  const robotsStatus = useMemo(() => {
+    if (!data) return null;
+    return inspectRobotsTxt(data.robots.current);
+  }, [data]);
+
+  const canonicalRows = useMemo(() => {
+    if (!data) return { action: [] as CanonicalRow[], completed: [] as CanonicalRow[] };
+    return {
+      action: data.canonicals.filter(isCanonicalAction),
+      completed: data.canonicals.filter((row) => !isCanonicalAction(row)),
+    };
+  }, [data]);
 
   const handleSectionClick = (id: string) => {
     setActiveId(id);
@@ -267,7 +309,8 @@ export default function UrlCleanupPage() {
                 <h2 className={styles.sectionH}>1. URL 종류별 — 무엇을 어떻게 할지 (12개 유형)</h2>
                 <WhyCallout tone="info">
                   사이트의 URL을 12개 유형으로 나눠서 「이 유형은 무엇을 어디서 어떻게 하면 되는지」 적어 둡니다.
-                  대부분은 §2-1 / §2-2 / §2-3 의 체크리스트로 자동 처리됩니다 — 여기서는 「왜 그렇게 처리하는지」와 유형별 추가 작업이 있는 경우만 표시.
+                  여기서 말하는 가이드는 운영자가 실제로 눌러야 할 아임웹 메뉴, 공개 페이지에서 확인할 방법, 메뉴가 없을 때 아임웹 상담원에게 물어볼 질문까지 적은 작업 안내입니다.
+                  대부분은 §2-1 / §2-2 / §2-3 의 체크리스트로 처리됩니다.
                 </WhyCallout>
                 <div className={styles.typeGuideList}>
                   {data.overviewRows.map((r, i) => (
@@ -307,16 +350,35 @@ export default function UrlCleanupPage() {
 
               {/* 2-2. Canonical */}
               <section id="canonical" className={styles.section}>
-                <h2 className={styles.sectionH}>2-2. 대표 URL 통일 (canonical) — {data.canonicals.length}건</h2>
-                <WhyCallout tone="info">
-                  같은 상품/검사권을 가리키는 여러 URL의 canonical 목적지를 1개로 고정.
-                  아임웹 작업 위치: 대시보드 &gt; 페이지 관리 &gt; 해당 페이지 &gt; SEO 설정 &gt; Canonical URL.
+                <h2 className={styles.sectionH}>
+                  2-2. 대표 URL 확인 (canonical) — 작업 {canonicalRows.action.length}건 · 완료/작업 없음 {canonicalRows.completed.length}건
+                </h2>
+                <WhyCallout tone="warning" title="아임웹 AI 답변 반영: 직접 설정 기능 없음">
+                  2026-04-28 아임웹 AI 답변 기준, 아임웹은 특정 URL을 다른 URL로 301 리디렉션하거나 페이지별 canonical을 임의 URL로 직접 지정하는 기능을 제공하지 않습니다.
+                  Canonical Tag는 아임웹이 자동 삽입합니다. 따라서 이 섹션은 「직접 수정」이 아니라 공개 HTML과 GSC에서 자동 canonical이 어떻게 잡히는지 확인하고, 문제가 큰 항목만 상담원에게 재확인하는 체크리스트입니다.
                 </WhyCallout>
+                {canonicalRows.completed.length > 0 && (
+                  <div className={styles.completedNotice}>
+                    <div className={styles.completedNoticeHead}>
+                      <span className={styles.completedBadge}>확인 완료 · 작업 없음</span>
+                      <strong>아래 항목은 TJ님이 아임웹에서 추가로 입력하거나 상담할 일이 없습니다.</strong>
+                    </div>
+                    <div className={styles.completedGrid}>
+                      {canonicalRows.completed.map((row) => (
+                        <div key={row.pageLabel} className={styles.completedItem}>
+                          <div className={styles.completedItemTitle}>{row.pageLabel}</div>
+                          <code className={styles.completedItemUrl}>{row.canonicalTarget}</code>
+                          <p>{row.imwebAction}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className={styles.taskList}>
-                  {data.canonicals.map((row, i) => {
-                    const k = `canonical:${i}`;
+                  {canonicalRows.action.map((row) => {
+                    const k = canonicalProgressKey(row);
                     return (
-                      <div key={i} className={`${styles.taskCard} ${done[k] ? styles.taskCardDone : ""}`}>
+                      <div key={row.pageLabel} className={`${styles.taskCard} ${done[k] ? styles.taskCardDone : ""}`}>
                         <label className={styles.taskHead}>
                           <input type="checkbox" checked={!!done[k]} onChange={() => toggle(k)} className={styles.checkInput} />
                           <PriorityBadge p={row.priority} />
@@ -338,19 +400,22 @@ export default function UrlCleanupPage() {
               {/* 2-3. robots.txt */}
               <section id="robots" className={styles.section}>
                 <h2 className={styles.sectionH}>2-3. robots.txt 정리</h2>
-                <WhyCallout tone="warning">
-                  현재 robots.txt의 sitemap 지시문 첫 줄이 Markdown 링크 형식이라 일부 검색엔진(특히 Naver)이 파싱 실패할 수 있습니다.
-                  아래 「수정 후」 블록 전체를 복사해 아임웹 robots.txt 편집기에 교체.
+                <WhyCallout tone={robotsStatus?.isClean ? "success" : "warning"} title={robotsStatus?.isClean ? "공개 robots.txt 적용 확인 완료" : "robots.txt 수정 필요"}>
+                  {robotsStatus?.isClean
+                    ? "현재 공개 robots.txt는 Markdown sitemap 링크 없이 sitemap 1줄만 남아 있습니다. 아래 오른쪽 블록은 향후 아임웹 입력칸을 다시 정리할 때 쓰는 권장 입력안입니다."
+                    : "현재 공개 robots.txt에 Markdown sitemap 링크, 중복 sitemap, 또는 끝 마침표 문제가 남아 있습니다. 오른쪽 권장 입력안을 기준으로 아임웹 robots.txt 입력칸을 정리해야 합니다."}
                 </WhyCallout>
                 <div className={styles.robotsCompare}>
                   <div className={styles.robotsCol}>
-                    <div className={styles.robotsColLabel}>현재 (수정 전)</div>
-                    <pre className={styles.robotsCode} data-state="before">{data.robots.current}</pre>
+                    <div className={styles.robotsColLabel} data-state={robotsStatus?.isClean ? "current" : "before"}>
+                      현재 공개 상태 {robotsStatus?.isClean ? "(적용 완료)" : "(확인 필요)"}
+                    </div>
+                    <pre className={styles.robotsCode} data-state={robotsStatus?.isClean ? "current" : "before"}>{data.robots.current}</pre>
                   </div>
                   <div className={styles.robotsCol}>
                     <div className={styles.robotsColLabelRow}>
-                      <span className={styles.robotsColLabel} data-state="after">수정 후 (이대로 교체)</span>
-                      <CopyButton size="sm" label="전체 복사" value={data.robots.revised} />
+                      <span className={styles.robotsColLabel} data-state="after">아임웹 입력 권장안</span>
+                      <CopyButton size="sm" label="입력안 복사" value={data.robots.revised} />
                     </div>
                     <pre className={styles.robotsCode} data-state="after">{data.robots.revised}</pre>
                   </div>
@@ -358,10 +423,10 @@ export default function UrlCleanupPage() {
                 <h3 className={styles.subH}>적용 체크</h3>
                 <div className={styles.checkList}>
                   <ChecklistItem done={!!done["robots:apply"]} onToggle={() => toggle("robots:apply")}>
-                    아임웹 관리자에서 위 「수정 후」 블록으로 robots.txt 교체 + 저장
+                    공개 robots.txt에서 Markdown sitemap 링크가 사라졌는지 확인
                   </ChecklistItem>
                   <ChecklistItem done={!!done["robots:verify"]} onToggle={() => toggle("robots:verify")}>
-                    저장 후 https://biocom.kr/robots.txt 직접 열어 적용 확인 → Search Console &gt; Sitemaps에서 「다시 보내기」
+                    Sitemap 줄이 `Sitemap: https://biocom.kr/sitemap.xml` 1줄인지 확인 → Search Console &gt; Sitemaps에서 「다시 보내기」
                   </ChecklistItem>
                 </div>
               </section>
@@ -476,60 +541,66 @@ type TypeGuide = {
   crossRef?: { sectionId: string; label: string };
   affectedCount?: string;
   alreadyApplied?: boolean;
+  noAction?: boolean;
+  statusBadge?: string;
 };
 
 const TYPE_GUIDES: Record<string, TypeGuide> = {
   "홈": {
-    whatToDo: "홈 페이지의 Canonical URL 입력란이 https://biocom.kr/ 로 되어 있는지 확인합니다. 비어 있으면 https://biocom.kr/ 입력. (대부분 이미 적용되어 있음 — 확인만)",
-    whereInImweb: "대시보드 > 사이트 관리 > SEO 설정 > 홈페이지 > Canonical URL",
-    verify: "시크릿 모드에서 https://biocom.kr/ 열어 view-source. <link rel=\"canonical\" href=\"https://biocom.kr/\"> 가 있는지 확인.",
+    whatToDo: "작업 없음. 홈은 이미 공개 HTML에서 <link rel=\"canonical\" href=\"https://biocom.kr/\" /> 로 확인 완료됐습니다. 아임웹에 새로 입력하거나 수정할 값이 없습니다.",
+    whereInImweb: "아임웹 AI 답변 기준 Canonical Tag는 아임웹이 자동 삽입하며, 관리자 SEO 화면에 canonical 입력란이 없는 것이 정상입니다. 이 항목은 아임웹에서 수정하지 않습니다.",
+    verify: "확인 완료. 2026-04-29 기준 https://biocom.kr/ 페이지 소스에서 <link rel=\"canonical\" href=\"https://biocom.kr/\" /> 값이 정상 확인됐습니다. 정기 점검 때만 다시 보면 됩니다.",
     affectedCount: "1건",
+    noAction: true,
+    statusBadge: "확인 완료 · 작업 없음",
   },
   "/index 별칭": {
-    whatToDo: "/index 페이지의 Canonical URL을 https://biocom.kr/ 로 입력 + 「검색엔진 색인 차단(noindex)」 체크. 또는 가능하다면 /index → / 로 301 redirect 설정 (권장).",
-    whereInImweb: "대시보드 > 페이지 관리 > /index > 설정 (canonical + noindex). redirect는 사이트 관리 > URL 리디렉션 메뉴",
-    verify: "/index 직접 열어 / 로 자동 이동하거나, view-source에서 noindex 메타 + canonical=https://biocom.kr/ 확인.",
+    whatToDo: "목표는 https://biocom.kr/index 가 검색엔진에서 별도 홈으로 보이지 않게 하는 것입니다. 다만 아임웹 AI 답변 기준 /index → / 301 리디렉션과 canonical 직접 지정은 제공되지 않습니다. 지금은 직접 작업하지 않고 GSC에서 Google이 선택한 표준 URL을 확인하는 항목으로 둡니다.",
+    whereInImweb: "아임웹 관리자에서 할 수 있는 직접 작업은 현재 확인되지 않았습니다. 상담원에게 추가 확인할 때는 「/index를 홈으로 301 리디렉션하거나 canonical을 홈으로 지정하는 기능이 정말 없는지」만 물어봅니다.",
+    verify: "GSC URL 검사에 https://biocom.kr/index 를 넣고 Google이 선택한 표준 URL이 https://biocom.kr/ 인지 확인합니다. 현재 공개 HTML은 /index가 자기 자신을 canonical로 내고 있으므로 추적 필요 후보입니다.",
     affectedCount: "1건",
   },
   "홈의 ?mode=privacy/?mode=policy": {
-    whatToDo: "아임웹은 ?mode= 같은 query string에 대해 페이지별 SEO 설정을 직접 적용하기 어렵습니다. 따라서 §2-3 robots.txt에 Disallow 규칙으로 차단합니다 (이미 적용본에 포함됨). 추가로 정책 본문 페이지가 따로 있다면 ?mode=privacy → 정책 본문 URL로 redirect 설정.",
-    whereInImweb: "robots.txt (이미 §2-3 적용본에 Disallow: /?mode=privacy 포함). 정책 본문 redirect는 사이트 관리 > URL 리디렉션",
-    verify: "https://biocom.kr/robots.txt 열어 Disallow: /?mode=privacy 확인.",
+    whatToDo: "?mode=privacy, ?mode=policy 는 홈의 정책 보기용 별칭입니다. 아임웹 기본 robots.txt에 이미 Disallow: /?mode* 가 있어 크롤링 차단 중입니다. 별도 canonical 입력란을 찾을 작업은 하지 않아도 됩니다. 정책 본문 페이지를 따로 운영한다면 나중에 리디렉션만 검토합니다.",
+    whereInImweb: "현재는 robots.txt에서 처리 완료입니다. 공개 robots.txt에 Disallow: /?mode* 가 자동 블록으로 들어가 있습니다. 별도 작업 메뉴를 찾지 않아도 됩니다.",
+    verify: "https://biocom.kr/robots.txt 에서 Disallow: /?mode* 가 있는지 확인합니다. 현재 확인 결과 포함되어 있습니다.",
     crossRef: { sectionId: "robots", label: "§2-3 robots.txt 적용본에 포함" },
     affectedCount: "2건",
     alreadyApplied: true,
+    noAction: true,
+    statusBadge: "robots.txt 적용 완료",
   },
   "카테고리/서비스": {
-    whatToDo: "카테고리 페이지(`/service`, `/healthinfo`, `/HealthFood` 등) 각각의 SEO 설정에서 Canonical URL이 자기 자신을 가리키는지 확인. 비어 있으면 채우기. (대부분 이미 적용됨 — 확인만)",
-    whereInImweb: "대시보드 > 페이지 관리 > 각 카테고리 페이지 > SEO 설정",
-    verify: "각 카테고리 페이지 view-source에서 canonical 태그 존재 확인. 핵심 3개 페이지만 점검해도 충분.",
+    whatToDo: "카테고리 페이지(`/service`, `/healthinfo`, `/HealthFood` 등)는 자기 자신을 대표 URL로 가져야 합니다. 현재 /service는 공개 HTML에서 canonical=https://biocom.kr/service 로 확인됐습니다. 아임웹 자동 생성값을 확인하는 항목입니다.",
+    whereInImweb: "아임웹 AI 답변 기준 canonical은 자동 삽입입니다. 관리자에서 직접 입력할 위치를 찾는 작업은 하지 않습니다.",
+    verify: "각 카테고리 페이지의 페이지 소스에서 canonical 태그가 자기 자신 URL인지 확인합니다. 핵심 3개(/service, /healthinfo, /HealthFood)만 먼저 점검해도 충분합니다.",
     affectedCount: "주요 카테고리 5~10개",
   },
   "상품 상세": {
-    whatToDo: "§2-2 「대표 URL 통일」 카드에서 상품별로 정확한 대표 URL이 적힌 8건 카드를 따라 작업. 자기 자신을 canonical로 명시 + 변형 URL이 있으면 흡수.",
-    whereInImweb: "대시보드 > 상품 관리 > 각 상품 > SEO 설정 > Canonical URL",
-    verify: "§2-2 카드의 「검증」 단계 따라.",
+    whatToDo: "상품 상세는 아임웹이 자동 생성한 canonical이 대표 상품 URL과 맞는지 확인합니다. 바이오밸런스는 공개 HTML에서 canonical=https://biocom.kr/HealthFood/?idx=97 로 정상 확인됐습니다. 직접 입력 작업은 하지 않습니다.",
+    whereInImweb: "아임웹 AI 답변 기준 상품 상세 canonical 직접 변경은 지원하지 않습니다. 관리자 메뉴를 더 찾기보다 공개 HTML/GSC 검증으로 관리합니다.",
+    verify: "§2-2 카드의 「검증」 단계 따라 페이지 소스와 GSC URL 검사에서 대표 URL이 일치하는지 봅니다.",
     crossRef: { sectionId: "canonical", label: "§2-2 대표 URL 통일 8건 카드 참조" },
     affectedCount: "시범 4개 + 카탈로그 전체",
   },
   "검사권 상세": {
-    whatToDo: "상품 상세와 동일한 방식. §2-2의 검사권 행 (종합 대사기능 분석, 음식물 과민증 분석) 참조.",
-    whereInImweb: "대시보드 > 상품 관리 > 검사권 상품 > SEO 설정",
-    verify: "§2-2 카드의 「검증」 단계 따라.",
+    whatToDo: "검사권도 상품 상세와 같은 방식입니다. 단, 종합 대사기능 분석은 현재 공개 HTML에서 /organicacid_store/?idx=259 페이지가 /shop_view/?idx=259 를 canonical로 내고 있습니다. 아임웹 AI 답변 기준 직접 변경은 지원하지 않으므로, 상담원에게 예외 처리 가능 여부만 확인합니다.",
+    whereInImweb: "직접 작업 메뉴 없음으로 기록합니다. 상담원 연결 시 /shop_view 자동 URL의 canonical을 현재 상품 URL로 바꿀 수 있는 예외 처리나 앱/코드 방식이 있는지 확인합니다.",
+    verify: "검사권 URL을 열어 페이지 소스의 canonical을 기록합니다. GSC URL 검사에서 Google이 선택한 표준 URL도 함께 기록합니다.",
     crossRef: { sectionId: "canonical", label: "§2-2 대표 URL 통일에 포함" },
     affectedCount: "검사권 4개",
   },
   "같은 상품 다른 경로": {
-    whatToDo: "/shop_view/?idx=97, /HealthFood/97 같이 같은 상품을 가리키는 변형 URL의 canonical을 「대표 상품 URL」로 통일. 즉 변형 URL의 SEO 설정에서 Canonical을 대표 URL로 입력.",
-    whereInImweb: "변형 URL이 별도 페이지로 존재하면: 페이지 관리 > 해당 변형 페이지 > SEO 설정. 자동 생성된 별칭이라면 별도 redirect 규칙으로 처리.",
-    verify: "변형 URL을 시크릿 모드로 열어 view-source에서 canonical이 대표 URL을 가리키는지 확인. GSC URL 검사로 「표준 URL」 일치 확인.",
+    whatToDo: "/shop_view/?idx=97, /HealthFood/97 같이 같은 상품을 가리키는 변형 URL은 직접 canonical 통일이 목표였지만, 아임웹 AI 답변 기준 /shop_view canonical 변경은 지원하지 않습니다. 따라서 직접 수정 대신 내부 링크에서 대표 상품 URL만 쓰는지 확인하고, GSC 표준 URL을 추적합니다.",
+    whereInImweb: "상품/기획전/위젯 링크 설정에서 사용자가 클릭하는 링크가 대표 URL로 가는지 확인합니다. /shop_view 자동 URL 자체의 canonical 변경은 지원 불가로 기록합니다.",
+    verify: "변형 URL을 시크릿 모드로 열어 view-source canonical을 기록합니다. GSC URL 검사에서 Google이 선택한 표준 URL이 대표 URL로 모이는지 확인합니다.",
     crossRef: { sectionId: "canonical", label: "§2-2의 「흡수할 변형 URL」 컬럼에 명시됨" },
     affectedCount: "상품별 1~3개",
   },
   "칼럼 글": {
-    whatToDo: "각 칼럼 글 상세 페이지는 자기 자신(idx별 URL)을 canonical로 유지. 추가 작업: sitemap.xml에 「모든 칼럼 글」이 자동으로 포함되지 않도록 자동 생성 옵션 점검 — 상위 칼럼 페이지 (/healthinfo) 와 주요 글만 포함하도록.",
-    whereInImweb: "대시보드 > 사이트 관리 > sitemap 자동 생성 설정. 「블로그/게시판 글 자동 포함」 옵션이 있으면 끄거나 「최근 N건」으로 제한.",
-    verify: "https://biocom.kr/sitemap.xml 다운로드해서 칼럼 글 idx URL 수가 폭증하지 않는지(예: 50개 이내) 확인.",
+    whatToDo: "각 칼럼 글 상세 페이지는 아임웹 자동 canonical이 자기 자신(idx별 URL)으로 잡히는지 확인합니다. sitemap.xml은 현재 239개 URL로 정상 범위라 모니터링만 합니다.",
+    whereInImweb: "직접 canonical 작업 없음. sitemap 자동 생성은 아임웹이 관리하므로 공개 sitemap.xml과 GSC 제출 상태로 확인합니다.",
+    verify: "https://biocom.kr/sitemap.xml 다운로드해서 칼럼 글 idx URL 수가 갑자기 폭증하지 않는지 확인합니다.",
     affectedCount: "칼럼 글 전체",
   },
   "리뷰/게시판 잡음": {
@@ -539,6 +610,8 @@ const TYPE_GUIDES: Record<string, TypeGuide> = {
     crossRef: { sectionId: "robots", label: "§2-3 robots.txt 적용본에 포함" },
     affectedCount: "10건+",
     alreadyApplied: true,
+    noAction: true,
+    statusBadge: "robots.txt 적용 완료",
   },
   "검색 결과 페이지": {
     whatToDo: "내부 검색 결과 페이지 (/?q=*&page=*&only_photo=*) 차단. §2-3 robots.txt 적용본에 Disallow: /?q= 와 Disallow: /*?q=* 규칙으로 포함됨.",
@@ -547,6 +620,8 @@ const TYPE_GUIDES: Record<string, TypeGuide> = {
     crossRef: { sectionId: "robots", label: "§2-3 robots.txt 적용본에 포함" },
     affectedCount: "10건+",
     alreadyApplied: true,
+    noAction: true,
+    statusBadge: "robots.txt 적용 완료",
   },
   "로그인/회원가입": {
     whatToDo: "각 로그인·회원가입 단계 페이지의 SEO 설정에서 「검색엔진 색인 차단(noindex)」 체크. §2-1 noindex 카드 11건에 모두 포함됨.",
@@ -564,22 +639,32 @@ const TYPE_GUIDES: Record<string, TypeGuide> = {
   },
 };
 
+function getTypeGuide(type: string): TypeGuide | undefined {
+  return TYPE_GUIDES[type] ?? TYPE_GUIDES[type.replace(/`/g, "")];
+}
+
 function TypeGuideCard({
   row, idx, done, toggle,
 }: { row: OverviewRow; idx: number; done: Record<string, boolean>; toggle: (k: string) => void }) {
-  const guide = TYPE_GUIDES[row.type];
+  const guide = getTypeGuide(row.type);
   const k = `type:${idx}`;
   const isDone = !!done[k];
+  const isNoAction = !!guide?.noAction;
 
   return (
-    <article className={`${styles.typeGuideCard} ${isDone ? styles.typeGuideCardDone : ""}`}>
+    <article className={`${styles.typeGuideCard} ${isDone ? styles.typeGuideCardDone : ""} ${isNoAction ? styles.typeGuideCardNoAction : ""}`}>
       <div className={styles.typeGuideHead}>
-        <input type="checkbox" checked={isDone} onChange={() => toggle(k)} className={styles.checkInput} />
+        {isNoAction ? (
+          <span className={styles.typeGuideFixedIcon}>완료</span>
+        ) : (
+          <input type="checkbox" checked={isDone} onChange={() => toggle(k)} className={styles.checkInput} />
+        )}
         <div className={styles.typeGuideHeadBody}>
           <div className={styles.typeGuideTitleRow}>
-            <PriorityBadge p={row.priority} />
+            {isNoAction ? <span className={styles.typeGuideNoActionBadge}>작업 없음</span> : <PriorityBadge p={row.priority} />}
             <h3 className={styles.typeGuideTitle}>{row.type}</h3>
-            {guide?.alreadyApplied && <span className={styles.typeGuideApplied}>✅ §2-3 robots.txt 적용본에 자동 포함</span>}
+            {guide?.statusBadge && <span className={styles.typeGuideApplied}>{guide.statusBadge}</span>}
+            {guide?.alreadyApplied && !guide.statusBadge && <span className={styles.typeGuideApplied}>✅ §2-3 robots.txt 적용본에 자동 포함</span>}
             {guide?.affectedCount && <span className={styles.typeGuideCount}>{guide.affectedCount}</span>}
           </div>
           <div className={styles.typeGuideExample}>
@@ -626,7 +711,9 @@ function TypeGuideCard({
         </div>
       ) : (
         <div className={styles.typeGuideBody}>
-          <p className={styles.typeGuideSectionText}>(가이드 누락)</p>
+          <p className={styles.typeGuideSectionText}>
+            작업 안내가 아직 연결되지 않았습니다. 여기서 작업 안내란 아임웹에서 어느 메뉴를 열고, 무엇을 확인하고, 메뉴가 없으면 상담원에게 어떤 질문을 해야 하는지 적은 운영자용 설명입니다.
+          </p>
         </div>
       )}
     </article>
