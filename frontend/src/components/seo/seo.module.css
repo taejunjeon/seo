@@ -2202,7 +2202,71 @@
 .p0CodeBlock {
   color: #d1fae5;
   background: #0f172a;
-  min-height: 360px;
+  min-height: 260px;
+  max-height: 420px;
+}
+.p0SchemaDecisionPanel {
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  background: #f0fdfa;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.p0SchemaDecisionHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.p0SchemaDecisionHead span {
+  width: fit-content;
+  border-radius: 999px;
+  background: #ccfbf1;
+  color: #0f766e;
+  padding: 3px 8px;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+.p0SchemaDecisionHead strong {
+  color: #134e4a;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+.p0SchemaDecisionPanel p {
+  margin: 0;
+  color: #115e59;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+.p0SchemaDecisionGrid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .p0SchemaDecisionGrid { grid-template-columns: 1fr; }
+}
+.p0SchemaDecisionGrid div {
+  min-width: 0;
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 9px;
+}
+.p0SchemaDecisionGrid dt {
+  color: #0f766e;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+.p0SchemaDecisionGrid dd {
+  margin: 4px 0 0;
+  color: #334155;
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 .p0JsonLdIntent {
   border-top: 1px dashed var(--color-border);

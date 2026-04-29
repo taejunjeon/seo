@@ -21,6 +21,8 @@ Confidence: 82%
 
 결론: 상품 Product/Offer JSON-LD를 그대로 중복 삽입하지 않는다. 보이는 본문 텍스트 추가, 기존 자동 Product 값 검증, FAQPage/BreadcrumbList 보강을 우선한다.
 
+프론트 `/seo#p0-confirm`도 같은 기준으로 조정했다. 화면에서 Product/Offer 전체 JSON-LD는 기본 게시 코드처럼 노출하지 않고, 실제 게시 후보는 `FAQPage + BreadcrumbList` 보강 코드만 보여준다. Product/Offer는 자동 생성값의 상품명, 가격, 이미지, URL, 리뷰 수가 실제 화면과 맞는지 검증하는 항목으로 다룬다.
+
 ## 결론
 
 추천 순서는 아래다.

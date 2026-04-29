@@ -97,6 +97,7 @@ Confidence: 92%
 - Product/Offer JSON-LD를 추가로 넣으면 중복 Product가 생기거나 가격, URL, 리뷰 수가 서로 달라지는 위험이 있다.
 - 상품 4개 P0 패키지는 `보이는 본문 텍스트 추가`, `기존 Product 값 검증`, `FAQPage/BreadcrumbList 보강`, `GSC canonical 기록` 순서로 조정한다.
 - `/seo` 프론트의 JSON-LD 표와 P0 안내 문구도 “아임웹 자동 스키마 확인, 중복 삽입 주의” 기준으로 업데이트했다.
+- 2026-04-29 추가 UX 정리: P0 상세 화면에서 Product/Offer 전체 JSON-LD를 기본 게시 코드처럼 보이게 하던 구성을 제거하고, `FAQPage + BreadcrumbList` 보강 코드만 게시 후보로 표시했다. Product/Offer는 “자동 생성값 검증 대상”으로만 안내한다.
 
 ## 2026-04-29 진행 기록 (GSC URL Inspection API)
 

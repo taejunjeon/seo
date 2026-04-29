@@ -72,7 +72,7 @@ const PACKAGE_FILES = [
   {
     title: "상품 4개 SEO/AEO 최종 실행 패키지",
     path: "reports/seo/seo_aeo_execution_package.md",
-    description: "보이는 본문 텍스트, JSON-LD, 삽입 방법, 롤백 기준을 묶은 운영 전 최종 검토 문서",
+    description: "보이는 본문 텍스트, 기존 Product 스키마 검증, FAQ/Breadcrumb 보강, 롤백 기준을 묶은 운영 전 최종 검토 문서",
   },
   {
     title: "GSC canonical 검사 매트릭스",
@@ -83,23 +83,23 @@ const PACKAGE_FILES = [
 
 const INSERTION_STEPS = [
   {
-    title: "1. 아임웹에 넣습니다",
-    body: "JSON-LD는 구글에 직접 넣는 코드가 아닙니다. 아임웹 상품 페이지의 HTML 또는 사용자 코드 영역에 넣습니다.",
+    title: "1. 본문 텍스트를 넣습니다",
+    body: "상품 상세에 사람이 볼 수 있는 H2 본문과 FAQ를 먼저 넣습니다. 숨김 텍스트가 아니라 실제 화면에 보여야 합니다.",
     owner: "아임웹",
   },
   {
-    title: "2. 구글이 읽습니다",
-    body: "구글이 해당 상품 페이지를 다시 크롤링하면서 페이지 안의 JSON-LD를 읽고 상품, 가격, FAQ를 이해합니다.",
-    owner: "Google",
+    title: "2. 자동 Product 값을 확인합니다",
+    body: "아임웹이 이미 만든 Product/Offer/리뷰 JSON-LD의 상품명, 가격, 이미지, URL이 실제 화면과 맞는지 확인합니다.",
+    owner: "아임웹 자동 SEO",
   },
   {
-    title: "3. 테스트 도구로 확인합니다",
-    body: "Google Rich Results Test에 URL을 넣어 Product, Breadcrumb, FAQ가 오류 없이 인식되는지 확인합니다.",
-    owner: "Rich Results Test",
+    title: "3. 보강 코드만 검토합니다",
+    body: "Product/Offer 전체를 중복 삽입하지 않고, 화면에 추가한 FAQ와 페이지 경로를 설명하는 FAQPage/BreadcrumbList만 후보로 둡니다.",
+    owner: "보강 후보",
   },
   {
     title: "4. Search Console에 요청합니다",
-    body: "URL 검사에서 색인 요청을 하고, Google이 선택한 canonical을 10개 매트릭스에 기록합니다.",
+    body: "게시 후 URL 검사와 Rich Results Test로 기존 Product와 보강 FAQ/Breadcrumb가 충돌 없이 읽히는지 확인합니다.",
     owner: "GSC",
   },
 ];
@@ -260,7 +260,7 @@ const CANONICAL_ROWS: CanonicalCheckRow[] = [
     group: "뉴로마스터 공식 URL",
     url: "https://biocom.kr/HealthFood/?idx=198",
     expected: "Google 선택 canonical이 같은 URL인지 확인",
-    why: "신규 Product JSON-LD 작성 대상이라 대표 URL을 먼저 고정해 기록해야 합니다.",
+    why: "아임웹 자동 Product JSON-LD와 보강 FAQ/Breadcrumb의 기준 URL을 맞춰야 합니다.",
     confidence: 82,
     currentRecord: "미확인",
   },
@@ -276,9 +276,9 @@ const CANONICAL_ROWS: CanonicalCheckRow[] = [
 ];
 
 const PRE_PUBLISH_CHECKS = [
-  { item: "상품명", standard: "실제 화면 상품명과 JSON-LD name이 일치", status: "게시 전 확인" },
-  { item: "가격", standard: "실제 화면 판매가와 JSON-LD price가 일치", status: "게시 전 확인" },
-  { item: "대표 이미지", standard: "실제 대표 이미지와 JSON-LD image가 일치", status: "게시 전 확인" },
+  { item: "자동 Product", standard: "아임웹 자동 Product/Offer가 이미 있으므로 중복 Product를 새로 넣지 않음", status: "게시 전 확인" },
+  { item: "상품명·가격", standard: "자동 JSON-LD의 name, price가 실제 화면 값과 일치", status: "게시 전 확인" },
+  { item: "대표 이미지", standard: "자동 JSON-LD의 image가 실제 대표 이미지와 일치", status: "게시 전 확인" },
   { item: "FAQ", standard: "화면에 보이는 질문/답변만 FAQPage에 사용", status: "게시 전 확인" },
   { item: "canonical", standard: "GSC URL 검사에서 Google 선택 canonical 기록", status: "게시 후 확인" },
 ];
@@ -310,28 +310,28 @@ const GSC_DECISION_RULES = [
 
 const ROLLBACK_RULES = [
   "Google Rich Results Test에서 Product 또는 FAQPage 오류가 발생한다.",
-  "실제 화면 가격과 JSON-LD 가격이 다르다.",
+  "아임웹 자동 Product 가격과 실제 화면 가격이 다르다.",
   "FAQ가 화면에는 없는데 JSON-LD에만 들어가 있다.",
   "Search Console URL 검사에서 핵심 상품이 색인 생성 불가로 바뀐다.",
   "상품 상세 전환율 또는 구매 버튼 클릭에 눈에 띄는 이상이 생긴다.",
 ];
 
-const JSON_LD_INTENT_ROWS = [
+const STRUCTURED_DATA_DECISION_ROWS = [
   {
-    label: "Product",
-    body: "이 페이지가 단순 이미지나 안내문이 아니라 판매 가능한 상품/검사권 페이지라는 것을 검색엔진에 명확히 알려줍니다.",
+    label: "이미 있음",
+    body: "Product, Offer, 평점, 리뷰는 아임웹 쇼핑 SEO가 자동으로 만들고 있습니다. 이 값은 추가가 아니라 검증 대상입니다.",
   },
   {
-    label: "Offer",
-    body: "가격, 통화, 재고 상태를 구조화해서 Google이 상품 정보로 읽을 수 있게 합니다. 화면 가격과 다르면 안 됩니다.",
+    label: "지금 필요한 것",
+    body: "상품 상세에 사람이 볼 수 있는 본문과 FAQ를 추가해 검색엔진과 AI가 이미지 밖의 텍스트를 읽게 하는 것입니다.",
   },
   {
-    label: "Breadcrumb",
-    body: "홈에서 검사 서비스 또는 건강식품을 거쳐 이 상품에 도달하는 경로를 알려줘 URL과 카테고리 맥락을 보강합니다.",
+    label: "보강 후보",
+    body: "본문에 FAQ를 실제로 보여준 뒤 FAQPage와 BreadcrumbList만 보강합니다. Product/Offer 전체 코드는 중복 삽입하지 않습니다.",
   },
   {
-    label: "FAQ",
-    body: "화면에 실제로 보이는 질문과 답변을 검색엔진이 질의응답 정보로 이해하게 합니다. 숨김 FAQ를 넣는 용도가 아닙니다.",
+    label: "검증 기준",
+    body: "Rich Results Test에서 기존 Product와 보강 FAQ/Breadcrumb가 모두 오류 없이 읽히고, 화면 값과 다른 정보가 없어야 합니다.",
   },
 ];
 
@@ -389,23 +389,8 @@ function buildVisibleText(product: ProductDraft) {
   ].filter(Boolean).join("\n\n");
 }
 
-function buildJsonLd(product: ProductDraft, meta: ProductPackageMeta) {
+function buildSupplementJsonLd(product: ProductDraft, meta: ProductPackageMeta) {
   const graph = [
-    {
-      "@type": "Product",
-      name: meta.jsonLdName,
-      description: meta.jsonLdDescription,
-      brand: { "@type": "Brand", name: "Biocom" },
-      url: product.url,
-      image: [meta.image],
-      offers: {
-        "@type": "Offer",
-        url: product.url,
-        priceCurrency: "KRW",
-        price: meta.price,
-        availability: "https://schema.org/InStock",
-      },
-    },
     {
       "@type": "BreadcrumbList",
       itemListElement: [
@@ -466,7 +451,7 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
   const selectedMeta = PRODUCT_META.find((meta) => meta.key === selectedProductKey) ?? PRODUCT_META[0];
   const selectedProduct = findProduct(products, selectedMeta.key);
   const selectedVisibleText = useMemo(() => buildVisibleText(selectedProduct), [selectedProduct]);
-  const selectedJsonLd = useMemo(() => buildJsonLd(selectedProduct, selectedMeta), [selectedProduct, selectedMeta]);
+  const selectedSupplementJsonLd = useMemo(() => buildSupplementJsonLd(selectedProduct, selectedMeta), [selectedProduct, selectedMeta]);
   const inspectionByUrl = useMemo(() => {
     return new Map((inspectionRows ?? []).map((row) => [row.inspectionUrl, row] as const));
   }, [inspectionRows]);
@@ -573,14 +558,14 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
         <p>
           검색엔진 설명서 코드(JSON-LD)는 검색엔진과 AI에게 이 페이지가 어떤 상품인지, 가격과 FAQ가 무엇인지 알려주는 코드입니다.
           대표 URL(canonical)은 같은 상품 URL이 여러 개일 때 Google이 어느 주소를 진짜로 볼지 정하는 기준입니다.
-          이번 화면은 완성 패키지를 운영에 넣기 전, 삽입 위치와 검증 순서를 확인하기 위한 화면입니다.
+          현재 상품 Product/Offer는 아임웹 자동 생성이 확인됐으므로, 이번 화면의 핵심은 “본문 텍스트 추가”와 “중복 없는 FAQ/Breadcrumb 보강”입니다.
         </p>
       </WhyCallout>
 
       <div className={styles.subSection}>
         <div className={styles.sectionHead}>
           <div className={styles.sectionTitleGroup}>
-            <h3 className={styles.colH}>JSON-LD 삽입 방법</h3>
+            <h3 className={styles.colH}>본문·구조화 데이터 반영 순서</h3>
           </div>
           <span className={styles.sectionTag}>아임웹에 삽입 → 구글이 읽음 → Search Console에서 확인</span>
         </div>
@@ -594,8 +579,8 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
           ))}
         </div>
         <WhyCallout tone="warning" title="중요">
-          구글에 코드를 업로드하는 방식이 아닙니다. 코드는 아임웹 페이지에 들어가고, 구글은 그 페이지를 다시 읽습니다.
-          따라서 게시 후 Rich Results Test와 Search Console URL 검사까지 해야 작업이 닫힙니다.
+          Product/Offer JSON-LD 전체 코드는 지금 다시 붙이지 않습니다. 아임웹이 이미 만든 Product와 다른 가격, URL, 리뷰 수가 들어가면
+          검색엔진에 서로 다른 정보를 보내는 셈이 됩니다. 실제 게시 후보는 보이는 본문과 FAQ/Breadcrumb 보강 코드입니다.
         </WhyCallout>
       </div>
 
@@ -652,9 +637,9 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
       <div className={styles.subSection}>
         <div className={styles.sectionHead}>
           <div className={styles.sectionTitleGroup}>
-            <h3 className={styles.colH}>상품별 본문 텍스트와 JSON-LD 전체</h3>
+            <h3 className={styles.colH}>상품별 본문 텍스트와 구조화 데이터 운영 판단</h3>
           </div>
-          <span className={styles.sectionTag}>문서 파일을 열지 않고 여기서 검토</span>
+          <span className={styles.sectionTag}>본문은 게시 후보 · Product는 검증 대상 · FAQ/Breadcrumb는 보강 후보</span>
         </div>
         <div className={styles.p0DetailLayout}>
           <div className={styles.p0ProductTabs} role="tablist" aria-label="상품 패키지 선택">
@@ -698,34 +683,42 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
                 <pre className={styles.p0TextBlock}>{selectedVisibleText}</pre>
               </div>
               <div className={styles.p0PackageColumn}>
-                <div className={styles.p0PackageColumnHead}>
-                  <h5>보강·비교용 JSON-LD</h5>
-                  <CopyButton size="sm" label="JSON-LD 복사" value={selectedJsonLd} />
-                </div>
-                <pre className={styles.p0CodeBlock}>{selectedJsonLd}</pre>
-                <div className={styles.p0JsonLdIntent}>
-                  <div>
-                    <span className={styles.p0JsonLdIntentLabel}>이 JSON-LD를 이렇게 만든 의도</span>
-                    <p>
-                      {selectedMeta.displayName} 페이지를 검색엔진과 AI가 읽을 수 있는 구조로 설명하기 위한 기준 코드입니다.
-                      다만 현재 상품 Product/Offer JSON-LD는 아임웹 자동 생성이 확인됐으므로, 실제 운영 반영은 기존 값과 충돌하지 않는지
-                      먼저 비교한 뒤 FAQ/Breadcrumb 보강 중심으로 진행합니다.
-                    </p>
+                <div className={styles.p0SchemaDecisionPanel}>
+                  <div className={styles.p0SchemaDecisionHead}>
+                    <span>운영 판단</span>
+                    <strong>Product/Offer는 새로 붙이지 않습니다.</strong>
                   </div>
-                  <dl>
-                    {JSON_LD_INTENT_ROWS.map((row) => (
+                  <p>
+                    {selectedMeta.displayName}의 상품 구조화 데이터는 아임웹 자동 생성값을 기준으로 둡니다.
+                    여기서는 자동 Product 값이 화면과 맞는지 확인하고, 화면에 새로 보이는 FAQ를 추가한 뒤 보강 코드만 검토합니다.
+                  </p>
+                  <dl className={styles.p0SchemaDecisionGrid}>
+                    {STRUCTURED_DATA_DECISION_ROWS.map((row) => (
                       <div key={row.label}>
                         <dt>{row.label}</dt>
                         <dd>{row.body}</dd>
                       </div>
                     ))}
                   </dl>
+                </div>
+                <div className={styles.p0PackageColumnHead}>
+                  <h5>게시 후보: FAQ/Breadcrumb 보강 JSON-LD</h5>
+                  <CopyButton size="sm" label="보강 JSON-LD 복사" value={selectedSupplementJsonLd} />
+                </div>
+                <pre className={styles.p0CodeBlock}>{selectedSupplementJsonLd}</pre>
+                <div className={styles.p0JsonLdIntent}>
+                  <div>
+                    <span className={styles.p0JsonLdIntentLabel}>이 보강 코드가 필요한 경우</span>
+                    <p>
+                      왼쪽 본문과 FAQ를 실제 상품 상세 화면에 게시한 뒤에만 이 코드를 후보로 봅니다.
+                      화면에 보이는 FAQ가 없으면 FAQPage는 넣지 않습니다. BreadcrumbList는 Google 선택 canonical과 대표 URL이 맞을 때만 넣습니다.
+                    </p>
+                  </div>
                   <div className={styles.p0JsonLdEffect}>
                     <strong>기대효과</strong>
                     <span>
-                      상품 상세가 통이미지에 치우쳐 있어도 검색엔진이 핵심 정보를 놓칠 가능성을 줄이고, Rich Results Test에서
-                      기존 Product 값과 보강 Breadcrumb/FAQ 인식 여부를 검증할 수 있습니다. 검색 순위가 즉시 오르는 보장 코드는 아니지만,
-                      상품 정보 이해도와 검색결과 표시 품질을 안정적으로 관리하는 기반 작업입니다.
+                      기존 Product 스키마는 유지하면서, 검색엔진이 페이지 경로와 FAQ 맥락을 더 명확히 읽게 합니다.
+                      검색 순위가 즉시 오르는 보장 코드는 아니지만, 자동 상품 스키마와 충돌하지 않는 선에서 정보 이해도를 보강합니다.
                     </span>
                   </div>
                 </div>
@@ -734,7 +727,7 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
             <dl className={styles.p0DefinitionList}>
               <div>
                 <dt>삽입 위치</dt>
-                <dd>아임웹 해당 상품 페이지의 페이지별 코드 영역이 1순위. 없으면 공통 Header Code에 URL 조건으로 삽입합니다.</dd>
+                <dd>보이는 본문은 아임웹 상품 상세 본문에 넣습니다. 보강 JSON-LD는 페이지별 코드 영역이 있을 때만 검토하고, 없으면 URL 조건이 있는 공통 코드로 제한합니다.</dd>
               </div>
               <div>
                 <dt>게시 전 확인</dt>
