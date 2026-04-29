@@ -116,9 +116,9 @@ const PRODUCT_META: ProductPackageMeta[] = [
     jsonLdDescription: "소변 유기산 검사를 통해 에너지 생성, 탄수화물과 지방 대사, 장내 환경, 영양 균형 신호를 함께 확인하는 검사권입니다.",
     breadcrumbParentName: "검사 서비스",
     breadcrumbParentUrl: "https://biocom.kr/service",
-    jsonLdPlan: "Product + Offer + BreadcrumbList + FAQPage",
-    evidence: "본문 초안 있음, Product JSON-LD 샘플 있음, 가격 후보 있음",
-    risk: "검사 진행 방식과 최신 가격 문구만 운영 전 재확인",
+    jsonLdPlan: "기존 Product/Offer 검증 + BreadcrumbList + FAQPage",
+    evidence: "본문 초안 있음, 아임웹 자동 Product JSON-LD 확인, 가격 후보 있음",
+    risk: "검사 진행 방식과 최신 가격 문구 확인, Product/Offer 중복 삽입 금지",
     confidence: 86,
   },
   {
@@ -132,9 +132,9 @@ const PRODUCT_META: ProductPackageMeta[] = [
     jsonLdDescription: "자주 먹는 음식 중 식단 조정 후보를 확인하고 개인별 식단 관리 참고 자료로 활용하는 검사권입니다.",
     breadcrumbParentName: "검사 서비스",
     breadcrumbParentUrl: "https://biocom.kr/service",
-    jsonLdPlan: "Product + Offer + BreadcrumbList + FAQPage",
-    evidence: "본문 초안 있음, FAQ 후보 있음, 검사 표현 검수가 필요함",
-    risk: "알레르기 진단처럼 보이는 표현 금지",
+    jsonLdPlan: "기존 Product/Offer 검증 + BreadcrumbList + FAQPage",
+    evidence: "본문 초안 있음, 아임웹 자동 Product JSON-LD 확인, 공식 URL noindex 확인 필요",
+    risk: "알레르기 진단처럼 보이는 표현 금지, 공식 URL noindex 해소 전 보강 효과 제한",
     confidence: 78,
   },
   {
@@ -148,9 +148,9 @@ const PRODUCT_META: ProductPackageMeta[] = [
     jsonLdDescription: "마그네슘, 아연, 셀레늄, 비타민D 등 주요 영양소를 한 번에 관리하려는 사람을 위한 영양제입니다.",
     breadcrumbParentName: "건강식품",
     breadcrumbParentUrl: "https://biocom.kr/HealthFood/",
-    jsonLdPlan: "Product + Offer + BreadcrumbList + FAQPage",
-    evidence: "본문 초안 있음, Product JSON-LD 샘플 있음, 가격 후보 있음",
-    risk: "성분표와 섭취 안내를 최신 상세페이지 기준으로 재확인",
+    jsonLdPlan: "기존 Product/Offer 검증 + BreadcrumbList + FAQPage",
+    evidence: "본문 초안 있음, 아임웹 자동 Product JSON-LD 확인, 가격 후보 있음",
+    risk: "성분표와 섭취 안내 확인, Product/Offer 중복 삽입 금지",
     confidence: 86,
   },
   {
@@ -164,9 +164,9 @@ const PRODUCT_META: ProductPackageMeta[] = [
     jsonLdDescription: "두뇌 건강과 신경 영양 관리를 함께 보고 싶은 사람을 위한 영양제입니다. 제품 상세의 실제 성분과 표시 문구를 기준으로 안전하게 설명해야 합니다.",
     breadcrumbParentName: "건강식품",
     breadcrumbParentUrl: "https://biocom.kr/HealthFood/",
-    jsonLdPlan: "Product + Offer + BreadcrumbList + FAQPage",
-    evidence: "본문 초안 있음, FAQ 후보 있음, Product JSON-LD 신규 작성 필요",
-    risk: "집중력 개선 단정 표현 금지",
+    jsonLdPlan: "기존 Product/Offer 검증 + BreadcrumbList + FAQPage",
+    evidence: "본문 초안 있음, 아임웹 자동 Product JSON-LD 확인, FAQ 후보 있음",
+    risk: "집중력 개선 단정 표현 금지, Product/Offer 중복 삽입 금지",
     confidence: 76,
   },
 ];
@@ -515,7 +515,7 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
             최종 실행 패키지를 만들었습니다. 다음은 아임웹 삽입 전 확인입니다.
           </h2>
           <p className={styles.p0HeroBody}>
-            상품 4개 본문 텍스트, Product/Breadcrumb/FAQ JSON-LD, 삽입 방법, 롤백 기준, GSC canonical 검사표를
+            상품 4개 본문 텍스트, 기존 Product JSON-LD 검증, Breadcrumb/FAQ 보강 코드, 삽입 방법, 롤백 기준, GSC canonical 검사표를
             이 화면 안에 모두 풀어뒀습니다. 아래 상세를 보고 문서 파일을 열지 않아도 아임웹 삽입 준비 여부를 판단할 수 있습니다.
           </p>
         </div>
@@ -523,10 +523,10 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
           <div className={styles.p0EvidenceLabel}>완성 패키지 생성됨</div>
           <ConfidenceMeter value={82} label="추천 자신감" />
           <div className={styles.p0EvidenceList}>
-            <div>강한 근거: 핵심 6개 페이지 JSON-LD 0개</div>
+            <div>정정된 근거: 상품 Product JSON-LD는 아임웹 자동 생성 확인</div>
             <div>강한 근거: 상품 상세 이미지 의존과 alt 누락 199개</div>
             <div>보조 근거: robots.txt 공개 적용 완료</div>
-            <div>주의: 실제 게시 전 상품 가격·문구 최종 확인 필요</div>
+            <div>주의: Product/Offer 중복 삽입 금지, FAQ/Breadcrumb 보강 중심</div>
           </div>
         </div>
       </div>
@@ -539,7 +539,7 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
           </div>
           <h3>생성된 최종 실행 패키지</h3>
           <p>
-            보이는 본문 텍스트, Product/Breadcrumb/FAQ JSON-LD, 아임웹 삽입 순서, 롤백 기준을 하나의 운영 전 검토 문서로 묶었습니다.
+            보이는 본문 텍스트, 기존 Product 스키마 검증, Breadcrumb/FAQ 보강 JSON-LD, 아임웹 삽입 순서, 롤백 기준을 하나의 운영 전 검토 문서로 묶었습니다.
           </p>
           <ConfidenceMeter value={82} label="완성 패키지 자신감" />
         </article>
@@ -699,7 +699,7 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
               </div>
               <div className={styles.p0PackageColumn}>
                 <div className={styles.p0PackageColumnHead}>
-                  <h5>같은 페이지에 삽입할 JSON-LD</h5>
+                  <h5>보강·비교용 JSON-LD</h5>
                   <CopyButton size="sm" label="JSON-LD 복사" value={selectedJsonLd} />
                 </div>
                 <pre className={styles.p0CodeBlock}>{selectedJsonLd}</pre>
@@ -707,9 +707,9 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
                   <div>
                     <span className={styles.p0JsonLdIntentLabel}>이 JSON-LD를 이렇게 만든 의도</span>
                     <p>
-                      {selectedMeta.displayName} 페이지를 검색엔진과 AI가 읽을 수 있는 구조로 설명하기 위한 코드입니다.
-                      사용자가 보는 본문은 화면에 그대로 노출하고, JSON-LD는 같은 내용을 상품명, 설명, 가격, 경로, FAQ로
-                      정리해서 페이지 안에 함께 넣습니다.
+                      {selectedMeta.displayName} 페이지를 검색엔진과 AI가 읽을 수 있는 구조로 설명하기 위한 기준 코드입니다.
+                      다만 현재 상품 Product/Offer JSON-LD는 아임웹 자동 생성이 확인됐으므로, 실제 운영 반영은 기존 값과 충돌하지 않는지
+                      먼저 비교한 뒤 FAQ/Breadcrumb 보강 중심으로 진행합니다.
                     </p>
                   </div>
                   <dl>
@@ -724,8 +724,8 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
                     <strong>기대효과</strong>
                     <span>
                       상품 상세가 통이미지에 치우쳐 있어도 검색엔진이 핵심 정보를 놓칠 가능성을 줄이고, Rich Results Test에서
-                      Product/Breadcrumb/FAQ 인식 여부를 검증할 수 있습니다. 검색 순위가 즉시 오르는 보장 코드는 아니지만,
-                      상품 정보 이해도와 검색결과 표시 품질을 올리는 기반 작업입니다.
+                      기존 Product 값과 보강 Breadcrumb/FAQ 인식 여부를 검증할 수 있습니다. 검색 순위가 즉시 오르는 보장 코드는 아니지만,
+                      상품 정보 이해도와 검색결과 표시 품질을 안정적으로 관리하는 기반 작업입니다.
                     </span>
                   </div>
                 </div>

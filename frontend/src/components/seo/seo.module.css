@@ -602,6 +602,28 @@
   margin-bottom: 4px;
 }
 
+.jsonLdCellNote {
+  margin-top: 5px;
+  max-width: 240px;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.jsonLdCellNote[data-tone="good"] {
+  color: #047857;
+}
+.jsonLdCellNote[data-tone="warn"] {
+  color: #b45309;
+}
+.jsonLdStatusDetail {
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 3px solid rgba(13, 148, 136, 0.25);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .checkList {
   list-style: none;
   display: flex;

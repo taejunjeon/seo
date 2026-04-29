@@ -1,17 +1,17 @@
 # 바이오컴 SEO/AEO 실행 플랜
 
 작성 시각: 2026-04-27 18:54 KST
-최근 업데이트: 2026-04-29 KST (GSC URL Inspection API 10건 자동 확인 + `/seo` 반영)
+최근 업데이트: 2026-04-29 KST (아임웹 자동 JSON-LD 재확인 + GSC URL Inspection API 10건 자동 확인 + `/seo` 반영)
 기준일: 2026-04-29
 연결 문서: [[seofeedback0427|seo/seofeedback0427.md]], [[seofeedback0427reply|seo/seofeedback0427reply.md]], [[!frontmenu|seo/!frontmenu.md]], [[docurule|docurule.md]]
 스크린샷: [seo/screnshot/](./screnshot/) (10개 섹션) · [seo/screnshot/url-cleanup/](./screnshot/url-cleanup/) (B 작업 요청서 화면 9개 섹션)
 Primary source: 로컬 저장소 구조, 공개 URL 읽기 전용 진단 결과, GSC 라이브 데이터, `seofeedback0427.md`
-Freshness: 2026-04-29 KST 최종 실행 패키지, GSC URL Inspection API 10건, 로컬·VM `/seo` 프론트 반영 기준
+Freshness: 2026-04-29 KST 공개 HTML 구조화 데이터 재확인, 최종 실행 패키지, GSC URL Inspection API 10건, 로컬·VM `/seo` 프론트 반영 기준
 Confidence: 92%
 
 ## 10초 요약
 
-이 플랜의 목표는 바이오컴 SEO를 작은 태그 수정이 아니라 `검색엔진과 AI가 상품, 검사권, 칼럼을 정확히 이해하는 구조`로 다시 정리하는 것이다. 2026-04-29 기준 상품/검사권 4개의 `보이는 본문 텍스트 + Product/Breadcrumb/FAQ JSON-LD + GSC canonical 추적` 최종 실행 패키지를 만들었고, URL Inspection API로 10개 대표 URL의 Google 선택 canonical도 확인했다. 홈 `/index`는 Google이 홈으로 잘 합치지만, 검사권 2개는 `/shop_view/?idx=...` 쪽을 표준으로 보고 있으며 음식물 과민증 공식 URL은 `NOINDEX` 제외 상태다.
+이 플랜의 목표는 바이오컴 SEO를 작은 태그 수정이 아니라 `검색엔진과 AI가 상품, 검사권, 칼럼을 정확히 이해하는 구조`로 다시 정리하는 것이다. 2026-04-29 공개 HTML 재확인 결과 상품 Product/Offer JSON-LD는 아임웹 쇼핑 SEO 자동 설정으로 이미 생성되고 있다. 따라서 상품 4개 실행 패키지는 `Product JSON-LD 신규 중복 삽입`이 아니라 `보이는 본문 텍스트 + 기존 자동 Product 값 검증 + Breadcrumb/FAQ 보강 + GSC canonical 추적`으로 조정한다. 홈 `/index`는 Google이 홈으로 잘 합치지만, 검사권 2개는 `/shop_view/?idx=...` 쪽을 표준으로 보고 있으며 음식물 과민증 공식 URL은 `NOINDEX` 제외 상태다.
 
 ## 고등학생 비유
 
@@ -64,16 +64,39 @@ Confidence: 92%
 
 ## 다음 가장 파급력 있는 할 일
 
-결론: 지금 가장 큰 한 방은 아임웹 탈출 착수가 아니라 `시범 상품/검사권 4개 SEO/AEO 운영 반영 패키지`다. 이유는 핵심 6개 페이지의 JSON-LD가 0개이고, 상품 상세가 이미지 의존이라 검색엔진과 AI가 내용을 충분히 읽기 어렵기 때문이다. 이 작업은 canonical 수동 변경 불가 문제와 별개로 바로 성과를 만들 수 있고, 나중에 자체 구축을 하더라도 그대로 옮길 수 있는 자산이다.
+결론: 지금 가장 큰 한 방은 아임웹 탈출 착수가 아니라 `시범 상품/검사권 4개 SEO/AEO 운영 반영 패키지`다. 2026-04-29 재확인 결과 상품 Product/Offer JSON-LD는 아임웹 자동 생성이 있으므로, 이유는 “JSON-LD가 전혀 없음”이 아니라 `상품 상세가 이미지 의존이라 검색엔진과 AI가 읽을 보이는 본문이 부족하고, 자동 Product 값과 보강 코드의 충돌 관리가 필요함`이다. 이 작업은 canonical 수동 변경 불가 문제와 별개로 바로 성과를 만들 수 있고, 나중에 자체 구축을 하더라도 그대로 옮길 수 있는 자산이다.
 
 | 순서 | 우선순위 | 할 일 | 왜 파급력이 큰가 | 산출물 | TJ 결정 |
 |---:|---|---|---|---|---|
-| 1 | P0 | 완료: 상품/검사권 4개에 보이는 본문 텍스트와 JSON-LD를 묶어 운영 반영 패키지로 만든다 | 핵심 6개 페이지 JSON-LD가 0개라 검색결과 부가 표시와 AI 이해도가 낮다. 통이미지 의존도도 같이 줄일 수 있다. | `reports/seo/seo_aeo_execution_package.md` | 다음은 아임웹 삽입 전 확인 |
+| 1 | P0 | 완료: 상품/검사권 4개에 보이는 본문 텍스트, 기존 Product 값 검증, FAQ/Breadcrumb 보강안을 묶어 운영 반영 패키지로 만든다 | 아임웹 자동 Product JSON-LD는 확인됐지만 상품 상세가 통이미지 의존이라 검색엔진과 AI가 읽을 보이는 본문이 부족하다. | `reports/seo/seo_aeo_execution_package.md` | 다음은 아임웹 삽입 전 확인 |
 | 2 | P0 | 완료: GSC URL 검사 10개 canonical 매트릭스를 자동 확인한다 | 아임웹에서 canonical을 직접 못 바꾸므로 Google이 실제로 어떤 URL을 대표로 고르는지 봐야 한다. | `reports/seo/gsc_canonical_check_matrix.md`, `/seo#p0-confirm` | 검사권 2개 `/shop_view` 표준화와 IGG 공식 URL `NOINDEX` 확인 필요 |
 | 3 | P1 | Search Console/Naver에 robots 반영 후 sitemap과 핵심 URL 재제출 기록을 남긴다 | robots.txt는 공개 적용됐지만 검색엔진이 언제 다시 읽는지 추적해야 한다. | 제출 시각, 제출 계정, 오류 여부, 7/14/28일 추적표 | 운영 계정 접근 필요 |
 | 4 | P1 | 아임웹 탈출 판단 기준을 숫자로 고정한다 | canonical 불편만으로 자체 구축하면 범위가 너무 커진다. 제약이 누적될 때만 우선순위를 올려야 한다. | 자체 구축 판단 게이트: canonical 불일치 수, URL 노출 분산률, JSON-LD/본문/속도 제약 | 4주 뒤 GSC 기준 재판단 |
 
 이번 주 실행 추천 1번과 2번은 문서 패키지까지 완료됐다. 다음은 실제 아임웹 삽입 준비, Rich Results Test, Search Console URL 검사다.
+
+## 2026-04-29 진행 기록 (아임웹 자동 JSON-LD 재확인)
+
+### 결론
+
+`/seo`의 “JSON-LD 없음” 표기는 2026-04-27 최초 감사 CSV 기준이 남아 있던 것으로 확인했다. 2026-04-29 공개 HTML을 다시 읽은 결과, 아임웹 쇼핑 SEO 자동 설정으로 상품 Product/Offer JSON-LD가 이미 생성되고 있다. TJ님이 공유한 Google Rich Results Test의 Product 스니펫 결과와 일치한다.
+
+### 확인된 사실
+
+| 항목 | 확인값 | source | 기준 시각 | confidence |
+|---|---|---|---|---|
+| 종합 대사기능 분석 | `application/ld+json` 4개, Product/Offer/AggregateRating/Review 확인 | 공개 HTML 읽기 전용 확인 + TJ님 공유 Rich Results Test | 2026-04-29 | 94% |
+| 음식물 과민증 분석 | Product/Offer/AggregateRating/Review 확인. 공식 URL은 `noindex, nofollow` 유지 | 공개 HTML 읽기 전용 확인 | 2026-04-29 | 94% |
+| 바이오밸런스 | `application/ld+json` 5개, Product/Offer/AggregateRating/Review 확인 | 공개 HTML 읽기 전용 확인 | 2026-04-29 | 94% |
+| 뉴로마스터 | Product/Offer/AggregateRating/Review 확인 | 공개 HTML 읽기 전용 확인 | 2026-04-29 | 94% |
+| 건강정보 글 | NewsArticle/WebPage JSON-LD 확인 | 공개 HTML 읽기 전용 확인 | 2026-04-29 | 92% |
+
+### 판단
+
+- 현재 문제는 “상품 구조화 데이터가 아예 없음”이 아니다.
+- Product/Offer JSON-LD를 추가로 넣으면 중복 Product가 생기거나 가격, URL, 리뷰 수가 서로 달라지는 위험이 있다.
+- 상품 4개 P0 패키지는 `보이는 본문 텍스트 추가`, `기존 Product 값 검증`, `FAQPage/BreadcrumbList 보강`, `GSC canonical 기록` 순서로 조정한다.
+- `/seo` 프론트의 JSON-LD 표와 P0 안내 문구도 “아임웹 자동 스키마 확인, 중복 삽입 주의” 기준으로 업데이트했다.
 
 ## 2026-04-29 진행 기록 (GSC URL Inspection API)
 
@@ -472,7 +495,7 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 ##### 실행 단계
 
 1. [Codex] 상품 상세 2개를 먼저 분석한다 — 완료. 무엇: `organicacid_store/?idx=259`, `HealthFood/?idx=97` 본문 구조다. 왜: 검사권과 영양제 유형을 각각 대표하기 때문이다. 어떻게: raw HTML, rendered DOM, 이미지 alt, heading을 비교했다. 산출물: `reports/seo/product_detail_content_audit.md`. 검증: 두 상품 모두 이미지 의존 위험 `높음`으로 기록됐다.
-2. [Codex] 구조화 데이터 존재 여부를 확인한다 — 완료. 무엇: Product, Offer, AggregateRating, Review, Article, Organization, WebSite, BreadcrumbList, FAQPage다. 왜: 검색 결과와 AI 이해를 돕는 기본 신호이기 때문이다. 어떻게: JSON-LD script와 microdata를 모두 탐색했다. 산출물: `reports/seo/page_seo_audit.md`, `reports/seo/jsonld_validation_matrix.md`. 검증: 핵심 6개 페이지 JSON-LD 0개가 기록됐다. 의존성: 병렬가능, 공개 HTML 기준으로 완료했다.
+2. [Codex] 구조화 데이터 존재 여부를 확인한다 — 완료. 무엇: Product, Offer, AggregateRating, Review, Article, Organization, WebSite, BreadcrumbList, FAQPage다. 왜: 검색 결과와 AI 이해를 돕는 기본 신호이기 때문이다. 어떻게: JSON-LD script와 microdata를 모두 탐색했고 2026-04-29 공개 HTML을 재확인했다. 산출물: `reports/seo/page_seo_audit.md`, `reports/seo/jsonld_validation_matrix.md`. 검증: 최초 감사에는 JSON-LD 0개로 기록됐으나, 현재는 아임웹 자동 Product/Offer/Review JSON-LD가 확인되어 중복 삽입 금지로 판단을 수정했다. 의존성: 병렬가능, 공개 HTML 기준으로 완료했다.
 
 #### Phase1-Sprint5
 [[#Phase-Sprint 요약표|▲ 요약표로]]
@@ -711,7 +734,7 @@ YES 이후 Codex 작업: 운영 반영 체크리스트와 JSON-LD 삽입 코드 
 상태: 2026-04-29 00:28 KST 문서 패키지 생성 완료. 실제 아임웹 게시와 Search Console 제출은 아직 하지 않았다.
 제 추천: 완성 패키지 확인 후 아임웹 삽입 준비 진행
 추천 자신감: 82%
-이유: 아임웹 canonical 직접 제어보다 이 작업의 파급력이 크다. 핵심 6개 페이지의 JSON-LD가 0개이고, 상품 상세가 이미지 의존이라 검색엔진과 AI가 읽을 수 있는 정보가 부족하다. 이 패키지는 아임웹을 유지해도 쓸 수 있고, 나중에 자체 구축으로 가도 그대로 이전할 수 있다.
+이유: 아임웹 canonical 직접 제어보다 이 작업의 파급력이 크다. 상품 Product/Offer JSON-LD는 아임웹 자동 생성이 확인됐지만, 상품 상세가 이미지 의존이라 검색엔진과 AI가 읽을 수 있는 보이는 정보가 부족하다. 이 패키지는 아임웹을 유지해도 쓸 수 있고, 나중에 자체 구축으로 가도 그대로 이전할 수 있다.
 생성 산출물: `reports/seo/seo_aeo_execution_package.md`, `reports/seo/gsc_canonical_check_matrix.md`
 부족 데이터: 실제 아임웹 삽입 가능 메뉴, Search Console URL 검사 결과, 운영 게시 직전 가격/재고 최종 확인
 다음 답변 형식: `YES: 완성 패키지 확인 완료, 아임웹 삽입 준비 진행` 또는 `NO: 완성 패키지 수정 필요`

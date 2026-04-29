@@ -86,9 +86,9 @@ const APPROVALS: Approval[] = [
     status: "패키지 작성 완료",
     confidence: 82,
     scope: "draft",
-    whatItIs: "상품/검사권 4개에 보이는 본문 텍스트, Product/Breadcrumb/FAQ JSON-LD, 아임웹 삽입 순서, 롤백 기준, Search Console에서 확인할 10개 URL 매트릭스를 묶은 최종 실행 패키지입니다.",
+    whatItIs: "상품/검사권 4개에 보이는 본문 텍스트, 기존 Product 스키마 검증, Breadcrumb/FAQ 보강 JSON-LD, 아임웹 삽입 순서, 롤백 기준, Search Console에서 확인할 10개 URL 매트릭스를 묶은 최종 실행 패키지입니다.",
     currentState: "최종 실행 패키지와 GSC canonical 매트릭스 문서를 생성함. 실제 아임웹 게시, 사용자 코드 게시, Search Console 제출은 운영 영향이 있으므로 별도 최종 확인 뒤 진행.",
-    reason: "핵심 6개 페이지 JSON-LD가 0개이고 상품 상세가 이미지 의존이라, 아임웹 탈출보다 먼저 검색엔진과 AI가 읽을 수 있는 재료를 늘리는 것이 파급력이 큼.",
+    reason: "상품 Product JSON-LD는 아임웹 자동 생성이 확인됐지만 상품 상세가 여전히 이미지 의존이라, 아임웹 탈출보다 먼저 보이는 본문과 충돌 없는 FAQ/Breadcrumb 보강이 파급력이 큼.",
     yesProduces: [
       "reports/seo/seo_aeo_execution_package.md",
       "reports/seo/gsc_canonical_check_matrix.md",
@@ -97,7 +97,7 @@ const APPROVALS: Approval[] = [
     ],
     yesNextSteps: "TJ님이 완성 패키지를 확인 → 아임웹 삽입 준비 진행 → 실제 게시 직전 최종 확인 → Rich Results Test와 Search Console URL 검사.",
     noImpact: [
-      "핵심 6개 페이지 JSON-LD 0개 상태가 유지됨",
+      "아임웹 자동 Product 스키마와 보강 코드의 역할 구분이 안 됨",
       "상품 상세 통이미지 의존과 AI 인용 부족이 남음",
       "아임웹 canonical 제약이 실제 검색 선택에 미치는 영향을 확인하지 못함",
     ],

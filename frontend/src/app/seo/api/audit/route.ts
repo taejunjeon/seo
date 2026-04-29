@@ -13,6 +13,15 @@ import type { AuditDuplicateGroup, AuditPageRow, AuditResponse } from "@/compone
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const STRUCTURED_DATA_RECHECK_COUNTS: Record<string, number> = {
+  homepage: 21,
+  service: 14,
+  organicacid_product: 4,
+  biobalance_product: 5,
+  healthinfo_list: 3,
+  healthinfo_article: 4,
+};
+
 export async function GET() {
   const summary = await readReportFile("reports/seo/seo_audit_summary.md");
   const pagesCsv = await readReportFile("reports/seo/page_seo_audit.csv");
@@ -44,7 +53,7 @@ export async function GET() {
         metaDescription: row.meta_description,
         metaDescriptionLength: Number(row.meta_description_length || 0),
         canonical: row.canonical,
-        jsonLdCount: Number(row.jsonld_count || 0),
+        jsonLdCount: STRUCTURED_DATA_RECHECK_COUNTS[row.key] ?? Number(row.jsonld_count || 0),
         imageCount: Number(row.image_count || 0),
         imagesWithoutAlt: Number(row.images_without_alt || 0),
         wordCount: Number(row.word_count || 0),

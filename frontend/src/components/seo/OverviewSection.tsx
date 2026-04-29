@@ -36,8 +36,8 @@ const SCORE_REASONS: Record<string, { what: string; why: string; how: string }> 
   },
   "Structured Data": {
     what: "JSON-LD라는 작은 코드 블록을 페이지에 넣어 '이 페이지는 상품이고, 가격은 X원, 평점은 Y'처럼 검색엔진이 바로 이해할 수 있게 알려주는 작업입니다.",
-    why: "핵심 6개 페이지 JSON-LD가 0개입니다. 즉 검색엔진이 우리 상품·검사권·칼럼 정보를 본문 텍스트만 보고 추측해야 합니다. 15점 만점에 3점은 sitemap·robots 같은 기본기 점수만 받고 나머지 영역은 0점.",
-    how: "'JSON-LD' 섹션의 5개 삽입 스니펫을 GTM이나 사용자 코드로 게시하면 12점까지 회복 가능. Product/Article/BreadcrumbList가 핵심.",
+    why: "2026-04-27 최초 감사 CSV에는 JSON-LD 0개로 기록됐지만, 2026-04-29 공개 HTML 재확인 결과 아임웹 자동 JSON-LD가 확인됐습니다. 특히 상품 페이지는 Product/Offer/평점/리뷰가 잡히므로, 현재 리스크는 '없음'보다 '자동 값과 보강 코드가 충돌하지 않게 관리'입니다.",
+    how: "'JSON-LD' 섹션에서 현재 자동 스키마를 먼저 확인하고, Product/Offer 중복 삽입 대신 BreadcrumbList/FAQPage/WebSite 같은 보강 항목만 검토합니다.",
   },
   "Content Readability for Search/AI": {
     what: "검색엔진과 AI(ChatGPT, Perplexity 등)가 본문 내용을 읽고 이해할 수 있는지. 통이미지로만 만들어진 페이지는 사람은 읽지만 검색엔진은 못 읽습니다.",
@@ -68,9 +68,9 @@ const PROBLEM_DETAILS: Record<number, { why: string; impact: string; action: str
     action: "URL 정책 매트릭스에서 상품/검사권 유형별로 canonical 목적지 1개를 확정하고, 모든 내부 링크·JSON-LD url을 그 1개에 맞춥니다.",
   },
   4: {
-    why: "홈, 서비스, 종합 대사기능 분석, 바이오밸런스, 건강정보 목록, 건강정보 글 — 6개 핵심 페이지 모두 JSON-LD 코드가 0개입니다.",
-    impact: "구글 검색 결과에 별점·가격·이미지·FAQ 같은 '리치 결과(Rich Results)'가 안 뜹니다. 같은 키워드로 노출돼도 다른 사이트보다 클릭률이 떨어지고, AI 검색(ChatGPT, Perplexity)이 우리 상품 정보를 인용할 가능성도 낮아집니다.",
-    action: "JSON-LD 섹션의 5개 스니펫(Product 2개, Article 1개, Organization 1개, BreadcrumbList 1개)을 시범 삽입.",
+    why: "이 항목은 최초 감사 당시의 구조화 데이터 결손 이슈였습니다. 2026-04-29 재확인 결과 종합 대사기능 분석과 바이오밸런스는 아임웹 자동 Product JSON-LD가 있고, 건강정보 글도 NewsArticle/WebPage JSON-LD가 있습니다.",
+    impact: "리치 결과가 아예 불가능한 상태는 아닙니다. 다만 자동 Product URL이 `/shop_view` canonical과 맞물려 있으므로, 우리가 추가하는 FAQ/Breadcrumb/본문 텍스트가 기존 상품 스키마와 서로 다른 값을 말하지 않게 관리해야 합니다.",
+    action: "Product/Offer 신규 중복 삽입은 보류하고, JSON-LD 섹션에서 기존 자동 값 검증과 BreadcrumbList/FAQPage 보강 여부를 먼저 판단.",
   },
   5: {
     why: "상품 상세 페이지 2개를 분석한 결과 alt 없는 이미지가 199개, 본문 텍스트가 거의 없는 통이미지 위주 구조입니다.",

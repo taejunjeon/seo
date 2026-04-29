@@ -1,7 +1,7 @@
 page,url,jsonld_count,recommended_schema,blocker,confidence
-홈페이지,https://biocom.kr/,0,"Organization, WebSite",현재 JSON-LD 없음,88%
-서비스,https://biocom.kr/service,0,"WebPage, BreadcrumbList",현재 JSON-LD 없음,88%
-종합 대사기능 분석 상품,https://biocom.kr/organicacid_store/?idx=259,0,"Product, Offer, BreadcrumbList",현재 JSON-LD 없음,88%
-바이오밸런스 상품,https://biocom.kr/HealthFood/?idx=97,0,"Product, Offer, BreadcrumbList",현재 JSON-LD 없음,88%
-건강정보 목록,https://biocom.kr/healthinfo,0,ItemList 또는 CollectionPage,현재 JSON-LD 없음,88%
-건강정보 글,https://biocom.kr/healthinfo/?bmode=view&idx=5764202,0,"Article, BreadcrumbList",현재 JSON-LD 없음,88%
+홈페이지,https://biocom.kr/,21,"기존 OnlineStore 유지, WebSite 보강 검토",공개 HTML 기준 아임웹 자동 OnlineStore/ImageObject JSON-LD 확인. WebSite SearchAction은 보강 후보.,92%
+서비스,https://biocom.kr/service,14,"기존 OnlineStore 유지, WebPage/BreadcrumbList 보강 검토",공개 HTML 기준 아임웹 자동 공통 JSON-LD 확인. 서비스 페이지 전용 WebPage/BreadcrumbList는 보강 후보.,92%
+종합 대사기능 분석 상품,https://biocom.kr/organicacid_store/?idx=259,4,"기존 Product/Offer/AggregateRating/Review 유지, BreadcrumbList/FAQPage 보강 검토",공개 HTML 기준 아임웹 자동 Product JSON-LD 확인. 신규 Product 중복 삽입 금지. canonical은 /shop_view/?idx=259.,94%
+바이오밸런스 상품,https://biocom.kr/HealthFood/?idx=97,5,"기존 Product/Offer/AggregateRating/Review 유지, BreadcrumbList/FAQPage 보강 검토",공개 HTML 기준 아임웹 자동 Product JSON-LD 확인. 신규 Product 중복 삽입보다 값 일치 확인 우선.,94%
+건강정보 목록,https://biocom.kr/healthinfo,3,기존 공통 JSON-LD 유지 및 ItemList/CollectionPage 보강 검토,공개 HTML 기준 공통 JSON-LD 확인. 목록 자체를 설명하는 ItemList는 보강 후보.,90%
+건강정보 글,https://biocom.kr/healthinfo/?bmode=view&idx=5764202,4,"기존 NewsArticle/WebPage 유지, BreadcrumbList 보강 검토",공개 HTML 기준 NewsArticle/WebPage JSON-LD 확인. 작성자/이미지/요약 값 일치 확인 우선.,92%

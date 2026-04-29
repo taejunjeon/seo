@@ -8,17 +8,29 @@ Confidence: 82%
 
 ## 10초 요약
 
-이 패키지는 상품/검사권 4개에 `사람에게 보이는 본문 텍스트`, `JSON-LD`, `GSC canonical 확인`을 묶어 운영 반영 직전까지 갈 수 있게 만든 실행안이다. JSON-LD는 구글에 넣는 것이 아니라 아임웹 페이지 HTML에 넣고, 구글은 그 페이지를 다시 읽어 해석한다. 실제 아임웹 게시, 사용자 코드 게시, Search Console 제출은 운영 영향이 있으므로 TJ님 최종 확인 뒤 진행한다.
+이 패키지는 상품/검사권 4개에 `사람에게 보이는 본문 텍스트`, `구조화 데이터 검증/보강`, `GSC canonical 확인`을 묶어 운영 반영 직전까지 갈 수 있게 만든 실행안이다. 2026-04-29 공개 HTML 재확인 결과, 상품 페이지에는 아임웹 자동 Product/Offer JSON-LD가 이미 들어가 있다. 따라서 JSON-LD 작업은 “구글에 넣는 것”도, “기존 Product를 중복 삽입하는 것”도 아니며, 아임웹 페이지 HTML의 자동 값이 실제 화면과 맞는지 확인하고 FAQ/Breadcrumb 같은 보강 항목만 충돌 없이 추가하는 방식으로 진행한다. 실제 아임웹 게시, 사용자 코드 게시, Search Console 제출은 운영 영향이 있으므로 TJ님 최종 확인 뒤 진행한다.
+
+## 2026-04-29 구조화 데이터 정정
+
+| 항목 | 정정 전 해석 | 현재 확인 |
+|---|---|---|
+| 종합 대사기능 분석 | JSON-LD 없음 | 공개 HTML 기준 `application/ld+json` 4개 확인. Product, Offer, AggregateRating, Review 포함 |
+| 바이오밸런스 | JSON-LD 없음 | 공개 HTML 기준 `application/ld+json` 5개 확인. Product, Offer, AggregateRating, Review 포함 |
+| 음식물 과민증 | JSON-LD 없음 | 공개 HTML 기준 Product JSON-LD 확인. 다만 공식 URL `igg_store/?idx=85`는 `noindex, nofollow`라 별도 우선 확인 필요 |
+| 뉴로마스터 | Product JSON-LD 신규 작성 필요 | 공개 HTML 기준 Product JSON-LD 확인 |
+
+결론: 상품 Product/Offer JSON-LD를 그대로 중복 삽입하지 않는다. 보이는 본문 텍스트 추가, 기존 자동 Product 값 검증, FAQPage/BreadcrumbList 보강을 우선한다.
 
 ## 결론
 
 추천 순서는 아래다.
 
 1. 아임웹 상품 상세 본문에 보이는 텍스트 블록을 추가한다.
-2. 같은 페이지에 해당 상품의 JSON-LD를 삽입한다.
-3. Google Rich Results Test로 JSON-LD 인식 여부를 확인한다.
-4. Google Search Console에서 URL 검사와 색인 요청을 한다.
-5. `reports/seo/gsc_canonical_check_matrix.md`에 Google 선택 canonical을 기록한다.
+2. 기존 아임웹 자동 Product/Offer JSON-LD의 상품명, 가격, 이미지, 리뷰 수가 실제 화면과 맞는지 확인한다.
+3. 중복 충돌이 적은 FAQPage/BreadcrumbList 보강만 게시 후보로 둔다.
+4. Google Rich Results Test로 구조화 데이터 인식 여부를 확인한다.
+5. Google Search Console에서 URL 검사와 색인 요청을 한다.
+6. `reports/seo/gsc_canonical_check_matrix.md`에 Google 선택 canonical을 기록한다.
 
 ## JSON-LD 삽입 위치
 
@@ -370,4 +382,3 @@ A. 단정 표현은 피해야 합니다. 건강기능식품 표시 기준과 실
 - FAQ가 화면에는 없는데 JSON-LD에만 들어가 있다.
 - Search Console URL 검사에서 핵심 상품이 `색인 생성 불가`로 바뀐다.
 - 상품 상세 전환율 또는 구매 버튼 클릭에 눈에 띄는 이상이 생긴다.
-

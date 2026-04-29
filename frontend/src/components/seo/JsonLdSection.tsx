@@ -14,14 +14,14 @@ type Props = {
 
 const SNIPPET_REASONS: Record<string, { what: string; why: string; where: string }> = {
   "종합 대사기능 분석 Product": {
-    what: "종합 대사기능 분석 검사권을 '상품(Product)'으로 명시하고 가격·재고·이미지를 구조화한 코드입니다.",
-    why: "구글 검색 결과에서 가격(₩298,000)과 'In Stock' 배지가 직접 노출돼 같은 노출수에서도 클릭률이 올라갑니다. AI 검색(ChatGPT)이 검사권을 추천할 때도 가격을 함께 인용할 수 있게 됩니다.",
-    where: "/organicacid_store/?idx=259 페이지 <head> 안에 삽입. 아임웹 직접 수정 또는 GTM 사용자 정의 HTML로 게시.",
+    what: "종합 대사기능 분석 검사권을 '상품(Product)'으로 명시하고 가격·재고·이미지를 구조화한 기준 코드입니다.",
+    why: "현재 공개 HTML에는 아임웹 자동 Product/Offer JSON-LD가 이미 확인됩니다. 이 샘플은 곧바로 중복 삽입하는 코드가 아니라, 자동 값이 틀렸을 때 비교·대체할 기준서로 봅니다.",
+    where: "신규 Product를 추가하기보다 기존 아임웹 자동 Product 값과 화면 값이 맞는지 먼저 확인. 보강은 FAQPage/BreadcrumbList처럼 충돌이 적은 항목부터 검토.",
   },
   "바이오밸런스 Product": {
-    what: "바이오밸런스 영양제를 '상품'으로 명시하고 가격·이미지를 구조화한 코드.",
-    why: "Product 스키마가 있으면 검색결과에 가격이 직접 표시. 영양제 키워드 ('마그네슘', '아연' 등)에서 같은 노출도 더 많은 클릭을 받습니다.",
-    where: "/HealthFood/?idx=97 페이지 <head>에 삽입.",
+    what: "바이오밸런스 영양제를 '상품'으로 명시하고 가격·이미지를 구조화한 기준 코드.",
+    why: "현재 공개 HTML에는 아임웹 자동 Product/Offer JSON-LD가 이미 확인됩니다. 추가 삽입보다는 자동 값의 상품명·가격·이미지가 실제 화면과 맞는지 검증하는 용도입니다.",
+    where: "/HealthFood/?idx=97의 자동 Product 값 확인 후, 필요한 경우에만 충돌 없는 보강 항목을 별도로 적용.",
   },
   "건강정보 글 Article": {
     what: "건강정보 칼럼을 'Article(기사)'로 명시하고 제목·작성자·이미지를 구조화한 코드.",
@@ -37,6 +37,24 @@ const SNIPPET_REASONS: Record<string, { what: string; why: string; where: string
     what: "페이지가 사이트 어디에 위치하는지 ('홈 > 상품 > 바이오밸런스') 경로를 구조화한 코드.",
     why: "검색결과 URL 위에 사이트 경로가 표시돼 사용자가 페이지 위치를 한 눈에 파악, 클릭률이 올라갑니다.",
     where: "각 상품/칼럼 페이지에 해당 경로로 맞춰서 삽입. JSON 안의 product/article 필드를 분리해서 페이지 유형별로 1개씩 사용.",
+  },
+};
+
+const LIVE_STRUCTURED_DATA_NOTES: Record<string, { label: string; detail: string; tone: "good" | "warn" }> = {
+  "종합 대사기능 분석 상품": {
+    label: "공개 HTML 재확인: Product/Offer/평점/리뷰 JSON-LD 있음",
+    detail: "아임웹 쇼핑 SEO 자동 설정으로 보이며, Rich Results Test 결과와 일치합니다. 신규 Product JSON-LD를 그대로 추가하면 중복·불일치 리스크가 있습니다.",
+    tone: "good",
+  },
+  "바이오밸런스 상품": {
+    label: "공개 HTML 재확인: Product/Offer JSON-LD 있음",
+    detail: "상품명·가격·이미지 자동 스키마가 잡힙니다. 보강은 FAQPage/BreadcrumbList 중심으로 검토합니다.",
+    tone: "good",
+  },
+  "건강정보 글": {
+    label: "공개 HTML 재확인: NewsArticle/WebPage JSON-LD 있음",
+    detail: "Article 계열 자동 스키마가 있으므로 작성자·이미지·본문 요약 값이 실제 화면과 맞는지 확인합니다.",
+    tone: "good",
   },
 };
 
@@ -74,7 +92,24 @@ export default function JsonLdSection({ data }: Props) {
           (3) AI 검색(ChatGPT, Perplexity)이 우리 상품·칼럼을 인용할 가능성이 줄어듭니다.
         </p>
         <p>
-          <strong>현재 상태</strong>: 핵심 6개 페이지 모두 검색엔진 설명서 코드 0개. 이 화면은 「복사해서 어디에 붙여 넣을지」 안내만 — 실제 게시는 별도 승인입니다.
+          <strong>현재 상태</strong>: 2026-04-29 공개 HTML 재확인 기준, 아임웹이 자동으로 넣은 JSON-LD가 확인됩니다.
+          이 화면의 목적은 “무조건 새 코드를 추가”가 아니라, 자동 스키마와 충돌하지 않게 무엇을 보강할지 판단하는 것입니다.
+        </p>
+      </WhyCallout>
+
+      <WhyCallout tone="success" title="종합 대사기능 분석 상품 표기 정정">
+        <p style={{ marginBottom: 8 }}>
+          TJ님이 확인한 내용이 맞습니다. <strong>종합 대사기능 분석 상품에는 현재 JSON-LD가 있습니다.</strong>
+          공개 HTML 기준 <code>application/ld+json</code> 스크립트 4개가 확인되고, Product, Offer, AggregateRating,
+          Review 값이 Rich Results Test에 잡히는 상태입니다.
+        </p>
+        <p style={{ marginBottom: 8 }}>
+          기존 화면의 “JSON-LD 없음”은 2026-04-27 감사 CSV 기준이 남아 있던 표기입니다. 현재 판단은
+          “구조화 데이터 없음”이 아니라 <strong>“아임웹 자동 상품 스키마가 있으므로 중복 삽입을 피하고 보강만 검토”</strong>입니다.
+        </p>
+        <p>
+          참고로 Google은 JSON-LD를 권장하지만 Microdata, RDFa도 구조화 데이터로 읽습니다. 이번 종합 대사기능 페이지는
+          실제 공개 HTML에서도 JSON-LD Product가 확인되므로, 아임웹 쇼핑 SEO 자동 설정으로 보는 것이 타당합니다.
         </p>
       </WhyCallout>
 
@@ -84,29 +119,42 @@ export default function JsonLdSection({ data }: Props) {
           <thead>
             <tr>
               <th>페이지</th>
-              <th>현재 JSON-LD</th>
-              <th>권장 schema</th>
+              <th>현재 명시 JSON-LD</th>
+              <th>권장 작업</th>
               <th>현재 상태</th>
               <th>자신감</th>
             </tr>
           </thead>
           <tbody>
-            {data.validation.map((v) => (
-              <tr key={v.url}>
-                <td>
-                  <div className={styles.pageCellTitle}>{v.page}</div>
-                  <a href={v.url} target="_blank" rel="noreferrer" className={styles.pageCellUrl}>{v.url}</a>
-                </td>
-                <td className={v.jsonLdCount === 0 ? styles.cellDanger : styles.cellGood}>
-                  {v.jsonLdCount}{v.jsonLdCount === 0 && " ⚠️ 없음"}
-                </td>
-                <td>{v.recommendedSchema.split(",").map((s) => (
-                  <span key={s} className={styles.schemaTag} title={`${s.trim()} 스키마 권장`}>{s.trim()}</span>
-                ))}</td>
-                <td className={styles.pageCellMetaSmall}>{v.blocker || "—"}</td>
-                <td className={styles.confCell}>{v.confidence}</td>
-              </tr>
-            ))}
+            {data.validation.map((v) => {
+              const note = LIVE_STRUCTURED_DATA_NOTES[v.page];
+              return (
+                <tr key={v.url}>
+                  <td>
+                    <div className={styles.pageCellTitle}>{v.page}</div>
+                    <a href={v.url} target="_blank" rel="noreferrer" className={styles.pageCellUrl}>{v.url}</a>
+                  </td>
+                  <td>
+                    <div className={v.jsonLdCount === 0 ? styles.cellDanger : styles.cellGood}>
+                      {v.jsonLdCount}{v.jsonLdCount === 0 && " ⚠️ 없음"}
+                    </div>
+                    {note && (
+                      <div className={styles.jsonLdCellNote} data-tone={note.tone}>
+                        {note.label}
+                      </div>
+                    )}
+                  </td>
+                  <td>{v.recommendedSchema.split(",").map((s) => (
+                    <span key={s} className={styles.schemaTag} title={`${s.trim()} 작업 권장`}>{s.trim()}</span>
+                  ))}</td>
+                  <td className={styles.pageCellMetaSmall}>
+                    {v.blocker || "—"}
+                    {note && <div className={styles.jsonLdStatusDetail}>{note.detail}</div>}
+                  </td>
+                  <td className={styles.confCell}>{v.confidence}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -124,7 +172,8 @@ export default function JsonLdSection({ data }: Props) {
 
       <h3 className={styles.colH} style={{ marginTop: 28 }}>삽입 스니펫 ({data.snippets.length}) <ImpactBadge variant="needs-approval" /></h3>
       <WhyCallout tone="warning">
-        아래 5개 코드 블록은 「복사해서 어디에 붙여 넣을지」 안내입니다. <strong>실제 사이트 게시는 운영 반영이라 별도 TJ 승인이 필요합니다</strong>.
+        아래 5개 코드 블록은 「비어 있는 페이지에 바로 추가」가 아니라 <strong>현재 자동 JSON-LD와 비교할 기준 코드</strong>입니다.
+        특히 상품 Product/Offer는 이미 아임웹 자동 값이 있으므로 그대로 중복 삽입하지 않습니다. 실제 사이트 게시는 운영 반영이라 별도 TJ 승인이 필요합니다.
         각 카드를 펼치면 무엇을, 왜, 어디에 넣어야 하는지 안내가 함께 나옵니다.
         게시 후에는{" "}
         <Glossary term="검색결과 부가 표시 검증 (Rich Results Test)" short="구글이 제공하는 무료 검증 도구.">

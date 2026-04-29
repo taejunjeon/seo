@@ -19,11 +19,11 @@ const NOTICES: Notice[] = [
     key: "D",
     headline: "완성 패키지의 구성품, 삽입 방법, 검증 기준은 아래 상세 섹션에 정리되어 있습니다.",
     status: "상태: 실행 패키지 생성 완료 · 운영 게시 전 검토 단계",
-    evidence: "근거: 핵심 6개 페이지 JSON-LD 0개, 상품 상세 통이미지 의존, alt 누락 199개",
+    evidence: "근거: 아임웹 자동 상품 JSON-LD 확인, 보이는 본문 보강 필요, alt 누락 199개",
     conditions: "실제 아임웹 게시, 사용자 코드 게시, Search Console 제출은 별도 승인",
     detailItems: [
       "상품 4개 본문 텍스트 초안",
-      "Product/Breadcrumb/FAQ JSON-LD 코드",
+      "기존 Product 스키마와 충돌하지 않는 Breadcrumb/FAQ 보강 코드",
       "아임웹 삽입 위치와 복사 순서",
       "Rich Results Test와 Search Console 확인 순서",
       "GSC canonical 매트릭스 기록표",
