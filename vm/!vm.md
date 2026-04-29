@@ -88,19 +88,22 @@ https://one.dash.cloudflare.com/
 
 현재 등록된 hostname (예상):
 - `att.ainativeos.net` → `http://localhost:7020` (backend)
-- `coffeevip.ainativeos.net` → `http://localhost:3001` (frontend) ← **2026-04-24 신규 · TJ 등록 예정**
+- `coffeevip.ainativeos.net` → `http://localhost:3001` (frontend, 레거시/커피 공유용)
+- `biocom.ainativeos.net` → `http://localhost:3001` (frontend, 바이오컴 본사/SEO 권장 URL) ← **추가 필요**
 
 ### 3.2 신규 호스트 추가 절차
 
 1. Zero Trust → Networks → Tunnels → 해당 Tunnel 클릭
 2. **Public Hostname** 탭 → **Add a public hostname**
 3. 입력:
-   - Subdomain: `coffeevip`
+   - Subdomain: `biocom`
    - Domain: `ainativeos.net`
    - Type: `HTTP`
    - URL: `localhost:3001`
 4. Save → 수초 이내 반영 (DNS CNAME 자동 생성)
-5. 검증: `curl -sI https://coffeevip.ainativeos.net/coffeevip` → HTTP 200
+5. 검증: `curl -sI https://biocom.ainativeos.net/seo` → HTTP 200
+
+`coffeevip.ainativeos.net/seo`는 실제 내용이 바이오컴 본사 SEO라 혼동을 만든다. SEO/AEO 공유 링크는 `https://biocom.ainativeos.net/seo`를 기준으로 사용한다.
 
 ## 4. 배포 절차 (frontend 기준)
 

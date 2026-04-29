@@ -23,6 +23,9 @@ const createLogger = () =>
 
 const allowedOrigins = [
   env.FRONTEND_ORIGIN,
+  "https://coffeevip.ainativeos.net",
+  "https://biocom.ainativeos.net",
+  "https://seo.ainativeos.net",
   "http://localhost:3000",
   "http://localhost:7010",
   "http://localhost:7011",

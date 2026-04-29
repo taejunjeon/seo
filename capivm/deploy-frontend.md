@@ -115,12 +115,12 @@ curl -s -o /dev/null -w "%{http_code}\n" https://coffeevip.ainativeos.net/coffee
 ## 3. 공유 링크 (최종)
 
 ```
-https://coffeevip.ainativeos.net/coffeevip
+https://biocom.ainativeos.net/seo
 ```
 
 다른 페이지 (`/`, `/ads`, `/crm`, `/coffee`, `/callprice` 등)도 같이 공개됨.
 단 `NEXT_PUBLIC_API_BASE_URL=http://localhost:7020` 이면 외부 브라우저에서 호출되는 API 가 맞지 않아 해당 페이지들은 일부 섹션이 깨진 채 표시됨.
-**의도: coffeevip URL 만 공유**.
+바이오컴 본사/SEO 공유는 `biocom.ainativeos.net`를 기준으로 한다. `coffeevip.ainativeos.net/seo`는 내용과 URL 신호가 맞지 않으므로 임시 확인용으로만 사용한다.
 
 ### 3.1 보안 보강 (선택)
 
