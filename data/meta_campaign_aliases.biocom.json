@@ -361,24 +361,30 @@
     "site": "biocom",
     "channel": "meta",
     "alias_key": "meta_biocom_cellcleanerreel_igg",
-    "status": "needs_manual_review",
-    "family_hint": "mixed",
+    "status": "manual_verified",
+    "family_hint": "igg_family",
     "candidate_campaign_ids": [
       "120215102309650396",
-      "120242626179290396"
+      "120242626179290396",
+      "120213362391690396"
     ],
     "candidate_campaign_names": [
       "[바이오컴] 건강기능식품 - 클린, 풍성, 바이오",
-      "공동구매 인플루언서 파트너 광고 모음_3 (260323)"
+      "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+      "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
     ],
     "valid_from": "2026-03-11",
     "valid_to": null,
-    "confidence": "needs_manual_review",
-    "review_reason": "cellcleaner는 건강기능식품 계열일 수도 있고 인플루언서 파트너 소재일 수도 있어 추가 검증 필요",
+    "confidence": "manual_verified",
+    "review_reason": "2026-04-28 TJ 요청으로 음식물 과민증 검사 전환캠페인에 임시 분류. 근거는 주문 utm_term=120213362391830396가 음식물 과민증 검사 전환캠페인 하위 adset으로 확인된 점이며, 추후 사람이 한 번 더 컨펌 예정.",
     "evidence": {
-      "confirmed_orders": 2,
-      "confirmed_revenue": 490000
-    }
+      "confirmed_orders": 4,
+      "confirmed_revenue": 1060200
+    },
+    "selected_campaign_id": "120213362391690396",
+    "selected_campaign_name": "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)",
+    "rejected_campaign_ids": [],
+    "reviewed_at": "2026-04-28T12:09:11.124Z"
   },
   {
     "site": "biocom",
