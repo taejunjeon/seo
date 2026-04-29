@@ -290,6 +290,25 @@ const ROLLBACK_RULES = [
   "상품 상세 전환율 또는 구매 버튼 클릭에 눈에 띄는 이상이 생긴다.",
 ];
 
+const JSON_LD_INTENT_ROWS = [
+  {
+    label: "Product",
+    body: "이 페이지가 단순 이미지나 안내문이 아니라 판매 가능한 상품/검사권 페이지라는 것을 검색엔진에 명확히 알려줍니다.",
+  },
+  {
+    label: "Offer",
+    body: "가격, 통화, 재고 상태를 구조화해서 Google이 상품 정보로 읽을 수 있게 합니다. 화면 가격과 다르면 안 됩니다.",
+  },
+  {
+    label: "Breadcrumb",
+    body: "홈에서 검사 서비스 또는 건강식품을 거쳐 이 상품에 도달하는 경로를 알려줘 URL과 카테고리 맥락을 보강합니다.",
+  },
+  {
+    label: "FAQ",
+    body: "화면에 실제로 보이는 질문과 답변을 검색엔진이 질의응답 정보로 이해하게 합니다. 숨김 FAQ를 넣는 용도가 아닙니다.",
+  },
+];
+
 function ConfidenceMeter({ value, label }: { value: number; label: string }) {
   return (
     <div className={styles.p0Confidence}>
@@ -566,6 +585,32 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
                   <CopyButton size="sm" label="JSON-LD 복사" value={selectedJsonLd} />
                 </div>
                 <pre className={styles.p0CodeBlock}>{selectedJsonLd}</pre>
+                <div className={styles.p0JsonLdIntent}>
+                  <div>
+                    <span className={styles.p0JsonLdIntentLabel}>이 JSON-LD를 이렇게 만든 의도</span>
+                    <p>
+                      {selectedMeta.displayName} 페이지를 검색엔진과 AI가 읽을 수 있는 구조로 설명하기 위한 코드입니다.
+                      사용자가 보는 본문은 화면에 그대로 노출하고, JSON-LD는 같은 내용을 상품명, 설명, 가격, 경로, FAQ로
+                      정리해서 페이지 안에 함께 넣습니다.
+                    </p>
+                  </div>
+                  <dl>
+                    {JSON_LD_INTENT_ROWS.map((row) => (
+                      <div key={row.label}>
+                        <dt>{row.label}</dt>
+                        <dd>{row.body}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <div className={styles.p0JsonLdEffect}>
+                    <strong>기대효과</strong>
+                    <span>
+                      상품 상세가 통이미지에 치우쳐 있어도 검색엔진이 핵심 정보를 놓칠 가능성을 줄이고, Rich Results Test에서
+                      Product/Breadcrumb/FAQ 인식 여부를 검증할 수 있습니다. 검색 순위가 즉시 오르는 보장 코드는 아니지만,
+                      상품 정보 이해도와 검색결과 표시 품질을 올리는 기반 작업입니다.
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
             <dl className={styles.p0DefinitionList}>

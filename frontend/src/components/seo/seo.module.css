@@ -2182,6 +2182,58 @@
   background: #0f172a;
   min-height: 360px;
 }
+.p0JsonLdIntent {
+  border-top: 1px dashed var(--color-border);
+  padding-top: 12px;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+.p0JsonLdIntentLabel {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+.p0JsonLdIntent p {
+  margin: 0 0 10px;
+}
+.p0JsonLdIntent dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+@media (max-width: 640px) {
+  .p0JsonLdIntent dl { grid-template-columns: 1fr; }
+}
+.p0JsonLdIntent dl div {
+  min-width: 0;
+}
+.p0JsonLdIntent dt {
+  color: #0f766e;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.p0JsonLdIntent dd {
+  margin: 3px 0 0;
+  color: var(--color-text-secondary);
+}
+.p0JsonLdEffect {
+  margin-top: 12px;
+  padding-left: 10px;
+  border-left: 3px solid #14b8a6;
+}
+.p0JsonLdEffect strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-text-primary);
+  font-size: 0.78rem;
+}
+.p0JsonLdEffect span {
+  display: block;
+}
 .p0GscSteps {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
