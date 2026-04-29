@@ -2046,6 +2046,291 @@
   font-size: 0.82rem;
   line-height: 1.5;
 }
+.p0DetailLayout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+}
+@media (max-width: 900px) {
+  .p0DetailLayout { grid-template-columns: 1fr; }
+}
+.p0ProductTabs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .p0ProductTabs {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+}
+.p0ProductTab {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.p0ProductTab span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+.p0ProductTabActive {
+  border-color: #14b8a6;
+  background: #ecfeff;
+  color: #0f766e;
+  box-shadow: 0 6px 14px rgba(20, 184, 166, 0.12);
+}
+.p0FullPackageCard {
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.p0FullPackageHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px dashed var(--color-border);
+  padding-bottom: 12px;
+}
+.p0FullPackageHead h4 {
+  margin: 6px 0 4px;
+  color: var(--color-text-primary);
+  font-size: 1.08rem;
+  font-weight: 900;
+}
+.p0FullPackageMeta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.p0FullPackageMeta span {
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.p0PackageColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+}
+@media (max-width: 1100px) {
+  .p0PackageColumns { grid-template-columns: 1fr; }
+}
+.p0PackageColumn {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.p0PackageColumnHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.p0PackageColumnHead h5 {
+  color: var(--color-text-primary);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+.p0TextBlock,
+.p0CodeBlock {
+  margin: 0;
+  border-radius: 12px;
+  padding: 14px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.76rem;
+  line-height: 1.65;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+.p0TextBlock {
+  color: #1f2937;
+  background: #f8fafc;
+  min-height: 360px;
+}
+.p0CodeBlock {
+  color: #d1fae5;
+  background: #0f172a;
+  min-height: 360px;
+}
+.p0GscSteps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+@media (max-width: 980px) {
+  .p0GscSteps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .p0GscSteps { grid-template-columns: 1fr; }
+}
+.p0GscStep {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+}
+.p0GscStep span {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.p0GscStep p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.p0RecordBadge {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.p0RuleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .p0RuleGrid { grid-template-columns: 1fr; }
+}
+.p0RuleCard {
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: #ffffff;
+  padding: 15px;
+}
+.p0RuleCard span {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+.p0RuleCard[data-judgment="정상"] span {
+  color: #047857;
+  background: #dcfce7;
+}
+.p0RuleCard[data-judgment="주의"] span {
+  color: #92400e;
+  background: #fef3c7;
+}
+.p0RuleCard[data-judgment="위험"] span {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+.p0RuleCard h4 {
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+.p0RuleCard p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+.p0RollbackPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 14px;
+  align-items: stretch;
+}
+@media (max-width: 920px) {
+  .p0RollbackPanel { grid-template-columns: 1fr; }
+}
+.p0RollbackPanel > div {
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: #ffffff;
+  padding: 16px;
+}
+.p0RollbackPanel h4 {
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+.p0RollbackPanel ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+.p0FinalDecision {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fff7ed !important;
+  border-color: #fed7aa !important;
+}
+.p0FinalDecision > span {
+  color: #9a3412;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+.p0FinalDecision code {
+  display: block;
+  border-radius: 10px;
+  background: #111827;
+  color: #5eead4;
+  padding: 10px 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
 /* ── BaselineSection ── */
 .baselineGrid {

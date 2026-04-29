@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 import ImpactBadge from "./ImpactBadge";
@@ -14,6 +15,14 @@ type Props = {
 type ProductPackageMeta = {
   key: string;
   displayName: string;
+  url: string;
+  pageType: string;
+  price: string;
+  image: string;
+  jsonLdName: string;
+  jsonLdDescription: string;
+  breadcrumbParentName: string;
+  breadcrumbParentUrl: string;
   jsonLdPlan: string;
   evidence: string;
   risk: string;
@@ -21,11 +30,13 @@ type ProductPackageMeta = {
 };
 
 type CanonicalCheckRow = {
+  order: number;
   group: string;
   url: string;
   expected: string;
   why: string;
   confidence: number;
+  currentRecord: string;
 };
 
 const YES_ANSWER = "YES: 완성 패키지 확인 완료, 아임웹 삽입 준비 진행";
@@ -71,6 +82,14 @@ const PRODUCT_META: ProductPackageMeta[] = [
   {
     key: "organicacid",
     displayName: "종합 대사기능 분석",
+    url: "https://biocom.kr/organicacid_store/?idx=259",
+    pageType: "검사권",
+    price: "298000",
+    image: "https://cdn.imweb.me/thumbnail/20260421/dae2c15bb7074.png",
+    jsonLdName: "종합 대사기능 분석",
+    jsonLdDescription: "소변 유기산 검사를 통해 에너지 생성, 탄수화물과 지방 대사, 장내 환경, 영양 균형 신호를 함께 확인하는 검사권입니다.",
+    breadcrumbParentName: "검사 서비스",
+    breadcrumbParentUrl: "https://biocom.kr/service",
     jsonLdPlan: "Product + Offer + BreadcrumbList + FAQPage",
     evidence: "본문 초안 있음, Product JSON-LD 샘플 있음, 가격 후보 있음",
     risk: "검사 진행 방식과 최신 가격 문구만 운영 전 재확인",
@@ -79,6 +98,14 @@ const PRODUCT_META: ProductPackageMeta[] = [
   {
     key: "igg",
     displayName: "음식물 과민증 분석",
+    url: "https://biocom.kr/igg_store/?idx=85",
+    pageType: "검사권",
+    price: "260000",
+    image: "https://cdn.imweb.me/thumbnail/20260325/d22aee086b583.png",
+    jsonLdName: "음식물 과민증 분석",
+    jsonLdDescription: "자주 먹는 음식 중 식단 조정 후보를 확인하고 개인별 식단 관리 참고 자료로 활용하는 검사권입니다.",
+    breadcrumbParentName: "검사 서비스",
+    breadcrumbParentUrl: "https://biocom.kr/service",
     jsonLdPlan: "Product + Offer + BreadcrumbList + FAQPage",
     evidence: "본문 초안 있음, FAQ 후보 있음, 검사 표현 검수가 필요함",
     risk: "알레르기 진단처럼 보이는 표현 금지",
@@ -87,6 +114,14 @@ const PRODUCT_META: ProductPackageMeta[] = [
   {
     key: "biobalance",
     displayName: "바이오밸런스",
+    url: "https://biocom.kr/HealthFood/?idx=97",
+    pageType: "영양제",
+    price: "39000",
+    image: "https://cdn.imweb.me/thumbnail/20251201/0d5d5421f678f.jpg",
+    jsonLdName: "바이오밸런스 90정",
+    jsonLdDescription: "마그네슘, 아연, 셀레늄, 비타민D 등 주요 영양소를 한 번에 관리하려는 사람을 위한 영양제입니다.",
+    breadcrumbParentName: "건강식품",
+    breadcrumbParentUrl: "https://biocom.kr/HealthFood/",
     jsonLdPlan: "Product + Offer + BreadcrumbList + FAQPage",
     evidence: "본문 초안 있음, Product JSON-LD 샘플 있음, 가격 후보 있음",
     risk: "성분표와 섭취 안내를 최신 상세페이지 기준으로 재확인",
@@ -95,6 +130,14 @@ const PRODUCT_META: ProductPackageMeta[] = [
   {
     key: "neuromaster",
     displayName: "뉴로마스터",
+    url: "https://biocom.kr/HealthFood/?idx=198",
+    pageType: "영양제",
+    price: "35000",
+    image: "https://cdn.imweb.me/thumbnail/20251201/1cda35410374d.jpg",
+    jsonLdName: "뉴로마스터 60정",
+    jsonLdDescription: "두뇌 건강과 신경 영양 관리를 함께 보고 싶은 사람을 위한 영양제입니다. 제품 상세의 실제 성분과 표시 문구를 기준으로 안전하게 설명해야 합니다.",
+    breadcrumbParentName: "건강식품",
+    breadcrumbParentUrl: "https://biocom.kr/HealthFood/",
     jsonLdPlan: "Product + Offer + BreadcrumbList + FAQPage",
     evidence: "본문 초안 있음, FAQ 후보 있음, Product JSON-LD 신규 작성 필요",
     risk: "집중력 개선 단정 표현 금지",
@@ -105,85 +148,146 @@ const PRODUCT_META: ProductPackageMeta[] = [
 const FALLBACK_PRODUCTS: ProductDraft[] = PRODUCT_META.map((m) => ({
   key: m.key,
   product: m.displayName,
-  url: "https://biocom.kr/",
-  pageType: m.key === "organicacid" || m.key === "igg" ? "검사권" : "영양제",
+  url: m.url,
+  pageType: m.pageType,
   searchIntent: "검색엔진과 AI가 상품의 대상 고객, 확인 내용, FAQ를 읽을 수 있게 만드는 시범 대상",
-  h1: m.displayName,
+  h1: m.jsonLdName,
   blocks: [],
   faq: { question: "운영 반영 전 무엇을 확인하나요?", answer: "최신 상품 정보, 표시 가능 문구, 가격, 재고, FAQ 공개 여부를 확인합니다." },
 }));
 
 const CANONICAL_ROWS: CanonicalCheckRow[] = [
   {
+    order: 1,
     group: "홈 대표 URL",
     url: "https://biocom.kr/",
     expected: "Google 선택 canonical도 https://biocom.kr/ 인지 확인",
     why: "홈이 가장 강한 브랜드 URL이라 /index나 정책 모드 URL로 신호가 나뉘면 안 됩니다.",
     confidence: 88,
+    currentRecord: "미확인",
   },
   {
+    order: 2,
     group: "홈 /index 별칭",
     url: "https://biocom.kr/index",
     expected: "Google 선택 canonical이 홈으로 모이는지 확인",
     why: "아임웹에서 직접 301을 못 걸어도 구글이 홈을 대표로 선택하는지 봐야 합니다.",
     confidence: 82,
+    currentRecord: "미확인",
   },
   {
+    order: 3,
     group: "종합 대사기능 분석 공식 URL",
     url: "https://biocom.kr/organicacid_store/?idx=259",
     expected: "공식 판매 URL 또는 Google 선택 URL 기록",
     why: "현재 상품 URL과 /shop_view 변형이 함께 존재해 실제 대표 URL 확인이 필요합니다.",
     confidence: 78,
+    currentRecord: "미확인",
   },
   {
+    order: 4,
     group: "종합 대사기능 분석 shop_view 변형",
     url: "https://biocom.kr/shop_view/?idx=259",
     expected: "공식 URL과 같은 페이지로 판단되는지 확인",
     why: "기획전 위젯 등에서 자동 생성된 URL이 검색에 남을 수 있습니다.",
     confidence: 76,
+    currentRecord: "미확인",
   },
   {
+    order: 5,
     group: "음식물 과민증 공식 URL",
     url: "https://biocom.kr/igg_store/?idx=85",
     expected: "공식 판매 URL 또는 Google 선택 URL 기록",
     why: "검사권 2개 중 하나라 JSON-LD와 대표 URL이 반드시 맞아야 합니다.",
     confidence: 78,
+    currentRecord: "미확인",
   },
   {
+    order: 6,
     group: "음식물 과민증 shop_view 변형",
     url: "https://biocom.kr/shop_view/?idx=85",
     expected: "공식 URL과 같은 페이지로 판단되는지 확인",
     why: "아임웹 자동 canonical 한계를 실제 검색 콘솔에서 확인하는 행입니다.",
     confidence: 76,
+    currentRecord: "미확인",
   },
   {
+    order: 7,
     group: "바이오밸런스 공식 URL",
     url: "https://biocom.kr/HealthFood/?idx=97",
     expected: "Google 선택 canonical이 같은 URL인지 확인",
     why: "영양제 대표 시범 상품이며 기존 Product JSON-LD 샘플이 있습니다.",
     confidence: 84,
+    currentRecord: "미확인",
   },
   {
+    order: 8,
     group: "바이오밸런스 shop_view 변형",
     url: "https://biocom.kr/shop_view/?idx=97",
     expected: "HealthFood URL로 모이는지 확인",
     why: "같은 상품의 변형 URL이 검색 노출을 나눌 수 있습니다.",
     confidence: 78,
+    currentRecord: "미확인",
   },
   {
+    order: 9,
     group: "뉴로마스터 공식 URL",
     url: "https://biocom.kr/HealthFood/?idx=198",
     expected: "Google 선택 canonical이 같은 URL인지 확인",
     why: "신규 Product JSON-LD 작성 대상이라 대표 URL을 먼저 고정해 기록해야 합니다.",
     confidence: 82,
+    currentRecord: "미확인",
   },
   {
+    order: 10,
     group: "건강정보 칼럼 시범 URL",
     url: "https://biocom.kr/healthinfo/?bmode=view&idx=5764202",
     expected: "칼럼 Article URL의 Google 선택 canonical 기록",
     why: "AEO 확장 때 Article/FAQ 구조의 기준 URL로 재사용합니다.",
     confidence: 80,
+    currentRecord: "미확인",
   },
+];
+
+const PRE_PUBLISH_CHECKS = [
+  { item: "상품명", standard: "실제 화면 상품명과 JSON-LD name이 일치", status: "게시 전 확인" },
+  { item: "가격", standard: "실제 화면 판매가와 JSON-LD price가 일치", status: "게시 전 확인" },
+  { item: "대표 이미지", standard: "실제 대표 이미지와 JSON-LD image가 일치", status: "게시 전 확인" },
+  { item: "FAQ", standard: "화면에 보이는 질문/답변만 FAQPage에 사용", status: "게시 전 확인" },
+  { item: "canonical", standard: "GSC URL 검사에서 Google 선택 canonical 기록", status: "게시 후 확인" },
+];
+
+const GSC_RECORDING_STEPS = [
+  "Google Search Console 상단 URL 검사 입력창에 URL을 하나씩 넣습니다.",
+  "사용자가 선언한 표준 URL과 Google이 선택한 표준 URL을 그대로 기록합니다.",
+  "결과 화면 캡처가 가능하면 파일명도 함께 남깁니다.",
+  "운영 반영 후 7일, 14일, 28일에 같은 URL을 다시 검사합니다.",
+];
+
+const GSC_DECISION_RULES = [
+  {
+    result: "핵심 상품 4개 모두 의도한 URL 또는 같은 상품군 URL로 선택",
+    judgment: "정상",
+    action: "JSON-LD와 본문 텍스트 반영 진행",
+  },
+  {
+    result: "핵심 상품 1~2개에서 다른 URL 선택",
+    judgment: "주의",
+    action: "내부 링크와 sitemap 노출 상태 재확인",
+  },
+  {
+    result: "핵심 상품 3개 이상에서 다른 URL 선택",
+    judgment: "위험",
+    action: "아임웹 한계가 검색 성과에 영향을 줄 수 있으므로 자체 랜딩 또는 플랫폼 전환 우선순위 상승",
+  },
+];
+
+const ROLLBACK_RULES = [
+  "Google Rich Results Test에서 Product 또는 FAQPage 오류가 발생한다.",
+  "실제 화면 가격과 JSON-LD 가격이 다르다.",
+  "FAQ가 화면에는 없는데 JSON-LD에만 들어가 있다.",
+  "Search Console URL 검사에서 핵심 상품이 색인 생성 불가로 바뀐다.",
+  "상품 상세 전환율 또는 구매 버튼 클릭에 눈에 띄는 이상이 생긴다.",
 ];
 
 function ConfidenceMeter({ value, label }: { value: number; label: string }) {
@@ -204,9 +308,66 @@ function findProduct(products: ProductDraft[], key: string): ProductDraft {
   return products.find((p) => p.key === key) ?? FALLBACK_PRODUCTS.find((p) => p.key === key) ?? FALLBACK_PRODUCTS[0];
 }
 
+function buildVisibleText(product: ProductDraft) {
+  const blocks = product.blocks.map((block) => `## ${block.heading}\n${block.body}`).join("\n\n");
+  return [
+    `# ${product.h1}`,
+    blocks,
+    `## 자주 묻는 질문\nQ. ${product.faq.question}\nA. ${product.faq.answer}`,
+  ].filter(Boolean).join("\n\n");
+}
+
+function buildJsonLd(product: ProductDraft, meta: ProductPackageMeta) {
+  const graph = [
+    {
+      "@type": "Product",
+      name: meta.jsonLdName,
+      description: meta.jsonLdDescription,
+      brand: { "@type": "Brand", name: "Biocom" },
+      url: product.url,
+      image: [meta.image],
+      offers: {
+        "@type": "Offer",
+        url: product.url,
+        priceCurrency: "KRW",
+        price: meta.price,
+        availability: "https://schema.org/InStock",
+      },
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "홈", item: "https://biocom.kr/" },
+        { "@type": "ListItem", position: 2, name: meta.breadcrumbParentName, item: meta.breadcrumbParentUrl },
+        { "@type": "ListItem", position: 3, name: meta.displayName, item: product.url },
+      ],
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: product.faq.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: product.faq.answer,
+          },
+        },
+      ],
+    },
+  ];
+
+  return `<script type="application/ld+json">\n${JSON.stringify({ "@context": "https://schema.org", "@graph": graph }, null, 2)}\n</script>`;
+}
+
 export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
+  const [selectedProductKey, setSelectedProductKey] = useState(PRODUCT_META[0].key);
   const products = productText?.products.length ? productText.products : FALLBACK_PRODUCTS;
   const jsonLdSnippetCount = jsonld?.snippets.length ?? 0;
+  const selectedMeta = PRODUCT_META.find((meta) => meta.key === selectedProductKey) ?? PRODUCT_META[0];
+  const selectedProduct = findProduct(products, selectedMeta.key);
+  const selectedVisibleText = useMemo(() => buildVisibleText(selectedProduct), [selectedProduct]);
+  const selectedJsonLd = useMemo(() => buildJsonLd(selectedProduct, selectedMeta), [selectedProduct, selectedMeta]);
 
   return (
     <section id="p0-confirm" className={styles.section}>
@@ -218,13 +379,8 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
           </h2>
           <p className={styles.p0HeroBody}>
             상품 4개 본문 텍스트, Product/Breadcrumb/FAQ JSON-LD, 삽입 방법, 롤백 기준, GSC canonical 검사표를
-            최종 실행 패키지로 정리했습니다. 실제 아임웹 게시와 Search Console 제출은 운영 영향이 있으므로 이 화면 확인 뒤 별도 진행합니다.
+            이 화면 안에 모두 풀어뒀습니다. 아래 상세를 보고 문서 파일을 열지 않아도 아임웹 삽입 준비 여부를 판단할 수 있습니다.
           </p>
-          <code className={styles.p0AnswerCode}>{YES_ANSWER}</code>
-          <div className={styles.p0ActionRow}>
-            <CopyButton size="md" label="YES 답변 복사" value={YES_ANSWER} />
-            <CopyButton size="md" label="NO 답변 복사" value={NO_ANSWER} />
-          </div>
         </div>
         <div className={styles.p0HeroAside}>
           <div className={styles.p0EvidenceLabel}>완성 패키지 생성됨</div>
@@ -268,10 +424,10 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
       <div className={styles.p0FileGrid}>
         {PACKAGE_FILES.map((file) => (
           <article key={file.path} className={styles.p0FileCard}>
-            <span className={styles.p0FileLabel}>산출물</span>
+            <span className={styles.p0FileLabel}>화면에 반영한 원문 출처</span>
             <h3>{file.title}</h3>
             <code>{file.path}</code>
-            <p>{file.description}</p>
+            <p>{file.description}. 아래 섹션에 의사결정에 필요한 내용을 전부 풀어뒀습니다.</p>
           </article>
         ))}
       </div>
@@ -359,24 +515,134 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
       <div className={styles.subSection}>
         <div className={styles.sectionHead}>
           <div className={styles.sectionTitleGroup}>
-            <h3 className={styles.colH}>GSC URL 검사 10개 canonical 매트릭스</h3>
+            <h3 className={styles.colH}>상품별 본문 텍스트와 JSON-LD 전체</h3>
           </div>
-          <span className={styles.sectionTag}>Search Console URL 검사 화면에서 확인 필요</span>
+          <span className={styles.sectionTag}>문서 파일을 열지 않고 여기서 검토</span>
+        </div>
+        <div className={styles.p0DetailLayout}>
+          <div className={styles.p0ProductTabs} role="tablist" aria-label="상품 패키지 선택">
+            {PRODUCT_META.map((meta) => {
+              const active = meta.key === selectedProductKey;
+              return (
+                <button
+                  key={meta.key}
+                  type="button"
+                  role="tab"
+                  className={`${styles.p0ProductTab} ${active ? styles.p0ProductTabActive : ""}`}
+                  onClick={() => setSelectedProductKey(meta.key)}
+                  aria-selected={active}
+                >
+                  <span>{meta.pageType}</span>
+                  {meta.displayName}
+                </button>
+              );
+            })}
+          </div>
+          <article className={styles.p0FullPackageCard}>
+            <div className={styles.p0FullPackageHead}>
+              <div>
+                <span className={styles.p0ProductType}>{selectedProduct.pageType}</span>
+                <h4>{selectedProduct.product}</h4>
+                <a href={selectedProduct.url} target="_blank" rel="noreferrer" className={styles.pageCellUrl}>
+                  {selectedProduct.url}
+                </a>
+              </div>
+              <div className={styles.p0FullPackageMeta}>
+                <span>가격 후보 {Number(selectedMeta.price).toLocaleString("ko-KR")}원</span>
+                <span>자신감 {selectedMeta.confidence}%</span>
+              </div>
+            </div>
+            <div className={styles.p0PackageColumns}>
+              <div className={styles.p0PackageColumn}>
+                <div className={styles.p0PackageColumnHead}>
+                  <h5>아임웹 상품 상세에 보이는 본문</h5>
+                  <CopyButton size="sm" label="본문 복사" value={selectedVisibleText} />
+                </div>
+                <pre className={styles.p0TextBlock}>{selectedVisibleText}</pre>
+              </div>
+              <div className={styles.p0PackageColumn}>
+                <div className={styles.p0PackageColumnHead}>
+                  <h5>같은 페이지에 삽입할 JSON-LD</h5>
+                  <CopyButton size="sm" label="JSON-LD 복사" value={selectedJsonLd} />
+                </div>
+                <pre className={styles.p0CodeBlock}>{selectedJsonLd}</pre>
+              </div>
+            </div>
+            <dl className={styles.p0DefinitionList}>
+              <div>
+                <dt>삽입 위치</dt>
+                <dd>아임웹 해당 상품 페이지의 페이지별 코드 영역이 1순위. 없으면 공통 Header Code에 URL 조건으로 삽입합니다.</dd>
+              </div>
+              <div>
+                <dt>게시 전 확인</dt>
+                <dd>{selectedMeta.risk}</dd>
+              </div>
+            </dl>
+          </article>
+        </div>
+      </div>
+
+      <div className={styles.subSection}>
+        <div className={styles.sectionHead}>
+          <div className={styles.sectionTitleGroup}>
+            <h3 className={styles.colH}>운영 반영 전 확인표</h3>
+          </div>
+          <span className={styles.sectionTag}>게시 전/게시 후 체크 기준</span>
         </div>
         <div className={styles.tableWrap}>
           <table className={styles.dataTable}>
             <thead>
               <tr>
+                <th>확인 항목</th>
+                <th>정상 기준</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PRE_PUBLISH_CHECKS.map((row) => (
+                <tr key={row.item}>
+                  <td><strong>{row.item}</strong></td>
+                  <td>{row.standard}</td>
+                  <td><span className={styles.p0StatusBadge}>{row.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className={styles.subSection}>
+        <div className={styles.sectionHead}>
+          <div className={styles.sectionTitleGroup}>
+            <h3 className={styles.colH}>GSC URL 검사 10개 canonical 매트릭스</h3>
+          </div>
+          <span className={styles.sectionTag}>Search Console URL 검사 화면에서 확인 필요</span>
+        </div>
+        <div className={styles.p0GscSteps}>
+          {GSC_RECORDING_STEPS.map((step, index) => (
+            <div key={step} className={styles.p0GscStep}>
+              <span>{index + 1}</span>
+              <p>{step}</p>
+            </div>
+          ))}
+        </div>
+        <div className={styles.tableWrap}>
+          <table className={styles.dataTable}>
+            <thead>
+              <tr>
+                <th>순서</th>
                 <th>검사 대상</th>
                 <th>URL</th>
                 <th>확인할 것</th>
                 <th>왜 필요한가</th>
                 <th>자신감</th>
+                <th>현재 기록</th>
               </tr>
             </thead>
             <tbody>
               {CANONICAL_ROWS.map((row) => (
                 <tr key={row.url}>
+                  <td className={styles.confCell}>{row.order}</td>
                   <td>
                     <div className={styles.pageCellTitle}>{row.group}</div>
                     <div className={styles.pageCellSub}>사람 검토 후 기록</div>
@@ -389,10 +655,54 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
                   <td className={styles.pageCellMetaSmall}>{row.expected}</td>
                   <td className={styles.pageCellMetaSmall}>{row.why}</td>
                   <td className={styles.confCell}>{row.confidence}%</td>
+                  <td><span className={styles.p0RecordBadge}>{row.currentRecord}</span></td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className={styles.subSection}>
+        <div className={styles.sectionHead}>
+          <div className={styles.sectionTitleGroup}>
+            <h3 className={styles.colH}>GSC 판정 기준</h3>
+          </div>
+          <span className={styles.sectionTag}>검사 결과를 어떻게 해석할지</span>
+        </div>
+        <div className={styles.p0RuleGrid}>
+          {GSC_DECISION_RULES.map((rule) => (
+            <article key={rule.judgment} className={styles.p0RuleCard} data-judgment={rule.judgment}>
+              <span>{rule.judgment}</span>
+              <h4>{rule.result}</h4>
+              <p>{rule.action}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.subSection}>
+        <div className={styles.sectionHead}>
+          <div className={styles.sectionTitleGroup}>
+            <h3 className={styles.colH}>롤백 기준과 최종 회신</h3>
+          </div>
+          <span className={styles.sectionTag}>문제 발생 시 즉시 되돌림</span>
+        </div>
+        <div className={styles.p0RollbackPanel}>
+          <div>
+            <h4>아래 중 하나라도 발생하면 반영을 멈추고 직전 상태로 되돌립니다.</h4>
+            <ul>
+              {ROLLBACK_RULES.map((rule) => <li key={rule}>{rule}</li>)}
+            </ul>
+          </div>
+          <div className={styles.p0FinalDecision}>
+            <span>상세 검토 후 회신 코드</span>
+            <code>{YES_ANSWER}</code>
+            <div className={styles.p0ActionRow}>
+              <CopyButton size="md" label="YES 답변 복사" value={YES_ANSWER} />
+              <CopyButton size="md" label="NO 답변 복사" value={NO_ANSWER} />
+            </div>
+          </div>
         </div>
       </div>
     </section>
