@@ -696,3 +696,17 @@ tiktok/monitoring/ads_tiktok_dashboard_20260425_api_collected.png
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-04-27T16-54-49-258Z.md`
 - source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-04-28 TikTok Guard 자동 모니터링 48h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-04-28T16-54-48-632Z.md`
+- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-04-28 TikTok Guard 자동 모니터링 24h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-04-28T16-54-49-797Z.md`
+- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
