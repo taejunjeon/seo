@@ -61,11 +61,11 @@ export default function SeoPage() {
     (async () => {
       setLoading(true);
       const [a, u, j, p, c] = await Promise.all([
-        fetchJson<AuditResponse>("/seo/api/audit"),
-        fetchJson<UrlPolicyResponse>("/seo/api/url-policy"),
-        fetchJson<JsonLdResponse>("/seo/api/jsonld"),
-        fetchJson<ProductTextResponse>("/seo/api/product-text"),
-        fetchJson<ChecklistResponse>("/seo/api/checklist"),
+        fetchJson<AuditResponse>("/seo-data/audit"),
+        fetchJson<UrlPolicyResponse>("/seo-data/url-policy"),
+        fetchJson<JsonLdResponse>("/seo-data/jsonld"),
+        fetchJson<ProductTextResponse>("/seo-data/product-text"),
+        fetchJson<ChecklistResponse>("/seo-data/checklist"),
       ]);
       setAudit(a);
       setUrlPolicy(u);

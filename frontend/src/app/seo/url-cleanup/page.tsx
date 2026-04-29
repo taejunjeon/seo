@@ -144,7 +144,7 @@ export default function UrlCleanupPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/seo/api/url-cleanup", { cache: "no-store" });
+        const res = await fetch("/seo-data/url-cleanup", { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = (await res.json()) as ApiResponse;
         setData(json);
