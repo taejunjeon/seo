@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./seo.module.css";
 import CopyButton from "./CopyButton";
 import ImpactBadge from "./ImpactBadge";
@@ -11,6 +11,9 @@ type Props = {
   productText: ProductTextResponse | null;
   jsonld: JsonLdResponse | null;
 };
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
+const GSC_SITE = "sc-domain:biocom.kr";
 
 type ProductPackageMeta = {
   key: string;
@@ -37,6 +40,29 @@ type CanonicalCheckRow = {
   why: string;
   confidence: number;
   currentRecord: string;
+};
+
+type GscUrlInspectionRow = {
+  ok: boolean;
+  siteUrl: string;
+  inspectionUrl: string;
+  inspectedAt: string;
+  inspectionResultLink?: string | null;
+  coverageState?: string | null;
+  googleCanonical?: string | null;
+  indexingState?: string | null;
+  lastCrawlTime?: string | null;
+  robotsTxtState?: string | null;
+  userCanonical?: string | null;
+  verdict?: string | null;
+  error?: string;
+};
+
+type GscUrlInspectionResponse = {
+  siteUrl: string;
+  inspectedAt: string;
+  rowCount: number;
+  rows: GscUrlInspectionRow[];
 };
 
 const YES_ANSWER = "YES: 완성 패키지 확인 완료, 아임웹 삽입 준비 진행";
@@ -258,10 +284,10 @@ const PRE_PUBLISH_CHECKS = [
 ];
 
 const GSC_RECORDING_STEPS = [
-  "Google Search Console 상단 URL 검사 입력창에 URL을 하나씩 넣습니다.",
-  "사용자가 선언한 표준 URL과 Google이 선택한 표준 URL을 그대로 기록합니다.",
-  "결과 화면 캡처가 가능하면 파일명도 함께 남깁니다.",
-  "운영 반영 후 7일, 14일, 28일에 같은 URL을 다시 검사합니다.",
+  "이 표는 Search Console URL Inspection API로 사용자가 선언한 canonical과 Google 선택 canonical을 자동 확인합니다.",
+  "정상은 우리가 원하는 대표 URL로 모인 상태, 확인 필요는 Google 선택값이 다른 상태입니다.",
+  "확인 필요 행은 Search Console 화면에서 같은 URL을 열어 캡처하고 아임웹 상담 또는 내부 링크 정리 근거로 남깁니다.",
+  "운영 반영 후 7일, 14일, 28일에 같은 URL을 다시 검사해 변화 여부를 봅니다.",
 ];
 
 const GSC_DECISION_RULES = [
@@ -379,14 +405,79 @@ function buildJsonLd(product: ProductDraft, meta: ProductPackageMeta) {
   return `<script type="application/ld+json">\n${JSON.stringify({ "@context": "https://schema.org", "@graph": graph }, null, 2)}\n</script>`;
 }
 
+function preferredGoogleCanonical(row: CanonicalCheckRow): string {
+  if (row.order <= 2) return "https://biocom.kr/";
+  if (row.order === 3 || row.order === 4) return "https://biocom.kr/organicacid_store/?idx=259";
+  if (row.order === 5 || row.order === 6) return "https://biocom.kr/igg_store/?idx=85";
+  if (row.order === 7 || row.order === 8) return "https://biocom.kr/HealthFood/?idx=97";
+  if (row.order === 9) return "https://biocom.kr/HealthFood/?idx=198";
+  return row.url;
+}
+
+function getCanonicalTone(row: CanonicalCheckRow, inspection?: GscUrlInspectionRow): "ok" | "warn" | "pending" {
+  if (!inspection) return "pending";
+  if (!inspection.ok || !inspection.googleCanonical) return "warn";
+  if (inspection.indexingState === "BLOCKED_BY_META_TAG") return "warn";
+  return inspection.googleCanonical === preferredGoogleCanonical(row) ? "ok" : "warn";
+}
+
+function canonicalRecordText(row: CanonicalCheckRow, inspection?: GscUrlInspectionRow): string {
+  if (!inspection) return "자동 확인 중";
+  if (!inspection.ok) return inspection.error ?? "확인 실패";
+  if (!inspection.googleCanonical) return "Google 선택 canonical 없음";
+  const prefix = getCanonicalTone(row, inspection) === "ok" ? "정상" : "확인 필요";
+  return `${prefix}: ${inspection.googleCanonical}`;
+}
+
 export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
   const [selectedProductKey, setSelectedProductKey] = useState(PRODUCT_META[0].key);
+  const [inspectionRows, setInspectionRows] = useState<GscUrlInspectionRow[] | null>(null);
+  const [inspectionError, setInspectionError] = useState<string | null>(null);
+  const [inspectionLoading, setInspectionLoading] = useState(true);
   const products = productText?.products.length ? productText.products : FALLBACK_PRODUCTS;
   const jsonLdSnippetCount = jsonld?.snippets.length ?? 0;
   const selectedMeta = PRODUCT_META.find((meta) => meta.key === selectedProductKey) ?? PRODUCT_META[0];
   const selectedProduct = findProduct(products, selectedMeta.key);
   const selectedVisibleText = useMemo(() => buildVisibleText(selectedProduct), [selectedProduct]);
   const selectedJsonLd = useMemo(() => buildJsonLd(selectedProduct, selectedMeta), [selectedProduct, selectedMeta]);
+  const inspectionByUrl = useMemo(() => {
+    return new Map((inspectionRows ?? []).map((row) => [row.inspectionUrl, row] as const));
+  }, [inspectionRows]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/gsc/url-inspection`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            siteUrl: GSC_SITE,
+            urls: CANONICAL_ROWS.map((row) => row.url),
+            languageCode: "ko-KR",
+          }),
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as GscUrlInspectionResponse;
+        if (!cancelled) {
+          setInspectionRows(json.rows ?? []);
+          setInspectionError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setInspectionError(error instanceof Error ? error.message : "URL Inspection fetch error");
+        }
+      } finally {
+        if (!cancelled) setInspectionLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section id="p0-confirm" className={styles.section}>
@@ -661,8 +752,22 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
           <div className={styles.sectionTitleGroup}>
             <h3 className={styles.colH}>GSC URL 검사 10개 canonical 매트릭스</h3>
           </div>
-          <span className={styles.sectionTag}>Search Console URL 검사 화면에서 확인 필요</span>
+          <span className={styles.sectionTag}>Search Console URL Inspection API 자동 확인</span>
         </div>
+        <WhyCallout tone={inspectionError ? "warning" : "success"} title="이제 수동 기록표가 아니라 자동 확인표입니다">
+          {inspectionError ? (
+            <p>
+              URL Inspection API 호출에 실패했습니다. 백엔드 응답: <code>{inspectionError}</code>. 이 경우에만 Search Console
+              화면에서 수동으로 확인합니다.
+            </p>
+          ) : (
+            <p>
+              아래 값은 Google Search Console URL Inspection API가 돌려준 실제 색인 기준 canonical입니다.
+              “홈페이지 260개 URL”처럼 노출 분포가 길게 보이는 문제와 별개로, Google이 최종 대표 URL을 무엇으로 선택했는지
+              여기서 확인합니다.
+            </p>
+          )}
+        </WhyCallout>
         <div className={styles.p0GscSteps}>
           {GSC_RECORDING_STEPS.map((step, index) => (
             <div key={step} className={styles.p0GscStep}>
@@ -681,28 +786,47 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
                 <th>확인할 것</th>
                 <th>왜 필요한가</th>
                 <th>자신감</th>
-                <th>현재 기록</th>
+                <th>URL Inspection 결과</th>
               </tr>
             </thead>
             <tbody>
-              {CANONICAL_ROWS.map((row) => (
-                <tr key={row.url}>
-                  <td className={styles.confCell}>{row.order}</td>
-                  <td>
-                    <div className={styles.pageCellTitle}>{row.group}</div>
-                    <div className={styles.pageCellSub}>사람 검토 후 기록</div>
-                  </td>
-                  <td>
-                    <a href={row.url} target="_blank" rel="noreferrer" className={styles.pageCellUrl}>
-                      {row.url}
-                    </a>
-                  </td>
-                  <td className={styles.pageCellMetaSmall}>{row.expected}</td>
-                  <td className={styles.pageCellMetaSmall}>{row.why}</td>
-                  <td className={styles.confCell}>{row.confidence}%</td>
-                  <td><span className={styles.p0RecordBadge}>{row.currentRecord}</span></td>
-                </tr>
-              ))}
+              {CANONICAL_ROWS.map((row) => {
+                const inspection = inspectionByUrl.get(row.url);
+                const tone = inspectionLoading ? "pending" : getCanonicalTone(row, inspection);
+                return (
+                  <tr key={row.url}>
+                    <td className={styles.confCell}>{row.order}</td>
+                    <td>
+                      <div className={styles.pageCellTitle}>{row.group}</div>
+                      <div className={styles.pageCellSub}>
+                        {tone === "ok" ? "자동 확인 정상" : tone === "warn" ? "확인 필요" : "자동 확인 중"}
+                      </div>
+                    </td>
+                    <td>
+                      <a href={row.url} target="_blank" rel="noreferrer" className={styles.pageCellUrl}>
+                        {row.url}
+                      </a>
+                    </td>
+                    <td className={styles.pageCellMetaSmall}>{row.expected}</td>
+                    <td className={styles.pageCellMetaSmall}>{row.why}</td>
+                    <td className={styles.confCell}>{row.confidence}%</td>
+                    <td>
+                      <div className={styles.p0CanonicalInspection} data-tone={tone}>
+                        <span>{canonicalRecordText(row, inspection)}</span>
+                        {inspection?.userCanonical && (
+                          <small>선언 canonical: {inspection.userCanonical}</small>
+                        )}
+                        {inspection?.coverageState && (
+                          <small>{inspection.coverageState}</small>
+                        )}
+                        {inspection?.lastCrawlTime && (
+                          <small>마지막 크롤링: {inspection.lastCrawlTime.slice(0, 10)}</small>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

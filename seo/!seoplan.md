@@ -1,17 +1,17 @@
 # 바이오컴 SEO/AEO 실행 플랜
 
 작성 시각: 2026-04-27 18:54 KST
-최근 업데이트: 2026-04-29 00:28 KST (상품 4개 SEO/AEO 최종 실행 패키지와 GSC canonical 매트릭스 생성)
+최근 업데이트: 2026-04-29 KST (GSC URL Inspection API 10건 자동 확인 + `/seo` 반영)
 기준일: 2026-04-29
 연결 문서: [[seofeedback0427|seo/seofeedback0427.md]], [[seofeedback0427reply|seo/seofeedback0427reply.md]], [[!frontmenu|seo/!frontmenu.md]], [[docurule|docurule.md]]
 스크린샷: [seo/screnshot/](./screnshot/) (10개 섹션) · [seo/screnshot/url-cleanup/](./screnshot/url-cleanup/) (B 작업 요청서 화면 9개 섹션)
 Primary source: 로컬 저장소 구조, 공개 URL 읽기 전용 진단 결과, GSC 라이브 데이터, `seofeedback0427.md`
-Freshness: 2026-04-29 00:28 KST 최종 실행 패키지, GSC canonical 매트릭스, 로컬 `/seo` 프론트 반영 기준
+Freshness: 2026-04-29 KST 최종 실행 패키지, GSC URL Inspection API 10건, 로컬·VM `/seo` 프론트 반영 기준
 Confidence: 92%
 
 ## 10초 요약
 
-이 플랜의 목표는 바이오컴 SEO를 작은 태그 수정이 아니라 `검색엔진과 AI가 상품, 검사권, 칼럼을 정확히 이해하는 구조`로 다시 정리하는 것이다. 2026-04-29 00:28 KST 기준 상품/검사권 4개의 `보이는 본문 텍스트 + Product/Breadcrumb/FAQ JSON-LD + GSC canonical 추적` 최종 실행 패키지를 만들었다. JSON-LD는 구글에 직접 넣는 것이 아니라 아임웹 페이지 HTML에 삽입하고, 구글이 그 페이지를 다시 읽게 하는 방식이다. 다음 판단은 실제 아임웹 삽입 준비를 진행할지 여부다.
+이 플랜의 목표는 바이오컴 SEO를 작은 태그 수정이 아니라 `검색엔진과 AI가 상품, 검사권, 칼럼을 정확히 이해하는 구조`로 다시 정리하는 것이다. 2026-04-29 기준 상품/검사권 4개의 `보이는 본문 텍스트 + Product/Breadcrumb/FAQ JSON-LD + GSC canonical 추적` 최종 실행 패키지를 만들었고, URL Inspection API로 10개 대표 URL의 Google 선택 canonical도 확인했다. 홈 `/index`는 Google이 홈으로 잘 합치지만, 검사권 2개는 `/shop_view/?idx=...` 쪽을 표준으로 보고 있으며 음식물 과민증 공식 URL은 `NOINDEX` 제외 상태다.
 
 ## 고등학생 비유
 
@@ -69,11 +69,34 @@ Confidence: 92%
 | 순서 | 우선순위 | 할 일 | 왜 파급력이 큰가 | 산출물 | TJ 결정 |
 |---:|---|---|---|---|---|
 | 1 | P0 | 완료: 상품/검사권 4개에 보이는 본문 텍스트와 JSON-LD를 묶어 운영 반영 패키지로 만든다 | 핵심 6개 페이지 JSON-LD가 0개라 검색결과 부가 표시와 AI 이해도가 낮다. 통이미지 의존도도 같이 줄일 수 있다. | `reports/seo/seo_aeo_execution_package.md` | 다음은 아임웹 삽입 전 확인 |
-| 2 | P0 | 완료: GSC URL 검사 10개 canonical 매트릭스를 만든다 | 아임웹에서 canonical을 직접 못 바꾸므로 Google이 실제로 어떤 URL을 대표로 고르는지 봐야 한다. | `reports/seo/gsc_canonical_check_matrix.md` | Search Console 화면 확인 또는 캡처 제공 |
+| 2 | P0 | 완료: GSC URL 검사 10개 canonical 매트릭스를 자동 확인한다 | 아임웹에서 canonical을 직접 못 바꾸므로 Google이 실제로 어떤 URL을 대표로 고르는지 봐야 한다. | `reports/seo/gsc_canonical_check_matrix.md`, `/seo#p0-confirm` | 검사권 2개 `/shop_view` 표준화와 IGG 공식 URL `NOINDEX` 확인 필요 |
 | 3 | P1 | Search Console/Naver에 robots 반영 후 sitemap과 핵심 URL 재제출 기록을 남긴다 | robots.txt는 공개 적용됐지만 검색엔진이 언제 다시 읽는지 추적해야 한다. | 제출 시각, 제출 계정, 오류 여부, 7/14/28일 추적표 | 운영 계정 접근 필요 |
 | 4 | P1 | 아임웹 탈출 판단 기준을 숫자로 고정한다 | canonical 불편만으로 자체 구축하면 범위가 너무 커진다. 제약이 누적될 때만 우선순위를 올려야 한다. | 자체 구축 판단 게이트: canonical 불일치 수, URL 노출 분산률, JSON-LD/본문/속도 제약 | 4주 뒤 GSC 기준 재판단 |
 
 이번 주 실행 추천 1번과 2번은 문서 패키지까지 완료됐다. 다음은 실제 아임웹 삽입 준비, Rich Results Test, Search Console URL 검사다.
+
+## 2026-04-29 진행 기록 (GSC URL Inspection API)
+
+### 결론
+
+Search Console 화면을 사람이 10번 눌러보는 대신, 백엔드에서 URL Inspection API를 호출해 같은 성격의 결과를 자동으로 읽을 수 있음을 확인했다. `/seo#p0-confirm`에는 자동 확인 결과를 붙이고, `/seo#canonical-check`의 홈 URL 260개 긴 목록은 상위 URL만 먼저 보이도록 접었다.
+
+### 확인된 사실
+
+| 항목 | 확인값 | source | 기준 시각 | confidence |
+|---|---|---|---|---|
+| 홈 `/` | 사용자 선언 canonical과 Google 선택 canonical 모두 `https://biocom.kr/` | GSC URL Inspection API | 2026-04-29 | 95% |
+| 홈 `/index` | 사용자 선언은 `/index`, Google 선택은 `https://biocom.kr/` | GSC URL Inspection API | 2026-04-29 | 95% |
+| 종합 대사기능 공식 URL | Google 선택 canonical이 `https://biocom.kr/shop_view/?idx=259` | GSC URL Inspection API | 2026-04-29 | 90% |
+| 음식물 과민증 공식 URL | `NOINDEX` 태그로 제외, Google 선택 canonical이 `https://biocom.kr/shop_view/?idx=85` | GSC URL Inspection API | 2026-04-29 | 90% |
+| 바이오밸런스와 뉴로마스터 | 공식 `HealthFood/?idx=` URL이 Google 선택 canonical | GSC URL Inspection API | 2026-04-29 | 95% |
+| 건강정보 칼럼 시범 URL | 자기 자신이 Google 선택 canonical | GSC URL Inspection API | 2026-04-29 | 95% |
+
+### 판단
+
+- 홈 260개 노출 URL은 Search Analytics 분포가 긴 것이고, Google 선택 canonical 관점에서는 `/index`가 홈으로 합쳐져 큰 문제는 아니다.
+- 검사권 2개는 공식 스토어 URL이 아니라 `/shop_view`가 대표로 잡혀 있어 JSON-LD `url`, 내부 링크, 아임웹 상담 항목을 같은 기준으로 다시 봐야 한다.
+- 음식물 과민증 공식 URL의 `NOINDEX`는 상품 4개 SEO/AEO 반영 전 우선 확인해야 할 운영 리스크다.
 
 ## 2026-04-28 진행 기록 (robots/canonical 실제 확인)
 

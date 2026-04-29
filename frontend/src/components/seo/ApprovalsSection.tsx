@@ -115,8 +115,8 @@ const SEPARATE_APPROVALS = [
   {
     item: "GSC URL 검사 canonical 확인",
     why: "아임웹에서 canonical을 직접 바꾸기 어려우므로 Google이 실제로 어떤 URL을 대표로 선택했는지 확인해야 함.",
-    how: "Search Console URL 검사에서 홈, /index, 상품, /shop_view 변형, 칼럼 URL 10개를 검사하고 Google 선택 canonical을 기록.",
-    codex: "검사 대상 10개 매트릭스 초안 작성.",
+    how: "내부 대시보드의 URL Inspection 자동 확인표에서 홈, /index, 상품, /shop_view 변형, 칼럼 URL 10개의 Google 선택 canonical을 확인.",
+    codex: "URL Inspection API 자동 확인 반영 완료. 검사권 2개는 /shop_view 표준화, 음식물 과민증 공식 URL은 NOINDEX 제외로 확인됨.",
   },
   {
     item: "GTM 또는 사용자 코드 게시",

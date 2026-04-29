@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { cacheGetJson, cacheSetJson } from "../cache/cache";
 import { env } from "../env";
-import { listGscSites, queryGscSearchAnalytics, type GscDimension } from "../gsc";
+import { inspectGscUrl, listGscSites, queryGscSearchAnalytics, type GscDimension } from "../gsc";
 import { getSupabaseAdminClient } from "../supabase";
 import { resolvePageTitles } from "../pageTitle";
 import { getCachedResult, type PageSpeedStrategy } from "../pagespeed";
@@ -40,6 +40,12 @@ const gscQuerySchema = z
     message: "startDate must be before or equal to endDate",
     path: ["startDate"],
   });
+
+const gscUrlInspectionSchema = z.object({
+  siteUrl: z.string().min(1).optional(),
+  urls: z.array(z.string().url()).min(1).max(20),
+  languageCode: z.string().min(2).max(16).default("ko-KR"),
+});
 
 /* ═══════════════════════════════════════
    Cron 보호
@@ -193,6 +199,51 @@ export const createGscRouter = () => {
       const message = error instanceof Error ? error.message : "Failed to query GSC";
       res.status(500).json({ error: "gsc_query_error", message });
     }
+  });
+
+  router.post("/api/gsc/url-inspection", async (req: Request, res: Response) => {
+    const parsed = gscUrlInspectionSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "validation_error",
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+      return;
+    }
+
+    const rows = [];
+    for (const inspectionUrl of parsed.data.urls) {
+      try {
+        rows.push({
+          ok: true,
+          ...(await inspectGscUrl({
+            siteUrl: parsed.data.siteUrl,
+            inspectionUrl,
+            languageCode: parsed.data.languageCode,
+          })),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to inspect URL";
+        rows.push({
+          ok: false,
+          siteUrl: parsed.data.siteUrl ?? env.GSC_SITE_URL,
+          inspectionUrl,
+          inspectedAt: new Date().toISOString(),
+          error: message,
+        });
+      }
+    }
+
+    res.json({
+      siteUrl: parsed.data.siteUrl ?? env.GSC_SITE_URL,
+      inspectedAt: new Date().toISOString(),
+      rowCount: rows.length,
+      rows,
+    });
   });
 
   /* ═══════════════════════════════════════

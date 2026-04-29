@@ -12,6 +12,23 @@ export type GscSearchAnalyticsResponse = {
   responseAggregationType?: string | null;
 };
 
+export type GscUrlInspectionResult = {
+  siteUrl: string;
+  inspectionUrl: string;
+  inspectedAt: string;
+  inspectionResultLink?: string | null;
+  coverageState?: string | null;
+  crawledAs?: string | null;
+  googleCanonical?: string | null;
+  indexingState?: string | null;
+  lastCrawlTime?: string | null;
+  pageFetchState?: string | null;
+  robotsTxtState?: string | null;
+  sitemap?: string[] | null;
+  userCanonical?: string | null;
+  verdict?: string | null;
+};
+
 export type GscDimension =
   | "date"
   | "query"
@@ -80,6 +97,9 @@ const getSearchConsoleClient = (): searchconsole_v1.Searchconsole => {
 const QUERY_CACHE_TTL_MS = 60_000; // 1m: reduce duplicate queries during initial dashboard load
 const queryCache = new Map<string, { measuredAtMs: number; value: GscSearchAnalyticsResponse }>();
 const inflight = new Map<string, Promise<GscSearchAnalyticsResponse>>();
+const URL_INSPECTION_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h: URL Inspection quota is stricter and data changes slowly.
+const urlInspectionCache = new Map<string, { measuredAtMs: number; value: GscUrlInspectionResult }>();
+const urlInspectionInflight = new Map<string, Promise<GscUrlInspectionResult>>();
 
 const serializeFilters = (groups: searchconsole_v1.Schema$ApiDimensionFilterGroup[] | undefined) => {
   if (!groups) return "";
@@ -156,5 +176,63 @@ export const queryGscSearchAnalytics = async (params: GscQueryParams): Promise<G
     return await promise;
   } finally {
     inflight.delete(cacheKey);
+  }
+};
+
+export const inspectGscUrl = async (params: {
+  siteUrl?: string;
+  inspectionUrl: string;
+  languageCode?: string;
+}): Promise<GscUrlInspectionResult> => {
+  const client = getSearchConsoleClient();
+  const resolvedSiteUrl = params.siteUrl ?? env.GSC_SITE_URL;
+  const languageCode = params.languageCode ?? "ko-KR";
+  const cacheKey = [resolvedSiteUrl, params.inspectionUrl, languageCode].join("|");
+  const cached = urlInspectionCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && now - cached.measuredAtMs < URL_INSPECTION_CACHE_TTL_MS) {
+    return cached.value;
+  }
+
+  const running = urlInspectionInflight.get(cacheKey);
+  if (running) return running;
+
+  const promise = (async () => {
+    const response = await client.urlInspection.index.inspect({
+      requestBody: {
+        siteUrl: resolvedSiteUrl,
+        inspectionUrl: params.inspectionUrl,
+        languageCode,
+      },
+    });
+
+    const result = response.data.inspectionResult;
+    const indexStatus = result?.indexStatusResult;
+    const value: GscUrlInspectionResult = {
+      siteUrl: resolvedSiteUrl,
+      inspectionUrl: params.inspectionUrl,
+      inspectedAt: new Date().toISOString(),
+      inspectionResultLink: result?.inspectionResultLink ?? null,
+      coverageState: indexStatus?.coverageState ?? null,
+      crawledAs: indexStatus?.crawledAs ?? null,
+      googleCanonical: indexStatus?.googleCanonical ?? null,
+      indexingState: indexStatus?.indexingState ?? null,
+      lastCrawlTime: indexStatus?.lastCrawlTime ?? null,
+      pageFetchState: indexStatus?.pageFetchState ?? null,
+      robotsTxtState: indexStatus?.robotsTxtState ?? null,
+      sitemap: indexStatus?.sitemap ?? null,
+      userCanonical: indexStatus?.userCanonical ?? null,
+      verdict: indexStatus?.verdict ?? null,
+    };
+
+    urlInspectionCache.set(cacheKey, { measuredAtMs: Date.now(), value });
+    return value;
+  })();
+
+  urlInspectionInflight.set(cacheKey, promise);
+  try {
+    return await promise;
+  } finally {
+    urlInspectionInflight.delete(cacheKey);
   }
 };

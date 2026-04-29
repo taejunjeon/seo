@@ -26,6 +26,7 @@ function daysAgo(n: number): string {
 }
 
 const numFmt = new Intl.NumberFormat("ko-KR");
+const COLLAPSED_VARIANT_LIMIT = 8;
 
 // 같은 상품/문서를 가리킬 가능성이 큰 URL 그룹 정의 (시범 6개)
 const PROBES: { key: string; label: string; representative: string; matches: (url: string) => boolean }[] = [
@@ -71,6 +72,7 @@ export default function CanonicalDistributionCard() {
   const [pages, setPages] = useState<GscPageRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     (async () => {
@@ -172,6 +174,9 @@ export default function CanonicalDistributionCard() {
           <div className={styles.canonicalGrid}>
             {groups.map((g) => {
               const dispersed = g.variants.length > 1;
+              const isExpanded = Boolean(expandedGroups[g.key]);
+              const visibleVariants = isExpanded ? g.variants : g.variants.slice(0, COLLAPSED_VARIANT_LIMIT);
+              const hiddenCount = Math.max(0, g.variants.length - visibleVariants.length);
               return (
                 <article key={g.key} className={styles.canonicalCard} data-dispersed={dispersed}>
                   <div className={styles.canonicalCardHead}>
@@ -185,9 +190,12 @@ export default function CanonicalDistributionCard() {
                   </div>
                   <div className={styles.canonicalTotal}>
                     총 노출 {numFmt.format(g.totalImpressions)} · 클릭 {numFmt.format(g.totalClicks)}
+                    {g.variants.length > COLLAPSED_VARIANT_LIMIT && (
+                      <span> · 상위 {COLLAPSED_VARIANT_LIMIT}개 먼저 표시</span>
+                    )}
                   </div>
                   <ul className={styles.canonicalVariantList}>
-                    {g.variants.map((v) => {
+                    {visibleVariants.map((v) => {
                       const share = g.totalImpressions > 0 ? (v.impressions / g.totalImpressions) * 100 : 0;
                       return (
                         <li key={v.url}>
@@ -207,6 +215,17 @@ export default function CanonicalDistributionCard() {
                       );
                     })}
                   </ul>
+                  {g.variants.length > COLLAPSED_VARIANT_LIMIT && (
+                    <button
+                      type="button"
+                      className={styles.canonicalToggle}
+                      onClick={() => setExpandedGroups((prev) => ({ ...prev, [g.key]: !isExpanded }))}
+                    >
+                      {isExpanded
+                        ? "긴 URL 목록 접기"
+                        : `나머지 ${numFmt.format(hiddenCount)}개 URL 펼쳐보기`}
+                    </button>
+                  )}
                 </article>
               );
             })}
