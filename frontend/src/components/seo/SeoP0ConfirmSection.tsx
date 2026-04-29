@@ -335,6 +335,33 @@ const JSON_LD_INTENT_ROWS = [
   },
 ];
 
+const IGG_NOINDEX_FINDINGS = [
+  "공식 URL https://biocom.kr/igg_store/?idx=85 의 공개 HTML에 <meta name='robots' content='noindex, nofollow' /> 가 실제로 들어 있습니다.",
+  "같은 상품의 https://biocom.kr/shop_view/?idx=85 에는 robots noindex 메타가 없고, GSC에서도 이 URL은 색인 PASS입니다.",
+  "따라서 Google 문제가 아니라 아임웹이 공식 URL HTML에 noindex를 출력하는 상태입니다.",
+];
+
+const IGG_NOINDEX_CAUSES = [
+  {
+    title: "가장 가능성 높음: /igg_store 메뉴 또는 페이지 SEO 설정",
+    confidence: "85%",
+    detail: "특정 메뉴 URL에만 noindex가 붙고 shop_view에는 없기 때문에, 아임웹 메뉴/페이지 단위의 검색엔진 색인 차단 설정이 켜져 있을 가능성이 큽니다.",
+    check: "디자인 모드 > 메뉴 관리 > 음식물 과민증 또는 igg_store 메뉴 > 페이지/SEO 설정에서 검색엔진 색인 차단, 검색 노출, 비공개 관련 항목을 확인합니다.",
+  },
+  {
+    title: "가능성 중간: 상품 85의 진열/판매/숨김 상태",
+    confidence: "45%",
+    detail: "상품 상태가 비공개나 숨김이면 상품 상세에도 영향을 줄 수 있지만, shop_view는 색인 가능이라 1순위 원인으로 보기는 어렵습니다.",
+    check: "아임웹 쇼핑 > 상품 관리 > idx=85 상품에서 판매상태, 진열상태, 숨김/품절/비공개, 검색 노출 관련 설정을 확인합니다.",
+  },
+  {
+    title: "가능성 낮음: 사용자 코드나 공통 스크립트가 URL별로 noindex 삽입",
+    confidence: "25%",
+    detail: "특정 URL 조건으로 robots meta를 삽입하는 사용자 코드가 있다면 같은 현상이 생길 수 있습니다. 다만 현재 증거만으로는 페이지 설정 쪽이 더 자연스럽습니다.",
+    check: "아임웹 SEO 고급 설정, Header Code, Body Code, GTM 사용자 정의 HTML에 igg_store 또는 idx=85 조건이 있는지 확인합니다.",
+  },
+];
+
 function ConfidenceMeter({ value, label }: { value: number; label: string }) {
   return (
     <div className={styles.p0Confidence}>
@@ -768,6 +795,45 @@ export default function SeoP0ConfirmSection({ productText, jsonld }: Props) {
             </p>
           )}
         </WhyCallout>
+        <div className={styles.p0NoindexAlert}>
+          <div className={styles.p0NoindexMain}>
+            <span className={styles.p0NoindexBadge}>우선 확인</span>
+            <h4>음식물 과민증 공식 URL은 지금 검색결과에서 숨김 처리된 상태입니다.</h4>
+            <p>
+              `noindex`는 “이 페이지를 Google 검색결과에 올리지 말라”는 HTML 지시문입니다. 상품 4개 SEO/AEO 패키지를
+              넣기 전에 이 설정이 의도된 것인지 먼저 확인해야 합니다. 이 상태로 공식 URL에 본문 텍스트나 JSON-LD를 넣으면,
+              Google이 그 URL을 검색결과 후보로 쓰기 어렵습니다.
+            </p>
+          </div>
+          <div className={styles.p0NoindexEvidence}>
+            <strong>확인된 증거</strong>
+            <ul>
+              {IGG_NOINDEX_FINDINGS.map((finding) => (
+                <li key={finding}>{finding}</li>
+              ))}
+            </ul>
+          </div>
+          <div className={styles.p0NoindexCauseGrid}>
+            {IGG_NOINDEX_CAUSES.map((cause) => (
+              <article key={cause.title}>
+                <div className={styles.p0NoindexCauseHead}>
+                  <h5>{cause.title}</h5>
+                  <span>{cause.confidence}</span>
+                </div>
+                <p>{cause.detail}</p>
+                <small>{cause.check}</small>
+              </article>
+            ))}
+          </div>
+          <div className={styles.p0NoindexAction}>
+            <strong>운영 판단</strong>
+            <span>
+              상품 자체를 숨길 목적이 아니라면 `/igg_store/?idx=85`의 noindex를 해제하거나, 아예 Google이 이미 선택한
+              `/shop_view/?idx=85`를 음식물 과민증의 기준 URL로 인정해야 합니다. 둘 중 하나를 정한 뒤 JSON-LD의 `url`,
+              내부 링크, Search Console 제출 URL을 같은 주소로 맞춥니다.
+            </span>
+          </div>
+        </div>
         <div className={styles.p0GscSteps}>
           {GSC_RECORDING_STEPS.map((step, index) => (
             <div key={step} className={styles.p0GscStep}>

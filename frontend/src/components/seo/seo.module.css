@@ -2234,6 +2234,109 @@
 .p0JsonLdEffect span {
   display: block;
 }
+.p0NoindexAlert {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0 14px;
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  background: #fffbeb;
+  padding: 16px;
+}
+.p0NoindexMain {
+  color: var(--color-text-secondary);
+}
+.p0NoindexBadge {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff7ed;
+  font-size: 0.68rem;
+  font-weight: 900;
+  padding: 4px 9px;
+}
+.p0NoindexMain h4 {
+  margin: 0 0 6px;
+  color: #7c2d12;
+  font-size: 1rem;
+  font-weight: 900;
+}
+.p0NoindexMain p,
+.p0NoindexEvidence ul,
+.p0NoindexCauseGrid p,
+.p0NoindexCauseGrid small,
+.p0NoindexAction span {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.p0NoindexEvidence {
+  border-top: 1px dashed rgba(180, 83, 9, 0.28);
+  padding-top: 12px;
+}
+.p0NoindexEvidence strong,
+.p0NoindexAction strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-text-primary);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+.p0NoindexEvidence ul {
+  padding-left: 18px;
+  color: var(--color-text-secondary);
+}
+.p0NoindexEvidence li + li {
+  margin-top: 4px;
+}
+.p0NoindexCauseGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 980px) {
+  .p0NoindexCauseGrid { grid-template-columns: 1fr; }
+}
+.p0NoindexCauseGrid article {
+  border: 1px solid rgba(180, 83, 9, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+}
+.p0NoindexCauseHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.p0NoindexCauseHead h5 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+.p0NoindexCauseHead span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #fed7aa;
+  color: #9a3412;
+  font-size: 0.68rem;
+  font-weight: 900;
+  padding: 2px 7px;
+}
+.p0NoindexCauseGrid small {
+  display: block;
+  margin-top: 8px;
+  color: #92400e;
+}
+.p0NoindexAction {
+  border-left: 3px solid #f97316;
+  padding-left: 10px;
+}
 .p0GscSteps {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -88,7 +88,7 @@ Search Console 화면을 사람이 10번 눌러보는 대신, 백엔드에서 UR
 | 홈 `/` | 사용자 선언 canonical과 Google 선택 canonical 모두 `https://biocom.kr/` | GSC URL Inspection API | 2026-04-29 | 95% |
 | 홈 `/index` | 사용자 선언은 `/index`, Google 선택은 `https://biocom.kr/` | GSC URL Inspection API | 2026-04-29 | 95% |
 | 종합 대사기능 공식 URL | Google 선택 canonical이 `https://biocom.kr/shop_view/?idx=259` | GSC URL Inspection API | 2026-04-29 | 90% |
-| 음식물 과민증 공식 URL | `NOINDEX` 태그로 제외, Google 선택 canonical이 `https://biocom.kr/shop_view/?idx=85` | GSC URL Inspection API | 2026-04-29 | 90% |
+| 음식물 과민증 공식 URL | `NOINDEX` 태그로 제외, Google 선택 canonical이 `https://biocom.kr/shop_view/?idx=85` | GSC URL Inspection API + 공개 HTML | 2026-04-29 | 95% |
 | 바이오밸런스와 뉴로마스터 | 공식 `HealthFood/?idx=` URL이 Google 선택 canonical | GSC URL Inspection API | 2026-04-29 | 95% |
 | 건강정보 칼럼 시범 URL | 자기 자신이 Google 선택 canonical | GSC URL Inspection API | 2026-04-29 | 95% |
 
@@ -96,7 +96,7 @@ Search Console 화면을 사람이 10번 눌러보는 대신, 백엔드에서 UR
 
 - 홈 260개 노출 URL은 Search Analytics 분포가 긴 것이고, Google 선택 canonical 관점에서는 `/index`가 홈으로 합쳐져 큰 문제는 아니다.
 - 검사권 2개는 공식 스토어 URL이 아니라 `/shop_view`가 대표로 잡혀 있어 JSON-LD `url`, 내부 링크, 아임웹 상담 항목을 같은 기준으로 다시 봐야 한다.
-- 음식물 과민증 공식 URL의 `NOINDEX`는 상품 4개 SEO/AEO 반영 전 우선 확인해야 할 운영 리스크다.
+- 음식물 과민증 공식 URL의 `NOINDEX`는 상품 4개 SEO/AEO 반영 전 우선 확인해야 할 운영 리스크다. 공개 HTML 기준 `/igg_store/?idx=85`에는 `<meta name='robots' content='noindex, nofollow' />`가 있고, `/shop_view/?idx=85`에는 noindex가 없다. 따라서 상품 전체 비공개보다는 `/igg_store` 메뉴/페이지 SEO 설정 가능성이 높다.
 
 ## 2026-04-28 진행 기록 (robots/canonical 실제 확인)
 

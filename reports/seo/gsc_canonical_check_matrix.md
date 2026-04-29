@@ -40,3 +40,22 @@ Confidence: 90%
 | 핵심 상품 4개 모두 의도한 URL 또는 같은 상품군 URL로 선택 | 정상 | JSON-LD와 본문 텍스트 반영 진행 |
 | 핵심 상품 1~2개에서 다른 URL 선택 | 주의 | 내부 링크와 sitemap 노출 상태를 재확인 |
 | 핵심 상품 3개 이상에서 다른 URL 선택 | 위험 | 아임웹 한계가 검색 성과에 영향을 줄 수 있으므로 자체 랜딩 또는 플랫폼 전환 우선순위 상승 |
+
+## 음식물 과민증 공식 URL noindex 상세
+
+### 현재 확인값
+
+| URL | 공개 HTML robots meta | 공개 HTML canonical | GSC 상태 | 판단 |
+|---|---|---|---|---|
+| `https://biocom.kr/igg_store/?idx=85` | `<meta name='robots' content='noindex, nofollow' />` | `https://biocom.kr/shop_view/?idx=85` | `NOINDEX` 태그로 제외 | 우선 확인 필요 |
+| `https://biocom.kr/shop_view/?idx=85` | 없음 | `https://biocom.kr/shop_view/?idx=85` | 색인 PASS | 현재 Google 기준 대표 URL |
+
+### 원인 후보
+
+1. 가장 가능성이 높은 원인: `/igg_store` 메뉴 또는 페이지의 SEO 설정에서 `검색엔진 색인 차단(noindex)`이 켜져 있음. 같은 상품의 `/shop_view`에는 noindex가 없기 때문에 상품 전체 설정보다는 메뉴/페이지 설정 가능성이 높다.
+2. 중간 가능성: 상품 idx=85의 진열/판매/숨김 상태가 일부 URL에 다르게 반영됨. 다만 `/shop_view/?idx=85`가 색인 PASS라서 1순위 원인으로 보기는 어렵다.
+3. 낮은 가능성: Header Code, Body Code, GTM 같은 사용자 코드가 `igg_store` 또는 `idx=85` 조건으로 robots meta를 삽입함.
+
+### 운영 판단
+
+상품 자체를 검색에서 숨길 의도가 아니라면 `/igg_store/?idx=85`의 noindex를 해제하거나, Google이 이미 선택한 `/shop_view/?idx=85`를 음식물 과민증의 기준 URL로 인정해야 한다. 어느 쪽이든 JSON-LD의 `url`, 내부 링크, Search Console 제출 URL을 같은 주소로 맞춰야 한다.
