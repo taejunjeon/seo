@@ -1,17 +1,17 @@
 # 바이오컴 SEO/AEO 실행 플랜
 
-작성 시각: 2026-04-27 18:54 KST  
-최근 업데이트: 2026-04-28 KST (B 작업 요청서를 별도 페이지 `/seo/url-cleanup` 으로 분리 — 체크리스트 + robots before/after + 진행률)  
-기준일: 2026-04-28  
-연결 문서: [[seofeedback0427|seo/seofeedback0427.md]], [[seofeedback0427reply|seo/seofeedback0427reply.md]], [[!frontmenu|seo/!frontmenu.md]], [[docurule|docurule.md]]  
-스크린샷: [seo/screnshot/](./screnshot/) (10개 섹션) · [seo/screnshot/url-cleanup/](./screnshot/url-cleanup/) (B 작업 요청서 화면 9개 섹션)  
-Primary source: 로컬 저장소 구조, 공개 URL 읽기 전용 진단 결과, GSC 라이브 데이터, `seofeedback0427.md`  
-Freshness: 2026-04-28 KST `/seo` 메인 + `/seo/url-cleanup` 작업 요청서 화면 진수 기준  
-Confidence: 90%
+작성 시각: 2026-04-27 18:54 KST
+최근 업데이트: 2026-04-29 00:28 KST (상품 4개 SEO/AEO 최종 실행 패키지와 GSC canonical 매트릭스 생성)
+기준일: 2026-04-29
+연결 문서: [[seofeedback0427|seo/seofeedback0427.md]], [[seofeedback0427reply|seo/seofeedback0427reply.md]], [[!frontmenu|seo/!frontmenu.md]], [[docurule|docurule.md]]
+스크린샷: [seo/screnshot/](./screnshot/) (10개 섹션) · [seo/screnshot/url-cleanup/](./screnshot/url-cleanup/) (B 작업 요청서 화면 9개 섹션)
+Primary source: 로컬 저장소 구조, 공개 URL 읽기 전용 진단 결과, GSC 라이브 데이터, `seofeedback0427.md`
+Freshness: 2026-04-29 00:28 KST 최종 실행 패키지, GSC canonical 매트릭스, 로컬 `/seo` 프론트 반영 기준
+Confidence: 92%
 
 ## 10초 요약
 
-이 플랜의 목표는 바이오컴 SEO를 작은 태그 수정이 아니라 `검색엔진과 AI가 상품, 검사권, 칼럼을 정확히 이해하는 구조`로 다시 정리하는 것이다. 2026-04-27 21:17 KST 기준 공개 URL 읽기 전용 진단은 완료됐고, 현재 점수는 54/100이다. 2026-04-28 KST에 운영 영향 없는 내부 대시보드 `/seo`(프론트 7010)도 진수했다. 다음 병목은 운영 반영이 아니라 대표 URL 정책과 JSON-LD 삽입 방식을 TJ님 승인안으로 좁히는 일이다.
+이 플랜의 목표는 바이오컴 SEO를 작은 태그 수정이 아니라 `검색엔진과 AI가 상품, 검사권, 칼럼을 정확히 이해하는 구조`로 다시 정리하는 것이다. 2026-04-29 00:28 KST 기준 상품/검사권 4개의 `보이는 본문 텍스트 + Product/Breadcrumb/FAQ JSON-LD + GSC canonical 추적` 최종 실행 패키지를 만들었다. JSON-LD는 구글에 직접 넣는 것이 아니라 아임웹 페이지 HTML에 삽입하고, 구글이 그 페이지를 다시 읽게 하는 방식이다. 다음 판단은 실제 아임웹 삽입 준비를 진행할지 여부다.
 
 ## 고등학생 비유
 
@@ -26,12 +26,12 @@ Confidence: 90%
 | Phase1 | [[#Phase1-Sprint3]] | SEO 태그와 canonical 진단 | Codex | 100% / 0% | [[#Phase1-Sprint3\|이동]] |
 | Phase1 | [[#Phase1-Sprint4]] | 본문 텍스트와 구조화 데이터 현황 | Codex | 100% / 0% | [[#Phase1-Sprint4\|이동]] |
 | Phase1 | [[#Phase1-Sprint5]] | 속도와 리소스 진단 | Codex | 90% / 0% | [[#Phase1-Sprint5\|이동]] |
-| Phase2 | [[#Phase2-Sprint6]] | 대표 URL 정책 | TJ + Codex | 75% / 0% | [[#Phase2-Sprint6\|이동]] |
-| Phase2 | [[#Phase2-Sprint7]] | JSON-LD 샘플 | Codex + Claude Code | 90% / 0% | [[#Phase2-Sprint7\|이동]] |
-| Phase3 | [[#Phase3-Sprint8]] | 상품 상세 텍스트 시범개선 | TJ + Claude Code + Codex | 55% / 0% | [[#Phase3-Sprint8\|이동]] |
-| Phase3 | [[#Phase3-Sprint9]] | 칼럼과 FAQ AEO 구조 | Claude Code + Codex | 0% / 0% | [[#Phase3-Sprint9\|이동]] |
-| Phase4 | [[#Phase4-Sprint10]] | 제출과 모니터링 | TJ + Codex | 20% / 0% | [[#Phase4-Sprint10\|이동]] |
-| Phase4 | [[#Phase4-Sprint11]] | 내부 모니터링 화면(/seo) | Claude Code + Codex | 85% / 0% | [[#Phase4-Sprint11\|이동]] |
+| Phase2 | [[#Phase2-Sprint6]] | 대표 URL 정책 | TJ + Codex | 82% / 20% | [[#Phase2-Sprint6\|이동]] |
+| Phase2 | [[#Phase2-Sprint7]] | JSON-LD 샘플 | Codex + Claude Code | 95% / 0% | [[#Phase2-Sprint7\|이동]] |
+| Phase3 | [[#Phase3-Sprint8]] | 상품 상세 텍스트 시범개선 | TJ + Claude Code + Codex | 85% / 0% | [[#Phase3-Sprint8\|이동]] |
+| Phase3 | [[#Phase3-Sprint9]] | 칼럼과 FAQ AEO 구조 | Claude Code + Codex | 20% / 0% | [[#Phase3-Sprint9\|이동]] |
+| Phase4 | [[#Phase4-Sprint10]] | 제출과 모니터링 | TJ + Codex | 30% / 20% | [[#Phase4-Sprint10\|이동]] |
+| Phase4 | [[#Phase4-Sprint11]] | 내부 모니터링 화면(/seo) | Claude Code + Codex | 90% / 0% | [[#Phase4-Sprint11\|이동]] |
 
 ## 문서 목적
 
@@ -62,6 +62,44 @@ Confidence: 90%
 | 기존 SEO 부품 | `gsc`, `pagespeed`, `crawl`, `diagnosis` 라우트 | 완전 신규 개발보다 기존 부품 보강이 빠르다. |
 | 현재 crawler | `backend/scripts/seo-readonly-audit.mjs` | canonical, sitemap, duplicate, raw/rendered, 리소스 관측까지 읽기 전용으로 처리한다. |
 
+## 다음 가장 파급력 있는 할 일
+
+결론: 지금 가장 큰 한 방은 아임웹 탈출 착수가 아니라 `시범 상품/검사권 4개 SEO/AEO 운영 반영 패키지`다. 이유는 핵심 6개 페이지의 JSON-LD가 0개이고, 상품 상세가 이미지 의존이라 검색엔진과 AI가 내용을 충분히 읽기 어렵기 때문이다. 이 작업은 canonical 수동 변경 불가 문제와 별개로 바로 성과를 만들 수 있고, 나중에 자체 구축을 하더라도 그대로 옮길 수 있는 자산이다.
+
+| 순서 | 우선순위 | 할 일 | 왜 파급력이 큰가 | 산출물 | TJ 결정 |
+|---:|---|---|---|---|---|
+| 1 | P0 | 완료: 상품/검사권 4개에 보이는 본문 텍스트와 JSON-LD를 묶어 운영 반영 패키지로 만든다 | 핵심 6개 페이지 JSON-LD가 0개라 검색결과 부가 표시와 AI 이해도가 낮다. 통이미지 의존도도 같이 줄일 수 있다. | `reports/seo/seo_aeo_execution_package.md` | 다음은 아임웹 삽입 전 확인 |
+| 2 | P0 | 완료: GSC URL 검사 10개 canonical 매트릭스를 만든다 | 아임웹에서 canonical을 직접 못 바꾸므로 Google이 실제로 어떤 URL을 대표로 고르는지 봐야 한다. | `reports/seo/gsc_canonical_check_matrix.md` | Search Console 화면 확인 또는 캡처 제공 |
+| 3 | P1 | Search Console/Naver에 robots 반영 후 sitemap과 핵심 URL 재제출 기록을 남긴다 | robots.txt는 공개 적용됐지만 검색엔진이 언제 다시 읽는지 추적해야 한다. | 제출 시각, 제출 계정, 오류 여부, 7/14/28일 추적표 | 운영 계정 접근 필요 |
+| 4 | P1 | 아임웹 탈출 판단 기준을 숫자로 고정한다 | canonical 불편만으로 자체 구축하면 범위가 너무 커진다. 제약이 누적될 때만 우선순위를 올려야 한다. | 자체 구축 판단 게이트: canonical 불일치 수, URL 노출 분산률, JSON-LD/본문/속도 제약 | 4주 뒤 GSC 기준 재판단 |
+
+이번 주 실행 추천 1번과 2번은 문서 패키지까지 완료됐다. 다음은 실제 아임웹 삽입 준비, Rich Results Test, Search Console URL 검사다.
+
+## 2026-04-28 진행 기록 (robots/canonical 실제 확인)
+
+### 결론
+
+robots.txt는 공개 사이트 기준으로 정상 적용됐다. `Sitemap: https://biocom.kr/sitemap.xml`은 Markdown 링크나 중복 없이 한 줄만 남아 있다. 반면 아임웹은 canonical tag 수동 변경과 특정 URL 301 redirect를 지원하지 않는 것으로 확인됐다. 이 제약은 중기 리스크지만, 현재 우선순위는 자체 구축 착수가 아니라 상품 4개 SEO/AEO 패키지와 GSC canonical 추적이다.
+
+### 확인된 사실
+
+| 항목 | 확인값 | source | 기준 시각 | confidence |
+|---|---|---|---|---|
+| 공개 robots.txt sitemap 줄 | `Sitemap: https://biocom.kr/sitemap.xml` 한 줄 | `https://biocom.kr/robots.txt` 읽기 전용 확인 | 2026-04-28 17:42 KST | 95% |
+| Markdown 링크 형식 sitemap | 없음 | 같은 공개 robots.txt 확인 | 2026-04-28 17:42 KST | 95% |
+| trailing period | 없음 | 같은 공개 robots.txt 확인 | 2026-04-28 17:42 KST | 95% |
+| sitemap 응답 | HTTP 200 | `https://biocom.kr/sitemap.xml` 읽기 전용 확인 | 2026-04-28 17:42 KST | 95% |
+| canonical 수동 변경 | 아임웹 AI 답변 기준 지원하지 않음 | TJ님이 전달한 아임웹 AI 상담 답변 | 2026-04-28 | 80% |
+| 301 redirect 직접 지정 | 아임웹 AI 답변 기준 지원하지 않음 | TJ님이 전달한 아임웹 AI 상담 답변 | 2026-04-28 | 80% |
+| 상품 URL `idx` | 상품 생성 순서 자동 부여, 임의 변경 불가 | TJ님이 전달한 아임웹 답변 | 2026-04-28 | 85% |
+| 메뉴 URL | 디자인 모드에서 변경 가능 | TJ님이 전달한 아임웹 답변 | 2026-04-28 | 85% |
+
+### 판단
+
+- canonical 수동 변경이 안 되는 것은 불편하지만, 자동 canonical이 들어가고 robots/sitemap이 정상이라면 즉시 치명상은 아니다.
+- 자체 구축 우선순위는 `canonical 불일치가 핵심 페이지 3개 이상에서 반복`, `같은 상품 노출이 여러 URL로 크게 분산`, `JSON-LD와 본문 텍스트 삽입이 계속 막힘`이 확인될 때 올린다.
+- 지금은 `/seo/url-cleanup`에 “아임웹 직접 설정 불가, 공개 HTML과 GSC로 확인” 흐름을 반영했고, 다음 작업은 GSC URL 검사 매트릭스다.
+
 ## 2026-04-27 진행 기록
 
 ### 확인된 숫자
@@ -88,6 +126,8 @@ Confidence: 90%
 - JSON-LD 삽입 스니펫: `reports/seo/jsonld_insertion_snippets.md`
 - 상품 텍스트 블록 초안: `reports/seo/product_text_block_drafts.md`
 - 상품 텍스트 매트릭스: `reports/seo/product_text_block_matrix.csv`
+- 상품 4개 SEO/AEO 최종 실행 패키지: `reports/seo/seo_aeo_execution_package.md`
+- GSC canonical 검사 매트릭스: `reports/seo/gsc_canonical_check_matrix.md`
 - 운영 반영 체크리스트: `reports/seo/operation_change_checklist.md`
 
 ### 2026-04-28 진행 (B 작업 요청서 「화면」 분리 — `/seo/url-cleanup`)
@@ -153,15 +193,15 @@ Confidence: 90%
 #### 화면 반영
 
 - `/seo` 승인 현황 카드 B: status "✅ 2026-04-28 완료" + 산출물 6개 그린 체크 리스트
-- 본문 최상단 결정 박스: "오늘 TJ님 결정 1개 (B는 ✅ 완료)" 헤더, C 카드만 잔존
+- 본문 최상단 결정 박스: 당시 기준 "오늘 TJ님 결정 1개 (B는 완료)" 헤더, 상품 텍스트 검토 카드 중심으로 표시
 
-#### 다음 단계 (TJ 결정 필요)
+#### 당시 다음 단계 (2026-04-28 23:43에 승인안 D로 갱신)
 
 1. 운영팀에 요청서 6종 전달 (Slack / 이메일 / 별도 채팅)
 2. 운영팀이 작업 진행 — `imweb_url_cleanup_workorder.md`의 §2 체크리스트 따라
 3. 작업 완료 1주일 후: §3 1주일 점검 (GSC 색인·트래픽·핵심 페이지 상태)
 4. 작업 완료 2주일 후: 같은 키워드 검색 결과에서 우리 페이지가 1개 URL로 모이는지 확인
-5. 추가 라운드: 효과 측정 baseline (`/seo > 성과 기준선`) 비교 → 승인안 D 결정 (텍스트 블록 운영 반영)
+5. 추가 라운드: 효과 측정 baseline (`/seo > 성과 기준선`) 비교 -> 승인안 D 결정 (상품 4개 SEO/AEO 패키지)
 
 ### 2026-04-28 진행 (UX 2차 고도화 + GSC P0 작업 진수)
 
@@ -303,10 +343,10 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 
 ### 현재 판단
 
-사실: 핵심 6개 페이지의 canonical은 존재한다.  
-사실: 핵심 6개 페이지의 JSON-LD는 0개다.  
-사실: robots.txt에는 sitemap 지시문이 2개 있고, 그중 1개는 Markdown 링크 형식이다.  
-현재 판단: sitemap 자체보다 내부 링크와 최종 URL의 parameter 혼선이 더 큰 문제다.  
+사실: 핵심 6개 페이지의 canonical은 존재한다.
+사실: 핵심 6개 페이지의 JSON-LD는 0개다.
+사실: robots.txt에는 sitemap 지시문이 2개 있고, 그중 1개는 Markdown 링크 형식이다.
+현재 판단: sitemap 자체보다 내부 링크와 최종 URL의 parameter 혼선이 더 큰 문제다.
 유력 가설: Product/Article/BreadcrumbList JSON-LD와 보이는 텍스트 블록을 먼저 넣으면 구조화 데이터 점수와 AI 이해도는 빠르게 올라갈 수 있다.
 
 ## Phase별 계획
@@ -325,7 +365,7 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase1-Sprint1
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: URL 인벤토리  
+**이름**: URL 인벤토리
 **상태**: 100% / 0%
 
 - 무엇을 하는가: 공개 사이트에서 내부 링크와 sitemap URL을 모아 대표 URL, parameter URL, 잡음 URL을 분류한다.
@@ -347,7 +387,7 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase1-Sprint2
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: robots와 sitemap 진단  
+**이름**: robots와 sitemap 진단
 **상태**: 100% / 0%
 
 - 무엇을 하는가: robots.txt와 sitemap.xml 응답, URL 수, parameter URL 비중, 제외해야 할 URL 포함 여부를 확인한다.
@@ -370,7 +410,7 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase1-Sprint3
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: SEO 태그와 canonical 진단  
+**이름**: SEO 태그와 canonical 진단
 **상태**: 100% / 0%
 
 - 무엇을 하는가: 핵심 페이지의 title, description, canonical, robots meta, OG, heading, 중복 URL 위험을 확인한다.
@@ -392,7 +432,7 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase1-Sprint4
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 본문 텍스트와 구조화 데이터 현황  
+**이름**: 본문 텍스트와 구조화 데이터 현황
 **상태**: 100% / 0%
 
 - 무엇을 하는가: 상품 상세 본문이 실제 HTML 텍스트인지, 이미지인지, alt에만 있는지 구분한다.
@@ -414,7 +454,7 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase1-Sprint5
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 속도와 리소스 진단  
+**이름**: 속도와 리소스 진단
 **상태**: 90% / 0%
 
 - 무엇을 하는가: 모바일 기준 PageSpeed, 이미지 용량, JS/CSS/폰트, 외부 스크립트 수를 확인한다.
@@ -447,8 +487,8 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase2-Sprint6
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 대표 URL 정책  
-**상태**: 75% / 0%
+**이름**: 대표 URL 정책
+**상태**: 82% / 20%
 
 - 무엇을 하는가: 상품, 검사권, 칼럼, 게시판, 리뷰, 장바구니/로그인 URL의 검색 노출 정책을 정한다.
 - 왜 필요한가: canonical만 넣고 내부 링크와 sitemap이 다르면 검색엔진이 다른 URL을 고를 수 있다.
@@ -457,19 +497,21 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 
 ##### 역할 구분
 
-- TJ: canonical/noindex/리다이렉트 운영 반영 승인
+- TJ: 아임웹에서 가능한 noindex/robots/사용자 코드 운영 반영 승인, Search Console URL 검사 확인
 - Codex: 정책 초안과 요청서 작성
 - Claude Code: 내부 링크 또는 화면 수정안이 필요할 때 참여
 
 ##### 실행 단계
 
 1. [Codex] 대표 URL 추천표를 만든다 — 완료. 무엇: URL 유형별 canonical, sitemap 포함, noindex, redirect 여부다. 왜: 운영 반영 전에 정책이 명확해야 한다. 어떻게: Phase1 산출물을 기준으로 분류했다. 산출물: `reports/seo/url_policy_recommendations.md`, `reports/seo/url_policy_matrix.csv`. 검증: 각 정책에 evidence file과 confidence가 붙었다.
-2. [TJ] 운영 반영 후보에 답한다 — 무엇: canonical, noindex, redirect, sitemap 제외 항목 승인이다. 왜: 검색 노출과 기존 공유 URL에 영향을 줄 수 있기 때문이다. 어떻게: 추천안 A를 보고 `YES` 또는 수정사항으로 답한다. 산출물: 승인 결과. 검증: 승인된 항목만 운영 요청서에 남는다. 의존성: 선행필수, 운영 변경은 승인 뒤 진행한다.
+2. [TJ] 운영 반영 가능 항목에 답한다 — 무엇: noindex, robots, 사용자 코드, sitemap 제출 후보 승인이다. 왜: 검색 노출과 기존 공유 URL에 영향을 줄 수 있기 때문이다. 어떻게: 추천안 A를 보고 `YES` 또는 수정사항으로 답한다. 산출물: 승인 결과. 검증: 아임웹에서 직접 바꿀 수 있는 항목만 운영 요청서에 남는다. 의존성: 선행필수, 운영 변경은 승인 뒤 진행한다.
+3. [Codex] 아임웹 canonical 제약을 반영한다 — 완료. 무엇: canonical 수동 변경과 301 redirect가 지원되지 않는다는 답변을 정책에 반영했다. 왜: 직접 바꿀 수 없는 항목을 운영팀 작업으로 남기면 혼선이 생기기 때문이다. 산출물: `/seo/url-cleanup`, `reports/seo/imweb_canonical_targets.csv`, `reports/seo/imweb_url_cleanup_workorder.md` 갱신. 검증: 공개 HTML과 GSC URL 검사로 추적하는 방식으로 바꿨다.
+4. [TJ + Codex] GSC URL 검사 10개 매트릭스를 만든다 — 다음. 무엇: Google이 실제로 선택한 대표 URL을 홈, `/index`, 상품, `/shop_view` 변형에서 확인한다. 왜: 아임웹 자동 canonical이 실제 검색 선택과 일치하는지 봐야 하기 때문이다. 산출물: URL별 사용자 선언 canonical, Google 선택 canonical, 색인 상태, 다음 조치.
 
 #### Phase2-Sprint7
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: JSON-LD 샘플  
+**이름**: JSON-LD 샘플
 **상태**: 90% / 0%
 
 - 무엇을 하는가: 상품, 검사권, 칼럼, 조직, breadcrumb 구조화 데이터 샘플을 만든다.
@@ -502,8 +544,8 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase3-Sprint8
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 상품 상세 텍스트 시범개선  
-**상태**: 55% / 0%
+**이름**: 상품 상세 텍스트 시범개선
+**상태**: 60% / 0%
 
 - 무엇을 하는가: 검사권 2개와 영양제 2개에 사용자에게 보이는 텍스트형 상세 구조를 추가한다.
 - 왜 필요한가: 통이미지 본문만으로는 검색엔진과 AI가 제품의 장점과 대상 고객을 충분히 읽기 어렵다.
@@ -525,7 +567,7 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase3-Sprint9
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 칼럼과 FAQ AEO 구조  
+**이름**: 칼럼과 FAQ AEO 구조
 **상태**: 20% / 0%
 
 - 무엇을 하는가: 칼럼 10개에 Article 구조와 실제 화면에 보이는 FAQ 후보를 정리한다.
@@ -559,8 +601,8 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase4-Sprint10
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 제출과 모니터링  
-**상태**: 0% / 0%
+**이름**: 제출과 모니터링
+**상태**: 30% / 20%
 
 - 무엇을 하는가: sitemap 제출, URL 검사, 구조화 데이터 테스트, 주간 GSC/PageSpeed 추적을 묶는다.
 - 왜 필요한가: 운영에 반영해도 검색엔진이 읽지 않으면 효과가 늦거나 확인되지 않는다.
@@ -582,8 +624,8 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 #### Phase4-Sprint11
 [[#Phase-Sprint 요약표|▲ 요약표로]]
 
-**이름**: 내부 모니터링 화면 `/seo`  
-**상태**: 70% / 0%
+**이름**: 내부 모니터링 화면 `/seo`
+**상태**: 90% / 0%
 
 - 무엇을 하는가: `reports/seo/*` 산출물을 한 화면에서 검토·복사·승인할 수 있는 내부 대시보드를 만든다.
 - 왜 필요한가: 정적 MD/CSV로는 승인 게이트와 KPI를 한 눈에 보기 어렵고, 내부 의사결정 속도가 느려진다.
@@ -610,11 +652,11 @@ API 한계 안내: 모든 카드에 「GSC API는 모든 행을 반환하지 않
 
 상태: Codex가 공개 URL 기준으로 이미 진행 완료. 운영 반영은 아직 하지 않았다.
 
-제 추천: YES 유지  
-추천 자신감: 86%  
-이유: 공개 URL 진단, URL 정책 추천서, JSON-LD 샘플, 상품 텍스트 초안까지 운영 변경 없이 만들어졌다. 이제 승인 없이 더 밀 수 있는 범위는 제한적이고, 다음은 아임웹/검색도구 운영 판단이 필요하다.  
-부족 데이터: 실제 GSC 최근 90일 landing page 데이터, Search Console sitemap 제출 상태, 아임웹 관리자 canonical/noindex 제어 가능 범위  
-답변 형식: `YES: 대표 URL 정책안 A로 운영 요청서 작성` 또는 `NO: 상품 URL은 기존 /HealthFood/?idx= 형태 유지`  
+제 추천: YES 유지
+추천 자신감: 86%
+이유: 공개 URL 진단, URL 정책 추천서, JSON-LD 샘플, 상품 텍스트 초안까지 운영 변경 없이 만들어졌다. 이제 승인 없이 더 밀 수 있는 범위는 제한적이고, 다음은 아임웹/검색도구 운영 판단이 필요하다.
+부족 데이터: Search Console sitemap 제출 상태, GSC URL 검사에서 Google이 선택한 canonical, 아임웹 noindex/사용자 코드 삽입 가능 범위
+답변 형식: `YES: 대표 URL 정책안 A로 운영 요청서 작성` 또는 `NO: 상품 URL은 기존 /HealthFood/?idx= 형태 유지`
 YES 이후 Codex 작업: 운영 반영 체크리스트와 JSON-LD 삽입 코드 블록을 최종본으로 정리한다.
 
 ### 승인안 B ✅ 2026-04-28 완료
@@ -625,7 +667,7 @@ YES 이후 Codex 작업: 운영 반영 체크리스트와 JSON-LD 삽입 코드 
 **범위**: 정책안 A 전체 (제외 조건 없음)
 **산출물**: `reports/seo/imweb_*.md/csv` 6종 (위 「2026-04-28 진행 (✅ 승인안 B 완료)」 섹션 참고)
 **운영 영향**: 0 (요청서·CSV·MD 생성만. 실제 아임웹 반영은 별도 승인 필요)
-**다음 단계**: 운영팀에 요청서 전달 → 작업 진행 → 1주일/2주 검증 → 효과 측정 후 승인안 D (텍스트 블록 반영) 결정
+**다음 단계**: robots.txt는 공개 적용 확인 완료. canonical/301은 아임웹에서 직접 제어가 어려우므로 GSC URL 검사로 추적한다. noindex, 사용자 코드, 상품 텍스트, JSON-LD는 별도 승인 뒤 진행한다.
 
 추천 자신감: 78%
 
@@ -633,17 +675,30 @@ YES 이후 Codex 작업: 운영 반영 체크리스트와 JSON-LD 삽입 코드 
 
 추천안 C: `reports/seo/product_text_block_drafts.md`의 상품 4개 텍스트 블록 초안을 콘텐츠팀 검토로 넘긴다.
 
-제 추천: YES  
-추천 자신감: 72%  
-이유: 숨김 텍스트 없이 사용자에게 보이는 구조라 SEO 리스크가 낮다. 다만 건강·검사 표현은 운영 반영 전 최신 상품 상세와 표시 가능 문구를 맞춰야 한다.  
-부족 데이터: 각 상품의 최신 성분표, 검사 진행 방식, 표시 가능 효능 문구  
+제 추천: YES
+추천 자신감: 72%
+이유: 숨김 텍스트 없이 사용자에게 보이는 구조라 SEO 리스크가 낮다. 다만 건강·검사 표현은 운영 반영 전 최신 상품 상세와 표시 가능 문구를 맞춰야 한다.
+부족 데이터: 각 상품의 최신 성분표, 검사 진행 방식, 표시 가능 효능 문구
 답변 형식: `YES` 또는 `NO: 뉴로마스터는 제외`
+
+### 승인안 D
+
+추천안 D: 상품/검사권 4개에 `보이는 본문 텍스트 + Product/Breadcrumb/FAQ JSON-LD + GSC canonical 추적`을 묶은 SEO/AEO 운영 반영 패키지를 만든다.
+
+상태: 2026-04-29 00:28 KST 문서 패키지 생성 완료. 실제 아임웹 게시와 Search Console 제출은 아직 하지 않았다.
+제 추천: 완성 패키지 확인 후 아임웹 삽입 준비 진행
+추천 자신감: 82%
+이유: 아임웹 canonical 직접 제어보다 이 작업의 파급력이 크다. 핵심 6개 페이지의 JSON-LD가 0개이고, 상품 상세가 이미지 의존이라 검색엔진과 AI가 읽을 수 있는 정보가 부족하다. 이 패키지는 아임웹을 유지해도 쓸 수 있고, 나중에 자체 구축으로 가도 그대로 이전할 수 있다.
+생성 산출물: `reports/seo/seo_aeo_execution_package.md`, `reports/seo/gsc_canonical_check_matrix.md`
+부족 데이터: 실제 아임웹 삽입 가능 메뉴, Search Console URL 검사 결과, 운영 게시 직전 가격/재고 최종 확인
+다음 답변 형식: `YES: 완성 패키지 확인 완료, 아임웹 삽입 준비 진행` 또는 `NO: 완성 패키지 수정 필요`
 
 ### 운영 반영 전 별도 승인
 
 | 승인 항목 | 왜 TJ 승인이 필요한가 | Codex 사전 시도 |
 |---|---|---|
-| 아임웹 canonical/noindex/redirect 수정 | 검색 노출과 기존 공유 URL에 영향 | 공개 URL 진단과 정책 초안 작성 |
+| 아임웹 noindex/사용자 코드/상품 상세 수정 | 검색 노출과 기존 공유 URL에 영향 | 공개 URL 진단과 정책 초안 작성 |
+| GSC URL 검사 canonical 확인 | 운영 계정과 URL 검사 화면 접근 필요 | 검사할 URL 매트릭스 초안 작성 |
 | GTM 또는 사용자 코드 게시 | 운영 사이트 스크립트가 바뀜 | JSON-LD 샘플과 테스트 코드 작성 |
 | Search Console/Naver 제출 | 2FA 로그인과 운영 계정 필요 | 제출 URL 체크리스트 작성 |
 | 상품 상세 텍스트 반영 | 브랜드 문구와 전환율에 영향 | 텍스트 구조 초안 작성 |
@@ -652,16 +707,17 @@ YES 이후 Codex 작업: 운영 반영 체크리스트와 JSON-LD 삽입 코드 
 ## 현재 병목
 
 - 공개 URL 기준 숫자는 확보됐다.
-- 아임웹 관리자에서 canonical, noindex, sitemap, 사용자 코드 삽입을 어디까지 제어할 수 있는지 확정되지 않았다.
-- 상품 상세 본문은 텍스트가 일부 잡히지만, 이미지 100개 안팎과 alt 누락이 많아 이미지 의존 위험이 높다.
+- 아임웹에서 canonical 수동 변경과 301 redirect는 직접 제어하기 어렵다. 이 항목은 운영 작업이 아니라 GSC URL 검사로 추적한다.
+- 상품 4개 SEO/AEO 최종 실행 패키지는 생성됐다.
+- 아임웹 관리자에서 noindex, 사용자 코드 삽입, 상품 상세 텍스트 반영을 어디까지 제어할 수 있는지는 운영 화면에서 추가 확인이 필요하다.
 - Search Console과 Naver Search Advisor 제출 상태는 로그인 확인이 필요하다.
 - PageSpeed API 점수는 아직 측정하지 않았고, 이번 턴은 Playwright 리소스 관측으로 대체했다.
 
 ## 다음 액션
 
-- 지금 당장: TJ님이 `http://localhost:7010/seo`에서 승인안 B와 C에 답한다. 각 카드 하단의 답변 코드 한 줄 복사 → 채팅 회신.
-- 이번 주: 승인된 대표 URL 정책 기준으로 아임웹 수정 요청서와 JSON-LD 삽입 최종본을 만든다. GSC URL별 노출 데이터로 시범 페이지 우선순위 결정.
-- 승인 후: canonical/noindex, robots.txt sitemap 지시문, 구조화 데이터 삽입, 상품 상세 텍스트 블록, Search Console/Naver 제출을 운영에 반영. 7/14/28일 단위로 GSC KPI 비교.
+- 지금 당장: 완성 패키지를 확인한다. 추천 답변은 `YES: 완성 패키지 확인 완료, 아임웹 삽입 준비 진행`이다.
+- 이번 주: 아임웹 삽입 가능 메뉴 확인, Rich Results Test 사전 검증, Search Console URL 검사 10개 기록을 진행한다.
+- 승인 후: 사용자 코드 또는 상품 상세 텍스트를 운영에 반영한다. 7/14/28일 단위로 GSC KPI와 Google 선택 canonical을 비교한다.
 
 ## 개발 부록
 
@@ -687,6 +743,8 @@ YES 이후 Codex 작업: 운영 반영 체크리스트와 JSON-LD 삽입 코드 
 | 상품 텍스트 블록 초안 | `reports/seo/product_text_block_drafts.md` | 상품 4개 H2/H3/FAQ 초안 |
 | 상품 텍스트 매트릭스 | `reports/seo/product_text_block_matrix.csv` | 상품 4개 검색 의도와 문구 구조 |
 | JSON-LD 삽입 스니펫 | `reports/seo/jsonld_insertion_snippets.md` | 아임웹/GTM 게시 전 검증용 `<script>` 초안 |
+| 상품 4개 SEO/AEO 최종 실행 패키지 | `reports/seo/seo_aeo_execution_package.md` | 본문 텍스트, JSON-LD, 삽입 방법, 롤백 기준 |
+| GSC canonical 검사 매트릭스 | `reports/seo/gsc_canonical_check_matrix.md` | Search Console URL 검사 10개 기록표 |
 | 운영 반영 체크리스트 | `reports/seo/operation_change_checklist.md` | 승인 전 확인, 운영 반영 순서, rollback 기준 |
 | 읽기 전용 감사 스크립트 | `backend/scripts/seo-readonly-audit.mjs` | 공개 URL 감사 자동 생성 |
 | 후속 패키지 스크립트 | `backend/scripts/seo-followup-pack.mjs` | URL 정책과 상품 텍스트 초안 생성 |

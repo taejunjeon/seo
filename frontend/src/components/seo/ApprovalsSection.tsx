@@ -7,7 +7,7 @@ import WhyCallout from "./WhyCallout";
 import ImpactBadge from "./ImpactBadge";
 
 type Approval = {
-  key: "A" | "B" | "C";
+  key: "A" | "B" | "C" | "D";
   title: string;
   status: string;
   confidence: number;
@@ -30,7 +30,7 @@ const APPROVALS: Approval[] = [
     scope: "done",
     whatItIs: "공개 URL을 읽기 전용으로 진단하고(Phase1), 대표 URL 정책 추천서와 검색엔진 설명서 코드 샘플을 만든 묶음(Phase2). 사이트는 손대지 않고 데이터·문서만 생성.",
     currentState: "Codex가 reports/seo/* 산출물 17종(MD 8 + CSV 7 + JSON 5)을 모두 생성 완료. 운영 변경 0건.",
-    reason: "운영 영향 0이라 별도 승인 없이 진행. B/C부터 외부 시스템(아임웹·검색 도구·콘텐츠팀)이 관여해서 TJ 결정 필요.",
+    reason: "운영 영향 0이라 별도 승인 없이 진행. 지금은 D부터 외부 시스템(아임웹·검색 도구·콘텐츠팀)이 관여해서 TJ 결정 필요.",
     yesProduces: [],
     yesNextSteps: "이미 YES 처리됨. 운영 반영 체크리스트와 검색엔진 설명서 코드 최종본 정리로 자동 이행.",
     noImpact: [],
@@ -60,7 +60,7 @@ const APPROVALS: Approval[] = [
   {
     key: "C",
     title: "상품 4개 텍스트 초안을 콘텐츠팀에 검토 의뢰",
-    status: "TJ 응답 대기",
+    status: "D 패키지에 흡수",
     confidence: 72,
     scope: "draft",
     whatItIs: "이 화면 「상품 텍스트」 섹션의 4개 상품(검사권 2 + 영양제 2) H1/H2/H3/FAQ 초안을 콘텐츠팀에 「이 톤·길이로 표시 가능 문구로 다듬어주세요」라고 「검토 의뢰」하는 일. 운영 사이트는 아직 안 바꿉니다 — 콘텐츠팀에 「초안」을 넘기는 단계.",
@@ -80,14 +80,43 @@ const APPROVALS: Approval[] = [
     ],
     answer: "YES: 상품 4개 텍스트 초안 검토 의뢰 (운영 반영은 별도 승인)",
   },
+  {
+    key: "D",
+    title: "상품 4개 SEO/AEO 최종 실행 패키지 + GSC canonical 매트릭스",
+    status: "패키지 작성 완료",
+    confidence: 82,
+    scope: "draft",
+    whatItIs: "상품/검사권 4개에 보이는 본문 텍스트, Product/Breadcrumb/FAQ JSON-LD, 아임웹 삽입 순서, 롤백 기준, Search Console에서 확인할 10개 URL 매트릭스를 묶은 최종 실행 패키지입니다.",
+    currentState: "최종 실행 패키지와 GSC canonical 매트릭스 문서를 생성함. 실제 아임웹 게시, 사용자 코드 게시, Search Console 제출은 운영 영향이 있으므로 별도 최종 확인 뒤 진행.",
+    reason: "핵심 6개 페이지 JSON-LD가 0개이고 상품 상세가 이미지 의존이라, 아임웹 탈출보다 먼저 검색엔진과 AI가 읽을 수 있는 재료를 늘리는 것이 파급력이 큼.",
+    yesProduces: [
+      "reports/seo/seo_aeo_execution_package.md",
+      "reports/seo/gsc_canonical_check_matrix.md",
+      "아임웹 삽입 방법 화면 반영",
+      "운영 반영 전 롤백 기준 정리",
+    ],
+    yesNextSteps: "TJ님이 완성 패키지를 확인 → 아임웹 삽입 준비 진행 → 실제 게시 직전 최종 확인 → Rich Results Test와 Search Console URL 검사.",
+    noImpact: [
+      "핵심 6개 페이지 JSON-LD 0개 상태가 유지됨",
+      "상품 상세 통이미지 의존과 AI 인용 부족이 남음",
+      "아임웹 canonical 제약이 실제 검색 선택에 미치는 영향을 확인하지 못함",
+    ],
+    answer: "YES: 완성 패키지 확인 완료, 아임웹 삽입 준비 진행",
+  },
 ];
 
 const SEPARATE_APPROVALS = [
   {
-    item: "아임웹 canonical/noindex/redirect 수정",
-    why: "검색 노출과 기존 공유 URL에 직접 영향. 잘못 설정하면 색인이 빠지거나 외부 공유 링크가 깨질 수 있음.",
-    how: "아임웹 관리자 페이지 > SEO 설정에서 URL 유형별 canonical 목적지를 수동 입력. noindex는 페이지별 메타 robots 설정.",
-    codex: "공개 URL 진단과 정책 초안 작성까지 완료.",
+    item: "아임웹 noindex/사용자 코드/상품 상세 수정",
+    why: "검색 노출과 기존 공유 URL에 직접 영향. 잘못 설정하면 색인이 빠지거나 화면 전환율이 흔들릴 수 있음.",
+    how: "아임웹에서 지원되는 범위 안에서 검색결과 숨김, 사용자 코드, 상품 상세 텍스트를 단계별로 반영. canonical과 301은 직접 제어가 어렵기 때문에 운영 작업으로 남기지 않음.",
+    codex: "공개 URL 진단, robots 적용 확인, canonical 제약 반영 완료.",
+  },
+  {
+    item: "GSC URL 검사 canonical 확인",
+    why: "아임웹에서 canonical을 직접 바꾸기 어려우므로 Google이 실제로 어떤 URL을 대표로 선택했는지 확인해야 함.",
+    how: "Search Console URL 검사에서 홈, /index, 상품, /shop_view 변형, 칼럼 URL 10개를 검사하고 Google 선택 canonical을 기록.",
+    codex: "검사 대상 10개 매트릭스 초안 작성.",
   },
   {
     item: "GTM 또는 사용자 코드 게시",
@@ -128,10 +157,10 @@ export default function ApprovalsSection() {
       <WhyCallout tone="info" title="이 섹션은 어떤 결정을 받기 위한 것인가요">
         <p style={{ marginBottom: 8 }}>
           승인안은 「여기까지 진행했고, 다음 단계로 가려면 TJ 답변이 필요한」 결정 게이트입니다.
-          A는 이미 완료, <strong>B와 C는 답변 대기 중</strong>입니다.
+          A와 B는 완료됐고, C는 D 패키지 안으로 흡수했습니다.
         </p>
         <p>
-          각 카드에는 <strong>(1) 이게 무엇인지</strong>, <strong>(2) 지금 어디까지 됐는지</strong>,
+          현재 가장 중요한 확인은 <strong>승인안 D 완성 패키지</strong>입니다. 각 카드에는 <strong>(1) 이게 무엇인지</strong>, <strong>(2) 지금 어디까지 됐는지</strong>,
           <strong> (3) 왜 이걸 결정해야 하는지</strong>, <strong>(4) YES/NO 했을 때 다음에 무슨 일이 벌어지는지</strong>까지 적어뒀습니다.
           답은 카드 하단의 답변 코드를 복사해서 채팅으로 보내주시면 됩니다.
         </p>
@@ -209,10 +238,10 @@ export default function ApprovalsSection() {
       </div>
 
       <div className={styles.subSection}>
-        <h3 className={styles.colH}>운영 반영 전 별도 승인 (위 A/B/C와 별개로 단계마다 한 번씩 더)</h3>
+        <h3 className={styles.colH}>운영 반영 전 별도 승인 (위 A/B/C/D와 별개로 단계마다 한 번씩 더)</h3>
         <WhyCallout tone="warning">
-          A/B/C가 「방향 결정」 게이트라면, 아래 5개는 「실제 운영에 손대기 직전」의 마지막 게이트입니다.
-          예: 승인안 B에서 YES를 받아도, 실제로 아임웹 canonical을 바꾸기 직전에 <strong>이 표의 첫 줄</strong>을 다시 한 번 확인합니다.
+          A/B/C/D가 「방향 결정」 게이트라면, 아래 항목은 「실제 운영에 손대기 직전」의 마지막 게이트입니다.
+          예: 승인안 D에서 YES를 받아도, 실제로 아임웹 사용자 코드나 상품 상세를 바꾸기 직전에 <strong>이 표의 관련 줄</strong>을 다시 한 번 확인합니다.
         </WhyCallout>
         <div className={styles.tableWrap}>
           <table className={styles.dataTable}>
