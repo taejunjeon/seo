@@ -121,7 +121,7 @@ export type KpiApiData = {
   current: { clicks: number; impressions: number; ctr: number; avgPosition: number; days: number };
   previous: { clicks: number; impressions: number; ctr: number; avgPosition: number; days: number };
   delta: { clicks: number; ctr: number; position: number };
-  sparklines: { clicks: number[]; ctr: number[]; position: number[] };
+  sparklines: { clicks: number[]; impressions?: number[]; ctr: number[]; position: number[] };
 };
 
 export type TrendPoint = { date: string; clicks: number; impressions: number };

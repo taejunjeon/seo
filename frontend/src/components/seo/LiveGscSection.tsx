@@ -12,7 +12,7 @@ type GscKpi = {
   current: { clicks: number; impressions: number; ctr: number; avgPosition: number; days: number };
   previous: { clicks: number; impressions: number; ctr: number; avgPosition: number; days: number };
   delta: { clicks: number; ctr: number; position: number };
-  sparklines: { clicks: number[]; ctr: number[]; position: number[] };
+  sparklines: { clicks: number[]; impressions?: number[]; ctr: number[]; position: number[] };
 };
 
 const numFmt = new Intl.NumberFormat("ko-KR");
@@ -116,7 +116,7 @@ export default function LiveGscSection() {
             <article className={styles.gscKpiCard}>
               <div className={styles.gscKpiTop}>
                 <div className={styles.gscKpiLabel}>노출수</div>
-                <Sparkline values={data.sparklines.clicks.map((_, i) => data.sparklines.ctr[i] || 0)} color="#3b82f6" />
+                <Sparkline values={data.sparklines.impressions ?? data.sparklines.clicks} color="#3b82f6" />
               </div>
               <div className={styles.gscKpiValue}>{numFmt.format(data.current.impressions)}</div>
               <div className={styles.gscKpiSub}>

@@ -33,7 +33,7 @@ export type GscKpiResponse = {
   current: GscKpiPeriod;
   previous: GscKpiPeriod;
   delta: { clicks: number; ctr: number; position: number };
-  sparklines: { clicks: number[]; ctr: number[]; position: number[] };
+  sparklines: { clicks: number[]; impressions?: number[]; ctr: number[]; position: number[] };
 };
 
 /* ── AI vs Organic ── */

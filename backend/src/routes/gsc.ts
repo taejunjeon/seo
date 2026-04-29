@@ -350,8 +350,8 @@ export const createGscRouter = () => {
      ═══════════════════════════════════════ */
   router.get("/api/gsc/kpi", async (_req: Request, res: Response) => {
     try {
-      // 현재 7일
-      const currentStart = daysAgo(10); // reporting delay
+      // 현재 7일: GSC reporting delay를 감안해 3일 전까지의 7개 날짜를 본다.
+      const currentStart = daysAgo(9);
       const currentEnd = daysAgo(3);
       const current = await queryGscSearchAnalytics({
         startDate: currentStart,
@@ -361,9 +361,9 @@ export const createGscRouter = () => {
         startRow: 0,
       });
 
-      // 이전 7일
-      const prevStart = daysAgo(17);
-      const prevEnd = daysAgo(11);
+      // 이전 7일: 현재 구간 바로 앞 7개 날짜.
+      const prevStart = daysAgo(16);
+      const prevEnd = daysAgo(10);
       const previous = await queryGscSearchAnalytics({
         startDate: prevStart,
         endDate: prevEnd,
@@ -396,6 +396,7 @@ export const createGscRouter = () => {
 
       // 일별 스파크라인
       const dailyClicks = (current.rows as Record<string, unknown>[]).map((r) => (r.clicks as number) ?? 0).slice(-7);
+      const dailyImpressions = (current.rows as Record<string, unknown>[]).map((r) => (r.impressions as number) ?? 0).slice(-7);
       const dailyCtr = (current.rows as Record<string, unknown>[]).map((r) => (r.ctr as number) ?? 0).slice(-7);
       const dailyPosition = (current.rows as Record<string, unknown>[]).map((r) => (r.position as number) ?? 0).slice(-7);
 
@@ -405,10 +406,11 @@ export const createGscRouter = () => {
         delta: {
           clicks: deltaPercent(cur.clicks, prev.clicks),
           ctr: +(cur.ctr * 100 - prev.ctr * 100).toFixed(2),
-          position: +(prev.avgPosition - cur.avgPosition).toFixed(1),
+          position: +(cur.avgPosition - prev.avgPosition).toFixed(1),
         },
         sparklines: {
           clicks: dailyClicks,
+          impressions: dailyImpressions,
           ctr: dailyCtr.map((v) => +(v * 100).toFixed(2)),
           position: dailyPosition.map((v) => +v.toFixed(1)),
         },
