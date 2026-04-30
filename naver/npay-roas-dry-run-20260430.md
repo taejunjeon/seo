@@ -29,6 +29,17 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 | clicked_no_purchase | 208 |
 | intent_pending | 80 |
 
+## Early Phase2 Decision Package
+
+현재 누적 표본으로 먼저 진행할 수 있는 일과 아직 막아야 하는 일을 분리한다. 이 섹션은 승인안 준비용이며, 실제 전송이나 DB 업데이트를 하지 않는다.
+
+| decision_item | status | evidence | next_action |
+| --- | --- | --- | --- |
+| 현재 표본 조기 진행 | 가능 | 296 intents / 11 confirmed NPay orders | BigQuery guard, 수동 검토, GA4 MP 제한 테스트 승인안까지만 진행 |
+| 자동 dispatcher | 금지 | ambiguous 3건 (27.27%), already_in_ga4 unknown 10건 | 7일 후보정 전 자동/대량 전송 금지 |
+| GA4 MP 제한 테스트 | 준비 가능 | A급 production 후보 5건, unknown 5건 | 두 ID 모두 GA4 absent 확인 + TJ 승인 후에만 실제 전송 |
+| clicked_no_purchase 해석 | 가능 | 208건 | 상품/광고키/시간대 가설 작성. audience 전송은 7일 후보정 후 |
+
 ## Order Decisions
 
 | order_number | channel_order_no | order_label | paid_at | amount | product | status | strong_grade | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | intent_product_price | order_item_total | delivery_price | order_payment_amount | amount_delta | amount_match | amount_reconcile_reason | ga_session_id | ad_key | already_in_ga4 | dispatcher_candidate | dispatcher_block_reason | ambiguous_reason | send_allowed |
@@ -55,6 +66,18 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 | same_product_multiple_clicks | 3 | 100% | 202604275329932, 202604289063428, 202604295198830 |
 | amount_not_reconciled | 1 | 33.33% | 202604275329932 |
 | cart_multi_item_possible | 1 | 33.33% | 202604275329932 |
+
+## Manual Review Queue
+
+아래 주문은 자동 전송 후보가 아니다. 수동 검토로 규칙을 보강하거나 전송 제외를 확정해야 한다.
+
+| order_number | channel_order_no | review_group | amount | product | best_score | second_score | score_gap | time_gap_min | amount_match | why_review | dispatch_decision | next_action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 202604275329932 | 2026042761751160 | ambiguous | 117000 | 뉴로마스터 60정 (1개월분) | 60 | 50 | 10 | 0.2 | none | multiple_intents_same_product, same_product_multiple_clicks, amount_not_reconciled, no_member_key, low_score_gap, cart_multi_item_possible | 전송 금지 | 같은 상품 반복 클릭, score_gap, 금액/장바구니 여부를 수동 확인 |
+| 202604289063428 | 2026042865161940 | ambiguous | 496000 | 종합 대사기능&음식물 과민증 검사 Set | 80 | 70 | 10 | 0.3 | final_exact | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | 전송 금지 | 같은 상품 반복 클릭, score_gap, 금액/장바구니 여부를 수동 확인 |
+| 202604283756893 | 2026042875392500 | b_grade_strong | 975000 | 종합 대사기능&음식물 과민증 검사 Set | 50 | 32 | 18 | 7.5 | none | not_a_grade_strong, already_in_ga4_unknown | 전송 금지 | 금액 조정 가능성 또는 장바구니/수량 구조 확인 |
+| 202604295198830 | 2026042916849620 | ambiguous | 496000 | 종합 대사기능&음식물 과민증 검사 Set | 80 | 70 | 10 | 0.6 | final_exact | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | 전송 금지 | 같은 상품 반복 클릭, score_gap, 금액/장바구니 여부를 수동 확인 |
+| 202604303298608 | 2026043043127990 | b_grade_strong | 148200 | 다빈치랩 메가프로바이오틱 ND50 (MEGA PROBIOTIC ND50) 30일분 | 60 | 20 | 40 | 0.7 | none | not_a_grade_strong, already_in_ga4_unknown | 전송 금지 | 금액 조정 가능성 또는 장바구니/수량 구조 확인 |
 
 ## Clicked No Purchase Breakdown
 
@@ -138,6 +161,20 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 | 2026-04-29 15:00 KST | 14 | 6.73% |
 | 2026-04-29 16:00 KST | 6 | 2.88% |
 
+### Action Queue
+
+상위 미결제 클릭 상품은 purchase가 아니라 결제 UX와 리마케팅 검토 후보로만 본다.
+
+| product_idx | product_name | clicked_no_purchase | share | analysis_action | guardrail |
+| --- | --- | --- | --- | --- | --- |
+| 97 | 바이오밸런스 90정 (1개월분) | 51 | 24.52% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 198 | 뉴로마스터 60정 (1개월분) | 38 | 18.27% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 317 | 혈당관리엔 당당케어 (120정) | 38 | 18.27% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 171 | 풍성밸런스 90정 (1개월분) | 19 | 9.13% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 386 | 메타드림 식물성 멜라토닌 함유 | 19 | 9.13% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 328 | 종합 대사기능&음식물 과민증 검사 Set | 18 | 8.65% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 300 | 영데이즈 저속노화 SOD 효소 (15포) | 15 | 7.21% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+
 ## BigQuery Lookup IDs
 
 A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw/purchase에서 조회한다. 둘 중 하나라도 존재하면 `already_in_ga4=present`로 막고, 둘 다 조회해 absent가 확인된 경우에만 dispatcher dry-run 후보가 된다.
@@ -149,6 +186,48 @@ A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw
 | 202604303307399 | 2026043034982320 | 202604303307399, 2026043034982320 | a_grade_production_candidate | unknown | BigQuery 확인 필요 |
 | 202604309992065 | 2026043040116970 | 202604309992065, 2026043040116970 | a_grade_production_candidate | unknown | BigQuery 확인 필요 |
 | 202604302383065 | 2026043043205620 | 202604302383065, 2026043043205620 | a_grade_production_candidate | unknown | BigQuery 확인 필요 |
+
+### BigQuery Query Template
+
+아래 쿼리는 기존 GA4 export dataset `hurdlers-naver-pay.analytics_304759974.events_*` 기준이다. dataset이 바뀌었다면 `<PROJECT>.<GA4_DATASET>`만 바꿔 실행한다. `order_number`와 `channel_order_no` 중 하나라도 조회되면 해당 주문은 `already_in_ga4=present`로 막는다.
+
+```sql
+WITH ids AS (
+  SELECT id
+  FROM UNNEST([
+    '202604280487104',
+    '2026042865542930',
+    '202604285552452',
+    '2026042867285600',
+    '202604303307399',
+    '2026043034982320',
+    '202604309992065',
+    '2026043040116970',
+    '202604302383065',
+    '2026043043205620'
+  ]) AS id
+)
+SELECT
+  event_date,
+  TIMESTAMP_MICROS(event_timestamp) AS event_time,
+  event_name,
+  ecommerce.transaction_id AS ecommerce_transaction_id,
+  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') AS event_param_transaction_id,
+  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'pay_method') AS pay_method,
+  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
+FROM `hurdlers-naver-pay.analytics_304759974.events_*`
+WHERE _TABLE_SUFFIX BETWEEN '20260427' AND '20260504'
+  AND (
+    ecommerce.transaction_id IN (SELECT id FROM ids)
+    OR (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') IN (SELECT id FROM ids)
+    OR EXISTS (
+      SELECT 1
+      FROM UNNEST(event_params) ep
+      WHERE ep.value.string_value IN (SELECT id FROM ids)
+    )
+  )
+ORDER BY event_timestamp;
+```
 
 ## Dispatcher Dry-run Log
 

@@ -2,7 +2,7 @@
 
 작성 시각: 2026-04-30 12:18 KST
 기준일: 2026-04-30
-관련 문서: [[!npay|네이버페이 주문형 결제형 전환 검토]], [[npay-intent-quality-20260430|NPay Intent 수집 품질 점검]], [[GA4/gtm|biocom GTM 컨테이너 상태 정리]]
+관련 문서: [[!npay|네이버페이 주문형 결제형 전환 검토]], [[npay-intent-quality-20260430|NPay Intent 수집 품질 점검]], [[npay-roas-dry-run-20260430]], [[npay-early-phase2-approval-20260430]], [[GA4/gtm|biocom GTM 컨테이너 상태 정리]]
 Primary source: VM SQLite `npay_intent_log`, 운영 주문 원장 `operational_postgres.public.tb_iamweb_users`
 Cross-check: 보호된 `GET /api/attribution/npay-intents`, GTM API live version `139`
 Window: NPay intent는 2026-04-27 18:10 KST 이후, 주문 원장은 dry-run window 기준 `PAYMENT_COMPLETE` NPay 주문
@@ -169,6 +169,8 @@ BigQuery 접근 권한이 아직 열리지 않은 주문은 `already_in_ga4=unkn
 Codex 추천: A안. 자신감 82%.
 
 낮춘 이유: 11건 중 ambiguous 3건으로 아직 비율이 높고, BigQuery `already_in_ga4` 확인이 일부 주문에서 끝나지 않았다. 단, 이 한계는 `실제 전송 금지`의 이유이지 `read-only 진행 중단`의 이유는 아니다.
+
+TJ님이 바로 YES/NO로 판단할 수 있는 별도 승인 문서는 [[npay-early-phase2-approval-20260430]]에 분리했다.
 
 #### 7일 후보정 기준
 

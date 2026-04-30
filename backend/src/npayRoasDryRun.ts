@@ -1379,6 +1379,47 @@ const renderTable = (headers: string[], rows: unknown[][]) => {
 };
 
 export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
+  const gradeAProductionResults = report.orderResults.filter(
+    (result) => result.strongGrade === "A" && result.orderLabel === "production_order",
+  );
+  const bigQueryLookupIds = uniqueNonEmpty(
+    gradeAProductionResults.flatMap((result) => result.ga4LookupIds),
+  );
+  const bigQueryIdLiteral = bigQueryLookupIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ");
+  const ambiguousRate = percent(report.summary.ambiguous, report.summary.confirmedNpayOrderCount);
+  const gradeAProductionCount = gradeAProductionResults.length;
+  const gradeAProductionUnknownCount = gradeAProductionResults.filter(
+    (result) => result.dispatcherDryRun.alreadyInGa4 === "unknown",
+  ).length;
+  const earlyDecisionRows = [
+    [
+      "현재 표본 조기 진행",
+      report.summary.liveIntentCount >= 100 && report.summary.confirmedNpayOrderCount >= 5
+        ? "가능"
+        : "보류",
+      `${report.summary.liveIntentCount} intents / ${report.summary.confirmedNpayOrderCount} confirmed NPay orders`,
+      "BigQuery guard, 수동 검토, GA4 MP 제한 테스트 승인안까지만 진행",
+    ],
+    [
+      "자동 dispatcher",
+      "금지",
+      `ambiguous ${report.summary.ambiguous}건 (${ambiguousRate}%), already_in_ga4 unknown ${report.summary.alreadyInGa4LookupUnknown}건`,
+      "7일 후보정 전 자동/대량 전송 금지",
+    ],
+    [
+      "GA4 MP 제한 테스트",
+      gradeAProductionCount > 0 ? "준비 가능" : "보류",
+      `A급 production 후보 ${gradeAProductionCount}건, unknown ${gradeAProductionUnknownCount}건`,
+      "두 ID 모두 GA4 absent 확인 + TJ 승인 후에만 실제 전송",
+    ],
+    [
+      "clicked_no_purchase 해석",
+      report.summary.clickedNoPurchase >= 50 ? "가능" : "보류",
+      `${report.summary.clickedNoPurchase}건`,
+      "상품/광고키/시간대 가설 작성. audience 전송은 7일 후보정 후",
+    ],
+  ];
+
   const orderRows = report.orderResults.map((result) => [
     result.order.orderNumber,
     result.order.channelOrderNo,
@@ -1448,6 +1489,62 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       result.dispatcherDryRun.alreadyInGa4 === "unknown" ? "BigQuery 확인 필요" : "확인됨",
     ]);
 
+  const manualReviewRows = report.orderResults
+    .filter(
+      (result) =>
+        result.status === "ambiguous" ||
+        result.strongGrade === "B" ||
+        result.status === "purchase_without_intent",
+    )
+    .map((result) => {
+      const best = result.bestCandidate;
+      const group =
+        result.status === "ambiguous"
+          ? "ambiguous"
+          : result.strongGrade === "B"
+            ? "b_grade_strong"
+            : "purchase_without_intent";
+      const why =
+        result.status === "ambiguous"
+          ? result.ambiguousReasons.join(", ")
+          : result.strongGrade === "B"
+            ? result.dispatcherDryRun.blockReasons.join(", ")
+            : "no_intent_candidate";
+      const nextAction =
+        result.status === "ambiguous"
+          ? "같은 상품 반복 클릭, score_gap, 금액/장바구니 여부를 수동 확인"
+          : result.strongGrade === "B"
+            ? "금액 조정 가능성 또는 장바구니/수량 구조 확인"
+            : "GTM selector, 브라우저 차단, 주문 sync 누락 확인";
+
+      return [
+        result.order.orderNumber,
+        result.order.channelOrderNo,
+        group,
+        result.order.orderAmount,
+        result.order.productNames.join(" + "),
+        result.bestScore,
+        result.secondScore,
+        result.scoreGap,
+        best?.timeGapMinutes ?? null,
+        best?.amountMatchType ?? null,
+        why,
+        "전송 금지",
+        nextAction,
+      ];
+    });
+
+  const clickedNoPurchaseActionRows = report.breakdowns.clickedNoPurchase.byProduct
+    .slice(0, 10)
+    .map((row) => [
+      row.productIdx,
+      row.productName,
+      row.count,
+      `${row.sharePct}%`,
+      "상품 상세/가격/배송비/결제 UX 가설 작성",
+      "7일 후보정 전 audience 전송 금지",
+    ]);
+
   const dispatcherRows = report.orderResults.map((result) => [
     result.ga4PayloadPreview.orderNumber,
     result.ga4PayloadPreview.channelOrderNo,
@@ -1515,6 +1612,15 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       ],
     ),
     "",
+    "## Early Phase2 Decision Package",
+    "",
+    "현재 누적 표본으로 먼저 진행할 수 있는 일과 아직 막아야 하는 일을 분리한다. 이 섹션은 승인안 준비용이며, 실제 전송이나 DB 업데이트를 하지 않는다.",
+    "",
+    renderTable(
+      ["decision_item", "status", "evidence", "next_action"],
+      earlyDecisionRows,
+    ),
+    "",
     "## Order Decisions",
     "",
     renderTable(
@@ -1558,6 +1664,29 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       ambiguousReasonRows,
     ),
     "",
+    "## Manual Review Queue",
+    "",
+    "아래 주문은 자동 전송 후보가 아니다. 수동 검토로 규칙을 보강하거나 전송 제외를 확정해야 한다.",
+    "",
+    renderTable(
+      [
+        "order_number",
+        "channel_order_no",
+        "review_group",
+        "amount",
+        "product",
+        "best_score",
+        "second_score",
+        "score_gap",
+        "time_gap_min",
+        "amount_match",
+        "why_review",
+        "dispatch_decision",
+        "next_action",
+      ],
+      manualReviewRows,
+    ),
+    "",
     "## Clicked No Purchase Breakdown",
     "",
     "아래 표는 `clicked_no_purchase` intent만 대상으로 한 read-only 분해다. 구매 전환 전송 대상이 아니며, 리마케팅/결제 UX 점검용이다.",
@@ -1583,6 +1712,22 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       clickedNoPurchaseHourRows,
     ),
     "",
+    "### Action Queue",
+    "",
+    "상위 미결제 클릭 상품은 purchase가 아니라 결제 UX와 리마케팅 검토 후보로만 본다.",
+    "",
+    renderTable(
+      [
+        "product_idx",
+        "product_name",
+        "clicked_no_purchase",
+        "share",
+        "analysis_action",
+        "guardrail",
+      ],
+      clickedNoPurchaseActionRows,
+    ),
+    "",
     "## BigQuery Lookup IDs",
     "",
     "A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw/purchase에서 조회한다. 둘 중 하나라도 존재하면 `already_in_ga4=present`로 막고, 둘 다 조회해 absent가 확인된 경우에만 dispatcher dry-run 후보가 된다.",
@@ -1598,6 +1743,35 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       ],
       bigQueryLookupRows,
     ),
+    "",
+    "### BigQuery Query Template",
+    "",
+    "아래 쿼리는 템플릿이다. `<PROJECT>.<GA4_DATASET>`를 실제 GA4 export dataset으로 바꿔 실행한다. `order_number`와 `channel_order_no` 중 하나라도 조회되면 해당 주문은 `already_in_ga4=present`로 막는다.",
+    "",
+    "```sql",
+    "WITH ids AS (",
+    `  SELECT id FROM UNNEST([${bigQueryIdLiteral || "''"}]) AS id`,
+    ")",
+    "SELECT",
+    "  event_date,",
+    "  event_timestamp,",
+    "  event_name,",
+    "  ecommerce.transaction_id AS ecommerce_transaction_id,",
+    "  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') AS event_param_transaction_id,",
+    "  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'pay_method') AS pay_method",
+    "FROM `<PROJECT>.<GA4_DATASET>.events_*`",
+    "WHERE _TABLE_SUFFIX BETWEEN '20260427' AND '20260504'",
+    "  AND (",
+    "    ecommerce.transaction_id IN (SELECT id FROM ids)",
+    "    OR (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') IN (SELECT id FROM ids)",
+    "    OR EXISTS (",
+    "      SELECT 1",
+    "      FROM UNNEST(event_params) ep",
+    "      WHERE ep.value.string_value IN (SELECT id FROM ids)",
+    "    )",
+    "  )",
+    "ORDER BY event_timestamp;",
+    "```",
     "",
     "## Dispatcher Dry-run Log",
     "",
