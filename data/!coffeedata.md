@@ -4,7 +4,7 @@
 최신 read-only 확인: 2026-05-01 00:52 KST
 문서 성격: 검토안 + 실행 설계안  
 대상 사이트: `thecleancoffee.com`, 더클린커피 아임웹/GA4/BigQuery/NPay/ROAS  
-관련 문서: [[!datacheckplan]], [[!bigquery]], [[iamweb_excel_backfill_review]], [[toss_sync_gap]], [[roasphase]], [[naver/!npayroas|biocom NPay ROAS 정합성 계획]], [[coffee-ga4-baseline-20260501|더클린커피 GA4 BigQuery 기준선 20260501]]
+관련 문서: [[!datacheckplan]], [[!bigquery]], [[iamweb_excel_backfill_review]], [[toss_sync_gap]], [[roasphase]], [[naver/!npayroas|biocom NPay ROAS 정합성 계획]], [[coffee-ga4-baseline-20260501|더클린커피 GA4 BigQuery 기준선 20260501]], [[naver/npay-api-mcp-review-20260501|네이버페이 API와 MCP 검토]]
 Primary source: GA4 BigQuery `project-dadba7dd-0229-4ff6-81c.analytics_326949178`, 운영 Postgres `tb_sales_toss`, `tb_playauto_orders`, 더클린커피 아임웹 엑셀  
 Cross-check: local SQLite `imweb_orders`, `toss_transactions`, existing reconciliation scripts, Naver Commerce API scope check  
 Freshness: `check-source-freshness.ts --json`, 2026-05-01 00:50 KST 실행
@@ -17,7 +17,7 @@ Confidence: 88%
 | 1 | 완료 | Codex | 더클린커피 GA4 BigQuery 기준선을 최신 7일로 뽑는다 | coffee는 BigQuery 접근 가능하므로 GA4 purchase/raw event를 정본 guard로 쓸 수 있는지 먼저 확인해야 한다 | `coffee-ga4-baseline.ts`로 `events_20260423`~`events_20260429` purchase, transaction_id, item, page, source를 집계했다. 결과는 [[coffee-ga4-baseline-20260501]]에 기록했다 | NO, read-only |
 | 2 | 부분 완료 | Codex | GA4 purchase transaction_id와 운영 주문 원장 후보를 read-only로 대조한다 | GA4가 실제 주문을 얼마나 반영하는지 알아야 NPay/ROAS 복구 필요성을 판단할 수 있다 | `tb_sales_toss store=coffee`와 대조해 non-NPay 후보 50건 중 46건 confirmed exact match를 확인했다. NPay actual order는 아직 네이버 원장 권한이 필요하다 | NO, read-only |
 | 3 | 완료 | Codex | coffee용 NPay dry-run 리포트 스펙을 만든다 | biocom에서 만든 `intent -> confirmed order -> BigQuery guard` 구조를 커피에도 재사용할 수 있다 | [[coffee-ga4-baseline-20260501]]에 `order_number`, `channel_order_no`, `amount_match_type`, `already_in_ga4`, `match_grade`, `send_candidate=N` 스키마를 넣었다 | NO, 문서/코드 초안 |
-| 4 | 대기 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 현재 biocom 스코프 Naver Commerce API로 coffee NPay 주문을 조회하면 권한이 막힐 가능성이 높다 | 네이버 커머스/판매자센터에서 더클린커피 스토어 앱 권한 또는 API 인증 정보를 확인한다 | YES, 외부 계정 작업 |
+| 4 | 대기 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 아임웹/호스팅사 사용 가맹점은 주문관리/정산 API가 제한될 수 있어 공식 답변이 필요하다 | [[naver/npay-api-mcp-review-20260501]]의 문의 문구로 네이버 기술지원에 주문형 API 가능 여부를 확인한다 | YES, 외부 계정 작업 |
 | 5 | 대기 | Codex | GA4 NPay형 58건의 실제 주문 여부를 검증한다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 확정해야 한다 | Naver Commerce API 또는 NPay 주문/정산 엑셀을 primary로 두고, GA4 transaction_id와 상품/금액/시간을 read-only 조인한다 | YES, NPay 원장 필요 |
 | 6 | 대기 | Codex | 2025 더클린커피 엑셀을 정합성 원장으로 쓰는 import dry-run을 설계한다 | 커피는 PG/Toss보다 엑셀의 비마스킹 phone/이메일/배송/결제수단 정보 가치가 크다 | 기존 `data/coffee/기본_양식_20260424133106.xlsx` 기준 schema, 중복키, 금액 reconciliation 규칙을 문서화한다 | NO, dry-run까지 |
 | 7 | 대기 | TJ | 2025 결제내역 엑셀과 2024 주문/결제 엑셀 다운로드를 준비한다 | 2025 주문 엑셀만으로는 결제수단/환불/정산 검증이 부족하고, 2024 이전 LTV는 phone 마스킹 문제가 있다 | 아임웹 관리자에서 더클린커피 결제내역/주문내역을 연도별로 다운로드한다 | YES |
@@ -34,7 +34,7 @@ Confidence: 88%
 3. 아임웹 구조가 유사하므로 biocom NPay ROAS에서 만든 `order_number + channel_order_no`, `already_in_ga4 guard`, `amount_match_type`, `A급/B급/ambiguous` 규칙을 재사용할 수 있다.
 4. 더클린커피는 2025년 아임웹 엑셀에 비마스킹 phone/이메일/배송/결제 정보가 있어, LTV와 주문 정합성 분석의 기준 데이터로 쓰기 좋다.
 
-다만 바로 광고 전환 복구를 열면 안 된다. GA4에 `NPAY - ...` transaction_id 패턴 purchase 58건이 있지만, 이것은 actual NPay order confirmed가 아니다. 커피 NPay 실제 주문 원장은 Naver Commerce API 권한이나 NPay 주문/정산 엑셀로 확인해야 하고, local Imweb/Toss 미러는 stale이다. 따라서 다음 목표는 **GA4 NPay형 purchase 58건이 실제 주문인지 read-only로 확정하는 것**이다.
+다만 바로 광고 전환 복구를 열면 안 된다. GA4에 `NPAY - ...` transaction_id 패턴 purchase 58건이 있지만, 이것은 actual NPay order confirmed가 아니다. 커피 NPay 실제 주문 원장은 Naver Commerce API 권한, 네이버 주문형 가맹점 API 권한, 또는 NPay 주문/정산 엑셀로 확인해야 하고, local Imweb/Toss 미러는 stale이다. 2026-05-01 추가 검토 결과 MCP는 문서 검색 보조 도구이지 주문 원장 대체재가 아니다. 따라서 다음 목표는 **GA4 NPay형 purchase 58건이 실제 주문인지 read-only로 확정하는 것**이다.
 
 ## 2026-05-01 Read-only 기준선 업데이트
 
@@ -54,6 +54,7 @@ Confidence: 88%
 | GA4-only non-NPay | 1건, 36,500원 | PlayAuto/Imweb 추가 확인 필요 |
 | Toss canceled인데 GA4 purchase 존재 | 3건 | refund/cancel 처리 확인 필요 |
 | Toss-only confirmed | 3건 | GA4 누락 또는 transaction_id 차이 robust search 필요 |
+| 네이버페이 MCP/API 검토 | [[naver/npay-api-mcp-review-20260501]] | MCP는 개발 보조, 주문 원장은 API/엑셀/운영 DB 필요 |
 
 Auditor verdict: `PASS_WITH_NOTES`. 이번 작업은 BigQuery/운영 Postgres read-only 조회, 문서 작성, read-only 스크립트 추가만 수행했다. 운영 DB write, GTM publish, GA4/Meta/TikTok/Google Ads 전송, 운영 endpoint 배포는 0건이다.
 
