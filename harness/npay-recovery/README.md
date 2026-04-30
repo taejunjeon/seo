@@ -1,0 +1,149 @@
+# NPay Recovery Harness
+
+작성 시각: 2026-04-30 23:16 KST
+상태: 초안
+범위: NPay ROAS 정합성 회복 작업을 위한 문서형 agent harness
+관련 문서: [[harness/!harness|Growth Data Agent Harness 조사]], [[docs/agent-harness/growth-data-harness-v0|Growth Data Harness v0]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]]
+Primary source: `naver/!npayroas.md`, `naver/npay-roas-dry-run-20260430.md`, `backend/src/npayRoasDryRun.ts`, `backend/scripts/npay-roas-dry-run.ts`
+Freshness: NPay 기준 2026-04-30 21:30 KST
+Confidence: 90%
+
+## 10초 요약
+
+이 하네스는 NPay 버튼 클릭 intent와 실제 NPay 결제 주문을 안전하게 매칭하기 위한 작업장이다.
+
+기본값은 read-only와 no-send다. TJ님 승인 전에는 DB `match_status` 업데이트, GA4/Meta/TikTok/Google Ads 전송, 운영 endpoint 배포를 하지 않는다.
+
+## 목적
+
+NPay 버튼을 외부 주문형으로 유지하면서 아래 둘을 분리한다.
+
+1. NPay 버튼을 눌렀지만 결제하지 않은 사람
+2. NPay 버튼을 누르고 실제 결제까지 완료한 사람
+
+이 분리가 되어야 GA4, Meta, TikTok, Google Ads ROAS가 실제 운영 주문 원장과 가까워진다.
+
+## 현재 루프
+
+1. GTM tag 118이 NPay 버튼 클릭 intent를 수집한다.
+2. VM SQLite `npay_intent_log`에 클릭 intent가 저장된다.
+3. 운영 Postgres `public.tb_iamweb_users`에서 confirmed NPay 주문을 읽는다.
+4. dry-run이 intent와 주문을 매칭한다.
+5. 주문을 `A급 strong`, `B급 strong`, `ambiguous`, `purchase_without_intent`로 분류한다.
+6. A급 production 후보는 Imweb `order_number`와 NPay `channel_order_no`를 모두 BigQuery에서 확인한다.
+7. 둘 다 없으면 `robust_absent`, 하나라도 있으면 `present`, 확인 불가면 `unknown`이다.
+8. `robust_absent`인 A급 production 후보만 제한 테스트 승인안에 올라갈 수 있다.
+9. 실제 전송은 human approval 후 최소 수량만 한다.
+10. 전송 후 BigQuery 수신 확인과 중복 방지 상태를 문서화한다.
+
+## Allowed Operations
+
+| Phase | 허용 |
+|---|---|
+| read-only | 로컬 문서 읽기, VM SQLite read-only 조회, 운영 DB read-only 조회, BigQuery 조회 결과 반영 |
+| dispatcher dry-run | 후보 계산, payload preview, idempotency key preview, markdown/JSON report 작성 |
+| approval draft | TJ님이 YES/NO로 판단할 수 있는 승인안 작성 |
+| post-send verification | 승인된 1건의 수신 확인, BigQuery guard 업데이트 문서화 |
+| 7일 후보정 | 같은 로직으로 7일 window 재실행, 규칙 보정 제안 |
+
+## Forbidden Operations
+
+| 금지 | 이유 |
+|---|---|
+| 운영 DB write | match_status가 잘못 바뀌면 원장 오염 |
+| GA4 MP 실제 전송 | 중복/오매칭 전환은 되돌리기 어려움 |
+| Meta CAPI 전송 | 광고 최적화에 직접 영향 |
+| TikTok Events API 전송 | TikTok 식별값 보강 전 오매칭 위험 |
+| Google Ads conversion 전송 | 입찰 학습에 직접 영향이므로 마지막 단계 |
+| GTM publish | 별도 승인 대상 |
+| 운영 endpoint 배포 | 별도 승인 대상 |
+| ambiguous/B급/manual_test_order 전송 후보화 | false positive 방지 |
+| `already_in_ga4=unknown/present` 전송 후보화 | 중복 또는 미확인 리스크 |
+
+## Phase Map
+
+| Phase | 이름 | 목표 | 완료 조건 |
+|---|---|---|---|
+| Phase1 | Intent capture | 버튼 클릭 intent를 안정적으로 저장 | live intent 품질 통과 |
+| Phase2 | Read-only matching | confirmed 주문과 intent를 매칭 | A/B/ambiguous/purchase_without_intent 분리 |
+| Phase2.5 | Dispatcher dry-run | payload 후보만 계산 | send_candidate와 block_reason 출력 |
+| Phase3 | GA4 MP limited test approval | 1-2건 제한 테스트 여부 판단 | 승인안과 payload preview 생성 |
+| Phase3.5 | Post-send verification | 보낸 이벤트 수신/중복 확인 | BigQuery raw/purchase 확인 |
+| Phase4 | 7일 후보정 | 표본 확대 후 기준 재평가 | A급/ambiguous/purchase_without_intent 비율 재계산 |
+
+## A급 strong 기준
+
+아래 조건을 모두 만족해야 한다.
+
+| 기준 | 값 |
+|---|---|
+| score | `>= 70` |
+| amount_match_type | `final_exact`, `shipping_reconciled`, `discount_reconciled`, `quantity_reconciled` 중 하나 |
+| time_gap | `<= 2분` |
+| score_gap | `>= 15` |
+| order_label | `production_order` |
+| already_in_ga4 | limited test 후보는 `robust_absent` |
+| 식별값 | `client_id`와 `ga_session_id` 있음 |
+
+## Block 기준
+
+| 조건 | block_reason |
+|---|---|
+| `manual_test_order` | `manual_test_order` |
+| `ambiguous` | `ambiguous` |
+| B급 strong | `not_a_grade_strong` |
+| `already_in_ga4=present` | `already_in_ga4` |
+| `already_in_ga4=unknown` | `already_in_ga4_unknown` |
+| BigQuery 미조회 | `ga4_guard_missing` |
+| client/session 없음 | `missing_ga_session` 또는 `missing_client_id` |
+
+## Planned Files
+
+| 파일 | 용도 |
+|---|---|
+| `TASK.md` | phase별 task spec |
+| `CONTEXT_PACK.md` | 읽어야 할 로컬 문서와 데이터 소스 |
+| `RULES.md` | 매칭/등급/차단 규칙 |
+| `VERIFY.md` | 검증 명령과 no-send 확인 |
+| `APPROVAL_GATES.md` | 승인 게이트 |
+| `AUDITOR_CHECKLIST.md` | 종료 전 검사 |
+| `LESSONS.md` | 누적 교훈 |
+| `LESSONS_TO_RULES_SCHEMA.md` | 교훈 승격 schema |
+| `EVAL_LOG_SCHEMA.md` | run/eval log schema |
+
+## Pre-completion Checklist
+
+Codex/Claude/ChatGPT는 작업 종료 전 아래를 확인한다.
+
+1. 이번 작업이 read-only인지, limited send인지 phase를 명시했다.
+2. 실제 DB write가 없었다.
+3. 승인 없는 GA4/Meta/TikTok/Google Ads 전송이 없었다.
+4. ambiguous/B급/manual_test_order가 send 후보가 아니다.
+5. `already_in_ga4=unknown/present`가 send 후보가 아니다.
+6. 최신 dry-run 숫자와 문서 숫자가 맞는다.
+7. source/window/freshness/confidence를 기록했다.
+8. unrelated dirty files를 건드리거나 커밋하지 않았다.
+9. 다음 할 일이 TJ/Codex/Claude 중 누구 담당인지 분리했다.
+
+## v0 사용법
+
+사용자 지시 예시:
+
+```text
+NPay recovery harness 기준으로 Phase2 read-only만 진행해.
+```
+
+이때 agent는 아래 순서로 진행한다.
+
+1. 이 README를 읽는다.
+2. `naver/!npayroas.md` 최신 기준을 확인한다.
+3. phase의 allowed/forbidden을 확인한다.
+4. dry-run/report만 만든다.
+5. `AUDITOR_CHECKLIST.md`로 종료 전 검사한다.
+6. 새 예외는 `LESSONS_TO_RULES_SCHEMA.md` 형식으로 남긴다.
+
+## 현재 판단
+
+NPay recovery는 Growth Data Harness의 첫 적용 사례로 적합하다. 루프가 이미 명확하고, 전송/DB write 같은 위험한 side effect가 있어 guard와 approval의 효과가 크다.
+
+다음 단계는 자동화가 아니라 v0 문서 고정이다. v0가 2-3회 반복 사용된 후 CLI wrapper, auditor script, Codex/Claude skill로 확장한다.
