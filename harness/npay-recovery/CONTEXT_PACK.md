@@ -40,7 +40,8 @@ confidence: 90%
 | strong match | 8건 |
 | A급 strong | 6건 |
 | A급 production 후보 | 5건 |
-| GA4 MP 제한 테스트 전송 | 1건 |
+| NPay recovery 전체 기존 GA4 MP 제한 테스트 전송 | 1건 |
+| 이번 harness v0 문서 작업 중 신규 GA4 MP 전송 | 0건 |
 | 남은 dispatcher dry-run 후보 | 4건 |
 | B급 strong | 2건 |
 | ambiguous | 3건 |
@@ -52,6 +53,8 @@ confidence: 90%
 주의:
 
 이 숫자는 report 기준 시각 이후 바뀔 수 있다. 새 작업에서 dry-run을 다시 실행하면 이 표와 다를 수 있다. 다르면 문서를 갱신하거나 `stale_by_design` 이유를 기록한다.
+
+GA4 MP 제한 테스트 1건은 NPay recovery 전체 현재 상태에 포함된 기존 승인 전송이다. 이번 harness v0 문서 작업 중 새로 보낸 전송은 0건이다. 관련 문서는 [[naver/npay-ga4-mp-limited-test-result-20260430|GA4 MP 제한 테스트 결과]]다.
 
 ## 핵심 데이터 소스
 

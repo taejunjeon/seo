@@ -117,6 +117,12 @@ A급 strong의 amount 조건은 `final_exact`, `shipping_reconciled`, `discount_
 
 `cart_contains_item`은 추가 검증 전에는 B급 또는 ambiguous로 둔다.
 
+중요:
+
+`shipping_reconciled`는 dry-run classification에는 적용한다. 배송비 때문에 정상 주문이 B급이나 ambiguous로 밀리는 것을 막기 위해서다.
+
+다만 `shipping_reconciled`는 전송 후보를 넓힐 수 있는 candidate_rule이다. 실제 GA4 MP limited send 후보로 사용할 때는 7일 후보정 또는 TJ님 승인안에서 배송비/상품 subtotal 근거를 별도 확인한다.
+
 ## BigQuery Guard Rules
 
 `already_in_ga4` 판단은 보수적으로 한다.

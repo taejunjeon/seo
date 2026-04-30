@@ -102,6 +102,10 @@ GA4 MP 제한 테스트 후보는 아래를 모두 만족해야 한다.
 9. `score_gap >= 15`.
 10. TJ님이 특정 order_number를 승인.
 
+추가 확인:
+
+`amount_match_type=shipping_reconciled`인 후보는 dry-run A급 분류에 포함될 수 있다. 하지만 실제 limited send 전에는 승인안에 상품 subtotal, 배송비, 최종 결제금액이 모두 표시되어야 한다. TJ님이 이 금액 조정을 승인 범위에 포함하지 않으면 전송하지 않는다.
+
 전송 후:
 
 - 같은 주문은 즉시 `already_in_ga4=present`로 다음 dry-run에서 차단한다.

@@ -63,6 +63,38 @@ rg -n "mp/collect|debug/mp/collect|Measurement Protocol|sendGa4|facebook|CAPI|Co
 - 실제 전송 함수 호출, endpoint 호출, token 사용 코드가 새로 추가됐으면 승인 범위를 확인한다.
 - 승인 없는 실제 전송이면 hard fail이다.
 
+위 `rg`는 일부러 넓게 잡는 1차 검사라 false positive가 많을 수 있다. 최종 판단은 "문서 언급"과 "실행 가능한 새 전송 경로"를 분리한다.
+
+변경된 코드 파일만 좁혀 보려면 먼저 아래로 staged/changed code file을 확인한다.
+
+```bash
+git diff --name-only -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.py'
+git diff --cached --name-only -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.py'
+```
+
+그 다음 변경된 코드 파일에 한해 전송 경로를 확인한다.
+
+```bash
+git diff -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.py' | \
+  rg -n "mp/collect|debug/mp/collect|sendGa4|facebook|CAPI|CompletePayment|conversion upload|googleads|events_api"
+```
+
+보고서에는 아래 3줄을 반드시 남긴다.
+
+```text
+No-send grep matched docs only: YES/NO
+New executable send path added: YES/NO
+Actual network send observed: YES/NO
+```
+
+판정 기준:
+
+| 항목 | PASS |
+|---|---|
+| `No-send grep matched docs only` | 문서 언급만 있으면 YES |
+| `New executable send path added` | 새 실행 코드가 없으면 NO |
+| `Actual network send observed` | 승인 없는 실제 호출이 없으면 NO |
+
 ## No-write 검증
 
 운영 DB write나 match_status 변경이 없는지 확인한다.
@@ -150,12 +182,16 @@ npm exec tsx scripts/check-source-freshness.ts -- --json
 
 ```text
 Auditor verdict: PASS | PASS_WITH_NOTES | FAIL_BLOCKED | NEEDS_HUMAN_APPROVAL
-Phase: read_only | dispatcher_dry_run | approval_draft | limited_send | post_send_verification
+Phase: harness_v0_docs | read_only | dispatcher_dry_run | approval_draft | limited_send | post_send_verification
 No-send verified: YES/NO
 No-write verified: YES/NO
+No-deploy verified: YES/NO
 Candidate guard verified: YES/NO
 Numbers current: YES/NO
 Unrelated dirty files excluded: YES/NO
+No-send grep matched docs only: YES/NO
+New executable send path added: YES/NO
+Actual network send observed: YES/NO
 Notes:
 - ...
 ```
