@@ -11,6 +11,12 @@ export type NpayRoasDryRunOrderStatus =
   | "ambiguous"
   | "purchase_without_intent";
 
+export type NpayRoasDryRunStrongGrade = "A" | "B";
+
+export type NpayRoasDryRunGa4Presence = "present" | "absent" | "unknown";
+
+export type NpayRoasDryRunOrderLabel = "production_order" | "test_order";
+
 export type NpayRoasDryRunIntentStatus =
   | "clicked_purchased_candidate"
   | "clicked_no_purchase"
@@ -145,8 +151,16 @@ export type NpayRoasDryRunCandidate = {
 
 export type NpayRoasDryRunOrderResult = {
   order: NpayRoasDryRunOrder;
+  orderLabel: NpayRoasDryRunOrderLabel;
   status: NpayRoasDryRunOrderStatus;
+  strongGrade: NpayRoasDryRunStrongGrade | null;
   sendAllowed: false;
+  dispatcherDryRun: {
+    candidate: boolean;
+    dryRunOnly: true;
+    alreadyInGa4: NpayRoasDryRunGa4Presence;
+    blockReasons: string[];
+  };
   bestCandidate: NpayRoasDryRunCandidate | null;
   secondCandidate: NpayRoasDryRunCandidate | null;
   bestScore: number | null;
@@ -183,14 +197,25 @@ export type NpayRoasDryRunReport = {
   thresholds: {
     strongScoreThreshold: number;
     minScoreGap: number;
+    gradeA: {
+      minScore: number;
+      requiredAmountMatchType: "exact";
+      maxTimeGapMinutes: number;
+      minScoreGap: number;
+    };
     maxCandidateLookbackHours: number;
   };
   summary: {
     liveIntentCount: number;
     confirmedNpayOrderCount: number;
     strongMatch: number;
+    strongMatchA: number;
+    strongMatchB: number;
     ambiguous: number;
     purchaseWithoutIntent: number;
+    dispatcherDryRunCandidate: number;
+    alreadyInGa4Blocked: number;
+    testOrderBlocked: number;
     clickedPurchasedCandidate: number;
     clickedNoPurchase: number;
     intentPending: number;
@@ -209,8 +234,15 @@ export type NpayRoasDryRunOptions = {
   noPurchaseGraceHours?: number;
   strongScoreThreshold?: number;
   minScoreGap?: number;
+  gradeAMinScore?: number;
+  gradeAMaxTimeGapMinutes?: number;
+  gradeAMinScoreGap?: number;
   maxCandidateLookbackHours?: number;
   maxCandidatesPerOrder?: number;
+  ga4PresentOrderNumbers?: string[];
+  ga4AbsentOrderNumbers?: string[];
+  testOrderNumbers?: string[];
+  orderNumbers?: string[];
 };
 
 const numberValue = (value: unknown): number | null => {
@@ -265,6 +297,14 @@ const splitProductNames = (value: string) =>
 const roundOne = (value: number) => Math.round(value * 10) / 10;
 
 const hasAny = (...values: string[]) => values.some((value) => Boolean(value.trim()));
+
+const normalizeOrderNumberSet = (values: string[] | undefined) =>
+  new Set(
+    (values ?? [])
+      .flatMap((value) => value.split(","))
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
 
 const toIntent = (row: SqliteIntentRow): NpayRoasDryRunIntent => ({
   id: row.id,
@@ -438,6 +478,46 @@ const buildAmbiguousReasons = (
   return Array.from(reasons);
 };
 
+const classifyStrongGrade = (
+  bestCandidate: NpayRoasDryRunCandidate | null,
+  bestScore: number | null,
+  scoreGap: number | null,
+  thresholds: {
+    minScore: number;
+    maxTimeGapMinutes: number;
+    minScoreGap: number;
+  },
+): NpayRoasDryRunStrongGrade | null => {
+  if (!bestCandidate || bestScore === null || scoreGap === null) return null;
+  const isGradeA =
+    bestScore >= thresholds.minScore &&
+    bestCandidate.amountMatchType === "exact" &&
+    bestCandidate.timeGapMinutes <= thresholds.maxTimeGapMinutes &&
+    scoreGap >= thresholds.minScoreGap;
+  return isGradeA ? "A" : "B";
+};
+
+const buildDispatcherDryRunGuard = (
+  status: NpayRoasDryRunOrderStatus,
+  strongGrade: NpayRoasDryRunStrongGrade | null,
+  alreadyInGa4: NpayRoasDryRunGa4Presence,
+  orderLabel: NpayRoasDryRunOrderLabel,
+) => {
+  const blockReasons: string[] = [];
+  if (status !== "strong_match") blockReasons.push(status);
+  if (strongGrade !== "A") blockReasons.push("not_a_grade_strong");
+  if (alreadyInGa4 === "present") blockReasons.push("already_in_ga4");
+  if (alreadyInGa4 === "unknown") blockReasons.push("already_in_ga4_unknown");
+  if (orderLabel === "test_order") blockReasons.push("test_order");
+
+  return {
+    candidate: blockReasons.length === 0,
+    dryRunOnly: true as const,
+    alreadyInGa4,
+    blockReasons,
+  };
+};
+
 const readLiveIntents = (
   sqlitePath: string,
   site: string,
@@ -560,11 +640,20 @@ export const buildNpayRoasDryRunReport = async (
   const noPurchaseGraceHours = options.noPurchaseGraceHours ?? 24;
   const strongScoreThreshold = options.strongScoreThreshold ?? 50;
   const minScoreGap = options.minScoreGap ?? 10;
+  const gradeAMinScore = options.gradeAMinScore ?? 70;
+  const gradeAMaxTimeGapMinutes = options.gradeAMaxTimeGapMinutes ?? 2;
+  const gradeAMinScoreGap = options.gradeAMinScoreGap ?? 15;
   const maxCandidateLookbackHours = options.maxCandidateLookbackHours ?? 24;
   const maxCandidatesPerOrder = options.maxCandidatesPerOrder ?? 25;
+  const ga4PresentOrderNumbers = normalizeOrderNumberSet(options.ga4PresentOrderNumbers);
+  const ga4AbsentOrderNumbers = normalizeOrderNumberSet(options.ga4AbsentOrderNumbers);
+  const testOrderNumbers = normalizeOrderNumberSet(options.testOrderNumbers);
+  const selectedOrderNumbers = normalizeOrderNumberSet(options.orderNumbers);
 
   const intents = readLiveIntents(sqlitePath, site, start, end);
-  const orders = await readConfirmedNpayOrders(start, end);
+  const orders = (await readConfirmedNpayOrders(start, end)).filter(
+    (order) => selectedOrderNumbers.size === 0 || selectedOrderNumbers.has(order.orderNumber),
+  );
   const intentsById = new Map(intents.map((intent) => [intent.id, intent]));
   const candidateOrderNumbersByIntentId = new Map<string, Set<string>>();
   const bestOrderByIntentId = new Map<string, { orderNumber: string; score: number }>();
@@ -619,13 +708,38 @@ export const buildNpayRoasDryRunReport = async (
         ? "strong_match"
         : "ambiguous"
       : "purchase_without_intent";
+    const strongGrade =
+      status === "strong_match"
+        ? classifyStrongGrade(bestCandidate, bestScore, scoreGap, {
+            minScore: gradeAMinScore,
+            maxTimeGapMinutes: gradeAMaxTimeGapMinutes,
+            minScoreGap: gradeAMinScoreGap,
+          })
+        : null;
+    const alreadyInGa4: NpayRoasDryRunGa4Presence = ga4PresentOrderNumbers.has(order.orderNumber)
+      ? "present"
+      : ga4AbsentOrderNumbers.has(order.orderNumber)
+        ? "absent"
+        : "unknown";
+    const orderLabel: NpayRoasDryRunOrderLabel = testOrderNumbers.has(order.orderNumber)
+      ? "test_order"
+      : "production_order";
+    const dispatcherDryRun = buildDispatcherDryRunGuard(
+      status,
+      strongGrade,
+      alreadyInGa4,
+      orderLabel,
+    );
     const ambiguousReasons =
       status === "ambiguous" ? buildAmbiguousReasons(candidates, minScoreGap, scoreGap) : [];
 
     return {
       order,
+      orderLabel,
       status,
+      strongGrade,
       sendAllowed: false,
+      dispatcherDryRun,
       bestCandidate,
       secondCandidate,
       bestScore,
@@ -666,13 +780,29 @@ export const buildNpayRoasDryRunReport = async (
   const orderSummary = orderResults.reduce(
     (acc, result) => {
       acc[result.status] += 1;
+      if (result.strongGrade === "A") acc.strongMatchA += 1;
+      if (result.strongGrade === "B") acc.strongMatchB += 1;
+      if (result.dispatcherDryRun.candidate) acc.dispatcherDryRunCandidate += 1;
+      if (result.dispatcherDryRun.alreadyInGa4 === "present") acc.alreadyInGa4Blocked += 1;
+      if (result.orderLabel === "test_order") acc.testOrderBlocked += 1;
       return acc;
     },
     {
       strong_match: 0,
       ambiguous: 0,
       purchase_without_intent: 0,
-    } as Record<NpayRoasDryRunOrderStatus, number>,
+      strongMatchA: 0,
+      strongMatchB: 0,
+      dispatcherDryRunCandidate: 0,
+      alreadyInGa4Blocked: 0,
+      testOrderBlocked: 0,
+    } as Record<NpayRoasDryRunOrderStatus, number> & {
+      strongMatchA: number;
+      strongMatchB: number;
+      dispatcherDryRunCandidate: number;
+      alreadyInGa4Blocked: number;
+      testOrderBlocked: number;
+    },
   );
   const intentSummary = intentResults.reduce(
     (acc, result) => {
@@ -704,14 +834,25 @@ export const buildNpayRoasDryRunReport = async (
     thresholds: {
       strongScoreThreshold,
       minScoreGap,
+      gradeA: {
+        minScore: gradeAMinScore,
+        requiredAmountMatchType: "exact",
+        maxTimeGapMinutes: gradeAMaxTimeGapMinutes,
+        minScoreGap: gradeAMinScoreGap,
+      },
       maxCandidateLookbackHours,
     },
     summary: {
       liveIntentCount: intents.length,
       confirmedNpayOrderCount: orders.length,
       strongMatch: orderSummary.strong_match,
+      strongMatchA: orderSummary.strongMatchA,
+      strongMatchB: orderSummary.strongMatchB,
       ambiguous: orderSummary.ambiguous,
       purchaseWithoutIntent: orderSummary.purchase_without_intent,
+      dispatcherDryRunCandidate: orderSummary.dispatcherDryRunCandidate,
+      alreadyInGa4Blocked: orderSummary.alreadyInGa4Blocked,
+      testOrderBlocked: orderSummary.testOrderBlocked,
       clickedPurchasedCandidate: intentSummary.clicked_purchased_candidate,
       clickedNoPurchase: intentSummary.clicked_no_purchase,
       intentPending: intentSummary.intent_pending,
@@ -721,7 +862,7 @@ export const buildNpayRoasDryRunReport = async (
     notes: [
       "This report is read-only. It does not update npay_intent_log.match_status.",
       "This report does not send GA4, Meta, TikTok, or Google Ads purchase events.",
-      "Only strong_match rows are future purchase dispatcher candidates; ambiguous and purchase_without_intent rows are blocked.",
+      "Only A-grade strong matches with already_in_ga4=absent are future dispatcher dry-run candidates; B-grade strong, ambiguous, purchase_without_intent, test orders, and already_in_ga4 rows are blocked.",
       "product_idx_match is null because tb_iamweb_users does not expose an order-level product_idx in this read model.",
     ],
   };
@@ -742,10 +883,12 @@ const renderTable = (headers: string[], rows: unknown[][]) => {
 export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
   const orderRows = report.orderResults.map((result) => [
     result.order.orderNumber,
+    result.orderLabel,
     result.order.paidAt,
     result.order.orderAmount,
     result.order.productNames.join(" + "),
     result.status,
+    result.strongGrade,
     result.candidateCount,
     result.bestScore,
     result.secondScore,
@@ -755,6 +898,9 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     result.bestCandidate?.amountMatchType ?? null,
     result.bestCandidate?.gaSessionIdPresent ? "Y" : "N",
     result.bestCandidate?.adClickKeyPresent ? "Y" : "N",
+    result.dispatcherDryRun.alreadyInGa4,
+    result.dispatcherDryRun.candidate ? "Y" : "N",
+    result.dispatcherDryRun.blockReasons.join(", "),
     result.ambiguousReasons.join(", "),
     result.sendAllowed ? "Y" : "N",
   ]);
@@ -793,8 +939,13 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         ["live_intent_count", report.summary.liveIntentCount],
         ["confirmed_npay_order_count", report.summary.confirmedNpayOrderCount],
         ["strong_match", report.summary.strongMatch],
+        ["strong_match_a", report.summary.strongMatchA],
+        ["strong_match_b", report.summary.strongMatchB],
         ["ambiguous", report.summary.ambiguous],
         ["purchase_without_intent", report.summary.purchaseWithoutIntent],
+        ["dispatcher_dry_run_candidate", report.summary.dispatcherDryRunCandidate],
+        ["already_in_ga4_blocked", report.summary.alreadyInGa4Blocked],
+        ["test_order_blocked", report.summary.testOrderBlocked],
         ["clicked_purchased_candidate", report.summary.clickedPurchasedCandidate],
         ["clicked_no_purchase", report.summary.clickedNoPurchase],
         ["intent_pending", report.summary.intentPending],
@@ -806,10 +957,12 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     renderTable(
       [
         "order_number",
+        "order_label",
         "paid_at",
         "amount",
         "product",
         "status",
+        "strong_grade",
         "candidate_count",
         "best_score",
         "second_score",
@@ -819,6 +972,9 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "amount_match",
         "ga_session_id",
         "ad_key",
+        "already_in_ga4",
+        "dispatcher_candidate",
+        "dispatcher_block_reason",
         "ambiguous_reason",
         "send_allowed",
       ],
@@ -853,5 +1009,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     "- 아직 purchase dispatcher를 열지 않는다.",
     "- 이 리포트는 DB 상태를 바꾸지 않는다.",
     "- 이 리포트는 GA4/Meta/TikTok/Google Ads purchase 전송을 하지 않는다.",
+    "- A급 strong만 향후 dispatcher dry-run 후보이며, B급 strong은 첫 dispatcher 후보에서 제외한다.",
+    "- already_in_ga4가 present 또는 unknown이면 전송 후보에서 제외한다.",
+    "- test_order 라벨 주문은 전송 후보에서 제외한다.",
   ].join("\n");
 };

@@ -197,6 +197,12 @@ const readOne = (value: unknown) => {
   return typeof value === "string" ? value.trim() : "";
 };
 
+const readCsvList = (value: unknown) =>
+  readOne(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 const readBearerToken = (req: Request) => {
   const authorization = req.header("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
@@ -1565,6 +1571,10 @@ export const createAttributionRouter = () => {
         start: readOne(req.query.start),
         end: readOne(req.query.end),
         site: readOne(req.query.site) || "biocom",
+        ga4PresentOrderNumbers: readCsvList(req.query.ga4PresentOrderNumbers || req.query.ga4Present),
+        ga4AbsentOrderNumbers: readCsvList(req.query.ga4AbsentOrderNumbers || req.query.ga4Absent),
+        testOrderNumbers: readCsvList(req.query.testOrderNumbers || req.query.testOrders),
+        orderNumbers: readCsvList(req.query.orderNumbers || req.query.orderNumber),
       });
 
       res.json(report);

@@ -6,8 +6,8 @@
 Primary source: VM SQLite `npay_intent_log`, 운영 주문 원장 `operational_postgres.public.tb_iamweb_users`
 Cross-check: 보호된 `GET /api/attribution/npay-intents`, GTM API live version `139`
 Window: NPay intent는 2026-04-27 18:10 KST 이후, 주문 원장은 dry-run window 기준 `PAYMENT_COMPLETE` NPay 주문
-Freshness: VM SQLite snapshot `2026-04-30 15:25 KST`, dry-run report `2026-04-30 15:27 KST`, 분석 window end `2026-04-30 14:56:56 KST`
-Confidence: 86%
+Freshness: VM SQLite snapshot `2026-04-30 15:25 KST`, dry-run report `2026-04-30 16:06 KST`, 분석 window end `2026-04-30 14:56:56 KST`
+Confidence: 88%
 
 ## 10초 요약
 
@@ -17,7 +17,7 @@ Confidence: 86%
 
 가장 큰 병목은 `intent`와 `실제 NPay 주문`을 붙이는 매칭 dry-run이다. 이 매칭이 통과해야 GA4 Measurement Protocol, Meta CAPI, TikTok Events API로 confirmed purchase를 보낼 수 있다.
 
-2026-04-30 14:56 KST에 현재까지 쌓인 데이터로 예비 dry-run을 돌렸다. live intent 264건과 confirmed NPay 주문 7건을 read-only로 대조했고, strong match 4건, ambiguous 3건이 나왔다. 이 결과는 전환 전송용 확정값이 아니라 매칭 규칙 점검용이다.
+2026-04-30 14:56 KST에 현재까지 쌓인 데이터로 예비 dry-run을 돌렸다. live intent 264건과 BigQuery 수동 확인 대상 confirmed NPay 주문 7건을 read-only로 대조했고, strong match 4건을 A급 3건/B급 1건으로 나눴다. ambiguous는 3건이다. 이 결과는 전환 전송용 확정값이 아니라 매칭 규칙 점검용이다.
 
 ## Phase-Sprint 요약표
 
@@ -96,9 +96,11 @@ Confidence: 86%
 | intent 첫 수집 | 2026-04-27 18:16:44 KST |
 | intent 최신 수집 | 2026-04-30 14:56:22 KST |
 | live intent | 264건 |
-| confirmed NPay 주문 | 7건 |
-| 강한 매칭 후보 | 4건 |
-| 약하거나 애매한 후보 | 3건 |
+| BigQuery 확인 대상 confirmed NPay 주문 | 7건 |
+| strong match | 4건 |
+| A급 strong | 3건 |
+| B급 strong | 1건 |
+| ambiguous | 3건 |
 | 완전 미매칭 주문 | 0건 |
 
 ### 해석
@@ -107,7 +109,11 @@ Confidence: 86%
 
 다만 7건 중 3건은 후보가 여러 개라 애매하다. 예를 들어 같은 상품을 몇 분 간격으로 여러 번 누른 기록이 있으면 어떤 클릭이 최종 결제로 이어졌는지 확정하기 어렵다.
 
-따라서 지금 결과는 `purchase 전송 가능`이 아니라 `예비 매칭 가능`으로 봐야 한다.
+또한 strong 4건 중 `202604283756893`는 score 50, 결제까지 7.5분, amount_match none이라 B급으로 내렸다. 첫 dispatcher dry-run 후보는 A급 3건만 본다.
+
+BigQuery에서 이 7개 order_number는 GA4 purchase뿐 아니라 전체 event_name 기준 raw event에서도 조회되지 않았다고 기록한다. 따라서 NPay return/GA4 누락 문제와 GA4 MP 복구 필요성은 더 강해졌다. 단, 이미 GA4에 있는 주문을 중복 전송하지 않기 위해 dispatcher dry-run에는 `already_in_ga4` guard를 반드시 둔다.
+
+따라서 지금 결과는 `purchase 전송 가능`이 아니라 `예비 매칭 가능 + dispatcher 후보 등급화`로 봐야 한다.
 
 ### 현재 기준 판단
 
@@ -141,10 +147,35 @@ npm exec tsx scripts/npay-roas-dry-run.ts -- \
   --format=markdown
 ```
 
+BigQuery에서 이미 GA4에 있는 주문을 확인한 뒤에는 아래처럼 guard 입력을 같이 넣는다. `ga4-present`에 들어간 주문은 전송 후보에서 제외된다. `ga4-absent`에 들어간 주문만 A급 후보 검토가 가능하다.
+
+```bash
+cd backend
+NPAY_INTENT_DB_PATH=/home/biocomkr_sns/seo/shared/backend-data/crm.sqlite3 \
+npm exec tsx scripts/npay-roas-dry-run.ts -- \
+  --start=2026-04-27T09:10:00.000Z \
+  --end=2026-05-04T09:10:00.000Z \
+  --ga4-present=<이미_GA4에_있는_order_number_쉼표목록> \
+  --ga4-absent=<GA4에_없는_order_number_쉼표목록> \
+  --format=markdown
+```
+
+TJ님 테스트 결제 주문은 아래처럼 라벨링한다. `test_order`는 매칭 검증에는 쓰지만 dispatcher 후보에서는 자동 제외된다.
+
+```bash
+cd backend
+NPAY_INTENT_DB_PATH=/home/biocomkr_sns/seo/shared/backend-data/crm.sqlite3 \
+npm exec tsx scripts/npay-roas-dry-run.ts -- \
+  --start=2026-04-27T09:10:00.000Z \
+  --end=2026-05-04T09:10:00.000Z \
+  --test-order=<테스트_NPay_order_number> \
+  --format=markdown
+```
+
 JSON API 초안은 같은 로직을 쓴다. 운영 배포 후에는 `NPAY_INTENT_ADMIN_TOKEN` 또는 bearer token이 있어야 조회된다.
 
 ```http
-GET /api/attribution/npay-roas-dry-run?start=2026-04-27T09:10:00.000Z&end=2026-05-04T09:10:00.000Z
+GET /api/attribution/npay-roas-dry-run?start=2026-04-27T09:10:00.000Z&end=2026-05-04T09:10:00.000Z&ga4Absent=202604280487104,202604285552452&testOrders=202605041234567
 x-admin-token: <NPAY_INTENT_ADMIN_TOKEN>
 ```
 
@@ -153,24 +184,26 @@ x-admin-token: <NPAY_INTENT_ADMIN_TOKEN>
 ### 예비 dry-run 상세 테이블
 
 Source: VM SQLite `npay_intent_log` readonly snapshot, 운영 Postgres `public.tb_iamweb_users` readonly
-Generated: 2026-04-30 15:27 KST
+Generated: 2026-04-30 16:06 KST
 Window: 2026-04-27 18:10:00 KST ~ 2026-04-30 14:56:56 KST
 Freshness: VM snapshot 생성 시점 최신 live intent는 2026-04-30 15:21:31 KST까지 존재했으나, 아래 표는 사용자 요청 기준인 14:56 window로 고정했다.
-Confidence: 86%
+Confidence: 88%
 
-| order_number | order_paid_at(KST) | order_amount | payment_method | product_name | 후보 intent 수 | best_score | second_score | 점수차 | 결제까지 걸린 시간 | product_idx_match | product_name_match | amount_match | client_id | ga_session_id | ad click/pixel key | 최종 상태 | ambiguous reason | 전송 |
-|---|---:|---:|---|---|---:|---:|---:|---:|---:|---|---|---|---|---|---|---|---|---|
-| `202604275329932` | 2026-04-27 22:52:16 | 117,000 | NAVERPAY_ORDER | 뉴로마스터 60정 (1개월분) | 15 | 60 | 50 | 10 | 0.2분 | N/A | exact | none | 있음 | 있음 | fbp | ambiguous | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | 금지 |
-| `202604289063428` | 2026-04-28 04:24:52 | 496,000 | NAVERPAY_ORDER | 종합 대사기능&음식물 과민증 검사 Set | 25 | 80 | 70 | 10 | 0.3분 | N/A | exact | exact | 있음 | 있음 | fbp | ambiguous | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | 금지 |
-| `202604280487104` | 2026-04-28 06:13:24 | 35,000 | NAVERPAY_ORDER | 뉴로마스터 60정 (1개월분) | 25 | 80 | 52 | 28 | 0.3분 | N/A | exact | exact | 있음 | 있음 | fbclid, fbc, fbp | strong_match | - | 금지 |
-| `202604285552452` | 2026-04-28 08:27:09 | 496,000 | NAVERPAY_ORDER | 종합 대사기능&음식물 과민증 검사 Set | 25 | 70 | 52 | 18 | 1.4분 | N/A | exact | exact | 있음 | 있음 | fbp | strong_match | - | 금지 |
-| `202604283756893` | 2026-04-28 13:03:41 | 975,000 | NAVERPAY_ORDER | 종합 대사기능&음식물 과민증 검사 Set | 25 | 50 | 32 | 18 | 7.5분 | N/A | exact | none | 있음 | 있음 | fbp | strong_match | - | 금지 |
-| `202604295198830` | 2026-04-29 14:22:18 | 496,000 | NAVERPAY_ORDER | 종합 대사기능&음식물 과민증 검사 Set | 25 | 80 | 70 | 10 | 0.6분 | N/A | exact | exact | 있음 | 있음 | fbp | ambiguous | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | 금지 |
-| `202604309992065` | 2026-04-30 12:41:30 | 35,000 | NAVERPAY_ORDER | 뉴로마스터 60정 (1개월분) | 25 | 80 | 52 | 28 | 0.7분 | N/A | exact | exact | 있음 | 있음 | fbp | strong_match | - | 금지 |
+| order_number | order_paid_at(KST) | order_amount | product_name | 후보 intent 수 | best_score | second_score | 점수차 | 결제까지 걸린 시간 | amount_match | already_in_ga4 | 최종 상태 | strong grade | dispatcher 후보 | block reason | 전송 |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---|---|---|---|---|---|---|
+| `202604275329932` | 2026-04-27 22:52:16 | 117,000 | 뉴로마스터 60정 (1개월분) | 15 | 60 | 50 | 10 | 0.2분 | none | absent | ambiguous | - | N | ambiguous, not_a_grade_strong | 금지 |
+| `202604289063428` | 2026-04-28 04:24:52 | 496,000 | 종합 대사기능&음식물 과민증 검사 Set | 25 | 80 | 70 | 10 | 0.3분 | exact | absent | ambiguous | - | N | ambiguous, not_a_grade_strong | 금지 |
+| `202604280487104` | 2026-04-28 06:13:24 | 35,000 | 뉴로마스터 60정 (1개월분) | 25 | 80 | 52 | 28 | 0.3분 | exact | absent | strong_match | A | Y | - | 금지 |
+| `202604285552452` | 2026-04-28 08:27:09 | 496,000 | 종합 대사기능&음식물 과민증 검사 Set | 25 | 70 | 52 | 18 | 1.4분 | exact | absent | strong_match | A | Y | - | 금지 |
+| `202604283756893` | 2026-04-28 13:03:41 | 975,000 | 종합 대사기능&음식물 과민증 검사 Set | 25 | 50 | 32 | 18 | 7.5분 | none | absent | strong_match | B | N | not_a_grade_strong | 금지 |
+| `202604295198830` | 2026-04-29 14:22:18 | 496,000 | 종합 대사기능&음식물 과민증 검사 Set | 25 | 80 | 70 | 10 | 0.6분 | exact | absent | ambiguous | - | N | ambiguous, not_a_grade_strong | 금지 |
+| `202604309992065` | 2026-04-30 12:41:30 | 35,000 | 뉴로마스터 60정 (1개월분) | 25 | 80 | 52 | 28 | 0.7분 | exact | absent | strong_match | A | Y | - | 금지 |
 
 `product_idx_match`가 N/A인 이유는 `tb_iamweb_users` read model에 주문 상품의 아임웹 `product_idx`가 없다. 현재는 상품명과 금액을 기준으로만 본다.
 
-`strong_match`도 아직 전송 금지다. 여기서 strong은 "향후 dispatcher 후보"라는 뜻이지, 승인 없이 GA4/Meta/TikTok/Google Ads로 보낸다는 뜻이 아니다. ambiguous 3건은 자동 전송 금지로 고정한다.
+`strong_match`도 아직 전송 금지다. 여기서 A급 strong은 "향후 dispatcher dry-run 후보"라는 뜻이지, 승인 없이 GA4/Meta/TikTok/Google Ads로 보낸다는 뜻이 아니다. B급 strong과 ambiguous 3건은 첫 dispatcher 후보에서 제외한다.
+
+A급 기준은 `score >= 70`, `amount_match=exact`, `time_gap <= 2분`, `score_gap >= 15`다. B급 strong은 strong_match이지만 이 조건을 하나라도 만족하지 못한 주문이다.
 
 ▲ [[#Phase-Sprint 요약표|요약표로]]
 
@@ -290,7 +323,16 @@ confirmed NPay 주문은 아래 조건으로 본다.
 
 `strong_match`는 `best_score >= 50`이고 `best_score - second_score > 10`일 때만 붙인다. 점수차가 정확히 10점이면 아직 동점권으로 보고 `ambiguous`다.
 
-중요: `strong_match`도 아직 purchase 전송 허가가 아니다. 지금 단계의 strong은 "향후 dispatcher 후보"라는 뜻이고, 실제 GA4/Meta/TikTok/Google Ads 전송은 별도 승인 전까지 금지다.
+strong은 다시 A급/B급으로 나눈다.
+
+| 등급 | 기준 | 첫 dispatcher 후보 |
+|---|---|---|
+| A급 strong | `score >= 70`, `amount_match=exact`, `time_gap <= 2분`, `score_gap >= 15` | 가능 |
+| B급 strong | strong_match지만 A급 조건 중 하나라도 실패 | 제외 |
+
+중요: A급 strong도 아직 purchase 전송 허가가 아니다. 지금 단계의 A급은 "향후 dispatcher dry-run 후보"라는 뜻이고, 실제 GA4/Meta/TikTok/Google Ads 전송은 별도 승인 전까지 금지다.
+
+dispatcher dry-run은 `already_in_ga4` guard를 반드시 본다. BigQuery에서 같은 `transaction_id`가 GA4 purchase 또는 raw event로 이미 존재하면 `already_in_ga4=present`로 표시하고 전송 후보에서 제외한다. BigQuery 확인이 아직 안 된 주문은 `already_in_ga4=unknown`으로 두고 역시 전송 후보에서 제외한다.
 
 ### 산출물
 
@@ -319,6 +361,8 @@ confirmed NPay 주문은 아래 조건으로 본다.
 |---|---|
 | intent 생성 직후 | `intent_pending` |
 | intent 이후 24시간 안에 confirmed NPay 주문 strong 매칭 | `clicked_purchased_candidate` |
+| strong_match이고 A급 조건 충족, `already_in_ga4=absent` | dispatcher dry-run 후보 |
+| strong_match지만 B급 조건 | 첫 dispatcher 후보 제외 |
 | intent 이후 24시간 동안 주문 없음 | `clicked_no_purchase` |
 | 후보 주문은 있지만 점수차가 좁거나 후보가 여러 개 | `ambiguous` |
 | confirmed NPay 주문이 있는데 intent 없음 | `purchase_without_intent` |
@@ -328,7 +372,7 @@ confirmed NPay 주문은 아래 조건으로 본다.
 | 그룹 | 의미 | 활용 |
 |---|---|---|
 | `clicked_no_purchase` | 결제창까지 갔다가 빠진 사람 | 리마케팅, 결제 UX 점검, 상품별 이탈률 확인 |
-| `clicked_purchased_candidate` | 실제 NPay 구매 strong 후보 | 광고 ROAS, GA4/Meta/TikTok confirmed purchase 후보 |
+| `clicked_purchased_candidate` | 실제 NPay 구매 strong 후보 | A/B 등급과 GA4 중복 guard를 거쳐 dispatcher 후보 판단 |
 | `purchase_without_intent` | 수집 누락 또는 다른 경로 구매 | GTM selector, 브라우저 차단, 주문 sync 보정 |
 | `ambiguous` | 확정 위험 | 수동 검토 또는 전송 제외 |
 
@@ -346,10 +390,10 @@ confirmed NPay 주문은 아래 조건으로 본다.
 
 | 플랫폼 | 보낼 이벤트 | 조건 | 현재 판단 |
 |---|---|---|---|
-| GA4 | Measurement Protocol `purchase` | `clicked_purchased_candidate` 중 승인된 주문 | 7일 dry-run 후 승인 |
-| Meta | CAPI `Purchase` | `fbp` 또는 `fbc/fbclid` 있고 주문 매칭 확정 | 7일 dry-run 후 승인 |
-| TikTok | Events API `CompletePayment` | `ttclid` 또는 `_ttp` 확보 후 주문 매칭 확정 | 식별값 수집 보강 필요 |
-| Google Ads | confirmed conversion 또는 offline conversion | `gclid/gbraid/wbraid` 있고 주문 매칭 확정 | 별도 승인 필요 |
+| GA4 | Measurement Protocol `purchase` | A급 strong, `already_in_ga4=absent`, 테스트 주문 아님 | 7일 dry-run 후 승인 |
+| Meta | CAPI `Purchase` | A급 strong, `fbp` 또는 `fbc/fbclid` 있음, `already_in_ga4=absent` | 7일 dry-run 후 승인 |
+| TikTok | Events API `CompletePayment` | A급 strong + `ttclid` 또는 `_ttp` 확보 후 | 식별값 수집 보강 필요 |
+| Google Ads | confirmed conversion 또는 offline conversion | A급 strong + `gclid/gbraid/wbraid` 있음 | 마지막 단계, 별도 승인 필요 |
 
 ### TikTok 보강 필요
 
@@ -372,6 +416,10 @@ confirmed NPay 주문은 아래 조건으로 본다.
 | `clicked_no_purchase` | 명확히 미구매다 |
 | `ambiguous` | 다른 주문에 잘못 붙일 수 있다 |
 | `purchase_without_intent` | 광고 attribution이 불명확하다 |
+| B급 strong | 매칭은 가능하지만 첫 dispatcher 후보 기준 미달 |
+| `already_in_ga4=present` | 이미 GA4에 있는 주문이라 중복 전송 위험 |
+| `already_in_ga4=unknown` | BigQuery 중복 확인 전이라 보수적으로 보류 |
+| `test_order` | 검증용 결제라 광고 최적화에 보내면 안 된다 |
 | 중복 dispatch 기록 있음 | 같은 주문을 두 번 보낼 수 있다 |
 
 ▲ [[#Phase-Sprint 요약표|요약표로]]
@@ -387,6 +435,11 @@ confirmed NPay 주문은 아래 조건으로 본다.
 | NPay intent 수 | 버튼 클릭 시도 |
 | confirmed NPay 주문 수 | 실제 NPay 결제 |
 | clicked_purchased_candidate 수 | 클릭과 주문이 strong 후보로 붙은 구매 |
+| A급 strong 수 | 첫 dispatcher dry-run 후보가 될 수 있는 주문 |
+| B급 strong 수 | strong이지만 첫 dispatcher 후보에서 제외할 주문 |
+| already_in_ga4 present 수 | 중복 전송 차단 주문 |
+| already_in_ga4 unknown 수 | BigQuery 확인 전 보류 주문 |
+| test_order 수 | TJ 테스트 결제 등 광고 전송 제외 주문 |
 | clicked_no_purchase 수 | 버튼 클릭 후 미결제 |
 | purchase_without_intent 수 | intent 누락 가능성 |
 | ambiguous 수 | 자동 전송하면 위험한 후보 |
@@ -398,9 +451,11 @@ confirmed NPay 주문은 아래 조건으로 본다.
 | 항목 | Go 기준 |
 |---|---:|
 | intent 핵심 필드 채움률 | `client_id`, `ga_session_id`, `product_idx` 90% 이상 |
-| 자동 매칭률 | confirmed NPay 주문의 70% 이상 |
+| A급 strong 비율 | confirmed NPay 주문의 50% 이상부터 검토 |
+| B급 strong 처리 | 첫 dispatcher 후보 제외 |
 | ambiguous 비율 | confirmed NPay 주문의 10% 이하 |
 | purchase_without_intent 비율 | confirmed NPay 주문의 20% 이하 |
+| already_in_ga4 확인률 | dispatcher 후보 주문 100% |
 | 중복 dispatch | 0건 |
 
 이 기준은 첫 운영 기준이다. 실제 7일 dry-run 결과가 나오면 조정한다.
@@ -409,11 +464,12 @@ confirmed NPay 주문은 아래 조건으로 본다.
 
 | 순서 | 담당 | 무엇을 하는가 | 왜 하는가 | 어떻게 하는가 | 산출물 |
 |---:|---|---|---|---|---|
-| 1 | Codex | 7일 dry-run 쿼리를 만든다 | 클릭자와 결제자를 분리해야 purchase 전송 가능 여부를 판단한다 | `npay_intent_log`와 confirmed NPay 주문을 read-only로 매칭 | matched/ambiguous/unmatched 표 |
-| 2 | Codex | TikTok 식별값 수집 보강안을 만든다 | TikTok ROAS는 현재 v1 필드만으로 부족하다 | `ttclid`, `_ttp`, TikTok UTM 추가 범위 산정 | 승인안 |
-| 3 | TJ | TikTok 필드 추가 여부를 승인한다 | 운영 스키마/GTM payload 변경 가능성이 있다 | 승인 또는 보류 답변 | YES/NO |
-| 4 | Codex | dispatcher dry-run을 만든다 | purchase 전송 전에 중복과 금액 오류를 막는다 | GA4/Meta/TikTok 전송 payload를 로그만 남긴다 | dry-run dispatch log |
-| 5 | TJ | 실제 전송 순서를 승인한다 | 광고 플랫폼 신호가 바뀐다 | GA4 먼저, Meta 다음, TikTok은 식별값 보강 후 | 단계별 승인 |
+| 1 | Codex | 7일 dry-run을 재실행한다 | 2.9일치가 아니라 7일치 기준으로 A/B/ambiguous를 봐야 한다 | `--start=2026-04-27T09:10:00.000Z --end=2026-05-04T09:10:00.000Z` | 7일 리포트 |
+| 2 | TJ | dispatcher 후보 주문의 BigQuery 존재 여부를 확인한다 | 이미 GA4에 있는 주문을 MP로 다시 보내면 중복이다 | `transaction_id`를 purchase와 전체 event_name 기준으로 조회 | `ga4-present`, `ga4-absent` 목록 |
+| 3 | Codex | BigQuery guard가 반영된 dispatcher dry-run을 만든다 | purchase 전송 전에 중복과 금액 오류를 막는다 | A급 strong + already_in_ga4=absent만 payload 후보로 표시 | dry-run dispatch log |
+| 4 | TJ | 테스트 NPay 결제 1건을 수행한다 | 실제 클릭→결제 매칭이 의도대로 되는지 검증한다 | 주문번호를 Codex에게 전달하고 `--test-order=`로 라벨링 | test_order 리포트 |
+| 5 | Codex | TikTok 식별값 수집 보강안을 만든다 | TikTok ROAS는 현재 v1 필드만으로 부족하다 | `ttclid`, `_ttp`, TikTok UTM 추가 범위 산정 | 승인안 |
+| 6 | TJ | 실제 전송 순서를 승인한다 | 광고 플랫폼 신호가 바뀐다 | GA4 먼저, Meta 다음, Google Ads 마지막, TikTok은 식별값 보강 후 | 단계별 승인 |
 
 ▲ [[#Phase-Sprint 요약표|요약표로]]
 

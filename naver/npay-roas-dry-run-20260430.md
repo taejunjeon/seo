@@ -1,6 +1,6 @@
 # NPay ROAS Dry-run Report
 
-Generated at: 2026-04-30T06:27:11.660Z
+Generated at: 2026-04-30T07:06:49.152Z
 Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T05:56:56.299Z
 
 ## Summary
@@ -10,23 +10,28 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T05:56:56.299Z
 | live_intent_count | 264 |
 | confirmed_npay_order_count | 7 |
 | strong_match | 4 |
+| strong_match_a | 3 |
+| strong_match_b | 1 |
 | ambiguous | 3 |
 | purchase_without_intent | 0 |
+| dispatcher_dry_run_candidate | 3 |
+| already_in_ga4_blocked | 0 |
+| test_order_blocked | 0 |
 | clicked_purchased_candidate | 4 |
 | clicked_no_purchase | 185 |
 | intent_pending | 75 |
 
 ## Order Decisions
 
-| order_number | paid_at | amount | product | status | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | amount_match | ga_session_id | ad_key | ambiguous_reason | send_allowed |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604275329932 | 2026-04-27T13:52:16.000Z | 117000 | 뉴로마스터 60정 (1개월분) | ambiguous | 15 | 60 | 50 | 10 | 0.2 | exact | none | Y | Y | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | N |
-| 202604289063428 | 2026-04-27T19:24:52.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | ambiguous | 25 | 80 | 70 | 10 | 0.3 | exact | exact | Y | Y | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | N |
-| 202604280487104 | 2026-04-27T21:13:24.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | 25 | 80 | 52 | 28 | 0.3 | exact | exact | Y | Y | - | N |
-| 202604285552452 | 2026-04-27T23:27:09.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | strong_match | 25 | 70 | 52 | 18 | 1.4 | exact | exact | Y | Y | - | N |
-| 202604283756893 | 2026-04-28T04:03:41.000Z | 975000 | 종합 대사기능&음식물 과민증 검사 Set | strong_match | 25 | 50 | 32 | 18 | 7.5 | exact | none | Y | Y | - | N |
-| 202604295198830 | 2026-04-29T05:22:18.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | ambiguous | 25 | 80 | 70 | 10 | 0.6 | exact | exact | Y | Y | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | N |
-| 202604309992065 | 2026-04-30T03:41:30.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | 25 | 80 | 52 | 28 | 0.7 | exact | exact | Y | Y | - | N |
+| order_number | order_label | paid_at | amount | product | status | strong_grade | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | amount_match | ga_session_id | ad_key | already_in_ga4 | dispatcher_candidate | dispatcher_block_reason | ambiguous_reason | send_allowed |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 202604275329932 | production_order | 2026-04-27T13:52:16.000Z | 117000 | 뉴로마스터 60정 (1개월분) | ambiguous | - | 15 | 60 | 50 | 10 | 0.2 | exact | none | Y | Y | absent | N | ambiguous, not_a_grade_strong | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | N |
+| 202604289063428 | production_order | 2026-04-27T19:24:52.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | ambiguous | - | 25 | 80 | 70 | 10 | 0.3 | exact | exact | Y | Y | absent | N | ambiguous, not_a_grade_strong | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | N |
+| 202604280487104 | production_order | 2026-04-27T21:13:24.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | A | 25 | 80 | 52 | 28 | 0.3 | exact | exact | Y | Y | absent | Y | - | - | N |
+| 202604285552452 | production_order | 2026-04-27T23:27:09.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | strong_match | A | 25 | 70 | 52 | 18 | 1.4 | exact | exact | Y | Y | absent | Y | - | - | N |
+| 202604283756893 | production_order | 2026-04-28T04:03:41.000Z | 975000 | 종합 대사기능&음식물 과민증 검사 Set | strong_match | B | 25 | 50 | 32 | 18 | 7.5 | exact | none | Y | Y | absent | N | not_a_grade_strong | - | N |
+| 202604295198830 | production_order | 2026-04-29T05:22:18.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | ambiguous | - | 25 | 80 | 70 | 10 | 0.6 | exact | exact | Y | Y | absent | N | ambiguous, not_a_grade_strong | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | N |
+| 202604309992065 | production_order | 2026-04-30T03:41:30.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | A | 25 | 80 | 52 | 28 | 0.7 | exact | exact | Y | Y | absent | Y | - | - | N |
 
 ## Top Candidate Intents
 
@@ -73,3 +78,6 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T05:56:56.299Z
 - 아직 purchase dispatcher를 열지 않는다.
 - 이 리포트는 DB 상태를 바꾸지 않는다.
 - 이 리포트는 GA4/Meta/TikTok/Google Ads purchase 전송을 하지 않는다.
+- A급 strong만 향후 dispatcher dry-run 후보이며, B급 strong은 첫 dispatcher 후보에서 제외한다.
+- already_in_ga4가 present 또는 unknown이면 전송 후보에서 제외한다.
+- test_order 라벨 주문은 전송 후보에서 제외한다.
