@@ -1,6 +1,6 @@
 # biocom GTM 컨테이너 상태 정리
 
-작성 시각: 2026-04-20 18:30 KST (v10 업데이트: 2026-04-27 18:18 KST)
+작성 시각: 2026-04-20 18:30 KST (v11 업데이트: 2026-04-30 11:55 KST)
 작성자: Claude Code + Codex (GTM API 직접 조회)
 근거: GTM API v2 snapshot, live version 138, `gtmaudit/gtm-ga4-purchase-duplicates-result-20260424144504.json`, Workspace 147 tag 118 quick_preview
 대상 컨테이너: `GTM-W2Z6PHN` (biocom.kr)
@@ -15,7 +15,8 @@
 - 2026-04-27 18:10 KST 현재 live version은 `139` (`npay_intent_only_live_20260427`)이다. NPay 버튼 클릭 intent 수집만 운영 반영했다.
 - 이 변경은 purchase가 아니라 `POST /api/attribution/npay-intent` 수집만 추가한다. GA4 purchase, Meta CAPI Purchase, Google Ads 전환 설정은 바꾸지 않았다.
 - Default Workspace 147은 publish하지 않았다. 겉으로는 tag 118만 updated였지만, live v138 이전 상태를 일부 물고 있어 [43]/[48]/[143]이 되돌아갈 위험이 있었다. 그래서 live v138 기준의 새 Workspace 150을 만들고 tag 118만 반영해 publish했다.
-- 남은 검증은 v138 이후 24~48h 신규 GA4 row에서 duplicate extra event와 `transactionId` 결측이 줄었는지 확인하는 일, 그리고 NPay intent 24시간 수집 품질과 7일 주문 매칭 dry-run이다.
+- NPay intent 24시간 수집 품질은 통과했다. 2026-04-30 11:50 KST 기준 live publish 이후 251건, 최근 24시간 92건이 수집됐고 최근 24시간의 `client_id`, `ga_session_id`, `product_idx` 채움률은 모두 100%다.
+- 남은 검증은 v138 이후 24~48h 신규 GA4 row에서 duplicate extra event와 `transactionId` 결측이 줄었는지 확인하는 일, 그리고 NPay intent 7일 주문 매칭 dry-run이다.
 
 ## 컨테이너 메타
 
@@ -223,6 +224,23 @@ var DEBUG_MODE = false;
 | 과도한 중복 row | 없어야 함 |
 | duplicate_count 비정상 급증 | 없어야 함 |
 | 버튼 클릭 후 결제 흐름 방해 | 없어야 함 |
+
+### 2026-04-30 수집 품질 결과
+
+상세 보고서: [[naver/npay-intent-quality-20260430|NPay Intent 수집 품질 점검]]
+
+| 기준 | live 이후 | 최근 24시간 | 판정 |
+|---|---:|---:|---|
+| live intent row | 251 | 92 | 정상 |
+| client_id 채움률 | 249/251, 99.2% | 92/92, 100% | 통과 |
+| ga_session_id 채움률 | 248/251, 98.8% | 92/92, 100% | 통과 |
+| product_idx 채움률 | 251/251, 100% | 92/92, 100% | 통과 |
+| duplicate_count 합계 | 32 | 4 | 허용 |
+| server purchase dispatch | 0 | 0 | 정상 |
+
+GTM API read-only 확인 결과 live version은 계속 `139`이고, tag 118은 `ENVIRONMENT="live"`, `DEBUG_MODE=false`다. tag 118 안에 GA4 purchase, Meta Purchase, Google Ads conversion call은 없다.
+
+판정: rollback하지 않는다. purchase dispatcher는 7일 매칭 dry-run 이후 별도 승인으로 판단한다.
 
 ### Rollback 기준
 

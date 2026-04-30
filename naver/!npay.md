@@ -1,6 +1,7 @@
 # 네이버페이 주문형 결제형 전환 검토
 
 작성 시각: 2026-04-27 11:21 KST
+업데이트: 2026-04-30 11:55 KST
 기준일: 2026-04-26
 데이터 기준: 2026-04-01 ~ 2026-04-25 결제 완료 원장
 Primary source: `operational_postgres.public.tb_iamweb_users`
@@ -14,6 +15,8 @@ Confidence: 62%
 
 2026년 4월 27일 18:18 KST 기준, `NPay intent-only live publish`를 완료했다. 최종 live version은 `139`, 이름은 `npay_intent_only_live_20260427`이다. 운영 VM backend는 dedupe 보강본으로 재배포되어 있고, GTM tag 118은 `environment=live`, `debug_mode=false`로 버튼 클릭 intent만 저장한다. 18:16 KST live smoke에서 최신 intent 1건이 `environment=live`, `ga_session_id=1777281391`, `product_idx=423`으로 저장됐다. GA4 purchase, Meta CAPI Purchase, Google Ads 구매 전환, NPay 주문형 설정, purchase dispatcher는 변경하지 않았다.
 
+2026년 4월 30일 11:50 KST 기준 수집 품질은 통과다. live publish 이후 live intent는 251건이고, 최근 24시간 92건의 `client_id`, `ga_session_id`, `product_idx` 채움률은 모두 100%다. rollback 조건은 없다. 다만 실제 주문 매칭률은 아직 보지 않았으므로 purchase dispatcher는 계속 보류한다.
+
 승인/실행 문서: [[npay-intent-live-publish-approval-20260427|NPay Intent-Only Live Publish 승인안]]
 
 ## Phase-Sprint 요약표
@@ -26,6 +29,7 @@ Confidence: 62%
 | NPay | [[#NPay-Sprint4]] | 리턴 URL 직접 구현 검토 | Codex | 100% / 0% | [[#NPay-Sprint4]] |
 | NPay | [[#NPay-Sprint5]] | npay_intent 저장 설계 | Codex + Claude Code | 100% / 0% | [[#NPay-Sprint5]] |
 | NPay | [[#NPay-Sprint6]] | intent API와 GTM live 반영 | Codex + TJ | 100% / 100% | [[#NPay-Sprint6]] |
+| NPay | [[#NPay-Sprint7]] | live 수집 품질 점검 | Codex | 100% / 100% | [[#NPay-Sprint7]] |
 
 ## 문서 목적
 
@@ -683,6 +687,69 @@ Codex 권장 조치:
 | Google Ads | 기존 page_view/config 계열 호출만 관측 | 구매 전환 변경 없음 |
 
 다음은 24시간 수집 품질 확인이다. 기준은 `client_id` 90% 이상, `ga_session_id` 80-90% 이상, `product_idx` 80-90% 이상, 과도한 중복 row 없음이다. 7일치가 쌓이면 NPay 주문 원장과 매칭 dry-run을 진행한다.
+
+▲ [[#Phase-Sprint 요약표|요약표로]]
+
+## NPay-Sprint7
+
+**이름**: live 수집 품질 점검
+
+품질 점검 시각: 2026-04-30 11:50 KST
+
+상세 보고서: [[npay-intent-quality-20260430|NPay Intent 수집 품질 점검]]
+
+### 결론
+
+NPay intent-only live 수집은 유지한다. rollback 조건에 걸리지 않았다.
+
+live publish 이후 251건이 들어왔고, 최근 24시간에도 92건이 들어왔다. 최근 24시간 기준 `client_id`, `ga_session_id`, `product_idx`, `product_name`은 모두 100% 채워졌다.
+
+다만 purchase dispatcher는 아직 열지 않는다. 지금 확인한 것은 `클릭 intent가 품질 좋게 쌓이는가`이고, 아직 `실제 NPay 주문과 얼마나 정확히 붙는가`를 검증하지 않았기 때문이다.
+
+### 기준 대비 결과
+
+| 기준 | 목표 | live 이후 결과 | 최근 24시간 결과 | 판정 |
+|---|---:|---:|---:|---|
+| client_id 채움률 | 90% 이상 | 249/251, 99.2% | 92/92, 100% | 통과 |
+| ga_session_id 채움률 | 80~90% 이상 | 248/251, 98.8% | 92/92, 100% | 통과 |
+| product_idx 채움률 | 80~90% 이상 | 251/251, 100% | 92/92, 100% | 통과 |
+| product_name 채움률 | 80~90% 이상 | 251/251, 100% | 92/92, 100% | 통과 |
+| server purchase dispatch | 0건 | 0건 | 0건 | 정상 |
+
+### 수집량
+
+| 구간 | live row | duplicate_count 합계 | ga_session_id row | product_idx row |
+|---|---:|---:|---:|---:|
+| 2026-04-27 18:10 이후 전체 | 251 | 32 | 248 | 251 |
+| 최초 24시간 | 111 | 22 | 108 | 111 |
+| 최근 24시간 | 92 | 4 | 92 | 92 |
+
+`duplicate_count`는 실패가 아니다. 같은 버튼 클릭성 호출이 서버 dedupe에 흡수된 횟수다. 최신 24시간은 4건으로 줄어 과도한 중복으로 보지 않는다.
+
+### 남은 한계
+
+| 한계 | 의미 | 다음 조치 |
+|---|---|---|
+| `member_code` 0건 | 회원 단위 매칭은 아직 약하다 | v1 dry-run은 client/session/product/time 중심으로 진행 |
+| 같은 `product_idx`에 상품명 2개 | 긴 SEO 상품명과 짧은 상품명이 섞인다 | 주문 매칭은 `product_idx`를 1순위로 사용 |
+| `match_status=pending` 254건 | 아직 주문 매칭을 열지 않았다 | 7일치가 쌓이면 dry-run |
+
+### 다음 판단
+
+| 질문 | Codex 추천 | 이유 |
+|---|---|---|
+| NPay intent-only live를 유지할까 | YES | 수집량과 필드 품질이 기준을 넘었다 |
+| 지금 rollback할까 | NO | GTM 오류, purchase 오염, 결제 흐름 방해 징후가 없다 |
+| 지금 purchase dispatcher를 열까 | NO | 실제 주문 매칭률을 아직 보지 않았다 |
+| 다음은 무엇인가 | 7일 매칭 dry-run | 2026-05-04 18:10 KST 이후 matched/ambiguous/unmatched를 계산 |
+
+### 기준 정보
+
+- Source: VM SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3`, table `npay_intent_log`
+- Cross-check: 보호된 `GET /api/attribution/npay-intents?limit=1`, GTM API read-only live version 조회
+- Window: 2026-04-27 18:10 KST ~ 2026-04-30 11:50 KST
+- Freshness: 최신 intent `2026-04-30 11:27:10 KST`, 조회 시각 대비 약 23분 전
+- Confidence: 88%
 
 ▲ [[#Phase-Sprint 요약표|요약표로]]
 
