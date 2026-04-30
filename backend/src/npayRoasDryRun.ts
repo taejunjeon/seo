@@ -1378,6 +1378,9 @@ const renderTable = (headers: string[], rows: unknown[][]) => {
   return [header, divider, ...body].join("\n");
 };
 
+const kstDateSuffix = (iso: string) =>
+  new Date(Date.parse(iso) + 9 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+
 export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
   const gradeAProductionResults = report.orderResults.filter(
     (result) => result.strongGrade === "A" && result.orderLabel === "production_order",
@@ -1386,6 +1389,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     gradeAProductionResults.flatMap((result) => result.ga4LookupIds),
   );
   const bigQueryIdLiteral = bigQueryLookupIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ");
+  const tableSuffixStart = kstDateSuffix(report.window.start);
+  const tableSuffixEnd = kstDateSuffix(report.window.end);
   const ambiguousRate = percent(report.summary.ambiguous, report.summary.confirmedNpayOrderCount);
   const gradeAProductionCount = gradeAProductionResults.length;
   const gradeAProductionUnknownCount = gradeAProductionResults.filter(
@@ -1760,7 +1765,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     "  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') AS event_param_transaction_id,",
     "  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'pay_method') AS pay_method",
     "FROM `<PROJECT>.<GA4_DATASET>.events_*`",
-    "WHERE _TABLE_SUFFIX BETWEEN '20260427' AND '20260504'",
+    `WHERE _TABLE_SUFFIX BETWEEN '${tableSuffixStart}' AND '${tableSuffixEnd}'`,
     "  AND (",
     "    ecommerce.transaction_id IN (SELECT id FROM ids)",
     "    OR (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') IN (SELECT id FROM ids)",
