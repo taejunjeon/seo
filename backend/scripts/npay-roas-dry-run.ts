@@ -27,18 +27,35 @@ const parseList = (value: string) =>
     .filter(Boolean);
 
 const parseManualOrder = (value: string): NpayRoasDryRunManualOrderInput => {
-  const [orderNumber, paidAt, amount, productName, paymentMethod, paymentStatus] = value
+  const [
+    orderNumber,
+    paidAt,
+    amount,
+    productName,
+    paymentMethod,
+    paymentStatus,
+    orderItemTotal,
+    deliveryPrice,
+    discountAmount,
+    quantity,
+  ] = value
     .split("|")
     .map((item) => item.trim());
   if (!orderNumber || !paidAt || !amount || !productName) {
     throw new Error(
-      "--manual-order must be orderNumber|paidAt|amount|productName[|paymentMethod|paymentStatus]",
+      "--manual-order must be orderNumber|paidAt|amount|productName[|paymentMethod|paymentStatus|orderItemTotal|deliveryPrice|discountAmount|quantity]",
     );
   }
   const orderAmount = Number(amount.replace(/,/g, ""));
   if (!Number.isFinite(orderAmount)) {
     throw new Error(`Invalid manual order amount: ${amount}`);
   }
+  const optionalMoney = (raw?: string) => {
+    if (!raw) return undefined;
+    const parsed = Number(raw.replace(/,/g, ""));
+    if (!Number.isFinite(parsed)) throw new Error(`Invalid manual order money field: ${raw}`);
+    return parsed;
+  };
   return {
     orderNumber,
     paidAt,
@@ -46,6 +63,10 @@ const parseManualOrder = (value: string): NpayRoasDryRunManualOrderInput => {
     productName,
     paymentMethod,
     paymentStatus,
+    orderItemTotal: optionalMoney(orderItemTotal),
+    deliveryPrice: optionalMoney(deliveryPrice),
+    discountAmount: optionalMoney(discountAmount),
+    quantity: optionalMoney(quantity),
   };
 };
 

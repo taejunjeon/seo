@@ -5,7 +5,7 @@ Source: TJ manual NPay payment, VM SQLite `npay_intent_log` readonly snapshot, T
 Primary observation: 2026-04-30 16:00 KST TJ 수동 NPay 테스트 결제는 결제 완료 후 biocom `shop_payment_complete`로 자동 복귀하지 않았고, 네이버페이 완료 화면에서 종료되었다. 2026-04-30 16:22 KST 기준 BigQuery에는 `events_20260430` / `events_intraday_20260430` 테이블이 아직 보이지 않아 GA4 raw 누락 여부는 2026-05-01 재확인 대상으로 둔다.
 Confidence: 92% because the NPay intent, Imweb order mapping, and 운영 Postgres order row are confirmed. BigQuery raw export는 아직 후행 확인 대상이다.
 
-Generated at: 2026-04-30T08:34:42.238Z
+Generated at: 2026-04-30T08:49:32.667Z
 Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 
 ## Input
@@ -64,7 +64,7 @@ Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 2. 실제 Imweb 주문번호는 `202604309594732`다. NPay ROAS dry-run의 주문 원장 키는 이 값을 우선 사용한다.
 3. TossPayments API는 이번 주문의 정본이 아니다. `NOT_FOUND_PAYMENT`가 정상적인 결과로 보인다.
 4. 운영 Postgres `tb_iamweb_users`도 2026-04-30 17:33 KST 재확인 시점에는 이 주문을 포함한다.
-5. 금액 불일치는 상품가 8,900원 + 배송비 3,000원 = 결제금액 11,900원 구조 때문이다. 현 scoring은 `amount_match=none`이라 B급으로 떨어진다.
+5. 금액은 불일치가 아니라 배송비 포함 여부 차이다. `intent_product_price=8900`, `order_item_total=8900`, `delivery_price=3000`, `order_payment_amount=11900`이므로 `amount_match_type=shipping_reconciled`다.
 
 ## Summary
 
@@ -73,29 +73,45 @@ Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 | live_intent_count | 1 |
 | confirmed_npay_order_count | 1 |
 | strong_match | 1 |
-| strong_match_a | 0 |
-| strong_match_b | 1 |
+| strong_match_a | 1 |
+| strong_match_b | 0 |
 | ambiguous | 0 |
 | purchase_without_intent | 0 |
 | dispatcher_dry_run_candidate | 0 |
 | already_in_ga4_blocked | 0 |
 | test_order_blocked | 1 |
 | manual_order_count | 0 |
+| shipping_reconciled_count | 1 |
+| shipping_reconciled_not_grade_a_count | 0 |
 | clicked_purchased_candidate | 1 |
 | clicked_no_purchase | 0 |
 | intent_pending | 0 |
 
 ## Order Decisions
 
-| order_number | order_label | paid_at | amount | product | status | strong_grade | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | amount_match | ga_session_id | ad_key | already_in_ga4 | dispatcher_candidate | dispatcher_block_reason | ambiguous_reason | send_allowed |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604309594732 | test_npay_manual_20260430 | 2026-04-30T07:01:14.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | B | 1 | 60 | - | 60 | 0.8 | exact | none | Y | Y | absent | N | not_a_grade_strong, test_order | - | N |
+| order_number | order_label | paid_at | amount | product | status | strong_grade | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | intent_product_price | order_item_total | delivery_price | order_payment_amount | amount_delta | amount_match | amount_reconcile_reason | ga_session_id | ad_key | already_in_ga4 | dispatcher_candidate | dispatcher_block_reason | ambiguous_reason | send_allowed |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 202604309594732 | test_npay_manual_20260430 | 2026-04-30T07:01:14.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | A | 1 | 80 | - | 80 | 0.8 | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | absent | N | manual_test_order | - | N |
+
+## Amount Reconciliation
+
+| amount_match_type | orders |
+| --- | --- |
+| final_exact | 0 |
+| item_exact | 0 |
+| shipping_reconciled | 1 |
+| discount_reconciled | 0 |
+| quantity_reconciled | 0 |
+| cart_contains_item | 0 |
+| near | 0 |
+| none | 0 |
+| unknown | 0 |
 
 ## Top Candidate Intents
 
-| order_number | rank | intent_id | captured_at | time_gap_min | score | score_components | product_idx | order_product_idx | product_name_match | amount_match | client_id | ga_session_id | ad_keys | utm |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604309594732 | 1 | 572bdc1a-389b-4128-a389-b9750b063c90 | 2026-04-30T07:00:23.688Z | 0.8 | 60 | time:30, product:30, amount:0 | 424 | N/A | exact | none | Y | Y | fbp | - |
+| order_number | rank | intent_id | captured_at | time_gap_min | score | score_components | product_idx | order_product_idx | product_name_match | intent_product_price | order_item_total | delivery_price | order_payment_amount | amount_delta | amount_match | amount_reconcile_reason | client_id | ga_session_id | ad_keys | utm |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 202604309594732 | 1 | 572bdc1a-389b-4128-a389-b9750b063c90 | 2026-04-30T07:00:23.688Z | 0.8 | 80 | time:30, product:30, amount:20 | 424 | N/A | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | fbp | - |
 
 ## 2026-05-01 BigQuery Recheck
 
@@ -168,4 +184,4 @@ ORDER BY event_timestamp;
 - 이 리포트는 GA4/Meta/TikTok/Google Ads purchase 전송을 하지 않는다.
 - A급 strong만 향후 dispatcher dry-run 후보이며, B급 strong은 첫 dispatcher 후보에서 제외한다.
 - already_in_ga4가 present 또는 unknown이면 전송 후보에서 제외한다.
-- test_order 라벨 주문은 전송 후보에서 제외한다.
+- `test_npay_manual_20260430` 라벨 주문은 `manual_test_order`로 전송 후보에서 제외한다.

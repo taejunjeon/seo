@@ -258,10 +258,33 @@ Confidence: 92%
 2. `2026043044799490`은 네이버페이 완료 URL과 Imweb `channel_order_no`다. 실제 Imweb 주문번호는 `202604309594732`다.
 3. TossPayments API는 이번 주문의 정본이 아니다. `NOT_FOUND_PAYMENT`가 정상적인 결과로 보인다.
 4. 운영 Postgres 주문 원장은 2026-04-30 17:33 KST 재확인 시점에는 테스트 주문을 포함한다.
-5. 실제 운영 DB 기준 dry-run에서도 `strong_match`는 되지만 B급이다. `time_gap=0.8분`, `product_name=exact`는 통과했으나 intent 상품가 8,900원과 실제 결제금액 11,900원이 달라 `amount_match=none`, `score=60`이다. 금액 차이는 배송비 3,000원 때문이다.
-6. `test_npay_manual_20260430` 라벨 때문에 dispatcher 후보에서는 자동 제외한다.
+5. 금액은 불일치가 아니라 배송비 포함 여부 차이다. `intent_product_price=8900`, `order_item_total=8900`, `delivery_price=3000`, `order_payment_amount=11900`이므로 `amount_match_type=shipping_reconciled`다.
+6. 수정된 dry-run 기준 이 주문은 `strong_match`, A급, `score=80`이다.
+7. `test_npay_manual_20260430` 라벨 때문에 dispatcher 후보에서는 자동 제외한다. 차단 사유는 `manual_test_order`다.
 
 2026-05-01 BigQuery 재확인은 `202604309594732`와 `2026043044799490` 두 값을 모두 조회한다. 둘 중 하나라도 GA4 raw에 있으면 `already_in_ga4=present`로 두고 dispatcher 후보에서 제외한다. 둘 다 없을 때만 `already_in_ga4=absent`로 기록한다.
+
+현재 누적 dry-run amount 보정 집계:
+
+Source: VM SQLite `npay_intent_log` snapshot `/tmp/npay_roas_snapshot_20260430_1735.sqlite3`, 운영 Postgres `public.tb_iamweb_users` readonly
+Window: 2026-04-27 18:10 KST ~ 2026-04-30 17:48 KST
+Freshness: 2026-04-30 17:49 KST
+Confidence: 86%. 아직 실제 7일치가 아니라 intent live publish 이후 약 72시간 누적이다.
+
+| 항목 | 값 |
+|---|---:|
+| live intent | 296 |
+| confirmed NPay order | 11 |
+| strong_match | 8 |
+| A급 strong | 6 |
+| B급 strong | 2 |
+| ambiguous | 3 |
+| final_exact | 7 |
+| shipping_reconciled | 1 |
+| amount none | 3 |
+| shipping_reconciled인데 A급으로 못 올라간 건 | 0 |
+
+판단: 현재 누적 데이터에서는 배송비 때문에 정상 매칭이 B급/ambiguous로 떨어지는 사례는 0건이다. 이번 수동 테스트 주문 1건만 `shipping_reconciled`로 잡혔고 A급으로 승격됐다. 남은 B급/ambiguous의 `amount none` 3건은 배송비 문제가 아니라 상품/금액 후보 자체가 다르거나 후보가 애매한 건으로 별도 원인 분석 대상이다.
 
 별도 리포트: [[npay-manual-test-20260430]]
 

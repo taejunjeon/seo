@@ -64,6 +64,10 @@ type PgNpayOrderRow = {
   paymentMethod: string;
   paymentStatus: string;
   orderAmount: string | number | null;
+  orderItemTotal: string | number | null;
+  deliveryPrice: string | number | null;
+  discountAmount: string | number | null;
+  quantity: string | number | null;
   productNames: string;
   lineProductCount: string | number | null;
 };
@@ -106,6 +110,10 @@ export type NpayRoasDryRunOrder = {
   paymentMethod: string;
   paymentStatus: string;
   orderAmount: number | null;
+  orderItemTotal: number | null;
+  deliveryPrice: number | null;
+  discountAmount: number | null;
+  quantity: number;
   productNames: string[];
   lineProductCount: number;
 };
@@ -115,9 +123,36 @@ export type NpayRoasDryRunManualOrderInput = {
   paidAt: string;
   orderAmount: number;
   productName: string;
+  orderItemTotal?: number;
+  deliveryPrice?: number;
+  discountAmount?: number;
+  quantity?: number;
   paymentMethod?: string;
   paymentStatus?: string;
 };
+
+export type NpayRoasDryRunAmountMatchType =
+  | "final_exact"
+  | "item_exact"
+  | "shipping_reconciled"
+  | "discount_reconciled"
+  | "quantity_reconciled"
+  | "cart_contains_item"
+  | "near"
+  | "none"
+  | "unknown";
+
+const AMOUNT_MATCH_TYPES: NpayRoasDryRunAmountMatchType[] = [
+  "final_exact",
+  "item_exact",
+  "shipping_reconciled",
+  "discount_reconciled",
+  "quantity_reconciled",
+  "cart_contains_item",
+  "near",
+  "none",
+  "unknown",
+];
 
 export type NpayRoasDryRunCandidate = {
   intentId: string;
@@ -142,8 +177,14 @@ export type NpayRoasDryRunCandidate = {
   productNameMatchType: "exact" | "contains" | "token_overlap" | "none";
   productPrice: number | null;
   orderAmount: number | null;
+  intentProductPrice: number | null;
+  orderItemTotal: number | null;
+  deliveryPrice: number | null;
+  orderPaymentAmount: number | null;
+  amountDelta: number | null;
   amountMatch: boolean;
-  amountMatchType: "exact" | "multiple" | "near" | "none" | "unknown";
+  amountMatchType: NpayRoasDryRunAmountMatchType;
+  amountReconcileReason: string;
   clientIdPresent: boolean;
   gaSessionIdPresent: boolean;
   gaSessionNumberPresent: boolean;
@@ -208,7 +249,7 @@ export type NpayRoasDryRunReport = {
     minScoreGap: number;
     gradeA: {
       minScore: number;
-      requiredAmountMatchType: "exact";
+      requiredAmountMatchType: "final_or_reconciled";
       maxTimeGapMinutes: number;
       minScoreGap: number;
     };
@@ -226,6 +267,9 @@ export type NpayRoasDryRunReport = {
     alreadyInGa4Blocked: number;
     testOrderBlocked: number;
     manualOrderCount: number;
+    amountMatchTypeCounts: Record<NpayRoasDryRunAmountMatchType, number>;
+    shippingReconciledCount: number;
+    shippingReconciledNotGradeACount: number;
     clickedPurchasedCandidate: number;
     clickedNoPurchase: number;
     intentPending: number;
@@ -356,6 +400,10 @@ const toOrder = (row: PgNpayOrderRow): NpayRoasDryRunOrder => ({
   paymentMethod: row.paymentMethod,
   paymentStatus: row.paymentStatus,
   orderAmount: numberValue(row.orderAmount),
+  orderItemTotal: numberValue(row.orderItemTotal),
+  deliveryPrice: numberValue(row.deliveryPrice),
+  discountAmount: numberValue(row.discountAmount),
+  quantity: parsePositiveInteger(row.quantity, 1),
   productNames: splitProductNames(row.productNames),
   lineProductCount: parsePositiveInteger(row.lineProductCount, 1),
 });
@@ -371,6 +419,10 @@ const toManualOrder = (input: NpayRoasDryRunManualOrderInput): NpayRoasDryRunOrd
     paymentMethod: input.paymentMethod?.trim() || "NAVERPAY_ORDER",
     paymentStatus: input.paymentStatus?.trim() || "PAYMENT_COMPLETE",
     orderAmount: input.orderAmount,
+    orderItemTotal: input.orderItemTotal ?? null,
+    deliveryPrice: input.deliveryPrice ?? null,
+    discountAmount: input.discountAmount ?? null,
+    quantity: parsePositiveInteger(input.quantity, 1),
     productNames: splitProductNames(input.productName),
     lineProductCount: 1,
   };
@@ -407,16 +459,127 @@ const productNameMatch = (intentName: string, orderNames: string[]) => {
   return { type: "none" as const, score: 0, matched: false };
 };
 
-const amountMatch = (intentPrice: number | null, orderAmount: number | null) => {
-  if (!intentPrice || !orderAmount) return { type: "unknown" as const, score: 0, matched: false };
-  if (intentPrice === orderAmount) return { type: "exact" as const, score: 20, matched: true };
-  const ratio = orderAmount / intentPrice;
-  if (Number.isFinite(ratio) && ratio >= 2 && Math.abs(ratio - Math.round(ratio)) <= 0.05) {
-    return { type: "multiple" as const, score: 12, matched: true };
+const moneyEqual = (left: number | null, right: number | null, tolerance = 0) => {
+  if (left === null || right === null) return false;
+  return Math.abs(left - right) <= tolerance;
+};
+
+const amountMatch = (
+  intentPrice: number | null,
+  order: NpayRoasDryRunOrder,
+  productMatched: boolean,
+) => {
+  const orderPaymentAmount = order.orderAmount;
+  const orderItemTotal = order.orderItemTotal;
+  const deliveryPrice = order.deliveryPrice ?? 0;
+  const discountAmount = order.discountAmount ?? 0;
+  const quantity = order.quantity;
+  const amountDelta =
+    intentPrice !== null && orderPaymentAmount !== null ? orderPaymentAmount - intentPrice : null;
+
+  if (!intentPrice || !orderPaymentAmount) {
+    return {
+      type: "unknown" as const,
+      score: 0,
+      matched: false,
+      amountDelta,
+      reason: "intent_product_price_or_order_payment_amount_missing",
+    };
   }
-  const diffRate = Math.abs(orderAmount - intentPrice) / Math.max(orderAmount, intentPrice);
-  if (diffRate <= 0.05) return { type: "near" as const, score: 8, matched: true };
-  return { type: "none" as const, score: 0, matched: false };
+
+  if (moneyEqual(intentPrice, orderPaymentAmount)) {
+    return {
+      type: "final_exact" as const,
+      score: 20,
+      matched: true,
+      amountDelta,
+      reason: "intent_product_price == order_payment_amount",
+    };
+  }
+
+  const itemExact = moneyEqual(intentPrice, orderItemTotal);
+  const paymentEqualsItemPlusShipping = moneyEqual(orderPaymentAmount, (orderItemTotal ?? 0) + deliveryPrice);
+  const deltaEqualsShipping = moneyEqual(amountDelta, deliveryPrice);
+  if (itemExact && (paymentEqualsItemPlusShipping || deltaEqualsShipping)) {
+    return {
+      type: "shipping_reconciled" as const,
+      score: 20,
+      matched: true,
+      amountDelta,
+      reason: "item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price",
+    };
+  }
+
+  if (itemExact) {
+    return {
+      type: "item_exact" as const,
+      score: 16,
+      matched: true,
+      amountDelta,
+      reason: "intent_product_price == order_item_total",
+    };
+  }
+
+  const discountedTotal = (orderItemTotal ?? 0) + deliveryPrice - discountAmount;
+  if (orderItemTotal !== null && discountAmount > 0 && moneyEqual(orderPaymentAmount, discountedTotal)) {
+    return {
+      type: "discount_reconciled" as const,
+      score: 18,
+      matched: true,
+      amountDelta,
+      reason: "order_payment_amount == order_item_total + delivery_price - discount_amount",
+    };
+  }
+
+  const quantityItemTotal = intentPrice * quantity;
+  if (
+    quantity > 1 &&
+    (moneyEqual(orderItemTotal, quantityItemTotal) ||
+      moneyEqual(orderPaymentAmount, quantityItemTotal + deliveryPrice - discountAmount))
+  ) {
+    return {
+      type: "quantity_reconciled" as const,
+      score: 18,
+      matched: true,
+      amountDelta,
+      reason: "order amount reconciles with intent_product_price * quantity plus delivery/discount",
+    };
+  }
+
+  if (
+    productMatched &&
+    order.lineProductCount > 1 &&
+    orderItemTotal !== null &&
+    orderItemTotal >= intentPrice &&
+    orderPaymentAmount >= intentPrice
+  ) {
+    return {
+      type: "cart_contains_item" as const,
+      score: 12,
+      matched: true,
+      amountDelta,
+      reason: "cart_contains_item=true; order amount is cart total for multiple products",
+    };
+  }
+
+  const diffRate = Math.abs(orderPaymentAmount - intentPrice) / Math.max(orderPaymentAmount, intentPrice);
+  if (diffRate <= 0.05) {
+    return {
+      type: "near" as const,
+      score: 8,
+      matched: true,
+      amountDelta,
+      reason: "order_payment_amount is within 5% of intent_product_price",
+    };
+  }
+
+  return {
+    type: "none" as const,
+    score: 0,
+    matched: false,
+    amountDelta,
+    reason: "amount_not_reconciled",
+  };
 };
 
 const buildCandidate = (
@@ -428,7 +591,7 @@ const buildCandidate = (
   const timeGapMinutes = roundOne((paidAtMs - capturedAtMs) / 60_000);
   const timeScore = scoreTimeGap(timeGapMinutes);
   const productMatch = productNameMatch(intent.productName, order.productNames);
-  const amount = amountMatch(intent.productPrice, order.orderAmount);
+  const amount = amountMatch(intent.productPrice, order, productMatch.matched);
   const adClickKeys = [
     intent.gclid ? "gclid" : "",
     intent.gbraid ? "gbraid" : "",
@@ -469,8 +632,14 @@ const buildCandidate = (
     productNameMatchType: productMatch.type,
     productPrice: intent.productPrice,
     orderAmount: order.orderAmount,
+    intentProductPrice: intent.productPrice,
+    orderItemTotal: order.orderItemTotal,
+    deliveryPrice: order.deliveryPrice,
+    orderPaymentAmount: order.orderAmount,
+    amountDelta: amount.amountDelta,
     amountMatch: amount.matched,
     amountMatchType: amount.type,
+    amountReconcileReason: amount.reason,
     clientIdPresent: Boolean(intent.clientId),
     gaSessionIdPresent: Boolean(intent.gaSessionId),
     gaSessionNumberPresent: Boolean(intent.gaSessionNumber),
@@ -519,7 +688,9 @@ const classifyStrongGrade = (
   if (!bestCandidate || bestScore === null || scoreGap === null) return null;
   const isGradeA =
     bestScore >= thresholds.minScore &&
-    bestCandidate.amountMatchType === "exact" &&
+    bestCandidate.amountMatch &&
+    bestCandidate.amountMatchType !== "near" &&
+    bestCandidate.amountMatchType !== "cart_contains_item" &&
     bestCandidate.timeGapMinutes <= thresholds.maxTimeGapMinutes &&
     scoreGap >= thresholds.minScoreGap;
   return isGradeA ? "A" : "B";
@@ -536,7 +707,9 @@ const buildDispatcherDryRunGuard = (
   if (strongGrade !== "A") blockReasons.push("not_a_grade_strong");
   if (alreadyInGa4 === "present") blockReasons.push("already_in_ga4");
   if (alreadyInGa4 === "unknown") blockReasons.push("already_in_ga4_unknown");
-  if (orderLabel !== "production_order") blockReasons.push("test_order");
+  if (orderLabel !== "production_order") {
+    blockReasons.push(orderLabel.includes("manual") ? "manual_test_order" : "test_order");
+  }
 
   return {
     candidate: blockReasons.length === 0,
@@ -603,6 +776,14 @@ const readConfirmedNpayOrders = async (start: Date, end: Date): Promise<NpayRoas
         NULLIF(final_order_amount, 0)::numeric AS final_order_amount,
         NULLIF(paid_price, 0)::numeric AS paid_price,
         NULLIF(total_price, 0)::numeric AS total_price,
+        NULLIF(delivery_price, 0)::numeric AS delivery_price,
+        NULLIF(item_price, 0)::numeric AS item_price,
+        COALESCE(NULLIF(purchase_quantity, 0), 1)::numeric AS purchase_quantity,
+        COALESCE(NULLIF(grade_discount, 0), 0)::numeric
+          + COALESCE(NULLIF(coupon_discount, 0), 0)::numeric
+          + COALESCE(NULLIF(point_used, 0), 0)::numeric
+          + COALESCE(NULLIF(promotion_discount, 0), 0)::numeric AS line_discount_amount,
+        NULLIF(total_discount_price, 0)::numeric AS total_discount_price,
         COALESCE(NULLIF(TRIM(cancellation_reason::text), ''), '') AS cancellation_reason,
         COALESCE(NULLIF(TRIM(return_reason::text), ''), '') AS return_reason
       FROM public.tb_iamweb_users
@@ -615,6 +796,10 @@ const readConfirmedNpayOrders = async (start: Date, end: Date): Promise<NpayRoas
         MAX(payment_method) AS "paymentMethod",
         MAX(payment_status) AS "paymentStatus",
         COALESCE(MAX(final_order_amount), SUM(COALESCE(paid_price, total_price, 0)), MAX(total_price), 0)::numeric AS "orderAmount",
+        SUM(COALESCE(total_price, item_price * purchase_quantity, 0))::numeric AS "orderItemTotal",
+        COALESCE(MAX(delivery_price), 0)::numeric AS "deliveryPrice",
+        GREATEST(COALESCE(MAX(total_discount_price), 0), SUM(COALESCE(line_discount_amount, 0)))::numeric AS "discountAmount",
+        SUM(COALESCE(purchase_quantity, 1))::numeric AS "quantity",
         STRING_AGG(DISTINCT product_name, ' + ' ORDER BY product_name) AS "productNames",
         COUNT(DISTINCT product_name) AS "lineProductCount",
         BOOL_OR(cancellation_reason NOT IN ('', 'nan', 'null')) AS has_cancel,
@@ -629,6 +814,10 @@ const readConfirmedNpayOrders = async (start: Date, end: Date): Promise<NpayRoas
       "paymentMethod",
       "paymentStatus",
       "orderAmount",
+      "orderItemTotal",
+      "deliveryPrice",
+      "discountAmount",
+      "quantity",
       "productNames",
       "lineProductCount"
     FROM order_level
@@ -822,6 +1011,12 @@ export const buildNpayRoasDryRunReport = async (
       if (result.dispatcherDryRun.alreadyInGa4 === "present") acc.alreadyInGa4Blocked += 1;
       if (result.orderLabel !== "production_order") acc.testOrderBlocked += 1;
       if (manualOrderNumbers.has(result.order.orderNumber)) acc.manualOrderCount += 1;
+      const amountType = result.bestCandidate?.amountMatchType ?? "unknown";
+      acc.amountMatchTypeCounts[amountType] += 1;
+      if (amountType === "shipping_reconciled") {
+        acc.shippingReconciledCount += 1;
+        if (result.strongGrade !== "A") acc.shippingReconciledNotGradeACount += 1;
+      }
       return acc;
     },
     {
@@ -834,6 +1029,11 @@ export const buildNpayRoasDryRunReport = async (
       alreadyInGa4Blocked: 0,
       testOrderBlocked: 0,
       manualOrderCount: 0,
+      amountMatchTypeCounts: Object.fromEntries(
+        AMOUNT_MATCH_TYPES.map((type) => [type, 0]),
+      ) as Record<NpayRoasDryRunAmountMatchType, number>,
+      shippingReconciledCount: 0,
+      shippingReconciledNotGradeACount: 0,
     } as Record<NpayRoasDryRunOrderStatus, number> & {
       strongMatchA: number;
       strongMatchB: number;
@@ -841,6 +1041,9 @@ export const buildNpayRoasDryRunReport = async (
       alreadyInGa4Blocked: number;
       testOrderBlocked: number;
       manualOrderCount: number;
+      amountMatchTypeCounts: Record<NpayRoasDryRunAmountMatchType, number>;
+      shippingReconciledCount: number;
+      shippingReconciledNotGradeACount: number;
     },
   );
   const intentSummary = intentResults.reduce(
@@ -875,7 +1078,7 @@ export const buildNpayRoasDryRunReport = async (
       minScoreGap,
       gradeA: {
         minScore: gradeAMinScore,
-        requiredAmountMatchType: "exact",
+        requiredAmountMatchType: "final_or_reconciled",
         maxTimeGapMinutes: gradeAMaxTimeGapMinutes,
         minScoreGap: gradeAMinScoreGap,
       },
@@ -893,6 +1096,9 @@ export const buildNpayRoasDryRunReport = async (
       alreadyInGa4Blocked: orderSummary.alreadyInGa4Blocked,
       testOrderBlocked: orderSummary.testOrderBlocked,
       manualOrderCount: orderSummary.manualOrderCount,
+      amountMatchTypeCounts: orderSummary.amountMatchTypeCounts,
+      shippingReconciledCount: orderSummary.shippingReconciledCount,
+      shippingReconciledNotGradeACount: orderSummary.shippingReconciledNotGradeACount,
       clickedPurchasedCandidate: intentSummary.clicked_purchased_candidate,
       clickedNoPurchase: intentSummary.clicked_no_purchase,
       intentPending: intentSummary.intent_pending,
@@ -936,7 +1142,13 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     result.scoreGap,
     result.bestCandidate?.timeGapMinutes ?? null,
     result.bestCandidate?.productNameMatchType ?? null,
+    result.bestCandidate?.intentProductPrice ?? null,
+    result.bestCandidate?.orderItemTotal ?? null,
+    result.bestCandidate?.deliveryPrice ?? null,
+    result.bestCandidate?.orderPaymentAmount ?? null,
+    result.bestCandidate?.amountDelta ?? null,
     result.bestCandidate?.amountMatchType ?? null,
+    result.bestCandidate?.amountReconcileReason ?? null,
     result.bestCandidate?.gaSessionIdPresent ? "Y" : "N",
     result.bestCandidate?.adClickKeyPresent ? "Y" : "N",
     result.dispatcherDryRun.alreadyInGa4,
@@ -958,7 +1170,13 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       candidate.productIdx,
       "N/A",
       candidate.productNameMatchType,
+      candidate.intentProductPrice,
+      candidate.orderItemTotal,
+      candidate.deliveryPrice,
+      candidate.orderPaymentAmount,
+      candidate.amountDelta,
       candidate.amountMatchType,
+      candidate.amountReconcileReason,
       candidate.clientIdPresent ? "Y" : "N",
       candidate.gaSessionIdPresent ? "Y" : "N",
       candidate.adClickKeys.join(", "),
@@ -988,6 +1206,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         ["already_in_ga4_blocked", report.summary.alreadyInGa4Blocked],
         ["test_order_blocked", report.summary.testOrderBlocked],
         ["manual_order_count", report.summary.manualOrderCount],
+        ["shipping_reconciled_count", report.summary.shippingReconciledCount],
+        ["shipping_reconciled_not_grade_a_count", report.summary.shippingReconciledNotGradeACount],
         ["clicked_purchased_candidate", report.summary.clickedPurchasedCandidate],
         ["clicked_no_purchase", report.summary.clickedNoPurchase],
         ["intent_pending", report.summary.intentPending],
@@ -1011,7 +1231,13 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "score_gap",
         "time_gap_min",
         "product_name_match",
+        "intent_product_price",
+        "order_item_total",
+        "delivery_price",
+        "order_payment_amount",
+        "amount_delta",
         "amount_match",
+        "amount_reconcile_reason",
         "ga_session_id",
         "ad_key",
         "already_in_ga4",
@@ -1021,6 +1247,13 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "send_allowed",
       ],
       orderRows,
+    ),
+    "",
+    "## Amount Reconciliation",
+    "",
+    renderTable(
+      ["amount_match_type", "orders"],
+      AMOUNT_MATCH_TYPES.map((type) => [type, report.summary.amountMatchTypeCounts[type]]),
     ),
     "",
     "## Top Candidate Intents",
@@ -1037,7 +1270,13 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "product_idx",
         "order_product_idx",
         "product_name_match",
+        "intent_product_price",
+        "order_item_total",
+        "delivery_price",
+        "order_payment_amount",
+        "amount_delta",
         "amount_match",
+        "amount_reconcile_reason",
         "client_id",
         "ga_session_id",
         "ad_keys",
@@ -1053,6 +1292,12 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     "- 이 리포트는 GA4/Meta/TikTok/Google Ads purchase 전송을 하지 않는다.",
     "- A급 strong만 향후 dispatcher dry-run 후보이며, B급 strong은 첫 dispatcher 후보에서 제외한다.",
     "- already_in_ga4가 present 또는 unknown이면 전송 후보에서 제외한다.",
-    "- test_order 라벨 주문은 전송 후보에서 제외한다.",
+    "- 테스트/수동 테스트 라벨 주문은 전송 후보에서 제외한다.",
   ].join("\n");
+};
+
+export const _internal_npayRoasDryRun = {
+  amountMatch,
+  buildCandidate,
+  classifyStrongGrade,
 };
