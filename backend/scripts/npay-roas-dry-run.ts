@@ -38,12 +38,13 @@ const parseManualOrder = (value: string): NpayRoasDryRunManualOrderInput => {
     deliveryPrice,
     discountAmount,
     quantity,
+    channelOrderNo,
   ] = value
     .split("|")
     .map((item) => item.trim());
   if (!orderNumber || !paidAt || !amount || !productName) {
     throw new Error(
-      "--manual-order must be orderNumber|paidAt|amount|productName[|paymentMethod|paymentStatus|orderItemTotal|deliveryPrice|discountAmount|quantity]",
+      "--manual-order must be orderNumber|paidAt|amount|productName[|paymentMethod|paymentStatus|orderItemTotal|deliveryPrice|discountAmount|quantity|channelOrderNo]",
     );
   }
   const orderAmount = Number(amount.replace(/,/g, ""));
@@ -61,6 +62,7 @@ const parseManualOrder = (value: string): NpayRoasDryRunManualOrderInput => {
     paidAt,
     orderAmount,
     productName,
+    channelOrderNo,
     paymentMethod,
     paymentStatus,
     orderItemTotal: optionalMoney(orderItemTotal),

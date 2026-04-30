@@ -5,7 +5,7 @@ Source: TJ manual NPay payment, VM SQLite `npay_intent_log` readonly snapshot, T
 Primary observation: 2026-04-30 16:00 KST TJ 수동 NPay 테스트 결제는 결제 완료 후 biocom `shop_payment_complete`로 자동 복귀하지 않았고, 네이버페이 완료 화면에서 종료되었다. 2026-04-30 16:22 KST 기준 BigQuery에는 `events_20260430` / `events_intraday_20260430` 테이블이 아직 보이지 않아 GA4 raw 누락 여부는 2026-05-01 재확인 대상으로 둔다.
 Confidence: 92% because the NPay intent, Imweb order mapping, and 운영 Postgres order row are confirmed. BigQuery raw export는 아직 후행 확인 대상이다.
 
-Generated at: 2026-04-30T08:49:32.667Z
+Generated at: 2026-04-30T09:11:15.220Z
 Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 
 ## Input
@@ -79,6 +79,11 @@ Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 | purchase_without_intent | 0 |
 | dispatcher_dry_run_candidate | 0 |
 | already_in_ga4_blocked | 0 |
+| already_in_ga4_lookup_present | 0 |
+| already_in_ga4_lookup_absent | 1 |
+| already_in_ga4_lookup_unknown | 0 |
+| ga4_lookup_required_order_count | 0 |
+| ga4_lookup_id_count | 0 |
 | test_order_blocked | 1 |
 | manual_order_count | 0 |
 | shipping_reconciled_count | 1 |
@@ -89,9 +94,24 @@ Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 
 ## Order Decisions
 
-| order_number | order_label | paid_at | amount | product | status | strong_grade | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | intent_product_price | order_item_total | delivery_price | order_payment_amount | amount_delta | amount_match | amount_reconcile_reason | ga_session_id | ad_key | already_in_ga4 | dispatcher_candidate | dispatcher_block_reason | ambiguous_reason | send_allowed |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604309594732 | test_npay_manual_20260430 | 2026-04-30T07:01:14.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | A | 1 | 80 | - | 80 | 0.8 | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | absent | N | manual_test_order | - | N |
+| order_number | channel_order_no | order_label | paid_at | amount | product | status | strong_grade | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | intent_product_price | order_item_total | delivery_price | order_payment_amount | amount_delta | amount_match | amount_reconcile_reason | ga_session_id | ad_key | already_in_ga4 | dispatcher_candidate | dispatcher_block_reason | ambiguous_reason | send_allowed |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 202604309594732 | 2026043044799490 | test_npay_manual_20260430 | 2026-04-30T07:01:14.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | A | 1 | 80 | - | 80 | 0.8 | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | absent | N | manual_test_order | - | N |
+
+## BigQuery Lookup IDs
+
+수동 테스트 주문은 production 후보가 아니므로 아래 production lookup 표에는 표시하지 않는다. BigQuery 재확인은 `202604309594732`와 `2026043044799490` 두 값을 모두 조회한다.
+
+| order_number | channel_order_no | lookup_ids | candidate_scope | already_in_ga4 | lookup_status |
+| --- | --- | --- | --- | --- | --- |
+
+## Dispatcher Dry-run Log
+
+아래 표는 GA4 Measurement Protocol payload preview다. 실제 전송은 하지 않는다.
+
+| order_number | channel_order_no | matched_intent_id | client_id | ga_session_id | value | currency | event_id | send_candidate | block_reason |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 202604309594732 | 2026043044799490 | 572bdc1a-389b-4128-a389-b9750b063c90 | 349382661.1770783461 | 1777532376 | 11900 | KRW | NPayRecoveredPurchase_202604309594732 | N | manual_test_order |
 
 ## Amount Reconciliation
 
@@ -109,9 +129,9 @@ Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 
 ## Top Candidate Intents
 
-| order_number | rank | intent_id | captured_at | time_gap_min | score | score_components | product_idx | order_product_idx | product_name_match | intent_product_price | order_item_total | delivery_price | order_payment_amount | amount_delta | amount_match | amount_reconcile_reason | client_id | ga_session_id | ad_keys | utm |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604309594732 | 1 | 572bdc1a-389b-4128-a389-b9750b063c90 | 2026-04-30T07:00:23.688Z | 0.8 | 80 | time:30, product:30, amount:20 | 424 | N/A | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | fbp | - |
+| order_number | channel_order_no | rank | intent_id | captured_at | time_gap_min | score | score_components | product_idx | order_product_idx | product_name_match | intent_product_price | order_item_total | delivery_price | order_payment_amount | amount_delta | amount_match | amount_reconcile_reason | client_id | ga_session_id | ad_keys | utm |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 202604309594732 | 2026043044799490 | 1 | 572bdc1a-389b-4128-a389-b9750b063c90 | 2026-04-30T07:00:23.688Z | 0.8 | 80 | time:30, product:30, amount:20 | 424 | N/A | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | fbp | - |
 
 ## 2026-05-01 BigQuery Recheck
 

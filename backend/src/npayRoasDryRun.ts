@@ -60,6 +60,7 @@ type SqliteIntentRow = {
 
 type PgNpayOrderRow = {
   orderNumber: string;
+  channelOrderNo: string | null;
   paidAt: string;
   paymentMethod: string;
   paymentStatus: string;
@@ -106,6 +107,7 @@ export type NpayRoasDryRunIntent = {
 
 export type NpayRoasDryRunOrder = {
   orderNumber: string;
+  channelOrderNo: string;
   paidAt: string;
   paymentMethod: string;
   paymentStatus: string;
@@ -120,6 +122,7 @@ export type NpayRoasDryRunOrder = {
 
 export type NpayRoasDryRunManualOrderInput = {
   orderNumber: string;
+  channelOrderNo?: string;
   paidAt: string;
   orderAmount: number;
   productName: string;
@@ -185,6 +188,8 @@ export type NpayRoasDryRunCandidate = {
   amountMatch: boolean;
   amountMatchType: NpayRoasDryRunAmountMatchType;
   amountReconcileReason: string;
+  clientId: string;
+  gaSessionId: string;
   clientIdPresent: boolean;
   gaSessionIdPresent: boolean;
   gaSessionNumberPresent: boolean;
@@ -199,9 +204,23 @@ export type NpayRoasDryRunCandidate = {
   pageLocation: string;
 };
 
+export type NpayRoasDryRunGa4PayloadPreview = {
+  orderNumber: string;
+  channelOrderNo: string;
+  matchedIntentId: string | null;
+  clientId: string;
+  gaSessionId: string;
+  value: number | null;
+  currency: "KRW";
+  eventId: string;
+  sendCandidate: boolean;
+  blockReason: string[];
+};
+
 export type NpayRoasDryRunOrderResult = {
   order: NpayRoasDryRunOrder;
   orderLabel: NpayRoasDryRunOrderLabel;
+  ga4LookupIds: string[];
   status: NpayRoasDryRunOrderStatus;
   strongGrade: NpayRoasDryRunStrongGrade | null;
   sendAllowed: false;
@@ -211,6 +230,7 @@ export type NpayRoasDryRunOrderResult = {
     alreadyInGa4: NpayRoasDryRunGa4Presence;
     blockReasons: string[];
   };
+  ga4PayloadPreview: NpayRoasDryRunGa4PayloadPreview;
   bestCandidate: NpayRoasDryRunCandidate | null;
   secondCandidate: NpayRoasDryRunCandidate | null;
   bestScore: number | null;
@@ -265,6 +285,11 @@ export type NpayRoasDryRunReport = {
     purchaseWithoutIntent: number;
     dispatcherDryRunCandidate: number;
     alreadyInGa4Blocked: number;
+    alreadyInGa4LookupPresent: number;
+    alreadyInGa4LookupAbsent: number;
+    alreadyInGa4LookupUnknown: number;
+    ga4LookupRequiredOrderCount: number;
+    ga4LookupIdCount: number;
     testOrderBlocked: number;
     manualOrderCount: number;
     amountMatchTypeCounts: Record<NpayRoasDryRunAmountMatchType, number>;
@@ -362,6 +387,39 @@ const normalizeOrderNumberSet = (values: string[] | undefined) =>
       .filter(Boolean),
   );
 
+const uniqueNonEmpty = (values: string[]) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+
+const buildGa4LookupIds = (order: NpayRoasDryRunOrder) =>
+  uniqueNonEmpty([order.orderNumber, order.channelOrderNo]);
+
+const resolveGa4Presence = (
+  lookupIds: string[],
+  presentIds: Set<string>,
+  absentIds: Set<string>,
+): NpayRoasDryRunGa4Presence => {
+  if (lookupIds.some((id) => presentIds.has(id))) return "present";
+  if (lookupIds.length > 0 && lookupIds.every((id) => absentIds.has(id))) return "absent";
+  return "unknown";
+};
+
+const buildGa4PayloadPreview = (
+  order: NpayRoasDryRunOrder,
+  bestCandidate: NpayRoasDryRunCandidate | null,
+  dispatcherDryRun: NpayRoasDryRunOrderResult["dispatcherDryRun"],
+): NpayRoasDryRunGa4PayloadPreview => ({
+  orderNumber: order.orderNumber,
+  channelOrderNo: order.channelOrderNo,
+  matchedIntentId: bestCandidate?.intentId ?? null,
+  clientId: bestCandidate?.clientId ?? "",
+  gaSessionId: bestCandidate?.gaSessionId ?? "",
+  value: order.orderAmount,
+  currency: "KRW",
+  eventId: `NPayRecoveredPurchase_${order.orderNumber}`,
+  sendCandidate: dispatcherDryRun.candidate,
+  blockReason: [...dispatcherDryRun.blockReasons],
+});
+
 const toIntent = (row: SqliteIntentRow): NpayRoasDryRunIntent => ({
   id: row.id,
   intentKey: row.intent_key,
@@ -396,6 +454,7 @@ const toIntent = (row: SqliteIntentRow): NpayRoasDryRunIntent => ({
 
 const toOrder = (row: PgNpayOrderRow): NpayRoasDryRunOrder => ({
   orderNumber: row.orderNumber,
+  channelOrderNo: row.channelOrderNo?.trim() || "",
   paidAt: new Date(row.paidAt).toISOString(),
   paymentMethod: row.paymentMethod,
   paymentStatus: row.paymentStatus,
@@ -415,6 +474,7 @@ const toManualOrder = (input: NpayRoasDryRunManualOrderInput): NpayRoasDryRunOrd
   }
   return {
     orderNumber: input.orderNumber.trim(),
+    channelOrderNo: input.channelOrderNo?.trim() || "",
     paidAt: paidAt.toISOString(),
     paymentMethod: input.paymentMethod?.trim() || "NAVERPAY_ORDER",
     paymentStatus: input.paymentStatus?.trim() || "PAYMENT_COMPLETE",
@@ -640,6 +700,8 @@ const buildCandidate = (
     amountMatch: amount.matched,
     amountMatchType: amount.type,
     amountReconcileReason: amount.reason,
+    clientId: intent.clientId,
+    gaSessionId: intent.gaSessionId,
     clientIdPresent: Boolean(intent.clientId),
     gaSessionIdPresent: Boolean(intent.gaSessionId),
     gaSessionNumberPresent: Boolean(intent.gaSessionNumber),
@@ -763,6 +825,7 @@ const readConfirmedNpayOrders = async (start: Date, end: Date): Promise<NpayRoas
     WITH raw AS (
       SELECT
         order_number::text AS order_number,
+        COALESCE(NULLIF(TRIM(raw_data ->> 'channelOrderNo'), ''), '') AS channel_order_no,
         COALESCE(NULLIF(TRIM(product_name::text), ''), '미분류') AS product_name,
         COALESCE(NULLIF(TRIM(payment_method::text), ''), '(blank)') AS payment_method,
         COALESCE(NULLIF(TRIM(payment_status::text), ''), '(blank)') AS payment_status,
@@ -792,6 +855,7 @@ const readConfirmedNpayOrders = async (start: Date, end: Date): Promise<NpayRoas
     order_level AS (
       SELECT
         order_number AS "orderNumber",
+        MAX(channel_order_no) AS "channelOrderNo",
         MIN(paid_at) AS "paidAt",
         MAX(payment_method) AS "paymentMethod",
         MAX(payment_status) AS "paymentStatus",
@@ -810,6 +874,7 @@ const readConfirmedNpayOrders = async (start: Date, end: Date): Promise<NpayRoas
     )
     SELECT
       "orderNumber",
+      "channelOrderNo",
       "paidAt",
       "paymentMethod",
       "paymentStatus",
@@ -877,7 +942,10 @@ export const buildNpayRoasDryRunReport = async (
     if (!orderMap.has(manualOrder.orderNumber)) orderMap.set(manualOrder.orderNumber, manualOrder);
   }
   const orders = Array.from(orderMap.values()).filter(
-    (order) => selectedOrderNumbers.size === 0 || selectedOrderNumbers.has(order.orderNumber),
+    (order) =>
+      selectedOrderNumbers.size === 0 ||
+      selectedOrderNumbers.has(order.orderNumber) ||
+      (order.channelOrderNo ? selectedOrderNumbers.has(order.channelOrderNo) : false),
   ).sort((a, b) => Date.parse(a.paidAt) - Date.parse(b.paidAt));
   const intentsById = new Map(intents.map((intent) => [intent.id, intent]));
   const candidateOrderNumbersByIntentId = new Map<string, Set<string>>();
@@ -941,12 +1009,15 @@ export const buildNpayRoasDryRunReport = async (
             minScoreGap: gradeAMinScoreGap,
           })
         : null;
-    const alreadyInGa4: NpayRoasDryRunGa4Presence = ga4PresentOrderNumbers.has(order.orderNumber)
-      ? "present"
-      : ga4AbsentOrderNumbers.has(order.orderNumber)
-        ? "absent"
-        : "unknown";
-    const orderLabel: NpayRoasDryRunOrderLabel = testOrderNumbers.has(order.orderNumber)
+    const ga4LookupIds = buildGa4LookupIds(order);
+    const alreadyInGa4 = resolveGa4Presence(
+      ga4LookupIds,
+      ga4PresentOrderNumbers,
+      ga4AbsentOrderNumbers,
+    );
+    const orderLabel: NpayRoasDryRunOrderLabel =
+      testOrderNumbers.has(order.orderNumber) ||
+      (order.channelOrderNo ? testOrderNumbers.has(order.channelOrderNo) : false)
       ? testOrderLabel
       : "production_order";
     const dispatcherDryRun = buildDispatcherDryRunGuard(
@@ -955,16 +1026,19 @@ export const buildNpayRoasDryRunReport = async (
       alreadyInGa4,
       orderLabel,
     );
+    const ga4PayloadPreview = buildGa4PayloadPreview(order, bestCandidate, dispatcherDryRun);
     const ambiguousReasons =
       status === "ambiguous" ? buildAmbiguousReasons(candidates, minScoreGap, scoreGap) : [];
 
     return {
       order,
       orderLabel,
+      ga4LookupIds,
       status,
       strongGrade,
       sendAllowed: false,
       dispatcherDryRun,
+      ga4PayloadPreview,
       bestCandidate,
       secondCandidate,
       bestScore,
@@ -1009,6 +1083,13 @@ export const buildNpayRoasDryRunReport = async (
       if (result.strongGrade === "B") acc.strongMatchB += 1;
       if (result.dispatcherDryRun.candidate) acc.dispatcherDryRunCandidate += 1;
       if (result.dispatcherDryRun.alreadyInGa4 === "present") acc.alreadyInGa4Blocked += 1;
+      if (result.strongGrade === "A" && result.orderLabel === "production_order") {
+        acc.ga4LookupRequiredOrderCount += 1;
+        acc.ga4LookupIdCount += result.ga4LookupIds.length;
+      }
+      if (result.dispatcherDryRun.alreadyInGa4 === "present") acc.alreadyInGa4LookupPresent += 1;
+      if (result.dispatcherDryRun.alreadyInGa4 === "absent") acc.alreadyInGa4LookupAbsent += 1;
+      if (result.dispatcherDryRun.alreadyInGa4 === "unknown") acc.alreadyInGa4LookupUnknown += 1;
       if (result.orderLabel !== "production_order") acc.testOrderBlocked += 1;
       if (manualOrderNumbers.has(result.order.orderNumber)) acc.manualOrderCount += 1;
       const amountType = result.bestCandidate?.amountMatchType ?? "unknown";
@@ -1027,6 +1108,11 @@ export const buildNpayRoasDryRunReport = async (
       strongMatchB: 0,
       dispatcherDryRunCandidate: 0,
       alreadyInGa4Blocked: 0,
+      alreadyInGa4LookupPresent: 0,
+      alreadyInGa4LookupAbsent: 0,
+      alreadyInGa4LookupUnknown: 0,
+      ga4LookupRequiredOrderCount: 0,
+      ga4LookupIdCount: 0,
       testOrderBlocked: 0,
       manualOrderCount: 0,
       amountMatchTypeCounts: Object.fromEntries(
@@ -1039,6 +1125,11 @@ export const buildNpayRoasDryRunReport = async (
       strongMatchB: number;
       dispatcherDryRunCandidate: number;
       alreadyInGa4Blocked: number;
+      alreadyInGa4LookupPresent: number;
+      alreadyInGa4LookupAbsent: number;
+      alreadyInGa4LookupUnknown: number;
+      ga4LookupRequiredOrderCount: number;
+      ga4LookupIdCount: number;
       testOrderBlocked: number;
       manualOrderCount: number;
       amountMatchTypeCounts: Record<NpayRoasDryRunAmountMatchType, number>;
@@ -1094,6 +1185,11 @@ export const buildNpayRoasDryRunReport = async (
       purchaseWithoutIntent: orderSummary.purchase_without_intent,
       dispatcherDryRunCandidate: orderSummary.dispatcherDryRunCandidate,
       alreadyInGa4Blocked: orderSummary.alreadyInGa4Blocked,
+      alreadyInGa4LookupPresent: orderSummary.alreadyInGa4LookupPresent,
+      alreadyInGa4LookupAbsent: orderSummary.alreadyInGa4LookupAbsent,
+      alreadyInGa4LookupUnknown: orderSummary.alreadyInGa4LookupUnknown,
+      ga4LookupRequiredOrderCount: orderSummary.ga4LookupRequiredOrderCount,
+      ga4LookupIdCount: orderSummary.ga4LookupIdCount,
       testOrderBlocked: orderSummary.testOrderBlocked,
       manualOrderCount: orderSummary.manualOrderCount,
       amountMatchTypeCounts: orderSummary.amountMatchTypeCounts,
@@ -1108,6 +1204,7 @@ export const buildNpayRoasDryRunReport = async (
     notes: [
       "This report is read-only. It does not update npay_intent_log.match_status.",
       "This report does not send GA4, Meta, TikTok, or Google Ads purchase events.",
+      "already_in_ga4 guard checks both Imweb order_number and NPay channel_order_no when channel_order_no is available.",
       "Only A-grade strong matches with already_in_ga4=absent are future dispatcher dry-run candidates; B-grade strong, ambiguous, purchase_without_intent, test orders, and already_in_ga4 rows are blocked.",
       "Manual orders are dry-run inputs only and are not written to any database.",
       "product_idx_match is null because tb_iamweb_users does not expose an order-level product_idx in this read model.",
@@ -1130,6 +1227,7 @@ const renderTable = (headers: string[], rows: unknown[][]) => {
 export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
   const orderRows = report.orderResults.map((result) => [
     result.order.orderNumber,
+    result.order.channelOrderNo,
     result.orderLabel,
     result.order.paidAt,
     result.order.orderAmount,
@@ -1161,6 +1259,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
   const candidateRows = report.orderResults.flatMap((result) =>
     result.candidates.slice(0, 5).map((candidate, index) => [
       result.order.orderNumber,
+      result.order.channelOrderNo,
       index + 1,
       candidate.intentId,
       candidate.capturedAt,
@@ -1184,6 +1283,30 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     ]),
   );
 
+  const bigQueryLookupRows = report.orderResults
+    .filter((result) => result.strongGrade === "A" && result.orderLabel === "production_order")
+    .map((result) => [
+      result.order.orderNumber,
+      result.order.channelOrderNo,
+      result.ga4LookupIds.join(", "),
+      "a_grade_production_candidate",
+      result.dispatcherDryRun.alreadyInGa4,
+      result.dispatcherDryRun.alreadyInGa4 === "unknown" ? "BigQuery 확인 필요" : "확인됨",
+    ]);
+
+  const dispatcherRows = report.orderResults.map((result) => [
+    result.ga4PayloadPreview.orderNumber,
+    result.ga4PayloadPreview.channelOrderNo,
+    result.ga4PayloadPreview.matchedIntentId,
+    result.ga4PayloadPreview.clientId,
+    result.ga4PayloadPreview.gaSessionId,
+    result.ga4PayloadPreview.value,
+    result.ga4PayloadPreview.currency,
+    result.ga4PayloadPreview.eventId,
+    result.ga4PayloadPreview.sendCandidate ? "Y" : "N",
+    result.ga4PayloadPreview.blockReason.join(", "),
+  ]);
+
   return [
     "# NPay ROAS Dry-run Report",
     "",
@@ -1204,6 +1327,11 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         ["purchase_without_intent", report.summary.purchaseWithoutIntent],
         ["dispatcher_dry_run_candidate", report.summary.dispatcherDryRunCandidate],
         ["already_in_ga4_blocked", report.summary.alreadyInGa4Blocked],
+        ["already_in_ga4_lookup_present", report.summary.alreadyInGa4LookupPresent],
+        ["already_in_ga4_lookup_absent", report.summary.alreadyInGa4LookupAbsent],
+        ["already_in_ga4_lookup_unknown", report.summary.alreadyInGa4LookupUnknown],
+        ["ga4_lookup_required_order_count", report.summary.ga4LookupRequiredOrderCount],
+        ["ga4_lookup_id_count", report.summary.ga4LookupIdCount],
         ["test_order_blocked", report.summary.testOrderBlocked],
         ["manual_order_count", report.summary.manualOrderCount],
         ["shipping_reconciled_count", report.summary.shippingReconciledCount],
@@ -1219,6 +1347,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     renderTable(
       [
         "order_number",
+        "channel_order_no",
         "order_label",
         "paid_at",
         "amount",
@@ -1249,6 +1378,42 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       orderRows,
     ),
     "",
+    "## BigQuery Lookup IDs",
+    "",
+    "A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw/purchase에서 조회한다. 둘 중 하나라도 존재하면 `already_in_ga4=present`로 막고, 둘 다 조회해 absent가 확인된 경우에만 dispatcher dry-run 후보가 된다.",
+    "",
+    renderTable(
+      [
+        "order_number",
+        "channel_order_no",
+        "lookup_ids",
+        "candidate_scope",
+        "already_in_ga4",
+        "lookup_status",
+      ],
+      bigQueryLookupRows,
+    ),
+    "",
+    "## Dispatcher Dry-run Log",
+    "",
+    "아래 표는 GA4 Measurement Protocol payload preview다. 실제 전송은 하지 않고, `send_candidate=Y`인 행도 승인 전까지 전송 금지다.",
+    "",
+    renderTable(
+      [
+        "order_number",
+        "channel_order_no",
+        "matched_intent_id",
+        "client_id",
+        "ga_session_id",
+        "value",
+        "currency",
+        "event_id",
+        "send_candidate",
+        "block_reason",
+      ],
+      dispatcherRows,
+    ),
+    "",
     "## Amount Reconciliation",
     "",
     renderTable(
@@ -1261,6 +1426,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     renderTable(
       [
         "order_number",
+        "channel_order_no",
         "rank",
         "intent_id",
         "captured_at",
@@ -1299,5 +1465,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
 export const _internal_npayRoasDryRun = {
   amountMatch,
   buildCandidate,
+  buildGa4LookupIds,
   classifyStrongGrade,
+  resolveGa4Presence,
 };

@@ -8,6 +8,7 @@ import {
 
 const baseOrder: NpayRoasDryRunOrder = {
   orderNumber: "202604309594732",
+  channelOrderNo: "2026043044799490",
   paidAt: "2026-04-30T07:01:14.000Z",
   paymentMethod: "NAVERPAY_ORDER",
   paymentStatus: "PAYMENT_COMPLETE",
@@ -28,6 +29,40 @@ test("npay dry-run amount: shipping-included NPay payment is reconciled", () => 
   assert.equal(amount.score, 20);
   assert.equal(amount.amountDelta, 3000);
   assert.match(amount.reason, /shipping_reconciled=true/);
+});
+
+test("npay dry-run ga4 guard: lookup uses both Imweb order number and NPay channel order number", () => {
+  assert.deepEqual(_internal_npayRoasDryRun.buildGa4LookupIds(baseOrder), [
+    "202604309594732",
+    "2026043044799490",
+  ]);
+
+  assert.equal(
+    _internal_npayRoasDryRun.resolveGa4Presence(
+      ["202604309594732", "2026043044799490"],
+      new Set(["2026043044799490"]),
+      new Set(),
+    ),
+    "present",
+  );
+
+  assert.equal(
+    _internal_npayRoasDryRun.resolveGa4Presence(
+      ["202604309594732", "2026043044799490"],
+      new Set(),
+      new Set(["202604309594732"]),
+    ),
+    "unknown",
+  );
+
+  assert.equal(
+    _internal_npayRoasDryRun.resolveGa4Presence(
+      ["202604309594732", "2026043044799490"],
+      new Set(),
+      new Set(["202604309594732", "2026043044799490"]),
+    ),
+    "absent",
+  );
 });
 
 test("npay dry-run grade: shipping-reconciled strong match can be A grade", () => {
