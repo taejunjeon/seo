@@ -12,6 +12,7 @@ type CliOptions = {
   end?: string;
   output?: string;
   ga4PresentOrderNumbers: string[];
+  ga4RobustAbsentOrderNumbers: string[];
   ga4AbsentOrderNumbers: string[];
   testOrderNumbers: string[];
   testOrderLabel?: string;
@@ -78,6 +79,7 @@ const parseArgs = (argv: string[]): CliOptions => {
   const options: CliOptions = {
     format: "markdown",
     ga4PresentOrderNumbers: [],
+    ga4RobustAbsentOrderNumbers: [],
     ga4AbsentOrderNumbers: [],
     testOrderNumbers: [],
     orderNumbers: [],
@@ -93,6 +95,14 @@ const parseArgs = (argv: string[]): CliOptions => {
     }
     if (arg.startsWith("--ga4-present-file=")) {
       options.ga4PresentOrderNumbers.push(...parseListFile(arg.slice("--ga4-present-file=".length)));
+    }
+    if (arg.startsWith("--ga4-robust-absent=")) {
+      options.ga4RobustAbsentOrderNumbers.push(...parseList(arg.slice("--ga4-robust-absent=".length)));
+    }
+    if (arg.startsWith("--ga4-robust-absent-file=")) {
+      options.ga4RobustAbsentOrderNumbers.push(
+        ...parseListFile(arg.slice("--ga4-robust-absent-file=".length)),
+      );
     }
     if (arg.startsWith("--ga4-absent=")) {
       options.ga4AbsentOrderNumbers.push(...parseList(arg.slice("--ga4-absent=".length)));
@@ -136,6 +146,7 @@ const main = async () => {
     start: options.start,
     end: options.end,
     ga4PresentOrderNumbers: options.ga4PresentOrderNumbers,
+    ga4RobustAbsentOrderNumbers: options.ga4RobustAbsentOrderNumbers,
     ga4AbsentOrderNumbers: options.ga4AbsentOrderNumbers,
     testOrderNumbers: options.testOrderNumbers,
     testOrderLabel: options.testOrderLabel,

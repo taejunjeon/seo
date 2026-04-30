@@ -45,6 +45,7 @@ test("npay dry-run ga4 guard: lookup uses both Imweb order number and NPay chann
       ["202604309594732", "2026043044799490"],
       new Set(["2026043044799490"]),
       new Set(),
+      new Set(),
     ),
     "present",
   );
@@ -52,6 +53,17 @@ test("npay dry-run ga4 guard: lookup uses both Imweb order number and NPay chann
   assert.equal(
     _internal_npayRoasDryRun.resolveGa4Presence(
       ["202604309594732", "2026043044799490"],
+      new Set(),
+      new Set(["202604309594732", "2026043044799490"]),
+      new Set(),
+    ),
+    "robust_absent",
+  );
+
+  assert.equal(
+    _internal_npayRoasDryRun.resolveGa4Presence(
+      ["202604309594732", "2026043044799490"],
+      new Set(),
       new Set(),
       new Set(["202604309594732"]),
     ),
@@ -61,6 +73,7 @@ test("npay dry-run ga4 guard: lookup uses both Imweb order number and NPay chann
   assert.equal(
     _internal_npayRoasDryRun.resolveGa4Presence(
       ["202604309594732", "2026043044799490"],
+      new Set(),
       new Set(),
       new Set(["202604309594732", "2026043044799490"]),
     ),
@@ -294,6 +307,7 @@ test("npay dry-run markdown includes early decision and manual review sections",
       dispatcherDryRunCandidate: 0,
       alreadyInGa4Blocked: 0,
       alreadyInGa4LookupPresent: 0,
+      alreadyInGa4LookupRobustAbsent: 0,
       alreadyInGa4LookupAbsent: 0,
       alreadyInGa4LookupUnknown: 1,
       ga4LookupRequiredOrderCount: 0,
@@ -334,12 +348,22 @@ test("npay dry-run markdown includes early decision and manual review sections",
         ga4PayloadPreview: {
           orderNumber: baseOrder.orderNumber,
           channelOrderNo: baseOrder.channelOrderNo,
+          paidAt: baseOrder.paidAt,
+          paidAtAgeHours: 2.4,
+          paidAtWithin72Hours: true,
           matchedIntentId: candidate.intentId,
           clientId: candidate.clientId,
           gaSessionId: candidate.gaSessionId,
+          clientIdPresent: true,
+          gaSessionIdPresent: true,
           value: baseOrder.orderAmount,
           currency: "KRW",
+          transactionId: baseOrder.orderNumber,
+          channelOrderNoParam: baseOrder.channelOrderNo,
+          timestampMicros: "1777532474000000",
           eventId: `NPayRecoveredPurchase_${baseOrder.orderNumber}`,
+          dispatchDedupeKey: `npay_recovery_ga4_purchase:biocom:${baseOrder.orderNumber}`,
+          alreadyInGa4: "unknown",
           sendCandidate: false,
           blockReason: ["ambiguous", "not_a_grade_strong", "already_in_ga4_unknown"],
         },
@@ -393,5 +417,7 @@ test("npay dry-run markdown includes early decision and manual review sections",
   assert.match(markdown, /## Early Phase2 Decision Package/);
   assert.match(markdown, /## Manual Review Queue/);
   assert.match(markdown, /### BigQuery Query Template/);
+  assert.match(markdown, /paid_at_72h/);
+  assert.match(markdown, /dispatch_dedupe_key/);
   assert.match(markdown, /## Guardrail/);
 });

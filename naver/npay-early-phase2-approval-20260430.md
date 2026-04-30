@@ -1,21 +1,23 @@
 # NPay Phase2 조기 진행 승인안
 
-작성 시각: 2026-04-30 19:10 KST
+작성 시각: 2026-04-30 20:36 KST
 대상: biocom.kr NPay ROAS 정합성
-관련 문서: [[!npayroas]], [[npay-roas-dry-run-20260430]], [[npay-manual-test-20260430]], [[GA4/gtm]]
+관련 문서: [[!npayroas]], [[npay-roas-dry-run-20260430]], [[npay-ga4-mp-limited-test-approval]], [[npay-manual-test-20260430]], [[GA4/gtm]]
 Primary source: VM SQLite `npay_intent_log`, 운영 Postgres `public.tb_iamweb_users`
 Window: 2026-04-27 18:10 KST ~ 2026-04-30 19:10 KST
-Freshness: dry-run report `2026-04-30 19:07 KST`
-Confidence: 82%
+Freshness: dry-run report `2026-04-30 20:34 KST`, TJ BigQuery robust query 결과 반영 `2026-04-30 20:36 KST`
+Confidence: 88%
 
 ## 10초 요약
 
 현재 데이터는 7일치가 아니지만, `live intent 299건`, `confirmed NPay 주문 11건`, `A급 production 후보 5건`이 있어 조기 Phase2 진행은 가능하다.
 
-단, 이 승인안은 실제 전송 승인이 아니다. 지금 승인받을 것은 아래 두 가지다.
+TJ님이 A급 production 후보 5건의 Imweb `order_number`와 NPay `channel_order_no` 총 10개 ID를 BigQuery robust query로 조회했고, GA4 raw/purchase 전체에서 표시할 데이터 없음으로 확인했다. 이 5건은 `already_in_ga4=robust_absent`로 반영했다.
 
-1. A급 production 후보 5건의 `order_number`와 `channel_order_no`를 BigQuery에서 조회한다.
-2. 둘 다 GA4에 없다고 확인된 주문만 대상으로 GA4 Measurement Protocol 제한 테스트 승인안을 다음 문서로 만든다.
+단, 이 문서는 실제 전송 승인이 아니다. 현재 결론은 아래 두 가지다.
+
+1. Phase2 read-only guard는 닫혔다. A급 production 후보 5건은 robust_absent다.
+2. 실제 GA4 Measurement Protocol 전송 여부는 [[npay-ga4-mp-limited-test-approval]]에서 별도 YES/NO로 결정한다.
 
 ## 현재 판단
 
@@ -30,27 +32,29 @@ Confidence: 82%
 | ambiguous | 3 |
 | purchase_without_intent | 0 |
 | clicked_no_purchase | 208 |
-| dispatcher 실제 후보 | 0 |
+| dispatcher dry-run 후보 | 5 |
+| 실제 전송 | 0 |
+| A급 production `robust_absent` | 5 |
 
-dispatcher 실제 후보가 0인 이유는 A급 production 후보의 `already_in_ga4`가 아직 `unknown`이기 때문이다.
+dispatcher dry-run 후보 5건은 "승인하면 보낼 수 있는 후보"라는 뜻이다. 실제 전송은 아직 0건이고, 승인 전까지 GA4/Meta/TikTok/Google Ads 전송은 금지다.
 
 ## Codex 추천
 
-추천: **YES: 현재 표본으로 제한 진행 + 7일 후보정**
+추천: **YES: GA4 MP 1건 제한 테스트 승인 여부 검토 + 7일 후보정**
 
 이유:
 
-1. 현재 표본으로 BigQuery guard와 수동 검토는 충분히 가능하다.
+1. 현재 표본으로 BigQuery guard와 수동 검토는 충분히 가능했고, A급 production 5건은 robust_absent로 닫혔다.
 2. GA4 Measurement Protocol은 과거 이벤트와 세션 귀속에 시간 제약이 있으므로 7일을 기다리기만 하면 복구 가치가 떨어질 수 있다.
 3. 반대로 ambiguous 3건이 있어 자동 dispatcher나 Google Ads 전송은 아직 열면 안 된다.
 
-자신감: 82%
+자신감: 88%
 
 자신감을 낮춘 이유:
 
 - confirmed NPay 주문이 아직 11건이라 표본이 작다.
 - ambiguous가 3건으로 27.3%다.
-- BigQuery `already_in_ga4` 확인이 아직 닫히지 않았다.
+- BigQuery robust guard는 닫혔지만, 실제 GA4 MP 전송은 롤백이 제한된다.
 - TikTok 전용 식별값 `ttclid`, `_ttp`는 아직 없다.
 
 ## TJ님 확인 필요
@@ -59,26 +63,26 @@ dispatcher 실제 후보가 0인 이유는 A급 production 후보의 `already_in
 
 | 선택 | 의미 | Codex 추천 |
 |---|---|---|
-| YES | 현재 표본으로 BigQuery guard 조회와 GA4 MP 제한 테스트 승인안 작성을 진행한다. 실제 전송은 별도 승인 전까지 금지한다. | 추천 |
+| YES | GA4 MP 제한 테스트 승인안에서 1건 수동 제한 전송 여부를 판단한다. 실제 전송은 별도 승인 전까지 금지한다. | 추천 |
 | NO | 2026-05-04 18:10 KST 이후 7일치 dry-run까지 모든 다음 판단을 보류한다. | 비추천 |
 
 추천 답변:
 
 ```text
-YES: 현재 표본으로 BigQuery guard 조회와 GA4 MP 제한 테스트 승인안 작성을 진행
+YES: GA4 MP 제한 테스트 승인안을 보고 1건 제한 테스트 여부를 판단
 ```
 
 ## BigQuery 조회 대상
 
-아래 5개 주문은 A급 production 후보지만, BigQuery 확인 전까지 전송 후보가 아니다.
+아래 5개 주문은 A급 production 후보이며, TJ님 BigQuery robust query에서 모두 `robust_absent`로 확인됐다.
 
 | Imweb order_number | NPay channel_order_no | 상태 |
 |---|---|---|
-| `202604280487104` | `2026042865542930` | 확인 필요 |
-| `202604285552452` | `2026042867285600` | 확인 필요 |
-| `202604303307399` | `2026043034982320` | 확인 필요 |
-| `202604309992065` | `2026043040116970` | 확인 필요 |
-| `202604302383065` | `2026043043205620` | 확인 필요 |
+| `202604280487104` | `2026042865542930` | `robust_absent` |
+| `202604285552452` | `2026042867285600` | `robust_absent` |
+| `202604303307399` | `2026043034982320` | `robust_absent` |
+| `202604309992065` | `2026043040116970` | `robust_absent` |
+| `202604302383065` | `2026043043205620` | `robust_absent` |
 
 조회 ID 전체:
 
@@ -97,7 +101,18 @@ YES: 현재 표본으로 BigQuery guard 조회와 GA4 MP 제한 테스트 승인
 
 ## BigQuery SQL
 
-아래 쿼리는 기존 문서에서 쓰던 GA4 export dataset `hurdlers-naver-pay.analytics_304759974.events_*` 기준이다. dataset이 바뀌었다면 `<PROJECT>.<GA4_DATASET>`만 바꿔 실행한다.
+아래 쿼리는 기존 문서에서 쓰던 GA4 export dataset `hurdlers-naver-pay.analytics_304759974.events_*` 기준 초안이다. TJ님은 이보다 더 넓은 robust query를 직접 실행했다.
+
+TJ님 robust query 확인 범위:
+
+- `ecommerce.transaction_id`
+- `event_params.transaction_id`
+- `event_params` 전체 value
+- `string_value`, `int_value`, `double_value`, `float_value`
+- `events_*`와 `events_intraday_*`
+- `_TABLE_SUFFIX`에서 날짜를 추출하는 방식
+
+결과: 위 10개 ID 모두 표시할 데이터 없음.
 
 ```sql
 WITH ids AS (
@@ -142,10 +157,10 @@ ORDER BY event_timestamp;
 | 결과 | 처리 |
 |---|---|
 | 10개 ID 중 하나라도 조회됨 | 해당 주문은 `already_in_ga4=present`, GA4 MP 전송 후보 제외 |
-| 주문의 `order_number`, `channel_order_no` 둘 다 조회 안 됨 | 해당 주문은 `already_in_ga4=absent`, GA4 MP 제한 테스트 후보 가능 |
+| 주문의 `order_number`, `channel_order_no` 둘 다 robust query에서 조회 안 됨 | 해당 주문은 `already_in_ga4=robust_absent`, GA4 MP 제한 테스트 후보 가능 |
 | BigQuery table 미생성/권한 없음 | 해당 주문은 `already_in_ga4=unknown`, 전송 후보 제외 |
 
-BigQuery 결과를 Codex가 반영할 때는 `--ga4-present`, `--ga4-absent` 쉼표 목록 또는 `--ga4-present-file`, `--ga4-absent-file` 줄바꿈 파일을 사용할 수 있다. 파일 방식은 order id가 많아질 때 복사 실수를 줄이기 위한 보조 경로다.
+BigQuery 결과를 Codex가 반영할 때는 `--ga4-present`, `--ga4-robust-absent` 쉼표 목록 또는 `--ga4-present-file`, `--ga4-robust-absent-file` 줄바꿈 파일을 사용할 수 있다. 파일 방식은 order id가 많아질 때 복사 실수를 줄이기 위한 보조 경로다.
 
 ## 수동 검토 큐
 
@@ -171,8 +186,8 @@ BigQuery 결과를 Codex가 반영할 때는 `--ga4-present`, `--ga4-absent` 쉼
 
 | 순서 | 담당 | 무엇 | 왜 | 산출물 |
 |---:|---|---|---|---|
-| 1 | TJ 또는 Codex | BigQuery guard SQL 실행 | 이미 GA4에 있는 주문 중복 전송 방지 | present/absent ID 목록 |
-| 2 | Codex | `--ga4-present`, `--ga4-absent`를 넣어 dry-run 재계산 | 실제 후보 0건인지, 일부 후보가 열리는지 확인 | dispatcher dry-run log |
-| 3 | Codex | GA4 MP 제한 테스트 승인안 작성 | 전송 전 payload/범위/롤백 한계 확인 | 별도 승인 문서 |
+| 1 | TJ | BigQuery robust query 실행 | 이미 GA4에 있는 주문 중복 전송 방지 | 완료. 10개 ID 모두 `robust_absent` |
+| 2 | Codex | `--ga4-robust-absent`를 넣어 dry-run 재계산 | 실제 후보가 열리는지 확인 | 완료. dispatcher dry-run 후보 5건 |
+| 3 | Codex | GA4 MP 제한 테스트 승인안 작성 | 전송 전 payload/범위/롤백 한계 확인 | [[npay-ga4-mp-limited-test-approval]] |
 | 4 | TJ | GA4 MP 제한 테스트 YES/NO | 실제 광고/분석 신호 변경 승인 | 승인 또는 보류 |
 | 5 | Codex | 2026-05-04 18:10 KST 이후 7일 후보정 | 현재 판단을 7일 표본으로 재검증 | 후보정 리포트 |

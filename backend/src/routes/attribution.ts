@@ -199,7 +199,7 @@ const readOne = (value: unknown) => {
 
 const readCsvList = (value: unknown) =>
   readOne(value)
-    .split(",")
+    .split(/[,\s]+/)
     .map((item) => item.trim())
     .filter(Boolean);
 
@@ -1572,6 +1572,9 @@ export const createAttributionRouter = () => {
         end: readOne(req.query.end),
         site: readOne(req.query.site) || "biocom",
         ga4PresentOrderNumbers: readCsvList(req.query.ga4PresentOrderNumbers || req.query.ga4Present),
+        ga4RobustAbsentOrderNumbers: readCsvList(
+          req.query.ga4RobustAbsentOrderNumbers || req.query.ga4RobustAbsent,
+        ),
         ga4AbsentOrderNumbers: readCsvList(req.query.ga4AbsentOrderNumbers || req.query.ga4Absent),
         testOrderNumbers: readCsvList(req.query.testOrderNumbers || req.query.testOrders),
         testOrderLabel: readOne(req.query.testOrderLabel),

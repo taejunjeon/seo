@@ -195,7 +195,7 @@ ORDER BY event_timestamp;
 | --- | --- |
 | 테이블이 아직 없음 | `already_in_ga4=unknown`, dispatcher 후보 제외 |
 | 둘 중 하나라도 purchase 또는 raw event에 존재 | `already_in_ga4=present`, dispatcher 후보 제외 |
-| 테이블 생성 후 두 쿼리 모두 0건 | `already_in_ga4=absent`, GA4 raw 미수신으로 기록 |
+| robust query에서 두 ID 모두 0건 | `already_in_ga4=robust_absent`, GA4 raw 미수신으로 기록. 단, 이 주문은 수동 테스트 라벨이라 전송 후보 제외 |
 
 ## Guardrail
 

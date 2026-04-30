@@ -13,7 +13,7 @@ export type NpayRoasDryRunOrderStatus =
 
 export type NpayRoasDryRunStrongGrade = "A" | "B";
 
-export type NpayRoasDryRunGa4Presence = "present" | "absent" | "unknown";
+export type NpayRoasDryRunGa4Presence = "present" | "robust_absent" | "absent" | "unknown";
 
 export type NpayRoasDryRunOrderLabel = string;
 
@@ -229,12 +229,22 @@ export type NpayRoasDryRunCandidate = {
 export type NpayRoasDryRunGa4PayloadPreview = {
   orderNumber: string;
   channelOrderNo: string;
+  paidAt: string;
+  paidAtAgeHours: number | null;
+  paidAtWithin72Hours: boolean;
   matchedIntentId: string | null;
   clientId: string;
   gaSessionId: string;
+  clientIdPresent: boolean;
+  gaSessionIdPresent: boolean;
   value: number | null;
   currency: "KRW";
+  transactionId: string;
+  channelOrderNoParam: string;
+  timestampMicros: string | null;
   eventId: string;
+  dispatchDedupeKey: string;
+  alreadyInGa4: NpayRoasDryRunGa4Presence;
   sendCandidate: boolean;
   blockReason: string[];
 };
@@ -308,6 +318,7 @@ export type NpayRoasDryRunReport = {
     dispatcherDryRunCandidate: number;
     alreadyInGa4Blocked: number;
     alreadyInGa4LookupPresent: number;
+    alreadyInGa4LookupRobustAbsent: number;
     alreadyInGa4LookupAbsent: number;
     alreadyInGa4LookupUnknown: number;
     ga4LookupRequiredOrderCount: number;
@@ -349,6 +360,7 @@ export type NpayRoasDryRunOptions = {
   maxCandidateLookbackHours?: number;
   maxCandidatesPerOrder?: number;
   ga4PresentOrderNumbers?: string[];
+  ga4RobustAbsentOrderNumbers?: string[];
   ga4AbsentOrderNumbers?: string[];
   testOrderNumbers?: string[];
   testOrderLabel?: string;
@@ -426,26 +438,51 @@ const buildGa4LookupIds = (order: NpayRoasDryRunOrder) =>
 const resolveGa4Presence = (
   lookupIds: string[],
   presentIds: Set<string>,
+  robustAbsentIds: Set<string>,
   absentIds: Set<string>,
 ): NpayRoasDryRunGa4Presence => {
   if (lookupIds.some((id) => presentIds.has(id))) return "present";
+  if (lookupIds.length > 0 && lookupIds.every((id) => robustAbsentIds.has(id))) return "robust_absent";
   if (lookupIds.length > 0 && lookupIds.every((id) => absentIds.has(id))) return "absent";
   return "unknown";
+};
+
+const timestampMicros = (iso: string) => {
+  const millis = Date.parse(iso);
+  if (!Number.isFinite(millis)) return null;
+  return String(millis * 1000);
 };
 
 const buildGa4PayloadPreview = (
   order: NpayRoasDryRunOrder,
   bestCandidate: NpayRoasDryRunCandidate | null,
   dispatcherDryRun: NpayRoasDryRunOrderResult["dispatcherDryRun"],
+  now: Date,
+  site: string,
 ): NpayRoasDryRunGa4PayloadPreview => ({
   orderNumber: order.orderNumber,
   channelOrderNo: order.channelOrderNo,
+  paidAt: order.paidAt,
+  paidAtAgeHours: Number.isFinite(Date.parse(order.paidAt))
+    ? roundOne((now.getTime() - Date.parse(order.paidAt)) / 3_600_000)
+    : null,
+  paidAtWithin72Hours:
+    Number.isFinite(Date.parse(order.paidAt)) &&
+    now.getTime() >= Date.parse(order.paidAt) &&
+    now.getTime() - Date.parse(order.paidAt) <= 72 * 3_600_000,
   matchedIntentId: bestCandidate?.intentId ?? null,
   clientId: bestCandidate?.clientId ?? "",
   gaSessionId: bestCandidate?.gaSessionId ?? "",
+  clientIdPresent: Boolean(bestCandidate?.clientId),
+  gaSessionIdPresent: Boolean(bestCandidate?.gaSessionId),
   value: order.orderAmount,
   currency: "KRW",
+  transactionId: order.orderNumber,
+  channelOrderNoParam: order.channelOrderNo,
+  timestampMicros: timestampMicros(order.paidAt),
   eventId: `NPayRecoveredPurchase_${order.orderNumber}`,
+  dispatchDedupeKey: `npay_recovery_ga4_purchase:${site}:${order.orderNumber}`,
+  alreadyInGa4: dispatcherDryRun.alreadyInGa4,
   sendCandidate: dispatcherDryRun.candidate,
   blockReason: [...dispatcherDryRun.blockReasons],
 });
@@ -1076,6 +1113,7 @@ export const buildNpayRoasDryRunReport = async (
   const maxCandidateLookbackHours = options.maxCandidateLookbackHours ?? 24;
   const maxCandidatesPerOrder = options.maxCandidatesPerOrder ?? 25;
   const ga4PresentOrderNumbers = normalizeOrderNumberSet(options.ga4PresentOrderNumbers);
+  const ga4RobustAbsentOrderNumbers = normalizeOrderNumberSet(options.ga4RobustAbsentOrderNumbers);
   const ga4AbsentOrderNumbers = normalizeOrderNumberSet(options.ga4AbsentOrderNumbers);
   const testOrderNumbers = normalizeOrderNumberSet(options.testOrderNumbers);
   const testOrderLabel = options.testOrderLabel?.trim() || "test_order";
@@ -1161,6 +1199,7 @@ export const buildNpayRoasDryRunReport = async (
     const alreadyInGa4 = resolveGa4Presence(
       ga4LookupIds,
       ga4PresentOrderNumbers,
+      ga4RobustAbsentOrderNumbers,
       ga4AbsentOrderNumbers,
     );
     const orderLabel: NpayRoasDryRunOrderLabel =
@@ -1174,7 +1213,7 @@ export const buildNpayRoasDryRunReport = async (
       alreadyInGa4,
       orderLabel,
     );
-    const ga4PayloadPreview = buildGa4PayloadPreview(order, bestCandidate, dispatcherDryRun);
+    const ga4PayloadPreview = buildGa4PayloadPreview(order, bestCandidate, dispatcherDryRun, now, site);
     const ambiguousReasons =
       status === "ambiguous" ? buildAmbiguousReasons(order, candidates, minScoreGap, scoreGap) : [];
 
@@ -1236,6 +1275,9 @@ export const buildNpayRoasDryRunReport = async (
         acc.ga4LookupIdCount += result.ga4LookupIds.length;
       }
       if (result.dispatcherDryRun.alreadyInGa4 === "present") acc.alreadyInGa4LookupPresent += 1;
+      if (result.dispatcherDryRun.alreadyInGa4 === "robust_absent") {
+        acc.alreadyInGa4LookupRobustAbsent += 1;
+      }
       if (result.dispatcherDryRun.alreadyInGa4 === "absent") acc.alreadyInGa4LookupAbsent += 1;
       if (result.dispatcherDryRun.alreadyInGa4 === "unknown") acc.alreadyInGa4LookupUnknown += 1;
       if (result.orderLabel !== "production_order") acc.testOrderBlocked += 1;
@@ -1257,6 +1299,7 @@ export const buildNpayRoasDryRunReport = async (
       dispatcherDryRunCandidate: 0,
       alreadyInGa4Blocked: 0,
       alreadyInGa4LookupPresent: 0,
+      alreadyInGa4LookupRobustAbsent: 0,
       alreadyInGa4LookupAbsent: 0,
       alreadyInGa4LookupUnknown: 0,
       ga4LookupRequiredOrderCount: 0,
@@ -1274,6 +1317,7 @@ export const buildNpayRoasDryRunReport = async (
       dispatcherDryRunCandidate: number;
       alreadyInGa4Blocked: number;
       alreadyInGa4LookupPresent: number;
+      alreadyInGa4LookupRobustAbsent: number;
       alreadyInGa4LookupAbsent: number;
       alreadyInGa4LookupUnknown: number;
       ga4LookupRequiredOrderCount: number;
@@ -1338,6 +1382,7 @@ export const buildNpayRoasDryRunReport = async (
       dispatcherDryRunCandidate: orderSummary.dispatcherDryRunCandidate,
       alreadyInGa4Blocked: orderSummary.alreadyInGa4Blocked,
       alreadyInGa4LookupPresent: orderSummary.alreadyInGa4LookupPresent,
+      alreadyInGa4LookupRobustAbsent: orderSummary.alreadyInGa4LookupRobustAbsent,
       alreadyInGa4LookupAbsent: orderSummary.alreadyInGa4LookupAbsent,
       alreadyInGa4LookupUnknown: orderSummary.alreadyInGa4LookupUnknown,
       ga4LookupRequiredOrderCount: orderSummary.ga4LookupRequiredOrderCount,
@@ -1359,7 +1404,7 @@ export const buildNpayRoasDryRunReport = async (
       "This report does not send GA4, Meta, TikTok, or Google Ads purchase events.",
       "This Phase2 report work does not deploy or enable production endpoints.",
       "already_in_ga4 guard checks both Imweb order_number and NPay channel_order_no when channel_order_no is available.",
-      "Only A-grade strong matches with already_in_ga4=absent are future dispatcher dry-run candidates; B-grade strong, ambiguous, purchase_without_intent, test orders, and already_in_ga4 rows are blocked.",
+      "Only A-grade strong matches with already_in_ga4=robust_absent or absent are future dispatcher dry-run candidates; B-grade strong, ambiguous, purchase_without_intent, test orders, and already_in_ga4 rows are blocked.",
       "Manual orders are dry-run inputs only and are not written to any database.",
       "product_idx_match is null because tb_iamweb_users does not expose an order-level product_idx in this read model.",
     ],
@@ -1396,6 +1441,9 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
   const gradeAProductionUnknownCount = gradeAProductionResults.filter(
     (result) => result.dispatcherDryRun.alreadyInGa4 === "unknown",
   ).length;
+  const gradeAProductionRobustAbsentCount = gradeAProductionResults.filter(
+    (result) => result.dispatcherDryRun.alreadyInGa4 === "robust_absent",
+  ).length;
   const earlyDecisionRows = [
     [
       "현재 표본 조기 진행",
@@ -1414,8 +1462,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     [
       "GA4 MP 제한 테스트",
       gradeAProductionCount > 0 ? "준비 가능" : "보류",
-      `A급 production 후보 ${gradeAProductionCount}건, unknown ${gradeAProductionUnknownCount}건`,
-      "두 ID 모두 GA4 absent 확인 + TJ 승인 후에만 실제 전송",
+      `A급 production 후보 ${gradeAProductionCount}건, robust_absent ${gradeAProductionRobustAbsentCount}건, unknown ${gradeAProductionUnknownCount}건`,
+      "두 ID 모두 GA4 robust_absent 확인 + TJ 승인 후에만 실제 전송",
     ],
     [
       "clicked_no_purchase 해석",
@@ -1491,7 +1539,11 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       result.ga4LookupIds.join(", "),
       "a_grade_production_candidate",
       result.dispatcherDryRun.alreadyInGa4,
-      result.dispatcherDryRun.alreadyInGa4 === "unknown" ? "BigQuery 확인 필요" : "확인됨",
+      result.dispatcherDryRun.alreadyInGa4 === "unknown"
+        ? "BigQuery 확인 필요"
+        : result.dispatcherDryRun.alreadyInGa4 === "robust_absent"
+          ? "robust query 확인됨"
+          : "확인됨",
     ]);
 
   const manualReviewRows = report.orderResults
@@ -1559,8 +1611,18 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     result.ga4PayloadPreview.value,
     result.ga4PayloadPreview.currency,
     result.ga4PayloadPreview.eventId,
+    result.ga4PayloadPreview.alreadyInGa4,
     result.ga4PayloadPreview.sendCandidate ? "Y" : "N",
     result.ga4PayloadPreview.blockReason.join(", "),
+    result.ga4PayloadPreview.paidAt,
+    result.ga4PayloadPreview.paidAtWithin72Hours ? "Y" : "N",
+    result.ga4PayloadPreview.paidAtAgeHours,
+    result.ga4PayloadPreview.clientIdPresent ? "Y" : "N",
+    result.ga4PayloadPreview.gaSessionIdPresent ? "Y" : "N",
+    result.ga4PayloadPreview.transactionId,
+    result.ga4PayloadPreview.channelOrderNoParam,
+    result.ga4PayloadPreview.timestampMicros,
+    result.ga4PayloadPreview.dispatchDedupeKey,
   ]);
   const ambiguousReasonRows = report.breakdowns.ambiguousReasons.map((row) => [
     row.key,
@@ -1603,6 +1665,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         ["dispatcher_dry_run_candidate", report.summary.dispatcherDryRunCandidate],
         ["already_in_ga4_blocked", report.summary.alreadyInGa4Blocked],
         ["already_in_ga4_lookup_present", report.summary.alreadyInGa4LookupPresent],
+        ["already_in_ga4_lookup_robust_absent", report.summary.alreadyInGa4LookupRobustAbsent],
         ["already_in_ga4_lookup_absent", report.summary.alreadyInGa4LookupAbsent],
         ["already_in_ga4_lookup_unknown", report.summary.alreadyInGa4LookupUnknown],
         ["ga4_lookup_required_order_count", report.summary.ga4LookupRequiredOrderCount],
@@ -1735,7 +1798,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     "",
     "## BigQuery Lookup IDs",
     "",
-    "A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw/purchase에서 조회한다. 둘 중 하나라도 존재하면 `already_in_ga4=present`로 막고, 둘 다 조회해 absent가 확인된 경우에만 dispatcher dry-run 후보가 된다.",
+    "A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw/purchase에서 조회한다. 둘 중 하나라도 존재하면 `already_in_ga4=present`로 막고, 둘 다 robust query에서 조회되지 않은 경우 `already_in_ga4=robust_absent`로 표시한다.",
     "",
     renderTable(
       [
@@ -1792,8 +1855,18 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "value",
         "currency",
         "event_id",
+        "already_in_ga4",
         "send_candidate",
         "block_reason",
+        "paid_at",
+        "paid_at_72h",
+        "paid_at_age_hours",
+        "client_id_present",
+        "ga_session_id_present",
+        "transaction_id",
+        "channel_order_no_param",
+        "timestamp_micros",
+        "dispatch_dedupe_key",
       ],
       dispatcherRows,
     ),
@@ -1843,6 +1916,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     "- 이 리포트 변경만으로 운영 endpoint를 배포하지 않는다.",
     "- A급 strong만 향후 dispatcher dry-run 후보이며, B급 strong은 첫 dispatcher 후보에서 제외한다.",
     "- already_in_ga4가 present 또는 unknown이면 전송 후보에서 제외한다.",
+    "- robust_absent는 order_number와 channel_order_no가 GA4 raw/purchase 전체 robust query에서 모두 조회되지 않은 상태다.",
     "- 테스트/수동 테스트 라벨 주문은 전송 후보에서 제외한다.",
   ].join("\n");
 };
