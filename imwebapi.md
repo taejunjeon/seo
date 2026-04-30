@@ -210,6 +210,42 @@ curl 'http://localhost:7020/api/crm-local/imweb/pagination-anomalies?site=thecle
 4. 로컬 주문 캐시 기간과 운영 주문 원장 전체 기간이 다를 수 있다.
 5. 쿠폰명 백필은 최근 로컬 캐시에 있는 발행쿠폰코드 기준으로 완료된 것이지, 운영 전체 기간 확정은 아니다.
 
+## 2026-04-30 NPay 수동 테스트 확인
+
+Source: Imweb legacy v2 API read-only, TossPayments API read-only, 운영 Postgres `tb_iamweb_users` read-only
+Window: 2026-04-30 15:55-16:10 KST
+Freshness: 2026-04-30 16:40 KST
+Confidence: 88%
+
+TJ 수동 NPay 테스트 결제에서 네이버페이 완료 URL은 아래였다.
+
+```text
+https://orders.pay.naver.com/order/result/mall/2026043044799490
+```
+
+확인 결과:
+
+| 항목 | 값 |
+|---|---|
+| Imweb legacy v2 목록 조회 조건 | `type=npay`, 2026-04-30 15:55-16:10 KST |
+| Imweb `order_no` | `202604309594732` |
+| Imweb `channel_order_no` | `2026043044799490` |
+| `order_time` | 2026-04-30 16:00:24 KST |
+| `payment.pay_type` | `npay` |
+| `payment.total_price` | 8,900 |
+| `payment.deliv_price` | 3,000 |
+| `payment.payment_amount` | 11,900 |
+| `GET /v2/shop/orders/2026043044799490` | 실패. 이 값은 Imweb `order_no`가 아님 |
+| `GET /v2/shop/orders/202604309594732` | 성공 |
+| `https://openapi.imweb.me/orders` | 현재 legacy token으로 401 |
+| 운영 Postgres `tb_iamweb_users` | 확인 시점에는 아직 미동기화 |
+
+판단:
+
+- NPay 완료 URL 끝자리 숫자는 Imweb `channel_order_no`로 매핑된다.
+- 자체 ROAS dry-run에서 주문 원장 키는 Imweb `order_no`를 우선 사용하고, BigQuery 중복 확인은 `order_no`와 `channel_order_no`를 모두 조회한다.
+- 운영 Postgres는 후행 sync 지연이 있으므로, 결제 직후 수분 내 판정은 Imweb legacy API가 더 빠른 cross-check가 될 수 있다.
+
 ## 참고 파일
 
 - `api.md`

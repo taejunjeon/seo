@@ -1574,6 +1574,7 @@ export const createAttributionRouter = () => {
         ga4PresentOrderNumbers: readCsvList(req.query.ga4PresentOrderNumbers || req.query.ga4Present),
         ga4AbsentOrderNumbers: readCsvList(req.query.ga4AbsentOrderNumbers || req.query.ga4Absent),
         testOrderNumbers: readCsvList(req.query.testOrderNumbers || req.query.testOrders),
+        testOrderLabel: readOne(req.query.testOrderLabel),
         orderNumbers: readCsvList(req.query.orderNumbers || req.query.orderNumber),
       });
 

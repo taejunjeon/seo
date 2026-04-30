@@ -544,3 +544,34 @@ Toss API는 다음 용도에는 정본으로 부적합하다.
 상품명/상품 ID 문제는 Toss API로 푸는 것이 아니라, **아임웹 또는 운영 주문 라인아이템 원장으로 풀어야 한다.**
 
 Toss는 결제 상태와 금액 검증의 정본이고, 상품 정보의 정본은 아니다.
+
+## 13. NPay 외부 주문형 결제 조회 한계 (0430 추가)
+
+Source: TossPayments API read-only, Imweb legacy v2 API read-only
+Window: 2026-04-30 15:55-16:10 KST
+Freshness: 2026-04-30 16:40 KST
+Confidence: 90%
+
+TJ 수동 NPay 테스트 결제:
+
+| 항목 | 값 |
+|---|---|
+| NPay 완료 URL | `https://orders.pay.naver.com/order/result/mall/2026043044799490` |
+| NPay `channel_order_no` | `2026043044799490` |
+| Imweb `order_no` | `202604309594732` |
+| 결제금액 | 11,900원 |
+
+Toss API 확인 결과:
+
+| API | 결과 |
+|---|---|
+| `GET /v1/payments/orders/2026043044799490` | 404 `NOT_FOUND_PAYMENT` |
+| `GET /v1/payments/orders/2026043044799490-P1` | 404 `NOT_FOUND_PAYMENT` |
+| `GET /v1/transactions?startDate=2026-04-30&endDate=2026-04-30&limit=100` | 0건. 11,900원 후보 없음 |
+
+판단:
+
+- 이 주문은 TossPayments 결제가 아니라 NPay 외부 주문형 결제다.
+- 따라서 Toss API는 이번 주문의 결제 확인 정본이 아니다.
+- NPay ROAS 복구는 Toss API가 아니라 Imweb `type=npay` 주문 조회, 운영 Postgres 후행 sync, NPay intent log, BigQuery `already_in_ga4` guard 조합으로 처리한다.
+- Toss API는 계속 카드/가상계좌 등 TossPayments PG 결제 대사와 금액 검증에 사용한다.
