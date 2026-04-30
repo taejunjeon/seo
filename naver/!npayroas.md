@@ -25,10 +25,10 @@ Confidence: 89%
 |---|---|---|---|---|---|
 | Phase1 | [[#Phase1-Sprint1]] | 버튼 유지 원칙 | TJ + Codex | 100% / 100% | [[#Phase1-Sprint1]] |
 | Phase1 | [[#Phase1-Sprint2]] | 클릭 intent 장부 | Codex | 100% / 100% | [[#Phase1-Sprint2]] |
-| Phase2 | [[#Phase2-Sprint3]] | 실제 주문 매칭 | Codex | 62% / 0% | [[#Phase2-Sprint3]] |
+| Phase2 | [[#Phase2-Sprint3]] | 실제 주문 매칭 | Codex | 68% / 0% | [[#Phase2-Sprint3]] |
 | Phase2 | [[#Phase2-Sprint4]] | 미결제자 분리 | Codex | 55% / 0% | [[#Phase2-Sprint4]] |
 | Phase3 | [[#Phase3-Sprint5]] | GA4/Meta/TikTok 전환 복구 | Codex + TJ | 25% / 0% | [[#Phase3-Sprint5]] |
-| Phase3 | [[#Phase3-Sprint6]] | 운영 리포트와 승인 기준 | Codex + TJ | 38% / 0% | [[#Phase3-Sprint6]] |
+| Phase3 | [[#Phase3-Sprint6]] | 운영 리포트와 승인 기준 | Codex + TJ | 55% / 0% | [[#Phase3-Sprint6]] |
 
 ## 문서 목적
 
@@ -605,9 +605,9 @@ TikTok ROAS까지 안정적으로 회복하려면 `ttclid`, `_ttp` 같은 TikTok
 
 | 기준           | 상태                                                                                |
 | ------------ | --------------------------------------------------------------------------------- |
-| 우리 기준        | 62%. read-only 매칭 로직, A/B 등급, ambiguous 원인 분해, BigQuery 조회 ID 목록에 더해 `7일 전 조기 진행 + 7일 후보정` 운영안까지 정했다. |
+| 우리 기준        | 68%. read-only 매칭 로직, A/B 등급, ambiguous 원인 분해, 수동 검토 큐, BigQuery 조회 ID 목록에 더해 `7일 전 조기 진행 + 7일 후보정` 운영안까지 정했다. |
 | 운영 기준        | 0%. DB `match_status` 업데이트, dispatcher, 광고 플랫폼 전송은 아직 열지 않았다.                     |
-| 100%까지 남은 핵심 | 현재 표본 기준 BigQuery `already_in_ga4` 확인, B급/ambiguous 수동 검토, GA4 MP 제한 테스트 승인안, 7일치 후보정. |
+| 100%까지 남은 핵심 | 현재 표본 기준 BigQuery `already_in_ga4` 확인, B급/ambiguous 제외 또는 규칙 보강 판단, GA4 MP 제한 테스트 승인, 7일치 후보정. |
 
 ### 완료한 것
 
@@ -616,11 +616,12 @@ TikTok ROAS까지 안정적으로 회복하려면 `ttclid`, `_ttp` 같은 TikTok
 - [x] [Codex] A급/B급 strong 기준 구현 — 무엇: `score`, `amount_match_type`, `time_gap`, `score_gap` 기준으로 A/B를 나눈다. 왜: strong_match라도 금액이나 시간 근거가 약하면 첫 dispatcher 후보에서 빼야 한다. 어떻게: `backend/src/npayRoasDryRun.ts`의 `classifyStrongGrade`와 테스트를 수정했다. 산출물: A급 6건, B급 2건. 검증: `node --import tsx --test tests/npay-roas-dry-run.test.ts`.
 - [x] [Codex] ambiguous 3건 원인 분해 — 무엇: 자동 전송 위험 사유를 reason별로 나눈다. 왜: 애매한 주문을 purchase로 보내면 attribution이 틀린다. 어떻게: 후보 수, 같은 상품 반복 클릭, 점수차, 금액 조정 실패, member key 부재를 표로 집계했다. 산출물: `Ambiguous Reason Breakdown`. 검증: 3건 모두 `low_score_gap`, `multiple_intents_same_product`, `same_product_multiple_clicks`, `no_member_key`로 표시된다.
 - [x] [Codex] 7일 전 조기 진행안 확정 — 무엇: 7일치를 기다리기만 하지 않고 현재 299 intent/11 주문 표본으로 먼저 할 일을 분리했다. 왜: GA4 MP는 과거 이벤트/세션 귀속에 시간 제약이 있어 7일 후 일괄 복구는 가치가 떨어질 수 있다. 어떻게: BigQuery guard, B급/ambiguous 수동 검토, GA4 MP 제한 테스트 승인안은 지금 진행하고 자동 dispatcher는 7일 후보정 후로 나눴다. 산출물: [[#7일 전 조기 진행 + 7일 후보정 방안]]. 검증: 실제 전송 금지선과 후보정 기준이 표로 분리됐다.
+- [x] [Codex] B급 strong 2건과 ambiguous 3건 수동 검토 큐 작성 — 무엇: `202604283756893`, `202604303298608`, ambiguous 3건의 금액/상품/시간 후보를 사람이 볼 수 있게 요약했다. 왜: 자동 제외가 맞는지 확인해야 dispatcher 후보 누락도 줄일 수 있다. 어떻게: `Top Candidate Intents`에서 best/second 후보, amount reason, cart 가능성을 별도 표로 뽑았다. 산출물: [[npay-roas-dry-run-20260430]] `Manual Review Queue`. 검증: 각 주문에 `전송 금지`와 다음 검토 액션이 표시된다.
 
 ### 남은 것
 
 - [ ] [Codex] 현재 A급 production 후보 5건의 BigQuery guard를 먼저 닫는다 — 무엇: `202604280487104`, `202604285552452`, `202604303307399`, `202604309992065`, `202604302383065`와 각 `channel_order_no`를 GA4 raw/purchase 전체에서 조회할 수 있게 목록과 쿼리 입력값을 확정한다. 왜: `already_in_ga4=unknown` 상태에서는 실제 전송 후보가 0건이라 다음 판단이 막힌다. 어떻게: TJ가 BigQuery 조회 결과를 주면 `--ga4-present`/`--ga4-absent`에 반영해 dispatcher dry-run을 재계산한다. 산출물: `already_in_ga4=present/absent/unknown` 반영 리포트. 검증: BigQuery 미확인 주문은 전부 `unknown`으로 차단되고, 두 ID가 모두 absent인 주문만 후보가 된다. 의존성: 부분병렬. 권한 전까지는 목록 생성만 가능.
-- [ ] [Codex] B급 strong 2건과 ambiguous 3건 수동 검토표 작성 — 무엇: `202604283756893`, `202604303298608`, ambiguous 3건의 금액/상품/시간 후보를 사람이 볼 수 있게 요약한다. 왜: 자동 제외가 맞는지 확인해야 dispatcher 후보 누락도 줄일 수 있다. 어떻게: `Top Candidate Intents`에서 best/second 후보, amount reason, cart 가능성을 별도 표로 뽑는다. 산출물: manual review table. 검증: 각 주문에 `전송 제외 유지` 또는 `규칙 보강 필요` 판단이 붙는다. 의존성: 병렬가능.
+- [ ] [Codex] B급/ambiguous 후속 판단을 7일 후보정 때 반영한다 — 무엇: 현재 수동 검토 큐의 5건을 7일 window에서 다시 보고 `전송 제외 유지`, `규칙 보강`, `운영 원장 추가 확인`으로 나눈다. 왜: 현재는 표본이 작아 제외 판단은 가능하지만 규칙 보강을 확정하기에는 아직 이르기 때문이다. 어떻게: 2026-05-04 이후 같은 리포트를 재실행하고, 동일 주문/동일 패턴 반복 여부와 amount reason 변화를 비교한다. 산출물: 7일 후보정 manual review decision. 검증: ambiguous 비율 10% 이하 여부와 B급 재분류 여부가 표시된다. 의존성: 2026-05-04 18:10 KST 이후 가능.
 - [ ] [Codex] 현재 표본 기반 GA4 MP 제한 테스트 승인안 작성 — 무엇: A급 + `already_in_ga4=absent` + production_order만 후보로 하는 제한 테스트안을 만든다. 왜: 7일을 기다리면 GA4 MP 과거 이벤트/세션 귀속 품질이 떨어질 수 있기 때문이다. 어떻게: BigQuery guard가 absent로 닫힌 주문만 payload preview에 넣고, TJ가 `YES/NO`로 답할 수 있게 전송 범위와 롤백 한계를 설명한다. 산출물: GA4 MP 제한 테스트 승인안. 검증: 승인 전까지 실제 GA4/Meta/TikTok/Google Ads 전송 0건.
 - [ ] [Codex] 2026-05-04 18:10 KST 이후 7일치 dry-run으로 후보정 — 무엇: live publish 이후 정확히 7일 window로 같은 리포트를 다시 만든다. 왜: 현재 표본으로 조기 판단은 가능하지만, 자동 dispatcher 기준은 7일치로 안정화해야 한다. 어떻게: `NPAY_INTENT_DB_PATH=/home/biocomkr_sns/seo/shared/backend-data/crm.sqlite3 npm exec tsx scripts/npay-roas-dry-run.ts -- --start=2026-04-27T09:10:00.000Z --end=2026-05-04T09:10:00.000Z --format=markdown`로 실행한다. 산출물: 7일치 후보정 리포트. 검증: confirmed NPay 주문 수, A급 strong 비율, ambiguous 비율, purchase_without_intent 비율이 표시된다. 의존성: 2026-05-04 18:10 KST 이후 가능.
 
@@ -834,21 +835,22 @@ dispatcher dry-run은 `already_in_ga4` guard를 반드시 본다. BigQuery에서
 
 | 기준 | 상태 |
 |---|---|
-| 우리 기준 | 38%. 매일 봐야 할 숫자, Go 기준, 다음 실행 순서에 더해 현재 표본 조기 진행과 7일 후보정 기준을 분리했다. |
+| 우리 기준 | 55%. 매일 봐야 할 숫자, Go 기준, 다음 실행 순서, 현재 표본 승인 패키지, 7일 후보정 리포트 템플릿을 분리했다. |
 | 운영 기준 | 0%. 운영 대시보드/자동 알림/정기 리포트 배포는 아직 없다. |
-| 100%까지 남은 핵심 | 현재 표본용 승인 패키지, 7일치 후보정 리포트 고정, BigQuery guard 결과 반영, 운영자가 보는 요약 화면 또는 정기 markdown 템플릿 확정. |
+| 100%까지 남은 핵심 | BigQuery guard 결과 반영, GA4 MP 제한 테스트 승인 여부 결정, 운영자가 보는 요약 화면 또는 정기 markdown 배포 여부 확정. |
 
 ### 완료한 것
 
 - [x] [Codex] 운영 지표 목록 정의 — 무엇: intent 수, confirmed NPay 주문, A/B strong, ambiguous, clicked_no_purchase, purchase_without_intent 등을 정했다. 왜: 매일 같은 기준으로 봐야 개선/악화를 판단할 수 있다. 어떻게: Phase3-Sprint6 지표 표에 정리했다. 산출물: 매일 봐야 할 숫자 목록. 검증: 지표마다 의미가 문서화되어 있다.
 - [x] [Codex] Go 기준 초안 작성 — 무엇: A급 strong 비율, ambiguous 비율, purchase_without_intent 비율, `already_in_ga4` 확인률 기준을 만들었다. 왜: 전송 여부를 감으로 판단하지 않기 위해서다. 어떻게: 현재 표본 기준으로 보수적 기준을 잡았다. 산출물: Go 기준 표. 검증: 7일 리포트가 나오면 각 항목을 pass/fail로 판정할 수 있다.
 - [x] [Codex] 조기 진행/후보정 운영 기준 추가 — 무엇: 현재 표본으로 할 수 있는 일과 7일 뒤에만 닫을 일을 분리했다. 왜: 7일 전까지 아무것도 하지 않으면 복구 속도가 늦고, 반대로 바로 대량 전송하면 오매칭 위험이 크다. 어떻게: 조기 진행은 read-only/승인안/BigQuery guard로 제한하고, 7일 후보정은 자동 dispatcher 기준 확정으로 정의했다. 산출물: 조기 진행 + 후보정 표. 검증: 자동 dispatcher와 광고 전송 금지선이 유지된다.
+- [x] [Codex] 현재 표본 기반 승인 패키지 작성 — 무엇: 299 intent/11 confirmed order 기준으로 BigQuery guard, A급 후보, 전송 금지 조건, GA4 MP 제한 테스트 여부를 한 장으로 요약했다. 왜: TJ가 7일 전에도 `YES: 제한 테스트` 또는 `NO: 7일 후보정까지 대기`로 판단할 수 있어야 한다. 어떻게: A급 production 후보 5건, unknown guard 상태, ambiguous 3건, clicked_no_purchase 208건을 표로 묶었다. 산출물: [[npay-early-phase2-approval-20260430]]. 검증: 실제 전송 범위와 금지선이 분리된다.
+- [x] [Codex] 7일치 후보정 리포트 템플릿 확정 — 무엇: 2026-05-04 이후 매번 같은 항목이 나오는 markdown 템플릿을 고정했다. 왜: 사람이 매번 해석하면 느리고 기준이 흔들린다. 어떻게: `npay-roas-dry-run` 출력에 summary, BigQuery IDs, dispatcher preview, clicked_no_purchase breakdown, manual review queue를 유지한다. 산출물: [[npay-roas-dry-run-20260430]]. 검증: Phase2 성공 기준 4개가 한 화면에서 보인다.
+- [x] [Codex] 운영 요약 링크 정리 — 무엇: `!npayroas.md` 상단에 최신 리포트와 BigQuery 조회 대상 링크를 고정했다. 왜: TJ와 팀이 문서 내부를 뒤지지 않고 현재 상태를 찾게 하기 위해서다. 어떻게: 관련 문서 링크에 최신 리포트와 승인안을 추가하고, BigQuery 조회 대상은 승인안으로 분리했다. 산출물: 운영용 문서 네비게이션. 검증: 상단 관련 문서에서 최신 dry-run과 승인안으로 바로 이동할 수 있다.
 
 ### 남은 것
 
-- [ ] [Codex] 현재 표본 기반 승인 패키지 작성 — 무엇: 299 intent/11 confirmed order 기준으로 BigQuery guard, A급 후보, 전송 금지 조건, GA4 MP 제한 테스트 여부를 한 장으로 요약한다. 왜: TJ가 7일 전에도 `YES: 제한 테스트` 또는 `NO: 7일 후보정까지 대기`로 판단할 수 있어야 한다. 어떻게: A급 production 후보 5건, unknown guard 상태, ambiguous 3건, clicked_no_purchase 208건을 표로 묶는다. 산출물: 현재 표본 승인 패키지. 검증: 실제 전송 범위와 금지선이 분리된다.
-- [ ] [Codex] 7일치 후보정 리포트 템플릿 확정 — 무엇: 2026-05-04 이후 매번 같은 항목이 나오는 markdown 템플릿을 고정한다. 왜: 사람이 매번 해석하면 느리고 기준이 흔들린다. 어떻게: 현재 `npay-roas-dry-run` 출력에 summary, BigQuery IDs, dispatcher preview, clicked_no_purchase breakdown을 유지한다. 산출물: 7일치 정식 리포트. 검증: Phase2 성공 기준 4개가 한 화면에서 보인다. 의존성: Phase2-Sprint3 7일 재실행.
-- [ ] [Codex] 운영 요약 링크 정리 — 무엇: `!npayroas.md` 상단에 최신 리포트와 BigQuery 조회 대상 링크를 고정한다. 왜: TJ와 팀이 문서 내부를 뒤지지 않고 현재 상태를 찾게 하기 위해서다. 어떻게: 최신 리포트, 수동 테스트, BigQuery ID 목록을 상단 요약에 추가한다. 산출물: 운영용 문서 네비게이션. 검증: 요약표에서 클릭 후 30초 안에 현재 blocked reason을 볼 수 있다. 의존성: 병렬가능.
+- [ ] [Codex] BigQuery guard 결과 반영 리포트를 만든다 — 무엇: TJ 또는 Codex가 BigQuery 조회 결과를 얻으면 `--ga4-present`, `--ga4-absent` 또는 파일 플래그로 dry-run을 재계산한다. 왜: `already_in_ga4=unknown` 상태에서는 실제 후보가 0건이기 때문이다. 어떻게: absent가 두 ID 모두 확인된 주문만 `send_candidate=Y` 후보로 표시한다. 산출물: guard 반영 dispatcher dry-run log. 검증: present/unknown 주문은 계속 차단된다. 의존성: BigQuery 조회 결과.
 - [ ] [Claude Code] 필요 시 운영 화면 초안 제작 — 무엇: markdown 리포트가 너무 길면 `clicked_no_purchase`, A급 후보, BigQuery 상태만 보는 간단 화면을 만든다. 왜: 운영팀이 매일 보기에는 긴 MD가 비효율적일 수 있다. 어떻게: 기존 admin/dashboard 패턴을 재사용해 read-only table을 만든다. 산출물: UI 초안. 검증: 화면에서 주문번호/상태/block reason이 보인다. 의존성: TJ가 화면 필요성을 승인하면 진행.
 - [ ] [TJ] Phase3 전송 승인 여부 결정 — 무엇: 7일 리포트와 Go 기준을 보고 전송 테스트를 열지 결정한다. 왜: 실제 광고 플랫폼 신호를 바꾸는 결정이기 때문이다. 어떻게: Codex 추천안에 `YES` 또는 `NO: 보류`로 답한다. 산출물: 전송 승인 또는 보류 결정. 검증: 승인 전까지 운영 전송 0건. 의존성: 선행필수.
 
