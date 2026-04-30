@@ -210,8 +210,8 @@ A급 기준은 `score >= 70`, `amount_match=exact`, `time_gap <= 2분`, `score_g
 Test case: `test_npay_manual_20260430`
 Source: TJ manual payment, VM SQLite `npay_intent_log` readonly, TossPayments API read-only, Imweb legacy v2 API read-only, 운영 Postgres `public.tb_iamweb_users` readonly
 Window: 2026-04-30 15:58-16:05 KST
-Freshness: 확인 시각 2026-04-30 16:40 KST
-Confidence: 88%
+Freshness: 확인 시각 2026-04-30 17:34 KST
+Confidence: 92%
 
 2026-04-30 16:00 KST TJ 수동 NPay 테스트 결제는 결제 완료 후 biocom `shop_payment_complete`로 자동 복귀하지 않았고, 네이버페이 완료 화면에서 종료되었다. 2026-04-30 16:22 KST 기준 BigQuery에는 `events_20260430` / `events_intraday_20260430` 테이블이 아직 보이지 않아 GA4 raw 누락 여부는 2026-05-01 재확인 대상으로 둔다.
 
@@ -246,16 +246,19 @@ Confidence: 88%
 | Imweb order_no / channel_order_no | `202604309594732` / `2026043044799490` |
 | Imweb payment | `pay_type=npay`, `payment_amount=11900`, `total_price=8900`, `deliv_price=3000` |
 | Imweb latest Open API `https://openapi.imweb.me/orders` | legacy token으로 401 |
-| 운영 Postgres exact order_number `202604309594732` / `2026043044799490` | 0건 |
-| 운영 Postgres 16:00-16:05 KST NPay/11,900/팀키토 조건 | 0건 |
+| 운영 Postgres exact order_number `202604309594732` | 1건 확인 |
+| 운영 Postgres exact order_number `2026043044799490` | 0건. 이 값은 `channel_order_no`라서 `order_number`에 없음 |
+| 운영 Postgres payment | `payment_method=NAVERPAY_ORDER`, `payment_status=PAYMENT_COMPLETE`, `paid_price=11900`, `final_order_amount=11900` |
+| 운영 Postgres 상품/옵션 | 팀키토 슬로우 에이징 도시락 7종 골라담기 / 슬로우 에이징 도시락:수비드 간장치킨 |
+| 운영 Postgres 결제완료 | 2026-04-30 16:01:14 KST |
 
 해석:
 
 1. GTM intent 수집은 정상이다.
 2. `2026043044799490`은 네이버페이 완료 URL과 Imweb `channel_order_no`다. 실제 Imweb 주문번호는 `202604309594732`다.
 3. TossPayments API는 이번 주문의 정본이 아니다. `NOT_FOUND_PAYMENT`가 정상적인 결과로 보인다.
-4. 운영 Postgres 주문 원장은 확인 시점에는 아직 테스트 주문을 포함하지 않았다. 주문 미존재 확정이 아니라 sync 지연으로 본다.
-5. dry-run 수동 주문 입력으로 검증하면 `strong_match`는 되지만 B급이다. `time_gap=1.1분`, `product_name=exact`는 통과했으나 intent 상품가 8,900원과 실제 결제금액 11,900원이 달라 `amount_match=none`, `score=50`이다. 금액 차이는 배송비 3,000원 때문이다.
+4. 운영 Postgres 주문 원장은 2026-04-30 17:33 KST 재확인 시점에는 테스트 주문을 포함한다.
+5. 실제 운영 DB 기준 dry-run에서도 `strong_match`는 되지만 B급이다. `time_gap=0.8분`, `product_name=exact`는 통과했으나 intent 상품가 8,900원과 실제 결제금액 11,900원이 달라 `amount_match=none`, `score=60`이다. 금액 차이는 배송비 3,000원 때문이다.
 6. `test_npay_manual_20260430` 라벨 때문에 dispatcher 후보에서는 자동 제외한다.
 
 2026-05-01 BigQuery 재확인은 `202604309594732`와 `2026043044799490` 두 값을 모두 조회한다. 둘 중 하나라도 GA4 raw에 있으면 `already_in_ga4=present`로 두고 dispatcher 후보에서 제외한다. 둘 다 없을 때만 `already_in_ga4=absent`로 기록한다.

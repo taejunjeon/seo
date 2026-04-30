@@ -3,9 +3,9 @@
 Test case: `test_npay_manual_20260430`
 Source: TJ manual NPay payment, VM SQLite `npay_intent_log` readonly snapshot, TossPayments API read-only, Imweb legacy v2 API read-only, 운영 Postgres `tb_iamweb_users` readonly.
 Primary observation: 2026-04-30 16:00 KST TJ 수동 NPay 테스트 결제는 결제 완료 후 biocom `shop_payment_complete`로 자동 복귀하지 않았고, 네이버페이 완료 화면에서 종료되었다. 2026-04-30 16:22 KST 기준 BigQuery에는 `events_20260430` / `events_intraday_20260430` 테이블이 아직 보이지 않아 GA4 raw 누락 여부는 2026-05-01 재확인 대상으로 둔다.
-Confidence: 88% because the NPay intent and Imweb order mapping are confirmed. 운영 Postgres sync와 BigQuery raw export는 아직 후행 확인 대상이다.
+Confidence: 92% because the NPay intent, Imweb order mapping, and 운영 Postgres order row are confirmed. BigQuery raw export는 아직 후행 확인 대상이다.
 
-Generated at: 2026-04-30T07:40:58.824Z
+Generated at: 2026-04-30T08:34:42.238Z
 Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 
 ## Input
@@ -52,15 +52,18 @@ Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 | Imweb order_time | 2026-04-30 16:00:24 KST |
 | Imweb payment | `pay_type=npay`, `payment_amount=11900`, `total_price=8900`, `deliv_price=3000` |
 | Imweb latest Open API `https://openapi.imweb.me/orders` | legacy token으로 401 |
-| 운영 Postgres exact order_number `202604309594732` / `2026043044799490` | 0건 |
-| 운영 Postgres 16:00-16:10 KST NPay/11,900/팀키토 조건 | 0건 |
+| 운영 Postgres exact order_number `202604309594732` | 1건 확인 |
+| 운영 Postgres exact order_number `2026043044799490` | 0건. 이 값은 `channel_order_no`라서 `tb_iamweb_users.order_number`에 없음 |
+| 운영 Postgres payment | `payment_method=NAVERPAY_ORDER`, `payment_status=PAYMENT_COMPLETE`, `paid_price=11900`, `final_order_amount=11900` |
+| 운영 Postgres 상품/옵션 | 팀키토 슬로우 에이징 도시락 7종 골라담기 / 슬로우 에이징 도시락:수비드 간장치킨 |
+| 운영 Postgres 결제완료 | 2026-04-30 16:01:14 KST |
 
 해석:
 
 1. `2026043044799490`은 네이버페이 완료 URL과 Imweb `channel_order_no`다.
 2. 실제 Imweb 주문번호는 `202604309594732`다. NPay ROAS dry-run의 주문 원장 키는 이 값을 우선 사용한다.
 3. TossPayments API는 이번 주문의 정본이 아니다. `NOT_FOUND_PAYMENT`가 정상적인 결과로 보인다.
-4. 운영 Postgres `tb_iamweb_users`는 확인 시각 기준 아직 이 주문을 포함하지 않았다. 이는 주문 미존재 확정이 아니라 sync 지연으로 둔다.
+4. 운영 Postgres `tb_iamweb_users`도 2026-04-30 17:33 KST 재확인 시점에는 이 주문을 포함한다.
 5. 금액 불일치는 상품가 8,900원 + 배송비 3,000원 = 결제금액 11,900원 구조 때문이다. 현 scoring은 `amount_match=none`이라 B급으로 떨어진다.
 
 ## Summary
@@ -77,7 +80,7 @@ Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 | dispatcher_dry_run_candidate | 0 |
 | already_in_ga4_blocked | 0 |
 | test_order_blocked | 1 |
-| manual_order_count | 1 |
+| manual_order_count | 0 |
 | clicked_purchased_candidate | 1 |
 | clicked_no_purchase | 0 |
 | intent_pending | 0 |
@@ -86,13 +89,13 @@ Window: 2026-04-30T06:58:00.000Z ~ 2026-04-30T07:05:00.000Z
 
 | order_number | order_label | paid_at | amount | product | status | strong_grade | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | amount_match | ga_session_id | ad_key | already_in_ga4 | dispatcher_candidate | dispatcher_block_reason | ambiguous_reason | send_allowed |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604309594732 | test_npay_manual_20260430 | 2026-04-30T07:01:30.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | B | 1 | 50 | - | 50 | 1.1 | exact | none | Y | Y | absent | N | not_a_grade_strong, test_order | - | N |
+| 202604309594732 | test_npay_manual_20260430 | 2026-04-30T07:01:14.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | B | 1 | 60 | - | 60 | 0.8 | exact | none | Y | Y | absent | N | not_a_grade_strong, test_order | - | N |
 
 ## Top Candidate Intents
 
 | order_number | rank | intent_id | captured_at | time_gap_min | score | score_components | product_idx | order_product_idx | product_name_match | amount_match | client_id | ga_session_id | ad_keys | utm |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604309594732 | 1 | 572bdc1a-389b-4128-a389-b9750b063c90 | 2026-04-30T07:00:23.688Z | 1.1 | 50 | time:20, product:30, amount:0 | 424 | N/A | exact | none | Y | Y | fbp | - |
+| 202604309594732 | 1 | 572bdc1a-389b-4128-a389-b9750b063c90 | 2026-04-30T07:00:23.688Z | 0.8 | 60 | time:30, product:30, amount:0 | 424 | N/A | exact | none | Y | Y | fbp | - |
 
 ## 2026-05-01 BigQuery Recheck
 
