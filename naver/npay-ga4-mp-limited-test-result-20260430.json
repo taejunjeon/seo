@@ -1,0 +1,86 @@
+{
+  "ok": true,
+  "mode": "send",
+  "generatedAt": "2026-04-30T12:23:22.122Z",
+  "targetOrderNumber": "202604302383065",
+  "guardPass": true,
+  "guardFailures": [],
+  "measurementId": "G-WJFXN5E2Q1",
+  "dryRunSummary": {
+    "liveIntentCount": 304,
+    "confirmedNpayOrderCount": 1,
+    "dispatcherDryRunCandidate": 1,
+    "alreadyInGa4LookupRobustAbsent": 1
+  },
+  "order": {
+    "orderNumber": "202604302383065",
+    "channelOrderNo": "2026043043205620",
+    "paidAt": "2026-04-30T05:50:59.000Z",
+    "paidAtWithin72Hours": true,
+    "paidAtAgeHours": 6.5,
+    "status": "strong_match",
+    "strongGrade": "A",
+    "orderLabel": "production_order",
+    "alreadyInGa4": "robust_absent",
+    "dispatcherCandidate": true,
+    "blockReasons": []
+  },
+  "bestCandidate": {
+    "intentId": "34356f9b-33ee-4a5e-88f6-44e52d808ad0",
+    "capturedAt": "2026-04-30T05:50:17.113Z",
+    "score": 80,
+    "timeGapMinutes": 0.7,
+    "amountMatchType": "final_exact",
+    "clientIdPresent": true,
+    "gaSessionIdPresent": true,
+    "adClickKeys": [
+      "fbclid",
+      "fbc",
+      "fbp"
+    ]
+  },
+  "payloadPreview": {
+    "client_id": "2007220387.1777523364",
+    "timestamp_micros": 1777528259000000,
+    "non_personalized_ads": false,
+    "events": [
+      {
+        "name": "purchase",
+        "params": {
+          "transaction_id": "202604302383065",
+          "channel_order_no": "2026043043205620",
+          "event_id": "NPayRecoveredPurchase_202604302383065",
+          "value": 35000,
+          "currency": "KRW",
+          "session_id": 1777527289,
+          "engagement_time_msec": 1,
+          "npay_recovery_source": "server_mp_limited_test",
+          "recovery_reason": "npay_return_missing",
+          "dispatch_dedupe_key": "npay_recovery_ga4_purchase:biocom:202604302383065",
+          "payment_method": "NAVERPAY_ORDER",
+          "matched_intent_id": "34356f9b-33ee-4a5e-88f6-44e52d808ad0",
+          "items": [
+            {
+              "item_id": "198",
+              "item_name": "뉴로마스터 60정 (1개월분)",
+              "price": 35000,
+              "quantity": 1
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "debug": {
+    "requested": true,
+    "httpStatus": 200,
+    "validationMessages": [],
+    "rawBody": "{\n  \"validationMessages\": [ ]\n}\n"
+  },
+  "send": {
+    "requested": true,
+    "sent": true,
+    "httpStatus": 204,
+    "responseBody": null
+  }
+}

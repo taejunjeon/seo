@@ -2,7 +2,7 @@
 
 작성 시각: 2026-04-30 20:36 KST
 대상: biocom.kr NPay ROAS 정합성 Phase2/초기 Phase3
-관련 문서: [[!npayroas]], [[npay-roas-dry-run-20260430]], [[npay-early-phase2-approval-20260430]], [[GA4/gtm]]
+관련 문서: [[!npayroas]], [[npay-roas-dry-run-20260430]], [[npay-early-phase2-approval-20260430]], [[npay-ga4-mp-limited-test-result-20260430]], [[GA4/gtm]]
 Primary source: VM SQLite `npay_intent_log`, 운영 Postgres `public.tb_iamweb_users`
 Cross-check: TJ BigQuery robust query
 Window: 2026-04-27 18:10 KST ~ 2026-04-30 19:10 KST
@@ -12,6 +12,8 @@ Confidence: 86%
 ## 10초 요약
 
 이 문서는 자동 dispatcher 운영 승인이 아니다.
+
+실행 업데이트: TJ님이 `YES: 202604302383065 1건만 GA4 MP 제한 테스트`를 승인했고, Codex가 2026-04-30 21:23 KST에 해당 1건만 전송했다. 결과는 [[npay-ga4-mp-limited-test-result-20260430]]에 기록했다.
 
 목적은 A급 production 후보 중 GA4 raw/purchase에 없다고 robust query로 확인된 주문 1-2건만 GA4 Measurement Protocol로 수동 제한 전송할지 TJ님이 판단하게 하는 것이다.
 
@@ -102,7 +104,7 @@ GA4 Measurement Protocol 전송은 DB dry-run과 다르다. 한번 들어간 이
         "event_id": "NPayRecoveredPurchase_202604302383065",
         "value": 35000,
         "currency": "KRW",
-        "ga_session_id": "1777527289",
+        "session_id": 1777527289,
         "source": "npay_recovery",
         "recovery_reason": "npay_return_missing",
         "dispatch_dedupe_key": "npay_recovery_ga4_purchase:biocom:202604302383065"

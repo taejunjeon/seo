@@ -1,34 +1,34 @@
 # NPay ROAS Dry-run Report
 
-Generated at: 2026-04-30T11:34:14.656Z
-Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T10:10:00.000Z
+Generated at: 2026-04-30T12:25:25.121Z
+Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T12:25:25.121Z
 
 ## Summary
 
 | metric | value |
 | --- | --- |
-| live_intent_count | 299 |
+| live_intent_count | 304 |
 | confirmed_npay_order_count | 11 |
 | strong_match | 8 |
 | strong_match_a | 6 |
 | strong_match_b | 2 |
 | ambiguous | 3 |
 | purchase_without_intent | 0 |
-| dispatcher_dry_run_candidate | 5 |
-| already_in_ga4_blocked | 0 |
-| already_in_ga4_lookup_present | 0 |
-| already_in_ga4_lookup_robust_absent | 5 |
+| dispatcher_dry_run_candidate | 4 |
+| already_in_ga4_blocked | 1 |
+| already_in_ga4_lookup_present | 1 |
+| already_in_ga4_lookup_robust_absent | 4 |
 | already_in_ga4_lookup_absent | 0 |
 | already_in_ga4_lookup_unknown | 6 |
-| ga4_lookup_required_order_count | 5 |
-| ga4_lookup_id_count | 10 |
-| test_order_blocked | 1 |
+| ga4_lookup_required_order_count | 6 |
+| ga4_lookup_id_count | 12 |
+| test_order_blocked | 0 |
 | manual_order_count | 0 |
 | shipping_reconciled_count | 1 |
 | shipping_reconciled_not_grade_a_count | 0 |
 | clicked_purchased_candidate | 8 |
-| clicked_no_purchase | 208 |
-| intent_pending | 83 |
+| clicked_no_purchase | 209 |
+| intent_pending | 87 |
 
 ## Early Phase2 Decision Package
 
@@ -36,10 +36,10 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T10:10:00.000Z
 
 | decision_item | status | evidence | next_action |
 | --- | --- | --- | --- |
-| 현재 표본 조기 진행 | 가능 | 299 intents / 11 confirmed NPay orders | BigQuery guard, 수동 검토, GA4 MP 제한 테스트 승인안까지만 진행 |
+| 현재 표본 조기 진행 | 가능 | 304 intents / 11 confirmed NPay orders | BigQuery guard, 수동 검토, GA4 MP 제한 테스트 승인안까지만 진행 |
 | 자동 dispatcher | 금지 | ambiguous 3건 (27.27%), already_in_ga4 unknown 6건 | 7일 후보정 전 자동/대량 전송 금지 |
-| GA4 MP 제한 테스트 | 준비 가능 | A급 production 후보 5건, robust_absent 5건, unknown 0건 | 두 ID 모두 GA4 robust_absent 확인 + TJ 승인 후에만 실제 전송 |
-| clicked_no_purchase 해석 | 가능 | 208건 | 상품/광고키/시간대 가설 작성. audience 전송은 7일 후보정 후 |
+| GA4 MP 제한 테스트 | 준비 가능 | A급 production 후보 6건, robust_absent 4건, unknown 1건 | 두 ID 모두 GA4 robust_absent 확인 + TJ 승인 후에만 실제 전송 |
+| clicked_no_purchase 해석 | 가능 | 209건 | 상품/광고키/시간대 가설 작성. audience 전송은 7일 후보정 후 |
 
 ## Order Decisions
 
@@ -54,8 +54,8 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T10:10:00.000Z
 | 202604303307399 | 2026043034982320 | production_order | 2026-04-30T00:19:10.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | strong_match | A | 25 | 70 | 52 | 18 | 1.3 | exact | 496000 | 496000 | 0 | 496000 | 0 | final_exact | intent_product_price == order_payment_amount | Y | Y | robust_absent | Y | - | - | N |
 | 202604309992065 | 2026043040116970 | production_order | 2026-04-30T03:41:30.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | A | 25 | 80 | 52 | 28 | 0.7 | exact | 35000 | 35000 | 0 | 35000 | 0 | final_exact | intent_product_price == order_payment_amount | Y | Y | robust_absent | Y | - | - | N |
 | 202604303298608 | 2026043043127990 | production_order | 2026-04-30T05:47:54.000Z | 148200 | 다빈치랩 메가프로바이오틱 ND50 (MEGA PROBIOTIC ND50) 30일분 | strong_match | B | 25 | 60 | 20 | 40 | 0.7 | exact | 54900 | 148200 | 0 | 148200 | 93300 | none | amount_not_reconciled | Y | Y | unknown | N | not_a_grade_strong, already_in_ga4_unknown | - | N |
-| 202604302383065 | 2026043043205620 | production_order | 2026-04-30T05:50:59.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | A | 25 | 80 | 52 | 28 | 0.7 | exact | 35000 | 35000 | 0 | 35000 | 0 | final_exact | intent_product_price == order_payment_amount | Y | Y | robust_absent | Y | - | - | N |
-| 202604309594732 | 2026043044799490 | test_npay_manual_20260430 | 2026-04-30T07:01:14.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | A | 25 | 80 | 20 | 60 | 0.8 | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | unknown | N | already_in_ga4_unknown, manual_test_order | - | N |
+| 202604302383065 | 2026043043205620 | production_order | 2026-04-30T05:50:59.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | A | 25 | 80 | 52 | 28 | 0.7 | exact | 35000 | 35000 | 0 | 35000 | 0 | final_exact | intent_product_price == order_payment_amount | Y | Y | present | N | already_in_ga4 | - | N |
+| 202604309594732 | 2026043044799490 | production_order | 2026-04-30T07:01:14.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | A | 25 | 80 | 20 | 60 | 0.8 | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | unknown | N | already_in_ga4_unknown | - | N |
 
 ## Ambiguous Reason Breakdown
 
@@ -88,14 +88,14 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T10:10:00.000Z
 
 | product_idx | product_name | clicked_no_purchase | share |
 | --- | --- | --- | --- |
-| 97 | 바이오밸런스 90정 (1개월분) | 51 | 24.52% |
-| 198 | 뉴로마스터 60정 (1개월분) | 38 | 18.27% |
-| 317 | 혈당관리엔 당당케어 (120정) | 38 | 18.27% |
-| 171 | 풍성밸런스 90정 (1개월분) | 19 | 9.13% |
-| 386 | 메타드림 식물성 멜라토닌 함유 | 19 | 9.13% |
-| 328 | 종합 대사기능&음식물 과민증 검사 Set | 18 | 8.65% |
-| 300 | 영데이즈 저속노화 SOD 효소 (15포) | 15 | 7.21% |
-| 225 | 다래케어 180정 (1개월분) | 4 | 1.92% |
+| 97 | 바이오밸런스 90정 (1개월분) | 52 | 24.88% |
+| 198 | 뉴로마스터 60정 (1개월분) | 38 | 18.18% |
+| 317 | 혈당관리엔 당당케어 (120정) | 38 | 18.18% |
+| 171 | 풍성밸런스 90정 (1개월분) | 19 | 9.09% |
+| 386 | 메타드림 식물성 멜라토닌 함유 | 19 | 9.09% |
+| 328 | 종합 대사기능&음식물 과민증 검사 Set | 18 | 8.61% |
+| 300 | 영데이즈 저속노화 SOD 효소 (15포) | 15 | 7.18% |
+| 225 | 다래케어 180정 (1개월분) | 4 | 1.91% |
 | 409 | 리셋데이 글루텐분해효소 알파CD 차전자피 K-낙산균 | 2 | 0.96% |
 | 171 | 풍성밸런스 비오틴 맥주효모 아연 L시스틴 머리카락 탈모 예방 영양제 | 1 | 0.48% |
 | 21 | 다빈치랩 메가프로바이오틱 ND50 (MEGA PROBIOTIC ND50) 30일분 | 1 | 0.48% |
@@ -106,9 +106,9 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T10:10:00.000Z
 
 | ad_key_combo | clicked_no_purchase | share |
 | --- | --- | --- |
-| gclid+fbp | 179 | 86.06% |
-| fbp | 19 | 9.13% |
-| fbclid+fbc+fbp | 7 | 3.37% |
+| gclid+fbp | 180 | 86.12% |
+| fbp | 19 | 9.09% |
+| fbclid+fbc+fbp | 7 | 3.35% |
 | fbc+fbp | 1 | 0.48% |
 | gclid | 1 | 0.48% |
 | gclid+gbraid+fbp | 1 | 0.48% |
@@ -119,48 +119,49 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T10:10:00.000Z
 | --- | --- | --- |
 | 2026-04-27 18:00 KST | 3 | 1.44% |
 | 2026-04-27 19:00 KST | 1 | 0.48% |
-| 2026-04-27 20:00 KST | 4 | 1.92% |
+| 2026-04-27 20:00 KST | 4 | 1.91% |
 | 2026-04-27 21:00 KST | 2 | 0.96% |
-| 2026-04-27 22:00 KST | 5 | 2.4% |
+| 2026-04-27 22:00 KST | 5 | 2.39% |
 | 2026-04-27 23:00 KST | 3 | 1.44% |
 | 2026-04-28 00:00 KST | 1 | 0.48% |
 | 2026-04-28 01:00 KST | 2 | 0.96% |
 | 2026-04-28 02:00 KST | 1 | 0.48% |
 | 2026-04-28 03:00 KST | 2 | 0.96% |
-| 2026-04-28 04:00 KST | 9 | 4.33% |
+| 2026-04-28 04:00 KST | 9 | 4.31% |
 | 2026-04-28 05:00 KST | 2 | 0.96% |
 | 2026-04-28 06:00 KST | 3 | 1.44% |
 | 2026-04-28 07:00 KST | 3 | 1.44% |
 | 2026-04-28 08:00 KST | 2 | 0.96% |
-| 2026-04-28 09:00 KST | 4 | 1.92% |
-| 2026-04-28 10:00 KST | 11 | 5.29% |
-| 2026-04-28 11:00 KST | 8 | 3.85% |
-| 2026-04-28 12:00 KST | 20 | 9.62% |
-| 2026-04-28 13:00 KST | 11 | 5.29% |
-| 2026-04-28 14:00 KST | 4 | 1.92% |
-| 2026-04-28 15:00 KST | 4 | 1.92% |
+| 2026-04-28 09:00 KST | 4 | 1.91% |
+| 2026-04-28 10:00 KST | 11 | 5.26% |
+| 2026-04-28 11:00 KST | 8 | 3.83% |
+| 2026-04-28 12:00 KST | 20 | 9.57% |
+| 2026-04-28 13:00 KST | 11 | 5.26% |
+| 2026-04-28 14:00 KST | 4 | 1.91% |
+| 2026-04-28 15:00 KST | 4 | 1.91% |
 | 2026-04-28 16:00 KST | 3 | 1.44% |
 | 2026-04-28 18:00 KST | 3 | 1.44% |
 | 2026-04-28 19:00 KST | 2 | 0.96% |
 | 2026-04-28 20:00 KST | 1 | 0.48% |
 | 2026-04-28 22:00 KST | 1 | 0.48% |
-| 2026-04-29 00:00 KST | 8 | 3.85% |
+| 2026-04-29 00:00 KST | 8 | 3.83% |
 | 2026-04-29 01:00 KST | 2 | 0.96% |
 | 2026-04-29 02:00 KST | 2 | 0.96% |
 | 2026-04-29 03:00 KST | 1 | 0.48% |
-| 2026-04-29 04:00 KST | 5 | 2.4% |
+| 2026-04-29 04:00 KST | 5 | 2.39% |
 | 2026-04-29 05:00 KST | 2 | 0.96% |
 | 2026-04-29 06:00 KST | 2 | 0.96% |
-| 2026-04-29 07:00 KST | 6 | 2.88% |
+| 2026-04-29 07:00 KST | 6 | 2.87% |
 | 2026-04-29 08:00 KST | 1 | 0.48% |
 | 2026-04-29 09:00 KST | 2 | 0.96% |
 | 2026-04-29 10:00 KST | 3 | 1.44% |
-| 2026-04-29 11:00 KST | 7 | 3.37% |
-| 2026-04-29 12:00 KST | 13 | 6.25% |
-| 2026-04-29 13:00 KST | 4 | 1.92% |
-| 2026-04-29 14:00 KST | 15 | 7.21% |
-| 2026-04-29 15:00 KST | 14 | 6.73% |
-| 2026-04-29 16:00 KST | 6 | 2.88% |
+| 2026-04-29 11:00 KST | 7 | 3.35% |
+| 2026-04-29 12:00 KST | 13 | 6.22% |
+| 2026-04-29 13:00 KST | 4 | 1.91% |
+| 2026-04-29 14:00 KST | 15 | 7.18% |
+| 2026-04-29 15:00 KST | 14 | 6.7% |
+| 2026-04-29 16:00 KST | 6 | 2.87% |
+| 2026-04-29 19:00 KST | 1 | 0.48% |
 
 ### Action Queue
 
@@ -168,14 +169,14 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T10:10:00.000Z
 
 | product_idx | product_name | clicked_no_purchase | share | analysis_action | guardrail |
 | --- | --- | --- | --- | --- | --- |
-| 97 | 바이오밸런스 90정 (1개월분) | 51 | 24.52% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
-| 198 | 뉴로마스터 60정 (1개월분) | 38 | 18.27% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
-| 317 | 혈당관리엔 당당케어 (120정) | 38 | 18.27% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
-| 171 | 풍성밸런스 90정 (1개월분) | 19 | 9.13% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
-| 386 | 메타드림 식물성 멜라토닌 함유 | 19 | 9.13% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
-| 328 | 종합 대사기능&음식물 과민증 검사 Set | 18 | 8.65% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
-| 300 | 영데이즈 저속노화 SOD 효소 (15포) | 15 | 7.21% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
-| 225 | 다래케어 180정 (1개월분) | 4 | 1.92% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 97 | 바이오밸런스 90정 (1개월분) | 52 | 24.88% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 198 | 뉴로마스터 60정 (1개월분) | 38 | 18.18% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 317 | 혈당관리엔 당당케어 (120정) | 38 | 18.18% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 171 | 풍성밸런스 90정 (1개월분) | 19 | 9.09% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 386 | 메타드림 식물성 멜라토닌 함유 | 19 | 9.09% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 328 | 종합 대사기능&음식물 과민증 검사 Set | 18 | 8.61% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 300 | 영데이즈 저속노화 SOD 효소 (15포) | 15 | 7.18% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 225 | 다래케어 180정 (1개월분) | 4 | 1.91% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
 | 409 | 리셋데이 글루텐분해효소 알파CD 차전자피 K-낙산균 | 2 | 0.96% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
 | 171 | 풍성밸런스 비오틴 맥주효모 아연 L시스틴 머리카락 탈모 예방 영양제 | 1 | 0.48% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
 
@@ -189,7 +190,8 @@ A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw
 | 202604285552452 | 2026042867285600 | 202604285552452, 2026042867285600 | a_grade_production_candidate | robust_absent | robust query 확인됨 |
 | 202604303307399 | 2026043034982320 | 202604303307399, 2026043034982320 | a_grade_production_candidate | robust_absent | robust query 확인됨 |
 | 202604309992065 | 2026043040116970 | 202604309992065, 2026043040116970 | a_grade_production_candidate | robust_absent | robust query 확인됨 |
-| 202604302383065 | 2026043043205620 | 202604302383065, 2026043043205620 | a_grade_production_candidate | robust_absent | robust query 확인됨 |
+| 202604302383065 | 2026043043205620 | 202604302383065, 2026043043205620 | a_grade_production_candidate | present | 확인됨 |
+| 202604309594732 | 2026043044799490 | 202604309594732, 2026043044799490 | a_grade_production_candidate | unknown | BigQuery 확인 필요 |
 
 ### BigQuery Query Template
 
@@ -197,7 +199,7 @@ A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw
 
 ```sql
 WITH ids AS (
-  SELECT id FROM UNNEST(['202604280487104', '2026042865542930', '202604285552452', '2026042867285600', '202604303307399', '2026043034982320', '202604309992065', '2026043040116970', '202604302383065', '2026043043205620']) AS id
+  SELECT id FROM UNNEST(['202604280487104', '2026042865542930', '202604285552452', '2026042867285600', '202604303307399', '2026043034982320', '202604309992065', '2026043040116970', '202604302383065', '2026043043205620', '202604309594732', '2026043044799490']) AS id
 )
 SELECT
   event_date,
@@ -226,17 +228,17 @@ ORDER BY event_timestamp;
 
 | order_number | channel_order_no | matched_intent_id | client_id | ga_session_id | value | currency | event_id | already_in_ga4 | send_candidate | block_reason | paid_at | paid_at_72h | paid_at_age_hours | client_id_present | ga_session_id_present | transaction_id | channel_order_no_param | timestamp_micros | dispatch_dedupe_key |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604275329932 | 2026042761751160 | 5c1fe505-6130-482d-b33c-45535823b5f4 | 880190675.1777297553 | 1777297553 | 117000 | KRW | NPayRecoveredPurchase_202604275329932 | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | 2026-04-27T13:52:16.000Z | Y | 69.7 | Y | Y | 202604275329932 | 2026042761751160 | 1777297936000000 | npay_recovery_ga4_purchase:biocom:202604275329932 |
-| 202604289063428 | 2026042865161940 | 5a4c859f-3771-4b87-8ba2-13cb58ac5820 | 828165815.1777317234 | 1777317234 | 496000 | KRW | NPayRecoveredPurchase_202604289063428 | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | 2026-04-27T19:24:52.000Z | Y | 64.2 | Y | Y | 202604289063428 | 2026042865161940 | 1777317892000000 | npay_recovery_ga4_purchase:biocom:202604289063428 |
-| 202604280487104 | 2026042865542930 | 84060938-5e29-46d5-894f-105fac1b6d62 | 695356435.1777324290 | 1777324290 | 35000 | KRW | NPayRecoveredPurchase_202604280487104 | robust_absent | Y | - | 2026-04-27T21:13:24.000Z | Y | 62.3 | Y | Y | 202604280487104 | 2026042865542930 | 1777324404000000 | npay_recovery_ga4_purchase:biocom:202604280487104 |
-| 202604285552452 | 2026042867285600 | 6ed1547f-3846-4da3-ad91-c6d00c42509e | 806449930.1777331701 | 1777331701 | 496000 | KRW | NPayRecoveredPurchase_202604285552452 | robust_absent | Y | - | 2026-04-27T23:27:09.000Z | Y | 60.1 | Y | Y | 202604285552452 | 2026042867285600 | 1777332429000000 | npay_recovery_ga4_purchase:biocom:202604285552452 |
-| 202604283756893 | 2026042875392500 | c42232c8-de9e-43ee-8c18-4105aa28aeeb | 772603471.1777340977 | 1777348462 | 975000 | KRW | NPayRecoveredPurchase_202604283756893 | unknown | N | not_a_grade_strong, already_in_ga4_unknown | 2026-04-28T04:03:41.000Z | Y | 55.5 | Y | Y | 202604283756893 | 2026042875392500 | 1777349021000000 | npay_recovery_ga4_purchase:biocom:202604283756893 |
-| 202604295198830 | 2026042916849620 | 4479b9b8-1827-4dff-a998-70613562bd22 | 1738862242.1777439744 | 1777439744 | 496000 | KRW | NPayRecoveredPurchase_202604295198830 | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | 2026-04-29T05:22:18.000Z | Y | 30.2 | Y | Y | 202604295198830 | 2026042916849620 | 1777440138000000 | npay_recovery_ga4_purchase:biocom:202604295198830 |
-| 202604303307399 | 2026043034982320 | b0234ffc-fede-48f5-a313-87480a4884e2 | 901508731.1765852144 | 1777508260 | 496000 | KRW | NPayRecoveredPurchase_202604303307399 | robust_absent | Y | - | 2026-04-30T00:19:10.000Z | Y | 11.3 | Y | Y | 202604303307399 | 2026043034982320 | 1777508350000000 | npay_recovery_ga4_purchase:biocom:202604303307399 |
-| 202604309992065 | 2026043040116970 | aa6cb8b7-4e55-4731-8fe2-c65dc269e6cc | 118292165.1777520272 | 1777520272 | 35000 | KRW | NPayRecoveredPurchase_202604309992065 | robust_absent | Y | - | 2026-04-30T03:41:30.000Z | Y | 7.9 | Y | Y | 202604309992065 | 2026043040116970 | 1777520490000000 | npay_recovery_ga4_purchase:biocom:202604309992065 |
-| 202604303298608 | 2026043043127990 | 9eb98bc2-d36d-4c1d-88d9-e2f28d4046c9 | 1536913857.1775778564 | 1777527909 | 148200 | KRW | NPayRecoveredPurchase_202604303298608 | unknown | N | not_a_grade_strong, already_in_ga4_unknown | 2026-04-30T05:47:54.000Z | Y | 5.8 | Y | Y | 202604303298608 | 2026043043127990 | 1777528074000000 | npay_recovery_ga4_purchase:biocom:202604303298608 |
-| 202604302383065 | 2026043043205620 | 34356f9b-33ee-4a5e-88f6-44e52d808ad0 | 2007220387.1777523364 | 1777527289 | 35000 | KRW | NPayRecoveredPurchase_202604302383065 | robust_absent | Y | - | 2026-04-30T05:50:59.000Z | Y | 5.7 | Y | Y | 202604302383065 | 2026043043205620 | 1777528259000000 | npay_recovery_ga4_purchase:biocom:202604302383065 |
-| 202604309594732 | 2026043044799490 | 572bdc1a-389b-4128-a389-b9750b063c90 | 349382661.1770783461 | 1777532376 | 11900 | KRW | NPayRecoveredPurchase_202604309594732 | unknown | N | already_in_ga4_unknown, manual_test_order | 2026-04-30T07:01:14.000Z | Y | 4.6 | Y | Y | 202604309594732 | 2026043044799490 | 1777532474000000 | npay_recovery_ga4_purchase:biocom:202604309594732 |
+| 202604275329932 | 2026042761751160 | 5c1fe505-6130-482d-b33c-45535823b5f4 | 880190675.1777297553 | 1777297553 | 117000 | KRW | NPayRecoveredPurchase_202604275329932 | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | 2026-04-27T13:52:16.000Z | Y | 70.6 | Y | Y | 202604275329932 | 2026042761751160 | 1777297936000000 | npay_recovery_ga4_purchase:biocom:202604275329932 |
+| 202604289063428 | 2026042865161940 | 5a4c859f-3771-4b87-8ba2-13cb58ac5820 | 828165815.1777317234 | 1777317234 | 496000 | KRW | NPayRecoveredPurchase_202604289063428 | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | 2026-04-27T19:24:52.000Z | Y | 65 | Y | Y | 202604289063428 | 2026042865161940 | 1777317892000000 | npay_recovery_ga4_purchase:biocom:202604289063428 |
+| 202604280487104 | 2026042865542930 | 84060938-5e29-46d5-894f-105fac1b6d62 | 695356435.1777324290 | 1777324290 | 35000 | KRW | NPayRecoveredPurchase_202604280487104 | robust_absent | Y | - | 2026-04-27T21:13:24.000Z | Y | 63.2 | Y | Y | 202604280487104 | 2026042865542930 | 1777324404000000 | npay_recovery_ga4_purchase:biocom:202604280487104 |
+| 202604285552452 | 2026042867285600 | 6ed1547f-3846-4da3-ad91-c6d00c42509e | 806449930.1777331701 | 1777331701 | 496000 | KRW | NPayRecoveredPurchase_202604285552452 | robust_absent | Y | - | 2026-04-27T23:27:09.000Z | Y | 61 | Y | Y | 202604285552452 | 2026042867285600 | 1777332429000000 | npay_recovery_ga4_purchase:biocom:202604285552452 |
+| 202604283756893 | 2026042875392500 | c42232c8-de9e-43ee-8c18-4105aa28aeeb | 772603471.1777340977 | 1777348462 | 975000 | KRW | NPayRecoveredPurchase_202604283756893 | unknown | N | not_a_grade_strong, already_in_ga4_unknown | 2026-04-28T04:03:41.000Z | Y | 56.4 | Y | Y | 202604283756893 | 2026042875392500 | 1777349021000000 | npay_recovery_ga4_purchase:biocom:202604283756893 |
+| 202604295198830 | 2026042916849620 | 4479b9b8-1827-4dff-a998-70613562bd22 | 1738862242.1777439744 | 1777439744 | 496000 | KRW | NPayRecoveredPurchase_202604295198830 | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | 2026-04-29T05:22:18.000Z | Y | 31.1 | Y | Y | 202604295198830 | 2026042916849620 | 1777440138000000 | npay_recovery_ga4_purchase:biocom:202604295198830 |
+| 202604303307399 | 2026043034982320 | b0234ffc-fede-48f5-a313-87480a4884e2 | 901508731.1765852144 | 1777508260 | 496000 | KRW | NPayRecoveredPurchase_202604303307399 | robust_absent | Y | - | 2026-04-30T00:19:10.000Z | Y | 12.1 | Y | Y | 202604303307399 | 2026043034982320 | 1777508350000000 | npay_recovery_ga4_purchase:biocom:202604303307399 |
+| 202604309992065 | 2026043040116970 | aa6cb8b7-4e55-4731-8fe2-c65dc269e6cc | 118292165.1777520272 | 1777520272 | 35000 | KRW | NPayRecoveredPurchase_202604309992065 | robust_absent | Y | - | 2026-04-30T03:41:30.000Z | Y | 8.7 | Y | Y | 202604309992065 | 2026043040116970 | 1777520490000000 | npay_recovery_ga4_purchase:biocom:202604309992065 |
+| 202604303298608 | 2026043043127990 | 9eb98bc2-d36d-4c1d-88d9-e2f28d4046c9 | 1536913857.1775778564 | 1777527909 | 148200 | KRW | NPayRecoveredPurchase_202604303298608 | unknown | N | not_a_grade_strong, already_in_ga4_unknown | 2026-04-30T05:47:54.000Z | Y | 6.6 | Y | Y | 202604303298608 | 2026043043127990 | 1777528074000000 | npay_recovery_ga4_purchase:biocom:202604303298608 |
+| 202604302383065 | 2026043043205620 | 34356f9b-33ee-4a5e-88f6-44e52d808ad0 | 2007220387.1777523364 | 1777527289 | 35000 | KRW | NPayRecoveredPurchase_202604302383065 | present | N | already_in_ga4 | 2026-04-30T05:50:59.000Z | Y | 6.6 | Y | Y | 202604302383065 | 2026043043205620 | 1777528259000000 | npay_recovery_ga4_purchase:biocom:202604302383065 |
+| 202604309594732 | 2026043044799490 | 572bdc1a-389b-4128-a389-b9750b063c90 | 349382661.1770783461 | 1777532376 | 11900 | KRW | NPayRecoveredPurchase_202604309594732 | unknown | N | already_in_ga4_unknown | 2026-04-30T07:01:14.000Z | Y | 5.4 | Y | Y | 202604309594732 | 2026043044799490 | 1777532474000000 | npay_recovery_ga4_purchase:biocom:202604309594732 |
 
 ## Amount Reconciliation
 
