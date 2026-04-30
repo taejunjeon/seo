@@ -1,16 +1,16 @@
 # NPay Phase2 조기 진행 승인안
 
-작성 시각: 2026-04-30 19:05 KST
+작성 시각: 2026-04-30 19:10 KST
 대상: biocom.kr NPay ROAS 정합성
 관련 문서: [[!npayroas]], [[npay-roas-dry-run-20260430]], [[npay-manual-test-20260430]], [[GA4/gtm]]
 Primary source: VM SQLite `npay_intent_log`, 운영 Postgres `public.tb_iamweb_users`
-Window: 2026-04-27 18:10 KST ~ 2026-04-30 17:48 KST
-Freshness: dry-run report `2026-04-30 18:26 KST`
+Window: 2026-04-27 18:10 KST ~ 2026-04-30 19:10 KST
+Freshness: dry-run report `2026-04-30 19:07 KST`
 Confidence: 82%
 
 ## 10초 요약
 
-현재 데이터는 7일치가 아니지만, `live intent 296건`, `confirmed NPay 주문 11건`, `A급 production 후보 5건`이 있어 조기 Phase2 진행은 가능하다.
+현재 데이터는 7일치가 아니지만, `live intent 299건`, `confirmed NPay 주문 11건`, `A급 production 후보 5건`이 있어 조기 Phase2 진행은 가능하다.
 
 단, 이 승인안은 실제 전송 승인이 아니다. 지금 승인받을 것은 아래 두 가지다.
 
@@ -21,7 +21,7 @@ Confidence: 82%
 
 | 항목 | 값 |
 |---|---:|
-| live intent | 296 |
+| live intent | 299 |
 | confirmed NPay 주문 | 11 |
 | strong_match | 8 |
 | A급 strong | 6 |
@@ -144,6 +144,8 @@ ORDER BY event_timestamp;
 | 10개 ID 중 하나라도 조회됨 | 해당 주문은 `already_in_ga4=present`, GA4 MP 전송 후보 제외 |
 | 주문의 `order_number`, `channel_order_no` 둘 다 조회 안 됨 | 해당 주문은 `already_in_ga4=absent`, GA4 MP 제한 테스트 후보 가능 |
 | BigQuery table 미생성/권한 없음 | 해당 주문은 `already_in_ga4=unknown`, 전송 후보 제외 |
+
+BigQuery 결과를 Codex가 반영할 때는 `--ga4-present`, `--ga4-absent` 쉼표 목록 또는 `--ga4-present-file`, `--ga4-absent-file` 줄바꿈 파일을 사용할 수 있다. 파일 방식은 order id가 많아질 때 복사 실수를 줄이기 위한 보조 경로다.
 
 ## 수동 검토 큐
 

@@ -1,13 +1,13 @@
 # NPay ROAS Dry-run Report
 
-Generated at: 2026-04-30T09:26:10.008Z
-Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
+Generated at: 2026-04-30T10:07:51.789Z
+Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T10:10:00.000Z
 
 ## Summary
 
 | metric | value |
 | --- | --- |
-| live_intent_count | 296 |
+| live_intent_count | 299 |
 | confirmed_npay_order_count | 11 |
 | strong_match | 8 |
 | strong_match_a | 6 |
@@ -27,7 +27,7 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 | shipping_reconciled_not_grade_a_count | 0 |
 | clicked_purchased_candidate | 8 |
 | clicked_no_purchase | 208 |
-| intent_pending | 80 |
+| intent_pending | 83 |
 
 ## Early Phase2 Decision Package
 
@@ -35,7 +35,7 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 
 | decision_item | status | evidence | next_action |
 | --- | --- | --- | --- |
-| 현재 표본 조기 진행 | 가능 | 296 intents / 11 confirmed NPay orders | BigQuery guard, 수동 검토, GA4 MP 제한 테스트 승인안까지만 진행 |
+| 현재 표본 조기 진행 | 가능 | 299 intents / 11 confirmed NPay orders | BigQuery guard, 수동 검토, GA4 MP 제한 테스트 승인안까지만 진행 |
 | 자동 dispatcher | 금지 | ambiguous 3건 (27.27%), already_in_ga4 unknown 10건 | 7일 후보정 전 자동/대량 전송 금지 |
 | GA4 MP 제한 테스트 | 준비 가능 | A급 production 후보 5건, unknown 5건 | 두 ID 모두 GA4 absent 확인 + TJ 승인 후에만 실제 전송 |
 | clicked_no_purchase 해석 | 가능 | 208건 | 상품/광고키/시간대 가설 작성. audience 전송은 7일 후보정 후 |
@@ -174,6 +174,9 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 | 386 | 메타드림 식물성 멜라토닌 함유 | 19 | 9.13% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
 | 328 | 종합 대사기능&음식물 과민증 검사 Set | 18 | 8.65% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
 | 300 | 영데이즈 저속노화 SOD 효소 (15포) | 15 | 7.21% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 225 | 다래케어 180정 (1개월분) | 4 | 1.92% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 409 | 리셋데이 글루텐분해효소 알파CD 차전자피 K-낙산균 | 2 | 0.96% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
+| 171 | 풍성밸런스 비오틴 맥주효모 아연 L시스틴 머리카락 탈모 예방 영양제 | 1 | 0.48% | 상품 상세/가격/배송비/결제 UX 가설 작성 | 7일 후보정 전 audience 전송 금지 |
 
 ## BigQuery Lookup IDs
 
@@ -189,34 +192,21 @@ A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw
 
 ### BigQuery Query Template
 
-아래 쿼리는 기존 GA4 export dataset `hurdlers-naver-pay.analytics_304759974.events_*` 기준이다. dataset이 바뀌었다면 `<PROJECT>.<GA4_DATASET>`만 바꿔 실행한다. `order_number`와 `channel_order_no` 중 하나라도 조회되면 해당 주문은 `already_in_ga4=present`로 막는다.
+아래 쿼리는 템플릿이다. `<PROJECT>.<GA4_DATASET>`를 실제 GA4 export dataset으로 바꿔 실행한다. `order_number`와 `channel_order_no` 중 하나라도 조회되면 해당 주문은 `already_in_ga4=present`로 막는다.
 
 ```sql
 WITH ids AS (
-  SELECT id
-  FROM UNNEST([
-    '202604280487104',
-    '2026042865542930',
-    '202604285552452',
-    '2026042867285600',
-    '202604303307399',
-    '2026043034982320',
-    '202604309992065',
-    '2026043040116970',
-    '202604302383065',
-    '2026043043205620'
-  ]) AS id
+  SELECT id FROM UNNEST(['202604280487104', '2026042865542930', '202604285552452', '2026042867285600', '202604303307399', '2026043034982320', '202604309992065', '2026043040116970', '202604302383065', '2026043043205620']) AS id
 )
 SELECT
   event_date,
-  TIMESTAMP_MICROS(event_timestamp) AS event_time,
+  event_timestamp,
   event_name,
   ecommerce.transaction_id AS ecommerce_transaction_id,
   (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') AS event_param_transaction_id,
-  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'pay_method') AS pay_method,
-  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
-FROM `hurdlers-naver-pay.analytics_304759974.events_*`
-WHERE _TABLE_SUFFIX BETWEEN '20260427' AND '20260504'
+  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'pay_method') AS pay_method
+FROM `<PROJECT>.<GA4_DATASET>.events_*`
+WHERE _TABLE_SUFFIX BETWEEN '20260427' AND '20260430'
   AND (
     ecommerce.transaction_id IN (SELECT id FROM ids)
     OR (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') IN (SELECT id FROM ids)

@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 import {
   buildNpayRoasDryRunReport,
@@ -22,9 +22,11 @@ type CliOptions = {
 
 const parseList = (value: string) =>
   value
-    .split(",")
+    .split(/[,\s]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const parseListFile = (path: string) => parseList(readFileSync(path, "utf8"));
 
 const parseManualOrder = (value: string): NpayRoasDryRunManualOrderInput => {
   const [
@@ -89,8 +91,14 @@ const parseArgs = (argv: string[]): CliOptions => {
     if (arg.startsWith("--ga4-present=")) {
       options.ga4PresentOrderNumbers.push(...parseList(arg.slice("--ga4-present=".length)));
     }
+    if (arg.startsWith("--ga4-present-file=")) {
+      options.ga4PresentOrderNumbers.push(...parseListFile(arg.slice("--ga4-present-file=".length)));
+    }
     if (arg.startsWith("--ga4-absent=")) {
       options.ga4AbsentOrderNumbers.push(...parseList(arg.slice("--ga4-absent=".length)));
+    }
+    if (arg.startsWith("--ga4-absent-file=")) {
+      options.ga4AbsentOrderNumbers.push(...parseListFile(arg.slice("--ga4-absent-file=".length)));
     }
     if (arg.startsWith("--test-order=")) {
       options.testOrderNumbers.push(...parseList(arg.slice("--test-order=".length)));

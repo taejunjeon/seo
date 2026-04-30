@@ -707,16 +707,6 @@ const amountMatch = (
     };
   }
 
-  if (itemExact) {
-    return {
-      type: "item_exact" as const,
-      score: 16,
-      matched: true,
-      amountDelta,
-      reason: "intent_product_price == order_item_total",
-    };
-  }
-
   const discountedTotal = (orderItemTotal ?? 0) + deliveryPrice - discountAmount;
   if (orderItemTotal !== null && discountAmount > 0 && moneyEqual(orderPaymentAmount, discountedTotal)) {
     return {
@@ -725,6 +715,16 @@ const amountMatch = (
       matched: true,
       amountDelta,
       reason: "order_payment_amount == order_item_total + delivery_price - discount_amount",
+    };
+  }
+
+  if (itemExact) {
+    return {
+      type: "item_exact" as const,
+      score: 16,
+      matched: true,
+      amountDelta,
+      reason: "intent_product_price == order_item_total",
     };
   }
 
