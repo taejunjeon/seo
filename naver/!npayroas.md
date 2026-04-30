@@ -5,9 +5,9 @@
 관련 문서: [[!npay|네이버페이 주문형 결제형 전환 검토]], [[npay-intent-quality-20260430|NPay Intent 수집 품질 점검]], [[GA4/gtm|biocom GTM 컨테이너 상태 정리]]
 Primary source: VM SQLite `npay_intent_log`, 운영 주문 원장 `operational_postgres.public.tb_iamweb_users`
 Cross-check: 보호된 `GET /api/attribution/npay-intents`, GTM API live version `139`
-Window: NPay intent는 2026-04-27 18:10 KST 이후, 주문 원장은 2026-04-01 ~ 2026-04-25 기준 문서값
-Freshness: 최신 intent `2026-04-30 11:27:10 KST`, 주문 원장 문서 기준 최신 NPay 결제일 `2026-04-25`
-Confidence: 84%
+Window: NPay intent는 2026-04-27 18:10 KST 이후, 주문 원장은 dry-run window 기준 `PAYMENT_COMPLETE` NPay 주문
+Freshness: VM SQLite snapshot `2026-04-30 15:25 KST`, dry-run report `2026-04-30 15:27 KST`, 분석 window end `2026-04-30 14:56:56 KST`
+Confidence: 86%
 
 ## 10초 요약
 
@@ -17,7 +17,7 @@ Confidence: 84%
 
 가장 큰 병목은 `intent`와 `실제 NPay 주문`을 붙이는 매칭 dry-run이다. 이 매칭이 통과해야 GA4 Measurement Protocol, Meta CAPI, TikTok Events API로 confirmed purchase를 보낼 수 있다.
 
-2026-04-30 14:56 KST에 현재까지 쌓인 데이터로 예비 dry-run을 돌렸다. live intent 264건과 confirmed NPay 주문 7건을 read-only로 대조했고, 강한 후보 4건, 약하거나 애매한 후보 3건이 나왔다. 이 결과는 전환 전송용 확정값이 아니라 매칭 규칙 점검용이다.
+2026-04-30 14:56 KST에 현재까지 쌓인 데이터로 예비 dry-run을 돌렸다. live intent 264건과 confirmed NPay 주문 7건을 read-only로 대조했고, strong match 4건, ambiguous 3건이 나왔다. 이 결과는 전환 전송용 확정값이 아니라 매칭 규칙 점검용이다.
 
 ## Phase-Sprint 요약표
 
@@ -119,6 +119,59 @@ Confidence: 84%
 | 아직 약한 것 | 회원/전화번호/주문번호 직접 연결, TikTok 식별값, 애매한 후보 처리 |
 | 다음 조치 | 현재 예비 매칭 규칙을 코드화하고 7일치가 되는 시점에 같은 방식으로 재실행 |
 
+### 정식 dry-run 코드
+
+2026-04-30 15:27 KST에 매칭 로직을 코드로 고정했다.
+
+| 산출물 | 위치 | 상태 |
+|---|---|---|
+| read-only 매칭 함수 | `backend/src/npayRoasDryRun.ts` | 로컬 구현 완료 |
+| CLI 리포트 | `backend/scripts/npay-roas-dry-run.ts` | 로컬 실행 확인 |
+| JSON API 초안 | `GET /api/attribution/npay-roas-dry-run` | 코드 초안 완료, 운영 배포 전 |
+| 마크다운 리포트 | [[npay-roas-dry-run-20260430]] | 생성 완료 |
+
+재실행 예시는 아래와 같다.
+
+```bash
+cd backend
+NPAY_INTENT_DB_PATH=/home/biocomkr_sns/seo/shared/backend-data/crm.sqlite3 \
+npm exec tsx scripts/npay-roas-dry-run.ts -- \
+  --start=2026-04-27T09:10:00.000Z \
+  --end=2026-05-04T09:10:00.000Z \
+  --format=markdown
+```
+
+JSON API 초안은 같은 로직을 쓴다. 운영 배포 후에는 `NPAY_INTENT_ADMIN_TOKEN` 또는 bearer token이 있어야 조회된다.
+
+```http
+GET /api/attribution/npay-roas-dry-run?start=2026-04-27T09:10:00.000Z&end=2026-05-04T09:10:00.000Z
+x-admin-token: <NPAY_INTENT_ADMIN_TOKEN>
+```
+
+이 코드는 `SELECT`와 SQLite readonly open만 사용한다. `npay_intent_log.match_status` 업데이트, GA4/Meta/TikTok/Google Ads purchase 전송, dispatcher 실행은 포함하지 않는다.
+
+### 예비 dry-run 상세 테이블
+
+Source: VM SQLite `npay_intent_log` readonly snapshot, 운영 Postgres `public.tb_iamweb_users` readonly
+Generated: 2026-04-30 15:27 KST
+Window: 2026-04-27 18:10:00 KST ~ 2026-04-30 14:56:56 KST
+Freshness: VM snapshot 생성 시점 최신 live intent는 2026-04-30 15:21:31 KST까지 존재했으나, 아래 표는 사용자 요청 기준인 14:56 window로 고정했다.
+Confidence: 86%
+
+| order_number | order_paid_at(KST) | order_amount | payment_method | product_name | 후보 intent 수 | best_score | second_score | 점수차 | 결제까지 걸린 시간 | product_idx_match | product_name_match | amount_match | client_id | ga_session_id | ad click/pixel key | 최종 상태 | ambiguous reason | 전송 |
+|---|---:|---:|---|---|---:|---:|---:|---:|---:|---|---|---|---|---|---|---|---|---|
+| `202604275329932` | 2026-04-27 22:52:16 | 117,000 | NAVERPAY_ORDER | 뉴로마스터 60정 (1개월분) | 15 | 60 | 50 | 10 | 0.2분 | N/A | exact | none | 있음 | 있음 | fbp | ambiguous | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | 금지 |
+| `202604289063428` | 2026-04-28 04:24:52 | 496,000 | NAVERPAY_ORDER | 종합 대사기능&음식물 과민증 검사 Set | 25 | 80 | 70 | 10 | 0.3분 | N/A | exact | exact | 있음 | 있음 | fbp | ambiguous | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | 금지 |
+| `202604280487104` | 2026-04-28 06:13:24 | 35,000 | NAVERPAY_ORDER | 뉴로마스터 60정 (1개월분) | 25 | 80 | 52 | 28 | 0.3분 | N/A | exact | exact | 있음 | 있음 | fbclid, fbc, fbp | strong_match | - | 금지 |
+| `202604285552452` | 2026-04-28 08:27:09 | 496,000 | NAVERPAY_ORDER | 종합 대사기능&음식물 과민증 검사 Set | 25 | 70 | 52 | 18 | 1.4분 | N/A | exact | exact | 있음 | 있음 | fbp | strong_match | - | 금지 |
+| `202604283756893` | 2026-04-28 13:03:41 | 975,000 | NAVERPAY_ORDER | 종합 대사기능&음식물 과민증 검사 Set | 25 | 50 | 32 | 18 | 7.5분 | N/A | exact | none | 있음 | 있음 | fbp | strong_match | - | 금지 |
+| `202604295198830` | 2026-04-29 14:22:18 | 496,000 | NAVERPAY_ORDER | 종합 대사기능&음식물 과민증 검사 Set | 25 | 80 | 70 | 10 | 0.6분 | N/A | exact | exact | 있음 | 있음 | fbp | ambiguous | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | 금지 |
+| `202604309992065` | 2026-04-30 12:41:30 | 35,000 | NAVERPAY_ORDER | 뉴로마스터 60정 (1개월분) | 25 | 80 | 52 | 28 | 0.7분 | N/A | exact | exact | 있음 | 있음 | fbp | strong_match | - | 금지 |
+
+`product_idx_match`가 N/A인 이유는 `tb_iamweb_users` read model에 주문 상품의 아임웹 `product_idx`가 없다. 현재는 상품명과 금액을 기준으로만 본다.
+
+`strong_match`도 아직 전송 금지다. 여기서 strong은 "향후 dispatcher 후보"라는 뜻이지, 승인 없이 GA4/Meta/TikTok/Google Ads로 보낸다는 뜻이 아니다. ambiguous 3건은 자동 전송 금지로 고정한다.
+
 ▲ [[#Phase-Sprint 요약표|요약표로]]
 
 ## 핵심 구분
@@ -127,7 +180,7 @@ Confidence: 84%
 |---|---|---|
 | `intent_pending` | NPay 버튼을 눌렀고 아직 주문 매칭 전 | 전송 금지 |
 | `clicked_no_purchase` | 버튼을 눌렀지만 정해진 시간 안에 confirmed NPay 주문 없음 | 전송 금지 |
-| `clicked_purchased` | 버튼 intent와 confirmed NPay 주문이 매칭됨 | 승인 후 전송 가능 |
+| `clicked_purchased_candidate` | 버튼 intent와 confirmed NPay 주문이 strong 후보로 매칭됨 | 승인 후 전송 가능 |
 | `purchase_without_intent` | NPay 주문은 있는데 버튼 intent가 없음 | 별도 원인 분석. 보수적으로 전송 보류 |
 | `ambiguous` | 한 주문에 후보 intent가 여러 개거나 점수가 낮음 | 전송 금지 |
 
@@ -218,18 +271,26 @@ confirmed NPay 주문은 아래 조건으로 본다.
 
 자동 확정은 보수적으로 시작한다. 클릭과 주문이 비슷해 보여도 애매하면 purchase를 보내지 않는다.
 
+현재 `backend/src/npayRoasDryRun.ts`의 v1 점수는 "전송 확정"이 아니라 "향후 전송 후보 선별" 용도다. 회원/전화번호 직접키가 아직 없으므로, 시간·상품명·금액·2등 후보와의 점수차를 우선 본다.
+
 | 조건 | 점수 |
 |---|---:|
-| 같은 `member_code` 또는 같은 회원 해시 | +50 |
-| 같은 `product_idx` | +30 |
-| 상품명 강한 일치 | +10 |
+| intent 이후 1분 이내 결제 | +30 |
 | intent 이후 15분 이내 결제 | +20 |
 | intent 이후 60분 이내 결제 | +10 |
-| 같은 `client_id`와 `ga_session_id` | +15 |
-| 같은 광고 click key 또는 UTM 묶음 | +10 |
-| 금액이 상품 가격과 강하게 일치 | +10 |
+| 상품명 exact 일치 | +30 |
+| 상품명 contains 일치 | +24 |
+| 상품명 token overlap | +14 |
+| 금액 exact 일치 | +20 |
+| 금액이 상품가의 정수배 | +12 |
+| 금액 5% 이내 근접 | +8 |
+| 같은 `member_code` 또는 같은 회원 해시 | v2 보강 예정 |
+| 같은 `product_idx` | 운영 주문 원장에 product_idx가 없어 v1은 N/A |
+| 같은 `client_id`와 `ga_session_id` | 주문 원장에 세션값이 없어 v1은 presence만 표시 |
 
-자동 매칭 기준은 75점 이상이다. 60~74점은 `ambiguous`로 남기고 전환을 보내지 않는다.
+`strong_match`는 `best_score >= 50`이고 `best_score - second_score > 10`일 때만 붙인다. 점수차가 정확히 10점이면 아직 동점권으로 보고 `ambiguous`다.
+
+중요: `strong_match`도 아직 purchase 전송 허가가 아니다. 지금 단계의 strong은 "향후 dispatcher 후보"라는 뜻이고, 실제 GA4/Meta/TikTok/Google Ads 전송은 별도 승인 전까지 금지다.
 
 ### 산출물
 
@@ -257,9 +318,9 @@ confirmed NPay 주문은 아래 조건으로 본다.
 | 기준 | 상태 |
 |---|---|
 | intent 생성 직후 | `intent_pending` |
-| intent 이후 24시간 안에 confirmed NPay 주문 매칭 | `clicked_purchased` |
+| intent 이후 24시간 안에 confirmed NPay 주문 strong 매칭 | `clicked_purchased_candidate` |
 | intent 이후 24시간 동안 주문 없음 | `clicked_no_purchase` |
-| 후보 주문은 있지만 점수 60~74점 | `ambiguous` |
+| 후보 주문은 있지만 점수차가 좁거나 후보가 여러 개 | `ambiguous` |
 | confirmed NPay 주문이 있는데 intent 없음 | `purchase_without_intent` |
 
 ### 운영 활용
@@ -267,7 +328,7 @@ confirmed NPay 주문은 아래 조건으로 본다.
 | 그룹 | 의미 | 활용 |
 |---|---|---|
 | `clicked_no_purchase` | 결제창까지 갔다가 빠진 사람 | 리마케팅, 결제 UX 점검, 상품별 이탈률 확인 |
-| `clicked_purchased` | 실제 NPay 구매자 | 광고 ROAS, GA4/Meta/TikTok confirmed purchase 후보 |
+| `clicked_purchased_candidate` | 실제 NPay 구매 strong 후보 | 광고 ROAS, GA4/Meta/TikTok confirmed purchase 후보 |
 | `purchase_without_intent` | 수집 누락 또는 다른 경로 구매 | GTM selector, 브라우저 차단, 주문 sync 보정 |
 | `ambiguous` | 확정 위험 | 수동 검토 또는 전송 제외 |
 
@@ -285,7 +346,7 @@ confirmed NPay 주문은 아래 조건으로 본다.
 
 | 플랫폼 | 보낼 이벤트 | 조건 | 현재 판단 |
 |---|---|---|---|
-| GA4 | Measurement Protocol `purchase` | `clicked_purchased` 자동 매칭 75점 이상 | 7일 dry-run 후 승인 |
+| GA4 | Measurement Protocol `purchase` | `clicked_purchased_candidate` 중 승인된 주문 | 7일 dry-run 후 승인 |
 | Meta | CAPI `Purchase` | `fbp` 또는 `fbc/fbclid` 있고 주문 매칭 확정 | 7일 dry-run 후 승인 |
 | TikTok | Events API `CompletePayment` | `ttclid` 또는 `_ttp` 확보 후 주문 매칭 확정 | 식별값 수집 보강 필요 |
 | Google Ads | confirmed conversion 또는 offline conversion | `gclid/gbraid/wbraid` 있고 주문 매칭 확정 | 별도 승인 필요 |
@@ -325,11 +386,11 @@ confirmed NPay 주문은 아래 조건으로 본다.
 |---|---|
 | NPay intent 수 | 버튼 클릭 시도 |
 | confirmed NPay 주문 수 | 실제 NPay 결제 |
-| clicked_purchased 수 | 클릭과 주문이 붙은 구매 |
+| clicked_purchased_candidate 수 | 클릭과 주문이 strong 후보로 붙은 구매 |
 | clicked_no_purchase 수 | 버튼 클릭 후 미결제 |
 | purchase_without_intent 수 | intent 누락 가능성 |
 | ambiguous 수 | 자동 전송하면 위험한 후보 |
-| 매칭률 | `clicked_purchased / confirmed NPay 주문` |
+| 후보 매칭률 | `clicked_purchased_candidate / confirmed NPay 주문` |
 | 이탈률 | `clicked_no_purchase / 전체 intent` |
 
 ### Go 기준

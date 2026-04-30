@@ -33,6 +33,7 @@ import {
 import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import { getNpayIntentSummary, listNpayIntents, recordNpayIntent } from "../npayIntentLog";
+import { buildNpayRoasDryRunReport } from "../npayRoasDryRun";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import {
@@ -1553,6 +1554,23 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "npay intent list failed";
       res.status(500).json({ ok: false, error: "npay_intent_list_error", message });
+    }
+  });
+
+  router.get("/api/attribution/npay-roas-dry-run", async (req: Request, res: Response) => {
+    try {
+      if (!requireNpayIntentReadAccess(req, res)) return;
+
+      const report = await buildNpayRoasDryRunReport({
+        start: readOne(req.query.start),
+        end: readOne(req.query.end),
+        site: readOne(req.query.site) || "biocom",
+      });
+
+      res.json(report);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "npay roas dry-run failed";
+      res.status(500).json({ ok: false, error: "npay_roas_dry_run_error", message });
     }
   });
 
