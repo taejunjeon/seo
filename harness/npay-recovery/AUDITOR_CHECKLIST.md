@@ -1,9 +1,10 @@
 # NPay Recovery Auditor Checklist
 
 작성 시각: 2026-04-30 23:16 KST
-상태: 초안
+최종 업데이트: 2026-05-01 00:20 KST
+상태: v0 기준판
 목적: Codex/Claude/ChatGPT 산출물이 NPay recovery guardrail을 지켰는지 검사
-관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]]
+관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/RULES|Rules]], [[harness/npay-recovery/VERIFY|Verify]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]]
 
 ## 10초 요약
 
@@ -40,6 +41,12 @@ Auditor의 기본 판단은 보수적이어야 한다. 조금이라도 전송/DB
 | `already_in_ga4=present`가 send 후보인가 | 중복 전송 | BigQuery guard 대조 |
 | `already_in_ga4=unknown`이 send 후보인가 | 미확인 전송 | BigQuery guard 대조 |
 | BigQuery guard 없이 candidate가 열렸는가 | 중복 방지 실패 | lookup status 누락 확인 |
+| site가 불명확한가 | 사이트 간 원장 오염 | report/query에 `site` 또는 `store` 명시 확인 |
+| store/site filter 없이 운영 DB 결과를 정본으로 썼는가 | 3사이트 데이터 혼합 | SQL/query 조건 확인 |
+| stale local source를 primary로 썼는가 | 오래된 데이터 오판 | source freshness 확인 |
+| coffee 작업에서 biocom Naver API 권한을 정본처럼 썼는가 | coffee 주문 조회 권한 오류 가능 | Naver seller/API scope 확인 |
+| coffee 작업에서 dataset이 `analytics_326949178`이 아닌가 | 잘못된 GA4 property 조회 | BigQuery project/dataset 확인 |
+| Excel import가 dry-run인지 actual import인지 불명확한가 | 과거 원장 오염 | import mode와 backup 여부 확인 |
 
 ## Soft Fail Checks
 
@@ -54,6 +61,8 @@ Auditor의 기본 판단은 보수적이어야 한다. 조금이라도 전송/DB
 | 배송비/할인/수량 reconciliation 누락 | 정상 주문이 B급으로 밀림 | amount_match_type 보강 |
 | unrelated dirty files 포함 | 작업 범위 오염 | staging/commit 제외 |
 | 검증 명령 결과 누락 | 재현성 부족 | 실행 명령과 결과 기록 |
+| coffee report에 `site=thecleancoffee` 누락 | 사이트 혼합 위험 | report 상단 보강 |
+| `send_candidate` 기본값이 `N`이 아님 | read-only phase 안전장치 약화 | schema/report 수정 |
 
 ## 숫자 일치 검사
 
@@ -121,3 +130,20 @@ Notes:
 - BigQuery robust_absent 확인은 TJ 수동 쿼리 결과 기준.
 - 7일 후보정 전 자동 dispatcher는 금지.
 ```
+
+## Coffee Extension Checks
+
+더클린커피 정합성 작업에 하네스를 적용할 때 추가로 확인한다.
+
+| 체크 | PASS 기준 |
+|---|---|
+| site 명시 | 모든 report와 query에 `site=thecleancoffee` 또는 명확한 store/domain 조건이 있다 |
+| GA4 dataset | `project-dadba7dd-0229-4ff6-81c.analytics_326949178`를 쓴다 |
+| BigQuery freshness | latest daily table age 48h 이하 또는 stale 이유 기록 |
+| 운영 DB filter | store/site/domain/order prefix 기준이 명시됐다 |
+| local mirror | stale이면 primary가 아니라 fallback으로만 사용했다 |
+| Naver Commerce API | coffee seller/API 권한 확인 전 actual NPay order 정본으로 쓰지 않았다 |
+| no-send | GA4/Meta/TikTok/Google Ads 전송 0건 |
+| no-write | 운영 DB write 0건, local apply 0건 |
+| dry-run schema | `send_candidate=N`, `block_reason` 기본 출력 |
+| TJ todo | API 권한, token, 엑셀 다운로드처럼 사람만 할 수 있는 일만 TJ에게 남겼다 |

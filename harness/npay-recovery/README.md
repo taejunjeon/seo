@@ -1,9 +1,10 @@
 # NPay Recovery Harness
 
 작성 시각: 2026-04-30 23:16 KST
-상태: 초안
+최종 업데이트: 2026-05-01 00:20 KST
+상태: v0 기준판
 범위: NPay ROAS 정합성 회복 작업을 위한 문서형 agent harness
-관련 문서: [[harness/!harness|Growth Data Agent Harness 조사]], [[docs/agent-harness/growth-data-harness-v0|Growth Data Harness v0]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]]
+관련 문서: [[harness/!harness|Growth Data Agent Harness 조사]], [[docs/agent-harness/growth-data-harness-v0|Growth Data Harness v0]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]], [[harness/npay-recovery/TASK|Task Spec]], [[harness/npay-recovery/CONTEXT_PACK|Context Pack]], [[harness/npay-recovery/RULES|Rules]], [[harness/npay-recovery/VERIFY|Verify]], [[harness/npay-recovery/APPROVAL_GATES|Approval Gates]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]], [[harness/npay-recovery/LESSONS|Lessons]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]], [[harness/npay-recovery/EVAL_LOG_SCHEMA|Eval Log Schema]]
 Primary source: `naver/!npayroas.md`, `naver/npay-roas-dry-run-20260430.md`, `backend/src/npayRoasDryRun.ts`, `backend/scripts/npay-roas-dry-run.ts`
 Freshness: NPay 기준 2026-04-30 21:30 KST
 Confidence: 90%
@@ -13,6 +14,8 @@ Confidence: 90%
 이 하네스는 NPay 버튼 클릭 intent와 실제 NPay 결제 주문을 안전하게 매칭하기 위한 작업장이다.
 
 기본값은 read-only와 no-send다. TJ님 승인 전에는 DB `match_status` 업데이트, GA4/Meta/TikTok/Google Ads 전송, 운영 endpoint 배포를 하지 않는다.
+
+v0의 목표는 자동화가 아니다. Codex, Claude, ChatGPT가 같은 context, 같은 규칙, 같은 검증표, 같은 승인 게이트를 보게 하는 문서형 안전장치다.
 
 ## 목적
 
@@ -97,19 +100,19 @@ NPay 버튼을 외부 주문형으로 유지하면서 아래 둘을 분리한다
 | BigQuery 미조회 | `ga4_guard_missing` |
 | client/session 없음 | `missing_ga_session` 또는 `missing_client_id` |
 
-## Planned Files
+## v0 Files
 
 | 파일 | 용도 |
 |---|---|
-| `TASK.md` | phase별 task spec |
-| `CONTEXT_PACK.md` | 읽어야 할 로컬 문서와 데이터 소스 |
-| `RULES.md` | 매칭/등급/차단 규칙 |
-| `VERIFY.md` | 검증 명령과 no-send 확인 |
-| `APPROVAL_GATES.md` | 승인 게이트 |
-| `AUDITOR_CHECKLIST.md` | 종료 전 검사 |
-| `LESSONS.md` | 누적 교훈 |
-| `LESSONS_TO_RULES_SCHEMA.md` | 교훈 승격 schema |
-| `EVAL_LOG_SCHEMA.md` | run/eval log schema |
+| [[harness/npay-recovery/TASK|TASK.md]] | phase별 task spec |
+| [[harness/npay-recovery/CONTEXT_PACK|CONTEXT_PACK.md]] | 읽어야 할 로컬 문서와 데이터 소스 |
+| [[harness/npay-recovery/RULES|RULES.md]] | 매칭/등급/차단 규칙 |
+| [[harness/npay-recovery/VERIFY|VERIFY.md]] | 검증 명령과 no-send 확인 |
+| [[harness/npay-recovery/APPROVAL_GATES|APPROVAL_GATES.md]] | 승인 게이트 |
+| [[harness/npay-recovery/AUDITOR_CHECKLIST|AUDITOR_CHECKLIST.md]] | 종료 전 검사 |
+| [[harness/npay-recovery/LESSONS|LESSONS.md]] | 누적 교훈 |
+| [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|LESSONS_TO_RULES_SCHEMA.md]] | 교훈 승격 schema |
+| [[harness/npay-recovery/EVAL_LOG_SCHEMA|EVAL_LOG_SCHEMA.md]] | run/eval log schema |
 
 ## Pre-completion Checklist
 
@@ -136,14 +139,32 @@ NPay recovery harness 기준으로 Phase2 read-only만 진행해.
 이때 agent는 아래 순서로 진행한다.
 
 1. 이 README를 읽는다.
-2. `naver/!npayroas.md` 최신 기준을 확인한다.
-3. phase의 allowed/forbidden을 확인한다.
-4. dry-run/report만 만든다.
-5. `AUDITOR_CHECKLIST.md`로 종료 전 검사한다.
-6. 새 예외는 `LESSONS_TO_RULES_SCHEMA.md` 형식으로 남긴다.
+2. [[harness/npay-recovery/CONTEXT_PACK|CONTEXT_PACK]]에서 필수 context를 조립한다.
+3. [[harness/npay-recovery/TASK|TASK]]에서 phase의 allowed/forbidden을 확인한다.
+4. [[harness/npay-recovery/RULES|RULES]]의 A급/B급/ambiguous/guard 기준을 적용한다.
+5. [[harness/npay-recovery/VERIFY|VERIFY]]의 명령으로 no-send/no-write를 확인한다.
+6. [[harness/npay-recovery/AUDITOR_CHECKLIST|AUDITOR_CHECKLIST]]로 종료 전 검사한다.
+7. 새 예외는 [[harness/npay-recovery/LESSONS|LESSONS]]와 [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|LESSONS_TO_RULES_SCHEMA]] 형식으로 남긴다.
+
+## 더클린커피 확장 사용법
+
+사용자 지시 예시:
+
+```text
+NPay recovery harness 기준으로 더클린커피 BigQuery-first read-only 정합성을 진행해.
+```
+
+이때 agent는 아래를 추가로 지킨다.
+
+1. `site=thecleancoffee`를 명시한다.
+2. BigQuery dataset은 `project-dadba7dd-0229-4ff6-81c.analytics_326949178`만 쓴다.
+3. local Imweb/Toss stale mirror는 primary로 쓰지 않는다.
+4. Naver Commerce API 권한이 coffee용인지 확인 전에는 NPay actual order를 확정하지 않는다.
+5. 모든 report는 `send_candidate=N`을 기본값으로 둔다.
+6. GA4/Meta/TikTok/Google Ads 전송과 GTM publish는 금지한다.
 
 ## 현재 판단
 
 NPay recovery는 Growth Data Harness의 첫 적용 사례로 적합하다. 루프가 이미 명확하고, 전송/DB write 같은 위험한 side effect가 있어 guard와 approval의 효과가 크다.
 
-다음 단계는 자동화가 아니라 v0 문서 고정이다. v0가 2-3회 반복 사용된 후 CLI wrapper, auditor script, Codex/Claude skill로 확장한다.
+v0 문서형 기준판은 고정됐다. 다음 단계는 이 하네스를 더클린커피 BigQuery-first read-only 정합성에 적용하는 것이다. v0가 2-3회 반복 사용된 후 CLI wrapper, auditor script, Codex/Claude skill로 확장한다.

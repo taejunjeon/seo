@@ -1,9 +1,10 @@
 # NPay Recovery Lessons-to-Rules Schema
 
 작성 시각: 2026-04-30 23:16 KST
-상태: 초안
+최종 업데이트: 2026-05-01 00:20 KST
+상태: v0 기준판
 목적: NPay recovery 작업 중 발견한 예외와 교훈을 재사용 가능한 규칙으로 승격하는 형식
-관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]]
+관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/LESSONS|Lessons]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]]
 
 ## 10초 요약
 

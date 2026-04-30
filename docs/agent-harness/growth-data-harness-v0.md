@@ -1,6 +1,7 @@
 # Growth Data Harness v0
 
 작성 시각: 2026-04-30 23:16 KST
+최종 업데이트: 2026-05-01 00:20 KST
 문서 목적: SEO/AEO/GA4/NPay/TikTok/ROAS 정합성 작업에 적용할 agent harness v0 설계
 관련 문서: [[harness/!harness|Growth Data Agent Harness 조사]], [[harness/npay-recovery/README|NPay Recovery Harness]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]]
 Primary source: LangChain, Deep Agents, LangGraph, LangSmith, OpenAI Agents SDK, Claude Code, Codex 공식 자료와 로컬 NPay 문서
@@ -12,6 +13,8 @@ Confidence: 88%
 Growth Data Harness v0는 AI 에이전트가 데이터 정합성 작업을 할 때 매번 같은 기준으로 움직이게 하는 문서형 작업장이다.
 
 v0의 핵심은 `빠른 자동화`가 아니라 `반복 가능한 판단 구조`다. 즉, 어떤 데이터를 읽고, 무엇을 금지하고, 어떤 dry-run을 돌리고, 어떤 승인 전에는 절대 전송하지 않는지를 파일로 고정한다.
+
+2026-05-01 00:20 KST 기준 NPay recovery 하네스 v0 핵심 파일은 작성 완료 상태다. 다음 적용 대상은 더클린커피 BigQuery-first read-only 정합성이다.
 
 ## 왜 지금 필요한가
 
@@ -71,13 +74,13 @@ harness/
     README.md
     AUDITOR_CHECKLIST.md
     LESSONS_TO_RULES_SCHEMA.md
-    TASK.md                 # planned
-    CONTEXT_PACK.md         # planned
-    RULES.md                # planned
-    VERIFY.md               # planned
-    APPROVAL_GATES.md       # planned
-    LESSONS.md              # planned
-    EVAL_LOG_SCHEMA.md      # planned
+    TASK.md
+    CONTEXT_PACK.md
+    RULES.md
+    VERIFY.md
+    APPROVAL_GATES.md
+    LESSONS.md
+    EVAL_LOG_SCHEMA.md
 ```
 
 ## 파일별 역할
@@ -85,15 +88,15 @@ harness/
 | 파일 | 역할 | v0 상태 |
 |---|---|---|
 | `README.md` | 이 하네스가 무엇이고 언제 쓰는지 설명 | 작성 |
-| `TASK.md` | phase/sprint별 작업 명세 | planned |
-| `CONTEXT_PACK.md` | 읽어야 할 문서와 데이터 위치 | planned |
-| `RULES.md` | A급/B급/ambiguous, BigQuery guard 등 판정 규칙 | planned |
-| `VERIFY.md` | typecheck, dry-run, BigQuery, no-send 검증 | planned |
-| `APPROVAL_GATES.md` | TJ 승인 전 금지되는 작업 | planned |
-| `AUDITOR_CHECKLIST.md` | 작업 종료 전 auditor 검사표 | 작성 |
-| `LESSONS.md` | 누적 교훈 목록 | planned |
+| `TASK.md` | phase/sprint별 작업 명세 | 작성 |
+| `CONTEXT_PACK.md` | 읽어야 할 문서와 데이터 위치 | 작성 |
+| `RULES.md` | A급/B급/ambiguous, BigQuery guard 등 판정 규칙 | 작성 |
+| `VERIFY.md` | typecheck, dry-run, BigQuery, no-send 검증 | 작성 |
+| `APPROVAL_GATES.md` | TJ 승인 전 금지되는 작업 | 작성 |
+| `AUDITOR_CHECKLIST.md` | 작업 종료 전 auditor 검사표 | 작성, coffee 확장 체크 추가 |
+| `LESSONS.md` | 누적 교훈 목록 | 작성 |
 | `LESSONS_TO_RULES_SCHEMA.md` | 교훈을 규칙으로 승격하는 schema | 작성 |
-| `EVAL_LOG_SCHEMA.md` | run log와 평가 로그 형식 | planned |
+| `EVAL_LOG_SCHEMA.md` | run log와 평가 로그 형식 | 작성 |
 
 ## v0와 v1/v2 구분
 
@@ -139,7 +142,7 @@ harness/
 | send_google_ads | Google Ads conversion 전송 | 금지 |
 | deploy_endpoint | 운영 endpoint 배포 | 금지 |
 
-## Evaluation Log Schema 초안
+## Evaluation Log Schema 기준
 
 ```json
 {
@@ -227,3 +230,5 @@ v0에서는 새 예외가 나오면 바로 아래 형태로 기록한다.
 v0는 지금 바로 도입한다. 자동화는 나중이다.
 
 이유는 명확하다. 지금 리스크는 모델 성능이 아니라 `누가 어떤 기준으로 판단했는지`, `전송 금지선이 지켜졌는지`, `문서 숫자가 최신인지`가 흔들리는 데 있다. v0 문서형 하네스는 이 리스크를 가장 낮은 비용으로 줄인다.
+
+2026-05-01 기준 v0의 NPay recovery 파일 세트는 갖춰졌다. 다음 작업은 이 하네스를 실제로 적용해 더클린커피 GA4 BigQuery와 주문 원장을 read-only로 대조하는 것이다.
