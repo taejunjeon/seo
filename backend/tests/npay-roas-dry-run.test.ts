@@ -112,3 +112,56 @@ test("npay dry-run grade: shipping-reconciled strong match can be A grade", () =
     "A",
   );
 });
+
+test("npay dry-run grade: item-only amount match is not A grade", () => {
+  const itemOnlyOrder: NpayRoasDryRunOrder = {
+    ...baseOrder,
+    orderAmount: 10000,
+    orderItemTotal: 8900,
+    deliveryPrice: 0,
+  };
+  const candidate = _internal_npayRoasDryRun.buildCandidate(
+    itemOnlyOrder,
+    {
+      id: "intent-2",
+      intentKey: "intent-key-2",
+      capturedAt: "2026-04-30T07:00:23.688Z",
+      site: "biocom",
+      source: "gtm_118",
+      environment: "live",
+      matchStatus: "pending",
+      clientId: "349382661.1770783461",
+      gaSessionId: "1777532376",
+      gaSessionNumber: "19",
+      gclid: "",
+      gbraid: "",
+      wbraid: "",
+      fbp: "fb.1.1770783460204.368997675324386965",
+      fbc: "",
+      fbclid: "",
+      utmSource: "",
+      utmMedium: "",
+      utmCampaign: "",
+      pageLocation: "https://biocom.kr/DietMealBox/?idx=424",
+      pageReferrer: "https://biocom.kr/supplements",
+      productIdx: "424",
+      productName: "팀키토 슬로우 에이징 도시락 7종 골라담기",
+      productPrice: 8900,
+      memberCode: "",
+      memberHash: "",
+      phoneHash: "",
+      emailHash: "",
+      duplicateCount: 0,
+    },
+  );
+
+  assert.equal(candidate.amountMatchType, "item_exact");
+  assert.equal(
+    _internal_npayRoasDryRun.classifyStrongGrade(candidate, candidate.score, candidate.score, {
+      minScore: 70,
+      maxTimeGapMinutes: 2,
+      minScoreGap: 15,
+    }),
+    "B",
+  );
+});

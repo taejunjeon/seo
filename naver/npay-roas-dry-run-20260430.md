@@ -1,6 +1,6 @@
 # NPay ROAS Dry-run Report
 
-Generated at: 2026-04-30T09:07:46.494Z
+Generated at: 2026-04-30T09:26:10.008Z
 Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 
 ## Summary
@@ -33,7 +33,7 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 
 | order_number | channel_order_no | order_label | paid_at | amount | product | status | strong_grade | candidate_count | best_score | second_score | score_gap | time_gap_min | product_name_match | intent_product_price | order_item_total | delivery_price | order_payment_amount | amount_delta | amount_match | amount_reconcile_reason | ga_session_id | ad_key | already_in_ga4 | dispatcher_candidate | dispatcher_block_reason | ambiguous_reason | send_allowed |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604275329932 | 2026042761751160 | production_order | 2026-04-27T13:52:16.000Z | 117000 | 뉴로마스터 60정 (1개월분) | ambiguous | - | 15 | 60 | 50 | 10 | 0.2 | exact | 35000 | 117000 | 0 | 117000 | 82000 | none | amount_not_reconciled | Y | Y | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | N |
+| 202604275329932 | 2026042761751160 | production_order | 2026-04-27T13:52:16.000Z | 117000 | 뉴로마스터 60정 (1개월분) | ambiguous | - | 15 | 60 | 50 | 10 | 0.2 | exact | 35000 | 117000 | 0 | 117000 | 82000 | none | amount_not_reconciled | Y | Y | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | multiple_intents_same_product, same_product_multiple_clicks, amount_not_reconciled, no_member_key, low_score_gap, cart_multi_item_possible | N |
 | 202604289063428 | 2026042865161940 | production_order | 2026-04-27T19:24:52.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | ambiguous | - | 25 | 80 | 70 | 10 | 0.3 | exact | 496000 | 496000 | 0 | 496000 | 0 | final_exact | intent_product_price == order_payment_amount | Y | Y | unknown | N | ambiguous, not_a_grade_strong, already_in_ga4_unknown | multiple_intents_same_product, same_product_multiple_clicks, no_member_key, low_score_gap | N |
 | 202604280487104 | 2026042865542930 | production_order | 2026-04-27T21:13:24.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | A | 25 | 80 | 52 | 28 | 0.3 | exact | 35000 | 35000 | 0 | 35000 | 0 | final_exact | intent_product_price == order_payment_amount | Y | Y | unknown | N | already_in_ga4_unknown | - | N |
 | 202604285552452 | 2026042867285600 | production_order | 2026-04-27T23:27:09.000Z | 496000 | 종합 대사기능&음식물 과민증 검사 Set | strong_match | A | 25 | 70 | 52 | 18 | 1.4 | exact | 496000 | 496000 | 0 | 496000 | 0 | final_exact | intent_product_price == order_payment_amount | Y | Y | unknown | N | already_in_ga4_unknown | - | N |
@@ -44,6 +44,99 @@ Window: 2026-04-27T09:10:00.000Z ~ 2026-04-30T08:48:00.000Z
 | 202604303298608 | 2026043043127990 | production_order | 2026-04-30T05:47:54.000Z | 148200 | 다빈치랩 메가프로바이오틱 ND50 (MEGA PROBIOTIC ND50) 30일분 | strong_match | B | 25 | 60 | 20 | 40 | 0.7 | exact | 54900 | 148200 | 0 | 148200 | 93300 | none | amount_not_reconciled | Y | Y | unknown | N | not_a_grade_strong, already_in_ga4_unknown | - | N |
 | 202604302383065 | 2026043043205620 | production_order | 2026-04-30T05:50:59.000Z | 35000 | 뉴로마스터 60정 (1개월분) | strong_match | A | 25 | 80 | 52 | 28 | 0.7 | exact | 35000 | 35000 | 0 | 35000 | 0 | final_exact | intent_product_price == order_payment_amount | Y | Y | unknown | N | already_in_ga4_unknown | - | N |
 | 202604309594732 | 2026043044799490 | test_npay_manual_20260430 | 2026-04-30T07:01:14.000Z | 11900 | 팀키토 슬로우 에이징 도시락 7종 골라담기 | strong_match | A | 25 | 80 | 20 | 60 | 0.8 | exact | 8900 | 8900 | 3000 | 11900 | 3000 | shipping_reconciled | item_exact=true; shipping_reconciled=true; order_payment_amount == order_item_total + delivery_price | Y | Y | absent | N | manual_test_order | - | N |
+
+## Ambiguous Reason Breakdown
+
+| reason | orders | share | order_numbers |
+| --- | --- | --- | --- |
+| low_score_gap | 3 | 100% | 202604275329932, 202604289063428, 202604295198830 |
+| multiple_intents_same_product | 3 | 100% | 202604275329932, 202604289063428, 202604295198830 |
+| no_member_key | 3 | 100% | 202604275329932, 202604289063428, 202604295198830 |
+| same_product_multiple_clicks | 3 | 100% | 202604275329932, 202604289063428, 202604295198830 |
+| amount_not_reconciled | 1 | 33.33% | 202604275329932 |
+| cart_multi_item_possible | 1 | 33.33% | 202604275329932 |
+
+## Clicked No Purchase Breakdown
+
+아래 표는 `clicked_no_purchase` intent만 대상으로 한 read-only 분해다. 구매 전환 전송 대상이 아니며, 리마케팅/결제 UX 점검용이다.
+
+### By Product
+
+| product_idx | product_name | clicked_no_purchase | share |
+| --- | --- | --- | --- |
+| 97 | 바이오밸런스 90정 (1개월분) | 51 | 24.52% |
+| 198 | 뉴로마스터 60정 (1개월분) | 38 | 18.27% |
+| 317 | 혈당관리엔 당당케어 (120정) | 38 | 18.27% |
+| 171 | 풍성밸런스 90정 (1개월분) | 19 | 9.13% |
+| 386 | 메타드림 식물성 멜라토닌 함유 | 19 | 9.13% |
+| 328 | 종합 대사기능&음식물 과민증 검사 Set | 18 | 8.65% |
+| 300 | 영데이즈 저속노화 SOD 효소 (15포) | 15 | 7.21% |
+| 225 | 다래케어 180정 (1개월분) | 4 | 1.92% |
+| 409 | 리셋데이 글루텐분해효소 알파CD 차전자피 K-낙산균 | 2 | 0.96% |
+| 171 | 풍성밸런스 비오틴 맥주효모 아연 L시스틴 머리카락 탈모 예방 영양제 | 1 | 0.48% |
+| 21 | 다빈치랩 메가프로바이오틱 ND50 (MEGA PROBIOTIC ND50) 30일분 | 1 | 0.48% |
+| 423 | 팀키토 저포드맵 도시락 7종 골라담기 | 1 | 0.48% |
+| 97 | 바이오밸런스 피로회복 영양제 마그네슘 아연 셀레늄 비타민D 바이오미네랄 활성산소 | 1 | 0.48% |
+
+### By Ad Key
+
+| ad_key_combo | clicked_no_purchase | share |
+| --- | --- | --- |
+| gclid+fbp | 179 | 86.06% |
+| fbp | 19 | 9.13% |
+| fbclid+fbc+fbp | 7 | 3.37% |
+| fbc+fbp | 1 | 0.48% |
+| gclid | 1 | 0.48% |
+| gclid+gbraid+fbp | 1 | 0.48% |
+
+### By KST Hour
+
+| kst_hour | clicked_no_purchase | share |
+| --- | --- | --- |
+| 2026-04-27 18:00 KST | 3 | 1.44% |
+| 2026-04-27 19:00 KST | 1 | 0.48% |
+| 2026-04-27 20:00 KST | 4 | 1.92% |
+| 2026-04-27 21:00 KST | 2 | 0.96% |
+| 2026-04-27 22:00 KST | 5 | 2.4% |
+| 2026-04-27 23:00 KST | 3 | 1.44% |
+| 2026-04-28 00:00 KST | 1 | 0.48% |
+| 2026-04-28 01:00 KST | 2 | 0.96% |
+| 2026-04-28 02:00 KST | 1 | 0.48% |
+| 2026-04-28 03:00 KST | 2 | 0.96% |
+| 2026-04-28 04:00 KST | 9 | 4.33% |
+| 2026-04-28 05:00 KST | 2 | 0.96% |
+| 2026-04-28 06:00 KST | 3 | 1.44% |
+| 2026-04-28 07:00 KST | 3 | 1.44% |
+| 2026-04-28 08:00 KST | 2 | 0.96% |
+| 2026-04-28 09:00 KST | 4 | 1.92% |
+| 2026-04-28 10:00 KST | 11 | 5.29% |
+| 2026-04-28 11:00 KST | 8 | 3.85% |
+| 2026-04-28 12:00 KST | 20 | 9.62% |
+| 2026-04-28 13:00 KST | 11 | 5.29% |
+| 2026-04-28 14:00 KST | 4 | 1.92% |
+| 2026-04-28 15:00 KST | 4 | 1.92% |
+| 2026-04-28 16:00 KST | 3 | 1.44% |
+| 2026-04-28 18:00 KST | 3 | 1.44% |
+| 2026-04-28 19:00 KST | 2 | 0.96% |
+| 2026-04-28 20:00 KST | 1 | 0.48% |
+| 2026-04-28 22:00 KST | 1 | 0.48% |
+| 2026-04-29 00:00 KST | 8 | 3.85% |
+| 2026-04-29 01:00 KST | 2 | 0.96% |
+| 2026-04-29 02:00 KST | 2 | 0.96% |
+| 2026-04-29 03:00 KST | 1 | 0.48% |
+| 2026-04-29 04:00 KST | 5 | 2.4% |
+| 2026-04-29 05:00 KST | 2 | 0.96% |
+| 2026-04-29 06:00 KST | 2 | 0.96% |
+| 2026-04-29 07:00 KST | 6 | 2.88% |
+| 2026-04-29 08:00 KST | 1 | 0.48% |
+| 2026-04-29 09:00 KST | 2 | 0.96% |
+| 2026-04-29 10:00 KST | 3 | 1.44% |
+| 2026-04-29 11:00 KST | 7 | 3.37% |
+| 2026-04-29 12:00 KST | 13 | 6.25% |
+| 2026-04-29 13:00 KST | 4 | 1.92% |
+| 2026-04-29 14:00 KST | 15 | 7.21% |
+| 2026-04-29 15:00 KST | 14 | 6.73% |
+| 2026-04-29 16:00 KST | 6 | 2.88% |
 
 ## BigQuery Lookup IDs
 
@@ -154,6 +247,7 @@ A급 production 후보는 `order_number`와 `channel_order_no`를 모두 GA4 raw
 - 아직 purchase dispatcher를 열지 않는다.
 - 이 리포트는 DB 상태를 바꾸지 않는다.
 - 이 리포트는 GA4/Meta/TikTok/Google Ads purchase 전송을 하지 않는다.
+- 이 리포트 변경만으로 운영 endpoint를 배포하지 않는다.
 - A급 strong만 향후 dispatcher dry-run 후보이며, B급 strong은 첫 dispatcher 후보에서 제외한다.
 - already_in_ga4가 present 또는 unknown이면 전송 후보에서 제외한다.
 - 테스트/수동 테스트 라벨 주문은 전송 후보에서 제외한다.

@@ -157,6 +157,28 @@ const AMOUNT_MATCH_TYPES: NpayRoasDryRunAmountMatchType[] = [
   "unknown",
 ];
 
+const GRADE_A_AMOUNT_MATCH_TYPES = new Set<NpayRoasDryRunAmountMatchType>([
+  "final_exact",
+  "shipping_reconciled",
+  "discount_reconciled",
+  "quantity_reconciled",
+]);
+
+export type NpayRoasDryRunBreakdownRow = {
+  key: string;
+  count: number;
+  sharePct: number;
+};
+
+export type NpayRoasDryRunProductBreakdownRow = NpayRoasDryRunBreakdownRow & {
+  productIdx: string;
+  productName: string;
+};
+
+export type NpayRoasDryRunReasonBreakdownRow = NpayRoasDryRunBreakdownRow & {
+  orderNumbers: string[];
+};
+
 export type NpayRoasDryRunCandidate = {
   intentId: string;
   intentKey: string;
@@ -301,6 +323,14 @@ export type NpayRoasDryRunReport = {
   };
   orderResults: NpayRoasDryRunOrderResult[];
   intentResults: NpayRoasDryRunIntentResult[];
+  breakdowns: {
+    ambiguousReasons: NpayRoasDryRunReasonBreakdownRow[];
+    clickedNoPurchase: {
+      byProduct: NpayRoasDryRunProductBreakdownRow[];
+      byAdKey: NpayRoasDryRunBreakdownRow[];
+      byKstHour: NpayRoasDryRunBreakdownRow[];
+    };
+  };
   notes: string[];
 };
 
@@ -419,6 +449,113 @@ const buildGa4PayloadPreview = (
   sendCandidate: dispatcherDryRun.candidate,
   blockReason: [...dispatcherDryRun.blockReasons],
 });
+
+const percent = (count: number, total: number) =>
+  total > 0 ? Math.round((count / total) * 10_000) / 100 : 0;
+
+const adKeyCombo = (intent: NpayRoasDryRunIntent) => {
+  const keys = [
+    intent.gclid ? "gclid" : "",
+    intent.gbraid ? "gbraid" : "",
+    intent.wbraid ? "wbraid" : "",
+    intent.fbclid ? "fbclid" : "",
+    intent.fbc ? "fbc" : "",
+    intent.fbp ? "fbp" : "",
+  ].filter(Boolean);
+  return keys.length > 0 ? keys.join("+") : "none";
+};
+
+const kstHour = (iso: string) => {
+  const kst = new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000);
+  const year = kst.getUTCFullYear();
+  const month = String(kst.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(kst.getUTCDate()).padStart(2, "0");
+  const hour = String(kst.getUTCHours()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:00 KST`;
+};
+
+const sortBreakdown = <T extends NpayRoasDryRunBreakdownRow>(rows: T[]) =>
+  rows.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.key.localeCompare(b.key);
+  });
+
+const buildClickedNoPurchaseBreakdown = (intentResults: NpayRoasDryRunIntentResult[]) => {
+  const clickedNoPurchase = intentResults.filter((result) => result.status === "clicked_no_purchase");
+  const total = clickedNoPurchase.length;
+  const productMap = new Map<string, NpayRoasDryRunProductBreakdownRow>();
+  const adKeyMap = new Map<string, number>();
+  const hourMap = new Map<string, number>();
+
+  for (const result of clickedNoPurchase) {
+    const intent = result.intent;
+    const productKey = `${intent.productIdx || "unknown"}|${intent.productName || "unknown"}`;
+    const product = productMap.get(productKey) ?? {
+      key: productKey,
+      productIdx: intent.productIdx || "unknown",
+      productName: intent.productName || "unknown",
+      count: 0,
+      sharePct: 0,
+    };
+    product.count += 1;
+    productMap.set(productKey, product);
+
+    const adKey = adKeyCombo(intent);
+    adKeyMap.set(adKey, (adKeyMap.get(adKey) ?? 0) + 1);
+
+    const hour = kstHour(intent.capturedAt);
+    hourMap.set(hour, (hourMap.get(hour) ?? 0) + 1);
+  }
+
+  const byProduct = sortBreakdown(
+    Array.from(productMap.values()).map((row) => ({
+      ...row,
+      sharePct: percent(row.count, total),
+    })),
+  );
+  const byAdKey = sortBreakdown(
+    Array.from(adKeyMap.entries()).map(([key, count]) => ({
+      key,
+      count,
+      sharePct: percent(count, total),
+    })),
+  );
+  const byKstHour = Array.from(hourMap.entries())
+    .map(([key, count]) => ({
+      key,
+      count,
+      sharePct: percent(count, total),
+    }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+
+  return { byProduct, byAdKey, byKstHour };
+};
+
+const buildAmbiguousReasonBreakdown = (
+  orderResults: NpayRoasDryRunOrderResult[],
+): NpayRoasDryRunReasonBreakdownRow[] => {
+  const ambiguous = orderResults.filter((result) => result.status === "ambiguous");
+  const total = ambiguous.length;
+  const map = new Map<string, { count: number; orderNumbers: Set<string> }>();
+
+  for (const result of ambiguous) {
+    for (const reason of result.ambiguousReasons) {
+      const current = map.get(reason) ?? { count: 0, orderNumbers: new Set<string>() };
+      current.count += 1;
+      current.orderNumbers.add(result.order.orderNumber);
+      map.set(reason, current);
+    }
+  }
+
+  return sortBreakdown(
+    Array.from(map.entries()).map(([key, value]) => ({
+      key,
+      count: value.count,
+      sharePct: percent(value.count, total),
+      orderNumbers: Array.from(value.orderNumbers).sort(),
+    })),
+  );
+};
 
 const toIntent = (row: SqliteIntentRow): NpayRoasDryRunIntent => ({
   id: row.id,
@@ -718,6 +855,7 @@ const buildCandidate = (
 };
 
 const buildAmbiguousReasons = (
+  order: NpayRoasDryRunOrder,
   candidates: NpayRoasDryRunCandidate[],
   minScoreGap: number,
   scoreGap: number | null,
@@ -731,9 +869,21 @@ const buildAmbiguousReasons = (
     reasons.add("same_product_multiple_clicks");
   }
   if (best.scoreComponents.time < 20) reasons.add("weak_time_gap");
+  if (!best.amountMatch) reasons.add("amount_not_reconciled");
   if (!best.memberKeyPresent) reasons.add("no_member_key");
   if (best.productNameMatchType !== "exact") reasons.add("product_name_variant");
   if (scoreGap !== null && scoreGap <= minScoreGap) reasons.add("low_score_gap");
+  if (
+    order.lineProductCount > 1 ||
+    order.quantity > 1 ||
+    (best.productNameMatch &&
+      !best.amountMatch &&
+      best.intentProductPrice !== null &&
+      best.orderPaymentAmount !== null &&
+      best.orderPaymentAmount > best.intentProductPrice)
+  ) {
+    reasons.add("cart_multi_item_possible");
+  }
   return Array.from(reasons);
 };
 
@@ -750,9 +900,7 @@ const classifyStrongGrade = (
   if (!bestCandidate || bestScore === null || scoreGap === null) return null;
   const isGradeA =
     bestScore >= thresholds.minScore &&
-    bestCandidate.amountMatch &&
-    bestCandidate.amountMatchType !== "near" &&
-    bestCandidate.amountMatchType !== "cart_contains_item" &&
+    GRADE_A_AMOUNT_MATCH_TYPES.has(bestCandidate.amountMatchType) &&
     bestCandidate.timeGapMinutes <= thresholds.maxTimeGapMinutes &&
     scoreGap >= thresholds.minScoreGap;
   return isGradeA ? "A" : "B";
@@ -1028,7 +1176,7 @@ export const buildNpayRoasDryRunReport = async (
     );
     const ga4PayloadPreview = buildGa4PayloadPreview(order, bestCandidate, dispatcherDryRun);
     const ambiguousReasons =
-      status === "ambiguous" ? buildAmbiguousReasons(candidates, minScoreGap, scoreGap) : [];
+      status === "ambiguous" ? buildAmbiguousReasons(order, candidates, minScoreGap, scoreGap) : [];
 
     return {
       order,
@@ -1148,6 +1296,10 @@ export const buildNpayRoasDryRunReport = async (
       intent_pending: 0,
     } as Record<NpayRoasDryRunIntentStatus, number>,
   );
+  const breakdowns = {
+    ambiguousReasons: buildAmbiguousReasonBreakdown(orderResults),
+    clickedNoPurchase: buildClickedNoPurchaseBreakdown(intentResults),
+  };
 
   return {
     ok: true,
@@ -1201,9 +1353,11 @@ export const buildNpayRoasDryRunReport = async (
     },
     orderResults,
     intentResults,
+    breakdowns,
     notes: [
       "This report is read-only. It does not update npay_intent_log.match_status.",
       "This report does not send GA4, Meta, TikTok, or Google Ads purchase events.",
+      "This Phase2 report work does not deploy or enable production endpoints.",
       "already_in_ga4 guard checks both Imweb order_number and NPay channel_order_no when channel_order_no is available.",
       "Only A-grade strong matches with already_in_ga4=absent are future dispatcher dry-run candidates; B-grade strong, ambiguous, purchase_without_intent, test orders, and already_in_ga4 rows are blocked.",
       "Manual orders are dry-run inputs only and are not written to any database.",
@@ -1306,6 +1460,25 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     result.ga4PayloadPreview.sendCandidate ? "Y" : "N",
     result.ga4PayloadPreview.blockReason.join(", "),
   ]);
+  const ambiguousReasonRows = report.breakdowns.ambiguousReasons.map((row) => [
+    row.key,
+    row.count,
+    `${row.sharePct}%`,
+    row.orderNumbers.join(", "),
+  ]);
+  const clickedNoPurchaseProductRows = report.breakdowns.clickedNoPurchase.byProduct
+    .slice(0, 30)
+    .map((row) => [row.productIdx, row.productName, row.count, `${row.sharePct}%`]);
+  const clickedNoPurchaseAdKeyRows = report.breakdowns.clickedNoPurchase.byAdKey.map((row) => [
+    row.key,
+    row.count,
+    `${row.sharePct}%`,
+  ]);
+  const clickedNoPurchaseHourRows = report.breakdowns.clickedNoPurchase.byKstHour.map((row) => [
+    row.key,
+    row.count,
+    `${row.sharePct}%`,
+  ]);
 
   return [
     "# NPay ROAS Dry-run Report",
@@ -1376,6 +1549,38 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "send_allowed",
       ],
       orderRows,
+    ),
+    "",
+    "## Ambiguous Reason Breakdown",
+    "",
+    renderTable(
+      ["reason", "orders", "share", "order_numbers"],
+      ambiguousReasonRows,
+    ),
+    "",
+    "## Clicked No Purchase Breakdown",
+    "",
+    "아래 표는 `clicked_no_purchase` intent만 대상으로 한 read-only 분해다. 구매 전환 전송 대상이 아니며, 리마케팅/결제 UX 점검용이다.",
+    "",
+    "### By Product",
+    "",
+    renderTable(
+      ["product_idx", "product_name", "clicked_no_purchase", "share"],
+      clickedNoPurchaseProductRows,
+    ),
+    "",
+    "### By Ad Key",
+    "",
+    renderTable(
+      ["ad_key_combo", "clicked_no_purchase", "share"],
+      clickedNoPurchaseAdKeyRows,
+    ),
+    "",
+    "### By KST Hour",
+    "",
+    renderTable(
+      ["kst_hour", "clicked_no_purchase", "share"],
+      clickedNoPurchaseHourRows,
     ),
     "",
     "## BigQuery Lookup IDs",
@@ -1456,6 +1661,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     "- 아직 purchase dispatcher를 열지 않는다.",
     "- 이 리포트는 DB 상태를 바꾸지 않는다.",
     "- 이 리포트는 GA4/Meta/TikTok/Google Ads purchase 전송을 하지 않는다.",
+    "- 이 리포트 변경만으로 운영 endpoint를 배포하지 않는다.",
     "- A급 strong만 향후 dispatcher dry-run 후보이며, B급 strong은 첫 dispatcher 후보에서 제외한다.",
     "- already_in_ga4가 present 또는 unknown이면 전송 후보에서 제외한다.",
     "- 테스트/수동 테스트 라벨 주문은 전송 후보에서 제외한다.",

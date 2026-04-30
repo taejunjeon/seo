@@ -6,7 +6,7 @@
 Primary source: VM SQLite `npay_intent_log`, 운영 주문 원장 `operational_postgres.public.tb_iamweb_users`
 Cross-check: 보호된 `GET /api/attribution/npay-intents`, GTM API live version `139`
 Window: NPay intent는 2026-04-27 18:10 KST 이후, 주문 원장은 dry-run window 기준 `PAYMENT_COMPLETE` NPay 주문
-Freshness: VM SQLite snapshot `2026-04-30 17:48 KST`, dry-run report `2026-04-30 18:07 KST`, 분석 window end `2026-04-30 17:48 KST`
+Freshness: VM SQLite snapshot `2026-04-30 17:48 KST`, dry-run report `2026-04-30 18:24 KST`, 분석 window end `2026-04-30 17:48 KST`
 Confidence: 89%
 
 ## 10초 요약
@@ -17,7 +17,7 @@ Confidence: 89%
 
 가장 큰 병목은 `intent`와 `실제 NPay 주문`을 붙이는 매칭 dry-run이다. 이 매칭이 통과해야 GA4 Measurement Protocol, Meta CAPI, TikTok Events API로 confirmed purchase를 보낼 수 있다.
 
-2026-04-30 18:07 KST에 현재까지 쌓인 데이터로 예비 dry-run을 다시 돌렸다. live intent 296건과 confirmed NPay 주문 11건을 read-only로 대조했고, strong match 8건을 A급 6건/B급 2건으로 나눴다. ambiguous는 3건, purchase_without_intent는 0건이다. A급 6건 중 1건은 TJ 수동 테스트 주문이라 전송 후보에서 제외한다. 이 결과는 전환 전송용 확정값이 아니라 매칭 규칙 점검용이다.
+2026-04-30 18:24 KST에 현재까지 쌓인 데이터로 예비 dry-run을 다시 돌렸다. live intent 296건과 confirmed NPay 주문 11건을 read-only로 대조했고, strong match 8건을 A급 6건/B급 2건으로 나눴다. ambiguous는 3건, purchase_without_intent는 0건이다. A급 6건 중 1건은 TJ 수동 테스트 주문이라 전송 후보에서 제외한다. 이 결과는 전환 전송용 확정값이 아니라 매칭 규칙 점검용이다.
 
 ## Phase-Sprint 요약표
 
@@ -25,8 +25,8 @@ Confidence: 89%
 |---|---|---|---|---|---|
 | Phase1 | [[#Phase1-Sprint1]] | 버튼 유지 원칙 | TJ + Codex | 100% / 100% | [[#Phase1-Sprint1]] |
 | Phase1 | [[#Phase1-Sprint2]] | 클릭 intent 장부 | Codex | 100% / 100% | [[#Phase1-Sprint2]] |
-| Phase2 | [[#Phase2-Sprint3]] | 실제 주문 매칭 | Codex | 40% / 0% | [[#Phase2-Sprint3]] |
-| Phase2 | [[#Phase2-Sprint4]] | 미결제자 분리 | Codex | 30% / 0% | [[#Phase2-Sprint4]] |
+| Phase2 | [[#Phase2-Sprint3]] | 실제 주문 매칭 | Codex | 55% / 0% | [[#Phase2-Sprint3]] |
+| Phase2 | [[#Phase2-Sprint4]] | 미결제자 분리 | Codex | 50% / 0% | [[#Phase2-Sprint4]] |
 | Phase3 | [[#Phase3-Sprint5]] | GA4/Meta/TikTok 전환 복구 | Codex + TJ | 20% / 0% | [[#Phase3-Sprint5]] |
 | Phase3 | [[#Phase3-Sprint6]] | 운영 리포트와 승인 기준 | Codex + TJ | 30% / 0% | [[#Phase3-Sprint6]] |
 
@@ -86,7 +86,7 @@ Confidence: 89%
 
 ## 현재 데이터 예비 분석
 
-분석 시각: 2026-04-30 18:07 KST
+분석 시각: 2026-04-30 18:24 KST
 
 이 분석은 7일치가 아니라 live publish 이후 약 3일치 데이터다. 결론을 확정하기에는 이르지만, 지금도 매칭 규칙이 대체로 작동하는지는 볼 수 있다.
 
@@ -110,11 +110,11 @@ Confidence: 89%
 
 현재 데이터로도 `버튼을 누른 뒤 실제 결제한 주문 후보`는 잡힌다. 특히 결제 완료 직전 1~8분 안에 같은 상품 intent가 있는 주문들이 보인다.
 
-다만 7건 중 3건은 후보가 여러 개라 애매하다. 예를 들어 같은 상품을 몇 분 간격으로 여러 번 누른 기록이 있으면 어떤 클릭이 최종 결제로 이어졌는지 확정하기 어렵다.
+다만 11건 중 3건은 후보가 여러 개라 애매하다. 예를 들어 같은 상품을 몇 분 간격으로 여러 번 누른 기록이 있으면 어떤 클릭이 최종 결제로 이어졌는지 확정하기 어렵다.
 
 또한 strong 8건 중 `202604283756893`와 `202604303298608`는 amount_match none 또는 금액 해석이 약해 B급으로 내렸다. 첫 dispatcher dry-run 후보는 A급 production 후보만 본다.
 
-BigQuery에서 이 7개 order_number는 GA4 purchase뿐 아니라 전체 event_name 기준 raw event에서도 조회되지 않았다고 기록한다. 따라서 NPay return/GA4 누락 문제와 GA4 MP 복구 필요성은 더 강해졌다. 단, 이미 GA4에 있는 주문을 중복 전송하지 않기 위해 dispatcher dry-run에는 `already_in_ga4` guard를 반드시 둔다.
+BigQuery 접근 권한이 아직 열리지 않은 주문은 `already_in_ga4=unknown`으로 유지한다. 따라서 NPay return/GA4 누락 문제와 GA4 MP 복구 필요성은 계속 검토하되, 이미 GA4에 있는 주문을 중복 전송하지 않기 위해 dispatcher dry-run에는 `already_in_ga4` guard를 반드시 둔다.
 
 따라서 지금 결과는 `purchase 전송 가능`이 아니라 `예비 매칭 가능 + dispatcher 후보 등급화`로 봐야 한다. 특히 NPay는 Imweb `order_number`와 NPay `channel_order_no`가 다를 수 있으므로, BigQuery `already_in_ga4` guard는 두 ID를 모두 조회해야 한다.
 
@@ -187,6 +187,14 @@ x-admin-token: <NPAY_INTENT_ADMIN_TOKEN>
 
 이 코드는 `SELECT`와 SQLite readonly open만 사용한다. `npay_intent_log.match_status` 업데이트, GA4/Meta/TikTok/Google Ads purchase 전송, dispatcher 실행은 포함하지 않는다.
 
+Phase2는 read-only 분석 단계다. 이 단계에서는 아래 작업을 하지 않는다.
+
+| 금지 작업 | 이유 |
+|---|---|
+| DB `match_status` 업데이트 | 매칭 기준 확정 전 운영 상태를 바꾸면 추적 기준이 흔들림 |
+| GA4/Meta/TikTok/Google Ads purchase 전송 | 오매칭 또는 중복 전송 시 ROAS가 더 망가짐 |
+| 운영 endpoint 배포 | 현재 목표는 CLI/report 기준 검증이며 외부 호출면을 늘리지 않음 |
+
 ### Dispatcher dry-run preview
 
 현재 단계는 실제 전송이 아니라 dispatcher dry-run이다. 리포트는 아래 항목을 생성하지만 어떤 endpoint도 호출하지 않는다.
@@ -254,7 +262,65 @@ Confidence: 89%
 
 `strong_match`도 아직 전송 금지다. 여기서 A급 strong은 "향후 dispatcher dry-run 후보"라는 뜻이지, 승인 없이 GA4/Meta/TikTok/Google Ads로 보낸다는 뜻이 아니다. B급 strong과 ambiguous 3건은 첫 dispatcher 후보에서 제외한다.
 
-A급 기준은 `score >= 70`, `amount_match=final_exact 또는 reconciled`, `time_gap <= 2분`, `score_gap >= 15`다. B급 strong은 strong_match이지만 이 조건을 하나라도 만족하지 못한 주문이다.
+A급 기준은 `score >= 70`, `amount_match_type in (final_exact, shipping_reconciled, discount_reconciled, quantity_reconciled)`, `time_gap <= 2분`, `score_gap >= 15`다. B급 strong은 strong_match이지만 이 조건을 하나라도 만족하지 못한 주문이다.
+
+### ambiguous 3건 원인 분해
+
+Source: [[npay-roas-dry-run-20260430]]
+Window: 2026-04-27 18:10 KST ~ 2026-04-30 17:48 KST
+Confidence: 88%
+
+| 원인 | 주문 수 | 해당 주문 |
+|---|---:|---|
+| `multiple_intents_same_product` | 3 | `202604275329932`, `202604289063428`, `202604295198830` |
+| `same_product_multiple_clicks` | 3 | `202604275329932`, `202604289063428`, `202604295198830` |
+| `low_score_gap` | 3 | `202604275329932`, `202604289063428`, `202604295198830` |
+| `no_member_key` | 3 | `202604275329932`, `202604289063428`, `202604295198830` |
+| `amount_not_reconciled` | 1 | `202604275329932` |
+| `cart_multi_item_possible` | 1 | `202604275329932` |
+
+해석: ambiguous 3건은 모두 같은 상품 intent가 여러 번 찍혔고 1등과 2등 후보의 점수차가 10점이라 자동 확정하기 어렵다. `202604275329932`는 금액도 맞지 않아 cart/multi-item 가능성이 있으므로 첫 dispatcher 후보에서 제외한다.
+
+### clicked_no_purchase 208건 분해
+
+Source: [[npay-roas-dry-run-20260430]]
+Window: 2026-04-27 18:10 KST ~ 2026-04-30 17:48 KST
+Definition: NPay 버튼 intent는 있지만 24시간 grace window 안에 confirmed NPay 주문 strong 매칭이 없는 건
+Confidence: 86%. BigQuery와 주문 원장 지연 반영 가능성은 7일 재실행 때 다시 본다.
+
+상품별 상위:
+
+| product_idx | 상품 | clicked_no_purchase | 비중 |
+|---|---|---:|---:|
+| `97` | 바이오밸런스 90정 (1개월분) | 51 | 24.52% |
+| `198` | 뉴로마스터 60정 (1개월분) | 38 | 18.27% |
+| `317` | 혈당관리엔 당당케어 (120정) | 38 | 18.27% |
+| `171` | 풍성밸런스 90정 (1개월분) | 19 | 9.13% |
+| `386` | 메타드림 식물성 멜라토닌 함유 | 19 | 9.13% |
+| `328` | 종합 대사기능&음식물 과민증 검사 Set | 18 | 8.65% |
+| `300` | 영데이즈 저속노화 SOD 효소 (15포) | 15 | 7.21% |
+
+광고키 조합별:
+
+| ad_key_combo | clicked_no_purchase | 비중 |
+|---|---:|---:|
+| `gclid+fbp` | 179 | 86.06% |
+| `fbp` | 19 | 9.13% |
+| `fbclid+fbc+fbp` | 7 | 3.37% |
+| 기타 | 3 | 1.44% |
+
+시간대 피크:
+
+| KST hour | clicked_no_purchase |
+|---|---:|
+| 2026-04-28 12:00 | 20 |
+| 2026-04-29 14:00 | 15 |
+| 2026-04-29 15:00 | 14 |
+| 2026-04-29 12:00 | 13 |
+| 2026-04-28 10:00 | 11 |
+| 2026-04-28 13:00 | 11 |
+
+해석: 현재 미구매 클릭은 보충제 SKU와 `gclid+fbp` 조합에 집중되어 있다. 이 값은 구매 전환으로 보내면 안 되고, 결제 UX 점검 또는 리마케팅 후보군으로만 써야 한다.
 
 ### TJ 수동 NPay 테스트 결제
 
@@ -461,7 +527,7 @@ strong은 다시 A급/B급으로 나눈다.
 
 | 등급 | 기준 | 첫 dispatcher 후보 |
 |---|---|---|
-| A급 strong | `score >= 70`, `amount_match=exact`, `time_gap <= 2분`, `score_gap >= 15` | 가능 |
+| A급 strong | `score >= 70`, `amount_match_type in (final_exact, shipping_reconciled, discount_reconciled, quantity_reconciled)`, `time_gap <= 2분`, `score_gap >= 15` | 가능 |
 | B급 strong | strong_match지만 A급 조건 중 하나라도 실패 | 제외 |
 
 중요: A급 strong도 아직 purchase 전송 허가가 아니다. 지금 단계의 A급은 "향후 dispatcher dry-run 후보"라는 뜻이고, 실제 GA4/Meta/TikTok/Google Ads 전송은 별도 승인 전까지 금지다.
