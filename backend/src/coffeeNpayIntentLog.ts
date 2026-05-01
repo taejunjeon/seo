@@ -31,6 +31,153 @@ const SCHEMA_KEY = "coffee_npay_intent_log";
 const SCHEMA_VERSION = 2;
 
 const ENFORCE_ENV_FLAG = "COFFEE_NPAY_INTENT_ENFORCE_LIVE";
+const DEV_BYPASS_ENV_FLAG = "COFFEE_NPAY_INTENT_DEV_BYPASS";
+
+const PAYLOAD_SCHEMA_VERSION_SUPPORTED = 1;
+
+const ORIGIN_ALLOWLIST = new Set<string>([
+  "https://thecleancoffee.com",
+  "https://www.thecleancoffee.com",
+]);
+
+const ORIGIN_ALLOWLIST_DEV = new Set<string>([
+  "http://localhost:3001",
+  "http://localhost:7010",
+  "http://localhost:7020",
+  "https://localhost:3001",
+]);
+
+const RATE_LIMIT_BURST_PER_SECOND = 5;
+const RATE_LIMIT_PER_MINUTE = 30;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+const PROCESS_STARTED_AT_MS = Date.now();
+
+type RejectCounterKey =
+  | "pii_rejected"
+  | "wrong_site"
+  | "missing_required"
+  | "invalid_intent_phase"
+  | "preview_only_violation"
+  | "payment_button_type_violation"
+  | "payload_too_large"
+  | "schema_version_unsupported"
+  | "invalid_origin"
+  | "rate_limited"
+  | "enforce_disabled"
+  | "is_simulation_blocked"
+  | "enforce_inserted"
+  | "enforce_deduped"
+  | "dry_run_ok"
+  | "dry_run_failed_validation";
+
+const rejectCounters: Record<RejectCounterKey, number> = {
+  pii_rejected: 0,
+  wrong_site: 0,
+  missing_required: 0,
+  invalid_intent_phase: 0,
+  preview_only_violation: 0,
+  payment_button_type_violation: 0,
+  payload_too_large: 0,
+  schema_version_unsupported: 0,
+  invalid_origin: 0,
+  rate_limited: 0,
+  enforce_disabled: 0,
+  is_simulation_blocked: 0,
+  enforce_inserted: 0,
+  enforce_deduped: 0,
+  dry_run_ok: 0,
+  dry_run_failed_validation: 0,
+};
+
+export function bumpRejectCounter(key: RejectCounterKey): void {
+  rejectCounters[key] += 1;
+}
+
+export function readRejectCounters(): Record<RejectCounterKey, number> & {
+  process_started_at_ms: number;
+  process_uptime_ms: number;
+} {
+  return {
+    ...rejectCounters,
+    process_started_at_ms: PROCESS_STARTED_AT_MS,
+    process_uptime_ms: Date.now() - PROCESS_STARTED_AT_MS,
+  };
+}
+
+const rateLimitMap = new Map<string, number[]>();
+
+export function checkRateLimit(
+  key: string,
+): { allowed: boolean; reason?: string; recent_count: number } {
+  if (!key) return { allowed: true, recent_count: 0 };
+  const now = Date.now();
+  const arr = (rateLimitMap.get(key) ?? []).filter(
+    (ts) => now - ts < RATE_LIMIT_WINDOW_MS,
+  );
+  const lastSec = arr.filter((ts) => now - ts < 1000);
+  if (lastSec.length >= RATE_LIMIT_BURST_PER_SECOND) {
+    rateLimitMap.set(key, arr);
+    return {
+      allowed: false,
+      reason: "burst_per_second",
+      recent_count: arr.length,
+    };
+  }
+  if (arr.length >= RATE_LIMIT_PER_MINUTE) {
+    rateLimitMap.set(key, arr);
+    return {
+      allowed: false,
+      reason: "rate_per_minute",
+      recent_count: arr.length,
+    };
+  }
+  arr.push(now);
+  rateLimitMap.set(key, arr);
+  return { allowed: true, recent_count: arr.length };
+}
+
+export function checkOriginAllowlist(
+  origin: string | undefined,
+  referer: string | undefined,
+): { allowed: boolean; matched_via: string | null; effective_origin: string | null } {
+  const o = (origin ?? "").trim();
+  if (o && ORIGIN_ALLOWLIST.has(o)) {
+    return { allowed: true, matched_via: "origin", effective_origin: o };
+  }
+  if (referer) {
+    try {
+      const u = new URL(referer);
+      const refOrigin = `${u.protocol}//${u.host}`;
+      if (ORIGIN_ALLOWLIST.has(refOrigin)) {
+        return { allowed: true, matched_via: "referer", effective_origin: refOrigin };
+      }
+    } catch (e) {
+      /* invalid referer URL */
+    }
+  }
+  if (process.env[DEV_BYPASS_ENV_FLAG] === "true") {
+    if (o && ORIGIN_ALLOWLIST_DEV.has(o)) {
+      return { allowed: true, matched_via: "origin_dev_bypass", effective_origin: o };
+    }
+    if (referer) {
+      try {
+        const u = new URL(referer);
+        const refOrigin = `${u.protocol}//${u.host}`;
+        if (ORIGIN_ALLOWLIST_DEV.has(refOrigin)) {
+          return {
+            allowed: true,
+            matched_via: "referer_dev_bypass",
+            effective_origin: refOrigin,
+          };
+        }
+      } catch (e) {
+        /* invalid */
+      }
+    }
+  }
+  return { allowed: false, matched_via: null, effective_origin: o || referer || null };
+}
 
 const PII_KEYS_BLOCKED = [
   "phone",
@@ -234,30 +381,51 @@ export function validateIntentPayload(payload: unknown): ValidationResult {
   }
   const p = payload as Record<string, unknown>;
 
+  let missingRequired = false;
   for (const f of REQUIRED_FIELDS) {
     if (typeof p[f] !== "string" || !(p[f] as string).trim()) {
       errors.push(`${f} is required (string, non-empty)`);
+      missingRequired = true;
     }
   }
+  if (missingRequired) bumpRejectCounter("missing_required");
+
   if (typeof p.site === "string" && !SITE_ALLOWED.has(p.site)) {
     errors.push(`site must be one of [${[...SITE_ALLOWED].join(", ")}]`);
+    bumpRejectCounter("wrong_site");
   }
   if (typeof p.intent_phase === "string" && !ALLOWED_INTENT_PHASE.has(p.intent_phase)) {
     errors.push(
       `intent_phase must be one of [${[...ALLOWED_INTENT_PHASE].join(", ")}]`,
     );
+    bumpRejectCounter("invalid_intent_phase");
   }
   if (typeof p.intent_uuid === "string" && p.intent_uuid.length > 64) {
     errors.push("intent_uuid too long (>64 chars)");
   }
   if (p.payment_button_type !== undefined && p.payment_button_type !== "npay") {
     errors.push("payment_button_type must be 'npay' (only NPay supported)");
+    bumpRejectCounter("payment_button_type_violation");
   }
   if (p.preview_only !== true) {
     errors.push("preview_only must be true (snippet은 항상 true 박음 — false 면 변조 의심)");
+    bumpRejectCounter("preview_only_violation");
   }
   if (p.is_simulation === true) {
     warnings.push("is_simulation: true — sanity_test payload, ledger insert 시 제외 권장");
+  }
+  if (p.payload_schema_version !== undefined) {
+    const sv = Number(p.payload_schema_version);
+    if (!Number.isFinite(sv) || sv !== PAYLOAD_SCHEMA_VERSION_SUPPORTED) {
+      errors.push(
+        `payload_schema_version unsupported (got ${p.payload_schema_version}, expected ${PAYLOAD_SCHEMA_VERSION_SUPPORTED})`,
+      );
+      bumpRejectCounter("schema_version_unsupported");
+    }
+  } else {
+    warnings.push(
+      "payload_schema_version missing — snippet 갱신 권장 (현재 backend 는 v1 호환만 인정)",
+    );
   }
 
   for (const k of Object.keys(p)) {
@@ -269,6 +437,7 @@ export function validateIntentPayload(payload: unknown): ValidationResult {
       }
     }
   }
+  if (piiFound.length > 0) bumpRejectCounter("pii_rejected");
 
   let rawJson = "";
   try {
@@ -280,6 +449,7 @@ export function validateIntentPayload(payload: unknown): ValidationResult {
     errors.push(
       `payload too large (${rawJson.length}B > ${RAW_JSON_MAX_BYTES}B limit)`,
     );
+    bumpRejectCounter("payload_too_large");
   }
 
   return {
@@ -414,6 +584,7 @@ export function runDryRun(payload: CoffeeNpayIntentPayload): DryRunResponse {
   };
 
   if (!validation.ok) {
+    bumpRejectCounter("dry_run_failed_validation");
     return {
       ok: false,
       mode: "dry_run",
@@ -426,6 +597,7 @@ export function runDryRun(payload: CoffeeNpayIntentPayload): DryRunResponse {
       notes: ["INSERT 안 함 (dry_run + validation_failed)"],
     };
   }
+  bumpRejectCounter("dry_run_ok");
   if (validation.warnings.length > 0) {
     notes.push(...validation.warnings.map((w) => `warning: ${w}`));
   }
@@ -492,6 +664,7 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
   };
 
   if (!flagState.active) {
+    bumpRejectCounter("enforce_disabled");
     return {
       ok: false,
       mode: "enforce",
@@ -524,6 +697,7 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
     };
   }
   if (payload.is_simulation === true) {
+    bumpRejectCounter("is_simulation_blocked");
     return {
       ok: false,
       mode: "enforce",
@@ -634,6 +808,9 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
         ? Number(info.lastInsertRowid)
         : null;
 
+  if (inserted) bumpRejectCounter("enforce_inserted");
+  if (deduped) bumpRejectCounter("enforce_deduped");
+
   return {
     ok: true,
     mode: "enforce",
@@ -647,7 +824,7 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
     ledger_row_preview: preview,
     notes: [
       inserted
-        ? "INSERT OK — confirmed order join 7일 모니터링 시작"
+        ? "INSERT OK — confirmed order join 모니터링 시작 (default 5일 + 3일 조기 평가 게이트)"
         : "기존 (site, intent_uuid) row 존재 — INSERT OR IGNORE 로 dedupe",
     ],
   };
@@ -656,12 +833,22 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
 export function getCoffeeNpayIntentLogStats(): {
   ok: true;
   schema_version: number;
+  payload_schema_version_supported: number;
   schema_ensured: boolean;
   enforce_flag_active: boolean;
+  dev_bypass_flag_active: boolean;
   total_rows: number;
   rows_with_imweb_order_code: number;
   rows_with_ga4_synthetic_transaction_id: number;
   latest_ts_ms_kst: number | null;
+  reject_counters: ReturnType<typeof readRejectCounters>;
+  origin_allowlist: string[];
+  rate_limit_policy: {
+    burst_per_second: number;
+    per_minute: number;
+    window_ms: number;
+    tracked_keys: number;
+  };
 } {
   ensureCoffeeNpayIntentLogSchema();
   const db = getCrmDb();
@@ -676,12 +863,22 @@ export function getCoffeeNpayIntentLogStats(): {
   return {
     ok: true,
     schema_version: SCHEMA_VERSION,
+    payload_schema_version_supported: PAYLOAD_SCHEMA_VERSION_SUPPORTED,
     schema_ensured: schemaEnsured,
     enforce_flag_active: process.env[ENFORCE_ENV_FLAG] === "true",
+    dev_bypass_flag_active: process.env[DEV_BYPASS_ENV_FLAG] === "true",
     total_rows: total,
     rows_with_imweb_order_code: withCode,
     rows_with_ga4_synthetic_transaction_id: withTx,
     latest_ts_ms_kst: latestRow.ts ?? null,
+    reject_counters: readRejectCounters(),
+    origin_allowlist: [...ORIGIN_ALLOWLIST],
+    rate_limit_policy: {
+      burst_per_second: RATE_LIMIT_BURST_PER_SECOND,
+      per_minute: RATE_LIMIT_PER_MINUTE,
+      window_ms: RATE_LIMIT_WINDOW_MS,
+      tracked_keys: rateLimitMap.size,
+    },
   };
 }
 

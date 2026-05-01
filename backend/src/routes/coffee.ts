@@ -1,6 +1,9 @@
 import { type Request, type Response, Router } from "express";
 
 import {
+  bumpRejectCounter,
+  checkOriginAllowlist,
+  checkRateLimit,
   getCoffeeNpayIntentJoinReport,
   getCoffeeNpayIntentLogStats,
   listCoffeeNpayIntents,
@@ -14,6 +17,62 @@ import {
   dispatchTrackPromotions,
   getNotificationStats,
 } from "../subscriberTrackNotifier";
+
+/**
+ * NPay intent endpoint hardening guard:
+ *   - Origin / Referer allowlist (thecleancoffee.com / www.thecleancoffee.com.
+ *     dev override 는 env COFFEE_NPAY_INTENT_DEV_BYPASS=true)
+ *   - Rate limit: per IP+session_uuid 키. 1초 5회, 1분 30회. window 60초.
+ *   - reject 시 reject_counter bump + 표준화된 에러 응답
+ */
+function applyCoffeeIntentGuard(req: Request):
+  | { allowed: true }
+  | { allowed: false; status: number; body: Record<string, unknown> } {
+  const origin = (req.headers.origin as string | undefined) ?? "";
+  const referer = (req.headers.referer as string | undefined) ?? "";
+  const originCheck = checkOriginAllowlist(origin, referer);
+  if (!originCheck.allowed) {
+    bumpRejectCounter("invalid_origin");
+    return {
+      allowed: false,
+      status: 403,
+      body: {
+        ok: false,
+        reason: "invalid_origin",
+        origin,
+        referer,
+        allowed_origins: ["https://thecleancoffee.com", "https://www.thecleancoffee.com"],
+        note: "Origin/Referer not in allowlist. dev bypass: env COFFEE_NPAY_INTENT_DEV_BYPASS=true",
+      },
+    };
+  }
+  // rate limit 키: ip + session_uuid (있으면). 둘 다 없으면 ip 만.
+  const ipRaw =
+    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ||
+    req.socket.remoteAddress ||
+    "unknown";
+  const sessionUuid =
+    typeof req.body?.session_uuid === "string" && req.body.session_uuid
+      ? req.body.session_uuid
+      : "";
+  const rlKey = sessionUuid ? `${ipRaw}::${sessionUuid}` : ipRaw;
+  const rl = checkRateLimit(rlKey);
+  if (!rl.allowed) {
+    bumpRejectCounter("rate_limited");
+    return {
+      allowed: false,
+      status: 429,
+      body: {
+        ok: false,
+        reason: "rate_limited",
+        rate_limit_reason: rl.reason,
+        recent_count_in_window: rl.recent_count,
+        retry_after_ms: 1000,
+      },
+    };
+  }
+  return { allowed: true };
+}
 
 export const createCoffeeRouter = () => {
   const router = Router();
@@ -130,6 +189,11 @@ export const createCoffeeRouter = () => {
    *     workspace 또는 별도 dispatcher 를 통해서만 호출됨
    */
   router.post("/api/coffee/intent/dry-run", (req: Request, res: Response) => {
+    const guard = applyCoffeeIntentGuard(req);
+    if (!guard.allowed) {
+      res.status(guard.status).json(guard.body);
+      return;
+    }
     try {
       const result = runCoffeeNpayIntentDryRun(req.body ?? {});
       res.status(result.ok ? 200 : 400).json(result);
@@ -167,6 +231,11 @@ export const createCoffeeRouter = () => {
   router.post(
     "/api/attribution/coffee-npay-intent",
     (req: Request, res: Response) => {
+      const guard = applyCoffeeIntentGuard(req);
+      if (!guard.allowed) {
+        res.status(guard.status).json(guard.body);
+        return;
+      }
       try {
         const mode = String(req.query.mode ?? "dry_run").toLowerCase();
         if (mode === "enforce") {

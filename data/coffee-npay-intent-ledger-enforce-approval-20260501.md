@@ -1,22 +1,39 @@
-# 더클린커피 NPay Intent Ledger Enforce 활성 + 제한적 Live Capture 승인안
+# 더클린커피 NPay Intent Ledger Enforce 활성 + 제한적 Live Capture 승인안 (v1.5)
 
-생성 시각: 2026-05-01 KST
-phase: A-1 (enforce 준비 완료, live capture 활성 승인 대기)
+생성 시각: 2026-05-01 KST (v1.5: 2026-05-02 00:30 KST hardening 보강)
+phase: A-1.5 (endpoint hardening + dispatcher retry 보강 완료, enforce 활성 승인 대기)
 승인 대상: TJ
 관련 문서: [[coffee-npay-intent-beacon-preview-snippet-all-in-one-20260501|all-in-one snippet v0.4+v0.5+v0.6]] / [[coffee-npay-intent-beacon-preview-design-20260501|design v0.4]] / [[coffee-imweb-tracking-flow-analysis-20260501|4 layer 분석]] / [[coffee-npay-intent-uuid-preservation-test-20260501|URL 보존 검증 가이드]] / [[coffee-funnel-capi-cross-site-applicability-20260501|biocom cross-site 메모]]
 
-## Auditor Verdict (현재 phase 종료 전)
+## Auditor Verdict (A-1.5 종료 전)
 
 ```text
 Auditor verdict: PASS_WITH_NOTES
-Phase: coffee_npay_intent_ledger_enforce_approval
-No-send verified: YES (GA4 MP / Meta CAPI / TikTok Events / Google Ads 송출 0건)
-No-write verified: YES (운영 DB write 0건. 본 phase 는 schema 만 정의, INSERT 0)
-No-deploy verified: YES (운영 endpoint 신규 배포 없음. schema/route 코드만, env flag 미활성)
-No-publish verified: YES (GTM publish / live script 삽입 BLOCKED)
+Phase: coffee_npay_intent_ledger_enforce_approval_v1_5
+No external send verified: YES (GA4 MP / Meta CAPI / TikTok Events / Google Ads 송출 0건)
+No DB write verified: YES (enforce flag disabled 상태에서 ledger INSERT 0건 유지)
+No GTM publish verified: YES (Production publish / live script 삽입 BLOCKED)
+실제 운영 변경 (명시):
+  - backend 재시작 2회 (PID 99378 → 2837 → 5596, 다운타임 각 ~3초)
+  - schema migration v1 → v2 적용 (DROP+CREATE, row count 0 보장)
+  - schema_versions 메타 테이블 1행 추가
+  - route 4종 (POST coffee-npay-intent, GET coffee-npay-intents,
+    GET coffee-npay-intent-join-report, GET coffee/intent/stats) 활성화
+  - endpoint hardening 활성: Origin/Referer allowlist + rate limit + reject counter
+실제 외부 트래픽: 0 (snippet fetch 금지, dispatcher 미배치)
 PII output: NONE
-실제 운영 변경: 0건 (backend 재시작 1회로 schema migration 적용, 운영 트래픽 영향 ~3초 다운타임만)
 ```
+
+## TJ 승인 항목별 반영 상태 (A-1 → A-1.5)
+
+| TJ 승인 항목 | A-1 결과 | A-1.5 보강 |
+|---|---|---|
+| 1. schema v2 채택 | OK | (변경 없음) |
+| 2. validation 정책 | OK + 보강 요청 | ✅ Origin/Referer allowlist + rate limit + 14종 reject counter + payload_schema_version 검증 추가 |
+| 3. enforce mode 활성 조건 | 보류 | ✅ env flag 미활성 유지. 본 phase 는 enforce 활성 안 함 |
+| 4. endpoint path | OK + 표현 정정 요청 | ✅ "운영 route 활성됨, 외부 트래픽 0" 으로 정정 (아래 § 실제 운영 변경) |
+| 5. dispatcher 초안 | 보류 (sent_uuids 사후 기록 보강 요청) | ✅ pending/sent 분리 + fetch 2xx 성공 후에만 sent 기록 + retry TTL 24h + max retry 5회 (아래 § dispatcher v2) |
+| 6. 모니터링 지표 + 중단 조건 | OK + 지표 추가 요청 | ✅ rejected_origin / invalid_payload / pii_rejected / rate_limited / endpoint_4xx_5xx / dispatcher_fetch_failed / retry_success / duplicate_intent 추가. 7일 default → **5일 + 3일 조기 평가 게이트** 로 변경 |
 
 ## 10초 요약
 
@@ -42,35 +59,49 @@ PII output: NONE
 | (c) NPay channel_order_no 응답 보존 권한 미발급 | 호스팅사 입점 제약. 별도 phase |
 | (B) 정찰 비용 vs 가치 | dataLayer dump 1회로 v0.7 보강 가능하지만, (A++) 만으로 충분히 deterministic 매핑 — backlog 로 두고 enforce 후 모니터링 결과로 필요 시 진행 |
 
-## 실제 운영 변경 범위
+## 실제 운영 변경 범위 (정정 v1.5)
 
-본 phase commit 직후 운영에 반영되는 것:
+A-1 시점 "No-deploy verified: YES" 표현은 부정확. 실제로는 **운영 backend 의 코드와 schema 가 변경됐고 production server 가 재시작** 되었다. 본 phase 의 정확한 표현:
 
-| 변경 | 영향 |
+| 운영 변경 항목 (이미 발생) | 영향 |
 |---|---|
-| backend `coffee_npay_intent_log` 테이블 + 5종 인덱스 schema | 데이터 0건. 다른 테이블 / 데이터 영향 0 |
-| backend `schema_versions` 테이블 | 메타 1행 (`coffee_npay_intent_log` → version 2) |
-| backend route 4종 추가 (POST /api/attribution/coffee-npay-intent, GET /api/attribution/coffee-npay-intents, GET /api/attribution/coffee-npay-intent-join-report, GET /api/coffee/intent/stats — 마지막은 기존) | 외부에서 호출 가능. 단 enforce 는 env flag 없이는 항상 reject. 기본 트래픽 0 (snippet 자체는 fetch 금지) |
-| backend 재시작 (production server 1회) | ~3초 다운타임 |
+| backend 코드 deploy (`coffeeNpayIntentLog.ts` 신규, `routes/coffee.ts` 수정) | dist 재빌드 후 production server 가 새 endpoint 노출 |
+| backend production server 재시작 (PID 99378 → 2837 → 5596, 2회) | 각 ~3초 다운타임. 그 외 영향 0 |
+| `coffee_npay_intent_log` 테이블 v2 schema + 5종 인덱스 | 새 테이블 1개 추가. 기존 테이블 / 데이터 영향 0. row 0 |
+| `schema_versions` 메타 테이블 | 새 테이블 1개 + 1행 |
+| 새 route 4종 활성 | `POST /api/attribution/coffee-npay-intent`, `GET /api/attribution/coffee-npay-intents`, `GET /api/attribution/coffee-npay-intent-join-report`, `GET /api/coffee/intent/stats`. 외부에서 호출 가능 (단 Origin/Referer allowlist + rate limit + dispatcher 미배치라 실제 트래픽 0) |
+| endpoint hardening | Origin/Referer 검사 active, rate limit (1초 5회 / 1분 30회) active, reject counter 14종 in-memory active |
 
-본 phase commit 직후 운영에 반영되지 않는 것 (TJ 별도 승인 후):
+본 phase 에서 **명시적으로 차단된 것** (앞으로 별도 승인 후에만):
 
-- enforce mode INSERT 활성 (env flag `COFFEE_NPAY_INTENT_ENFORCE_LIVE=true`)
-- dispatcher / GTM Custom HTML tag 가 buffer 를 backend 로 forward
-- snippet 의 fetch 사용
-- GA4 / Meta / TikTok / Google Ads 보강 전송
+| 차단 항목 | 차단 방법 |
+|---|---|
+| ledger row INSERT (write) | env flag `COFFEE_NPAY_INTENT_ENFORCE_LIVE=true` 가 false → enforce mode 호출도 reject |
+| 외부 트래픽 forward (dispatcher) | GTM Custom HTML tag / 별도 forwarder 미배치 |
+| snippet 의 fetch / sendBeacon | snippet 코드 자체에 fetch 호출 0건 |
+| GTM Production publish | Coffee workspace publish 미수행 |
+| GA4 MP / Meta CAPI / TikTok Events / Google Ads 보강 송출 | 코드 path 0건 |
 
-## GTM publish 전 체크리스트
+**결론**: A-1.5 phase 의 "No-deploy" 는 외부 송출/DB write/GTM publish 가 0 이라는 의미이지, backend route/schema 변경이 0 이라는 뜻이 아님. 정확한 표현 = "**No external send / No DB write / No GTM publish verified**".
+
+## GTM publish 전 체크리스트 (v1.5: 5일 + 3일 조기 게이트)
 
 GTM Production publish (또는 imweb head custom code 직접 삽입) 결정 전 다음을 모두 PASS 해야 함.
 
-- [ ] enforce mode 7일 모니터링 — `joined_confirmed_order` 비율 ≥ 80%, `no_order_after_24h` < 10%
+- [ ] enforce mode 모니터링 — default 5일 / 조기 게이트 시 3일 (joined_confirmed_order ≥ 90% AND 24h grace 통과 row ≥ 20건 시)
+- [ ] `joined_confirmed_order` 비율 ≥ 80% (조기 게이트 90%)
+- [ ] `no_order_after_24h` 비율 < 10%
 - [ ] `duplicated_intent` 0건 또는 1% 이하
 - [ ] `invalid_payload` (imweb_order_code null) 비율 ≤ 5% — 5% 초과면 snippet retry 시점 보강 (v0.7) 후 재모니터링
-- [ ] PII reject 0건 (validation 결과 모두 ok=true)
+- [ ] PII reject **0건 strict** (validation 결과 모두 ok=true. 1건이라도 발생하면 dispatcher 일시 중단 + 원인 분석)
 - [ ] dispatcher 가 보낸 payload 의 `preview_only: true` 가 100% 유지 — 변조 의심 0
-- [ ] Auditor verdict PASS (no-send / no-write 외부 / no-deploy 다른 endpoint / no-publish 다른 GTM workspace)
-- [ ] rollback 절차 1회 dry-run (env flag false 로 되돌리고 dispatcher 끄기)
+- [ ] `rejected_origin` 일 누적 < 5건
+- [ ] `rate_limited` 일 누적 < 50건
+- [ ] `endpoint_5xx` 0건
+- [ ] `dispatcher_fetch_failed` 누적 < 10% of attempts
+- [ ] `retry_success` ≥ 80% of retries
+- [ ] Auditor verdict PASS (No external send / No DB write 외부 / No GTM publish 다른 workspace)
+- [ ] rollback 절차 1회 dry-run (env flag false 로 되돌리고 dispatcher 끄기 — 아래 § Rollback)
 
 ## endpoint 배포 전 체크리스트
 
@@ -96,30 +127,66 @@ GTM Production publish (또는 imweb head custom code 직접 삽입) 결정 전 
 | backend route 자체 문제 | route file 의 router.post 라인 주석 처리 후 backend 재시작 |
 | 운영 매출/주문 데이터 영향 의심 | 본 phase 는 운영 DB write 0 이라 영향 가능성 0. 그러나 `imweb_orders` 테이블 read 만으로도 join 시도하므로 SELECT-only 부담은 있음 — 큰 리스크 아님 |
 
-## 7일 모니터링 지표
+## 모니터링 지표 (v1.5: default 5일 + 3일 조기 평가 게이트)
 
-enforce mode 활성 후 7일간 `GET /api/attribution/coffee-npay-intent-join-report` 일 1회 polling.
+### 윈도우 결정
 
-| 지표 | 목표 | 산출 |
+| 옵션 | NPay click 표본 | 24h grace 후 실효 측정 | 95% CI | 채택 |
+|---|---:|---:|---|---|
+| 3일 | ~25건 | ~17건 | ±15%pp | 조기 평가 게이트 (조건부) |
+| 5일 | ~42건 | ~34건 | ±9%pp | **default** |
+| 7일 | ~60건 | ~51건 | ±7%pp | 가장 보수적 |
+
+### 조기 평가 게이트 (3일 시점)
+
+다음 두 조건 모두 만족 시 5일 기다리지 않고 publish 결정 가능:
+
+- `joined_confirmed_order` 비율 ≥ **90%** (보수적 기본 80% 보다 strict)
+- 24h grace 통과한 row ≥ **20건** (실효 표본 최소선)
+
+조건 미만 시 default 5일까지 모니터링.
+
+### 핵심 지표 (`GET /api/attribution/coffee-npay-intent-join-report` + `GET /api/coffee/intent/stats` 일 1회 polling)
+
+| 지표 | 출처 | 목표 |
 |---|---|---|
-| `total_intents_in_window` | NPay click 발생 수에 비례 (참고: 2026-04-23~29 NPay actual 60건/주 기준) | `total_intents_in_window` |
-| `status_counts.joined_confirmed_order` 비율 | ≥ 80% | `joined_confirmed_order / total_intents_in_window` |
-| `status_counts.pending_order_sync` 비율 | < 20% (24h 미만 sync gap 정상) | `pending_order_sync / total_intents_in_window` |
-| `status_counts.no_order_after_24h` 비율 | < 10% (NPay 결제 미완료 또는 sync gap) | `no_order_after_24h / total_intents_in_window` |
-| `status_counts.duplicated_intent` 건수 | 0~1건 (intent_seq +1 케이스 있음) | `duplicated_intent` 카운트 |
-| `status_counts.invalid_payload` 비율 | ≤ 5% (snippet retry 실패 케이스) | `invalid_payload / total_intents_in_window` |
-| capture delay 평균 | < 2000ms | row 별 `imweb_order_code_capture_delay_ms` 평균 |
-| 운영 매출 영향 | 0 | imweb_orders 의 일별 매출 합계 변화 없음 |
+| `total_intents_in_window` | join-report | NPay click 발생 수에 비례 (참고: 2026-04-23~29 NPay actual 60건/주, 일 ~8.5건) |
+| `status_counts.joined_confirmed_order` 비율 | join-report | ≥ 80% (조기 게이트 90%) |
+| `status_counts.pending_order_sync` 비율 | join-report | < 20% (24h 미만 정상) |
+| `status_counts.no_order_after_24h` 비율 | join-report | < 10% |
+| `status_counts.duplicated_intent` 건수 | join-report | 0~1건 |
+| `status_counts.invalid_payload` 비율 | join-report | ≤ 5% (snippet retry 실패 케이스) |
+| capture delay 평균 | join-report row | < 2000ms |
+| 운영 매출 영향 | imweb_orders 일별 합계 | 변화 0 |
 
-## live publish 중단 조건
+### 보강 지표 (TJ 요청 8종)
+
+| 지표 | 출처 | 임계 |
+|---|---|---|
+| `rejected_origin` | stats `reject_counters.invalid_origin` | 일 누적 < 5건. allowlist 외 origin 시도가 5건 이상이면 abuse 의심 |
+| `invalid_payload` | join-report `status_counts.invalid_payload` (이미 위) + stats `reject_counters.missing_required` + `invalid_intent_phase` + `payment_button_type_violation` + `schema_version_unsupported` | 일 누적 ≤ 5% of total |
+| `pii_rejected` | stats `reject_counters.pii_rejected` | **0건 strict**. 1건 이상 발생 시 즉시 dispatcher 일시 중단 + 원인 분석 |
+| `rate_limited` | stats `reject_counters.rate_limited` | 일 누적 < 50건. 정상 사용자가 1초 5회를 초과하는 일은 거의 없음 |
+| `endpoint_4xx` | reverse proxy log 또는 backend 응답 status 카운트 (별도 collector 필요) | < 5% of total |
+| `endpoint_5xx` | 동일 | 0% strict (backend 에러는 즉시 fix) |
+| `dispatcher_fetch_failed` | dispatcher 측 sessionStorage `__coffee_intent_dispatch_log` (아래 dispatcher v2) | 일 누적 < 10% of attempts |
+| `retry_success` | dispatcher 측 retry 후 성공 카운트 | retry 시도의 ≥ 80% 가 다음 sweep 에서 성공 |
+| `duplicate_intent` (위와 별개로 dispatcher 측) | dispatcher 측 dedup hit 카운트 | 정상 (sweep 마다 발생, 단 INSERT OR IGNORE 가 처리하므로 무해) |
+
+## live publish 중단 조건 (v1.5)
 
 다음 중 하나라도 발생하면 즉시 enforce flag 끄고 dispatcher 일시 중지:
 
 - `joined_confirmed_order` 비율 < 50% (deterministic 매핑이 실패)
 - `duplicated_intent` 5건 이상 (snippet 의 intent_uuid 정책 문제)
 - `invalid_payload` 비율 > 20% (snippet retry capture 가 다수 실패)
-- PII reject 1건 이상 (변조 또는 dispatcher 측에서 의도치 않은 필드 추가)
-- backend 5xx 에러 (`/api/attribution/coffee-npay-intent` 응답 실패) 1% 초과
+- **`pii_rejected` 1건 이상** (변조 또는 dispatcher 측에서 의도치 않은 필드 추가) — strict
+- `rejected_origin` 시간당 10건 이상 (abuse 또는 origin 누락 변조)
+- `rate_limited` 시간당 100건 이상 (정상 사용자 패턴 아님)
+- `endpoint_5xx` 1건 이상 (backend 에러는 즉시 fix)
+- `endpoint_4xx` 비율 > 5% of total
+- `dispatcher_fetch_failed` 비율 > 10% of attempts (네트워크 또는 backend 안정성 문제)
+- `retry_success` 비율 < 50% of retries (영구 실패 패턴)
 - 운영 매출 / GA4 / Meta 등 다른 layer 에 의도치 않은 영향 의심
 
 ## 다음 phase (TJ 승인 후)
@@ -132,9 +199,19 @@ enforce mode 활성 후 7일간 `GET /api/attribution/coffee-npay-intent-join-re
 | Step A-5 | 7일 모니터링 PASS | join report 의 status 비율 목표 달성 → ledger 가 deterministic mapping 의 source-of-truth 로 인정 |
 | Step A-6 | A-5 PASS | GA4 / Meta CAPI 보강 전송 단계 — 별도 승인 게이트, 본 승인안 범위 외 |
 
-## Dispatcher / GTM Custom HTML tag 초안 (Step A-3 진입 시 사용)
+## Dispatcher v2 — pending/sent 분리 + retry TTL + max retry (Step A-3 진입 시 사용)
 
-GTM Coffee workspace 의 Custom HTML tag (Production publish 금지, Preview workspace 한정):
+A-1 초안의 "fetch **전에** sent_uuids 기록" 은 fetch 실패 시 retry 가 막히는 문제. v1.5 에서 **fetch 2xx 성공 후에만 sent 기록**, 시도 중인 intent_uuid 는 별도 `pending` 트래커에 두고 sweep 마다 재시도.
+
+핵심 변경:
+- `__coffee_intent_pending` (`{ intent_uuid: { first_seen_ms, attempts, last_attempt_ms, last_status, last_reason } }`) 와 `__coffee_intent_sent` (`{ intent_uuid: { sent_at_ms, status } }`) 분리
+- fetch 시작 시: pending entry 추가/업데이트 (attempts +1, last_attempt_ms 기록)
+- fetch 2xx (200/201): sent 로 promote, pending 에서 제거
+- fetch 4xx (validation reject 등): sent 안 함, pending 에 status='4xx' 기록 후 retry 안 함 (4xx 는 영구 실패)
+- fetch 5xx 또는 network 실패: pending 에 남기고 다음 sweep 에서 재시도. **max retry 5회**, **TTL 24h** (24h 후 또는 5회 후 영구 실패 처리)
+- payload 의 `payload_schema_version: 1` 박음
+
+GTM Coffee workspace 의 Custom HTML tag (Production publish 금지, **GTM Preview workspace 한정**):
 
 ```html
 <script>
@@ -143,61 +220,135 @@ GTM Coffee workspace 의 Custom HTML tag (Production publish 금지, Preview wor
   window.__coffeeNpayIntentDispatcherInstalled = true;
 
   var BUFFER_KEY = "coffee_npay_intent_preview";
-  var SENT_KEY = "__coffee_intent_sent_uuids";
+  var PENDING_KEY = "__coffee_intent_pending";
+  var SENT_KEY = "__coffee_intent_sent";
   var ENDPOINT = "https://att.ainativeos.net/api/attribution/coffee-npay-intent?mode=enforce";
-  var THROTTLE_MS = 1000;
+  var SWEEP_INTERVAL_MS = 1000;
+  var MAX_RETRY = 5;
+  var TTL_MS = 24 * 3600 * 1000;
 
-  function readSentUuids() {
-    try { return JSON.parse(sessionStorage.getItem(SENT_KEY) || "[]"); }
-    catch (e) { return []; }
+  function readJsonStorage(k) {
+    try { return JSON.parse(sessionStorage.getItem(k) || "{}"); }
+    catch (e) { return {}; }
   }
-  function writeSentUuids(arr) {
-    try {
-      while (arr.length > 200) arr.shift();
-      sessionStorage.setItem(SENT_KEY, JSON.stringify(arr));
-    } catch (e) {}
+  function writeJsonStorage(k, v) {
+    try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
   }
 
-  function dispatchOne(payload) {
+  function hasSent(intentUuid) {
+    var sent = readJsonStorage(SENT_KEY);
+    return !!sent[intentUuid];
+  }
+  function markSent(intentUuid, status) {
+    var sent = readJsonStorage(SENT_KEY);
+    sent[intentUuid] = { sent_at_ms: Date.now(), status: status };
+    // GC: 200개 초과 시 가장 오래된 entry 제거
+    var keys = Object.keys(sent);
+    if (keys.length > 200) {
+      keys.sort(function (a, b) { return (sent[a].sent_at_ms || 0) - (sent[b].sent_at_ms || 0); });
+      for (var i = 0; i < keys.length - 200; i++) delete sent[keys[i]];
+    }
+    writeJsonStorage(SENT_KEY, sent);
+  }
+
+  function readPending() { return readJsonStorage(PENDING_KEY); }
+  function writePending(p) { writeJsonStorage(PENDING_KEY, p); }
+
+  function isPermanentFailure(entry) {
+    if (!entry) return false;
+    if (entry.attempts >= MAX_RETRY) return true;
+    if (entry.first_seen_ms && Date.now() - entry.first_seen_ms > TTL_MS) return true;
+    if (entry.last_status && entry.last_status >= 400 && entry.last_status < 500) return true;
+    return false;
+  }
+
+  function attemptDispatch(payload) {
     if (!payload || payload.preview_only !== true) return;
     if (payload.is_simulation === true) return;
     if (!payload.intent_uuid) return;
-    var sent = readSentUuids();
-    if (sent.indexOf(payload.intent_uuid) >= 0) return;
-    sent.push(payload.intent_uuid);
-    writeSentUuids(sent);
+    if (hasSent(payload.intent_uuid)) return;
+
+    var pending = readPending();
+    var entry = pending[payload.intent_uuid];
+    if (entry && isPermanentFailure(entry)) return; // skip permanent failures
+
+    var nextAttempts = (entry && entry.attempts ? entry.attempts : 0) + 1;
+    pending[payload.intent_uuid] = {
+      first_seen_ms: entry && entry.first_seen_ms ? entry.first_seen_ms : Date.now(),
+      attempts: nextAttempts,
+      last_attempt_ms: Date.now(),
+      last_status: null,
+      last_reason: null
+    };
+    writePending(pending);
+
+    var withSchema = Object.assign({}, payload, { payload_schema_version: 1 });
     fetch(ENDPOINT, {
       method: "POST",
       mode: "cors",
       credentials: "omit",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(withSchema),
       keepalive: true
-    }).catch(function () { /* retry는 다음 sweep */ });
+    }).then(function (res) {
+      var pend = readPending();
+      var e = pend[payload.intent_uuid] || {};
+      e.last_status = res.status;
+      pend[payload.intent_uuid] = e;
+      writePending(pend);
+      if (res.status >= 200 && res.status < 300) {
+        markSent(payload.intent_uuid, "ok_" + res.status);
+        // pending 에서 제거 (성공)
+        delete pend[payload.intent_uuid];
+        writePending(pend);
+      } else if (res.status >= 400 && res.status < 500) {
+        // 4xx 는 영구 실패 — sent 에 status 만 박고 pending 정리
+        markSent(payload.intent_uuid, "permanent_4xx_" + res.status);
+        delete pend[payload.intent_uuid];
+        writePending(pend);
+      }
+      // 5xx 는 pending 그대로 두고 다음 sweep 에서 재시도
+    }).catch(function (err) {
+      var pend = readPending();
+      var e = pend[payload.intent_uuid] || {};
+      e.last_reason = err && err.message ? String(err.message).slice(0, 100) : "fetch_failed";
+      pend[payload.intent_uuid] = e;
+      writePending(pend);
+      // network 실패 — 다음 sweep 에서 재시도
+    });
   }
 
   function sweep() {
     try {
       var buf = JSON.parse(sessionStorage.getItem(BUFFER_KEY) || "[]");
-      buf.forEach(dispatchOne);
+      buf.forEach(attemptDispatch);
     } catch (e) {}
   }
 
-  setInterval(sweep, THROTTLE_MS);
-  // beforeunload 시 마지막 sweep
+  setInterval(sweep, SWEEP_INTERVAL_MS);
   window.addEventListener("beforeunload", sweep);
 })();
 </script>
 ```
 
-핵심:
-- `preview_only !== true` → 송출 안 함
-- `is_simulation === true` → 송출 안 함 (sanity_test payload 제외)
-- `intent_uuid` 단위 dedup (sessionStorage `__coffee_intent_sent_uuids`)
-- `1초` throttle (interval), `keepalive: true` 로 unload 시점 안전
-- `fetch` 1회만, retry 는 다음 sweep 자연스럽게 (sent_uuids 체크로 dedup)
+핵심 (v1.5 변경):
 
-이 dispatcher 는 Step A-3 에서 **GTM Preview workspace** 에 Custom HTML tag 로 등록 후 1회 검증 → Step A-4 에서 publish 결정. 본 phase commit 시점에는 이 코드를 GTM 에 박지 않는다.
+- `preview_only !== true` 또는 `is_simulation === true` → 송출 안 함
+- `intent_uuid` 단위 dedup (`__coffee_intent_sent`)
+- pending 트래커 (`__coffee_intent_pending`) 와 sent 분리. fetch 2xx 후에만 sent 기록
+- 4xx → 영구 실패로 sent 기록 (재시도 안 함, validation 실패는 retry 무의미)
+- 5xx 또는 network 실패 → pending 유지, 다음 sweep 에서 재시도
+- max retry 5회, TTL 24h. 둘 중 하나라도 도달 시 영구 실패
+- `payload_schema_version: 1` 명시 박음
+- sent 200개 초과 시 GC
+
+Step A-3 에서 **GTM Preview workspace** 에 Custom HTML tag 로 등록 후 1회 검증 (preview-only 사용자가 NPay click → backend `/api/coffee/intent/stats` 의 `reject_counters.dry_run_ok` 가 +1 인지 확인). enforce 활성은 Step A-2 가 먼저. 본 phase commit 시점에는 이 코드를 GTM 에 박지 않는다.
+
+dispatcher 검증용 추가 reject counter (backend 측):
+- `enforce_inserted` — INSERT 성공 (enforce 활성 후 + dispatcher 보낸 경우)
+- `enforce_deduped` — UNIQUE 충돌로 dedup
+- `enforce_disabled` — env flag 미활성으로 reject
+- `dispatcher_fetch_failed` — dispatcher 측 sessionStorage 의 pending entries 수 (backend 가 모름. dispatcher 자체 보고 endpoint 별도 phase)
 
 ## 금지선 (전 phase 동일)
 
