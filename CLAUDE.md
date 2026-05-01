@@ -42,11 +42,12 @@
 
 더클린커피의 tracking, wrapper, intent, eid, NPay beacon, funnel-capi 관련 작업을 시작할 때는 아래 순서로 먼저 확인한다.
 
-1. `harness/coffee-data/README.md`
-2. `harness/coffee-data/LIVE_TAG_INVENTORY.md`
-3. 최신 `data/coffee-live-tracking-inventory-*.md`
-4. `data/coffee-npay-intent-beacon-preview-design-20260501.md`
-5. `harness/coffee-data/AUDITOR_CHECKLIST.md`
+1. `coffee/!imwebcoffee_code_latest_0501.md` — 더클린커피 imweb 헤더/바디/푸터 코드 정본. funnel-capi v3 본체, server payment decision guard v3, checkout-started v1, payment-success-order-code v1 4 layer 의 실제 소스. MIRROR_EVENTS 목록, sessionId 키 (`__seo_funnel_session`), eid 형식, server CAPI endpoint 가 모두 이 안에 있다. 추측 전에 이 파일부터 읽는다.
+2. `harness/coffee-data/README.md`
+3. `harness/coffee-data/LIVE_TAG_INVENTORY.md`
+4. 최신 `data/coffee-live-tracking-inventory-*.md`
+5. `data/coffee-npay-intent-beacon-preview-design-20260501.md`
+6. `harness/coffee-data/AUDITOR_CHECKLIST.md`
 
 기본값은 항상 read-only / no-send / no-write / no-deploy / no-publish다.
 

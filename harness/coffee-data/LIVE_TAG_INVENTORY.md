@@ -42,10 +42,20 @@
 
 ### 3. Imweb header / footer custom code
 
+**더클린커피의 정본 백업**: [[coffee/!imwebcoffee_code_latest_0501|imweb 헤더/푸터 코드 latest 0501]]. 이 파일에 헤더 상단 / [헤더코드] / [바디코드] / [푸터코드] 4개 섹션이 분리되어 있고, 각 섹션 안에 4개 layer (server payment decision guard v3, checkout-started v1, payment-success-order-code v1, funnel-capi v3) 의 실제 소스가 있다. 새 wrapper / intent / eid 설계 전 이 파일에서 다음 5개를 직접 확인한다.
+
+| 확인 항목 | 정본 위치 (예: 0501 snapshot) |
+|---|---|
+| funnel-capi MIRROR_EVENTS 키 목록 | line 2125~2131 (`ViewContent`, `AddToCart`, `InitiateCheckout`, `AddPaymentInfo`, **Purchase 는 의도적 제외**) |
+| funnel-capi sessionId 키 | line 2102 `var SESSION_KEY = '__seo_funnel_session'` |
+| eid 형식 | line 2147 `eventName + '.' + key + '.' + SESSION_ID` |
+| window 노출 변수 | line 2042 `window.FUNNEL_CAPI_CONFIG`, line 2081 `window.__FUNNEL_CAPI_INSTALLED` |
+| server CAPI endpoint | line 2044 `https://att.ainativeos.net/api/meta/capi/track`. Purchase Guard decision endpoint = `https://att.ainativeos.net/api/attribution/payment-decision` |
+
 | 위치 | 코드 출처 | 핵심 라이브러리 |
 |---|---|---|
-| `<head>` 직접 삽입 스크립트 | (사이트 관리자 메뉴 또는 footer 백업 md) | (예) GA4, GTM, Pixel, funnel-capi |
-| `<body>` 끝 footer custom | 동일 | 동일 |
+| `<head>` 직접 삽입 스크립트 | [[coffee/!imwebcoffee_code_latest_0501]] § [헤더 코드 상단], [헤더코드] | server payment decision guard v3 (Purchase 단독 관리), checkout-started v1, payment-success-order-code v1, funnel-capi v3 |
+| `<body>` 끝 footer custom | [[coffee/!imwebcoffee_code_latest_0501]] § [바디코드], [푸터코드] | (필요 시 같은 백업에서 확인) |
 
 ### 4. Existing wrappers
 

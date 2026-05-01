@@ -1,11 +1,12 @@
 # 더클린커피 NPay Intent Beacon Preview-only 설계안
 
-생성 시각: 2026-05-01 KST (v0.3 보강: funnel-capi 호환성 반영)
+생성 시각: 2026-05-01 KST (v0.4 보강: imweb 정본 코드 분석 반영)
 site: `thecleancoffee`
 mode: `design_only` / `preview_only`
-범위: DOM selector 조사 + beacon payload 초안 + preview 검증 절차 + funnel-capi 진단/공존
+범위: DOM selector 조사 + beacon payload 초안 + preview 검증 절차 + funnel-capi 진단/공존 + imweb 4 layer 정본 분석
 관련 Sprint: [[!coffeedata#Phase2-Sprint5|Phase2-Sprint5]] / [[!coffeedata#Phase3-Sprint6|Phase3-Sprint6]] / [[!coffeedata#Phase4-Sprint8|Phase4-Sprint8]]
 Live tracking inventory: [[coffee-live-tracking-inventory-20260501|2026-05-01 snapshot]] (필수 선행)
+Imweb 헤더/푸터 코드 정본: [[coffee/!imwebcoffee_code_latest_0501|imweb 헤더/푸터 코드 latest 0501]] (필수 선행 — funnel-capi v3 본체 + Purchase Guard v3 + checkout-started v1 + payment-success-order-code v1)
 
 ## v0.3 변경 요약 (이번 보강)
 
@@ -56,6 +57,80 @@ Live tracking inventory: [[coffee-live-tracking-inventory-20260501|2026-05-01 sn
 | 진단 G 에서 funnel-capi 가 NPay click 시 새 eid 박음 | 우리 `intent_uuid` 폐지하고 funnel-capi eid 재사용 → design 대폭 simplify (v0.4) |
 | 진단 G 에서 funnel-capi 가 NPay click 무시 | 우리 wrap 이 NPay 분기 보강 layer. 단 sessionId 는 funnel-capi 것 재사용 (sessionStorage 정규식 추출) |
 | 진단 E 에서 MIRROR_EVENTS 안 `InitiateCheckout` / `AddPaymentInfo` / `Purchase` 키 발견 | 향후 server CAPI 켤 때 dedupe 키 mapping 가능. 본 phase 의 NPay 분기 보강은 그 이벤트들 wrap 으로 정리 |
+
+## v0.3+ → v0.4 정본 코드 분석으로 확정된 항목 (2026-05-01 KST)
+
+[[coffee/!imwebcoffee_code_latest_0501|imweb 헤더/푸터 코드 정본]] (총 2,292행) 의 4개 layer 직접 분석으로 다음이 확정됨. 진단 E 거의 폐기.
+
+### 4 layer 구조
+
+| layer | line 범위 | snippet version | 역할 |
+|---|---|---|---|
+| Purchase Guard v3 | 12~946 | `2026-04-14-coffee-server-payment-decision-guard-v3` | NPay/PG 결제 후 attribution 결정. decisionEndpoint = `https://att.ainativeos.net/api/attribution/payment-decision`. vbank/unknown/blocked custom event 분기. **Purchase 단독 처리** |
+| (보조 헤더/바디) | 947~994 | — | (보조) |
+| checkout-started v1 | 1185~1561 | `2026-04-14-coffee-checkout-started-v1` | checkout 진입 추적 |
+| payment-success-order-code v1 | 1563~2041 | `2026-04-14-coffee-payment-success-order-code-v1` | 결제 성공 시 order_code 박음 |
+| funnel-capi v3 | 2042~2292 | `2026-04-15-thecleancoffee-funnel-capi-v3` | fbq wrap. ViewContent / AddToCart / InitiateCheckout / AddPaymentInfo eid mirror |
+
+### funnel-capi 핵심 사실 (line-level 인용)
+
+```javascript
+// line 2102~2112 — sessionId
+var SESSION_KEY = '__seo_funnel_session';
+function getOrCreateSessionId() {
+  var sid = window.sessionStorage && window.sessionStorage.getItem(SESSION_KEY);
+  if (sid) return sid;
+  sid = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  if (window.sessionStorage) window.sessionStorage.setItem(SESSION_KEY, sid);
+  return sid;
+}
+
+// line 2125~2131 — MIRROR_EVENTS
+var MIRROR_EVENTS = {
+  ViewContent: true,
+  AddToCart: true,
+  InitiateCheckout: true,
+  AddPaymentInfo: true
+  /* Purchase 는 제외 — Purchase Guard v3 가 단독 관리 */
+};
+
+// line 2143~2149 — eid 형식
+function ensureEventId(eventName, payload, eventMeta) {
+  var existing = eventMeta && (eventMeta.eventID || eventMeta.eventId);
+  if (existing) return { id: String(existing), injected: false };
+  var key = extractContentKey(payload);
+  var id = eventName + '.' + key + '.' + SESSION_ID;
+  return { id: id, injected: true };
+}
+
+// line 2080~2081 — window 노출
+window.__FUNNEL_CAPI_INSTALLED = SNIPPET_VERSION;
+// line 2042 — config
+window.FUNNEL_CAPI_CONFIG = { pixelId, endpoint, enableServerCapi, testEventCode, debug };
+```
+
+### v0.4 design 결정 (정본 분석 직후)
+
+| 결정 | 근거 |
+|---|---|
+| `session_uuid` 발급 helper 는 **`sessionStorage.getItem('__seo_funnel_session')` 우선 → 부재 시 fallback 으로 새 발급** | 정본 line 2102 |
+| `intent_uuid` 자리에 funnel-capi eid 직접 재사용 가능한가는 **부분 YES**. funnel-capi 는 InitiateCheckout/AddPaymentInfo 의 eid 를 박지만, `<EventName>.<contentKey>.<sessionId>` 형식이라 **결제 시도 1회 단위 unique 키가 아님** (같은 상품 같은 세션 내 여러 NPay 시도가 동일 eid 가능). 따라서 `intent_uuid` 는 별도 발급하되 `funnel_capi_eid_observed` 필드로 funnel-capi eid 를 참조만 보관 | 정본 line 2143~2149 의 contentKey 정의 |
+| 우리 wrap 대상에 **글로벌 `window.confirmOrderWithCartItems` 추가** | 정본 분석 결과 thin wrapper 위임 구조 확인 |
+| Purchase 는 우리 intent beacon 의 매핑 대상 아님 | Purchase Guard v3 단독 처리 (정본 line 2130 주석) |
+| NPay 분기 보강의 핵심 가치는 (a) `confirmOrderWithCartItems('npay', url)` 호출 자체 기록 (BUY_BUTTON_HANDLER 도달 여부), (b) Imweb URL Query Param 보존 검증 후 deterministic 매핑 또는 ledger 트랙. funnel-capi 가 안 채우는 영역만 보강 | 정본 layer 구조 분석 |
+
+### v0.4 snippet 코드 보강 (다음 commit 예정)
+
+본 분석 결과를 적용한 snippet 코드 보강은 다음 commit 에서 진행한다. 보강 항목:
+
+1. `sessionUuid` 계산: `sessionStorage.getItem('__seo_funnel_session')` 우선 → 부재 시 새 UUID
+2. 글로벌 `window.confirmOrderWithCartItems` 도 동시 wrap (이중 wrap 가드 포함)
+3. payload 에 `funnel_capi_session_id`, `funnel_capi_eid_observed` 필드 추가 (read-only 참조)
+4. 진단 G 에서 NPay click 시 funnel-capi 가 어느 EventName 의 eid 를 박는지 (InitiateCheckout / AddPaymentInfo) 결과 반영 후 boolean 분기
+
+### 진단 E 결과 — 정본 분석으로 거의 폐기
+
+이전 진단 E 의 `MIRROR_EVENTS` 추출 / `__seo_funnel_session` 정체 추적은 정본 코드에서 모두 답이 나옴. snapshot §9 의 진단 E 는 **현 페이지의 sessionId 와 sent eid 목록 한 번 읽어두기** 정도로 축소.
 
 ## Auditor Verdict
 
