@@ -95,11 +95,11 @@ window.__npay_url_observed
 
 devtools Network 탭에서 NPay click 직후 발생하는 request chain 을 본다. preserve log 켜고:
 
-| 검사 항목 | 위치 |
-|---|---|
-| `pay.naver.com/customer/...` 결제 페이지 진입 url | NPay 결제 redirect URL. query string 에 imweb 측 param 이 어떻게 박혀 가는지 |
-| `pay.naver.com/...` 응답 안 form action / hidden input | 결제 form 의 hidden field 안 imweb param 들 |
-| imweb 측 `/shop_payment_complete?...` 또는 `/shop_order_done?...` 복귀 url | 결제 완료 후 imweb 이 받는 query string |
+| 검사 항목                                                                 | 위치                                                              |
+| --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `pay.naver.com/customer/...` 결제 페이지 진입 url                            | NPay 결제 redirect URL. query string 에 imweb 측 param 이 어떻게 박혀 가는지 |
+| `pay.naver.com/...` 응답 안 form action / hidden input                   | 결제 form 의 hidden field 안 imweb param 들                          |
+| imweb 측 `/shop_payment_complete?...` 또는 `/shop_order_done?...` 복귀 url | 결제 완료 후 imweb 이 받는 query string                                 |
 
 캡처는 chrome devtools Network 탭의 우클릭 → "Copy as cURL" 또는 "Save all as HAR with content". HAR 은 PII (cookie 등) 포함이라 본 검증 결과에 raw 첨부 금지. **검증자는 query string 의 키 이름과 형식만 본 문서에 기록한다 (값은 마스킹).**
 
@@ -222,25 +222,67 @@ preview snippet v0.4 위에 임시 보강. confirmOrderWithCartItems 의 url 인
 
 이는 더클린커피와 biocom 양쪽 모두에 해당 (둘 다 imweb v2 API). cross-site 메모 [[coffee-funnel-capi-cross-site-applicability-20260501]] 에도 반영.
 
-### 1-A / 1-B / 1-C / 2-* (TJ 검증 대기)
+### 1-A 결과 (2026-05-01 22:19 KST TJ chrome 검증 완료)
+
+| 검증 항목 | 결과 |
+|---|---|
+| `confirmOrderWithCartItems` 의 `kind` 인자 | `"npay"` |
+| `backurl` 인자 | `"https://thecleancoffee.com/shop_view?idx=73"` (현재 페이지 URL 그대로, query 없음) |
+| `params` 인자 | `null` (3번째 인자 자체가 없음) |
+| funnel-capi console marker (직후) | `[funnel-capi] reuse eid InitiateCheckout InitiateCheckout.o202605019a684b5c47669.665e2`. **`reuse eid`** 라 imweb 자체가 fbq 호출 시 `eventID` 를 이미 명시함 |
+| imweb orderCode 형식 (eid 안) | `o202605019a684b5c47669` = `o` + `20260501` (YYYYMMDD) + `9a684b5c47669` (14자 hex) |
+| NPay 측 redirect URL (console `Navigated to`) | `https://orders.pay.naver.com/order/bridge/mall/<malltoken>/<NPay_orderID>` (예 `mxm8Fdo62P20honEGEA-6Q/201419903`). **path 안 query 0개**, NPay 자체 token 으로 변환됨 |
+
+### 1-A 의 결정적 발견 (Codex backend 정찰로 확정)
+
+`imweb_orders.order_code` 컬럼 (local SQLite, site=thecleancoffee, 최근 5건) 의 실제 형식 = **`o<YYYYMMDD><14자 hex>`** — 1-A 의 funnel-capi InitiateCheckout eid 안 orderCode 형식과 정확히 일치.
+
+```
+202604047770464 | o202604049b297f0c80fef | 2026040464476230 | npay
+202604047863466 | o2026040467d659f119cdf | (none)            | card
+```
+
+→ **NPay click 시점에 imweb 이 자체 발급한 orderCode 가 (i) fbq InitiateCheckout eventID 와 (ii) backend `imweb_orders.order_code` 양쪽에 보존됨**.
+
+이것이 우리의 deterministic key. 우리 wrap 에서 NPay click 직후 funnel-capi sessionStorage 에서 orderCode 를 retry capture 하면 backend 와 직접 join 가능.
+
+### 1-B / 1-C / 2-* (TJ 검증 대기)
 
 | 항목 | 값 |
 |---|---|
-| 1-A `confirmOrderWithCartItems` url 인자 | (TJ 검증 후 기록) |
-| 1-B NPay SDK redirect chain query string keys | (TJ 검증 후 기록) |
-| 1-C `/shop_payment_complete` searchParamKeys | (TJ 검증 후 기록) |
-| 2단계 (a) `coffee_intent_uuid` redirect URL 보존 | (sandbox 검증 후 기록 — 단 1-D 결과로 (b) NO 확정이므로 (A) 트랙 진입 가능성 낮음) |
+| 1-B NPay redirect chain query string keys | (TJ 검증 후 기록 — 단 1-A console output 으로 `orders.pay.naver.com/order/bridge/mall/<token>/<id>` path 의 query 0개 확인됨, 추가 정찰 가치 낮음) |
+| 1-C `/shop_payment_complete` searchParamKeys | (TJ sandbox 결제 시 기록 — `order_code` 가 query 로 들어올 가능성 매우 높음. Purchase Guard line 92~95 의 `getSearchParam(['order_code', 'orderCode'])` 가 이 단계의 정본) |
+| 2단계 (a) `coffee_intent_uuid` redirect URL 보존 | **불가 확정** (1-A 결과로 backurl 자체에 query 안 박힘 + NPay redirect 가 자체 token 변환) |
 | 2단계 (b) `coffee_intent_uuid` Imweb meta_data 보존 | **NO 확정** (1-D 정찰 결과) |
-| 2단계 (c) `coffee_intent_uuid` NPay channel 응답 보존 | (NPay Production API 권한 발급 후 가능. 현재 sandbox 키만 발급, 호스팅사 입점 제약) |
+| 2단계 (c) `coffee_intent_uuid` NPay channel 응답 보존 | (NPay Production API 권한 발급 후 가능) |
 
-### 잠정 결정 트랙 (1-D 결과 기반)
+### 결정 트랙 (2026-05-01 22:30 KST 갱신)
 
-(b) NO 확정 + (c) 권한 미발급 → **(B) internal intent ledger + 휴리스틱 매칭이 가장 현실적**. (A-) URL 한정 매핑이 가능하려면 1-A/1-B 의 redirect URL 단계에서 query string 이 살아 있어야 함. TJ chrome 검증 결과로 최종 확정.
+| 트랙 | 가능 여부 | 근거 |
+|---|---|---|
+| (A) deterministic via Imweb redirect URL 보존 | ❌ | 1-A: backurl 단순 페이지 URL |
+| (A-) URL 한정 매핑 | ❌ | 1-A: NPay redirect URL path 자체에 query 0 |
+| (b) Imweb meta_data 보존 | ❌ | 1-D |
+| (c) NPay channel_order_no 응답 보존 | ⏸️ | API 권한 미발급 |
+| **(A++) imweb orderCode 트랙** | **✅ 신규 발견 — 가장 강력** | NPay click 시점에 imweb 자체 발급 → fbq eid 와 backend `order_code` 양쪽 보존 |
+| (B) internal ledger + 휴리스틱 | ✅ | (A++) 작동 안 할 때 fallback |
 
-| 시나리오 | 결정 |
-|---|---|
-| 1-A 또는 1-B 에서 `coffee_intent_uuid` query 가 redirect URL chain 에 살아 있음 (NPay SDK 통과 시 query string 보존) | **(A-) URL 한정 매핑** + (B) ledger 보강 |
-| 1-A/1-B 모두 query 가 NPay SDK 통과 시 stripped | **(B) 트랙 단독** — local backend `coffee_npay_intent_log` 테이블 + (prod_code, quantity, estimated_item_total, order_time_kst ± 30분) 휴리스틱 매칭 |
+### (A++) 트랙 작동 방식
+
+1. preview snippet v0.4 + v0.5 보강 (orderCode retry capture) 설치
+2. PC NPay click → snippet 의 wrap hook → buildPayload 의 `intent_uuid` + `funnel_capi_session_id` capture
+3. `setTimeout(100/500/1500ms)` retry 로 funnel-capi sessionStorage `funnelCapi::sent::InitiateCheckout.<orderCode>.*` 키 grep → orderCode 추출
+4. buffer 의 가장 최근 entry 에 `imweb_order_code` 필드 추가 박음
+5. (다음 phase) backend ledger `coffee_npay_intent_log` 에 `(intent_uuid, imweb_order_code, ts, prod_code, quantity, estimated_item_total)` 저장
+6. 결제 완료 후 imweb sync 가 `imweb_orders.order_code` 채우면 ledger 와 1:1 deterministic join
+
+### 다음 단계
+
+| 우선순위 | 작업 | 형태 |
+|---|---|---|
+| HIGH | snippet v0.5 보강 검증 — TJ chrome 에서 v0.5 보강 install 후 PC NPay click → buffer 의 `imweb_order_code` 필드 채워지는지 확인 | TJ chrome 1회 |
+| MID | (선택) 1-C 결제 완료 페이지 URL searchParamKeys 캡처 — sandbox 결제 1건. `order_code` query 가 결제 완료 페이지로 돌아오는지 확정 | TJ sandbox 결제 |
+| LOW | 1-B 추가 필터 (`orders.pay.naver.com`) — query 0 확정 후 종결 | TJ chrome 1회 |
 
 ## 외부 시스템 영향
 

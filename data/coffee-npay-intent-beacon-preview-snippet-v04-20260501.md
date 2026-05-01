@@ -526,6 +526,145 @@ window.coffeeNpayIntentPreview.simulateConfirmNpay()
 | `newFunnelCapiSentEids` 에 `InitiateCheckout.*` 또는 `AddPaymentInfo.*` 신규 추가 | funnel-capi 가 NPay click 시 해당 이벤트 mirror 한 정황. eid 값 기록 |
 | `newFunnelCapiSentEids` 0 | NPay click 이 funnel-capi MIRROR 이벤트 발화 안 시킴. 4 layer 분석의 NPay 외부 redirect 결론과 정합 |
 
+## v0.5 보강 — imweb orderCode retry capture (1-A 결과 + Codex backend 정찰 결과 반영)
+
+### 배경
+
+[[coffee-npay-intent-uuid-preservation-test-20260501]] 1-A 결과 + Codex 정찰로 다음 사실이 확정됨:
+
+- NPay click 시 imweb 자체가 `o<YYYYMMDD><14자 hex>` 형식 orderCode 발급
+- 그 orderCode 가 fbq InitiateCheckout 의 `eventID` 에 박혀 funnel-capi 가 sessionStorage `funnelCapi::sent::InitiateCheckout.<orderCode>.<rand>` 키로 저장
+- 같은 orderCode 가 backend `imweb_orders.order_code` (local SQLite) / `tb_iamweb_users.order_number` (운영 PG) 에 저장됨
+
+→ NPay click 직후 우리 wrap 에서 orderCode 를 capture 할 수 있다면 **(A++) deterministic 트랙** 가능.
+
+### v0.5 추가 helper (v0.4 snippet 위에 1회 install)
+
+v0.4 snippet 이 이미 설치된 chrome 세션에서 다음 보강을 추가로 붙여넣는다. v0.4 의 confirm_to_pay 시점 후 100ms / 500ms / 1500ms 3회에 걸쳐 funnel-capi sessionStorage 에서 orderCode 를 retry capture, 가장 최근 buffer entry 에 `imweb_order_code` 필드 박음.
+
+```javascript
+/* CoffeeNpayIntentPreview v0.5 보강 — orderCode retry capture (preview only) */
+;(() => {
+  if (window.__coffeeNpayIntentPreviewV05Installed) return console.log("v0.5 already installed");
+  window.__coffeeNpayIntentPreviewV05Installed = true;
+
+  var BUFFER_KEY = "coffee_npay_intent_preview";
+  var FUNNEL_CAPI_SENT_PREFIX = "funnelCapi::sent::";
+  var LOG_PREFIX = "[coffee_npay_intent_preview_v05]";
+  var RETRY_DELAYS_MS = [100, 500, 1500];
+
+  function readBuffer() {
+    try { return JSON.parse(sessionStorage.getItem(BUFFER_KEY) || "[]"); }
+    catch (e) { return []; }
+  }
+  function writeBuffer(buf) {
+    try { sessionStorage.setItem(BUFFER_KEY, JSON.stringify(buf)); } catch (e) {}
+  }
+  function safeStr(v) { return v == null ? "" : String(v); }
+
+  function findInitiateCheckoutEid(beforeKeys) {
+    try {
+      var keys = [];
+      for (var i = 0; i < sessionStorage.length; i++) {
+        var k = sessionStorage.key(i);
+        if (!k || k.indexOf(FUNNEL_CAPI_SENT_PREFIX + "InitiateCheckout.") !== 0) continue;
+        if (beforeKeys.indexOf(k) >= 0) continue;
+        keys.push(k);
+      }
+      if (!keys.length) return null;
+      var lastKey = keys[keys.length - 1];
+      var eid = lastKey.replace(FUNNEL_CAPI_SENT_PREFIX, "");
+      var m = eid.match(/^InitiateCheckout\.(o\d{8}[0-9a-f]+)\.([0-9a-z]+)$/i);
+      if (!m) return { raw_key: lastKey, eid: eid, order_code: "", suffix: "", parse_ok: false };
+      return { raw_key: lastKey, eid: eid, order_code: m[1], suffix: m[2], parse_ok: true };
+    } catch (e) { return null; }
+  }
+
+  // v0.4 snippet 의 SITE_SHOP_DETAIL.confirmOrderWithCartItems wrap 위에 한 번 더 wrap.
+  // 원본 동작 변경 0. confirm 호출 시점의 funnel-capi sent keys snapshot 후 retry 로
+  // InitiateCheckout 신규 키를 잡아 buffer 의 가장 최근 entry 에 추가 박음.
+  var sd = window.SITE_SHOP_DETAIL;
+  if (sd && typeof sd.confirmOrderWithCartItems === "function") {
+    var _orig = sd.confirmOrderWithCartItems;
+    sd.confirmOrderWithCartItems = function (kind /*, backurl, params */) {
+      var beforeKeys = [];
+      try {
+        if (kind === "npay") {
+          for (var i = 0; i < sessionStorage.length; i++) {
+            var k = sessionStorage.key(i);
+            if (k && k.indexOf(FUNNEL_CAPI_SENT_PREFIX + "InitiateCheckout.") === 0) beforeKeys.push(k);
+          }
+          RETRY_DELAYS_MS.forEach(function (delay) {
+            setTimeout(function () {
+              var hit = findInitiateCheckoutEid(beforeKeys);
+              if (!hit) return;
+              try {
+                var buf = readBuffer();
+                if (!buf.length) return;
+                var last = buf[buf.length - 1];
+                if (last.intent_phase !== "confirm_to_pay") return;
+                if (last.imweb_order_code) return; // already captured
+                last.imweb_order_code = hit.order_code;
+                last.imweb_order_code_eid = hit.eid;
+                last.imweb_order_code_capture_delay_ms = delay;
+                buf[buf.length - 1] = last;
+                writeBuffer(buf);
+                console.log(LOG_PREFIX, "captured orderCode @" + delay + "ms", hit);
+              } catch (e) { console.warn(LOG_PREFIX, "capture err", e && e.message); }
+            }, delay);
+          });
+        }
+      } catch (e) { console.warn(LOG_PREFIX, "wrap err", e && e.message); }
+      return _orig.apply(this, arguments);
+    };
+  }
+  console.log(LOG_PREFIX, "v0.5 retry capture installed (3 retries: 100ms, 500ms, 1500ms)");
+})()
+```
+
+### 동작 명세
+
+| 항목 | 값 |
+|---|---|
+| 추가 sessionStorage 키 | 0 (v0.4 의 `coffee_npay_intent_preview` buffer 안 last entry 에만 필드 추가) |
+| 외부 송출 / fetch / sendBeacon / XHR | 0 |
+| funnel-capi 코드 수정 | 0 (read-only) |
+| 원본 결제 함수 동작 변경 | 0 (`apply` 위임) |
+| 이중 wrap 가드 | `window.__coffeeNpayIntentPreviewV05Installed` |
+| retry 시점 | confirm_to_pay 호출 직후 `setTimeout 100/500/1500ms` 3회 (가장 빨리 잡힌 1회만 buffer 박음) |
+| 추가되는 payload 필드 | `imweb_order_code`, `imweb_order_code_eid`, `imweb_order_code_capture_delay_ms` |
+
+### v0.5 검증 명령
+
+v0.4 snippet + v0.5 보강 둘 다 install 한 상태에서 PC NPay click → 즉시 ESC. 그 후:
+
+```javascript
+;(() => {
+  var buf = JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]");
+  var last = buf.slice(-1)[0] || null;
+  return {
+    bufferLength: buf.length,
+    intent_phase: last && last.intent_phase,
+    intent_uuid: last && last.intent_uuid,
+    imweb_order_code: last && last.imweb_order_code,
+    imweb_order_code_eid: last && last.imweb_order_code_eid,
+    imweb_order_code_capture_delay_ms: last && last.imweb_order_code_capture_delay_ms,
+    funnel_capi_session_id: last && last.funnel_capi_session_id
+  };
+})()
+```
+
+기대 결과:
+
+| 필드 | 예상 |
+|---|---|
+| `intent_phase` | `"confirm_to_pay"` |
+| `imweb_order_code` | `o<YYYYMMDD><hex>` 형식 (예 `o202605019a684b5c47669`) |
+| `imweb_order_code_eid` | `InitiateCheckout.<order_code>.<suffix>` |
+| `imweb_order_code_capture_delay_ms` | 100 / 500 / 1500 중 하나 (가장 빨리 잡힌 시점) |
+
+캡처 결과의 `imweb_order_code` 가 `o<YYYYMMDD>` 형식이면 (A++) imweb orderCode 트랙 확정. 그 값을 backend SQL `SELECT * FROM imweb_orders WHERE order_code = '<value>'` 로 정찰하면 결제 완료 후 1:1 매핑되는지 즉시 검증 가능.
+
 ## 종료 / cleanup
 
 ```javascript
