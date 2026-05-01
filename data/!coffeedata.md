@@ -1,10 +1,10 @@
 # 더클린커피 데이터 정합성 프로젝트 검토
 
 작성 시각: 2026-04-30 23:51 KST  
-최신 read-only 확인: 2026-05-01 10:17 KST
+최신 read-only 확인: 2026-05-01 14:40 KST
 문서 성격: 검토안 + 실행 설계안  
 대상 사이트: `thecleancoffee.com`, 더클린커피 아임웹/GA4/BigQuery/NPay/ROAS  
-관련 문서: [[!datacheckplan]], [[!bigquery]], [[!data_inventory|SEO 데이터 위치 인벤토리]], [[iamweb_excel_backfill_review]], [[toss_sync_gap]], [[roasphase]], [[naver/!npayroas|biocom NPay ROAS 정합성 계획]], [[coffee-ga4-baseline-20260501|더클린커피 GA4 BigQuery 기준선 20260501]], [[coffee-imweb-operational-readonly-20260501|더클린커피 아임웹/운영 DB Read-only 주문 원장 대조]], [[coffee-ga4-robust-guard-20260501|더클린커피 GA4 Robust Guard]], [[coffee-excel-import-dry-run-20260501|더클린커피 엑셀 Import Dry-run]], [[coffee-dry-run-schema|더클린커피 Dry-run Schema]], [[naver/npay-api-mcp-review-20260501|네이버페이 API와 MCP 검토]]
+관련 문서: [[!datacheckplan]], [[!bigquery]], [[!data_inventory|SEO 데이터 위치 인벤토리]], [[iamweb_excel_backfill_review]], [[toss_sync_gap]], [[roasphase]], [[naver/!npayroas|biocom NPay ROAS 정합성 계획]], [[coffee-ga4-baseline-20260501|더클린커피 GA4 BigQuery 기준선 20260501]], [[coffee-imweb-operational-readonly-20260501|더클린커피 아임웹/운영 DB Read-only 주문 원장 대조]], [[coffee-ga4-robust-guard-20260501|더클린커피 GA4 Robust Guard]], [[coffee-npay-unassigned-ga4-guard-20260501|더클린커피 NPay unassigned GA4 Guard]], [[coffee-excel-import-dry-run-20260501|더클린커피 엑셀 Import Dry-run]], [[coffee-dry-run-schema|더클린커피 Dry-run Schema]], [[naver/npay-api-mcp-review-20260501|네이버페이 API와 MCP 검토]]
 Primary source: Imweb v2 API `IMWEB_API_KEY_COFFEE`, GA4 BigQuery `project-dadba7dd-0229-4ff6-81c.analytics_326949178`, 운영 Postgres `tb_sales_toss`, `tb_playauto_orders`, 더클린커피 아임웹 엑셀
 Cross-check: local SQLite `imweb_orders`, `toss_transactions`, existing reconciliation scripts, Naver Commerce API scope check  
 Freshness: Imweb v2 API 2026-05-01 10:16 KST read-only 실행, GA4/운영 DB 2026-05-01 00:52 KST 기준
@@ -18,10 +18,10 @@ Confidence: 90%
 | 2 | [[#Phase2-Sprint4]] | 완료 | Codex | GA4 purchase transaction_id와 운영/아임웹 주문 원장 후보를 read-only로 대조한다 | GA4가 실제 주문을 얼마나 반영하는지 알아야 NPay/ROAS 복구 필요성을 판단할 수 있다 | `tb_sales_toss store=coffee`, Imweb v2 API, PlayAuto `아임웹-C`를 대조했다 | [[#Phase2-Sprint4]] / [[coffee-imweb-operational-readonly-20260501]] | NO, read-only |
 | 3 | [[#Phase2-Sprint5]] | 완료 | Codex | coffee용 NPay dry-run 리포트 스펙을 만든다 | biocom에서 만든 `intent -> confirmed order -> BigQuery guard` 구조를 커피에도 재사용할 수 있다 | `order_number`, `channel_order_no`, `amount_match_type`, `already_in_ga4`, `match_grade`, `send_candidate=N` 컬럼을 고정했다 | [[#Phase2-Sprint5]] / [[coffee-dry-run-schema]] | NO, 문서/코드 초안 |
 | 4 | [[#Phase2-Sprint5]] | 대기 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 아임웹/호스팅사 사용 가맹점은 주문관리/정산 API가 제한될 수 있어 공식 답변이 필요하다 | [[naver/npay-api-mcp-review-20260501]]의 문의 문구로 네이버 기술지원에 주문형 API 가능 여부를 확인한다 | [[#Phase2-Sprint5]] / [[naver/npay-api-mcp-review-20260501]] | YES, 외부 계정 작업 |
-| 5 | [[#Phase2-Sprint5]] | 부분 완료 | Codex | GA4의 NPay처럼 보이는 구매 이벤트 58건과 아임웹 NPay 실제 주문 60건을 주문별로 맞춰 본다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 아직 확정되지 않았기 때문이다 | Imweb v2 API `type=npay`를 실제 주문 primary로 두고, GA4 BigQuery 이벤트와 PlayAuto 상품명을 금액/시간/상품 기준으로 one-to-one 배정한다 | [[#Phase2-Sprint5]] / [[coffee-imweb-operational-readonly-20260501]] | NO, read-only |
+| 5 | [[#Phase2-Sprint5]] | 부분 완료 | Codex | GA4의 NPay처럼 보이는 구매 이벤트 58건과 아임웹 NPay 실제 주문 60건을 주문별로 맞춰 본다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 아직 확정되지 않았기 때문이다 | one-to-one 배정 42건, unassigned actual 18건, unassigned GA4 16건까지 분해했고, 남은 18건의 order/channel id 36개는 GA4 raw에서 모두 `robust_absent`로 확인했다 | [[#Phase2-Sprint5]] / [[coffee-imweb-operational-readonly-20260501]] / [[coffee-npay-unassigned-ga4-guard-20260501]] | NO, read-only |
 | 6 | [[#Phase1-Sprint3]] | 완료 | Codex | 2024/2025 더클린커피 주문/결제 엑셀을 정합성 원장 후보로 검증한다 | 커피는 PG/Toss보다 엑셀의 비마스킹 phone/이메일/배송/결제수단 정보 가치가 크다 | `coffee-excel-import-dry-run.ts`로 2025 주문/결제 join 11,018/11,018과 2024 join 1,987/1,987을 확인했다 | [[#Phase1-Sprint3]] / [[coffee-excel-import-dry-run-20260501]] | NO, dry-run only |
 | 7 | [[#Phase1-Sprint3]] | 완료 | Codex | 더클린커피 주문/결제 엑셀 위치를 확인하고 인벤토리로 고정한다 | 이미 받은 엑셀을 다시 요청하면 작업이 꼬이고, stale/중복 파일을 정본으로 쓸 수 있다 | `data/coffee/coffee_orders_2024.xlsx`, `coffee_payments_2024.xlsx`, `coffee_orders_2025.xlsx`, `coffee_payments_2025.xlsx`가 실제 데이터 파일임을 확인했다. 2023 파일은 헤더-only다 | [[#Phase1-Sprint3]] / [[!data_inventory]] | NO |
-| 8 | [[#Phase2-Sprint5]] | 부분 완료 | Codex | NPay 실제 주문과 GA4 NPay형 purchase의 2건/103,000원 차이를 분해한다 | Imweb actual NPay와 GA4 NPay형 purchase 간 차이가 보여 ROAS 정합성의 핵심 차이를 먼저 닫을 수 있다 | `mismatchSummary`, `amount_match_type`, `ambiguousReasons`, one-to-one 배정, BigQuery robust guard를 사용한다. 남은 일은 unassigned actual 18건을 주문 단위로 해석하는 것이다 | [[#Phase2-Sprint5]] / [[coffee-imweb-operational-readonly-20260501]] / [[coffee-ga4-robust-guard-20260501]] | NO, read-only |
+| 8 | [[#Phase2-Sprint5]] | 부분 완료 | Codex | NPay 실제 주문과 GA4 NPay형 purchase의 2건/103,000원 차이를 분해한다 | Imweb actual NPay와 GA4 NPay형 purchase 간 차이가 보여 ROAS 정합성의 핵심 차이를 먼저 닫을 수 있다 | 2건/103,000원 차이는 one-to-one residual 기준으로 assigned delta 70,600원 + unassigned net delta 32,400원으로 쪼개졌다. 직접 주문번호 guard는 36/36 `robust_absent`다 | [[#Phase2-Sprint5]] / [[coffee-imweb-operational-readonly-20260501]] / [[coffee-npay-unassigned-ga4-guard-20260501]] | NO, read-only |
 | 9 | [[#Phase3-Sprint7]] | 보류 | Codex | Meta/TikTok ROAS 정합성은 source freshness가 닫힌 뒤 재개한다 | 커피 Meta 토큰/운영 원장 freshness가 불안정하면 ROAS 비교가 오판된다 | token, BigQuery, 주문 원장, Toss/Excel freshness를 같은 window로 맞춘 뒤 비교한다 | [[#Phase3-Sprint7]] | 부분 YES, token 갱신 필요 가능 |
 
 ## 10초 요약
@@ -119,7 +119,7 @@ Auditor verdict: `PASS_WITH_NOTES`. 이번 작업은 BigQuery/운영 Postgres re
 | Phase1 | [[#Phase1-Sprint2]] | Source freshness 기준선 | Codex | 95% / 0% | [[#Phase1-Sprint2]] |
 | Phase1 | [[#Phase1-Sprint3]] | 2025 엑셀 원장화 검토 | Codex + TJ | 75% / 0% | [[#Phase1-Sprint3]] |
 | Phase2 | [[#Phase2-Sprint4]] | GA4 BigQuery와 주문 원장 대조 | Codex | 85% / 0% | [[#Phase2-Sprint4]] |
-| Phase2 | [[#Phase2-Sprint5]] | Coffee NPay 실제 주문 매칭 | Codex + TJ | 78% / 0% | [[#Phase2-Sprint5]] |
+| Phase2 | [[#Phase2-Sprint5]] | Coffee NPay 실제 주문 매칭 | Codex + TJ | 84% / 0% | [[#Phase2-Sprint5]] |
 | Phase3 | [[#Phase3-Sprint6]] | Coffee NPay intent 장부 | Codex | 20% / 0% | [[#Phase3-Sprint6]] |
 | Phase3 | [[#Phase3-Sprint7]] | Meta/TikTok/ROAS 정합성 | Codex + TJ | 20% / 0% | [[#Phase3-Sprint7]] |
 | Phase4 | [[#Phase4-Sprint8]] | 공통 Growth Data Harness 편입 | Codex + Claude | 45% / 0% | [[#Phase4-Sprint8]] |
@@ -129,6 +129,18 @@ Auditor verdict: `PASS_WITH_NOTES`. 이번 작업은 BigQuery/운영 Postgres re
 - `우리`: 문서, 코드 초안, read-only 분석 준비도.
 - `운영`: 실제 운영 반영, 정기 실행, 대시보드/알림 적용도.
 - 이 문서는 운영 변경이 아니라 검토/설계 문서이므로 운영 상태는 의도적으로 0%에서 시작한다.
+
+개발 순서 점검:
+
+현재 Phase-Sprint 순서는 개발 진행 순서와 맞다.
+
+1. Phase0은 운영 변경 금지선과 프로젝트 판단을 먼저 닫는다.
+2. Phase1은 source freshness와 엑셀 원장 후보를 고정한다.
+3. Phase2는 GA4/주문 원장 대조와 NPay 실제 주문 매칭을 read-only로 닫는다.
+4. Phase3은 read-only 근거가 충분할 때 intent 장부와 ROAS 정합성으로 넘어간다.
+5. Phase4는 앞선 패턴을 공통 harness로 재사용하는 단계다.
+
+따라서 이번 업데이트에서는 순서를 바꾸지 않고, Phase2-Sprint5의 원인 분해와 guard 결과를 고도화했다.
 
 ## 지금 확인된 데이터 소스
 
@@ -224,6 +236,10 @@ npm exec tsx scripts/coffee-imweb-operational-readonly.ts -- --startSuffix=20260
 | `type=npay` 주문 | 60건, 2,462,300원 | NPay actual order primary로 사용 가능 |
 | `channel_order_no` 채움률 | 60/60 | NPay 외부 주문번호가 Imweb API에 들어옴 |
 | GA4 NPay형 purchase | 58건, 2,359,300원 | actual보다 2건/103,000원 낮음 |
+| one-to-one assigned | 42건 | 중복 배정 없이 주문-이벤트를 1:1로 묶은 수 |
+| one-to-one unassigned actual | 18건, 641,300원 | 실제 NPay 주문이지만 1:1 GA4 이벤트로 안정 배정되지 않은 수 |
+| one-to-one unassigned GA4 | 16건, 608,900원 | GA4 NPay형 이벤트지만 1:1 실제 주문으로 안정 배정되지 않은 수 |
+| unassigned actual order/channel id guard | 36/36 `robust_absent` | 남은 18건의 Imweb `order_no`와 NPay `channel_order_no`는 GA4 raw에 직접 존재하지 않음 |
 | `tb_iamweb_users` coffee order match | 0건 | coffee primary로 쓰면 안 됨 |
 
 판단:
@@ -231,7 +247,8 @@ npm exec tsx scripts/coffee-imweb-operational-readonly.ts -- --startSuffix=20260
 1. 더클린커피 NPay actual order primary는 현재 `Imweb v2 API /v2/shop/orders?type=npay`로 둔다.
 2. Naver Commerce API는 공식 주문관리/정산 cross-check와 장기 자동화용이다. 권한 확보 전에도 read-only 정합성 작업은 진행 가능하다.
 3. 기존 Python `reconcile-coffee-ga4-naverpay.py`는 dependency와 Naver API scope 전제가 있어 우선순위를 낮춘다. 동일 목적은 TypeScript read-only 스크립트로 대체한다.
-4. 과거 GA4 NPay형 transaction_id는 `NPAY - ...` synthetic 값이라 Imweb `order_no` 또는 NPay `channel_order_no`와 exact match되지 않는다. 따라서 주문별 복구 전송 판단은 금액/시간/상품명 기반 dry-run을 거쳐야 한다.
+4. 과거 GA4 NPay형 transaction_id는 `NPAY - ...` synthetic 값이라 Imweb `order_no` 또는 NPay `channel_order_no`와 exact match되지 않는다. 남은 18건의 `order_no/channel_order_no` 36개도 GA4 raw에서 0건이다.
+5. 따라서 과거 주문의 자동 복구 전송은 금지하고, 미래 데이터는 coffee intent 장부로 분리 수집하는 방향이 더 안전하다.
 
 ## 왜 더클린커피가 좋은 비교군인가
 
@@ -436,13 +453,28 @@ ORDER BY event_date DESC, purchase_revenue DESC;
 11. 전역 one-to-one 배정을 추가해 GA4 event 중복 배정을 막았다. 결과는 assigned 42건, unassigned actual 18건, unassigned GA4 16건이다.
 12. `coffee-ga4-robust-guard.ts`를 추가해 `order_no`와 `channel_order_no`가 GA4 raw 전체에 존재하는지 read-only로 확인할 수 있게 했다.
 13. 표준 dry-run row schema를 [[coffee-dry-run-schema]]에 고정했다.
+14. `coffee-imweb-operational-readonly.ts`에 unassigned actual/GA4 원인 분류를 추가했다. 결과는 [[coffee-imweb-operational-readonly-20260501]]에 반영했다.
+15. one-to-one residual을 추가했다. assigned 42건은 주문 1,821,000원 / GA4 1,750,400원 / 차이 70,600원이고, unassigned 영역은 actual 641,300원 / GA4 608,900원 / 차이 32,400원이다.
+16. unassigned actual 18건의 Imweb `order_no`와 NPay `channel_order_no` 36개를 BigQuery robust guard로 확인했다. 결과는 36/36 `robust_absent`이며 상세는 [[coffee-npay-unassigned-ga4-guard-20260501]]에 남겼다.
+
+2026-05-01 14:40 KST 고도화 결과:
+
+| 항목 | 값 | 해석 |
+|---|---:|---|
+| one-to-one assigned | 42건 | 현재 보수 기준에서 안정 배정 가능 |
+| one-to-one unassigned actual | 18건 | 자동 전송 후보 아님 |
+| one-to-one unassigned GA4 | 16건 | 실제 주문 자동 배정 불안정 |
+| unassigned actual reason: score below threshold | 13건 | 후보는 있으나 점수 65 미만이라 배정하지 않음 |
+| unassigned actual reason: best GA4 already assigned | 5건 | 같은 GA4 후보를 더 강한 주문이 가져감 |
+| unassigned actual time gap within 2m | 1건 | 후보가 가까워도 이미 다른 주문에 배정되어 자동 후보 제외 |
+| unassigned actual order/channel id robust guard | 36/36 absent | 실제 주문번호/외부 주문번호가 GA4 raw에 직접 남아 있지 않음 |
 
 100%까지 남은 것:
 
 | 남은 일 | 왜 필요한가 | 어떻게 할 것인가 | 완료 기준 |
 |---|---|---|---|
-| unassigned actual 18건 최종 원인 확정 | one-to-one 배정에서 남은 actual order가 실제 누락 후보인지 봐야 한다 | `coffee-ga4-robust-guard.ts`로 order/channel id를 확인하고, PlayAuto/결제상태/상품명으로 reason 부여 | `ga4_missing`, `pattern_mismatch`, `weak_candidate`, `expected_gap` 분류 |
-| ambiguous 29건 축소 | ambiguous는 전송 금지라 후보가 많으면 복구 자동화가 어렵다 | 동일 금액 반복 주문을 결제시각, 상품명, channel_order_no, page_location 기준으로 재점수화 | ambiguous 중 줄일 수 있는 것과 끝까지 수동 검토할 것을 분리 |
+| unassigned actual 18건 처리 방침 확정 | 이미 직접 주문번호 guard는 absent지만, 이것을 누락으로 볼지 GA4 synthetic 한계로 볼지 구분해야 한다 | 18건을 `score_below_threshold`, `candidate_already_assigned`, `needs_naver_api_crosscheck`, `expected_synthetic_gap`으로 라벨링한다 | 자동 전송 금지/수동 검토/향후 intent 전환 중 하나로 분류 |
+| ambiguous 29건 축소 또는 종료 판단 | ambiguous는 전송 금지라 후보가 많으면 과거 복구 자동화가 어렵다 | 동일 금액 반복 주문을 결제시각, 상품명, channel_order_no, page_location 기준으로 재점수화하되, 점수 개선 여지가 낮으면 과거분 복구를 포기하고 미래 intent로 넘긴다 | `reduce_possible`과 `stop_historical_recovery`를 분리 |
 | A/B/ambiguous 기준 운영 승인 | 운영자와 광고 담당자가 같은 기준으로 판단해야 한다 | [[coffee-dry-run-schema]] 기준을 팀 리뷰 후 승인 또는 수정 | `A_strong`, `B_strong`, `ambiguous` 기준 확정 |
 | Naver seller/API scope 확인 | Imweb API가 primary여도 네이버 공식 주문관리/정산 cross-check는 장기적으로 유용하다 | TJ님이 네이버 기술지원/호스팅사 경로로 주문형 API 가능 여부 확인 | sample NPay order 1건 read 성공 또는 불가 공식 답변 |
 | 향후 intent 장부 설계 | 과거분은 GA4 synthetic transaction_id 때문에 자동 매칭이 약하다 | 미래분은 버튼 클릭 시 `client_id`, `ga_session_id`, product, page를 저장하는 coffee intent 초안을 설계 | live publish 전 preview 계획 완성 |
@@ -607,7 +639,7 @@ ORDER BY event_timestamp DESC;
 
 컨펌 없이 가능한 작업:
 
-1. unassigned actual 18건을 robust guard + PlayAuto + 결제상태로 세부 분해.
+1. unassigned actual 18건의 처리 방침을 확정한다. 이미 robust guard는 36/36 `absent`로 확인됐으므로, 남은 일은 자동 전송 금지/수동 검토/미래 intent 전환 중 어디로 보낼지 라벨링하는 것이다.
 2. 2025 엑셀 amount mismatch 397건을 결제상태/환불/부분환불/무료결제 reason으로 분해.
 3. 2024/2025 엑셀을 같은 dry-run 스크립트로 각각 재실행하고 24개월 LTV aggregate를 비교.
 4. coffee NPay intent beacon의 preview-only 설계안을 작성.

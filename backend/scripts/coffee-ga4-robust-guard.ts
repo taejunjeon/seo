@@ -166,6 +166,18 @@ const parseNumber = (value: unknown) => {
   return 0;
 };
 
+const nowKst = () =>
+  `${new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date())} KST`;
+
 const escapeCell = (value: unknown) => String(value ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
 
 const markdownTable = (headers: string[], rows: unknown[][]) => [
@@ -226,7 +238,7 @@ const main = async () => {
   });
   const payload = {
     ok: true,
-    checkedAt: new Date().toISOString(),
+    checkedAt: nowKst(),
     site: SITE,
     mode: "read_only",
     window: {

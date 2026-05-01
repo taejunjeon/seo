@@ -109,6 +109,8 @@ const unixToKst = (seconds: number) => {
   }).format(new Date(seconds * 1000));
 };
 
+const nowKst = () => `${unixToKst(Math.floor(Date.now() / 1000))} KST`;
+
 const parseNumber = (value: unknown) => {
   if (typeof value === "number") return value;
   if (typeof value === "bigint") return Number(value);
@@ -558,6 +560,15 @@ const countBy = <T>(items: T[], pick: (item: T) => string) => {
 
 const formatWon = (value: number) => `${Math.round(value).toLocaleString("ko-KR")}원`;
 
+const timeGapBucket = (minutes: number | null | undefined) => {
+  if (minutes == null || !Number.isFinite(minutes)) return "no_candidate";
+  if (minutes <= 2) return "within_2m";
+  if (minutes <= 10) return "within_10m";
+  if (minutes <= 60) return "within_60m";
+  if (minutes <= 24 * 60) return "within_24h";
+  return "over_24h";
+};
+
 const matchGrade = (candidate: {
   score: number;
   timeGapMinutes: number;
@@ -718,32 +729,77 @@ const buildNpayActualGa4Candidates = (
 
   const oneToOneByOrderNo = new Map(oneToOneAssignments.map((candidate) => [candidate.orderNo, candidate]));
   const oneToOneByTransactionId = new Map(oneToOneAssignments.map((candidate) => [candidate.transactionId, candidate]));
+  const edgesByTransactionId = new Map<string, typeof globalCandidateEdges>();
+  for (const edge of globalCandidateEdges) {
+    const rows = edgesByTransactionId.get(edge.transactionId) ?? [];
+    rows.push(edge);
+    edgesByTransactionId.set(edge.transactionId, rows);
+  }
   const unassignedActualOrders = decisions
     .filter((decision) => !oneToOneByOrderNo.has(decision.orderNo))
-    .map((decision) => ({
-      orderNo: decision.orderNo,
-      channelOrderNo: decision.channelOrderNo,
-      paidAtKst: decision.paidAtKst,
-      paymentAmount: decision.paymentAmount,
-      productNames: decision.productNames,
-      bestScore: decision.bestScore,
-      bestTransactionId: decision.bestTransactionId,
-      bestTimeGapMinutes: decision.bestTimeGapMinutes,
-      bestAmountMatchType: decision.bestAmountMatchType,
-      ambiguousReasons: decision.ambiguousReasons.length > 0 ? decision.ambiguousReasons : ["not_selected_by_one_to_one_assignment"],
-    }));
+    .map((decision) => {
+      const bestCandidate = decision.candidates[0] ?? null;
+      const assignedToBestTx = bestCandidate ? oneToOneByTransactionId.get(bestCandidate.transactionId) ?? null : null;
+      const assignmentDiagnosis = !bestCandidate
+        ? "no_ga4_candidate_above_threshold"
+        : bestCandidate.score < 65
+          ? "best_candidate_score_below_assignment_threshold"
+          : assignedToBestTx
+            ? "best_ga4_candidate_already_assigned_to_stronger_order"
+            : "not_selected_by_one_to_one_assignment";
+      return {
+        orderNo: decision.orderNo,
+        channelOrderNo: decision.channelOrderNo,
+        paidAtKst: decision.paidAtKst,
+        paymentAmount: decision.paymentAmount,
+        productNames: decision.productNames,
+        bestScore: decision.bestScore,
+        bestTransactionId: decision.bestTransactionId,
+        bestTimeGapMinutes: decision.bestTimeGapMinutes,
+        bestTimeGapBucket: timeGapBucket(decision.bestTimeGapMinutes),
+        bestAmountMatchType: decision.bestAmountMatchType,
+        assignmentDiagnosis,
+        assignedBestTransactionToOrderNo: assignedToBestTx?.orderNo ?? "",
+        ambiguousReasons: decision.ambiguousReasons.length > 0 ? decision.ambiguousReasons : [assignmentDiagnosis],
+      };
+    });
   const unassignedGa4Purchases = ga4NpayPurchases
     .filter((purchase) => !oneToOneByTransactionId.has(purchase.transactionId))
     .map((purchase) => ({
-      transactionId: purchase.transactionId,
-      eventTimeKst: purchase.eventTimeKst,
-      revenue: purchase.revenue,
-      itemIds: purchase.itemIds,
-      itemNames: purchase.itemNames,
-      pageLocation: purchase.pageLocation,
-      sourceKey: purchase.sourceKey,
-      mediumKey: purchase.mediumKey,
-    }));
+      ...purchase,
+      candidateEdges: edgesByTransactionId.get(purchase.transactionId) ?? [],
+    }))
+    .map((purchase) => {
+      const bestEdge = purchase.candidateEdges[0] ?? null;
+      const assignmentDiagnosis = !bestEdge
+        ? "no_actual_candidate_above_threshold"
+        : bestEdge.score < 65
+          ? "best_actual_candidate_score_below_assignment_threshold"
+          : oneToOneByOrderNo.has(bestEdge.orderNo)
+            ? "best_actual_order_already_assigned_to_stronger_ga4"
+            : "not_selected_by_one_to_one_assignment";
+      return {
+        transactionId: purchase.transactionId,
+        eventTimeKst: purchase.eventTimeKst,
+        revenue: purchase.revenue,
+        itemIds: purchase.itemIds,
+        itemNames: purchase.itemNames,
+        pageLocation: purchase.pageLocation,
+        sourceKey: purchase.sourceKey,
+        mediumKey: purchase.mediumKey,
+        bestOrderNo: bestEdge?.orderNo ?? "",
+        bestScore: bestEdge?.score ?? 0,
+        bestTimeGapMinutes: bestEdge?.timeGapMinutes ?? null,
+        bestTimeGapBucket: timeGapBucket(bestEdge?.timeGapMinutes),
+        bestAmountMatchType: bestEdge?.amountMatchType ?? "no_candidate",
+        assignmentDiagnosis,
+      };
+    });
+
+  const assignedOrderAmount = sum(oneToOneAssignments, (candidate) => candidate.paymentAmount);
+  const assignedGa4Revenue = sum(oneToOneAssignments, (candidate) => candidate.revenue);
+  const unassignedActualAmount = sum(unassignedActualOrders, (order) => order.paymentAmount);
+  const unassignedGa4Revenue = sum(unassignedGa4Purchases, (purchase) => purchase.revenue);
 
   const dryRunRows = decisions.map((decision) => {
     const assigned = oneToOneByOrderNo.get(decision.orderNo) ?? null;
@@ -804,6 +860,21 @@ const buildNpayActualGa4Candidates = (
       oneToOneUnassignedActual: unassignedActualOrders.length,
       oneToOneUnassignedGa4: unassignedGa4Purchases.length,
       oneToOneMatchGradeSummary: countBy(oneToOneAssignments, (candidate) => candidate.matchGrade),
+      unassignedActualReasonSummary: countBy(unassignedActualOrders, (order) => order.assignmentDiagnosis),
+      unassignedActualTimeGapBucketSummary: countBy(unassignedActualOrders, (order) => order.bestTimeGapBucket),
+      unassignedGa4ReasonSummary: countBy(unassignedGa4Purchases, (purchase) => purchase.assignmentDiagnosis),
+      unassignedGa4TimeGapBucketSummary: countBy(unassignedGa4Purchases, (purchase) => purchase.bestTimeGapBucket),
+    },
+    oneToOneResidualSummary: {
+      assignedCount: oneToOneAssignments.length,
+      assignedOrderAmount,
+      assignedGa4Revenue,
+      assignedDelta: assignedOrderAmount - assignedGa4Revenue,
+      unassignedActualCount: unassignedActualOrders.length,
+      unassignedActualAmount,
+      unassignedGa4Count: unassignedGa4Purchases.length,
+      unassignedGa4Revenue,
+      unassignedDelta: unassignedActualAmount - unassignedGa4Revenue,
     },
     mismatchSummary: {
       orderCountDelta: imwebNpayOrders.length - ga4NpayPurchases.length,
@@ -891,6 +962,18 @@ const renderMarkdown = (payload: Record<string, any>) => {
       Object.entries(n.summary.oneToOneMatchGradeSummary).map(([key, value]) => [key, value]),
     ),
     "",
+    "## One-to-one Residual Summary",
+    "",
+    markdownTable(
+      ["항목", "값"],
+      [
+        ["assigned", `${n.oneToOneResidualSummary.assignedCount}건 / 주문 ${formatWon(n.oneToOneResidualSummary.assignedOrderAmount)} / GA4 ${formatWon(n.oneToOneResidualSummary.assignedGa4Revenue)} / delta ${formatWon(n.oneToOneResidualSummary.assignedDelta)}`],
+        ["unassigned actual", `${n.oneToOneResidualSummary.unassignedActualCount}건 / ${formatWon(n.oneToOneResidualSummary.unassignedActualAmount)}`],
+        ["unassigned GA4", `${n.oneToOneResidualSummary.unassignedGa4Count}건 / ${formatWon(n.oneToOneResidualSummary.unassignedGa4Revenue)}`],
+        ["unassigned net delta", `${formatWon(n.oneToOneResidualSummary.unassignedDelta)}`],
+      ],
+    ),
+    "",
     "## Amount Match Type Summary",
     "",
     markdownTable(
@@ -905,18 +988,59 @@ const renderMarkdown = (payload: Record<string, any>) => {
       Object.entries(n.summary.ambiguousReasonSummary).map(([key, value]) => [key, value]),
     ),
     "",
+    "## Unassigned Actual Reason Summary",
+    "",
+    markdownTable(
+      ["reason", "count"],
+      Object.entries(n.summary.unassignedActualReasonSummary).map(([key, value]) => [key, value]),
+    ),
+    "",
+    "## Unassigned Actual Time Gap Summary",
+    "",
+    markdownTable(
+      ["time_gap_bucket", "count"],
+      Object.entries(n.summary.unassignedActualTimeGapBucketSummary).map(([key, value]) => [key, value]),
+    ),
+    "",
+    "## Unassigned GA4 Reason Summary",
+    "",
+    markdownTable(
+      ["reason", "count"],
+      Object.entries(n.summary.unassignedGa4ReasonSummary).map(([key, value]) => [key, value]),
+    ),
+    "",
     "## Review Orders Top 20",
     "",
     markdownTable(
-      ["order_number", "channel_order_no", "paid_at", "amount", "best_score", "best_tx", "reasons"],
+      ["order_number", "channel_order_no", "paid_at", "amount", "diagnosis", "best_score", "best_tx", "best_gap", "amount_type", "reasons"],
       n.unassignedActualOrders.slice(0, 20).map((row: Record<string, any>) => [
         row.orderNo,
         row.channelOrderNo,
         row.paidAtKst,
         formatWon(row.paymentAmount),
+        row.assignmentDiagnosis,
         row.bestScore,
         row.bestTransactionId,
+        row.bestTimeGapBucket,
+        row.bestAmountMatchType,
         (row.ambiguousReasons ?? []).join(","),
+      ]),
+    ),
+    "",
+    "## Unassigned GA4 Top 20",
+    "",
+    markdownTable(
+      ["ga4_transaction_id", "event_time", "revenue", "diagnosis", "best_order", "best_score", "best_gap", "amount_type", "item_names"],
+      n.unassignedGa4Purchases.slice(0, 20).map((row: Record<string, any>) => [
+        row.transactionId,
+        row.eventTimeKst,
+        formatWon(row.revenue),
+        row.assignmentDiagnosis,
+        row.bestOrderNo,
+        row.bestScore,
+        row.bestTimeGapBucket,
+        row.bestAmountMatchType,
+        row.itemNames,
       ]),
     ),
     "",
@@ -977,7 +1101,7 @@ const main = async () => {
 
     const payload = {
       ok: true,
-      checkedAt: new Date().toISOString(),
+      checkedAt: nowKst(),
       site: SITE,
       mode: "read_only",
       window: {
@@ -1041,6 +1165,7 @@ const main = async () => {
       npayActualGa4Match: {
         summary: npayActualGa4Match.summary,
         mismatchSummary: npayActualGa4Match.mismatchSummary,
+        oneToOneResidualSummary: npayActualGa4Match.oneToOneResidualSummary,
         needsReviewOrders: npayActualGa4Match.needsReviewOrders,
         oneToOneAssignments: npayActualGa4Match.oneToOneAssignments,
         unassignedActualOrders: npayActualGa4Match.unassignedActualOrders,
