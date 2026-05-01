@@ -384,3 +384,81 @@ A-2a 와 동일 패턴.
 | 2 | VM endpoint reachability 확인 | 배포 직후 외부 도메인으로 신규 endpoint 도달 검증 |
 | 3 | VM 배포 후 external dry-run 확인 | `mode=dry_run` 으로 외부 origin 통한 payload validation 동작 확인 (ledger write 0) |
 | 4 | A-3 GTM Preview dispatcher 재개 | 본 runbook 의 Step S1~T4 재진입 (smoke window + GTM Preview + chrome NPay click) |
+
+---
+
+## A-3 v2 PASS — 2026-05-02 KST
+
+VM production backend 배포 (3927a98 + 3a8ea23) 후 본 runbook 의 Step S1~T4 재진입. 9 성공 기준 모두 충족.
+
+### 환경 (재개 시점)
+
+| 항목 | 값 |
+|---|---|
+| backend | VM `att.ainativeos.net` (deploy commit 3a8ea23) |
+| GTM workspace | 20 (`coffee_npay_intent_a3_smoke_v2`) — Codex API 등록 |
+| GTM tag | 80 (Custom HTML, dispatcher v2 코드, Preview only) |
+| GTM trigger | 79 (`A-3 SMOKE All Pages v2`, pageview) |
+| smoke window | id=1, max_inserts=5, expires KST 02:04:23 |
+| token | smoke_a3_1777653241_… (임시, 검증 후 제거됨) |
+
+### 9 성공 기준 결과
+
+| # | 기준 | 결과 |
+|---|---|---|
+| 1 | dispatcher 가 페이지에 install | ✅ Tag Assistant "맞춤 HTML 3회 실행됨" |
+| 2 | NPay click 이 sessionStorage buffer 에 push | ✅ buffer_count=2 (두 click) |
+| 3 | dispatcher 가 buffer 를 fetch POST 로 forward | ✅ sent_count=2 (`ok_200`, `ok_201`) |
+| 4 | 외부 도메인 backend 도달 | ✅ Network OPTIONS 204 + POST 200 |
+| 5 | CORS preflight 정상 | ✅ `access-control-allow-origin: https://thecleancoffee.com` |
+| 6 | backend enforce mode INSERT | ✅ total_rows 0→3, enforce_inserted 0→3 |
+| 7 | payload validation 통과 | ✅ preview_only=1, is_simulation=0, prod_code/price/quantity 모두 캡처 |
+| 8 | smoke_window 가드 동작 | ✅ inserted 0→3, remaining 5→2 (Codex sim 1 + site 2) |
+| 9 | funnel-capi v3 와 호환 | ✅ funnel_capi_session_id `mon50xudmqa3m8` 두 row 동일 |
+
+### ledger evidence (3 rows)
+
+| id | tag | intent_uuid | phase | prod_code | price | session | captured_at_kst |
+|---|---|---|---|---|---|---|---|
+| 1 | CODEX_SIM | smoke_a3v2_codex_1777653449379_1 | sanity_test | — | — | — | — |
+| 3 | SITE_DISPATCHER | a3890f4e-2c03-4860-ac79-590e9264c5c4 | confirm_to_pay | s20260430baf1869c41c35 | 19,900원 | mon50xudmqa3m8 | 2026-05-02 01:40:59 |
+| 6 | SITE_DISPATCHER | 28d2140d-9cdc-45cb-86a4-69a69213df09 | confirm_to_pay | s20260430baf1869c41c35 | 19,900원 | mon50xudmqa3m8 | 2026-05-02 01:41:27 |
+
+id 분포 1/3/6 = INSERT OR IGNORE race 흔적 (id=2,4,5 는 dedup 으로 비어있음). enforce_deduped 카운터 3 = 1초 sweep 이 in-flight fetch 와 race 나서 같은 UUID 두 번 forward 한 것 (첫 INSERT + 두 번째 dedup, UNIQUE constraint 가 막음). 운영 무해, fetch 효율 50%.
+
+### 관찰된 개선 포인트 (다음 phase 후보)
+
+| # | 항목 | 영향 |
+|---|---|---|
+| O1 | dispatcher race condition | 1초 sweep + in-flight fetch tracking 부재 → 같은 UUID 두 번 fetch. dedup 으로 운영 무해, fetch 효율 50%. dispatcher 에 in-flight Set 추가 시 개선 |
+| O2 | imweb_order_code null | dispatcher 가 NPay click 시점 (order_code 발급 전) forward — 추후 retry capture 메커니즘 필요 ((A++) 트랙 본질) |
+| O3 | payment_button_type null | site click hook 의 entry 가 이 필드 미캡처. all-in-one snippet 측 보강 |
+
+### Cleanup 결과 (2026-05-02 KST)
+
+| Step | 결과 |
+|---|---|
+| C1 smoke window close | closed_count=1 (window id=1) |
+| C2 VM .env 임시 키 제거 | wc 205 → 201, COFFEE_NPAY_INTENT 잔존 0 |
+| C2 pm2 restart | pid 216851 → 217250, restart 36 → 37 |
+| C3 stats 검증 | enforce/token/window 모두 false, smoke_window_summary=None, total_rows=3 보존 |
+| C4 GTM workspace 20 삭제 | TJ manual delete (Codex scope 부족) — 단 default 와 분리된 sandbox + Production 미publish 라 무영향 |
+| C5 결과 보고서 + !coffeedata 항목 18 closure + commit | 본 섹션 |
+
+### 안전 종료 상태
+
+| 항목 | 값 |
+|---|---|
+| `enforce_flag_active` | false |
+| `smoke_admin_token_configured` | false |
+| `smoke_window_active` | false |
+| GTM Production publish | 0 |
+| GA4 / Meta CAPI / TikTok Events / Google Ads send | 0 |
+| ledger total_rows | 3 (test row prefix `smoke_a3v2_codex_*` 1 + site dispatcher 2 — 보고서에서 모두 제외 권장: `WHERE intent_uuid NOT LIKE 'smoke_%' AND source_version != 'coffee_npay_intent_preview_all_in_one_20260501'`) |
+| backend process | launchd-managed, 깨끗한 .env (PID 217250) |
+
+### 결론
+
+A-3 v2 PASS. dispatcher v2 의 chrome 측 install + sweep + fetch + backend INSERT 가 end-to-end 동작. funnel-capi v3 와 호환. 항목 18 closure.
+
+다음 phase (A-4 GTM Production publish 결정) 는 [[#다음 phase (A-3 PASS 후 TJ 별도 승인)]] 표 기준 + 본 sprint 의 관찰 개선 포인트 (O1~O3) 검토 후 별도 승인 게이트.
