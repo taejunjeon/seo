@@ -155,6 +155,23 @@ LIMIT 5;
 | coffee (A++) 트랙 일부 작동 (특정 케이스만) | biocom 에서도 같은 케이스 분석. fallback (B) ledger 병행 |
 | coffee (A++) 트랙 미작동 (drop case 다수) | (B) ledger 단독으로 양쪽 운용 |
 
+### 2026-05-01 22:30 KST coffee (A++) 검증 결과 → biocom 권장
+
+coffee 측 v0.5 PASS (`imweb_order_code: o2026050189a174746502e` 정상 capture, 1500ms retry). 이로써 biocom 도 (A++) 트랙 적용 권장:
+
+1. biocom snippet 작성 시 v0.4 + v0.5 둘 다 site 식별자 치환해 한 묶음으로 박는다 (`SITE: "biocom"`, sessionStorage 키 prefix `__biocom_*`).
+2. retry delay 는 `[100, 500, 1500]` 그대로 시작 — coffee 에서 1500ms 시점 capture 였으므로 biocom 도 비슷하거나 약간 빠를 수 있다.
+3. biocom funnel-capi 의 sessionStorage 키 형식 (`funnelCapi::sent::InitiateCheckout.<orderCode>.<suffix>`) 도 동일 가정. site live 정찰로 확정.
+
+### 추가 발견 (cross-site 적용성) — GA4 NPay synthetic transaction_id 형식
+
+coffee 측 console 에서 imweb 이 GA4 dataLayer 에 push 한 NPay synthetic id 형식 확정: **`NPAY - <imweb 자체 ID 9자리> - <Date.now() ms>`**. coffee 측 unassigned actual 분석에서 robust_absent 36/36 결과의 진짜 매칭 키가 바로 이 transaction_id.
+
+biocom 도 같은 imweb funnel-capi v3 인프라이면 동일 형식으로 발급될 가능성 매우 높음. biocom phase 에서 console capture 또는 정본 코드 검색으로 형식 확정 필요. 확정 후:
+
+- biocom GA4 BigQuery `events_*.ecommerce.transaction_id` 안 `NPAY - ...` 패턴 raw 와 우리 biocom ledger 의 capture 한 synthetic id 와 1:1 deterministic 매핑 가능.
+- 이는 biocom NPay ROAS 정합성 ([[naver/!npayroas]]) 의 unassigned actual recovery 트랙에 직접 기여.
+
 추가로 biocom 측 가치:
 
 - biocom 의 NPay ROAS 정합성 작업 ([[naver/!npayroas]]) 에서 unassigned NPay actual / GA4 NPay 형 매칭 어려움 보강

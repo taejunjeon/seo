@@ -276,6 +276,52 @@ preview snippet v0.4 위에 임시 보강. confirmOrderWithCartItems 의 url 인
 5. (다음 phase) backend ledger `coffee_npay_intent_log` 에 `(intent_uuid, imweb_order_code, ts, prod_code, quantity, estimated_item_total)` 저장
 6. 결제 완료 후 imweb sync 가 `imweb_orders.order_code` 채우면 ledger 와 1:1 deterministic join
 
+### v0.5 검증 결과 (2026-05-01 22:30 KST TJ chrome 검증 완료)
+
+PC NPay click 1회 (`shop_view/?idx=73`, prod_price=19900) → snippet v0.4 + v0.5 보강 동작:
+
+| payload 필드 | 값 |
+|---|---|
+| `intent_phase` | `"confirm_to_pay"` |
+| `intent_uuid` | `64c53fab-faa9-499e-8330-aa98309a7ff7` |
+| `imweb_order_code` | **`o2026050189a174746502e`** ← (A++) 트랙 작동 확정 |
+| `imweb_order_code_eid` | `InitiateCheckout.o2026050189a174746502e.63911` |
+| `imweb_order_code_capture_delay_ms` | **`1500`** (100ms / 500ms 에는 미발견, 1500ms 째에 잡힘) |
+| `funnel_capi_session_id` | `momy91ln8tppfe` |
+| `prod_code` / `prod_price` | `s20260430baf1869c41c35` / 19,900원 |
+
+console marker: `[coffee_npay_intent_preview_v05] captured orderCode @1500ms`
+
+→ **(A++) 트랙 PASS**. 다음 phase 의 backend ledger 작성 + `imweb_orders.order_code` 와 deterministic join 진입 가능.
+
+### v0.5 검증 중 발견한 추가 사실 — GA4 NPay synthetic transaction_id 형식
+
+console 에 imweb 이 자체 발화한 줄:
+
+```
+[{"item_name":"...","item_id":"73","price":19900,"quantity":"1","item_brand":"thecleancoffee"}]
+19900
+NPAY - 202604101 - 1777642253241
+```
+
+**`NPAY - 202604101 - 1777642253241`** = imweb 이 GA4 dataLayer 에 push 한 NPay synthetic transaction_id. 형식 = `NPAY - <imweb 자체 ID 9자리> - <Date.now() ms>`. `Date.now()` ms 값 (`1777642253241`) 이 우리 payload `ts_ms_kst` (`1777642253236`) 와 5ms 차이 — confirm_to_pay 호출과 거의 동시에 발급.
+
+이 transaction_id 가 GA4 BigQuery 에 들어가는 NPay 형 purchase event 의 `transaction_id` 와 동일 패턴. 즉 [[coffee-imweb-operational-readonly-20260501]] 의 unassigned actual recovery 분석에서 robust_absent 36/36 이었던 이유가 imweb order_no / NPay channel_order_no 로 검색했기 때문이고, **GA4 NPay synthetic transaction_id 자체와 우리 ledger 안 같은 값을 비교하면 매핑 가능**.
+
+문제: 이 synthetic id 가 어디 sessionStorage / DOM / window 변수에 박히는지 추가 정찰 필요. 확인되면 v0.6 보강 가능 (synthetic id 도 buffer payload 에 capture).
+
+### 확보된 deterministic key 5종
+
+| 키 | 출처 | 매핑 대상 |
+|---|---|---|
+| `intent_uuid` | 우리 wrap | local ledger PK |
+| `funnel_capi_session_id` | funnel-capi `__seo_funnel_session` | session 단위 추적 |
+| `imweb_order_code` (A++ 트랙) | imweb 자체 발급 | **backend `imweb_orders.order_code` (1:1 deterministic)** |
+| GA4 NPay synthetic transaction_id | imweb dataLayer push | **GA4 BigQuery `transaction_id` (1:1 deterministic, 추가 정찰 필요)** |
+| NPay 측 orderID | NPay redirect URL path | NPay seller API (권한 발급 후 가능) |
+
+위 5종 중 `imweb_order_code` 는 v0.5 로 확보 완료. `synthetic_transaction_id` 는 v0.6 정찰 후 확보 가능.
+
 ### 다음 단계
 
 | 우선순위 | 작업 | 형태 |
