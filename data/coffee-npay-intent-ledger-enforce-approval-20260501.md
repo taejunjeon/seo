@@ -542,3 +542,20 @@ dispatcher 검증용 추가 reject counter (backend 측):
 6. 7일 모니터링 지표 + live publish 중단 조건 채택?
 
 OK 6/6 시 Step A-2 (env flag 활성) 진입. 1개라도 보강 요청 시 그 항목만 수정 후 재검토.
+
+---
+
+## A-3 보류 결정 — B-2 종결 (2026-05-02 00:43 KST)
+
+본 enforce 준비 series 의 진행 상태:
+
+| Phase | 상태 | 비고 |
+|---|---|---|
+| A-1 | DONE | enforce 준비 — schema v2 + validation 강화 + endpoint alias + join report |
+| A-1.5 | DONE | endpoint hardening + dispatcher v2 보강 |
+| A-2a | DONE | controlled smoke window 실제 INSERT 7-step PASS (TJ 9 성공 기준 모두 충족) |
+| **A-3** | **보류 (B-2)** | VM production backend 미배포로 외부 도메인 endpoint 부재 → GTM Preview dispatcher 자동 검증 의미 없음 판정 |
+
+A-2a 까지를 enforce 준비 evidence 로 종결한다. A-3 이후 phase (A-4 publish / A-5 source-of-truth / A-6 광고 플랫폼 보강 전송) 는 모두 별도 sprint 의 VM 배포 검증 마일스톤을 선행 조건으로 한다.
+
+상세 차단 원인, 안전 종료 상태 캡처 (enforce/token/window 모두 false, GTM publish 0, 외부 send 0, ledger test row 2건 보존), 다음 sprint 4 항목 분리는 [coffee-npay-intent-a3-gtm-preview-dispatcher-runbook-20260502.md](./coffee-npay-intent-a3-gtm-preview-dispatcher-runbook-20260502.md) 의 "종결 (B-2, 2026-05-02 00:43 KST)" 섹션에 정리.

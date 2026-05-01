@@ -27,6 +27,59 @@ Confidence: 90%
 | 11 | [[#Phase3-Sprint6]] | 완료 (v0.3) | Codex | 더클린커피 NPay 버튼 DOM 조사 + intent beacon preview-only 설계안을 작성한다 | 과거분 자동 매칭이 약하므로 미래분에서 click → 결제 사이의 의도를 분리해 두어야 한다. 다만 live publish 전 design + preview 절차 확정이 필요하다 | `shop_view/?idx=1` 정적 HTML 분석으로 PC `#naverPayWrap`, mobile `._btn_mobile_npay`, 공통 진입점 `SITE_SHOP_DETAIL.confirmOrderWithCartItems('npay', url)` 확인. v0.2 에 결제 시도 단위 intent_uuid + initDetail fallback + URL Query Param 보존 검증 분기 + 체크리스트형 시나리오 5개 추가. v0.3 에 site 의 funnel-capi v3 발견 반영, 진단 명령 A/B/C 묶음과 결과 분기 6종으로 sessionId/eid 재사용·공존 방향 정리 | [[#Phase3-Sprint6]] / [[coffee-npay-intent-beacon-preview-design-20260501]] / [[coffee-live-tracking-inventory-20260501]] | NO, 설계 + preview only |
 | 13 | [[#Phase4-Sprint8]] | 완료 | Codex | live tracking inventory 하네스 추가 | 2026-05-01 chrome devtools 진단 중 site 에 이미 funnel-capi v3 가 운영 중이라는 사실을 뒤늦게 발견. 기존 wrapper/session/eid 체계를 무시하고 새로 박는 사고를 재발 방지하기 위해 preflight 단계가 필요했다 | [[harness/coffee-data/LIVE_TAG_INVENTORY|Coffee Live Tag Inventory template]] 신규 + [[coffee-live-tracking-inventory-20260501]] 첫 snapshot. AUDITOR_CHECKLIST 에 hard fail 2 + soft fail 2 추가 | [[#Phase4-Sprint8]] / [[harness/coffee-data/LIVE_TAG_INVENTORY]] | NO, 문서/하네스 |
 | 12 | [[#Phase1-Sprint3]] | 완료 | Codex | 2024/2025 엑셀을 같은 dry-run 스크립트로 통합 LTV 비교 | 광고 ROAS 복구 전송 판단 외에도 LTV/재구매 분석에 엑셀이 가장 풍부하다 | `coffee-excel-ltv-dry-run.ts` 추가, NPay `거래개시` + 결제완료 금액 보정 후 2024/2025 통합 12,731건 / 476,696,364원, 고객 4,536명, 재구매2+ 1,747명, 2024→2025 잔존 59.06% 산출 | [[#Phase1-Sprint3]] / [[coffee-excel-ltv-dry-run-20260501]] | NO, dry-run only |
+| 14 | enforce series | 종결 (B-2) | TJ + Codex | A-3 GTM Preview dispatcher 보류, A-2a 까지를 enforce 준비 evidence 로 종결 | VM production backend 미배포로 `att.ainativeos.net` 외부 도메인에 신규 endpoint 부재 → dispatcher 자동 검증 의미 없음 | 안전 종료 상태 기록: enforce/token/window=false, GTM publish=0, 외부 send=0, ledger test row 2건 보존하되 보고서에서 `WHERE intent_uuid NOT LIKE 'smoke_%'` 로 제외. 다음 sprint 4 항목은 별도 분리 | [[#2026-05-02 enforce series 종결 (B-2)]] / [[coffee-npay-intent-a3-gtm-preview-dispatcher-runbook-20260502]] / [[coffee-npay-intent-ledger-enforce-approval-20260501]] | NO, 종결 처리 |
+| 15 | VM 배포 sprint | 대기 | Codex | VM production backend 배포 사전 체크리스트 작성 | A-3 재개 선결 조건 — VM 외부 endpoint 가 살아 있어야 dispatcher 자동 검증이 의미 있다 | `capivm/deploy-backend-rsync.sh` 실행 전 env diff / schema migration idempotency / rollback path / 영향 범위 4 항목 정리 | [[#2026-05-02 enforce series 종결 (B-2)]] | YES, 배포 승인 별도 |
+| 16 | VM 배포 sprint | 대기 | Codex | VM endpoint reachability 확인 | 배포 직후 외부 도메인으로 신규 endpoint 도달 여부 검증 | `curl https://att.ainativeos.net/api/coffee/intent/stats` 200 + `OPTIONS /api/attribution/coffee-npay-intent` 204 + Origin allowlist 일치 | [[#2026-05-02 enforce series 종결 (B-2)]] | NO, read-only |
+| 17 | VM 배포 sprint | 대기 | Codex | VM 배포 후 external dry-run 확인 | 외부 origin 통한 payload validation 동작 확인 (ledger write 0) | `mode=dry_run` POST 로 응답 `ok=true` + ledger total_rows 변동 없음 + reject_counters dry_run_ok 증가 | [[#2026-05-02 enforce series 종결 (B-2)]] | NO, dry-run only |
+| 18 | VM 배포 sprint | 대기 | Codex + TJ | A-3 GTM Preview dispatcher 재개 | 위 15~17 PASS 후 본 runbook 의 Step S1~T4 재진입 | smoke window + GTM Preview + chrome NPay click 1~2회 + dispatcher state 캡처 + Codex backend polling | [[coffee-npay-intent-a3-gtm-preview-dispatcher-runbook-20260502]] | YES, A-3 재진입 승인 별도 |
+
+## 2026-05-02 enforce series 종결 (B-2)
+
+결론: **A-3 보류, A-2a 까지를 enforce 준비 evidence 로 종결**. 다음 sprint 는 VM 배포 검증으로 분리.
+
+### 차단 원인
+
+- `att.ainativeos.net` 의 destination 은 로컬 macOS:7020 이 아니라 **VM (34.64.104.94, pm2 seo-backend)** 임을 본 sprint 마지막에 발견.
+- 로컬 backend (working tree HEAD) 에 추가된 신규 endpoint (`POST /api/attribution/coffee-npay-intent` 등) 는 VM production backend 에 미배포.
+- 외부 도메인 reachability 점검: `OPTIONS` 는 CORS preflight 통과 (204), `GET/POST /api/coffee/intent/*` 와 `/api/attribution/coffee-npay-intent` 는 **404** ("Route not found").
+- GTM dispatcher 가 외부 도메인으로 fetch 해도 ledger 도달 불가 — TJ chrome NPay click 검증 의미 없음.
+
+### 안전 종료 상태 (2026-05-02 00:43 KST)
+
+| 항목 | 값 |
+|---|---|
+| `enforce_flag_active` | false |
+| `smoke_admin_token_configured` | false |
+| `smoke_window_active` | false |
+| GTM Production publish | 0 (workspace 19 sandbox, TJ manual delete 완료) |
+| GA4 MP / Meta CAPI / TikTok Events / Google Ads send | 0 |
+| ledger `total_rows` | 2 (A-2a smoke INSERT evidence 보존) |
+| ledger `rows_with_imweb_order_code` | 2 |
+| ledger `rows_with_ga4_synthetic_transaction_id` | 0 |
+| backend process | launchd-managed `dist/server.js`, 깨끗한 `.env` 로 재시작 (PID 19004) |
+
+### test row 처리
+
+- ledger 의 2 row 는 A-2a smoke window 의 controlled INSERT (intent_uuid prefix `smoke_a2a_*`).
+- 보존 사유: A-2a 7-step PASS 의 evidence.
+- 보고서 / dashboard 에서는 **test row 로 제외** — 권장 SQL: `WHERE intent_uuid NOT LIKE 'smoke_%'`.
+- 운영 분석 영향 없음.
+
+### 정리된 잔여물
+
+- `.env` 의 `COFFEE_NPAY_INTENT_ENFORCE_LIVE`, `COFFEE_NPAY_INTENT_SMOKE_ADMIN_TOKEN` 라인 제거.
+- backend launchd 자동 재시작으로 새 process 가 정리된 env 로드.
+- `/tmp/seo-smoke-a3-token.txt`, `/tmp/seo-a3-gtm-refs.json` 임시 파일 — 다음 sprint 시 새로 생성.
+- GTM workspace 19 (`coffee_npay_intent_a3_smoke`) + tag 78 + trigger 77 — TJ manual delete 완료.
+
+### 다음 sprint (별도 분리)
+
+위 표 항목 15~18 참조. 핵심 흐름:
+
+1. VM production backend 배포 사전 체크리스트 작성 (env diff / schema migration idempotency / rollback path / 영향 범위)
+2. VM endpoint reachability 확인 (외부 도메인으로 200 응답)
+3. VM 배포 후 external dry-run 확인 (`mode=dry_run`, ledger write 0)
+4. 그 다음 A-3 GTM Preview dispatcher 재개 ([[coffee-npay-intent-a3-gtm-preview-dispatcher-runbook-20260502]] 의 Step S1~T4 재진입)
 
 ## 10초 요약
 
