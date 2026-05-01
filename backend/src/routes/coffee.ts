@@ -1,8 +1,11 @@
 import { type Request, type Response, Router } from "express";
 
 import {
+  getCoffeeNpayIntentJoinReport,
   getCoffeeNpayIntentLogStats,
+  listCoffeeNpayIntents,
   runDryRun as runCoffeeNpayIntentDryRun,
+  runEnforceInsert as runCoffeeNpayIntentEnforce,
 } from "../coffeeNpayIntentLog";
 import { getSubscriberTrackStats, syncSubscriberTracks } from "../subscriberTrackSync";
 import {
@@ -153,6 +156,96 @@ export const createCoffeeRouter = () => {
       });
     }
   });
+
+  /**
+   * A-1 phase — TJ 권장 path. mode query param 으로 dry_run / enforce 분기.
+   * - mode=dry_run (default) → runDryRun (INSERT 0)
+   * - mode=enforce → runEnforceInsert (env flag COFFEE_NPAY_INTENT_ENFORCE_LIVE
+   *   가 'true' 일 때만 실제 INSERT, 아니면 reject). 본 phase 의 운영 backend
+   *   는 env flag 미설정 → INSERT 호출이 와도 항상 reject.
+   */
+  router.post(
+    "/api/attribution/coffee-npay-intent",
+    (req: Request, res: Response) => {
+      try {
+        const mode = String(req.query.mode ?? "dry_run").toLowerCase();
+        if (mode === "enforce") {
+          const result = runCoffeeNpayIntentEnforce(req.body ?? {});
+          res.status(result.inserted ? 201 : result.deduped ? 200 : 400).json(result);
+          return;
+        }
+        const result = runCoffeeNpayIntentDryRun(req.body ?? {});
+        res.status(result.ok ? 200 : 400).json(result);
+      } catch (err) {
+        res.status(500).json({
+          ok: false,
+          error: err instanceof Error ? err.message : "coffee_npay_intent failed",
+        });
+      }
+    },
+  );
+
+  /**
+   * A-1 phase — read-only 최근 N건 ledger 조회 (PII 컬럼 제외).
+   * 본 phase 는 ledger 가 비어 있으므로 빈 배열 응답.
+   */
+  router.get(
+    "/api/attribution/coffee-npay-intents",
+    (req: Request, res: Response) => {
+      try {
+        const site = String(req.query.site ?? "thecleancoffee");
+        const limit = Math.min(
+          Math.max(Number(req.query.limit ?? 50) || 50, 1),
+          200,
+        );
+        const withCode = String(req.query.with_imweb_order_code ?? "") === "true";
+        const items = listCoffeeNpayIntents({
+          site,
+          limit,
+          withImwebOrderCode: withCode,
+        });
+        res.json({
+          ok: true,
+          site,
+          limit,
+          with_imweb_order_code_filter: withCode,
+          stats: getCoffeeNpayIntentLogStats(),
+          items,
+        });
+      } catch (err) {
+        res.status(500).json({
+          ok: false,
+          error:
+            err instanceof Error ? err.message : "coffee_npay_intents list failed",
+        });
+      }
+    },
+  );
+
+  /**
+   * A-1 phase — 7일 모니터링용 join dry-run 리포트.
+   * coffee_npay_intent_log.imweb_order_code = imweb_orders.order_code 매핑.
+   * 5종 join_status: joined_confirmed_order / pending_order_sync /
+   * no_order_after_24h / duplicated_intent / invalid_payload.
+   */
+  router.get(
+    "/api/attribution/coffee-npay-intent-join-report",
+    (req: Request, res: Response) => {
+      try {
+        const site = String(req.query.site ?? "thecleancoffee");
+        const windowDays = Number(req.query.window_days ?? 7) || 7;
+        const limit = Number(req.query.limit ?? 200) || 200;
+        res.json(
+          getCoffeeNpayIntentJoinReport({ site, windowDays, limit }),
+        );
+      } catch (err) {
+        res.status(500).json({
+          ok: false,
+          error: err instanceof Error ? err.message : "join_report failed",
+        });
+      }
+    },
+  );
 
   return router;
 };
