@@ -12,17 +12,17 @@ Confidence: 90%
 
 ## 다음 할일
 
-| 순서 | 상태 | 담당 | 할 일 | 왜 하는가 | 어떻게 하는가 | 컨펌 필요 |
-|---:|---|---|---|---|---|---|
-| 1 | 완료 | Codex | 더클린커피 GA4 BigQuery 기준선을 최신 7일로 뽑는다 | coffee는 BigQuery 접근 가능하므로 GA4 purchase/raw event를 정본 guard로 쓸 수 있는지 먼저 확인해야 한다 | `coffee-ga4-baseline.ts`로 `events_20260423`~`events_20260429` purchase, transaction_id, item, page, source를 집계했다. 결과는 [[coffee-ga4-baseline-20260501]]에 기록했다 | NO, read-only |
-| 2 | 완료 | Codex | GA4 purchase transaction_id와 운영/아임웹 주문 원장 후보를 read-only로 대조한다 | GA4가 실제 주문을 얼마나 반영하는지 알아야 NPay/ROAS 복구 필요성을 판단할 수 있다 | `tb_sales_toss store=coffee`와 대조해 non-NPay 후보 50건 exact Imweb match를 확인했고, Imweb v2 API로 NPay actual order 60건을 확인했다. 상세는 [[coffee-imweb-operational-readonly-20260501]] | NO, read-only |
-| 3 | 완료 | Codex | coffee용 NPay dry-run 리포트 스펙을 만든다 | biocom에서 만든 `intent -> confirmed order -> BigQuery guard` 구조를 커피에도 재사용할 수 있다 | [[coffee-ga4-baseline-20260501]]에 `order_number`, `channel_order_no`, `amount_match_type`, `already_in_ga4`, `match_grade`, `send_candidate=N` 스키마를 넣었다 | NO, 문서/코드 초안 |
-| 4 | 대기 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 아임웹/호스팅사 사용 가맹점은 주문관리/정산 API가 제한될 수 있어 공식 답변이 필요하다 | [[naver/npay-api-mcp-review-20260501]]의 문의 문구로 네이버 기술지원에 주문형 API 가능 여부를 확인한다 | YES, 외부 계정 작업 |
-| 5 | 부분 완료 | Codex | GA4 NPay형 58건과 Imweb NPay actual 60건을 주문별로 분해한다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 확정해야 한다 | Imweb v2 API `type=npay`를 primary로 두고 one-to-one 배정을 추가했다. per-order는 strong 29/probable 2/ambiguous 29, one-to-one은 assigned 42/unassigned actual 18이다 | NO, read-only |
-| 6 | 완료 | Codex | 2025 더클린커피 엑셀을 정합성 원장으로 쓰는 import dry-run을 설계한다 | 커피는 PG/Toss보다 엑셀의 비마스킹 phone/이메일/배송/결제수단 정보 가치가 크다 | `coffee-excel-import-dry-run.ts`를 추가하고 주문/결제 엑셀 join 11,018/11,018, 결제수단/LTV aggregate를 출력했다. 상세는 [[coffee-excel-import-dry-run-20260501]] | NO, dry-run only |
-| 7 | 완료 | Codex | 더클린커피 주문/결제 엑셀 위치를 확인하고 인벤토리로 고정한다 | 이미 받은 엑셀을 다시 요청하면 작업이 꼬이고, stale/중복 파일을 정본으로 쓸 수 있다 | `data/coffee/coffee_orders_2024.xlsx`, `coffee_payments_2024.xlsx`, `coffee_orders_2025.xlsx`, `coffee_payments_2025.xlsx`가 실제 데이터 파일임을 확인했다. 2023 파일은 헤더-only다. 상세는 [[!data_inventory]] | NO |
-| 8 | 부분 완료 | Codex | coffee NPay actual vs GA4 NPay형 mismatch 2건/103,000원을 분해한다 | Imweb actual NPay와 GA4 NPay형 purchase 간 차이가 보여 ROAS 정합성의 핵심 차이를 먼저 닫을 수 있다 | `mismatchSummary`, `amount_match_type`, `ambiguousReasons`, one-to-one 배정, BigQuery robust guard를 추가했다. 남은 일은 unassigned actual 18건을 주문 단위로 해석하는 것이다 | NO, read-only |
-| 9 | 보류 | Codex | Meta/TikTok ROAS 정합성은 source freshness가 닫힌 뒤 재개한다 | 커피 Meta 토큰/운영 원장 freshness가 불안정하면 ROAS 비교가 오판된다 | token, BigQuery, 주문 원장, Toss/Excel freshness를 같은 window로 맞춘 뒤 비교한다 | 부분 YES, token 갱신 필요 가능 |
+| 순서 | Phase/Sprint | 상태 | 담당 | 할 일 | 왜 하는가 | 어떻게 하는가 | 상세 | 컨펌 필요 |
+|---:|---|---|---|---|---|---|---|---|
+| 1 | [[#Phase2-Sprint4]] | 완료 | Codex | 더클린커피 GA4 BigQuery 기준선을 최신 7일로 뽑는다 | coffee는 BigQuery 접근 가능하므로 GA4 purchase/raw event를 정본 guard로 쓸 수 있는지 먼저 확인해야 한다 | `coffee-ga4-baseline.ts`로 `events_20260423`~`events_20260429` purchase, transaction_id, item, page, source를 집계했다 | [[#Phase2-Sprint4]] / [[coffee-ga4-baseline-20260501]] | NO, read-only |
+| 2 | [[#Phase2-Sprint4]] | 완료 | Codex | GA4 purchase transaction_id와 운영/아임웹 주문 원장 후보를 read-only로 대조한다 | GA4가 실제 주문을 얼마나 반영하는지 알아야 NPay/ROAS 복구 필요성을 판단할 수 있다 | `tb_sales_toss store=coffee`, Imweb v2 API, PlayAuto `아임웹-C`를 대조했다 | [[#Phase2-Sprint4]] / [[coffee-imweb-operational-readonly-20260501]] | NO, read-only |
+| 3 | [[#Phase2-Sprint5]] | 완료 | Codex | coffee용 NPay dry-run 리포트 스펙을 만든다 | biocom에서 만든 `intent -> confirmed order -> BigQuery guard` 구조를 커피에도 재사용할 수 있다 | `order_number`, `channel_order_no`, `amount_match_type`, `already_in_ga4`, `match_grade`, `send_candidate=N` 컬럼을 고정했다 | [[#Phase2-Sprint5]] / [[coffee-dry-run-schema]] | NO, 문서/코드 초안 |
+| 4 | [[#Phase2-Sprint5]] | 대기 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 아임웹/호스팅사 사용 가맹점은 주문관리/정산 API가 제한될 수 있어 공식 답변이 필요하다 | [[naver/npay-api-mcp-review-20260501]]의 문의 문구로 네이버 기술지원에 주문형 API 가능 여부를 확인한다 | [[#Phase2-Sprint5]] / [[naver/npay-api-mcp-review-20260501]] | YES, 외부 계정 작업 |
+| 5 | [[#Phase2-Sprint5]] | 부분 완료 | Codex | GA4의 NPay처럼 보이는 구매 이벤트 58건과 아임웹 NPay 실제 주문 60건을 주문별로 맞춰 본다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 아직 확정되지 않았기 때문이다 | Imweb v2 API `type=npay`를 실제 주문 primary로 두고, GA4 BigQuery 이벤트와 PlayAuto 상품명을 금액/시간/상품 기준으로 one-to-one 배정한다 | [[#Phase2-Sprint5]] / [[coffee-imweb-operational-readonly-20260501]] | NO, read-only |
+| 6 | [[#Phase1-Sprint3]] | 완료 | Codex | 2024/2025 더클린커피 주문/결제 엑셀을 정합성 원장 후보로 검증한다 | 커피는 PG/Toss보다 엑셀의 비마스킹 phone/이메일/배송/결제수단 정보 가치가 크다 | `coffee-excel-import-dry-run.ts`로 2025 주문/결제 join 11,018/11,018과 2024 join 1,987/1,987을 확인했다 | [[#Phase1-Sprint3]] / [[coffee-excel-import-dry-run-20260501]] | NO, dry-run only |
+| 7 | [[#Phase1-Sprint3]] | 완료 | Codex | 더클린커피 주문/결제 엑셀 위치를 확인하고 인벤토리로 고정한다 | 이미 받은 엑셀을 다시 요청하면 작업이 꼬이고, stale/중복 파일을 정본으로 쓸 수 있다 | `data/coffee/coffee_orders_2024.xlsx`, `coffee_payments_2024.xlsx`, `coffee_orders_2025.xlsx`, `coffee_payments_2025.xlsx`가 실제 데이터 파일임을 확인했다. 2023 파일은 헤더-only다 | [[#Phase1-Sprint3]] / [[!data_inventory]] | NO |
+| 8 | [[#Phase2-Sprint5]] | 부분 완료 | Codex | NPay 실제 주문과 GA4 NPay형 purchase의 2건/103,000원 차이를 분해한다 | Imweb actual NPay와 GA4 NPay형 purchase 간 차이가 보여 ROAS 정합성의 핵심 차이를 먼저 닫을 수 있다 | `mismatchSummary`, `amount_match_type`, `ambiguousReasons`, one-to-one 배정, BigQuery robust guard를 사용한다. 남은 일은 unassigned actual 18건을 주문 단위로 해석하는 것이다 | [[#Phase2-Sprint5]] / [[coffee-imweb-operational-readonly-20260501]] / [[coffee-ga4-robust-guard-20260501]] | NO, read-only |
+| 9 | [[#Phase3-Sprint7]] | 보류 | Codex | Meta/TikTok ROAS 정합성은 source freshness가 닫힌 뒤 재개한다 | 커피 Meta 토큰/운영 원장 freshness가 불안정하면 ROAS 비교가 오판된다 | token, BigQuery, 주문 원장, Toss/Excel freshness를 같은 window로 맞춘 뒤 비교한다 | [[#Phase3-Sprint7]] | 부분 YES, token 갱신 필요 가능 |
 
 ## 10초 요약
 
@@ -408,6 +408,18 @@ ORDER BY event_date DESC, purchase_revenue DESC;
 목표:
 
 더클린커피 NPay 버튼 클릭/GA4 purchase/실제 NPay 주문을 분리한다.
+
+쉬운 설명:
+
+- `GA4 NPay형 58건`은 GA4에 purchase 이벤트로 들어왔고 transaction_id가 `NPAY - ...`처럼 보이는 기록이다. 하지만 이것만으로는 실제 네이버페이 결제완료 주문인지, 버튼/스크립트가 만든 구매 이벤트인지 확정할 수 없다.
+- `Imweb NPay actual 60건`은 아임웹 API에서 결제수단이 NPay로 확인된 실제 주문 원장이다. 현재 더클린커피에서는 이 값을 NPay 실제 주문 primary로 둔다.
+- 이 Sprint는 두 장부를 주문별로 맞춰서 `GA4에 이미 잡힌 주문`, `GA4에 없는 주문`, `후보가 여러 개라 위험한 주문`을 분리하는 작업이다. 그래야 나중에 GA4/Meta/TikTok 복구 전송을 열더라도 중복 전송과 오탐을 막을 수 있다.
+
+역할 구분:
+
+- TJ: 네이버 판매자/API 권한처럼 외부 계정 확인이 필요한 작업만 담당한다.
+- Codex: Imweb API, GA4 BigQuery, PlayAuto, 운영 DB를 read-only로 대조하고 dry-run 리포트를 만든다.
+- Claude Code: 현재 해당 없음. 추후 운영자 화면이나 시각화가 필요하면 별도 Sprint로 분리한다.
 
 완료한 것:
 
