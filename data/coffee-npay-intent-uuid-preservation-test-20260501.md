@@ -276,6 +276,31 @@ preview snippet v0.4 위에 임시 보강. confirmOrderWithCartItems 의 url 인
 5. (다음 phase) backend ledger `coffee_npay_intent_log` 에 `(intent_uuid, imweb_order_code, ts, prod_code, quantity, estimated_item_total)` 저장
 6. 결제 완료 후 imweb sync 가 `imweb_orders.order_code` 채우면 ledger 와 1:1 deterministic join
 
+### v0.6 (all-in-one) 검증 결과 (2026-05-01 23:55 KST TJ chrome 검증)
+
+PC NPay click 1회 (`shop_view/?idx=73`, prod_price 19,900원) → all-in-one snippet (v0.4+v0.5+v0.6 통합) 정상 작동:
+
+| payload 필드 | 값 | 판정 |
+|---|---|---|
+| `intent_phase` | `"confirm_to_pay"` | ✅ |
+| `intent_uuid` | `238e0b14-a04b-4033-a672-2f61f4471711` | ✅ |
+| `session_uuid` = `funnel_capi_session_id` | `momz2v71ju1r8x` | ✅ funnel-capi 재사용 |
+| **`imweb_order_code`** | **`o20260501f484f95a0da7e`** | ✅ (A++) 트랙 PASS |
+| `imweb_order_code_capture_delay_ms` | `1500` | ✅ |
+| `prod_code` / `prod_price` | `s20260430baf1869c41c35` / 19,900원 | ✅ |
+| `metadata_source` | `inline_script_regex` | ✅ 3-step fallback |
+| **`ga4_synthetic_transaction_id`** | `undefined` | ❌ v0.6 retry 가 dataLayer 에서 못 잡음 |
+
+**(A++) 트랙 PASS 최종 확정** — `imweb_order_code` 만으로 backend ledger ↔ `imweb_orders.order_code` 1:1 deterministic 매핑 가능. enforce mode 진입 단계.
+
+GA4 synthetic id 미캡처 원인 가설 3종:
+
+1. imweb 의 `NPAY - <ID> - <ms>` 출력이 dataLayer push 가 아니라 단순 console.log 디버그 (GA4 측은 imweb GTM tag 가 별도 trigger 로 push)
+2. dataLayer push 시점이 우리 retry 윈도우 (100/500/1500/3000ms) 바깥
+3. dataLayer 의 다른 키 위치 (event_params.transaction_id / eventModel.transaction_id 등)
+
+→ v0.7 정찰 (dataLayer dump) 으로 확정. 단 (A++) 만으로도 deterministic 매핑이 가능하므로 GA4 synthetic id 직접 capture 는 nice-to-have, enforce mode 진입의 blocker 아님.
+
 ### v0.5 검증 결과 (2026-05-01 22:30 KST TJ chrome 검증 완료)
 
 PC NPay click 1회 (`shop_view/?idx=73`, prod_price=19900) → snippet v0.4 + v0.5 보강 동작:
