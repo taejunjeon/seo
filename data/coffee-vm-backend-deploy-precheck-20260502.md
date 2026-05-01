@@ -139,26 +139,35 @@ rsync -az --delete \
 | P1 | 로컬 git working tree 검토 | `git status -s` | 의도한 변경만 stage. 무관 untracked 가 rsync 대상이면 명시적 인지 또는 추가 exclude |
 | P2 | 로컬 `npm run typecheck` | `cd backend && npm run typecheck` | exit 0 |
 | P3 | 로컬 `npm run build` | `cd backend && npm run build` | exit 0 (단 VM 에서 다시 build 하므로 sanity 용) |
-| P4 | rsync 설치 | `rsync --version` | 5.x+ (`brew install rsync` 후) |
+| P4 | rsync 설치 (로컬) | `rsync --version` | 3.x+ (`brew install rsync` 완료) |
+| P4.1 | rsync 설치 (VM, 1회) | `ssh taejun@34.64.104.94 "sudo apt-get install -y rsync"` | Debian 13 기본 미설치. taejun NOPASSWD root sudo 로 1회 설치 (taejun + biocomkr_sns 양쪽 PATH 에 즉시 사용 가능) |
 | P5 | rsync **dry-run** 으로 변경/삭제 목록 확인 | 4번 명령에 `-n --itemize-changes` 추가 | deletion 항목이 의도와 일치 (특히 backend/ 외 디렉토리) |
 | P6 | VM 백업 (선택) — SQLite 스냅샷 | `ssh ... "sudo -u biocomkr_sns cp ~/seo/repo/backend/data/crm.sqlite3 ~/seo/backups/crm.sqlite3.$(date +%Y%m%d-%H%M)"` | 150MB 복사 |
 | P7 | VM pm2 현재 상태 캡처 | `ssh ... "sudo -u biocomkr_sns bash -lc 'pm2 list'"` | restart 시점 비교용 |
 
 ## 6. 배포 명령 sequence (실제 실행은 TJ 별도 승인)
 
+> **중요 갱신 (P5 dry-run 결과 반영)**: 전체 repo sync 는 의도치 않은 deletion 6,055건 (frontend.backup.* 5,479건 + 그 외) 위험으로 차단. **`backend/` subset sync 로 좁힌다**. dry-run 결과 deletion 0건 + 신규 12 + 수정 3 = 전송 15 (총 ~390KB). 자세한 evidence 는 §11 참조.
+
 ```bash
 # Step 1. 로컬 sanity (P2 + P3)
 cd /Users/vibetj/coding/seo/backend && npm run typecheck && npm run build
 
-# Step 2. rsync (P5 dry-run 통과 후 -n 제거)
-cd /Users/vibetj/coding/seo
+# Step 2. rsync — backend/ subset sync (P5'' dry-run 통과 후 -n 제거)
 rsync -az --delete \
-  -e "ssh -o ConnectTimeout=10" \
+  -e "ssh -o ConnectTimeout=15" \
   --rsync-path="sudo -u biocomkr_sns rsync" \
-  --exclude ".git" --exclude "node_modules" --exclude "frontend/.next" \
-  --exclude "backend/dist" --exclude "backend/.env" --exclude "backend/data" \
-  --exclude "backend/logs" --exclude ".DS_Store" \
-  /Users/vibetj/coding/seo/ taejun@34.64.104.94:/home/biocomkr_sns/seo/repo/
+  --exclude "node_modules" \
+  --exclude "dist" \
+  --exclude ".env" \
+  --exclude "data" \
+  --exclude "logs" \
+  --exclude "src.old" \
+  --exclude "._*" \
+  --exclude "*.bak_*" \
+  --exclude "*.backup.*" \
+  --exclude ".DS_Store" \
+  /Users/vibetj/coding/seo/backend/ taejun@34.64.104.94:/home/biocomkr_sns/seo/repo/backend/
 
 # Step 3. VM build + pm2 restart
 ssh taejun@34.64.104.94 "sudo -u biocomkr_sns bash -lc '
@@ -205,10 +214,12 @@ S2 통과는 신규 endpoint 가 VM 에서 살아있음을 증명. S4 통과는 
 
 | 항목 | 상태 |
 |---|---|
-| 로컬 rsync 설치 | **미설치** — `brew install rsync` 필요 (P4) |
-| rsync dry-run 실제 검증 | rsync 미설치로 미수행 — 설치 후 P5 단계에서 실제 itemize 확인 |
-| VM working tree dirty 점검 | bash quoting 이슈로 부분 미수행 — P5 의 dry-run deletion 목록으로 동등 검증 |
-| `--rsync-path` sudo 위임 실제 동작 | 권한 구조상 가능하나 실제 시도는 배포 시점 (P5 dry-run 에서 권한 에러 사전 검출) |
+| 로컬 rsync 설치 | **완료** (3.4.2 via brew, 2026-05-02) |
+| VM rsync 설치 | **완료** (3.4.1+ds1-5+deb13u1 via apt, 2026-05-02) |
+| rsync dry-run 실제 검증 | **완료** — backend-only sync 로 deletion 0 / 신규 12 / 수정 3. §11 참조 |
+| `--rsync-path` sudo 위임 실제 동작 | **완료** (taejun ssh + sudoers NOPASSWD 동작 확인, biocomkr_sns 로 정상 스위치) |
+| 전체 repo sync 위험 발견 | **완료** — `frontend.backup.*` 등 deletion 6,055건 위험 → `backend/` subset sync 로 전환 (§6 갱신) |
+| VM working tree dirty 점검 | dry-run 의 deletion 0건이 "VM 측 backend 가 깔끔" 을 동등 증명 |
 | `seo-backend` restart 카운터 34 | 7일간 34회 — 평균 4.8회/일. 정상 범위 추정. 별도 sprint 의제 |
 
 ## 10. 다음 sprint 항목과의 매핑
@@ -223,3 +234,61 @@ S2 통과는 신규 endpoint 가 VM 에서 살아있음을 증명. S4 통과는 
 | 18 | A-3 GTM Preview dispatcher 재개 | 16/17 PASS 후 [[coffee-npay-intent-a3-gtm-preview-dispatcher-runbook-20260502]] Step S1~T4 재진입 |
 
 본 sprint 는 **항목 15 (사전 체크리스트) 까지 완료**. 항목 16~18 은 TJ 가 §6 배포 명령 실행 결정 시 자동 트리거.
+
+## 11. dry-run evidence (P5 PASS, 2026-05-02 KST)
+
+### 11.1 1차 시도 — 전체 repo sync (§6 초안)
+
+| 항목 | 결과 |
+|---|---|
+| rsync exit | 0 |
+| 권한 우회 | OK (taejun ssh → sudoers NOPASSWD → biocomkr_sns rsync) |
+| 신규 (created) | 1,314 |
+| 삭제 (deleted) | **6,055** ← 위험 |
+| 전송 데이터 | 598 MB |
+
+deletion top 디렉토리:
+
+| 디렉토리 | 건수 | 의미 |
+|---|---|---|
+| `frontend.backup.20260429_062415/` | 1,930 | VM frontend 배포 backup (4월 29일) |
+| `frontend.backup.20260429_034435/` | 1,912 | 동일 |
+| `frontend.backup.20260429_033857/` | 1,637 | 동일 |
+| `backend/` (대부분 `src.old/`) | 434 | backend refactor 잔재 |
+| `frontend/` | 104 | frontend 산출물 |
+| `capivm/` | 37 | 배포 스크립트 정리 흔적 |
+| `._capivm/` | 1 | macOS resource fork |
+
+**판정**: 본 sprint 는 backend 만 갱신할 의도인데 frontend backup 까지 통째 손실 위험. **차단 → backend subset sync 로 전환**.
+
+### 11.2 2차 시도 — backend/ subset sync (§6 갱신본)
+
+| 항목 | 결과 |
+|---|---|
+| rsync exit | 0 |
+| 권한 우회 | OK |
+| 비교 대상 파일 | 244 (reg 230 + dir 14) |
+| 신규 (created) | **12** |
+| 수정 (transferred without create) | **3** |
+| 삭제 (deleted) | **0** ← 위험 제거 |
+| 전송 데이터 | 390 KB |
+
+신규 12개 파일:
+
+| 영역 | 파일 |
+|---|---|
+| `src/` | `coffeeNpayIntentLog.ts`, `npayRoasDryRun.ts` |
+| `scripts/` | `coffee-excel-import-dry-run.ts`, `coffee-excel-ltv-dry-run.ts`, `coffee-excel-payment-mismatch.ts`, `coffee-ga4-baseline.ts`, `coffee-ga4-robust-guard.ts`, `coffee-imweb-operational-readonly.ts`, `npay-ga4-mp-limited-test.ts`, `npay-ga4-robust-guard.ts`, `npay-roas-dry-run.ts` |
+| `tests/` | `npay-roas-dry-run.test.ts` |
+
+수정 3개 파일:
+
+- `src/env.ts`
+- `src/routes/attribution.ts`
+- `src/routes/coffee.ts`
+
+deletion 0건 — 추가된 exclude (`*.backup.*`, `*.bak_*`, `._*`, `src.old`) 가 VM 의 운영 backup 보존.
+
+### 11.3 결론
+
+**§6 갱신본 명령 그대로 -n 만 제거하면 실제 배포 가능 상태**. 의도하지 않은 deletion 0, 변경 정확히 의도와 일치, 권한 우회 검증 완료.
