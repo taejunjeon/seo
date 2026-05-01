@@ -140,6 +140,10 @@ window.FUNNEL_CAPI_CONFIG = { pixelId, endpoint, enableServerCapi, testEventCode
 
 이로써 design v0.4 의 결정 (글로벌 함수 동시 wrap / `__seo_funnel_session` 재사용 / `intent_uuid` 별도 발급 유지 / Purchase 매핑 대상 아님) 이 정본 코드 근거로 정당화됨.
 
+### v0.4 preview snippet 완성본 (별도 문서로 분리)
+
+본 design 의 v0.4 결정을 그대로 반영한 self-contained preview snippet 은 [[coffee-npay-intent-beacon-preview-snippet-v04-20260501]] 에 분리해 박았다. 그 문서에는 붙여넣기 가능한 snippet 한 묶음 + 진단 F (설치/wrap/simulate 확인) + 진단 G (실제 PC NPay 클릭 후 buffer 증가 확인) + cleanup 명령 + Auditor verdict 가 모두 들어 있다. TJ 가 chrome devtools console 에서 그대로 실행할 수 있다.
+
 ## Auditor Verdict
 
 ```text
