@@ -38,6 +38,22 @@
 - 금액 집계 시 환불 처리 주의: PG는 `cancellation_reason`·`return_reason` 제외, AIBIO Supabase는 음수 amount, 쿠팡은 settlement API 기준.
 - phone 조인은 정규화 후(`regexp_replace(phone, '[- ]', '', 'g')`) 사용.
 
+## 더클린커피 tracking / NPay intent 작업 규칙
+
+더클린커피의 tracking, wrapper, intent, eid, NPay beacon, funnel-capi 관련 작업을 시작할 때는 아래 순서로 먼저 확인한다.
+
+1. `harness/coffee-data/README.md`
+2. `harness/coffee-data/LIVE_TAG_INVENTORY.md`
+3. 최신 `data/coffee-live-tracking-inventory-*.md`
+4. `data/coffee-npay-intent-beacon-preview-design-20260501.md`
+5. `harness/coffee-data/AUDITOR_CHECKLIST.md`
+
+기본값은 항상 read-only / no-send / no-write / no-deploy / no-publish다.
+
+특히 새 wrapper, 새 session/eid, 새 click hook을 설계하기 전에는 Live Tracking Inventory snapshot이 7일 이내인지 확인한다. snapshot이 없거나 stale이면 사이트 live console에서 먼저 채운다.
+
+더클린커피에는 이미 `funnel-capi v3`가 설치되어 sessionId/eid를 발급하고 있으므로, 새 session_uuid/eid를 무조건 만들지 말고 기존 funnel-capi sessionId/eid 재사용 또는 공존 여부를 먼저 판단한다.
+
 ## 금액 표기 규칙 (프로젝트 전역)
 
 - **K (천 단위) · M (백만 단위) 영어 접미어 사용 금지**. 한국어 환경이므로 **만·억 단위 한국어 표기**를 쓴다.
