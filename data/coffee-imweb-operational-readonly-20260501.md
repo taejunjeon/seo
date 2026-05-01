@@ -1,6 +1,6 @@
 # 더클린커피 Imweb/GA4 NPay Read-only 리포트
 
-생성 시각: 2026-05-01 14:43:54 KST
+생성 시각: 2026-05-01 16:41:31 KST
 site: `thecleancoffee`
 window: 2026-04-23 ~ 2026-04-29 KST
 mode: `read_only`
@@ -84,6 +84,15 @@ Actual network send observed: NO
 | best_candidate_score_below_assignment_threshold | 13 |
 | best_ga4_candidate_already_assigned_to_stronger_order | 5 |
 
+## Unassigned Actual Historical Recovery Label Summary
+
+| label | count |
+| --- | --- |
+| expected_synthetic_gap | 8 |
+| stop_historical_recovery | 6 |
+| manual_review_only | 3 |
+| needs_naver_api_crosscheck | 1 |
+
 ## Unassigned Actual Time Gap Summary
 
 | time_gap_bucket | count |
@@ -101,28 +110,62 @@ Actual network send observed: NO
 | best_actual_order_already_assigned_to_stronger_ga4 | 5 |
 | no_actual_candidate_above_threshold | 3 |
 
+## Ambiguous Rescore Summary
+
+| label | count |
+| --- | --- |
+| expected_synthetic_gap | 19 |
+| needs_naver_api_crosscheck | 5 |
+| stop_historical_recovery | 3 |
+| manual_review_only | 2 |
+
 ## Review Orders Top 20
 
-| order_number | channel_order_no | paid_at | amount | diagnosis | best_score | best_tx | best_gap | amount_type | reasons |
+| order_number | channel_order_no | paid_at | amount | recovery_label | diagnosis | best_score | best_tx | best_gap | amount_type | reasons |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 202604238847032 | 2026042322051380 | 2026-04-23 00:36:20 | 21,300원 | stop_historical_recovery | best_ga4_candidate_already_assigned_to_stronger_order | 65 | NPAY - 202603127 - 1777286395026 | over_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604230317351 | 2026042324312140 | 2026-04-23 07:28:15 | 67,000원 | manual_review_only | best_ga4_candidate_already_assigned_to_stronger_order | 65 | NPAY - 202603123 - 1776933586465 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604235490820 | 2026042325252020 | 2026-04-23 08:26:00 | 39,500원 | stop_historical_recovery | best_candidate_score_below_assignment_threshold | 58 | NPAY - 202603129 - 1777436965329 | over_24h | shipping_reconciled | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604239700298 | 2026042330145580 | 2026-04-23 11:20:55 | 36,500원 | expected_synthetic_gap | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603123 - 1776916716489 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604240876153 | 2026042454763850 | 2026-04-24 09:27:00 | 39,500원 | expected_synthetic_gap | best_candidate_score_below_assignment_threshold | 58 | NPAY - 202603123 - 1776948650451 | within_24h | shipping_reconciled | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604251942923 | 2026042593855480 | 2026-04-25 22:03:50 | 31,500원 | stop_historical_recovery | best_candidate_score_below_assignment_threshold | 41 | NPAY - 202603125 - 1777122508913 | within_10m | none | multiple_ga4_candidates,low_score_gap,amount_not_reconciled |
+| 202604268287926 | 2026042699576540 | 2026-04-26 09:23:45 | 39,500원 | needs_naver_api_crosscheck | best_ga4_candidate_already_assigned_to_stronger_order | 73 | NPAY - 202603126 - 1777163000478 | within_2m | shipping_reconciled | best_ga4_candidate_already_assigned_to_stronger_order |
+| 202604263784181 | 2026042624630970 | 2026-04-26 20:40:05 | 21,300원 | manual_review_only | best_ga4_candidate_already_assigned_to_stronger_order | 65 | NPAY - 202603127 - 1777286395026 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604278529848 | 2026042732746230 | 2026-04-27 06:26:20 | 36,500원 | expected_synthetic_gap | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603127 - 1777265008070 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604279056292 | 2026042732843650 | 2026-04-27 06:38:50 | 44,400원 | stop_historical_recovery | best_candidate_score_below_assignment_threshold | 50 | NPAY - 202603128 - 1777346115402 | over_24h | near_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap |
+| 202604271236090 | 2026042733291400 | 2026-04-27 07:21:00 | 36,500원 | expected_synthetic_gap | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603127 - 1777265008070 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604272281898 | 2026042750751350 | 2026-04-27 16:30:30 | 36,500원 | expected_synthetic_gap | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603127 - 1777265008070 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604273604765 | 2026042753475420 | 2026-04-27 18:07:25 | 21,300원 | manual_review_only | best_ga4_candidate_already_assigned_to_stronger_order | 65 | NPAY - 202603127 - 1777286395026 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604274520883 | 2026042754292460 | 2026-04-27 18:40:25 | 43,600원 | stop_historical_recovery | best_candidate_score_below_assignment_threshold | 30 | NPAY - 202603128 - 1777346115402 | within_24h | near_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,product_name_variant_or_no_overlap,no_product_evidence,same_amount_many_orders |
+| 202604288034126 | 2026042863432580 | 2026-04-28 00:02:05 | 13,900원 | stop_historical_recovery | best_candidate_score_below_assignment_threshold | 58 | NPAY - 202603124 - 1777031469775 | over_24h | shipping_reconciled | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604289612056 | 2026042865939010 | 2026-04-28 07:01:15 | 36,500원 | expected_synthetic_gap | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603128 - 1777355688070 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604292165516 | 2026042995980970 | 2026-04-29 07:54:50 | 39,500원 | expected_synthetic_gap | best_candidate_score_below_assignment_threshold | 58 | NPAY - 202603128 - 1777361477772 | within_24h | shipping_reconciled | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604297662281 | 2026042926614830 | 2026-04-29 21:04:05 | 36,500원 | expected_synthetic_gap | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603129 - 1777468263462 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+
+## Ambiguous Rescore Top 20
+
+| order_number | paid_at | amount | best_score | score_gap | time_gap | amount_type | rescore_label | rescore_reason | can_reduce_without_new_data |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 202604238847032 | 2026042322051380 | 2026-04-23 00:36:20 | 21,300원 | best_ga4_candidate_already_assigned_to_stronger_order | 65 | NPAY - 202603127 - 1777286395026 | over_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604230317351 | 2026042324312140 | 2026-04-23 07:28:15 | 67,000원 | best_ga4_candidate_already_assigned_to_stronger_order | 65 | NPAY - 202603123 - 1776933586465 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604235490820 | 2026042325252020 | 2026-04-23 08:26:00 | 39,500원 | best_candidate_score_below_assignment_threshold | 58 | NPAY - 202603129 - 1777436965329 | over_24h | shipping_reconciled | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604239700298 | 2026042330145580 | 2026-04-23 11:20:55 | 36,500원 | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603123 - 1776916716489 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604240876153 | 2026042454763850 | 2026-04-24 09:27:00 | 39,500원 | best_candidate_score_below_assignment_threshold | 58 | NPAY - 202603123 - 1776948650451 | within_24h | shipping_reconciled | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604251942923 | 2026042593855480 | 2026-04-25 22:03:50 | 31,500원 | best_candidate_score_below_assignment_threshold | 41 | NPAY - 202603125 - 1777122508913 | within_10m | none | multiple_ga4_candidates,low_score_gap,amount_not_reconciled |
-| 202604268287926 | 2026042699576540 | 2026-04-26 09:23:45 | 39,500원 | best_ga4_candidate_already_assigned_to_stronger_order | 73 | NPAY - 202603126 - 1777163000478 | within_2m | shipping_reconciled | best_ga4_candidate_already_assigned_to_stronger_order |
-| 202604263784181 | 2026042624630970 | 2026-04-26 20:40:05 | 21,300원 | best_ga4_candidate_already_assigned_to_stronger_order | 65 | NPAY - 202603127 - 1777286395026 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604278529848 | 2026042732746230 | 2026-04-27 06:26:20 | 36,500원 | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603127 - 1777265008070 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604279056292 | 2026042732843650 | 2026-04-27 06:38:50 | 44,400원 | best_candidate_score_below_assignment_threshold | 50 | NPAY - 202603128 - 1777346115402 | over_24h | near_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap |
-| 202604271236090 | 2026042733291400 | 2026-04-27 07:21:00 | 36,500원 | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603127 - 1777265008070 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604272281898 | 2026042750751350 | 2026-04-27 16:30:30 | 36,500원 | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603127 - 1777265008070 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604273604765 | 2026042753475420 | 2026-04-27 18:07:25 | 21,300원 | best_ga4_candidate_already_assigned_to_stronger_order | 65 | NPAY - 202603127 - 1777286395026 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604274520883 | 2026042754292460 | 2026-04-27 18:40:25 | 43,600원 | best_candidate_score_below_assignment_threshold | 30 | NPAY - 202603128 - 1777346115402 | within_24h | near_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,product_name_variant_or_no_overlap,no_product_evidence,same_amount_many_orders |
-| 202604288034126 | 2026042863432580 | 2026-04-28 00:02:05 | 13,900원 | best_candidate_score_below_assignment_threshold | 58 | NPAY - 202603124 - 1777031469775 | over_24h | shipping_reconciled | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604289612056 | 2026042865939010 | 2026-04-28 07:01:15 | 36,500원 | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603128 - 1777355688070 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604292165516 | 2026042995980970 | 2026-04-29 07:54:50 | 39,500원 | best_candidate_score_below_assignment_threshold | 58 | NPAY - 202603128 - 1777361477772 | within_24h | shipping_reconciled | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
-| 202604297662281 | 2026042926614830 | 2026-04-29 21:04:05 | 36,500원 | best_candidate_score_below_assignment_threshold | 61 | NPAY - 202603129 - 1777468263462 | within_24h | final_exact | multiple_ga4_candidates,low_score_gap,weak_time_gap,same_amount_many_orders |
+| 202604238847032 | 2026-04-23 00:36:20 | 21,300원 | 65 | 7 | 6903.58 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604230317351 | 2026-04-23 07:28:15 | 67,000원 | 65 | 0 | 611.52 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604235490820 | 2026-04-23 08:26:00 | 39,500원 | 58 | 10 | 8943.42 | shipping_reconciled | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604236923481 | 2026-04-23 10:35:55 | 43,600원 | 67 | 10 | 1.52 | none | stop_historical_recovery | amount_or_product_evidence_is_too_weak | N |
+| 202604233541810 | 2026-04-23 10:39:10 | 42,000원 | 100 | 0 | 1.15 | final_exact | needs_naver_api_crosscheck | close_reconciled_candidate_exists_but_score_gap_is_below_auto_threshold | N |
+| 202604239700298 | 2026-04-23 11:20:55 | 36,500원 | 61 | 0 | 97.68 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604240876153 | 2026-04-24 09:27:00 | 39,500원 | 58 | 0 | 696.2 | shipping_reconciled | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604253838986 | 2026-04-25 19:14:45 | 22,300원 | 68 | 3 | 13.45 | shipping_reconciled | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604251942923 | 2026-04-25 22:03:50 | 31,500원 | 41 | 0 | 4.63 | none | stop_historical_recovery | amount_or_product_evidence_is_too_weak | N |
+| 202604256430237 | 2026-04-25 22:12:05 | 48,500원 | 96 | 10 | 1.57 | final_exact | needs_naver_api_crosscheck | close_reconciled_candidate_exists_but_score_gap_is_below_auto_threshold | N |
+| 202604263784181 | 2026-04-26 20:40:05 | 21,300원 | 65 | 7 | 1379.83 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604278529848 | 2026-04-27 06:26:20 | 36,500원 | 61 | 0 | 437.13 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604279056292 | 2026-04-27 06:38:50 | 44,400원 | 50 | 0 | 1776.4 | near_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604271236090 | 2026-04-27 07:21:00 | 36,500원 | 61 | 0 | 382.47 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604273135107 | 2026-04-27 12:01:15 | 36,500원 | 68 | 0 | 22.63 | shipping_reconciled | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604274893843 | 2026-04-27 13:09:15 | 36,500원 | 71 | 3 | 34.22 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604272281898 | 2026-04-27 16:30:30 | 36,500원 | 61 | 0 | 167.03 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604273604765 | 2026-04-27 18:07:25 | 21,300원 | 65 | 7 | 92.5 | final_exact | expected_synthetic_gap | same_amount_or_low_score_gap_requires_future_intent_key | N |
+| 202604274520883 | 2026-04-27 18:40:25 | 43,600원 | 30 | 0 | 1054.82 | near_exact | stop_historical_recovery | amount_or_product_evidence_is_too_weak | N |
+| 202604279308580 | 2026-04-27 19:43:50 | 21,300원 | 90 | 7 | 3.92 | final_exact | manual_review_only | strong_candidate_exists_but_competing_ga4_candidate_keeps_low_score_gap | N |
 
 ## Unassigned GA4 Top 20
 

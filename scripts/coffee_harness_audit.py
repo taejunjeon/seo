@@ -47,6 +47,11 @@ WRITE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+NO_SEND_DECLARATION = re.compile(
+    r":\s*(false|null|undefined|0)\b|=\s*(false|null|undefined|0)\b",
+    re.IGNORECASE,
+)
+
 
 def run(args: list[str], *, check: bool = False) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -95,8 +100,14 @@ def scan_patterns(paths: list[str], pattern: re.Pattern[str]) -> list[str]:
         except OSError:
             continue
         for lineno, line in enumerate(text.splitlines(), start=1):
-            if pattern.search(line):
-                matches.append(f"{rel}:{lineno}: {line.strip()[:180]}")
+            if not pattern.search(line):
+                continue
+            stripped = line.strip()
+            if stripped.startswith(("//", "#", "*")):
+                continue
+            if NO_SEND_DECLARATION.search(line):
+                continue
+            matches.append(f"{rel}:{lineno}: {stripped[:180]}")
     return matches
 
 

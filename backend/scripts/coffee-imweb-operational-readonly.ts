@@ -586,6 +586,97 @@ const matchGrade = (candidate: {
   return "ambiguous";
 };
 
+const isReconciledAmountType = (value: AmountMatchType | null | undefined) =>
+  ["final_exact", "shipping_reconciled", "discount_reconciled", "item_exact"].includes(value ?? "");
+
+const classifyUnassignedActualRecovery = (input: {
+  assignmentDiagnosis: string;
+  bestScore: number;
+  bestTimeGapBucket: string;
+  bestAmountMatchType: AmountMatchType | null;
+}) => {
+  if (
+    input.bestScore >= 70 &&
+    ["within_2m", "within_10m"].includes(input.bestTimeGapBucket) &&
+    isReconciledAmountType(input.bestAmountMatchType)
+  ) {
+    return {
+      label: "needs_naver_api_crosscheck",
+      reason: "close_reconciled_candidate_but_ga4_synthetic_key_is_not_enough",
+    };
+  }
+
+  if (
+    input.bestScore < 50 ||
+    input.bestAmountMatchType === "none" ||
+    input.bestAmountMatchType === "near_exact" ||
+    input.bestTimeGapBucket === "over_24h"
+  ) {
+    return {
+      label: "stop_historical_recovery",
+      reason: "historical_candidate_too_weak_for_recovery_send",
+    };
+  }
+
+  if (input.assignmentDiagnosis === "best_ga4_candidate_already_assigned_to_stronger_order") {
+    return {
+      label: "manual_review_only",
+      reason: "best_ga4_event_is_already_used_by_a_stronger_order",
+    };
+  }
+
+  return {
+    label: "expected_synthetic_gap",
+    reason: "ga4_npay_transaction_id_is_synthetic_and_order_level_key_is_missing",
+  };
+};
+
+const classifyAmbiguousRescore = (input: {
+  bestScore: number;
+  scoreGap: number;
+  bestTimeGapMinutes: number | null;
+  bestAmountMatchType: AmountMatchType | null;
+  ambiguousReasons: string[];
+}) => {
+  const timeGap = input.bestTimeGapMinutes ?? Number.POSITIVE_INFINITY;
+  const amountOk = isReconciledAmountType(input.bestAmountMatchType);
+
+  if (input.bestScore >= 70 && timeGap <= 2 && amountOk) {
+    return {
+      label: "needs_naver_api_crosscheck",
+      canReduceWithoutNewData: false,
+      reason: "close_reconciled_candidate_exists_but_score_gap_is_below_auto_threshold",
+    };
+  }
+
+  if (input.bestScore >= 90 && timeGap <= 5 && amountOk) {
+    return {
+      label: "manual_review_only",
+      canReduceWithoutNewData: false,
+      reason: "strong_candidate_exists_but_competing_ga4_candidate_keeps_low_score_gap",
+    };
+  }
+
+  if (
+    input.bestScore < 50 ||
+    input.bestAmountMatchType === "none" ||
+    input.ambiguousReasons.includes("amount_not_reconciled") ||
+    input.ambiguousReasons.includes("no_product_evidence")
+  ) {
+    return {
+      label: "stop_historical_recovery",
+      canReduceWithoutNewData: false,
+      reason: "amount_or_product_evidence_is_too_weak",
+    };
+  }
+
+  return {
+    label: "expected_synthetic_gap",
+    canReduceWithoutNewData: false,
+    reason: "same_amount_or_low_score_gap_requires_future_intent_key",
+  };
+};
+
 const buildNpayActualGa4Candidates = (
   imwebNpayOrders: ImwebOrder[],
   ga4NpayPurchases: Ga4Purchase[],
@@ -664,6 +755,19 @@ const buildNpayActualGa4Candidates = (
         : best.score >= 65 && scoreGap >= 15
           ? "probable_match"
           : "ambiguous";
+    const ambiguousRescore = status === "ambiguous"
+      ? classifyAmbiguousRescore({
+          bestScore: best?.score ?? 0,
+          scoreGap,
+          bestTimeGapMinutes: best?.timeGapMinutes ?? null,
+          bestAmountMatchType: best?.amountMatchType ?? null,
+          ambiguousReasons,
+        })
+      : {
+          label: "not_ambiguous",
+          canReduceWithoutNewData: false,
+          reason: "not_in_ambiguous_bucket",
+        };
 
     return {
       orderNo: order.orderNo,
@@ -682,6 +786,9 @@ const buildNpayActualGa4Candidates = (
       bestAmountMatchType: best?.amountMatchType ?? null,
       bestAmountReconcileReason: best?.amountReconcileReason ?? null,
       ambiguousReasons: status === "ambiguous" || status === "actual_without_ga4_candidate" ? ambiguousReasons : [],
+      ambiguousRescoreLabel: ambiguousRescore.label,
+      ambiguousRescoreReason: ambiguousRescore.reason,
+      ambiguousCanReduceWithoutNewData: ambiguousRescore.canReduceWithoutNewData,
       candidates,
     };
   });
@@ -744,9 +851,15 @@ const buildNpayActualGa4Candidates = (
         ? "no_ga4_candidate_above_threshold"
         : bestCandidate.score < 65
           ? "best_candidate_score_below_assignment_threshold"
-          : assignedToBestTx
+            : assignedToBestTx
             ? "best_ga4_candidate_already_assigned_to_stronger_order"
             : "not_selected_by_one_to_one_assignment";
+      const recovery = classifyUnassignedActualRecovery({
+        assignmentDiagnosis,
+        bestScore: decision.bestScore,
+        bestTimeGapBucket: timeGapBucket(decision.bestTimeGapMinutes),
+        bestAmountMatchType: decision.bestAmountMatchType,
+      });
       return {
         orderNo: decision.orderNo,
         channelOrderNo: decision.channelOrderNo,
@@ -759,6 +872,9 @@ const buildNpayActualGa4Candidates = (
         bestTimeGapBucket: timeGapBucket(decision.bestTimeGapMinutes),
         bestAmountMatchType: decision.bestAmountMatchType,
         assignmentDiagnosis,
+        historicalRecoveryLabel: recovery.label,
+        historicalRecoveryReason: recovery.reason,
+        sendCandidate: "N",
         assignedBestTransactionToOrderNo: assignedToBestTx?.orderNo ?? "",
         ambiguousReasons: decision.ambiguousReasons.length > 0 ? decision.ambiguousReasons : [assignmentDiagnosis],
       };
@@ -861,9 +977,14 @@ const buildNpayActualGa4Candidates = (
       oneToOneUnassignedGa4: unassignedGa4Purchases.length,
       oneToOneMatchGradeSummary: countBy(oneToOneAssignments, (candidate) => candidate.matchGrade),
       unassignedActualReasonSummary: countBy(unassignedActualOrders, (order) => order.assignmentDiagnosis),
+      unassignedActualHistoricalRecoverySummary: countBy(unassignedActualOrders, (order) => order.historicalRecoveryLabel),
       unassignedActualTimeGapBucketSummary: countBy(unassignedActualOrders, (order) => order.bestTimeGapBucket),
       unassignedGa4ReasonSummary: countBy(unassignedGa4Purchases, (purchase) => purchase.assignmentDiagnosis),
       unassignedGa4TimeGapBucketSummary: countBy(unassignedGa4Purchases, (purchase) => purchase.bestTimeGapBucket),
+      ambiguousRescoreSummary: countBy(
+        decisions.filter((decision) => decision.status === "ambiguous"),
+        (decision) => decision.ambiguousRescoreLabel,
+      ),
     },
     oneToOneResidualSummary: {
       assignedCount: oneToOneAssignments.length,
@@ -995,6 +1116,13 @@ const renderMarkdown = (payload: Record<string, any>) => {
       Object.entries(n.summary.unassignedActualReasonSummary).map(([key, value]) => [key, value]),
     ),
     "",
+    "## Unassigned Actual Historical Recovery Label Summary",
+    "",
+    markdownTable(
+      ["label", "count"],
+      Object.entries(n.summary.unassignedActualHistoricalRecoverySummary).map(([key, value]) => [key, value]),
+    ),
+    "",
     "## Unassigned Actual Time Gap Summary",
     "",
     markdownTable(
@@ -1009,21 +1137,47 @@ const renderMarkdown = (payload: Record<string, any>) => {
       Object.entries(n.summary.unassignedGa4ReasonSummary).map(([key, value]) => [key, value]),
     ),
     "",
+    "## Ambiguous Rescore Summary",
+    "",
+    markdownTable(
+      ["label", "count"],
+      Object.entries(n.summary.ambiguousRescoreSummary).map(([key, value]) => [key, value]),
+    ),
+    "",
     "## Review Orders Top 20",
     "",
     markdownTable(
-      ["order_number", "channel_order_no", "paid_at", "amount", "diagnosis", "best_score", "best_tx", "best_gap", "amount_type", "reasons"],
+      ["order_number", "channel_order_no", "paid_at", "amount", "recovery_label", "diagnosis", "best_score", "best_tx", "best_gap", "amount_type", "reasons"],
       n.unassignedActualOrders.slice(0, 20).map((row: Record<string, any>) => [
         row.orderNo,
         row.channelOrderNo,
         row.paidAtKst,
         formatWon(row.paymentAmount),
+        row.historicalRecoveryLabel,
         row.assignmentDiagnosis,
         row.bestScore,
         row.bestTransactionId,
         row.bestTimeGapBucket,
         row.bestAmountMatchType,
         (row.ambiguousReasons ?? []).join(","),
+      ]),
+    ),
+    "",
+    "## Ambiguous Rescore Top 20",
+    "",
+    markdownTable(
+      ["order_number", "paid_at", "amount", "best_score", "score_gap", "time_gap", "amount_type", "rescore_label", "rescore_reason", "can_reduce_without_new_data"],
+      n.needsReviewOrders.slice(0, 20).map((row: Record<string, any>) => [
+        row.orderNo,
+        row.paidAtKst,
+        formatWon(row.paymentAmount),
+        row.bestScore,
+        row.scoreGap,
+        row.bestTimeGapMinutes,
+        row.bestAmountMatchType,
+        row.ambiguousRescoreLabel,
+        row.ambiguousRescoreReason,
+        row.ambiguousCanReduceWithoutNewData ? "Y" : "N",
       ]),
     ),
     "",
