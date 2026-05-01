@@ -48,7 +48,12 @@ WRITE_PATTERNS = re.compile(
 )
 
 NO_SEND_DECLARATION = re.compile(
-    r":\s*(false|null|undefined|0)\b|=\s*(false|null|undefined|0)\b",
+    r":\s*(false|null|undefined|0)\b"
+    r"|=\s*(false|null|undefined|0)\b"
+    r"|\b0\s*건\b"
+    r"|no-send|noSend|no_send"
+    r"|호출\s*0건|송출\s*0건|미수행"
+    r"|read[_-]?only",
     re.IGNORECASE,
 )
 

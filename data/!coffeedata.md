@@ -17,7 +17,7 @@ Confidence: 90%
 | 1 | [[#Phase2-Sprint4]] | 완료 | Codex | 더클린커피 GA4 BigQuery 기준선을 최신 7일로 뽑는다 | coffee는 BigQuery 접근 가능하므로 GA4 purchase/raw event를 정본 guard로 쓸 수 있는지 먼저 확인해야 한다 | `coffee-ga4-baseline.ts`로 `events_20260423`~`events_20260429` purchase, transaction_id, item, page, source를 집계했다 | [[#Phase2-Sprint4]] / [[coffee-ga4-baseline-20260501]] | NO, read-only |
 | 2 | [[#Phase2-Sprint4]] | 완료 | Codex | GA4 purchase transaction_id와 운영/아임웹 주문 원장 후보를 read-only로 대조한다 | GA4가 실제 주문을 얼마나 반영하는지 알아야 NPay/ROAS 복구 필요성을 판단할 수 있다 | `tb_sales_toss store=coffee`, Imweb v2 API, PlayAuto `아임웹-C`를 대조했다 | [[#Phase2-Sprint4]] / [[coffee-imweb-operational-readonly-20260501]] | NO, read-only |
 | 3 | [[#Phase2-Sprint5]] | 완료 | Codex | coffee용 NPay dry-run 리포트 스펙을 만든다 | biocom에서 만든 `intent -> confirmed order -> BigQuery guard` 구조를 커피에도 재사용할 수 있다 | `order_number`, `channel_order_no`, `amount_match_type`, `already_in_ga4`, `match_grade`, `send_candidate=N` 컬럼을 고정했다 | [[#Phase2-Sprint5]] / [[coffee-dry-run-schema]] | NO, 문서/코드 초안 |
-| 4 | [[#Phase2-Sprint5]] | 대기 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 아임웹/호스팅사 사용 가맹점은 주문관리/정산 API가 제한될 수 있어 공식 답변이 필요하다 | [[naver/npay-api-mcp-review-20260501]]의 문의 문구로 네이버 기술지원에 주문형 API 가능 여부를 확인한다 | [[#Phase2-Sprint5]] / [[naver/npay-api-mcp-review-20260501]] | YES, 외부 계정 작업 |
+| 4 | [[#Phase2-Sprint5]] | 부분 진행 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 아임웹/호스팅사 사용 가맹점은 주문관리/정산 API가 제한될 수 있어 공식 답변이 필요하다 | Sandbox 키는 이미 발급 완료(`.env` 256~260행, store_id `np_crwvw070945`). 다음 액션은 `dl_techsupport@navercorp.com` 에 "아임웹 입점 가맹점도 Production 발급 가능한가" 메일 1통. 효용 추정은 47건 중 6건(≈13%)이므로 우선순위 낮음 — 자세히는 [[#네이버 주문관리 API 필요성 판단]] | [[#Phase2-Sprint5]] / [[#네이버 주문관리 API 필요성 판단]] / [[naver/npay-api-mcp-review-20260501]] | YES, 메일 1통 |
 | 5 | [[#Phase2-Sprint5]] | 완료 | Codex | GA4의 NPay처럼 보이는 구매 이벤트 58건과 아임웹 NPay 실제 주문 60건을 주문별로 맞춰 본다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 아직 확정되지 않았기 때문이다 | one-to-one 배정 42건, unassigned actual 18건(`expected_synthetic_gap` 8 / `stop_historical_recovery` 6 / `manual_review_only` 3 / `needs_naver_api_crosscheck` 1), ambiguous 29건 재점수(`expected_synthetic_gap` 19 / `needs_naver_api_crosscheck` 5 / `stop_historical_recovery` 3 / `manual_review_only` 2)까지 라벨링했다. 36/36 `robust_absent` 확인 | [[#Phase2-Sprint5]] / [[coffee-imweb-operational-readonly-20260501]] / [[coffee-npay-unassigned-ga4-guard-20260501]] | NO, read-only |
 | 6 | [[#Phase1-Sprint3]] | 완료 | Codex | 2024/2025 더클린커피 주문/결제 엑셀을 정합성 원장 후보로 검증한다 | 커피는 PG/Toss보다 엑셀의 비마스킹 phone/이메일/배송/결제수단 정보 가치가 크다 | `coffee-excel-import-dry-run.ts`로 2025 주문/결제 join 11,018/11,018과 2024 join 1,987/1,987을 확인했다 | [[#Phase1-Sprint3]] / [[coffee-excel-import-dry-run-20260501]] | NO, dry-run only |
 | 7 | [[#Phase1-Sprint3]] | 완료 | Codex | 더클린커피 주문/결제 엑셀 위치를 확인하고 인벤토리로 고정한다 | 이미 받은 엑셀을 다시 요청하면 작업이 꼬이고, stale/중복 파일을 정본으로 쓸 수 있다 | `data/coffee/coffee_orders_2024.xlsx`, `coffee_payments_2024.xlsx`, `coffee_orders_2025.xlsx`, `coffee_payments_2025.xlsx`가 실제 데이터 파일임을 확인했다. 2023 파일은 헤더-only다 | [[#Phase1-Sprint3]] / [[!data_inventory]] | NO |
@@ -113,6 +113,106 @@ Auditor verdict: `PASS_WITH_NOTES`. 이번 작업은 BigQuery/운영 Postgres re
 | Imweb API로 NPay actual order 확인이 가능한가 | YES | 89% | `type=npay`가 60건/2,462,300원을 반환했고 `channel_order_no`가 60/60 채워짐 |
 | 지금 GA4/Meta/TikTok purchase 복구를 열까 | NO | 96% | actual order 확인은 가능하지만 과거 GA4 NPay 주문별 매칭이 ambiguous 29건이라 전송 금지 |
 | 더클린커피가 biocom 문제 해결에 힌트를 줄 수 있나 | YES | 88% | 같은 GA4 export schema, 같은 아임웹/NPay 계열이면 BigQuery 쿼리와 매칭 규칙을 먼저 검증 가능 |
+
+## GA4 NPay synthetic transaction_id 한계
+
+NPay 매칭이 닫히지 않는 핵심 원인은 네이버 API 부재가 아니라 **GA4 의 NPay 형 purchase 이벤트 transaction_id 가 합성 키(synthetic id)** 라는 사실이다. 이걸 분리해서 봐야 한다.
+
+### 무엇이 합성인가
+
+| 시스템 | 주문번호 형태 | 예시 | 의미 |
+|---|---|---|---|
+| Imweb 측 order_no | 15자리 timestamp 기반 | `202604238847032` | 아임웹 내부 주문번호 (primary key) |
+| NPay 측 channel_order_no | 16자리 timestamp 기반 | `2026042322051380` | NPay 측 외부 주문번호 (Imweb 가 받아 저장) |
+| GA4 events 의 NPay 형 transaction_id | `NPAY - YYYYMMDDH - epoch_ms` | `NPAY - 202603127 - 1777286395026` | **위 두 키 어느 것과도 일치하지 않는 합성 키** |
+
+GA4 의 `NPAY - 202603127 - 1777286395026` 같은 transaction_id 는 imweb GTM 코드(또는 NPay 결제 후 콜백) 가 만들어낸 합성 문자열이다. NPay 측이 부여한 실제 주문번호도 아니고, Imweb 측 order_no 도 아니다. 따라서 GA4 raw event 어디에도 실제 주문번호가 들어 있지 않다.
+
+### Robust guard 가 36/36 absent 인 의미
+
+Imweb order_no 18개 + NPay channel_order_no 18개 = 36개를 GA4 raw event 전체(`event_params` 모든 키 포함)에 substring 으로 검색해도 매칭 0건이다. 자세히는 [[coffee-npay-unassigned-ga4-guard-20260501]]. 이건 GA4 export 가 빠졌다는 뜻이 아니라 **실제 주문번호가 GA4 event 안에 어떤 형태로도 들어가지 않는다** 는 뜻이다.
+
+### 그래서 매칭이 약하다
+
+deterministic key 가 부재하므로 GA4 event 와 Imweb actual order 를 잇는 방법은 다음 휴리스틱뿐이다.
+
+1. 결제 시각 근접도 (time gap)
+2. 금액 일치 (`final_exact`, `shipping_reconciled` 등)
+3. 상품명 overlap
+
+이 휴리스틱이 약한 47건이 unassigned actual 18건 + ambiguous 29건이고, 분류 결과는 `expected_synthetic_gap` 27 / `stop_historical_recovery` 9 / `manual_review_only` 5 / `needs_naver_api_crosscheck` 6 이다.
+
+### 네이버 API 가 와도 이 한계는 그대로다
+
+네이버 주문관리 API 는 NPay 측 actual order 정보(주문번호, 상품, 금액, 정산, 환불 일자)를 직접 준다. 그러나 GA4 에 들어 있는 `NPAY - 202603127 - 1777286395026` 같은 합성 키와 NPay actual order_id 사이의 **mapping 테이블이 어디에도 없다**. 두 시스템이 서로의 식별자를 모른다.
+
+따라서 네이버 API 가 와도 휴리스틱 매칭의 정확도가 약간 올라가는 정도이지, 합성 키 한계가 사라지지 않는다. `needs_naver_api_crosscheck` 6건만 직접 효용이 있다. ≈ 13%.
+
+### 미래분 intent beacon 이 본질 해법인 이유
+
+미래분은 사이트 자체에서 NPay 버튼 클릭 시점에 deterministic `intent_uuid` 를 발급해 GA4 event 와 confirmed order 양쪽에 같은 키를 박을 수 있다. 자세히는 [[coffee-npay-intent-beacon-preview-design-20260501]]. 즉 GA4 synthetic 의존을 끊고 우리가 만든 키로 매칭한다.
+
+요약: **과거분은 합성 키 때문에 자동 매칭이 약한 상태로 close 한다. 미래분은 intent beacon 으로 deterministic key 를 새로 박아서 닫는다. 네이버 API 는 둘 어느 쪽의 핵심 차단 사유도 아니다.**
+
+## 네이버 주문관리 API 필요성 판단
+
+### 결론
+
+현재 단계에서는 PASS. 단, "아임웹 입점 가맹점도 발급 가능한가" 는 메일 1통으로 확인해 두면 좋다.
+
+### 발급 상황
+
+| 단계 | 상태 |
+|---|---|
+| Sandbox 애플리케이션 | **발급 완료** (2026-05 시점). 키는 `.env` 256~260 행 (`npay_coffee_store_id`, `npay_coffee_clientid`, `npay_coffee_clientsecret`, `npay_coffee_chainid`, store_id `np_crwvw070945`) |
+| Sandbox API 연동 | 미진행 |
+| Sandbox 검수 요청 | 미진행 |
+| Production 발급 | 미진행 |
+| 호스팅사 입점 가맹점 가능 여부 | 미확인 — 가이드에 "제휴 호스팅사 입점 주문형 가맹점은 연동 불가" 명시되어 있어 발급 자체가 거절될 가능성 큼 |
+
+### 직접 효용 추정
+
+| 라벨 | 건수 | 네이버 API 효용 |
+|---|---:|---|
+| `expected_synthetic_gap` | 27 | 0 — synthetic key 한계라 어차피 못 닫음 |
+| `needs_naver_api_crosscheck` | **6** | **있음** |
+| `stop_historical_recovery` | 9 | 0 — 데이터 자체가 약함 |
+| `manual_review_only` | 5 | 0 — 같은 GA4 후보를 더 강한 주문이 가져감 |
+
+→ 네이버 API 가 실제로 닫아 줄 수 있는 건 **6건 / 47건 ≈ 13%**.
+
+### 아임웹 API 가 이미 커버하는 것
+
+| 필요 데이터 | 아임웹 API |
+|---|---|
+| NPay actual order 60건 / 2,462,300원 | ✅ `type=npay` |
+| `channel_order_no` 60/60 | ✅ |
+| 결제 후 환불 318건 (paid_then_fully_refunded) | ✅ payments 엑셀 + `결제`/`환불` row, [[coffee-excel-payment-mismatch-2025-20260501]] |
+| 결제대기/입금전 취소/결제기한초과 79건 | ✅ payments xlsx `결제상태` |
+| GA4 raw event guard | ✅ BigQuery, [[coffee-npay-unassigned-ga4-guard-20260501]] |
+| 정산 amount / 수수료 / 환불 일자 정밀도 | ❌ 네이버 API 영역 — 단, 현재 ROAS 정합성 단계에는 불요 |
+
+### 호스팅사 입점 제약
+
+네이버 가이드 명시:
+
+> 제휴 호스팅사 통해 입점한 주문형 가맹점, 예약 가맹점은 주문관리/정산 API 연동이 불가합니다.
+
+더클린커피는 아임웹 입점이므로 발급 시도 끝에 거절될 수도 있다. Sandbox 까지는 이미 받았으니 검수와 Production 발급 시 막힐 가능성이 높다.
+
+### 권장 행동
+
+| 순서 | 행동 | 비용 | 산출물 |
+|---|---|---|---|
+| 1 | TJ 가 `dl_techsupport@navercorp.com` 에 "아임웹 입점 가맹점도 주문관리/정산 API Production 발급 가능 여부" 메일 1통 | 5분 | 가능 / 불가 공식 답변 |
+| 2-A | 답이 "불가" → naver/npay-api-mcp-review 문서에 영구 종결 표기. future intent beacon 트랙으로 100% 전환 | 0 | 트랙 종결 |
+| 2-B | 답이 "가능" → Sandbox API 연동을 needs_naver_api_crosscheck 6건 cross-check 용으로만 시도. Production 검수는 future intent 결과 본 뒤 결정 | Sandbox 연동 0.5~1일 | 6건 cross-check 결과 |
+
+지금 Codex 가 추가 작업을 시작하기 전에 1번 메일 답이 먼저다. Sandbox 키는 이미 .env 에 있으므로 답이 "가능" 이면 바로 연동 단계로 들어갈 수 있고, "불가" 면 과거분 매칭 트랙은 close 하고 future intent 로 100% 전환한다.
+
+### 우선순위 결정
+
+지금 차단되어 있는 건 네이버 API 가 아니라 GA4 NPay synthetic transaction_id 자체다. 따라서 네이버 API 발급/연동을 기다리지 말고 future intent beacon (Phase3-Sprint6) 과 ROAS read-only 비교 (Phase3-Sprint7) 를 진행하는 것이 정합도 측면에서 더 빠르다.
 
 ## Phase-Sprint 요약표
 
