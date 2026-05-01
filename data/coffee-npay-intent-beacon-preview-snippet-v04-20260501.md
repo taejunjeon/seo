@@ -665,6 +665,153 @@ v0.4 snippet + v0.5 보강 둘 다 install 한 상태에서 PC NPay click → �
 
 캡처 결과의 `imweb_order_code` 가 `o<YYYYMMDD>` 형식이면 (A++) imweb orderCode 트랙 확정. 그 값을 backend SQL `SELECT * FROM imweb_orders WHERE order_code = '<value>'` 로 정찰하면 결제 완료 후 1:1 매핑되는지 즉시 검증 가능.
 
+## v0.6 보강 — GA4 NPay synthetic transaction_id capture (preview only)
+
+### 배경
+
+v0.5 검증 중 console 에 imweb 이 띄운 줄 `NPAY - 202604101 - 1777642253241` 발견. 이는 **imweb 이 GA4 dataLayer 에 push 한 NPay synthetic transaction_id** 이고 형식 `NPAY - <imweb 자체 ID 9자리> - <Date.now() ms>`. 같은 형식이 이미 GA4 BigQuery `events_*.ecommerce.transaction_id` 에 다수 존재 ([[coffee-imweb-operational-readonly-20260501]] unassigned actual recovery 분석의 robust_absent 36/36 의 진짜 매칭 키).
+
+v0.6 보강은 confirm_to_pay 시점 후 retry 로 `window.dataLayer` 안 NPay synthetic id 를 capture 해 buffer 의 같은 entry 에 `ga4_synthetic_transaction_id` 필드로 박는다. 이로써 (A++) imweb_order_code 매핑 + GA4 BigQuery transaction_id 매핑 두 채널 동시 확보.
+
+### v0.6 추가 helper (v0.5 위에 1회 install)
+
+```javascript
+/* CoffeeNpayIntentPreview v0.6 보강 — GA4 NPay synthetic transaction_id capture (preview only) */
+;(() => {
+  if (window.__coffeeNpayIntentPreviewV06Installed) return console.log("v0.6 already installed");
+  window.__coffeeNpayIntentPreviewV06Installed = true;
+
+  var BUFFER_KEY = "coffee_npay_intent_preview";
+  var LOG_PREFIX = "[coffee_npay_intent_preview_v06]";
+  var RETRY_DELAYS_MS = [100, 500, 1500, 3000];
+  var SYNTHETIC_TX_PATTERN = /^NPAY\s*-\s*\d+\s*-\s*\d{10,}$/;
+
+  function readBuffer() {
+    try { return JSON.parse(sessionStorage.getItem(BUFFER_KEY) || "[]"); }
+    catch (e) { return []; }
+  }
+  function writeBuffer(buf) {
+    try { sessionStorage.setItem(BUFFER_KEY, JSON.stringify(buf)); } catch (e) {}
+  }
+
+  // dataLayer 의 모든 entry 안 transaction_id 후보 검사 (ecommerce.transaction_id, transaction_id, ecommerce.purchase.actionField.id 등)
+  function findSyntheticTxInDataLayer(beforeLength) {
+    try {
+      if (!Array.isArray(window.dataLayer)) return null;
+      // beforeLength 이후 새로 push 된 항목만 우선 검사
+      var startIdx = typeof beforeLength === "number" ? beforeLength : 0;
+      for (var i = window.dataLayer.length - 1; i >= startIdx; i--) {
+        var item = window.dataLayer[i];
+        if (!item || typeof item !== "object") continue;
+        var candidates = [];
+        candidates.push(item.transaction_id);
+        if (item.ecommerce && typeof item.ecommerce === "object") {
+          candidates.push(item.ecommerce.transaction_id);
+          candidates.push(item.ecommerce.transactionId);
+          if (item.ecommerce.purchase && typeof item.ecommerce.purchase === "object") {
+            var af = item.ecommerce.purchase.actionField;
+            if (af && typeof af === "object") candidates.push(af.id);
+          }
+        }
+        for (var j = 0; j < candidates.length; j++) {
+          var v = candidates[j];
+          if (typeof v === "string" && SYNTHETIC_TX_PATTERN.test(v)) {
+            return {
+              source: "dataLayer[" + i + "]",
+              tx_id: v,
+              dl_event: typeof item.event === "string" ? item.event : null
+            };
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  var sd = window.SITE_SHOP_DETAIL;
+  if (sd && typeof sd.confirmOrderWithCartItems === "function") {
+    var _orig = sd.confirmOrderWithCartItems;
+    sd.confirmOrderWithCartItems = function (kind /*, backurl, params */) {
+      var beforeDlLen = Array.isArray(window.dataLayer) ? window.dataLayer.length : 0;
+      try {
+        if (kind === "npay") {
+          RETRY_DELAYS_MS.forEach(function (delay) {
+            setTimeout(function () {
+              var hit = findSyntheticTxInDataLayer(beforeDlLen);
+              if (!hit) return;
+              try {
+                var buf = readBuffer();
+                if (!buf.length) return;
+                var last = buf[buf.length - 1];
+                if (last.intent_phase !== "confirm_to_pay") return;
+                if (last.ga4_synthetic_transaction_id) return; // already captured
+                last.ga4_synthetic_transaction_id = hit.tx_id;
+                last.ga4_synthetic_transaction_id_source = hit.source;
+                last.ga4_synthetic_transaction_id_dl_event = hit.dl_event;
+                last.ga4_synthetic_transaction_id_capture_delay_ms = delay;
+                buf[buf.length - 1] = last;
+                writeBuffer(buf);
+                console.log(LOG_PREFIX, "captured synthetic_tx @" + delay + "ms", hit);
+              } catch (e) { console.warn(LOG_PREFIX, "capture err", e && e.message); }
+            }, delay);
+          });
+        }
+      } catch (e) { console.warn(LOG_PREFIX, "wrap err", e && e.message); }
+      return _orig.apply(this, arguments);
+    };
+  }
+  console.log(LOG_PREFIX, "v0.6 retry capture installed (4 retries: 100ms, 500ms, 1500ms, 3000ms)");
+})()
+```
+
+### v0.6 동작 명세
+
+| 항목 | 값 |
+|---|---|
+| 추가 sessionStorage 키 | 0 (v0.4 buffer 안 last entry 에만 필드 추가) |
+| fetch / sendBeacon / XHR / gtag / fbq / backend API 호출 | 0 |
+| funnel-capi / dataLayer 코드 수정 | 0 (read-only, push 가로채지 않음) |
+| 원본 결제 함수 동작 변경 | 0 (`apply` 위임) |
+| 이중 wrap 가드 | `window.__coffeeNpayIntentPreviewV06Installed` |
+| retry 시점 | confirm_to_pay 직후 100/500/1500/**3000** ms 4회 (synthetic tx 발화 시점이 v0.5 의 InitiateCheckout 보다 늦을 수 있어 3000ms 추가) |
+| 추가 payload 필드 | `ga4_synthetic_transaction_id`, `ga4_synthetic_transaction_id_source`, `ga4_synthetic_transaction_id_dl_event`, `ga4_synthetic_transaction_id_capture_delay_ms` |
+
+### v0.6 검증 명령
+
+v0.4 + v0.5 + v0.6 모두 install 한 상태에서 PC NPay click → 즉시 ESC. 그 후:
+
+```javascript
+;(() => {
+  var buf = JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]");
+  var last = buf.slice(-1)[0] || null;
+  var result = {
+    bufferLength: buf.length,
+    intent_phase: last && last.intent_phase,
+    intent_uuid: last && last.intent_uuid,
+    imweb_order_code: last && last.imweb_order_code,
+    imweb_order_code_capture_delay_ms: last && last.imweb_order_code_capture_delay_ms,
+    ga4_synthetic_transaction_id: last && last.ga4_synthetic_transaction_id,
+    ga4_synthetic_transaction_id_source: last && last.ga4_synthetic_transaction_id_source,
+    ga4_synthetic_transaction_id_dl_event: last && last.ga4_synthetic_transaction_id_dl_event,
+    ga4_synthetic_transaction_id_capture_delay_ms: last && last.ga4_synthetic_transaction_id_capture_delay_ms,
+    funnel_capi_session_id: last && last.funnel_capi_session_id
+  };
+  console.log("[v06_check json]\n" + JSON.stringify(result, null, 2));
+  return result;
+})()
+```
+
+### 기대 결과 분기
+
+| `ga4_synthetic_transaction_id` | 해석 |
+|---|---|
+| `"NPAY - <9자리> - <13자리 ms>"` 형식 | (A++) + GA4 deterministic 매핑 트랙 둘 다 확정. backend ledger 와 BigQuery `transaction_id` 1:1 join 가능 |
+| `null` 또는 `undefined` | imweb 이 dataLayer 에 push 안 했거나 4회 retry 시점 이후 push. (a) 다른 위치 (window 변수, sessionStorage, custom event) capture 시도, (b) dataLayer push 시점이 결제 완료 페이지 (`/shop_order_done`) 에서만 발생할 가능성 — 그 경우 별도 capture 단계 필요 |
+
+### 주의
+
+v0.6 는 `window.dataLayer` 를 read 만 한다. push 자체를 가로채지 않으므로 GTM tag / GA4 e-commerce 동작 변경 0. 단 capture 가 안 되면 `confirmOrderWithCartItems` 호출과 imweb dataLayer push 사이의 타이밍이 실제로 어떻게 되는지 별도 정찰 필요 (예: 결제 완료 페이지에서만 push 되는 케이스). 그 경우 v0.7 에서 결제 완료 페이지용 capture 추가 가능.
+
 ## 종료 / cleanup
 
 ```javascript

@@ -1,5 +1,9 @@
 import { type Request, type Response, Router } from "express";
 
+import {
+  getCoffeeNpayIntentLogStats,
+  runDryRun as runCoffeeNpayIntentDryRun,
+} from "../coffeeNpayIntentLog";
 import { getSubscriberTrackStats, syncSubscriberTracks } from "../subscriberTrackSync";
 import {
   TEMPLATES,
@@ -103,6 +107,50 @@ export const createCoffeeRouter = () => {
       res.json({ ok: true, ...getNotificationStats() });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : "query failed" });
+    }
+  });
+
+  /**
+   * NPay intent beacon dry-run intake (preview snippet v0.4 + v0.5 의 buffer 를
+   * backend 로 forward 할 때 사용).
+   *
+   * 본 endpoint 는 **dry-run only**:
+   *   - schema 는 CREATE TABLE IF NOT EXISTS 로 미리 만든다 (coffee_npay_intent_log)
+   *   - payload 검증 + ledger row preview 만 응답
+   *   - 실제 INSERT 는 enforce mode 가 켜진 뒤 (별도 phase) 에만 실행
+   *
+   * 가드:
+   *   - PII 키 (phone/email/name/address/option 원문) 가 payload 에 있으면 reject
+   *   - external API 호출 / GA4 / Meta CAPI / TikTok / Google Ads 송출 0건
+   *   - local SQLite write 도 enforce 전까지 0건
+   *   - preview snippet 자체는 fetch 금지이므로 본 endpoint 는 향후 GTM Preview
+   *     workspace 또는 별도 dispatcher 를 통해서만 호출됨
+   */
+  router.post("/api/coffee/intent/dry-run", (req: Request, res: Response) => {
+    try {
+      const result = runCoffeeNpayIntentDryRun(req.body ?? {});
+      res.status(result.ok ? 200 : 400).json(result);
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "intent_dry_run failed",
+      });
+    }
+  });
+
+  /**
+   * NPay intent log 통계 (schema 가 살아있는지 + row 카운트). dry-run 단계에서는
+   * 항상 row 0. enforce mode 가 켜진 뒤 row 가 쌓이면 imweb_order_code / ga4_
+   * synthetic_transaction_id 매핑 채워진 row 수가 늘어난다.
+   */
+  router.get("/api/coffee/intent/stats", (_req: Request, res: Response) => {
+    try {
+      res.json(getCoffeeNpayIntentLogStats());
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "intent_stats failed",
+      });
     }
   });
 
