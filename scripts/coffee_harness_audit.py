@@ -53,6 +53,150 @@ NO_SEND_DECLARATION = re.compile(
 )
 
 
+NUMBER_CHECKS: list[dict[str, object]] = [
+    {
+        "label": "Imweb NPay actual orders/amount (window 2026-04-23~29)",
+        "source": "data/coffee-imweb-operational-readonly-20260501.md",
+        "source_pattern": r"\|\s*Imweb NPay actual\s*\|\s*(\d+)\s*/\s*([\d,]+)\s*원\s*\|",
+        "expected_substring_templates": ["{0}건, {1}원", "{0} / {1}원"],
+        "expected_in": ["data/!coffeedata.md"],
+    },
+    {
+        "label": "GA4 NPay pattern purchases (window 2026-04-23~29)",
+        "source": "data/coffee-imweb-operational-readonly-20260501.md",
+        "source_pattern": r"\|\s*GA4 NPay pattern\s*\|\s*(\d+)\s*/\s*([\d,]+)\s*원\s*\|",
+        "expected_substring_templates": ["{0}건, {1}원", "{0} / {1}원"],
+        "expected_in": ["data/!coffeedata.md"],
+    },
+    {
+        "label": "one-to-one assigned/unassigned actual/unassigned GA4",
+        "source": "data/coffee-imweb-operational-readonly-20260501.md",
+        "source_pattern": (
+            r"\|\s*one-to-one assigned\s*\|\s*(\d+)\s*\|[\s\S]*?"
+            r"\|\s*one-to-one unassigned actual\s*\|\s*(\d+)\s*\|[\s\S]*?"
+            r"\|\s*one-to-one unassigned GA4\s*\|\s*(\d+)\s*\|"
+        ),
+        "expected_substring_templates": [
+            "assigned {0}건, unassigned actual {1}건, unassigned GA4 {2}건",
+            "one-to-one 배정 {0}건, unassigned actual {1}건, unassigned GA4 {2}건",
+        ],
+        "expected_in": ["data/!coffeedata.md"],
+    },
+    {
+        "label": "unassigned actual recovery labels",
+        "source": "data/coffee-imweb-operational-readonly-20260501.md",
+        "source_pattern": (
+            r"## Unassigned Actual Historical Recovery Label Summary[\s\S]*?"
+            r"\|\s*expected_synthetic_gap\s*\|\s*(\d+)\s*\|[\s\S]*?"
+            r"\|\s*stop_historical_recovery\s*\|\s*(\d+)\s*\|[\s\S]*?"
+            r"\|\s*manual_review_only\s*\|\s*(\d+)\s*\|[\s\S]*?"
+            r"\|\s*needs_naver_api_crosscheck\s*\|\s*(\d+)\s*\|"
+        ),
+        "expected_substring_templates": [
+            "`expected_synthetic_gap` {0} / `stop_historical_recovery` {1} / `manual_review_only` {2} / `needs_naver_api_crosscheck` {3}",
+        ],
+        "expected_in": ["data/!coffeedata.md"],
+    },
+    {
+        "label": "LTV combined eligible orders/revenue",
+        "source": "data/coffee-excel-ltv-dry-run-20260501.md",
+        "source_pattern": (
+            r"\|\s*ltv eligible orders\s*\|\s*([\d,]+)\s*\|[\s\S]*?"
+            r"\|\s*ltv eligible revenue\s*\|\s*([\d,]+)원\s*\|"
+        ),
+        # !coffeedata 의 "12,731건 / 476,696,364원" 또는 한국어 단위 변환 모두 허용.
+        # 천단위 콤마 정규화로 전처리한 값들과 Korean-unit 변환을 두 형태로 비교.
+        "expected_substring_templates": [
+            "{0_with_comma}건 / {1}원",
+            "{0_with_comma}건/{1}원",
+            "{0_with_comma}건 / {1_korean_unit}",
+        ],
+        "expected_in": ["data/!coffeedata.md"],
+    },
+    {
+        "label": "2025 mismatch breakdown total",
+        "source": "data/coffee-excel-payment-mismatch-2025-20260501.md",
+        "source_pattern": (
+            r"\|\s*orders \(year unique\)\s*\|\s*([\d,]+)\s*\|[\s\S]*?"
+            r"\|\s*mismatch orders\s*\|\s*([\d,]+)\s*\|"
+        ),
+        "expected_substring_templates": ["{0}/{1}"],
+        "expected_in": [],
+    },
+]
+
+
+def add_thousands(num_str: str) -> str:
+    cleaned = num_str.replace(",", "")
+    try:
+        return f"{int(cleaned):,}"
+    except ValueError:
+        return num_str
+
+
+def to_korean_amount(num_str: str) -> str:
+    cleaned = num_str.replace(",", "").replace("원", "").strip()
+    try:
+        n = int(cleaned)
+    except ValueError:
+        return num_str
+    if n < 10000:
+        return f"{n:,}원"
+    eok, rem = divmod(n, 100_000_000)
+    man, _ = divmod(rem, 10_000)
+    if eok > 0 and man > 0:
+        return f"{eok}억 {man:,}만원"
+    if eok > 0:
+        return f"{eok}억원"
+    return f"{man:,}만원"
+
+
+def render_template(template: str, groups: tuple[str, ...]) -> str:
+    """Custom template renderer with extra placeholders.
+
+    Supports `{i}` for raw group, `{i_with_comma}` for thousands-separated
+    integer, `{i_korean_unit}` for Korean amount unit (만/억).
+    """
+    rendered = template
+    for index, value in enumerate(groups):
+        rendered = rendered.replace(f"{{{index}_with_comma}}", add_thousands(value))
+        rendered = rendered.replace(f"{{{index}_korean_unit}}", to_korean_amount(value))
+        rendered = rendered.replace(f"{{{index}}}", value)
+    return rendered
+
+
+def run_number_checks() -> tuple[list[str], list[str]]:
+    failures: list[str] = []
+    notes: list[str] = []
+    for check in NUMBER_CHECKS:
+        label = str(check["label"])
+        source_path = REPO_ROOT / str(check["source"])
+        if not source_path.exists():
+            notes.append(f"{label}: source missing — {check['source']}")
+            continue
+        text = source_path.read_text(errors="ignore")
+        match = re.search(str(check["source_pattern"]), text)
+        if not match:
+            failures.append(f"{label}: pattern not found in {check['source']}")
+            continue
+        groups = match.groups()
+        templates = check.get("expected_substring_templates") or [check.get("expected_substring_template", "")]
+        rendered_options = [render_template(str(t), groups) for t in templates]  # type: ignore[arg-type]
+        notes.append(f"{label}: source values = {' | '.join(rendered_options)}")
+        targets = [str(p) for p in check["expected_in"]]  # type: ignore[arg-type]
+        for rel in targets:
+            target_path = REPO_ROOT / rel
+            if not target_path.exists():
+                failures.append(f"{label}: target missing — {rel}")
+                continue
+            target_text = target_path.read_text(errors="ignore")
+            if not any(option in target_text for option in rendered_options):
+                failures.append(
+                    f"{label}: none of expected substrings found in {rel} (tried: {rendered_options})"
+                )
+    return failures, notes
+
+
 def run(args: list[str], *, check: bool = False) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
@@ -154,6 +298,7 @@ def main() -> int:
     diff_ok, diff_output = diff_check(files)
     send_matches = scan_patterns(executable, SEND_PATTERNS)
     write_matches = scan_patterns(executable, WRITE_PATTERNS)
+    number_failures, number_notes = run_number_checks()
 
     hard_fail = False
     notes: list[str] = []
@@ -173,6 +318,9 @@ def main() -> int:
     if unrelated_staged:
         hard_fail = True
         notes.append("unrelated_staged_files_found")
+    if number_failures:
+        hard_fail = True
+        notes.append("number_cross_check_failed")
 
     verdict = "FAIL_BLOCKED" if hard_fail else "PASS_WITH_NOTES"
 
@@ -214,6 +362,16 @@ def main() -> int:
     if diff_output:
         print("\nDiff check output:")
         print(diff_output)
+
+    print("\nNumber cross-check:")
+    for note in number_notes:
+        print(f"- {note}")
+    if number_failures:
+        print("Number cross-check failures:")
+        for failure in number_failures:
+            print(f"- {failure}")
+    else:
+        print("- all checks passed")
 
     return 1 if hard_fail else 0
 
