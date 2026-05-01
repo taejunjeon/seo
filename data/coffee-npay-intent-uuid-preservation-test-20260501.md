@@ -204,18 +204,43 @@ preview snippet v0.4 위에 임시 보강. confirmOrderWithCartItems 의 url 인
 
 검증 종료 후 결과를 [[coffee-live-tracking-inventory-20260501]] § 8 의 마지막 행에 한 줄 추가하고, 본 문서의 ## 결과 섹션 (아래) 에 표 형태로 박는다.
 
-## 결과 (검증 후 채움)
+## 결과 (1-D 정찰 완료, 1-A/1-B/1-C 는 TJ chrome 검증 대기)
+
+### 1-D Backend raw_data 정찰 결과 (2026-05-01 KST, Codex read-only 진행)
+
+| 검증 위치 | 출처 | 결과 |
+|---|---|---|
+| coffee `imweb_orders.raw_json` 자유 텍스트 후보 (5건 sample) | local SQLite `backend/data/crm.sqlite3` `pay_type='npay'`, `site='thecleancoffee'`, 최근 5건 | `form: []` 5/5 비어 있음. memo / note / custom / meta / remark 키 0건. top-level keys 14종 모두 정형 (cash_receipt / channel_order_no / complete_time / delivery / device / form / is_gift / order_code / order_no / order_time / order_type / orderer / payment / sale_channel_idx / use_issue_coupon_codes) |
+| biocom `tb_iamweb_users.raw_data` jsonb top-level keys (100 row sample) | 운영 PG read-only | `form` / `memo` / `note` / `custom` / `meta` / `remark` 0건. `adminUrl` 만 URL 텍스트 (admin 화면용). 나머지는 정형 (orderNo / payments / sections / orderType / device / saleChannel 등 40여종) |
+| `tb_iamweb_users.raw_data.payments` nested keys | 동일 | NPay 결제 nested 안 정형 11종 (bankTransfer / cashReceipt / externalPointAmount / isCancel / method / paidPrice / paymentCompleteTime / paymentNo / paymentStatus / pgName / taxFreePrice). 자유 텍스트 0 |
+| `tb_iamweb_users.raw_data.sections` nested keys | 동일 | section 별 자유 텍스트 후보 1건: **`pickupMemo`** (단 사용자 픽업 메모 입력 자리, 일반 결제 흐름에서 자동 박히는 query string 자리 아님) |
+| `tb_playauto_orders` 컬럼 | 동일 | raw_data jsonb 컬럼 **없음**. 정형 컬럼만. 자유 텍스트 후보 1건: **`ship_msg`** (배송 메시지, 사용자 입력 자리) |
+
+**1-D 정찰 결정**:
+
+(b) Imweb meta_data / raw_data 안 query string 자동 보존 = **NO**. imweb v2 API 응답이 정형 컬럼 위주이며 자유 텍스트 자리는 사용자 입력 (`pickupMemo`, `delivery_memo`, `memo`, `ship_msg`) 만임. 우리 `coffee_intent_uuid` 같은 backurl query 가 자동으로 들어갈 자리 없음.
+
+이는 더클린커피와 biocom 양쪽 모두에 해당 (둘 다 imweb v2 API). cross-site 메모 [[coffee-funnel-capi-cross-site-applicability-20260501]] 에도 반영.
+
+### 1-A / 1-B / 1-C / 2-* (TJ 검증 대기)
 
 | 항목 | 값 |
 |---|---|
-| 검증 시각 | (TJ 검증 후 기록) |
-| 1단계 (a) Imweb redirect URL keys | (예: `[order_no, order_code, payment_key, ...]`) |
-| 1단계 (c) `/shop_payment_complete` searchParamKeys | (검증 후 기록) |
-| 2단계 (a) `coffee_intent_uuid` redirect URL 보존 | YES / NO |
-| 2단계 (b) `coffee_intent_uuid` Imweb meta_data 보존 | YES / NO |
-| 2단계 (c) `coffee_intent_uuid` NPay channel 응답 보존 | YES / NO |
-| 결정 트랙 | (A) / (A-) / (B) |
-| 다음 phase 트리거 | (트랙별 액션) |
+| 1-A `confirmOrderWithCartItems` url 인자 | (TJ 검증 후 기록) |
+| 1-B NPay SDK redirect chain query string keys | (TJ 검증 후 기록) |
+| 1-C `/shop_payment_complete` searchParamKeys | (TJ 검증 후 기록) |
+| 2단계 (a) `coffee_intent_uuid` redirect URL 보존 | (sandbox 검증 후 기록 — 단 1-D 결과로 (b) NO 확정이므로 (A) 트랙 진입 가능성 낮음) |
+| 2단계 (b) `coffee_intent_uuid` Imweb meta_data 보존 | **NO 확정** (1-D 정찰 결과) |
+| 2단계 (c) `coffee_intent_uuid` NPay channel 응답 보존 | (NPay Production API 권한 발급 후 가능. 현재 sandbox 키만 발급, 호스팅사 입점 제약) |
+
+### 잠정 결정 트랙 (1-D 결과 기반)
+
+(b) NO 확정 + (c) 권한 미발급 → **(B) internal intent ledger + 휴리스틱 매칭이 가장 현실적**. (A-) URL 한정 매핑이 가능하려면 1-A/1-B 의 redirect URL 단계에서 query string 이 살아 있어야 함. TJ chrome 검증 결과로 최종 확정.
+
+| 시나리오 | 결정 |
+|---|---|
+| 1-A 또는 1-B 에서 `coffee_intent_uuid` query 가 redirect URL chain 에 살아 있음 (NPay SDK 통과 시 query string 보존) | **(A-) URL 한정 매핑** + (B) ledger 보강 |
+| 1-A/1-B 모두 query 가 NPay SDK 통과 시 stripped | **(B) 트랙 단독** — local backend `coffee_npay_intent_log` 테이블 + (prod_code, quantity, estimated_item_total, order_time_kst ± 30분) 휴리스틱 매칭 |
 
 ## 외부 시스템 영향
 
