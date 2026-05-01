@@ -16,6 +16,47 @@ Live tracking inventory: [[coffee-live-tracking-inventory-20260501|2026-05-01 sn
 - preview snippet 의 `confirmOrderWithCartItems` wrap 이 안 잡히는 케이스 대비 진단 명령 추가.
 - Live tracking inventory snapshot ([[coffee-live-tracking-inventory-20260501]]) 이 본 design 의 선행 조건. snapshot 미갱신 시 [[harness/coffee-data/AUDITOR_CHECKLIST|AUDITOR_CHECKLIST]] hard fail.
 
+## v0.3 → v0.3+ 1차 진단 결과 (2026-05-01 KST)
+
+[[coffee-live-tracking-inventory-20260501]] §4/§5/§7/§8 에 진단 A/B/C/D 결과 반영. 본 design 의 결과 분기 6종 중 일부가 확정됨.
+
+| 분기 | 1차 진단 결과 | 다음 행동 |
+|---|---|---|
+| sessionId 노출 여부 | window 변수 노출 **없음**. 단 sessionStorage 키 `funnelCapi::sent::<eid>` 패턴에서 정규식 추출 가능 | snippet 안 `sessionUuid` 계산 helper 를 (1) sessionStorage 정규식 추출 우선 → (2) 없으면 새 발급 fallback 으로 보강 |
+| funnel-capi 가 NPay click 시 새 eid 박는지 | **미확인** — 클릭 후 console marker 캡처 누락. 진단 G 로 추가 관찰 필요 |  |
+| funnel-capi MIRROR_EVENTS 매핑 키 | 미확인 — `track <EventName>` 중 어느 것을 funnel-capi 가 dedupe 처리하는지 진단 E 로 fbq toString 정규식 추출 |  |
+| `SITE_SHOP_DETAIL.confirmOrderWithCartItems` 가 thin wrapper 인지 | **확인됨**. preview = `function(type, backurl, params) { confirmOrderWithCartItems(type, backurl, params); }`. 진짜 함수는 글로벌 `window.confirmOrderWithCartItems` | snippet 의 wrap 대상에 글로벌 함수도 추가 (이중 wrap) |
+| 우리 wrap 자체가 잡혔는지 | **잡힘** (`confirmOrderLooksWrapped: true`, preview 안에 `if (kind === \"npay\") log(buildPayload` 보임) | OK |
+| PC NPay click 이 우리 wrap 을 호출하는지 | **NO** (`bufferLengthAfterClick: 0`). 원인 가설: SDK iframe 안 click 이 메인 컨텍스트 BUY_BUTTON_HANDLER 를 호출 안 함, 또는 redirect 로 sessionStorage write 가 사라짐 | 진단 F 의 직접 호출 sanity test 로 wrap 정상 여부 분리. F 가 buffer 1건 추가 → wrap 정상이고 click → handler 경로가 깨짐. F 도 0건 → 글로벌 함수 wrap 필요 |
+| `__seo_funnel_session` sessionStorage 키 | **미관찰 신규 시스템**. funnel-capi/imweb 의 또 다른 layer 일 수 있음 | 진단 E-2 로 값과 발급 위치 추적 |
+| TikTok pixel | `window.ttq` `undefined`. 사이트에 TikTok pixel 미설치 | 우리 design 은 TikTok wrap 0건 유지. 향후 TikTok 보강 시 별도 phase |
+
+### 진단 A/B/C/D 1차 raw 요약
+
+- **funnelCapiCandidates**: 4종 모두 `undefined` (window 미노출)
+- **fbq wrap preview**: `MIRROR_EVENTS[args[1]]`, `ensureEventId(eventName, payload, eventMeta)`, `injected`, `eid` 키워드 → funnel-capi 가 fbq 를 wrap 해서 매핑된 이벤트만 eid 주입
+- **confirmOrder preview**: thin wrapper (글로벌 함수로 위임)
+- **NPay PC 버튼 click 후 buffer 변화 0**
+
+### 다음 진단 묶음 (Inventory §9 의 진단 E/F/G)
+
+본 design 의 결정을 닫기 위해 [[coffee-live-tracking-inventory-20260501#9. 빠른 진단 묶음|Inventory §9]] 의 진단 E/F/G 를 실행한다.
+
+- **진단 E**: fbq wrap 안 MIRROR_EVENTS 키 정규식 추출 + sessionStorage 안 funnel-capi sent 목록 + `__seo_funnel_session` 값.
+- **진단 F**: `window.SITE_SHOP_DETAIL.confirmOrderWithCartItems("npay","__sanity__")` 와 `window.confirmOrderWithCartItems("npay","__sanity_global__")` 를 직접 호출하고 buffer delta 측정.
+- **진단 G**: NPay PC 클릭 직전 console clear → 클릭 → 출력된 모든 console 줄 캡처. 특히 `[funnel-capi] inject eid <EventName>` 줄.
+
+### 결과로 결정될 design v0.4 분기
+
+| 진단 결과 | design v0.4 |
+|---|---|
+| 진단 F-1 buffer +1, F-2 buffer +1 | wrap 자체 OK. NPay click 이 BUY_BUTTON_HANDLER 호출 안 함이 문제. mobile 경로(`._btn_mobile_npay`)로 시나리오 재시도 + click 직후 console marker 캡처 (진단 G) |
+| 진단 F-1 buffer +1, F-2 buffer 0 | thin wrapper 만 잡힘. **글로벌 함수도 동시 wrap 으로 v0.4 보강** |
+| 진단 F-1 buffer 0 | snippet 자체가 깨졌거나 SITE_SHOP_DETAIL 객체가 다른 참조. 콘솔 에러 캡처 후 snippet 재실행 |
+| 진단 G 에서 funnel-capi 가 NPay click 시 새 eid 박음 | 우리 `intent_uuid` 폐지하고 funnel-capi eid 재사용 → design 대폭 simplify (v0.4) |
+| 진단 G 에서 funnel-capi 가 NPay click 무시 | 우리 wrap 이 NPay 분기 보강 layer. 단 sessionId 는 funnel-capi 것 재사용 (sessionStorage 정규식 추출) |
+| 진단 E 에서 MIRROR_EVENTS 안 `InitiateCheckout` / `AddPaymentInfo` / `Purchase` 키 발견 | 향후 server CAPI 켤 때 dedupe 키 mapping 가능. 본 phase 의 NPay 분기 보강은 그 이벤트들 wrap 으로 정리 |
+
 ## Auditor Verdict
 
 ```text
