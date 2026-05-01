@@ -1,13 +1,13 @@
 # 더클린커피 아임웹/운영 DB Read-only 주문 원장 대조
 
-작성 시각: 2026-05-01 02:03 KST
+작성 시각: 2026-05-01 10:17 KST
 site: `thecleancoffee`
 phase: `read_only`
 분석 window: 2026-04-23 00:00 KST ~ 2026-04-29 23:59 KST
 Primary source: Imweb v2 API `IMWEB_API_KEY_COFFEE`, GA4 BigQuery `project-dadba7dd-0229-4ff6-81c.analytics_326949178`
 Cross-check: 운영 Postgres `public.tb_sales_toss store=coffee`, `public.tb_playauto_orders shop_name='아임웹-C'`, local SQLite `imweb_orders` freshness check
-Freshness: Imweb v2 API 2026-05-01 02:02 KST read-only 실행, GA4 `events_20260423`~`events_20260429`, 운영 DB read-only 조회
-Confidence: 89%
+Freshness: Imweb v2 API 2026-05-01 10:16 KST read-only 실행, GA4 `events_20260423`~`events_20260429`, 운영 DB read-only 조회
+Confidence: 90%
 
 ## 10초 요약
 
@@ -108,6 +108,22 @@ npm exec tsx scripts/coffee-imweb-operational-readonly.ts -- \
 | actual_without_ga4_candidate | 0 | 후보가 전혀 없는 actual order는 없음 |
 | ga4_without_actual_candidate | 28 | unique one-to-one matching이 아직 약함 |
 
+전역 one-to-one 배정:
+
+| 분류 | 건수 | 해석 |
+|---|---:|---|
+| one-to-one assigned | 42 | 같은 GA4 event를 중복 배정하지 않고 actual order에 연결된 수 |
+| one-to-one unassigned actual | 18 | 추가 검토가 필요한 Imweb NPay actual order |
+| one-to-one unassigned GA4 | 16 | 실제 주문에 안정 배정되지 않은 GA4 NPay형 event |
+
+one-to-one 등급:
+
+| grade | count |
+|---|---:|
+| `A_strong` | 31 |
+| `B_strong` | 4 |
+| `probable` | 7 |
+
 금액 보정 요약:
 
 | amount_match_type | 건수 | 해석 |
@@ -143,6 +159,16 @@ ambiguous reason 요약:
 | GA4에 이미 purchase가 있는가 | BigQuery raw export | robust search query | GA4 UI만 |
 | 과거 LTV/고객 원장 | 2025/2024 아임웹 엑셀 | local SQLite backfill 후 검증 | stale local SQLite 단독 |
 
+## Dry-run Schema
+
+표준 컬럼은 [[coffee-dry-run-schema]]에 고정했다.
+
+핵심 원칙:
+
+- `send_candidate`는 read-only 단계에서 항상 `N`.
+- `already_in_ga4`는 BigQuery robust guard로 `present`, `robust_absent`, `unknown`을 구분한다.
+- `shipping_reconciled`는 dry-run 분류에는 쓰되, 실제 limited send 후보로 쓰려면 별도 승인안에서 재확인한다.
+
 ## 네이버 API 대기 없이 가능한 다음 작업
 
 | 순서 | 담당 | 작업 | 왜 | 어떻게 |
@@ -150,7 +176,7 @@ ambiguous reason 요약:
 | 1 | Codex | Imweb API 기반 daily order ledger report 고정 | coffee NPay actual order는 이미 Imweb API로 확인 가능 | `coffee-imweb-operational-readonly.ts`를 날짜별 summary와 mismatch report로 확장 |
 | 2 | Codex | NPay actual vs GA4 NPay형 mismatch 2건/103,000원 최종 원인 확정 | 누락인지 오탐인지 판단 | strong/probable 제외 후 ambiguous 29건을 주문별 paid_at, amount, PlayAuto product, GA4 item/time 후보로 재검토 |
 | 3 | Codex | ambiguous 29건 축소 | 자동 전송 위험을 줄임 | 동일 금액 반복, 상품명 변형, cart multi-item, 시간차, GA4 중복 후보로 라벨링 |
-| 4 | Codex | coffee용 dry-run schema 고정 | 매번 수동 해석하지 않게 함 | `order_no`, `channel_order_no`, `ga4_transaction_id`, `match_grade`, `block_reason` |
+| 4 | Codex | coffee용 dry-run schema 고정 | 매번 수동 해석하지 않게 함 | [[coffee-dry-run-schema]] 기준 사용 |
 | 5 | TJ | 네이버 주문형 API 권한 확인 | 정산/공식 원장 cross-check용 | 네이버 기술지원 답변 수신 후 optional source로 추가 |
 | 6 | Codex | coffee NPay intent beacon 설계안 작성 | 미래 데이터는 주문 매칭 신뢰도를 높여야 함 | GTM preview 전용 초안, live publish는 별도 승인 |
 
@@ -181,8 +207,8 @@ ambiguous reason 요약:
 ## Eval Log
 
 ```yaml
-run_id: "coffee-imweb-operational-readonly-20260501-0202"
-created_at_kst: "2026-05-01 02:03 KST"
+run_id: "coffee-imweb-operational-readonly-20260501-1016"
+created_at_kst: "2026-05-01 10:17 KST"
 created_by: "Codex"
 phase: "read_only"
 site: "thecleancoffee"
@@ -193,8 +219,8 @@ window_kst:
 sources:
   primary:
     - name: "Imweb v2 API /v2/shop/orders"
-      freshness_at_kst: "2026-05-01 02:02 KST"
-      confidence: 0.89
+      freshness_at_kst: "2026-05-01 10:16 KST"
+      confidence: 0.90
     - name: "GA4 BigQuery analytics_326949178"
       freshness_at_kst: "events_20260429"
       confidence: 0.92
@@ -229,10 +255,17 @@ summary:
     final_exact: 27
     near_exact: 2
     none: 2
+  npay_one_to_one_assigned: 42
+  npay_one_to_one_unassigned_actual: 18
+  npay_one_to_one_unassigned_ga4: 16
+  npay_one_to_one_grade_summary:
+    A_strong: 31
+    B_strong: 4
+    probable: 7
   tb_iamweb_users_matched_orders: 0
 guardrails:
   no_send_verified: true
   no_db_write_verified: true
   no_deploy_verified: true
-confidence: 0.89
+confidence: 0.90
 ```

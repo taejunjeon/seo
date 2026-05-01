@@ -1,14 +1,14 @@
 # 더클린커피 데이터 정합성 프로젝트 검토
 
 작성 시각: 2026-04-30 23:51 KST  
-최신 read-only 확인: 2026-05-01 02:03 KST
+최신 read-only 확인: 2026-05-01 10:17 KST
 문서 성격: 검토안 + 실행 설계안  
 대상 사이트: `thecleancoffee.com`, 더클린커피 아임웹/GA4/BigQuery/NPay/ROAS  
-관련 문서: [[!datacheckplan]], [[!bigquery]], [[iamweb_excel_backfill_review]], [[toss_sync_gap]], [[roasphase]], [[naver/!npayroas|biocom NPay ROAS 정합성 계획]], [[coffee-ga4-baseline-20260501|더클린커피 GA4 BigQuery 기준선 20260501]], [[coffee-imweb-operational-readonly-20260501|더클린커피 아임웹/운영 DB Read-only 주문 원장 대조]], [[naver/npay-api-mcp-review-20260501|네이버페이 API와 MCP 검토]]
+관련 문서: [[!datacheckplan]], [[!bigquery]], [[iamweb_excel_backfill_review]], [[toss_sync_gap]], [[roasphase]], [[naver/!npayroas|biocom NPay ROAS 정합성 계획]], [[coffee-ga4-baseline-20260501|더클린커피 GA4 BigQuery 기준선 20260501]], [[coffee-imweb-operational-readonly-20260501|더클린커피 아임웹/운영 DB Read-only 주문 원장 대조]], [[coffee-ga4-robust-guard-20260501|더클린커피 GA4 Robust Guard]], [[coffee-excel-import-dry-run-20260501|더클린커피 엑셀 Import Dry-run]], [[coffee-dry-run-schema|더클린커피 Dry-run Schema]], [[naver/npay-api-mcp-review-20260501|네이버페이 API와 MCP 검토]]
 Primary source: Imweb v2 API `IMWEB_API_KEY_COFFEE`, GA4 BigQuery `project-dadba7dd-0229-4ff6-81c.analytics_326949178`, 운영 Postgres `tb_sales_toss`, `tb_playauto_orders`, 더클린커피 아임웹 엑셀
 Cross-check: local SQLite `imweb_orders`, `toss_transactions`, existing reconciliation scripts, Naver Commerce API scope check  
-Freshness: Imweb v2 API 2026-05-01 02:02 KST read-only 실행, GA4/운영 DB 2026-05-01 00:52 KST 기준
-Confidence: 89%
+Freshness: Imweb v2 API 2026-05-01 10:16 KST read-only 실행, GA4/운영 DB 2026-05-01 00:52 KST 기준
+Confidence: 90%
 
 ## 다음 할일
 
@@ -18,10 +18,10 @@ Confidence: 89%
 | 2 | 완료 | Codex | GA4 purchase transaction_id와 운영/아임웹 주문 원장 후보를 read-only로 대조한다 | GA4가 실제 주문을 얼마나 반영하는지 알아야 NPay/ROAS 복구 필요성을 판단할 수 있다 | `tb_sales_toss store=coffee`와 대조해 non-NPay 후보 50건 exact Imweb match를 확인했고, Imweb v2 API로 NPay actual order 60건을 확인했다. 상세는 [[coffee-imweb-operational-readonly-20260501]] | NO, read-only |
 | 3 | 완료 | Codex | coffee용 NPay dry-run 리포트 스펙을 만든다 | biocom에서 만든 `intent -> confirmed order -> BigQuery guard` 구조를 커피에도 재사용할 수 있다 | [[coffee-ga4-baseline-20260501]]에 `order_number`, `channel_order_no`, `amount_match_type`, `already_in_ga4`, `match_grade`, `send_candidate=N` 스키마를 넣었다 | NO, 문서/코드 초안 |
 | 4 | 대기 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 아임웹/호스팅사 사용 가맹점은 주문관리/정산 API가 제한될 수 있어 공식 답변이 필요하다 | [[naver/npay-api-mcp-review-20260501]]의 문의 문구로 네이버 기술지원에 주문형 API 가능 여부를 확인한다 | YES, 외부 계정 작업 |
-| 5 | 부분 완료 | Codex | GA4 NPay형 58건과 Imweb NPay actual 60건을 주문별로 분해한다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 확정해야 한다 | Imweb v2 API `type=npay`를 primary로 두고, PlayAuto 상품명과 GA4 item/time/amount를 read-only 조인했다. 현재 결과는 strong 29, probable 2, ambiguous 29 | NO, read-only |
-| 6 | 대기 | Codex | 2025 더클린커피 엑셀을 정합성 원장으로 쓰는 import dry-run을 설계한다 | 커피는 PG/Toss보다 엑셀의 비마스킹 phone/이메일/배송/결제수단 정보 가치가 크다 | 기존 `data/coffee/기본_양식_20260424133106.xlsx` 기준 schema, 중복키, 금액 reconciliation 규칙을 문서화한다 | NO, dry-run까지 |
+| 5 | 부분 완료 | Codex | GA4 NPay형 58건과 Imweb NPay actual 60건을 주문별로 분해한다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 확정해야 한다 | Imweb v2 API `type=npay`를 primary로 두고 one-to-one 배정을 추가했다. per-order는 strong 29/probable 2/ambiguous 29, one-to-one은 assigned 42/unassigned actual 18이다 | NO, read-only |
+| 6 | 완료 | Codex | 2025 더클린커피 엑셀을 정합성 원장으로 쓰는 import dry-run을 설계한다 | 커피는 PG/Toss보다 엑셀의 비마스킹 phone/이메일/배송/결제수단 정보 가치가 크다 | `coffee-excel-import-dry-run.ts`를 추가하고 주문/결제 엑셀 join 11,018/11,018, 결제수단/LTV aggregate를 출력했다. 상세는 [[coffee-excel-import-dry-run-20260501]] | NO, dry-run only |
 | 7 | 대기 | TJ | 2025 결제내역 엑셀과 2024 주문/결제 엑셀 다운로드를 준비한다 | 2025 주문 엑셀만으로는 결제수단/환불/정산 검증이 부족하고, 2024 이전 LTV는 phone 마스킹 문제가 있다 | 아임웹 관리자에서 더클린커피 결제내역/주문내역을 연도별로 다운로드한다 | YES |
-| 8 | 부분 완료 | Codex | coffee NPay actual vs GA4 NPay형 mismatch 2건/103,000원을 분해한다 | Imweb actual NPay와 GA4 NPay형 purchase 간 차이가 보여 ROAS 정합성의 핵심 차이를 먼저 닫을 수 있다 | `coffee-imweb-operational-readonly.ts`에 `mismatchSummary`, `amount_match_type`, `ambiguousReasons`를 추가했다. 남은 일은 29건 ambiguous를 주문 단위로 줄이는 것이다 | NO, read-only |
+| 8 | 부분 완료 | Codex | coffee NPay actual vs GA4 NPay형 mismatch 2건/103,000원을 분해한다 | Imweb actual NPay와 GA4 NPay형 purchase 간 차이가 보여 ROAS 정합성의 핵심 차이를 먼저 닫을 수 있다 | `mismatchSummary`, `amount_match_type`, `ambiguousReasons`, one-to-one 배정, BigQuery robust guard를 추가했다. 남은 일은 unassigned actual 18건을 주문 단위로 해석하는 것이다 | NO, read-only |
 | 9 | 보류 | Codex | Meta/TikTok ROAS 정합성은 source freshness가 닫힌 뒤 재개한다 | 커피 Meta 토큰/운영 원장 freshness가 불안정하면 ROAS 비교가 오판된다 | token, BigQuery, 주문 원장, Toss/Excel freshness를 같은 window로 맞춘 뒤 비교한다 | 부분 YES, token 갱신 필요 가능 |
 
 ## 10초 요약
@@ -119,7 +119,7 @@ Auditor verdict: `PASS_WITH_NOTES`. 이번 작업은 BigQuery/운영 Postgres re
 | Phase1 | [[#Phase1-Sprint2]] | Source freshness 기준선 | Codex | 95% / 0% | [[#Phase1-Sprint2]] |
 | Phase1 | [[#Phase1-Sprint3]] | 2025 엑셀 원장화 검토 | Codex + TJ | 75% / 0% | [[#Phase1-Sprint3]] |
 | Phase2 | [[#Phase2-Sprint4]] | GA4 BigQuery와 주문 원장 대조 | Codex | 85% / 0% | [[#Phase2-Sprint4]] |
-| Phase2 | [[#Phase2-Sprint5]] | Coffee NPay 실제 주문 매칭 | Codex + TJ | 70% / 0% | [[#Phase2-Sprint5]] |
+| Phase2 | [[#Phase2-Sprint5]] | Coffee NPay 실제 주문 매칭 | Codex + TJ | 78% / 0% | [[#Phase2-Sprint5]] |
 | Phase3 | [[#Phase3-Sprint6]] | Coffee NPay intent 장부 | Codex | 20% / 0% | [[#Phase3-Sprint6]] |
 | Phase3 | [[#Phase3-Sprint7]] | Meta/TikTok/ROAS 정합성 | Codex + TJ | 20% / 0% | [[#Phase3-Sprint7]] |
 | Phase4 | [[#Phase4-Sprint8]] | 공통 Growth Data Harness 편입 | Codex + Claude | 45% / 0% | [[#Phase4-Sprint8]] |
@@ -391,7 +391,7 @@ ORDER BY event_date DESC, purchase_revenue DESC;
 
 이름: Coffee NPay 실제 주문 매칭  
 담당: Codex + TJ  
-상태: 우리 70% / 운영 0%
+상태: 우리 78% / 운영 0%
 
 목표:
 
@@ -409,14 +409,17 @@ ORDER BY event_date DESC, purchase_revenue DESC;
 8. actual NPay order와 GA4 NPay형 purchase 매칭은 strong 29건, probable 2건, ambiguous 29건으로 분류했다.
 9. `amount_match_type`을 `final_exact`, `shipping_reconciled`, `near_exact`, `none`으로 나눴고, 배송비 제외로 보이는 29건은 mismatch가 아니라 `shipping_reconciled`로 보정했다.
 10. ambiguous reason을 `low_score_gap`, `multiple_ga4_candidates`, `same_amount_many_orders`, `weak_time_gap`, `no_product_evidence`, `product_name_variant_or_no_overlap`, `amount_not_reconciled`로 출력하게 했다.
+11. 전역 one-to-one 배정을 추가해 GA4 event 중복 배정을 막았다. 결과는 assigned 42건, unassigned actual 18건, unassigned GA4 16건이다.
+12. `coffee-ga4-robust-guard.ts`를 추가해 `order_no`와 `channel_order_no`가 GA4 raw 전체에 존재하는지 read-only로 확인할 수 있게 했다.
+13. 표준 dry-run row schema를 [[coffee-dry-run-schema]]에 고정했다.
 
 100%까지 남은 것:
 
 | 남은 일 | 왜 필요한가 | 어떻게 할 것인가 | 완료 기준 |
 |---|---|---|---|
-| mismatch 2건/103,000원 최종 원인 확정 | Imweb actual NPay 60건과 GA4 NPay형 58건 차이가 ROAS 오차의 핵심이다 | strong/probable을 제외한 29건 ambiguous를 시간/금액/상품명/PlayAuto 상태로 좁혀 `ga4_missing`, `cancel/refund`, `pattern_mismatch`로 분류 | 차이 2건이 주문번호 단위로 설명됨 |
-| ambiguous 29건 축소 | ambiguous는 전송 금지라 후보가 많으면 복구 자동화가 어렵다 | 동일 금액 반복 주문을 결제시각, 상품명, channel_order_no, page_location 기준으로 재점수화 | ambiguous 29건 중 줄일 수 있는 것과 끝까지 수동 검토할 것을 분리 |
-| A/B/ambiguous 기준 문서화 | 운영자와 광고 담당자가 같은 기준으로 판단해야 한다 | 현재 score, time_gap, amount_match_type, product_overlap 기준을 coffee dry-run schema에 고정 | `A_strong`, `B_strong`, `ambiguous` 기준표 완성 |
+| unassigned actual 18건 최종 원인 확정 | one-to-one 배정에서 남은 actual order가 실제 누락 후보인지 봐야 한다 | `coffee-ga4-robust-guard.ts`로 order/channel id를 확인하고, PlayAuto/결제상태/상품명으로 reason 부여 | `ga4_missing`, `pattern_mismatch`, `weak_candidate`, `expected_gap` 분류 |
+| ambiguous 29건 축소 | ambiguous는 전송 금지라 후보가 많으면 복구 자동화가 어렵다 | 동일 금액 반복 주문을 결제시각, 상품명, channel_order_no, page_location 기준으로 재점수화 | ambiguous 중 줄일 수 있는 것과 끝까지 수동 검토할 것을 분리 |
+| A/B/ambiguous 기준 운영 승인 | 운영자와 광고 담당자가 같은 기준으로 판단해야 한다 | [[coffee-dry-run-schema]] 기준을 팀 리뷰 후 승인 또는 수정 | `A_strong`, `B_strong`, `ambiguous` 기준 확정 |
 | Naver seller/API scope 확인 | Imweb API가 primary여도 네이버 공식 주문관리/정산 cross-check는 장기적으로 유용하다 | TJ님이 네이버 기술지원/호스팅사 경로로 주문형 API 가능 여부 확인 | sample NPay order 1건 read 성공 또는 불가 공식 답변 |
 | 향후 intent 장부 설계 | 과거분은 GA4 synthetic transaction_id 때문에 자동 매칭이 약하다 | 미래분은 버튼 클릭 시 `client_id`, `ga_session_id`, product, page를 저장하는 coffee intent 초안을 설계 | live publish 전 preview 계획 완성 |
 
@@ -580,12 +583,11 @@ ORDER BY event_timestamp DESC;
 
 컨펌 없이 가능한 작업:
 
-1. 더클린커피 BigQuery 최근 7일 purchase summary를 read-only로 생성.
-2. coffee GA4 transaction_id robust search 쿼리/스크립트 초안 작성.
-3. existing `reconcile-coffee-ga4-toss.ts`를 최신 window로 실행하고 리포트화.
-4. `coffee-imweb-operational-readonly.ts`를 확장해 NPay ambiguous reason과 mismatch 2건을 주문별로 출력.
-5. coffee dry-run markdown/API schema 초안 작성.
-6. 기존 2025 엑셀 import dry-run 검증 스크립트 점검.
+1. unassigned actual 18건을 robust guard + PlayAuto + 결제상태로 세부 분해.
+2. 2025 엑셀 amount mismatch 397건을 결제상태/환불/부분환불/무료결제 reason으로 분해.
+3. 2024/2025 엑셀을 같은 dry-run 스크립트로 각각 재실행하고 24개월 LTV aggregate를 비교.
+4. coffee NPay intent beacon의 preview-only 설계안을 작성.
+5. Meta/TikTok source freshness 확인 후 ROAS read-only 비교 재개.
 
 컨펌 또는 TJ 작업이 필요한 것:
 

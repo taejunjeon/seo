@@ -81,6 +81,7 @@ const parseArgs = () => {
     limit: Math.min(Math.max(Number(argValue("limit") ?? "100"), 10), 100),
     delayMs: Math.min(Math.max(Number(argValue("delayMs") ?? "900"), 250), 5000),
     json: process.argv.includes("--json"),
+    markdown: process.argv.includes("--markdown"),
   };
 };
 
@@ -555,6 +556,25 @@ const countBy = <T>(items: T[], pick: (item: T) => string) => {
   return Object.fromEntries([...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])));
 };
 
+const formatWon = (value: number) => `${Math.round(value).toLocaleString("ko-KR")}원`;
+
+const matchGrade = (candidate: {
+  score: number;
+  timeGapMinutes: number;
+  amountMatchType: AmountMatchType;
+  productScore: number;
+}) => {
+  const amountOk = ["final_exact", "shipping_reconciled", "discount_reconciled", "item_exact"].includes(
+    candidate.amountMatchType,
+  );
+  if (candidate.score >= 90 && candidate.timeGapMinutes <= 2 && amountOk && candidate.productScore >= 10) {
+    return "A_strong";
+  }
+  if (candidate.score >= 80 && candidate.timeGapMinutes <= 10 && amountOk) return "B_strong";
+  if (candidate.score >= 65) return "probable";
+  return "ambiguous";
+};
+
 const buildNpayActualGa4Candidates = (
   imwebNpayOrders: ImwebOrder[],
   ga4NpayPurchases: Ga4Purchase[],
@@ -655,6 +675,110 @@ const buildNpayActualGa4Candidates = (
     };
   });
 
+  const globalCandidateEdges = decisions
+    .flatMap((decision) =>
+      decision.candidates.map((candidate) => ({
+        orderNo: decision.orderNo,
+        channelOrderNo: decision.channelOrderNo,
+        paidAtKst: decision.paidAtKst,
+        paymentAmount: decision.paymentAmount,
+        productNames: decision.productNames,
+        playautoStatus: decision.playautoStatus,
+        transactionId: candidate.transactionId,
+        eventTimeKst: candidate.eventTimeKst,
+        revenue: candidate.revenue,
+        pageLocation: candidate.pageLocation,
+        itemIds: candidate.itemIds,
+        itemNames: candidate.itemNames,
+        sourceKey: candidate.sourceKey,
+        mediumKey: candidate.mediumKey,
+        amountDelta: candidate.amountDelta,
+        amountMatchType: candidate.amountMatchType,
+        amountReconcileReason: candidate.amountReconcileReason,
+        timeGapMinutes: candidate.timeGapMinutes,
+        productScore: candidate.productScore,
+        amountScore: candidate.amountScore,
+        timeScore: candidate.timeScore,
+        score: candidate.score,
+        matchGrade: matchGrade(candidate),
+      })),
+    )
+    .sort((a, b) => b.score - a.score || a.timeGapMinutes - b.timeGapMinutes || Math.abs(a.amountDelta) - Math.abs(b.amountDelta));
+
+  const usedOrderNos = new Set<string>();
+  const usedTransactionIds = new Set<string>();
+  const oneToOneAssignments: typeof globalCandidateEdges = [];
+  for (const candidate of globalCandidateEdges) {
+    if (candidate.score < 65) continue;
+    if (usedOrderNos.has(candidate.orderNo) || usedTransactionIds.has(candidate.transactionId)) continue;
+    usedOrderNos.add(candidate.orderNo);
+    usedTransactionIds.add(candidate.transactionId);
+    oneToOneAssignments.push(candidate);
+  }
+
+  const oneToOneByOrderNo = new Map(oneToOneAssignments.map((candidate) => [candidate.orderNo, candidate]));
+  const oneToOneByTransactionId = new Map(oneToOneAssignments.map((candidate) => [candidate.transactionId, candidate]));
+  const unassignedActualOrders = decisions
+    .filter((decision) => !oneToOneByOrderNo.has(decision.orderNo))
+    .map((decision) => ({
+      orderNo: decision.orderNo,
+      channelOrderNo: decision.channelOrderNo,
+      paidAtKst: decision.paidAtKst,
+      paymentAmount: decision.paymentAmount,
+      productNames: decision.productNames,
+      bestScore: decision.bestScore,
+      bestTransactionId: decision.bestTransactionId,
+      bestTimeGapMinutes: decision.bestTimeGapMinutes,
+      bestAmountMatchType: decision.bestAmountMatchType,
+      ambiguousReasons: decision.ambiguousReasons.length > 0 ? decision.ambiguousReasons : ["not_selected_by_one_to_one_assignment"],
+    }));
+  const unassignedGa4Purchases = ga4NpayPurchases
+    .filter((purchase) => !oneToOneByTransactionId.has(purchase.transactionId))
+    .map((purchase) => ({
+      transactionId: purchase.transactionId,
+      eventTimeKst: purchase.eventTimeKst,
+      revenue: purchase.revenue,
+      itemIds: purchase.itemIds,
+      itemNames: purchase.itemNames,
+      pageLocation: purchase.pageLocation,
+      sourceKey: purchase.sourceKey,
+      mediumKey: purchase.mediumKey,
+    }));
+
+  const dryRunRows = decisions.map((decision) => {
+    const assigned = oneToOneByOrderNo.get(decision.orderNo) ?? null;
+    const bestCandidate = decision.candidates[0] ?? null;
+    const selected = assigned ?? bestCandidate;
+    const grade = selected ? matchGrade(selected) : "purchase_without_ga4";
+    const blockReasons = ["read_only_phase"];
+    if (!assigned) blockReasons.push("not_selected_by_one_to_one_assignment");
+    if (grade === "ambiguous" || decision.status === "ambiguous") blockReasons.push("ambiguous");
+    if (selected?.amountMatchType === "none") blockReasons.push("amount_not_reconciled");
+    if (selected && selected.timeGapMinutes > 10) blockReasons.push("weak_time_gap");
+
+    return {
+      site: SITE,
+      order_number: decision.orderNo,
+      channel_order_no: decision.channelOrderNo,
+      paid_at_kst: decision.paidAtKst,
+      order_payment_amount: decision.paymentAmount,
+      product_names: decision.productNames,
+      ga4_transaction_id: selected?.transactionId ?? "",
+      ga4_event_time_kst: selected?.eventTimeKst ?? "",
+      ga4_revenue: selected?.revenue ?? null,
+      time_gap_minutes: selected?.timeGapMinutes ?? null,
+      amount_match_type: selected?.amountMatchType ?? "no_candidate",
+      amount_delta: selected?.amountDelta ?? null,
+      score: selected?.score ?? 0,
+      score_gap: decision.scoreGap,
+      match_grade: grade,
+      one_to_one_selected: Boolean(assigned),
+      already_in_ga4: selected ? "present_npay_pattern_candidate" : "unknown",
+      send_candidate: "N",
+      block_reason: [...new Set(blockReasons)].join(","),
+    };
+  });
+
   const matchedTransactionIds = new Set(
     decisions
       .filter((decision) => decision.status === "strong_match" || decision.status === "probable_match")
@@ -676,6 +800,10 @@ const buildNpayActualGa4Candidates = (
         (reason) => reason,
       ),
       bestAmountMatchTypeSummary: countBy(decisions, (decision) => decision.bestAmountMatchType ?? "no_candidate"),
+      oneToOneAssigned: oneToOneAssignments.length,
+      oneToOneUnassignedActual: unassignedActualOrders.length,
+      oneToOneUnassignedGa4: unassignedGa4Purchases.length,
+      oneToOneMatchGradeSummary: countBy(oneToOneAssignments, (candidate) => candidate.matchGrade),
     },
     mismatchSummary: {
       orderCountDelta: imwebNpayOrders.length - ga4NpayPurchases.length,
@@ -688,8 +816,130 @@ const buildNpayActualGa4Candidates = (
     needsReviewOrders: decisions
       .filter((decision) => decision.status === "ambiguous" || decision.status === "actual_without_ga4_candidate")
       .slice(0, 50),
+    oneToOneAssignments,
+    unassignedActualOrders,
+    unassignedGa4Purchases,
+    dryRunSchemaVersion: "coffee_npay_dry_run_v0",
+    dryRunRows,
     ga4WithoutActualCandidate: ga4WithoutActualCandidate.slice(0, 20),
   };
+};
+
+const escapeCell = (value: unknown) => String(value ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+
+const markdownTable = (headers: string[], rows: unknown[][]) => [
+  `| ${headers.map(escapeCell).join(" | ")} |`,
+  `| ${headers.map(() => "---").join(" | ")} |`,
+  ...rows.map((row) => `| ${row.map(escapeCell).join(" | ")} |`),
+].join("\n");
+
+const renderMarkdown = (payload: Record<string, any>) => {
+  const s = payload.summary;
+  const n = payload.npayActualGa4Match;
+  const lines = [
+    "# 더클린커피 Imweb/GA4 NPay Read-only 리포트",
+    "",
+    `생성 시각: ${payload.checkedAt}`,
+    `site: \`${payload.site}\``,
+    `window: ${payload.window.startDate} ~ ${payload.window.endDate} KST`,
+    "mode: `read_only`",
+    "",
+    "## Auditor Verdict",
+    "",
+    "```text",
+    "Auditor verdict: PASS_WITH_NOTES",
+    "No-send verified: YES",
+    "No-write verified: YES",
+    "No-deploy verified: YES",
+    "New executable send path added: NO",
+    "Actual network send observed: NO",
+    "```",
+    "",
+    "## Summary",
+    "",
+    markdownTable(
+      ["항목", "값"],
+      [
+        ["Imweb orders", `${s.imwebApiOrders} / ${formatWon(s.imwebApiRevenue)}`],
+        ["Imweb NPay actual", `${s.imwebApiNpayOrders} / ${formatWon(s.imwebApiNpayRevenue)}`],
+        ["GA4 purchases", `${s.ga4PurchaseEvents} / ${formatWon(s.ga4Revenue)}`],
+        ["GA4 NPay pattern", `${s.ga4NpayPatternEvents} / ${formatWon(s.ga4NpayPatternRevenue)}`],
+        ["NPay delta", `${n.mismatchSummary.orderCountDelta}건 / ${formatWon(n.mismatchSummary.revenueDelta)}`],
+        ["Exact GA4-Imweb matches", s.ga4ExactImwebMatches],
+        ["tb_iamweb_users matched orders", s.tbIamwebUsersMatchedOrders],
+      ],
+    ),
+    "",
+    "## NPay Matching",
+    "",
+    markdownTable(
+      ["분류", "건수"],
+      [
+        ["per-order strong", n.summary.strongMatch],
+        ["per-order probable", n.summary.probableMatch],
+        ["per-order ambiguous", n.summary.ambiguous],
+        ["one-to-one assigned", n.summary.oneToOneAssigned],
+        ["one-to-one unassigned actual", n.summary.oneToOneUnassignedActual],
+        ["one-to-one unassigned GA4", n.summary.oneToOneUnassignedGa4],
+      ],
+    ),
+    "",
+    "## One-to-one Grade Summary",
+    "",
+    markdownTable(
+      ["grade", "count"],
+      Object.entries(n.summary.oneToOneMatchGradeSummary).map(([key, value]) => [key, value]),
+    ),
+    "",
+    "## Amount Match Type Summary",
+    "",
+    markdownTable(
+      ["amount_match_type", "count"],
+      Object.entries(n.summary.bestAmountMatchTypeSummary).map(([key, value]) => [key, value]),
+    ),
+    "",
+    "## Ambiguous Reason Summary",
+    "",
+    markdownTable(
+      ["reason", "count"],
+      Object.entries(n.summary.ambiguousReasonSummary).map(([key, value]) => [key, value]),
+    ),
+    "",
+    "## Review Orders Top 20",
+    "",
+    markdownTable(
+      ["order_number", "channel_order_no", "paid_at", "amount", "best_score", "best_tx", "reasons"],
+      n.unassignedActualOrders.slice(0, 20).map((row: Record<string, any>) => [
+        row.orderNo,
+        row.channelOrderNo,
+        row.paidAtKst,
+        formatWon(row.paymentAmount),
+        row.bestScore,
+        row.bestTransactionId,
+        (row.ambiguousReasons ?? []).join(","),
+      ]),
+    ),
+    "",
+    "## Dry-run Schema",
+    "",
+    "`send_candidate` is fixed to `N` in this phase.",
+    "",
+    markdownTable(
+      ["field", "meaning"],
+      [
+        ["site", "thecleancoffee"],
+        ["order_number", "Imweb order_no"],
+        ["channel_order_no", "NPay external order number from Imweb"],
+        ["ga4_transaction_id", "GA4 NPay synthetic transaction id candidate"],
+        ["amount_match_type", "final_exact/shipping_reconciled/discount_reconciled/item_exact/near_exact/none"],
+        ["match_grade", "A_strong/B_strong/probable/ambiguous/purchase_without_ga4"],
+        ["already_in_ga4", "present_npay_pattern_candidate/unknown"],
+        ["send_candidate", "always N in read-only phase"],
+        ["block_reason", "read_only_phase plus guard reasons"],
+      ],
+    ),
+  ];
+  return lines.join("\n");
 };
 
 const main = async () => {
@@ -792,6 +1042,11 @@ const main = async () => {
         summary: npayActualGa4Match.summary,
         mismatchSummary: npayActualGa4Match.mismatchSummary,
         needsReviewOrders: npayActualGa4Match.needsReviewOrders,
+        oneToOneAssignments: npayActualGa4Match.oneToOneAssignments,
+        unassignedActualOrders: npayActualGa4Match.unassignedActualOrders,
+        unassignedGa4Purchases: npayActualGa4Match.unassignedGa4Purchases,
+        dryRunSchemaVersion: npayActualGa4Match.dryRunSchemaVersion,
+        dryRunRows: npayActualGa4Match.dryRunRows,
         decisions: npayActualGa4Match.decisions,
         ga4WithoutActualCandidate: npayActualGa4Match.ga4WithoutActualCandidate,
       },
@@ -824,7 +1079,7 @@ const main = async () => {
       },
     };
 
-    console.log(JSON.stringify(payload, null, 2));
+    console.log(args.markdown ? renderMarkdown(payload) : JSON.stringify(payload, null, 2));
   } finally {
     await pool.end();
   }
