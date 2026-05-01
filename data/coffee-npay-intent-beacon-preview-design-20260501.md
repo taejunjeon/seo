@@ -144,6 +144,30 @@ window.FUNNEL_CAPI_CONFIG = { pixelId, endpoint, enableServerCapi, testEventCode
 
 본 design 의 v0.4 결정을 그대로 반영한 self-contained preview snippet 은 [[coffee-npay-intent-beacon-preview-snippet-v04-20260501]] 에 분리해 박았다. 그 문서에는 붙여넣기 가능한 snippet 한 묶음 + 진단 F (설치/wrap/simulate 확인) + 진단 G (실제 PC NPay 클릭 후 buffer 증가 확인) + cleanup 명령 + Auditor verdict 가 모두 들어 있다. TJ 가 chrome devtools console 에서 그대로 실행할 수 있다.
 
+### v0.4 design 결정 검증 결과 (2026-05-01 21:57 KST 진단 G)
+
+| 결정 | 검증 결과 |
+|---|---|
+| `session_uuid` 는 `__seo_funnel_session` 우선 재사용 | **OK** — `lastPayload.session_uuid` 가 funnel-capi sessionId (`momuyeuikmcmug`) 와 일치 |
+| `intent_uuid` per `confirm_to_pay` 새 발급 | **OK** — `intent_uuid: "28b457f7-..."` UUID, `intent_seq: 1` |
+| 글로벌 `window.confirmOrderWithCartItems` 동시 wrap | **OK** — `bufferDelta: 1` 로 hook 도달 (이전 v0.2/v0.3 미도달 문제 해결) |
+| `Purchase` 매핑 대상 아님 | **OK** — Purchase 발화 안 함 (결제 미완료) |
+| `metadata` 3-step fallback (initDetail wrap → inline regex → DOM) | **OK** — `metadata_source: "inline_script_regex"` 로 prod_code/prod_price 정상 추출, `metadata_missing: false` |
+| funnel-capi eid 와 우리 intent_uuid 함께 보관 | **부분 OK** — `funnel_capi_eid_observed: ViewContent.1.<sessionId>` (이전 시점). NPay click 시 새로 박힌 InitiateCheckout eid 는 우리 buildPayload 호출 직후 sessionStorage 에 추가되므로 같은 시점에 못 잡음. 다음 phase 에서 setTimeout 0 또는 microtask 로 retry capture 보강 가능 |
+
+### 4 layer 분석 가설 일부 반증 (2026-05-01 21:57 KST)
+
+진단 G 결과 `newFunnelCapiSentEids: ["funnelCapi::sent::InitiateCheckout.o20260501dc2f080566c61.f0eb2"]` 1건 발견. 4 layer 분석의 가설 "NPay 는 외부 redirect 라 funnel-capi 추가 marker 0 예상" 은 **반증**. 정확한 풀이:
+
+| 단계 | 결과 |
+|---|---|
+| NPay click 직후 → BUY_BUTTON_HANDLER → `confirmOrderWithCartItems('npay', url)` | imweb 이 호출 직전/직후에 `fbq('track', 'InitiateCheckout', {content_ids:["o20260501dc2f080566c61.f0eb2"], ...})` 발화 |
+| funnel-capi wrap 통과 | content_ids[0] 가 `.` 포함 단일 값. `extractContentKey` 가 그대로 사용. eid = `InitiateCheckout.<content_ids[0]>.<sessionId>` 형식이지만, eventMeta 에 이미 eventID 가 있을 가능성도 있음 (정본 line 2143~2148 의 existing reuse). 결과는 `funnelCapi::sent::InitiateCheckout.o20260501dc2f080566c61.f0eb2` |
+| 페이지 redirect → NPay 외부 도메인 | (이 시점부터 imweb JS 실행 0) |
+| 결제 완료 후 복귀 | Purchase Guard / payment-success v1 작동 |
+
+즉 **NPay 도 InitiateCheckout 단계는 funnel-capi mirror 활성**. 비어 있는 것은 backend `checkout-started v1` attribution layer (서버 endpoint 호출) 만임. 우리 design v0.4 의 가치 정당화는 그대로 유효 (NPay click 시점 deterministic key + backend checkout-started 보강).
+
 ## Auditor Verdict
 
 ```text
