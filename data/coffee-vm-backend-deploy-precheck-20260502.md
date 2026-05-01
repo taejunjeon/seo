@@ -193,7 +193,7 @@ ssh taejun@34.64.104.94 "sudo -u biocomkr_sns bash -lc '
 | S1 | `curl -sS https://att.ainativeos.net/health` | `status=ok` |
 | S2 | `curl -sS https://att.ainativeos.net/api/coffee/intent/stats \| jq '.enforce_flag_active, .smoke_window_active, .total_rows'` | `false / false / 0` (VM SQLite 가 신규로 비어 있음) |
 | S3 | `curl -sS -X OPTIONS https://att.ainativeos.net/api/attribution/coffee-npay-intent -H "Origin: https://thecleancoffee.com" -H "Access-Control-Request-Method: POST" -i \| head -5` | 204 + `access-control-allow-origin: https://thecleancoffee.com` |
-| S4 | `curl -sS -X POST 'https://att.ainativeos.net/api/attribution/coffee-npay-intent?mode=dry_run' -H "Origin: https://thecleancoffee.com" -H "Content-Type: application/json" -d '{"preview_only":true,"intent_uuid":"vm-postdeploy-probe-1","payload_schema_version":1,"site":"thecleancoffee","intent_phase":"npay_button_click","payment_button_type":"npay","page_url":"https://thecleancoffee.com/shop_view/?idx=73","content_key":"vm_probe","funnel_session_id":"sess_vm_probe","ts_ms":'"$(date +%s)"'000}'` | `ok=true` + `mode=dry_run` + ledger total_rows 변동 없음 |
+| S4 | `curl -sS -X POST 'https://att.ainativeos.net/api/attribution/coffee-npay-intent?mode=dry_run' -H "Origin: https://thecleancoffee.com" -H "Content-Type: application/json" -d '{"preview_only":true,"intent_uuid":"vm-postdeploy-probe-1","payload_schema_version":1,"version":"vm_probe_v1","site":"thecleancoffee","intent_phase":"sanity_test","payment_button_type":"npay","page_url":"https://thecleancoffee.com/shop_view/?idx=73","content_key":"vm_probe","funnel_session_id":"sess_vm_probe","ts_ms":'"$(date +%s)"'000}'` | `ok=true` + `mode=dry_run` + ledger total_rows 변동 없음 (필수: `version` string + `intent_phase ∈ {click_to_dialog, dialog_to_npay, confirm_to_pay, sanity_test}`) |
 
 S2 통과는 신규 endpoint 가 VM 에서 살아있음을 증명. S4 통과는 외부 origin 통한 payload validation 동작 증명. ledger write 0 가 유지됨을 별도 stats 재호출로 확인.
 
@@ -292,3 +292,50 @@ deletion 0건 — 추가된 exclude (`*.backup.*`, `*.bak_*`, `._*`, `src.old`) 
 ### 11.3 결론
 
 **§6 갱신본 명령 그대로 -n 만 제거하면 실제 배포 가능 상태**. 의도하지 않은 deletion 0, 변경 정확히 의도와 일치, 권한 우회 검증 완료.
+
+## 12. 배포 실행 결과 (2026-05-02 KST)
+
+### 12.1 배포 명령 실행
+
+| Step | 결과 |
+|---|---|
+| 사전 — SQLite 백업 (P6) | 150MB → `~/seo/backups/crm.sqlite3.20260501-162731.before-coffee-intent-deploy` |
+| 사전 — pm2 baseline (P7) | seo-backend pid 144309, restart 34, 2D uptime, 263.5MB |
+| Step 1 — 로컬 typecheck | exit 0 |
+| Step 2 — rsync 실제 실행 | exit 0, created 12 / deleted 0 / transferred 15 (dry-run 결과 정확 일치) |
+| Step 3 — VM npm ci + typecheck + build | 모두 exit 0 (deps 변경 없음) |
+| Step 3 — pm2 restart | pid 144309 → **216713**, restart 34 → **35** |
+
+### 12.2 Post-deploy smoke 결과
+
+| Step | 결과 |
+|---|---|
+| S1 `/health` | 200 + `status=ok` |
+| S2 `/api/coffee/intent/stats` | **200** (배포 전 404) + `schema_version=2` + enforce/window/token 모두 `false` + `total_rows=0` |
+| S3 OPTIONS preflight | 204 + `access-control-allow-origin: https://thecleancoffee.com` |
+| S4 (1차, 의도된 schema 미스로 400) | endpoint 살아있음 + validation 동작 — `version is required`, `intent_phase must be one of [...]` 에러 메시지 정상 |
+| S4' (올바른 schema 재시도) | **200 + `ok=true` + `validation.ok=true` + `ledger_row_preview` 채워짐 + `insert_skipped_reason=dry_run_mode`** |
+| S5 ledger write 0 유지 | `total_rows=0` / `dry_run_ok=1` / `dry_run_failed_validation=1` (의도된 카운터) |
+
+### 12.3 배포 후 안전 상태
+
+| 항목 | 값 |
+|---|---|
+| 외부 도메인 endpoint | 신규 7종 모두 활성 |
+| `enforce_flag_active` | false (dormant) |
+| `smoke_admin_token_configured` | false |
+| `smoke_window_active` | false |
+| ledger row 0 | 클린 |
+| GTM Production publish | 0 (변경 없음) |
+| 외부 send (GA4/Meta/TikTok/Google Ads) | 0 |
+| pm2 다른 앱 (cloudflared, frontend) | 무영향 |
+| SQLite 운영 데이터 | 무영향 (rsync exclude 보존) |
+| `.env` 운영 키 | 무영향 (rsync exclude 보존) |
+
+### 12.4 다음 가능 단계
+
+[[!coffeedata]] 표:
+
+- **항목 16 — VM endpoint reachability 확인**: **완료** (S1~S3 PASS)
+- **항목 17 — VM 배포 후 external dry-run**: **완료** (S4' + S5 PASS)
+- **항목 18 — A-3 GTM Preview dispatcher 재개**: **가능 상태** ([[coffee-npay-intent-a3-gtm-preview-dispatcher-runbook-20260502]] 의 Step S1~T4 재진입 가능)
