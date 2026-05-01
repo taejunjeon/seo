@@ -132,6 +132,14 @@ window.FUNNEL_CAPI_CONFIG = { pixelId, endpoint, enableServerCapi, testEventCode
 
 이전 진단 E 의 `MIRROR_EVENTS` 추출 / `__seo_funnel_session` 정체 추적은 정본 코드에서 모두 답이 나옴. snapshot §9 의 진단 E 는 **현 페이지의 sessionId 와 sent eid 목록 한 번 읽어두기** 정도로 축소.
 
+### NPay 결제 흐름 4 layer 분석 (별도 문서로 분리)
+
+[[coffee-imweb-tracking-flow-analysis-20260501]] 에 4 layer 의 trigger / 발화 이벤트 / 시간 순서 / 일반 PG vs NPay 차이 / 우리 design 의 보강 위치 정당화 가 정리됨.
+
+핵심 결론: **NPay 결제 흐름은 일반 PG 결제와 달리 `checkout-started v1` 단계가 의도적으로 비어 있다** (NPay 외부 도메인 redirect 때문). 즉 우리 NPay intent beacon 의 진짜 가치는 (a) NPay click 자체 추적, (b) 그 시점의 deterministic key 발급, (c) 비어 있는 checkout-started 단계의 attribution context 보강 — 세 가지로 좁혀진다.
+
+이로써 design v0.4 의 결정 (글로벌 함수 동시 wrap / `__seo_funnel_session` 재사용 / `intent_uuid` 별도 발급 유지 / Purchase 매핑 대상 아님) 이 정본 코드 근거로 정당화됨.
+
 ## Auditor Verdict
 
 ```text
