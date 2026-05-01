@@ -81,6 +81,14 @@ harness/
     APPROVAL_GATES.md
     LESSONS.md
     EVAL_LOG_SCHEMA.md
+  coffee-data/
+    README.md
+    CONTEXT_PACK.md
+    RULES.md
+    VERIFY.md
+    AUDITOR_CHECKLIST.md
+    EVAL_LOG_SCHEMA.md
+    LESSONS.md
 ```
 
 ## 파일별 역할
@@ -97,6 +105,23 @@ harness/
 | `LESSONS.md` | 누적 교훈 목록 | 작성 |
 | `LESSONS_TO_RULES_SCHEMA.md` | 교훈을 규칙으로 승격하는 schema | 작성 |
 | `EVAL_LOG_SCHEMA.md` | run log와 평가 로그 형식 | 작성 |
+
+## Coffee Data Harness 적용 상태
+
+2026-05-01 15:23 KST 기준 더클린커피 전용 하네스 v0를 분리했다.
+
+| 파일 | 역할 | 상태 |
+|---|---|---|
+| `harness/coffee-data/README.md` | 더클린커피 하네스 목적, 금지선, phase map | 작성 |
+| `harness/coffee-data/CONTEXT_PACK.md` | source/window/freshness, 최신 숫자, 데이터 위치 | 작성 |
+| `harness/coffee-data/RULES.md` | BigQuery-first, Imweb actual, Excel dry-run, guard 규칙 | 작성 |
+| `harness/coffee-data/VERIFY.md` | no-send/no-write/no-deploy 검증 명령 | 작성 |
+| `harness/coffee-data/AUDITOR_CHECKLIST.md` | coffee 전용 hard/soft fail checklist | 작성 |
+| `harness/coffee-data/EVAL_LOG_SCHEMA.md` | NPay matching, Excel dry-run, ROAS read-only schema | 작성 |
+| `harness/coffee-data/LESSONS.md` | coffee 예외와 규칙 후보 | 작성 |
+| `scripts/coffee_harness_audit.py` | coffee changed file, wiki link, no-send/no-write helper | 작성 |
+
+Coffee Data Harness는 NPay recovery 하네스의 하위 섹션이 아니라 두 번째 적용 사례다. 이유는 더클린커피의 primary source가 다르기 때문이다. biocom은 VM intent와 운영 DB confirmed order가 핵심이고, coffee는 GA4 BigQuery, Imweb v2 API, 2024/2025 엑셀이 핵심이다.
 
 ## v0와 v1/v2 구분
 

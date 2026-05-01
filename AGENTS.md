@@ -47,6 +47,7 @@
 - 보고서형 프론트엔드 구현·수정 시 루트 `frontrule.md`를 먼저 참고하시오.
 - GA4/NPay/ROAS/TikTok/BigQuery/운영 DB 정합성 작업 시 `docs/agent-harness/growth-data-harness-v0.md`와 `harness/npay-recovery/README.md`를 먼저 참고하시오.
 - NPay recovery 또는 전환 복구 작업에서는 `harness/npay-recovery/RULES.md`, `VERIFY.md`, `APPROVAL_GATES.md`, `AUDITOR_CHECKLIST.md`를 기준으로 no-send/no-write/no-deploy를 확인하시오.
+- 더클린커피 GA4/Imweb/NPay/Excel/ROAS 정합성 작업 시 `harness/coffee-data/README.md`, `RULES.md`, `VERIFY.md`, `AUDITOR_CHECKLIST.md`를 먼저 참고하시오.
 
 세부 규칙과 예시는 루트 `AGENTS.md` 및 각 프로젝트의 `AGENTS.md`를 따르시오.
 
