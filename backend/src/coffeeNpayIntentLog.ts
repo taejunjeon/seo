@@ -32,6 +32,13 @@ const SCHEMA_VERSION = 2;
 
 const ENFORCE_ENV_FLAG = "COFFEE_NPAY_INTENT_ENFORCE_LIVE";
 const DEV_BYPASS_ENV_FLAG = "COFFEE_NPAY_INTENT_DEV_BYPASS";
+const SMOKE_ADMIN_TOKEN_ENV = "COFFEE_NPAY_INTENT_SMOKE_ADMIN_TOKEN";
+
+const SMOKE_WINDOW_TABLE = "coffee_npay_intent_smoke_windows";
+const SMOKE_WINDOW_DEFAULT_MINUTES = 30;
+const SMOKE_WINDOW_MAX_MINUTES = 120;
+const SMOKE_WINDOW_DEFAULT_MAX_INSERTS = 5;
+const SMOKE_WINDOW_HARD_MAX_INSERTS = 50;
 
 const PAYLOAD_SCHEMA_VERSION_SUPPORTED = 1;
 
@@ -642,6 +649,14 @@ export type EnforceResponse = {
   deduped: boolean;
   inserted_id: number | null;
   enforce_flag_state: { env_key: string; value: string | null; active: boolean };
+  smoke_window: {
+    active: boolean;
+    window_id: number | null;
+    expires_at: string | null;
+    inserted_count: number | null;
+    max_inserts: number | null;
+    remaining: number | null;
+  };
   reason: string;
   ledger_row_preview: LedgerRowPreview | null;
   notes: string[];
@@ -655,6 +670,7 @@ export type EnforceResponse = {
  */
 export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceResponse {
   ensureCoffeeNpayIntentLogSchema();
+  ensureSmokeWindowSchema();
   const validation = validateIntentPayload(payload);
   const enforceFlag = process.env[ENFORCE_ENV_FLAG] ?? null;
   const flagState = {
@@ -663,52 +679,69 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
     active: enforceFlag === "true",
   };
 
+  const site =
+    typeof payload.site === "string" && payload.site
+      ? payload.site
+      : "thecleancoffee";
+  const activeWindow = findActiveSmokeWindow(site);
+  const smokeState = {
+    active: !!activeWindow,
+    window_id: activeWindow?.id ?? null,
+    expires_at: activeWindow?.expires_at ?? null,
+    inserted_count: activeWindow?.inserted_count ?? null,
+    max_inserts: activeWindow?.max_inserts ?? null,
+    remaining:
+      activeWindow ? activeWindow.max_inserts - activeWindow.inserted_count : null,
+  };
+
+  const baseResp = {
+    mode: "enforce" as const,
+    schema_version: SCHEMA_VERSION,
+    validation,
+    inserted: false,
+    deduped: false,
+    inserted_id: null,
+    enforce_flag_state: flagState,
+    smoke_window: smokeState,
+    ledger_row_preview: null,
+  };
+
   if (!flagState.active) {
     bumpRejectCounter("enforce_disabled");
     return {
+      ...baseResp,
       ok: false,
-      mode: "enforce",
-      schema_version: SCHEMA_VERSION,
-      validation,
-      inserted: false,
-      deduped: false,
-      inserted_id: null,
-      enforce_flag_state: flagState,
       reason: "enforce_flag_not_active",
-      ledger_row_preview: null,
       notes: [
-        `INSERT 안 함 — ${ENFORCE_ENV_FLAG}=true 가 필요. 본 phase 는 default false`,
+        `INSERT 안 함 — ${ENFORCE_ENV_FLAG}=true 가 필요. Step A-2a 는 통제된 smoke window 에서만 활성`,
+      ],
+    };
+  }
+  if (!activeWindow) {
+    bumpRejectCounter("enforce_disabled");
+    return {
+      ...baseResp,
+      ok: false,
+      reason: "smoke_window_not_active",
+      notes: [
+        "INSERT 안 함 — 활성 smoke window 없음. admin 이 POST /api/attribution/coffee-npay-intent-smoke-window 로 window 활성화 필요",
       ],
     };
   }
   if (!validation.ok) {
     return {
+      ...baseResp,
       ok: false,
-      mode: "enforce",
-      schema_version: SCHEMA_VERSION,
-      validation,
-      inserted: false,
-      deduped: false,
-      inserted_id: null,
-      enforce_flag_state: flagState,
       reason: "validation_failed",
-      ledger_row_preview: null,
       notes: ["INSERT 안 함 (validation_failed)"],
     };
   }
   if (payload.is_simulation === true) {
     bumpRejectCounter("is_simulation_blocked");
     return {
+      ...baseResp,
       ok: false,
-      mode: "enforce",
-      schema_version: SCHEMA_VERSION,
-      validation,
-      inserted: false,
-      deduped: false,
-      inserted_id: null,
-      enforce_flag_state: flagState,
       reason: "is_simulation_blocked",
-      ledger_row_preview: null,
       notes: ["INSERT 안 함 (is_simulation=true 는 ledger 진입 금지)"],
     };
   }
@@ -808,8 +841,28 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
         ? Number(info.lastInsertRowid)
         : null;
 
-  if (inserted) bumpRejectCounter("enforce_inserted");
+  if (inserted) {
+    bumpRejectCounter("enforce_inserted");
+    incrementSmokeWindowInserted(activeWindow.id);
+  }
   if (deduped) bumpRejectCounter("enforce_deduped");
+
+  // 갱신된 window 상태로 응답 (inserted_count + 1)
+  const refreshedWindow = inserted
+    ? findActiveSmokeWindow(site) || activeWindow
+    : activeWindow;
+  const refreshedState = {
+    active: !!refreshedWindow,
+    window_id: refreshedWindow.id,
+    expires_at: refreshedWindow.expires_at,
+    inserted_count: inserted
+      ? activeWindow.inserted_count + 1
+      : activeWindow.inserted_count,
+    max_inserts: refreshedWindow.max_inserts,
+    remaining:
+      refreshedWindow.max_inserts -
+      (inserted ? activeWindow.inserted_count + 1 : activeWindow.inserted_count),
+  };
 
   return {
     ok: true,
@@ -820,11 +873,12 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
     deduped,
     inserted_id: insertedId,
     enforce_flag_state: flagState,
+    smoke_window: refreshedState,
     reason: inserted ? "inserted_new" : "deduped_existing",
     ledger_row_preview: preview,
     notes: [
       inserted
-        ? "INSERT OK — confirmed order join 모니터링 시작 (default 5일 + 3일 조기 평가 게이트)"
+        ? `INSERT OK — smoke window ${refreshedWindow.id} (남은 ${refreshedState.remaining}/${refreshedState.max_inserts}, 만료 ${refreshedState.expires_at}). confirmed order join 모니터링 시작 (5일 default + 3일 조기 게이트, 7일 fallback)`
         : "기존 (site, intent_uuid) row 존재 — INSERT OR IGNORE 로 dedupe",
     ],
   };
@@ -837,6 +891,16 @@ export function getCoffeeNpayIntentLogStats(): {
   schema_ensured: boolean;
   enforce_flag_active: boolean;
   dev_bypass_flag_active: boolean;
+  smoke_admin_token_configured: boolean;
+  smoke_window_active: boolean;
+  smoke_window_summary: {
+    id: number;
+    started_at: string;
+    expires_at: string;
+    inserted_count: number;
+    max_inserts: number;
+    remaining: number;
+  } | null;
   total_rows: number;
   rows_with_imweb_order_code: number;
   rows_with_ga4_synthetic_transaction_id: number;
@@ -860,6 +924,8 @@ export function getCoffeeNpayIntentLogStats(): {
     db.prepare(`SELECT COUNT(*) AS cnt FROM ${TABLE} WHERE ga4_synthetic_transaction_id IS NOT NULL`).get() as { cnt: number }
   ).cnt;
   const latestRow = db.prepare(`SELECT MAX(ts_ms_kst) AS ts FROM ${TABLE}`).get() as { ts: number | null };
+  ensureSmokeWindowSchema();
+  const activeWindow = findActiveSmokeWindow();
   return {
     ok: true,
     schema_version: SCHEMA_VERSION,
@@ -867,6 +933,20 @@ export function getCoffeeNpayIntentLogStats(): {
     schema_ensured: schemaEnsured,
     enforce_flag_active: process.env[ENFORCE_ENV_FLAG] === "true",
     dev_bypass_flag_active: process.env[DEV_BYPASS_ENV_FLAG] === "true",
+    smoke_admin_token_configured:
+      typeof process.env[SMOKE_ADMIN_TOKEN_ENV] === "string" &&
+      process.env[SMOKE_ADMIN_TOKEN_ENV]!.length > 0,
+    smoke_window_active: !!activeWindow,
+    smoke_window_summary: activeWindow
+      ? {
+          id: activeWindow.id,
+          started_at: activeWindow.started_at,
+          expires_at: activeWindow.expires_at,
+          inserted_count: activeWindow.inserted_count,
+          max_inserts: activeWindow.max_inserts,
+          remaining: activeWindow.max_inserts - activeWindow.inserted_count,
+        }
+      : null,
     total_rows: total,
     rows_with_imweb_order_code: withCode,
     rows_with_ga4_synthetic_transaction_id: withTx,
@@ -1103,3 +1183,155 @@ export function getCoffeeNpayIntentJoinReport(opts: {
     rows,
   };
 }
+
+/* ── Step A-2a: Smoke Window 통제 ────────────────────────────────────── */
+
+let smokeSchemaEnsured = false;
+
+export function ensureSmokeWindowSchema(): void {
+  if (smokeSchemaEnsured) return;
+  const db = getCrmDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ${SMOKE_WINDOW_TABLE} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      site TEXT NOT NULL DEFAULT 'thecleancoffee',
+      started_by TEXT NOT NULL,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,
+      max_inserts INTEGER NOT NULL,
+      inserted_count INTEGER NOT NULL DEFAULT 0,
+      manually_closed_at TEXT,
+      manually_closed_by TEXT,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_${SMOKE_WINDOW_TABLE}_active
+      ON ${SMOKE_WINDOW_TABLE}(site, expires_at, manually_closed_at);
+  `);
+  smokeSchemaEnsured = true;
+}
+
+export type SmokeWindowRow = {
+  id: number;
+  site: string;
+  started_by: string;
+  started_at: string;
+  expires_at: string;
+  max_inserts: number;
+  inserted_count: number;
+  manually_closed_at: string | null;
+  manually_closed_by: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export function verifySmokeAdminToken(token: string | undefined): boolean {
+  const expected = (process.env[SMOKE_ADMIN_TOKEN_ENV] ?? "").trim();
+  if (!expected) return false;
+  if (!token) return false;
+  return token.trim() === expected;
+}
+
+export function openSmokeWindow(opts: {
+  site?: string;
+  durationMinutes?: number;
+  maxInserts?: number;
+  startedBy: string;
+  note?: string;
+}): SmokeWindowRow {
+  ensureSmokeWindowSchema();
+  const db = getCrmDb();
+  const site = opts.site || "thecleancoffee";
+  const minutes = Math.min(
+    Math.max(opts.durationMinutes ?? SMOKE_WINDOW_DEFAULT_MINUTES, 1),
+    SMOKE_WINDOW_MAX_MINUTES,
+  );
+  const maxInserts = Math.min(
+    Math.max(opts.maxInserts ?? SMOKE_WINDOW_DEFAULT_MAX_INSERTS, 1),
+    SMOKE_WINDOW_HARD_MAX_INSERTS,
+  );
+  const expiresAt = new Date(Date.now() + minutes * 60_000).toISOString();
+  const info = db
+    .prepare(
+      `INSERT INTO ${SMOKE_WINDOW_TABLE} (site, started_by, expires_at, max_inserts, note)
+         VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(site, opts.startedBy, expiresAt, maxInserts, opts.note ?? null);
+  const row = db
+    .prepare(`SELECT * FROM ${SMOKE_WINDOW_TABLE} WHERE id = ?`)
+    .get(info.lastInsertRowid) as SmokeWindowRow;
+  return row;
+}
+
+export function closeSmokeWindow(opts: {
+  id?: number;
+  site?: string;
+  closedBy: string;
+}): { closed_count: number } {
+  ensureSmokeWindowSchema();
+  const db = getCrmDb();
+  const site = opts.site || "thecleancoffee";
+  if (typeof opts.id === "number") {
+    const info = db
+      .prepare(
+        `UPDATE ${SMOKE_WINDOW_TABLE}
+           SET manually_closed_at = datetime('now'), manually_closed_by = ?
+           WHERE id = ? AND site = ? AND manually_closed_at IS NULL`,
+      )
+      .run(opts.closedBy, opts.id, site);
+    return { closed_count: info.changes };
+  }
+  // close all active for site
+  const info = db
+    .prepare(
+      `UPDATE ${SMOKE_WINDOW_TABLE}
+         SET manually_closed_at = datetime('now'), manually_closed_by = ?
+         WHERE site = ? AND manually_closed_at IS NULL AND expires_at > datetime('now')`,
+    )
+    .run(opts.closedBy, site);
+  return { closed_count: info.changes };
+}
+
+export function listSmokeWindows(opts: {
+  site?: string;
+  limit?: number;
+}): SmokeWindowRow[] {
+  ensureSmokeWindowSchema();
+  const db = getCrmDb();
+  const site = opts.site || "thecleancoffee";
+  const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
+  return db
+    .prepare(
+      `SELECT * FROM ${SMOKE_WINDOW_TABLE} WHERE site = ?
+         ORDER BY id DESC LIMIT ?`,
+    )
+    .all(site, limit) as SmokeWindowRow[];
+}
+
+export function findActiveSmokeWindow(
+  site = "thecleancoffee",
+): SmokeWindowRow | null {
+  ensureSmokeWindowSchema();
+  const db = getCrmDb();
+  const row = db
+    .prepare(
+      `SELECT * FROM ${SMOKE_WINDOW_TABLE}
+         WHERE site = ?
+           AND manually_closed_at IS NULL
+           AND expires_at > datetime('now')
+           AND inserted_count < max_inserts
+         ORDER BY id DESC
+         LIMIT 1`,
+    )
+    .get(site) as SmokeWindowRow | undefined;
+  return row ?? null;
+}
+
+export function incrementSmokeWindowInserted(windowId: number): void {
+  ensureSmokeWindowSchema();
+  const db = getCrmDb();
+  db.prepare(
+    `UPDATE ${SMOKE_WINDOW_TABLE} SET inserted_count = inserted_count + 1 WHERE id = ?`,
+  ).run(windowId);
+}
+

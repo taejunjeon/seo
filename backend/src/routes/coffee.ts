@@ -4,11 +4,15 @@ import {
   bumpRejectCounter,
   checkOriginAllowlist,
   checkRateLimit,
+  closeSmokeWindow,
   getCoffeeNpayIntentJoinReport,
   getCoffeeNpayIntentLogStats,
   listCoffeeNpayIntents,
+  listSmokeWindows,
+  openSmokeWindow,
   runDryRun as runCoffeeNpayIntentDryRun,
   runEnforceInsert as runCoffeeNpayIntentEnforce,
+  verifySmokeAdminToken,
 } from "../coffeeNpayIntentLog";
 import { getSubscriberTrackStats, syncSubscriberTracks } from "../subscriberTrackSync";
 import {
@@ -302,7 +306,7 @@ export const createCoffeeRouter = () => {
     (req: Request, res: Response) => {
       try {
         const site = String(req.query.site ?? "thecleancoffee");
-        const windowDays = Number(req.query.window_days ?? 7) || 7;
+        const windowDays = Number(req.query.window_days ?? 5) || 5;
         const limit = Number(req.query.limit ?? 200) || 200;
         res.json(
           getCoffeeNpayIntentJoinReport({ site, windowDays, limit }),
@@ -311,6 +315,123 @@ export const createCoffeeRouter = () => {
         res.status(500).json({
           ok: false,
           error: err instanceof Error ? err.message : "join_report failed",
+        });
+      }
+    },
+  );
+
+  /**
+   * Step A-2a — Smoke Window 활성/종료/조회 admin endpoints.
+   *
+   * 인증: env COFFEE_NPAY_INTENT_SMOKE_ADMIN_TOKEN 가 설정되어 있어야 하고,
+   * 요청 헤더 `Authorization: Bearer <token>` 또는 `X-Coffee-Smoke-Admin-Token: <token>`
+   * 가 일치해야 함. token 미설정 시 모든 admin 호출 reject.
+   *
+   * Origin 가드는 admin 호출에는 적용 안 함 (TJ 가 직접 curl 또는 admin UI 에서
+   * 호출). 단 TJ 의 admin token 만 작동. token 누락/불일치 시 401.
+   */
+  function readAdminToken(req: Request): string {
+    const auth =
+      typeof req.headers["authorization"] === "string"
+        ? (req.headers["authorization"] as string)
+        : "";
+    if (auth.toLowerCase().startsWith("bearer ")) {
+      return auth.slice(7).trim();
+    }
+    const direct = req.headers["x-coffee-smoke-admin-token"];
+    if (typeof direct === "string") return direct.trim();
+    return "";
+  }
+
+  router.post(
+    "/api/attribution/coffee-npay-intent-smoke-window",
+    (req: Request, res: Response) => {
+      try {
+        const token = readAdminToken(req);
+        if (!verifySmokeAdminToken(token)) {
+          res.status(401).json({
+            ok: false,
+            reason: "smoke_admin_token_invalid_or_missing",
+            note:
+              "Authorization: Bearer <token> 또는 X-Coffee-Smoke-Admin-Token 헤더 필요. token 환경변수: COFFEE_NPAY_INTENT_SMOKE_ADMIN_TOKEN",
+          });
+          return;
+        }
+        const body = (req.body ?? {}) as Record<string, unknown>;
+        const startedBy =
+          (typeof body.started_by === "string" && body.started_by) || "tj_via_admin_token";
+        const note =
+          typeof body.note === "string" && body.note ? body.note : null;
+        const durationMinutes =
+          typeof body.duration_minutes === "number" ? body.duration_minutes : undefined;
+        const maxInserts =
+          typeof body.max_inserts === "number" ? body.max_inserts : undefined;
+        const site =
+          typeof body.site === "string" && body.site ? body.site : "thecleancoffee";
+        const window = openSmokeWindow({
+          site,
+          durationMinutes,
+          maxInserts,
+          startedBy,
+          note: note ?? undefined,
+        });
+        res.status(201).json({ ok: true, smoke_window: window });
+      } catch (err) {
+        res.status(500).json({
+          ok: false,
+          error: err instanceof Error ? err.message : "smoke_window_open failed",
+        });
+      }
+    },
+  );
+
+  router.post(
+    "/api/attribution/coffee-npay-intent-smoke-window/close",
+    (req: Request, res: Response) => {
+      try {
+        const token = readAdminToken(req);
+        if (!verifySmokeAdminToken(token)) {
+          res
+            .status(401)
+            .json({ ok: false, reason: "smoke_admin_token_invalid_or_missing" });
+          return;
+        }
+        const body = (req.body ?? {}) as Record<string, unknown>;
+        const id = typeof body.id === "number" ? body.id : undefined;
+        const closedBy =
+          (typeof body.closed_by === "string" && body.closed_by) || "tj_via_admin_token";
+        const site =
+          typeof body.site === "string" && body.site ? body.site : "thecleancoffee";
+        const result = closeSmokeWindow({ id, site, closedBy });
+        res.json({ ok: true, ...result });
+      } catch (err) {
+        res.status(500).json({
+          ok: false,
+          error: err instanceof Error ? err.message : "smoke_window_close failed",
+        });
+      }
+    },
+  );
+
+  router.get(
+    "/api/attribution/coffee-npay-intent-smoke-windows",
+    (req: Request, res: Response) => {
+      try {
+        const token = readAdminToken(req);
+        if (!verifySmokeAdminToken(token)) {
+          res
+            .status(401)
+            .json({ ok: false, reason: "smoke_admin_token_invalid_or_missing" });
+          return;
+        }
+        const site = String(req.query.site ?? "thecleancoffee");
+        const limit = Number(req.query.limit ?? 20) || 20;
+        const items = listSmokeWindows({ site, limit });
+        res.json({ ok: true, site, items });
+      } catch (err) {
+        res.status(500).json({
+          ok: false,
+          error: err instanceof Error ? err.message : "smoke_windows_list failed",
         });
       }
     },

@@ -1,7 +1,7 @@
-# 더클린커피 NPay Intent Ledger Enforce 활성 + 제한적 Live Capture 승인안 (v1.5)
+# 더클린커피 NPay Intent Ledger Enforce 활성 + 제한적 Live Capture 승인안 (v1.6)
 
-생성 시각: 2026-05-01 KST (v1.5: 2026-05-02 00:30 KST hardening 보강)
-phase: A-1.5 (endpoint hardening + dispatcher retry 보강 완료, enforce 활성 승인 대기)
+생성 시각: 2026-05-01 KST (v1.5: 2026-05-02 00:30 KST hardening 보강 / **v1.6: 2026-05-02 00:48 KST Step A-2a smoke window 통제 메커니즘 추가**)
+phase: A-2a (smoke window 통제 메커니즘 + 회귀 13종 PASS + env/window 모두 OFF 복귀)
 승인 대상: TJ
 관련 문서: [[coffee-npay-intent-beacon-preview-snippet-all-in-one-20260501|all-in-one snippet v0.4+v0.5+v0.6]] / [[coffee-npay-intent-beacon-preview-design-20260501|design v0.4]] / [[coffee-imweb-tracking-flow-analysis-20260501|4 layer 분석]] / [[coffee-npay-intent-uuid-preservation-test-20260501|URL 보존 검증 가이드]] / [[coffee-funnel-capi-cross-site-applicability-20260501|biocom cross-site 메모]]
 
@@ -137,14 +137,25 @@ GTM Production publish (또는 imweb head custom code 직접 삽입) 결정 전 
 | 5일 | ~42건 | ~34건 | ±9%pp | **default** |
 | 7일 | ~60건 | ~51건 | ±7%pp | 가장 보수적 |
 
-### 조기 평가 게이트 (3일 시점)
+### 조기 평가 게이트 (3일 시점, v1.6 — TJ 명시 9 조건)
 
-다음 두 조건 모두 만족 시 5일 기다리지 않고 publish 결정 가능:
+다음 9 조건 **모두** 만족 시 5일 기다리지 않고 publish 결정 가능:
 
-- `joined_confirmed_order` 비율 ≥ **90%** (보수적 기본 80% 보다 strict)
-- 24h grace 통과한 row ≥ **20건** (실효 표본 최소선)
+1. 24h grace 통과 row ≥ **20**
+2. `joined_confirmed_order` 비율 ≥ **90%**
+3. `invalid_payload` 비율 ≤ **5%**
+4. `no_order_after_24h` 비율 < **10%**
+5. `duplicated_intent` 비율 ≤ **1%**
+6. `pii_rejected` = **0**
+7. `endpoint_5xx` = **0**
+8. `dispatcher_fetch_failed` < **10%** of attempts
+9. `retry_success` ≥ **80%** of retries
 
-조건 미만 시 default 5일까지 모니터링.
+9 조건 중 1개라도 미충족이면 5일까지 default 모니터링.
+
+### 5일 → 7일 fallback (애매한 경우만)
+
+5일 시점에도 위 9 조건 중 일부가 경계선 (예: joined 85~89%, retry_success 70~79%) 이라 명확히 publish 결정이 어려우면 7일까지 데이터 수집 후 재평가. 7일은 fallback only.
 
 ### 핵심 지표 (`GET /api/attribution/coffee-npay-intent-join-report` + `GET /api/coffee/intent/stats` 일 1회 polling)
 
@@ -189,11 +200,108 @@ GTM Production publish (또는 imweb head custom code 직접 삽입) 결정 전 
 - `retry_success` 비율 < 50% of retries (영구 실패 패턴)
 - 운영 매출 / GA4 / Meta 등 다른 layer 에 의도치 않은 영향 의심
 
+## Step A-2a — Smoke Window 통제 메커니즘 (TJ 조건부 승인 반영, v1.6)
+
+TJ 가 A-1.5 의 항목 3 (enforce mode 활성 조건) 을 "**상시 켜두는 방식 비승인**, smoke window 와 묶어서 짧게 활성**"로 변경 요청. v1.6 에서 다음 3중 가드 적용:
+
+### 3중 가드 (모두 만족해야 INSERT)
+
+1. **env flag** `COFFEE_NPAY_INTENT_ENFORCE_LIVE=true` (kill switch). default false → enforce 호출 시 항상 reject.
+2. **admin token** `COFFEE_NPAY_INTENT_SMOKE_ADMIN_TOKEN` (auth). 별도 env 환경변수. token 미설정 시 모든 admin 호출 401.
+3. **smoke window record** (burst limit). admin 이 명시적으로 open 한 시간 제한된 window 안에서만 INSERT 가능. window 만료 또는 max_inserts 도달 시 자동 reject.
+
+### Schema 추가
+
+`coffee_npay_intent_smoke_windows` 테이블 (CREATE TABLE IF NOT EXISTS):
+
+```sql
+CREATE TABLE coffee_npay_intent_smoke_windows (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  site TEXT NOT NULL DEFAULT 'thecleancoffee',
+  started_by TEXT NOT NULL,
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,           -- ISO 8601, max 120분 후
+  max_inserts INTEGER NOT NULL,        -- max 50건
+  inserted_count INTEGER NOT NULL DEFAULT 0,
+  manually_closed_at TEXT,
+  manually_closed_by TEXT,
+  note TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_..._active ON ...(site, expires_at, manually_closed_at);
+```
+
+기본값: `duration_minutes=30` (max 120), `max_inserts=5` (hard max 50).
+
+### Admin Endpoints
+
+| Method | Path | 설명 |
+|---|---|---|
+| `POST /api/attribution/coffee-npay-intent-smoke-window` | window open. body `{started_by, note?, duration_minutes?, max_inserts?, site?}`. 응답 `{ok, smoke_window: {id, expires_at, max_inserts, ...}}` |
+| `POST /api/attribution/coffee-npay-intent-smoke-window/close` | window close (`{id?, closed_by, site?}`). id 미제공 시 site 의 모든 active window close |
+| `GET /api/attribution/coffee-npay-intent-smoke-windows` | list 최근 N건 (`?limit=20`) |
+
+모두 `Authorization: Bearer <token>` 또는 `X-Coffee-Smoke-Admin-Token: <token>` 필요. token 누락/불일치 시 401 + `reason: smoke_admin_token_invalid_or_missing`.
+
+### enforce 호출 분기 (3중 가드)
+
+`POST /api/attribution/coffee-npay-intent?mode=enforce` 처리 순서:
+
+1. Origin/Referer allowlist 통과 (A-1.5)
+2. rate limit 통과 (A-1.5)
+3. env flag `COFFEE_NPAY_INTENT_ENFORCE_LIVE=true` 활성 — 미활성 시 `reason: enforce_flag_not_active`
+4. **active smoke window 존재 + max_inserts 미초과** — 미존재/초과 시 `reason: smoke_window_not_active`
+5. validation (preview_only/PII/site/intent_phase 등 A-1.5)
+6. is_simulation=true 차단
+7. INSERT OR IGNORE → window.inserted_count +1
+
+응답에 `smoke_window: {active, window_id, expires_at, inserted_count, max_inserts, remaining}` 포함.
+
+### Step A-2a 회귀 검증 (Codex 직접 진행, ledger row 0 복귀)
+
+13종 시나리오 모두 PASS (curl):
+
+| # | 시나리오 | 결과 |
+|---|---|---|
+| 1 | admin token 미제공 → 401 | `reason: smoke_admin_token_invalid_or_missing` |
+| 2 | admin token 잘못 → 401 | 동일 |
+| 3 | enforce + window 없음 → reject | `reason: smoke_window_not_active` |
+| 4 | window open (max_inserts=2, 5분) | 201, window id=1, max_inserts=2 |
+| 5 | enforce #1 (window active, valid payload) | inserted=true, inserted_id=1, remaining=1 |
+| 6 | enforce #2 (같은 intent_uuid, dedup) | inserted=false, deduped=true |
+| 7 | enforce #3 (새 uuid, 잔여 1) | inserted=true, remaining=0 |
+| 8 | enforce #4 (max_inserts 도달) | reject, `reason: smoke_window_not_active` |
+| 9 | join report (row 2건) | total=2, status=`pending_order_sync: 2` (24h grace 안) |
+| 10 | ledger row count + smoke_window record | ledger=2, smoke_window inserted_count=2 |
+| 11 | window close | closed_count=1 |
+| 12 | close 후 enforce → 다시 reject | `reason: smoke_window_not_active` |
+| 13 | ledger 정리 (DELETE 후) | row=0 |
+
+검증 종료 후 **`.env` 의 임시 추가 키 (`COFFEE_NPAY_INTENT_ENFORCE_LIVE`, `COFFEE_NPAY_INTENT_SMOKE_ADMIN_TOKEN`) 모두 제거 + backend 재시작**. 최종 stats: `enforce=false / token=false / window_active=false / total_rows=0`.
+
+### 운영에 남은 변경 (검증 후 최종 상태)
+
+- backend 코드 deploy: smoke window logic + admin endpoints + enforce 분기 보강
+- backend dist 재빌드 + production server 재시작 (Codex 직접, 다운타임 ~3초 / 4회)
+- `coffee_npay_intent_smoke_windows` 테이블 schema 추가 (row 0 유지)
+- `coffee_npay_intent_log` 테이블 schema 그대로 (row 0 유지)
+- env flag 모두 미활성 (운영 트래픽 0)
+
+### TJ 가 활성하는 절차 (Step A-2a 실제 사용 시)
+
+1. TJ 가 backend `.env` 에 `COFFEE_NPAY_INTENT_ENFORCE_LIVE=true` + `COFFEE_NPAY_INTENT_SMOKE_ADMIN_TOKEN=<랜덤 secret>` 추가 후 재시작 (또는 supervisor 가 자동)
+2. TJ 가 `POST /api/attribution/coffee-npay-intent-smoke-window` 로 window open (예: 30분, max 5건)
+3. snippet 또는 GTM Preview dispatcher 가 1~5건 forward → backend INSERT
+4. `GET /api/coffee/intent/stats` 로 inserted_count / remaining 모니터
+5. window 자동 만료 (또는 max_inserts 도달) 시 enforce 자동 reject 복귀
+6. TJ 가 `.env` 에서 두 키 삭제 후 재시작 (env flag OFF 복귀)
+7. 7일 (또는 5일/3일 게이트) 모니터링 — `GET /api/attribution/coffee-npay-intent-join-report` 일 1회 polling
+
 ## 다음 phase (TJ 승인 후)
 
 | 단계 | 트리거 | 내용 |
 |---|---|---|
-| Step A-2 | 본 승인안 PASS | `COFFEE_NPAY_INTENT_ENFORCE_LIVE=true` env 추가 + backend 재시작. 단 dispatcher 미활성이라 INSERT 트래픽 0 |
+| Step A-2a (위 섹션) | 본 승인안 v1.6 PASS | TJ 직접 .env 추가 → admin 으로 window open → 1~5건 INSERT 검증 → window close → .env 정리 |
 | Step A-3 | Step A-2 PASS | dispatcher 작성 — GTM Coffee workspace 에 Custom HTML tag (Production 미publish, Preview 만) 또는 별도 forwarder. all-in-one snippet 의 buffer 를 1초 throttle + dedup 후 `POST /api/attribution/coffee-npay-intent?mode=enforce` 로 forward |
 | Step A-4 | dispatcher Preview PASS | GTM Coffee workspace publish (소수 트래픽부터) — TJ 승인 |
 | Step A-5 | 7일 모니터링 PASS | join report 의 status 비율 목표 달성 → ledger 가 deterministic mapping 의 source-of-truth 로 인정 |
