@@ -1,29 +1,45 @@
 # 더클린커피 NPay Intent Beacon Preview-only 설계안
 
-생성 시각: 2026-05-01 KST
+생성 시각: 2026-05-01 KST (v0.3 보강: funnel-capi 호환성 반영)
 site: `thecleancoffee`
 mode: `design_only` / `preview_only`
-범위: DOM selector 조사 + beacon payload 초안 + preview 검증 절차
+범위: DOM selector 조사 + beacon payload 초안 + preview 검증 절차 + funnel-capi 진단/공존
 관련 Sprint: [[!coffeedata#Phase2-Sprint5|Phase2-Sprint5]] / [[!coffeedata#Phase3-Sprint6|Phase3-Sprint6]] / [[!coffeedata#Phase4-Sprint8|Phase4-Sprint8]]
+Live tracking inventory: [[coffee-live-tracking-inventory-20260501|2026-05-01 snapshot]] (필수 선행)
+
+## v0.3 변경 요약 (이번 보강)
+
+- 본 design 은 폐기 아님. site 에 이미 살아 있는 `funnel-capi v3` (2026-04-15) 를 무시하지 않고 **재사용/공존** 하도록 보강.
+- funnel-capi 의 `sessionId` 가 노출되면 우리 `session_uuid` 는 새로 발급하지 않고 그것을 재사용.
+- funnel-capi 가 NPay click/InitiateCheckout/Purchase 까지 eid 를 박는다면 우리 `intent_uuid` 자리에 funnel-capi eid 사용.
+- funnel-capi 가 NPay 분기를 안 박는다면 우리 design 은 NPay 보강 layer 로 유지하되 sessionId 만 공유.
+- preview snippet 의 `confirmOrderWithCartItems` wrap 이 안 잡히는 케이스 대비 진단 명령 추가.
+- Live tracking inventory snapshot ([[coffee-live-tracking-inventory-20260501]]) 이 본 design 의 선행 조건. snapshot 미갱신 시 [[harness/coffee-data/AUDITOR_CHECKLIST|AUDITOR_CHECKLIST]] hard fail.
 
 ## Auditor Verdict
 
 ```text
 Auditor verdict: PASS_WITH_NOTES
-Phase: coffee_npay_intent_beacon_preview_design (v0.2)
+Phase: coffee_npay_intent_beacon_preview_design (v0.3)
 No-send verified: YES
 No-write verified: YES
 No-deploy verified: YES
+No-publish verified: YES
 GTM publish: BLOCKED
 Live script injection: BLOCKED
 fetch/sendBeacon/XHR: BLOCKED
 GA4 gtag event: BLOCKED
 backend API call: BLOCKED
+Meta CAPI / TikTok Events / Google Ads send: BLOCKED
 sessionStorage + console.log only: YES
 PII output: NONE
 New executable send path added: NO
 Actual network send observed: NO
 intent_uuid scope: per-confirm_to_pay (not per-session)
+funnel-capi compatibility section: PRESENT (v0.3)
+funnel-capi code modification: NONE (read-only reuse policy)
+Live tag inventory snapshot present: YES (data/coffee-live-tracking-inventory-20260501.md)
+실제 운영 변경: 0건
 ```
 
 ## 10초 요약
@@ -35,6 +51,110 @@ intent_uuid scope: per-confirm_to_pay (not per-session)
 다음 단계의 핵심 분기는 **Imweb URL Query Param 보존 검증** 이다. `confirmOrderWithCartItems("npay", url)` 의 url 에 `intent_uuid` 를 추가했을 때 Imweb/NPay raw_data 에 보존되면 deterministic match, 보존되지 않으면 internal intent ledger + `(prod_code, quantity, estimated_item_total, order_time_kst ± 30분)` 기반 high-confidence matching 으로 간다. 어느 쪽이 될지는 sandbox 실험 결과로 결정한다.
 
 이번 phase 는 preview only다. GTM publish, head 삽입, fetch/sendBeacon/XHR, GA4 gtag, backend API 호출 모두 금지하며 sessionStorage 4개 키 + console.log 만 사용한다.
+
+## funnel-capi Compatibility (v0.3)
+
+### 발견 (2026-05-01 KST)
+
+[[coffee-live-tracking-inventory-20260501]] 에서 확인됨. 더클린커피 site 에 이미 다음이 운영 중이다.
+
+```
+[funnel-capi] fbq wrapped agent=imweb version=2.9.310
+[funnel-capi] installed 2026-04-15-thecleancoffee-funnel-capi-v3
+  pixel=1186437633687388  enableServerCapi=false  testEventCode=(none)
+  sessionId=mompe62dw2gxlk
+[funnel-capi] inject eid ViewContent ViewContent.1.mompe62dw2gxlk
+[funnel-capi] server skipped (disabled) ViewContent ViewContent.1.mompe62dw2gxlk
+```
+
+| 우리 design v0.2 | funnel-capi 가 이미 운영 중인 것 |
+|---|---|
+| `session_uuid` (새 발급) | `sessionId` (예: `mompe62dw2gxlk`, 자체 발급) |
+| `intent_uuid` (per `confirm_to_pay`) | `eid` (per event, `EventName.seq.sessionId`) |
+| `intent_seq` | eid 안 `seq` 부분 |
+
+발급 단위, 형식, 목적이 거의 동일. **새로 박는 게 아니라 재사용/보강** 하는 방향이 맞다.
+
+### 진단 명령 (TJ 가 chrome devtools console 에서 실행)
+
+#### 진단 A. site 진입 직후 (preview snippet 실행 전)
+
+```js
+// A-0. 페이지 로드 직후 console 자동 출력 메시지 캡처 (funnel-capi installed 줄 등)
+// → snapshot 의 §1 에 반영
+
+// A-1. funnel-capi 가 sessionId 를 어디 노출하는지 + 이미 wrap 된 함수 묶음 확인
+({
+  funnelCapi: [window.__funnelCapi, window.funnelCapi, window.__FUNNEL_CAPI__].filter(Boolean),
+  fbq: typeof window.fbq === "function" ? window.fbq.toString().slice(0, 400) : typeof window.fbq,
+  gtag: typeof window.gtag === "function" ? window.gtag.toString().slice(0, 400) : typeof window.gtag,
+  ttq: typeof window.ttq,
+  confirmOrder: window.SITE_SHOP_DETAIL?.confirmOrderWithCartItems?.toString().slice(0, 300),
+  initDetail: window.SITE_SHOP_DETAIL?.initDetail?.toString().slice(0, 200),
+  naverPay: window.naver?.NaverPayButton?.apply?.toString?.().slice(0, 200),
+  cookies: document.cookie.split(";").map(s => s.trim().split("=")[0]).filter(Boolean),
+  sessionStorageKeys: Object.keys(sessionStorage),
+})
+```
+
+#### 진단 B. preview snippet 실행 후 (NPay 클릭 직전)
+
+```js
+// B-1. snippet 살아 있는가
+window.__coffeeNpayIntentPreview
+// → true: 살아 있음 / undefined: snippet 재실행 필요
+
+// B-2. confirmOrderWithCartItems 가 우리 wrap 으로 잡혀 있는가
+window.SITE_SHOP_DETAIL?.confirmOrderWithCartItems?.toString().slice(0, 300)
+// → "if (kind === \"npay\") log(buildPayload" 같은 문자열 보이면 wrap OK
+// → 안 보이면 다른 코드(funnel-capi/imweb)가 다시 덮어씌움 → 충돌
+
+// B-3. 이전 buffer 길이 (NPay 클릭 전)
+JSON.parse(sessionStorage.getItem('coffee_npay_intent_preview') || '[]').length
+```
+
+#### 진단 C. NPay PC 버튼 클릭 직후
+
+```js
+// C-1. buffer 변화
+JSON.parse(sessionStorage.getItem('coffee_npay_intent_preview') || '[]').length
+// → 0: hook 못 잡음 / 1+: 잡힘
+
+// C-2. 마지막 payload (있으면)
+JSON.parse(sessionStorage.getItem('coffee_npay_intent_preview') || '[]').slice(-1)[0]
+
+// C-3. funnel-capi 가 클릭 직후 새 console marker 를 출력했는가
+// (수동 관찰: console 에 "[funnel-capi] inject eid <EventName>..." 줄이 추가됐는지)
+// 새 marker 가 InitiateCheckout / AddToCart / Purchase 인지 EventName 기록
+```
+
+### 결과 분기 (snapshot 의 §7~§8 채워질 때 자동 결정)
+
+| 진단 결과 | 우리 design 변경 | session/eid 처리 |
+|---|---|---|
+| funnel-capi sessionId 가 진단 A-1 의 `funnelCapi` 또는 다른 변수로 노출됨 | `session_uuid` 새 발급 폐지, funnel-capi sessionId 재사용 | snippet 안 `sessionUuid` 계산 시 funnel-capi 변수에서 먼저 읽기, 부재 시만 `crypto.randomUUID()` |
+| funnel-capi sessionId 가 어디에도 노출 안 됨 (console 마커에만 등장) | sessionId 추출용 작은 helper: console marker 가 띄운 sessionId 형식과 동일한 string 을 별도 발급 안 하고, `coffee_npay_session_uuid` 에 funnel-capi 기록을 그대로 박음 (수동 1회 입력) | 또는 우리 새 `session_uuid` 를 발급하되 funnel-capi sessionId 도 함께 buffer 에 `funnel_capi_session_id` 필드로 기록 |
+| funnel-capi 가 NPay 클릭 시 `InitiateCheckout` 또는 별도 eid 를 발급함 | `intent_uuid` 새 발급 폐지, funnel-capi eid 를 그대로 사용. 우리 wrapper 는 보강 layer 가 아니라 funnel-capi eid 의 NPay 분기 라벨 추가만 | payload 의 `intent_uuid` 자리에 funnel-capi eid (예: `InitiateCheckout.<seq>.<sessionId>`) 저장. `intent_uuid_source: "funnel_capi_eid"` |
+| funnel-capi 가 NPay 클릭에서 새 eid 안 박음 | 우리 `intent_uuid` 발급 유지. 단 `session_uuid` 만 funnel-capi sessionId 와 공유. NPay 보강 layer 역할 | `intent_uuid_source: "preview_snippet_local"` |
+| 진단 B-2 wrap 확인 결과 우리 wrap 이 사라짐 | imweb/funnel-capi 가 `confirmOrderWithCartItems` 를 다시 정의해 우리 wrap 이 덮어씌워짐. snippet 실행 시점을 imweb load 완료 이후 (예: `DOMContentLoaded` + `setTimeout(0)`) 로 늦추거나, `naver.NaverPayButton.apply` 호출 자체를 wrap 해서 BUY_BUTTON_HANDLER 시점에 직접 hook | snippet 코드 v0.3 보강 항목 §"BUY_BUTTON_HANDLER 직접 wrap fallback" |
+| 진단 C-1 buffer 0 (hook 못 잡음) | 진입점이 `confirmOrderWithCartItems` 가 아닐 가능성. NPay SDK iframe 내 click 이거나 `naver.NaverPayButton.apply` 시점에서 직접 redirect. 같은 §"BUY_BUTTON_HANDLER 직접 wrap fallback" 으로 진행 | snippet hook 지점 변경 |
+
+### 공존 원칙
+
+- funnel-capi **코드 수정 금지**. 본 phase 의 모든 변경은 우리 snippet 안에서만.
+- funnel-capi sessionId / eid 를 **읽기만** 하고 쓰지 않는다.
+- funnel-capi 가 fbq 를 wrap 하고 있는 상태에서 우리가 fbq 를 다시 wrap 하지 않는다 (지금 design 에는 fbq wrap 자체가 없음, 명시적 금지).
+- 진단 결과로 우리 design 이 simplify 되면 polite 하게 폐기 또는 축소하되 funnel-capi 보강 의도는 본 문서에 보존한다.
+
+### 향후 funnel-capi 에 NPay 분기 추가가 필요해질 경우
+
+본 phase 범위 밖이지만, 만약 funnel-capi 가 NPay 클릭/Purchase 까지 eid 를 안 박고 있는 게 확정되면, 다음 phase 에서:
+
+1. funnel-capi 코드 소스 위치 확인 (GTM tag / 외부 호스팅 / repo 어디에도 없으면 funnel-capi 운영 주체에게 문의).
+2. funnel-capi 에 NPay click/InitiateCheckout/Purchase 이벤트 분기 추가 PR 또는 운영 협업.
+3. 본 design 의 우리 wrapper 는 funnel-capi 분기가 운영에 들어가는 시점에 폐기.
+
+이 모두는 별도 phase 에서 진행한다.
 
 ## 목적
 

@@ -42,6 +42,8 @@ Auditor는 보수적으로 판단한다.
 | store/site filter 없는 운영 DB 결과를 정본으로 썼는가 | 3사이트 혼합 위험 | SQL 조건 확인 |
 | Naver Commerce API 권한 없이 NPay actual을 확정했는가 | 판매자 권한 오류 가능 | API scope 확인 |
 | ambiguous/B/probable을 send 후보로 만들었는가 | false positive 위험 | report `send_candidate` 확인 |
+| tracking/wrapper/intent/eid 작업인데 [[harness/coffee-data/LIVE_TAG_INVENTORY|LIVE_TAG_INVENTORY]] snapshot 이 7일 이상 stale 또는 부재인가 | live site 의 기존 wrapper / session / eid 를 무시하고 중복/충돌하는 새 layer 를 박을 위험 | `data/coffee-live-tracking-inventory-*.md` 최신성 확인 |
+| 새 wrapper (예: `fbq`, `gtag`, `ttq`, `SITE_SHOP_DETAIL.*`) 를 설계했는데 inventory 의 §4 Existing wrappers 항목을 채우지 않았는가 | 이미 wrap 된 함수에 다시 wrap 하면 이중 호출 / 무한 재귀 / 원본 깨짐 | inventory §4 확인 |
 
 ## Soft Fail Checks
 
@@ -55,6 +57,8 @@ Auditor는 보수적으로 판단한다.
 | `왜/어떻게` 설명이 없음 | TJ님이 판단하기 어려움 | 쉬운 설명 추가 |
 | no-send grep 결과가 없음 | 금지선 검증 부족 | [[harness/coffee-data/VERIFY|VERIFY]] 실행 |
 | unrelated dirty file이 staged | 커밋 오염 | stage 해제 |
+| 새 session/eid 체계를 설계했는데 [[harness/coffee-data/LIVE_TAG_INVENTORY|LIVE_TAG_INVENTORY]] §5 의 기존 session/eid 키 (예: funnel-capi `sessionId`/`eid`) 를 확인 안 했음 | 이미 발급되는 first-party 키를 재사용하지 않고 중복 발급 → 매칭 시 두 키를 모두 추적해야 하는 부담 | inventory §5 확인 후 design 에 재사용/공존 결정 명시 |
+| 새 client wrapper / 송출 코드를 추가하면서 [[harness/coffee-data/LIVE_TAG_INVENTORY|LIVE_TAG_INVENTORY]] §6 의 server send enable 상태 미확인 | server CAPI / GA4 MP 가 켜져 있을 때 client+server 이중 dedupe 키가 필요. 미확인 시 dedupe 누락으로 중복 전송 위험 | inventory §6 확인 후 dedupe 키 (eid/event_id) 동기화 명시 |
 
 ## Coffee 숫자 일치 검사
 
