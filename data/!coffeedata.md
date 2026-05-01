@@ -4,7 +4,7 @@
 최신 read-only 확인: 2026-05-01 10:17 KST
 문서 성격: 검토안 + 실행 설계안  
 대상 사이트: `thecleancoffee.com`, 더클린커피 아임웹/GA4/BigQuery/NPay/ROAS  
-관련 문서: [[!datacheckplan]], [[!bigquery]], [[iamweb_excel_backfill_review]], [[toss_sync_gap]], [[roasphase]], [[naver/!npayroas|biocom NPay ROAS 정합성 계획]], [[coffee-ga4-baseline-20260501|더클린커피 GA4 BigQuery 기준선 20260501]], [[coffee-imweb-operational-readonly-20260501|더클린커피 아임웹/운영 DB Read-only 주문 원장 대조]], [[coffee-ga4-robust-guard-20260501|더클린커피 GA4 Robust Guard]], [[coffee-excel-import-dry-run-20260501|더클린커피 엑셀 Import Dry-run]], [[coffee-dry-run-schema|더클린커피 Dry-run Schema]], [[naver/npay-api-mcp-review-20260501|네이버페이 API와 MCP 검토]]
+관련 문서: [[!datacheckplan]], [[!bigquery]], [[!data_inventory|SEO 데이터 위치 인벤토리]], [[iamweb_excel_backfill_review]], [[toss_sync_gap]], [[roasphase]], [[naver/!npayroas|biocom NPay ROAS 정합성 계획]], [[coffee-ga4-baseline-20260501|더클린커피 GA4 BigQuery 기준선 20260501]], [[coffee-imweb-operational-readonly-20260501|더클린커피 아임웹/운영 DB Read-only 주문 원장 대조]], [[coffee-ga4-robust-guard-20260501|더클린커피 GA4 Robust Guard]], [[coffee-excel-import-dry-run-20260501|더클린커피 엑셀 Import Dry-run]], [[coffee-dry-run-schema|더클린커피 Dry-run Schema]], [[naver/npay-api-mcp-review-20260501|네이버페이 API와 MCP 검토]]
 Primary source: Imweb v2 API `IMWEB_API_KEY_COFFEE`, GA4 BigQuery `project-dadba7dd-0229-4ff6-81c.analytics_326949178`, 운영 Postgres `tb_sales_toss`, `tb_playauto_orders`, 더클린커피 아임웹 엑셀
 Cross-check: local SQLite `imweb_orders`, `toss_transactions`, existing reconciliation scripts, Naver Commerce API scope check  
 Freshness: Imweb v2 API 2026-05-01 10:16 KST read-only 실행, GA4/운영 DB 2026-05-01 00:52 KST 기준
@@ -20,7 +20,7 @@ Confidence: 90%
 | 4 | 대기 | TJ | 더클린커피 네이버 판매자/API 권한 여부를 확인한다 | 아임웹/호스팅사 사용 가맹점은 주문관리/정산 API가 제한될 수 있어 공식 답변이 필요하다 | [[naver/npay-api-mcp-review-20260501]]의 문의 문구로 네이버 기술지원에 주문형 API 가능 여부를 확인한다 | YES, 외부 계정 작업 |
 | 5 | 부분 완료 | Codex | GA4 NPay형 58건과 Imweb NPay actual 60건을 주문별로 분해한다 | GA4에 `NPAY - ...` purchase가 있어도 실제 NPay 결제완료인지, 버튼/데이터레이어 purchase 오탐인지 확정해야 한다 | Imweb v2 API `type=npay`를 primary로 두고 one-to-one 배정을 추가했다. per-order는 strong 29/probable 2/ambiguous 29, one-to-one은 assigned 42/unassigned actual 18이다 | NO, read-only |
 | 6 | 완료 | Codex | 2025 더클린커피 엑셀을 정합성 원장으로 쓰는 import dry-run을 설계한다 | 커피는 PG/Toss보다 엑셀의 비마스킹 phone/이메일/배송/결제수단 정보 가치가 크다 | `coffee-excel-import-dry-run.ts`를 추가하고 주문/결제 엑셀 join 11,018/11,018, 결제수단/LTV aggregate를 출력했다. 상세는 [[coffee-excel-import-dry-run-20260501]] | NO, dry-run only |
-| 7 | 대기 | TJ | 2025 결제내역 엑셀과 2024 주문/결제 엑셀 다운로드를 준비한다 | 2025 주문 엑셀만으로는 결제수단/환불/정산 검증이 부족하고, 2024 이전 LTV는 phone 마스킹 문제가 있다 | 아임웹 관리자에서 더클린커피 결제내역/주문내역을 연도별로 다운로드한다 | YES |
+| 7 | 완료 | Codex | 더클린커피 주문/결제 엑셀 위치를 확인하고 인벤토리로 고정한다 | 이미 받은 엑셀을 다시 요청하면 작업이 꼬이고, stale/중복 파일을 정본으로 쓸 수 있다 | `data/coffee/coffee_orders_2024.xlsx`, `coffee_payments_2024.xlsx`, `coffee_orders_2025.xlsx`, `coffee_payments_2025.xlsx`가 실제 데이터 파일임을 확인했다. 2023 파일은 헤더-only다. 상세는 [[!data_inventory]] | NO |
 | 8 | 부분 완료 | Codex | coffee NPay actual vs GA4 NPay형 mismatch 2건/103,000원을 분해한다 | Imweb actual NPay와 GA4 NPay형 purchase 간 차이가 보여 ROAS 정합성의 핵심 차이를 먼저 닫을 수 있다 | `mismatchSummary`, `amount_match_type`, `ambiguousReasons`, one-to-one 배정, BigQuery robust guard를 추가했다. 남은 일은 unassigned actual 18건을 주문 단위로 해석하는 것이다 | NO, read-only |
 | 9 | 보류 | Codex | Meta/TikTok ROAS 정합성은 source freshness가 닫힌 뒤 재개한다 | 커피 Meta 토큰/운영 원장 freshness가 불안정하면 ROAS 비교가 오판된다 | token, BigQuery, 주문 원장, Toss/Excel freshness를 같은 window로 맞춘 뒤 비교한다 | 부분 YES, token 갱신 필요 가능 |
 
@@ -167,11 +167,22 @@ npm exec tsx scripts/check-source-freshness.ts -- --json
 
 ### 아임웹/엑셀
 
+표준 파일 위치는 [[!data_inventory]]를 기준으로 둔다.
+
+| 파일 | 종류 | 데이터 행 | 고유 주문 | 기간 | 상태 |
+|---|---|---:|---:|---|---|
+| `data/coffee/coffee_orders_2025.xlsx` | 주문내역 | 16,454 | 11,018 | 2025-01-01 ~ 2025-12-31 | 사용 가능 |
+| `data/coffee/coffee_payments_2025.xlsx` | 결제내역 | 11,341 | 11,018 | 2025-01-01 ~ 2026-01-01 | 사용 가능 |
+| `data/coffee/coffee_orders_2024.xlsx` | 주문내역 | 2,800 | 1,987 | 2024-11-01 ~ 2024-12-31 | 사용 가능 |
+| `data/coffee/coffee_payments_2024.xlsx` | 결제내역 | 2,044 | 1,987 | 2024-11-01 ~ 2024-12-31 | 사용 가능 |
+| `data/coffee/coffee_orders_2023.xlsx` | 주문내역 | 0 | 0 | 없음 | 헤더-only |
+| `data/coffee/coffee_payments_2023.xlsx` | 결제내역 | 0 | 0 | 없음 | 헤더-only |
+
 `data/iamweb_excel_backfill_review.md` 기준 더클린커피 2025 주문 엑셀은 아래 가치를 가진다.
 
 | 항목 | 값 |
 |---|---:|
-| 파일 | `data/coffee/기본_양식_20260424133106.xlsx` |
+| 파일 | `data/coffee/coffee_orders_2025.xlsx` |
 | 행 | 16,454행 |
 | 고유 주문번호 | 11,018건 |
 | 고유 정규화 전화번호 | 4,089명 |
@@ -329,14 +340,15 @@ biocom NPay 프로젝트에서 현재 가장 어려운 부분은 `GA4 raw에 이
 1. 2025 주문 엑셀 구조를 이미 분석했다.
 2. 16,454행, 11,018 고유 주문번호, 4,089 고유 전화번호, 거래종료 매출 279,093,357원을 확인했다.
 3. API 단독보다 엑셀 + API 하이브리드가 맞다는 결론이 있다.
+4. 2025 결제내역 엑셀과 2024 주문/결제 엑셀은 `data/coffee/` 안에 이미 있음을 확인했다.
+5. 데이터 위치 기준판은 [[!data_inventory]]로 분리했다.
 
 100%까지 남은 것:
 
 | 남은 일 | 왜 필요한가 | 어떻게 할 것인가 | 완료 기준 |
 |---|---|---|---|
-| 2025 결제내역 엑셀 확보 | 주문 엑셀만으로는 결제수단/환불/정산 검증이 부족하다 | TJ님이 아임웹 결제내역 다운로드 | 결제수단별 매출과 주문 엑셀 매칭률 산출 |
-| 2024 주문/결제 엑셀 확보 | 2024 이전 phone/LTV는 API/PG 마스킹 때문에 약하다 | TJ님이 연도별 다운로드 | 24개월 LTV/재구매 분석 가능 |
-| import dry-run | 실제 DB에 넣기 전 중복/금액/컬럼 깨짐을 확인해야 한다 | local 임시 테이블 또는 CSV parse만 수행 | 행수/주문수/금액 합계가 원본과 일치 |
+| 2024/2025 통합 import dry-run 리포트 고정 | 엑셀은 확보됐지만 실제 분석 원장으로 쓰기 전 주문/결제 join, 결제금액 mismatch, 환불/취소 상태를 해석해야 한다 | `coffee-excel-import-dry-run.ts` 결과를 연도별 + 통합 리포트로 남긴다 | 2024/2025 주문·결제 join 수, mismatch 수, 결제수단별 금액이 문서화 |
+| amount mismatch reason 분해 | 2025 397건, 2024 82건 mismatch를 방치하면 LTV/ROAS 금액 판단이 흔들린다 | 배송비, 할인, 포인트, 수량, 취소/환불, 다품목 장바구니로 reason을 나눈다 | mismatch 상위 reason과 미분류 잔여 건수가 나온다 |
 | local DB 적용 승인 | 로컬 DB write도 백업/dry-run 후 해야 한다 | 별도 승인 문서 작성 | TJ YES 이후 apply |
 
 ## Phase2-Sprint4
@@ -593,7 +605,7 @@ ORDER BY event_timestamp DESC;
 
 1. 더클린커피 Naver Commerce API 권한 확인.
 2. 더클린커피 Meta token 갱신 또는 새 token 공유.
-3. 2025 결제내역 엑셀과 2024/2023 주문/결제 엑셀 다운로드.
+3. 신규 기간 엑셀 다운로드가 필요할 때 [[!data_inventory]]에 먼저 경로/상태를 갱신.
 4. local DB에 엑셀을 실제 import하는 단계 승인.
 5. GTM/live script publish 승인.
 6. GA4/Meta/TikTok/Google Ads 전환 전송 승인.

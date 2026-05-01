@@ -3,9 +3,11 @@
 작성 시각: 2026-04-24
 문서 성격: **가변형 정본 (정합성 sub-plan)**
 상위 정본: [`!datacheckplan.md`](./!datacheckplan.md) — 데이터 정합성 마스터 플랜
-관련 분석: [`iamweb_excel_backfill_review.md`](./iamweb_excel_backfill_review.md), [`dbstructure.md`](./dbstructure.md), [`../coffee/coffeevip.md`](../coffee/coffeevip.md)
+관련 분석: [`!data_inventory.md`](./!data_inventory.md), [`iamweb_excel_backfill_review.md`](./iamweb_excel_backfill_review.md), [`dbstructure.md`](./dbstructure.md), [`../coffee/coffeevip.md`](../coffee/coffeevip.md)
 
 이 문서는 **아임웹 어드민 엑셀(주문·결제) 다운로드 → 로컬 SQLite 적재 → 통합 등급/LTV 분석 반영**의 진행 상태를 추적한다. 매 회차마다 갱신.
+
+최신 표준 파일 위치는 [`!data_inventory.md`](./!data_inventory.md)를 기준으로 본다. 본문에 남아 있는 `기본_양식_...xlsx`, `결제_내역_...xlsx` 경로는 2026-04-24 당시 다운로드/적재 이력이며, 현재 표준 경로는 `data/coffee/coffee_orders_YYYY.xlsx`, `data/coffee/coffee_payments_YYYY.xlsx`다.
 
 ---
 
