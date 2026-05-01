@@ -473,32 +473,47 @@ window.coffeeNpayIntentPreview.simulateConfirmNpay()
 
 ## 진단 G — 실제 PC NPay 클릭 후 buffer 증가 확인 (MID)
 
-**주의**: 실제 결제 redirect 가 일어날 수 있다. 결제 페이지로 넘어가지 않게 console 에서 즉시 ESC / 뒤로가기 / 팝업 닫기 권장. preserve log 켜두면 redirect 후에도 console 보존됨.
+**주의**: 실제 결제 redirect 가 일어날 수 있다. 결제 페이지로 넘어가지 않게 즉시 ESC / 뒤로가기 / 팝업 닫기 권장. devtools 의 "preserve log" 켜두면 redirect 후에도 console 출력이 살아 있다.
+
+**paste 주의**: G-1 과 G-2 는 **반드시 따로 enter** 한다. 한 묶음으로 붙이면 G-1 의 마지막 표현식이 G-2 의 `(...)` 와 결합해 함수 호출로 잘못 파싱된다. 본 양식은 IIFE + `window.__g_before` 로 합쳐져도 안전하게 만들었지만, 분리해서 입력하는 것이 검증에 가장 깔끔하다.
 
 ```javascript
-/* G-1. 클릭 직전 baseline */
-var __g_before = {
-  bufferLength: JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]").length,
-  intentSeq: Number(sessionStorage.getItem("__coffee_intent_seq") || "0"),
-  funnelCapiSentEids: Object.keys(sessionStorage).filter(function (k) { return k.indexOf("funnelCapi::sent::") === 0; })
-};
-__g_before
+/* G-1. 클릭 직전 baseline (먼저 단독으로 enter) */
+;(() => {
+  window.__g_before = {
+    bufferLength: JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]").length,
+    intentSeq: Number(sessionStorage.getItem("__coffee_intent_seq") || "0"),
+    funnelCapiSentEids: Object.keys(sessionStorage).filter(function (k) {
+      return k.indexOf("funnelCapi::sent::") === 0;
+    })
+  };
+  console.log("[g_before]", window.__g_before);
+  return window.__g_before;
+})()
 ```
 
-console 비우고 (`Clear console` 또는 `🚫`) **PC NPay 버튼 클릭** 후 즉시 ESC / 뒤로가기.
+이제 devtools 의 console 을 비운다 (`Clear console` 또는 🚫 아이콘). 그 직후 **PC NPay 버튼 클릭** → 즉시 ESC / 뒤로가기 / 결제 팝업 닫기. 그 다음 아래 G-2 를 단독으로 enter.
 
 ```javascript
-/* G-2. 클릭 직후 delta */
-({
-  bufferLengthAfter: JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]").length,
-  bufferDelta: JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]").length - __g_before.bufferLength,
-  intentSeqAfter: Number(sessionStorage.getItem("__coffee_intent_seq") || "0"),
-  intentSeqDelta: Number(sessionStorage.getItem("__coffee_intent_seq") || "0") - __g_before.intentSeq,
-  lastPayload: JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]").slice(-1)[0],
-  newFunnelCapiSentEids: Object.keys(sessionStorage)
-    .filter(function (k) { return k.indexOf("funnelCapi::sent::") === 0; })
-    .filter(function (k) { return __g_before.funnelCapiSentEids.indexOf(k) < 0; })
-})
+/* G-2. 클릭 직후 delta (G-1 이후 단독으로 enter) */
+;(() => {
+  var before = window.__g_before || { bufferLength: 0, intentSeq: 0, funnelCapiSentEids: [] };
+  var buf = JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]");
+  var seq = Number(sessionStorage.getItem("__coffee_intent_seq") || "0");
+  var sentKeys = Object.keys(sessionStorage).filter(function (k) {
+    return k.indexOf("funnelCapi::sent::") === 0;
+  });
+  return {
+    bufferLengthAfter: buf.length,
+    bufferDelta: buf.length - before.bufferLength,
+    intentSeqAfter: seq,
+    intentSeqDelta: seq - before.intentSeq,
+    lastPayload: buf.slice(-1)[0],
+    newFunnelCapiSentEids: sentKeys.filter(function (k) {
+      return before.funnelCapiSentEids.indexOf(k) < 0;
+    })
+  };
+})()
 ```
 
 분기:
