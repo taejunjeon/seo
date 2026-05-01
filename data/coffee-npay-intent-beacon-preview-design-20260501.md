@@ -144,6 +144,14 @@ window.FUNNEL_CAPI_CONFIG = { pixelId, endpoint, enableServerCapi, testEventCode
 
 본 design 의 v0.4 결정을 그대로 반영한 self-contained preview snippet 은 [[coffee-npay-intent-beacon-preview-snippet-v04-20260501]] 에 분리해 박았다. 그 문서에는 붙여넣기 가능한 snippet 한 묶음 + 진단 F (설치/wrap/simulate 확인) + 진단 G (실제 PC NPay 클릭 후 buffer 증가 확인) + cleanup 명령 + Auditor verdict 가 모두 들어 있다. TJ 가 chrome devtools console 에서 그대로 실행할 수 있다.
 
+### URL Query Param 보존 검증 가이드 (트랙 결정 다음 단계)
+
+intent_uuid 가 NPay 결제 흐름의 어디까지 보존되는지 검증해 (A) deterministic / (A-) URL 한정 / (B) ledger + 휴리스틱 트랙을 결정하는 단계별 가이드는 [[coffee-npay-intent-uuid-preservation-test-20260501]] 에 분리해 박았다. 1단계 (read-only 정찰) + 2단계 (sandbox 결제 1건 + 즉시 환불) + 3 위치 보존 매트릭스 + 결과 분기 표 + 가드. TJ 검증 후 결과를 그 문서의 § 결과 섹션에 채운다.
+
+### Cross-site 적용성 (biocom)
+
+더클린커피에서 검증된 발견 중 biocom 에 그대로 재사용 가능한 것 vs 재검증 필요한 것을 [[coffee-funnel-capi-cross-site-applicability-20260501]] 에 정리했다. coffee phase 마감 후 biocom phase 시작 시 진입점.
+
 ### v0.4 design 결정 검증 결과 (2026-05-01 21:57 KST 진단 G)
 
 | 결정 | 검증 결과 |

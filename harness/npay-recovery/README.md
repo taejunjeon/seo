@@ -4,7 +4,7 @@
 최종 업데이트: 2026-05-01 00:20 KST
 상태: v0 기준판
 범위: NPay ROAS 정합성 회복 작업을 위한 문서형 agent harness
-관련 문서: [[harness/!harness|Growth Data Agent Harness 조사]], [[docs/agent-harness/growth-data-harness-v0|Growth Data Harness v0]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]], [[harness/npay-recovery/TASK|Task Spec]], [[harness/npay-recovery/CONTEXT_PACK|Context Pack]], [[harness/npay-recovery/RULES|Rules]], [[harness/npay-recovery/VERIFY|Verify]], [[harness/npay-recovery/APPROVAL_GATES|Approval Gates]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]], [[harness/npay-recovery/LESSONS|Lessons]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]], [[harness/npay-recovery/EVAL_LOG_SCHEMA|Eval Log Schema]]
+관련 문서: [[harness/!harness|Growth Data Agent Harness 조사]], [[docs/agent-harness/growth-data-harness-v0|Growth Data Harness v0]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]], [[harness/npay-recovery/TASK|Task Spec]], [[harness/npay-recovery/CONTEXT_PACK|Context Pack]], [[harness/npay-recovery/RULES|Rules]], [[harness/npay-recovery/VERIFY|Verify]], [[harness/npay-recovery/APPROVAL_GATES|Approval Gates]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]], [[harness/npay-recovery/LESSONS|Lessons]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]], [[harness/npay-recovery/EVAL_LOG_SCHEMA|Eval Log Schema]], [[data/coffee-funnel-capi-cross-site-applicability-20260501|Coffee → Biocom 적용성 메모]] (더클린커피에서 검증된 funnel-capi v3 / NPay intent beacon v0.4 / 4 layer flow / URL 보존 검증 절차의 biocom 적용 진입점)
 Primary source: `naver/!npayroas.md`, `naver/npay-roas-dry-run-20260430.md`, `backend/src/npayRoasDryRun.ts`, `backend/scripts/npay-roas-dry-run.ts`
 Freshness: NPay 기준 2026-04-30 21:30 KST
 Confidence: 90%
