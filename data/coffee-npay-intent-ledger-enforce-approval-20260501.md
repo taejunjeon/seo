@@ -297,6 +297,53 @@ CREATE INDEX idx_..._active ON ...(site, expires_at, manually_closed_at);
 6. TJ 가 `.env` 에서 두 키 삭제 후 재시작 (env flag OFF 복귀)
 7. 7일 (또는 5일/3일 게이트) 모니터링 — `GET /api/attribution/coffee-npay-intent-join-report` 일 1회 polling
 
+### Step A-2a 실제 실행 결과 (2026-05-02 00:57 KST, Codex 직접 진행, TJ 손 안 댐)
+
+**TJ 승인 직후 Codex 가 실제 smoke window 활성 + INSERT 2건 + window close + .env 정리 + 재시작 까지 진행. 7 step 모두 PASS.**
+
+| Step | 결과 |
+|---|---|
+| 1. token 생성 + .env 임시 추가 | ✅ `smoke_a2a_<ts>_<rand>` token, `.env` 끝에 `# === A-2a smoke ===` 주석 + 2 keys 추가 |
+| 2. backend 재시작 | ✅ production server restart |
+| 3. stats 확인 | ✅ `enforce=true / token=true / window=false / rows=0` |
+| 4. window open (30분, max=5) | ✅ window id=2 발급, expires_at +30분 |
+| 5a. INSERT #1 (smoke #1) | ✅ inserted_id=4, remaining=4, validation.ok=true, pii_fields=[] |
+| 5b. INSERT #2 (smoke #2, 다른 intent_uuid) | ✅ inserted_id=5, remaining=3, dedup 미발생 |
+| 6a. stats 갱신 확인 | ✅ `total_rows=2, rows_with_imweb_order_code=2`, `reject_counters.enforce_inserted=2`, 다른 reject 모두 0 |
+| 6b. join report | ✅ `total=2, status_counts: pending_order_sync: 2` (24h grace 안 정상) |
+| 6c. ledger SELECT | ✅ id 4/5, intent_uuid 다름, imweb_order_code 채움, preview_only=1, is_simulation=0 |
+| 7. window close | ✅ `closed_count=1` |
+| 7b. close 후 enforce → reject | ✅ `reason: smoke_window_not_active` |
+| 8. .env 임시 키 2개 제거 | ✅ grep 결과 부재 |
+| 9. backend 재시작 (env OFF) | ✅ |
+| 10. 최종 stats | ✅ `enforce=false / token=false / window_active=false / total_rows=2`. ledger 2건 보존 (smoke 검증 결과로 식별 가능: intent_uuid prefix `smoke_a2a_uuid_`) |
+
+### TJ 명시 성공 기준 9종 매핑
+
+| 기준 | 결과 |
+|---|---|
+| insert 1-2건 정상 | ✅ 2건 inserted_id=4/5 |
+| imweb_order_code 100% 존재 | ✅ rows_with_imweb_order_code=2 / total_rows=2 |
+| intent_uuid 중복 없음 | ✅ UNIQUE constraint 통과, 두 row 서로 다른 uuid |
+| pii_rejected = 0 | ✅ |
+| endpoint_5xx = 0 | ✅ 모든 응답 200/201 |
+| invalid_payload = 0 또는 원인 명확 | ✅ status_counts.invalid_payload=0 |
+| rejected_origin / rate_limited 비정상 증가 없음 | ✅ 둘 다 0 |
+| join-report → pending_order_sync 또는 joined_confirmed_order 정상 분류 | ✅ pending_order_sync 2건 (smoke 의 imweb_order_code 가 imweb_orders 에 없으니 24h 안에는 pending 정상) |
+| 테스트 종료 후 env/window 모두 OFF 복귀 | ✅ enforce=false, token=false, window_active=false |
+
+→ **A-2a 9 성공 기준 모두 PASS**.
+
+### 보존된 ledger 2건 (선택 — TJ 가 정리 결정)
+
+ledger row 4 / 5 는 smoke 식별 가능한 `intent_uuid` prefix `smoke_a2a_uuid_` 로 박혀 있어 향후 `WHERE intent_uuid LIKE 'smoke_a2a_%'` 로 분리 가능. TJ 가 정리 원하시면 다음 1줄:
+
+```sql
+DELETE FROM coffee_npay_intent_log WHERE intent_uuid LIKE 'smoke_a2a_%';
+```
+
+또는 보존 — 실제 NPay click 이 들어오기 전까지 비교 baseline.
+
 ## 다음 phase (TJ 승인 후)
 
 | 단계 | 트리거 | 내용 |
