@@ -1,9 +1,10 @@
 # NPay Recovery Approval Gates
 
-작성 시각: 2026-05-01 00:20 KST  
-상태: v0 기준판  
-목적: TJ님 승인 전 금지되는 작업과 승인 문서 형식을 고정한다  
-관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/TASK|Task Spec]], [[harness/npay-recovery/RULES|Rules]], [[harness/npay-recovery/VERIFY|Verify]]
+작성 시각: 2026-05-01 00:20 KST
+최종 업데이트: 2026-05-02 01:15 KST
+상태: v0 기준판
+목적: TJ님 승인 전 금지되는 작업과 승인 문서 형식을 고정한다
+관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/TASK|Task Spec]], [[harness/npay-recovery/RULES|Rules]], [[harness/npay-recovery/AUTONOMY_POLICY|Autonomy Policy]], [[harness/npay-recovery/VERIFY|Verify]]
 
 ## 10초 요약
 
@@ -24,6 +25,28 @@
 | L6 | GA4 MP 제한 전송 | YES | 금지 |
 | L7 | Meta CAPI, TikTok Events API, Google Ads 전송 | YES | 금지 |
 | L8 | 자동 dispatcher 운영 전환 | YES | 금지 |
+
+## Autonomous Run Envelope
+
+L0-L3는 TJ님에게 묻지 않고 진행한다.
+
+| Level | agent 처리 |
+|---|---|
+| L0 | 문서 읽기/수정, 기준 문서 연결, report 작성까지 진행 |
+| L1 | 운영 DB/VM SQLite/BigQuery/GTM read-only 조회를 가능한 범위까지 실행 |
+| L2 | 7일 dry-run, intent/order 매칭, A/B/ambiguous/purchase_without_intent/clicked_no_purchase 분류 |
+| L3 | payload preview, approval draft, eval log, auditor report 작성 |
+
+승인이 필요한 것은 실제 side effect가 있는 작업뿐이다.
+
+| 승인 필요 작업 | 예 |
+|---|---|
+| write | 운영 DB `INSERT/UPDATE/DELETE`, local DB actual import/apply, `match_status` 업데이트 |
+| send | GA4 MP, Meta CAPI, TikTok Events API, Google Ads conversion |
+| publish | GTM workspace 생성/수정/publish |
+| deploy | backend deploy, 운영 endpoint 추가/변경 |
+| live click | NPay 버튼 실클릭, 결제 시도 |
+| live script | Imweb header/footer 삽입, 기존 wrapper 수정 |
 
 ## TJ 승인 전 절대 금지
 

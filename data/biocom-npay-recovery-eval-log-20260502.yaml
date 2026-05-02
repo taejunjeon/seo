@@ -1,0 +1,162 @@
+run_id: "npay-eval-20260502-1805"
+created_at_kst: "2026-05-02 18:05 KST"
+created_by: "Codex"
+phase: "limited_send"
+site: "biocom"
+mode: "approved_send"
+window_kst:
+  start: "2026-04-25 01:04:09 KST"
+  end: "2026-05-02 01:04:09 KST"
+sources:
+  primary:
+    name: "VM SQLite npay_intent_log"
+    path: "/home/biocomkr_sns/seo/shared/backend-data/crm.sqlite3"
+    status: "ok_read_only_snapshot"
+    freshness_at_kst: "2026-05-02 18:03 KST"
+    confidence: 0.9
+    notes:
+      - "VM npay_intent_log was exported to a local temporary SQLite snapshot for script execution."
+      - "No VM or operational DB write was executed."
+      - "No match_status update was executed."
+  cross_checks:
+    - name: "operational_postgres.public.tb_iamweb_users"
+      status: "ok_read_only_select"
+      freshness_at_kst: "2026-05-02 18:03 KST"
+      confidence: 0.86
+      notes:
+        - "Confirmed NPay order was read through existing dry-run SELECT only."
+    - name: "BigQuery hurdlers-naver-pay.analytics_304759974"
+      status: "manual_console_result_received_plus_post_send_no_rows"
+      freshness_at_kst: "2026-05-02 18:18 KST"
+      confidence: 0.82
+      notes:
+        - "TJ manual console SQL returned events=0 for both order_number and channel_order_no on all 5 A-grade production candidates."
+        - "Post-send BigQuery verification SQL returned no rows at 2026-05-02 18:18 KST."
+        - "Current post-send status is WAIT_EXPORT_LATENCY, not final failure."
+        - "Codex BigQuery job remains blocked by missing bigquery.jobs.create."
+    - name: "GA4 Measurement Protocol debug endpoint"
+      status: "ok"
+      freshness_at_kst: "2026-05-02 18:04 KST"
+      confidence: 0.9
+      notes:
+        - "HTTP 200."
+        - "validationMessages was empty."
+    - name: "GA4 Measurement Protocol collect endpoint"
+      status: "sent_http_204"
+      freshness_at_kst: "2026-05-02 18:04 KST"
+      confidence: 0.82
+      notes:
+        - "Exactly one approved GA4 MP purchase was sent."
+        - "BigQuery raw export verification is still pending."
+guardrails:
+  no_send_verified: false
+  no_db_write_verified: true
+  no_deploy_verified: true
+  approval_required: true
+  approval_document: "data/biocom-npay-recovery-ga4-mp-approval-draft-20260502.md"
+  approved_send_scope:
+    platform: "GA4_MP"
+    event_name: "purchase"
+    order_number: "202604309992065"
+    channel_order_no: "2026043040116970"
+    count: 1
+  forbidden_operations_observed:
+    gtm_publish: false
+    backend_deploy: false
+    db_write: false
+    meta_tiktok_google_ads_send: false
+    npay_click: false
+    imweb_header_footer_change: false
+outputs:
+  markdown_report: "data/biocom-npay-recovery-autorun-readonly-20260502.md"
+  approval_document: "data/biocom-npay-recovery-ga4-mp-approval-draft-20260502.md"
+  send_result: "data/biocom-npay-ga4-mp-limited-test-result-20260502.md"
+  dry_run_json: "/tmp/biocom-npay-ga4-mp-limited-test-dryrun-20260502.json"
+  validate_json: "/tmp/biocom-npay-ga4-mp-limited-test-validate-20260502.json"
+  send_json: "/tmp/biocom-npay-ga4-mp-limited-test-send-20260502.json"
+  changed_files:
+    - "data/biocom-npay-ga4-mp-limited-test-result-20260502.md"
+    - "data/biocom-npay-recovery-ga4-mp-approval-draft-20260502.md"
+    - "data/biocom-npay-recovery-autorun-readonly-20260502.md"
+    - "data/biocom-npay-recovery-eval-log-20260502.yaml"
+    - "data/biocom-npay-recovery-next-day-handoff-20260502.md"
+summary:
+  live_intent_count: 419
+  confirmed_npay_order_count_target_scope: 1
+  strong_match_target_scope: 1
+  strong_match_a_target_scope: 1
+  ambiguous_target_scope: 0
+  purchase_without_intent_target_scope: 0
+  clicked_no_purchase_full_window: 304
+  intent_pending_full_window: 105
+  approval_candidate_after_manual_guard: 5
+  actual_ga4_mp_send_count: 1
+  actual_meta_capi_send_count: 0
+  actual_tiktok_events_api_send_count: 0
+  actual_google_ads_send_count: 0
+candidate_summary:
+  target_order_number: "202604309992065"
+  channel_order_no: "2026043040116970"
+  value: 35000
+  currency: "KRW"
+  guard_before_send: "robust_absent"
+  status: "strong_match"
+  strong_grade: "A"
+  order_label: "production_order"
+  paid_at_kst: "2026-04-30 12:41:30 KST"
+  paid_at_age_hours_at_send: 53.4
+  paid_at_within_72h: true
+  score: 80
+  score_gap: 28
+  time_gap_minutes: 0.7
+  amount_match_type: "final_exact"
+  client_id_present: true
+  ga_session_id_present: true
+payload:
+  platform: "GA4_MP"
+  event_name: "purchase"
+  transaction_id: "202604309992065"
+  channel_order_no: "2026043040116970"
+  event_id: "NPayRecoveredPurchase_202604309992065"
+  value: 35000
+  currency: "KRW"
+  client_id: "118292165.1777520272"
+  ga_session_id: "1777520272"
+  matched_intent_id: "aa6cb8b7-4e55-4731-8fe2-c65dc269e6cc"
+  dispatch_dedupe_key: "npay_recovery_ga4_purchase:biocom:202604309992065"
+send_result:
+  debug:
+    requested: true
+    http_status: 200
+    validation_messages_count: 0
+  collect:
+    requested: true
+    sent: true
+    http_status: 204
+  sent_at_kst: "2026-05-02 18:04 KST"
+post_send_verification:
+  bigquery_raw_export: "wait_export_latency"
+  checked_at_kst: "2026-05-02 18:18 KST"
+  manual_query_result: "no_rows"
+  reason: "GA4 collect returned HTTP 204, but immediate BigQuery raw export query returned no rows. Recheck after export delay."
+auditor:
+  verdict: "PASS_LIMITED_SEND_PENDING_BQ"
+  checks:
+    approved_scope_respected: true
+    no_db_write_verified: true
+    no_deploy_verified: true
+    no_gtm_publish_verified: true
+    no_imweb_change_verified: true
+    no_npay_click_verified: true
+    meta_tiktok_google_ads_send_observed: false
+    ga4_mp_send_observed: true
+    ga4_mp_send_count: 1
+    actual_network_send_observed: true
+  notes:
+    - "One approved GA4 MP purchase was sent for order_number=202604309992065."
+    - "Debug validation passed before collect."
+    - "Post-send BigQuery verification remains pending."
+next_decision:
+  type: "BIGQUERY_VERIFICATION"
+  prompt: "TJ님이 2026-05-03 18:04 KST 이후 data/biocom-npay-ga4-mp-limited-test-result-20260502.md 의 SQL로 BigQuery 수신 확인을 재실행한다."
+confidence: 0.82

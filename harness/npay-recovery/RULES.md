@@ -1,8 +1,9 @@
 # NPay Recovery Rules
 
-작성 시각: 2026-05-01 00:20 KST  
-상태: v0 기준판  
-목적: NPay recovery 매칭, 등급, 전송 차단 규칙을 한곳에 고정한다  
+작성 시각: 2026-05-01 00:20 KST
+최종 업데이트: 2026-05-02 00:45 KST
+상태: v0 기준판
+목적: NPay recovery 매칭, 등급, 전송 차단 규칙을 한곳에 고정한다
 관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/TASK|Task Spec]], [[harness/npay-recovery/APPROVAL_GATES|Approval Gates]], [[harness/npay-recovery/LESSONS|Lessons]]
 
 ## 10초 요약
@@ -39,6 +40,40 @@
 - site filter 없이 운영 DB를 조회하고 결과를 정본처럼 쓰기.
 - biocom order와 thecleancoffee order를 같은 후보 표에 섞기.
 - coffee stale local mirror를 primary source로 쓰기.
+
+## Biocom Live Tracking Preflight Rules
+
+바이오컴 wrapper, eid, NPay preview, attribution ledger 작업은 아래 규칙을 먼저 통과해야 한다.
+
+| 규칙 | 판정 |
+|---|---|
+| 작업 시점 기준 7일 이내 live tracking inventory가 없다 | hard fail |
+| `fbq`, `ttq`, `TIKTOK_PIXEL` 신규 wrap을 추가한다 | hard fail |
+| 기존 `__seo_funnel_session` 대신 새 session/eid를 임의 발급한다 | hard fail |
+| `funnelCapi::sent::*` key를 수정하거나 삭제한다 | hard fail |
+| `/api/attribution/npay-intent`, `/checkout-context`, `/payment-success`, `/payment-decision`, `/tiktok-pixel-event`를 호출한다 | hard fail |
+| NPay preview가 `no-send`, `no-write`, `no-pixel-send`가 아니다 | hard fail |
+
+허용:
+
+- `__seo_funnel_session`은 읽어서 재사용한다.
+- `funnelCapi::sent::*`는 read-only diff와 order code 후보 확인에만 쓴다.
+- wrapper 후보의 존재 여부와 signature를 기록하는 것은 허용한다.
+- preview buffer는 browser memory 또는 `biocom_npay_intent_preview::*` namespace로만 둔다.
+
+금지:
+
+- GTM publish 없이도 live endpoint를 호출하는 preview.
+- Imweb header/footer에 preview snippet을 삽입하는 행위.
+- NPay 버튼 클릭으로 기존 live tag 118의 `/api/attribution/npay-intent` write를 유발하는 행위.
+- Meta, TikTok, Google Ads, GA4에 preview 결과를 전송하는 행위.
+
+근거 문서:
+
+| 문서 | 역할 |
+|---|---|
+| [[data/biocom-live-tracking-inventory-20260501|Biocom Live Tracking Inventory]] | live wrapper, session/eid, endpoint, server send 상태 |
+| [[data/biocom-npay-intent-beacon-preview-design-20260501|Biocom NPay Preview Design]] | no-send/no-write/no-pixel-send preview 설계 |
 
 ## Match Status
 

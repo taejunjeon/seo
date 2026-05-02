@@ -1,8 +1,9 @@
 # NPay Recovery Verify
 
-작성 시각: 2026-05-01 00:20 KST  
-상태: v0 기준판  
-목적: NPay recovery 작업 후 반드시 확인할 검증 명령과 결과 기준을 고정한다  
+작성 시각: 2026-05-01 00:20 KST
+최종 업데이트: 2026-05-02 01:15 KST
+상태: v0 기준판
+목적: NPay recovery 작업 후 반드시 확인할 검증 명령과 결과 기준을 고정한다
 관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/RULES|Rules]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]]
 
 ## 10초 요약
@@ -95,6 +96,69 @@ Actual network send observed: YES/NO
 | `New executable send path added` | 새 실행 코드가 없으면 NO |
 | `Actual network send observed` | 승인 없는 실제 호출이 없으면 NO |
 
+## Biocom Preview No-send Scan
+
+바이오컴 wrapper/eid/NPay preview 작업은 `no-send`, `no-write`, `no-pixel-send`가 기본이다.
+
+코드나 snippet 후보가 생긴 경우 먼저 변경 파일을 좁힌다.
+
+```bash
+git diff --name-only -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.py' '*.html'
+git diff --cached --name-only -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.py' '*.html'
+```
+
+변경된 코드 또는 snippet 후보에 아래 호출이 있으면 hard fail이다.
+
+| 금지 호출 | hard fail 기준 |
+|---|---|
+| `fetch` | preview가 외부 endpoint를 호출할 수 있음 |
+| `navigator.sendBeacon` | unload/send 계열 전송 가능 |
+| `XMLHttpRequest` | 직접 HTTP 전송 가능 |
+| `gtag(` | GA4/Google Ads 전송 가능 |
+| `fbq(` | Meta Pixel 전송 가능 |
+| `ttq.` | TikTok Pixel 전송 가능 |
+
+검사 예시:
+
+```bash
+git diff -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.py' '*.html' | \
+  rg -n "fetch\\(|navigator\\.sendBeacon|XMLHttpRequest|gtag\\(|fbq\\(|ttq\\."
+```
+
+endpoint denylist도 send path에 있으면 hard fail이다.
+
+| endpoint denylist | 이유 |
+|---|---|
+| `/api/attribution/npay-intent` | 기존 live NPay intent DB write 가능 |
+| `/checkout-context` | checkout attribution write 가능 |
+| `/payment-success` | payment success attribution write 가능 |
+| `/payment-decision` | Purchase Guard decision path 영향 가능 |
+| `/tiktok-pixel-event` | TikTok Guard event log write 가능 |
+
+검사 예시:
+
+```bash
+git diff -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.py' '*.html' | \
+  rg -n "/api/attribution/npay-intent|/checkout-context|/payment-success|/payment-decision|/tiktok-pixel-event"
+```
+
+문서-only 작업에서는 위 문자열이 문서에 설명으로 등장할 수 있다. 최종 판정은 아래처럼 분리한다.
+
+```text
+Biocom preview no-send scan executed: YES/NO
+Docs-only mentions: YES/NO
+New executable send path added: YES/NO
+Endpoint denylist found in executable send path: YES/NO
+```
+
+PASS 기준:
+
+| 항목 | PASS |
+|---|---|
+| `Docs-only mentions` | 문서 설명이면 YES |
+| `New executable send path added` | 새 실행 코드가 없으면 NO |
+| `Endpoint denylist found in executable send path` | send path에 없으면 NO |
+
 ## No-write 검증
 
 운영 DB write나 match_status 변경이 없는지 확인한다.
@@ -150,6 +214,19 @@ order_number와 channel_order_no를 둘 다 조회한다.
 1. 둘 중 하나라도 있으면 `already_in_ga4=present`.
 2. 둘 다 robust 범위에서 없으면 `robust_absent`.
 3. 조회 권한이나 table freshness가 부족하면 `unknown`.
+
+biocom read-only guard 자동 실행:
+
+```bash
+cd backend
+npm exec tsx scripts/npay-ga4-robust-guard.ts -- \
+  --ids-file=/tmp/biocom-npay-lookup-ids.txt \
+  --start-suffix=YYYYMMDD \
+  --end-suffix=YYYYMMDD \
+  --output=/tmp/biocom-npay-ga4-robust-guard.json
+```
+
+이 스크립트는 GA4/Google Ads/Meta/TikTok 전송을 하지 않는다. BigQuery `jobs.query`만 사용하며, 권한이 없으면 `ok=false`, `unknown=<id count>`로 종료한다.
 
 ## 더클린커피 Read-only 검증
 

@@ -1,7 +1,7 @@
 # NPay Recovery Auditor Checklist
 
 작성 시각: 2026-04-30 23:16 KST
-최종 업데이트: 2026-05-01 00:20 KST
+최종 업데이트: 2026-05-02 00:45 KST
 상태: v0 기준판
 목적: Codex/Claude/ChatGPT 산출물이 NPay recovery guardrail을 지켰는지 검사
 관련 문서: [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/RULES|Rules]], [[harness/npay-recovery/VERIFY|Verify]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]]
@@ -147,3 +147,31 @@ Notes:
 | no-write | 운영 DB write 0건, local apply 0건 |
 | dry-run schema | `send_candidate=N`, `block_reason` 기본 출력 |
 | TJ todo | API 권한, token, 엑셀 다운로드처럼 사람만 할 수 있는 일만 TJ에게 남겼다 |
+
+## Biocom Live Tracking Preflight Checks
+
+바이오컴 wrapper/eid/NPay preview 작업에는 아래를 추가로 적용한다.
+
+| 체크 | PASS 기준 |
+|---|---|
+| live inventory freshness | 작업 시점 기준 7일 이내 [[data/biocom-live-tracking-inventory-20260501|Biocom Live Tracking Inventory]]가 있다 |
+| preview design | [[data/biocom-npay-intent-beacon-preview-design-20260501|Biocom NPay Preview Design]]의 `no-send`, `no-write`, `no-pixel-send` 기준을 따른다 |
+| no new wrapper | `fbq`, `ttq`, `TIKTOK_PIXEL` 신규 wrap이 없다 |
+| session reuse | 기존 `__seo_funnel_session`을 읽어 재사용하고 새 session/eid를 임의 발급하지 않는다 |
+| eid read-only | `funnelCapi::sent::*` key를 읽기 전용으로만 쓴다 |
+| no NPay click | NPay 버튼을 클릭하지 않았다 |
+| no Imweb edit | Imweb header/footer custom code를 바꾸지 않았다 |
+| no GTM publish | GTM workspace 생성/publish가 없다 |
+| no backend deploy | backend deploy 또는 운영 endpoint 변경이 없다 |
+
+Biocom preview no-send scan:
+
+| 금지 항목 | PASS 기준 |
+|---|---|
+| `fetch` | 새 실행 코드 또는 snippet send path에 없음 |
+| `navigator.sendBeacon` | 새 실행 코드 또는 snippet send path에 없음 |
+| `XMLHttpRequest` | 새 실행 코드 또는 snippet send path에 없음 |
+| `gtag(` | 새 실행 코드 또는 snippet send path에 없음 |
+| `fbq(` | 새 실행 코드 또는 snippet send path에 없음 |
+| `ttq.` | 새 실행 코드 또는 snippet send path에 없음 |
+| endpoint denylist | `/api/attribution/npay-intent`, `/checkout-context`, `/payment-success`, `/payment-decision`, `/tiktok-pixel-event`가 send path에 없음 |
