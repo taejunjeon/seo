@@ -680,6 +680,13 @@ export type ContactDashboardLead = {
   priorityScore: number;
 };
 
+export type ContactDashboardLeadHashRow = {
+  leadId: string;
+  phoneHashSha256: string;
+  createdAt: string;
+  status: AibioNativeLeadStatus;
+};
+
 const buildLeadRow = (
   row: ContactLeadSummaryRow,
   eventStats: Map<string, EventAggregate>,
@@ -1018,6 +1025,39 @@ export function getContactDashboardLead(leadId: string, options: { reveal?: bool
     events: events.map(eventToPublic).reverse(),
     tasks: listContactTasks({ leadId }),
   };
+}
+
+export function listContactDashboardLeadHashRows(options: { leadIds?: string[]; createdAtGte?: string } = {}) {
+  const db = initAibioContactDashboardTables();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const leadIds = [...new Set((options.leadIds ?? []).filter(Boolean))];
+  if (leadIds.length > 0) {
+    where.push(`lead_id IN (${leadIds.map(() => "?").join(",")})`);
+    params.push(...leadIds);
+  }
+  const createdAtGte = parseIsoDate(options.createdAtGte);
+  if (createdAtGte) {
+    where.push("created_at >= ?");
+    params.push(createdAtGte);
+  }
+  const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  const rows = db.prepare(`
+    SELECT lead_id, customer_phone_hash, created_at, status
+    FROM aibio_native_leads
+    ${whereSql}
+  `).all(...params) as Array<{
+    lead_id: string;
+    customer_phone_hash: string;
+    created_at: string;
+    status: AibioNativeLeadStatus;
+  }>;
+  return rows.map((row): ContactDashboardLeadHashRow => ({
+    leadId: row.lead_id,
+    phoneHashSha256: row.customer_phone_hash,
+    createdAt: row.created_at,
+    status: row.status,
+  }));
 }
 
 export function listContactDashboardEnums() {

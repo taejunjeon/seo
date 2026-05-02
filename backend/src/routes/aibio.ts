@@ -18,16 +18,19 @@ import {
 } from "../aibioNativeLeadLedger";
 import {
   AIBIO_CONTACT_DASHBOARD_VERSION,
+  type ContactDashboardLead,
   getContactDashboardLead,
   getContactDashboardSummary,
   listAuditLogs,
   listContactDashboardEnums,
+  listContactDashboardLeadHashRows,
   listContactDashboardLeads,
   listContactEvents,
   listContactTasks,
   recordAuditLog,
   recordContactEvent,
 } from "../aibioContactDashboardLedger";
+import { loadAibioCrmJourneysByPhoneHash } from "../aibioCrmJourney";
 import { listAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import { env } from "../env";
@@ -238,6 +241,29 @@ const requireAibioNativeContactAccess = (req: Request, res: Response) => {
     return false;
   }
   return true;
+};
+
+const attachAibioCrmToContactLeads = async (leads: ContactDashboardLead[]) => {
+  const hashRows = listContactDashboardLeadHashRows({ leadIds: leads.map((lead) => lead.leadId) });
+  const hashByLeadId = new Map(hashRows.map((row) => [row.leadId, row.phoneHashSha256]));
+  const crmLoad = await loadAibioCrmJourneysByPhoneHash([...hashByLeadId.values()]);
+  return {
+    leads: leads.map((lead) => {
+      const phoneHash = hashByLeadId.get(lead.leadId);
+      return {
+        ...lead,
+        crm: phoneHash ? crmLoad.byPhoneHash.get(phoneHash) ?? null : null,
+      };
+    }),
+    crm: {
+      source: crmLoad.source,
+      generatedAt: crmLoad.generatedAt,
+      freshness: crmLoad.freshness,
+      warnings: crmLoad.warnings,
+      summary: crmLoad.summary,
+      privacy: "CRM join uses server-side SHA-256 normalized phone matching; raw phone/name are not returned in CRM payload.",
+    },
+  };
 };
 
 const loadMulter = () => {
@@ -1397,14 +1423,30 @@ export const createAibioRouter = () => {
     res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, enums: listContactDashboardEnums() });
   });
 
-  router.get("/api/aibio/contact-dashboard/summary", (req: Request, res: Response) => {
+  router.get("/api/aibio/contact-dashboard/summary", async (req: Request, res: Response) => {
     try {
       res.set("Cache-Control", "no-store");
       const rangeDays = Number(req.query.rangeDays);
       const summary = getContactDashboardSummary({
         rangeDays: Number.isFinite(rangeDays) ? Math.round(rangeDays) : undefined,
       });
-      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, summary });
+      const hashRows = listContactDashboardLeadHashRows({ createdAtGte: summary.window.startAt });
+      const crmLoad = await loadAibioCrmJourneysByPhoneHash(hashRows.map((row) => row.phoneHashSha256));
+      res.json({
+        ok: true,
+        version: AIBIO_CONTACT_DASHBOARD_VERSION,
+        summary: {
+          ...summary,
+          crm: {
+            source: crmLoad.source,
+            generatedAt: crmLoad.generatedAt,
+            freshness: crmLoad.freshness,
+            warnings: crmLoad.warnings,
+            summary: crmLoad.summary,
+            privacy: "CRM join uses server-side SHA-256 normalized phone matching; raw phone/name are not returned in CRM payload.",
+          },
+        },
+      });
     } catch (err) {
       res.status(errorStatusCode(err)).json({
         ok: false,
@@ -1413,7 +1455,7 @@ export const createAibioRouter = () => {
     }
   });
 
-  router.get("/api/aibio/contact-dashboard/leads", (req: Request, res: Response) => {
+  router.get("/api/aibio/contact-dashboard/leads", async (req: Request, res: Response) => {
     try {
       res.set("Cache-Control", "no-store");
       const requestedReveal = readOne(req.query.reveal) === "true";
@@ -1443,7 +1485,14 @@ export const createAibioRouter = () => {
           userAgent: readOne(req.header("user-agent")) || null,
         });
       }
-      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, ...result });
+      const attached = await attachAibioCrmToContactLeads(result.leads);
+      res.json({
+        ok: true,
+        version: AIBIO_CONTACT_DASHBOARD_VERSION,
+        ...result,
+        leads: attached.leads,
+        crm: attached.crm,
+      });
     } catch (err) {
       res.status(errorStatusCode(err)).json({
         ok: false,
@@ -1452,7 +1501,7 @@ export const createAibioRouter = () => {
     }
   });
 
-  router.get("/api/aibio/contact-dashboard/leads/:leadId", (req: Request, res: Response) => {
+  router.get("/api/aibio/contact-dashboard/leads/:leadId", async (req: Request, res: Response) => {
     try {
       res.set("Cache-Control", "no-store");
       const requestedReveal = readOne(req.query.reveal) === "true";
@@ -1477,7 +1526,14 @@ export const createAibioRouter = () => {
           userAgent: readOne(req.header("user-agent")) || null,
         });
       }
-      res.json({ ok: true, version: AIBIO_CONTACT_DASHBOARD_VERSION, ...detail });
+      const attached = await attachAibioCrmToContactLeads([detail.lead]);
+      res.json({
+        ok: true,
+        version: AIBIO_CONTACT_DASHBOARD_VERSION,
+        ...detail,
+        lead: attached.leads[0] ?? detail.lead,
+        crm: attached.crm,
+      });
     } catch (err) {
       res.status(errorStatusCode(err)).json({
         ok: false,

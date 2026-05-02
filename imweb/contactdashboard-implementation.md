@@ -1,18 +1,18 @@
 # AIBIO 컨택 관리 대시보드 구현 보고서
 
-작성 시각: 2026-04-27 KST
+작성 시각: 2026-05-02 19:08 KST
 작성자: Claude Code
 정본 설계: [[contactdashboard]]
 연결 문서: [[!imwebplan]]
-범위: Phase1-Sprint1 (접수함/우선순위) + Phase1-Sprint2 (컨택 로그) + Phase1-Sprint4 (감사로그) MVP
+범위: Phase1-Sprint1 (접수함/우선순위) + Phase1-Sprint2 (컨택 로그) + Phase1-Sprint3 (CRM 연결) + Phase1-Sprint4 (감사로그) MVP
 
 ---
 
 ## 1. 결론
 
-설계 문서 [[contactdashboard]] 기준으로 백엔드 3개 테이블 + 9개 API + 프론트 1개 route를 구현해 로컬에서 동작 확인했음. 컨택 이벤트 저장 시 리드 상태가 자동 전환되고(예: `contact_attempted` → `contacted`), summary KPI도 즉시 갱신되는 흐름까지 end-to-end 통과.
+설계 문서 [[contactdashboard]] 기준으로 백엔드 3개 테이블 + 9개 API + 프론트 1개 route를 구현해 로컬에서 동작 확인했음. 2026-05-02에는 Sprint3 범위로 `native lead phone_hash -> AIBIO CRM customer_id -> 예약/방문/사용/결제` read-only 조인을 추가했다. 컨택 이벤트 저장 시 리드 상태가 자동 전환되고(예: `contact_attempted` → `contacted`), summary KPI와 CRM 매칭 요약이 API 응답에 같이 붙는다.
 
-운영 배포 전 남은 일: Sprint3 (CRM 예약/방문/결제 join), Sprint5 운영 KPI 리포트 화면, RBAC role/permission 시스템(현재는 토큰 단일).
+운영 배포 전 남은 일: Sprint5 운영 KPI 리포트 화면, RBAC role/permission 시스템(현재는 토큰 단일), 실제 운영 리드의 CRM 매칭 표본 검증.
 
 ---
 
@@ -44,6 +44,7 @@
 | 파일 | 변경 |
 |---|---|
 | `backend/src/aibioContactDashboardLedger.ts` | **신규**. 3개 테이블 init + 9개 함수(이벤트 기록/리스트/감사로그/summary/lead detail). enum 7종 + 한국어 라벨. 우선순위 점수 계산. SLA 30분/2시간 기준. |
+| `backend/src/aibioCrmJourney.ts` | **신규**. phone hash 기준 AIBIO Supabase/local SQLite CRM 고객·예약·사용·결제 read-only 조인. 원문 연락처는 응답하지 않음. |
 | `backend/src/routes/aibio.ts` | 9개 endpoint 추가 (`/api/aibio/contact-dashboard/*`) + import 추가 |
 
 새 테이블:
@@ -58,7 +59,7 @@
 | 파일 | 변경 |
 |---|---|
 | `frontend/src/app/aibio-native/admin/contacts/page.tsx` | **신규**. server component wrapper |
-| `frontend/src/app/aibio-native/admin/contacts/ContactDashboard.tsx` | **신규**. 클라이언트 컴포넌트 1개 안에 SummaryCards/Filter/LeadList/Drawer/EventComposer/Timeline/Tasks 구현 |
+| `frontend/src/app/aibio-native/admin/contacts/ContactDashboard.tsx` | **신규**. 클라이언트 컴포넌트 1개 안에 SummaryCards/Filter/LeadList/Drawer/EventComposer/Timeline/Tasks/CRM 연결 요약 구현 |
 
 ### 신규 문서
 
@@ -74,8 +75,8 @@
 |---|---|---|---|
 | GET | `/api/aibio/contact-dashboard/enums` | 없음 | 공개 |
 | GET | `/api/aibio/contact-dashboard/summary?rangeDays=N` | 없음 | 공개 |
-| GET | `/api/aibio/contact-dashboard/leads?status=&bucket=&search=&limit=&offset=&reveal=true` | 마스킹 (기본) / **원문 일괄** (`reveal=true` + 토큰) | 공개 / 토큰 시 audit log `reveal_lead_list` |
-| GET | `/api/aibio/contact-dashboard/leads/:leadId?reveal=true` | 마스킹 (기본) / **원문** (`reveal=true` + 토큰) + 이벤트/태스크 | 공개 / 토큰 시 audit log `reveal_lead_detail` |
+| GET | `/api/aibio/contact-dashboard/leads?status=&bucket=&search=&limit=&offset=&reveal=true` | 마스킹 (기본) / **원문 일괄** (`reveal=true` + 토큰) + CRM 요약 | 공개 / 토큰 시 audit log `reveal_lead_list` |
+| GET | `/api/aibio/contact-dashboard/leads/:leadId?reveal=true` | 마스킹 (기본) / **원문** (`reveal=true` + 토큰) + 이벤트/태스크 + CRM 요약 | 공개 / 토큰 시 audit log `reveal_lead_detail` |
 | GET | `/api/aibio/contact-dashboard/leads/:leadId/contact` | **원문 단건** | `x-admin-token` 필수, audit log `view_contact` |
 | GET | `/api/aibio/contact-dashboard/leads/:leadId/timeline` | 없음 | 공개 |
 | POST | `/api/aibio/contact-dashboard/leads/:leadId/events` | 없음 | `x-admin-token` (또는 NODE_ENV !== production), audit log 자동 |
@@ -111,6 +112,30 @@
 | 기타 | 변경 없음 |
 
 `nextAction` + `nextActionAt`이 있으면 `aibio_contact_tasks`에 task가 자동 생성됨.
+
+---
+
+## 5-1. CRM 연결 규칙
+
+2026-05-02에 Sprint3 로컬 구현을 추가했다. 새 운영 DB 스키마를 만들지 않고, 기존 `aibio_native_leads.customer_phone_hash`를 읽어 서버 내부에서 AIBIO CRM 고객을 찾는다.
+
+연결 순서:
+
+1. `aibio_native_leads.customer_phone_hash`
+2. AIBIO CRM `customers.phone` 또는 local cache `aibio_customers.phone_normalized`를 SHA-256으로 변환
+3. 같은 hash면 `customer_id` 매칭
+4. 매칭된 `customer_id`로 `marketing_leads`, `reservations`, `product_usage`, `payments`를 read-only 조회
+5. API 응답에는 원문 연락처나 full phone hash를 내보내지 않고 `crm` 요약만 붙임
+
+응답에 추가된 값:
+
+| 위치 | 추가 값 |
+|---|---|
+| summary | `summary.crm.summary.matchedCustomers`, `reservationCustomers`, `productUsageCustomers`, `paymentCustomers`, `grossRevenue`, `netRevenue` |
+| lead list | 각 lead의 `crm.matched`, `customerId`, `reservations.total`, `productUsage.total`, `payments.grossRevenue` |
+| lead detail | 고객 첫방문/최근방문/누적방문, CRM 리드 상태, 예약/사용/결제 요약 |
+
+현재 로컬 smoke 데이터 기준 CRM 매칭은 0건이다. 이유는 로컬 native lead 2건이 테스트 연락처라 AIBIO CRM 고객 테이블에 같은 phone hash가 없기 때문이다.
 
 ---
 
@@ -158,7 +183,7 @@
 |---|---|---|
 | Phase1-Sprint1 | summary, lead list, 우선순위 점수, SLA bucket | 완료 |
 | Phase1-Sprint2 | contact_events, POST API, timeline UI, 빠른 액션 6개 | 완료 |
-| Phase1-Sprint3 | CRM 예약/방문/결제 join | **미착수** (개발팀 CRM 연동 필요) |
+| Phase1-Sprint3 | CRM 예약/방문/결제 join | **부분 완료**. AIBIO Supabase/local SQLite read-only 조인과 프론트 표시 완료. 실제 운영 리드 매칭 표본 검증 필요 |
 | Phase1-Sprint4 | audit log, RBAC, raw contact API | **부분** (audit log + 토큰 가드 완료, role 기반 RBAC는 미구현) |
 | Phase1-Sprint5 | 광고별 quality report | **미착수** |
 
@@ -184,7 +209,7 @@
 |---|---|---|
 | 1 | TJ | `AIBIO_NATIVE_ADMIN_TOKEN` 운영 secret 확정 후 `.env`/secret manager에 저장 |
 | 2 | TJ | 9가지 고객 반응 enum 검토 후 축소/유지 결정 |
-| 3 | Codex | 개발팀 CRM `customer_id`/예약/방문/결제 read API 연동 (Sprint3) |
+| 3 | Codex | 실제 운영 리드가 들어온 뒤 CRM 매칭 표본을 검증하고, 매칭 0건이면 전화번호 정규화/동기화 경로를 점검 |
 | 4 | Claude Code | 광고/CRM attribution 화면(Sprint5)을 admin 안에 별도 탭으로 추가 |
 | 5 | TJ + Codex | 첫 컨택 SLA(현재 30분/2시간) 환경변수 분리, 영업시간 처리 룰 추가 |
 | 6 | Claude Code | 모바일 bottom sheet에서 빠른 액션 button 영역을 폼 위로 sticky 처리 (현재는 일반 스크롤) |

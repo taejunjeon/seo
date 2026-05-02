@@ -38,6 +38,62 @@ type SummaryResponse = {
       paidRate: number | null;
       medianMinutesToFirstContact: number | null;
     };
+    crm?: CrmPayload;
+  };
+};
+
+type CrmMatch = {
+  matched: boolean;
+  matchBlocker: string | null;
+  customerId: number | null;
+  confidence: "high" | "medium" | "low";
+  customer: {
+    createdDate: string | null;
+    firstVisitDate: string | null;
+    lastVisitDate: string | null;
+    totalVisits: number;
+    totalRevenue: number;
+    status: string | null;
+    isRegistered: boolean;
+    referralSource: string | null;
+  } | null;
+  lead: {
+    leadDate: string | null;
+    leadChannel: string | null;
+    dbChannel: string | null;
+    dbEntryDate: string | null;
+    phoneConsultDate: string | null;
+    visitConsultDate: string | null;
+    registrationDate: string | null;
+    status: string | null;
+    revenue: number;
+  } | null;
+  reservations: { total: number; byStatus: Record<string, number>; firstDate: string | null; lastDate: string | null };
+  productUsage: { total: number; completed: number; firstDate: string | null; lastDate: string | null };
+  payments: {
+    total: number;
+    positiveCount: number;
+    grossRevenue: number;
+    netRevenue: number;
+    firstDate: string | null;
+    lastDate: string | null;
+  };
+};
+
+type CrmPayload = {
+  source: string;
+  generatedAt: string;
+  freshness: { latestCustomerSyncedAt: string | null; latestPaymentSyncedAt: string | null };
+  warnings: string[];
+  summary: {
+    requestedPhoneHashes: number;
+    matchedCustomers: number;
+    reservationCustomers: number;
+    productUsageCustomers: number;
+    paymentCustomers: number;
+    grossRevenue: number;
+    netRevenue: number;
+    confidence: "high" | "medium" | "low";
   };
 };
 
@@ -74,6 +130,7 @@ type DashboardLead = {
   nextActionLabel: string | null;
   isDuplicate: boolean;
   priorityScore: number;
+  crm: CrmMatch | null;
 };
 
 type LeadsResponse = {
@@ -82,6 +139,7 @@ type LeadsResponse = {
   filteredTotal: number;
   revealed?: boolean;
   leads: DashboardLead[];
+  crm?: CrmPayload;
 };
 
 type ContactEvent = {
@@ -111,6 +169,7 @@ type DetailResponse = {
   ok: boolean;
   revealed?: boolean;
   lead: DashboardLead;
+  crm?: CrmPayload;
   events: ContactEvent[];
   tasks: Array<{
     taskId: string;
@@ -175,6 +234,9 @@ const fmtRelative = (iso: string | null | undefined) => {
 };
 
 const fmtRate = (value: number | null) => (value === null ? "-" : `${Math.round(value * 100)}%`);
+
+const fmtCurrency = (value: number | null | undefined) =>
+  typeof value === "number" && Number.isFinite(value) ? `₩${Math.round(value).toLocaleString("ko-KR")}` : "-";
 
 const toLocalInput = (date: Date) => {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -532,6 +594,15 @@ export function ContactDashboard() {
               <strong>{summary.totals.leads} / {summary.totals.events}</strong>
               <small>최근 {summary.rangeDays}일 · 상담원 {summary.totals.operators}명</small>
             </div>
+            {summary.crm && (
+              <div className="summary-card kpi crm-summary">
+                <span className="card-label">CRM 매칭 / 결제</span>
+                <strong>{summary.crm.summary.matchedCustomers} / {summary.crm.summary.paymentCustomers}</strong>
+                <small>
+                  예약 {summary.crm.summary.reservationCustomers} · 사용 {summary.crm.summary.productUsageCustomers} · {fmtCurrency(summary.crm.summary.grossRevenue)}
+                </small>
+              </div>
+            )}
           </>
         ) : (
           <div className="summary-card placeholder">요약 로딩 중...</div>
@@ -612,6 +683,13 @@ export function ContactDashboard() {
                     {lead.nextActionLabel && lead.nextActionAt && (
                       <span className="next-action">다음 {lead.nextActionLabel} · {fmtDateTime(lead.nextActionAt)}</span>
                     )}
+                    {lead.crm?.matched ? (
+                      <span className="crm-chip crm-matched">
+                        CRM 고객 #{lead.crm.customerId} · 예약 {lead.crm.reservations.total} · 방문 {lead.crm.customer?.totalVisits ?? 0} · 결제 {fmtCurrency(lead.crm.payments.grossRevenue)}
+                      </span>
+                    ) : (
+                      <span className="crm-chip">CRM 미매칭</span>
+                    )}
                     {lead.assignedTo && <span className="assignee">담당 {lead.assignedTo}</span>}
                     {lead.priorityScore >= 100 && <span className="urgent-flag">우선 처리</span>}
                   </div>
@@ -673,6 +751,36 @@ export function ContactDashboard() {
                 </span>
               )}
             </div>
+          </section>
+
+          <section className="info-block crm-block">
+            <h3>센터 CRM 연결</h3>
+            {selectedLead.crm?.matched ? (
+              <>
+                <dl>
+                  <div><dt>매칭 고객</dt><dd>#{selectedLead.crm.customerId} · 신뢰도 {selectedLead.crm.confidence}</dd></div>
+                  <div><dt>첫 방문</dt><dd>{selectedLead.crm.customer?.firstVisitDate ?? "-"}</dd></div>
+                  <div><dt>최근 방문</dt><dd>{selectedLead.crm.customer?.lastVisitDate ?? "-"}</dd></div>
+                  <div><dt>누적 방문</dt><dd>{selectedLead.crm.customer?.totalVisits ?? 0}회</dd></div>
+                  <div><dt>예약</dt><dd>{selectedLead.crm.reservations.total}건 · 최근 {selectedLead.crm.reservations.lastDate ?? "-"}</dd></div>
+                  <div><dt>서비스 사용</dt><dd>{selectedLead.crm.productUsage.total}건 · 완료 {selectedLead.crm.productUsage.completed}건</dd></div>
+                  <div><dt>결제</dt><dd>{selectedLead.crm.payments.positiveCount}건 · {fmtCurrency(selectedLead.crm.payments.grossRevenue)}</dd></div>
+                  <div><dt>CRM 리드</dt><dd>{selectedLead.crm.lead?.status ?? "-"} · 방문상담 {selectedLead.crm.lead?.visitConsultDate ?? "-"}</dd></div>
+                </dl>
+                <p className="muted">
+                  phone hash 기준으로 CRM 고객/예약/방문/사용/결제를 붙였습니다. 원문 전화번호는 이 영역에 표시하지 않습니다.
+                </p>
+              </>
+            ) : (
+              <p className="muted">
+                아직 센터 CRM 고객과 매칭되지 않았습니다. 폼 제출자가 CRM 고객으로 생성되거나 동기화되면 같은 phone hash로 연결됩니다.
+              </p>
+            )}
+            {detail?.crm && (
+              <p className="muted">
+                source {detail.crm.source} · latest customer {detail.crm.freshness.latestCustomerSyncedAt ?? "-"} · confidence {detail.crm.summary.confidence}
+              </p>
+            )}
           </section>
 
           <section className="composer-block">
@@ -944,6 +1052,10 @@ export function ContactDashboard() {
           background: #eef2ff;
         }
 
+        .summary-card.crm-summary {
+          background: #f0fdf4;
+        }
+
         .summary-card.placeholder {
           color: #94a3b8;
           font-weight: 700;
@@ -1111,6 +1223,19 @@ export function ContactDashboard() {
         .lead-row3 .next-action {
           color: #2563eb;
           font-weight: 800;
+        }
+
+        .crm-chip {
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: #f1f5f9;
+          color: #475569;
+          font-weight: 800;
+        }
+
+        .crm-chip.crm-matched {
+          background: #dcfce7;
+          color: #166534;
         }
 
         .lead-row3 .assignee {
