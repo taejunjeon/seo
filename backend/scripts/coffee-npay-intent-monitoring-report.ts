@@ -60,6 +60,7 @@ interface LedgerItem {
   intent_phase: string;
   payment_button_type: string | null;
   imweb_order_code: string | null;
+  user_agent_class: string | null;
   is_simulation: number;
   preview_only: number;
   ts_ms_kst: number | null;
@@ -189,6 +190,56 @@ async function main(): Promise<void> {
     (r) => r.intent_phase === "confirm_to_pay" && !r.payment_button_type,
   ).length;
 
+  // 5.5. user_agent_class split (mobile / pc / unknown)
+  function uaBucket(r: LedgerItem): "mobile" | "pc" | "unknown" {
+    const ua = (r.user_agent_class ?? "").toLowerCase();
+    if (ua === "mobile" || ua === "tablet" || ua.includes("mobile")) return "mobile";
+    if (ua === "pc" || ua === "desktop") return "pc";
+    return "unknown";
+  }
+  const buckets: Record<"mobile" | "pc" | "unknown", LedgerItem[]> = {
+    mobile: [],
+    pc: [],
+    unknown: [],
+  };
+  for (const r of realItems) buckets[uaBucket(r)].push(r);
+
+  function uaMetrics(rows: LedgerItem[]): {
+    intent_count: number;
+    confirm_to_pay_count: number;
+    rows_with_imweb_order_code: number;
+    imweb_order_code_capture_pct: string;
+    payment_button_type_null_in_confirm: number;
+    invalid_payload_rate_pct: string;
+    // joined_confirmed_order / no_order_after_24h 는 join-report 의존 — 본 script 는 ledger 만 측정
+    // 향후 join-report 응답에서 user_agent_class 별 split 가 추가되면 채움
+    joined_confirmed_order_pct: string;
+    no_order_after_24h_pct: string;
+  } {
+    const total = rows.length;
+    const confirm = rows.filter((r) => r.intent_phase === "confirm_to_pay").length;
+    const withCode = rows.filter((r) => r.imweb_order_code).length;
+    const c2pNull = rows.filter(
+      (r) => r.intent_phase === "confirm_to_pay" && !r.payment_button_type,
+    ).length;
+    return {
+      intent_count: total,
+      confirm_to_pay_count: confirm,
+      rows_with_imweb_order_code: withCode,
+      imweb_order_code_capture_pct: pct(withCode, total),
+      payment_button_type_null_in_confirm: c2pNull,
+      invalid_payload_rate_pct: "n/a (ledger 만 — invalid_payload 는 reject_counters 만)",
+      joined_confirmed_order_pct: "n/a (join-report 의존 — 별도 sprint)",
+      no_order_after_24h_pct: "n/a (join-report 의존 — 별도 sprint)",
+    };
+  }
+
+  const uaSplit = {
+    mobile: uaMetrics(buckets.mobile),
+    pc: uaMetrics(buckets.pc),
+    unknown: uaMetrics(buckets.unknown),
+  };
+
   // 6. stop 조건 위반 카운트 (자동 측정 가능 부분만)
   const F_violations: string[] = [];
   if (M1_total > 0 && Number(M3_coverage) < 80) F_violations.push("F-1");
@@ -255,6 +306,18 @@ async function main(): Promise<void> {
     lines.push(`J-5_invalid_payload_post_join: ${joinReport.invalid_payload ?? "n/a"}`);
   } else {
     lines.push("# join-report skipped (admin token 미지정 또는 fetch 실패)");
+  }
+  lines.push("");
+  lines.push("# Section 4.5: user_agent_class split (mobile / pc / unknown)");
+  for (const [ua, m] of Object.entries(uaSplit)) {
+    lines.push(`UA-${ua}_intent_count: ${m.intent_count}`);
+    lines.push(`UA-${ua}_confirm_to_pay_count: ${m.confirm_to_pay_count}`);
+    lines.push(`UA-${ua}_rows_with_imweb_order_code: ${m.rows_with_imweb_order_code}`);
+    lines.push(`UA-${ua}_imweb_order_code_capture_pct: ${m.imweb_order_code_capture_pct}`);
+    lines.push(`UA-${ua}_payment_button_type_null_in_confirm: ${m.payment_button_type_null_in_confirm}`);
+    lines.push(`UA-${ua}_invalid_payload_rate_pct: ${m.invalid_payload_rate_pct}`);
+    lines.push(`UA-${ua}_joined_confirmed_order_pct: ${m.joined_confirmed_order_pct}`);
+    lines.push(`UA-${ua}_no_order_after_24h_pct: ${m.no_order_after_24h_pct}`);
   }
   lines.push("");
   lines.push("# Section 5: stop 조건");

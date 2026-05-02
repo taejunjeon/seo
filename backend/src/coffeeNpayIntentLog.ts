@@ -1062,6 +1062,7 @@ export function listCoffeeNpayIntents(opts: {
               ga4_synthetic_transaction_id,
               ga4_synthetic_transaction_id_capture_delay_ms,
               funnel_capi_session_id, payment_button_type, page_path,
+              user_agent_class,
               preview_only, is_simulation, inserted_at
        FROM ${TABLE}
        ${where}

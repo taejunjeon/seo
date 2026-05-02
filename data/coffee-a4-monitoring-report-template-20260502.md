@@ -67,6 +67,33 @@ test_row_filter:
 | D-2 | dispatcher_fetch_failed | sessionStorage `__coffee_intent_pending` 에 last_reason="fetch_failed" 잔존 + sent_entries 의 permanent_4xx_* | 24h cumulative <1% of total |
 | D-3 | retry_success | sent_entries 에서 status=ok_* 인데 pending 의 attempts > 1 였던 비율 | observability only |
 
+## 4.5. user_agent_class split — mobile / pc / unknown 7 지표
+
+A-4 publish 후 mobile vs PC 의 capture rate / dispatcher 동작 차이 추적용. sprint 19.5 (H-1) 의 mobile playwright 검증으로 main path 동일 확인됐으나 운영 traffic 의 실측 split 는 publish 후 자연 측정.
+
+bucket 분류:
+- `mobile`: user_agent_class IN ('mobile', 'tablet') — snippet 의 `detectUaClass()` 결과
+- `pc`: user_agent_class IN ('pc', 'desktop')
+- `unknown`: 그 외 또는 NULL (legacy row 등)
+
+| # | 지표 (각 bucket 별) | 산출 | 임계 |
+|---|---|---|---|
+| UA-1 | `intent_count` | bucket 의 row 수 (test 제외) | observability — 합계가 M-1 와 같음 |
+| UA-2 | `confirm_to_pay_count` | bucket 의 `intent_phase=confirm_to_pay` row 수 | mobile/pc 별 비율 추적 |
+| UA-3 | `imweb_order_code_capture_pct` | bucket 의 imweb_order_code IS NOT NULL 비율 | 각 bucket 모두 **≥95%** |
+| UA-4 | `payment_button_type_null_in_confirm` | bucket 의 `intent_phase=confirm_to_pay AND payment_button_type IS NULL` 건수 | 각 bucket 모두 **0** |
+| UA-5 | `invalid_payload_rate_pct` | reject_counters 가 process scope 라 bucket 분리 0 — manual fill (`pm2 logs grep` 또는 별도 logging) | bucket 별 분리 < 1% |
+| UA-6 | `joined_confirmed_order_pct` | join-report 의 bucket 별 (별도 sprint 보강 필요) | 각 bucket 모두 **≥80%** |
+| UA-7 | `no_order_after_24h_pct` | join-report 의 bucket 별 (동일) | 각 bucket 모두 **<5%** |
+
+**판정 규칙**:
+- mobile bucket 의 UA-3 / UA-4 / UA-6 / UA-7 가 PC 와 **>10%p 차이** 면 → mobile 의 capture path 회귀 의심 → dispatcher v2.x design 재검토 (별도 sprint)
+- mobile bucket intent_count 가 0 (PC only traffic) 이면 mobile dispatcher install 누락 또는 mobile traffic 부재 → GTM Tag Assistant 통계 cross-check
+- unknown bucket 비율 > 10% 면 snippet 의 `detectUaClass()` 정확도 재검토
+
+automated: M-3, UA-3, UA-4 의 ledger 기반 — monitoring script 자동.
+manual: UA-5 / UA-6 / UA-7 — pm2 logs / join-report 별도 sprint 필요.
+
 ## 5. stop 조건 (14개)
 
 [[coffee-a4-publish-decision-and-dispatcher-v21-20260502#11-7일-fallback-조건]] 의 F-1~F-14 그대로.
