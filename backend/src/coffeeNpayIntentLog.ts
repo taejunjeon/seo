@@ -33,12 +33,15 @@ const SCHEMA_VERSION = 2;
 const ENFORCE_ENV_FLAG = "COFFEE_NPAY_INTENT_ENFORCE_LIVE";
 const DEV_BYPASS_ENV_FLAG = "COFFEE_NPAY_INTENT_DEV_BYPASS";
 const SMOKE_ADMIN_TOKEN_ENV = "COFFEE_NPAY_INTENT_SMOKE_ADMIN_TOKEN";
+const PRODUCTION_MODE_ENV_FLAG = "COFFEE_NPAY_INTENT_PRODUCTION_MODE";
 
 const SMOKE_WINDOW_TABLE = "coffee_npay_intent_smoke_windows";
 const SMOKE_WINDOW_DEFAULT_MINUTES = 30;
 const SMOKE_WINDOW_MAX_MINUTES = 120;
 const SMOKE_WINDOW_DEFAULT_MAX_INSERTS = 5;
 const SMOKE_WINDOW_HARD_MAX_INSERTS = 50;
+
+const PRODUCTION_MODE_DAILY_QUOTA = 500;
 
 const PAYLOAD_SCHEMA_VERSION_SUPPORTED = 1;
 
@@ -76,7 +79,8 @@ type RejectCounterKey =
   | "enforce_inserted"
   | "enforce_deduped"
   | "dry_run_ok"
-  | "dry_run_failed_validation";
+  | "dry_run_failed_validation"
+  | "production_mode_quota_exceeded";
 
 const rejectCounters: Record<RejectCounterKey, number> = {
   pii_rejected: 0,
@@ -95,10 +99,26 @@ const rejectCounters: Record<RejectCounterKey, number> = {
   enforce_deduped: 0,
   dry_run_ok: 0,
   dry_run_failed_validation: 0,
+  production_mode_quota_exceeded: 0,
 };
 
 export function bumpRejectCounter(key: RejectCounterKey): void {
   rejectCounters[key] += 1;
+}
+
+/**
+ * 오늘 KST 자정 이후 site 의 INSERT 건수.
+ * production mode 의 daily quota 가드용.
+ */
+function countTodayInsertsKst(site: string): number {
+  const db = getCrmDb();
+  const todayKst = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).slice(0, 10);
+  const startMs = Date.parse(`${todayKst}T00:00:00+09:00`);
+  if (Number.isNaN(startMs)) return 0;
+  const row = db
+    .prepare(`SELECT COUNT(*) AS cnt FROM ${TABLE} WHERE site = ? AND ts_ms_kst >= ?`)
+    .get(site, startMs) as { cnt: number };
+  return row.cnt;
 }
 
 export function readRejectCounters(): Record<RejectCounterKey, number> & {
@@ -673,6 +693,7 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
   ensureSmokeWindowSchema();
   const validation = validateIntentPayload(payload);
   const enforceFlag = process.env[ENFORCE_ENV_FLAG] ?? null;
+  const productionMode = process.env[PRODUCTION_MODE_ENV_FLAG] === "true";
   const flagState = {
     env_key: ENFORCE_ENV_FLAG,
     value: enforceFlag,
@@ -717,16 +738,33 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
       ],
     };
   }
-  if (!activeWindow) {
+  // production mode 또는 smoke_window 둘 중 하나는 활성이어야 INSERT 허용.
+  // 동시 활성 시 smoke_window 우선 (controlled smoke 의도 유지).
+  if (!productionMode && !activeWindow) {
     bumpRejectCounter("enforce_disabled");
     return {
       ...baseResp,
       ok: false,
       reason: "smoke_window_not_active",
       notes: [
-        "INSERT 안 함 — 활성 smoke window 없음. admin 이 POST /api/attribution/coffee-npay-intent-smoke-window 로 window 활성화 필요",
+        `INSERT 안 함 — 활성 smoke window 없음 + ${PRODUCTION_MODE_ENV_FLAG}=true 도 아님. admin 이 POST /api/attribution/coffee-npay-intent-smoke-window 또는 ${PRODUCTION_MODE_ENV_FLAG} 활성 필요`,
       ],
     };
+  }
+  // production mode 만 활성 (smoke_window 부재) 시 daily quota 검사.
+  if (productionMode && !activeWindow) {
+    const dailyCount = countTodayInsertsKst(site);
+    if (dailyCount >= PRODUCTION_MODE_DAILY_QUOTA) {
+      bumpRejectCounter("production_mode_quota_exceeded");
+      return {
+        ...baseResp,
+        ok: false,
+        reason: "production_mode_quota_exceeded",
+        notes: [
+          `INSERT 안 함 — production mode daily quota (${PRODUCTION_MODE_DAILY_QUOTA}) 초과. 오늘 KST 자정 이후 INSERT ${dailyCount} 건. quota 초과는 비정상 polling 가능성 — 수동 점검 필요`,
+        ],
+      };
+    }
   }
   if (!validation.ok) {
     return {
@@ -843,26 +881,36 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
 
   if (inserted) {
     bumpRejectCounter("enforce_inserted");
-    incrementSmokeWindowInserted(activeWindow.id);
+    if (activeWindow) incrementSmokeWindowInserted(activeWindow.id);
   }
   if (deduped) bumpRejectCounter("enforce_deduped");
 
-  // 갱신된 window 상태로 응답 (inserted_count + 1)
-  const refreshedWindow = inserted
-    ? findActiveSmokeWindow(site) || activeWindow
-    : activeWindow;
-  const refreshedState = {
-    active: !!refreshedWindow,
-    window_id: refreshedWindow.id,
-    expires_at: refreshedWindow.expires_at,
-    inserted_count: inserted
-      ? activeWindow.inserted_count + 1
-      : activeWindow.inserted_count,
-    max_inserts: refreshedWindow.max_inserts,
-    remaining:
-      refreshedWindow.max_inserts -
-      (inserted ? activeWindow.inserted_count + 1 : activeWindow.inserted_count),
-  };
+  // 응답 분기: smoke_window 활성 시 inserted_count 갱신, production_mode 만 시 smoke_window 는 inactive 그대로
+  const refreshedWindow = activeWindow
+    ? inserted
+      ? findActiveSmokeWindow(site) || activeWindow
+      : activeWindow
+    : null;
+  const refreshedState = refreshedWindow
+    ? {
+        active: true,
+        window_id: refreshedWindow.id,
+        expires_at: refreshedWindow.expires_at,
+        inserted_count: inserted
+          ? activeWindow!.inserted_count + 1
+          : activeWindow!.inserted_count,
+        max_inserts: refreshedWindow.max_inserts,
+        remaining:
+          refreshedWindow.max_inserts -
+          (inserted ? activeWindow!.inserted_count + 1 : activeWindow!.inserted_count),
+      }
+    : smokeState;
+
+  const insertNote = inserted
+    ? activeWindow
+      ? `INSERT OK — smoke window ${refreshedWindow!.id} (남은 ${refreshedState.remaining}/${refreshedState.max_inserts}, 만료 ${refreshedState.expires_at}). confirmed order join 모니터링 시작 (5일 default + 3일 조기 게이트, 7일 fallback)`
+      : `INSERT OK — production mode (daily quota ${PRODUCTION_MODE_DAILY_QUOTA}, 오늘 INSERT ${countTodayInsertsKst(site)} 건). confirmed order join 모니터링 시작`
+    : "기존 (site, intent_uuid) row 존재 — INSERT OR IGNORE 로 dedupe";
 
   return {
     ok: true,
@@ -876,11 +924,7 @@ export function runEnforceInsert(payload: CoffeeNpayIntentPayload): EnforceRespo
     smoke_window: refreshedState,
     reason: inserted ? "inserted_new" : "deduped_existing",
     ledger_row_preview: preview,
-    notes: [
-      inserted
-        ? `INSERT OK — smoke window ${refreshedWindow.id} (남은 ${refreshedState.remaining}/${refreshedState.max_inserts}, 만료 ${refreshedState.expires_at}). confirmed order join 모니터링 시작 (5일 default + 3일 조기 게이트, 7일 fallback)`
-        : "기존 (site, intent_uuid) row 존재 — INSERT OR IGNORE 로 dedupe",
-    ],
+    notes: [insertNote],
   };
 }
 
@@ -892,6 +936,9 @@ export function getCoffeeNpayIntentLogStats(): {
   enforce_flag_active: boolean;
   dev_bypass_flag_active: boolean;
   smoke_admin_token_configured: boolean;
+  production_mode_active: boolean;
+  production_mode_daily_count: number;
+  production_mode_daily_quota: number;
   smoke_window_active: boolean;
   smoke_window_summary: {
     id: number;
@@ -936,6 +983,9 @@ export function getCoffeeNpayIntentLogStats(): {
     smoke_admin_token_configured:
       typeof process.env[SMOKE_ADMIN_TOKEN_ENV] === "string" &&
       process.env[SMOKE_ADMIN_TOKEN_ENV]!.length > 0,
+    production_mode_active: process.env[PRODUCTION_MODE_ENV_FLAG] === "true",
+    production_mode_daily_count: countTodayInsertsKst("thecleancoffee"),
+    production_mode_daily_quota: PRODUCTION_MODE_DAILY_QUOTA,
     smoke_window_active: !!activeWindow,
     smoke_window_summary: activeWindow
       ? {
