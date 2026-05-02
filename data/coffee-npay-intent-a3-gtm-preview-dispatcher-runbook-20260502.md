@@ -462,3 +462,424 @@ id 분포 1/3/6 = INSERT OR IGNORE race 흔적 (id=2,4,5 는 dedup 으로 비어
 A-3 v2 PASS. dispatcher v2 의 chrome 측 install + sweep + fetch + backend INSERT 가 end-to-end 동작. funnel-capi v3 와 호환. 항목 18 closure.
 
 다음 phase (A-4 GTM Production publish 결정) 는 [[#다음 phase (A-3 PASS 후 TJ 별도 승인)]] 표 기준 + 본 sprint 의 관찰 개선 포인트 (O1~O3) 검토 후 별도 승인 게이트.
+
+---
+
+## A-3 v2.1 재검증
+
+dispatcher v2.1 (O1 in-flight Set + O2 imweb_order_code 3초 wait + O3 payment_button_type fallback) 검증 절차. **현 시점 design 단계 — 실제 Preview 재진입은 TJ 명시 승인 후 별도**.
+
+상위 sprint: [[!coffeedata#다음 할일]] 항목 19. publish 결정 문서: [[coffee-a4-publish-decision-and-dispatcher-v21-20260502]].
+
+### v2.1 dispatcher GTM Custom HTML tag
+
+기존 v2 Custom HTML 의 본문을 아래 코드로 갱신. tag 이름은 `Coffee NPay Intent Dispatcher v2.1 (PREVIEW ONLY)`.
+
+```html
+<script>
+(function () {
+  if (window.__coffeeNpayIntentDispatcherInstalled) return;
+  window.__coffeeNpayIntentDispatcherInstalled = true;
+
+  var BUFFER_KEY = "coffee_npay_intent_preview";
+  var PENDING_KEY = "__coffee_intent_pending";
+  var SENT_KEY = "__coffee_intent_sent";
+  var ENDPOINT = "https://att.ainativeos.net/api/attribution/coffee-npay-intent?mode=enforce";
+  var SWEEP_INTERVAL_MS = 1000;
+  var MAX_RETRY = 5;
+  var TTL_MS = 24 * 3600 * 1000;
+  var ORDER_CODE_WAIT_TIMEOUT_MS = 3000;
+
+  var inflight = new Set();
+
+  function readJsonStorage(k) {
+    try { return JSON.parse(sessionStorage.getItem(k) || "{}"); }
+    catch (e) { return {}; }
+  }
+  function writeJsonStorage(k, v) {
+    try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+  }
+
+  function hasSent(intentUuid) {
+    return !!readJsonStorage(SENT_KEY)[intentUuid];
+  }
+  function markSent(intentUuid, status) {
+    var sent = readJsonStorage(SENT_KEY);
+    sent[intentUuid] = { sent_at_ms: Date.now(), status: status };
+    var keys = Object.keys(sent);
+    if (keys.length > 200) {
+      keys.sort(function (a, b) { return (sent[a].sent_at_ms || 0) - (sent[b].sent_at_ms || 0); });
+      for (var i = 0; i < keys.length - 200; i++) delete sent[keys[i]];
+    }
+    writeJsonStorage(SENT_KEY, sent);
+  }
+  function isPermanentFailure(e) {
+    if (!e) return false;
+    if (e.attempts >= MAX_RETRY) return true;
+    if (e.first_seen_ms && Date.now() - e.first_seen_ms > TTL_MS) return true;
+    if (e.last_status && e.last_status >= 400 && e.last_status < 500) return true;
+    return false;
+  }
+
+  function attemptDispatch(p) {
+    if (!p || p.preview_only !== true) return;
+    if (p.is_simulation === true) return;
+    if (!p.intent_uuid) return;
+    if (hasSent(p.intent_uuid)) return;
+    if (inflight.has(p.intent_uuid)) return;
+
+    var pending = readJsonStorage(PENDING_KEY);
+    var entry = pending[p.intent_uuid];
+    if (entry && isPermanentFailure(entry)) return;
+
+    // O2: imweb_order_code wait (snippet retry 시간 줌)
+    if (!p.imweb_order_code) {
+      var firstSeenMs = entry && entry.first_seen_ms ? entry.first_seen_ms : Date.now();
+      var elapsedMs = Date.now() - firstSeenMs;
+
+      if (!entry) {
+        pending[p.intent_uuid] = {
+          first_seen_ms: firstSeenMs,
+          attempts: 0,
+          last_attempt_ms: null,
+          last_status: null,
+          last_reason: "wait_for_order_code"
+        };
+        writeJsonStorage(PENDING_KEY, pending);
+      }
+
+      if (elapsedMs < ORDER_CODE_WAIT_TIMEOUT_MS) return;
+
+      // 3초 timeout — block (fetch 안 함)
+      markSent(p.intent_uuid, "blocked_missing_imweb_order_code");
+      delete pending[p.intent_uuid];
+      writeJsonStorage(PENDING_KEY, pending);
+      return;
+    }
+
+    // O3: payment_button_type fallback (snippet 우선, 안전망)
+    if (!p.payment_button_type && p.intent_phase === "confirm_to_pay") {
+      p.payment_button_type = "npay";
+    }
+
+    var nextAttempts = (entry && entry.attempts ? entry.attempts : 0) + 1;
+    pending[p.intent_uuid] = {
+      first_seen_ms: entry && entry.first_seen_ms ? entry.first_seen_ms : Date.now(),
+      attempts: nextAttempts,
+      last_attempt_ms: Date.now(),
+      last_status: null,
+      last_reason: null
+    };
+    writeJsonStorage(PENDING_KEY, pending);
+
+    var withSchema = Object.assign({}, p, { payload_schema_version: 1 });
+
+    // O1: in-flight tracking
+    inflight.add(p.intent_uuid);
+
+    fetch(ENDPOINT, {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withSchema),
+      keepalive: true
+    }).then(function (res) {
+      var pend = readJsonStorage(PENDING_KEY);
+      var e = pend[p.intent_uuid] || {};
+      e.last_status = res.status;
+      pend[p.intent_uuid] = e;
+      writeJsonStorage(PENDING_KEY, pend);
+
+      if (res.status >= 200 && res.status < 300) {
+        markSent(p.intent_uuid, "ok_" + res.status);
+        delete pend[p.intent_uuid];
+        writeJsonStorage(PENDING_KEY, pend);
+      } else if (res.status >= 400 && res.status < 500) {
+        markSent(p.intent_uuid, "permanent_4xx_" + res.status);
+        delete pend[p.intent_uuid];
+        writeJsonStorage(PENDING_KEY, pend);
+      }
+      // 5xx: pending 유지 → 다음 sweep retry
+    }).catch(function (err) {
+      var pend = readJsonStorage(PENDING_KEY);
+      var e = pend[p.intent_uuid] || {};
+      e.last_reason = err && err.message ? String(err.message).slice(0, 100) : "fetch_failed";
+      pend[p.intent_uuid] = e;
+      writeJsonStorage(PENDING_KEY, pend);
+    }).finally(function () {
+      inflight.delete(p.intent_uuid);
+    });
+  }
+
+  function sweep() {
+    try {
+      var buf = JSON.parse(sessionStorage.getItem(BUFFER_KEY) || "[]");
+      buf.forEach(attemptDispatch);
+    } catch (e) {}
+  }
+
+  setInterval(sweep, SWEEP_INTERVAL_MS);
+  window.addEventListener("beforeunload", sweep);
+})();
+</script>
+```
+
+### v2.1 성공 기준 (12개 = v2 9개 + v2.1 추가 3개)
+
+| # | 기준 | 측정 방법 | 임계 |
+|---|---|---|---|
+| 1~9 | v2 의 9 성공 기준 그대로 | A-3 v2 PASS 섹션 | 모두 PASS 유지 |
+| 10 | imweb_order_code capture rate | ledger SQL: `COUNT(imweb_order_code IS NOT NULL) / COUNT(*) WHERE intent_uuid NOT LIKE 'smoke_%'` | **≥95%** |
+| 11 | enforce_deduped ratio (race 감소) | stats reject_counters: `enforce_deduped / enforce_inserted` | **≤5%** |
+| 12 | payment_button_type null in confirm_to_pay | ledger SQL: `WHERE intent_phase='confirm_to_pay' AND payment_button_type IS NULL` | **0건** |
+
+### 재검증 절차 (Codex prep + TJ chrome)
+
+#### Step S1' — VM 환경 (이전 A-3 v2 와 동일)
+
+```bash
+# token 생성 + VM .env append + pm2 restart + smoke window open
+SMOKE_TOKEN="smoke_a3v21_$(python3 -c 'import time;print(int(time.time()))')_$(python3 -c 'import secrets;print(secrets.token_hex(6))')"
+echo "$SMOKE_TOKEN" > /tmp/seo-smoke-a3v21-token.txt
+# VM .env append (A-3 v2 와 동일 패턴)
+# pm2 restart seo-backend --update-env
+# smoke window open (max 5, 30분)
+```
+
+#### Step S2' — GTM workspace v2.1 신규 생성
+
+```javascript
+// node script via googleapis: workspace 'coffee_npay_intent_a3v21_smoke'
+// trigger 'A-3 SMOKE All Pages v2.1' (pageview)
+// tag 'A-3 SMOKE Coffee NPay Intent Dispatcher v2.1 (PREVIEW ONLY)' with the v2.1 HTML above
+```
+
+#### Step T1'~T4' — TJ chrome (A-3 v2 와 동일 흐름)
+
+1. GTM workspace v2.1 console → Preview → URL `https://thecleancoffee.com/shop_view/?idx=73`
+2. Tag Assistant 에서 v2.1 dispatcher tag fired 확인
+3. chrome devtools console 에 [[coffee-npay-intent-beacon-preview-snippet-all-in-one-20260501]] all-in-one snippet paste
+4. **PC NPay click 3~5회** (v2 보다 sample 늘림 — capture rate 측정 정확도 ↑). click 마다 ESC 또는 뒤로가기.
+
+#### Step T5' (NEW) — dispatcher state 확장 캡처
+
+기존 v2 의 dispatcher state 검증 + v2.1 의 inflight 추적 + block_reason 검증:
+
+```javascript
+;(() => {
+  var sent = JSON.parse(sessionStorage.getItem("__coffee_intent_sent") || "{}");
+  var pend = JSON.parse(sessionStorage.getItem("__coffee_intent_pending") || "{}");
+  var buf = JSON.parse(sessionStorage.getItem("coffee_npay_intent_preview") || "[]");
+
+  var blockedCount = 0;
+  var okCount = 0;
+  for (var k in sent) {
+    if (sent[k].status === "blocked_missing_imweb_order_code") blockedCount++;
+    else if (sent[k].status && sent[k].status.startsWith("ok_")) okCount++;
+  }
+
+  var bufferOrderCodeCoverage = buf.length === 0 ? "n/a" :
+    (buf.filter(function (b) { return b.imweb_order_code; }).length / buf.length * 100).toFixed(1) + "%";
+
+  console.log("[a3v21_dispatcher_state]\n" + JSON.stringify({
+    buffer_count: buf.length,
+    buffer_imweb_order_code_coverage: bufferOrderCodeCoverage,
+    sent_count: Object.keys(sent).length,
+    sent_ok_count: okCount,
+    sent_blocked_count: blockedCount,
+    pending_count: Object.keys(pend).length,
+    sent_entries: sent,
+    pending_entries: pend
+  }, null, 2));
+})()
+```
+
+기대 (성공 시): `buffer_imweb_order_code_coverage` 80%+, `sent_blocked_count` 적음, `sent_ok_count` 가 click 횟수와 비슷.
+
+### imweb_order_code capture rate 확인 방법
+
+배포 후 backend 측 SQL (admin endpoint 경유):
+
+```bash
+TOKEN=$(cat /tmp/seo-smoke-a3v21-token.txt)
+curl -sS -m 8 "https://att.ainativeos.net/api/attribution/coffee-npay-intents?limit=100" \
+  -H "Authorization: Bearer $TOKEN" | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+items = d.get('items', [])
+test_filtered = [r for r in items if not r.get('intent_uuid','').startswith('smoke_') and r.get('source_version') != 'a3v21_codex_sim']
+total = len(test_filtered)
+with_code = len([r for r in test_filtered if r.get('imweb_order_code')])
+pct = (with_code / total * 100) if total > 0 else 0
+print(f'capture rate: {with_code}/{total} = {pct:.1f}%')
+"
+```
+
+기대: **≥95%**.
+
+### in-flight duplicate fetch 확인 방법
+
+```bash
+curl -sS -m 8 https://att.ainativeos.net/api/coffee/intent/stats | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+rc = d['reject_counters']
+ins = rc.get('enforce_inserted', 0)
+dup = rc.get('enforce_deduped', 0)
+ratio = (dup / ins * 100) if ins > 0 else 0
+print(f'enforce_inserted: {ins}, enforce_deduped: {dup}, ratio: {ratio:.1f}%')
+"
+```
+
+기대: **ratio ≤5%** (v2 의 50% 대비 대폭 감소).
+
+### payment_button_type null 검증 방법
+
+```python
+# items 에서 intent_phase='confirm_to_pay' 인 row 의 payment_button_type 점검
+items = response['items']
+problem = [r for r in items if r.get('intent_phase') == 'confirm_to_pay' and not r.get('payment_button_type')]
+print(f'confirm_to_pay 중 payment_button_type null: {len(problem)}건')
+```
+
+기대: **0건**.
+
+### stats / join-report / sqlite 확인 명령
+
+```bash
+# stats
+curl -sS https://att.ainativeos.net/api/coffee/intent/stats | python3 -m json.tool
+
+# join report (admin)
+TOKEN=$(cat /tmp/seo-smoke-a3v21-token.txt)
+curl -sS https://att.ainativeos.net/api/attribution/coffee-npay-intent-join-report \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+
+# 또는 monitoring report script
+cd /Users/vibetj/coding/seo/backend && npx tsx scripts/coffee-npay-intent-monitoring-report.ts
+```
+
+### smoke / test row 제외 SQL
+
+```sql
+SELECT *
+FROM coffee_npay_intent_log
+WHERE site = 'thecleancoffee'
+  AND intent_uuid NOT LIKE 'smoke_%'
+  AND source_version NOT LIKE '%codex_sim%'
+  AND source_version NOT LIKE 'test_%'
+  AND is_simulation = 0
+  AND ts_ms_kst >= <a3v21_start_ms>;
+```
+
+### Cleanup 절차 (A-3 v2 와 동일 패턴)
+
+| Step | 내용 |
+|---|---|
+| C1 | smoke window close (admin endpoint POST) |
+| C2 | VM .env 임시 키 제거 (head -n 201 또는 sed marker) + pm2 restart --update-env |
+| C3 | stats 검증 (enforce/token/window 모두 false 복귀) |
+| C4 | TJ — GTM workspace v2.1 manual delete (Codex scope 부족) |
+| C5 | 결과 보고서 + !coffeedata 항목 19 closure + commit |
+
+### 가드 재확인
+
+- GTM Production publish: BLOCKED
+- 자동 dispatcher 운영 전환: BLOCKED
+- GA4 MP / Meta CAPI / TikTok Events / Google Ads send: BLOCKED
+- smoke window 외 live capture: BLOCKED
+- 5건 초과 INSERT: BLOCKED (max_inserts=5 hard limit)
+- env flag 상시 ON: BLOCKED (검증 후 즉시 OFF)
+
+---
+
+## A-3 v2.1 partial smoke (2026-05-02 12:08 KST)
+
+Yellow Lane sprint 19.2. **chrome 측 검증 미수행** — Codex 가 chrome NPay click 자동화 불가, TJ 차후 진행 결정. 본 sprint 는 backend prep + GTM 등록 + Codex backend sim + cleanup 까지 자율 완료.
+
+### partial sprint 진행 결과
+
+| Step | 결과 |
+|---|---|
+| 1.0 baseline snapshot | enforce/window false, total_rows=3 (A-3 v2 evidence 보존) |
+| 1.1 smoke token 생성 | `smoke_a3v21_1777691090_d008b2cd13a3` |
+| 1.2 VM .env append | 정확히 3 라인 추가 |
+| 1.3 pm2 restart | pid 227691, restart 38 |
+| 1.4 stats | enforce True, token True, window False (예상) |
+| 2 smoke window open | id=2, max=5, expires KST 12:35 |
+| 3 GTM workspace 21 + trigger 82 + tag 83 | 등록 완료 (Codex API) |
+
+### Codex backend sim (chrome 대신 enforce mode 시뮬레이션)
+
+| Sim | payload 특징 | 결과 |
+|---|---|---|
+| Sim 1 | imweb_order_code 채워짐 + payment_button_type=npay | **201** inserted=true, ledger row preview 정상 |
+| Sim 2 | 같은 intent_uuid 재시도 | **200** deduped=true, reason=`deduped_existing` (UNIQUE constraint) |
+| Sim 3 | payment_button_type 누락 + intent_phase=confirm_to_pay | **201** inserted=true, payment_button_type 빈 문자열 (backend schema optional) |
+
+**Sim 3 의 의미**: backend 가 payment_button_type 누락 payload 도 INSERT 함 (lenient policy). v2.1 의 O3 fallback 효과는 backend 단에서 검증 불가 — **dispatcher 코드 자체에서 보정** 후 fetch 해야 ledger 가 깔끔함. chrome 검증 없으면 v2.1 의 O3 효과 측정 못 함.
+
+### monitoring script 결과 (`/tmp/coffee-npay-monitoring-a3v21.yaml`)
+
+```yaml
+mode: pre-publish
+M-1_total_rows_excl_test: 2  # A-3 v2 의 site dispatcher 2건만 (sprint 19 의 결과)
+M-2_rows_with_imweb_order_code: 0
+M-3_imweb_order_code_coverage_pct: 0.0  # chrome 미수행이라 v2 결과 그대로
+M-5_enforce_deduped_ratio_pct: 50.0  # Codex sim 2 INSERT + 1 dedup intentional
+EG-1_imweb_order_code_coverage_ge_95: FAIL
+EG-3_enforce_deduped_ratio_le_5: FAIL
+EG-4_payment_button_type_null_in_confirm: FAIL (2)
+verdict: needs_review  # chrome 검증 없으면 진짜 v2.1 effect 측정 불가
+```
+
+**FAIL 해석**: 위 EG 결과는 v2.1 의 chrome 측 동작 효과를 측정 안 한 것. real row (sprint 19 의 site dispatcher 2건) 는 v2 dispatcher 시점이라 imweb_order_code null + payment_button_type null. v2.1 chrome 검증 후에 진짜 EG 평가 가능.
+
+### v2.1 의 O1/O2/O3 검증 — 코드 review 만
+
+dispatcher v2.1 HTML 코드 자체 review (이 runbook 의 v2.1 재검증 섹션 코드 블록):
+
+| 개선 | 코드 위치 | 검증 |
+|---|---|---|
+| O1 in-flight Set | `var inflight = new Set();` + `if (inflight.has(p.intent_uuid)) return;` + `inflight.add(...)` + `.finally(function () { inflight.delete(...); })` | ✅ logic 정상 — 같은 UUID 가 fetch 중이면 다음 sweep skip |
+| O2 imweb_order_code wait | `if (!p.imweb_order_code) { ... if (elapsedMs < ORDER_CODE_WAIT_TIMEOUT_MS) return; markSent(... blocked_missing_imweb_order_code); ... }` | ✅ logic 정상 — 3초까지 wait + timeout 시 block + fetch 안 함 |
+| O3 payment_button_type fallback | `if (!p.payment_button_type && p.intent_phase === "confirm_to_pay") p.payment_button_type = "npay";` | ✅ logic 정상 — confirm_to_pay path 에서 자동 보정 |
+
+코드 logic PASS. 단 chrome 환경 + funnel-capi v3 + 실제 NPay button click flow 의 실측 검증은 별도 sprint 19.3 으로 분리.
+
+### Cleanup 결과 (2026-05-02 KST)
+
+| Step | 결과 |
+|---|---|
+| C1 smoke window 2 close | closed_count=1 |
+| C2.a VM .env wc 205 → 201 | COFFEE_NPAY_INTENT 잔존 0 |
+| C2.b pm2 restart | pid 227691 → 227837, restart 38 → 39 |
+| C3 stats | enforce/token/window 모두 false, total_rows=5 보존 |
+| C4 GTM workspace 21 | TJ manual delete 영역 (Codex API delete scope 부족) |
+
+### 12 성공 기준 판정
+
+| # | 기준 | 결과 |
+|---|---|---|
+| 1 | GTM Preview dispatcher v2.1 설치 확인 | ⏸ 미수행 (chrome 안 함) |
+| 2 | NPay click buffer 생성 | ⏸ 미수행 |
+| 3 | dispatcher fetch POST 성공 | ⏸ chrome 미수행 — Codex sim 으로 backend INSERT 는 검증 |
+| 4 | backend insert 1-2건 정상 | ✅ Codex sim 2건 INSERT (id 7, 8) |
+| 5 | imweb_order_code capture rate 100% in test | ⏸ chrome 미수행 — Codex sim 은 100% (둘 다 채워서 보냄) |
+| 6 | enforce_deduped ratio ≤5% | ⏸ chrome 미수행 — Codex sim 의 50% 는 의도된 dedup test |
+| 7 | payment_button_type null = 0 | ⏸ chrome 미수행 — Codex Sim 3 은 의도된 누락 |
+| 8 | pii_rejected = 0 | ✅ 0 |
+| 9 | invalid_payload = 0 | ✅ 0 |
+| 10 | endpoint_5xx = 0 | ✅ 0 |
+| 11 | rejected_origin/rate_limited 비정상 증가 없음 | ✅ 둘 다 0 |
+| 12 | 종료 후 enforce/token/window_active 모두 false | ✅ Cleanup 완료 |
+
+**판정**: **partial PASS** — chrome 미수행 항목 (1/2/3/5/6/7) 은 별도 sprint 19.3 에서 검증 필요. 그 외 (4/8/9/10/11/12) 는 PASS.
+
+### 다음 액션
+
+| sprint | 내용 |
+|---|---|
+| 19.3 | dispatcher v2.1 chrome 측 재검증 — TJ 가 chrome 진행 시점에. workspace 21 또는 신규 workspace 사용 가능 |
+| 20 | A-4 GTM Production publish 결정 — sprint 19.3 PASS 후만 추천 |
