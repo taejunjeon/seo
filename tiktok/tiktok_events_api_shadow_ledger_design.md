@@ -3,7 +3,7 @@
 작성 시각: 2026-05-03 01:07 KST
 Sprint name: TikTok Events API Shadow Candidate Ledger Design
 Lane: Green Lane, 설계/문서 only
-상태: 설계 완료. 구현/배포/DB write/Events API send 전부 미실행.
+상태: 설계 완료. 2026-05-03 01:30 KST 기준 로컬 구현/테스트 완료. VM 배포, VM DB write, Events API send는 미실행.
 
 ## 10초 요약
 
@@ -11,7 +11,7 @@ Lane: Green Lane, 설계/문서 only
 
 핵심 결론은 새 데이터를 기존 `attribution_ledger`에 섞지 않고, TJ 관리 Attribution VM SQLite에 `tiktok_events_api_shadow_candidates` 별도 테이블을 두는 것이다. 이 테이블은 `send_candidate=false`가 기본이며, TikTok으로 아무것도 보내지 않는다.
 
-다음 행동은 Green Lane으로 로컬 구현/테스트를 먼저 만들고, 그 다음 Yellow Lane 승인으로 TJ 관리 Attribution VM에 shadow table을 배포해 최대 50건만 smoke write 하는 것이다.
+다음 행동은 Yellow Lane 승인 후 TJ 관리 Attribution VM에 shadow table을 배포해 최대 50건만 smoke write 하는 것이다.
 
 ## 1. 문서 목적
 
@@ -28,7 +28,7 @@ Lane: Green Lane, 설계/문서 only
 | 작업 | Lane | 이번 문서에서 실행 여부 | 이유 |
 |---|---|---|---|
 | 설계 문서 작성 | Green | 실행 | no-send, no-write, no-deploy |
-| 로컬 구현/테스트 | Green | 미실행 | 다음 단계 후보 |
+| 로컬 구현/테스트 | Green | 완료 | no-send, no-deploy, temp DB 테스트만 사용 |
 | 로컬 개발 DB dry-run write | Green/Yellow 경계 | 미실행 | 로컬 DB라도 백업/dry-run/apply 절차 필요 |
 | TJ 관리 Attribution VM table 생성 | Yellow | 미실행 | VM SQLite write/schema 영향 |
 | TJ 관리 Attribution VM shadow row insert | Yellow | 미실행 | live 보조 원장 write |
@@ -475,6 +475,23 @@ Green Lane으로 먼저 할 수 있는 일:
 | PII 포함 payload | `pii_detected` block |
 | duplicate event | insert/update 중복 방지 |
 
+2026-05-03 01:30 KST 로컬 구현 상태:
+
+| 항목 | 상태 | 파일 |
+|---|---|---|
+| shadow candidate builder | 완료 | `backend/src/tiktokEventsApiShadowCandidates.ts` |
+| dry-run/apply CLI | 완료 | `backend/scripts/tiktok-events-api-shadow-candidates.ts` |
+| fixture/unit test | 완료 | `backend/tests/tiktok-events-api-shadow-candidates.test.ts` |
+| local dry-run | 완료, 후보 0건 | `npx tsx scripts/tiktok-events-api-shadow-candidates.ts --window-days 7 --limit 20 --json` |
+
+검증 결과:
+
+| 검증 | 결과 |
+|---|---|
+| `npm --prefix backend run typecheck` | 통과 |
+| `cd backend && node --import tsx --test tests/tiktok-events-api-shadow-candidates.test.ts` | 5/5 통과 |
+| local dry-run | 통과, `writtenRows=0`, `noPlatformSend=true`, `noOperatingDbWrite=true` |
+
 ## 18. VM Deployment Plan
 
 Yellow Lane 승인 후만 진행한다.
@@ -549,6 +566,8 @@ TikTok Events API Shadow Candidate Ledger Local Implementation + VM Dry Run
 - 로컬 fixture 테스트
 - dry-run 출력 설계
 - 승인 문서 작성
+
+2026-05-03 01:30 KST 기준 위 네 가지는 완료됐다.
 
 승인 필요:
 - TJ 관리 Attribution VM 배포

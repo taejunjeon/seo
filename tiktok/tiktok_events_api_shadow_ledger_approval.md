@@ -9,7 +9,7 @@
 - 로컬 개발 DB: `/Users/vibetj/coding/seo/backend/data/crm.sqlite3`, 로컬 테스트 대상
 운영DB 영향: 없음
 외부 전환 전송: 없음
-Codex 진행 추천 자신감: 80%
+Codex 진행 추천 자신감: 84%
 
 ## 한 줄 결론
 
@@ -21,7 +21,7 @@ TikTok Events API를 실제로 보내기 전에, TJ 관리 Attribution VM에 “
 
 아래 작업을 한다.
 
-1. 로컬에서 shadow candidate 생성 로직을 구현한다.
+1. 로컬에서 shadow candidate 생성 로직을 구현한다. 2026-05-03 완료.
 2. TJ 관리 Attribution VM에 `tiktok_events_api_shadow_candidates` 테이블을 만든다.
 3. 최근 7일 또는 제한된 window에서 후보를 계산한다.
 4. 최대 50건만 shadow row로 저장한다.
@@ -62,12 +62,14 @@ shadow 원장은 이 문제를 TikTok으로 보내기 전에 내부에서 검증
 1. 로컬 구현
    - `backend/src/tiktokEventsApiShadowCandidates.ts`
    - `backend/scripts/tiktok-events-api-shadow-candidates.ts`
-   - 테스트 파일 추가
+   - `backend/tests/tiktok-events-api-shadow-candidates.test.ts`
+   - 상태: 2026-05-03 완료
 
 2. 로컬 검증
    - `--dry-run`으로 후보만 출력
    - DB write 없음
    - pending/no-evidence/confirmed fixture 테스트
+   - 상태: 2026-05-03 완료. 타입체크 통과, 신규 테스트 5/5 통과, local dry-run `writtenRows=0`
 
 3. VM 배포
    - TJ 관리 Attribution VM 백업
@@ -91,8 +93,8 @@ shadow 원장은 이 문제를 TikTok으로 보내기 전에 내부에서 검증
 
 ## 허용 범위
 
-- 로컬 코드 구현
-- 로컬 테스트
+- 로컬 코드 구현. 2026-05-03 완료
+- 로컬 테스트. 2026-05-03 완료
 - TJ 관리 Attribution VM 코드 배포
 - TJ 관리 Attribution VM SQLite table 생성
 - TJ 관리 Attribution VM SQLite shadow row 최대 50건 insert/upsert
