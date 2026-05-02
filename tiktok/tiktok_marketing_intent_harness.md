@@ -2,11 +2,11 @@
 
 작성 시각: 2026-05-02 23:55 KST
 기준일: 2026-05-02
-상태: VM receiver 배포/smoke 완료, GTM Preview workspace/tag 생성 완료, GTM Production publish 전
+상태: VM receiver 배포/smoke 완료, GTM Preview browser smoke 완료, GTM Production publish 전
 대상: Biocom TikTok ROAS 정합성 개선
 저장 대상: TJ 관리 Attribution VM `att.ainativeos.net` 내부 SQLite `CRM_LOCAL_DB_PATH#attribution_ledger`
 운영DB 영향: 없음. 개발팀 관리 PostgreSQL `dashboard.public.tb_iamweb_users` write 없음
-Auditor verdict: **PASS_WITH_YELLOW_REMAINING_GATE, Red Lane 금지 유지**
+Auditor verdict: **PASS, Red Lane 금지 유지**
 Codex 진행 추천 자신감: **88%**
 
 ## 10초 요약
@@ -15,16 +15,16 @@ Codex 진행 추천 자신감: **88%**
 
 목적은 **TikTok 광고 클릭 intent만 내부 Attribution VM에 저장**하는 것이다. 이 intent는 `strict confirmed`가 아니라 `firstTouch candidate`로만 보며, TikTok 플랫폼이 주장하는 조회 기반 구매는 계속 `platform-only assisted`로 분리한다.
 
-현재 TJ 관리 Attribution VM receiver 배포와 VM smoke는 통과했다. GTM은 Preview용 workspace/tag/trigger 생성과 `quick_preview` compile까지 완료했다. 아직 TJ님 브라우저 Tag Assistant에서 실제 `tag fired -> Network 201/200 -> ledger row` 흐름은 확인하지 않았다. 따라서 Production publish는 계속 금지하고, 다음 단계는 브라우저 Preview smoke다.
+현재 TJ 관리 Attribution VM receiver 배포와 VM smoke는 통과했다. GTM은 Preview용 workspace/tag/trigger 생성, `quick_preview` compile, TJ님 브라우저 Tag Assistant fired, VM POST 201, SQLite ledger row 저장까지 확인했다.
+
+브라우저 DevTools Network 필터에는 `marketing-intent`가 보이지 않았지만, VM access log와 원장 저장이 확인됐으므로 요청은 실제 성공했다. 따라서 이 sprint의 Preview smoke는 통과로 본다. Production publish와 같은 브라우저 카드 결제는 계속 별도 승인 대상이다.
 
 ## 다음 할일
 
 | 순서 | Lane | 담당 | 할 일 | 왜 하는가 | 어떻게 하는가 | 데이터/DB 위치 | 컨펌 필요 | 자신감 |
 |---:|---|---|---|---|---|---|---|---:|
-| 1 | Yellow | TJ | GTM 브라우저 Preview smoke | GTM tag가 실제 biocom.kr에서 fired 되는지 확인해야 한다 | workspace `151` Preview 실행, 테스트 URL 접속, fired/Network 201 또는 duplicate 200 확인 | GTM Preview + TJ 관리 Attribution VM endpoint | YES, Preview 브라우저 실행 | 86% |
-| 2 | Yellow | Codex | Preview 결과 audit | Preview에서 들어온 row가 guard/dedupe 기준을 만족하는지 확인한다 | TJ님이 알려준 `ttclid` 또는 시간대로 Attribution VM SQLite 조회 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` | NO, read-only | 88% |
-| 3 | Yellow | TJ + Codex | 같은 브라우저 카드 결제 1건 | 클릭 intent가 결제완료의 firstTouch 후보로 이어지는지 확인해야 한다 | Preview smoke 성공 후 별도 승인으로 카드 결제, `payment_success.metadata_json.firstTouch` 확인 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` | YES, 별도 승인 | 82% |
-| 4 | Red | TJ | GTM Production publish 판단 | 운영 전체 트래픽에 영향을 주므로 Preview/결제 검증 후 별도 승인으로 닫아야 한다 | 결과 보고서를 보고 YES/NO 결정 | GTM Production container | YES, 별도 publish 승인 | 70% |
+| 1 | Yellow | TJ + Codex | 같은 브라우저 카드 결제 1건 | 클릭 intent가 결제완료의 firstTouch 후보로 이어지는지 확인해야 한다 | Preview smoke 성공 후 별도 승인으로 카드 결제, `payment_success.metadata_json.firstTouch` 확인 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` | YES, 별도 승인 | 82% |
+| 2 | Red | TJ | GTM Production publish 판단 | 운영 전체 트래픽에 영향을 주므로 Preview/결제 검증 후 별도 승인으로 닫아야 한다 | 결과 보고서를 보고 YES/NO 결정 | GTM Production container | YES, 별도 publish 승인 | 70% |
 
 ## 목적
 
@@ -60,7 +60,7 @@ Codex 진행 추천 자신감: **88%**
 | Lane | 허용 범위 | 이번 작업 상태 | 판단 |
 |---|---|---|---|
 | Green Lane | 로컬 문서/코드 검토, 로컬 임시 SQLite smoke, read-only 분석 | 완료 | 로컬 범위에서는 진행 가능 |
-| Yellow Lane | VM receiver deploy + VM smoke, GTM Preview, 같은 브라우저 카드 결제 1건 | VM receiver/smoke 및 GTM workspace 생성 완료, 브라우저 Preview 미완료 | Production publish 전 Preview 확인 필요 |
+| Yellow Lane | VM receiver deploy + VM smoke, GTM Preview, 같은 브라우저 카드 결제 1건 | VM receiver/smoke 및 GTM Preview smoke 완료, 같은 브라우저 카드 결제 미실행 | 카드 결제는 별도 승인 필요 |
 | Red Lane | GTM Production publish, TikTok Events API, GA4/Meta/Google 전환 전송, firstTouch strict 승격 | 미실행 | 별도 승인 전 금지 |
 
 요청 기준 재분류:
@@ -68,7 +68,7 @@ Codex 진행 추천 자신감: **88%**
 | 작업 | Lane | TJ 필요 | 이유 |
 |---|---|---|---|
 | VM receiver deploy + VM smoke | Yellow Lane | YES | 완료. TJ 관리 Attribution VM 배포와 smoke 통과 |
-| GTM Preview | Yellow Lane | YES | workspace/tag 생성 완료. 브라우저 Preview 확인 필요 |
+| GTM Preview | Yellow Lane | YES | 완료. Tag Assistant fired, VM POST 201, ledger row 확인 |
 | 같은 브라우저 카드 결제 1건 | Yellow Lane | YES | 실제 주문 테스트가 필요하다 |
 | GTM Production publish | Red Lane | YES | 운영 전체 트래픽에 영향을 준다 |
 | TikTok Events API / GA4/Meta/Google send | Red Lane | YES | 광고 플랫폼 전환값을 바꿀 수 있다 |
@@ -97,7 +97,7 @@ Codex 진행 추천 자신감: **88%**
 | Local smoke | 정상 저장, 근거 없음 skip, PII reject, origin reject, site reject, duplicate skip | 통과 |
 | VM smoke | `https://att.ainativeos.net/api/attribution/marketing-intent`가 201 또는 duplicate 200 반환 | 통과 |
 | VM ledger 확인 | TJ 관리 Attribution VM SQLite에 `touchpoint=marketing_intent` row 생성 | 통과 |
-| GTM Preview | `SEO - TikTok Marketing Intent - v1` tag fired, Network 201 또는 duplicate 200 | workspace/tag 생성 및 compile 통과. 브라우저 fired 확인 대기 |
+| GTM Preview | `SEO - TikTok Marketing Intent - v1` tag fired, VM POST 201, ledger row | 통과. DevTools Network에는 미표시였으나 VM 로그/원장으로 성공 확인 |
 | 같은 브라우저 카드 결제 | `payment_success.metadata_json.firstTouch.touchpoint=marketing_intent` 확인 | 대기 |
 | `/ads/tiktok` 표시 | strict confirmed / firstTouch candidate / platform-only assisted 분리 | 로컬 구현/문구 준비 |
 
@@ -187,6 +187,9 @@ Codex 진행 추천 자신감: **88%**
 | bad-site | 403 `site_not_allowed` |
 | GTM workspace/tag | workspace `151`, tag `259`, trigger `256/257/258` 생성 |
 | GTM quick preview | `compilerError=false` |
+| GTM browser Preview | Tag Assistant에서 `SEO - TikTok Marketing Intent - v1 (Preview)` fired |
+| GTM generated VM request | `POST /api/attribution/marketing-intent` 201 |
+| GTM generated ledger row | `ttclid=codex_gtm_20260502`, `touchpoint=marketing_intent` |
 | 운영DB write | 없음 |
 | Production publish / platform send | 없음 |
 
@@ -236,7 +239,7 @@ Codex 진행 추천 자신감: **88%**
 | VM receiver deploy | Yellow | TJ | 완료 |
 | VM smoke | Yellow | Codex | 완료 |
 | GTM Preview tag 생성 | Yellow | Codex | 완료. Production publish 아님 |
-| 테스트 URL fired/Network/ledger 확인 | Yellow | TJ + Codex | 미완료. TJ님 브라우저 Tag Assistant Preview 필요 |
+| 테스트 URL fired/Network/ledger 확인 | Yellow | TJ + Codex | 완료. Network 화면 미표시는 VM 로그/원장으로 대체 확인 |
 | 같은 브라우저 카드 결제 1건 | Yellow | TJ | 이번 sprint 범위 밖. Preview 성공 후 별도 승인 |
 | GTM Production publish | Red | TJ | 별도 결과 보고 후 별도 승인 |
 | TikTok Events API / GA4/Meta/Google send | Red | TJ | 이번 sprint 범위 밖 |

@@ -8,11 +8,11 @@ GTM container: `accounts/4703003246/containers/13158774`
 
 ## Auditor verdict
 
-**PASS_WITH_YELLOW_REMAINING_GATE**
+**PASS**
 
-VM receiver 배포와 VM smoke는 통과했다. GTM은 Production publish 없이 Preview용 workspace/tag/trigger 생성과 `quick_preview` compile까지 통과했다.
+VM receiver 배포와 VM smoke는 통과했다. GTM은 Production publish 없이 Preview용 workspace/tag/trigger 생성, `quick_preview` compile, TJ님 브라우저 Tag Assistant fired, Attribution VM ledger 저장까지 통과했다.
 
-다만 실제 브라우저 GTM Preview에서 `tag fired -> Network 201/200 -> ledger row` 흐름은 Codex가 로그인된 Tag Assistant 브라우저 세션을 갖고 있지 않아 미완료다. 이 단계는 TJ님 브라우저에서 Preview를 켜고 확인해야 한다.
+브라우저 DevTools Network 필터에서는 `marketing-intent`가 보이지 않았지만, VM 로그와 SQLite 원장에는 같은 시각 `POST /api/attribution/marketing-intent` 201과 `ttclid=codex_gtm_20260502` row가 확인됐다. 따라서 Network 미노출은 요청 실패가 아니라 DevTools 기록/필터 타이밍 이슈로 판단한다.
 
 ## Lane classification
 
@@ -22,7 +22,7 @@ VM receiver 배포와 VM smoke는 통과했다. GTM은 Production publish 없이
 | VM smoke / reject smoke / CORS preflight | Yellow | 완료 |
 | GTM Preview workspace/tag 생성 | Yellow | 완료 |
 | GTM `quick_preview` compile | Yellow | 완료 |
-| GTM browser Preview fired 확인 | Yellow | 미완료. TJ 브라우저 세션 필요 |
+| GTM browser Preview fired 확인 | Yellow | 완료 |
 | 같은 브라우저 카드 결제 테스트 | Yellow | 이번 sprint 범위 밖 |
 | GTM Production publish | Red | 하지 않음 |
 | TikTok Events API / GA4 / Meta / Google send | Red | 하지 않음 |
@@ -133,9 +133,20 @@ Smoke row cleanup:
 
 | 항목 | 이유 |
 |---|---|
-| GTM Preview tag fired 확인 | Tag Assistant Preview는 TJ님 로그인 브라우저 세션이 필요 |
-| 브라우저 Network 201/200 확인 | Preview mode가 실제 브라우저에 연결되어야 함 |
-| GTM-generated ledger row 확인 | 위 Network 확인 후 가능 |
+| 브라우저 DevTools Network 필터 표시 | `marketing-intent` 필터에 요청이 표시되지 않음. VM 로그/원장으로 201 저장을 대체 확인 |
+
+추가 확인 결과:
+
+| 항목 | 결과 |
+|---|---|
+| Tag Assistant fired | `SEO - TikTok Marketing Intent - v1 (Preview)` 맞춤 HTML 1회 실행 |
+| VM access log | `OPTIONS /api/attribution/marketing-intent` 204 후 `POST /api/attribution/marketing-intent` 201 |
+| VM ledger row | `touchpoint=marketing_intent`, `ttclid=codex_gtm_20260502` 저장 |
+| 저장 시각 | `2026-05-02T14:50:35.095Z` |
+| entry id | `0786d941ddce1e0378306f12c0c601ab8e40d28595dba93eba3ab4f7df8d4c21` |
+| referrer | `https://tagassistant.google.com/` |
+| GA session id | `1777733386` |
+| `_ttp` | 수집됨 |
 
 TJ님이 확인할 테스트 URL:
 
@@ -143,28 +154,104 @@ TJ님이 확인할 테스트 URL:
 https://biocom.kr/?utm_source=tiktok&utm_medium=paid&utm_campaign=codex_gtm_test&ttclid=codex_gtm_20260502
 ```
 
+### TJ님 브라우저 확인 체크리스트
+
+이번 확인은 “구매가 잡히는지”가 아니라 **TikTok 광고 클릭 흔적이 내부 Attribution VM 원장에 저장되는지** 보는 테스트다.
+
+따라서 TikTok Pixel Helper에서 Purchase를 찾는 테스트가 아니다. 이 단계에서는 결제도 하지 않고, TikTok/GA4/Meta/Google로 전환을 보내지도 않는다.
+
+#### 1. GTM Preview에서 확인할 것
+
+| 화면 | 무엇을 봐야 하나 | 통과 기준 | 실패면 무슨 뜻인가 |
+|---|---|---|---|
+| GTM workspace | workspace `codex_tiktok_marketing_intent_preview_20260502143924` 또는 workspace id `151` | 이 workspace에서 Preview 실행 | 다른 workspace를 보면 tag가 안 보일 수 있음 |
+| Preview 연결 화면 | 테스트 URL이 `biocom.kr`이고 URL 안에 `ttclid=codex_gtm_20260502`가 있음 | Tag Assistant가 연결됨 | Preview 연결 실패 또는 다른 URL 접속 |
+| Tags Fired | `SEO - TikTok Marketing Intent - v1 (Preview)` | Fired 목록에 있음 | trigger 조건이 안 맞거나 Preview workspace가 다름 |
+| Tags Not Fired | 위 tag가 여기에만 있음 | 실패 | `ttclid`/TikTok UTM/referrer 조건을 못 읽은 것 |
+
+여기서 Fired가 됐다는 뜻은 “브라우저에서 내부 수집 스크립트가 실행됐다”는 뜻이다. 아직 VM 저장 성공까지 의미하지는 않는다.
+
+#### 2. 브라우저 Network에서 확인할 것
+
+Chrome 개발자도구 Network 탭에서 `marketing-intent`로 검색한다.
+
+| 확인 항목 | 통과 기준 | 뜻 |
+|---|---|---|
+| 요청 URL | `https://att.ainativeos.net/api/attribution/marketing-intent` | GTM tag가 Attribution VM receiver로 보냈음 |
+| Method | `POST` | 실제 저장 요청 |
+| Status | `201` 또는 `200` | `201`은 새 row 저장, `200`은 이미 저장된 duplicate라서 정상 skip |
+| Payload `site` | `biocom` | 다른 사이트 데이터가 섞이지 않음 |
+| Payload `source` | `biocom_imweb` | receiver allowlist 통과 가능한 source |
+| Payload `ttclid` | `codex_gtm_20260502` | 테스트 클릭 intent 식별자 |
+| Payload에 PII | email/phone/name/address 계열 값이 없어야 함 | PII가 있으면 receiver가 400으로 거절해야 정상 |
+
+실패별 해석:
+
+| Network 결과 | 해석 | 다음 조치 |
+|---|---|---|
+| 요청 자체가 없음 | tag는 fired 됐지만 JS가 중간에 멈췄거나 브라우저 확장/차단 영향 | Console error 확인 |
+| 400 `marketing_intent_pii_rejected` | payload에 email/phone/name/address 계열 값이 들어감 | GTM tag payload에서 해당 값 제거 |
+| 403 `origin_not_allowed` | 요청 origin이 biocom 허용 목록이 아님 | Preview URL 또는 origin 확인 |
+| 403 `site_not_allowed` | `site` 값이 `biocom`이 아님 | GTM tag payload 확인 |
+| 403 `source_not_allowed` | `source` 값이 `biocom_imweb`이 아님 | GTM tag payload 확인 |
+| 5xx | VM receiver 장애 가능성 | Production publish 금지, Codex가 VM 로그 확인 |
+
+#### 3. Attribution VM 원장에서 확인할 것
+
+Network가 201 또는 duplicate 200이면, Codex가 TJ 관리 Attribution VM SQLite에서 아래 값을 조회한다.
+
+DB 위치:
+
+```text
+/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3#attribution_ledger
+```
+
+통과 기준:
+
+| 원장 필드 | 기대값 | 사람이 이해할 의미 |
+|---|---|---|
+| `touchpoint` | `marketing_intent` | 구매가 아니라 “광고 클릭 흔적”으로 저장됨 |
+| `ttclid` | `codex_gtm_20260502` | 이번 Preview 테스트 row를 찾을 수 있음 |
+| `source` | `biocom_imweb` | Biocom 아임웹에서 온 내부 수집 row |
+| `utm_source` | `tiktok` | TikTok 광고 클릭 근거 |
+| `utm_campaign` | `codex_gtm_test` | 이번 테스트 캠페인 marker |
+| `metadata_json.intentChannel` | `tiktok` | TikTok intent로 분류됨 |
+| `metadata_json.marketingIntentDedupe.tier` | `ttclid` | 가장 강한 클릭 식별자인 ttclid 기준 dedupe |
+| `order_id`, `payment_key` | 비어 있음 | 정상. 이 단계는 결제 테스트가 아니라 클릭 intent 테스트임 |
+
+여기까지 통과해야 “GTM Preview가 TikTok 클릭 intent를 내부 Attribution VM에 저장할 수 있다”고 말할 수 있다.
+
+#### 4. 이번 단계에서 보면 안 되는 것
+
+| 보면 안 되는 변화 | 이유 |
+|---|---|
+| TikTok Purchase 이벤트 추가 전송 | 이번 테스트는 전환 전송이 아니라 내부 intent 저장 |
+| GA4/Meta/Google Ads 전환 전송 | 금지 범위 |
+| 운영DB PostgreSQL write | 금지 범위 |
+| `/ads/tiktok` strict confirmed 증가 | 아직 구매 검증이 아니므로 증가하면 오히려 이상 |
+| `payment_success` top-level source 변경 | firstTouch 후보가 기존 attribution을 덮으면 안 됨 |
+
 성공 기준:
 
 | 위치 | 기대값 |
 |---|---|
-| GTM Preview | `SEO - TikTok Marketing Intent - v1 (Preview)` fired |
-| Browser Network | `POST https://att.ainativeos.net/api/attribution/marketing-intent`가 201 또는 duplicate 200 |
-| TJ 관리 Attribution VM SQLite | `touchpoint=marketing_intent`, `ttclid=codex_gtm_20260502` row |
+| GTM Preview | `SEO - TikTok Marketing Intent - v1 (Preview)` fired. 통과 |
+| Browser Network | DevTools 필터에는 미표시. VM 로그에서 POST 201 확인 |
+| TJ 관리 Attribution VM SQLite | `touchpoint=marketing_intent`, `ttclid=codex_gtm_20260502` row. 통과 |
 
 ## Next action
 
 | 우선순위 | 담당 | 액션 | 왜 하는가 | 어떻게 하는가 | 자신감 |
 |---:|---|---|---|---|---:|
-| 1 | TJ | GTM Preview 브라우저 smoke | GTM tag가 실제 biocom.kr에서 fired 되는지 최종 확인해야 Production publish 판단이 가능하다 | GTM workspace `151`에서 Preview 실행, 테스트 URL 접속, fired/Network/ledger row 확인 | 86% |
-| 2 | Codex | Preview 결과 audit | Preview에서 들어온 row가 guard/dedupe/PII 기준을 만족하는지 확인한다 | TJ가 알려준 `ttclid` 또는 시간대로 Attribution VM SQLite 조회 | 88% |
-| 3 | TJ + Codex | 같은 브라우저 카드 결제 별도 승인 | 클릭 intent가 결제완료 firstTouch 후보로 연결되는지 확인한다 | Preview smoke 성공 후 별도 승인으로 카드 결제 1건 진행 | 82% |
-| 4 | TJ | GTM Production publish 여부 별도 판단 | 운영 전체 트래픽 영향이 있어 Red Lane으로 분리해야 한다 | VM/Preview/카드 테스트 결과 보고서 기준으로 publish 승인 여부 결정 | 70% |
+| 1 | TJ + Codex | 같은 브라우저 카드 결제 별도 승인 | 클릭 intent가 결제완료 firstTouch 후보로 연결되는지 확인한다 | Preview smoke가 성공했으므로, 별도 승인 후 같은 브라우저에서 카드 결제 1건 진행 | 82% |
+| 2 | TJ | GTM Production publish 여부 별도 판단 | 운영 전체 트래픽 영향이 있어 Red Lane으로 분리해야 한다 | VM/Preview/카드 테스트 결과 보고서 기준으로 publish 승인 여부 결정 | 70% |
+| 3 | Codex | Preview smoke row 운영 화면 반영 확인 | `/ads/tiktok`에서 firstTouch candidate와 platform-only assisted 분리가 유지되는지 확인한다 | 로컬 개발 DB와 TJ 관리 Attribution VM을 구분해 read-only 확인 | 84% |
 
 ## Remaining risk
 
 | 리스크 | 설명 | 대응 |
 |---|---|---|
-| GTM Preview 미완료 | workspace/tag compile만으로는 실제 fired를 보장하지 않는다 | TJ 브라우저 Preview smoke 전 Production publish 금지 |
+| DevTools Network 미표시 | 실제 POST 201과 ledger row는 확인됐지만 브라우저 Network 필터에는 표시되지 않았다 | 다음 테스트는 DevTools를 먼저 열고 Preserve log ON 후 새 `ttclid`로 재접속하면 화면에서도 확인 가능 |
 | `tagFiringOption` 미적용 | GTM API가 `oncePerPage`를 받지 않아 tag에는 별도 firing option이 없다 | Custom HTML 내부 localStorage dedupe와 backend dedupe가 중복 저장을 막는다 |
 | VTA는 여전히 미관측 | 조회 기반 구매는 클릭 URL/referrer가 없다 | platform-only assisted로 유지 |
 | smoke row 존재 | TJ VM SQLite에 smoke marker row 2건이 남아 있다 | `vm_smoke` marker로 필터 가능. 필요 시 삭제 가능 |
