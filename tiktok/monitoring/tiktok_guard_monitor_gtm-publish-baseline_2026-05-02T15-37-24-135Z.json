@@ -1,0 +1,938 @@
+{
+  "generatedAt": "2026-05-02T15:37:24.135Z",
+  "startAt": "2026-05-02T14:37:24.135Z",
+  "endAt": "2026-05-02T15:37:24.135Z",
+  "status": "WARN",
+  "health": {
+    "ok": true,
+    "status": 200,
+    "body": {
+      "status": "ok",
+      "service": "biocom-seo-backend",
+      "timestamp": "2026-05-02T15:37:24.527Z",
+      "backgroundJobs": {
+        "enabled": true,
+        "cwvAutoSync": {
+          "enabled": false
+        },
+        "attributionStatusSync": {
+          "enabled": true,
+          "intervalMs": 900000,
+          "limit": 100
+        },
+        "capiAutoSync": {
+          "enabled": true,
+          "intervalMs": 1800000,
+          "limit": 100
+        },
+        "imwebAutoSync": {
+          "enabled": true,
+          "intervalMs": 900000,
+          "maxPage": 30
+        },
+        "tossAutoSync": {
+          "enabled": true,
+          "intervalMs": 900000,
+          "windowHours": 6
+        }
+      },
+      "apis": {
+        "gsc": true,
+        "pagespeed": true,
+        "ga4": false,
+        "ga4Properties": {
+          "default": {
+            "propertyId": null,
+            "configured": false
+          },
+          "biocom": {
+            "propertyId": "304759974",
+            "configured": true
+          },
+          "thecleancoffee": {
+            "propertyId": "326949178",
+            "configured": true
+          },
+          "aibio": {
+            "propertyId": "326993019",
+            "configured": true
+          }
+        },
+        "serpapi": true,
+        "perplexity": true,
+        "supabase": true,
+        "database": true,
+        "openai": true,
+        "channeltalk": {
+          "sdk": true,
+          "openApi": true,
+          "memberHash": false,
+          "marketing": false
+        },
+        "kakao": {
+          "restApi": true,
+          "javascript": true,
+          "admin": true
+        },
+        "aligo": {
+          "apiKey": true,
+          "userId": true,
+          "senderKey": true,
+          "senderPhone": true,
+          "kakaoChannelId": true,
+          "ready": true
+        },
+        "toss": {
+          "shopId": true,
+          "liveKey": true,
+          "testKey": true,
+          "ready": true,
+          "stores": {
+            "biocom": {
+              "shopId": true,
+              "liveKey": true,
+              "testKey": true,
+              "ready": true
+            },
+            "coffee": {
+              "shopId": true,
+              "liveKey": true,
+              "testKey": true,
+              "ready": true
+            }
+          }
+        },
+        "meta": {
+          "token": true,
+          "appSecret": true,
+          "ready": true
+        },
+        "imweb": {
+          "apiKey": true,
+          "secretKey": true,
+          "ready": true
+        },
+        "playauto": {
+          "apiKey": true,
+          "email": true,
+          "ready": true
+        },
+        "crmLocal": {
+          "experiments": 7,
+          "assignments": 3637,
+          "conversions": 264,
+          "messages": 0,
+          "leads": 0,
+          "lead_events": 0,
+          "consents": 0,
+          "imwebMembers": 83277,
+          "imwebOrders": 13015,
+          "imwebCouponMasters": 888,
+          "imwebIssueCoupons": 2654,
+          "tossTransactions": 40140,
+          "tossSettlements": 33569
+        }
+      }
+    }
+  },
+  "eventData": {
+    "ok": true,
+    "status": 200,
+    "body": {
+      "ok": true,
+      "dataSource": "operational_or_local_sqlite_tiktok_pixel_events",
+      "storage": "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
+      "filters": {
+        "startAt": "2026-05-02T14:37:24.135Z",
+        "endAt": "2026-05-02T15:37:24.135Z",
+        "siteSource": null,
+        "eventName": null,
+        "action": null,
+        "orderCode": null,
+        "orderNo": null
+      },
+      "summary": {
+        "totalEvents": 12,
+        "uniqueOrderKeys": 4,
+        "countsByAction": {
+          "released_unknown_purchase": 2,
+          "decision_received": 4,
+          "purchase_intercepted": 4,
+          "released_confirmed_purchase": 2
+        },
+        "countsByEventName": {
+          "Purchase": 12
+        },
+        "countsByDecisionStatus": {
+          "unknown": 8,
+          "confirmed": 4
+        },
+        "countsByDecisionBranch": {
+          "hold_or_block_purchase": 4,
+          "unknown": 4,
+          "allow_purchase": 4
+        }
+      },
+      "items": [
+        {
+          "eventLogId": "e44310a98e19deb6295838d062e4b12881348dc9f6bda8d9bdb38dc5b056d1c0",
+          "loggedAt": "2026-05-02T15:25:53.238Z",
+          "clientObservedAt": "2026-05-02T15:25:52.455Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "released_unknown_purchase",
+          "eventName": "Purchase",
+          "eventId": "o20260502a0a035128ba07",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502a0a035128ba07",
+          "replacementEventName": "",
+          "orderCode": "o20260502a0a035128ba07",
+          "orderNo": "202605033130831",
+          "paymentCode": "pa2026050218b91a99a7e0a",
+          "paymentKeyPresent": false,
+          "value": 245000,
+          "currency": "KRW",
+          "decisionStatus": "unknown",
+          "decisionBranch": "hold_or_block_purchase",
+          "decisionReason": "signal is aborted without reason",
+          "decisionMatchedBy": "request_error",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502a0a035128ba07&payment_code=pa2026050218b91a99a7e0a&order_no=202605033130831&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502a0a035128ba07&orderNo=202605033130831&paymentCode=&oms_rk=deceb4b1c3650017dd65fc4d4ffc61b0&omsPaymentCode=pa2026050218b91a99a7e0a&orderId=202605033130831-P1&paymentKey=iw_bi20260503002518b9yV1&amount=245000",
+          "params": {
+            "params": {
+              "event_id": "Purchase_o20260502a0a035128ba07",
+              "contents": [
+                {
+                  "content_id": "85",
+                  "content_name": "음식물 과민증 분석 / 검사권 선택 : 지연성알러지검사 1인권",
+                  "quantity": "1",
+                  "price": "260000"
+                }
+              ],
+              "content_type": "product",
+              "value": 245000,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {
+            "status": "unknown",
+            "browserAction": "hold_or_block_purchase",
+            "confidence": "none",
+            "matchedBy": "request_error",
+            "reason": "signal is aborted without reason"
+          },
+          "requestContext": {
+            "ip": "211.219.107.141",
+            "userAgent": "Mozilla/5.0 (Linux; Android 16; SM-F731N Build/BP2A.250605.031.A3; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Whale/1.0.0.0 Crosswalk/29.128.0.24 Mobile Safari/537.36 NAVER(inapp; search; 2100; 12.20.12)",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "2c34ca3175294ec1f0429293231ae712e9c3b8d9f60afd7f1a1ee1496ea0424f",
+          "loggedAt": "2026-05-02T15:25:53.235Z",
+          "clientObservedAt": "2026-05-02T15:25:52.433Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "decision_received",
+          "eventName": "Purchase",
+          "eventId": "o20260502a0a035128ba07",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502a0a035128ba07",
+          "replacementEventName": "",
+          "orderCode": "o20260502a0a035128ba07",
+          "orderNo": "202605033130831",
+          "paymentCode": "pa2026050218b91a99a7e0a",
+          "paymentKeyPresent": false,
+          "value": 245000,
+          "currency": "KRW",
+          "decisionStatus": "unknown",
+          "decisionBranch": "hold_or_block_purchase",
+          "decisionReason": "signal is aborted without reason",
+          "decisionMatchedBy": "request_error",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502a0a035128ba07&payment_code=pa2026050218b91a99a7e0a&order_no=202605033130831&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502a0a035128ba07&orderNo=202605033130831&paymentCode=&oms_rk=deceb4b1c3650017dd65fc4d4ffc61b0&omsPaymentCode=pa2026050218b91a99a7e0a&orderId=202605033130831-P1&paymentKey=iw_bi20260503002518b9yV1&amount=245000",
+          "params": {
+            "params": {
+              "event_id": "o20260502a0a035128ba07",
+              "contents": [
+                {
+                  "content_id": "85",
+                  "content_name": "음식물 과민증 분석 / 검사권 선택 : 지연성알러지검사 1인권",
+                  "quantity": "1",
+                  "price": "260000"
+                }
+              ],
+              "content_type": "product",
+              "value": 245000,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {
+            "status": "unknown",
+            "browserAction": "hold_or_block_purchase",
+            "confidence": "none",
+            "matchedBy": "request_error",
+            "reason": "signal is aborted without reason"
+          },
+          "requestContext": {
+            "ip": "211.219.107.141",
+            "userAgent": "Mozilla/5.0 (Linux; Android 16; SM-F731N Build/BP2A.250605.031.A3; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Whale/1.0.0.0 Crosswalk/29.128.0.24 Mobile Safari/537.36 NAVER(inapp; search; 2100; 12.20.12)",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "f3c275529cc1a435063d4a6b5c0ea429a1b8455146d80829bb5c0d597a829453",
+          "loggedAt": "2026-05-02T15:25:52.892Z",
+          "clientObservedAt": "2026-05-02T15:25:50.610Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "purchase_intercepted",
+          "eventName": "Purchase",
+          "eventId": "o20260502a0a035128ba07",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502a0a035128ba07",
+          "replacementEventName": "",
+          "orderCode": "o20260502a0a035128ba07",
+          "orderNo": "202605033130831",
+          "paymentCode": "pa2026050218b91a99a7e0a",
+          "paymentKeyPresent": false,
+          "value": 245000,
+          "currency": "KRW",
+          "decisionStatus": "unknown",
+          "decisionBranch": "unknown",
+          "decisionReason": "",
+          "decisionMatchedBy": "unknown",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502a0a035128ba07&payment_code=pa2026050218b91a99a7e0a&order_no=202605033130831&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502a0a035128ba07&orderNo=202605033130831&paymentCode=&oms_rk=deceb4b1c3650017dd65fc4d4ffc61b0&omsPaymentCode=pa2026050218b91a99a7e0a&orderId=202605033130831-P1&paymentKey=iw_bi20260503002518b9yV1&amount=245000",
+          "params": {
+            "params": {
+              "event_id": "o20260502a0a035128ba07",
+              "contents": [
+                {
+                  "content_id": "85",
+                  "content_name": "음식물 과민증 분석 / 검사권 선택 : 지연성알러지검사 1인권",
+                  "quantity": "1",
+                  "price": "260000"
+                }
+              ],
+              "content_type": "product",
+              "value": 245000,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {},
+          "requestContext": {
+            "ip": "211.219.107.141",
+            "userAgent": "Mozilla/5.0 (Linux; Android 16; SM-F731N Build/BP2A.250605.031.A3; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Whale/1.0.0.0 Crosswalk/29.128.0.24 Mobile Safari/537.36 NAVER(inapp; search; 2100; 12.20.12)",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "6a7531fd1fc856520d109c702bf352992a0ae5d1e6978982ad6fba8e4ba3a045",
+          "loggedAt": "2026-05-02T15:11:28.316Z",
+          "clientObservedAt": "2026-05-02T15:11:26.241Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "released_confirmed_purchase",
+          "eventName": "Purchase",
+          "eventId": "o20260502c0c1ce5d28e95",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502c0c1ce5d28e95",
+          "replacementEventName": "",
+          "orderCode": "o20260502c0c1ce5d28e95",
+          "orderNo": "202605035698347",
+          "paymentCode": "pa202605021e7c194894bf2",
+          "paymentKeyPresent": false,
+          "value": 11900,
+          "currency": "KRW",
+          "decisionStatus": "confirmed",
+          "decisionBranch": "allow_purchase",
+          "decisionReason": "toss_direct_api_status",
+          "decisionMatchedBy": "toss_direct_order_id",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502c0c1ce5d28e95&payment_code=pa202605021e7c194894bf2&order_no=202605035698347&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502c0c1ce5d28e95&orderNo=202605035698347&paymentCode=&omsPaymentCode=pa202605021e7c194894bf2&orderId=202605035698347-P1&paymentKey=iw_bi202605030010599Ht77&amount=11900",
+          "params": {
+            "params": {
+              "event_id": "Purchase_o20260502c0c1ce5d28e95",
+              "contents": [
+                {
+                  "content_id": "424",
+                  "content_name": "팀키토 슬로우 에이징 도시락 7종 골라담기 / 슬로우 에이징 도시락 : 시트러스 대구 찜",
+                  "quantity": "1",
+                  "price": "8900"
+                }
+              ],
+              "content_type": "product",
+              "value": 11900,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {
+            "status": "confirmed",
+            "browserAction": "allow_purchase",
+            "confidence": "high",
+            "matchedBy": "toss_direct_order_id",
+            "reason": "toss_direct_api_status",
+            "notes": []
+          },
+          "requestContext": {
+            "ip": "180.65.83.254",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "5593c6d3a2beb08e7c20abb02f45ad4781743af8ab330ee452d30bc8f8a2e2c0",
+          "loggedAt": "2026-05-02T15:11:28.313Z",
+          "clientObservedAt": "2026-05-02T15:11:26.239Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "decision_received",
+          "eventName": "Purchase",
+          "eventId": "o20260502c0c1ce5d28e95",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502c0c1ce5d28e95",
+          "replacementEventName": "",
+          "orderCode": "o20260502c0c1ce5d28e95",
+          "orderNo": "202605035698347",
+          "paymentCode": "pa202605021e7c194894bf2",
+          "paymentKeyPresent": false,
+          "value": 11900,
+          "currency": "KRW",
+          "decisionStatus": "confirmed",
+          "decisionBranch": "allow_purchase",
+          "decisionReason": "toss_direct_api_status",
+          "decisionMatchedBy": "toss_direct_order_id",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502c0c1ce5d28e95&payment_code=pa202605021e7c194894bf2&order_no=202605035698347&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502c0c1ce5d28e95&orderNo=202605035698347&paymentCode=&omsPaymentCode=pa202605021e7c194894bf2&orderId=202605035698347-P1&paymentKey=iw_bi202605030010599Ht77&amount=11900",
+          "params": {
+            "params": {
+              "event_id": "o20260502c0c1ce5d28e95",
+              "contents": [
+                {
+                  "content_id": "424",
+                  "content_name": "팀키토 슬로우 에이징 도시락 7종 골라담기 / 슬로우 에이징 도시락 : 시트러스 대구 찜",
+                  "quantity": "1",
+                  "price": "8900"
+                }
+              ],
+              "content_type": "product",
+              "value": 11900,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {
+            "status": "confirmed",
+            "browserAction": "allow_purchase",
+            "confidence": "high",
+            "matchedBy": "toss_direct_order_id",
+            "reason": "toss_direct_api_status",
+            "notes": []
+          },
+          "requestContext": {
+            "ip": "180.65.83.254",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "f9fdaebcf437f7c53ce7274ea2971e225890fc0e6b21076aff76c45dec582a2c",
+          "loggedAt": "2026-05-02T15:11:27.597Z",
+          "clientObservedAt": "2026-05-02T15:11:24.886Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "purchase_intercepted",
+          "eventName": "Purchase",
+          "eventId": "o20260502c0c1ce5d28e95",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502c0c1ce5d28e95",
+          "replacementEventName": "",
+          "orderCode": "o20260502c0c1ce5d28e95",
+          "orderNo": "202605035698347",
+          "paymentCode": "pa202605021e7c194894bf2",
+          "paymentKeyPresent": false,
+          "value": 11900,
+          "currency": "KRW",
+          "decisionStatus": "unknown",
+          "decisionBranch": "unknown",
+          "decisionReason": "",
+          "decisionMatchedBy": "unknown",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502c0c1ce5d28e95&payment_code=pa202605021e7c194894bf2&order_no=202605035698347&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502c0c1ce5d28e95&orderNo=202605035698347&paymentCode=&omsPaymentCode=pa202605021e7c194894bf2&orderId=202605035698347-P1&paymentKey=iw_bi202605030010599Ht77&amount=11900",
+          "params": {
+            "params": {
+              "event_id": "o20260502c0c1ce5d28e95",
+              "contents": [
+                {
+                  "content_id": "424",
+                  "content_name": "팀키토 슬로우 에이징 도시락 7종 골라담기 / 슬로우 에이징 도시락 : 시트러스 대구 찜",
+                  "quantity": "1",
+                  "price": "8900"
+                }
+              ],
+              "content_type": "product",
+              "value": 11900,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {},
+          "requestContext": {
+            "ip": "180.65.83.254",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "2dadfe1b056dc6bc7330a0c0f07a4c757cfaa823152a310f8892f3c610428c43",
+          "loggedAt": "2026-05-02T15:08:20.067Z",
+          "clientObservedAt": "2026-05-02T15:08:19.725Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "released_unknown_purchase",
+          "eventName": "Purchase",
+          "eventId": "o202605021bec71044267b",
+          "originalEventName": "Purchase",
+          "originalEventId": "o202605021bec71044267b",
+          "replacementEventName": "",
+          "orderCode": "o202605021bec71044267b",
+          "orderNo": "202605030593116",
+          "paymentCode": "pa2026050228cc46e07e376",
+          "paymentKeyPresent": false,
+          "value": 459000,
+          "currency": "KRW",
+          "decisionStatus": "unknown",
+          "decisionBranch": "hold_or_block_purchase",
+          "decisionReason": "signal is aborted without reason",
+          "decisionMatchedBy": "request_error",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o202605021bec71044267b&payment_code=pa2026050228cc46e07e376&order_no=202605030593116&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o202605021bec71044267b&orderNo=202605030593116&paymentCode=&omsPaymentCode=pa2026050228cc46e07e376&orderId=202605030593116-P1&paymentKey=iw_bi20260503000739f1yv3&amount=459000",
+          "params": {
+            "params": {
+              "event_id": "Purchase_o202605021bec71044267b",
+              "contents": [
+                {
+                  "content_id": "504",
+                  "content_name": "[공구] 캥맨 3차 음식물과민증 분석 / 시크릿 10% 할인가 : [10%] 음식물과민증 분석 2인권",
+                  "quantity": "1",
+                  "price": "459000"
+                }
+              ],
+              "content_type": "product",
+              "value": 459000,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {
+            "status": "unknown",
+            "browserAction": "hold_or_block_purchase",
+            "confidence": "none",
+            "matchedBy": "request_error",
+            "reason": "signal is aborted without reason"
+          },
+          "requestContext": {
+            "ip": "183.100.158.92",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "15b2b77cf73495c1c0db5f73f8ef59925a8c77423ce43666b6cb2014f371fce4",
+          "loggedAt": "2026-05-02T15:08:20.064Z",
+          "clientObservedAt": "2026-05-02T15:08:19.723Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "decision_received",
+          "eventName": "Purchase",
+          "eventId": "o202605021bec71044267b",
+          "originalEventName": "Purchase",
+          "originalEventId": "o202605021bec71044267b",
+          "replacementEventName": "",
+          "orderCode": "o202605021bec71044267b",
+          "orderNo": "202605030593116",
+          "paymentCode": "pa2026050228cc46e07e376",
+          "paymentKeyPresent": false,
+          "value": 459000,
+          "currency": "KRW",
+          "decisionStatus": "unknown",
+          "decisionBranch": "hold_or_block_purchase",
+          "decisionReason": "signal is aborted without reason",
+          "decisionMatchedBy": "request_error",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o202605021bec71044267b&payment_code=pa2026050228cc46e07e376&order_no=202605030593116&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o202605021bec71044267b&orderNo=202605030593116&paymentCode=&omsPaymentCode=pa2026050228cc46e07e376&orderId=202605030593116-P1&paymentKey=iw_bi20260503000739f1yv3&amount=459000",
+          "params": {
+            "params": {
+              "event_id": "o202605021bec71044267b",
+              "contents": [
+                {
+                  "content_id": "504",
+                  "content_name": "[공구] 캥맨 3차 음식물과민증 분석 / 시크릿 10% 할인가 : [10%] 음식물과민증 분석 2인권",
+                  "quantity": "1",
+                  "price": "459000"
+                }
+              ],
+              "content_type": "product",
+              "value": 459000,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {
+            "status": "unknown",
+            "browserAction": "hold_or_block_purchase",
+            "confidence": "none",
+            "matchedBy": "request_error",
+            "reason": "signal is aborted without reason"
+          },
+          "requestContext": {
+            "ip": "183.100.158.92",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "880fafe2d3fe83c10187b19bea35e796b878530b0e3bbb9479a5335990e5014e",
+          "loggedAt": "2026-05-02T15:08:19.418Z",
+          "clientObservedAt": "2026-05-02T15:08:17.922Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "purchase_intercepted",
+          "eventName": "Purchase",
+          "eventId": "o202605021bec71044267b",
+          "originalEventName": "Purchase",
+          "originalEventId": "o202605021bec71044267b",
+          "replacementEventName": "",
+          "orderCode": "o202605021bec71044267b",
+          "orderNo": "202605030593116",
+          "paymentCode": "pa2026050228cc46e07e376",
+          "paymentKeyPresent": false,
+          "value": 459000,
+          "currency": "KRW",
+          "decisionStatus": "unknown",
+          "decisionBranch": "unknown",
+          "decisionReason": "",
+          "decisionMatchedBy": "unknown",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o202605021bec71044267b&payment_code=pa2026050228cc46e07e376&order_no=202605030593116&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o202605021bec71044267b&orderNo=202605030593116&paymentCode=&omsPaymentCode=pa2026050228cc46e07e376&orderId=202605030593116-P1&paymentKey=iw_bi20260503000739f1yv3&amount=459000",
+          "params": {
+            "params": {
+              "event_id": "o202605021bec71044267b",
+              "contents": [
+                {
+                  "content_id": "504",
+                  "content_name": "[공구] 캥맨 3차 음식물과민증 분석 / 시크릿 10% 할인가 : [10%] 음식물과민증 분석 2인권",
+                  "quantity": "1",
+                  "price": "459000"
+                }
+              ],
+              "content_type": "product",
+              "value": 459000,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {},
+          "requestContext": {
+            "ip": "183.100.158.92",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "a39b7d97b199b9303ba60cbbb8ef40ea5fceabe9107006e58886f5d4b6f9235f",
+          "loggedAt": "2026-05-02T14:38:26.259Z",
+          "clientObservedAt": "2026-05-02T14:38:26.363Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "released_confirmed_purchase",
+          "eventName": "Purchase",
+          "eventId": "o20260502cefce95befefd",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502cefce95befefd",
+          "replacementEventName": "",
+          "orderCode": "o20260502cefce95befefd",
+          "orderNo": "202605022907364",
+          "paymentCode": "pa202605021fc15c62b3d11",
+          "paymentKeyPresent": false,
+          "value": 264325,
+          "currency": "KRW",
+          "decisionStatus": "confirmed",
+          "decisionBranch": "allow_purchase",
+          "decisionReason": "toss_direct_api_status",
+          "decisionMatchedBy": "toss_direct_order_id",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502cefce95befefd&payment_code=pa202605021fc15c62b3d11&order_no=202605022907364&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502cefce95befefd&orderNo=202605022907364&paymentCode=&oms_rk=2b2d8292ce9972ff7facefd82f4d7a72&omsPaymentCode=pa202605021fc15c62b3d11&orderId=202605022907364-P1&paymentKey=iw_bi20260502233806dn7B3&amount=264325",
+          "params": {
+            "params": {
+              "event_id": "Purchase_o20260502cefce95befefd",
+              "contents": [
+                {
+                  "content_id": "84",
+                  "content_name": "다빈치랩 리포조말 엘테아닌 (LIPOSOMAL L-THEANINE) 50일분",
+                  "quantity": "2",
+                  "price": "50666"
+                },
+                {
+                  "content_id": "234",
+                  "content_name": "다빈치랩 아드레날라이즈 (AdrenaLyze) 30일분 / 제품 선택 : 1개",
+                  "quantity": "3",
+                  "price": "49959"
+                }
+              ],
+              "content_type": "product",
+              "value": 264325,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {
+            "status": "confirmed",
+            "browserAction": "allow_purchase",
+            "confidence": "high",
+            "matchedBy": "toss_direct_order_id",
+            "reason": "toss_direct_api_status",
+            "notes": []
+          },
+          "requestContext": {
+            "ip": "124.59.195.148",
+            "userAgent": "Mozilla/5.0 (Linux; Android 16; SM-S931N Build/BP2A.250605.031.A3; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Whale/1.0.0.0 Crosswalk/29.128.0.24 Mobile Safari/537.36 NAVER(inapp; search; 2100; 12.20.12)",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "66b787af3739a0ad0f075528f7a12ee0f0fe41f71ebdf94266b7335db8fa8d93",
+          "loggedAt": "2026-05-02T14:38:26.243Z",
+          "clientObservedAt": "2026-05-02T14:38:26.345Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "decision_received",
+          "eventName": "Purchase",
+          "eventId": "o20260502cefce95befefd",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502cefce95befefd",
+          "replacementEventName": "",
+          "orderCode": "o20260502cefce95befefd",
+          "orderNo": "202605022907364",
+          "paymentCode": "pa202605021fc15c62b3d11",
+          "paymentKeyPresent": false,
+          "value": 264325,
+          "currency": "KRW",
+          "decisionStatus": "confirmed",
+          "decisionBranch": "allow_purchase",
+          "decisionReason": "toss_direct_api_status",
+          "decisionMatchedBy": "toss_direct_order_id",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502cefce95befefd&payment_code=pa202605021fc15c62b3d11&order_no=202605022907364&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502cefce95befefd&orderNo=202605022907364&paymentCode=&oms_rk=2b2d8292ce9972ff7facefd82f4d7a72&omsPaymentCode=pa202605021fc15c62b3d11&orderId=202605022907364-P1&paymentKey=iw_bi20260502233806dn7B3&amount=264325",
+          "params": {
+            "params": {
+              "event_id": "o20260502cefce95befefd",
+              "contents": [
+                {
+                  "content_id": "84",
+                  "content_name": "다빈치랩 리포조말 엘테아닌 (LIPOSOMAL L-THEANINE) 50일분",
+                  "quantity": "2",
+                  "price": "50666"
+                },
+                {
+                  "content_id": "234",
+                  "content_name": "다빈치랩 아드레날라이즈 (AdrenaLyze) 30일분 / 제품 선택 : 1개",
+                  "quantity": "3",
+                  "price": "49959"
+                }
+              ],
+              "content_type": "product",
+              "value": 264325,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {
+            "status": "confirmed",
+            "browserAction": "allow_purchase",
+            "confidence": "high",
+            "matchedBy": "toss_direct_order_id",
+            "reason": "toss_direct_api_status",
+            "notes": []
+          },
+          "requestContext": {
+            "ip": "124.59.195.148",
+            "userAgent": "Mozilla/5.0 (Linux; Android 16; SM-S931N Build/BP2A.250605.031.A3; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Whale/1.0.0.0 Crosswalk/29.128.0.24 Mobile Safari/537.36 NAVER(inapp; search; 2100; 12.20.12)",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        },
+        {
+          "eventLogId": "a63e6f13959d142b7dcd4529ff48bbd2fa09c46fa043fa6e65c85128e5c21ce8",
+          "loggedAt": "2026-05-02T14:38:25.839Z",
+          "clientObservedAt": "2026-05-02T14:38:24.779Z",
+          "siteSource": "biocom_imweb",
+          "pixelSource": "TIKTOK_PIXEL.track",
+          "action": "purchase_intercepted",
+          "eventName": "Purchase",
+          "eventId": "o20260502cefce95befefd",
+          "originalEventName": "Purchase",
+          "originalEventId": "o20260502cefce95befefd",
+          "replacementEventName": "",
+          "orderCode": "o20260502cefce95befefd",
+          "orderNo": "202605022907364",
+          "paymentCode": "pa202605021fc15c62b3d11",
+          "paymentKeyPresent": false,
+          "value": 264325,
+          "currency": "KRW",
+          "decisionStatus": "unknown",
+          "decisionBranch": "unknown",
+          "decisionReason": "",
+          "decisionMatchedBy": "unknown",
+          "ttclid": "",
+          "utmSource": "",
+          "utmMedium": "",
+          "utmCampaign": "",
+          "utmContent": "",
+          "utmTerm": "",
+          "url": "https://biocom.kr/shop_payment_complete?order_code=o20260502cefce95befefd&payment_code=pa202605021fc15c62b3d11&order_no=202605022907364&rk=S",
+          "referrer": "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?orderCode=o20260502cefce95befefd&orderNo=202605022907364&paymentCode=&oms_rk=2b2d8292ce9972ff7facefd82f4d7a72&omsPaymentCode=pa202605021fc15c62b3d11&orderId=202605022907364-P1&paymentKey=iw_bi20260502233806dn7B3&amount=264325",
+          "params": {
+            "params": {
+              "event_id": "o20260502cefce95befefd",
+              "contents": [
+                {
+                  "content_id": "84",
+                  "content_name": "다빈치랩 리포조말 엘테아닌 (LIPOSOMAL L-THEANINE) 50일분",
+                  "quantity": "2",
+                  "price": "50666"
+                },
+                {
+                  "content_id": "234",
+                  "content_name": "다빈치랩 아드레날라이즈 (AdrenaLyze) 30일분 / 제품 선택 : 1개",
+                  "quantity": "3",
+                  "price": "49959"
+                }
+              ],
+              "content_type": "product",
+              "value": 264325,
+              "currency": "KRW"
+            },
+            "options": {}
+          },
+          "decision": {},
+          "requestContext": {
+            "ip": "124.59.195.148",
+            "userAgent": "Mozilla/5.0 (Linux; Android 16; SM-S931N Build/BP2A.250605.031.A3; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Whale/1.0.0.0 Crosswalk/29.128.0.24 Mobile Safari/537.36 NAVER(inapp; search; 2100; 12.20.12)",
+            "origin": "https://biocom.kr",
+            "requestReferer": "https://biocom.kr/",
+            "method": "POST",
+            "path": "/api/attribution/tiktok-pixel-event"
+          }
+        }
+      ]
+    }
+  },
+  "anomalies": [],
+  "warnings": [
+    "released_unknown_purchase rows=2"
+  ]
+}

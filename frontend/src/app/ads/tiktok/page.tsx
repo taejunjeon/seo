@@ -403,6 +403,8 @@ const yesterdayKst = () => {
   return kstDateOnly(now);
 };
 
+const todayKst = () => kstDateOnly(new Date());
+
 const clampStart = (target: string) => (target < MIN_DAILY_START_DATE ? MIN_DAILY_START_DATE : target);
 
 const buildDefaultRange = () => {
@@ -412,8 +414,10 @@ const buildDefaultRange = () => {
 };
 
 const buildQuickRanges = (todayBased = false) => {
-  const anchor = todayBased ? kstDateOnly(new Date()) : yesterdayKst();
+  const today = todayKst();
+  const anchor = todayBased ? today : yesterdayKst();
   return [
+    { key: "today", label: "오늘", startDate: today, endDate: today },
     { key: "yesterday", label: "어제", startDate: anchor, endDate: anchor },
     { key: "last3", label: "최근 3일", startDate: clampStart(addDays(anchor, -2)), endDate: anchor },
     { key: "last7", label: "최근 7일", startDate: clampStart(addDays(anchor, -6)), endDate: anchor },
@@ -781,6 +785,7 @@ export default function TikTokAdsPerformancePage() {
   }, [confirmed.orders, pending.orders, canceled.orders]);
   const dailyMaxDate = data?.local_table.daily.maxDate ?? null;
   const dailyMinDate = data?.local_table.daily.minDate ?? null;
+  const todayLabel = useMemo(() => todayKst(), []);
   const yesterdayLabel = useMemo(() => yesterdayKst(), []);
   const dailyMaxLagDays = useMemo(() => {
     if (!dailyMaxDate) return null;
@@ -1035,7 +1040,7 @@ export default function TikTokAdsPerformancePage() {
                     type="date"
                     value={endDate}
                     min={startDate}
-                    max={yesterdayLabel}
+                    max={todayLabel}
                     onChange={(event) => setEndDate(event.target.value)}
                     style={{ marginLeft: 6, padding: "4px 6px", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: "0.76rem" }}
                   />

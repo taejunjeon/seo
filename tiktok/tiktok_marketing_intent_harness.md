@@ -1,13 +1,13 @@
 # TikTok Marketing Intent Harness Report
 
-작성 시각: 2026-05-03 00:24 KST
+작성 시각: 2026-05-03 00:44 KST
 기준일: 2026-05-03
-상태: VM receiver 배포/smoke 완료, GTM Preview browser smoke 완료, 같은 브라우저 카드 결제 기능 검증 완료, GTM Production publish 전
+상태: VM receiver 배포/smoke 완료, GTM Preview browser smoke 완료, 같은 브라우저 카드 결제 기능 검증 완료, GTM Production publish 완료, 24시간 모니터링 시작
 대상: Biocom TikTok ROAS 정합성 개선
 저장 대상: TJ 관리 Attribution VM `att.ainativeos.net` 내부 SQLite `CRM_LOCAL_DB_PATH#attribution_ledger`
 운영DB 영향: 없음. 개발팀 관리 PostgreSQL `dashboard.public.tb_iamweb_users` write 없음
-Auditor verdict: **PASS_WITH_NOTES, Red Lane 금지 유지**
-Codex 진행 추천 자신감: **89%**
+Auditor verdict: **PASS_WITH_NOTES, Red Lane 승인 범위 내 publish 완료**
+Codex 진행 추천 자신감: **91%**
 
 ## 10초 요약
 
@@ -17,18 +17,21 @@ Codex 진행 추천 자신감: **89%**
 
 현재 TJ 관리 Attribution VM receiver 배포와 VM smoke는 통과했다. GTM은 Preview용 workspace/tag/trigger 생성, `quick_preview` compile, TJ님 브라우저 Tag Assistant fired, VM POST 201, SQLite ledger row 저장까지 확인했다.
 
-브라우저 DevTools Network 필터에는 `marketing-intent`가 보이지 않았지만, VM access log와 원장 저장이 확인됐으므로 요청은 실제 성공했다. 따라서 이 sprint의 Preview smoke는 통과로 본다. Production publish는 계속 별도 Red Lane 승인 대상이다.
+브라우저 DevTools Network 필터에는 `marketing-intent`가 보이지 않았지만, VM access log와 원장 저장이 확인됐으므로 요청은 실제 성공했다. 따라서 이 sprint의 Preview smoke는 통과로 본다.
 
 2026-05-03 00:10~00:11 KST 같은 브라우저 카드 결제 테스트도 기능상 통과했다. 단, `payment_success.metadata.firstTouch.touchpoint`는 `marketing_intent`가 아니라 더 강한 주문 단서를 가진 `checkout_started`로 저장됐다. 이 결과는 “TikTok 클릭 흔적이 결제완료 후보에 보존된다”는 목적에는 통과지만, 기존 success wording은 `marketing_intent` 고정이 아니라 `marketing_intent 또는 TikTok 근거를 가진 checkout_started`로 조정해야 한다.
 
 추가로 `/ads/tiktok` 로컬 API 기준 이 주문은 `payment_success` top-level에도 TikTok `ttclid`와 UTM이 남아 있어 firstTouch 후보 전용이 아니라 **strict TikTok confirmed 1건 / 11,900원**으로 분류됐다. 결제 직후에는 pending이었지만 2026-05-03 00:23 KST 재조회에서 자동 status sync가 confirmed로 반영됐다.
 
+2026-05-03 00:36 KST에는 TJ님 승인 범위 안에서 GTM Production publish를 완료했다. live version은 `140 / tiktok_marketing_intent_v1_live_20260503`이다. publish 후 테스트 URL은 HTTP 201로 `marketing_intent`를 저장했고, 일반 direct URL은 저장 0건이었다. `/ads/tiktok` 화면도 `오늘` 기간에서 strict confirmed 11,900원, firstTouch 후보 별도, platform-only assisted 문구가 확인됐다.
+
 ## 다음 할일
 
 | 순서 | Lane | 담당 | 할 일 | 왜 하는가 | 어떻게 하는가 | 데이터/DB 위치 | 컨펌 필요 | 자신감 |
 |---:|---|---|---|---|---|---|---|---:|
-| 1 | Green | Codex | `/ads/tiktok` 화면 최종 시각 확인 | API는 strict confirmed 11,900원을 반환하므로 화면 문구도 직관적으로 맞는지 봐야 한다 | `http://localhost:7010/ads/tiktok`에서 2026-05-03 기간을 선택해 confirmed 11,900원 반영 여부 확인 | 로컬 개발 DB + TJ 관리 Attribution VM | NO | 86% |
-| 2 | Red | TJ | GTM Production publish 판단 | 운영 전체 트래픽에 영향을 주므로 Preview/결제 검증 후 별도 승인으로 닫아야 한다 | 결과 보고서를 보고 YES/NO 결정 | GTM Production container | YES, 별도 publish 승인 | 72% |
+| 1 | Green | Codex | 24시간 모니터링 결과 확인 | publish 이후 실제 운영 트래픽에서 direct 방문 오저장, Purchase Guard 이상, unknown release 증가가 없는지 봐야 한다 | 2026-05-04 00:36 KST 전후 `node backend/scripts/tiktok-guard-monitor.cjs --label gtm-publish-24h --windowHours 24 --noNotify --noAppendFetchResult` 실행 후 baseline과 비교 | TJ 관리 Attribution VM `tiktok_pixel_events`, `attribution_ledger` read-only | NO | 90% |
+| 2 | Green | Codex | `released_unknown_purchase` warning 2건 원인 추적 | baseline에는 anomaly 0건이지만 unknown release가 2건 있어 반복되면 Guard fail-open 품질을 떨어뜨릴 수 있다 | 주문키 `o20260502a0a035128ba07`, `o202605021bec71044267b`의 payment decision 로그와 Attribution VM event log를 read-only로 대조 | TJ 관리 Attribution VM + 결제 판정 API read-only | NO | 78% |
+| 3 | Red | TJ | 추가 GTM Production 변경 금지 유지 | publish는 완료됐지만 추가 tag 수정/새 publish는 별도 운영 영향이다 | GTM에서 다른 workspace를 publish하지 않는다. 새 tag, trigger, conversion send는 별도 승인 문서 후 진행 | GTM Production container | YES, 새 publish 때만 | 100% |
 
 ## 목적
 
@@ -49,7 +52,7 @@ Codex 진행 추천 자신감: **89%**
 | 운영DB | 개발팀 관리 PostgreSQL `dashboard.public.tb_iamweb_users` | 실제 주문 상태 검산용. 이번 작업에서 write 없음 |
 | TJ 관리 Attribution VM | `att.ainativeos.net` 내부 SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` | `touchpoint=marketing_intent` 저장 대상 |
 | 로컬 개발 DB | `/Users/vibetj/coding/seo/backend/data/crm.sqlite3` | `/ads/tiktok` 로컬 화면과 TikTok Ads 캐시 확인용 |
-| GTM | Biocom GTM container | Preview에서 TikTok intent tag 실행 예정 |
+| GTM | Biocom GTM container | `SEO - TikTok Marketing Intent - v1` live version 140 운영 중 |
 
 ## Measurement 구분
 
@@ -65,7 +68,7 @@ Codex 진행 추천 자신감: **89%**
 |---|---|---|---|
 | Green Lane | 로컬 문서/코드 검토, 로컬 임시 SQLite smoke, read-only 분석 | 완료 | 로컬 범위에서는 진행 가능 |
 | Yellow Lane | VM receiver deploy + VM smoke, GTM Preview, 같은 브라우저 카드 결제 1건 | VM receiver/smoke 및 GTM Preview smoke 완료, 같은 브라우저 카드 결제 미실행 | 카드 결제는 별도 승인 필요 |
-| Red Lane | GTM Production publish, TikTok Events API, GA4/Meta/Google 전환 전송, firstTouch strict 승격 | 미실행 | 별도 승인 전 금지 |
+| Red Lane | GTM Production publish, TikTok Events API, GA4/Meta/Google 전환 전송, firstTouch strict 승격 | GTM Production publish만 TJ님 승인 범위 내 완료. 나머지 금지 유지 | 추가 Red 작업은 별도 승인 전 금지 |
 
 요청 기준 재분류:
 
@@ -74,7 +77,7 @@ Codex 진행 추천 자신감: **89%**
 | VM receiver deploy + VM smoke | Yellow Lane | YES | 완료. TJ 관리 Attribution VM 배포와 smoke 통과 |
 | GTM Preview | Yellow Lane | YES | 완료. Tag Assistant fired, VM POST 201, ledger row 확인 |
 | 같은 브라우저 카드 결제 1건 | Yellow Lane | YES | 완료. 실제 주문 테스트 통과, firstTouch source는 `checkout_started` |
-| GTM Production publish | Red Lane | YES | 운영 전체 트래픽에 영향을 준다 |
+| GTM Production publish | Red Lane | YES | 완료. live version `140 / tiktok_marketing_intent_v1_live_20260503` |
 | TikTok Events API / GA4/Meta/Google send | Red Lane | YES | 광고 플랫폼 전환값을 바꿀 수 있다 |
 
 ## Hard Fail Checks
@@ -84,7 +87,7 @@ Codex 진행 추천 자신감: **89%**
 | Hard Fail | 기준 | 조치 |
 |---|---|---|
 | 운영DB write 발생 | 개발팀 관리 PostgreSQL `dashboard.public.tb_iamweb_users`에 write | 즉시 중단. 이번 sprint 범위 밖 |
-| GTM Production publish 발생 | Preview가 아닌 Production publish | 즉시 중단. Red Lane 위반 |
+| 승인 범위 밖 GTM Production 변경 | 이번 승인 tag 외 추가 tag/trigger/publish | 즉시 중단. 별도 Red Lane 승인 필요 |
 | 광고 플랫폼 전환 전송 발생 | TikTok Events API, GA4, Meta, Google Ads send | 즉시 중단. Red Lane 위반 |
 | PII 저장 | email, phone, name, address 계열 key/value 저장 | receiver reject 확인 후 배포 중단 |
 | TikTok 근거 없는 row 저장 | `ttclid`, TikTok UTM, TikTok referrer 없이 저장 | receiver guard 수정 전 publish 금지 |
@@ -102,8 +105,9 @@ Codex 진행 추천 자신감: **89%**
 | VM smoke | `https://att.ainativeos.net/api/attribution/marketing-intent`가 201 또는 duplicate 200 반환 | 통과 |
 | VM ledger 확인 | TJ 관리 Attribution VM SQLite에 `touchpoint=marketing_intent` row 생성 | 통과 |
 | GTM Preview | `SEO - TikTok Marketing Intent - v1` tag fired, VM POST 201, ledger row | 통과. DevTools Network에는 미표시였으나 VM 로그/원장으로 성공 확인 |
+| GTM Production publish sanity | live 테스트 URL 201 또는 duplicate 200, direct URL 저장 0건, ledger row 확인 | 통과. version 140, live 테스트 URL 201, direct URL 저장 0건 |
 | 같은 브라우저 카드 결제 | TikTok `marketing_intent`가 같은 브라우저 `checkout_started`와 이어지고, `payment_success` top-level 및 `metadata_json.firstTouch`에 TikTok `ttclid`가 보존됨 | 통과. `/ads/tiktok` 기준 strict confirmed 11,900원, `firstTouch.touchpoint`는 `checkout_started` |
-| `/ads/tiktok` 표시 | strict confirmed / firstTouch candidate / platform-only assisted 분리 | 로컬 구현/문구 준비 |
+| `/ads/tiktok` 표시 | strict confirmed / firstTouch candidate / platform-only assisted 분리 | 통과. `오늘` 선택 후 strict confirmed 11,900원 확인 |
 
 ## Changed Files
 
@@ -116,7 +120,9 @@ Codex 진행 추천 자신감: **89%**
 | `tiktok/tiktok_gtm_plan.md` | 설계 문서 | GTM은 TikTok 클릭 intent만 담당하고 Guard/전환 전송은 제외한다고 정리 |
 | `tiktok/tiktok_marketing_intent_receiver_readiness.md` | 배포 준비 문서 | VM 배포 전 체크리스트, smoke payload, rollback 기준 |
 | `tiktok/!tiktokroasplan.md` | 프로젝트 관리 문서 | GTM/receiver 계획, 다음 할일, gap 해석 반영 |
-| `tiktok/tiktok_marketing_intent_harness.md` | harness report | 이번 문서. 승인 판단용 lane/hard fail/success 기준 정리 |
+| `tiktok/tiktok_marketing_intent_harness.md` | harness report | 이번 문서. publish 후 lane/hard fail/success 기준 정리 |
+| `frontend/src/app/ads/tiktok/page.tsx` | 화면 보강 | 2026-05-03 같은 당일 strict confirmed sanity check를 위해 `오늘` quick range 추가 |
+| `tiktok/monitoring/ads_tiktok_gtm_publish_20260503_today.png` | 화면 증거 | `/ads/tiktok` 오늘 기간 strict confirmed/firstTouch/platform-only 분리 확인 |
 
 관련 구현 파일:
 
@@ -133,7 +139,7 @@ Codex 진행 추천 자신감: **89%**
 | 항목 | 상태 |
 |---|---|
 | VM deploy | 완료 |
-| GTM Production publish | 하지 않음 |
+| GTM Production publish | 완료. TJ님 명시 승인 범위 안에서 version 140 publish |
 | TikTok Events API | 사용하지 않음 |
 | GA4/Meta/Google send | 전환 전송 없음 |
 | 운영DB write | 없음 |
@@ -195,7 +201,7 @@ Codex 진행 추천 자신감: **89%**
 | GTM generated VM request | `POST /api/attribution/marketing-intent` 201 |
 | GTM generated ledger row | `ttclid=codex_gtm_20260502`, `touchpoint=marketing_intent` |
 | 운영DB write | 없음 |
-| Production publish / platform send | 없음 |
+| Production publish / platform send | Preview 단계에서는 없음. 이후 별도 승인으로 GTM Production publish만 완료, platform send는 없음 |
 
 ## Same-Browser Card Payment Result
 
@@ -222,7 +228,7 @@ Codex 진행 추천 자신감: **89%**
 | TikTok Pixel event log | 통과. `purchase_intercepted -> decision_received -> released_confirmed_purchase` |
 | 서버 결제 판정 | 통과. `confirmed / allow_purchase / confidence=high / matchedBy=toss_direct_payment_key` |
 | 운영DB write | 없음 |
-| GTM Production publish | 없음 |
+| GTM Production publish | 카드 테스트 당시에는 없음. 이후 별도 승인으로 version 140 publish 완료 |
 | TikTok Events API / GA4 / Meta / Google send | 없음 |
 
 ### Auditor note
@@ -257,7 +263,7 @@ Status sync dry-run도 통과했다. `POST /api/attribution/sync-status/toss?dry
 
 | Guard | 구현 상태 | 판정 |
 |---|---|---|
-| Preview 우선 | 문서화 완료 | Production publish 금지 유지 |
+| Preview 우선 | 문서화 완료 | Preview 검증 후 TJ님 승인으로 Production publish 완료 |
 | TikTok 근거 없으면 skip | 완료 | 브라우저에서도 1차 필터 |
 | GA cookie / `_ttp` retry | 완료 | 500ms~1500ms 재시도 |
 | localStorage dedupe | 완료 | 24시간 중복 방지 |
@@ -270,9 +276,9 @@ Status sync dry-run도 통과했다. `POST /api/attribution/sync-status/toss?dry
 
 | 상황 | Rollback |
 |---|---|
-| GTM Preview 문제 | Preview 종료 또는 tag pause. Production publish 전이므로 운영 영향 없음 |
+| GTM live 문제 | GTM live version 140에서 tag `SEO - TikTok Marketing Intent - v1` pause 또는 직전 live version 139로 rollback |
 | VM receiver 문제 | 배포 전 백업본으로 dist/source 복원 후 `pm2 restart seo-backend --update-env` |
-| PII/Origin/TikTok evidence guard 실패 | GTM publish 금지, receiver guard 수정 후 재-smoke |
+| PII/Origin/TikTok evidence guard 실패 | GTM tag pause, receiver guard 수정 후 재-smoke |
 | firstTouch가 strict confirmed에 섞임 | `/ads/tiktok` 계산/API rollback, 후보와 확정 분리 재검증 |
 | Purchase Guard 이상 | GTM intent tag 중단. Guard는 아임웹 헤더 코드 별도 점검 |
 
@@ -282,13 +288,15 @@ Status sync dry-run도 통과했다. `POST /api/attribution/sync-status/toss?dry
 |---|---|---|---|
 | VM receiver deploy | Yellow | TJ | 완료 |
 | VM smoke | Yellow | Codex | 완료 |
-| GTM Preview tag 생성 | Yellow | Codex | 완료. Production publish 아님 |
+| GTM Preview tag 생성 | Yellow | Codex | 완료 |
 | 테스트 URL fired/Network/ledger 확인 | Yellow | TJ + Codex | 완료. Network 화면 미표시는 VM 로그/원장으로 대체 확인 |
 | 같은 브라우저 카드 결제 1건 | Yellow | TJ | 완료. confirmed 반영까지 통과 |
-| GTM Production publish | Red | TJ | 별도 결과 보고 후 별도 승인 |
+| GTM Production publish | Red | TJ | 완료. version 140 live |
 | TikTok Events API / GA4/Meta/Google send | Red | TJ | 이번 sprint 범위 밖 |
 
-## Next Sprint Approval Request
+## Previous Sprint Approval Record
+
+아래는 2026-05-02에 완료된 `VM Deploy + GTM Preview Smoke` 승인 기록이다. 2026-05-03 GTM Production publish는 위 Current Auditor Verdict와 Production sanity 결과를 기준으로 별도 완료 처리했다.
 
 승인 요청서:
 
@@ -343,9 +351,9 @@ GTM Production publish, TikTok Events API, GA4/Meta/Google 전환 전송, firstT
 
 | 항목 | 판정 |
 |---|---|
-| Auditor verdict | **PASS_WITH_NOTES / Red Lane blocked** |
-| 승인 권고 | GTM Production publish는 아직 별도 Red Lane 승인 전 보류 |
-| 자신감 | **89%** |
-| 근거 | VM receiver/smoke, GTM Preview, 같은 브라우저 카드 결제, status sync confirmed 반영, TikTok Pixel confirmed release가 통과 |
-| 남은 리스크 | GTM Production publish는 아직 하지 않았고, 실제 광고 유입 고객 표본은 계속 누적 관찰 필요 |
-| 금지 유지 | Production publish, Events API, GA4/Meta/Google send, strict 승격, top-level overwrite |
+| Auditor verdict | **PASS_WITH_NOTES / Red Lane approved publish completed** |
+| 승인 결과 | GTM Production publish는 TJ님 승인 범위 안에서 완료 |
+| 자신감 | **91%** |
+| 근거 | VM receiver/smoke, GTM Preview, 같은 브라우저 카드 결제, status sync confirmed 반영, live 테스트 URL 201, direct URL 저장 0건, `/ads/tiktok` 화면 확인 통과 |
+| 남은 리스크 | 실제 광고 유입 고객 표본은 계속 누적 관찰 필요. baseline monitor의 `released_unknown_purchase` warning 2건은 별도 read-only 추적 필요 |
+| 금지 유지 | TikTok Events API, GA4/Meta/Google send, strict 승격, top-level overwrite, 운영DB write, 추가 GTM publish |

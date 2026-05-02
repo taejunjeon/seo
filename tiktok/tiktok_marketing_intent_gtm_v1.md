@@ -1,12 +1,46 @@
 # TikTok Marketing Intent GTM v1
 
-작성 시각: 2026-05-02 23:55 KST
-상태: Preview workspace/tag 생성 완료. Production publish 전.
+작성 시각: 2026-05-03 00:44 KST
+상태: Production publish 완료. live version `140 / tiktok_marketing_intent_v1_live_20260503`.
 대상: TikTok ROAS gap 원인 중 “광고 클릭 후 재방문 구매가 내부 원장에 안 붙는 문제”
 저장 대상: TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger`
 엔드포인트: `https://att.ainativeos.net/api/attribution/marketing-intent`
-자신감: 86%
+자신감: 91%
 보강: GA cookie / `_ttp` 500ms~1500ms retry, dedupe key 우선순위 명시, server-side 재검증 전제.
+
+## 2026-05-03 Production publish 결과
+
+TJ님 승인 후 GTM tag `SEO - TikTok Marketing Intent - v1`을 Production publish했다.
+
+| 항목 | 값 |
+|---|---|
+| lane | Red Lane, TJ님 명시 승인 후 실행 |
+| container | `accounts/4703003246/containers/13158774` |
+| published version | `140 / tiktok_marketing_intent_v1_live_20260503` |
+| live tag | `259 / SEO - TikTok Marketing Intent - v1` |
+| live triggers | `256`, `257`, `258` |
+| compilerError | `false` |
+| 테스트 URL | `https://biocom.kr/?utm_source=tiktok&utm_medium=paid&utm_campaign=codex_gtm_live_publish_20260503&ttclid=codex_gtm_live_20260503_001&__seo_attribution_debug=1` |
+| 테스트 URL 결과 | `POST https://att.ainativeos.net/api/attribution/marketing-intent` HTTP 201 |
+| 일반 direct URL 결과 | 저장 0건. TikTok 근거 없는 일반 방문에서는 발화하지 않음 |
+| TJ 관리 Attribution VM ledger | `touchpoint=marketing_intent`, `ttclid=codex_gtm_live_20260503_001` 1건 |
+| `/ads/tiktok` API | 2026-05-03 strict confirmed 1건 / 11,900원, firstTouch 후보 0건, strict overlap 1건 |
+| `/ads/tiktok` 화면 | `오늘` 선택 후 strict confirmed 11,900원, firstTouch 별도, platform-only assisted 문구 확인 |
+| 화면 증거 | `tiktok/monitoring/ads_tiktok_gtm_publish_20260503_today.png` |
+| 24시간 모니터링 baseline | `tiktok/monitoring/tiktok_guard_monitor_gtm-publish-baseline_2026-05-02T15-37-24-135Z.md` |
+
+하지 않은 것:
+
+| 금지 항목 | 결과 |
+|---|---|
+| TikTok Events API | 하지 않음 |
+| GA4/Meta/Google 전환 전송 | 하지 않음 |
+| TikTok Purchase Guard 변경 | 하지 않음 |
+| firstTouch 후보의 strict confirmed 승격 | 하지 않음 |
+| `payment_success` top-level attribution 덮어쓰기 | 하지 않음 |
+| 개발팀 관리 운영DB PostgreSQL write | 하지 않음 |
+
+주의: 24시간 baseline monitor는 `WARN`이었다. 이상(anomaly)은 0건이고, warning은 기존 TikTok Purchase Guard의 `released_unknown_purchase` 2건이다. 이번 GTM marketing intent publish가 Purchase를 전송한 증거는 없다.
 
 ## 2026-05-02 실행 결과
 
@@ -22,11 +56,11 @@ Production publish 없이 GTM API로 Preview용 workspace를 생성했다.
 | trigger ids | `256`, `257`, `258` |
 | quick preview compile | `compilerError=false` |
 | live version | `139 / npay_intent_only_live_20260427` |
-| Production publish | 하지 않음 |
+| Production publish | 2026-05-03 별도 승인 후 version 140으로 완료 |
 
 주의: GTM API가 `oncePerPage` tag firing option을 받지 않아 tag 자체에는 firing option이 없다. 중복 방지는 Custom HTML 내부 `localStorage` dedupe와 backend `ttclid -> UTM -> referrer` dedupe가 담당한다.
 
-남은 확인은 TJ님 브라우저 Tag Assistant Preview에서 `tag fired -> Network 201 또는 duplicate 200 -> Attribution VM ledger row`를 보는 것이다.
+Preview 확인은 통과했고, 2026-05-03 Production publish 이후 live 테스트 URL에서도 `Network 201 -> Attribution VM ledger row`가 확인됐다.
 
 ## 결론
 
@@ -321,9 +355,9 @@ Preview workspace 생성본의 Trigger type: `Page View`
 
 | Trigger name | 조건 |
 |---|---|
-| `SEO - TikTok Intent - ttclid (Preview)` | `Page URL` contains `ttclid=` |
-| `SEO - TikTok Intent - UTM (Preview)` | `Page URL` matches RegEx `utm_(source|medium|campaign|content|term)=[^&#]*tiktok` |
-| `SEO - TikTok Intent - Referrer (Preview)` | `Referrer` contains `tiktok.com` |
+| `SEO - TikTok Intent - ttclid` | `Page URL` contains `ttclid=` |
+| `SEO - TikTok Intent - UTM` | `Page URL` matches RegEx `utm_(source|medium|campaign|content|term)=[^&#]*tiktok` |
+| `SEO - TikTok Intent - Referrer` | `Referrer` contains `tiktok.com` |
 
 Tag firing options:
 
