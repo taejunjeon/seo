@@ -1,6 +1,6 @@
 # TikTok Marketing Intent Harness Report
 
-작성 시각: 2026-05-03 00:15 KST
+작성 시각: 2026-05-03 00:24 KST
 기준일: 2026-05-03
 상태: VM receiver 배포/smoke 완료, GTM Preview browser smoke 완료, 같은 브라우저 카드 결제 기능 검증 완료, GTM Production publish 전
 대상: Biocom TikTok ROAS 정합성 개선
@@ -21,15 +21,14 @@ Codex 진행 추천 자신감: **89%**
 
 2026-05-03 00:10~00:11 KST 같은 브라우저 카드 결제 테스트도 기능상 통과했다. 단, `payment_success.metadata.firstTouch.touchpoint`는 `marketing_intent`가 아니라 더 강한 주문 단서를 가진 `checkout_started`로 저장됐다. 이 결과는 “TikTok 클릭 흔적이 결제완료 후보에 보존된다”는 목적에는 통과지만, 기존 success wording은 `marketing_intent` 고정이 아니라 `marketing_intent 또는 TikTok 근거를 가진 checkout_started`로 조정해야 한다.
 
-추가로 `/ads/tiktok` 로컬 API 기준 이 주문은 `payment_success` top-level에도 TikTok `ttclid`와 UTM이 남아 있어 firstTouch 후보 전용이 아니라 **strict TikTok pending 11,900원**으로 분류됐다. status sync 후 confirmed가 반영되면 내부 strict TikTok confirmed 1건 / 11,900원으로 이동할 수 있다.
+추가로 `/ads/tiktok` 로컬 API 기준 이 주문은 `payment_success` top-level에도 TikTok `ttclid`와 UTM이 남아 있어 firstTouch 후보 전용이 아니라 **strict TikTok confirmed 1건 / 11,900원**으로 분류됐다. 결제 직후에는 pending이었지만 2026-05-03 00:23 KST 재조회에서 자동 status sync가 confirmed로 반영됐다.
 
 ## 다음 할일
 
 | 순서 | Lane | 담당 | 할 일 | 왜 하는가 | 어떻게 하는가 | 데이터/DB 위치 | 컨펌 필요 | 자신감 |
 |---:|---|---|---|---|---|---|---|---:|
-| 1 | Green | Codex | 카드 테스트 주문 status sync 재확인 | 결제 직후 ledger는 pending이지만 direct API는 confirmed라 15분 자동 sync 후 승격 여부를 확인해야 한다 | 같은 주문번호 `202605035698347`를 Attribution VM read-only API로 재조회한다 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` | NO | 88% |
-| 2 | Green | Codex | `/ads/tiktok` firstTouch 후보 화면 반영 확인 | firstTouch 후보가 strict confirmed와 섞이면 예산 판단이 틀어진다 | API/화면에서 firstTouch candidate와 platform-only assisted가 분리되는지 본다 | 로컬 개발 DB + TJ 관리 Attribution VM | NO | 84% |
-| 3 | Red | TJ | GTM Production publish 판단 | 운영 전체 트래픽에 영향을 주므로 Preview/결제 검증 후 별도 승인으로 닫아야 한다 | 결과 보고서를 보고 YES/NO 결정 | GTM Production container | YES, 별도 publish 승인 | 72% |
+| 1 | Green | Codex | `/ads/tiktok` 화면 최종 시각 확인 | API는 strict confirmed 11,900원을 반환하므로 화면 문구도 직관적으로 맞는지 봐야 한다 | `http://localhost:7010/ads/tiktok`에서 2026-05-03 기간을 선택해 confirmed 11,900원 반영 여부 확인 | 로컬 개발 DB + TJ 관리 Attribution VM | NO | 86% |
+| 2 | Red | TJ | GTM Production publish 판단 | 운영 전체 트래픽에 영향을 주므로 Preview/결제 검증 후 별도 승인으로 닫아야 한다 | 결과 보고서를 보고 YES/NO 결정 | GTM Production container | YES, 별도 publish 승인 | 72% |
 
 ## 목적
 
@@ -103,7 +102,7 @@ Codex 진행 추천 자신감: **89%**
 | VM smoke | `https://att.ainativeos.net/api/attribution/marketing-intent`가 201 또는 duplicate 200 반환 | 통과 |
 | VM ledger 확인 | TJ 관리 Attribution VM SQLite에 `touchpoint=marketing_intent` row 생성 | 통과 |
 | GTM Preview | `SEO - TikTok Marketing Intent - v1` tag fired, VM POST 201, ledger row | 통과. DevTools Network에는 미표시였으나 VM 로그/원장으로 성공 확인 |
-| 같은 브라우저 카드 결제 | TikTok `marketing_intent`가 같은 브라우저 `checkout_started`와 이어지고, `payment_success` top-level 및 `metadata_json.firstTouch`에 TikTok `ttclid`가 보존됨 | 기능상 통과. `/ads/tiktok` 기준 strict pending 11,900원, `firstTouch.touchpoint`는 `checkout_started` |
+| 같은 브라우저 카드 결제 | TikTok `marketing_intent`가 같은 브라우저 `checkout_started`와 이어지고, `payment_success` top-level 및 `metadata_json.firstTouch`에 TikTok `ttclid`가 보존됨 | 통과. `/ads/tiktok` 기준 strict confirmed 11,900원, `firstTouch.touchpoint`는 `checkout_started` |
 | `/ads/tiktok` 표시 | strict confirmed / firstTouch candidate / platform-only assisted 분리 | 로컬 구현/문구 준비 |
 
 ## Changed Files
@@ -219,7 +218,7 @@ Codex 진행 추천 자신감: **89%**
 | `marketing_intent` 저장 | 통과. `touchpoint=marketing_intent`, `ttclid=codex_gtm_card_20260503_001` |
 | `checkout_started` 연결 | 통과. 같은 `ttclid`, 같은 `gaSessionId=1777733386`, 주문번호 보존 |
 | `payment_success` 연결 | 통과. 같은 `ttclid`, `metadata.tiktokFirstTouchCandidate=true` |
-| `/ads/tiktok` 로컬 API | 통과. 2026-05-03 기준 strict pending 11,900원, `strictOverlapRows=1` |
+| `/ads/tiktok` 로컬 API | 통과. 2026-05-03 기준 strict confirmed 11,900원, `strictOverlapRows=1` |
 | TikTok Pixel event log | 통과. `purchase_intercepted -> decision_received -> released_confirmed_purchase` |
 | 서버 결제 판정 | 통과. `confirmed / allow_purchase / confidence=high / matchedBy=toss_direct_payment_key` |
 | 운영DB write | 없음 |
@@ -232,11 +231,11 @@ Codex 진행 추천 자신감: **89%**
 
 이유는 현재 firstTouch 선택 로직이 후보 점수를 기준으로 고른다. `checkout_started`는 `checkout_id`, `order_id`, `order_id_base`, `ga_session_id`, `client_id`, `user_pseudo_id`가 모두 맞아 `marketing_intent`보다 주문 연결 근거가 강하다. 게다가 `checkout_started` 자체에 TikTok `ttclid`와 `utm_source=tiktok`이 보존되어 있으므로, ROAS 후보 관찰 목적에는 더 안전하다.
 
-이 주문은 firstTouch 후보 전용으로만 남은 것이 아니다. `payment_success` top-level에도 `utmSource=tiktok`, `utmCampaign=codex_gtm_card_test`, `ttclid=codex_gtm_card_20260503_001`가 있어 `/ads/tiktok` strict 계산에 포함된다. 단, 조회 시점 status가 `pending`이라 confirmed 매출에는 아직 합산되지 않는다.
+이 주문은 firstTouch 후보 전용으로만 남은 것이 아니다. `payment_success` top-level에도 `utmSource=tiktok`, `utmCampaign=codex_gtm_card_test`, `ttclid=codex_gtm_card_20260503_001`가 있어 `/ads/tiktok` strict 계산에 포함된다. 2026-05-03 00:23 KST 재조회 기준 status도 `confirmed`라 confirmed 매출에 합산된다.
 
 Status sync dry-run도 통과했다. `POST /api/attribution/sync-status/toss?dryRun=true`로 주문번호 `202605035698347`만 확인했을 때 `previousStatus=pending`, `nextStatus=confirmed`, `matchType=direct_payment_key`, `writtenRows=0`이었다. 즉 실제 원장 write 없이 “이 주문은 confirmed 승격 대상”임을 확인했다.
 
-남은 확인은 자동 status sync가 실제 원장에 반영한 뒤 read-only로 재조회하는 것이다. direct payment-decision API는 이미 confirmed이고, dry-run도 confirmed 승격 계획을 만들었다. VM health 기준 attribution status sync는 15분 주기다.
+이후 자동 status sync가 실제 원장에 반영했다. read-only 재조회 기준 `paymentStatus=confirmed`, `approvedAt=2026-05-02T15:11:24.000Z`다.
 
 ## Backend Receiver Guard
 
@@ -285,7 +284,7 @@ Status sync dry-run도 통과했다. `POST /api/attribution/sync-status/toss?dry
 | VM smoke | Yellow | Codex | 완료 |
 | GTM Preview tag 생성 | Yellow | Codex | 완료. Production publish 아님 |
 | 테스트 URL fired/Network/ledger 확인 | Yellow | TJ + Codex | 완료. Network 화면 미표시는 VM 로그/원장으로 대체 확인 |
-| 같은 브라우저 카드 결제 1건 | Yellow | TJ | 완료. 기능상 통과, status sync 재확인 필요 |
+| 같은 브라우저 카드 결제 1건 | Yellow | TJ | 완료. confirmed 반영까지 통과 |
 | GTM Production publish | Red | TJ | 별도 결과 보고 후 별도 승인 |
 | TikTok Events API / GA4/Meta/Google send | Red | TJ | 이번 sprint 범위 밖 |
 
@@ -347,6 +346,6 @@ GTM Production publish, TikTok Events API, GA4/Meta/Google 전환 전송, firstT
 | Auditor verdict | **PASS_WITH_NOTES / Red Lane blocked** |
 | 승인 권고 | GTM Production publish는 아직 별도 Red Lane 승인 전 보류 |
 | 자신감 | **89%** |
-| 근거 | VM receiver/smoke, GTM Preview, 같은 브라우저 카드 결제 firstTouch 후보 보존, TikTok Pixel confirmed release가 통과 |
-| 남은 리스크 | 결제 직후 `payment_success.paymentStatus=pending`이므로 15분 자동 sync 후 confirmed 승격 read-only 재확인 필요 |
+| 근거 | VM receiver/smoke, GTM Preview, 같은 브라우저 카드 결제, status sync confirmed 반영, TikTok Pixel confirmed release가 통과 |
+| 남은 리스크 | GTM Production publish는 아직 하지 않았고, 실제 광고 유입 고객 표본은 계속 누적 관찰 필요 |
 | 금지 유지 | Production publish, Events API, GA4/Meta/Google send, strict 승격, top-level overwrite |

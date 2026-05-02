@@ -1,6 +1,6 @@
 # TikTok Marketing Intent Receiver VM Deploy + GTM Preview Smoke 결과
 
-작성 시각: 2026-05-03 00:15 KST
+작성 시각: 2026-05-03 00:24 KST
 대상 서버: TJ 관리 Attribution VM `att.ainativeos.net` (`34.64.104.94`)
 저장 DB: TJ 관리 Attribution VM SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3#attribution_ledger`
 운영DB 영향: 없음. 개발팀 관리 PostgreSQL `dashboard.public.tb_iamweb_users` write 없음
@@ -16,7 +16,7 @@ VM receiver 배포와 VM smoke는 통과했다. GTM은 Production publish 없이
 
 단, `payment_success.metadata.firstTouch.touchpoint`는 `marketing_intent`가 아니라 `checkout_started`로 저장됐다. 실패라기보다 현재 매칭 로직이 주문번호, checkout id, GA session, client id가 모두 맞는 더 가까운 `checkout_started`를 우선 선택하기 때문이다.
 
-더 중요한 점은 `payment_success` top-level에도 `ttclid`와 `utm_source=tiktok`이 남았다는 것이다. 그래서 `/ads/tiktok` 로컬 API 기준 이 주문은 단순 firstTouch 후보가 아니라 **strict TikTok pending 11,900원**으로 잡힌다. status sync 후 `confirmed`로 승격되면 내부 strict TikTok confirmed 1건 / 11,900원이 되는 구조다.
+더 중요한 점은 `payment_success` top-level에도 `ttclid`와 `utm_source=tiktok`이 남았다는 것이다. 그래서 `/ads/tiktok` 로컬 API 기준 이 주문은 단순 firstTouch 후보가 아니라 **strict TikTok confirmed 1건 / 11,900원**으로 잡힌다. 결제 직후에는 pending이었지만 2026-05-03 00:23 KST 재조회에서 자동 status sync가 confirmed로 반영된 것을 확인했다.
 
 브라우저 DevTools Network 필터에서는 `marketing-intent`가 보이지 않았지만, VM 로그와 SQLite 원장에는 같은 시각 `POST /api/attribution/marketing-intent` 201과 `ttclid=codex_gtm_20260502` row가 확인됐다. 따라서 Network 미노출은 요청 실패가 아니라 DevTools 기록/필터 타이밍 이슈로 판단한다.
 
@@ -249,7 +249,7 @@ DB 위치:
 
 목적은 “TikTok 광고 클릭 intent가 같은 브라우저의 실제 카드 결제완료 후보까지 이어지는가”를 확인하는 것이었다.
 
-결론은 **기능상 통과**다. 결제 직후 status는 아직 pending이지만, attribution 기준으로는 `payment_success` top-level에 TikTok `ttclid`와 UTM이 보존되어 strict TikTok pending으로 잡혔다.
+결론은 **통과**다. 결제 직후 status는 pending이었지만 자동 status sync 후 confirmed로 반영됐다. Attribution 기준으로도 `payment_success` top-level에 TikTok `ttclid`와 UTM이 보존되어 strict TikTok confirmed로 잡혔다.
 
 ### 테스트 식별자
 
@@ -284,7 +284,7 @@ DB 위치:
 
 즉, “마케팅 intent row 자체가 firstTouch source로 선택됐다”는 좁은 기준은 미달이다. 하지만 `checkout_started`가 이미 TikTok `ttclid`를 보존했고 주문 식별자까지 갖고 있어서, 결제완료에는 더 강한 후보로 붙었다. 이 상태는 ROAS 후보 관찰 목적에는 더 안전하다.
 
-또한 `payment_success` 자체가 `utmSource=tiktok`, `utmCampaign=codex_gtm_card_test`, `ttclid=codex_gtm_card_20260503_001`를 갖고 있다. 그래서 `/ads/tiktok` 계산에서는 firstTouch 후보가 아니라 strict TikTok payment_success로 분류된다. 단, 결제 직후 원장 status가 `pending`이라 현재는 `strict pending`이다.
+또한 `payment_success` 자체가 `utmSource=tiktok`, `utmCampaign=codex_gtm_card_test`, `ttclid=codex_gtm_card_20260503_001`를 갖고 있다. 그래서 `/ads/tiktok` 계산에서는 firstTouch 후보가 아니라 strict TikTok payment_success로 분류된다. 2026-05-03 00:23 KST 재조회 기준 status도 `confirmed`다.
 
 ### TikTok pixel event log
 
@@ -330,9 +330,19 @@ Status sync dry-run:
 | writtenRows | `0` |
 | approvedAt | `2026-05-02T15:11:24.000Z` |
 
+자동 sync 실제 반영:
+
+| 항목 | 값 |
+|---|---|
+| 재조회 시각 | 2026-05-03 00:23 KST |
+| paymentStatus | `confirmed` |
+| approvedAt | `2026-05-02T15:11:24.000Z` |
+| utmSource | `tiktok` |
+| ttclid | `codex_gtm_card_20260503_001` |
+
 주의:
 
-`payment_success.paymentStatus`는 조회 시점에 아직 `pending`이었다. VM health 기준 `attributionStatusSync.intervalMs=900000`, 즉 15분 주기 자동 sync 구조라서 결제 직후에는 pending으로 보일 수 있다. dry-run은 이 주문이 confirmed 승격 대상임을 보여줬지만, 실제 write는 하지 않았다.
+`payment_success.paymentStatus`는 결제 직후 조회 시점에는 `pending`이었다. VM health 기준 `attributionStatusSync.intervalMs=900000`, 즉 15분 주기 자동 sync 구조라서 결제 직후 pending은 정상 범위다. dry-run은 이 주문이 confirmed 승격 대상임을 보여줬고, 이후 자동 sync가 실제 confirmed로 반영했다.
 
 ### `/ads/tiktok` local API check
 
@@ -344,20 +354,19 @@ Status sync dry-run:
 
 | 항목 | 결과 |
 |---|---|
-| 내부 strict confirmed | 0원 |
-| 내부 strict pending | 11,900원 |
+| 내부 strict confirmed | 11,900원 |
+| 내부 strict pending | 0원 |
 | firstTouch candidate | 0원 |
 | strictOverlapRows | 1 |
-| 해석 | 이 주문은 firstTouch 후보 전용이 아니라 strict TikTok pending으로 분류됨 |
+| 해석 | 이 주문은 firstTouch 후보 전용이 아니라 strict TikTok confirmed로 분류됨 |
 | 주의 | 2026-05-03 TikTok Ads 일자 데이터는 아직 없어 플랫폼 비용/구매값은 0으로 보임 |
 
 ## Next action
 
 | 우선순위 | 담당 | 액션 | 왜 하는가 | 어떻게 하는가 | 자신감 |
 |---:|---|---|---|---|---:|
-| 1 | Codex | 자동 status sync 후 원장 재조회 | dry-run은 confirmed 승격 가능을 확인했지만 실제 write는 자동 배치가 해야 한다 | 15분 배치 이후 `orderId=202605035698347`를 read-only ledger API로 다시 확인 | 88% |
-| 2 | Codex | `/ads/tiktok` firstTouch 후보 화면 반영 확인 | 결제완료 후보가 strict confirmed와 섞이지 않는지 확인한다 | 로컬 화면과 API에서 firstTouch candidate 영역만 증가하는지 본다 | 84% |
-| 3 | TJ | GTM Production publish 여부 별도 판단 | 운영 전체 트래픽 영향이 있어 Red Lane으로 분리해야 한다 | VM/Preview/카드 테스트 결과 보고서 기준으로 publish 승인 여부 결정 | 72% |
+| 1 | Codex | `/ads/tiktok` 화면 최종 시각 확인 | API는 strict confirmed 11,900원을 반환하므로 화면에서도 같은 의미로 보이는지 확인한다 | `http://localhost:7010/ads/tiktok`에서 2026-05-03 기간을 선택해 confirmed 11,900원 반영 여부 확인 | 86% |
+| 2 | TJ | GTM Production publish 여부 별도 판단 | 운영 전체 트래픽 영향이 있어 Red Lane으로 분리해야 한다 | VM/Preview/카드 테스트 결과 보고서 기준으로 publish 승인 여부 결정 | 72% |
 
 ## Remaining risk
 
