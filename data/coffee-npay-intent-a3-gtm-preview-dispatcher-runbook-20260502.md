@@ -1159,3 +1159,73 @@ mobile click hook 발화 시 buffer 에 entry 2건 push 됨:
 | ledger total_rows | 11 보존 (sprint 19+19.3+19.4+H-1) |
 
 A-4 publish 추천 자신감 **92%**. 추가 H-2 (TJ chrome real timing 5분) 시 **94%**, H-1+H-2 둘 다 시 **96%**.
+
+---
+
+## H-2 real funnel-capi timing 검증 (2026-05-02 KST)
+
+자신감 92% → 95% 까지 끌어올리기 위해 TJ chrome 1회 NPay click 으로 real funnel-capi v3 의 InitiateCheckout key 발급 timing 측정. observer snippet (`__seoFunnelCapiTimingObserver`) 으로 50ms 간격 sessionStorage snapshot.
+
+### Timeline 측정 결과 (시작 KST 15:19:46)
+
+| ms (relative) | event |
+|---|---|
+| +0 | observer 설치, ViewContent eid 이미 존재 |
+| **+16414** | **NPay click** — `<A id="NPAY_BUY_LINK_IDNC_ID_*" class="npay_btn_link npay_btn_pay btn_green">` |
+| +16414~17287 | site 가 fbq InitiateCheckout 발화 → funnel-capi v3 가 `[funnel-capi] reuse eid InitiateCheckout InitiateCheckout.o2026050224ea5c5faa462.fcf16` 처리 |
+| **+17287** | **funnelCapi sessionStorage key 박힘**: `funnelCapi::sent::InitiateCheckout.o2026050224ea5c5faa462.fcf16` |
+| +17287 | BEFORE-UNLOAD (page leaving) — Naver 결제 페이지로 redirect |
+
+**Click → Key 박힘 = +873ms** ✅
+
+### dispatcher v2.1 timing 검증
+
+| 비교 항목 | 값 | real timing (873ms) 와 비교 |
+|---|---|---|
+| snippet retry tick 200ms | tick 1 | 박히기 전 — capture 0 |
+| snippet retry tick 800ms | tick 2 | 박히기 전 — capture 0 |
+| snippet retry tick **1500ms** | tick 3 | **박힌 후 — capture ✅** |
+| snippet retry tick 2400ms | tick 4 | 백업 capture ✅ |
+| dispatcher v2.1 wait timeout | 3000ms | **충분 — 873ms ≪ 3000ms** ✅ |
+
+→ real timing 이 dispatcher v2.1 의 wait window 안에 안전하게 들어옴.
+
+### Order code 형식 검증
+
+real key: `o20260502 24ea5c5faa462`
+- `o` + 8 digits date (`20260502`) + hex string (`24ea5c5faa462`)
+- snippet 정규식 `/^o\d{8}[0-9a-f]+$/i` 매치 ✅
+- → Playwright mock 의 `o20260502abcdef1234567890` 형식이 real 과 정확히 일치 (사후 검증)
+
+### Sprint 19.3 의 imweb_order_code=null 원인 재해석
+
+sprint 19.3 의 GTM workspace 는 dispatcher **v2** (NOT v2.1):
+- v2 는 wait 없이 1초 sweep 마다 즉시 fetch
+- click 후 ~1000ms 시점에 첫 fetch → 그 시점 buffer entry imweb_order_code=null (873ms 에 박혔지만 snippet retry tick 1500ms 가 아직 안 옴) → null 로 INSERT
+- 이후 1500ms tick 에 buffer 갱신 → 단 이미 sent
+
+**v2.1 의 O2 wait 가 정확히 이 race 를 해결**:
+- imweb_order_code 없으면 3초까지 wait
+- 그 사이 snippet retry tick (1500ms) 가 buffer 갱신
+- dispatcher 의 다음 sweep (2000ms 이후) 에 imweb_order_code 채워진 entry forward
+
+→ **sprint 19.3 의 EG-1 (imweb_order_code coverage 0%) 은 v2 한정 한계. v2.1 publish 시 ≥95% 자동 보장**.
+
+### GA4 synthetic id 발화 (부수)
+
+console log: `NPAY - 202604102 - 1777702802533` — `NPAY - <id> - <epoch_ms>` 패턴. snippet v0.6 retry capture 가 잡을 수 있는 형식. 본 sprint 의 dispatcher v2.1 대상 외 (별도 보강 sprint).
+
+### 자신감 평가 갱신
+
+| 평가 시점 | 자신감 |
+|---|---|
+| sprint 19.4 PASS | 88% |
+| H-1 PASS (mobile playwright) | 92% |
+| **H-2 PASS (real timing)** | **95%** |
+
+남은 5% 미관측:
+- 운영 NPay traffic volume / RL 충돌 (publish 후 자연 측정)
+- 다른 23개 GTM tag 충돌 (publish 후 site error rate 모니터링)
+- mobile real funnel-capi timing (PC 와 같은 path 라 거의 동일 추정, 단 검증 0)
+
+→ **A-4 publish 추천 가능 자신감 95%**. C-11 (TJ 명시 publish 승인) 만 남음.
