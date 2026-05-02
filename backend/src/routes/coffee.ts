@@ -14,6 +14,11 @@ import {
   runEnforceInsert as runCoffeeNpayIntentEnforce,
   verifySmokeAdminToken,
 } from "../coffeeNpayIntentLog";
+import {
+  getA6SendLogStats,
+  runA6SendDryRun,
+  type A6SendPayload,
+} from "../coffeeNpaySendLog";
 import { getSubscriberTrackStats, syncSubscriberTracks } from "../subscriberTrackSync";
 import {
   TEMPLATES,
@@ -436,6 +441,50 @@ export const createCoffeeRouter = () => {
       }
     },
   );
+
+  /* ── A-6 외부 플랫폼 보강 전송 (sprint 22 design + dry-run only) ───────── */
+
+  /**
+   * A-6 dry-run send — payload validation + plan 출력.
+   * mode=enforce 는 본 sprint 시점에 반환 안 됨 (skeleton 의 runA6SendEnforce 가 throw).
+   * A-5 closure + TJ 명시 승인 후 별도 sprint (22.1+) 에서 enforce 활성.
+   */
+  router.post(
+    "/api/attribution/coffee-a6-send",
+    (req: Request, res: Response) => {
+      try {
+        const mode = String(req.query.mode ?? "dry_run");
+        if (mode !== "dry_run") {
+          res.status(400).json({
+            ok: false,
+            reason: "enforce_not_implemented_yet",
+            message:
+              "A-6 enforce 는 sprint 22 commit 시점에 미구현. A-5 closure + TJ 명시 승인 후 sprint 22.1+ 에서 활성.",
+          });
+          return;
+        }
+        const payload = req.body as A6SendPayload;
+        const result = runA6SendDryRun(payload);
+        res.status(result.ok ? 200 : 400).json(result);
+      } catch (err) {
+        res.status(500).json({
+          ok: false,
+          error: err instanceof Error ? err.message : "a6_send_dry_run failed",
+        });
+      }
+    },
+  );
+
+  router.get("/api/coffee/a6-send/stats", (_req: Request, res: Response) => {
+    try {
+      res.json(getA6SendLogStats());
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : "a6_send_stats failed",
+      });
+    }
+  });
 
   return router;
 };
