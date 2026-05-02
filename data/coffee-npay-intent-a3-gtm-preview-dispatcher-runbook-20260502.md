@@ -1086,3 +1086,76 @@ id=14 의 `payment_button_type=npay` — Scenario C 의 직접 buffer push (paym
 | **C-11** | **TJ 명시 publish 승인** | **❌ 본 sprint 까지 미승인** |
 
 → **10/11 PASS — A-4 publish 추천 가능, TJ 명시 승인만 남음**.
+
+---
+
+## H-1 mobile playwright 검증 (2026-05-02 KST)
+
+자신감 88% → 92% 까지 끌어올리기 위해 mobile path 추가 검증. iPhone 14 device emulation 사용.
+
+### 환경
+
+- Playwright `devices["iPhone 14"]` viewport (390x844, touchscreen=true, iOS Safari UA)
+- backend smoke window id=5, max 5 (sprint 19.4 와 동일 환경)
+- 시나리오 script: `harness/coffee-data/preview-playwright/a3v21_mobile_smoke.mjs`
+
+### Button selector probe 결과
+
+| selector | 존재 | visible (mobile viewport) |
+|---|---|---|
+| `._btn_mobile_npay` | ✅ A tag, class `_btn_mobile_npay btn button button--pay button--padding naver` | **true** (mobile main button) |
+| `#naverPayWrap` | ✅ DIV | **false** (mobile 에선 숨김 — PC 전용) |
+| `.btn_naverpay` | null | — |
+
+→ **mobile / PC 가 다른 NPay button element**. 단 둘 다 `confirmOrderWithCartItems("npay", ...)` 호출.
+
+### Mobile flow 동작
+
+mobile click hook 발화 시 buffer 에 entry 2건 push 됨:
+
+| entry | intent_phase | intent_uuid | imweb_order_code | dispatcher 처리 |
+|---|---|---|---|---|
+| 1 (mobile click hook backup, snippet line 458-468) | `click_to_dialog` | `pending` (snippet line 309 fallback) | 없음 | **`blocked_missing_imweb_order_code`** (3초 timeout, ledger 안 들어감) |
+| 2 (confirmOrderWithCartItems wrap, snippet line 422-434) | `confirm_to_pay` | UUID 정상 발급 | hex mock 채워짐 | **`ok_201`** (forward INSERT, id=15) |
+
+### ledger row id=15 (mobile main entry)
+
+| 필드 | 값 |
+|---|---|
+| intent_uuid | b0141660-afa8-4e7a-b52c-6e14809c6060 |
+| source_version | coffee_npay_intent_preview_all_in_one_20260501 |
+| intent_phase | confirm_to_pay |
+| **payment_button_type** | **'npay'** ✅ |
+| **imweb_order_code** | **'o20260502abcdef0987654321'** ✅ (hex mock) |
+| **capture_delay_ms** | **1500** ✅ (snippet retry tick 정확) |
+
+### Mobile 결과 요약
+
+- **mobile main capture path = PC 와 동일** (confirmOrderWithCartItems wrap → confirm_to_pay entry)
+- **mobile click_to_dialog backup entry 는 dispatcher v2.1 의 timeout block 으로 자동 차단** — ledger 안 들어감, 운영 무해
+- **enforce_deduped 0** (race 0%)
+- **endpoint 5xx / pii / origin / rate_limit 모두 0**
+
+### 자신감 영향
+
+| 평가 | 자신감 |
+|---|---|
+| sprint 19.4 종결 시점 | 88% |
+| H-1 PASS 후 | **92%** (mobile path 검증 완료) |
+
+미관측 영역 (남음):
+- real funnel-capi InitiateCheckout key 발급 timing (TJ chrome H-2 시 5분으로 확정 가능)
+- 운영 NPay traffic volume / RL 충돌 (publish 후 자연 측정)
+- 다른 23개 GTM tag 와 충돌 (publish 후 site error rate 모니터링)
+
+### Cleanup
+
+| Step | 결과 |
+|---|---|
+| smoke window 5 close | closed_count=1 |
+| VM .env wc → 201, marker 0 | OK |
+| pm2 restart | 45 → 46 (pid 232628) |
+| 최종 stats | enforce/token/window 모두 false |
+| ledger total_rows | 11 보존 (sprint 19+19.3+19.4+H-1) |
+
+A-4 publish 추천 자신감 **92%**. 추가 H-2 (TJ chrome real timing 5분) 시 **94%**, H-1+H-2 둘 다 시 **96%**.
