@@ -46,6 +46,7 @@
 - 백필/보정 작업: 로컬 DB 쓰기는 백업 → dry-run → apply → 중복/금액/잔여 미조인 검증 → `data/!datacheckplan.md` 업데이트 순서로 진행하시오. 프로덕션 DB 쓰기나 스키마 변경은 사전 승인 없이는 하지 마시오.
 - 문서/로드맵/결과보고서 작성·수정 시 루트 `docurule.md`를 먼저 참고하시오.
 - 텍스트 결과보고/최종답변 양식은 `docs/report/text-report-template.md`를 따르시오.
+- 최종 답변의 “다음 할일”은 한 줄로 끝내지 말고, 사용자가 실제로 무엇을 해야 하는지 직관적으로 알 수 있게 `무엇을/왜/어떻게/어디에서/누가/승인 필요 여부/성공 기준/실패 시 해석`을 포함하시오. 결과보고서 문서가 있으면 그 문서의 다음 액션을 요약해 대화에도 충분히 풀어쓰고, 링크만 던지지 마시오.
 - Growth Data/Tracking/Attribution/ROAS 작업 시작 전 `harness/common/HARNESS_GUIDELINES.md`, `harness/common/AUTONOMY_POLICY.md`, `harness/common/REPORTING_TEMPLATE.md`를 읽고 Green/Yellow/Red Lane을 먼저 분류하시오.
 - Green Lane은 문서, read-only, dry-run, runbook, monitoring script, test, audit, scoped commit/push 범위이며 확인 요청 없이 진행하시오. Yellow Lane은 스프린트 단위 1회 승인 후 cleanup/report까지 자율 진행하고, Red Lane은 GTM Production publish, permanent env ON, platform send, production DB write/import, auto dispatcher 등으로 반드시 멈추시오.
 - 보고서형 프론트엔드 구현·수정 시 루트 `frontrule.md`를 먼저 참고하시오.
