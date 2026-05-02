@@ -146,11 +146,13 @@ export const buildAttributionLedgerEntryId = (entry: AttributionLedgerEntry) => 
 
 const dbRowToEntry = (row: AttributionLedgerRow): AttributionLedgerEntry => ({
   touchpoint:
-    row.touchpoint === "payment_success"
-      ? "payment_success"
-      : row.touchpoint === "form_submit"
-        ? "form_submit"
-        : "checkout_started",
+    row.touchpoint === "marketing_intent"
+      ? "marketing_intent"
+      : row.touchpoint === "payment_success"
+        ? "payment_success"
+        : row.touchpoint === "form_submit"
+          ? "form_submit"
+          : "checkout_started",
   captureMode:
     row.capture_mode === "replay"
       ? "replay"

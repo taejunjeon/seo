@@ -12,7 +12,7 @@ import {
 } from "./attributionLedgerDb";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "./orderKeys";
 
-export type AttributionTouchpoint = "checkout_started" | "payment_success" | "form_submit";
+export type AttributionTouchpoint = "marketing_intent" | "checkout_started" | "payment_success" | "form_submit";
 export type AttributionCaptureMode = "live" | "replay" | "smoke";
 export type AttributionPaymentStatus = "pending" | "confirmed" | "canceled";
 
@@ -148,7 +148,7 @@ export type AttributionFirstTouchSnapshot = {
 
 export type AttributionFirstTouchMatchMetadata = {
   schemaVersion: string;
-  source: "checkout_started";
+  source: "marketing_intent" | "checkout_started";
   matchedAt: string;
   matchedBy: string[];
   matchScore: number;
@@ -586,6 +586,17 @@ export const buildLedgerEntry = (
   ) {
     throw new Error("checkout_started requires at least one of checkoutId, customerKey, landing, gaSessionId");
   }
+  if (
+    touchpoint === "marketing_intent" &&
+    !payload.landing &&
+    !payload.referrer &&
+    !payload.ttclid &&
+    !payload.utmSource &&
+    !payload.utmCampaign &&
+    !payload.metadata?.source
+  ) {
+    throw new Error("marketing_intent requires source or attribution evidence");
+  }
   if (touchpoint === "payment_success" && !payload.orderId && !payload.paymentKey) {
     throw new Error("payment_success requires orderId or paymentKey");
   }
@@ -608,6 +619,7 @@ export const buildLedgerEntry = (
 
 const FIRST_TOUCH_SCHEMA_VERSION = "2026-04-27.first-touch.v1";
 const FIRST_TOUCH_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+const TIKTOK_MARKETING_INTENT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const FIRST_TOUCH_FUTURE_TOLERANCE_MS = 10 * 60 * 1000;
 const FIRST_TOUCH_STORAGE_REF = "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.firstTouch" as const;
 
@@ -709,7 +721,10 @@ const scoreFirstTouchCandidate = (
   payment: AttributionLedgerEntry,
   candidate: AttributionLedgerEntry,
 ): FirstTouchCandidateScore | null => {
-  if (candidate.touchpoint !== "checkout_started") return null;
+  if (candidate.touchpoint !== "checkout_started" && candidate.touchpoint !== "marketing_intent") return null;
+
+  const tiktokMatchReasons = getAttributionTikTokMatchReasons(candidate);
+  if (candidate.touchpoint === "marketing_intent" && tiktokMatchReasons.length === 0) return null;
 
   const paymentSource = entrySource(payment);
   const candidateSource = entrySource(candidate);
@@ -719,8 +734,11 @@ const scoreFirstTouchCandidate = (
   const candidateMs = timestampMs(candidate.loggedAt);
   if (paymentMs !== null && candidateMs !== null) {
     const deltaMs = paymentMs - candidateMs;
+    const lookbackMs = candidate.touchpoint === "marketing_intent"
+      ? TIKTOK_MARKETING_INTENT_LOOKBACK_MS
+      : FIRST_TOUCH_LOOKBACK_MS;
     if (deltaMs < -FIRST_TOUCH_FUTURE_TOLERANCE_MS) return null;
-    if (deltaMs > FIRST_TOUCH_LOOKBACK_MS) return null;
+    if (deltaMs > lookbackMs) return null;
   }
 
   let score = 0;
@@ -757,7 +775,6 @@ const scoreFirstTouchCandidate = (
 
   if (matchedBy.length === 0) return null;
 
-  const tiktokMatchReasons = getAttributionTikTokMatchReasons(candidate);
   if (tiktokMatchReasons.length > 0) score += 20;
   if (paymentMs !== null && candidateMs !== null && paymentMs >= candidateMs) score += 5;
 
@@ -782,7 +799,7 @@ const buildFirstTouchMatchMetadata = (
   candidate: FirstTouchCandidateScore,
 ): AttributionFirstTouchMatchMetadata => ({
   schemaVersion: FIRST_TOUCH_SCHEMA_VERSION,
-  source: "checkout_started",
+  source: candidate.entry.touchpoint === "marketing_intent" ? "marketing_intent" : "checkout_started",
   matchedAt,
   matchedBy: candidate.matchedBy,
   matchScore: candidate.score,
@@ -859,11 +876,13 @@ const normalizeLedgerRequestContext = (
 
 const coerceLedgerEntry = (parsed: Partial<AttributionLedgerEntry>): AttributionLedgerEntry => {
   const touchpoint =
-    parsed.touchpoint === "payment_success"
-      ? "payment_success"
-      : parsed.touchpoint === "form_submit"
-        ? "form_submit"
-        : "checkout_started";
+    parsed.touchpoint === "marketing_intent"
+      ? "marketing_intent"
+      : parsed.touchpoint === "payment_success"
+        ? "payment_success"
+        : parsed.touchpoint === "form_submit"
+          ? "form_submit"
+          : "checkout_started";
   const metadata = parsed.metadata ?? {};
   const requestContext = normalizeLedgerRequestContext(parsed.requestContext);
 

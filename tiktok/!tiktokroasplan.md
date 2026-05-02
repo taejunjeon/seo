@@ -1,8 +1,94 @@
 # TikTok ROAS 정합성 프로젝트 로드맵
 
-작성 시각: 2026-04-28 08:45 KST
-기준일: 2026-04-28
-버전: v3.21-gap-eventlog-wording-clarified (이전본: `tiktok/!tiktokroasplan.md.bak_20260428_gap_eventlog_relabel`)
+작성 시각: 2026-05-02 19:10 KST
+기준일: 2026-05-02
+버전: v3.22-gap-gtm-marketing-intent (이전본: `tiktok/!tiktokroasplan.md.bak_20260428_gap_eventlog_relabel`)
+
+## 2026-05-02 최신 결론
+
+TikTok 플랫폼 구매값과 내부 confirmed 0원 gap은 현재도 “플랫폼 귀속 기준과 내부 고신뢰 기준 차이”가 가장 유력하다.
+
+2026-04-24 ~ 2026-05-01 기준으로 TikTok Ads는 구매 27건 / 8,802,300원을 주장한다. 같은 기간 내부 strict TikTok confirmed와 pending은 모두 0원이다. CTA/VTA 분해를 보면 CTA 5건, VTA 15건, 미분류 7건이다. 즉 클릭 기반보다 조회 기반 또는 플랫폼 전용 귀속이 더 크다.
+
+Codex 판단 자신감은 **91%**다. 다만 과거 플랫폼 구매 27건을 주문번호 단위로 완전 복원할 자신감은 **35%**다. TikTok Ads 리포트에는 각 구매의 `event_id/order_code/order_no`가 없기 때문이다. 앞으로의 개선 가능성은 **84%**다. 신규 `marketing_intent` 수집을 붙이면 TikTok 클릭 후 재방문 구매를 7일 window 안에서 firstTouch 후보로 잡을 수 있다.
+
+## 2026-05-02 다음 할일
+
+| 순서 | 상태 | 담당 | 할 일 | 왜 하는가 | 어떻게 하는가 | 데이터/DB 위치 | 컨펌 필요 | 자신감 |
+|---:|---|---|---|---|---|---|---|---:|
+| 1 | 로컬 구현 완료, 운영 배포 대기 | Codex + TJ | TJ 관리 Attribution VM에 `/api/attribution/marketing-intent` receiver와 firstTouch 매칭 로직을 배포한다 | TikTok 클릭 후 홈/상품상세로 들어왔다가 며칠 뒤 구매하는 케이스가 지금은 내부 TikTok 후보에도 안 잡힌다 | 배포 전 백업 후 backend 변경 파일만 반영하고 `node --check`, `/health`, smoke fetch를 확인한다 | TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger` | YES, 배포 승인 | 88% |
+| 2 | GTM 후보 작성 완료 | TJ | GTM에 `SEO - TikTok Marketing Intent - v1` Custom HTML tag를 Preview로 테스트한다 | 아임웹 헤더/푸터를 더 길게 만들지 않고 TikTok 클릭 intent를 수집할 수 있다 | `tiktok/tiktok_marketing_intent_gtm_v1.md` 기준으로 Initialization trigger 3개를 만들고 테스트 URL에서 fired/Network 201을 확인한다 | GTM + TJ 관리 Attribution VM endpoint | YES, GTM publish 승인 | 86% |
+| 3 | 로컬 수정 완료 | Codex | `/ads/tiktok`에서 VTA/미분류를 `platform-only assisted`로 더 분명히 분리한다 | VTA는 내부 click evidence가 없어 confirmed ROAS로 승격하면 안 된다 | CTA/VTA count 카드 문구를 `클릭 / 플랫폼전용`으로 바꾸고 gap 설명에 VTA/미분류는 내부 confirmed로 승격하지 않는다고 명시했다 | 로컬 개발 DB `/Users/vibetj/coding/seo/backend/data/crm.sqlite3#tiktok_ads_daily`, TJ 관리 Attribution VM | NO, 프론트 로컬 수정 | 84% |
+| 4 | 1차 확인 완료 | Codex | TikTok Ads API에서 CTA/VTA purchase value 분해가 가능한지 재확인한다 | 현재는 CTA/VTA count는 보이지만 value 분해가 비어 있어 금액 기준 판단이 약하다 | TikTok Business API metric 후보를 공식 문서와 dry-run으로 확인했다. count는 개선 가능하지만 금액 분해는 아직 불가에 가깝다 | 로컬 개발 DB `#tiktok_ads_daily`, TikTok Business API export | NO, read-only | 78% |
+
+## 2026-05-02 GTM 검토 결과
+
+`marketing_intent` 수집은 아임웹 헤더/푸터 대신 GTM으로 해결 가능하다.
+
+단, 모든 TikTok 코드를 GTM으로 옮기면 안 된다. TikTok Purchase Guard는 TikTok Pixel `Purchase`보다 먼저 설치되어야 하므로 아임웹 헤더 유지가 맞다. 반면 `marketing_intent`는 사용자가 TikTok 광고 클릭으로 들어온 페이지의 URL/referrer/cookie를 읽어 TJ 관리 Attribution VM endpoint로 보내는 작업이라 GTM Custom HTML tag와 잘 맞는다.
+
+세부 문서:
+
+- GTM 계획/설계 의도: `tiktok/tiktok_gtm_plan.md`
+- GTM 우선안: `tiktok/tiktok_marketing_intent_gtm_v1.md`
+- 아임웹 footer 후보안: `tiktok/tiktok_marketing_intent_footer_v1.md`
+
+권장 순서:
+
+1. TJ 관리 Attribution VM backend receiver를 먼저 배포한다.
+2. GTM Preview에서 테스트 URL `https://biocom.kr/?utm_source=tiktok&utm_medium=paid&utm_campaign=codex_gtm_test&ttclid=codex_gtm_20260502`로 tag fired와 Network 201을 확인한다.
+3. Attribution VM `CRM_LOCAL_DB_PATH#attribution_ledger`에서 `touchpoint=marketing_intent` row를 확인한다.
+4. 같은 브라우저로 카드 결제 1건을 테스트하고 `payment_success.metadata_json.firstTouch.touchpoint=marketing_intent` 연결 여부를 확인한다.
+
+공식 참고:
+
+- Google Tag Manager Custom HTML Tag: https://support.google.com/tagmanager/answer/6107167
+- Google Tag Manager Preview/Debug: https://support.google.com/tagmanager/answer/6107056
+
+## 2026-05-02 TikTok Ads API CTA/VTA 금액 검증
+
+TikTok Business API `report/integrated/get` 캠페인 일자 리포트에서 CTA/VTA 구매 **건수**는 일부 개선 가능하지만, CTA/VTA 구매 **금액** 분해는 현재 확인된 metric으로는 어렵다.
+
+검증 조건:
+
+- API: `https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/`
+- 기간: 2026-04-28 ~ 2026-05-01
+- data_level: `AUCTION_CAMPAIGN`
+- dimensions: `campaign_id`, `stat_time_day`
+- 데이터 위치: 로컬 개발 DB 입력용 파일 `data/ads_csv/tiktok/api/tiktok_business_api_campaign_daily_20260428_20260501.csv`, processed 파일 `data/ads_csv/tiktok/processed/20260428_20260501_daily_campaign.csv`
+
+확인 결과:
+
+| metric | 결과 | 해석 |
+|---|---|---|
+| `vta_complete_payment` | 지원됨, 합계 10건 | VTA complete payment count는 `vta_conversion` 대신 직접 쓸 수 있다 |
+| `cta_complete_payment` | invalid metric | CTA complete payment count는 현재 `cta_conversion` 또는 `cta_purchase` fallback 필요 |
+| `cta_complete_payment_total_value` | invalid metric | CTA 구매금액 분해 불가 |
+| `vta_complete_payment_total_value` | invalid metric | VTA 구매금액 분해 불가 |
+| `cta_purchase_value` / `vta_purchase_value` | invalid metric | 구매금액 분해 불가 |
+| `total_purchase_value` | 지원되지만 합계 0원 | 현재 캠페인 일자 BASIC report의 website complete payment value로 쓰기 어렵다 |
+| `complete_payment * value_per_complete_payment` | 합계 3,937,200원 | 현재 플랫폼 구매값 계산의 실사용 기준 |
+
+2026-04-28 ~ 2026-05-01 합계:
+
+| 항목 | 값 |
+|---|---:|
+| 광고비 | 951,524원 |
+| complete_payment | 14건 |
+| derived complete payment value | 3,937,200원 |
+| CTA count | 3건 |
+| VTA complete payment count | 10건 |
+| 미분류 | 1건 |
+
+조치:
+
+- `backend/scripts/tiktok-business-report-dry-run.ts`에 `vta_complete_payment` metric을 추가했다.
+- processed daily CSV의 VTA count는 이제 `vta_purchase || vta_complete_payment || vta_conversion` 순서로 계산한다.
+- CTA/VTA 금액은 계속 0으로 둔다. 금액을 억지로 건수 비례 배분하지 않는다.
+
+판단:
+
+TikTok 플랫폼이 주장하는 금액을 CTA/VTA 금액으로 나누는 것은 아직 불가능에 가깝다. 따라서 `/ads/tiktok`에서는 CTA/VTA를 “건수 신뢰도”로만 보여주고, 금액 ROAS는 platform total과 내부 confirmed를 분리해서 봐야 한다.
 
 ## 2026-04-25 최신 상태
 

@@ -25,6 +25,7 @@ import {
   enrichCheckoutStartedFirstTouch,
   enrichPaymentSuccessFirstTouch,
   filterLedgerEntries,
+  getAttributionTikTokMatchReasons,
   normalizeApprovedAtToIso,
   normalizePaymentStatus,
   readLedgerEntries,
@@ -448,7 +449,12 @@ const readStringField = (record: Record<string, unknown>, key: string) => {
 };
 
 const normalizeRemoteTouchpoint = (value: unknown): AttributionLedgerEntry["touchpoint"] | null => {
-  if (value === "checkout_started" || value === "payment_success" || value === "form_submit") {
+  if (
+    value === "marketing_intent" ||
+    value === "checkout_started" ||
+    value === "payment_success" ||
+    value === "form_submit"
+  ) {
     return value;
   }
   return null;
@@ -530,6 +536,50 @@ const buildLedgerDedupeKey = (entry: AttributionLedgerEntry) =>
     typeof entry.metadata.source === "string" ? entry.metadata.source : "",
     typeof entry.metadata.formId === "string" ? entry.metadata.formId : "",
   ].join("|");
+
+const MARKETING_INTENT_DEDUPE_MS = 24 * 60 * 60 * 1000;
+
+const metadataText = (entry: AttributionLedgerEntry, key: string) => {
+  const value = entry.metadata[key];
+  return typeof value === "string" ? value.trim() : "";
+};
+
+const marketingIntentSource = (entry: AttributionLedgerEntry) => metadataText(entry, "source");
+
+const sameMarketingIntent = (left: AttributionLedgerEntry, right: AttributionLedgerEntry) => {
+  if (left.touchpoint !== "marketing_intent" || right.touchpoint !== "marketing_intent") return false;
+  if (marketingIntentSource(left) !== marketingIntentSource(right)) return false;
+
+  const leftTtclid = left.ttclid || metadataText(left, "ttclid");
+  const rightTtclid = right.ttclid || metadataText(right, "ttclid");
+  if (leftTtclid && rightTtclid && leftTtclid === rightTtclid) return true;
+
+  const leftClientId = metadataText(left, "clientId") || metadataText(left, "userPseudoId") || left.gaSessionId;
+  const rightClientId = metadataText(right, "clientId") || metadataText(right, "userPseudoId") || right.gaSessionId;
+  if (!leftClientId || leftClientId !== rightClientId) return false;
+
+  return (
+    left.landing === right.landing &&
+    left.utmCampaign === right.utmCampaign &&
+    left.utmContent === right.utmContent &&
+    left.utmTerm === right.utmTerm
+  );
+};
+
+const findDuplicateMarketingIntentEntry = (
+  existing: AttributionLedgerEntry[],
+  entry: AttributionLedgerEntry,
+  nowIso = entry.loggedAt,
+) => {
+  const nowMs = Date.parse(nowIso);
+  return existing.find((candidate) => {
+    const candidateMs = Date.parse(candidate.loggedAt);
+    if (!Number.isFinite(nowMs) || !Number.isFinite(candidateMs)) return false;
+    if (nowMs - candidateMs > MARKETING_INTENT_DEDUPE_MS) return false;
+    if (candidateMs - nowMs > 10 * 60 * 1000) return false;
+    return sameMarketingIntent(candidate, entry);
+  }) ?? null;
+};
 
 export type RemoteLedgerIdentityDiagnostics = {
   total: number;
@@ -1616,6 +1666,58 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "form attribution logging failed";
       res.status(400).json({ ok: false, error: "form_attribution_log_error", message });
+    }
+  });
+
+  router.post("/api/attribution/marketing-intent", async (req: Request, res: Response) => {
+    try {
+      const body = parseBody(req.body);
+      enforceOriginSourceMatch(req, body, "marketing_intent");
+      const entry = buildLedgerEntry("marketing_intent", body, buildRequestContext(req));
+      const tiktokMatchReasons = getAttributionTikTokMatchReasons(entry);
+
+      if (tiktokMatchReasons.length === 0) {
+        res.status(200).json({
+          ok: true,
+          receiver: "marketing_intent",
+          skipped: true,
+          reason: "no_tiktok_intent_evidence",
+        });
+        return;
+      }
+
+      const existing = await readLedgerEntries();
+      const duplicate = findDuplicateMarketingIntentEntry(existing, entry);
+      if (duplicate) {
+        res.status(200).json({
+          ok: true,
+          receiver: "marketing_intent",
+          skipped: true,
+          reason: "duplicate_marketing_intent",
+          existingLoggedAt: duplicate.loggedAt,
+        });
+        return;
+      }
+
+      const enrichedEntry: AttributionLedgerEntry = {
+        ...entry,
+        metadata: {
+          ...entry.metadata,
+          intentChannel: "tiktok",
+          intentLookbackDays: 7,
+          tiktokMatchReasons,
+        },
+      };
+      const ledgerPath = await appendLedgerEntry(enrichedEntry);
+      res.status(201).json({
+        ok: true,
+        receiver: "marketing_intent",
+        storedAt: ledgerPath,
+        entry: enrichedEntry,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "marketing intent logging failed";
+      res.status(400).json({ ok: false, error: "marketing_intent_log_error", message });
     }
   });
 

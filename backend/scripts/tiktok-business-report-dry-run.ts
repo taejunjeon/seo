@@ -23,6 +23,7 @@ type OutputRow = {
   conversion: number;
   cta_conversion: number;
   vta_conversion: number;
+  vta_complete_payment: number;
   complete_payment: number;
   value_per_complete_payment: number;
   derived_complete_payment_value: number;
@@ -44,6 +45,7 @@ const DEFAULT_METRICS = [
   "conversion_rate",
   "cta_conversion",
   "vta_conversion",
+  "vta_complete_payment",
   "complete_payment",
   "complete_payment_rate",
   "cost_per_complete_payment",
@@ -179,6 +181,7 @@ const normalizeRow = (row: TikTokReportRow): OutputRow => {
     conversion: readNumber(metrics.conversion),
     cta_conversion: readNumber(metrics.cta_conversion),
     vta_conversion: readNumber(metrics.vta_conversion),
+    vta_complete_payment: readNumber(metrics.vta_complete_payment),
     complete_payment: completePayment,
     value_per_complete_payment: valuePerCompletePayment,
     derived_complete_payment_value: completePayment * valuePerCompletePayment,
@@ -246,6 +249,7 @@ const writeCsv = async (filePath: string, rows: OutputRow[]) => {
     "conversion",
     "cta_conversion",
     "vta_conversion",
+    "vta_complete_payment",
     "complete_payment",
     "value_per_complete_payment",
     "derived_complete_payment_value",
@@ -295,7 +299,7 @@ const writeProcessedDailyCsv = async (filePath: string, rows: OutputRow[], campa
   const note = [
     "TikTok Business API report/integrated/get.",
     "Attribution window assumed TikTok default click 7d / view 1d unless Ads Manager says otherwise.",
-    "API does not expose website CTA/VTA purchase value here; CTA/VTA counts use cta_conversion/vta_conversion fallback when purchase split metrics are empty.",
+    "API does not expose website CTA/VTA purchase value here; VTA count uses vta_complete_payment when available, CTA count uses cta_purchase or cta_conversion fallback.",
   ].join(" ");
   const lines = [headers.join(",")];
 
@@ -303,7 +307,7 @@ const writeProcessedDailyCsv = async (filePath: string, rows: OutputRow[], campa
     const platformRoas = row.spend > 0 ? row.derived_complete_payment_value / row.spend : 0;
     const ctaPurchaseCount = row.cta_purchase || row.cta_conversion;
     const evtaPurchaseCount = row.evta_purchase;
-    const vtaPurchaseCount = row.vta_purchase || row.vta_conversion;
+    const vtaPurchaseCount = row.vta_purchase || row.vta_complete_payment || row.vta_conversion;
     lines.push([
       row.report_date,
       row.campaign_id,
@@ -344,6 +348,7 @@ const summarize = (rows: OutputRow[]) =>
       acc.conversion += row.conversion;
       acc.cta_conversion += row.cta_conversion;
       acc.vta_conversion += row.vta_conversion;
+      acc.vta_complete_payment += row.vta_complete_payment;
       acc.complete_payment += row.complete_payment;
       acc.derived_complete_payment_value += row.derived_complete_payment_value;
       acc.cta_purchase += row.cta_purchase;
@@ -351,13 +356,13 @@ const summarize = (rows: OutputRow[]) =>
       acc.vta_purchase += row.vta_purchase;
       acc.cta_attribution_conversion += row.cta_purchase || row.cta_conversion;
       acc.evta_attribution_conversion += row.evta_purchase;
-      acc.vta_attribution_conversion += row.vta_purchase || row.vta_conversion;
+      acc.vta_attribution_conversion += row.vta_purchase || row.vta_complete_payment || row.vta_conversion;
       acc.unclassified_conversion += Math.max(
         0,
         row.complete_payment
           - (row.cta_purchase || row.cta_conversion)
           - row.evta_purchase
-          - (row.vta_purchase || row.vta_conversion),
+          - (row.vta_purchase || row.vta_complete_payment || row.vta_conversion),
       );
       return acc;
     },
@@ -368,6 +373,7 @@ const summarize = (rows: OutputRow[]) =>
       conversion: 0,
       cta_conversion: 0,
       vta_conversion: 0,
+      vta_complete_payment: 0,
       complete_payment: 0,
       derived_complete_payment_value: 0,
       cta_purchase: 0,

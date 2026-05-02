@@ -187,6 +187,66 @@ test("attribution: payment_success carries checkout firstTouch without overwriti
   assert.ok(matchedBy.includes("client_id"));
 });
 
+test("attribution: payment_success can carry prior TikTok marketing intent firstTouch", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/marketing-intent",
+  };
+  const marketingIntent = buildLedgerEntry(
+    "marketing_intent",
+    {
+      landing: "https://biocom.kr/supplements?utm_source=tiktok&utm_campaign=campaign-c&ttclid=tt-3",
+      referrer: "https://www.tiktok.com/",
+      utmSource: "tiktok",
+      utmCampaign: "campaign-c",
+      ttclid: "tt-3",
+      metadata: {
+        source: "biocom_imweb",
+        clientId: "client-3",
+        userPseudoId: "client-3",
+      },
+    },
+    requestContext,
+    "2026-04-28T00:00:00.000Z",
+  );
+  const payment = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202604301234569",
+      paymentKey: "pay-3",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        value: 35000,
+        clientId: "client-3",
+        userPseudoId: "client-3",
+      },
+    },
+    { ...requestContext, path: "/api/attribution/payment-success" },
+    "2026-04-30T00:00:00.000Z",
+  );
+
+  const enriched = enrichPaymentSuccessFirstTouch(
+    payment,
+    [marketingIntent],
+    "2026-04-30T00:00:01.000Z",
+  );
+  const firstTouch = enriched.metadata.firstTouch as Record<string, unknown>;
+  const firstTouchMatch = enriched.metadata.firstTouchMatch as Record<string, unknown>;
+  const matchedBy = firstTouchMatch.matchedBy as string[];
+
+  assert.equal(enriched.ttclid, "");
+  assert.equal(firstTouch.touchpoint, "marketing_intent");
+  assert.equal(firstTouch.ttclid, "tt-3");
+  assert.equal(firstTouchMatch.source, "marketing_intent");
+  assert.equal(enriched.metadata.tiktokFirstTouchCandidate, true);
+  assert.ok(matchedBy.includes("client_id"));
+});
+
 test("tiktok pixel events: normalize payload keeps event-level order and decision keys", () => {
   const event = normalizeTikTokPixelEventPayload(
     {

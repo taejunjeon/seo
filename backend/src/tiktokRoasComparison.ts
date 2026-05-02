@@ -1776,7 +1776,7 @@ const buildFirstTouchAttributionSummary = (
     byStatus: cleaned,
     sourceReasonSummary: cleanedReasonSummary,
     sampleOrders,
-    note: "strict TikTok payment_success에는 직접 포함하지 않는다. checkout_started firstTouch에 TikTok UTM/ttclid가 보존된 payment_success 후보만 별도 집계한다.",
+    note: "strict TikTok payment_success에는 직접 포함하지 않는다. checkout_started 또는 marketing_intent firstTouch에 TikTok UTM/ttclid가 보존된 payment_success 후보만 별도 집계한다.",
   };
 };
 

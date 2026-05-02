@@ -877,6 +877,7 @@ export default function TikTokAdsPerformancePage() {
   const dailyUnclassifiedPurchaseCount = dailySummary?.unclassifiedPurchaseCount
     ?? Math.max(0, (dailySummary?.platformPurchases ?? summary?.purchases ?? 0) - dailyCtaPurchaseCount - dailyEvtaPurchaseCount - dailyVtaPurchaseCount);
   const dailyAttributionSplitTotal = dailyCtaPurchaseCount + dailyEvtaPurchaseCount + dailyVtaPurchaseCount + dailyUnclassifiedPurchaseCount;
+  const dailyPlatformOnlyAssistedCount = dailyVtaPurchaseCount + dailyUnclassifiedPurchaseCount;
   const dailyChartRows = useMemo(() => dailyRows.map((row) => ({
     date: row.date.slice(5),
     platformRoas: row.hasAdsData ? row.platformRoas : null,
@@ -1149,9 +1150,9 @@ export default function TikTokAdsPerformancePage() {
                 tone={strategyTone}
               />
               <MetricCard
-                label="TikTok CTA/VTA"
-                value={loading ? "로딩 중" : `CTA ${fmtNum(dailyCtaPurchaseCount)} / VTA ${fmtNum(dailyVtaPurchaseCount)}`}
-                detail={`선택 기간 ${fmtNum(dailyAttributionSplitTotal)}건 중 EVTA ${fmtNum(dailyEvtaPurchaseCount)}건, API 미분류 ${fmtNum(dailyUnclassifiedPurchaseCount)}건. 금액 분해는 TikTok API에서 아직 직접 제공되지 않습니다.`}
+                label="TikTok 귀속 분해"
+                value={loading ? "로딩 중" : `클릭 ${fmtNum(dailyCtaPurchaseCount)} / 플랫폼전용 ${fmtNum(dailyPlatformOnlyAssistedCount)}`}
+                detail={`선택 기간 ${fmtNum(dailyAttributionSplitTotal)}건 중 VTA ${fmtNum(dailyVtaPurchaseCount)}건, EVTA ${fmtNum(dailyEvtaPurchaseCount)}건, API 미분류 ${fmtNum(dailyUnclassifiedPurchaseCount)}건입니다. VTA/미분류는 내부 confirmed로 승격하지 않고 platform-only assisted로 봅니다.`}
                 tone={dailyCtaPurchaseCount > dailyVtaPurchaseCount ? "amber" : "red"}
               />
               <MetricCard
@@ -1597,6 +1598,9 @@ export default function TikTokAdsPerformancePage() {
               <StatusBadge tone={dailyUnclassifiedPurchaseCount > 0 ? "amber" : "neutral"}>
                 API 미분류 {fmtNum(dailyUnclassifiedPurchaseCount)}건
               </StatusBadge>
+              <StatusBadge tone={dailyPlatformOnlyAssistedCount > 0 ? "red" : "neutral"}>
+                플랫폼전용 후보 {fmtNum(dailyPlatformOnlyAssistedCount)}건
+              </StatusBadge>
               <StatusBadge tone={dailySelectedRevenue > 0 ? "green" : "red"}>
                 운영 기준 매출 {fmtKRW(dailySelectedRevenue)}
               </StatusBadge>
@@ -1816,7 +1820,8 @@ export default function TikTokAdsPerformancePage() {
               <h3 style={{ margin: 0, color: "#991b1b", fontSize: "0.95rem", fontWeight: 900 }}>gap 판정</h3>
               <p style={{ margin: "10px 0 0", color: "#991b1b", fontSize: "0.82rem", lineHeight: 1.75 }}>
                 플랫폼 구매값에서 Attribution confirmed 매출을 빼면 {fmtKRW(data?.gap.platformMinusConfirmed)}입니다. confirmed와
-                pending을 모두 포함해도 gap은 {fmtKRW(data?.gap.platformMinusConfirmedAndPending)}입니다.
+                pending을 모두 포함해도 gap은 {fmtKRW(data?.gap.platformMinusConfirmedAndPending)}입니다. 선택 기간의 VTA/미분류
+                {fmtNum(dailyPlatformOnlyAssistedCount)}건은 내부 클릭 근거가 없어 platform-only assisted로만 해석합니다.
               </p>
             </article>
             <article style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fffbeb", padding: 18 }}>
