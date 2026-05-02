@@ -12,6 +12,9 @@
 
 작업 전 필요한 맥락은 아래 문서로 먼저 확인한다.
 
+- [harness/common/HARNESS_GUIDELINES.md](./harness/common/HARNESS_GUIDELINES.md) — Growth Data/Tracking/Attribution/ROAS 작업 공통 하네스. 작업 시작 전 Green / Yellow / Red Lane 분류 기준
+- [harness/common/AUTONOMY_POLICY.md](./harness/common/AUTONOMY_POLICY.md) — Green은 자율 진행, Yellow는 스프린트 1회 승인 후 자율, Red는 명시 승인 전 중단
+- [harness/common/REPORTING_TEMPLATE.md](./harness/common/REPORTING_TEMPLATE.md) — Auditor verdict, source/window/freshness/confidence, 완료 보고/승인 요청 공통 형식
 - [data/dbstructure.md](./data/dbstructure.md) — 전사 DB 구조 (원격 PG + AIBIO Supabase + 로컬 SQLite) · 채널 매핑 · 통합 키 전략
 - [aibio/aibiodb.md](./aibio/aibiodb.md) — AIBIO Supabase 43개 테이블 스키마 덤프
 - [aibio/aibio_sync_design.md](./aibio/aibio_sync_design.md) — AIBIO → 로컬 SQLite sync 설계 및 구현 진척
@@ -37,6 +40,26 @@
 - 과거 분석은 **원격 PG 원장**(`tb_iamweb_users` 97,407건, `tb_playauto_orders` 121,747건)을 사용. 로컬 `imweb_orders`는 최근 3.5개월만 커버하므로 과거 추세 분석에 부적합.
 - 금액 집계 시 환불 처리 주의: PG는 `cancellation_reason`·`return_reason` 제외, AIBIO Supabase는 음수 amount, 쿠팡은 settlement API 기준.
 - phone 조인은 정규화 후(`regexp_replace(phone, '[- ]', '', 'g')`) 사용.
+
+## Growth Data Harness Bootstrap
+
+GA4, GTM, NPay, TikTok, Meta, Google Ads, attribution, tracking, dispatcher, ROAS 작업을 시작할 때는 아래 순서를 따른다.
+
+1. `harness/common/HARNESS_GUIDELINES.md`를 읽는다.
+2. 관련 프로젝트 하네스가 있으면 `harness/{project}/` 문서를 읽는다.
+3. 작업을 Green / Yellow / Red Lane으로 먼저 분류한다.
+4. Green Lane은 확인 요청 없이 audit와 scoped commit/push까지 진행한다.
+5. Yellow Lane은 스프린트 단위 1회 승인 후 setup, test, cleanup, report까지 자율 진행한다.
+6. Red Lane은 실행 전 멈추고 TJ님 명시 승인을 요청한다.
+
+명시 승인 없이 절대 실행하지 않는다.
+
+- GTM Production publish
+- permanent env flag ON
+- platform conversion send
+- production DB write/import
+- auto dispatcher production transition
+- destructive migration
 
 ## 더클린커피 tracking / NPay intent 작업 규칙
 

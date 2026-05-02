@@ -538,6 +538,48 @@ const buildLedgerDedupeKey = (entry: AttributionLedgerEntry) =>
   ].join("|");
 
 const MARKETING_INTENT_DEDUPE_MS = 24 * 60 * 60 * 1000;
+const MARKETING_INTENT_RATE_LIMIT_MS = 60_000;
+const MARKETING_INTENT_RATE_LIMIT_MAX = 60;
+const BIOCOM_MARKETING_INTENT_ALLOWED_ORIGINS = new Set([
+  "https://biocom.kr",
+  "https://www.biocom.kr",
+  "https://m.biocom.kr",
+  "https://biocom.imweb.me",
+]);
+const MARKETING_INTENT_ALLOWED_SITES = new Set(["biocom", "biocom_imweb"]);
+const MARKETING_INTENT_PII_KEYS = new Set([
+  "address",
+  "buyeremail",
+  "buyername",
+  "buyerphone",
+  "callnum",
+  "customeremail",
+  "customername",
+  "customerphone",
+  "email",
+  "mobile",
+  "mobilephone",
+  "name",
+  "ordereremail",
+  "orderername",
+  "ordererphone",
+  "phone",
+  "phonenumber",
+  "receiver",
+  "receiveraddress",
+  "receivername",
+  "receiverphone",
+  "tel",
+]);
+const MARKETING_INTENT_URL_QUERY_ALLOWLIST = new Set([
+  "ttclid",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+]);
+const marketingIntentRateLimit = new Map<string, { count: number; windowStart: number }>();
 
 const metadataText = (entry: AttributionLedgerEntry, key: string) => {
   const value = entry.metadata[key];
@@ -545,25 +587,124 @@ const metadataText = (entry: AttributionLedgerEntry, key: string) => {
 };
 
 const marketingIntentSource = (entry: AttributionLedgerEntry) => metadataText(entry, "source");
+const normalizeSecurityKey = (key: string) => key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+const parseUrlSafe = (value: string) => {
+  if (!value.trim()) return null;
+  try {
+    return new URL(value, "https://biocom.kr");
+  } catch {
+    return null;
+  }
+};
+
+const requestOriginFrom = (value: string) => {
+  const parsed = parseUrlSafe(value);
+  return parsed ? parsed.origin.toLowerCase() : "";
+};
+
+const sanitizeMarketingIntentUrl = (value: string) => {
+  const parsed = parseUrlSafe(value);
+  if (!parsed) return value.split("#")[0].split("?")[0].slice(0, 2000);
+
+  const nextSearch = new URLSearchParams();
+  parsed.searchParams.forEach((paramValue, paramKey) => {
+    if (MARKETING_INTENT_URL_QUERY_ALLOWLIST.has(paramKey.toLowerCase())) {
+      nextSearch.append(paramKey, paramValue.slice(0, 500));
+    }
+  });
+  parsed.search = nextSearch.toString();
+  parsed.hash = "";
+  return parsed.toString().slice(0, 2000);
+};
+
+const sanitizeMarketingIntentBody = (body: Record<string, unknown>) => {
+  for (const key of ["landing", "referrer"]) {
+    const raw = body[key];
+    if (typeof raw === "string") body[key] = sanitizeMarketingIntentUrl(raw);
+  }
+
+  const metadata = body.metadata;
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const record = metadata as Record<string, unknown>;
+    for (const key of ["landing", "referrer", "url", "pageLocation", "page_location"]) {
+      const raw = record[key];
+      if (typeof raw === "string") record[key] = sanitizeMarketingIntentUrl(raw);
+    }
+  }
+};
+
+const findMarketingIntentPiiKey = (value: unknown, path: string[] = []): string | null => {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const nested = findMarketingIntentPiiKey(value[index], [...path, String(index)]);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = normalizeSecurityKey(key);
+    if (MARKETING_INTENT_PII_KEYS.has(normalized)) return [...path, key].join(".");
+    if (typeof nestedValue === "string" && /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(nestedValue)) {
+      return [...path, key].join(".");
+    }
+    const nested = findMarketingIntentPiiKey(nestedValue, [...path, key]);
+    if (nested) return nested;
+  }
+  return null;
+};
+
+const getMarketingIntentClientKey = (entry: AttributionLedgerEntry) =>
+  metadataText(entry, "clientId") ||
+  metadataText(entry, "userPseudoId") ||
+  entry.gaSessionId ||
+  entry.requestContext.ip;
+
+const getMarketingIntentPath = (entry: AttributionLedgerEntry) => {
+  const parsed = parseUrlSafe(entry.landing);
+  return parsed ? parsed.pathname : entry.landing.split("?")[0].slice(0, 200);
+};
+
+const getMarketingIntentReferrerHostPath = (entry: AttributionLedgerEntry) => {
+  const parsed = parseUrlSafe(entry.referrer);
+  return parsed ? `${parsed.hostname.toLowerCase()}${parsed.pathname}` : entry.referrer.split("?")[0].slice(0, 200);
+};
+
+const getMarketingIntentDedupeFingerprint = (entry: AttributionLedgerEntry) => {
+  const ttclid = entry.ttclid || metadataText(entry, "ttclid");
+  if (ttclid) return { tier: "ttclid", key: ttclid };
+
+  const campaign = entry.utmCampaign;
+  const content = entry.utmContent;
+  const term = entry.utmTerm;
+  if (campaign || content || term) {
+    return {
+      tier: "utm",
+      key: [campaign || "no_campaign", content || "no_content", getMarketingIntentPath(entry)].join("|"),
+    };
+  }
+
+  return {
+    tier: "referrer",
+    key: [
+      getMarketingIntentReferrerHostPath(entry) || "no_referrer",
+      getMarketingIntentPath(entry),
+      entry.loggedAt.slice(0, 10),
+    ].join("|"),
+  };
+};
 
 const sameMarketingIntent = (left: AttributionLedgerEntry, right: AttributionLedgerEntry) => {
   if (left.touchpoint !== "marketing_intent" || right.touchpoint !== "marketing_intent") return false;
   if (marketingIntentSource(left) !== marketingIntentSource(right)) return false;
 
-  const leftTtclid = left.ttclid || metadataText(left, "ttclid");
-  const rightTtclid = right.ttclid || metadataText(right, "ttclid");
-  if (leftTtclid && rightTtclid && leftTtclid === rightTtclid) return true;
-
-  const leftClientId = metadataText(left, "clientId") || metadataText(left, "userPseudoId") || left.gaSessionId;
-  const rightClientId = metadataText(right, "clientId") || metadataText(right, "userPseudoId") || right.gaSessionId;
-  if (!leftClientId || leftClientId !== rightClientId) return false;
-
-  return (
-    left.landing === right.landing &&
-    left.utmCampaign === right.utmCampaign &&
-    left.utmContent === right.utmContent &&
-    left.utmTerm === right.utmTerm
-  );
+  const leftFingerprint = getMarketingIntentDedupeFingerprint(left);
+  const rightFingerprint = getMarketingIntentDedupeFingerprint(right);
+  if (leftFingerprint.tier !== rightFingerprint.tier || leftFingerprint.key !== rightFingerprint.key) return false;
+  if (leftFingerprint.tier === "ttclid") return true;
+  return getMarketingIntentClientKey(left) === getMarketingIntentClientKey(right);
 };
 
 const findDuplicateMarketingIntentEntry = (
@@ -579,6 +720,84 @@ const findDuplicateMarketingIntentEntry = (
     if (candidateMs - nowMs > 10 * 60 * 1000) return false;
     return sameMarketingIntent(candidate, entry);
   }) ?? null;
+};
+
+const checkMarketingIntentRateLimit = (req: Request) => {
+  const key = req.ip || req.socket.remoteAddress || "unknown";
+  const now = Date.now();
+  const entry = marketingIntentRateLimit.get(key);
+  if (!entry || now - entry.windowStart > MARKETING_INTENT_RATE_LIMIT_MS) {
+    marketingIntentRateLimit.set(key, { count: 1, windowStart: now });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  entry.count += 1;
+  if (entry.count <= MARKETING_INTENT_RATE_LIMIT_MAX) return { allowed: true, retryAfterSeconds: 0 };
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.ceil((MARKETING_INTENT_RATE_LIMIT_MS - (now - entry.windowStart)) / 1000),
+  };
+};
+
+const requireBiocomMarketingIntentRequest = (req: Request, body: Record<string, unknown>) => {
+  const origin = typeof req.headers.origin === "string" ? req.headers.origin.replace(/\/$/, "").toLowerCase() : "";
+  const referer = typeof req.headers.referer === "string" ? req.headers.referer : "";
+  const refererOrigin = requestOriginFrom(referer).replace(/\/$/, "").toLowerCase();
+  const landingOrigin = typeof body.landing === "string" ? requestOriginFrom(body.landing).replace(/\/$/, "").toLowerCase() : "";
+  const candidates = [origin, refererOrigin, landingOrigin].filter(Boolean);
+  const matchedOrigin = candidates.find((candidate) => BIOCOM_MARKETING_INTENT_ALLOWED_ORIGINS.has(candidate));
+  if (!matchedOrigin) {
+    return { ok: false as const, reason: "origin_not_allowed", detail: origin || refererOrigin || landingOrigin || "missing_origin" };
+  }
+
+  if (origin && !BIOCOM_MARKETING_INTENT_ALLOWED_ORIGINS.has(origin)) {
+    return { ok: false as const, reason: "origin_not_allowed", detail: origin };
+  }
+
+  const source = typeof body.source === "string" ? body.source.trim() : "";
+  const metadata = body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
+    ? body.metadata as Record<string, unknown>
+    : {};
+  const metadataSource = typeof metadata.source === "string" ? metadata.source.trim() : "";
+  const site = typeof body.site === "string"
+    ? body.site.trim()
+    : typeof metadata.site === "string"
+      ? metadata.site.trim()
+      : "biocom";
+  if (!MARKETING_INTENT_ALLOWED_SITES.has(site)) {
+    return { ok: false as const, reason: "site_not_allowed", detail: site };
+  }
+  if ((source && source !== "biocom_imweb") || (metadataSource && metadataSource !== "biocom_imweb")) {
+    return { ok: false as const, reason: "source_not_allowed", detail: source || metadataSource };
+  }
+  return { ok: true as const, matchedOrigin };
+};
+
+const hasStrictTikTokMarketingIntentEvidence = (entry: AttributionLedgerEntry) => {
+  const reasons = new Set<string>();
+  const addTikTokUtm = (label: string, value: string) => {
+    if (value.toLowerCase().includes("tiktok")) reasons.add(label);
+  };
+
+  if (entry.ttclid || metadataText(entry, "ttclid")) reasons.add("ttclid");
+  addTikTokUtm("utm_source_tiktok", entry.utmSource);
+  addTikTokUtm("utm_medium_tiktok", entry.utmMedium);
+  addTikTokUtm("utm_campaign_tiktok", entry.utmCampaign);
+  addTikTokUtm("utm_content_tiktok", entry.utmContent);
+  addTikTokUtm("utm_term_tiktok", entry.utmTerm);
+
+  const landing = parseUrlSafe(entry.landing);
+  if (landing) {
+    if (landing.searchParams.get("ttclid")) reasons.add("landing_ttclid");
+    for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
+      const value = landing.searchParams.get(key) ?? "";
+      if (value.toLowerCase().includes("tiktok")) reasons.add(`landing_${key}_tiktok`);
+    }
+  }
+
+  const referrer = parseUrlSafe(entry.referrer);
+  if (referrer && /(^|\.)tiktok\.com$/i.test(referrer.hostname)) reasons.add("referrer_tiktok");
+
+  return [...reasons].sort();
 };
 
 export type RemoteLedgerIdentityDiagnostics = {
@@ -1468,6 +1687,7 @@ const parseBody = (body: unknown): Record<string, unknown> => {
 const ORIGIN_SOURCE_MAP: Record<string, string> = {
   "https://biocom.kr": "biocom_imweb",
   "https://www.biocom.kr": "biocom_imweb",
+  "https://m.biocom.kr": "biocom_imweb",
   "https://biocom.imweb.me": "biocom_imweb",
   "https://thecleancoffee.com": "thecleancoffee_imweb",
   "https://www.thecleancoffee.com": "thecleancoffee_imweb",
@@ -1672,11 +1892,44 @@ export const createAttributionRouter = () => {
   router.post("/api/attribution/marketing-intent", async (req: Request, res: Response) => {
     try {
       const body = parseBody(req.body);
-      enforceOriginSourceMatch(req, body, "marketing_intent");
-      const entry = buildLedgerEntry("marketing_intent", body, buildRequestContext(req));
-      const tiktokMatchReasons = getAttributionTikTokMatchReasons(entry);
+      const rateLimitState = checkMarketingIntentRateLimit(req);
+      if (!rateLimitState.allowed) {
+        res
+          .status(429)
+          .setHeader("Retry-After", String(rateLimitState.retryAfterSeconds))
+          .json({ ok: false, error: "marketing_intent_rate_limited", retryAfterSeconds: rateLimitState.retryAfterSeconds });
+        return;
+      }
 
-      if (tiktokMatchReasons.length === 0) {
+      const piiKey = findMarketingIntentPiiKey(body);
+      if (piiKey) {
+        res.status(400).json({ ok: false, error: "marketing_intent_pii_rejected", piiKey });
+        return;
+      }
+
+      sanitizeMarketingIntentBody(body);
+      const biocomGuard = requireBiocomMarketingIntentRequest(req, body);
+      if (!biocomGuard.ok) {
+        res.status(403).json({
+          ok: false,
+          error: biocomGuard.reason,
+          detail: biocomGuard.detail,
+        });
+        return;
+      }
+
+      const originGuard = enforceOriginSourceMatch(req, body, "marketing_intent");
+      if (originGuard.status === "unknown_origin") {
+        body.source = "biocom_imweb";
+        if (body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)) {
+          (body.metadata as Record<string, unknown>).source = "biocom_imweb";
+        }
+      }
+
+      const entry = buildLedgerEntry("marketing_intent", body, buildRequestContext(req));
+      const strictTikTokReasons = hasStrictTikTokMarketingIntentEvidence(entry);
+
+      if (strictTikTokReasons.length === 0) {
         res.status(200).json({
           ok: true,
           receiver: "marketing_intent",
@@ -1705,7 +1958,9 @@ export const createAttributionRouter = () => {
           ...entry.metadata,
           intentChannel: "tiktok",
           intentLookbackDays: 7,
-          tiktokMatchReasons,
+          marketingIntentDedupe: getMarketingIntentDedupeFingerprint(entry),
+          tiktokMatchReasons: getAttributionTikTokMatchReasons(entry),
+          strictTikTokMarketingIntentReasons: strictTikTokReasons,
         },
       };
       const ledgerPath = await appendLedgerEntry(enrichedEntry);

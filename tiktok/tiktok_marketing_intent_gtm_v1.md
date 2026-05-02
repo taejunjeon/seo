@@ -1,11 +1,32 @@
 # TikTok Marketing Intent GTM v1
 
-작성 시각: 2026-05-02 19:10 KST
-상태: 검토 완료. 아임웹 헤더/푸터 대신 GTM으로 처리 가능.
+작성 시각: 2026-05-02 23:55 KST
+상태: Preview workspace/tag 생성 완료. Production publish 전.
 대상: TikTok ROAS gap 원인 중 “광고 클릭 후 재방문 구매가 내부 원장에 안 붙는 문제”
 저장 대상: TJ 관리 Attribution VM SQLite `CRM_LOCAL_DB_PATH#attribution_ledger`
 엔드포인트: `https://att.ainativeos.net/api/attribution/marketing-intent`
 자신감: 86%
+보강: GA cookie / `_ttp` 500ms~1500ms retry, dedupe key 우선순위 명시, server-side 재검증 전제.
+
+## 2026-05-02 실행 결과
+
+Production publish 없이 GTM API로 Preview용 workspace를 생성했다.
+
+| 항목 | 값 |
+|---|---|
+| container | `accounts/4703003246/containers/13158774` |
+| workspace | `codex_tiktok_marketing_intent_preview_20260502143924` |
+| workspace id | `151` |
+| tag | `SEO - TikTok Marketing Intent - v1 (Preview)` |
+| tag id | `259` |
+| trigger ids | `256`, `257`, `258` |
+| quick preview compile | `compilerError=false` |
+| live version | `139 / npay_intent_only_live_20260427` |
+| Production publish | 하지 않음 |
+
+주의: GTM API가 `oncePerPage` tag firing option을 받지 않아 tag 자체에는 firing option이 없다. 중복 방지는 Custom HTML 내부 `localStorage` dedupe와 backend `ttclid -> UTM -> referrer` dedupe가 담당한다.
+
+남은 확인은 TJ님 브라우저 Tag Assistant Preview에서 `tag fired -> Network 201 또는 duplicate 200 -> Attribution VM ledger row`를 보는 것이다.
 
 ## 결론
 
@@ -66,7 +87,10 @@ Custom HTML:
     measurementIds: ['G-WJFXN5E2Q1'],
     snippetVersion: '2026-05-02.tiktok-marketing-intent-gtm-v1',
     debugQueryKey: '__seo_attribution_debug',
-    dedupeKeyPrefix: '__seo_tiktok_marketing_intent_sent__:'
+    dedupeKeyPrefix: '__seo_tiktok_marketing_intent_sent__:',
+    cookieMinWaitMs: 500,
+    cookieMaxWaitMs: 1500,
+    cookieRetryMs: 250
   };
 
   function trim(value) {
@@ -159,11 +183,34 @@ Custom HTML:
   }
 
   function dedupeKey(tracking) {
+    if (tracking.ttclid) {
+      return CONFIG.dedupeKeyPrefix + 'ttclid|' + tracking.ttclid;
+    }
+
+    if (
+      tracking.utm_source ||
+      tracking.utm_medium ||
+      tracking.utm_campaign ||
+      tracking.utm_content ||
+      tracking.utm_term
+    ) {
+      return CONFIG.dedupeKeyPrefix + [
+        'utm',
+        tracking.utm_campaign || 'no_campaign',
+        tracking.utm_content || 'no_content',
+        location.pathname
+      ].join('|');
+    }
+
+    var referrerHost = 'no_referrer';
+    try {
+      referrerHost = new URL(tracking.referrer).host || referrerHost;
+    } catch (error) {}
     return CONFIG.dedupeKeyPrefix + [
-      tracking.ttclid || 'no_ttclid',
-      tracking.utm_campaign || 'no_campaign',
-      tracking.utm_content || 'no_content',
-      location.pathname
+      'referrer',
+      referrerHost,
+      location.pathname,
+      new Date().toISOString().slice(0, 10)
     ].join('|');
   }
 
@@ -184,6 +231,26 @@ Custom HTML:
     } catch (error) {}
   }
 
+  function waitForIdentifiers(callback) {
+    var startedAt = Date.now();
+
+    function tick() {
+      var ga = readGaIdentifiers();
+      var ttp = readCookie('_ttp');
+      var elapsed = Date.now() - startedAt;
+      var hasCore = Boolean(ga.clientId && ga.gaSessionId && ttp);
+
+      if (hasCore || elapsed >= CONFIG.cookieMaxWaitMs) {
+        callback({ ga: ga, ttp: ttp, waitedMs: elapsed });
+        return;
+      }
+
+      window.setTimeout(tick, elapsed < CONFIG.cookieMinWaitMs ? CONFIG.cookieMinWaitMs - elapsed : CONFIG.cookieRetryMs);
+    }
+
+    tick();
+  }
+
   var tracking = collectTracking();
   if (!hasTikTokEvidence(tracking)) {
     debugLog('skip: no TikTok evidence');
@@ -196,44 +263,49 @@ Custom HTML:
     return;
   }
 
-  var ga = readGaIdentifiers();
-  var payload = {
-    source: CONFIG.source,
-    landing: tracking.landing,
-    referrer: tracking.referrer,
-    gaSessionId: ga.gaSessionId,
-    utmSource: tracking.utm_source,
-    utmMedium: tracking.utm_medium,
-    utmCampaign: tracking.utm_campaign,
-    utmTerm: tracking.utm_term,
-    utmContent: tracking.utm_content,
-    ttclid: tracking.ttclid,
-    captureMode: 'live',
-    metadata: {
+  waitForIdentifiers(function (ids) {
+    var ga = ids.ga;
+    var payload = {
       source: CONFIG.source,
-      snippetVersion: CONFIG.snippetVersion,
-      intentChannel: 'tiktok',
-      intentLookbackDays: 7,
-      clientId: ga.clientId,
-      userPseudoId: ga.userPseudoId,
-      ttp: readCookie('_ttp'),
-      pageTitle: document.title || '',
-      capturedAt: new Date().toISOString()
-    }
-  };
+      site: 'biocom',
+      landing: tracking.landing,
+      referrer: tracking.referrer,
+      gaSessionId: ga.gaSessionId,
+      utmSource: tracking.utm_source,
+      utmMedium: tracking.utm_medium,
+      utmCampaign: tracking.utm_campaign,
+      utmTerm: tracking.utm_term,
+      utmContent: tracking.utm_content,
+      ttclid: tracking.ttclid,
+      captureMode: 'live',
+      metadata: {
+        source: CONFIG.source,
+        site: 'biocom',
+        snippetVersion: CONFIG.snippetVersion,
+        intentChannel: 'tiktok',
+        intentLookbackDays: 7,
+        clientId: ga.clientId,
+        userPseudoId: ga.userPseudoId,
+        ttp: ids.ttp,
+        cookieWaitedMs: ids.waitedMs,
+        pageTitle: document.title || '',
+        capturedAt: new Date().toISOString()
+      }
+    };
 
-  fetch(CONFIG.endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    credentials: 'omit',
-    mode: 'cors',
-    keepalive: true
-  }).then(function (response) {
-    if (response.ok) markSent(key);
-    debugLog('sent', response.status, payload);
-  }).catch(function (error) {
-    debugLog('send failed', error && error.message ? error.message : error);
+    fetch(CONFIG.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'omit',
+      mode: 'cors',
+      keepalive: true
+    }).then(function (response) {
+      if (response.ok) markSent(key);
+      debugLog('sent', response.status, payload);
+    }).catch(function (error) {
+      debugLog('send failed', error && error.message ? error.message : error);
+    });
   });
 })();
 </script>
@@ -241,15 +313,17 @@ Custom HTML:
 
 ### 2. Trigger
 
-Trigger type: `Initialization - All Pages`
+Preview workspace 생성본의 Trigger type: `Page View`
+
+초기 설계는 `Initialization`이었지만 GTM API 생성본은 안정적으로 지원되는 `Page View` trigger 3개로 만들었다. cookie 지연은 Custom HTML 내부 500ms~1500ms retry가 담당한다.
 
 아래 조건은 OR가 필요하므로 트리거를 3개 만들고 같은 tag에 모두 붙인다.
 
 | Trigger name | 조건 |
 |---|---|
-| `SEO - TikTok Intent - ttclid` | `Page URL` contains `ttclid=` |
-| `SEO - TikTok Intent - UTM` | `Page URL` matches RegEx `utm_(source|medium|campaign|content|term)=[^&#]*tiktok` |
-| `SEO - TikTok Intent - Referrer` | `Referrer` contains `tiktok.com` |
+| `SEO - TikTok Intent - ttclid (Preview)` | `Page URL` contains `ttclid=` |
+| `SEO - TikTok Intent - UTM (Preview)` | `Page URL` matches RegEx `utm_(source|medium|campaign|content|term)=[^&#]*tiktok` |
+| `SEO - TikTok Intent - Referrer (Preview)` | `Referrer` contains `tiktok.com` |
 
 Tag firing options:
 
@@ -280,6 +354,8 @@ https://biocom.kr/?utm_source=tiktok&utm_medium=paid&utm_campaign=codex_gtm_test
 | VTA는 여전히 안 잡힘 | 조회 후 클릭 없이 구매한 VTA는 URL/Referrer 증거가 없다 | TikTok platform-only assisted로 분리한다 |
 | backend 없이는 무의미 | GTM은 보내기만 하고 7일 매칭은 못 한다 | VM receiver 배포가 선행 조건 |
 | Purchase Guard 대체 불가 | Guard는 TikTok Pixel보다 먼저 실행되어야 한다 | Guard는 아임웹 헤더 유지 |
+| cookie 지연 | Initialization 시점에 GA cookie 또는 `_ttp`가 늦을 수 있다 | 500ms~1500ms retry 후 전송 |
+| GTM 조건 우회 | 브라우저 payload는 조작될 수 있다 | receiver에서 site/origin/TikTok 근거/PII/rate limit 재검증 |
 
 ## 판단
 

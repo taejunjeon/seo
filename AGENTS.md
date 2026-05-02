@@ -37,6 +37,7 @@
 - 원칙: 탐색 우선 → 점진 개발 → 즉시 검증 → 컨텍스트/결정 문서화 → 데이터 정확성 1순위.
 - 사전 승인 필요: DB 스키마 변경, 프로덕션 데이터 변경, 대규모 리팩토링(10파일+), 보안/배포 변경.
 - 기본 허용: 코드/문서 열람, 로컬 서버/테스트/로그 확인, 안전한 스크립트 실행.
+- 승인 요청용 문서 작성은 사전 승인 없이 진행 가능하며, 승인이 필요한 것은 문서에 적힌 배포/write/publish/send 실행이다.
 - 안전 규칙: 수정 전 백업, 한 번에 하나의 파일, 변경 후 테스트, 문제 시 즉시 롤백.
 - 완료/에러/마일스톤 시 별도 알림 발송은 기본 생략. 서버 상태·접속 경로·검증 결과는 대화 내 최종 보고에만 포함.
 - 서버 점검 단축키: `lsof -i :포트`, `ps aux | grep <proc>`, `curl http://localhost:<port>`.
@@ -44,6 +45,9 @@
 - 데이터 정합성 작업: 운영 DB, 로컬 DB, VM DB, 외부 API 중 하나를 단일 정답으로 보지 말고 질문별 primary/cross-check/fallback을 정하시오. 모든 숫자는 source, 기준 시각, window, site, freshness, confidence를 같이 기록하시오.
 - 백필/보정 작업: 로컬 DB 쓰기는 백업 → dry-run → apply → 중복/금액/잔여 미조인 검증 → `data/!datacheckplan.md` 업데이트 순서로 진행하시오. 프로덕션 DB 쓰기나 스키마 변경은 사전 승인 없이는 하지 마시오.
 - 문서/로드맵/결과보고서 작성·수정 시 루트 `docurule.md`를 먼저 참고하시오.
+- 텍스트 결과보고/최종답변 양식은 `docs/report/text-report-template.md`를 따르시오.
+- Growth Data/Tracking/Attribution/ROAS 작업 시작 전 `harness/common/HARNESS_GUIDELINES.md`, `harness/common/AUTONOMY_POLICY.md`, `harness/common/REPORTING_TEMPLATE.md`를 읽고 Green/Yellow/Red Lane을 먼저 분류하시오.
+- Green Lane은 문서, read-only, dry-run, runbook, monitoring script, test, audit, scoped commit/push 범위이며 확인 요청 없이 진행하시오. Yellow Lane은 스프린트 단위 1회 승인 후 cleanup/report까지 자율 진행하고, Red Lane은 GTM Production publish, permanent env ON, platform send, production DB write/import, auto dispatcher 등으로 반드시 멈추시오.
 - 보고서형 프론트엔드 구현·수정 시 루트 `frontrule.md`를 먼저 참고하시오.
 - GA4/NPay/ROAS/TikTok/BigQuery/운영 DB 정합성 작업 시 `docs/agent-harness/growth-data-harness-v0.md`와 `harness/npay-recovery/README.md`를 먼저 참고하시오.
 - NPay recovery 또는 전환 복구 작업에서는 `harness/npay-recovery/RULES.md`, `VERIFY.md`, `APPROVAL_GATES.md`, `AUDITOR_CHECKLIST.md`를 기준으로 no-send/no-write/no-deploy를 확인하시오.

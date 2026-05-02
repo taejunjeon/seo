@@ -1,10 +1,22 @@
 # TikTok GTM 계획과 설계 의도
 
-작성 시각: 2026-05-02 20:56 KST
-상태: 설계 초안 완료. 운영 publish 전.
+작성 시각: 2026-05-02 23:55 KST
+상태: 설계 초안 완료, Preview workspace/tag 생성 완료, 운영 publish 전.
 대상: Biocom TikTok ROAS 정합성 개선
 핵심 제안: **TikTok 클릭 intent 수집만 GTM으로 추가한다.**
 자신감: **86%**
+
+## 2026-05-02 진행 결과
+
+| 항목 | 결과 |
+|---|---|
+| TJ 관리 Attribution VM receiver | 배포 및 VM smoke 완료 |
+| GTM Preview workspace | `codex_tiktok_marketing_intent_preview_20260502143924` 생성 |
+| GTM tag | `SEO - TikTok Marketing Intent - v1 (Preview)` 생성 |
+| GTM triggers | `ttclid`, TikTok UTM, TikTok referrer Page View trigger 3개 생성 |
+| GTM compile | `quick_preview` 기준 `compilerError=false` |
+| Production publish | 하지 않음 |
+| 남은 확인 | TJ님 브라우저 Tag Assistant Preview에서 fired/Network/ledger row 확인 |
 
 ## 10초 요약
 
@@ -119,6 +131,7 @@ Custom HTML
 - Referrer가 `tiktok.com`인지 확인
 - GA cookie에서 `clientId`, `gaSessionId` 읽기
 - `_ttp` cookie 읽기
+- GA cookie와 `_ttp`가 늦게 생기는 경우를 대비해 500ms~1500ms retry
 - TJ 관리 Attribution VM endpoint로 POST
 - 24시간 localStorage dedupe 적용
 
@@ -145,7 +158,15 @@ Once per page
 추가 중복 방지:
 
 ```text
-localStorage key = __seo_tiktok_marketing_intent_sent__:{ttclid|campaign|content|path}
+ttclid 있으면:
+  localStorage key = __seo_tiktok_marketing_intent_sent__:ttclid|{ttclid}
+
+ttclid 없고 UTM 있으면:
+  localStorage key = __seo_tiktok_marketing_intent_sent__:utm|{utm_campaign}|{utm_content}|{path}
+
+referrer만 있으면:
+  localStorage key = __seo_tiktok_marketing_intent_sent__:referrer|{referrer_host}|{path}|{date}
+
 TTL = 24시간
 ```
 
@@ -154,12 +175,20 @@ TTL = 24시간
 이미 로컬 구현한 내용:
 
 - `POST /api/attribution/marketing-intent`
-- TikTok 근거가 없으면 저장하지 않고 skip
+- 서버에서도 TikTok 근거를 다시 검증한다
+- `ttclid`, TikTok UTM, TikTok referrer 중 하나도 없으면 저장하지 않고 skip
+- site는 `biocom`만 허용한다
+- Origin/Referer allowlist는 `biocom.kr`, `www.biocom.kr`, `m.biocom.kr`, `biocom.imweb.me`만 허용한다
+- IP 기준 60초 60건 rate limit을 적용한다
+- email/phone/name/address 계열 PII key 또는 email 값이 있으면 reject한다
+- landing/referrer URL은 `ttclid`, UTM query만 보존한다
 - 같은 intent는 24시간 중복 저장 방지
 - 저장 시 `touchpoint=marketing_intent`
 - `metadata.intentChannel=tiktok`
 - `metadata.intentLookbackDays=7`
+- `metadata.marketingIntentDedupe` 저장
 - `metadata.tiktokMatchReasons` 저장
+- `metadata.strictTikTokMarketingIntentReasons` 저장
 - 이후 `payment_success`가 들어오면 7일 이내 `marketing_intent`를 firstTouch 후보로 연결
 
 중요한 정책:
@@ -183,6 +212,10 @@ View-through 1일은 내부에서 직접 관측할 수 없다. 따라서 VTA는 
 목표:
 
 TJ 관리 Attribution VM이 `marketing_intent`를 받을 수 있어야 한다.
+
+Readiness 문서:
+
+- `tiktok/tiktok_marketing_intent_receiver_readiness.md`
 
 검증:
 
