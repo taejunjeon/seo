@@ -193,16 +193,43 @@ npx tsx scripts/coffee-npay-intent-monitoring-report.ts \
 - D-2 dispatcher_fetch_failed — chrome devtools sessionStorage 또는 별도 logging endpoint
 - D-3 retry_success — 동일
 
-## 8. 운영 cron (미등록, 추후)
+## 8. 운영 cron — 등록됨 (2026-05-02 KST, sprint 21 진입 시점)
 
-publish 직후부터 cron 등록 권장 (단, 본 commit 시점에 미등록):
+VM `biocomkr_sns` 의 crontab 에 등록 완료:
 
 ```cron
-# 매일 KST 09:00 — 5일 default 모니터링
-0 9 * * * cd /Users/vibetj/coding/seo/backend && npx tsx scripts/coffee-npay-intent-monitoring-report.ts --output /Users/vibetj/coding/seo/data/coffee-monitoring/$(date +\%Y\%m\%d).yaml >> /tmp/coffee-monitoring.log 2>&1
+@reboot /bin/bash -lc 'source /home/biocomkr_sns/seo/env.sh && /home/biocomkr_sns/seo/node/bin/pm2 resurrect'
+
+# A-4 publish (sprint 20) 후 5일 default monitoring — 매일 KST 09:00
+0 9 * * * /home/biocomkr_sns/seo/coffee-monitoring/run.sh >> /home/biocomkr_sns/seo/coffee-monitoring/cron.log 2>&1
 ```
 
-본 cron 등록은 A-4 publish + 5일 default 모니터링 진입 결정 시 별도 sprint.
+`/home/biocomkr_sns/seo/coffee-monitoring/run.sh` 본문:
+
+```sh
+#!/bin/bash
+# A-4 publish 후 5일 default monitoring (sprint 20) — 매일 KST 09:00 cron
+set -euo pipefail
+export PATH=/home/biocomkr_sns/seo/node/bin:$PATH
+cd /home/biocomkr_sns/seo/repo/backend
+DAY=$(date +%Y%m%d)
+exec /home/biocomkr_sns/seo/node/bin/npx tsx scripts/coffee-npay-intent-monitoring-report.ts \
+  --endpoint https://att.ainativeos.net \
+  --publish-ts "2026-05-02 16:00" \
+  --output "/home/biocomkr_sns/seo/coffee-monitoring/${DAY}.yaml"
+```
+
+출력: `/home/biocomkr_sns/seo/coffee-monitoring/{YYYYMMDD}.yaml` (매일 갱신).
+로그: `/home/biocomkr_sns/seo/coffee-monitoring/cron.log`.
+
+첫 manual 실행 검증 PASS (2026-05-02 16:50 KST):
+- exit 0
+- yaml 2842 bytes
+- verdict `closure-ready (auto-evaluated)`
+- EG-3 enforce_deduped_ratio_le_5 / EG-4 payment_button_type / EG-5/6 origin/rate_limit/preview_only/is_simulation/pii — 모두 PASS
+- EG-1 imweb_order_code_coverage_ge_95 = `n/a (no real rows)` — admin token 없는 read-only 라 ledger items 0 (운영 traffic 들어오면 채워짐)
+
+다음 cron 발화: 매일 KST 09:00. 5일 default = 2026-05-03 ~ 2026-05-07.
 
 ## 9. 가드
 
