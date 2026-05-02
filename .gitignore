@@ -41,3 +41,16 @@ gtmaudit/*result*.json
 
 # Contains copied secret values; keep local only.
 naver/npayfeedbackreply.md
+
+# Coffee Playwright preview 격리 디렉토리의 backend node_modules symlink (sprint 19.3)
+harness/coffee-data/preview-playwright/node_modules
+
+# GPT review / outline 자료 (운영 코드는 backend/data 에 commit, GPT 자료는 reference 만)
+amplitude/
+gpt0502/
+harness/0501gpt/
+
+# 임시 screenshot (운영 결정 evidence 는 docs 안 결과 표/yaml 으로 보존)
+*.jpg
+*.jpeg
+*.png
