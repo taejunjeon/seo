@@ -883,3 +883,110 @@ dispatcher v2.1 HTML 코드 자체 review (이 runbook 의 v2.1 재검증 섹션
 |---|---|
 | 19.3 | dispatcher v2.1 chrome 측 재검증 — TJ 가 chrome 진행 시점에. workspace 21 또는 신규 workspace 사용 가능 |
 | 20 | A-4 GTM Production publish 결정 — sprint 19.3 PASS 후만 추천 |
+
+---
+
+## A-3 v2.1 자동 PASS — playwright (2026-05-02 12:38 KST)
+
+Yellow Lane sprint 19.3 — TJ 가 chrome 손 부담 없이 playwright + monkey-patch + mock funnel-capi key 조합으로 자동 검증. **dispatcher v2.1 의 O1/O2/O3 모두 PASS**. 추가로 backend list endpoint 의 payment_button_type NULL 매핑 bug 발견 (별도 sprint).
+
+### 환경
+
+| 항목 | 값 |
+|---|---|
+| playwright + chromium 1217 | `/Users/vibetj/Library/Caches/ms-playwright/` (이미 설치) |
+| 격리 디렉토리 | `harness/coffee-data/preview-playwright/` |
+| 시나리오 script | `a3v21_smoke.mjs` (260줄) |
+| backend smoke window | id=3, max 5, KST 13:03 만료 |
+| GTM Preview workspace | **사용 안 함** — playwright 가 dispatcher v2.1 코드 직접 inject |
+
+### 시나리오 흐름
+
+1. chromium headless launch
+2. `https://thecleancoffee.com/shop_view/?idx=73` 진입
+3. site 의 `confirmOrderWithCartItems` / `window.confirmOrderWithCartItems` 를 noop 로 replace (NPay 결제 redirect 차단)
+4. snippet IIFE inject (`page.addScriptTag({content})`)
+5. dispatcher v2.1 IIFE inject
+6. `SITE_SHOP_DETAIL.confirmOrderWithCartItems("npay", null, {})` 호출 → snippet wrap 발화 → buffer push
+7. mock funnel-capi key set: `funnelCapi::sent::InitiateCheckout.o20260502abcdef1234567890.aabbccdd*` (hex order_code 필수)
+8. snippet retry capture (200/800/1500/2400ms tick) 가 mock key 발견 → buffer entry 의 imweb_order_code 갱신
+9. dispatcher v2.1 sweep (1초) 가 채워진 entry forward → backend INSERT
+10. sessionStorage / network / backend stats 캡처
+
+### 자동 검증 결과 (12 성공 기준)
+
+| # | 기준 | v2.1 결과 |
+|---|---|---|
+| 1 | dispatcher 가 페이지에 install | ✅ snippet status `siteConfirmWrapped: true`, dispatcher inject 후 `__coffeeNpayIntentDispatcherInstalled: true` |
+| 2 | NPay click buffer 생성 | ✅ buffer_count 0 → 1 → 2 → 3 |
+| 3 | dispatcher fetch POST 성공 | ✅ status 201 (inserted_id 11, 12), 외부 도메인 통과 |
+| 4 | backend insert 1-2건 정상 | ✅ enforce_inserted 0 → 3 (Sim 1 + Scenario B + Scenario C) |
+| 5 | imweb_order_code capture rate 100% in test | ✅ Scenario B 의 row (id=11) 에 mock hex order_code `o20260502fedcba9999888877` 정상 저장. Scenario C 의 직접 push (id=10, 12) 도 채워진 채 INSERT |
+| 6 | enforce_deduped ratio ≤5% | ✅ **enforce_deduped: 0** (3 INSERT 대비). v2 의 50% race → v2.1 의 0% |
+| 7 | payment_button_type null = 0 | ⚠️ **fetch payload + ledger_row_preview 응답에는 npay**. 단 list endpoint 응답에서 NULL — backend 매핑 bug 발견 (별도 sprint, lesson coffee-lesson-012) |
+| 8 | pii_rejected = 0 | ✅ 0 |
+| 9 | invalid_payload = 0 | ✅ 0 |
+| 10 | endpoint_5xx = 0 | ✅ 0 (관찰 응답 status 모두 201) |
+| 11 | rejected_origin / rate_limited 비정상 증가 없음 | ✅ 둘 다 0 |
+| 12 | 종료 후 enforce/token/window_active 모두 false | ✅ Cleanup 완료 |
+
+### O1/O2/O3 실측
+
+**O1 in-flight Set / race condition** — ✅ PASS
+
+- v2 (sprint 19): enforce_deduped 50% (3 INSERT, 3 dedup)
+- v2.1 (sprint 19.3): enforce_deduped **0%** (3 INSERT, 0 dedup)
+- in-memory `inflight` Set 가 같은 UUID 의 중복 fetch 차단 검증
+
+**O2 imweb_order_code wait/block flow** — ✅ PASS
+
+- Scenario A (1차, mock 안 set): buffer entry 의 imweb_order_code 영원히 null → dispatcher 가 3초 wait 후 timeout → `markSent("blocked_missing_imweb_order_code")` 마커 → fetch 안 함, ledger 안 들어감
+- 즉 publish 시점에 imweb_order_code 못 잡는 click 은 자동 block — ledger 의 deterministic join 키 신뢰성 보장
+
+**O2 imweb_order_code wait/forward flow** — ✅ PASS
+
+- Scenario B (2차, hex mock set): click → snippet retry capture 가 mock funnel-capi key 발견 → buffer entry 의 imweb_order_code 갱신 → dispatcher 가 다음 sweep 에서 채워진 entry 발견 → fetch 201
+- inserted_id=11, ledger 의 imweb_order_code = `o20260502fedcba9999888877` (mock 그대로 저장)
+
+**O3 payment_button_type fallback** — ✅ logic PASS / ⚠️ ledger 측 매핑 bug
+
+- Scenario C (직접 buffer push, payment_button_type 누락, intent_phase=confirm_to_pay)
+- dispatcher attemptDispatch: `if (!p.payment_button_type && p.intent_phase === "confirm_to_pay") p.payment_button_type = "npay";` 발동
+- fetch payload 에 payment_button_type=npay 들어감 → backend 응답의 ledger_row_preview 에 npay 표시
+- **단** ledger list endpoint 의 row JSON 변환에서 NULL 로 나옴 — backend bug (별도 sprint)
+
+### 새 발견 — backend list endpoint 의 payment_button_type 매핑
+
+| 시점 | 응답 | 컬럼값 |
+|---|---|---|
+| enforce POST 응답의 `ledger_row_preview` | npay 정상 |
+| `GET /api/attribution/coffee-npay-intents` 의 items[N].payment_button_type | **NULL** (sprint 19 의 site dispatcher row id=3/6 + sprint 19.3 의 id=10/11/12 모두) |
+
+backend code 의 schema (line 308) / preview 변환 (line 546) / INSERT SQL (762-772) 은 정상. **list endpoint 의 row → JSON 변환 함수 점검 필요** (line 823 부근). publish 전 fix 필수.
+
+→ lesson coffee-lesson-012 등록. 별도 sprint 19.4 또는 backend bugfix 직접 진행.
+
+### Cleanup 결과
+
+| Step | 결과 |
+|---|---|
+| C1 smoke window 3 close | closed_count=1 |
+| C2.a VM .env wc 205 → 201 | COFFEE_NPAY_INTENT 잔존 0 |
+| C2.b pm2 restart | pid 228342 → 228553, restart 40 → 41 |
+| C3 stats | enforce/token/window 모두 false, total_rows=8 보존 (sprint 19 의 5 + 19.3 의 3 INSERT) |
+| GTM 측 변경 | 0 (workspace 21 sandbox 는 sprint 19.2 cleanup 시점에 TJ delete 완료, sprint 19.3 는 GTM 사용 안 함) |
+
+### 새 sprint 19.4 (별도, dispatcher 검증 외)
+
+- backend `coffee-npay-intents` list endpoint 의 payment_button_type → JSON 변환 매핑 fix
+- 영향: ledger 조회 응답 + monitoring report 의 EG-4 정상화
+- backend code 변경 + VM 재배포 필요 (sprint 16/17 패턴 재사용)
+- A-4 publish 의 §6 체크리스트 C-4 가 통과되려면 본 fix 필수
+
+### A-4 publish 추천 여부 갱신
+
+- dispatcher v2.1 logic: **PASS** (O1/O2/O3 모두 자동 검증)
+- backend list endpoint payment_button_type bug: **NOT YET** — 별도 sprint 19.4 필요
+- 따라서 **현 시점 보류 유지** — sprint 19.4 PASS 후 추천 가능
+
+자동화 인프라 ([[harness/coffee-data/preview-playwright/a3v21_smoke.mjs]]) 는 향후 dispatcher v2.x / v3 등 신규 version 검증에 재사용. ROI 우수.

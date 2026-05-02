@@ -1,0 +1,7 @@
+{
+  "name": "coffee-data-preview-playwright",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Coffee dispatcher v2.x preview-only playwright smoke (격리)"
+}
