@@ -1,8 +1,8 @@
 # AIBIO 아임웹 탈출 및 자체 홈페이지/예약 결제 개발 검토
 
 작성 시각: 2026-04-26 23:55 KST
-최근 업데이트: 2026-04-28 23:43 KST (바이오컴 SEO/canonical 제약과 아임웹 탈출 우선순위 판단 메모 추가)
-기준일: 2026-04-28
+최근 업데이트: 2026-05-02 19:08 KST (AIBIO 컨택 관리 대시보드에 CRM 고객/예약/방문/사용/결제 read-only 조인 추가)
+기준일: 2026-05-02
 대상 사이트: AIBIO 센터 우선
 보류 사이트: 바이오컴은 2026-04-28 SEO/canonical 제약 메모만 추가, 더클린커피는 추후 별도 검토
 작성 목적: AIBIO 센터 홈페이지를 아임웹에서 단계적으로 탈출시키기 위해, 현재 확인 가능한 기능 인벤토리와 자체 개발 범위, PG사 토스페이먼츠 직접 연동 가능성, NestJS 기반 통합 백엔드 전략을 검토한다.
@@ -15,7 +15,7 @@
 |---:|---|---|---|
 | 1 | Codex | 완료: 첫 실험 랜딩을 자체 route로 만든다 | 무엇: `/shop_view?idx=25` 성격의 이벤트/체험권 랜딩을 Next.js route로 만들었다. 왜: 전체 홈페이지를 한 번에 옮기지 않고 고유입 랜딩 1개에서 리드 원장을 검증하기 위해서다. 어떻게: `frontend/src/app/shop_view/page.tsx`, `RecoveryLabOfferLanding.tsx`, 공용 `AibioNativeLeadForm.tsx`를 추가했다. 산출물/검증: PC·모바일 screenshot, Playwright 통과, local backend 저장 smoke 통과. |
 | 2 | Codex | 완료: 운영자 고객/리드 리스트를 실제 API에 연결한다 | 무엇: `/aibio-native/admin`에서 자체 리드, 유입, 상태, 담당자, 메모, 예약일, 방문일을 본다. 왜: 상담원이 실제로 쓸 수 있어야 아임웹 탈출 검토가 가능하기 때문이다. 어떻게: `GET /api/aibio/native-leads`, funnel, fallback comparison API를 연결했다. 산출물/검증: Playwright payload 검증, local PATCH smoke 통과. |
-| 2.1 | Codex + Claude Code | 신규: 접수 폼 컨택 관리 대시보드 설계를 구현한다 | 무엇: 상담원이 고객에게 컨택했는지, 고객 반응이 어땠는지, 다음 액션이 무엇인지 기록하는 운영 화면을 만든다. 왜: 상태와 메모만으로는 실제 상담 처리 품질과 광고 리드 품질을 판단할 수 없기 때문이다. 어떻게: `imweb/contactdashboard.md`를 정본으로 두고 백엔드는 컨택 이벤트 불변 로그/API/감사로그를 설계하며, 프론트는 Claude Code가 리스트+상세 패널+타임라인으로 구현한다. 산출물/검증: 컨택 기록 저장, 고객 반응 저장, 원문 연락처 조회 audit, 첫 컨택률/예약률 리포트. |
+| 2.1 | Codex + Claude Code | 진행: 접수 폼 컨택 관리 대시보드와 CRM 연결을 구현한다 | 무엇: 상담원이 고객에게 컨택했는지, 고객 반응이 어땠는지, 다음 액션이 무엇인지 기록하고, 같은 phone hash의 CRM 고객/예약/방문/사용/결제 요약을 본다. 왜: 상태와 메모만으로는 실제 상담 처리 품질과 광고 리드 품질을 판단할 수 없기 때문이다. 어떻게: `imweb/contactdashboard.md`를 정본으로 두고 백엔드는 컨택 이벤트 불변 로그/API/감사로그와 CRM read-only 조인을 제공하며, 프론트는 리스트+상세 패널+타임라인+CRM 연결 요약으로 구현했다. 산출물/검증: 컨택 기록 저장, 고객 반응 저장, 원문 연락처 조회 audit, CRM 매칭 요약, 첫 컨택률/예약률 리포트. 실제 운영 리드 매칭 표본 검증은 다음 단계. |
 | 3 | Codex | 완료: 상세페이지 편집 관리자 초안을 만든다 | 무엇: `/aibio-native/admin/content`에서 첫 실험 랜딩의 히어로 문구, CTA, 이미지 URL/업로드, 카드, 흐름, 폼 문구를 수정한다. 왜: 개발자나 디자이너가 코드 수정 없이 이미지와 상세페이지 내용을 바꿀 수 있어야 하기 때문이다. 어떻게: DB 스키마 변경 없이 `backend/data/aibio-native-content.json` 파일 저장 API를 만들었다. 산출물/검증: content GET/PATCH API, 이미지 업로드 API, Playwright 저장 테스트. |
 | 4 | Codex | 완료: 입력폼 엑셀 분석 관리자 초안을 만든다 | 무엇: `/aibio-native/admin/forms`에서 아임웹 입력폼 엑셀을 업로드하면 행수, 컬럼, 동의, 중복 연락처 hash, 상담 목적/경로/유형 집계를 본다. 왜: 30일 병행 전 기존 입력폼 구조를 자체 원장 필드에 맞춰야 하기 때문이다. 어떻게: `POST /api/aibio/admin/form-export/analyze`가 원문 PII를 반환하지 않고 집계만 반환한다. 산출물/검증: `imweb/aibio-form-export-analysis-20260426.md`, Playwright 업로드 테스트. |
 | 5 | Codex | 완료: 관리자 권한 명부 초안을 만든다 | 무엇: `/aibio-native/admin/access`에서 owner/manager/marketer/designer/viewer 역할과 운영자 명부를 지정한다. 왜: 새 AIBIO 센터 홈페이지에는 고객 목록, 원문 연락처, 상세페이지 편집 권한을 분리해야 하기 때문이다. 어떻게: 정식 로그인 전 단계로 `AIBIO_NATIVE_ADMIN_TOKEN` 보호 + 파일 기반 operator 명부를 구현했다. 산출물/검증: access GET/PUT API와 권한 기준표 화면. |
@@ -645,6 +645,7 @@ Phase3가 가장 파급력이 크다. 홈페이지 전체를 먼저 완성하는
 8. [Claude Code] 모바일 고정 CTA와 폼 화면 구성을 리뷰한다 — 무엇: 모바일 하단 CTA, 전화번호 입력, 개인정보 동의, 에러/성공 문구를 점검한다. 왜: 광고 유입 사용자가 모바일에서 폼을 끝까지 제출해야 리드 원장이 쌓인다. 어떻게: `/aibio-native`와 첫 실험 랜딩 screenshot을 기준으로 UX 문제를 표시한다. 산출물: UX 수정 제안과 우선순위. 검증: CTA는 첫 화면 또는 고정 영역에서 보이고 입력 오류는 사용자가 이해할 수 있어야 한다. 의존성: 병렬가능.
 9. [Codex] `/shop_view?idx=25` 성격의 고유입 랜딩 1개를 팀 리뷰 이후 자체 폼으로 병행 운영한다 — 무엇: 첫 실험 랜딩의 CTA가 자체 native lead API로 저장되게 하되, 30일 병행 운영 시작은 기능 리뷰 후로 미룬다. 왜: 상담원과 운영팀이 사용법을 모르는 상태에서 병행 지표를 시작하면 상태 입력률과 누락률 판단이 왜곡되기 때문이다. 어떻게: 2~3일 뒤 팀 리뷰에서 `/admin`, `/forms`, `/content`, `/access`를 설명하고 수정 요청을 반영한 뒤 시작일을 정한다. 산출물: 자체 랜딩 1개와 병행 리포트. 검증: 30일간 정상 저장률 99% 이상, 누락률 3% 이하를 본다. 의존성: 팀 리뷰/운영 배포 승인.
 9. [x] [Codex] 자체 관리자 token 방식을 구현한다 — 무엇: `AIBIO_NATIVE_ADMIN_TOKEN`을 우리 자체 AIBIO 관리자 API의 보호 토큰으로 쓴다. 왜: 상태 변경과 원문 연락처 조회는 개인정보와 운영 데이터 변경이라 공개 API처럼 열면 안 되기 때문이다. 어떻게: 백엔드는 서버 secret의 token과 `x-admin-token` 헤더를 비교하고, admin 화면은 브라우저 sessionStorage에만 토큰을 저장해 PATCH 때 헤더로 보낸다. 산출물: `.env.example` 안내, admin token UI, Playwright header 검증. 검증: token 없는 운영 환경에서는 403, token 입력 후 status PATCH header 포함.
+10. [x] [Codex] 컨택 대시보드에 CRM read-only 조인을 붙였다 — 무엇: `customer_phone_hash`를 기준으로 AIBIO CRM customer_id, 예약, 방문, 서비스 사용, 결제 요약을 붙인다. 왜: 광고 리드가 실제 센터 고객/방문/매출로 이어지는지 같은 화면에서 봐야 캠페인 증액/중단 판단이 가능하기 때문이다. 어떻게: `backend/src/aibioCrmJourney.ts`에서 AIBIO Supabase REST 또는 local SQLite cache를 읽고, `/api/aibio/contact-dashboard/summary`, `/leads`, `/leads/:leadId` 응답에 `crm` 블록을 추가했다. 산출물: CRM 매칭 요약 API와 프론트 표시. 검증: backend typecheck/build, frontend typecheck/lint/build, API smoke 통과. 현재 로컬 smoke 리드는 CRM 매칭 0건으로 정상.
 
 **다음 Phase에 주는 가치**: 방문/결제 전환 품질을 광고비와 연결할 수 있다.
 
