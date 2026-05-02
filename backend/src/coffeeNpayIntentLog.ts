@@ -1008,7 +1008,10 @@ export function listCoffeeNpayIntents(opts: {
       `SELECT id, site, intent_uuid, source_version, intent_phase, session_uuid,
               intent_seq, ts_ms_kst, captured_at_kst, prod_code, prod_price,
               selected_quantity, estimated_item_total, imweb_order_code,
-              ga4_synthetic_transaction_id, funnel_capi_session_id, page_path,
+              imweb_order_code_capture_delay_ms,
+              ga4_synthetic_transaction_id,
+              ga4_synthetic_transaction_id_capture_delay_ms,
+              funnel_capi_session_id, payment_button_type, page_path,
               preview_only, is_simulation, inserted_at
        FROM ${TABLE}
        ${where}

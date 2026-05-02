@@ -990,3 +990,99 @@ backend code 의 schema (line 308) / preview 변환 (line 546) / INSERT SQL (762
 - 따라서 **현 시점 보류 유지** — sprint 19.4 PASS 후 추천 가능
 
 자동화 인프라 ([[harness/coffee-data/preview-playwright/a3v21_smoke.mjs]]) 는 향후 dispatcher v2.x / v3 등 신규 version 검증에 재사용. ROI 우수.
+
+---
+
+## A-3 v2.1 12/12 PASS — sprint 19.4 (backend bug fix + 재검증, 2026-05-02 KST)
+
+Yellow Lane sprint 19.4. backend list endpoint `payment_button_type` NULL 매핑 bug fix + VM 재배포 + Playwright 재검증 자율 진행.
+
+### Bug 원인
+
+backend `coffeeNpayIntentLog.ts` 의 `listCoffeeNpayIntents` (line 988-1020) 의 SELECT 구문에 `payment_button_type` 컬럼이 누락. INSERT (line 762-772) 는 정상 채움. 즉 ledger 에는 정상 저장됐으나 list endpoint 응답에서만 보이지 않았음.
+
+### Fix (1 file, 1 SELECT 구문)
+
+`backend/src/coffeeNpayIntentLog.ts` line 1008-1019 SELECT 구문에 컬럼 3개 추가:
+- `payment_button_type` (핵심 fix)
+- `imweb_order_code_capture_delay_ms` (보너스 — IntentRow 에 정의돼 있던 컬럼)
+- `ga4_synthetic_transaction_id_capture_delay_ms` (동일)
+
+데이터 손실 0 — INSERT 는 처음부터 정상이었음.
+
+### Deploy
+
+| Step | 결과 |
+|---|---|
+| VM SQLite 백업 | `~/seo/backups/crm.sqlite3.20260502-060358.before-19_4-payment_button_type-fix` (151MB) |
+| 로컬 tsc | exit 0 |
+| rsync deploy | created 1 (monitoring script — sprint 19 누락분 동기화) + transferred 1 (coffeeNpayIntentLog.ts) + deleted 0 |
+| VM npm ci + typecheck + build | exit 0 |
+| pm2 restart | 41 → 42, pid 232184 |
+
+### 즉시 검증 — 기존 row 의 payment_button_type 노출
+
+| id | 이전 응답 | 수정 후 응답 |
+|---|---|---|
+| 12, 11, 10 (sprint 19.3 신규) | None | **npay** ✅ |
+| 9 (Sim 3 의도된 누락) | None | '' (빈 문자열, 의도) |
+| 7 (Sim 1) | None | **npay** ✅ |
+| 6, 3 (sprint 19 site dispatcher) | None | **npay** ✅ |
+| 1 (sprint 19 codex sim) | None | **npay** ✅ |
+
+→ **모든 기존 row 가 처음부터 INSERT 정상이었음**. sprint 19.3 의 EG-4 FAIL 은 list endpoint bug 가 만든 false alarm.
+
+### Playwright 재검증 — 12/12 PASS
+
+| # | 기준 | sprint 19.3 | sprint 19.4 |
+|---|---|---|---|
+| 1 | dispatcher install | ✅ | ✅ |
+| 2 | NPay click buffer | ✅ | ✅ (3 entries) |
+| 3 | dispatcher fetch POST | ✅ | ✅ (2 successful) |
+| 4 | backend insert | ✅ | ✅ (id=13, 14) |
+| 5 | imweb_order_code capture rate | ✅ | ✅ (id=13 의 capture_delay_ms=1500ms 정확 기록) |
+| 6 | enforce_deduped ≤5% | ✅ | ✅ **0%** (2 INSERT, 0 dedup) |
+| 7 | payment_button_type null = 0 | ⚠️ partial | ✅ **id=13/14 모두 npay** |
+| 8 | pii_rejected = 0 | ✅ | ✅ |
+| 9 | invalid_payload = 0 | ✅ | ✅ |
+| 10 | endpoint_5xx = 0 | ✅ | ✅ |
+| 11 | rejected_origin / rate_limited 정상 | ✅ | ✅ |
+| 12 | 종료 후 enforce/token/window 모두 false | ✅ | ✅ |
+
+**sprint 19.3 의 partial #7 → sprint 19.4 PASS** — 12/12 완전.
+
+### 신규 row 검증 (id=13, 14)
+
+| id | source_version | intent_phase | payment_button_type | imweb_order_code | capture_delay_ms |
+|---|---|---|---|---|---|
+| 13 | snippet (Scenario B) | confirm_to_pay | **npay** | o20260502fedcba9999888877 | **1500** |
+| 14 | a3v21_playwright_O3_test | confirm_to_pay | **npay** | o20260502o3test99887766 | None |
+
+id=13 의 `capture_delay_ms=1500` — snippet 의 V05_RETRY_DELAYS_MS = [200, 800, **1500**, 2400] 중 1500ms tick 에서 mock funnel-capi key 발견 → buffer entry 갱신 → dispatcher v2.1 의 다음 sweep 에서 imweb_order_code 채워진 entry forward. **dispatcher v2.1 의 O2 wait/forward flow 정확 동작 검증**.
+
+id=14 의 `payment_button_type=npay` — Scenario C 의 직접 buffer push (payment_button_type 누락) → **dispatcher v2.1 의 O3 fallback 이 fetch 시점에 npay 보정** 검증.
+
+### Cleanup
+
+| Step | 결과 |
+|---|---|
+| smoke window 4 close | closed_count=1 |
+| VM .env wc 205 → 201 | COFFEE_NPAY_INTENT 잔존 0 |
+| pm2 restart | 43 → 44, pid 232355 |
+| 최종 stats | enforce/token/window 모두 false, total_rows=10 보존 |
+
+### A-4 publish 추천 갱신
+
+[[coffee-a4-publish-decision-and-dispatcher-v21-20260502]] §6 체크리스트 11개:
+
+| # | 항목 | 결과 |
+|---|---|---|
+| C-1 | dispatcher v2.1 Preview 재검증 PASS | ✅ Playwright 12/12 |
+| C-2 | imweb_order_code capture rate ≥95% | ✅ logic 검증 (운영 통계는 publish 후 monitoring) |
+| C-3 | enforce_deduped ratio ≤5% | ✅ 0% |
+| C-4 | payment_button_type null in confirm_to_pay = 0 | ✅ id=13/14 모두 npay |
+| C-5~C-9 | invalid_origin / rate_limited / preview_only_violation / is_simulation_blocked / pii_rejected = 모두 0 | ✅ |
+| C-10 | pm2 restart < 10/24h | ✅ sprint 19.4 에서 +4 (40→44), 정상 범위 |
+| **C-11** | **TJ 명시 publish 승인** | **❌ 본 sprint 까지 미승인** |
+
+→ **10/11 PASS — A-4 publish 추천 가능, TJ 명시 승인만 남음**.
