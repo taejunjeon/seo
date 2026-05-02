@@ -185,14 +185,16 @@ publish 추천의 핵심 게이트: **§6 publish 전 필수 체크리스트** 1
 
 ## 7. publish 범위
 
+> **2026-05-02 갱신** (sprint 20 N-2+): publish 범위 = **dispatcher + snippet installer 둘 다**. dispatcher 만 publish 하면 buffer push hook 부재 (lesson coffee-lesson-015).
+
 | 항목 | publish 범위 |
 |---|---|
 | GTM container | Coffee `GTM-5M33GC4` |
-| GTM workspace | default workspace (id=18) |
-| publish 대상 tag | `Coffee NPay Intent Dispatcher v2.1` (Custom HTML, dispatcher v2.1 코드) |
-| publish 대상 trigger | `All Pages` (default 의 기존 trigger 또는 신규) |
-| version note | "A-4 publish 2026-MM-DD: dispatcher v2.1 (O1+O2+O3) — preview only forward, backend ledger record. No GA4/Meta/TikTok/Google Ads send." |
-| 영향 받는 시스템 | thecleancoffee.com 의 모든 페이지 (dispatcher install) |
+| publish 대상 tag 1 | **`Coffee NPay Intent Dispatcher v2.1`** (Custom HTML, dispatcher v2.1 코드, pageview trigger) — 1차 publish (live version 18) |
+| publish 대상 tag 2 | **`Coffee NPay Intent Snippet Installer v1`** (Custom HTML, all-in-one snippet IIFE + outer ready retry, windowLoaded trigger) — 2차 publish (live version 19) |
+| Snippet Installer 의 retry | SITE_SHOP_DETAIL / window.confirmOrderWithCartItems ready 까지 250ms × 최대 8s wait. 이중 설치 방지 marker `__coffeeNpayIntentSnippetInstallerStarted` |
+| version note | "A-4 publish 2026-05-02: dispatcher v2.1 (O1+O2+O3) + snippet installer v1 — preview only forward, backend ledger record. fetch/sendBeacon/XHR 0 (snippet), backend POST keepalive only (dispatcher). No GA4/Meta/TikTok/Google Ads send." |
+| 영향 받는 시스템 | thecleancoffee.com 의 모든 페이지 (dispatcher + snippet 자동 install) |
 | 영향 받지 않는 시스템 | site 의 funnel-capi v3, GA4, Meta, TikTok, Google Ads, imweb 자체, Toss, NPay 결제 path |
 
 ## 8. rollback 방법
