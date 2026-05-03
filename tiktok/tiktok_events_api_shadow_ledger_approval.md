@@ -202,3 +202,17 @@ TJ님이 할 일:
 Auditor verdict: NEEDS_HUMAN_APPROVAL
 
 이 문서는 승인 요청 초안이다. 문서 작성은 Green Lane으로 완료됐지만, VM 배포와 VM SQLite write는 Yellow Lane이므로 TJ님 명시 승인 전 실행하지 않는다.
+
+## 실행 결과
+
+2026-05-03 TJ님이 Yellow Lane sprint를 승인했고, Codex가 TJ 관리 Attribution VM에 shadow 원장 dry-run/apply를 완료했다.
+
+결과 문서: `tiktok/tiktok_events_api_shadow_ledger_vm_dry_run_result.md`
+
+핵심 결과:
+- VM SQLite `tiktok_events_api_shadow_candidates` row 17건 생성
+- 모든 row `send_candidate=false`
+- 모든 row `platform_send_status=not_sent`
+- TikTok Events API production send 0건
+- TikTok Test Events send 0건
+- 개발팀 관리 운영DB PostgreSQL write 0건

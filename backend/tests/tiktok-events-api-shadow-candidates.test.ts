@@ -10,6 +10,7 @@ import {
   buildTikTokEventsApiShadowCandidatesFromSources,
   buildTikTokServerEventIdCandidate,
   countTikTokEventsApiShadowCandidates,
+  sanitizeTikTokRawEventIdForStorage,
   upsertTikTokEventsApiShadowCandidates,
 } from "../src/tiktokEventsApiShadowCandidates";
 
@@ -105,10 +106,17 @@ test("tiktok events api shadow: builds Purchase dedup candidate from confirmed T
   assert.equal(candidate.platformSendStatus, "not_sent");
   assert.equal(candidate.serverEventIdCandidate, "Purchase_o20260503abc");
   assert.equal(candidate.browserEventIdObserved, "Purchase_o20260503abc");
-  assert.equal(candidate.guardRawEventId, "o20260503abc");
+  assert.equal(candidate.guardRawEventId, sanitizeTikTokRawEventIdForStorage("o20260503abc"));
+  assert.notEqual(candidate.guardRawEventId, "o20260503abc");
   assert.equal(candidate.dedupReady, true);
   assert.equal(candidate.eligibleForFutureSend, true);
   assert.deepEqual(candidate.blockReasons, []);
+  const pixelSourceRef = candidate.sourceRefs.tiktok_pixel_events as {
+    event_id: string;
+    raw_event_id_stored: boolean;
+  };
+  assert.equal(pixelSourceRef.event_id, sanitizeTikTokRawEventIdForStorage("o20260503abc"));
+  assert.equal(pixelSourceRef.raw_event_id_stored, false);
 });
 
 test("tiktok events api shadow: blocks pending virtual-account Purchase", () => {
@@ -171,15 +179,27 @@ test("tiktok events api shadow: persists only not_sent shadow rows in temp local
     const db = crmLocal.getCrmDb();
     const row = db
       .prepare(
-        "SELECT send_candidate, platform_send_status, server_event_id_candidate FROM tiktok_events_api_shadow_candidates",
+        "SELECT send_candidate, platform_send_status, server_event_id_candidate, guard_raw_event_id, source_refs_json FROM tiktok_events_api_shadow_candidates",
       )
-      .get() as { send_candidate: number; platform_send_status: string; server_event_id_candidate: string };
+      .get() as {
+        send_candidate: number;
+        platform_send_status: string;
+        server_event_id_candidate: string;
+        guard_raw_event_id: string;
+        source_refs_json: string;
+      };
 
     assert.equal(changed, 1);
     assert.equal(count, 1);
     assert.equal(row.send_candidate, 0);
     assert.equal(row.platform_send_status, "not_sent");
     assert.equal(row.server_event_id_candidate, "Purchase_o20260503abc");
+    assert.equal(row.guard_raw_event_id, sanitizeTikTokRawEventIdForStorage("o20260503abc"));
+    assert.equal(row.guard_raw_event_id.startsWith("o"), false);
+    assert.equal(
+      JSON.parse(row.source_refs_json).tiktok_pixel_events.event_id.startsWith("o"),
+      false,
+    );
   } finally {
     crmLocal.resetCrmDbForTests();
     for (const suffix of ["", "-wal", "-shm", "-journal"]) {

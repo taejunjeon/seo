@@ -177,6 +177,15 @@ const hashCandidateId = (parts: string[]) => {
 export const buildTikTokServerEventIdCandidate = (eventName: string, orderCode: string) =>
   `${eventName}_${orderCode}`;
 
+const isRawOrderLikeEventId = (value: string) => /^o\d{8}[a-z0-9]+$/i.test(value.trim());
+
+export const sanitizeTikTokRawEventIdForStorage = (eventId: string) => {
+  const trimmed = eventId.trim();
+  if (!trimmed) return "";
+  if (!isRawOrderLikeEventId(trimmed)) return trimmed;
+  return `raw_order_event_id_sha256:${createHash("sha256").update(trimmed).digest("hex")}`;
+};
+
 const candidateIdFor = (candidate: Pick<TikTokEventsApiShadowCandidate, "site" | "eventName" | "serverEventIdCandidate" | "orderCode" | "orderNo" | "paymentCode" | "candidateVersion">) =>
   hashCandidateId([
     candidate.site,
@@ -463,7 +472,8 @@ const buildSourceRefs = (
   tiktok_pixel_events: {
     event_log_id: event.eventLogId,
     action: event.action,
-    event_id: event.eventId,
+    event_id: sanitizeTikTokRawEventIdForStorage(event.eventId),
+    raw_event_id_stored: !isRawOrderLikeEventId(event.eventId),
     storage: "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
   },
   attribution_ledger_payment_success: paymentMatch.entry
@@ -553,7 +563,7 @@ export const buildTikTokEventsApiShadowCandidatesFromSources = (
       browserEventName: "Purchase" as const,
       pixelCode: PIXEL_CODE,
       rawOrderCode: orderCode,
-      guardRawEventId: event.eventId,
+      guardRawEventId: sanitizeTikTokRawEventIdForStorage(event.eventId),
       browserEventIdObserved,
       browserEventIdSource,
       serverEventIdCandidate,
