@@ -1,12 +1,20 @@
 # Cross-Site Lessons INDEX (2026-05-03)
 
-작성: Sprint 23, Green Lane (자율 진행).
-정본 가이드라인: [[harness/!공통하네스_가이드라인]] §10 Lessons-to-Rules 흐름.
+작성: Sprint 23, Green Lane (자율 진행). 최종 갱신: Sprint 23.3.1 (corrective).
+정본 가이드라인: [[harness/common/HARNESS_GUIDELINES]] §10 Lessons-to-Rules 흐름.
 schema 정본: [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA]] (yaml + 4 lifecycle).
 
 본 문서 성격: **모든 site 의 LESSONS 단일 INDEX**. cross-site / cross-cutting lesson 표준 schema, lint, 통합 grep 의 entry point. 본 INDEX 자체가 정본은 아니고, **각 site LESSONS.md 가 정본** 이며 본 INDEX 는 "어디 있는지" + "어떤 lesson 이 다른 site 에 적용 가능한지" 의 navigation.
 
-## 0. 결론 (10초)
+## 0. 5줄 결론
+
+1. 4 site (Coffee / biocom / TikTok / AIBIO) 의 LESSONS 단일 INDEX — 합계 34 lesson, cross-cutting 16건.
+2. lifecycle 4단계 (`observation` → `candidate_rule` → `approved_rule` → `deprecated_rule`).
+3. 신규 lesson id 는 site-name 기반 namespace `<site>-lesson-NNN` (Coffee / tiktok / aibio) 또는 `<site>-rule-YYYYMMDD-NNN` (biocom NPay recovery 의 date-based) — 둘 중 하나로 통일 (sprint 23.3.1).
+4. 검증: `python3 scripts/lessons-lint.py` (id 중복 / status / wiki link), `python3 scripts/harness-preflight-check.py --strict` (정본 fork detect — sprint 23.3.1 보강).
+5. 전송 후보를 좁히는 규칙은 빠르게 적용 가능, 전송 후보를 넓히는 규칙은 TJ 승인 후만.
+
+## 0a. lifecycle 표 (10초)
 
 | Lifecycle | 의미 |
 |---|---|
@@ -30,7 +38,18 @@ schema 정본: [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA]] (yaml + 4 lifec
 
 ## 2. 표준 schema (yaml)
 
-본 가이드라인 §10 + biocom NPay recovery 의 schema 정본 통합:
+본 가이드라인 §10 + biocom NPay recovery 의 schema 정본 통합.
+
+**namespace 규칙 (sprint 23.3.1 통일)**:
+
+| Site | id 형식 |
+|---|---|
+| Coffee | `coffee-lesson-NNN` (3자리 zero-pad) |
+| biocom (NPay recovery) | `npay-rule-YYYYMMDD-NNN` (date-based, 기존 패턴 보존) |
+| TikTok | `tiktok-lesson-NNN` |
+| AIBIO | `aibio-lesson-NNN` |
+
+신규 lesson 은 위 4 패턴 중 site 에 해당하는 것으로 작성. 다른 prefix (예: 임의 명명) 금지.
 
 ```yaml
 id: <site>-rule-YYYYMMDD-NNN  # 또는 <site>-lesson-NNN (Coffee 형식)
@@ -156,12 +175,40 @@ python3 scripts/lessons-lint.py --fix
 - biocom 6 cross-cutting 추가 등록 (§3 의 표 16 row 로 확장)
 - `scripts/lessons-lint.py` 의 LESSONS_PATHS 에 tiktok/aibio 추가 → 34 lesson 검증 PASS
 
-### 5.5 sprint 23.3 (2026-05-03 완료) — Yellow Lane Z-1
+### 5.5 sprint 23.3 (2026-05-03 완료) — Yellow Lane Z-1 — **Auditor verdict: PASS_WITH_NOTES**
 
 - `.githooks/pre-commit` 신규 (Y1-A) — Growth Data 관련 영역 변경 commit 시 preflight 자동 호출
 - `scripts/install-harness-precommit.sh` 신규 — 운영자 1회 실행으로 git config core.hooksPath = .githooks 설정
 - `scripts/harness-preflight-check.py` 보강 (Y2-C) — `[4b] global fork detect`: 250줄+ markdown 의 common header phrase grep + whitelist
 - CLAUDE.md / AGENTS.md 에 hook 설치 안내 추가
+
+**verdict 정정 (sprint 23.3.1 진입 시 TJ 명시)**:
+
+원래 verdict 는 PASS 였으나, TJ 명시 corrective 로 PASS_WITH_NOTES 로 정정. 사유:
+
+| 항목 | 평가 |
+|---|---|
+| pre-commit hook + strict preflight + commit-time invocation + bypass 미사용 | PASS |
+| Y2-C fork detect 의 whitelist 가 project-specific harness 디렉토리 (`harness/coffee-data/`, `harness/npay-recovery/`, `harness/tiktok/`, `harness/aibio/`) 전체를 skip 처리 | **NOTES** — coffee-lesson-016 재발 경로를 완전히 막지 못함 (project-specific AUTONOMY_POLICY/README/RULES/CONTEXT_PACK 의 정본 fork 검사 누락) |
+
+→ Sprint 23.3.1 corrective 진행으로 보완.
+
+## 5.6 sprint 23.3.1 (2026-05-03 완료) — Yellow Lane corrective
+
+**TJ 명시 corrective 6항목 적용**:
+
+1. fork whitelist 좁힘 — site-prefix 전체 skip 금지. project-specific `LESSONS.md` / `archive/` / `legacy/` / legacy redirect 만 skip. `AUTONOMY_POLICY/README/CONTEXT_PACK/RULES` 등은 검사 대상.
+2. 80-249줄 짧은 fork detect 추가 — `Lane phrase ≥ 5회` + `정본 link 미언급` 조합 시 WARNING.
+3. 250-599줄 WARNING, 600+줄 ERROR — common header phrase 정확히 포함시 ERROR, Lane phrase 만으로는 WARNING (false positive 회피).
+4. 테스트 fixture 5개 추가 (`scripts/test-harness-preflight-fixtures/` — `good_short_redirect`, `good_project_local_delta`, `bad_short_fork_no_link`, `bad_long_fork`, `bad_critical_fork`) + runner (`scripts/test-harness-preflight.py`) 5/5 PASS.
+5. 본 INDEX 의 결과보고 맨 위 "5줄 결론" 형식 적용 (이전 §0 결론 표는 §0a 로 이동).
+6. lesson namespace 통일 명시 — site-name 기반 (`coffee-lesson-NNN` / `tiktok-lesson-NNN` / `aibio-lesson-NNN`) 또는 biocom 의 `npay-rule-YYYYMMDD-NNN` 둘 중 하나.
+
+**실 repo preflight-check 실행 결과 (sprint 23.3.1 후)**: ERROR 0, WARNING 11. coffee-data/AUTONOMY_POLICY.md 가 의도된 짧은 fork WARNING 으로 detect 됨 ✓. 그 외 10건은 project design 문서 — 후속 sprint 에서 정본 link 추가 또는 redirect 화 처리 (sprint 23.3.2 후속 권장).
+
+**보고 형식 추가 규칙 (TJ 명시)**:
+- 모든 결과보고서 / 최종 답변 맨 위에 "5줄 결론" 추가.
+- `no-write` 표현은 `no-operational-DB-write/import` 로 정정 (별도 sprint 에서 정본 + 자주 쓰이는 위치 일괄 치환).
 
 ## 6. 정본 경로 + legacy alias 정책 (sprint 23.3)
 

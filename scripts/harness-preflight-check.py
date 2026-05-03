@@ -63,29 +63,51 @@ FORK_SUSPECT_PATHS = [
     "harness/!공통하네스_가이드라인.md",  # sprint 23.1 redirect 후 본문 중복 0 이어야
 ]
 
-# Y2-C: glob fork detect — 정본 외 path 에서 common header phrase 가 긴 markdown 에 등장 시 fork 의심.
-# whitelist: 정본 + project-specific harness + legacy redirect + GPT review archive + skip 디렉토리.
-FORK_SCAN_WHITELIST_PREFIXES = [
-    "harness/common/",                    # 정본
-    "harness/!공통하네스_가이드라인.md",   # legacy redirect (size 검사로 따로 처리)
-    "harness/0501gpt/",                   # GPT review archive (.gitignore 적용)
-    "harness/coffee-data/",               # project-specific (정본 schema 응용)
-    "harness/npay-recovery/",             # project-specific
-    "harness/tiktok/",                    # sprint 23.2 신규
-    "harness/aibio/",                     # sprint 23.2 신규
-    "harness/cross-site-lessons/",        # cross-site INDEX
+# Sprint 23.3.1 (corrective) — TJ 명시 명령에 따라 whitelist 정밀화.
+#   - project-specific AUTONOMY_POLICY/README/CONTEXT_PACK/RULES 는 whitelist prefix skip 금지 (검사 대상)
+#   - LESSONS.md / archive / legacy redirect 만 skip 가능
+#   - 짧은 (80-249줄) project-local delta 는 PASS, 정본 fork 의심 phrase 조합이면 WARNING
+#   - 250-599 WARNING, 600+ ERROR (현행 유지)
+
+# 디렉토리 단위 skip — 본 디렉토리 안 모든 .md 는 fork detect 안 함 (외부 archive / dependency).
+FORK_SCAN_DIR_SKIP_PREFIXES = [
+    "harness/common/",                                # 정본 자체
+    "harness/0501gpt/",                               # GPT review archive (.gitignore)
+    "scripts/test-harness-preflight-fixtures/",        # fixture 디렉토리 (별도 runner 검사)
     "node_modules/",
     ".git/",
     ".obsidian/",
     ".vscode/",
     ".codex-backups/",
-    "amplitude/",                          # gitignore
-    "gpt0502/",                            # gitignore
+    "amplitude/",
+    "gpt0502/",
     "frontend/node_modules/",
     "backend/node_modules/",
     "backend/dist/",
 ]
-FORK_SCAN_MIN_LINES = 250  # 250줄 이상 + phrase 포함 시 fork 의심
+
+# 파일 단위 skip — 정본 fork 가 아닌 schema/lesson/redirect.
+FORK_SCAN_LEGACY_REDIRECT_PATHS = [
+    "harness/!공통하네스_가이드라인.md",   # sprint 23.1 redirect (size 검사 별도)
+]
+# 정규식 패턴 — match 시 fork detect skip (LESSONS, archive, legacy 폴더).
+FORK_SCAN_FILE_SKIP_PATTERNS = [
+    re.compile(r"^harness/[^/]+/LESSONS\.md$"),         # site 별 LESSONS — schema 길이 OK
+    re.compile(r"^harness/[^/]+/archive/.*\.md$"),       # archive subdir
+    re.compile(r"^harness/[^/]+/legacy/.*\.md$"),        # legacy subdir
+    re.compile(r"^harness/cross-site-lessons/INDEX\.md$"),  # 본 INDEX 자체
+]
+
+FORK_SCAN_MIN_LINES = 250            # 250줄 이상 + phrase 포함 시 fork 의심
+SHORT_FORK_MIN_LINES = 80             # 80-249줄 + phrase 조합 시 짧은 fork 의심
+SHORT_FORK_MAX_LINES = FORK_SCAN_MIN_LINES  # exclusive
+LANE_PHRASES = ["Green Lane", "Yellow Lane", "Red Lane"]
+SHORT_FORK_LANE_THRESHOLD = 5         # Lane phrase 등장 횟수 — 정본 핵심 표 fork 의심 기준
+CANONICAL_PATH_HINTS = [               # 정본 link 가 본문에 있으면 redirect 로 간주 (PASS 가능)
+    "harness/common/HARNESS_GUIDELINES.md",
+    "harness/common/AUTONOMY_POLICY.md",
+    "harness/common/REPORTING_TEMPLATE.md",
+]
 
 
 def check_common_docs(errors: list, warnings: list) -> None:
@@ -142,47 +164,94 @@ def check_fork_suspects(errors: list, warnings: list) -> None:
             )
 
 
-def check_fork_global_grep(errors: list, warnings: list) -> None:
-    """Y2-C — repo 전체 markdown 에서 common header phrase 검색해 정본 외 fork detect.
+def _is_fork_scan_skipped(rel_str: str) -> bool:
+    """fork scan 에서 skip 할지 결정 — sprint 23.3.1 corrective."""
+    if any(rel_str.startswith(p) for p in FORK_SCAN_DIR_SKIP_PREFIXES):
+        return True
+    if rel_str in FORK_SCAN_LEGACY_REDIRECT_PATHS:
+        return True
+    if any(p.match(rel_str) for p in FORK_SCAN_FILE_SKIP_PATTERNS):
+        return True
+    return False
 
-    Logic:
-      1. ROOT 의 모든 *.md 파일 walk
-      2. whitelist prefix 시작 시 skip
-      3. line count >= FORK_SCAN_MIN_LINES (250) 이고 COMMON_HEADER_PHRASES 중 하나라도 포함 시 fork 의심
-      4. 첫 버전 = warning (FAIL 아님). 정본 fork 가 명확 (line >= 600) 이면 error
+
+def _classify_fork(text: str, line_count: int) -> tuple[str | None, str]:
+    """fork 분류 — sprint 23.3.1 corrective.
+
+    Returns: (severity, reason) — severity ∈ {"error", "warning", None}
+      - 600+ + (header phrase OR Lane 표) → error
+      - 250-599 + (header phrase OR Lane 표) → warning
+      - 80-249 + Lane 표 (>=5) + 정본 link 미언급 → warning (짧은 fork 의심)
+      - 80-249 + Lane 표 (>=5) + 정본 link 언급 (redirect 로 간주) → None (PASS)
+      - 그 외 → None
     """
-    suspects: list[tuple[Path, int, str]] = []
+    has_header = any(p in text for p in COMMON_HEADER_PHRASES)
+    lane_count = sum(text.count(p) for p in LANE_PHRASES)
+    canonical_link = any(hint in text for hint in CANONICAL_PATH_HINTS)
+    matches_canonical_table = lane_count >= SHORT_FORK_LANE_THRESHOLD
+
+    if line_count >= 600:
+        if has_header:
+            return ("error", f"600줄+ 본문 fork (common header phrase 포함, Lane phrase {lane_count}회)")
+        if matches_canonical_table and not canonical_link:
+            return (
+                "warning",
+                f"600줄+ 장문 + Lane phrase {lane_count}회 + 정본 link 미언급. "
+                f"common header phrase 미포함이라 ERROR 가 아닌 WARNING 유지 — project design 문서면 정본 link 추가",
+            )
+    if line_count >= FORK_SCAN_MIN_LINES:  # 250-599
+        if has_header:
+            return ("warning", f"250-599줄 본문 fork (common header phrase 포함, Lane phrase {lane_count}회)")
+        if matches_canonical_table and not canonical_link:
+            return (
+                "warning",
+                f"250-599줄 + Lane phrase {lane_count}회 + 정본 link 미언급. "
+                f"project design 문서면 정본 link 추가",
+            )
+    if SHORT_FORK_MIN_LINES <= line_count < SHORT_FORK_MAX_LINES:  # 80-249
+        if has_header:
+            return ("warning", f"80-249줄 짧은 fork — common header phrase 포함 ({line_count}줄)")
+        if matches_canonical_table and not canonical_link:
+            return (
+                "warning",
+                f"80-249줄 짧은 fork 의심 — Lane phrase {lane_count}회 + 정본 link 미언급. "
+                f"본 파일이 project-local delta 라면 정본 link (예: 'harness/common/AUTONOMY_POLICY.md') 명시 권장",
+            )
+    return (None, "")
+
+
+def check_fork_global_grep(errors: list, warnings: list) -> None:
+    """Y2-C (sprint 23.3 + 23.3.1 corrective) — repo 전체 markdown 에서 fork detect.
+
+    sprint 23.3.1 corrective:
+      - whitelist 좁힘: site-prefix 전체 skip 금지. project-specific AUTONOMY_POLICY/README/RULES/CONTEXT_PACK 검사 대상.
+      - LESSONS.md, archive, legacy redirect 만 skip.
+      - 80-249줄 짧은 fork (Lane phrase + 정본 link 미언급) WARNING 신규.
+      - 250-599 WARNING, 600+ ERROR (분류 함수 _classify_fork 통합).
+    """
     for md_path in ROOT.rglob("*.md"):
         try:
             rel = md_path.relative_to(ROOT)
         except ValueError:
             continue
         rel_str = str(rel)
-        # whitelist prefix 검사
-        if any(rel_str.startswith(p) for p in FORK_SCAN_WHITELIST_PREFIXES):
+        if _is_fork_scan_skipped(rel_str):
             continue
         try:
             text = md_path.read_text(encoding="utf-8")
         except Exception:
             continue
         line_count = len(text.split("\n"))
-        if line_count < FORK_SCAN_MIN_LINES:
-            continue
-        for phrase in COMMON_HEADER_PHRASES:
-            if phrase in text:
-                suspects.append((rel, line_count, phrase))
-                break
-
-    for rel, line_count, phrase in suspects:
-        if line_count >= 600:
+        severity, reason = _classify_fork(text, line_count)
+        if severity == "error":
             errors.append(
-                f"[ERROR] global fork 의심: {rel} ({line_count}줄, '{phrase}' 포함). "
+                f"[ERROR] global fork 의심: {rel_str} — {reason}. "
                 f"정본 (harness/common/) fork 또는 redirect 처리 필요."
             )
-        else:
+        elif severity == "warning":
             warnings.append(
-                f"[WARN] global fork 의심: {rel} ({line_count}줄, '{phrase}' 포함). "
-                f"정본 fork 인지 확인 후 redirect 또는 whitelist 추가."
+                f"[WARN] global fork 의심: {rel_str} — {reason}. "
+                f"정본 fork 인지 확인 후 redirect 또는 project-local delta 형식으로 정리."
             )
 
 
