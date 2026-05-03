@@ -1,5 +1,7 @@
 # TikTok Events API Shadow Candidate Ledger Design
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local design, 정본 fork 아님)
+
 작성 시각: 2026-05-03 01:07 KST
 Sprint name: TikTok Events API Shadow Candidate Ledger Design
 Lane: Green Lane, 설계/문서 only

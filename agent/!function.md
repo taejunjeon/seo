@@ -1,5 +1,7 @@
 # Agent Function Development — 기능 개발 우선순위 (2026-05-03)
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local roadmap, 정본 fork 아님)
+
 상위 인사이트: [[!aiosagent]] (AIOS = Harness × Agent × LOOP-closure)
 참조: [[!menu]] (메뉴 카탈로그) · [[agentprd]] (PRD v0.1) · [[harness/!harness|Harness 5 핵심]] · [[harness/coffee-data/AUTONOMY_POLICY|Lane 분류]] · [[!coffeedata]] (sprint 19~22 evidence)
 
@@ -7,16 +9,23 @@
 
 ## 0. 결론 (10초)
 
-**4 sprint, 4 기능 개발** — 우선순위:
+**진행 완료 (2026-05-03 KST)**:
+- ✅ Sprint 23 — cross-codex lessons consolidation (Green Lane, commit `de8f9c2`)
+- ✅ Sprint 23.1 — bootstrap + preflight + audit 보강 (Green Lane, commit `cdda94c`)
+- ✅ Sprint 23.2 — TikTok/AIBIO LESSONS 신규 + biocom cross-cutting (Green Lane, commit `da108c0`)
+- ✅ Sprint 23.3 — pre-commit hook + fork detect 보강 (Yellow Lane Z-1, commit `4e19b0f`)
 
-| P | sprint | 기능 | 분류 | 비용 | 가치 |
+**다음 우선순위** (sprint 24 ~ 26 + 보류 항목):
+
+| P | sprint | 기능 | Lane | 비용 | 가치 |
 |---|---|---|---|---|---|
-| **P0** | 23 | cross-codex lessons consolidation | harness 표준화 + lint script | 1-2일 | 즉시 ROI — 다른 sprint 의 design 미스 0 |
-| **P1** | 24 | AEO/GEO score 자동 산출 | backend module + frontend + cron | 3-5일 | 운영 frontend 핵심 score 자동 |
-| **P2** | 26 | 신규 site 자동 launch (template) | harness/site-template + script | 5-7일 | 신규 사업 진입 1주 → 1일 |
-| **P3 (R&D)** | 25 | self-diagnostic (메타-LOOP) | agent loop metrics + 회고 자동화 | 1-2 sprint 단위 | 장기 — agent 자체 진화 |
+| **P1** | 24 | AEO/GEO score 자동 산출 | Yellow + Red (외부 API 호출) | 3-5일 | 운영 frontend 핵심 score 자동, 매주 컨텐츠 결정 가속 |
+| **P2** | 26 | 신규 site 자동 launch (template) | Yellow | 5-7일 | 신규 사업 진입 1주 → 1일 |
+| **P3 (R&D)** | 25 | self-diagnostic (메타-LOOP) | Yellow → Red 점진 | 1-2 sprint+ | agent 자체 진화 |
+| **P-보류 (Yellow)** | Y1-B / Y1-C | session 자동 read / git hook 강화 | Red (TJ env config 변경) | 1일 | lesson 016 재발 위험 5% 까지 |
+| **P-보류 (Red)** | Y3 | codex base prompt 변경 | Red (TJ codex CLI config) | TJ 영역 | cross-codex 일관성 |
 
-본 문서 작성 자신감 **90%** (sprint 19~22 evidence + Coffee NPay 구현 패턴 기반).
+본 문서 작성 자신감 **90%**.
 
 ## 1. P0 — Sprint 23: cross-codex lessons consolidation
 

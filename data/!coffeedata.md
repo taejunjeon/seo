@@ -1,5 +1,7 @@
 # 더클린커피 데이터 정합성 프로젝트 검토
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local 검토안, 정본 fork 아님)
+
 작성 시각: 2026-04-30 23:51 KST  
 최신 read-only 확인: 2026-05-01 14:40 KST
 문서 성격: 검토안 + 실행 설계안  

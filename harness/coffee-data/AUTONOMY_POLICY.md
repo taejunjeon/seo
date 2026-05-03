@@ -1,5 +1,7 @@
 # Coffee Data Harness — Autonomy Policy
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 Coffee project-local delta, 정본 fork 아님)
+
 본 문서는 Coffee Data 관련 작업에서 agent (Codex / Claude Code) 의 **자율 권한 범위 (lane)** 를 정의한다. 모든 Coffee 관련 sprint 는 시작 시점에 lane 을 식별하고, 그 lane 의 규칙대로 진행해야 한다.
 
 작성: 2026-05-02 (TJ 결정, sprint 19.2 진입 시)

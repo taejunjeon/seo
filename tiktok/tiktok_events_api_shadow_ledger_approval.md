@@ -1,5 +1,7 @@
 # TikTok Events API Shadow Candidate Ledger Local Implementation + VM Dry Run
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local 승인 요청 초안, 정본 fork 아님)
+
 작성 시각: 2026-05-03 01:07 KST
 요청 유형: Yellow Lane 승인 요청 초안
 대상: TJ 관리 Attribution VM `att.ainativeos.net` 내부 SQLite

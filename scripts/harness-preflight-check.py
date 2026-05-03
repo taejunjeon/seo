@@ -73,6 +73,7 @@ FORK_SUSPECT_PATHS = [
 FORK_SCAN_DIR_SKIP_PREFIXES = [
     "harness/common/",                                # 정본 자체
     "harness/0501gpt/",                               # GPT review archive (.gitignore)
+    "confirm/",                                       # GPT/Claude/Codex review archive (sprint 23.3.2)
     "scripts/test-harness-preflight-fixtures/",        # fixture 디렉토리 (별도 runner 검사)
     "node_modules/",
     ".git/",

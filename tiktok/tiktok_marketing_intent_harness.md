@@ -1,5 +1,7 @@
 # TikTok Marketing Intent Harness Report
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local report, 정본 fork 아님)
+
 작성 시각: 2026-05-03 00:44 KST
 기준일: 2026-05-03
 상태: VM receiver 배포/smoke 완료, GTM Preview browser smoke 완료, 같은 브라우저 카드 결제 기능 검증 완료, GTM Production publish 완료, 24시간 모니터링 시작

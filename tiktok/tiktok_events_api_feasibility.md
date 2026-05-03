@@ -1,5 +1,7 @@
 # TikTok Events API Feasibility & Dedup Readiness
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local feasibility, 정본 fork 아님)
+
 작성 시각: 2026-05-03 KST
 Sprint name: TikTok Events API Feasibility & Dedup Readiness
 Lane: Green Lane, feasibility/read-only/documentation only

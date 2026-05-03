@@ -1,5 +1,7 @@
 # Biocom AI Agent — 메뉴/기능 정리 (2026-05-03)
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local 메뉴, 정본 fork 아님)
+
 상위 인사이트: [[!aiosagent]] (AI 네이티브 OS / AI-LOOP / 퍼널그로스해킹)
 참조: [[agentprd]] (Revenue Integrity Agent PRD v0.1) · [[harness/!harness|Growth Data Agent Harness]] · [[data/!datacheckplan|Data Check Plan]] · [[data/!coffeedata|Coffee Data]]
 

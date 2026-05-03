@@ -1,5 +1,7 @@
 # TikTok Marketing Intent Receiver VM Deploy 승인 요청서
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local 승인 요청서, 정본 fork 아님)
+
 작성 시각: 2026-05-02 23:06 KST
 승인 요청 이름: **TikTok Marketing Intent Receiver VM Deploy + GTM Preview Smoke**
 요청 유형: Yellow Lane 실행 승인

@@ -1,5 +1,7 @@
 # AIOS Agent — AI-LOOP 의 열린 고리를 닫는 운영체계 (2026-05-03)
 
+정본 link: harness/common/HARNESS_GUIDELINES.md · harness/common/AUTONOMY_POLICY.md · harness/common/REPORTING_TEMPLATE.md (본 문서는 project-local insight, 정본 fork 아님)
+
 상위 인사이트: 본 문서는 [[!menu|Biocom AI Agent 메뉴]] 의 본질을 정의하는 **AI 네이티브 조직 운영체계 (AIOS, AI Operating System)** 의 미래 inside.
 
 참조:
