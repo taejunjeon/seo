@@ -28,7 +28,8 @@ ROOT = Path(__file__).resolve().parent.parent
 LESSONS_PATHS = {
     "coffee": ROOT / "harness/coffee-data/LESSONS.md",
     "npay-recovery": ROOT / "harness/npay-recovery/LESSONS.md",
-    # TikTok / AIBIO LESSONS.md 부재 — 후속 sprint 23.1 에서 신규
+    "tiktok": ROOT / "harness/tiktok/LESSONS.md",  # sprint 23.2 신규
+    "aibio": ROOT / "harness/aibio/LESSONS.md",  # sprint 23.2 신규
 }
 
 VALID_STATUS = {"observation", "candidate_rule", "approved_rule", "deprecated_rule"}

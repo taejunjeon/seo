@@ -23,12 +23,10 @@ schema 정본: [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA]] (yaml + 4 lifec
 |---|---|---|---|---|
 | **Coffee** | [[harness/coffee-data/LESSONS]] | 16 (15 + sprint 23 의 016) | markdown table | 2026-05-03 |
 | **biocom NPay recovery** | [[harness/npay-recovery/LESSONS]] | 6 (npay-rule-20260430-001 ~ -20260501-002) | yaml + markdown | 2026-05-01 |
-| **TikTok** | (LESSONS.md 부재) | 0 | — | — |
-| **AIBIO** | (LESSONS.md 부재) | 0 | — | — |
+| **TikTok** | [[harness/tiktok/LESSONS]] | **7 (sprint 23.2 신규)** | markdown table | 2026-05-03 |
+| **AIBIO** | [[harness/aibio/LESSONS]] | **5 (sprint 23.2 신규)** | markdown table | 2026-05-03 |
 
-### Site 별 LESSONS 부재 — 후속 sprint 23.1
-
-TikTok / AIBIO 는 LESSONS.md 부재. [[tiktok/!tiktokroasplan]] / AIBIO contact dashboard 작업의 lesson 후보가 plan 문서 안 "결론" / "다음 할일" / "유의" 섹션에 흩어져 있음. 후속 sprint 23.1 에서 manual curation + 표준 schema 마이그레이션.
+**합계**: 34 lesson (Coffee 16 + biocom 6 + TikTok 7 + AIBIO 5).
 
 ## 2. 표준 schema (yaml)
 
@@ -86,10 +84,20 @@ deprecated_at: "(deprecated_rule 일 때만) 이유 + 대체 규칙"
 | `coffee-lesson-016` (본 sprint 23 신규) | Sprint 23 진입 시점 | * | 신규 sprint 진입 전 `harness/!공통하네스_가이드라인.md` 의 §4 Required Context Documents 의 모든 정본 문서 read 필수. 본 가이드라인 자체를 모르고 진행 시 fork 작성 위험 |
 | `coffee-lesson-013` | sprint 19.3 H-2 | coffee, biocom | real funnel-capi v3 InitiateCheckout key timing 측정 패턴 (NPay click 후 ~873ms PC 기준) — 신규 dispatcher version 검증 시 H-2 5분 절차 재사용 |
 | `coffee-lesson-009` | sprint 19.2 + 19.3 | * | dispatcher chrome 측 동작 검증은 simulateConfirmNpay 만으로 불가 — playwright + monkey-patch + mock funnel-capi key 조합 필요 |
+| `npay-rule-20260430-001` | biocom | coffee, biocom (배송비 포함 채널) | 배송비 포함 금액 차이는 amount mismatch 로 보지 않는다 (전송 후보 넓힘 — TJ 보수 검토 후 approved_rule) |
+| `npay-rule-20260430-002` | biocom | coffee, biocom | NPay 의 `order_number` 와 `channel_order_no` 둘 다 BigQuery guard 로 조회 |
+| `npay-rule-20260430-003` | biocom | * | `preliminary_absent` 와 `robust_absent` 구분 — robust guard 필수 |
+| `npay-rule-20260430-004` | biocom | * | 수동 테스트 주문은 A급이어도 전송 제외 (`manual_test_order` block) |
 | `npay-rule-20260501-001` | biocom | * | site filter 없는 운영 DB 결과는 정본이 아니다 |
 | `npay-rule-20260501-002` | biocom | * | stale local mirror 는 primary 로 쓰지 않는다 |
+| `tiktok-lesson-001` (sprint 23.2 신규) | tiktok | * (모든 광고 채널) | 플랫폼 attribution 과 내부 strict confirmed 의 정의가 다르다 — 플랫폼 값은 reference, 내부 confirmed 만 예산 증액 판단 기준 |
+| `tiktok-lesson-005` | tiktok | * | DB / 원장 위치 명시 — TJ 관리 Attribution VM SQLite vs 개발팀 관리 운영DB PostgreSQL vs 로컬 개발 DB 혼용 금지 |
+| `tiktok-lesson-006` | tiktok | * | source-persistence / firstTouch / payment 보강은 신규 이벤트부터 적용 — 과거 주문 backfill 정확도 한계 보고서에 명시 |
+| `aibio-lesson-002` (sprint 23.2 신규) | aibio | aibio + 모든 sync 작업 | SoT 와 read-only 복제본 구분 — 로컬만 보고 의사결정 금지, sync freshness 먼저 확인 |
+| `aibio-lesson-003` | aibio | * (모든 cross-site 조인) | phone 정규화 (`regexp_replace(phone, '[- ]', '', 'g')`) 후 cross-site 조인 |
+| `aibio-lesson-005` | aibio | * | 로컬 테이블 prefix 통일 (`imweb_*` / `aibio_*` / `tb_*`) — prefix 보고 SoT 식별 가능 |
 
-후속: TikTok / AIBIO 의 lesson 추가 시 cross-cutting 판정 + 본 표 갱신.
+**합계**: 16 cross-cutting lesson (sprint 23 의 8 + sprint 23.2 의 8 추가). cross-cutting 표는 sprint 23.x 진입마다 갱신.
 
 ## 4. lessons-lint 사용
 
