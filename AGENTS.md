@@ -53,6 +53,8 @@
 - 자신감이 낮거나, 운영/돈/광고 플랫폼/DB/배포 영향이 크거나, 판단이 복잡한 일은 “다른 에이전트 검증 권장”이라고 표시하시오. 반대로 TJ님과 Codex가 충분히 처리 가능한 Green/Yellow 범위 일은 다른 에이전트 검증을 요구하지 말고 진행하시오.
 - Growth Data/Tracking/Attribution/ROAS 작업 시작 전 `harness/common/HARNESS_GUIDELINES.md`, `harness/common/AUTONOMY_POLICY.md`, `harness/common/REPORTING_TEMPLATE.md`를 읽고 Green/Yellow/Red Lane을 먼저 분류하시오.
 - Green Lane은 문서, read-only, dry-run, runbook, monitoring script, test, audit, scoped commit/push 범위이며 확인 요청 없이 진행하시오. Yellow Lane은 스프린트 단위 1회 승인 후 cleanup/report까지 자율 진행하고, Red Lane은 GTM Production publish, permanent env ON, platform send, production DB write/import, auto dispatcher 등으로 반드시 멈추시오.
+- **Harness Preflight Block 강제**: Growth Data/Tracking/Attribution/ROAS 작업 시작 시점에 sprint commit message 또는 결정 문서의 첫 부분에 yaml block 명시 (`harness_preflight: common_harness_read / project_harness_read / required_context_docs / lane / allowed_actions / forbidden_actions / source_window_freshness_confidence`). 누락 시 sprint 진입 자체를 보류하시오. 검증: `python3 scripts/harness-preflight-check.py --strict`.
+- **Common harness fork 금지**: `harness/common/HARNESS_GUIDELINES.md`, `AUTONOMY_POLICY.md`, `REPORTING_TEMPLATE.md` 의 본문을 다른 파일에 복사하여 fork 하지 마시오. project-local 차이는 `harness/{project}/` 내 별도 파일로 작성하고, common 정본은 link 만 하시오. fork 의심 시 preflight check script 가 warning. 기존 `harness/!공통하네스_가이드라인.md` 는 redirect 로 정리됨 (sprint 23.1 / 2026-05-03).
 - 보고서형 프론트엔드 구현·수정 시 루트 `frontrule.md`를 먼저 참고하시오.
 - GA4/NPay/ROAS/TikTok/BigQuery/운영 DB 정합성 작업 시 `docs/agent-harness/growth-data-harness-v0.md`와 `harness/npay-recovery/README.md`를 먼저 참고하시오.
 - NPay recovery 또는 전환 복구 작업에서는 `harness/npay-recovery/RULES.md`, `VERIFY.md`, `APPROVAL_GATES.md`, `AUDITOR_CHECKLIST.md`를 기준으로 no-send/no-write/no-deploy를 확인하시오.

@@ -134,11 +134,17 @@ python3 scripts/lessons-lint.py --fix
 | confidence | 0.95 |
 | owner | Claude Code |
 
-### 5.3 다음 sprint 23.1 (후속)
+### 5.3 다음 sprint 23.1 (후속) — **2026-05-03 진행 완료**
+
+- AGENTS.md / CLAUDE.md 의 "신규 sprint 진입 시 정본 문서 read 절차" 추가 — **완료** (sprint 23.1)
+- `harness/!공통하네스_가이드라인.md` redirect 로 정리 — **완료** (775 → ~30 줄)
+- `scripts/harness-preflight-check.py` 신규 — **완료** (5 검사 항목)
+- coffee-lesson-016 의 cross-site 적용 강조 — **완료** (본 INDEX §3 cross-cutting table 등록)
+
+### 5.4 다음 sprint 23.2 (후속, TJ 결정 후 진입)
 
 - TikTok / AIBIO LESSONS.md 신규 — plan 문서 안 lesson 후보 추출 + 표준 schema 마이그레이션
-- biocom npay-recovery LESSONS 의 cross-cutting 후보 추출 (npay-rule-20260501-001 등)
-- AGENTS.md / CLAUDE.md 의 "신규 sprint 진입 시 정본 문서 read 절차" 추가 — Yellow Lane (TJ 결정)
+- biocom npay-recovery LESSONS 의 cross-cutting 후보 추출 (npay-rule-20260501-001 등) — INDEX §3 에 이미 일부 등록
 
 ## 6. INDEX 갱신 routine
 

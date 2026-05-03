@@ -61,6 +61,39 @@ GA4, GTM, NPay, TikTok, Meta, Google Ads, attribution, tracking, dispatcher, ROA
 - auto dispatcher production transition
 - destructive migration
 
+### Harness Preflight Block (작업 시작 전 기록 강제)
+
+작업 시작 시점에 보고 / 결정 문서 / sprint commit message 의 첫 부분에 아래 block을 명시한다. 누락 시 sprint 진입 자체를 보류한다.
+
+```yaml
+harness_preflight:
+  common_harness_read: harness/common/HARNESS_GUIDELINES.md  # YYYY-MM-DD HH:MM 시점 read 확인
+  project_harness_read: harness/{project}/                    # 적용되는 project, 부재 시 "n/a"
+  required_context_docs:                                       # HARNESS_GUIDELINES §4 의 list
+    - <문서 path>
+  lane: Green | Yellow | Red
+  allowed_actions:                                              # 본 sprint 의 허용 범위
+    - ...
+  forbidden_actions:                                            # 본 sprint 의 금지 범위
+    - GTM Production publish
+    - permanent env flag ON
+    - platform conversion send
+    - production DB write
+  source_window_freshness_confidence:
+    source: <primary>
+    window: <YYYY-MM-DD ~ YYYY-MM-DD KST>
+    freshness: <max(ts) / row_count / cron_age>
+    confidence: 0.0-1.0
+```
+
+### Common harness fork 금지
+
+`harness/common/HARNESS_GUIDELINES.md`, `AUTONOMY_POLICY.md`, `REPORTING_TEMPLATE.md` 의 본문을 다른 파일에 **복사하여 fork 하지 않는다**. project-local 차이는 `harness/{project}/` 내 별도 파일로 작성하고, common 의 정본은 link 만 한다.
+
+기존 `harness/!공통하네스_가이드라인.md` 는 redirect 로 정리됨 (sprint 23.1 / 2026-05-03). 본 파일 대신 `harness/common/` 정본을 read.
+
+위반 시 검증: `python3 scripts/harness-preflight-check.py --strict` (sprint 23.1 신규) 가 fork 의심 파일 detect.
+
 ## 더클린커피 tracking / NPay intent 작업 규칙
 
 더클린커피의 tracking, wrapper, intent, eid, NPay beacon, funnel-capi 관련 작업을 시작할 때는 아래 순서로 먼저 확인한다.
