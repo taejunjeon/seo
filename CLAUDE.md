@@ -94,6 +94,18 @@ harness_preflight:
 
 위반 시 검증: `python3 scripts/harness-preflight-check.py --strict` (sprint 23.1 신규) 가 fork 의심 파일 detect.
 
+### pre-commit hook 설치 (sprint 23.3)
+
+본 환경에서 1회 실행:
+
+```bash
+bash scripts/install-harness-precommit.sh
+```
+
+설치 후 Growth Data 관련 영역 (`harness/`, `tiktok/`, `coffee/`, `naver/`, `aibio/`, `backend/src/*Attribution*`, `frontend/src/app/ads/`, `data/!*.md`, `vm/`, `CLAUDE.md`, `AGENTS.md`) 변경 commit 시 `harness-preflight-check.py --strict` 자동 실행. 무관 commit (예: tiktok ads csv data 만) 은 skip.
+
+긴급 bypass: `SKIP_HARNESS_PREFLIGHT=1 git commit ...` (완료 보고에 명시 의무).
+
 ## 더클린커피 tracking / NPay intent 작업 규칙
 
 더클린커피의 tracking, wrapper, intent, eid, NPay beacon, funnel-capi 관련 작업을 시작할 때는 아래 순서로 먼저 확인한다.

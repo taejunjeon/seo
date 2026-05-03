@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# .githooks/pre-commit — Growth Data Harness preflight 자동 검증.
+# Sprint 23.3 (Yellow Y1-A). lesson coffee-lesson-016 재발 방지.
+#
+# 동작:
+#   1. staged files 의 path prefix 가 Growth Data 관련 영역인지 검사
+#   2. 관련 영역 변경 시 python3 scripts/harness-preflight-check.py --strict 실행
+#   3. exit 0 = pass / 1+ = block (commit 차단)
+#
+# Bypass: SKIP_HARNESS_PREFLIGHT=1 git commit ... — 단 완료 보고에 표시 의무
+#
+# 설치: bash scripts/install-harness-precommit.sh
+
+set -euo pipefail
+
+# 0. emergency bypass
+if [ "${SKIP_HARNESS_PREFLIGHT:-0}" = "1" ]; then
+  echo "[pre-commit] SKIP_HARNESS_PREFLIGHT=1 detected — bypass. 완료 보고에 명시 의무." >&2
+  exit 0
+fi
+
+# 1. staged files
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || echo "")
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+# 2. Growth Data 관련 영역 path 패턴 — TJ 명시
+RELEVANT_PATTERNS=(
+  "^harness/"
+  "^tiktok/"
+  "^coffee/"
+  "^naver/"
+  "^aibio/"
+  "^backend/src/routes/attribution\.ts$"
+  "^backend/src/.*[Aa]ttribution.*\.ts$"
+  "^backend/src/.*[Cc]offee.*\.ts$"
+  "^backend/src/.*[Nn]pay.*\.ts$"
+  "^backend/scripts/.*[Tt]iktok.*"
+  "^backend/scripts/.*[Cc]offee.*"
+  "^backend/scripts/.*[Nn]pay.*"
+  "^backend/scripts/.*[Mm]eta.*"
+  "^frontend/src/app/ads/"
+  "^data/!.*\.md$"
+  "^vm/"
+  "^scripts/.*harness.*"
+  "^scripts/.*lessons.*"
+  "^CLAUDE\.md$"
+  "^AGENTS\.md$"
+)
+
+is_relevant=0
+relevant_files=()
+while IFS= read -r f; do
+  for pat in "${RELEVANT_PATTERNS[@]}"; do
+    if echo "$f" | grep -qE "$pat"; then
+      is_relevant=1
+      relevant_files+=("$f")
+      break
+    fi
+  done
+done <<< "$STAGED"
+
+if [ "$is_relevant" = "0" ]; then
+  # 무관 commit — preflight skip
+  exit 0
+fi
+
+# 3. preflight 실행 (Growth Data 관련 변경만)
+echo "[pre-commit] Growth Data 관련 변경 ${#relevant_files[@]}건 detected. preflight-check --strict 실행:" >&2
+for f in "${relevant_files[@]}"; do
+  echo "  - $f" >&2
+done
+echo "" >&2
+
+if ! python3 scripts/harness-preflight-check.py --strict; then
+  echo "" >&2
+  echo "[pre-commit] FAIL — harness-preflight-check 실패." >&2
+  echo "[pre-commit] 해결: 정본 (harness/common/) read + Lane 분류 + Preflight Block 명시 후 재시도." >&2
+  echo "[pre-commit] 긴급 bypass: SKIP_HARNESS_PREFLIGHT=1 git commit ... (완료 보고에 표시 의무)" >&2
+  exit 1
+fi
+
+echo "[pre-commit] PASS — Growth Data Harness preflight 통과." >&2
+exit 0

@@ -149,10 +149,33 @@ python3 scripts/lessons-lint.py --fix
 - `scripts/harness-preflight-check.py` 신규 — **완료** (5 검사 항목)
 - coffee-lesson-016 의 cross-site 적용 강조 — **완료** (본 INDEX §3 cross-cutting table 등록)
 
-### 5.4 다음 sprint 23.2 (후속, TJ 결정 후 진입)
+### 5.4 sprint 23.2 (2026-05-03 완료)
 
-- TikTok / AIBIO LESSONS.md 신규 — plan 문서 안 lesson 후보 추출 + 표준 schema 마이그레이션
-- biocom npay-recovery LESSONS 의 cross-cutting 후보 추출 (npay-rule-20260501-001 등) — INDEX §3 에 이미 일부 등록
+- TikTok LESSONS.md 신규 (7 lesson) — `tiktok/!tiktokroasplan.md` 의 결론/원인 분해 추출
+- AIBIO LESSONS.md 신규 (5 lesson) — `aibio/aibio_revenue_reconciliation.md` + `aibio_sync_design.md` 추출
+- biocom 6 cross-cutting 추가 등록 (§3 의 표 16 row 로 확장)
+- `scripts/lessons-lint.py` 의 LESSONS_PATHS 에 tiktok/aibio 추가 → 34 lesson 검증 PASS
+
+### 5.5 sprint 23.3 (2026-05-03 완료) — Yellow Lane Z-1
+
+- `.githooks/pre-commit` 신규 (Y1-A) — Growth Data 관련 영역 변경 commit 시 preflight 자동 호출
+- `scripts/install-harness-precommit.sh` 신규 — 운영자 1회 실행으로 git config core.hooksPath = .githooks 설정
+- `scripts/harness-preflight-check.py` 보강 (Y2-C) — `[4b] global fork detect`: 250줄+ markdown 의 common header phrase grep + whitelist
+- CLAUDE.md / AGENTS.md 에 hook 설치 안내 추가
+
+## 6. 정본 경로 + legacy alias 정책 (sprint 23.3)
+
+| 경로 | 역할 | 유지 정책 |
+|---|---|---|
+| `harness/common/HARNESS_GUIDELINES.md` | **정본 v1** — Growth Data Agent Harness Guidelines | 본문 보존 + 모든 sprint 의 source-of-truth |
+| `harness/common/AUTONOMY_POLICY.md` | **정본 v1** — Lane 분류 + 자율 권한 | 본문 보존 |
+| `harness/common/REPORTING_TEMPLATE.md` | **정본 v1** — Auditor verdict / 보고 형식 | 본문 보존 |
+| `harness/!공통하네스_가이드라인.md` | **legacy redirect** — sprint 23.1 정리됨 (775→~30줄) | 삭제 안 함, redirect 만 유지 (외부 link history 보존) |
+| `harness/coffee-data/AUTONOMY_POLICY.md` | **project-specific** (Coffee 한정) — Lane 정의는 정본과 동일, project context 추가 | 정본 fork 금지, project-local 차이만 명시 |
+| `harness/{project}/RULES|VERIFY|LESSONS|AUDITOR_CHECKLIST.md` | project-specific harness | 정본 schema 따르되 본문 fork 금지 |
+| `harness/0501gpt/` | GPT review archive | `.gitignore` 적용, fork detect whitelist |
+
+위반 detect: `python3 scripts/harness-preflight-check.py --strict` (sprint 23.3 의 [4a] hardcoded + [4b] global grep). pre-commit hook 자동 호출.
 
 ## 6. INDEX 갱신 routine
 

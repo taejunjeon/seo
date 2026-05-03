@@ -52,10 +52,40 @@ REQUIRED_AGENTS_PHRASES = [
 ]
 
 # fork 의심 — common 본문과 같은 phrase 가 다른 파일에 길게 중복
-COMMON_HEADER_PHRASE = "Growth Data Agent Harness Guidelines v1"
+COMMON_HEADER_PHRASES = [
+    "Growth Data Agent Harness Guidelines v1",
+    "Growth Data Agent Autonomy Policy v1",
+    "Growth Data Agent Reporting Template v1",
+]
+COMMON_HEADER_PHRASE = COMMON_HEADER_PHRASES[0]  # 기존 하위호환
+
 FORK_SUSPECT_PATHS = [
     "harness/!공통하네스_가이드라인.md",  # sprint 23.1 redirect 후 본문 중복 0 이어야
 ]
+
+# Y2-C: glob fork detect — 정본 외 path 에서 common header phrase 가 긴 markdown 에 등장 시 fork 의심.
+# whitelist: 정본 + project-specific harness + legacy redirect + GPT review archive + skip 디렉토리.
+FORK_SCAN_WHITELIST_PREFIXES = [
+    "harness/common/",                    # 정본
+    "harness/!공통하네스_가이드라인.md",   # legacy redirect (size 검사로 따로 처리)
+    "harness/0501gpt/",                   # GPT review archive (.gitignore 적용)
+    "harness/coffee-data/",               # project-specific (정본 schema 응용)
+    "harness/npay-recovery/",             # project-specific
+    "harness/tiktok/",                    # sprint 23.2 신규
+    "harness/aibio/",                     # sprint 23.2 신규
+    "harness/cross-site-lessons/",        # cross-site INDEX
+    "node_modules/",
+    ".git/",
+    ".obsidian/",
+    ".vscode/",
+    ".codex-backups/",
+    "amplitude/",                          # gitignore
+    "gpt0502/",                            # gitignore
+    "frontend/node_modules/",
+    "backend/node_modules/",
+    "backend/dist/",
+]
+FORK_SCAN_MIN_LINES = 250  # 250줄 이상 + phrase 포함 시 fork 의심
 
 
 def check_common_docs(errors: list, warnings: list) -> None:
@@ -109,6 +139,50 @@ def check_fork_suspects(errors: list, warnings: list) -> None:
         elif line_count > 100 and COMMON_HEADER_PHRASE in text:
             warnings.append(
                 f"[WARN] fork 의심: {path_str} ({line_count}줄, common header phrase 포함)."
+            )
+
+
+def check_fork_global_grep(errors: list, warnings: list) -> None:
+    """Y2-C — repo 전체 markdown 에서 common header phrase 검색해 정본 외 fork detect.
+
+    Logic:
+      1. ROOT 의 모든 *.md 파일 walk
+      2. whitelist prefix 시작 시 skip
+      3. line count >= FORK_SCAN_MIN_LINES (250) 이고 COMMON_HEADER_PHRASES 중 하나라도 포함 시 fork 의심
+      4. 첫 버전 = warning (FAIL 아님). 정본 fork 가 명확 (line >= 600) 이면 error
+    """
+    suspects: list[tuple[Path, int, str]] = []
+    for md_path in ROOT.rglob("*.md"):
+        try:
+            rel = md_path.relative_to(ROOT)
+        except ValueError:
+            continue
+        rel_str = str(rel)
+        # whitelist prefix 검사
+        if any(rel_str.startswith(p) for p in FORK_SCAN_WHITELIST_PREFIXES):
+            continue
+        try:
+            text = md_path.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        line_count = len(text.split("\n"))
+        if line_count < FORK_SCAN_MIN_LINES:
+            continue
+        for phrase in COMMON_HEADER_PHRASES:
+            if phrase in text:
+                suspects.append((rel, line_count, phrase))
+                break
+
+    for rel, line_count, phrase in suspects:
+        if line_count >= 600:
+            errors.append(
+                f"[ERROR] global fork 의심: {rel} ({line_count}줄, '{phrase}' 포함). "
+                f"정본 (harness/common/) fork 또는 redirect 처리 필요."
+            )
+        else:
+            warnings.append(
+                f"[WARN] global fork 의심: {rel} ({line_count}줄, '{phrase}' 포함). "
+                f"정본 fork 인지 확인 후 redirect 또는 whitelist 추가."
             )
 
 
@@ -215,8 +289,12 @@ def main() -> int:
     check_agents_md(errors, warnings)
     print()
 
-    print("[4] fork 의심 파일 detect")
+    print("[4a] fork 의심 파일 detect (hardcoded list)")
     check_fork_suspects(errors, warnings)
+    print()
+
+    print("[4b] global fork detect (Y2-C — 250줄+ markdown 에서 common phrase grep)")
+    check_fork_global_grep(errors, warnings)
     print()
 
     if args.check_tracking:
