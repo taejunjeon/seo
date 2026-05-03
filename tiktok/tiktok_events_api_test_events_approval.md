@@ -275,3 +275,21 @@ Auditor verdict: NEEDS_HUMAN_APPROVAL
 이 문서는 승인 요청 초안이다. 문서 작성은 Green Lane으로 완료했지만, TikTok Test Events endpoint 호출은 Yellow Lane이므로 TJ님 명시 승인 전 실행하지 않는다.
 
 Production Events API send는 계속 Red Lane이다.
+
+## 실행 결과
+
+2026-05-03 TJ님이 Yellow Lane sprint를 승인했다.
+
+Codex는 A등급 후보 `202605036519253` / `o202605033af504ba376d9`를 VM SQLite에서 read-only로 검증했지만, Test Event Code가 로컬 `backend/.env`와 TJ 관리 Attribution VM `backend/.env` 어디에도 없어 endpoint 호출 전 중단했다.
+
+결과 문서: `tiktok/tiktok_events_api_test_events_smoke_result_20260503.md`
+
+핵심 결과:
+- TikTok Events API production send 0건
+- TikTok Test Events send 0건
+- GA4/Meta/Google send 0건
+- GTM 변경 없음
+- Purchase Guard 변경 없음
+- 개발팀 관리 운영DB PostgreSQL write 없음
+- VM shadow row `send_candidate=false`, `platform_send_status=not_sent` 유지
+- Auditor verdict: `FAIL_BLOCKED`
