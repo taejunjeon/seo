@@ -538,6 +538,11 @@ Yellow Lane 승인 후만 진행한다.
 - `/ads/tiktok` 화면은 strict confirmed와 shadow eligible을 분리해서 보여준다.
 - production Events API send는 계속 0건이다.
 
+후속 검토 기준:
+
+- Shadow ledger apply 후 row가 1건 이상이면 human-readable candidate review를 같은 sprint 안에서 Green Lane으로 자동 생성한다.
+- 이 review는 다음 승인 요청 전에 주문별 `order_no`, `order_code`, 금액, TikTok evidence, event_id 후보, dedup readiness, 사람이 보는 판정을 포함해야 한다.
+
 ## 21. Rollback
 
 shadow table은 TikTok으로 아무것도 보내지 않으므로 rollback은 내부 원장 복구 중심이다.

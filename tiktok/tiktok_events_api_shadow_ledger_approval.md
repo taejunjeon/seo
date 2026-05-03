@@ -142,6 +142,7 @@ shadow 원장은 이 문제를 TikTok으로 보내기 전에 내부에서 검증
 - confirmed + TikTok evidence 주문은 `eligible_for_future_send=true` 후보로 분류
 - pending/canceled/no-evidence 주문은 block reason으로 분리
 - 결과 문서에 source/window/freshness/confidence 기록
+- Shadow ledger apply 후 row가 1건 이상이면 human-readable candidate review를 같은 sprint 안에서 Green Lane으로 자동 생성
 
 ## Rollback
 
@@ -208,6 +209,8 @@ Auditor verdict: NEEDS_HUMAN_APPROVAL
 2026-05-03 TJ님이 Yellow Lane sprint를 승인했고, Codex가 TJ 관리 Attribution VM에 shadow 원장 dry-run/apply를 완료했다.
 
 결과 문서: `tiktok/tiktok_events_api_shadow_ledger_vm_dry_run_result.md`
+후속 후보 검토표: `tiktok/tiktok_events_api_shadow_candidate_review_20260503.md`
+Test Events only 승인 초안: `tiktok/tiktok_events_api_test_events_approval.md`
 
 핵심 결과:
 - VM SQLite `tiktok_events_api_shadow_candidates` row 17건 생성

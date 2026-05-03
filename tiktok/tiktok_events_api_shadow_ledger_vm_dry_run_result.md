@@ -226,6 +226,10 @@ WHERE candidate_version='2026-05-03.shadow.v1';
 - 그 다음 Test Events only 승인 문서를 별도로 만든다.
 - Production send는 아직 승인 요청하지 않는다.
 
+후속 진행 결과:
+- 후보 검토표: `tiktok/tiktok_events_api_shadow_candidate_review_20260503.md`
+- Test Events only 승인 초안: `tiktok/tiktok_events_api_test_events_approval.md`
+
 ## 남은 리스크
 
 | 리스크 | 영향 | 대응 |

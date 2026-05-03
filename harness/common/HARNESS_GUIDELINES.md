@@ -52,6 +52,7 @@ Green Lane 작업은 에이전트가 확인 요청 없이 진행한다.
 7. Auditor verdict 작성
 8. scope 안이면 commit/push
 9. 다음 작업을 Green / Yellow / Red로 분류해 제안
+10. candidate row를 생성한 sprint는 다음 승인 요청 전에 사람이 읽는 후보 검토표를 Green Lane으로 작성
 
 Green Lane에서도 아래 상황이면 멈춘다.
 
