@@ -293,3 +293,37 @@ Codex는 A등급 후보 `202605036519253` / `o202605033af504ba376d9`를 VM SQLit
 - 개발팀 관리 운영DB PostgreSQL write 없음
 - VM shadow row `send_candidate=false`, `platform_send_status=not_sent` 유지
 - Auditor verdict: `FAIL_BLOCKED`
+
+## 2026-05-04 재개 실행 결과
+
+2026-05-04 11:42 KST에 TJ님이 로컬 `backend/.env`에 pixel id, access token, Test Event Code를 준비했다고 알려줬다. Codex는 값을 출력하지 않고 존재 여부와 길이만 확인했다.
+
+실행 결과:
+- 대상 후보: `202605036519253` / `o202605033af504ba376d9`
+- event: `Purchase`
+- event_id: `Purchase_o202605033af504ba376d9`
+- endpoint: `POST https://business-api.tiktok.com/open_api/v1.3/event/track/`
+- 호출 수: 1건
+- TikTok API 응답: `HTTP 200`, `code=0`, `message=OK`
+- request_id: `20260504024205A4B1A91F85C7E4D1106A`
+
+사후 감사:
+- TikTok Events API production send 0건
+- TikTok Test Events send 1건
+- GA4/Meta/Google send 0건
+- GTM 변경 없음
+- Purchase Guard 변경 없음
+- firstTouch strict 승격 없음
+- payment_success top-level attribution overwrite 없음
+- 개발팀 관리 운영DB PostgreSQL write 없음
+- scheduler/dispatcher 상시 ON 없음
+- VM shadow row `send_candidate=false` 유지
+- VM shadow row `platform_send_status=not_sent` 유지
+- VM shadow row `pii_in_payload=0` 유지
+
+현재 verdict:
+- `PASS_WITH_NOTES`
+
+남은 note:
+- TJ님이 TikTok Events Manager Test events 화면에서 `Purchase`와 `event_id=Purchase_o202605033af504ba376d9` 표시를 확인해야 한다.
+- Production Events API send는 계속 Red Lane이다. 이번 Test Events 성공만으로 운영 전송을 켜지 않는다.
