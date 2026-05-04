@@ -412,3 +412,39 @@ Auditor verdict: NEEDS_HUMAN_APPROVAL
 문서 작성은 Green Lane으로 완료했다.
 
 실행은 Red Lane이다. TJ님 명시 승인 전 TikTok Events API production endpoint를 호출하지 않는다.
+
+## 2026-05-04 실행 결과
+
+2026-05-04 12:52 KST에 TJ님이 본 승인 문구를 기준으로 Red Lane production canary 1건을 명시 승인했다.
+
+실행 결과:
+- 실행 시각: `2026-05-04 12:54:25 KST`
+- 대상 주문: `202605036519253` / `o202605033af504ba376d9`
+- event: `Purchase`
+- event_id: `Purchase_o202605033af504ba376d9`
+- event_time: `1777777300`
+- endpoint: `POST https://business-api.tiktok.com/open_api/v1.3/event/track/`
+- 호출 수: 1건
+- retry: 0건
+- TikTok API 응답: `HTTP 200`, `code=0`, `message=OK`
+- request_id: `202605040354257C43426495E4F7D1DFA1`
+
+사후 감사:
+- TikTok Test Events 추가 send 0건
+- GA4/Meta/Google send 0건
+- GTM 변경 없음
+- Purchase Guard 변경 없음
+- 개발팀 관리 운영DB PostgreSQL write 0건
+- TJ 관리 Attribution VM SQLite write 0건
+- scheduler/dispatcher 상시 ON 없음
+- VM shadow row unchanged: `send_candidate=false`, `platform_send_status=not_sent`, `pii_in_payload=0`
+
+결과 문서:
+- `tiktok/tiktok_events_api_production_canary_result_20260504.md`
+
+현재 verdict:
+- `PASS_WITH_NOTES`
+
+남은 note:
+- TJ님이 TikTok Events Manager Overview/Diagnostics에서 production server `Purchase`와 `event_id=Purchase_o202605033af504ba376d9` 표시 및 경고 여부를 확인해야 한다.
+- 이 확인 전에는 production Events API 확대를 승인하지 않는다.
