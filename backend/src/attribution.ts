@@ -143,6 +143,7 @@ export type AttributionFirstTouchSnapshot = {
   gclid: string;
   fbclid: string;
   ttclid: string;
+  metaMatchReasons: string[];
   tiktokMatchReasons: string[];
 };
 
@@ -154,6 +155,7 @@ export type AttributionFirstTouchMatchMetadata = {
   matchScore: number;
   checkoutLoggedAt: string;
   storage: "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.firstTouch";
+  metaMatchReasons: string[];
   tiktokMatchReasons: string[];
 };
 
@@ -680,6 +682,74 @@ export const getAttributionTikTokMatchReasons = (entry: AttributionLedgerEntry) 
   return [...reasons].sort();
 };
 
+const attributionTextIncludesMeta = (value: unknown) => {
+  if (typeof value !== "string") return false;
+  const text = value.trim().toLowerCase();
+  if (!text) return false;
+
+  if (
+    text.includes("facebook.com") ||
+    text.includes("instagram.com") ||
+    text.includes("fbclid=") ||
+    text.includes("utm_source=meta") ||
+    text.includes("utm_source=facebook") ||
+    text.includes("utm_source=instagram")
+  ) {
+    return true;
+  }
+
+  const tokens = text.split(/[^a-z0-9]+/).filter(Boolean);
+  return tokens.some((token) =>
+    token === "meta" || token === "facebook" || token === "instagram" || token === "fb" || token === "ig"
+  );
+};
+
+export const getAttributionMetaMatchReasons = (entry: AttributionLedgerEntry) => {
+  const reasons = new Set<string>();
+
+  if (entry.fbclid) reasons.add("fbclid_direct");
+  if (metadataString(entry, "fbclid")) reasons.add("metadata_fbclid");
+  if (metadataString(entry, "fbc") || metadataString(entry, "_fbc")) reasons.add("metadata_fbc");
+  if (metadataString(entry, "fbp") || metadataString(entry, "_fbp")) reasons.add("metadata_fbp");
+
+  if (attributionUrlHasParam(entry.landing, "fbclid") || attributionUrlHasParam(entry.referrer, "fbclid")) {
+    reasons.add("fbclid_url");
+  }
+  if (attributionUrlHasParam(entry.landing, "fbc") || attributionUrlHasParam(entry.referrer, "fbc")) {
+    reasons.add("fbc_url");
+  }
+  if (attributionUrlHasParam(entry.landing, "fbp") || attributionUrlHasParam(entry.referrer, "fbp")) {
+    reasons.add("fbp_url");
+  }
+
+  if (attributionTextIncludesMeta(entry.utmSource)) reasons.add("utm_source_meta");
+  if (attributionTextIncludesMeta(entry.utmMedium)) reasons.add("utm_medium_meta");
+  if (attributionTextIncludesMeta(entry.utmCampaign)) reasons.add("utm_campaign_meta");
+  if (attributionTextIncludesMeta(entry.utmTerm)) reasons.add("utm_term_meta");
+  if (attributionTextIncludesMeta(entry.utmContent)) reasons.add("utm_content_meta");
+  if (attributionTextIncludesMeta(entry.landing)) reasons.add("landing_meta");
+  if (attributionTextIncludesMeta(entry.referrer)) reasons.add("referrer_meta");
+  if (attributionTextIncludesMeta(metadataString(entry, "source"))) reasons.add("metadata_source_meta");
+
+  const metadataUrlKeys = [
+    "imweb_landing_url",
+    "initial_referrer",
+    "original_referrer",
+    "checkoutUrl",
+    "landing",
+    "referrer",
+  ];
+  for (const key of metadataUrlKeys) {
+    const value = entry.metadata[key];
+    if (attributionTextIncludesMeta(value)) reasons.add("metadata_url_meta");
+    if (attributionUrlHasParam(value, "fbclid")) reasons.add("metadata_fbclid_url");
+    if (attributionUrlHasParam(value, "fbc")) reasons.add("metadata_fbc_url");
+    if (attributionUrlHasParam(value, "fbp")) reasons.add("metadata_fbp_url");
+  }
+
+  return [...reasons].sort();
+};
+
 export const buildAttributionFirstTouchSnapshot = (
   entry: AttributionLedgerEntry,
 ): AttributionFirstTouchSnapshot => ({
@@ -702,6 +772,7 @@ export const buildAttributionFirstTouchSnapshot = (
   gclid: entry.gclid,
   fbclid: entry.fbclid,
   ttclid: entry.ttclid,
+  metaMatchReasons: getAttributionMetaMatchReasons(entry),
   tiktokMatchReasons: getAttributionTikTokMatchReasons(entry),
 });
 
@@ -709,6 +780,7 @@ type FirstTouchCandidateScore = {
   entry: AttributionLedgerEntry;
   matchedBy: string[];
   score: number;
+  metaMatchReasons: string[];
   tiktokMatchReasons: string[];
 };
 
@@ -723,8 +795,9 @@ const scoreFirstTouchCandidate = (
 ): FirstTouchCandidateScore | null => {
   if (candidate.touchpoint !== "checkout_started" && candidate.touchpoint !== "marketing_intent") return null;
 
+  const metaMatchReasons = getAttributionMetaMatchReasons(candidate);
   const tiktokMatchReasons = getAttributionTikTokMatchReasons(candidate);
-  if (candidate.touchpoint === "marketing_intent" && tiktokMatchReasons.length === 0) return null;
+  if (candidate.touchpoint === "marketing_intent" && metaMatchReasons.length === 0 && tiktokMatchReasons.length === 0) return null;
 
   const paymentSource = entrySource(payment);
   const candidateSource = entrySource(candidate);
@@ -775,10 +848,11 @@ const scoreFirstTouchCandidate = (
 
   if (matchedBy.length === 0) return null;
 
+  if (metaMatchReasons.length > 0) score += 20;
   if (tiktokMatchReasons.length > 0) score += 20;
   if (paymentMs !== null && candidateMs !== null && paymentMs >= candidateMs) score += 5;
 
-  return { entry: candidate, matchedBy, score, tiktokMatchReasons };
+  return { entry: candidate, matchedBy, score, metaMatchReasons, tiktokMatchReasons };
 };
 
 const selectFirstTouchCheckoutCandidate = (
@@ -805,6 +879,7 @@ const buildFirstTouchMatchMetadata = (
   matchScore: candidate.score,
   checkoutLoggedAt: candidate.entry.loggedAt,
   storage: FIRST_TOUCH_STORAGE_REF,
+  metaMatchReasons: candidate.metaMatchReasons,
   tiktokMatchReasons: candidate.tiktokMatchReasons,
 });
 
@@ -822,6 +897,10 @@ const attachFirstTouchMetadata = (
   if (snapshot.tiktokMatchReasons.length > 0) {
     metadata.tiktokFirstTouchCandidate = true;
     metadata.tiktokFirstTouchMatchReasons = snapshot.tiktokMatchReasons;
+  }
+  if (snapshot.metaMatchReasons.length > 0) {
+    metadata.metaFirstTouchCandidate = true;
+    metadata.metaFirstTouchMatchReasons = snapshot.metaMatchReasons;
   }
 
   return { ...entry, metadata };
@@ -842,6 +921,7 @@ export const enrichCheckoutStartedFirstTouch = (
     matchScore: 1000,
     checkoutLoggedAt: entry.loggedAt,
     storage: FIRST_TOUCH_STORAGE_REF,
+    metaMatchReasons: snapshot.metaMatchReasons,
     tiktokMatchReasons: snapshot.tiktokMatchReasons,
   });
 };

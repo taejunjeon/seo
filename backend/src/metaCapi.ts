@@ -1394,10 +1394,10 @@ const resolveCapiToken = (pixelId: string): { token: string; kind: "coffee_syste
   return { token: global, kind: "global" };
 };
 
-// Funnel 이벤트 (ViewContent · AddToCart · InitiateCheckout · Lead) 전용 경량 전송 함수.
+// Funnel 이벤트 (ViewContent · AddToCart · InitiateCheckout · AddPaymentInfo · Lead) 전용 경량 전송 함수.
 // sendMetaConversion 은 Purchase 중심이라 orderId/PII 필수 구조 — funnel 은 익명 브라우저 행동이라 별도 경로.
 // 상세 설계: meta/capimeta.md §Funnel 이벤트 확장 개선 계획 §4 Day 1
-export type FunnelEventName = "ViewContent" | "AddToCart" | "InitiateCheckout" | "Lead" | "Search";
+export type FunnelEventName = "ViewContent" | "AddToCart" | "InitiateCheckout" | "AddPaymentInfo" | "Lead" | "Search";
 
 export type FunnelEventInput = {
   eventName: FunnelEventName;

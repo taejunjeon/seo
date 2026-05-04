@@ -247,6 +247,71 @@ test("attribution: payment_success can carry prior TikTok marketing intent first
   assert.ok(matchedBy.includes("client_id"));
 });
 
+test("attribution: payment_success can carry prior Meta marketing intent firstTouch", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/marketing-intent",
+  };
+  const marketingIntent = buildLedgerEntry(
+    "marketing_intent",
+    {
+      landing: "https://biocom.kr/HealthFood/?idx=198&utm_source=facebook&utm_campaign=meta_biocom_food&fbclid=fb-1",
+      referrer: "https://l.facebook.com/",
+      utmSource: "facebook",
+      utmCampaign: "meta_biocom_food",
+      fbclid: "fb-1",
+      metadata: {
+        source: "biocom_imweb",
+        clientId: "client-meta-1",
+        userPseudoId: "client-meta-1",
+        fbc: "fb.1.1777500000000.fb-1",
+        fbp: "fb.1.1777500000000.123456789",
+      },
+    },
+    requestContext,
+    "2026-04-28T00:00:00.000Z",
+  );
+  const payment = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202604301234570",
+      paymentKey: "pay-meta-1",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        value: 35000,
+        clientId: "client-meta-1",
+        userPseudoId: "client-meta-1",
+      },
+    },
+    { ...requestContext, path: "/api/attribution/payment-success" },
+    "2026-04-30T00:00:00.000Z",
+  );
+
+  const enriched = enrichPaymentSuccessFirstTouch(
+    payment,
+    [marketingIntent],
+    "2026-04-30T00:00:01.000Z",
+  );
+  const firstTouch = enriched.metadata.firstTouch as Record<string, unknown>;
+  const firstTouchMatch = enriched.metadata.firstTouchMatch as Record<string, unknown>;
+  const metaMatchReasons = firstTouch.metaMatchReasons as string[];
+  const matchedBy = firstTouchMatch.matchedBy as string[];
+
+  assert.equal(enriched.fbclid, "");
+  assert.equal(firstTouch.touchpoint, "marketing_intent");
+  assert.equal(firstTouch.fbclid, "fb-1");
+  assert.equal(firstTouchMatch.source, "marketing_intent");
+  assert.equal(enriched.metadata.metaFirstTouchCandidate, true);
+  assert.ok(metaMatchReasons.includes("fbclid_direct"));
+  assert.ok(metaMatchReasons.includes("metadata_fbc"));
+  assert.ok(matchedBy.includes("client_id"));
+});
+
 test("tiktok pixel events: normalize payload keeps event-level order and decision keys", () => {
   const event = normalizeTikTokPixelEventPayload(
     {

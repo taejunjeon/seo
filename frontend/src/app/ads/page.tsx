@@ -120,6 +120,56 @@ type SiteRoasSummary = {
   roasGap?: number | null;
 };
 
+type AdsSourceConfidence = "A" | "B" | "C" | "D";
+
+type AdsDateRangeMeta = {
+  start_date: string;
+  end_date: string;
+  timezone: string;
+  inclusivity: string;
+};
+
+type AdsSourceMeta = {
+  queried_at?: string;
+  checked_at?: string;
+  timezone?: string;
+  date_range?: AdsDateRangeMeta | null;
+  ledger_source?: "operational_vm" | "local";
+  requested_ledger_source?: "auto" | "local" | "operational_vm";
+  source_confidence?: AdsSourceConfidence;
+  source_confidence_reason?: string;
+  source_max_timestamp?: string | null;
+  row_count?: number;
+  order_count?: number;
+  fallback_reason?: string | null;
+  spend_source?: string;
+  currency?: string;
+  rounding_rule?: string;
+  meta_attribution_window?: string;
+  meta_attribution_windows?: string[];
+  meta_action_report_time?: string;
+  meta_use_unified_attribution_setting?: boolean;
+};
+
+type SiteSummaryResponse = AdsSourceMeta & {
+  sites: SiteRoasSummary[];
+  total: {
+    impressions: number;
+    clicks: number;
+    spend: number;
+    revenue: number;
+    roas: number | null;
+    orders: number;
+    confirmedRevenue?: number;
+    pendingRevenue?: number;
+    potentialRevenue?: number;
+    metaPurchaseValue?: number;
+    confirmedRoas?: number | null;
+    potentialRoas?: number | null;
+    metaPurchaseRoas?: number | null;
+  };
+};
+
 type AttributionCampaignRoasRow = {
   campaignId: string | null;
   campaignName: string;
@@ -423,8 +473,8 @@ const BIOCOM_CAMPAIGN_SELECTION_CANDIDATES = [
     action: "보류",
   },
 ] as const;
-// 광고 ROAS 리포팅은 VM ledger 기준. localhost:7020은 2026-04-13 이후 attribution sync가 꺼져 있어 일자별 Attr 값이 0으로 보일 수 있다.
-const ADS_REPORTING_API_BASE = "https://att.ainativeos.net";
+// 광고 ROAS 리포팅은 로컬 백엔드가 운영 VM attribution ledger를 read-only 조회하는 경로로 통일한다.
+const ADS_REPORTING_API_BASE = API_BASE;
 
 const formatDateTime = (value: string | null) => {
   if (!value) return "—";
@@ -440,6 +490,32 @@ const formatDateTime = (value: string | null) => {
   });
 };
 
+const sourceConfidenceStyle = (confidence: AdsSourceConfidence | undefined) => {
+  switch (confidence) {
+    case "A":
+      return { bg: "#dcfce7", border: "#86efac", color: "#166534", label: "A · 운영 VM 기준" };
+    case "B":
+      return { bg: "#fef9c3", border: "#fde047", color: "#854d0e", label: "B · warning 있음" };
+    case "C":
+      return { bg: "#fffbeb", border: "#fcd34d", color: "#92400e", label: "C · local 명시" };
+    case "D":
+      return { bg: "#fee2e2", border: "#fecaca", color: "#991b1b", label: "D · fallback 주의" };
+    default:
+      return { bg: "#f8fafc", border: "#e2e8f0", color: "#475569", label: "미확인" };
+  }
+};
+
+const ledgerSourceLabel = (source: AdsSourceMeta["ledger_source"]) => {
+  if (source === "operational_vm") return "운영 VM attribution ledger";
+  if (source === "local") return "로컬 SQLite cache";
+  return "확인 필요";
+};
+
+const formatDateRangeMeta = (range: AdsDateRangeMeta | null | undefined) => {
+  if (!range) return "기간 정보 없음";
+  return `${range.start_date} ~ ${range.end_date} (${range.timezone}, inclusive)`;
+};
+
 export default function AdsPage() {
   const [selectedSite, setSelectedSite] = useState(SITES[0]);
   const [datePreset, setDatePreset] = useState("last_7d");
@@ -447,7 +523,7 @@ export default function AdsPage() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [campaignSummary, setCampaignSummary] = useState<CampaignSummary | null>(null);
   const [daily, setDaily] = useState<DailyRow[]>([]);
-  const [siteSummary, setSiteSummary] = useState<{ sites: SiteRoasSummary[]; total: { impressions: number; clicks: number; spend: number; revenue: number; roas: number | null; orders: number } } | null>(null);
+  const [siteSummary, setSiteSummary] = useState<SiteSummaryResponse | null>(null);
   const [campaignRoas, setCampaignRoas] = useState<AttributionCampaignRoasResponse | null>(null);
   // 2026-04-20: 공동구매 캠페인 분리 표시 필터 (§ H/I). 기본 general만 보기.
   const [campaignTypeFilter, setCampaignTypeFilter] = useState<"all" | "general" | "coop">("general");
@@ -644,6 +720,8 @@ export default function AdsPage() {
   const staleSourceCount = sourceFreshness?.results.filter((result) =>
     ["error", "missing", "stale"].includes(result.status),
   ).length ?? 0;
+  const sourceConfidence = sourceConfidenceStyle(siteSummary?.source_confidence);
+  const sourceIsFallback = siteSummary?.ledger_source === "local" && siteSummary?.requested_ledger_source === "auto";
 
   return (
     <>
@@ -761,6 +839,75 @@ export default function AdsPage() {
           }}>{aw.label}</button>
         ))}
       </div>
+
+      {siteSummary && (
+        <section style={{
+          marginBottom: 16,
+          padding: "14px 16px",
+          borderRadius: 14,
+          background: sourceIsFallback ? "#fff7ed" : "#f8fafc",
+          border: `1px solid ${sourceIsFallback ? "#fdba74" : "#e2e8f0"}`,
+          color: sourceIsFallback ? "#7c2d12" : "#334155",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div style={{ maxWidth: 720 }}>
+              <div style={{ fontSize: "0.78rem", fontWeight: 850, color: sourceIsFallback ? "#9a3412" : "#0f172a", marginBottom: 4 }}>
+                현재 ROAS 숫자의 기준
+              </div>
+              <div style={{ fontSize: "0.76rem", lineHeight: 1.7 }}>
+                내부 매출은 <strong>{ledgerSourceLabel(siteSummary.ledger_source)}</strong> 기준입니다.
+                Meta spend와 purchase value는 <strong>{siteSummary.spend_source ?? "Meta Ads Insights API spend"}</strong> 기준이고,
+                attribution window는 <strong>{siteSummary.meta_attribution_window ?? currentAttrWindowLabel}</strong>입니다.
+                {sourceIsFallback && (
+                  <>
+                    {" "}
+                    현재 local fallback이라 최근 예산 판단은 보류해야 합니다.
+                  </>
+                )}
+              </div>
+            </div>
+            <span style={{
+              padding: "5px 10px",
+              borderRadius: 999,
+              background: sourceConfidence.bg,
+              border: `1px solid ${sourceConfidence.border}`,
+              color: sourceConfidence.color,
+              fontSize: "0.7rem",
+              fontWeight: 850,
+              whiteSpace: "nowrap",
+            }}>
+              {sourceConfidence.label}
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 8, marginTop: 12 }}>
+            {[
+              { label: "조회 시각", value: formatDateTime(siteSummary.queried_at ?? null) },
+              { label: "집계 기간", value: formatDateRangeMeta(siteSummary.date_range) },
+              { label: "원장 최신 시각", value: formatDateTime(siteSummary.source_max_timestamp ?? null) },
+              { label: "원장 row", value: `${fmtNum(siteSummary.row_count ?? 0)} rows / ${fmtNum(siteSummary.order_count ?? 0)} orders` },
+              { label: "currency", value: siteSummary.currency ?? "KRW" },
+              { label: "rounding", value: "화면은 원 단위 반올림" },
+            ].map((item) => (
+              <div key={item.label} style={{
+                padding: "9px 10px",
+                borderRadius: 10,
+                background: "#ffffff",
+                border: "1px solid rgba(148,163,184,0.22)",
+              }}>
+                <div style={{ fontSize: "0.66rem", color: "#94a3b8", marginBottom: 3 }}>{item.label}</div>
+                <div style={{ fontSize: "0.74rem", fontWeight: 700, color: "#334155" }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+          {(siteSummary.fallback_reason || siteSummary.source_confidence_reason) && (
+            <div style={{ marginTop: 10, fontSize: "0.72rem", lineHeight: 1.6, color: sourceIsFallback ? "#9a3412" : "#64748b" }}>
+              {siteSummary.fallback_reason
+                ? `fallback reason: ${siteSummary.fallback_reason}`
+                : siteSummary.source_confidence_reason}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 공동구매 분리 해석 배너 (§ H/I, 2026-04-20): 표시된 ROAS가 공동구매 캠페인을 포함하는지 알려준다. */}
       {campaignRoas?.summary?.coop && (campaignRoas.summary.coop.spend > 0 || campaignRoas.summary.coop.attributedRevenue > 0) && (

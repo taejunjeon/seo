@@ -1,6 +1,7 @@
 # Meta campaign alias mapping
 
 작성일: 2026-04-25 KST
+최종 업데이트: 2026-05-04 11:30 KST
 
 ## 목적
 
@@ -36,6 +37,47 @@
 | `data/meta_campaign_alias_audit.biocom.json` | alias별 주문/후보 audit 스냅샷 | 현재 일부 수치가 stale일 수 있다. 예: 2026-04-25 확인 기준 `cellcleanerreel`, `inpork`는 현재 원장보다 작게 잡혀 있다. |
 | `meta/campaign-url-evidence.biocom.json` | Meta creative/ad URL evidence | `utm_campaign` 직접 증거와 adset -> campaign 역추적에 사용한다. |
 | `backend/data/crm.sqlite3` | 로컬 attribution ledger 및 imweb 주문 캐시 | 현재 수치 확인용 primary source. 운영 DB와 다를 수 있으므로 기준 시각을 기록해야 한다. |
+
+## 2026-05-04 운영 VM 최신 window 재분류 결과
+
+기준 시각: 2026-05-04 11:30 KST
+Primary source: 운영 VM attribution ledger read-only
+Window: 2026-04-27~2026-05-03 KST inclusive
+API: `/api/ads/roas?account_id=act_3138805896402376&date_preset=last_7d`
+
+현재 matcher는 `campaign id`, `adset id`, `ad id`를 상품명/랜딩 추정보다 우선한다.
+주문에 `utm_campaign={{campaign.id}}`, `utm_term={{adset.id}}`, `utm_content={{ad.id}}`, `meta_campaign_id`, `meta_adset_id`, `meta_ad_id`가 남으면 해당 숫자 ID로 campaign을 찾는다.
+`campaign_alias`는 `utm_campaign`이 비어 있을 때 보조 alias로만 쓴다.
+
+검증된 API 수치:
+
+```text
+ledger_source: operational_vm
+source_confidence: A
+Meta spend: 28,559,014원
+Attribution confirmed revenue: 55,743,545원
+Attribution confirmed ROAS: 1.95x
+Attribution confirmed orders: 185건
+unmapped confirmed revenue: 10,879,100원 / 33건
+adset_mapping_error: null
+ad_mapping_error: null
+alias_mapping_error: null
+```
+
+이번 결론:
+
+| 후보 | 현재 결정 | 캠페인 반영 | 이유 |
+|---|---|---|---|
+| `meta_biocom_sosohantoon01_igg` with adset id | parent campaign 자동 반영 | yes | `utm_term` 또는 adset id가 있으면 parent campaign으로 안전하게 역추적 가능하다. |
+| `meta_biocom_sosohantoon01_igg` alias-only | 수동 확인 필요 | no | id 없이 alias만 남은 후보가 있다. read-only 후보 기준 약 12건 / 3,933,000원으로 규모가 커서 Ads Manager 확인이 필요하다. |
+| `meta_biocom_kkunoping02_igg` | 수동 확인 필요 | no | 현재 seed, 2026-04-11 URL evidence, live Ads API 검색에서 campaign 증거가 확인되지 않았다. |
+| `meta_biocom_skintts1_igg` with adset id | id 기준 자동 반영 | yes | `utm_term=120244759212190396`는 campaign `120244759209860396`으로 붙인다. |
+| `meta_biocom_skintts1_igg` alias-only | 수동 확인 필요 | no | 같은 alias가 여러 campaign에 걸칠 수 있어 alias 단독으로 확정하면 위험하다. |
+| `fbclid only` | quarantine | no | Meta 클릭 흔적은 있지만 어느 campaign인지 알 수 없다. landing/상품군만 보고 붙이지 않는다. |
+| `inpork_biocom_igg` | non-meta influencer 또는 quarantine | no | IGG 상품군은 맞지만 Meta campaign/adset/ad id가 없다. |
+
+다음 액션은 그로스 파트장의 Ads Manager export다.
+필수 컬럼은 `campaign id`, `campaign name`, `adset id`, `adset name`, `ad id`, `ad name`, `Website URL`, `URL Parameters`, `spend`, `purchase`, `purchase conversion value`다.
 
 ## 2026-04-25 재분류 제안
 

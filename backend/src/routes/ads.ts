@@ -51,10 +51,30 @@ const VALID_META_ATTRIBUTION_WINDOWS = ["1d_click", "7d_click", "28d_click", "1d
 export type SiteKey = "biocom" | "thecleancoffee" | "aibio";
 type AdsChannel = "meta" | "google" | "daangn";
 type MetaAttributionWindow = typeof VALID_META_ATTRIBUTION_WINDOWS[number];
+type AdsLedgerSourceRequest = "auto" | "local" | "operational_vm";
+type AdsLedgerSourceUsed = "local" | "operational_vm";
+type AdsSourceConfidence = "A" | "B" | "C" | "D";
 
 type DateRange = {
   startDate: string;
   endDate: string;
+};
+
+type LedgerFreshness = {
+  entries: number;
+  orders: number;
+  latestLoggedAt: string | null;
+  latestApprovedDate: string | null;
+};
+
+type AdsResponseMetaParams = {
+  range?: DateRange;
+  datePreset?: string | null;
+  accountId?: string | null;
+  site?: SiteKey | null;
+  attributionWindow?: MetaAttributionWindow | null;
+  metaLevel?: string | null;
+  metaFields?: string | null;
 };
 
 type MetaInsightAction = {
@@ -131,11 +151,13 @@ export type NormalizedLedgerOrder = {
   utmSource: string;
   utmCampaign: string;
   utmTerm: string;
+  utmContent: string;
   fbclid: string;
   gclid: string;
   ttclid: string;
   campaignIdHint: string;
   adsetIdHint: string;
+  adIdHint: string;
   captureMode: AttributionCaptureMode;
   paymentStatus: AttributionPaymentStatus;
   status: string;
@@ -482,6 +504,21 @@ const extractUrlParam = (value: string, key: string) => {
 const extractFirstUrlParam = (values: string[], key: string) =>
   firstNonEmpty(values.map((value) => extractUrlParam(value, key)));
 
+const normalizeMetaNumericId = (value: string) => {
+  const raw = value.trim();
+  return /^\d{8,}$/.test(raw) ? raw : "";
+};
+
+const extractFirstNumericUrlParam = (values: string[], keys: string[]) => {
+  for (const key of keys) {
+    const value = firstNonEmpty(values.map((candidate) => (
+      normalizeMetaNumericId(extractUrlParam(candidate, key))
+    )));
+    if (value) return value;
+  }
+  return "";
+};
+
 const getKstToday = () => KST_DATE_FORMATTER.format(new Date());
 
 const firstDayOfMonth = (date: string) => `${date.slice(0, 7)}-01`;
@@ -566,6 +603,15 @@ const parseMetaAttributionWindow = (value: unknown): MetaAttributionWindow | nul
     throw new Error(`지원하지 않는 attribution_window: ${requested}`);
   }
   return requested as MetaAttributionWindow;
+};
+
+const parseAdsLedgerSource = (value: unknown): AdsLedgerSourceRequest => {
+  if (typeof value !== "string" || !value.trim()) return "auto";
+  const requested = value.trim();
+  if (requested === "auto" || requested === "local" || requested === "operational_vm") {
+    return requested;
+  }
+  throw new Error(`지원하지 않는 ledger_source: ${requested}`);
 };
 
 const normalizeDateLike = (value: string): string | null => {
@@ -677,6 +723,10 @@ type LocalAliasAuditFile = {
     adsets?: Array<{
       adsetId?: string;
       adsetName?: string;
+      ads?: Array<{
+        adId?: string;
+        adName?: string;
+      }>;
     }>;
   }>;
 };
@@ -701,6 +751,38 @@ const loadLocalAuditAdsetCampaignMap = async (
           campaignName: campaign.campaignName?.trim() ?? "",
           adsetName: adset.adsetName?.trim() ?? "",
         });
+      }
+    }
+  } catch {
+    return map;
+  }
+
+  return map;
+};
+
+const loadLocalAuditAdCampaignMap = async (
+  site: SiteKey | null,
+): Promise<AdCampaignMap> => {
+  const map: AdCampaignMap = new Map();
+  if (!site) return map;
+
+  try {
+    const raw = await fs.readFile(path.resolve(DATA_DIR, `meta_campaign_alias_audit.${site}.json`), "utf8");
+    const audit = JSON.parse(raw) as LocalAliasAuditFile;
+    for (const campaign of audit.campaigns ?? []) {
+      const campaignId = campaign.campaignId?.trim() ?? "";
+      if (!campaignId) continue;
+      for (const adset of campaign.adsets ?? []) {
+        for (const ad of adset.ads ?? []) {
+          const adId = ad.adId?.trim() ?? "";
+          if (!adId) continue;
+          map.set(adId, {
+            campaignId,
+            campaignName: campaign.campaignName?.trim() ?? "",
+            adsetName: adset.adsetName?.trim() ?? "",
+            adName: ad.adName?.trim() ?? "",
+          });
+        }
       }
     }
   } catch {
@@ -747,6 +829,158 @@ const fetchMetaAdsetCampaignMap = async (
     });
   }
   return { map, error: null };
+};
+
+type MetaAdCreativeEvidenceRow = {
+  id: string;
+  name?: string;
+  adset_id?: string;
+  campaign_id?: string;
+  campaign?: { id?: string; name?: string };
+  adset?: { id?: string; name?: string };
+  creative?: unknown;
+};
+
+type MetaPagedResponse<T> = {
+  data?: T[];
+  paging?: { next?: string };
+};
+
+const fetchMetaPaged = async <T>(
+  path: string,
+  params: Record<string, string>,
+  maxRows = 2000,
+): Promise<MetaFetchResult<T[]>> => {
+  const accountId = path.match(/^\/(act_\d+)/)?.[1];
+  const token = getMetaToken(accountId);
+  if (!token) return { ok: false, error: "META_ADMANAGER_API_KEY 미설정" };
+
+  const firstUrl = new URL(`${META_GRAPH_URL}${path}`);
+  firstUrl.searchParams.set("access_token", token);
+  for (const [key, value] of Object.entries(params)) {
+    firstUrl.searchParams.set(key, value);
+  }
+
+  const rows: T[] = [];
+  let nextUrl: string | null = firstUrl.toString();
+  while (nextUrl && rows.length < maxRows) {
+    const response = await fetch(nextUrl, { signal: AbortSignal.timeout(15_000) });
+    const body = await response.json() as MetaPagedResponse<T> & { error?: { message?: string } };
+    if (body.error) {
+      return { ok: false, error: body.error.message ?? "Meta API error" };
+    }
+    rows.push(...(body.data ?? []));
+    nextUrl = body.paging?.next ?? null;
+  }
+
+  return { ok: true, data: rows.slice(0, maxRows) };
+};
+
+const collectStringValuesDeep = (value: unknown, output: string[] = []): string[] => {
+  if (typeof value === "string") {
+    output.push(value);
+    return output;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectStringValuesDeep(item, output);
+    return output;
+  }
+  if (value && typeof value === "object") {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      collectStringValuesDeep(item, output);
+    }
+  }
+  return output;
+};
+
+const extractMetaAliasKeysFromCreative = (creative: unknown) => {
+  const aliases = new Set<string>();
+  for (const value of collectStringValuesDeep(creative)) {
+    const candidates = [
+      extractUrlParam(value, "campaign_alias"),
+      extractUrlParam(value, "utm_campaign"),
+    ];
+    for (const candidate of candidates) {
+      const normalized = candidate.trim();
+      if (!normalized || normalizeMetaNumericId(normalized)) continue;
+      if (!normalized.toLowerCase().includes("meta")) continue;
+      aliases.add(normalizeCampaignKey(normalized));
+    }
+  }
+  return [...aliases].filter(Boolean);
+};
+
+const fetchMetaAdCreativeEvidenceMaps = async (
+  accountId: string,
+): Promise<{ adMap: AdCampaignMap; aliasMap: CampaignAliasMap; error: string | null }> => {
+  const siteAccount = findSiteAccountByAccountId(accountId);
+  const localAdMap = await loadLocalAuditAdCampaignMap(siteAccount?.site ?? null);
+  let result: MetaFetchResult<MetaAdCreativeEvidenceRow[]>;
+  try {
+    result = await fetchMetaPaged<MetaAdCreativeEvidenceRow>(
+      `/${accountId}/ads`,
+      {
+        fields: "id,name,adset_id,campaign_id,campaign{id,name},adset{id,name},creative{id,name,url_tags}",
+        limit: "200",
+      },
+      1000,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      adMap: localAdMap,
+      aliasMap: new Map(),
+      error: localAdMap.size > 0
+        ? `${message}; local alias audit fallback ads=${localAdMap.size}`
+        : message,
+    };
+  }
+
+  if (!result.ok) {
+    return {
+      adMap: localAdMap,
+      aliasMap: new Map(),
+      error: localAdMap.size > 0
+        ? `${result.error}; local alias audit fallback ads=${localAdMap.size}`
+        : result.error,
+    };
+  }
+
+  const adMap: AdCampaignMap = new Map(localAdMap);
+  const aliasBuckets = new Map<string, CampaignAliasMatch[]>();
+  for (const ad of result.data) {
+    const campaignId = ad.campaign_id ?? ad.campaign?.id ?? "";
+    if (!ad.id || !campaignId) continue;
+    const campaignName = ad.campaign?.name ?? "";
+    adMap.set(ad.id, {
+      campaignId,
+      campaignName,
+      adsetName: ad.adset?.name ?? "",
+      adName: ad.name ?? "",
+    });
+
+    for (const aliasKey of extractMetaAliasKeysFromCreative(ad.creative)) {
+      const bucket = aliasBuckets.get(aliasKey) ?? [];
+      bucket.push({
+        campaignId,
+        campaignName,
+        validFrom: null,
+        validTo: null,
+        confidence: "live_creative_url",
+      });
+      aliasBuckets.set(aliasKey, bucket);
+    }
+  }
+
+  const aliasMap: CampaignAliasMap = new Map();
+  for (const [aliasKey, matches] of aliasBuckets) {
+    const uniqueCampaignIds = new Set(matches.map((match) => match.campaignId));
+    if (uniqueCampaignIds.size !== 1) continue;
+    const match = matches[0];
+    if (match) aliasMap.set(aliasKey, [match]);
+  }
+
+  return { adMap, aliasMap, error: null };
 };
 
 const buildMetaReference = (params?: {
@@ -1061,6 +1295,7 @@ const findBusinessConfirmedOrder = (
 export const buildNormalizedLedgerOrders = (
   entries: AttributionLedgerEntry[],
   businessConfirmedOrders: BusinessConfirmedImwebOrderMap = new Map(),
+  options: { trustConfirmedPaymentStatusAsBusinessConfirmed?: boolean } = {},
 ): NormalizedLedgerOrder[] => {
   const grouped = new Map<string, AttributionLedgerEntry[]>();
 
@@ -1084,6 +1319,8 @@ export const buildNormalizedLedgerOrders = (
     const approvedDate = preferred.map(resolveLedgerOrderDate).find((value) => value !== null) ?? null;
     const businessConfirmedOrder = findBusinessConfirmedOrder(preferred, businessConfirmedOrders, site);
     const paymentStatus = resolveOrderPaymentStatus(preferred);
+    const inferredBusinessConfirmed = options.trustConfirmedPaymentStatusAsBusinessConfirmed === true
+      && paymentStatus === "confirmed";
     const statusCarrier = [...preferred].sort((a, b) => (
       PAYMENT_STATUS_PRIORITY[b.paymentStatus ?? "pending"] - PAYMENT_STATUS_PRIORITY[a.paymentStatus ?? "pending"]
       || b.loggedAt.localeCompare(a.loggedAt)
@@ -1100,7 +1337,35 @@ export const buildNormalizedLedgerOrders = (
         "original_referrer",
       ]),
     ]);
+    const campaignAlias = extractFirstUrlParam(urlCandidates, "campaign_alias");
+    const utmCampaign = firstNonEmpty([attributionCarrier?.utmCampaign ?? "", campaignAlias]);
     const utmTerm = attributionCarrier?.utmTerm ?? "";
+    const utmContent = attributionCarrier?.utmContent ?? "";
+    const campaignIdHint = firstNonEmpty([
+      normalizeMetaNumericId(utmCampaign),
+      extractFirstNumericUrlParam(urlCandidates, [
+        "meta_campaign_id",
+        "campaign_id",
+        "utm_id",
+        "utm_campaign",
+      ]),
+    ]);
+    const adsetIdHint = firstNonEmpty([
+      normalizeMetaNumericId(utmTerm),
+      extractFirstNumericUrlParam(urlCandidates, [
+        "meta_adset_id",
+        "adset_id",
+        "utm_term",
+      ]),
+    ]);
+    const adIdHint = firstNonEmpty([
+      normalizeMetaNumericId(utmContent),
+      extractFirstNumericUrlParam(urlCandidates, [
+        "meta_ad_id",
+        "ad_id",
+        "utm_content",
+      ]),
+    ]);
 
     return {
       key,
@@ -1111,20 +1376,22 @@ export const buildNormalizedLedgerOrders = (
       site,
       customerKey: firstNonEmpty(preferred.map((entry) => normalizePhone(entry.customerKey))),
       utmSource: attributionCarrier?.utmSource ?? "",
-      utmCampaign: attributionCarrier?.utmCampaign ?? "",
+      utmCampaign,
       utmTerm,
+      utmContent,
       fbclid: attributionCarrier?.fbclid ?? "",
       gclid: attributionCarrier?.gclid ?? "",
       ttclid: attributionCarrier?.ttclid ?? "",
-      campaignIdHint: extractFirstUrlParam(urlCandidates, "utm_id"),
-      adsetIdHint: firstNonEmpty([utmTerm, extractFirstUrlParam(urlCandidates, "utm_term")]),
+      campaignIdHint,
+      adsetIdHint,
+      adIdHint,
       captureMode: attributionCarrier?.captureMode ?? preferred[0]?.captureMode ?? "live",
       paymentStatus,
       status,
       completed: paymentStatus === "confirmed",
-      businessConfirmed: Boolean(businessConfirmedOrder),
-      businessConfirmedDate: businessConfirmedOrder?.completeDate ?? null,
-      businessConfirmedAmount: businessConfirmedOrder?.amount ?? null,
+      businessConfirmed: Boolean(businessConfirmedOrder) || inferredBusinessConfirmed,
+      businessConfirmedDate: businessConfirmedOrder?.completeDate ?? (inferredBusinessConfirmed ? approvedDate : null),
+      businessConfirmedAmount: businessConfirmedOrder?.amount ?? (inferredBusinessConfirmed ? amount : null),
       entryCount: group.length,
     };
   }).sort((a, b) => (
@@ -1149,6 +1416,7 @@ const isMetaAttributedOrder = (order: NormalizedLedgerOrder) => {
     || Boolean(order.fbclid.trim())
     || Boolean(order.campaignIdHint.trim())
     || Boolean(order.adsetIdHint.trim())
+    || Boolean(order.adIdHint.trim())
   );
 };
 
@@ -1221,6 +1489,12 @@ type AdsetCampaignMatch = {
 
 type AdsetCampaignMap = Map<string, AdsetCampaignMatch>;
 
+type AdCampaignMatch = AdsetCampaignMatch & {
+  adName: string;
+};
+
+type AdCampaignMap = Map<string, AdCampaignMatch>;
+
 type CampaignAliasMatch = {
   campaignId: string;
   campaignName: string | null;
@@ -1260,6 +1534,18 @@ const fetchManualVerifiedAliasMap = async (
   }
 };
 
+const mergeCampaignAliasMaps = (...maps: CampaignAliasMap[]): CampaignAliasMap => {
+  const merged: CampaignAliasMap = new Map();
+  for (const map of maps) {
+    for (const [aliasKey, matches] of map) {
+      const bucket = merged.get(aliasKey) ?? [];
+      bucket.push(...matches);
+      merged.set(aliasKey, bucket);
+    }
+  }
+  return merged;
+};
+
 const isAliasMatchActive = (match: CampaignAliasMatch, orderDate: string | null) => {
   if (!orderDate) return true;
   if (match.validFrom && orderDate < match.validFrom) return false;
@@ -1292,11 +1578,17 @@ const matchCampaignIdForOrder = (
   order: NormalizedLedgerOrder,
   campaigns: MetaCampaignAggregate[],
   adsetCampaignMap: AdsetCampaignMap = new Map(),
+  adCampaignMap: AdCampaignMap = new Map(),
   campaignAliasMap: CampaignAliasMap = new Map(),
 ): string | null => {
   const campaignIdHint = order.campaignIdHint.trim();
   if (campaignIdHint && campaigns.some((campaign) => campaign.campaignId === campaignIdHint)) {
     return campaignIdHint;
+  }
+
+  const adMatch = adCampaignMap.get(order.adIdHint.trim());
+  if (adMatch && campaigns.some((campaign) => campaign.campaignId === adMatch.campaignId)) {
+    return adMatch.campaignId;
   }
 
   const adsetMatch = adsetCampaignMap.get(order.adsetIdHint.trim());
@@ -1323,6 +1615,7 @@ export const buildCampaignRoasRows = (params: {
   orders: NormalizedLedgerOrder[];
   ledgerAvailable: boolean;
   adsetCampaignMap?: AdsetCampaignMap;
+  adCampaignMap?: AdCampaignMap;
   campaignAliasMap?: CampaignAliasMap;
 }): CampaignRoasRow[] => {
   const campaigns = aggregateMetaCampaigns(params.metaRows);
@@ -1335,6 +1628,7 @@ export const buildCampaignRoasRows = (params: {
       order,
       campaigns,
       params.adsetCampaignMap,
+      params.adCampaignMap,
       params.campaignAliasMap,
     );
     if (!matchedCampaignId) {
@@ -1515,6 +1809,7 @@ const buildCampaignOrderMap = (params: {
   campaigns: MetaCampaignAggregate[];
   orders: NormalizedLedgerOrder[];
   adsetCampaignMap?: AdsetCampaignMap;
+  adCampaignMap?: AdCampaignMap;
   campaignAliasMap?: CampaignAliasMap;
 }) => {
   const matched = new Map<string, NormalizedLedgerOrder[]>();
@@ -1523,6 +1818,7 @@ const buildCampaignOrderMap = (params: {
       order,
       params.campaigns,
       params.adsetCampaignMap,
+      params.adCampaignMap,
       params.campaignAliasMap,
     );
     if (!campaignId) continue;
@@ -1554,6 +1850,7 @@ const buildCampaignLtvRoasRows = async (params: {
   orders: NormalizedLedgerOrder[];
   range: DateRange;
   adsetCampaignMap?: AdsetCampaignMap;
+  adCampaignMap?: AdCampaignMap;
   campaignAliasMap?: CampaignAliasMap;
   ltvWindowDays: number;
 }): Promise<CampaignLtvRoasRow[]> => {
@@ -1565,6 +1862,7 @@ const buildCampaignLtvRoasRows = async (params: {
     campaigns: params.campaigns,
     orders: params.orders,
     adsetCampaignMap: params.adsetCampaignMap,
+    adCampaignMap: params.adCampaignMap,
     campaignAliasMap: params.campaignAliasMap,
   });
   const orderNumbers = [...campaignOrderMap.values()].flat().map((order) => order.orderId);
@@ -1812,12 +2110,321 @@ const fetchSiteMetaSummary = async (params: {
   };
 };
 
-const loadLedgerOrders = async () => {
+type AdsLedgerLoadOptions = {
+  range?: DateRange;
+  sites?: SiteKey[];
+  source?: AdsLedgerSourceRequest;
+};
+
+type LoadedAdsLedger = {
+  entries: AttributionLedgerEntry[];
+  orders: NormalizedLedgerOrder[];
+  dataSource: AdsLedgerSourceUsed;
+  requestedSource: AdsLedgerSourceRequest;
+  warnings: string[];
+  freshness: LedgerFreshness;
+};
+
+const safeRemoteString = (value: unknown) => (typeof value === "string" ? value : "");
+
+const safeRemoteCaptureMode = (value: unknown): AttributionCaptureMode => (
+  value === "live" || value === "replay" || value === "smoke" ? value : "live"
+);
+
+const safeRemotePaymentStatus = (value: unknown): AttributionPaymentStatus | null => (
+  value === "pending" || value === "confirmed" || value === "canceled" ? value : null
+);
+
+const normalizeRemoteLedgerEntryForAds = (item: unknown): AttributionLedgerEntry => {
+  const raw = toObject(item);
+  const metadata = toObject(raw.metadata);
+  const requestContext = toObject(raw.requestContext);
+  return {
+    touchpoint: safeRemoteString(raw.touchpoint) as AttributionLedgerEntry["touchpoint"],
+    captureMode: safeRemoteCaptureMode(raw.captureMode),
+    paymentStatus: safeRemotePaymentStatus(raw.paymentStatus),
+    loggedAt: safeRemoteString(raw.loggedAt),
+    orderId: safeRemoteString(raw.orderId),
+    paymentKey: safeRemoteString(raw.paymentKey),
+    approvedAt: safeRemoteString(raw.approvedAt),
+    checkoutId: safeRemoteString(raw.checkoutId),
+    customerKey: safeRemoteString(raw.customerKey),
+    landing: safeRemoteString(raw.landing),
+    referrer: safeRemoteString(raw.referrer),
+    gaSessionId: safeRemoteString(raw.gaSessionId),
+    utmSource: safeRemoteString(raw.utmSource),
+    utmMedium: safeRemoteString(raw.utmMedium),
+    utmCampaign: safeRemoteString(raw.utmCampaign),
+    utmTerm: safeRemoteString(raw.utmTerm),
+    utmContent: safeRemoteString(raw.utmContent),
+    gclid: safeRemoteString(raw.gclid),
+    fbclid: safeRemoteString(raw.fbclid),
+    ttclid: safeRemoteString(raw.ttclid),
+    metadata: safeRemoteString(raw.source)
+      ? { ...metadata, source: safeRemoteString(raw.source) }
+      : metadata,
+    requestContext: {
+      ip: safeRemoteString(requestContext.ip),
+      userAgent: safeRemoteString(requestContext.userAgent),
+      origin: safeRemoteString(requestContext.origin),
+      requestReferer: safeRemoteString(requestContext.requestReferer),
+      method: safeRemoteString(requestContext.method),
+      path: safeRemoteString(requestContext.path),
+    },
+  };
+};
+
+const buildLedgerFreshness = (
+  entries: AttributionLedgerEntry[],
+  orders: NormalizedLedgerOrder[],
+): LedgerFreshness => ({
+  entries: entries.length,
+  orders: orders.length,
+  latestLoggedAt: entries.reduce<string | null>((latest, entry) => (
+    entry.loggedAt && (!latest || entry.loggedAt > latest) ? entry.loggedAt : latest
+  ), null),
+  latestApprovedDate: orders.reduce<string | null>((latest, order) => (
+    order.approvedDate && (!latest || order.approvedDate > latest) ? order.approvedDate : latest
+  ), null),
+});
+
+const fetchOperationalLedgerEntriesForAds = async (
+  site: SiteKey,
+  range?: DateRange,
+): Promise<{ entries: AttributionLedgerEntry[]; warnings: string[] }> => {
+  const warnings: string[] = [];
+  const url = new URL("/api/attribution/ledger", env.ATTRIBUTION_OPERATIONAL_BASE_URL);
+  url.searchParams.set("source", `${site}_imweb`);
+  url.searchParams.set("captureMode", "live");
+  url.searchParams.set("limit", "10000");
+
+  if (range) {
+    url.searchParams.set("startAt", `${shiftIsoDateByDays(range.startDate, -1)}T00:00:00.000Z`);
+    url.searchParams.set("endAt", `${shiftIsoDateByDays(range.endDate, 3)}T00:00:00.000Z`);
+  }
+
+  const response = await fetch(url.toString(), { signal: AbortSignal.timeout(15_000) });
+  const body = await response.json() as Record<string, unknown>;
+  if (!response.ok || body.ok !== true) {
+    const message = typeof body.error === "string" ? body.error : response.statusText;
+    throw new Error(`${site} 운영 VM ledger 조회 실패: ${message}`);
+  }
+
+  const items = Array.isArray(body.items) ? body.items : [];
+  const summary = toObject(body.summary);
+  const totalEntries = toNumber(summary.totalEntries);
+  if (totalEntries > items.length) {
+    warnings.push(`${site} 운영 VM ledger가 ${items.length}/${totalEntries}행만 반환했다. 더 긴 기간은 분할 조회가 필요하다.`);
+  }
+  return {
+    entries: items.map(normalizeRemoteLedgerEntryForAds),
+    warnings,
+  };
+};
+
+const loadLocalLedgerOrders = async (
+  requestedSource: AdsLedgerSourceRequest,
+  warnings: string[] = [],
+): Promise<LoadedAdsLedger> => {
   const entries = await readLedgerEntries();
   const businessConfirmedOrders = loadBusinessConfirmedImwebOrderMap();
+  const orders = buildNormalizedLedgerOrders(entries, businessConfirmedOrders);
   return {
     entries,
-    orders: buildNormalizedLedgerOrders(entries, businessConfirmedOrders),
+    orders,
+    dataSource: "local",
+    requestedSource,
+    warnings,
+    freshness: buildLedgerFreshness(entries, orders),
+  };
+};
+
+const loadOperationalLedgerOrders = async (
+  options: AdsLedgerLoadOptions,
+): Promise<LoadedAdsLedger> => {
+  const requestedSource = options.source ?? "auto";
+  const sites = [...new Set(options.sites?.length ? options.sites : SITE_ACCOUNTS.map((site) => site.site))];
+  const warnings: string[] = [];
+  const perSite = await Promise.allSettled(
+    sites.map(async (site) => ({ site, ...(await fetchOperationalLedgerEntriesForAds(site, options.range)) })),
+  );
+  const entries: AttributionLedgerEntry[] = [];
+
+  for (const result of perSite) {
+    if (result.status === "fulfilled") {
+      entries.push(...result.value.entries);
+      warnings.push(...result.value.warnings);
+    } else {
+      warnings.push(result.reason instanceof Error ? result.reason.message : String(result.reason));
+    }
+  }
+
+  const businessConfirmedOrders = loadBusinessConfirmedImwebOrderMap();
+  const orders = buildNormalizedLedgerOrders(entries, businessConfirmedOrders, {
+    trustConfirmedPaymentStatusAsBusinessConfirmed: true,
+  });
+
+  return {
+    entries,
+    orders,
+    dataSource: "operational_vm",
+    requestedSource,
+    warnings,
+    freshness: buildLedgerFreshness(entries, orders),
+  };
+};
+
+const loadLedgerOrders = async (
+  options: AdsLedgerLoadOptions = {},
+): Promise<LoadedAdsLedger> => {
+  const requestedSource = options.source ?? "auto";
+
+  if (requestedSource === "local") {
+    return loadLocalLedgerOrders(requestedSource);
+  }
+
+  try {
+    const remote = await loadOperationalLedgerOrders({ ...options, source: requestedSource });
+    if (remote.entries.length > 0 || requestedSource === "operational_vm") return remote;
+    return loadLocalLedgerOrders(requestedSource, [
+      ...remote.warnings,
+      "운영 VM ledger row가 없어 로컬 attribution_ledger로 fallback했다.",
+    ]);
+  } catch (error) {
+    if (requestedSource === "operational_vm") throw error;
+    return loadLocalLedgerOrders(requestedSource, [
+      error instanceof Error ? error.message : String(error),
+      "운영 VM ledger 조회 실패로 로컬 attribution_ledger로 fallback했다.",
+    ]);
+  }
+};
+
+const ledgerQueryOptions = (
+  req: Request,
+  range: DateRange,
+  sites: SiteKey[] = SITE_ACCOUNTS.map((site) => site.site),
+): AdsLedgerLoadOptions => ({
+  range,
+  sites,
+  source: parseAdsLedgerSource(req.query.ledger_source ?? req.query.data_source),
+});
+
+const describeLedgerSourceConfidence = (
+  ledger: LoadedAdsLedger,
+): { label: AdsSourceConfidence; reason: string } => {
+  if (ledger.dataSource === "operational_vm" && ledger.freshness.entries > 0) {
+    if (ledger.warnings.length > 0) {
+      return {
+        label: "B",
+        reason: "운영 VM ledger를 사용했지만 일부 site/page warning이 있어 숫자 해석 시 확인 필요",
+      };
+    }
+    return {
+      label: "A",
+      reason: "운영 VM attribution ledger read-only 기준이며 row가 존재함",
+    };
+  }
+
+  if (ledger.requestedSource === "local") {
+    return {
+      label: "C",
+      reason: "사용자가 local ledger를 명시 요청했으므로 stale cache 가능성 있음",
+    };
+  }
+
+  if (ledger.dataSource === "local") {
+    return {
+      label: "D",
+      reason: "운영 VM 조회 실패 또는 empty로 local cache fallback 사용",
+    };
+  }
+
+  return {
+    label: "D",
+    reason: "ledger source 상태가 명확하지 않음",
+  };
+};
+
+const buildMetaAttributionContext = (attributionWindow?: MetaAttributionWindow | null) => {
+  if (attributionWindow) {
+    return {
+      meta_attribution_window: attributionWindow,
+      meta_attribution_windows: [attributionWindow],
+      meta_use_unified_attribution_setting: false,
+    };
+  }
+  return {
+    meta_attribution_window: "ads_manager_default",
+    meta_attribution_windows: [...META_DEFAULT_ATTRIBUTION_WINDOWS],
+    meta_use_unified_attribution_setting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
+  };
+};
+
+const ledgerResponseMeta = (
+  ledger: LoadedAdsLedger,
+  params: AdsResponseMetaParams = {},
+) => {
+  const queriedAt = new Date().toISOString();
+  const confidence = describeLedgerSourceConfidence(ledger);
+  const fallbackReason = ledger.requestedSource === "auto" && ledger.dataSource === "local"
+    ? ledger.warnings.join(" / ") || "운영 VM ledger unavailable; local cache fallback"
+    : null;
+  const sourceMaxTimestamp = ledger.freshness.latestApprovedDate
+    ?? ledger.freshness.latestLoggedAt
+    ?? null;
+  const dateRange = params.range
+    ? {
+      start_date: params.range.startDate,
+      end_date: params.range.endDate,
+      timezone: KST_TIMEZONE,
+      inclusivity: "KST calendar dates inclusive",
+    }
+    : null;
+  const metaAttributionContext = buildMetaAttributionContext(params.attributionWindow);
+
+  return {
+    queried_at: queriedAt,
+    checked_at: queriedAt,
+    timezone: KST_TIMEZONE,
+    date_range: dateRange,
+    account_id_context: params.accountId ?? null,
+    site_context: params.site ?? null,
+    ledger_source: ledger.dataSource,
+    requested_ledger_source: ledger.requestedSource,
+    source_confidence: confidence.label,
+    source_confidence_reason: confidence.reason,
+    source_max_timestamp: sourceMaxTimestamp,
+    row_count: ledger.freshness.entries,
+    order_count: ledger.freshness.orders,
+    fallback_reason: fallbackReason,
+    ledger_warnings: ledger.warnings,
+    ledger_freshness: ledger.freshness,
+    spend_source: "Meta Ads Insights API spend",
+    currency: "KRW",
+    rounding_rule: "API keeps numeric KRW values as numbers; UI rounds KRW display to whole won",
+    date_preset_context: params.datePreset ?? null,
+    meta_level: params.metaLevel ?? null,
+    meta_fields: params.metaFields ?? null,
+    meta_action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
+    ...metaAttributionContext,
+    query_context: {
+      queried_at: queriedAt,
+      timezone: KST_TIMEZONE,
+      date_range: dateRange,
+      ledger_source: ledger.dataSource,
+      requested_ledger_source: ledger.requestedSource,
+      source_confidence: confidence.label,
+      source_max_timestamp: sourceMaxTimestamp,
+      row_count: ledger.freshness.entries,
+      fallback_reason: fallbackReason,
+      spend_source: "Meta Ads Insights API spend",
+      currency: "KRW",
+      rounding_rule: "API keeps numeric KRW values as numbers; UI rounds KRW display to whole won",
+      meta_attribution_window: metaAttributionContext.meta_attribution_window,
+      meta_attribution_windows: metaAttributionContext.meta_attribution_windows,
+      meta_action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
+      meta_use_unified_attribution_setting: metaAttributionContext.meta_use_unified_attribution_setting,
+    },
   };
 };
 
@@ -2128,7 +2735,8 @@ export const createAdsRouter = () => {
       }
 
       const siteAccount = findSiteAccountByAccountId(accountId);
-      const [metaResult, adsetCampaigns, aliasCampaigns, ledger] = await Promise.all([
+      const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
+      const [metaResult, adsetCampaigns, creativeEvidence, aliasCampaigns, ledger] = await Promise.all([
         fetchMetaInsights({
           accountId,
           fields: "campaign_name,campaign_id,impressions,clicks,spend",
@@ -2139,8 +2747,9 @@ export const createAdsRouter = () => {
           useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
         }),
         fetchMetaAdsetCampaignMap(accountId),
+        fetchMetaAdCreativeEvidenceMaps(accountId),
         fetchManualVerifiedAliasMap(siteAccount?.site ?? null),
-        loadLedgerOrders(),
+        loadLedgerOrders(ledgerOptions),
       ]);
 
       if (!metaResult.ok) {
@@ -2154,7 +2763,8 @@ export const createAdsRouter = () => {
         orders: filteredOrders,
         ledgerAvailable: ledger.entries.length > 0,
         adsetCampaignMap: adsetCampaigns.map,
-        campaignAliasMap: aliasCampaigns.map,
+        adCampaignMap: creativeEvidence.adMap,
+        campaignAliasMap: mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap),
       });
       const totalSpend = round2(campaigns.reduce((sum, row) => sum + row.spend, 0));
       const totalAttributedRevenue = round2(campaigns.reduce((sum, row) => sum + row.attributedRevenue, 0));
@@ -2172,11 +2782,20 @@ export const createAdsRouter = () => {
 
       res.json({
         ok: true,
+        ...ledgerResponseMeta(ledger, {
+          range,
+          datePreset,
+          accountId,
+          site: siteAccount?.site ?? null,
+          metaLevel: "campaign",
+          metaFields: "campaign_name,campaign_id,impressions,clicks,spend",
+        }),
         account_id: accountId,
         date_preset: datePreset,
         range,
         meta_reference: buildMetaReference(),
         adset_mapping_error: adsetCampaigns.error,
+        ad_mapping_error: creativeEvidence.error,
         alias_mapping_error: aliasCampaigns.error,
         campaigns,
         summary: {
@@ -2230,7 +2849,8 @@ export const createAdsRouter = () => {
       );
 
       const siteAccount = findSiteAccountByAccountId(accountId);
-      const [metaResult, adsetCampaigns, aliasCampaigns, ledger] = await Promise.all([
+      const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
+      const [metaResult, adsetCampaigns, creativeEvidence, aliasCampaigns, ledger] = await Promise.all([
         fetchMetaInsights({
           accountId,
           fields: "campaign_name,campaign_id,impressions,clicks,spend",
@@ -2241,8 +2861,9 @@ export const createAdsRouter = () => {
           useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
         }),
         fetchMetaAdsetCampaignMap(accountId),
+        fetchMetaAdCreativeEvidenceMaps(accountId),
         fetchManualVerifiedAliasMap(siteAccount?.site ?? null),
-        loadLedgerOrders(),
+        loadLedgerOrders(ledgerOptions),
       ]);
 
       if (!metaResult.ok) {
@@ -2257,7 +2878,8 @@ export const createAdsRouter = () => {
         orders: filteredOrders,
         ledgerAvailable: ledger.entries.length > 0,
         adsetCampaignMap: adsetCampaigns.map,
-        campaignAliasMap: aliasCampaigns.map,
+        adCampaignMap: creativeEvidence.adMap,
+        campaignAliasMap: mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap),
       });
       const rows = await buildCampaignLtvRoasRows({
         campaignRows: campaignRoasRows,
@@ -2265,19 +2887,29 @@ export const createAdsRouter = () => {
         orders: filteredOrders,
         range,
         adsetCampaignMap: adsetCampaigns.map,
-        campaignAliasMap: aliasCampaigns.map,
+        adCampaignMap: creativeEvidence.adMap,
+        campaignAliasMap: mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap),
         ltvWindowDays,
       });
 
       const mappedRows = rows.filter((row) => row.campaignId);
       res.json({
         ok: true,
+        ...ledgerResponseMeta(ledger, {
+          range,
+          datePreset,
+          accountId,
+          site: siteAccount?.site ?? null,
+          metaLevel: "campaign",
+          metaFields: "campaign_name,campaign_id,impressions,clicks,spend",
+        }),
         account_id: accountId,
         date_preset: datePreset,
         range,
         ltv_window_days: ltvWindowDays,
         ltv_definition: "campaign에 귀속된 confirmed 주문 고객을 order_number/customer_number로 조인하고, anchor date 이후 LTV window 안의 전체 후속 주문 매출을 포함한다.",
         adset_mapping_error: adsetCampaigns.error,
+        ad_mapping_error: creativeEvidence.error,
         alias_mapping_error: aliasCampaigns.error,
         rows,
         summary: {
@@ -2313,6 +2945,8 @@ export const createAdsRouter = () => {
 
       const { range, datePreset } = resolveOptionalRange(req);
       const attributionWindow = parseMetaAttributionWindow(req.query.attribution_window);
+      const siteAccount = findSiteAccountByAccountId(accountId);
+      const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
       const [metaResult, ledger] = await Promise.all([
         fetchMetaInsights({
           accountId,
@@ -2327,7 +2961,7 @@ export const createAdsRouter = () => {
             : META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
           actionAttributionWindows: attributionWindow ? [attributionWindow] : undefined,
         }),
-        loadLedgerOrders(),
+        loadLedgerOrders(ledgerOptions),
       ]);
 
       if (!metaResult.ok) {
@@ -2353,6 +2987,15 @@ export const createAdsRouter = () => {
 
       res.json({
         ok: true,
+        ...ledgerResponseMeta(ledger, {
+          range,
+          datePreset,
+          accountId,
+          site: siteAccount?.site ?? null,
+          attributionWindow,
+          metaLevel: null,
+          metaFields: "spend,action_values",
+        }),
         account_id: accountId,
         date_preset: datePreset,
         start_date: range.startDate,
@@ -2389,6 +3032,7 @@ export const createAdsRouter = () => {
   router.get("/api/ads/channel-comparison", async (req: Request, res: Response) => {
     try {
       const range = resolveExplicitRange(req);
+      const ledgerOptions = ledgerQueryOptions(req, range);
       const [siteResults, ledger] = await Promise.all([
         Promise.all(SITE_ACCOUNTS.map((site) => fetchSiteMetaSummary({
           site: site.site,
@@ -2396,7 +3040,7 @@ export const createAdsRouter = () => {
           range,
           datePreset: null,
         }))),
-        loadLedgerOrders(),
+        loadLedgerOrders(ledgerOptions),
       ]);
 
       const filteredOrders = filterOrdersByRange(ledger.orders, range);
@@ -2460,6 +3104,13 @@ export const createAdsRouter = () => {
 
       res.json({
         ok: true,
+        ...ledgerResponseMeta(ledger, {
+          range,
+          datePreset: null,
+          attributionWindow: null,
+          metaLevel: null,
+          metaFields: "spend",
+        }),
         start_date: range.startDate,
         end_date: range.endDate,
         channels,
@@ -2478,6 +3129,7 @@ export const createAdsRouter = () => {
     try {
       const { range, datePreset } = resolveOptionalRange(req);
       const attributionWindow = parseMetaAttributionWindow(req.query.attribution_window);
+      const ledgerOptions = ledgerQueryOptions(req, range);
       const [siteResults, ledger] = await Promise.all([
         Promise.all(SITE_ACCOUNTS.map((site) => fetchSiteMetaSummary({
           site: site.site,
@@ -2486,7 +3138,7 @@ export const createAdsRouter = () => {
           datePreset,
           attributionWindow,
         }))),
-        loadLedgerOrders(),
+        loadLedgerOrders(ledgerOptions),
       ]);
 
       const ledgerAvailable = ledger.entries.length > 0;
@@ -2554,6 +3206,13 @@ export const createAdsRouter = () => {
 
       res.json({
         ok: true,
+        ...ledgerResponseMeta(ledger, {
+          range,
+          datePreset,
+          attributionWindow,
+          metaLevel: null,
+          metaFields: "impressions,clicks,spend,cpc,cpm,actions,action_values",
+        }),
         date_preset: datePreset,
         start_date: range.startDate,
         end_date: range.endDate,

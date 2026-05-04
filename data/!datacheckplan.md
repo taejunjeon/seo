@@ -1,18 +1,370 @@
 # Data Check Plan
 
 작성 시각: 2026-04-17 19:05 KST
-최종 업데이트: 2026-04-27 16:58 KST
+최종 업데이트: 2026-05-04 11:30 KST
 기준일: 2026-04-17
 문서 성격: 가변형 기준 문서
 참조 고정 스냅샷: `data/datacheck0406.md`, `data/datacheck0415.md`, `운영db.md`, `capivm/capi.md`
 참조 증거 저장소: `data/roasphase.md` (2026-04-12 기준 Meta ROAS / CAPI dedup / 식별자 품질 / campaign alias의 주문 단위 증거)
 참조 sub-plan: `data/!coffee_excel_backfill_plan.md` (더클린커피 엑셀 백필 정본 · phone 비마스킹 LTV 산정), `data/dbstructure.md` (3채널 DB 구조 · SQLite vs PG 검토), `data/bigquery_hurdlers_cutover_20260427.md` (biocom GA4 BigQuery 허들러스 해제·우리 쪽 이관 정본)
+공통 하네스 정본: `harness/common/HARNESS_GUIDELINES.md`, `harness/common/AUTONOMY_POLICY.md`, `harness/common/REPORTING_TEMPLATE.md` (본 문서는 project-local 정합성 계획이며 공통 하네스 fork가 아님)
 
 ## 다음 할일로 임팩트가 큰 일 (2026-04-25 11:12 KST 기준)
 
+### 2026-05-04 11:07 PASS_WITH_NOTES 피드백 반영 결론
+
+검토 결론은 `PASS_WITH_NOTES`다.
+방향은 맞다.
+`/ads`가 stale 로컬 원장에 끌려다니지 않고 운영 VM attribution ledger를 기본 read-only 원천으로 보게 만든 것은 올바른 진행이다.
+다만 "ROAS gap 해결 완료"가 아니라 "운영자가 매번 같은 기준 숫자를 보게 만드는 정본화 단계"로 봐야 한다.
+
+이번 피드백에서 고정한 운영 원칙은 아래다.
+
+1. 예산 판단 메인은 `Attribution confirmed revenue / Meta spend`다.
+2. Meta 참고값 메인은 `1d_click`이다.
+3. Meta 기본값은 Ads Manager parity 확인용이다.
+4. 모든 ROAS 숫자에는 `queried_at`, `timezone`, `date_range`, `ledger_source`, `meta_attribution_window`, `spend_source`, `currency`, `rounding_rule`를 붙인다.
+5. `ledger_source=auto`는 편하지만 화면에서는 반드시 실제 사용 원천을 보여준다. `operational_vm`이면 운영 판단 가능, `local fallback`이면 예산 판단 보류다.
+
+2026-05-04 11:07 KST 로컬 코드 반영 상태는 아래다.
+
+1. `/api/ads/site-summary`, `/api/ads/roas`, `/api/ads/roas/daily`, `/api/ads/channel-comparison`, `/api/ads/campaign-ltv-roas` 응답에 공통 원천 메타정보를 추가했다.
+2. 추가 필드는 `queried_at`, `checked_at`, `timezone`, `date_range`, `ledger_source`, `requested_ledger_source`, `source_confidence`, `source_confidence_reason`, `source_max_timestamp`, `row_count`, `order_count`, `fallback_reason`, `spend_source`, `currency`, `rounding_rule`, `meta_attribution_window`, `meta_attribution_windows`, `meta_action_report_time`, `meta_use_unified_attribution_setting`이다.
+3. `/ads`와 `/ads/roas` 화면에는 "현재 ROAS 숫자의 기준" 카드를 추가해 운영 VM인지 local fallback인지, 집계 기간과 원장 최신 시각이 무엇인지 바로 보이게 했다.
+4. source confidence는 `A/B/C/D`로 표시한다. `A`는 운영 VM ledger 기준, `B`는 운영 VM이지만 warning 있음, `C`는 local 명시, `D`는 auto fallback 주의다.
+5. 이번 작업은 로컬 코드/문서 변경만 했다. 운영 DB write, Meta 전송, GTM publish, 배포는 하지 않았다.
+
+숫자 정본화 주의점:
+
+보고서와 문서의 Meta value가 소폭 다르게 기록된 이력이 있다.
+예를 들어 같은 최근 7일 기준으로 한 쪽은 Meta parity `114,123,086원`, Meta 1d_click `78,252,972원`을 기록했고, 기존 정본 문서는 Meta parity `113,889,086원`, Meta 1d_click `78,018,972원`을 기록했다.
+차이는 크지 않지만 운영 지표에서는 "어느 숫자가 정본인가" 논쟁이 된다.
+따라서 앞으로는 금액만 기록하지 않고, 위 공통 메타정보와 함께 API 원본 JSON을 저장해야 한다.
+특히 `2026-04-27~2026-05-03`이 KST inclusive인지, Meta API의 `date_preset`/`time_range`가 무엇인지, `action_report_time=conversion`인지, `action_attribution_windows=["1d_click"]`인지 함께 남긴다.
+
+Purchase CAPI 해석도 분리한다.
+VM `/api/meta/capi/log`에서 `Purchase` operational send 1,255건, success 1,255건, duplicate 0건이 보인다는 것은 "우리 서버가 같은 주문을 중복 전송하지 않았다"에 가까운 증거다.
+이것만으로 Meta Events Manager에서 Browser/Server dedup이 정상이라고 확정하면 안 된다.
+현재 확정된 것은 `VM server send 성공`이고, `Meta Events Manager dedup 확인`, `Event Match Quality`, `Advanced Matching Parameters`는 TJ님 캡처 또는 UI 확인 전까지 미확정이다.
+
+중간 퍼널 CAPI는 계속 test-only다.
+`AddPaymentInfo`를 백엔드 허용 이벤트에 추가한 것은 운영 송출이 아니라 Test Events smoke가 400으로 막히지 않게 하는 준비다.
+`ViewContent`, `AddToCart`, `InitiateCheckout`, `AddPaymentInfo`의 server mirror 운영 ON은 금지한다.
+다음 확인 기준은 Meta Test Events code에서 같은 `event_id`로 Browser/Server가 들어오고, Events Manager diagnostics/dedup 문제가 없는지 보는 것이다.
+
+NPay 해석은 아래로 고정한다.
+NPay return 누락은 Meta/GA4 암흑 매출의 중요한 조각이다.
+하지만 최근 30일 매출 비중이 5.10%, 최근 60일 4.93%, 최근 90일 4.66%라서 Meta 1d_click과 내부 Attribution confirmed ROAS 차이를 단독으로 전부 설명하지는 못한다.
+더 큰 축은 `campaign mapping`, `fbclid/UTM first-touch 보존`, `Advanced Matching`, `Meta attribution window 분리`다.
+따라서 NPay는 `유지 + recovery ledger + 제한 테스트`로 관리하고, 지금 즉시 NPay recovered Meta CAPI Purchase 운영 송출은 열지 않는다.
+
+이번 피드백 기준 다음 우선순위는 아래다.
+
+1. [Codex] 완료. `/ads` 기준 unmapped confirmed revenue를 `campaign id / adset id / ad id / utm_term / utm_content / utm_campaign / campaign_alias` 기준으로 재분류하도록 matcher를 보강했다. 상품군 추정만으로 Meta 캠페인에 강제 배정하지 않는다.
+2. [TJ] Meta Events Manager에서 pixel/dataset `1283400029487161`의 Purchase Browser/Server 표시, dedup 상태, Event Match Quality, Advanced Matching Parameters, 2026-04-18 12:00 KST Purchase spike, custom `Refund` 수신 여부를 캡처한다.
+3. [TJ 또는 허들러스] biocom GA4 BigQuery raw 권한을 열어준다. 현재 `hurdlers-naver-pay.analytics_304759974` dataset read 권한이 막혀 `(not set)`, NPay return, 중복 purchase 원인 분해가 제한된다.
+4. [Codex + TJ] 중간 퍼널 CAPI는 Meta Test Events code로만 smoke한다. GTM Production publish나 운영 CAPI 전송은 별도 승인 전 금지다.
+5. [Codex] Meta용 `marketing_intent` GTM Preview 승인안을 구체화한다. 랜딩 시점에 `fbclid`, `_fbc`, `_fbp`, UTM, landing URL, referrer, GA client/session id를 저장해 결제 완료 시점 유실을 줄인다.
+
+### 2026-05-04 11:30 campaign mapping 재분류 진행 결과
+
+Green Lane에서 로컬 코드와 read-only 운영 VM ledger/API만 사용했다.
+운영 DB write, Meta 전송, GTM publish, 배포는 하지 않았다.
+임시 백엔드는 `PORT=7021`, `BACKGROUND_JOBS_ENABLED=false`, `SCHEDULED_SEND_ENABLED=false`로만 띄워 API 응답을 확인했다.
+
+코드 반영 내용:
+
+1. 주문 URL과 attribution ledger에서 `meta_campaign_id`, `campaign_id`, `utm_id`, 숫자형 `utm_campaign`을 campaign id 증거로 읽는다.
+2. `meta_adset_id`, `adset_id`, 숫자형 `utm_term`을 adset id 증거로 읽고, Meta adset parent campaign으로 역추적한다.
+3. `meta_ad_id`, `ad_id`, 숫자형 `utm_content`를 ad id 증거로 읽고, Meta ad parent campaign으로 역추적한다.
+4. `campaign_alias`는 `utm_campaign`이 비어 있을 때 보조 alias로 읽는다.
+5. live Meta Ads API에서 광고와 creative URL tag를 read-only로 읽고, 실패 시 `data/meta_campaign_alias_audit.biocom.json`의 로컬 스냅샷을 fallback으로 쓴다.
+6. live creative alias는 한 alias가 한 campaign에만 연결될 때만 자동 사용한다. 여러 campaign에 걸치면 자동 확정하지 않는다.
+7. 상품군, 랜딩페이지, 광고명 추정만으로는 campaign ROAS에 붙이지 않는다.
+
+검증 결과:
+
+```text
+queried_at: 2026-05-04T02:36:45.491Z
+timezone: Asia/Seoul
+date_range: 2026-04-27~2026-05-03 KST inclusive
+site: biocom
+ledger_source: operational_vm
+source_confidence: A
+source_max_timestamp: 2026-05-04
+row_count: 6,669
+order_count: 586
+Meta spend: 28,559,014원
+Attribution confirmed revenue: 55,743,545원
+Attribution confirmed ROAS: 1.95x
+Attribution confirmed orders: 185건
+unmapped confirmed revenue: 10,879,100원 / 33건
+adset_mapping_error: null
+ad_mapping_error: null
+alias_mapping_error: null
+```
+
+현재 결론:
+
+1. 숫자 ID가 있는 주문은 대부분 자동 분류된다. 특히 `utm_term` 또는 `utm_content`가 남은 주문은 adset/ad parent campaign으로 안전하게 붙는다.
+2. 남은 `(unmapped)`는 "코드가 못 읽어서"라기보다 "주문에 campaign/adset/ad id 증거가 없거나, alias만으로는 campaign을 확정하면 위험한" 건이 핵심이다.
+3. `fbclid`만 있고 Meta campaign/adset/ad id가 없는 주문은 campaign ROAS에 억지 배정하지 않는다. landing이 `/sosohantoon01`, `/kangman03`, `/shop_view/?idx=503`처럼 보여도 상품군/랜딩 추정만으로는 campaign id를 만들 수 없다.
+4. `meta_biocom_sosohantoon01_igg`는 adset id가 남은 주문은 parent campaign으로 자동 처리된다. 그러나 id 없이 alias만 남은 묶음은 최신 read-only 후보 기준 약 `12건 / 3,933,000원`이 남아 있어 Ads Manager 수동 확인이 필요하다.
+5. `meta_biocom_kkunoping02_igg`는 기존 seed, 2026-04-11 URL evidence, live Ads API 검색에서 campaign 증거가 아직 확인되지 않았다. campaign ROAS에 붙이지 말고 수동 확인 후보로 둔다.
+6. `meta_biocom_skintts1_igg`는 alias 자체가 여러 campaign에 걸칠 수 있다. `utm_term=120244759212190396`처럼 adset id가 있을 때만 `120244759209860396` 캠페인으로 붙이고, alias 단독이면 자동 확정하지 않는다.
+7. `inpork_biocom_igg`는 IGG 상품군으로는 볼 수 있지만 Meta campaign/adset/ad id가 없다. Meta 캠페인 ROAS에는 붙이지 않고 non-meta influencer 또는 quarantine으로 둔다.
+
+그로스 파트장에게 요청할 수동 확인 자료:
+
+1. Ads Manager에서 `sosohantoon01`, `kkunoping02`, `skintts1`, `kangman03`, `idx=503`을 검색한다.
+2. export 컬럼은 `campaign id`, `campaign name`, `adset id`, `adset name`, `ad id`, `ad name`, `Website URL`, `URL Parameters`, `spend`, `purchase`, `purchase conversion value`가 필요하다.
+3. 확인 기준은 광고명 일치가 아니라 URL Parameters 또는 Website URL에 남은 `utm_campaign`, `utm_term`, `utm_content`, `campaign_alias`, `meta_campaign_id`, `meta_adset_id`, `meta_ad_id`다.
+4. export에서 campaign/adset/ad id가 확인되면 Codex가 seed에 반영하고 dry-run 재계산한다.
+5. export에서도 id가 없으면 해당 매출은 product-family 분석에는 남기되 campaign ROAS에는 계속 quarantine으로 둔다.
+
+### 2026-05-04 01:28 Green Lane 조사·설계 결론
+
+이번 블록은 Meta ROAS gap을 줄이는 다섯 축을 정본 문서 최상단에 고정하기 위한 Green Lane 조사 결과다.
+Green Lane에서 한 일은 문서 조사, 로컬 코드 확인, read-only source freshness 점검, 설계 정리다.
+GTM Preview, GTM Production publish, Meta CAPI 전송, GA4 Measurement Protocol 전송, 운영 DB write, 광고 소재 URL 변경은 실행하지 않았다.
+
+확인한 기준은 아래다.
+
+1. 공식/플랫폼 기준: Meta Pixel Advanced Matching 문서, Meta Conversions API customer information parameter 문서, Meta Ads Insights API 문서, Meta Business Help의 Conversions API 설명.
+2. 로컬 코드 기준: `backend/src/attribution.ts`, `backend/src/metaCapi.ts`, `backend/src/sourceFreshness.ts`, `backend/scripts/check-source-freshness.ts`, `backend/scripts/export-meta-campaign-alias-audit.ts`, `frontend/src/app/ads/page.tsx`.
+3. 로컬/운영 데이터 기준: `npm exec tsx scripts/check-source-freshness.ts --json` read-only 실행, `data/meta_campaign_alias_audit.biocom.json`, `meta/campaign-url-evidence.biocom.json`, `meta/campaign-alias-mapping.md`.
+4. 기준 시각: 2026-05-04 01:26 KST.
+5. site: biocom.
+6. confidence: 0.84. 이유는 설계와 로컬 근거는 충분하지만, biocom GA4 BigQuery raw 접근과 GTM Preview는 아직 권한/승인 전이기 때문이다.
+
+#### 1. `fbclid`/UTM 랜딩 시점 보존
+
+결론은 "구매 완료 페이지에서만 `fbclid`와 UTM을 읽으면 늦다"다.
+Meta 광고 클릭 사용자는 랜딩 후 direct 재방문, PG 이동, NPay 외부 결제, 브라우저 새 탭, 모바일/PC 전환을 거칠 수 있다.
+이 흐름에서는 결제 완료 URL에 `fbclid`, `_fbc`, `_fbp`, `utm_campaign`, `utm_term`, `utm_content`가 남아 있지 않을 수 있다.
+따라서 랜딩 시점에 광고 흔적을 `marketing_intent`로 먼저 저장하고, 나중에 `checkout_started` 또는 `payment_success`와 연결해야 한다.
+
+Green Lane에서 이미 닫은 것은 로컬 백엔드 인식 로직이다.
+`backend/src/attribution.ts`는 이제 `fbclid`, `_fbc`, `_fbp`, Facebook/Instagram referrer, Meta/Facebook/Instagram UTM을 Meta first-touch 후보로 인식한다.
+`backend/tests/attribution.test.ts`에는 `marketing_intent -> payment_success` 연결 테스트가 추가됐고 통과했다.
+
+운영 설계는 아래가 안전하다.
+
+1. GTM 태그 목적은 "구매 전송"이 아니라 "광고 랜딩 증거 저장"이다.
+2. 발화 조건은 `fbclid` 존재, `_fbc`/`_fbp` 존재, `utm_source=meta/facebook/instagram/fb/ig`, referrer가 Facebook/Instagram인 경우로 제한한다.
+3. 저장 필드는 `touchpoint=marketing_intent`, `intentChannel=meta`, `fbclid`, `_fbc`, `_fbp`, UTM 6종, landing URL, referrer, GA client/session id, captured_at이다.
+4. direct 방문, 내부 링크 이동, 내부 배너 UTM은 저장하거나 first-touch를 덮어쓰면 안 된다.
+5. 같은 브라우저의 같은 `fbclid + landing` 조합은 24시간 dedupe한다.
+
+성공 기준은 간단하다.
+결제 완료 이벤트 자체에는 Meta 파라미터가 없어도, 같은 사용자/세션의 이전 `marketing_intent`가 `payment_success.metadata.firstTouch`로 남아야 한다.
+실패 기준은 direct 방문까지 Meta intent로 저장되거나, GTM 태그가 의도치 않게 GA4/Meta/TikTok/Google Ads 전송을 같이 하는 것이다.
+
+승인 경계는 명확하다.
+로컬 집계 카드 설계와 payload preview는 Green이다.
+GTM Preview는 Yellow라 TJ님 승인 후 진행한다.
+GTM Production publish는 Red라 별도 명시 승인 전 금지다.
+
+#### 2. campaign mapping 확정
+
+결론은 "상품군이 맞다"와 "Meta 캠페인에 귀속된다"를 분리해야 한다.
+IGG 상품 주문이라고 해서 특정 Meta 캠페인의 ROAS에 자동으로 붙이면 안 된다.
+캠페인 ROAS에는 Meta campaign/adset/ad id 또는 광고 URL의 UTM 증거가 있어야 한다.
+
+현재 증거 상태는 아래다.
+
+1. `data/meta_campaign_alias_audit.biocom.json`은 2026-04-11 생성 스냅샷이다. campaigns 7개, adsets 26개, ads 410개, alias candidates 19개, landing URL 345개, url tag 340개를 담고 있다.
+2. `meta/campaign-url-evidence.biocom.json`도 같은 시각 스냅샷이며, 410개 광고 중 340개에서 `utm_campaign`을 추출했다.
+3. 하지만 이 스냅샷은 2026-04-11 기준이라 최신 운영 VM confirmed 주문 기준과는 stale일 수 있다.
+4. `meta_biocom_cellcleanerreel_igg`는 `utm_term=120213362391830396`가 있고, 해당 adset parent campaign이 `120213362391690396`로 확인돼 음식물 과민증 검사 전환캠페인으로 임시 분류했다.
+5. `inpork_biocom_igg`는 상품군은 IGG/음식물 과민증으로 볼 수 있지만 Meta campaign/adset id가 없어 Meta 캠페인 ROAS에는 강제 배정하지 않는다.
+
+근본 해결책은 앞으로 광고 URL에 사람이 만든 alias와 Meta 실제 ID를 같이 남기는 것이다.
+
+```text
+utm_source=meta
+utm_medium=paid_social
+utm_campaign={{campaign.id}}
+utm_term={{adset.id}}
+utm_content={{ad.id}}
+campaign_alias=meta_biocom_소재또는랜딩명
+meta_campaign_id={{campaign.id}}
+meta_adset_id={{adset.id}}
+meta_ad_id={{ad.id}}
+```
+
+이렇게 되면 내부 원장은 `campaign_id`로 캠페인 ROAS를 계산하고, 사람이 만든 alias는 소재/인플루언서/랜딩 분석용 보조 필드로 쓴다.
+라이브 광고 URL 파라미터 수정은 광고 운영에 영향이 있으므로 Codex가 승인 없이 실행하지 않는다.
+Codex가 Green에서 할 수 있는 것은 최신 evidence 재생성, unmapped 후보표 작성, UTM 템플릿 초안 작성까지다.
+
+#### 3. Meta attribution window와 내부 confirmed revenue 분리
+
+결론은 Meta ROAS와 내부 Attribution ROAS를 같은 분자로 맞추려 하면 안 된다.
+Meta Ads Manager 값은 Meta가 광고에 귀속한 conversion value다.
+내부 Attribution confirmed ROAS는 실제 결제 확정 원장 중 Meta 근거가 있는 매출이다.
+둘은 의도적으로 다른 장부다.
+
+운영 비교 기준은 아래로 고정한다.
+
+1. 운영 예산 판단 메인은 `Attribution confirmed revenue / Meta spend`다.
+2. Meta 참고값 메인은 `1d_click`이다.
+3. Meta 기본값은 Ads Manager parity 확인용으로만 둔다. 현재 화면 설명상 기본값은 `7d_click + 1d_view` 성격으로 읽는다.
+4. `7d_click`, `1d_view`, `28d_click`은 원인 분해용 보조값이다.
+5. Meta adset의 실제 attribution setting을 ROAS 숫자 맞추기 목적으로 바꾸지 않는다.
+
+로컬 화면은 이미 이 방향으로 일부 구현돼 있다.
+`frontend/src/app/ads/page.tsx`에는 `META_PRIMARY_ATTR_WINDOW = "1d_click"`가 있고, `ATTR_WINDOWS`에 클릭 1일, Meta 기본, 클릭 7일, 클릭 28일, 조회 1일이 분리돼 있다.
+`/ads` 설명도 Meta purchase ROAS는 운영 메인값이 아니라 참고값이라고 안내한다.
+
+다음 Green 작업은 화면과 API 응답에서 "Meta 1d_click", "Meta 기본", "Attribution confirmed"를 더 명확히 분리해 운영자가 같은 값을 매번 비교하게 만드는 것이다.
+성공 기준은 `/ads`를 보는 사람이 "Meta가 주장하는 ROAS"와 "내부 확정 매출 기준 ROAS"를 혼동하지 않는 것이다.
+
+#### 4. Advanced Matching 품질 개선
+
+결론은 Advanced Matching은 gap을 줄이는 보강책이지만, 내부 ROAS와 Meta ROAS를 100% 같게 만들지는 못한다.
+Meta는 자체 로그인/기기 그래프를 쓰고, 내부 원장은 주문·세션·결제 식별자를 쓴다.
+따라서 목표는 완전 일치가 아니라 "확정 주문 이벤트가 Meta에서 더 잘 매칭되도록 식별자 품질을 올리는 것"이다.
+
+현재 로컬 CAPI 코드는 일부 기반이 있다.
+`backend/src/metaCapi.ts`는 CAPI payload의 `user_data`에 `client_ip_address`, `client_user_agent`, `fbc`, `fbp`를 넣을 수 있고, 이메일과 전화번호는 정규화 후 SHA-256 해시로 `em`, `ph`에 넣는다.
+`fbclid`가 있고 `_fbc`가 없으면 `fbc` 값을 생성하는 로직도 있다.
+즉 코드 차원에서는 기본 Advanced Matching 재료가 일부 준비돼 있다.
+
+남은 gap은 아래다.
+
+1. `external_id`가 아직 명시적으로 들어가지 않는다. 회원번호, 주문자 전화번호 해시, 내부 고객키 중 무엇을 쓸지 결정해야 한다.
+2. 모든 confirmed 주문에 이메일/전화번호가 안정적으로 들어오는지 coverage 리포트가 필요하다.
+3. 건강 관련 상품군이라 개인정보·민감정보·동의 범위를 TJ님이 확인해야 한다.
+4. Events Manager의 Event Match Quality 화면에서 실제 품질 개선을 확인해야 한다.
+5. Purchase 외 중간 퍼널 CAPI는 아직 운영 ON이 아니므로 Test Events 코드로만 소크해야 한다.
+
+Codex가 대신 수행 가능한 Green 작업은 `user_data` coverage audit, payload preview, `external_id` 후보 설계, 테스트 코드 작성이다.
+Codex가 대신 결정할 수 없는 것은 개인정보/동의 범위, Meta Events Manager 설정 변경, 운영 CAPI 전송 승인이다.
+
+추천도는 목적별로 다르다.
+`user_data` coverage audit은 92%로 바로 진행 가능하다.
+`external_id` 후보 설계는 86%로 진행 가능하다.
+운영 Purchase CAPI payload 확장은 법적/동의 컨펌 전 48%로 보류한다.
+Test Events 코드만 쓰는 중간 퍼널 CAPI 소크는 82%다.
+
+#### 5. source freshness 복구
+
+결론은 `/ads`의 최근 판단을 신뢰하려면 원천 신선도를 먼저 닫아야 한다.
+로컬 DB가 stale이면 매출이 0처럼 보이거나, 최근 7일 ROAS 분자가 비어 보인다.
+이 경우 Meta API는 광고비와 플랫폼 귀속 매출을 계속 주지만 내부 confirmed revenue가 오래된 상태라 gap이 과장된다.
+
+2026-05-04 01:26 KST read-only source freshness 결과는 아래다.
+
+1. `ga4_bigquery_thecleancoffee`: fresh. latest table `events_20260502`, row 2,496건, purchase 14건, distinct transaction 14건.
+2. `ga4_bigquery_biocom`: error. `hurdlers-naver-pay.analytics_304759974` dataset에 `bigquery.datasets.get denied`.
+3. `toss_operational`: warn. 최신 sync 기준 약 28.4시간.
+4. `playauto_operational`: warn. 최신 sync 기준 약 29.4시간.
+5. `imweb_local_orders`: stale. 최신 sync 기준 약 218.7시간.
+6. `toss_local_transactions`와 `toss_local_settlements`: stale. 최신 sync 기준 약 236.2시간.
+7. `attribution_ledger`: local SQLite 기준 data_sparse. 다만 운영 `/ads`는 VM ledger read-only를 기본으로 보도록 개선됐으므로 로컬 SQLite만 primary로 보면 안 된다.
+
+가장 큰 blocker는 biocom GA4 BigQuery raw 접근이다.
+허들러스 프로젝트 `hurdlers-naver-pay.analytics_304759974`에 우리 서비스 계정 read 권한이 없어서 GA4 raw 기반 `(not set)`, NPay return, 중복 purchase 원인 분해가 막힌다.
+이 문제는 Codex가 로컬에서 해결할 수 없다.
+TJ님 또는 허들러스가 GCP/GA4 권한을 처리해야 한다.
+
+Green에서 Codex가 계속 할 수 있는 것은 아래다.
+
+1. 운영 DB read-only와 VM ledger read-only를 써서 `/ads`의 내부 confirmed revenue를 stale local DB에서 분리한다.
+2. `backend/scripts/check-source-freshness.ts` 결과를 매일 문서/화면에 남긴다.
+3. biocom BigQuery 권한이 들어오면 즉시 freshness와 raw sanity query를 재실행한다.
+4. 권한이 없을 때는 GA4 Data API를 fallback으로 쓰되, 결과 confidence를 낮게 표시한다.
+
+TJ님이 직접 해야 하는 것은 허들러스 dataset read 권한 요청이다.
+권한 요청문과 GTM/Meta 컨펌 항목은 `meta/meta-roas-gap-confirmation-runbook-20260504.md`에 분리한다.
+
+### 2026-05-04 현재 결론
+
+로컬 `/ads` 백엔드는 이제 `ledger_source=auto` 기본값으로 운영 VM attribution ledger를 read-only 조회한다.
+최근 7일 바이오컴 기준 로컬 stale 원장 때문에 0처럼 보이던 내부 Attribution ROAS는 운영 VM 기준 `55,273,325원 / 광고비 28,552,872원 = 1.94x`로 복구됐다.
+같은 기간 Meta Ads Manager parity 값은 `113,889,086원 / 28,552,872원 = 3.99x`다.
+Meta attribution window를 `1d_click`로 좁히면 Meta 값은 `78,018,972원 / 28,552,872원 = 2.73x`까지 내려간다.
+따라서 gap을 좁히는 1순위는 `/ads`의 운영 기본 비교 기준을 `Meta 1d_click`과 `Attribution confirmed`로 고정하는 것이다.
+
+구매 전 단계 퍼널 CAPI는 아직 운영 송출이 아니다.
+바이오컴 live tracking inventory 기준 `funnel-capi v3`는 `ViewContent`, `AddToCart`, `InitiateCheckout`, `AddPaymentInfo`에 event id를 주입하지만 `enableServerCapi=false`라 서버 CAPI mirror는 `server skipped (disabled)` 상태다.
+VM `/api/meta/capi/log`는 2026-04-16 이후 operational CAPI가 `Purchase` 1,255건, 성공 1,255건, duplicate 0건임을 보여준다.
+즉 Purchase CAPI는 안정화됐지만, 중간 퍼널 CAPI는 아직 테스트 이벤트 단계 승인과 운영 전환이 남아 있다.
+로컬 백엔드는 향후 server mirror 테스트가 400으로 막히지 않도록 `AddPaymentInfo`도 `/api/meta/capi/track` 허용 이벤트에 추가했다.
+
+NPay 쪽 GTM intent 방식은 Meta ROAS 프로젝트에도 활용 가능하다.
+다만 활용 범위는 "광고 클릭 또는 외부결제 intent를 먼저 저장하고, 나중에 실제 주문 원장과 붙여보는 recovery ledger"다.
+이걸 바로 Meta CAPI Purchase 송출 장치로 쓰면 안 된다.
+근거는 `naver/!npayroas.md`의 현재 상태다: NPay GTM live version `139` 이후 intent 304건, confirmed NPay 주문 11건, strong match 8건, A급 6건, ambiguous 3건이며, GA4 MP 제한 테스트 1건만 승인 전송됐고 Meta/TikTok/Google Ads 전송은 0건이다.
+또 NPay intent log는 `fbclid`, `_fbc`, `_fbp`, UTM, GA client/session id를 이미 담는 구조라 Meta 분석 보강에 필요한 식별자 형태도 대체로 맞다.
+따라서 NPay intent는 Meta ROAS의 암흑 매출을 찾는 보조 원천으로는 쓸 수 있지만, CAPI Purchase 운영 송출은 7일 후보정과 GA4 MP 제한 테스트 수신 확인 후 별도 승인으로만 연다.
+Codex 판단: NPay GTM intent의 Meta ROAS 분석 활용 가능성 89%, 지금 즉시 NPay recovered Meta CAPI Purchase를 운영 송출할 추천도 35%, 7일 후보정과 GA4 MP 수신 확인 후 1~2건 제한 Meta CAPI 테스트 추천도 72%.
+
+운영 CAPI 송출 추천은 목적별로 다르게 본다.
+구매 전 단계 퍼널 CAPI를 Events Manager Test Events 코드로만 켜는 것은 추천도 82%다.
+이유는 브라우저 event_id 주입 구조가 이미 있고, 로컬 백엔드가 `AddPaymentInfo`까지 받을 수 있게 보강됐으며, 테스트 이벤트는 광고 학습을 크게 오염시키지 않기 때문이다.
+반대로 test-only 없이 바로 중간 퍼널 CAPI 운영 ON은 추천도 58%다.
+dedup event_id, payload 품질, Events Manager 수신/중복 표시를 먼저 봐야 한다.
+NPay recovered Purchase의 Meta CAPI 운영 송출은 지금 추천도 35%다.
+리스크는 오매칭 purchase, 같은 주문 중복, `event_id` 불일치, NPay 버튼 클릭만 한 사용자의 구매 오염, 개인정보 해시/동의 범위 미확정이다.
+
+`fbclid`/UTM 유실은 Meta용 `marketing_intent` 수집을 GTM으로 추가해 줄인다.
+TikTok 문서에서 검증된 패턴처럼 랜딩 시 `fbclid`, `_fbc`, `_fbp`, `utm_source`, `utm_campaign`, `utm_id`, `utm_term`, `utm_content`, referrer, landing URL, GA client/session id를 first-touch로 저장한다.
+이후 `checkout_started`와 `payment_success`가 들어오면 같은 브라우저/세션/주문키로 연결해, direct 재방문이나 PG/NPay 이동 후에도 최초 광고 근거를 잃지 않게 한다.
+단, 내부 링크에 UTM을 붙여 원래 source를 덮는 방식은 금지한다.
+GA4에는 이미 PG/NPay 도메인 unwanted referral 보강이 들어가 있으므로, Meta 쪽은 "Meta 광고 흔적을 VM ledger에 먼저 남기는 것"이 다음 현실적인 보강이다.
+이전 주의점이었던 `backend/src/attribution.ts`의 TikTok 중심 first-touch 매칭은 2026-05-04 Green Lane에서 보강됐다.
+이제 로컬 코드는 `fbclid`, `_fbc`, `_fbp`, Facebook/Instagram UTM/referrer를 Meta match reason으로 인정한다.
+다만 운영 랜딩에서 실제로 `marketing_intent` row가 쌓이려면 GTM Preview와 Production publish 승인 게이트가 아직 남아 있다.
+Codex 판단: Meta용 GTM `marketing_intent` 도입 추천도 88%.
+
+Meta의 크로스디바이스 귀속은 내부 원장만으로 완전히 복원할 수 없다.
+Meta는 로그인, 앱, 브라우저, 기기 그래프를 이용해 광고 공로를 주장하지만, 우리 내부 원장은 주문·결제·브라우저 식별자를 기준으로 확인한다.
+따라서 같은 수치로 억지 일치시키는 것이 아니라, CAPI Advanced Matching으로 격차를 좁힌다.
+confirmed 주문에 한해 법적/동의 범위가 확인된 해시 이메일, 해시 전화번호, `external_id`, `_fbc`, `_fbp`, IP, user agent, order id, event_id를 함께 보내면 Meta 매칭 품질은 올라간다.
+다만 이것도 "Meta가 주장하는 크로스디바이스 공로"와 "내부 confirmed 매출"을 100% 같게 만들지는 못한다.
+Codex 판단: 크로스디바이스 gap 완전 해소 가능성 45%, Advanced Matching과 intent ledger로 gap을 의미 있게 좁힐 가능성 70%.
+
+### 2026-05-04 Green Lane 진행 결과
+
+Meta용 `marketing_intent`의 로컬 매칭 기반은 구현됐다.
+`backend/src/attribution.ts`가 `fbclid`, `_fbc`, `_fbp`, Facebook/Instagram UTM/referrer를 Meta match reason으로 인식하고, `payment_success`에 `metadata.metaFirstTouchCandidate=true`를 남길 수 있게 됐다.
+`backend/tests/attribution.test.ts`에는 Meta `marketing_intent -> payment_success` first-touch 연결 테스트를 추가했다.
+검증은 `npm exec tsx --test tests/attribution.test.ts` 35개 통과, `npm run typecheck` 통과다.
+운영 배포, GTM publish, 외부 플랫폼 전송은 하지 않았다.
+세부 설계 문서는 `meta/meta-marketing-intent-gtm-plan-20260504.md`로 분리했다.
+
+NPay 7일 후보정은 아직 완성창이 아니다.
+체크리스트 기준 7일 완성창 종료는 2026-05-04 18:10 KST인데, 현재 실행 시각은 2026-05-04 00:34 KST이고 VM `npay_intent_log` 최신 row는 2026-05-04 00:14 KST다.
+그래서 이번 실행은 partial dry-run으로만 해석한다.
+Primary source는 TJ 관리 Attribution VM SQLite `/home/biocomkr_sns/seo/shared/backend-data/crm.sqlite3#npay_intent_log`, 주문 원천은 운영 Postgres `public.tb_iamweb_users` read-only다.
+window는 `2026-04-27T09:10:00Z ~ 2026-05-04T09:10:00Z`로 뒀다.
+결과는 live intent 644건, confirmed NPay 주문 25건, strong match 17건, A급 9건, B급 8건, ambiguous 8건, purchase_without_intent 0건이다.
+dispatcher dry-run 후보는 4건이며 모두 2026-04-30 이전 BigQuery robust_absent가 이미 확인된 주문이다.
+TJ 수동 NPay 테스트 주문 `202604309594732`은 `manual_test_order`로 차단했다.
+2026-05-01 이후 A급 production 주문 3건은 `already_in_ga4=unknown`이라 아직 전송 후보가 아니다.
+따라서 현재 판단은 "매칭은 작동하지만, full 7일 재실행과 GA4 robust guard 없이는 Meta/GA4 recovered purchase 전송 금지"다.
+
+최근 30/60/90일 NPay 매출 비중도 운영 DB read-only로 다시 산출했다.
+기준 freshness는 운영 DB clean order max `2026-05-04 00:00:04 KST`, NPay max `2026-05-03 14:27:43 KST`다.
+최근 30일은 전체 2,169건 / 4억 9,722만 3,085원 중 NPay 132건 / 2,536만 400원으로 주문 6.09%, 매출 5.10%다.
+최근 60일은 전체 4,260건 / 9억 7,325만 5,215원 중 NPay 253건 / 4,793만 9,300원으로 주문 5.94%, 매출 4.93%다.
+최근 90일은 전체 6,503건 / 15억 1,099만 603원 중 NPay 367건 / 7,036만 900원으로 주문 5.64%, 매출 4.66%다.
+해석은 분명하다.
+NPay return 누락은 내부 ROAS gap의 중요한 조각이지만, 최근 30일 매출 5.10% 규모라 Meta Ads Manager와 내부 Attribution ROAS 차이를 단독으로 전부 설명하지는 못한다.
+NPay는 `유지 + recovery ledger + 제한 테스트`로 가고, Meta gap 축소의 더 큰 축은 `Meta first-touch 보존`, `campaign mapping`, `Meta attribution window 분리`, `Advanced Matching 품질`이다.
+
+### 2026-05-04 다음 할 일
+
+1. [Codex] `/ads`와 `/ads/roas`에서 운영자 기본 비교 기준을 `Meta 1d_click` 대 `Attribution confirmed`로 더 명확히 고정한다. 이유: Ads Manager parity 3.99x는 7d click + 1d view 성격이라 내부 확정 매출과 바로 비교하면 과대 gap처럼 보인다.
+2. [TJ + Codex] Meta Events Manager 테스트 이벤트 코드로 `funnel-capi enableServerCapi=true` test-only 소크를 진행한다. 이유: ViewContent/AddToCart/InitiateCheckout/AddPaymentInfo가 브라우저와 서버에서 같은 event_id로 dedup되는지 확인해야 중간 퍼널 CAPI를 운영으로 켤 수 있다.
+3. [Codex] 2026-05-04 18:10 KST 이후 NPay full 7일 dry-run을 재실행하고, 2026-05-01 이후 A급 production 후보 3건의 order_number와 channel_order_no를 GA4 robust query로 조회한다. 이유: 현재 partial 실행에서 신규 A급 후보는 `already_in_ga4=unknown`이라 전송 후보가 아니다.
+4. [Codex] Meta용 GTM `marketing_intent`의 Preview 승인안을 만든다. 이유: 로컬 backend는 Meta first-touch를 인식하게 됐지만, 운영 랜딩에서 `fbclid`/UTM을 저장하려면 GTM Preview 검증과 Production publish 승인 게이트가 필요하다.
+5. [완료/Codex] campaign mapping은 최신 운영 VM confirmed 주문 기준으로 mapped/unmapped를 재계산했다. 다음은 그로스 파트장 Ads Manager export로 `sosohantoon01`, `kkunoping02`, `skintts1`, `kangman03`, `idx=503`의 campaign/adset/ad id 증거를 확인하는 것이다.
+
 ### 지금 실제 우선순위
 
-1. [Codex] `/ads` 기준 unmapped confirmed revenue를 `campaign id / utm_term / utm_campaign`으로 재분류한다. 이유: 증액 금지 판단을 푸는 직접 blocker다. GA4 purchase 중복은 v138 초기 샘플에서 정상화됐으므로, 이제 예산 판단을 막는 가장 큰 남은 구멍은 campaign mapping이다.
+1. [완료/Codex] `/ads` 기준 unmapped confirmed revenue를 `campaign id / adset id / ad id / utm_term / utm_content / utm_campaign / campaign_alias` 기준으로 재분류했다. 현재 blocker는 코드 매칭이 아니라 id 없는 주문의 수동 evidence 확보다.
 2. [Codex] 2026-04-25 23:45 KST 이후 v138 24h 창을 다시 집계한다. 이유: 현재 2026-04-25 11:12 KST early window는 `purchase 8건 / distinct transactionId 8건 / duplicate extra 0 / transactionId 결측 0 / pay_method=homepage 8건`으로 정상이나, 하루 완성창으로 닫아야 운영 기준이 된다.
 3. [Codex] NPay 매출 비중을 최근 30/60/90일 로컬/운영 원장 기준으로 산출한다. 이유: v138로 NPay 클릭 purchase 오염은 막았지만, NPay 실제 결제 후 biocom 복귀 누락은 여전히 GA4/Meta 암흑 매출이다. 비중을 알아야 `server-side 보정`, `NPay 제거`, `아임웹 설정 수정` 중 하나를 결정할 수 있다.
 4. [TJ] Meta Events Manager에서 biocom pixel `1283400029487161`의 2026-04-18 12:00 KST Purchase spike와 custom `Refund` 수신 여부를 캡처한다. 이유: 서버 로그와 Graph stats는 수신 정황을 보여주지만, 운영 증빙은 Events Manager UI가 가장 빠르다.
@@ -168,7 +520,7 @@ TJ 카드결제 테스트 주문 `202604254861543`은 GA4 Data API에서 `purcha
 
 다음 행동:
 
-1. [Codex] unmapped confirmed revenue를 campaign id / utm_term / utm_campaign 기준으로 재분류하고, 증액 후보 캠페인만 `+10~15%` 테스트 대상으로 남긴다. 현재 최우선 작업이다.
+1. [완료/Codex] unmapped confirmed revenue를 campaign id / adset id / ad id / UTM 기준으로 재분류했다. 증액 후보 캠페인만 `+10~15%` 테스트 대상으로 남기는 판단은 남은 수동 evidence 확인 후 진행한다.
 2. [완료/Codex] GTM 태그 `[43] GA4_구매전환_Npay`는 v138에서 `purchase` 발사를 중지하고 `add_payment_info`로 강등했다. 이제 NPay 버튼 클릭은 purchase 건수/매출을 만들지 않아야 한다.
 3. [완료/Codex] GTM 태그 `[48] GA4_구매전환_홈피구매`는 v138에서 pause했다. `[143] HURDLERS 구매`를 canonical purchase로 둔다.
 4. [완료/Codex] `[143]` 계열 purchase에는 v138에서 `pay_method=homepage`를 명시했다.

@@ -15,6 +15,7 @@ const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
 const META_DEFAULT_ACTION_REPORT_TIME = "conversion";
 const META_DEFAULT_ATTRIBUTION_WINDOWS = ["7d_click", "1d_view"] as const;
 const META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING = true;
+const KST_TIMEZONE = "Asia/Seoul";
 
 type MetaReference = {
   mode: "ads_manager_parity" | "custom_window_override";
@@ -331,6 +332,29 @@ const buildMetaReference = (params?: {
   };
 };
 
+const buildMetaQueryContext = (params: {
+  datePreset: string;
+  level?: string | null;
+  fields: string;
+  attributionWindow?: string | null;
+}) => {
+  const attributionWindow = params.attributionWindow?.trim() || null;
+  return {
+    queried_at: new Date().toISOString(),
+    timezone: KST_TIMEZONE,
+    date_preset_context: params.datePreset,
+    meta_level: params.level ?? null,
+    meta_fields: params.fields,
+    spend_source: "Meta Ads Insights API spend",
+    currency: "KRW",
+    rounding_rule: "API keeps numeric KRW values as numbers; UI rounds KRW display to whole won",
+    meta_action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
+    meta_attribution_window: attributionWindow ?? "ads_manager_default",
+    meta_attribution_windows: attributionWindow ? [attributionWindow] : [...META_DEFAULT_ATTRIBUTION_WINDOWS],
+    meta_use_unified_attribution_setting: attributionWindow ? false : META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
+  };
+};
+
 export const createMetaRouter = () => {
   const router = express.Router();
 
@@ -566,8 +590,9 @@ export const createMetaRouter = () => {
       const attrWindow = (req.query.attribution_window as string) ?? "";
       const VALID_WINDOWS = ["1d_click", "7d_click", "28d_click", "1d_view"];
 
+      const fields = "campaign_name,campaign_id,impressions,clicks,spend,cpc,cpm,ctr,actions,action_values,purchase_roas,website_purchase_roas";
       const fetchParams: Record<string, string> = {
-        fields: "campaign_name,campaign_id,impressions,clicks,spend,cpc,cpm,ctr,actions,action_values,purchase_roas,website_purchase_roas",
+        fields,
         date_preset: datePreset,
         level,
         limit: "100",
@@ -655,6 +680,12 @@ export const createMetaRouter = () => {
 
       res.json({
         ok: true,
+        ...buildMetaQueryContext({
+          datePreset,
+          level,
+          fields,
+          attributionWindow: VALID_WINDOWS.includes(attrWindow) ? attrWindow : null,
+        }),
         account_id: accountId,
         date_preset: datePreset,
         level,
@@ -675,8 +706,9 @@ export const createMetaRouter = () => {
 
       const datePreset = (req.query.date_preset as string) ?? "last_30d";
 
+      const fields = "impressions,clicks,spend,cpc,cpm,actions";
       const result = await fetchMeta<{ data: Array<{ date_start: string; impressions: string; clicks: string; spend: string; cpc: string; cpm: string; actions?: Array<{ action_type: string; value: string }> }> }>(`/${accountId}/insights`, {
-        fields: "impressions,clicks,spend,cpc,cpm,actions",
+        fields,
         date_preset: datePreset,
         time_increment: "1",
         limit: "90",
@@ -701,6 +733,12 @@ export const createMetaRouter = () => {
 
       res.json({
         ok: true,
+        ...buildMetaQueryContext({
+          datePreset,
+          level: null,
+          fields,
+          attributionWindow: null,
+        }),
         account_id: accountId,
         date_preset: datePreset,
         meta_reference: buildMetaReference({
@@ -1392,6 +1430,7 @@ export const createMetaCapiRouter = () => {
     "ViewContent",
     "AddToCart",
     "InitiateCheckout",
+    "AddPaymentInfo",
     "Lead",
     "Search",
   ]);

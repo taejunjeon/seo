@@ -28,6 +28,42 @@ const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 const fmtRoasX = (v: number | null | undefined) => (v != null ? `${v.toFixed(2)}x` : "—");
 const fmtShortDate = (value: string) => value.slice(5);
 const formatRoasTooltip = (value: string | number | undefined) => `${Number(value ?? 0).toFixed(2)}x`;
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+const formatDateRangeMeta = (range: AdsDateRangeMeta | null | undefined) => {
+  if (!range) return "기간 정보 없음";
+  return `${range.start_date} ~ ${range.end_date} (${range.timezone}, inclusive)`;
+};
+const ledgerSourceLabel = (source: AdsSourceMeta["ledger_source"]) => {
+  if (source === "operational_vm") return "운영 VM attribution ledger";
+  if (source === "local") return "로컬 SQLite cache";
+  return "확인 필요";
+};
+const sourceConfidenceStyle = (confidence: AdsSourceConfidence | undefined) => {
+  switch (confidence) {
+    case "A":
+      return { bg: "#dcfce7", border: "#86efac", color: "#166534", label: "A · 운영 VM 기준" };
+    case "B":
+      return { bg: "#fef9c3", border: "#fde047", color: "#854d0e", label: "B · warning 있음" };
+    case "C":
+      return { bg: "#fffbeb", border: "#fcd34d", color: "#92400e", label: "C · local 명시" };
+    case "D":
+      return { bg: "#fee2e2", border: "#fecaca", color: "#991b1b", label: "D · fallback 주의" };
+    default:
+      return { bg: "#f8fafc", border: "#e2e8f0", color: "#475569", label: "미확인" };
+  }
+};
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 const CHANNEL_COLORS: Record<string, string> = {
@@ -110,6 +146,37 @@ type SiteSummary = {
   bestCaseCeilingRoas: number | null;
 };
 
+type AdsSourceConfidence = "A" | "B" | "C" | "D";
+
+type AdsDateRangeMeta = {
+  start_date: string;
+  end_date: string;
+  timezone: string;
+  inclusivity: string;
+};
+
+type AdsSourceMeta = {
+  queried_at?: string;
+  checked_at?: string;
+  timezone?: string;
+  date_range?: AdsDateRangeMeta | null;
+  ledger_source?: "operational_vm" | "local";
+  requested_ledger_source?: "auto" | "local" | "operational_vm";
+  source_confidence?: AdsSourceConfidence;
+  source_confidence_reason?: string;
+  source_max_timestamp?: string | null;
+  row_count?: number;
+  order_count?: number;
+  fallback_reason?: string | null;
+  spend_source?: string;
+  currency?: string;
+  rounding_rule?: string;
+  meta_attribution_window?: string;
+  meta_attribution_windows?: string[];
+  meta_action_report_time?: string;
+  meta_use_unified_attribution_setting?: boolean;
+};
+
 type SiteSummaryResponse = {
   ok: boolean;
   date_preset: string | null;
@@ -132,7 +199,7 @@ type SiteSummaryResponse = {
     metaPurchaseRoas: number | null;
     orders: number;
   };
-};
+} & AdsSourceMeta;
 
 type DailyRoas = {
   date: string;
@@ -267,8 +334,6 @@ export default function RoasPage() {
   const dailyRoas = dailyResponse?.rows ?? [];
   const metaReference = dailyResponse?.meta_reference ?? siteSummary?.meta_reference ?? null;
   const totalSpend = channels.reduce((sum, channel) => sum + channel.spend, 0);
-  const totalRevenue = channels.reduce((sum, channel) => sum + channel.revenue, 0);
-  const overallRoas = totalSpend > 0 ? totalRevenue / totalSpend : null;
   const totalConfirmedRoas = siteSummary?.total.confirmedRoas ?? siteSummary?.total.roas ?? null;
   const totalPotentialRoas = siteSummary?.total.potentialRoas ?? null;
   const totalMetaPurchaseRoas = siteSummary?.total.metaPurchaseRoas ?? null;
@@ -281,6 +346,8 @@ export default function RoasPage() {
   const currentPresetLabel = DATE_PRESET_LABELS[datePreset] ?? "선택 기간";
   const isLongWindow = datePreset === "last_30d" || datePreset === "last_90d";
   const selectedSiteLabel = selectedSite ? SITE_LABELS[selectedSite.site] ?? selectedSite.site : "선택 사이트";
+  const sourceConfidence = sourceConfidenceStyle(siteSummary?.source_confidence);
+  const sourceIsFallback = siteSummary?.ledger_source === "local" && siteSummary?.requested_ledger_source === "auto";
 
   return (
     <div style={{ minHeight: "100vh", padding: "0 0 48px", background: "linear-gradient(180deg, rgba(248,250,252,0.96), #fff)" }}>
@@ -349,6 +416,69 @@ export default function RoasPage() {
                 Meta 화면에서는 큰 <strong>구매 전환값</strong> 열보다 <strong>결과 ROAS</strong>와 그 옆 <strong>결과 값</strong> 계열을 API 비교 대상으로 고정하시오.
               </div>
             </div>
+
+            {siteSummary && (
+              <section style={{
+                padding: "14px 16px",
+                borderRadius: 12,
+                background: sourceIsFallback ? "#fff7ed" : "#f8fafc",
+                border: `1px solid ${sourceIsFallback ? "#fdba74" : "#e2e8f0"}`,
+                color: sourceIsFallback ? "#7c2d12" : "#334155",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: "0.82rem", fontWeight: 800, color: sourceIsFallback ? "#9a3412" : "#0f172a", marginBottom: 4 }}>
+                      이 화면의 숫자 기준
+                    </div>
+                    <div style={{ fontSize: "0.76rem", lineHeight: 1.7 }}>
+                      내부 매출은 <strong>{ledgerSourceLabel(siteSummary.ledger_source)}</strong>,
+                      광고비는 <strong>{siteSummary.spend_source ?? "Meta Ads Insights API spend"}</strong>,
+                      Meta 참고값은 <strong>{siteSummary.meta_attribution_window ?? META_PRIMARY_ATTR_WINDOW}</strong> 기준입니다.
+                      {sourceIsFallback && (
+                        <>
+                          {" "}
+                          local fallback 상태이므로 예산 판단은 보류해야 합니다.
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <span style={{
+                    padding: "5px 10px",
+                    borderRadius: 999,
+                    background: sourceConfidence.bg,
+                    border: `1px solid ${sourceConfidence.border}`,
+                    color: sourceConfidence.color,
+                    fontSize: "0.7rem",
+                    fontWeight: 850,
+                    whiteSpace: "nowrap",
+                  }}>
+                    {sourceConfidence.label}
+                  </span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 8, marginTop: 12 }}>
+                  {[
+                    { label: "조회 시각", value: formatDateTime(siteSummary.queried_at) },
+                    { label: "집계 기간", value: formatDateRangeMeta(siteSummary.date_range) },
+                    { label: "원장 최신 시각", value: formatDateTime(siteSummary.source_max_timestamp) },
+                    { label: "원장 row", value: `${fmtNum(siteSummary.row_count ?? 0)} rows / ${fmtNum(siteSummary.order_count ?? 0)} orders` },
+                    { label: "currency", value: siteSummary.currency ?? "KRW" },
+                    { label: "rounding", value: "화면은 원 단위 반올림" },
+                  ].map((item) => (
+                    <div key={item.label} style={{ padding: "9px 10px", borderRadius: 10, background: "#fff", border: "1px solid rgba(148,163,184,0.22)" }}>
+                      <div style={{ fontSize: "0.66rem", color: "#94a3b8", marginBottom: 3 }}>{item.label}</div>
+                      <div style={{ fontSize: "0.74rem", fontWeight: 700, color: "#334155" }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+                {(siteSummary.fallback_reason || siteSummary.source_confidence_reason) && (
+                  <div style={{ marginTop: 10, fontSize: "0.72rem", lineHeight: 1.6, color: sourceIsFallback ? "#9a3412" : "#64748b" }}>
+                    {siteSummary.fallback_reason
+                      ? `fallback reason: ${siteSummary.fallback_reason}`
+                      : siteSummary.source_confidence_reason}
+                  </div>
+                )}
+              </section>
+            )}
 
             <section style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
               <KpiCard
