@@ -1,8 +1,36 @@
 # TikTok ROAS 정합성 프로젝트 로드맵
 
-작성 시각: 2026-05-04 14:41 KST
+작성 시각: 2026-05-04 15:20 KST
 기준일: 2026-05-04
-버전: v3.29-events-api-shadow-v21-no-candidates (이전본: `v3.28-events-api-shadow-rebuilt`)
+버전: v3.30-events-api-shadow-missed-order-audit (이전본: `v3.29-events-api-shadow-v21-no-candidates`)
+
+## 2026-05-04 read-only 미탐지 감사
+
+작업A는 production send 보류 상태로 전환한다. 다만 완전 대기가 아니라, v2.1이 실제 TikTok 주문 후보를 너무 엄격하게 놓치고 있는지 Green Lane read-only로 재감사했다.
+
+결론은 보류 유지다. `2026-05-04 15:09 KST` 기준 TJ 관리 Attribution VM SQLite 최근 7일 source 후보 502건 중 `technical_eligible_for_future_send=1`은 테스트 주문 `202605035698347 / 11,900원`뿐이고, `business_eligible_for_future_send=0`, `eligible_for_future_send=0`이다. 즉 현재 production TikTok Events API send 후보는 **0건**이다.
+
+미탐지 가능성도 같이 봤다. confirmed + no_tiktok_evidence 후보 445건 중 `released_confirmed_purchase`가 255건, same-order checkout이 356건 있었지만, 이것은 “결제가 confirmed라 Pixel Purchase를 허용했다”는 뜻이지 “TikTok 광고 주문”이라는 뜻이 아니다. 같은 `ga_session_id`에 TikTok `marketing_intent`가 있는 주문은 1건 있었으나 client id가 달라 session id 충돌 가능성이 높다. `ga_session_id + client_id`가 둘 다 맞는 주문은 테스트 주문 `202605035698347`뿐이었다.
+
+GA4 medium-confidence cross-check도 최근 7일 기준 TikTok session-source purchase rows 0건 / revenue 0원이었다. `/api/ads/tiktok/roas-comparison` operational ledger에 보이는 TikTok confirmed 1건 / 11,900원도 테스트 주문이므로 v2.1에서 `manual_test_order`로 차단한다.
+
+현재 최신 결론:
+- 추가 TikTok Events API production send는 **보류 / 비추천**이다.
+- 기존 v1/v2 후보는 승인 근거로 쓰지 않는다.
+- 최신 판단 기준은 `candidate_version=2026-05-04.shadow.rebuild.v2.1`이다.
+- production send 후보는 0건이다.
+- 다음은 production send가 아니라 24시간 뒤 동일한 read-only 후보 분포를 재점검하는 것이다.
+
+진행 추천 자신감:
+- 추가 production send: 0%
+- v2.1 shadow-only read-only 관찰 유지: 94%
+- 24시간 뒤 재점검: 94%
+- session-only 후보 strict 승격: 0%
+
+세부 근거:
+- 미탐지 감사 결과: [[tiktok_events_api_shadow_missed_order_audit_20260504]]
+- v2.1 Rebuild 결과: [[tiktok_events_api_shadow_rebuild_v21_result_20260504]]
+- v2.1 후보 검토표: [[tiktok_events_api_shadow_candidate_review_20260504_v21]]
 
 ## 2026-05-04 최신 정정
 

@@ -1109,7 +1109,7 @@ export default function TikTokAdsPerformancePage() {
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
-                <StatusBadge tone="amber">Production 후보 0건 목표</StatusBadge>
+                <StatusBadge tone="amber">현재 Production 후보 0건</StatusBadge>
                 <StatusBadge tone="neutral">send_candidate=false</StatusBadge>
                 <StatusBadge tone="neutral">platform_send_status=not_sent</StatusBadge>
               </div>
