@@ -1,8 +1,8 @@
 # TikTok ROAS 정합성 프로젝트 로드맵
 
-작성 시각: 2026-05-04 13:37 KST
+작성 시각: 2026-05-04 14:09 KST
 기준일: 2026-05-04
-버전: v3.27-events-api-canary-blocked (이전본: `v3.26-marketing-intent-gtm-live`)
+버전: v3.28-events-api-shadow-rebuilt (이전본: `v3.27-events-api-canary-blocked`)
 
 ## 2026-05-04 최신 정정
 
@@ -12,17 +12,25 @@ TikTok Events API production canary 1건은 API 수신 자체는 성공했다. `
 
 원인은 shadow 후보 생성 로직이 전체 `marketing_intent` row를 넓게 훑어, 다른 사용자의 TikTok 클릭 흔적을 해당 주문 후보에 섞은 것이다. 로컬 코드는 수정했고 회귀 테스트도 추가했다. 이제 주문에 직접 연결된 payment/checkout/metadata evidence만 인정한다.
 
+2026-05-04 14:09 KST 기준으로 shadow 후보를 새 로직으로 재생성했다. TJ 관리 Attribution VM SQLite에 `candidate_version=2026-05-04.shadow.rebuild.v2` 50건을 shadow-only로 upsert했고, 기존 `2026-05-03.shadow.v1` 17건은 backup table `tiktok_events_api_shadow_candidates_backup_20260504_rebuild_v2`에 보존했다.
+
+새 결과는 더 보수적이다. 최근 7일 전체 source 후보 502건 중 Events API 미래 후보는 1건뿐이다. 501건은 `no_tiktok_evidence` 등으로 차단됐다. 기존 canary 주문 `202605036519253`은 새 row에서 `eligible_for_future_send=0`, `block_reason=no_tiktok_evidence`로 차단됐다.
+
 현재 결론:
 - TikTok Events API production 확대는 **중단**한다.
-- 기존 VM shadow 후보 17건은 패치된 로직으로 재생성하기 전까지 승인 근거로 쓰지 않는다.
+- 기존 VM shadow 후보 17건은 승인 근거로 쓰지 않는다. 앞으로는 `candidate_version=2026-05-04.shadow.rebuild.v2`만 본다.
 - 이미 보낸 canary 1건은 되돌릴 수 없지만, raw/hash PII 없이 1회만 전송됐다.
 - Diagnostics가 비어 있는 것은 실패 신호가 아니다. Diagnostics는 이벤트 수신 목록이 아니라 문제 목록이다.
-- 다음은 패치된 로직 기준으로 VM shadow 후보 dry-run/재생성 승인 문서를 만들고, 기존 17건을 새 기준으로 다시 분류하는 것이다.
+- 다음은 production send가 아니라 v2 후보표를 기준으로 `/ads/tiktok` 화면/문서가 옛 v1 숫자를 다시 쓰지 않게 막는 것이다.
 
 진행 추천 자신감:
 - 추가 production send: 5%
-- 패치된 후보 로직으로 VM dry-run 재검산: 95%
+- v2 shadow 후보 기준으로 화면/문서 source filter 정리: 95%
 - 24시간 뒤 TikTok Ads API read-only 중복 증가 확인: 88%
+
+세부 근거:
+- Shadow rebuild 결과: [[tiktok_events_api_shadow_rebuild_result_20260504]]
+- 새 후보 검토표: [[tiktok_events_api_shadow_candidate_review_20260504]]
 
 ## 2026-05-03 최신 결론
 

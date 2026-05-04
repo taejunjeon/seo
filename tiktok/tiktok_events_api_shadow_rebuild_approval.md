@@ -170,6 +170,23 @@ TikTok Events API Shadow Candidate Rebuild sprint를 승인합니다.
 
 ## Auditor verdict
 
-Auditor verdict: NEEDS_HUMAN_APPROVAL
+Auditor verdict: APPROVED_AND_COMPLETED
 
-문서 작성은 Green Lane으로 완료한다. VM 반영과 shadow row 재생성은 Yellow Lane이라 TJ님 승인 전 실행하지 않는다.
+2026-05-04 14:09 KST 실행 완료.
+
+결과:
+- VM dry-run: 최근 7일 source 후보 502건, eligible 1건, blocked 501건, write 0건
+- VM apply: `candidate_version=2026-05-04.shadow.rebuild.v2` 50건 upsert
+- 기존 v1 백업: `tiktok_events_api_shadow_candidates_backup_20260504_rebuild_v2` 17건
+- canary 주문 `202605036519253`: 새 로직에서 `eligible_for_future_send=0`, `block_reason=no_tiktok_evidence`
+- `send_candidate=true`: 0건
+- `platform_send_status != not_sent`: 0건
+- TikTok Events API production send: 0건
+- TikTok Test Events send: 0건
+- 개발팀 관리 운영DB PostgreSQL write: 0건
+
+결과 문서:
+- [[tiktok_events_api_shadow_rebuild_result_20260504]]
+- [[tiktok_events_api_shadow_candidate_review_20260504]]
+
+주의: 이 승인 문서는 완료된 Yellow sprint 기록이다. 추가 Test Events 또는 production send 승인 근거로 재사용하지 않는다.

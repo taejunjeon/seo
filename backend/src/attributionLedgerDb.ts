@@ -145,6 +145,7 @@ export const buildAttributionLedgerEntryId = (entry: AttributionLedgerEntry) => 
 };
 
 const dbRowToEntry = (row: AttributionLedgerRow): AttributionLedgerEntry => ({
+  entryId: row.entry_id,
   touchpoint:
     row.touchpoint === "marketing_intent"
       ? "marketing_intent"
@@ -186,7 +187,7 @@ const dbRowToEntry = (row: AttributionLedgerRow): AttributionLedgerEntry => ({
   ttclid: row.ttclid,
   metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
   requestContext: JSON.parse(row.request_context_json) as AttributionLedgerEntry["requestContext"],
-});
+} as AttributionLedgerEntry & { entryId: string });
 
 export const insertAttributionLedgerEntries = (entries: AttributionLedgerEntry[]) => {
   if (entries.length === 0) return 0;

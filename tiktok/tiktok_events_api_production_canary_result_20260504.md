@@ -233,6 +233,9 @@ VM/원장 재검산:
 - 로컬 후보 생성 로직을 수정했다.
 - 이제 `marketing_intent`/`checkout_started`는 해당 주문과 명시적으로 연결되는 row만 evidence로 쓴다.
 - unrelated TikTok marketing_intent가 후보를 통과시키지 못하는 회귀 테스트를 추가했다.
+- 2026-05-04 14:09 KST 후속 rebuild에서 `candidate_version=2026-05-04.shadow.rebuild.v2` 50건을 shadow-only로 재생성했다.
+- 이 rebuild에서도 canary 주문 `202605036519253`은 `eligible_for_future_send=0`, `block_reason=no_tiktok_evidence`로 차단됐다.
+- 결과 문서: [[tiktok_events_api_shadow_rebuild_result_20260504]], [[tiktok_events_api_shadow_candidate_review_20260504]]
 
 영향:
 - 이미 보낸 production canary 1건은 되돌릴 수 없다.

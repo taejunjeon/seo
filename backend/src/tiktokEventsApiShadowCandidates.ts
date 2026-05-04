@@ -9,7 +9,7 @@ import { normalizeOrderIdBase } from "./orderKeys";
 import { listTikTokPixelEvents, type TikTokPixelEvent } from "./tiktokPixelEvents";
 
 const SHADOW_TABLE = "tiktok_events_api_shadow_candidates";
-const CANDIDATE_VERSION = "2026-05-03.shadow.v1";
+const CANDIDATE_VERSION = "2026-05-04.shadow.rebuild.v2";
 const PIXEL_CODE = "D5G8FTBC77UAODHQ0KOG";
 
 export type TikTokEventsApiShadowBlockReason =
@@ -114,12 +114,39 @@ type PaymentMatch = {
 type EvidenceMatch = {
   present: boolean;
   type: string;
+  linkType: string;
+  rowId: string;
+  evidenceOrderCodeMatch: boolean;
+  evidenceOrderNoMatch: boolean;
+  evidencePaymentCodeMatch: boolean;
+  marketingIntentLinked: boolean;
+  globalIntentExcludedCount: number;
   hasTtclid: boolean;
   utmSource: string;
   utmMedium: string;
   utmCampaign: string;
   utmContent: string;
   referrerHost: string;
+  linkedRefs: Record<string, unknown>[];
+};
+
+type OrderLinkMatch = {
+  matched: boolean;
+  orderCodeMatch: boolean;
+  orderNoMatch: boolean;
+  paymentCodeMatch: boolean;
+};
+
+type EvidenceRef = {
+  evidenceType: string;
+  linkType: string;
+  rowId: string;
+  orderCodeMatch: boolean;
+  orderNoMatch: boolean;
+  paymentCodeMatch: boolean;
+  touchpoint: string;
+  storage: string;
+  priority: number;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -275,21 +302,58 @@ const metadataPaymentCode = (entry: AttributionLedgerEntry) =>
   readString(entry.metadata, "payment_code") ||
   readNestedString(entry.metadata, ["landingPayment", "paymentCode"]);
 
-const entryMatchesOrder = (entry: AttributionLedgerEntry, event: TikTokPixelEvent) => {
+const orderLinkMatchForEntry = (entry: AttributionLedgerEntry, event: TikTokPixelEvent): OrderLinkMatch => {
   const entryOrderBase = normalizeOrderIdBase(entry.orderId);
   const eventOrderNoBase = normalizeOrderIdBase(event.orderNo);
   const entryMetadataOrderNo = metadataOrderNo(entry);
   const entryMetadataOrderCode = metadataOrderCode(entry);
   const entryPaymentCode = metadataPaymentCode(entry);
-  return Boolean(
-    (event.orderCode && entryMetadataOrderCode === event.orderCode) ||
-      (event.orderCode && entry.landing.includes(`order_code=${event.orderCode}`)) ||
-      (event.orderNo && entryOrderBase && eventOrderNoBase && entryOrderBase === eventOrderNoBase) ||
-      (event.orderNo && entryMetadataOrderNo === event.orderNo) ||
-      (event.orderNo && entry.landing.includes(`order_no=${event.orderNo}`)) ||
-      (event.paymentCode && entryPaymentCode === event.paymentCode) ||
-      (event.paymentCode && entry.landing.includes(`payment_code=${event.paymentCode}`)),
+  const orderCodeMatch = Boolean(
+    event.orderCode &&
+      (entryMetadataOrderCode === event.orderCode || entry.landing.includes(`order_code=${event.orderCode}`)),
   );
+  const orderNoMatch = Boolean(
+    event.orderNo &&
+      ((entryOrderBase && eventOrderNoBase && entryOrderBase === eventOrderNoBase) ||
+        entryMetadataOrderNo === event.orderNo ||
+        entry.landing.includes(`order_no=${event.orderNo}`)),
+  );
+  const paymentCodeMatch = Boolean(
+    event.paymentCode &&
+      (entryPaymentCode === event.paymentCode || entry.landing.includes(`payment_code=${event.paymentCode}`)),
+  );
+  return {
+    matched: orderCodeMatch || orderNoMatch || paymentCodeMatch,
+    orderCodeMatch,
+    orderNoMatch,
+    paymentCodeMatch,
+  };
+};
+
+const orderLinkMatchForEvents = (
+  entry: AttributionLedgerEntry,
+  events: TikTokPixelEvent[],
+): OrderLinkMatch =>
+  events.reduce<OrderLinkMatch>(
+    (acc, event) => {
+      const next = orderLinkMatchForEntry(entry, event);
+      return {
+        matched: acc.matched || next.matched,
+        orderCodeMatch: acc.orderCodeMatch || next.orderCodeMatch,
+        orderNoMatch: acc.orderNoMatch || next.orderNoMatch,
+        paymentCodeMatch: acc.paymentCodeMatch || next.paymentCodeMatch,
+      };
+    },
+    {
+      matched: false,
+      orderCodeMatch: false,
+      orderNoMatch: false,
+      paymentCodeMatch: false,
+    },
+  );
+
+const entryMatchesOrder = (entry: AttributionLedgerEntry, event: TikTokPixelEvent) => {
+  return orderLinkMatchForEntry(entry, event).matched;
 };
 
 const findPaymentMatch = (
@@ -354,6 +418,156 @@ const firstTouchFromMetadata = (metadata: Record<string, unknown>) => {
   return isRecord(firstTouch) ? firstTouch : {};
 };
 
+const ledgerEntryRefId = (entry: AttributionLedgerEntry) => {
+  const entryId = (entry as AttributionLedgerEntry & { entryId?: string }).entryId;
+  if (entryId) return entryId;
+  return hashCandidateId([
+    entry.touchpoint,
+    entry.loggedAt,
+    entry.orderId,
+    entry.paymentKey,
+    entry.landing,
+    entry.ttclid,
+  ]);
+};
+
+const hasEntryTikTokEvidence = (entry: AttributionLedgerEntry) =>
+  Boolean(
+    entry.ttclid ||
+      includesTikTokSource(entry.utmSource) ||
+      hasTikTokHost(entry.referrer) ||
+      tiktokReasonsFromMetadata(entry.metadata).length > 0 ||
+      readString(firstTouchFromMetadata(entry.metadata), "ttclid") ||
+      includesTikTokSource(readString(firstTouchFromMetadata(entry.metadata), "utmSource")) ||
+      hasTikTokHost(readString(firstTouchFromMetadata(entry.metadata), "referrer")),
+  );
+
+const pushEvidenceRef = (refs: EvidenceRef[], ref: EvidenceRef) => {
+  if (!refs.some((item) => item.linkType === ref.linkType && item.rowId === ref.rowId)) {
+    refs.push(ref);
+  }
+};
+
+const collectEventEvidenceRefs = (events: TikTokPixelEvent[]): EvidenceRef[] => {
+  const refs: EvidenceRef[] = [];
+  for (const event of events) {
+    const base = {
+      rowId: event.eventLogId,
+      orderCodeMatch: Boolean(event.orderCode),
+      orderNoMatch: Boolean(event.orderNo),
+      paymentCodeMatch: Boolean(event.paymentCode),
+      touchpoint: "tiktok_pixel_event",
+      storage: "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
+    };
+    if (event.ttclid) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "ttclid",
+        linkType: "tiktok_pixel_event.ttclid",
+        priority: 10,
+      });
+    }
+    if (includesTikTokSource(event.utmSource)) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "utm_source_tiktok",
+        linkType: "tiktok_pixel_event.utm_source",
+        priority: 20,
+      });
+    }
+    if (hasTikTokHost(event.referrer)) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "referrer_tiktok",
+        linkType: "tiktok_pixel_event.referrer",
+        priority: 30,
+      });
+    }
+  }
+  return refs;
+};
+
+const collectLedgerEvidenceRefs = (entries: AttributionLedgerEntry[], events: TikTokPixelEvent[]) => {
+  const refs: EvidenceRef[] = [];
+  for (const entry of entries) {
+    const match = orderLinkMatchForEvents(entry, events);
+    const base = {
+      rowId: ledgerEntryRefId(entry),
+      orderCodeMatch: match.orderCodeMatch,
+      orderNoMatch: match.orderNoMatch,
+      paymentCodeMatch: match.paymentCodeMatch,
+      touchpoint: entry.touchpoint,
+      storage: "CRM_LOCAL_DB_PATH#attribution_ledger",
+    };
+    if (entry.ttclid) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "ttclid",
+        linkType: `${entry.touchpoint}.ttclid`,
+        priority: entry.touchpoint === "marketing_intent" ? 11 : 12,
+      });
+    }
+    if (includesTikTokSource(entry.utmSource)) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "utm_source_tiktok",
+        linkType: `${entry.touchpoint}.utm_source`,
+        priority: entry.touchpoint === "marketing_intent" ? 21 : 22,
+      });
+    }
+    if (hasTikTokHost(entry.referrer)) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "referrer_tiktok",
+        linkType: `${entry.touchpoint}.referrer`,
+        priority: entry.touchpoint === "marketing_intent" ? 31 : 32,
+      });
+    }
+    if (tiktokReasonsFromMetadata(entry.metadata).length > 0) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "metadata_tiktok_match_reasons",
+        linkType: `${entry.touchpoint}.metadata_tiktok_match_reasons`,
+        priority: entry.touchpoint === "marketing_intent" ? 41 : 42,
+      });
+    }
+    const firstTouch = firstTouchFromMetadata(entry.metadata);
+    if (readString(firstTouch, "ttclid")) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "ttclid",
+        linkType: `${entry.touchpoint}.first_touch.ttclid`,
+        priority: 13,
+      });
+    }
+    if (includesTikTokSource(readString(firstTouch, "utmSource"))) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "utm_source_tiktok",
+        linkType: `${entry.touchpoint}.first_touch.utm_source`,
+        priority: 23,
+      });
+    }
+    if (hasTikTokHost(readString(firstTouch, "referrer"))) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "referrer_tiktok",
+        linkType: `${entry.touchpoint}.first_touch.referrer`,
+        priority: 33,
+      });
+    }
+    if (tiktokReasonsFromMetadata(firstTouch).length > 0) {
+      pushEvidenceRef(refs, {
+        ...base,
+        evidenceType: "metadata_tiktok_match_reasons",
+        linkType: `${entry.touchpoint}.first_touch.metadata_tiktok_match_reasons`,
+        priority: 43,
+      });
+    }
+  }
+  return refs;
+};
+
 const collectEvidence = (
   events: TikTokPixelEvent[],
   ledgerEntries: AttributionLedgerEntry[],
@@ -362,11 +576,22 @@ const collectEvidence = (
   const orderLinkedEntries = ledgerEntries.filter((entry) =>
     events.some((event) => entryMatchesOrder(entry, event)),
   );
+  const excludedGlobalTikTokIntents = ledgerEntries.filter(
+    (entry) =>
+      entry.touchpoint === "marketing_intent" &&
+      hasEntryTikTokEvidence(entry) &&
+      !orderLinkedEntries.includes(entry),
+  );
   const entries = [
     ...(paymentEntry ? [paymentEntry] : []),
     ...orderLinkedEntries.filter((entry) => entry.touchpoint === "marketing_intent"),
     ...orderLinkedEntries.filter((entry) => entry.touchpoint === "checkout_started"),
   ];
+  const evidenceRefs = [
+    ...collectEventEvidenceRefs(events),
+    ...collectLedgerEvidenceRefs(entries, events),
+  ].sort((a, b) => a.priority - b.priority);
+  const primaryEvidenceRef = evidenceRefs[0];
   const ttclid =
     events.find((event) => event.ttclid)?.ttclid ||
     entries.find((entry) => entry.ttclid)?.ttclid ||
@@ -411,12 +636,29 @@ const collectEvidence = (
   return {
     present: evidenceTypes.length > 0,
     type: unique(evidenceTypes).join(","),
+    linkType: primaryEvidenceRef?.linkType ?? "",
+    rowId: primaryEvidenceRef?.rowId ?? "",
+    evidenceOrderCodeMatch: primaryEvidenceRef?.orderCodeMatch ?? false,
+    evidenceOrderNoMatch: primaryEvidenceRef?.orderNoMatch ?? false,
+    evidencePaymentCodeMatch: primaryEvidenceRef?.paymentCodeMatch ?? false,
+    marketingIntentLinked: evidenceRefs.some((ref) => ref.touchpoint === "marketing_intent"),
+    globalIntentExcludedCount: excludedGlobalTikTokIntents.length,
     hasTtclid: Boolean(ttclid),
     utmSource,
     utmMedium,
     utmCampaign,
     utmContent,
     referrerHost: parseHost(referrer),
+    linkedRefs: evidenceRefs.map((ref) => ({
+      evidence_type: ref.evidenceType,
+      link_type: ref.linkType,
+      row_id: ref.rowId,
+      order_code_match: ref.orderCodeMatch,
+      order_no_match: ref.orderNoMatch,
+      payment_code_match: ref.paymentCodeMatch,
+      touchpoint: ref.touchpoint,
+      storage: ref.storage,
+    })),
   };
 };
 
@@ -491,6 +733,14 @@ const buildSourceRefs = (
   tiktok_evidence: {
     present: evidence.present,
     type: evidence.type,
+    link_type: evidence.linkType,
+    row_id: evidence.rowId,
+    evidence_order_code_match: evidence.evidenceOrderCodeMatch,
+    evidence_order_no_match: evidence.evidenceOrderNoMatch,
+    evidence_payment_code_match: evidence.evidencePaymentCodeMatch,
+    marketing_intent_linked: evidence.marketingIntentLinked,
+    global_intent_excluded_count: evidence.globalIntentExcludedCount,
+    linked_refs: evidence.linkedRefs,
   },
   operating_db_crosscheck: {
     used: false,
@@ -599,6 +849,13 @@ export const buildTikTokEventsApiShadowCandidatesFromSources = (
       metadata: {
         groupKey: group.key,
         groupedEventCount: group.events.length,
+        evidenceLinkType: evidence.linkType,
+        evidenceRowId: evidence.rowId,
+        evidenceOrderCodeMatch: evidence.evidenceOrderCodeMatch,
+        evidenceOrderNoMatch: evidence.evidenceOrderNoMatch,
+        evidencePaymentCodeMatch: evidence.evidencePaymentCodeMatch,
+        marketingIntentLinked: evidence.marketingIntentLinked,
+        globalIntentExcludedCount: evidence.globalIntentExcludedCount,
         source: "tiktok_events_api_shadow_candidates",
       },
       firstObservedAt: firstObservedAt(group.events),
@@ -757,6 +1014,7 @@ export const upsertTikTokEventsApiShadowCandidates = (
       @first_observed_at, @last_evaluated_at, @updated_at
     )
     ON CONFLICT(site, event_name, server_event_id_candidate) DO UPDATE SET
+      candidate_id = excluded.candidate_id,
       source_system = excluded.source_system,
       candidate_version = excluded.candidate_version,
       evaluation_mode = excluded.evaluation_mode,

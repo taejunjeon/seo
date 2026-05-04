@@ -115,8 +115,22 @@ test("tiktok events api shadow: builds Purchase dedup candidate from confirmed T
     event_id: string;
     raw_event_id_stored: boolean;
   };
+  const evidenceRef = candidate.sourceRefs.tiktok_evidence as {
+    link_type: string;
+    row_id: string;
+    evidence_order_code_match: boolean;
+    evidence_order_no_match: boolean;
+    marketing_intent_linked: boolean;
+    global_intent_excluded_count: number;
+  };
   assert.equal(pixelSourceRef.event_id, sanitizeTikTokRawEventIdForStorage("o20260503abc"));
   assert.equal(pixelSourceRef.raw_event_id_stored, false);
+  assert.equal(evidenceRef.link_type, "tiktok_pixel_event.ttclid");
+  assert.equal(evidenceRef.row_id, event.eventLogId);
+  assert.equal(evidenceRef.evidence_order_code_match, true);
+  assert.equal(evidenceRef.evidence_order_no_match, true);
+  assert.equal(evidenceRef.marketing_intent_linked, false);
+  assert.equal(evidenceRef.global_intent_excluded_count, 0);
 });
 
 test("tiktok events api shadow: blocks pending virtual-account Purchase", () => {
@@ -208,6 +222,18 @@ test("tiktok events api shadow: ignores unrelated TikTok marketing intent eviden
   assert.ok(result.candidates[0].blockReasons.includes("no_tiktok_evidence"));
   assert.equal(result.candidates[0].tiktokEvidencePresent, false);
   assert.equal(result.candidates[0].tiktokEvidenceType, "");
+  const evidenceRef = result.candidates[0].sourceRefs.tiktok_evidence as {
+    link_type: string;
+    row_id: string;
+    marketing_intent_linked: boolean;
+    global_intent_excluded_count: number;
+    linked_refs: unknown[];
+  };
+  assert.equal(evidenceRef.link_type, "");
+  assert.equal(evidenceRef.row_id, "");
+  assert.equal(evidenceRef.marketing_intent_linked, false);
+  assert.equal(evidenceRef.global_intent_excluded_count, 1);
+  assert.deepEqual(evidenceRef.linked_refs, []);
 });
 
 test("tiktok events api shadow: persists only not_sent shadow rows in temp local DB", async () => {

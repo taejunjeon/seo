@@ -11,8 +11,10 @@ type Args = {
   apply: boolean;
   json: boolean;
   limit: number;
+  sourceLimit: number;
   windowDays: number;
   siteSource: string;
+  includeOrderNos: string[];
 };
 
 const readArg = (name: string) => {
@@ -24,10 +26,16 @@ const readArg = (name: string) => {
 const parseArgs = (): Args => {
   const apply = process.argv.includes("--apply");
   const json = process.argv.includes("--json");
-  const rawLimit = Number(readArg("--limit") || "10000");
+  const rawLimit = Number(readArg("--limit") || "50");
+  const rawSourceLimit = Number(readArg("--source-limit") || "10000");
   const rawWindowDays = Number(readArg("--window-days") || "7");
   const siteSource = readArg("--site-source") || "biocom_imweb";
+  const includeOrderNos = readArg("--include-order-no")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
   const limit = Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : 10000;
+  const sourceLimit = Number.isFinite(rawSourceLimit) ? Math.trunc(rawSourceLimit) : 10000;
   const windowDays = Number.isFinite(rawWindowDays) ? Math.trunc(rawWindowDays) : 7;
   if (apply && (limit < 1 || limit > 50)) {
     throw new Error("--apply requires --limit between 1 and 50");
@@ -35,9 +43,11 @@ const parseArgs = (): Args => {
   return {
     apply,
     json,
-    limit,
+    limit: Math.max(1, Math.min(50, limit)),
+    sourceLimit: Math.max(1, Math.min(10000, sourceLimit)),
     windowDays: Math.max(1, Math.min(30, windowDays)),
     siteSource,
+    includeOrderNos,
   };
 };
 
@@ -47,16 +57,41 @@ const isoDaysAgo = (days: number) => {
   return date.toISOString();
 };
 
+const selectShadowRowsForWrite = <T extends { candidateId: string; eligibleForFutureSend: boolean; orderNo: string }>(
+  candidates: T[],
+  limit: number,
+  includeOrderNos: string[],
+) => {
+  const selected: T[] = [];
+  const seen = new Set<string>();
+  const add = (candidate: T | undefined) => {
+    if (!candidate || seen.has(candidate.candidateId) || selected.length >= limit) return;
+    selected.push(candidate);
+    seen.add(candidate.candidateId);
+  };
+  candidates.filter((candidate) => candidate.eligibleForFutureSend).forEach(add);
+  for (const orderNo of includeOrderNos) {
+    add(candidates.find((candidate) => candidate.orderNo === orderNo));
+  }
+  candidates.forEach(add);
+  return selected;
+};
+
 const main = () => {
   const args = parseArgs();
   const result = buildTikTokEventsApiShadowCandidatesFromDb({
     site: "biocom",
     siteSource: args.siteSource,
     startAt: isoDaysAgo(args.windowDays),
-    limit: args.limit,
+    limit: args.sourceLimit,
   });
+  const selectedCandidates = selectShadowRowsForWrite(
+    result.candidates,
+    args.limit,
+    args.includeOrderNos,
+  );
   const writtenRows = args.apply
-    ? upsertTikTokEventsApiShadowCandidates(result.candidates.slice(0, args.limit))
+    ? upsertTikTokEventsApiShadowCandidates(selectedCandidates)
     : 0;
   const output = {
     mode: args.apply ? "apply_shadow_only" : "dry_run",
@@ -67,9 +102,13 @@ const main = () => {
       : "dry-run only, no DB write",
     windowDays: args.windowDays,
     siteSource: args.siteSource,
+    sourceLimit: args.sourceLimit,
+    maxShadowRows: args.limit,
+    includeOrderNos: args.includeOrderNos,
+    selectedShadowRows: selectedCandidates.length,
     writtenRows,
     summary: result.summary,
-    sample: result.candidates.slice(0, 10).map((candidate) => ({
+    selectedSample: selectedCandidates.slice(0, 10).map((candidate) => ({
       orderCode: candidate.orderCode,
       orderNo: candidate.orderNo,
       eventName: candidate.eventName,
@@ -90,6 +129,9 @@ const main = () => {
   console.log(`storage=${output.storage}`);
   console.log(`windowDays=${output.windowDays}`);
   console.log(`siteSource=${output.siteSource}`);
+  console.log(`sourceLimit=${output.sourceLimit}`);
+  console.log(`maxShadowRows=${output.maxShadowRows}`);
+  console.log(`selectedShadowRows=${output.selectedShadowRows}`);
   console.log(`writtenRows=${output.writtenRows}`);
   console.log(`totalCandidates=${output.summary.totalCandidates}`);
   console.log(`eligibleForFutureSend=${output.summary.eligibleForFutureSend}`);
