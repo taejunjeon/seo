@@ -1,14 +1,14 @@
 # TikTok Events API Test Events Only Smoke Result
 
 작성 시각: 2026-05-03 19:59 KST
-최신 업데이트: 2026-05-04 11:42 KST
+최신 업데이트: 2026-05-04 11:47 KST
 Project: TikTok ROAS 정합성 개선
 Sprint: TikTok Events API Test Events Only Smoke
 Lane: Yellow
-Mode: Test Events only single-call smoke
-Auditor verdict: PASS_WITH_NOTES
-현재 판정: TikTok Test Events endpoint 1건 호출 성공. `HTTP 200`, `code=0`, `message=OK`. Production send 0건
-진행 추천 점수: 86%
+Mode: Test Events only single-call smoke + UI confirmation
+Auditor verdict: PASS
+현재 판정: TikTok Test Events endpoint 1건 호출 성공 + Events Manager UI에서 `Purchase` / `Server` / `event_id` 표시 확인. Production send 0건
+진행 추천 점수: 89%
 
 ```yaml
 harness_preflight:
@@ -42,11 +42,11 @@ harness_preflight:
     - "VM shadow row send_candidate=true 변경"
     - "VM shadow row platform_send_status 변경"
   source_window_freshness_confidence:
-    source: "TJ 관리 Attribution VM SQLite tiktok_events_api_shadow_candidates + 로컬 backend/.env readiness + TikTok Events API Test Events response"
+    source: "TJ 관리 Attribution VM SQLite tiktok_events_api_shadow_candidates + 로컬 backend/.env readiness + TikTok Events API Test Events response + TJ님 Events Manager UI 캡처"
     window: "candidate_version=2026-05-03.shadow.v1, order_no=202605036519253"
-    freshness: "2026-05-04 11:42 KST"
+    freshness: "2026-05-04 11:47 KST"
     site: "biocom"
-    confidence: 0.86
+    confidence: 0.89
 ```
 
 ## 한 줄 결론
@@ -58,7 +58,7 @@ harness_preflight:
 주의할 점:
 - 이것은 **Test Events only** 호출이다.
 - TikTok Events API production send는 여전히 Red Lane 금지다.
-- Test Events 화면에 `Purchase`와 `event_id=Purchase_o202605033af504ba376d9`가 보이는지는 TJ님 UI 확인이 필요하다.
+- 이번 성공은 “Test Events 수신 가능” 증거다. 운영 전송을 켜는 승인 근거로 바로 쓰지 않는다.
 
 ## 2026-05-04 재개 실행 결과
 
@@ -70,6 +70,32 @@ harness_preflight:
 | 전송 event | PASS | `event=Purchase`, `event_id=Purchase_o202605033af504ba376d9`, `event_source=web`, `event_source_id=D5G8...0KOG`, `test_event_code` 포함 | TikTok 외부 API |
 | VM row 사후 감사 | PASS | 후보 row는 계속 `send_candidate=0`, `platform_send_status=not_sent`, `pii_in_payload=0` | TJ 관리 Attribution VM SQLite |
 | 전체 shadow 원장 사후 감사 | PASS | `versionRows=17`, `sendCandidateTrue=0`, `platformSent=0`, `piiRows=0` | TJ 관리 Attribution VM SQLite |
+| TikTok Events Manager UI 확인 | PASS | `Purchase`, `2026-05-04 11:42:05`, `Server`, `event_id=Purchase_o202605033af504ba376d9`, `value=484500`, `currency=KRW` 확인 | TikTok Events Manager |
+
+## 2026-05-04 TJ님 UI 확인 결과
+
+TJ님이 TikTok Events Manager의 `biocom_tiktok_web_pixel` Test events 화면을 캡처해 공유했다.
+
+확인된 값:
+- Pixel ID: `D5G8FTBC77UAODHQ0KOG`
+- 화면 문구: `Test events will not be included in actual data`
+- Status: `Connected`
+- event: `Purchase`
+- code: `Purchase`
+- received time: `2026-05-04 11:42:05 (UTC+09:00) Asia/Seoul`
+- connection method: `Server`
+- URL: `https://biocom.kr/shop_payment_complete?order_code=o202605033af504ba376d9&order_no=202605036519253`
+- setup method: `Custom code`
+- event_id: `Purchase_o202605033af504ba376d9`
+- content_type: `product`
+- contents: `order_id=202605036519253`, `content_id=order_202605036519253`, `content_name=TikTok Test Events smoke order`, `price=484500`, `quantity=1`
+- currency: `KRW`
+- value: `484500`
+
+판정:
+- Test Events endpoint 응답과 TikTok Events Manager UI 표시가 일치한다.
+- `event_id`가 browser/server dedup 후보와 같은 `Purchase_{order_code}` 패턴으로 표시됐다.
+- 화면에 production event로 포함된다는 문구는 없고, Test events 화면에 “actual data에 포함되지 않는다”는 문구가 표시됐다.
 
 실행한 payload의 핵심 구조:
 
@@ -118,6 +144,7 @@ secret 처리:
 | 후보 row read-only 확인 | 완료 | 후보 `202605036519253`은 A등급 조건 충족 | TJ 관리 Attribution VM SQLite |
 | VM row 불변 감사 | 완료 | `sendCandidateTrue=0`, `platformSent=0`, `piiRows=0` | TJ 관리 Attribution VM SQLite |
 | Test Events endpoint 호출 | 1건 완료 | `HTTP 200`, `code=0`, `message=OK` | TikTok 외부 API |
+| Test Events 화면 확인 | 완료 | `Purchase`, `Server`, `event_id=Purchase_o202605033af504ba376d9` 표시 | TikTok Events Manager |
 
 ## 프롬프트에 있거나 시도했으나 완료하지 못한 것
 
@@ -125,7 +152,7 @@ secret 처리:
 |---|---|---|---|
 | Test Events endpoint 1건 전송 | 완료 | 해당 없음 | 다음 단계는 UI 수신 확인 |
 | Events API token 권한 확인 | 완료 | Test Events endpoint가 `code=0`으로 성공 | production send 권한/정책은 별도 Red Lane에서만 판단 |
-| Test Events 화면 확인 | 미완료 | Codex는 TJ님 로그인 TikTok Events Manager UI를 직접 볼 수 없음 | TJ님이 Test Events 탭에서 `Purchase`와 event_id 표시 확인 필요 |
+| Test Events 화면 확인 | 완료 | 해당 없음 | 성공 기준 충족. production send는 여전히 별도 Red Lane 승인 필요 |
 
 ## 후보 row 사전 검증
 
@@ -151,7 +178,7 @@ secret 처리:
 판정:
 - 후보 자체는 Test Events only 대상으로 적합했다.
 - 2026-05-04 재개 실행에서 TikTok API 수신은 성공했다.
-- 남은 확인은 TikTok Events Manager UI에 `Purchase`와 `event_id=Purchase_o202605033af504ba376d9`가 표시되는지다.
+- TikTok Events Manager UI에서도 `Purchase`와 `event_id=Purchase_o202605033af504ba376d9`가 표시됐다.
 
 ## 2026-05-03 Hard Fail 발생 지점
 
@@ -231,54 +258,49 @@ TikTok 공식 문서 기준:
 
 ### 1. TJ님이 할 일
 
-추천 점수: 88%
+추천 점수: 90%
 
 무엇을 하는가:
-- 지금 열려 있는 TikTok Events Manager `biocom_tiktok_web_pixel`의 Test events 화면에서 서버 이벤트가 들어왔는지 확인한다.
+- 지금 화면에서는 더 할 일이 없다. `Finish`를 눌러 Pixel + Events API setup guide 모달을 닫아도 된다.
 
 왜 하는가:
-- TikTok API 응답은 `OK`지만, 실제 UI에 `Purchase`와 `event_id`가 표시되는지까지 봐야 Test Events smoke를 닫을 수 있다.
-- Codex는 TJ님 로그인 세션이 있는 TikTok Events Manager UI를 직접 볼 수 없어서 이 확인은 TJ님이 해야 한다.
+- Test Events 수신 확인이 완료됐고, 화면은 테스트 단계 완료 상태다.
+- `Finish`는 setup guide 화면을 닫는 동작으로 보이며, production Events API send를 켜는 버튼이 아니다.
 
 어떻게 하는가:
-1. 현재 화면에서 Data source가 `biocom_tiktok_web_pixel`이고 Pixel ID가 `D5G8FTBC77UAODHQ0KOG`인지 확인한다.
-2. `Test events` 탭 하단의 `Test event activity` 영역을 본다.
-3. 시간 기준으로 `2026-05-04 11:42 KST` 전후의 서버 이벤트를 찾는다.
-4. event name이 `Purchase`인지 확인한다.
-5. 상세를 열 수 있으면 `event_id=Purchase_o202605033af504ba376d9`가 보이는지 확인한다.
-6. 보이면 스크린샷이나 텍스트로 “Purchase 보임 / event_id 보임”만 알려준다. token이나 test code는 보내지 않는다.
+1. 현재 Test events 화면에서 확인은 완료로 보고 `Finish`를 누른다.
+2. 이후 Overview 또는 Diagnostics 화면에서 새 경고가 생겼는지만 가볍게 확인한다.
+3. 경고가 없으면 이번 Test Events smoke는 종료한다.
 
 성공 기준:
-- Test Events 화면에 `Purchase` 1건이 보인다.
-- 가능한 경우 `event_id=Purchase_o202605033af504ba376d9`가 보인다.
-- production event로 보인다는 문구나 경고가 없다.
+- setup guide가 닫히고 Data source 상태가 계속 `Ready for campaign` 또는 정상 상태다.
+- Diagnostics에 즉시 심각한 오류가 새로 뜨지 않는다.
 
 실패 시 확인점:
-- 이벤트가 안 보이면 Test Events UI 반영 지연, test code 적용 방식, payload field warning, token 권한 범위를 다시 본다.
-- `Purchase`가 아닌 다른 이름으로 보이면 event name mapping을 다시 검토한다.
-- production 데이터처럼 보이면 즉시 중단하고 Test Events only 설계를 재검토한다.
+- Finish 후 새로운 Events API 관련 오류가 뜨면 캡처해서 공유한다.
+- “Production send 활성화” 또는 “automatic event sending” 같은 선택지가 나오면 누르지 말고 멈춘다.
 
 ### 2. Codex가 할 일
 
-추천 점수: 84%
+추천 점수: 86%
 
 무엇을 하는가:
-- 이번 실행 결과를 기준으로 문서, audit, commit/push를 닫고, TJ님 UI 확인 결과가 오면 최종 verdict를 업데이트한다.
+- 이번 UI 확인 결과를 문서에 반영하고 `PASS` verdict로 닫는다.
 
 왜 하는가:
-- API는 성공했지만, 화면 확인 전에는 “TikTok Events Manager에서 사람이 볼 수 있는 수신 성공”까지 완료됐다고 말하면 안 된다.
-- production Events API send는 아직 Red Lane이므로 다음 승인 게이트를 명확히 분리해야 한다.
+- API 응답과 TikTok UI가 모두 일치했으므로 Test Events only smoke는 닫을 수 있다.
+- production Events API send는 별도 설계/승인 없이 넘어가면 ROAS 오염 위험이 있다.
 
 어떻게 하는가:
-1. 본 문서에 API 응답, VM read-only 사후 감사, 금지 범위 유지 여부를 기록한다.
-2. `python3 scripts/validate_wiki_links.py`와 `git diff --check`를 실행한다.
-3. 가능한 범위에서 harness preflight를 실행한다. 기존 unrelated dirty warning은 분리해서 보고한다.
-4. 변경 파일이 결과 문서와 승인 문서 범위로 제한됐는지 확인한다.
-5. audit 후 commit/push한다.
+1. 본 문서와 승인 문서에 UI 확인 결과를 추가한다.
+2. `python3 scripts/validate_wiki_links.py`, `git diff --check`, `python3 scripts/harness-preflight-check.py --strict`를 실행한다.
+3. 변경 파일 2개만 commit/push한다.
+4. 다음 Red Lane 승인 전제 조건을 별도 정리한다.
 
 성공 기준:
 - 문서에 secret 평문 없음.
 - TikTok Test Events 호출은 총 1건.
+- TikTok Events Manager UI에서 `Purchase`와 `event_id` 확인 완료.
 - VM SQLite shadow row는 `send_candidate=false`, `platform_send_status=not_sent`.
 - 운영DB PostgreSQL write 0건.
 - GTM/Purchase Guard/GA4/Meta/Google 변경 0건.
@@ -290,10 +312,9 @@ TikTok 공식 문서 기준:
 
 ## Auditor verdict
 
-Auditor verdict: PASS_WITH_NOTES
+Auditor verdict: PASS
 
-TikTok API 기준 Test Events endpoint 1건 전송은 성공했다.
+TikTok API 기준 Test Events endpoint 1건 전송과 TikTok Events Manager UI 확인이 모두 성공했다.
 
 남은 note:
-- TJ님이 TikTok Events Manager UI에서 `Purchase`와 `event_id=Purchase_o202605033af504ba376d9` 표시를 확인해야 한다.
 - Production Events API send는 여전히 Red Lane이며, 이번 결과만으로 켜지 않는다.

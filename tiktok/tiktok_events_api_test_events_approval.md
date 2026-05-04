@@ -322,8 +322,18 @@ Codex는 A등급 후보 `202605036519253` / `o202605033af504ba376d9`를 VM SQLit
 - VM shadow row `pii_in_payload=0` 유지
 
 현재 verdict:
-- `PASS_WITH_NOTES`
+- `PASS`
+
+TJ님 UI 확인:
+- Pixel ID: `D5G8FTBC77UAODHQ0KOG`
+- Test Events 문구: `Test events will not be included in actual data`
+- event: `Purchase`
+- received time: `2026-05-04 11:42:05 (UTC+09:00) Asia/Seoul`
+- connection method: `Server`
+- URL: `https://biocom.kr/shop_payment_complete?order_code=o202605033af504ba376d9&order_no=202605036519253`
+- setup method: `Custom code`
+- event_id: `Purchase_o202605033af504ba376d9`
+- currency/value: `KRW` / `484500`
 
 남은 note:
-- TJ님이 TikTok Events Manager Test events 화면에서 `Purchase`와 `event_id=Purchase_o202605033af504ba376d9` 표시를 확인해야 한다.
 - Production Events API send는 계속 Red Lane이다. 이번 Test Events 성공만으로 운영 전송을 켜지 않는다.
