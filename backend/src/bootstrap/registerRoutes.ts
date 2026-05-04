@@ -19,6 +19,7 @@ import { createIdentityCoverageRouter } from "../routes/identityCoverage";
 import { createPageSpeedRouter } from "../routes/pagespeed";
 import { createRefundRouter } from "../routes/refund";
 import { createTossRouter } from "../routes/toss";
+import { createTotalRouter } from "../routes/total";
 import { createAdsRouter } from "../routes/ads";
 import { createMetaCapiRouter, createMetaRouter } from "../routes/meta";
 import { createSourceFreshnessRouter } from "../routes/sourceFreshness";
@@ -33,6 +34,7 @@ export const registerRoutes = (app: Application) => {
   app.use(createPageSpeedRouter());
   app.use(createChannelTalkRouter());
   app.use(createTossRouter());
+  app.use(createTotalRouter());
   app.use(createAdsRouter());
   app.use(createGoogleAdsRouter());
   app.use(createMetaRouter());

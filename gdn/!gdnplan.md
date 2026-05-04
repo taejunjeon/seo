@@ -1,17 +1,18 @@
 # Google Ads ROAS 정합성 체크 및 개선 계획
 
 작성 시각: 2026-04-23 12:12 KST
-최근 업데이트: 2026-05-03 22:25 KST
+최근 업데이트: 2026-05-05 02:05 KST
 기준일: 2026-04-23
-버전: v1.6-gdn-harness-v0
+버전: v1.7-google-ads-npay-contamination
 문서 성격: 로드맵
 
 ## 10초 요약
 
 이 문서는 Google Ads, 특히 GDN(구글 디스플레이 네트워크) 성과를 광고 관리자 숫자 그대로 믿어도 되는지 확인하고, 내부 확정매출 기준 ROAS로 맞추는 계획이다.
 현재 결론은 `광고 전체를 즉시 끄기`보다는 `증액 중지 + 측정 신호 교체 + 제한적 감액 검토`가 맞다는 점이다.
-Google Ads API live ROAS는 `5.07x`로 보이지만, 운영 attribution 원장 confirmed 기준 Google 유입 ROAS는 `0.30x`다.
-차이의 1순위 원인은 Primary 전환 액션 `구매완료`다. 이름은 구매완료지만 실제 label은 아임웹 자동 NPay count 경로 `AW-304339096/r0vuCKvy-8caEJixj5EB`와 일치하고, 이 액션 하나가 Google `Conv. value` `129,954,631원`을 만든다.
+2026-05-05 재조회 기준 Google Ads 최근 7일 ROAS는 `15.33x`로 보이지만, 같은 응답의 운영 attribution 원장 confirmed 기준 내부 ROAS는 `0.25x`다.
+차이의 1순위 원인은 Primary 전환 액션 `구매완료`다. 이름은 구매완료지만 실제 label은 아임웹 자동 NPay count 경로 `AW-304339096/r0vuCKvy-8caEJixj5EB`와 일치하고, 최근 7일 Google `Conv. value` `66,464,810.58원`을 만든다.
+상세 리포트는 [[google-ads-npay-purchase-contamination-report-20260505]]에 기록했다.
 다음 행동은 이 `구매완료` 액션을 purchase primary로 계속 둘지 즉시 재검토하고, confirmed 주문 기반의 별도 purchase 전환 또는 offline conversion 경로로 바꾸는 것이다.
 
 2026-05-03에 `harness/gdn/` v0 기준판을 추가했다.
@@ -743,3 +744,4 @@ NPay 클릭 전환, 중복 purchase, 가상계좌 미입금 같은 오염이 줄
 | 2026-04-25 23:34 KST | 운영 판단 메모 추가. 광고 전체 OFF는 보류하되, 증액 중지와 Google ROAS 신뢰 중지를 1차 운영 룰로 정리. `purchase primary에서 내린다`와 `confirmed purchase 전환 신설`의 의미를 비개발자용 설명으로 추가 | TJ 질문, 현재 Google Ads API/운영 원장 대조 결과 |
 | 2026-04-25 23:43 KST | `naver/npayfeedback.md`, `naver/npayfeedbackreply.md` 검토 결과 반영. NPay return 설정 확인을 1순위, NPay intent capture를 1.5순위, 서버-사이드 GA4/Meta 복구와 Google Ads confirmed conversion 설계를 후속으로 정리 | NPay 문서 2건, GA4/NPay return 누락 기록, Google Ads 전환 액션 segment 결과 |
 | 2026-04-25 23:50 KST | 아임웹/네이버페이 공개 문서 조사 결과 반영. 네이버페이 직접 연동의 `returnUrl`은 공식 확인됐지만, 아임웹 내장 네이버페이에서 상점 관리자가 return URL을 지정하는 공개 문서는 찾지 못해 NPay intent capture 설계 착수를 병행하기로 결정 | 네이버페이 개발자센터 FAQ, 네이버페이 결제형 독립몰 연동 개발 가이드, 아임웹 주문 조회 API 문서 |
+| 2026-05-05 02:05 KST | Google Ads API 최근 7일/30일 재조회 결과와 [[google-ads-npay-purchase-contamination-report-20260505]] 링크 반영. `구매완료` primary NPay label이 platform conversion value 거의 전부를 만드는 상태를 최신 숫자로 갱신 | `/api/google-ads/dashboard?date_preset=last_7d`, `/api/google-ads/dashboard?date_preset=last_30d` |

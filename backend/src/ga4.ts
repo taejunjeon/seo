@@ -2538,6 +2538,395 @@ export type GA4TikTokTransactionResult = {
   };
 };
 
+export type GA4PaidChannel = "tiktok" | "meta";
+
+export type GA4PaidChannelQualitySummary = {
+  sessions: number;
+  totalUsers: number;
+  newUsers: number;
+  engagedSessions: number;
+  bounceRate: number;
+  engagementRate: number;
+  averageSessionDuration: number;
+  screenPageViews: number;
+  pagesPerSession: number;
+  ecommercePurchases: number;
+  grossPurchaseRevenue: number;
+  purchaseConversionRate: number;
+  revenuePerSession: number;
+  scrollEventCount: number;
+  scrollUsers: number;
+  scrollRatePerSession: number;
+  beginCheckoutEventCount: number;
+  beginCheckoutUsers: number;
+  beginCheckoutRatePerSession: number;
+  addPaymentInfoEventCount: number;
+  addPaymentInfoUsers: number;
+  addPaymentInfoRatePerSession: number;
+  purchaseEventCount: number;
+  purchaseUsers: number;
+  purchaserAverageSessionDuration: number | null;
+};
+
+export type GA4PaidChannelQualityBreakdownRow = {
+  label: string;
+  sessions: number;
+  averageSessionDuration: number;
+  screenPageViews: number;
+  pagesPerSession: number;
+  ecommercePurchases: number;
+  grossPurchaseRevenue: number;
+};
+
+export type GA4PaidChannelQuality = {
+  channel: GA4PaidChannel;
+  label: string;
+  sourceDefinition: string;
+  summary: GA4PaidChannelQualitySummary;
+  byCampaign: GA4PaidChannelQualityBreakdownRow[];
+  byPage: GA4PaidChannelQualityBreakdownRow[];
+  notes: string[];
+};
+
+export type GA4PaidTrafficQualityResult = {
+  range: { startDate: string; endDate: string };
+  source: "GA4 Data API";
+  site: "biocom";
+  channels: Record<GA4PaidChannel, GA4PaidChannelQuality>;
+  notes: string[];
+};
+
+const paidChannelDefinition = (channel: GA4PaidChannel) => {
+  if (channel === "tiktok") {
+    return {
+      label: "TikTok 광고 유입",
+      sourceDefinition: "sessionSource/sessionMedium/sessionCampaignName 중 tiktok 포함",
+      expressions: [
+        {
+          filter: {
+            fieldName: "sessionSource",
+            stringFilter: { matchType: "CONTAINS" as const, value: "tiktok", caseSensitive: false },
+          },
+        },
+        {
+          filter: {
+            fieldName: "sessionMedium",
+            stringFilter: { matchType: "CONTAINS" as const, value: "tiktok", caseSensitive: false },
+          },
+        },
+        {
+          filter: {
+            fieldName: "sessionCampaignName",
+            stringFilter: { matchType: "CONTAINS" as const, value: "tiktok", caseSensitive: false },
+          },
+        },
+      ],
+    };
+  }
+
+  return {
+    label: "Meta 광고 유입",
+    sourceDefinition: "sessionSource/sessionCampaignName 중 facebook/instagram/meta/fb/ig 포함",
+    expressions: [
+      {
+        filter: {
+          fieldName: "sessionSource",
+          stringFilter: { matchType: "CONTAINS" as const, value: "facebook", caseSensitive: false },
+        },
+      },
+      {
+        filter: {
+          fieldName: "sessionSource",
+          stringFilter: { matchType: "CONTAINS" as const, value: "instagram", caseSensitive: false },
+        },
+      },
+      {
+        filter: {
+          fieldName: "sessionSource",
+          stringFilter: { matchType: "CONTAINS" as const, value: "meta", caseSensitive: false },
+        },
+      },
+      {
+        filter: {
+          fieldName: "sessionSource",
+          stringFilter: { matchType: "EXACT" as const, value: "fb", caseSensitive: false },
+        },
+      },
+      {
+        filter: {
+          fieldName: "sessionSource",
+          stringFilter: { matchType: "EXACT" as const, value: "ig", caseSensitive: false },
+        },
+      },
+      {
+        filter: {
+          fieldName: "sessionCampaignName",
+          stringFilter: { matchType: "CONTAINS" as const, value: "facebook", caseSensitive: false },
+        },
+      },
+      {
+        filter: {
+          fieldName: "sessionCampaignName",
+          stringFilter: { matchType: "CONTAINS" as const, value: "instagram", caseSensitive: false },
+        },
+      },
+      {
+        filter: {
+          fieldName: "sessionCampaignName",
+          stringFilter: { matchType: "CONTAINS" as const, value: "meta", caseSensitive: false },
+        },
+      },
+    ],
+  };
+};
+
+const paidChannelFilter = (channel: GA4PaidChannel) => ({
+  orGroup: {
+    expressions: paidChannelDefinition(channel).expressions,
+  },
+});
+
+const andFilter = (...expressions: any[]) => ({
+  andGroup: {
+    expressions,
+  },
+});
+
+const eventNameFilter = (...eventNames: string[]) => ({
+  orGroup: {
+    expressions: eventNames.map((eventName) => ({
+      filter: {
+        fieldName: "eventName",
+        stringFilter: { matchType: "EXACT" as const, value: eventName },
+      },
+    })),
+  },
+});
+
+const emptyPaidChannelSummary = (): GA4PaidChannelQualitySummary => ({
+  sessions: 0,
+  totalUsers: 0,
+  newUsers: 0,
+  engagedSessions: 0,
+  bounceRate: 0,
+  engagementRate: 0,
+  averageSessionDuration: 0,
+  screenPageViews: 0,
+  pagesPerSession: 0,
+  ecommercePurchases: 0,
+  grossPurchaseRevenue: 0,
+  purchaseConversionRate: 0,
+  revenuePerSession: 0,
+  scrollEventCount: 0,
+  scrollUsers: 0,
+  scrollRatePerSession: 0,
+  beginCheckoutEventCount: 0,
+  beginCheckoutUsers: 0,
+  beginCheckoutRatePerSession: 0,
+  addPaymentInfoEventCount: 0,
+  addPaymentInfoUsers: 0,
+  addPaymentInfoRatePerSession: 0,
+  purchaseEventCount: 0,
+  purchaseUsers: 0,
+  purchaserAverageSessionDuration: null,
+});
+
+const queryEventMetricsForPaidChannel = async (
+  client: BetaAnalyticsDataClient,
+  propertyId: string,
+  startDate: string,
+  endDate: string,
+  channel: GA4PaidChannel,
+  eventName: string,
+) => {
+  const [report] = await client.runReport({
+    property: `properties/${propertyId}`,
+    dateRanges: [{ startDate, endDate }],
+    metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
+    dimensionFilter: andFilter(paidChannelFilter(channel), eventNameFilter(eventName)),
+  });
+  const metrics = report.rows?.[0]?.metricValues ?? [];
+  return {
+    eventCount: toNumber(metrics[0]?.value),
+    users: toNumber(metrics[1]?.value),
+  };
+};
+
+const queryBreakdownForPaidChannel = async (
+  client: BetaAnalyticsDataClient,
+  propertyId: string,
+  startDate: string,
+  endDate: string,
+  channel: GA4PaidChannel,
+  dimensionName: "sessionCampaignName" | "pagePath",
+): Promise<GA4PaidChannelQualityBreakdownRow[]> => {
+  const [report] = await client.runReport({
+    property: `properties/${propertyId}`,
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: dimensionName }],
+    metrics: [
+      { name: "sessions" },
+      { name: "averageSessionDuration" },
+      { name: "screenPageViews" },
+      { name: "ecommercePurchases" },
+      { name: "grossPurchaseRevenue" },
+    ],
+    dimensionFilter: paidChannelFilter(channel),
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+    limit: 8,
+  });
+
+  return (report.rows ?? []).map((row) => {
+    const label = row.dimensionValues?.[0]?.value || "(not set)";
+    const metrics = row.metricValues ?? [];
+    const sessions = toNumber(metrics[0]?.value);
+    const screenPageViews = toNumber(metrics[2]?.value);
+    return {
+      label,
+      sessions,
+      averageSessionDuration: toNumber(metrics[1]?.value),
+      screenPageViews,
+      pagesPerSession: sessions > 0 ? +(screenPageViews / sessions).toFixed(2) : 0,
+      ecommercePurchases: toNumber(metrics[3]?.value),
+      grossPurchaseRevenue: toNumber(metrics[4]?.value),
+    };
+  });
+};
+
+const queryPurchaserAverageDuration = async (
+  client: BetaAnalyticsDataClient,
+  propertyId: string,
+  startDate: string,
+  endDate: string,
+  channel: GA4PaidChannel,
+) => {
+  try {
+    const [report] = await client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [{ startDate, endDate }],
+      metrics: [{ name: "averageSessionDuration" }],
+      dimensionFilter: andFilter(paidChannelFilter(channel), eventNameFilter("purchase")),
+    });
+    const value = toNumber(report.rows?.[0]?.metricValues?.[0]?.value);
+    return value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+export const queryGA4PaidTrafficQuality = async (params: {
+  startDate: string;
+  endDate: string;
+}): Promise<GA4PaidTrafficQualityResult> => {
+  if (!env.GA4_PROPERTY_ID) throw new Error("GA4_PROPERTY_ID is not configured");
+
+  const client = createGA4Client();
+  const { startDate, endDate } = params;
+  const propertyId = env.GA4_PROPERTY_ID;
+
+  const queryChannel = async (channel: GA4PaidChannel): Promise<GA4PaidChannelQuality> => {
+    const definition = paidChannelDefinition(channel);
+    const notes: string[] = [
+      `${definition.label}: ${definition.sourceDefinition}`,
+      "GA4 scroll 이벤트는 Enhanced Measurement 기준 약 90% 깊이 도달 이벤트다. 25/50/75/90 연속 깊이 측정은 아니다.",
+      "purchaserAverageSessionDuration은 purchase 이벤트 필터가 적용된 GA4 근사값이다. 주문자별 체류시간 원장은 아니다.",
+    ];
+
+    const [summaryReport] = await client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [{ startDate, endDate }],
+      metrics: [
+        { name: "sessions" },
+        { name: "totalUsers" },
+        { name: "newUsers" },
+        { name: "engagedSessions" },
+        { name: "bounceRate" },
+        { name: "engagementRate" },
+        { name: "averageSessionDuration" },
+        { name: "screenPageViews" },
+        { name: "ecommercePurchases" },
+        { name: "grossPurchaseRevenue" },
+      ],
+      dimensionFilter: paidChannelFilter(channel),
+    });
+
+    const values = summaryReport.rows?.[0]?.metricValues ?? [];
+    const sessions = toNumber(values[0]?.value);
+    const screenPageViews = toNumber(values[7]?.value);
+    const grossPurchaseRevenue = toNumber(values[9]?.value);
+    const [
+      scroll,
+      beginCheckout,
+      addPaymentInfo,
+      purchase,
+      byCampaign,
+      byPage,
+      purchaserAverageSessionDuration,
+    ] = await Promise.all([
+      queryEventMetricsForPaidChannel(client, propertyId, startDate, endDate, channel, "scroll"),
+      queryEventMetricsForPaidChannel(client, propertyId, startDate, endDate, channel, "begin_checkout"),
+      queryEventMetricsForPaidChannel(client, propertyId, startDate, endDate, channel, "add_payment_info"),
+      queryEventMetricsForPaidChannel(client, propertyId, startDate, endDate, channel, "purchase"),
+      queryBreakdownForPaidChannel(client, propertyId, startDate, endDate, channel, "sessionCampaignName"),
+      queryBreakdownForPaidChannel(client, propertyId, startDate, endDate, channel, "pagePath"),
+      queryPurchaserAverageDuration(client, propertyId, startDate, endDate, channel),
+    ]);
+
+    const ecommercePurchases = toNumber(values[8]?.value);
+    const summary: GA4PaidChannelQualitySummary = {
+      ...emptyPaidChannelSummary(),
+      sessions,
+      totalUsers: toNumber(values[1]?.value),
+      newUsers: toNumber(values[2]?.value),
+      engagedSessions: toNumber(values[3]?.value),
+      bounceRate: toNumber(values[4]?.value),
+      engagementRate: toNumber(values[5]?.value),
+      averageSessionDuration: toNumber(values[6]?.value),
+      screenPageViews,
+      pagesPerSession: sessions > 0 ? +(screenPageViews / sessions).toFixed(2) : 0,
+      ecommercePurchases,
+      grossPurchaseRevenue,
+      purchaseConversionRate: sessions > 0 ? +((ecommercePurchases / sessions) * 100).toFixed(2) : 0,
+      revenuePerSession: sessions > 0 ? Math.round(grossPurchaseRevenue / sessions) : 0,
+      scrollEventCount: scroll.eventCount,
+      scrollUsers: scroll.users,
+      scrollRatePerSession: sessions > 0 ? +((scroll.eventCount / sessions) * 100).toFixed(2) : 0,
+      beginCheckoutEventCount: beginCheckout.eventCount,
+      beginCheckoutUsers: beginCheckout.users,
+      beginCheckoutRatePerSession: sessions > 0 ? +((beginCheckout.eventCount / sessions) * 100).toFixed(2) : 0,
+      addPaymentInfoEventCount: addPaymentInfo.eventCount,
+      addPaymentInfoUsers: addPaymentInfo.users,
+      addPaymentInfoRatePerSession: sessions > 0 ? +((addPaymentInfo.eventCount / sessions) * 100).toFixed(2) : 0,
+      purchaseEventCount: purchase.eventCount,
+      purchaseUsers: purchase.users,
+      purchaserAverageSessionDuration,
+    };
+
+    return {
+      channel,
+      label: definition.label,
+      sourceDefinition: definition.sourceDefinition,
+      summary,
+      byCampaign,
+      byPage,
+      notes,
+    };
+  };
+
+  const [tiktok, meta] = await Promise.all([queryChannel("tiktok"), queryChannel("meta")]);
+
+  return {
+    range: { startDate, endDate },
+    source: "GA4 Data API",
+    site: "biocom",
+    channels: { tiktok, meta },
+    notes: [
+      "GA4는 행동 품질과 이벤트 발생을 보는 cross-check다.",
+      "광고비/ROAS 최종 판단은 TJ 관리 Attribution VM confirmed 원장과 함께 봐야 한다.",
+    ],
+  };
+};
+
 export const queryGA4TikTokTransactions = async (params: {
   startDate: string;
   endDate: string;

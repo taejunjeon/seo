@@ -373,6 +373,134 @@ type GoogleBenchmark = {
   internalConfirmedRoas: number | null;
 };
 
+type PaidTrafficQualitySummary = {
+  sessions: number;
+  totalUsers: number;
+  newUsers: number;
+  engagedSessions: number;
+  bounceRate: number;
+  engagementRate: number;
+  averageSessionDuration: number;
+  screenPageViews: number;
+  pagesPerSession: number;
+  ecommercePurchases: number;
+  grossPurchaseRevenue: number;
+  purchaseConversionRate: number;
+  revenuePerSession: number;
+  scrollEventCount: number;
+  scrollUsers: number;
+  scrollRatePerSession: number;
+  beginCheckoutEventCount: number;
+  beginCheckoutUsers: number;
+  beginCheckoutRatePerSession: number;
+  addPaymentInfoEventCount: number;
+  addPaymentInfoUsers: number;
+  addPaymentInfoRatePerSession: number;
+  purchaseEventCount: number;
+  purchaseUsers: number;
+  purchaserAverageSessionDuration: number | null;
+};
+
+type PaidTrafficQualityChannel = {
+  channel: "tiktok" | "meta";
+  label: string;
+  sourceDefinition: string;
+  summary: PaidTrafficQualitySummary;
+  byCampaign: Array<{
+    label: string;
+    sessions: number;
+    averageSessionDuration: number;
+    screenPageViews: number;
+    pagesPerSession: number;
+    ecommercePurchases: number;
+    grossPurchaseRevenue: number;
+  }>;
+  byPage: Array<{
+    label: string;
+    sessions: number;
+    averageSessionDuration: number;
+    screenPageViews: number;
+    pagesPerSession: number;
+    ecommercePurchases: number;
+    grossPurchaseRevenue: number;
+  }>;
+  notes: string[];
+};
+
+type PaidTrafficVmFunnel = {
+  source: string;
+  storage: string;
+  channel: "tiktok" | "meta";
+  evidenceDefinition: string;
+  marketingIntentRows: number;
+  marketingIntentClients: number;
+  checkoutStartedRows: number;
+  checkoutStartedOrders: number;
+  paymentSuccessRows: number;
+  manualTestOrders: number;
+  confirmedOrders: number;
+  confirmedRevenue: number;
+  pendingOrders: number;
+  pendingRevenue: number;
+  canceledOrders: number;
+  canceledRevenue: number;
+  sampleCheckoutOrders: Array<{
+    loggedAt: string;
+    orderKey: string;
+    amount: number;
+    reasons: string[];
+  }>;
+  sampleConfirmedOrders: Array<{
+    loggedAt: string;
+    orderKey: string;
+    amount: number;
+    reasons: string[];
+  }>;
+};
+
+type PaidTrafficQualityResponse = {
+  ok: boolean;
+  error?: string;
+  range: {
+    start_date: string;
+    end_date: string;
+    timezone: string;
+    inclusivity: string;
+  };
+  queried_at: string;
+  source: {
+    ga4: string;
+    vm: string;
+  };
+  freshness: {
+    checked_at: string;
+    vm_latest_logged_at: string | null;
+    vm_latest_approved_date: string | null;
+    vm_entries: number;
+    vm_orders: number;
+  };
+  confidence: {
+    label: string;
+    reason: string;
+    ga4: string;
+  };
+  ga4: {
+    range: { startDate: string; endDate: string };
+    source: string;
+    site: string;
+    channels: {
+      tiktok: PaidTrafficQualityChannel;
+      meta: PaidTrafficQualityChannel;
+    };
+    notes: string[];
+  };
+  attribution_vm: {
+    tiktok: PaidTrafficVmFunnel;
+    meta: PaidTrafficVmFunnel;
+  };
+  notes: string[];
+};
+
 type ChannelBenchmarkState = {
   loading: boolean;
   checkedAt: string | null;
@@ -457,6 +585,14 @@ const fmtRoas = (value: number | null | undefined) =>
 
 const fmtPct = (value: number | null | undefined) =>
   value == null ? "-" : `${value.toFixed(1)}%`;
+
+const fmtSeconds = (value: number | null | undefined) => {
+  if (value == null) return "-";
+  const seconds = Math.max(0, Math.round(value));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes > 0 ? `${minutes}분 ${remainder}초` : `${remainder}초`;
+};
 
 const fmtCompactKRW = (value: number | null | undefined) => {
   if (value == null) return "-";
@@ -631,6 +767,15 @@ export default function TikTokAdsPerformancePage() {
   const [mounted, setMounted] = useState(false);
   const chartFrameRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
+  const [trafficQuality, setTrafficQuality] = useState<{
+    loading: boolean;
+    data: PaidTrafficQualityResponse | null;
+    error: string | null;
+  }>({
+    loading: true,
+    data: null,
+    error: null,
+  });
   const [benchmarks, setBenchmarks] = useState<ChannelBenchmarkState>({
     loading: true,
     checkedAt: null,
@@ -764,6 +909,37 @@ export default function TikTokAdsPerformancePage() {
     };
 
     void load();
+
+    return () => abortController.abort();
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const loadTrafficQuality = async () => {
+      setTrafficQuality({ loading: true, data: null, error: null });
+      try {
+        const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+        const response = await fetch(`${API_BASE_URL}/api/ads/tiktok/traffic-quality?${params.toString()}`, {
+          signal: abortController.signal,
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as PaidTrafficQualityResponse;
+        if (!response.ok || payload.ok !== true) {
+          throw new Error(payload.error ?? `HTTP ${response.status}`);
+        }
+        setTrafficQuality({ loading: false, data: payload, error: null });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setTrafficQuality({
+          loading: false,
+          data: null,
+          error: err instanceof Error ? err.message : "TikTok/Meta 유입 품질 API 응답을 불러오지 못했습니다.",
+        });
+      }
+    };
+
+    void loadTrafficQuality();
 
     return () => abortController.abort();
   }, [startDate, endDate]);
@@ -959,6 +1135,34 @@ export default function TikTokAdsPerformancePage() {
     : benchmarks.error
       ? `일부 조회 실패: ${benchmarks.error}`
       : `Meta VM / Google local ${fmtKst(benchmarks.checkedAt)} 확인`;
+  const trafficData = trafficQuality.data;
+  const tiktokQuality = trafficData?.ga4.channels.tiktok.summary;
+  const metaQuality = trafficData?.ga4.channels.meta.summary;
+  const tiktokVmFunnel = trafficData?.attribution_vm.tiktok;
+  const metaVmFunnel = trafficData?.attribution_vm.meta;
+  const tiktokRealPurchaseSignals = (tiktokQuality?.ecommercePurchases ?? 0) + (tiktokVmFunnel?.confirmedOrders ?? 0);
+  const signalMissTone: Tone = trafficQuality.loading
+    ? "neutral"
+    : trafficQuality.error
+      ? "amber"
+      : tiktokRealPurchaseSignals > 0
+        ? "amber"
+        : "green";
+  const signalMissLabel = trafficQuality.loading
+    ? "검산 중"
+    : trafficQuality.error
+      ? "교차검산 실패"
+      : tiktokRealPurchaseSignals > 0
+        ? "일부 누락 가능성 재검토"
+        : "구매 신호 누락 가능성 낮음";
+  const tiktokStopConfidence = trafficQuality.error
+    ? 70
+    : !trafficQuality.loading && (tiktokVmFunnel?.confirmedOrders ?? 0) === 0 && (tiktokQuality?.ecommercePurchases ?? 0) === 0
+      ? 88
+      : 74;
+  const spendRecommendation = !trafficQuality.loading && !trafficQuality.error && (tiktokVmFunnel?.confirmedOrders ?? 0) === 0
+    ? "TikTok 일시 중단 또는 최소예산"
+    : "TikTok 제한 유지";
 
   return (
     <>
@@ -1268,6 +1472,159 @@ export default function TikTokAdsPerformancePage() {
                 </tbody>
               </table>
             </div>
+          </section>
+
+          <section
+            style={{
+              border: `1px solid ${toneMap[signalMissTone].border}`,
+              borderRadius: 8,
+              background: toneMap[signalMissTone].background,
+              padding: 20,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ maxWidth: 900 }}>
+                <h2 style={{ margin: 0, fontSize: "1.08rem", fontWeight: 900 }}>TikTok vs Meta 유입 품질</h2>
+                <p style={{ margin: "8px 0 0", color: toneMap[signalMissTone].text, fontSize: "0.84rem", lineHeight: 1.75 }}>
+                  GA4는 광고 유입 세션의 체류, 90% 스크롤, 체크아웃 이벤트를 보고, TJ 관리 Attribution VM은 실제 결제 원장까지 간
+                  주문을 봅니다. 두 곳 모두에서 TikTok 구매가 비어 있으면 “우리가 구매 신호를 놓쳤다”보다 “실제 결제 전환이 거의 없다”는
+                  해석이 더 강합니다.
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <StatusBadge tone={signalMissTone}>{signalMissLabel}</StatusBadge>
+                <StatusBadge tone="red">추천: {spendRecommendation}</StatusBadge>
+                <StatusBadge tone="neutral">중단 추천 {tiktokStopConfidence}%</StatusBadge>
+              </div>
+            </div>
+
+            {trafficQuality.error ? (
+              <p style={{ margin: "14px 0 0", color: "#92400e", fontSize: "0.82rem", lineHeight: 1.7 }}>
+                유입 품질 API 조회 실패: {trafficQuality.error}. 기존 TikTok strict confirmed 0원 판단은 유지하지만,
+                GA4 행동 비교는 API 복구 후 다시 봐야 합니다.
+              </p>
+            ) : null}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: 10,
+                marginTop: 15,
+              }}
+            >
+              <MetricCard
+                label="TikTok 평균 체류"
+                value={trafficQuality.loading ? "조회 중" : fmtSeconds(tiktokQuality?.averageSessionDuration)}
+                detail={`세션 ${fmtNum(tiktokQuality?.sessions)}회 · 페이지/세션 ${fmtNum(tiktokQuality?.pagesPerSession)} · 구매 ${fmtNum(tiktokQuality?.ecommercePurchases)}건`}
+                tone="red"
+              />
+              <MetricCard
+                label="Meta 평균 체류"
+                value={trafficQuality.loading ? "조회 중" : fmtSeconds(metaQuality?.averageSessionDuration)}
+                detail={`세션 ${fmtNum(metaQuality?.sessions)}회 · 페이지/세션 ${fmtNum(metaQuality?.pagesPerSession)} · 구매 ${fmtNum(metaQuality?.ecommercePurchases)}건`}
+                tone={(metaQuality?.ecommercePurchases ?? 0) > 0 ? "green" : "amber"}
+              />
+              <MetricCard
+                label="TikTok 90% 스크롤"
+                value={trafficQuality.loading ? "조회 중" : fmtPct(tiktokQuality?.scrollRatePerSession)}
+                detail={`${fmtNum(tiktokQuality?.scrollEventCount)}회 / ${fmtNum(tiktokQuality?.sessions)}세션. GA4 scroll 이벤트는 약 90% 깊이 도달 기준`}
+                tone={(tiktokQuality?.scrollRatePerSession ?? 0) >= 5 ? "amber" : "red"}
+              />
+              <MetricCard
+                label="Meta 90% 스크롤"
+                value={trafficQuality.loading ? "조회 중" : fmtPct(metaQuality?.scrollRatePerSession)}
+                detail={`${fmtNum(metaQuality?.scrollEventCount)}회 / ${fmtNum(metaQuality?.sessions)}세션`}
+                tone={(metaQuality?.scrollRatePerSession ?? 0) >= 5 ? "green" : "amber"}
+              />
+              <MetricCard
+                label="TikTok 체크아웃 진입"
+                value={trafficQuality.loading ? "조회 중" : `${fmtNum(tiktokQuality?.beginCheckoutEventCount)}회`}
+                detail={`GA4 begin_checkout ${fmtPct(tiktokQuality?.beginCheckoutRatePerSession)}, AddPaymentInfo ${fmtNum(tiktokQuality?.addPaymentInfoEventCount)}회. VM checkout 주문 ${fmtNum(tiktokVmFunnel?.checkoutStartedOrders)}건`}
+                tone={(tiktokVmFunnel?.checkoutStartedOrders ?? 0) > 0 ? "amber" : "red"}
+              />
+              <MetricCard
+                label="Meta 체크아웃 진입"
+                value={trafficQuality.loading ? "조회 중" : `${fmtNum(metaQuality?.beginCheckoutEventCount)}회`}
+                detail={`GA4 begin_checkout ${fmtPct(metaQuality?.beginCheckoutRatePerSession)}, AddPaymentInfo ${fmtNum(metaQuality?.addPaymentInfoEventCount)}회. VM checkout 주문 ${fmtNum(metaVmFunnel?.checkoutStartedOrders)}건`}
+                tone={(metaVmFunnel?.checkoutStartedOrders ?? 0) > 0 ? "green" : "amber"}
+              />
+              <MetricCard
+                label="TikTok 실제 결제 원장"
+                value={trafficQuality.loading ? "조회 중" : fmtKRW(tiktokVmFunnel?.confirmedRevenue)}
+                detail={`TJ 관리 Attribution VM confirmed ${fmtNum(tiktokVmFunnel?.confirmedOrders)}건, pending ${fmtNum(tiktokVmFunnel?.pendingOrders)}건, 테스트 제외 ${fmtNum(tiktokVmFunnel?.manualTestOrders)}건`}
+                tone={(tiktokVmFunnel?.confirmedOrders ?? 0) > 0 ? "amber" : "red"}
+              />
+              <MetricCard
+                label="Meta 실제 결제 원장"
+                value={trafficQuality.loading ? "조회 중" : fmtKRW(metaVmFunnel?.confirmedRevenue)}
+                detail={`TJ 관리 Attribution VM confirmed ${fmtNum(metaVmFunnel?.confirmedOrders)}건, pending ${fmtNum(metaVmFunnel?.pendingOrders)}건, 테스트 제외 ${fmtNum(metaVmFunnel?.manualTestOrders)}건`}
+                tone={(metaVmFunnel?.confirmedOrders ?? 0) > 0 ? "green" : "amber"}
+              />
+            </div>
+
+            <div style={{ marginTop: 16, overflowX: "auto" }}>
+              <table style={{ width: "100%", minWidth: 920, borderCollapse: "collapse", fontSize: "0.76rem" }}>
+                <thead>
+                  <tr style={{ background: "#ffffff", color: "#475569" }}>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>비교 항목</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>TikTok</th>
+                    <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>Meta</th>
+                    <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>해석</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    {
+                      label: "세션",
+                      tiktok: fmtNum(tiktokQuality?.sessions),
+                      meta: fmtNum(metaQuality?.sessions),
+                      note: "광고 유입 모수입니다. TikTok은 모수 자체는 충분해도 결제 전환이 약합니다.",
+                    },
+                    {
+                      label: "평균 체류",
+                      tiktok: fmtSeconds(tiktokQuality?.averageSessionDuration),
+                      meta: fmtSeconds(metaQuality?.averageSessionDuration),
+                      note: "체류만 길어도 구매가 없으면 소재 흥미는 있으나 구매 설득은 약한 상태로 봅니다.",
+                    },
+                    {
+                      label: "90% 스크롤",
+                      tiktok: `${fmtNum(tiktokQuality?.scrollEventCount)}회 (${fmtPct(tiktokQuality?.scrollRatePerSession)})`,
+                      meta: `${fmtNum(metaQuality?.scrollEventCount)}회 (${fmtPct(metaQuality?.scrollRatePerSession)})`,
+                      note: "현재는 GA4 기본 scroll 이벤트라 깊이 구간별 분석은 아닙니다.",
+                    },
+                    {
+                      label: "체크아웃 시작",
+                      tiktok: `${fmtNum(tiktokQuality?.beginCheckoutEventCount)}회 / VM ${fmtNum(tiktokVmFunnel?.checkoutStartedOrders)}건`,
+                      meta: `${fmtNum(metaQuality?.beginCheckoutEventCount)}회 / VM ${fmtNum(metaVmFunnel?.checkoutStartedOrders)}건`,
+                      note: "체크아웃은 구매 직전 단계입니다. 여기서 TikTok이 약하면 결제 누락보다 전환력 문제 가능성이 큽니다.",
+                    },
+                    {
+                      label: "구매/confirmed",
+                      tiktok: `GA4 ${fmtNum(tiktokQuality?.ecommercePurchases)}건 / VM ${fmtNum(tiktokVmFunnel?.confirmedOrders)}건`,
+                      meta: `GA4 ${fmtNum(metaQuality?.ecommercePurchases)}건 / VM ${fmtNum(metaVmFunnel?.confirmedOrders)}건`,
+                      note: "GA4와 VM이 동시에 TikTok 구매 0에 가까우면 누락 가능성은 낮게 봅니다.",
+                    },
+                  ].map((row) => (
+                    <tr key={row.label}>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", fontWeight: 900 }}>{row.label}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                        {trafficQuality.loading ? "조회 중" : row.tiktok}
+                      </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right" }}>
+                        {trafficQuality.loading ? "조회 중" : row.meta}
+                      </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", color: "#475569", lineHeight: 1.55 }}>{row.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p style={{ margin: "14px 0 0", color: toneMap[signalMissTone].text, fontSize: "0.82rem", lineHeight: 1.75 }}>
+              판단: TikTok은 구매 전환이 계속 비어 있고, Guard와 event log로 가상계좌 오염은 이미 줄였습니다. 따라서 현재 데이터 기준으로는
+              TikTok 예산을 끄거나 최소예산으로 낮추고, Meta/Google에서 먼저 위닝 메시지를 찾은 뒤 TikTok 숏폼으로 재확장하는 쪽을 권합니다.
+            </p>
           </section>
 
           <section

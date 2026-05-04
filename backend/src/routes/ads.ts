@@ -7,7 +7,11 @@ import type {
   AttributionLedgerEntry,
   AttributionPaymentStatus,
 } from "../attribution";
-import { readLedgerEntries } from "../attribution";
+import {
+  getAttributionMetaMatchReasons,
+  getAttributionTikTokMatchReasons,
+  readLedgerEntries,
+} from "../attribution";
 import {
   getCrmDb,
   getExperimentActivityWindow,
@@ -32,6 +36,7 @@ import { isDatabaseConfigured, queryPg } from "../postgres";
 import { categorizeProductName, normalizePhone } from "../consultation";
 import { normalizeOrderIdBase } from "../orderKeys";
 import { buildTikTokRoasComparison } from "../tiktokRoasComparison";
+import { queryGA4PaidTrafficQuality } from "../ga4";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -2667,6 +2672,236 @@ const loadExperimentIroasSnapshots = async () => {
   return Promise.all(experiments.map((experiment) => buildExperimentIroasSnapshot(experiment, loadMetaSpend)));
 };
 
+type PaidTrafficChannel = "tiktok" | "meta";
+
+type PaidTrafficVmFunnel = {
+  source: "TJ 관리 Attribution VM SQLite";
+  storage: "CRM_LOCAL_DB_PATH#attribution_ledger";
+  channel: PaidTrafficChannel;
+  evidenceDefinition: string;
+  marketingIntentRows: number;
+  marketingIntentClients: number;
+  checkoutStartedRows: number;
+  checkoutStartedOrders: number;
+  paymentSuccessRows: number;
+  manualTestOrders: number;
+  confirmedOrders: number;
+  confirmedRevenue: number;
+  pendingOrders: number;
+  pendingRevenue: number;
+  canceledOrders: number;
+  canceledRevenue: number;
+  sampleCheckoutOrders: Array<{
+    loggedAt: string;
+    orderKey: string;
+    amount: number;
+    reasons: string[];
+  }>;
+  sampleConfirmedOrders: Array<{
+    loggedAt: string;
+    orderKey: string;
+    amount: number;
+    reasons: string[];
+  }>;
+};
+
+const kstDateForIso = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return KST_DATE_FORMATTER.format(parsed);
+};
+
+const entryInKstRange = (entry: AttributionLedgerEntry, range: DateRange) => {
+  const date = kstDateForIso(entry.loggedAt);
+  return Boolean(date) && date >= range.startDate && date <= range.endDate;
+};
+
+const metadataRecord = (value: unknown) => toObject(value);
+
+const metadataStringArray = (metadata: Record<string, unknown>, key: string) => {
+  const value = metadata[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+};
+
+const getStoredFirstTouchReasons = (entry: AttributionLedgerEntry, channel: PaidTrafficChannel) => {
+  const firstTouch = metadataRecord(entry.metadata.firstTouch);
+  const firstTouchMatch = metadataRecord(entry.metadata.firstTouchMatch);
+  const key = channel === "tiktok" ? "tiktokMatchReasons" : "metaMatchReasons";
+  return [
+    ...metadataStringArray(firstTouch, key).map((reason) => `firstTouch.${reason}`),
+    ...metadataStringArray(firstTouchMatch, key).map((reason) => `firstTouchMatch.${reason}`),
+    ...metadataStringArray(entry.metadata, channel === "tiktok" ? "tiktokFirstTouchMatchReasons" : "metaFirstTouchMatchReasons")
+      .map((reason) => `metadata.${reason}`),
+  ];
+};
+
+const getPaidChannelReasons = (entry: AttributionLedgerEntry, channel: PaidTrafficChannel) => {
+  const direct = channel === "tiktok"
+    ? getAttributionTikTokMatchReasons(entry)
+    : getAttributionMetaMatchReasons(entry);
+  return [...new Set([...direct, ...getStoredFirstTouchReasons(entry, channel)])].sort();
+};
+
+const amountFromLedgerEntry = (entry: AttributionLedgerEntry) => {
+  const referrerPayment = toObject(entry.metadata.referrerPayment);
+  return [
+    entry.metadata.totalAmount,
+    entry.metadata.total_amount,
+    entry.metadata.value,
+    entry.metadata.amount,
+    entry.metadata.paymentAmount,
+    entry.metadata.payment_amount,
+    referrerPayment.totalAmount,
+    referrerPayment.value,
+    referrerPayment.amount,
+  ].map(toNumber).find((value) => value > 0) ?? 0;
+};
+
+const orderKeyFromLedgerEntry = (entry: AttributionLedgerEntry) => {
+  const referrerPayment = toObject(entry.metadata.referrerPayment);
+  return firstNonEmpty([
+    normalizeOrderIdBase(entry.orderId),
+    normalizeOrderIdBase(firstMetadataString(entry.metadata, ["orderIdBase", "orderNo", "order_no", "order_code"])),
+    normalizeOrderIdBase(safeRemoteString(referrerPayment.orderNo)),
+    normalizeOrderIdBase(safeRemoteString(referrerPayment.orderId)),
+    entry.paymentKey,
+    entry.checkoutId,
+  ]);
+};
+
+const clientKeyFromLedgerEntry = (entry: AttributionLedgerEntry) => firstNonEmpty([
+  firstMetadataString(entry.metadata, ["clientId", "userPseudoId", "gaClientId"]),
+  entry.gaSessionId,
+  entry.customerKey,
+  entry.requestContext.ip,
+]);
+
+const isManualPaidTrafficTestEntry = (entry: AttributionLedgerEntry, orderKey: string) => {
+  const knownManualOrderKeys = new Set([
+    "202605035698347",
+    "o20260502c0c1ce5d28e95",
+    "202605036519253",
+    "o202605033af504ba376d9",
+  ]);
+  if (knownManualOrderKeys.has(orderKey) || knownManualOrderKeys.has(normalizeOrderIdBase(entry.orderId))) {
+    return true;
+  }
+
+  const text = [
+    entry.utmSource,
+    entry.utmMedium,
+    entry.utmCampaign,
+    entry.utmContent,
+    entry.utmTerm,
+    entry.landing,
+    entry.referrer,
+    JSON.stringify(entry.metadata),
+  ].join(" ").toLowerCase();
+
+  return [
+    "codex_",
+    "codex-",
+    "vm_smoke",
+    "smoke_test",
+    "manual_browser_test",
+    "gtm_live",
+    "gtm_test",
+    "card_test",
+    "test events smoke",
+  ].some((needle) => text.includes(needle));
+};
+
+const buildPaidTrafficVmFunnel = (
+  entries: AttributionLedgerEntry[],
+  range: DateRange,
+  channel: PaidTrafficChannel,
+): PaidTrafficVmFunnel => {
+  const marketingIntentClients = new Set<string>();
+  const checkoutOrders = new Set<string>();
+  const manualTestOrders = new Set<string>();
+  const confirmedOrders = new Set<string>();
+  const pendingOrders = new Set<string>();
+  const canceledOrders = new Set<string>();
+  let marketingIntentRows = 0;
+  let checkoutStartedRows = 0;
+  let paymentSuccessRows = 0;
+  let confirmedRevenue = 0;
+  let pendingRevenue = 0;
+  let canceledRevenue = 0;
+  const sampleCheckoutOrders: PaidTrafficVmFunnel["sampleCheckoutOrders"] = [];
+  const sampleConfirmedOrders: PaidTrafficVmFunnel["sampleConfirmedOrders"] = [];
+
+  for (const entry of entries) {
+    if (!entryInKstRange(entry, range)) continue;
+    const reasons = getPaidChannelReasons(entry, channel);
+    if (reasons.length === 0) continue;
+
+    const orderKey = orderKeyFromLedgerEntry(entry);
+    const amount = amountFromLedgerEntry(entry);
+    const manualTest = isManualPaidTrafficTestEntry(entry, orderKey);
+    if (manualTest && orderKey) manualTestOrders.add(orderKey);
+
+    if (entry.touchpoint === "marketing_intent") {
+      if (manualTest) continue;
+      marketingIntentRows += 1;
+      const clientKey = clientKeyFromLedgerEntry(entry);
+      if (clientKey) marketingIntentClients.add(clientKey);
+    }
+
+    if (entry.touchpoint === "checkout_started") {
+      if (manualTest) continue;
+      checkoutStartedRows += 1;
+      if (orderKey) checkoutOrders.add(orderKey);
+      if (sampleCheckoutOrders.length < 5) {
+        sampleCheckoutOrders.push({ loggedAt: entry.loggedAt, orderKey: orderKey || "-", amount, reasons });
+      }
+    }
+
+    if (entry.touchpoint === "payment_success") {
+      if (manualTest) continue;
+      paymentSuccessRows += 1;
+      if (entry.paymentStatus === "confirmed") {
+        if (orderKey) confirmedOrders.add(orderKey);
+        confirmedRevenue += amount;
+        if (sampleConfirmedOrders.length < 5) {
+          sampleConfirmedOrders.push({ loggedAt: entry.loggedAt, orderKey: orderKey || "-", amount, reasons });
+        }
+      } else if (entry.paymentStatus === "pending") {
+        if (orderKey) pendingOrders.add(orderKey);
+        pendingRevenue += amount;
+      } else if (entry.paymentStatus === "canceled") {
+        if (orderKey) canceledOrders.add(orderKey);
+        canceledRevenue += amount;
+      }
+    }
+  }
+
+  return {
+    source: "TJ 관리 Attribution VM SQLite",
+    storage: "CRM_LOCAL_DB_PATH#attribution_ledger",
+    channel,
+    evidenceDefinition: channel === "tiktok"
+      ? "ttclid 또는 TikTok UTM/referrer/firstTouch evidence"
+      : "fbclid/fbc/fbp 또는 Meta/Facebook/Instagram UTM/referrer/firstTouch evidence",
+    marketingIntentRows,
+    marketingIntentClients: marketingIntentClients.size,
+    checkoutStartedRows,
+    checkoutStartedOrders: checkoutOrders.size,
+    paymentSuccessRows,
+    manualTestOrders: manualTestOrders.size,
+    confirmedOrders: confirmedOrders.size,
+    confirmedRevenue: Math.round(confirmedRevenue),
+    pendingOrders: pendingOrders.size,
+    pendingRevenue: Math.round(pendingRevenue),
+    canceledOrders: canceledOrders.size,
+    canceledRevenue: Math.round(canceledRevenue),
+    sampleCheckoutOrders,
+    sampleConfirmedOrders,
+  };
+};
+
 export const createAdsRouter = () => {
   const router = express.Router();
 
@@ -2691,6 +2926,58 @@ export const createAdsRouter = () => {
       res.json(payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : "tiktok roas comparison failed";
+      res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  router.get("/api/ads/tiktok/traffic-quality", async (req: Request, res: Response) => {
+    try {
+      const { range, datePreset } = resolveOptionalRange(req);
+      const [ga4, ledger] = await Promise.all([
+        queryGA4PaidTrafficQuality({ startDate: range.startDate, endDate: range.endDate }),
+        loadLedgerOrders({ range, sites: ["biocom"], source: "operational_vm" }),
+      ]);
+      const queriedAt = new Date().toISOString();
+
+      res.json({
+        ok: true,
+        range: {
+          start_date: range.startDate,
+          end_date: range.endDate,
+          timezone: KST_TIMEZONE,
+          inclusivity: "KST calendar dates inclusive",
+        },
+        date_preset: datePreset,
+        queried_at: queriedAt,
+        source: {
+          ga4: "GA4 Data API / property biocom",
+          vm: "TJ 관리 Attribution VM SQLite / CRM_LOCAL_DB_PATH#attribution_ledger",
+        },
+        freshness: {
+          checked_at: queriedAt,
+          vm_latest_logged_at: ledger.freshness.latestLoggedAt,
+          vm_latest_approved_date: ledger.freshness.latestApprovedDate,
+          vm_entries: ledger.freshness.entries,
+          vm_orders: ledger.freshness.orders,
+        },
+        confidence: {
+          label: describeLedgerSourceConfidence(ledger).label,
+          reason: describeLedgerSourceConfidence(ledger).reason,
+          ga4: "B: GA4는 행동 품질 cross-check이며, 광고별 실제 결제 확정은 TJ 관리 Attribution VM confirmed가 primary다.",
+        },
+        ga4,
+        attribution_vm: {
+          tiktok: buildPaidTrafficVmFunnel(ledger.entries, range, "tiktok"),
+          meta: buildPaidTrafficVmFunnel(ledger.entries, range, "meta"),
+        },
+        notes: [
+          "이 endpoint는 read-only다. 운영DB write, VM SQLite write, GA4/Meta/TikTok/Google 전환 전송을 하지 않는다.",
+          "GA4 bounceRate/engagementRate는 현재 TikTok/Meta traffic에서 낮은 변동성을 보일 수 있어 보조 지표로만 본다.",
+          "90% 스크롤은 GA4 Enhanced Measurement scroll 이벤트 기준이다. 연속 스크롤 깊이 측정은 GTM custom scroll tag가 필요하다.",
+        ],
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "tiktok traffic quality failed";
       res.status(500).json({ ok: false, error: message });
     }
   });

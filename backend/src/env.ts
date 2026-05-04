@@ -77,6 +77,8 @@ const envSource = {
   META_PIXEL_ID_BIOCOM: process.env.META_PIXEL_ID_BIOCOM ?? "1283400029487161",
   META_PIXEL_ID_COFFEE: process.env.META_PIXEL_ID_COFFEE ?? "1186437633687388",
   META_PIXEL_ID_AIBIO: process.env.META_PIXEL_ID_AIBIO ?? "1068377347547682",
+  META_EVENT_CODE_BIOCOM: process.env.META_EVENT_CODE_BIOCOM,
+  META_EVENT_CODE_COFFEE: process.env.META_EVENT_CODE_COFFEE,
   // C-Sprint 4: GA4 Measurement Protocol API secret (Refund 이벤트 전송용).
   // TJ 가 `.env` 에 `GA4_PROTOCOL_API_PASS` 라는 이름으로 biocom secret 을 저장한 이력이 있어
   // 코드 공식 이름(`GA4_MP_API_SECRET_BIOCOM`) 이 비어있으면 legacy 이름으로 fallback 한다.
@@ -238,6 +240,8 @@ const envSchema = z.object({
   META_PIXEL_ID_BIOCOM: z.string().min(1).default("1283400029487161"),
   META_PIXEL_ID_COFFEE: z.string().min(1).default("1186437633687388"),
   META_PIXEL_ID_AIBIO: z.string().min(1).default("1068377347547682"),
+  META_EVENT_CODE_BIOCOM: z.string().min(1).optional(),
+  META_EVENT_CODE_COFFEE: z.string().min(1).optional(),
   GA4_MP_API_SECRET_BIOCOM: z.string().min(1).optional(),
   GA4_MP_API_SECRET_COFFEE: z.string().min(1).optional(),
   GA4_MEASUREMENT_ID_BIOCOM: z.string().min(1).default("G-WJFXN5E2Q1"),

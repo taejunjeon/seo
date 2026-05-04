@@ -2,7 +2,7 @@
 
 작성 시각: 2026-04-20 18:30 KST (v11 업데이트: 2026-04-30 11:55 KST)
 작성자: Claude Code + Codex (GTM API 직접 조회)
-근거: GTM API v2 snapshot, live version 138, `gtmaudit/gtm-ga4-purchase-duplicates-result-20260424144504.json`, Workspace 147 tag 118 quick_preview
+근거: GTM API v2 snapshot, live version 138, `gtmaudit/gtm-ga4-purchase-duplicates-result-20260424144504.json`, Workspace 147 tag 118 quick_preview, 2026-05-04 live version 140 read-only recheck
 대상 컨테이너: `GTM-W2Z6PHN` (biocom.kr)
 관련 문서: [[confirmed_stopline|roadmap/confirmed_stopline.md]] C-Sprint 5, [[transaction_id_not_set_investigation|data/analysis/transaction_id_not_set_investigation.md]]
 
@@ -18,6 +18,89 @@
 - NPay intent 24시간 수집 품질은 통과했다. 2026-04-30 11:50 KST 기준 live publish 이후 251건, 최근 24시간 92건이 수집됐고 최근 24시간의 `client_id`, `ga_session_id`, `product_idx` 채움률은 모두 100%다.
 - 남은 검증은 v138 이후 24~48h 신규 GA4 row에서 duplicate extra event와 `transactionId` 결측이 줄었는지 확인하는 일, 그리고 NPay intent 7일 주문 매칭 dry-run이다.
 
+### 2026-05-04 read-only live 재확인
+
+Codex가 GTM API read-only로 `GTM-W2Z6PHN` live 컨테이너를 다시 확인했다.
+현재 live version은 `140`이며 이름은 `tiktok_marketing_intent_v1_live_20260503`이다.
+live 기준 tags 58개, triggers 84개, variables 60개다.
+
+체류시간/스크롤 관련 확인 결과:
+
+- trigger `[18] 긴 조회 시간(page_view_long)`이 있다. type은 `timer`, interval은 `420000ms`, limit은 `1`이다.
+- tag `[21] tmp_ga4 page_view_long 이벤트`가 trigger `[18]`로 발화한다. eventName은 `page_view_long`, measurementIdOverride는 `G-WJFXN5E2Q1`, `value=100`, `currency=KRW`다.
+- trigger `[11] 트리거`가 있다. type은 `scrollDepth`, threshold는 `10,25,50,75,90`, unit은 `PERCENT`다.
+- 하지만 live version 140 기준으로 trigger `[11]`을 firing trigger로 쓰는 tag는 없다. 따라서 스크롤 깊이는 GTM에 트리거만 있고 실제 GA4/Meta 전송 태그는 연결되지 않은 상태로 판단한다.
+- variable `[33] USER_TIME`은 현재 시각 ISO 문자열을 반환한다. 체류시간 자체를 계산하는 변수는 아니다.
+
+해석:
+
+- 체류시간과 스크롤의 기반은 일부 있다.
+- 다만 이 상태를 그대로 Meta CAPI 신호로 쓰면 안 된다.
+- `page_view_long`은 7분 기준이라 매우 보수적이고, 스크롤은 tag 연결이 없다.
+- 따라서 내부 분석용 engagement 설계를 만들고, Meta CAPI 운영 송출은 별도 승인 전 금지로 둔다.
+
+내부 분석 설계 정본:
+
+- [[GA4/gtm-engagement-internal-analysis-design-20260504]]: 체류시간과 스크롤을 Meta CAPI 전환으로 바로 보내지 않고, `ProductEngagementSummary` 내부 이벤트로 먼저 쌓는 설계안이다.
+- [[GA4/product-engagement-summary-contract-20260505]]: `POST /api/attribution/engagement-intent` no-write payload, dedupe key, PII 차단, URL 정제, dry-run 응답 contract다.
+- [[GA4/gtm-container-quality-gateway-diagnosis-20260505]]: 2026-05-05 GTM UI의 컨테이너 품질 경고, Default Workspace 147 충돌, `AW-308433248` Google tag 누락 추정, Google tag gateway 우선순위를 정리한 read-only 진단이다.
+- [[GA4/gtm-tag-coverage-ignore-candidates-20260505]]: Tag Coverage CSV에서 고객 퍼널 blocker가 아닌 admin/404/internal ignore 후보를 분리한 문서다.
+- [[GA4/gtm-aw308433248-upde-pause-approval-20260505]]: `AW-308433248`가 운영 Google Ads 계정이 아닌 것으로 확인된 뒤 `[200]`/`[204]` UPDE 태그 pause를 검토한 승인안이다.
+- [[GA4/gtm-aw308433248-upde-pause-result-20260505]]: 2026-05-05 GTM live v141에서 `[200] UPDE_register`, `[204] UPDE_purchase`를 pause한 실행 결과다.
+- [[gdn/google-ads-npay-purchase-contamination-report-20260505]]: 운영 Google Ads 계정 `AW-304339096`의 NPay/구매완료 전환값 오염을 API 기준으로 정리한 리포트다.
+
+### 2026-05-05 GTM UI 품질 경고 진단
+
+Codex가 GTM API read-only와 public page source fetch로 현재 경고를 분해했다.
+
+결론:
+
+- live version은 `[141] pause_aw308433248_upde_20260505`다.
+- live에는 tag `[118]` NPay intent beacon이 `ENVIRONMENT="live"`로 반영되어 있다.
+- Default Workspace `147`은 change 1건, conflict 1건이다. 변경 대상은 tag `[118]` 한 건이다.
+- 따라서 UI의 “충돌 발견”은 live 장애가 아니라 stale Default Workspace 147의 충돌이다.
+- Default Workspace 147은 저장/제출/게시하지 않는다. 새 작업은 live v140 기준 fresh workspace에서 한다.
+- “Google 태그 누락 1개”는 `AW-308433248`로 추정한다. live에는 `UPDE_register`, `UPDE_purchase`가 `Ads ID=308433248`를 쓰지만 matching `Google 태그 AW-308433248`가 없다.
+- 2026-05-05 TJ 확인 기준 현재 바이오컴 Google Ads 계정은 `AW-304339096`이고, 더클린커피/AIBIO도 `AW-308433248`가 아니다. 따라서 `AW-308433248` Google tag를 추가하지 않았고, `[200]`/`[204]` UPDE 태그는 live v141에서 pause했다.
+- 2026-05-05 read-only 상세 확인 결과 `[200]`, `[204]`는 `awud` user-provided data 태그이며 conversion label, value, currency, transaction_id, orderId가 없다. `[200]`은 `/site_join` 버튼 클릭, `[204]`는 `/shop_payment/` 결제하기 버튼 클릭 기준이므로 `Ads ID=308433248`를 `304339096`로 단순 치환하지 않는다.
+- Tag Coverage의 visible untagged sample은 admin/login/404/internal URL이 많다. 홈, 상품, 장바구니, 결제완료 대표 URL은 GTM/GA4 정본/`AW-304339096`가 확인됐다.
+- 2026-05-05 TJ 제공 CSV `/Users/vibetj/Downloads/tag-coverage-GTM-W2Z6PHN.csv` 기준 `Landing page=Yes` 48개는 모두 tagged다. `Ignored=No`인 not tagged 27개를 fetch 재확인한 결과 고객 매출 퍼널/광고 랜딩 누락은 확인되지 않았다.
+- Google tag gateway는 Google 측정 품질 개선 후보지만, stale workspace, `AW-308433248` 누락, 고객 퍼널 tag coverage 확인보다 후순위다.
+
+### 2026-05-05 AW-308433248 UPDE pause 실행 결과
+
+TJ님 승인 후 Codex가 live v140 기준 fresh workspace `[152] codex_pause_aw308433248_upde_20260504161442`를 만들고 `[200]`, `[204]`만 pause했다.
+GTM live version은 `[141] pause_aw308433248_upde_20260505`로 올라갔다.
+
+변경 결과:
+
+- `[200] UPDE_register`: paused
+- `[204] UPDE_purchase`: paused
+- `Google 태그 AW-308433248`: 추가하지 않음
+- variable `[199] Ads ID=308433248`: 변경하지 않음
+- `Ads ID=308433248`를 `304339096`로 단순 치환하지 않음
+- Default Workspace 147: 건드리지 않음
+
+검증 결과:
+
+- workspace status 변경 entity는 `[200]`, `[204]` 두 개뿐이었다.
+- quick_preview, create_version, publish에서 compiler error가 없었다.
+- live v141 read-only 재확인에서 `[169]`, `[17]`, `[210]`, `[248]`, `[43]`, `[48]`, `[118]`, `[143]`는 기존 상태를 유지했다.
+
+백업/결과:
+
+- backup: `/Users/vibetj/coding/seo/gtmaudit/gtm-aw308433248-upde-pause-backup-20260504161442.json`
+- result: `/Users/vibetj/coding/seo/gtmaudit/gtm-aw308433248-upde-pause-result-20260504161442.json`
+- 상세 결과 문서: [[GA4/gtm-aw308433248-upde-pause-result-20260505]]
+
+추가 확인:
+
+- `.env` 261행 `API_TOKEN_BIOCOM`은 Google Ads developer token으로 연결되어 있다.
+- `GET /api/google-ads/status`가 `ok=true`로 성공했고, `customers/2149990943 / 바이오컴`을 Google Ads API `v22`로 읽을 수 있다.
+- `GET /api/google-ads/dashboard?date_preset=last_7d`도 성공했다. Codex가 Google Ads 비용/전환/전환액/전환 액션 세그먼트는 read-only로 모니터링할 수 있다.
+- 2026-05-05 01:28 KST 기준 최근 7일 Google Ads `Conv. value` 대부분은 `구매완료` NPay label `AW-304339096/r0vuCKvy-8caEJixj5EB`에서 나온다. 상세는 [[gdn/google-ads-npay-purchase-contamination-report-20260505]]에 기록했다.
+- 다만 Google Tag Diagnostics UI의 경고 문구와 Tag Assistant runtime firing 화면은 현재 `/api/google-ads/*`가 직접 읽지 않으므로 필요 시 화면 확인이 필요하다.
+
 ## 컨테이너 메타
 
 | 항목 | 값 |
@@ -27,10 +110,10 @@
 | Container numeric ID | `13158774` |
 | Usage context | `web` |
 | Default Workspace | 최신 live 기준 새 작업은 별도 workspace 생성 후 publish. v138 작업 workspace=`148` |
-| Variables total | 59 (custom 47 + built-in 12 이상) |
-| Tags total | 56 |
-| Triggers total | 80 |
-| Live container version | `139` (`npay_intent_only_live_20260427`) |
+| Variables total | 60 |
+| Tags total | 58 |
+| Triggers total | 84 |
+| Live container version | `140` (`tiktok_marketing_intent_v1_live_20260503`) |
 | Publish workspace | `150` (`npay_intent_only_live_2026-04-27`) |
 | Abandoned workspace | `147` Default Workspace. stale pre-v138 상태가 섞여 publish하지 않음 |
 
@@ -238,7 +321,7 @@ var DEBUG_MODE = false;
 | duplicate_count 합계 | 32 | 4 | 허용 |
 | server purchase dispatch | 0 | 0 | 정상 |
 
-GTM API read-only 확인 결과 live version은 계속 `139`이고, tag 118은 `ENVIRONMENT="live"`, `DEBUG_MODE=false`다. tag 118 안에 GA4 purchase, Meta Purchase, Google Ads conversion call은 없다.
+2026-04-30 당시 GTM API read-only 확인 결과 live version은 `139`였고, tag 118은 `ENVIRONMENT="live"`, `DEBUG_MODE=false`였다. tag 118 안에 GA4 purchase, Meta Purchase, Google Ads conversion call은 없다.
 
 판정: rollback하지 않는다. purchase dispatcher는 7일 매칭 dry-run 이후 별도 승인으로 판단한다.
 

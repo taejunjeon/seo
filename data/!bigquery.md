@@ -51,6 +51,28 @@
 이 결과 때문에 biocom은 `새 프로젝트에 하나 더 연결`로 풀 수 없다.
 허들러스 read 권한을 먼저 받고, 완전 이관은 단절형 재연결로 별도 승인해야 한다.
 
+### 2026-05-05 서비스 계정 권한 재확인
+
+TJ님이 전달한 허들러스 메일 기준으로 `seo-656@seo-aeo-487113.iam.gserviceaccount.com`에 `hurdlers-naver-pay.analytics_304759974` BigQuery Data Viewer 권한이 부여된 것으로 보인다.
+Codex가 2026-05-05 00:46 KST에 read-only로 재확인한 결과, 이전의 `bigquery.datasets.get denied` 상태는 해소됐다.
+
+확인 결과:
+
+- `datasets.get hurdlers-naver-pay.analytics_304759974`: 성공.
+- `tables.list hurdlers-naver-pay.analytics_304759974`: 성공. `events_20240909`, `events_20240910`, `events_20240911` 확인.
+- `jobs.query` in `hurdlers-naver-pay`: 실패. `bigquery.jobs.create` 권한 없음.
+- `jobs.query` in `project-dadba7dd-0229-4ff6-81c`: 성공.
+- `jobs.query` in `seo-aeo-487113`: 실패. `bigquery.jobs.create` 권한 없음.
+- `check-source-freshness.ts --json`: biocom BigQuery source가 `jobs.create` 없음으로 error. 현재 코드가 job project를 `hurdlers-naver-pay`로 사용하기 때문이다.
+
+해석:
+
+- Dataset read 권한은 들어왔다.
+- 허들러스 프로젝트에 job을 직접 만드는 권한은 아직 없다.
+- 다만 우리 통합 후보 프로젝트 `project-dadba7dd-0229-4ff6-81c`에는 job 생성 권한이 있어, 그 프로젝트를 job project로 지정하면 허들러스 dataset SQL 조회가 가능하다.
+- 즉시 추가 조사에는 허들러스 추가 권한이 필수는 아니다.
+- 기존 freshness 스크립트를 그대로 통과시키려면 허들러스에 `roles/bigquery.jobUser`를 추가 요청하거나, 코드에서 biocom source project와 job project를 분리해야 한다.
+
 ## 실행 정본
 
 실행은 아래 문서를 따른다.
@@ -171,6 +193,9 @@ GA4 BigQuery 링크를 다른 프로젝트로 변경하더라도 기존 hurdlers
 작성 시각: 2026-04-30 15:35 KST
 조사 범위: read-only. GA4 BigQuery Link 삭제, 신규 Link 생성, dataset 생성, table copy, table 삭제 모두 미실행.
 대상: `hurdlers-naver-pay.analytics_304759974`
+
+2026-05-05 최신 재검증에서 이 섹션의 접근 실패 상태는 해소됐다.
+이 섹션은 당시 감사 기록으로 남기고, 현재 판단은 문서 하단 `2026-05-05 backend/Codex 권한 재검증 결과`를 따른다.
 
 ### 10초 요약
 
@@ -658,3 +683,609 @@ LIMIT 200;
 2. 권한 반영 후 동일 inventory와 raw sanity를 backend/Codex 기준으로 재실행한다.
 3. 2026-04-23~24 duplicate purchase 원인 분석은 위 쿼리로 별도 실행한다.
 4. 삭제, 복사, 신규 링크 생성은 아직 하지 않는다.
+
+## 2026-05-05 backend/Codex 권한 재검증 결과
+
+작성 시각: 2026-05-05 00:46 KST
+기준 시각: 2026-05-05 00:46 KST
+작업 성격: BigQuery read-only 권한 확인, inventory 조회, raw sanity 조회, duplicate purchase 원인 조사
+
+```yaml
+harness_preflight:
+  common_harness_read:
+    - harness/common/HARNESS_GUIDELINES.md
+    - harness/common/AUTONOMY_POLICY.md
+    - harness/common/REPORTING_TEMPLATE.md
+  project_harness_read:
+    - docs/agent-harness/growth-data-harness-v0.md
+  required_context_docs:
+    - AGENTS.md
+    - docurule.md
+    - data/!bigquery.md
+  lane: Green
+  allowed_actions:
+    - BigQuery read-only metadata lookup
+    - BigQuery read-only SELECT query
+    - local freshness script run
+    - Obsidian decision doc update
+  forbidden_actions:
+    - GA4 BigQuery Link delete
+    - GA4 BigQuery Link create
+    - BigQuery data copy
+    - BigQuery data delete
+    - production DB write
+    - deploy
+    - platform send
+  source_window_freshness_confidence:
+    source: hurdlers-naver-pay.analytics_304759974
+    site: biocom
+    window: 2024-09-09 to 2026-05-03 daily events tables
+    freshness: latest table events_20260503, max event time 2026-05-03 23:59:58 KST
+    confidence: A for metadata and SQL result, B for duplicate cause interpretation
+```
+
+### 10초 요약
+
+`seo-656@seo-aeo-487113.iam.gserviceaccount.com` 기준으로 허들러스 dataset read 권한은 열렸다.
+`datasets.get`과 `tables.list`는 성공했고, `project-dadba7dd-0229-4ff6-81c`를 job project로 쓰면 허들러스 dataset SQL 조회도 성공했다.
+다만 기존 `check-source-freshness.ts`는 job project를 `hurdlers-naver-pay`로 사용하므로 아직 `bigquery.jobs.create` 에러가 난다.
+결론은 허들러스 추가 권한 없이도 read-only 조사는 가능하지만, 운영 freshness 스크립트는 job project 분리 패치가 필요하다.
+
+### 현재 접근 상태
+
+| 확인 항목 | 결과 | 해석 |
+|---|---:|---|
+| `datasets.get hurdlers-naver-pay.analytics_304759974` | OK | Data Viewer 계열 권한 반영됨 |
+| `tables.list hurdlers-naver-pay.analytics_304759974` | OK | table inventory 확인 가능 |
+| `jobs.query` in `hurdlers-naver-pay` | FAIL | `bigquery.jobs.create` 없음 |
+| `jobs.query` in `project-dadba7dd-0229-4ff6-81c` | OK | 이 프로젝트를 job project로 쓰면 SQL 가능 |
+| `jobs.query` in `seo-aeo-487113` | FAIL | 이 프로젝트도 `bigquery.jobs.create` 없음 |
+
+실제 조회 credential:
+
+- `credential`: `seo-656@seo-aeo-487113.iam.gserviceaccount.com`
+- `sourceProject`: `hurdlers-naver-pay`
+- `jobProject`: `project-dadba7dd-0229-4ff6-81c`
+- `dataset`: `analytics_304759974`
+- `location`: `asia-northeast3`
+
+### Freshness 결과
+
+`backend/scripts/check-source-freshness.ts --json` 실행 시각은 2026-05-05 00:45:09 KST다.
+
+| source | 결과 | latest table | rows | purchase | distinct transaction_id | max event time KST | note |
+|---|---:|---|---:|---:|---:|---|---|
+| `ga4_bigquery_biocom` | `error` | 확인 전 실패 | - | - | - | - | `hurdlers-naver-pay`에 `bigquery.jobs.create` 없음 |
+| direct BigQuery query with `project-dadba7dd-0229-4ff6-81c` job project | fresh로 볼 수 있음 | `events_20260503` | 48,553 | 59 | 59 | 2026-05-03 23:59:58 KST | 기존 스크립트 코드만 job project 분리 필요 |
+
+정리하면 데이터 자체는 최신 daily export 기준 정상이다.
+실패 지점은 source dataset 권한이 아니라 job 생성 프로젝트 선택이다.
+
+### Table Inventory
+
+Source: `hurdlers-naver-pay.analytics_304759974`
+Window: 전체 `events_YYYYMMDD`
+Freshness: 2026-05-05 00:44 KST 조회
+Confidence: A
+
+| 항목 | 값 |
+|---|---:|
+| dataset location | `asia-northeast3` |
+| first table | `events_20240909` |
+| latest table | `events_20260503` |
+| daily table count | 602 |
+| total row count | 24,310,428 |
+| total size bytes | 37,605,989,864 |
+| total size GiB | 35.02 |
+| intraday table count | 0 |
+| latest intraday table | 없음 |
+
+최근 daily table:
+
+| table | rows | size GiB |
+|---|---:|---:|
+| `events_20260503` | 48,553 | 0.0803 |
+| `events_20260502` | 40,310 | 0.0649 |
+| `events_20260501` | 46,229 | 0.0728 |
+| `events_20260430` | 48,380 | 0.0800 |
+| `events_20260429` | 44,753 | 0.0678 |
+| `events_20260428` | 57,292 | 0.0898 |
+| `events_20260427` | 70,212 | 0.1126 |
+
+### Raw Sanity 결과
+
+최근 사용 가능한 daily export 7일은 `2026-04-27`부터 `2026-05-03`까지다.
+`events_20260504` daily table은 이 시점에 아직 없다.
+
+| event_date | events | purchase | distinct transaction_id | empty/null transaction_id | homepage | npay | pay_method missing | max event time KST |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 2026-04-27 | 70,212 | 80 | 80 | 0 | 77 | 3 | 0 | 2026-04-27 23:59:45 |
+| 2026-04-28 | 57,292 | 82 | 82 | 0 | 82 | 0 | 0 | 2026-04-28 23:59:56 |
+| 2026-04-29 | 44,753 | 70 | 70 | 0 | 70 | 0 | 0 | 2026-04-29 23:59:58 |
+| 2026-04-30 | 48,380 | 78 | 78 | 0 | 76 | 0 | 2 | 2026-04-30 23:59:59 |
+| 2026-05-01 | 46,229 | 72 | 72 | 0 | 72 | 0 | 0 | 2026-05-01 23:59:55 |
+| 2026-05-02 | 40,310 | 49 | 49 | 0 | 49 | 0 | 0 | 2026-05-02 23:59:59 |
+| 2026-05-03 | 48,553 | 59 | 59 | 0 | 59 | 0 | 0 | 2026-05-03 23:59:58 |
+
+2026-04-01 이후 summary:
+
+| 항목 | 값 |
+|---|---:|
+| total events | 2,922,584 |
+| purchase events | 5,188 |
+| distinct ecommerce.transaction_id | 2,858 |
+| empty/null transaction_id | 0 |
+| empty/null transaction_id rate | 0.0% |
+| pay_method homepage | 1,177 |
+| pay_method npay | 512 |
+| pay_method vbank | 0 |
+| pay_method missing | 3,499 |
+| missing session source | 2 |
+| missing session medium | 2 |
+| missing session campaign | 15 |
+| collected_traffic_source manual_source present | 4,500 |
+| payment complete page events | 11,695 |
+| payment complete page purchase events | 2,640 |
+
+Traffic source 해석:
+
+- 최근 daily export의 `session_traffic_source_last_click` 기준 source/medium은 거의 채워져 있다.
+- 2026-04-29, 2026-05-02, 2026-05-03에 campaign만 각 1건 결측이다.
+- `collected_traffic_source.manual_source`는 구매 이벤트 대부분에서 존재하지만, `manual_medium`, `manual_campaign_name`은 최근 구매 이벤트에서 거의 비어 있다.
+- ROAS/캠페인 분석 primary는 `session_traffic_source_last_click.manual_campaign` 계열로 두고, `collected_traffic_source`는 보조 신호로 쓰는 편이 맞다.
+
+### 2026-04-23~24 Purchase 중복 원인
+
+Source: `hurdlers-naver-pay.analytics_304759974.events_*`
+Window: `20260423` to `20260424`
+Freshness: 2026-05-05 00:45 KST 조회
+Confidence: 숫자 A, 원인 해석 B
+
+| event_date | purchase | distinct transaction_id | duplicated transaction_id | duplicate extra events | same timestamp duplicate | same bundle duplicate | same revenue duplicate |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 2026-04-23 | 233 | 155 | 70 | 78 | 0 | 0 | 69 |
+| 2026-04-24 | 288 | 197 | 82 | 91 | 0 | 0 | 81 |
+
+중복 분포:
+
+| event_date | 1회 발화 transaction_id | 2회 발화 | 3회 발화 | 4회 발화 |
+|---|---:|---:|---:|---:|
+| 2026-04-23 | 85 | 62 | 8 | 0 |
+| 2026-04-24 | 115 | 74 | 7 | 1 |
+
+가장 강한 패턴:
+
+- 2026-04-23 중복 transaction 53건은 `pay_method missing + page_location missing` 1건과 `pay_method homepage + shop_payment_complete` 1건이 같은 transaction_id, 같은 revenue로 같이 존재한다.
+- 2026-04-24 중복 transaction 46건도 같은 패턴이다.
+- 같은 timestamp나 같은 bundle 중복은 0건이다. BigQuery export 중복 적재라기보다 서로 다른 GA4 purchase 발화 경로가 같은 주문을 여러 번 보낸 형태에 가깝다.
+- 중복 transaction 대부분은 revenue가 같다. 따라서 매출 합산은 `purchase event count`가 아니라 `transaction_id` 기준 dedupe가 필요하다.
+- 2026-04-23의 `(not set)` transaction_id NPay row는 3건, 2026-04-24는 4건이다. empty/null은 아니지만 정상 주문번호가 아니므로 NPay sanity에서는 invalid transaction_id로 별도 취급해야 한다.
+- 2026-04-25 이후에는 purchase와 distinct transaction_id가 1:1에 가깝다. 2026-04-23~24 중복은 당시 태그 중복 또는 v138 이전 결제완료 태그 구조의 영향으로 보는 것이 유력하다. 단 GTM 변경 로그와 대조하기 전까지 확정 원인은 아니다.
+
+### 이관 범위 추천
+
+| 옵션 | table 수 | rows | size GiB | 장점 | 단점 | 추천 |
+|---|---:|---:|---:|---|---|---|
+| 전체 이관 | 602 | 24,310,428 | 35.02 | 2024-09-09 이후 raw를 모두 보존. 과거 비교와 추적 감사에 가장 안전 | 가장 넓지만 그래도 작음 | YES |
+| 2026-01-01 이후 | 123 | 10,314,223 | 17.34 | 2026년 ROAS/캠페인 판단에는 충분 | 2024~2025 장기 추세와 과거 오류 감사가 빠짐 | 보조안 |
+| 2026-04-01 이후 | 33 | 2,922,584 | 5.05 | 이번 중복/태그 수정 전후만 빠르게 보기 좋음 | 이관 정본으로는 너무 좁음 | NO, 임시 분석용 |
+
+비용 판단:
+
+- 전체 이관도 35.02 GiB라 저장 비용은 사실상 무시 가능하다.
+- Google Cloud 공식 가격표 기준 BigQuery는 첫 10 GiB 저장과 월 1 TiB query processing free tier가 있다.
+- 서울 리전 active logical storage 단가를 적용해도 전체 35.02 GiB는 월 1달러 안팎의 작은 규모다. 실제 청구는 billing account의 free tier 사용량, logical/physical billing model, 장기 저장 전환 여부에 따라 달라진다.
+- 가격 근거: https://cloud.google.com/bigquery/pricing, storage 산식 근거: https://docs.cloud.google.com/bigquery/docs/information-schema-table-storage
+
+추천은 전체 이관이다.
+이유는 용량 차이보다 과거 원자료 보존 가치가 크고, 이후 중복/ROAS 감사에서 2024~2025 baseline이 필요해질 수 있기 때문이다.
+
+### 통합 프로젝트 후보
+
+기본 추천은 `project-dadba7dd-0229-4ff6-81c`다.
+
+근거:
+
+- 같은 서비스 계정으로 이 프로젝트에서는 `jobs.query`가 성공한다.
+- 더클린커피 `analytics_326949178`도 이미 이 프로젝트에서 정상 freshness 조회 중이다.
+- biocom raw backfill과 coffee raw export를 같은 billing/project 운영면에 두면 스크립트와 권한 관리가 단순하다.
+- `seo-aeo-487113`은 2026-05-05 00:46 KST 기준 `jobs.query`도 실패한다. 지금 후보로 쓰면 먼저 IAM 정리가 필요하다.
+
+권장 dataset 구조:
+
+- 과거 허들러스 복사본: `project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill`
+- GA4 재연결 후 신규 export: `project-dadba7dd-0229-4ff6-81c.analytics_304759974`
+
+아직 실행하지 않은 것:
+
+- 기존 GA4 BigQuery Link 삭제: 하지 않음.
+- 신규 GA4 BigQuery Link 생성: 하지 않음.
+- BigQuery table copy: 하지 않음.
+- BigQuery data delete: 하지 않음.
+
+### 허들러스에 추가 요청해야 할 내용
+
+즉시 raw 조사만 보면 추가 요청은 필수가 아니다.
+`project-dadba7dd-0229-4ff6-81c`를 job project로 지정하면 SQL 조회가 가능하기 때문이다.
+
+다만 기존 `check-source-freshness.ts`를 코드 수정 없이 그대로 통과시키려면 아래 권한이 더 필요하다.
+
+```text
+Please grant the service account seo-656@seo-aeo-487113.iam.gserviceaccount.com
+the project-level BigQuery Job User role (roles/bigquery.jobUser)
+on the GCP project hurdlers-naver-pay.
+
+Dataset-level BigQuery Data Viewer on hurdlers-naver-pay.analytics_304759974
+is already working. The remaining failing permission is bigquery.jobs.create
+on project hurdlers-naver-pay.
+```
+
+Codex 추천은 허들러스에 추가 요청하기 전에 `backend/src/sourceFreshness.ts`에서 source project와 job project를 분리하는 것이다.
+그렇게 하면 허들러스에는 dataset-level Data Viewer만 유지하고, job 비용과 권한은 우리 통합 프로젝트에서 관리할 수 있다.
+
+### TJ 결정 필요 사항
+
+1. `check-source-freshness.ts`를 `project-dadba7dd-0229-4ff6-81c` job project 방식으로 수정할지 결정한다.
+2. 허들러스에 `roles/bigquery.jobUser`를 추가 요청할지, 아니면 우리 job project 방식으로 운영할지 결정한다.
+3. 이관 범위는 전체 이관으로 확정할지 결정한다.
+4. 허들러스가 실제 복사를 수행한다면, 대상 프로젝트는 `project-dadba7dd-0229-4ff6-81c`, backfill dataset은 `analytics_304759974_hurdlers_backfill`로 전달한다.
+
+## 2026-05-05 source/job project 분리 패치 결과
+
+작성 시각: 2026-05-05 01:05 KST
+작업 성격: backend freshness 코드 최소 수정, read-only BigQuery query 검증, backfill 권한 가능성 확인
+
+```yaml
+harness_preflight:
+  common_harness_read:
+    - harness/common/HARNESS_GUIDELINES.md
+    - harness/common/AUTONOMY_POLICY.md
+    - harness/common/REPORTING_TEMPLATE.md
+  project_harness_read:
+    - docs/agent-harness/growth-data-harness-v0.md
+  required_context_docs:
+    - AGENTS.md
+    - docurule.md
+    - data/!bigquery.md
+  lane: Green
+  allowed_actions:
+    - backend code patch
+    - BigQuery read-only SELECT query
+    - BigQuery dryRun validation
+    - local typecheck
+    - Obsidian decision doc update
+  forbidden_actions:
+    - GA4 BigQuery Link delete
+    - GA4 BigQuery Link create
+    - BigQuery dataset create
+    - BigQuery table copy
+    - BigQuery data delete
+    - production DB write
+    - deploy
+    - platform send
+  source_window_freshness_confidence:
+    source: hurdlers-naver-pay.analytics_304759974
+    site: biocom
+    window: latest daily table events_20260503
+    freshness: 2026-05-03 23:59:58 KST
+    confidence: A for freshness result, B for future copy IAM because target dataset does not exist yet
+```
+
+### 10초 요약
+
+허들러스 추가 Job User 요청은 보류하고, backend에서 source project와 job project를 분리했다.
+이제 biocom freshness는 `hurdlers-naver-pay.analytics_304759974`를 읽되, query job은 `project-dadba7dd-0229-4ff6-81c`에 만든다.
+재실행 결과 `ga4_bigquery_biocom`은 `error`에서 `fresh`로 바뀌었다.
+실제 dataset 생성, table copy, GA4 Link 삭제·생성은 하지 않았다.
+
+### 코드 변경
+
+변경 파일:
+
+- `backend/src/sourceFreshness.ts`
+
+변경 내용:
+
+- BigQuery source config를 `sourceProjectId`, `jobProjectId`, `location` 구조로 분리했다.
+- 기존 source는 `jobProjectId`가 없으면 `sourceProjectId`를 그대로 사용한다.
+- biocom만 아래 값으로 지정했다.
+
+```text
+sourceProjectId: hurdlers-naver-pay
+dataset: analytics_304759974
+jobProjectId: project-dadba7dd-0229-4ff6-81c
+location: asia-northeast3
+```
+
+SQL table reference는 계속 아래를 사용한다.
+
+```text
+hurdlers-naver-pay.analytics_304759974.events_*
+```
+
+### Freshness 재검증
+
+실행 명령:
+
+```bash
+cd backend
+npx tsx scripts/check-source-freshness.ts --json
+```
+
+기준 시각: 2026-05-05 01:05:16 KST
+
+| source | status | table | rows | purchase | distinct transaction_id | max event time KST | note |
+|---|---:|---|---:|---:|---:|---|---|
+| `ga4_bigquery_thecleancoffee` | `fresh` | `project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_20260503` | 2,949 | 14 | 14 | 2026-05-03 23:41:44 | job project `project-dadba7dd-0229-4ff6-81c` |
+| `ga4_bigquery_biocom` | `fresh` | `hurdlers-naver-pay.analytics_304759974.events_20260503` | 48,553 | 59 | 59 | 2026-05-03 23:59:58 | job project `project-dadba7dd-0229-4ff6-81c` |
+
+참고:
+
+- `toss_operational`, `playauto_operational`은 같은 실행에서 PostgreSQL connection slot 부족으로 error가 났다.
+- 이는 BigQuery 패치와 별개다.
+- 이번 성공 기준인 thecleancoffee BigQuery fresh 유지와 biocom BigQuery fresh 전환은 충족했다.
+
+### Typecheck
+
+실행 명령:
+
+```bash
+cd backend
+npm run typecheck
+```
+
+결과: 통과.
+
+### Backfill dataset 생성/copy 권한 가능성
+
+대상:
+
+- target project: `project-dadba7dd-0229-4ff6-81c`
+- target dataset 후보: `analytics_304759974_hurdlers_backfill`
+- source table sample: `hurdlers-naver-pay.analytics_304759974.events_20260503`
+- credential: `seo-656@seo-aeo-487113.iam.gserviceaccount.com`
+
+실제 생성이나 copy는 하지 않았다.
+확인은 metadata lookup과 BigQuery `dryRun`만 사용했다.
+
+| 확인 | 결과 | 해석 |
+|---|---:|---|
+| target dataset metadata lookup | `Not found` | `analytics_304759974_hurdlers_backfill`은 아직 없음 |
+| target project `jobs.query SELECT 1` | OK | target project에서 job 생성 가능 |
+| source table metadata `events_20260503` | OK | source table metadata 접근 가능. rows 48,553, bytes 86,212,350 |
+| `CREATE SCHEMA project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill` dryRun | OK | dataset 생성 권한 가능성이 높음. 실제 생성은 하지 않음 |
+| copy job dryRun to missing backfill dataset | FAIL, dataset not found | target dataset이 없어서 copy 권한은 아직 완전 검증 불가 |
+| copy job dryRun to existing coffee dataset probe table | FAIL, `bigquery.tables.create` denied | 이 서비스 계정은 기존 coffee dataset에 임의 table을 만들 권한은 없음 |
+| post-check probe table | Not found | dryRun으로 실제 table 생성 없음 |
+
+권한 해석:
+
+- 서비스 계정이 직접 `analytics_304759974_hurdlers_backfill` dataset을 만들면 copy 가능성이 높다.
+- 이유는 `CREATE SCHEMA` dryRun이 통과했고, BigQuery 공식 문서 기준 dataset creator는 해당 dataset의 BigQuery Data Owner가 된다.
+- 다만 target dataset이 아직 없으므로 실제 table copy 권한은 100% 확정할 수 없다.
+- 누군가가 target dataset을 대신 만들어주면, 이 서비스 계정에는 그 dataset에 대한 table create/write 권한이 따로 필요하다.
+
+필요 IAM:
+
+1. 서비스 계정이 직접 backfill dataset을 만들고 복사하는 방식
+   - `project-dadba7dd-0229-4ff6-81c` project에 `bigquery.datasets.create`
+   - `project-dadba7dd-0229-4ff6-81c` project에 `bigquery.jobs.create`
+   - `hurdlers-naver-pay.analytics_304759974` source dataset에 `bigquery.tables.get`, `bigquery.tables.getData`
+   - 현재 dryRun과 source query 결과상 위 조건은 대체로 충족된 것으로 보인다.
+
+2. TJ 또는 다른 계정이 backfill dataset을 먼저 만드는 방식
+   - `project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill` dataset에 서비스 계정 `seo-656@seo-aeo-487113.iam.gserviceaccount.com`을 BigQuery Data Editor 또는 BigQuery Data Owner로 부여해야 한다.
+   - target project에는 계속 BigQuery Job User가 필요하다.
+   - source dataset에는 BigQuery Data Viewer가 필요하다.
+
+공식 근거:
+
+- dataset 생성에는 `bigquery.datasets.create`가 필요하고, BigQuery User/Data Editor/Data Owner/Admin에 포함된다. Dataset creator는 생성한 dataset의 BigQuery Data Owner가 된다. 출처: https://cloud.google.com/bigquery/docs/datasets
+- table copy에는 source의 `bigquery.tables.getData`, `bigquery.tables.get`, destination의 `bigquery.tables.create`, `bigquery.tables.update`, 그리고 copy job 실행 권한 `bigquery.jobs.create`가 필요하다. 출처: https://cloud.google.com/bigquery/docs/managing-tables
+- query 결과를 table에 쓰는 경우 destination에 `bigquery.tables.create`, `bigquery.tables.updateData`, job project에 `bigquery.jobs.create`가 필요하다. 출처: https://docs.cloud.google.com/bigquery/docs/writing-results
+
+### 하지 않은 것
+
+- `analytics_304759974_hurdlers_backfill` dataset 생성: 하지 않음.
+- 허들러스 dataset table copy: 하지 않음.
+- 기존 GA4 BigQuery Link 삭제: 하지 않음.
+- 신규 GA4 BigQuery Link 생성: 하지 않음.
+- 운영 DB write: 하지 않음.
+- deploy: 하지 않음.
+
+### 현재 결정
+
+1. 허들러스에 project-level Job User 추가 요청은 계속 보류한다.
+2. biocom freshness는 `project-dadba7dd-0229-4ff6-81c` job project 방식으로 운영 가능하다.
+3. backfill은 전체 이관을 추천하되, 실제 dataset 생성과 copy는 별도 승인 전에는 하지 않는다.
+4. backfill 실행 시에는 서비스 계정이 직접 target dataset을 만들게 하는 방식이 가장 단순하다.
+
+## 2026-05-05 biocom initial backfill 실행 결과
+
+작성 시각: 2026-05-05 01:38 KST
+상세 결과 문서: [[biocom-bigquery-backfill-result-20260505]]
+작업 성격: Yellow Lane 승인 실행, target backfill dataset 생성 및 initial daily table copy
+
+```yaml
+harness_preflight:
+  common_harness_read:
+    - harness/common/HARNESS_GUIDELINES.md
+    - harness/common/AUTONOMY_POLICY.md
+    - harness/common/REPORTING_TEMPLATE.md
+  project_harness_read:
+    - docs/agent-harness/growth-data-harness-v0.md
+  required_context_docs:
+    - AGENTS.md
+    - docurule.md
+    - data/!bigquery.md
+    - data/biocom-bigquery-backfill-approval-20260505.md
+  lane: Yellow
+  allowed_actions:
+    - target dataset create
+    - target dataset internal daily table copy with WRITE_EMPTY
+    - read-only verification query
+    - local result documentation
+  forbidden_actions:
+    - GA4 BigQuery Link delete
+    - GA4 BigQuery Link create
+    - source table delete
+    - source table update
+    - source dataset IAM change
+    - write outside target backfill dataset
+    - production DB write
+    - deploy
+    - platform send
+    - sourceFreshness switch to backfill dataset
+  source_window_freshness_confidence:
+    source: hurdlers-naver-pay.analytics_304759974
+    target: project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill
+    site: biocom
+    window: events_20240909 to events_20260503
+    freshness: verification completed 2026-05-05 01:38 KST
+    confidence: 94%
+```
+
+### 10초 요약
+
+TJ님 승인 범위 안에서 biocom GA4 daily raw table 602개를 우리 target backfill dataset으로 복사했다.
+target dataset은 `project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill`이고 location은 `asia-northeast3`다.
+source와 target의 table count, row_count 합계, size_bytes, sample 5개, latest purchase sanity가 모두 일치했다.
+이번 실행은 initial backfill까지만이며 final delta backfill과 GA4 BigQuery Link cutover는 아직 하지 않았다.
+
+### 실행 결과
+
+source: `hurdlers-naver-pay.analytics_304759974`
+target: `project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill`
+credential: `seo-656@seo-aeo-487113.iam.gserviceaccount.com`
+
+| 항목 | source | target | 결과 |
+|---|---:|---:|---|
+| first table | `events_20240909` | `events_20240909` | 일치 |
+| latest table | `events_20260503` | `events_20260503` | 일치 |
+| daily table count | 602 | 602 | 일치 |
+| total rows | 24,310,428 | 24,310,428 | 일치 |
+| total size_bytes | 37,605,989,864 | 37,605,989,864 | 일치 |
+| total size GiB | 35.02 | 35.02 | 일치 |
+
+copy 결과:
+
+- target dataset 생성: 성공.
+- target dataset location: `asia-northeast3`.
+- copied table count: 602.
+- write disposition: `WRITE_EMPTY`.
+- source write: 없음.
+- target 외 write: 없음.
+- copy job errorResult: 0건.
+
+### Verification 결과
+
+실행 명령:
+
+```bash
+cd backend
+npx tsx scripts/biocom-bigquery-backfill.ts --mode=verify
+npx tsx scripts/biocom-bigquery-backfill.ts --mode=verify --json
+```
+
+검증 기준 시각: 2026-05-05 01:38 KST
+
+| 검증 | 결과 |
+|---|---:|
+| source/target table count 일치 | YES |
+| source/target row_count 합계 일치 | YES |
+| source/target size_bytes 차이 | 0 bytes, 0.000% |
+| missing target tables | 0 |
+| extra target tables | 0 |
+| mismatched row tables | 0 |
+| verification_ok | YES |
+
+Sample date 5개:
+
+| table | source rows | target rows | 결과 |
+|---|---:|---:|---|
+| `events_20240909` | 9,441 | 9,441 | 일치 |
+| `events_20260101` | 34,502 | 34,502 | 일치 |
+| `events_20260423` | 73,802 | 73,802 | 일치 |
+| `events_20260425` | 57,676 | 57,676 | 일치 |
+| `events_20260503` | 48,553 | 48,553 | 일치 |
+
+Latest purchase sanity:
+
+| table | rows | purchase | distinct transaction_id | max event time KST | 결과 |
+|---|---:|---:|---:|---|---|
+| source `events_20260503` | 48,553 | 59 | 59 | 2026-05-03 23:59:58 UTC+9 | 일치 |
+| target `events_20260503` | 48,553 | 59 | 59 | 2026-05-03 23:59:58 UTC+9 | 일치 |
+
+### Freshness 재확인
+
+실행 명령:
+
+```bash
+cd backend
+npx tsx scripts/check-source-freshness.ts --json
+```
+
+기준 시각: 2026-05-05 01:36 KST
+
+| source | status | table | rows | purchase | distinct transaction_id | max event time KST |
+|---|---:|---|---:|---:|---:|---|
+| `ga4_bigquery_thecleancoffee` | `fresh` | `project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_20260503` | 2,949 | 14 | 14 | 2026-05-03 23:41:44 |
+| `ga4_bigquery_biocom` | `fresh` | `hurdlers-naver-pay.analytics_304759974.events_20260503` | 48,553 | 59 | 59 | 2026-05-03 23:59:58 |
+
+biocom sourceFreshness 기본 경로는 아직 허들러스 source dataset을 본다.
+이번 작업에서 backfill dataset으로 전환하지 않았다.
+
+### 하지 않은 것
+
+- GA4 BigQuery Link 삭제: 하지 않음.
+- 신규 GA4 BigQuery Link 생성: 하지 않음.
+- source table 삭제: 하지 않음.
+- source table 수정: 하지 않음.
+- source dataset IAM 변경: 하지 않음.
+- target backfill dataset 외 dataset/table write: 하지 않음.
+- 운영DB write: 하지 않음.
+- GA4/Meta/TikTok/Google Ads 전송: 하지 않음.
+- deploy: 하지 않음.
+- sourceFreshness 기본 경로를 backfill dataset으로 전환: 하지 않음.
+- final delta backfill: 하지 않음.
+
+### 다음 결정
+
+1. final delta backfill은 cutover 직전에 별도 승인으로 진행한다.
+2. GA4 BigQuery Link 삭제와 신규 Link 생성은 final delta verification PASS 후 별도 승인으로 진행한다.
+3. `backend/src/sourceFreshness.ts`의 biocom source는 당분간 `hurdlers-naver-pay.analytics_304759974`를 유지한다.
+
+### Auditor Verdict
+
+```text
+Auditor verdict: PASS_WITH_NOTES
+Project: biocom BigQuery backfill
+Phase: initial_backfill
+Lane: Yellow
+Mode: approved_write_to_target_backfill_dataset
+
+No-send verified: YES
+No-write verified: YES outside approved target BigQuery dataset
+No-deploy verified: YES
+No-publish verified: YES
+No-platform-send verified: YES
+
+Source / window / freshness:
+- source: hurdlers-naver-pay.analytics_304759974
+- target: project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill
+- window: events_20240909 to events_20260503
+- freshness: verification 2026-05-05 01:38 KST
+- site: biocom
+- confidence: 94%
+
+Validation:
+- plan PASS.
+- initial-copy PASS.
+- verify PASS.
+- npm run typecheck PASS.
+- check-source-freshness PASS for thecleancoffee and biocom BigQuery sources.
+
+Notes:
+- Final delta backfill remains outside this approval.
+- GA4 Link cutover remains blocked until separate approval.
+```
