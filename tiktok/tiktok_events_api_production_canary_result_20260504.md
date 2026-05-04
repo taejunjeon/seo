@@ -1,13 +1,13 @@
 # TikTok Events API Production Canary 1-Order Result
 
-작성 시각: 2026-05-04 13:12 KST
+작성 시각: 2026-05-04 13:37 KST
 Project: TikTok ROAS 정합성 개선
 Sprint: TikTok Events API Production Canary 1-Order
 Lane: Red, TJ님 명시 승인 후 실행
 Mode: production endpoint single-call canary
-Auditor verdict: PASS_WITH_NOTES
-현재 판정: TikTok Events API production endpoint 1건 호출 성공. TikTok API는 `HTTP 200`, `code=0`, `message=OK` 응답. VM shadow row는 unchanged. TJ님 확인 화면 기준 Diagnostics는 `No active issues`. 단, Test events 탭의 `2026-05-04 11:42:05 | Server` 이벤트는 이전 Test Events smoke이며 이번 production canary 수신 근거로 보지 않는다
-진행 추천 점수: 72%
+Auditor verdict: FAIL_BLOCKED
+현재 판정: TikTok Events API production endpoint 1건 호출 자체는 성공했다. TikTok API는 `HTTP 200`, `code=0`, `message=OK` 응답했고, VM shadow row는 unchanged다. 하지만 사후 분석에서 후보 선정 로직이 다른 TikTok marketing_intent row를 주문 근거로 오인한 버그가 확인됐다. 해당 주문은 실제 주문별 기준으로 `no_tiktok_evidence`가 맞으므로 Events API production 확대는 중단한다
+진행 추천 점수: 25%
 
 ```yaml
 harness_preflight:
@@ -48,16 +48,16 @@ harness_preflight:
   source_window_freshness_confidence:
     source: "TikTok Events API response + TJ 관리 Attribution VM SQLite read-only audit"
     window: "order_no=202605036519253, order_code=o202605033af504ba376d9, production call at 2026-05-04 12:54:25 KST"
-    freshness: "2026-05-04 13:12 KST"
+    freshness: "2026-05-04 13:37 KST"
     site: "biocom"
-    confidence: 0.72
+    confidence: 0.25
 ```
 
 ## 한 줄 결론
 
-승인된 1건 production canary는 API 기준 성공했다.
+승인된 1건 production canary는 API 수신 기준으로는 성공했다.
 
-하지만 이 결과만으로 TikTok Events API 전체 운영 전송을 켜면 안 된다. 남은 핵심 확인은 TikTok Events Manager에서 24시간 안에 중복/경고가 생기지 않는지 보는 것이다.
+하지만 사후 감사에서 후보 선정 로직의 false-positive가 확인됐다. 따라서 이 결과는 “production send 가능” 근거가 아니라 “후보 원장 재생성 전까지 production Events API 중단” 근거로 본다.
 
 ## 완료한 것
 
@@ -71,6 +71,7 @@ harness_preflight:
 | VM shadow row 사후 확인 | PASS | row unchanged. `send_candidate=0`, `platform_send_status=not_sent`, `pii_in_payload=0` | TJ 관리 Attribution VM SQLite |
 | TikTok Diagnostics 1차 확인 | PASS_WITH_NOTES | TJ님 캡처 기준 `Diagnostics > Active issues`에 `No active issues` 표시 | TikTok Events Manager UI |
 | Test events 탭 확인 | 참고용 | `2026-05-04 11:42:05 | Server` 이벤트는 이전 Test Events smoke. 이번 production canary는 `test_event_code` 없이 보냈으므로 Test events 탭에 새로 뜨는 것이 정상 기대값은 아님 | TikTok Events Manager UI |
+| 사후 후보 근거 재검산 | FAIL_BLOCKED | 주문별 VM API 재조회 결과 `ttclid=false`, TikTok UTM 없음, TikTok referrer 없음, `firstTouch.tiktokMatchReasons=[]`. 패치된 후보 로직에서는 `blockReasons=["no_tiktok_evidence"]` | TJ 관리 Attribution VM API + 로컬 후보 생성 로직 |
 
 ## 호출 정보
 
@@ -192,7 +193,52 @@ Source:
 - TJ님이 준 Image #1은 맞다. 다만 그것은 `Test Events only smoke` 확인 화면이다.
 - 이번 production canary는 production endpoint로 보냈고 `test_event_code`가 없었다. 그래서 Test events 탭에 새로 안 뜨는 것이 이상한 상황은 아니다.
 - 현재 가장 의미 있는 UI 근거는 Image #2의 `Diagnostics > No active issues`다.
-- 아직 `PASS`로 올리지 않는 이유는 TikTok production 진단과 Ads 보고 반영이 지연될 수 있기 때문이다. 24시간 관찰 뒤 최종화한다.
+- 다만 Diagnostics 무이슈는 “후보 주문이 TikTok 유입이었다”는 뜻이 아니다. Diagnostics는 품질 이슈 목록이고, 이벤트 수신 목록이 아니다.
+
+## 2026-05-04 추가 원인 분석
+
+TJ님 질문:
+- “진단탭에 내용이 왜 없나?”
+- “funnel-capi 혹은 VM 원장 등 확인해서 분석”
+
+결론:
+- 진단탭이 비어 있는 가장 직접적인 이유는 정상이다. TikTok 공식 설명상 Diagnostics는 event receipt 목록이 아니라 “문제 카드”를 보여주는 화면이다. 문제가 없으면 `No active issues`로 비어 있는 것이 기대값이다.
+- production event 수신 여부는 Diagnostics보다 Overview/Event activity의 `Last Received`, event detail, server/browser connection method 쪽에서 봐야 한다.
+- Change log가 비어 있는 것도 정상이다. TikTok 공식 설명상 developer mode / Events API에서 웹사이트 코드나 이벤트 호출 변경은 Change log에 반영되지 않는다.
+
+공식 근거:
+- TikTok Events Manager Overview는 event type, event detail, dedup, status, connection method, total events, last received를 보여준다. 다만 event data는 실시간이 아니며 dashboard 반영 지연이 있을 수 있다.
+- Diagnostics는 issue/severity/affected dataset/impacted ads 같은 문제 요약 카드다.
+- Change log는 Events Manager 설정 변경 기록이며, 웹사이트 코드나 Events API 호출 자체는 표시되지 않는다.
+- 참고: https://ads.tiktok.com/help/article/tiktok-events-manager-monitor-and-diagnose
+- 참고: https://ads.tiktok.com/help/article/web-diagnostics
+
+VM/원장 재검산:
+
+| 확인 | 결과 | 해석 | 데이터/DB 위치 |
+|---|---|---|---|
+| `tiktok_pixel_events` | 해당 주문 3행: `purchase_intercepted -> decision_received -> released_confirmed_purchase` | 브라우저 TikTok Pixel Purchase는 결제 confirmed라 통과했다 | TJ 관리 Attribution VM SQLite, API read-only |
+| `attribution_ledger` | `payment_success` confirmed 1행, amount 484,500 KRW | 결제 자체는 실제 카드 결제 완료 | TJ 관리 Attribution VM SQLite, API read-only |
+| 주문별 TikTok evidence | `ttclid=false`, UTM 비어 있음, `firstTouch.tiktokMatchReasons=[]`, initial referrer는 `m.search.naver.com` | 이 주문은 내부 기준 TikTok 유입 주문이 아니다 | TJ 관리 Attribution VM SQLite, API read-only |
+| 패치 후 후보 재계산 | `eligibleForFutureSend=false`, `blockReasons=["no_tiktok_evidence"]` | 원래 production canary 후보로 쓰면 안 됐던 주문이다 | 로컬 개발 코드, read-only 재계산 |
+| TikTok Ads API read-only | 2026-05-03 `complete_payment=8`, value 1,353,471 KRW / 2026-05-04 `complete_payment=0` | canary 1건이 중복 증가했는지 즉시 단정 불가. pre-canary baseline이 없어 8건 중 증가분 분리 불가 | TikTok Business API read-only |
+| funnel-capi | 관련 주문/이벤트 로그 없음. 기존 `funnel-capi`는 Meta `fbq`/Meta CAPI 쪽 wrapper다 | TikTok Events Manager 진단탭이 빈 원인이 아니다 | 로컬 로그/코드 read-only |
+
+사후 발견한 버그:
+- `backend/src/tiktokEventsApiShadowCandidates.ts`의 기존 `collectEvidence()`가 `marketing_intent`와 `checkout_started` 전체를 후보 근거로 훑었다.
+- 그래서 다른 사용자의 TikTok 클릭 row가 같은 주문 후보에 섞여 `ttclid=Y`, `UTM=tiktok`으로 보일 수 있었다.
+- 실제 주문별 조회에서는 이 주문에 TikTok evidence가 없었다.
+
+즉시 조치:
+- 로컬 후보 생성 로직을 수정했다.
+- 이제 `marketing_intent`/`checkout_started`는 해당 주문과 명시적으로 연결되는 row만 evidence로 쓴다.
+- unrelated TikTok marketing_intent가 후보를 통과시키지 못하는 회귀 테스트를 추가했다.
+
+영향:
+- 이미 보낸 production canary 1건은 되돌릴 수 없다.
+- 단, payload에는 raw/hash PII가 없고, TikTok API 수신은 성공했다.
+- 이 1건은 TikTok 광고 매출 증명으로 쓰면 안 된다.
+- 이후 production Events API 확대는 `FAIL_BLOCKED`다.
 
 ## 남은 것
 
@@ -238,32 +284,34 @@ Codex가 대신 못 하는 이유:
 
 ### 2. Codex가 할 일
 
-추천 점수: 80%
+추천 점수: 95%
 
 무엇을 하는가:
-- TJ님 UI 확인 결과를 받으면 이 결과 문서를 계속 업데이트하고, 24시간 관찰 뒤 `PASS` 또는 `FAIL_BLOCKED`로 닫는다.
+- Events API shadow 후보 원장을 패치된 로직으로 다시 생성하는 approval 문서를 만든다. 실제 VM write/apply는 별도 승인 전 하지 않는다.
 
 왜 하는가:
-- 현재는 API 기준 성공이지만 UI/Diagnostics 확인이 남아 있어 `PASS_WITH_NOTES`가 맞다.
+- 현재 VM의 `tiktok_events_api_shadow_candidates` 17건은 후보 evidence가 오염됐을 가능성이 있다. 이 상태에서 추가 Test Events나 production send를 하면 안 된다.
 
 어떻게 하는가:
-1. TJ님 캡처를 기준으로 Diagnostics와 production activity 표시 여부를 문서에 추가한다.
-2. 이상 없으면 canary 최종 verdict를 `PASS`로 올린다.
-3. 이상 있으면 `FAIL_BLOCKED`로 두고 production 확대를 중단한다.
-4. audit 후 commit/push한다.
+1. 로컬 패치와 테스트 결과를 문서화한다.
+2. VM shadow 후보 재생성 dry-run 승인 문서를 만든다.
+3. 승인 전까지 VM SQLite write는 하지 않는다.
+4. 24시간 뒤 TikTok Ads API read-only로 `2026-05-03` 구매 수가 더 늘었는지 확인한다.
+5. audit 후 commit/push한다.
 
 승인 필요:
 - 문서 업데이트는 Green Lane이라 추가 승인 불필요.
+- VM shadow 후보 재생성 apply는 VM SQLite write라 Yellow Lane 승인 필요.
 - 추가 production send는 Red Lane이라 별도 승인 필요.
 
 ## 다음 단계 판단
 
 1건 canary 자체:
-- 현재 자신감 72%
-- API 기준 성공, UI/Diagnostics 확인 전이라 `PASS_WITH_NOTES`
+- 현재 자신감 45%
+- API 수신은 성공했지만 후보 선정 근거가 잘못됐다.
 
 전체 운영 전송:
-- 현재 자신감 35%
+- 현재 자신감 5%
 - 아직 승인하면 안 된다.
 
 확대 전 필요한 것:
@@ -275,8 +323,8 @@ Codex가 대신 못 하는 이유:
 
 ## Auditor verdict
 
-Auditor verdict: PASS_WITH_NOTES
+Auditor verdict: FAIL_BLOCKED
 
-승인된 production canary 1건은 API 기준 성공했다. 금지 범위는 지켰다. TJ님 캡처 기준 Diagnostics도 `No active issues`다.
+승인된 production canary 1건은 API 기준 성공했다. 금지 범위 중 “2건 이상 전송, retry, Test Events 추가, 운영DB/VM write, GTM/Purchase Guard 변경”은 지켰다. TJ님 캡처 기준 Diagnostics도 `No active issues`다.
 
-남은 note는 24시간 관찰이다. production Events API 확대는 아직 승인하면 안 된다.
+하지만 사후 원장 재검산에서 이 주문은 내부 기준 TikTok evidence가 없는 주문으로 확인됐다. 후보 생성 로직의 false-positive가 원인이므로, production Events API 확대는 `FAIL_BLOCKED`다.

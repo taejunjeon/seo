@@ -471,3 +471,39 @@ TJ님이 공유한 화면 기준으로 아래처럼 해석한다.
 - `2026-05-04 12:54:25 KST` production send 이후 24시간 동안 Diagnostics에 새 오류가 없는지 본다.
 - TikTok Ads 구매 수가 이 canary 때문에 명백하게 2중 증가했다는 징후가 없는지 본다.
 - 추가 Events API send는 하지 않는다.
+
+## 2026-05-04 13:37 KST 사후 감사 정정
+
+추가 read-only 분석에서 이 승인 문서의 전제가 일부 깨졌다.
+
+정정 결론:
+- TikTok production endpoint 호출 자체는 성공했다.
+- 하지만 대상 후보 주문 `202605036519253`은 주문별 VM 원장 기준 TikTok evidence가 없었다.
+- 기존 shadow 후보 생성 로직이 다른 `marketing_intent` row의 TikTok evidence를 주문 후보에 섞는 false-positive 버그가 있었다.
+- 따라서 이 승인 문서는 “다음 production 확대의 근거”로 쓰면 안 된다.
+
+확인 근거:
+
+| 확인 | 결과 | 해석 | 위치 |
+|---|---|---|---|
+| VM `tiktok_pixel_events` | 해당 주문 3행: `purchase_intercepted`, `decision_received`, `released_confirmed_purchase` | 브라우저 Pixel Purchase는 결제 confirmed라 통과 | TJ 관리 Attribution VM SQLite, API read-only |
+| VM `attribution_ledger.payment_success` | confirmed, 484,500 KRW | 결제 자체는 정상 완료 | TJ 관리 Attribution VM SQLite, API read-only |
+| 주문별 TikTok evidence | `ttclid=false`, TikTok UTM 없음, `firstTouch.tiktokMatchReasons=[]`, initial referrer `m.search.naver.com` | 내부 기준 TikTok 유입 주문 아님 | TJ 관리 Attribution VM SQLite, API read-only |
+| 패치 후 후보 재계산 | `eligibleForFutureSend=false`, `blockReasons=["no_tiktok_evidence"]` | 이 주문은 Events API production 후보에서 제외되어야 함 | 로컬 개발 코드 read-only |
+| TikTok Diagnostics | `No active issues` | payload 품질/연결 이슈가 보이지 않는다는 뜻. TikTok 유입 주문이라는 뜻은 아님 | TikTok Events Manager UI |
+
+원인:
+- `backend/src/tiktokEventsApiShadowCandidates.ts`의 기존 `collectEvidence()`가 주문과 연결되지 않은 전체 `marketing_intent`/`checkout_started`를 훑었다.
+- 사이트에 TikTok 광고 유입이 많으면, 특정 주문이 TikTok 유입이 아니어도 후보가 `ttclid=Y`처럼 보일 수 있었다.
+
+즉시 조치:
+- 로컬 후보 생성 로직을 수정했다.
+- 주문과 직접 연결되는 payment/checkout/metadata evidence만 인정한다.
+- unrelated TikTok marketing_intent가 후보를 통과시키지 못하는 회귀 테스트를 추가했다.
+
+변경된 의사결정:
+- 추가 TikTok Events API production send: 금지
+- 추가 Test Events send: 금지
+- 기존 VM shadow 후보 17건 기준으로 승인 진행: 금지
+- 패치된 로직으로 후보 원장 dry-run/재생성 승인 문서 작성: 허용, Green 문서 작업
+- VM shadow 후보 실제 재생성 apply: Yellow Lane 별도 승인 필요

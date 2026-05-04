@@ -359,10 +359,13 @@ const collectEvidence = (
   ledgerEntries: AttributionLedgerEntry[],
   paymentEntry: AttributionLedgerEntry | null,
 ): EvidenceMatch => {
+  const orderLinkedEntries = ledgerEntries.filter((entry) =>
+    events.some((event) => entryMatchesOrder(entry, event)),
+  );
   const entries = [
     ...(paymentEntry ? [paymentEntry] : []),
-    ...ledgerEntries.filter((entry) => entry.touchpoint === "marketing_intent"),
-    ...ledgerEntries.filter((entry) => entry.touchpoint === "checkout_started"),
+    ...orderLinkedEntries.filter((entry) => entry.touchpoint === "marketing_intent"),
+    ...orderLinkedEntries.filter((entry) => entry.touchpoint === "checkout_started"),
   ];
   const ttclid =
     events.find((event) => event.ttclid)?.ttclid ||

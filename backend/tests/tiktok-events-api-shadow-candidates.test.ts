@@ -160,6 +160,56 @@ test("tiktok events api shadow: blocks confirmed order without TikTok evidence",
   assert.equal(result.candidates[0].tiktokEvidencePresent, false);
 });
 
+test("tiktok events api shadow: ignores unrelated TikTok marketing intent evidence", () => {
+  const event = pixelEvent({
+    ttclid: "",
+    utmSource: "",
+    utmMedium: "",
+    utmCampaign: "",
+    referrer: "https://biocom.kr/",
+    url: "https://biocom.kr/shop_payment_complete?order_code=o20260503abc&order_no=202605031234567",
+  });
+  const payment = ledgerEntry({
+    ttclid: "",
+    utmSource: "",
+    utmMedium: "",
+    utmCampaign: "",
+    referrer: "https://biocom.kr/",
+    landing: "https://biocom.kr/shop_payment_complete?order_code=o20260503abc&order_no=202605031234567",
+    metadata: {
+      orderCode: "o20260503abc",
+      orderNo: "202605031234567",
+      firstTouch: {
+        ttclid: "",
+        utmSource: "",
+        referrer: "https://biocom.kr/",
+      },
+    },
+  });
+  const unrelatedTikTokIntent = ledgerEntry({
+    touchpoint: "marketing_intent",
+    orderId: "",
+    paymentKey: "",
+    ttclid: "unrelated-ttclid",
+    utmSource: "tiktok",
+    referrer: "https://www.tiktok.com/",
+    landing: "https://biocom.kr/products?ttclid=unrelated-ttclid",
+    metadata: {
+      tiktokMatchReasons: ["ttclid_direct"],
+    },
+  });
+
+  const result = buildTikTokEventsApiShadowCandidatesFromSources(
+    [event],
+    [payment, unrelatedTikTokIntent],
+  );
+
+  assert.equal(result.candidates[0].eligibleForFutureSend, false);
+  assert.ok(result.candidates[0].blockReasons.includes("no_tiktok_evidence"));
+  assert.equal(result.candidates[0].tiktokEvidencePresent, false);
+  assert.equal(result.candidates[0].tiktokEvidenceType, "");
+});
+
 test("tiktok events api shadow: persists only not_sent shadow rows in temp local DB", async () => {
   const testDbPath = path.join(os.tmpdir(), `tiktok-events-api-shadow-${process.pid}.sqlite3`);
   process.env.CRM_LOCAL_DB_PATH = testDbPath;

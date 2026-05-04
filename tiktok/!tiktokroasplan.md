@@ -1,8 +1,28 @@
 # TikTok ROAS 정합성 프로젝트 로드맵
 
-작성 시각: 2026-05-03 00:44 KST
-기준일: 2026-05-03
-버전: v3.26-marketing-intent-gtm-live (이전본: `v3.25-marketing-intent-card-test`)
+작성 시각: 2026-05-04 13:37 KST
+기준일: 2026-05-04
+버전: v3.27-events-api-canary-blocked (이전본: `v3.26-marketing-intent-gtm-live`)
+
+## 2026-05-04 최신 정정
+
+TikTok Events API production canary 1건은 API 수신 자체는 성공했다. `HTTP 200`, `code=0`, `message=OK`였고 TikTok Diagnostics도 `No active issues`였다.
+
+하지만 이 결과를 production 확대 근거로 쓰면 안 된다. 사후 재검산에서 후보 주문 `202605036519253`은 실제 주문별 기준으로 TikTok evidence가 없었다. VM `attribution_ledger.payment_success`에는 `ttclid=false`, TikTok UTM 없음, `firstTouch.tiktokMatchReasons=[]`, initial referrer `m.search.naver.com`로 남아 있었다.
+
+원인은 shadow 후보 생성 로직이 전체 `marketing_intent` row를 넓게 훑어, 다른 사용자의 TikTok 클릭 흔적을 해당 주문 후보에 섞은 것이다. 로컬 코드는 수정했고 회귀 테스트도 추가했다. 이제 주문에 직접 연결된 payment/checkout/metadata evidence만 인정한다.
+
+현재 결론:
+- TikTok Events API production 확대는 **중단**한다.
+- 기존 VM shadow 후보 17건은 패치된 로직으로 재생성하기 전까지 승인 근거로 쓰지 않는다.
+- 이미 보낸 canary 1건은 되돌릴 수 없지만, raw/hash PII 없이 1회만 전송됐다.
+- Diagnostics가 비어 있는 것은 실패 신호가 아니다. Diagnostics는 이벤트 수신 목록이 아니라 문제 목록이다.
+- 다음은 패치된 로직 기준으로 VM shadow 후보 dry-run/재생성 승인 문서를 만들고, 기존 17건을 새 기준으로 다시 분류하는 것이다.
+
+진행 추천 자신감:
+- 추가 production send: 5%
+- 패치된 후보 로직으로 VM dry-run 재검산: 95%
+- 24시간 뒤 TikTok Ads API read-only 중복 증가 확인: 88%
 
 ## 2026-05-03 최신 결론
 

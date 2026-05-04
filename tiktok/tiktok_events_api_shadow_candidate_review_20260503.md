@@ -9,6 +9,9 @@ Auditor verdict: PASS_WITH_NOTES
 현재 판정: 17건 후보 검토 완료. Test Events only 후보는 3건까지 추천 가능하지만 실제 전송은 금지 상태 유지
 자신감: 86%
 
+> 2026-05-04 13:37 KST 정정:
+> 이 문서의 A/B/C 분류는 당시 VM shadow row를 사람이 읽기 쉽게 재작성한 기록이다. 이후 production canary 사후 감사에서 shadow 후보 생성 로직이 다른 `marketing_intent` row의 TikTok evidence를 주문 후보에 섞을 수 있음이 확인됐다. 특히 `202605036519253`은 주문별 재검산 결과 `no_tiktok_evidence`로 차단되어야 한다. 이 문서는 과거 감사 기록으로만 유지하고, 추가 Test Events/production send 근거로 쓰지 않는다. 패치된 로직으로 shadow 후보를 재생성한 뒤 새 후보 검토표를 만든다.
+
 ```yaml
 harness_preflight:
   common_harness_read: "harness/common/HARNESS_GUIDELINES.md, harness/common/AUTONOMY_POLICY.md, harness/common/REPORTING_TEMPLATE.md"
