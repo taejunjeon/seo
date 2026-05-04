@@ -446,5 +446,28 @@ Auditor verdict: NEEDS_HUMAN_APPROVAL
 - `PASS_WITH_NOTES`
 
 남은 note:
-- TJ님이 TikTok Events Manager Overview/Diagnostics에서 production server `Purchase`와 `event_id=Purchase_o202605033af504ba376d9` 표시 및 경고 여부를 확인해야 한다.
+- TJ님이 TikTok Events Manager에서 24시간 안에 Diagnostics 경고와 구매 중복 증가 징후가 생기는지 확인해야 한다.
 - 이 확인 전에는 production Events API 확대를 승인하지 않는다.
+
+## 2026-05-04 13:12 KST UI 1차 확인
+
+TJ님이 공유한 화면 기준으로 아래처럼 해석한다.
+
+| 화면 | 관찰 내용 | 해석 | 판정 |
+|---|---|---|---|
+| Test events | `Purchase`, `2026-05-04 11:42:05`, `Server`, `event_id=Purchase_o202605033af504ba376d9`, `content_name=TikTok Test Events smoke order` | 이전 Test Events only smoke 확인 화면이다. 이번 production canary는 `test_event_code` 없이 보냈으므로 이 탭에 새로 뜨는 것을 기대하지 않는다 | 참고용 |
+| Diagnostics | `Active issues`에 `No active issues` 표시 | production canary 직후 심각한 event_id mismatch, duplicate, policy 경고가 보이지 않는다 | PASS_WITH_NOTES |
+| Change log | 선택 기간 로그 없음 | event 수신 여부를 보는 화면이 아니므로 canary 성공/실패 근거로 쓰지 않는다 | 참고용 |
+| Settings | Pixel/Data connection 설정 화면 | pixel 연결 상태 확인에는 도움이 되지만 이번 event-level 수신 근거는 아니다 | 참고용 |
+
+업데이트된 해석:
+- API 응답: PASS
+- VM shadow row unchanged: PASS
+- Diagnostics 1차 확인: PASS_WITH_NOTES
+- Test events 탭의 `11:42:05` 이벤트: 이미 완료된 Test Events smoke 근거
+- Production 확대: 아직 금지
+
+다음 확인:
+- `2026-05-04 12:54:25 KST` production send 이후 24시간 동안 Diagnostics에 새 오류가 없는지 본다.
+- TikTok Ads 구매 수가 이 canary 때문에 명백하게 2중 증가했다는 징후가 없는지 본다.
+- 추가 Events API send는 하지 않는다.
