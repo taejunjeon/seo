@@ -1,10 +1,33 @@
 # TikTok ROAS 정합성 프로젝트 로드맵
 
-작성 시각: 2026-05-04 14:09 KST
+작성 시각: 2026-05-04 14:41 KST
 기준일: 2026-05-04
-버전: v3.28-events-api-shadow-rebuilt (이전본: `v3.27-events-api-canary-blocked`)
+버전: v3.29-events-api-shadow-v21-no-candidates (이전본: `v3.28-events-api-shadow-rebuilt`)
 
 ## 2026-05-04 최신 정정
+
+2026-05-04 14:41 KST 추가 정정: Rebuild v2에서 유일하게 `eligible_for_future_send=1`로 남았던 주문 `202605035698347 / 11,900원`은 실제 광고 주문이 아니라 TJ님과 Codex가 만든 TikTok 테스트 URL 카드 결제 주문이었다.
+
+그래서 v2.1 Shadow Candidate Rebuild를 다시 실행했다. TJ 관리 Attribution VM SQLite에 `candidate_version=2026-05-04.shadow.rebuild.v2.1` 50건을 shadow-only로 upsert했고, 기존 v2 row는 backup table `tiktok_events_api_shadow_candidates_backup_20260504_rebuild_v21` 50건으로 보존했다.
+
+v2.1 결과는 더 보수적이다. 최근 7일 source 후보 499건 중 `technical_eligible_for_future_send=1`은 테스트 주문 1건뿐이고, `business_eligible_for_future_send=0`, `eligible_for_future_send=0`이다. 즉 현재 production TikTok Events API send 후보는 **0건**이다.
+
+현재 최신 결론:
+- 추가 TikTok Events API production send는 **비승인 / 보류**다.
+- 기존 v1 후보와 v2 후보는 승인 근거로 쓰지 않는다.
+- 앞으로 화면/문서/승인 판단은 `candidate_version=2026-05-04.shadow.rebuild.v2.1`만 최신 근거로 본다.
+- 테스트 주문 `202605035698347`은 `manual_test_order`로 차단한다.
+- 기존 canary 주문 `202605036519253`은 계속 `no_tiktok_evidence`로 차단한다.
+- Test Events 추가 전송은 하지 않는다. 이미 Test Events 수신 가능성은 확인됐고, 현재 A등급 실제 광고 주문 후보가 0건이다.
+
+진행 추천 자신감:
+- 추가 production send: 0%
+- v2.1 shadow-only 관찰 유지: 96%
+- 24시간 후 read-only 재점검: 92%
+
+세부 근거:
+- v2.1 Rebuild 결과: [[tiktok_events_api_shadow_rebuild_v21_result_20260504]]
+- v2.1 후보 검토표: [[tiktok_events_api_shadow_candidate_review_20260504_v21]]
 
 TikTok Events API production canary 1건은 API 수신 자체는 성공했다. `HTTP 200`, `code=0`, `message=OK`였고 TikTok Diagnostics도 `No active issues`였다.
 
@@ -18,10 +41,10 @@ TikTok Events API production canary 1건은 API 수신 자체는 성공했다. `
 
 현재 결론:
 - TikTok Events API production 확대는 **중단**한다.
-- 기존 VM shadow 후보 17건은 승인 근거로 쓰지 않는다. 앞으로는 `candidate_version=2026-05-04.shadow.rebuild.v2`만 본다.
+- 기존 VM shadow 후보 17건과 v2 후보는 승인 근거로 쓰지 않는다. 앞으로는 `candidate_version=2026-05-04.shadow.rebuild.v2.1`만 본다.
 - 이미 보낸 canary 1건은 되돌릴 수 없지만, raw/hash PII 없이 1회만 전송됐다.
 - Diagnostics가 비어 있는 것은 실패 신호가 아니다. Diagnostics는 이벤트 수신 목록이 아니라 문제 목록이다.
-- 다음은 production send가 아니라 v2 후보표를 기준으로 `/ads/tiktok` 화면/문서가 옛 v1 숫자를 다시 쓰지 않게 막는 것이다.
+- 다음은 production send가 아니라 v2.1 후보표를 기준으로 `/ads/tiktok` 화면/문서가 옛 v1/v2 숫자를 다시 쓰지 않게 막는 것이다.
 
 진행 추천 자신감:
 - 추가 production send: 5%
@@ -31,6 +54,8 @@ TikTok Events API production canary 1건은 API 수신 자체는 성공했다. `
 세부 근거:
 - Shadow rebuild 결과: [[tiktok_events_api_shadow_rebuild_result_20260504]]
 - 새 후보 검토표: [[tiktok_events_api_shadow_candidate_review_20260504]]
+- v2.1 Rebuild 결과: [[tiktok_events_api_shadow_rebuild_v21_result_20260504]]
+- v2.1 후보 검토표: [[tiktok_events_api_shadow_candidate_review_20260504_v21]]
 
 ## 2026-05-03 최신 결론
 

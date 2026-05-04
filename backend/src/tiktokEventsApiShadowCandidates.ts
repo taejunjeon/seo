@@ -9,8 +9,19 @@ import { normalizeOrderIdBase } from "./orderKeys";
 import { listTikTokPixelEvents, type TikTokPixelEvent } from "./tiktokPixelEvents";
 
 const SHADOW_TABLE = "tiktok_events_api_shadow_candidates";
-const CANDIDATE_VERSION = "2026-05-04.shadow.rebuild.v2";
+const CANDIDATE_VERSION = "2026-05-04.shadow.rebuild.v2.1";
 const PIXEL_CODE = "D5G8FTBC77UAODHQ0KOG";
+const KNOWN_MANUAL_TEST_ORDER_NOS = new Set(["202605035698347"]);
+const SYNTHETIC_TEST_KEYWORDS = [
+  "codex",
+  "test",
+  "smoke",
+  "vm_smoke",
+  "gtm_live",
+  "gtm_test",
+  "manual_browser_test",
+  "smoketest",
+];
 
 export type TikTokEventsApiShadowBlockReason =
   | "not_confirmed"
@@ -22,7 +33,10 @@ export type TikTokEventsApiShadowBlockReason =
   | "event_name_mismatch"
   | "pixel_code_mismatch"
   | "pii_detected"
-  | "duplicate_shadow_candidate";
+  | "duplicate_shadow_candidate"
+  | "manual_test_order"
+  | "synthetic_test_ttclid"
+  | "synthetic_test_evidence";
 
 export type TikTokEventsApiShadowCandidate = {
   candidateId: string;
@@ -32,6 +46,8 @@ export type TikTokEventsApiShadowCandidate = {
   evaluationMode: "shadow_only";
   sendCandidate: false;
   eligibleForFutureSend: boolean;
+  technicalEligibleForFutureSend: boolean;
+  businessEligibleForFutureSend: boolean;
   platformSendStatus: "not_sent";
   eventName: "Purchase";
   browserEventName: "Purchase";
@@ -64,6 +80,8 @@ export type TikTokEventsApiShadowCandidate = {
   utmContent: string;
   referrerHost: string;
   piiInPayload: boolean;
+  isManualTestOrder: boolean;
+  syntheticEvidenceReason: string;
   blockReasons: TikTokEventsApiShadowBlockReason[];
   payloadPreview: Record<string, unknown>;
   sourceRefs: Record<string, unknown>;
@@ -91,6 +109,10 @@ export type TikTokEventsApiShadowBuildResult = {
 export type TikTokEventsApiShadowSummary = {
   totalCandidates: number;
   eligibleForFutureSend: number;
+  technicalEligibleForFutureSend: number;
+  businessEligibleForFutureSend: number;
+  manualTestOrders: number;
+  syntheticEvidenceOrders: number;
   blocked: number;
   sendCandidateTrue: 0;
   platformSent: 0;
@@ -149,6 +171,13 @@ type EvidenceRef = {
   priority: number;
 };
 
+type ManualTestSignal = {
+  isManualTestOrder: boolean;
+  syntheticEvidenceReason: string;
+  matchedField: string;
+  matchedKeyword: string;
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));
 
@@ -184,6 +213,25 @@ const parseUrlParam = (value: string, key: string): string => {
   if (!value) return "";
   try {
     return new URL(value, "https://biocom.kr").searchParams.get(key)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const syntheticKeywordIn = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return "";
+  return (
+    SYNTHETIC_TEST_KEYWORDS.find((keyword) => {
+      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(normalized);
+    }) ?? ""
+  );
+};
+
+const safeJsonStringify = (value: unknown) => {
+  try {
+    return JSON.stringify(value ?? {});
   } catch {
     return "";
   }
@@ -441,6 +489,76 @@ const hasEntryTikTokEvidence = (entry: AttributionLedgerEntry) =>
       includesTikTokSource(readString(firstTouchFromMetadata(entry.metadata), "utmSource")) ||
       hasTikTokHost(readString(firstTouchFromMetadata(entry.metadata), "referrer")),
   );
+
+const manualTestSignalFor = (
+  events: TikTokPixelEvent[],
+  paymentEntry: AttributionLedgerEntry | null,
+  evidence: EvidenceMatch,
+): ManualTestSignal => {
+  const eventOrderNos = events.map((event) => event.orderNo).filter(Boolean);
+  const paymentOrderNo = normalizeOrderIdBase(paymentEntry?.orderId ?? "");
+  const knownOrderNo = [...eventOrderNos, paymentOrderNo].find((orderNo) =>
+    KNOWN_MANUAL_TEST_ORDER_NOS.has(orderNo),
+  );
+  if (knownOrderNo) {
+    return {
+      isManualTestOrder: true,
+      syntheticEvidenceReason: "known_manual_test_order_no",
+      matchedField: "order_no",
+      matchedKeyword: "known_manual_test_order",
+    };
+  }
+
+  const firstTouch = firstTouchFromMetadata(paymentEntry?.metadata ?? {});
+  const values: Array<{ field: string; value: string }> = [
+    ...events.flatMap((event) => [
+      { field: "tiktok_pixel_event.ttclid", value: event.ttclid },
+      { field: "tiktok_pixel_event.utm_source", value: event.utmSource },
+      { field: "tiktok_pixel_event.utm_medium", value: event.utmMedium },
+      { field: "tiktok_pixel_event.utm_campaign", value: event.utmCampaign },
+      { field: "tiktok_pixel_event.utm_content", value: event.utmContent },
+      { field: "tiktok_pixel_event.utm_term", value: event.utmTerm },
+      { field: "tiktok_pixel_event.url", value: event.url },
+      { field: "tiktok_pixel_event.params", value: safeJsonStringify(event.params) },
+      { field: "tiktok_pixel_event.decision", value: safeJsonStringify(event.decision) },
+    ]),
+    { field: "payment_success.ttclid", value: paymentEntry?.ttclid ?? "" },
+    { field: "payment_success.utm_source", value: paymentEntry?.utmSource ?? "" },
+    { field: "payment_success.utm_medium", value: paymentEntry?.utmMedium ?? "" },
+    { field: "payment_success.utm_campaign", value: paymentEntry?.utmCampaign ?? "" },
+    { field: "payment_success.utm_content", value: paymentEntry?.utmContent ?? "" },
+    { field: "payment_success.landing", value: paymentEntry?.landing ?? "" },
+    { field: "payment_success.metadata", value: safeJsonStringify(paymentEntry?.metadata ?? {}) },
+    { field: "payment_success.first_touch.ttclid", value: readString(firstTouch, "ttclid") },
+    { field: "payment_success.first_touch.utm_source", value: readString(firstTouch, "utmSource") },
+    { field: "payment_success.first_touch.utm_campaign", value: readString(firstTouch, "utmCampaign") },
+    { field: "payment_success.first_touch.utm_content", value: readString(firstTouch, "utmContent") },
+    { field: "evidence.utm_source", value: evidence.utmSource },
+    { field: "evidence.utm_campaign", value: evidence.utmCampaign },
+    { field: "evidence.utm_content", value: evidence.utmContent },
+  ];
+  for (const item of values) {
+    const keyword = syntheticKeywordIn(item.value);
+    if (!keyword) continue;
+    const reason = item.field.includes("ttclid")
+      ? `synthetic_test_ttclid:${keyword}`
+      : item.field.includes("campaign")
+        ? `synthetic_test_campaign:${keyword}`
+        : `synthetic_test_evidence:${keyword}`;
+    return {
+      isManualTestOrder: true,
+      syntheticEvidenceReason: reason,
+      matchedField: item.field,
+      matchedKeyword: keyword,
+    };
+  }
+  return {
+    isManualTestOrder: false,
+    syntheticEvidenceReason: "",
+    matchedField: "",
+    matchedKeyword: "",
+  };
+};
 
 const pushEvidenceRef = (refs: EvidenceRef[], ref: EvidenceRef) => {
   if (!refs.some((item) => item.linkType === ref.linkType && item.rowId === ref.rowId)) {
@@ -713,6 +831,7 @@ const buildSourceRefs = (
   event: TikTokPixelEvent,
   paymentMatch: PaymentMatch,
   evidence: EvidenceMatch,
+  manualTestSignal: ManualTestSignal,
 ) => ({
   tiktok_pixel_events: {
     event_log_id: event.eventLogId,
@@ -747,6 +866,12 @@ const buildSourceRefs = (
     table: "dashboard.public.tb_iamweb_users",
     write: false,
   },
+  manual_test_exclusion: {
+    is_manual_test_order: manualTestSignal.isManualTestOrder,
+    synthetic_evidence_reason: manualTestSignal.syntheticEvidenceReason,
+    matched_field: manualTestSignal.matchedField,
+    matched_keyword: manualTestSignal.matchedKeyword,
+  },
 });
 
 export const buildTikTokEventsApiShadowCandidatesFromSources = (
@@ -768,6 +893,7 @@ export const buildTikTokEventsApiShadowCandidatesFromSources = (
       : "imweb_wrapper_rule";
     const paymentMatch = findPaymentMatch(group.events, ledgerEntries);
     const evidence = collectEvidence(group.events, ledgerEntries, paymentMatch.entry);
+    const manualTestSignal = manualTestSignalFor(group.events, paymentMatch.entry, evidence);
     const payloadPreview = buildPayloadPreview({
       eventName: "Purchase",
       eventId: serverEventIdCandidate,
@@ -787,9 +913,21 @@ export const buildTikTokEventsApiShadowCandidatesFromSources = (
     if (!evidence.present) addBlockReason(blockReasons, "no_tiktok_evidence");
     if (detectPayloadPii(payloadPreview)) addBlockReason(blockReasons, "pii_detected");
 
-    const eligibleForFutureSend = blockReasons.length === 0;
+    const technicalEligibleForFutureSend = blockReasons.length === 0;
+    if (manualTestSignal.isManualTestOrder) {
+      if (manualTestSignal.syntheticEvidenceReason.startsWith("known_manual_test_order")) {
+        addBlockReason(blockReasons, "manual_test_order");
+      } else if (manualTestSignal.syntheticEvidenceReason.startsWith("synthetic_test_ttclid")) {
+        addBlockReason(blockReasons, "synthetic_test_ttclid");
+      } else {
+        addBlockReason(blockReasons, "synthetic_test_evidence");
+      }
+    }
+
+    const businessEligibleForFutureSend = blockReasons.length === 0;
+    const eligibleForFutureSend = businessEligibleForFutureSend;
     const dedupReady = Boolean(
-      eligibleForFutureSend &&
+      technicalEligibleForFutureSend &&
         browserEventIdObserved &&
         serverEventIdCandidate &&
         browserEventIdObserved === serverEventIdCandidate,
@@ -811,6 +949,8 @@ export const buildTikTokEventsApiShadowCandidatesFromSources = (
       evaluationMode: "shadow_only" as const,
       sendCandidate: false as const,
       eligibleForFutureSend,
+      technicalEligibleForFutureSend,
+      businessEligibleForFutureSend,
       platformSendStatus: "not_sent" as const,
       eventName: "Purchase" as const,
       browserEventName: "Purchase" as const,
@@ -843,12 +983,21 @@ export const buildTikTokEventsApiShadowCandidatesFromSources = (
       utmContent: evidence.utmContent,
       referrerHost: evidence.referrerHost,
       piiInPayload: detectPayloadPii(payloadPreview),
+      isManualTestOrder: manualTestSignal.isManualTestOrder,
+      syntheticEvidenceReason: manualTestSignal.syntheticEvidenceReason,
       blockReasons,
       payloadPreview,
-      sourceRefs: buildSourceRefs(event, paymentMatch, evidence),
+      sourceRefs: buildSourceRefs(event, paymentMatch, evidence, manualTestSignal),
       metadata: {
         groupKey: group.key,
         groupedEventCount: group.events.length,
+        technicalEligibleForFutureSend,
+        businessEligibleForFutureSend,
+        sendCandidate: false,
+        isManualTestOrder: manualTestSignal.isManualTestOrder,
+        syntheticEvidenceReason: manualTestSignal.syntheticEvidenceReason,
+        syntheticEvidenceMatchedField: manualTestSignal.matchedField,
+        syntheticEvidenceMatchedKeyword: manualTestSignal.matchedKeyword,
         evidenceLinkType: evidence.linkType,
         evidenceRowId: evidence.rowId,
         evidenceOrderCodeMatch: evidence.evidenceOrderCodeMatch,
@@ -887,6 +1036,10 @@ export const summarizeTikTokEventsApiShadowCandidates = (
   return {
     totalCandidates: candidates.length,
     eligibleForFutureSend: candidates.filter((candidate) => candidate.eligibleForFutureSend).length,
+    technicalEligibleForFutureSend: candidates.filter((candidate) => candidate.technicalEligibleForFutureSend).length,
+    businessEligibleForFutureSend: candidates.filter((candidate) => candidate.businessEligibleForFutureSend).length,
+    manualTestOrders: candidates.filter((candidate) => candidate.isManualTestOrder).length,
+    syntheticEvidenceOrders: candidates.filter((candidate) => candidate.syntheticEvidenceReason).length,
     blocked: candidates.filter((candidate) => !candidate.eligibleForFutureSend).length,
     sendCandidateTrue: 0,
     platformSent: 0,

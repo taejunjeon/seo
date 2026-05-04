@@ -110,6 +110,10 @@ test("tiktok events api shadow: builds Purchase dedup candidate from confirmed T
   assert.notEqual(candidate.guardRawEventId, "o20260503abc");
   assert.equal(candidate.dedupReady, true);
   assert.equal(candidate.eligibleForFutureSend, true);
+  assert.equal(candidate.technicalEligibleForFutureSend, true);
+  assert.equal(candidate.businessEligibleForFutureSend, true);
+  assert.equal(candidate.isManualTestOrder, false);
+  assert.equal(candidate.syntheticEvidenceReason, "");
   assert.deepEqual(candidate.blockReasons, []);
   const pixelSourceRef = candidate.sourceRefs.tiktok_pixel_events as {
     event_id: string;
@@ -131,6 +135,79 @@ test("tiktok events api shadow: builds Purchase dedup candidate from confirmed T
   assert.equal(evidenceRef.evidence_order_no_match, true);
   assert.equal(evidenceRef.marketing_intent_linked, false);
   assert.equal(evidenceRef.global_intent_excluded_count, 0);
+});
+
+test("tiktok events api shadow: blocks synthetic manual test order while preserving technical eligibility", () => {
+  const event = pixelEvent({
+    orderCode: "o20260502c0c1ce5d28e95",
+    orderNo: "202605035698347",
+    paymentCode: "pa20260503manualtest",
+    eventId: "o20260502c0c1ce5d28e95",
+    ttclid: "codex_gtm_card_20260503_001",
+    utmCampaign: "codex_gtm_card_test",
+    url: "https://biocom.kr/shop_payment_complete?order_code=o20260502c0c1ce5d28e95&order_no=202605035698347&ttclid=codex_gtm_card_20260503_001&utm_campaign=codex_gtm_card_test",
+  });
+  const entry = ledgerEntry({
+    orderId: "202605035698347-P1",
+    ttclid: "codex_gtm_card_20260503_001",
+    utmCampaign: "codex_gtm_card_test",
+    landing: "https://biocom.kr/shop_payment_complete?order_code=o20260502c0c1ce5d28e95&order_no=202605035698347&payment_code=pa20260503manualtest&ttclid=codex_gtm_card_20260503_001&utm_campaign=codex_gtm_card_test",
+    metadata: {
+      orderCode: "o20260502c0c1ce5d28e95",
+      orderNo: "202605035698347",
+      paymentCode: "pa20260503manualtest",
+    },
+  });
+  const result = buildTikTokEventsApiShadowCandidatesFromSources([event], [entry]);
+
+  assert.equal(result.summary.totalCandidates, 1);
+  assert.equal(result.summary.technicalEligibleForFutureSend, 1);
+  assert.equal(result.summary.businessEligibleForFutureSend, 0);
+  assert.equal(result.summary.eligibleForFutureSend, 0);
+  assert.equal(result.summary.manualTestOrders, 1);
+  assert.equal(result.candidates[0].technicalEligibleForFutureSend, true);
+  assert.equal(result.candidates[0].businessEligibleForFutureSend, false);
+  assert.equal(result.candidates[0].eligibleForFutureSend, false);
+  assert.equal(result.candidates[0].dedupReady, true);
+  assert.equal(result.candidates[0].isManualTestOrder, true);
+  assert.equal(result.candidates[0].syntheticEvidenceReason, "known_manual_test_order_no");
+  assert.ok(result.candidates[0].blockReasons.includes("manual_test_order"));
+  const sourceRefs = result.candidates[0].sourceRefs.manual_test_exclusion as {
+    is_manual_test_order: boolean;
+    synthetic_evidence_reason: string;
+  };
+  assert.equal(sourceRefs.is_manual_test_order, true);
+  assert.equal(sourceRefs.synthetic_evidence_reason, "known_manual_test_order_no");
+});
+
+test("tiktok events api shadow: blocks synthetic ttclid evidence even when order is not on manual list", () => {
+  const event = pixelEvent({
+    orderCode: "o20260503synthetic",
+    orderNo: "202605039999999",
+    paymentCode: "pa20260503synthetic",
+    eventId: "o20260503synthetic",
+    ttclid: "codex_realistic_smoke_001",
+    utmCampaign: "",
+    url: "https://biocom.kr/shop_payment_complete?order_code=o20260503synthetic&order_no=202605039999999&ttclid=codex_realistic_smoke_001",
+  });
+  const entry = ledgerEntry({
+    orderId: "202605039999999-P1",
+    ttclid: "codex_realistic_smoke_001",
+    utmCampaign: "",
+    landing: "https://biocom.kr/shop_payment_complete?order_code=o20260503synthetic&order_no=202605039999999&payment_code=pa20260503synthetic&ttclid=codex_realistic_smoke_001",
+    metadata: {
+      orderCode: "o20260503synthetic",
+      orderNo: "202605039999999",
+      paymentCode: "pa20260503synthetic",
+    },
+  });
+  const result = buildTikTokEventsApiShadowCandidatesFromSources([event], [entry]);
+
+  assert.equal(result.candidates[0].technicalEligibleForFutureSend, true);
+  assert.equal(result.candidates[0].businessEligibleForFutureSend, false);
+  assert.equal(result.candidates[0].eligibleForFutureSend, false);
+  assert.equal(result.candidates[0].syntheticEvidenceReason, "synthetic_test_ttclid:codex");
+  assert.ok(result.candidates[0].blockReasons.includes("synthetic_test_ttclid"));
 });
 
 test("tiktok events api shadow: blocks pending virtual-account Purchase", () => {

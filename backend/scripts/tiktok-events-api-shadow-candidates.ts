@@ -57,7 +57,11 @@ const isoDaysAgo = (days: number) => {
   return date.toISOString();
 };
 
-const selectShadowRowsForWrite = <T extends { candidateId: string; eligibleForFutureSend: boolean; orderNo: string }>(
+const selectShadowRowsForWrite = <T extends {
+  candidateId: string;
+  eligibleForFutureSend: boolean;
+  orderNo: string;
+}>(
   candidates: T[],
   limit: number,
   includeOrderNos: string[],
@@ -113,10 +117,14 @@ const main = () => {
       orderNo: candidate.orderNo,
       eventName: candidate.eventName,
       serverEventIdCandidate: candidate.serverEventIdCandidate,
+      technicalEligibleForFutureSend: candidate.technicalEligibleForFutureSend,
+      businessEligibleForFutureSend: candidate.businessEligibleForFutureSend,
       eligibleForFutureSend: candidate.eligibleForFutureSend,
       dedupReady: candidate.dedupReady,
       paymentStatus: candidate.paymentStatus,
       tiktokEvidenceType: candidate.tiktokEvidenceType,
+      isManualTestOrder: candidate.isManualTestOrder,
+      syntheticEvidenceReason: candidate.syntheticEvidenceReason,
       blockReasons: candidate.blockReasons,
     })),
   };
@@ -135,6 +143,10 @@ const main = () => {
   console.log(`writtenRows=${output.writtenRows}`);
   console.log(`totalCandidates=${output.summary.totalCandidates}`);
   console.log(`eligibleForFutureSend=${output.summary.eligibleForFutureSend}`);
+  console.log(`technicalEligibleForFutureSend=${output.summary.technicalEligibleForFutureSend}`);
+  console.log(`businessEligibleForFutureSend=${output.summary.businessEligibleForFutureSend}`);
+  console.log(`manualTestOrders=${output.summary.manualTestOrders}`);
+  console.log(`syntheticEvidenceOrders=${output.summary.syntheticEvidenceOrders}`);
   console.log(`blocked=${output.summary.blocked}`);
   console.log(`dedupReady=${output.summary.dedupReady}`);
   console.log(`sendCandidateTrue=${output.summary.sendCandidateTrue}`);

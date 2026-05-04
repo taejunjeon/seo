@@ -1092,6 +1092,32 @@ export default function TikTokAdsPerformancePage() {
 
           <section
             style={{
+              border: "1px solid #fed7aa",
+              borderRadius: 8,
+              background: "#fff7ed",
+              padding: 20,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div style={{ maxWidth: 880 }}>
+                <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 900 }}>TikTok Events API 후보 기준</h2>
+                <p style={{ margin: "8px 0 0", color: "#9a3412", fontSize: "0.82rem", lineHeight: 1.75 }}>
+                  최신 판단 기준은 TJ 관리 Attribution VM SQLite의
+                  {" "}<strong>candidate_version=2026-05-04.shadow.rebuild.v2.1</strong>입니다.
+                  v1/v2 후보는 false-positive 또는 테스트 주문이 섞인 버전이라 production send 승인 근거로 쓰지 않습니다.
+                  v2.1은 기술적으로 dedup이 가능해 보여도 `codex/test/smoke/vm_smoke/gtm_live` 계열 테스트 주문을 business 후보에서 차단합니다.
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <StatusBadge tone="amber">Production 후보 0건 목표</StatusBadge>
+                <StatusBadge tone="neutral">send_candidate=false</StatusBadge>
+                <StatusBadge tone="neutral">platform_send_status=not_sent</StatusBadge>
+              </div>
+            </div>
+          </section>
+
+          <section
+            style={{
               border: `1px solid ${toneMap[verdictTone].border}`,
               borderRadius: 8,
               background: toneMap[verdictTone].background,

@@ -6,6 +6,8 @@ candidate_version: `2026-05-04.shadow.rebuild.v2`
 운영DB 영향: 없음. 개발팀 관리 PostgreSQL `dashboard.public.tb_iamweb_users` write 없음
 외부 전환 전송: 없음. TikTok Events API/Test Events/GA4/Meta/Google send 없음
 
+> 2026-05-04 14:41 KST 정정: 이 v2 후보표는 superseded 되었다. 1번 row `202605035698347`은 실제 광고 주문이 아니라 테스트 URL 카드 결제 주문으로 확인되어 v2.1에서 `manual_test_order`로 차단했다. 최신 후보표는 [[tiktok_events_api_shadow_candidate_review_20260504_v21]]이다. 이 문서는 보존용이며 production send 승인 근거로 쓰지 않는다.
+
 ```yaml
 harness_preflight:
   common_harness_read: "AGENTS.md, harness/common/HARNESS_GUIDELINES.md, harness/common/AUTONOMY_POLICY.md, harness/common/REPORTING_TEMPLATE.md"

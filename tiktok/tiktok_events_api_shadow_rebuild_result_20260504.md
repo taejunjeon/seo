@@ -9,6 +9,8 @@ Auditor verdict: PASS_WITH_NOTES
 현재 판정: 승인 범위 안에서 완료. TikTok/GA4/Meta/Google 전송 0건
 자신감: 95%
 
+> 2026-05-04 14:41 KST 정정: 이 v2 결과는 superseded 되었다. 유일한 eligible 1건 `202605035698347`은 테스트 URL 카드 결제 주문으로 확인되어 v2.1에서 `manual_test_order`로 차단했다. 최신 판단 기준은 [[tiktok_events_api_shadow_rebuild_v21_result_20260504]]와 `candidate_version=2026-05-04.shadow.rebuild.v2.1`이다. v2는 production send 승인 근거로 쓰지 않는다.
+
 ```yaml
 harness_preflight:
   common_harness_read: "AGENTS.md, harness/common/HARNESS_GUIDELINES.md, harness/common/AUTONOMY_POLICY.md, harness/common/REPORTING_TEMPLATE.md"
