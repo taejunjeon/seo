@@ -39,10 +39,12 @@ harness_preflight:
 
 ## 10초 결론
 
-현재 TJ님 결정은 실행 승인 없음이다.
-방향 승인만 필요하다.
-Google click id 보존 개선을 1순위로 두고, Google Ads 실제 전송, Google Ads 전환 액션 변경, 8건 GA4 복구 전송은 보류하는 것을 추천한다.
-다음 승인 시점은 Codex가 [[../gdn/paid-click-intent-gtm-preview-approval-20260506|paid_click_intent GTM Preview 승인안]] 기준으로 Preview 실행 여부를 물을 때다.
+이 문서는 승인 대기열이지만, `paid_click_intent` Preview 여부 판단과 receiver 접근 방식 판단은 이미 지나갔다.
+2026-05-06 기준 Codex가 [[../gdn/paid-click-intent-gtm-preview-result-20260506|paid_click_intent GTM Preview only]]와 [[../gdn/paid-click-intent-receiver-access-result-20260506|receiver HTTPS 재검증]]을 실행했다.
+결과는 storage/payload PASS, Node-side receiver contract PASS, browser receiver `200 ok=true` PASS다.
+
+현재 TJ님 결정은 `Google Ads 전송`이 아니다.
+추천은 Google Ads 실제 전송, Google Ads 전환 액션 변경, 8건 GA4 복구 전송은 계속 보류하고, Codex가 Google Ads landing-session 기준 click id 분모 분석과 GTM Production publish 승인안을 먼저 만드는 것이다.
 
 ## 컨펌 항목 1
 
@@ -54,9 +56,9 @@ Google click id 보존 개선을 1순위로 두고, Google Ads 실제 전송, Go
 
 **Codex 추천**: YES. 추천 강도 94%.
 
-**TJ님이 지금 할 일**: 지금은 승인 버튼을 누를 필요 없다. 이후 Codex가 GTM Preview 승인안을 만들면 그때 `YES/HOLD`를 판단하면 된다.
+**TJ님이 지금 할 일**: Preview 실행 여부나 receiver 접근 방식을 다시 판단할 필요는 없다. 다음에 Codex가 `GTM Production publish 승인안`을 가져오면 그때 운영 게시 여부를 판단하면 된다.
 
-**Codex가 다음에 할 일**: GTM에 넣을 `paid_click_intent` payload 초안과 Preview 체크리스트를 만들었다. 다음은 TJ님이 Preview 실행을 YES/HOLD로 판단하는 것이다.
+**Codex가 다음에 할 일**: Google Ads landing-session 기준 click id 분모 분석을 진행하고, GTM Production publish 승인안을 만든다. 목표는 운영 게시 전에 click id 보존 수집의 기대효과와 rollback 기준을 고정하는 것이다.
 
 ## 컨펌 항목 2
 

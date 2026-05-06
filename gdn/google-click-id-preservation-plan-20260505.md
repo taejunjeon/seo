@@ -3,9 +3,9 @@
 작성 시각: 2026-05-05 23:38 KST
 대상: biocom Google Ads confirmed purchase 연결
 문서 성격: Green Lane 설계/진단 문서. GTM publish, backend deploy, Google Ads 전송은 하지 않는다.
-Status: active
+Status: active / Preview and HTTPS receiver pass
 Supersedes: 없음
-Next document: paid_click_intent GTM Preview 결과 보고서
+Next document: [[paid-click-intent-receiver-access-result-20260506|paid_click_intent receiver 접근 검증 결과]]
 Do not use for: GTM Production publish, Google Ads 전환 액션 생성/변경, conversion upload, backend 운영 deploy
 
 ```yaml
@@ -171,20 +171,19 @@ TTL 추천:
 - source freshness에 운영 아임웹 주문 원장 추가.
 - confirmed_purchase no-send route 운영 샘플 검증. 산출물: [[../data/confirmed-purchase-no-send-route-sample-20260506]].
 - GTM Preview 승인안 작성. 산출물: [[paid-click-intent-gtm-preview-approval-20260506]].
+- GTM Preview only 실행. 산출물: [[paid-click-intent-gtm-preview-result-20260506]]. 결과: storage/payload PASS, Node-side receiver PASS.
+- HTTPS tunnel receiver 재검증. 산출물: [[paid-click-intent-receiver-access-result-20260506]]. 결과: `gclid/gbraid/wbraid` 세 케이스 모두 browser receiver `200 ok=true`.
 
 아직 Green으로 가능한 것:
 
-- GTM에 넣을 `paid_click_intent` payload 초안 작성.
-- no-send Preview용 curl/Tag Assistant 체크리스트 작성.
 - 최근 7일/14일 Google Ads 랜딩 URL 중 click id 포함률 BigQuery 추가 분석.
+- GTM Production publish 승인안 작성. 운영 publish 범위, rollback, no-send/no-write guard, 24h/72h 모니터링 기준을 정리한다.
 
 ### Yellow Lane
 
 TJ님 승인 후 가능한 것:
 
-- GTM Preview workspace에서 Google click id 저장 태그를 미리보기로 검증.
-- backend receiver를 제한된 테스트 환경에 배포.
-- 테스트 URL 3~5개에서 click id가 no-send route까지 들어오는지 확인.
+- GTM Production publish 여부 결정. Preview/receiver는 통과했지만 운영 게시 전에는 별도 승인 필요.
 
 ### Red Lane
 

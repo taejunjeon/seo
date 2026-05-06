@@ -3,9 +3,9 @@
 작성 시각: 2026-05-06 09:35 KST
 대상: biocom Google click id 보존률 개선
 문서 성격: Yellow Lane 승인안. 이 문서는 실행 전 체크리스트이며, GTM Production publish나 광고 플랫폼 전송을 승인하지 않는다.
-Status: approved for Preview only / precheck passed
+Status: executed / pass after HTTPS receiver verification
 Supersedes: 없음
-Next document: paid_click_intent GTM Preview 결과 보고서
+Next document: [[paid-click-intent-gtm-preview-result-20260506|paid_click_intent GTM Preview 결과 보고서]]
 Do not use for: GTM Production publish, Google Ads 전환 액션 생성/변경, conversion upload, GA4/Meta/Google Ads 전송, backend 운영 deploy
 
 ```yaml
@@ -44,6 +44,24 @@ harness_preflight:
     site: "biocom"
     confidence: 0.9
 ```
+
+## 실행 결과 반영
+
+2026-05-06 15:45 KST 기준 Preview only 범위에서 실행했다.
+결과는 [[paid-click-intent-gtm-preview-result-20260506]]에 기록했다.
+
+핵심 결론:
+
+- GTM live latest는 `141 / pause_aw308433248_upde_20260505`였다.
+- Default Workspace 147은 사용하지 않았다.
+- fresh temporary workspace를 생성하고, Preview 후 삭제했다.
+- `gclid`, `gbraid`, `wbraid`는 모두 browser storage와 payload에 저장됐다.
+- Node-side no-send receiver validation은 세 케이스 모두 `200 ok=true`였다.
+- 브라우저 직접 receiver 호출은 `https://biocom.kr` -> `http://localhost:7020` 구조 때문에 `Failed to fetch`로 막혔다.
+
+따라서 이 승인안의 다음 단계는 더 이상 `Preview 실행 여부 판단`이 아니다.
+후속 [[paid-click-intent-receiver-access-result-20260506]]에서 HTTPS tunnel 재검증도 통과했다.
+다음 단계는 no-send receiver 접근 방식 판단이 아니라 Google Ads landing-session 분모 분석과 GTM Production publish 승인안 작성이다.
 
 ## 10초 결론
 

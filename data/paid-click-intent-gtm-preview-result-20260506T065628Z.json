@@ -1,0 +1,782 @@
+{
+  "generatedAt": "2026-05-06T06:57:00.677Z",
+  "runId": "20260506T065628Z",
+  "mode": "gtm_preview_only_no_submit_no_publish",
+  "noSendVerified": true,
+  "noWriteVerified": true,
+  "noDeployVerified": true,
+  "noPublishVerified": true,
+  "noPlatformSendVerified": true,
+  "container": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "publicId": "GTM-W2Z6PHN",
+    "liveVersion": {
+      "id": "141",
+      "name": "pause_aw308433248_upde_20260505"
+    }
+  },
+  "workspace": {
+    "workspaceId": "158",
+    "name": "codex_paid_click_intent_preview_20260506T065628Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/158"
+  },
+  "tag": {
+    "tagId": "276",
+    "name": "codex_paid_click_intent_v1_preview_20260506T065628Z",
+    "firingTriggerId": [
+      "275"
+    ]
+  },
+  "trigger": {
+    "triggerId": "275",
+    "name": "codex_paid_click_intent_all_pages_preview_20260506T065628Z",
+    "type": "pageview"
+  },
+  "quickPreview": {
+    "compilerError": null,
+    "syncStatus": null,
+    "containerVersionId": "0",
+    "containerVersionName": null
+  },
+  "environment": {
+    "environmentId": "277",
+    "workspaceId": "158",
+    "type": "workspace",
+    "name": "Preview Environment 158 2026-05-05 235634",
+    "authorizationCodePresent": true
+  },
+  "cleanup": [
+    "deleted workspace 158"
+  ],
+  "results": [
+    {
+      "kind": "gclid",
+      "url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x",
+      "pageLoaded": true,
+      "storageHasClickId": true,
+      "receiverReached": true,
+      "receiverStatus": 200,
+      "receiverOk": true,
+      "receiverHasGoogleClickId": true,
+      "receiverTestClickId": true,
+      "receiverBlockReasons": [
+        "read_only_phase",
+        "approval_required",
+        "test_click_id_rejected_for_live"
+      ],
+      "nodeReceiverStatus": 200,
+      "nodeReceiverOk": true,
+      "nodeReceiverHasGoogleClickId": true,
+      "nodeReceiverTestClickId": true,
+      "nodeReceiverBlockReasons": [
+        "read_only_phase",
+        "approval_required",
+        "test_click_id_rejected_for_live"
+      ],
+      "consoleMarkers": [
+        "[paid_click_intent_preview] installed paid_click_intent_preview_v1_20260506T065628Z",
+        "[paid_click_intent_preview] receiver response landing 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]"
+      ],
+      "networkErrors": [
+        "net::ERR_ABORTED https://www.googleadservices.com/pagead/set_partitioned_cookie?rcb=8&frm=0&apvc=1&tid=AW-304339096&en=page_view&gclid=TEST_GCLID_20260506&url=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=1018116325.1778050599&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=477778887.1778050599&gclaw=TEST_GCLID_20260506&navt=n&npa=0&gtm=45be6541v9115439929za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115616986~115938465~115938469~116363098~118463262~118812187&tft=1778050599319&tfd=2383&apve=1&apvf=f",
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=8&frm=0&en=page_view&gclid=TEST_GCLID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=1018116325.1778050599&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=477778887.1778050599&gclaw=TEST_GCLID_20260506&navt=n&npa=0&gtm=45be6541v9115439929za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115616986~115938465~115938469~116363098~118463262~118812187&apve=1&apvf=f&apvc=1&tids=AW-304339096&tid=AW-304339096&tft=1778050599329&tfd=2393",
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=0&frm=0&ae=g&en=page_view&gclid=TEST_GCLID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=1018116325.1778050599&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=477778887.1778050599&gclaw=TEST_GCLID_20260506&navt=n&npa=0&ep.ads_data_redaction=0&gtm=45He6541v813158774za200zd813158774xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938465~115938468~116363098~117384406~118463261&apve=1&apvf=f&apvc=0&tft=1778050599729&tfd=2793",
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=8&frm=0&en=page_view&gclid=TEST_GCLID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=1018116325.1778050599&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=477778887.1778050599&gclaw=TEST_GCLID_20260506&navt=n&npa=0&gtm=45be6541v9115439929z8813158774za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115616986~115938465~115938469~116363098~118463262~118812187&apve=1&apvf=f&apvc=0&tids=AW-304339096&tid=AW-304339096&tft=1778050599735&tfd=2799"
+      ],
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x",
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=1912626257&gtm=45He6541v813158774za200zd813158774&seq=1&exp=0%7E115938465%7E115938468%7E116363098%7E117384406%7E118463261&dl=biocom.kr%2F&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=105&hlo=16&lst=1&bt=0&ct=3&jsp=1&mde=G-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x"
+      ],
+      "pageState": {
+        "href": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+        "installed": "paid_click_intent_preview_v1_20260506T065628Z",
+        "localStorage": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "TEST_GCLID_20260506",
+          "gbraid": "",
+          "wbraid": "",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_1h1i050n84m",
+          "captured_at": "2026-05-06T06:56:39.718Z"
+        },
+        "sessionStorage": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "TEST_GCLID_20260506",
+          "gbraid": "",
+          "wbraid": "",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_1h1i050n84m",
+          "captured_at": "2026-05-06T06:56:39.718Z"
+        },
+        "lastPayload": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "TEST_GCLID_20260506",
+          "gbraid": "",
+          "wbraid": "",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_1h1i050n84m",
+          "captured_at": "2026-05-06T06:56:39.718Z",
+          "capture_stage": "landing",
+          "event_id": "PaidClickIntent_landing_1778050599718"
+        },
+        "lastResponse": {
+          "status": 200,
+          "ok": true,
+          "body": {
+            "ok": true,
+            "dryRun": true,
+            "dry_run": true,
+            "wouldStore": false,
+            "would_store": false,
+            "wouldSend": false,
+            "would_send": false,
+            "noSendVerified": true,
+            "no_send_verified": true,
+            "noWriteVerified": true,
+            "no_write_verified": true,
+            "noDeployVerified": true,
+            "no_deploy_verified": true,
+            "noPublishVerified": true,
+            "no_publish_verified": true,
+            "noPlatformSendVerified": true,
+            "no_platform_send_verified": true,
+            "receiver": "paid_click_intent_no_send",
+            "guard": {
+              "guard_status": "blocked",
+              "send_candidate": false,
+              "actual_send_candidate": false,
+              "block_reasons": [
+                "read_only_phase",
+                "approval_required",
+                "test_click_id_rejected_for_live"
+              ],
+              "legacy_block_reasons": [],
+              "no_send_verified": true,
+              "no_write_verified": true,
+              "no_deploy_verified": true,
+              "no_publish_verified": true,
+              "no_platform_send_verified": true,
+              "checked_at": "2026-05-06T06:56:39.764Z",
+              "source": "paid_click_intent_no_send",
+              "confidence": 0.9
+            },
+            "preview": {
+              "site": "biocom",
+              "event_name": "PaidClickIntent",
+              "capture_stage": "landing",
+              "event_id": "PaidClickIntent_landing_1778050599718",
+              "storage_key": "bi_paid_click_intent_v1",
+              "captured_at": "2026-05-06T06:56:39.718Z",
+              "dedupe_key": "paid_click_intent:biocom:preview_1h1i050n84m:landing:TEST_GCLID_20260506",
+              "has_google_click_id": true,
+              "test_click_id": true,
+              "live_candidate_after_approval": false,
+              "send_candidate": false,
+              "actual_send_candidate": false,
+              "would_store": false,
+              "would_send": false,
+              "block_reasons": [
+                "read_only_phase",
+                "approval_required",
+                "test_click_id_rejected_for_live"
+              ],
+              "legacy_block_reasons": [],
+              "click_ids": {
+                "gclid": "TEST_GCLID_20260506",
+                "gbraid": "",
+                "wbraid": "",
+                "fbclid": "",
+                "ttclid": ""
+              },
+              "click_identifiers": {
+                "gclid": "TEST_GCLID_20260506",
+                "gbraid": "",
+                "wbraid": "",
+                "fbclid": "",
+                "ttclid": ""
+              },
+              "utm": {
+                "source": "google",
+                "medium": "cpc",
+                "campaign": "codex_preview_20260506",
+                "term": "",
+                "content": ""
+              },
+              "client_id": "",
+              "ga_session_id": "",
+              "local_session_id": "preview_1h1i050n84m",
+              "sanitized_landing_url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506",
+              "sanitized_current_url": "https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506",
+              "sanitized_referrer": ""
+            },
+            "source": {
+              "mode": "no_write_no_send_preview",
+              "receivedAt": "2026-05-06T06:56:39.764Z"
+            },
+            "warnings": [
+              "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+              "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+              "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다."
+            ]
+          },
+          "stage": "landing"
+        },
+        "lastError": null,
+        "gtmLoaded": true,
+        "dataLayer": [
+          {
+            "gtm.start": 1778050598740,
+            "event": "gtm.js",
+            "gtm.uniqueEventId": 3
+          },
+          {
+            "0": "js",
+            "1": "2026-05-06T06:56:38.741Z"
+          },
+          {
+            "0": "config",
+            "1": "AW-304339096"
+          },
+          {
+            "event": "gtm.dom",
+            "gtm.uniqueEventId": 8
+          },
+          {
+            "event": "gtm.load",
+            "gtm.uniqueEventId": 354
+          }
+        ]
+      },
+      "screenshotPath": "/Users/vibetj/coding/seo/data/paid-click-intent-preview-20260506T065628Z-gclid.png"
+    },
+    {
+      "kind": "gbraid",
+      "url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x",
+      "pageLoaded": true,
+      "storageHasClickId": true,
+      "receiverReached": true,
+      "receiverStatus": 200,
+      "receiverOk": true,
+      "receiverHasGoogleClickId": true,
+      "receiverTestClickId": true,
+      "receiverBlockReasons": [
+        "read_only_phase",
+        "approval_required",
+        "test_click_id_rejected_for_live"
+      ],
+      "nodeReceiverStatus": 200,
+      "nodeReceiverOk": true,
+      "nodeReceiverHasGoogleClickId": true,
+      "nodeReceiverTestClickId": true,
+      "nodeReceiverBlockReasons": [
+        "read_only_phase",
+        "approval_required",
+        "test_click_id_rejected_for_live"
+      ],
+      "consoleMarkers": [
+        "[paid_click_intent_preview] installed paid_click_intent_preview_v1_20260506T065628Z",
+        "[paid_click_intent_preview] receiver response landing 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]"
+      ],
+      "networkErrors": [
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=15&frm=0&ae=g&en=page_view&gbraid=TEST_GBRAID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=292249131.1778050607&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=1237566675.1778050607&gclgb=TEST_GBRAID_20260506&navt=n&npa=0&ep.ads_data_redaction=0&gtm=45He6541v813158774za200zd813158774xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938465~115938468~116363098~117215713~117384405~118463262&apve=1&apvf=f&apvc=1&tft=1778050607076&tfd=2517",
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=10&frm=0&en=page_view&gbraid=TEST_GBRAID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=292249131.1778050607&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=1237566675.1778050607&gclgb=TEST_GBRAID_20260506&navt=n&npa=0&gtm=45be6541v9115439929z8813158774za20gzb813158774zd813158774xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115616985~115938465~115938468~116363098~117215713~117384405~118463261&apve=1&apvf=f&apvc=0&tids=AW-304339096&tid=AW-304339096&tft=1778050607119&tfd=2560",
+        "net::ERR_ABORTED https://www.googleadservices.com/pagead/set_partitioned_cookie?rcb=15&frm=0&apvc=1&ae=g&en=page_view&gbraid=TEST_GBRAID_20260506&url=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=292249131.1778050607&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=1237566675.1778050607&gclgb=TEST_GBRAID_20260506&navt=n&npa=0&ep.ads_data_redaction=0&gtm=45He6541v813158774za200zd813158774xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938465~115938468~116363098~117215713~117384405~118463262&tft=1778050607064&tfd=2504&apve=1&apvf=f",
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=10&frm=0&en=page_view&gbraid=TEST_GBRAID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=292249131.1778050607&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=1237566675.1778050607&gclgb=TEST_GBRAID_20260506&navt=n&npa=0&gtm=45be6541v9115439929za20gzb813158774zd813158774xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115616985~115938465~115938468~116363098~117215713~117384405~118463261&apve=1&apvf=f&apvc=0&tids=AW-304339096&tid=AW-304339096&tft=1778050607119&tfd=2560"
+      ],
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x",
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=254230746&gtm=45He6541v813158774za200zd813158774&seq=1&exp=0%7E115938465%7E115938468%7E116363098%7E117215713%7E117384405%7E118463262&dl=biocom.kr%2F&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=104&hlo=14&lst=1&bt=0&ct=3&jsp=1&mde=AW-304339096%3B0_1%7EG-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x"
+      ],
+      "pageState": {
+        "href": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+        "installed": "paid_click_intent_preview_v1_20260506T065628Z",
+        "localStorage": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "",
+          "gbraid": "TEST_GBRAID_20260506",
+          "wbraid": "",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_8wdwz97mj7u",
+          "captured_at": "2026-05-06T06:56:47.070Z"
+        },
+        "sessionStorage": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "",
+          "gbraid": "TEST_GBRAID_20260506",
+          "wbraid": "",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_8wdwz97mj7u",
+          "captured_at": "2026-05-06T06:56:47.070Z"
+        },
+        "lastPayload": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "",
+          "gbraid": "TEST_GBRAID_20260506",
+          "wbraid": "",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_8wdwz97mj7u",
+          "captured_at": "2026-05-06T06:56:47.070Z",
+          "capture_stage": "landing",
+          "event_id": "PaidClickIntent_landing_1778050607070"
+        },
+        "lastResponse": {
+          "status": 200,
+          "ok": true,
+          "body": {
+            "ok": true,
+            "dryRun": true,
+            "dry_run": true,
+            "wouldStore": false,
+            "would_store": false,
+            "wouldSend": false,
+            "would_send": false,
+            "noSendVerified": true,
+            "no_send_verified": true,
+            "noWriteVerified": true,
+            "no_write_verified": true,
+            "noDeployVerified": true,
+            "no_deploy_verified": true,
+            "noPublishVerified": true,
+            "no_publish_verified": true,
+            "noPlatformSendVerified": true,
+            "no_platform_send_verified": true,
+            "receiver": "paid_click_intent_no_send",
+            "guard": {
+              "guard_status": "blocked",
+              "send_candidate": false,
+              "actual_send_candidate": false,
+              "block_reasons": [
+                "read_only_phase",
+                "approval_required",
+                "test_click_id_rejected_for_live"
+              ],
+              "legacy_block_reasons": [],
+              "no_send_verified": true,
+              "no_write_verified": true,
+              "no_deploy_verified": true,
+              "no_publish_verified": true,
+              "no_platform_send_verified": true,
+              "checked_at": "2026-05-06T06:56:47.119Z",
+              "source": "paid_click_intent_no_send",
+              "confidence": 0.9
+            },
+            "preview": {
+              "site": "biocom",
+              "event_name": "PaidClickIntent",
+              "capture_stage": "landing",
+              "event_id": "PaidClickIntent_landing_1778050607070",
+              "storage_key": "bi_paid_click_intent_v1",
+              "captured_at": "2026-05-06T06:56:47.070Z",
+              "dedupe_key": "paid_click_intent:biocom:preview_8wdwz97mj7u:landing:TEST_GBRAID_20260506",
+              "has_google_click_id": true,
+              "test_click_id": true,
+              "live_candidate_after_approval": false,
+              "send_candidate": false,
+              "actual_send_candidate": false,
+              "would_store": false,
+              "would_send": false,
+              "block_reasons": [
+                "read_only_phase",
+                "approval_required",
+                "test_click_id_rejected_for_live"
+              ],
+              "legacy_block_reasons": [],
+              "click_ids": {
+                "gclid": "",
+                "gbraid": "TEST_GBRAID_20260506",
+                "wbraid": "",
+                "fbclid": "",
+                "ttclid": ""
+              },
+              "click_identifiers": {
+                "gclid": "",
+                "gbraid": "TEST_GBRAID_20260506",
+                "wbraid": "",
+                "fbclid": "",
+                "ttclid": ""
+              },
+              "utm": {
+                "source": "google",
+                "medium": "cpc",
+                "campaign": "codex_preview_20260506",
+                "term": "",
+                "content": ""
+              },
+              "client_id": "",
+              "ga_session_id": "",
+              "local_session_id": "preview_8wdwz97mj7u",
+              "sanitized_landing_url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506",
+              "sanitized_current_url": "https://biocom.kr/?gbraid=TEST_GBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506",
+              "sanitized_referrer": ""
+            },
+            "source": {
+              "mode": "no_write_no_send_preview",
+              "receivedAt": "2026-05-06T06:56:47.119Z"
+            },
+            "warnings": [
+              "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+              "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+              "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다."
+            ]
+          },
+          "stage": "landing"
+        },
+        "lastError": null,
+        "gtmLoaded": true,
+        "dataLayer": [
+          {
+            "gtm.start": 1778050606655,
+            "event": "gtm.js",
+            "gtm.uniqueEventId": 3
+          },
+          {
+            "0": "js",
+            "1": "2026-05-06T06:56:46.656Z"
+          },
+          {
+            "0": "config",
+            "1": "AW-304339096"
+          },
+          {
+            "event": "gtm.dom",
+            "gtm.uniqueEventId": 277
+          },
+          {
+            "event": "gtm.load",
+            "gtm.uniqueEventId": 352
+          }
+        ]
+      },
+      "screenshotPath": "/Users/vibetj/coding/seo/data/paid-click-intent-preview-20260506T065628Z-gbraid.png"
+    },
+    {
+      "kind": "wbraid",
+      "url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x",
+      "pageLoaded": true,
+      "storageHasClickId": true,
+      "receiverReached": true,
+      "receiverStatus": 200,
+      "receiverOk": true,
+      "receiverHasGoogleClickId": true,
+      "receiverTestClickId": true,
+      "receiverBlockReasons": [
+        "read_only_phase",
+        "approval_required",
+        "test_click_id_rejected_for_live"
+      ],
+      "nodeReceiverStatus": 200,
+      "nodeReceiverOk": true,
+      "nodeReceiverHasGoogleClickId": true,
+      "nodeReceiverTestClickId": true,
+      "nodeReceiverBlockReasons": [
+        "read_only_phase",
+        "approval_required",
+        "test_click_id_rejected_for_live"
+      ],
+      "consoleMarkers": [
+        "[paid_click_intent_preview] installed paid_click_intent_preview_v1_20260506T065628Z",
+        "[paid_click_intent_preview] receiver response landing 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]"
+      ],
+      "networkErrors": [
+        "net::ERR_ABORTED https://www.googleadservices.com/pagead/set_partitioned_cookie?rcb=3&frm=0&apvc=1&ae=g&en=page_view&wbraid=TEST_WBRAID_20260506&url=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=339406043.1778050614&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=88542468.1778050614&gclgb=TEST_WBRAID_20260506&navt=n&npa=0&ep.ads_data_redaction=0&gtm=45He6541h1v813158774za200zd813158774xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938465~115938468~116363097~117884344~118463261&tft=1778050614133&tfd=1864&apve=1&apvf=f",
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=3&frm=0&ae=g&en=page_view&wbraid=TEST_WBRAID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=339406043.1778050614&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=88542468.1778050614&gclgb=TEST_WBRAID_20260506&navt=n&npa=0&ep.ads_data_redaction=0&gtm=45He6541h1v813158774za200zd813158774xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938465~115938468~116363097~117884344~118463261&apve=1&apvf=f&apvc=1&tft=1778050614146&tfd=1877",
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=15&frm=0&en=page_view&wbraid=TEST_WBRAID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=339406043.1778050614&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=88542468.1778050614&gclgb=TEST_WBRAID_20260506&navt=n&npa=0&gtm=45be6541v9115439929za20gzb813158774zd813158774xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115616985~115938465~115938469~116363097~118128922~118463261&apve=1&apvf=f&apvc=0&tids=AW-304339096&tid=AW-304339096&tft=1778050614186&tfd=1917",
+        "net::ERR_ABORTED https://www.google.com/ccm/collect?rcb=15&frm=0&en=page_view&wbraid=TEST_WBRAID_20260506&dl=https%3A%2F%2Fbiocom.kr%2F&scrsrc=www.googletagmanager.com&lps=1&rnd=339406043.1778050614&dt=%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4&auid=88542468.1778050614&gclgb=TEST_WBRAID_20260506&navt=n&npa=0&gtm=45be6541v9115439929z8813158774za20gzb813158774zd813158774xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115616985~115938465~115938469~116363097~118128922~118463261&apve=1&apvf=f&apvc=0&tids=AW-304339096&tid=AW-304339096&tft=1778050614186&tfd=1917"
+      ],
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x",
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=545427219&gtm=45He6541h1v813158774za200zd813158774&seq=1&exp=0%7E115938465%7E115938468%7E116363097%7E117884344%7E118463261&dl=biocom.kr%2F&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=104&hlo=14&lst=1&bt=0&ct=3&jsp=1&mde=AW-304339096%3B0_1%7EG-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=env-277&gtm_debug=x"
+      ],
+      "pageState": {
+        "href": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+        "installed": "paid_click_intent_preview_v1_20260506T065628Z",
+        "localStorage": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "",
+          "gbraid": "",
+          "wbraid": "TEST_WBRAID_20260506",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_jpoi8jvd4u",
+          "captured_at": "2026-05-06T06:56:54.139Z"
+        },
+        "sessionStorage": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "",
+          "gbraid": "",
+          "wbraid": "TEST_WBRAID_20260506",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_jpoi8jvd4u",
+          "captured_at": "2026-05-06T06:56:54.139Z"
+        },
+        "lastPayload": {
+          "site": "biocom",
+          "event_name": "PaidClickIntent",
+          "storage_key": "bi_paid_click_intent_v1",
+          "gclid": "",
+          "gbraid": "",
+          "wbraid": "TEST_WBRAID_20260506",
+          "fbclid": "",
+          "ttclid": "",
+          "utm_source": "google",
+          "utm_medium": "cpc",
+          "utm_campaign": "codex_preview_20260506",
+          "utm_term": "",
+          "utm_content": "",
+          "landing_url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "current_url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506&gtm_auth=lWpe5jE1lK2RvKA1vwLfJw&gtm_preview=env-277&gtm_debug=x",
+          "referrer": "",
+          "client_id": "",
+          "ga_session_id": "",
+          "local_session_id": "preview_jpoi8jvd4u",
+          "captured_at": "2026-05-06T06:56:54.139Z",
+          "capture_stage": "landing",
+          "event_id": "PaidClickIntent_landing_1778050614139"
+        },
+        "lastResponse": {
+          "status": 200,
+          "ok": true,
+          "body": {
+            "ok": true,
+            "dryRun": true,
+            "dry_run": true,
+            "wouldStore": false,
+            "would_store": false,
+            "wouldSend": false,
+            "would_send": false,
+            "noSendVerified": true,
+            "no_send_verified": true,
+            "noWriteVerified": true,
+            "no_write_verified": true,
+            "noDeployVerified": true,
+            "no_deploy_verified": true,
+            "noPublishVerified": true,
+            "no_publish_verified": true,
+            "noPlatformSendVerified": true,
+            "no_platform_send_verified": true,
+            "receiver": "paid_click_intent_no_send",
+            "guard": {
+              "guard_status": "blocked",
+              "send_candidate": false,
+              "actual_send_candidate": false,
+              "block_reasons": [
+                "read_only_phase",
+                "approval_required",
+                "test_click_id_rejected_for_live"
+              ],
+              "legacy_block_reasons": [],
+              "no_send_verified": true,
+              "no_write_verified": true,
+              "no_deploy_verified": true,
+              "no_publish_verified": true,
+              "no_platform_send_verified": true,
+              "checked_at": "2026-05-06T06:56:54.197Z",
+              "source": "paid_click_intent_no_send",
+              "confidence": 0.9
+            },
+            "preview": {
+              "site": "biocom",
+              "event_name": "PaidClickIntent",
+              "capture_stage": "landing",
+              "event_id": "PaidClickIntent_landing_1778050614139",
+              "storage_key": "bi_paid_click_intent_v1",
+              "captured_at": "2026-05-06T06:56:54.139Z",
+              "dedupe_key": "paid_click_intent:biocom:preview_jpoi8jvd4u:landing:TEST_WBRAID_20260506",
+              "has_google_click_id": true,
+              "test_click_id": true,
+              "live_candidate_after_approval": false,
+              "send_candidate": false,
+              "actual_send_candidate": false,
+              "would_store": false,
+              "would_send": false,
+              "block_reasons": [
+                "read_only_phase",
+                "approval_required",
+                "test_click_id_rejected_for_live"
+              ],
+              "legacy_block_reasons": [],
+              "click_ids": {
+                "gclid": "",
+                "gbraid": "",
+                "wbraid": "TEST_WBRAID_20260506",
+                "fbclid": "",
+                "ttclid": ""
+              },
+              "click_identifiers": {
+                "gclid": "",
+                "gbraid": "",
+                "wbraid": "TEST_WBRAID_20260506",
+                "fbclid": "",
+                "ttclid": ""
+              },
+              "utm": {
+                "source": "google",
+                "medium": "cpc",
+                "campaign": "codex_preview_20260506",
+                "term": "",
+                "content": ""
+              },
+              "client_id": "",
+              "ga_session_id": "",
+              "local_session_id": "preview_jpoi8jvd4u",
+              "sanitized_landing_url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506",
+              "sanitized_current_url": "https://biocom.kr/?wbraid=TEST_WBRAID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506",
+              "sanitized_referrer": ""
+            },
+            "source": {
+              "mode": "no_write_no_send_preview",
+              "receivedAt": "2026-05-06T06:56:54.197Z"
+            },
+            "warnings": [
+              "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+              "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+              "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다."
+            ]
+          },
+          "stage": "landing"
+        },
+        "lastError": null,
+        "gtmLoaded": true,
+        "dataLayer": [
+          {
+            "gtm.start": 1778050613674,
+            "event": "gtm.js",
+            "gtm.uniqueEventId": 3
+          },
+          {
+            "0": "js",
+            "1": "2026-05-06T06:56:53.674Z"
+          },
+          {
+            "0": "config",
+            "1": "AW-304339096"
+          },
+          {
+            "event": "gtm.dom",
+            "gtm.uniqueEventId": 277
+          },
+          {
+            "event": "gtm.load",
+            "gtm.uniqueEventId": 352
+          }
+        ]
+      },
+      "screenshotPath": "/Users/vibetj/coding/seo/data/paid-click-intent-preview-20260506T065628Z-wbraid.png"
+    }
+  ],
+  "overall": {
+    "allPagesLoaded": true,
+    "allStorageHasClickId": true,
+    "allReceiverReached": true,
+    "allReceiverOk": true,
+    "allReceiverHasGoogleClickId": true,
+    "allReceiverTestClickId": true,
+    "allNodeReceiverOk": true,
+    "allNodeReceiverHasGoogleClickId": true,
+    "allNodeReceiverTestClickId": true
+  }
+}
