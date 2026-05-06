@@ -84,11 +84,11 @@ payload: TEST_GCLID_20260506_POST_SMOKE
 
 24시간 체크:
 
-- 2xx rate.
-- `has_google_click_id=true` count.
-- `test_click_id=true` count.
-- `live_candidate_after_approval=false` count for test IDs.
-- PII reject count.
+- 2xx rate. 현재는 access log의 status/path/origin 수준 집계 또는 TEST smoke 기준으로 본다.
+- `has_google_click_id=true` count. 전용 counter가 없으면 TEST smoke와 제한 샘플 응답에서만 본다.
+- `test_click_id=true` count. 전용 counter가 없으면 TEST smoke에서만 본다.
+- `live_candidate_after_approval=false` count for test IDs. 전용 counter가 없으면 TEST smoke에서만 본다.
+- PII reject count. 전용 counter가 없으면 negative smoke 통과 여부로만 본다.
 - raw body가 log에 남지 않는지 확인.
 - click id/landing_url/client/session 값은 마스킹 또는 집계 형태로만 남는지 확인.
 
@@ -99,6 +99,8 @@ receiver가 2xx라고 해서 Google Ads로 전송된 것이 아니다.
 no-send receiver는 platform send가 0이어야 한다.
 receiver count는 DB/ledger row count가 아니다.
 no-write 단계에서는 access log/observability counter/TEST smoke만 사용한다.
+현재 코드 inspection 기준 paid_click_intent 전용 observability counter는 아직 확인되지 않았다.
+따라서 counter가 없으면 24h/72h의 세부 fill-rate는 "counter 구현 시" 지표로 두고, 이번 단계에서는 route health와 smoke 결과를 우선 본다.
 ```
 
 ### 3. 이상 징후
@@ -125,6 +127,9 @@ publish 후 72시간에 확인한다.
 - checkout payload 중 Google click id 보유 수.
 - NPay intent payload 중 Google click id 보유 수.
 - confirmed purchase no-send dry-run의 `missing_google_click_id` count/rate. 단, no-write receiver 단계에서는 참고 지표다.
+
+현재 전용 counter가 없으면 위 5개 중 `paid_click_intent 수신 수`와 `click id 보유 수`는 access log 수준 또는 TEST smoke 수준으로만 본다.
+정확한 fill-rate는 minimal ledger write 또는 body 없는 counter가 승인·구현된 뒤 산출한다.
 
 ### 2. 주문 후보 연결
 

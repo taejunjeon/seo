@@ -122,6 +122,13 @@ YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_inte
 - `npay_intent_payload_has_click_id_rate`
 - `confirmed_purchase_missing_google_click_id_rate`
 
+주의:
+
+- 현재 code inspection 기준 `paid_click_intent` 전용 observability counter는 아직 확인되지 않았다.
+- counter가 없으면 `received_count`, `has_google_click_id_count`, `pii_rejected_count`는 `counter 구현 시` 지표로 둔다.
+- no-write 단계에서 바로 볼 수 있는 것은 browser storage, receiver 2xx, TEST/negative smoke, raw logging 여부, 외부 전송 0건이다.
+- 정확한 fill-rate는 minimal ledger write 또는 body 없는 counter가 승인·구현된 뒤 산출한다.
+
 운영자가 보는 해석:
 
 - `has_google_click_id`가 늘어나는 것은 좋은 신호다.
