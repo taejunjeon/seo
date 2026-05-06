@@ -3,12 +3,13 @@
 작성 시각: 2026-05-06 16:25 KST
 대상: biocom GTM `GTM-W2Z6PHN`
 문서 성격: Red Lane 승인 문서. 이 문서는 승인안이며 실제 Production publish를 하지 않는다.
-Status: pending TJ approval
+Status: pending TJ decision / receiver-enabled publish blocked by production POST 404
 Supersedes: [[paid-click-intent-gtm-preview-approval-20260506]]
 Depends on:
 - [[paid-click-intent-gtm-preview-result-20260506]]
 - [[paid-click-intent-receiver-access-result-20260506]]
 - [[google-ads-landing-clickid-analysis-20260506]]
+- [[paid-click-intent-production-receiver-post-smoke-20260506]]
 Do not use for: Google Ads conversion action 생성/변경, conversion upload, GA4/Meta/Google Ads purchase 전송, 운영 DB write, backend 운영 deploy
 
 ## 10초 결론
@@ -21,14 +22,17 @@ Do not use for: Google Ads conversion action 생성/변경, conversion upload, G
 - 운영 결제완료 주문 623건 중 Google click id가 남은 주문은 5건뿐이다. 주문 원장 기준 보존률은 0.8%다.
 - 반면 GA4 BigQuery 기준 최근 7일 Google Ads 랜딩 세션 6,879개 중 6,724개에는 click id가 남아 있다. 랜딩 세션 기준 보존률은 97.75%다.
 - Preview와 임시 HTTPS receiver 검증에서 `gclid/gbraid/wbraid` 3개 케이스 모두 storage 저장, payload 생성, no-send receiver `200 ok=true`가 확인됐다.
-- `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`는 `OPTIONS` preflight 기준 `https://biocom.kr` Origin을 허용한다. 실제 POST는 승인 전이라 보내지 않았다.
+- `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`는 `OPTIONS` preflight 기준 `https://biocom.kr` Origin을 허용했다.
+- 하지만 TEST click id 1건 POST smoke에서는 `404 Route not found`가 반환됐다. 즉 production receiver route는 아직 운영 배포되어 있지 않다.
 
 따라서 광고 URL은 대체로 정상이고, 병목은 랜딩 이후 주문 원장까지 click id가 이어지지 않는 것이다.
 운영 publish는 이 병목을 풀기 위한 첫 번째 실제 수집 단계다.
 
 ## TJ님 승인 문구
 
-승인한다면 아래 문구로 승인한다.
+receiver-enabled publish를 승인하려면 아래 문구로 승인한다.
+단, 현재는 production receiver route가 404이므로 이 승인만으로는 receiver 포함 publish를 진행하지 않는다.
+receiver route 배포 승인 또는 storage-only publish 선택이 먼저 필요하다.
 
 ```text
 YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_intent v1 Production publish를 승인합니다.
@@ -36,7 +40,7 @@ YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_inte
 범위:
 - gclid/gbraid/wbraid, UTM, referrer, landing_url, client_id, ga_session_id를 1st-party storage에 저장
 - checkout/NPay intent 시점에 같은 값을 payload로 재사용할 수 있게 준비
-- no-send receiver 호출은 허용하되, GA4/Meta/Google Ads/TikTok/Naver 전송은 금지
+- no-send receiver 호출은 production route 배포 후 허용하되, GA4/Meta/Google Ads/TikTok/Naver 전송은 금지
 
 금지:
 - Google Ads conversion action 생성/변경
@@ -64,7 +68,7 @@ YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_inte
 - 랜딩 시점 query/referrer/session 정보를 읽어 1st-party storage에 저장.
 - `TEST_`, `DEBUG_`, `PREVIEW_` prefix click id는 live candidate에서 차단.
 - no-send receiver 호출 시 `would_send=false`, `no_platform_send_verified=true` 유지.
-- production receiver 후보: `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`.
+- production receiver 후보: `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`. 단, 2026-05-06 TEST POST smoke 기준 현재 route는 404다.
 
 ### 제외
 
@@ -154,10 +158,44 @@ landing click id 있음
 - [ ] fresh workspace 생성 확인.
 - [ ] tag/trigger diff 캡처.
 - [ ] no-send/no-write/no-platform-send 유지 확인.
-- [ ] production receiver endpoint는 POST smoke 없이 preflight만 확인된 상태임을 인지.
+- [ ] production receiver endpoint가 TEST POST smoke에서 `200 ok=true`를 반환하는지 재확인. 현재 2026-05-06 기준은 404라 receiver-enabled publish 불가.
 - [ ] 테스트 click id live 차단 guard 확인.
 - [ ] rollback 방법 기록.
 - [ ] 24h/72h 모니터링 담당과 산출물 위치 확정.
+
+## 현재 선택지
+
+### 선택지 A. storage-only GTM publish
+
+GTM tag가 `bi_paid_click_intent_v1` storage에만 저장하고 production receiver POST는 하지 않는다.
+
+장점:
+
+- backend 운영 deploy 없이 진행 가능.
+- 랜딩 시점 click id 보존을 시작할 수 있다.
+
+단점:
+
+- 서버 receiver count와 2xx rate를 볼 수 없다.
+- checkout/NPay/confirmed purchase no-send와 서버 기준으로 연결하기 어렵다.
+
+### 선택지 B. receiver route 배포 후 receiver-enabled GTM publish
+
+production `att.ainativeos.net`에 `POST /api/attribution/paid-click-intent/no-send` route를 배포한 뒤 publish한다.
+
+장점:
+
+- 서버 receiver 기준 fill-rate와 block_reason을 볼 수 있다.
+- 이후 confirmed_purchase no-send와 연결하기 쉽다.
+
+단점:
+
+- backend 운영 deploy가 필요하다.
+- backend 운영 deploy는 별도 Red Lane 승인이다.
+
+Codex 추천:
+
+- 선택지 B. 이번 문제는 browser storage만이 아니라 주문 원장/Attribution VM까지 click id가 이어지지 않는 문제이므로, receiver route가 있는 상태에서 publish하는 편이 낫다.
 
 ## 승인 후 Codex가 할 일
 

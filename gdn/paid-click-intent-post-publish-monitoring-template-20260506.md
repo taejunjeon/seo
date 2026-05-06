@@ -3,7 +3,7 @@
 작성 시각: 2026-05-06 16:31 KST
 대상: biocom `paid_click_intent v1`
 문서 성격: 운영 publish 승인 후 사용할 read-only 모니터링 템플릿. 이 문서는 publish를 실행하지 않는다.
-Status: ready / pending publish
+Status: ready / pending receiver deploy and publish
 Supersedes: 없음
 Depends on: [[paid-click-intent-gtm-production-publish-approval-20260506]]
 Do not use for: GTM Production publish, Google Ads conversion upload, GA4/Meta/Google Ads 전송, 운영 DB write
@@ -66,6 +66,16 @@ OPTIONS https://att.ainativeos.net/api/attribution/paid-click-intent/no-send
 Origin: https://biocom.kr
 결과: 204, Access-Control-Allow-Origin: https://biocom.kr
 ```
+
+추가 TEST POST smoke 결과:
+
+```text
+POST https://att.ainativeos.net/api/attribution/paid-click-intent/no-send
+payload: TEST_GCLID_20260506_POST_SMOKE
+결과: 404 Route not found
+```
+
+따라서 receiver-enabled publish 전에는 [[paid-click-intent-production-receiver-deploy-approval-20260506]] 기준으로 production receiver route 배포가 필요하다.
 
 24시간 체크:
 

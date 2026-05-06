@@ -190,6 +190,8 @@ TTL 추천:
 - Google Ads landing-session click id 분모 분석. 산출물: [[google-ads-landing-clickid-analysis-20260506]]. 결과: 최근 7일 Google Ads 증거 세션 6,879개 중 6,724개에 click id가 남아 보존률 97.75%.
 - GTM Production publish 승인안 작성. 산출물: [[paid-click-intent-gtm-production-publish-approval-20260506]]. 결과: publish 범위, rollback, 24h/72h 모니터링, 금지선을 문서화했다. 실제 publish는 하지 않았다.
 - post-publish 모니터링 템플릿 작성. 산출물: [[paid-click-intent-post-publish-monitoring-template-20260506]]. 결과: publish 후 24h/72h에 봐야 할 fill-rate, receiver, rollback 기준을 문서화했다.
+- production receiver POST smoke. 산출물: [[paid-click-intent-production-receiver-post-smoke-20260506]]. 결과: `att.ainativeos.net`의 `paid-click-intent/no-send` POST route는 404였다.
+- production receiver 배포 승인안 작성. 산출물: [[paid-click-intent-production-receiver-deploy-approval-20260506]]. 실제 backend 운영 deploy는 하지 않았다.
 
 아직 Green으로 가능한 것:
 
