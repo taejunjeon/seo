@@ -189,10 +189,11 @@ TTL 추천:
 - HTTPS tunnel receiver 재검증. 산출물: [[paid-click-intent-receiver-access-result-20260506]]. 결과: `gclid/gbraid/wbraid` 세 케이스 모두 browser receiver `200 ok=true`.
 - Google Ads landing-session click id 분모 분석. 산출물: [[google-ads-landing-clickid-analysis-20260506]]. 결과: 최근 7일 Google Ads 증거 세션 6,879개 중 6,724개에 click id가 남아 보존률 97.75%.
 - GTM Production publish 승인안 작성. 산출물: [[paid-click-intent-gtm-production-publish-approval-20260506]]. 결과: publish 범위, rollback, 24h/72h 모니터링, 금지선을 문서화했다. 실제 publish는 하지 않았다.
+- post-publish 모니터링 템플릿 작성. 산출물: [[paid-click-intent-post-publish-monitoring-template-20260506]]. 결과: publish 후 24h/72h에 봐야 할 fill-rate, receiver, rollback 기준을 문서화했다.
 
 아직 Green으로 가능한 것:
 
-- 운영 publish 이후 모니터링 쿼리/결과 문서 템플릿 작성.
+- 운영 publish 이후 모니터링 쿼리 구현.
 
 ### Yellow Lane
 

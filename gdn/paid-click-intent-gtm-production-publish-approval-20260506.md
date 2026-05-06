@@ -21,6 +21,7 @@ Do not use for: Google Ads conversion action 생성/변경, conversion upload, G
 - 운영 결제완료 주문 623건 중 Google click id가 남은 주문은 5건뿐이다. 주문 원장 기준 보존률은 0.8%다.
 - 반면 GA4 BigQuery 기준 최근 7일 Google Ads 랜딩 세션 6,879개 중 6,724개에는 click id가 남아 있다. 랜딩 세션 기준 보존률은 97.75%다.
 - Preview와 임시 HTTPS receiver 검증에서 `gclid/gbraid/wbraid` 3개 케이스 모두 storage 저장, payload 생성, no-send receiver `200 ok=true`가 확인됐다.
+- `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`는 `OPTIONS` preflight 기준 `https://biocom.kr` Origin을 허용한다. 실제 POST는 승인 전이라 보내지 않았다.
 
 따라서 광고 URL은 대체로 정상이고, 병목은 랜딩 이후 주문 원장까지 click id가 이어지지 않는 것이다.
 운영 publish는 이 병목을 풀기 위한 첫 번째 실제 수집 단계다.
@@ -63,6 +64,7 @@ YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_inte
 - 랜딩 시점 query/referrer/session 정보를 읽어 1st-party storage에 저장.
 - `TEST_`, `DEBUG_`, `PREVIEW_` prefix click id는 live candidate에서 차단.
 - no-send receiver 호출 시 `would_send=false`, `no_platform_send_verified=true` 유지.
+- production receiver 후보: `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`.
 
 ### 제외
 
@@ -152,6 +154,7 @@ landing click id 있음
 - [ ] fresh workspace 생성 확인.
 - [ ] tag/trigger diff 캡처.
 - [ ] no-send/no-write/no-platform-send 유지 확인.
+- [ ] production receiver endpoint는 POST smoke 없이 preflight만 확인된 상태임을 인지.
 - [ ] 테스트 click id live 차단 guard 확인.
 - [ ] rollback 방법 기록.
 - [ ] 24h/72h 모니터링 담당과 산출물 위치 확정.
