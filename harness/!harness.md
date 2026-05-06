@@ -1,7 +1,7 @@
 # Growth Data Agent Harness 조사 및 설계
 
 작성 시각: 2026-04-30 23:16 KST
-최종 업데이트: 2026-05-01 00:20 KST
+최종 업데이트: 2026-05-06 15:20 KST
 작성 범위: 문서 설계만. 실제 운영 변경, DB write, GA4/Meta/TikTok/Google Ads 전송 없음.
 관련 문서: [[docs/agent-harness/growth-data-harness-v0|Growth Data Harness v0]], [[harness/npay-recovery/README|NPay Recovery Harness]], [[harness/npay-recovery/AUDITOR_CHECKLIST|Auditor Checklist]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|Lessons-to-Rules Schema]], [[naver/!npayroas|NPay ROAS 정합성 회복 계획]]
 Primary source: LangChain harness engineering 글, Deep Agents/LangGraph/LangSmith/OpenAI Agents SDK/Claude Code/Codex 공식 문서, Notion `하네스 주주총회 04/30/2026/중요`, 로컬 NPay ROAS 문서
@@ -17,6 +17,12 @@ Confidence: 88%
 2026-05-01 00:20 KST 기준 NPay recovery 하네스 v0 파일 세트는 작성 완료 상태다. 다음은 이 기준판을 더클린커피 BigQuery-first read-only 정합성에 적용한다.
 
 첫 적용 대상은 NPay recovery가 맞다. 이미 intent 수집, 운영 주문 매칭, A급/B급/ambiguous 분류, BigQuery guard, robust_absent, manual_test_order 제외, human approval 루프가 있기 때문이다.
+
+2026-05-06 보강: 하네스의 목적은 확인 요청을 늘리는 것이 아니라 안전한 작업을 더 끝까지 밀게 하는 것이다.
+Green Lane은 자동 진행하고, 이미 TJ님이 승인한 Yellow Lane은 다시 승인 요청으로 돌리지 않는다.
+승인된 Yellow는 실행을 시도한 뒤 `성공`, `실패 지점`, `접근 blocker` 중 하나로 보고한다.
+Production publish, platform send, 운영 DB write, 운영 deploy처럼 Red Lane으로 넘어가는 순간에만 멈춘다.
+정본 규칙은 [[common/HARNESS_GUIDELINES]], [[common/AUTONOMY_POLICY]], [[common/REPORTING_TEMPLATE]]에 반영했다.
 
 ## 결론
 

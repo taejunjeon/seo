@@ -1,6 +1,7 @@
-# Growth Data Agent Harness Guidelines v1
+# Growth Data Agent Harness Guidelines v1.1
 
 작성 시각: 2026-05-02 23:12 KST
+최근 업데이트: 2026-05-06 15:20 KST
 목적: GA4, GTM, NPay, TikTok, Meta, Google Ads, Attribution VM, 운영DB, 광고 ROAS, 결제 원장 작업의 공통 안전 기준
 상태: 공통 하네스 기준판
 
@@ -16,6 +17,12 @@
 4. 모든 데이터 작업은 source / window / freshness / confidence를 기록한다.
 5. 작업 종료 전 Auditor verdict를 남긴다.
 6. 새 예외는 Lessons에 남기고, 반복 근거가 쌓이면 Rules로 승격한다.
+
+추가 원칙:
+
+7. 이미 승인된 Yellow Lane은 다시 승인 요청으로 돌리지 않는다.
+8. 안전한 범위 안에서는 문서 작성에서 멈추지 말고 실행, 검증, 결과보고까지 간다.
+9. 실행이 막히면 `승인 부족`이라고 뭉뚱그리지 말고 `접근 권한`, `브라우저/CORS`, `데이터 부족`, `계정/2FA`, `기술 실패` 중 어디서 막혔는지 특정한다.
 
 ## 목적
 
@@ -36,6 +43,28 @@
 | Green | 묻지 말고 진행 | 문서 작성/수정, read-only query, 로컬 dry-run, payload preview, runbook, monitoring script, test, audit, Lessons 기록, candidate_rule 제안, scoped commit/push | no-send, no-write, no-publish, no-deploy, scope 내 변경, audit PASS/PASS_WITH_NOTES |
 | Yellow | 스프린트 단위 1회 승인 후 자율 진행 | VM receiver 배포, backend route 배포, controlled smoke window, env flag 임시 ON, GTM Preview workspace, max 5건 이하 smoke insert, post-deploy smoke, rollback dry-run, cleanup | 허용/금지 범위, max duration, max insert/traffic, cleanup, success/stop criteria가 문서화됨 |
 | Red | 멈추고 TJ 명시 승인 요청 | GTM Production publish, env flag 상시 ON, production mode 영구 활성, 자동 dispatcher 운영 전환, GA4/Meta/TikTok/Google Ads 전환 전송, 운영DB write/import apply, destructive migration, 외부 credential 발급/교체 | 별도 승인 문서와 명시 승인 필요 |
+
+## Execution Momentum Rule
+
+하네스는 컨펌을 늘리는 장치가 아니다.
+위험한 선만 막고, 안전하거나 이미 승인된 범위는 끝까지 밀기 위한 장치다.
+
+작업을 시작하면 아래 셋 중 하나까지 진행한다.
+
+1. **성공 완료**: 실행 성공, 검증 통과, 결과 문서/대화 보고, 필요한 경우 scoped commit/push까지 완료.
+2. **실패 특정**: 실행을 시도했고 어느 단계에서 실패했는지 특정. 예: storage 저장 실패, receiver 접근 실패, source stale, API 권한 부족.
+3. **접근 불가**: GTM UI, Google Ads UI, Meta UI, 2FA, 계정 권한처럼 Codex가 직접 넘을 수 없는 blocker를 특정하고, TJ님이 해야 할 화면/클릭/캡처와 Codex가 계속 할 수 있는 대체 작업을 함께 제시.
+
+금지되는 보고:
+
+- “준비 완료, 다음은 실행”이라고만 쓰고 승인된 실행을 하지 않는 것.
+- 이미 `Preview only YES`가 나온 작업을 다시 TJ님 확인 사항으로 돌리는 것.
+- 계정 접근 blocker와 승인 blocker를 섞어 쓰는 것.
+- 문서 작성만 하고 smoke, precheck, read-only 확인, 결과 정리를 생략하는 것.
+
+좋은 보고:
+
+- “Preview only 승인 범위 안에서 실행했고, storage 저장은 성공했지만 local receiver 호출은 mixed content로 실패했다. 따라서 publish는 하지 않았고, 다음은 tunnel 또는 제한 테스트 deploy 승인안이다.”
 
 ## Green Lane Autonomy Rule
 
@@ -77,6 +106,20 @@ Yellow Lane은 스프린트 단위로 한 번 승인받는다.
 5. report
 6. audit
 7. 승인 범위 안의 commit/push
+
+이미 승인된 Yellow Lane은 다음 상황이 아니면 다시 묻지 않는다.
+
+- 승인 문서의 허용 범위를 벗어나야 한다.
+- Production publish, 외부 플랫폼 전송, 운영 DB write, 운영 deploy처럼 Red Lane으로 넘어간다.
+- max duration, max inserts, max traffic, cleanup 조건을 초과한다.
+- 계정/2FA/권한 문제로 실제 실행이 불가능하다.
+- stop criteria 또는 Hard Fail이 발생했다.
+
+예시:
+
+- `Preview only YES`가 있다면 GTM Preview를 실행한다.
+- 실행 중 Submit/Publish가 필요해지는 순간 중단한다.
+- Tag Assistant 또는 GTM UI 접근이 막히면 승인 요청이 아니라 접근 blocker로 보고한다.
 
 Yellow 승인 문서에는 반드시 아래가 있어야 한다.
 

@@ -1,6 +1,7 @@
-# Growth Data Agent Autonomy Policy v1
+# Growth Data Agent Autonomy Policy v1.1
 
 작성 시각: 2026-05-02 23:12 KST
+최근 업데이트: 2026-05-06 15:20 KST
 목적: Green / Yellow / Red Lane별 에이전트 자율 실행 기준
 상태: 공통 하네스 기준판
 
@@ -11,6 +12,11 @@
 VM 배포, GTM Preview, smoke window처럼 제한된 운영 접점은 Yellow Lane이다. 스프린트 단위로 한 번 승인받으면 setup부터 cleanup/report까지 자율 진행한다.
 
 GTM Production publish, 광고 플랫폼 전환 전송, 운영DB write, destructive migration은 Red Lane이다. 항상 멈추고 TJ님 명시 승인을 요청한다.
+
+중요:
+
+이미 승인된 Yellow Lane을 다시 `TJ님 다음 할 일`로 돌리지 않는다.
+승인 범위 안에서 실행을 시도하고, 성공/실패/접근 blocker를 결과로 보고한다.
 
 ## Green Lane
 
@@ -72,6 +78,34 @@ Yellow Lane은 스프린트 단위 1회 승인 후 자율 진행한다.
 6. audit
 7. 완료 보고
 8. 승인 범위 내 commit/push
+
+### Approved Yellow Continuation Rule
+
+이미 승인된 Yellow Lane은 `승인 대기`가 아니다.
+에이전트는 승인 범위 안에서 바로 실행해야 한다.
+
+예:
+
+| 승인 문구 | 에이전트 행동 |
+|---|---|
+| `Preview only YES` | fresh workspace에서 Preview를 실행하고 결과를 보고한다 |
+| `test-only smoke YES` | test code로만 smoke를 실행하고 platform 운영 전송은 하지 않는다 |
+| `controlled smoke window YES` | 승인된 시간/건수 안에서 smoke, cleanup, 검증, 결과보고까지 끝낸다 |
+
+다시 멈춰야 하는 경우:
+
+- 허용 범위 밖 작업이 필요하다.
+- Production publish, Submit, platform send, 운영 DB write, 운영 deploy가 필요하다.
+- max duration/max inserts/max traffic을 초과한다.
+- stop criteria 또는 Hard Fail이 발생한다.
+- GTM UI, Google Ads UI, Meta UI, 2FA, 계정 권한처럼 Codex가 직접 접근할 수 없는 blocker가 있다.
+
+접근 blocker가 있으면 아래를 한 번에 보고한다.
+
+1. 어떤 화면/단계에서 막혔는가.
+2. TJ님이 해야 할 정확한 클릭/캡처/확인값은 무엇인가.
+3. Codex가 계속 진행 가능한 대체 작업은 무엇인가.
+4. 다음에 필요한 승인안이 있다면 무엇인가.
 
 Yellow Lane 예시:
 

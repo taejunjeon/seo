@@ -1,6 +1,7 @@
-# Growth Data Agent Reporting Template v1
+# Growth Data Agent Reporting Template v1.1
 
 작성 시각: 2026-05-02 23:12 KST
+최근 업데이트: 2026-05-06 15:20 KST
 목적: 작업 완료 보고, 승인 요청, Auditor verdict의 공통 형식
 상태: 공통 하네스 기준판
 
@@ -83,6 +84,10 @@
 - 데이터가 충분한가:
 - 더 조사할 것이 있는가:
 - 지금 바로 진행해도 되는가:
+- 이미 승인된 Yellow Lane인가:
+- 승인된 Yellow라면 실행을 시도했는가:
+- 실행하지 않았다면 승인 부족이 아니라 접근/권한/기술 blocker인가:
+- blocker라면 어느 단계에서 막혔는가:
 - 진행 추천 자신감:
 - 사용자가 직접 해야 하는 일이 있는가:
 - 그 일을 Codex가 대신할 수 있는가:
@@ -121,6 +126,9 @@
 - 사용자가 직접 해야 하는 액션이면 버튼, 메뉴, URL, 검색어, 필터, 확인 문구를 적는다.
 - DB를 확인해야 하면 운영DB / TJ 관리 Attribution VM / 로컬 개발 DB 중 어디인지 절대 생략하지 않는다.
 - 결과보고서 문서가 있으면 최종 답변에도 그 다음 액션을 충분히 요약한다. 문서 링크만 제공하지 않는다.
+- 이미 승인된 Yellow Lane은 `다음에 승인받기`로 쓰지 않는다. 실행을 시도한 뒤 `성공`, `실패 지점`, `접근 blocker` 중 하나로 보고한다.
+- 접근 blocker는 승인 부족과 구분한다. 예: `GTM UI 2FA에서 막힘`, `Tag Assistant가 local receiver 접근 실패`, `CORS preflight는 통과했지만 browser mixed content 실패`.
+- 실행을 못 했다면 Codex가 대신 계속할 수 있는 대체 작업을 같이 적는다. 예: 결과 보고서 템플릿 작성, tunnel/제한 테스트 deploy 승인안 작성, stale endpoint 검색, no-send smoke 추가.
 - 자신감이 낮거나, 운영/돈/광고 플랫폼/DB/배포 영향이 크거나, 판단이 복잡한 경우 `다른 에이전트 검증 권장`이라고 표시한다.
 - TJ님과 Codex가 충분히 처리 가능한 Green/Yellow 범위라면 `다른 에이전트 검증 불필요`라고 표시하고 진행한다.
 
@@ -230,12 +238,15 @@ Red:
 8. 운영 영향
 9. 남은 리스크
 10. 다음 액션 Green / Yellow / Red 분류
+11. 이미 승인된 Yellow 작업의 실행 여부
+12. 실행하지 못했다면 정확한 blocker와 대체 진행 항목
 
 나쁜 보고:
 
 - "작업 완료했습니다."
 - "다음 할 일은 승인받기입니다."
 - "테스트 통과했습니다."
+- "Preview 승인됨. 다음에 Preview 실행하면 됩니다."
 
 좋은 보고:
 
@@ -244,6 +255,15 @@ Green Lane 작업 완료.
 no-send/no-write/no-publish/no-deploy PASS.
 scope 내 5개 파일만 변경.
 다음은 Yellow Lane VM deploy + GTM Preview이며, Red Lane Production publish는 제외.
+```
+
+이미 승인된 Yellow Lane의 좋은 보고:
+
+```text
+Preview only 승인 범위 안에서 GTM Preview를 실행했다.
+storage 저장은 성공했고, no-send receiver 호출은 browser mixed content로 실패했다.
+Production publish, platform send, 운영 DB write는 0건이다.
+다음은 local receiver 대신 tunnel 또는 제한 테스트 deploy 승인안이다.
 ```
 
 ## 로컬 보고 양식 연결
