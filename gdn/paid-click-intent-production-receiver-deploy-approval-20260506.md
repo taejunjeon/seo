@@ -3,10 +3,11 @@
 작성 시각: 2026-05-06 17:10 KST
 대상: `att.ainativeos.net` backend
 문서 성격: Red Lane backend 운영 deploy + 조건부 GTM publish 승인 문서.
-Status: Mode B conditionally approved by TJ. 실행은 SSH publickey blocker로 보류.
+Status: Mode B conditionally approved by TJ. backend receiver route 배포와 TEST/negative smoke 통과. receiver-enabled GTM publish 대기.
 Supersedes: 없음
 Depends on:
 - [[paid-click-intent-production-receiver-post-smoke-20260506]]
+- [[paid-click-intent-production-receiver-deploy-result-20260506]]
 - [[paid-click-intent-gtm-production-publish-approval-20260506]]
 Do not use for: Google Ads conversion action 생성/변경, conversion upload, GA4/Meta/Google Ads 전송, 운영 DB/ledger write
 GTM Production publish는 아래 `승인 모드 B`가 명시 승인된 경우에만 포함한다.
@@ -19,13 +20,13 @@ GTM Production publish는 아래 `승인 모드 B`가 명시 승인된 경우에
 POST /api/attribution/paid-click-intent/no-send
 ```
 
-현재 local backend에는 route가 있고 no-write/no-send로 동작한다.
-하지만 production `att.ainativeos.net` TEST POST smoke 결과는 `404 Route not found`다.
+현재 local backend와 production backend 모두 route가 있고 no-write/no-send로 동작한다.
+기존 production `att.ainativeos.net` TEST POST smoke 결과는 `404 Route not found`였지만, 2026-05-06 23:46 KST 기준 backend route 배포 후 200으로 복구됐다.
 
-따라서 receiver-enabled GTM publish를 하려면 backend 운영 deploy 승인이 필요하다.
+따라서 receiver-enabled GTM publish를 하려면 이제 GTM live latest 확인, fresh workspace, tag/trigger diff 기록, publish, 24h/72h 모니터링을 진행하면 된다.
 
 2026-05-06 현재 TJ님은 모드 B를 조건부 YES로 승인했다.
-다만 Codex 실행 환경에서 `biocomkr_sns@34.64.104.94` SSH 접속이 `Permission denied (publickey)`로 막혀 있어 실제 route deploy와 GTM publish는 아직 실행하지 못했다.
+직접 `biocomkr_sns@34.64.104.94` SSH 접속은 여전히 `Permission denied (publickey)`다. 대신 `taejun@34.64.104.94` 경유 후 `sudo -u biocomkr_sns`로 운영 repo와 PM2 접근이 가능해져 backend route deploy는 완료했다.
 
 ## 승인 모드
 
@@ -206,10 +207,10 @@ negative smoke:
 ## 왜 필요한가
 
 GTM Preview와 임시 HTTPS tunnel에서는 receiver까지 통과했다.
-하지만 production receiver는 현재 POST 404다.
+이후 production receiver에서도 backend route를 배포해 POST 404를 해소했다.
 
-이 상태로 GTM tag가 receiver 호출을 포함해 운영 게시되면 브라우저에서 receiver 요청이 실패한다.
-그러면 24h/72h 모니터링의 핵심인 receiver 2xx rate, payload fill-rate, block_reason 분포를 볼 수 없다.
+따라서 이제 GTM tag가 receiver 호출을 포함해 운영 게시될 수 있는 최소 backend 조건은 갖춰졌다.
+남은 검증은 실제 브라우저/GTM tag에서 receiver 2xx rate, payload fill-rate, block_reason 분포가 의도대로 관측되는지 보는 것이다.
 
 단, no-write receiver의 모니터링은 `payload가 안전하게 들어오는지`를 보는 것이다.
 주문 원장/Attribution VM의 실제 click id fill-rate 개선은 minimal ledger write가 승인된 뒤에 판단한다.
@@ -225,12 +226,12 @@ GTM Preview와 임시 HTTPS tunnel에서는 receiver까지 통과했다.
 
 모드 B 승인인 경우:
 
-1. production receiver TEST POST smoke 재실행.
-2. negative smoke 실행.
-3. smoke 통과 시 `paid_click_intent v1` receiver-enabled GTM publish.
-4. 24h/72h 모니터링.
-5. confirmed_purchase no-send dry-run 재실행.
-6. 결과가 좋으면 minimal `paid_click_intent` ledger write 승인안 작성.
+1. production receiver TEST POST smoke 재실행. 완료: [[paid-click-intent-production-receiver-deploy-result-20260506]]
+2. negative smoke 실행. 완료: [[paid-click-intent-production-receiver-deploy-result-20260506]]
+3. smoke 통과 시 `paid_click_intent v1` receiver-enabled GTM publish. 남음.
+4. 24h/72h 모니터링. 남음.
+5. confirmed_purchase no-send dry-run 재실행. Mode B 이후.
+6. 결과가 좋으면 minimal `paid_click_intent` ledger write 승인안 작성. Mode B 이후.
 
 ## 대안
 
@@ -253,17 +254,21 @@ Codex 추천:
 - 운영 DB/ledger write.
 - 광고 예산/캠페인 상태 변경.
 
-## 현재 blocker
+## 현재 상태
 
 ```text
 ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes biocomkr_sns@34.64.104.94
 -> Permission denied (publickey)
 ```
 
-이 blocker는 승인 부족이 아니라 접근 권한 문제다.
-SSH 접근이 복구되면 모드 B 승인 범위 안에서 아래 순서까지 추가 확인 없이 진행한다.
+직접 계정 blocker는 남아 있지만, 운영 작업용 우회 경로는 복구됐다.
 
-1. backend route deploy.
-2. TEST/negative POST smoke.
-3. smoke 통과 시 receiver-enabled GTM Production publish.
-4. 24h/72h monitoring.
+```text
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94
+sudo -n -u biocomkr_sns ...
+```
+
+이 경로로 backend route deploy와 TEST/negative POST smoke는 완료했다.
+남은 Mode B 작업은 receiver-enabled GTM Production publish와 24h/72h monitoring이다.
+
+자세한 SSH 복구/운영 접근 방법은 [[../capivm/vm-ssh-access-recovery-runbook-20260506]]을 따른다.
