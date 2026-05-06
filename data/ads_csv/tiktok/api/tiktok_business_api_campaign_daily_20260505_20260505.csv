@@ -1,0 +1,6 @@
+report_date,campaign_id,spend,impressions,clicks,conversion,cta_conversion,vta_conversion,complete_payment,value_per_complete_payment,derived_complete_payment_value,complete_payment_roas,cta_purchase,evta_purchase,vta_purchase,cost_per_cta_purchase,cost_per_evta_purchase,cost_per_vta_purchase
+2026-05-05,1854347729644690,80526,44243,2634,1,0,1,1,471200,471200,5.85,0,0,0,0,0,0
+2026-05-05,1854918885396689,50186,23166,1423,1,1,0,1,234000,234000,4.66,0,0,0,0,0,0
+2026-05-05,1856156648605858,23958,5888,802,0,0,0,0,0,0,0,0,0,0,0,0,0
+2026-05-05,1856728035726529,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+2026-05-05,1858788275666081,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
