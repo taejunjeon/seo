@@ -3,6 +3,10 @@
 작성 시각: 2026-05-05 23:39 KST
 대상: biocom 실제 결제완료 주문 기반 구매 후보 파이프라인
 문서 성격: Green Lane contract. 실제 GA4/Meta/Google Ads 전송, 운영 DB write, 운영 deploy는 하지 않는다.
+Status: active
+Supersedes: 없음
+Next document: confirmed_purchase dispatcher Red Lane 승인안
+Do not use for: 랜딩 click id Preview, GTM Preview, 실제 GA4/Meta/Google Ads 전송, 운영 DB write, backend 운영 deploy
 
 ```yaml
 harness_preflight:
@@ -61,6 +65,16 @@ POST /api/attribution/confirmed-purchase/no-send
 이 route는 이름 그대로 `no-send`다.
 응답에는 GA4, Meta, Google Ads payload preview가 보이지만 실제 전송은 하지 않는다.
 DB 저장도 하지 않는다.
+
+중요: 이 route는 실제 결제완료 주문 후보만 받는다.
+랜딩 시점 Google click id 보존이나 NPay intent 재주입 확인은 별도 route를 쓴다.
+
+```text
+POST /api/attribution/paid-click-intent/no-send
+```
+
+둘을 섞지 않는다.
+`confirmed_purchase/no-send`는 `payment_complete` 또는 `confirmed_order`만 허용한다.
 
 ## 입력 payload
 

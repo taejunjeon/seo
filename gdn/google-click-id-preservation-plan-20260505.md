@@ -3,6 +3,10 @@
 작성 시각: 2026-05-05 23:38 KST
 대상: biocom Google Ads confirmed purchase 연결
 문서 성격: Green Lane 설계/진단 문서. GTM publish, backend deploy, Google Ads 전송은 하지 않는다.
+Status: active
+Supersedes: 없음
+Next document: paid_click_intent GTM Preview 결과 보고서
+Do not use for: GTM Production publish, Google Ads 전환 액션 생성/변경, conversion upload, backend 운영 deploy
 
 ```yaml
 harness_preflight:
@@ -74,6 +78,12 @@ Google Ads에 실제 결제완료 주문만 구매로 알려주려면 `gclid`, `
 이 분모에서는 보존률이 50%다.
 다만 `search`, `cpc`, `sem` 같은 범용 단어는 Naver brandsearch와 섞이므로 Google 후보 조건에서 제외했다.
 최종 Google Ads 랜딩 세션 기준 분모는 GA4 BigQuery landing-session 분석으로 별도 산출한다.
+
+해석 규칙:
+
+- 0.8%는 전체 결제완료 주문 기준 보존률이다. 전체 주문에는 Google Ads가 아닌 매출도 섞여 있으므로 Google Ads 품질 판단의 최종 분모가 아니다.
+- 50%는 이미 Google 증거가 남은 주문 후보 기준 보존률이다. 다만 표본이 10건뿐이므로 낙관하면 안 된다.
+- 다음 검증은 Google Ads 랜딩 세션과 주문 후보를 더 넓게 잡아, Google Ads 유입 후보 기준 보존률을 다시 산출하는 것이다.
 
 ## 왜 이게 병목인가
 
@@ -157,6 +167,7 @@ TTL 추천:
 - 운영 source no-send dry-run 확장. 최신 재실행 결과: 623건, 홈페이지 586건, NPay 37건.
 - Google click id 보존률 진단. 최신 재실행 결과: 전체 0.8%, 주문 evidence 기준 Google 후보 10건 중 5건.
 - confirmed_purchase no-send preview route 추가.
+- paid_click_intent no-send preview route 추가. 산출물: `POST /api/attribution/paid-click-intent/no-send`.
 - source freshness에 운영 아임웹 주문 원장 추가.
 - confirmed_purchase no-send route 운영 샘플 검증. 산출물: [[../data/confirmed-purchase-no-send-route-sample-20260506]].
 - GTM Preview 승인안 작성. 산출물: [[paid-click-intent-gtm-preview-approval-20260506]].
@@ -192,7 +203,8 @@ TJ님 승인 후 가능한 것:
 
 - 테스트 랜딩 URL에서 `gclid/gbraid/wbraid`가 storage에 저장된다.
 - checkout/NPay intent payload에 같은 click id가 다시 들어간다.
-- `/api/attribution/confirmed-purchase/no-send` preview에서 `has_google_click_id=true`가 나온다.
+- `/api/attribution/paid-click-intent/no-send` preview에서 `has_google_click_id=true`가 나온다.
+- `TEST_`, `DEBUG_`, `PREVIEW_` prefix click id는 Preview 확인용으로만 남고 live 후보에서는 차단된다.
 - 실제 외부 플랫폼 전송은 0건이다.
 
 운영 전환 전 성공 기준:

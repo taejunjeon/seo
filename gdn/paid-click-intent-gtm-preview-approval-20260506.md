@@ -3,6 +3,10 @@
 작성 시각: 2026-05-06 09:35 KST
 대상: biocom Google click id 보존률 개선
 문서 성격: Yellow Lane 승인안. 이 문서는 실행 전 체크리스트이며, GTM Production publish나 광고 플랫폼 전송을 승인하지 않는다.
+Status: pending approval
+Supersedes: 없음
+Next document: paid_click_intent GTM Preview 결과 보고서
+Do not use for: GTM Production publish, Google Ads 전환 액션 생성/변경, conversion upload, GA4/Meta/Google Ads 전송, backend 운영 deploy
 
 ```yaml
 harness_preflight:
@@ -47,6 +51,9 @@ harness_preflight:
 승인하더라도 실제 사이트에 게시하지 않고, Google Ads/GA4/Meta로 전환을 보내지 않는다.
 성공 기준은 테스트 랜딩 URL의 `gclid/gbraid/wbraid`가 브라우저 storage에 저장되고, 결제 시작/NPay intent/no-send receiver preview까지 같은 값으로 이어지는 것이다.
 
+2026-05-06 09:54 KST 기준 로컬 backend에는 `POST /api/attribution/paid-click-intent/no-send` preview route가 준비됐다.
+이 route는 저장하지 않고, 전송하지 않고, 플랫폼으로 보내지 않는다.
+
 ## 왜 하는가
 
 운영 confirmed purchase no-send dry-run 결과, 2026-04-27~2026-05-05 결제완료 주문 623건 중 Google click id가 남은 주문은 5건이다.
@@ -75,9 +82,11 @@ YES: biocom GTM fresh workspace에서 paid_click_intent v1 Preview 검증을 진
 
 ## 작업 공간 원칙
 
-반드시 새 workspace를 만든다.
+Preview 전에 현재 GTM live latest version을 read-only로 다시 확인한다.
+이전 문서에는 live v140 기준으로 적혀 있었지만, AW-308 pause 이후 live version이 바뀌었을 수 있으므로 숫자를 고정하지 않는다.
+
+반드시 현재 live latest version 기준 새 workspace를 만든다.
 `Default Workspace 147`은 오래된 NPay intent 작업 충돌이 남아 있으므로 저장, 제출, 게시하지 않는다.
-새 workspace는 live v140 기준 fresh 상태에서 시작한다.
 
 권장 workspace 이름:
 
@@ -129,12 +138,13 @@ Preview에서는 아래 목적의 storage만 확인한다.
 ### no-send receiver preview
 
 Preview 단계에서 네트워크 요청이 발생하더라도 반드시 no-send endpoint만 사용한다.
+`paid_click_intent`는 결제완료 주문 후보가 아니므로 `confirmed_purchase/no-send`와 섞지 않는다.
 
 ```text
-POST /api/attribution/confirmed-purchase/no-send
+POST /api/attribution/paid-click-intent/no-send
 ```
 
-또는 별도 `paid_click_intent` preview endpoint가 생기면 해당 endpoint를 사용하되, 응답에는 아래 guardrail이 있어야 한다.
+응답에는 아래 guardrail이 있어야 한다.
 
 ```json
 {
@@ -147,12 +157,24 @@ POST /api/attribution/confirmed-purchase/no-send
 }
 ```
 
+### 테스트 click id live 차단 규칙
+
+Preview에서 `TEST_GCLID_20260506`, `TEST_GBRAID_20260506`, `TEST_WBRAID_20260506` 같은 가짜 click id를 쓰는 것은 허용한다.
+다만 이 값은 live 후보가 되면 안 된다.
+
+규칙:
+
+- `TEST_`, `DEBUG_`, `PREVIEW_` prefix가 붙은 `gclid/gbraid/wbraid`는 live 후보에서 무조건 reject한다.
+- no-send 응답에는 `test_click_id=true`, `block_reasons`에는 `test_click_id_rejected_for_live`를 표시한다.
+- Preview 후 브라우저 `localStorage`, `sessionStorage`, 관련 cookie를 삭제한다.
+
 ## 성공 기준
 
 - 테스트 랜딩 URL에서 `gclid`, `gbraid`, `wbraid`가 각각 storage에 저장된다.
 - 페이지 이동 후에도 같은 click id가 유지된다.
 - 일반 결제 시작 또는 NPay intent 시점 payload에 같은 click id가 들어간다.
-- no-send receiver preview에서 `has_google_click_id=true`가 나온다.
+- `POST /api/attribution/paid-click-intent/no-send` preview에서 `has_google_click_id=true`가 나온다.
+- 테스트 click id는 `test_click_id=true`로 표시되고 live 후보에서는 차단된다.
 - Tag Assistant Preview에서 새 태그가 Preview에서만 동작한다.
 - GA4/Meta/Google Ads 전환 전송은 0건이다.
 
@@ -163,12 +185,32 @@ POST /api/attribution/confirmed-purchase/no-send
 - no-send receiver가 아닌 GA4/Meta/Google Ads endpoint로 전송된다.
 - GTM workspace가 Default Workspace 147이다.
 - Preview가 아니라 Submit/Publish가 시도된다.
+- `confirmed_purchase/no-send` endpoint에 paid click intent payload를 섞어 보낸다.
 
 ## 롤백
 
 Preview만 했으면 운영 롤백은 없다.
 workspace 변경안은 제출하지 않고 폐기한다.
-테스트 후 브라우저 storage는 삭제한다.
+테스트 후 브라우저 storage와 cookie를 삭제한다.
+
+## 로컬 route smoke 결과
+
+로컬 임시 backend 포트 `7099`에서 no-send preview를 확인했다.
+
+| 케이스 | 결과 | 해석 |
+|---|---|---|
+| `gclid=TEST_GCLID_20260506` | `ok=true`, `has_google_click_id=true`, `test_click_id=true`, `wouldStore=false`, `wouldSend=false` | Preview용 click id는 인식하지만 live 후보에서는 차단 |
+| Google click id 없음 | `ok=false`, `block_reasons=missing_google_click_id` | click id 보존 실패를 명확히 표시 |
+| `value` 포함 | `ok=false`, `rejectedField=value` | purchase/결제값이 paid click intent에 섞이는 것을 차단 |
+
+검증 명령:
+
+```bash
+PORT=7099 BACKGROUND_JOBS_ENABLED=false npx tsx src/server.ts
+curl -s -X POST http://localhost:7099/api/attribution/paid-click-intent/no-send \
+  -H 'Content-Type: application/json' \
+  --data '{"site":"biocom","capture_stage":"landing","gclid":"TEST_GCLID_20260506","utm_source":"google","utm_medium":"cpc","utm_campaign":"codex_preview_20260506","landing_url":"https://biocom.kr/?gclid=TEST_GCLID_20260506&utm_source=google&utm_medium=cpc&utm_campaign=codex_preview_20260506","client_id":"cid.preview","ga_session_id":"12345"}'
+```
 
 ## 다음 단계
 

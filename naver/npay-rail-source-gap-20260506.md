@@ -3,6 +3,10 @@
 작성 시각: 2026-05-06 09:42 KST
 대상: 2026년 4월 biocom NPay confirmed rail
 문서 성격: Green Lane read-only 분류 문서. 운영 DB write, GA4/Meta/Google Ads 전송, GTM 변경은 하지 않는다.
+Status: active for Apr close
+Supersedes: 없음
+Next document: 2026년 4월 channel assignment v0.3 결과
+Do not use for: Naver Ads 매출 확정, Google/Meta/GA4 전환 전송, 운영 DB write
 
 ```yaml
 harness_preflight:
@@ -70,10 +74,17 @@ NPay intent-only live publish 시각은 2026-04-27 18:10 KST다.
 
 | 조건 | primary channel | reason |
 |---|---|---|
-| publish 이전 NPay confirmed order | `unknown_quarantine` 또는 별도 `paid_naver_unattributed` 후보 | intent source가 없어서 채널 증거가 부족함 |
+| publish 이전 NPay confirmed order | `unknown_quarantine` + `payment_method=npay` + `unknown_reason=source_unavailable_before_publish` 또는 별도 `npay_payment_unattributed` bucket | intent source가 없어서 채널 증거가 부족함. NPay는 결제수단이지 Naver Ads 유입이라는 뜻이 아님 |
 | publish 이후 A급 NPay intent match | intent evidence에 따라 `paid_meta`, `paid_google`, `paid_naver`, `organic` 등 배정 | 실제 intent/click id/UTM 증거가 있음 |
 | publish 이후 ambiguous | `unknown_quarantine` | 후보가 여러 개거나 금액/상품/시간 증거가 부족함 |
 | publish 이후 purchase_without_intent | `unknown_quarantine` | 실제 NPay 매출은 있으나 intent 증거 없음 |
+
+금지 표현:
+
+- `paid_naver_unattributed`
+
+이 표현은 NPay 결제수단을 Naver Ads 유입으로 오해하게 만든다.
+2026년 4월 publish 이전 NPay 매출은 실제 매출에는 포함하되, 광고 채널은 `unknown_quarantine` 또는 `npay_payment_unattributed`로 둔다.
 
 ## 다음 작업
 

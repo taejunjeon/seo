@@ -647,6 +647,49 @@ const CONFIRMED_PURCHASE_REJECT_KEYS = new Set([
   "token",
   "password",
 ]);
+const PAID_CLICK_INTENT_ALLOWED_SITES = new Set(["biocom"]);
+const PAID_CLICK_INTENT_ALLOWED_STAGES = new Set([
+  "landing",
+  "page_view",
+  "cart",
+  "add_to_cart",
+  "checkout_start",
+  "payment_start",
+  "npay_intent",
+]);
+const PAID_CLICK_INTENT_URL_QUERY_ALLOWLIST = new Set([
+  "idx",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "fbclid",
+  "gclid",
+  "ttclid",
+  "gbraid",
+  "wbraid",
+]);
+const PAID_CLICK_INTENT_REJECT_KEYS = new Set([
+  "value",
+  "currency",
+  "order_number",
+  "ordernumber",
+  "channel_order_no",
+  "channelorderno",
+  "paid_at",
+  "paidat",
+  "card",
+  "cardnumber",
+  "account",
+  "accountnumber",
+  "bankaccount",
+  "rawcookie",
+  "cookie",
+  "access_token",
+  "token",
+  "password",
+]);
 const marketingIntentRateLimit = new Map<string, { count: number; windowStart: number }>();
 
 const metadataText = (entry: AttributionLedgerEntry, key: string) => {
@@ -783,6 +826,21 @@ const sanitizeConfirmedPurchaseUrl = (value: string) => {
   return parsed.toString().slice(0, 2000);
 };
 
+const sanitizePaidClickIntentUrl = (value: string) => {
+  const parsed = parseUrlSafe(value);
+  if (!parsed) return value.split("#")[0].split("?")[0].slice(0, 2000);
+
+  const nextSearch = new URLSearchParams();
+  parsed.searchParams.forEach((paramValue, paramKey) => {
+    if (PAID_CLICK_INTENT_URL_QUERY_ALLOWLIST.has(paramKey.toLowerCase())) {
+      nextSearch.append(paramKey, paramValue.slice(0, 500));
+    }
+  });
+  parsed.search = nextSearch.toString();
+  parsed.hash = "";
+  return parsed.toString().slice(0, 2000);
+};
+
 const findConfirmedPurchaseRejectedField = (value: unknown, path: string[] = []): string | null => {
   if (!value || typeof value !== "object") return null;
   if (Array.isArray(value)) {
@@ -805,6 +863,101 @@ const findConfirmedPurchaseRejectedField = (value: unknown, path: string[] = [])
     if (nested) return nested;
   }
   return null;
+};
+
+const findPaidClickIntentRejectedField = (value: unknown, path: string[] = []): string | null => {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const nested = findPaidClickIntentRejectedField(value[index], [...path, String(index)]);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = normalizeSecurityKey(key);
+    if (MARKETING_INTENT_PII_KEYS.has(normalized) || PAID_CLICK_INTENT_REJECT_KEYS.has(normalized)) {
+      return [...path, key].join(".");
+    }
+    if (typeof nestedValue === "string" && /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(nestedValue)) {
+      return [...path, key].join(".");
+    }
+    const nested = findPaidClickIntentRejectedField(nestedValue, [...path, key]);
+    if (nested) return nested;
+  }
+  return null;
+};
+
+const isPreviewClickId = (value: string) => {
+  const normalized = value.trim().toUpperCase();
+  return normalized.startsWith("TEST_") || normalized.startsWith("DEBUG_") || normalized.startsWith("PREVIEW_");
+};
+
+const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
+  const site = textField(body, "site") || "biocom";
+  const eventName = textField(body, "event_name") || textField(body, "eventName") || "PaidClickIntent";
+  const captureStage = (textField(body, "capture_stage") || textField(body, "captureStage") || "landing").toLowerCase();
+  const capturedAt = textField(body, "captured_at") || textField(body, "capturedAt") || new Date().toISOString();
+  const gclid = textField(body, "gclid");
+  const gbraid = textField(body, "gbraid");
+  const wbraid = textField(body, "wbraid");
+  const fbclid = textField(body, "fbclid");
+  const ttclid = textField(body, "ttclid");
+  const utmSource = textField(body, "utm_source") || textField(body, "utmSource");
+  const utmMedium = textField(body, "utm_medium") || textField(body, "utmMedium");
+  const utmCampaign = textField(body, "utm_campaign") || textField(body, "utmCampaign");
+  const utmTerm = textField(body, "utm_term") || textField(body, "utmTerm");
+  const utmContent = textField(body, "utm_content") || textField(body, "utmContent");
+  const clientId = textField(body, "client_id") || textField(body, "clientId");
+  const gaSessionId = textField(body, "ga_session_id") || textField(body, "gaSessionId");
+  const localSessionId = textField(body, "local_session_id") || textField(body, "localSessionId");
+  const landingUrlRaw = textField(body, "landing_url") || textField(body, "landingUrl") || textField(body, "page_location") || textField(body, "pageLocation");
+  const currentUrlRaw = textField(body, "current_url") || textField(body, "currentUrl") || landingUrlRaw;
+  const referrerRaw = textField(body, "referrer") || textField(body, "page_referrer") || textField(body, "pageReferrer");
+  const eventId = textField(body, "event_id") || textField(body, "eventId") || `PaidClickIntent_${captureStage}_${Date.now()}`;
+  const storageKey = textField(body, "storage_key") || textField(body, "storageKey") || "bi_paid_click_intent_v1";
+  const googleClickIds = [gclid, gbraid, wbraid].filter(Boolean);
+  const hasGoogleClickId = googleClickIds.length > 0;
+  const testClickId = googleClickIds.some(isPreviewClickId);
+  const sessionKey = gaSessionId || localSessionId || clientId || "missing_session";
+  const blockReasons = ["read_only_phase", "approval_required"];
+
+  if (!PAID_CLICK_INTENT_ALLOWED_SITES.has(site)) blockReasons.push("site_not_allowed");
+  if (!PAID_CLICK_INTENT_ALLOWED_STAGES.has(captureStage)) blockReasons.push("capture_stage_not_allowed");
+  if (!capturedAt || Number.isNaN(Date.parse(capturedAt))) blockReasons.push("invalid_captured_at");
+  if (!hasGoogleClickId) blockReasons.push("missing_google_click_id");
+  if (testClickId) blockReasons.push("test_click_id_rejected_for_live");
+
+  return {
+    site,
+    event_name: eventName,
+    capture_stage: captureStage,
+    event_id: eventId,
+    storage_key: storageKey,
+    captured_at: capturedAt,
+    dedupe_key: `paid_click_intent:${site}:${sessionKey}:${captureStage}:${googleClickIds[0] || "missing"}`,
+    has_google_click_id: hasGoogleClickId,
+    test_click_id: testClickId,
+    live_candidate_after_approval: hasGoogleClickId && !testClickId && blockReasons.every((reason) => ["read_only_phase", "approval_required"].includes(reason)),
+    would_store: false,
+    would_send: false,
+    block_reasons: blockReasons,
+    click_ids: { gclid, gbraid, wbraid, fbclid, ttclid },
+    utm: {
+      source: utmSource,
+      medium: utmMedium,
+      campaign: utmCampaign,
+      term: utmTerm,
+      content: utmContent,
+    },
+    client_id: clientId,
+    ga_session_id: gaSessionId,
+    local_session_id: localSessionId,
+    sanitized_landing_url: landingUrlRaw ? sanitizePaidClickIntentUrl(landingUrlRaw) : "",
+    sanitized_current_url: currentUrlRaw ? sanitizePaidClickIntentUrl(currentUrlRaw) : "",
+    sanitized_referrer: referrerRaw ? sanitizePaidClickIntentUrl(referrerRaw) : "",
+  };
 };
 
 const buildConfirmedPurchaseNoSendPreview = (body: Record<string, unknown>) => {
@@ -2336,6 +2489,71 @@ export const createAttributionRouter = () => {
         wouldStore: false,
         wouldSend: false,
         error: "confirmed_purchase_no_send_preview_error",
+        message,
+      });
+    }
+  });
+
+  router.post("/api/attribution/paid-click-intent/no-send", (req: Request, res: Response) => {
+    try {
+      const body = parseBody(req.body);
+      const rejectedField = findPaidClickIntentRejectedField(body);
+      if (rejectedField) {
+        res.status(400).json({
+          ok: false,
+          dryRun: true,
+          wouldStore: false,
+          wouldSend: false,
+          reason: "pii_secret_or_purchase_field_detected",
+          rejectedField,
+          warnings: [
+            "paid_click_intent no-send preview는 랜딩/체크아웃 시점 click id 보존만 확인한다.",
+            "이름, 전화번호, 이메일, 주문번호, 결제금액, 결제완료 시각, 카드/계좌, raw cookie, token은 받지 않는다.",
+          ],
+          source: {
+            mode: "no_write_no_send_preview",
+            receivedAt: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+
+      const preview = buildPaidClickIntentNoSendPreview(body);
+      const hardBlocks = preview.block_reasons.filter((reason) => ![
+        "read_only_phase",
+        "approval_required",
+        "test_click_id_rejected_for_live",
+      ].includes(reason));
+      res.status(hardBlocks.length > 0 ? 400 : 200).json({
+        ok: hardBlocks.length === 0,
+        dryRun: true,
+        receiver: "paid_click_intent_no_send",
+        wouldStore: false,
+        wouldSend: false,
+        noSendVerified: true,
+        noWriteVerified: true,
+        noDeployVerified: true,
+        noPublishVerified: true,
+        noPlatformSendVerified: true,
+        preview,
+        source: {
+          mode: "no_write_no_send_preview",
+          receivedAt: new Date().toISOString(),
+        },
+        warnings: [
+          "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+          "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+          "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다.",
+        ],
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "paid click intent no-send preview failed";
+      res.status(400).json({
+        ok: false,
+        dryRun: true,
+        wouldStore: false,
+        wouldSend: false,
+        error: "paid_click_intent_no_send_preview_error",
         message,
       });
     }
