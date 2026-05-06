@@ -26,7 +26,10 @@ Do not use for: Google Ads conversion action 생성/변경, conversion upload, G
 - 하지만 TEST click id 1건 POST smoke에서는 `404 Route not found`가 반환됐다. 즉 production receiver route는 아직 운영 배포되어 있지 않다.
 
 따라서 광고 URL은 대체로 정상이고, 병목은 랜딩 이후 주문 원장까지 click id가 이어지지 않는 것이다.
-운영 publish는 이 병목을 풀기 위한 첫 번째 실제 수집 단계다.
+운영 publish는 이 병목을 풀기 위한 첫 번째 live validation 단계다.
+단, receiver가 no-write로 동작하는 동안에는 주문 원장 fill-rate가 직접 개선되지 않는다.
+이 단계의 목표는 click id storage와 receiver payload가 실제 고객 환경에서 안전하게 동작하는지 확인하는 것이다.
+주문 원장/Attribution VM 연결 개선은 이후 minimal ledger write가 별도 승인된 뒤 판단한다.
 
 ## TJ님 승인 문구
 
@@ -66,9 +69,15 @@ YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_inte
 - GTM Custom HTML tag 1개: `paid_click_intent v1`.
 - All Pages 또는 biocom 고객 페이지 범위 trigger.
 - 랜딩 시점 query/referrer/session 정보를 읽어 1st-party storage에 저장.
+- receiver POST는 조건부로만 실행한다.
+  - 새 `gclid/gbraid/wbraid`가 들어온 랜딩.
+  - 저장된 Google click id가 checkout/NPay intent 시점에 재주입되는 경우.
+  - 같은 session/click id/stage 반복 POST는 dedupe.
 - `TEST_`, `DEBUG_`, `PREVIEW_` prefix click id는 live candidate에서 차단.
 - no-send receiver 호출 시 `would_send=false`, `no_platform_send_verified=true` 유지.
 - production receiver 후보: `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`. 단, 2026-05-06 TEST POST smoke 기준 현재 route는 404다.
+- admin, login, logout, internal, 404 후보 페이지는 receiver POST 대상에서 제외하거나 ignore한다.
+- `landing_url/current_url/referrer`는 allowlist query만 남겨 저장/전송한다.
 
 ### 제외
 
@@ -95,7 +104,8 @@ YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_inte
 
 - Google Ads 랜딩 세션의 click id storage fill-rate가 관측된다.
 - checkout/NPay intent payload에서 Google click id 재주입률이 산출된다.
-- confirmed purchase no-send dry-run에서 `missing_google_click_id` 비중이 감소하는지 1차 확인한다.
+- no-write receiver 단계에서는 confirmed purchase no-send dry-run의 `missing_google_click_id` 감소를 필수 성공 기준으로 보지 않는다.
+- minimal ledger write 승인 전에는 `missing_google_click_id` 감소가 제한적일 수 있다.
 - 실제 Google Ads 전송 후보는 여전히 0건이어야 한다. 전송은 별도 승인 전까지 금지다.
 
 ## 모니터링 지표
@@ -115,7 +125,8 @@ YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_inte
 운영자가 보는 해석:
 
 - `has_google_click_id`가 늘어나는 것은 좋은 신호다.
-- `confirmed_purchase_missing_google_click_id`가 줄어야 다음 Google Ads confirmed purchase 단계로 갈 수 있다.
+- no-write receiver 단계에서는 receiver 2xx, payload 안전성, checkout/NPay intent 재주입률이 1차 판단 기준이다.
+- `confirmed_purchase_missing_google_click_id` 감소는 minimal ledger write 이후에 본격 판단한다.
 - 이 publish만으로 Google Ads ROAS가 바로 정상화되지는 않는다.
 
 ## 롤백 기준
@@ -158,6 +169,9 @@ landing click id 있음
 - [ ] fresh workspace 생성 확인.
 - [ ] tag/trigger diff 캡처.
 - [ ] no-send/no-write/no-platform-send 유지 확인.
+- [ ] receiver POST가 조건부/deduped인지 확인.
+- [ ] admin/login/internal/404 page payload가 reject 또는 ignore되는지 확인.
+- [ ] raw payload logging 금지 또는 마스킹 확인.
 - [ ] production receiver endpoint가 TEST POST smoke에서 `200 ok=true`를 반환하는지 재확인. 현재 2026-05-06 기준은 404라 receiver-enabled publish 불가.
 - [ ] 테스트 click id live 차단 guard 확인.
 - [ ] rollback 방법 기록.
@@ -192,6 +206,8 @@ production `att.ainativeos.net`에 `POST /api/attribution/paid-click-intent/no-s
 
 - backend 운영 deploy가 필요하다.
 - backend 운영 deploy는 별도 Red Lane 승인이다.
+- no-write receiver만으로는 주문 원장 fill-rate가 직접 개선되지 않는다.
+- 실제 원장 연결은 minimal ledger write 승인 이후 가능하다.
 
 Codex 추천:
 

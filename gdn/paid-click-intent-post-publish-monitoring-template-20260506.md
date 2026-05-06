@@ -12,6 +12,9 @@ Do not use for: GTM Production publish, Google Ads conversion upload, GA4/Meta/G
 
 운영 publish 후 봐야 할 것은 Google Ads ROAS가 즉시 좋아지는지가 아니다.
 첫 24~72시간의 목표는 `gclid/gbraid/wbraid`가 랜딩에서 저장되고 checkout/NPay intent/주문 후보까지 살아남는지 확인하는 것이다.
+단, receiver가 no-write인 동안에는 주문 원장/Attribution VM에 row를 남기지 않는다.
+따라서 이 템플릿의 24~72시간 목표는 `원장 fill-rate 개선`이 아니라 `live payload validation`이다.
+실제 주문 원장 연결 개선은 minimal ledger write가 별도 승인된 뒤 판단한다.
 
 성공 판단은 아래 순서다.
 
@@ -19,7 +22,8 @@ Do not use for: GTM Production publish, Google Ads conversion upload, GA4/Meta/G
 2. click id가 storage에 저장된다.
 3. no-send receiver가 2xx를 반환한다.
 4. checkout/NPay intent payload에 click id가 다시 들어간다.
-5. confirmed purchase no-send dry-run에서 `missing_google_click_id` 비중이 줄기 시작한다.
+5. raw payload logging 없이 안전한 access/observability 지표를 볼 수 있다.
+6. confirmed purchase no-send dry-run의 `missing_google_click_id` 감소는 참고만 한다. no-write 단계에서는 필수 성공 기준이 아니다.
 
 ## 사전 기준선
 
@@ -37,7 +41,8 @@ publish 전 기준선:
 ```text
 랜딩과 GA4 raw에는 click id가 있다.
 주문 원장에는 click id가 거의 없다.
-따라서 publish 후 모니터링은 주문 원장/Attribution VM 쪽 fill-rate 개선을 봐야 한다.
+따라서 publish 후 첫 모니터링은 browser storage와 no-write receiver payload가 실제 고객 환경에서 안전하게 동작하는지 봐야 한다.
+주문 원장/Attribution VM 쪽 fill-rate 개선은 minimal ledger write 이후에 본다.
 ```
 
 ## 24시간 체크
@@ -84,12 +89,16 @@ payload: TEST_GCLID_20260506_POST_SMOKE
 - `test_click_id=true` count.
 - `live_candidate_after_approval=false` count for test IDs.
 - PII reject count.
+- raw body가 log에 남지 않는지 확인.
+- click id/landing_url/client/session 값은 마스킹 또는 집계 형태로만 남는지 확인.
 
 주의:
 
 ```text
 receiver가 2xx라고 해서 Google Ads로 전송된 것이 아니다.
 no-send receiver는 platform send가 0이어야 한다.
+receiver count는 DB/ledger row count가 아니다.
+no-write 단계에서는 access log/observability counter/TEST smoke만 사용한다.
 ```
 
 ### 3. 이상 징후
@@ -115,7 +124,7 @@ publish 후 72시간에 확인한다.
 - paid_click_intent 중 Google click id 보유 수.
 - checkout payload 중 Google click id 보유 수.
 - NPay intent payload 중 Google click id 보유 수.
-- confirmed purchase no-send dry-run의 `missing_google_click_id` count/rate.
+- confirmed purchase no-send dry-run의 `missing_google_click_id` count/rate. 단, no-write receiver 단계에서는 참고 지표다.
 
 ### 2. 주문 후보 연결
 
@@ -134,7 +143,8 @@ publish 후 72시간에 확인한다.
 
 - `paid_click_intent` 수신이 Google Ads 세션 규모와 비슷한 방향으로 증가.
 - checkout/NPay intent 단계에서 click id 보유율이 높게 유지.
-- confirmed purchase no-send dry-run에서 `missing_google_click_id`가 감소.
+- raw payload logging 없이 마스킹/집계 지표만 남음.
+- confirmed purchase no-send dry-run에서 `missing_google_click_id`가 감소하면 추가로 좋은 신호. 단, no-write 단계에서는 감소하지 않아도 실패로 보지 않는다.
 - 외부 플랫폼 전송 0건 유지.
 
 나쁜 결과:
@@ -169,6 +179,7 @@ gdn/paid-click-intent-gtm-production-publish-result-YYYYMMDD.md
 72시간 결과가 좋으면:
 
 - confirmed purchase no-send dry-run을 운영 publish 이후 window로 재실행한다.
+- minimal `paid_click_intent` ledger write 승인안을 작성한다.
 - Google Ads confirmed_purchase 전송은 여전히 Red Lane으로 별도 승인 문서를 유지한다.
 
 72시간 결과가 나쁘면:

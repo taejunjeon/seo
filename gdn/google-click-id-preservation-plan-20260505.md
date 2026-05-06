@@ -192,6 +192,7 @@ TTL 추천:
 - post-publish 모니터링 템플릿 작성. 산출물: [[paid-click-intent-post-publish-monitoring-template-20260506]]. 결과: publish 후 24h/72h에 봐야 할 fill-rate, receiver, rollback 기준을 문서화했다.
 - production receiver POST smoke. 산출물: [[paid-click-intent-production-receiver-post-smoke-20260506]]. 결과: `att.ainativeos.net`의 `paid-click-intent/no-send` POST route는 404였다.
 - production receiver 배포 승인안 작성. 산출물: [[paid-click-intent-production-receiver-deploy-approval-20260506]]. 실제 backend 운영 deploy는 하지 않았다.
+- no-write receiver 의미를 재정의했다. 이 단계는 DB/ledger에 row를 쓰지 않는 live payload validation이고, 주문 원장 fill-rate 개선은 minimal ledger write 승인 이후에 판단한다.
 
 아직 Green으로 가능한 것:
 
@@ -201,7 +202,9 @@ TTL 추천:
 
 TJ님 승인 후 가능한 것:
 
-- GTM Production publish 여부 결정. Preview/receiver는 통과했지만 운영 게시 전에는 별도 승인 필요.
+- production receiver route no-write 배포.
+- receiver route TEST POST 200 통과 후 receiver-enabled GTM Production publish.
+- 단, 위 둘은 운영 deploy/publish를 포함하므로 TJ님이 연속 승인 문구로 명시해야 한다.
 
 ### Red Lane
 
