@@ -73,6 +73,23 @@ Codex가 2026-05-05 00:46 KST에 read-only로 재확인한 결과, 이전의 `bi
 - 즉시 추가 조사에는 허들러스 추가 권한이 필수는 아니다.
 - 기존 freshness 스크립트를 그대로 통과시키려면 허들러스에 `roles/bigquery.jobUser`를 추가 요청하거나, 코드에서 biocom source project와 job project를 분리해야 한다.
 
+### 2026-05-05 confirmed purchase guard 활용
+
+2026-05-05 23:14 KST에 Codex가 `hurdlers-naver-pay.analytics_304759974`를 source dataset으로, `project-dadba7dd-0229-4ff6-81c`를 job project로 사용해 confirmed purchase no-send dry-run의 GA4 중복 guard를 실행했다.
+
+결과:
+
+- 운영 DB 결제완료 주문 619건 중 GA4 present 476건, robust_absent 143건.
+- NPay 실제 결제완료 주문 36건도 운영 주문 원장 기준으로 포함했다.
+- NPay 클릭/count/payment start만 있는 신호는 purchase 후보에 넣지 않았다.
+- 산출물: `data/bi-confirmed-purchase-operational-dry-run-20260505.json`, `gdn/google-ads-confirmed-purchase-operational-dry-run-20260505.md`.
+
+해석:
+
+- BigQuery 권한은 현재 read-only guard 용도로 실사용 가능하다.
+- 이 guard는 실제 GA4 전송이 아니라 중복 차단용 조회다.
+- 실제 GA4 Measurement Protocol, Meta CAPI, Google Ads upload는 별도 승인 전까지 금지다.
+
 ## 실행 정본
 
 실행은 아래 문서를 따른다.
@@ -1289,3 +1306,140 @@ Notes:
 - Final delta backfill remains outside this approval.
 - GA4 Link cutover remains blocked until separate approval.
 ```
+
+## 2026-05-05 final delta-plan과 cutover 준비
+
+작성 시각: 2026-05-05 02:18 KST
+상세 문서:
+
+- [[biocom-bigquery-final-delta-plan-20260505]]
+- [[biocom-bigquery-cutover-checklist-20260505]]
+
+작업 성격: read-only delta-plan, GA4 Link cutover 준비 문서
+
+```yaml
+harness_preflight:
+  common_harness_read:
+    - harness/common/HARNESS_GUIDELINES.md
+    - harness/common/AUTONOMY_POLICY.md
+    - harness/common/REPORTING_TEMPLATE.md
+  project_harness_read:
+    - docs/agent-harness/growth-data-harness-v0.md
+  required_context_docs:
+    - AGENTS.md
+    - docurule.md
+    - data/!bigquery.md
+    - data/biocom-bigquery-analysis-handoff-20260505.md
+  lane: Green
+  allowed_actions:
+    - read-only delta inventory query
+    - read-only recent row_count check
+    - local document write
+  forbidden_actions:
+    - BigQuery table copy
+    - BigQuery table overwrite
+    - BigQuery table delete
+    - GA4 BigQuery Link delete
+    - GA4 BigQuery Link create
+    - sourceFreshness switch
+    - deploy
+  source_window_freshness_confidence:
+    source: hurdlers-naver-pay.analytics_304759974
+    target: project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill
+    site: biocom
+    window: events_20240909 to events_20260503
+    freshness: delta-plan generated 2026-05-05 02:13 KST
+    confidence: 95%
+```
+
+### 10초 요약
+
+2026-05-05 02:13 KST 기준 final delta copy 대상은 없다.
+source와 target 모두 latest daily table이 `events_20260503`이고, 602개 table, 24,310,428 rows, 35.02 GiB가 일치한다.
+최근 4개 table인 `events_20260430`~`events_20260503`도 row_count mismatch가 없다.
+따라서 지금은 delta copy를 하지 않고, GA4 Link cutover 직전에 delta-plan을 다시 실행한다.
+
+### Delta-plan 결과
+
+| 항목 | 값 | 판단 |
+|---|---:|---|
+| source latest table | `events_20260503` | target과 일치 |
+| target latest table | `events_20260503` | source와 일치 |
+| source table count | 602 | 일치 |
+| target table count | 602 | 일치 |
+| source total rows | 24,310,428 | 일치 |
+| target total rows | 24,310,428 | 일치 |
+| missing target tables | 0 | copy 대상 없음 |
+| existing row_count mismatches | 0 | repair 필요 없음 |
+| source intraday table count | 0 | daily 범위만 확인 |
+
+최근 4개 row_count check:
+
+| table | source rows | target rows | 결과 |
+|---|---:|---:|---|
+| `events_20260430` | 48,380 | 48,380 | 일치 |
+| `events_20260501` | 46,229 | 46,229 | 일치 |
+| `events_20260502` | 40,310 | 40,310 | 일치 |
+| `events_20260503` | 48,553 | 48,553 | 일치 |
+
+Latest purchase sanity:
+
+| table | rows | purchase | distinct transaction_id | max event time KST | 결과 |
+|---|---:|---:|---:|---|---|
+| source `events_20260503` | 48,553 | 59 | 59 | 2026-05-03 23:59:58 UTC+9 | 일치 |
+| target `events_20260503` | 48,553 | 59 | 59 | 2026-05-03 23:59:58 UTC+9 | 일치 |
+
+### Cutover 준비 원칙
+
+1. 지금 GA4 BigQuery Link를 삭제하거나 새로 만들지 않는다.
+2. cutover 직전에 `--mode=delta-plan`을 다시 실행한다.
+3. 그때 missing target table이 생기면 별도 Yellow Lane 승인으로 `WRITE_EMPTY` copy만 한다.
+4. 최근 3-4일 row_count mismatch가 생기면 자동 overwrite/delete하지 않고 repair 승인 문서를 만든다.
+5. 신규 GA4 export dataset은 `project-dadba7dd-0229-4ff6-81c.analytics_304759974`로 둔다.
+6. 과거 archive dataset `analytics_304759974_hurdlers_backfill`과 신규 export dataset `analytics_304759974`를 섞지 않는다.
+7. 신규 export가 최소 3일 연속 daily table을 만든 뒤에만 `sourceFreshness` 전환을 검토한다.
+
+### 현재 하지 않은 것
+
+- delta copy: 하지 않음.
+- repair copy: 하지 않음.
+- GA4 BigQuery Link 삭제: 하지 않음.
+- 신규 GA4 BigQuery Link 생성: 하지 않음.
+- sourceFreshness 전환: 하지 않음.
+- deploy: 하지 않음.
+
+## 2026-05-05 NPay GA4 robust guard 조회 결과
+
+작성 시각: 2026-05-05 22:45 KST
+상세 문서: [[npay-ga4-robust-guard-vm-snapshot-20260505]], [[npay-roas-dry-run-vm-snapshot-20260505-ga4-guarded]]
+작업 성격: read-only GA4 중복 guard. 전환 전송, DB write, 배포 없음.
+
+```yaml
+source_project: hurdlers-naver-pay
+job_project: project-dadba7dd-0229-4ff6-81c
+dataset: analytics_304759974
+location: asia-northeast3
+window: events_20260427 to events_20260505
+script: backend/scripts/npay-ga4-robust-guard.ts
+mode: read_only
+```
+
+`data/!bigquery`의 source/job project 분리 기준으로 NPay A급 strong 후보의 GA4 중복 여부를 조회했다. 기존 스크립트는 credential project를 job project로 쓰는 구조라 `jobs.create` 권한 문제가 날 수 있었으므로, `sourceProject`와 `jobProject`를 분리해 실행했다.
+
+결과:
+
+| 항목 | 값 |
+|---|---:|
+| 조회 ID | 20개 |
+| GA4 present ID | 4개 |
+| GA4 robust_absent ID | 16개 |
+| GA4 present 주문 | 2건 |
+| GA4 robust_absent 주문 | 8건 |
+| guarded dry-run dispatcher 후보 | 8건 |
+
+해석:
+
+- BigQuery read 권한과 job project 조합은 실제 분석에 사용할 수 있다.
+- NPay A급 strong 10건 중 2건은 이미 GA4 purchase에 있으므로 재전송하면 안 된다.
+- 남은 8건은 no-send 기준 제한 복구 전송 승인안 후보가 됐다.
+- 실제 GA4 Measurement Protocol 전송은 외부 플랫폼 송출이므로 별도 승인 전까지 금지한다.

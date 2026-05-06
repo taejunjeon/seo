@@ -7,15 +7,17 @@ import { google, type bigquery_v2 } from "googleapis";
 
 dotenv.config({ path: path.resolve(__dirname, "..", ".env"), quiet: true });
 
-const DEFAULT_PROJECT_ID = "hurdlers-naver-pay";
+const DEFAULT_SOURCE_PROJECT_ID = "hurdlers-naver-pay";
+const DEFAULT_JOB_PROJECT_ID = "project-dadba7dd-0229-4ff6-81c";
 const DEFAULT_DATASET = `analytics_${process.env.GA4_BIOCOM_PROPERTY_ID?.trim() || "304759974"}`;
-const DEFAULT_LOCATION = "US";
+const DEFAULT_LOCATION = "asia-northeast3";
 
 type CliOptions = {
   ids: string[];
   startSuffix: string;
   endSuffix: string;
   projectId: string;
+  jobProjectId: string;
   dataset: string;
   location: string;
   output?: string;
@@ -63,7 +65,8 @@ const parseArgs = (): CliOptions => {
     ids,
     startSuffix,
     endSuffix,
-    projectId: argValue("project") || DEFAULT_PROJECT_ID,
+    projectId: argValue("project") || argValue("source-project") || argValue("sourceProject") || DEFAULT_SOURCE_PROJECT_ID,
+    jobProjectId: argValue("job-project") || argValue("jobProject") || DEFAULT_JOB_PROJECT_ID,
     dataset: argValue("dataset") || DEFAULT_DATASET,
     location: argValue("location") || DEFAULT_LOCATION,
     output: argValue("output"),
@@ -88,7 +91,7 @@ const createBigQueryClient = () => {
     ],
   });
   return {
-    billingProjectId: credentials.project_id,
+    credentialProjectId: credentials.project_id,
     clientEmail: credentials.client_email,
     bq: google.bigquery({ version: "v2", auth }),
   };
@@ -155,11 +158,10 @@ ORDER BY ids.id;
 
 const runBigQuery = async (
   bq: bigquery_v2.Bigquery,
-  billingProjectId: string,
   options: CliOptions,
 ) => {
   const response = await bq.jobs.query({
-    projectId: billingProjectId,
+    projectId: options.jobProjectId,
     requestBody: {
       query: buildQuery(options),
       useLegacySql: false,
@@ -205,7 +207,9 @@ const renderMarkdown = (payload: Record<string, any>) => [
   `생성 시각: ${payload.checkedAtKst}`,
   `site: \`${payload.site}\``,
   `window: ${payload.window.startSuffix} ~ ${payload.window.endSuffix}`,
-  `dataset: \`${payload.queryScope.projectId}.${payload.queryScope.dataset}\``,
+  `source dataset: \`${payload.queryScope.sourceProjectId}.${payload.queryScope.dataset}\``,
+  `job project: \`${payload.queryScope.jobProjectId}\``,
+  `location: \`${payload.queryScope.location}\``,
   "",
   "## Guard Summary",
   "",
@@ -253,7 +257,8 @@ const main = async () => {
       endSuffix: options.endSuffix,
     },
     queryScope: {
-      projectId: options.projectId,
+      sourceProjectId: options.projectId,
+      jobProjectId: options.jobProjectId,
       dataset: options.dataset,
       location: options.location,
       searchedFields: [
@@ -267,8 +272,8 @@ const main = async () => {
   };
 
   try {
-    const { bq, billingProjectId, clientEmail } = createBigQueryClient();
-    const rows = await runBigQuery(bq, billingProjectId, options);
+    const { bq, credentialProjectId, clientEmail } = createBigQueryClient();
+    const rows = await runBigQuery(bq, options);
     const results: GuardResult[] = rows.map((row) => {
       const events = parseNumber(row.events);
       const purchaseEvents = parseNumber(row.purchase_events);
@@ -287,7 +292,7 @@ const main = async () => {
       ...payloadBase,
       serviceAccount: {
         clientEmail,
-        billingProjectId,
+        credentialProjectId,
       },
       results,
       summary: {

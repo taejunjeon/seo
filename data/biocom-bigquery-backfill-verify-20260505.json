@@ -1,0 +1,92 @@
+{
+  "generatedAtKst": "2026-05-05T02:03:11+09:00",
+  "credential": {
+    "client_email": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+    "project_id": "seo-aeo-487113"
+  },
+  "sourceDataset": {
+    "projectId": "hurdlers-naver-pay",
+    "datasetId": "analytics_304759974",
+    "exists": true,
+    "location": "asia-northeast3"
+  },
+  "targetDataset": {
+    "projectId": "project-dadba7dd-0229-4ff6-81c",
+    "datasetId": "analytics_304759974_hurdlers_backfill",
+    "exists": true,
+    "location": "asia-northeast3"
+  },
+  "source": {
+    "firstTable": "events_20240909",
+    "latestTable": "events_20260503",
+    "tableCount": 602,
+    "totalRows": 24310428,
+    "totalSizeBytes": 37605989864,
+    "totalSizeGiB": 35.02,
+    "intradayTableCount": 0
+  },
+  "target": {
+    "firstTable": "events_20240909",
+    "latestTable": "events_20260503",
+    "tableCount": 602,
+    "totalRows": 24310428,
+    "totalSizeBytes": 37605989864,
+    "totalSizeGiB": 35.02
+  },
+  "tableCountMatches": true,
+  "rowCountMatches": true,
+  "sizeBytesDifference": 0,
+  "sizeBytesDifferencePct": 0,
+  "missingTargetTables": [],
+  "extraTargetTables": [],
+  "mismatchedRowTables": [],
+  "sampleDateChecks": [
+    {
+      "tableId": "events_20240909",
+      "sourceRows": 9441,
+      "targetRows": 9441,
+      "match": true
+    },
+    {
+      "tableId": "events_20260101",
+      "sourceRows": 34502,
+      "targetRows": 34502,
+      "match": true
+    },
+    {
+      "tableId": "events_20260423",
+      "sourceRows": 73802,
+      "targetRows": 73802,
+      "match": true
+    },
+    {
+      "tableId": "events_20260425",
+      "sourceRows": 57676,
+      "targetRows": 57676,
+      "match": true
+    },
+    {
+      "tableId": "events_20260503",
+      "sourceRows": 48553,
+      "targetRows": 48553,
+      "match": true
+    }
+  ],
+  "latestPurchaseCheck": {
+    "tableId": "events_20260503",
+    "source": {
+      "rows": 48553,
+      "purchaseEvents": 59,
+      "distinctTransactionIds": 59,
+      "maxEventTimeKst": "2026-05-03 23:59:58 UTC+9"
+    },
+    "target": {
+      "rows": 48553,
+      "purchaseEvents": 59,
+      "distinctTransactionIds": 59,
+      "maxEventTimeKst": "2026-05-03 23:59:58 UTC+9"
+    },
+    "match": true
+  },
+  "ok": true
+}

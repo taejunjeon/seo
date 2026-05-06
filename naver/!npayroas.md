@@ -2,12 +2,12 @@
 
 작성 시각: 2026-04-30 21:30 KST
 기준일: 2026-04-30
-관련 문서: [[!npay|네이버페이 주문형 결제형 전환 검토]], [[npay-intent-quality-20260430|NPay Intent 수집 품질 점검]], [[npay-roas-dry-run-20260430]], [[npay-early-phase2-approval-20260430]], [[npay-ga4-mp-limited-test-approval]], [[npay-ga4-mp-limited-test-result-20260430]], [[npay-phase2-followup-20260430]], [[npay-7d-rerun-checklist-20260504]], [[GA4/gtm|biocom GTM 컨테이너 상태 정리]]
+관련 문서: [[!npay|네이버페이 주문형 결제형 전환 검토]], [[npay-intent-quality-20260430|NPay Intent 수집 품질 점검]], [[npay-roas-dry-run-20260430]], [[npay-roas-dry-run-vm-snapshot-20260505]], [[npay-ga4-recovery-sample-payload-approval-20260505]], [[../gdn/google-ads-confirmed-purchase-operational-dry-run-20260505]], [[npay-early-phase2-approval-20260430]], [[npay-ga4-mp-limited-test-approval]], [[npay-ga4-mp-limited-test-result-20260430]], [[npay-phase2-followup-20260430]], [[npay-7d-rerun-checklist-20260504]], [[GA4/gtm|biocom GTM 컨테이너 상태 정리]]
 Primary source: VM SQLite `npay_intent_log`, 운영 주문 원장 `operational_postgres.public.tb_iamweb_users`
 Cross-check: 보호된 `GET /api/attribution/npay-intents`, GTM API live version `139`, TJ BigQuery robust query
 Window: NPay intent는 2026-04-27 18:10 KST 이후, 주문 원장은 dry-run window 기준 `PAYMENT_COMPLETE` NPay 주문
-Freshness: dry-run report `2026-04-30 21:25 KST`, 분석 window end `2026-04-30 21:25 KST`, BigQuery robust query 결과 반영 `2026-04-30 20:36 KST`, GA4 MP 제한 테스트 1건 전송 `2026-04-30 21:23 KST`
-Confidence: 90%
+Freshness: dry-run report `2026-05-05 22:35 KST`, 분석 window end `2026-05-06 00:00 KST`, VM snapshot max `2026-05-05 21:53 KST`, BigQuery robust guard `2026-05-05 22:34 KST`
+Confidence: 94%
 
 ## 10초 요약
 
@@ -21,15 +21,21 @@ Confidence: 90%
 
 TJ님이 A급 production 후보 5건의 Imweb `order_number`와 NPay `channel_order_no` 총 10개 ID를 BigQuery robust query로 확인했고, GA4 raw/purchase 전체에서 표시할 데이터 없음으로 나왔다. 그중 `202604302383065` 1건은 TJ님 승인대로 2026-04-30 21:23 KST에 GA4 MP 제한 테스트로 전송했다. 이후 dry-run에서는 이 주문을 `already_in_ga4=present`로 막아 중복 전송하지 않는다. 남은 dispatcher dry-run 후보는 4건이고, Meta/TikTok/Google Ads 전송은 여전히 0건이다.
 
+2026-05-05에는 운영 VM을 SSH read-only로 확인해 SQLite snapshot을 로컬로 가져왔다. 이제 `NPay intent source 접근 불가`가 아니라 `source 접근 해결, GA4 중복 guard 완료` 상태다. snapshot 기준 live intent는 820건, confirmed NPay 주문은 30건, strong match는 20건이다. 이 중 A급 strong은 10건이고, BigQuery guard 결과 2건은 이미 GA4 purchase에 존재하며 8건은 robust_absent로 확인됐다.
+
+자동 전송은 계속 금지다. 이유는 ambiguous 10건이 남아 있고, 실제 GA4 Measurement Protocol 전송은 외부 플랫폼 송출이기 때문이다. 2026-05-05 23:22 KST에 robust_absent 8건의 payload 승인안은 [[npay-ga4-recovery-sample-payload-approval-20260505]]로 작성했다. 다만 TJ님 지시에 따라 8건은 전송 목표가 아니라 파이프라인 검증 샘플로만 본다.
+
+다음 1순위는 8건 복구가 아니다. 운영 DB, Attribution VM, GA4 BigQuery를 read-only로 조인해 `NPay 실제 결제완료 주문만 purchase 후보로 남기는 confirmed purchase 파이프라인`을 만드는 것이다. Google Ads 쪽 no-send 확장 결과는 [[../gdn/google-ads-confirmed-purchase-operational-dry-run-20260505]]에 기록했다.
+
 ## Phase-Sprint 요약표
 
 | Phase | Sprint | 이름 | 담당 | 상태(우리/운영) | 상세 |
 |---|---|---|---|---|---|
 | Phase1 | [[#Phase1-Sprint1]] | 버튼 유지 원칙 | TJ + Codex | 100% / 100% | [[#Phase1-Sprint1]] |
 | Phase1 | [[#Phase1-Sprint2]] | 클릭 intent 장부 | Codex | 100% / 100% | [[#Phase1-Sprint2]] |
-| Phase2 | [[#Phase2-Sprint3]] | 실제 주문 매칭 | Codex | 85% / 0% | [[#Phase2-Sprint3]] |
-| Phase2 | [[#Phase2-Sprint4]] | 미결제자 분리 | Codex | 75% / 0% | [[#Phase2-Sprint4]] |
-| Phase3 | [[#Phase3-Sprint5]] | GA4/Meta/TikTok 전환 복구 | Codex + TJ | 55% / 5% | [[#Phase3-Sprint5]] |
+| Phase2 | [[#Phase2-Sprint3]] | 실제 주문 매칭 | Codex | 94% / 0% | [[#Phase2-Sprint3]] |
+| Phase2 | [[#Phase2-Sprint4]] | 미결제자 분리 | Codex | 82% / 0% | [[#Phase2-Sprint4]] |
+| Phase3 | [[#Phase3-Sprint5]] | GA4/Meta/TikTok 전환 복구 | Codex + TJ | 62% / 5% | [[#Phase3-Sprint5]] |
 | Phase3 | [[#Phase3-Sprint6]] | 운영 리포트와 승인 기준 | Codex + TJ | 80% / 0% | [[#Phase3-Sprint6]] |
 
 ## 문서 목적
@@ -58,7 +64,7 @@ TJ님이 A급 production 후보 5건의 Imweb `order_number`와 NPay `channel_or
 | 버튼 클릭을 purchase로 볼까 | NO | 클릭은 결제 시도일 뿐 실제 주문이 아니다 |
 | 클릭 intent 수집은 충분한가 | YES | 최근 24시간 핵심 필드 채움률 100% |
 | 바로 GA4/Meta/TikTok purchase를 보낼까 | NO | GA4 MP는 승인된 1건만 제한 테스트로 보냈고, 대량 전송은 금지다 |
-| 다음 1순위는 무엇인가 | GA4 MP 1건 BigQuery 수신 확인 + 7일 후보정 | 이미 보낸 `202604302383065`의 수신 여부를 확인하고, 자동 dispatcher는 7일치로 다시 판단한다 |
+| 다음 1순위는 무엇인가 | confirmed purchase 실시간/준실시간 파이프라인 | 8건은 파이프라인 검증 샘플일 뿐이다. 앞으로 NPay 실제 결제완료 주문만 purchase로 보낼 수 있어야 한다 |
 
 ## Dry-run이란
 
@@ -87,6 +93,87 @@ TJ님이 A급 production 후보 5건의 Imweb `order_number`와 NPay `channel_or
 ▲ [[#Phase-Sprint 요약표|요약표로]]
 
 ## 현재 데이터 예비 분석
+
+### 2026-05-05 운영 VM snapshot 재실행
+
+Source: TJ 관리 Attribution VM SQLite snapshot `/home/biocomkr_sns/seo/shared/backend-data/crm.sqlite3`, 로컬 복사본 `backend/data/vm-npay-intent-20260505.sqlite3`, 운영 Postgres `public.tb_iamweb_users` readonly
+Window: `2026-04-27T09:10:00.000Z ~ 2026-05-05T15:00:00.000Z`
+Freshness: VM snapshot max `2026-05-05T12:53:37.491Z`, local integrity check PASS
+Report: [[npay-roas-dry-run-vm-snapshot-20260505]]
+Confidence: 92%
+
+운영 VM 접근은 해결됐다. 로컬 `.env`에는 `NPAY_INTENT_ADMIN_TOKEN`이 없었지만, 운영 VM의 SQLite 원장을 `sudo sqlite3 .backup`으로 read-only snapshot 처리해 로컬에서 dry-run을 다시 실행했다. 토큰 원문은 읽거나 문서화하지 않았다.
+
+| 항목 | 값 |
+|---|---:|
+| live intent | 820건 |
+| confirmed NPay 주문 | 30건 |
+| strong match | 20건 |
+| A급 strong | 10건 |
+| B급 strong | 10건 |
+| ambiguous | 10건 |
+| purchase_without_intent | 0건 |
+| clicked_purchased_candidate | 20건 |
+| clicked_no_purchase | 709건 |
+| intent_pending | 91건 |
+| dispatcher dry-run 후보 | 0건 |
+
+해석은 명확하다.
+
+1. `purchase_without_intent=0`이므로, 이번 window 안의 confirmed NPay 주문은 모두 어떤 형태로든 NPay 버튼 클릭 intent 근거가 있다.
+2. A급 strong 10건은 주문 직전 intent, 상품/금액 일치, score gap 기준을 통과했다.
+3. 하지만 `already_in_ga4=unknown`이 30건이라 어떤 주문도 전송 후보가 아니다.
+4. ambiguous 10건은 전체 confirmed NPay 주문 30건의 33.33%라 자동 dispatcher 기준을 통과하지 못한다.
+
+따라서 현재 결론은 `source 접근 해결 + 매칭 가능성 확인 + 자동 전송 금지 유지`다.
+
+다음 확인 대상 A급 strong 10건은 아래와 같다. 각 주문은 Imweb `order_number`와 NPay `channel_order_no` 두 값을 모두 BigQuery에서 조회해야 한다.
+
+| order_number | channel_order_no | 금액 | 상품 |
+|---|---|---:|---|
+| `202604280487104` | `2026042865542930` | 35,000원 | 뉴로마스터 |
+| `202604285552452` | `2026042867285600` | 496,000원 | 종합 대사기능&음식물 과민증 검사 Set |
+| `202604303307399` | `2026043034982320` | 496,000원 | 종합 대사기능&음식물 과민증 검사 Set |
+| `202604309992065` | `2026043040116970` | 35,000원 | 뉴로마스터 |
+| `202604302383065` | `2026043043205620` | 35,000원 | 뉴로마스터 |
+| `202604309594732` | `2026043044799490` | 11,900원 | 팀키토 슬로우 에이징 도시락 |
+| `202605011540306` | `2026050158972710` | 496,000원 | 종합 대사기능&음식물 과민증 검사 Set |
+| `202605026187995` | `2026050280712120` | 35,000원 | 뉴로마스터 |
+| `202605027178971` | `2026050281216190` | 496,000원 | 종합 대사기능&음식물 과민증 검사 Set |
+| `202605031873910` | `2026050331688110` | 496,000원 | 종합 대사기능&음식물 과민증 검사 Set |
+
+중요: `202604302383065`은 2026-04-30 GA4 MP 제한 테스트에 사용한 주문이다. BigQuery guard에서는 반드시 `present` 또는 별도 차단 상태로 두고, 향후 재전송 후보에서 제외해야 한다.
+
+### 2026-05-05 GA4 BigQuery robust guard 결과
+
+Report: [[npay-ga4-robust-guard-vm-snapshot-20260505]], [[npay-roas-dry-run-vm-snapshot-20260505-ga4-guarded]]
+Source dataset: `hurdlers-naver-pay.analytics_304759974`
+Job project: `project-dadba7dd-0229-4ff6-81c`
+Location: `asia-northeast3`
+Window: `events_20260427` ~ `events_20260505`
+Mode: BigQuery read-only, no-send, no-write
+
+A급 strong 10건의 `order_number + channel_order_no` 20개 ID를 GA4 BigQuery에서 조회했다.
+
+| 항목 | 값 |
+|---|---:|
+| guard ID | 20개 |
+| GA4 present ID | 4개 |
+| GA4 robust_absent ID | 16개 |
+| GA4 present 주문 | 2건 |
+| GA4 robust_absent 주문 | 8건 |
+| guarded dry-run dispatcher 후보 | 8건 |
+
+GA4에 이미 존재한 주문은 아래 2건이다. 둘 중 하나라도 `order_number` 또는 `channel_order_no`가 GA4 purchase에 있으면 중복 위험이 있으므로 전송 후보에서 제외한다.
+
+| order_number | channel_order_no | 판정 |
+|---|---|---|
+| `202604309992065` | `2026043040116970` | already_in_ga4=present |
+| `202604302383065` | `2026043043205620` | already_in_ga4=present, 2026-04-30 제한 테스트 주문 |
+
+robust_absent로 남은 8건은 no-send 기준 dispatcher 후보가 됐다. 이 말은 `바로 보내도 된다`가 아니라, `A급 매칭이고 GA4 중복도 보이지 않으므로 제한 복구 전송 승인안에 올릴 수 있다`는 뜻이다.
+
+다음 단계는 실제 GA4 Measurement Protocol 전송이므로 Green Lane이 아니다. TJ님 승인 전까지 전송, 운영 DB write, Meta/TikTok/Google Ads 송출은 모두 금지한다.
 
 분석 시각: 2026-04-30 21:25 KST
 
@@ -618,9 +705,9 @@ TikTok ROAS까지 안정적으로 회복하려면 `ttclid`, `_ttp` 같은 TikTok
 
 | 기준           | 상태                                                                                |
 | ------------ | --------------------------------------------------------------------------------- |
-| 우리 기준        | 85%. read-only 매칭 로직, A/B 등급, ambiguous 원인 분해, 수동 검토 큐, BigQuery robust guard, dispatcher dry-run 후보 표시, B급/ambiguous 후속 해석까지 완료했다. |
+| 우리 기준        | 90%. read-only 매칭 로직, A/B 등급, ambiguous 원인 분해, 수동 검토 큐, BigQuery robust guard, dispatcher dry-run 후보 표시, B급/ambiguous 후속 해석까지 완료했고, 2026-05-05 운영 VM snapshot으로 7일+ window 재실행까지 완료했다. |
 | 운영 기준        | 0%. DB `match_status` 업데이트, dispatcher, 광고 플랫폼 전송은 아직 열지 않았다.                     |
-| 100%까지 남은 핵심 | 2026-05-04 18:10 KST 이후 7일치 후보정, B급/ambiguous 규칙 보강 여부 결정, DB `match_status` 적용 여부 별도 승인. |
+| 100%까지 남은 핵심 | A급 strong 10건의 GA4 BigQuery 중복 guard, B급/ambiguous 규칙 보강 여부 결정, DB `match_status` 적용 여부 별도 승인. |
 
 ### 완료한 것
 
@@ -633,11 +720,13 @@ TikTok ROAS까지 안정적으로 회복하려면 `ttclid`, `_ttp` 같은 TikTok
 - [x] [TJ+Codex] A급 production 후보 5건의 BigQuery robust guard 반영 — 무엇: A급 후보 5건의 Imweb `order_number`와 NPay `channel_order_no` 총 10개 ID를 GA4 raw/purchase 전체에서 확인했다. 왜: 이미 GA4에 있는 주문을 Measurement Protocol로 다시 보내면 매출이 중복된다. 어떻게: TJ님 robust query 결과 "표시할 데이터 없음"을 `--ga4-robust-absent` 입력값으로 넣고 dry-run을 재실행했다. 산출물: `already_in_ga4=robust_absent` 5건. 검증: [[npay-roas-dry-run-20260430]] summary의 `already_in_ga4_lookup_robust_absent=5`.
 - [x] [Codex] dispatcher dry-run 후보 표시 — 무엇: A급 strong + production_order + manual_test_order 아님 + `robust_absent`인 주문을 payload 후보로 표시했다. 왜: 실제 전송 전 후보 주문, 세션키, value, event_id, dedupe key를 검토해야 한다. 어떻게: `backend/src/npayRoasDryRun.ts`와 CLI/API 입력값에 `robust_absent` 상태를 추가했다. 산출물: `Dispatcher Dry-run Log`의 `send_candidate=Y` 후보. 검증: `202604302383065` 전송 후에는 `already_in_ga4=present`로 차단되어 남은 후보가 4건으로 표시된다.
 - [x] [Codex] B급/ambiguous 5건 후속 원인 분석 — 무엇: B급 strong 2건과 ambiguous 3건을 주문별로 다시 분해했다. 왜: 자동 제외가 맞는지, 아니면 규칙 보강으로 살릴 수 있는지 판단해야 한다. 어떻게: 금액 불일치, 같은 상품 반복 클릭, score_gap, member key 부재, cart 가능성을 주문별로 적었다. 산출물: [[npay-phase2-followup-20260430]]. 검증: 5건 모두 첫 dispatcher 전송 금지로 유지된다.
+- [x] [Codex] 운영 VM snapshot으로 2026-05-05 재실행 — 무엇: 운영 VM `npay_intent_log` snapshot을 로컬로 가져와 confirmed NPay 주문과 다시 매칭했다. 왜: 로컬 DB 0건 기준으로 unmatched 결론을 내리면 오판이기 때문이다. 어떻게: VM SQLite를 read-only backup으로 복사하고 `NPAY_INTENT_DB_PATH=backend/data/vm-npay-intent-20260505.sqlite3`로 dry-run을 실행했다. 산출물: [[npay-roas-dry-run-vm-snapshot-20260505]]. 검증: live intent 820건, confirmed NPay 주문 30건, strong match 20건, A급 10건, purchase_without_intent 0건.
+- [x] [Codex] source 접근 불가 상태 해소 — 무엇: 토큰 원문을 노출하지 않고 VM SQLite snapshot으로 운영 source를 읽었다. 왜: `.env` 토큰을 채팅/문서에 남기면 보안 위험이 있기 때문이다. 어떻게: SSH `taejun` 계정과 sudo read-only snapshot을 사용했다. 산출물: local snapshot과 dry-run markdown. 검증: SQLite integrity check PASS, snapshot `npay_intent_log` 823건.
 
 ### 남은 것
 
 - [ ] [Codex] B급/ambiguous 후속 판단을 7일 후보정 때 반영한다 — 무엇: 현재 수동 검토 큐의 5건을 7일 window에서 다시 보고 `전송 제외 유지`, `규칙 보강`, `운영 원장 추가 확인`으로 나눈다. 왜: 현재는 제외 판단은 가능하지만 규칙 보강을 확정하기에는 아직 이르기 때문이다. 어떻게: 2026-05-04 이후 같은 리포트를 재실행하고, 동일 주문/동일 패턴 반복 여부와 amount reason 변화를 비교한다. 산출물: 7일 후보정 manual review decision. 검증: ambiguous 비율 10% 이하 여부와 B급 재분류 여부가 표시된다. 의존성: 2026-05-04 18:10 KST 이후 가능.
-- [ ] [Codex] 2026-05-04 18:10 KST 이후 7일치 dry-run으로 후보정 — 무엇: live publish 이후 정확히 7일 window로 같은 리포트를 다시 만든다. 왜: 현재 표본으로 조기 판단은 가능하지만, 자동 dispatcher 기준은 7일치로 안정화해야 한다. 어떻게: [[npay-7d-rerun-checklist-20260504]] 명령을 실행하고 `--ga4-present=202604302383065`로 이미 보낸 주문을 막는다. 산출물: 7일치 후보정 리포트. 검증: confirmed NPay 주문 수, A급 strong 비율, ambiguous 비율, purchase_without_intent 비율이 표시된다. 의존성: 2026-05-04 18:10 KST 이후 가능.
+- [ ] [Codex] A급 strong 10건의 GA4 BigQuery guard 확인 — 무엇: `order_number`와 `channel_order_no` 20개 ID가 GA4 raw/purchase에 이미 있는지 확인한다. 왜: 이미 있는 주문을 GA4 MP나 광고 플랫폼으로 다시 보내면 매출이 중복된다. 어떻게: GA4 BigQuery robust query로 ecommerce transaction_id, event_params transaction_id, event_params value 범위를 모두 조회한다. 산출물: `present`, `robust_absent`, `unknown` 분류. 검증: dispatcher 후보 주문의 `already_in_ga4` 확인률 100%.
 
 ### 목표
 
@@ -715,22 +804,23 @@ dispatcher dry-run은 `already_in_ga4` guard를 반드시 본다. BigQuery에서
 
 | 기준 | 상태 |
 |---|---|
-| 우리 기준 | 75%. `clicked_no_purchase` 정의, 최신 209건의 상품/광고키/시간대 분해, 운영 해석 표까지 작성했다. |
+| 우리 기준 | 82%. `clicked_no_purchase` 정의, 2026-05-05 VM snapshot 기준 709건의 상품/광고키/시간대 분해, 운영 해석 표까지 작성했다. |
 | 운영 기준 | 0%. 리마케팅 대상 전송, 운영 대시보드 반영, 자동 액션은 아직 하지 않았다. |
-| 100%까지 남은 핵심 | 7일치 기준 이탈 분해 후보정, 리마케팅 사용 여부 승인, 운영 대시보드 반영 여부 결정. |
+| 100%까지 남은 핵심 | GA4 BigQuery guard 반영 후 이탈 분해 후보정, 리마케팅 사용 여부 승인, 운영 대시보드 반영 여부 결정. |
 
 ### 완료한 것
 
-- [x] [Codex] `clicked_no_purchase` 상태 정의 — 무엇: NPay 버튼 intent는 있지만 24시간 grace window 안에 confirmed NPay 주문 strong 매칭이 없는 건으로 정의했다. 왜: 버튼 클릭자를 구매자로 오인하지 않기 위해서다. 어떻게: intent result status를 `clicked_purchased_candidate`, `clicked_no_purchase`, `intent_pending`으로 분리했다. 산출물: intent status 분류. 검증: 최신 `clicked_no_purchase=209`, `intent_pending=87`.
+- [x] [Codex] `clicked_no_purchase` 상태 정의 — 무엇: NPay 버튼 intent는 있지만 24시간 grace window 안에 confirmed NPay 주문 strong 매칭이 없는 건으로 정의했다. 왜: 버튼 클릭자를 구매자로 오인하지 않기 위해서다. 어떻게: intent result status를 `clicked_purchased_candidate`, `clicked_no_purchase`, `intent_pending`으로 분리했다. 산출물: intent status 분류. 검증: 2026-05-05 VM snapshot 기준 `clicked_no_purchase=709`, `intent_pending=91`.
 - [x] [Codex] 상품별 미결제 클릭 분해 — 무엇: 209건을 product_idx/product_name 기준으로 나눴다. 왜: 어떤 상품에서 결제창 진입 후 이탈이 큰지 봐야 UX와 가격/배송비를 점검할 수 있다. 어떻게: `npay_intent_log.product_idx`, `product_name`으로 read-only 집계했다. 산출물: By Product 표. 검증: 바이오밸런스 52건, 뉴로마스터 38건, 당당케어 38건이 상위로 표시된다.
 - [x] [Codex] 광고키 조합별 미결제 클릭 분해 — 무엇: 209건을 `gclid/fbp/fbc/fbclid/gbraid/wbraid` 조합으로 나눴다. 왜: 결제 이탈이 Google/Meta 어느 유입에서 집중되는지 봐야 한다. 어떻게: intent row의 광고키 존재 여부를 조합 문자열로 변환했다. 산출물: By Ad Key 표. 검증: `gclid+fbp` 180건, 86.12%로 표시된다.
 - [x] [Codex] KST 시간대별 미결제 클릭 분해 — 무엇: 209건을 KST hour 기준으로 나눴다. 왜: 특정 시간대 결제창 또는 광고 유입 품질 문제가 있는지 보기 위해서다. 어떻게: UTC captured_at을 KST로 변환해 시간대별 집계했다. 산출물: By KST Hour 표. 검증: 2026-04-28 12:00 KST 20건 등 피크가 보인다.
 - [x] [Codex] 현재 표본 기반 조기 해석 가능 범위 정의 — 무엇: 209건 표본으로 지금 볼 수 있는 것과 7일 뒤 후보정해야 할 것을 나눴다. 왜: 이탈 데이터가 이미 쌓였는데 7일 전까지 아무 해석도 하지 않으면 개선이 늦다. 어떻게: 현재는 상품/광고키/시간대 가설을 만들고, 리마케팅 audience 전송은 7일 후보정 후 승인으로 분리했다. 산출물: [[#7일 전 조기 진행 + 7일 후보정 방안]]. 검증: 미결제 클릭은 purchase 전송 대상이 아니라는 금지선이 유지된다.
 - [x] [Codex] 현재 표본 기준 운영 해석 표 작성 — 무엇: 상위 상품과 광고키별 원인을 `가격/배송비`, `상품 상세`, `결제 UX`, `광고 유입 품질`로 나눴다. 왜: 숫자만으로는 운영팀이 다음 액션을 정하기 어렵기 때문이다. 어떻게: 상위 상품 6개와 광고키 조합을 운영 가설로 정리했다. 산출물: [[npay-phase2-followup-20260430]]. 검증: 각 항목이 purchase 전송 금지와 운영 점검 액션으로 분리된다.
+- [x] [Codex] 2026-05-05 VM snapshot 기준 미결제 클릭 재분해 — 무엇: 709건을 상품/광고키/시간대 기준으로 다시 나눴다. 왜: 2026-04-30의 209건보다 운영 표본이 커졌으므로 우선순위가 더 안정적이다. 어떻게: [[npay-roas-dry-run-vm-snapshot-20260505]]의 `Clicked No Purchase Breakdown`을 생성했다. 산출물: 상위 상품은 당당케어 189건, 바이오밸런스 134건, 뉴로마스터 113건이다. 검증: `gclid+fbp` 조합이 633건, 89.28%로 표시된다.
 
 ### 남은 것
 
-- [ ] [Codex] 7일치 기준 `clicked_no_purchase` 후보정 — 무엇: 현재 209건 분해를 7일 window로 다시 계산한다. 왜: 현재 표본으로 가설은 만들 수 있지만, 리마케팅/UX 우선순위 확정은 7일치 반복성을 봐야 한다. 어떻게: 2026-05-04 18:10 KST 이후 같은 CLI로 markdown 리포트를 재생성한다. 산출물: 7일 기준 상품/광고키/시간대 후보정 표. 검증: `clicked_no_purchase / 전체 intent` 이탈률과 상위 상품 순위가 표시된다. 의존성: 2026-05-04 18:10 KST 이후 가능.
+- [ ] [Codex] GA4 guard 반영 후 `clicked_no_purchase` 후보정 — 무엇: A급 strong 10건이 GA4에 이미 있는지 확인한 뒤 709건 분해를 다시 계산한다. 왜: 실제 구매로 확인된 intent를 clicked_no_purchase에 남기면 결제 이탈이 과장될 수 있기 때문이다. 어떻게: BigQuery guard 결과를 dry-run 입력값에 넣고 markdown 리포트를 재생성한다. 산출물: guard 반영 후 상품/광고키/시간대 후보정 표. 검증: `clicked_no_purchase / 전체 intent` 이탈률과 상위 상품 순위가 표시된다.
 - [ ] [TJ+Codex] 리마케팅 사용 여부 결정 — 무엇: `clicked_no_purchase`를 Meta/TikTok/Google 리마케팅 audience로 쓸지 결정한다. 왜: 미구매자는 구매 전환이 아니므로 purchase로 보내면 안 되지만, 리마케팅 대상이 될 수 있다. 어떻게: Codex가 추천안 A/B를 만들고 TJ가 `YES/NO`로 승인한다. 산출물: 리마케팅 승인안. 검증: 사용 채널, 보관 기간, 제외 조건이 문서화된다. 의존성: 7일치 재집계 후 권장.
 
 ### 왜 중요한가

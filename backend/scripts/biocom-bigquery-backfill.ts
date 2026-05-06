@@ -60,6 +60,8 @@ type Plan = {
     intradayTableCount: number;
   };
   target: {
+    firstTable?: string;
+    latestTable?: string;
     tableCount: number;
     totalRows: number;
     totalSizeBytes: number;
@@ -98,6 +100,36 @@ type VerificationResult = {
     match: boolean;
   };
   ok: boolean;
+};
+
+type DeltaPlanResult = {
+  generatedAtKst: string;
+  credential: CredentialInfo;
+  sourceDataset: DatasetInfo;
+  targetDataset: DatasetInfo;
+  source: Plan["source"];
+  target: ReturnType<typeof summarizeInventory>;
+  missingTargetTables: CopyAction[];
+  existingRowMismatches: Array<{ tableId: string; sourceRows: number; targetRows: number }>;
+  extraTargetTables: string[];
+  recentTableChecks: Array<{
+    tableId: string;
+    sourceRows: number;
+    targetRows: number | null;
+    match: boolean;
+    requiresRepair: boolean;
+    note: string;
+  }>;
+  latestPurchaseCheck?: {
+    tableId: string;
+    source: PurchaseSanity;
+    target: PurchaseSanity | null;
+    match: boolean;
+    note: string;
+  };
+  recommendedApproval: "none_needed" | "delta_copy_only" | "repair_required" | "blocked";
+  readyForDeltaCopyApproval: boolean;
+  warnings: string[];
 };
 
 type PurchaseSanity = {
@@ -332,6 +364,9 @@ const chooseSampleTables = (sourceInventory: InventoryRow[]) => {
   ) as string[];
   return Array.from(new Set(candidates)).filter((tableId) => sourceIds.has(tableId));
 };
+
+const chooseRecentTables = (sourceInventory: InventoryRow[], count = 4) =>
+  sourceInventory.slice(Math.max(0, sourceInventory.length - count)).map((row) => row.tableId);
 
 const buildPlan = async (
   bq: bigquery_v2.Bigquery,
@@ -649,6 +684,123 @@ const verifyBackfill = async (bq: bigquery_v2.Bigquery, credential: CredentialIn
   };
 };
 
+const buildDeltaPlan = async (bq: bigquery_v2.Bigquery, credential: CredentialInfo): Promise<DeltaPlanResult> => {
+  const sourceDataset = await getDatasetInfo(bq, SOURCE_PROJECT, SOURCE_DATASET);
+  const targetDataset = await getDatasetInfo(bq, TARGET_PROJECT, TARGET_DATASET);
+  if (!sourceDataset.exists) throw new Error(`Source dataset not found: ${SOURCE_PROJECT}.${SOURCE_DATASET}`);
+  if (!targetDataset.exists) throw new Error(`Target dataset not found: ${TARGET_PROJECT}.${TARGET_DATASET}`);
+  assertDatasetLocation(sourceDataset, "source dataset");
+  assertDatasetLocation(targetDataset, "target dataset");
+
+  const sourceInventory = await queryInventory(bq, SOURCE_PROJECT, SOURCE_DATASET);
+  const targetInventory = await queryInventory(bq, TARGET_PROJECT, TARGET_DATASET);
+  const sourceById = new Map(sourceInventory.map((row) => [row.tableId, row]));
+  const targetById = new Map(targetInventory.map((row) => [row.tableId, row]));
+  const intradayTableCount = await queryIntradayCount(bq, SOURCE_PROJECT, SOURCE_DATASET);
+
+  const missingTargetTables = sourceInventory
+    .filter((source) => !targetById.has(source.tableId))
+    .map((source) => ({
+      tableId: source.tableId,
+      sourceRows: source.rowCount,
+      sizeBytes: source.sizeBytes,
+      action: "copy" as const,
+    }));
+
+  const existingRowMismatches = sourceInventory
+    .map((source) => {
+      const target = targetById.get(source.tableId);
+      if (!target || target.rowCount === source.rowCount) return null;
+      return { tableId: source.tableId, sourceRows: source.rowCount, targetRows: target.rowCount };
+    })
+    .filter(Boolean) as Array<{ tableId: string; sourceRows: number; targetRows: number }>;
+
+  const extraTargetTables = targetInventory.filter((target) => !sourceById.has(target.tableId)).map((row) => row.tableId);
+
+  const recentTableChecks = chooseRecentTables(sourceInventory).map((tableId) => {
+    const source = sourceById.get(tableId);
+    const target = targetById.get(tableId);
+    if (!source) throw new Error(`Recent source table disappeared from inventory: ${tableId}`);
+    if (!target) {
+      return {
+        tableId,
+        sourceRows: source.rowCount,
+        targetRows: null,
+        match: false,
+        requiresRepair: false,
+        note: "target missing; delta copy candidate",
+      };
+    }
+    return {
+      tableId,
+      sourceRows: source.rowCount,
+      targetRows: target.rowCount,
+      match: source.rowCount === target.rowCount,
+      requiresRepair: source.rowCount !== target.rowCount,
+      note: source.rowCount === target.rowCount ? "row_count match" : "existing target row_count mismatch; repair approval required",
+    };
+  });
+
+  const latestTable = sourceInventory[sourceInventory.length - 1]?.tableId;
+  let latestPurchaseCheck: DeltaPlanResult["latestPurchaseCheck"];
+  if (latestTable) {
+    const source = await queryPurchaseSanity(bq, SOURCE_PROJECT, SOURCE_DATASET, latestTable);
+    const targetExists = targetById.has(latestTable);
+    const target = targetExists ? await queryPurchaseSanity(bq, TARGET_PROJECT, TARGET_DATASET, latestTable) : null;
+    latestPurchaseCheck = {
+      tableId: latestTable,
+      source,
+      target,
+      match: Boolean(
+        target &&
+          source.rows === target.rows &&
+          source.purchaseEvents === target.purchaseEvents &&
+          source.distinctTransactionIds === target.distinctTransactionIds &&
+          source.maxEventTimeKst === target.maxEventTimeKst,
+      ),
+      note: target ? "source/target latest purchase sanity compared" : "latest table is missing in target; compare after delta copy",
+    };
+  }
+
+  const sourceSummary = summarizeInventory(sourceInventory);
+  const targetSummary = summarizeInventory(targetInventory);
+  const warnings: string[] = [];
+  if (intradayTableCount > 0) {
+    warnings.push(`${intradayTableCount} source intraday table(s) exist; delta-plan only evaluates daily events_YYYYMMDD tables`);
+  }
+
+  const repairRequired =
+    existingRowMismatches.length > 0 || recentTableChecks.some((check) => check.requiresRepair);
+  const blocked = extraTargetTables.length > 0;
+  const recommendedApproval = blocked
+    ? "blocked"
+    : repairRequired
+      ? "repair_required"
+      : missingTargetTables.length > 0
+        ? "delta_copy_only"
+        : "none_needed";
+
+  return {
+    generatedAtKst: `${formatKst()}+09:00`,
+    credential,
+    sourceDataset,
+    targetDataset,
+    source: {
+      ...sourceSummary,
+      intradayTableCount,
+    },
+    target: targetSummary,
+    missingTargetTables,
+    existingRowMismatches,
+    extraTargetTables,
+    recentTableChecks,
+    latestPurchaseCheck,
+    recommendedApproval,
+    readyForDeltaCopyApproval: recommendedApproval === "delta_copy_only" || recommendedApproval === "none_needed",
+    warnings,
+  };
+};
+
 const printPlan = (plan: Plan, json: boolean) => {
   if (json) {
     console.log(JSON.stringify(plan, null, 2));
@@ -735,6 +887,59 @@ const printVerification = (result: VerificationResult, json: boolean) => {
   console.log(`verification_ok: ${result.ok ? "YES" : "NO"}`);
 };
 
+const printDeltaPlan = (result: DeltaPlanResult, json: boolean) => {
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.log("biocom BigQuery final delta plan (read-only)");
+  console.log(`generated_at_kst: ${result.generatedAtKst}`);
+  console.log(`credential: ${result.credential.client_email}`);
+  console.log(`source: ${SOURCE_PROJECT}.${SOURCE_DATASET} @ ${result.sourceDataset.location}`);
+  console.log(`target: ${TARGET_PROJECT}.${TARGET_DATASET} @ ${result.targetDataset.location}`);
+  console.log(
+    `source daily: ${result.source.firstTable}..${result.source.latestTable}, tables=${result.source.tableCount}, rows=${result.source.totalRows}, size=${result.source.totalSizeGiB} GiB`,
+  );
+  console.log(
+    `target daily: ${result.target.firstTable}..${result.target.latestTable}, tables=${result.target.tableCount}, rows=${result.target.totalRows}, size=${result.target.totalSizeGiB} GiB`,
+  );
+  console.log(`missing_target_tables: ${result.missingTargetTables.length}`);
+  for (const row of result.missingTargetTables) {
+    console.log(`- ${row.tableId}: source_rows=${row.sourceRows}, size_bytes=${row.sizeBytes}`);
+  }
+  console.log(`existing_row_mismatches: ${result.existingRowMismatches.length}`);
+  for (const row of result.existingRowMismatches.slice(0, 30)) {
+    console.log(`- ${row.tableId}: source=${row.sourceRows}, target=${row.targetRows}`);
+  }
+  if (result.existingRowMismatches.length > 30) {
+    console.log(`- ... ${result.existingRowMismatches.length - 30} more`);
+  }
+  console.log("recent_table_checks:");
+  for (const check of result.recentTableChecks) {
+    console.log(
+      `- ${check.tableId}: source=${check.sourceRows}, target=${check.targetRows ?? "missing"}, match=${check.match}, note=${check.note}`,
+    );
+  }
+  if (result.latestPurchaseCheck) {
+    const latest = result.latestPurchaseCheck;
+    console.log(
+      `latest_source ${latest.tableId}: rows=${latest.source.rows}, purchase=${latest.source.purchaseEvents}, distinct=${latest.source.distinctTransactionIds}, max=${latest.source.maxEventTimeKst}`,
+    );
+    if (latest.target) {
+      console.log(
+        `latest_target ${latest.tableId}: rows=${latest.target.rows}, purchase=${latest.target.purchaseEvents}, distinct=${latest.target.distinctTransactionIds}, max=${latest.target.maxEventTimeKst}`,
+      );
+    }
+    console.log(`latest_purchase_match: ${latest.match ? "YES" : "NO"} (${latest.note})`);
+  }
+  if (result.warnings.length > 0) {
+    console.log("warnings:");
+    for (const warning of result.warnings) console.log(`- ${warning}`);
+  }
+  console.log(`recommended_approval: ${result.recommendedApproval}`);
+  console.log(`ready_for_delta_copy_approval: ${result.readyForDeltaCopyApproval ? "YES" : "NO"}`);
+};
+
 const runInitialCopy = async (bq: bigquery_v2.Bigquery, credential: CredentialInfo, json: boolean) => {
   const initial = await buildPlan(bq, credential);
   if (!initial.plan.okToInitialCopy) {
@@ -780,8 +985,8 @@ const runInitialCopy = async (bq: bigquery_v2.Bigquery, credential: CredentialIn
 
 const main = async () => {
   const options = parseArgs();
-  if (options.mode === "delta-plan" || options.mode === "delta-copy") {
-    throw new Error("Final delta backfill is outside the current TJ approval. Separate approval is required.");
+  if (options.mode === "delta-copy") {
+    throw new Error("Final delta copy is outside the current TJ approval. Separate approval is required.");
   }
 
   const { bq, credential } = createBigQueryClient();
@@ -802,6 +1007,12 @@ const main = async () => {
     const verification = await verifyBackfill(bq, credential);
     printVerification(verification, options.json);
     if (!verification.ok) process.exitCode = 2;
+    return;
+  }
+
+  if (options.mode === "delta-plan") {
+    const deltaPlan = await buildDeltaPlan(bq, credential);
+    printDeltaPlan(deltaPlan, options.json);
   }
 };
 

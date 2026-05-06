@@ -1,0 +1,143 @@
+commit 601bee847d9b89eb0a67deb8723750986b32ca5b
+Author:     Codex <codex@openai.com>
+AuthorDate: Tue May 5 01:54:08 2026 +0900
+Commit:     Codex <codex@openai.com>
+CommitDate: Tue May 5 01:54:08 2026 +0900
+
+    tracking: add channel attribution monitoring plans
+---
+ backend/src/sourceFreshness.ts | 39 +++++++++++++++++++++++----------------
+ 1 file changed, 23 insertions(+), 16 deletions(-)
+
+diff --git a/backend/src/sourceFreshness.ts b/backend/src/sourceFreshness.ts
+index bf7f2a0..3adb55c 100644
+--- a/backend/src/sourceFreshness.ts
++++ b/backend/src/sourceFreshness.ts
+@@ -107,8 +107,10 @@ type PgSourceConfig = SqliteSourceConfig;
+
+ type BigQuerySourceConfig = {
+   source: string;
+-  projectId: string;
++  sourceProjectId: string;
++  jobProjectId?: string;
+   dataset: string;
++  location?: string;
+   tablePrefix: string;
+ };
+
+@@ -170,17 +172,18 @@ const SQLITE_SOURCES: SqliteSourceConfig[] = [
+ const BIGQUERY_SOURCES: BigQuerySourceConfig[] = [
+   {
+     source: "ga4_bigquery_thecleancoffee",
+-    projectId: "project-dadba7dd-0229-4ff6-81c",
++    sourceProjectId: "project-dadba7dd-0229-4ff6-81c",
+     dataset: `analytics_${process.env.GA4_COFFEE_PROPERTY_ID?.trim() || "326949178"}`,
+     tablePrefix: "events_",
+   },
+-  // C-Sprint 5: biocom raw export 는 허들러스 소유 프로젝트에 있음 (2026-04-20 biocomkr.sns@gmail.com 권한 부여 완료).
+-  // 우리 service account `seo-656@seo-aeo-487113` 에도 BigQuery Data Viewer + Job User 권한 요청 중.
+-  // 권한 도착 시 이 config 가 자동으로 freshness check 를 돌린다.
++  // biocom raw export 는 허들러스 소유 프로젝트에 있고, job 은 우리 통합 후보 프로젝트에서 생성한다.
++  // 허들러스에는 dataset read 권한만 유지하고, query job 권한·비용은 project-dadba7dd 쪽에서 관리한다.
+   {
+     source: "ga4_bigquery_biocom",
+-    projectId: "hurdlers-naver-pay",
++    sourceProjectId: "hurdlers-naver-pay",
++    jobProjectId: "project-dadba7dd-0229-4ff6-81c",
+     dataset: `analytics_${process.env.GA4_BIOCOM_PROPERTY_ID?.trim() || "304759974"}`,
++    location: "asia-northeast3",
+     tablePrefix: "events_",
+   },
+ ];
+@@ -445,13 +448,14 @@ const runBigQuery = async (
+   bq: bigquery_v2.Bigquery,
+   projectId: string,
+   query: string,
++  location = "asia-northeast3",
+ ) => {
+   const response = await bq.jobs.query({
+     projectId,
+     requestBody: {
+       query,
+       useLegacySql: false,
+-      location: "asia-northeast3",
++      location,
+       timeoutMs: 30_000,
+     },
+   });
+@@ -470,11 +474,13 @@ const checkBigQuerySource = async (
+ ): Promise<SourceFreshnessResult> => {
+   const fallback = { warnHours: options.warnHours, staleHours: options.staleHours };
+   const threshold = resolvePerSourceThresholds(config.source, fallback);
++  const jobProjectId = config.jobProjectId ?? config.sourceProjectId;
++  const location = config.location ?? "asia-northeast3";
+
+   try {
+-    await bq.datasets.get({ projectId: config.projectId, datasetId: config.dataset });
++    await bq.datasets.get({ projectId: config.sourceProjectId, datasetId: config.dataset });
+     const tableResponse = await bq.tables.list({
+-      projectId: config.projectId,
++      projectId: config.sourceProjectId,
+       datasetId: config.dataset,
+       maxResults: 1000,
+     });
+@@ -488,7 +494,7 @@ const checkBigQuerySource = async (
+     if (!latestTable) {
+       return buildFreshnessResult({
+         source: config.source, storage: "bigquery",
+-        table: `${config.projectId}.${config.dataset}.${config.tablePrefix}*`,
++        table: `${config.sourceProjectId}.${config.dataset}.${config.tablePrefix}*`,
+         status: "empty", totalRows: 0, freshnessAt: null, freshnessColumn: null,
+         ageHours: null, eventMax: {}, syncMax: {}, note: "no events tables", fallback,
+       });
+@@ -497,7 +503,7 @@ const checkBigQuerySource = async (
+     const suffix = latestTable.slice(config.tablePrefix.length);
+     const rows = await runBigQuery(
+       bq,
+-      config.projectId,
++      jobProjectId,
+       `
+         SELECT
+           COUNT(*) AS total_events,
+@@ -508,9 +514,10 @@ const checkBigQuerySource = async (
+             WHERE ep.key = 'transaction_id'
+           ), NULL)) AS distinct_purchase_transaction_ids,
+           FORMAT_TIMESTAMP('%FT%T%Ez', MAX(TIMESTAMP_MICROS(event_timestamp)), 'Asia/Seoul') AS max_event_time_kst
+-        FROM \`${config.projectId}.${config.dataset}.${config.tablePrefix}*\`
++        FROM \`${config.sourceProjectId}.${config.dataset}.${config.tablePrefix}*\`
+         WHERE _TABLE_SUFFIX = '${suffix}'
+       `,
++      location,
+     );
+
+     const row = rows[0] ?? {};
+@@ -522,17 +529,17 @@ const checkBigQuerySource = async (
+
+     return buildFreshnessResult({
+       source: config.source, storage: "bigquery",
+-      table: `${config.projectId}.${config.dataset}.${latestTable}`,
++      table: `${config.sourceProjectId}.${config.dataset}.${latestTable}`,
+       status: statusFromAge(totalRows, age, threshold),
+       totalRows, freshnessAt, freshnessColumn: "event_timestamp",
+       ageHours: age, eventMax: { event_timestamp: freshnessAt }, syncMax: {},
+-      note: `latest table ${latestTable}; purchase ${purchaseEvents ?? 0}; distinct txn ${distinctPurchaseTransactionIds ?? 0}`,
++      note: `latest table ${latestTable}; job project ${jobProjectId}; purchase ${purchaseEvents ?? 0}; distinct txn ${distinctPurchaseTransactionIds ?? 0}`,
+       fallback,
+     });
+   } catch (error) {
+     return buildFreshnessResult({
+       source: config.source, storage: "bigquery",
+-      table: `${config.projectId}.${config.dataset}.${config.tablePrefix}*`,
++      table: `${config.sourceProjectId}.${config.dataset}.${config.tablePrefix}*`,
+       status: "error", totalRows: null, freshnessAt: null, freshnessColumn: null,
+       ageHours: null, eventMax: {}, syncMax: {},
+       note: error instanceof Error ? error.message : String(error), fallback,
+@@ -585,7 +592,7 @@ export const collectSourceFreshness = async (
+     for (const source of BIGQUERY_SOURCES) {
+       results.push(buildFreshnessResult({
+         source: source.source, storage: "bigquery",
+-        table: `${source.projectId}.${source.dataset}.${source.tablePrefix}*`,
++        table: `${source.sourceProjectId}.${source.dataset}.${source.tablePrefix}*`,
+         status: "missing", totalRows: null, freshnessAt: null, freshnessColumn: null,
+         ageHours: null, eventMax: {}, syncMax: {},
+         note: "GA4 service account key missing",

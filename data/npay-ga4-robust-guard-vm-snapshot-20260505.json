@@ -1,0 +1,219 @@
+{
+  "ok": true,
+  "checkedAtKst": "2026-05-05 22:34:21 KST",
+  "site": "biocom",
+  "mode": "read_only",
+  "window": {
+    "startSuffix": "20260427",
+    "endSuffix": "20260505"
+  },
+  "queryScope": {
+    "sourceProjectId": "hurdlers-naver-pay",
+    "jobProjectId": "project-dadba7dd-0229-4ff6-81c",
+    "dataset": "analytics_304759974",
+    "location": "asia-northeast3",
+    "searchedFields": [
+      "ecommerce.transaction_id",
+      "event_params.transaction_id",
+      "event_params full value scan string/int/double/float",
+      "events_* daily tables",
+      "events_intraday_* tables when present"
+    ]
+  },
+  "serviceAccount": {
+    "clientEmail": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+    "credentialProjectId": "seo-aeo-487113"
+  },
+  "results": [
+    {
+      "id": "202604280487104",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "202604285552452",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "2026042865542930",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "2026042867285600",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "202604302383065",
+      "guardStatus": "present",
+      "events": 1,
+      "purchaseEvents": 1,
+      "eventNames": "purchase",
+      "firstSeenKst": "2026-04-30 14:50:59",
+      "lastSeenKst": "2026-04-30 14:50:59"
+    },
+    {
+      "id": "202604303307399",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "2026043034982320",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "2026043040116970",
+      "guardStatus": "present",
+      "events": 1,
+      "purchaseEvents": 1,
+      "eventNames": "purchase",
+      "firstSeenKst": "2026-04-30 12:41:30",
+      "lastSeenKst": "2026-04-30 12:41:30"
+    },
+    {
+      "id": "2026043043205620",
+      "guardStatus": "present",
+      "events": 1,
+      "purchaseEvents": 1,
+      "eventNames": "purchase",
+      "firstSeenKst": "2026-04-30 14:50:59",
+      "lastSeenKst": "2026-04-30 14:50:59"
+    },
+    {
+      "id": "2026043044799490",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "202604309594732",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "202604309992065",
+      "guardStatus": "present",
+      "events": 1,
+      "purchaseEvents": 1,
+      "eventNames": "purchase",
+      "firstSeenKst": "2026-04-30 12:41:30",
+      "lastSeenKst": "2026-04-30 12:41:30"
+    },
+    {
+      "id": "202605011540306",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "2026050158972710",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "202605026187995",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "202605027178971",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "2026050280712120",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "2026050281216190",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "202605031873910",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    },
+    {
+      "id": "2026050331688110",
+      "guardStatus": "robust_absent",
+      "events": 0,
+      "purchaseEvents": 0,
+      "eventNames": "",
+      "firstSeenKst": "",
+      "lastSeenKst": ""
+    }
+  ],
+  "summary": {
+    "ids": 20,
+    "present": 4,
+    "robustAbsent": 16
+  },
+  "guardrails": {
+    "noSendVerified": true,
+    "noWriteVerified": true,
+    "noDeployVerified": true
+  }
+}

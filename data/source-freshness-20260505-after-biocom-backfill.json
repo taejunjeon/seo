@@ -1,0 +1,186 @@
+{
+  "checkedAt": "2026-05-04T17:03:07.090Z",
+  "options": {
+    "json": true,
+    "crmDbPath": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "warnHours": 36,
+    "staleHours": 72
+  },
+  "results": [
+    {
+      "source": "toss_local_transactions",
+      "storage": "sqlite",
+      "table": "toss_transactions",
+      "status": "stale",
+      "severity": "alert",
+      "action": "Toss 로컬 미러 싱크 스케줄 점검 (정본은 toss_operational)",
+      "totalRows": 39087,
+      "freshnessAt": "2026-04-24 05:16:40",
+      "freshnessColumn": "synced_at",
+      "ageHours": 260.8,
+      "warnHours": 72,
+      "staleHours": 120,
+      "eventMax": {
+        "transaction_at": "2026-04-23T20:19:01+09:00"
+      },
+      "syncMax": {
+        "synced_at": "2026-04-24 05:16:40"
+      },
+      "note": "read-only local SQLite"
+    },
+    {
+      "source": "toss_local_settlements",
+      "storage": "sqlite",
+      "table": "toss_settlements",
+      "status": "stale",
+      "severity": "alert",
+      "action": "Toss 정산 미러 스케줄 점검 (정본은 toss_operational)",
+      "totalRows": 32677,
+      "freshnessAt": "2026-04-24 05:16:47",
+      "freshnessColumn": "synced_at",
+      "ageHours": 260.8,
+      "warnHours": 72,
+      "staleHours": 120,
+      "eventMax": {
+        "approved_at": "2026-04-23T20:19:01+09:00",
+        "sold_date": "2026-04-23",
+        "paid_out_date": "2026-04-29"
+      },
+      "syncMax": {
+        "synced_at": "2026-04-24 05:16:47"
+      },
+      "note": "read-only local SQLite"
+    },
+    {
+      "source": "imweb_local_orders",
+      "storage": "sqlite",
+      "table": "imweb_orders",
+      "status": "stale",
+      "severity": "alert",
+      "action": "POST /api/crm-local/imweb/sync-orders 재실행 후 imweb_status_synced_at 확인",
+      "totalRows": 80331,
+      "freshnessAt": "2026-04-24T13:44:24.597Z",
+      "freshnessColumn": "synced_at",
+      "ageHours": 243.3,
+      "warnHours": 24,
+      "staleHours": 48,
+      "eventMax": {
+        "order_time": "2026-04-15T12:18:58.000Z",
+        "complete_time": "2026-04-15T12:10:02.000Z"
+      },
+      "syncMax": {
+        "synced_at": "2026-04-24T13:44:24.597Z",
+        "imweb_status_synced_at": "2026-04-24T13:44:24.597Z"
+      },
+      "note": "read-only local SQLite"
+    },
+    {
+      "source": "attribution_ledger",
+      "storage": "sqlite",
+      "table": "attribution_ledger",
+      "status": "data_sparse",
+      "severity": "watch",
+      "action": "최근 이벤트 수 적음. 주문 없는 구간인지 수집 장애인지 구분 필요.",
+      "totalRows": 992,
+      "freshnessAt": "2026-04-12 04:13:40",
+      "freshnessColumn": "created_at",
+      "ageHours": 549.8,
+      "warnHours": 12,
+      "staleHours": 24,
+      "eventMax": {
+        "logged_at": "2026-04-12T04:13:40.581Z",
+        "approved_at": "2026-04-12T04:13:36.000Z"
+      },
+      "syncMax": {
+        "created_at": "2026-04-12 04:13:40"
+      },
+      "note": "attribution ledger recent 24h events=0 (< 3); 저트래픽 구간일 수 있어 stale 알람 억제"
+    },
+    {
+      "source": "ga4_bigquery_thecleancoffee",
+      "storage": "bigquery",
+      "table": "project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_20260503",
+      "status": "fresh",
+      "severity": "ok",
+      "action": null,
+      "totalRows": 2949,
+      "freshnessAt": "2026-05-03T23:41:44+09:00",
+      "freshnessColumn": "event_timestamp",
+      "ageHours": 26.4,
+      "warnHours": 48,
+      "staleHours": 72,
+      "eventMax": {
+        "event_timestamp": "2026-05-03T23:41:44+09:00"
+      },
+      "syncMax": {},
+      "note": "latest table events_20260503; job project project-dadba7dd-0229-4ff6-81c; purchase 14; distinct txn 14"
+    },
+    {
+      "source": "ga4_bigquery_biocom",
+      "storage": "bigquery",
+      "table": "hurdlers-naver-pay.analytics_304759974.events_20260503",
+      "status": "fresh",
+      "severity": "ok",
+      "action": null,
+      "totalRows": 48553,
+      "freshnessAt": "2026-05-03T23:59:58+09:00",
+      "freshnessColumn": "event_timestamp",
+      "ageHours": 26.1,
+      "warnHours": 48,
+      "staleHours": 72,
+      "eventMax": {
+        "event_timestamp": "2026-05-03T23:59:58+09:00"
+      },
+      "syncMax": {},
+      "note": "latest table events_20260503; job project project-dadba7dd-0229-4ff6-81c; purchase 59; distinct txn 59"
+    },
+    {
+      "source": "toss_operational",
+      "storage": "postgres",
+      "table": "tb_sales_toss",
+      "status": "warn",
+      "severity": "watch",
+      "action": "추이 모니터링. 악화되면: Toss 운영 DB 수집 스케줄 확인, tb_sales_toss 적재 경로 점검",
+      "totalRows": 9620,
+      "freshnessAt": "2026-05-03 21:00:08.206096",
+      "freshnessColumn": "synced_at",
+      "ageHours": 29,
+      "warnHours": 24,
+      "staleHours": 36,
+      "eventMax": {
+        "approved_at": "2026-05-04 05:59:03",
+        "sales_month": "2026-05"
+      },
+      "syncMax": {
+        "synced_at": "2026-05-03 21:00:08.206096",
+        "updated_at": "2026-05-03 21:00:08.206096",
+        "created_at": "2026-05-03 21:00:08.206096"
+      },
+      "note": "read-only operational Postgres"
+    },
+    {
+      "source": "playauto_operational",
+      "storage": "postgres",
+      "table": "tb_playauto_orders",
+      "status": "warn",
+      "severity": "watch",
+      "action": "추이 모니터링. 악화되면: PlayAuto 주문 수집 스케줄 점검, tb_playauto_orders 갱신 확인",
+      "totalRows": 122762,
+      "freshnessAt": "2026-05-03 20:00:08.245047",
+      "freshnessColumn": "synced_at",
+      "ageHours": 30,
+      "warnHours": 24,
+      "staleHours": 36,
+      "eventMax": {
+        "ord_time": "2026-04-30 16:00:24",
+        "pay_time": "2026-04-30 16:01:20"
+      },
+      "syncMax": {
+        "synced_at": "2026-05-03 20:00:08.245047",
+        "updated_at": "2026-05-03 20:00:08.245047",
+        "created_at": "2026-04-30 20:00:06.408699"
+      },
+      "note": "read-only operational Postgres"
+    }
+  ]
+}
