@@ -2,8 +2,8 @@
 
 작성 시각: 2026-05-06 17:10 KST
 대상: `att.ainativeos.net` backend
-문서 성격: Red Lane backend 운영 deploy 승인 문서. 이 문서는 승인안이며 배포를 실행하지 않는다.
-Status: pending TJ approval
+문서 성격: Red Lane backend 운영 deploy + 조건부 GTM publish 승인 문서.
+Status: Mode B conditionally approved by TJ. 실행은 SSH publickey blocker로 보류.
 Supersedes: 없음
 Depends on:
 - [[paid-click-intent-production-receiver-post-smoke-20260506]]
@@ -23,6 +23,9 @@ POST /api/attribution/paid-click-intent/no-send
 하지만 production `att.ainativeos.net` TEST POST smoke 결과는 `404 Route not found`다.
 
 따라서 receiver-enabled GTM publish를 하려면 backend 운영 deploy 승인이 필요하다.
+
+2026-05-06 현재 TJ님은 모드 B를 조건부 YES로 승인했다.
+다만 Codex 실행 환경에서 `biocomkr_sns@34.64.104.94` SSH 접속이 `Permission denied (publickey)`로 막혀 있어 실제 route deploy와 GTM publish는 아직 실행하지 못했다.
 
 ## 승인 모드
 
@@ -109,7 +112,7 @@ YES: att.ainativeos.net backend에 paid_click_intent no-write receiver route 배
 - GA4/Meta 전송.
 - production DB insert/update.
 - Attribution VM write.
-- GTM publish.
+- smoke 통과 전 GTM publish.
 - DB migration.
 - env/secret 변경.
 - background job/send dispatcher 활성화.
@@ -243,9 +246,24 @@ Codex 추천:
 
 아래는 이 승인으로도 허용되지 않는다.
 
-- GTM Production publish.
+- smoke 실패 또는 receiver 미배포 상태의 GTM Production publish.
 - Google Ads conversion action 생성/변경.
 - conversion upload.
 - GA4/Meta/Google Ads/TikTok/Naver 전송.
 - 운영 DB/ledger write.
 - 광고 예산/캠페인 상태 변경.
+
+## 현재 blocker
+
+```text
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes biocomkr_sns@34.64.104.94
+-> Permission denied (publickey)
+```
+
+이 blocker는 승인 부족이 아니라 접근 권한 문제다.
+SSH 접근이 복구되면 모드 B 승인 범위 안에서 아래 순서까지 추가 확인 없이 진행한다.
+
+1. backend route deploy.
+2. TEST/negative POST smoke.
+3. smoke 통과 시 receiver-enabled GTM Production publish.
+4. 24h/72h monitoring.

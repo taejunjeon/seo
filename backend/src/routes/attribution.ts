@@ -690,6 +690,15 @@ const PAID_CLICK_INTENT_REJECT_KEYS = new Set([
   "token",
   "password",
 ]);
+const PAID_CLICK_INTENT_BODY_LIMIT_BYTES = 16 * 1024;
+const PAID_CLICK_INTENT_BLOCKED_PATH_PARTS = [
+  "/admin",
+  "/backpg/login",
+  "/login",
+  "/logout",
+  "/_bo-analytics",
+  "/api/",
+];
 const marketingIntentRateLimit = new Map<string, { count: number; windowStart: number }>();
 
 const metadataText = (entry: AttributionLedgerEntry, key: string) => {
@@ -886,6 +895,39 @@ const findPaidClickIntentRejectedField = (value: unknown, path: string[] = []): 
     const nested = findPaidClickIntentRejectedField(nestedValue, [...path, key]);
     if (nested) return nested;
   }
+  return null;
+};
+
+const estimateJsonSizeBytes = (value: unknown) => {
+  try {
+    return Buffer.byteLength(JSON.stringify(value), "utf8");
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+};
+
+const paidClickIntentBlockedPath = (body: Record<string, unknown>) => {
+  const rawUrlCandidates = [
+    textField(body, "landing_url"),
+    textField(body, "landingUrl"),
+    textField(body, "current_url"),
+    textField(body, "currentUrl"),
+    textField(body, "page_location"),
+    textField(body, "pageLocation"),
+  ].filter(Boolean);
+
+  for (const rawUrl of rawUrlCandidates) {
+    const parsed = parseUrlSafe(rawUrl);
+    const path = (parsed?.pathname || rawUrl).toLowerCase();
+    const blockedPart = PAID_CLICK_INTENT_BLOCKED_PATH_PARTS.find((part) => path.includes(part));
+    if (blockedPart) {
+      return {
+        blocked_part: blockedPart,
+        path: path.slice(0, 300),
+      };
+    }
+  }
+
   return null;
 };
 
@@ -2596,6 +2638,60 @@ export const createAttributionRouter = () => {
   router.post("/api/attribution/paid-click-intent/no-send", (req: Request, res: Response) => {
     try {
       const body = parseBody(req.body);
+      const receivedAtForPrecheck = new Date().toISOString();
+      const bodySizeBytes = estimateJsonSizeBytes(body);
+      if (bodySizeBytes > PAID_CLICK_INTENT_BODY_LIMIT_BYTES) {
+        const blockReasons = ["read_only_phase", "approval_required", "payload_too_large"];
+        res.status(413).json({
+          ok: false,
+          ...noSendGuardAliases,
+          reason: "payload_too_large",
+          block_reasons: blockReasons,
+          legacy_block_reasons: [],
+          guard: buildNoSendGuard({
+            blockReasons,
+            source: "paid_click_intent_no_send",
+            checkedAt: receivedAtForPrecheck,
+            confidence: 0.98,
+          }),
+          limit_bytes: PAID_CLICK_INTENT_BODY_LIMIT_BYTES,
+          received_bytes: Number.isFinite(bodySizeBytes) ? bodySizeBytes : null,
+          source: {
+            mode: "no_write_no_send_preview",
+            receivedAt: receivedAtForPrecheck,
+          },
+        });
+        return;
+      }
+
+      const blockedPath = paidClickIntentBlockedPath(body);
+      if (blockedPath) {
+        const blockReasons = ["read_only_phase", "approval_required", "admin_or_internal_path"];
+        res.status(400).json({
+          ok: false,
+          ...noSendGuardAliases,
+          reason: "admin_or_internal_path",
+          block_reasons: blockReasons,
+          legacy_block_reasons: [],
+          guard: buildNoSendGuard({
+            blockReasons,
+            source: "paid_click_intent_no_send",
+            checkedAt: receivedAtForPrecheck,
+            confidence: 0.98,
+          }),
+          blocked_path: blockedPath,
+          warnings: [
+            "paid_click_intent는 고객 랜딩/체크아웃/NPay intent의 click id 보존만 확인한다.",
+            "admin, login, logout, internal/API 경로 payload는 no-write preview에서도 받지 않는다.",
+          ],
+          source: {
+            mode: "no_write_no_send_preview",
+            receivedAt: receivedAtForPrecheck,
+          },
+        });
+        return;
+      }
+
       const rejectedField = findPaidClickIntentRejectedField(body);
       if (rejectedField) {
         const receivedAt = new Date().toISOString();

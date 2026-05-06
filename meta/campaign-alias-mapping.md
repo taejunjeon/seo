@@ -1,13 +1,27 @@
 # Meta campaign alias mapping
 
 작성일: 2026-04-25 KST
-최종 업데이트: 2026-05-04 11:30 KST
+최종 업데이트: 2026-05-06 22:45 KST
 
 ## 목적
 
 이 문서는 바이오컴 Meta ROAS 산출에서 `utm_campaign` alias를 Meta `campaign_id`로 매핑하는 기준과 현재 재분류 제안을 기록한다.
 
 현재 문제는 내부 원장에는 `meta_biocom_yeonddle_igg` 같은 사람이 만든 alias가 남고, Meta 광고 데이터에는 `120213362391690396` 같은 campaign ID가 남는다는 점이다. 캠페인별 Attribution ROAS를 계산하려면 `alias -> campaign_id` 매핑이 필요하다.
+
+## 2026-05-06 그로스파트 수동 확인 반영
+
+Source: `/Users/vibetj/Downloads/campaign-mapping-manual-check-template-20260505.xlsx`
+그로스파트 확인 시각: 2026-05-04 16:10 KST
+반영 시각: 2026-05-06 22:45 KST
+상세 문서: [[campaign-mapping-growth-confirmation-20260506]]
+
+결론:
+
+- `meta_biocom_kkunoping02_igg`는 campaign `120242626179290396`으로 확정했다.
+- `inpork_biocom_igg`는 Meta 숫자 ID가 없어 Meta 캠페인 ROAS에서 제외한다.
+- `meta_biocom_sosohantoon01_igg`, `meta_biocom_skintts1_igg`, `meta_biocom_proteinstory_igg`, `meta_biocom_iggspring`, `meta_biocom_iggacidset_2026`, `meta_biocom_mingzzinginstatoon_igg`, `meta_biocom_iggpost_igg`는 `split_required`로 둔다. 즉 Meta URL evidence는 있지만 여러 campaign 후보가 있어 주문별 adset/ad id/date/URL Parameters로 나눠야 한다.
+- `split_required` alias는 캠페인 ROAS에 단일 campaign으로 자동 합산하지 않는다.
 
 ## 데이터 소스 우선순위
 

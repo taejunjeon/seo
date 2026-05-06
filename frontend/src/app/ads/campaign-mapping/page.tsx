@@ -91,9 +91,11 @@ const formatDateTime = (value: string | null) => {
   });
 };
 
+const needsMappingDecision = (status: string) => status === "needs_manual_review" || status === "split_required";
+
 const summarizeAliasReviewItems = (items: AliasReviewItem[]) => ({
   totalAliases: items.length,
-  pendingReview: items.filter((item) => item.status === "needs_manual_review").length,
+  pendingReview: items.filter((item) => needsMappingDecision(item.status)).length,
   manualVerified: items.filter((item) => item.status === "manual_verified").length,
   rejectedAll: items.filter((item) => item.status === "rejected_all_candidates").length,
 });
@@ -347,6 +349,7 @@ const getCandidateScore = (item: AliasReviewItem, candidate: AliasReviewCandidat
 
 const getStatusLabel = (status: string) => {
   if (status === "needs_manual_review") return "검토 필요";
+  if (status === "split_required") return "분리 필요";
   if (status === "manual_verified") return "확정";
   if (status === "rejected_all_candidates") return "전부 제외";
   return status;
@@ -356,6 +359,9 @@ const getConfidenceLabel = (confidence: string) => {
   if (confidence === "auto_url_match") return "URL 자동 매칭";
   if (confidence === "auto_spend_heuristic") return "집행비 기반 자동";
   if (confidence === "manual_verified") return "수동 확정";
+  if (confidence === "growth_manual_verified_url_parameters") return "그로스파트 URL 확정";
+  if (confidence === "growth_manual_split_required") return "그로스파트 분리 필요";
+  if (confidence === "growth_manual_excluded_non_meta") return "그로스파트 Meta 제외";
   return confidence || "-";
 };
 
@@ -422,7 +428,7 @@ export default function CampaignMappingPage() {
         const items = current.items
           .map((item) => item.aliasKey === data.item!.aliasKey ? data.item! : item)
           .sort((a, b) => (
-            Number(a.status !== "needs_manual_review") - Number(b.status !== "needs_manual_review")
+            Number(!needsMappingDecision(a.status)) - Number(!needsMappingDecision(b.status))
             || b.evidence.confirmedRevenue - a.evidence.confirmedRevenue
             || a.aliasKey.localeCompare(b.aliasKey)
           ));
@@ -435,10 +441,10 @@ export default function CampaignMappingPage() {
     }
   };
 
-  const pendingItems = (review?.items ?? []).filter((item) => item.status === "needs_manual_review");
-  const resolvedItems = (review?.items ?? []).filter((item) => item.status !== "needs_manual_review");
+  const pendingItems = (review?.items ?? []).filter((item) => needsMappingDecision(item.status));
+  const resolvedItems = (review?.items ?? []).filter((item) => !needsMappingDecision(item.status));
   const progress = review?.summary.totalAliases
-    ? Math.round((review.summary.manualVerified / review.summary.totalAliases) * 100)
+    ? Math.round(((review.summary.manualVerified + review.summary.rejectedAll) / review.summary.totalAliases) * 100)
     : 0;
 
   return (
@@ -476,7 +482,7 @@ export default function CampaignMappingPage() {
               ["전체 추적 이름", review ? fmtNum(review.summary.totalAliases) : "-"],
               ["검토 필요", review ? fmtNum(review.summary.pendingReview) : "-"],
               ["수동 확정", review ? fmtNum(review.summary.manualVerified) : "-"],
-              ["확정률", review ? `${progress}%` : "-"],
+              ["처리율", review ? `${progress}%` : "-"],
             ].map(([label, value]) => (
               <div key={label} style={{ padding: "16px 18px", borderRadius: 18, background: "#fff", border: "1px solid #e2e8f0", boxShadow: "0 10px 28px rgba(15, 23, 42, 0.05)" }}>
                 <div style={{ color: "#64748b", fontSize: "0.73rem", fontWeight: 800 }}>{label}</div>
