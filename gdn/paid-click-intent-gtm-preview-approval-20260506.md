@@ -3,7 +3,7 @@
 작성 시각: 2026-05-06 09:35 KST
 대상: biocom Google click id 보존률 개선
 문서 성격: Yellow Lane 승인안. 이 문서는 실행 전 체크리스트이며, GTM Production publish나 광고 플랫폼 전송을 승인하지 않는다.
-Status: pending approval
+Status: approved for Preview only / precheck passed
 Supersedes: 없음
 Next document: paid_click_intent GTM Preview 결과 보고서
 Do not use for: GTM Production publish, Google Ads 전환 액션 생성/변경, conversion upload, GA4/Meta/Google Ads 전송, backend 운영 deploy
@@ -53,6 +53,12 @@ harness_preflight:
 
 2026-05-06 09:54 KST 기준 로컬 backend에는 `POST /api/attribution/paid-click-intent/no-send` preview route가 준비됐다.
 이 route는 저장하지 않고, 전송하지 않고, 플랫폼으로 보내지 않는다.
+
+2026-05-06 14:56 KST에 Codex가 실행 전 precheck를 추가로 완료했다.
+GTM API read-only 기준 현재 biocom GTM live latest version은 `141 / pause_aw308433248_upde_20260505`다.
+따라서 Preview는 v140이 아니라 현재 live v141 기준 fresh workspace에서만 시작해야 한다.
+로컬 backend 7020의 CORS preflight는 `Origin: https://biocom.kr`에 대해 `204`와 `Access-Control-Allow-Origin: https://biocom.kr`를 반환했다.
+다만 실제 Tag Assistant 브라우저 환경에서는 mixed content, local endpoint 접근, 브라우저 보안 정책 문제가 별도로 발생할 수 있으므로, Preview 시작 직후 console/network에서 receiver 접근성을 다시 확인한다.
 
 ## 왜 하는가
 
@@ -158,8 +164,10 @@ POST /api/attribution/paid-click-intent/no-send
 ```
 
 현재 backend v1 응답은 기존 route 호환을 위해 `dryRun`, `wouldStore`, `wouldSend`, `noSendVerified` 같은 camelCase guard field를 포함한다.
-ontology canonical target은 snake_case지만, Preview only 단계에서는 v1 field를 인정한다.
-snake_case alias와 block reason 정렬은 [[../ontology/backend-attribution-field-alignment-plan-20260506]]에서 별도 Green Lane으로 진행한다.
+ontology canonical target은 snake_case다.
+2026-05-06 14:55 KST 기준 backend는 기존 camelCase를 유지하면서 `dry_run`, `would_store`, `would_send`, `no_send_verified`, `no_write_verified`, `no_platform_send_verified` alias와 공통 `guard` 객체를 함께 반환한다.
+Preview only 단계에서는 기존 v1 camelCase와 새 snake_case를 모두 인정한다.
+field alignment 상세는 [[../ontology/backend-attribution-field-alignment-plan-20260506]]를 따른다.
 
 ### 테스트 click id live 차단 규칙
 
@@ -206,6 +214,14 @@ workspace 변경안은 제출하지 않고 폐기한다.
 | `gclid=TEST_GCLID_20260506` | `ok=true`, `has_google_click_id=true`, `test_click_id=true`, `wouldStore=false`, `wouldSend=false` | Preview용 click id는 인식하지만 live 후보에서는 차단 |
 | Google click id 없음 | `ok=false`, `block_reasons=missing_google_click_id` | click id 보존 실패를 명확히 표시 |
 | `value` 포함 | `ok=false`, `rejectedField=value` | purchase/결제값이 paid click intent에 섞이는 것을 차단 |
+
+2026-05-06 14:55 KST 재검증에서는 아래도 함께 통과했다.
+
+- 기존 camelCase: `dryRun`, `wouldStore`, `wouldSend`, `noSendVerified`
+- 새 snake_case: `dry_run`, `would_store`, `would_send`, `no_send_verified`
+- 공통 guard: `guard.block_reasons`, `guard.actual_send_candidate=false`, `guard.no_platform_send_verified=true`
+- paid click intent 정상/누락/결제값 reject 케이스
+- confirmed purchase 정상/NPay click 차단/canceled canonical reason 케이스
 
 검증 명령:
 

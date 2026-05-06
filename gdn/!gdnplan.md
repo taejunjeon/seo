@@ -1,7 +1,7 @@
 # Google Ads ROAS 정합성 체크 및 개선 계획
 
 작성 시각: 2026-04-23 12:12 KST
-최근 업데이트: 2026-05-06 11:20 KST
+최근 업데이트: 2026-05-06 14:56 KST
 기준일: 2026-04-23
 버전: v1.9-campaign-signal-audit
 문서 성격: 로드맵
@@ -23,6 +23,9 @@ Google click id 보존률 개선 설계는 [[google-click-id-preservation-plan-2
 confirmed_purchase no-send 수신·디스패처 계약은 [[confirmed-purchase-no-send-pipeline-contract-20260505]]에 기록했다.
 paid_click_intent GTM Preview 승인안은 [[paid-click-intent-gtm-preview-approval-20260506]]에 기록했다.
 paid_click_intent는 결제완료 주문 후보와 섞지 않도록 별도 `POST /api/attribution/paid-click-intent/no-send` preview route로 분리했다.
+2026-05-06 14:56 KST precheck 기준 현재 biocom GTM live latest version은 `141 / pause_aw308433248_upde_20260505`다.
+backend no-send 응답은 기존 camelCase를 유지하면서 snake_case alias와 `guard` 객체를 추가했고, 로컬 7020에서 paid click intent/confirmed purchase smoke와 `https://biocom.kr` CORS preflight를 통과했다.
+다음 실행은 `Preview only YES` 범위 안에서 v141 기준 fresh workspace로만 진행한다.
 Google Ads/NPay/confirmed purchase 용어 정본은 [[../ontology/!ontology|Attribution Ontology Lite]]를 따른다.
 이 문서에서 Google Ads 값은 `platform_reference_roas`, 내부 장부 기준 값은 `internal_confirmed_roas`로 구분한다.
 GA4 raw 기준 최근 7일 Google Ads 유입은 Meta보다 체류시간과 90% 스크롤 도달률은 높지만, NPay 클릭 비율이 `8.39%`로 Meta `0.11%`보다 훨씬 높고 홈페이지 purchase는 `4건 / 336,917원`뿐이다.

@@ -1,7 +1,7 @@
 # Backend Attribution Field Alignment Plan
 
 작성 시각: 2026-05-06 13:15 KST
-Status: active draft
+Status: implemented locally / smoke passed
 Owner: backend / attribution / ontology
 Supersedes: none
 Next document: backend-attribution-field-alignment-result-YYYYMMDD.md
@@ -50,6 +50,10 @@ harness_preflight:
 현재 backend no-send route는 기능상 Preview를 진행할 수 있는 수준이다.
 다만 API 응답 필드에는 기존 camelCase와 새 ontology snake_case가 섞여 있다.
 따라서 바로 breaking change하지 않고, **snake_case alias를 추가하는 방식**으로 정렬한다.
+
+2026-05-06 14:55 KST에 additive alignment를 로컬 backend에 반영했다.
+기존 camelCase field는 유지했고, snake_case alias와 공통 `guard` 객체를 추가했다.
+실제 GA4/Meta/Google Ads 전송, GTM Preview/Publish, 운영 DB write, backend 운영 deploy는 하지 않았다.
 
 중요한 결론은 아래다.
 
@@ -182,3 +186,32 @@ No-platform-send verified in plan: YES
 
 Recommendation: proceed with additive alias implementation after Preview plan is acknowledged.
 Confidence: 87%.
+
+## 2026-05-06 구현 결과
+
+변경 파일:
+
+- `backend/src/routes/attribution.ts`
+
+반영 내용:
+
+- `confirmed-purchase/no-send`, `paid-click-intent/no-send` 응답에 기존 camelCase와 함께 snake_case alias를 추가했다.
+- `preview.click_ids`는 유지하고 `preview.click_identifiers` alias를 추가했다.
+- `preview.actual_send_candidate=false`를 추가했다.
+- top-level `guard` 객체를 추가해 `actual_send_candidate`, `block_reasons`, `legacy_block_reasons`, `no_platform_send_verified`를 한곳에서 볼 수 있게 했다.
+- `order_canceled`, `order_refunded`는 canonical `canceled_order`, `refunded_order`로 내리고, 기존 값은 `legacy_block_reasons`에 남겼다.
+- paid click intent에 `value`나 `currency`가 들어오면 `invalid_value_field`로 차단한다.
+
+검증:
+
+- `npm --prefix backend run typecheck` 통과.
+- 로컬 backend 7020을 `BACKGROUND_JOBS_ENABLED=false`로 재시작해 background send 없이 smoke했다.
+- `paid-click-intent/no-send` 정상 TEST gclid, Google click id 없음, `value` reject 케이스 통과.
+- `confirmed-purchase/no-send` 정상 homepage, NPay click 차단, canceled canonical reason 케이스 통과.
+- `Origin: https://biocom.kr` CORS preflight는 `204`와 `Access-Control-Allow-Origin: https://biocom.kr`로 통과.
+- GTM API read-only 확인 결과 현재 biocom live latest version은 `141 / pause_aw308433248_upde_20260505`.
+
+남은 제한:
+
+- Tag Assistant 브라우저 환경에서 `https://biocom.kr` 페이지가 local no-send receiver에 실제로 닿는지는 Preview 시작 후 network/console로 다시 확인해야 한다.
+- GTM Preview, fresh workspace 생성, Production publish, platform send, 운영 DB write, backend 운영 deploy는 이 구현에서 하지 않았다.

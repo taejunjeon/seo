@@ -894,6 +894,70 @@ const isPreviewClickId = (value: string) => {
   return normalized.startsWith("TEST_") || normalized.startsWith("DEBUG_") || normalized.startsWith("PREVIEW_");
 };
 
+const uniqueNonEmpty = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
+
+const canonicalAttributionBlockReason = (reason: string) => {
+  if (reason === "order_canceled") return "canceled_order";
+  if (reason === "order_refunded") return "refunded_order";
+  return reason;
+};
+
+const canonicalAttributionBlockReasons = (reasons: string[]) =>
+  uniqueNonEmpty(reasons.map(canonicalAttributionBlockReason));
+
+const legacyAttributionBlockReasons = (reasons: string[]) =>
+  uniqueNonEmpty(reasons.filter((reason) => canonicalAttributionBlockReason(reason) !== reason));
+
+const noSendGuardAliases = {
+  dryRun: true,
+  dry_run: true,
+  wouldStore: false,
+  would_store: false,
+  wouldSend: false,
+  would_send: false,
+  noSendVerified: true,
+  no_send_verified: true,
+  noWriteVerified: true,
+  no_write_verified: true,
+  noDeployVerified: true,
+  no_deploy_verified: true,
+  noPublishVerified: true,
+  no_publish_verified: true,
+  noPlatformSendVerified: true,
+  no_platform_send_verified: true,
+};
+
+const buildNoSendGuard = ({
+  blockReasons,
+  legacyBlockReasons = [],
+  source,
+  checkedAt,
+  confidence = 0.9,
+}: {
+  blockReasons: string[];
+  legacyBlockReasons?: string[];
+  source: string;
+  checkedAt: string;
+  confidence?: number;
+}) => ({
+  guard_status: "blocked" as const,
+  send_candidate: false,
+  actual_send_candidate: false,
+  block_reasons: canonicalAttributionBlockReasons(blockReasons),
+  legacy_block_reasons: uniqueNonEmpty([
+    ...legacyBlockReasons,
+    ...legacyAttributionBlockReasons(blockReasons),
+  ]),
+  no_send_verified: true,
+  no_write_verified: true,
+  no_deploy_verified: true,
+  no_publish_verified: true,
+  no_platform_send_verified: true,
+  checked_at: checkedAt,
+  source,
+  confidence,
+});
+
 const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   const site = textField(body, "site") || "biocom";
   const eventName = textField(body, "event_name") || textField(body, "eventName") || "PaidClickIntent";
@@ -928,6 +992,9 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   if (!capturedAt || Number.isNaN(Date.parse(capturedAt))) blockReasons.push("invalid_captured_at");
   if (!hasGoogleClickId) blockReasons.push("missing_google_click_id");
   if (testClickId) blockReasons.push("test_click_id_rejected_for_live");
+  const canonicalBlockReasons = canonicalAttributionBlockReasons(blockReasons);
+  const legacyBlockReasons = legacyAttributionBlockReasons(blockReasons);
+  const clickIdentifiers = { gclid, gbraid, wbraid, fbclid, ttclid };
 
   return {
     site,
@@ -940,10 +1007,14 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
     has_google_click_id: hasGoogleClickId,
     test_click_id: testClickId,
     live_candidate_after_approval: hasGoogleClickId && !testClickId && blockReasons.every((reason) => ["read_only_phase", "approval_required"].includes(reason)),
+    send_candidate: false,
+    actual_send_candidate: false,
     would_store: false,
     would_send: false,
-    block_reasons: blockReasons,
-    click_ids: { gclid, gbraid, wbraid, fbclid, ttclid },
+    block_reasons: canonicalBlockReasons,
+    legacy_block_reasons: legacyBlockReasons,
+    click_ids: clickIdentifiers,
+    click_identifiers: clickIdentifiers,
     utm: {
       source: utmSource,
       medium: utmMedium,
@@ -982,6 +1053,7 @@ const buildConfirmedPurchaseNoSendPreview = (body: Record<string, unknown>) => {
   const sanitizedPageLocation = pageLocationRaw ? sanitizeConfirmedPurchaseUrl(pageLocationRaw) : "";
   const sanitizedPageReferrer = pageReferrerRaw ? sanitizeConfirmedPurchaseUrl(pageReferrerRaw) : "";
   const blockReasons = ["read_only_phase", "approval_required"];
+  const legacyBlockReasons: string[] = [];
 
   if (!CONFIRMED_PURCHASE_ALLOWED_SITES.has(site)) blockReasons.push("site_not_allowed");
   if (!orderNumber && !channelOrderNo) blockReasons.push("missing_order_identity");
@@ -993,11 +1065,19 @@ const buildConfirmedPurchaseNoSendPreview = (body: Record<string, unknown>) => {
   if (currency !== "KRW") blockReasons.push("currency_not_allowed");
   if (booleanField(body, "is_test")) blockReasons.push("test_order");
   if (booleanField(body, "is_manual")) blockReasons.push("manual_order");
-  if (booleanField(body, "is_canceled")) blockReasons.push("order_canceled");
-  if (booleanField(body, "is_refunded")) blockReasons.push("order_refunded");
+  if (booleanField(body, "is_canceled")) {
+    blockReasons.push("canceled_order");
+    legacyBlockReasons.push("order_canceled");
+  }
+  if (booleanField(body, "is_refunded")) {
+    blockReasons.push("refunded_order");
+    legacyBlockReasons.push("order_refunded");
+  }
 
   const googleClickId = gclid || gbraid || wbraid;
   const dedupeKey = `confirmed_purchase:${site}:${channelOrderNo || orderNumber || "missing"}`;
+  const canonicalBlockReasons = canonicalAttributionBlockReasons(blockReasons);
+  const clickIdentifiers = { gclid, gbraid, wbraid, fbclid, ttclid };
 
   return {
     site,
@@ -1013,14 +1093,17 @@ const buildConfirmedPurchaseNoSendPreview = (body: Record<string, unknown>) => {
     dedupe_key: dedupeKey,
     client_id: clientId,
     ga_session_id: gaSessionId,
-    click_ids: { gclid, gbraid, wbraid, fbclid, ttclid },
+    click_ids: clickIdentifiers,
+    click_identifiers: clickIdentifiers,
     sanitized_page_location: sanitizedPageLocation,
     sanitized_page_referrer: sanitizedPageReferrer,
     has_google_click_id: Boolean(googleClickId),
     send_candidate: false,
+    actual_send_candidate: false,
     would_store: false,
     would_send: false,
-    block_reasons: blockReasons,
+    block_reasons: canonicalBlockReasons,
+    legacy_block_reasons: legacyBlockReasons,
     platform_payload_preview: {
       ga4: {
         event_name: "purchase",
@@ -2438,12 +2521,20 @@ export const createAttributionRouter = () => {
       const body = parseBody(req.body);
       const rejectedField = findConfirmedPurchaseRejectedField(body);
       if (rejectedField) {
+        const receivedAt = new Date().toISOString();
+        const blockReasons = ["read_only_phase", "approval_required", "pii_detected", "secret_detected"];
         res.status(400).json({
           ok: false,
-          dryRun: true,
-          wouldStore: false,
-          wouldSend: false,
+          ...noSendGuardAliases,
           reason: "pii_or_secret_detected",
+          block_reasons: blockReasons,
+          legacy_block_reasons: [],
+          guard: buildNoSendGuard({
+            blockReasons,
+            source: "confirmed_purchase_no_send",
+            checkedAt: receivedAt,
+            confidence: 0.95,
+          }),
           rejectedField,
           warnings: [
             "confirmed_purchase no-send preview는 주문번호, 금액, 결제완료 시각, 광고 클릭 ID만 받는다.",
@@ -2451,7 +2542,7 @@ export const createAttributionRouter = () => {
           ],
           source: {
             mode: "no_write_no_send_preview",
-            receivedAt: new Date().toISOString(),
+            receivedAt,
           },
         });
         return;
@@ -2459,21 +2550,21 @@ export const createAttributionRouter = () => {
 
       const preview = buildConfirmedPurchaseNoSendPreview(body);
       const hardBlocks = preview.block_reasons.filter((reason) => !["read_only_phase", "approval_required"].includes(reason));
+      const receivedAt = new Date().toISOString();
       res.status(hardBlocks.length > 0 ? 400 : 200).json({
         ok: hardBlocks.length === 0,
-        dryRun: true,
+        ...noSendGuardAliases,
         receiver: "confirmed_purchase_no_send",
-        wouldStore: false,
-        wouldSend: false,
-        noSendVerified: true,
-        noWriteVerified: true,
-        noDeployVerified: true,
-        noPublishVerified: true,
-        noPlatformSendVerified: true,
+        guard: buildNoSendGuard({
+          blockReasons: preview.block_reasons,
+          legacyBlockReasons: preview.legacy_block_reasons,
+          source: "confirmed_purchase_no_send",
+          checkedAt: receivedAt,
+        }),
         preview,
         source: {
           mode: "no_write_no_send_preview",
-          receivedAt: new Date().toISOString(),
+          receivedAt,
         },
         warnings: [
           "NPay click/count/payment start만 있는 row는 purchase 후보가 아니다.",
@@ -2483,13 +2574,21 @@ export const createAttributionRouter = () => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "confirmed purchase no-send preview failed";
+      const receivedAt = new Date().toISOString();
+      const blockReasons = ["read_only_phase", "approval_required"];
       res.status(400).json({
         ok: false,
-        dryRun: true,
-        wouldStore: false,
-        wouldSend: false,
+        ...noSendGuardAliases,
         error: "confirmed_purchase_no_send_preview_error",
         message,
+        block_reasons: blockReasons,
+        legacy_block_reasons: [],
+        guard: buildNoSendGuard({
+          blockReasons,
+          source: "confirmed_purchase_no_send",
+          checkedAt: receivedAt,
+          confidence: 0.75,
+        }),
       });
     }
   });
@@ -2499,12 +2598,26 @@ export const createAttributionRouter = () => {
       const body = parseBody(req.body);
       const rejectedField = findPaidClickIntentRejectedField(body);
       if (rejectedField) {
+        const receivedAt = new Date().toISOString();
+        const normalizedRejectedField = normalizeSecurityKey(rejectedField);
+        const blockReasons = ["read_only_phase", "approval_required"];
+        if (normalizedRejectedField === "value" || normalizedRejectedField === "currency") {
+          blockReasons.push("invalid_value_field");
+        } else {
+          blockReasons.push("pii_detected", "secret_detected");
+        }
         res.status(400).json({
           ok: false,
-          dryRun: true,
-          wouldStore: false,
-          wouldSend: false,
+          ...noSendGuardAliases,
           reason: "pii_secret_or_purchase_field_detected",
+          block_reasons: blockReasons,
+          legacy_block_reasons: [],
+          guard: buildNoSendGuard({
+            blockReasons,
+            source: "paid_click_intent_no_send",
+            checkedAt: receivedAt,
+            confidence: 0.95,
+          }),
           rejectedField,
           warnings: [
             "paid_click_intent no-send preview는 랜딩/체크아웃 시점 click id 보존만 확인한다.",
@@ -2512,7 +2625,7 @@ export const createAttributionRouter = () => {
           ],
           source: {
             mode: "no_write_no_send_preview",
-            receivedAt: new Date().toISOString(),
+            receivedAt,
           },
         });
         return;
@@ -2524,21 +2637,21 @@ export const createAttributionRouter = () => {
         "approval_required",
         "test_click_id_rejected_for_live",
       ].includes(reason));
+      const receivedAt = new Date().toISOString();
       res.status(hardBlocks.length > 0 ? 400 : 200).json({
         ok: hardBlocks.length === 0,
-        dryRun: true,
+        ...noSendGuardAliases,
         receiver: "paid_click_intent_no_send",
-        wouldStore: false,
-        wouldSend: false,
-        noSendVerified: true,
-        noWriteVerified: true,
-        noDeployVerified: true,
-        noPublishVerified: true,
-        noPlatformSendVerified: true,
+        guard: buildNoSendGuard({
+          blockReasons: preview.block_reasons,
+          legacyBlockReasons: preview.legacy_block_reasons,
+          source: "paid_click_intent_no_send",
+          checkedAt: receivedAt,
+        }),
         preview,
         source: {
           mode: "no_write_no_send_preview",
-          receivedAt: new Date().toISOString(),
+          receivedAt,
         },
         warnings: [
           "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
@@ -2548,13 +2661,21 @@ export const createAttributionRouter = () => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "paid click intent no-send preview failed";
+      const receivedAt = new Date().toISOString();
+      const blockReasons = ["read_only_phase", "approval_required"];
       res.status(400).json({
         ok: false,
-        dryRun: true,
-        wouldStore: false,
-        wouldSend: false,
+        ...noSendGuardAliases,
         error: "paid_click_intent_no_send_preview_error",
         message,
+        block_reasons: blockReasons,
+        legacy_block_reasons: [],
+        guard: buildNoSendGuard({
+          blockReasons,
+          source: "paid_click_intent_no_send",
+          checkedAt: receivedAt,
+          confidence: 0.75,
+        }),
       });
     }
   });
