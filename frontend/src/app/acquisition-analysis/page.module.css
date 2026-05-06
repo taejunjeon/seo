@@ -516,6 +516,140 @@
   text-align: center;
 }
 
+.leakageSection {
+  overflow: hidden;
+  border-color: rgba(15, 23, 42, 0.1);
+  background:
+    radial-gradient(circle at 6% 20%, rgba(245, 158, 11, 0.13), transparent 30%),
+    radial-gradient(circle at 96% 4%, rgba(20, 184, 166, 0.14), transparent 28%),
+    rgba(255, 255, 255, 0.96);
+}
+
+.leakageGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.leakageCard {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 20px;
+  background: #fff;
+}
+
+.leakageCardAmber {
+  border-color: rgba(245, 158, 11, 0.26);
+  background: linear-gradient(180deg, rgba(255, 251, 235, 0.92), #fff);
+}
+
+.leakageCardTeal {
+  border-color: rgba(13, 148, 136, 0.24);
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.92), #fff);
+}
+
+.leakageCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.leakageCardTop span {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.leakageCardTop strong {
+  color: #142033;
+  font-size: 2rem;
+  font-weight: 950;
+  letter-spacing: -0.06em;
+}
+
+.leakageCard p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.leakageMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.leakageMetrics div {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.leakageMetrics span,
+.purchaseLine span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.leakageMetrics strong {
+  display: block;
+  margin-top: 5px;
+  color: #142033;
+  font-size: 0.96rem;
+  font-weight: 920;
+}
+
+.purchaseLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding-top: 14px;
+}
+
+.purchaseLine strong {
+  color: #0f766e;
+  font-size: 0.96rem;
+  font-weight: 950;
+  text-align: right;
+}
+
+.leakageInterpretation {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  background: #f8fafc;
+}
+
+.leakageInterpretation strong {
+  color: #142033;
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.leakageInterpretation p {
+  margin-top: 8px;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.72;
+}
+
+.leakageInterpretation span {
+  display: block;
+  margin-top: 12px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .samples {
   display: grid;
   gap: 12px;
@@ -569,7 +703,8 @@
   .siteGrid,
   .twoColumn,
   .insightGrid,
-  .aibioReferenceGrid {
+  .aibioReferenceGrid,
+  .leakageGrid {
     grid-template-columns: 1fr;
   }
 
@@ -594,8 +729,18 @@
   }
 
   .metricGrid,
-  .sampleGrid {
+  .sampleGrid,
+  .leakageMetrics {
     grid-template-columns: 1fr;
+  }
+
+  .purchaseLine {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .purchaseLine strong {
+    text-align: left;
   }
 
   .rangeGroup {

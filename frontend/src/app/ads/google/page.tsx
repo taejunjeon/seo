@@ -811,7 +811,7 @@ export default function GoogleAdsPerformancePage() {
               Google Ads 광고성과 분석
             </h1>
             <p style={{ margin: 0, color: "#64748b", fontSize: "0.84rem", lineHeight: 1.55 }}>
-              Google Ads API 플랫폼 성과와 내부 confirmed 매출을 같은 기간으로 대조한다.
+              Google Ads가 주장하는 platform_reference와 실제 결제완료 주문 기준 내부 confirmed 매출을 분리해서 본다.
             </p>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -993,7 +993,7 @@ export default function GoogleAdsPerformancePage() {
           <KpiCard label="광고비" value={fmtKRW(summary.cost)} sub={sourceLabel} />
           <KpiCard label="전환수" value={fmtNum(summary.conversions)} sub="Conversions" />
           <KpiCard label="전환값" value={fmtKRW(summary.conversionValue)} sub="Conv. value" tone="success" />
-          <KpiCard label="Google ROAS" value={fmtRoas(summary.roas)} sub="전환값 / 비용" tone={summary.roas != null && summary.roas >= 2 ? "success" : "neutral"} />
+          <KpiCard label="Google ROAS" value={fmtRoas(summary.roas)} sub="platform_reference · 예산 판단 금지" tone={summary.roas != null && summary.roas >= 2 ? "success" : "neutral"} />
           <KpiCard label="조회 후 전환" value={fmtNum(summary.viewThroughConversions)} sub="보조 판단값" tone={summary.viewThroughConversions > 0 ? "warn" : "neutral"} />
           {internal && (
             <>
@@ -1004,10 +1004,39 @@ export default function GoogleAdsPerformancePage() {
           )}
         </div>
 
+        {!parsed && (
+          <div style={{ marginBottom: 16 }}>
+            <Panel title="NPay 해석 기준">
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 14 }}>
+                <div style={{ color: "#475569", fontSize: "0.78rem", lineHeight: 1.65 }}>
+                  <strong style={{ display: "block", color: "#0f172a", fontSize: "0.88rem", marginBottom: 6 }}>
+                    NPay 결제수단 자체가 문제가 아니다.
+                  </strong>
+                  NPay 실제 결제완료 주문은 내부 매출이고, 새 confirmed purchase 후보에도 포함해야 한다.
+                  지금 위험한 것은 NPay 버튼 클릭이나 결제 시작 count가 Google Ads의 Primary 구매완료 신호로 학습되는 구조다.
+                  그래서 이 화면에서는 Google Ads ROAS를 참고값으로만 보고, 예산 판단은 내부 confirmed ROAS로 분리한다.
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {[
+                    ["포함", "홈페이지 결제완료 + NPay 실제 결제완료 주문"],
+                    ["제외", "NPay 클릭, NPay 결제 시작, add_payment_info만 있는 행"],
+                    ["판단", "구매 신호를 없애는 것이 아니라 실제 결제완료 기준으로 교체"],
+                  ].map(([label, body]) => (
+                    <div key={label} style={{ padding: 11, borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                      <div style={{ color: label === "포함" ? "#047857" : label === "제외" ? "#b45309" : "#1d4ed8", fontSize: "0.68rem", fontWeight: 900 }}>{label}</div>
+                      <div style={{ color: "#334155", fontSize: "0.75rem", lineHeight: 1.45, marginTop: 4 }}>{body}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+          </div>
+        )}
+
         {internal && (
           <div style={{ marginBottom: 16 }}>
             <Panel
-              title="Google Ads vs 내부 confirmed"
+              title="Google Ads platform_reference vs 내부 confirmed"
               action={(
                 <span style={{ color: "#64748b", fontSize: "0.72rem", fontWeight: 750 }}>
                   {internal.dateRange.startDate} ~ {internal.dateRange.endDate} · {fmtDateTime(internal.latestLoggedAt)}
@@ -1016,7 +1045,7 @@ export default function GoogleAdsPerformancePage() {
             >
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 10 }}>
                 {[
-                  ["Google 전환값", fmtKRW(internal.summary.platformConversionValue), "플랫폼 귀속"],
+                  ["Google 전환값", fmtKRW(internal.summary.platformConversionValue), "플랫폼 주장값"],
                   ["내부 confirmed", fmtKRW(internal.summary.confirmedRevenue), `${internal.summary.confirmedOrders}건`],
                   ["차이 금액", fmtKRW(internal.summary.platformMinusConfirmedRevenue), "Google - 내부"],
                   ["캠페인 ID 커버리지", fmtPct(internal.summary.campaignIdCoverage), `${internal.summary.unknownCampaignOrders}건 미확인`],
@@ -1049,10 +1078,10 @@ export default function GoogleAdsPerformancePage() {
             >
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 10, marginBottom: 12 }}>
                 {[
-                  ["Primary NPay 전환값", fmtKRW(actionSegments.summary.primaryKnownNpayConversionValue), "입찰 ROAS에 직접 반영"],
+                  ["Primary NPay click/count", fmtKRW(actionSegments.summary.primaryKnownNpayConversionValue), "실제 결제완료로 확정 전"],
                   ["내부 confirmed 차이", fmtKRW(actionSegments.summary.platformMinusInternalConfirmed), "Google - 내부"],
                   ["All conv. NPay 보조", fmtKRW(actionSegments.summary.knownNpayAllOnlyConversionValue), "ROAS 분자에는 제외"],
-                  ["NPay 제거 후 잔차", fmtKRW(actionSegments.summary.gapAfterRemovingKnownNpayPrimary), "플랫폼 - NPay - 내부"],
+                  ["클릭/count 제외 후 잔차", fmtKRW(actionSegments.summary.gapAfterRemovingKnownNpayPrimary), "플랫폼 - click/count - 내부"],
                 ].map(([label, value, sub]) => (
                   <div key={label} style={{ padding: 12, borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa" }}>
                     <div style={{ color: "#9a3412", fontSize: "0.68rem", fontWeight: 850 }}>{label}</div>
@@ -1280,7 +1309,7 @@ export default function GoogleAdsPerformancePage() {
                   fontSize: "0.76rem",
                   lineHeight: 1.55,
                 }}>
-                  <strong>{riskyActions.length > 0 ? "클릭/NPay 계열 후보 있음" : "전환 액션 세그먼트 대기"}</strong>
+                  <strong>{riskyActions.length > 0 ? "NPay click/count 계열 후보 있음" : "전환 액션 세그먼트 대기"}</strong>
                   <div style={{ marginTop: 6 }}>
                     {riskyActions.length > 0
                       ? riskyActions.map((row) => row.action).join(", ")

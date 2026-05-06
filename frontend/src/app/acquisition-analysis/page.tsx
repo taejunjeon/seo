@@ -124,6 +124,12 @@ const fmtKRW = (value: number | null | undefined) =>
 const fmtPct = (value: number | null | undefined) =>
   value == null ? "-" : `${value.toFixed(1)}%`;
 
+const fmtPctPrecise = (value: number | null | undefined) =>
+  value == null ? "-" : `${value.toFixed(2)}%`;
+
+const fmtSeconds = (value: number | null | undefined) =>
+  value == null ? "-" : `${value.toFixed(2)}초`;
+
 const fmtKst = (value: string | null | undefined) => {
   if (!value) return "-";
   const parsed = new Date(value);
@@ -164,6 +170,40 @@ const getOperationalConversions = (site: SiteReport) => site.operationalConversi
 
 const getRawConversions = (site: SiteReport) =>
   site.rawConversions ?? getOperationalConversions(site) + site.excludedConversions;
+
+const funnelLeakageSnapshot = {
+  source: "GA4 BigQuery archive read-only",
+  rangeLabel: "2026-04-27 ~ 2026-05-03",
+  freshness: "archive latest events_20260503",
+  channels: [
+    {
+      key: "google",
+      label: "Google Ads 유입",
+      tone: "amber",
+      avgEngagementSeconds: 36.41,
+      scroll90Rate: 25.35,
+      regularCheckoutRate: 1.98,
+      npayClickRate: 8.39,
+      homepagePurchaseCount: 4,
+      homepagePurchaseValue: 336_917,
+      summary:
+        "체류와 깊은 스크롤은 Meta보다 강하지만, GA4 기준 홈페이지 결제완료로 닫힌 수가 매우 적습니다.",
+    },
+    {
+      key: "meta",
+      label: "Meta 유입",
+      tone: "teal",
+      avgEngagementSeconds: 14.67,
+      scroll90Rate: 12.95,
+      regularCheckoutRate: 1.43,
+      npayClickRate: 0.11,
+      homepagePurchaseCount: 202,
+      homepagePurchaseValue: 60_799_430,
+      summary:
+        "체류시간은 짧지만, 홈페이지 purchase로 닫히는 건수와 매출이 훨씬 큽니다.",
+    },
+  ],
+};
 
 const resolveDataSourceLabel = (dataSource?: string) => {
   if (dataSource === "operational_vm_ledger") return "운영 VM 원장";
@@ -341,6 +381,76 @@ const AibioMetaReference = ({
     </div>
   );
 };
+
+const FunnelLeakageSnapshot = () => (
+  <section className={`${styles.section} ${styles.leakageSection}`}>
+    <div className={styles.sectionHeader}>
+      <div>
+        <span className={styles.eyebrow}>Biocom BigQuery Funnel Leakage</span>
+        <h3>Google과 Meta는 구매 전 행동이 다르게 보인다.</h3>
+        <p>
+          아래 수치는 GA4 BigQuery에서 최근 7일 세션을 read-only로 다시 계산한 결과입니다.
+          NPay 클릭은 결제 의도이지 실제 구매가 아니며, 홈페이지 purchase는 GA4에서 자사몰 결제완료로 잡힌 값입니다.
+        </p>
+      </div>
+      <span className={styles.sectionBadge}>{funnelLeakageSnapshot.rangeLabel}</span>
+    </div>
+
+    <div className={styles.leakageGrid}>
+      {funnelLeakageSnapshot.channels.map((channel) => (
+        <article
+          key={channel.key}
+          className={`${styles.leakageCard} ${
+            channel.tone === "teal" ? styles.leakageCardTeal : styles.leakageCardAmber
+          }`}
+        >
+          <div className={styles.leakageCardTop}>
+            <span>{channel.label}</span>
+            <strong>{fmtNum(channel.homepagePurchaseCount)}건</strong>
+          </div>
+          <p>{channel.summary}</p>
+          <div className={styles.leakageMetrics}>
+            <div>
+              <span>평균 체류</span>
+              <strong>{fmtSeconds(channel.avgEngagementSeconds)}</strong>
+            </div>
+            <div>
+              <span>90% 스크롤</span>
+              <strong>{fmtPctPrecise(channel.scroll90Rate)}</strong>
+            </div>
+            <div>
+              <span>일반 결제 시작</span>
+              <strong>{fmtPctPrecise(channel.regularCheckoutRate)}</strong>
+            </div>
+            <div>
+              <span>NPay 클릭</span>
+              <strong>{fmtPctPrecise(channel.npayClickRate)}</strong>
+            </div>
+          </div>
+          <div className={styles.purchaseLine}>
+            <span>홈페이지 purchase</span>
+            <strong>{fmtNum(channel.homepagePurchaseCount)}건 / {fmtKRW(channel.homepagePurchaseValue)}</strong>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <div className={styles.leakageInterpretation}>
+      <strong>해석 기준</strong>
+      <p>
+        Google Ads 유입은 체류·스크롤·NPay 클릭이 높아서 “관심이 없다”고 보기는 어렵습니다.
+        다만 자사몰 purchase로 닫히는 값이 작기 때문에, Google Ads ROAS는 실제 confirmed 매출과 분리해서 봐야 합니다.
+      </p>
+      <p>
+        다음 검증은 Google 유입의 NPay 클릭이 실제 NPay 결제완료 주문으로 이어졌는지 운영 주문 원장과 붙이는 것입니다.
+        NPay 실제 결제완료 매출은 구매에 포함하고, NPay 클릭/count만 구매완료 학습에서 제외해야 합니다.
+      </p>
+      <span>
+        source: {funnelLeakageSnapshot.source} · {funnelLeakageSnapshot.freshness} · no-send/no-write
+      </span>
+    </div>
+  </section>
+);
 
 const SiteDetail = ({
   site,
@@ -559,6 +669,8 @@ export default function AcquisitionAnalysisPage() {
               {data.notes.map((note) => <p key={note}>{note}</p>)}
               {(data.remoteWarnings ?? []).map((warning) => <p key={warning}>운영 원장 경고: {warning}</p>)}
             </section>
+
+            <FunnelLeakageSnapshot />
 
             {data.sites.map((site) => (
               <SiteDetail
@@ -1200,7 +1312,7 @@ function CohortCategoryCard() {
               누적돼야 한다.
             </p>
             <p style={{ margin: "0 0 6px" }}>
-              <strong>다른 데이터로 유입분석이 가능한가</strong>: 검토한 대안 4가지 모두 "채널 × 고객 × 재구매" 3축 동시 조인이
+              <strong>다른 데이터로 유입분석이 가능한가</strong>: 검토한 대안 4가지 모두 &quot;채널 × 고객 × 재구매&quot; 3축 동시 조인이
               안 된다.
             </p>
             <ul style={{ margin: "0 0 6px 16px", padding: 0 }}>
