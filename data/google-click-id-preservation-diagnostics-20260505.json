@@ -1,0 +1,148 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-06T00:25:51.002Z",
+  "generated_at_kst": "2026-05-06 09:25:51 KST",
+  "source": {
+    "input": "/Users/vibetj/coding/seo/data/bi-confirmed-purchase-operational-dry-run-20260505.json",
+    "upstream_generated_at_kst": "2026-05-06 09:23:56 KST",
+    "upstream_source": {
+      "operational_db": "PostgreSQL dashboard.public.tb_iamweb_users",
+      "attribution_vm_snapshot": "/Users/vibetj/coding/seo/backend/data/vm-npay-intent-20260505.sqlite3",
+      "ga4_bigquery": "hurdlers-naver-pay.analytics_304759974 queried by job project project-dadba7dd-0229-4ff6-81c"
+    },
+    "upstream_window": {
+      "start": "2026-04-27",
+      "end": "2026-05-05",
+      "timezone_note": "operational order paidAt filter uses timestamptz; report dates are KST-oriented operational windows."
+    }
+  },
+  "summary": {
+    "total_orders": 623,
+    "total_revenue": 146408773,
+    "with_google_click_id": 5,
+    "google_click_id_rate": 0.8,
+    "missing_google_click_id": 618,
+    "with_vm_or_intent_evidence": 494,
+    "with_evidence_but_no_google_click_id": 489,
+    "evidence_without_google_click_id_rate": 98.99,
+    "gclid": 5,
+    "gbraid": 2,
+    "wbraid": 0
+  },
+  "google_ads_order_evidence_summary": {
+    "note": "이 분모는 주문 원장/VM evidence에 명시적 Google 증거가 남은 주문만 센다. 일반 search/cpc 같은 범용 단어는 Naver brandsearch와 섞이므로 제외했다.",
+    "candidate_orders": 10,
+    "candidate_revenue": 1922700,
+    "with_google_click_id": 5,
+    "google_click_id_rate": 50,
+    "missing_google_click_id": 5,
+    "candidate_reason_counts": {
+      "utm_source_google": 8,
+      "utm_campaign_google": 8,
+      "google_click_id": 5
+    },
+    "limitation": "Google Ads 랜딩 세션 기준 분모는 GA4 BigQuery landing-session 분석이 필요하다. 이 진단은 주문까지 남은 evidence 기준이다."
+  },
+  "by_payment_method": [
+    {
+      "group": "homepage",
+      "orders": 586,
+      "revenue": 135445673,
+      "with_google_click_id": 2,
+      "google_click_id_rate": 0.34,
+      "missing_google_click_id": 584
+    },
+    {
+      "group": "npay",
+      "orders": 37,
+      "revenue": 10963100,
+      "with_google_click_id": 3,
+      "google_click_id_rate": 8.11,
+      "missing_google_click_id": 34
+    }
+  ],
+  "by_include_reason": [
+    {
+      "group": "homepage_confirmed_order",
+      "orders": 586,
+      "revenue": 135445673,
+      "with_google_click_id": 2,
+      "google_click_id_rate": 0.34,
+      "missing_google_click_id": 584
+    },
+    {
+      "group": "npay_confirmed_order",
+      "orders": 37,
+      "revenue": 10963100,
+      "with_google_click_id": 3,
+      "google_click_id_rate": 8.11,
+      "missing_google_click_id": 34
+    }
+  ],
+  "by_evidence_source": [
+    {
+      "group": "biocom_imweb",
+      "orders": 464,
+      "revenue": 129321780,
+      "with_google_click_id": 2,
+      "google_click_id_rate": 0.43,
+      "missing_google_click_id": 462
+    },
+    {
+      "group": "(blank)",
+      "orders": 129,
+      "revenue": 7963093,
+      "with_google_click_id": 0,
+      "google_click_id_rate": 0,
+      "missing_google_click_id": 129
+    },
+    {
+      "group": "npay_intent_log",
+      "orders": 30,
+      "revenue": 9123900,
+      "with_google_click_id": 3,
+      "google_click_id_rate": 10,
+      "missing_google_click_id": 27
+    }
+  ],
+  "by_evidence_match": [
+    {
+      "group": "order_number",
+      "orders": 494,
+      "revenue": 138445680,
+      "with_google_click_id": 5,
+      "google_click_id_rate": 1.01,
+      "missing_google_click_id": 489
+    },
+    {
+      "group": "none",
+      "orders": 129,
+      "revenue": 7963093,
+      "with_google_click_id": 0,
+      "google_click_id_rate": 0,
+      "missing_google_click_id": 129
+    }
+  ],
+  "by_google_candidate_reason": {
+    "utm_source_google": 8,
+    "utm_campaign_google": 8,
+    "google_click_id": 5
+  },
+  "block_reason_counts": {
+    "read_only_phase": 623,
+    "approval_required": 623,
+    "missing_google_click_id": 618,
+    "already_in_ga4": 476,
+    "missing_attribution_vm_evidence": 129,
+    "npay_intent_ambiguous": 10,
+    "npay_intent_not_a_grade_strong": 10,
+    "npay_intent_purchase_without_intent": 6,
+    "order_has_return_reason": 4
+  },
+  "interpretation": [
+    "Google Ads confirmed_purchase 연결의 1차 병목은 결제완료 주문에 gclid/gbraid/wbraid가 거의 남지 않는 것이다.",
+    "결제완료 시점에만 click id를 찾으면 PG/NPay 리다이렉션 후 이미 사라질 수 있으므로 랜딩/체크아웃 시점 저장이 필요하다.",
+    "NPay 실제 결제완료 매출은 포함하되, NPay click/count/payment start만 있는 신호는 purchase 후보에서 제외해야 한다.",
+    "전체 보존률은 전체 결제완료 주문 분모다. Google 후보 주문 분모는 명시적 Google evidence가 남은 주문만 별도로 보되, 최종 분모는 BigQuery 랜딩 세션 분석과 함께 봐야 한다."
+  ]
+}

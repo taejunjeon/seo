@@ -1,0 +1,560 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-06T00:24:25.682Z",
+  "generated_at_kst": "2026-05-06 09:24:25 KST",
+  "source": {
+    "input": "/Users/vibetj/coding/seo/data/bi-confirmed-purchase-operational-dry-run-20260505.json",
+    "dry_run_generated_at_kst": "2026-05-06 09:23:56 KST",
+    "route": "http://localhost:7020/api/attribution/confirmed-purchase/no-send"
+  },
+  "summary": {
+    "route_sample_count": 20,
+    "control_sample_count": 1,
+    "route_block_reason_counts": {
+      "read_only_phase": 21,
+      "approval_required": 21,
+      "blocked_signal_stage_npay_click": 1,
+      "signal_stage_must_be_payment_complete": 1
+    },
+    "upstream_block_reason_counts": {
+      "read_only_phase": 21,
+      "approval_required": 21,
+      "missing_google_click_id": 15,
+      "missing_attribution_vm_evidence": 10,
+      "already_in_ga4": 7,
+      "npay_intent_purchase_without_intent": 5,
+      "npay_intent_ambiguous": 4
+    },
+    "all_no_send_verified": true,
+    "all_no_write_verified": true,
+    "all_no_platform_send_verified": true
+  },
+  "results": [
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604285726644",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 484500,
+      "paid_at": "2026-04-28T03:06:50.000Z",
+      "has_google_click_id": true,
+      "already_in_ga4": true,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "already_in_ga4"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604307495485",
+      "channel_order_no": "2026043050675170",
+      "payment_method": "npay",
+      "value": 39000,
+      "paid_at": "2026-04-30T11:59:24.000Z",
+      "has_google_click_id": true,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "npay_intent_ambiguous"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202605013241376",
+      "channel_order_no": "2026050158750350",
+      "payment_method": "npay",
+      "value": 339300,
+      "paid_at": "2026-05-01T00:05:23.000Z",
+      "has_google_click_id": true,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "npay_intent_ambiguous"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202605036979766",
+      "channel_order_no": "2026050315711070",
+      "payment_method": "npay",
+      "value": 109200,
+      "paid_at": "2026-05-03T03:04:53.000Z",
+      "has_google_click_id": true,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "npay_intent_ambiguous"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202605046835457",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 245000,
+      "paid_at": "2026-05-04T01:46:14.000Z",
+      "has_google_click_id": true,
+      "already_in_ga4": true,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "already_in_ga4"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604270677433",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 26754,
+      "paid_at": "2026-04-27T00:00:13.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604277023117",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 33614,
+      "paid_at": "2026-04-27T00:00:17.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604275581433",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 40546,
+      "paid_at": "2026-04-27T00:01:35.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604279175001",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 26481,
+      "paid_at": "2026-04-27T00:01:35.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604276680788",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 40964,
+      "paid_at": "2026-04-27T00:01:36.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604271212189",
+      "channel_order_no": "2026042741210750",
+      "payment_method": "npay",
+      "value": 117000,
+      "paid_at": "2026-04-27T02:40:11.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "npay_intent_purchase_without_intent",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604273652505",
+      "channel_order_no": "2026042744014790",
+      "payment_method": "npay",
+      "value": 59800,
+      "paid_at": "2026-04-27T04:00:53.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "npay_intent_purchase_without_intent",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604275677163",
+      "channel_order_no": "2026042746431650",
+      "payment_method": "npay",
+      "value": 74000,
+      "paid_at": "2026-04-27T05:12:51.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "npay_intent_purchase_without_intent",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604271466592",
+      "channel_order_no": "2026042747092520",
+      "payment_method": "npay",
+      "value": 975000,
+      "paid_at": "2026-04-27T05:32:22.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "npay_intent_purchase_without_intent",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604277135782",
+      "channel_order_no": "2026042749475590",
+      "payment_method": "npay",
+      "value": 496000,
+      "paid_at": "2026-04-27T06:48:32.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_attribution_vm_evidence",
+        "npay_intent_purchase_without_intent",
+        "missing_google_click_id"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604271480521",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 245000,
+      "paid_at": "2026-04-27T00:06:19.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": true,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_google_click_id",
+        "already_in_ga4"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604275957738",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 459000,
+      "paid_at": "2026-04-27T00:17:41.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": true,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_google_click_id",
+        "already_in_ga4"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604271408871",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 234000,
+      "paid_at": "2026-04-27T01:22:32.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": true,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_google_click_id",
+        "already_in_ga4"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604274989539",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 234000,
+      "paid_at": "2026-04-27T01:29:15.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": true,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_google_click_id",
+        "already_in_ga4"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": true,
+      "http_status": 200,
+      "sample_type": "operational_payment_complete",
+      "order_number": "202604274403716",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "value": 245000,
+      "paid_at": "2026-04-27T02:06:24.000Z",
+      "has_google_click_id": false,
+      "already_in_ga4": true,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_google_click_id",
+        "already_in_ga4"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    },
+    {
+      "ok": false,
+      "http_status": 400,
+      "sample_type": "control_npay_click_block",
+      "order_number": "202604307495485",
+      "channel_order_no": "2026043050675170",
+      "payment_method": "npay",
+      "value": 39000,
+      "paid_at": "2026-04-30T11:59:24.000Z",
+      "has_google_click_id": true,
+      "already_in_ga4": false,
+      "route_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "blocked_signal_stage_npay_click",
+        "signal_stage_must_be_payment_complete"
+      ],
+      "upstream_block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "npay_intent_ambiguous"
+      ],
+      "no_send_verified": true,
+      "no_write_verified": true,
+      "no_platform_send_verified": true
+    }
+  ]
+}

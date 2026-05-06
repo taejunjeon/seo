@@ -579,6 +579,74 @@ const MARKETING_INTENT_URL_QUERY_ALLOWLIST = new Set([
   "utm_content",
   "utm_term",
 ]);
+const PRODUCT_ENGAGEMENT_ALLOWED_SITES = new Set(["biocom"]);
+const PRODUCT_ENGAGEMENT_EVENT_NAME = "ProductEngagementSummary";
+const PRODUCT_ENGAGEMENT_URL_QUERY_ALLOWLIST = new Set([
+  "idx",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "fbclid",
+  "gclid",
+  "ttclid",
+  "gbraid",
+  "wbraid",
+]);
+const PRODUCT_ENGAGEMENT_REJECT_KEYS = new Set([
+  "value",
+  "currency",
+  "card",
+  "cardnumber",
+  "account",
+  "accountnumber",
+  "bankaccount",
+  "symptom",
+  "symptoms",
+  "disease",
+  "diagnosis",
+  "healthstatus",
+  "healthcondition",
+  "cookie",
+  "rawcookie",
+]);
+const CONFIRMED_PURCHASE_ALLOWED_SITES = new Set(["biocom"]);
+const CONFIRMED_PURCHASE_ALLOWED_PAYMENT_METHODS = new Set(["homepage", "npay"]);
+const CONFIRMED_PURCHASE_ALLOWED_STAGES = new Set(["payment_complete", "confirmed_order"]);
+const CONFIRMED_PURCHASE_BLOCKED_STAGES = new Set([
+  "npay_click",
+  "npay_count",
+  "payment_start",
+  "add_payment_info",
+  "begin_checkout",
+  "checkout_started",
+]);
+const CONFIRMED_PURCHASE_URL_QUERY_ALLOWLIST = new Set([
+  "idx",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "fbclid",
+  "gclid",
+  "ttclid",
+  "gbraid",
+  "wbraid",
+]);
+const CONFIRMED_PURCHASE_REJECT_KEYS = new Set([
+  "card",
+  "cardnumber",
+  "account",
+  "accountnumber",
+  "bankaccount",
+  "rawcookie",
+  "cookie",
+  "access_token",
+  "token",
+  "password",
+]);
 const marketingIntentRateLimit = new Map<string, { count: number; windowStart: number }>();
 
 const metadataText = (entry: AttributionLedgerEntry, key: string) => {
@@ -632,6 +700,209 @@ const sanitizeMarketingIntentBody = (body: Record<string, unknown>) => {
       if (typeof raw === "string") record[key] = sanitizeMarketingIntentUrl(raw);
     }
   }
+};
+
+const sanitizeProductEngagementUrl = (value: string) => {
+  const parsed = parseUrlSafe(value);
+  if (!parsed) return value.split("#")[0].split("?")[0].slice(0, 2000);
+
+  const nextSearch = new URLSearchParams();
+  parsed.searchParams.forEach((paramValue, paramKey) => {
+    if (PRODUCT_ENGAGEMENT_URL_QUERY_ALLOWLIST.has(paramKey.toLowerCase())) {
+      nextSearch.append(paramKey, paramValue.slice(0, 500));
+    }
+  });
+  parsed.search = nextSearch.toString();
+  parsed.hash = "";
+  return parsed.toString().slice(0, 2000);
+};
+
+const findProductEngagementRejectedField = (value: unknown, path: string[] = []): string | null => {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const nested = findProductEngagementRejectedField(value[index], [...path, String(index)]);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = normalizeSecurityKey(key);
+    if (MARKETING_INTENT_PII_KEYS.has(normalized) || PRODUCT_ENGAGEMENT_REJECT_KEYS.has(normalized)) {
+      return [...path, key].join(".");
+    }
+    if (typeof nestedValue === "string" && /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(nestedValue)) {
+      return [...path, key].join(".");
+    }
+    const nested = findProductEngagementRejectedField(nestedValue, [...path, key]);
+    if (nested) return nested;
+  }
+  return null;
+};
+
+const textField = (body: Record<string, unknown>, key: string) =>
+  typeof body[key] === "string" ? body[key].trim() : "";
+
+const numberField = (body: Record<string, unknown>, key: string) => {
+  const value = body[key];
+  if (typeof value === "number") return Number.isFinite(value) ? value : Number.NaN;
+  if (typeof value === "string" && value.trim()) return Number(value);
+  return Number.NaN;
+};
+
+const booleanField = (body: Record<string, unknown>, key: string) => {
+  const value = body[key];
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["1", "true", "y", "yes"].includes(normalized)) return true;
+    if (["0", "false", "n", "no"].includes(normalized)) return false;
+  }
+  return false;
+};
+
+const productEngagementAttentionScore = (visibleSeconds: number, maxScrollPercent: number) => {
+  const timeScore = Math.min(50, Math.max(0, visibleSeconds) / 90 * 50);
+  const scrollScore = Math.min(50, Math.max(0, maxScrollPercent) / 100 * 50);
+  return Math.round(Math.min(100, timeScore + scrollScore));
+};
+
+const sanitizeConfirmedPurchaseUrl = (value: string) => {
+  const parsed = parseUrlSafe(value);
+  if (!parsed) return value.split("#")[0].split("?")[0].slice(0, 2000);
+
+  const nextSearch = new URLSearchParams();
+  parsed.searchParams.forEach((paramValue, paramKey) => {
+    if (CONFIRMED_PURCHASE_URL_QUERY_ALLOWLIST.has(paramKey.toLowerCase())) {
+      nextSearch.append(paramKey, paramValue.slice(0, 500));
+    }
+  });
+  parsed.search = nextSearch.toString();
+  parsed.hash = "";
+  return parsed.toString().slice(0, 2000);
+};
+
+const findConfirmedPurchaseRejectedField = (value: unknown, path: string[] = []): string | null => {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const nested = findConfirmedPurchaseRejectedField(value[index], [...path, String(index)]);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = normalizeSecurityKey(key);
+    if (MARKETING_INTENT_PII_KEYS.has(normalized) || CONFIRMED_PURCHASE_REJECT_KEYS.has(normalized)) {
+      return [...path, key].join(".");
+    }
+    if (typeof nestedValue === "string" && /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(nestedValue)) {
+      return [...path, key].join(".");
+    }
+    const nested = findConfirmedPurchaseRejectedField(nestedValue, [...path, key]);
+    if (nested) return nested;
+  }
+  return null;
+};
+
+const buildConfirmedPurchaseNoSendPreview = (body: Record<string, unknown>) => {
+  const site = textField(body, "site") || "biocom";
+  const orderNumber = textField(body, "order_number") || textField(body, "orderNumber");
+  const channelOrderNo = textField(body, "channel_order_no") || textField(body, "channelOrderNo");
+  const paymentMethod = (textField(body, "payment_method") || textField(body, "paymentMethod")).toLowerCase();
+  const signalStage = (textField(body, "signal_stage") || textField(body, "signalStage")).toLowerCase();
+  const paidAt = textField(body, "paid_at") || textField(body, "paidAt") || textField(body, "conversion_time");
+  const value = numberField(body, "value");
+  const currency = textField(body, "currency") || "KRW";
+  const clientId = textField(body, "client_id") || textField(body, "clientId");
+  const gaSessionId = textField(body, "ga_session_id") || textField(body, "gaSessionId");
+  const gclid = textField(body, "gclid");
+  const gbraid = textField(body, "gbraid");
+  const wbraid = textField(body, "wbraid");
+  const fbclid = textField(body, "fbclid");
+  const ttclid = textField(body, "ttclid");
+  const eventId = textField(body, "event_id") || textField(body, "eventId") || `ConfirmedPurchase_${orderNumber || channelOrderNo || "missing"}`;
+  const pageLocationRaw = textField(body, "page_location") || textField(body, "pageLocation");
+  const pageReferrerRaw = textField(body, "page_referrer") || textField(body, "pageReferrer");
+  const sanitizedPageLocation = pageLocationRaw ? sanitizeConfirmedPurchaseUrl(pageLocationRaw) : "";
+  const sanitizedPageReferrer = pageReferrerRaw ? sanitizeConfirmedPurchaseUrl(pageReferrerRaw) : "";
+  const blockReasons = ["read_only_phase", "approval_required"];
+
+  if (!CONFIRMED_PURCHASE_ALLOWED_SITES.has(site)) blockReasons.push("site_not_allowed");
+  if (!orderNumber && !channelOrderNo) blockReasons.push("missing_order_identity");
+  if (!CONFIRMED_PURCHASE_ALLOWED_PAYMENT_METHODS.has(paymentMethod)) blockReasons.push("payment_method_not_allowed");
+  if (CONFIRMED_PURCHASE_BLOCKED_STAGES.has(signalStage)) blockReasons.push(`blocked_signal_stage_${signalStage}`);
+  if (!CONFIRMED_PURCHASE_ALLOWED_STAGES.has(signalStage)) blockReasons.push("signal_stage_must_be_payment_complete");
+  if (!paidAt || Number.isNaN(Date.parse(paidAt))) blockReasons.push("invalid_paid_at");
+  if (!Number.isFinite(value) || value <= 0) blockReasons.push("invalid_value");
+  if (currency !== "KRW") blockReasons.push("currency_not_allowed");
+  if (booleanField(body, "is_test")) blockReasons.push("test_order");
+  if (booleanField(body, "is_manual")) blockReasons.push("manual_order");
+  if (booleanField(body, "is_canceled")) blockReasons.push("order_canceled");
+  if (booleanField(body, "is_refunded")) blockReasons.push("order_refunded");
+
+  const googleClickId = gclid || gbraid || wbraid;
+  const dedupeKey = `confirmed_purchase:${site}:${channelOrderNo || orderNumber || "missing"}`;
+
+  return {
+    site,
+    order_number: orderNumber,
+    channel_order_no: channelOrderNo,
+    include_reason: paymentMethod === "npay" ? "npay_confirmed_order" : "homepage_confirmed_order",
+    payment_method: paymentMethod,
+    signal_stage: signalStage,
+    value: Number.isFinite(value) ? Math.round(value) : null,
+    currency,
+    paid_at: paidAt,
+    event_id: eventId,
+    dedupe_key: dedupeKey,
+    client_id: clientId,
+    ga_session_id: gaSessionId,
+    click_ids: { gclid, gbraid, wbraid, fbclid, ttclid },
+    sanitized_page_location: sanitizedPageLocation,
+    sanitized_page_referrer: sanitizedPageReferrer,
+    has_google_click_id: Boolean(googleClickId),
+    send_candidate: false,
+    would_store: false,
+    would_send: false,
+    block_reasons: blockReasons,
+    platform_payload_preview: {
+      ga4: {
+        event_name: "purchase",
+        transaction_id: orderNumber,
+        value: Number.isFinite(value) ? Math.round(value) : null,
+        currency,
+        client_id: clientId,
+        ga_session_id: gaSessionId,
+        event_id: eventId,
+        blocked: true,
+        block_reason: "ga4_measurement_protocol_not_approved",
+      },
+      meta: {
+        event_name: "Purchase",
+        event_id: eventId,
+        value: Number.isFinite(value) ? Math.round(value) : null,
+        currency,
+        event_source_url: sanitizedPageLocation,
+        blocked: true,
+        block_reason: "meta_capi_purchase_not_approved",
+      },
+      google_ads: {
+        conversion_name: "BI confirmed_purchase",
+        order_id: channelOrderNo || orderNumber,
+        conversion_time: paidAt,
+        conversion_value: Number.isFinite(value) ? Math.round(value) : null,
+        currency_code: currency,
+        gclid,
+        gbraid,
+        wbraid,
+        blocked: true,
+        block_reason: "google_ads_conversion_upload_not_approved",
+      },
+    },
+  };
 };
 
 const findMarketingIntentPiiKey = (value: unknown, path: string[] = []): string | null => {
@@ -1855,6 +2126,218 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "npay roas dry-run failed";
       res.status(500).json({ ok: false, error: "npay_roas_dry_run_error", message });
+    }
+  });
+
+  router.post("/api/attribution/engagement-intent", (req: Request, res: Response) => {
+    try {
+      const body = parseBody(req.body);
+      for (const key of ["page_location", "page_referrer"]) {
+        const raw = body[key];
+        if (typeof raw === "string") body[key] = sanitizeProductEngagementUrl(raw);
+      }
+      const rejectedField = findProductEngagementRejectedField(body);
+      if (rejectedField) {
+        res.status(400).json({
+          ok: false,
+          dryRun: true,
+          wouldStore: false,
+          reason: "pii_or_value_detected",
+          piiRejectedFields: [rejectedField],
+          warnings: ["ProductEngagementSummary는 내부 관심도 분석용이므로 PII, value, currency를 받지 않는다."],
+          source: {
+            mode: "no_write_preview",
+            receivedAt: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+
+      const site = textField(body, "site") || "biocom";
+      const eventName = textField(body, "event_name");
+      const eventId = textField(body, "event_id");
+      const capturedAt = textField(body, "captured_at");
+      const pageLocation = textField(body, "page_location");
+      const productIdx = textField(body, "product_idx");
+      const gaSessionId = textField(body, "ga_session_id");
+      const localSessionId = textField(body, "local_session_id");
+      const visibleSeconds = numberField(body, "visible_seconds");
+      const maxScrollPercent = numberField(body, "max_scroll_percent");
+      const debugModePresent = Object.prototype.hasOwnProperty.call(body, "debug_mode");
+
+      const missingFields = [
+        ["site", site],
+        ["event_name", eventName],
+        ["event_id", eventId],
+        ["captured_at", capturedAt],
+        ["page_location", pageLocation],
+        ["product_idx", productIdx],
+        ["visible_seconds", Number.isFinite(visibleSeconds) ? String(visibleSeconds) : ""],
+        ["max_scroll_percent", Number.isFinite(maxScrollPercent) ? String(maxScrollPercent) : ""],
+        ["debug_mode", debugModePresent ? "present" : ""],
+      ]
+        .filter(([, value]) => !value)
+        .map(([key]) => key);
+
+      if (missingFields.length > 0) {
+        res.status(400).json({
+          ok: false,
+          dryRun: true,
+          wouldStore: false,
+          reason: "missing_required_fields",
+          missingFields,
+          source: {
+            mode: "no_write_preview",
+            receivedAt: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+
+      if (!PRODUCT_ENGAGEMENT_ALLOWED_SITES.has(site)) {
+        res.status(400).json({
+          ok: false,
+          dryRun: true,
+          wouldStore: false,
+          reason: "site_not_allowed",
+          site,
+          allowedSites: [...PRODUCT_ENGAGEMENT_ALLOWED_SITES],
+          source: {
+            mode: "no_write_preview",
+            receivedAt: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+
+      if (eventName !== PRODUCT_ENGAGEMENT_EVENT_NAME) {
+        res.status(400).json({
+          ok: false,
+          dryRun: true,
+          wouldStore: false,
+          reason: "event_name_not_allowed",
+          eventName,
+          expectedEventName: PRODUCT_ENGAGEMENT_EVENT_NAME,
+          source: {
+            mode: "no_write_preview",
+            receivedAt: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+
+      if (visibleSeconds < 0 || maxScrollPercent < 0 || maxScrollPercent > 100) {
+        res.status(400).json({
+          ok: false,
+          dryRun: true,
+          wouldStore: false,
+          reason: "engagement_metric_out_of_range",
+          visibleSeconds,
+          maxScrollPercent,
+          source: {
+            mode: "no_write_preview",
+            receivedAt: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+
+      const sessionKey = gaSessionId || localSessionId || "missing_session";
+      const warnings = sessionKey === "missing_session"
+        ? ["ga_session_id/local_session_id가 없어 dedupe key 신뢰도가 낮다."]
+        : [];
+
+      res.json({
+        ok: true,
+        dryRun: true,
+        wouldStore: false,
+        eventName,
+        eventId,
+        dedupeKey: `engagement:${site}:${sessionKey}:${productIdx}`,
+        sanitizedPageLocation: sanitizeProductEngagementUrl(pageLocation),
+        derived: {
+          isEngagedView: visibleSeconds >= 45 && maxScrollPercent >= 50,
+          isDeepView: visibleSeconds >= 90 && maxScrollPercent >= 75,
+          bounceLike: visibleSeconds < 10 && maxScrollPercent < 25,
+          attentionScorePreview: productEngagementAttentionScore(visibleSeconds, maxScrollPercent),
+        },
+        warnings,
+        piiRejectedFields: [],
+        source: {
+          mode: "no_write_preview",
+          receivedAt: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "engagement intent dry-run failed";
+      res.status(400).json({
+        ok: false,
+        dryRun: true,
+        wouldStore: false,
+        error: "engagement_intent_dry_run_error",
+        message,
+      });
+    }
+  });
+
+  router.post("/api/attribution/confirmed-purchase/no-send", (req: Request, res: Response) => {
+    try {
+      const body = parseBody(req.body);
+      const rejectedField = findConfirmedPurchaseRejectedField(body);
+      if (rejectedField) {
+        res.status(400).json({
+          ok: false,
+          dryRun: true,
+          wouldStore: false,
+          wouldSend: false,
+          reason: "pii_or_secret_detected",
+          rejectedField,
+          warnings: [
+            "confirmed_purchase no-send preview는 주문번호, 금액, 결제완료 시각, 광고 클릭 ID만 받는다.",
+            "이름, 전화번호, 이메일, 카드/계좌, raw cookie, token은 받지 않는다.",
+          ],
+          source: {
+            mode: "no_write_no_send_preview",
+            receivedAt: new Date().toISOString(),
+          },
+        });
+        return;
+      }
+
+      const preview = buildConfirmedPurchaseNoSendPreview(body);
+      const hardBlocks = preview.block_reasons.filter((reason) => !["read_only_phase", "approval_required"].includes(reason));
+      res.status(hardBlocks.length > 0 ? 400 : 200).json({
+        ok: hardBlocks.length === 0,
+        dryRun: true,
+        receiver: "confirmed_purchase_no_send",
+        wouldStore: false,
+        wouldSend: false,
+        noSendVerified: true,
+        noWriteVerified: true,
+        noDeployVerified: true,
+        noPublishVerified: true,
+        noPlatformSendVerified: true,
+        preview,
+        source: {
+          mode: "no_write_no_send_preview",
+          receivedAt: new Date().toISOString(),
+        },
+        warnings: [
+          "NPay click/count/payment start만 있는 row는 purchase 후보가 아니다.",
+          "NPay 실제 결제완료 주문과 홈페이지 결제완료 주문만 include_reason에 들어갈 수 있다.",
+          "GA4/Meta/Google Ads 실제 전송은 별도 Red Lane 승인 전까지 금지다.",
+        ],
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "confirmed purchase no-send preview failed";
+      res.status(400).json({
+        ok: false,
+        dryRun: true,
+        wouldStore: false,
+        wouldSend: false,
+        error: "confirmed_purchase_no_send_preview_error",
+        message,
+      });
     }
   });
 

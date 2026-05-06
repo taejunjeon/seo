@@ -45,6 +45,7 @@ type PerSourceThreshold = { warnHours: number; staleHours: number; action: strin
 const PER_SOURCE_THRESHOLDS: Record<string, PerSourceThreshold> = {
   toss_operational: { warnHours: 24, staleHours: 36, action: "Toss 운영 DB 수집 스케줄 확인, tb_sales_toss 적재 경로 점검" },
   playauto_operational: { warnHours: 24, staleHours: 36, action: "PlayAuto 주문 수집 스케줄 점검, tb_playauto_orders 갱신 확인" },
+  imweb_operational: { warnHours: 24, staleHours: 36, action: "아임웹 운영 주문 원장 tb_iamweb_users 적재 지연 확인, payment_complete_time 최신 주문 대조" },
   imweb_local_orders: { warnHours: 24, staleHours: 48, action: "POST /api/crm-local/imweb/sync-orders 재실행 후 imweb_status_synced_at 확인" },
   ga4_bigquery_thecleancoffee: { warnHours: 48, staleHours: 72, action: "GA4 daily export 허들러스에 지연 여부 확인, BigQuery events_* 최신 suffix 점검" },
   ga4_bigquery_biocom: { warnHours: 48, staleHours: 72, action: "허들러스 hurdlers-naver-pay 프로젝트의 biocom raw export 적재 지연 확인. 우리 service account 권한 확보 필요 시 에러로 표시됨" },
@@ -138,6 +139,12 @@ const PG_SOURCES: PgSourceConfig[] = [
     source: "playauto_operational",
     table: "tb_playauto_orders",
     eventColumns: ["ord_time", "pay_time"],
+    syncColumns: ["synced_at", "updated_at", "created_at"],
+  },
+  {
+    source: "imweb_operational",
+    table: "tb_iamweb_users",
+    eventColumns: ["payment_complete_time", "order_date"],
     syncColumns: ["synced_at", "updated_at", "created_at"],
   },
 ];
