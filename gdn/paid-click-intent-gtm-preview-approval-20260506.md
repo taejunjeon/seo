@@ -157,6 +157,10 @@ POST /api/attribution/paid-click-intent/no-send
 }
 ```
 
+현재 backend v1 응답은 기존 route 호환을 위해 `dryRun`, `wouldStore`, `wouldSend`, `noSendVerified` 같은 camelCase guard field를 포함한다.
+ontology canonical target은 snake_case지만, Preview only 단계에서는 v1 field를 인정한다.
+snake_case alias와 block reason 정렬은 [[../ontology/backend-attribution-field-alignment-plan-20260506]]에서 별도 Green Lane으로 진행한다.
+
 ### 테스트 click id live 차단 규칙
 
 Preview에서 `TEST_GCLID_20260506`, `TEST_GBRAID_20260506`, `TEST_WBRAID_20260506` 같은 가짜 click id를 쓰는 것은 허용한다.

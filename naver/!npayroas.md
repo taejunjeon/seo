@@ -2,7 +2,7 @@
 
 작성 시각: 2026-04-30 21:30 KST
 기준일: 2026-04-30
-관련 문서: [[!npay|네이버페이 주문형 결제형 전환 검토]], [[npay-intent-quality-20260430|NPay Intent 수집 품질 점검]], [[npay-roas-dry-run-20260430]], [[npay-roas-dry-run-vm-snapshot-20260505]], [[npay-ga4-recovery-sample-payload-approval-20260505]], [[../gdn/google-ads-confirmed-purchase-operational-dry-run-20260505]], [[npay-early-phase2-approval-20260430]], [[npay-ga4-mp-limited-test-approval]], [[npay-ga4-mp-limited-test-result-20260430]], [[npay-phase2-followup-20260430]], [[npay-7d-rerun-checklist-20260504]], [[GA4/gtm|biocom GTM 컨테이너 상태 정리]]
+관련 문서: [[!npay|네이버페이 주문형 결제형 전환 검토]], [[npay-intent-quality-20260430|NPay Intent 수집 품질 점검]], [[npay-roas-dry-run-20260430]], [[npay-roas-dry-run-vm-snapshot-20260505]], [[npay-ga4-recovery-sample-payload-approval-20260505]], [[../gdn/google-ads-confirmed-purchase-operational-dry-run-20260505]], [[../ontology/!ontology|Attribution Ontology Lite]], [[npay-early-phase2-approval-20260430]], [[npay-ga4-mp-limited-test-approval]], [[npay-ga4-mp-limited-test-result-20260430]], [[npay-phase2-followup-20260430]], [[npay-7d-rerun-checklist-20260504]], [[GA4/gtm|biocom GTM 컨테이너 상태 정리]]
 Primary source: VM SQLite `npay_intent_log`, 운영 주문 원장 `operational_postgres.public.tb_iamweb_users`
 Cross-check: 보호된 `GET /api/attribution/npay-intents`, GTM API live version `139`, TJ BigQuery robust query
 Window: NPay intent는 2026-04-27 18:10 KST 이후, 주문 원장은 dry-run window 기준 `PAYMENT_COMPLETE` NPay 주문
@@ -12,6 +12,8 @@ Confidence: 94%
 ## 10초 요약
 
 새 목적은 `네이버페이 버튼을 없앨지`가 아니다. 버튼은 외부 주문형으로 살리되, `버튼만 누르고 결제하지 않은 사람`과 `버튼을 누른 뒤 실제 NPay 결제까지 완료한 사람`을 분리해 GA4, Meta, TikTok ROAS를 바로잡는 것이다.
+
+용어 기준은 [[../ontology/!ontology|Attribution Ontology Lite]]를 따른다. NPay는 결제수단이지 Naver Ads 유입 증거가 아니다. 따라서 `NPay click/count/payment start`는 purchase가 아니고, 운영 원장에 있는 `NPay actual confirmed order`만 내부 confirmed 매출과 confirmed purchase 후보가 된다.
 
 현재 버튼 클릭 intent 수집은 운영에서 작동한다. 2026-04-30 21:25 KST 기준 dry-run window 안의 live intent는 304건이고, 최근 점검 기준 `client_id`, `ga_session_id`, `product_idx` 채움률은 모두 운영 기준을 통과했다.
 

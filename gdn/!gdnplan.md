@@ -23,6 +23,8 @@ Google click id 보존률 개선 설계는 [[google-click-id-preservation-plan-2
 confirmed_purchase no-send 수신·디스패처 계약은 [[confirmed-purchase-no-send-pipeline-contract-20260505]]에 기록했다.
 paid_click_intent GTM Preview 승인안은 [[paid-click-intent-gtm-preview-approval-20260506]]에 기록했다.
 paid_click_intent는 결제완료 주문 후보와 섞지 않도록 별도 `POST /api/attribution/paid-click-intent/no-send` preview route로 분리했다.
+Google Ads/NPay/confirmed purchase 용어 정본은 [[../ontology/!ontology|Attribution Ontology Lite]]를 따른다.
+이 문서에서 Google Ads 값은 `platform_reference_roas`, 내부 장부 기준 값은 `internal_confirmed_roas`로 구분한다.
 GA4 raw 기준 최근 7일 Google Ads 유입은 Meta보다 체류시간과 90% 스크롤 도달률은 높지만, NPay 클릭 비율이 `8.39%`로 Meta `0.11%`보다 훨씬 높고 홈페이지 purchase는 `4건 / 336,917원`뿐이다.
 추가 leakage 분석에서는 Google Ads 최근 7일 일반 결제 시작 136세션 중 132세션이 GA4 purchase로 닫히지 않았고, NPay 클릭 577세션은 GA4 안에서 NPay형 purchase로 확인되지 않았다. 단, 이 값은 GA4 이벤트 기준이며 NPay 실제 결제완료 여부는 운영 DB/아임웹 주문 조인이 필요하다.
 2026-05-05 09:32 KST 추가 확인으로, GA4/GTM NPay click-as-purchase는 `2026-04-24 23:45 KST` live v138 이후 사실상 제거됐다.

@@ -102,8 +102,22 @@ harness_preflight:
 | [[../GA4/gtm-tag-coverage-ignore-candidates-20260505|GTM Tag Coverage ignore 후보]] | 태그 누락 경고 중 고객 퍼널 blocker가 아닌 URL 정리 |
 | [[../capivm/meta-funnel-capi-test-events-smoke-plan-20260505|Meta 표준 퍼널 CAPI Test Events smoke 준비안]] | ViewContent/AddToCart/InitiateCheckout/AddPaymentInfo test-only 검증 계획 |
 | [[../GA4/product-engagement-summary-contract-20260505|ProductEngagementSummary 내부 수집 contract]] | 체류시간/스크롤을 내부 분석 장부로 받는 no-write contract |
+| [[../ontology/!ontology|Attribution Ontology Lite]] | NPay, paid click, confirmed purchase, platform_reference, guard decision 등 핵심 개념 정본 |
+| [[../ontology/attribution-ontology-schema-contract-20260506|Attribution Ontology Schema Contract]] | `PaidClickIntent`, `ConfirmedPurchaseCandidate`, `GuardDecision` API/TypeScript field 계약 |
+| [[../ontology/backend-attribution-field-alignment-plan-20260506|Backend Attribution Field Alignment Plan]] | no-send route의 camelCase/snake_case 응답 필드와 block reason 정렬 계획 |
+| [[../ontology/term-conflict-audit-20260506|Attribution 용어 충돌 감사]] | 문서와 대시보드에서 오해될 수 있는 표현과 canonical term mapping |
 | [[../meta/campaign-mapping-growth-team-guide-20260504|기존 캠페인 수동 매핑 가이드]] | 기존 Meta 캠페인 매핑 확인 기준 |
 | [[../meta/meta-utm-setup-growth-team-guide-20260504|UTM 설정 가이드]] | 앞으로 광고 소재 URL에 붙일 UTM 표준 |
+
+## Ontology 요약
+
+정본 용어와 상태 모델은 [[../ontology/!ontology|Attribution Ontology Lite]]를 따른다.
+API와 TypeScript field 기준은 [[../ontology/attribution-ontology-schema-contract-20260506|Attribution Ontology Schema Contract]]를 따른다.
+현재 backend no-send route의 camelCase/snake_case 호환 정렬 계획은 [[../ontology/backend-attribution-field-alignment-plan-20260506|Backend Attribution Field Alignment Plan]]에 둔다.
+핵심은 `클릭`, `결제 시작`, `실제 결제완료`, `플랫폼 주장값`, `내부 확정매출`을 섞지 않는 것이다.
+`NPay click/count/payment start`는 구매가 아니고, `NPay actual confirmed order`는 내부 confirmed 매출에 포함한다.
+Google Ads, Meta, GA4, TikTok 값은 `platform_reference`로 표시하고 내부 confirmed revenue에 합산하지 않는다.
+애매한 주문은 추정 배정하지 않고 `unknown_quarantine`과 `block_reason`으로 남긴다.
 
 ## Google/NPay 진행 문서 상태
 
