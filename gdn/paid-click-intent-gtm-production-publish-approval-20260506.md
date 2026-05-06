@@ -2,14 +2,16 @@
 
 작성 시각: 2026-05-06 16:25 KST
 대상: biocom GTM `GTM-W2Z6PHN`
-문서 성격: Red Lane 승인 문서. 이 문서는 승인안이며 실제 Production publish를 하지 않는다.
-Status: pending TJ decision / receiver-enabled publish blocked by production POST 404
+문서 성격: Red Lane 승인 문서. 실행 결과는 [[paid-click-intent-gtm-production-publish-result-20260506]]에 기록한다.
+Status: Mode B approved and executed. live version 142 published.
 Supersedes: [[paid-click-intent-gtm-preview-approval-20260506]]
 Depends on:
 - [[paid-click-intent-gtm-preview-result-20260506]]
 - [[paid-click-intent-receiver-access-result-20260506]]
 - [[google-ads-landing-clickid-analysis-20260506]]
 - [[paid-click-intent-production-receiver-post-smoke-20260506]]
+- [[paid-click-intent-production-receiver-deploy-result-20260506]]
+- [[paid-click-intent-gtm-production-publish-result-20260506]]
 Do not use for: Google Ads conversion action 생성/변경, conversion upload, GA4/Meta/Google Ads purchase 전송, 운영 DB write, backend 운영 deploy
 
 ## 10초 결론
@@ -23,19 +25,18 @@ Do not use for: Google Ads conversion action 생성/변경, conversion upload, G
 - 반면 GA4 BigQuery 기준 최근 7일 Google Ads 랜딩 세션 6,879개 중 6,724개에는 click id가 남아 있다. 랜딩 세션 기준 보존률은 97.75%다.
 - Preview와 임시 HTTPS receiver 검증에서 `gclid/gbraid/wbraid` 3개 케이스 모두 storage 저장, payload 생성, no-send receiver `200 ok=true`가 확인됐다.
 - `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`는 `OPTIONS` preflight 기준 `https://biocom.kr` Origin을 허용했다.
-- 하지만 TEST click id 1건 POST smoke에서는 `404 Route not found`가 반환됐다. 즉 production receiver route는 아직 운영 배포되어 있지 않다.
+- 이후 production receiver route를 배포했고 TEST/negative smoke를 통과했다.
+- GTM receiver-enabled publish까지 완료했다. 새 live version은 `142 (paid_click_intent_v1_receiver_20260506T150218Z)`다.
 
 따라서 광고 URL은 대체로 정상이고, 병목은 랜딩 이후 주문 원장까지 click id가 이어지지 않는 것이다.
-운영 publish는 이 병목을 풀기 위한 첫 번째 live validation 단계다.
+운영 publish는 이 병목을 풀기 위한 첫 번째 live validation 단계이며, 2026-05-07 00:02 KST 기준 완료됐다.
 단, receiver가 no-write로 동작하는 동안에는 주문 원장 fill-rate가 직접 개선되지 않는다.
 이 단계의 목표는 click id storage와 receiver payload가 실제 고객 환경에서 안전하게 동작하는지 확인하는 것이다.
 주문 원장/Attribution VM 연결 개선은 이후 minimal ledger write가 별도 승인된 뒤 판단한다.
 
 ## TJ님 승인 문구
 
-receiver-enabled publish를 승인하려면 아래 문구로 승인한다.
-단, 현재는 production receiver route가 404이므로 이 승인만으로는 receiver 포함 publish를 진행하지 않는다.
-receiver route 배포 승인 또는 storage-only publish 선택이 먼저 필요하다.
+아래 승인 문구는 2026-05-06에 Mode B로 승인됐고 실행됐다.
 
 ```text
 YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_intent v1 Production publish를 승인합니다.
@@ -75,7 +76,7 @@ YES: biocom GTM live latest version 기준 fresh workspace에서 paid_click_inte
   - 같은 session/click id/stage 반복 POST는 dedupe.
 - `TEST_`, `DEBUG_`, `PREVIEW_` prefix click id는 live candidate에서 차단.
 - no-send receiver 호출 시 `would_send=false`, `no_platform_send_verified=true` 유지.
-- production receiver 후보: `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`. 단, 2026-05-06 TEST POST smoke 기준 현재 route는 404다.
+- production receiver: `https://att.ainativeos.net/api/attribution/paid-click-intent/no-send`. backend route 배포 후 TEST/negative smoke 통과.
 - admin, login, logout, internal, 404 후보 페이지는 receiver POST 대상에서 제외하거나 ignore한다.
 - `landing_url/current_url/referrer`는 allowlist query만 남겨 저장/전송한다.
 
@@ -169,20 +170,19 @@ landing click id 있음
 
 `paid_click_intent v1` 운영 publish는 이 구간을 보강하는 수집 단계다.
 
-## 승인 전 체크리스트
+## 승인 전 체크리스트 결과
 
-- [ ] 현재 GTM live latest version 확인.
-- [ ] Default Workspace 147 미사용 확인.
-- [ ] fresh workspace 생성 확인.
-- [ ] tag/trigger diff 캡처.
-- [ ] no-send/no-write/no-platform-send 유지 확인.
-- [ ] receiver POST가 조건부/deduped인지 확인.
-- [ ] admin/login/internal/404 page payload가 reject 또는 ignore되는지 확인.
-- [ ] raw payload logging 금지 또는 마스킹 확인.
-- [ ] production receiver endpoint가 TEST POST smoke에서 `200 ok=true`를 반환하는지 재확인. 현재 2026-05-06 기준은 404라 receiver-enabled publish 불가.
-- [ ] 테스트 click id live 차단 guard 확인.
-- [ ] rollback 방법 기록.
-- [ ] 24h/72h 모니터링 담당과 산출물 위치 확정.
+- [x] 현재 GTM live latest version 확인: `141 (pause_aw308433248_upde_20260505)`.
+- [x] Default Workspace 147 미사용 확인.
+- [x] fresh workspace 생성: `159`.
+- [x] tag/trigger diff 기록: tag `[279]`, trigger `[278]`.
+- [x] no-send/no-write/no-platform-send 유지 확인.
+- [x] receiver POST 조건부/deduped tag로 publish.
+- [x] admin/login/internal/404 page payload는 client-side skip + receiver reject.
+- [x] production receiver endpoint TEST/negative smoke 통과.
+- [x] 테스트 click id live 차단 guard 확인.
+- [x] rollback 방법 기록.
+- [ ] 24h/72h 모니터링 결과 작성.
 
 ## 현재 선택지
 
@@ -218,32 +218,34 @@ production `att.ainativeos.net`에 `POST /api/attribution/paid-click-intent/no-s
 
 Codex 추천:
 
-- 선택지 B. 이번 문제는 browser storage만이 아니라 주문 원장/Attribution VM까지 click id가 이어지지 않는 문제이므로, receiver route가 있는 상태에서 publish하는 편이 낫다.
+- 선택지 B를 실행했다. 이번 문제는 browser storage만이 아니라 주문 원장/Attribution VM까지 click id가 이어지지 않는 문제이므로, receiver route가 있는 상태에서 publish하는 편이 낫다.
 
-## 승인 후 Codex가 할 일
+## 승인 후 Codex가 한 일
 
-1. 현재 GTM live latest version을 read-only로 재확인한다.
-2. fresh workspace에서만 작업한다.
-3. Preview에서 통과한 tag/trigger와 동일한 범위인지 diff를 확인한다.
-4. Production publish 전 최종 diff와 rollback plan을 기록한다.
-5. 승인 범위 안에서만 publish한다.
-6. publish 후 24h/72h read-only 모니터링 문서를 작성한다.
+1. 현재 GTM live latest version을 read-only로 재확인했다.
+2. fresh workspace `159`에서만 작업했다.
+3. Production publish 전 tag/trigger diff와 rollback plan을 기록했다.
+4. 승인 범위 안에서만 publish했다.
+5. live smoke를 실행했다.
 
-## 승인 전까지 Codex가 하지 않을 일
+남은 일:
 
-- GTM Production publish.
+- publish 후 24h/72h read-only 모니터링 문서 작성.
+
+## Codex가 하지 않은 일
+
 - Submit.
 - Google Ads conversion action 변경.
 - conversion upload.
 - GA4/Meta/Google Ads/TikTok/Naver 전송.
-- backend 운영 deploy.
+- 이 GTM publish 단계에서 추가 backend 운영 deploy. backend receiver deploy는 [[paid-click-intent-production-receiver-deploy-result-20260506]]에서 별도로 완료.
 - 운영 DB write.
 - 광고 예산/캠페인 상태 변경.
 
 ## 다음 문서
 
-승인 후 실제 publish가 진행되면 결과는 아래 문서로 분리한다.
+실제 publish 결과는 아래 문서로 분리했다.
 
 ```text
-gdn/paid-click-intent-gtm-production-publish-result-YYYYMMDD.md
+gdn/paid-click-intent-gtm-production-publish-result-20260506.md
 ```

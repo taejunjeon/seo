@@ -1,0 +1,51 @@
+{
+  "generatedAt": "2026-05-06T15:02:20.445Z",
+  "mode": "apply_publish",
+  "container": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "liveVersionId": "141",
+    "liveVersionName": "pause_aw308433248_upde_20260505"
+  },
+  "planned": {
+    "workspaceName": "codex_paid_click_intent_prod_20260506T150218Z",
+    "tagName": "codex_paid_click_intent_v1_receiver_no_send",
+    "triggerName": "codex_paid_click_intent_v1_all_pages_guarded",
+    "receiverUrl": "https://att.ainativeos.net/api/attribution/paid-click-intent/no-send",
+    "noSendVerified": true,
+    "noWriteVerified": true,
+    "noPlatformSendVerified": true
+  },
+  "existingTagCount": 0,
+  "workspace": {
+    "path": "accounts/4703003246/containers/13158774/workspaces/159",
+    "workspaceId": "159",
+    "name": "codex_paid_click_intent_prod_20260506T150218Z"
+  },
+  "trigger": {
+    "triggerId": "278",
+    "name": "codex_paid_click_intent_v1_all_pages_guarded",
+    "type": "pageview"
+  },
+  "tag": {
+    "tagId": "279",
+    "name": "codex_paid_click_intent_v1_receiver_no_send",
+    "firingTriggerId": [
+      "278"
+    ]
+  },
+  "createdVersion": {
+    "containerVersionId": "142",
+    "name": "paid_click_intent_v1_receiver_20260506T150218Z",
+    "path": "accounts/4703003246/containers/13158774/versions/142",
+    "compilerError": false
+  },
+  "publish": {
+    "compilerError": false
+  },
+  "liveAfterPublish": {
+    "containerVersionId": "142",
+    "name": "paid_click_intent_v1_receiver_20260506T150218Z",
+    "matchesCreatedVersion": true
+  }
+}

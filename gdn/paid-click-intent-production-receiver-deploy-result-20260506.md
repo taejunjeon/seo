@@ -3,7 +3,7 @@
 작성 시각: 2026-05-06 23:46 KST
 대상: `att.ainativeos.net` backend
 문서 성격: Red Mode B backend 운영 deploy 결과 문서
-Status: backend receiver route deployed / smoke passed / GTM publish pending
+Status: backend receiver route deployed / smoke passed / GTM publish completed
 Supersedes: [[paid-click-intent-production-receiver-post-smoke-20260506|POST 404 smoke 결과]]
 Depends on:
 - [[paid-click-intent-production-receiver-deploy-approval-20260506]]
@@ -16,7 +16,7 @@ Do not use for: Google Ads conversion action 생성/변경, conversion upload, G
 
 positive smoke와 negative smoke 모두 통과했다. 응답은 `would_store=false`, `would_send=false`, `no_platform_send_verified=true`, `live_candidate_after_approval=false`를 유지한다.
 
-아직 GTM receiver-enabled publish는 하지 않았다. 다음 단계는 현재 GTM live version 확인, fresh workspace 사용, receiver URL 포함 tag/trigger diff 기록, publish, 24h/72h 모니터링이다.
+GTM receiver-enabled publish도 완료했다. 다음 단계는 24h/72h 모니터링이다.
 
 ## Phase-Sprint 요약표
 
@@ -28,7 +28,7 @@ positive smoke와 negative smoke 모두 통과했다. 응답은 `would_store=fal
 
 | 순서 | Phase/Sprint | 상태 | 담당 | 할 일 | 왜 하는가 | 어떻게 하는가 | 상세 | 컨펌 필요 |
 |---:|---|---|---|---|---|---|---|---|
-| 1 | [[#Phase4-Sprint6]] | 대기 | Codex | receiver-enabled GTM publish를 실행한다 | backend receiver가 살아 있어도 브라우저 tag가 호출하지 않으면 live payload validation이 시작되지 않는다 | GTM live latest 확인, fresh workspace 생성, tag/trigger diff 기록, publish 후 24h/72h 모니터링 | [[#Phase4-Sprint6]] | Mode B 조건부 YES 범위 |
+| 1 | [[#Phase4-Sprint6]] | 완료 | Codex | receiver-enabled GTM publish를 실행한다 | backend receiver가 살아 있어도 브라우저 tag가 호출하지 않으면 live payload validation이 시작되지 않는다 | GTM live latest 확인, fresh workspace 생성, tag/trigger diff 기록, publish 후 24h/72h 모니터링 | [[#Phase4-Sprint6]] / [[paid-click-intent-gtm-production-publish-result-20260506]] | 완료 |
 | 2 | [[#Phase4-Sprint6]] | 완료 후 | Codex | 24h/72h 결과로 minimal ledger write 승인안 여부를 판단한다 | no-write receiver는 원장 개선이 아니라 payload 검증 단계다 | 2xx/error, blocked reason, storage/payload evidence를 보고 저장 필요성과 범위를 정한다 | [[#Phase4-Sprint6]] | YES, 운영 write 단계 |
 
 ## 배포 범위
@@ -53,7 +53,7 @@ positive smoke와 negative smoke 모두 통과했다. 응답은 `would_store=fal
 - GA4/Meta/Google Ads/TikTok/Naver 전송.
 - confirmed purchase dispatcher 운영 전송.
 - 운영 DB/ledger write.
-- GTM Production publish.
+- 이 backend 배포 자체에는 GTM Production publish가 포함되지 않았다. 이후 별도 Mode B 단계로 완료했다: [[paid-click-intent-gtm-production-publish-result-20260506]]
 
 ## 운영 VM 접근과 배포 방법
 
@@ -156,9 +156,13 @@ block_reasons=read_only_phase, approval_required, test_click_id_rejected_for_liv
 - production POST 404 blocker가 해소됐다.
 - receiver route는 validation preview 응답만 반환한다.
 
+추가로 완료된 것:
+
+- GTM live version `142 (paid_click_intent_v1_receiver_20260506T150218Z)` publish.
+- live browser smoke에서 storage와 receiver 200 확인.
+
 변경되지 않은 것:
 
-- GTM Production publish는 아직 하지 않았다.
 - Google Ads 전환 액션은 바꾸지 않았다.
 - conversion upload는 하지 않았다.
 - GA4/Meta/Google Ads/TikTok/Naver 전송은 0건이다.
@@ -166,7 +170,7 @@ block_reasons=read_only_phase, approval_required, test_click_id_rejected_for_liv
 
 ## 남은 리스크
 
-- GTM API/UI publish가 아직 남아 있다.
+- 24h/72h live traffic monitoring이 아직 남아 있다.
 - no-write receiver는 raw row를 저장하지 않으므로, 실제 주문 원장 fill-rate 개선은 minimal ledger write 이후에야 확인할 수 있다.
 - PM2 `seo-backend` restart count가 높다. 이번 배포로 새 crash는 확인되지 않았지만, 운영 안정성 관점에서는 별도 관찰 대상이다.
 - Cloudflare/WAF가 일부 비브라우저 User-Agent를 403 처리할 수 있다. 실제 GTM 브라우저 요청은 별도로 확인해야 한다.
@@ -189,6 +193,5 @@ block_reasons=read_only_phase, approval_required, test_click_id_rejected_for_liv
 
 남은 것:
 
-- GTM receiver-enabled publish.
 - 24h/72h live monitoring.
 - 결과에 따라 minimal ledger write 승인안 작성.
