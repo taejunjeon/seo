@@ -1,0 +1,223 @@
+{
+  "generated_at": "2026-05-06T07:12:22.432Z",
+  "generated_at_kst": "2026-05-06 16:12:22 KST",
+  "source": {
+    "dataset": "project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill.events_*",
+    "jobProject": "project-dadba7dd-0229-4ff6-81c",
+    "location": "asia-northeast3",
+    "credential": {
+      "client_email": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+      "project_id": "seo-aeo-487113"
+    },
+    "mode": "read-only SELECT"
+  },
+  "range": {
+    "startDate": "2026-04-06",
+    "endDate": "2026-05-03",
+    "tableSuffix": {
+      "start": "20260406",
+      "end": "20260503"
+    }
+  },
+  "definitions": {
+    "google_ads_session": "GA4 last-click google_ads_campaign, collected gclid, URL gclid/gbraid/wbraid/gad_campaignid, or Google paid UTM evidence.",
+    "url_or_collected_click_id": "page_location gclid/gbraid/wbraid or collected_traffic_source.gclid. gad_campaignid is campaign evidence and is reported separately, not counted as click id.",
+    "regular_checkout": "begin_checkout event on /shop_payment/. Non-NPay purchase button -> checkout proxy.",
+    "npay_click": "add_payment_info with npay evidence. Intent/click, not confirmed purchase.",
+    "homepage_purchase": "GA4 purchase not starting NPAY and not explicitly NPay recovery."
+  },
+  "summary": {
+    "google_ads_sessions": "32355",
+    "google_ads_users": "18272",
+    "avg_engagement_seconds": "33.33",
+    "sessions_with_url_click_id": "31591",
+    "sessions_with_url_click_id_rate": "97.64",
+    "sessions_with_url_or_collected_click_id": "31627",
+    "sessions_with_url_or_collected_click_id_rate": "97.75",
+    "sessions_with_url_gclid": "30112",
+    "sessions_with_url_gbraid": "2372",
+    "sessions_with_url_wbraid": "1473",
+    "sessions_with_collected_gclid": "29483",
+    "sessions_with_ga4_google_ads_campaign": "29139",
+    "ga4_google_ads_campaign_without_click_id_sessions": "144",
+    "ga4_google_ads_campaign_without_click_id_rate": "0.49",
+    "regular_checkout_sessions": "418",
+    "regular_checkout_rate": "1.29",
+    "regular_checkout_with_click_id_sessions": "400",
+    "regular_checkout_with_click_id_rate": "95.69",
+    "npay_click_sessions": "1434",
+    "npay_click_rate": "4.43",
+    "npay_click_with_click_id_sessions": "1432",
+    "npay_click_with_click_id_rate": "99.86",
+    "homepage_purchase_sessions": "88",
+    "homepage_purchase_rate": "0.27",
+    "homepage_purchase_value": "2.2146204E7",
+    "homepage_purchase_with_click_id_sessions": "77",
+    "homepage_purchase_with_click_id_rate": "87.5",
+    "ga4_npay_purchase_like_sessions": "172",
+    "ga4_npay_purchase_like_with_click_id_sessions": "172"
+  },
+  "samples": [
+    {
+      "session_key": "93602892.1776756843.1776756843",
+      "first_dt": "2026-04-21",
+      "first_ts_kst": "2026-04-21 16:34:03",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "0",
+      "has_regular_checkout": "1",
+      "has_npay_click": "1",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "496000.0",
+      "landing_url_redacted": "https://biocom.kr/?srsltid=ChEI8MCczwYQwJb4vveY6oWDARJRAM9KU%2FM73xP8%2FzB8uprhe6onvubMcepIb27J0goBDdB%2F2%2BKwb7ZGcVi5jU6MArRcbnJGopJvzGwUk6wwiRbXLArtcH9rp2LI4o2ZNeXMa2KzGgJb0w%3D%3D"
+    },
+    {
+      "session_key": "1575048566.1748270486.1776524384",
+      "first_dt": "2026-04-18",
+      "first_ts_kst": "2026-04-18 23:59:44",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "1",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "99330.0",
+      "landing_url_redacted": "https://biocom.kr/supplements/?idx=198&utm_source=googleads_supplements_pm_neuro&utm_medium=googleads_supplements_pm_neuro&utm_campaign=googleads_supplements_PM_neuro&utm_content=googleads_supplements_PM_neuro&gad_source=2&gad_campaignid=22023872618&gclid=REDACTED"
+    },
+    {
+      "session_key": "1366210376.1775585050.1775585050",
+      "first_dt": "2026-04-08",
+      "first_ts_kst": "2026-04-08 03:04:10",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "1",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "36900.0",
+      "landing_url_redacted": "https://biocom.kr/shop_view/?idx=386&utm_source=googleads_eventpm_metadream_launching&utm_medium=googleads_eventpm_metadream_launching&utm_campaign=googleads_eventPM_metadream_launching&utm_content=googleads_eventPM_metadream_launching&gad_source=2&gad_campaignid=23172054173&gclid=REDACTED"
+    },
+    {
+      "session_key": "1649671974.1773107081.1777548997",
+      "first_dt": "2026-04-30",
+      "first_ts_kst": "2026-04-30 20:36:38",
+      "any_url_click_id": "0",
+      "any_collected_gclid": "0",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "1",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "80017.0",
+      "landing_url_redacted": "https://biocom.kr/shop_view/?idx=172"
+    },
+    {
+      "session_key": "1791645093.1777574382.1777574381",
+      "first_dt": "2026-05-01",
+      "first_ts_kst": "2026-05-01 03:39:42",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "0",
+      "has_regular_checkout": "1",
+      "has_npay_click": "0",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "245000.0",
+      "landing_url_redacted": "https://biocom.kr/igg_intro?gad_source=1&gad_campaignid=14629255429&gclid=REDACTED"
+    },
+    {
+      "session_key": "2029134412.1776989419.1776989418",
+      "first_dt": "2026-04-24",
+      "first_ts_kst": "2026-04-24 09:10:19",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "0",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "245000.0",
+      "landing_url_redacted": "https://biocom.kr/?gad_source=1&gad_campaignid=14629255429&gclid=REDACTED"
+    },
+    {
+      "session_key": "257473724.1776706136.1776706136",
+      "first_dt": "2026-04-21",
+      "first_ts_kst": "2026-04-21 02:28:57",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "0",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "490000.0",
+      "landing_url_redacted": "https://biocom.kr/shop_view/?idx=85&gad_source=1&gad_campaignid=14629255429&gbraid=REDACTED&gclid=REDACTED"
+    },
+    {
+      "session_key": "318180828.1776687227.1776690749",
+      "first_dt": "2026-04-20",
+      "first_ts_kst": "2026-04-20 22:12:30",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "0",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "490000.0",
+      "landing_url_redacted": "https://biocom.kr/igg_store/?idx=85&utm_source=googleads_image_iggtest_1&utm_medium=googleads_image_iggtest_1&utm_campaign=googleads_image_IgGtest_1&utm_content=googleads_image_IgGtest_1&gad_source=2&gad_campaignid=21804566601&gclid=REDACTED"
+    },
+    {
+      "session_key": "485934923.1776684674.1776684673",
+      "first_dt": "2026-04-20",
+      "first_ts_kst": "2026-04-20 20:31:14",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "0",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "490000.0",
+      "landing_url_redacted": "https://biocom.kr/igg_store/?idx=85&utm_source=googleads_image_iggtest_1&utm_medium=googleads_image_iggtest_1&utm_campaign=googleads_image_IgGtest_1&utm_content=googleads_image_IgGtest_1&gad_source=2&gad_campaignid=21804566601&gclid=REDACTED"
+    },
+    {
+      "session_key": "1450172466.1776663775.1776663775",
+      "first_dt": "2026-04-20",
+      "first_ts_kst": "2026-04-20 14:42:56",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "0",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "1120000.0",
+      "landing_url_redacted": "https://biocom.kr/igg_intro?gad_source=1&gad_campaignid=21808018766&gbraid=REDACTED&gclid=REDACTED"
+    },
+    {
+      "session_key": "696600403.1776589676.1776589676",
+      "first_dt": "2026-04-19",
+      "first_ts_kst": "2026-04-19 18:07:56",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "0",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "490000.0",
+      "landing_url_redacted": "https://biocom.kr/igg_intro?gad_source=1&gad_campaignid=21808018766&gbraid=REDACTED&gclid=REDACTED"
+    },
+    {
+      "session_key": "969990517.1771157749.1776560155",
+      "first_dt": "2026-04-19",
+      "first_ts_kst": "2026-04-19 09:55:55",
+      "any_url_click_id": "1",
+      "any_collected_gclid": "1",
+      "any_ga4_google_ads_campaign": "1",
+      "has_regular_checkout": "1",
+      "has_npay_click": "0",
+      "has_homepage_purchase": "1",
+      "homepage_purchase_value": "73800.0",
+      "landing_url_redacted": "https://biocom.kr/shop_view/?idx=386&utm_source=googleads_eventpm_metadream_launching&utm_medium=googleads_eventpm_metadream_launching&utm_campaign=googleads_eventPM_metadream_launching&utm_content=googleads_eventPM_metadream_launching&gad_source=1&gad_campaignid=23166837345&gclid=REDACTED"
+    }
+  ],
+  "next_steps": [
+    "Use this denominator alongside operational confirmed order click id rate.",
+    "Prepare GTM Production publish approval for paid_click_intent v1.",
+    "Keep Google Ads conversion action changes and conversion upload blocked until post-publish fill-rate improves."
+  ]
+}

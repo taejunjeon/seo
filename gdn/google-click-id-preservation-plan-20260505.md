@@ -3,9 +3,9 @@
 작성 시각: 2026-05-05 23:38 KST
 대상: biocom Google Ads confirmed purchase 연결
 문서 성격: Green Lane 설계/진단 문서. GTM publish, backend deploy, Google Ads 전송은 하지 않는다.
-Status: active / Preview and HTTPS receiver pass
+Status: active / Preview, HTTPS receiver, landing-session denominator pass
 Supersedes: 없음
-Next document: [[paid-click-intent-receiver-access-result-20260506|paid_click_intent receiver 접근 검증 결과]]
+Next document: [[paid-click-intent-gtm-production-publish-approval-20260506|paid_click_intent v1 GTM Production publish 승인안]]
 Do not use for: GTM Production publish, Google Ads 전환 액션 생성/변경, conversion upload, backend 운영 deploy
 
 ```yaml
@@ -52,7 +52,9 @@ harness_preflight:
 
 Google Ads에 실제 결제완료 주문만 구매로 알려주려면 `gclid`, `gbraid`, `wbraid`가 주문까지 남아야 한다.
 현재 운영 결제완료 주문 623건 중 Google click id가 남은 주문은 5건뿐이다.
-따라서 지금은 Google Ads 전환 전송을 준비하기보다, 랜딩/체크아웃/NPay intent 시점에 Google click id를 먼저 보존해야 한다.
+반면 GA4 BigQuery 기준 최근 7일 Google Ads 랜딩 세션에서는 click id가 97.75% 남아 있다.
+따라서 광고 URL이나 auto-tagging 자체가 주 병목은 아니고, 랜딩 이후 체크아웃/NPay intent/결제완료 주문 원장까지 click id가 이어지지 않는 것이 병목이다.
+지금은 Google Ads 전환 전송을 준비하기보다, 랜딩/체크아웃/NPay intent 시점에 Google click id를 먼저 보존해야 한다.
 
 ## 확인된 숫자
 
@@ -68,6 +70,17 @@ Google Ads에 실제 결제완료 주문만 구매로 알려주려면 `gclid`, `
 | NPay 결제완료 보존률 | 3 / 37건, 8.11% | NPay intent 쪽이 상대적으로 낫지만 충분하지 않음 |
 | evidence는 있으나 Google click id가 없는 주문 | 489건 | VM/NPay 증거는 붙었지만 Google click id가 사라진 주문 |
 
+추가 근거 파일: [[google-ads-landing-clickid-analysis-20260506]]
+
+| 항목 | 값 | 해석 |
+|---|---:|---|
+| 최근 7일 Google Ads 증거 세션 | 6,879개 | GA4 BigQuery raw 기준 |
+| URL 또는 collected source click id 보유 세션 | 6,724개 | `gclid/gbraid/wbraid` URL 또는 `collected_traffic_source.gclid` |
+| Google Ads 랜딩 세션 기준 보존률 | 97.75% | 광고 URL/auto-tagging은 대체로 정상 |
+| Google Ads 캠페인 세션 중 click id raw 누락률 | 0.31% | GA4 campaign 인식은 있는데 click id가 raw에 없는 비율 |
+| 일반 결제 시작 세션 중 click id 보유율 | 96.32% | checkout 시점까지는 click id가 대부분 남음 |
+| NPay 클릭 세션 중 click id 보유율 | 99.65% | NPay intent 시점까지도 GA4 raw에는 대부분 남음 |
+
 ## 분모를 나누는 기준
 
 전체 결제완료 주문 기준 보존률은 0.8%다.
@@ -77,13 +90,14 @@ Google Ads에 실제 결제완료 주문만 구매로 알려주려면 `gclid`, `
 현재 주문 원장/VM evidence에 명시적 Google 증거가 남은 주문은 10건이고, 이 중 click id가 남은 주문은 5건이다.
 이 분모에서는 보존률이 50%다.
 다만 `search`, `cpc`, `sem` 같은 범용 단어는 Naver brandsearch와 섞이므로 Google 후보 조건에서 제외했다.
-최종 Google Ads 랜딩 세션 기준 분모는 GA4 BigQuery landing-session 분석으로 별도 산출한다.
+최종 Google Ads 랜딩 세션 기준 분모는 GA4 BigQuery landing-session 분석으로 산출했다. 최근 7일 기준 보존률은 97.75%다.
 
 해석 규칙:
 
 - 0.8%는 전체 결제완료 주문 기준 보존률이다. 전체 주문에는 Google Ads가 아닌 매출도 섞여 있으므로 Google Ads 품질 판단의 최종 분모가 아니다.
 - 50%는 이미 Google 증거가 남은 주문 후보 기준 보존률이다. 다만 표본이 10건뿐이므로 낙관하면 안 된다.
-- 다음 검증은 Google Ads 랜딩 세션과 주문 후보를 더 넓게 잡아, Google Ads 유입 후보 기준 보존률을 다시 산출하는 것이다.
+- 97.75%는 Google Ads 랜딩 세션 기준 보존률이다. 이 값은 Google Ads URL과 GA4 raw에 click id가 잘 들어온다는 뜻이지, 내부 주문 원장까지 보존됐다는 뜻은 아니다.
+- 다음 검증은 운영 GTM publish 후 `paid_click_intent`가 실제 주문 원장/Attribution VM까지 click id를 얼마나 남기는지 보는 것이다.
 
 ## 왜 이게 병목인가
 
@@ -173,11 +187,12 @@ TTL 추천:
 - GTM Preview 승인안 작성. 산출물: [[paid-click-intent-gtm-preview-approval-20260506]].
 - GTM Preview only 실행. 산출물: [[paid-click-intent-gtm-preview-result-20260506]]. 결과: storage/payload PASS, Node-side receiver PASS.
 - HTTPS tunnel receiver 재검증. 산출물: [[paid-click-intent-receiver-access-result-20260506]]. 결과: `gclid/gbraid/wbraid` 세 케이스 모두 browser receiver `200 ok=true`.
+- Google Ads landing-session click id 분모 분석. 산출물: [[google-ads-landing-clickid-analysis-20260506]]. 결과: 최근 7일 Google Ads 증거 세션 6,879개 중 6,724개에 click id가 남아 보존률 97.75%.
+- GTM Production publish 승인안 작성. 산출물: [[paid-click-intent-gtm-production-publish-approval-20260506]]. 결과: publish 범위, rollback, 24h/72h 모니터링, 금지선을 문서화했다. 실제 publish는 하지 않았다.
 
 아직 Green으로 가능한 것:
 
-- 최근 7일/14일 Google Ads 랜딩 URL 중 click id 포함률 BigQuery 추가 분석.
-- GTM Production publish 승인안 작성. 운영 publish 범위, rollback, no-send/no-write guard, 24h/72h 모니터링 기준을 정리한다.
+- 운영 publish 이후 모니터링 쿼리/결과 문서 템플릿 작성.
 
 ### Yellow Lane
 
