@@ -1,0 +1,165 @@
+{
+  "generated_at_kst": "2026-05-08 01:00 KST",
+  "source": "hurdlers-naver-pay.analytics_304759974.events_* (job project=project-dadba7dd-0229-4ff6-81c, asia-northeast3)",
+  "window": "2026-05-01 ~ 2026-05-07 (7 days)",
+  "freshness": "events_20260506 last_mod 2026-05-07 00:39 UTC (T+24h daily export)",
+  "confidence": 0.88,
+  "site": "biocom",
+  "method": "GA4 BigQuery raw events. session_start traffic_source.source/medium 으로 source_group 분류. session 단위 unique = user_pseudo_id || ga_session_id",
+  "source_group_classification_rules": {
+    "paid_tiktok": "source LIKE 'tiktok_%' OR medium LIKE 'tiktok_%'",
+    "paid_meta": "source LIKE 'meta_%' OR medium LIKE 'meta_%'",
+    "paid_google": "source = 'google' AND medium = 'cpc'",
+    "organic_search": "source = 'google' AND medium = 'organic'",
+    "paid_naver": "source = 'naver' AND medium = 'powerlink' OR source LIKE 'naverbrand%' OR medium LIKE 'navershoppingsearch%'",
+    "organic_naver": "source = 'm.search.naver.com' OR medium = 'referral'",
+    "direct": "source = '(direct)'",
+    "paid_kakao": "source LIKE '%kakao%' OR medium LIKE '%kakao%'",
+    "paid_youtube": "source LIKE '%youtube%'",
+    "other": "ELSE"
+  },
+  "funnel_by_source_group": [
+    {
+      "source_group": "paid_meta",
+      "sessions": 20122,
+      "users": 16291,
+      "avg_engagement_sec": 12,
+      "scroll_90_event_count": 2636,
+      "view_item": 6772,
+      "add_to_cart": 119,
+      "begin_checkout": 307,
+      "add_payment_info": 36,
+      "purchase": 130,
+      "distinct_txn": 130,
+      "purchase_value_krw": 0
+    },
+    {
+      "source_group": "paid_tiktok",
+      "sessions": 19563,
+      "users": 17223,
+      "avg_engagement_sec": 1,
+      "scroll_90_event_count": 374,
+      "view_item": 8824,
+      "add_to_cart": 57,
+      "begin_checkout": 16,
+      "add_payment_info": 65,
+      "purchase": 0,
+      "distinct_txn": 0,
+      "purchase_value_krw": 0,
+      "warning": "avg_engagement_sec 1초 + purchase 0건 — bot/click farm/traffic 품질 의심"
+    },
+    {
+      "source_group": "direct",
+      "sessions": 5395,
+      "users": 4781,
+      "avg_engagement_sec": 28,
+      "scroll_90_event_count": 2083,
+      "view_item": 599,
+      "add_to_cart": 54,
+      "begin_checkout": 240,
+      "add_payment_info": 16,
+      "purchase": 100,
+      "distinct_txn": 99,
+      "purchase_value_krw": 0
+    },
+    {
+      "source_group": "paid_google",
+      "sessions": 5362,
+      "users": 2957,
+      "avg_engagement_sec": 40,
+      "scroll_90_event_count": 1619,
+      "view_item": 1175,
+      "add_to_cart": 353,
+      "begin_checkout": 111,
+      "add_payment_info": 786,
+      "purchase": 4,
+      "distinct_txn": 4,
+      "purchase_value_krw": 0,
+      "warning": "add_payment_info 786 vs purchase 4 = 99.5% NPay 클릭 후 GA4 purchase fire 안 함 (Google ROAS gap 핵심)"
+    },
+    {
+      "source_group": "other",
+      "sessions": 1559,
+      "users": 918,
+      "avg_engagement_sec": 79,
+      "scroll_90_event_count": 609,
+      "view_item": 727,
+      "add_to_cart": 87,
+      "begin_checkout": 133,
+      "add_payment_info": 38,
+      "purchase": 57,
+      "distinct_txn": 56,
+      "purchase_value_krw": 0
+    },
+    {
+      "source_group": "organic_naver",
+      "sessions": 1505,
+      "users": 1284,
+      "avg_engagement_sec": 54,
+      "scroll_90_event_count": 635,
+      "view_item": 298,
+      "add_to_cart": 31,
+      "begin_checkout": 76,
+      "add_payment_info": 14,
+      "purchase": 40,
+      "distinct_txn": 40,
+      "purchase_value_krw": 0
+    },
+    {
+      "source_group": "paid_naver",
+      "sessions": 1278,
+      "users": 1011,
+      "avg_engagement_sec": 99,
+      "scroll_90_event_count": 670,
+      "view_item": 354,
+      "add_to_cart": 68,
+      "begin_checkout": 165,
+      "add_payment_info": 18,
+      "purchase": 71,
+      "distinct_txn": 71,
+      "purchase_value_krw": 0,
+      "note": "highest engagement, brand awareness 높은 사용자"
+    },
+    {
+      "source_group": "organic_search",
+      "sessions": 328,
+      "users": 234,
+      "avg_engagement_sec": 66,
+      "scroll_90_event_count": 152,
+      "view_item": 92,
+      "add_to_cart": 5,
+      "begin_checkout": 18,
+      "add_payment_info": 5,
+      "purchase": 10,
+      "distinct_txn": 10,
+      "purchase_value_krw": 0
+    }
+  ],
+  "gclid_retention_per_source_group": [
+    {"source_group": "paid_google", "users": 2958, "users_with_gclid": 2876, "retention_pct": 97.2},
+    {"source_group": "paid_tiktok", "users": 17244, "users_with_gclid": 118, "retention_pct": 0.7, "note": "gclid는 Google 전용, paid_tiktok에 0.7%는 cross-traffic"},
+    {"source_group": "paid_meta", "users": 16347, "users_with_gclid": 5, "retention_pct": 0.03, "note": "fbclid 사용, gclid 0.03%는 cross-traffic"},
+    {"source_group": "other", "users": 8702, "users_with_gclid": 82, "retention_pct": 0.9}
+  ],
+  "fifty_percent_scroll_status": {
+    "available": false,
+    "reason": "GA4 Enhanced Measurement scroll event는 90% 도달 1회만 fire. percent_scrolled=10/25/50/75 는 GTM scrollDepth trigger를 별도로 firing tag와 연결해야 추출 가능. 현재 GTM live v142의 trigger [11] (10/25/50/75/90 threshold)은 firing tag와 연결 안 된 상태",
+    "alternative": "ProductEngagementSummary POC 별 sprint (GA4/product-engagement-summary-poc-20260508.md 작성 예정)"
+  },
+  "transaction_id_retention": {
+    "paid_google_purchase_n_with_txn": 4,
+    "paid_meta_purchase_n_with_txn": 130,
+    "direct_purchase_n_with_txn": 99,
+    "note": "GA4 purchase event 의 transaction_id 1:1 매칭. 운영 imweb_orders 와 join 가능 (별 sprint)"
+  },
+  "warnings": [
+    "purchase_value_krw 0 — GA4 purchase event의 value 필드가 모두 0 또는 null. NPay 결제 흐름에서 value가 GA4로 전달 안 되는 패턴",
+    "paid_tiktok avg_engagement 1초 + purchase 0 — 광고 품질 또는 bot traffic 의심. TikTok 운영 정합성 사전 점검 필요",
+    "paid_google add_payment_info 786 / purchase 4 — NPay click이 add_payment_info에 fire되지만 자사 GA4 purchase는 fire 안 됨. Google Ads ROAS gap 핵심 원인 중 하나"
+  ],
+  "next_step_candidates": [
+    "ConfirmedPurchasePrep 재실행으로 imweb_orders 와 BigQuery purchase event join — gclid 보존율 97.2% (BigQuery) vs 0.8% (imweb_orders) gap의 transit 단계 분리",
+    "paid_tiktok 광고 품질 분리 (TikTok Ads Manager 캠페인별 spend/click/conversion 비교)",
+    "ProductEngagementSummary POC 진행 (50% scroll + visible_seconds)"
+  ]
+}
