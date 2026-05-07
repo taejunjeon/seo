@@ -91,6 +91,7 @@ Phase 번호는 작업 영역 이름(history)이고 실제 실행 순서는 `Pri
 | 운영 VM 접근 | 직접 `biocomkr_sns` SSH는 실패. `taejun` 경유 후 `sudo -u biocomkr_sns` 가능 |
 | 운영 receiver | `POST /api/attribution/paid-click-intent/no-send` 200 확인 |
 | GTM live | `142 (paid_click_intent_v1_receiver_20260506T150218Z)` |
+| Meta funnel CAPI 최신 상태 | server endpoint 준비 완료, funnel 운영 송출 0건, Test Events code 수령. 2026-05-08 Green no-send payload preview 생성. 실제 Meta 호출/GTM Preview/Imweb 수정은 하지 않음. [[../capivm/meta-funnel-capi-gtm-first-plan-20260508]] |
 | 캠페인 매핑 최신 입력 | `/Users/vibetj/Downloads/campaign-mapping-manual-check-template-20260505.xlsx` |
 | 그로스파트 추가 확인 | 2개 exact campaign id만 필요. [[../otherpart/!otherpart]] |
 | TJ 승인 큐 | 현재 open approval 없음. [[../confirm/!confirm]] |
@@ -214,6 +215,7 @@ Phase 번호는 과거 작업 영역을 설명하는 이름이다. 실제 개발
 | 2026-05-07 22:35~23:05 KST | minimal `paid_click_intent` ledger write canary 실행 패킷 작성 + TJ 승인 + Phase 0/1/2 T+0 deploy/smoke 완료 | TJ "YES" 회신 후 본 agent SSH 자율 실행. backend/src/paidClickIntentLog.ts 신규 작성 + attribution.ts route flag 분기 + bootstrap. 운영 backup → scp → flag false 배포 → schema bootstrap (table + 5 indexes 생성) → flag-off smoke PASS → flag true 재배포 → 7 smoke PASS (TEST 차단, live insert 2건, dedupe 1건, PII reject, oversized 413, no_platform_send 100%). 1h canary 진행 중. 결과: [[../gdn/paid-click-intent-minimal-ledger-canary-phase0-1-2-result-20260507]] |
 | 2026-05-07 23:23~2026-05-08 00:01 KST | canary 1h 종합 판정 PASS | T+22/30/60min monitoring. row 17→34→52 (자연 traffic 145건/h 페이스 유지), dedupe 1, by_stage landing 34/npay 11/checkout 7. paid-click-intent 5xx 0건, backend error 0, PM2 0 추가 restart. mem 197→222→1024 MB (T+30~60min 800MB spike — background job 가속 추정, 1.5G threshold 67%). 24h 자동 연장 진행. **mem 추세 6h 시점 재측정 필요** |
 | 2026-05-08 00:00 KST | data/!bigquery.md → _old rename + _new 정본 작성 | docurule.md v6 형식. 직접 검증 결과: biocom hurdlers-naver-pay.analytics_304759974 events_20260506 70,294 rows 정상 적재, coffee 정상, AIBIO 미연결. SA `seo-656@seo-aeo-487113`로 dataset Read OK + project-dadba7dd jobs.create OK. 운영 backend dist는 옛 sourceFreshness (jobProjectId 분리 미적용) → biocom freshness fail. 최신 dist deploy로 즉시 정상화 가능. 결과: [[../data/!bigquery_new]] |
+| 2026-05-08 01:05 KST | Meta funnel CAPI GTM-first no-send preview | readiness 문서 확인. Test Events code는 원문 저장 없이 `TEST*****`로만 마스킹. ViewContent/AddToCart/InitiateCheckout/AddPaymentInfo/Lead/Search 6종 payload preview 생성. GTM live v142, Default Workspace change 0/conflict 0 read-only 확인. 실제 Meta 호출, GTM Preview/Publish, Imweb header/footer 수정, 운영 CAPI 전송 0건. 결과: [[../capivm/meta-funnel-capi-gtm-first-plan-20260508]] |
 
 ## Parked / Later
 
@@ -222,6 +224,7 @@ Phase 번호는 과거 작업 영역을 설명하는 이름이다. 실제 개발
 | Google Ads conversion action 변경 | 자동입찰 학습과 Google Ads 숫자를 바꾸는 Red Lane | BI confirmed_purchase 후보와 click id 보존률이 충분해지고 별도 승인 |
 | conversion upload | Google Ads 전환값이 바뀌는 Red Lane | no-send 후보, 중복 guard, click id fill-rate, rollback 문서 PASS |
 | GA4/Meta/Google Ads 실제 purchase 전송 | 플랫폼 전환값을 바꾸는 Red Lane | platform별 payload 승인안과 Events/BigQuery 중복 guard PASS |
+| Meta funnel CAPI Test Events smoke / GTM Preview wiring | Test Events code가 있어도 실제 Meta 호출과 GTM workspace 수정은 Yellow Lane. 지금 요청 범위는 Green | TJ님이 `test_event_code 필수`, `Production publish 금지`, `6종 각 1회 이하`, `cleanup 조건`을 포함해 Yellow 승인 |
 | 운영 DB/ledger write | 데이터 원장을 바꾸는 Red Lane | minimal ledger write 승인안에서 저장 필드, 보관기간, 삭제/마스킹 기준 승인 |
 | `/total` UI 고도화 | 현재는 source/assignment가 더 큰 병목 | Mode B와 최소 저장 설계 후 화면 수치 의미가 안정화될 때 |
 
@@ -257,6 +260,7 @@ Confidence: 0.86
 | Google Ads API x VM 원장 read-only 재대조 | local `GET /api/google-ads/dashboard?date_preset=last_30d` + TJ 관리 Attribution VM `crm.sqlite3#attribution_ledger` | 2026-04-07~2026-05-06 KST | 2026-05-07 18:12 KST 조회 성공. Google Ads API fresh, 내부 원장은 운영 VM same-window source. latestWindowLoggedAt 2026-05-06T14:59:06.844Z | 0.90 |
 | AI OS Agent v0 6종 | [[../agent/!aiosagentplan]] + `backend/scripts/aios-agent-runner.ts` | 2026-05-07 KST | PaidClickIntentMonitor / CoffeeData / CampaignMapping / ApprovalQueue / ReportAuditor / ConfirmedPurchasePrep 모두 v0 구현·실행 완료 | 0.88 |
 | Google tag gateway POC | [[../GA4/google-tag-gateway-poc-approval-20260507]] | 2026-05-07 KST | 공식 문서 fetch + biocom/coffee CDN read-only 조사. 활성화는 Yellow 승인 후 | 0.85 |
+| Meta funnel CAPI GTM-first preview | [[../capivm/meta-funnel-capi-gtm-first-plan-20260508]] + [[../capivm/meta-funnel-capi-test-events-payload-preview-2026-05-08]] | 2026-05-08 KST | Test Events code 수령 확인. 원문은 저장하지 않고 마스킹. no-send payload preview 6종 생성. GTM live v142 / Default Workspace change 0 / conflict 0 read-only 확인. 실제 Meta 호출·GTM Preview·Imweb 수정 없음 | 0.89 |
 | 기존 Phase history | [[!total_past]] | 2026-05-04~2026-05-06 누적 | legacy. 실제 실행 순서는 이 문서가 우선 | 0.80 |
 
 #### Phase4-Sprint6

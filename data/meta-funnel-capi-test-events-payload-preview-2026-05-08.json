@@ -1,0 +1,106 @@
+{
+  "ok": true,
+  "generatedAt": "2026-05-07T16:00:08.394Z",
+  "mode": "no-send-payload-preview",
+  "site": "biocom",
+  "pixelId": "1283400029487161",
+  "endpoint": "https://att.ainativeos.net/api/meta/capi/track",
+  "noSendVerified": true,
+  "noWriteVerified": true,
+  "noDeployVerified": true,
+  "noPublishVerified": true,
+  "noPlatformSendVerified": true,
+  "networkSendExecuted": false,
+  "testEventCode": {
+    "present": true,
+    "masked": "TEST*****",
+    "length": 9,
+    "rawValueWritten": false
+  },
+  "preferredClientWiring": "GTM Custom HTML tag in fresh Preview workspace, not Imweb header/footer",
+  "blockedUntilApproval": [
+    "actual Meta Test Events server-side smoke",
+    "GTM Preview workspace creation or edit",
+    "GTM Production publish",
+    "Imweb header/footer edit",
+    "production funnel CAPI send without test_event_code"
+  ],
+  "payloads": [
+    {
+      "eventName": "ViewContent",
+      "eventId": "biocom_meta_funnel_test_ViewContent_20260507T160008Z",
+      "pixelId": "1283400029487161",
+      "eventSourceUrl": "https://biocom.kr/HealthFood/?idx=386",
+      "contentIds": [
+        "gtm_first_smoke_product_386"
+      ],
+      "contentType": "product",
+      "value": 0,
+      "currency": "KRW",
+      "testEventCode": "<TJ_PROVIDED_TEST_EVENT_CODE>"
+    },
+    {
+      "eventName": "AddToCart",
+      "eventId": "biocom_meta_funnel_test_AddToCart_20260507T160008Z",
+      "pixelId": "1283400029487161",
+      "eventSourceUrl": "https://biocom.kr/HealthFood/?idx=386",
+      "contentIds": [
+        "gtm_first_smoke_product_386"
+      ],
+      "contentType": "product",
+      "value": 0,
+      "currency": "KRW",
+      "testEventCode": "<TJ_PROVIDED_TEST_EVENT_CODE>"
+    },
+    {
+      "eventName": "InitiateCheckout",
+      "eventId": "biocom_meta_funnel_test_InitiateCheckout_20260507T160008Z",
+      "pixelId": "1283400029487161",
+      "eventSourceUrl": "https://biocom.kr/shop_cart/",
+      "contentIds": [
+        "gtm_first_smoke_product_386"
+      ],
+      "contentType": "product",
+      "value": 0,
+      "currency": "KRW",
+      "testEventCode": "<TJ_PROVIDED_TEST_EVENT_CODE>"
+    },
+    {
+      "eventName": "AddPaymentInfo",
+      "eventId": "biocom_meta_funnel_test_AddPaymentInfo_20260507T160008Z",
+      "pixelId": "1283400029487161",
+      "eventSourceUrl": "https://biocom.kr/shop_payment/",
+      "contentIds": [
+        "gtm_first_smoke_product_386"
+      ],
+      "contentType": "product",
+      "value": 0,
+      "currency": "KRW",
+      "testEventCode": "<TJ_PROVIDED_TEST_EVENT_CODE>"
+    },
+    {
+      "eventName": "Lead",
+      "eventId": "biocom_meta_funnel_test_Lead_20260507T160008Z",
+      "pixelId": "1283400029487161",
+      "eventSourceUrl": "https://biocom.kr/site_join/",
+      "contentIds": [
+        "gtm_first_smoke_product_386"
+      ],
+      "contentType": "product",
+      "currency": "KRW",
+      "testEventCode": "<TJ_PROVIDED_TEST_EVENT_CODE>"
+    },
+    {
+      "eventName": "Search",
+      "eventId": "biocom_meta_funnel_test_Search_20260507T160008Z",
+      "pixelId": "1283400029487161",
+      "eventSourceUrl": "https://biocom.kr/?keyword=%EB%A9%94%ED%83%80%EB%93%9C%EB%A6%BC",
+      "contentIds": [
+        "gtm_first_smoke_product_386"
+      ],
+      "contentType": "product",
+      "currency": "KRW",
+      "testEventCode": "<TJ_PROVIDED_TEST_EVENT_CODE>"
+    }
+  ]
+}

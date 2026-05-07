@@ -38,6 +38,22 @@ harness_preflight:
 4. **운영 ON 전 필수 절차**: Test Events smoke (test_event_code 지정) → browser/server 같은 event_id dedup 검증 → Events Manager Diagnostics 확인 → 후 GTM/imweb body 클라이언트 wiring 별 승인.
 5. AddPaymentInfo wrap race (clean-coffee 사이트의 `funnel-capi v3` 와 클라이언트 firing 충돌) 검토는 별도 sprint. biocom에선 클라이언트 fire 자체가 없어 race 발생 불가.
 
+## 2026-05-08 Green follow-up
+
+TJ님이 Meta Test Events code를 전달했다. 원문값은 파일에 저장하지 않고 `TEST*****`로만 마스킹했다.
+
+이번 follow-up에서 실제 Meta 호출은 하지 않았다. `/api/meta/capi/track` network send, GTM Preview/Publish, Imweb header/footer 수정, 운영 CAPI 전송은 모두 0건이다.
+
+GTM-first 경로를 우선한다. 아임웹 header/footer 직접 수정은 운영 사이트 전역 코드 영향이 크므로 후순위다. 현재 권장 경로는 `fresh GTM Preview workspace -> Custom HTML tag 테스트 -> Tag Assistant와 Meta Test Events 확인 -> Production publish 별도 Red 승인` 순서다.
+
+정본 연결은 [[../total/!total-current]]로 고정한다. [[../data/!datacheckplan]]은 Meta CAPI/ROAS 이력과 배경 문서로 남긴다.
+
+새 산출물:
+
+- [[meta-funnel-capi-gtm-first-plan-20260508]]
+- [[meta-funnel-capi-test-events-payload-preview-2026-05-08]]
+- `../data/meta-funnel-capi-test-events-payload-preview-2026-05-08.json`
+
 ## 1. 서버 측 준비 상태 (코드 read-only)
 
 | 항목 | 위치 | 상태 |
