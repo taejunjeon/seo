@@ -3,7 +3,7 @@
 작성 시각: 2026-05-05 01:50 KST
 대상: Google Tag Coverage export `tag-coverage-GTM-W2Z6PHN.csv`
 문서 성격: Tag Coverage 품질 경고 정리안. UI ignore는 선택이며 아직 실행하지 않는다.
-관련 문서: [[GA4/gtm]], [[GA4/gtm-container-quality-gateway-diagnosis-20260505]], [[total/!total]], [[docurule]]
+관련 문서: [[GA4/gtm]], [[GA4/gtm-container-quality-gateway-diagnosis-20260505]], [[!total_past]], [[docurule]]
 Lane: Green read-only documentation
 Mode: No-write / No-publish / No-platform-send
 
@@ -143,6 +143,6 @@ UI ignore를 나중으로 미뤄도 되는 이유:
 
 ## 다음 할일
 
-1. Codex: 이 문서를 [[GA4/gtm-container-quality-gateway-diagnosis-20260505]]와 [[total/!total]]에 연결한다. 왜: Tag Coverage 경고가 ROAS blocker가 아님을 정본 문서에서 바로 확인하게 하기 위해서다. 어떻게: 관련 문서와 다음 할일에 링크를 추가한다. 성공 기준: 운영자가 `태그 누락` 경고를 보고도 코드 수정 필요 여부를 판단할 수 있다. 컨펌 필요: NO.
+1. Codex: 이 문서를 [[GA4/gtm-container-quality-gateway-diagnosis-20260505]]와 [[!total_past]]에 연결한다. 왜: Tag Coverage 경고가 ROAS blocker가 아님을 정본 문서에서 바로 확인하게 하기 위해서다. 어떻게: 관련 문서와 다음 할일에 링크를 추가한다. 성공 기준: 운영자가 `태그 누락` 경고를 보고도 코드 수정 필요 여부를 판단할 수 있다. 컨펌 필요: NO.
 2. TJ: 원하면 Google Tag Coverage UI에서 ignore 처리한다. 왜: 경고 노이즈를 줄일 수 있다. 어떻게: 위 `UI ignore 후보`만 선택하고, false positive 후보 3개는 Tag Assistant 확인 후 판단한다. 성공 기준: 고객 퍼널 URL은 ignore하지 않는다. 컨펌 필요: YES.
 3. Codex: 다음 CSV export가 생기면 같은 기준으로 diff를 본다. 왜: 새 광고 랜딩이 untagged로 들어오면 실제 blocker가 될 수 있다. 어떻게: `Landing page=Yes AND Tag status!=Tagged`만 먼저 본다. 성공 기준: 광고 랜딩 누락 0 유지. 컨펌 필요: NO.

@@ -3,7 +3,7 @@
 작성 시각: 2026-05-05 09:32 KST
 대상: biocom Google Ads account `2149990943`, Google tag `AW-304339096`
 문서 성격: read-only 캠페인 성과/전환 신호 감사
-관련 문서: [[!gdnplan]], [[google-ads-npay-purchase-contamination-report-20260505]], [[google-ads-npay-quality-deep-dive-20260505]], [[google-ads-purchase-primary-change-approval-20260505]], [[google-ads-confirmed-purchase-execution-approval-20260505]], [[../total/!total]], [[../GA4/gtm]]
+관련 문서: [[!gdnplan]], [[google-ads-npay-purchase-contamination-report-20260505]], [[google-ads-npay-quality-deep-dive-20260505]], [[google-ads-purchase-primary-change-approval-20260505]], [[google-ads-confirmed-purchase-execution-approval-20260505]], [[!total_past]], [[../GA4/gtm]]
 Lane: Green
 Mode: No-send / No-write / No-deploy / No-platform-send
 

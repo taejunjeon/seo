@@ -4,7 +4,7 @@
 최근 업데이트: 2026-05-05 11:40 KST
 대상: biocom Google Ads account `2149990943`, Google tag `AW-304339096`
 문서 성격: read-only 심층 분석 리포트
-관련 문서: [[!gdnplan]], [[google-ads-npay-purchase-contamination-report-20260505]], [[google-ads-campaign-signal-audit-20260505]], [[google-ads-confirmed-purchase-execution-approval-20260505]], [[../total/!total]], [[../GA4/gtm]], [[../GA4/product-engagement-summary-contract-20260505]]
+관련 문서: [[!gdnplan]], [[google-ads-npay-purchase-contamination-report-20260505]], [[google-ads-campaign-signal-audit-20260505]], [[google-ads-confirmed-purchase-execution-approval-20260505]], [[!total_past]], [[../GA4/gtm]], [[../GA4/product-engagement-summary-contract-20260505]]
 Lane: Green
 Mode: No-send / No-write / No-deploy / No-platform-send
 

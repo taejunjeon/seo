@@ -4,7 +4,7 @@
 요청 유형: Red Lane 실행 승인 문서
 대상: biocom Google Ads account `2149990943`, Google tag `AW-304339096`
 기술명: `BI confirmed_purchase` 전환, offline conversion import 또는 Data Manager API 기반 confirmed purchase 전송
-관련 문서: [[!gdnplan]], [[google-ads-campaign-signal-audit-20260505]], [[google-ads-purchase-primary-change-approval-20260505]], [[google-ads-npay-quality-deep-dive-20260505]], [[../total/!total]]
+관련 문서: [[!gdnplan]], [[google-ads-campaign-signal-audit-20260505]], [[google-ads-purchase-primary-change-approval-20260505]], [[google-ads-npay-quality-deep-dive-20260505]], [[!total_past]]
 현재 상태: 문서 작성과 로컬 no-send dry-run 스크립트 작성은 Green Lane으로 완료. Google Ads 설정 변경, conversion upload, GTM publish, 운영 DB write는 승인 전 금지.
 
 ```yaml

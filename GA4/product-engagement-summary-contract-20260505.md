@@ -3,7 +3,7 @@
 작성 시각: 2026-05-05 02:00 KST
 대상: biocom 상품 상세 engagement 수집 설계
 문서 성격: backend no-write contract 및 로컬 dry-run route 기록. 운영 deploy, DB write, GTM Preview는 하지 않는다.
-관련 문서: [[GA4/gtm-engagement-internal-analysis-design-20260504]], [[GA4/gtm]], [[capivm/!capiplan]], [[total/!total]], [[docurule]]
+관련 문서: [[GA4/gtm-engagement-internal-analysis-design-20260504]], [[GA4/gtm]], [[capivm/!capiplan]], [[!total_past]], [[docurule]]
 Lane: Green local no-write implementation
 Mode: No-send / No-write / No-deploy / No-platform-send
 

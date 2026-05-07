@@ -3,7 +3,7 @@
 작성 시각: 2026-05-05 01:45 KST
 대상: biocom Google Ads account `2149990943`, Google tag `AW-304339096`
 문서 성격: read-only 모니터링 결과 리포트
-관련 문서: [[gdn/!gdnplan]], [[GA4/gtm]], [[GA4/gtm-aw308433248-upde-pause-result-20260505]], [[total/!total]], [[docurule]]
+관련 문서: [[gdn/!gdnplan]], [[GA4/gtm]], [[GA4/gtm-aw308433248-upde-pause-result-20260505]], [[!total_past]], [[docurule]]
 Lane: Green read-only documentation
 Mode: No-send / No-write / No-deploy / No-platform-send
 
@@ -180,6 +180,6 @@ Google Ads 자동입찰이 이 값을 purchase 학습 신호로 사용하고 있
 
 ## 다음 할일
 
-1. Codex: Google Ads API 모니터링 결과를 `/total` 문서의 `platform_reference` 위험 항목에 반영한다. 왜: 월별 채널 매출에서 플랫폼 주장값과 내부 confirmed 매출을 분리하기 위해서다. 어떻게: 이 문서를 [[total/!total]] 관련 문서와 Phase3-Sprint5에 링크한다. 성공 기준: Google Ads ROAS가 내부 매출로 오해되지 않는다. 컨펌 필요: NO.
+1. Codex: Google Ads API 모니터링 결과를 `/total` 문서의 `platform_reference` 위험 항목에 반영한다. 왜: 월별 채널 매출에서 플랫폼 주장값과 내부 confirmed 매출을 분리하기 위해서다. 어떻게: 이 문서를 [[!total_past]] 관련 문서와 Phase3-Sprint5에 링크한다. 성공 기준: Google Ads ROAS가 내부 매출로 오해되지 않는다. 컨펌 필요: NO.
 2. TJ+Codex: `구매완료` primary 전환 액션을 변경할지 승인안을 따로 만든다. 왜: 자동입찰 학습에 직접 영향이 있다. 어떻게: 변경 전 7/30일 지표, affected campaigns, rollback 조건, 정본 purchase 대안이 있는지 확인한다. 성공 기준: 변경해도 학습 신호와 보고서 의미가 명확하다. 컨펌 필요: YES.
 3. Codex: NPay confirmed 주문과 Google Ads NPay label을 주문 단위로 대조하는 read-only 설계를 만든다. 왜: label이 실제 confirmed NPay 주문과 얼마나 맞는지 알아야 한다. 어떻게: 운영 NPay intent source, Imweb order, Google Ads conversion action stats를 조인할 키를 문서화한다. 성공 기준: matched/unmatched/ambiguous 분포가 나온다. 컨펌 필요: 자료 접근 시 YES.

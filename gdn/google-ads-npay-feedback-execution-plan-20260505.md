@@ -3,7 +3,7 @@
 작성 시각: 2026-05-05 14:25 KST
 대상: biocom Google Ads account `2149990943`, Google tag `AW-304339096`
 문서 성격: Green Lane 개발 계획 및 read-only 실행 기록
-관련 문서: [[!gdnplan]], [[google-ads-confirmed-purchase-execution-approval-20260505]], [[google-ads-campaign-signal-audit-20260505]], [[google-ads-npay-quality-deep-dive-20260505]], [[../total/!total]], [[../GA4/product-engagement-summary-contract-20260505]]
+관련 문서: [[!gdnplan]], [[google-ads-confirmed-purchase-execution-approval-20260505]], [[google-ads-campaign-signal-audit-20260505]], [[google-ads-npay-quality-deep-dive-20260505]], [[!total_past]], [[../GA4/product-engagement-summary-contract-20260505]]
 현재 상태: 문서 반영, `/ads/google` 문구 개선, BigQuery read-only leakage 분석 보강, ProductEngagementSummary 로컬 no-write route 구현 및 smoke 확인 완료. Google Ads 설정 변경, conversion upload, GTM publish, 운영 DB write는 하지 않음.
 
 ```yaml
