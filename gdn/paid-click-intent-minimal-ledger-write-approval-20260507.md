@@ -168,6 +168,23 @@ matched_to_payment_complete_candidate
 | PII reject | 필요 | email/phone/name/address reject |
 | order/payment field reject | 필요 | order_number/payment_key/value/currency reject |
 | rollback | 필요 | feature flag 또는 route write disable |
+| **PM2 restart 빈도 5분 이상 완화** | **선행 blocker** | 30초 주기 → 5분 이상. ledger write 중 in-flight transaction interrupt 방지. evidence: [[paid-click-intent-pm2-restart-correlation-20260508]] |
+| **backend heap baseline 안정화** | **선행 blocker** | startup 1분 후 heap 사용률 70% 미만. 현재 12s uptime에서 94.7%. evidence: 동일 |
+| **errorHandler payload hardening deploy** | **선행 권고** | oversized payload 500 → 413/400 정상화. ledger write 진입 후 에러 분류 정확도 위해 선행 권고. 승인안: [[backend-errorhandler-payload-hardening-approval-20260508]] |
+| **5xx 비율 1% 미만** | **선행 blocker** | 현재 bounded probe 4.5%. ledger write 진입 시 6.7% × write 부하 추가 위험 |
+
+## 선행 blocker 상세 (2026-05-07 PM2 correlation evidence 기반)
+
+본 승인안은 receiver 안전성을 가정하고 작성됐으나, 2026-05-07 21:33~21:46 KST 직접 조사 결과 운영 receiver는 다음 issue를 가지고 있다.
+
+| issue | 측정값 | 영향 | source |
+|---|---|---|---|
+| PM2 30초 주기 restart | 최근 30분 50회 (실측) | 1~2초 unavailable window × 30초 주기 = 시간의 4.5~6.7% 502 위험 | [[paid-click-intent-pm2-restart-correlation-20260508]] |
+| heap usage 94.7% at 12s uptime | 783MB / 827MB max | startup baseline 자체가 max_memory_restart 700M 임계값 초과 | 동일 |
+| 일평균 5xx 추정 | 약 65분/일 | 사용자 receiver POST 손실 가능성 | [[paid-click-intent-bounded-probe-result-20260507]] |
+| oversized payload 500 (413 아님) | 100KB 초과 시 generic 500 | error 분류 정확도 저하 | [[backend-errorhandler-payload-hardening-approval-20260508]] |
+
+→ minimal ledger write 진입 전 위 4 blocker가 해소되어야 한다. 특히 PM2 restart 빈도 완화는 in-flight ledger write transaction이 SIGINT로 끊겨 데이터 정합성이 깨지는 것을 막기 위한 필수 조건이다.
 
 ## 승인 문구 초안
 
