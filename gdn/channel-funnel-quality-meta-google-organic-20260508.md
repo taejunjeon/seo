@@ -1,10 +1,10 @@
 # Channel funnel quality — Meta vs Google vs Organic vs TikTok vs Direct (biocom 7일)
 
-작성 시각: 2026-05-08 01:05 KST
+작성 시각: 2026-05-08 01:05 KST (scroll90 + NPay 추적 추가: 2026-05-08 02:15 KST)
 대상: biocom (`hurdlers-naver-pay.analytics_304759974`)
 window: 2026-05-01 ~ 2026-05-07 (7일, daily export 기준)
 문서 성격: Green Lane read-only BigQuery 분석
-관련 문서: [[../data/!bigquery_new]], [[google-roas-gap-decomposition-20260507]], [[paid-click-intent-minimal-ledger-canary-phase0-1-2-result-20260507]]
+정본 연결: [[../data/!channelfunnel]] (정본), [[../data/!bigquery_new]], [[google-roas-gap-decomposition-20260507]], [[paid-click-intent-minimal-ledger-canary-phase0-1-2-result-20260507]]
 Status: 1차 evidence (7일). 14일/30일 후속 또는 14일 단독 비교는 별 sprint.
 Do not use for: GA4/Meta/Google Ads 실제 전송, conversion upload, 광고 변경, GTM publish
 
@@ -122,6 +122,81 @@ add_payment_info: 65   ← 일부 사용자 결제 시도
 
 → **paid_google은 결제 직전 단계 (add_payment_info)는 강하지만 자사 GA4 purchase 단계에서 NPay 흐름으로 거의 다 빠짐**.
 → **paid_meta는 NPay 의존도 낮고 자사 결제완료 funnel이 끝까지 fire**.
+
+## 6.5. 90% scroll 비중 — source_group별 비교 (추가 evidence 2026-05-08 02:15)
+
+### 직접 측정 결과
+
+| source_group | sessions | sessions_scroll90 | scroll90_pct |
+|---|---:|---:|---:|
+| organic_naver | 1,505 | 467 | **31.03%** |
+| paid_naver | 1,278 | 353 | **27.62%** |
+| direct | 5,395 | 1,425 | **26.41%** |
+| organic_search | 328 | 84 | **25.61%** |
+| paid_google | 5,362 | 1,224 | **22.83%** |
+| other | 1,559 | 299 | 19.18% |
+| paid_meta | 20,122 | 1,989 | **9.88%** |
+| paid_tiktok | 19,563 | 309 | **1.58%** |
+
+### 해석
+
+- **organic / direct / paid_naver / paid_google / organic_search 22~31%**: brand 인지 또는 검색 유입, 페이지 끝까지 스크롤하는 사용자.
+- **paid_meta 9.88%**: 광고 노출 후 빠른 이탈 (lookalike + display 비중 큼, 정상 패턴).
+- **paid_tiktok 1.58%**: avg_engagement 1초 + purchase 0건과 일치 = 광고 품질 또는 bot 위험.
+
+### 90% scroll 만으로도 channel quality 비교 가능
+
+paid_tiktok 1.58% vs organic_naver 31.03% = **19배 격차**. 50% scroll 추가 없이도 광고 유입 품질 분리 가능.
+
+50% scroll 추가 가치 (POC 별 sprint):
+1. 90% 도달 안 한 사용자 중 "어디까지 봤는가" 분리.
+2. middle funnel attention (상품 페이지 50% 도달 = scroll engaged).
+3. ProductEngagementSummary POC ([[../GA4/product-engagement-summary-poc-20260508]]) 의 visible_seconds + max_scroll_percent 분석에서 같이 사용.
+
+→ **결론**: 90% scroll 비중 은 즉시 운영 분석 가능. 50% scroll 태그 ad-hoc 추가보다 ProductEngagementSummary collector 종합 도입이 더 정확.
+
+## 6.6. NPay 결제완료 GA4 추적 검증 (추가 evidence 2026-05-08 02:15)
+
+### TJ 질문: NPay 결제완료를 GA4 purchase event로 잡고 있는가?
+
+**답: NO. 모든 source_group의 GA4 purchase event 에 NPay 결제완료 0건 fire**.
+
+### Per source_group GA4 purchase by pay_method (7일)
+
+| source_group | purchase_homepage | purchase_npay | purchase_no_pay_method | add_payment_info |
+|---|---:|---:|---:|---:|
+| paid_meta | 133 | **0** | 0 | 36 |
+| direct | 103 | **0** | 0 | 16 |
+| paid_naver | 71 | **0** | 0 | 18 |
+| other | 58 | **0** | 0 | 36 |
+| organic_naver | 41 | **0** | 0 | 14 |
+| organic_search | 10 | **0** | 0 | 5 |
+| paid_google | 4 | **0** | 0 | **770** |
+| paid_tiktok | 0 | **0** | 0 | 65 |
+| **total** | **420** | **0** | **0** | **960** |
+
+### 의미
+
+1. **GA4 7일 purchase event 420건 모두 `pay_method=homepage`** (NPay 결제완료 0건).
+2. 운영 결제완료 dry-run (5/5) 623건 중 **NPay 37건은 GA4 raw에 추적 흔적 없음**.
+3. paid_google의 add_payment_info **770건** 중 대다수는 NPay 결제 시작 (NPay 클릭이 GTM에서 add_payment_info에 fire). 이 중 NPay 결제완료가 자사 GA4 purchase event로 fire 되지 않음.
+4. 이는 **GTM v138 (2026-04-24) 의도된 변경** 결과: `[43] GA4_구매전환_Npay` tag → `purchase` → `add_payment_info` 강등 ([[../GA4/gtm]] §"v138 적용한 변경").
+
+### Google ROAS gap 직접 원인 확정
+
+- Google Ads는 NPay click/count를 conversion으로 학습 (Primary `구매완료` action `7130249515` NPay label 분자 99.99%).
+- 자사 GA4 raw에는 NPay 결제완료 자체가 추적 안 됨 → confirmed revenue 측정 시 GA4 BigQuery 만으로는 불완전.
+- 운영 imweb_orders 또는 NPay merchant API로 NPay 결제완료를 별도 추출해야 정확.
+- click id 보존: GA4 BigQuery 97.2% vs imweb_orders 0.8% transit gap → paid_click_intent canary 가 메꾸는 단계.
+
+### 해결 방향 (별 sprint)
+
+1. **NPay 결제완료 ↔ paid_click_intent canary join** ([[../data/!channelfunnel]] Phase2-Sprint1):
+   - 운영 imweb_orders `WHERE payment_method='naver_pay'` 결제완료 추출.
+   - paid_click_intent_ledger의 ga_session_id / client_id 로 join 시도.
+   - 매칭률 산출 → BI confirmed_purchase 후보 prep 입력.
+2. **GTM 추가 검토**: NPay 결제완료 콜백 시점 GA4 purchase event fire 가능한지 (NPay 외부 결제 흐름 의존, 별 Yellow 승인).
+3. **운영 dashboard 분리 표시**: GA4 purchase = homepage only 명시, NPay 결제완료는 운영 PG 별도 컬럼.
 
 ## 7. 50% scroll 측정 불가 명시
 
