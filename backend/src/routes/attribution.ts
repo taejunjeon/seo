@@ -34,6 +34,12 @@ import {
 import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import { getNpayIntentSummary, listNpayIntents, recordNpayIntent } from "../npayIntentLog";
+import {
+  bootstrapPaidClickIntentTable,
+  getPaidClickIntentWriteSampleRate,
+  isPaidClickIntentWriteEnabled,
+  recordPaidClickIntent,
+} from "../paidClickIntentLog";
 import { buildNpayRoasDryRunReport } from "../npayRoasDryRun";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
@@ -2338,6 +2344,16 @@ export const findDuplicateFormSubmitEntry = (
 export const createAttributionRouter = () => {
   const router = express.Router();
 
+  // Ensure paid_click_intent_ledger table exists even while the write flag is
+  // OFF. This makes Phase 1 verification deterministic (Phase 0 deploy can
+  // confirm table presence, row_count = 0 baseline).
+  try {
+    bootstrapPaidClickIntentTable();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("[paid_click_intent] bootstrap table failed", error);
+  }
+
   router.post("/api/attribution/npay-intent", (req: Request, res: Response) => {
     try {
       const body = parseBody(req.body);
@@ -2734,6 +2750,65 @@ export const createAttributionRouter = () => {
         "test_click_id_rejected_for_live",
       ].includes(reason));
       const receivedAt = new Date().toISOString();
+
+      // minimal ledger write canary 분기: flag false 또는 비-live 후보는 기존 no-write 응답 그대로 유지.
+      // flag true + live_candidate_after_approval=true + sample rate 통과 시에만 운영 ledger 1행 INSERT.
+      // 외부 플랫폼 전송(GA4/Meta/Google Ads/TikTok/Naver)은 분기와 무관하게 항상 0건 유지.
+      let ledgerStored = false;
+      let ledgerDeduped = false;
+      let ledgerRejectReason: string | null = null;
+      const writeFlagOn = isPaidClickIntentWriteEnabled();
+      const livePreviewCandidate = preview.live_candidate_after_approval && hardBlocks.length === 0;
+      if (writeFlagOn && livePreviewCandidate) {
+        const sampleRate = getPaidClickIntentWriteSampleRate();
+        if (sampleRate > 0 && (sampleRate >= 1 || Math.random() < sampleRate)) {
+          try {
+            const ledgerContext = buildRequestContext(req);
+            const result = recordPaidClickIntent(
+              {
+                site: preview.site,
+                capture_stage: preview.capture_stage,
+                captured_at: preview.captured_at,
+                dedupe_key: preview.dedupe_key,
+                has_google_click_id: preview.has_google_click_id,
+                test_click_id: preview.test_click_id,
+                live_candidate_after_approval: preview.live_candidate_after_approval,
+                block_reasons: preview.block_reasons,
+                click_ids: preview.click_ids,
+                utm: preview.utm,
+                client_id: preview.client_id,
+                ga_session_id: preview.ga_session_id,
+                local_session_id: preview.local_session_id,
+                sanitized_landing_url: preview.sanitized_landing_url,
+                sanitized_referrer: preview.sanitized_referrer,
+              },
+              body,
+              { ip: ledgerContext.ip, userAgent: ledgerContext.userAgent },
+            );
+            if (result.stored) {
+              ledgerStored = true;
+              ledgerDeduped = result.deduped;
+            } else {
+              ledgerRejectReason = result.reason;
+            }
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error("[paid_click_intent] ledger write failed", error);
+            ledgerRejectReason = "ledger_write_internal_error";
+          }
+        }
+      }
+
+      const previewForResponse = ledgerStored
+        ? { ...preview, would_store: true }
+        : preview;
+      const sourceMode = ledgerStored ? "minimal_ledger_canary_write" : "no_write_no_send_preview";
+      const ledgerInfo = ledgerStored
+        ? { stored: true as const, deduped: ledgerDeduped, write_mode: "minimal_canary" as const }
+        : ledgerRejectReason
+          ? { stored: false as const, rejected: true as const, reason: ledgerRejectReason }
+          : undefined;
+
       res.status(hardBlocks.length > 0 ? 400 : 200).json({
         ok: hardBlocks.length === 0,
         ...noSendGuardAliases,
@@ -2744,15 +2819,20 @@ export const createAttributionRouter = () => {
           source: "paid_click_intent_no_send",
           checkedAt: receivedAt,
         }),
-        preview,
+        preview: previewForResponse,
+        ledger: ledgerInfo,
         source: {
-          mode: "no_write_no_send_preview",
+          mode: sourceMode,
           receivedAt,
+          write_flag_on: writeFlagOn,
         },
         warnings: [
           "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
           "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
           "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다.",
+          ...(writeFlagOn
+            ? ["minimal_ledger_canary write가 활성화됐다. site=biocom click id 보존용 최소 row만 저장하며 외부 플랫폼 전송은 0건이다."]
+            : []),
         ],
       });
     } catch (error) {
