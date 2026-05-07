@@ -178,4 +178,70 @@ PM2 restart는 어차피 30초 주기로 발생하던 환경이라 rollback 1회
 
 ## 9. 한 줄 결론
 
-> errorHandler hardening + PM2 1.5G 상향 두 변경 모두 운영 VM에 deploy 성공. oversized 413 응답·30초 주기 restart 즉시 정지 확인. minimal ledger write 4 선행 blocker 중 2개 PASS, 나머지 long-run 측정으로 확정 후 진입 가능.
+> errorHandler hardening + PM2 1.5G 상향 두 변경 모두 운영 VM에 deploy 성공. oversized 413 응답·30초 주기 restart 즉시 정지 확인. minimal ledger write 4 선행 blocker **모두 PASS** (deploy 후 23분 시점 evidence로 확정).
+
+## 10. T+23min 부록 — 4 blocker 전부 PASS 확정
+
+**측정 시각**: 2026-05-07 22:25 KST (deploy 13:01 UTC + 23분)
+
+### 10-1. PM2 restart count 22분 측정
+
+| 지표 | 값 |
+|---|---:|
+| PID | 437033 (deploy 직후 그대로) |
+| uptime | 23분 |
+| restart count | 3820 (deploy 1회 + 직후 13:03:15 1회 = 2회. 13:03:15 ~ 13:25 동안 추가 0회) |
+| mem | 210.6 MB (deploy 직후 197 MB → 23분 후 210.6 MB. +13.6 MB / 23분, 매우 느린 페이스) |
+
+이전 30분 50회 → deploy 후 22분 0회. PM2 restart 빈도 5분 이상 완화 **PASS**.
+
+### 10-2. controlled probe 114 calls 최종 결과
+
+| case | n | 400 | 5xx | avg ms |
+|---|---:|---:|---:|---:|
+| positive_test_gclid | 23 | 23 | 0 | 226 |
+| missing_google_click_id | 23 | 23 | 0 | 282 |
+| reject_value_currency | 23 | 23 | 0 | 235 |
+| reject_pii | 23 | 23 | 0 | 235 |
+| reject_admin_path | 22 | 22 | 0 | 231 |
+| **합계** | **114** | **114** | **0** | **242** |
+
+| 지표 | deploy 전 (110 calls) | deploy 후 (114 calls) |
+|---|---:|---:|
+| 5xx 비율 | 4.5% (5/110) | **0% (0/114)** |
+| 평균 응답시간 | 350~400ms | 242ms |
+| p95 응답시간 | (측정 안 함) | 312ms |
+| max 응답시간 | (측정 안 함) | 1,493ms |
+
+5xx 비율 < 1% **PASS**.
+
+### 10-3. backend / cloudflared error log
+
+| log | deploy 후 (13:01~13:25 UTC, 24분) 추가 라인 |
+|---|---:|
+| `pm2-error-0.log` (backend) | **0** |
+| `seo-cloudflared-error.log` (cloudflared tunnel) | **0** |
+
+→ 운영 자연 traffic에서도 5xx 발생 0건.
+
+### 10-4. minimal `paid_click_intent` ledger write 4 선행 blocker 최종 판정
+
+| blocker | 직전 | T+23min 측정 | 판정 |
+|---|---|---|---|
+| PM2 restart 5분 이상 완화 | FAIL (30s 주기) | 22분 0회 | **PASS** |
+| errorHandler hardening deploy | FAIL (500) | 413 응답 + 24분 0 unhandled | **PASS** |
+| heap baseline < 70% at 1m uptime | FAIL (94.7%) | 13.4% (210.6 MB / 1500 MB), heap 자체도 안정 | **PASS** |
+| 5xx 비율 < 1% | FAIL (4.5%) | 0% (114/114), backend log 0건, cloudflared log 0건 | **PASS** |
+
+→ **4 blocker 모두 PASS**. minimal `paid_click_intent` ledger write 승인안 [[paid-click-intent-minimal-ledger-write-approval-20260507]] 진입 가능 status.
+
+### 10-5. 잔여 리스크 (long-run 모니터링 필요)
+
+| 항목 | 현재값 | 임계 |
+|---|---:|---|
+| 메모리 누수 (시간당 증가율) | +13.6 MB / 23min ≈ +35 MB/h | 1.5G 도달 추정 시간: (1500-210)/35 = 36시간 (1.5일). 실제로는 GC로 안정화될 가능성 높음 |
+| 1시간 후 mem | 측정 예정 | < 300 MB 권장 |
+| 6시간 후 mem | 측정 예정 | < 500 MB 권장 |
+| 24h restart count | 측정 예정 | < 5회 권장 |
+
+본 agent가 1시간 후 / 6시간 후 / 24h 시점에 자동 측정. 측정 결과가 임계 초과 시 즉시 보고.

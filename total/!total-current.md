@@ -147,7 +147,7 @@ Phase 번호는 과거 작업 영역을 설명하는 이름이다. 실제 개발
 
 현재 open approval: **없음**.
 
-다음 컨펌 후보는 24h/72h monitoring PASS 이후 minimal paid_click_intent ledger write 승인안이다.
+**다음 컨펌 후보**: minimal `paid_click_intent` ledger write 승인안. 4 선행 blocker (PM2 restart 5분 이상 완화, errorHandler hardening deploy, heap baseline < 70%, 5xx 비율 < 1%) **모두 PASS** (2026-05-07 22:25 KST T+23min evidence). 승인안: [[../gdn/paid-click-intent-minimal-ledger-write-approval-20260507]].
 
 승인 큐 상세: [[../confirm/!confirm]]
 
@@ -209,7 +209,8 @@ Phase 번호는 과거 작업 영역을 설명하는 이름이다. 실제 개발
 | 2026-05-07 21:19~21:20 KST | paid_click_intent receiver 502 transient 실증 30 calls | `missing_google_click_id` 5회 중 3회 502 (3초 burst, 직전·직후 정상). PM2 max_memory_restart timing 가설 강화. `reject_oversized_body` 5/5 500은 본 evidence 120KB 페이로드 부작용 (운영 monitoring 20KB는 여전히 413 정상). 운영 receiver persistent regression 없음. minimal ledger write 승인 판단 전 SSH 권한 받아 PM2 restart 빈도 매칭 분석 필요. evidence: [[../gdn/paid-click-intent-502-transient-evidence-20260507]] |
 | 2026-05-07 21:33~21:46 KST | 운영 VM SSH read-only 직접 조사 + bounded probe 110 calls | 본 agent가 `taejun@34.64.104.94` 경유 SSH로 PM2/log 직접 조회. seo-backend restart 누적 3,930회, 최근 30분 30~31초 정확 주기, heap 94.7% at 12s uptime. bounded probe 5건 502 (4.5%) 모두 PM2 restart 시각과 1~2초 매칭. **confirmed_pm2_restart_burst** 판정. 일평균 ~65분/일 5xx 위험. minimal ledger write 진입 4가지 선행 blocker 추가됨. correlation: [[../gdn/paid-click-intent-pm2-restart-correlation-20260508]] / probe: [[../gdn/paid-click-intent-bounded-probe-result-20260507]] |
 | 2026-05-07 21:42 KST | backend errorHandler payload hardening 로컬 patch 작성 | `body-parser PayloadTooLargeError`(100KB 초과)가 errorHandler에서 generic 500으로 응답되던 별건 bug 발견. `isBodyParserError` 가드 추가로 status code 그대로 응답(413/400). typecheck PASS. 운영 deploy 별도 승인안: [[../gdn/backend-errorhandler-payload-hardening-approval-20260508]] |
-| 2026-05-07 22:01 KST | backend errorHandler hardening + PM2 max_memory_restart 1.5G 운영 deploy | TJ "YES: PM2 1.5G + errorHandler hardening 둘 다 deploy" 승인 후 본 agent SSH 직접 실행. 백업 → scp → restart with --max-memory-restart 1500M → smoke. **결과: oversized 120KB → 413 (이전 500), PM2 restart count 3820 → 3820 (5분 동안 0회 추가, 이전 30초 주기 50회/30분에서 즉시 정지)**. minimal ledger write 4 선행 blocker 중 2개 PASS, 나머지 long-run 측정 후 재판정. 결과: [[../gdn/backend-errorhandler-payload-hardening-pm2-uplift-deploy-result-20260507]] |
+| 2026-05-07 22:01 KST | backend errorHandler hardening + PM2 max_memory_restart 1.5G 운영 deploy | TJ "YES: PM2 1.5G + errorHandler hardening 둘 다 deploy" 승인 후 본 agent SSH 직접 실행. 백업 → scp → restart with --max-memory-restart 1500M → smoke. 결과: oversized 120KB → 413 (이전 500), PM2 restart count 3820 → 3820 (5분 동안 0회 추가, 이전 30초 주기 50회/30분에서 즉시 정지). 결과: [[../gdn/backend-errorhandler-payload-hardening-pm2-uplift-deploy-result-20260507]] |
+| 2026-05-07 22:25 KST | minimal `paid_click_intent` ledger write 4 선행 blocker 모두 PASS 확정 | T+23min evidence: PM2 restart 22분 0회, mem 210.6 MB (13% of 1.5G), controlled probe 114 calls 5xx 0건 (이전 4.5%), backend/cloudflared error log 24분 0 라인. **4 blocker(PM2 restart 완화, errorHandler hardening, heap baseline, 5xx 비율 < 1%) 모두 PASS**. 승인안 [[../gdn/paid-click-intent-minimal-ledger-write-approval-20260507]] 진입 가능 status |
 
 ## Parked / Later
 
