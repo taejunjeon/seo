@@ -147,7 +147,7 @@ Phase 번호는 과거 작업 영역을 설명하는 이름이다. 실제 개발
 
 현재 open approval: **없음**.
 
-**다음 컨펌 후보**: minimal `paid_click_intent` ledger write 승인안. 4 선행 blocker (PM2 restart 5분 이상 완화, errorHandler hardening deploy, heap baseline < 70%, 5xx 비율 < 1%) **모두 PASS** (2026-05-07 22:25 KST T+23min evidence). 승인안: [[../gdn/paid-click-intent-minimal-ledger-write-approval-20260507]].
+**다음 컨펌 후보**: minimal `paid_click_intent` ledger write 승인안. 4 선행 blocker (PM2 restart 5분 이상 완화, errorHandler hardening deploy, heap baseline < 70%, 5xx 비율 < 1%) **모두 PASS** (2026-05-07 22:25 KST T+23min evidence). **canary 실행 패킷 1장 작성 완료** (TJ 한 줄 회신만 받으면 본 agent가 §6 phase 자율 실행). 승인안: [[../gdn/paid-click-intent-minimal-ledger-write-approval-20260507]] / canary 실행 패킷: [[../gdn/paid-click-intent-minimal-ledger-canary-execution-packet-20260507]].
 
 승인 큐 상세: [[../confirm/!confirm]]
 
