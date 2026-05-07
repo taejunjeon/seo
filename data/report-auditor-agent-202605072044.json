@@ -1,0 +1,91 @@
+{
+  "agent_name": "ReportAuditorAgent",
+  "run_id": "report-auditor-agent-202605072044",
+  "generated_at": "2026-05-07T11:44:41.949Z",
+  "generated_at_kst": "2026-05-07 20:44:41 KST",
+  "lane": "Green",
+  "run_mode": "report_audit",
+  "source": "repo markdown + harness validators + git diff",
+  "window": "20260507",
+  "freshness": "latest available read-only",
+  "confidence": 0.87,
+  "would_write": false,
+  "would_operational_write": false,
+  "writes_local_artifacts": true,
+  "would_send": false,
+  "would_platform_send": false,
+  "would_deploy": false,
+  "no_write_verified": true,
+  "no_operational_write_verified": true,
+  "no_send_verified": true,
+  "no_platform_send_verified": true,
+  "no_deploy_verified": true,
+  "status": "pass",
+  "blocked_reasons": [],
+  "outputs": {
+    "agent_json": "/Users/vibetj/coding/seo/data/report-auditor-agent-202605072044.json",
+    "agent_markdown": "/Users/vibetj/coding/seo/agent/report-auditor-agent-202605072044.md"
+  },
+  "child_runs": [
+    {
+      "name": "validate_wiki_links",
+      "command": "python3 scripts/validate_wiki_links.py \"agent/!aiosagentplan.md\" \"total/!total-current.md\" \"GA4/gtm.md\" \"gdn/!gdnplan.md\" \"gdn/google-ads-vm-ledger-source-recovery-backend-deploy-result-20260507.md\"",
+      "exit_code": 0,
+      "status": "pass",
+      "stdout": "문서: agent/!aiosagentplan.md\n  헤딩 25개, wiki 링크 25개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n문서: total/!total-current.md\n  헤딩 19개, wiki 링크 24개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n문서: GA4/gtm.md\n  헤딩 41개, wiki 링크 0개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n문서: gdn/!gdnplan.md\n  헤딩 57개, wiki 링크 27개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n문서: gdn/google-ads-vm-ledger-source-recovery-backend-deploy-result-20260507.md\n  헤딩 7개, wiki 링크 0개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n✓ 모든 문서 통과\n",
+      "stderr": "",
+      "stdout_tail": "문서: agent/!aiosagentplan.md\n  헤딩 25개, wiki 링크 25개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n문서: total/!total-current.md\n  헤딩 19개, wiki 링크 24개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n문서: GA4/gtm.md\n  헤딩 41개, wiki 링크 0개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n문서: gdn/!gdnplan.md\n  헤딩 57개, wiki 링크 27개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n문서: gdn/google-ads-vm-ledger-source-recovery-backend-deploy-result-20260507.md\n  헤딩 7개, wiki 링크 0개\n  ✓ wiki 링크 전부 헤딩과 매치\n  ✓ GitHub 스타일 앵커 없음\n  ✓ <a id> 태그 없음\n\n✓ 모든 문서 통과",
+      "stderr_tail": ""
+    },
+    {
+      "name": "harness-preflight-check",
+      "command": "python3 scripts/harness-preflight-check.py --strict",
+      "exit_code": 0,
+      "status": "pass",
+      "stdout": "=== harness-preflight-check ===\n\n[1] common harness 정본 3 파일 존재\n\n[2] CLAUDE.md Bootstrap + Preflight + fork 금지\n\n[3] AGENTS.md Preflight + fork 금지\n\n[4a] fork 의심 파일 detect (hardcoded list)\n\n[4b] global fork detect (Y2-C — 250줄+ markdown 에서 common phrase grep)\n\n✓ 모든 검사 통과 (errors 0, warnings 0)\n",
+      "stderr": "",
+      "stdout_tail": "=== harness-preflight-check ===\n\n[1] common harness 정본 3 파일 존재\n\n[2] CLAUDE.md Bootstrap + Preflight + fork 금지\n\n[3] AGENTS.md Preflight + fork 금지\n\n[4a] fork 의심 파일 detect (hardcoded list)\n\n[4b] global fork detect (Y2-C — 250줄+ markdown 에서 common phrase grep)\n\n✓ 모든 검사 통과 (errors 0, warnings 0)",
+      "stderr_tail": ""
+    },
+    {
+      "name": "git-diff-check",
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "pass",
+      "stdout": "",
+      "stderr": "",
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "name": "stale-endpoint-scan",
+      "command": "rg -n \"paid-click-intent/no-send|paid_click_intent/no-send|confirmed-purchase/no-send|confirmed_purchase/no-send|conversion upload|googleAds:mutate|GTM Production publish|operating DB write|운영 DB write\" \"agent/!aiosagentplan.md\" \"total/!total-current.md\" \"GA4/gtm.md\" \"gdn/!gdnplan.md\" \"gdn/google-ads-vm-ledger-source-recovery-backend-deploy-result-20260507.md\" || true",
+      "exit_code": 0,
+      "status": "pass",
+      "stdout": "",
+      "stderr": "bash: rg: command not found\n",
+      "stdout_tail": "",
+      "stderr_tail": "bash: rg: command not found"
+    }
+  ],
+  "summary": {
+    "audited_targets": [
+      "agent/!aiosagentplan.md",
+      "total/!total-current.md",
+      "GA4/gtm.md",
+      "gdn/!gdnplan.md",
+      "gdn/google-ads-vm-ledger-source-recovery-backend-deploy-result-20260507.md"
+    ],
+    "wiki_link_status": "pass",
+    "harness_status": "pass",
+    "diff_check_status": "pass",
+    "stale_endpoint_line_count": 0,
+    "drift_candidate_count": 0,
+    "drift_candidates": []
+  },
+  "next_actions": [
+    "warn이면 drift_candidates를 사람이 읽는 문서에서 용어/endpoint 혼동인지 확인한다.",
+    "failed이면 validate_wiki_links, harness-preflight, diff check 중 실패한 명령을 먼저 수정한다.",
+    "ReportAuditorAgent는 운영 write/send/publish/deploy를 하지 않는다."
+  ]
+}
