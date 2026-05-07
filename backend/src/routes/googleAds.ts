@@ -8,6 +8,7 @@ const GOOGLE_ADS_SCOPE = "https://www.googleapis.com/auth/adwords";
 const DEFAULT_CUSTOMER_ID = "2149990943";
 const INTERNAL_LEDGER_SOURCE = "biocom_imweb";
 const INTERNAL_LEDGER_LIMIT = 10000;
+const OPERATIONAL_LEDGER_CHUNK_DAYS = 10;
 const KNOWN_NPAY_CONVERSION_LABELS = new Set([
   "r0vuCKvy-8caEJixj5EB",
   "3yjICOXRmJccEJixj5EB",
@@ -35,6 +36,23 @@ type DateRange = {
   startAt: string;
   endAt: string;
   timezone: typeof KST_TIME_ZONE;
+};
+
+type OperationalLedgerChunk = {
+  startDate: string;
+  endDate: string;
+  startAt: string;
+  endAt: string;
+};
+
+type OperationalLedgerPage = {
+  entries: AttributionLedgerEntry[];
+  latestLoggedAt: string;
+  itemCount: number;
+  totalEntries: number;
+  truncated: boolean;
+  url: string;
+  chunk: OperationalLedgerChunk;
 };
 
 type GoogleAdsErrorSummary = {
@@ -259,6 +277,8 @@ const shiftIsoDate = (date: string, days: number) => {
   return utc.toISOString().slice(0, 10);
 };
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const resolvePresetDateRange = (preset: DatePreset): DateRange => {
   const today = kstDate(new Date());
   const days = preset === "last_7d" ? 7 : preset === "last_14d" ? 14 : preset === "last_90d" ? 90 : 30;
@@ -275,6 +295,27 @@ const resolvePresetDateRange = (preset: DatePreset): DateRange => {
 
 const isInDateRange = (date: string, range: DateRange) =>
   Boolean(date && date >= range.startDate && date <= range.endDate);
+
+const buildOperationalLedgerChunks = (
+  startDate: string,
+  endDate: string,
+  chunkDays: number,
+): OperationalLedgerChunk[] => {
+  const chunks: OperationalLedgerChunk[] = [];
+  let cursor = startDate;
+  while (cursor <= endDate) {
+    const candidateEnd = shiftIsoDate(cursor, chunkDays - 1);
+    const chunkEnd = candidateEnd > endDate ? endDate : candidateEnd;
+    chunks.push({
+      startDate: cursor,
+      endDate: chunkEnd,
+      startAt: `${cursor}T00:00:00.000+09:00`,
+      endAt: `${chunkEnd}T23:59:59.999+09:00`,
+    });
+    cursor = shiftIsoDate(chunkEnd, 1);
+  }
+  return chunks;
+};
 
 const toObject = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
 
@@ -692,41 +733,126 @@ const normalizeRemoteLedgerEntry = (value: unknown): AttributionLedgerEntry | nu
   };
 };
 
-const loadOperationalLedgerEntries = async (range: DateRange) => {
+const loadOperationalLedgerPage = async (
+  chunk: OperationalLedgerChunk,
+  limit = INTERNAL_LEDGER_LIMIT,
+): Promise<OperationalLedgerPage> => {
   const url = new URL("/api/attribution/ledger", env.ATTRIBUTION_OPERATIONAL_BASE_URL);
   url.searchParams.set("source", INTERNAL_LEDGER_SOURCE);
-  url.searchParams.set("limit", String(INTERNAL_LEDGER_LIMIT));
-  url.searchParams.set("startAt", range.startAt);
-  url.searchParams.set("endAt", range.endAt);
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("startAt", chunk.startAt);
+  url.searchParams.set("endAt", chunk.endAt);
 
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(15000),
-  });
-  const body = await response.json() as unknown;
+  let response: globalThis.Response | null = null;
+  let text = "";
+  let body: unknown = null;
+  const maxAttempts = 4;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      response = await fetch(url, {
+        signal: AbortSignal.timeout(30000),
+      });
+      text = await response.text();
+      body = JSON.parse(text) as unknown;
+      break;
+    } catch {
+      if (attempt < maxAttempts) {
+        await delay(500 * attempt);
+        continue;
+      }
+      const contentType = response?.headers.get("content-type") ?? "";
+      throw new Error(
+        `Operational attribution ledger returned non-JSON response ` +
+        `HTTP ${response?.status ?? "unknown"} content-type=${contentType} url=${url.toString()} ` +
+        `preview=${text.slice(0, 120).replace(/\s+/g, " ")}`,
+      );
+    }
+  }
+
+  if (!response) {
+    throw new Error("Operational attribution ledger request did not run");
+  }
   if (!response.ok || !isRecord(body) || body.ok !== true) {
     throw new Error(`Operational attribution ledger returned HTTP ${response.status}`);
   }
 
-  const entries = (Array.isArray(body.items) ? body.items : [])
+  const rawItems = Array.isArray(body.items) ? body.items : [];
+  const entries = rawItems
     .map(normalizeRemoteLedgerEntry)
     .filter((entry): entry is AttributionLedgerEntry => Boolean(entry));
   const summary = toObject(body.summary);
+  const itemCount = rawItems.length;
+  const totalEntries = toOptionalNumber(summary.totalEntries) ?? itemCount;
 
   return {
     entries,
     latestLoggedAt: toStringValue(summary.latestLoggedAt),
+    itemCount,
+    totalEntries,
+    truncated: totalEntries > itemCount,
     url: url.toString(),
+    chunk,
   };
 };
 
 const loadInternalLedgerEntries = async (range: DateRange) => {
   const warnings: string[] = [];
   try {
-    const operational = await loadOperationalLedgerEntries(range);
+    const chunks = buildOperationalLedgerChunks(
+      range.startDate,
+      range.endDate,
+      OPERATIONAL_LEDGER_CHUNK_DAYS,
+    );
+    const pages: OperationalLedgerPage[] = [];
+    const initialSummaries: OperationalLedgerPage[] = [];
+    for (const chunk of chunks) {
+      initialSummaries.push(await loadOperationalLedgerPage(chunk, 1));
+    }
+
+    for (const summaryPage of initialSummaries) {
+      if (summaryPage.totalEntries === 0) {
+        pages.push(summaryPage);
+        continue;
+      }
+
+      if (summaryPage.totalEntries <= INTERNAL_LEDGER_LIMIT) {
+        const page = summaryPage.totalEntries <= summaryPage.entries.length
+          ? summaryPage
+          : await loadOperationalLedgerPage(summaryPage.chunk);
+        pages.push(page);
+        continue;
+      }
+
+      for (const dailyChunk of buildOperationalLedgerChunks(
+        summaryPage.chunk.startDate,
+        summaryPage.chunk.endDate,
+        1,
+      )) {
+        const dailySummary = await loadOperationalLedgerPage(dailyChunk, 1);
+        const dailyPage = dailySummary.totalEntries <= dailySummary.entries.length
+          ? dailySummary
+          : await loadOperationalLedgerPage(dailyChunk);
+        pages.push(dailyPage);
+      }
+    }
+
+    for (const page of pages) {
+      if (page.truncated) {
+        warnings.push(
+          `운영 VM attribution ledger ${page.chunk.startDate}~${page.chunk.endDate} 응답이 ` +
+          `${page.itemCount}/${page.totalEntries}건으로 잘렸다. 내부 ROAS가 낮게 보일 수 있다.`,
+        );
+      }
+    }
+
     return {
       dataSource: "operational_vm_ledger" as const,
-      entries: operational.entries,
-      latestLoggedAt: operational.latestLoggedAt,
+      entries: pages.flatMap((page) => page.entries),
+      latestLoggedAt: pages
+        .map((page) => page.latestLoggedAt)
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? "",
       warnings,
     };
   } catch (error) {
