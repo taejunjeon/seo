@@ -52,6 +52,29 @@ Do not use for: 운영 DB write, env/secret 변경, 방화벽 변경, root/passw
 ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94
 ```
 
+운영 작업 전에는 항상 아래 3가지를 먼저 확인한다.
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes taejun@34.64.104.94 \
+  'hostname && whoami && sudo -n -u biocomkr_sns bash -lc "whoami && test -d /home/biocomkr_sns/seo/repo/backend && echo repo_ok"'
+```
+
+성공 기준:
+
+```text
+taejun login 가능
+sudo -n -u biocomkr_sns 가능
+repo_ok 출력
+```
+
+실패 시 해석:
+
+| 실패 위치 | 의미 | 다음 조치 |
+|---|---|---|
+| `taejun` SSH 실패 | VM 접근 자체가 막힘 | GCP Console SSH 또는 IAM/방화벽 확인 |
+| `sudo -n` 실패 | 비밀번호 없는 sudo 권한 문제 | TJ님이 VM에서 sudoers 확인 |
+| `repo_ok` 없음 | repo 경로 변경 또는 권한 문제 | `/home/biocomkr_sns/seo` 구조 재확인 |
+
 운영 backend repo와 PM2 상태를 보려면 아래처럼 실행한다.
 
 ```bash
@@ -65,6 +88,70 @@ ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
 ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
   'sudo -n -u biocomkr_sns bash -lc '\''export PATH=/home/biocomkr_sns/seo/node/bin:$PATH; cd /home/biocomkr_sns/seo/repo/backend && pm2 restart seo-backend --update-env && pm2 save'\'''
 ```
+
+## 배포 전 안전 체크
+
+운영 VM에서 코드를 바꾸거나 PM2를 재시작하기 전에는 아래를 먼저 기록한다.
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
+  'sudo -n -u biocomkr_sns bash -lc '\''export PATH=/home/biocomkr_sns/seo/node/bin:$PATH; cd /home/biocomkr_sns/seo/repo && git rev-parse --short HEAD && git status --short && pm2 ls --no-color'\'''
+```
+
+해석:
+
+- `git status --short`에 예상하지 못한 변경이 있으면 배포를 멈춘다.
+- PM2에 `seo-backend`, `seo-frontend`, `seo-cloudflared`가 보이는지 확인한다.
+- env/secret 변경은 이 런북 범위 밖이다.
+
+## 배포 후 smoke 체크
+
+backend 재시작 후 최소 아래를 확인한다.
+
+```bash
+curl -sS https://att.ainativeos.net/health | head -c 500
+```
+
+paid_click_intent no-write receiver가 살아 있는지 확인한다.
+
+```bash
+curl -sS -H 'Origin: https://biocom.kr' \
+  -H 'Content-Type: application/json' \
+  -H 'User-Agent: curl/8.7.1 smoke-runner' \
+  --data '{"site":"biocom","platform_hint":"google_ads","gclid":"TEST_GCLID_RUNBOOK_20260507","landing_url":"https://biocom.kr/?gclid=TEST_GCLID_RUNBOOK_20260507&utm_source=google&utm_medium=cpc","referrer":"https://www.google.com/","client_id":"runbook.1","ga_session_id":"runbook_session","captured_at":"2026-05-07T00:42:00+09:00"}' \
+  https://att.ainativeos.net/api/attribution/paid-click-intent/no-send
+```
+
+성공 기준:
+
+```text
+ok=true
+would_store=false
+would_send=false
+no_platform_send_verified=true
+test_click_id=true
+live_candidate_after_approval=false
+```
+
+## rollback 기준
+
+아래 중 하나라도 발생하면 신규 변경을 되돌릴 후보로 둔다.
+
+| 기준 | 대응 |
+|---|---|
+| `/health` 실패 | PM2 로그 확인 후 이전 backend 백업 복구 |
+| receiver 5xx 지속 | route disable 또는 이전 backend archive 복구 |
+| 결제/NPay 흐름 이상 | GTM tag pause와 backend route 영향 분리 |
+| 외부 플랫폼 전송 의심 | 즉시 중단. GA4/Meta/Google Ads 전송 경로 감사 |
+| raw payload logging 발견 | receiver logging 차단 후 로그 보관 범위 점검 |
+
+Mode B 당시 backend 백업 위치:
+
+```text
+/home/biocomkr_sns/seo/shared/deploy-backups/20260506_paid_click_intent_no_send/backend-attribution-prev.tgz
+```
+
+이 백업은 `paid_click_intent/no-send` route 배포 직전 attribution route 백업이다. 전체 repo rollback이 아니라 해당 route 복구용으로 봐야 한다.
 
 ## 직접 biocomkr_sns 로그인 복구 방법
 
@@ -229,4 +316,4 @@ Codex는 직접 `biocomkr_sns` 로그인 복구 대신, 현재 동작하는 `tae
 남은 것:
 
 - 직접 `biocomkr_sns` 로그인을 복구할지 TJ님 선택.
-- receiver-enabled GTM publish와 24h/72h 모니터링.
+- receiver-enabled GTM publish는 완료됐다. 남은 것은 24h/72h 모니터링과 직접 `biocomkr_sns` SSH 복구 여부 판단이다.

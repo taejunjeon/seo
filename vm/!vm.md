@@ -31,7 +31,40 @@ ssh taejun@34.64.104.94
 - Key comment: `taejun@biocom.kr`
 - 이후 rsync/scp 도 같은 경로로 가능
 
-### 1.1 sudo 로 biocomkr_sns 로 작업
+### 1.1 현재 우회 접속 기준 (2026-05-06 확인)
+
+운영 VM SSH는 완전히 막힌 상태가 아니다. 직접 운영 계정 로그인은 실패하지만, `taejun` 계정으로 들어간 뒤 `sudo -u biocomkr_sns`로 운영 repo와 PM2 작업이 가능하다.
+
+현재 실패하는 경로:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes biocomkr_sns@34.64.104.94
+# Permission denied (publickey)
+```
+
+현재 동작하는 우회 경로:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94
+```
+
+운영 backend 상태를 한 줄로 확인:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
+  'sudo -n -u biocomkr_sns bash -lc '\''export PATH=/home/biocomkr_sns/seo/node/bin:$PATH; cd /home/biocomkr_sns/seo/repo/backend && pm2 describe seo-backend --no-color | sed -n "1,35p"'\'''
+```
+
+운영 backend restart가 필요할 때:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
+  'sudo -n -u biocomkr_sns bash -lc '\''export PATH=/home/biocomkr_sns/seo/node/bin:$PATH; cd /home/biocomkr_sns/seo/repo/backend && pm2 restart seo-backend --update-env && pm2 save'\'''
+```
+
+`att.ainativeos.net`은 Cloudflare Tunnel HTTP 도메인이다. SSH 도메인이 아니므로 `ssh att.ainativeos.net` 방식으로 접근하지 않는다.
+
+### 1.2 sudo 로 biocomkr_sns 로 작업
 
 ```bash
 sudo -iu biocomkr_sns bash
@@ -44,6 +77,55 @@ Node PATH 는 login shell 에서 자동 로딩 안 됨. 명령 실행 시 직접
 ```bash
 sudo -u biocomkr_sns bash -lc 'export PATH=/home/biocomkr_sns/seo/node/bin:$PATH; node --version'
 ```
+
+### 1.3 직접 `biocomkr_sns` SSH 복구 방법
+
+직접 운영 계정 로그인을 복구하려면 **공개키만** `/home/biocomkr_sns/.ssh/authorized_keys`에 등록한다. 개인키(`~/.ssh/id_ed25519`)는 서버나 문서에 붙여 넣지 않는다.
+
+1. 로컬에서 공개키를 확인한다.
+
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+
+2. `taejun` 경유로 VM에 접속한다.
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94
+```
+
+3. VM 안에서 아래 명령을 실행한다. `ssh-ed25519 AAAA... user@host` 부분은 1번에서 확인한 공개키 한 줄로 바꾼다.
+
+```bash
+sudo bash -lc '
+set -euo pipefail
+install -d -m 700 -o biocomkr_sns -g biocomkr_sns /home/biocomkr_sns/.ssh
+touch /home/biocomkr_sns/.ssh/authorized_keys
+chown biocomkr_sns:biocomkr_sns /home/biocomkr_sns/.ssh/authorized_keys
+chmod 600 /home/biocomkr_sns/.ssh/authorized_keys
+grep -qxF "ssh-ed25519 AAAA... user@host" /home/biocomkr_sns/.ssh/authorized_keys \
+  || printf "%s\n" "ssh-ed25519 AAAA... user@host" >> /home/biocomkr_sns/.ssh/authorized_keys
+'
+```
+
+4. 로컬에서 직접 로그인 복구 여부를 검증한다.
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes biocomkr_sns@34.64.104.94 \
+  'hostname && whoami && cd /home/biocomkr_sns/seo/repo/backend && export PATH=/home/biocomkr_sns/seo/node/bin:$PATH && pm2 ls --no-color'
+```
+
+`taejun` 접속까지 막힌 경우에는 GCP Console 브라우저 SSH를 사용한다.
+
+```text
+Google Cloud Console
+→ Compute Engine
+→ VM instances
+→ instance-20260412-035206
+→ SSH
+```
+
+브라우저 SSH로 들어간 뒤에는 위 3번의 `authorized_keys` 등록 명령만 실행하면 된다. 자세한 복구 런북은 [capivm/vm-ssh-access-recovery-runbook-20260506.md](../capivm/vm-ssh-access-recovery-runbook-20260506.md)에 있다.
 
 ## 2. PM2 앱 목록 (2026-04-24 기준)
 
@@ -188,6 +270,8 @@ sudo apt-get update && sudo apt-get install -y rsync
 | `cannot open /home/biocomkr_sns` (taejun) | 다른 user 홈 접근 제한 | `sudo -u biocomkr_sns` 경로로 실행 |
 | cloudflared config 편집 안 됨 | token 모드 (config.yml 없음) | Zero Trust Dashboard 에서 Public Hostname 관리 |
 | VM 에 rsync 없음 | 기본 미설치 | `tar czf - . \| ssh "tar xzf - -C /dst"` 로 대체 or `sudo apt install rsync` |
+| `biocomkr_sns@34.64.104.94` → `Permission denied (publickey)` | 운영 계정 `authorized_keys`에 현재 Mac 공개키가 없거나 OS Login/metadata 반영이 사라짐 | 우선 `taejun@34.64.104.94`로 접속 후 `sudo -u biocomkr_sns`로 작업. 직접 복구는 §1.3 공개키 재등록 |
+| `ssh att.ainativeos.net` 실패 | `att.ainativeos.net`은 HTTP Cloudflare Tunnel 도메인이지 SSH endpoint가 아님 | SSH는 외부 IP `34.64.104.94`와 `taejun` 경유 사용 |
 | 빌드 중 OOM | 메모리 제약 | 스왑 2GB 추가: `sudo fallocate -l 2G /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile` |
 
 ## 7. 보안 · 참고
@@ -202,10 +286,12 @@ sudo apt-get update && sudo apt-get install -y rsync
 |---|---|
 | 2026-04-12 | VM 생성 · backend + cloudflared 초기 배포 (`capivm/vmdeploy.md`) |
 | 2026-04-24 | taejun public key 등록 · frontend(seo-frontend) 배포 추가 · 정본 문서 신설 |
+| 2026-05-07 | 직접 `biocomkr_sns` SSH 실패 시 `taejun` 경유 우회 방법과 공개키 재등록 복구 절차 추가 |
 
 ## 9. 참고 문서
 
 - [capivm/vmdeploy.md](../capivm/vmdeploy.md) — 최초 backend 배포 기록
+- [capivm/vm-ssh-access-recovery-runbook-20260506.md](../capivm/vm-ssh-access-recovery-runbook-20260506.md) — 운영 VM SSH 우회·복구 상세 런북
 - [capivm/deploy-frontend.md](../capivm/deploy-frontend.md) — frontend 배포 가이드 (초안)
 - [capivm/ecosystem.config.cjs](../capivm/ecosystem.config.cjs) — pm2 3개 앱 정의
 - [capivm/deploy-frontend-rsync.sh](../capivm/deploy-frontend-rsync.sh) — rsync 래퍼 (VM rsync 설치 후 사용 가능)
