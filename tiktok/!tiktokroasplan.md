@@ -1,8 +1,55 @@
 # TikTok ROAS 정합성 프로젝트 로드맵
 
 작성 시각: 2026-05-04 15:20 KST
-기준일: 2026-05-04
-버전: v3.30-events-api-shadow-missed-order-audit (이전본: `v3.29-events-api-shadow-v21-no-candidates`)
+최종 업데이트: 2026-05-07 14:15 KST
+기준일: 2026-05-07
+버전: v3.32-tiktok-off-prebaseline (이전본: `v3.31-tiktok-off-revenue-impact-test`)
+
+## 2026-05-07 최신 운영 결론
+
+그로스팀 의견을 반영해 TikTok 광고는 2026-05-08 ~ 2026-05-14 KST 7일간 일시 OFF하고, 2026-05-15 KST에 실제 매출 영향도를 확인한 뒤 재개 여부를 판단한다.
+
+핵심 이유는 2026-04-29 수요일 예산 감액 이후 GA4 구매 전환은 0건인데, TikTok 대시보드는 약 590만원 매출을 주장하고 있기 때문이다. 이 차이가 실제 assisted 매출인지, TikTok 플랫폼의 과대 attribution인지 보려면 TikTok 광고를 끈 기간의 전체 confirmed 매출을 봐야 한다.
+
+현재 판단:
+- TikTok 대시보드 매출은 예산 판단의 primary로 쓰지 않는다.
+- Primary는 전체 사이트 confirmed 매출과 confirmed 주문수다.
+- TikTok GA4 purchase, TikTok VM confirmed, TikTok Ads Manager 매출은 cross-check로 본다.
+- Smart+ 캠페인이 UTM 없는 다른 랜딩으로 보냈을 가능성은 보조 검산으로 둔다. 그로스팀 확인상 최초 세팅부터 스마트 세팅이었다면 2026-04-29 이후 갑자기 생긴 주 원인일 가능성은 낮다.
+
+세부 운영 계획:
+- 그로스팀 전달 보고서: [[tiktok_growth_team_report_20260505]]
+- OFF 매출 영향도 검증 계획: [[tiktok_off_revenue_impact_plan_20260508_20260514]]
+- OFF 전 예비 baseline 집계: [[tiktok_off_prebaseline_20260507]]
+
+OFF 전 예비 baseline:
+- 기준 시각: 2026-05-07 14:15 KST
+- window: 2026-05-01 ~ 2026-05-07 KST
+- 주의: 2026-05-07 하루는 아직 미마감이다. 2026-05-08 오전 최종 baseline으로 다시 닫는다.
+- 전체 confirmed: 411건 / 106,941,035원
+- 테스트 주문 제외 사업 판단용 confirmed: 410건 / 106,929,135원
+- TikTok strict confirmed: 0건 / 0원
+- TikTok firstTouch 후보: 1건 / 234,000원
+- GA4 TikTok purchase: 0건 / 0원
+- TikTok Ads 플랫폼 주장: 12건 / 3,218,171원
+
+해석: OFF 테스트의 primary는 TikTok 플랫폼 매출 주장이 아니라 전체 confirmed 매출/주문수다. TikTok firstTouch 후보 1건은 보조 신호로만 보고, strict confirmed나 Events API send 후보로 승격하지 않는다.
+
+진행 추천 자신감:
+- 2026-05-08 ~ 2026-05-14 TikTok OFF 테스트: 92%
+- 2026-05-15 내부 confirmed 기준 판정: 90%
+- OFF 전 Smart+ 랜딩/UTM 보조 검산: 78%
+- 지금 TikTok 재증액: 10%
+
+## 2026-05-07 다음 할일
+
+| 순서 | Lane | 담당 | 할 일 | 왜 하는가 | 어떻게 하는가 | 데이터/DB 위치 | 컨펌 필요 | 자신감 |
+|---:|---|---|---|---|---|---|---|---:|
+| 1 | Red | TJ + 그로스팀 | 2026-05-08 ~ 2026-05-14 KST TikTok 광고 OFF 실행 | TikTok 대시보드 약 590만원 매출 주장이 실제 사업 매출인지 확인하기 위해서다 | TikTok Ads Manager에서 캠페인 OFF 또는 spend 0원 상태로 둔다 | TikTok Ads Manager | YES | 92% |
+| 2 | Green | Codex | 2026-05-08 오전 최종 baseline 마감 | 2026-05-07 하루가 끝난 뒤 OFF 전 기준값을 확정해야 한다 | 2026-05-01 ~ 2026-05-07 전체 confirmed 매출/주문수, TikTok GA4 purchase, TikTok VM confirmed를 같은 쿼리로 다시 닫는다 | GA4 Data API, TJ 관리 Attribution VM SQLite, 필요 시 운영DB read-only | NO | 92% |
+| 3 | Green | Codex | OFF 기간 일별 모니터링 | TikTok을 껐을 때 실제 매출 하락이 있는지 봐야 한다 | 2026-05-08 ~ 2026-05-14 일별 confirmed 매출/주문수와 Meta/Google 보조 지표를 기록한다 | GA4 Data API, TJ 관리 Attribution VM SQLite, 필요 시 운영DB read-only | NO | 88% |
+| 4 | Green | 그로스팀 | Smart+ 랜딩/UTM 설정 캡처 | UTM 없는 랜딩 가설을 주 원인에서 제외할 수 있는지 확인한다 | 캠페인별 Destination URL, Smart+ landing page 확장, URL 확장 옵션을 캡처한다 | TikTok Ads Manager | NO | 78% |
+| 5 | Green | Codex | 2026-05-15 결과 보고서 작성 | 재개/중단/보류를 감이 아니라 내부 confirmed 매출 기준으로 결정하기 위해서다 | baseline 대비 OFF 기간 매출, 주문수, TikTok GA4/VM 신호, TikTok 플랫폼 주장값을 분리해 보고한다 | 문서 + `/ads/tiktok` + GA4/VM read-only | NO | 90% |
 
 ## 2026-05-04 read-only 미탐지 감사
 
