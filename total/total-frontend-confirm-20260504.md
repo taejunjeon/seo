@@ -1,7 +1,7 @@
 # `/total` 프론트엔드 1차 컨펌 요청
 
 작성: 2026-05-04 23:45 KST · 작성자: Claude Code
-짝 문서: [[total-frontend-handoff-20260504]] · [[total-api-contract-20260504]] · [[!total]]
+짝 문서: [[total-frontend-handoff-20260504]] · [[total-api-contract-20260504]] · [[!total_past]]
 
 ```yaml
 harness_preflight:

@@ -199,7 +199,7 @@ biocom GA4 BigQuery raw 권한도 막혀 있지만, 먼저 Codex가 platformRefe
 | 시각 | 변경 |
 |---|---|
 | 2026-05-04 17:16 KST | 최초 작성. source freshness, Attribution VM API, 운영 Postgres read-only 확인 결과를 월별 채널 매출 source inventory로 정리 |
-| 2026-05-04 17:45 KST | [[!total]] 및 [[join-key-matrix-20260504]] 연결. 다음 작업을 주문·결제 spine dry-run SQL/API 계약으로 갱신 |
+| 2026-05-04 17:45 KST | [[!total_past]] 및 [[join-key-matrix-20260504]] 연결. 다음 작업을 주문·결제 spine dry-run SQL/API 계약으로 갱신 |
 | 2026-05-04 18:05 KST | [[monthly-spine-dry-run-contract-20260504]] 연결. 다음 작업을 dry-run script/read-only route 초안으로 갱신 |
 | 2026-05-04 18:01 KST | `backend/scripts/monthly-spine-dry-run.ts` 검증 완료 반영. 다음 작업을 Attribution VM evidence join 계약으로 갱신 |
 | 2026-05-04 18:04 KST | [[attribution-vm-evidence-join-contract-20260504]] 연결. 다음 작업을 evidence join dry-run script 초안으로 갱신 |
