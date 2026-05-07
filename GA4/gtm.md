@@ -4,7 +4,13 @@
 작성자: Claude Code + Codex (GTM API 직접 조회)
 근거: GTM API v2 snapshot, live version 138, `gtmaudit/gtm-ga4-purchase-duplicates-result-20260424144504.json`, Workspace 147 tag 118 quick_preview, 2026-05-04 live version 140 read-only recheck
 대상 컨테이너: `GTM-W2Z6PHN` (biocom.kr)
-관련 문서: [[confirmed_stopline|roadmap/confirmed_stopline.md]] C-Sprint 5, [[transaction_id_not_set_investigation|data/analysis/transaction_id_not_set_investigation.md]]
+관련 문서: [[confirmed_stopline|roadmap/confirmed_stopline.md]] C-Sprint 5, [[transaction_id_not_set_investigation|data/analysis/transaction_id_not_set_investigation.md]], [[google-tag-gateway-poc-approval-20260507|google-tag-gateway-poc-approval-20260507.md]]
+
+## Google tag gateway POC (조사·승인안)
+
+2026-05-07 KST 조사. biocom.kr · www.biocom.kr · thecleancoffee.com 모두 AWS CloudFront(Imweb 자사몰) 위에서 동작하므로 Cloudflare wizard는 즉시 적용 불가다. 활성화 옵션은 ① Cloudflare 도입(DNS 이전) ② Imweb native 지원 확인 ③ 자체 backend custom 구현이다. 기대 효과는 Google 측정 신호 일부 회복이며, NPay confirmed_purchase 오염·Meta CAPI·BigQuery join은 본 기능으로 해결되지 않는다.
+
+승인안 본문: [[google-tag-gateway-poc-approval-20260507|google-tag-gateway-poc-approval-20260507.md]]
 
 ## 10초 요약
 
