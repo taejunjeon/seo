@@ -1,0 +1,72 @@
+{
+  "agent_name": "CoffeeDataAgent",
+  "run_id": "coffee-data-agent-202605072013",
+  "generated_at": "2026-05-07T11:13:56.404Z",
+  "generated_at_kst": "2026-05-07 20:13:56 KST",
+  "lane": "Green",
+  "run_mode": "read_only",
+  "source": "coffee monitoring endpoint + A-6 public ledger dry-run",
+  "window": "20260507",
+  "freshness": "latest available read-only",
+  "confidence": 0.86,
+  "would_write": false,
+  "would_operational_write": false,
+  "writes_local_artifacts": true,
+  "would_send": false,
+  "would_platform_send": false,
+  "would_deploy": false,
+  "no_write_verified": true,
+  "no_operational_write_verified": true,
+  "no_send_verified": true,
+  "no_platform_send_verified": true,
+  "no_deploy_verified": true,
+  "status": "pass",
+  "blocked_reasons": [],
+  "outputs": {
+    "monitoring_yaml": "/Users/vibetj/coding/seo/data/coffee-npay-intent-monitoring-20260507.yaml",
+    "a6_dry_run_txt": "/Users/vibetj/coding/seo/data/coffee-a6-ledger-join-dry-run-20260507.txt",
+    "agent_json": "/Users/vibetj/coding/seo/data/coffee-data-agent-202605072013.json",
+    "agent_markdown": "/Users/vibetj/coding/seo/agent/coffee-data-agent-202605072013.md"
+  },
+  "child_runs": [
+    {
+      "name": "coffee-npay-intent-monitoring-report",
+      "command": "cd backend && npx tsx scripts/coffee-npay-intent-monitoring-report.ts --endpoint https://att.ainativeos.net --publish-ts \"2026-05-02 15:00\" --output /Users/vibetj/coding/seo/data/coffee-npay-intent-monitoring-20260507.yaml",
+      "exit_code": 0,
+      "status": "pass",
+      "stdout": "report_id: coffee-npay-intent-monitoring-202605072013\ncaptured_at_kst: 2026-05-07 20:13:56\npublish_ts_kst: 2026-05-02 15:00\ndays_since_publish: 5\nmode: day6\nbackend_endpoint: https://att.ainativeos.net\n\n# Section 1: backend dormancy\nenforce_flag_active: true\nsmoke_window_active: false\n\n# Section 2: 핵심 메트릭\nM-1_total_rows_excl_test: 0\nM-1_test_rows_excluded: 0\nM-2_rows_with_imweb_order_code: 0\nM-3_imweb_order_code_coverage_pct: n/a\nM-4_enforce_inserted: 0\nM-5_enforce_deduped: 0\nM-5_enforce_deduped_ratio_pct: n/a\nM-6_invalid_origin: 0\nM-7_rate_limited: 0\nM-8_preview_only_violation: 0\nM-9_is_simulation_blocked: 0\nM-10_pii_rejected: 0\nM-11_endpoint_5xx: manual_pm2_logs_grep\nM-12_rows_with_ga4_synthetic_transaction_id: 0\n\n# Section 3: payment_button_type 점검\npayment_button_type_null_in_confirm_to_pay: 0\n\n# Section 4: join 메트릭\n# join-report skipped (admin token 미지정 또는 fetch 실패)\n\n# Section 4.5: user_agent_class split (mobile / pc / unknown)\nUA-mobile_intent_count: 0\nUA-mobile_confirm_to_pay_count: 0\nUA-mobile_rows_with_imweb_order_code: 0\nUA-mobile_imweb_order_code_capture_pct: n/a\nUA-mobile_payment_button_type_null_in_confirm: 0\nUA-mobile_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)\nUA-mobile_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)\nUA-mobile_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)\nUA-pc_intent_count: 0\nUA-pc_confirm_to_pay_count: 0\nUA-pc_rows_with_imweb_order_code: 0\nUA-pc_imweb_order_code_capture_pct: n/a\nUA-pc_payment_button_type_null_in_confirm: 0\nUA-pc_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)\nUA-pc_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)\nUA-pc_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)\nUA-unknown_intent_count: 0\nUA-unknown_confirm_to_pay_count: 0\nUA-unknown_rows_with_imweb_order_code: 0\nUA-unknown_imweb_order_code_capture_pct: n/a\nUA-unknown_payment_button_type_null_in_confirm: 0\nUA-unknown_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)\nUA-unknown_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)\nUA-unknown_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)\n\n# Section 5: stop 조건\nF-violations_auto: []\nstop_required: false\n\n# Section 6: 조기 게이트 (EG-1~EG-9)\nEG-1_imweb_order_code_coverage_ge_95: n/a (no real rows)\nEG-3_enforce_deduped_ratio_le_5: PASS\nEG-4_payment_button_type_null_in_confirm: PASS\nEG-5_invalid_origin_zero: PASS\nEG-5_rate_limited_zero: PASS\nEG-5_preview_only_violation_zero: PASS\nEG-5_is_simulation_blocked_zero: PASS\nEG-6_pii_rejected_zero: PASS\n\n# Section 7: verdict\nverdict: closure-ready (auto-evaluated)\nauto_metric_only: true   # F-9 ~ F-14, D-1~D-3, M-11 manual\n\n",
+      "stderr": "[info] wrote /Users/vibetj/coding/seo/data/coffee-npay-intent-monitoring-20260507.yaml\n",
+      "stdout_tail": "utton_type_null_in_confirm: 0\nUA-pc_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)\nUA-pc_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)\nUA-pc_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)\nUA-unknown_intent_count: 0\nUA-unknown_confirm_to_pay_count: 0\nUA-unknown_rows_with_imweb_order_code: 0\nUA-unknown_imweb_order_code_capture_pct: n/a\nUA-unknown_payment_button_type_null_in_confirm: 0\nUA-unknown_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)\nUA-unknown_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)\nUA-unknown_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)\n\n# Section 5: stop 조건\nF-violations_auto: []\nstop_required: false\n\n# Section 6: 조기 게이트 (EG-1~EG-9)\nEG-1_imweb_order_code_coverage_ge_95: n/a (no real rows)\nEG-3_enforce_deduped_ratio_le_5: PASS\nEG-4_payment_button_type_null_in_confirm: PASS\nEG-5_invalid_origin_zero: PASS\nEG-5_rate_limited_zero: PASS\nEG-5_preview_only_violation_zero: PASS\nEG-5_is_simulation_blocked_zero: PASS\nEG-6_pii_rejected_zero: PASS\n\n# Section 7: verdict\nverdict: closure-ready (auto-evaluated)\nauto_metric_only: true   # F-9 ~ F-14, D-1~D-3, M-11 manual",
+      "stderr_tail": "[info] wrote /Users/vibetj/coding/seo/data/coffee-npay-intent-monitoring-20260507.yaml"
+    },
+    {
+      "name": "coffee-a6-ledger-join-dry-run",
+      "command": "cd backend && npx tsx scripts/coffee-a6-ledger-join-dry-run.ts --endpoint https://att.ainativeos.net",
+      "exit_code": 0,
+      "status": "pass",
+      "stdout": "# A-6 ledger join dry-run\n# endpoint: https://att.ainativeos.net\n# captured_at: 2026-05-07 20:13:57 KST\n\n# === summary ===\ntotal_items: 14\ntest_rows: 8  # 보고서/A-6 send 에서 제외\nreal_rows: 6  # A-6 send 후보\nreal_with_imweb_order_code: 4  # A-6 join 가능 후보\nreal_with_imweb_order_code_and_confirm_to_pay: 4\nreal_no_imweb_order_code: 2  # A-6 send 불가 (deterministic key 부재)\n\n# === a6_join_eligibility ===\na6_join_eligibility_pct: 66.7  # confirm_to_pay AND imweb_order_code 존재 비율\na6_send_target_count: 4  # 본 시점 A-6 send 후보 (운영 ledger 누적)\n\n# === backend stats ===\nenforce_flag_active: true\nproduction_mode_active: true\ntotal_rows: 14\nrows_with_imweb_order_code: 11\n\n# === note ===\n# 본 dry-run 은 ledger 의 imweb_order_code 분포만 산출.\n# 실제 imweb_orders 테이블 (운영 PG) join 은 sprint 22.1 (A-5 closure 후) 에서 진행.\n# 그 시점 ledger row 의 order_code 가 imweb_orders.order_code 와 1:1 deterministic join 가능 여부 검증.\n",
+      "stderr": "",
+      "stdout_tail": "# A-6 ledger join dry-run\n# endpoint: https://att.ainativeos.net\n# captured_at: 2026-05-07 20:13:57 KST\n\n# === summary ===\ntotal_items: 14\ntest_rows: 8  # 보고서/A-6 send 에서 제외\nreal_rows: 6  # A-6 send 후보\nreal_with_imweb_order_code: 4  # A-6 join 가능 후보\nreal_with_imweb_order_code_and_confirm_to_pay: 4\nreal_no_imweb_order_code: 2  # A-6 send 불가 (deterministic key 부재)\n\n# === a6_join_eligibility ===\na6_join_eligibility_pct: 66.7  # confirm_to_pay AND imweb_order_code 존재 비율\na6_send_target_count: 4  # 본 시점 A-6 send 후보 (운영 ledger 누적)\n\n# === backend stats ===\nenforce_flag_active: true\nproduction_mode_active: true\ntotal_rows: 14\nrows_with_imweb_order_code: 11\n\n# === note ===\n# 본 dry-run 은 ledger 의 imweb_order_code 분포만 산출.\n# 실제 imweb_orders 테이블 (운영 PG) join 은 sprint 22.1 (A-5 closure 후) 에서 진행.\n# 그 시점 ledger row 의 order_code 가 imweb_orders.order_code 와 1:1 deterministic join 가능 여부 검증.",
+      "stderr_tail": ""
+    }
+  ],
+  "summary": {
+    "a5_verdict": "closure-ready (auto-evaluated)",
+    "a5_stop_required": "false",
+    "a5_real_rows": 0,
+    "a6_real_rows": 6,
+    "a6_join_eligibility_pct": 66.7,
+    "a6_send_target_count": 4,
+    "notes": {
+      "a5_real_rows": "monitoring report M-1_total_rows_excl_test",
+      "a6_real_rows": "A-6 send 후보 real row 수",
+      "a6_join_eligibility_pct": "confirm_to_pay AND imweb_order_code 존재 비율",
+      "a6_send_target_count": "본 시점 A-6 send 후보, 운영 ledger 누적"
+    }
+  },
+  "next_actions": [
+    "KST 18:00 cron 산출물 이후 재실행해 A-5 closure를 재판정한다.",
+    "A-5 PASS가 유지되면 A-6 backend no-send 배포 승인안을 작성한다.",
+    "Coffee GA4/Meta 실제 전송은 계속 Red Lane으로 유지한다."
+  ]
+}

@@ -1,0 +1,26 @@
+# A-6 ledger join dry-run
+# endpoint: https://att.ainativeos.net
+# captured_at: 2026-05-07 20:13:57 KST
+
+# === summary ===
+total_items: 14
+test_rows: 8  # 보고서/A-6 send 에서 제외
+real_rows: 6  # A-6 send 후보
+real_with_imweb_order_code: 4  # A-6 join 가능 후보
+real_with_imweb_order_code_and_confirm_to_pay: 4
+real_no_imweb_order_code: 2  # A-6 send 불가 (deterministic key 부재)
+
+# === a6_join_eligibility ===
+a6_join_eligibility_pct: 66.7  # confirm_to_pay AND imweb_order_code 존재 비율
+a6_send_target_count: 4  # 본 시점 A-6 send 후보 (운영 ledger 누적)
+
+# === backend stats ===
+enforce_flag_active: true
+production_mode_active: true
+total_rows: 14
+rows_with_imweb_order_code: 11
+
+# === note ===
+# 본 dry-run 은 ledger 의 imweb_order_code 분포만 산출.
+# 실제 imweb_orders 테이블 (운영 PG) join 은 sprint 22.1 (A-5 closure 후) 에서 진행.
+# 그 시점 ledger row 의 order_code 가 imweb_orders.order_code 와 1:1 deterministic join 가능 여부 검증.

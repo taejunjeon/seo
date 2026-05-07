@@ -1,0 +1,225 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-07T11:13:56.800Z",
+  "generated_at_kst": "2026-05-07 20:13:56 KST",
+  "source": {
+    "workbook": "/Users/vibetj/Downloads/campaign-mapping-manual-check-template-20260505 (1).csv",
+    "alias_seed": "/Users/vibetj/coding/seo/data/meta_campaign_aliases.biocom.json",
+    "audit": "/Users/vibetj/coding/seo/data/meta_campaign_alias_audit.biocom.json"
+  },
+  "summary": {
+    "manual_rows": 10,
+    "bucket_counts": {
+      "split_required_order_level_needed": 6,
+      "precision_loss_review": 2,
+      "mapped_manual": 1,
+      "excluded_from_meta_roas": 1
+    },
+    "decision_counts": {
+      "분리": 7,
+      "확정": 2,
+      "제외": 1
+    },
+    "block_reason_counts": {
+      "read_only_phase": 10,
+      "split_required": 6,
+      "order_level_campaign_evidence_required": 6,
+      "audit_missing_or_stale": 3,
+      "campaign_id_precision_loss_possible": 2,
+      "manual_confirmed": 1,
+      "excluded_by_growth_manual": 1,
+      "not_meta_campaign_roas": 1
+    },
+    "split_required_revenue": 10396950
+  },
+  "rows": [
+    {
+      "target": "fbclid only (/sosohantoon01, /kangman03, /shop_view/?idx=503)",
+      "final_decision": "확정",
+      "dry_run_bucket": "precision_loss_review",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [
+        "120242626179290000"
+      ],
+      "confirmed_orders": 0,
+      "confirmed_revenue": 0,
+      "block_reasons": [
+        "read_only_phase",
+        "campaign_id_precision_loss_possible"
+      ],
+      "confidence": 0.55,
+      "next_action": "Excel에서 campaign id가 000으로 반올림/손상됐을 수 있다. Ads Manager 원본 id로 재확인."
+    },
+    {
+      "target": "meta_biocom_sosohantoon01_igg",
+      "final_decision": "분리",
+      "dry_run_bucket": "split_required_order_level_needed",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [
+        "120242626179290396",
+        "120237452088280396"
+      ],
+      "confirmed_orders": 12,
+      "confirmed_revenue": 3933000,
+      "block_reasons": [
+        "read_only_phase",
+        "split_required",
+        "order_level_campaign_evidence_required",
+        "audit_missing_or_stale"
+      ],
+      "confidence": 0.82,
+      "next_action": "주문별 campaign/adset/ad id, URL Parameters, 날짜 window로 mapped/still_split/quarantine 재산출."
+    },
+    {
+      "target": "meta_biocom_kkunoping02_igg",
+      "final_decision": "확정",
+      "dry_run_bucket": "mapped_manual",
+      "selected_campaign_id": "120242626179290400",
+      "candidate_campaign_ids": [
+        "120242626179290400"
+      ],
+      "confirmed_orders": 1,
+      "confirmed_revenue": 675000,
+      "block_reasons": [
+        "read_only_phase",
+        "manual_confirmed",
+        "audit_missing_or_stale"
+      ],
+      "confidence": 0.88,
+      "next_action": "seed selected_campaign_id 반영 가능. 단 최신 order-level evidence로 사후 검산."
+    },
+    {
+      "target": "meta_biocom_skintts1_igg",
+      "final_decision": "분리",
+      "dry_run_bucket": "split_required_order_level_needed",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [
+        "120244759209860396",
+        "120213362391690396",
+        "120235591897270396"
+      ],
+      "confirmed_orders": 0,
+      "confirmed_revenue": 0,
+      "block_reasons": [
+        "read_only_phase",
+        "split_required",
+        "order_level_campaign_evidence_required",
+        "audit_missing_or_stale"
+      ],
+      "confidence": 0.82,
+      "next_action": "주문별 campaign/adset/ad id, URL Parameters, 날짜 window로 mapped/still_split/quarantine 재산출."
+    },
+    {
+      "target": "inpork_biocom_igg",
+      "final_decision": "제외",
+      "dry_run_bucket": "excluded_from_meta_roas",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [],
+      "confirmed_orders": 7,
+      "confirmed_revenue": 1969500,
+      "block_reasons": [
+        "read_only_phase",
+        "excluded_by_growth_manual",
+        "not_meta_campaign_roas"
+      ],
+      "confidence": 0.9,
+      "next_action": "상품군/전체 매출에는 둘 수 있으나 Meta campaign ROAS 분자에는 넣지 않는다."
+    },
+    {
+      "target": "meta_biocom_proteinstory_igg",
+      "final_decision": "분리",
+      "dry_run_bucket": "split_required_order_level_needed",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [
+        "120235591897270396",
+        "120213362391690396",
+        "120236373509560396"
+      ],
+      "confirmed_orders": 9,
+      "confirmed_revenue": 2787750,
+      "block_reasons": [
+        "read_only_phase",
+        "split_required",
+        "order_level_campaign_evidence_required"
+      ],
+      "confidence": 0.82,
+      "next_action": "주문별 campaign/adset/ad id, URL Parameters, 날짜 window로 mapped/still_split/quarantine 재산출."
+    },
+    {
+      "target": "meta_biocom_iggspring",
+      "final_decision": "분리",
+      "dry_run_bucket": "split_required_order_level_needed",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [
+        "120213362391690396",
+        "120235591897270396"
+      ],
+      "confirmed_orders": 7,
+      "confirmed_revenue": 2206200,
+      "block_reasons": [
+        "read_only_phase",
+        "split_required",
+        "order_level_campaign_evidence_required"
+      ],
+      "confidence": 0.82,
+      "next_action": "주문별 campaign/adset/ad id, URL Parameters, 날짜 window로 mapped/still_split/quarantine 재산출."
+    },
+    {
+      "target": "meta_biocom_iggacidset_2026",
+      "final_decision": "분리",
+      "dry_run_bucket": "precision_loss_review",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [
+        "120237452088280000",
+        "120235591897270396"
+      ],
+      "confirmed_orders": 4,
+      "confirmed_revenue": 1658600,
+      "block_reasons": [
+        "read_only_phase",
+        "campaign_id_precision_loss_possible"
+      ],
+      "confidence": 0.55,
+      "next_action": "Excel에서 campaign id가 000으로 반올림/손상됐을 수 있다. Ads Manager 원본 id로 재확인."
+    },
+    {
+      "target": "meta_biocom_mingzzinginstatoon_igg",
+      "final_decision": "분리",
+      "dry_run_bucket": "split_required_order_level_needed",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [
+        "120235591897270396",
+        "120235640158940396",
+        "120240314792490396"
+      ],
+      "confirmed_orders": 4,
+      "confirmed_revenue": 980000,
+      "block_reasons": [
+        "read_only_phase",
+        "split_required",
+        "order_level_campaign_evidence_required"
+      ],
+      "confidence": 0.82,
+      "next_action": "주문별 campaign/adset/ad id, URL Parameters, 날짜 window로 mapped/still_split/quarantine 재산출."
+    },
+    {
+      "target": "meta_biocom_iggpost_igg",
+      "final_decision": "분리",
+      "dry_run_bucket": "split_required_order_level_needed",
+      "selected_campaign_id": null,
+      "candidate_campaign_ids": [
+        "120213362391690396",
+        "120235591897270396"
+      ],
+      "confirmed_orders": 3,
+      "confirmed_revenue": 490000,
+      "block_reasons": [
+        "read_only_phase",
+        "split_required",
+        "order_level_campaign_evidence_required"
+      ],
+      "confidence": 0.82,
+      "next_action": "주문별 campaign/adset/ad id, URL Parameters, 날짜 window로 mapped/still_split/quarantine 재산출."
+    }
+  ]
+}

@@ -7,7 +7,15 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "capture:dashboard": "tsx scripts/capture-dashboard.ts"
+    "capture:dashboard": "tsx scripts/capture-dashboard.ts",
+    "agent": "tsx scripts/aios-agent-runner.ts",
+    "agent:list": "tsx scripts/aios-agent-runner.ts --list",
+    "agent:approval-queue": "tsx scripts/aios-agent-runner.ts --agent=approval-queue",
+    "agent:paid-click-intent": "tsx scripts/aios-agent-runner.ts --agent=paid-click-intent-monitor",
+    "agent:coffee-data": "tsx scripts/aios-agent-runner.ts --agent=coffee-data",
+    "agent:campaign-mapping": "tsx scripts/aios-agent-runner.ts --agent=campaign-mapping",
+    "agent:report-auditor": "tsx scripts/aios-agent-runner.ts --agent=report-auditor",
+    "agent:confirmed-purchase-prep": "tsx scripts/aios-agent-runner.ts --agent=confirmed-purchase-prep"
   },
   "keywords": [],
   "author": "",
