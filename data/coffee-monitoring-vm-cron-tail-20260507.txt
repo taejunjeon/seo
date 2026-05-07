@@ -1,0 +1,120 @@
+UA-mobile_rows_with_imweb_order_code: 0
+UA-mobile_imweb_order_code_capture_pct: n/a
+UA-mobile_payment_button_type_null_in_confirm: 0
+UA-mobile_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)
+UA-mobile_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)
+UA-mobile_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)
+UA-pc_intent_count: 0
+UA-pc_confirm_to_pay_count: 0
+UA-pc_rows_with_imweb_order_code: 0
+UA-pc_imweb_order_code_capture_pct: n/a
+UA-pc_payment_button_type_null_in_confirm: 0
+UA-pc_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)
+UA-pc_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)
+UA-pc_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)
+UA-unknown_intent_count: 0
+UA-unknown_confirm_to_pay_count: 0
+UA-unknown_rows_with_imweb_order_code: 0
+UA-unknown_imweb_order_code_capture_pct: n/a
+UA-unknown_payment_button_type_null_in_confirm: 0
+UA-unknown_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)
+UA-unknown_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)
+UA-unknown_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)
+
+# Section 5: stop 조건
+F-violations_auto: []
+stop_required: false
+
+# Section 6: 조기 게이트 (EG-1~EG-9)
+EG-1_imweb_order_code_coverage_ge_95: n/a (no real rows)
+EG-3_enforce_deduped_ratio_le_5: PASS
+EG-4_payment_button_type_null_in_confirm: PASS
+EG-5_invalid_origin_zero: PASS
+EG-5_rate_limited_zero: PASS
+EG-5_preview_only_violation_zero: PASS
+EG-5_is_simulation_blocked_zero: PASS
+EG-6_pii_rejected_zero: PASS
+
+# Section 7: verdict
+verdict: closure-ready (auto-evaluated)
+auto_metric_only: true   # F-9 ~ F-14, D-1~D-3, M-11 manual
+
+[info] wrote /home/biocomkr_sns/seo/coffee-monitoring/20260505.yaml
+report_id: coffee-npay-intent-monitoring-202605061800
+captured_at_kst: 2026-05-06 18:00:02
+publish_ts_kst: 2026-05-02 16:00
+days_since_publish: 4
+mode: day5
+backend_endpoint: https://att.ainativeos.net
+
+# Section 1: backend dormancy
+enforce_flag_active: true
+smoke_window_active: false
+
+# Section 2: 핵심 메트릭
+M-1_total_rows_excl_test: 0
+M-1_test_rows_excluded: 0
+M-2_rows_with_imweb_order_code: 0
+M-3_imweb_order_code_coverage_pct: n/a
+M-4_enforce_inserted: 0
+M-5_enforce_deduped: 0
+M-5_enforce_deduped_ratio_pct: n/a
+M-6_invalid_origin: 0
+M-7_rate_limited: 0
+M-8_preview_only_violation: 0
+M-9_is_simulation_blocked: 0
+M-10_pii_rejected: 0
+M-11_endpoint_5xx: manual_pm2_logs_grep
+M-12_rows_with_ga4_synthetic_transaction_id: 0
+
+# Section 3: payment_button_type 점검
+payment_button_type_null_in_confirm_to_pay: 0
+
+# Section 4: join 메트릭
+# join-report skipped (admin token 미지정 또는 fetch 실패)
+
+# Section 4.5: user_agent_class split (mobile / pc / unknown)
+UA-mobile_intent_count: 0
+UA-mobile_confirm_to_pay_count: 0
+UA-mobile_rows_with_imweb_order_code: 0
+UA-mobile_imweb_order_code_capture_pct: n/a
+UA-mobile_payment_button_type_null_in_confirm: 0
+UA-mobile_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)
+UA-mobile_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)
+UA-mobile_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)
+UA-pc_intent_count: 0
+UA-pc_confirm_to_pay_count: 0
+UA-pc_rows_with_imweb_order_code: 0
+UA-pc_imweb_order_code_capture_pct: n/a
+UA-pc_payment_button_type_null_in_confirm: 0
+UA-pc_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)
+UA-pc_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)
+UA-pc_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)
+UA-unknown_intent_count: 0
+UA-unknown_confirm_to_pay_count: 0
+UA-unknown_rows_with_imweb_order_code: 0
+UA-unknown_imweb_order_code_capture_pct: n/a
+UA-unknown_payment_button_type_null_in_confirm: 0
+UA-unknown_invalid_payload_rate_pct: n/a (ledger 만 — invalid_payload 는 reject_counters 만)
+UA-unknown_joined_confirmed_order_pct: n/a (join-report 의존 — 별도 sprint)
+UA-unknown_no_order_after_24h_pct: n/a (join-report 의존 — 별도 sprint)
+
+# Section 5: stop 조건
+F-violations_auto: []
+stop_required: false
+
+# Section 6: 조기 게이트 (EG-1~EG-9)
+EG-1_imweb_order_code_coverage_ge_95: n/a (no real rows)
+EG-3_enforce_deduped_ratio_le_5: PASS
+EG-4_payment_button_type_null_in_confirm: PASS
+EG-5_invalid_origin_zero: PASS
+EG-5_rate_limited_zero: PASS
+EG-5_preview_only_violation_zero: PASS
+EG-5_is_simulation_blocked_zero: PASS
+EG-6_pii_rejected_zero: PASS
+
+# Section 7: verdict
+verdict: closure-ready (auto-evaluated)
+auto_metric_only: true   # F-9 ~ F-14, D-1~D-3, M-11 manual
+
+[info] wrote /home/biocomkr_sns/seo/coffee-monitoring/20260506.yaml
