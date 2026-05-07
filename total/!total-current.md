@@ -206,6 +206,7 @@ Phase 번호는 과거 작업 영역을 설명하는 이름이다. 실제 개발
 | 2026-05-07 20:36 KST | ApprovalQueue parser stale approval cleanup | open 1·unknown 2 false positive 모두 closed로 재분류. 현재 closed 6, future 5, open 0, unknown 0 |
 | 2026-05-07 20:36 KST | ReportAuditor drift filter 보강 | yaml 리스트/Red Lane 분류표/access log 통계 false positive 6건 모두 제거. status pass |
 | 2026-05-07 20:45 KST | Google tag gateway POC 조사/승인안 작성 | biocom·coffee 모두 AWS CloudFront(Imweb 자사몰) 위. Cloudflare wizard 즉시 적용 불가. 활성화 옵션 A(Cloudflare 도입)/B(Imweb native)/C(자체 custom) 분리. 활성화 자체는 별도 Yellow 승인 필요 |
+| 2026-05-07 21:19~21:20 KST | paid_click_intent receiver 502 transient 실증 30 calls | `missing_google_click_id` 5회 중 3회 502 (3초 burst, 직전·직후 정상). PM2 max_memory_restart timing 가설 강화. `reject_oversized_body` 5/5 500은 본 evidence 120KB 페이로드 부작용 (운영 monitoring 20KB는 여전히 413 정상). 운영 receiver persistent regression 없음. minimal ledger write 승인 판단 전 SSH 권한 받아 PM2 restart 빈도 매칭 분석 필요. evidence: [[../gdn/paid-click-intent-502-transient-evidence-20260507]] |
 
 ## Parked / Later
 
