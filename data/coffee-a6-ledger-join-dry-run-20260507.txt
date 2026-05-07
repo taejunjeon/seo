@@ -1,6 +1,6 @@
 # A-6 ledger join dry-run
 # endpoint: https://att.ainativeos.net
-# captured_at: 2026-05-07 20:13:57 KST
+# captured_at: 2026-05-07 21:05:33 KST
 
 # === summary ===
 total_items: 14

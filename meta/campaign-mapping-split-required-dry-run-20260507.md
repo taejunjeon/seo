@@ -1,6 +1,6 @@
 # Meta split_required 캠페인 매핑 dry-run
 
-작성 시각: 2026-05-07 20:13:56 KST
+작성 시각: 2026-05-07 21:22:46 KST
 상태: read-only dry-run
 Owner: meta / campaign mapping
 Do not use for: Meta Ads 수정, campaign id 강제 배정, 광고 플랫폼 전송
