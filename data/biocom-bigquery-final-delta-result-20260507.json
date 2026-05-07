@@ -1,0 +1,93 @@
+{
+  "generatedAtKst": "2026-05-07T15:38:47+09:00",
+  "credential": {
+    "client_email": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+    "project_id": "seo-aeo-487113"
+  },
+  "sourceDataset": {
+    "projectId": "hurdlers-naver-pay",
+    "datasetId": "analytics_304759974",
+    "exists": true,
+    "location": "asia-northeast3"
+  },
+  "targetDataset": {
+    "projectId": "project-dadba7dd-0229-4ff6-81c",
+    "datasetId": "analytics_304759974_hurdlers_backfill",
+    "exists": true,
+    "location": "asia-northeast3"
+  },
+  "source": {
+    "firstTable": "events_20240909",
+    "latestTable": "events_20260506",
+    "tableCount": 605,
+    "totalRows": 24495738,
+    "totalSizeBytes": 37928684719,
+    "totalSizeGiB": 35.32,
+    "intradayTableCount": 0
+  },
+  "target": {
+    "firstTable": "events_20240909",
+    "latestTable": "events_20260506",
+    "tableCount": 605,
+    "totalRows": 24495738,
+    "totalSizeBytes": 37928684719,
+    "totalSizeGiB": 35.32
+  },
+  "missingTargetTables": [],
+  "existingRowMismatches": [],
+  "extraTargetTables": [],
+  "recentTableChecks": [
+    {
+      "tableId": "events_20260503",
+      "sourceRows": 48553,
+      "targetRows": 48553,
+      "match": true,
+      "requiresRepair": false,
+      "note": "row_count match"
+    },
+    {
+      "tableId": "events_20260504",
+      "sourceRows": 55883,
+      "targetRows": 55883,
+      "match": true,
+      "requiresRepair": false,
+      "note": "row_count match"
+    },
+    {
+      "tableId": "events_20260505",
+      "sourceRows": 59133,
+      "targetRows": 59133,
+      "match": true,
+      "requiresRepair": false,
+      "note": "row_count match"
+    },
+    {
+      "tableId": "events_20260506",
+      "sourceRows": 70294,
+      "targetRows": 70294,
+      "match": true,
+      "requiresRepair": false,
+      "note": "row_count match"
+    }
+  ],
+  "latestPurchaseCheck": {
+    "tableId": "events_20260506",
+    "source": {
+      "rows": 70294,
+      "purchaseEvents": 79,
+      "distinctTransactionIds": 79,
+      "maxEventTimeKst": "2026-05-06 23:59:52 UTC+9"
+    },
+    "target": {
+      "rows": 70294,
+      "purchaseEvents": 79,
+      "distinctTransactionIds": 79,
+      "maxEventTimeKst": "2026-05-06 23:59:52 UTC+9"
+    },
+    "match": true,
+    "note": "source/target latest purchase sanity compared"
+  },
+  "recommendedApproval": "none_needed",
+  "readyForDeltaCopyApproval": true,
+  "warnings": []
+}

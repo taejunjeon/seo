@@ -1408,6 +1408,260 @@ Latest purchase sanity:
 - sourceFreshness 전환: 하지 않음.
 - deploy: 하지 않음.
 
+## 2026-05-07 final delta copy 실행 결과
+
+작성 시각: 2026-05-07 15:43 KST
+상세 결과 문서: [[biocom-bigquery-final-delta-result-20260507]]
+작업 성격: Yellow Lane 승인 실행, target archive missing daily table copy
+
+```yaml
+harness_preflight:
+  common_harness_read:
+    - harness/common/HARNESS_GUIDELINES.md
+    - harness/common/AUTONOMY_POLICY.md
+    - harness/common/REPORTING_TEMPLATE.md
+  project_harness_read:
+    - docs/agent-harness/growth-data-harness-v0.md
+  required_context_docs:
+    - AGENTS.md
+    - docurule.md
+    - data/!bigquery.md
+    - data/biocom-bigquery-analysis-handoff-20260505.md
+    - data/biocom-bigquery-final-delta-plan-20260505.md
+  lane: Yellow
+  allowed_actions:
+    - copy target-missing daily events_YYYYMMDD tables only
+    - use WRITE_EMPTY only
+    - run source/target verification
+    - write local result documents
+  forbidden_actions:
+    - GA4 BigQuery Link delete
+    - GA4 BigQuery Link create
+    - source table delete
+    - source table update
+    - existing target table overwrite
+    - existing target table delete
+    - sourceFreshness switch
+    - deploy
+    - platform send
+  source_window_freshness_confidence:
+    source: hurdlers-naver-pay.analytics_304759974
+    target: project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill
+    site: biocom
+    window: events_20240909 to events_20260506
+    freshness: final delta verification 2026-05-07 15:38 KST
+    confidence: 96%
+```
+
+### 10초 요약
+
+final delta copy를 완료했다.
+source에는 있고 target archive에는 없던 `events_20260504`, `events_20260505`, `events_20260506` 3개 daily table만 `WRITE_EMPTY`로 복사했다.
+복사 후 source와 target은 모두 `events_20240909`부터 `events_20260506`까지 605개 table, 24,495,738 rows, 35.32 GiB로 일치한다.
+GA4 BigQuery Link 삭제/생성, source table 수정, existing target overwrite/delete, sourceFreshness 전환은 하지 않았다.
+
+### Copy 대상
+
+| table | source rows | size_bytes | 처리 |
+|---|---:|---:|---|
+| `events_20260504` | 55,883 | 93,543,927 | `WRITE_EMPTY` copy |
+| `events_20260505` | 59,133 | 107,194,272 | `WRITE_EMPTY` copy |
+| `events_20260506` | 70,294 | 121,956,656 | `WRITE_EMPTY` copy |
+
+copy job errorResult: 0건.
+
+### Verification 결과
+
+기준 시각: 2026-05-07 15:38 KST
+
+| 항목 | source | target | 결과 |
+|---|---:|---:|---|
+| first table | `events_20240909` | `events_20240909` | 일치 |
+| latest table | `events_20260506` | `events_20260506` | 일치 |
+| daily table count | 605 | 605 | 일치 |
+| total rows | 24,495,738 | 24,495,738 | 일치 |
+| total size_bytes | 37,928,684,719 | 37,928,684,719 | 일치 |
+| total size GiB | 35.32 | 35.32 | 일치 |
+| missing target tables | 0 | - | 없음 |
+| existing row_count mismatch | 0 | - | 없음 |
+
+Latest purchase sanity:
+
+| table | source rows | target rows | source purchase | target purchase | source distinct transaction_id | target distinct transaction_id | 결과 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `events_20260506` | 70,294 | 70,294 | 79 | 79 | 79 | 79 | 일치 |
+
+max event time도 source와 target 모두 `2026-05-06 23:59:52 UTC+9`로 일치한다.
+
+### Freshness 재확인
+
+| source | status | table | rows | purchase | distinct transaction_id | max event time KST |
+|---|---:|---|---:|---:|---:|---|
+| `ga4_bigquery_thecleancoffee` | `fresh` | `project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_20260506` | 3,924 | 26 | 26 | 2026-05-06 23:59:13 |
+| `ga4_bigquery_biocom` | `fresh` | `hurdlers-naver-pay.analytics_304759974.events_20260506` | 70,294 | 79 | 79 | 2026-05-06 23:59:52 |
+
+biocom freshness는 아직 허들러스 source를 본다.
+이번 작업에서 sourceFreshness 기본 경로를 backfill archive로 전환하지 않았다.
+
+### 현재 판단
+
+final delta copy는 성공이다.
+이제 다음 게이트는 GA4 Admin에서 기존 허들러스 BigQuery Link를 삭제하고, 우리 프로젝트 `project-dadba7dd-0229-4ff6-81c`로 신규 Link를 만드는 cutover다.
+
+단, GA4 Link cutover는 Codex가 로컬에서 대신 클릭할 수 없다.
+TJ님 또는 GA4 Admin 권한자가 화면에서 직접 수행해야 한다.
+
+### 하지 않은 것
+
+- GA4 BigQuery Link 삭제: 하지 않음.
+- 신규 GA4 BigQuery Link 생성: 하지 않음.
+- source table 삭제: 하지 않음.
+- source table 수정: 하지 않음.
+- existing target table overwrite: 하지 않음.
+- existing target table delete: 하지 않음.
+- sourceFreshness 전환: 하지 않음.
+- deploy: 하지 않음.
+- 운영DB write: 하지 않음.
+- platform send: 하지 않음.
+
+## 2026-05-07 GA4 BigQuery Link cutover 후 확인
+
+작성 시각: 2026-05-07 16:08 KST
+상세 결과 문서: [[biocom-bigquery-link-cutover-result-20260507]]
+JSON 결과: `data/biocom-bigquery-link-cutover-postcheck-20260507.json`
+작업 성격: Green Lane, GA4 Link 생성 후 read-only 확인
+
+### 10초 요약
+
+TJ님 화면 기준으로 biocom GA4 BigQuery Link는 `project-dadba7dd-0229-4ff6-81c`에 생성됐다.
+Codex read-only 확인에서는 신규 export dataset `project-dadba7dd-0229-4ff6-81c.analytics_304759974`가 아직 404로 조회됐다.
+현재 판단은 `Link created, export dataset pending`이다.
+sourceFreshness는 아직 허들러스 source를 유지해야 하며, 신규 daily table이 3일 이상 안정적으로 생성되기 전까지 전환하지 않는다.
+
+```yaml
+source_window_freshness_confidence:
+  site: biocom
+  ga4_link_ui_source: TJ screenshot
+  new_project: project-dadba7dd-0229-4ff6-81c
+  expected_new_dataset: project-dadba7dd-0229-4ff6-81c.analytics_304759974
+  expected_location: asia-northeast3
+  checked_at: 2026-05-07 16:07 KST
+  dataset_check: 404_not_found
+  current_live_source: hurdlers-naver-pay.analytics_304759974
+  current_live_latest: events_20260506
+  archive: project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill
+  archive_window: events_20240909 to events_20260506
+  confidence: UI link creation A, export materialization pending B
+```
+
+### 확인 결과
+
+| 항목 | 값 |
+|---|---|
+| GA4 Link UI 결과 | `링크가 생성됨` |
+| 신규 project | `project-dadba7dd-0229-4ff6-81c` |
+| 신규 project name | `My First Project` |
+| 기대 신규 dataset | `analytics_304759974` |
+| 기대 location | `asia-northeast3` |
+| Codex credential | `seo-656@seo-aeo-487113.iam.gserviceaccount.com` |
+| BigQuery dataset check | 404, 아직 없음 |
+| 판단 | export dataset/table 생성 대기 |
+
+Freshness 재확인:
+
+| source | status | table | rows | purchase | distinct transaction_id | max event time KST |
+|---|---|---|---:|---:|---:|---|
+| `ga4_bigquery_biocom` | `fresh` | `hurdlers-naver-pay.analytics_304759974.events_20260506` | 70,294 | 79 | 79 | 2026-05-06 23:59:52 |
+| `ga4_bigquery_thecleancoffee` | `fresh` | `project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_20260506` | 3,924 | 26 | 26 | 2026-05-06 23:59:13 |
+
+Backfill archive는 2026-05-07 16:03 KST `delta-plan` 기준 source/target 모두 605개 table, 24,495,738 rows, 37,928,684,719 bytes로 일치한다.
+missing target tables와 row mismatch는 0건이다.
+
+### 현재 운영 기준
+
+- 신규 Link 생성 UI는 성공으로 본다.
+- BigQuery export dataset/table 생성은 아직 대기 상태다.
+- biocom sourceFreshness는 계속 `hurdlers-naver-pay.analytics_304759974`를 본다.
+- `analytics_304759974_hurdlers_backfill`은 과거 archive이며 live source가 아니다.
+- 2026-05-07 cutover 당일 raw BigQuery data는 일부 공백 또는 불완전 구간이 생길 수 있다.
+
+### 다음 게이트
+
+1. 30-60분 후 신규 dataset `project-dadba7dd-0229-4ff6-81c.analytics_304759974` 존재 여부와 location을 재확인한다.
+2. 2026-05-08에 첫 daily table 생성 여부를 확인한다. link 생성 시점에 따라 `events_20260507` 또는 그 이후 table이 첫 후보가 된다.
+3. 첫 daily table이 생기면 rows, purchase, distinct transaction_id, max event time KST를 기록한다.
+4. 신규 daily table이 3일 연속 정상 생성된 뒤에만 sourceFreshness 전환 patch를 검토한다.
+5. 24-48시간이 지나도 dataset/table이 없으면 GA4 Admin Link 상태, project 선택, location, billing/API 상태를 재확인한다.
+
+### 하지 않은 것
+
+- sourceFreshness 전환: 하지 않음.
+- backfill archive를 live source로 사용: 하지 않음.
+- BigQuery table copy/delete: 하지 않음.
+- GA4 Link 추가 삭제/재생성: 하지 않음.
+- deploy: 하지 않음.
+- 운영DB write: 하지 않음.
+- platform send: 하지 않음.
+
+## 2026-05-07 30분 후 cron 자동 확인 결과
+
+작성 시각: 2026-05-07 16:49 KST
+cron 결과: [[biocom-bigquery-link-postcheck-20260507-1645]]
+보정 재확인 결과: [[biocom-bigquery-link-postcheck-20260507-1648-rerun]]
+작업 성격: Green Lane, scheduled read-only check
+
+### 10초 요약
+
+2026-05-07 16:45 KST에 1회성 cron 확인이 정상 실행됐다.
+신규 GA4 export dataset `project-dadba7dd-0229-4ff6-81c.analytics_304759974`는 아직 404로 조회된다.
+따라서 상태는 계속 `Link created, export dataset pending`이다.
+sourceFreshness 전환은 아직 하면 안 된다.
+
+### cron 실행 상태
+
+| 항목 | 값 |
+|---|---|
+| scheduled time | 2026-05-07 16:45 KST |
+| 실행 로그 | `data/biocom-bigquery-link-postcheck-cron-20260507-1645.log` |
+| cron result decision | `new_export_dataset_pending` |
+| cron output | `data/biocom-bigquery-link-postcheck-20260507-1645.json`, `data/biocom-bigquery-link-postcheck-20260507-1645.md` |
+| crontab 상태 | 실행 후 수동 cleanup 완료, 현재 비어 있음 |
+
+16:45 cron 결과의 핵심 판정은 유효하다.
+다만 보조 query에서 `rows` alias가 BigQuery 예약어처럼 처리되어 live/archive 상세 요약이 빠졌으므로, 스크립트를 수정하고 2026-05-07 16:48 KST에 즉시 read-only 보정 재확인을 실행했다.
+
+### 보정 재확인 결과
+
+| dataset | 상태 | location | latest table | table count | rows |
+|---|---|---|---|---:|---:|
+| `project-dadba7dd-0229-4ff6-81c.analytics_304759974` | 404, 아직 없음 | - | - | - | - |
+| `hurdlers-naver-pay.analytics_304759974` | exists | `asia-northeast3` | `events_20260506` | 605 | 24,495,738 |
+| `project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill` | exists | `asia-northeast3` | `events_20260506` | 605 | 24,495,738 |
+
+Latest purchase sanity:
+
+| dataset | table | rows | purchase | distinct transaction_id | max event time KST |
+|---|---|---:|---:|---:|---|
+| live source | `events_20260506` | 70,294 | 79 | 79 | 2026-05-06 23:59:52 UTC+9 |
+| archive | `events_20260506` | 70,294 | 79 | 79 | 2026-05-06 23:59:52 UTC+9 |
+
+### 현재 판단
+
+- 신규 GA4 Link UI 생성은 성공으로 유지한다.
+- BigQuery 신규 export dataset/table은 아직 생성 대기 상태다.
+- 기존 허들러스 live source와 우리 archive는 `events_20260506`까지 일치한다.
+- 오늘 2026-05-07 cutover 당일 raw data는 BigQuery daily table 기준으로 공백 또는 부분 생성 가능성이 있다.
+- 다음 판단 기준은 2026-05-08 이후 신규 `analytics_304759974` dataset과 첫 `events_YYYYMMDD` table 생성 여부다.
+
+### 하지 않은 것
+
+- sourceFreshness 전환: 하지 않음.
+- BigQuery write/copy/delete: 하지 않음.
+- GA4 Link 추가 삭제/재생성: 하지 않음.
+- deploy: 하지 않음.
+- 운영DB write: 하지 않음.
+- platform send: 하지 않음.
+
 ## 2026-05-05 NPay GA4 robust guard 조회 결과
 
 작성 시각: 2026-05-05 22:45 KST

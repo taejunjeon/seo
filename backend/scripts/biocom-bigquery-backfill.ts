@@ -983,11 +983,47 @@ const runInitialCopy = async (bq: bigquery_v2.Bigquery, credential: CredentialIn
   return finalPlan.plan;
 };
 
+const runDeltaCopy = async (bq: bigquery_v2.Bigquery, credential: CredentialInfo, json: boolean) => {
+  const before = await buildDeltaPlan(bq, credential);
+  printDeltaPlan(before, json);
+
+  if (!before.readyForDeltaCopyApproval) {
+    throw new Error(`Delta copy blocked by plan status: ${before.recommendedApproval}`);
+  }
+  if (before.existingRowMismatches.length > 0) {
+    throw new Error("Delta copy blocked: existing target row_count mismatch requires repair approval.");
+  }
+  if (before.extraTargetTables.length > 0) {
+    throw new Error("Delta copy blocked: target has extra daily tables not present in source.");
+  }
+  if (before.recommendedApproval === "none_needed") {
+    console.log("No delta tables to copy. Target already covers all source daily tables.");
+    return before;
+  }
+  if (before.recommendedApproval !== "delta_copy_only") {
+    throw new Error(`Delta copy blocked by recommendedApproval=${before.recommendedApproval}`);
+  }
+
+  const tablesToCopy = before.missingTargetTables.map((table) => table.tableId);
+  console.log(`starting final delta copy: ${tablesToCopy.length} table(s), concurrency=${COPY_CONCURRENCY}`);
+  await runWithConcurrency(tablesToCopy, COPY_CONCURRENCY, async (tableId) => {
+    await copyTable(bq, tableId);
+    return tableId;
+  });
+
+  const after = await buildDeltaPlan(bq, credential);
+  if (after.missingTargetTables.length > 0 || after.existingRowMismatches.length > 0 || after.extraTargetTables.length > 0) {
+    printDeltaPlan(after, json);
+    throw new Error("Delta copy finished but source/target delta plan is not clean.");
+  }
+
+  console.log("final delta copy completed");
+  printDeltaPlan(after, json);
+  return after;
+};
+
 const main = async () => {
   const options = parseArgs();
-  if (options.mode === "delta-copy") {
-    throw new Error("Final delta copy is outside the current TJ approval. Separate approval is required.");
-  }
 
   const { bq, credential } = createBigQueryClient();
 
@@ -1013,6 +1049,11 @@ const main = async () => {
   if (options.mode === "delta-plan") {
     const deltaPlan = await buildDeltaPlan(bq, credential);
     printDeltaPlan(deltaPlan, options.json);
+    return;
+  }
+
+  if (options.mode === "delta-copy") {
+    await runDeltaCopy(bq, credential, options.json);
   }
 };
 

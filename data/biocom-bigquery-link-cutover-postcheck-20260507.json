@@ -1,0 +1,76 @@
+{
+  "generatedAtKst": "2026-05-07T16:07:56+09:00",
+  "site": "biocom",
+  "lane": "Green",
+  "mode": "post_cutover_read_only_check",
+  "ga4LinkUi": {
+    "source": "TJ screenshot",
+    "status": "created",
+    "projectName": "My First Project",
+    "projectId": "project-dadba7dd-0229-4ff6-81c"
+  },
+  "credential": {
+    "clientEmail": "seo-656@seo-aeo-487113.iam.gserviceaccount.com"
+  },
+  "newExportDataset": {
+    "projectId": "project-dadba7dd-0229-4ff6-81c",
+    "datasetId": "analytics_304759974",
+    "expectedLocation": "asia-northeast3",
+    "existsAtCheck": false,
+    "checkMethod": "BigQuery datasets.get",
+    "checkedAtUtc": "2026-05-07T07:07:56.168Z",
+    "resultCode": 404,
+    "message": "Not found: Dataset project-dadba7dd-0229-4ff6-81c:analytics_304759974"
+  },
+  "currentSourceFreshness": {
+    "checkedAtUtc": "2026-05-07T07:03:30.750Z",
+    "ga4_bigquery_biocom": {
+      "status": "fresh",
+      "sourceProjectId": "hurdlers-naver-pay",
+      "jobProjectId": "project-dadba7dd-0229-4ff6-81c",
+      "dataset": "analytics_304759974",
+      "latestTable": "events_20260506",
+      "rows": 70294,
+      "purchase": 79,
+      "distinctTransactionId": 79,
+      "maxEventTimeKst": "2026-05-06T23:59:52+09:00"
+    },
+    "ga4_bigquery_thecleancoffee": {
+      "status": "fresh",
+      "sourceProjectId": "project-dadba7dd-0229-4ff6-81c",
+      "dataset": "analytics_326949178",
+      "latestTable": "events_20260506",
+      "rows": 3924,
+      "purchase": 26,
+      "distinctTransactionId": 26,
+      "maxEventTimeKst": "2026-05-06T23:59:13+09:00"
+    }
+  },
+  "backfillArchiveDeltaPlan": {
+    "generatedAtKst": "2026-05-07T16:03:34+09:00",
+    "source": "hurdlers-naver-pay.analytics_304759974",
+    "target": "project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill",
+    "window": "events_20240909 to events_20260506",
+    "sourceTableCount": 605,
+    "targetTableCount": 605,
+    "sourceRows": 24495738,
+    "targetRows": 24495738,
+    "sourceSizeBytes": 37928684719,
+    "targetSizeBytes": 37928684719,
+    "missingTargetTables": [],
+    "existingRowMismatches": [],
+    "latestTable": "events_20260506",
+    "latestPurchase": 79,
+    "latestDistinctTransactionId": 79,
+    "recommendedApproval": "none_needed"
+  },
+  "decision": "ga4_link_created_but_bigquery_export_dataset_pending",
+  "confidence": "A for UI link creation, B for export materialization pending",
+  "forbiddenActionsKept": [
+    "sourceFreshness switch",
+    "backfill dataset switch",
+    "BigQuery table copy/delete",
+    "deploy",
+    "platform send"
+  ]
+}

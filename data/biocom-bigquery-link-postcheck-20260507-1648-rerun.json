@@ -1,0 +1,274 @@
+{
+  "label": "20260507-1648-rerun",
+  "generatedAtKst": "2026-05-07 16:48:20",
+  "credential": {
+    "client_email": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+    "project_id": "seo-aeo-487113"
+  },
+  "expected": {
+    "projectId": "project-dadba7dd-0229-4ff6-81c",
+    "datasetId": "analytics_304759974",
+    "location": "asia-northeast3"
+  },
+  "newExport": {
+    "dataset": {
+      "projectId": "project-dadba7dd-0229-4ff6-81c",
+      "datasetId": "analytics_304759974",
+      "exists": false,
+      "errorCode": 404,
+      "errorMessage": "Not found: Dataset project-dadba7dd-0229-4ff6-81c:analytics_304759974"
+    }
+  },
+  "liveSource": {
+    "dataset": {
+      "projectId": "hurdlers-naver-pay",
+      "datasetId": "analytics_304759974",
+      "exists": true,
+      "location": "asia-northeast3"
+    },
+    "inventory": {
+      "firstTable": "events_20240909",
+      "latestTable": "events_20260506",
+      "tableCount": 605,
+      "totalRows": 24495738,
+      "totalSizeBytes": 37928684719
+    },
+    "latestPurchaseSanity": {
+      "tableId": "events_20260506",
+      "rows": 70294,
+      "purchase": 79,
+      "distinctTransactionId": 79,
+      "maxEventTimeKst": "2026-05-06 23:59:52 UTC+9"
+    }
+  },
+  "archive": {
+    "dataset": {
+      "projectId": "project-dadba7dd-0229-4ff6-81c",
+      "datasetId": "analytics_304759974_hurdlers_backfill",
+      "exists": true,
+      "location": "asia-northeast3"
+    },
+    "inventory": {
+      "firstTable": "events_20240909",
+      "latestTable": "events_20260506",
+      "tableCount": 605,
+      "totalRows": 24495738,
+      "totalSizeBytes": 37928684719
+    },
+    "latestPurchaseSanity": {
+      "tableId": "events_20260506",
+      "rows": 70294,
+      "purchase": 79,
+      "distinctTransactionId": 79,
+      "maxEventTimeKst": "2026-05-06 23:59:52 UTC+9"
+    }
+  },
+  "sourceFreshness": {
+    "checkedAt": "2026-05-07T07:48:24.483Z",
+    "options": {
+      "json": true,
+      "crmDbPath": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+      "warnHours": 36,
+      "staleHours": 72
+    },
+    "results": [
+      {
+        "source": "toss_local_transactions",
+        "storage": "sqlite",
+        "table": "toss_transactions",
+        "status": "stale",
+        "severity": "alert",
+        "action": "Toss 로컬 미러 싱크 스케줄 점검 (정본은 toss_operational)",
+        "totalRows": 39087,
+        "freshnessAt": "2026-04-24 05:16:40",
+        "freshnessColumn": "synced_at",
+        "ageHours": 323.5,
+        "warnHours": 72,
+        "staleHours": 120,
+        "eventMax": {
+          "transaction_at": "2026-04-23T20:19:01+09:00"
+        },
+        "syncMax": {
+          "synced_at": "2026-04-24 05:16:40"
+        },
+        "note": "read-only local SQLite"
+      },
+      {
+        "source": "toss_local_settlements",
+        "storage": "sqlite",
+        "table": "toss_settlements",
+        "status": "stale",
+        "severity": "alert",
+        "action": "Toss 정산 미러 스케줄 점검 (정본은 toss_operational)",
+        "totalRows": 32677,
+        "freshnessAt": "2026-04-24 05:16:47",
+        "freshnessColumn": "synced_at",
+        "ageHours": 323.5,
+        "warnHours": 72,
+        "staleHours": 120,
+        "eventMax": {
+          "approved_at": "2026-04-23T20:19:01+09:00",
+          "sold_date": "2026-04-23",
+          "paid_out_date": "2026-04-29"
+        },
+        "syncMax": {
+          "synced_at": "2026-04-24 05:16:47"
+        },
+        "note": "read-only local SQLite"
+      },
+      {
+        "source": "imweb_local_orders",
+        "storage": "sqlite",
+        "table": "imweb_orders",
+        "status": "stale",
+        "severity": "alert",
+        "action": "POST /api/crm-local/imweb/sync-orders 재실행 후 imweb_status_synced_at 확인",
+        "totalRows": 80331,
+        "freshnessAt": "2026-04-24T13:44:24.597Z",
+        "freshnessColumn": "synced_at",
+        "ageHours": 306.1,
+        "warnHours": 24,
+        "staleHours": 48,
+        "eventMax": {
+          "order_time": "2026-04-15T12:18:58.000Z",
+          "complete_time": "2026-04-15T12:10:02.000Z"
+        },
+        "syncMax": {
+          "synced_at": "2026-04-24T13:44:24.597Z",
+          "imweb_status_synced_at": "2026-04-24T13:44:24.597Z"
+        },
+        "note": "read-only local SQLite"
+      },
+      {
+        "source": "attribution_ledger",
+        "storage": "sqlite",
+        "table": "attribution_ledger",
+        "status": "data_sparse",
+        "severity": "watch",
+        "action": "최근 이벤트 수 적음. 주문 없는 구간인지 수집 장애인지 구분 필요.",
+        "totalRows": 992,
+        "freshnessAt": "2026-04-12 04:13:40",
+        "freshnessColumn": "created_at",
+        "ageHours": 612.6,
+        "warnHours": 12,
+        "staleHours": 24,
+        "eventMax": {
+          "logged_at": "2026-04-12T04:13:40.581Z",
+          "approved_at": "2026-04-12T04:13:36.000Z"
+        },
+        "syncMax": {
+          "created_at": "2026-04-12 04:13:40"
+        },
+        "note": "attribution ledger recent 24h events=0 (< 3); 저트래픽 구간일 수 있어 stale 알람 억제"
+      },
+      {
+        "source": "ga4_bigquery_thecleancoffee",
+        "storage": "bigquery",
+        "table": "project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_20260506",
+        "status": "fresh",
+        "severity": "ok",
+        "action": null,
+        "totalRows": 3924,
+        "freshnessAt": "2026-05-06T23:59:13+09:00",
+        "freshnessColumn": "event_timestamp",
+        "ageHours": 16.8,
+        "warnHours": 48,
+        "staleHours": 72,
+        "eventMax": {
+          "event_timestamp": "2026-05-06T23:59:13+09:00"
+        },
+        "syncMax": {},
+        "note": "latest table events_20260506; job project project-dadba7dd-0229-4ff6-81c; purchase 26; distinct txn 26"
+      },
+      {
+        "source": "ga4_bigquery_biocom",
+        "storage": "bigquery",
+        "table": "hurdlers-naver-pay.analytics_304759974.events_20260506",
+        "status": "fresh",
+        "severity": "ok",
+        "action": null,
+        "totalRows": 70294,
+        "freshnessAt": "2026-05-06T23:59:52+09:00",
+        "freshnessColumn": "event_timestamp",
+        "ageHours": 16.8,
+        "warnHours": 48,
+        "staleHours": 72,
+        "eventMax": {
+          "event_timestamp": "2026-05-06T23:59:52+09:00"
+        },
+        "syncMax": {},
+        "note": "latest table events_20260506; job project project-dadba7dd-0229-4ff6-81c; purchase 79; distinct txn 79"
+      },
+      {
+        "source": "toss_operational",
+        "storage": "postgres",
+        "table": "tb_sales_toss",
+        "status": "fresh",
+        "severity": "ok",
+        "action": null,
+        "totalRows": 9879,
+        "freshnessAt": "2026-05-06 21:00:20.09452",
+        "freshnessColumn": "synced_at",
+        "ageHours": 19.8,
+        "warnHours": 24,
+        "staleHours": 36,
+        "eventMax": {
+          "approved_at": "2026-05-07 05:05:53",
+          "sales_month": "2026-05"
+        },
+        "syncMax": {
+          "synced_at": "2026-05-06 21:00:20.09452",
+          "updated_at": "2026-05-06 21:00:20.09452",
+          "created_at": "2026-05-06 21:00:20.09452"
+        },
+        "note": "read-only operational Postgres"
+      },
+      {
+        "source": "playauto_operational",
+        "storage": "postgres",
+        "table": "tb_playauto_orders",
+        "status": "fresh",
+        "severity": "ok",
+        "action": null,
+        "totalRows": 123694,
+        "freshnessAt": "2026-05-06 20:00:22.743014",
+        "freshnessColumn": "synced_at",
+        "ageHours": 20.8,
+        "warnHours": 24,
+        "staleHours": 36,
+        "eventMax": {
+          "ord_time": "2026-05-06 17:44:10",
+          "pay_time": "2026-05-06 17:44:53"
+        },
+        "syncMax": {
+          "synced_at": "2026-05-06 20:00:22.743014",
+          "updated_at": "2026-05-06 20:00:22.743014",
+          "created_at": "2026-05-06 20:00:22.743014"
+        },
+        "note": "read-only operational Postgres"
+      },
+      {
+        "source": "imweb_operational",
+        "storage": "postgres",
+        "table": "tb_iamweb_users",
+        "status": "fresh",
+        "severity": "ok",
+        "action": null,
+        "totalRows": 98800,
+        "freshnessAt": "2026-05-07T06:42:36.000Z",
+        "freshnessColumn": "payment_complete_time",
+        "ageHours": 1.1,
+        "warnHours": 24,
+        "staleHours": 36,
+        "eventMax": {
+          "payment_complete_time": "2026-05-07T06:42:36.000Z",
+          "order_date": "2026-05-07 15:41:42"
+        },
+        "syncMax": {},
+        "note": "read-only operational Postgres"
+      }
+    ]
+  },
+  "decision": "new_export_dataset_pending",
+  "confidence": "B"
+}
