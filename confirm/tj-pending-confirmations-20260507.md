@@ -23,6 +23,8 @@
 | 4 | Google Ads `구매완료` Primary 변경 | 신규 confirmed_purchase 7일 병행 관측 후 (~D+8) | Red | **YES** (조건 충족 후) | 80% | NO |
 | 5 | Google tag gateway 활성화 옵션 결정 | Imweb 회신 후 | Yellow/Red | **NO 즉시 / YES 후속** | 65% | NO (DNS/CDN 권한) |
 | 6 | Imweb 측 Google tag gateway native 지원 외부 문의 | 즉시 가능 | Green (외부) | **YES** | 88% | NO (외부 업체 문의) |
+| **7** | **biocom freshness source 결정 (hurdlers vs backfill copy)** | **즉시 가능** | **Yellow** | **A: hurdlers 유지** (자신감 75%) 또는 **B: backfill copy 전환** (자신감 60%) | 70% | NO (운영 backend source 위치 변경) |
+| **8** | **AIBIO BigQuery 우리 SA query 권한 부여** | **TJ가 외부 (허들러스 또는 GA4 Admin) 요청 가능** | **Yellow** | **YES** (Supabase와 cross-check 가능 시) | 80% | NO (외부 권한 부여) |
 
 ---
 
@@ -301,6 +303,88 @@ YES: Imweb 문의 진행 예정 (회신 받으면 paste)
 | ReportAuditorAgent 정기 실행 | 자동 |
 | ApprovalQueueAgent 정기 실행 | 자동 |
 
+---
+
+## 7. biocom freshness source 결정 (hurdlers vs backfill copy)
+
+### 무엇을 컨펌하는가
+
+운영 backend `sourceFreshness.ts` 가 biocom GA4 BigQuery freshness를 점검할 때, **(A) `hurdlers-naver-pay.analytics_304759974`** (직접 GA4 export) vs **(B) `project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill`** (TJ 시작한 우리쪽 backfill) 둘 중 어느 dataset을 source로 둘지 결정.
+
+### 본 agent 검증 결과
+
+| 측면 | A. hurdlers | B. backfill copy |
+|---|---|---|
+| Daily export | 자동 (GA4 직접) | 수동/cron (이번 sprint 검증 시점 2회 batch) |
+| 최신 events_table | events_20260506 (last_mod 2026-05-07 00:39 UTC) | events_20260506 (last_mod 2026-05-07 06:38 UTC, 6h 늦음) |
+| row_count 무결성 | 70,294 | 70,294 (100% 일치) |
+| purchase distinct_txn 7일 | 72/49/59/88/73/79 | 동일 |
+| 우리 SA dataset Read 권한 | YES | YES |
+| 우리 project jobs.create | NO (project-dadba7dd 경유 필요) | YES (직접) |
+| 운영 backend dist update 필요? | dist에 jobProjectId 분리 필요 | 직접 사용 가능 |
+| 권한이 외부에 의존? | 허들러스 측 SA 권한 유지 가정 | 우리 GCP project 안 |
+| 데이터 손실 위험 | 허들러스 측 link 한도 또는 권한 회수 시 | backfill cron 끊기면 stale |
+
+### 본 agent 추천 방향
+
+| 옵션 | 추천 | 자신감 |
+|---|---|---:|
+| **A. hurdlers 유지** | **현재 가장 안전. 데이터 직접 출처. dist update만 하면 즉시 freshness PASS** | 75% |
+| B. backfill copy 전환 | 권한이 우리쪽이지만 cron 의존. backfill 일정/자동화 안정성 검증 후 | 60% |
+| C. dual (A primary + B secondary cross-check) | 안정성 가장 높지만 코드/운영 복잡도 증가 | 55% |
+
+**추천: 옵션 A 유지** (당장은). 단 backfill cron이 hourly/매일 자동이라면 옵션 B 전환 검토. TJ가 backfill 운영 의도 (왜 시작했는지 — 권한 이전 / 비용 절감 / hurdlers 의존성 제거 등) 알려 주시면 자신감 높일 수 있음.
+
+### 회신 한 줄
+
+```text
+A: biocom freshness source는 hurdlers 유지
+```
+
+또는
+
+```text
+B: biocom freshness source는 backfill copy로 전환 (백필 cron 일정 = N시간/일 간격)
+```
+
+또는
+
+```text
+C: dual (hurdlers primary + backfill secondary cross-check)
+```
+
+---
+
+## 8. AIBIO BigQuery 우리 SA query 권한 부여
+
+### 무엇을 컨펌하는가
+
+`project-dadba7dd-0229-4ff6-81c.analytics_326993019` (AIBIO GA4 dataset)는 dataset 자체는 등장했지만 우리 SA `seo-656@seo-aeo-487113`로 `__TABLES__` query 시 Access Denied. **권한 부여 절차** 진행 승인.
+
+### 본 agent 추천 방향
+
+**YES** (자신감 80%).
+
+근거:
+- AIBIO 정본은 Supabase (43 table)이지만, GA4 raw event를 BigQuery로 cross-check 가능하면 funnel quality / channel attribution 분석 보강.
+- AIBIO Supabase에 GA4 client_id / session_id가 저장되어 있다면 BigQuery raw event ↔ Supabase order join 가능.
+- 권한 부여만 받으면 본 agent 자율 분석 가능.
+
+### 어떻게 진행되는가
+
+1. TJ가 GCP IAM 또는 dataset-level access control에서 우리 SA에 BigQuery Data Viewer + Job User 권한 부여 (또는 허들러스/AIBIO 측에 요청).
+2. 본 agent가 query 가능 검증.
+3. AIBIO GA4 raw event 적재 상태 (events_20260506 row count, purchase 카운트 등) 확인.
+4. 별 sprint에서 channel funnel quality (Meta vs Google vs Organic) 비교에 AIBIO 도 포함 여부 결정.
+
+### 회신 한 줄
+
+```text
+YES: AIBIO BigQuery 우리 SA query 권한 부여 (외부 측에 요청 진행)
+```
+
+---
+
 ## 한 줄 결론
 
-> 즉시 회신 컨펌은 0건입니다. canary 24h 후 (#1) 정식 운영화 + 즉시 가능한 (#2) VM Google Ads token + (#6) Imweb 외부 문의 정도가 24시간 안에 다루실 것이고, 나머지는 1주+ 후 단계입니다.
+> 즉시 회신 컨펌은 0건입니다. canary 24h 후 (#1) 정식 운영화 + 즉시 가능한 (#2) VM Google Ads token + (#6) Imweb 외부 문의 + (#7) biocom freshness source 결정 + (#8) AIBIO 권한 부여 정도가 24시간 안에 다루실 것이고, 나머지는 1주+ 후 단계입니다.
