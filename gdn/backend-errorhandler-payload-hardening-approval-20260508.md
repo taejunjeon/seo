@@ -4,7 +4,7 @@
 대상: 운영 VM `seo-backend` (`att.ainativeos.net`) 의 `backend/src/middleware/errorHandler.ts`
 문서 성격: Yellow Lane 운영 backend deploy 승인안 (코드 1파일)
 관련 문서: [[paid-click-intent-502-transient-evidence-20260507]], [[paid-click-intent-pm2-restart-correlation-20260508]], [[../vm/!vm]], [[google-ads-vm-ledger-source-recovery-backend-deploy-result-20260507]]
-Status: needs_human_approval (TJ YES/NO 회신 후 본 agent 즉시 deploy)
+Status: executed (TJ YES 회신 2026-05-07 22:00 KST → deploy 완료 2026-05-07 22:01 KST. 결과: [[backend-errorhandler-payload-hardening-pm2-uplift-deploy-result-20260507]])
 Do not use for: PM2 config 변경, max_memory_restart 변경, 운영 DB write, GTM publish, GA4/Meta/Google Ads/TikTok/Naver 전송, conversion upload, 광고 변경
 
 ```yaml
