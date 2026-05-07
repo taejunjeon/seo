@@ -5,6 +5,22 @@ import path from "node:path";
 
 type AgentStatus = "pass" | "warn" | "blocked" | "failed" | "skipped";
 
+type TaskState =
+  | "auto_ready"        // Green Lane, 시간/자료 의존 없음, 본 agent 즉시 실행 가능
+  | "time_waiting"      // 정시 도달 대기 (예: 24h window)
+  | "approval_waiting"  // TJ 승인 대기 (Yellow/Red)
+  | "blocked_access"    // SSH/admin token/2FA/credential 영역 (TJ 권한 필요)
+  | "blocked_data"      // 입력 자료 부재 (Growth CSV 미수신, BigQuery permission 등)
+  | "parked_red"        // future Red, 재개 조건 미충족
+  | "completed";        // Active Board 제외, Completed Ledger 이동 대상
+
+type AgentScores = {
+  execution_completeness: number;  // 0~1. 본 agent가 의도한 작업을 어디까지 끝냈는가
+  risk: number;                    // 0~1. 본 결과를 사람이 그대로 수용하기 위한 잔여 리스크
+  data_freshness: number;          // 0~1. 입력 자료의 최신성
+  next_action_clarity: number;     // 0~1. 다음 할 일이 사람에게 얼마나 명확한가
+};
+
 type AgentRunResult = {
   agent_name: string;
   run_id: string;
@@ -28,6 +44,8 @@ type AgentRunResult = {
   no_platform_send_verified: true;
   no_deploy_verified: true;
   status: AgentStatus;
+  task_state: TaskState;
+  scores: AgentScores;
   blocked_reasons: string[];
   outputs: Record<string, string>;
   child_runs: Array<{
@@ -40,6 +58,68 @@ type AgentRunResult = {
   }>;
   summary: Record<string, unknown>;
   next_actions: string[];
+};
+
+const deriveTaskState = (status: AgentStatus, blockedReasons: readonly string[]): TaskState => {
+  if (status === "pass") return "completed";
+  if (status === "warn") return "auto_ready"; // 후처리로 본 agent가 다시 처리 가능
+  if (status === "skipped") return "auto_ready";
+  // failed / blocked: blocked_reasons로 분기
+  for (const reason of blockedReasons) {
+    if (/access|ssh|token|2fa|credential|permission/i.test(reason)) return "blocked_access";
+    if (/data|input|csv|bigquery|stale_source|missing_source/i.test(reason)) return "blocked_data";
+    if (/approval|yellow|red|needs_human/i.test(reason)) return "approval_waiting";
+    if (/time|window|cron|schedule/i.test(reason)) return "time_waiting";
+    if (/parked|future_red/i.test(reason)) return "parked_red";
+  }
+  return "auto_ready"; // default — 본 agent가 추가 시도 가능
+};
+
+const computeScores = (result: AgentRunResult): AgentScores => {
+  const childPassRatio = result.child_runs.length === 0
+    ? 1
+    : result.child_runs.filter((c) => c.status === "pass").length / result.child_runs.length;
+  const blockedCount = result.blocked_reasons.length;
+
+  const execution_completeness =
+    result.status === "pass" ? Math.min(1, 0.85 + 0.15 * childPassRatio) :
+    result.status === "warn" ? 0.7 :
+    result.status === "skipped" ? 0.5 :
+    Math.max(0.1, 0.3 * childPassRatio);
+
+  const risk =
+    result.status === "pass" && blockedCount === 0 ? 0.1 :
+    result.status === "warn" ? 0.35 :
+    result.status === "blocked" ? 0.5 :
+    result.status === "failed" ? 0.7 :
+    0.3;
+
+  const data_freshness =
+    /latest|live|운영|cron 직후|today/.test(result.freshness) ? 0.92 :
+    /stale|old|미동기|legacy/.test(result.freshness) ? 0.4 :
+    0.75;
+
+  const next_action_clarity = result.next_actions.length === 0
+    ? 0.4
+    : Math.min(1, 0.6 + 0.1 * result.next_actions.length);
+
+  return {
+    execution_completeness: Math.round(execution_completeness * 100) / 100,
+    risk: Math.round(risk * 100) / 100,
+    data_freshness: Math.round(data_freshness * 100) / 100,
+    next_action_clarity: Math.round(next_action_clarity * 100) / 100,
+  };
+};
+
+/**
+ * Finalize derived fields (task_state, scores) right before serialization.
+ * Each agent calls this at the end so the values reflect blocked_reasons,
+ * child_runs, and next_actions populated during the run.
+ */
+const finalizeResult = (result: AgentRunResult): AgentRunResult => {
+  result.task_state = deriveTaskState(result.status, result.blocked_reasons);
+  result.scores = computeScores(result);
+  return result;
 };
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -176,11 +256,24 @@ const renderMarkdown = (result: AgentRunResult) => [
       ["window", result.window],
       ["freshness", result.freshness],
       ["confidence", result.confidence],
+      ["task_state", result.task_state],
       ["would_operational_write", result.would_operational_write],
       ["writes_local_artifacts", result.writes_local_artifacts],
       ["would_platform_send", result.would_platform_send],
       ["would_deploy", result.would_deploy],
       ["blocked_reasons", result.blocked_reasons.join(", ")],
+    ],
+  ),
+  "",
+  "## Scores",
+  "",
+  mdTable(
+    ["score", "value"],
+    [
+      ["execution_completeness", result.scores.execution_completeness],
+      ["risk", result.scores.risk],
+      ["data_freshness", result.scores.data_freshness],
+      ["next_action_clarity", result.scores.next_action_clarity],
     ],
   ),
   "",
@@ -232,6 +325,8 @@ const baseResult = (agentName: string, runMode: string, window: string): AgentRu
   no_platform_send_verified: true,
   no_deploy_verified: true,
   status: "pass",
+  task_state: "auto_ready",
+  scores: { execution_completeness: 0, risk: 0.5, data_freshness: 0.7, next_action_clarity: 0.5 },
   blocked_reasons: [],
   outputs: {},
   child_runs: [],
@@ -676,6 +771,7 @@ const main = () => {
     process.exitCode = 1;
     return;
   }
+  finalizeResult(result);
   const outputs = writeResult(result);
   result.outputs.agent_json = outputs.jsonOutput;
   result.outputs.agent_markdown = outputs.markdownOutput;
@@ -684,6 +780,8 @@ const main = () => {
   console.log(JSON.stringify({
     agent_name: result.agent_name,
     status: result.status,
+    task_state: result.task_state,
+    scores: result.scores,
     blocked_reasons: result.blocked_reasons,
     outputs: result.outputs,
   }, null, 2));
