@@ -1,0 +1,76 @@
+{
+  "generated_at_kst": "2026-05-08 11:38 KST",
+  "context": "canary T+12.5h 시점 ConfirmedPurchasePrep 중간 재실행. input dependency 미갱신 사유로 schema 동작만 검증.",
+  "input_source": "data/bi-confirmed-purchase-operational-dry-run-20260505.json (직전 5/5 dry-run)",
+  "agent_run": {
+    "agent_name": "ConfirmedPurchasePrepAgent",
+    "run_at_kst": "2026-05-08 12:35 KST",
+    "status": "pass",
+    "task_state": "completed",
+    "scores": {
+      "execution_completeness": 1,
+      "risk": 0.1,
+      "data_freshness": 0.92,
+      "next_action_clarity": 0.9
+    }
+  },
+  "current_result": {
+    "payment_complete_candidates": 623,
+    "payment_method_counts": { "homepage": 586, "npay": 37 },
+    "ga4_presence_counts": { "present": 476, "robust_absent": 147 },
+    "google_click_id_type_counts": { "missing": 618, "gclid": 5, "gbraid": 0, "wbraid": 0 },
+    "with_google_click_id": 5,
+    "after_approval_structurally_eligible": 0,
+    "send_candidate": 0,
+    "block_reason_counts": {
+      "read_only_phase": 623,
+      "approval_required": 623,
+      "google_ads_conversion_action_not_created": 623,
+      "conversion_upload_not_approved": 623,
+      "missing_google_click_id": 618,
+      "already_in_ga4": 476,
+      "missing_attribution_vm_evidence": 129,
+      "npay_intent_ambiguous": 10,
+      "npay_intent_not_a_grade_strong": 10,
+      "npay_intent_purchase_without_intent": 6,
+      "order_has_return_reason": 4,
+      "canceled_order": 4
+    }
+  },
+  "previous_result_for_comparison": {
+    "captured_at_kst": "2026-05-07 20:13 KST (canary 시작 전)",
+    "payment_complete_candidates": 623,
+    "with_google_click_id": 5,
+    "missing_google_click_id": 618,
+    "send_candidate": 0,
+    "result_identical_to_current": true
+  },
+  "canary_effect_measurable": false,
+  "canary_effect_blocked_reason": "ConfirmedPurchasePrep agent의 input file이 직전 5/5 dry-run 그대로. canary 시작(5/7 23:01 KST) 이후 새 운영 PG 기반 dry-run input 생성 별 sprint 필요. 본 재실행은 schema 동작 검증 + send_candidate=0 guard 검증만 가능.",
+  "next_actions_for_canary_effect_measurement": [
+    {
+      "action": "운영 PG 기반 새 dry-run input 생성 (5/8 시점)",
+      "owner": "Codex / 본 agent (자율 가능)",
+      "input": "tb_iamweb_users + tb_playauto_orders + GA4 BigQuery purchase event",
+      "output": "data/bi-confirmed-purchase-operational-dry-run-20260508.json",
+      "blocker": "운영 PG read-only DATABASE_URL 본 agent 환경 확인 필요"
+    },
+    {
+      "action": "paid_click_intent_ledger를 직접 ConfirmedPurchasePrep input source로 추가",
+      "owner": "본 agent",
+      "code_change": "backend/scripts/google-ads-confirmed-purchase-candidate-prep.ts 에 paid_click_intent_ledger lookup 추가",
+      "blocker": "schema 변경 + 검증 필요 (별 sprint)"
+    },
+    {
+      "action": "GA4 BigQuery 매개 chain dry-run",
+      "chain": "paid_click_intent.ga_session_id → GA4 events_*.ga_session_id → GA4 purchase event.transaction_id → imweb_orders.order_no",
+      "owner": "본 agent (BigQuery 권한 보유)",
+      "expected_output": "homepage 결제완료 attribution 가능 후보 N건 (NPay 결제완료는 GA4 fire 누락으로 제외)"
+    }
+  ],
+  "guard_verification": {
+    "no_send": "send_candidate = 0, send_block_reasons 4종 모두 적용 (read_only_phase + approval_required + conversion_action_not_created + upload_not_approved)",
+    "no_write": "agent.would_operational_write = false, writes_local_artifacts = true (JSON/MD)",
+    "platform_api_call": "0건"
+  }
+}

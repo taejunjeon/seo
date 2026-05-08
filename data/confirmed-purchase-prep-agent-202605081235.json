@@ -1,0 +1,91 @@
+{
+  "agent_name": "ConfirmedPurchasePrepAgent",
+  "run_id": "confirmed-purchase-prep-agent-202605081235",
+  "generated_at": "2026-05-08T03:35:24.379Z",
+  "generated_at_kst": "2026-05-08 12:35:24 KST",
+  "lane": "Green",
+  "run_mode": "no_send_candidate_prep",
+  "source": "backend/scripts/google-ads-confirmed-purchase-candidate-prep.ts",
+  "window": "20260508",
+  "freshness": "latest available read-only",
+  "confidence": 0.86,
+  "would_write": false,
+  "would_operational_write": false,
+  "writes_local_artifacts": true,
+  "would_send": false,
+  "would_platform_send": false,
+  "would_deploy": false,
+  "no_write_verified": true,
+  "no_operational_write_verified": true,
+  "no_send_verified": true,
+  "no_platform_send_verified": true,
+  "no_deploy_verified": true,
+  "status": "pass",
+  "task_state": "completed",
+  "scores": {
+    "execution_completeness": 1,
+    "risk": 0.1,
+    "data_freshness": 0.92,
+    "next_action_clarity": 0.9
+  },
+  "blocked_reasons": [],
+  "outputs": {
+    "detail_json": "/Users/vibetj/coding/seo/data/google-ads-confirmed-purchase-candidate-prep-20260508.json",
+    "detail_markdown": "/Users/vibetj/coding/seo/gdn/google-ads-confirmed-purchase-candidate-prep-20260508.md",
+    "agent_json": "/Users/vibetj/coding/seo/data/confirmed-purchase-prep-agent-202605081235.json",
+    "agent_markdown": "/Users/vibetj/coding/seo/agent/confirmed-purchase-prep-agent-202605081235.md"
+  },
+  "child_runs": [
+    {
+      "name": "google-ads-confirmed-purchase-candidate-prep",
+      "command": "cd backend && npx tsx scripts/google-ads-confirmed-purchase-candidate-prep.ts --input=/Users/vibetj/coding/seo/data/bi-confirmed-purchase-operational-dry-run-20260505.json --json-output=/Users/vibetj/coding/seo/data/google-ads-confirmed-purchase-candidate-prep-20260508.json --markdown-output=/Users/vibetj/coding/seo/gdn/google-ads-confirmed-purchase-candidate-prep-20260508.md",
+      "exit_code": 0,
+      "status": "pass",
+      "stdout": "{\n  \"payment_complete_candidates\": 623,\n  \"payment_method_counts\": {\n    \"homepage\": 586,\n    \"npay\": 37\n  },\n  \"include_reason_counts\": {\n    \"homepage_confirmed_order\": 586,\n    \"npay_confirmed_order\": 37\n  },\n  \"ga4_presence_counts\": {\n    \"present\": 476,\n    \"robust_absent\": 147\n  },\n  \"google_click_id_type_counts\": {\n    \"missing\": 618,\n    \"gclid\": 5\n  },\n  \"with_google_click_id\": 5,\n  \"after_approval_structurally_eligible\": 0,\n  \"send_candidate\": 0,\n  \"block_reason_counts\": {\n    \"read_only_phase\": 623,\n    \"approval_required\": 623,\n    \"google_ads_conversion_action_not_created\": 623,\n    \"conversion_upload_not_approved\": 623,\n    \"missing_google_click_id\": 618,\n    \"already_in_ga4\": 476,\n    \"missing_attribution_vm_evidence\": 129,\n    \"npay_intent_ambiguous\": 10,\n    \"npay_intent_not_a_grade_strong\": 10,\n    \"npay_intent_purchase_without_intent\": 6,\n    \"order_has_return_reason\": 4,\n    \"canceled_order\": 4\n  }\n}\n",
+      "stderr": "",
+      "stdout_tail": "{\n  \"payment_complete_candidates\": 623,\n  \"payment_method_counts\": {\n    \"homepage\": 586,\n    \"npay\": 37\n  },\n  \"include_reason_counts\": {\n    \"homepage_confirmed_order\": 586,\n    \"npay_confirmed_order\": 37\n  },\n  \"ga4_presence_counts\": {\n    \"present\": 476,\n    \"robust_absent\": 147\n  },\n  \"google_click_id_type_counts\": {\n    \"missing\": 618,\n    \"gclid\": 5\n  },\n  \"with_google_click_id\": 5,\n  \"after_approval_structurally_eligible\": 0,\n  \"send_candidate\": 0,\n  \"block_reason_counts\": {\n    \"read_only_phase\": 623,\n    \"approval_required\": 623,\n    \"google_ads_conversion_action_not_created\": 623,\n    \"conversion_upload_not_approved\": 623,\n    \"missing_google_click_id\": 618,\n    \"already_in_ga4\": 476,\n    \"missing_attribution_vm_evidence\": 129,\n    \"npay_intent_ambiguous\": 10,\n    \"npay_intent_not_a_grade_strong\": 10,\n    \"npay_intent_purchase_without_intent\": 6,\n    \"order_has_return_reason\": 4,\n    \"canceled_order\": 4\n  }\n}",
+      "stderr_tail": ""
+    }
+  ],
+  "summary": {
+    "payment_complete_candidates": 623,
+    "payment_method_counts": {
+      "homepage": 586,
+      "npay": 37
+    },
+    "include_reason_counts": {
+      "homepage_confirmed_order": 586,
+      "npay_confirmed_order": 37
+    },
+    "ga4_presence_counts": {
+      "present": 476,
+      "robust_absent": 147
+    },
+    "google_click_id_type_counts": {
+      "missing": 618,
+      "gclid": 5
+    },
+    "with_google_click_id": 5,
+    "after_approval_structurally_eligible": 0,
+    "send_candidate": 0,
+    "block_reason_counts": {
+      "read_only_phase": 623,
+      "approval_required": 623,
+      "google_ads_conversion_action_not_created": 623,
+      "conversion_upload_not_approved": 623,
+      "missing_google_click_id": 618,
+      "already_in_ga4": 476,
+      "missing_attribution_vm_evidence": 129,
+      "npay_intent_ambiguous": 10,
+      "npay_intent_not_a_grade_strong": 10,
+      "npay_intent_purchase_without_intent": 6,
+      "order_has_return_reason": 4,
+      "canceled_order": 4
+    }
+  },
+  "next_actions": [
+    "24h/72h paid_click_intent monitoring PASS 이후 이 prep을 재실행해 missing_google_click_id 변화만 본다.",
+    "Google Ads conversion action 생성/변경과 conversion upload는 별도 Red 승인 전 금지한다.",
+    "no-send 후보의 block_reason을 confirmed_purchase 실행 승인안의 선행 근거로만 사용한다."
+  ]
+}

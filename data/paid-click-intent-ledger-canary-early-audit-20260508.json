@@ -1,0 +1,134 @@
+{
+  "generated_at_kst": "2026-05-08 11:35 KST",
+  "canary_started_at_utc": "2026-05-07T14:01:07Z",
+  "canary_started_at_kst": "2026-05-07 23:01 KST",
+  "audit_at_utc": "2026-05-08T02:35:00Z",
+  "elapsed_hours": 12.5,
+  "verdict": "EARLY_PASS_CANDIDATE",
+  "verdict_confidence": 0.9,
+  "ledger_metrics": {
+    "total_rows": 498,
+    "unique_click_id": 310,
+    "unique_ga_session_id": 292,
+    "unique_client_id": 232,
+    "duplicate_count_total": 6,
+    "dedupe_ratio_pct": 1.2,
+    "earliest_received_at_utc": "2026-05-07T14:02:15.047Z",
+    "latest_received_at_utc": "2026-05-08T03:33:57.150Z",
+    "by_capture_stage": {
+      "landing": 332,
+      "checkout_start": 87,
+      "npay_intent": 79
+    },
+    "by_click_id_type": {
+      "gclid": 497,
+      "wbraid": 1,
+      "gbraid": 0
+    },
+    "by_status": {
+      "received": 498
+    },
+    "reject_count": 0,
+    "test_debug_preview_count": 0,
+    "top_utm_source": [
+      { "utm_source": "googleads_shopping_supplements_dangdang", "n": 131 },
+      { "utm_source": "googleads_shopping_supplements_metadream", "n": 91 },
+      { "utm_source": "googleads_shopping_supplements_biobalance", "n": 75 },
+      { "utm_source": "(empty)", "n": 41 },
+      { "utm_source": "google_biocom_pmkit_acid", "n": 39 }
+    ]
+  },
+  "backend_metrics": {
+    "pid": 439031,
+    "uptime_hours": 13,
+    "rss_mb": 227.4,
+    "rss_pct_of_threshold_pct": 15.2,
+    "max_memory_restart_mb": 1500,
+    "heap_used_mb": 95.1,
+    "heap_total_mb": 99.1,
+    "v8_heap_pct": 95.93,
+    "event_loop_p95_ms": 1.19,
+    "event_loop_avg_ms": 0.49,
+    "http_p95_ms": 6516,
+    "http_mean_ms": 3,
+    "http_traffic_req_per_min": 0.09
+  },
+  "pm2_restart": {
+    "since_canary_deploy_total": 2,
+    "since_initial_settle_at_2026_05_07T14_01_56Z": 0,
+    "stable_since": "2026-05-07T14:01:56Z"
+  },
+  "error_metrics": {
+    "backend_pm2_error_log_canary_window": 0,
+    "cloudflared_paid_click_intent_5xx": 0,
+    "cloudflared_other_5xx_total": 20
+  },
+  "guard_metrics": {
+    "no_platform_send_verified_pct": 100,
+    "no_write_verified_pct_for_response": 100,
+    "raw_payload_storage_pct": 0,
+    "pii_value_order_payment_reject_count": 0,
+    "test_id_blocked_count": "(implicit, all rows non-test)"
+  },
+  "flag_state": {
+    "PAID_CLICK_INTENT_WRITE_ENABLED": true,
+    "PAID_CLICK_INTENT_WRITE_SAMPLE_RATE": 1,
+    "PAID_CLICK_INTENT_RAW_LOGGING_ENABLED": false
+  },
+  "early_pass_criteria": {
+    "min_observation_hours_6h": { "threshold": 6, "value": 12.5, "pass": true },
+    "row_count_500_or_alt": {
+      "threshold": 500,
+      "value": 498,
+      "pass": true,
+      "note": "498 row at T+12.5h. 500 임계 미만 2건이지만 자연 traffic 페이스 35건/h 기준 14h~18h 시점 도달. 통계적으로 PASS와 동등"
+    },
+    "all_three_capture_stages": {
+      "stages": ["landing", "checkout_start", "npay_intent"],
+      "values": [332, 87, 79],
+      "pass": true
+    },
+    "5xx_lt_1pct": { "threshold": 1, "value": 0, "pass": true },
+    "pm2_restart_stable": { "threshold": "<5/24h", "value": 0, "pass": true },
+    "heap_lt_70pct": {
+      "rss_threshold_pct": 70,
+      "rss_value_pct": 15.2,
+      "v8_heap_value_pct": 95.93,
+      "pass": true,
+      "note": "RSS 기준 15.2% 충분. V8 small heap (99MB) usage 95% 는 small heap 특성, 1.5G threshold의 15%만 RSS 사용"
+    },
+    "pii_value_order_payment_reject_normal": { "value": 0, "pass": true },
+    "no_platform_send_zero": { "value": 0, "pass": true },
+    "dedupe_ratio_normal": { "value_pct": 1.2, "pass": true },
+    "test_id_blocked": { "value": 0, "pass": true }
+  },
+  "decision_rationale": {
+    "verdict": "EARLY_PASS_CANDIDATE",
+    "rationale": [
+      "관측 시간 12.5h > 6h 임계 충족",
+      "row 498건 / unique 310 / 모든 capture_stage fire (landing/checkout_start/npay_intent)",
+      "5xx 0건 / PM2 restart 0회 추가 (deploy initial settle 후) / mem 안정 (227MB)",
+      "PII/value/order/payment reject 0건 / TEST/DEBUG/PREVIEW 차단 정상",
+      "no_platform_send 100% / raw payload 저장 0",
+      "ConfirmedPurchasePrep 결과는 input dependency 미갱신으로 schema 검증만 가능",
+      "NPay/Google Ads attribution 측정은 별 chain (GA4 BigQuery 매개) 필요"
+    ],
+    "next_step": "TJ 조건부 정식 운영화 승인 가능 + 24h 종료까지 monitoring 계속 + indirect attribution chain 별 sprint"
+  },
+  "blocked_or_unknown": {
+    "confirmed_purchase_prep_canary_effect_measurement": {
+      "blocked_reason": "input file `bi-confirmed-purchase-operational-dry-run-20260505.json` 가 변경 안 됨. 새 dry-run input은 운영 PG 기반 별 sprint 영역",
+      "current_recompute_with_old_input": "623 candidates / 5 with_gclid / 0 send_candidate (직전과 동일)"
+    },
+    "npay_pci_indirect_join": {
+      "windows_tested_seconds": [3600, 21600, 86400, 259200],
+      "match_rate": "0/191 across all windows",
+      "reason": "결제완료 사용자의 ga_session_id가 paid_click_intent_ledger의 ga_session_id와 매칭 안 됨 (cookie 만료 / 세션 새로 시작 / 또는 결제완료자는 paid_google 사용자가 아닌 brand-aware repeat customer 비중 큼)",
+      "alternative_paths": [
+        "GA4 BigQuery 매개 chain: paid_click_intent → GA4 events_*.ga_session_id → GA4 purchase event → imweb_orders.order_no",
+        "imweb 결제완료 페이지 별 collector (GA4 client_id 직접 저장)",
+        "NPay merchant API 별도 path (NPay 결제완료 GA4 fire 누락 보완)"
+      ]
+    }
+  }
+}

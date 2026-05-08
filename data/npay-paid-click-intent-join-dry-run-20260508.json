@@ -1,0 +1,113 @@
+{
+  "generated_at_kst": "2026-05-08 11:42 KST",
+  "context": "canary T+12.5h 시점 NPay 결제완료 ↔ paid_click_intent_ledger indirect join 가능성 dry-run",
+  "window": "canary start 2026-05-07T14:00:00Z ~ 2026-05-08T02:35:00Z (12.5h)",
+  "sources": {
+    "imweb_orders": "운영 VM crm.sqlite3.imweb_orders (read-only)",
+    "paid_click_intent_ledger": "운영 VM crm.sqlite3.paid_click_intent_ledger (read-only, canary 누적)",
+    "join_method": "captured_at vs complete_time 시간 window indirect join (직접 ga_session_id/client_id/order_no 매칭 키 부재)"
+  },
+  "imweb_orders_canary_window": {
+    "total_completed": 191,
+    "by_pay_type": {
+      "card": 133,
+      "etc": 28,
+      "npay": 13,
+      "virtual": 13,
+      "free": 4
+    },
+    "all_member_purchase_pct": 100,
+    "raw_json_ga4_data_retention_pct": 0
+  },
+  "paid_click_intent_ledger_canary_window": {
+    "total": 498,
+    "unique_click_id_value": 310,
+    "unique_ga_session_id": 292,
+    "unique_client_id": 232
+  },
+  "indirect_join_results": [
+    {
+      "window_seconds": 3600,
+      "window_label": "1h",
+      "matched_orders": 0,
+      "total_orders": 191,
+      "match_pct": 0,
+      "npay_matched": 0,
+      "npay_total": 13
+    },
+    {
+      "window_seconds": 21600,
+      "window_label": "6h",
+      "matched_orders": 0,
+      "total_orders": 191,
+      "match_pct": 0,
+      "npay_matched": 0,
+      "npay_total": 13
+    },
+    {
+      "window_seconds": 86400,
+      "window_label": "24h",
+      "matched_orders": 0,
+      "total_orders": 191,
+      "match_pct": 0,
+      "npay_matched": 0,
+      "npay_total": 13
+    },
+    {
+      "window_seconds": 259200,
+      "window_label": "72h",
+      "matched_orders": 0,
+      "total_orders": 191,
+      "match_pct": 0,
+      "npay_matched": 0,
+      "npay_total": 13
+    }
+  ],
+  "diagnosis": {
+    "primary_match_keys_available": [],
+    "indirect_match_attempt": "captured_at vs complete_time time window",
+    "match_failure_reasons": [
+      "paid_click_intent_ledger의 75% 이상이 Google Shopping 광고 click 신규 사용자 (utm_source googleads_shopping_*)",
+      "결제완료 사용자는 brand-aware repeat customer 비중 큼 (direct/email/repeat 채널)",
+      "paid_click_intent.ga_session_id ≠ 결제완료 시점 ga_session_id (cookie 만료, 세션 새로 시작, 멀티 디바이스)",
+      "Google Ads click → 결제완료 전환율 0.07% (Channel Funnel Quality 분석 결과) 통계와 일관"
+    ],
+    "imweb_orders_member_code_available_pct": 100,
+    "paid_click_intent_member_code_field": "absent (schema에 미포함)"
+  },
+  "alternative_paths": [
+    {
+      "path": "GA4 BigQuery 매개 chain",
+      "chain": [
+        "paid_click_intent_ledger.ga_session_id → GA4 events_*.ga_session_id (BigQuery)",
+        "GA4 purchase event.transaction_id → imweb_orders.order_no"
+      ],
+      "applicable_to": "homepage 결제완료 (NPay 결제완료는 GA4 purchase fire 누락으로 제외)",
+      "feasibility": "high (BigQuery 권한 보유, paid_click_intent ga_session_id 확보)",
+      "next_sprint": "GA4 BigQuery raw query → 매칭률 산출"
+    },
+    {
+      "path": "imweb 결제완료 페이지 별 collector 추가",
+      "approach": "GTM 또는 imweb body 변경 → GA4 client_id/gclid 직접 imweb_orders에 저장",
+      "applicable_to": "모든 결제 (homepage + NPay)",
+      "feasibility": "medium (GTM Yellow 승인 + imweb body 변경)",
+      "next_sprint": "GTM Preview workspace 별 sprint"
+    },
+    {
+      "path": "paid_click_intent_ledger schema에 member_code 필드 추가",
+      "approach": "결제 직전 sessionStorage 또는 cookie에서 member_code 읽어 paid_click_intent payload에 포함 → ledger 저장 → imweb_orders.member_code와 직접 join",
+      "applicable_to": "회원 결제 (canary 기간 100% 회원 결제)",
+      "feasibility": "high (schema 확장 + 클라이언트 wrapper 변경)",
+      "next_sprint": "별 schema sprint + 클라이언트 wiring"
+    },
+    {
+      "path": "NPay merchant API",
+      "approach": "네이버측 merchant API에 광고 click ID 정보 포함 가능성 조사",
+      "applicable_to": "NPay 결제완료 only",
+      "feasibility": "low (네이버 API spec 의존)",
+      "next_sprint": "별 외부 문의 sprint"
+    }
+  ],
+  "verdict": "indirect_join_insufficient_for_attribution",
+  "verdict_rationale": "시간 기반 indirect join은 결제완료자/광고 클릭자의 ga_session_id 불일치로 0% 매칭. paid_click_intent canary는 click id 보존 자체는 정상 수행. attribution 측정에는 GA4 BigQuery 매개 chain 또는 별 collector 추가 필요"
+}
