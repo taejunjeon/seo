@@ -1,6 +1,6 @@
 # Google Ads confirmed_purchase 후보 준비 no-send
 
-작성 시각: 2026-05-08 12:35:24 KST
+작성 시각: 2026-05-08 15:21:35 KST
 상태: read-only candidate prep
 Owner: gdn / google_ads
 Do not use for: Google Ads conversion upload, conversion action 생성/변경, 운영 DB write
