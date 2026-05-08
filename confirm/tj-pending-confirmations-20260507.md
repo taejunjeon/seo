@@ -15,16 +15,16 @@
 
 ## 컨펌 우선순위 표
 
-| # | 항목 | 시점 | Lane | 본 agent 추천 | 자신감 | 본 agent 자율 가능? |
-|---:|---|---|---|---|---:|---|
-| 1 | minimal `paid_click_intent` ledger write 정식 운영화 | canary 24h 종료 후 (~2026-05-08 23:01 KST) | Yellow → Green 전환 | **YES** (24h PASS 시) | 88% | NO (재승인 필요) |
-| 2 | VM Google Ads developer token 연결 | 즉시 가능 | Yellow | **YES** | 92% | NO (env 변경 권한) |
-| 3 | Google Ads BI confirmed_purchase 실행안 | ConfirmedPurchasePrep 재실행 PASS 후 (~D+1) | Red | **조건부 YES** (click id 보존률 충분 시) | 70% | NO (Google Ads 변경) |
-| 4 | Google Ads `구매완료` Primary 변경 | 신규 confirmed_purchase 7일 병행 관측 후 (~D+8) | Red | **YES** (조건 충족 후) | 80% | NO |
-| 5 | Google tag gateway 활성화 옵션 결정 | Imweb 회신 후 | Yellow/Red | **NO 즉시 / YES 후속** | 65% | NO (DNS/CDN 권한) |
-| 6 | Imweb 측 Google tag gateway native 지원 외부 문의 | 즉시 가능 | Green (외부) | **YES** | 88% | NO (외부 업체 문의) |
-| **7** | **biocom freshness source 결정 (hurdlers vs backfill copy)** | **즉시 가능** | **Yellow** | **A: hurdlers 유지** (자신감 75%) 또는 **B: backfill copy 전환** (자신감 60%) | 70% | NO (운영 backend source 위치 변경) |
-| **8** | **AIBIO BigQuery 우리 SA query 권한 부여** | **TJ가 외부 (허들러스 또는 GA4 Admin) 요청 가능** | **Yellow** | **YES** (Supabase와 cross-check 가능 시) | 80% | NO (외부 권한 부여) |
+|     # | 항목                                                         | 시점                                      | Lane              | 본 agent 추천                                                        | 자신감 | 본 agent 자율 가능?               |
+| ----: | ---------------------------------------------------------- | --------------------------------------- | ----------------- | ----------------------------------------------------------------- | --: | ---------------------------- |
+|     1 | minimal `paid_click_intent` ledger write 정식 운영화            | canary 24h 종료 후 (~2026-05-08 23:01 KST) | Yellow → Green 전환 | **YES** (24h PASS 시)                                              | 88% | NO (재승인 필요)                  |
+|     2 | VM Google Ads developer token 연결                           | 즉시 가능                                   | Yellow            | **YES**                                                           | 92% | NO (env 변경 권한)               |
+|     3 | Google Ads BI confirmed_purchase 실행안                       | ConfirmedPurchasePrep 재실행 PASS 후 (~D+1) | Red               | **조건부 YES** (click id 보존률 충분 시)                                   | 70% | NO (Google Ads 변경)           |
+|     4 | Google Ads `구매완료` Primary 변경                               | 신규 confirmed_purchase 7일 병행 관측 후 (~D+8) | Red               | **YES** (조건 충족 후)                                                 | 80% | NO                           |
+|     5 | Google tag gateway 활성화 옵션 결정                               | Imweb 회신 후                              | Yellow/Red        | **NO 즉시 / YES 후속**                                                | 65% | NO (DNS/CDN 권한)              |
+|     6 | Imweb 측 Google tag gateway native 지원 외부 문의                 | 즉시 가능                                   | Green (외부)        | **YES**                                                           | 88% | NO (외부 업체 문의)                |
+| **7** | **biocom freshness source 결정 (hurdlers vs backfill copy)** | **즉시 가능**                               | **Yellow**        | **A: hurdlers 유지** (자신감 75%) 또는 **B: backfill copy 전환** (자신감 60%) | 70% | NO (운영 backend source 위치 변경) |
+| **8** | **AIBIO BigQuery 우리 SA query 권한 부여**                       | **TJ가 외부 (허들러스 또는 GA4 Admin) 요청 가능**    | **Yellow**        | **YES** (Supabase와 cross-check 가능 시)                              | 80% | NO (외부 권한 부여)                |
 
 ---
 
