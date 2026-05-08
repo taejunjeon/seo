@@ -94,7 +94,8 @@ AIBIO (`analytics_326993019`)는 `project-dadba7dd-0229-4ff6-81c`에 dataset이 
 | aibio GA4 dataset | `project-dadba7dd-0229-4ff6-81c.analytics_326993019` (dataset 존재, 우리 SA query 권한 미완) |
 | biocom 최신 events_ table (hurdlers 원본) | events_20260506 (last_mod 2026-05-07 00:39 UTC, 70,294 rows) |
 | biocom 최신 events_ table (backfill copy) | events_20260506 (last_mod 2026-05-07 06:38 UTC, 70,294 rows — 100% 일치) |
-| **biocom 신규 GA4 Link 첫 적재** | **미시작 (2026-05-08 00:35 KST 시점). 예상 적재 = 2026-05-08 새벽~오전 KST (T+24~36h)** |
+| **biocom 신규 GA4 Link 첫 적재** | **✅ 2026-05-08 01:16 UTC 적재 시작. events_20260507 69,704 rows / purchase 63 (모두 homepage)** |
+| AIBIO BigQuery query 권한 | **✅ 2026-05-08 부여됨** (events_20260507 423 rows 직접 query 확인) |
 | backfill 적재 범위 | events_20260427 ~ events_20260506 (10일치) |
 | backfill 적재 패턴 | 일괄 batch (2026-05-04 16:35 UTC 7일치, 2026-05-07 06:38 UTC 3일치) — daily 자동 아님 |
 | 신규 GA4 Link 빈도 설정 | 매일 (스트리밍 미선택) |
@@ -176,6 +177,7 @@ future approval (재개 조건 미충족):
 | 2026-05-07 23:55 KST | 본 sprint BigQuery 적재 상태 직접 검증 | biocom events_20260506 70,294 rows. coffee events_20260506 3,924 rows. AIBIO 미연결. 7일 purchase 49~88 / day, transaction_id 1:1 매칭 |
 | 2026-05-08 00:05 KST | biocom 이전 (`project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill`) 검증 | 10일치(events_20260427~20260506) backfill copy. row_count + purchase + distinct_txn 모두 hurdlers와 100% 일치. backfill 시각 2026-05-04 16:35 UTC + 2026-05-07 06:38 UTC 일괄. AIBIO `analytics_326993019` dataset 등장(권한 부여 미완) |
 | 2026-05-08 00:35 KST | biocom 신규 GA4 BigQuery Link 적재 상태 직접 확인 | 스크린샷 evidence: 2026-05-07 GA4 Admin에서 `project-dadba7dd-0229-4ff6-81c` 위치로 새 Link 생성 (매일/스트리밍 미선택). 직접 query 결과: `analytics_304759974` 단독 dataset 미존재, events_20260507/intraday 모두 미적재. Google daily export T+24~36h 정책에 따라 5/8 새벽~오전 첫 적재 예상. 본 agent 자동 polling 모니터링 |
+| 2026-05-08 10:16 KST | 새 GA4 Link 첫 적재 + TJ가 우리 SA에 BigQuery 사용자 role 부여 + 적재 정상 확인 | dataset `analytics_304759974` 등장 (last_mod 2026-05-08 01:16 UTC). events_20260507 row 69,704, purchase 63 (모두 homepage), view_item 4,101, add_payment_info 105, users 11,571. AIBIO `analytics_326993019` 도 query 가능 — events_20260507 423 rows, events_20260506 518 rows. 새 GA4 Link가 hurdlers보다 빠르게 적재. 5/7 NPay GA4 fire 0건 패턴 재확인 |
 
 ## Parked / Later
 
