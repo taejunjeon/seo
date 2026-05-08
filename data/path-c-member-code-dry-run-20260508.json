@@ -1,0 +1,132 @@
+{
+  "generated_at_kst": "2026-05-08 13:05 KST",
+  "context": "Path C (paid_click_intent_ledger.member_code 매개) attribution chain 설계 dry-run. 현재 paid_click_intent_ledger schema 에 member_code 미존재. 시뮬레이션 기반.",
+  "current_schema_check": {
+    "paid_click_intent_ledger_columns_total": 29,
+    "member_code_column_exists": false,
+    "member_code_index_exists": false,
+    "schema_change_required": true,
+    "schema_change_lane": "Yellow (운영 backend deploy)",
+    "lazy_bootstrap_pattern_compatible": true
+  },
+  "imweb_orders_member_code_baseline": {
+    "canary_window_completed_orders": 191,
+    "with_member_code_count": 191,
+    "with_member_code_pct": 100,
+    "member_code_format_samples": [
+      "m202601075bf674872ec7c (regular member)",
+      "gu2026010755395818a0754 (guest)",
+      "m2026010789f1319c37463 (regular member)"
+    ],
+    "regular_vs_guest_inferred": "prefix m=member, gu=guest. 회원/비회원 분리 가능"
+  },
+  "current_schema_join_attempt": {
+    "method": "imweb_orders.member_code 와 paid_click_intent_ledger.client_id 매칭 시도 (paid_click_intent 의 client_id는 GA4 client_id, imweb member_code 와 다른 식별자)",
+    "matched_count": 0,
+    "match_pct": 0,
+    "reason": "GA4 client_id (예: 1234567890.1234567890) 와 imweb member_code (m{date}{hex}) 형식 다름. 매칭 키 아님"
+  },
+  "expected_path_c_attribution_after_schema_change": {
+    "assumption": "schema에 member_code 컬럼 추가 + 클라이언트 wrapper에서 imweb member_code 추출해 paid_click_intent payload 에 첨부",
+    "applicable_orders_canary_window": 191,
+    "with_member_code_eligible_for_join": 191,
+    "expected_join_match_pct_when_pci_member_code_filled": 100,
+    "real_world_match_pct_estimate": "60~80% (회원 사용자가 광고 click 시 paid_click_intent fire 했고 cookie 만료 전 결제 완료한 경우)",
+    "lower_bound_attribution_canary_12h5": "약 38건 (191 × 20% conservative)",
+    "upper_bound_attribution_canary_12h5": "약 153건 (191 × 80% optimistic)",
+    "vs_path_a_current": "Path A 1건 vs Path C 38~153건 = 38~153배 uplift"
+  },
+  "npay_actual_confirmed_path_c_coverage": {
+    "canary_window_npay_actual_confirmed": 14,
+    "all_have_member_code_pct": 100,
+    "expected_path_c_match_pct": "60~80%",
+    "lower_bound_npay_attribution_canary_12h5": "약 8건",
+    "upper_bound_npay_attribution_canary_12h5": "약 11건",
+    "note": "Path A는 NPay 0건 자동 제외. Path C는 NPay actual confirmed 도 attribution 가능"
+  },
+  "schema_design": {
+    "alter_table": "ALTER TABLE paid_click_intent_ledger ADD COLUMN member_code TEXT NOT NULL DEFAULT ''",
+    "index": "CREATE INDEX IF NOT EXISTS idx_pci_member ON paid_click_intent_ledger(site, member_code) WHERE member_code != ''",
+    "field_constraints": {
+      "max_length": 64,
+      "format_validation": "/^(m|gu)[a-z0-9]+$/i",
+      "pii_classification": "NOT PII (자사 회원 ID, 단독으로는 개인 식별 불가, 이름/전화/이메일 없음)",
+      "default_for_guest_purchase": "empty string (비회원 결제는 매칭 불가, Path B/별 collector 보완)"
+    }
+  },
+  "tt_l_masking_purpose_limitation_pii_guard": {
+    "ttl": "90일 (기존 paid_click_intent retention 정책과 동일)",
+    "masking": "필요 없음 (member_code 자체는 PII 아님). 단 결합 PII 우려 시 SHA-256 hash 적용 옵션",
+    "purpose_limitation": "Google Ads attribution chain 매개만. 다른 광고 플랫폼 송출/사용자 프로파일링 금지",
+    "pii_guard": "기존 PII reject set (email/phone/name/address/order_number/payment_key/value/currency) 그대로. member_code는 reject 대상 아님",
+    "consent_basis": "imweb 회원가입 시 일반 이용 약관 + 광고 분석 동의 범위 안에서 사용. 별 사용자 동의 추가 검토 필요 시 cookie banner update"
+  },
+  "homepage_vs_npay_actual_confirmed_join_feasibility": {
+    "homepage": {
+      "canary_window_completed": 178,
+      "with_member_code": 178,
+      "expected_path_c_match_pct": "60~80%",
+      "estimate_attribution_count": "107~142건"
+    },
+    "npay_actual_confirmed": {
+      "canary_window_completed": 14,
+      "with_member_code": 14,
+      "expected_path_c_match_pct": "60~80%",
+      "estimate_attribution_count": "8~11건",
+      "key_advantage_over_path_a": "Path A는 NPay 0건 자동 제외. Path C는 100% 회원 NPay 결제완료에 click_id 매칭 가능"
+    }
+  },
+  "implementation_phases": {
+    "phase_0_design": {
+      "owner": "본 agent",
+      "lane": "Green",
+      "status": "본 문서로 완료"
+    },
+    "phase_1_local_code": {
+      "owner": "본 agent",
+      "lane": "Green (로컬 코드, deploy 안 함)",
+      "tasks": [
+        "paidClickIntentLog.ts: schema에 member_code 컬럼 추가 + lookupByMemberCode 함수 export",
+        "attribution.ts: receiver payload에서 member_code 받음",
+        "google-ads-confirmed-purchase-candidate-prep.ts: lookupByMemberCode loop 적용",
+        "로컬 sqlite test + typecheck"
+      ]
+    },
+    "phase_2_operational_deploy": {
+      "owner": "TJ + 본 agent",
+      "lane": "Yellow (TJ 승인 필요)",
+      "tasks": [
+        "운영 backend 백업",
+        "scp 변경 파일 (paidClickIntentLog.js + attribution.js + google-ads-...js)",
+        "PM2 restart --update-env",
+        "schema migration (lazy bootstrap 자동)",
+        "post-deploy smoke (member_code 빈 값 결제도 정상 fire)"
+      ]
+    },
+    "phase_3_client_wrapper": {
+      "owner": "TJ + 본 agent",
+      "lane": "Yellow (GTM Preview 또는 imweb body 변경)",
+      "tasks": [
+        "imweb body 또는 GTM Custom HTML tag에 member_code 추출 코드 추가",
+        "결제완료 페이지에서도 member_code 첨부 (post-purchase paid_click_intent fire)",
+        "Test Events smoke",
+        "1h canary + 24h monitoring"
+      ]
+    },
+    "phase_4_attribution_measurement": {
+      "owner": "본 agent",
+      "lane": "Green (자율)",
+      "tasks": [
+        "ConfirmedPurchasePrep 재실행 → with_gclid 변화 측정",
+        "Path A vs Path C uplift 정량 비교",
+        "Google Ads BI confirmed_purchase Red 승인안 갱신"
+      ]
+    }
+  },
+  "expected_uplift_summary": {
+    "path_a_only_attribution_per_30day": "약 84건 / 약 17M",
+    "path_c_added_attribution_per_30day_estimate": "약 1,400~1,850건 / 약 290M~390M (회원 결제 100% 가정 60~80% 매칭)",
+    "uplift_factor": "16~22배",
+    "limitation": "비회원 결제 및 paid_click_intent fire 안 한 사용자(예: deep link, app 등)는 여전히 Path B 별 collector 필요"
+  }
+}

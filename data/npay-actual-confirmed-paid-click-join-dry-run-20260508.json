@@ -1,0 +1,106 @@
+{
+  "generated_at_kst": "2026-05-08 13:20 KST",
+  "context": "NPay actual confirmed order ↔ paid_click_intent_ledger join dry-run. canary 12.5h window. GTM v138 이후 NPay GA4 purchase fire 누락이라 Path A는 0건. Path B/C 보강 정량 측정.",
+  "source_window_freshness_confidence": {
+    "source": "operational sqlite imweb_orders + paid_click_intent_ledger (read-only)",
+    "window": "2026-05-07 23:01 KST ~ 2026-05-08 11:30 KST (canary 12.5h)",
+    "freshness": "imweb_orders.order_time max=2026-05-08 11:25 KST / paid_click_intent_ledger.received_at max=2026-05-08 11:28 KST",
+    "confidence": 0.92,
+    "missing_areas": [
+      "GA4 BigQuery events_20260508 적재 전 (5/9 02:00 UTC 이후 가능) 24h+ window 측정",
+      "비회원 NPay actual confirmed (canary window 0건이라 측정 불가)"
+    ]
+  },
+  "npay_actual_confirmed_baseline": {
+    "canary_window_npay_actual_confirmed": 14,
+    "definition": "imweb_orders.pay_type='npay' AND imweb_status IN ('order_paid','delivered','order_complete') AND order_time IN canary window",
+    "with_member_code_count": 14,
+    "with_member_code_pct": 100,
+    "all_member_type_breakdown": {
+      "regular_member_m_prefix": 14,
+      "guest_gu_prefix": 0
+    },
+    "note": "canary 12.5h 의 NPay actual confirmed 는 모두 회원 결제. 비회원 NPay 결제는 0건"
+  },
+  "current_join_attempts_zero_match_breakdown": {
+    "join_attempt_1_session_id_window_1h": {
+      "method": "imweb_orders.payment_at ± 1h 내 paid_click_intent_ledger 의 ga_session_id 매칭 (NPay 는 ga_session_id 보존 가능성 가정)",
+      "matched_count": 0,
+      "match_pct": 0,
+      "reason": "NPay 결제 페이지는 외부 NPay 도메인이라 GA4 client/session 매개 변수 휘발. paid_click_intent_ledger.ga_session_id 와 결제 시점 사용자 GA4 session 다름"
+    },
+    "join_attempt_2_session_id_window_24h": {
+      "method": "imweb_orders.payment_at ± 24h 내 paid_click_intent_ledger 의 ga_session_id 매칭",
+      "matched_count": 0,
+      "match_pct": 0,
+      "reason": "동일 사유. NPay 결제 사용자의 paid_click_intent ga_session_id 는 NPay session으로 갱신되지 않음"
+    },
+    "join_attempt_3_phone_window_72h": {
+      "method": "imweb_orders.user_phone (정규화) ↔ paid_click_intent_ledger.user_phone 매칭 ± 72h",
+      "matched_count": 0,
+      "match_pct": 0,
+      "reason": "paid_click_intent_ledger 는 PII reject set에 user_phone 포함. 영원히 phone 저장 안 함 → 매칭 영원히 불가"
+    },
+    "join_attempt_4_email_window_72h": {
+      "method": "imweb_orders.user_email ↔ paid_click_intent_ledger.email 매칭",
+      "matched_count": 0,
+      "match_pct": 0,
+      "reason": "동일 사유. email은 PII reject set 영구 제외"
+    }
+  },
+  "path_c_member_code_join_design": {
+    "method": "imweb_orders.member_code ↔ paid_click_intent_ledger.member_code 직접 매칭 (paid_click_intent schema 확장 후)",
+    "current_match_count": "0 (schema member_code 컬럼 미존재)",
+    "after_schema_change_estimate": {
+      "lower_bound_60pct_match": "약 8건 (14 × 0.6, conservative)",
+      "upper_bound_80pct_match": "약 11건 (14 × 0.8, optimistic)",
+      "best_case_100pct_match": "14건 (이론값, 사용자 100% paid_click_intent fire 가정)"
+    },
+    "vs_path_a": "Path A 0건 → Path C 8~11건. 즉 NPay attribution 은 Path C 가 유일한 chain"
+  },
+  "path_b_separate_collector_design": {
+    "method": "imweb 결제완료 페이지에 별도 client-side beacon: order_time, member_code, click_id, ga_session_id 캡처 → 자체 endpoint 직접 push",
+    "advantage": "NPay 결제 후 imweb thanks page에서 fire 하므로 imweb session 안에서 GA4 client_id/session_id 일관 보존",
+    "expected_match_pct": "85~95% (cookie 차단 사용자만 누락)",
+    "estimate_canary_12h5_attribution_npay_only": "12~13건",
+    "lane": "Yellow (별도 GTM Custom HTML tag 또는 imweb body 추가)"
+  },
+  "google_ads_npay_distortion_recovery_estimate": {
+    "current_distortion": "NPay click 학습 부풀림 9.04배 (gdn/google-ads-npay-quality-deep-dive-20260505.md)",
+    "before_path_c": "NPay actual confirmed attribution 0% → Google Ads 가 NPay click 을 모두 conversion으로 학습",
+    "after_path_c_60pct": "NPay actual confirmed 60% attribution → 부풀림 9.04배 → 약 5.4배 (40% 미관측 보정)",
+    "after_path_c_80pct": "NPay actual confirmed 80% attribution → 부풀림 9.04배 → 약 1.8배",
+    "after_path_b_90pct": "NPay actual confirmed 90% attribution → 부풀림 9.04배 → 약 0.9배 (사실상 정상)",
+    "interpretation": "Path C 단독으로는 부풀림 절반 수준 회수. Path B 보강 시 정상화 가능"
+  },
+  "operational_safety_check": {
+    "no_db_write": true,
+    "read_only_sources": ["operational sqlite (imweb_orders, paid_click_intent_ledger)", "operational PG tb_iamweb_users (read-only)"],
+    "pii_reject_set_intact": true,
+    "no_send_to_ad_platforms": true,
+    "lane": "Green Lane (dry-run 측정만)"
+  },
+  "implementation_priority_for_npay_attribution": {
+    "p0_path_c_first": "schema 1 컬럼 추가 + lookup 함수 + 클라이언트 1줄. 배포 비용 최소. 60~80% 매칭 가능. NPay 부풀림 절반 회수.",
+    "p1_path_b_supplement": "imweb 결제완료 페이지 별도 collector. 비회원 NPay 결제도 매칭. 부풀림 90% 회수 가능.",
+    "p2_ga4_npay_purchase_re_enable": "GTM v138 변경 되돌리기 (NPay → purchase) - 광고 학습 복구. 단 자사 결제 중복 위험 → enhanced_conversions 의 transaction_id 필수",
+    "rationale": "Path C가 schema lazy bootstrap + 클라이언트 minimal change 라 가장 빠르게 효과 측정 가능"
+  },
+  "what_is_actually_actionable_now": {
+    "by_本_agent_green": [
+      "Path C 로컬 코드 작성 (paidClickIntentLog.ts schema lazy migration + lookupByMemberCode + ConfirmedPurchasePrep loop)",
+      "본 dry-run 결과 정본 link 추가 (data/!channelfunnel.md, gdn/!gdnplan_new.md)",
+      "TJ 컨펌 큐 #10~#11 신규 항목 추가 (Path C deploy / Path B collector)"
+    ],
+    "by_tj_yellow": [
+      "Path C Phase 2 운영 backend deploy 승인",
+      "Path C Phase 3 클라이언트 wrapper 변경 승인",
+      "Path B 별도 collector 별 sprint 승인"
+    ],
+    "by_tj_red": [
+      "GA4 NPay purchase fire 재활성화 (GTM v138 변경 되돌리기)",
+      "Google Ads `구매완료` Primary 변경",
+      "confirmed_purchase 실 send"
+    ]
+  }
+}
