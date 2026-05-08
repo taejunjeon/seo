@@ -33,6 +33,7 @@ const ensureTable = (db: Database.Database) => {
       local_session_id TEXT NOT NULL DEFAULT '',
       user_agent_hash TEXT NOT NULL DEFAULT '',
       ip_hash TEXT NOT NULL DEFAULT '',
+      member_code TEXT NOT NULL DEFAULT '',
       dedupe_key TEXT NOT NULL,
       duplicate_count INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'received',
@@ -47,7 +48,23 @@ const ensureTable = (db: Database.Database) => {
     CREATE INDEX IF NOT EXISTS idx_pci_expires ON ${TABLE}(expires_at);
     CREATE INDEX IF NOT EXISTS idx_pci_status ON ${TABLE}(status, captured_at DESC);
   `);
+  const cols = db.prepare(`PRAGMA table_info(${TABLE})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === "member_code")) {
+    db.exec(`ALTER TABLE ${TABLE} ADD COLUMN member_code TEXT NOT NULL DEFAULT ''`);
+  }
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_pci_member ON ${TABLE}(site, member_code) WHERE member_code != ''`,
+  );
   tableReady = true;
+};
+
+const MEMBER_CODE_PATTERN = /^(m|gu)[a-z0-9]{0,62}$/i;
+const sanitizeMemberCode = (raw: unknown): string => {
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (trimmed.length > 64) return "";
+  return MEMBER_CODE_PATTERN.test(trimmed) ? trimmed : "";
 };
 
 const hashValue = (input: string, salt: string) => {
@@ -95,6 +112,7 @@ export type PaidClickIntentRow = {
   localSessionId: string;
   userAgentHash: string;
   ipHash: string;
+  memberCode: string;
   dedupeKey: string;
   duplicateCount: number;
   status: string;
@@ -130,6 +148,7 @@ export type PaidClickIntentPreview = {
   local_session_id: string;
   sanitized_landing_url: string;
   sanitized_referrer: string;
+  member_code?: string;
 };
 
 const pickClickIdType = (clickIds: PaidClickIntentPreview["click_ids"]): { type: string; value: string } => {
@@ -204,6 +223,7 @@ const dbRowToRow = (row: Record<string, unknown>): PaidClickIntentRow => ({
   localSessionId: String(row.local_session_id ?? ""),
   userAgentHash: String(row.user_agent_hash ?? ""),
   ipHash: String(row.ip_hash ?? ""),
+  memberCode: String(row.member_code ?? ""),
   dedupeKey: String(row.dedupe_key),
   duplicateCount: Number(row.duplicate_count) || 0,
   status: String(row.status),
@@ -282,15 +302,16 @@ export const recordPaidClickIntent = (
   }
 
   const intentId = randomUUID();
+  const memberCode = sanitizeMemberCode(preview.member_code);
   db.prepare(
     `INSERT INTO ${TABLE} (
       intent_id, site, captured_at, received_at, platform_hint, capture_stage,
       click_id_type, click_id_value, click_id_hash,
       utm_source, utm_medium, utm_campaign, utm_term, utm_content,
       landing_path, allowed_query_json, referrer_host,
-      client_id, ga_session_id, local_session_id, user_agent_hash, ip_hash,
+      client_id, ga_session_id, local_session_id, user_agent_hash, ip_hash, member_code,
       dedupe_key, duplicate_count, status, reject_reason, expires_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'received', '', ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'received', '', ?, ?, ?)`,
   ).run(
     intentId,
     preview.site,
@@ -314,6 +335,7 @@ export const recordPaidClickIntent = (
     preview.local_session_id,
     userAgentHash,
     ipHash,
+    memberCode,
     preview.dedupe_key,
     expiresAt,
     now,
@@ -387,5 +409,39 @@ export const listPaidClickIntents = (input: { site?: string; limit?: number }) =
        LIMIT ?`,
     )
     .all(site, limit) as Record<string, unknown>[];
+  return rows.map(dbRowToRow);
+};
+
+/**
+ * Path C — member_code 매개 attribution lookup.
+ * Caller passes imweb member_code (m{date}{hex} or gu{date}{hex}); returns
+ * paid_click_intent_ledger rows for the same member within the last
+ * `sinceDays` days, ordered by `received_at` ASC (first-touch attribution).
+ *
+ * Returns empty array when:
+ *  - memberCode is empty / fails format validation
+ *  - paid_click_intent_ledger.member_code column is empty for that member
+ *  - no rows within the lookback window
+ */
+export const lookupByMemberCode = (
+  memberCodeInput: string,
+  siteInput = "biocom",
+  sinceDays = 30,
+): PaidClickIntentRow[] => {
+  const memberCode = sanitizeMemberCode(memberCodeInput);
+  if (!memberCode) return [];
+  const db = getCrmDb();
+  ensureTable(db);
+  const site = siteInput || "biocom";
+  const lookback = Number.isFinite(sinceDays) && sinceDays > 0 ? sinceDays : 30;
+  const sinceIso = new Date(Date.now() - lookback * 24 * 3600 * 1000).toISOString();
+  const rows = db
+    .prepare(
+      `SELECT * FROM ${TABLE}
+       WHERE site = ? AND member_code = ? AND received_at >= ?
+       ORDER BY received_at ASC
+       LIMIT 50`,
+    )
+    .all(site, memberCode, sinceIso) as Record<string, unknown>[];
   return rows.map(dbRowToRow);
 };

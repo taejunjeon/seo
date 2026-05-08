@@ -1029,6 +1029,13 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   const referrerRaw = textField(body, "referrer") || textField(body, "page_referrer") || textField(body, "pageReferrer");
   const eventId = textField(body, "event_id") || textField(body, "eventId") || `PaidClickIntent_${captureStage}_${Date.now()}`;
   const storageKey = textField(body, "storage_key") || textField(body, "storageKey") || "bi_paid_click_intent_v1";
+  const memberCodeRaw = textField(body, "member_code") || textField(body, "memberCode");
+  const memberCode = (() => {
+    const v = (memberCodeRaw || "").trim();
+    if (!v) return "";
+    if (v.length > 64) return "";
+    return /^(m|gu)[a-z0-9]{0,62}$/i.test(v) ? v : "";
+  })();
   const googleClickIds = [gclid, gbraid, wbraid].filter(Boolean);
   const hasGoogleClickId = googleClickIds.length > 0;
   const testClickId = googleClickIds.some(isPreviewClickId);
@@ -1076,6 +1083,7 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
     sanitized_landing_url: landingUrlRaw ? sanitizePaidClickIntentUrl(landingUrlRaw) : "",
     sanitized_current_url: currentUrlRaw ? sanitizePaidClickIntentUrl(currentUrlRaw) : "",
     sanitized_referrer: referrerRaw ? sanitizePaidClickIntentUrl(referrerRaw) : "",
+    member_code: memberCode,
   };
 };
 
@@ -2781,6 +2789,7 @@ export const createAttributionRouter = () => {
                 local_session_id: preview.local_session_id,
                 sanitized_landing_url: preview.sanitized_landing_url,
                 sanitized_referrer: preview.sanitized_referrer,
+                member_code: preview.member_code,
               },
               body,
               { ip: ledgerContext.ip, userAgent: ledgerContext.userAgent },

@@ -2,6 +2,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { lookupByMemberCode, type PaidClickIntentRow } from "../src/paidClickIntentLog";
+
 type Candidate = {
   site: "biocom";
   order_number: string;
@@ -11,6 +13,7 @@ type Candidate = {
   conversion_time: string;
   value: number;
   currency: "KRW";
+  member_code?: string;
   vm_evidence: {
     matched?: boolean;
     matched_by?: string;
@@ -32,6 +35,11 @@ type Candidate = {
   send_candidate: boolean;
   block_reasons: string[];
 };
+
+type AttributionSource =
+  | "vm_evidence"
+  | "paid_click_intent_member_code_match"
+  | "none";
 
 type DryRun = {
   generated_at_kst?: string;
@@ -73,30 +81,84 @@ const googleClickType = (row: Candidate) => {
   return "";
 };
 
+const PATH_C_LOOKUP_ENABLED = (() => {
+  const v = (process.env.PATH_C_LOOKUP_ENABLED ?? "false").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+})();
+
+const lookupPathCMatch = (memberCode?: string): PaidClickIntentRow | null => {
+  if (!PATH_C_LOOKUP_ENABLED) return null;
+  if (!memberCode) return null;
+  try {
+    const rows = lookupByMemberCode(memberCode, "biocom", 30);
+    if (rows.length === 0) return null;
+    return rows[0];
+  } catch {
+    return null;
+  }
+};
+
+const pathCClickType = (row: PaidClickIntentRow | null) => {
+  if (!row) return "";
+  if (row.clickIdType === "gclid" || row.clickIdType === "gbraid" || row.clickIdType === "wbraid") {
+    return row.clickIdType;
+  }
+  return "";
+};
+
 const dedupeKey = (row: Candidate) =>
   `google_ads_confirmed_purchase:${row.site}:${row.channel_order_no || row.order_number}:${row.value}:${row.conversion_time}`;
 
-const buildUploadPreview = (row: Candidate) => ({
+const buildUploadPreview = (
+  row: Candidate,
+  effectiveClickIds: { gclid: string; gbraid: string; wbraid: string },
+) => ({
   conversion_action: "BI confirmed_purchase (not created / approval required)",
   order_id: row.channel_order_no || row.order_number,
   conversion_date_time: row.conversion_time,
   conversion_value: row.value,
   currency_code: row.currency,
-  gclid: row.vm_evidence?.gclid || "",
-  gbraid: row.vm_evidence?.gbraid || "",
-  wbraid: row.vm_evidence?.wbraid || "",
+  gclid: effectiveClickIds.gclid,
+  gbraid: effectiveClickIds.gbraid,
+  wbraid: effectiveClickIds.wbraid,
   restatement_value: null,
   user_identifiers: [],
   consent: "not_set_in_no_send_preview",
 });
 
 const prepRow = (row: Candidate) => {
+  const vmHasClick = hasGoogleClickId(row);
+  const pathCRow = vmHasClick ? null : lookupPathCMatch(row.member_code);
+  const pathCType = pathCClickType(pathCRow);
+  const effectiveClickIds = vmHasClick
+    ? {
+        gclid: row.vm_evidence?.gclid || "",
+        gbraid: row.vm_evidence?.gbraid || "",
+        wbraid: row.vm_evidence?.wbraid || "",
+      }
+    : pathCRow && pathCType
+      ? {
+          gclid: pathCType === "gclid" ? pathCRow.clickIdValue : "",
+          gbraid: pathCType === "gbraid" ? pathCRow.clickIdValue : "",
+          wbraid: pathCType === "wbraid" ? pathCRow.clickIdValue : "",
+        }
+      : { gclid: "", gbraid: "", wbraid: "" };
+  const effectiveHasClick = Boolean(
+    effectiveClickIds.gclid || effectiveClickIds.gbraid || effectiveClickIds.wbraid,
+  );
+  const effectiveClickType = vmHasClick ? googleClickType(row) : pathCType;
+  const attributionSource: AttributionSource = vmHasClick
+    ? "vm_evidence"
+    : pathCRow
+      ? "paid_click_intent_member_code_match"
+      : "none";
+
   const blockReasons = new Set(row.block_reasons ?? []);
   blockReasons.add("read_only_phase");
   blockReasons.add("approval_required");
   blockReasons.add("google_ads_conversion_action_not_created");
   blockReasons.add("conversion_upload_not_approved");
-  if (!hasGoogleClickId(row)) blockReasons.add("missing_google_click_id");
+  if (!effectiveHasClick) blockReasons.add("missing_google_click_id");
   if (!row.conversion_time) blockReasons.add("missing_conversion_time");
   if (!row.value || row.value <= 0) blockReasons.add("invalid_value");
   if (row.payment_status !== "confirmed") blockReasons.add(`${row.payment_status}_order`);
@@ -113,20 +175,29 @@ const prepRow = (row: Candidate) => {
     order_number: row.order_number,
     channel_order_no: row.channel_order_no,
     payment_method: row.payment_method,
+    member_code: row.member_code ?? "",
     include_reason: row.include_reason ?? "",
     conversion_time: row.conversion_time,
     value: row.value,
     currency: row.currency,
-    google_click_id_type: googleClickType(row),
-    has_google_click_id: hasGoogleClickId(row),
+    google_click_id_type: effectiveClickType,
+    has_google_click_id: effectiveHasClick,
     ga4_presence: row.ga4_guard?.status ?? "unknown",
     vm_matched: Boolean(row.vm_evidence?.matched),
     vm_matched_by: row.vm_evidence?.matched_by ?? "",
+    attribution_source: attributionSource,
+    attribution_chain_window_hours:
+      pathCRow && row.conversion_time
+        ? Math.max(
+            0,
+            (Date.parse(row.conversion_time) - Date.parse(pathCRow.receivedAt)) / 3600000,
+          )
+        : null,
     dedupe_key: dedupeKey(row),
     would_be_google_ads_upload_candidate_after_approval: hardBlocks.length === 0,
     send_candidate: false,
     block_reasons: [...blockReasons],
-    upload_preview: buildUploadPreview(row),
+    upload_preview: buildUploadPreview(row, effectiveClickIds),
   };
 };
 
@@ -233,6 +304,8 @@ const main = () => {
       ga4_presence_counts: countBy(rows.map((row) => row.ga4_presence)),
       google_click_id_type_counts: countBy(rows.map((row) => row.google_click_id_type || "missing")),
       with_google_click_id: withGoogle.length,
+      attribution_source_counts: countBy(rows.map((row) => row.attribution_source)),
+      with_member_code: rows.filter((row) => row.member_code).length,
       after_approval_structurally_eligible: rows.filter((row) => row.would_be_google_ads_upload_candidate_after_approval).length,
       send_candidate: 0,
       block_reason_counts: countBy(rows.flatMap((row) => row.block_reasons)),
