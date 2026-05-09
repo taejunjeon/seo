@@ -13,6 +13,8 @@ const createLogger = () =>
       paths: [
         "req.headers.authorization",
         "req.headers.cookie",
+        "req.headers.referer",
+        "req.headers.referrer",
         "req.headers['x-cron-secret']",
         "req.headers['x-api-key']",
         "req.headers['x-admin-token']",

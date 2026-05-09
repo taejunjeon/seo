@@ -35,6 +35,19 @@ import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import { getNpayIntentSummary, listNpayIntents, recordNpayIntent } from "../npayIntentLog";
 import {
+  bootstrapOrderBridgeLedgerTable,
+  recordOrderBridgeLedger,
+  isOrderBridgeWriteEnabled,
+  getOrderBridgeLedgerSummary,
+  getOrderBridgeWriteMaxRows,
+  isOrderBridgePlatformSendEnabled,
+  isOrderBridgeRawBodyLoggingEnabled,
+} from "../orderBridgeLedger";
+import {
+  buildOrderBridgeIdentityHmacMaterial,
+  OrderBridgeIdentityHmacConfigError,
+} from "../orderBridgeIdentityHmac";
+import {
   bootstrapPaidClickIntentTable,
   getPaidClickIntentWriteSampleRate,
   isPaidClickIntentWriteEnabled,
@@ -697,6 +710,7 @@ const PAID_CLICK_INTENT_REJECT_KEYS = new Set([
   "password",
 ]);
 const PAID_CLICK_INTENT_BODY_LIMIT_BYTES = 16 * 1024;
+const ORDER_BRIDGE_IDENTITY_HMAC_BODY_LIMIT_BYTES = 16 * 1024;
 const PAID_CLICK_INTENT_BLOCKED_PATH_PARTS = [
   "/admin",
   "/backpg/login",
@@ -1540,7 +1554,7 @@ const resolveAcquisitionCohortLedger = async (value: unknown): Promise<{
   const remoteLedger = await fetchRemoteLedgerEntriesForAcquisition();
   const remoteWarnings = [...remoteLedger.warnings];
   if (remoteLedger.entries.length === 0) {
-    remoteWarnings.push("운영 VM 원장 row를 가져오지 못해 로컬 원장으로 fallback했다.");
+    remoteWarnings.push("VM Cloud 원장 row를 가져오지 못해 로컬 원장으로 fallback했다.");
     return { dataSource: "local", remoteWarnings };
   }
 
@@ -2865,6 +2879,148 @@ export const createAttributionRouter = () => {
     }
   });
 
+  router.post("/api/attribution/order-bridge/identity-hmac/no-send", (req: Request, res: Response) => {
+    const receivedAt = new Date().toISOString();
+    try {
+      const body = parseBody(req.body);
+      const bodySizeBytes = estimateJsonSizeBytes(body);
+      if (bodySizeBytes > ORDER_BRIDGE_IDENTITY_HMAC_BODY_LIMIT_BYTES) {
+        const blockReasons = ["read_only_phase", "approval_required", "payload_too_large"];
+        res.status(413).json({
+          ok: false,
+          ...noSendGuardAliases,
+          receiver: "order_bridge_identity_hmac_no_send",
+          error: "payload_too_large",
+          block_reasons: blockReasons,
+          guard: buildNoSendGuard({
+            blockReasons,
+            source: "order_bridge_identity_hmac_no_send",
+            checkedAt: receivedAt,
+            confidence: 0.98,
+          }),
+          limit_bytes: ORDER_BRIDGE_IDENTITY_HMAC_BODY_LIMIT_BYTES,
+          received_bytes: Number.isFinite(bodySizeBytes) ? bodySizeBytes : null,
+          source: {
+            mode: "no_write_no_send_identity_hmac_preview",
+            receivedAt,
+          },
+        });
+        return;
+      }
+      const material = buildOrderBridgeIdentityHmacMaterial(body, {
+        secret: process.env.ORDER_BRIDGE_IDENTITY_HASH_SECRET ?? "",
+        receivedAt,
+      });
+      const preview = material.preview;
+      const blockReasons = ["read_only_phase", "approval_required"];
+      const writeFlagOn = isOrderBridgeWriteEnabled();
+      let ledger:
+        | { stored: true; deduped: boolean; write_mode: "hash_only_canary"; status: string }
+        | { stored: false; rejected: true; reason: string }
+        | undefined;
+      let previewForResponse = preview;
+
+      if (writeFlagOn) {
+        const result = recordOrderBridgeLedger(material);
+        if (result.stored) {
+          previewForResponse = { ...preview, would_store: true };
+          ledger = {
+            stored: true,
+            deduped: result.deduped,
+            write_mode: "hash_only_canary",
+            status: result.row.status,
+          };
+        } else {
+          ledger = {
+            stored: false,
+            rejected: true,
+            reason: result.reason,
+          };
+        }
+      }
+
+      res.status(200).json({
+        ok: true,
+        ...noSendGuardAliases,
+        receiver: "order_bridge_identity_hmac_no_send",
+        guard: buildNoSendGuard({
+          blockReasons,
+          source: "order_bridge_identity_hmac_no_send",
+          checkedAt: receivedAt,
+          confidence: 0.93,
+        }),
+        preview: previewForResponse,
+        ledger,
+        source: {
+          mode: ledger?.stored ? "hash_only_order_bridge_canary_write" : "no_write_no_send_identity_hmac_preview",
+          receivedAt,
+          write_flag_on: writeFlagOn,
+          write_max_rows: getOrderBridgeWriteMaxRows(),
+          raw_body_logging_enabled: isOrderBridgeRawBodyLoggingEnabled(),
+          platform_send_enabled: isOrderBridgePlatformSendEnabled(),
+        },
+        warnings: [
+          "Path B Preview endpoint다. 운영 저장, platform send, GTM Production publish는 하지 않는다.",
+          "raw email/phone/order는 HMAC 생성을 위한 transient input으로만 허용하고 response/log/storage에 남기지 않는다.",
+          "response에는 raw 값 없이 hash present 여부와 짧은 hash prefix만 반환한다.",
+          ...(writeFlagOn
+            ? ["ORDER_BRIDGE_WRITE_ENABLED=true 상태다. hash-only canary row만 저장하며 raw 저장과 platform send는 계속 0건이어야 한다."]
+            : []),
+        ],
+      });
+    } catch (error) {
+      const isConfigError = error instanceof OrderBridgeIdentityHmacConfigError;
+      const blockReasons = [
+        "read_only_phase",
+        "approval_required",
+        isConfigError ? "hash_secret_missing" : "identity_hmac_preview_error",
+      ];
+      res.status(isConfigError ? 503 : 400).json({
+        ok: false,
+        ...noSendGuardAliases,
+        receiver: "order_bridge_identity_hmac_no_send",
+        error: isConfigError ? "hash_secret_missing" : "identity_hmac_preview_error",
+        message: isConfigError
+          ? "ORDER_BRIDGE_IDENTITY_HASH_SECRET is required for hash-only preview"
+          : "order bridge identity HMAC preview failed",
+        block_reasons: blockReasons,
+        legacy_block_reasons: [],
+        guard: buildNoSendGuard({
+          blockReasons,
+          source: "order_bridge_identity_hmac_no_send",
+          checkedAt: receivedAt,
+          confidence: isConfigError ? 0.95 : 0.75,
+        }),
+        source: {
+          mode: "no_write_no_send_identity_hmac_preview",
+          receivedAt,
+        },
+      });
+    }
+  });
+
+  router.get("/api/attribution/order-bridge/ledger/summary", (_req: Request, res: Response) => {
+    try {
+      bootstrapOrderBridgeLedgerTable();
+      res.status(200).json({
+        ok: true,
+        summary: getOrderBridgeLedgerSummary("biocom"),
+        source: {
+          mode: "order_bridge_ledger_summary_readonly",
+          receivedAt: new Date().toISOString(),
+          write_flag_on: isOrderBridgeWriteEnabled(),
+          write_max_rows: getOrderBridgeWriteMaxRows(),
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: "order_bridge_ledger_summary_failed",
+        message: error instanceof Error ? error.message : "unknown_error",
+      });
+    }
+  });
+
   router.post("/api/attribution/form-submit", async (req: Request, res: Response) => {
     try {
       const body = parseBody(req.body);
@@ -3551,7 +3707,7 @@ export const createAttributionRouter = () => {
           allEntries = remoteLedger.entries;
           dataSource = "operational_vm_ledger";
         } else {
-          remoteWarnings.push("운영 VM 원장 row를 가져오지 못해 로컬 원장으로 fallback했다.");
+          remoteWarnings.push("VM Cloud 원장 row를 가져오지 못해 로컬 원장으로 fallback했다.");
         }
       }
 
@@ -3657,7 +3813,7 @@ export const createAttributionRouter = () => {
           skippedRows: replayPlan.skippedRows.slice(0, 5),
         },
         notes: [
-          "이 endpoint는 read-only 운영 DB의 tb_sales_toss를 읽어 replay용 payment_success row를 만든다.",
+          "이 endpoint는 read-only 운영DB의 tb_sales_toss를 읽어 replay용 payment_success row를 만든다.",
           "dryRun=true면 파일에 쓰지 않고 preview만 반환한다.",
           "replay row는 live 원인 확정용이 아니라 조인 plumbing 점검용이다.",
         ],
