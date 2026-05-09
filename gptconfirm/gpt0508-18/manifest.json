@@ -1,7 +1,8 @@
 {
   "batch": "gpt0508-18",
   "created_at_kst": "2026-05-10 00:11 KST",
-  "purpose": "Path B click bridge diagnosis after identity-first canary",
+  "updated_at_kst": "2026-05-10 00:30 KST",
+  "purpose": "Path B click bridge diagnosis after identity-first canary plus HOLD Reducer and GTM lifecycle rule proposals",
   "site": "biocom",
   "documents": [
     {
@@ -20,6 +21,36 @@
       "source": "gptconfirm/gpt0508-18/02-next-action-decision.md",
       "copy": "gptconfirm/gpt0508-18/02-next-action-decision.md",
       "why_included": "Next action decision tree for click bridge",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-18/01-harness-document-inventory.md",
+      "copy": "gptconfirm/gpt0508-18/01-harness-document-inventory.md",
+      "why_included": "Harness, agent, report, approval document inventory",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-18/02-hold-reducer-rule-proposal.md",
+      "copy": "gptconfirm/gpt0508-18/02-hold-reducer-rule-proposal.md",
+      "why_included": "Proposal for automatic Green follow-up after HOLD results",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-18/03-gtm-workspace-lifecycle-rule-proposal.md",
+      "copy": "gptconfirm/gpt0508-18/03-gtm-workspace-lifecycle-rule-proposal.md",
+      "why_included": "Proposal for GTM workspace capacity, cleanup, reuse, and write flag sequencing",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-18/04-report-auditor-hold-and-gtm-rules.md",
+      "copy": "gptconfirm/gpt0508-18/04-report-auditor-hold-and-gtm-rules.md",
+      "why_included": "ReportAuditor checks for HOLD reducer and GTM lifecycle problems",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-18/05-document-patch-plan.md",
+      "copy": "gptconfirm/gpt0508-18/05-document-patch-plan.md",
+      "why_included": "Decision plan for which documents should be patched versus proposal-only",
       "approval_needed": false
     },
     {
@@ -54,7 +85,9 @@
     "google_ads_upload_candidates": 0,
     "send_candidate_count": 0,
     "actual_send_candidate_count": 0,
-    "recommended_next_step": "same_browser_test_click_preservation_preview"
+    "recommended_next_step": "same_browser_test_click_preservation_preview",
+    "hold_reducer_rule_proposed": true,
+    "gtm_workspace_lifecycle_rule_status": "common_exists_gdn_projection_proposed"
   },
   "forbidden_actions_not_taken": [
     "identity-only canary extension",
