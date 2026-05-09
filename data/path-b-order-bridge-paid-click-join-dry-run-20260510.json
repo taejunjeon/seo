@@ -1,0 +1,122 @@
+{
+  "generated_at_kst": "2026-05-10T00:08:43",
+  "source": "/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3#order_bridge_ledger + paid_click_intent_ledger",
+  "mode": "read_only_join_dry_run",
+  "site": "biocom",
+  "lookback_days": [
+    1,
+    7,
+    30
+  ],
+  "orders": [
+    {
+      "order_hash_prefix": "8876ef1e",
+      "email_hash_prefix": "40dd0240",
+      "status": "identity_only_quarantine",
+      "received_at": "2026-05-09T12:39:56.704Z",
+      "client_id_prefix": "349382661.1770",
+      "ga_session_id": "1770811419",
+      "local_session_id_hash_prefix": "81f3369b",
+      "direct_click_id_hash_present": false,
+      "lookbacks": {
+        "1d": {
+          "time_window_click_rows": 1267,
+          "time_window_unique_click_hash": 819,
+          "exact_session_click_rows": 0,
+          "exact_session_unique_click_hash": 0,
+          "matched_by_client_id_rows": 0,
+          "matched_by_ga_session_id_rows": 0,
+          "matched_by_local_session_hash_rows": 0,
+          "exact_stage_counts": {},
+          "ambiguity": "none",
+          "upload_candidate": false,
+          "sample_exact_candidates": []
+        },
+        "7d": {
+          "time_window_click_rows": 2169,
+          "time_window_unique_click_hash": 1369,
+          "exact_session_click_rows": 0,
+          "exact_session_unique_click_hash": 0,
+          "matched_by_client_id_rows": 0,
+          "matched_by_ga_session_id_rows": 0,
+          "matched_by_local_session_hash_rows": 0,
+          "exact_stage_counts": {},
+          "ambiguity": "none",
+          "upload_candidate": false,
+          "sample_exact_candidates": []
+        },
+        "30d": {
+          "time_window_click_rows": 2169,
+          "time_window_unique_click_hash": 1369,
+          "exact_session_click_rows": 0,
+          "exact_session_unique_click_hash": 0,
+          "matched_by_client_id_rows": 0,
+          "matched_by_ga_session_id_rows": 0,
+          "matched_by_local_session_hash_rows": 0,
+          "exact_stage_counts": {},
+          "ambiguity": "none",
+          "upload_candidate": false,
+          "sample_exact_candidates": []
+        }
+      }
+    },
+    {
+      "order_hash_prefix": "bac8873b",
+      "email_hash_prefix": "53df68eb",
+      "status": "identity_only_quarantine",
+      "received_at": "2026-05-09T13:06:09.316Z",
+      "client_id_prefix": "1918691045.177",
+      "ga_session_id": "1778331567",
+      "local_session_id_hash_prefix": "1fae35b5",
+      "direct_click_id_hash_present": false,
+      "lookbacks": {
+        "1d": {
+          "time_window_click_rows": 1231,
+          "time_window_unique_click_hash": 799,
+          "exact_session_click_rows": 0,
+          "exact_session_unique_click_hash": 0,
+          "matched_by_client_id_rows": 0,
+          "matched_by_ga_session_id_rows": 0,
+          "matched_by_local_session_hash_rows": 0,
+          "exact_stage_counts": {},
+          "ambiguity": "none",
+          "upload_candidate": false,
+          "sample_exact_candidates": []
+        },
+        "7d": {
+          "time_window_click_rows": 2170,
+          "time_window_unique_click_hash": 1370,
+          "exact_session_click_rows": 0,
+          "exact_session_unique_click_hash": 0,
+          "matched_by_client_id_rows": 0,
+          "matched_by_ga_session_id_rows": 0,
+          "matched_by_local_session_hash_rows": 0,
+          "exact_stage_counts": {},
+          "ambiguity": "none",
+          "upload_candidate": false,
+          "sample_exact_candidates": []
+        },
+        "30d": {
+          "time_window_click_rows": 2170,
+          "time_window_unique_click_hash": 1370,
+          "exact_session_click_rows": 0,
+          "exact_session_unique_click_hash": 0,
+          "matched_by_client_id_rows": 0,
+          "matched_by_ga_session_id_rows": 0,
+          "matched_by_local_session_hash_rows": 0,
+          "exact_stage_counts": {},
+          "ambiguity": "none",
+          "upload_candidate": false,
+          "sample_exact_candidates": []
+        }
+      }
+    }
+  ],
+  "summary": {
+    "order_rows": 2,
+    "any_exact_match_orders_30d": 0,
+    "any_time_window_orders_30d": 2,
+    "upload_candidates": 0,
+    "send_candidate": false
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "batch": "gpt0508-18",
+  "created_at_kst": "2026-05-10 00:11 KST",
+  "purpose": "Path B click bridge diagnosis after identity-first canary",
+  "site": "biocom",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-18/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-18/00-result-report.md",
+      "why_included": "Batch result report and next decision summary",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-18/01-click-bridge-diagnosis.md",
+      "copy": "gptconfirm/gpt0508-18/01-click-bridge-diagnosis.md",
+      "why_included": "Click bridge root-cause diagnosis and scorecard update",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-18/02-next-action-decision.md",
+      "copy": "gptconfirm/gpt0508-18/02-next-action-decision.md",
+      "why_included": "Next action decision tree for click bridge",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-order-bridge-paid-click-join-dry-run-20260510.md",
+      "copy": "gdn/path-b-order-bridge-paid-click-join-dry-run-20260510.md",
+      "why_included": "Read-only join dry-run result between order bridge and paid click intent ledgers",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-click-storage-source-audit-20260510.md",
+      "copy": "gdn/path-b-click-storage-source-audit-20260510.md",
+      "why_included": "Click storage/source audit for Path B and paid_click_intent tags",
+      "approval_needed": false
+    },
+    {
+      "source": "data/path-b-order-bridge-paid-click-join-dry-run-20260510.json",
+      "copy": "data/path-b-order-bridge-paid-click-join-dry-run-20260510.json",
+      "why_included": "Machine-readable read-only join dry-run output",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-18/99-total-current-copy.md",
+      "why_included": "Current canonical document copy for confirmation context",
+      "approval_needed": false
+    }
+  ],
+  "key_results": {
+    "order_bridge_rows": 2,
+    "exact_session_click_match_orders": 0,
+    "time_window_only_orders": 2,
+    "google_ads_upload_candidates": 0,
+    "send_candidate_count": 0,
+    "actual_send_candidate_count": 0,
+    "recommended_next_step": "same_browser_test_click_preservation_preview"
+  },
+  "forbidden_actions_not_taken": [
+    "identity-only canary extension",
+    "real paid-click actual order test",
+    "GTM Production publish",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "send_candidate=true"
+  ]
+}
