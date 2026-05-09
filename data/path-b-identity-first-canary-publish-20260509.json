@@ -1,0 +1,82 @@
+{
+  "generated_at_kst": "2026-05-09T21:17:31",
+  "run_id": "20260509T121717Z",
+  "mode": "publish",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "13158774",
+    "public_id": "GTM-W2Z6PHN",
+    "previous_live_version": {
+      "id": "142",
+      "name": "paid_click_intent_v1_receiver_20260506T150218Z",
+      "path": "accounts/4703003246/containers/13158774/versions/142"
+    },
+    "canary_version": {
+      "id": "143",
+      "name": "AGENT_OS Path B identity-first canary 20260509T121717Z",
+      "path": "accounts/4703003246/containers/13158774/versions/143"
+    },
+    "live_version_after_publish": {
+      "id": "143",
+      "name": "AGENT_OS Path B identity-first canary 20260509T121717Z"
+    }
+  },
+  "workspace": {
+    "id": "166",
+    "name": "AGENT_OS_path_b_identity_first_canary_20260509T121717Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/166",
+    "new_workspace_path_after_create_version": null
+  },
+  "trigger": {
+    "id": "298",
+    "name": "AGENT_OS_path_b_order_complete_only_canary_20260509T121717Z",
+    "type": "pageview",
+    "path_regex": "^/shop_payment_complete$",
+    "all_pages": false
+  },
+  "tag": {
+    "id": "299",
+    "name": "AGENT_OS_path_b_identity_first_hmac_write_canary_20260509T121717Z",
+    "type": "html",
+    "endpoint": "https://att.ainativeos.net/api/attribution/order-bridge/identity-hmac/no-send",
+    "existing_gtm_tag_modified": false,
+    "existing_gtm_tag_paused_or_deleted": false,
+    "platform_send": false
+  },
+  "before_summary": {
+    "ok": true,
+    "summary": {
+      "site": "biocom",
+      "row_count": 2,
+      "unique_order_no_hash": 2,
+      "unique_email_hash": 2,
+      "unique_phone_hash": 1,
+      "unique_click_id_hash": 1,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "duplicate_dedupe_count": 1,
+      "status_counts": {
+        "full_bridge": 0,
+        "identity_only_quarantine": 0,
+        "session_only_quarantine": 0,
+        "click_missing_hold": 0,
+        "ambiguous": 0,
+        "do_not_send": 0
+      }
+    },
+    "source": {
+      "mode": "order_bridge_ledger_summary_readonly",
+      "receivedAt": "2026-05-09T12:17:31.728Z",
+      "write_flag_on": false,
+      "write_max_rows": 200
+    }
+  },
+  "forbidden_guards": {
+    "all_pages_trigger": false,
+    "existing_tag_pause_delete": false,
+    "platform_send": false,
+    "conversion_upload": false,
+    "raw_storage_or_logging": false
+  },
+  "verdict": "PUBLISHED_ORDER_COMPLETE_ONLY_CANARY"
+}

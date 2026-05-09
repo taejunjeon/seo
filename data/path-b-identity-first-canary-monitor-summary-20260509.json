@@ -1,0 +1,103 @@
+{
+  "samples": 7,
+  "first": {
+    "sample": 0,
+    "kst": "2026-05-09T21:18:29+0900",
+    "summary": {
+      "ok": true,
+      "summary": {
+        "site": "biocom",
+        "row_count": 2,
+        "unique_order_no_hash": 2,
+        "unique_email_hash": 2,
+        "unique_phone_hash": 1,
+        "unique_click_id_hash": 1,
+        "raw_stored_count": 0,
+        "platform_send_count": 0,
+        "duplicate_dedupe_count": 1,
+        "status_counts": {
+          "full_bridge": 0,
+          "identity_only_quarantine": 0,
+          "session_only_quarantine": 0,
+          "click_missing_hold": 0,
+          "ambiguous": 0,
+          "do_not_send": 0
+        }
+      },
+      "source": {
+        "mode": "order_bridge_ledger_summary_readonly",
+        "receivedAt": "2026-05-09T12:18:30.491Z",
+        "write_flag_on": true,
+        "write_max_rows": 200
+      }
+    },
+    "health": {
+      "status": "ok",
+      "timestamp": "2026-05-09T12:18:30.765Z"
+    },
+    "pm2": {
+      "restarts": null,
+      "status": null
+    }
+  },
+  "last": {
+    "sample": 6,
+    "kst": "2026-05-09T22:18:40+0900",
+    "summary": {
+      "ok": true,
+      "summary": {
+        "site": "biocom",
+        "row_count": 4,
+        "unique_order_no_hash": 4,
+        "unique_email_hash": 3,
+        "unique_phone_hash": 1,
+        "unique_click_id_hash": 1,
+        "raw_stored_count": 0,
+        "platform_send_count": 0,
+        "duplicate_dedupe_count": 1,
+        "status_counts": {
+          "full_bridge": 0,
+          "identity_only_quarantine": 2,
+          "session_only_quarantine": 0,
+          "click_missing_hold": 0,
+          "ambiguous": 0,
+          "do_not_send": 0
+        }
+      },
+      "source": {
+        "mode": "order_bridge_ledger_summary_readonly",
+        "receivedAt": "2026-05-09T13:18:40.881Z",
+        "write_flag_on": true,
+        "write_max_rows": 200
+      }
+    },
+    "health": {
+      "status": "ok",
+      "timestamp": "2026-05-09T13:18:41.211Z"
+    },
+    "pm2": {
+      "restarts": null,
+      "status": null
+    }
+  },
+  "row_counts": [
+    2,
+    2,
+    2,
+    3,
+    3,
+    4,
+    4
+  ],
+  "status_counts_last": {
+    "full_bridge": 0,
+    "identity_only_quarantine": 2,
+    "session_only_quarantine": 0,
+    "click_missing_hold": 0,
+    "ambiguous": 0,
+    "do_not_send": 0
+  },
+  "raw_stored_last": 0,
+  "platform_send_last": 0,
+  "write_flag_last": true
+}

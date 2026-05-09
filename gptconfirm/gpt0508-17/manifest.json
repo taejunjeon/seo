@@ -1,0 +1,82 @@
+{
+  "batch": "gpt0508-17",
+  "created_at_kst": "2026-05-09 22:36 KST",
+  "purpose": "Path B identity-first hash-only 1h canary result and rollback confirmation",
+  "site": "biocom",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-17/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-17/00-result-report.md",
+      "why_included": "Batch result report and next decision summary",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-identity-first-canary-preflight-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-17/01-path-b-canary-preflight-result-20260509.md",
+      "why_included": "Preflight and deploy readiness evidence",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-identity-first-storage-canary-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-17/02-path-b-identity-first-storage-canary-result-20260509.md",
+      "why_included": "1h storage canary result",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-identity-first-reliability-v2-dry-run-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-17/03-path-b-reliability-v2-dry-run-result-20260509.md",
+      "why_included": "Reliability v2 dry-run result and send decision",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-identity-first-post-canary-scorecard-20260509.md",
+      "copy": "gptconfirm/gpt0508-17/04-path-b-post-canary-scorecard-20260509.md",
+      "why_included": "Post-canary scorecard",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-identity-first-rollback-verification-20260509.md",
+      "copy": "gptconfirm/gpt0508-17/05-path-b-rollback-verification-20260509.md",
+      "why_included": "VM Cloud write flag and GTM live rollback verification",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-17/06-commit-whitelist-20260509.md",
+      "copy": "gptconfirm/gpt0508-17/06-commit-whitelist-20260509.md",
+      "why_included": "Commit scope control",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-17/99-total-current-copy.md",
+      "why_included": "Current canonical document copy for confirmation context",
+      "approval_needed": false
+    }
+  ],
+  "key_results": {
+    "canary_mode": "identity_first_hash_only_order_complete_only",
+    "canary_row_delta": 2,
+    "status_counts": {
+      "full_bridge": 0,
+      "identity_only_quarantine": 2,
+      "session_only_quarantine": 0,
+      "click_missing_hold": 0,
+      "ambiguous": 0,
+      "do_not_send": 0
+    },
+    "raw_stored_count": 0,
+    "path_b_platform_send_count": 0,
+    "send_candidate_count": 0,
+    "actual_send_candidate_count": 0,
+    "write_flag_on_after_cleanup": false,
+    "gtm_live_version_after_cleanup": "142"
+  },
+  "forbidden_actions_not_taken": [
+    "All Pages trigger",
+    "existing GTM tag pause/delete",
+    "raw email/phone/member_code/order/payment storage by Path B",
+    "Google Ads conversion upload",
+    "send_candidate=true",
+    "NPay click/count purchase promotion"
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "generated_at_kst": "2026-05-09 22:34 KST",
+  "site": "biocom",
+  "source_window": {
+    "canary_publish_kst": "2026-05-09 21:17:31 KST",
+    "write_flag_on_kst": "2026-05-09 21:17:54 KST",
+    "scheduled_canary_until_kst": "2026-05-09 22:17:53 KST",
+    "cleanup_verified_kst": "2026-05-09 22:30:06 KST"
+  },
+  "source_files": {
+    "final_summary": "data/path-b-identity-first-canary-final-summary-20260509.json",
+    "canary_rows": "data/path-b-identity-first-canary-rows-20260509.json",
+    "monitor_summary": "data/path-b-identity-first-canary-monitor-summary-20260509.json",
+    "live_verification": "data/path-b-identity-first-canary-live-verification-20260509.json",
+    "log_scan": "data/path-b-identity-first-canary-log-scan-20260509.json"
+  },
+  "row_counts": {
+    "baseline_row_count": 2,
+    "final_row_count": 4,
+    "canary_row_delta": 2,
+    "row_cap": 200
+  },
+  "canary_status_counts": {
+    "full_bridge": 0,
+    "identity_only_quarantine": 2,
+    "session_only_quarantine": 0,
+    "click_missing_hold": 0,
+    "ambiguous": 0,
+    "do_not_send": 0
+  },
+  "fill_rates": {
+    "order_no_hash_present": {
+      "count": 2,
+      "total": 2,
+      "rate": 1
+    },
+    "email_hash_present": {
+      "count": 2,
+      "total": 2,
+      "rate": 1
+    },
+    "phone_hash_present": {
+      "count": 0,
+      "total": 2,
+      "rate": 0
+    },
+    "client_session_present": {
+      "count": 2,
+      "total": 2,
+      "rate": 1
+    },
+    "click_id_hash_present": {
+      "count": 0,
+      "total": 2,
+      "rate": 0
+    }
+  },
+  "confidence_counts": {
+    "A_full_click_identity_order": 0,
+    "B_real_order_identity_session": 0,
+    "C_identity_only_quarantine_hold": 2,
+    "D_session_only_or_insufficient": 0
+  },
+  "safety": {
+    "raw_stored_count": 0,
+    "path_b_platform_send_count": 0,
+    "send_candidate_count": 0,
+    "actual_send_candidate_count": 0,
+    "write_flag_cleanup_verified": true,
+    "gtm_live_rollback_verified": true,
+    "raw_payment_decision_query_logging_backlog": true
+  },
+  "verdict": "PASS_IDENTITY_FIRST_STORAGE_CANARY__HOLD_FOR_CLICK_BRIDGE_AND_SEND",
+  "next_decision": "Do not send. Use canary rows for identity fill-rate evidence, then decide click bridge strategy or longer order-complete-only canary."
+}

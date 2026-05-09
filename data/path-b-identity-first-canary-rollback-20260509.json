@@ -1,0 +1,19 @@
+{
+  "generated_at_kst": "2026-05-09T22:21:10",
+  "run_id": "20260509T132103Z",
+  "mode": "rollback",
+  "rollback_target": {
+    "path": "accounts/4703003246/containers/13158774/versions/142",
+    "id": "142",
+    "name": "paid_click_intent_v1_receiver_20260506T150218Z"
+  },
+  "live_before": {
+    "id": "143",
+    "name": "AGENT_OS Path B identity-first canary 20260509T121717Z"
+  },
+  "live_after": {
+    "id": "143",
+    "name": "AGENT_OS Path B identity-first canary 20260509T121717Z"
+  },
+  "verdict": "ROLLBACK_PUBLISHED"
+}

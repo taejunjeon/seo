@@ -1,0 +1,21 @@
+{
+  "generated_at_kst": "2026-05-09T22:30:06",
+  "mode": "list",
+  "live_container_version": {
+    "id": "142",
+    "name": "paid_click_intent_v1_receiver_20260506T150218Z",
+    "has_identity_first_canary_tag": false
+  },
+  "latest_created_version": {
+    "id": "143",
+    "name": "AGENT_OS Path B identity-first canary 20260509T121717Z"
+  },
+  "workspace_count": 1,
+  "workspaces": [
+    {
+      "id": "147",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/13158774/workspaces/147"
+    }
+  ]
+}

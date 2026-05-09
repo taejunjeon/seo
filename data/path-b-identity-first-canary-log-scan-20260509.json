@@ -1,0 +1,27 @@
+{
+  "window": "last_200000_chars_per_log_file",
+  "patterns": {
+    "path_b_canary_stage_count": {
+      "count": 0,
+      "by_file": {
+        "pm2-out-0.log": 0,
+        "pm2-error-0.log": 0
+      }
+    },
+    "test_order_no_raw_pattern_count": {
+      "count": 6,
+      "by_file": {
+        "pm2-out-0.log": 6,
+        "pm2-error-0.log": 0
+      }
+    },
+    "email_like_at_sign_count": {
+      "count": 0,
+      "by_file": {
+        "pm2-out-0.log": 0,
+        "pm2-error-0.log": 0
+      }
+    }
+  },
+  "interpretation": "Path B canary stage pattern absent from PM2 logs; raw order pattern appears in existing payment-decision GET query logs and is tracked as P1 hardening."
+}
