@@ -1,0 +1,116 @@
+{
+  "schema_version": "path_b_reliability_v2_input_20260510",
+  "generated_at_kst": "2026-05-10T01:18:00+09:00",
+  "site": "biocom",
+  "mode": "no_send_no_write_reliability_input_update",
+  "source_window": {
+    "primary_new_evidence": "data/path-b-same-browser-preservation-tj-preview-result-20260510.json",
+    "previous_join_diagnosis": "data/path-b-order-bridge-paid-click-join-dry-run-20260510.json",
+    "previous_reliability_input": "data/path-b-reliability-dry-run-input-20260509.json",
+    "window": "2026-05-10 01:02-01:18 KST",
+    "freshness": "same-session",
+    "confidence": 0.94
+  },
+  "evidence_units": [
+    {
+      "id": "tj_same_browser_test_gclid_order_complete_full_bridge",
+      "source_file": "data/path-b-same-browser-preservation-tj-preview-result-20260510.json",
+      "evidence_type": "controlled_preview",
+      "checkout_path": "real_biocom_order_complete_preview",
+      "click_source": "TEST_GCLID_PATHB_FLOW_20260510",
+      "raw_click_id_stored_in_artifact": false,
+      "order_bridge_key_present": true,
+      "identity_bridge_key_present": true,
+      "click_bridge_key_present": true,
+      "client_session_present": true,
+      "same_browser_controlled_only": true,
+      "real_paid_click_originated": false,
+      "real_checkout_path_verified": true,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "exclude_from_upload": true,
+      "exclude_from_budget_roas": true,
+      "confidence": "A_CONTROLLED",
+      "confidence_reason": "TJ 로그인 Tag Assistant Preview에서 상품상세 TEST gclid가 같은 브라우저 주문완료까지 보존됐고 order/identity/click/session hash-present가 모두 true였다.",
+      "flags": [
+        "same_browser_preservation_pass_controlled",
+        "test_gclid_only",
+        "real_paid_click_order_test_not_done",
+        "send_candidate_false",
+        "actual_send_candidate_false"
+      ]
+    },
+    {
+      "id": "identity_first_storage_canary_existing_rows",
+      "source_file": "gptconfirm/gpt0508-17/00-result-report.md",
+      "evidence_type": "storage_canary_summary",
+      "checkout_path": "real_biocom_order_complete",
+      "click_source": "none_observed_in_canary_rows",
+      "raw_click_id_stored_in_artifact": false,
+      "order_bridge_key_present": true,
+      "identity_bridge_key_present": true,
+      "click_bridge_key_present": false,
+      "client_session_present": true,
+      "same_browser_controlled_only": false,
+      "real_paid_click_originated": false,
+      "real_checkout_path_verified": true,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "exclude_from_upload": true,
+      "exclude_from_budget_roas": true,
+      "confidence": "B_IDENTITY_ONLY_HOLD",
+      "confidence_reason": "1h identity-first canary row 2건은 order/identity/session은 채워졌지만 paid click exact join이 없어서 upload 후보가 아니다.",
+      "flags": [
+        "identity_order_session_pass",
+        "click_bridge_missing_in_canary_rows",
+        "identity_only_quarantine",
+        "send_candidate_false"
+      ]
+    }
+  ],
+  "confidence_counts": {
+    "A_CONTROLLED": 1,
+    "B_IDENTITY_ONLY_HOLD": 1,
+    "C": 0,
+    "D": 0
+  },
+  "guard_checks": {
+    "raw_values_stored_in_this_artifact": false,
+    "raw_email_phone_member_code_order_payment_logging": false,
+    "platform_send_count": 0,
+    "send_candidate_count": 0,
+    "actual_send_candidate_count": 0,
+    "google_ads_upload_candidate_count": 0,
+    "test_order_excluded_from_upload": true,
+    "test_order_excluded_from_budget_roas": true
+  },
+  "scorecard": {
+    "order_bridge_key_present": "PASS",
+    "identity_bridge_key_present": "PASS",
+    "click_bridge_key_present": "PASS_CONTROLLED_TEST_GCLID",
+    "same_browser_preservation": "PASS_CONTROLLED",
+    "real_checkout_path_verified": "PASS_CONTROLLED_PREVIEW",
+    "real_paid_click_order_test_ready": "HOLD_REQUIRES_SEPARATE_APPROVAL",
+    "google_ads_upload_ready": "NO",
+    "send_candidate": "PASS_FALSE",
+    "actual_send_candidate": "PASS_FALSE",
+    "raw_stored_zero": "PASS",
+    "platform_send_zero": "PASS"
+  },
+  "next_decision": {
+    "recommended_next": "real_paid_click_originated_actual_order_test_approval_review",
+    "do_not_repeat_preview_manual_loop": true,
+    "do_not_upload_to_google_ads": true,
+    "do_not_set_send_candidate_true": true
+  },
+  "forbidden_actions_not_taken": [
+    "real Google ad click",
+    "actual payment",
+    "Google Ads/GA4/Meta/TikTok/Naver new send",
+    "Google Ads conversion upload",
+    "send_candidate=true",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "NPay click/count promoted to purchase"
+  ],
+  "verdict": "PASS_RELIABILITY_V2_INPUT_UPDATED__REAL_PAID_CLICK_TEST_HOLD"
+}

@@ -1,0 +1,58 @@
+{
+  "batch": "gpt0508-22",
+  "created_at_kst": "2026-05-10T01:18:00+09:00",
+  "purpose": "Path B reliability v2 update and real paid-click actual order test approval packet",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-22/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-22/00-result-report.md",
+      "why_included": "Batch result report",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-reliability-v2-updated-result-20260510.md",
+      "copy": "gptconfirm/gpt0508-22/01-reliability-v2-updated-result.md",
+      "why_included": "Updated reliability v2 result after gpt0508-21 PASS_CONTROLLED",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-real-paid-click-actual-order-test-approval-20260510.md",
+      "copy": "gptconfirm/gpt0508-22/02-real-paid-click-actual-order-test-approval.md",
+      "why_included": "Approval packet for real Google ad click + actual order test",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/test-order-exclusion-guard-20260510.md",
+      "copy": "gptconfirm/gpt0508-22/03-test-order-exclusion-guard.md",
+      "why_included": "Guard to keep test order out of upload and ROAS",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-live-purchase-tag-impact-checklist-20260510.md",
+      "copy": "gptconfirm/gpt0508-22/04-live-purchase-tag-impact-checklist.md",
+      "why_included": "Checklist to separate existing live purchase tags from Path B no-send evidence",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-22/99-total-current-copy.md",
+      "why_included": "Canonical context copy for review",
+      "approval_needed": false
+    }
+  ],
+  "evidence": [
+    "data/path-b-reliability-v2-input-updated-20260510.json",
+    "data/path-b-same-browser-preservation-tj-preview-result-20260510.json"
+  ],
+  "verdict": "PASS_RELIABILITY_V2_INPUT_UPDATED__REAL_PAID_CLICK_TEST_APPROVAL_READY",
+  "forbidden_actions_not_taken": [
+    "real Google ad click",
+    "actual payment",
+    "GTM Production publish",
+    "Google Ads/GA4/Meta/TikTok/Naver new send",
+    "Google Ads conversion upload",
+    "send_candidate=true",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "NPay click/count promoted to purchase"
+  ]
+}
