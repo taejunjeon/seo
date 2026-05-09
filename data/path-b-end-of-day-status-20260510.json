@@ -1,0 +1,53 @@
+{
+  "schema_version": "path_b_end_of_day_status_20260510",
+  "generated_at_kst": "2026-05-10T01:52:00+09:00",
+  "site": "biocom",
+  "verdict": "PASS_REAL_AD_CLICK_ORDER_COMPLETE_BRIDGE__UNPAID_VBANK_EXCLUDED",
+  "status": {
+    "real_google_ad_click_bridge": "PASS",
+    "order_hash": "PASS",
+    "email_identity_hash": "PASS",
+    "client_session": "PASS",
+    "click_hash": "PASS",
+    "confirmed_paid_purchase": "NO_UNPAID_VBANK",
+    "google_ads_upload": "NO",
+    "send_candidate": false,
+    "actual_send_candidate": false
+  },
+  "vm_cloud_readonly_summary": {
+    "read_at_kst": "2026-05-10 01:50:33 KST",
+    "row_count": 4,
+    "unique_order_no_hash": 4,
+    "unique_email_hash": 3,
+    "unique_phone_hash": 1,
+    "unique_click_id_hash": 1,
+    "raw_stored_count": 0,
+    "platform_send_count": 0,
+    "duplicate_dedupe_count": 1,
+    "write_flag_on": false,
+    "write_max_rows": 200
+  },
+  "exclusion_guard": {
+    "source_order_status_rule": "source_order_status != confirmed => block",
+    "vbank_rule": "payment_method=vbank AND paid_at missing => block",
+    "block_reason": "unpaid_vbank_controlled_evidence",
+    "exclude_from_upload": true,
+    "exclude_from_budget_roas": true
+  },
+  "forbidden_actions_not_taken": [
+    "actual virtual account deposit",
+    "card payment confirmed test",
+    "Google Ads conversion upload",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "GA4/Meta/Google Ads/TikTok/Naver new send",
+    "raw email/phone/member_code/order/payment storage or logging"
+  ],
+  "next_p0": [
+    "connect unpaid/confirmed status guard to builders",
+    "keep Path B evidence in no-send reliability input only",
+    "re-evaluate confirmed payment test later",
+    "keep Google Ads upload HOLD",
+    "reflect Path B bridge result in Google ROAS gap decomposition"
+  ]
+}

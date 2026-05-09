@@ -1,0 +1,53 @@
+{
+  "batch": "gpt0508-24",
+  "created_at_kst": "2026-05-10T01:53:00+09:00",
+  "purpose": "Path B end-of-day status and unpaid vbank exclusion guard",
+  "source_window": {
+    "site": "biocom",
+    "window_kst": "2026-05-10 01:21-01:53 KST",
+    "freshness": "same-session actual ad click evidence plus VM Cloud read-only summary",
+    "confidence": 0.95
+  },
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-24/00-end-of-day-status.md",
+      "copy": "gptconfirm/gpt0508-24/00-end-of-day-status.md",
+      "why_included": "End-of-day report and next P0 actions.",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/unpaid-vbank-controlled-evidence-exclusion-20260510.md",
+      "copy": "gptconfirm/gpt0508-24/01-unpaid-vbank-controlled-evidence-exclusion.md",
+      "why_included": "Unpaid virtual-account evidence exclusion guard.",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-p0-next-roadmap-20260510.md",
+      "copy": "gptconfirm/gpt0508-24/02-path-b-p0-next-roadmap.md",
+      "why_included": "Next P0 roadmap for builder guards and upload HOLD.",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-24/99-total-current-copy.md",
+      "why_included": "Reference copy of canonical current document after end-of-day update.",
+      "approval_needed": false
+    },
+    {
+      "source": "data/path-b-end-of-day-status-20260510.json",
+      "copy": "data/path-b-end-of-day-status-20260510.json",
+      "why_included": "Structured end-of-day status for future dry-run/report inputs.",
+      "approval_needed": false
+    }
+  ],
+  "verdict": "PASS_REAL_AD_CLICK_ORDER_COMPLETE_BRIDGE__UNPAID_VBANK_EXCLUDED",
+  "forbidden_actions_not_taken": [
+    "actual virtual account deposit",
+    "card payment confirmed test",
+    "Google Ads conversion upload",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "GA4/Meta/Google Ads/TikTok/Naver new send",
+    "raw email/phone/member_code/order/payment storage or logging"
+  ]
+}
