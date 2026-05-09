@@ -25,6 +25,7 @@ const TEST_CLICK_ID = `TEST_GCLID_PATHB_GTM_CONTROLLED_${RUN_ID}`;
 const WORKSPACE_NAME = `AGENT_OS_path_b_controlled_traffic_preview_${RUN_ID}`;
 const TAG_NAME = `AGENT_OS_path_b_controlled_traffic_hmac_write_preview_${RUN_ID}`;
 const TRIGGER_NAME = `AGENT_OS_path_b_order_confirm_controlled_traffic_${RUN_ID}`;
+const DEFAULT_PRODUCT_URL = "https://biocom.kr/shop_view/?idx=198";
 const PAYMENT_COMPLETE_PATH_REGEX =
   "shop_payment_complete|shop_order_done|payment_complete|order_complete";
 const SETUP_OUTPUT_PATH = path.join(OUTPUT_DIR, "path-b-gtm-controlled-traffic-workspace-20260509.json");
@@ -141,6 +142,7 @@ const redactUrl = (url: string) => {
 const withPreviewParamsAndClick = (
   inputUrl: string,
   env: { authorizationCode?: string | null; environmentId?: string | null },
+  addTestClick = true,
 ) => {
   if (!env.authorizationCode || !env.environmentId) {
     throw new Error("quick preview environment authorizationCode/environmentId missing");
@@ -149,7 +151,7 @@ const withPreviewParamsAndClick = (
   url.searchParams.set("gtm_auth", env.authorizationCode);
   url.searchParams.set("gtm_preview", `env-${env.environmentId}`);
   url.searchParams.set("gtm_debug", "x");
-  if (!url.searchParams.get("gclid")) url.searchParams.set("gclid", TEST_CLICK_ID);
+  if (addTestClick && !url.searchParams.get("gclid")) url.searchParams.set("gclid", TEST_CLICK_ID);
   return url.toString();
 };
 
@@ -482,17 +484,71 @@ const getExistingPreviewWorkspace = async (workspaceId: string) => {
   };
 };
 
+const installPlatformRequestBlockers = async (page: Page) => {
+  const blocked: string[] = [];
+  const patterns = [
+    "**/*google-analytics.com/**",
+    "**/*analytics.google.com/**",
+    "**/*googleadservices.com/**",
+    "**/*googlesyndication.com/**",
+    "**/*doubleclick.net/**",
+    "**/*facebook.com/**",
+    "**/*connect.facebook.net/**",
+    "**/*tiktok.com/**",
+    "**/*analytics.tiktok.com/**",
+    "**/*snap.licdn.com/**",
+    "**/*clarity.ms/**",
+    "**/*hotjar.com/**",
+    "**/*hotjar.io/**",
+    "**/*channel.io/**",
+    "**/*naver.com/**",
+  ];
+  for (const pattern of patterns) {
+    await page.route(pattern, async (route) => {
+      blocked.push(redactUrl(route.request().url()));
+      await route.abort("blockedbyclient");
+    });
+  }
+  return blocked;
+};
+
+const readPaidClickStorage = async (page: Page) =>
+  page.evaluate(`(() => {
+    var raw = "";
+    var parsed = {};
+    try {
+      raw = localStorage.getItem("bi_paid_click_intent_v1")
+        || sessionStorage.getItem("bi_paid_click_intent_v1")
+        || "";
+      parsed = raw ? JSON.parse(raw) : {};
+    } catch (e) {}
+    return {
+      storage_key_present: Boolean(raw),
+      click_id_present: Boolean(parsed.gclid || parsed.gbraid || parsed.wbraid),
+      gclid_present: Boolean(parsed.gclid),
+      gbraid_present: Boolean(parsed.gbraid),
+      wbraid_present: Boolean(parsed.wbraid),
+      client_id_present: Boolean(parsed.client_id || parsed.clientId),
+      ga_session_id_present: Boolean(parsed.ga_session_id || parsed.gaSessionId),
+      local_session_id_present: Boolean(parsed.local_session_id || parsed.localSessionId || parsed.commonSessionId || parsed.customSessionId),
+      raw_length: raw.length
+    };
+  })()`) as Promise<Record<string, unknown>>;
+
 const runRealOrderPreview = async (
   page: Page,
   realOrderUrl: string,
   environment: NonNullable<Awaited<ReturnType<typeof createPreviewWorkspace>>["environment"]>,
+  productUrl?: string,
 ) => {
   const receiverStatuses: number[] = [];
   const receiverBodies: ReceiverBody[] = [];
   const networkErrors: string[] = [];
   const consoleMarkers: string[] = [];
   const gtmScriptRoutes: string[] = [];
-  const previewUrl = withPreviewParamsAndClick(realOrderUrl, environment);
+  const blockedPlatformRequests = await installPlatformRequestBlockers(page);
+  const productPreviewUrl = productUrl ? withPreviewParamsAndClick(productUrl, environment, true) : "";
+  const previewUrl = withPreviewParamsAndClick(realOrderUrl, environment, !productUrl);
 
   await page.route("**/gtm.js?id=GTM-W2Z6PHN**", async (route) => {
     const requested = new URL(route.request().url());
@@ -531,6 +587,21 @@ const runRealOrderPreview = async (
   });
 
   let pageLoaded = false;
+  let productStage: Record<string, unknown> | null = null;
+  if (productPreviewUrl) {
+    try {
+      await page.goto(productPreviewUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.waitForTimeout(9000);
+      productStage = await readPaidClickStorage(page);
+    } catch (error) {
+      networkErrors.push(`product.goto: ${error instanceof Error ? error.message : String(error)}`);
+      productStage = await readPaidClickStorage(page).catch(() => ({
+        storage_key_present: false,
+        click_id_present: false,
+        read_error: true,
+      }));
+    }
+  }
   try {
     await page.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
     pageLoaded = true;
@@ -559,7 +630,9 @@ const runRealOrderPreview = async (
 
   return {
     preview_url_redacted: redactUrl(previewUrl),
+    product_url_redacted: productPreviewUrl ? redactUrl(productPreviewUrl) : "",
     page_loaded: pageLoaded,
+    same_browser_product_stage: productStage,
     page_state: pageState,
     receiver_reached: receiverStatuses.length > 0,
     receiver_statuses: receiverStatuses,
@@ -576,6 +649,8 @@ const runRealOrderPreview = async (
     raw_echo_detected: rawEchoDetected,
     console_markers: consoleMarkers,
     network_errors: networkErrors,
+    blocked_platform_request_count: blockedPlatformRequests.length,
+    blocked_platform_requests_sample: blockedPlatformRequests.slice(0, 20),
     gtm_script_routes_redacted: gtmScriptRoutes,
     screenshot_path: screenshotPath,
   };
@@ -588,6 +663,8 @@ const writeJson = (filePath: string, value: unknown) => {
 
 const main = async () => {
   const realOrderUrl = argValue("real-url") || process.env.PATH_B_CONTROLLED_ORDER_URL?.trim() || "";
+  const productUrl = argValue("product-url") || process.env.PATH_B_CONTROLLED_PRODUCT_URL?.trim() || "";
+  const preserveClickFlow = process.argv.includes("--preserve-click-flow");
   const workspaceId = argValue("workspace-id");
   const setupOnly = process.argv.includes("--setup-only");
   const beforeSummary = await fetchSummary();
@@ -658,7 +735,12 @@ const main = async () => {
 
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
-  const realOrderPreview = await runRealOrderPreview(page, realOrderUrl, created.environment);
+  const realOrderPreview = await runRealOrderPreview(
+    page,
+    realOrderUrl,
+    created.environment,
+    preserveClickFlow ? (productUrl || DEFAULT_PRODUCT_URL) : "",
+  );
   await browser.close();
 
   const afterSummary = await fetchSummary();
@@ -745,6 +827,12 @@ const main = async () => {
       pm2_unexpected_restart_zero: "CHECK_REMOTE_LOG",
       storage_canary_main_ready: rowDelta === 1 && rawStoredDelta === 0 && platformDelta === 0 ? "PASS_WITH_GUARDS" : "HOLD",
       production_publish_ready: "HOLD",
+      same_browser_storage_key_present:
+        realOrderPreview.same_browser_product_stage?.storage_key_present === true ? "PASS" : (preserveClickFlow ? "HOLD" : "N/A"),
+      same_browser_click_id_present:
+        realOrderPreview.same_browser_product_stage?.click_id_present === true ? "PASS" : (preserveClickFlow ? "HOLD" : "N/A"),
+      order_complete_click_id_hash_present:
+        Boolean(firstPreview.click_id_hash_present) ? "PASS" : (preserveClickFlow ? "HOLD" : "N/A"),
     },
     forbidden_actions_not_taken: [
       "GTM Production publish",
@@ -766,13 +854,22 @@ const main = async () => {
       && !realOrderPreview.raw_echo_detected
       && rawStoredDelta === 0
       && platformDelta === 0
+      && (!preserveClickFlow || (
+        realOrderPreview.same_browser_product_stage?.click_id_present === true
+        && Boolean(firstPreview.click_id_hash_present)
+      ))
         ? "PASS_GTM_PREVIEW_CONTROLLED_TRAFFIC_ROW_STORED"
-        : "HOLD_GTM_PREVIEW_CONTROLLED_TRAFFIC",
+        : preserveClickFlow
+          ? "HOLD_GTM_PREVIEW_SAME_BROWSER_PRESERVATION"
+          : "HOLD_GTM_PREVIEW_CONTROLLED_TRAFFIC",
   };
 
   const outPath = path.join(OUTPUT_DIR, `path-b-gtm-preview-controlled-traffic-result-${RUN_ID}.json`);
   writeJson(outPath, result);
   writeJson(path.join(OUTPUT_DIR, "path-b-gtm-preview-controlled-traffic-result-20260509.json"), result);
+  if (preserveClickFlow) {
+    writeJson(path.join(OUTPUT_DIR, "path-b-same-browser-preservation-preview-result-20260510.json"), result);
+  }
   console.log(JSON.stringify({
     verdict: result.verdict,
     workspace_id: result.workspace.workspace_id,
@@ -782,6 +879,7 @@ const main = async () => {
     raw_stored_delta: result.raw_stored_delta,
     platform_send_delta: result.platform_send_delta,
     output: outPath,
+    same_browser_product_stage: result.real_order_preview.same_browser_product_stage,
     response_preview_booleans: result.real_order_preview.response_preview_booleans,
   }, null, 2));
 };

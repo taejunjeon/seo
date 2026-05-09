@@ -1,33 +1,33 @@
 {
-  "generated_at_kst": "2026-05-09T18:52:28",
-  "run_id": "20260509T095221Z",
+  "generated_at_kst": "2026-05-10T00:54:45",
+  "run_id": "20260509T155435Z",
   "setup_only": false,
   "container": {
     "account_id": "4703003246",
     "container_id": "13158774",
     "public_id": "GTM-W2Z6PHN",
-    "live_version_id": "142",
-    "live_version_name": "paid_click_intent_v1_receiver_20260506T150218Z"
+    "live_version_id": "143",
+    "live_version_name": "AGENT_OS Path B identity-first canary 20260509T121717Z"
   },
   "workspace": {
-    "workspace_id": "165",
-    "name": "AGENT_OS_path_b_controlled_traffic_preview_20260509T095144Z",
-    "path": "accounts/4703003246/containers/13158774/workspaces/165",
+    "workspace_id": "167",
+    "name": "AGENT_OS_path_b_controlled_traffic_preview_20260509T155435Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/167",
     "submitted": false,
     "published": false,
     "left_open_for_review": true
   },
   "trigger": {
-    "trigger_id": "295",
-    "name": "AGENT_OS_path_b_order_confirm_controlled_traffic_20260509T095144Z",
+    "trigger_id": "300",
+    "name": "AGENT_OS_path_b_order_confirm_controlled_traffic_20260509T155435Z",
     "type": "pageview",
     "scope": "order confirmation paths only",
     "all_pages": false,
     "path_regex": "shop_payment_complete|shop_order_done|payment_complete|order_complete"
   },
   "tag": {
-    "tag_id": "296",
-    "name": "AGENT_OS_path_b_controlled_traffic_hmac_write_preview_20260509T095144Z",
+    "tag_id": "301",
+    "name": "AGENT_OS_path_b_controlled_traffic_hmac_write_preview_20260509T155435Z",
     "type": "html",
     "production_publish": false,
     "platform_send": false,
@@ -37,27 +37,35 @@
   "quick_preview": {
     "sync_status": null,
     "compiler_error": null,
-    "environment_id": "297",
+    "environment_id": "302",
     "authorization_code_redacted": true
   },
   "before_summary": {
     "ok": true,
     "summary": {
       "site": "biocom",
-      "row_count": 1,
-      "unique_order_no_hash": 1,
-      "unique_email_hash": 1,
+      "row_count": 4,
+      "unique_order_no_hash": 4,
+      "unique_email_hash": 3,
       "unique_phone_hash": 1,
       "unique_click_id_hash": 1,
       "raw_stored_count": 0,
       "platform_send_count": 0,
-      "duplicate_dedupe_count": 1
+      "duplicate_dedupe_count": 1,
+      "status_counts": {
+        "full_bridge": 0,
+        "identity_only_quarantine": 2,
+        "session_only_quarantine": 0,
+        "click_missing_hold": 0,
+        "ambiguous": 0,
+        "do_not_send": 0
+      }
     },
     "source": {
       "mode": "order_bridge_ledger_summary_readonly",
-      "receivedAt": "2026-05-09T09:52:21.600Z",
-      "write_flag_on": true,
-      "write_max_rows": 5
+      "receivedAt": "2026-05-09T15:54:35.322Z",
+      "write_flag_on": false,
+      "write_max_rows": 200
     }
   },
   "verdict": "PASS_FRESH_WORKSPACE_READY"

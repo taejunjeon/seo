@@ -1,0 +1,61 @@
+{
+  "batch": "gpt0508-20",
+  "created_at_kst": "2026-05-10T00:56:00+09:00",
+  "purpose": "Path B TEST click id same-browser preservation Preview result and next-action packaging",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-20/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-20/00-result-report.md",
+      "why_included": "Batch result report with HOLD Reducer follow-up and next action",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-same-browser-preservation-runbook-20260510.md",
+      "copy": "gptconfirm/gpt0508-20/01-same-browser-preservation-runbook.md",
+      "why_included": "Runbook for same-browser TEST gclid preservation check",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-same-browser-preservation-preview-diff-20260510.md",
+      "copy": "gptconfirm/gpt0508-20/02-same-browser-preservation-preview-diff.md",
+      "why_included": "GTM Preview tag and trigger diff",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-same-browser-preservation-preview-result-20260510.md",
+      "copy": "gptconfirm/gpt0508-20/03-same-browser-preservation-result.md",
+      "why_included": "Automated Preview result and narrowed HOLD cause",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-click-bridge-scorecard-20260510.md",
+      "copy": "gptconfirm/gpt0508-20/04-click-bridge-scorecard.md",
+      "why_included": "Updated scorecard for click bridge diagnosis",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-20/99-total-current-copy.md",
+      "why_included": "Canonical context copy for review",
+      "approval_needed": false
+    }
+  ],
+  "evidence": [
+    "data/path-b-same-browser-preservation-preview-result-20260510.json",
+    "data/path-b-gtm-preview-controlled-traffic-result-20260509T155435Z.json",
+    "data/path-b-gtm-controlled-traffic-workspace-20260509.json"
+  ],
+  "verdict": "HOLD_ORDER_COMPLETE_ACCESS_REDIRECT_AFTER_PRODUCT_CAPTURE_PASS",
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "real ad click",
+    "actual payment",
+    "Google Ads/GA4/Meta/TikTok/Naver conversion send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "send_candidate=true",
+    "existing live GTM tag pause/delete"
+  ]
+}
