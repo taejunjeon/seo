@@ -429,8 +429,107 @@ GET /v1/pay-order/seller/orders/:orderId/product-order-ids
 다만 현재 앱 ID와 시크릿의 채널 범위는 바이오컴 스토어 1개다.
 바이오컴 API로 더클린커피 스토어 주문 원장에 접근하는 방법은 현재 API 응답과 공식 권한 구조 기준으로 없다.
 
-바로 할 일은 더클린커피 통합매니저 권한을 확보하고, 더클린커피용 `내스토어 애플리케이션`을 만드는 것이다.
-그 다음 GA4 `NPAY - ...` 65건을 네이버 주문 원장과 붙이면, Toss 대사에서 남은 큰 차이를 설명할 수 있다.
+2026-05-08 네이버페이 운영팀(이민영) 공식 답변으로 더클린커피(`np_cnexi899940`)는 호스팅사 `아임웹`을 통해 가입된 `네이버페이 주문형서비스` 가맹점이며, 호스팅사 제휴 가맹점은 자체 네이버페이 API 연동/라이센스 발급이 구조적으로 불가하다는 것이 확정됐다.
+
+따라서 더클린커피 NPAY 원장 대사는 네이버 커머스API 경로 자체를 포기하고, 정본 경로(NPay intent dispatcher v2.1 → A-5 monitoring → A-6 ledger join → backend no-send dry-run)에서 Imweb actual order + GTM intent log 기반 deterministic 매칭으로만 닫는다. 자세한 임팩트 평가는 §"2026-05-08 더클린커피 호스팅사 입점 공식 답변과 임팩트 평가" 참고.
+
+## 2026-05-08 더클린커피 호스팅사 입점 공식 답변과 임팩트 평가
+
+### 네이버페이 운영팀 공식 답변 원문
+
+> 안녕하세요. 네이버페이 이민영입니다.
+>
+> 문의주신 더클린커피(ID:np_cnexi899940) 가맹점은 현재 '아임웹' 호스팅사를 통해 가입되어 네이버페이 주문형서비스 연동 중이신것 으로 확인됩니다.
+>
+> 아임웹과 같이 네이버페이와 제휴된 호스팅사를 이용하여 서비스 오픈될 경우 자체적인 네이버페이 API 연동 및 라이센스 발급이 불가합니다.
+> 호스팅사 어드민에서 제공하는 네이버페이 주문 조회/처리 기능을 이용해주시거나 네이버페이센터 통해서만 조회/처리가 가능한 점 참고 부탁드립니다.
+> (네이버페이 API 는 '독립몰' 형태로 입점된 '정상거래' 상태의 가맹점에 한해 연동 가능합니다.)
+
+### 답변 해석
+
+- 더클린커피는 아임웹 호스팅사 제휴 가맹점이므로 네이버페이 API 자체 연동이 **구조적으로 불가**하다.
+- 통합매니저 권한 위임으로도 풀리지 않는다. 권한 문제가 아니라 가입 형태 문제다.
+- 우회 경로는 두 가지뿐: (1) 아임웹 어드민이 제공하는 네이버페이 주문 조회/처리 화면, (2) 네이버페이센터 web UI 수동 조회.
+- 둘 다 사람이 화면을 보고 처리하는 경로지 server-to-server 자동 대사 경로가 아니다.
+- API 자체 연동을 열려면 **아임웹 호스팅을 떠나 독립몰로 신규 입점**해야 한다.
+
+### 핵심 임팩트 평가 결론 (5줄)
+
+1. **자사몰 독립몰 신축은 불필요하다**. 네이버페이 API 직접 효용이 과거 데이터 기준 6/47 ≈ 13% 수준이라 비용 대비 효익이 안 맞는다.
+2. 이번 답변으로 [[data/!coffeedata.md]] `Parked / Later`의 `Naver API production 연동` 항목은 **영구 Parked로 확정**한다. 재개 조건 자체가 사라진다.
+3. 더클린커피 NPay 매출은 정본 경로(NPay intent dispatcher v2.1 + Imweb actual order + GTM intent)로 **이미 deterministic 매칭이 가능**하다. 네이버 API는 보조였지 본 경로가 아니다.
+4. [[total/!total-current.md]] 현재 P0(`paid_click_intent Mode B`)와 P1(`minimal paid_click_intent ledger write`)은 네이버 API 의존도 0이라 **영향 없음**.
+5. [[data/!datacheckplan.md]] biocom NPay 매출 비중 30/60/90일 4.66~5.10%, 더클린커피도 유사 수준 추정. 단독으로 Meta/Google ROAS gap을 설명하지 못하는 보조 지표다.
+
+### 임팩트 평가 상세
+
+#### 1. 더클린커피 자사몰 독립몰 신축 ROI 평가
+
+| 항목 | 값/판단 |
+|---|---|
+| 네이버 API 직접 효용 추정 | 6/47 ≈ 13% (과거 synthetic gap dry-run 기준) |
+| 더클린커피 GA4 NPay vs Imweb actual 차이 | 2건 / 103,000원 (최근 7일, 약 4% 갭) |
+| GA4 NPay형 purchase 절대값 | 58건 / 2,359,300원 (최근 7일) |
+| Imweb NPay actual order 절대값 | 60건 / 2,462,300원 (최근 7일) |
+| 독립몰 신축 비용 추정 | 도메인/PG 재계약 + 회원 마이그레이션 + GA4/GTM/Meta Pixel/CAPI 재구축 + NPay 재발급 + SEO 백링크 손실 |
+| 정당화 임계 | 매출 갭이 30%+ 수준이어야 검토 가치. 현재 갭은 4% 수준 |
+| 결론 | **신축하지 않는다**. 비용/리스크 막대 vs 기대 효익 미미 |
+
+#### 2. 정본 경로(네이버 API 없이) 진행 가능성
+
+[[data/!coffeedata.md]] Phase3-Sprint3 (NPay intent 미래키 수집) 정본 경로:
+
+```text
+랜딩 fbclid/UTM/intent → NPay 클릭 intent log (GTM v2.1) →
+imweb_order_code capture → A-5 monitoring →
+A-6 ledger join (real_with_imweb_order_code_and_confirm_to_pay) →
+backend no-send dry-run → (Red 승인 후) GA4 MP enforce
+```
+
+이 경로는 네이버 API를 한 번도 호출하지 않는다. Imweb API + GTM intent log + VM Cloud SQLite만 쓴다.
+
+| 정본 경로 단계 | 네이버 API 의존? | 현재 진척 |
+|---|---|---|
+| Phase1 주문·결제 기준선 | NO | 90% / 80% |
+| Phase2 GA4/NPay 과거분 guard | NO | 100% / 100% (TJ YES 종결) |
+| Phase3 NPay intent 미래키 수집 | NO | 88% / 68% (A-5 monitoring 진행) |
+| Phase4 A-6 외부 전송 dry-run | NO | 45% / 0% (A-5 closure 후 진행) |
+| Phase5 Coffee ROAS 화면 | NO | 20% / 0% (parked) |
+
+→ **5개 Phase 모두 네이버 API 없이 닫을 수 있다**.
+
+#### 3. 네이버 API가 닫지 못해 잃는 것
+
+| 잃는 것 | 영향 크기 | 대안 |
+|---|---|---|
+| 더클린커피 GA4 NPAY 65건 (`2026-04-12~17`) 원장 대사 | 작음. GA4 분모 2,630,700원 / 7일 | Imweb API actual order 60건 / 2,462,300원 + intent log capture로 미래분 deterministic 매칭 |
+| NPay 정산 net revenue 자동 계산 | 보통. 수수료 자동 산정 못 함 | 네이버페이센터 web UI 또는 아임웹 어드민에서 월 1회 수동 export |
+| NPay 환불/취소 server-to-server 즉시 반영 | 작음 | 네이버페이센터/아임웹 어드민 polling. 주문 sync는 imweb API의 `state` 필드로 부분 보강 가능 |
+| 과거 GA4 NPay synthetic gap 36건/36건 보강 | 미미 | TJ YES로 자동 복구 전송 금지 종결됨 ([[data/!coffeedata.md]] Phase2) |
+
+#### 4. 바이오컴(biocom)에는 영향 없음
+
+- 바이오컴은 이미 네이버 스마트스토어에 독립몰 형태로 입점되어 있고, `BIOCOM_STORE_APP_ID/SECRET`로 정상 API 동작 확인됨.
+- 이번 답변은 더클린커피 한정 이슈다.
+- biocom NPay 원장 대사는 기존 정본 경로 그대로 진행한다.
+
+#### 5. 후속 액션
+
+| # | 액션 | 담당 | 우선순위 |
+|---:|---|---|---|
+| 1 | [[data/!coffeedata.md]] `Parked / Later` 표의 `Naver API production 연동` 항목을 `영구 Parked / 재개 불가`로 갱신하고 본 답변을 근거로 기록 | Codex | 즉시 |
+| 2 | [[data/!datacheckplan.md]] 더클린커피 NPAY 65건 대사 항목을 `네이버 API 경로 폐기, intent log + Imweb API 경로로 이관`으로 갱신 | Codex | 즉시 |
+| 3 | [[total/!total-current.md]] Coffee NPay 관련 `parked` 항목에서 `Naver API 권한 확보 후 재대사` 문구 제거 | Codex | 즉시 |
+| 4 | 아임웹 어드민의 네이버페이 주문 조회/처리 화면에서 export 가능한 항목(주문번호/금액/상태/수수료/정산일)을 1회 read-only로 확인 | TJ | 다음 sprint |
+| 5 | (선택) 정산/수수료 월 1회 자동화는 아임웹 어드민 export 기준 CSV → 로컬 SQLite 적재 cron으로 구현 가능. 네이버페이센터 직접 scrape는 ToS 위반 위험으로 금지 | TJ + Codex | parked |
+
+#### 6. 자신감 점수와 미지 영역
+
+- **자신감**: 88%
+- **미지 영역**:
+  - 아임웹 어드민의 네이버페이 export 화면이 실제로 어떤 필드를 제공하는지 직접 본 적 없음 (TJ 1회 캡처 필요)
+  - "주문형서비스" vs "결제형서비스" 호스팅 구분이 향후 네이버페이 정책 변경으로 풀릴 가능성은 낮지만 0이 아님 (현재 정책 기준)
+  - 더클린커피를 장기적으로 자사몰로 옮길 경영적 사유(SEO 자체 운영, 아임웹 의존도 축소 등)가 있다면 별도 평가 필요. 본 평가는 "네이버 API 단일 사유로 신축할 가치가 있는가"에만 답함
 
 ## 공식 문서 출처
 

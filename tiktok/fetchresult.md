@@ -6,7 +6,7 @@
 ## 결론
 
 - `biocom.kr` 브라우저 콘솔에서 실행한 `fetch('https://att.ainativeos.net/api/attribution/tiktok-pixel-event', ...)` smoke는 **성공**이다.
-- 운영 VM 기준으로 **CORS 허용**, **POST write 성공**, **GET readback 성공**까지 확인했다.
+- VM Cloud 기준으로 **CORS 허용**, **POST write 성공**, **GET readback 성공**까지 확인했다.
 - 다만 현재 라이브 페이지 소스는 아직 **v2가 아니라 v1 debug=true** 상태다. 따라서 콘솔에 Guard 설치/래핑 로그가 계속 보이는 것은 정상이다.
 - `froogaloop2.min.js` 오류는 **TikTok Guard와 직접 관련 없는 별도 이슈**로 본다.
 
@@ -179,7 +179,7 @@ GET /api/attribution/tiktok-pixel-events?orderCode=smoke_order_code&limit=10
 ## 최종 판단
 
 1. 사용자가 브라우저 콘솔에서 실행한 fetch smoke는 성공했다.
-2. 운영 VM `tiktok_pixel_events` 원장에 실제 row가 들어갔다.
+2. VM Cloud `tiktok_pixel_events` 원장에 실제 row가 들어갔다.
 3. `biocom.kr` -> `att.ainativeos.net` CORS는 정상이다.
 4. 현재 가장 큰 특이사항은 `froogaloop` 오류가 아니라, **라이브 Header Code가 아직 v1 debug=true라는 점**이다.
 
@@ -232,7 +232,7 @@ totalEvents=0
 
 조치:
 
-- 2026-04-24 23:23 KST 운영 VM backend CORS 수정 배포 완료.
+- 2026-04-24 23:23 KST VM Cloud backend CORS 수정 배포 완료.
 - 수정 내용: `cors({ ..., credentials: true })`.
 - 배포 백업: `/home/biocomkr_sns/seo/shared/deploy-backups/20260424_232257/backend-prev-before-cors-fix.tgz`.
 
@@ -330,7 +330,7 @@ approvedAt=2026-04-24T23:25:36+09:00
 
 - v2 카드 주문 경로는 성공이다.
 - TikTok Purchase를 막지 않고 정상 release 했다.
-- v2 event log도 운영 VM 원장에 정상 저장됐다.
+- v2 event log도 VM Cloud 원장에 정상 저장됐다.
 - 외부 TikTok Pixel Helper 기준으로도 `Purchase`가 확인됐다.
 - 앞선 가상계좌 테스트에서 확인된 `Purchase` 차단 + `PlaceAnOrder` 대체와 합쳐, 핵심 release/block 양쪽 경로가 모두 검증됐다.
 
@@ -412,7 +412,7 @@ paymentKey=iw_bi20260424233249Wbcu8
 
 - CORS 수정 이후 v2 가상계좌 경로도 성공이다.
 - TikTok Pixel Helper 기준으로 `Purchase`는 보이지 않고 `PlaceAnOrder`만 보였다.
-- 운영 VM `tiktok_pixel_events` 원장에도 `purchase_intercepted -> decision_received -> blocked_pending_purchase -> sent_replacement_place_an_order` 4단계가 모두 저장됐다.
+- VM Cloud `tiktok_pixel_events` 원장에도 `purchase_intercepted -> decision_received -> blocked_pending_purchase -> sent_replacement_place_an_order` 4단계가 모두 저장됐다.
 - 카드 confirmed release 경로와 가상계좌 pending block/replacement 경로가 모두 실주문으로 검증됐다.
 
 현재 결론:
@@ -494,13 +494,13 @@ ls -lt tiktok/monitoring/tiktok_guard_monitor_*.md | head
 
 목적:
 
-- 기존 `/ads/tiktok` 화면은 TikTok Ads 플랫폼 주장값과 운영 VM Attribution `payment_success` 비교 중심이었다.
+- 기존 `/ads/tiktok` 화면은 TikTok Ads 플랫폼 주장값과 VM Cloud Attribution `payment_success` 비교 중심이었다.
 - 2026-04-24 배포된 v2 Guard의 핵심 원장인 `tiktok_pixel_events`가 화면에 없어서, 카드/가상계좌 release/block 검증 상태를 대시보드에서 바로 볼 수 없었다.
 
 반영:
 
 - backend `GET /api/ads/tiktok/roas-comparison` 응답에 `tiktok_event_log`를 추가했다.
-- 데이터 원천은 운영 VM API `https://att.ainativeos.net/api/attribution/tiktok-pixel-events`다.
+- 데이터 원천은 VM Cloud API `https://att.ainativeos.net/api/attribution/tiktok-pixel-events`다.
 - 프론트 `http://localhost:7010/ads/tiktok` 상단 기본 기간을 `2026-04-18 ~ 2026-04-24`로 변경했다.
 - 화면 상단에 **v2 Guard 운영 이벤트 원장** 섹션을 추가했다.
 
@@ -595,7 +595,7 @@ console warnings/errors: 0
 
 - 가능했다.
 - 2026-04-23 비용 0원 표시는 실제 0원이 아니라 미수집 표시였고, API 수집 후 로컬 대시보드에서는 4/23과 4/24가 정상 데이터로 표시된다.
-- 이 숫자는 **TikTok 플랫폼 주장값**이다. 내부 확정 주문 정본은 여전히 **운영 VM Attribution 원장**과 운영 주문 DB로 봐야 한다.
+- 이 숫자는 **TikTok 플랫폼 주장값**이다. 내부 확정 주문 정본은 여전히 **VM Cloud Attribution 원장**과 운영 주문 DB로 봐야 한다.
 
 실행:
 
@@ -667,130 +667,151 @@ tiktok/monitoring/ads_tiktok_dashboard_20260425_api_collected.png
 
 - `/ads/tiktok`의 4/23 비용 0원 문제는 해결됐다.
 - 2026-04-18 ~ 2026-04-24 최근 7일 기준 TikTok Ads API 플랫폼 주장값은 이제 로컬 SQLite `backend/data/crm.sqlite3#tiktok_ads_daily`에 들어가 있다.
-- 다만 4/23~4/24의 TikTok 주장 구매 5건 / 1,037,160원은 아직 내부 확정매출로 인정하면 안 된다. 정확한 판단은 v2 event log, 운영 VM Attribution 원장, 운영 주문 DB를 같이 봐야 한다.
+- 다만 4/23~4/24의 TikTok 주장 구매 5건 / 1,037,160원은 아직 내부 확정매출로 인정하면 안 된다. 정확한 판단은 v2 event log, VM Cloud Attribution 원장, 운영 주문 DB를 같이 봐야 한다.
 
 
 ## 2026-04-25 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-04-25T14-39-51-290Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-04-26 TikTok Guard 자동 모니터링 48h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-04-26T14-39-51-903Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-04-26 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-04-26T14-39-52-501Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-04-27 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-04-27T16-54-49-258Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-04-28 TikTok Guard 자동 모니터링 48h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-04-28T16-54-48-632Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-04-28 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-04-28T16-54-49-797Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-04-29 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-04-29T19-43-47-515Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-04-30 TikTok Guard 자동 모니터링 48h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-04-30T19-43-46-511Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-04-30 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-04-30T19-43-48-205Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-01 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-01T19-43-48-981Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-02 TikTok Guard 자동 모니터링 48h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-05-02T19-43-45-377Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-02 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-02T19-43-47-598Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-03 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-03T19-43-50-148Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-04 TikTok Guard 자동 모니터링 48h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-05-04T22-30-05-424Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-04 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-04T22-30-08-125Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-05 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-05T22-33-00-581Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-07 TikTok Guard 자동 모니터링 48h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-05-07T01-30-36-149Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
 
 
 ## 2026-05-07 TikTok Guard 자동 모니터링 24h
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-07T01-31-54-883Z.md`
-- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-05-08 TikTok Guard 자동 모니터링 24h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-08T02-13-52-820Z.md`
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-05-09 TikTok Guard 자동 모니터링 48h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-05-09T03-03-44-196Z.md`
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-05-09 TikTok Guard 자동 모니터링 24h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-09T03-05-03-626Z.md`
+- source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events

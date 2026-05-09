@@ -11,7 +11,7 @@
 
 숫자나 판단에는 source / window / freshness / confidence를 붙인다.
 
-운영DB, TJ 관리 Attribution VM, 로컬 개발 DB는 항상 구분해서 쓴다.
+운영DB, VM Cloud, 로컬은 항상 구분해서 쓴다.
 
 ## 최종 보고 양식
 
@@ -31,7 +31,7 @@
 
 | 항목 | 결과 | 근거/파일 | 데이터/DB 위치 |
 |---|---|---|---|
-|  | 완료 / 부분 완료 |  | 운영DB / TJ 관리 Attribution VM / 로컬 개발 DB / 외부 API / 해당 없음 |
+|  | 완료 / 부분 완료 |  | 운영DB / VM Cloud / 로컬 / 외부 API / 해당 없음 |
 
 ## 프롬프트에 있거나 시도했으나 완료하지 못한 것
 
@@ -124,7 +124,7 @@
 - TJ님에게 요청하기 전, Codex가 API, VM, 로컬 파일, 로그, DB read-only, 자동화 스크립트로 대신 할 수 없는지 한 번 더 판단한다.
 - TJ님에게만 가능한 일이라면 왜 대체 불가인지 짧게 적는다.
 - 사용자가 직접 해야 하는 액션이면 버튼, 메뉴, URL, 검색어, 필터, 확인 문구를 적는다.
-- DB를 확인해야 하면 운영DB / TJ 관리 Attribution VM / 로컬 개발 DB 중 어디인지 절대 생략하지 않는다.
+- DB를 확인해야 하면 운영DB / VM Cloud / 로컬 중 어디인지 절대 생략하지 않는다.
 - 결과보고서 문서가 있으면 최종 답변에도 그 다음 액션을 충분히 요약한다. 문서 링크만 제공하지 않는다.
 - 이미 승인된 Yellow Lane은 `다음에 승인받기`로 쓰지 않는다. 실행을 시도한 뒤 `성공`, `실패 지점`, `접근 blocker` 중 하나로 보고한다.
 - 접근 blocker는 승인 부족과 구분한다. 예: `GTM UI 2FA에서 막힘`, `Tag Assistant가 local receiver 접근 실패`, `CORS preflight는 통과했지만 browser mixed content 실패`.
@@ -262,7 +262,7 @@ scope 내 5개 파일만 변경.
 ```text
 Preview only 승인 범위 안에서 GTM Preview를 실행했다.
 storage 저장은 성공했고, no-send receiver 호출은 browser mixed content로 실패했다.
-Production publish, platform send, 운영 DB write는 0건이다.
+Production publish, platform send, 운영DB write는 0건이다.
 다음은 local receiver 대신 tunnel 또는 제한 테스트 deploy 승인안이다.
 ```
 

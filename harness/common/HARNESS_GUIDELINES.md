@@ -2,7 +2,7 @@
 
 작성 시각: 2026-05-02 23:12 KST
 최근 업데이트: 2026-05-06 15:20 KST
-목적: GA4, GTM, NPay, TikTok, Meta, Google Ads, Attribution VM, 운영DB, 광고 ROAS, 결제 원장 작업의 공통 안전 기준
+목적: GA4, GTM, NPay, TikTok, Meta, Google Ads, VM Cloud, 운영DB, 광고 ROAS, 결제 원장 작업의 공통 안전 기준
 상태: 공통 하네스 기준판
 
 ## 10초 요약
@@ -41,7 +41,7 @@
 | Lane | 에이전트 행동 | 예시 | 조건 |
 |---|---|---|---|
 | Green | 묻지 말고 진행 | 문서 작성/수정, read-only query, 로컬 dry-run, payload preview, runbook, monitoring script, test, audit, Lessons 기록, candidate_rule 제안, scoped commit/push | no-send, no-write, no-publish, no-deploy, scope 내 변경, audit PASS/PASS_WITH_NOTES |
-| Yellow | 스프린트 단위 1회 승인 후 자율 진행 | VM receiver 배포, backend route 배포, controlled smoke window, env flag 임시 ON, GTM Preview workspace, max 5건 이하 smoke insert, post-deploy smoke, rollback dry-run, cleanup | 허용/금지 범위, max duration, max insert/traffic, cleanup, success/stop criteria가 문서화됨 |
+| Yellow | 스프린트 단위 1회 승인 후 자율 진행 | VM Cloud receiver 배포, backend route 배포, controlled smoke window, env flag 임시 ON, GTM Preview workspace, max 5건 이하 smoke insert, post-deploy smoke, rollback dry-run, cleanup | 허용/금지 범위, max duration, max insert/traffic, cleanup, success/stop criteria가 문서화됨 |
 | Red | 멈추고 TJ 명시 승인 요청 | GTM Production publish, env flag 상시 ON, production mode 영구 활성, 자동 dispatcher 운영 전환, GA4/Meta/TikTok/Google Ads 전환 전송, 운영DB write/import apply, destructive migration, 외부 credential 발급/교체 | 별도 승인 문서와 명시 승인 필요 |
 
 ## Execution Momentum Rule
@@ -110,7 +110,7 @@ Yellow Lane은 스프린트 단위로 한 번 승인받는다.
 이미 승인된 Yellow Lane은 다음 상황이 아니면 다시 묻지 않는다.
 
 - 승인 문서의 허용 범위를 벗어나야 한다.
-- Production publish, 외부 플랫폼 전송, 운영 DB write, 운영 deploy처럼 Red Lane으로 넘어간다.
+- Production publish, 외부 플랫폼 전송, 운영DB write, 운영 deploy처럼 Red Lane으로 넘어간다.
 - max duration, max inserts, max traffic, cleanup 조건을 초과한다.
 - 계정/2FA/권한 문제로 실제 실행이 불가능하다.
 - stop criteria 또는 Hard Fail이 발생했다.
@@ -163,7 +163,7 @@ Yellow 승인 문서에는 반드시 아래가 있어야 한다.
 | 질문 | 답변 기준 |
 |---|---|
 | site는 무엇인가 | biocom / thecleancoffee / aibio / 공통 |
-| 어떤 시스템을 건드리는가 | GA4 / GTM / NPay / TikTok / Meta / Google Ads / Attribution VM / 운영DB / Imweb / Toss / Excel / local DB |
+| 어떤 시스템을 건드리는가 | GA4 / GTM / NPay / TikTok / Meta / Google Ads / VM Cloud / 운영DB / Imweb / Toss / Excel / local DB |
 | Lane은 무엇인가 | Green / Yellow / Red |
 | 허용된 것은 무엇인가 | 구체적 작업 범위 |
 | 금지된 것은 무엇인가 | send/write/publish/deploy 여부 |
@@ -230,6 +230,30 @@ Hard Fail:
 - tracking 작업인데 live inventory가 없거나 7일 이상 stale
 - existing wrapper 확인 없이 새 wrapper 설계
 - existing session/eid 확인 없이 새 session key 설계
+
+## GTM Workspace Hygiene Rule
+
+GTM Preview, GTM workspace, Tag Assistant 작업은 live version을 보존하면서 격리된 fresh workspace에서만 진행한다.
+
+필수 규칙:
+
+1. Default Workspace는 사용하지 않는다.
+2. 새 GTM 작업은 live latest 기준 fresh workspace에서 시작한다.
+3. Preview 시작 전 workspace capacity preflight를 먼저 실행한다.
+4. old Preview workspace는 TTL/cleanup policy에 따라 정리한다.
+5. fresh workspace 생성 성공 전에는 VM Cloud write flag를 ON으로 바꾸지 않는다.
+6. workspace cleanup 전에는 workspace JSON backup을 반드시 남긴다.
+7. cleanup 후에는 live version unchanged를 확인한다.
+8. workspace reuse는 fresh create 실패 시 fallback으로만 검토한다.
+9. Preview 성공은 Production publish 승인으로 해석하지 않는다.
+
+Hard Fail:
+
+- workspace cleanup backup 없이 delete 실행
+- submit / create_version / publish 실행
+- live version 변경
+- Default Workspace에서 Preview tag 작업
+- fresh workspace 생성 전 VM Cloud write flag ON
 
 ## Publish Scope Rule
 

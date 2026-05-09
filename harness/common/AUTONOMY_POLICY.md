@@ -9,7 +9,7 @@
 
 문서 작성, read-only 분석, dry-run, 테스트, audit는 Green Lane이면 묻지 않고 진행한다.
 
-VM 배포, GTM Preview, smoke window처럼 제한된 운영 접점은 Yellow Lane이다. 스프린트 단위로 한 번 승인받으면 setup부터 cleanup/report까지 자율 진행한다.
+VM Cloud 배포, GTM Preview, smoke window처럼 제한된 운영 접점은 Yellow Lane이다. 스프린트 단위로 한 번 승인받으면 setup부터 cleanup/report까지 자율 진행한다.
 
 GTM Production publish, 광고 플랫폼 전환 전송, 운영DB write, destructive migration은 Red Lane이다. 항상 멈추고 TJ님 명시 승인을 요청한다.
 
@@ -41,7 +41,7 @@ Green Lane에서 묻지 않는다.
 
 | 조건 | 승격 Lane |
 |---|---|
-| VM/backend deploy 필요 | Yellow |
+| VM Cloud/backend deploy 필요 | Yellow |
 | GTM Preview 필요 | Yellow |
 | max-limited live insert 필요 | Yellow |
 | 실제 결제 테스트 필요 | Red |
@@ -95,7 +95,7 @@ Yellow Lane은 스프린트 단위 1회 승인 후 자율 진행한다.
 다시 멈춰야 하는 경우:
 
 - 허용 범위 밖 작업이 필요하다.
-- Production publish, Submit, platform send, 운영 DB write, 운영 deploy가 필요하다.
+- Production publish, Submit, platform send, 운영DB write, 운영 deploy가 필요하다.
 - max duration/max inserts/max traffic을 초과한다.
 - stop criteria 또는 Hard Fail이 발생한다.
 - GTM UI, Google Ads UI, Meta UI, 2FA, 계정 권한처럼 Codex가 직접 접근할 수 없는 blocker가 있다.
@@ -109,7 +109,7 @@ Yellow Lane은 스프린트 단위 1회 승인 후 자율 진행한다.
 
 Yellow Lane 예시:
 
-- VM receiver 배포
+- VM Cloud receiver 배포
 - backend route 배포
 - controlled smoke window
 - env flag 임시 ON
@@ -164,7 +164,7 @@ Red Lane 승인 요청은 별도 문서로 만든다.
 | 이름 | 위치 | 의미 |
 |---|---|---|
 | 운영DB | 개발팀 관리 PostgreSQL `dashboard.public.tb_iamweb_users` | 실제 주문 상태 검산 |
-| TJ 관리 Attribution VM | `att.ainativeos.net` 내부 SQLite | 수집/보조 attribution 원장 |
-| 로컬 개발 DB | `/Users/vibetj/coding/seo/backend/data/crm.sqlite3` | 로컬 화면/캐시/개발 검증 |
+| VM Cloud | TJ님 개발·관리 Cloudflare 기반 수집/보조 원장 환경. 대표 도메인은 `att.ainativeos.net`, 내부 원장은 SQLite | 수집/보조 attribution 원장 |
+| 로컬 | 이 맥북 PC. 대표 로컬 DB는 `/Users/vibetj/coding/seo/backend/data/crm.sqlite3` | 로컬 화면/캐시/개발 검증 |
 
-운영DB와 TJ 관리 Attribution VM을 혼용하지 않는다.
+운영DB와 VM Cloud를 혼용하지 않는다.

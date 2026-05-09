@@ -27,9 +27,9 @@
 ## 보안 · 설정
 - 시크릿은 커밋 금지. `.env.local` 사용, `.env.example` 갱신.
 - 대형 산출물은 저장소 밖에 보관.
-- 운영DB: 개발팀 관리 PostgreSQL dashboard DB. 대표 테이블은 dashboard.public.tb_iamweb_users.
-- TJ 관리 Attribution VM: att.ainativeos.net 서버와 그 안의 SQLite. 운영DB가 아니라 TJ님 관리 수집/보조 원장.
-- 로컬 개발 DB: 이 노트북 /Users/vibetj/coding/seo/backend/data/crm.sqlite3.
+- 운영DB: 개발팀이 관리하는 운영 PostgreSQL dashboard DB. 대표 테이블은 dashboard.public.tb_iamweb_users.
+- VM Cloud: TJ님이 개발·관리하는 Cloudflare 기반 수집/보조 원장 환경. 대표 접속 도메인은 att.ainativeos.net이며 내부 SQLite를 사용한다. 운영DB와 구분하고, 운영 환경처럼 오해될 수 있는 VM 표현을 붙이지 않는다.
+- 로컬: 이 맥북 PC와 그 안의 개발 파일/DB. 대표 로컬 DB는 /Users/vibetj/coding/seo/backend/data/crm.sqlite3.
 
 ## 에이전트 전용 지침 (AGENTS.md 반영)
 - 세션 재개·압축 후: 반드시 루트 `AGENTS.md` 재독, 프로젝트별 `AGENTS.md` 우선.
@@ -42,7 +42,7 @@
 - 완료/에러/마일스톤 시 별도 알림 발송은 기본 생략. 서버 상태·접속 경로·검증 결과는 대화 내 최종 보고에만 포함.
 - 서버 점검 단축키: `lsof -i :포트`, `ps aux | grep <proc>`, `curl http://localhost:<port>`.
 - 금지: 테스트 없는 핵심 로직, `--no-verify`, 프로덕션 더미 데이터, 무분별한 대규모 리팩토링.
-- 데이터 정합성 작업: 운영 DB, 로컬 DB, VM DB, 외부 API 중 하나를 단일 정답으로 보지 말고 질문별 primary/cross-check/fallback을 정하시오. 모든 숫자는 source, 기준 시각, window, site, freshness, confidence를 같이 기록하시오.
+- 데이터 정합성 작업: 운영DB, VM Cloud SQLite, 로컬 DB, 외부 API 중 하나를 단일 정답으로 보지 말고 질문별 primary/cross-check/fallback을 정하시오. 모든 숫자는 source, 기준 시각, window, site, freshness, confidence를 같이 기록하시오.
 - 백필/보정 작업: 로컬 DB 쓰기는 백업 → dry-run → apply → 중복/금액/잔여 미조인 검증 → `data/!datacheckplan.md` 업데이트 순서로 진행하시오. 프로덕션 DB 쓰기나 스키마 변경은 사전 승인 없이는 하지 마시오.
 - 문서/로드맵/결과보고서 작성·수정 시 루트 `docurule.md`를 먼저 참고하시오.
 - 텍스트 결과보고/최종답변 양식은 `docs/report/text-report-template.md`를 따르시오.
@@ -71,7 +71,7 @@
 - **Common harness fork 금지**: `harness/common/HARNESS_GUIDELINES.md`, `AUTONOMY_POLICY.md`, `REPORTING_TEMPLATE.md` 의 본문을 다른 파일에 복사하여 fork 하지 마시오. project-local 차이는 `harness/{project}/` 내 별도 파일로 작성하고, common 정본은 link 만 하시오. fork 의심 시 preflight check script 가 warning. 기존 `harness/!공통하네스_가이드라인.md` 는 redirect 로 정리됨 (sprint 23.1 / 2026-05-03).
 - **pre-commit hook 설치** (sprint 23.3): 본 환경 1회 실행 — `bash scripts/install-harness-precommit.sh`. 설치 후 Growth Data 관련 영역 변경 commit 시 `harness-preflight-check.py --strict` 자동 호출. 긴급 bypass: `SKIP_HARNESS_PREFLIGHT=1 git commit ...` (완료 보고에 명시 의무).
 - 보고서형 프론트엔드 구현·수정 시 루트 `frontrule.md`를 먼저 참고하시오.
-- GA4/NPay/ROAS/TikTok/BigQuery/운영 DB 정합성 작업 시 `docs/agent-harness/growth-data-harness-v0.md`와 `harness/npay-recovery/README.md`를 먼저 참고하시오.
+- GA4/NPay/ROAS/TikTok/BigQuery/운영DB 정합성 작업 시 `docs/agent-harness/growth-data-harness-v0.md`와 `harness/npay-recovery/README.md`를 먼저 참고하시오.
 - NPay recovery 또는 전환 복구 작업에서는 `harness/npay-recovery/RULES.md`, `VERIFY.md`, `APPROVAL_GATES.md`, `AUDITOR_CHECKLIST.md`를 기준으로 no-send/no-write/no-deploy를 확인하시오.
 - 더클린커피 GA4/Imweb/NPay/Excel/ROAS 정합성 작업 시 `harness/coffee-data/README.md`, `RULES.md`, `VERIFY.md`, `AUDITOR_CHECKLIST.md`를 먼저 참고하시오.
 

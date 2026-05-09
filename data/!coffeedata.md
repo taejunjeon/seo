@@ -32,7 +32,7 @@ harness_preflight:
     - Coffee GA4 Measurement Protocol send
     - Meta CAPI send
     - TikTok/Google/Naver platform send
-    - 운영 DB/ledger write
+    - 운영DB/ledger write
     - VM schema migration/enforce
     - GTM publish
   source_window_freshness_confidence:
@@ -135,6 +135,7 @@ assigned 42건, unassigned actual 18건, unassigned GA4 16건
 | 2026-05-07 09:01 KST | A-5 cron schedule 확인 | `20260507.yaml` 미생성. VM은 UTC, crontab `0 9 * * *`라 실제 실행은 KST 18:00 |
 | 2026-05-07 12:28 KST | Phase2 종결안 작성 | [[coffee-npay-historical-matching-closure-20260507]] 작성. 과거 자동 복구 전송 금지 + future intent/A-6 이관 추천 |
 | 2026-05-07 14:58 KST | Phase2 종결 승인 반영 | [[confirm0507-1]] YES. Coffee NPay 과거 매칭은 자동 복구 전송 없이 종결, future intent/A-6로 이관 |
+| 2026-05-08 KST | Naver API production 연동 영구 Parked 확정 | 네이버페이 운영팀(이민영) 공식 답변: 더클린커피는 아임웹 호스팅사 제휴라 API 자체 연동 구조적 불가. Parked / Later 표 갱신, 정본 경로(intent dispatcher + Imweb API)로 닫는 방향 확정. 근거: [[../naverapi]] / [[coffee-naverpay-hosting-impact-report-20260508]] |
 
 ## Parked / Later
 
@@ -142,7 +143,7 @@ assigned 42건, unassigned actual 18건, unassigned GA4 16건
 |---|---|---|
 | Coffee GA4 MP 실제 전송 | GA4 purchase 숫자를 바꾸는 Red Lane | A-6 dry-run 50건 PASS + already_in_ga4 guard PASS + TJ 승인 |
 | Coffee Meta CAPI 전송 | Meta 전환값을 바꾸는 Red Lane | GA4 MP path 안정 후 Meta event_id/dedup 설계 |
-| Naver API production 연동 | 직접 효용이 과거 47건 중 6건 수준 | 호스팅사 입점 가맹점 production 발급 가능성 확인 후 |
+| Naver API production 연동 | **영구 Parked / 재개 불가**. 2026-05-08 네이버페이 운영팀(이민영) 공식 답변으로 더클린커피(`np_cnexi899940`)는 아임웹 호스팅사 제휴 가맹점이라 자체 API 연동/라이센스 발급 구조적 불가. 통합매니저 위임으로도 풀리지 않음. 우회는 아임웹 어드민 또는 네이버페이센터 web UI 수동 조회뿐 | **재개 조건 없음**. 정본 경로(NPay intent dispatcher v2.1 + Imweb actual order + GTM intent log)로 미래분 deterministic 매칭만 진행. 근거: [[../naverapi]] §"2026-05-08 더클린커피 호스팅사 입점 공식 답변과 임팩트 평가" / [[coffee-naverpay-hosting-impact-report-20260508]] |
 | Coffee ROAS 광고비 증액/감액 판단 | source freshness와 channel assignment가 먼저 | internal confirmed vs platform_reference 분리 완료 후 |
 
 ## Phase0-Sprint0
