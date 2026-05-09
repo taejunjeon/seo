@@ -1,0 +1,64 @@
+{
+  "batch": "gpt0508-23",
+  "created_at_kst": "2026-05-10T01:38:00+09:00",
+  "purpose": "Path B real Google ad click to order-complete no-send bridge evidence",
+  "source_window": {
+    "site": "biocom",
+    "window_kst": "2026-05-10 01:21-01:38 KST",
+    "freshness": "same-session",
+    "confidence": 0.96
+  },
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-23/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-23/00-result-report.md",
+      "why_included": "Batch-level report with verdict, guard status, and next actions.",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-real-paid-click-actual-order-preview-result-20260510.md",
+      "copy": "gptconfirm/gpt0508-23/01-real-paid-click-order-preview-result.md",
+      "why_included": "Primary sanitized evidence from actual Google ad click to virtual-account order-complete page.",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-reliability-v2-real-click-updated-result-20260510.md",
+      "copy": "gptconfirm/gpt0508-23/02-reliability-v2-real-click-updated-result.md",
+      "why_included": "Reliability v2 update after real ad click evidence.",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-confirmed-payment-next-step-approval-20260510.md",
+      "copy": "gptconfirm/gpt0508-23/03-confirmed-payment-next-step-approval.md",
+      "why_included": "Decision packet for whether a confirmed paid purchase test is still needed.",
+      "approval_needed": true
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-23/99-total-current-copy.md",
+      "why_included": "Reference copy of the current canonical document.",
+      "approval_needed": false
+    },
+    {
+      "source": "data/path-b-real-paid-click-actual-order-preview-result-20260510.json",
+      "copy": "data/path-b-real-paid-click-actual-order-preview-result-20260510.json",
+      "why_included": "Structured sanitized evidence for future dry-run input.",
+      "approval_needed": false
+    },
+    {
+      "source": "data/path-b-reliability-v2-real-click-updated-20260510.json",
+      "copy": "data/path-b-reliability-v2-real-click-updated-20260510.json",
+      "why_included": "Structured reliability update with real ad click evidence.",
+      "approval_needed": false
+    }
+  ],
+  "verdict": "PASS_REAL_GOOGLE_AD_CLICK_TO_ORDER_COMPLETE_NO_SEND_BRIDGE__CONFIRMED_PAYMENT_HOLD",
+  "forbidden_actions_not_taken": [
+    "virtual account deposit",
+    "Google Ads conversion upload",
+    "Google Ads/GA4/Meta/TikTok/Naver new send by Path B",
+    "send_candidate=true",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "GTM Production publish"
+  ]
+}
