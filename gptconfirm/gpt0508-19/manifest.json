@@ -1,0 +1,56 @@
+{
+  "batch": "gpt0508-19",
+  "created_at_kst": "2026-05-10 00:43 KST",
+  "purpose": "Apply HOLD Reducer and GTM workspace lifecycle rules to harness documents",
+  "site": "biocom",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-19/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-19/00-result-report.md",
+      "why_included": "Batch result report and next action summary",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-19/01-harness-patch-summary.md",
+      "copy": "gptconfirm/gpt0508-19/01-harness-patch-summary.md",
+      "why_included": "Summary of actual harness document patches",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-19/02-validation-result.md",
+      "copy": "gptconfirm/gpt0508-19/02-validation-result.md",
+      "why_included": "Validation commands and results",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-19/99-total-current-copy.md",
+      "why_included": "Current canonical document copy for context",
+      "approval_needed": false
+    }
+  ],
+  "changed_rule_files": [
+    "AGENTS.md",
+    "harness/common/AUTONOMY_POLICY.md",
+    "harness/common/REPORTING_TEMPLATE.md",
+    "docs/report/text-report-template.md",
+    "docurule.md",
+    "harness/gdn/RULES.md",
+    "harness/gdn/VERIFY.md",
+    "harness/gdn/APPROVAL_GATES.md",
+    "harness/gdn/AUDITOR_CHECKLIST.md"
+  ],
+  "key_results": {
+    "hold_reducer_rule_applied": true,
+    "gtm_workspace_lifecycle_rule_projected_to_gdn": true,
+    "report_template_updated": true,
+    "auditor_checklist_updated": true
+  },
+  "forbidden_actions_not_taken": [
+    "operating deploy",
+    "GTM publish",
+    "DB write",
+    "platform send",
+    "VM Cloud write flag change"
+  ]
+}

@@ -50,6 +50,44 @@ Green Lane에서 묻지 않는다.
 | 운영DB write 필요 | Red |
 | `.env` 운영값 변경 필요 | Yellow 또는 Red |
 
+## HOLD Reducer Rule
+
+HOLD는 최종 보고 상태가 아니다. 원인을 줄여야 하는 중간 상태다.
+
+결과가 HOLD이면 에이전트는 바로 TJ님 승인 대기로 넘기지 않고 아래를 먼저 수행한다.
+
+1. HOLD 원인을 taxonomy로 분류한다.
+2. 실행 가능한 Green follow-up을 식별한다.
+3. read-only 조사, dry-run, 문서 보강, 로컬 테스트, 검증 스크립트 실행은 TJ님 확인 없이 자동 수행한다.
+4. 자동 수행한 follow-up과 남은 blocker를 결과보고서에 분리한다.
+5. 남은 작업이 Yellow/Red/권한/사업 판단일 때만 TJ님에게 넘긴다.
+
+HOLD 원인 taxonomy는 아래를 기본으로 쓴다.
+
+| hold_reason_category | 의미 | 자동 Green follow-up 예 |
+|---|---|---|
+| `missing_click_bridge` | 주문 row와 광고 click id가 결정적으로 연결되지 않음 | ledger join dry-run, click storage/source audit, same-browser preservation 설계 |
+| `missing_identity_bridge` | email/member/phone/session 등 identity key가 없음 | source inventory, no-send HMAC smoke 설계 |
+| `ambiguous_candidates` | 후보가 2건 이상이거나 time-window-only 후보가 과다 | confidence rule 보강, ambiguous/do_not_send 분류 |
+| `workspace_capacity` | GTM workspace 생성 quota 또는 stale workspace 충돌 | workspace list, backup/cleanup plan, live version unchanged 확인 |
+| `blocked_access` | UI/2FA/API 권한으로 agent가 직접 접근 불가 | read-only fallback, TJ님 필요 화면/캡처 최소화 |
+| `blocked_data` | primary source가 없거나 조회 불가 | fallback source 확인, freshness/confidence 기록 |
+| `time_waiting` | 24h/72h 등 시간 도달 전 | 현재까지 가능한 capture health와 예약 runbook 작성 |
+| `approval_required` | 남은 작업이 Yellow/Red | 승인안 final packet 작성 |
+| `source_freshness_gap` | source window가 낡음 | read-only refresh, stale 표시 |
+| `verification_gap` | 검증 명령/fixture/auditor 누락 | validation 실행, raw/log/platform grep |
+
+HOLD 보고서에는 반드시 아래 필드를 둔다.
+
+- `hold_reason`
+- `hold_reason_category`
+- `auto_green_followups_available`
+- `auto_green_followups_done`
+- `remaining_blocker`
+- `next_lane`
+- `tj_action_required`
+- `codex_next_green_action`
+
 ## Yellow Lane
 
 Yellow Lane은 스프린트 단위 1회 승인 후 자율 진행한다.

@@ -139,6 +139,34 @@ rg -n "r0vuCKvy-8caEJixj5EB|3yjICOXRmJccEJixj5EB|AW-304339096" gtmaudit footer G
 2. snapshot이 7일 이상 stale이면 tracking 결론을 내리지 않는다.
 3. label이 어떤 tag/trigger/footer code에서 나오는지 구분한다.
 
+## GTM Workspace Lifecycle 검증
+
+GTM Preview, GTM workspace, Tag Assistant 작업이 있으면 아래를 확인한다.
+
+| 항목 | PASS 기준 |
+|---|---|
+| Default Workspace | 사용하지 않음 |
+| fresh workspace | live latest 기준으로 새 workspace 생성 |
+| capacity preflight | Preview 전 workspace count와 충돌 가능성 확인 |
+| old workspace cleanup | cleanup 전 JSON backup 존재 |
+| live version | cleanup 후 live version unchanged |
+| submit/create_version/publish | 승인 전 0회 |
+| VM Cloud write flag | fresh workspace 확보 전 ON 아님 |
+| Preview 해석 | Production publish 승인으로 해석하지 않음 |
+
+보고 형식:
+
+```text
+GTM workspace lifecycle:
+- default_workspace_used: YES/NO
+- fresh_workspace_created: YES/NO
+- workspace_capacity_preflight: PASS/HOLD/FAIL
+- backup_before_cleanup: YES/NO/N/A
+- live_version_unchanged: YES/NO
+- submit_create_version_publish_count: 0
+- vm_cloud_write_flag_on_after_workspace_ready: YES/NO/N/A
+```
+
 ## Auditor Verdict 형식
 
 ```text

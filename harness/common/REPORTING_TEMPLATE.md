@@ -77,12 +77,31 @@
 |---|---|---|
 |  |  |  |
 
+## HOLD Reducer
+
+결과가 HOLD이면 이 섹션을 반드시 채운다. HOLD가 아니면 `N/A`로 적는다.
+
+| 항목 | 값 |
+|---|---|
+| hold_reason |  |
+| hold_reason_category | missing_click_bridge / missing_identity_bridge / ambiguous_candidates / workspace_capacity / blocked_access / blocked_data / time_waiting / approval_required / source_freshness_gap / verification_gap / N/A |
+| auto_green_followups_available | YES / NO / N/A |
+| auto_green_followups_done |  |
+| remaining_blocker |  |
+| next_lane | Green / Yellow / Red / N/A |
+| tj_action_required | YES / NO |
+| codex_next_green_action |  |
+
 ## 다음 액션
 
 다음 액션을 제시하기 전에 먼저 판단한다.
 
 - 데이터가 충분한가:
 - 더 조사할 것이 있는가:
+- 현재 판정이 HOLD인가:
+- HOLD라면 원인 category는 무엇인가:
+- HOLD라면 자동 Green follow-up을 수행했는가:
+- 수행하지 않았다면 왜 Green으로 불가능한가:
 - 지금 바로 진행해도 되는가:
 - 이미 승인된 Yellow Lane인가:
 - 승인된 Yellow라면 실행을 시도했는가:

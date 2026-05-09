@@ -161,6 +161,37 @@ approval_required == true
 | campaign mismatch | `campaign_id_mismatch` |
 | view-through only | `view_through_only` |
 
+## Path B HOLD Reducer
+
+GDN/Google Ads confirmed purchase 보정 작업에서 Path B 결과가 HOLD이면 바로 전송 승인 대기로 넘기지 않는다.
+
+특히 `missing_google_click_id`, `missing_click_bridge`, `ambiguous_candidates`는 아래 Green follow-up을 먼저 수행한다.
+
+| HOLD 원인 | 먼저 수행할 Green follow-up | 전송 판단 |
+|---|---|---|
+| `missing_click_bridge` | order bridge와 paid click intent ledger join dry-run, click storage/source audit, same-browser preservation 설계 | `send_candidate=N` 유지 |
+| `missing_google_click_id` | URL/storage/dataLayer click source 확인, Google click id 보존 경로 점검 | Google Ads upload 후보 아님 |
+| `ambiguous_candidates` | 1d/7d/30d lookback 분리, exact session match와 time-window-only 후보 분리, confidence rule 보강 | ambiguous는 `do_not_send` |
+| `workspace_capacity` | GTM workspace list, old Preview workspace backup/cleanup plan, live version unchanged 확인 | Preview 재시도 전 write flag ON 금지 |
+
+Path B `identity_only_quarantine` row는 실패가 아니다. 주문과 identity bridge는 보존하되, Google click bridge가 확인되기 전까지 전송 후보로 승격하지 않는다.
+
+Time-window-only click 후보는 Google Ads confirmed_purchase 전송 근거로 쓰지 않는다. client id, GA session id, local session id, 또는 저장된 click id처럼 결정적 연결키가 있어야 한다.
+
+## GTM Workspace Lifecycle Rule
+
+GDN/Path B/Google Ads tracking 작업에서 GTM Preview를 쓰면 공통 `GTM Workspace Hygiene Rule`을 따른다.
+
+1. Default Workspace는 사용하지 않는다.
+2. 새 작업은 live latest 기준 fresh workspace에서 시작한다.
+3. Preview 시작 전 workspace capacity preflight를 실행한다.
+4. fresh workspace 생성 성공 전 VM Cloud write flag를 ON으로 바꾸지 않는다.
+5. old Preview workspace cleanup 전 JSON backup을 남긴다.
+6. cleanup 후 live version unchanged를 확인한다.
+7. workspace reuse는 fresh create 실패 시 fallback으로만 검토한다.
+8. submit, create_version, publish는 별도 승인 전 금지다.
+9. Preview 성공은 Production publish 승인으로 해석하지 않는다.
+
 ## 운영 판단 룰
 
 1. Google Ads 전체 OFF는 측정 오염만으로 단정하지 않는다.
