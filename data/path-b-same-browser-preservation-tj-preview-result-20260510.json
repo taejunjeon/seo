@@ -1,0 +1,93 @@
+{
+  "generated_at_kst": "2026-05-10T01:04:00+09:00",
+  "site": "biocom",
+  "source": "TJ Tag Assistant Preview evidence",
+  "flow": "product_detail_test_gclid_to_order_complete_same_browser",
+  "container": {
+    "public_id": "GTM-W2Z6PHN",
+    "container_version": "QUICK_PREVIEW"
+  },
+  "workspace": {
+    "workspace_id": "167",
+    "submitted": false,
+    "published": false
+  },
+  "events_observed": [
+    {
+      "event": "agent_os_path_b_controlled_traffic_result",
+      "primary_for_verdict": true
+    },
+    {
+      "event": "agent_os_path_b_identity_first_canary_result",
+      "primary_for_verdict": false,
+      "role": "supporting_status_confirmation"
+    }
+  ],
+  "raw_values_stored_in_this_artifact": false,
+  "order_complete_url_raw_omitted": true,
+  "test_click_source": {
+    "landing_url_had_test_gclid": true,
+    "test_gclid_raw_omitted": true,
+    "same_browser_flow": true
+  },
+  "path_b_preview_result": {
+    "response_status": 200,
+    "response_ok": true,
+    "identity_source": "email",
+    "would_store": false,
+    "ledger_stored": false,
+    "ledger_deduped": false,
+    "ledger_rejected": false,
+    "email_hash_present": true,
+    "phone_hash_present": false,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "click_id_hash_present": true,
+    "no_raw_echo_verified": true,
+    "no_platform_send_verified": true,
+    "platform_send_count": 0,
+    "hash_version": "hmac_sha256_identity_v1",
+    "source_write_flag_on": false
+  },
+  "supporting_identity_first_result": {
+    "row_status": "full_bridge",
+    "would_send": false,
+    "would_store": false,
+    "ledger_stored": false,
+    "email_hash_present": true,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "click_id_hash_present": true,
+    "platform_send_count": 0,
+    "source_write_flag_on": false
+  },
+  "scorecard": {
+    "product_stage_test_click_started": "PASS",
+    "same_browser_order_complete_reached": "PASS",
+    "order_bridge_key_present": "PASS",
+    "identity_bridge_key_present": "PASS",
+    "click_bridge_key_present": "PASS_CONTROLLED_TEST_GCLID",
+    "raw_echo_absent": "PASS",
+    "no_platform_send": "PASS",
+    "would_store_false": "PASS",
+    "would_send_false": "PASS",
+    "production_publish_absent": "PASS",
+    "google_ads_upload_ready": "HOLD_REAL_PAID_CLICK_NOT_VERIFIED"
+  },
+  "verdict": "PASS_CONTROLLED_SAME_BROWSER_CLICK_PRESERVATION",
+  "remaining_holds": [
+    "real_paid_click_originated_actual_order_test",
+    "Google Ads confirmed_purchase upload",
+    "production long-term storage expansion"
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "Imweb production save",
+    "real ad click",
+    "actual payment",
+    "Google Ads/GA4/Meta/TikTok/Naver conversion send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "send_candidate=true"
+  ]
+}

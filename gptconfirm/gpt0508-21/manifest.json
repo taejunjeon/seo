@@ -1,0 +1,50 @@
+{
+  "batch": "gpt0508-21",
+  "created_at_kst": "2026-05-10T01:04:00+09:00",
+  "purpose": "Path B same-browser preservation TJ Tag Assistant Preview PASS evidence",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-21/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-21/00-result-report.md",
+      "why_included": "Batch result report and next action",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-same-browser-preservation-tj-preview-result-20260510.md",
+      "copy": "gptconfirm/gpt0508-21/01-same-browser-preservation-tj-preview-result.md",
+      "why_included": "TJ Tag Assistant evidence interpretation",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-click-bridge-scorecard-20260510.md",
+      "copy": "gptconfirm/gpt0508-21/02-click-bridge-scorecard.md",
+      "why_included": "Updated click bridge scorecard",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-21/99-total-current-copy.md",
+      "why_included": "Canonical context copy for review",
+      "approval_needed": false
+    }
+  ],
+  "evidence": [
+    "data/path-b-same-browser-preservation-tj-preview-result-20260510.json"
+  ],
+  "verdict": "PASS_CONTROLLED_SAME_BROWSER_CLICK_PRESERVATION",
+  "remaining_holds": [
+    "real_paid_click_originated_actual_order_test",
+    "Google Ads confirmed_purchase upload",
+    "actual platform send"
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "Imweb production save",
+    "real ad click",
+    "actual payment",
+    "Google Ads/GA4/Meta/TikTok/Naver conversion send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "send_candidate=true"
+  ]
+}
