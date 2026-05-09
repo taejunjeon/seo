@@ -81,7 +81,7 @@
     "lane": "Green Lane (dry-run 측정만)"
   },
   "implementation_priority_for_npay_attribution": {
-    "p0_path_c_first": "schema 1 컬럼 추가 + lookup 함수 + 클라이언트 1줄. 배포 비용 최소. 60~80% 매칭 가능. NPay 부풀림 절반 회수.",
+    "p0_path_c_first": "2026-05-08 후속 검토로 superseded: raw member_code가 아니라 member_code_hash 컬럼 + lookupByMemberCodeHash + wrapper Preview first. 60~80%는 실측이 아니라 bridge 적용 후 upper-bound 가설.",
     "p1_path_b_supplement": "imweb 결제완료 페이지 별도 collector. 비회원 NPay 결제도 매칭. 부풀림 90% 회수 가능.",
     "p2_ga4_npay_purchase_re_enable": "GTM v138 변경 되돌리기 (NPay → purchase) - 광고 학습 복구. 단 자사 결제 중복 위험 → enhanced_conversions 의 transaction_id 필수",
     "rationale": "Path C가 schema lazy bootstrap + 클라이언트 minimal change 라 가장 빠르게 효과 측정 가능"

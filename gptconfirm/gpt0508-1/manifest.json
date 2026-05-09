@@ -1,0 +1,49 @@
+{
+  "batch": "gpt0508-1",
+  "created_at_kst": "2026-05-08 22:41 KST",
+  "confirmed_by_tj": true,
+  "confirmed_at_kst": "2026-05-08 22:59 KST",
+  "purpose": "Path B email/phone hash bridge confirmation",
+  "documents": [
+    {
+      "source": "gdn/path-b-email-phone-hash-bridge-approval-20260508.md",
+      "copy": "gptconfirm/gpt0508-1/01-path-b-email-phone-hash-bridge-approval-20260508.md",
+      "why_included": "Path B에서 email_hash/phone_hash를 optional bridge key로 쓰는 방향과 금지선을 GPT가 컨펌하기 위한 핵심 승인안",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/path-b-email-phone-preview-plan-20260508.md",
+      "copy": "gptconfirm/gpt0508-1/02-path-b-email-phone-preview-plan-20260508.md",
+      "why_included": "결제완료 화면 Preview와 no-send HMAC smoke 절차를 GPT가 컨펌하기 위한 실행 전 계획",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/gtm-retous-imweb-dependency-map-20260508.md",
+      "copy": "gptconfirm/gpt0508-1/03-gtm-retous-imweb-dependency-map-20260508.md",
+      "why_included": "Retous/Imweb/email/phone/memberCode 관련 GTM dependency와 정리 금지선을 GPT가 확인하기 위한 read-only audit",
+      "approval_needed": true
+    },
+    {
+      "source": "generated in batch",
+      "copy": "gptconfirm/gpt0508-1/00-result-report.md",
+      "why_included": "이번 batch의 결론, 추천, 금지선, 다음 액션을 GPT가 빠르게 검토하기 위한 결과 보고서",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-1/99-total-current-copy.md",
+      "why_included": "Path B 판단의 전체 맥락과 현재 ROAS/Path C HOLD 상태를 GPT가 함께 확인하기 위한 정본 복사본",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "backend deploy",
+    "operational schema migration",
+    "platform send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code storage",
+    "raw email/phone/member_code logging",
+    "tag pause/delete"
+  ]
+}

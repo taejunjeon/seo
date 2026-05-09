@@ -1,0 +1,120 @@
+{
+  "generated_at_kst": "2026-05-09T00:19:55",
+  "run_id": "20260508T151938Z",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "13158774",
+    "public_id": "GTM-W2Z6PHN",
+    "live_version_id": "142",
+    "live_version_name": "paid_click_intent_v1_receiver_20260506T150218Z"
+  },
+  "workspace": {
+    "workspace_id": "163",
+    "name": "codex_path_b_order_bridge_preview_20260508T151938Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/163",
+    "submitted": false,
+    "published": false,
+    "left_open_for_tj_preview": true
+  },
+  "trigger": {
+    "trigger_id": "289",
+    "name": "PathB_order_confirm_pages_preview_20260508T151938Z",
+    "type": "pageview",
+    "scope": "order confirmation paths only",
+    "all_pages": false,
+    "path_regex": "shop_payment_complete|shop_order_done|payment_complete|order_complete"
+  },
+  "tag": {
+    "tag_id": "290",
+    "name": "PathB_order_bridge_identity_hmac_preview_no_send_20260508T151938Z",
+    "type": "html",
+    "production_publish": false,
+    "platform_send": false
+  },
+  "quick_preview": {
+    "sync_status": null,
+    "compiler_error": null,
+    "environment_id": "291",
+    "authorization_code_redacted": true
+  },
+  "endpoint": "https://att.ainativeos.net/api/attribution/order-bridge/identity-hmac/no-send",
+  "synthetic_preview": {
+    "page_loaded": true,
+    "receiver_reached": true,
+    "receiver_statuses": [
+      200
+    ],
+    "receiver_ok_all": true,
+    "would_store_false_all": true,
+    "would_send_false_all": true,
+    "platform_send_zero_all": true,
+    "raw_echo_detected": false,
+    "network_errors": [],
+    "screenshot_path": "/Users/vibetj/coding/seo/data/path-b-gtm-preview-screenshots/path-b-gtm-preview-20260508T151938Z.png",
+    "preview_url_redacted": "https://biocom.kr/shop_payment_complete?order_no=PATHB_PREVIEW_ORDER_20260508T151938Z&gclid=TEST_GCLID_PATHB_PREVIEW_20260508T151938Z&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+    "gtm_script_routes_redacted": [
+      "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=641683813&gtm=45He6562v813158774za200zd813158774&seq=1&exp=0%7E115616986%7E115938466%7E115938469%7E118463261%7E118851533&dl=biocom.kr%2Fshop_payment_complete&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=95&hlo=16&lst=1&bt=0&ct=3&jsp=1&mde=G-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+    ],
+    "page_state": {
+      "href": "https://biocom.kr/shop_payment_complete?order_no=PATHB_PREVIEW_ORDER_20260508T151938Z&gclid=TEST_GCLID_PATHB_PREVIEW_20260508T151938Z&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "installed": "path_b_order_bridge_preview_20260508T151938Z",
+      "payloadKeys": [
+        "capture_stage",
+        "click_id",
+        "client_id",
+        "email",
+        "ga_session_id",
+        "local_session_id",
+        "order_no",
+        "phone",
+        "preview_mode",
+        "site"
+      ],
+      "result": {
+        "response_status": 200,
+        "response_ok": true,
+        "would_store": false,
+        "would_send": false,
+        "email_hash_present": false,
+        "phone_hash_present": false,
+        "order_no_hash_present": true,
+        "client_session_present": true,
+        "click_id_hash_present": true,
+        "no_raw_echo_verified": true,
+        "no_platform_send_verified": true,
+        "platform_send_count": 0,
+        "hash_version": "hmac_sha256_identity_v1"
+      },
+      "error": null,
+      "gtmLoaded": true
+    },
+    "response_preview_booleans": {
+      "email_hash_present": false,
+      "phone_hash_present": false,
+      "order_no_hash_present": true,
+      "client_session_present": true,
+      "click_id_hash_present": true,
+      "no_raw_echo_verified": true,
+      "no_platform_send_verified": true
+    },
+    "raw_log_matches": 0
+  },
+  "real_payment_complete_evidence": {
+    "status": "not_collected",
+    "reason": "No real checkout/payment-complete browser session was available to Codex.",
+    "required_next": "TJ님 browser GTM Preview on real homepage checkout complete page."
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "raw email/phone/member_code/order storage",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete"
+  ],
+  "verdict": "PASS_SYNTHETIC_PREVIEW_WORKSPACE_READY"
+}

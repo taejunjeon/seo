@@ -12,7 +12,7 @@ Status: 우선순위 합의 단계. TJ 컨펌 후 sprint 진입.
 2. **P1 (Yellow 승인 후 sprint)**: Path C Phase 2~3 운영 deploy + 클라이언트 wrapper, 또는 Path B 별 collector 설계. Path A 한계 본질 회복 단계.
 3. **P2 (Red 승인 후 sprint)**: GA4 NPay purchase fire 재활성화 (GTM v138 되돌리기) 또는 server-side confirmed purchase 설계, ProductEngagementSummary 50% scroll POC, Google Ads BI confirmed_purchase Red 승인안 갱신.
 4. **이유**: P0 우선 = 빠른 측정 가능 + 본 agent 자율 + Yellow 차단 없음. P1 = 외부 인프라 변경 + Yellow. P2 = 광고 학습/UI/upload 영역 = Red.
-5. P0/P1 통합 효과: Path A 0.33% → Path C 60~80% (16~22배 uplift) + NPay 부풀림 9.04배 → 1.8~5.4배 회수 (Path C 단독), 0.9배 정상화 (Path B 보강).
+5. P0/P1 통합 효과는 아직 실측값이 아니라 가설이다. 2026-05-08 후속 검토 기준 Path C 60~80%는 `member_code_hash` bridge가 채워졌을 때의 upper-bound이며, live uplift와 NPay 부풀림 회수는 현재 HOLD다.
 
 ## 1. 우선순위 표
 
@@ -21,8 +21,8 @@ Status: 우선순위 합의 단계. TJ 컨펌 후 sprint 진입.
 | **P0** | Path C 로컬 코드 작성 (Phase 1) | Green | YES | schema 1 컬럼 + lookup 함수 + ConfirmedPurchasePrep loop 변경 (deploy 안 함) | 1 sprint |
 | **P0** | ConfirmedPurchasePrep input builder 작성 (Phase 1~2) | Green | YES | canary window 결제 측정 가능 + Path C effect 측정 자동화 | 1 sprint |
 | **P0** | NPay actual confirmed dry-run 24h 종료 후 재측정 | Green | YES | 자동 (T+24h) | 자동 |
-| **P1** | Path C Phase 2 운영 backend deploy | Yellow | NO (TJ 승인) | NPay 부풀림 9.04배 → 5.4배 회수 (60% 매칭) | 1 sprint |
-| **P1** | Path C Phase 3 클라이언트 wrapper (imweb body 또는 GTM) | Yellow | NO (TJ 승인) | member_code 채워진 paid_click_intent ledger 누적 시작 | 1 sprint |
+| **P1** | Path C Phase 2 운영 backend deploy | Yellow | NO (TJ 승인) | 받을 준비. 최종 code diff/secret/TTL/raw logging proof 전까지 HOLD | 1 sprint |
+| **P1** | Path C Phase 3 클라이언트 wrapper (imweb body 또는 GTM) | Yellow | Preview only YES | `member_code_hash` availability 확인. Production publish 금지 | 1 sprint |
 | **P1** | Path B 별 collector 설계 (imweb 결제완료 thanks page) | Yellow | NO | 비회원 NPay 까지 매칭 가능 (부풀림 0.9배 회수) | 1~2 sprint |
 | **P1** | ConfirmedPurchasePrep builder Phase 3 cron 등록 | Yellow | NO | 매일 자동 갱신 + Auditor verdict 자동 | 1 sprint |
 | **P2** | GA4 NPay purchase fire 재활성화 (GTM v138 되돌리기) | Red | NO (TJ Red 승인) | Path A 자체 회복 + Google Ads 학습 복구. 단 자사 결제 중복 위험 → enhanced_conversions transaction_id 필수 | 1~2 sprint |
@@ -34,7 +34,7 @@ Status: 우선순위 합의 단계. TJ 컨펌 후 sprint 진입.
 
 ### P0-1. Path C 로컬 코드 작성 (Phase 1)
 
-**무엇**: `backend/src/paidClickIntentLog.ts` 에 schema lazy migration + `lookupByMemberCode` export, `backend/src/routes/attribution.ts` 에 member_code 받음, `backend/scripts/google-ads-confirmed-purchase-candidate-prep.ts` 에 lookup loop.
+**무엇**: `backend/src/paidClickIntentLog.ts` 에 schema lazy migration + `lookupByMemberCodeHash` export, `backend/src/routes/attribution.ts` 에 raw `member_code` 저장 없이 server-side HMAC 처리, `backend/scripts/google-ads-confirmed-purchase-candidate-prep.ts` 에 lookup loop.
 
 **왜**: P1 (운영 deploy) 의 사전 조건. 코드 없으면 deploy 진입 불가.
 
@@ -42,7 +42,7 @@ Status: 우선순위 합의 단계. TJ 컨펌 후 sprint 진입.
 
 **검증**:
 - typecheck PASS
-- 로컬 sqlite test: paid_click_intent fixture row + imweb_orders fixture → ConfirmedPurchasePrep 결과에 `paid_click_intent_member_code_match` 카운트 증가
+- 로컬 sqlite test: paid_click_intent fixture row + imweb_orders fixture → ConfirmedPurchasePrep 결과에 `paid_click_intent_member_code_hash_match` 카운트 증가
 - 기존 canary 회귀 없음 (member_code 빈 fire 도 정상)
 
 **산출물**: 코드 변경 3 파일 + diff stat + typecheck log

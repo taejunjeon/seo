@@ -1,0 +1,55 @@
+{
+  "generated_at_kst": "2026-05-09T00:33:19",
+  "workspace_id": "163",
+  "tag_id": "290",
+  "tag_name": "PathB_order_bridge_identity_hmac_preview_no_send_20260508T151938Z",
+  "change": "removed URL-based gtm_debug/gtm_preview/gtm_auth guard",
+  "reason": "Tag Assistant connected preview may not append preview params to location.search; unpublished workspace already scopes execution to Preview.",
+  "quick_preview": {
+    "sync_status": null,
+    "compiler_error": null,
+    "environment_id": "291",
+    "authorization_code_redacted": true
+  },
+  "tag_assistant_style_smoke": {
+    "page_url_redacted": "https://biocom.kr/shop_payment_complete?order_no=PATHB_GUARD_FIX_ORDER_20260508T153305Z&gclid=TEST_GCLID_PATHB_GUARD_FIX_20260508T153305Z",
+    "receiver_statuses": [
+      200
+    ],
+    "receiver_reached": true,
+    "receiver_ok_all": true,
+    "raw_echo_detected": false,
+    "network_errors": [],
+    "console_markers": [],
+    "page_state": {
+      "href": "https://biocom.kr/shop_payment_complete?order_no=PATHB_GUARD_FIX_ORDER_20260508T153305Z&gclid=TEST_GCLID_PATHB_GUARD_FIX_20260508T153305Z",
+      "installed": "path_b_order_bridge_preview_20260508T151938Z",
+      "result": {
+        "response_status": 200,
+        "response_ok": true,
+        "would_store": false,
+        "would_send": false,
+        "email_hash_present": false,
+        "phone_hash_present": false,
+        "order_no_hash_present": true,
+        "client_session_present": true,
+        "click_id_hash_present": true,
+        "no_raw_echo_verified": true,
+        "no_platform_send_verified": true,
+        "platform_send_count": 0,
+        "hash_version": "hmac_sha256_identity_v1"
+      },
+      "error": null,
+      "gtmLoaded": true
+    }
+  },
+  "forbidden_actions_not_taken": [
+    "GTM submit/create_version",
+    "GTM Production publish",
+    "Imweb production save",
+    "platform send",
+    "operational schema migration",
+    "backend operational storage canary"
+  ],
+  "verdict": "PASS_PREVIEW_GUARD_FIX"
+}

@@ -1,0 +1,181 @@
+{
+  "schema_version": "path_b_reliability_dry_run_input_v1",
+  "generated_at_kst": "2026-05-09T02:23:28",
+  "site": "biocom",
+  "mode": "no_send_no_write_reliability_dry_run_input",
+  "source_window": {
+    "identity_source": "data/path-b-agent-os-real-preview-evidence-20260509.json",
+    "click_source": "data/path-b-test-click-id-preview-result-20260509.json",
+    "prior_reliability_source": "data/path-b-order-session-reliability-dry-run-20260509.json",
+    "window": "2026-05-09 01:28-01:51 KST",
+    "freshness": "2026-05-09T02:23:28",
+    "confidence": 0.9
+  },
+  "evidence_units": [
+    {
+      "id": "real_logged_in_order_complete_identity",
+      "source_file": "data/path-b-agent-os-real-preview-evidence-20260509.json",
+      "evidence_type": "real_checkout_preview",
+      "checkout_path": "real",
+      "identity_kind": "email_hash",
+      "order_bridge_key_present": true,
+      "identity_bridge_key_present": true,
+      "click_bridge_key_present": false,
+      "client_session_present": true,
+      "same_browser_controlled_only": false,
+      "real_checkout_unverified": false,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "confidence": "B",
+      "confidence_reason": "실제 로그인 주문완료 화면에서 order + identity + client/session은 확인됐지만 click id는 없었다.",
+      "flags": [
+        "real_checkout_identity_verified",
+        "click_bridge_missing_in_this_real_checkout",
+        "send_candidate_false"
+      ]
+    },
+    {
+      "id": "controlled_agent_os_all_keys_smoke",
+      "source_file": "data/path-b-agent-os-real-preview-evidence-20260509.json",
+      "evidence_type": "controlled_preview",
+      "checkout_path": "controlled",
+      "identity_kind": "email_hash",
+      "order_bridge_key_present": true,
+      "identity_bridge_key_present": true,
+      "click_bridge_key_present": true,
+      "client_session_present": true,
+      "same_browser_controlled_only": true,
+      "real_checkout_unverified": true,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "confidence": "A",
+      "confidence_reason": "order + identity + client/session + click id가 모두 present지만 controlled smoke이므로 운영 실측으로 승격하지 않는다.",
+      "flags": [
+        "same_browser_controlled_only",
+        "real_checkout_unverified",
+        "send_candidate_false"
+      ]
+    },
+    {
+      "id": "controlled_test_click_id_direct_order_complete",
+      "source_file": "data/path-b-test-click-id-preview-result-20260509.json",
+      "evidence_type": "controlled_preview",
+      "checkout_path": "controlled",
+      "identity_kind": "none",
+      "order_bridge_key_present": true,
+      "identity_bridge_key_present": false,
+      "click_bridge_key_present": true,
+      "client_session_present": true,
+      "same_browser_controlled_only": true,
+      "real_checkout_unverified": true,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "confidence": "C",
+      "confidence_reason": "주문완료 URL synthetic TEST click id에서 order + client/session + click id가 present였다.",
+      "flags": [
+        "click_bridge_verified",
+        "identity_bridge_missing_in_this_controlled_evidence",
+        "same_browser_controlled_only",
+        "send_candidate_false"
+      ]
+    },
+    {
+      "id": "controlled_same_browser_preservation",
+      "source_file": "data/path-b-same-browser-preservation-preview-result-20260509.json",
+      "evidence_type": "controlled_preview",
+      "checkout_path": "controlled",
+      "identity_kind": "none",
+      "order_bridge_key_present": true,
+      "identity_bridge_key_present": false,
+      "click_bridge_key_present": true,
+      "client_session_present": true,
+      "same_browser_controlled_only": true,
+      "real_checkout_unverified": true,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "confidence": "C",
+      "confidence_reason": "같은 브라우저 controlled flow에서 상품상세 click id가 주문완료 no-send payload까지 보존됐다.",
+      "flags": [
+        "click_bridge_verified",
+        "identity_bridge_missing_in_this_controlled_evidence",
+        "same_browser_controlled_only",
+        "send_candidate_false"
+      ]
+    }
+  ],
+  "confidence_counts": {
+    "B": 1,
+    "A": 1,
+    "C": 2
+  },
+  "ambiguous": {
+    "baseline_time_only_orders_checked": 52,
+    "baseline_time_only_multiple_prior_click_orders": 52,
+    "baseline_time_only_median_prior_click_candidates": 329,
+    "baseline_time_only_p90_prior_click_candidates": 644,
+    "preview_evidence_ambiguous_count": 0,
+    "ambiguous_rate_acceptable_for_preview": true,
+    "storage_canary_should_measure_real_ambiguous_rate": true
+  },
+  "guard_checks": {
+    "no_send_all": false,
+    "raw_values_stored_in_input": false,
+    "raw_values_stored_in_source_file": false,
+    "platform_send_count": 0,
+    "send_candidate_count": 0,
+    "actual_send_candidate_count": 0
+  },
+  "reliability_result": {
+    "confidence_A_candidates": [
+      "controlled_agent_os_all_keys_smoke"
+    ],
+    "confidence_B_candidates": [
+      "real_logged_in_order_complete_identity"
+    ],
+    "confidence_C_candidates": [
+      "controlled_test_click_id_direct_order_complete",
+      "controlled_same_browser_preservation"
+    ],
+    "confidence_D_candidates": [],
+    "same_browser_controlled_only": true,
+    "real_checkout_unverified_for_click_bridge": true,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "confirmed_purchase_uplift": "HOLD_UNTIL_STORAGE_CANARY_AND_CONFIRMED_ORDER_JOIN",
+    "storage_canary_recommendation": "READY_FOR_APPROVAL_PACKET__DO_NOT_EXECUTE_WITHOUT_YELLOW_APPROVAL"
+  },
+  "extended_scorecard": {
+    "order_bridge_key_present": "PASS",
+    "identity_bridge_key_present": "PASS_REAL_CHECKOUT",
+    "click_bridge_key_present": "PASS_CONTROLLED",
+    "raw_identity_absent": "PASS",
+    "no_platform_send": "PASS",
+    "would_store_false": "PASS",
+    "would_send_false": "PASS",
+    "production_publish_absent": "PASS",
+    "same_browser_preservation": "PASS_CONTROLLED",
+    "reliability_dry_run_ready": "PASS_INPUT_READY",
+    "reliability_confidence_A_present": "PASS_CONTROLLED_ONLY",
+    "reliability_confidence_B_present": "PASS_REAL_CHECKOUT",
+    "ambiguous_rate_acceptable": "PASS_PREVIEW",
+    "storage_canary_ready": "PASS_WITH_GUARDS",
+    "production_publish_ready": "HOLD_NEEDS_CANARY_AND_READINESS_DECISION",
+    "real_paid_click_order_test_ready": "HOLD_NEEDS_SEPARATE_APPROVAL",
+    "real_checkout_path_verified": "PASS_IDENTITY_ONLY__CLICK_CONTROLLED_ONLY"
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "1h hash-only storage canary execution",
+    "real ad click generation",
+    "actual payment test",
+    "raw email/phone/member_code/order/payment operational storage",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete"
+  ],
+  "verdict": "PASS_RELIABILITY_DRY_RUN_INPUT_READY__CANARY_EXECUTION_HOLD"
+}

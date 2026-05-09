@@ -1,10 +1,14 @@
 # GA4 BigQuery 매개 attribution chain dry-run + 운영 PG dry-run + schema lookup 설계
 
 작성 시각: 2026-05-08 12:30 KST
+최종 업데이트: 2026-05-08 17:45 KST
 대상: paid_click_intent_ledger ↔ GA4 BigQuery ↔ imweb_orders/tb_playauto_orders attribution chain
 관련 정본: [[../data/!channelfunnel]], [[paid-click-intent-ledger-canary-early-audit-20260508]], [[paid-click-intent-ledger-early-operation-decision-20260508]]
-Status: 1차 dry-run / Path A 매칭률 측정 / 운영 PG 연결 확인 / schema lookup 코드 설계
+Status: 1차 dry-run / Path A 매칭률 측정 / 운영 PG 연결 확인 / **Path C raw member_code 설계는 superseded**
+Superseded by: [[path-c-member-code-attribution-design-20260508]], [[path-c-backend-deploy-approval-v2-20260508]], [[path-c-attribution-rule-v2-20260508]]
 Do not use for: 운영 변경, conversion upload, 광고 변경, 외부 전송
+
+> 2026-05-08 17:45 KST 정정: 이 문서의 §4 raw `member_code` 컬럼/저장/`PII 아님` 표현은 폐기한다. 운영 기본은 `member_code_hash = HMAC-SHA256(member_code, server_secret)`이며 raw member_code 운영 저장과 raw logging은 금지다. live uplift는 현재 HOLD다.
 
 ## 5줄 결론
 
@@ -12,7 +16,7 @@ Do not use for: 운영 변경, conversion upload, 광고 변경, 외부 전송
 2. paid_google 전환율 0.07%와 일관 — Path A 단독으로는 sample 너무 작아 **attribution 측정에 부족** (24h 누적 9건/일, 30일 약 40건).
 3. **운영 PG 직접 read-only 연결 확인** (`bico_readonly@34.47.95.104:5432/dashboard`, `tb_playauto_orders` 123,857 rows). 그러나 `tb_playauto_orders`는 multi-shop 통합(아임웹/스마트스토어/쿠팡)이고 `pay_method` 거의 null → NPay 식별은 운영 sqlite `imweb_orders.pay_type` 가 더 정확.
 4. **새 ConfirmedPurchasePrep dry-run input 생성**은 multi-source join (imweb_orders + GA4 BigQuery + tb_playauto_orders) 복잡 → 별 sprint 설계 필요.
-5. **paid_click_intent_ledger schema lookup 코드 추가 (Path C)** 가 가장 효율적. 회원 결제 100% attribution 가능. 본 문서 §4에 무엇/어떻게/왜 상세 기술.
+5. **paid_click_intent_ledger schema lookup 코드 추가 (Path C)** 방향은 유효하지만, 본 문서 §4의 raw member_code 저장안은 폐기한다. 최신안은 `member_code_hash` bridge다.
 
 ## 1. Path A — GA4 BigQuery 매개 chain dry-run 결과
 
@@ -171,7 +175,7 @@ URL scheme 변환: postgresql+asyncpg:// → postgresql:// (node-pg 호환)
 | 1 | 직전 dry-run input schema 정밀 분석 (`data/bi-confirmed-purchase-operational-dry-run-20260505.json` sample row 구조) |
 | 2 | `backend/scripts/bi-confirmed-purchase-operational-dry-run-builder.ts` 작성 |
 | 3 | 로컬 typecheck + sample 10 row test |
-| 4 | 운영 VM에서 full execution → `data/bi-confirmed-purchase-operational-dry-run-20260508.json` 생성 |
+| 4 | VM Cloud에서 full execution → `data/bi-confirmed-purchase-operational-dry-run-20260508.json` 생성 |
 | 5 | ConfirmedPurchasePrep agent 재실행 → with_gclid 변화 측정 |
 | 6 | 결과 보고 |
 
@@ -181,15 +185,15 @@ URL scheme 변환: postgresql+asyncpg:// → postgresql:// (node-pg 호환)
 
 ### 4.1 무엇을 (What)
 
-`paid_click_intent_ledger` 에 **`member_code` 컬럼 추가** + ConfirmedPurchasePrep agent에 **lookup 함수 추가**.
+`paid_click_intent_ledger` 에 **`member_code_hash` 컬럼 추가** + ConfirmedPurchasePrep agent에 **lookup 함수 추가**. raw `member_code` 컬럼 추가안은 superseded.
 
 3개 코드 변경:
 
 | 파일 | 변경 내용 |
 |---|---|
-| `backend/src/paidClickIntentLog.ts` | schema에 `member_code TEXT NOT NULL DEFAULT ''` 컬럼 추가 + `lookupByMemberCode(memberCode, site)` export 함수 추가 |
-| `backend/src/routes/attribution.ts` | `/api/attribution/paid-click-intent/no-send` payload에서 `member_code` 받아 ledger 저장 (PII 아님 — 자사 회원 ID, hash 아님) |
-| `backend/scripts/google-ads-confirmed-purchase-candidate-prep.ts` | 각 결제완료 row 에 대해 `lookupByMemberCode` 호출 → 매칭된 paid_click_intent_ledger row 의 click_id_value 사용 → with_gclid 카운트 보강 |
+| `backend/src/paidClickIntentLog.ts` | schema에 `member_code_hash TEXT NOT NULL DEFAULT ''` 컬럼 추가 + `lookupByMemberCodeHash(memberCodeHash, site)` export 함수 추가 |
+| `backend/src/routes/attribution.ts` | raw `member_code`를 저장하지 않고 transient input 또는 controlled test에서 HMAC 후 `member_code_hash`만 저장 |
+| `backend/scripts/google-ads-confirmed-purchase-candidate-prep.ts` | 각 결제완료 row 에 대해 동일 HMAC으로 `lookupByMemberCodeHash` 호출 → paid_at 이전 last eligible paid click 사용 |
 
 ### 4.2 왜 (Why)
 
@@ -199,7 +203,7 @@ URL scheme 변환: postgresql+asyncpg:// → postgresql:// (node-pg 호환)
 | **Path A 한계** | GA4 BigQuery 매개 chain attribution rate 0.33% — sample 너무 작음 |
 | **Path B (별 collector) 보다 효율** | imweb 결제완료 페이지 GTM/imweb body 변경은 Yellow 승인 필요. member_code 추가는 schema + 클라이언트 wrapper만 |
 | **NPay 결제완료도 attribution 가능** | Path A는 NPay GA4 fire 누락으로 NPay 제외. member_code 매칭은 NPay 결제완료도 포함 (imweb_orders.pay_type='npay' 도 member_code 있음) |
-| **이미 클라이언트가 알고 있는 정보** | imweb body 코드에서 로그인 사용자의 member_code는 sessionStorage 또는 cookie로 접근 가능 |
+| **이미 클라이언트가 알고 있을 수 있는 정보** | Preview에서 로그인 사용자의 member_code source 존재 여부를 먼저 확인. 운영 저장은 hash only |
 
 ### 4.3 어떻게 (How) — 단계별 상세
 
@@ -218,17 +222,22 @@ CREATE TABLE paid_click_intent_ledger (
 )
 ```
 
-**추가**:
+**폐기된 추가안**:
 ```sql
 ALTER TABLE paid_click_intent_ledger ADD COLUMN member_code TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_pci_member ON paid_click_intent_ledger(site, member_code) WHERE member_code != '';
 ```
 
-**bootstrapPaidClickIntentTable() 함수에 ALTER 자동 실행** (paid_click_intent canary와 동일 lazy schema 패턴).
+위 raw 컬럼안은 쓰지 않는다. 최신 추가안:
+
+```sql
+ALTER TABLE paid_click_intent_ledger ADD COLUMN member_code_hash TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_pci_member_hash ON paid_click_intent_ledger(site, member_code_hash) WHERE member_code_hash != '';
+```
 
 #### Step 2 — 클라이언트 payload 확장
 
-`paid_click_intent` no-send receiver 의 payload 에 `member_code` 추가:
+Preview 1단계는 raw `member_code`를 보내지 않고 client-side placeholder hash로 availability만 확인한다. 운영 기본은 backend server-side HMAC이다.
 
 ```javascript
 // imweb body 또는 GTM Custom HTML tag
@@ -245,34 +254,34 @@ fetch('/api/attribution/paid-click-intent/no-send', {
     gclid: ga4Cookie.gclid,
     ga_session_id: ga4Cookie.ga_session_id,
     landing_url: location.href,
-    member_code: memberCode,  // ← 추가
+    member_code_hash: placeholderHash(memberCode),  // Preview 1단계. 운영 HMAC 아님
     // PII 절대 금지: email/phone/name/address/order_number/payment_key/value/currency
   })
 });
 ```
 
-→ 비회원이면 빈 문자열, 회원이면 imweb member_code (자사 ID, PII 아님).
+→ 비회원이면 빈 문자열. raw member_code 운영 저장 금지.
 
 #### Step 3 — lookup 함수 (backend/src/paidClickIntentLog.ts)
 
 ```typescript
-export const lookupByMemberCode = (
-  memberCode: string,
+export const lookupByMemberCodeHash = (
+  memberCodeHash: string,
   site: string,
   sinceDays = 30,
 ): PaidClickIntentRow[] => {
-  if (!memberCode) return [];
+  if (!memberCodeHash) return [];
   const db = getCrmDb();
   ensureTable(db);
   const sinceIso = new Date(Date.now() - sinceDays * 24 * 3600 * 1000).toISOString();
   const rows = db
     .prepare(
       `SELECT * FROM ${TABLE}
-       WHERE site = ? AND member_code = ? AND received_at >= ?
+       WHERE site = ? AND member_code_hash = ? AND received_at >= ?
        ORDER BY received_at DESC
        LIMIT 50`,
     )
-    .all(site, memberCode, sinceIso) as Record<string, unknown>[];
+    .all(site, memberCodeHash, sinceIso) as Record<string, unknown>[];
   return rows.map(dbRowToRow);
 };
 ```
@@ -282,20 +291,22 @@ export const lookupByMemberCode = (
 `backend/scripts/google-ads-confirmed-purchase-candidate-prep.ts` 의 detail row 처리 loop:
 
 ```typescript
-import { lookupByMemberCode } from '../src/paidClickIntentLog';
+import { lookupByMemberCodeHash } from '../src/paidClickIntentLog';
 
 for (const candidate of candidates) {
   // 기존: GA4 client_id / gclid 직접 lookup
-  // 추가: member_code lookup
-  const pciRows = lookupByMemberCode(candidate.member_code, 'biocom', 30);
+  // 추가: member_code_hash lookup
+  const memberCodeHash = hmacMemberCode(candidate.member_code);
+  const pciRows = lookupByMemberCodeHash(memberCodeHash, 'biocom', 30)
+    .filter(row => row.receivedAt <= candidate.paid_at);
   
   if (pciRows.length > 0) {
-    const earliestClick = pciRows[pciRows.length - 1]; // 가장 오래된 click
-    candidate.click_id_type = earliestClick.clickIdType;
-    candidate.click_id_value = earliestClick.clickIdValue;
+    const primaryClick = pciRows[0]; // paid_at 이전 가장 최근 eligible paid click
+    candidate.click_id_type = primaryClick.clickIdType;
+    candidate.click_id_value = primaryClick.clickIdValue;
     candidate.attribution_source = 'paid_click_intent_member_code_match';
     // counter 증가
-    googleClickIdCounters[earliestClick.clickIdType] += 1;
+    googleClickIdCounters[primaryClick.clickIdType] += 1;
     withClickId += 1;
   } else if (!candidate.click_id_value) {
     // GA4 BigQuery 매개 chain (Path A) 도 시도
@@ -309,7 +320,7 @@ for (const candidate of candidates) {
 | 검증 | 방법 |
 |---|---|
 | schema migration 안전 | 로컬 sqlite test → 운영 backup → 운영 deploy |
-| member_code PII 분류 | imweb 자사 회원 ID — 단독으로는 개인 식별 안 됨 (이름/전화 없음). PII 아님으로 분류 |
+| member_code 분류 | 직접 PII로 단정하지 않지만 내부 주문·회원 테이블과 결합하면 회원 식별이 가능한 pseudonymous identifier. 운영 raw 저장 금지 |
 | lookup 정확도 | canary 12.5h 191 결제완료 100% member_code 보유 → lookup 매칭 가능 비율 측정 |
 | backward compatibility | 비회원 결제는 member_code 빈 문자열 → 기존 chain (Path A) 유지 |
 
@@ -318,7 +329,7 @@ for (const candidate of candidates) {
 | risk | 완화 |
 |---|---|
 | schema migration 실패 | lazy bootstrap + ALTER IF NOT EXISTS 패턴 (이미 검증됨) |
-| member_code PII 우려 | 단독 식별 불가 (이름/전화 없음). 별 사용자 동의 검토 필요 시 hash 적용 옵션 |
+| member_code privacy 우려 | hash 적용이 옵션이 아니라 운영 기본. raw 저장/로그 금지 |
 | 클라이언트 wrapper 변경 영향 | 기존 paid_click_intent fire 흐름 그대로, 필드 추가만 (backward compatible) |
 | 비회원 결제 비중 | canary 100% 회원이지만 일반 운영 무회원 비중 별 측정 필요 |
 

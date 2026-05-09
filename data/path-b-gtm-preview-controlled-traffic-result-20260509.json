@@ -1,0 +1,149 @@
+{
+  "generated_at_kst": "2026-05-09T18:52:39",
+  "run_id": "20260509T095221Z",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "13158774",
+    "public_id": "GTM-W2Z6PHN",
+    "live_version_id": "142",
+    "live_version_name": "paid_click_intent_v1_receiver_20260506T150218Z"
+  },
+  "workspace": {
+    "workspace_id": "165",
+    "name": "AGENT_OS_path_b_controlled_traffic_preview_20260509T095144Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/165",
+    "submitted": false,
+    "published": false,
+    "left_open_for_review": true
+  },
+  "trigger": {
+    "trigger_id": "295",
+    "name": "AGENT_OS_path_b_order_confirm_controlled_traffic_20260509T095144Z",
+    "type": "pageview",
+    "scope": "order confirmation paths only",
+    "all_pages": false,
+    "path_regex": "shop_payment_complete|shop_order_done|payment_complete|order_complete"
+  },
+  "tag": {
+    "tag_id": "296",
+    "name": "AGENT_OS_path_b_controlled_traffic_hmac_write_preview_20260509T095144Z",
+    "type": "html",
+    "production_publish": false,
+    "platform_send": false,
+    "existing_gtm_tag_modified": false,
+    "existing_gtm_tag_paused_or_deleted": false
+  },
+  "quick_preview": {
+    "sync_status": null,
+    "compiler_error": null,
+    "environment_id": "297",
+    "authorization_code_redacted": true
+  },
+  "endpoint": "https://att.ainativeos.net/api/attribution/order-bridge/identity-hmac/no-send",
+  "before_summary": {
+    "ok": true,
+    "summary": {
+      "site": "biocom",
+      "row_count": 1,
+      "unique_order_no_hash": 1,
+      "unique_email_hash": 1,
+      "unique_phone_hash": 1,
+      "unique_click_id_hash": 1,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "duplicate_dedupe_count": 1
+    },
+    "source": {
+      "mode": "order_bridge_ledger_summary_readonly",
+      "receivedAt": "2026-05-09T09:52:21.600Z",
+      "write_flag_on": true,
+      "write_max_rows": 5
+    }
+  },
+  "after_summary": {
+    "ok": true,
+    "summary": {
+      "site": "biocom",
+      "row_count": 1,
+      "unique_order_no_hash": 1,
+      "unique_email_hash": 1,
+      "unique_phone_hash": 1,
+      "unique_click_id_hash": 1,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "duplicate_dedupe_count": 1
+    },
+    "source": {
+      "mode": "order_bridge_ledger_summary_readonly",
+      "receivedAt": "2026-05-09T09:52:39.234Z",
+      "write_flag_on": true,
+      "write_max_rows": 5
+    }
+  },
+  "row_delta": 0,
+  "raw_stored_delta": 0,
+  "platform_send_delta": 0,
+  "real_order_preview": {
+    "preview_url_redacted": "https://biocom.kr/shop_payment_complete?order_code=REDACTED_CONTROLLED&payment_code=REDACTED_CONTROLLED&order_no=REDACTED_CONTROLLED&rk=S&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x&gclid=REDACTED_CONTROLLED",
+    "page_loaded": true,
+    "page_state": {
+      "href": "https://biocom.kr/login?back_url=L3Nob3BfcGF5bWVudF9jb21wbGV0ZT9vcmRlcl9jb2RlPW8yMDI2MDUwOGEwZjE1MzE4M2VkY2YmcGF5bWVudF9jb2RlPXBhMjAyNjA1MDhjMWRjMmVmNGQwN2VlJm9yZGVyX25vPTIwMjYwNTA5MjgwODczMCZyaz1TJmd0bV9hdXRoPXJFQ291UkJNVU12NDBMVWU1V1NnNEEmZ3RtX3ByZXZpZXc9ZW52LTI5NyZndG1fZGVidWc9eCZnY2xpZD1URVNUX0dDTElEX1BBVEhCX0dUTV9DT05UUk9MTEVEXzIwMjYwNTA5VDA5NTIyMVo%3D",
+      "installed": null,
+      "payloadKeys": [],
+      "result": null,
+      "error": null,
+      "gtmLoaded": true
+    },
+    "receiver_reached": false,
+    "receiver_statuses": [],
+    "receiver_bodies": [],
+    "receiver_ok_all": false,
+    "receiver_would_send_false_all": false,
+    "receiver_platform_send_zero_all": false,
+    "raw_echo_detected": false,
+    "console_markers": [],
+    "network_errors": [],
+    "gtm_script_routes_redacted": [
+      "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=1558890361&gtm=45He6562v813158774za200zd813158774&seq=1&exp=0%7E115938466%7E115938469%7E118463262&dl=biocom.kr%2Flogin&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=95&hlo=15&lst=1&bt=0&ct=3&jsp=1&mde=G-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+    ],
+    "screenshot_path": "/Users/vibetj/coding/seo/data/path-b-gtm-controlled-traffic-screenshots/path-b-gtm-controlled-traffic-20260509T095221Z.png",
+    "response_preview_booleans": {
+      "email_hash_present": false,
+      "phone_hash_present": false,
+      "order_no_hash_present": false,
+      "client_session_present": false,
+      "click_id_hash_present": false,
+      "no_raw_echo_verified": false,
+      "no_platform_send_verified": false,
+      "identity_source": "none",
+      "hash_version": ""
+    },
+    "first_ledger": null,
+    "first_source": null
+  },
+  "scorecard": {
+    "vm_cloud_storage_deployed": "PASS_PREVIOUS_BATCH",
+    "schema_bootstrap_passed": "PASS_PREVIOUS_BATCH",
+    "flag_off_smoke_passed": "PASS_PREVIOUS_BATCH",
+    "controlled_write_one_row_passed": "PASS_PREVIOUS_BATCH",
+    "gtm_preview_controlled_row_passed": "HOLD",
+    "raw_stored_zero": "PASS",
+    "platform_send_zero": "PASS",
+    "pm2_unexpected_restart_zero": "CHECK_REMOTE_LOG",
+    "storage_canary_main_ready": "HOLD",
+    "production_publish_ready": "HOLD"
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "1h storage canary main run",
+    "real paid-click actual order test",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "existing GTM tag pause/delete"
+  ],
+  "verdict": "HOLD_GTM_PREVIEW_CONTROLLED_TRAFFIC"
+}

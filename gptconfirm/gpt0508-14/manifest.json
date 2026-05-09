@@ -1,0 +1,75 @@
+{
+  "batch": "gpt0508-14",
+  "created_at_kst": "2026-05-09 19:03 KST",
+  "purpose": "Path B GTM Preview workspace cleanup and controlled browser traffic retry confirmation",
+  "site": "biocom",
+  "lane": "Yellow approved controlled Preview / Green documentation",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-14/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-14/00-result-report.md",
+      "why_included": "Batch-level result report with progress, blockers, verification, and next actions",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-gtm-preview-workspace-cleanup-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-14/01-path-b-gtm-preview-workspace-cleanup-result-20260509.md",
+      "why_included": "Evidence that old Preview workspaces 163 and 164 were backed up and cleaned up without live version changes",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-gtm-preview-controlled-traffic-result-gpt0508-14-20260509.md",
+      "copy": "gptconfirm/gpt0508-14/02-path-b-gtm-preview-controlled-traffic-result-20260509.md",
+      "why_included": "Evidence for fresh workspace 165 and controlled browser traffic retry result",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-scorecard-gpt0508-14-20260509.md",
+      "copy": "gptconfirm/gpt0508-14/03-path-b-scorecard-gpt0508-14-20260509.md",
+      "why_included": "Updated Path B scorecard after cleanup and fresh workspace retry",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/gtm-workspace-hygiene-rule-proposal-20260509.md",
+      "copy": "gptconfirm/gpt0508-14/04-gtm-workspace-hygiene-rule-proposal-20260509.md",
+      "why_included": "GTM workspace hygiene rule proposal applied to common harness",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-14/05-commit-whitelist-update-20260509.md",
+      "copy": "gptconfirm/gpt0508-14/05-commit-whitelist-update-20260509.md",
+      "why_included": "Commit whitelist and unrelated dirty exclusion plan",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-14/99-total-current-copy.md",
+      "why_included": "Current canonical document copy for confirmation context",
+      "approval_needed": false
+    }
+  ],
+  "key_results": {
+    "workspace_cleanup": "PASS",
+    "fresh_workspace_created": "PASS",
+    "fresh_workspace_id": "165",
+    "gtm_live_version_unchanged": true,
+    "gtm_submit_create_version_publish_taken": false,
+    "gtm_preview_controlled_row": "HOLD_LOGIN_SESSION",
+    "row_delta": 0,
+    "raw_stored_delta": 0,
+    "platform_send_delta": 0,
+    "vm_cloud_write_flag_final": "OFF"
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "1h storage canary main run",
+    "real paid-click actual order test",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "existing live GTM tag pause/delete"
+  ],
+  "next_required_action": "TJ logged-in browser Preview with workspace 165 while Codex opens a short VM Cloud write window"
+}

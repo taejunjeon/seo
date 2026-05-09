@@ -195,7 +195,7 @@ Yellow (imweb body code 또는 GTM Custom HTML tag 추가). schema 변경 없음
 
 | 항목 | 무엇 | 어떻게 | 왜 |
 |---|---|---|---|
-| Path C Phase 2 deploy | paid_click_intent_ledger.member_code schema migration + lookupByMemberCode + ConfirmedPurchasePrep loop 운영 backend 반영 | 본 agent SSH로 backup → scp → restart | NPay attribution chain 활성화. 부풀림 60~80% 회수 |
+| Path C Phase 2 deploy | paid_click_intent_ledger.member_code_hash schema migration + lookupByMemberCodeHash + ConfirmedPurchasePrep loop 운영 backend 반영 | 본 agent SSH로 backup → scp → restart. 단 2026-05-08 현재 backend deploy는 HOLD | NPay attribution chain 활성화 후보. 60~80%는 실측이 아니라 bridge 적용 후 가설/upper-bound |
 | Path C Phase 3 클라이언트 wrapper | imweb body 또는 GTM Preview workspace에 member_code 첨부 | Custom HTML tag 또는 imweb body JS | 클라이언트 fire 시점 member_code 첨부 |
 | Path B 별 collector 설계 sprint | imweb 결제완료 thanks page 별도 fire endpoint 설계 | 별 sprint 진입 | 비회원 NPay 까지 커버 |
 | GTM v138 NPay GA4 purchase 재활성화 | NPay → purchase fire 복구 | enhanced_conversions transaction_id 필수 + 자사 결제 중복 방지 guard | Path A 회복 + Google Ads 학습 복구 |

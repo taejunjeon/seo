@@ -1,0 +1,33 @@
+{
+  "artifact": "path-b-storage-canary-reliability-dry-run-20260509",
+  "created_at_kst": "2026-05-09 10:35:00",
+  "input_source": "path-b-storage-canary-20260509",
+  "dry_run_status": "NOT_RUN_NO_CANARY_ROWS",
+  "reason": "1h storage canary was not executed because the deployed storage path and order_bridge_ledger table are absent.",
+  "send_candidate": false,
+  "actual_send_candidate": false,
+  "platform_send_count": 0,
+  "row_count": 0,
+  "confidence_counts": {
+    "A": 0,
+    "B": 0,
+    "C": 0,
+    "D": 0
+  },
+  "ambiguous_count": 0,
+  "ambiguous_rate": null,
+  "fill_rates": {
+    "order_no_hash": null,
+    "identity_hash": null,
+    "click_id_hash": null,
+    "client_session": null
+  },
+  "carry_forward_from_preview": {
+    "no_send_preview_pass": true,
+    "identity_bridge_pass_real_checkout": true,
+    "click_bridge_pass_controlled": true,
+    "same_browser_preservation_pass_controlled": true,
+    "storage_canary_ready_after_limited_deploy": true
+  },
+  "next_blocker": "limited storage deploy and schema bootstrap approval"
+}

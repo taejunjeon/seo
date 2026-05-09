@@ -1,0 +1,57 @@
+{
+  "schema_version": "path_b_preview_evidence_v1",
+  "created_at_kst": "2026-05-09 00:07 KST",
+  "status": "pending_gtm_preview_ui_access",
+  "site": "biocom",
+  "endpoint": "https://att.ainativeos.net/api/attribution/order-bridge/identity-hmac/no-send",
+  "endpoint_smoke": {
+    "source": "data/path-b-no-send-hmac-limited-deploy-smoke-20260508.json",
+    "verdict": "PASS",
+    "email_hash_present": true,
+    "phone_hash_present": true,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "click_id_hash_present": true,
+    "raw_echo_detected": false,
+    "raw_log_matches": 0,
+    "platform_send_detected": false
+  },
+  "gtm_preview": {
+    "workspace_policy": "fresh_workspace_only",
+    "default_workspace_allowed": false,
+    "production_publish_allowed": false,
+    "imweb_production_save_allowed": false,
+    "live_payment_success_endpoint_allowed": false,
+    "no_send_endpoint_only": true,
+    "execution_status": "not_executed_by_codex",
+    "blocker_type": "external_google_account_or_gtm_ui_access",
+    "blocker_note": "Codex does not have TJ님의 Google Tag Manager Preview UI session/2FA access. Endpoint is ready; TJ님 Preview evidence is required."
+  },
+  "evidence_fields": {
+    "path": null,
+    "pay_type": null,
+    "member_or_guest": null,
+    "npay_returned": null,
+    "response_status": null,
+    "email_hash_present": null,
+    "phone_hash_present": null,
+    "order_no_hash_present": null,
+    "client_session_present": null,
+    "click_id_present": null,
+    "raw_echo_detected": null,
+    "platform_send_detected": null,
+    "would_store": null,
+    "would_send": null,
+    "console_fatal_error_count": null,
+    "network_fatal_error_count": null
+  },
+  "success_criteria": {
+    "email_or_phone_hash_present": true,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "raw_echo_detected": false,
+    "platform_send_detected": false,
+    "would_store": false,
+    "would_send": false
+  }
+}

@@ -130,24 +130,25 @@ imweb body 또는 GTM 변경 → 결제완료 페이지에서 GA4 client_id / gc
 
 **Feasibility**: MEDIUM. GTM Yellow 승인 + imweb body 변경 별 sprint.
 
-### Path C: paid_click_intent schema에 member_code 추가
+### Path C: paid_click_intent schema에 member_code_hash 추가
 
 ```text
-결제 직전 sessionStorage / cookie / localStorage 에서 member_code 읽어 paid_click_intent payload에 포함
-→ ledger.member_code 추가
-→ imweb_orders.member_code 와 직접 1:1 join
+결제 직전 안전한 source에서 member_code 존재 여부 확인
+→ backend/server secret으로 HMAC-SHA256 처리
+→ ledger.member_code_hash 추가
+→ imweb_orders.member_code 를 동일 secret hash로 처리해 join
 ```
 
 **장점**:
 - canary 기간 100% 회원 결제 → 모든 결제완료 사용자 매칭 가능
-- member_code 안정적 키 (cookie 만료 영향 없음)
+- member_code_hash는 raw 회원코드를 저장하지 않으면서 회원 결제 흐름을 이어볼 수 있는 안정적 키
 
 **한계**:
 - paid_click_intent schema 변경 + 클라이언트 wrapper 변경
 - 비회원 결제는 매칭 불가 (현재 100% 회원이라 무관)
-- PII guard 검토 필요 (member_code 자체는 PII 아니지만 결합 시 주의)
+- `member_code`는 직접 PII로 단정하지 않더라도 내부 주문·회원 데이터와 결합하면 회원 식별이 가능한 pseudonymous identifier다. 운영 기본은 raw 저장 금지 + `member_code_hash = HMAC-SHA256(member_code, server_secret)`.
 
-**Feasibility**: HIGH. 별 schema sprint.
+**Feasibility**: HIGH. 별 schema sprint. 2026-05-08 후속 설계 기준 raw `member_code` 저장안은 superseded.
 
 ### Path D: NPay merchant API
 

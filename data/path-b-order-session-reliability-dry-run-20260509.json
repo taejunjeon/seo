@@ -1,0 +1,124 @@
+{
+  "schema_version": "path_b_order_session_reliability_dry_run_v1",
+  "generated_at_kst": "2026-05-09 01:00 KST",
+  "mode": "read-only/no-send/no-write/no-platform-send",
+  "site": "biocom",
+  "source_window": {
+    "preview": {
+      "source": "TJ Tag Assistant dataLayer payload on vbank unpaid order complete page",
+      "observed_at_kst": "2026-05-09 00:35 KST",
+      "freshness": "2026-05-09 00:49 KST"
+    },
+    "paid_click_intent_aggregate": {
+      "source": "taejun@34.64.104.94:/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3#paid_click_intent_ledger",
+      "row_count_in_window": 709,
+      "max_received_at": "2026-05-08T08:22:44.416Z",
+      "max_received_at_kst": "2026-05-08 17:22:44 KST"
+    },
+    "operational_pg_aggregate": {
+      "source": "public.tb_iamweb_users",
+      "row_count_in_window_all_status": 64,
+      "max_paid_at": "2026-05-08T07:58:22.000Z",
+      "max_paid_at_kst": "2026-05-08 16:58:22 KST"
+    },
+    "local_paid_click_rows": 0,
+    "vm_row_level_access": "available_via_taejun_at_34_64_104_94_2026-05-09_00:53_KST"
+  },
+  "preview_field_availability": {
+    "response_status": 200,
+    "response_ok": true,
+    "would_store": false,
+    "would_send": false,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "email_hash_present": false,
+    "phone_hash_present": false,
+    "click_id_hash_present": false,
+    "no_raw_echo_verified": true,
+    "no_platform_send_verified": true,
+    "platform_send_count": 0
+  },
+  "prior_baseline_without_path_b_bridge": {
+    "orders_checked": 52,
+    "orders_with_no_prior_click": 0,
+    "orders_with_any_prior_click": 52,
+    "orders_with_single_prior_click": 0,
+    "orders_with_multiple_prior_clicks": 52,
+    "median_prior_click_candidates": 329,
+    "p90_prior_click_candidates": 644,
+    "max_prior_click_candidates": 691
+  },
+  "paid_click_intent_capture_health": {
+    "ledger_rows": 709,
+    "unique_click_id_hash": 428,
+    "unique_client_id": 318,
+    "unique_ga_session_id": 407,
+    "capture_stage_counts": {
+      "landing": 461,
+      "checkout_start": 135,
+      "npay_intent": 113
+    },
+    "click_id_type_counts": {
+      "gclid": 707,
+      "wbraid": 2
+    },
+    "status_counts": {
+      "received": 709
+    },
+    "reject_reason_counts": {
+      "(blank)": 709
+    },
+    "debug_test_preview_query_key_rows": 0,
+    "send_candidate": 0
+  },
+  "reliability_dry_run_result": {
+    "can_run_row_level_join_now": true,
+    "row_level_join_blocker": null,
+    "preview_availability_verdict": "PASS_ORDER_SESSION_ONLY",
+    "deterministic_order_click_bridge_ready": false,
+    "reason": "The actual vbank order-complete Preview produced order/session hashes, but the same client_id, GA session id, and Imweb local session candidates had 0 rows in live paid_click_intent_ledger.",
+    "expected_confidence_if_persisted_without_identity": "D_for_this_preview_order",
+    "send_candidate": false,
+    "confirmed_purchase_uplift": "HOLD",
+    "row_level_preview_order_match_verdict": "NO_MATCH_FOR_THIS_PREVIEW_ORDER"
+  },
+  "next_green": [
+    "Document that this vbank Preview order does not connect to paid_click_intent by client/session.",
+    "Prepare HURDLERS email-like user_id HMAC-only source approval so identity hash can raise confidence if needed.",
+    "If testing another checkout path, use an actual Google paid click/session or preserve click id into order-complete before expecting click_id_hash_present."
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "raw email/phone/member_code/order storage",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete"
+  ],
+  "verdict": "PARTIAL_PASS_PREVIEW_AVAILABILITY__ROW_LEVEL_NO_MATCH_FOR_THIS_ORDER",
+  "live_paid_click_intent_row_level": {
+    "source": "TJ Attribution VM /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3#paid_click_intent_ledger read-only",
+    "checked_at_kst": "2026-05-09 00:53 KST",
+    "total_rows": 1044,
+    "unique_click_hash": 633,
+    "unique_client_id": 449,
+    "unique_ga_session_id": 586,
+    "min_received_at": "2026-05-07T14:02:15.047Z",
+    "max_received_at": "2026-05-08T15:51:28.110Z",
+    "by_capture_stage": {
+      "landing": 686,
+      "checkout_start": 186,
+      "npay_intent": 172
+    },
+    "preview_key_matches": {
+      "client_id_rows": 0,
+      "ga_session_rows": 0,
+      "local_common_session_rows": 0,
+      "local_custom_session_rows": 0,
+      "unique_click_hash_for_preview_keys": 0
+    }
+  }
+}

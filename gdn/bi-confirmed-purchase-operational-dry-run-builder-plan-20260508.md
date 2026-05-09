@@ -11,7 +11,7 @@ Do not use for: 광고 conversion upload, send, deploy 우선
 ## 5줄 결론
 
 1. **현재 ConfirmedPurchasePrep input 은 5/5 dry-run JSON 고정**. canary window (5/7 23:01~ 5/8 23:01 KST) 결제 측정에 적용 안 됨 → builder 가 없으면 Path C/B effect 영원히 측정 불가.
-2. **builder 핵심 = 운영 PG `tb_iamweb_users` + `tb_playauto_orders` read-only join 으로 canary 결제완료 row 매일 재생성**. 1일 cadence. 운영 DB write 없음, 로컬 JSON 파일만 산출.
+2. **builder 핵심 = 운영 PG `tb_iamweb_users` + `tb_playauto_orders` read-only join 으로 canary 결제완료 row 매일 재생성**. 1일 cadence. 운영DB write 없음, 로컬 JSON 파일만 산출.
 3. **Path C 매개를 위해 input 에 member_code 필드 추가** + paid_click_intent_ledger 조회 fallback chain (Path A → Path C 순서) + audit trail 카운터.
 4. **본 agent 자율 영역**: Phase 0 (설계, 본 문서) + Phase 1 (builder 코드 작성) + Phase 2 (로컬 dry-run). 운영 cron schedule 등록은 별 Yellow.
 5. ConfirmedPurchasePrep PASS 임계: with_click_id ≥ 50 + `paid_click_intent_member_code_match` source 5건 이상 + 기존 dry-run 결과(5/5 fixture 17건)와 schema 일관 + Auditor verdict PASS.
@@ -263,9 +263,11 @@ npm --prefix backend run agent:confirmed-purchase-prep -- \
 - attribution_source_breakdown.none ≈ 191
 - pay_type_breakdown.npay ≈ 14~30
 
-**Path C 적용 *후* 기대 결과**:
-- attribution_source_breakdown.paid_click_intent_member_code_match ≈ 115~150 (60~80% 매칭)
+**Path C 적용 *후* 가설 범위**:
+- attribution_source_breakdown.paid_click_intent_member_code_hash_match ≈ 115~150 (60~80% upper-bound, 실측 uplift 아님)
 - attribution_source_breakdown.none ≈ 41~76
+
+주의: 2026-05-08 후속 검토 기준 60~80%는 `member_code_hash` bridge가 실제로 채워졌을 때의 가설/상한선이다. live `paid_click_intent_ledger`에는 아직 `member_code_hash` 또는 동등한 deterministic bridge가 없어 실제 uplift로 보고하지 않는다.
 
 ### Phase 3 — cron schedule 등록 (Yellow 승인)
 
@@ -294,7 +296,7 @@ ReportAuditor agent 가 builder audit JSON 을 읽고 다음 verdict 산출:
 |---|---|
 | 운영 PG write 없음 | builder 는 `SELECT` 만, `INSERT/UPDATE/DELETE` 영구 금지 |
 | 운영 PG connection limit | `pool.end()` 명시 호출. 1회 query/run |
-| PII 저장 없음 | input JSON에 phone/email/name 필드 없음 (order_no/member_code 만) |
+| PII/식별자 저장 없음 | input JSON에 phone/email/name 필드 없음. `member_code`는 pseudonymous identifier로 취급하며 운영 저장 기본은 raw가 아니라 `member_code_hash` |
 | audit trail 보존 | builder-audit JSON 매일 archive. 누락 시 alert |
 | Path C 미적용 시 graceful | `lookupByMemberCode` 가 빈 array 반환 (paid_click_intent_ledger.member_code 컬럼 없으면) |
 

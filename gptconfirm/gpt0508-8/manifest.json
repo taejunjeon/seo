@@ -1,0 +1,81 @@
+{
+  "batch": "gpt0508-8",
+  "created_at_kst": "2026-05-09 01:58 KST",
+  "purpose": "Path B TEST click id and same-browser preservation Preview confirmation",
+  "project": "biocom Path B bridge",
+  "lane": "Yellow approved Preview only + Green documentation",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-8/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-8/00-result-report.md",
+      "why_included": "Batch result report with progress, scorecard summary, and next decisions",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-test-click-id-preview-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-8/01-path-b-test-click-id-preview-result-20260509.md",
+      "why_included": "Shows click_id_hash_present=true on TEST click id no-send Preview",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-same-browser-preservation-preview-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-8/02-path-b-same-browser-preservation-preview-result-20260509.md",
+      "why_included": "Shows controlled same-browser click preservation into order-complete no-send Preview",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-bridge-mini-scorecard-20260509.md",
+      "copy": "gptconfirm/gpt0508-8/03-path-b-bridge-mini-scorecard-20260509.md",
+      "why_included": "Verifier-style PASS/HOLD scorecard for Path B bridge readiness",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/payment-decision-hardening-backlog-note-20260509.md",
+      "copy": "gptconfirm/gpt0508-8/04-payment-decision-hardening-backlog-note-20260509.md",
+      "why_included": "Keeps existing payment-decision raw query logging as P1 hardening, not a P0 blocker",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-100-percent-roadmap-20260509.md",
+      "copy": "gptconfirm/gpt0508-8/05-path-b-100-percent-roadmap-20260509.md",
+      "why_included": "Updates the 88 percent to 100 percent Preview roadmap and remaining operations steps",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-8/99-total-current-copy.md",
+      "why_included": "Reference copy of current canonical document",
+      "approval_needed": false
+    }
+  ],
+  "progress": {
+    "path_b_bridge_overall_percent": 96,
+    "batch_percent": 100,
+    "no_send_preview_percent": 100,
+    "remaining_to_operational_100": [
+      "reliability dry-run input normalization",
+      "1h hash-only storage canary approval and execution",
+      "Production publish readiness decision",
+      "real paid-click-originated actual order test decision"
+    ]
+  },
+  "evidence_files": [
+    "data/path-b-test-click-id-preview-result-20260509.json",
+    "data/path-b-same-browser-preservation-preview-result-20260509.json"
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "real ad click generation",
+    "actual payment test",
+    "raw email/phone/member_code/order/payment operational storage",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete",
+    "new operational raw logging"
+  ],
+  "auditor_verdict": "PASS_CLICK_BRIDGE_PREVIEW_WITH_OPERATIONS_HOLD"
+}

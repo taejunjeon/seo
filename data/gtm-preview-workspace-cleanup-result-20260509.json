@@ -1,0 +1,58 @@
+{
+  "generated_at_kst": "2026-05-09T18:52:00",
+  "site": "biocom",
+  "verdict": "PASS_PREVIEW_WORKSPACE_CLEANUP_WITH_PARTIAL_QUOTA_RETRY",
+  "target_workspace_ids": ["163", "164"],
+  "backup_source": {
+    "dry_run_backup_json": "data/gtm-preview-workspace-cleanup-20260509T094801Z.json",
+    "contains_workspace_metadata": true,
+    "contains_tags": true,
+    "contains_triggers": true,
+    "contains_variables": true,
+    "contains_folders": true,
+    "contains_built_in_variables": true
+  },
+  "cleanup_results": [
+    {
+      "workspace_id": "163",
+      "name": "codex_path_b_order_bridge_preview_20260508T151938Z",
+      "deleted": true,
+      "method": "approved cleanup script",
+      "notes": "Deleted before GTM API quota was hit on workspace 164"
+    },
+    {
+      "workspace_id": "164",
+      "name": "agent_os_path_b_user_identity_preview_20260508T163414Z",
+      "deleted": true,
+      "method": "minimal delete retry after quota cooldown",
+      "notes": "Initial delete hit 429 quota; retried only workspace 164 after cooldown"
+    }
+  ],
+  "gtm_api_quota_event": {
+    "occurred": true,
+    "stage": "workspace 164 delete first attempt",
+    "status": 429,
+    "message": "Quota exceeded for quota metric Queries and limit Queries per minute",
+    "mitigation": "Waited for cooldown and retried minimal delete for workspace 164"
+  },
+  "live_version_before": {
+    "id": "142",
+    "name": "paid_click_intent_v1_receiver_20260506T150218Z"
+  },
+  "live_version_after": {
+    "id": "142",
+    "name": "paid_click_intent_v1_receiver_20260506T150218Z"
+  },
+  "live_version_unchanged": true,
+  "workspace_count_before": 3,
+  "workspace_count_after": 1,
+  "workspaces_after": [
+    {
+      "id": "147",
+      "name": "Default Workspace"
+    }
+  ],
+  "submit_create_version_publish_taken": false,
+  "existing_live_tags_modified": false,
+  "existing_gtm_tag_paused_or_deleted": false
+}

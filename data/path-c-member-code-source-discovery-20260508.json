@@ -1,0 +1,913 @@
+{
+  "checkedAtKst": "2026-05-08 20:06:25 KST",
+  "verdict": "hold_no_client_member_code_source_found",
+  "confidence": 0.88,
+  "gtm": {
+    "workspace": {
+      "id": "147",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/13158774/workspaces/147"
+    },
+    "variableFindings": [
+      {
+        "id": "172",
+        "name": "JS - Imweb Data Layer",
+        "type": "jsm",
+        "reads": [
+          "__bs_imweb"
+        ],
+        "classification": "session_only",
+        "note": "Imweb device/session object. 공유된 구조 기준 memberCode 없음"
+      },
+      {
+        "id": "181",
+        "name": "Retous - [변수] memberCode",
+        "type": "v",
+        "reads": [
+          "hurdlers_ga4.member_code"
+        ],
+        "classification": "candidate_empty_in_preview",
+        "note": "정의는 있으나 TJ Tag Assistant 200/201/203 확인에서 empty/undefined"
+      },
+      {
+        "id": "187",
+        "name": "Retous - [맞춤] utmSource",
+        "type": "jsm",
+        "reads": [
+          "JS - Imweb Data Layer"
+        ],
+        "classification": "session_only",
+        "note": "Imweb device/session object. 공유된 구조 기준 memberCode 없음"
+      },
+      {
+        "id": "188",
+        "name": "Retous - [맞춤] utmMedium",
+        "type": "jsm",
+        "reads": [
+          "JS - Imweb Data Layer"
+        ],
+        "classification": "session_only",
+        "note": "Imweb device/session object. 공유된 구조 기준 memberCode 없음"
+      },
+      {
+        "id": "189",
+        "name": "Retous - [맞춤] utmCampaign",
+        "type": "jsm",
+        "reads": [
+          "JS - Imweb Data Layer"
+        ],
+        "classification": "session_only",
+        "note": "Imweb device/session object. 공유된 구조 기준 memberCode 없음"
+      },
+      {
+        "id": "190",
+        "name": "Retous - [맞춤] utmContent",
+        "type": "jsm",
+        "reads": [
+          "JS - Imweb Data Layer"
+        ],
+        "classification": "session_only",
+        "note": "Imweb device/session object. 공유된 구조 기준 memberCode 없음"
+      },
+      {
+        "id": "191",
+        "name": "Retous - [맞춤] utmTerm",
+        "type": "jsm",
+        "reads": [
+          "JS - Imweb Data Layer"
+        ],
+        "classification": "session_only",
+        "note": "Imweb device/session object. 공유된 구조 기준 memberCode 없음"
+      },
+      {
+        "id": "192",
+        "name": "Retous - [맞춤] memberCode",
+        "type": "jsm",
+        "reads": [
+          "JS - Imweb Data Layer"
+        ],
+        "classification": "candidate_empty_in_preview",
+        "note": "정의는 있으나 TJ Tag Assistant 200/201/203 확인에서 empty/undefined"
+      },
+      {
+        "id": "209",
+        "name": "RETOUS - [변수] member_code",
+        "type": "v",
+        "reads": [
+          "member_code"
+        ],
+        "classification": "candidate_empty_in_preview",
+        "note": "정의는 있으나 TJ Tag Assistant 200/201/203 확인에서 empty/undefined"
+      },
+      {
+        "id": "194",
+        "name": "phone_reg",
+        "type": "jsm",
+        "reads": [],
+        "classification": "reject_pii",
+        "note": "email/phone/user_id 계열이라 Path C source로 사용 금지"
+      },
+      {
+        "id": "195",
+        "name": "phone_buy",
+        "type": "jsm",
+        "reads": [],
+        "classification": "reject_pii",
+        "note": "email/phone/user_id 계열이라 Path C source로 사용 금지"
+      },
+      {
+        "id": "196",
+        "name": "email_reg",
+        "type": "jsm",
+        "reads": [],
+        "classification": "reject_pii",
+        "note": "email/phone/user_id 계열이라 Path C source로 사용 금지"
+      },
+      {
+        "id": "197",
+        "name": "UPDE_reg_em_pn",
+        "type": "awec",
+        "reads": [
+          "email_reg",
+          "phone_reg"
+        ],
+        "classification": "reject_pii",
+        "note": "email/phone/user_id 계열이라 Path C source로 사용 금지"
+      },
+      {
+        "id": "201",
+        "name": "email_buy",
+        "type": "jsm",
+        "reads": [],
+        "classification": "reject_pii",
+        "note": "email/phone/user_id 계열이라 Path C source로 사용 금지"
+      },
+      {
+        "id": "202",
+        "name": "UPDE_buy_em_pn",
+        "type": "awec",
+        "reads": [
+          "email_buy",
+          "phone_buy"
+        ],
+        "classification": "reject_pii",
+        "note": "email/phone/user_id 계열이라 Path C source로 사용 금지"
+      },
+      {
+        "id": "174",
+        "name": "memberCode",
+        "type": "v",
+        "reads": [
+          "member_code"
+        ],
+        "classification": "candidate_empty_in_preview",
+        "note": "정의는 있으나 TJ Tag Assistant 200/201/203 확인에서 empty/undefined"
+      },
+      {
+        "id": "124",
+        "name": "HURDLERS - [맞춤 JS] user_id",
+        "type": "jsm",
+        "reads": [
+          ".email-info"
+        ],
+        "classification": "reject_pii",
+        "note": "email/phone/user_id 계열이라 Path C source로 사용 금지"
+      }
+    ],
+    "tagFindings": [
+      {
+        "id": "118",
+        "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)",
+        "type": "html",
+        "mentions": [
+          "memberCode",
+          "member_code",
+          "user_id"
+        ],
+        "classification": "mentions_pii_source"
+      },
+      {
+        "id": "143",
+        "name": "HURDLERS - [이벤트전송] 구매",
+        "type": "gaawe",
+        "mentions": [
+          "memberCode",
+          "member_code",
+          "user_id"
+        ],
+        "classification": "mentions_pii_source"
+      },
+      {
+        "id": "154",
+        "name": "HURDLERS - [데이터레이어] 구매",
+        "type": "html",
+        "mentions": [
+          "memberCode",
+          "member_code"
+        ],
+        "classification": "mentions_member_source"
+      },
+      {
+        "id": "179",
+        "name": "ga4 장바구니 이벤트",
+        "type": "gaawe",
+        "mentions": [
+          "memberCode",
+          "member_code"
+        ],
+        "classification": "mentions_member_source"
+      },
+      {
+        "id": "114",
+        "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (장바구니)",
+        "type": "html",
+        "mentions": [
+          "memberCode",
+          "member_code"
+        ],
+        "classification": "mentions_member_source"
+      },
+      {
+        "id": "128",
+        "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+        "type": "gaawe",
+        "mentions": [
+          "memberCode",
+          "member_code",
+          "user_id"
+        ],
+        "classification": "mentions_pii_source"
+      },
+      {
+        "id": "133",
+        "name": "HURDLERS - [데이터레이어] 상세페이지 조회",
+        "type": "html",
+        "mentions": [
+          "memberCode",
+          "member_code"
+        ],
+        "classification": "mentions_member_source"
+      },
+      {
+        "id": "157",
+        "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+        "type": "gaawe",
+        "mentions": [
+          "memberCode",
+          "member_code",
+          "user_id"
+        ],
+        "classification": "mentions_pii_source"
+      },
+      {
+        "id": "171",
+        "name": "User_id",
+        "type": "gaawe",
+        "mentions": [
+          "user_id"
+        ],
+        "classification": "mentions_pii_source"
+      },
+      {
+        "id": "147",
+        "name": "HURDLERS - [이벤트전송] 장바구니 보기",
+        "type": "gaawe",
+        "mentions": [
+          "user_id"
+        ],
+        "classification": "mentions_pii_source"
+      },
+      {
+        "id": "158",
+        "name": "HURDLERS - [이벤트전송] 주문서작성",
+        "type": "gaawe",
+        "mentions": [
+          "user_id"
+        ],
+        "classification": "mentions_pii_source"
+      },
+      {
+        "id": "160",
+        "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+        "type": "gaawe",
+        "mentions": [
+          "user_id"
+        ],
+        "classification": "mentions_pii_source"
+      },
+      {
+        "id": "101",
+        "name": "GA4 장바구니 담기2",
+        "type": "gaawe",
+        "mentions": [
+          "memberCode"
+        ],
+        "classification": "mentions_member_source"
+      }
+    ]
+  },
+  "pageProbes": [
+    {
+      "url": "https://biocom.kr/shop_view/?idx=198",
+      "loaded": true,
+      "candidatePresence": [
+        {
+          "source": "dataLayer.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "dataLayer.hurdlers_ga4.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "dataLayer.hurdlers_ga4.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "localStorage.__bs_imweb.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "localStorage.__bs_imweb.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "sessionStorage.__bs_imweb_session.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "sessionStorage.__bs_imweb_session.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.imweb.user.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.imweb.user.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.IMWEB_MEMBER_CODE",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.hurdlers_member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.hurdlers_ga4.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.hurdlers_ga4.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.MEMBER_UID",
+          "present": false,
+          "type": "string"
+        },
+        {
+          "source": "window.MEMBER_HASH",
+          "present": false,
+          "type": "string"
+        },
+        {
+          "source": "window.SITE_MEMBER.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.SITE_MEMBER.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.SITE_MEMBER.member_uid",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.SITE_MEMBER.memberUid",
+          "present": false,
+          "type": "undefined"
+        }
+      ],
+      "objectShapes": [
+        {
+          "source": "localStorage.__bs_imweb",
+          "present": true,
+          "keys": [
+            "commonSessionId",
+            "commonSessionUpdatedAt",
+            "customSessionId",
+            "customSessionUpdatedAt",
+            "deviceId",
+            "deviceIdCreatedAt",
+            "landingUrl",
+            "siteCode",
+            "unitCode"
+          ]
+        },
+        {
+          "source": "sessionStorage.__bs_imweb_session",
+          "present": true,
+          "keys": [
+            "browserSessionId",
+            "commonSessionId",
+            "commonSessionUpdatedAt",
+            "customSessionId",
+            "customSessionUpdatedAt",
+            "initialReferrer",
+            "initialReferrerDomain",
+            "platform",
+            "referrer",
+            "sdkJwt",
+            "updatedAt",
+            "utmCampaign",
+            "utmContent",
+            "utmLandingUrl",
+            "utmMedium",
+            "utmSource",
+            "utmTerm",
+            "utmUpdatedTime"
+          ]
+        },
+        {
+          "source": "window.hurdlers_ga4",
+          "present": true,
+          "keys": [
+            "product_code",
+            "product_discount",
+            "product_id",
+            "product_name",
+            "product_price"
+          ]
+        },
+        {
+          "source": "window.imweb.user",
+          "present": false,
+          "keys": []
+        },
+        {
+          "source": "window.SITE_MEMBER",
+          "present": true,
+          "keys": [
+            "changeCountry",
+            "changePassword",
+            "checkRequireOption",
+            "clearOAuthData",
+            "createRecommendCode",
+            "disconnectOAuth",
+            "editProfile",
+            "findSubmit",
+            "getSiteMemberCustomData",
+            "goodbye",
+            "init",
+            "initFindId",
+            "initJoinForm",
+            "isDialogOpen",
+            "itemFileUpload",
+            "joinSubmit",
+            "joinSubmitByAgree",
+            "joinSubmitByJoinPattern",
+            "kakaoSyncJoin",
+            "nachocodeNativeSocialLogin",
+            "openAgreeSocialJoin",
+            "openAppAction",
+            "openCOMBINATIONAUTHTYPESWindow",
+            "openChangePassword",
+            "openDRMOKWindow",
+            "openDreamSecurityV2ForAdult",
+            "openDreamSecurityV2ForFindId",
+            "openDreamSecurityV2Window",
+            "openFindPassword",
+            "openGoodbye",
+            "openGuestLogin",
+            "openINICISWindow",
+            "openInactive",
+            "openJoin",
+            "openJoinPatternChoice",
+            "openJoinTypeChoice",
+            "openJoinWithoutTerms",
+            "openLogin",
+            "openLoginOrModifyDialogByLoginStatus",
+            "openMOBILIANSWindow",
+            "openMOBILIANSWindow2",
+            "openSocialJoin",
+            "sendJoinMailAuth",
+            "setSyncJoinInterLock",
+            "showJoinForm",
+            "showMemberProfile",
+            "step",
+            "unauthMemberModal",
+            "updateFindIdStatus"
+          ]
+        },
+        {
+          "source": "window.IMWEB_LOCALSTORAGE",
+          "present": true,
+          "keys": [
+            "clear",
+            "get",
+            "init",
+            "remove",
+            "set"
+          ]
+        },
+        {
+          "source": "window.IMWEB_SESSIONSTORAGE",
+          "present": true,
+          "keys": [
+            "clear",
+            "get",
+            "init",
+            "remove",
+            "set"
+          ]
+        }
+      ],
+      "matchingWindowKeys": [
+        "IMWEB_CSS",
+        "IMWEB_CSS_CLASS",
+        "IMWEB_LOCALSTORAGE",
+        "IMWEB_SESSIONSTORAGE",
+        "IMWEB_SHOP_ANALYTICS_SDK",
+        "IMWEB_SHOP_DETAIL_PAGE",
+        "IMWEB_STORAGE",
+        "IMWEB_TEMPLATE",
+        "ImwebExternalSDK",
+        "MEMBER_HASH",
+        "MEMBER_UID",
+        "SITE_MEMBER",
+        "SITE_TWO_FACTOR_LOGIN",
+        "THREE_IMWEB",
+        "hurdlers_ga4",
+        "redirectToLoginPage"
+      ],
+      "matchingStorageKeys": [
+        {
+          "storage": "localStorage",
+          "key": "__bs_imweb"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__a7s_lifecycle_event_session"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__bs_browser_session_id"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__bs_imweb_session"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__bs_imweb_session_history"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__seo_funnel_session"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "ADVANCED_TRACE_CODE_view_contents_code_{redacted_json_payload}"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "tt_pixel_session_index"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "tt_sessionId"
+        }
+      ],
+      "blockedRequestHostCount": {
+        "developers.kakao.com": 1,
+        "wcs.naver.net": 1,
+        "sstatic-g.rmcnmv.naver.net": 1,
+        "pay.naver.com": 1,
+        "t1.kakaocdn.net": 2,
+        "www.googletagmanager.com": 2,
+        "connect.facebook.net": 1,
+        "cdn.channel.io": 1
+      }
+    },
+    {
+      "url": "https://biocom.kr/HealthFood/?idx=386",
+      "loaded": true,
+      "candidatePresence": [
+        {
+          "source": "dataLayer.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "dataLayer.hurdlers_ga4.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "dataLayer.hurdlers_ga4.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "localStorage.__bs_imweb.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "localStorage.__bs_imweb.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "sessionStorage.__bs_imweb_session.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "sessionStorage.__bs_imweb_session.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.imweb.user.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.imweb.user.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.IMWEB_MEMBER_CODE",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.hurdlers_member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.hurdlers_ga4.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.hurdlers_ga4.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.MEMBER_UID",
+          "present": false,
+          "type": "string"
+        },
+        {
+          "source": "window.MEMBER_HASH",
+          "present": false,
+          "type": "string"
+        },
+        {
+          "source": "window.SITE_MEMBER.member_code",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.SITE_MEMBER.memberCode",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.SITE_MEMBER.member_uid",
+          "present": false,
+          "type": "undefined"
+        },
+        {
+          "source": "window.SITE_MEMBER.memberUid",
+          "present": false,
+          "type": "undefined"
+        }
+      ],
+      "objectShapes": [
+        {
+          "source": "localStorage.__bs_imweb",
+          "present": true,
+          "keys": [
+            "commonSessionId",
+            "commonSessionUpdatedAt",
+            "customSessionId",
+            "customSessionUpdatedAt",
+            "deviceId",
+            "deviceIdCreatedAt",
+            "landingUrl",
+            "siteCode",
+            "unitCode"
+          ]
+        },
+        {
+          "source": "sessionStorage.__bs_imweb_session",
+          "present": true,
+          "keys": [
+            "browserSessionId",
+            "commonSessionId",
+            "commonSessionUpdatedAt",
+            "customSessionId",
+            "customSessionUpdatedAt",
+            "initialReferrer",
+            "initialReferrerDomain",
+            "platform",
+            "referrer",
+            "sdkJwt",
+            "updatedAt",
+            "utmCampaign",
+            "utmContent",
+            "utmLandingUrl",
+            "utmMedium",
+            "utmSource",
+            "utmTerm",
+            "utmUpdatedTime"
+          ]
+        },
+        {
+          "source": "window.hurdlers_ga4",
+          "present": true,
+          "keys": [
+            "product_code",
+            "product_discount",
+            "product_id",
+            "product_name",
+            "product_price"
+          ]
+        },
+        {
+          "source": "window.imweb.user",
+          "present": false,
+          "keys": []
+        },
+        {
+          "source": "window.SITE_MEMBER",
+          "present": true,
+          "keys": [
+            "changeCountry",
+            "changePassword",
+            "checkRequireOption",
+            "clearOAuthData",
+            "createRecommendCode",
+            "disconnectOAuth",
+            "editProfile",
+            "findSubmit",
+            "getSiteMemberCustomData",
+            "goodbye",
+            "init",
+            "initFindId",
+            "initJoinForm",
+            "isDialogOpen",
+            "itemFileUpload",
+            "joinSubmit",
+            "joinSubmitByAgree",
+            "joinSubmitByJoinPattern",
+            "kakaoSyncJoin",
+            "nachocodeNativeSocialLogin",
+            "openAgreeSocialJoin",
+            "openAppAction",
+            "openCOMBINATIONAUTHTYPESWindow",
+            "openChangePassword",
+            "openDRMOKWindow",
+            "openDreamSecurityV2ForAdult",
+            "openDreamSecurityV2ForFindId",
+            "openDreamSecurityV2Window",
+            "openFindPassword",
+            "openGoodbye",
+            "openGuestLogin",
+            "openINICISWindow",
+            "openInactive",
+            "openJoin",
+            "openJoinPatternChoice",
+            "openJoinTypeChoice",
+            "openJoinWithoutTerms",
+            "openLogin",
+            "openLoginOrModifyDialogByLoginStatus",
+            "openMOBILIANSWindow",
+            "openMOBILIANSWindow2",
+            "openSocialJoin",
+            "sendJoinMailAuth",
+            "setSyncJoinInterLock",
+            "showJoinForm",
+            "showMemberProfile",
+            "step",
+            "unauthMemberModal",
+            "updateFindIdStatus"
+          ]
+        },
+        {
+          "source": "window.IMWEB_LOCALSTORAGE",
+          "present": true,
+          "keys": [
+            "clear",
+            "get",
+            "init",
+            "remove",
+            "set"
+          ]
+        },
+        {
+          "source": "window.IMWEB_SESSIONSTORAGE",
+          "present": true,
+          "keys": [
+            "clear",
+            "get",
+            "init",
+            "remove",
+            "set"
+          ]
+        }
+      ],
+      "matchingWindowKeys": [
+        "IMWEB_CSS",
+        "IMWEB_CSS_CLASS",
+        "IMWEB_LOCALSTORAGE",
+        "IMWEB_SESSIONSTORAGE",
+        "IMWEB_SHOP_ANALYTICS_SDK",
+        "IMWEB_SHOP_DETAIL_PAGE",
+        "IMWEB_STORAGE",
+        "IMWEB_TEMPLATE",
+        "ImwebExternalSDK",
+        "MEMBER_HASH",
+        "MEMBER_UID",
+        "SITE_MEMBER",
+        "SITE_TWO_FACTOR_LOGIN",
+        "THREE_IMWEB",
+        "hurdlers_ga4",
+        "redirectToLoginPage"
+      ],
+      "matchingStorageKeys": [
+        {
+          "storage": "localStorage",
+          "key": "__bs_imweb"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__a7s_lifecycle_event_session"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__bs_browser_session_id"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__bs_imweb_session"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__bs_imweb_session_history"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "__seo_funnel_session"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "ADVANCED_TRACE_CODE_view_contents_code_{redacted_json_payload}"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "tt_pixel_session_index"
+        },
+        {
+          "storage": "sessionStorage",
+          "key": "tt_sessionId"
+        }
+      ],
+      "blockedRequestHostCount": {
+        "developers.kakao.com": 1,
+        "wcs.naver.net": 1,
+        "sstatic-g.rmcnmv.naver.net": 1,
+        "pay.naver.com": 1,
+        "t1.kakaocdn.net": 2,
+        "www.googletagmanager.com": 2,
+        "connect.facebook.net": 1,
+        "cdn.channel.io": 1
+      }
+    }
+  ]
+}

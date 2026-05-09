@@ -1,0 +1,1 @@
+{"ok":true,"summary":{"site":"biocom","row_count":2,"unique_order_no_hash":2,"unique_email_hash":2,"unique_phone_hash":1,"unique_click_id_hash":1,"raw_stored_count":0,"platform_send_count":0,"duplicate_dedupe_count":1},"source":{"mode":"order_bridge_ledger_summary_readonly","receivedAt":"2026-05-09T10:07:23.365Z","write_flag_on":false,"write_max_rows":200}}

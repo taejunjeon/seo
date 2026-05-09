@@ -1,0 +1,1186 @@
+{
+  "checkedAtKst": "2026-05-08 20:17:01 KST",
+  "site": "biocom",
+  "lane": "Green read-only GTM inventory",
+  "container": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "publicId": "GTM-W2Z6PHN",
+    "workspaceId": "147",
+    "workspaceName": "Default Workspace"
+  },
+  "sourceDiscoverySummary": {
+    "checkedAtKst": "2026-05-08 20:06:25 KST",
+    "verdict": "hold_no_client_member_code_source_found",
+    "confidence": 0.88,
+    "gtmVariableFindings": 17,
+    "gtmTagFindings": 13,
+    "pageProbeCandidatesPresent": 0
+  },
+  "totals": {
+    "variablesInContainer": 60,
+    "tagsInContainer": 59,
+    "triggersInContainer": 85,
+    "relevantItems": 71,
+    "relevantVariables": 49,
+    "relevantTags": 22
+  },
+  "countsByKind": {
+    "order_payment_candidate": 2,
+    "member_code_candidate": 9,
+    "user_id_email_like": 8,
+    "imweb_retous_storage": 39,
+    "email_like": 5,
+    "phone_like": 2,
+    "other": 1,
+    "session_tracking": 5
+  },
+  "countsByRisk": {
+    "order_payment_hash_only": 2,
+    "path_c_candidate_currently_empty": 9,
+    "raw_pii_prohibited": 15,
+    "session_only_keep": 39,
+    "unknown_review": 6
+  },
+  "decisions": {
+    "rawEmailBridge": "NO",
+    "emailHashBridge": "Yellow/privacy approval candidate only",
+    "pathCMemberCode": "HOLD until usable browser/server source exists",
+    "pathBOrderConfirmBeacon": "Recommended design path for member + guest bridge",
+    "bulkGtmCleanup": "NO, inventory and risk classification only"
+  },
+  "items": [
+    {
+      "id": "251",
+      "name": "biocom - [데이터 준비] hurdlers_ga4 purchase 값 주입 (Claude)",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "order_payment_candidate",
+      "riskClass": "order_payment_hash_only",
+      "recommendation": "design_hash_only",
+      "notes": [
+        "Path B 설계 후보",
+        "raw order/payment/value 저장 없이 HMAC hash만 허용 후보"
+      ],
+      "readsOrMentions": [
+        "order_no"
+      ]
+    },
+    {
+      "id": "101",
+      "name": "GA4 장바구니 담기2",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "memberCode"
+      ]
+    },
+    {
+      "id": "179",
+      "name": "ga4 장바구니 이벤트",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "RETOUS",
+        "memberCode",
+        "member_code"
+      ]
+    },
+    {
+      "id": "154",
+      "name": "HURDLERS - [데이터레이어] 구매",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "memberCode",
+        "member_code"
+      ]
+    },
+    {
+      "id": "114",
+      "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (장바구니)",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "memberCode",
+        "member_code"
+      ]
+    },
+    {
+      "id": "118",
+      "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "user_id_email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "memberCode",
+        "member_code",
+        "user_id"
+      ]
+    },
+    {
+      "id": "133",
+      "name": "HURDLERS - [데이터레이어] 상세페이지 조회",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "memberCode",
+        "member_code"
+      ]
+    },
+    {
+      "id": "156",
+      "name": "HURDLERS - [데이터레이어] 장바구니 담기",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "145",
+      "name": "HURDLERS - [데이터레이어] 장바구니 보기",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "152",
+      "name": "HURDLERS - [데이터레이어] 주문서작성",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "110",
+      "name": "HURDLERS - [데이터레이어] 초기화",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "165",
+      "name": "HURDLERS - [데이터레이어] 회원가입 버튼 클릭",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "167",
+      "name": "HURDLERS - [데이터레이어] 회원가입 완료",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "completeRegistration",
+        "method"
+      ]
+    },
+    {
+      "id": "146",
+      "name": "HURDLERS - [맞춤 HTML] 허들러스 플러그인",
+      "entityType": "tag",
+      "gtmType": "html",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "143",
+      "name": "HURDLERS - [이벤트전송] 구매",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "user_id_email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "memberCode",
+        "member_code",
+        "user_id"
+      ]
+    },
+    {
+      "id": "128",
+      "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "user_id_email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "memberCode",
+        "member_code",
+        "user_id"
+      ]
+    },
+    {
+      "id": "157",
+      "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "user_id_email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "memberCode",
+        "member_code",
+        "user_id"
+      ]
+    },
+    {
+      "id": "160",
+      "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "user_id_email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "user_id"
+      ]
+    },
+    {
+      "id": "147",
+      "name": "HURDLERS - [이벤트전송] 장바구니 보기",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "user_id_email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "user_id"
+      ]
+    },
+    {
+      "id": "158",
+      "name": "HURDLERS - [이벤트전송] 주문서작성",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "user_id_email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "user_id"
+      ]
+    },
+    {
+      "id": "162",
+      "name": "HURDLERS - [이벤트전송] 회원가입 완료",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "171",
+      "name": "User_id",
+      "entityType": "tag",
+      "gtmType": "gaawe",
+      "kind": "user_id_email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "user_id"
+      ]
+    },
+    {
+      "id": "201",
+      "name": "email_buy",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "[name='ordererEmail']",
+        "email_buy"
+      ]
+    },
+    {
+      "id": "196",
+      "name": "email_reg",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "[type=email]",
+        "email_reg"
+      ]
+    },
+    {
+      "id": "124",
+      "name": "HURDLERS - [맞춤 JS] user_id",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        ".email-info",
+        "user_id"
+      ]
+    },
+    {
+      "id": "116",
+      "name": "HURDLERS - [맞춤 JS] 상세페이지 확인",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "127",
+      "name": "HURDLERS - [변수] cid",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "cid"
+      ]
+    },
+    {
+      "id": "163",
+      "name": "HURDLERS - [변수] method",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "method"
+      ]
+    },
+    {
+      "id": "151",
+      "name": "HURDLERS - [자동 이벤트 변수] 요소",
+      "entityType": "variable",
+      "gtmType": "aev",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "115",
+      "name": "HURDLERS - GA4 Affiliation",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "hurdlers_ga4.affiliation"
+      ]
+    },
+    {
+      "id": "142",
+      "name": "HURDLERS - GA4 pay_type",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "hurdlers_ga4.pay_type"
+      ]
+    },
+    {
+      "id": "126",
+      "name": "HURDLERS - GA4 shipping",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "hurdlers_ga4.shipping"
+      ]
+    },
+    {
+      "id": "121",
+      "name": "HURDLERS - GA4 Transaction_id",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "hurdlers_ga4.transaction_id"
+      ]
+    },
+    {
+      "id": "125",
+      "name": "HURDLERS - GA4 Value",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "hurdlers_ga4.value"
+      ]
+    },
+    {
+      "id": "122",
+      "name": "HURDLERS - GA4 상품정보",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "hurdlers_ga4.items"
+      ]
+    },
+    {
+      "id": "107",
+      "name": "HURDLERS - GA4 아이디",
+      "entityType": "variable",
+      "gtmType": "c",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "129",
+      "name": "HURDLERS - Iframe",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "113",
+      "name": "HURDLERS - 네이버페이 구매 아이디",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "108",
+      "name": "HURDLERS - 브랜드명",
+      "entityType": "variable",
+      "gtmType": "c",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "148",
+      "name": "HURDLERS - 카카오페이 구매 아이디",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "172",
+      "name": "JS - Imweb Data Layer",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "__bs_imweb"
+      ]
+    },
+    {
+      "id": "250",
+      "name": "JS - Purchase Transaction ID (fallback chain)",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "order_payment_candidate",
+      "riskClass": "order_payment_hash_only",
+      "recommendation": "design_hash_only",
+      "notes": [
+        "Path B 설계 후보",
+        "raw order/payment/value 저장 없이 HMAC hash만 허용 후보"
+      ],
+      "readsOrMentions": [
+        "order_no"
+      ]
+    },
+    {
+      "id": "174",
+      "name": "memberCode",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "memberCode",
+        "member_code"
+      ]
+    },
+    {
+      "id": "195",
+      "name": "phone_buy",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "phone_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "[name='ordererCall']",
+        "phone_buy"
+      ]
+    },
+    {
+      "id": "194",
+      "name": "phone_reg",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "phone_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "#join_callnum",
+        "phone_reg"
+      ]
+    },
+    {
+      "id": "192",
+      "name": "Retous - [맞춤] memberCode",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "memberCode"
+      ]
+    },
+    {
+      "id": "189",
+      "name": "Retous - [맞춤] utmCampaign",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous"
+      ]
+    },
+    {
+      "id": "190",
+      "name": "Retous - [맞춤] utmContent",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous"
+      ]
+    },
+    {
+      "id": "188",
+      "name": "Retous - [맞춤] utmMedium",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous"
+      ]
+    },
+    {
+      "id": "187",
+      "name": "Retous - [맞춤] utmSource",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous"
+      ]
+    },
+    {
+      "id": "191",
+      "name": "Retous - [맞춤] utmTerm",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous"
+      ]
+    },
+    {
+      "id": "209",
+      "name": "RETOUS - [변수] member_code",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "RETOUS",
+        "member_code"
+      ]
+    },
+    {
+      "id": "181",
+      "name": "Retous - [변수] memberCode",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "member_code_candidate",
+      "riskClass": "path_c_candidate_currently_empty",
+      "recommendation": "path_c_hold",
+      "notes": [
+        "Path C 기본 방향은 유지",
+        "2026-05-08 GTM/Tag Assistant/source discovery 기준 현재 값 없음"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.member_code",
+        "memberCode",
+        "member_code"
+      ]
+    },
+    {
+      "id": "175",
+      "name": "RETOUS - [변수] utm_campaign",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_campaign"
+      ]
+    },
+    {
+      "id": "207",
+      "name": "RETOUS - [변수] utm_content",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_content"
+      ]
+    },
+    {
+      "id": "176",
+      "name": "RETOUS - [변수] utm_medium",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_medium"
+      ]
+    },
+    {
+      "id": "177",
+      "name": "RETOUS - [변수] utm_source",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_source"
+      ]
+    },
+    {
+      "id": "208",
+      "name": "RETOUS - [변수] utm_term",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_term"
+      ]
+    },
+    {
+      "id": "184",
+      "name": "Retous - [변수] utmCampaign",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_campaign"
+      ]
+    },
+    {
+      "id": "185",
+      "name": "Retous - [변수] utmContent",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_content"
+      ]
+    },
+    {
+      "id": "183",
+      "name": "Retous - [변수] utmMedium",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_medium"
+      ]
+    },
+    {
+      "id": "182",
+      "name": "Retous - [변수] utmSource",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_source"
+      ]
+    },
+    {
+      "id": "186",
+      "name": "Retous - [변수] utmTerm",
+      "entityType": "variable",
+      "gtmType": "v",
+      "kind": "imweb_retous_storage",
+      "riskClass": "session_only_keep",
+      "recommendation": "keep_readonly",
+      "notes": [
+        "현재 관측 구조는 device/session/UTM 중심",
+        "pause/delete 없이 source 후보 여부만 관찰"
+      ],
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_term"
+      ]
+    },
+    {
+      "id": "202",
+      "name": "UPDE_buy_em_pn",
+      "entityType": "variable",
+      "gtmType": "awec",
+      "kind": "email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "UPDE_buy_em_pn",
+        "email_buy",
+        "phone_buy"
+      ]
+    },
+    {
+      "id": "197",
+      "name": "UPDE_reg_em_pn",
+      "entityType": "variable",
+      "gtmType": "awec",
+      "kind": "email_like",
+      "riskClass": "raw_pii_prohibited",
+      "recommendation": "do_not_use_raw",
+      "notes": [
+        "원문 저장/로그/전송 금지",
+        "HMAC hash fallback은 개인정보/Yellow 승인 후보로만 검토"
+      ],
+      "readsOrMentions": [
+        "UPDE_reg_em_pn",
+        "email_reg",
+        "phone_reg"
+      ]
+    },
+    {
+      "id": "33",
+      "name": "USER_TIME",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "other",
+      "riskClass": "unknown_review",
+      "recommendation": "review_before_change",
+      "notes": [
+        "이번 변경에서 pause/delete 금지"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "34",
+      "name": "UTM_CAMPAIGN",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "session_tracking",
+      "riskClass": "unknown_review",
+      "recommendation": "review_before_change",
+      "notes": [
+        "이번 변경에서 pause/delete 금지"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "31",
+      "name": "UTM_CONTENT",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "session_tracking",
+      "riskClass": "unknown_review",
+      "recommendation": "review_before_change",
+      "notes": [
+        "이번 변경에서 pause/delete 금지"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "35",
+      "name": "UTM_MEDIUM",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "session_tracking",
+      "riskClass": "unknown_review",
+      "recommendation": "review_before_change",
+      "notes": [
+        "이번 변경에서 pause/delete 금지"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "30",
+      "name": "UTM_SOURCE",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "session_tracking",
+      "riskClass": "unknown_review",
+      "recommendation": "review_before_change",
+      "notes": [
+        "이번 변경에서 pause/delete 금지"
+      ],
+      "readsOrMentions": []
+    },
+    {
+      "id": "36",
+      "name": "UTM_TERM_USER_QUERY",
+      "entityType": "variable",
+      "gtmType": "jsm",
+      "kind": "session_tracking",
+      "riskClass": "unknown_review",
+      "recommendation": "review_before_change",
+      "notes": [
+        "이번 변경에서 pause/delete 금지"
+      ],
+      "readsOrMentions": []
+    }
+  ]
+}

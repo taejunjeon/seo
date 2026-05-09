@@ -1,0 +1,1029 @@
+{
+  "generatedAt": "2026-05-08T10:04:39.041Z",
+  "generatedAtKst": "2026-05-08 19:04:39 KST",
+  "updatedAtKst": "2026-05-08 20:06:25 KST",
+  "runId": "20260508T100409Z",
+  "mode": "gtm_preview_only_no_submit_no_publish",
+  "verdict": "hold_no_client_member_code_source_found",
+  "humanConclusion": "비로그인 공개 페이지 기준 GTM Preview와 payload safety는 통과했다. TJ님 로그인 NPay 클릭의 200/201/203 이벤트와 GTM/API/공개 페이지 source 재탐색에서도 usable client-side member_code source는 발견되지 않았다. 이메일형 user_id는 Path C에 사용할 수 없다. 따라서 wrapper Production publish와 backend deploy는 HOLD이고, 다음은 controlled Imweb/body source test 또는 server/order bridge 설계다.",
+  "confidence": 0.9,
+  "manualFollowUp": {
+    "checkedAtKst": "2026-05-08 19:21 KST",
+    "source": "TJ Tag Assistant screenshots",
+    "loginNpayClickObserved": true,
+    "paymentCompleted": false,
+    "npayCheckoutPageReached": true,
+    "tagAssistantVariableEventsChecked": [
+      "200 gtm.linkClick",
+      "201 h_add_payment_info",
+      "203 conversion"
+    ],
+    "usableMemberCodeSourceFound": false,
+    "memberCodeCandidateValues": {
+      "memberCode": "empty_or_undefined",
+      "Retous - [변수] memberCode": "empty_or_undefined",
+      "RETOUS - [변수] member_code": "empty_or_undefined",
+      "Retous - [맞춤] memberCode": "empty_or_undefined",
+      "JS - Imweb Data Layer": "object_present_without_memberCode_in_shared_structure"
+    },
+    "excludedSourceObserved": {
+      "HURDLERS - [맞춤 JS] user_id": "email_like_value_present_redacted_do_not_use"
+    },
+    "existingTagsFiredAfterNpayClick": [
+      "TechSol - [GAds]NPAY구매 51163",
+      "HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)",
+      "HURDLERS - [이벤트전송] 네이버페이 구매",
+      "GA4_구매전환_Npay",
+      "채널톡_구매전환"
+    ],
+    "pathCTagObserved": false,
+    "interpretation": "기존 NPay 클릭/결제시작 태그 발화는 확인됐지만 current GTM variables do not expose a usable member_code source on 200/201/203. 추가 source discovery에서도 현재 client-side member_code source는 발견되지 않았다."
+  },
+  "sourceDiscovery": {
+    "checkedAtKst": "2026-05-08 20:06:25 KST",
+    "verdict": "hold_no_client_member_code_source_found",
+    "source": "GTM Default Workspace read-only + public page storage/global probe + TJ Tag Assistant 200/201/203 evidence",
+    "resultFile": "gdn/path-c-member-code-source-discovery-20260508.md",
+    "usableClientSideMemberCodeSourceFound": false,
+    "candidateSourcesChecked": [
+      "dataLayer.member_code",
+      "dataLayer.hurdlers_ga4.member_code",
+      "localStorage.__bs_imweb.memberCode",
+      "sessionStorage.__bs_imweb_session.memberCode",
+      "window.imweb.user.member_code",
+      "window.IMWEB_MEMBER_CODE",
+      "window.hurdlers_member_code",
+      "window.hurdlers_ga4.member_code",
+      "window.MEMBER_UID",
+      "window.MEMBER_HASH",
+      "window.SITE_MEMBER.member_code",
+      "window.SITE_MEMBER.memberUid"
+    ],
+    "safeDecision": "Do not publish current wrapper. Do not use email/phone/user_id bridge."
+  },
+  "gtmVariableReadOnlyEvidence": {
+    "checkedAtKst": "2026-05-08 19:23:58 KST",
+    "workspace": {
+      "id": "147",
+      "name": "Default Workspace"
+    },
+    "candidateVariables": [
+      {
+        "name": "memberCode",
+        "type": "v",
+        "reads": "member_code"
+      },
+      {
+        "name": "Retous - [변수] memberCode",
+        "type": "v",
+        "reads": "hurdlers_ga4.member_code"
+      },
+      {
+        "name": "RETOUS - [변수] member_code",
+        "type": "v",
+        "reads": "member_code"
+      },
+      {
+        "name": "Retous - [맞춤] memberCode",
+        "type": "jsm",
+        "reads": "localStorage.__bs_imweb.memberCode"
+      }
+    ],
+    "excludedVariables": [
+      {
+        "name": "phone_buy",
+        "reason": "PII source"
+      },
+      {
+        "name": "email_buy",
+        "reason": "PII source"
+      },
+      {
+        "name": "HURDLERS - [맞춤 JS] user_id",
+        "reason": "may read email-like user text"
+      }
+    ]
+  },
+  "receiverUrl": "https://att.ainativeos.net/api/attribution/paid-click-intent/no-send",
+  "testClickId": "TEST_GCLID_PATHC_PREVIEW_20260508",
+  "noSendVerified": true,
+  "noDeployVerified": true,
+  "noPublishVerified": true,
+  "noPlatformSendVerified": true,
+  "container": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "publicId": "GTM-W2Z6PHN",
+    "liveVersion": {
+      "id": "142",
+      "name": "paid_click_intent_v1_receiver_20260506T150218Z"
+    }
+  },
+  "workspace": {
+    "workspaceId": "162",
+    "name": "codex_path_c_member_code_preview_20260508T100409Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/162"
+  },
+  "tag": {
+    "tagId": "287",
+    "name": "PathC_member_code_hash_preview_no_send_20260508T100409Z",
+    "firingTriggerId": [
+      "286"
+    ]
+  },
+  "trigger": {
+    "triggerId": "286",
+    "name": "PathC_member_code_preview_all_pages_20260508T100409Z",
+    "type": "pageview"
+  },
+  "quickPreview": {
+    "compilerError": null,
+    "syncStatus": null,
+    "containerVersionId": "0",
+    "containerVersionName": null
+  },
+  "environment": {
+    "environmentId": "288",
+    "workspaceId": "162",
+    "type": "workspace",
+    "name": "Preview Environment 162 2026-05-08 030416",
+    "authorizationCodePresent": true
+  },
+  "cleanup": [
+    "deleted workspace 162"
+  ],
+  "cleanupVerification": {
+    "checkedAtKst": "2026-05-08 19:05 KST",
+    "workspaceCountAfterCleanup": 1,
+    "previewWorkspaceStillPresent": false,
+    "remainingWorkspaces": [
+      {
+        "id": "147",
+        "name": "Default Workspace",
+        "path": "accounts/4703003246/containers/13158774/workspaces/147"
+      }
+    ]
+  },
+  "overall": {
+    "allPagesLoaded": true,
+    "allReceiverReached": true,
+    "allPayloadsUseTestClickId": true,
+    "anyRawMemberCodeKeyInPayload": false,
+    "anyForbiddenKeyInPayload": false,
+    "ledgerStoredAny": false,
+    "anyMemberCodeHashPresent": false,
+    "anySourcePresent": false,
+    "anonymousSourceEmptyAll": true
+  },
+  "results": [
+    {
+      "kind": "anonymous_product_healthfood_386",
+      "loginState": "anonymous",
+      "url": "https://biocom.kr/HealthFood/?idx=386",
+      "previewUrl": "https://biocom.kr/HealthFood/?idx=386&gtm_auth=REDACTED&gtm_preview=env-288&gtm_debug=x",
+      "pageLoaded": true,
+      "sourcePresent": false,
+      "sourceCandidatesPresent": [],
+      "payloadCount": 3,
+      "payloadStages": [
+        "page_view",
+        "checkout_start",
+        "npay_intent"
+      ],
+      "allPayloadsUseTestClickId": true,
+      "anyRawMemberCodeKeyInPayload": false,
+      "anyForbiddenKeyInPayload": false,
+      "anyMemberCodeHashPresent": false,
+      "receiverReached": true,
+      "receiverStatuses": [
+        200,
+        200,
+        200
+      ],
+      "receiverOkAll": true,
+      "receiverTestClickIdAll": true,
+      "receiverWouldSendFalseAll": true,
+      "receiverPlatformSendFalseAll": true,
+      "ledgerStoredAny": false,
+      "nodeReceiverStatuses": [
+        200,
+        200,
+        200
+      ],
+      "nodeReceiverOkAll": true,
+      "nodeLedgerStoredAny": false,
+      "consoleMarkers": [
+        "[path_c_member_code_preview] installed path_c_member_code_preview_20260508T100409Z",
+        "[path_c_member_code_preview] receiver response page_view 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]",
+        "[path_c_member_code_preview] receiver response checkout_start 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]",
+        "[path_c_member_code_preview] receiver response npay_intent 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]"
+      ],
+      "networkErrors": [],
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=env-288&gtm_debug=x",
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=2139738743&gtm=45He6562h1v813158774za200zd813158774&seq=1&exp=0%7E115616985%7E115938466%7E115938468%7E118463261&dl=biocom.kr%2FHealthFood%2F&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=103&hlo=15&lst=1&bt=0&ct=3&jsp=1&mde=G-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=env-288&gtm_debug=x"
+      ],
+      "pageState": {
+        "href": "https://biocom.kr/HealthFood/?idx=386&gtm_auth=REDACTED&gtm_preview=env-288&gtm_debug=x",
+        "installed": "path_c_member_code_preview_20260508T100409Z",
+        "sourceProbe": {
+          "source_present": false,
+          "source_candidates_present": []
+        },
+        "payloads": [
+          {
+            "site": "biocom",
+            "event_name": "PathCMemberCodePreview",
+            "capture_stage": "page_view",
+            "captured_at": "2026-05-08T10:04:21.319Z",
+            "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+            "member_code_hash": "",
+            "member_code_source_present": false,
+            "stage_context": "page_context_only_preview",
+            "landing_url": "https://biocom.kr/HealthFood/",
+            "current_url": "https://biocom.kr/HealthFood/",
+            "event_id": "PathCMemberCodePreview_page_view_1778234661319"
+          },
+          {
+            "site": "biocom",
+            "event_name": "PathCMemberCodePreview",
+            "capture_stage": "checkout_start",
+            "captured_at": "2026-05-08T10:04:21.604Z",
+            "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+            "member_code_hash": "",
+            "member_code_source_present": false,
+            "stage_context": "page_context_only_preview",
+            "landing_url": "https://biocom.kr/HealthFood/",
+            "current_url": "https://biocom.kr/HealthFood/",
+            "event_id": "PathCMemberCodePreview_checkout_start_1778234661604"
+          },
+          {
+            "site": "biocom",
+            "event_name": "PathCMemberCodePreview",
+            "capture_stage": "npay_intent",
+            "captured_at": "2026-05-08T10:04:21.710Z",
+            "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+            "member_code_hash": "",
+            "member_code_source_present": false,
+            "stage_context": "page_context_only_preview",
+            "landing_url": "https://biocom.kr/HealthFood/",
+            "current_url": "https://biocom.kr/HealthFood/",
+            "event_id": "PathCMemberCodePreview_npay_intent_1778234661710"
+          }
+        ],
+        "responses": [
+          {
+            "status": 200,
+            "ok": true,
+            "stage": "page_view",
+            "body": {
+              "ok": true,
+              "dryRun": true,
+              "dry_run": true,
+              "wouldStore": false,
+              "would_store": false,
+              "wouldSend": false,
+              "would_send": false,
+              "noSendVerified": true,
+              "no_send_verified": true,
+              "noWriteVerified": true,
+              "no_write_verified": true,
+              "noDeployVerified": true,
+              "no_deploy_verified": true,
+              "noPublishVerified": true,
+              "no_publish_verified": true,
+              "noPlatformSendVerified": true,
+              "no_platform_send_verified": true,
+              "receiver": "paid_click_intent_no_send",
+              "guard": {
+                "guard_status": "blocked",
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "no_send_verified": true,
+                "no_write_verified": true,
+                "no_deploy_verified": true,
+                "no_publish_verified": true,
+                "no_platform_send_verified": true,
+                "checked_at": "2026-05-08T10:04:21.552Z",
+                "source": "paid_click_intent_no_send",
+                "confidence": 0.9
+              },
+              "preview": {
+                "site": "biocom",
+                "event_name": "PathCMemberCodePreview",
+                "capture_stage": "page_view",
+                "event_id": "PathCMemberCodePreview_page_view_1778234661319",
+                "storage_key": "bi_paid_click_intent_v1",
+                "captured_at": "2026-05-08T10:04:21.319Z",
+                "dedupe_key": "paid_click_intent:biocom:missing_session:page_view:TEST_GCLID_PATHC_PREVIEW_20260508",
+                "has_google_click_id": true,
+                "test_click_id": true,
+                "live_candidate_after_approval": false,
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "would_store": false,
+                "would_send": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "click_ids": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "click_identifiers": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "utm": {
+                  "source": "",
+                  "medium": "",
+                  "campaign": "",
+                  "term": "",
+                  "content": ""
+                },
+                "client_id": "",
+                "ga_session_id": "",
+                "local_session_id": "",
+                "sanitized_landing_url": "https://biocom.kr/HealthFood/",
+                "sanitized_current_url": "https://biocom.kr/HealthFood/",
+                "sanitized_referrer": ""
+              },
+              "source": {
+                "mode": "no_write_no_send_preview",
+                "receivedAt": "2026-05-08T10:04:21.552Z",
+                "write_flag_on": true
+              },
+              "warnings": [
+                "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+                "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+                "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다.",
+                "minimal_ledger_canary write가 활성화됐다. site=biocom click id 보존용 최소 row만 저장하며 외부 플랫폼 전송은 0건이다."
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "ok": true,
+            "stage": "checkout_start",
+            "body": {
+              "ok": true,
+              "dryRun": true,
+              "dry_run": true,
+              "wouldStore": false,
+              "would_store": false,
+              "wouldSend": false,
+              "would_send": false,
+              "noSendVerified": true,
+              "no_send_verified": true,
+              "noWriteVerified": true,
+              "no_write_verified": true,
+              "noDeployVerified": true,
+              "no_deploy_verified": true,
+              "noPublishVerified": true,
+              "no_publish_verified": true,
+              "noPlatformSendVerified": true,
+              "no_platform_send_verified": true,
+              "receiver": "paid_click_intent_no_send",
+              "guard": {
+                "guard_status": "blocked",
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "no_send_verified": true,
+                "no_write_verified": true,
+                "no_deploy_verified": true,
+                "no_publish_verified": true,
+                "no_platform_send_verified": true,
+                "checked_at": "2026-05-08T10:04:21.653Z",
+                "source": "paid_click_intent_no_send",
+                "confidence": 0.9
+              },
+              "preview": {
+                "site": "biocom",
+                "event_name": "PathCMemberCodePreview",
+                "capture_stage": "checkout_start",
+                "event_id": "PathCMemberCodePreview_checkout_start_1778234661604",
+                "storage_key": "bi_paid_click_intent_v1",
+                "captured_at": "2026-05-08T10:04:21.604Z",
+                "dedupe_key": "paid_click_intent:biocom:missing_session:checkout_start:TEST_GCLID_PATHC_PREVIEW_20260508",
+                "has_google_click_id": true,
+                "test_click_id": true,
+                "live_candidate_after_approval": false,
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "would_store": false,
+                "would_send": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "click_ids": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "click_identifiers": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "utm": {
+                  "source": "",
+                  "medium": "",
+                  "campaign": "",
+                  "term": "",
+                  "content": ""
+                },
+                "client_id": "",
+                "ga_session_id": "",
+                "local_session_id": "",
+                "sanitized_landing_url": "https://biocom.kr/HealthFood/",
+                "sanitized_current_url": "https://biocom.kr/HealthFood/",
+                "sanitized_referrer": ""
+              },
+              "source": {
+                "mode": "no_write_no_send_preview",
+                "receivedAt": "2026-05-08T10:04:21.653Z",
+                "write_flag_on": true
+              },
+              "warnings": [
+                "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+                "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+                "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다.",
+                "minimal_ledger_canary write가 활성화됐다. site=biocom click id 보존용 최소 row만 저장하며 외부 플랫폼 전송은 0건이다."
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "ok": true,
+            "stage": "npay_intent",
+            "body": {
+              "ok": true,
+              "dryRun": true,
+              "dry_run": true,
+              "wouldStore": false,
+              "would_store": false,
+              "wouldSend": false,
+              "would_send": false,
+              "noSendVerified": true,
+              "no_send_verified": true,
+              "noWriteVerified": true,
+              "no_write_verified": true,
+              "noDeployVerified": true,
+              "no_deploy_verified": true,
+              "noPublishVerified": true,
+              "no_publish_verified": true,
+              "noPlatformSendVerified": true,
+              "no_platform_send_verified": true,
+              "receiver": "paid_click_intent_no_send",
+              "guard": {
+                "guard_status": "blocked",
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "no_send_verified": true,
+                "no_write_verified": true,
+                "no_deploy_verified": true,
+                "no_publish_verified": true,
+                "no_platform_send_verified": true,
+                "checked_at": "2026-05-08T10:04:21.903Z",
+                "source": "paid_click_intent_no_send",
+                "confidence": 0.9
+              },
+              "preview": {
+                "site": "biocom",
+                "event_name": "PathCMemberCodePreview",
+                "capture_stage": "npay_intent",
+                "event_id": "PathCMemberCodePreview_npay_intent_1778234661710",
+                "storage_key": "bi_paid_click_intent_v1",
+                "captured_at": "2026-05-08T10:04:21.710Z",
+                "dedupe_key": "paid_click_intent:biocom:missing_session:npay_intent:TEST_GCLID_PATHC_PREVIEW_20260508",
+                "has_google_click_id": true,
+                "test_click_id": true,
+                "live_candidate_after_approval": false,
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "would_store": false,
+                "would_send": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "click_ids": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "click_identifiers": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "utm": {
+                  "source": "",
+                  "medium": "",
+                  "campaign": "",
+                  "term": "",
+                  "content": ""
+                },
+                "client_id": "",
+                "ga_session_id": "",
+                "local_session_id": "",
+                "sanitized_landing_url": "https://biocom.kr/HealthFood/",
+                "sanitized_current_url": "https://biocom.kr/HealthFood/",
+                "sanitized_referrer": ""
+              },
+              "source": {
+                "mode": "no_write_no_send_preview",
+                "receivedAt": "2026-05-08T10:04:21.903Z",
+                "write_flag_on": true
+              },
+              "warnings": [
+                "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+                "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+                "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다.",
+                "minimal_ledger_canary write가 활성화됐다. site=biocom click id 보존용 최소 row만 저장하며 외부 플랫폼 전송은 0건이다."
+              ]
+            }
+          }
+        ],
+        "errors": [],
+        "gtmLoaded": true,
+        "imwebUserKeys": [],
+        "hurdlersKeys": [
+          "product_code",
+          "product_id",
+          "product_name",
+          "product_price",
+          "product_discount"
+        ]
+      },
+      "screenshotPath": "/Users/vibetj/coding/seo/data/path-c-wrapper-preview-screenshots/path-c-wrapper-preview-20260508T100409Z-anonymous_product_healthfood_386.png"
+    },
+    {
+      "kind": "anonymous_product_dietmealbox_423",
+      "loginState": "anonymous",
+      "url": "https://biocom.kr/DietMealBox/?idx=423",
+      "previewUrl": "https://biocom.kr/DietMealBox/?idx=423&gtm_auth=REDACTED&gtm_preview=env-288&gtm_debug=x",
+      "pageLoaded": true,
+      "sourcePresent": false,
+      "sourceCandidatesPresent": [],
+      "payloadCount": 3,
+      "payloadStages": [
+        "page_view",
+        "checkout_start",
+        "npay_intent"
+      ],
+      "allPayloadsUseTestClickId": true,
+      "anyRawMemberCodeKeyInPayload": false,
+      "anyForbiddenKeyInPayload": false,
+      "anyMemberCodeHashPresent": false,
+      "receiverReached": true,
+      "receiverStatuses": [
+        200,
+        200,
+        200
+      ],
+      "receiverOkAll": true,
+      "receiverTestClickIdAll": true,
+      "receiverWouldSendFalseAll": true,
+      "receiverPlatformSendFalseAll": true,
+      "ledgerStoredAny": false,
+      "nodeReceiverStatuses": [
+        200,
+        200,
+        200
+      ],
+      "nodeReceiverOkAll": true,
+      "nodeLedgerStoredAny": false,
+      "consoleMarkers": [
+        "[path_c_member_code_preview] installed path_c_member_code_preview_20260508T100409Z",
+        "[path_c_member_code_preview] receiver response page_view 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]",
+        "[path_c_member_code_preview] receiver response checkout_start 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]",
+        "[path_c_member_code_preview] receiver response npay_intent 200 [read_only_phase, approval_required, test_click_id_rejected_for_live]"
+      ],
+      "networkErrors": [],
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=env-288&gtm_debug=x",
+        "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=1044529482&gtm=45He6562v813158774za200zd813158774&seq=1&exp=0%7E115938465%7E115938468%7E118463261%7E118689381&dl=biocom.kr%2FDietMealBox%2F&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=103&hlo=14&lst=1&bt=0&ct=3&jsp=1&mde=AW-304339096%3B0_1%7EG-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=env-288&gtm_debug=x"
+      ],
+      "pageState": {
+        "href": "https://biocom.kr/DietMealBox/?idx=423&gtm_auth=REDACTED&gtm_preview=env-288&gtm_debug=x",
+        "installed": "path_c_member_code_preview_20260508T100409Z",
+        "sourceProbe": {
+          "source_present": false,
+          "source_candidates_present": []
+        },
+        "payloads": [
+          {
+            "site": "biocom",
+            "event_name": "PathCMemberCodePreview",
+            "capture_stage": "page_view",
+            "captured_at": "2026-05-08T10:04:30.193Z",
+            "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+            "member_code_hash": "",
+            "member_code_source_present": false,
+            "stage_context": "page_context_only_preview",
+            "landing_url": "https://biocom.kr/DietMealBox/",
+            "current_url": "https://biocom.kr/DietMealBox/",
+            "event_id": "PathCMemberCodePreview_page_view_1778234670193"
+          },
+          {
+            "site": "biocom",
+            "event_name": "PathCMemberCodePreview",
+            "capture_stage": "checkout_start",
+            "captured_at": "2026-05-08T10:04:30.430Z",
+            "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+            "member_code_hash": "",
+            "member_code_source_present": false,
+            "stage_context": "page_context_only_preview",
+            "landing_url": "https://biocom.kr/DietMealBox/",
+            "current_url": "https://biocom.kr/DietMealBox/",
+            "event_id": "PathCMemberCodePreview_checkout_start_1778234670430"
+          },
+          {
+            "site": "biocom",
+            "event_name": "PathCMemberCodePreview",
+            "capture_stage": "npay_intent",
+            "captured_at": "2026-05-08T10:04:30.537Z",
+            "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+            "member_code_hash": "",
+            "member_code_source_present": false,
+            "stage_context": "page_context_only_preview",
+            "landing_url": "https://biocom.kr/DietMealBox/",
+            "current_url": "https://biocom.kr/DietMealBox/",
+            "event_id": "PathCMemberCodePreview_npay_intent_1778234670537"
+          }
+        ],
+        "responses": [
+          {
+            "status": 200,
+            "ok": true,
+            "stage": "page_view",
+            "body": {
+              "ok": true,
+              "dryRun": true,
+              "dry_run": true,
+              "wouldStore": false,
+              "would_store": false,
+              "wouldSend": false,
+              "would_send": false,
+              "noSendVerified": true,
+              "no_send_verified": true,
+              "noWriteVerified": true,
+              "no_write_verified": true,
+              "noDeployVerified": true,
+              "no_deploy_verified": true,
+              "noPublishVerified": true,
+              "no_publish_verified": true,
+              "noPlatformSendVerified": true,
+              "no_platform_send_verified": true,
+              "receiver": "paid_click_intent_no_send",
+              "guard": {
+                "guard_status": "blocked",
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "no_send_verified": true,
+                "no_write_verified": true,
+                "no_deploy_verified": true,
+                "no_publish_verified": true,
+                "no_platform_send_verified": true,
+                "checked_at": "2026-05-08T10:04:30.366Z",
+                "source": "paid_click_intent_no_send",
+                "confidence": 0.9
+              },
+              "preview": {
+                "site": "biocom",
+                "event_name": "PathCMemberCodePreview",
+                "capture_stage": "page_view",
+                "event_id": "PathCMemberCodePreview_page_view_1778234670193",
+                "storage_key": "bi_paid_click_intent_v1",
+                "captured_at": "2026-05-08T10:04:30.193Z",
+                "dedupe_key": "paid_click_intent:biocom:missing_session:page_view:TEST_GCLID_PATHC_PREVIEW_20260508",
+                "has_google_click_id": true,
+                "test_click_id": true,
+                "live_candidate_after_approval": false,
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "would_store": false,
+                "would_send": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "click_ids": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "click_identifiers": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "utm": {
+                  "source": "",
+                  "medium": "",
+                  "campaign": "",
+                  "term": "",
+                  "content": ""
+                },
+                "client_id": "",
+                "ga_session_id": "",
+                "local_session_id": "",
+                "sanitized_landing_url": "https://biocom.kr/DietMealBox/",
+                "sanitized_current_url": "https://biocom.kr/DietMealBox/",
+                "sanitized_referrer": ""
+              },
+              "source": {
+                "mode": "no_write_no_send_preview",
+                "receivedAt": "2026-05-08T10:04:30.366Z",
+                "write_flag_on": true
+              },
+              "warnings": [
+                "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+                "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+                "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다.",
+                "minimal_ledger_canary write가 활성화됐다. site=biocom click id 보존용 최소 row만 저장하며 외부 플랫폼 전송은 0건이다."
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "ok": true,
+            "stage": "checkout_start",
+            "body": {
+              "ok": true,
+              "dryRun": true,
+              "dry_run": true,
+              "wouldStore": false,
+              "would_store": false,
+              "wouldSend": false,
+              "would_send": false,
+              "noSendVerified": true,
+              "no_send_verified": true,
+              "noWriteVerified": true,
+              "no_write_verified": true,
+              "noDeployVerified": true,
+              "no_deploy_verified": true,
+              "noPublishVerified": true,
+              "no_publish_verified": true,
+              "noPlatformSendVerified": true,
+              "no_platform_send_verified": true,
+              "receiver": "paid_click_intent_no_send",
+              "guard": {
+                "guard_status": "blocked",
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "no_send_verified": true,
+                "no_write_verified": true,
+                "no_deploy_verified": true,
+                "no_publish_verified": true,
+                "no_platform_send_verified": true,
+                "checked_at": "2026-05-08T10:04:30.486Z",
+                "source": "paid_click_intent_no_send",
+                "confidence": 0.9
+              },
+              "preview": {
+                "site": "biocom",
+                "event_name": "PathCMemberCodePreview",
+                "capture_stage": "checkout_start",
+                "event_id": "PathCMemberCodePreview_checkout_start_1778234670430",
+                "storage_key": "bi_paid_click_intent_v1",
+                "captured_at": "2026-05-08T10:04:30.430Z",
+                "dedupe_key": "paid_click_intent:biocom:missing_session:checkout_start:TEST_GCLID_PATHC_PREVIEW_20260508",
+                "has_google_click_id": true,
+                "test_click_id": true,
+                "live_candidate_after_approval": false,
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "would_store": false,
+                "would_send": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "click_ids": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "click_identifiers": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "utm": {
+                  "source": "",
+                  "medium": "",
+                  "campaign": "",
+                  "term": "",
+                  "content": ""
+                },
+                "client_id": "",
+                "ga_session_id": "",
+                "local_session_id": "",
+                "sanitized_landing_url": "https://biocom.kr/DietMealBox/",
+                "sanitized_current_url": "https://biocom.kr/DietMealBox/",
+                "sanitized_referrer": ""
+              },
+              "source": {
+                "mode": "no_write_no_send_preview",
+                "receivedAt": "2026-05-08T10:04:30.486Z",
+                "write_flag_on": true
+              },
+              "warnings": [
+                "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+                "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+                "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다.",
+                "minimal_ledger_canary write가 활성화됐다. site=biocom click id 보존용 최소 row만 저장하며 외부 플랫폼 전송은 0건이다."
+              ]
+            }
+          },
+          {
+            "status": 200,
+            "ok": true,
+            "stage": "npay_intent",
+            "body": {
+              "ok": true,
+              "dryRun": true,
+              "dry_run": true,
+              "wouldStore": false,
+              "would_store": false,
+              "wouldSend": false,
+              "would_send": false,
+              "noSendVerified": true,
+              "no_send_verified": true,
+              "noWriteVerified": true,
+              "no_write_verified": true,
+              "noDeployVerified": true,
+              "no_deploy_verified": true,
+              "noPublishVerified": true,
+              "no_publish_verified": true,
+              "noPlatformSendVerified": true,
+              "no_platform_send_verified": true,
+              "receiver": "paid_click_intent_no_send",
+              "guard": {
+                "guard_status": "blocked",
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "no_send_verified": true,
+                "no_write_verified": true,
+                "no_deploy_verified": true,
+                "no_publish_verified": true,
+                "no_platform_send_verified": true,
+                "checked_at": "2026-05-08T10:04:30.671Z",
+                "source": "paid_click_intent_no_send",
+                "confidence": 0.9
+              },
+              "preview": {
+                "site": "biocom",
+                "event_name": "PathCMemberCodePreview",
+                "capture_stage": "npay_intent",
+                "event_id": "PathCMemberCodePreview_npay_intent_1778234670537",
+                "storage_key": "bi_paid_click_intent_v1",
+                "captured_at": "2026-05-08T10:04:30.537Z",
+                "dedupe_key": "paid_click_intent:biocom:missing_session:npay_intent:TEST_GCLID_PATHC_PREVIEW_20260508",
+                "has_google_click_id": true,
+                "test_click_id": true,
+                "live_candidate_after_approval": false,
+                "send_candidate": false,
+                "actual_send_candidate": false,
+                "would_store": false,
+                "would_send": false,
+                "block_reasons": [
+                  "read_only_phase",
+                  "approval_required",
+                  "test_click_id_rejected_for_live"
+                ],
+                "legacy_block_reasons": [],
+                "click_ids": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "click_identifiers": {
+                  "gclid": "TEST_GCLID_PATHC_PREVIEW_20260508",
+                  "gbraid": "",
+                  "wbraid": "",
+                  "fbclid": "",
+                  "ttclid": ""
+                },
+                "utm": {
+                  "source": "",
+                  "medium": "",
+                  "campaign": "",
+                  "term": "",
+                  "content": ""
+                },
+                "client_id": "",
+                "ga_session_id": "",
+                "local_session_id": "",
+                "sanitized_landing_url": "https://biocom.kr/DietMealBox/",
+                "sanitized_current_url": "https://biocom.kr/DietMealBox/",
+                "sanitized_referrer": ""
+              },
+              "source": {
+                "mode": "no_write_no_send_preview",
+                "receivedAt": "2026-05-08T10:04:30.671Z",
+                "write_flag_on": true
+              },
+              "warnings": [
+                "이 endpoint는 purchase 후보가 아니라 Google click id 보존 Preview 전용이다.",
+                "TEST_/DEBUG_/PREVIEW_ click id는 Preview 확인용으로만 허용되고 live 후보에서는 항상 차단된다.",
+                "confirmed_purchase/no-send는 실제 결제완료 주문만 받도록 계속 분리한다.",
+                "minimal_ledger_canary write가 활성화됐다. site=biocom click id 보존용 최소 row만 저장하며 외부 플랫폼 전송은 0건이다."
+              ]
+            }
+          }
+        ],
+        "errors": [],
+        "gtmLoaded": true,
+        "imwebUserKeys": [],
+        "hurdlersKeys": [
+          "product_code",
+          "product_id",
+          "product_name",
+          "product_price",
+          "product_discount"
+        ]
+      },
+      "screenshotPath": "/Users/vibetj/coding/seo/data/path-c-wrapper-preview-screenshots/path-c-wrapper-preview-20260508T100409Z-anonymous_product_dietmealbox_423.png"
+    }
+  ],
+  "nextActions": [
+    "로그인 사용자 세션으로 GTM Preview를 다시 실행한다.",
+    "checkout_start / npay_intent 실제 단계에서 member_code source 유지 여부를 확인한다.",
+    "PASS 후 backend deploy final packet과 Production publish readiness를 작성한다."
+  ]
+}

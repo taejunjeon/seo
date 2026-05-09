@@ -1,0 +1,1704 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-08T08:23:01.454Z",
+  "generated_at_kst": "2026-05-08 17:23:01 KST",
+  "mode": "no-send/no-write/read-only",
+  "harness": {
+    "lane": "Green",
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_publish": true,
+    "no_platform_send": true
+  },
+  "window": {
+    "start_utc": "2026-05-07T14:01:00.000Z",
+    "end_utc": "2026-05-08T08:23:01.454Z",
+    "start_kst": "2026-05-07 23:01:00 KST",
+    "end_kst": "2026-05-08 17:23:01 KST",
+    "elapsed_hours": 18.4,
+    "full_24h_reached": false,
+    "lookback_days": 30
+  },
+  "source_freshness": {
+    "operational_pg": {
+      "source": "public.tb_iamweb_users",
+      "row_count_in_window_all_status": 64,
+      "max_paid_at": "2026-05-08T07:58:22.000Z",
+      "max_paid_at_kst": "2026-05-08 16:58:22 KST"
+    },
+    "paid_click_intent_ledger": {
+      "source": "taejun@34.64.104.94:/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3#paid_click_intent_ledger",
+      "row_count_in_window": 709,
+      "max_received_at": "2026-05-08T08:22:44.416Z",
+      "max_received_at_kst": "2026-05-08 17:22:44 KST"
+    }
+  },
+  "operational_pg_input": {
+    "source": "operational PostgreSQL public.tb_iamweb_users read-only",
+    "summary": {
+      "candidate_orders_all_status": 64,
+      "candidate_orders_confirmed_positive": 52,
+      "homepage_count": 48,
+      "npay_actual_count": 4,
+      "npay_all_status_count": 5,
+      "confirmed_positive_value": 12095895,
+      "member_code_present_orders": 52,
+      "member_code_hash_method": "sha256_prefix_dry_run_only; production design should use HMAC-SHA256(member_code, server_secret)",
+      "send_candidate": 0,
+      "include_reason_counts": {
+        "homepage_payment_complete": 48,
+        "npay_actual_confirmed_order": 4
+      },
+      "payment_status_counts_all_status": {
+        "PAYMENT_COMPLETE": 60,
+        "REFUND_COMPLETE": 4
+      }
+    },
+    "candidates": [
+      {
+        "site": "biocom",
+        "order_number": "202605076401472",
+        "order_hash": "b223bfc7bc5e429fab2feec36150cbec",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T14:19:25.000Z",
+        "conversion_time_kst": "2026-05-07 23:19:25 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "e1490cc19a85aa0e93ea4636f6fdde0d",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 12,
+          "prior_click_candidates_window": 12,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605070090979",
+        "order_hash": "30a6f36ef78cd62b7c2c4a8eae4512dd",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T14:20:55.000Z",
+        "conversion_time_kst": "2026-05-07 23:20:55 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "99df4239d111a1061c902c1b6b66d2c5",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 16,
+          "prior_click_candidates_window": 16,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605073790132",
+        "order_hash": "d88abb106b9723891247f25320b6bfa5",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T14:24:44.000Z",
+        "conversion_time_kst": "2026-05-07 23:24:44 KST",
+        "value": 422523,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "e10df13b586d81f1f3a7dd6c53d7297e",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 18,
+          "prior_click_candidates_window": 18,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605077682570",
+        "order_hash": "d9e28d6e7001bbf8dd3cebcaea9b4dbd",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T14:48:53.000Z",
+        "conversion_time_kst": "2026-05-07 23:48:53 KST",
+        "value": 106067,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "76031313724d2ba8951a642738aff9d8",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 46,
+          "prior_click_candidates_window": 46,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605071769905",
+        "order_hash": "236a4e4c9a4436aa86f7c740677e6b55",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T15:01:57.000Z",
+        "conversion_time_kst": "2026-05-08 00:01:57 KST",
+        "value": 52136,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "76031313724d2ba8951a642738aff9d8",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 52,
+          "prior_click_candidates_window": 52,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605085584797",
+        "order_hash": "a310e5e72267bd5320f8368fe2c06ff3",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T15:44:13.000Z",
+        "conversion_time_kst": "2026-05-08 00:44:13 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "d6654d60601bc3391af2643c144911dc",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 62,
+          "prior_click_candidates_window": 62,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605084181891",
+        "order_hash": "189386352d794e36f60f82a8ddb2fe5b",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T15:45:02.000Z",
+        "conversion_time_kst": "2026-05-08 00:45:02 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "d90c701c1b1da86e34c6d0dc47b24dd3",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 64,
+          "prior_click_candidates_window": 64,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087229438",
+        "order_hash": "3515f14b49048c34a45225a820639dfb",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T15:48:11.000Z",
+        "conversion_time_kst": "2026-05-08 00:48:11 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "0755fdf01c758e4bb556d2a3fc2f3f9c",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 66,
+          "prior_click_candidates_window": 66,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087183792",
+        "order_hash": "c1a92a6d682fb3f9c7641cac3633b24b",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T15:48:45.000Z",
+        "conversion_time_kst": "2026-05-08 00:48:45 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "39e5d1336fd984cfb2dc71d854cee89d",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 66,
+          "prior_click_candidates_window": 66,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605089240294",
+        "order_hash": "f41b675910cd5a6fb30899f7ad6abc31",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T15:56:55.000Z",
+        "conversion_time_kst": "2026-05-08 00:56:55 KST",
+        "value": 240000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "178fd5ee5de37e3ac46bec72d0bf31b8",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 66,
+          "prior_click_candidates_window": 66,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605081128589",
+        "order_hash": "1ebbace2b9459102b70e8ea2c9e37c10",
+        "channel_order_no": "2026050859159280",
+        "channel_order_hash": "74f46017aac2fd5e15782d0c9021b966",
+        "payment_method": "npay_actual",
+        "include_reason": "npay_actual_confirmed_order",
+        "conversion_time": "2026-05-07T16:18:45.000Z",
+        "conversion_time_kst": "2026-05-08 01:18:45 KST",
+        "value": 68400,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "d3a34410bddfd453527237617845315d",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 74,
+          "prior_click_candidates_window": 74,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605082096479",
+        "order_hash": "8e84dc3e872b308f6fee46a124e9fa8b",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T16:19:27.000Z",
+        "conversion_time_kst": "2026-05-08 01:19:27 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "0f326005032313035f450a3c6b44e6c2",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 74,
+          "prior_click_candidates_window": 74,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605080273522",
+        "order_hash": "7dda4d3dfafec37bd0e1c6df254d33c6",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T16:45:42.000Z",
+        "conversion_time_kst": "2026-05-08 01:45:42 KST",
+        "value": 278679,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "31cab267c214baaf1dd7992e1178dff8",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 77,
+          "prior_click_candidates_window": 77,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605085444462",
+        "order_hash": "0fa3a3e9364da2baef9ab19e4b16507a",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T17:39:22.000Z",
+        "conversion_time_kst": "2026-05-08 02:39:22 KST",
+        "value": 188000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "d9c496e051bbcc4e292e2ebc02012bd7",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 107,
+          "prior_click_candidates_window": 107,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087254575",
+        "order_hash": "f615818a520b8579d0deca4503274617",
+        "channel_order_no": "2026050859725520",
+        "channel_order_hash": "50fc5fcc05b140bace291483bbdbef77",
+        "payment_method": "npay_actual",
+        "include_reason": "npay_actual_confirmed_order",
+        "conversion_time": "2026-05-07T18:05:58.000Z",
+        "conversion_time_kst": "2026-05-08 03:05:58 KST",
+        "value": 116000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "7ec1957363a0c999144b59ad29d7446e",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 115,
+          "prior_click_candidates_window": 115,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605085945639",
+        "order_hash": "c00a1f3d9d4c587ee080e8a133d28fe0",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T21:14:32.000Z",
+        "conversion_time_kst": "2026-05-08 06:14:32 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "d69951fb7800c96785aaa1245e824398",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 189,
+          "prior_click_candidates_window": 189,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605085435456",
+        "order_hash": "6195c0708ce6014b034391f79186e1c7",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T21:30:25.000Z",
+        "conversion_time_kst": "2026-05-08 06:30:25 KST",
+        "value": 295020,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "3f818ff8f1ca2309ced86deccd2b8377",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 198,
+          "prior_click_candidates_window": 198,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605086147972",
+        "order_hash": "e43d619c27c468e44f9883c9af02a2ea",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T22:11:05.000Z",
+        "conversion_time_kst": "2026-05-08 07:11:05 KST",
+        "value": 106286,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "c460c618f3657ff12abe143825ffb984",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 230,
+          "prior_click_candidates_window": 230,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605083170622",
+        "order_hash": "56fe3a35d4ed37ba613ed7aa209d9c59",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T23:07:06.000Z",
+        "conversion_time_kst": "2026-05-08 08:07:06 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "0214f57f0a291817714643bf2245dc9e",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 279,
+          "prior_click_candidates_window": 279,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605082248317",
+        "order_hash": "218ee5a00f253c6b9fbff15edc4f4a63",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-07T23:34:13.000Z",
+        "conversion_time_kst": "2026-05-08 08:34:13 KST",
+        "value": 99000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "fee020da307532cc2d58cacf82a86528",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 294,
+          "prior_click_candidates_window": 294,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605083198067",
+        "order_hash": "cfdd767bc669662756d203a37e597a85",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:00:05.000Z",
+        "conversion_time_kst": "2026-05-08 09:00:05 KST",
+        "value": 27027,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "dbe65a2ea7799a75dbebf8a888f25806",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 324,
+          "prior_click_candidates_window": 324,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088471145",
+        "order_hash": "5549186dcddb5ea1462a4c1ab93528c1",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:00:08.000Z",
+        "conversion_time_kst": "2026-05-08 09:00:08 KST",
+        "value": 54600,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "b8e003ad0be9273789f5c7044a94bd8c",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 324,
+          "prior_click_candidates_window": 324,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087513358",
+        "order_hash": "417644c9da3521ff4a8b87360af4da16",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:02:24.000Z",
+        "conversion_time_kst": "2026-05-08 09:02:24 KST",
+        "value": 27300,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "7916be08094c1fd0fd85471b0c0906ec",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 327,
+          "prior_click_candidates_window": 327,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087121934",
+        "order_hash": "a55b257d5eac9cba687802eeeeb09ef0",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:02:37.000Z",
+        "conversion_time_kst": "2026-05-08 09:02:37 KST",
+        "value": 27027,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "ef3e561b08c115dcac16b9bf66b739e4",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 327,
+          "prior_click_candidates_window": 327,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088242083",
+        "order_hash": "ba60f4fadefb85b02d698bf27ba35fed",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:02:46.000Z",
+        "conversion_time_kst": "2026-05-08 09:02:46 KST",
+        "value": 26754,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "895dbc17501429fa80c324dc4a332b34",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 329,
+          "prior_click_candidates_window": 329,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605082436573",
+        "order_hash": "3ce1948af72897d404245304eb855a81",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:02:52.000Z",
+        "conversion_time_kst": "2026-05-08 09:02:52 KST",
+        "value": 68508,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "f86fcc0333b445759d01a6e373c8851a",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 329,
+          "prior_click_candidates_window": 329,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087932367",
+        "order_hash": "6b25563713a901d0df4bba82a8187f10",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:07:15.000Z",
+        "conversion_time_kst": "2026-05-08 09:07:15 KST",
+        "value": 29900,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "d25396b4e447c8ad0e741148067e8e90",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 334,
+          "prior_click_candidates_window": 334,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605082581745",
+        "order_hash": "ed2b8571d9c4bfa9f43738ce975216b4",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:22:04.000Z",
+        "conversion_time_kst": "2026-05-08 09:22:04 KST",
+        "value": 94000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "8c1eb1e44dbd965cda080b4ba5071ac2",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 346,
+          "prior_click_candidates_window": 346,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605083401119",
+        "order_hash": "f805daa2f7ef4962c102d90b9d36e3f8",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:43:21.000Z",
+        "conversion_time_kst": "2026-05-08 09:43:21 KST",
+        "value": 107000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "53282486d3b6a22f01c23f57c4b46876",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 373,
+          "prior_click_candidates_window": 373,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605085324871",
+        "order_hash": "449c4e86c1b01d1e9c781278122781cf",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:44:20.000Z",
+        "conversion_time_kst": "2026-05-08 09:44:20 KST",
+        "value": 138744,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "10e62e463a028b6c378c612b5e9d7e38",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 376,
+          "prior_click_candidates_window": 376,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605080984724",
+        "order_hash": "c0eb64d22fd9cd90a729964eaec57e7b",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:53:53.000Z",
+        "conversion_time_kst": "2026-05-08 09:53:53 KST",
+        "value": 430200,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "16f1a78cf8950f96024621157575ac56",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 383,
+          "prior_click_candidates_window": 383,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088822930",
+        "order_hash": "3356f2588bcfae7262b62ad5ae487085",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T00:58:23.000Z",
+        "conversion_time_kst": "2026-05-08 09:58:23 KST",
+        "value": 485000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "073c5fea99dcb672efb104c19e78a9ff",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 385,
+          "prior_click_candidates_window": 385,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605086783484",
+        "order_hash": "9d373662468e2e454250afb883b2b9b2",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T01:42:26.000Z",
+        "conversion_time_kst": "2026-05-08 10:42:26 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "023cf127efc67c078a9093c178ae8cf6",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 415,
+          "prior_click_candidates_window": 415,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605080592304",
+        "order_hash": "d62c1e154d89e332b644cca9e0d29079",
+        "channel_order_no": "2026050865473610",
+        "channel_order_hash": "0a4dd036386957179b1574259fdd02bb",
+        "payment_method": "npay_actual",
+        "include_reason": "npay_actual_confirmed_order",
+        "conversion_time": "2026-05-08T01:45:11.000Z",
+        "conversion_time_kst": "2026-05-08 10:45:11 KST",
+        "value": 59800,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "8154a5e25a3232f70a50b67b9ca81f7d",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 415,
+          "prior_click_candidates_window": 415,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605082919668",
+        "order_hash": "eced3e3951c06fe6ca85928d6f138e66",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T02:22:36.000Z",
+        "conversion_time_kst": "2026-05-08 11:22:36 KST",
+        "value": 129900,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "3527fcf074127df0c09fa3c323ca1d03",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 441,
+          "prior_click_candidates_window": 441,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087529804",
+        "order_hash": "bbb40213be43153f575d007a7f0fae16",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T02:33:44.000Z",
+        "conversion_time_kst": "2026-05-08 11:33:44 KST",
+        "value": 471200,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "848c446c11749ea26136e6e3fd5fa89a",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 446,
+          "prior_click_candidates_window": 446,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088456159",
+        "order_hash": "9d9fb65aff6dbcd924c3da2f3c3a8073",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T02:48:53.000Z",
+        "conversion_time_kst": "2026-05-08 11:48:53 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "6672598ef32a031fcfaa329c34469f76",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 457,
+          "prior_click_candidates_window": 457,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605084905484",
+        "order_hash": "d3fc33e110930061bf91efa02fddddf4",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T04:16:58.000Z",
+        "conversion_time_kst": "2026-05-08 13:16:58 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "9b49fc03ba8f2f767a11877454b6acfa",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 556,
+          "prior_click_candidates_window": 556,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605085140404",
+        "order_hash": "f898a85e7e4ae0d01896154af86a75a8",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T04:18:15.000Z",
+        "conversion_time_kst": "2026-05-08 13:18:15 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "1af51bff320f54882c2fe059997efc03",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 556,
+          "prior_click_candidates_window": 556,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605089323720",
+        "order_hash": "9a80e695b320033b81dd9a76599df38b",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T04:26:43.000Z",
+        "conversion_time_kst": "2026-05-08 13:26:43 KST",
+        "value": 471200,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "adb8447381a9959170672e390dd3421b",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 563,
+          "prior_click_candidates_window": 563,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605080587669",
+        "order_hash": "02caac9cb97c0253d3f6d7f34ebc0737",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T04:39:24.000Z",
+        "conversion_time_kst": "2026-05-08 13:39:24 KST",
+        "value": 245000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "1cc2a76b03ac69c341a31125c46567e8",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 582,
+          "prior_click_candidates_window": 582,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605083209672",
+        "order_hash": "c383cbb76d9412ab9ac8ee7264cbe395",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T05:41:15.000Z",
+        "conversion_time_kst": "2026-05-08 14:41:15 KST",
+        "value": 484500,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "58a55063eaad8bd0d8aa3b299ba7bad1",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 618,
+          "prior_click_candidates_window": 618,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088187731",
+        "order_hash": "321404a2b97ee47b0b5bcace2210564d",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T05:45:11.000Z",
+        "conversion_time_kst": "2026-05-08 14:45:11 KST",
+        "value": 471200,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "02f879d10aee243ed0340c0bf4c6041f",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 622,
+          "prior_click_candidates_window": 622,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087465162",
+        "order_hash": "921e01a02dd7857da175732307d4cf2f",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T05:49:32.000Z",
+        "conversion_time_kst": "2026-05-08 14:49:32 KST",
+        "value": 14406,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "23b71db4d31872e8a9a335ba06a6cf30",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 629,
+          "prior_click_candidates_window": 629,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605084444120",
+        "order_hash": "fd49b05bef4472a405e368f38f392c72",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T06:08:28.000Z",
+        "conversion_time_kst": "2026-05-08 15:08:28 KST",
+        "value": 400820,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "23b71db4d31872e8a9a335ba06a6cf30",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 634,
+          "prior_click_candidates_window": 634,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088671024",
+        "order_hash": "e5bd26ba87a3c18a7c72ade5851ca466",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T06:13:09.000Z",
+        "conversion_time_kst": "2026-05-08 15:13:09 KST",
+        "value": 123068,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "23b71db4d31872e8a9a335ba06a6cf30",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 634,
+          "prior_click_candidates_window": 634,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605080007626",
+        "order_hash": "0d683f5f99fa22a7e6c64db00c951472",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T06:34:15.000Z",
+        "conversion_time_kst": "2026-05-08 15:34:15 KST",
+        "value": 189630,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "e3e92ac7c2efdbb2175f24319e74ae35",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 644,
+          "prior_click_candidates_window": 644,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605080531737",
+        "order_hash": "f93e29737747b4fbb960ac0c0318a515",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T06:48:18.000Z",
+        "conversion_time_kst": "2026-05-08 15:48:18 KST",
+        "value": 234000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "3662409231156297b4f3cff211e92e42",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 657,
+          "prior_click_candidates_window": 657,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088477114",
+        "order_hash": "ebee445e8a59751fde4a8921ba38616c",
+        "channel_order_no": "2026050874912580",
+        "channel_order_hash": "8e6dd872f7769bf4d72895c40686a05c",
+        "payment_method": "npay_actual",
+        "include_reason": "npay_actual_confirmed_order",
+        "conversion_time": "2026-05-08T07:36:11.000Z",
+        "conversion_time_kst": "2026-05-08 16:36:11 KST",
+        "value": 168000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "83a1b0d678f2a18db8b75915391c507d",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 684,
+          "prior_click_candidates_window": 684,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605087846298",
+        "order_hash": "d175f819597ce66089af0814c78fabc5",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T07:48:58.000Z",
+        "conversion_time_kst": "2026-05-08 16:48:58 KST",
+        "value": 203000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "00cf534c85b2bb6b864da4b170c84016",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 685,
+          "prior_click_candidates_window": 685,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088930774",
+        "order_hash": "146ea4e1bcdfd5883c22dc8010115b31",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T07:51:35.000Z",
+        "conversion_time_kst": "2026-05-08 16:51:35 KST",
+        "value": 485000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "515a6de74ed3ca57b07d666d5b771f10",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 685,
+          "prior_click_candidates_window": 685,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      },
+      {
+        "site": "biocom",
+        "order_number": "202605088008733",
+        "order_hash": "1867822ece4292b0866a865c5f8c07fc",
+        "channel_order_no": "",
+        "channel_order_hash": "",
+        "payment_method": "homepage",
+        "include_reason": "homepage_payment_complete",
+        "conversion_time": "2026-05-08T07:58:22.000Z",
+        "conversion_time_kst": "2026-05-08 16:58:22 KST",
+        "value": 1272000,
+        "currency": "KRW",
+        "member_code_present": true,
+        "member_code_hash": "7585f6094856fd3b450e9a38a808a191",
+        "member_code_hash_method": "sha256_prefix_dry_run_only",
+        "direct_ledger_join": {
+          "deterministic_match_possible": false,
+          "prior_click_candidates_30d": 691,
+          "prior_click_candidates_window": 691,
+          "ambiguity": "multiple",
+          "reason": "paid_click_intent_ledger has click/session keys but no member_code_hash/order_number bridge in current production schema."
+        },
+        "send_candidate": false,
+        "block_reasons": [
+          "read_only_phase",
+          "approval_required",
+          "no_platform_send",
+          "direct_ledger_missing_deterministic_order_bridge"
+        ]
+      }
+    ]
+  },
+  "ledger_direct_source": {
+    "source": "live VM SQLite paid_click_intent_ledger read-only",
+    "schema_columns": [
+      "intent_id",
+      "site",
+      "captured_at",
+      "received_at",
+      "platform_hint",
+      "capture_stage",
+      "click_id_type",
+      "click_id_value",
+      "click_id_hash",
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "landing_path",
+      "allowed_query_json",
+      "referrer_host",
+      "client_id",
+      "ga_session_id",
+      "local_session_id",
+      "user_agent_hash",
+      "ip_hash",
+      "dedupe_key",
+      "duplicate_count",
+      "status",
+      "reject_reason",
+      "expires_at",
+      "created_at",
+      "updated_at"
+    ],
+    "summary": {
+      "ledger_rows": 709,
+      "unique_click_id_hash": 428,
+      "unique_client_id": 318,
+      "unique_ga_session_id": 407,
+      "capture_stage_counts": {
+        "landing": 461,
+        "checkout_start": 135,
+        "npay_intent": 113
+      },
+      "click_id_type_counts": {
+        "gclid": 707,
+        "wbraid": 2
+      },
+      "status_counts": {
+        "received": 709
+      },
+      "reject_reason_counts": {
+        "(blank)": 709
+      },
+      "debug_test_preview_query_key_rows": 0,
+      "send_candidate": 0
+    }
+  },
+  "direct_source_join_feasibility": {
+    "deterministic_bridge_ready": false,
+    "ledger_has_member_code_hash_column": false,
+    "ledger_has_raw_member_code_column": false,
+    "ledger_has_order_number_column": false,
+    "pg_order_source_has_member_code": true,
+    "pg_order_source_has_client_or_session_id": false,
+    "order_to_ledger_ambiguity": {
+      "orders_checked": 52,
+      "orders_with_no_prior_click": 0,
+      "orders_with_any_prior_click": 52,
+      "orders_with_single_prior_click": 0,
+      "orders_with_multiple_prior_clicks": 52,
+      "median_prior_click_candidates": 329,
+      "p90_prior_click_candidates": 644,
+      "max_prior_click_candidates": 691
+    },
+    "verdict": "not_meaningful_for_order_level_effect",
+    "reason": "Without member_code_hash/order_number/session bridge on both sides, direct ledger source creates many-to-many candidates. It is useful for capture health, not confirmed-purchase uplift."
+  },
+  "verdict": {
+    "canary_effect_measured": false,
+    "confidence": 0.93,
+    "one_line": "운영 PG 기반 새 결제완료 input은 생성됐지만, live paid_click_intent_ledger 직접 source는 현재 deterministic 주문 결합키가 없어 canary effect/uplift 비교에는 아직 의미가 없다.",
+    "recommended_interpretation": "Use the PG input as the refreshed purchase base, use direct ledger as capture-health evidence, and hold effect comparison until member_code_hash bridge or an equivalent deterministic key is deployed."
+  }
+}

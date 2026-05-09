@@ -1,0 +1,260 @@
+{
+  "schema_version": "path_b_preview_evidence_v2",
+  "created_at_kst": "2026-05-09 00:24 KST",
+  "status": "real_vbank_unpaid_preview_payload_confirmed__order_session_only",
+  "site": "biocom",
+  "endpoint": "https://att.ainativeos.net/api/attribution/order-bridge/identity-hmac/no-send",
+  "gtm_workspace": {
+    "workspace_id": "163",
+    "name": "codex_path_b_order_bridge_preview_20260508T151938Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/163",
+    "submitted": false,
+    "published": false,
+    "left_open_for_tj_preview": true
+  },
+  "gtm_trigger": {
+    "trigger_id": "289",
+    "name": "PathB_order_confirm_pages_preview_20260508T151938Z",
+    "type": "pageview",
+    "scope": "order confirmation paths only",
+    "all_pages": false,
+    "path_regex": "shop_payment_complete|shop_order_done|payment_complete|order_complete"
+  },
+  "gtm_tag": {
+    "tag_id": "290",
+    "name": "PathB_order_bridge_identity_hmac_preview_no_send_20260508T151938Z",
+    "type": "html",
+    "production_publish": false,
+    "platform_send": false
+  },
+  "synthetic_preview": {
+    "page_loaded": true,
+    "receiver_reached": true,
+    "receiver_statuses": [
+      200
+    ],
+    "receiver_ok_all": true,
+    "would_store_false_all": true,
+    "would_send_false_all": true,
+    "platform_send_zero_all": true,
+    "raw_echo_detected": false,
+    "network_errors": [],
+    "screenshot_path": "/Users/vibetj/coding/seo/data/path-b-gtm-preview-screenshots/path-b-gtm-preview-20260508T151938Z.png",
+    "preview_url_redacted": "https://biocom.kr/shop_payment_complete?order_no=PATHB_PREVIEW_ORDER_20260508T151938Z&gclid=TEST_GCLID_PATHB_PREVIEW_20260508T151938Z&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+    "gtm_script_routes_redacted": [
+      "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=641683813&gtm=45He6562v813158774za200zd813158774&seq=1&exp=0%7E115616986%7E115938466%7E115938469%7E118463261%7E118851533&dl=biocom.kr%2Fshop_payment_complete&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=95&hlo=16&lst=1&bt=0&ct=3&jsp=1&mde=G-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+    ],
+    "page_state": {
+      "href": "https://biocom.kr/shop_payment_complete?order_no=PATHB_PREVIEW_ORDER_20260508T151938Z&gclid=TEST_GCLID_PATHB_PREVIEW_20260508T151938Z&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "installed": "path_b_order_bridge_preview_20260508T151938Z",
+      "payloadKeys": [
+        "capture_stage",
+        "click_id",
+        "client_id",
+        "email",
+        "ga_session_id",
+        "local_session_id",
+        "order_no",
+        "phone",
+        "preview_mode",
+        "site"
+      ],
+      "result": {
+        "response_status": 200,
+        "response_ok": true,
+        "would_store": false,
+        "would_send": false,
+        "email_hash_present": false,
+        "phone_hash_present": false,
+        "order_no_hash_present": true,
+        "client_session_present": true,
+        "click_id_hash_present": true,
+        "no_raw_echo_verified": true,
+        "no_platform_send_verified": true,
+        "platform_send_count": 0,
+        "hash_version": "hmac_sha256_identity_v1"
+      },
+      "error": null,
+      "gtmLoaded": true
+    },
+    "response_preview_booleans": {
+      "email_hash_present": false,
+      "phone_hash_present": false,
+      "order_no_hash_present": true,
+      "client_session_present": true,
+      "click_id_hash_present": true,
+      "no_raw_echo_verified": true,
+      "no_platform_send_verified": true
+    },
+    "raw_log_matches": 0
+  },
+  "real_payment_complete_evidence": {
+    "status": "real_vbank_unpaid_preview_payload_confirmed",
+    "provided_by": "TJ님 Tag Assistant screenshot/text",
+    "observed_at_kst": "2026-05-09 00:35 KST",
+    "pay_type": "virtual_account_unpaid",
+    "url_raw_values_stored": false,
+    "url_path": "/shop_payment_complete",
+    "query_keys_present": [
+      "order_code",
+      "payment_code",
+      "order_no",
+      "rk"
+    ],
+    "path_b_preview_tag_fired": true,
+    "path_b_preview_tag_name": "PathB_order_bridge_identity_hmac_preview_no_send_20260508T151938Z",
+    "path_b_preview_tag_fire_count": 1,
+    "result_event_seen_in_sidebar": true,
+    "result_event_name_prefix": "path_b_order_bridge_",
+    "result_event_fields_collected": true,
+    "existing_purchase_tags_fired_before_deposit": true,
+    "existing_purchase_tags_note": "Virtual account order creation page fired existing purchase-like tags before deposit; this is separate from Path B no-send preview and should remain a guard issue.",
+    "codex_log_check": {
+      "pre_patch_raw_log_matches_for_provided_url_identifiers": 1,
+      "likely_source": "pino-http req.headers.referer contained full shop_payment_complete URL",
+      "mitigation": "redacted req.headers.referer and req.headers.referrer in backend/src/bootstrap/configureMiddleware.ts",
+      "mitigation_deployed": true,
+      "post_patch_referer_synthetic_raw_log_matches": 0,
+      "response_raw_echo_after_patch": false,
+      "post_patch_actual_event_log_recheck": "pass_via_taejun_at_34_64_104_94_2026-05-09_01:03_KST",
+      "post_patch_actual_event_raw_log_pattern_counts": {
+        "order_code": 0,
+        "payment_code": 0,
+        "order_no": 0,
+        "paymentKey": 0,
+        "amount": 0
+      }
+    },
+    "required_next": "Build order_bridge reliability dry-run around order_no_hash + client/session, and separately decide whether to add HURDLERS email-like user_id as server-side HMAC-only source.",
+    "result_event_retry_needed": false,
+    "blocked_event_reason_inferred": "URL-based preview guard failed because Tag Assistant connected mode did not expose gtm_debug/gtm_preview/gtm_auth in location.search",
+    "result_event_name": "path_b_order_bridge_preview_result",
+    "result_event_fields_collection_blocker": null,
+    "tag_assistant_variables_observed": {
+      "quick_preview": true,
+      "debug_mode": true,
+      "analytics_client_id_present": true,
+      "analytics_session_id_present": true,
+      "hurdlers_email_like_user_id_present": true,
+      "hurdlers_email_like_user_id_used_for_bridge": false,
+      "order_no_variable_present": true,
+      "order_value_variable_present": true,
+      "js_imweb_common_session_id_present": true,
+      "js_imweb_custom_session_id_present": true,
+      "referrer_contains_payment_flow_raw_values_in_browser": true,
+      "hurdlers_transaction_id_present": true,
+      "hurdlers_value_present": true,
+      "hurdlers_currency_krw": true,
+      "hurdlers_member_code_present": false,
+      "cid_present": true,
+      "path_b_preview_version": "path_b_order_bridge_preview_20260508T151938Z"
+    },
+    "interpretation": {
+      "result_event_means_receiver_fetch_completed_or_reached_result_branch": true,
+      "order_no_hash_expected_present": true,
+      "client_session_expected_present": true,
+      "email_hash_expected_present_with_current_tag": false,
+      "phone_hash_expected_present_with_current_tag": false,
+      "reason_email_phone_pending": "Current preview tag reads email/phone from page inputs or dataLayer keys, not the existing HURDLERS custom JS user_id variable. Raw email bridge reuse needs a deliberate source decision.",
+      "existing_purchase_tags_fired_before_deposit": true,
+      "existing_purchase_tags_note": "Virtual account order creation still fires existing purchase-like tags before deposit; Path B no-send preview did not create this behavior.",
+      "no_send_endpoint_pass": true,
+      "no_operational_storage_pass": true,
+      "no_platform_send_pass": true,
+      "order_no_hash_confirmed_present": true,
+      "client_session_confirmed_present": true,
+      "click_id_hash_confirmed_present": false,
+      "email_hash_confirmed_present": false,
+      "phone_hash_confirmed_present": false,
+      "current_bridge_strength": "order_hash_plus_client_session_only",
+      "reliability_dry_run_ready_for_client_session_join": true,
+      "reliability_dry_run_not_ready_for_email_phone_identity_join": true,
+      "reason_email_phone_absent": "No email/phone source was captured by the current Preview tag on this order-complete page.",
+      "reason_click_id_absent": "This session/page did not expose a live click id to the order-complete tag; client/session join remains the current dry-run path."
+    },
+    "result_payload_fields_needed": false,
+    "result_payload_sanitized": {
+      "response_status": 200,
+      "response_ok": true,
+      "would_store": false,
+      "would_send": false,
+      "email_hash_present": false,
+      "phone_hash_present": false,
+      "order_no_hash_present": true,
+      "client_session_present": true,
+      "click_id_hash_present": false,
+      "no_raw_echo_verified": true,
+      "no_platform_send_verified": true,
+      "platform_send_count": 0,
+      "hash_version": "hmac_sha256_identity_v1"
+    }
+  },
+  "success_criteria_for_real_preview": {
+    "current_status": "partial_pass_order_session_only",
+    "email_or_phone_hash_present": false,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "click_id_hash_present": false,
+    "raw_echo_detected": false,
+    "raw_log_matches": "post_patch_synthetic_0_actual_recheck_pending_due_ssh_no_route",
+    "platform_send_detected": false,
+    "would_store": false,
+    "would_send": false
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "raw email/phone/member_code/order storage",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete"
+  ],
+  "verdict": "PARTIAL_PASS_REAL_VBANK_PREVIEW_ORDER_SESSION_ONLY__IDENTITY_AND_CLICK_PENDING",
+  "updated_at_kst": "2026-05-09 01:03 KST",
+  "gtm_preview_guard_fix": {
+    "status": "PASS_PREVIEW_GUARD_FIX",
+    "workspace_id": "163",
+    "tag_id": "290",
+    "change": "removed URL-based gtm_debug/gtm_preview/gtm_auth guard",
+    "reason": "Tag Assistant connected preview may not append preview params to location.search; unpublished workspace already scopes execution to Preview.",
+    "synthetic_tag_assistant_style_smoke": {
+      "page_url_redacted": "https://biocom.kr/shop_payment_complete?order_no=PATHB_GUARD_FIX_ORDER_20260508T153305Z&gclid=TEST_GCLID_PATHB_GUARD_FIX_20260508T153305Z",
+      "receiver_statuses": [
+        200
+      ],
+      "receiver_reached": true,
+      "receiver_ok_all": true,
+      "raw_echo_detected": false,
+      "network_errors": [],
+      "console_markers": [],
+      "page_state": {
+        "href": "https://biocom.kr/shop_payment_complete?order_no=PATHB_GUARD_FIX_ORDER_20260508T153305Z&gclid=TEST_GCLID_PATHB_GUARD_FIX_20260508T153305Z",
+        "installed": "path_b_order_bridge_preview_20260508T151938Z",
+        "result": {
+          "response_status": 200,
+          "response_ok": true,
+          "would_store": false,
+          "would_send": false,
+          "email_hash_present": false,
+          "phone_hash_present": false,
+          "order_no_hash_present": true,
+          "client_session_present": true,
+          "click_id_hash_present": true,
+          "no_raw_echo_verified": true,
+          "no_platform_send_verified": true,
+          "platform_send_count": 0,
+          "hash_version": "hmac_sha256_identity_v1"
+        },
+        "error": null,
+        "gtmLoaded": true
+      }
+    },
+    "raw_log_matches": 0,
+    "output": "data/path-b-gtm-preview-guard-fix-latest.json"
+  },
+  "path_b_bridge_progress_percent": 72
+}

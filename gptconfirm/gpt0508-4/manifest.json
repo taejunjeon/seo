@@ -1,0 +1,121 @@
+{
+  "batch": "gpt0508-4",
+  "created_at_kst": "2026-05-09 01:00 KST",
+  "purpose": "Path B no-send HMAC limited deploy smoke, actual vbank Preview payload confirmation, and live VM order/session reliability read-only dry-run",
+  "path_b_bridge_progress_percent_after_batch": 76,
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-4/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-4/00-result-report.md",
+      "why_included": "Batch result report with progress, validation, blockers, and next actions",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/total-current-v7-restructure-proposal-20260508.md",
+      "copy": "gptconfirm/gpt0508-4/01-total-current-v7-restructure-proposal-20260508.md",
+      "why_included": "Proposal for applying docurule v7 structure to total/!total-current.md without editing the canonical file",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-no-send-hmac-limited-deploy-smoke-result-20260508.md",
+      "copy": "gptconfirm/gpt0508-4/02-path-b-no-send-hmac-limited-deploy-smoke-result-20260508.md",
+      "why_included": "Mode A limited deploy and synthetic smoke evidence",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-gtm-preview-result-20260508.md",
+      "copy": "gptconfirm/gpt0508-4/03-path-b-gtm-preview-result-20260508.md",
+      "why_included": "GTM Preview status and TJ님 execution checklist",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/path-b-reliability-dry-run-readiness-20260508.md",
+      "copy": "gptconfirm/gpt0508-4/04-path-b-reliability-dry-run-readiness-20260508.md",
+      "why_included": "Reliability dry-run readiness and remaining input requirements",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-100-percent-roadmap-20260508.md",
+      "copy": "gptconfirm/gpt0508-4/05-path-b-100-percent-roadmap-20260508.md",
+      "why_included": "Updated roadmap from 63% to 100%",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-4/99-total-current-copy.md",
+      "why_included": "Canonical context snapshot for review",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-vbank-unpaid-preview-evidence-20260509.md",
+      "copy": "gptconfirm/gpt0508-4/06-path-b-vbank-unpaid-preview-evidence-20260509.md",
+      "why_included": "Actual virtual-account unpaid order-complete Tag Assistant evidence with Path B result event observed",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-gtm-preview-guard-fix-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-4/07-path-b-gtm-preview-guard-fix-result-20260509.md",
+      "why_included": "GTM Preview guard fix evidence after blocked event",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-order-session-reliability-dry-run-20260509.md",
+      "copy": "gptconfirm/gpt0508-4/08-path-b-order-session-reliability-dry-run-20260509.md",
+      "why_included": "Preview availability reliability dry-run using actual order-complete payload and 18.4h canary aggregate baseline",
+      "approval_needed": false
+    }
+  ],
+  "data_artifacts": [
+    {
+      "source": "data/path-b-no-send-hmac-limited-deploy-smoke-20260508.json",
+      "why_included": "Sanitized deploy smoke evidence"
+    },
+    {
+      "source": "data/path-b-preview-evidence-20260508.json",
+      "why_included": "Preview evidence schema and pending GTM UI status"
+    },
+    {
+      "source": "data/path-b-preview-evidence-20260509.json",
+      "why_included": "Updated actual vbank Preview evidence and result-event status"
+    },
+    {
+      "source": "data/path-b-gtm-preview-guard-fix-latest.json",
+      "why_included": "GTM Preview guard fix smoke evidence"
+    },
+    {
+      "source": "data/path-b-order-session-reliability-dry-run-20260509.json",
+      "why_included": "Preview availability reliability dry-run structured result"
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "operational schema migration",
+    "GTM Production publish",
+    "Imweb production save",
+    "1h hash-only canary operational storage",
+    "raw email/phone/member_code/order storage",
+    "raw email/phone/member_code/order logging",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete"
+  ],
+  "allowed_yellow_action_taken": [
+    "Path B no-send HMAC endpoint limited deploy",
+    "ORDER_BRIDGE_IDENTITY_HASH_SECRET injection",
+    "PM2 one restart",
+    "synthetic smoke",
+    "GTM Preview workspace/tag guard fix",
+    "Actual vbank unpaid order-complete Preview result event collection"
+  ],
+  "blocked_or_pending": [
+    {
+      "item": "identity hash source decision",
+      "reason": "The actual vbank Preview order produced order/session hashes, but live paid_click_intent ledger had 0 matching rows for its client/session candidates",
+      "next": "Prepare separate Yellow approval for server-side HMAC hash-only use of HURDLERS email-like user_id if client/session only is insufficient"
+    },
+    {
+      "item": "paid click originated test path",
+      "reason": "This Preview order did not originate from a paid_click_intent ledger row; click_id_hash_present=false",
+      "next": "Only test card/NPay attribution after a paid-click/session preservation path is defined"
+    }
+  ]
+}

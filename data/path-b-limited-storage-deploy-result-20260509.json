@@ -1,0 +1,110 @@
+{
+  "artifact": "path-b-limited-storage-deploy-result-20260509",
+  "created_at_kst": "2026-05-09 17:28:00",
+  "site": "biocom",
+  "status": "PASS_WITH_CONTROLLED_ONE_OFF_ROUTE_SMOKE",
+  "scope": {
+    "vm_cloud_limited_deploy": true,
+    "schema_bootstrap": true,
+    "pm2_restart_count": 1,
+    "flag_off_smoke": true,
+    "flag_on_controlled_write_smoke": true,
+    "gtm_production_publish": false,
+    "imweb_production_save": false,
+    "one_hour_storage_canary_main_run": false,
+    "platform_send": false
+  },
+  "deploy": {
+    "backup_dir": "/home/biocomkr_sns/seo/deploy-backups/20260509-1719_path_b_limited_storage",
+    "deployed_files": [
+      "dist/orderBridgeIdentityHmac.js",
+      "dist/orderBridgeLedger.js",
+      "dist/routes/attribution.js"
+    ],
+    "sha256": {
+      "dist/orderBridgeIdentityHmac.js": "0e489632e84b47f1d7f5daae50e331606a06f829540cfb3c7f9f3b30b3fb82b1",
+      "dist/orderBridgeLedger.js": "d3a153b86dd0546bf522752652d4bb9a75662493a8843a85abb4906007b4f4a1",
+      "dist/routes/attribution.js": "0797c4f22e59c56af573d8c56996358e3ab07eefcfc91befc3a5d34bc300001e"
+    },
+    "pm2": {
+      "status": "online",
+      "restart_count_after_deploy": 3826,
+      "unexpected_restart_after_smoke": 0,
+      "uptime_after_smoke_minutes": 7
+    }
+  },
+  "env_flags_after": {
+    "ORDER_BRIDGE_WRITE_ENABLED": "false",
+    "ORDER_BRIDGE_WRITE_CANARY_UNTIL": "",
+    "ORDER_BRIDGE_WRITE_MAX_ROWS": "200",
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": "false",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": "false",
+    "ORDER_BRIDGE_RETENTION_DAYS": "90"
+  },
+  "flag_off_smoke": {
+    "health_status": 200,
+    "table_exists_before_summary": false,
+    "summary_status": 200,
+    "table_exists_after_summary": true,
+    "endpoint_status": 200,
+    "would_store": false,
+    "would_send": false,
+    "email_hash_present": true,
+    "phone_hash_present": true,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "click_id_hash_present": true,
+    "no_raw_echo_verified": true,
+    "no_platform_send_verified": true,
+    "platform_send_count": 0,
+    "raw_payload_stored": false,
+    "raw_logging_enabled": false,
+    "oversized_status": 413,
+    "oversized_error": "payload_too_large",
+    "raw_email_like_log_count_before": 0,
+    "raw_email_like_log_count_after": 0
+  },
+  "controlled_write_smoke": {
+    "method": "one_off_route_smoke_using_deployed_dist",
+    "why_one_off": "The approved PM2 restart allowance was 1x. The running PM2 service stayed flag OFF, and the deployed route was loaded in a one-off local process with ORDER_BRIDGE_WRITE_ENABLED=true for the controlled write smoke.",
+    "status_first": 200,
+    "status_second_duplicate": 200,
+    "would_store": true,
+    "would_send": false,
+    "ledger_stored": true,
+    "ledger_deduped_first": false,
+    "ledger_deduped_second": true,
+    "email_hash_present": true,
+    "phone_hash_present": true,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "click_id_hash_present": true,
+    "sensitive_raw_echo_count_first": 0,
+    "sensitive_raw_echo_count_second": 0,
+    "raw_email_like_log_count_before": 0,
+    "raw_email_like_log_count_after": 0
+  },
+  "row_summary_after": {
+    "row_count": 1,
+    "unique_order_no_hash": 1,
+    "unique_email_hash": 1,
+    "unique_phone_hash": 1,
+    "unique_click_id_hash": 1,
+    "raw_stored_count": 0,
+    "platform_send_count": 0,
+    "duplicate_dedupe_count": 1,
+    "service_write_flag_on": false
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "Imweb production save",
+    "1h storage canary main run",
+    "real paid-click actual order test",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage",
+    "raw email/phone/member_code/order/payment logging",
+    "existing GTM tag pause/delete"
+  ],
+  "next_step": "GTM Preview controlled traffic or 1h storage canary approval, depending on whether TJ wants controlled browser evidence first."
+}

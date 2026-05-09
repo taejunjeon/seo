@@ -1,0 +1,77 @@
+{
+  "batch": "gpt0508-11",
+  "created_at_kst": "2026-05-09 17:12:00",
+  "purpose": "Path B limited storage deploy approval packet, traffic source decision matrix, and after-deploy smoke runbook",
+  "status": "complete",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-11/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-11/00-result-report.md",
+      "why_included": "Batch result report and next approval recommendation",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-11/01-path-b-limited-storage-deploy-final-packet-20260509.md",
+      "copy": "gptconfirm/gpt0508-11/01-path-b-limited-storage-deploy-final-packet-20260509.md",
+      "why_included": "Limited deploy final approval packet",
+      "approval_needed": true
+    },
+    {
+      "source": "gptconfirm/gpt0508-11/02-path-b-traffic-source-decision-matrix-20260509.md",
+      "copy": "gptconfirm/gpt0508-11/02-path-b-traffic-source-decision-matrix-20260509.md",
+      "why_included": "Traffic source options after limited deploy",
+      "approval_needed": true
+    },
+    {
+      "source": "gptconfirm/gpt0508-11/03-path-b-after-deploy-smoke-runbook-20260509.md",
+      "copy": "gptconfirm/gpt0508-11/03-path-b-after-deploy-smoke-runbook-20260509.md",
+      "why_included": "After-deploy smoke and post-canary report template",
+      "approval_needed": true
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-11/99-total-current-copy.md",
+      "why_included": "Current canonical project context copy with VM Cloud terminology normalized in this copy",
+      "approval_needed": false
+    }
+  ],
+  "progress": {
+    "overall_path_b_bridge_percent": 97,
+    "batch_percent": 100,
+    "next_blocker": "VM Cloud limited storage deploy and order_bridge_ledger schema bootstrap approval"
+  },
+  "recommended_next_approval": {
+    "lane": "Yellow",
+    "summary": "Path B limited storage deploy + schema bootstrap + PM2 restart 1x + flag OFF smoke + flag ON controlled write smoke 1 row",
+    "still_forbidden": [
+      "GTM Production publish",
+      "Imweb production save",
+      "1h storage canary main run",
+      "platform send",
+      "conversion upload",
+      "raw email/phone/member_code/order/payment storage or logging"
+    ]
+  },
+  "forbidden_actions_not_taken": [
+    "VM Cloud deploy",
+    "operational schema bootstrap",
+    "PM2 restart",
+    "1h storage canary execution",
+    "GTM Production publish",
+    "Imweb production save",
+    "platform send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage",
+    "raw email/phone/member_code/order/payment logging",
+    "existing GTM tag pause/delete"
+  ],
+  "validation": {
+    "backend_typecheck": "not_run_code_not_changed_in_this_batch",
+    "fixture_smoke": "not_run_code_not_changed_in_this_batch",
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_strict": "PASS",
+    "git_diff_check": "PASS",
+    "terminology_check": "PASS"
+  }
+}

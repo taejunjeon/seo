@@ -1,0 +1,107 @@
+{
+  "batch": "gpt0508-7",
+  "created_at_kst": "2026-05-09 01:38 KST",
+  "purpose": "AGENT_OS naming cleanup and real browser Path B identity Preview evidence",
+  "path_b_bridge_progress_percent_before_batch": 84,
+  "path_b_bridge_progress_percent_after_batch": 88,
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-7/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-7/00-result-report.md",
+      "why_included": "Batch report with real browser evidence, naming cleanup, log note, and next actions",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-agent-os-real-preview-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-7/01-path-b-agent-os-real-preview-result-20260509.md",
+      "why_included": "Sanitized real browser Preview result showing email_hash_present=true",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-agent-os-preview-rename-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-7/02-path-b-agent-os-preview-rename-result-20260509.md",
+      "why_included": "GTM Preview naming cleanup result from legacy vendor naming to AGENT_OS naming",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-synthetic-click-id-preview-checklist-20260509.md",
+      "copy": "gptconfirm/gpt0508-7/03-path-b-synthetic-click-id-preview-checklist-20260509.md",
+      "why_included": "Next checklist for click_id_hash_present=true",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-same-browser-preservation-preview-checklist-20260509.md",
+      "copy": "gptconfirm/gpt0508-7/04-path-b-same-browser-preservation-preview-checklist-20260509.md",
+      "why_included": "Next checklist for browser click id preservation",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/payment-decision-query-log-redaction-approval-20260509.md",
+      "copy": "gptconfirm/gpt0508-7/05-payment-decision-query-log-redaction-approval-20260509.md",
+      "why_included": "Yellow approval draft for fixing existing payment-decision query logging raw order/payment values",
+      "approval_needed": true
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-7/99-total-current-copy.md",
+      "why_included": "Canonical context snapshot for review",
+      "approval_needed": false
+    }
+  ],
+  "source_context": [
+    {
+      "source": "data/path-b-agent-os-real-preview-evidence-20260509.json",
+      "why_used": "Sanitized real browser evidence"
+    },
+    {
+      "source": "data/path-b-agent-os-preview-rename-result-20260509.json",
+      "why_used": "GTM API rename and controlled smoke result"
+    },
+    {
+      "source": "VM PM2 read-only grep",
+      "why_used": "Raw pattern source separation: no-send endpoint 0, existing payment-decision query logging 2"
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "raw email/phone/member_code/order storage in repo artifacts",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing live GTM tag pause/delete/edit",
+    "real ad click test",
+    "actual payment test"
+  ],
+  "next_green_or_yellow_candidates": [
+    {
+      "item": "TEST click id Preview",
+      "recommended": true,
+      "lane": "Yellow Preview only"
+    },
+    {
+      "item": "same-browser preservation Preview",
+      "recommended": true,
+      "lane": "Yellow Preview only"
+    },
+    {
+      "item": "payment-decision query log redaction limited deploy approval",
+      "recommended": true,
+      "lane": "Yellow deploy approval"
+    }
+  ],
+  "blocked_or_pending": [
+    {
+      "item": "backend operational storage canary",
+      "reason": "Requires click id Preview and separate storage approval",
+      "next": "Hold until identity and click bridge evidence are both available"
+    },
+    {
+      "item": "real paid-click-originated controlled test",
+      "reason": "Could involve real ad click, cost, and actual order operations",
+      "next": "Prepare explicit approval only after same-browser preservation Preview"
+    }
+  ]
+}

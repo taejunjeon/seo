@@ -56,9 +56,9 @@
   },
   "tt_l_masking_purpose_limitation_pii_guard": {
     "ttl": "90일 (기존 paid_click_intent retention 정책과 동일)",
-    "masking": "필요 없음 (member_code 자체는 PII 아님). 단 결합 PII 우려 시 SHA-256 hash 적용 옵션",
+    "masking": "2026-05-08 후속 설계로 superseded: member_code는 pseudonymous identifier로 취급. 운영 기본은 raw 저장 금지 + member_code_hash = HMAC-SHA256(member_code, server_secret)",
     "purpose_limitation": "Google Ads attribution chain 매개만. 다른 광고 플랫폼 송출/사용자 프로파일링 금지",
-    "pii_guard": "기존 PII reject set (email/phone/name/address/order_number/payment_key/value/currency) 그대로. member_code는 reject 대상 아님",
+    "pii_guard": "기존 PII reject set (email/phone/name/address/order_number/payment_key/value/currency) 유지. raw member_code는 운영 저장/로그 금지 대상",
     "consent_basis": "imweb 회원가입 시 일반 이용 약관 + 광고 분석 동의 범위 안에서 사용. 별 사용자 동의 추가 검토 필요 시 cookie banner update"
   },
   "homepage_vs_npay_actual_confirmed_join_feasibility": {

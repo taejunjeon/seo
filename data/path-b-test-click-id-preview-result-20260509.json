@@ -1,0 +1,359 @@
+{
+  "generated_at_kst": "2026-05-09T01:51:30",
+  "run_id": "20260508T165112Z",
+  "workspace": {
+    "workspace_id": "164",
+    "preview_environment_id": "294",
+    "quick_preview_sync_status": null,
+    "quick_preview_compiler_error": null,
+    "submitted": false,
+    "published": false
+  },
+  "direct_test_click_id_preview": {
+    "page_url_redacted": "https://biocom.kr/shop_payment_complete?order_no=REDACTED_SYNTHETIC&gclid=REDACTED_SYNTHETIC",
+    "receiver_statuses": [
+      200
+    ],
+    "receiver_bodies": [
+      {
+        "ok": true,
+        "dryRun": true,
+        "dry_run": true,
+        "wouldStore": false,
+        "would_store": false,
+        "wouldSend": false,
+        "would_send": false,
+        "noSendVerified": true,
+        "no_send_verified": true,
+        "noWriteVerified": true,
+        "no_write_verified": true,
+        "noDeployVerified": true,
+        "no_deploy_verified": true,
+        "noPublishVerified": true,
+        "no_publish_verified": true,
+        "noPlatformSendVerified": true,
+        "no_platform_send_verified": true,
+        "receiver": "order_bridge_identity_hmac_no_send",
+        "guard": {
+          "guard_status": "blocked",
+          "send_candidate": false,
+          "actual_send_candidate": false,
+          "block_reasons": [
+            "read_only_phase",
+            "approval_required"
+          ],
+          "legacy_block_reasons": [],
+          "no_send_verified": true,
+          "no_write_verified": true,
+          "no_deploy_verified": true,
+          "no_publish_verified": true,
+          "no_platform_send_verified": true,
+          "checked_at": "2026-05-08T16:51:16.686Z",
+          "source": "order_bridge_identity_hmac_no_send",
+          "confidence": 0.93
+        },
+        "preview": {
+          "ok": true,
+          "would_store": false,
+          "would_send": false,
+          "email_hash_present": false,
+          "phone_hash_present": false,
+          "order_no_hash_present": true,
+          "client_session_present": true,
+          "click_id_hash_present": true,
+          "no_raw_echo_verified": true,
+          "no_platform_send_verified": true,
+          "platform_send_count": 0,
+          "raw_payload_stored": false,
+          "raw_logging_enabled": false,
+          "hash_version": "hmac_sha256_identity_v1",
+          "identity_source": "none",
+          "normalized_presence": {
+            "email": false,
+            "phone": false,
+            "order_no": true,
+            "client_id": true,
+            "ga_session_id": false,
+            "local_session_id": true,
+            "click_id": true
+          },
+          "hash_prefixes": {
+            "email_hash_prefix": "",
+            "phone_hash_prefix": "",
+            "order_no_hash_prefix": "92320e73",
+            "local_session_id_hash_prefix": "01669360",
+            "click_id_hash_prefix": "5971568b"
+          },
+          "safe_debug": {
+            "site": "biocom",
+            "capture_stage": "order_confirm_agent_os_user_identity_preview",
+            "received_at": "2026-05-08T16:51:16.686Z",
+            "input_keys": [
+              "capture_stage",
+              "click_id",
+              "client_id",
+              "email",
+              "email_source_candidate",
+              "ga_session_id",
+              "local_session_id",
+              "order_no",
+              "preview_mode",
+              "site"
+            ]
+          }
+        },
+        "source": {
+          "mode": "no_write_no_send_identity_hmac_preview",
+          "receivedAt": "2026-05-08T16:51:16.686Z"
+        },
+        "warnings": [
+          "Path B Preview endpoint다. 운영 저장, platform send, GTM Production publish는 하지 않는다.",
+          "raw email/phone/order는 HMAC 생성을 위한 transient input으로만 허용하고 response/log/storage에 남기지 않는다.",
+          "response에는 raw 값 없이 hash present 여부와 짧은 hash prefix만 반환한다."
+        ]
+      }
+    ],
+    "network_errors": [],
+    "page_state": {
+      "href": "https://biocom.kr/shop_payment_complete?order_no=REDACTED_SYNTHETIC&gclid=REDACTED_SYNTHETIC",
+      "installed": "agent_os_path_b_user_identity_preview_20260508T161749Z",
+      "payloadKeys": [
+        "capture_stage",
+        "click_id",
+        "client_id",
+        "email",
+        "email_source_candidate",
+        "ga_session_id",
+        "local_session_id",
+        "order_no",
+        "preview_mode",
+        "site"
+      ],
+      "result": {
+        "response_status": 200,
+        "response_ok": true,
+        "identity_source": "none",
+        "would_store": false,
+        "would_send": false,
+        "email_hash_present": false,
+        "phone_hash_present": false,
+        "order_no_hash_present": true,
+        "client_session_present": true,
+        "click_id_hash_present": true,
+        "no_raw_echo_verified": true,
+        "no_platform_send_verified": true,
+        "platform_send_count": 0,
+        "hash_version": "hmac_sha256_identity_v1"
+      },
+      "error": null,
+      "gtmLoaded": true
+    },
+    "receiver_ok_all": true,
+    "receiver_would_store_false_all": true,
+    "receiver_would_send_false_all": true,
+    "receiver_platform_send_zero_all": true,
+    "raw_echo_detected": false,
+    "response_preview_booleans": {
+      "email_hash_present": false,
+      "phone_hash_present": false,
+      "order_no_hash_present": true,
+      "client_session_present": true,
+      "click_id_hash_present": true,
+      "no_raw_echo_verified": true,
+      "no_platform_send_verified": true,
+      "identity_source": "none",
+      "hash_version": "hmac_sha256_identity_v1"
+    }
+  },
+  "same_browser_preservation_preview": {
+    "product_url_redacted": "https://biocom.kr/shop_view/?idx=198&gclid=REDACTED_SYNTHETIC",
+    "order_url_redacted": "https://biocom.kr/shop_payment_complete?order_no=REDACTED_SYNTHETIC",
+    "product_stage": {
+      "capture_marker_present": true,
+      "storage_key_present": true,
+      "click_id_present": true,
+      "client_id_present": true,
+      "local_session_id_present": true
+    },
+    "receiver_statuses": [
+      200
+    ],
+    "receiver_bodies": [
+      {
+        "ok": true,
+        "dryRun": true,
+        "dry_run": true,
+        "wouldStore": false,
+        "would_store": false,
+        "wouldSend": false,
+        "would_send": false,
+        "noSendVerified": true,
+        "no_send_verified": true,
+        "noWriteVerified": true,
+        "no_write_verified": true,
+        "noDeployVerified": true,
+        "no_deploy_verified": true,
+        "noPublishVerified": true,
+        "no_publish_verified": true,
+        "noPlatformSendVerified": true,
+        "no_platform_send_verified": true,
+        "receiver": "order_bridge_identity_hmac_no_send",
+        "guard": {
+          "guard_status": "blocked",
+          "send_candidate": false,
+          "actual_send_candidate": false,
+          "block_reasons": [
+            "read_only_phase",
+            "approval_required"
+          ],
+          "legacy_block_reasons": [],
+          "no_send_verified": true,
+          "no_write_verified": true,
+          "no_deploy_verified": true,
+          "no_publish_verified": true,
+          "no_platform_send_verified": true,
+          "checked_at": "2026-05-08T16:51:23.901Z",
+          "source": "order_bridge_identity_hmac_no_send",
+          "confidence": 0.93
+        },
+        "preview": {
+          "ok": true,
+          "would_store": false,
+          "would_send": false,
+          "email_hash_present": false,
+          "phone_hash_present": false,
+          "order_no_hash_present": true,
+          "client_session_present": true,
+          "click_id_hash_present": true,
+          "no_raw_echo_verified": true,
+          "no_platform_send_verified": true,
+          "platform_send_count": 0,
+          "raw_payload_stored": false,
+          "raw_logging_enabled": false,
+          "hash_version": "hmac_sha256_identity_v1",
+          "identity_source": "none",
+          "normalized_presence": {
+            "email": false,
+            "phone": false,
+            "order_no": true,
+            "client_id": true,
+            "ga_session_id": true,
+            "local_session_id": true,
+            "click_id": true
+          },
+          "hash_prefixes": {
+            "email_hash_prefix": "",
+            "phone_hash_prefix": "",
+            "order_no_hash_prefix": "dab314c9",
+            "local_session_id_hash_prefix": "f06055e0",
+            "click_id_hash_prefix": "ab518aaf"
+          },
+          "safe_debug": {
+            "site": "biocom",
+            "capture_stage": "order_confirm_agent_os_user_identity_preview",
+            "received_at": "2026-05-08T16:51:23.901Z",
+            "input_keys": [
+              "capture_stage",
+              "click_id",
+              "client_id",
+              "email",
+              "email_source_candidate",
+              "ga_session_id",
+              "local_session_id",
+              "order_no",
+              "preview_mode",
+              "site"
+            ]
+          }
+        },
+        "source": {
+          "mode": "no_write_no_send_identity_hmac_preview",
+          "receivedAt": "2026-05-08T16:51:23.901Z"
+        },
+        "warnings": [
+          "Path B Preview endpoint다. 운영 저장, platform send, GTM Production publish는 하지 않는다.",
+          "raw email/phone/order는 HMAC 생성을 위한 transient input으로만 허용하고 response/log/storage에 남기지 않는다.",
+          "response에는 raw 값 없이 hash present 여부와 짧은 hash prefix만 반환한다."
+        ]
+      }
+    ],
+    "network_errors": [],
+    "page_state": {
+      "href": "https://biocom.kr/shop_payment_complete?order_no=REDACTED_SYNTHETIC",
+      "installed": "agent_os_path_b_user_identity_preview_20260508T161749Z",
+      "payloadKeys": [
+        "capture_stage",
+        "click_id",
+        "client_id",
+        "email",
+        "email_source_candidate",
+        "ga_session_id",
+        "local_session_id",
+        "order_no",
+        "preview_mode",
+        "site"
+      ],
+      "result": {
+        "response_status": 200,
+        "response_ok": true,
+        "identity_source": "none",
+        "would_store": false,
+        "would_send": false,
+        "email_hash_present": false,
+        "phone_hash_present": false,
+        "order_no_hash_present": true,
+        "client_session_present": true,
+        "click_id_hash_present": true,
+        "no_raw_echo_verified": true,
+        "no_platform_send_verified": true,
+        "platform_send_count": 0,
+        "hash_version": "hmac_sha256_identity_v1"
+      },
+      "error": null,
+      "gtmLoaded": true
+    },
+    "receiver_ok_all": true,
+    "receiver_would_store_false_all": true,
+    "receiver_would_send_false_all": true,
+    "receiver_platform_send_zero_all": true,
+    "raw_echo_detected": false,
+    "response_preview_booleans": {
+      "email_hash_present": false,
+      "phone_hash_present": false,
+      "order_no_hash_present": true,
+      "client_session_present": true,
+      "click_id_hash_present": true,
+      "no_raw_echo_verified": true,
+      "no_platform_send_verified": true,
+      "identity_source": "none",
+      "hash_version": "hmac_sha256_identity_v1"
+    }
+  },
+  "mini_scorecard": {
+    "order_bridge_key_present": "PASS",
+    "identity_bridge_key_present": "PASS_PREVIOUS_BATCH",
+    "click_bridge_key_present": "PASS",
+    "raw_identity_absent": "PASS",
+    "no_platform_send": "PASS",
+    "would_store_false": "PASS",
+    "would_send_false": "PASS",
+    "production_publish_absent": "PASS",
+    "same_browser_preservation": "PASS_CONTROLLED",
+    "reliability_dry_run_ready": "PASS_INPUT_READY"
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "real ad click generation",
+    "actual payment test",
+    "raw email/phone/member_code/order/payment operational storage",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete",
+    "new operational raw logging"
+  ],
+  "verdict": "PASS_CLICK_BRIDGE_PREVIEW_AND_CONTROLLED_PRESERVATION"
+}

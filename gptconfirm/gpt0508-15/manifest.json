@@ -1,0 +1,49 @@
+{
+  "batch": "gpt0508-15",
+  "created_at_kst": "2026-05-09 19:09 KST",
+  "purpose": "Path B GTM Preview controlled browser row result",
+  "site": "biocom",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-15/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-15/00-result-report.md",
+      "why_included": "Batch result report after logged-in browser row smoke",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-gtm-preview-controlled-row-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-15/01-path-b-gtm-preview-controlled-row-result-20260509.md",
+      "why_included": "Evidence that logged-in GTM Preview browser traffic stored one hash-only row",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-15/99-total-current-copy.md",
+      "why_included": "Current canonical document copy for confirmation context",
+      "approval_needed": false
+    }
+  ],
+  "key_results": {
+    "gtm_preview_controlled_browser_row": "PASS_WITHOUT_CLICK_ID",
+    "row_count": 2,
+    "row_delta": 1,
+    "email_hash_present": true,
+    "order_no_hash_present": true,
+    "client_session_present": true,
+    "click_id_hash_present": false,
+    "raw_stored_count": 0,
+    "platform_send_count": 0,
+    "write_flag_final": "OFF"
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "1h storage canary main run",
+    "real paid-click actual order test",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "existing live GTM tag pause/delete"
+  ]
+}

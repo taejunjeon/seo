@@ -1,0 +1,85 @@
+{
+  "batch": "gpt0508-12",
+  "created_at_kst": "2026-05-09 17:30:00",
+  "purpose": "Path B limited storage deploy result, flag OFF smoke, controlled write smoke, and row summary",
+  "status": "complete",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-12/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-12/00-result-report.md",
+      "why_included": "Batch result report and next decision",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-12/01-path-b-limited-storage-deploy-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-12/01-path-b-limited-storage-deploy-result-20260509.md",
+      "why_included": "VM Cloud limited deploy result",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-12/02-path-b-flag-off-smoke-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-12/02-path-b-flag-off-smoke-result-20260509.md",
+      "why_included": "Flag OFF safety smoke result",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-12/03-path-b-controlled-write-smoke-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-12/03-path-b-controlled-write-smoke-result-20260509.md",
+      "why_included": "Controlled hash-only write smoke result",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-12/04-path-b-row-summary-and-rollback-verification-20260509.md",
+      "copy": "gptconfirm/gpt0508-12/04-path-b-row-summary-and-rollback-verification-20260509.md",
+      "why_included": "Row summary and rollback safety status",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-12/99-total-current-copy.md",
+      "why_included": "Current canonical project context copy with VM Cloud terminology normalized in this copy",
+      "approval_needed": false
+    }
+  ],
+  "progress": {
+    "overall_path_b_bridge_percent": 98,
+    "batch_percent": 100,
+    "next_blocker": "GTM Preview controlled traffic or 1h storage canary main run approval"
+  },
+  "result": {
+    "vm_cloud_limited_deploy": "PASS",
+    "schema_bootstrap": "PASS",
+    "pm2_restart_1x": "PASS",
+    "flag_off_smoke": "PASS",
+    "controlled_write_smoke": "PASS_WITH_ONE_OFF_ROUTE",
+    "row_count": 1,
+    "duplicate_dedupe_count": 1,
+    "raw_stored_count": 0,
+    "platform_send_count": 0,
+    "service_write_flag_on": false
+  },
+  "forbidden_actions_not_taken": [
+    "1h storage canary main run",
+    "GTM Production publish",
+    "Imweb production save",
+    "real paid-click actual order test",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage",
+    "raw email/phone/member_code/order/payment logging",
+    "existing GTM tag pause/delete"
+  ],
+  "validation": {
+    "backend_typecheck": "PASS",
+    "fixture_smoke": "PASS",
+    "backend_build": "PASS",
+    "endpoint_smoke": "PASS",
+    "raw_grep": "PASS",
+    "platform_send_scan": "PASS",
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_strict": "PASS",
+    "git_diff_check": "PASS",
+    "terminology_check": "PASS"
+  }
+}

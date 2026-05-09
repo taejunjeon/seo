@@ -1,0 +1,79 @@
+{
+  "batch": "gpt0508-13",
+  "created_at_kst": "2026-05-09 18:34:00",
+  "purpose": "Path B GTM Preview controlled traffic attempt, blocker report, scorecard update, canary approval v2, and commit whitelist",
+  "status": "complete_with_blocker",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-13/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-13/00-result-report.md",
+      "why_included": "Batch result report and next decision",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-gtm-preview-controlled-traffic-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-13/01-path-b-gtm-preview-controlled-traffic-result-20260509.md",
+      "why_included": "GTM Preview controlled traffic attempt result",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-scorecard-gpt0508-13-20260509.md",
+      "copy": "gptconfirm/gpt0508-13/02-path-b-scorecard-gpt0508-13-20260509.md",
+      "why_included": "Updated Path B scorecard after GTM workspace blocker",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-storage-canary-main-approval-v2-20260509.md",
+      "copy": "gptconfirm/gpt0508-13/03-path-b-storage-canary-main-approval-v2-20260509.md",
+      "why_included": "Updated 1h canary approval packet with GTM Preview blocker condition",
+      "approval_needed": true
+    },
+    {
+      "source": "gptconfirm/gpt0508-13/05-commit-whitelist-plan-20260509.md",
+      "copy": "gptconfirm/gpt0508-13/05-commit-whitelist-plan-20260509.md",
+      "why_included": "Commit whitelist plan for scoped commit preparation",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-13/99-total-current-copy.md",
+      "why_included": "Current canonical project context copy with VM Cloud terminology normalized in this copy",
+      "approval_needed": false
+    }
+  ],
+  "progress": {
+    "overall_path_b_bridge_percent": 98,
+    "batch_percent": 70,
+    "next_blocker": "GTM fresh workspace creation blocked by 429 RESOURCE_EXHAUSTED"
+  },
+  "result": {
+    "gtm_preview_controlled_traffic": "BLOCKED_GTM_FRESH_WORKSPACE_RESOURCE_EXHAUSTED",
+    "vm_cloud_flag_cleanup": "PASS",
+    "row_delta": 0,
+    "raw_stored_delta": 0,
+    "platform_send_delta": 0,
+    "raw_email_log_count": 0,
+    "service_write_flag_on": false
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "1h storage canary main run",
+    "real paid-click actual order test",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment operational storage",
+    "raw email/phone/member_code/order/payment logging",
+    "existing GTM tag pause/delete"
+  ],
+  "validation": {
+    "backend_typecheck": "PASS",
+    "order_bridge_fixture_smoke": "PASS",
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_strict": "PASS",
+    "git_diff_check": "PASS",
+    "terminology_check": "PASS"
+  }
+}

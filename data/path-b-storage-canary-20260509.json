@@ -1,0 +1,78 @@
+{
+  "artifact": "path-b-storage-canary-20260509",
+  "created_at_kst": "2026-05-09 10:35:00",
+  "site": "biocom",
+  "canary_approval": "YES_FROM_TJ",
+  "execution_status": "BLOCKED_NOT_EXECUTED",
+  "blocker_type": "missing_deployed_storage_path",
+  "reason": "The deployed order bridge identity endpoint is no-send only. ORDER_BRIDGE_WRITE_* flags and order_bridge_ledger table are absent on the VM, so enabling a 1h hash-only storage canary would require a limited backend deploy and schema bootstrap outside the current runtime state.",
+  "precheck": {
+    "pm2_status": "online",
+    "backend_health_status": 200,
+    "identity_hash_secret_present": true,
+    "order_bridge_write_enabled_env_present": false,
+    "order_bridge_write_canary_until_env_present": false,
+    "order_bridge_write_max_rows_env_present": false,
+    "order_bridge_platform_send_enabled_env_present": false,
+    "order_bridge_raw_body_logging_env_present": false,
+    "order_bridge_ledger_table_present": false,
+    "deployed_identity_hmac_no_send_present": true,
+    "deployed_order_bridge_write_path_present": false,
+    "synthetic_no_send_status": 200,
+    "synthetic_no_send_ok": true,
+    "synthetic_no_send_would_store": false,
+    "synthetic_no_send_would_send": false,
+    "synthetic_no_send_hashes_present": {
+      "email_hash_present": true,
+      "phone_hash_present": true,
+      "order_no_hash_present": true,
+      "client_session_present": true,
+      "click_id_hash_present": true
+    },
+    "oversized_status": 413,
+    "raw_echo_count": 0,
+    "email_like_log_count_before": 0,
+    "email_like_log_count_after": 0,
+    "raw_stored_count": 0,
+    "platform_send_count": 0
+  },
+  "local_implementation": {
+    "added_order_bridge_ledger_module": true,
+    "added_write_flag_branch": true,
+    "added_summary_read_endpoint": true,
+    "fixture_storage_smoke_passed": true,
+    "raw_echo_assertion_passed": true,
+    "raw_stored_assertion_passed": true,
+    "no_platform_send_assertion_passed": true,
+    "deployed_to_vm": false
+  },
+  "canary_metrics": {
+    "row_count": 0,
+    "unique_order_no_hash": 0,
+    "unique_email_hash": 0,
+    "unique_phone_hash": 0,
+    "unique_click_id_hash": 0,
+    "duplicate_dedupe_count": 0,
+    "raw_stored_count": 0,
+    "platform_send_count": 0,
+    "endpoint_5xx_rate": null,
+    "pm2_restart_delta": 0
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "Imweb production save",
+    "backend operational deploy",
+    "operational schema migration",
+    "platform send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage",
+    "raw email/phone/member_code/order/payment logging",
+    "existing GTM tag pause/delete"
+  ],
+  "next_required_approval": [
+    "limited backend deploy for local hash-only storage implementation",
+    "order_bridge_ledger schema bootstrap",
+    "PM2 restart allowance if env flag update requires restart",
+    "traffic source decision because GTM Production publish remains forbidden"
+  ]
+}

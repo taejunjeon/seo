@@ -1,0 +1,108 @@
+{
+  "batch": "gpt0508-6",
+  "created_at_kst": "2026-05-09 01:24 KST",
+  "purpose": "Path B HURDLERS user_id HMAC-only Preview result and next click preservation preparation",
+  "path_b_bridge_progress_percent_before_batch": 76,
+  "path_b_bridge_progress_percent_after_batch": 84,
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-6/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-6/00-result-report.md",
+      "why_included": "Batch result report with progress, Preview evidence, approvals, verification, and next actions",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-hurdlers-user-id-preview-result-20260509.md",
+      "copy": "gptconfirm/gpt0508-6/01-path-b-hurdlers-user-id-preview-result-20260509.md",
+      "why_included": "Controlled Preview result showing email_hash_present=true with would_store=false/would_send=false",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-hurdlers-user-id-preview-tag-diff-20260509.md",
+      "copy": "gptconfirm/gpt0508-6/02-path-b-hurdlers-user-id-preview-tag-diff-20260509.md",
+      "why_included": "Human-readable tag diff draft for the fresh Preview-only GTM tag",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-synthetic-click-id-preview-checklist-20260509.md",
+      "copy": "gptconfirm/gpt0508-6/03-path-b-synthetic-click-id-preview-checklist-20260509.md",
+      "why_included": "Next Preview checklist for click_id_hash_present=true without real ad click",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-same-browser-preservation-preview-checklist-20260509.md",
+      "copy": "gptconfirm/gpt0508-6/04-path-b-same-browser-preservation-preview-checklist-20260509.md",
+      "why_included": "Next Preview checklist for same-browser click id preservation",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-raw-logging-fallback-policy-20260509.md",
+      "copy": "gptconfirm/gpt0508-6/05-path-b-raw-logging-fallback-policy-20260509.md",
+      "why_included": "Policy separating safe troubleshooting from raw logging exceptions",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-6/99-total-current-copy.md",
+      "why_included": "Canonical context snapshot for review",
+      "approval_needed": false
+    }
+  ],
+  "source_context": [
+    {
+      "source": "data/path-b-hurdlers-user-id-preview-result-20260509.json",
+      "why_used": "Machine-readable controlled Preview result"
+    },
+    {
+      "source": "GTM workspace 164 / tag 293 / trigger 292",
+      "why_used": "Fresh Preview-only GTM setup created for HURDLERS user_id HMAC smoke"
+    },
+    {
+      "source": "VM PM2 recent log grep",
+      "why_used": "Read-only raw pattern count check after no-send smoke"
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "raw email/phone/member_code/order storage",
+    "raw email/phone/member_code/order logging",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete/edit",
+    "real ad click test",
+    "actual payment test"
+  ],
+  "next_green_or_yellow_candidates": [
+    {
+      "item": "Real logged-in browser Preview evidence capture",
+      "recommended": true,
+      "lane": "Yellow Preview only"
+    },
+    {
+      "item": "Synthetic click id Preview",
+      "recommended": true,
+      "lane": "Yellow Preview only"
+    },
+    {
+      "item": "Same-browser preservation Preview",
+      "recommended": true,
+      "lane": "Yellow Preview only"
+    }
+  ],
+  "blocked_or_pending": [
+    {
+      "item": "backend operational storage canary",
+      "reason": "Requires separate approval and actual Preview PASS evidence",
+      "next": "Hold until HURDLERS user_id and click id Preview evidence are both available"
+    },
+    {
+      "item": "real paid-click-originated controlled test",
+      "reason": "Could involve actual ad click, actual order, cost, or order operations",
+      "next": "Prepare explicit approval only after same-browser preservation Preview"
+    }
+  ]
+}

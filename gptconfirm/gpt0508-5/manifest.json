@@ -1,0 +1,77 @@
+{
+  "batch": "gpt0508-5",
+  "created_at_kst": "2026-05-09 01:01 KST",
+  "purpose": "Path B identity source approval and paid-click-originated test path design",
+  "path_b_bridge_progress_percent_after_batch": 76,
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-5/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-5/00-result-report.md",
+      "why_included": "Batch result report with progress, approval boundaries, validation, and next actions",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-hurdlers-user-id-hmac-source-approval-20260509.md",
+      "copy": "gptconfirm/gpt0508-5/01-path-b-hurdlers-user-id-hmac-source-approval-20260509.md",
+      "why_included": "Yellow Preview approval draft for using existing HURDLERS email-like user_id as server-side HMAC-only identity source",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/path-b-paid-click-originated-test-path-design-20260509.md",
+      "copy": "gptconfirm/gpt0508-5/02-path-b-paid-click-originated-test-path-design-20260509.md",
+      "why_included": "Green design for testing whether paid-click-originated sessions can preserve click id/order/session into Path B",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-5/99-total-current-copy.md",
+      "why_included": "Canonical context snapshot for review",
+      "approval_needed": false
+    }
+  ],
+  "source_context": [
+    {
+      "source": "data/gtm-retous-imweb-dependency-map-20260508.json",
+      "why_used": "Read-only GTM dependency map for HURDLERS user_id variable ID, source, classification, and referenced tags"
+    },
+    {
+      "source": "data/path-b-preview-evidence-20260509.json",
+      "why_used": "Actual Path B vbank Preview payload, including email_hash=false and order/session=true"
+    },
+    {
+      "source": "gdn/path-b-order-session-reliability-dry-run-20260509.md",
+      "why_used": "VM row-level paid_click_intent read-only result showing 0 client/session match for the vbank Preview order"
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "backend operational deploy",
+    "operational schema migration",
+    "GTM Production publish",
+    "Imweb production save",
+    "operational storage canary",
+    "raw email/phone/member_code/order storage",
+    "raw email/phone/member_code/order logging",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete"
+  ],
+  "next_yellow_candidates": [
+    {
+      "item": "HURDLERS email-like user_id HMAC-only Preview",
+      "approval_doc": "gptconfirm/gpt0508-5/01-path-b-hurdlers-user-id-hmac-source-approval-20260509.md",
+      "recommended": true
+    },
+    {
+      "item": "Synthetic click id and same-browser preservation Preview",
+      "approval_doc": "gptconfirm/gpt0508-5/02-path-b-paid-click-originated-test-path-design-20260509.md",
+      "recommended": true
+    }
+  ],
+  "blocked_or_pending": [
+    {
+      "item": "real paid-click-originated controlled test",
+      "reason": "Could involve actual ad click, actual order, cost, or order operations",
+      "next": "Prepare separate explicit approval only after identity HMAC and synthetic click preservation Preview"
+    }
+  ]
+}

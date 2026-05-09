@@ -1,0 +1,63 @@
+{
+  "batch": "gpt0508-16",
+  "created_at_kst": "2026-05-09 19:22 KST",
+  "purpose": "Path B identity-first hash-only canary strategy and approval packet",
+  "site": "biocom",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-16/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-16/00-result-report.md",
+      "why_included": "Batch result report and decision summary",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-identity-first-canary-strategy-20260509.md",
+      "copy": "gptconfirm/gpt0508-16/01-path-b-identity-first-canary-strategy-20260509.md",
+      "why_included": "Defines identity-first strategy and row status taxonomy",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-identity-first-storage-canary-approval-20260509.md",
+      "copy": "gptconfirm/gpt0508-16/02-path-b-identity-first-storage-canary-approval-20260509.md",
+      "why_included": "Approval packet for 1h identity-first hash-only storage canary",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/path-b-order-bridge-reliability-v2-20260509.md",
+      "copy": "gptconfirm/gpt0508-16/03-path-b-order-bridge-reliability-v2-20260509.md",
+      "why_included": "Reliability dry-run v2 design for status and confidence classification",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-canary-mode-decision-20260509.md",
+      "copy": "gptconfirm/gpt0508-16/04-path-b-canary-mode-decision-20260509.md",
+      "why_included": "Compares Preview/manual canary vs order-complete-only limited Production publish canary",
+      "approval_needed": true
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-16/99-total-current-copy.md",
+      "why_included": "Current canonical document copy for confirmation context",
+      "approval_needed": false
+    }
+  ],
+  "key_results": {
+    "strategy": "identity_first_hash_only",
+    "click_id_required": false,
+    "click_missing_status": "identity_only_quarantine_or_hold",
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "local_tests": "PASS"
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "Imweb production save",
+    "canary execution",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "raw email/phone/member_code/order/payment storage or logging",
+    "existing GTM tag pause/delete",
+    "All Pages trigger",
+    "send_candidate=true"
+  ]
+}

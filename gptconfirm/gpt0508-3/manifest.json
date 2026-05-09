@@ -1,0 +1,49 @@
+{
+  "batch": "gpt0508-3",
+  "created_at_kst": "2026-05-08 23:30 KST",
+  "purpose": "Path B limited deploy, GTM Preview, and reliability dry-run confirmation",
+  "documents": [
+    {
+      "source": "generated in batch",
+      "copy": "gptconfirm/gpt0508-3/00-result-report.md",
+      "why_included": "이번 batch의 결론, 진척률, 검증, 다음 승인 후보를 빠르게 확인하기 위한 결과 보고서",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/path-b-limited-deploy-approval-20260508.md",
+      "copy": "gptconfirm/gpt0508-3/01-path-b-limited-deploy-approval-20260508.md",
+      "why_included": "Path B no-send HMAC endpoint 제한 deploy 또는 tunnel smoke를 승인할지 판단하기 위한 승인안",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/path-b-gtm-preview-final-checklist-20260508.md",
+      "copy": "gptconfirm/gpt0508-3/02-path-b-gtm-preview-final-checklist-20260508.md",
+      "why_included": "GTM Preview only 실행 범위, 보강 tag 초안, PASS/HOLD/FAIL 기준을 확인하기 위한 체크리스트",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/path-b-order-bridge-reliability-dry-run-design-20260508.md",
+      "copy": "gptconfirm/gpt0508-3/03-path-b-order-bridge-reliability-dry-run-design-20260508.md",
+      "why_included": "Path B가 주문과 클릭을 안정적으로 잇는지 판단할 dry-run 기준과 100%까지 남은 단계를 확인하기 위한 설계",
+      "approval_needed": true
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-3/99-total-current-copy.md",
+      "why_included": "전체 Path B/Path C/paid_click_intent/Google Ads ROAS 맥락을 함께 확인하기 위한 정본 복사본",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "backend 운영 deploy",
+    "operational schema migration",
+    "GTM Production publish",
+    "Imweb production save",
+    "1h hash-only canary 운영 저장",
+    "raw email/phone/member_code storage",
+    "raw email/phone/member_code logging",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "tag pause/delete"
+  ]
+}

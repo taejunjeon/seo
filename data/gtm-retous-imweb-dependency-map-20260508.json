@@ -1,0 +1,2185 @@
+{
+  "checkedAtKst": "2026-05-08 22:40:53 KST",
+  "site": "biocom",
+  "lane": "Green GTM read-only dependency map",
+  "container": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "publicId": "GTM-W2Z6PHN",
+    "workspaceId": "147",
+    "workspaceName": "Default Workspace"
+  },
+  "totals": {
+    "variablesInContainer": 60,
+    "tagsInContainer": 59,
+    "triggersInContainer": 85,
+    "relevantVariables": 54,
+    "relevantTags": 33
+  },
+  "classificationCounts": {
+    "unknown": 7,
+    "pii_risk": 17,
+    "keep": 44,
+    "deprecate_candidate": 5,
+    "critical_do_not_touch": 14
+  },
+  "runtimeFiringCounts": {
+    "availableViaGtmApi": false,
+    "note": "GTM API read-only definitions do not expose Tag Assistant runtime firing counts. Manual 200/201/203 evidence is documented in markdown."
+  },
+  "variables": [
+    {
+      "id": "199",
+      "name": "Ads ID",
+      "type": "c",
+      "classification": "unknown",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "200",
+          "name": "UPDE_register",
+          "type": "awud",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "204",
+          "name": "UPDE_purchase",
+          "type": "awud",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "정의만으로 영향 판단 부족, 변경 전 추가 조사 필요"
+      ]
+    },
+    {
+      "id": "45",
+      "name": "dlv_price_vlaue",
+      "type": "v",
+      "classification": "unknown",
+      "readsOrMentions": [
+        "eventModel.value"
+      ],
+      "referencedByTags": [
+        {
+          "id": "43",
+          "name": "GA4_구매전환_Npay",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "48",
+          "name": "GA4_구매전환_홈피구매",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "51",
+          "name": "GA4 장바구니 담기",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "98",
+          "name": "GA4_구매전환_Npay 2",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "101",
+          "name": "GA4 장바구니 담기2",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "정의만으로 영향 판단 부족, 변경 전 추가 조사 필요"
+      ]
+    },
+    {
+      "id": "201",
+      "name": "email_buy",
+      "type": "jsm",
+      "classification": "pii_risk",
+      "readsOrMentions": [
+        "[name='ordererEmail']",
+        "email_buy"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "196",
+      "name": "email_reg",
+      "type": "jsm",
+      "classification": "pii_risk",
+      "readsOrMentions": [
+        "[type=email]",
+        "email_reg"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "124",
+      "name": "HURDLERS - [맞춤 JS] user_id",
+      "type": "jsm",
+      "classification": "pii_risk",
+      "readsOrMentions": [
+        ".email-info",
+        "user_id"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "171",
+          "name": "User_id",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "147",
+          "name": "HURDLERS - [이벤트전송] 장바구니 보기",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "158",
+          "name": "HURDLERS - [이벤트전송] 주문서작성",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "160",
+          "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "116",
+      "name": "HURDLERS - [맞춤 JS] 상세페이지 확인",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "127",
+      "name": "HURDLERS - [변수] cid",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "cid"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "163",
+      "name": "HURDLERS - [변수] method",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "method"
+      ],
+      "referencedByTags": [
+        {
+          "id": "162",
+          "name": "HURDLERS - [이벤트전송] 회원가입 완료",
+          "type": "gaawe",
+          "classification": "keep"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "151",
+      "name": "HURDLERS - [자동 이벤트 변수] 요소",
+      "type": "aev",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "165",
+          "name": "HURDLERS - [데이터레이어] 회원가입 버튼 클릭",
+          "type": "html",
+          "classification": "keep"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "115",
+      "name": "HURDLERS - GA4 Affiliation",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "hurdlers_ga4.affiliation"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "142",
+      "name": "HURDLERS - GA4 pay_type",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "hurdlers_ga4.pay_type"
+      ],
+      "referencedByTags": [
+        {
+          "id": "154",
+          "name": "HURDLERS - [데이터레이어] 구매",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "126",
+      "name": "HURDLERS - GA4 shipping",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "hurdlers_ga4.shipping"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "121",
+      "name": "HURDLERS - GA4 Transaction_id",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "hurdlers_ga4.transaction_id"
+      ],
+      "referencedByTags": [
+        {
+          "id": "154",
+          "name": "HURDLERS - [데이터레이어] 구매",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "125",
+      "name": "HURDLERS - GA4 Value",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "hurdlers_ga4.value"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "154",
+          "name": "HURDLERS - [데이터레이어] 구매",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "147",
+          "name": "HURDLERS - [이벤트전송] 장바구니 보기",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "158",
+          "name": "HURDLERS - [이벤트전송] 주문서작성",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "160",
+          "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "122",
+      "name": "HURDLERS - GA4 상품정보",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "hurdlers_ga4.items"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "154",
+          "name": "HURDLERS - [데이터레이어] 구매",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "147",
+          "name": "HURDLERS - [이벤트전송] 장바구니 보기",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "158",
+          "name": "HURDLERS - [이벤트전송] 주문서작성",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "160",
+          "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "107",
+      "name": "HURDLERS - GA4 아이디",
+      "type": "c",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "147",
+          "name": "HURDLERS - [이벤트전송] 장바구니 보기",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "158",
+          "name": "HURDLERS - [이벤트전송] 주문서작성",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "160",
+          "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "162",
+          "name": "HURDLERS - [이벤트전송] 회원가입 완료",
+          "type": "gaawe",
+          "classification": "keep"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "129",
+      "name": "HURDLERS - Iframe",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "113",
+      "name": "HURDLERS - 네이버페이 구매 아이디",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "118",
+          "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)",
+          "type": "html",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "114",
+          "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (장바구니)",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "108",
+      "name": "HURDLERS - 브랜드명",
+      "type": "c",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "118",
+          "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)",
+          "type": "html",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "114",
+          "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (장바구니)",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "133",
+          "name": "HURDLERS - [데이터레이어] 상세페이지 조회",
+          "type": "html",
+          "classification": "deprecate_candidate"
+        },
+        {
+          "id": "152",
+          "name": "HURDLERS - [데이터레이어] 주문서작성",
+          "type": "html",
+          "classification": "keep"
+        },
+        {
+          "id": "145",
+          "name": "HURDLERS - [데이터레이어] 장바구니 보기",
+          "type": "html",
+          "classification": "keep"
+        },
+        {
+          "id": "156",
+          "name": "HURDLERS - [데이터레이어] 장바구니 담기",
+          "type": "html",
+          "classification": "keep"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "148",
+      "name": "HURDLERS - 카카오페이 구매 아이디",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "24",
+      "name": "idx value",
+      "type": "u",
+      "classification": "unknown",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "26",
+          "name": "tmp_구글 Ads 동적 리마케팅 잠재고객",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "정의만으로 영향 판단 부족, 변경 전 추가 조사 필요"
+      ]
+    },
+    {
+      "id": "172",
+      "name": "JS - Imweb Data Layer",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [
+        "__bs_imweb"
+      ],
+      "referencedByTags": [
+        {
+          "id": "118",
+          "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)",
+          "type": "html",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "154",
+          "name": "HURDLERS - [데이터레이어] 구매",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "114",
+          "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (장바구니)",
+          "type": "html",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "133",
+          "name": "HURDLERS - [데이터레이어] 상세페이지 조회",
+          "type": "html",
+          "classification": "deprecate_candidate"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "250",
+      "name": "JS - Purchase Transaction ID (fallback chain)",
+      "type": "jsm",
+      "classification": "unknown",
+      "readsOrMentions": [
+        "order_no"
+      ],
+      "referencedByTags": [
+        {
+          "id": "43",
+          "name": "GA4_구매전환_Npay",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "48",
+          "name": "GA4_구매전환_홈피구매",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "정의만으로 영향 판단 부족, 변경 전 추가 조사 필요"
+      ]
+    },
+    {
+      "id": "174",
+      "name": "memberCode",
+      "type": "v",
+      "classification": "deprecate_candidate",
+      "readsOrMentions": [
+        "memberCode",
+        "member_code"
+      ],
+      "referencedByTags": [
+        {
+          "id": "179",
+          "name": "ga4 장바구니 이벤트",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "101",
+          "name": "GA4 장바구니 담기2",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "memberCode 계열 기대 흔적이 있으나 2026-05-08 evidence 기준 empty",
+        "즉시 삭제 금지, 후보로만 표시"
+      ]
+    },
+    {
+      "id": "195",
+      "name": "phone_buy",
+      "type": "jsm",
+      "classification": "pii_risk",
+      "readsOrMentions": [
+        "[name='ordererCall']",
+        "phone_buy"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "194",
+      "name": "phone_reg",
+      "type": "jsm",
+      "classification": "pii_risk",
+      "readsOrMentions": [
+        "#join_callnum",
+        "phone_reg"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "192",
+      "name": "Retous - [맞춤] memberCode",
+      "type": "jsm",
+      "classification": "deprecate_candidate",
+      "readsOrMentions": [
+        "Retous",
+        "memberCode"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "memberCode 계열 기대 흔적이 있으나 2026-05-08 evidence 기준 empty",
+        "즉시 삭제 금지, 후보로만 표시"
+      ]
+    },
+    {
+      "id": "189",
+      "name": "Retous - [맞춤] utmCampaign",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "190",
+      "name": "Retous - [맞춤] utmContent",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "188",
+      "name": "Retous - [맞춤] utmMedium",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "187",
+      "name": "Retous - [맞춤] utmSource",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "191",
+      "name": "Retous - [맞춤] utmTerm",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "209",
+      "name": "RETOUS - [변수] member_code",
+      "type": "v",
+      "classification": "deprecate_candidate",
+      "readsOrMentions": [
+        "RETOUS",
+        "member_code"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "memberCode 계열 기대 흔적이 있으나 2026-05-08 evidence 기준 empty",
+        "즉시 삭제 금지, 후보로만 표시"
+      ]
+    },
+    {
+      "id": "181",
+      "name": "Retous - [변수] memberCode",
+      "type": "v",
+      "classification": "deprecate_candidate",
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.member_code",
+        "memberCode",
+        "member_code"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "memberCode 계열 기대 흔적이 있으나 2026-05-08 evidence 기준 empty",
+        "즉시 삭제 금지, 후보로만 표시"
+      ]
+    },
+    {
+      "id": "175",
+      "name": "RETOUS - [변수] utm_campaign",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_campaign"
+      ],
+      "referencedByTags": [
+        {
+          "id": "179",
+          "name": "ga4 장바구니 이벤트",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "207",
+      "name": "RETOUS - [변수] utm_content",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_content"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "176",
+      "name": "RETOUS - [변수] utm_medium",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_medium"
+      ],
+      "referencedByTags": [
+        {
+          "id": "179",
+          "name": "ga4 장바구니 이벤트",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "177",
+      "name": "RETOUS - [변수] utm_source",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_source"
+      ],
+      "referencedByTags": [
+        {
+          "id": "179",
+          "name": "ga4 장바구니 이벤트",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "208",
+      "name": "RETOUS - [변수] utm_term",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "RETOUS",
+        "utm_term"
+      ],
+      "referencedByTags": [],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "184",
+      "name": "Retous - [변수] utmCampaign",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_campaign"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "185",
+      "name": "Retous - [변수] utmContent",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_content"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "183",
+      "name": "Retous - [변수] utmMedium",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_medium"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "182",
+      "name": "Retous - [변수] utmSource",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_source"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "186",
+      "name": "Retous - [변수] utmTerm",
+      "type": "v",
+      "classification": "keep",
+      "readsOrMentions": [
+        "Retous",
+        "hurdlers_ga4.utm_term"
+      ],
+      "referencedByTags": [
+        {
+          "id": "143",
+          "name": "HURDLERS - [이벤트전송] 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "128",
+          "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        },
+        {
+          "id": "157",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "246",
+      "name": "TechSol - Custom Javascript 30698",
+      "type": "jsm",
+      "classification": "unknown",
+      "readsOrMentions": [
+        "._cart_main_total_price",
+        ".total_price"
+      ],
+      "referencedByTags": [
+        {
+          "id": "248",
+          "name": "TechSol - [GAds]NPAY구매 51163",
+          "type": "awct",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "정의만으로 영향 판단 부족, 변경 전 추가 조사 필요"
+      ]
+    },
+    {
+      "id": "247",
+      "name": "TechSol - Custom Javascript 65481",
+      "type": "jsm",
+      "classification": "unknown",
+      "readsOrMentions": [
+        ".npay_btn_link.npay_btn_pay.btn_green"
+      ],
+      "referencedByTags": [
+        {
+          "id": "248",
+          "name": "TechSol - [GAds]NPAY구매 51163",
+          "type": "awct",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "정의만으로 영향 판단 부족, 변경 전 추가 조사 필요"
+      ]
+    },
+    {
+      "id": "202",
+      "name": "UPDE_buy_em_pn",
+      "type": "awec",
+      "classification": "pii_risk",
+      "readsOrMentions": [
+        "UPDE_buy_em_pn",
+        "email_buy",
+        "phone_buy"
+      ],
+      "referencedByTags": [
+        {
+          "id": "204",
+          "name": "UPDE_purchase",
+          "type": "awud",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "197",
+      "name": "UPDE_reg_em_pn",
+      "type": "awec",
+      "classification": "pii_risk",
+      "readsOrMentions": [
+        "UPDE_reg_em_pn",
+        "email_reg",
+        "phone_reg"
+      ],
+      "referencedByTags": [
+        {
+          "id": "200",
+          "name": "UPDE_register",
+          "type": "awud",
+          "classification": "pii_risk"
+        }
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "33",
+      "name": "USER_TIME",
+      "type": "jsm",
+      "classification": "unknown",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "43",
+          "name": "GA4_구매전환_Npay",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "48",
+          "name": "GA4_구매전환_홈피구매",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "49",
+          "name": "GA4_회원가입",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "98",
+          "name": "GA4_구매전환_Npay 2",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "정의만으로 영향 판단 부족, 변경 전 추가 조사 필요"
+      ]
+    },
+    {
+      "id": "34",
+      "name": "UTM_CAMPAIGN",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "38",
+          "name": "GA4_픽셀",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "99",
+          "name": "GA4_픽셀 2",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "101",
+          "name": "GA4 장바구니 담기2",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "31",
+      "name": "UTM_CONTENT",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "38",
+          "name": "GA4_픽셀",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "99",
+          "name": "GA4_픽셀 2",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "101",
+          "name": "GA4 장바구니 담기2",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "35",
+      "name": "UTM_MEDIUM",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "38",
+          "name": "GA4_픽셀",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "99",
+          "name": "GA4_픽셀 2",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "101",
+          "name": "GA4 장바구니 담기2",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "30",
+      "name": "UTM_SOURCE",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "38",
+          "name": "GA4_픽셀",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "99",
+          "name": "GA4_픽셀 2",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "101",
+          "name": "GA4 장바구니 담기2",
+          "type": "gaawe",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    },
+    {
+      "id": "36",
+      "name": "UTM_TERM_USER_QUERY",
+      "type": "jsm",
+      "classification": "keep",
+      "readsOrMentions": [],
+      "referencedByTags": [
+        {
+          "id": "38",
+          "name": "GA4_픽셀",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        },
+        {
+          "id": "99",
+          "name": "GA4_픽셀 2",
+          "type": "googtag",
+          "classification": "critical_do_not_touch"
+        }
+      ],
+      "notes": [
+        "session/UTM/dataLayer 보조 변수로 유지"
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "id": "251",
+      "name": "biocom - [데이터 준비] hurdlers_ga4 purchase 값 주입 (Claude)",
+      "type": "html",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [],
+      "triggerNames": [],
+      "variableRefs": [],
+      "mentions": [
+        "order_no"
+      ],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "51",
+      "name": "GA4 장바구니 담기",
+      "type": "gaawe",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "50"
+      ],
+      "triggerNames": [
+        "add_to_cart 트리거"
+      ],
+      "variableRefs": [
+        "dlv_price_vlaue"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "101",
+      "name": "GA4 장바구니 담기2",
+      "type": "gaawe",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "50"
+      ],
+      "triggerNames": [
+        "add_to_cart 트리거"
+      ],
+      "variableRefs": [
+        "UTM_CAMPAIGN",
+        "UTM_CONTENT",
+        "UTM_MEDIUM",
+        "UTM_SOURCE",
+        "dlv_price_vlaue",
+        "memberCode"
+      ],
+      "mentions": [
+        "memberCode"
+      ],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "179",
+      "name": "ga4 장바구니 이벤트",
+      "type": "gaawe",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "178"
+      ],
+      "triggerNames": [
+        "GA4 이벤트 전송 트리거 - Cart View"
+      ],
+      "variableRefs": [
+        "RETOUS - [변수] utm_campaign",
+        "RETOUS - [변수] utm_medium",
+        "RETOUS - [변수] utm_source",
+        "memberCode"
+      ],
+      "mentions": [
+        "RETOUS",
+        "memberCode",
+        "member_code"
+      ],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "43",
+      "name": "GA4_구매전환_Npay",
+      "type": "gaawe",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "40",
+        "39"
+      ],
+      "triggerNames": [
+        "purchase_npay_mo 트리거",
+        "purchase_npay_pc 트리거"
+      ],
+      "variableRefs": [
+        "JS - Purchase Transaction ID (fallback chain)",
+        "USER_TIME",
+        "dlv_price_vlaue"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "98",
+      "name": "GA4_구매전환_Npay 2",
+      "type": "gaawe",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "40",
+        "39"
+      ],
+      "triggerNames": [
+        "purchase_npay_mo 트리거",
+        "purchase_npay_pc 트리거"
+      ],
+      "variableRefs": [
+        "USER_TIME",
+        "dlv_price_vlaue"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "48",
+      "name": "GA4_구매전환_홈피구매",
+      "type": "gaawe",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "47",
+        "blocking:253"
+      ],
+      "triggerNames": [
+        "purchase_homepage_트리거",
+        "blocking:Exception - vbank blocked (all events)"
+      ],
+      "variableRefs": [
+        "JS - Purchase Transaction ID (fallback chain)",
+        "USER_TIME",
+        "dlv_price_vlaue"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "38",
+      "name": "GA4_픽셀",
+      "type": "googtag",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "2147479553"
+      ],
+      "triggerNames": [
+        "2147479553"
+      ],
+      "variableRefs": [
+        "UTM_CAMPAIGN",
+        "UTM_CONTENT",
+        "UTM_MEDIUM",
+        "UTM_SOURCE",
+        "UTM_TERM_USER_QUERY"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "99",
+      "name": "GA4_픽셀 2",
+      "type": "googtag",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "2147479553"
+      ],
+      "triggerNames": [
+        "2147479553"
+      ],
+      "variableRefs": [
+        "UTM_CAMPAIGN",
+        "UTM_CONTENT",
+        "UTM_MEDIUM",
+        "UTM_SOURCE",
+        "UTM_TERM_USER_QUERY"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "49",
+      "name": "GA4_회원가입",
+      "type": "gaawe",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "46"
+      ],
+      "triggerNames": [
+        "회원가입 트리거"
+      ],
+      "variableRefs": [
+        "USER_TIME"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "154",
+      "name": "HURDLERS - [데이터레이어] 구매",
+      "type": "html",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "132",
+        "blocking:253"
+      ],
+      "triggerNames": [
+        "HURDLERS - [맞춤 이벤트] hurdlers_purchase",
+        "blocking:Exception - vbank blocked (all events)"
+      ],
+      "variableRefs": [
+        "HURDLERS - GA4 Transaction_id",
+        "HURDLERS - GA4 Value",
+        "HURDLERS - GA4 pay_type",
+        "HURDLERS - GA4 상품정보",
+        "JS - Imweb Data Layer"
+      ],
+      "mentions": [
+        "memberCode",
+        "member_code"
+      ],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "114",
+      "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (장바구니)",
+      "type": "html",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "112"
+      ],
+      "triggerNames": [
+        "HURDLERS - [링크 클릭] 네이버페이 구매 (장바구니)"
+      ],
+      "variableRefs": [
+        "HURDLERS - 네이버페이 구매 아이디",
+        "HURDLERS - 브랜드명",
+        "JS - Imweb Data Layer"
+      ],
+      "mentions": [
+        "memberCode",
+        "member_code"
+      ],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "118",
+      "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)",
+      "type": "html",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "117"
+      ],
+      "triggerNames": [
+        "HURDLERS - [링크 클릭] 네이버페이 구매 (제품상세)"
+      ],
+      "variableRefs": [
+        "HURDLERS - 네이버페이 구매 아이디",
+        "HURDLERS - 브랜드명",
+        "JS - Imweb Data Layer"
+      ],
+      "mentions": [
+        "memberCode",
+        "member_code",
+        "user_id"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "133",
+      "name": "HURDLERS - [데이터레이어] 상세페이지 조회",
+      "type": "html",
+      "classification": "deprecate_candidate",
+      "triggerIds": [
+        "130"
+      ],
+      "triggerNames": [
+        "HURDLERS - [DOM 사용 가능] 상세페이지 조회"
+      ],
+      "variableRefs": [
+        "HURDLERS - 브랜드명",
+        "JS - Imweb Data Layer"
+      ],
+      "mentions": [
+        "memberCode",
+        "member_code"
+      ],
+      "notes": [
+        "memberCode 계열 기대 흔적이 있으나 2026-05-08 evidence 기준 empty",
+        "즉시 삭제 금지, 후보로만 표시"
+      ]
+    },
+    {
+      "id": "156",
+      "name": "HURDLERS - [데이터레이어] 장바구니 담기",
+      "type": "html",
+      "classification": "keep",
+      "triggerIds": [
+        "137"
+      ],
+      "triggerNames": [
+        "HURDLERS - [클릭] 장바구니 담기"
+      ],
+      "variableRefs": [
+        "HURDLERS - 브랜드명"
+      ],
+      "mentions": [],
+      "notes": [
+        "기존 태그 흐름 유지"
+      ]
+    },
+    {
+      "id": "145",
+      "name": "HURDLERS - [데이터레이어] 장바구니 보기",
+      "type": "html",
+      "classification": "keep",
+      "triggerIds": [
+        "144"
+      ],
+      "triggerNames": [
+        "HURDLERS - [DOM 사용가능] 장바구니 보기"
+      ],
+      "variableRefs": [
+        "HURDLERS - 브랜드명"
+      ],
+      "mentions": [],
+      "notes": [
+        "기존 태그 흐름 유지"
+      ]
+    },
+    {
+      "id": "152",
+      "name": "HURDLERS - [데이터레이어] 주문서작성",
+      "type": "html",
+      "classification": "keep",
+      "triggerIds": [
+        "149"
+      ],
+      "triggerNames": [
+        "HURDLERS - [DOM 사용 가능] 주문서작성"
+      ],
+      "variableRefs": [
+        "HURDLERS - 브랜드명"
+      ],
+      "mentions": [],
+      "notes": [
+        "기존 태그 흐름 유지"
+      ]
+    },
+    {
+      "id": "110",
+      "name": "HURDLERS - [데이터레이어] 초기화",
+      "type": "html",
+      "classification": "keep",
+      "triggerIds": [],
+      "triggerNames": [],
+      "variableRefs": [],
+      "mentions": [],
+      "notes": [
+        "기존 태그 흐름 유지"
+      ]
+    },
+    {
+      "id": "165",
+      "name": "HURDLERS - [데이터레이어] 회원가입 버튼 클릭",
+      "type": "html",
+      "classification": "keep",
+      "triggerIds": [
+        "164",
+        "168"
+      ],
+      "triggerNames": [
+        "HURDLERS - [링크 클릭] 회원가입 버튼 클릭",
+        "HURDLERS - [링크 클릭] 회원가입 버튼 클릭(일반)"
+      ],
+      "variableRefs": [
+        "HURDLERS - [자동 이벤트 변수] 요소"
+      ],
+      "mentions": [],
+      "notes": [
+        "기존 태그 흐름 유지"
+      ]
+    },
+    {
+      "id": "167",
+      "name": "HURDLERS - [데이터레이어] 회원가입 완료",
+      "type": "html",
+      "classification": "keep",
+      "triggerIds": [
+        "161"
+      ],
+      "triggerNames": [
+        "HURDLERS- [DOM 사용가능] 회원가입 완료"
+      ],
+      "variableRefs": [],
+      "mentions": [
+        "completeRegistration",
+        "method"
+      ],
+      "notes": [
+        "기존 태그 흐름 유지"
+      ]
+    },
+    {
+      "id": "146",
+      "name": "HURDLERS - [맞춤 HTML] 허들러스 플러그인",
+      "type": "html",
+      "classification": "keep",
+      "triggerIds": [
+        "2147479553"
+      ],
+      "triggerNames": [
+        "2147479553"
+      ],
+      "variableRefs": [],
+      "mentions": [],
+      "notes": [
+        "기존 태그 흐름 유지"
+      ]
+    },
+    {
+      "id": "143",
+      "name": "HURDLERS - [이벤트전송] 구매",
+      "type": "gaawe",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "141",
+        "blocking:253"
+      ],
+      "triggerNames": [
+        "HURDLERS - [맞춤 이벤트] 구매",
+        "blocking:Exception - vbank blocked (all events)"
+      ],
+      "variableRefs": [
+        "HURDLERS - GA4 Value",
+        "HURDLERS - GA4 shipping",
+        "HURDLERS - GA4 상품정보",
+        "HURDLERS - GA4 아이디",
+        "HURDLERS - [맞춤 JS] user_id",
+        "HURDLERS - [변수] cid",
+        "JS - Purchase Transaction ID (fallback chain)",
+        "Retous - [변수] memberCode",
+        "Retous - [변수] utmCampaign",
+        "Retous - [변수] utmContent",
+        "Retous - [변수] utmMedium",
+        "Retous - [변수] utmSource",
+        "Retous - [변수] utmTerm"
+      ],
+      "mentions": [
+        "Retous",
+        "memberCode",
+        "member_code",
+        "user_id"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "128",
+      "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+      "type": "gaawe",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "123"
+      ],
+      "triggerNames": [
+        "HURDLERS - [맞춤 이벤트] 네이버페이 구매"
+      ],
+      "variableRefs": [
+        "HURDLERS - GA4 Transaction_id",
+        "HURDLERS - GA4 Value",
+        "HURDLERS - GA4 shipping",
+        "HURDLERS - GA4 상품정보",
+        "HURDLERS - GA4 아이디",
+        "HURDLERS - [맞춤 JS] user_id",
+        "HURDLERS - [변수] cid",
+        "Retous - [변수] memberCode",
+        "Retous - [변수] utmCampaign",
+        "Retous - [변수] utmContent",
+        "Retous - [변수] utmMedium",
+        "Retous - [변수] utmSource",
+        "Retous - [변수] utmTerm"
+      ],
+      "mentions": [
+        "Retous",
+        "memberCode",
+        "member_code",
+        "user_id"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "157",
+      "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+      "type": "gaawe",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "109"
+      ],
+      "triggerNames": [
+        "HURDLERS - [맞춤 이벤트] 상세페이지 조회"
+      ],
+      "variableRefs": [
+        "HURDLERS - GA4 Value",
+        "HURDLERS - GA4 상품정보",
+        "HURDLERS - GA4 아이디",
+        "HURDLERS - [맞춤 JS] user_id",
+        "Retous - [변수] memberCode",
+        "Retous - [변수] utmCampaign",
+        "Retous - [변수] utmContent",
+        "Retous - [변수] utmMedium",
+        "Retous - [변수] utmSource",
+        "Retous - [변수] utmTerm"
+      ],
+      "mentions": [
+        "Retous",
+        "memberCode",
+        "member_code",
+        "user_id"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "160",
+      "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+      "type": "gaawe",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "111"
+      ],
+      "triggerNames": [
+        "HURDLERS - [맞춤 이벤트] 장바구니 담기"
+      ],
+      "variableRefs": [
+        "HURDLERS - GA4 Value",
+        "HURDLERS - GA4 상품정보",
+        "HURDLERS - GA4 아이디",
+        "HURDLERS - [맞춤 JS] user_id"
+      ],
+      "mentions": [
+        "user_id"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "147",
+      "name": "HURDLERS - [이벤트전송] 장바구니 보기",
+      "type": "gaawe",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "140"
+      ],
+      "triggerNames": [
+        "HURDLERS - [맞춤 이벤트] 장바구니 보기"
+      ],
+      "variableRefs": [
+        "HURDLERS - GA4 Value",
+        "HURDLERS - GA4 상품정보",
+        "HURDLERS - GA4 아이디",
+        "HURDLERS - [맞춤 JS] user_id"
+      ],
+      "mentions": [
+        "user_id"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "158",
+      "name": "HURDLERS - [이벤트전송] 주문서작성",
+      "type": "gaawe",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "131"
+      ],
+      "triggerNames": [
+        "HURDLERS - [맞춤 이벤트] 주문서작성"
+      ],
+      "variableRefs": [
+        "HURDLERS - GA4 Value",
+        "HURDLERS - GA4 상품정보",
+        "HURDLERS - GA4 아이디",
+        "HURDLERS - [맞춤 JS] user_id"
+      ],
+      "mentions": [
+        "user_id"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "162",
+      "name": "HURDLERS - [이벤트전송] 회원가입 완료",
+      "type": "gaawe",
+      "classification": "keep",
+      "triggerIds": [
+        "166"
+      ],
+      "triggerNames": [
+        "HURDLERS- [맞춤 이벤트] 회원가입 완료"
+      ],
+      "variableRefs": [
+        "HURDLERS - GA4 아이디",
+        "HURDLERS - [변수] method"
+      ],
+      "mentions": [],
+      "notes": [
+        "기존 태그 흐름 유지"
+      ]
+    },
+    {
+      "id": "248",
+      "name": "TechSol - [GAds]NPAY구매 51163",
+      "type": "awct",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "249"
+      ],
+      "triggerNames": [
+        "TechSol - NPAY구매 61620"
+      ],
+      "variableRefs": [
+        "TechSol - Custom Javascript 30698",
+        "TechSol - Custom Javascript 65481"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "26",
+      "name": "tmp_구글 Ads 동적 리마케팅 잠재고객",
+      "type": "html",
+      "classification": "critical_do_not_touch",
+      "triggerIds": [
+        "25"
+      ],
+      "triggerNames": [
+        "제품 상세 페이지 조회"
+      ],
+      "variableRefs": [
+        "idx value"
+      ],
+      "mentions": [],
+      "notes": [
+        "구매/전환/광고/GA4 영향 가능성이 있어 pause/delete 금지",
+        "정리하려면 별도 dependency review와 Preview 필요"
+      ]
+    },
+    {
+      "id": "204",
+      "name": "UPDE_purchase",
+      "type": "awud",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "203"
+      ],
+      "triggerNames": [
+        "결제하기 버튼"
+      ],
+      "variableRefs": [
+        "Ads ID",
+        "UPDE_buy_em_pn"
+      ],
+      "mentions": [
+        "UPDE_buy_em_pn"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "200",
+      "name": "UPDE_register",
+      "type": "awud",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "198"
+      ],
+      "triggerNames": [
+        "가입하기 버튼"
+      ],
+      "variableRefs": [
+        "Ads ID",
+        "UPDE_reg_em_pn"
+      ],
+      "mentions": [
+        "UPDE_reg_em_pn"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    },
+    {
+      "id": "171",
+      "name": "User_id",
+      "type": "gaawe",
+      "classification": "pii_risk",
+      "triggerIds": [
+        "2147479553"
+      ],
+      "triggerNames": [
+        "2147479553"
+      ],
+      "variableRefs": [
+        "HURDLERS - [맞춤 JS] user_id"
+      ],
+      "mentions": [
+        "user_id"
+      ],
+      "notes": [
+        "raw email/phone/user_id 재사용 금지",
+        "Path B 승인 범위 안의 server-side HMAC hash-only Preview는 별도 승인으로 허용 가능"
+      ]
+    }
+  ]
+}

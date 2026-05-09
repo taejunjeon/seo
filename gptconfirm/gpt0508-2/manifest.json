@@ -1,0 +1,51 @@
+{
+  "batch": "gpt0508-2",
+  "created_at_kst": "2026-05-08 23:04 KST",
+  "confirmed_by_tj": true,
+  "confirmed_at_kst": "2026-05-08 23:18 KST",
+  "purpose": "Path B no-send HMAC local endpoint and Preview tag draft confirmation",
+  "documents": [
+    {
+      "source": "gdn/path-b-no-send-hmac-local-implementation-20260508.md",
+      "copy": "gptconfirm/gpt0508-2/01-path-b-no-send-hmac-local-implementation-20260508.md",
+      "why_included": "Path B no-send HMAC endpoint 로컬 구현, fixture smoke, raw echo/logging/platform send guard를 컨펌하기 위한 구현 보고서",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/path-b-preview-tag-draft-20260508.md",
+      "copy": "gptconfirm/gpt0508-2/02-path-b-preview-tag-draft-20260508.md",
+      "why_included": "GTM Preview only tag 초안과 hard fail 기준을 컨펌하기 위한 문서",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/path-b-email-phone-preview-plan-20260508.md",
+      "copy": "gptconfirm/gpt0508-2/03-path-b-email-phone-preview-plan-20260508.md",
+      "why_included": "Preview/no-send smoke의 원래 승인 기준을 함께 확인하기 위한 문서",
+      "approval_needed": true
+    },
+    {
+      "source": "generated in batch",
+      "copy": "gptconfirm/gpt0508-2/00-result-report.md",
+      "why_included": "이번 batch의 결론, 진척률, 검증, 다음 승인 후보를 빠르게 확인하기 위한 결과 보고서",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-2/99-total-current-copy.md",
+      "why_included": "전체 Path B/Path C/confirmed purchase 맥락을 함께 확인하기 위한 정본 복사본",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "backend 운영 deploy",
+    "operational schema migration",
+    "GTM Production publish",
+    "Imweb production save",
+    "1h hash-only canary 운영 저장",
+    "raw email/phone/member_code storage",
+    "raw email/phone/member_code logging",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "tag pause/delete"
+  ]
+}

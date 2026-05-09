@@ -1,0 +1,60 @@
+{
+  "checked_at_kst": "2026-05-09 00:03:54 KST",
+  "checked_at_utc": "2026-05-08T15:03:54Z",
+  "mode": "Mode A limited deploy",
+  "endpoint": "https://att.ainativeos.net/api/attribution/order-bridge/identity-hmac/no-send",
+  "deploy_id": "20260509-0002_path_b_identity_hmac_no_send",
+  "backup_dir": "/home/biocomkr_sns/seo/deploy-backups/20260509-0002_path_b_identity_hmac_no_send",
+  "predeploy": {
+    "health_status": 200,
+    "endpoint_status": 404
+  },
+  "postdeploy": {
+    "pm2_app": "seo-backend",
+    "pm2_status": "online",
+    "pm2_restart_observed": true,
+    "secret_key_present": true,
+    "health_status": 200,
+    "cors": {
+      "status": 204,
+      "origin": "https://biocom.kr",
+      "allow_origin": "https://biocom.kr",
+      "pass": true
+    },
+    "positive": {
+      "status": 200,
+      "ok": true,
+      "would_store": false,
+      "would_send": false,
+      "no_platform_send_verified": true,
+      "platform_send_count": 0,
+      "email_hash_present": true,
+      "phone_hash_present": true,
+      "order_no_hash_present": true,
+      "client_session_present": true,
+      "click_id_hash_present": true
+    },
+    "oversized": {
+      "status": 413,
+      "ok": false,
+      "error": "payload_too_large",
+      "would_store": false,
+      "would_send": false,
+      "no_platform_send_verified": true
+    },
+    "raw_echo_detected": false,
+    "raw_log_matches": 0
+  },
+  "forbidden_actions_not_taken": [
+    "operational schema migration",
+    "GTM Production publish",
+    "Imweb production save",
+    "1h hash-only canary operational storage",
+    "raw email/phone/member_code/order storage",
+    "raw email/phone/member_code/order logging",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete"
+  ],
+  "verdict": "PASS"
+}

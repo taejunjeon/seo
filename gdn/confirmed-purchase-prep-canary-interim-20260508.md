@@ -5,6 +5,8 @@
 관련 문서: [[paid-click-intent-ledger-canary-early-audit-20260508]], [[google-ads-confirmed-purchase-candidate-prep-20260507]], [[../data/!channelfunnel]]
 Status: schema 검증 PASS / canary effect 측정 불가 (input dependency 미갱신)
 
+후속 완료(2026-05-08 17:23 KST): [[canary-effect-meaningful-dry-run-20260508]]에서 운영 PG 기반 새 dry-run input과 live `paid_click_intent_ledger` 직접 source를 생성했다. 결론은 `PG input 생성 완료 / effect HOLD`다. ledger 직접 source는 capture health에는 의미가 있지만 현재 schema에 `member_code_hash`·`order_number` 결합키가 없어 confirmed_purchase uplift 비교는 아직 성립하지 않는다.
+
 ## 5줄 결론
 
 1. ConfirmedPurchasePrep agent 재실행 PASS — schema 동작 + send_candidate=0 guard 검증.

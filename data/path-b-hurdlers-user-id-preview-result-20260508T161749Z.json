@@ -1,0 +1,226 @@
+{
+  "generated_at_kst": "2026-05-09T01:18:06",
+  "run_id": "20260508T161749Z",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "13158774",
+    "public_id": "GTM-W2Z6PHN",
+    "live_version_id": "142",
+    "live_version_name": "paid_click_intent_v1_receiver_20260506T150218Z"
+  },
+  "workspace": {
+    "workspace_id": "164",
+    "name": "codex_path_b_hurdlers_user_id_preview_20260508T161749Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/164",
+    "submitted": false,
+    "published": false,
+    "left_open_for_tj_preview": true
+  },
+  "trigger": {
+    "trigger_id": "292",
+    "name": "PathB_hurdlers_order_confirm_pages_preview_20260508T161749Z",
+    "type": "pageview",
+    "scope": "order confirmation paths only",
+    "all_pages": false,
+    "path_regex": "shop_payment_complete|shop_order_done|payment_complete|order_complete"
+  },
+  "tag": {
+    "tag_id": "293",
+    "name": "PathB_hurdlers_user_id_identity_hmac_preview_no_send_20260508T161749Z",
+    "type": "html",
+    "uses_existing_hurdlers_user_id_variable": true,
+    "existing_hurdlers_tag_modified": false,
+    "production_publish": false,
+    "platform_send": false
+  },
+  "quick_preview": {
+    "sync_status": null,
+    "compiler_error": null,
+    "environment_id": "294",
+    "authorization_code_redacted": true
+  },
+  "endpoint": "https://att.ainativeos.net/api/attribution/order-bridge/identity-hmac/no-send",
+  "controlled_synthetic_preview": {
+    "page_url_redacted": "https://biocom.kr/shop_payment_complete?order_no=REDACTED_SYNTHETIC&gclid=REDACTED_SYNTHETIC",
+    "page_loaded": true,
+    "page_state": {
+      "href": "https://biocom.kr/shop_payment_complete?order_no=REDACTED_SYNTHETIC&gclid=REDACTED_SYNTHETIC",
+      "installed": "path_b_hurdlers_user_id_preview_20260508T161749Z",
+      "payloadKeys": [
+        "capture_stage",
+        "click_id",
+        "client_id",
+        "email",
+        "email_source_candidate",
+        "ga_session_id",
+        "local_session_id",
+        "order_no",
+        "preview_mode",
+        "site"
+      ],
+      "result": {
+        "response_status": 200,
+        "response_ok": true,
+        "identity_source": "email",
+        "would_store": false,
+        "would_send": false,
+        "email_hash_present": true,
+        "phone_hash_present": false,
+        "order_no_hash_present": true,
+        "client_session_present": true,
+        "click_id_hash_present": true,
+        "no_raw_echo_verified": true,
+        "no_platform_send_verified": true,
+        "platform_send_count": 0,
+        "hash_version": "hmac_sha256_identity_v1"
+      },
+      "error": null,
+      "gtmLoaded": true
+    },
+    "receiver_reached": true,
+    "receiver_statuses": [
+      200
+    ],
+    "receiver_bodies": [
+      {
+        "ok": true,
+        "dryRun": true,
+        "dry_run": true,
+        "wouldStore": false,
+        "would_store": false,
+        "wouldSend": false,
+        "would_send": false,
+        "noSendVerified": true,
+        "no_send_verified": true,
+        "noWriteVerified": true,
+        "no_write_verified": true,
+        "noDeployVerified": true,
+        "no_deploy_verified": true,
+        "noPublishVerified": true,
+        "no_publish_verified": true,
+        "noPlatformSendVerified": true,
+        "no_platform_send_verified": true,
+        "receiver": "order_bridge_identity_hmac_no_send",
+        "guard": {
+          "guard_status": "blocked",
+          "send_candidate": false,
+          "actual_send_candidate": false,
+          "block_reasons": [
+            "read_only_phase",
+            "approval_required"
+          ],
+          "legacy_block_reasons": [],
+          "no_send_verified": true,
+          "no_write_verified": true,
+          "no_deploy_verified": true,
+          "no_publish_verified": true,
+          "no_platform_send_verified": true,
+          "checked_at": "2026-05-08T16:17:59.691Z",
+          "source": "order_bridge_identity_hmac_no_send",
+          "confidence": 0.93
+        },
+        "preview": {
+          "ok": true,
+          "would_store": false,
+          "would_send": false,
+          "email_hash_present": true,
+          "phone_hash_present": false,
+          "order_no_hash_present": true,
+          "client_session_present": true,
+          "click_id_hash_present": true,
+          "no_raw_echo_verified": true,
+          "no_platform_send_verified": true,
+          "platform_send_count": 0,
+          "raw_payload_stored": false,
+          "raw_logging_enabled": false,
+          "hash_version": "hmac_sha256_identity_v1",
+          "identity_source": "email",
+          "normalized_presence": {
+            "email": true,
+            "phone": false,
+            "order_no": true,
+            "client_id": false,
+            "ga_session_id": false,
+            "local_session_id": true,
+            "click_id": true
+          },
+          "hash_prefixes": {
+            "email_hash_prefix": "c7822fd1",
+            "phone_hash_prefix": "",
+            "order_no_hash_prefix": "a5964c35",
+            "local_session_id_hash_prefix": "ba029b8e",
+            "click_id_hash_prefix": "ab5b7e8d"
+          },
+          "safe_debug": {
+            "site": "biocom",
+            "capture_stage": "order_confirm_hurdlers_user_id_preview",
+            "received_at": "2026-05-08T16:17:59.691Z",
+            "input_keys": [
+              "capture_stage",
+              "click_id",
+              "client_id",
+              "email",
+              "email_source_candidate",
+              "ga_session_id",
+              "local_session_id",
+              "order_no",
+              "preview_mode",
+              "site"
+            ]
+          }
+        },
+        "source": {
+          "mode": "no_write_no_send_identity_hmac_preview",
+          "receivedAt": "2026-05-08T16:17:59.691Z"
+        },
+        "warnings": [
+          "Path B Preview endpoint다. 운영 저장, platform send, GTM Production publish는 하지 않는다.",
+          "raw email/phone/order는 HMAC 생성을 위한 transient input으로만 허용하고 response/log/storage에 남기지 않는다.",
+          "response에는 raw 값 없이 hash present 여부와 짧은 hash prefix만 반환한다."
+        ]
+      }
+    ],
+    "receiver_ok_all": true,
+    "receiver_would_store_false_all": true,
+    "receiver_would_send_false_all": true,
+    "receiver_platform_send_zero_all": true,
+    "raw_echo_detected": false,
+    "console_markers": [],
+    "network_errors": [],
+    "gtm_script_routes_redacted": [
+      "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "https://www.googletagmanager.com/gtm.js?id=GTM-W2Z6PHN&is_td=1&v=3&t=t&pid=733250175&gtm=45He6562v813158774za200zd813158774&seq=1&exp=0%7E115938466%7E115938468%7E118463261&dl=biocom.kr%2Fshop_payment_complete&tdp=GTM-W2Z6PHN%3B13158774%3B0%3B0%3B0&frm=0&rtg=13158774&slo=0&hlo=1&lst=2&bt=0&ct=3&mde=AW-304339096%3B0_1%7EG-8GZ48B1S59%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+    ],
+    "screenshot_path": "/Users/vibetj/coding/seo/data/path-b-hurdlers-user-id-preview-screenshots/path-b-hurdlers-user-id-preview-20260508T161749Z.png",
+    "response_preview_booleans": {
+      "email_hash_present": true,
+      "phone_hash_present": false,
+      "order_no_hash_present": true,
+      "client_session_present": true,
+      "click_id_hash_present": true,
+      "no_raw_echo_verified": true,
+      "no_platform_send_verified": true,
+      "identity_source": "email",
+      "hash_version": "hmac_sha256_identity_v1"
+    },
+    "response_contains_synthetic_raw": false
+  },
+  "real_payment_complete_evidence": {
+    "status": "pending_tj_browser_preview",
+    "reason": "Codex can create the Preview workspace/tag and controlled smoke, but cannot use TJ님의 logged-in Imweb/GTM browser session.",
+    "required_next": "Open the created GTM Preview workspace in Tag Assistant and revisit the real order complete page to capture path_b_hurdlers_user_id_preview_result."
+  },
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "GTM submit/create_version",
+    "Imweb production save",
+    "backend operational storage canary",
+    "operational schema migration",
+    "raw email/phone/member_code/order storage",
+    "raw email/phone/member_code/order logging",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "Google Ads conversion upload",
+    "existing GTM tag pause/delete"
+  ],
+  "verdict": "PASS_CONTROLLED_HURDLERS_USER_ID_HMAC_PREVIEW_READY"
+}
