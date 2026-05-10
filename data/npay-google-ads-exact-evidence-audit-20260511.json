@@ -1,0 +1,128 @@
+{
+  "ok": true,
+  "schema_version": "npay_google_ads_exact_evidence_audit_20260511",
+  "generated_at_kst": "2026-05-10 23:38:00 KST",
+  "site": "biocom",
+  "purpose": "NPay 결제완료 row 중 Google Ads campaign에 budget-usable 으로 귀속할 수 있는 row를 exact evidence(gclid/gbraid/wbraid + click_view exact / Path B same-order exact / paid_click_intent same-order exact)만 허용해 분리한다. UTM hint·time-window-only는 진단 라벨만.",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "source_window_freshness_confidence": {
+      "source": "data/google-ads-campaign-id-join-candidates-20260510.json (existing) + data/npay-actual-confirmed-pg-snapshot-30d-20260511.json (new)",
+      "window": "ConfirmedPurchasePrep candidates 30d / 운영 PG NPay 30d",
+      "freshness": "2026-05-10 23:38 KST",
+      "confidence": 0.9
+    }
+  },
+  "input_pools": {
+    "operational_pg_npay_actual_30d": {
+      "rows": 209,
+      "total_amount_krw": 37638900
+    },
+    "confirmed_purchase_prep_candidates_30d_total": 2152,
+    "confirmed_purchase_prep_candidates_npay_30d": 143,
+    "row_count_gap_between_pg_and_prep": 66,
+    "gap_explanation": "ConfirmedPurchasePrep dry-run input은 cancellation/return + 추가 block 필터 외에 GA4 already_in_ga4 / VM evidence missing 등으로 일부 NPay row를 candidates에서 제외할 수 있음. 운영 PG에서는 cancel/return + amount > 0 단일 필터만 적용했으므로 209가 더 큼. 다음 sprint Builder 통합 시 확인 가능."
+  },
+  "exact_evidence_buckets": [
+    {
+      "bucket": "A_npay_with_gclid_exact_click_view",
+      "definition": "NPay row + google_click_id_present + click_view exact match (gclid)",
+      "count_within_npay_143": 9,
+      "share_within_npay_143": 0.0629,
+      "budget_usable": true,
+      "use_for_google_ads_upload_candidate": false,
+      "note_for_upload": "exact evidence 있어도 Google Ads upload 자체는 본 sprint도 별도 Red 승인 필요. 본 row는 budget ROAS floor sample로 사용 가능."
+    },
+    {
+      "bucket": "B_npay_with_gbraid_or_wbraid_exact_click_view",
+      "count_within_npay_143": 0,
+      "budget_usable": true,
+      "note": "현재 ConfirmedPurchasePrep candidates에 gbraid/wbraid 보유 NPay row 없음."
+    },
+    {
+      "bucket": "C_npay_with_path_b_same_order_exact",
+      "count_within_npay_143": 0,
+      "budget_usable": true,
+      "note": "Path B order_bridge_ledger same-order exact 매칭 row는 1h canary로 누적 시작 예정. 현재 0."
+    },
+    {
+      "bucket": "D_npay_with_paid_click_intent_same_order_exact",
+      "count_within_npay_143": 0,
+      "budget_usable": true,
+      "note": "paid_click_intent ledger 안에 동일 order_no/channel_order_no 매칭 row 없음. channel_order_no_hash schema 추가 후 fetchable."
+    },
+    {
+      "bucket": "E_npay_no_click_with_utm_diagnostic_only",
+      "count_within_npay_143": 27,
+      "budget_usable": false,
+      "use_for_google_ads_upload_candidate": false,
+      "note": "UTM hint는 사람이 보는 단서만. budget ROAS 또는 upload 후보로 승격 금지."
+    },
+    {
+      "bucket": "F_npay_no_click_no_utm",
+      "count_within_npay_143": 107,
+      "budget_usable": false,
+      "note": "단순히 NPay 결제완료만 있고 광고 attribution 단서 0. internal ROAS 분자에는 합류, Google Ads 귀속에는 미사용."
+    }
+  ],
+  "summary_table": {
+    "npay_actual_revenue_pool_for_internal_roas": {
+      "rows": 209,
+      "total_amount_krw": 37638900,
+      "use_for_internal_roas_numerator": true,
+      "use_for_google_ads_upload": false,
+      "use_for_platform_send": false
+    },
+    "npay_subset_with_google_ads_exact_evidence_for_budget_floor": {
+      "rows": 9,
+      "share_of_npay_143_in_prep": 0.0629,
+      "use_for_internal_roas_numerator": true,
+      "use_for_google_ads_upload_candidate": "false_in_this_sprint_red_approval_required_separately",
+      "use_for_budget_floor_decision": true
+    },
+    "npay_subset_with_only_utm_or_no_evidence": {
+      "rows": 134,
+      "share_of_npay_143_in_prep": 0.9371,
+      "use_for_internal_roas_numerator": true,
+      "use_for_google_ads_upload": false,
+      "use_for_budget_floor_decision": false,
+      "note": "UTM hint top: meta_biocom_nurostory_nuro, meta_master_slow, googleads_shopping_supplements_neuromaster (진단만, 일부 google-like UTM 9건 포함)"
+    }
+  },
+  "diagnostic_top_utm_in_npay_missing": [
+    {"utm_campaign": "(empty)", "count": 107, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_nurostory_nuro", "count": 7, "use_for_budget": false},
+    {"utm_campaign": "meta_master_slow", "count": 5, "use_for_budget": false},
+    {"utm_campaign": "googleads_shopping_supplements_neuromaster", "count": 5, "use_for_budget": false},
+    {"utm_campaign": "youtube_biocom_dangdangcare_badhabit", "count": 4, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_yeonddle_iggacid", "count": 2, "use_for_budget": false},
+    {"utm_campaign": "youtube_biocom_dangdangcare_teamketo", "count": 2, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_iggacidset_2026", "count": 2, "use_for_budget": false},
+    {"utm_campaign": "googleads_shopping_supplements_biobalance", "count": 1, "use_for_budget": false}
+  ],
+  "google_like_utm_in_npay_missing": {
+    "count": 9,
+    "interpretation": "googleads_shopping_supplements_* UTM hint 9건은 사람이 봤을 때 Google 채널 의심이지만 click_view exact 매칭 없음 → budget·upload 사용 금지. 다음 sprint에 paid_click_intent ledger와 동일 channel_order_no 매칭이 잡히면 A_via_ledger로 승급 가능."
+  },
+  "rules": {
+    "budget_usable_definition": "exact evidence(buckets A~D) 만",
+    "internal_roas_numerator_definition": "PAYMENT_COMPLETE + cancel/return empty + amount > 0 (전체 209건)",
+    "upload_candidate_in_this_sprint": 0,
+    "send_candidate_in_this_sprint": false,
+    "actual_send_candidate_in_this_sprint": false,
+    "ga4_purchase_event_to_actual_purchase": false,
+    "npay_click_to_actual_purchase": false,
+    "time_window_only_to_budget": false,
+    "utm_hint_to_budget": false
+  },
+  "next_sprint_audit_expansion": [
+    "Path B canary PASS 후 order_bridge_ledger의 channel_order_no_hash 매칭 row 누적 → bucket C 카운트 측정",
+    "npay_intent_log schema 추가 후 paid_click_intent_log의 same channel_order_no_hash 매칭 → bucket D 카운트 측정",
+    "Google Ads click_view 30d API 재호출 + ConfirmedPurchasePrep input 갱신 후 bucket A/B 다시 측정"
+  ],
+  "verdict": "AUDIT_PASS_NPAY_EXACT_EVIDENCE_9_OF_143_BUDGET_FLOOR_134_NUMERATOR_ONLY_UPLOAD_0"
+}

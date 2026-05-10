@@ -1,0 +1,66 @@
+{
+  "ok": true,
+  "schema_version": "npay_actual_confirmed_pg_snapshot_v1",
+  "generated_at_kst": "2026-05-10 23:25:21 KST",
+  "site": "biocom",
+  "purpose": "ConfirmedPurchasePrep `npay_actual_count` 누락을 고치는 보조 source. 운영 PG NAVERPAY_ORDER + PAYMENT_COMPLETE 분포 + 환불/취소 제외 + amount > 0 + internal ROAS lift 추정.",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "promotion_rule_unchanged": {
+      "actualPurchaseDefinition": "PAYMENT_COMPLETE + cancellation_reason/return_reason empty + final_order_amount > 0",
+      "npayClickToPurchase": false,
+      "sendCandidate": false,
+      "actualSendCandidate": false,
+      "uploadCandidate": false
+    }
+  },
+  "snapshot": {
+    "window_days": 30,
+    "generated_at_iso": "2026-05-10T14:25:21.290Z",
+    "filter": {
+      "paymentMethod": "NAVERPAY_ORDER",
+      "paymentStatus": "PAYMENT_COMPLETE",
+      "cancelReasonExcluded": true,
+      "returnReasonExcluded": true,
+      "amountPositive": true
+    },
+    "rows": 209,
+    "total_amount_krw": 37638900,
+    "avg_amount_krw": 180090,
+    "median_amount_krw": 109200,
+    "p90_amount_krw": 496000,
+    "min_amount_krw": 11900,
+    "max_amount_krw": 978000,
+    "warnings": []
+  },
+  "internal_roas_lift_estimate": {
+    "before": {
+      "confirmedOrders": 25,
+      "confirmedRevenueKrw": 6493020,
+      "platformCostKrw": 23666491.84,
+      "internalConfirmedRoas": 0.2744
+    },
+    "after": {
+      "confirmedOrders": 234,
+      "confirmedRevenueKrw": 44131920,
+      "internalConfirmedRoas": 1.8647
+    },
+    "delta": {
+      "addedOrders": 209,
+      "addedRevenueKrw": 37638900,
+      "roasLift": 1.5903
+    },
+    "caveat": "기존 confirmedOrders 안에 NPay 중복이 0이라고 가정한 추정. 실제 wire 후 dedupe 결과 약간 작아질 수 있음. send_candidate/upload_candidate 의미는 아님."
+  },
+  "forbidden_unchanged": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": false,
+    "npay_click_to_purchase": false
+  },
+  "verdict": "PASS_NPAY_ACTUAL_CONFIRMED_SNAPSHOT"
+}

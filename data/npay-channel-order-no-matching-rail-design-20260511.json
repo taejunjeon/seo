@@ -1,0 +1,151 @@
+{
+  "ok": true,
+  "schema_version": "npay_channel_order_no_matching_rail_design_20260511",
+  "generated_at_kst": "2026-05-10 23:35:00 KST",
+  "site": "biocom",
+  "purpose": "NPay 결제완료 주문(운영 PG 209건/30d)이 npay_intent_log 와 order_bridge_ledger 와 hash 기반으로 같은 주문에 묶이도록 매칭 rail을 설계한다. 본 sprint는 design + read-only audit 단계이고 schema migration canary는 작업1 PASS 후 진행한다.",
+  "harness_preflight": {
+    "lane_overall": "Green_design + Yellow_pending_dependency",
+    "lane_for_this_artifact": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "source_window_freshness_confidence": {
+      "source": "운영 PG dashboard.public.tb_iamweb_users (read-only, 30d window) + backend src 분석",
+      "window": "2026-05-10 23:30 KST query",
+      "freshness": "2026-05-10 23:35 KST",
+      "confidence": 0.91
+    }
+  },
+  "operational_pg_identity_audit": {
+    "window_days": 30,
+    "filter": "NAVERPAY_ORDER + PAYMENT_COMPLETE + cancel/return empty + amount > 0",
+    "rows": 209,
+    "rows_with_channel_order_no": 209,
+    "distinct_channel_order_no": 145,
+    "rows_with_order_number": 209,
+    "distinct_order_number": 145,
+    "rows_with_customer_email": 209,
+    "rows_with_customer_phone": 209,
+    "rows_with_payment_complete_time": 209,
+    "interpretation": "209 row = 145 unique 주문 × 평균 1.44 line. channel_order_no, order_number, customer_email, customer_phone 모두 100% 정합."
+  },
+  "matching_keys": [
+    {
+      "key": "channel_order_no",
+      "pg_column": "order_section_item_no",
+      "coverage": 1.0,
+      "hash_function": "hmac_sha256_identity_v1 + ORDER_BRIDGE_IDENTITY_HASH_SECRET",
+      "store_target": "npay_intent_log.channel_order_no_hash (NEW) + order_bridge_ledger.channel_order_no_hash (EXISTING)",
+      "use_for_rail": "primary"
+    },
+    {
+      "key": "order_number",
+      "pg_column": "order_number",
+      "coverage": 1.0,
+      "hash_function": "동일",
+      "store_target": "order_no_hash (npay_intent_log NEW + order_bridge_ledger 기존)",
+      "use_for_rail": "primary"
+    },
+    {
+      "key": "customer_email",
+      "pg_column": "customer_email",
+      "coverage": 1.0,
+      "hash_function": "동일",
+      "store_target": "email_hash (양쪽 기존)",
+      "use_for_rail": "secondary (identity reinforcement)"
+    },
+    {
+      "key": "customer_phone",
+      "pg_column": "customer_number",
+      "coverage": 1.0,
+      "hash_function": "동일",
+      "store_target": "phone_hash (양쪽 기존)",
+      "use_for_rail": "secondary (identity reinforcement)"
+    }
+  ],
+  "rail_stages": [
+    {
+      "stage": 1,
+      "name": "intent capture (현행 유지)",
+      "status": "DONE",
+      "what": "NPay 결제 시작 시 funnel-capi v3가 hash-only NPay intent row 적재 — 현재 운영 중",
+      "lane": "n/a"
+    },
+    {
+      "stage": 2,
+      "name": "schema migration: npay_intent_log + order_bridge_ledger 에 매칭 컬럼 추가",
+      "status": "PENDING_PATH_B_CANARY_PASS",
+      "what": "npay_intent_log에 channel_order_no_hash, order_no_hash, payment_complete_at 3컬럼 추가. order_bridge_ledger는 channel_order_no_hash만 추가(이미 order_no_hash 있음).",
+      "rollback": "ALTER TABLE … DROP COLUMN IF EXISTS …",
+      "lane": "Yellow_pending"
+    },
+    {
+      "stage": 3,
+      "name": "운영 PG read-only join helper 추가",
+      "status": "DONE_AT_HELPER_LEVEL",
+      "what": "backend/src/npayActualConfirmedPgReader.ts (이번 sprint 추가) 에 channel_order_no list reader 추가 가능한 형태로 design",
+      "lane": "Green",
+      "next_extension": "fetchNpayActualConfirmedChannelOrderNoList(windowDays) → string[] (hash-only export 함수 추가)"
+    },
+    {
+      "stage": 4,
+      "name": "Path B order_bridge_ledger overlay",
+      "status": "PENDING_LEDGER_ROW_ACCUMULATION",
+      "what": "Path B canary가 ledger row 누적 시작하면 channel_order_no_hash 기반 same-order match 시작",
+      "lane": "Green (data 누적 후 자동)"
+    },
+    {
+      "stage": 5,
+      "name": "ConfirmedPurchasePrep label",
+      "status": "WIRED_AT_HELPER",
+      "what": "이번 sprint NpayActualConfirmedPgReader helper + estimateInternalRoasLift 로 internal ROAS 0.27→1.86 추정 가능. Builder integration은 Path B canary PASS 후 schema 추가와 동시 진행.",
+      "lane": "Green (helper) + Yellow (builder integration)"
+    }
+  ],
+  "code_changes_in_this_sprint": [
+    {
+      "file": "backend/src/npayActualConfirmedPgReader.ts",
+      "kind": "new_helper_module",
+      "loc": 196,
+      "exports": ["fetchNpayActualConfirmedSnapshot", "estimateInternalRoasLift", "NpayActualConfirmedSnapshot", "NpayActualRoasContribution", "NPAY_ACTUAL_CONFIRMED_DEFAULT_WINDOW_DAYS"]
+    },
+    {
+      "file": "backend/scripts/npay-actual-confirmed-pg-snapshot.ts",
+      "kind": "new_standalone_script",
+      "loc": 119,
+      "purpose": "운영 PG read-only NPay 30d snapshot 생성. JSON output."
+    },
+    {
+      "file": "backend/tests/npay-actual-confirmed-pg-reader.test.ts",
+      "kind": "new_fixture_test",
+      "loc": 80,
+      "fixtures": 4,
+      "test_pass": "4_of_4_205ms"
+    }
+  ],
+  "schema_migration_postponed_until_canary_pass": {
+    "lane": "Yellow_proposed",
+    "approved_in_prompt": true,
+    "blocker": "Path B canary 1h 진행 중. 결과 회수 24:04 KST 부근. 회수 PASS 시 migration 진입.",
+    "rollback": "DROP COLUMN IF EXISTS channel_order_no_hash, order_no_hash, payment_complete_at"
+  },
+  "next_extensions_for_subsequent_sprint": [
+    {
+      "what": "fetchNpayActualConfirmedChannelOrderNoList helper (운영 PG read-only로 channel_order_no list만 hash-only 형태로 가져오기)",
+      "lane": "Green",
+      "estimated_loc": 30
+    },
+    {
+      "what": "ConfirmedPurchasePrep integrated builder summary에 npay_actual_confirmed_pg_count/revenue 합산",
+      "lane": "Green code",
+      "estimated_loc": 40
+    },
+    {
+      "what": "schema migration 1h canary (Yellow, 작업1 PASS 후)",
+      "lane": "Yellow"
+    }
+  ],
+  "verdict": "DESIGN_PASS_HELPER_PASS_FIXTURE_PASS_SCHEMA_MIGRATION_GATED_BY_CANARY"
+}

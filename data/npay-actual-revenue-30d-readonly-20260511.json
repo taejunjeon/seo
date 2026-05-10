@@ -1,0 +1,101 @@
+{
+  "ok": true,
+  "schema_version": "npay_actual_revenue_30d_readonly_20260511",
+  "generated_at_kst": "2026-05-10 23:25:00 KST",
+  "site": "biocom",
+  "purpose": "NAVERPAY_ORDER + PAYMENT_COMPLETE 30일 결제완료 금액 분포를 read-only로 측정해 internal ROAS가 NPay actual 합류 후 얼마나 변하는지 정량 비교 가능하게 한다.",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "source_window_freshness_confidence": {
+      "source": "운영 PG dashboard.public.tb_iamweb_users (read-only)",
+      "window": "order_date::timestamp >= NOW() - INTERVAL '30 days' (KST 보존). 7d/14d 추가 비교 포함.",
+      "freshness": "2026-05-10 23:23 KST query",
+      "confidence": 0.94
+    }
+  },
+  "filter": {
+    "payment_method": "NAVERPAY_ORDER",
+    "payment_status": "PAYMENT_COMPLETE",
+    "cancellation_reason_excluded": true,
+    "return_reason_excluded": true,
+    "final_order_amount_filter": "> 0 AND NOT NULL"
+  },
+  "results": {
+    "last_30d": {
+      "rows": 209,
+      "total_amount_krw": 37638900,
+      "avg_amount_krw": 180090,
+      "median_amount_krw": 109200,
+      "p90_amount_krw": 496000,
+      "min_amount_krw": 11900,
+      "max_amount_krw": 978000,
+      "human_readable": {
+        "총액": "₩3,763만 8,900",
+        "평균": "₩18만 9",
+        "중앙값": "₩10만 9,200",
+        "상위10%": "₩49만 6,000",
+        "최소": "₩1만 1,900",
+        "최대": "₩97만 8,000"
+      }
+    },
+    "last_14d": {
+      "rows": 103,
+      "total_amount_krw": 22327000,
+      "human_readable_total": "₩2,232만 7,000"
+    },
+    "last_7d": {
+      "rows": 56,
+      "total_amount_krw": 10695700,
+      "human_readable_total": "₩1,069만 5,700"
+    },
+    "amount_quality_check": {
+      "payment_complete_total_30d_pre_amount_filter": 210,
+      "amount_null_or_zero": 1,
+      "amount_negative": 0,
+      "amount_positive": 209,
+      "rows_with_cancel_or_return_inside_payment_complete": 0
+    }
+  },
+  "expected_impact_on_internal_confirmed_roas_30d": {
+    "current_state_from_gpt0508_33": {
+      "internal_confirmed_orders": 25,
+      "internal_confirmed_revenue_krw": 6493020,
+      "platform_cost_krw": 23666491.84,
+      "internal_confirmed_roas": 0.27,
+      "platform_roas": 9.58,
+      "roas_gap": -9.31
+    },
+    "after_npay_actual_join_estimate": {
+      "naive_orders_sum": 234,
+      "naive_revenue_sum_krw": 44131920,
+      "naive_internal_roas_estimate": 1.864,
+      "lift_vs_current": "0.27 → 1.86 (약 6.9배)",
+      "caveat": "이 추정은 기존 25건 중 NPay 중복이 0이라고 가정. ConfirmedPurchasePrep `npay_actual_count=0` 이라 누락 가정이 합리적이지만, 실제 wire 후 dedupe 결과 약간 작아질 수 있다."
+    },
+    "platform_internal_gap_after_join": {
+      "platform_roas_unchanged": 9.58,
+      "internal_roas_estimate": 1.86,
+      "gap_estimate": -7.72,
+      "interpretation": "ROAS gap이 -9.31 → -7.72로 17% 축소될 전망. 그러나 platform ROAS(9.58)는 NPay click 오염이 본체이므로 실제로 비교 신뢰도를 회복하려면 Google Ads 측 옵션 3(BI confirmed_purchase 신규 + 구매완료 강등)도 같이 가야 함."
+    }
+  },
+  "interpretation_human_language": [
+    "NPay 결제완료 30일 매출은 ₩3,763만 8,900 (209건). 이 풀이 통째로 ConfirmedPurchasePrep 분자에서 빠져 있었다.",
+    "환불/취소는 별도 row(PAYMENT_COMPLETE 풀에 섞이지 않음)이고 cancellation_reason/return_reason 컬럼으로도 이중 검증해 양수 amount 209건이 모두 confirmed로 안전하게 인정 가능.",
+    "이걸 internal ROAS 분자에 합치면 추정 internal ROAS는 0.27 → 1.86으로 약 7배 상승. ROAS gap의 약 17%가 자동으로 해소되며, 평균 주문금액 ₩18만이 데이터 신뢰성을 추가로 안정시킴.",
+    "다만 이건 '실제 매출 풀에 합류'이지 'Google Ads upload 후보 승격'이 아님. upload는 별도 Red 승인 + exact click evidence 필요."
+  ],
+  "promotion_to_purchase_rule_unchanged": {
+    "actual_purchase_definition": "PAYMENT_COMPLETE + cancellation_reason/return_reason 빈값 + final_order_amount > 0",
+    "npay_click_to_purchase": false,
+    "npay_count_to_purchase": false,
+    "npay_add_payment_info_to_purchase": false,
+    "ga4_purchase_event_to_actual_purchase": false,
+    "vm_complete_time_blank_only_to_npay_unpaid": false
+  },
+  "verdict": "READONLY_PASS_NPAY_30D_REVENUE_3763MAN_8900_BENCHMARK_FOR_WIRE"
+}
