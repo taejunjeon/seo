@@ -7,7 +7,7 @@
 Track: A 90%->90% (+0), B 76%->76% (+0), C 82%->82% (+0), D 70%->70% (+0), E 88%->89% (+1), F 52%->52% (+0)
 결과: campaign_id exact join 반복 0 new, blocker breakdown 6카테고리, dashboard repeat PASS, BigQuery internal match readiness PASS_FOR_COVERAGE_HOLD_FOR_EXTENSION
 검증: JSON/wiki/preflight/diff PASS, code touched 0
-커밋: <commit_sha_after_push>
+커밋: 869eb1f
 다음: Google Ads upload HOLD, frontend 구현 HOLD, exact click id 증거 축적 반복
 ```
 
