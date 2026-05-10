@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 19:34:00 KST",
+  "mode": "bigquery_coverage_source_followup",
+  "current_daily_export": {
+    "table": "project-dadba7dd-0229-4ff6-81c.analytics_304759974.events_*",
+    "actual_suffixes": [
+      "20260507",
+      "20260508",
+      "20260509"
+    ],
+    "actual_suffix_count": 3,
+    "verdict": "HOLD_for_7_14_30_trend"
+  },
+  "archive_source_found": {
+    "dataset": "project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill.events_*",
+    "verified_window": "events_20240909 to events_20260506",
+    "verified_rows": 24495738,
+    "source_document": "data/biocom-bigquery-final-delta-result-20260507.md"
+  },
+  "recommendation": {
+    "path": "UNION archive <= 20260506 with current daily export >= 20260507 for read-only trend queries",
+    "avoid": "treating current 3-day export as 7/14/30 trend",
+    "frontend_warning_required": true
+  }
+}

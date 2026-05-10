@@ -1,0 +1,56 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 19:34:00 KST",
+  "mode": "campaign_id_join_coverage_update_green",
+  "source_artifact": "data/google-ads-campaign-id-join-candidates-20260510.json",
+  "summary": {
+    "confirmed_orders": 2152,
+    "google_click_id_orders": 31,
+    "unique_gclid": 31,
+    "campaign_id_matched_count": 31,
+    "campaign_id_missing_count": 2121,
+    "ambiguous_count": 0,
+    "match_method_counts": {
+      "none": 2121,
+      "google_ads_click_view_gclid": 31
+    },
+    "campaign_counts": {
+      "14629255429 [SA]바이오컴 검사권": 9,
+      "23171999678 [PM] 이벤트": 2,
+      "21807994952 [PM]검사권 실적최대화": 12,
+      "22018174474 [PM]건기식 실적최대화": 8
+    },
+    "matched_revenue": 7611210
+  },
+  "coverage": {
+    "exact_click_id_matched_orders": 31,
+    "confirmed_orders": 2152,
+    "exact_match_rate": 0.0144,
+    "matched_revenue": 7611210,
+    "missing_count": 2121,
+    "ambiguous_count": 0
+  },
+  "extension_paths": [
+    {
+      "method": "Google Ads click_view exact gclid/gbraid/wbraid",
+      "use_for_budget": true,
+      "status": "PASS_31_orders"
+    },
+    {
+      "method": "paid_click_intent/order_bridge exact stored click id",
+      "use_for_budget": true,
+      "status": "FORWARD_LOOKING_required_for_new_rows"
+    },
+    {
+      "method": "UTM campaign hint",
+      "use_for_budget": false,
+      "status": "DIAGNOSTIC_ONLY_due_ambiguity"
+    },
+    {
+      "method": "time-window-only attribution",
+      "use_for_budget": false,
+      "status": "FORBIDDEN"
+    }
+  ],
+  "decision": "campaign-level internal ROAS remains HOLD except click-id matched floor rows."
+}

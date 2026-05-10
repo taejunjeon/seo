@@ -95,6 +95,7 @@ const envSource = {
     ?? "2149990943",
   GOOGLE_ADS_LOGIN_CUSTOMER_ID: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
   GOOGLE_ADS_API_VERSION: process.env.GOOGLE_ADS_API_VERSION ?? "v22",
+  GOOGLE_ADS_DASHBOARD_LEDGER_MODE: process.env.GOOGLE_ADS_DASHBOARD_LEDGER_MODE,
   ATTRIBUTION_OPERATIONAL_BASE_URL:
     process.env.ATTRIBUTION_OPERATIONAL_BASE_URL ?? "https://att.ainativeos.net",
   REFUND_DISPATCH_ENFORCE: process.env.REFUND_DISPATCH_ENFORCE,
@@ -250,6 +251,9 @@ const envSchema = z.object({
   GOOGLE_ADS_CUSTOMER_ID: z.string().min(1).default("2149990943"),
   GOOGLE_ADS_LOGIN_CUSTOMER_ID: z.string().min(1).optional(),
   GOOGLE_ADS_API_VERSION: z.string().min(1).default("v22"),
+  GOOGLE_ADS_DASHBOARD_LEDGER_MODE: z
+    .enum(["remote_first", "local_first", "local_only"])
+    .default("remote_first"),
   ATTRIBUTION_OPERATIONAL_BASE_URL: z.string().url().default("https://att.ainativeos.net"),
   REFUND_DISPATCH_ENFORCE: z
     .string()

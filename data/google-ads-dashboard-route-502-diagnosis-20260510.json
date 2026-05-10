@@ -1,0 +1,62 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 19:34:00 KST",
+  "mode": "green_dashboard_route_502_diagnosis_and_local_fix_smoke",
+  "lane": "Green local code patch / read-only VM curl / no deploy",
+  "vm_observations": {
+    "status_endpoint": {
+      "http_status": 200,
+      "time_sec": 1.168085,
+      "verdict": "PASS_google_ads_auth_and_customer_access"
+    },
+    "dashboard_last_7d": {
+      "http_status": 200,
+      "time_sec": 26.229048,
+      "verdict": "PASS_but_slow"
+    },
+    "dashboard_last_30d": {
+      "http_status": 502,
+      "time_sec": 39.472401,
+      "body": "error code: 502",
+      "verdict": "FAIL_proxy_timeout_boundary"
+    }
+  },
+  "local_fix_smoke": {
+    "env": {
+      "PORT": 7021,
+      "GOOGLE_ADS_DASHBOARD_LEDGER_MODE": "local_first"
+    },
+    "dashboard_last_7d": {
+      "http_status": 200,
+      "time_sec": 1.191711
+    },
+    "dashboard_last_30d": {
+      "http_status": 200,
+      "time_sec": 1.199277
+    },
+    "note": "local_first avoids public HTTPS operational attribution ledger self-call and reads local SQLite first."
+  },
+  "diagnosis": {
+    "root_cause_category": "route_timeout_from_slow_internal_ledger_lookup_path",
+    "auth_status": "not_root_cause_status_200",
+    "google_ads_query_status": "not_primary_root_cause_local_route_can_return_200",
+    "proxy_timeout_estimate_sec": 40,
+    "confidence": 0.9
+  },
+  "local_code_change": {
+    "files": [
+      "backend/src/env.ts",
+      "backend/src/routes/googleAds.ts"
+    ],
+    "new_env": "GOOGLE_ADS_DASHBOARD_LEDGER_MODE=remote_first|local_first|local_only",
+    "default_behavior": "remote_first preserves existing behavior",
+    "recommended_vm_value": "local_first"
+  },
+  "forbidden_actions_not_taken": [
+    "VM backend deploy",
+    "PM2 restart",
+    "Google Ads upload",
+    "platform send",
+    "raw PII storage/logging"
+  ]
+}

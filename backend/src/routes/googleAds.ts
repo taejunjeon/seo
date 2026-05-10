@@ -802,6 +802,37 @@ const loadOperationalLedgerPage = async (
 
 const loadInternalLedgerEntries = async (range: DateRange) => {
   const warnings: string[] = [];
+  const loadLocalLedgerEntries = async (extraWarnings: string[] = []) => {
+    const localEntries = await readLedgerEntries();
+    return {
+      dataSource: "local_attribution_ledger" as const,
+      entries: localEntries.filter((entry) => {
+        const source = toStringValue(entry.metadata?.source) || toStringValue(entry.metadata?.store);
+        const date = kstDate(entry.approvedAt || entry.loggedAt);
+        return source === INTERNAL_LEDGER_SOURCE && isInDateRange(date, range);
+      }),
+      latestLoggedAt: localEntries.map((entry) => entry.loggedAt).sort().at(-1) ?? "",
+      warnings: extraWarnings,
+    };
+  };
+
+  if (env.GOOGLE_ADS_DASHBOARD_LEDGER_MODE === "local_only") {
+    return loadLocalLedgerEntries([
+      "GOOGLE_ADS_DASHBOARD_LEDGER_MODE=local_only: VM Cloud dashboard route가 공개 HTTPS 원장 endpoint를 우회하고 같은 프로세스의 SQLite 원장을 직접 읽는다.",
+    ]);
+  }
+
+  if (env.GOOGLE_ADS_DASHBOARD_LEDGER_MODE === "local_first") {
+    try {
+      return await loadLocalLedgerEntries([
+        "GOOGLE_ADS_DASHBOARD_LEDGER_MODE=local_first: VM Cloud dashboard route가 공개 HTTPS 원장 endpoint를 우회하고 같은 프로세스의 SQLite 원장을 먼저 읽는다.",
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnings.push(`로컬 attribution ledger 직접 조회 실패. 운영 VM attribution ledger HTTP 조회로 fallback: ${message}`);
+    }
+  }
+
   try {
     const chunks = buildOperationalLedgerChunks(
       range.startDate,
@@ -865,17 +896,7 @@ const loadInternalLedgerEntries = async (range: DateRange) => {
     warnings.push(`운영 VM attribution ledger 조회 실패. 로컬 attribution_ledger로 fallback: ${message}`);
   }
 
-  const localEntries = await readLedgerEntries();
-  return {
-    dataSource: "local_attribution_ledger" as const,
-    entries: localEntries.filter((entry) => {
-      const source = toStringValue(entry.metadata?.source) || toStringValue(entry.metadata?.store);
-      const date = kstDate(entry.approvedAt || entry.loggedAt);
-      return source === INTERNAL_LEDGER_SOURCE && isInDateRange(date, range);
-    }),
-    latestLoggedAt: localEntries.map((entry) => entry.loggedAt).sort().at(-1) ?? "",
-    warnings,
-  };
+  return loadLocalLedgerEntries(warnings);
 };
 
 const collectLedgerUrls = (entry: AttributionLedgerEntry) => {

@@ -1,0 +1,110 @@
+{
+  "batch": "gpt0508-30",
+  "created_at_kst": "2026-05-10 19:34:00 KST",
+  "purpose": "Google Ads dashboard route 502 diagnosis, repeatable confirmed purchase input, BigQuery coverage follow-up, frontend F0 contract",
+  "track_progress": {
+    "A": {
+      "label": "ConfirmedPurchasePrep 통합 input",
+      "from": 86,
+      "to": 89,
+      "delta": 3
+    },
+    "B": {
+      "label": "Google Ads campaign_id 조인/ROAS 분해",
+      "from": 62,
+      "to": 68,
+      "delta": 6
+    },
+    "C": {
+      "label": "BigQuery campaign funnel quality",
+      "from": 63,
+      "to": 66,
+      "delta": 3
+    },
+    "D": {
+      "label": "Meta funnel CAPI Test Events readiness (KR6)",
+      "from": 68,
+      "to": 70,
+      "delta": 2
+    },
+    "E": {
+      "label": "Harness/multi-agent/HOLD Reducer",
+      "from": 86,
+      "to": 87,
+      "delta": 1
+    },
+    "F": {
+      "label": "Frontend/Data Trust Dashboard",
+      "from": 35,
+      "to": 42,
+      "delta": 7
+    }
+  },
+  "documents": [
+    {
+      "source": "00-result-report.md",
+      "copy": "gptconfirm/gpt0508-30/00-result-report.md",
+      "why_included": "이번 batch 결과 보고서",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/google-ads-dashboard-route-502-diagnosis-20260510.md",
+      "copy": "gptconfirm/gpt0508-30/01-google-ads-dashboard-route-502-diagnosis-20260510.md",
+      "why_included": "dashboard route 502 원인 분리",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/google-ads-dashboard-route-local-fix-approval-20260510.md",
+      "copy": "gptconfirm/gpt0508-30/02-google-ads-dashboard-route-local-fix-approval-20260510.md",
+      "why_included": "VM local_first 제한 배포 승인안",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/confirmed-purchase-builder-repeatable-input-20260510.md",
+      "copy": "gptconfirm/gpt0508-30/03-confirmed-purchase-builder-repeatable-input-20260510.md",
+      "why_included": "ConfirmedPurchasePrep 반복 input 계약",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/google-ads-campaign-id-join-coverage-update-20260510.md",
+      "copy": "gptconfirm/gpt0508-30/04-google-ads-campaign-id-join-coverage-update-20260510.md",
+      "why_included": "campaign_id join coverage 확장 판단",
+      "approval_needed": true
+    },
+    {
+      "source": "gdn/bigquery-coverage-source-followup-20260510.md",
+      "copy": "gptconfirm/gpt0508-30/05-bigquery-coverage-source-followup-20260510.md",
+      "why_included": "BigQuery coverage source 후속",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/frontend-dashboard-data-contract-20260510.md",
+      "copy": "gptconfirm/gpt0508-30/06-frontend-dashboard-data-contract-20260510.md",
+      "why_included": "frontend F0 data contract",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/telegram-completion-log-note-20260510.md",
+      "copy": "gptconfirm/gpt0508-30/07-telegram-completion-log-note-20260510.md",
+      "why_included": "텔레그램 완료 메시지 원칙",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-30/99-total-current-copy.md",
+      "why_included": "정본 문서 사본",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "VM backend deploy",
+    "PM2 restart",
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action 변경",
+    "Meta CAPI actual Test Events smoke",
+    "GTM Production publish",
+    "frontend implementation",
+    "send_candidate=true",
+    "raw email/phone/member_code/order/payment storage or logging"
+  ]
+}
