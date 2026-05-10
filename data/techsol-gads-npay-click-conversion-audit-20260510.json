@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 17:56:17 KST",
+  "site": "biocom",
+  "mode": "green_read_only_techsol_gads_npay_click_audit",
+  "action": {
+    "action_id": "7564830949",
+    "name": "TechSol - NPAY구매 50739",
+    "status": "ENABLED",
+    "category": "PURCHASE",
+    "type": "WEBPAGE",
+    "primary_for_goal": false,
+    "counting_type": "MANY_PER_CLICK",
+    "labels": [
+      "3yjICOXRmJccEJixj5EB"
+    ],
+    "classification": "secondary_npay_click_label",
+    "risk": "MEDIUM",
+    "interpretation": "TechSol NPay click/conversion action은 Secondary로 보이나 NPay 버튼 클릭/intent 성격이다. 실제 결제완료가 아니므로 confirmed purchase로 쓰지 않는다."
+  },
+  "verdict": "HOLD_READ_ONLY_DO_NOT_PAUSE_DELETE",
+  "reason": "Secondary action이더라도 이름과 trigger가 NPay 클릭/intent 계열이다. 실제 PAYMENT_COMPLETE 후보와 분리해 계속 관찰한다.",
+  "guards": {
+    "platform_send_count": 0,
+    "google_ads_upload_count": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "conversion_action_change_count": 0
+  }
+}

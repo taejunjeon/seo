@@ -1,0 +1,196 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 17:57:00 KST",
+  "site": "biocom",
+  "mode": "green_read_only_campaign_level_internal_roas_dry_run",
+  "source": {
+    "google_ads_refresh": "data/google-ads-live-action-campaign-refresh-20260510.json",
+    "internal_confirmed": "data/confirmed-purchase-same-window-no-send-20260510.json"
+  },
+  "summary": {
+    "platform_cost": 23667282.84,
+    "platform_conv_value": 226732681.89,
+    "platform_roas": 9.58,
+    "internal_google_click_confirmed_revenue": 7611210,
+    "internal_google_click_confirmed_orders": 31,
+    "deterministic_campaign_id_join_count": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false
+  },
+  "platform_campaign_rows": [
+    {
+      "campaign_id": "22018174474",
+      "campaign_name": "[PM]건기식 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "cost": 9465724.12,
+      "platform_claimed_conv_value": 97070763.06,
+      "platform_claimed_roas": 10.25,
+      "internal_confirmed_revenue_by_campaign_id": 0,
+      "internal_roas_by_campaign_id": null,
+      "platform_internal_gap_unjoined": 97070763.06,
+      "join_status": "HOLD_campaign_id_missing_in_confirmed_evidence",
+      "risk": "primary_npay_value_present"
+    },
+    {
+      "campaign_id": "21807994952",
+      "campaign_name": "[PM]검사권 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "cost": 6411800.46,
+      "platform_claimed_conv_value": 74347480.72,
+      "platform_claimed_roas": 11.6,
+      "internal_confirmed_revenue_by_campaign_id": 0,
+      "internal_roas_by_campaign_id": null,
+      "platform_internal_gap_unjoined": 74347480.72,
+      "join_status": "HOLD_campaign_id_missing_in_confirmed_evidence",
+      "risk": "primary_npay_value_present"
+    },
+    {
+      "campaign_id": "23171999678",
+      "campaign_name": "[PM] 이벤트",
+      "status": "PAUSED",
+      "channel": "PERFORMANCE_MAX",
+      "cost": 5876248.85,
+      "platform_claimed_conv_value": 50776321.58,
+      "platform_claimed_roas": 8.64,
+      "internal_confirmed_revenue_by_campaign_id": 0,
+      "internal_roas_by_campaign_id": null,
+      "platform_internal_gap_unjoined": 50776321.58,
+      "join_status": "HOLD_campaign_id_missing_in_confirmed_evidence",
+      "risk": "primary_npay_value_present"
+    },
+    {
+      "campaign_id": "14629255429",
+      "campaign_name": "[SA]바이오컴 검사권",
+      "status": "ENABLED",
+      "channel": "SEARCH",
+      "cost": 1493515.75,
+      "platform_claimed_conv_value": 4168116.54,
+      "platform_claimed_roas": 2.79,
+      "internal_confirmed_revenue_by_campaign_id": 0,
+      "internal_roas_by_campaign_id": null,
+      "platform_internal_gap_unjoined": 4168116.54,
+      "join_status": "HOLD_campaign_id_missing_in_confirmed_evidence",
+      "risk": "primary_npay_value_present"
+    },
+    {
+      "campaign_id": "23820127165",
+      "campaign_name": "[PMAX] 바이오컴 검사권 캠페인",
+      "status": "PAUSED",
+      "channel": "PERFORMANCE_MAX",
+      "cost": 419993.66,
+      "platform_claimed_conv_value": 370000,
+      "platform_claimed_roas": 0.88,
+      "internal_confirmed_revenue_by_campaign_id": 0,
+      "internal_roas_by_campaign_id": null,
+      "platform_internal_gap_unjoined": 370000,
+      "join_status": "HOLD_campaign_id_missing_in_confirmed_evidence",
+      "risk": "primary_npay_value_present"
+    }
+  ],
+  "internal_google_click_revenue_by_utm_campaign": [
+    {
+      "utm_campaign": "(blank)",
+      "confirmed_orders": 8,
+      "internal_confirmed_revenue": 2754000,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_image_IgGtest_1",
+      "confirmed_orders": 5,
+      "internal_confirmed_revenue": 1464500,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_shopping_supplements_neuromaster",
+      "confirmed_orders": 5,
+      "internal_confirmed_revenue": 1333300,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_performancemax_assetgroup_organicacid",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 496000,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_testSA_foodallergy_SA",
+      "confirmed_orders": 2,
+      "internal_confirmed_revenue": 490000,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_testSA_mineral_SA",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 349000,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "google_biocom_pmkit_igg",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 245000,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_shopping_supplements_dangdang",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 120900,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_shopping_supplements_metadream",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 120900,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_eventPM_metadream_launching",
+      "confirmed_orders": 2,
+      "internal_confirmed_revenue": 96800,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_supplements_PM_neuro",
+      "confirmed_orders": 2,
+      "internal_confirmed_revenue": 62810,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_shopping_supplements_biobalance",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 39000,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    },
+    {
+      "utm_campaign": "googleads_biocom_biobalance_PM(USP2)",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 39000,
+      "campaign_id_join_status": "not_joined_to_google_ads_campaign_id",
+      "send_candidate": false
+    }
+  ],
+  "interpretation": [
+    "Campaign별 내부 confirmed ROAS는 아직 campaign_id 결정 조인이 없어 HOLD다.",
+    "다만 Google Ads 플랫폼 주장값은 primary NPay label에 크게 의존한다.",
+    "utm_campaign 기준 internal revenue는 보조 힌트이며 예산 판단용 확정값이 아니다."
+  ],
+  "guards": {
+    "platform_send_count": 0,
+    "google_ads_upload_count": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false
+  }
+}

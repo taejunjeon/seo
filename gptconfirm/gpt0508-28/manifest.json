@@ -1,0 +1,73 @@
+{
+  "batch": "gpt0508-28",
+  "created_at_kst": "2026-05-10 18:01:58 KST",
+  "purpose": "Google/NPay ROAS same-window read-only refresh and no-send confirmed purchase recalculation",
+  "documents": [
+    {
+      "source": "gdn/google-ads-live-action-campaign-refresh-20260510.md",
+      "copy": "gptconfirm/gpt0508-28/01-google-ads-live-action-campaign-refresh-20260510.md",
+      "why_included": "Google Ads live action/campaign read-only refresh result",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/confirmed-purchase-same-window-no-send-20260510.md",
+      "copy": "gptconfirm/gpt0508-28/02-confirmed-purchase-same-window-no-send-20260510.md",
+      "why_included": "ConfirmedPurchasePrep same-window no-send integrated input result",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/google-ads-campaign-internal-roas-dry-run-20260510.md",
+      "copy": "gptconfirm/gpt0508-28/03-google-ads-campaign-internal-roas-dry-run-20260510.md",
+      "why_included": "Campaign-level platform/internal ROAS gap dry-run",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/campaign-funnel-quality-7_14_30d-20260510.md",
+      "copy": "gptconfirm/gpt0508-28/04-campaign-funnel-quality-7_14_30d-20260510.md",
+      "why_included": "BigQuery campaign/channel funnel quality 7/14/30d extension",
+      "approval_needed": false
+    },
+    {
+      "source": "capivm/meta-funnel-capi-test-events-approval-20260510.md",
+      "copy": "gptconfirm/gpt0508-28/05-meta-funnel-capi-test-events-approval-20260510.md",
+      "why_included": "Meta funnel CAPI Test Events Yellow approval packet",
+      "approval_needed": true
+    },
+    {
+      "source": "agent/codex-multi-agent-harness-rule-20260510.md",
+      "copy": "gptconfirm/gpt0508-28/06-codex-multi-agent-harness-rule-20260510.md",
+      "why_included": "Multi-agent harness operating rule and evaluation",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/techsol-gads-npay-click-conversion-audit-20260510.md",
+      "copy": "gptconfirm/gpt0508-28/07-techsol-gads-npay-click-conversion-audit-20260510.md",
+      "why_included": "TechSol GAds NPay click conversion read-only risk audit",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-28/99-total-current-copy.md",
+      "why_included": "Current canonical context snapshot",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action change",
+    "TechSol tag pause/delete",
+    "VM Cloud status sync interval change",
+    "Meta CAPI operational send",
+    "GTM Production publish",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "raw email/phone/member_code/order/payment storage or logging"
+  ],
+  "verification": {
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_strict": "PASS",
+    "git_diff_check": "PASS",
+    "backend_typecheck": "SKIPPED_NO_BACKEND_CODE_CHANGE"
+  }
+}

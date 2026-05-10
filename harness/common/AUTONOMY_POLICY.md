@@ -1,7 +1,7 @@
 # Growth Data Agent Autonomy Policy v1.1
 
 작성 시각: 2026-05-02 23:12 KST
-최근 업데이트: 2026-05-06 15:20 KST
+최근 업데이트: 2026-05-10 18:05 KST
 목적: Green / Yellow / Red Lane별 에이전트 자율 실행 기준
 상태: 공통 하네스 기준판
 
@@ -36,6 +36,21 @@ Green Lane은 자동 진행한다.
 | scoped commit/push | audit PASS/PASS_WITH_NOTES, 범위 내 변경 |
 
 Green Lane에서 묻지 않는다.
+
+## Multi-Agent Worktree Rule
+
+멀티에이전트 병렬화는 read-only 조사와 proposal-only 문서 초안까지 Green Lane으로 허용한다.
+
+코드 구현은 parent agent가 통합 수행한다. 병렬 구현이 필요한 경우에만 별도 worktree/branch 또는 명확한 disjoint write set을 사용하고, parent agent가 patch를 review/import한다.
+
+commit/push는 parent agent만 수행한다.
+
+금지:
+
+- 같은 working tree에서 여러 agent가 동시에 commit/push
+- unrelated dirty 포함
+- write set이 겹치는 병렬 구현
+- validation 없이 subagent 결과를 직접 commit
 
 예외적으로 아래 조건이 생기면 중단하고 Lane을 올린다.
 

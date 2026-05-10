@@ -1,0 +1,304 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 17:56:17 KST",
+  "site": "biocom",
+  "mode": "green_read_only_google_ads_live_action_campaign_refresh",
+  "source": {
+    "google_ads": {
+      "customerId": "2149990943",
+      "apiVersion": "v22",
+      "clientEmail": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+      "projectId": "seo-aeo-487113",
+      "during": "LAST_30_DAYS"
+    },
+    "google_ads_generated_at": "2026-05-10T08:44:44.872Z",
+    "internal_confirmed_input": "data/confirmed-purchase-same-window-no-send-20260510.json",
+    "internal_confirmed_window": {
+      "start": "2026-04-11",
+      "end": "2026-05-10",
+      "start_at": "2026-04-11T00:00:00+09:00",
+      "end_exclusive_at": "2026-05-11T00:00:00+09:00",
+      "timezone_note": "operational order paidAt filter uses KST day boundaries converted to timestamptz. This avoids excluding KST orders that are still previous-day UTC."
+    },
+    "freshness": {
+      "imweb_operational": {
+        "row_count": 98982,
+        "source_max_payment_complete_at": "2026-05-10T06:25:08.000Z",
+        "source_max_order_date_at": "2026-05-10T15:22:15.000Z",
+        "source_lag_hours": 2.4,
+        "freshness_status": "fresh",
+        "freshness_note": "fresh 기준. 그래도 외부 전송 전에는 최신성 재확인이 필요하다."
+      }
+    }
+  },
+  "summary": {
+    "google_ads_window": "LAST_30_DAYS",
+    "platform_cost": 23667282.84,
+    "platform_conv_value": 226732681.89,
+    "platform_all_conv_value": 421270045.48,
+    "platform_roas": 9.58,
+    "primary_npay_value": 226732645.92,
+    "primary_npay_share_of_platform_value": 1,
+    "secondary_npay_all_value": 191473361.51,
+    "internal_confirmed_window": "2026-04-11~2026-05-10",
+    "internal_confirmed_revenue_total": 502237676,
+    "internal_confirmed_order_count": 2152,
+    "internal_google_click_confirmed_revenue": 7611210,
+    "internal_google_click_confirmed_order_count": 31,
+    "platform_minus_internal_google_click_revenue_gap": 219121471.89,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "google_ads_upload_count": 0
+  },
+  "conversion_actions": [
+    {
+      "action_id": "7130249515",
+      "name": "구매완료",
+      "status": "ENABLED",
+      "category": "PURCHASE",
+      "type": "WEBPAGE",
+      "primary_for_goal": true,
+      "counting_type": "MANY_PER_CLICK",
+      "labels": [
+        "r0vuCKvy-8caEJixj5EB"
+      ],
+      "classification": "primary_npay_count_label",
+      "risk": "HIGH",
+      "interpretation": "Primary 전환=Google Ads가 입찰 학습에 쓰는 핵심 구매 신호가 NPay count label에 묶여 있다. 실제 confirmed purchase와 분리 전까지 예산 판단에 직접 쓰면 위험하다."
+    },
+    {
+      "action_id": "7564830949",
+      "name": "TechSol - NPAY구매 50739",
+      "status": "ENABLED",
+      "category": "PURCHASE",
+      "type": "WEBPAGE",
+      "primary_for_goal": false,
+      "counting_type": "MANY_PER_CLICK",
+      "labels": [
+        "3yjICOXRmJccEJixj5EB"
+      ],
+      "classification": "secondary_npay_click_label",
+      "risk": "MEDIUM",
+      "interpretation": "TechSol NPay click/conversion action은 Secondary로 보이나 NPay 버튼 클릭/intent 성격이다. 실제 결제완료가 아니므로 confirmed purchase로 쓰지 않는다."
+    }
+  ],
+  "campaigns": [
+    {
+      "campaign_id": "22018174474",
+      "campaign_name": "[PM]건기식 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSIONS",
+      "cost": 9465724.12,
+      "platform_conv_value": 97070763.06,
+      "platform_all_conv_value": 185285793.24,
+      "platform_roas": 10.25,
+      "primary_npay_value": 97070763.06,
+      "secondary_npay_all_value": 87859092.09,
+      "primary_npay_share": 1,
+      "internal_confirmed_revenue_joined_by_campaign_id": 0,
+      "internal_join_status": "campaign_id_not_available_in_confirmed_input",
+      "recommended_read_only_interpretation": "reduce_or_pause_test"
+    },
+    {
+      "campaign_id": "21807994952",
+      "campaign_name": "[PM]검사권 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSION_VALUE",
+      "cost": 6411800.46,
+      "platform_conv_value": 74347480.72,
+      "platform_all_conv_value": 148519810.78,
+      "platform_roas": 11.6,
+      "primary_npay_value": 74347461.28,
+      "secondary_npay_all_value": 72934846,
+      "primary_npay_share": 1,
+      "internal_confirmed_revenue_joined_by_campaign_id": 0,
+      "internal_join_status": "campaign_id_not_available_in_confirmed_input",
+      "recommended_read_only_interpretation": "reduce_or_pause_test"
+    },
+    {
+      "campaign_id": "23171999678",
+      "campaign_name": "[PM] 이벤트",
+      "status": "PAUSED",
+      "channel": "PERFORMANCE_MAX",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSIONS",
+      "cost": 5876248.85,
+      "platform_conv_value": 50776321.58,
+      "platform_all_conv_value": 82612164.97,
+      "platform_roas": 8.64,
+      "primary_npay_value": 50776321.58,
+      "secondary_npay_all_value": 30380297.67,
+      "primary_npay_share": 1,
+      "internal_confirmed_revenue_joined_by_campaign_id": 0,
+      "internal_join_status": "campaign_id_not_available_in_confirmed_input",
+      "recommended_read_only_interpretation": "reduce_or_pause_test"
+    },
+    {
+      "campaign_id": "14629255429",
+      "campaign_name": "[SA]바이오컴 검사권",
+      "status": "ENABLED",
+      "channel": "SEARCH",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSIONS",
+      "cost": 1493515.75,
+      "platform_conv_value": 4168116.54,
+      "platform_all_conv_value": 4478715.72,
+      "platform_roas": 2.79,
+      "primary_npay_value": 4168100,
+      "secondary_npay_all_value": 298000,
+      "primary_npay_share": 1,
+      "internal_confirmed_revenue_joined_by_campaign_id": 0,
+      "internal_join_status": "campaign_id_not_available_in_confirmed_input",
+      "recommended_read_only_interpretation": "keep_low_cap_until_confirmed_signal"
+    },
+    {
+      "campaign_id": "23820127165",
+      "campaign_name": "[PMAX] 바이오컴 검사권 캠페인",
+      "status": "PAUSED",
+      "channel": "PERFORMANCE_MAX",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSION_VALUE",
+      "cost": 419993.66,
+      "platform_conv_value": 370000,
+      "platform_all_conv_value": 373560.76,
+      "platform_roas": 0.88,
+      "primary_npay_value": 370000,
+      "secondary_npay_all_value": 1125.75,
+      "primary_npay_share": 1,
+      "internal_confirmed_revenue_joined_by_campaign_id": 0,
+      "internal_join_status": "campaign_id_not_available_in_confirmed_input",
+      "recommended_read_only_interpretation": "reduce_or_pause_test"
+    }
+  ],
+  "internal_google_click_revenue_by_utm_campaign": [
+    {
+      "utm_campaign": "(blank)",
+      "confirmed_orders": 8,
+      "internal_confirmed_revenue": 2754000,
+      "payment_method_counts": {
+        "homepage": 8
+      }
+    },
+    {
+      "utm_campaign": "googleads_image_IgGtest_1",
+      "confirmed_orders": 5,
+      "internal_confirmed_revenue": 1464500,
+      "payment_method_counts": {
+        "homepage": 5
+      }
+    },
+    {
+      "utm_campaign": "googleads_shopping_supplements_neuromaster",
+      "confirmed_orders": 5,
+      "internal_confirmed_revenue": 1333300,
+      "payment_method_counts": {
+        "npay": 5
+      }
+    },
+    {
+      "utm_campaign": "googleads_performancemax_assetgroup_organicacid",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 496000,
+      "payment_method_counts": {
+        "homepage": 1
+      }
+    },
+    {
+      "utm_campaign": "googleads_testSA_foodallergy_SA",
+      "confirmed_orders": 2,
+      "internal_confirmed_revenue": 490000,
+      "payment_method_counts": {
+        "homepage": 2
+      }
+    },
+    {
+      "utm_campaign": "googleads_testSA_mineral_SA",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 349000,
+      "payment_method_counts": {
+        "homepage": 1
+      }
+    },
+    {
+      "utm_campaign": "google_biocom_pmkit_igg",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 245000,
+      "payment_method_counts": {
+        "homepage": 1
+      }
+    },
+    {
+      "utm_campaign": "googleads_shopping_supplements_dangdang",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 120900,
+      "payment_method_counts": {
+        "npay": 1
+      }
+    },
+    {
+      "utm_campaign": "googleads_shopping_supplements_metadream",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 120900,
+      "payment_method_counts": {
+        "npay": 1
+      }
+    },
+    {
+      "utm_campaign": "googleads_eventPM_metadream_launching",
+      "confirmed_orders": 2,
+      "internal_confirmed_revenue": 96800,
+      "payment_method_counts": {
+        "homepage": 2
+      }
+    },
+    {
+      "utm_campaign": "googleads_supplements_PM_neuro",
+      "confirmed_orders": 2,
+      "internal_confirmed_revenue": 62810,
+      "payment_method_counts": {
+        "homepage": 2
+      }
+    },
+    {
+      "utm_campaign": "googleads_shopping_supplements_biobalance",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 39000,
+      "payment_method_counts": {
+        "npay": 1
+      }
+    },
+    {
+      "utm_campaign": "googleads_biocom_biobalance_PM(USP2)",
+      "confirmed_orders": 1,
+      "internal_confirmed_revenue": 39000,
+      "payment_method_counts": {
+        "npay": 1
+      }
+    }
+  ],
+  "techsol_audit": {
+    "action": {
+      "action_id": "7564830949",
+      "name": "TechSol - NPAY구매 50739",
+      "status": "ENABLED",
+      "category": "PURCHASE",
+      "type": "WEBPAGE",
+      "primary_for_goal": false,
+      "counting_type": "MANY_PER_CLICK",
+      "labels": [
+        "3yjICOXRmJccEJixj5EB"
+      ],
+      "classification": "secondary_npay_click_label",
+      "risk": "MEDIUM",
+      "interpretation": "TechSol NPay click/conversion action은 Secondary로 보이나 NPay 버튼 클릭/intent 성격이다. 실제 결제완료가 아니므로 confirmed purchase로 쓰지 않는다."
+    },
+    "verdict": "HOLD_READ_ONLY_DO_NOT_PAUSE_DELETE",
+    "reason": "Secondary action이더라도 이름과 trigger가 NPay 클릭/intent 계열이다. 실제 PAYMENT_COMPLETE 후보와 분리해 계속 관찰한다."
+  },
+  "guards": {
+    "platform_send_count": 0,
+    "google_ads_upload_count": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "conversion_action_change_count": 0
+  }
+}

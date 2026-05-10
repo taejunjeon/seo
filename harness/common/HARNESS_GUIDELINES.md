@@ -1,7 +1,7 @@
 # Growth Data Agent Harness Guidelines v1.1
 
 작성 시각: 2026-05-02 23:12 KST
-최근 업데이트: 2026-05-06 15:20 KST
+최근 업데이트: 2026-05-10 18:05 KST
 목적: GA4, GTM, NPay, TikTok, Meta, Google Ads, VM Cloud, 운영DB, 광고 ROAS, 결제 원장 작업의 공통 안전 기준
 상태: 공통 하네스 기준판
 
@@ -24,6 +24,7 @@
 8. 안전한 범위 안에서는 문서 작성에서 멈추지 말고 실행, 검증, 결과보고까지 간다.
 9. 실행이 막히면 `승인 부족`이라고 뭉뚱그리지 말고 `접근 권한`, `브라우저/CORS`, `데이터 부족`, `계정/2FA`, `기술 실패` 중 어디서 막혔는지 특정한다.
 10. HOLD가 나오면 TJ님 승인 대기로 바로 넘기지 말고 `AUTONOMY_POLICY.md`의 HOLD Reducer Rule에 따라 Green follow-up을 먼저 수행한다.
+11. 멀티에이전트는 `조사 병렬 / 수정 통합 / 커밋 단일` 원칙을 따른다. 상세 기준은 `AUTONOMY_POLICY.md`의 Multi-Agent Worktree Rule을 따른다.
 
 ## 목적
 

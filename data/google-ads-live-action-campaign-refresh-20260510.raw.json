@@ -1,0 +1,464 @@
+{
+  "generatedAt": "2026-05-10T08:44:44.872Z",
+  "mode": "read-only Google Ads API search",
+  "source": {
+    "customerId": "2149990943",
+    "apiVersion": "v22",
+    "clientEmail": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+    "projectId": "seo-aeo-487113",
+    "during": "LAST_30_DAYS"
+  },
+  "definitions": {
+    "primaryNpayLabel": "AW-304339096/r0vuCKvy-8caEJixj5EB",
+    "secondaryNpayLabel": "AW-304339096/3yjICOXRmJccEJixj5EB",
+    "searchIntentCampaign": "Campaigns with advertising_channel_type=SEARCH, usually explicit keyword/search demand. This is not generic traffic; it is demand capture."
+  },
+  "totals": {
+    "cost": 23667282.84,
+    "conversionValue": 226732681.89,
+    "allConversionValue": 421270045.48,
+    "roas": 9.58,
+    "primaryNpayValue": 226732645.92,
+    "primaryNpayShareOfPlatformValue": 1,
+    "secondaryNpayAllValue": 191473361.51
+  },
+  "actions": [
+    {
+      "resourceName": "customers/2149990943/conversionActions/7130249515",
+      "id": "7130249515",
+      "name": "구매완료",
+      "status": "ENABLED",
+      "type": "WEBPAGE",
+      "category": "PURCHASE",
+      "primaryForGoal": true,
+      "countingType": "MANY_PER_CLICK",
+      "clickWindowDays": 7,
+      "viewWindowDays": 7,
+      "sendTo": [
+        "AW-304339096/r0vuCKvy-8caEJixj5EB"
+      ],
+      "labels": [
+        "r0vuCKvy-8caEJixj5EB"
+      ],
+      "classification": "primary_npay_count_label"
+    },
+    {
+      "resourceName": "customers/2149990943/conversionActions/7564830949",
+      "id": "7564830949",
+      "name": "TechSol - NPAY구매 50739",
+      "status": "ENABLED",
+      "type": "WEBPAGE",
+      "category": "PURCHASE",
+      "primaryForGoal": false,
+      "countingType": "MANY_PER_CLICK",
+      "clickWindowDays": 90,
+      "viewWindowDays": 1,
+      "sendTo": [
+        "AW-304339096/3yjICOXRmJccEJixj5EB"
+      ],
+      "labels": [
+        "3yjICOXRmJccEJixj5EB"
+      ],
+      "classification": "secondary_npay_click_label"
+    }
+  ],
+  "campaignAudit": [
+    {
+      "campaignId": "22018174474",
+      "campaignName": "[PM]건기식 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+      "biddingStrategy": "",
+      "budgetName": "[PM]건기식 실적최대화",
+      "budgetAmount": 320000,
+      "cost": 9465724.11909,
+      "impressions": 572844,
+      "clicks": 14927,
+      "conversions": 1024.72428,
+      "conversionValue": 97070763.05941004,
+      "allConversions": 2636.742592,
+      "allConversionValue": 185285793.23707289,
+      "viewThroughConversions": 9,
+      "roas": 10.25,
+      "allRoas": 19.57,
+      "ctr": 0.0261,
+      "cvr": 0.0686,
+      "primaryNpayValue": 97070763.06,
+      "primaryNpayConversions": 1024.7243,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 87859092.09,
+      "secondaryNpayAllConversions": 970.854,
+      "otherPrimaryValue": 0,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "reduce_or_pause_test"
+    },
+    {
+      "campaignId": "21807994952",
+      "campaignName": "[PM]검사권 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSION_VALUE",
+      "biddingStrategy": "",
+      "budgetName": "[PM]검사권 실적최대화",
+      "budgetAmount": 240000,
+      "cost": 6411800.463029,
+      "impressions": 466641,
+      "clicks": 11357,
+      "conversions": 780.732623,
+      "conversionValue": 74347480.71519417,
+      "allConversions": 2138.476202,
+      "allConversionValue": 148519810.78403038,
+      "viewThroughConversions": 20,
+      "roas": 11.6,
+      "allRoas": 23.16,
+      "ctr": 0.0243,
+      "cvr": 0.0687,
+      "primaryNpayValue": 74347461.28,
+      "primaryNpayConversions": 761.2998,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 72934846,
+      "secondaryNpayAllConversions": 722.9591,
+      "otherPrimaryValue": 19.43,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "reduce_or_pause_test"
+    },
+    {
+      "campaignId": "23171999678",
+      "campaignName": "[PM] 이벤트",
+      "status": "PAUSED",
+      "channel": "PERFORMANCE_MAX",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+      "biddingStrategy": "",
+      "budgetName": "[PM] 이벤트",
+      "budgetAmount": 280000,
+      "cost": 5876248.854362,
+      "impressions": 741356,
+      "clicks": 8692,
+      "conversions": 384.968324,
+      "conversionValue": 50776321.57999292,
+      "allConversions": 1118.290223,
+      "allConversionValue": 82612164.97204937,
+      "viewThroughConversions": 38,
+      "roas": 8.64,
+      "allRoas": 14.06,
+      "ctr": 0.0117,
+      "cvr": 0.0443,
+      "primaryNpayValue": 50776321.58,
+      "primaryNpayConversions": 384.9683,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 30380297.67,
+      "secondaryNpayAllConversions": 265.2832,
+      "otherPrimaryValue": 0,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "reduce_or_pause_test"
+    },
+    {
+      "campaignId": "14629255429",
+      "campaignName": "[SA]바이오컴 검사권",
+      "status": "ENABLED",
+      "channel": "SEARCH",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+      "biddingStrategy": "",
+      "budgetName": "[SA]바이오컴 검사권",
+      "budgetAmount": 50000,
+      "cost": 1493515.746524,
+      "impressions": 19556,
+      "clicks": 925,
+      "conversions": 54.539865,
+      "conversionValue": 4168116.539865,
+      "allConversions": 199.53169,
+      "allConversionValue": 4478715.722365,
+      "viewThroughConversions": 0,
+      "roas": 2.79,
+      "allRoas": 3,
+      "ctr": 0.0473,
+      "cvr": 0.059,
+      "primaryNpayValue": 4168100,
+      "primaryNpayConversions": 38,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 298000,
+      "secondaryNpayAllConversions": 1,
+      "otherPrimaryValue": 16.54,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "keep_low_cap_until_confirmed_signal"
+    },
+    {
+      "campaignId": "23820127165",
+      "campaignName": "[PMAX] 바이오컴 검사권 캠페인",
+      "status": "PAUSED",
+      "channel": "PERFORMANCE_MAX",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSION_VALUE",
+      "biddingStrategy": "",
+      "budgetName": "[PMAX] 바이오컴 검사권 캠페인",
+      "budgetAmount": 200000,
+      "cost": 419993.661179,
+      "impressions": 77340,
+      "clicks": 1214,
+      "conversions": 2,
+      "conversionValue": 370000,
+      "allConversions": 37.282152,
+      "allConversionValue": 373560.7632,
+      "viewThroughConversions": 0,
+      "roas": 0.88,
+      "allRoas": 0.89,
+      "ctr": 0.0157,
+      "cvr": 0.0016,
+      "primaryNpayValue": 370000,
+      "primaryNpayConversions": 2,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 1125.75,
+      "secondaryNpayAllConversions": 0.009,
+      "otherPrimaryValue": 0,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "reduce_or_pause_test"
+    }
+  ],
+  "dailyAction": [
+    {
+      "date": "2026-04-10",
+      "primaryNpayValue": 3229824.54,
+      "primaryNpayConversions": 51.0186,
+      "secondaryNpayAllValue": 2226705.67,
+      "secondaryNpayAllConversions": 28.9973,
+      "otherPrimaryValue": 2.12
+    },
+    {
+      "date": "2026-04-11",
+      "primaryNpayValue": 3969300,
+      "primaryNpayConversions": 36,
+      "secondaryNpayAllValue": 2934500,
+      "secondaryNpayAllConversions": 34,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-04-12",
+      "primaryNpayValue": 8918243.83,
+      "primaryNpayConversions": 81.9955,
+      "secondaryNpayAllValue": 5394230.7,
+      "secondaryNpayAllConversions": 63.998,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-04-13",
+      "primaryNpayValue": 7264700,
+      "primaryNpayConversions": 72,
+      "secondaryNpayAllValue": 6660700,
+      "secondaryNpayAllConversions": 68,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-04-14",
+      "primaryNpayValue": 12282253.26,
+      "primaryNpayConversions": 141.0018,
+      "secondaryNpayAllValue": 10278961.21,
+      "secondaryNpayAllConversions": 132,
+      "otherPrimaryValue": 2
+    },
+    {
+      "date": "2026-04-15",
+      "primaryNpayValue": 9508870,
+      "primaryNpayConversions": 46.9764,
+      "secondaryNpayAllValue": 6268800,
+      "secondaryNpayAllConversions": 31,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-04-16",
+      "primaryNpayValue": 8629416.92,
+      "primaryNpayConversions": 86.5009,
+      "secondaryNpayAllValue": 6610850,
+      "secondaryNpayAllConversions": 74,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-04-17",
+      "primaryNpayValue": 6006398.76,
+      "primaryNpayConversions": 52.6708,
+      "secondaryNpayAllValue": 5082337.88,
+      "secondaryNpayAllConversions": 47.4963,
+      "otherPrimaryValue": 0.31
+    },
+    {
+      "date": "2026-04-18",
+      "primaryNpayValue": 6355292.31,
+      "primaryNpayConversions": 33.2542,
+      "secondaryNpayAllValue": 3962800,
+      "secondaryNpayAllConversions": 23.5,
+      "otherPrimaryValue": 1.08
+    },
+    {
+      "date": "2026-04-19",
+      "primaryNpayValue": 5192008.24,
+      "primaryNpayConversions": 27.206,
+      "secondaryNpayAllValue": 1877414.39,
+      "secondaryNpayAllConversions": 16.6855,
+      "otherPrimaryValue": 4
+    },
+    {
+      "date": "2026-04-20",
+      "primaryNpayValue": 3709370.82,
+      "primaryNpayConversions": 21.504,
+      "secondaryNpayAllValue": 1415726.42,
+      "secondaryNpayAllConversions": 10.0017,
+      "otherPrimaryValue": 4
+    },
+    {
+      "date": "2026-04-21",
+      "primaryNpayValue": 4938481.92,
+      "primaryNpayConversions": 21.7477,
+      "secondaryNpayAllValue": 5174695.14,
+      "secondaryNpayAllConversions": 7.997,
+      "otherPrimaryValue": 5.06
+    },
+    {
+      "date": "2026-04-22",
+      "primaryNpayValue": 3519533.21,
+      "primaryNpayConversions": 47.7761,
+      "secondaryNpayAllValue": 3024657.83,
+      "secondaryNpayAllConversions": 35.4652,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-04-23",
+      "primaryNpayValue": 7910391.65,
+      "primaryNpayConversions": 91.1156,
+      "secondaryNpayAllValue": 9068510.35,
+      "secondaryNpayAllConversions": 71,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-04-24",
+      "primaryNpayValue": 11087532.71,
+      "primaryNpayConversions": 109.2778,
+      "secondaryNpayAllValue": 9704400,
+      "secondaryNpayAllConversions": 96,
+      "otherPrimaryValue": 2
+    },
+    {
+      "date": "2026-04-25",
+      "primaryNpayValue": 6450964.12,
+      "primaryNpayConversions": 95.2247,
+      "secondaryNpayAllValue": 6448608.83,
+      "secondaryNpayAllConversions": 95.159,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-04-26",
+      "primaryNpayValue": 9955540.1,
+      "primaryNpayConversions": 125,
+      "secondaryNpayAllValue": 9680800,
+      "secondaryNpayAllConversions": 121,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-04-27",
+      "primaryNpayValue": 13168007.96,
+      "primaryNpayConversions": 153.7222,
+      "secondaryNpayAllValue": 12867140.1,
+      "secondaryNpayAllConversions": 149,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-04-28",
+      "primaryNpayValue": 9748376.25,
+      "primaryNpayConversions": 81.808,
+      "secondaryNpayAllValue": 6343200,
+      "secondaryNpayAllConversions": 70,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-04-29",
+      "primaryNpayValue": 11338436.49,
+      "primaryNpayConversions": 102.3669,
+      "secondaryNpayAllValue": 7186137.86,
+      "secondaryNpayAllConversions": 86.8969,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-04-30",
+      "primaryNpayValue": 9251929.26,
+      "primaryNpayConversions": 86.8251,
+      "secondaryNpayAllValue": 8506694.86,
+      "secondaryNpayAllConversions": 80.4159,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-05-01",
+      "primaryNpayValue": 11277268.58,
+      "primaryNpayConversions": 95.5,
+      "secondaryNpayAllValue": 10301100,
+      "secondaryNpayAllConversions": 90,
+      "otherPrimaryValue": 0.24
+    },
+    {
+      "date": "2026-05-02",
+      "primaryNpayValue": 6530700,
+      "primaryNpayConversions": 72.5,
+      "secondaryNpayAllValue": 6485300,
+      "secondaryNpayAllConversions": 72,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-05-03",
+      "primaryNpayValue": 9741300,
+      "primaryNpayConversions": 116,
+      "secondaryNpayAllValue": 9500000,
+      "secondaryNpayAllConversions": 111,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-05-04",
+      "primaryNpayValue": 8980600,
+      "primaryNpayConversions": 67,
+      "secondaryNpayAllValue": 8448000,
+      "secondaryNpayAllConversions": 64,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-05-05",
+      "primaryNpayValue": 5458100,
+      "primaryNpayConversions": 70,
+      "secondaryNpayAllValue": 5521926.82,
+      "secondaryNpayAllConversions": 72,
+      "otherPrimaryValue": 2.18
+    },
+    {
+      "date": "2026-05-06",
+      "primaryNpayValue": 5602700,
+      "primaryNpayConversions": 55.2711,
+      "secondaryNpayAllValue": 5480200,
+      "secondaryNpayAllConversions": 49,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-05-07",
+      "primaryNpayValue": 5492504.99,
+      "primaryNpayConversions": 49.5,
+      "secondaryNpayAllValue": 4498463.45,
+      "secondaryNpayAllConversions": 44.4925,
+      "otherPrimaryValue": 2
+    },
+    {
+      "date": "2026-05-08",
+      "primaryNpayValue": 5959100,
+      "primaryNpayConversions": 55.2289,
+      "secondaryNpayAllValue": 5616000,
+      "secondaryNpayAllConversions": 52,
+      "otherPrimaryValue": 2
+    },
+    {
+      "date": "2026-05-09",
+      "primaryNpayValue": 5255500,
+      "primaryNpayConversions": 65,
+      "secondaryNpayAllValue": 4904500,
+      "secondaryNpayAllConversions": 63,
+      "otherPrimaryValue": 1
+    }
+  ]
+}
