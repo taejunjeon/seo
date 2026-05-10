@@ -27,19 +27,31 @@
 - [data/toss_sync_gap.md](./data/toss_sync_gap.md) — Toss PG sync 갭 진단
 - [vm/!vm.md](./vm/!vm.md) — GCE VM 운영 정본 (접속·배포·pm2·Cloudflare Tunnel)
 
+## DB 명칭 (3분류만 사용, 절대 다른 표현 쓰지 않음)
+
+산출물 / 보고 / 코드 주석 어디서든 DB를 가리킬 때는 아래 3가지 호칭만 사용한다.
+"운영pg", "원격 PG", "operational PG", "원격 운영 PG" 같은 표현은 금지.
+
+| 명칭 | 운영자 | 위치 / 대표 객체 |
+|---|---|---|
+| **VM Cloud** | TJ님 (Cloudflare 기반) | `att.ainativeos.net` 내부 SQLite — `order_bridge_ledger`, `paid_click_intent_log`, `npay_intent_log` |
+| **운영DB** | 개발팀 (supabase) | `dashboard` 스키마 — `tb_iamweb_users`, `tb_playauto_orders`, `tb_iamweb_Products`, `tb_iamweb_backfill_jobs`, `tb_imweb_member` 등. backend `.env`의 `DATABASE_URL` 로 접근. read-only로만 사용. |
+| **로컬DB** | TJ님 맥북 | `/Users/vibetj/coding/seo/backend/data/crm.sqlite3` (better-sqlite3 · 멀티 사이트 구분은 `site` 컬럼) |
+| AIBIO Supabase | 별도 인스턴스 | `AIBIO_SUPABASE_PROJECT_ID` + `AIBIO_SUPABASE_SECRET_KEY` (`.env` 195~200행). 운영DB와 같은 supabase인지 다른지 확인 전에는 별도로 부른다. |
+
 ## 프로젝트 규약
 
 - API base URL 환경변수: `NEXT_PUBLIC_API_BASE_URL` (기본 `http://localhost:7020`)
-- 로컬 DB: `backend/data/crm.sqlite3` (better-sqlite3 · 멀티 사이트 구분은 `site` 컬럼)
-- 원격 PG: `DATABASE_URL` 환경변수 · `tb_iamweb_users` / `tb_playauto_orders`가 진실의 원천
-- AIBIO Supabase: `AIBIO_SUPABASE_PROJECT_ID` + `AIBIO_SUPABASE_SECRET_KEY` (`.env` 195~200행)
+- 운영DB 진실의 원천: `tb_iamweb_users` / `tb_playauto_orders`
+- 운영DB write 금지 — 새 데이터는 로컬DB 또는 VM Cloud SQLite에 적재
 - 쿠팡: `COUPANG_BIOCOM_*` / `COUPANG_TEAMKETO_*` (`.env` 233~240행)
 
 ## 개발 원칙 (프로젝트 로컬)
 
-- 과거 분석은 **원격 PG 원장**(`tb_iamweb_users` 97,407건, `tb_playauto_orders` 121,747건)을 사용. 로컬 `imweb_orders`는 최근 3.5개월만 커버하므로 과거 추세 분석에 부적합.
-- 금액 집계 시 환불 처리 주의: PG는 `cancellation_reason`·`return_reason` 제외, AIBIO Supabase는 음수 amount, 쿠팡은 settlement API 기준.
+- 과거 분석은 **운영DB 원장**(`tb_iamweb_users` 97,407건, `tb_playauto_orders` 121,747건)을 사용. 로컬DB `imweb_orders`는 최근 3.5개월만 커버하므로 과거 추세 분석에 부적합.
+- 금액 집계 시 환불 처리 주의: 운영DB는 `cancellation_reason`·`return_reason` 제외, AIBIO Supabase는 음수 amount, 쿠팡은 settlement API 기준.
 - phone 조인은 정규화 후(`regexp_replace(phone, '[- ]', '', 'g')`) 사용.
+- **운영DB sync lag 주의**: imweb 자체 DB → 운영DB sync는 시점에 따라 3~9시간 지연 가능. dashboard/보고에 `MAX(order_date)` freshness를 같이 노출하고, 운영DB 카운트 = 운영자가 imweb 어드민에서 보는 카운트라고 가정하지 않는다.
 
 ## Growth Data Harness Bootstrap
 
