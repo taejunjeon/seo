@@ -1,7 +1,7 @@
 # 월별 유입 채널 매출 정합성 현재 정본
 
 작성 시각: 2026-05-06 23:46 KST
-최종 업데이트: 2026-05-10 01:54 KST
+최종 업데이트: 2026-05-10 09:47 KST
 기준일: 2026-05-10
 상태: active canonical
 Owner: total / attribution
@@ -38,15 +38,15 @@ harness_preflight:
     - 승인 범위 밖 운영DB/ledger write
     - GA4/Meta/Google Ads/TikTok/Naver 전환 전송
   source_window_freshness_confidence:
-    source: "기존 total/!total.md, gdn/Mode B 승인 문서, VM Cloud SSH/curl smoke, VM Cloud sqlite/PM2 read-only, 로컬 코드, Google Ads API /api/google-ads/dashboard last_30d"
+    source: "기존 total/!total.md, gdn/Mode B 승인 문서, VM Cloud SSH/curl smoke, VM Cloud SQLite/PM2 read-only, 로컬 코드, Google Ads API /api/google-ads/dashboard last_30d"
     window: "2026-04-07~2026-05-06 KST Google Ads last_30d, 2026-05-04~2026-05-08 KST 실행 문서, paid_click_intent canary 2026-05-07 23:01~2026-05-08 17:23 KST"
-    freshness: "Google Ads API 2026-05-07 18:12 KST read-only 조회. paid_click_intent ledger/운영 PG read-only 2026-05-08 17:23 KST. wrapper Preview 실행 결과 2026-05-08 19:04 KST + TJ 로그인 NPay 클릭 200/201/203 변수 확인 2026-05-08 19:33 KST + member_code source discovery 2026-05-08 20:06 KST + fallback bridge inventory/design 2026-05-08 20:17 KST + Path B email/phone hash-only approval/schema/Preview/canary/dependency map 2026-05-08 20:38 KST + no-send HMAC local implementation/fixture PASS 2026-05-08 23:03 KST + limited deploy/Preview final/reliability dry-run packet 2026-05-08 23:23 KST + 실제 Google 광고 클릭 기반 Path B no-send bridge PASS 2026-05-10 01:31 KST + unpaid vbank exclusion guard 2026-05-10 01:51 KST 반영. Google Ads 전환 변경/전송 없음"
+    freshness: "Google Ads API 2026-05-07 18:12 KST read-only 조회. paid_click_intent ledger/운영DB(PostgreSQL) read-only 2026-05-08 17:23 KST. wrapper Preview 실행 결과 2026-05-08 19:04 KST + TJ 로그인 NPay 클릭 200/201/203 변수 확인 2026-05-08 19:33 KST + member_code source discovery 2026-05-08 20:06 KST + fallback bridge inventory/design 2026-05-08 20:17 KST + Path B email/phone hash-only approval/schema/Preview/canary/dependency map 2026-05-08 20:38 KST + no-send HMAC local implementation/fixture PASS 2026-05-08 23:03 KST + limited deploy/Preview final/reliability dry-run packet 2026-05-08 23:23 KST + 실제 Google 광고 클릭 기반 Path B no-send bridge PASS 2026-05-10 01:31 KST + unpaid vbank exclusion guard 2026-05-10 01:51 KST 반영. Google Ads 전환 변경/전송 없음"
     confidence: 0.95
 ```
 
 ## 10초 결론
 
-이 문서가 현재 정본이다. 기존 [[!total_past]]은 작업 영역별 역사 문서로 남기고, 실제 개발 순서는 이 문서의 `Active Action Board`를 따른다.
+이 문서가 현재 정본이다. 기존 [[!total_past]]은 작업 영역별 역사 문서로 남기고, 실제 개발 순서는 이 문서의 `Phase-Sprint 요약표`와 `다음 할일`을 따른다. `Active Action Board`는 `다음 할일`과 역할이 겹쳐 별도 섹션으로 쓰지 않는다.
 
 2026-05-10 01:31 KST 실제 Google 광고 클릭에서 바이오컴 주문완료 화면까지 Path B no-send bridge는 PASS했다. 주문 hash, 로그인 email identity hash, client/session, click hash가 모두 잡혔다. 하지만 이번 주문은 가상계좌 미입금이므로 **실제 결제완료 구매가 아니다**. 따라서 Google Ads upload, confirmed_purchase, 내부 confirmed ROAS 후보로 쓰지 않는다. `block_reason=unpaid_vbank_controlled_evidence`, `exclude_from_upload=true`, `exclude_from_budget_roas=true`, `send_candidate=false`, `actual_send_candidate=false`를 다음 P0 guard로 고정한다. 다음 문서: [[../gdn/unpaid-vbank-controlled-evidence-exclusion-20260510]], [[../gdn/path-b-p0-next-roadmap-20260510]].
 
@@ -74,28 +74,82 @@ wrapper Preview 실행 결과: GTM fresh workspace `162`에서 Preview tag `287`
 
 Google Ads `Conv. value` 218,196,428원 중 218,196,382원은 Primary 전환=Google Ads가 입찰 학습에 쓰는 핵심 구매 신호 `구매완료` action `7130249515`의 known NPay count label `r0vuCKvy-8caEJixj5EB`에서 나온다. 따라서 다음 실행 보드는 Meta나 `/total` 화면 작업이 아니라, Google click id 보존과 confirmed purchase no-send 후보를 안정화하는 순서만 우선한다.
 
-## Phase-Sprint 요약표
+## Phase-Sprint 요약표 — 실제 개발 순서 기준
 
-현재 실행 우선순위순.
+Phase 번호는 작업 영역 이름이고, 실제 개발 순서는 `Priority`와 표의 위아래 순서를 따른다. 한 Phase 안에는 여러 Sprint가 들어갈 수 있다.
 
-Phase 번호는 작업 영역 이름(history)이고 실제 실행 순서는 `Priority`를 따른다.
+| Priority | Phase/Sprint | 무엇을 하는가 | 왜 하는가 | 어떻게 진행하는가 | 지금 상태 | 현재 진척률 % | 100% 조건 | 다음 단계 / 담당 | 승인 필요 여부 | Source 문서 |
+|---:|---|---|---|---|---|---:|---|---|---|---|
+| P0 | [[#Phase4-Sprint6]] | Google 광고 클릭 ID를 주문 후보까지 보존하고, 미입금 주문을 성과 후보에서 제외한다 | Google Ads에 실제 결제완료 주문만 알려주려면 클릭, 주문, 로그인 identity가 이어지고 미결제 주문은 막혀야 한다 | paid_click_intent 수집 -> Path B order bridge -> unpaid vbank exclusion guard -> confirmed-only dry-run 순서로 닫는다 | 실제 Google 광고 클릭 no-send bridge PASS. 가상계좌 미입금 guard 연결 필요 | 90% | confirmed 결제완료만 후보로 남고, 미입금 가상계좌는 `exclude_from_upload=true`, Google Ads upload 후보는 승인 전 0건 | Codex: builder guard 연결/검증. TJ: 추가 실제 결제 테스트 여부는 별도 판단 | NO, Green. upload는 Red HOLD | [[../gdn/path-b-real-paid-click-actual-order-preview-result-20260510]], [[../gdn/unpaid-vbank-controlled-evidence-exclusion-20260510]] |
+| P0/P1 | [[#Phase2-Sprint4]] | 내부 결제완료 매출을 유입 채널별로 한 번만 배정한다 | 광고 플랫폼 주장값과 내부 confirmed 매출을 섞으면 예산 판단이 틀어진다 | Meta/Google/TikTok/Naver/Organic/Direct/Unknown 기준을 주문 단위로 정리하고 split_required를 줄인다 | campaign mapping 1차 완료. 일부 split/exact id 확인 필요 | 70% | unknown/quarantine가 줄고, NPay는 결제수단으로만 처리되며 paid_naver로 오배정되지 않는다 | Codex: 최신 input 재측정. TJ/그로스파트: exact campaign id 필요 시 회신 | NO, read-only 우선 | [[../data/!channelfunnel]], [[../otherpart/!otherpart]] |
+| P1 | [[#Phase1-Sprint1]] | 월별 주문·결제 정본 장부를 만든다 | 내부 confirmed ROAS=실제 결제완료 매출 기준값이 있어야 플랫폼 ROAS를 검증할 수 있다 | 운영DB/VM Cloud/로컬 DB를 source별로 분리하고 freshness/confidence를 남긴다 | 1차 장부 안정. 최신 Path B guard 반영 필요 | 86% | 결제수단별 confirmed/cancel/refund 기준이 통일되고 Google/Meta/TikTok/Naver별 예산 판단 기준이 분리된다 | Codex: unpaid/confirmed status guard를 input builder에 반영 | NO, Green | [[../data/!datacheckplan]], [[../gdn/unpaid-vbank-controlled-evidence-exclusion-20260510]] |
+| P1/P2 | [[#Phase3-Sprint5]] | Google Ads에 실제 결제완료만 구매로 알려주는 통로를 준비한다 | 기존 Google Ads `구매완료` Primary 전환은 NPay click/count가 대부분이라 입찰 학습 신호가 왜곡된다 | no-send 후보 품질, duplicate guard, block_reason, upload dry-run을 먼저 닫고 Red 승인 전까지 전송하지 않는다 | Path B no-send bridge PASS. upload 후보 0 유지 | 65% | confirmed-only 후보가 A/B confidence로 분리되고 duplicate/미결제/테스트 주문이 모두 block된다 | Codex: confirmed-only dry-run. TJ: upload는 별도 Red 승인 전 금지 | HOLD/Red | [[../gdn/google-ads-confirmed-purchase-execution-approval-20260505]] |
+| P3 | [[#Phase5-Sprint8]] | `/total` 운영 화면에서 플랫폼 주장값과 내부 confirmed 값을 분리해 보여준다 | 운영자가 Google Ads ROAS와 내부 confirmed ROAS를 같은 값처럼 읽으면 예산 판단이 틀어진다 | API/source freshness, unknown/quarantine, guard 상태를 화면에 노출한다 | 설계 35%, 구현 0% | 35% | 운영자가 월별 source별 매출, unknown, blocked reason, upload 후보 0/있음을 한 화면에서 본다 | Claude Code: UI 구현. Codex: 데이터 계약/검증 | 추후 Yellow | [[../total/total-frontend-current-design-20260507]] |
 
-| Priority | Phase  | Sprint              | 이름                      | 담당                  | 상태(우리/운영) | 상세                      |
-| -------- | ------ | ------------------- | ----------------------- | ------------------- | --------- | ----------------------- |
-| P0       | Phase4 | [[#Phase4-Sprint6]] | paid_click_intent 수집 개선 | TJ + Codex          | 90% / 70% | [[#Phase4-Sprint6\|이동]] |
-| P0/P1    | Phase2 | [[#Phase2-Sprint4]] | 채널 배정과 캠페인 매핑           | Codex               | 70% / 60% | [[#Phase2-Sprint4\|이동]] |
-| P1       | Phase1 | [[#Phase1-Sprint1]] | 월별 주문·결제 정본 장부          | Codex               | 86% / 78% | [[#Phase1-Sprint1\|이동]] |
-| P1/P2    | Phase3 | [[#Phase3-Sprint5]] | 플랫폼 ROAS 분리와 guard      | Codex               | 65% / 42% | [[#Phase3-Sprint5\|이동]] |
-| P3       | Phase5 | [[#Phase5-Sprint8]] | `/total` 운영 화면          | Claude Code + Codex | 35% / 0%  | [[#Phase5-Sprint8\|이동]] |
+## 다음 할일 — Auto Green / Approval Needed / Blocked-Parked
 
-## 다음 할일
+요약표는 전체 순서이고, 이 섹션은 지금 바로 움직일 실행 카드다. 이전 `Active Action Board`의 역할은 이 섹션으로 흡수했다.
 
-|  순서 | Phase/Sprint        | 상태                           | 담당         | 할 일                                                    | 왜 하는가                                                                           | 어떻게 하는가                                                                                                                                                             | 의존성                                             | 상세                                                                                                   | 컨펌 필요                    |
-| --: | ------------------- | ---------------------------- | ---------- | ------------------------------------------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------ |
-|   1 | [[#Phase4-Sprint6]] | capture_health_24h          | Codex      | paid_click_intent 24h 수집 건강검진을 정시에 실행한다             | live ledger가 계속 쌓이는지, checkout/NPay intent 단계가 들어오는지, PII/value/order가 차단되는지 봐야 한다 | 2026-05-08 23:01 KST 이후 [[../gdn/canary-capture-health-24h-20260508]] 기준으로 row/stage/guard/5xx/PM2/no-send를 갱신한다 | canary 24h 시각 도달 필요. effect/uplift와 독립 | [[#Phase4-Sprint6]] / [[../gdn/canary-capture-health-24h-20260508]] | NO, read-only |
-|   2 | [[#Phase4-Sprint6]] | path_b_unpaid_guard_next | Codex | unpaid vbank controlled evidence를 upload/ROAS 후보에서 자동 제외하는 guard를 builder에 연결한다 | 실제 광고 클릭 bridge는 PASS했지만 가상계좌 미입금 주문은 결제완료 매출이 아니므로 성과 후보에 섞이면 안 된다 | [[../gdn/unpaid-vbank-controlled-evidence-exclusion-20260510]] 기준으로 `payment_status != confirmed`, `payment_method=vbank`, `paid_at missing` block reason을 ConfirmedPurchasePrep / Google Ads upload builder에 반영한다 | 실제 광고 클릭 no-send bridge PASS. 추가 결제 테스트는 오늘 HOLD | [[#Phase4-Sprint6]] / [[../gdn/unpaid-vbank-controlled-evidence-exclusion-20260510]] | NO, Green local code/doc |
-|   3 | [[#Phase4-Sprint6]] | hold_backend_deploy         | Codex      | Path C backend deploy final packet을 보강한다                  | deploy는 schema/backend/secret/TTL/logging에 영향이 있어 지금 승인할 수 없다 | final code diff, HMAC secret 위치, `expires_at`/cleanup, raw logging proof, flag OFF/ON smoke, rollback을 붙인다 | Preview 결과와 final diff 필요 | [[#Phase4-Sprint6]] / [[../gdn/path-c-backend-deploy-approval-v2-20260508]] | HOLD |
-|   4 | [[#Phase3-Sprint5]] | parked_red                  | TJ + Codex | Google Ads에 실제 결제완료 주문만 구매로 알려주는 새 전환 통로를 재검토한다 | 기존 `구매완료` Primary 전환은 NPay click/count label이 분자를 거의 전부 만들고 있어 자동입찰 학습 신호로 위험하다 | no-send 후보, duplicate guard, click id fill-rate, rollback 기준이 PASS하면 [[../gdn/google-ads-confirmed-purchase-execution-approval-20260505]]를 업데이트하고 Red 승인 여부를 다시 묻는다 | `member_code_hash` bridge와 후보 품질 검증 필요 | [[#Phase3-Sprint5]] / [[../gdn/google-ads-confirmed-purchase-execution-approval-20260505]] | YES, Google Ads 변경/전송 |
+### Auto Green
+
+#### A1. 미입금 가상계좌 주문을 upload/ROAS 후보에서 자동 제외한다
+- 무엇을 하는가: 실제 광고 클릭으로 만든 가상계좌 미입금 주문을 evidence에는 남기되 Google Ads upload, confirmed_purchase, 내부 confirmed ROAS 후보에서는 제외한다.
+- 왜 하는가: 주문완료 화면 bridge는 PASS지만 입금 전 가상계좌는 실제 결제완료 매출이 아니므로 성과로 세면 안 된다.
+- 어떻게 하는가: [[../gdn/unpaid-vbank-controlled-evidence-exclusion-20260510]] 기준으로 `source_order_status != confirmed`, `payment_method=vbank`, `paid_at missing`이면 `block_reason=unpaid_vbank_controlled_evidence`, `exclude_from_upload=true`, `exclude_from_budget_roas=true`, `send_candidate=false`, `actual_send_candidate=false`가 되게 builder/dry-run 문서에 연결한다.
+- 성공 기준: ConfirmedPurchasePrep dry-run에서 해당 주문은 evidence row로 남지만 upload 후보 0건이다.
+- 실패 시 다음 확인점: 운영DB 결제 상태 필드명, VM Cloud 주문 status freshness, 가상계좌 입금/미입금 구분 필드.
+- 승인 필요 여부: NO, Green local code/doc.
+- 산출물: builder guard diff 또는 dry-run 설계 문서, gptconfirm next batch.
+- 진척률에 미치는 영향: [[#Phase4-Sprint6]] 90% -> 94%.
+- 의존성: 독립 실행 가능.
+
+#### A2. 24h/72h 수집 건강검진을 최신 상태로 갱신한다
+- 무엇을 하는가: paid_click_intent 원장(기록 장부)이 계속 안정적으로 쌓였는지 갱신한다.
+- 왜 하는가: 구매 개선 효과와 별개로 수집 파이프가 정상인지 봐야 다음 confirmed-only dry-run을 신뢰할 수 있다.
+- 어떻게 하는가: [[../gdn/canary-capture-health-24h-20260508]] 기준으로 row/stage/guard/5xx/PM2/no-send를 다시 집계하고, 24h와 72h 기준을 분리한다.
+- 성공 기준: row/stage 증가, debug/test/preview 차단, raw 저장 0, platform send 0, PM2 unexpected restart 0이 PASS/HOLD/FAIL로 정리된다.
+- 실패 시 다음 확인점: VM Cloud SQLite freshness, PM2 log, cloudflared 5xx, GTM trigger scope.
+- 승인 필요 여부: NO, read-only.
+- 산출물: 갱신된 capture health 결과 문서.
+- 진척률에 미치는 영향: [[#Phase4-Sprint6]] 운영 안정성 판단 강화.
+- 의존성: 독립 실행 가능.
+
+#### A3. 채널퍼널 정본을 Path B 결과 기준으로 갱신한다
+- 무엇을 하는가: [[../data/!channelfunnel]]의 오래된 2026-05-08 Path B “설계/대기” 표현을 2026-05-10 실제 광고 클릭 no-send bridge PASS와 unpaid vbank guard 기준으로 바꾼다.
+- 왜 하는가: 채널 품질 문서가 아직 Path B 이전 상태로 보이면 다음 예산/ROAS 판단이 늦어진다.
+- 어떻게 하는가: Phase-Sprint 요약표와 다음 할일을 실제 개발 순서 기준으로 재작성하고, Active Action Board는 제거한다.
+- 성공 기준: 채널퍼널 문서에서 Path B가 “설계 후보”가 아니라 “no-send bridge PASS, confirmed/payment guard 필요”로 읽힌다.
+- 실패 시 다음 확인점: channelfunnel의 source window, BigQuery 14/30일 재조회 필요 여부.
+- 승인 필요 여부: NO, Green docs.
+- 산출물: [[../data/!channelfunnel]] 업데이트.
+- 진척률에 미치는 영향: Phase2/Phase4 문서 정합성 상승.
+- 의존성: 독립 실행 가능.
+
+### Approval Needed
+
+#### B1. 실제 결제완료 테스트를 오늘 추가로 할지 판단한다
+- 무엇을 하는가: 카드 결제나 가상계좌 입금을 이용해 실제 `paid_at`이 있는 confirmed payment test를 할지 정한다.
+- 왜 하는가: 현재 실제 광고 클릭 bridge는 PASS지만, 마지막 주문은 가상계좌 미입금이라 confirmed purchase 증거가 아니다.
+- 어떻게 하는가: TJ님이 결제수단/금액/환불 가능성을 정하면 Codex가 test_order exclusion guard와 no-send 확인 절차를 먼저 다시 제시한다.
+- 성공 기준: 실제 결제 테스트를 한다면 `exclude_from_upload=true`와 refund/cancel 추적 기준이 먼저 준비된다.
+- 실패 시 다음 확인점: 결제 취소 가능성, 운영 주문 status 반영 지연, 기존 live purchase tag 영향.
+- 승인 필요 여부: YES, TJ님 실제 결제/입금 판단.
+- 산출물: confirmed payment controlled test 승인안.
+- 진척률에 미치는 영향: [[#Phase4-Sprint6]] 94% -> 98% 가능.
+- 의존성: A1 guard 완료 후 판단 권장.
+
+### Blocked/Parked
+
+#### C1. Google Ads confirmed_purchase upload는 계속 보류한다
+- 무엇을 하는가: Google Ads에 실제 결제완료 주문만 구매로 보내는 실제 전송을 보류한다.
+- 왜 하는가: confirmed-only guard, duplicate guard, 테스트/미결제 제외, 실제 전송 rollback이 모두 닫히기 전에는 광고 학습을 오염시킬 수 있다.
+- 어떻게 하는가: send_candidate=false, actual_send_candidate=false, upload 후보 0을 유지한다.
+- 성공 기준: Google Ads/GA4/Meta/TikTok/Naver 신규 전송 0건.
+- 실패 시 다음 확인점: 기존 GTM live purchase tag와 새 Path B no-send tag의 scope 혼동 여부.
+- 승인 필요 여부: YES, Red. 지금은 HOLD.
+- 산출물: 추후 Red 승인 패킷.
+- 진척률에 미치는 영향: 운영 전송 기준 0% 유지.
+- 의존성: A1/A2와 confirmed-only dry-run 이후.
 
 ## 현재 기준
 
@@ -127,54 +181,6 @@ Phase 번호는 작업 영역 이름(history)이고 실제 실행 순서는 `Pri
 | Google Ads API read-only | 2026-05-07 18:12 KST last_30d 조회 PASS. 비용 25,016,556원, `Conv. value` 218,196,428원, Google Ads ROAS 8.72x |
 | Google Ads Primary 오염 | `구매완료` action `7130249515` NPay count label value 218,196,382원. 플랫폼 `Conv. value`의 사실상 100% |
 | 내부 confirmed ROAS 최신 조회 | VM Cloud attribution ledger same-window 복구. Google 증거 payment_success 29건, confirmed 27건, confirmed revenue 7,063,020원, 내부 confirmed ROAS 0.28x |
-
-## 실제 개발 순서
-
-Phase 번호는 과거 작업 영역을 설명하는 이름이다. 실제 개발은 아래 순서로 진행한다.
-
-1. **P0: paid_click_intent Mode B 실행 완료 / monitoring 진행 중**
-   - 목적: Google Ads 랜딩에 이미 있는 click id가 checkout/NPay intent/confirmed purchase 후보까지 끊기지 않게 만드는 선행 작업.
-   - 현재: backend no-write receiver route 운영 배포, smoke, GTM publish, live smoke가 통과했다. GTM publish 기준 24h는 2026-05-08 00:02 KST에 도달했고, 72h는 2026-05-10 00:02 KST다. minimal ledger canary 기준 24h는 2026-05-08 23:01 KST라 아직 도달 전이다.
-
-2. **P0: Google Ads API read-only 최신값 확인 완료 / VM Cloud source gap 복구**
-   - 목적: Google Ads ROAS=광고 플랫폼이 주장하는 값과 내부 confirmed ROAS=실제 결제완료 주문 원장 기준값을 섞지 않는다.
-   - 현재: Google Ads API last_30d 조회는 PASS다. VM Cloud attribution ledger same-window 조회도 복구했다. 내부 confirmed ROAS는 0.28x이고, Google Ads 플랫폼 ROAS 8.72x와 8.44p 차이다.
-
-3. **P1: minimal paid_click_intent ledger write 승인 판단**
-   - 목적: no-write receiver로 payload 안전성을 확인한 다음, 실제 저장을 최소 범위로 열어 주문 후보와 연결한다.
-   - 현재: TJ 승인 후 1h canary는 PASS했고, 24h canary가 진행 중이다. 2026-05-08 17:23 KST 기준 row 709건 / status received 709 / TEST·DEBUG·PREVIEW query key row 0 / send_candidate 0으로 조기 안정성은 좋지만, 정식 운영화 판단은 canary T+24h(2026-05-08 23:01 KST) 결과를 보고 결정한다.
-
-4. **P1: confirmed_purchase no-send 재실행**
-   - 목적: NPay 실제 결제완료와 홈페이지 결제완료만 purchase 후보로 남기고, NPay click/count/payment start는 제외한다.
-   - 현재: P0-2 ConfirmedPurchasePrep input builder는 작성/검증 완료됐다. 2026-05-08 17:23 KST에는 운영 PG 기반 새 dry-run input도 생성했다(candidate positive 52건, homepage 48 / npay_actual 4, value 12,095,895 KRW, send_candidate 0, raw member_code 출력 0). 다만 live ledger 직접 source는 deterministic 주문 결합키가 없어 주문 52건 모두 prior click 후보가 multiple(median 329)이라 Path C/canary uplift는 HOLD다. 즉 지금 24h가 말해주는 것은 구매 개선 효과가 아니라 수집 건강 상태다.
-   - 조건: canary T+24h PASS, GA4 guard 실측, `member_code_hash` 또는 동등 deterministic bridge, Path C v2 설계 보강.
-
-5. **P1 HOLD: Path C member_code 매개 attribution / Path B hash-only bridge 후보**
-   - 목적: 회원 주문의 member_code와 paid_click_intent를 직접 묶어 NPay actual confirmed attribution을 높인다.
-   - 현재 판정: P0-2 builder는 완료지만 P1-1 backend deploy와 P1-2 wrapper Production publish는 HOLD다. `member_code`는 직접 PII가 아니더라도 내부 주문/회원 데이터와 결합하면 회원 식별이 가능한 pseudonymous identifier로 다룬다.
-   - 보강 상태: 승인안 v2/Preview 승인안/attribution rule v2/운영자용 결정 브리프와 wrapper Preview 결과를 작성했다. TJ님은 wrapper Preview only를 YES로 승인했고, Codex는 비로그인 공개 페이지 safety Preview를 실행했다. 2026-05-08 19:21~19:33 KST 수동/읽기 확인으로 로그인 NPay 클릭 흐름과 기존 NPay 전환 태그 발화를 확인했지만 `memberCode` 계열 후보 변수는 empty였다. 2026-05-08 20:06 KST source 재탐색에서도 usable client-side member_code source는 없었다. 2026-05-08 20:38 KST에는 Path B email/phone hash-only approval v1, `order_bridge_ledger` schema v2, Preview/no-send HMAC smoke 계획, 1h hash-only canary plan, Retous/Imweb dependency map을 Green으로 작성했다. raw member_code/email/order/payment/value 운영 저장 금지, `member_code_hash = HMAC-SHA256(member_code, server_secret)` 기본안, last eligible paid click 우선, GA4 guard 목적별 분리, deploy mode A/B/C가 판단 기준이다. backend deploy와 Path B 실행은 final diff/secret/TTL/raw logging proof/smoke script 전까지 HOLD다.
-
-6. **P2: Google Ads BI confirmed_purchase 실행안**
-   - 목적: Google Ads에 실제 결제완료 주문만 구매로 알려주는 새 구매 신호를 만든다.
-   - 조건: Google click id 보존률과 no-send 후보가 충분해진 뒤 별도 Red 승인.
-
-6. **P2: NPay rail post-publish 재분류**
-   - 목적: NPay intent 수집 시작 이후 주문을 matched / ambiguous / purchase_without_intent로 나눠 monthly channel assignment에 반영한다.
-
-7. **P3: `/total` 프론트엔드**
-   - 목적: 월별 channel revenue, platform_reference, internal_confirmed, unknown/quarantine를 운영자가 볼 수 있게 만든다.
-   - 조건: Google Ads/Meta source freshness와 핵심 assignment rule이 안정화된 뒤 Claude Code가 구현.
-
-## Active Action Board
-
-지금 움직여야 하는 것만 둔다. 완료 항목은 [[#Completed Ledger]] 에만 남긴다.
-
-| Priority | Status | Phase/Sprint | 작업 | 왜 하는가 | 다음 액션 | 담당 | 승인 필요 | Source |
-|---|---|---|---|---|---|---|---|---|
-| P0 | capture_health_24h | Phase4-Sprint6 | paid_click_intent 24h 수집 건강검진 | 구매 효과가 아니라 수집기가 안정적으로 작동하는지를 먼저 봐야 한다 | 2026-05-08 23:01 KST 이후 row/stage/guard/5xx/PM2/no-send 갱신 | Codex | NO, read-only monitoring | [[../gdn/canary-capture-health-24h-20260508]] |
-| P0 | path_b_unpaid_guard_next | Phase4-Sprint6 | unpaid vbank exclusion guard | 실제 광고 클릭 bridge 증거를 매출/upload 후보와 분리한다 | ConfirmedPurchasePrep / Google Ads upload builder에 `payment_status_not_confirmed`와 `unpaid_vbank_controlled_evidence` block reason을 연결한다 | Codex | NO, Green local code/doc | [[../gdn/unpaid-vbank-controlled-evidence-exclusion-20260510]] |
-| P1 | hold_backend_deploy | Phase4-Sprint6 | Path C backend deploy final packet | raw 저장/secret/TTL/logging/schema 영향이 닫히기 전까지 deploy 승인 불가 | final diff, HMAC secret, TTL cleanup, raw logging proof, smoke script 보강 | Codex | HOLD | [[../gdn/path-c-backend-deploy-approval-v2-20260508]] |
-| P2 | parked_red | Phase3-Sprint5 | Google Ads BI confirmed_purchase | Google Ads가 NPay click/count를 구매로 학습하지 않게 바꿔야 한다 | no-send 후보와 click id 보존률이 충분할 때 Red 승인안 재검토 | TJ + Codex | YES, future Google Ads 변경/전송 | [[../gdn/google-ads-confirmed-purchase-execution-approval-20260505]] |
 
 ## Approval Queue
 
@@ -251,9 +257,9 @@ Phase 번호는 과거 작업 영역을 설명하는 이름이다. 실제 개발
 | 2026-05-08 00:00 KST | data/!bigquery.md → _old rename + _new 정본 작성 | docurule.md v6 형식. 직접 검증 결과: biocom hurdlers-naver-pay.analytics_304759974 events_20260506 70,294 rows 정상 적재, coffee 정상, AIBIO 미연결. SA `seo-656@seo-aeo-487113`로 dataset Read OK + project-dadba7dd jobs.create OK. 운영 backend dist는 옛 sourceFreshness (jobProjectId 분리 미적용) → biocom freshness fail. 최신 dist deploy로 즉시 정상화 가능. 결과: [[../data/!bigquery_new]] |
 | 2026-05-08 01:05 KST | Meta funnel CAPI GTM-first no-send preview | readiness 문서 확인. Test Events code는 원문 저장 없이 `TEST*****`로만 마스킹. ViewContent/AddToCart/InitiateCheckout/AddPaymentInfo/Lead/Search 6종 payload preview 생성. GTM live v142, Default Workspace change 0/conflict 0 read-only 확인. 실제 Meta 호출, GTM Preview/Publish, Imweb header/footer 수정, 운영 CAPI 전송 0건. 결과: [[../capivm/meta-funnel-capi-gtm-first-plan-20260508]] |
 | 2026-05-08 11:35 KST | paid_click_intent ledger canary T+12.5h 조기 audit | row 498 / unique 310 / landing 332 / checkout_start 87 / npay_intent 79 / 5xx 0 / PM2 추가 restart 0 / RSS 227MB / PII·TEST row 0. EARLY_PASS_CANDIDATE. 결과: [[../gdn/paid-click-intent-ledger-canary-early-audit-20260508]] |
-| 2026-05-08 16:39 KST | ConfirmedPurchasePrep input builder P0-2 완료 | fixture 3종 PASS, typecheck PASS, 운영 sqlite dry-run candidate 467(homepage 438 / npay_actual 29), send_candidate 0, raw member_code 출력 0. Path C 매칭은 운영 member_code/hash 설계 미반영이라 0. 결과: [[../gdn/confirmed-purchase-prep-input-canary-20260508]] |
-| 2026-05-08 17:00 KST | paid_click_intent ledger canary T+18h read-only 현재 상태 | VM Cloud sqlite/PM2 read-only. row 694 / unique click id hash 421 / unique ga_session_id 398 / unique client_id 313 / landing 453 / checkout_start 130 / npay_intent 111 / TEST·DEBUG·PREVIEW 0 / status received 694 / latest 2026-05-08 17:00:09 KST. PM2 restart_time 3823 유지, RSS 약 240MB, event loop p95 1.24ms, paid-click-intent 5xx tail count 0. |
-| 2026-05-08 17:23 KST | canary effect meaningful dry-run | 운영 PG 새 input + live ledger 직접 source를 동일 window로 재생성. PG positive 52 orders(homepage 48 / NPay actual 4, value 12,095,895 KRW), ledger row 709(unique click hash 428, checkout_start 135, npay_intent 113). ledger에는 `member_code_hash`/`order_number`가 없고 PG 주문에는 `client_id`/`ga_session_id`가 없어 order-level effect는 HOLD. 결과: [[../gdn/canary-effect-meaningful-dry-run-20260508]] |
+| 2026-05-08 16:39 KST | ConfirmedPurchasePrep input builder P0-2 완료 | fixture 3종 PASS, typecheck PASS, VM Cloud SQLite dry-run candidate 467(homepage 438 / npay_actual 29), send_candidate 0, raw member_code 출력 0. Path C 매칭은 운영 member_code/hash 설계 미반영이라 0. 결과: [[../gdn/confirmed-purchase-prep-input-canary-20260508]] |
+| 2026-05-08 17:00 KST | paid_click_intent ledger canary T+18h read-only 현재 상태 | VM Cloud SQLite/PM2 read-only. row 694 / unique click id hash 421 / unique ga_session_id 398 / unique client_id 313 / landing 453 / checkout_start 130 / npay_intent 111 / TEST·DEBUG·PREVIEW 0 / status received 694 / latest 2026-05-08 17:00:09 KST. PM2 restart_time 3823 유지, RSS 약 240MB, event loop p95 1.24ms, paid-click-intent 5xx tail count 0. |
+| 2026-05-08 17:23 KST | canary effect meaningful dry-run | 운영DB(PostgreSQL) 새 input + live ledger 직접 source를 동일 window로 재생성. PG positive 52 orders(homepage 48 / NPay actual 4, value 12,095,895 KRW), ledger row 709(unique click hash 428, checkout_start 135, npay_intent 113). ledger에는 `member_code_hash`/`order_number`가 없고 PG 주문에는 `client_id`/`ga_session_id`가 없어 order-level effect는 HOLD. 결과: [[../gdn/canary-effect-meaningful-dry-run-20260508]] |
 | 2026-05-08 17:38 KST | Path C v2 Green 문서 패킷 작성 | 24h capture health audit packet, backend deploy 승인안 v2, wrapper Preview 승인안, attribution rule v2 작성. 24h 재실행은 capture health 전용이며 confirmed_purchase uplift는 deterministic bridge 전까지 HOLD. 결과: [[../gdn/canary-capture-health-24h-20260508]], [[../gdn/path-c-backend-deploy-approval-v2-20260508]], [[../gdn/path-c-member-code-wrapper-preview-approval-20260508]], [[../gdn/path-c-attribution-rule-v2-20260508]] |
 | 2026-05-08 19:21~20:06 KST | TJ 로그인 NPay 클릭 수동 확인 + member_code source 재탐색 | 결제는 하지 않고 NPay 주문/결제 창 도달까지만 확인. 기존 Google Ads/GA4/ChannelTalk NPay 태그가 결제완료 전 발화되는 점 재확인. GTM Default Workspace `147`에서 후보 변수 정의는 확인했지만 200/201/203 값은 empty였다. 추가 source 재탐색에서도 usable client-side source 없음. 결과: [[../gdn/path-c-wrapper-preview-result-20260508]], [[../gdn/path-c-member-code-source-discovery-20260508]] |
 | 2026-05-08 20:38 KST | Path B email/phone hash-only fallback 패킷 작성 | Path C source 부재를 반영해 Path B를 회원/비회원 주문 bridge 우선 후보로 승격. raw email/phone은 HTTPS no-send backend에서 transient 처리만 허용하고 저장은 HMAC hash만 허용하는 승인안, schema v2, Preview/no-send HMAC smoke, 1h canary plan, GTM dependency map 작성. 실행은 하지 않음. 결과: [[../gdn/path-b-email-phone-hash-bridge-approval-20260508]], [[../gdn/guest-order-attribution-ledger-design-v2-20260508]], [[../gdn/path-b-email-phone-preview-plan-20260508]], [[../gdn/path-b-order-bridge-canary-plan-20260508]], [[../gdn/gtm-retous-imweb-dependency-map-20260508]] |
@@ -309,23 +315,52 @@ Confidence: 0.86
 | Meta funnel CAPI GTM-first preview | [[../capivm/meta-funnel-capi-gtm-first-plan-20260508]] + [[../capivm/meta-funnel-capi-test-events-payload-preview-2026-05-08]] | 2026-05-08 KST | Test Events code 수령 확인. 원문은 저장하지 않고 마스킹. no-send payload preview 6종 생성. GTM live v142 / Default Workspace change 0 / conflict 0 read-only 확인. 실제 Meta 호출·GTM Preview·Imweb 수정 없음 | 0.89 |
 | paid_click_intent canary T+18 현재 상태 | VM Cloud `crm.sqlite3#paid_click_intent_ledger` read-only SELECT + canary effect dry-run | 2026-05-07 23:01~2026-05-08 17:23 KST | 2026-05-08 17:23 KST 직접 조회. row 709, latest 2026-05-08 17:22:44 KST, status received 709, send_candidate 0, direct order-level effect HOLD | 0.93 |
 | ConfirmedPurchasePrep input builder P0-2 | `backend/scripts/confirmed-purchase-prep-input-builder.ts`, [[../gdn/confirmed-purchase-prep-input-canary-20260508]], `data/confirmed-purchase-prep-input-canary-20260508.json` | 2026-05-07~2026-05-08 KST | 2026-05-08 16:39 KST 생성. fixture 3종 PASS, typecheck PASS, candidate 467, send_candidate 0, raw member_code 출력 0 | 0.90 |
-| Canary effect meaningful dry-run | `backend/scripts/canary-effect-meaningful-dry-run.ts`, [[../gdn/canary-effect-meaningful-dry-run-20260508]], `data/canary-effect-meaningful-dry-run-20260508.json` | 2026-05-07 23:01~2026-05-08 17:23 KST | 운영 PG input은 생성됐지만 live ledger 직접 source는 deterministic 결합키 부재로 effect/uplift 비교 불가. prior click 후보 median 329 / p90 644 | 0.93 |
+| Canary effect meaningful dry-run | `backend/scripts/canary-effect-meaningful-dry-run.ts`, [[../gdn/canary-effect-meaningful-dry-run-20260508]], `data/canary-effect-meaningful-dry-run-20260508.json` | 2026-05-07 23:01~2026-05-08 17:23 KST | 운영DB(PostgreSQL) input은 생성됐지만 live ledger 직접 source는 deterministic 결합키 부재로 effect/uplift 비교 불가. prior click 후보 median 329 / p90 644 | 0.93 |
 | 기존 Phase history | [[!total_past]] | 2026-05-04~2026-05-06 누적 | legacy. 실제 실행 순서는 이 문서가 우선 | 0.80 |
+
+## 상세 Sprint 설명
 
 #### Phase4-Sprint6
 
 **이름**: paid_click_intent 수집 개선
 
-[[#Phase-Sprint 요약표|▲ 요약표로]]
+[[#Phase-Sprint 요약표 — 실제 개발 순서 기준|▲ 요약표로]]
 
 목표는 Google 광고 클릭 ID가 랜딩에서 사라지지 않고 checkout/NPay intent/confirmed purchase 후보까지 이어지게 만드는 것이다. Google Ads confirmed purchase를 만들려면 먼저 `gclid/gbraid/wbraid`가 주문 후보에 남아야 한다.
+
+**현재 진척률**: 전체 기준 90% / Google Ads 실제 전송 기준 0%.
+
+**무엇을 하는가**
+- Google 광고 클릭에서 들어온 `gclid/gbraid/wbraid`를 랜딩, checkout, 주문완료 후보까지 보존한다.
+- 주문완료 화면에서 order hash, 로그인 identity hash, client/session, click hash가 잡히는지 확인한다.
+- 실제 결제완료가 아닌 주문은 evidence로만 남기고 upload/ROAS 후보에서 제외한다.
+
+**왜 하는가**
+- Google Ads ROAS=광고 플랫폼이 주장하는 값은 현재 NPay click/count의 영향을 크게 받는다.
+- 내부 confirmed ROAS=실제 결제완료 주문 원장 기준값과 연결하려면 클릭 ID와 주문 후보가 안전하게 이어져야 한다.
+- 미입금 가상계좌 주문을 구매로 쓰면 Google Ads 학습과 내부 예산 판단이 동시에 오염된다.
+
+**어떻게 하는가**
+1. [Codex] VM Cloud `paid_click_intent_ledger` 수집 건강검진을 24h/72h 기준으로 닫는다.
+2. [Codex] Path B order bridge에서 order/email identity/client-session/click hash를 no-send로 검증한다.
+3. [Codex] `payment_status != confirmed`와 `payment_method=vbank AND paid_at missing`을 block rule로 연결한다.
+4. [Codex] ConfirmedPurchasePrep / Google Ads upload builder dry-run에서 `send_candidate=false`, `actual_send_candidate=false`, upload 후보 0을 확인한다.
+5. [TJ] 실제 결제완료 테스트가 필요하면 별도 승인 후 진행한다. 오늘 기준 추가 입금/결제 테스트는 HOLD다.
+
+**100% 조건**
+- confirmed 결제완료 주문만 구매 후보로 남는다.
+- 미입금 가상계좌 주문은 `block_reason=unpaid_vbank_controlled_evidence`, `exclude_from_upload=true`, `exclude_from_budget_roas=true`로 막힌다.
+- order hash, identity hash, client/session, click hash가 no-send/dry-run evidence에 남는다.
+- Google Ads/GA4/Meta/TikTok/Naver 신규 전송은 0건이다.
+- Google Ads upload 후보는 Red 승인 전까지 0건이다.
+- 결과가 [[#Phase-Sprint 요약표 — 실제 개발 순서 기준]]와 [[#다음 할일 — Auto Green / Approval Needed / Blocked-Parked]]에 같은 진척률로 반영된다.
 
 ### Phase4-Sprint6 모니터링 기준시각
 
 이 Sprint에는 **두 개의 시간 기준**이 있다.
 
 1. **Mode B GTM publish 기준**: GTM live version `142` publish 시각은 2026-05-07 00:02 KST다. 이 기준의 T+24h는 2026-05-08 00:02 KST이고 이미 도달했다. T+72h는 2026-05-10 00:02 KST다.
-2. **minimal ledger canary 기준**: 운영 sqlite `paid_click_intent_ledger` write 시작 시각은 2026-05-07 23:01 KST다. 이 기준의 T+24h는 2026-05-08 23:01 KST다. T+72h는 2026-05-10 23:01 KST다.
+2. **minimal ledger canary 기준**: VM Cloud SQLite `paid_click_intent_ledger` write 시작 시각은 2026-05-07 23:01 KST다. 이 기준의 T+24h는 2026-05-08 23:01 KST다. T+72h는 2026-05-10 23:01 KST다.
 
 24h 전에도 의미 있는 데이터는 모을 수 있다. 다만 지표의 의미가 다르다.
 
@@ -335,11 +370,11 @@ Confidence: 0.86
 2026-05-08 17:23 KST 현재 read-only snapshot:
 
 - canary 경과: ledger write 시작 후 약 18h.
-- 운영 sqlite `paid_click_intent_ledger`: row 709 / unique click id hash 428 / unique ga_session_id 407 / unique client_id 318.
+- VM Cloud SQLite `paid_click_intent_ledger`: row 709 / unique click id hash 428 / unique ga_session_id 407 / unique client_id 318.
 - stage: landing 461 / checkout_start 135 / npay_intent 113.
 - 최신 수신: 2026-05-08 17:22:44 KST.
 - guard: TEST/DEBUG/PREVIEW query key row 0, status received 709, send_candidate 0.
-- 운영 PG 기반 새 input: positive 52 orders(homepage 48 / NPay actual 4), confirmed value 12,095,895 KRW, raw member_code 출력 0.
+- 운영DB(PostgreSQL) 기반 새 input: positive 52 orders(homepage 48 / NPay actual 4), confirmed value 12,095,895 KRW, raw member_code 출력 0.
 - effect 판단: live ledger 직접 source는 capture health에는 의미가 있으나, `member_code_hash`/`order_number` 결합키가 없어 confirmed_purchase uplift 비교에는 아직 의미가 없다.
 - backend: PM2 `seo-backend` restart_time 3823 유지, pid 439031 유지, RSS 약 240MB, event loop p95 1.24ms.
 
@@ -354,12 +389,14 @@ Confidence: 0.86
 - minimal `paid_click_intent` ledger canary 1h PASS 후 24h canary가 진행 중이다.
 - P0-2 ConfirmedPurchasePrep input builder 작성/검증을 완료했다. 2026-05-08 16:39 KST 기준 candidate 467건, send_candidate 0, raw member_code 출력 0이다.
 - 2026-05-07 18:12 KST Google Ads API x VM Cloud 원장 same-window 재대조에서 플랫폼 ROAS 8.72x, 내부 confirmed ROAS 0.28x, Primary NPay label 분자 사실상 100%를 다시 확인했다.
+- 2026-05-10 01:31 KST 실제 Google 광고 클릭에서 주문완료 화면까지 Path B no-send bridge가 PASS했다. order hash, email identity hash, client/session, click hash가 모두 잡혔고 platform send는 0건이다.
+- 같은 주문은 가상계좌 미입금이므로 결제완료 구매가 아니며, evidence로만 보관하고 upload/ROAS 후보에서 제외해야 한다.
 
 남은 것:
 
-- GTM publish 기준 72h 모니터링을 2026-05-10 00:02 KST에 닫는다.
-- minimal ledger canary 기준 24h 종합 audit를 2026-05-08 23:01 KST 이후 실행한다.
-- canary 24h PASS 후에도 바로 Google Ads 전송으로 가지 않는다. 먼저 confirmed_purchase input freshness, GA4 already-in-ga4 guard, order-level click id fill-rate를 분리 재측정한다.
+- paid_click_intent 24h/72h 수집 건강검진을 최신 기준으로 갱신한다.
+- unpaid vbank exclusion guard를 ConfirmedPurchasePrep / Google Ads upload builder dry-run에 연결한다.
+- guard PASS 후에도 바로 Google Ads 전송으로 가지 않는다. 먼저 confirmed_purchase input freshness, GA4 already-in-ga4 guard, order-level click id fill-rate를 분리 재측정한다.
 - Path C는 Yellow 승인 HOLD다. `member_code`는 직접 PII가 아니더라도 내부 주문/회원 데이터와 결합하면 pseudonymous identifier다. 승인안 v2는 raw 저장 금지, `member_code_hash = HMAC-SHA256(member_code, server_secret)`, wrapper Preview 증거, last eligible paid click 기준을 포함해야 한다.
 
 금지선:
@@ -373,7 +410,7 @@ Confidence: 0.86
 
 **이름**: 채널 배정과 캠페인 매핑
 
-[[#Phase-Sprint 요약표|▲ 요약표로]]
+[[#Phase-Sprint 요약표 — 실제 개발 순서 기준|▲ 요약표로]]
 
 목표는 내부 confirmed 매출을 Meta, Google, TikTok, Naver, Organic, Direct, Unknown으로 한 번만 배정하는 것이다. 결제수단과 유입 채널을 섞지 않는 것이 핵심이다.
 
@@ -393,7 +430,7 @@ Confidence: 0.86
 
 **이름**: 월별 주문·결제 정본 장부
 
-[[#Phase-Sprint 요약표|▲ 요약표로]]
+[[#Phase-Sprint 요약표 — 실제 개발 순서 기준|▲ 요약표로]]
 
 목표는 광고 플랫폼 값이 아니라 아임웹 주문, 토스 결제, NPay 실제 결제완료, 취소/환불 보정으로 월별 내부 확정 순매출을 만드는 것이다.
 
@@ -412,7 +449,7 @@ Confidence: 0.86
 
 **이름**: 플랫폼 ROAS 분리와 guard
 
-[[#Phase-Sprint 요약표|▲ 요약표로]]
+[[#Phase-Sprint 요약표 — 실제 개발 순서 기준|▲ 요약표로]]
 
 목표는 Google Ads, Meta, GA4가 주장하는 플랫폼 전환값과 내부 confirmed 매출을 섞지 않는 것이다.
 
@@ -432,7 +469,7 @@ Confidence: 0.86
 
 **이름**: `/total` 운영 화면
 
-[[#Phase-Sprint 요약표|▲ 요약표로]]
+[[#Phase-Sprint 요약표 — 실제 개발 순서 기준|▲ 요약표로]]
 
 목표는 운영자가 월별 전체 매출, 채널별 내부 confirmed ROAS, 플랫폼 참고 ROAS, unknown/quarantine를 한 화면에서 보는 것이다.
 
