@@ -1,0 +1,157 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 21:17:36 KST",
+  "site": "biocom",
+  "mode": "green_read_only_vm_google_ads_dashboard_regular_comparison",
+  "harness_preflight": {
+    "common_harness_read": [
+      "AGENTS.md",
+      "docurule.md",
+      "docs/report/text-report-template.md",
+      "harness/common/HARNESS_GUIDELINES.md",
+      "harness/common/AUTONOMY_POLICY.md",
+      "harness/common/REPORTING_TEMPLATE.md"
+    ],
+    "project_harness_read": [
+      "docs/agent-harness/growth-data-harness-v0.md",
+      "harness/npay-recovery/README.md",
+      "harness/npay-recovery/RULES.md",
+      "harness/npay-recovery/VERIFY.md",
+      "harness/npay-recovery/APPROVAL_GATES.md",
+      "harness/coffee-data/README.md",
+      "harness/coffee-data/RULES.md",
+      "harness/coffee-data/VERIFY.md",
+      "frontrule.md"
+    ],
+    "required_context_docs": [
+      "gptconfirm/gpt0508-31/00-result-report.md",
+      "gdn/google-ads-dashboard-local-first-deploy-result-20260510.md",
+      "gdn/bigquery-archive-daily-union-dry-run-20260510.md",
+      "gdn/confirmed-purchase-builder-repeatable-runbook-20260510.md",
+      "gdn/google-ads-campaign-id-join-coverage-extension-20260510.md",
+      "gdn/frontend-dashboard-data-contract-20260510.md"
+    ],
+    "lane": "Green",
+    "allowed_actions": [
+      "VM dashboard read-only status/dashboard 조회",
+      "BigQuery archive+daily union read-only 재계산",
+      "로컬 JSON/Markdown 산출물 작성",
+      "campaign_id coverage Green follow-up 분석",
+      "frontend F0 data contract v2 문서화",
+      "gptconfirm/gpt0508-32 패키징",
+      "scoped commit/push",
+      "기존 텔레그램 완료 메시지 발송"
+    ],
+    "forbidden_actions": [
+      "Google Ads confirmed_purchase upload",
+      "Google Ads conversion action 변경",
+      "Meta CAPI actual Test Events 호출",
+      "GTM Production publish",
+      "frontend 구현 착수",
+      "VM status sync 5분 변경",
+      "send_candidate=true 또는 actual_send_candidate=true",
+      "NPay click/count를 purchase로 승격",
+      "raw email/phone/member_code/order/payment 저장 또는 logging"
+    ],
+    "source_window_freshness_confidence": {
+      "source": "VM Cloud Google Ads dashboard local_first route, BigQuery archive+daily union, local ConfirmedPurchasePrep and campaign_id join artifacts",
+      "window": "Google Ads last_7d 2026-05-03-2026-05-09 KST, last_30d 2026-04-10-2026-05-09 KST, BigQuery union last_7d/14d/30d ending 2026-05-09",
+      "freshness": "2026-05-10 21:17:36 KST 생성. VM dashboard fetchedAt route 값 사용, BigQuery union generated_at_kst 사용",
+      "confidence": 0.93
+    }
+  },
+  "source": {
+    "status_endpoint": "https://att.ainativeos.net/api/google-ads/status",
+    "dashboard_endpoint": "https://att.ainativeos.net/api/google-ads/dashboard",
+    "vm_cloud": "att.ainativeos.net local_first dashboard route",
+    "google_ads_source": "Google Ads API read-only through VM route",
+    "internal_source": "VM Cloud SQLite local attribution ledger read by dashboard route",
+    "route_status_http": 200,
+    "status_checked_at_utc": "2026-05-10T12:17:38.347Z",
+    "customer_id": "2149990943",
+    "api_version": "v22",
+    "freshness": "2026-05-10 21:17:36 KST",
+    "confidence": 0.93
+  },
+  "windows": {
+    "last_7d": {
+      "http_status": 200,
+      "fetched_at_utc": "2026-05-10T12:17:54.076Z",
+      "date_preset": "last_7d",
+      "date_range_literal": "LAST_7_DAYS",
+      "date_range_kst": {
+        "startDate": "2026-05-03",
+        "endDate": "2026-05-09",
+        "startAt": "2026-05-03T00:00:00.000+09:00",
+        "endAt": "2026-05-09T23:59:59.999+09:00",
+        "timezone": "Asia/Seoul"
+      },
+      "platform_roas_reference": 11.700718743761232,
+      "platform_cost": 3973244.3099609995,
+      "platform_conversion_value": 46489814.17110333,
+      "platform_all_conversion_value": 91329588.52231854,
+      "internal_confirmed_roas": 0.4,
+      "internal_confirmed_orders": 6,
+      "internal_confirmed_revenue": 1574000,
+      "internal_pending_orders": 4,
+      "internal_pending_revenue": 0,
+      "primary_npay_value": 0,
+      "primary_npay_share": 0,
+      "campaign_join_coverage": 0.7,
+      "matched_campaign_orders": 5,
+      "unknown_campaign_orders": 3,
+      "upload_candidate_count": 0,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "budget_decision_use": "HOLD_platform_reference_only_until_confirmed_campaign_join_coverage_improves",
+      "npay_warning": "Primary 전환=Google Ads가 입찰 학습에 쓰는 핵심 구매 신호가 NPay click/count label에 묶인 상태다. NPay 클릭은 구매완료가 아니며 actual confirmed NPay 매출만 내부 confirmed에 포함한다."
+    },
+    "last_30d": {
+      "http_status": 200,
+      "fetched_at_utc": "2026-05-10T12:17:40.387Z",
+      "date_preset": "last_30d",
+      "date_range_literal": "LAST_30_DAYS",
+      "date_range_kst": {
+        "startDate": "2026-04-10",
+        "endDate": "2026-05-09",
+        "startAt": "2026-04-10T00:00:00.000+09:00",
+        "endAt": "2026-05-09T23:59:59.999+09:00",
+        "timezone": "Asia/Seoul"
+      },
+      "platform_roas_reference": 9.580324933126128,
+      "platform_cost": 23666491.844183996,
+      "platform_conversion_value": 226732681.8944621,
+      "platform_all_conversion_value": 421270045.5146176,
+      "internal_confirmed_roas": 0.27,
+      "internal_confirmed_orders": 25,
+      "internal_confirmed_revenue": 6493020,
+      "internal_pending_orders": 6,
+      "internal_pending_revenue": 0,
+      "primary_npay_value": 0,
+      "primary_npay_share": 0,
+      "campaign_join_coverage": 0.84,
+      "matched_campaign_orders": 9,
+      "unknown_campaign_orders": 5,
+      "upload_candidate_count": 0,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "budget_decision_use": "HOLD_platform_reference_only_until_confirmed_campaign_join_coverage_improves",
+      "npay_warning": "Primary 전환=Google Ads가 입찰 학습에 쓰는 핵심 구매 신호가 NPay click/count label에 묶인 상태다. NPay 클릭은 구매완료가 아니며 actual confirmed NPay 매출만 내부 confirmed에 포함한다."
+    }
+  },
+  "comparison": {
+    "platform_roas_gap_last_7d_minus_internal": 11.3,
+    "platform_roas_gap_last_30d_minus_internal": 9.31,
+    "primary_npay_share_interpretation": "플랫폼 Conv. value 대부분이 NPay label이다. 예산 판단에는 내부 confirmed ROAS를 우선하고 플랫폼 ROAS는 참고만 본다.",
+    "campaign_join_coverage_interpretation": "VM dashboard route의 Google 유입 원장 기준 coverage이며, ConfirmedPurchasePrep 전체 2,152건 coverage와 혼동하지 않는다."
+  },
+  "guards": {
+    "upload_candidate_count": 0,
+    "google_ads_upload": 0,
+    "platform_send": 0,
+    "gtm_publish": 0,
+    "operation_db_write": 0,
+    "raw_pii_output": 0
+  },
+  "verdict": "PASS_regular_comparison_ready_no_send_no_upload"
+}

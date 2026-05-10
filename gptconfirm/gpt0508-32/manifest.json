@@ -1,0 +1,98 @@
+{
+  "batch": "gpt0508-32",
+  "created_at_kst": "2026-05-10 21:17:36 KST",
+  "purpose": "VM dashboard regular comparison, BigQuery archive+daily campaign funnel quality, campaign_id missing HOLD reducer, frontend F0 data contract v2",
+  "track_progress": {
+    "A": {
+      "name": "ConfirmedPurchasePrep 통합 input",
+      "previous_percent": 90,
+      "current_percent": 90,
+      "delta_percent": 0
+    },
+    "B": {
+      "name": "Google Ads campaign_id 조인/ROAS 분해",
+      "previous_percent": 73,
+      "current_percent": 76,
+      "delta_percent": 3
+    },
+    "C": {
+      "name": "BigQuery campaign funnel quality",
+      "previous_percent": 76,
+      "current_percent": 82,
+      "delta_percent": 6
+    },
+    "D/KR6": {
+      "name": "Meta funnel CAPI Test Events readiness",
+      "previous_percent": 70,
+      "current_percent": 70,
+      "delta_percent": 0
+    },
+    "E": {
+      "name": "Harness/multi-agent/HOLD Reducer",
+      "previous_percent": 87,
+      "current_percent": 88,
+      "delta_percent": 1
+    },
+    "F": {
+      "name": "Frontend/Data Trust Dashboard",
+      "previous_percent": 46,
+      "current_percent": 52,
+      "delta_percent": 6
+    }
+  },
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-32/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-32/00-result-report.md",
+      "why_included": "batch result report",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/google-ads-dashboard-regular-comparison-20260511.md",
+      "copy": "gptconfirm/gpt0508-32/01-google-ads-dashboard-regular-comparison-20260511.md",
+      "why_included": "gpt0508-32 deliverable",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/campaign-funnel-quality-union-7_14_30d-20260511.md",
+      "copy": "gptconfirm/gpt0508-32/02-campaign-funnel-quality-union-7_14_30d-20260511.md",
+      "why_included": "gpt0508-32 deliverable",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/google-ads-campaign-id-coverage-extension-20260511.md",
+      "copy": "gptconfirm/gpt0508-32/03-google-ads-campaign-id-coverage-extension-20260511.md",
+      "why_included": "gpt0508-32 deliverable",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/frontend-dashboard-data-contract-v2-20260511.md",
+      "copy": "gptconfirm/gpt0508-32/04-frontend-dashboard-data-contract-v2-20260511.md",
+      "why_included": "gpt0508-32 deliverable",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-32/05-telegram-completion-note.md",
+      "copy": "gptconfirm/gpt0508-32/05-telegram-completion-note.md",
+      "why_included": "telegram completion payload record",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-32/99-total-current-copy.md",
+      "why_included": "canonical snapshot",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action 변경",
+    "Meta CAPI actual Test Events 호출",
+    "GTM Production publish",
+    "frontend 구현 착수",
+    "VM status sync 5분 변경",
+    "send_candidate=true 또는 actual_send_candidate=true",
+    "NPay click/count를 purchase로 승격",
+    "raw email/phone/member_code/order/payment 저장 또는 logging"
+  ]
+}
