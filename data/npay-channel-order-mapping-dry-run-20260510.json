@@ -1,0 +1,66 @@
+{
+  "generated_at": "2026-05-10T04:29:18.876160Z",
+  "generated_at_kst": "2026-05-10 KST",
+  "source": "VM Cloud SQLite read-only / imweb_orders",
+  "orders_requested": [
+    "2026051018446030",
+    "2026051018061950",
+    "2026051018534650",
+    "2026050865473610"
+  ],
+  "row_count": 4,
+  "rows": [
+    {
+      "order_no": "202605109700078",
+      "channel_order_no": "2026051018534650",
+      "pay_type": "npay",
+      "pg_type": "",
+      "payment_amount": 117000,
+      "total_price": 117000,
+      "order_time": "2026-05-10T01:32:29.000Z",
+      "complete_time": null,
+      "imweb_status": "",
+      "imweb_status_synced_at": ""
+    },
+    {
+      "order_no": "202605104467942",
+      "channel_order_no": "2026051018446030",
+      "pay_type": "npay",
+      "pg_type": "",
+      "payment_amount": 39000,
+      "total_price": 39000,
+      "order_time": "2026-05-10T01:27:37.000Z",
+      "complete_time": null,
+      "imweb_status": "",
+      "imweb_status_synced_at": ""
+    },
+    {
+      "order_no": "202605101857504",
+      "channel_order_no": "2026051018061950",
+      "pay_type": "npay",
+      "pg_type": "",
+      "payment_amount": 531000,
+      "total_price": 531000,
+      "order_time": "2026-05-10T01:07:03.000Z",
+      "complete_time": null,
+      "imweb_status": "",
+      "imweb_status_synced_at": ""
+    },
+    {
+      "order_no": "202605080592304",
+      "channel_order_no": "2026050865473610",
+      "pay_type": "npay",
+      "pg_type": "",
+      "payment_amount": 59800,
+      "total_price": 59800,
+      "order_time": "2026-05-08T01:44:49.000Z",
+      "complete_time": "2026-05-09T05:32:00.000Z",
+      "imweb_status": "",
+      "imweb_status_synced_at": ""
+    }
+  ],
+  "notes": [
+    "complete_time/imweb_status are auxiliary in VM Cloud snapshot",
+    "NPay confirmed status must be decided by operating DB PAYMENT_COMPLETE or admin-confirmed source"
+  ]
+}

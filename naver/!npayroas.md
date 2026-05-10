@@ -29,6 +29,64 @@ TJ님이 A급 production 후보 5건의 Imweb `order_number`와 NPay `channel_or
 
 다음 1순위는 8건 복구가 아니다. 운영 DB, Attribution VM, GA4 BigQuery를 read-only로 조인해 `NPay 실제 결제완료 주문만 purchase 후보로 남기는 confirmed purchase 파이프라인`을 만드는 것이다. Google Ads 쪽 no-send 확장 결과는 [[../gdn/google-ads-confirmed-purchase-operational-dry-run-20260505]]에 기록했다.
 
+## 2026-05-10 NPay 결제완료 source guard
+
+Source: Imweb 관리자 주문 화면, VM Cloud SQLite `imweb_orders`, Imweb v2 status filter sync 1회, 운영DB `dashboard.public.tb_iamweb_users`
+Window: 2026-05-10 KST NPay 주문 확인
+Freshness: VM Cloud SQLite latest biocom `synced_at=2026-05-10 15:09 KST`, thecleancoffee `synced_at=2026-05-10 15:10 KST`, status sync latest biocom `2026-05-10 15:11 KST`, thecleancoffee `2026-05-10 15:12 KST`
+Confidence: 94%
+
+ROAS와 upload 후보 판단에서는 VM Cloud `imweb_orders.complete_time`과 `imweb_status` blank를 결제 미완료로 해석하지 않는다.
+
+2026-05-10 관리자 화면에서 확인한 NPay 3건은 모두 `N 결제 완료`였고 VM Cloud SQLite에도 order row가 있었다. 처음에는 VM Cloud row의 `complete_time`과 `imweb_status`가 blank였지만, 2026-05-10 status sync 후 lifecycle status가 채워졌다. 이 결과는 결제 완료를 부정하지 않고, 배송대기/주문처리 lifecycle 보조값으로 해석한다.
+
+- `complete_time`: Imweb 주문 lifecycle 완료 시각이다. NPay 결제 완료 직후 배송대기/배송보류 단계에서는 raw `complete_time=0`일 수 있다.
+- `imweb_status`: VM Cloud 자동 주문 sync가 채우지 않는다. status filter sync는 별도 endpoint다. 2026-05-10 수동 sync 후 biocom 7,755건, thecleancoffee 2,093건의 lifecycle status가 채워졌다.
+- Imweb status filter: 위 3건은 `STANDBY`이고, 과거 배송완료 NPay 주문은 `COMPLETE`다.
+
+따라서 NPay actual confirmed purchase 후보는 아래 기준으로만 만든다.
+
+| 판정 목적 | 사용 기준 | 사용 금지 |
+|---|---|---|
+| 내부 confirmed 매출 | 운영DB `payment_status=PAYMENT_COMPLETE`, `payment_method`/`pg_name` NPay 계열, `payment_complete_time` present | VM Cloud `complete_time` 단독 |
+| 당일 수동 확인 | Imweb 관리자 `N 결제 완료` 화면 증거 | 관리자 미확인 상태의 VM Cloud blank |
+| VM Cloud 보조 원장 | order_no/channel_order_no/pay_type/payment_amount/source evidence | `imweb_status` blank를 미결제로 해석 |
+| Google Ads/GA4 upload 후보 | confirmed-only guard 통과 + duplicate guard + click/identity confidence | status unknown, unpaid, test, click-only, NPay button click-only |
+
+builder와 dry-run에는 다음 guard를 둔다.
+
+```text
+if source_order_status != confirmed:
+  block_reason = not_confirmed_payment_status
+  send_candidate = false
+
+if pay_type == npay and vm_cloud.complete_time == blank:
+  do_not_block_by_this_alone = true
+  require_operational_db_or_admin_confirmed_payment = true
+
+if vm_cloud.imweb_status == blank:
+  do_not_block_by_this_alone = true
+  require_status_sync_or_primary_payment_source = true
+```
+
+실무 판단은 아래처럼 둔다.
+
+1. NPay 버튼 클릭은 purchase가 아니다.
+2. NPay 결제완료 매출은 내부 confirmed 매출에 포함해야 한다.
+3. VM Cloud blank complete/status는 결제 미완료 증거가 아니다.
+4. Google Ads upload 후보는 운영DB 또는 관리자 증거로 confirmed인 주문만 남긴다.
+5. 현재 Google Ads/GA4/Meta/TikTok/Naver 신규 전송은 계속 0건이다.
+
+2026-05-10 13:29 KST 구현/검증 반영:
+
+- `backend/scripts/confirmed-purchase-prep-input-builder.ts`에 NPay primary confirmed guard를 추가했다.
+- `complete_time` blank와 `imweb_status` blank는 단독 차단하지 않고, 운영DB/admin confirmed source가 없을 때만 `npay_primary_confirmation_missing`으로 제외한다.
+- NPay click/count/payment_start/add_payment_info/controlled evidence는 excluded order로 분리하고 `send_candidate=false`를 유지한다.
+- fixture dry-run 결과는 candidate 5건, excluded 3건, upload 후보 0건이다. 결과: [[../gdn/confirmed-purchase-npay-status-guard-20260510]].
+- NPay intent matching read-only dry-run은 후보 존재를 확인했지만, time-window-only 후보가 많아 자동 attribution에는 쓰지 않는다. 결과: [[../gdn/npay-intent-matching-dry-run-20260510]].
+- VM Cloud Imweb 주문 목록 자동 sync는 15분 주기다. status sync 자동 job은 아직 없고, 5분 전환은 바로 적용하지 않는다. biocom/thecleancoffee status sync는 1회 완료했지만 full order sync는 current API 기준 부분 재수집으로 분리한다. 검토 결과: [[../gdn/vm-cloud-imweb-sync-status-review-20260510]].
+- 운영DB `PAYMENT_COMPLETE` 기반 2026-05-10 dry-run은 confirmed orders 4건(homepage 3 / NPay 1), total value 862,000원, send_candidate 0건으로 PASS했다. VM Cloud-only ConfirmedPurchasePrep 재계산은 homepage 35건, NPay actual 0건인데, 이는 VM Cloud에 primary payment status column이 없기 때문이며 NPay 미매출로 해석하지 않는다. 결과: [[../gdn/bi-confirmed-purchase-operational-dry-run-20260510]], [[../gdn/confirmed-purchase-prep-recalc-20260510]].
+
 ## Phase-Sprint 요약표
 
 | Phase | Sprint | 이름 | 담당 | 상태(우리/운영) | 상세 |

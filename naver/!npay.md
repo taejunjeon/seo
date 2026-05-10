@@ -1,12 +1,12 @@
 # 네이버페이 주문형 결제형 전환 검토
 
 작성 시각: 2026-04-27 11:21 KST
-업데이트: 2026-05-05 23:28 KST
+업데이트: 2026-05-10 14:20 KST
 기준일: 2026-04-26
 데이터 기준: 2026-04-01 ~ 2026-04-25 결제 완료 원장
 Primary source: `operational_postgres.public.tb_iamweb_users`
 Cross-check: `backend/data/crm.sqlite3.imweb_orders` 2026-04-01 ~ 2026-04-15 NPay 101건 / 16,542,800원, 2026-04-15 이후 stale
-Freshness: primary 최신 결제일 2026-04-25, NPay 최신 결제일 2026-04-25, 운영 VM `npay_intent_log` snapshot 최신 수집 `2026-05-05 21:53 KST`, GA4 BigQuery robust guard `2026-05-05 22:34 KST`
+Freshness: primary 최신 결제일 2026-04-25, NPay 최신 결제일 2026-04-25, VM Cloud `npay_intent_log` snapshot 최신 수집 `2026-05-05 21:53 KST`, GA4 BigQuery robust guard `2026-05-05 22:34 KST`
 Confidence: 78%
 
 ## 10초 요약
@@ -17,11 +17,51 @@ Confidence: 78%
 
 2026년 4월 30일 11:50 KST 기준 수집 품질은 통과다. live publish 이후 live intent는 251건이고, 최근 24시간 92건의 `client_id`, `ga_session_id`, `product_idx` 채움률은 모두 100%다. rollback 조건은 없다. 다만 실제 주문 매칭률은 아직 보지 않았으므로 purchase dispatcher는 계속 보류한다.
 
-2026년 5월 5일 기준 운영 VM 접근도 해결됐다. 토큰 원문은 문서나 Git에 남기지 않았고, 대신 운영 VM SQLite를 read-only snapshot으로 가져와 `npay_intent_log` 823건을 확인했다. 같은 snapshot으로 NPay ROAS dry-run을 재실행해 live intent 820건, confirmed NPay 주문 30건, strong match 20건, A급 strong 10건을 확인했다. 이후 GA4 BigQuery robust guard로 A급 10건 중 2건은 이미 GA4 purchase에 존재하고, 8건은 robust_absent임을 확인했다.
+2026년 5월 5일 기준 VM Cloud 접근도 해결됐다. 토큰 원문은 문서나 Git에 남기지 않았고, 대신 VM Cloud SQLite를 read-only snapshot으로 가져와 `npay_intent_log` 823건을 확인했다. 같은 snapshot으로 NPay ROAS dry-run을 재실행해 live intent 820건, confirmed NPay 주문 30건, strong match 20건, A급 strong 10건을 확인했다. 이후 GA4 BigQuery robust guard로 A급 10건 중 2건은 이미 GA4 purchase에 존재하고, 8건은 robust_absent임을 확인했다.
 
 단, 8건 전송 자체는 목표가 아니다. 8건은 [[npay-ga4-recovery-sample-payload-approval-20260505]]에 payload preview로만 분리했고, 실제 GA4/Meta/TikTok/Google Ads 전송은 하지 않았다. 근본 해결은 앞으로 NPay 실제 결제완료 주문만 purchase 후보로 만드는 실시간/준실시간 confirmed purchase 파이프라인이다.
 
 승인/실행 문서: [[npay-intent-live-publish-approval-20260427|NPay Intent-Only Live Publish 승인안]], [[npay-ga4-recovery-sample-payload-approval-20260505|NPay GA4 누락 복구 샘플 8건 payload 승인안]], [[../gdn/google-ads-confirmed-purchase-operational-dry-run-20260505|Google Ads confirmed purchase 운영 source no-send dry-run]]
+
+## 2026-05-10 NPay 실제 결제완료 확인 상태
+
+Source: Imweb 관리자 주문 화면, VM Cloud SQLite `imweb_orders`, Imweb v2 status filter sync 1회, 운영DB `PAYMENT_COMPLETE` dry-run
+Window: 2026-05-10 KST NPay 주문 확인
+Freshness: VM Cloud SQLite latest biocom `synced_at=2026-05-10 15:09 KST`, thecleancoffee `synced_at=2026-05-10 15:10 KST`, status sync latest biocom `2026-05-10 15:11 KST`, thecleancoffee `2026-05-10 15:12 KST`
+Confidence: 94%
+
+결론은 `NPay 실제 결제완료 여부는 VM Cloud SQLite의 complete_time/imweb_status만으로 판단하지 않는다`이다.
+
+TJ님이 관리자 화면에서 확인한 2026-05-10 NPay 3건은 모두 화면상 `N 결제 완료`다. VM Cloud SQLite에도 3건이 모두 잡혔다. 처음에는 `complete_time`과 `imweb_status`가 비어 있었지만, 2026-05-10 status sync 후 모두 lifecycle status가 채워졌다.
+
+| Imweb order_no | NPay channel_order_no | 관리자 결제 표시 | Imweb status filter | VM Cloud complete_time | 해석 |
+|---|---|---|---|---|---|
+| `202605104467942` | `2026051018446030` | N 결제 완료 | `STANDBY` | blank, raw `complete_time=0` | 결제는 완료됐지만 배송대기 lifecycle이라 root complete_time이 아직 0 |
+| `202605101857504` | `2026051018061950` | N 결제 완료 | `STANDBY` | blank, raw `complete_time=0` | 결제는 완료됐지만 배송대기 lifecycle이라 root complete_time이 아직 0 |
+| `202605109700078` | `2026051018534650` | N 결제 완료 | `STANDBY` | blank, raw `complete_time=0` | 결제는 완료됐지만 배송보류/대기 lifecycle이라 root complete_time이 아직 0 |
+| `202605080592304` | `2026050865473610` | N 결제 완료 | `COMPLETE` | `2026-05-09T05:32:00.000Z` | 배송완료 lifecycle 진입 후 root complete_time이 채워짐 |
+
+원인은 두 가지다.
+
+1. VM Cloud `imweb_orders.complete_time`은 NPay 결제완료 시각이 아니라 Imweb 주문 lifecycle의 `complete_time`이다. 배송대기, 배송보류, 발송 전 단계에서는 NPay가 실제 결제 완료여도 `complete_time=0`으로 남을 수 있다.
+2. VM Cloud `imweb_orders.imweb_status`는 자동 주문 sync가 채우지 않는다. 현재 자동 job은 `/api/crm-local/imweb/sync-orders`만 실행하고, status filter 기반 `/api/crm-local/imweb/sync-order-statuses`는 별도 실행 대상이다. 2026-05-10에 biocom/thecleancoffee status sync를 1회 실행해 biocom 7,755건, thecleancoffee 2,093건의 status가 채워졌다.
+
+따라서 현재 NPay 결제완료 판정 우선순위는 아래로 둔다.
+
+1. 즉시 확인: Imweb 관리자 화면의 `N 결제 완료`.
+2. 정본 반영 후 확인: 운영DB `dashboard.public.tb_iamweb_users.payment_status = PAYMENT_COMPLETE`와 `payment_complete_time`.
+3. 보조 확인: Imweb v2 status filter에서 `STANDBY`/`DELIVERING`/`COMPLETE`/`PURCHASE_CONFIRMATION` 등 lifecycle 확인.
+4. 사용 금지: VM Cloud `complete_time` blank를 미결제로 해석하거나, VM Cloud `imweb_status` blank를 상태 없음으로 단정하는 것. status sync 후 `STANDBY`가 보여도 이것만으로 Google Ads upload 확정 후보로 승격하지 않는다.
+
+이 문서의 역할은 NPay 결제 상태 원천을 정리하는 것이다. ROAS/upload 후보 차단 규칙은 [[!npayroas]]에 별도로 기록한다.
+
+2026-05-10 13:29 KST 추가 반영:
+
+- ConfirmedPurchasePrep input builder에 NPay status guard를 반영했다. `PAYMENT_COMPLETE` 또는 관리자-confirmed source가 있으면 `complete_time`/`imweb_status` blank만으로 차단하지 않는다.
+- fixture dry-run은 candidate 5건, excluded 3건, send_candidate 0건으로 PASS했다. 결과: [[../gdn/confirmed-purchase-npay-status-guard-20260510]], `data/confirmed-purchase-npay-status-guard-dry-run-20260510.json`.
+- VM Cloud read-only channel mapping은 4/4 매핑됐다. 결과: [[../gdn/npay-channel-order-mapping-dry-run-20260510]].
+- status sync는 2026-05-10 15:12 KST까지 biocom/thecleancoffee 모두 1회 실행했다. status sync는 완료로 보지만, full order sync는 `synced < totalCount`라 current API 전체 재수집 완료로 단정하지 않는다. 결과와 15분/5분 주기 검토: [[../gdn/vm-cloud-imweb-sync-status-review-20260510]], [[npay-status-sync-decision-20260510]].
+- 2026-05-10 운영DB `PAYMENT_COMPLETE` dry-run은 confirmed orders 4건(homepage 3 / NPay 1), total value 862,000원, send_candidate 0건으로 PASS했다. 결과: [[../gdn/bi-confirmed-purchase-operational-dry-run-20260510]].
 
 ## Phase-Sprint 요약표
 

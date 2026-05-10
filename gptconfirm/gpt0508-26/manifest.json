@@ -1,0 +1,46 @@
+{
+  "batch": "gpt0508-26",
+  "created_at_kst": "2026-05-10 15:40 KST",
+  "purpose": "VM Cloud Imweb sync status review and confirmed purchase dry-run confirmation",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-26/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-26/00-result-report.md",
+      "why_included": "Batch result report with progress, approvals, and next actions.",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/vm-cloud-imweb-sync-status-review-20260510.md",
+      "copy": "gptconfirm/gpt0508-26/01-vm-cloud-sync-status-review-20260510.md",
+      "why_included": "Documents biocom/thecleancoffee one-off status sync, full sync partial status, and 15m vs 5m recommendation.",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/bi-confirmed-purchase-operational-dry-run-20260510.md",
+      "copy": "gptconfirm/gpt0508-26/02-operational-payment-complete-dry-run-20260510.md",
+      "why_included": "Read-only operating DB PAYMENT_COMPLETE dry-run result.",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/confirmed-purchase-prep-recalc-20260510.md",
+      "copy": "gptconfirm/gpt0508-26/03-confirmed-purchase-prep-recalc-20260510.md",
+      "why_included": "VM Cloud-only ConfirmedPurchasePrep recalculation and source caveat.",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-26/99-total-current-copy.md",
+      "why_included": "Canonical current-state snapshot after this batch.",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "Google Ads conversion upload",
+    "Google Ads/GA4/Meta/TikTok/Naver send",
+    "send_candidate=true",
+    "status sync cron enable",
+    "5 minute sync interval change",
+    "raw email/phone/member_code/order/payment storage"
+  ]
+}

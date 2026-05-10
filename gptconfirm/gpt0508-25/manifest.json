@@ -1,0 +1,58 @@
+{
+  "batch": "gpt0508-25",
+  "created_at_kst": "2026-05-10 13:35 KST",
+  "purpose": "NPay complete_time/imweb_status guard confirmation",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-25/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-25/00-result-report.md",
+      "why_included": "이번 batch 결과보고서",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/confirmed-purchase-npay-status-guard-20260510.md",
+      "copy": "gptconfirm/gpt0508-25/01-confirmed-purchase-npay-status-guard-20260510.md",
+      "why_included": "ConfirmedPurchasePrep NPay status guard 본문",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/confirmed-purchase-npay-status-guard-dry-run-20260510.md",
+      "copy": "gptconfirm/gpt0508-25/02-dry-run-result-20260510.md",
+      "why_included": "fixture dry-run 결과",
+      "approval_needed": false
+    },
+    {
+      "source": "naver/npay-status-sync-decision-20260510.md",
+      "copy": "gptconfirm/gpt0508-25/03-npay-status-sync-decision-20260510.md",
+      "why_included": "status sync를 P2 diagnostic으로 분리한 결정",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/npay-channel-order-mapping-dry-run-20260510.md",
+      "copy": "gptconfirm/gpt0508-25/04-npay-channel-order-mapping-dry-run-20260510.md",
+      "why_included": "NPay channel_order_no to imweb order_no read-only mapping result",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/npay-intent-matching-dry-run-20260510.md",
+      "copy": "gptconfirm/gpt0508-25/05-npay-intent-matching-dry-run-20260510.md",
+      "why_included": "NPay intent matching dry-run and ambiguity note",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-25/99-total-current-copy.md",
+      "why_included": "현재 정본 복사본",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "VM Cloud write",
+    "operating DB write",
+    "status sync cron/publish",
+    "GTM Production publish",
+    "platform send",
+    "Google Ads conversion upload",
+    "send_candidate=true"
+  ]
+}

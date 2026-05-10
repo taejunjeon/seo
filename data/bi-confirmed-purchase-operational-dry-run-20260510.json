@@ -1,0 +1,267 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-10T06:14:24.909Z",
+  "generated_at_kst": "2026-05-10 15:14:29 KST",
+  "mode": "no-send/no-write/read-only",
+  "harness": {
+    "lane": "Green",
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_publish": true,
+    "no_platform_send": true
+  },
+  "source": {
+    "operational_db": "PostgreSQL dashboard.public.tb_iamweb_users",
+    "attribution_vm_snapshot": "/tmp/seo-vm-cloud-crm-20260510-post-sync.sqlite3",
+    "ga4_bigquery": "skipped"
+  },
+  "source_freshness": {
+    "imweb_operational": {
+      "row_count": 98909,
+      "source_max_payment_complete_at": "2026-05-09T18:50:10.000Z",
+      "source_max_order_date_at": "2026-05-10T03:49:53.000Z",
+      "source_lag_hours": 11.4,
+      "freshness_status": "fresh",
+      "freshness_note": "fresh 기준. 그래도 외부 전송 전에는 최신성 재확인이 필요하다."
+    }
+  },
+  "window": {
+    "start": "2026-05-10",
+    "end": "2026-05-10",
+    "start_at": "2026-05-10T00:00:00+09:00",
+    "end_exclusive_at": "2026-05-11T00:00:00+09:00",
+    "timezone_note": "operational order paidAt filter uses KST day boundaries converted to timestamptz. This avoids excluding KST orders that are still previous-day UTC."
+  },
+  "summary": {
+    "operational_orders": 4,
+    "total_value": 862000,
+    "include_reason_counts": {
+      "homepage_confirmed_order": 3,
+      "npay_confirmed_order": 1
+    },
+    "payment_method_counts": {
+      "homepage": 3,
+      "npay": 1
+    },
+    "ga4_guard_counts": {
+      "unknown": 4
+    },
+    "block_reason_counts": {
+      "read_only_phase": 4,
+      "approval_required": 4,
+      "missing_google_click_id": 4,
+      "already_in_ga4_unknown": 4,
+      "npay_intent_not_a_grade_strong": 1
+    },
+    "with_google_click_id": 0,
+    "would_be_eligible_after_approval": 0,
+    "send_candidate": 0,
+    "send_candidate_breakdown": {
+      "eligible_payment_complete_orders": 4,
+      "actual_send_candidate": 0,
+      "blocked_by_read_only_phase": 4,
+      "blocked_by_approval_required": 4,
+      "blocked_by_missing_google_click_id": 4,
+      "blocked_by_already_in_ga4": 0,
+      "blocked_by_missing_attribution_vm_evidence": 0,
+      "blocked_by_source_freshness_warn": 0,
+      "blocked_by_source_freshness_stale": 0
+    },
+    "npay_intent_summary": {
+      "liveIntentCount": 32,
+      "confirmedNpayOrderCount": 1,
+      "strongMatch": 1,
+      "strongMatchA": 0,
+      "strongMatchB": 1,
+      "ambiguous": 0,
+      "purchaseWithoutIntent": 0,
+      "dispatcherDryRunCandidate": 0,
+      "alreadyInGa4Blocked": 0,
+      "alreadyInGa4LookupPresent": 0,
+      "alreadyInGa4LookupRobustAbsent": 0,
+      "alreadyInGa4LookupAbsent": 0,
+      "alreadyInGa4LookupUnknown": 1,
+      "ga4LookupRequiredOrderCount": 0,
+      "ga4LookupIdCount": 0,
+      "testOrderBlocked": 0,
+      "manualOrderCount": 0,
+      "amountMatchTypeCounts": {
+        "final_exact": 0,
+        "item_exact": 0,
+        "shipping_reconciled": 0,
+        "discount_reconciled": 0,
+        "quantity_reconciled": 0,
+        "cart_contains_item": 0,
+        "near": 0,
+        "none": 1,
+        "unknown": 0
+      },
+      "shippingReconciledCount": 0,
+      "shippingReconciledNotGradeACount": 0,
+      "clickedPurchasedCandidate": 1,
+      "clickedNoPurchase": 0,
+      "intentPending": 31
+    },
+    "excluded_signal_only_policy": "NPay click/count/payment start-only signals are not read from operational orders and are excluded by construction; only payment-complete Imweb order rows are included."
+  },
+  "candidates": [
+    {
+      "site": "biocom",
+      "order_number": "202605105123079",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "payment_status": "confirmed",
+      "conversion_time": "2026-05-09T16:12:17.000Z",
+      "value": 240000,
+      "currency": "KRW",
+      "vm_evidence": {
+        "matched": true,
+        "matched_by": "order_number",
+        "entry_id": "f81082dfe936d2714eedf9a1fad41c8b34c3123cb1c6fc6ece4257652982d922",
+        "source": "biocom_imweb",
+        "logged_at": "2026-05-09T16:12:25.334Z",
+        "ga_session_id": "1778341948",
+        "client_id": "76009214.1777493701",
+        "gclid": "",
+        "gbraid": "",
+        "wbraid": "",
+        "fbclid": "PAYW9leARsOXFleHRuA2FlbQEwAGFkaWQBqytDIi0KPHNydGMGYXBwX2lkDzU2NzA2NzM0MzM1MjQyNwABp3BfN5KV_divUfVVGKMTl2wATAZr7ZTdIUbnEaLMp95oJtXVLwZFXnlcJ-HG_aem_ZyjvDuFeqOI9vnI3Tiy6Mg",
+        "utm_source": "meta_biocom_skincare_igg",
+        "utm_medium": "meta_biocom_skincare_igg",
+        "utm_campaign": "meta_biocom_skincare_igg"
+      },
+      "ga4_guard": {
+        "status": "unknown",
+        "matched_ids": []
+      },
+      "would_be_eligible_after_approval": false,
+      "send_candidate": false,
+      "block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_google_click_id",
+        "already_in_ga4_unknown"
+      ],
+      "include_reason": "homepage_confirmed_order"
+    },
+    {
+      "site": "biocom",
+      "order_number": "202605101480176",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "payment_status": "confirmed",
+      "conversion_time": "2026-05-09T16:28:41.000Z",
+      "value": 245000,
+      "currency": "KRW",
+      "vm_evidence": {
+        "matched": true,
+        "matched_by": "order_number",
+        "entry_id": "fcc258a9e7f04a781bfe4b5b8dfb11e8dfd62f24cde16da38e6bc8b723cfe09a",
+        "source": "biocom_imweb",
+        "logged_at": "2026-05-09T16:28:44.897Z",
+        "ga_session_id": "1778343822",
+        "client_id": "2125842360.1775605052",
+        "gclid": "",
+        "gbraid": "",
+        "wbraid": "",
+        "fbclid": "PAYW9leARsPthleHRuA2FlbQEwAGFkaWQBqzIxm2sMTHNydGMGYXBwX2lkDzU2NzA2NzM0MzM1MjQyNwABpwnhYrXFVnExnVBMHc_OuxLRsPE8fhJvgy54TNJwXgKnBr9-HK_evLkaoio8_aem_6swxi0sMTDRULbl82KsuYg",
+        "utm_source": "meta",
+        "utm_medium": "paid_social",
+        "utm_campaign": "120245003319500396"
+      },
+      "ga4_guard": {
+        "status": "unknown",
+        "matched_ids": []
+      },
+      "would_be_eligible_after_approval": false,
+      "send_candidate": false,
+      "block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_google_click_id",
+        "already_in_ga4_unknown"
+      ],
+      "include_reason": "homepage_confirmed_order"
+    },
+    {
+      "site": "biocom",
+      "order_number": "202605102656098",
+      "channel_order_no": "",
+      "payment_method": "homepage",
+      "payment_status": "confirmed",
+      "conversion_time": "2026-05-09T16:40:26.000Z",
+      "value": 260000,
+      "currency": "KRW",
+      "vm_evidence": {
+        "matched": true,
+        "matched_by": "order_number",
+        "entry_id": "02d712f9ad7a769969f742b9593f7a33d1e69f2b52e4b370d4a5724810823847",
+        "source": "biocom_imweb",
+        "logged_at": "2026-05-09T16:40:32.451Z",
+        "ga_session_id": "1778344247",
+        "client_id": "826717099.1778344248",
+        "gclid": "",
+        "gbraid": "",
+        "wbraid": "",
+        "fbclid": "",
+        "utm_source": "",
+        "utm_medium": "",
+        "utm_campaign": ""
+      },
+      "ga4_guard": {
+        "status": "unknown",
+        "matched_ids": []
+      },
+      "would_be_eligible_after_approval": false,
+      "send_candidate": false,
+      "block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "missing_google_click_id",
+        "already_in_ga4_unknown"
+      ],
+      "include_reason": "homepage_confirmed_order"
+    },
+    {
+      "site": "biocom",
+      "order_number": "202605108365065",
+      "channel_order_no": "2026051015292820",
+      "payment_method": "npay",
+      "payment_status": "confirmed",
+      "conversion_time": "2026-05-09T18:50:10.000Z",
+      "value": 117000,
+      "currency": "KRW",
+      "vm_evidence": {
+        "matched": true,
+        "matched_by": "order_number",
+        "entry_id": "",
+        "source": "npay_intent_log",
+        "logged_at": "2026-05-09T18:49:52.335Z",
+        "ga_session_id": "1778351945",
+        "client_id": "1924051545.1757815773",
+        "gclid": "",
+        "gbraid": "",
+        "wbraid": "",
+        "fbclid": "",
+        "utm_source": "meta_biocom_nurostory_nuro",
+        "utm_medium": "meta_biocom_nurostory_nuro",
+        "utm_campaign": "meta_biocom_nurostory_nuro"
+      },
+      "ga4_guard": {
+        "status": "unknown",
+        "matched_ids": []
+      },
+      "would_be_eligible_after_approval": false,
+      "send_candidate": false,
+      "block_reasons": [
+        "read_only_phase",
+        "approval_required",
+        "npay_intent_not_a_grade_strong",
+        "missing_google_click_id",
+        "already_in_ga4_unknown"
+      ],
+      "include_reason": "npay_confirmed_order"
+    }
+  ]
+}
