@@ -39,6 +39,20 @@
 | **로컬DB** | TJ님 맥북 | `/Users/vibetj/coding/seo/backend/data/crm.sqlite3` (better-sqlite3 · 멀티 사이트 구분은 `site` 컬럼) |
 | AIBIO Supabase | 별도 인스턴스 | `AIBIO_SUPABASE_PROJECT_ID` + `AIBIO_SUPABASE_SECRET_KEY` (`.env` 195~200행). 운영DB와 같은 supabase인지 다른지 확인 전에는 별도로 부른다. |
 
+## 데이터 source 사용 순서 (정본: gdn/attribution-data-source-decision-guide-20260511.md)
+
+매 보고/산출물에서 “주문/결제 정본”과 “광고 클릭-주문 연결 evidence”는 분리해서 본다. 한쪽 0이 다른 쪽 0을 의미하지 않는다.
+
+| 질문 | source 순서 | 같이 표시할 것 |
+|---|---|---|
+| 실제 매출은? | 운영DB `tb_iamweb_users` PAYMENT_COMPLETE → 로컬DB `imweb_orders` → imweb 어드민 | `MAX(order_date)` freshness, 환불/취소 제외 필터, KRW |
+| NPay는? | 운영DB `payment_method='NAVERPAY_ORDER' AND payment_status='PAYMENT_COMPLETE'` | sync lag, NPay click 미포함 |
+| Google Ads 귀속은? | 운영DB order body `gclid` + click_view exact → (미래) order_bridge_ledger / paid_click_intent_log same-order exact | exact evidence count, UTM hint는 진단만 |
+| upload 후보는? | `upload_candidate_count` (현재 0, sprint invariant) | upload는 Red 별도 승인 |
+
+금지 proxy: GA4 purchase 단독 / NPay click·count·add_payment_info / UTM-only / time-window-only / VM Cloud `complete_time` blank-only.
+ledger `row_count=0` 만 보고 `NO_TRAFFIC` 단정 금지 — 5신호 decision tree (`gdn/path-b-canary-verdict-correction-20260511.md` §7-1) 적용.
+
 ## 프로젝트 규약
 
 - API base URL 환경변수: `NEXT_PUBLIC_API_BASE_URL` (기본 `http://localhost:7020`)

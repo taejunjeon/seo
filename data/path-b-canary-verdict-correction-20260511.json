@@ -93,6 +93,26 @@
     "caveat_to_add_to_dashboard_cards": "NPay actual snapshot은 운영 PG sync 기준이며, imweb 자체 DB와 약 9시간 lag가 있을 수 있다. 다음 dashboard fetch 시점에 sync 진척에 따라 카운트가 변동 가능.",
     "next_sprint_action": "PG sync lag 모니터링 카드를 dashboard에 추가하거나 max(order_date) freshness 라벨 노출"
   },
+  "four_signal_decision_tree": {
+    "rule_added_at_kst": "2026-05-11 00:55:00 KST (gpt0508-37 작업1)",
+    "rule": "다음 canary부터 ledger row delta 단독으로 verdict 결정 금지. 아래 5신호를 같이 본 뒤 결정.",
+    "signals": [
+      {"id": 1, "name": "ledger_delta", "source": "GET /api/attribution/order-bridge/ledger/summary"},
+      {"id": 2, "name": "path_b_endpoint_call_count", "source": "VM backend log POST /api/attribution/order-bridge/identity-hmac/no-send"},
+      {"id": 3, "name": "payment_success_call_count", "source": "VM backend log POST /api/attribution/payment-success"},
+      {"id": 4, "name": "paid_click_intent_receiver_count", "source": "VM backend log paid-click-intent receiver"},
+      {"id": 5, "name": "operational_fresh_order_count", "source": "imweb admin 또는 운영DB MAX(order_date) + count delta (sync lag 감안)"}
+    ],
+    "decision_tree_pseudo": [
+      "if signal3==0 → BACKEND_NOT_RECEIVING",
+      "elif signal5==0 and signal3>0 → DATA_INCONSISTENT",
+      "elif signal4==0 → PAID_CLICK_INTENT_BROKEN",
+      "elif signal2==0 → PATH_B_ENDPOINT_NOT_CALLED_BY_CHECKOUT_FLOW (이번 sprint verdict)",
+      "elif signal1==0 → LEDGER_WRITE_REJECTED",
+      "else → CANARY_COMPLETE_PASS"
+    ],
+    "no_traffic_usage_rule": "NO_TRAFFIC verdict 는 신호 3·5 둘 다 0인 경우에만 사용 가능. ledger row=0 만으로 결정 금지."
+  },
   "verdict_chain_for_audit_trail": [
     "gpt0508-35 작업1: EXECUTION_HALTED_BLOCKED_ACCESS_TJ_VM_TOGGLE_REQUIRED",
     "gpt0508-35 후속 (gpt0508-36 작업1 직전): VM toggle 직접 실행 OK",

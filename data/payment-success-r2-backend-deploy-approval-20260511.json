@@ -1,0 +1,95 @@
+{
+  "ok": true,
+  "schema_version": "payment_success_r2_backend_deploy_approval_20260511",
+  "generated_at_kst": "2026-05-11 01:25:00 KST",
+  "site": "biocom",
+  "purpose": "R2 wire(commit 직후) 코드를 VM 운영 backend 에 반영하기 위한 deploy 승인 packet. 실제 deploy 는 TJ Yellow 승인 후 실행.",
+  "harness_preflight": {
+    "lane_for_this_artifact": "Green",
+    "lane_for_actual_deploy": "Yellow",
+    "approval_status": "pending_TJ",
+    "executed_in_this_sprint": false
+  },
+  "deploy_targets": [
+    "backend/src/routes/attribution.ts (R2 wire 추가)",
+    "backend/tests/payment-success-order-bridge-r2-wire.test.ts (fixture 6)"
+  ],
+  "vm_info": {
+    "host": "34.64.104.94",
+    "ssh_user": "taejun",
+    "operational_user": "biocomkr_sns",
+    "repo_dir": "/home/biocomkr_sns/seo/repo",
+    "node_path": "/home/biocomkr_sns/seo/node/bin",
+    "pm2_app": "seo-backend",
+    "git_on_vm": false,
+    "deploy_method": "tar+ssh (vm/!vm.md 4.1 절차) 또는 capivm/deploy-backend-rsync.sh (rsync 미설치 시 tar)"
+  },
+  "pre_snapshot_commands_local_mac": [
+    "curl -s -o /tmp/order-bridge-summary-pre-deploy.json https://att.ainativeos.net/api/attribution/order-bridge/ledger/summary",
+    "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \"sudo -n -u biocomkr_sns bash -lc 'export PATH=/home/biocomkr_sns/seo/node/bin:\\$PATH; cd /home/biocomkr_sns/seo/repo/backend && pm2 describe seo-backend --no-color | sed -n 1,30p'\""
+  ],
+  "deploy_command_options": {
+    "option_a_tar_ssh": [
+      "cd /Users/vibetj/coding/seo/backend",
+      "tar czf - --exclude=node_modules --exclude=dist --exclude=data --exclude=logs --exclude=.env --exclude=.DS_Store . | ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \"rm -rf /tmp/seo-backend-new && mkdir -p /tmp/seo-backend-new && tar xzf - -C /tmp/seo-backend-new\"",
+      "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \"sudo -n -u biocomkr_sns bash -lc 'set -euo pipefail; cp -r /tmp/seo-backend-new/src /home/biocomkr_sns/seo/repo/backend/src; cp -r /tmp/seo-backend-new/tests /home/biocomkr_sns/seo/repo/backend/tests; cp /tmp/seo-backend-new/package.json /home/biocomkr_sns/seo/repo/backend/package.json; cp /tmp/seo-backend-new/package-lock.json /home/biocomkr_sns/seo/repo/backend/package-lock.json 2>/dev/null || true; export PATH=/home/biocomkr_sns/seo/node/bin:\\$PATH; cd /home/biocomkr_sns/seo/repo/backend && npm ci --no-audit --no-fund && npm run build && pm2 restart seo-backend --update-env && pm2 save'\""
+    ],
+    "option_b_rsync": [
+      "VM_USER=taejun VM_HOST=34.64.104.94 bash /Users/vibetj/coding/seo/capivm/deploy-backend-rsync.sh",
+      "ssh taejun@34.64.104.94 \"sudo -n -u biocomkr_sns bash -lc 'export PATH=/home/biocomkr_sns/seo/node/bin:\\$PATH; cd /home/biocomkr_sns/seo/repo/backend && npm ci --no-audit --no-fund && npm run build && pm2 restart seo-backend --update-env && pm2 save'\"",
+      "주의: rsync 가 VM 에 미설치일 가능성 있음. 그럴 땐 option A 로 fallback."
+    ],
+    "preferred_option": "A (tar+ssh) — vm/!vm.md 4.1 검증된 절차"
+  },
+  "verification_after_deploy": {
+    "post_snapshot_commands_local_mac": [
+      "curl -s -o /tmp/order-bridge-summary-post-deploy.json https://att.ainativeos.net/api/attribution/order-bridge/ledger/summary",
+      "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \"sudo -n -u biocomkr_sns bash -lc 'export PATH=/home/biocomkr_sns/seo/node/bin:\\$PATH; pm2 describe seo-backend --no-color | sed -n 1,30p'\""
+    ],
+    "smoke_check_payment_success_response": "운영 결제 1건 발생 시 payment-success 응답 JSON 의 orderBridgeR2 객체 노출 (write_flag=false 기본 → stored=false, attempted=true, rejected_reason=write_flag_disabled)",
+    "live_canary_with_write_flag_on_after_30_minutes": [
+      "환경변수 토글 (gpt0508-35 와 동일 절차):",
+      "ORDER_BRIDGE_WRITE_ENABLED=true 1h canary + ORDER_BRIDGE_WRITE_CANARY_UNTIL=<+1h ISO> 박기",
+      "VM SSH 절차는 gdn/path-b-order-bridge-1h-canary-result-20260511.md 5절"
+    ]
+  },
+  "canary_check_30m_to_1h": {
+    "primary_metric": "ledger row_count delta vs payment-success endpoint call count (4-signal decision tree)",
+    "expected": [
+      "row_count 증가 ≥ payment-success 호출 수의 ~1.0배 (5분 dedupe 영향 약간 감소 가능)",
+      "raw_stored_count 0 유지",
+      "platform_send_count 0 유지",
+      "duplicate_dedupe_count 점진 증가",
+      "5xx rate 1% 이하"
+    ],
+    "stop_conditions_any_of": [
+      "raw_stored_count > 0",
+      "platform_send_count > 0",
+      "row_count > 200",
+      "5xx rate > 1%",
+      "TJ 중단 명령"
+    ],
+    "stop_command_one_liner": "ssh taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"cd /home/biocomkr_sns/seo/repo/backend && sed -i s/ENABLED=true/ENABLED=false/ .env && export PATH=/home/biocomkr_sns/seo/node/bin:\\$PATH && pm2 restart seo-backend --update-env\"'"
+  },
+  "rollback_command_for_code_revert": [
+    "Mac 로컬에서:",
+    "git revert --no-edit <R2_wire_commit_sha>",
+    "또는 git checkout <pre_R2_commit_sha> -- backend/src/routes/attribution.ts backend/tests/payment-success-order-bridge-r2-wire.test.ts",
+    "그리고 deploy option A 다시 실행 (tar+ssh + npm ci + build + pm2 restart)"
+  ],
+  "rollback_command_for_quick_disable_without_redeploy": [
+    "ORDER_BRIDGE_WRITE_ENABLED 을 false 로 두면 R2 wire 가 호출되더라도 ledger 저장 안 함 (rejected_reason=write_flag_disabled).",
+    "즉 R2 wire 가 운영에 반영돼도 write_flag 가 false 인 동안은 새 row 생성 0. canary 켤 때만 row 생성."
+  ],
+  "failure_conditions_with_resolution": [
+    {"condition": "build 실패 (npm run build)", "action": "stash + rollback to pre_R2 commit + 원인 분석"},
+    {"condition": "pm2 restart 후 5xx 폭주", "action": "ORDER_BRIDGE_WRITE_ENABLED=false 토글 + pm2 logs seo-backend --lines 200"},
+    {"condition": "raw email/phone/order leakage 의심", "action": "즉시 ORDER_BRIDGE_WRITE_ENABLED=false + grep 운영 로그 + ledger row delete"},
+    {"condition": "duplicate row 폭주", "action": "5분 dedupe 정책 점검, 필요 시 dedupeKey 로직 재검토"}
+  ],
+  "expected_row_count_delta_first_1h_canary": "주간 트래픽 시간대 (KST 11~12 또는 19~20) 기준 약 50~100 row (gpt0508-36 시점 5건/1h 야간 vs 주간 트래픽 추정)",
+  "approval_text_for_human_to_paste": "[승인] gpt0508-37 작업5 R2 backend deploy: backend/src/routes/attribution.ts + backend/tests/payment-success-order-bridge-r2-wire.test.ts 를 VM 운영 backend 에 tar+ssh 절차로 deploy. ORDER_BRIDGE_WRITE_ENABLED=false 기본 유지로 deploy 자체는 ledger row 영향 0. 별도 1h canary 윈도우(주간 시간대) 에서 ORDER_BRIDGE_WRITE_ENABLED=true + ORDER_BRIDGE_WRITE_CANARY_UNTIL=<+1h ISO> 박고 row 누적 검증. raw 0 / platform send 0 / GTM publish 0 / 운영DB write 0 invariant 유지. 실패 조건 발생 시 즉시 rollback.",
+  "rejection_text": "[보류] gpt0508-37 작업5 deploy 보류. 사유: <TJ 코멘트>",
+  "approval_required_from": ["TJ"],
+  "verdict": "DEPLOY_APPROVAL_PACKET_READY"
+}

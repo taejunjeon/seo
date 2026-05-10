@@ -1,0 +1,146 @@
+{
+  "ok": true,
+  "schema_version": "attribution_data_source_decision_guide_v1_20260511",
+  "generated_at_kst": "2026-05-11 01:00:00 KST",
+  "site": "biocom",
+  "purpose": "Claude Code 가 매 sprint 마다 source 를 헷갈리지 않도록, '주문/결제 정본' 과 'attribution evidence' 의 사용 순서를 한 표로 고정한다.",
+  "core_principle": "주문/결제 정본 (운영DB) 과 광고 클릭-주문 연결 evidence (Path B order_bridge_ledger / paid_click_intent_log) 는 서로 다른 source 다. 한쪽이 0 이라고 다른 쪽도 0 이라고 단정하지 않는다.",
+  "db_naming_three_tier": {
+    "vm_cloud": "TJ Cloudflare 기반 SQLite (att.ainativeos.net) — order_bridge_ledger, paid_click_intent_log, npay_intent_log",
+    "operational_db": "개발팀 supabase dashboard 스키마 — tb_iamweb_users, tb_playauto_orders 등. read-only.",
+    "local_db": "맥북 backend/data/crm.sqlite3 — imweb_orders, imweb_members, imweb_coupon_masters 등"
+  },
+  "data_source_table": {
+    "actual_paid_purchase": {
+      "primary": {
+        "name": "운영DB tb_iamweb_users",
+        "filter": "payment_status='PAYMENT_COMPLETE' AND cancellation_reason/return_reason empty AND final_order_amount > 0",
+        "freshness": "imweb 자체 DB → 운영DB sync 3~9시간 lag",
+        "lag_aware": true
+      },
+      "secondary": {
+        "name": "로컬DB imweb_orders (backend/data/crm.sqlite3)",
+        "via": "backend /api/crm-local/imweb/sync-orders 가 imweb v2 API 직접 fetch",
+        "freshness": "사용자가 수동 sync 또는 cron 호출",
+        "limitation": "주문 헤더 중심. 상품 라인아이템 없음. 페이지네이션 이상 알려짐."
+      },
+      "fallback": "imweb 어드민 직접 확인 (사람 눈)",
+      "forbidden_proxies": [
+        "GA4 purchase event 단독을 actual purchase 로 사용 금지",
+        "VM Cloud complete_time blank-only 를 NPay 미결제 판정으로 사용 금지",
+        "Google Ads platform conversion value 를 internal 매출로 사용 금지"
+      ]
+    },
+    "npay_actual": {
+      "primary": "운영DB tb_iamweb_users where payment_method='NAVERPAY_ORDER' AND payment_status='PAYMENT_COMPLETE'",
+      "secondary": "VM Cloud npay_intent_log 의 strong_match (channel_order_no_hash 매칭, 다음 sprint schema canary 후 활성)",
+      "freshness": "primary 와 동일 sync lag",
+      "forbidden_proxies": [
+        "NPay click event 를 actual purchase 로 사용 금지",
+        "NPay count event 를 actual purchase 로 사용 금지",
+        "NPay add_payment_info 를 actual purchase 로 사용 금지",
+        "VM Cloud complete_time blank-only 를 NPay 미결제 판정으로 사용 금지"
+      ]
+    },
+    "google_ads_attribution_exact_evidence": {
+      "primary": [
+        "operational order body 의 gclid/gbraid/wbraid + Google Ads click_view exact (현재 프로젝트의 31건)",
+        "VM Cloud order_bridge_ledger same-order exact (Path B canary 누적 후, 현재 0건)",
+        "VM Cloud paid_click_intent_log same-order exact (channel_order_no_hash schema 추가 후, 현재 0건)"
+      ],
+      "secondary": "Path B controlled_traffic preview 로 들어온 hashed identity material (would_store=true 윈도우만)",
+      "forbidden_proxies": [
+        "UTM campaign hint 단독 (예: utm_campaign='googleads_*')",
+        "시간 근접 (time-window-only)",
+        "ga_session_id 가 같은 시간대에 광고 click 이 있었음만으로 연결",
+        "page_referrer 가 google 도메인이라는 이유만으로 연결"
+      ]
+    },
+    "campaign_id_budget_floor": {
+      "rule": "exact evidence 가 있는 row 만 campaign_id 매칭 + 캠페인 ROAS 의 안전한 하한 (floor) 참고값으로 사용",
+      "current_count": 31,
+      "current_revenue_krw": 7611210,
+      "use_for_budget_decision": "예산 판단의 안전한 하한 으로만",
+      "do_not_use_for": [
+        "Google Ads upload (별도 Red 승인 필요)",
+        "platform send (외부 전송 금지)"
+      ]
+    },
+    "upload_candidate": {
+      "current_count": 0,
+      "rule": "본 sprint 정책 invariant. send_candidate=false / actual_send_candidate=false / upload_candidate=0 유지.",
+      "promotion_requires_all_of": [
+        "exact evidence 보유 (gclid/gbraid/wbraid + click_view exact 또는 ledger same-order exact)",
+        "Red Lane 별도 승인",
+        "동의/검증 절차 통과"
+      ]
+    },
+    "dashboard_display": {
+      "platform_roas_reference": "Google Ads platform 주장값 — 참고용",
+      "internal_confirmed_roas_current": "운영 attribution ledger 의 google evidence 보유 row 만 분자",
+      "internal_confirmed_roas_with_npay_actual_pg": "+ NPay actual snapshot 합류 후 분자",
+      "rule": "두 값을 따로 표시. platform 주장값과 내부 매출값을 한 문단에서 섞을 때 '예산 판단에 쓸 값 / 참고만 볼 값' 명시"
+    },
+    "sync_freshness_label": {
+      "operational_db": "MAX(order_date) 와 sync_lag_minutes 같이 노출 권장 (gpt0508-37 작업7)",
+      "vm_cloud_ledger": "ledger_summary.fetched_at 으로 표시",
+      "local_db": "imweb sync cron 마지막 실행 시각",
+      "rule": "freshness 라벨이 없는 카운트는 '실시간' 으로 오해될 수 있음. 항상 source 옆에 freshness 표시."
+    }
+  },
+  "conflicting_source_resolution": [
+    {
+      "scenario": "운영DB 0건 vs imweb 어드민 5건",
+      "interpretation": "운영DB sync lag — imweb 어드민 또는 로컬DB sync 결과로 cross-check",
+      "applicable_example": "gpt0508-36 작업6 정정 — 운영DB 30d NPay PAYMENT_COMPLETE 0건이 아니라 sync lag 9시간"
+    },
+    {
+      "scenario": "ledger_summary row=0 vs payment-success endpoint 호출 4건+",
+      "interpretation": "Path B endpoint 가 결제 flow 에서 호출되지 않음 (PATH_B_ENDPOINT_NOT_CALLED_BY_CHECKOUT_FLOW)",
+      "remediation": "R2 backend wire (gpt0508-37 작업4) 또는 GTM/footer fallback"
+    },
+    {
+      "scenario": "Google Ads platform ROAS 9.58 vs internal 0.27",
+      "interpretation": "platform 측 NPay click 오염 + internal NPay actual 누락의 합산 효과. 옵션 3 (BI confirmed_purchase 신규 + 구매완료 강등) + NPay 합류 둘 다 가야 정렬 시작.",
+      "applicable_example": "gpt0508-36 작업7"
+    },
+    {
+      "scenario": "GA4 purchase 430건 vs 내부 confirmed 25건 (last_7d)",
+      "interpretation": "GA4 purchase 는 actual purchase 가 아님. dedup/UTM hint/봇 합산 가능. 내부 confirmed 가 정본.",
+      "rule": "GA4 purchase 단독으로 actual confirmed 산정 금지"
+    }
+  ],
+  "decision_order_for_each_question": [
+    {
+      "question": "이번 분기/캠페인의 실제 매출은 얼마인가?",
+      "answer_source_order": ["운영DB tb_iamweb_users PAYMENT_COMPLETE", "로컬DB imweb_orders (sync 후)", "imweb 어드민 직접"],
+      "always_attach": ["MAX(order_date) freshness", "환불/취소 제외 필터", "currency=KRW"]
+    },
+    {
+      "question": "이 매출 중 NPay 가 얼마인가?",
+      "answer_source_order": ["운영DB tb_iamweb_users WHERE payment_method='NAVERPAY_ORDER' AND payment_status='PAYMENT_COMPLETE'"],
+      "always_attach": ["sync lag 라벨", "NPay click 미포함 명시"]
+    },
+    {
+      "question": "이 매출 중 Google Ads 캠페인이 들여보낸 손님은?",
+      "answer_source_order": ["운영DB order body gclid + click_view exact (31건)", "(미래) order_bridge_ledger same-order exact", "(미래) paid_click_intent_log same-order exact"],
+      "always_attach": ["exact evidence count", "UTM hint 는 진단만 명시"]
+    },
+    {
+      "question": "Google Ads upload 가능한 row 는?",
+      "answer_source_order": ["upload_candidate_count (현재 0, sprint invariant)"],
+      "always_attach": ["upload 는 Red 별도 승인", "exact evidence + 동의/검증 통과"]
+    }
+  ],
+  "self_check_for_claude_code_each_sprint": [
+    "1. 보고하는 매출 / 카운트 옆에 freshness/source 가 적혀 있는가?",
+    "2. internal_confirmed 와 platform_reference 가 따로 표시되는가?",
+    "3. NPay click/count/add_payment_info 가 actual purchase 로 승격되지 않았는가?",
+    "4. UTM hint / time-window-only 가 budget 판단에 쓰이지 않았는가?",
+    "5. ledger row=0 만 보고 NO_TRAFFIC verdict 단정하지 않았는가? (4-signal decision tree 적용했는가?)",
+    "6. raw email/phone/order/payment/member_code 가 응답/로그/저장 어디에도 출력되지 않았는가?",
+    "7. send_candidate / actual_send_candidate / upload_candidate 가 false / 0 유지인가?",
+    "8. DB 명칭이 VM Cloud / 운영DB / 로컬DB 3분류로 일관되는가?"
+  ],
+  "verdict": "GUIDE_v1_LOCKED"
+}

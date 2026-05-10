@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "schema_version": "payment_success_r2_input_audit_20260511",
+  "generated_at_kst": "2026-05-11 01:08:00 KST",
+  "site": "biocom",
+  "purpose": "R2 wire 진입 전 backend payment-success 핸들러가 받는 body 가 order_bridge_ledger 자동 기록에 충분한 material 을 갖는지 audit.",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false
+  },
+  "audited_handler": {
+    "endpoint": "POST /api/attribution/payment-success",
+    "file": "backend/src/routes/attribution.ts:3180",
+    "body_normalizer": "buildLedgerEntry → enrichPaymentSuccessFirstTouch",
+    "duplicate_guard": "5분 내 같은 orderId 면 skip"
+  },
+  "expected_input_for_buildOrderBridgeIdentityHmacMaterial": [
+    "site",
+    "capture_stage / captureStage",
+    "email | ordererEmail | email_buy | buyerEmail",
+    "phone | ordererCall | phone_buy | buyerPhone",
+    "order_no | orderNo | order_number | orderNumber",
+    "client_id | clientId",
+    "ga_session_id | gaSessionId",
+    "local_session_id | localSessionId",
+    "click_id | clickId | gclid | gbraid | wbraid | ttclid | nclick_id",
+    "pay_type / pg_type"
+  ],
+  "actual_payload_present_or_absent": {
+    "order_no_or_orderId": "PRESENT (footer 라인 1893: payload.orderId from getSearchParam, referrerPayment, imwebSession, lastTouch, DOM)",
+    "orderCode": "PRESENT",
+    "paymentKey": "PRESENT",
+    "client_id": "PRESENT (라인 1973: ga client_id)",
+    "ga_session_id": "PRESENT (라인 1956: ga session_id)",
+    "user_pseudo_id": "PRESENT",
+    "gclid": "PRESENT (tracking.gclid in payload)",
+    "gbraid": "ABSENT (footer payload 에 없음)",
+    "wbraid": "ABSENT",
+    "ttclid": "PRESENT",
+    "fbclid": "PRESENT",
+    "fbc / fbp": "PRESENT",
+    "email_raw": "ABSENT (payment-success payload 에 raw email 없음)",
+    "phone_raw": "ABSENT (payload 에 raw phone 없음)",
+    "local_session_id": "ABSENT (footer payload 명시 키 없음. __seo_funnel_session 같은 storage 키 있으나 payload 에 직접 안 실림)"
+  },
+  "classify_order_bridge_ledger_status_simulation": {
+    "hasOrder": true,
+    "hasIdentity": false,
+    "hasSession": true,
+    "hasClick_when_gclid_present": true,
+    "hasClick_when_no_click_id": false,
+    "expected_status_when_gclid_present": "session_only_quarantine (because hasIdentity=false)",
+    "expected_status_when_no_click_id": "session_only_quarantine",
+    "budget_usable": false,
+    "note": "session_only_quarantine 은 ledger 에 row 가 누적되지만 budget floor 로 승격되지 않는다. 향후 sprint 에서 운영DB customer_email/customer_number 로 identity hash 를 보강하면 full_bridge 또는 click_missing_hold 로 승격 가능."
+  },
+  "r2_readiness_verdict": "R2_READY_SESSION_ONLY",
+  "r2_readiness_definitions": {
+    "R2_READY": "order_no + (email|phone) + session + click 모두 있어 full_bridge 가능. budget 후보 가능 (단 upload 는 별도 Red).",
+    "R2_READY_IDENTITY_ONLY": "order_no + (email|phone) 있고 session/click 일부 부재. identity_only_quarantine 분류로 ledger row 누적 가능.",
+    "R2_READY_SESSION_ONLY": "order_no + session 있고 identity 부재. session_only_quarantine 분류로 ledger row 누적 가능. budget 사용 안 함. 본 sprint 의 실제 verdict.",
+    "R2_BLOCKED_MISSING_ORDER_KEY": "order_no 부재 → ledger 자체 거부.",
+    "R2_BLOCKED_MISSING_CLICK_AND_IDENTITY": "click + identity 모두 부재 → ledger 거부 또는 quarantine 분류 무의미."
+  },
+  "rationale_for_session_only": [
+    "footer payment-success payload 에 raw email/phone 이 들어오지 않는다 (의도적 — payment-success 는 attribution ledger 용이라 customer 식별은 별도 layer 에서 처리).",
+    "buildOrderBridgeIdentityHmacMaterial 은 raw email/phone 을 hmac 변환에 사용하므로 input 에 raw 가 와야 hash 생성 가능.",
+    "hash 생성 안 되면 hasIdentity=false. classifyOrderBridgeLedgerStatus 가 session_only_quarantine 으로 분류.",
+    "이 분류는 코드의 ORDER_BRIDGE_WRITE_MAX_ROWS 200 한도 안에서 정상 누적되며, recordOrderBridgeLedger 는 reject 하지 않는다.",
+    "장점: 본 sprint R2 wire 만으로 ledger row 가 쌓이기 시작. 다음 sprint 운영DB customer_email/customer_number 보강 분기로 full_bridge 승급 가능.",
+    "단점: budget floor 후보로 자동 승격되지 않음. 다음 sprint 까지 cross_reference_evidence 의 A_via_ledger 상태로는 안 됨."
+  ],
+  "next_sprint_identity_enrichment_proposal": {
+    "approach": "payment-success 핸들러에서 운영DB read-only 로 order_no 기반 customer_email/customer_number 조회 후 buildOrderBridgeIdentityHmacMaterial input 에 추가 (모두 transient, raw 저장 없음)",
+    "lane": "Green code (read-only operational DB query 추가)",
+    "expected_status_after": "full_bridge 또는 identity_only_quarantine",
+    "estimated_loc": "약 40 LOC + fixture 1~2 개"
+  },
+  "fallback_if_r2_session_only_insufficient_for_path_b_progress": {
+    "option": "GTM Custom HTML payload 에서 hashed email/phone 을 추가",
+    "lane": "Yellow Preview → Red Publish",
+    "risk": "GTM workspace hygiene 규칙 적용. fresh workspace + capacity 관리 필요.",
+    "claude_code_substitution_possible": "Preview 안 옵션안까지 가능, publish 는 TJ Red"
+  },
+  "verdict": "R2_READY_SESSION_ONLY_PROCEED_WITH_WIRE"
+}

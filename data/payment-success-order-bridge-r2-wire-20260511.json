@@ -1,0 +1,92 @@
+{
+  "ok": true,
+  "schema_version": "payment_success_order_bridge_r2_wire_20260511",
+  "generated_at_kst": "2026-05-11 01:18:00 KST",
+  "site": "biocom",
+  "purpose": "payment-success 핸들러가 결제완료 신호를 받을 때마다 hash-only order_bridge_ledger row 를 자동 기록하도록 wire. imweb footer / GTM 변경 0.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "deploy_required_for_live_effect": true
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/routes/attribution.ts",
+      "kind": "patch + new exported helper",
+      "new_export": "recordPaymentSuccessOrderBridgeLedger",
+      "loc_added_approx": 130,
+      "wire_point": "router.post('/api/attribution/payment-success') 안 appendLedgerEntry 직후 호출",
+      "response_field_added": "orderBridgeR2"
+    },
+    {
+      "file": "backend/tests/payment-success-order-bridge-r2-wire.test.ts",
+      "kind": "new test",
+      "loc": 218,
+      "fixtures": 6,
+      "test_pass": "6_of_6_466ms"
+    }
+  ],
+  "fixture_results": [
+    {"name": "write_flag=true + order + click + session records ledger row", "result": "PASS"},
+    {"name": "identity absent classifies session_only_quarantine but still rows", "result": "PASS"},
+    {"name": "write_flag=false does not store row", "result": "PASS"},
+    {"name": "missing order_no rejects with missing_order_key", "result": "PASS"},
+    {"name": "response and stored row never echo raw email/phone/order", "result": "PASS"},
+    {"name": "duplicate payment-success dedupes via order_bridge_ledger", "result": "PASS"}
+  ],
+  "fixture_summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "duration_ms": 465.98
+  },
+  "invariants_verified": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": false,
+    "ORDER_BRIDGE_RAW_BODY_LOGGING_used_in_record_path": "yes_blocking_when_true",
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED_used_in_record_path": "yes_blocking_when_true",
+    "ORDER_BRIDGE_WRITE_MAX_ROWS_enforced_in_underlying_recordOrderBridgeLedger": true,
+    "ORDER_BRIDGE_WRITE_CANARY_UNTIL_enforced_in_underlying_recordOrderBridgeLedger": true,
+    "raw_pii_in_response": false,
+    "raw_pii_in_log": false,
+    "raw_pii_in_stored_row": false
+  },
+  "wire_behavior": {
+    "trigger": "POST /api/attribution/payment-success 가 appendLedgerEntry 성공한 직후 자동 호출",
+    "input_mapping": {
+      "order_no": "body.order_no || body.orderNo || body.orderId || ledgerEntry.orderId",
+      "click_id": "body.gclid || body.gbraid || body.wbraid || body.ttclid || body.nclick_id",
+      "ga_session_id": "ledgerEntry.gaSessionId || body.ga_session_id",
+      "client_id": "ledgerEntry.metadata.clientId || body.client_id",
+      "email": "body.email || body.ordererEmail || body.email_buy || body.buyerEmail (transient, raw 저장 안 함)",
+      "phone": "body.phone || body.ordererCall || body.phone_buy || body.buyerPhone || ledgerEntry.metadata.normalizedPhone (transient)"
+    },
+    "rejection_reasons_returned": [
+      "missing_order_key",
+      "hash_secret_missing",
+      "buildOrderBridgeIdentityHmacMaterial_failed",
+      "write_flag_disabled",
+      "platform_send_flag_enabled",
+      "raw_body_logging_enabled"
+    ],
+    "stored_status_when_payload_lacks_email_phone": "session_only_quarantine (현실의 footer payload 가 raw email/phone 미보유 → 본 sprint 의 R2_READY_SESSION_ONLY 결과와 일치)",
+    "budget_floor_promotion": "false (session_only_quarantine 상태는 budget 후보 아님)"
+  },
+  "expected_live_effect_after_deploy": {
+    "row_count_growth_per_payment_success": 1,
+    "duplicate_payment_success_dedupe_count_growth": "1+ (5분 내 같은 order)",
+    "raw_stored_count_change": 0,
+    "platform_send_count_change": 0,
+    "next_sprint_path": "이 누적된 row 가 cross_reference_evidence.ledger_lookup wire 의 same-order match input 이 됨. 운영DB read-only 로 customer_email/customer_number 보강 분기 추가 시 status 가 full_bridge 또는 identity_only_quarantine 으로 승격."
+  },
+  "verification": {
+    "backend_typecheck": "PASS",
+    "backend_test_payment_success_r2_wire": "PASS_6_OF_6",
+    "raw_pii_pattern_scan": "PASS"
+  },
+  "verdict": "PASS_PATCH_TYPECHECK_FIXTURE_DEPLOY_PENDING_TJ_YELLOW"
+}

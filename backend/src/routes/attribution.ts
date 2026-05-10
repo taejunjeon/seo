@@ -1229,6 +1229,136 @@ const buildConfirmedPurchaseNoSendPreview = (body: Record<string, unknown>) => {
   };
 };
 
+type PaymentSuccessOrderBridgeR2Result = {
+  attempted: boolean;
+  write_flag_on: boolean;
+  stored: boolean;
+  deduped: boolean;
+  rejected_reason: string | null;
+  status: string | null;
+  preview_hash_present: {
+    email_hash: boolean;
+    phone_hash: boolean;
+    order_no_hash: boolean;
+    click_id_hash: boolean;
+    client_session: boolean;
+  };
+  raw_echo_verified: true;
+  send_candidate: false;
+  actual_send_candidate: false;
+  upload_candidate: false;
+};
+
+export const recordPaymentSuccessOrderBridgeLedger = (
+  body: Record<string, unknown>,
+  ledgerEntry: AttributionLedgerEntry,
+): PaymentSuccessOrderBridgeR2Result => {
+  const writeFlagOn = isOrderBridgeWriteEnabled();
+  const baseResult: PaymentSuccessOrderBridgeR2Result = {
+    attempted: false,
+    write_flag_on: writeFlagOn,
+    stored: false,
+    deduped: false,
+    rejected_reason: null,
+    status: null,
+    preview_hash_present: {
+      email_hash: false,
+      phone_hash: false,
+      order_no_hash: false,
+      click_id_hash: false,
+      client_session: false,
+    },
+    raw_echo_verified: true,
+    send_candidate: false,
+    actual_send_candidate: false,
+    upload_candidate: false,
+  };
+
+  const orderNo = textField(body, "order_no") || textField(body, "orderNo") || textField(body, "order_number") || textField(body, "orderNumber") || textField(body, "orderId") || ledgerEntry.orderId;
+  if (!orderNo) {
+    return { ...baseResult, attempted: true, rejected_reason: "missing_order_key" };
+  }
+
+  if (!process.env.ORDER_BRIDGE_IDENTITY_HASH_SECRET) {
+    return { ...baseResult, attempted: true, rejected_reason: "hash_secret_missing" };
+  }
+
+  const clickId =
+    textField(body, "click_id") ||
+    textField(body, "clickId") ||
+    textField(body, "gclid") ||
+    textField(body, "gbraid") ||
+    textField(body, "wbraid") ||
+    textField(body, "ttclid") ||
+    textField(body, "nclick_id") ||
+    "";
+  const ledgerMetadata = (ledgerEntry.metadata ?? {}) as Record<string, unknown>;
+  const fallbackPhone = textField(ledgerMetadata, "normalizedPhone");
+
+  const material = (() => {
+    try {
+      return buildOrderBridgeIdentityHmacMaterial(
+        {
+          ...body,
+          order_no: orderNo,
+          click_id: clickId,
+          ga_session_id: ledgerEntry.gaSessionId || textField(body, "ga_session_id") || textField(body, "gaSessionId"),
+          client_id: textField(ledgerMetadata, "clientId") || textField(body, "client_id") || textField(body, "clientId"),
+          local_session_id: textField(body, "local_session_id") || textField(body, "localSessionId"),
+          phone: textField(body, "phone") || textField(body, "ordererCall") || textField(body, "phone_buy") || textField(body, "buyerPhone") || fallbackPhone,
+          email: textField(body, "email") || textField(body, "ordererEmail") || textField(body, "email_buy") || textField(body, "buyerEmail"),
+        },
+        {
+          secret: process.env.ORDER_BRIDGE_IDENTITY_HASH_SECRET ?? "",
+          receivedAt: ledgerEntry.loggedAt || new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      return { _error: error instanceof Error ? error.message : "buildOrderBridgeIdentityHmacMaterial_failed" };
+    }
+  })();
+
+  if ("_error" in material) {
+    return { ...baseResult, attempted: true, rejected_reason: material._error ?? "buildOrderBridgeIdentityHmacMaterial_failed" };
+  }
+
+  const presenceResult: PaymentSuccessOrderBridgeR2Result = {
+    ...baseResult,
+    attempted: true,
+    preview_hash_present: {
+      email_hash: material.preview.email_hash_present,
+      phone_hash: material.preview.phone_hash_present,
+      order_no_hash: material.preview.order_no_hash_present,
+      click_id_hash: material.preview.click_id_hash_present,
+      client_session: material.preview.client_session_present,
+    },
+    status: material.preview.row_status ?? null,
+  };
+
+  if (!writeFlagOn) {
+    return { ...presenceResult, rejected_reason: "write_flag_disabled" };
+  }
+
+  if (isOrderBridgePlatformSendEnabled()) {
+    return { ...presenceResult, rejected_reason: "platform_send_flag_enabled" };
+  }
+  if (isOrderBridgeRawBodyLoggingEnabled()) {
+    return { ...presenceResult, rejected_reason: "raw_body_logging_enabled" };
+  }
+
+  const writeResult = recordOrderBridgeLedger(material);
+  if (!writeResult.stored) {
+    return { ...presenceResult, rejected_reason: writeResult.reason };
+  }
+
+  return {
+    ...presenceResult,
+    stored: true,
+    deduped: writeResult.deduped,
+    status: writeResult.row.status,
+  };
+};
+
 const findMarketingIntentPiiKey = (value: unknown, path: string[] = []): string | null => {
   if (!value || typeof value !== "object") return null;
   if (Array.isArray(value)) {
@@ -3209,11 +3339,13 @@ export const createAttributionRouter = () => {
       }
 
       const ledgerPath = await appendLedgerEntry(entry);
+      const orderBridgeR2 = recordPaymentSuccessOrderBridgeLedger(body, entry);
       res.status(201).json({
         ok: true,
         receiver: "payment_success",
         storedAt: ledgerPath,
         entry,
+        orderBridgeR2,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "payment attribution logging failed";

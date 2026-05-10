@@ -1,0 +1,93 @@
+{
+  "batch": "gpt0508-37",
+  "created_at_kst": "2026-05-11 01:42:00 KST",
+  "purpose": "Claude Code Root Data Fix Sprint — backend payment-success 핸들러에 R2 wire 추가해 결제완료 신호마다 hash-only order_bridge_ledger 자동 기록. imweb footer/GTM 변경 0. fixture 6/6 PASS.",
+  "lane": "Green_code_executed_plus_yellow_approval_packets",
+  "track_progress": {
+    "A": {"name": "ConfirmedPurchasePrep 통합 input", "previous_percent": 98, "current_percent": 99, "delta_percent": 1},
+    "B": {"name": "Google Ads campaign_id 조인/ROAS 분해", "previous_percent": 91, "current_percent": 93, "delta_percent": 2},
+    "C": {"name": "BigQuery campaign funnel quality", "previous_percent": 85, "current_percent": 85, "delta_percent": 0},
+    "D/KR6": {"name": "Meta funnel CAPI Test Events readiness", "previous_percent": 74, "current_percent": 74, "delta_percent": 0},
+    "E": {"name": "Harness/HOLD Reducer", "previous_percent": 96, "current_percent": 97, "delta_percent": 1},
+    "F": {"name": "Frontend/Data Trust Dashboard", "previous_percent": 78, "current_percent": 79, "delta_percent": 1}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-37/00-result-report.md", "copy": "gptconfirm/gpt0508-37/00-result-report.md", "why_included": "종합 결과보고서"},
+    {"source": "gdn/path-b-canary-verdict-correction-20260511.md", "copy": "gptconfirm/gpt0508-37/01-path-b-canary-verdict-correction-20260511.md", "why_included": "작업1 정정 + 4-signal decision tree"},
+    {"source": "gdn/attribution-data-source-decision-guide-20260511.md", "copy": "gptconfirm/gpt0508-37/02-attribution-data-source-decision-guide-20260511.md", "why_included": "작업2 source guide v1 (CLAUDE.md 짧은 요약 동시 추가)"},
+    {"source": "gdn/payment-success-r2-input-audit-20260511.md", "copy": "gptconfirm/gpt0508-37/03-payment-success-r2-input-audit-20260511.md", "why_included": "작업3 input audit verdict R2_READY_SESSION_ONLY"},
+    {"source": "gdn/payment-success-order-bridge-r2-wire-20260511.md", "copy": "gptconfirm/gpt0508-37/04-payment-success-order-bridge-r2-wire-20260511.md", "why_included": "작업4 R2 wire 코드 + fixture 6/6 PASS"},
+    {"source": "gdn/payment-success-r2-backend-deploy-approval-20260511.md", "copy": "gptconfirm/gpt0508-37/05-payment-success-r2-backend-deploy-approval-20260511.md", "why_included": "작업5 deploy 승인 packet"},
+    {"source": "gdn/path-b-r2-vs-gtm-vs-imweb-footer-final-decision-20260511.md", "copy": "gptconfirm/gpt0508-37/06-path-b-r2-vs-gtm-vs-imweb-footer-final-decision-20260511.md", "why_included": "작업6 GTM/footer parked 결정"},
+    {"source": "gdn/operational-db-freshness-label-small-wire-20260511.md", "copy": "gptconfirm/gpt0508-37/07-operational-db-freshness-label-small-wire-20260511.md", "why_included": "작업7 freshness label small wire"},
+    {"source": "gptconfirm/gpt0508-37/08-telegram-completion-note.md", "copy": "gptconfirm/gpt0508-37/08-telegram-completion-note.md", "why_included": "telegram completion payload"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-37/99-total-current-copy.md", "why_included": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/path-b-canary-verdict-correction-20260511.json (gpt0508-36 산출물 + 본 sprint four_signal_decision_tree 추가)",
+    "data/attribution-data-source-decision-guide-20260511.json",
+    "data/payment-success-r2-input-audit-20260511.json",
+    "data/payment-success-order-bridge-r2-wire-20260511.json",
+    "data/payment-success-r2-backend-deploy-approval-20260511.json",
+    "data/operational-db-freshness-label-small-wire-20260511.json"
+  ],
+  "code_changes": [
+    {"file": "backend/src/routes/attribution.ts", "kind": "patch + new exported helper recordPaymentSuccessOrderBridgeLedger + payment-success 핸들러 wire", "loc_added_approx": 130, "typecheck": "PASS"},
+    {"file": "backend/tests/payment-success-order-bridge-r2-wire.test.ts", "kind": "new test", "loc": 218, "fixtures": 6, "test_pass": "6_of_6_466ms"},
+    {"file": "backend/src/routes/googleAds.ts", "kind": "patch + buildOperationalDbFreshness helper + dashboard response 필드 추가", "loc_added": 75, "typecheck": "PASS"},
+    {"file": "CLAUDE.md", "kind": "데이터 source 사용 순서 짧은 요약 섹션 추가 (gdn/attribution-data-source-decision-guide-20260511.md 정본 link)", "typecheck": "n/a"}
+  ],
+  "executions": {
+    "claude_code_directly_completed": [
+      "Path B canary verdict 정정 산출물 보강 (4-signal decision tree)",
+      "Attribution Data Source Decision Guide v1 작성 + CLAUDE.md 짧은 요약 추가",
+      "payment-success R2 input audit (R2_READY_SESSION_ONLY)",
+      "R2 wire 코드 patch + fixture 6/6 PASS",
+      "deploy approval packet 작성",
+      "GTM/footer fallback parked 결정",
+      "operationalDbFreshness backend small wire (75 LOC)"
+    ],
+    "tj_action_required": [
+      "R2 backend deploy (Yellow)",
+      "주간 1h canary 재실행 (Yellow)",
+      "Google Ads 옵션 3 결정 (Red)",
+      "Meta Test Events 코드 발급 (Yellow)"
+    ],
+    "platform_actual_send": 0,
+    "google_ads_upload": 0,
+    "gtm_publish": 0,
+    "operational_db_write": 0,
+    "raw_pii_logged": 0,
+    "send_candidate_count": 0,
+    "actual_send_candidate_count": 0,
+    "upload_candidate_count": 0,
+    "vm_deploy_executed": 0
+  },
+  "verification": {
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_check_strict": "PASS",
+    "git_diff_check": "PASS",
+    "backend_typecheck": "PASS",
+    "backend_test_payment_success_r2_wire": "PASS_6_OF_6_466ms",
+    "frontend_typecheck": "no_change",
+    "raw_pii_pattern_scan": "PASS"
+  },
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action 변경",
+    "GA4/Meta/TikTok/Naver 운영 전송",
+    "GTM Production publish",
+    "아임웹 footer/header 직접 수정",
+    "운영DB write",
+    "승인 없는 VM write/restart/deploy",
+    "raw email/phone/order/payment/member_code 저장 또는 logging",
+    "NPay click/count/add_payment_info 를 actual purchase로 승격",
+    "exact evidence 없는 NPay actual을 Google Ads campaign_id에 귀속",
+    "time-window-only attribution을 예산 판단에 사용",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING=true",
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED=true"
+  ]
+}

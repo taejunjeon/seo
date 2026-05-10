@@ -1,0 +1,64 @@
+{
+  "ok": true,
+  "schema_version": "operational_db_freshness_label_small_wire_20260511",
+  "generated_at_kst": "2026-05-11 01:35:00 KST",
+  "site": "biocom",
+  "purpose": "dashboard 응답에 운영DB 의 freshness (MAX(order_date), sync lag) 만 작은 scope 로 추가. R2 보다 우선하지 않음.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "scope_loc_added": 75,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/routes/googleAds.ts",
+      "kind": "patch + new helper + new response field",
+      "loc_added": 75,
+      "exports": ["OperationalDbFreshness"],
+      "new_internal_helpers": ["buildOperationalDbFreshness", "utcStringToKst"],
+      "response_field_added": "operationalDbFreshness"
+    }
+  ],
+  "new_response_field_shape": {
+    "operationalDbFreshness": {
+      "source": "operational_db_tb_iamweb_users",
+      "maxOrderDateKst": "string | null",
+      "maxPaymentCompleteKst": "string | null",
+      "syncLagMinutes": "number | null",
+      "status": "fresh | lagged | stale | unknown",
+      "warnings": ["..."]
+    }
+  },
+  "status_thresholds": {
+    "fresh": "syncLagMinutes <= 60",
+    "lagged": "60 < syncLagMinutes <= 360",
+    "stale": "syncLagMinutes > 360",
+    "unknown": "DATABASE_URL 미설정 또는 query 실패"
+  },
+  "verification": {
+    "backend_typecheck": "PASS",
+    "live_smoke_at_local_backend": "skipped (gpt0508-36 와 동일하게 local 7020 Google Ads API timeout 이라 deploy 후 운영 backend 에서 검증)",
+    "send_candidate / actual_send_candidate / upload_candidate": "no change (변경 없음)"
+  },
+  "expected_live_response_at_last_30d_after_deploy_with_current_lag": {
+    "operationalDbFreshness": {
+      "source": "operational_db_tb_iamweb_users",
+      "maxOrderDateKst": "2026-05-10 15:22:15 KST (예상 lag 9h 이상 시)",
+      "syncLagMinutes": 540,
+      "status": "stale",
+      "warnings": ["운영DB sync lag 6시간 초과. dashboard 카운트는 lag 기준값."]
+    }
+  },
+  "frontend_chip_proposal": {
+    "scope": "frontend/src/app/ads/google/page.tsx 의 internal Reconciliation panel 또는 Data Trust Guard 영역에 작은 chip 1개 추가",
+    "claude_code_decision": "본 sprint 에는 frontend chip 구현 안 함. R2 deploy 검증 후 다음 sprint 에서 작은 chip 추가 (조건부 렌더, status 별 색상)."
+  },
+  "deploy_status": {
+    "vm_backend_deploy_executed_in_this_sprint": false,
+    "reason": "본 sprint 의 Yellow 승인 범위 밖. R2 deploy approval packet (작업5) 와 함께 묶어 deploy 권장."
+  },
+  "verdict": "FRESHNESS_LABEL_PATCH_LIVE_VERIFICATION_PENDING_DEPLOY"
+}

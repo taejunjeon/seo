@@ -7,6 +7,7 @@ import {
   fetchNpayActualConfirmedSnapshot,
   type NpayActualConfirmedSnapshot,
 } from "../npayActualConfirmedPgReader";
+import { isDatabaseConfigured, queryPg } from "../postgres";
 import { env } from "../env";
 
 const GOOGLE_ADS_SCOPE = "https://www.googleapis.com/auth/adwords";
@@ -1540,6 +1541,87 @@ const buildNpayActualCorrection = async (
 const round2safe = (value: number) => (Number.isFinite(value) ? Math.round(value * 100) / 100 : 0);
 const round4 = (value: number) => Math.round(value * 10000) / 10000;
 
+export type OperationalDbFreshness = {
+  source: "operational_db_tb_iamweb_users";
+  maxOrderDateKst: string | null;
+  maxPaymentCompleteKst: string | null;
+  syncLagMinutes: number | null;
+  status: "fresh" | "lagged" | "stale" | "unknown";
+  warnings: string[];
+};
+
+const utcStringToKst = (value: string | null): string | null => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getTime() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .replace("T", " ")
+    .replace("Z", " KST");
+};
+
+const buildOperationalDbFreshness = async (): Promise<OperationalDbFreshness> => {
+  if (!isDatabaseConfigured()) {
+    return {
+      source: "operational_db_tb_iamweb_users",
+      maxOrderDateKst: null,
+      maxPaymentCompleteKst: null,
+      syncLagMinutes: null,
+      status: "unknown",
+      warnings: ["DATABASE_URL 미설정"],
+    };
+  }
+  try {
+    const { rows } = await queryPg<{
+      max_order_date: string | null;
+      max_payment_complete: string | null;
+    }>(
+      `SELECT
+        MAX(NULLIF(TRIM(order_date::text),'')::timestamp) AS max_order_date,
+        MAX(NULLIF(TRIM(payment_complete_time::text),'')::timestamp) AS max_payment_complete
+      FROM public.tb_iamweb_users
+      WHERE NULLIF(TRIM(order_date::text),'') IS NOT NULL`,
+    );
+    const row = rows[0];
+    const maxOrderDateKst = utcStringToKst(row?.max_order_date ?? null);
+    const maxPaymentCompleteKst = utcStringToKst(row?.max_payment_complete ?? null);
+    const orderDateMs = row?.max_order_date ? Date.parse(row.max_order_date) : NaN;
+    const syncLagMinutes = Number.isFinite(orderDateMs)
+      ? Math.max(0, Math.round((Date.now() - orderDateMs) / 60000))
+      : null;
+    const status: OperationalDbFreshness["status"] =
+      syncLagMinutes == null
+        ? "unknown"
+        : syncLagMinutes <= 60
+          ? "fresh"
+          : syncLagMinutes <= 360
+            ? "lagged"
+            : "stale";
+    return {
+      source: "operational_db_tb_iamweb_users",
+      maxOrderDateKst,
+      maxPaymentCompleteKst,
+      syncLagMinutes,
+      status,
+      warnings:
+        status === "stale"
+          ? ["운영DB sync lag 6시간 초과. dashboard 카운트는 lag 기준값."]
+          : status === "lagged"
+            ? ["운영DB sync lag 1시간 초과. 카운트는 lag 기준값."]
+            : [],
+    };
+  } catch (error) {
+    return {
+      source: "operational_db_tb_iamweb_users",
+      maxOrderDateKst: null,
+      maxPaymentCompleteKst: null,
+      syncLagMinutes: null,
+      status: "unknown",
+      warnings: [error instanceof Error ? `freshness_query_error: ${error.message}` : "freshness_query_error"],
+    };
+  }
+};
+
 export const createGoogleAdsRouter = () => {
   const router = express.Router();
 
@@ -1643,6 +1725,7 @@ export const createGoogleAdsRouter = () => {
         Number(internal.summary.platformCost ?? summary.cost ?? 0),
         Number(internal.summary.confirmedOrders ?? 0),
       );
+      const operationalDbFreshness = await buildOperationalDbFreshness();
 
       res.json({
         ok: true,
@@ -1664,6 +1747,7 @@ export const createGoogleAdsRouter = () => {
         conversionActionSegments,
         internal,
         npayActualCorrection,
+        operationalDbFreshness,
         diagnostics: {
           campaignRows: campaigns.length,
           dailyRows: daily.length,
