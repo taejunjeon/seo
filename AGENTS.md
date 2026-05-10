@@ -73,6 +73,7 @@
 - **pre-commit hook 설치** (sprint 23.3): 본 환경 1회 실행 — `bash scripts/install-harness-precommit.sh`. 설치 후 Growth Data 관련 영역 변경 commit 시 `harness-preflight-check.py --strict` 자동 호출. 긴급 bypass: `SKIP_HARNESS_PREFLIGHT=1 git commit ...` (완료 보고에 명시 의무).
 - 보고서형 프론트엔드 구현·수정 시 루트 `frontrule.md`를 먼저 참고하시오.
 - GA4/NPay/ROAS/TikTok/BigQuery/운영DB 정합성 작업 시 `docs/agent-harness/growth-data-harness-v0.md`와 `harness/npay-recovery/README.md`를 먼저 참고하시오.
+- GTM Preview/workspace 작업 시 `harness/common/HARNESS_GUIDELINES.md`의 GTM Workspace Hygiene Rule을 따르시오. Default Workspace 사용 금지, live latest 기준 fresh workspace, workspace capacity preflight, cleanup 전 JSON backup, live version unchanged, submit/create_version/publish 금지를 확인하시오.
 - NPay recovery 또는 전환 복구 작업에서는 `harness/npay-recovery/RULES.md`, `VERIFY.md`, `APPROVAL_GATES.md`, `AUDITOR_CHECKLIST.md`를 기준으로 no-send/no-write/no-deploy를 확인하시오.
 - 더클린커피 GA4/Imweb/NPay/Excel/ROAS 정합성 작업 시 `harness/coffee-data/README.md`, `RULES.md`, `VERIFY.md`, `AUDITOR_CHECKLIST.md`를 먼저 참고하시오.
 

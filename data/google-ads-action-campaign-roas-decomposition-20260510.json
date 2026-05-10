@@ -1,0 +1,254 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 16:07:09 KST",
+  "site": "biocom",
+  "mode": "green_read_only_google_ads_snapshot_plus_internal_confirmed",
+  "source_window": {
+    "google_ads_snapshot": {
+      "customerId": "2149990943",
+      "apiVersion": "v22",
+      "clientEmail": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+      "projectId": "seo-aeo-487113",
+      "during": "LAST_14_DAYS"
+    },
+    "google_ads_snapshot_generated_at": "2026-05-05T02:39:33.287Z",
+    "internal_confirmed_input": {
+      "primary_confirmed_source": "operational_db_payment_complete",
+      "secondary_evidence_sources": [
+        "vm_cloud_order_evidence",
+        "vm_cloud_confirmed_purchase_prep",
+        "path_b_controlled_evidence"
+      ],
+      "operational_source_freshness": {
+        "imweb_operational": {
+          "row_count": 98909,
+          "source_max_payment_complete_at": "2026-05-09T18:50:10.000Z",
+          "source_max_order_date_at": "2026-05-10T03:49:53.000Z",
+          "source_lag_hours": 11.4,
+          "freshness_status": "fresh",
+          "freshness_note": "fresh 기준. 그래도 외부 전송 전에는 최신성 재확인이 필요하다."
+        }
+      },
+      "operational_window": {
+        "start": "2026-05-10",
+        "end": "2026-05-10",
+        "start_at": "2026-05-10T00:00:00+09:00",
+        "end_exclusive_at": "2026-05-11T00:00:00+09:00",
+        "timezone_note": "operational order paidAt filter uses KST day boundaries converted to timestamptz. This avoids excluding KST orders that are still previous-day UTC."
+      },
+      "vm_prep_summary": {
+        "candidate_count": 35,
+        "excluded_order_count": 12,
+        "homepage_count": 35,
+        "npay_actual_count": 0,
+        "path_a_match_count": 0,
+        "path_c_match_count": 0,
+        "path_c_uplift": 0,
+        "missing_member_code": 0,
+        "missing_paid_click_intent": 0,
+        "outside_window": 0,
+        "after_paid_at": 0,
+        "ambiguous": 0,
+        "already_in_ga4": 0,
+        "send_candidate": 0,
+        "with_member_code": 35,
+        "member_code_column_absent": 35
+      }
+    },
+    "internal_confirmed_generated_at_kst": "2026-05-10 15:57:45 KST",
+    "comparability": "warning_not_same_window"
+  },
+  "source_availability": {
+    "google_ads_api_realtime": "api_token_biocom_present_but_current_readonly_script_requires_google_ads_developer_token",
+    "google_ads_snapshot": "available_20260505_last14_fallback",
+    "internal_confirmed": "available_20260510_operational_db_primary",
+    "vm_cloud": "supporting_evidence_only"
+  },
+  "summary": {
+    "platform_cost_snapshot": 11116542.4,
+    "platform_conversion_value_snapshot": 123495273.53,
+    "platform_all_conversion_value_snapshot": 237312855.63,
+    "platform_roas_snapshot": 11.11,
+    "platform_all_roas_snapshot": 21.35,
+    "primary_npay_value_snapshot": 123495262.24,
+    "primary_npay_share_of_platform_value_snapshot": 1,
+    "secondary_npay_all_value_snapshot": 112498370.71,
+    "internal_confirmed_revenue_current_window": 862000,
+    "internal_confirmed_homepage_revenue_current_window": 745000,
+    "internal_confirmed_npay_revenue_current_window": 117000,
+    "internal_google_attributed_revenue_current_window": 0,
+    "platform_minus_internal_revenue_gap_not_comparable": 122633273.53,
+    "send_candidate": 0,
+    "actual_send_candidate": 0,
+    "google_ads_upload_count": 0
+  },
+  "conversion_action_summary": [
+    {
+      "id": "7130249515",
+      "name": "구매완료",
+      "status": "ENABLED",
+      "type": "WEBPAGE",
+      "category": "PURCHASE",
+      "primary_for_goal": true,
+      "counting_type": "MANY_PER_CLICK",
+      "send_to": [
+        "AW-304339096/r0vuCKvy-8caEJixj5EB"
+      ],
+      "labels": [
+        "r0vuCKvy-8caEJixj5EB"
+      ],
+      "classification": "primary_npay_count_label",
+      "risk": "high",
+      "reason": "Google Ads Primary 전환=입찰 학습에 쓰는 핵심 구매 신호가 NPay click/count 계열 label에 묶여 있을 가능성",
+      "recommended_action": "confirmed_purchase 별도 전환 준비 전까지 upload/change HOLD"
+    },
+    {
+      "id": "7564830949",
+      "name": "TechSol - NPAY구매 50739",
+      "status": "ENABLED",
+      "type": "WEBPAGE",
+      "category": "PURCHASE",
+      "primary_for_goal": false,
+      "counting_type": "MANY_PER_CLICK",
+      "send_to": [
+        "AW-304339096/3yjICOXRmJccEJixj5EB"
+      ],
+      "labels": [
+        "3yjICOXRmJccEJixj5EB"
+      ],
+      "classification": "secondary_npay_click_label",
+      "risk": "medium",
+      "reason": "NPay 버튼 클릭/intent 전환으로 보이며 실제 결제완료와 분리 필요",
+      "recommended_action": "read-only audit 유지, pause/delete는 별도 승인 전 금지"
+    }
+  ],
+  "campaign_summary": [
+    {
+      "campaign_id": "22018174474",
+      "campaign_name": "[PM]건기식 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSIONS",
+      "cost": 4184673.89,
+      "platform_conversion_value": 41669299.15,
+      "platform_all_conversion_value": 80347379.19,
+      "platform_roas": 9.96,
+      "primary_npay_value": 41669299.15,
+      "primary_npay_share_of_platform_value": 1,
+      "secondary_npay_all_value": 38676194.9,
+      "affected_by_npay_primary": true,
+      "internal_confirmed_revenue_matched_to_campaign": 0,
+      "internal_match_status": "not_joined_missing_campaign_click_key",
+      "recommended_budget_action_from_snapshot": "reduce_or_pause_test"
+    },
+    {
+      "campaign_id": "21807994952",
+      "campaign_name": "[PM]검사권 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSIONS",
+      "cost": 3418000.69,
+      "platform_conversion_value": 53158637.78,
+      "platform_all_conversion_value": 108225560.38,
+      "platform_roas": 15.55,
+      "primary_npay_value": 53158632.73,
+      "primary_npay_share_of_platform_value": 1,
+      "secondary_npay_all_value": 54817259.97,
+      "affected_by_npay_primary": true,
+      "internal_confirmed_revenue_matched_to_campaign": 0,
+      "internal_match_status": "not_joined_missing_campaign_click_key",
+      "recommended_budget_action_from_snapshot": "reduce_or_pause_test"
+    },
+    {
+      "campaign_id": "23171999678",
+      "campaign_name": "[PM] 이벤트",
+      "status": "PAUSED",
+      "channel": "PERFORMANCE_MAX",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSIONS",
+      "cost": 2820143.84,
+      "platform_conversion_value": 27338330.36,
+      "platform_all_conversion_value": 47106481.48,
+      "platform_roas": 9.69,
+      "primary_npay_value": 27338330.36,
+      "primary_npay_share_of_platform_value": 1,
+      "secondary_npay_all_value": 18706915.84,
+      "affected_by_npay_primary": true,
+      "internal_confirmed_revenue_matched_to_campaign": 0,
+      "internal_match_status": "not_joined_missing_campaign_click_key",
+      "recommended_budget_action_from_snapshot": "reduce_or_pause_test"
+    },
+    {
+      "campaign_id": "14629255429",
+      "campaign_name": "[SA]바이오컴 검사권",
+      "status": "ENABLED",
+      "channel": "SEARCH",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSIONS",
+      "cost": 693720.89,
+      "platform_conversion_value": 1329006.24,
+      "platform_all_conversion_value": 1633434.57,
+      "platform_roas": 1.92,
+      "primary_npay_value": 1329000,
+      "primary_npay_share_of_platform_value": 1,
+      "secondary_npay_all_value": 298000,
+      "affected_by_npay_primary": true,
+      "internal_confirmed_revenue_matched_to_campaign": 0,
+      "internal_match_status": "not_joined_missing_campaign_click_key",
+      "recommended_budget_action_from_snapshot": "keep_low_cap_until_confirmed_signal"
+    },
+    {
+      "campaign_id": "23820127165",
+      "campaign_name": "[PMAX] 바이오컴 검사권 캠페인",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "bidding_strategy_type": "MAXIMIZE_CONVERSION_VALUE",
+      "cost": 3.1,
+      "platform_conversion_value": 0,
+      "platform_all_conversion_value": 0,
+      "platform_roas": 0,
+      "primary_npay_value": 0,
+      "primary_npay_share_of_platform_value": null,
+      "secondary_npay_all_value": 0,
+      "affected_by_npay_primary": false,
+      "internal_confirmed_revenue_matched_to_campaign": 0,
+      "internal_match_status": "not_joined_missing_campaign_click_key",
+      "recommended_budget_action_from_snapshot": "monitor"
+    }
+  ],
+  "gap_drivers": [
+    {
+      "key": "primary_npay_count_label",
+      "severity": "high",
+      "value_snapshot": 123495262.24,
+      "evidence": "2026-05-05 LAST_14_DAYS snapshot classified almost all platform Conv. value as primary_npay_count_label.",
+      "next_action": "live Google Ads API token 확보 후 action/campaign refresh"
+    },
+    {
+      "key": "missing_order_level_google_click_id",
+      "severity": "high",
+      "value_snapshot": 862000,
+      "evidence": "2026-05-10 operational confirmed 4건 중 Google click id present 0건.",
+      "next_action": "Path B/order_bridge paid click join dry-run and confirmed_purchase no-send candidate review"
+    },
+    {
+      "key": "window_mismatch",
+      "severity": "medium",
+      "value_snapshot": 0,
+      "evidence": "Google Ads fallback snapshot and internal confirmed input have different windows.",
+      "next_action": "same-window Google Ads API or export refresh"
+    }
+  ],
+  "guards": {
+    "platform_send_count": 0,
+    "google_ads_upload_count": 0,
+    "raw_pii_output_count": 0,
+    "send_candidate": 0,
+    "actual_send_candidate": 0
+  },
+  "blockers": [
+    "google_ads_readonly_script_env_mapping_required_for_live_refresh"
+  ],
+  "inputs": {
+    "snapshot": "data/google-ads-campaign-signal-audit-20260505-last14.json",
+    "integrated_input": "data/confirmed-purchase-integrated-input-20260510.json"
+  }
+}

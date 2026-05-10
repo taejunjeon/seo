@@ -1,0 +1,87 @@
+{
+  "batch": "gpt0508-27",
+  "created_at_kst": "2026-05-10 16:17:37 KST",
+  "purpose": "Google/NPay ROAS correction: confirmed purchase integrated input, Google Ads decomposition, funnel quality, Meta readiness, and harness patch",
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-27/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-27/00-result-report.md",
+      "why_included": "Batch summary and approval boundary",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/confirmed-purchase-integrated-input-dry-run-20260510.md",
+      "copy": "gptconfirm/gpt0508-27/01-confirmed-purchase-integrated-input-dry-run-20260510.md",
+      "why_included": "ConfirmedPurchasePrep integrated no-send input result",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/google-ads-action-campaign-roas-decomposition-20260510.md",
+      "copy": "gptconfirm/gpt0508-27/02-google-ads-action-campaign-roas-decomposition-20260510.md",
+      "why_included": "Google Ads action/campaign platform value decomposition",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/channel-campaign-funnel-quality-20260510.md",
+      "copy": "gptconfirm/gpt0508-27/03-channel-campaign-funnel-quality-20260510.md",
+      "why_included": "BigQuery channel/campaign funnel quality read-only result",
+      "approval_needed": false
+    },
+    {
+      "source": "naver/npay-click-vs-actual-purchase-closure-20260510.md",
+      "copy": "gptconfirm/gpt0508-27/04-npay-click-vs-actual-purchase-closure-20260510.md",
+      "why_included": "NPay click/count/add_payment_info versus actual confirmed purchase closure",
+      "approval_needed": false
+    },
+    {
+      "source": "capivm/meta-funnel-capi-readiness-20260510.md",
+      "copy": "gptconfirm/gpt0508-27/05-meta-funnel-capi-readiness-20260510.md",
+      "why_included": "Meta funnel CAPI readiness and no-send boundary",
+      "approval_needed": false
+    },
+    {
+      "source": "agent/codex-multi-agent-usage-plan-20260510.md",
+      "copy": "gptconfirm/gpt0508-27/06-codex-multi-agent-usage-plan-20260510.md",
+      "why_included": "Subagent/worktree parallelization plan",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-27/07-harness-patch-result-20260510.md",
+      "copy": "gptconfirm/gpt0508-27/07-harness-patch-result-20260510.md",
+      "why_included": "HOLD Reducer and GTM lifecycle actual patch result",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-27/99-total-current-copy.md",
+      "why_included": "Current canonical total document snapshot",
+      "approval_needed": false
+    }
+  ],
+  "generated_data": [
+    "data/confirmed-purchase-integrated-input-20260510.json",
+    "data/google-ads-action-campaign-roas-decomposition-20260510.json",
+    "data/channel-campaign-funnel-quality-20260510.json"
+  ],
+  "forbidden_actions_not_taken": [
+    "GTM Production publish",
+    "Google Ads conversion upload",
+    "Google Ads conversion action change",
+    "GA4/Meta/TikTok/Naver actual send",
+    "VM Cloud write",
+    "operational DB write",
+    "raw email/phone/member_code/order/payment storage or logging"
+  ],
+  "next_green": [
+    "Google Ads live action/campaign read-only refresh",
+    "ConfirmedPurchasePrep same-window no-send candidate recalculation",
+    "TechSol NPay click conversion inventory",
+    "NPay channel_order_no to internal order_number mapping dry-run"
+  ],
+  "next_red_or_yellow_hold": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action change",
+    "GTM Production publish",
+    "Meta CAPI operational send"
+  ]
+}

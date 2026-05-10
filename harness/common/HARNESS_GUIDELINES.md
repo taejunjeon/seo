@@ -23,6 +23,7 @@
 7. 이미 승인된 Yellow Lane은 다시 승인 요청으로 돌리지 않는다.
 8. 안전한 범위 안에서는 문서 작성에서 멈추지 말고 실행, 검증, 결과보고까지 간다.
 9. 실행이 막히면 `승인 부족`이라고 뭉뚱그리지 말고 `접근 권한`, `브라우저/CORS`, `데이터 부족`, `계정/2FA`, `기술 실패` 중 어디서 막혔는지 특정한다.
+10. HOLD가 나오면 TJ님 승인 대기로 바로 넘기지 말고 `AUTONOMY_POLICY.md`의 HOLD Reducer Rule에 따라 Green follow-up을 먼저 수행한다.
 
 ## 목적
 
@@ -65,6 +66,10 @@
 좋은 보고:
 
 - “Preview only 승인 범위 안에서 실행했고, storage 저장은 성공했지만 local receiver 호출은 mixed content로 실패했다. 따라서 publish는 하지 않았고, 다음은 tunnel 또는 제한 테스트 deploy 승인안이다.”
+
+## HOLD Reducer Pointer
+
+HOLD는 최종 보고 상태가 아니다. HOLD가 나오면 먼저 원인을 분류하고, read-only 조사, dry-run, 로컬 테스트, 문서 보강, 검증 스크립트처럼 Green Lane으로 줄일 수 있는 follow-up을 자동 수행한다. 남은 blocker가 Yellow/Red/권한/사업 판단일 때만 TJ님에게 넘긴다. 상세 taxonomy와 보고 필드는 `AUTONOMY_POLICY.md`와 `REPORTING_TEMPLATE.md`를 따른다.
 
 ## Green Lane Autonomy Rule
 

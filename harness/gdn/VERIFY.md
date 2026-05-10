@@ -125,6 +125,30 @@ curl "http://localhost:7020/api/google-ads/dashboard?date_preset=last_30d"
 
 로컬 개발 DB만 사용한 경우 `confidence=low` 또는 `fallback`으로 표기한다.
 
+## HOLD Reducer 검증
+
+결과가 HOLD이면 승인 대기로 넘기기 전에 Green follow-up을 수행했는지 확인한다.
+
+| 항목 | PASS 기준 |
+|---|---|
+| hold_reason_category | missing_click_bridge / ambiguous_candidates / blocked_access 등 원인 category가 있음 |
+| auto_green_followups_done | read-only 재조회, dry-run, source audit, fixture, 문서 보강 중 수행한 항목이 있음 |
+| remaining_blocker | 남은 blocker가 Yellow / Red / 권한 / 데이터 부족 / 시간 대기 중 무엇인지 명시됨 |
+| TJ님 할 일 | Green Lane으로 가능한 일이 TJ님 할 일로 넘어가지 않음 |
+| next_lane | 다음 액션이 Green / Yellow / Red 중 어디인지 명확함 |
+
+보고 형식:
+
+```text
+HOLD reducer:
+- hold_reason_category:
+- auto_green_followups_done:
+- remaining_blocker:
+- green_work_left_for_codex:
+- tj_action_required:
+- next_lane:
+```
+
 ## GTM / Tracking 검증
 
 tracking 경로 판단이 있으면 아래를 확인한다.
