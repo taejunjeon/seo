@@ -1,0 +1,102 @@
+{
+  "ok": true,
+  "schema_version": "path_b_canary_verdict_correction_20260511",
+  "generated_at_kst": "2026-05-11 00:23:00 KST",
+  "site": "biocom",
+  "supersedes": "data/path-b-order-bridge-canary-post-audit-20260511.json (NO_TRAFFIC verdict)",
+  "verdict_revised": "PATH_B_ENDPOINT_NOT_CALLED_BY_CHECKOUT_FLOW",
+  "verdict_revised_definition": "1h canary 윈도우(2026-05-10 23:03~24:03 KST) 동안 imweb 결제 5건이 실제 발생했고 VM backend의 /api/attribution/payment-success는 정상 호출됐으나, Path B no-send endpoint(/api/attribution/order-bridge/identity-hmac/no-send)는 0건 호출 — 즉 트래픽이 없는 게 아니라 결제 flow에서 Path B endpoint를 호출하는 frontend wiring이 부재.",
+  "harness_preflight": {
+    "lane": "Green_correction",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "confidence": 0.95
+  },
+  "user_provided_evidence_imweb_admin_orders_during_canary": [
+    {"order_no_tail": "6214", "order_time_kst": "2026-05-10 23:46", "payment_method": "NAVERPAY_ORDER", "payment_status": "입금 대기", "amount_krw": 35000},
+    {"order_no_tail": "7423", "order_time_kst": "2026-05-10 23:23", "payment_method": "신용카드", "payment_status": "배송 대기", "amount_krw": 193000},
+    {"order_no_tail": "5292", "order_time_kst": "2026-05-10 23:22", "payment_method": "신용카드", "payment_status": "배송 대기", "amount_krw": 459000},
+    {"order_no_tail": "6482", "order_time_kst": "2026-05-10 23:19", "payment_method": "신용카드", "payment_status": "배송 대기", "amount_krw": 102910},
+    {"order_no_tail": "5597", "order_time_kst": "2026-05-10 23:06", "payment_method": "신용카드", "payment_status": "배송 대기", "amount_krw": 245000}
+  ],
+  "operational_pg_sync_lag_observed": {
+    "pg_now_kst_at_audit": "2026-05-11 00:15:07 KST",
+    "max_order_date_in_pg_kst": "2026-05-10 15:22:15 KST",
+    "sync_lag_hours_approx": 8.9,
+    "interpretation": "운영 PG `tb_iamweb_users`는 imweb 자체 DB → PG sync가 약 9시간 지연된 상태. canary 윈도우 5건 모두 imweb 자체 DB에는 있으나 본 audit 시점에 PG에는 반영 안 됨. 직전 sprint 보고된 source_lag_hours=3.1 보다 크게 늘어났다."
+  },
+  "vm_backend_endpoint_call_audit_during_canary_14_03_to_15_03_utc": {
+    "payment_success_endpoint_called": true,
+    "payment_success_observed_calls_kst": ["23:25:12", "23:26:15", "24:02:27", "24:02:32"],
+    "payment_success_status_codes": ["201", "204(OPTIONS)", "201"],
+    "paid_click_intent_receiver_cumulative_total_calls": 8306,
+    "path_b_no_send_endpoint_calls_during_window": 0,
+    "path_b_no_send_endpoint_calls_cumulative": 41,
+    "order_bridge_identity_hmac_receiver_token_responses_in_log": 0,
+    "interpretation": "결제완료 신호는 backend에 정상 도달. paid_click_intent receiver는 정상 누적 중. 그러나 Path B no-send endpoint는 본 sprint canary 1h 동안 0건 호출 — 이전 누적 41건은 Tag Assistant/canary 테스트 합산."
+  },
+  "root_cause_revised": [
+    "imweb footer/funnel-capi v3 코드가 결제완료 시점에 `/api/attribution/order-bridge/identity-hmac/no-send` 를 호출하는 wiring이 부재하거나 비활성이다.",
+    "현재 결제완료 신호는 `/api/attribution/payment-success` 한 곳으로만 들어오고, 거기서 자동으로 order_bridge_ledger에 hash-only 기록을 만드는 backend 분기도 없다.",
+    "그래서 Path B endpoint를 켜도 ledger가 누적되지 않는 게 정상 — write_flag 자체는 이미 'true' 상태였지만 입력 자체가 0건이었다."
+  ],
+  "previous_no_traffic_verdict_was_misleading": {
+    "what_was_observed": "ledger row delta 0",
+    "what_was_inferred_incorrectly": "야간이라 결제 트래픽 0건으로 추정",
+    "what_actually_happened": "결제 5건 발생, payment-success endpoint 호출 OK, paid_click_intent receiver 정상 누적, 그러나 Path B endpoint 호출은 0",
+    "why_inference_was_wrong": "Claude Code가 imweb admin DB나 backend access log를 본 sprint canary 검증 단계에서 직접 보지 않고 ledger summary 한 곳만으로 판단함",
+    "lesson_for_next_canary": "ledger summary delta + payment-success/paid_click_intent receiver 호출 수 + imweb admin 또는 PG fresh order count 셋 다 같이 확인해야 NO_TRAFFIC vs ENDPOINT_NOT_CALLED 를 구분 가능"
+  },
+  "remediation_options_for_next_canary": [
+    {
+      "option_id": "R1",
+      "name": "imweb footer/funnel-capi v3에 Path B endpoint 호출 코드 추가",
+      "lane": "Yellow",
+      "scope": "imweb 헤더/푸터 코드 (capivm/biocom_imwebcode_최신.md 영역 또는 footer/ 디렉터리)",
+      "what": "결제완료 시점에 `POST /api/attribution/order-bridge/identity-hmac/no-send` 를 hash-only payload로 호출하는 코드 추가",
+      "blast_radius": "imweb production code 변경 — 별도 Yellow 승인 필요",
+      "verification": "Tag Assistant 1회 결제 흐름 + ledger row +1 확인",
+      "claude_code_substitution_possible": false,
+      "tj_required_step": "imweb 어드민에서 footer 코드 수정 또는 GTM Preview에 추가"
+    },
+    {
+      "option_id": "R2",
+      "name": "VM backend에 payment-success → order_bridge_ledger 자동 기록 분기 추가",
+      "lane": "Yellow code",
+      "scope": "backend/src/routes/attribution.ts payment-success 핸들러 내부에서 hashed identity material을 만들고 recordOrderBridgeLedger 호출",
+      "blast_radius": "backend deploy 필요. write_flag_on=true 윈도우에서만 동작.",
+      "verification": "fixture + 운영 deploy 후 결제완료 시 ledger +1 자동 누적 확인",
+      "claude_code_substitution_possible": "코드 작성/typecheck/fixture 까지 가능, deploy는 TJ Yellow"
+    },
+    {
+      "option_id": "R3",
+      "name": "controlled traffic injection (Tag Assistant 1회)",
+      "lane": "Yellow",
+      "scope": "TJ Tag Assistant로 imweb 결제 1건 controlled injection",
+      "what": "Path B endpoint를 직접 호출하는 단일 테스트 결제로 ledger row +1 확인",
+      "blast_radius": "단일 결제, 즉시 회수 가능",
+      "verification": "ledger summary +1 확인",
+      "claude_code_substitution_possible": false
+    }
+  ],
+  "recommended_action_after_correction": {
+    "primary_recommendation": "R2 (backend payment-success 핸들러에서 자동 hash-only ledger 기록)",
+    "rationale": "imweb footer 코드 변경(R1) 없이 backend code patch만으로 wiring을 닫을 수 있고, Claude Code가 코드/fixture/typecheck 까지 직접 진행 가능. deploy는 별도 Yellow.",
+    "confidence_pct": 84,
+    "dependency": "직전 NPay snapshot wire(이미 완료) + payment-success 핸들러 안의 input 구조 분석"
+  },
+  "npay_snapshot_caveat": {
+    "current_npay_30d_count_in_pg": 209,
+    "actual_npay_30d_in_imweb_admin_likely_higher_due_to_sync_lag": true,
+    "caveat_to_add_to_dashboard_cards": "NPay actual snapshot은 운영 PG sync 기준이며, imweb 자체 DB와 약 9시간 lag가 있을 수 있다. 다음 dashboard fetch 시점에 sync 진척에 따라 카운트가 변동 가능.",
+    "next_sprint_action": "PG sync lag 모니터링 카드를 dashboard에 추가하거나 max(order_date) freshness 라벨 노출"
+  },
+  "verdict_chain_for_audit_trail": [
+    "gpt0508-35 작업1: EXECUTION_HALTED_BLOCKED_ACCESS_TJ_VM_TOGGLE_REQUIRED",
+    "gpt0508-35 후속 (gpt0508-36 작업1 직전): VM toggle 직접 실행 OK",
+    "gpt0508-36 작업6 초안: CANARY_COMPLETE_NO_TRAFFIC (잘못된 inference)",
+    "gpt0508-36 작업6 정정 (본 산출물): PATH_B_ENDPOINT_NOT_CALLED_BY_CHECKOUT_FLOW (사용자 imweb admin 스크린샷으로 정정됨)"
+  ]
+}
