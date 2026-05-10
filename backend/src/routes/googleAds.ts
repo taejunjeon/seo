@@ -89,6 +89,7 @@ type GoogleAdsSearchResult =
 type GoogleAdsClientContext = {
   token: string;
   customerId: string;
+  loginCustomerId: string | null;
   apiVersion: string;
   developerToken: string;
   clientEmail: string | null;
@@ -419,6 +420,9 @@ const createGoogleAdsContext = async (customerIdInput: unknown): Promise<GoogleA
   return {
     token,
     customerId: normalizeCustomerId(customerIdInput),
+    loginCustomerId: env.GOOGLE_ADS_LOGIN_CUSTOMER_ID
+      ? env.GOOGLE_ADS_LOGIN_CUSTOMER_ID.replace(/\D/g, "")
+      : null,
     apiVersion: env.GOOGLE_ADS_API_VERSION,
     developerToken,
     clientEmail,
@@ -436,6 +440,7 @@ const googleAdsSearch = async (
     headers: {
       Authorization: `Bearer ${context.token}`,
       "developer-token": context.developerToken,
+      ...(context.loginCustomerId ? { "login-customer-id": context.loginCustomerId } : {}),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ query }),

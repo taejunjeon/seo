@@ -1,0 +1,249 @@
+{
+  "generatedAt": "2026-05-10T09:28:48.522Z",
+  "mode": "read-only Google Ads API search",
+  "source": {
+    "customerId": "2149990943",
+    "apiVersion": "v22",
+    "clientEmail": "seo-656@seo-aeo-487113.iam.gserviceaccount.com",
+    "projectId": "seo-aeo-487113",
+    "during": "LAST_7_DAYS"
+  },
+  "definitions": {
+    "primaryNpayLabel": "AW-304339096/r0vuCKvy-8caEJixj5EB",
+    "secondaryNpayLabel": "AW-304339096/3yjICOXRmJccEJixj5EB",
+    "searchIntentCampaign": "Campaigns with advertising_channel_type=SEARCH, usually explicit keyword/search demand. This is not generic traffic; it is demand capture."
+  },
+  "totals": {
+    "cost": 3973244.31,
+    "conversionValue": 46489814.17,
+    "allConversionValue": 91329588.52,
+    "roas": 11.7,
+    "primaryNpayValue": 46489804.99,
+    "primaryNpayShareOfPlatformValue": 1,
+    "secondaryNpayAllValue": 43969090.27
+  },
+  "actions": [
+    {
+      "resourceName": "customers/2149990943/conversionActions/7130249515",
+      "id": "7130249515",
+      "name": "구매완료",
+      "status": "ENABLED",
+      "type": "WEBPAGE",
+      "category": "PURCHASE",
+      "primaryForGoal": true,
+      "countingType": "MANY_PER_CLICK",
+      "clickWindowDays": 7,
+      "viewWindowDays": 7,
+      "sendTo": [
+        "AW-304339096/r0vuCKvy-8caEJixj5EB"
+      ],
+      "labels": [
+        "r0vuCKvy-8caEJixj5EB"
+      ],
+      "classification": "primary_npay_count_label"
+    },
+    {
+      "resourceName": "customers/2149990943/conversionActions/7564830949",
+      "id": "7564830949",
+      "name": "TechSol - NPAY구매 50739",
+      "status": "ENABLED",
+      "type": "WEBPAGE",
+      "category": "PURCHASE",
+      "primaryForGoal": false,
+      "countingType": "MANY_PER_CLICK",
+      "clickWindowDays": 90,
+      "viewWindowDays": 1,
+      "sendTo": [
+        "AW-304339096/3yjICOXRmJccEJixj5EB"
+      ],
+      "labels": [
+        "3yjICOXRmJccEJixj5EB"
+      ],
+      "classification": "secondary_npay_click_label"
+    }
+  ],
+  "campaignAudit": [
+    {
+      "campaignId": "22018174474",
+      "campaignName": "[PM]건기식 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+      "biddingStrategy": "",
+      "budgetName": "[PM]건기식 실적최대화",
+      "budgetAmount": 320000,
+      "cost": 2184089.341518,
+      "impressions": 89212,
+      "clicks": 3769,
+      "conversions": 351,
+      "conversionValue": 31438304.98875933,
+      "allConversions": 890.852686,
+      "allConversionValue": 62215569.50667453,
+      "viewThroughConversions": 5,
+      "roas": 14.39,
+      "allRoas": 28.49,
+      "ctr": 0.0422,
+      "cvr": 0.0931,
+      "primaryNpayValue": 31438304.99,
+      "primaryNpayConversions": 351,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 30424126.82,
+      "secondaryNpayAllConversions": 345,
+      "otherPrimaryValue": 0,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "reduce_or_pause_test"
+    },
+    {
+      "campaignId": "21807994952",
+      "campaignName": "[PM]검사권 실적최대화",
+      "status": "ENABLED",
+      "channel": "PERFORMANCE_MAX",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSION_VALUE",
+      "biddingStrategy": "",
+      "budgetName": "[PM]검사권 실적최대화",
+      "budgetAmount": 240000,
+      "cost": 1019035.26735,
+      "impressions": 55158,
+      "clicks": 1702,
+      "conversions": 118.182344,
+      "conversionValue": 13744404.182344,
+      "allConversions": 308.392668,
+      "allConversionValue": 27800717.830644004,
+      "viewThroughConversions": 1,
+      "roas": 13.49,
+      "allRoas": 27.28,
+      "ctr": 0.0309,
+      "cvr": 0.0694,
+      "primaryNpayValue": 13744400,
+      "primaryNpayConversions": 114,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 13543837.7,
+      "secondaryNpayAllConversions": 110.4835,
+      "otherPrimaryValue": 4.18,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "reduce_or_pause_test"
+    },
+    {
+      "campaignId": "23820127165",
+      "campaignName": "[PMAX] 바이오컴 검사권 캠페인",
+      "status": "PAUSED",
+      "channel": "PERFORMANCE_MAX",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSION_VALUE",
+      "biddingStrategy": "",
+      "budgetName": "[PMAX] 바이오컴 검사권 캠페인",
+      "budgetAmount": 200000,
+      "cost": 419993.661179,
+      "impressions": 77340,
+      "clicks": 1214,
+      "conversions": 2,
+      "conversionValue": 370000,
+      "allConversions": 37.282152,
+      "allConversionValue": 373560.7632,
+      "viewThroughConversions": 0,
+      "roas": 0.88,
+      "allRoas": 0.89,
+      "ctr": 0.0157,
+      "cvr": 0.0016,
+      "primaryNpayValue": 370000,
+      "primaryNpayConversions": 2,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 1125.75,
+      "secondaryNpayAllConversions": 0.009,
+      "otherPrimaryValue": 0,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "reduce_or_pause_test"
+    },
+    {
+      "campaignId": "14629255429",
+      "campaignName": "[SA]바이오컴 검사권",
+      "status": "ENABLED",
+      "channel": "SEARCH",
+      "channelSubType": "",
+      "biddingStrategyType": "MAXIMIZE_CONVERSIONS",
+      "biddingStrategy": "",
+      "budgetName": "[SA]바이오컴 검사권",
+      "budgetAmount": 50000,
+      "cost": 350126.039914,
+      "impressions": 3688,
+      "clicks": 243,
+      "conversions": 16,
+      "conversionValue": 937105,
+      "allConversions": 44.31689,
+      "allConversionValue": 939740.4218,
+      "viewThroughConversions": 0,
+      "roas": 2.68,
+      "allRoas": 2.68,
+      "ctr": 0.0659,
+      "cvr": 0.0658,
+      "primaryNpayValue": 937100,
+      "primaryNpayConversions": 11,
+      "primaryNpayShareOfPlatformValue": 1,
+      "secondaryNpayAllValue": 0,
+      "secondaryNpayAllConversions": 0,
+      "otherPrimaryValue": 5,
+      "affectedByNpayPrimary": true,
+      "recommendedBudgetAction": "keep_low_cap_until_confirmed_signal"
+    }
+  ],
+  "dailyAction": [
+    {
+      "date": "2026-05-03",
+      "primaryNpayValue": 9741300,
+      "primaryNpayConversions": 116,
+      "secondaryNpayAllValue": 9500000,
+      "secondaryNpayAllConversions": 111,
+      "otherPrimaryValue": 0
+    },
+    {
+      "date": "2026-05-04",
+      "primaryNpayValue": 8980600,
+      "primaryNpayConversions": 67,
+      "secondaryNpayAllValue": 8448000,
+      "secondaryNpayAllConversions": 64,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-05-05",
+      "primaryNpayValue": 5458100,
+      "primaryNpayConversions": 70,
+      "secondaryNpayAllValue": 5521926.82,
+      "secondaryNpayAllConversions": 72,
+      "otherPrimaryValue": 2.18
+    },
+    {
+      "date": "2026-05-06",
+      "primaryNpayValue": 5602700,
+      "primaryNpayConversions": 55.2711,
+      "secondaryNpayAllValue": 5480200,
+      "secondaryNpayAllConversions": 49,
+      "otherPrimaryValue": 1
+    },
+    {
+      "date": "2026-05-07",
+      "primaryNpayValue": 5492504.99,
+      "primaryNpayConversions": 49.5,
+      "secondaryNpayAllValue": 4498463.45,
+      "secondaryNpayAllConversions": 44.4925,
+      "otherPrimaryValue": 2
+    },
+    {
+      "date": "2026-05-08",
+      "primaryNpayValue": 5959100,
+      "primaryNpayConversions": 55.2289,
+      "secondaryNpayAllValue": 5616000,
+      "secondaryNpayAllConversions": 52,
+      "otherPrimaryValue": 2
+    },
+    {
+      "date": "2026-05-09",
+      "primaryNpayValue": 5255500,
+      "primaryNpayConversions": 65,
+      "secondaryNpayAllValue": 4904500,
+      "secondaryNpayAllConversions": 63,
+      "otherPrimaryValue": 1
+    }
+  ]
+}

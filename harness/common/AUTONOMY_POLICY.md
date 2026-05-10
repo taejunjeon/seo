@@ -45,6 +45,8 @@ Green Lane에서 묻지 않는다.
 
 commit/push는 parent agent만 수행한다.
 
+결과보고서에는 이 원칙을 매번 길게 반복하지 않는다. 새 예외, 충돌 위험, worktree 분리 필요, subagent 결과 불일치가 있을 때만 짧게 기록한다.
+
 금지:
 
 - 같은 working tree에서 여러 agent가 동시에 commit/push

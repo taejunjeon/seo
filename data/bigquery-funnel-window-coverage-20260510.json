@@ -1,0 +1,129 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 18:33:50 KST",
+  "site": "biocom",
+  "mode": "green_read_only_bigquery_suffix_coverage",
+  "source": {
+    "table": "project-dadba7dd-0229-4ff6-81c.analytics_304759974.events_*",
+    "location": "asia-northeast3",
+    "credential_project_id": "seo-aeo-487113",
+    "credential_client_email": "seo-656@seo-aeo-487113.iam.gserviceaccount.com"
+  },
+  "windows": [
+    {
+      "label": "last_7d",
+      "days": 7,
+      "requested_suffix": {
+        "start": "20260503",
+        "end": "20260509"
+      },
+      "suffix_count": 3,
+      "total_rows": 147696,
+      "suffixes": [
+        {
+          "suffix": "20260507",
+          "row_count": "69704",
+          "min_event_date": "20260507",
+          "max_event_date": "20260507",
+          "min_event_ts_kst": "2026-05-07 00:00:03",
+          "max_event_ts_kst": "2026-05-07 23:59:58"
+        },
+        {
+          "suffix": "20260508",
+          "row_count": "43473",
+          "min_event_date": "20260508",
+          "max_event_date": "20260508",
+          "min_event_ts_kst": "2026-05-08 00:00:00",
+          "max_event_ts_kst": "2026-05-08 23:59:43"
+        },
+        {
+          "suffix": "20260509",
+          "row_count": "34519",
+          "min_event_date": "20260509",
+          "max_event_date": "20260509",
+          "min_event_ts_kst": "2026-05-09 00:00:05",
+          "max_event_ts_kst": "2026-05-09 23:59:24"
+        }
+      ]
+    },
+    {
+      "label": "last_14d",
+      "days": 14,
+      "requested_suffix": {
+        "start": "20260426",
+        "end": "20260509"
+      },
+      "suffix_count": 3,
+      "total_rows": 147696,
+      "suffixes": [
+        {
+          "suffix": "20260507",
+          "row_count": "69704",
+          "min_event_date": "20260507",
+          "max_event_date": "20260507",
+          "min_event_ts_kst": "2026-05-07 00:00:03",
+          "max_event_ts_kst": "2026-05-07 23:59:58"
+        },
+        {
+          "suffix": "20260508",
+          "row_count": "43473",
+          "min_event_date": "20260508",
+          "max_event_date": "20260508",
+          "min_event_ts_kst": "2026-05-08 00:00:00",
+          "max_event_ts_kst": "2026-05-08 23:59:43"
+        },
+        {
+          "suffix": "20260509",
+          "row_count": "34519",
+          "min_event_date": "20260509",
+          "max_event_date": "20260509",
+          "min_event_ts_kst": "2026-05-09 00:00:05",
+          "max_event_ts_kst": "2026-05-09 23:59:24"
+        }
+      ]
+    },
+    {
+      "label": "last_30d",
+      "days": 30,
+      "requested_suffix": {
+        "start": "20260410",
+        "end": "20260509"
+      },
+      "suffix_count": 3,
+      "total_rows": 147696,
+      "suffixes": [
+        {
+          "suffix": "20260507",
+          "row_count": "69704",
+          "min_event_date": "20260507",
+          "max_event_date": "20260507",
+          "min_event_ts_kst": "2026-05-07 00:00:03",
+          "max_event_ts_kst": "2026-05-07 23:59:58"
+        },
+        {
+          "suffix": "20260508",
+          "row_count": "43473",
+          "min_event_date": "20260508",
+          "max_event_date": "20260508",
+          "min_event_ts_kst": "2026-05-08 00:00:00",
+          "max_event_ts_kst": "2026-05-08 23:59:43"
+        },
+        {
+          "suffix": "20260509",
+          "row_count": "34519",
+          "min_event_date": "20260509",
+          "max_event_date": "20260509",
+          "min_event_ts_kst": "2026-05-09 00:00:05",
+          "max_event_ts_kst": "2026-05-09 23:59:24"
+        }
+      ]
+    }
+  ],
+  "verdict": "HOLD_source_coverage_same_rows",
+  "warnings": [
+    "7/14/30d suffix coverage returns identical row totals; trend comparison is not reliable until GA4 export/backfill/source query is fixed."
+  ],
+  "next_green_followups": [
+    "Compare TABLES metadata and events_intraday availability if older suffixes are missing."
+  ]
+}

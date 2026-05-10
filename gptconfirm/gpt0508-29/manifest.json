@@ -1,0 +1,77 @@
+{
+  "batch": "gpt0508-29",
+  "created_at_kst": "2026-05-10 18:49:52 KST",
+  "purpose": "Google Ads campaign_id join, confirmed purchase input, BigQuery coverage, budget readiness, frontend start plan",
+  "documents": [
+    {
+      "source": "00-result-report.md",
+      "copy": "gptconfirm/gpt0508-29/00-result-report.md",
+      "why_included": "이번 batch 결과 보고서",
+      "approval_needed": true
+    },
+    {
+      "source": "01-google-ads-campaign-id-join-candidates-20260510.md",
+      "copy": "gptconfirm/gpt0508-29/01-google-ads-campaign-id-join-candidates-20260510.md",
+      "why_included": "campaign_id 결정 조인 후보표",
+      "approval_needed": true
+    },
+    {
+      "source": "02-confirmed-purchase-builder-same-window-input-20260510.md",
+      "copy": "gptconfirm/gpt0508-29/02-confirmed-purchase-builder-same-window-input-20260510.md",
+      "why_included": "ConfirmedPurchasePrep 공식 no-send input",
+      "approval_needed": true
+    },
+    {
+      "source": "03-bigquery-funnel-window-coverage-20260510.md",
+      "copy": "gptconfirm/gpt0508-29/03-bigquery-funnel-window-coverage-20260510.md",
+      "why_included": "BigQuery 7/14/30 coverage 원인",
+      "approval_needed": true
+    },
+    {
+      "source": "04-google-ads-campaign-budget-readiness-table-20260510.md",
+      "copy": "gptconfirm/gpt0508-29/04-google-ads-campaign-budget-readiness-table-20260510.md",
+      "why_included": "캠페인별 예산 판단 readiness",
+      "approval_needed": true
+    },
+    {
+      "source": "05-meta-funnel-capi-test-events-runbook-20260510.md",
+      "copy": "gptconfirm/gpt0508-29/05-meta-funnel-capi-test-events-runbook-20260510.md",
+      "why_included": "Meta Test Events 실행 준비",
+      "approval_needed": false
+    },
+    {
+      "source": "06-codex-multi-agent-harness-rule-20260510.md",
+      "copy": "gptconfirm/gpt0508-29/06-codex-multi-agent-harness-rule-20260510.md",
+      "why_included": "멀티에이전트 보고 반복 제거 규칙",
+      "approval_needed": false
+    },
+    {
+      "source": "07-google-ads-last7-last30-readonly-comparison-20260510.md",
+      "copy": "gptconfirm/gpt0508-29/07-google-ads-last7-last30-readonly-comparison-20260510.md",
+      "why_included": "Google Ads last_7d/last_30d 비교",
+      "approval_needed": true
+    },
+    {
+      "source": "08-frontend-dashboard-start-plan-20260510.md",
+      "copy": "gptconfirm/gpt0508-29/08-frontend-dashboard-start-plan-20260510.md",
+      "why_included": "프론트엔드 시작 계획",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-29/99-total-current-copy.md",
+      "why_included": "정본 문서 사본",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action 변경",
+    "TechSol tag pause/delete",
+    "Meta CAPI operational send",
+    "GTM Production publish",
+    "VM Cloud status sync 5-minute change",
+    "send_candidate=true",
+    "raw email/phone/member_code/order/payment storage or logging"
+  ]
+}
