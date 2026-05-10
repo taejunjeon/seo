@@ -1,0 +1,66 @@
+{
+  "ok": true,
+  "schema_version": "npay_actual_209_210_reconciliation_20260511",
+  "generated_at_kst": "2026-05-10 23:45:00 KST",
+  "site": "biocom",
+  "purpose": "직전 측정의 PAYMENT_COMPLETE 210건과 최신 측정의 209건 차이 1건을 raw 미노출로 설명한다.",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "source": "운영 PG dashboard.public.tb_iamweb_users (read-only)",
+    "confidence": 0.96
+  },
+  "measurements": [
+    {
+      "query_time_kst": "2026-05-10 22:55:00 KST",
+      "window_filter": "NOW() - INTERVAL '30 days' rolling",
+      "rolling_boundary_utc": "2026-04-10 13:55 UTC",
+      "rolling_boundary_kst": "2026-04-10 22:55 KST",
+      "payment_complete_count": 210,
+      "amount_positive_count": 209,
+      "amount_null_or_zero": 1
+    },
+    {
+      "query_time_kst": "2026-05-10 23:43:30 KST",
+      "window_filter": "NOW() - INTERVAL '30 days' rolling",
+      "rolling_boundary_utc": "2026-04-10 14:43 UTC",
+      "rolling_boundary_kst": "2026-04-10 23:43 KST",
+      "payment_complete_count": 209,
+      "amount_positive_count": 209,
+      "amount_null_or_zero": 0
+    },
+    {
+      "query_time_kst": "2026-05-10 23:43:30 KST",
+      "window_filter": "fixed_kst_boundary",
+      "rolling_boundary_kst": "2026-04-11 00:00:00 KST (fixed)",
+      "payment_complete_count_with_full_filter": 207
+    }
+  ],
+  "excluded_reason_breakdown_at_2343_kst": {
+    "source_raw_payment_complete_30d": 209,
+    "excluded_cancel": 0,
+    "excluded_return": 0,
+    "excluded_amount_null": 0,
+    "excluded_amount_zero": 0,
+    "excluded_amount_negative": 0,
+    "excluded_order_number_missing": 0,
+    "excluded_channel_order_no_missing": 0,
+    "applied_filter_pass_through": 209
+  },
+  "reconciliation": {
+    "primary_root_cause": "rolling_window_boundary_slide",
+    "explanation": "NOW() - INTERVAL '30 days' 는 query 실행 시점에 따라 boundary가 분 단위로 움직인다. 22:55 KST 측정 시 boundary 가 2026-04-10 22:55 KST 였고, 그 시점에 boundary 직후 발생한 첫 row 1건이 30d 윈도우 안에 포함됐다. 50분 후 23:43 KST 측정 때는 boundary 가 23:43 KST 로 이동해 그 row가 30d 윈도우 밖으로 떨어진다.",
+    "secondary_root_cause": "amount_null_or_zero edge",
+    "secondary_explanation": "22:55 KST 측정 시 PAYMENT_COMPLETE 풀에 amount NULL 또는 0 인 row 1건이 있었고, amount > 0 필터를 적용하면 209 로 줄어든다. 같은 reconciliation 결과를 다른 각도로 본 것으로, 두 root cause는 동일한 1건일 가능성이 높다.",
+    "raw_id_disclosure": "차이 row의 order_number/channel_order_no/amount 등 raw 식별자는 본 산출물에 노출하지 않는다. 필요 시 hash prefix 만 별도 보강."
+  },
+  "stable_metric_recommendation": {
+    "recommendation": "rolling_window_30d 측정은 builder/dashboard 응답에서 query 시각을 같이 노출하고, 비교용 정형 metric은 KST day boundary 고정 (예: '2026-04-11 00:00 KST ~ 측정 시각') 으로 cohort baseline을 박는다.",
+    "fixed_kst_boundary_count": 207,
+    "fixed_kst_boundary_used_for_baseline_in_subsequent_artifacts": 207
+  },
+  "verdict": "RECONCILED_WINDOW_BOUNDARY_SLIDE_DIFF_1_WITHIN_TOLERANCE"
+}

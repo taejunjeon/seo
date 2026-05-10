@@ -1,0 +1,74 @@
+{
+  "ok": true,
+  "schema_version": "google_ads_option3_gap_after_npay_actual_correction_20260511",
+  "generated_at_kst": "2026-05-11 00:00:00 KST",
+  "site": "biocom",
+  "purpose": "NPay actual 209건 / ₩37,638,900 합류 후에도 Google Ads platform ROAS와 internal ROAS gap이 얼마나 남는지 재계산해 옵션 2/3 결정의 최신 근거를 만든다.",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_actual_change": true,
+    "raw_pii_logged": false,
+    "confidence": 0.93
+  },
+  "input_baselines": {
+    "platform_roas_reference_last_30d": 9.58,
+    "platform_cost_last_30d_krw": 23666491.84,
+    "platform_conversion_value_last_30d_krw": 226732681.89,
+    "internal_confirmed_revenue_current_krw": 6493020,
+    "internal_confirmed_orders_current": 25,
+    "npay_actual_confirmed_pg_revenue_krw": 37638900,
+    "npay_actual_confirmed_pg_count": 209,
+    "npay_actual_google_ads_exact_evidence_count": 9,
+    "primary_known_npay_in_platform_conversion_value_krw": 226732645.92,
+    "primary_known_npay_share_of_platform": 0.9999984
+  },
+  "gap_calculations": {
+    "before_npay_actual_correction": {
+      "platform_roas": 9.58,
+      "internal_roas": 0.2744,
+      "gap": 9.3056
+    },
+    "after_npay_actual_correction": {
+      "platform_roas": 9.58,
+      "internal_roas": 1.8647,
+      "gap": 7.7153,
+      "gap_reduction_vs_before": 1.5903,
+      "gap_reduction_pct": 0.171
+    },
+    "if_option3_executed_estimate": {
+      "platform_roas_after_purchase_complete_action_demoted": "약 2.5 ~ 3.5 (PURCHASE primary가 BI confirmed_purchase 기준으로 재정렬, NPay click value 2.27억 분리 후 추정. 정확값은 Google Ads UI 변경 후 7일 학습 후 재측정 필요)",
+      "internal_roas_unchanged": 1.8647,
+      "estimated_gap_after_option3": "약 0.7 ~ 1.7 (정렬 시작)",
+      "caveat": "Google Ads 입찰 학습 흔들림 2~3일 + 7일 병행 관찰 필요. Red Lane 별도 승인."
+    }
+  },
+  "interpretation_human_language": [
+    "NPay actual 합류만으로 internal ROAS는 0.27 → 1.86 (약 7배) 회복하지만, gap은 9.31 → 7.72 (약 17% 축소)에 그친다.",
+    "남은 gap 7.72는 platform 측 conversion value 2.27억(=99.99%)이 '구매완료(7130249515)' primary action에 NPay click 오염을 그대로 학습 시그널로 넣고 있기 때문이다.",
+    "옵션 2(TechSol Off)는 이미 primary_for_goal=false 라 입찰 학습에 거의 영향 없고 dashboard 표시만 정리한다.",
+    "옵션 3(BI confirmed_purchase 신규 + 구매완료 강등 + 7일 병행)은 primary 신호 자체를 internal confirmed 기준으로 재정렬하므로 platform ROAS가 internal과 정렬 시작 (약 0.7~1.7 gap 예상).",
+    "결론: NPay actual 합류 + 옵션 3 동시 진행이 가장 강력. 옵션 2만으로는 표시 청소이지 정렬은 안 된다."
+  ],
+  "option_recommendation_updated": {
+    "option_2_techsol_off": {
+      "still_recommended": true,
+      "confidence_pct": 78,
+      "use_when": "TJ가 dashboard 표시값 청소만 원할 때. 위험 가장 작음."
+    },
+    "option_3_new_confirmed_purchase_action": {
+      "still_recommended_more_strongly": true,
+      "confidence_pct_updated": 76,
+      "uplift_vs_pre_npay_correction": "+4 (NPay actual 합류로 internal anchor가 1.86으로 단단해져서 옵션 3의 정렬 효과가 더 명확해졌다)",
+      "use_when": "TJ가 platform ROAS 신뢰도를 internal과 일치시키려 할 때. 단기 학습 흔들림 2~3일 감내 필요."
+    },
+    "claude_code_recommendation": "옵션 3 본격 진행 추천. NPay actual 합류만으로는 platform 측 NPay 클릭 오염이 풀리지 않는다는 게 본 sprint 데이터로 확정됨."
+  },
+  "execution_in_this_sprint": {
+    "google_ads_ui_change_executed": false,
+    "reason": "Red Lane은 본 sprint 승인 범위 밖. 코드/데이터 분석만.",
+    "approval_text_for_option3_separate_red": "[승인] gpt0508-X 작업 Google Ads 옵션 3: 신규 conversion action 'BI confirmed_purchase' DRAFT 생성, '구매완료(7130249515)' Secondary로 강등, 7일 병행 관찰. upload는 본 승인에 포함되지 않음. rollback은 동일 UI에서 원복."
+  },
+  "verdict": "GAP_RECALCULATED_AFTER_NPAY_ACTUAL_OPTION_3_RECOMMEND_INCREASED"
+}

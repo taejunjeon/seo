@@ -2,6 +2,11 @@ import express, { type Request, type Response } from "express";
 import { google } from "googleapis";
 
 import { readLedgerEntries, type AttributionLedgerEntry } from "../attribution";
+import {
+  estimateInternalRoasLift,
+  fetchNpayActualConfirmedSnapshot,
+  type NpayActualConfirmedSnapshot,
+} from "../npayActualConfirmedPgReader";
 import { env } from "../env";
 
 const GOOGLE_ADS_SCOPE = "https://www.googleapis.com/auth/adwords";
@@ -1425,6 +1430,116 @@ const buildInternalReconciliation = async (params: {
   };
 };
 
+const datePresetWindowDays = (preset: DatePreset): number => {
+  switch (preset) {
+    case "last_7d":
+      return 7;
+    case "last_14d":
+      return 14;
+    case "last_30d":
+      return 30;
+    case "last_90d":
+      return 90;
+    default:
+      return 30;
+  }
+};
+
+export type NpayActualCorrectionResponse = {
+  windowDays: number;
+  npayActualConfirmedPgCount: number;
+  npayActualConfirmedPgRevenueKrw: number;
+  internalConfirmedRevenueCurrentKrw: number;
+  internalConfirmedRevenueWithNpayActualPgKrw: number;
+  internalConfirmedRoasCurrent: number | null;
+  internalConfirmedRoasWithNpayActualPg: number | null;
+  npayActualWireStatus:
+    | "wired_from_pg_snapshot"
+    | "missing_snapshot_input"
+    | "snapshot_zero_or_unconfigured"
+    | "snapshot_error";
+  googleAdsBudgetFloorNpayExactCount: number;
+  uploadCandidateCount: 0;
+  warnings: string[];
+};
+
+const buildNpayActualCorrection = async (
+  datePreset: DatePreset,
+  internalConfirmedRevenueKrw: number,
+  platformCostKrw: number,
+  internalConfirmedOrders: number,
+): Promise<NpayActualCorrectionResponse> => {
+  const windowDays = datePresetWindowDays(datePreset);
+  let snapshot: NpayActualConfirmedSnapshot | null = null;
+  let errorMessage: string | null = null;
+  try {
+    snapshot = await fetchNpayActualConfirmedSnapshot({ windowDays });
+  } catch (error) {
+    errorMessage = error instanceof Error ? error.message : "snapshot_unknown_error";
+  }
+
+  if (!snapshot || !snapshot.ok) {
+    return {
+      windowDays,
+      npayActualConfirmedPgCount: 0,
+      npayActualConfirmedPgRevenueKrw: 0,
+      internalConfirmedRevenueCurrentKrw: round2safe(internalConfirmedRevenueKrw),
+      internalConfirmedRevenueWithNpayActualPgKrw: round2safe(internalConfirmedRevenueKrw),
+      internalConfirmedRoasCurrent:
+        platformCostKrw > 0 ? round4(internalConfirmedRevenueKrw / platformCostKrw) : null,
+      internalConfirmedRoasWithNpayActualPg:
+        platformCostKrw > 0 ? round4(internalConfirmedRevenueKrw / platformCostKrw) : null,
+      npayActualWireStatus: errorMessage ? "snapshot_error" : "missing_snapshot_input",
+      googleAdsBudgetFloorNpayExactCount: 0,
+      uploadCandidateCount: 0,
+      warnings: errorMessage ? [`npay_actual_correction_error: ${errorMessage}`] : [],
+    };
+  }
+
+  if (snapshot.rows <= 0 || snapshot.totalAmountKrw <= 0) {
+    return {
+      windowDays,
+      npayActualConfirmedPgCount: snapshot.rows,
+      npayActualConfirmedPgRevenueKrw: snapshot.totalAmountKrw,
+      internalConfirmedRevenueCurrentKrw: round2safe(internalConfirmedRevenueKrw),
+      internalConfirmedRevenueWithNpayActualPgKrw: round2safe(internalConfirmedRevenueKrw),
+      internalConfirmedRoasCurrent:
+        platformCostKrw > 0 ? round4(internalConfirmedRevenueKrw / platformCostKrw) : null,
+      internalConfirmedRoasWithNpayActualPg:
+        platformCostKrw > 0 ? round4(internalConfirmedRevenueKrw / platformCostKrw) : null,
+      npayActualWireStatus: "snapshot_zero_or_unconfigured",
+      googleAdsBudgetFloorNpayExactCount: 0,
+      uploadCandidateCount: 0,
+      warnings: snapshot.warnings ?? [],
+    };
+  }
+
+  const lift = estimateInternalRoasLift(snapshot, {
+    confirmedOrders: internalConfirmedOrders,
+    confirmedRevenueKrw: internalConfirmedRevenueKrw,
+    platformCostKrw,
+  });
+  return {
+    windowDays,
+    npayActualConfirmedPgCount: snapshot.rows,
+    npayActualConfirmedPgRevenueKrw: snapshot.totalAmountKrw,
+    internalConfirmedRevenueCurrentKrw: round2safe(internalConfirmedRevenueKrw),
+    internalConfirmedRevenueWithNpayActualPgKrw: round2safe(lift.after.confirmedRevenueKrw),
+    internalConfirmedRoasCurrent: lift.before.internalConfirmedRoas,
+    internalConfirmedRoasWithNpayActualPg: lift.after.internalConfirmedRoas,
+    npayActualWireStatus: "wired_from_pg_snapshot",
+    googleAdsBudgetFloorNpayExactCount: 9,
+    uploadCandidateCount: 0,
+    warnings: [
+      "NPay actual은 internal 매출 풀에 합류시키는 보정값이고 Google Ads upload 후보가 아니다.",
+      "google_ads_budget_floor_npay_exact_count 는 gpt0508-35 audit의 9건 (gclid + click_view exact). 다음 sprint ledger lookup wire 후 자동 갱신 대상.",
+    ],
+  };
+};
+
+const round2safe = (value: number) => (Number.isFinite(value) ? Math.round(value * 100) / 100 : 0);
+const round4 = (value: number) => Math.round(value * 10000) / 10000;
+
 export const createGoogleAdsRouter = () => {
   const router = express.Router();
 
@@ -1522,6 +1637,12 @@ export const createGoogleAdsRouter = () => {
         platformSummary: summary,
         internalConfirmedRevenue: internal.summary.confirmedRevenue,
       });
+      const npayActualCorrection = await buildNpayActualCorrection(
+        datePreset,
+        internal.summary.confirmedRevenue,
+        Number(internal.summary.platformCost ?? summary.cost ?? 0),
+        Number(internal.summary.confirmedOrders ?? 0),
+      );
 
       res.json({
         ok: true,
@@ -1542,6 +1663,7 @@ export const createGoogleAdsRouter = () => {
         conversionActions,
         conversionActionSegments,
         internal,
+        npayActualCorrection,
         diagnostics: {
           campaignRows: campaigns.length,
           dailyRows: daily.length,

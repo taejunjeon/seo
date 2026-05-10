@@ -1,0 +1,96 @@
+{
+  "batch": "gpt0508-36",
+  "created_at_kst": "2026-05-11 00:08:00 KST",
+  "purpose": "Claude Code NPay Actual Integration Sprint — 운영 PG NPay 209/₩37,638,900을 helper → integrated builder → dashboard API → frontend 카드까지 한 줄로 wire. Path B 1h canary 안전선 PASS 상태로 NO_TRAFFIC verdict.",
+  "lane": "Green_code_executed_plus_yellow_path_b_canary_completed_no_traffic",
+  "track_progress": {
+    "A": {"name": "ConfirmedPurchasePrep 통합 input", "previous_percent": 97, "current_percent": 98, "delta_percent": 1},
+    "B": {"name": "Google Ads campaign_id 조인/ROAS 분해", "previous_percent": 88, "current_percent": 91, "delta_percent": 3},
+    "C": {"name": "BigQuery campaign funnel quality", "previous_percent": 85, "current_percent": 85, "delta_percent": 0},
+    "D/KR6": {"name": "Meta funnel CAPI Test Events readiness", "previous_percent": 74, "current_percent": 74, "delta_percent": 0},
+    "E": {"name": "Harness/multi-agent/HOLD Reducer", "previous_percent": 95, "current_percent": 96, "delta_percent": 1},
+    "F": {"name": "Frontend/Data Trust Dashboard", "previous_percent": 72, "current_percent": 78, "delta_percent": 6}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-36/00-result-report.md", "copy": "gptconfirm/gpt0508-36/00-result-report.md", "why_included": "종합 결과보고서 (사람이 이해하는 무엇을/왜/다음, AGENTS.md text-report-template v3 양식)"},
+    {"source": "gdn/npay-actual-209-210-reconciliation-20260511.md", "copy": "gptconfirm/gpt0508-36/01-npay-actual-209-210-reconciliation-20260511.md", "why_included": "작업1 reconciliation"},
+    {"source": "gdn/confirmed-purchase-integrated-npay-actual-wire-20260511.md", "copy": "gptconfirm/gpt0508-36/02-confirmed-purchase-integrated-npay-actual-wire-20260511.md", "why_included": "작업2 integrated builder wire"},
+    {"source": "gdn/npay-actual-attribution-split-table-20260511.md", "copy": "gptconfirm/gpt0508-36/03-npay-actual-attribution-split-table-20260511.md", "why_included": "작업3 3-layer split"},
+    {"source": "gdn/google-ads-dashboard-npay-actual-roas-fields-20260511.md", "copy": "gptconfirm/gpt0508-36/04-google-ads-dashboard-npay-actual-roas-fields-20260511.md", "why_included": "작업4 dashboard API patch"},
+    {"source": "gdn/frontend-data-trust-guard-npay-actual-dynamic-wire-20260511.md", "copy": "gptconfirm/gpt0508-36/05-frontend-data-trust-guard-npay-actual-dynamic-wire-20260511.md", "why_included": "작업5 frontend dynamic wire"},
+    {"source": "gdn/path-b-order-bridge-canary-post-audit-20260511.md", "copy": "gptconfirm/gpt0508-36/06-path-b-order-bridge-canary-post-audit-20260511.md", "why_included": "작업6 Path B canary post-audit (NO_TRAFFIC)"},
+    {"source": "gdn/google-ads-option3-gap-after-npay-actual-correction-20260511.md", "copy": "gptconfirm/gpt0508-36/07-google-ads-option3-gap-after-npay-actual-correction-20260511.md", "why_included": "작업7 옵션 3 gap 재계산"},
+    {"source": "gptconfirm/gpt0508-36/08-telegram-completion-note.md", "copy": "gptconfirm/gpt0508-36/08-telegram-completion-note.md", "why_included": "telegram completion payload"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-36/99-total-current-copy.md", "why_included": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/npay-actual-209-210-reconciliation-20260511.json",
+    "data/confirmed-purchase-integrated-npay-actual-wire-20260511.json",
+    "data/npay-actual-attribution-split-table-20260511.json",
+    "data/google-ads-dashboard-npay-actual-roas-fields-20260511.json",
+    "data/path-b-order-bridge-canary-post-audit-20260511.json",
+    "data/google-ads-option3-gap-after-npay-actual-correction-20260511.json"
+  ],
+  "code_changes": [
+    {"file": "backend/scripts/confirmed-purchase-integrated-input-builder.ts", "kind": "patch", "loc_added": 112, "summary": "--npay-actual-source-input flag + 7 신규 summary 필드 + helper", "typecheck": "PASS"},
+    {"file": "backend/tests/confirmed-purchase-integrated-npay-actual-wire.test.ts", "kind": "new_test", "loc": 148, "fixtures": 2, "test_pass": "2_of_2_807ms"},
+    {"file": "backend/src/routes/googleAds.ts", "kind": "patch", "loc_added": 105, "summary": "import + 4 helpers + dashboard 응답에 npayActualCorrection 객체 추가", "typecheck": "PASS"},
+    {"file": "frontend/src/app/ads/google/page.tsx", "kind": "patch", "loc_added": 85, "summary": "GoogleAdsNpayActualCorrection 타입 + 응답 타입 확장 + 조건부 렌더 카드 4개", "typecheck": "PASS", "build": "PASS"}
+  ],
+  "actual_executions": {
+    "claude_code_directly_completed": [
+      "운영 PG read-only NPay 30d reconciliation",
+      "backend integrated builder wire patch + fixture",
+      "backend dashboard route NPay correction wire",
+      "frontend dynamic NPay correction 카드 wire",
+      "frontend production build",
+      "Path B canary 1h 윈도우 끝까지 실행 (env toggle + nohup 자동 rollback + post-audit fetch)",
+      "Google Ads option3 gap 재계산"
+    ],
+    "tj_action_required": [
+      "backend deploy (Yellow)",
+      "frontend deploy (Yellow)",
+      "주간 시간대 Path B canary 재실행 (Yellow)",
+      "Google Ads 옵션 3 결정 + UI 변경 (Red)",
+      "Meta Test Events 코드 발급 (Yellow)"
+    ],
+    "platform_actual_send": 0,
+    "google_ads_upload": 0,
+    "gtm_publish": 0,
+    "operational_db_write": 0,
+    "raw_pii_logged": 0,
+    "send_candidate_count": 0,
+    "actual_send_candidate_count": 0,
+    "upload_candidate_count": 0
+  },
+  "verification": {
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_check_strict": "PASS",
+    "git_diff_check": "PASS",
+    "backend_typecheck": "PASS",
+    "backend_test_cross_reference": "PASS_5_OF_5",
+    "backend_test_npay_reader": "PASS_4_OF_4",
+    "backend_test_integrated_builder_wire": "PASS_2_OF_2",
+    "frontend_typecheck": "PASS",
+    "frontend_build": "PASS",
+    "raw_pii_pattern_scan": "PASS",
+    "path_b_canary_safety": "PASS_NO_TRAFFIC"
+  },
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action 변경",
+    "GA4/Meta/TikTok/Naver 운영 전송",
+    "GTM Production publish",
+    "운영 PG write",
+    "승인 없는 VM write/restart/deploy",
+    "raw email/phone/order/payment/member_code 저장 또는 logging",
+    "NPay click/count/add_payment_info 를 actual purchase로 승격",
+    "exact evidence 없는 NPay actual을 Google Ads campaign_id에 귀속",
+    "time-window-only attribution을 예산 판단에 사용",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING=true",
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED=true"
+  ]
+}

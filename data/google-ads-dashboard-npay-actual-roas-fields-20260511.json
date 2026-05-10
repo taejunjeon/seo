@@ -1,0 +1,70 @@
+{
+  "ok": true,
+  "schema_version": "google_ads_dashboard_npay_actual_roas_fields_20260511",
+  "generated_at_kst": "2026-05-10 23:55:00 KST",
+  "site": "biocom",
+  "purpose": "Google Ads dashboard `/api/google-ads/dashboard` 응답에 NPay actual PG 보정 ROAS 필드를 추가해 platform 주장값과 internal 보정값을 한 응답에서 분리해 본다.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "deploy_required_for_live_response": true,
+    "raw_pii_logged": false
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/routes/googleAds.ts",
+      "kind": "import + new helpers + dashboard response field",
+      "loc_added": 105,
+      "exports": ["NpayActualCorrectionResponse"],
+      "new_internal_helpers": ["datePresetWindowDays", "buildNpayActualCorrection", "round2safe", "round4"],
+      "response_field_added": "npayActualCorrection"
+    }
+  ],
+  "new_response_field_shape": {
+    "npayActualCorrection": {
+      "windowDays": "7 / 14 / 30 / 90 (datePreset에 맞춤)",
+      "npayActualConfirmedPgCount": "운영 PG 30d (또는 windowDays) 카운트",
+      "npayActualConfirmedPgRevenueKrw": "양수 amount 총합",
+      "internalConfirmedRevenueCurrentKrw": "기존 internal.summary.confirmedRevenue 값",
+      "internalConfirmedRevenueWithNpayActualPgKrw": "기존 internal revenue + NPay actual snapshot total",
+      "internalConfirmedRoasCurrent": "기존 / 추정",
+      "internalConfirmedRoasWithNpayActualPg": "보정 후",
+      "npayActualWireStatus": "wired_from_pg_snapshot | missing_snapshot_input | snapshot_zero_or_unconfigured | snapshot_error",
+      "googleAdsBudgetFloorNpayExactCount": "현재 9 (gpt0508-35 audit 기준 고정값, 다음 sprint ledger lookup wire 후 자동 갱신)",
+      "uploadCandidateCount": "0 (invariant)",
+      "warnings": [
+        "NPay actual은 internal 매출 풀에 합류시키는 보정값이고 Google Ads upload 후보가 아니다.",
+        "google_ads_budget_floor_npay_exact_count 는 gpt0508-35 audit의 9건. 다음 sprint ledger lookup wire 후 자동 갱신 대상."
+      ]
+    }
+  },
+  "verification": {
+    "backend_typecheck": "PASS",
+    "local_dashboard_smoke": "TIMEOUT_AT_LOCAL_BACKEND (Google Ads API credentials/network from local 7020 process timed out at 30s — code path 자체는 deploy 후 운영 backend에서 검증)",
+    "unit_test_for_helper_branch": "PENDING_NEXT_SPRINT (helper buildNpayActualCorrection 단위 테스트는 PG mock 필요해 별도 sprint)",
+    "send_candidate_invariant": "false (변경 없음)",
+    "actual_send_candidate_invariant": "false",
+    "upload_candidate_count_invariant": 0,
+    "platform_actual_send": 0,
+    "operational_db_write": 0
+  },
+  "expected_live_response_after_deploy_at_last_30d": {
+    "npayActualConfirmedPgCount": 209,
+    "npayActualConfirmedPgRevenueKrw": 37638900,
+    "internalConfirmedRevenueCurrentKrw": 6493020,
+    "internalConfirmedRevenueWithNpayActualPgKrw": 44131920,
+    "internalConfirmedRoasCurrent": 0.2744,
+    "internalConfirmedRoasWithNpayActualPg": 1.8647,
+    "npayActualWireStatus": "wired_from_pg_snapshot",
+    "googleAdsBudgetFloorNpayExactCount": 9,
+    "uploadCandidateCount": 0
+  },
+  "deploy_status": {
+    "vm_backend_deploy_executed_in_this_sprint": false,
+    "reason_for_deferral": "VM deploy는 본 sprint 승인 범위 밖. 코드 patch + typecheck + 산출물까지만.",
+    "approval_text_for_next_sprint_deploy": "[승인] gpt0508-37 backend deploy: capivm/deploy-backend-rsync.sh 또는 동등 절차로 backend dist/server.js 갱신, /api/google-ads/dashboard 새 npayActualCorrection 필드 응답 확인, write/send 0 invariant 유지."
+  },
+  "verdict": "PASS_BACKEND_PATCH_TYPECHECK_LIVE_VERIFICATION_PENDING_DEPLOY"
+}

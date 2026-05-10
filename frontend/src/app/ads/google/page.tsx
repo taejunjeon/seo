@@ -174,6 +174,24 @@ type GoogleAdsInternalSummary = {
   campaignIdCoverage: number | null;
 };
 
+type GoogleAdsNpayActualCorrection = {
+  windowDays: number;
+  npayActualConfirmedPgCount: number;
+  npayActualConfirmedPgRevenueKrw: number;
+  internalConfirmedRevenueCurrentKrw: number;
+  internalConfirmedRevenueWithNpayActualPgKrw: number;
+  internalConfirmedRoasCurrent: number | null;
+  internalConfirmedRoasWithNpayActualPg: number | null;
+  npayActualWireStatus:
+    | "wired_from_pg_snapshot"
+    | "missing_snapshot_input"
+    | "snapshot_zero_or_unconfigured"
+    | "snapshot_error";
+  googleAdsBudgetFloorNpayExactCount: number;
+  uploadCandidateCount: 0;
+  warnings: string[];
+};
+
 type GoogleAdsInternalReconciliation = {
   dataSource: "operational_vm_ledger" | "local_attribution_ledger";
   source: string;
@@ -281,6 +299,7 @@ type GoogleAdsDashboardResponse = {
   conversionActions: GoogleAdsLiveConversionAction[];
   conversionActionSegments?: GoogleAdsConversionActionSegments;
   internal?: GoogleAdsInternalReconciliation;
+  npayActualCorrection?: GoogleAdsNpayActualCorrection;
   diagnostics: {
     campaignRows: number;
     dailyRows: number;
@@ -980,6 +999,58 @@ export default function GoogleAdsPerformancePage() {
               </div>
             </div>
           </div>
+
+          {liveData?.npayActualCorrection && liveData.npayActualCorrection.npayActualWireStatus === "wired_from_pg_snapshot" && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fffbeb", border: "1px solid #fcd34d" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                <strong style={{ color: "#78350f", fontSize: "0.84rem" }}>
+                  NPay actual 보정 · last_{liveData.npayActualCorrection.windowDays}d
+                </strong>
+                <span style={{ color: "#92400e", fontSize: "0.68rem", fontWeight: 800 }}>
+                  status: {liveData.npayActualCorrection.npayActualWireStatus}
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: 8 }}>
+                <div style={{ padding: 9, borderRadius: 8, background: "#ffffff", border: "1px solid #fde68a" }}>
+                  <div style={{ color: "#92400e", fontSize: "0.66rem", fontWeight: 850 }}>운영 PG NPay 결제완료</div>
+                  <div style={{ color: "#78350f", fontSize: "0.84rem", fontWeight: 900, marginTop: 3 }}>
+                    {fmtNum(liveData.npayActualCorrection.npayActualConfirmedPgCount)}건
+                  </div>
+                  <div style={{ color: "#a16207", fontSize: "0.66rem", marginTop: 2 }}>
+                    {fmtKRW(liveData.npayActualCorrection.npayActualConfirmedPgRevenueKrw)}
+                  </div>
+                </div>
+                <div style={{ padding: 9, borderRadius: 8, background: "#ffffff", border: "1px solid #fde68a" }}>
+                  <div style={{ color: "#92400e", fontSize: "0.66rem", fontWeight: 850 }}>현재 internal ROAS</div>
+                  <div style={{ color: "#78350f", fontSize: "0.84rem", fontWeight: 900, marginTop: 3 }}>
+                    {fmtRoas(liveData.npayActualCorrection.internalConfirmedRoasCurrent)}
+                  </div>
+                  <div style={{ color: "#a16207", fontSize: "0.66rem", marginTop: 2 }}>NPay 합류 전</div>
+                </div>
+                <div style={{ padding: 9, borderRadius: 8, background: "#ffffff", border: "1px solid #fde68a" }}>
+                  <div style={{ color: "#92400e", fontSize: "0.66rem", fontWeight: 850 }}>NPay 합류 후 internal ROAS</div>
+                  <div style={{ color: "#78350f", fontSize: "0.84rem", fontWeight: 900, marginTop: 3 }}>
+                    {fmtRoas(liveData.npayActualCorrection.internalConfirmedRoasWithNpayActualPg)}
+                  </div>
+                  <div style={{ color: "#a16207", fontSize: "0.66rem", marginTop: 2 }}>
+                    분자 +{fmtKRW(liveData.npayActualCorrection.npayActualConfirmedPgRevenueKrw)}
+                  </div>
+                </div>
+                <div style={{ padding: 9, borderRadius: 8, background: "#ffffff", border: "1px solid #fde68a" }}>
+                  <div style={{ color: "#92400e", fontSize: "0.66rem", fontWeight: 850 }}>Google Ads 광고 floor (exact evidence)</div>
+                  <div style={{ color: "#78350f", fontSize: "0.84rem", fontWeight: 900, marginTop: 3 }}>
+                    {fmtNum(liveData.npayActualCorrection.googleAdsBudgetFloorNpayExactCount)}건
+                  </div>
+                  <div style={{ color: "#a16207", fontSize: "0.66rem", marginTop: 2 }}>
+                    upload 후보 0 / 광고 학습 신호 미전송
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginTop: 8, color: "#78350f", fontSize: "0.7rem", lineHeight: 1.55 }}>
+                NPay actual은 internal 매출 풀에 합류시키는 보정값이오. exact evidence 없는 row는 Google Ads 덕으로 보지 않으며, upload 후보는 항상 0이오.
+              </div>
+            </div>
+          )}
         </section>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 16, marginBottom: 16 }}>

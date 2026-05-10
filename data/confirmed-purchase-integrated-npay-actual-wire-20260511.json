@@ -1,0 +1,93 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-10T14:47:19.233Z",
+  "generated_at_kst": "2026-05-10 23:47:19 KST",
+  "mode": "confirmed_purchase_integrated_input_no_send",
+  "harness": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_write": true,
+    "no_platform_send": true
+  },
+  "inputs": {
+    "operational_input": "../data/bi-confirmed-purchase-operational-dry-run-20260510-last30.json",
+    "vm_prep_input": "../data/confirmed-purchase-prep-recalc-20260510.json",
+    "path_b_evidence_input": "../data/path-b-real-paid-click-actual-order-preview-result-20260510.json"
+  },
+  "source": {
+    "primary_confirmed_source": "operational_db_payment_complete",
+    "secondary_evidence_sources": [
+      "vm_cloud_order_evidence",
+      "vm_cloud_confirmed_purchase_prep",
+      "path_b_controlled_evidence"
+    ],
+    "operational_source_freshness": {
+      "imweb_operational": {
+        "row_count": 98982,
+        "source_max_payment_complete_at": "2026-05-10T06:25:08.000Z",
+        "source_max_order_date_at": "2026-05-10T15:22:15.000Z",
+        "source_lag_hours": 2.4,
+        "freshness_status": "fresh",
+        "freshness_note": "fresh 기준. 그래도 외부 전송 전에는 최신성 재확인이 필요하다."
+      }
+    },
+    "operational_window": {
+      "start": "2026-04-11",
+      "end": "2026-05-10",
+      "start_at": "2026-04-11T00:00:00+09:00",
+      "end_exclusive_at": "2026-05-11T00:00:00+09:00",
+      "timezone_note": "operational order paidAt filter uses KST day boundaries converted to timestamptz. This avoids excluding KST orders that are still previous-day UTC."
+    },
+    "vm_prep_summary": {
+      "candidate_count": 35,
+      "excluded_order_count": 12,
+      "homepage_count": 35,
+      "npay_actual_count": 0,
+      "path_a_match_count": 0,
+      "path_c_match_count": 0,
+      "path_c_uplift": 0,
+      "missing_member_code": 0,
+      "missing_paid_click_intent": 0,
+      "outside_window": 0,
+      "after_paid_at": 0,
+      "ambiguous": 0,
+      "already_in_ga4": 0,
+      "send_candidate": 0,
+      "with_member_code": 35,
+      "member_code_column_absent": 35
+    }
+  },
+  "summary": {
+    "integrated_candidate_count": 0,
+    "homepage_confirmed_count": 0,
+    "npay_actual_confirmed_count": 0,
+    "payment_method_counts": {},
+    "with_google_click_id": 0,
+    "vm_order_evidence_matched_count": 0,
+    "vm_prep_matched_count": 0,
+    "path_b_same_order_count": 0,
+    "npay_actual_confirmed_pg_count": 209,
+    "npay_actual_confirmed_pg_revenue_krw": 37638900,
+    "internal_confirmed_revenue_current_krw": 0,
+    "internal_confirmed_revenue_with_npay_actual_pg_krw": 37638900,
+    "platform_cost_baseline_krw": 23666491.84,
+    "internal_roas_current": 0,
+    "internal_roas_with_npay_actual_pg": 1.5904,
+    "npay_actual_wire_status": "wired_from_pg_snapshot",
+    "npay_actual_source_path": "../data/npay-actual-confirmed-pg-snapshot-30d-20260511.json",
+    "send_candidate": 0,
+    "actual_send_candidate": 0,
+    "upload_candidate": 0,
+    "block_reason_counts": {},
+    "controlled_path_b_reference": {
+      "order_no": "",
+      "verdict": "PASS_REAL_GOOGLE_AD_CLICK_TO_ORDER_COMPLETE_NO_SEND_BRIDGE__CONFIRMED_PAYMENT_HOLD",
+      "click_id_hash_present": true,
+      "email_hash_present": true,
+      "order_no_hash_present": true,
+      "client_session_present": true
+    }
+  },
+  "candidates": []
+}

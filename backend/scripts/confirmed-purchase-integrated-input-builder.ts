@@ -22,8 +22,25 @@ type CliOptions = {
   operationalInput: string;
   vmPrepInput: string;
   pathBEvidenceInput: string;
+  npayActualSourceInput?: string;
+  platformCostKrw?: number;
   output?: string;
   markdownOutput?: string;
+};
+
+type NpayActualSourceInput = {
+  ok?: boolean;
+  schema_version?: string;
+  generated_at_kst?: string;
+  snapshot?: {
+    window_days?: number;
+    rows?: number;
+    total_amount_krw?: number;
+    avg_amount_krw?: number;
+    median_amount_krw?: number;
+    filter?: Record<string, unknown>;
+  };
+  internal_roas_lift_estimate?: Record<string, unknown>;
 };
 
 type OperationalInput = {
@@ -198,6 +215,10 @@ const parseArgs = (): CliOptions => ({
     argValue("path-b-evidence") ??
       path.join(__dirname, "..", "..", "data", "path-b-real-paid-click-actual-order-preview-result-20260510.json"),
   ),
+  npayActualSourceInput: argValue("npay-actual-source-input")
+    ? path.resolve(argValue("npay-actual-source-input")!)
+    : undefined,
+  platformCostKrw: argValue("platform-cost-krw") ? Number(argValue("platform-cost-krw")) : undefined,
   output: argValue("output"),
   markdownOutput: argValue("markdown-output") ?? argValue("markdownOutput"),
 });
@@ -395,11 +416,93 @@ const renderMarkdown = (payload: ReturnType<typeof buildPayload>): string => {
   return `${lines.join("\n")}\n`;
 };
 
+type NpayActualSummary = {
+  npay_actual_confirmed_pg_count: number;
+  npay_actual_confirmed_pg_revenue_krw: number;
+  internal_confirmed_revenue_current_krw: number;
+  internal_confirmed_revenue_with_npay_actual_pg_krw: number;
+  platform_cost_baseline_krw: number;
+  internal_roas_current: number | null;
+  internal_roas_with_npay_actual_pg: number | null;
+  npay_actual_wire_status:
+    | "wired_from_pg_snapshot"
+    | "missing_snapshot_input"
+    | "snapshot_zero_or_unconfigured";
+  npay_actual_source_path: string | null;
+};
+
+const round4 = (value: number) => Math.round(value * 10000) / 10000;
+
+const buildNpayActualSummary = (
+  candidates: IntegratedCandidate[],
+  npayActual: NpayActualSourceInput | null,
+  platformCostKrwOption: number | undefined,
+): NpayActualSummary => {
+  const platformCost = Number.isFinite(platformCostKrwOption)
+    ? Number(platformCostKrwOption)
+    : 23666491.84;
+  const homepageRevenueKrw = candidates
+    .filter((candidate) => candidate.payment_method === "homepage")
+    .reduce((acc, candidate) => acc + (Number.isFinite(candidate.value) ? candidate.value : 0), 0);
+  const candidateNpayRevenueKrw = candidates
+    .filter((candidate) => candidate.payment_method === "npay")
+    .reduce((acc, candidate) => acc + (Number.isFinite(candidate.value) ? candidate.value : 0), 0);
+  const currentRevenueKrw = homepageRevenueKrw + candidateNpayRevenueKrw;
+
+  if (!npayActual) {
+    return {
+      npay_actual_confirmed_pg_count: 0,
+      npay_actual_confirmed_pg_revenue_krw: 0,
+      internal_confirmed_revenue_current_krw: currentRevenueKrw,
+      internal_confirmed_revenue_with_npay_actual_pg_krw: currentRevenueKrw,
+      platform_cost_baseline_krw: platformCost,
+      internal_roas_current: platformCost > 0 ? round4(currentRevenueKrw / platformCost) : null,
+      internal_roas_with_npay_actual_pg:
+        platformCost > 0 ? round4(currentRevenueKrw / platformCost) : null,
+      npay_actual_wire_status: "missing_snapshot_input",
+      npay_actual_source_path: null,
+    };
+  }
+
+  const snap = npayActual.snapshot ?? {};
+  const pgCount = Number(snap.rows ?? 0);
+  const pgRevenueKrw = Number(snap.total_amount_krw ?? 0);
+  if (!Number.isFinite(pgCount) || pgCount <= 0 || !Number.isFinite(pgRevenueKrw) || pgRevenueKrw <= 0) {
+    return {
+      npay_actual_confirmed_pg_count: pgCount > 0 ? pgCount : 0,
+      npay_actual_confirmed_pg_revenue_krw: pgRevenueKrw > 0 ? pgRevenueKrw : 0,
+      internal_confirmed_revenue_current_krw: currentRevenueKrw,
+      internal_confirmed_revenue_with_npay_actual_pg_krw: currentRevenueKrw,
+      platform_cost_baseline_krw: platformCost,
+      internal_roas_current: platformCost > 0 ? round4(currentRevenueKrw / platformCost) : null,
+      internal_roas_with_npay_actual_pg:
+        platformCost > 0 ? round4(currentRevenueKrw / platformCost) : null,
+      npay_actual_wire_status: "snapshot_zero_or_unconfigured",
+      npay_actual_source_path: null,
+    };
+  }
+
+  const correctedRevenueKrw = homepageRevenueKrw + pgRevenueKrw;
+  return {
+    npay_actual_confirmed_pg_count: pgCount,
+    npay_actual_confirmed_pg_revenue_krw: pgRevenueKrw,
+    internal_confirmed_revenue_current_krw: currentRevenueKrw,
+    internal_confirmed_revenue_with_npay_actual_pg_krw: correctedRevenueKrw,
+    platform_cost_baseline_krw: platformCost,
+    internal_roas_current: platformCost > 0 ? round4(currentRevenueKrw / platformCost) : null,
+    internal_roas_with_npay_actual_pg:
+      platformCost > 0 ? round4(correctedRevenueKrw / platformCost) : null,
+    npay_actual_wire_status: "wired_from_pg_snapshot",
+    npay_actual_source_path: null,
+  };
+};
+
 const buildPayload = (
   options: CliOptions,
   operational: OperationalInput,
   vmPrep: VmPrepInput,
   pathB: PathBEvidenceInput,
+  npayActual: NpayActualSourceInput | null,
 ) => {
   const candidates = buildIntegratedCandidates(operational, vmPrep, pathB);
   const blockReasonCounts: Record<string, number> = {};
@@ -451,6 +554,7 @@ const buildPayload = (
       vm_order_evidence_matched_count: candidates.filter((candidate) => candidate.vm_order_evidence.matched).length,
       vm_prep_matched_count: candidates.filter((candidate) => candidate.vm_prep_evidence.matched).length,
       path_b_same_order_count: candidates.filter((candidate) => candidate.path_b_evidence.matched_same_order).length,
+      ...buildNpayActualSummary(candidates, npayActual, options.platformCostKrw),
       send_candidate: 0,
       actual_send_candidate: 0,
       upload_candidate: 0,
@@ -473,7 +577,16 @@ const main = () => {
   const operational = readJson<OperationalInput>(options.operationalInput);
   const vmPrep = readJson<VmPrepInput>(options.vmPrepInput);
   const pathB = readJson<PathBEvidenceInput>(options.pathBEvidenceInput);
-  const payload = buildPayload(options, operational, vmPrep, pathB);
+  const npayActual = options.npayActualSourceInput
+    ? readJson<NpayActualSourceInput>(options.npayActualSourceInput)
+    : null;
+  const payload = buildPayload(options, operational, vmPrep, pathB, npayActual);
+  if (npayActual && payload.summary) {
+    (payload.summary as Record<string, unknown>).npay_actual_source_path = path.relative(
+      process.cwd(),
+      options.npayActualSourceInput!,
+    );
+  }
   const jsonText = `${JSON.stringify(payload, null, 2)}\n`;
 
   if (options.output) {

@@ -1,0 +1,120 @@
+{
+  "ok": true,
+  "schema_version": "path_b_order_bridge_canary_post_audit_20260511",
+  "generated_at_kst": "2026-05-11 00:05:00 KST",
+  "site": "biocom",
+  "verdict": "CANARY_COMPLETE_NO_TRAFFIC",
+  "verdict_definition": {
+    "CANARY_COMPLETE_PASS": "row_count 증가 ≥ 1 + raw_stored=0 + platform_send=0",
+    "CANARY_COMPLETE_FAIL": "raw_stored>0 또는 platform_send>0",
+    "CANARY_COMPLETE_NO_TRAFFIC": "1h 동안 row_count 증가 0 + raw_stored=0 + platform_send=0 + .env 자동 원복 PASS",
+    "ACCESS_BLOCKED": "VM admin/SSH 접근 불가로 toggle 자체 미실행"
+  },
+  "harness_preflight": {
+    "lane": "Yellow_executed_with_no_traffic_observed",
+    "approval_received": "[승인] gpt0508-35 작업1 Path B order_bridge limited deploy v2",
+    "approval_actually_executed": true,
+    "approval_executed_within_scope": true,
+    "raw_pii_logged": false,
+    "no_send_verified": true,
+    "no_operational_db_write_verified": true
+  },
+  "timeline_kst": {
+    "canary_start": "2026-05-10 23:03:03 KST",
+    "code_canary_until_cutoff": "2026-05-11 00:03:03 KST",
+    "vm_auto_rollback_started": "2026-05-11 00:03:56 KST",
+    "vm_auto_rollback_finished": "2026-05-11 00:04:03 KST",
+    "claude_post_audit_fetched": "2026-05-11 00:04:21 KST"
+  },
+  "snapshots": {
+    "pre_canary_2255": {
+      "row_count": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": false
+    },
+    "canary_start_2303": {
+      "row_count": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": true
+    },
+    "mid_canary_2356": {
+      "row_count": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": true
+    },
+    "pre_rollback_0003": {
+      "row_count": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": true,
+      "fetched_at_iso": "2026-05-10T15:03:56.986Z"
+    },
+    "post_rollback_0004": {
+      "row_count": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": false,
+      "fetched_at_iso": "2026-05-10T15:04:03.522Z"
+    },
+    "final_audit_0004": {
+      "row_count": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": false,
+      "fetched_at_iso": "2026-05-10T15:04:21.262Z"
+    }
+  },
+  "deltas": {
+    "row_count_canary_to_post_rollback": 0,
+    "raw_stored_count_change": 0,
+    "platform_send_count_change": 0,
+    "write_flag_on_returned_to_false": true,
+    "duplicate_dedupe_count_change": 0
+  },
+  "env_state_after_rollback": {
+    "ORDER_BRIDGE_WRITE_ENABLED": "false",
+    "ORDER_BRIDGE_WRITE_CANARY_UNTIL": "(empty)",
+    "ORDER_BRIDGE_WRITE_MAX_ROWS": 200,
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": "false",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": "false",
+    "ORDER_BRIDGE_RETENTION_DAYS": 90,
+    "ORDER_BRIDGE_IDENTITY_HASH_SECRET": "set"
+  },
+  "interpretation_human_language": [
+    "1시간 canary 윈도우(2026-05-10 23:03~24:03 KST) 내내 Path B identity HMAC 엔드포인트로 들어오는 hash-only ledger write 요청이 0건이었다.",
+    "이유 후보: (a) 야간 시간대(23~24시 KST)라 결제완료 트래픽이 0건이었거나, (b) funnel-capi v3가 Path B no-send endpoint를 호출하더라도 dedupe key 충돌로 신규 row가 생성되지 않았거나, (c) 결제완료 시점에 Path B endpoint 호출 자체가 발생하지 않았을 가능성. 본 sprint에서는 canary endpoint 트래픽 로그를 추가 read-only로 보지 않았다.",
+    "안전 측면은 PASS — raw 저장 0, platform send 0, write_flag_on 자동 복귀 OK. 코드의 ORDER_BRIDGE_WRITE_CANARY_UNTIL 자동 cutoff 와 VM nohup 자동 .env rollback 둘 다 정상 동작.",
+    "다음 canary는 트래픽이 있는 시간대(주간 KST 11~12시 또는 19~20시) 또는 controlled traffic injection을 동반한 윈도우로 가야 row_count 변동을 측정 가능하다."
+  ],
+  "next_action_recommendations": [
+    {
+      "action": "주간 트래픽 시간대 1h canary 재실행",
+      "lane": "Yellow",
+      "expected_traffic": "주문완료 수~수십 건",
+      "reuse_approved_invariants": true,
+      "claude_code_substitution_possible": false,
+      "tj_required_step": "VM SSH로 ORDER_BRIDGE_WRITE_ENABLED=true + ORDER_BRIDGE_WRITE_CANARY_UNTIL=<+1h ISO> 설정 + pm2 restart + auto-rollback nohup 스케줄러"
+    },
+    {
+      "action": "결제완료 endpoint 호출 로그 read-only 점검",
+      "lane": "Green",
+      "what": "백엔드 access log에서 POST /api/attribution/order-bridge/identity-hmac/no-send 호출 수와 dedupe rejection 비율 조회",
+      "claude_code_substitution_possible": "조건부 (VM SSH read-only 가능)"
+    },
+    {
+      "action": "controlled traffic synthetic injection (TJ Tag Assistant 또는 GTM Preview)",
+      "lane": "Yellow",
+      "what": "테스트 결제 1건을 Tag Assistant로 발생시켜 ledger row 1건 누적 확인",
+      "claude_code_substitution_possible": false,
+      "tj_required_step": "TJ Tag Assistant 또는 GTM Preview로 테스트 흐름 1회 실행"
+    }
+  ],
+  "verdict_implication_for_npay_rail_stage_2": {
+    "stage_2_schema_canary_status": "STILL_PENDING",
+    "reason": "ledger row 누적이 0이라 channel_order_no_hash 매칭 효과를 검증할 baseline이 없다. 주간 canary 또는 controlled injection으로 row 누적 시작 후 진입 권장.",
+    "claude_code_recommendation": "주간 canary 1h 재실행을 우선 진행 후 row 누적 ≥ 1 시점에 schema canary 진입."
+  }
+}

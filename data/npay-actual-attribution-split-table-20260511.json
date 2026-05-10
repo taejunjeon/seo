@@ -1,0 +1,102 @@
+{
+  "ok": true,
+  "schema_version": "npay_actual_attribution_split_table_20260511",
+  "generated_at_kst": "2026-05-10 23:50:00 KST",
+  "site": "biocom",
+  "purpose": "NPay actual confirmed 209건/30d 풀을 internal_revenue_only / google_ads_budget_floor_exact / upload_blocked 3 layer로 분리해 운영자가 한 화면에서 분리해 본다.",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "confidence": 0.9
+  },
+  "input_pools": {
+    "operational_pg_npay_actual_30d_rolling": {
+      "rows": 209,
+      "total_amount_krw": 37638900,
+      "freshness_kst": "2026-05-10 23:43"
+    },
+    "operational_pg_npay_actual_30d_fixed_kst_boundary": {
+      "rows": 207,
+      "boundary": "2026-04-11 00:00 KST"
+    },
+    "confirmed_purchase_prep_candidates_total_30d": 2152,
+    "confirmed_purchase_prep_candidates_npay_30d": 143,
+    "confirmed_purchase_prep_candidates_npay_with_exact_evidence": 9
+  },
+  "split_layers": [
+    {
+      "layer_id": 1,
+      "name": "internal_revenue_only",
+      "what_it_means": "실제 결제완료(NPay PAYMENT_COMPLETE)라 internal ROAS 분자에는 합류하지만 Google Ads exact evidence가 없어 광고 캠페인 귀속에는 사용 못 함.",
+      "rows_within_prep_candidates_143": 134,
+      "rows_within_pg_209": "약 200 (PG 풀 기준 추정 — exact evidence 보유율은 prep candidates 6.3% 비례 적용 시 약 196건)",
+      "use_for_internal_roas_numerator": true,
+      "use_for_google_ads_budget_floor": false,
+      "use_for_upload": false,
+      "send_candidate": false,
+      "actual_send_candidate": false
+    },
+    {
+      "layer_id": 2,
+      "name": "google_ads_budget_floor_exact",
+      "what_it_means": "실제 결제완료 + gclid/gbraid/wbraid + Google Ads click_view exact 매칭 또는 Path B/paid_click_intent same-order ledger exact 매칭. Google Ads 캠페인 ROAS 하한(floor)으로 참고 가능.",
+      "rows_within_prep_candidates_143": 9,
+      "rows_within_pg_209_estimated": "약 13 (PG 풀로 환산 시 6.3% 비율 가정)",
+      "evidence_required": [
+        "gclid + click_view exact",
+        "gbraid + click_view exact",
+        "wbraid + click_view exact",
+        "order_bridge_ledger same-order exact (Path B canary 누적 후)",
+        "paid_click_intent_log same-order exact (channel_order_no_hash schema 추가 후)"
+      ],
+      "use_for_internal_roas_numerator": true,
+      "use_for_google_ads_budget_floor": true,
+      "use_for_upload": false,
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "note": "budget_floor 라벨은 '예산 판단의 안전한 하한 참고값'이라는 뜻이지 'upload 가능'이라는 뜻이 아니다."
+    },
+    {
+      "layer_id": 3,
+      "name": "upload_blocked",
+      "what_it_means": "actual confirmed 라도 Google Ads upload 조건 미충족 → 본 sprint도 upload_candidate=0.",
+      "rows_within_pg_209": 209,
+      "always_blocked_reason": [
+        "Red Lane 별도 승인 부재",
+        "exact evidence 9건 외 동의/검증 절차 미완",
+        "platform_send_count==0 invariant 유지"
+      ],
+      "use_for_internal_roas_numerator": "개별 row가 layer 1 또는 2이면 yes, but upload는 무조건 no",
+      "send_candidate": false,
+      "actual_send_candidate": false,
+      "upload_candidate": false
+    }
+  ],
+  "explainer_for_human_table": {
+    "title": "사람이 한 화면에서 보는 분리표",
+    "rows": [
+      {"layer": "내부 매출만", "건수": 134, "internal ROAS": "분자 포함", "Google Ads 귀속": "❌", "Google Ads upload": "❌"},
+      {"layer": "내부 매출 + 광고 floor 참고", "건수": 9, "internal ROAS": "분자 포함", "Google Ads 귀속": "참고만 (campaign_id 매칭)", "Google Ads upload": "❌ (별도 Red 승인 후 가능)"},
+      {"layer": "upload 차단", "건수": 209, "internal ROAS": "각 row가 layer 1 또는 2", "Google Ads 귀속": "각 row 별 분류", "Google Ads upload": "❌ (sprint 정책)"}
+    ]
+  },
+  "relation_pg_209_vs_prep_candidates_143": {
+    "gap": 66,
+    "explanation": "운영 PG에서 NAVERPAY_ORDER + PAYMENT_COMPLETE + cancel/return 빈값 + amount > 0 만 적용하면 209. ConfirmedPurchasePrep dry-run input candidates는 GA4 already_in_ga4 / VM evidence missing 등 추가 builder block으로 일부 제외되어 143. 차이 66은 build script의 보수적 block_reasons 효과이고 internal ROAS 분자 계산은 PG 209 기준이 맞다.",
+    "next_sprint_alignment": "ConfirmedPurchase builder의 block_reasons 정규화에서 'NPay PAYMENT_COMPLETE 는 internal revenue 합류는 통과, send/upload 만 block' 패턴을 명시화 — 다음 sprint에 작은 patch 가능."
+  },
+  "rules_unchanged": {
+    "actual_purchase_definition": "PAYMENT_COMPLETE + cancel/return empty + amount > 0",
+    "npay_click_to_purchase": false,
+    "npay_count_to_purchase": false,
+    "npay_add_payment_info_to_purchase": false,
+    "ga4_purchase_event_to_actual_purchase": false,
+    "vm_complete_time_blank_only_to_npay_unpaid": false,
+    "time_window_only_to_budget": false,
+    "utm_hint_to_budget_or_upload": false
+  },
+  "verdict": "SPLIT_TABLE_PASS_134_INTERNAL_ONLY_9_GOOGLE_FLOOR_209_UPLOAD_BLOCKED"
+}
