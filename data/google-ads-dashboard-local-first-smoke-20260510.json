@@ -1,0 +1,76 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-10T11:23:02.133Z",
+  "generated_at_kst": "2026-05-10 20:23:02 KST",
+  "mode": "vm_google_ads_dashboard_local_first_limited_deploy_smoke",
+  "site": "biocom",
+  "lane": "Yellow approved limited deploy, read-only smoke",
+  "deploy": {
+    "vm": "att.ainativeos.net / taejun@34.64.104.94 / biocomkr_sns",
+    "app": "seo-backend",
+    "backup_dir": "/home/biocomkr_sns/seo/shared/deploy-backups/20260510-200221_google_ads_dashboard_local_first",
+    "env_mode": "GOOGLE_ADS_DASHBOARD_LEDGER_MODE=local_first",
+    "pm2_restart_count_delta": 1,
+    "current_pid": 551017,
+    "dist_hashes": {
+      "backend/dist/env.js": "204d291c2af465c83a562a764c417f1534f353cac52bf36e6f47491086ca65d0",
+      "backend/dist/routes/googleAds.js": "8d4bfc0ec9161b56b750cfcab4e30485b90247b469350102a70cf70e9f23fe9e"
+    }
+  },
+  "before": {
+    "status": {
+      "http": 200,
+      "time_seconds": 1.168
+    },
+    "dashboard_last_7d": {
+      "http": 200,
+      "time_seconds": 26.229
+    },
+    "dashboard_last_30d": {
+      "http": 502,
+      "time_seconds": 39.472
+    }
+  },
+  "after": {
+    "status": {
+      "http": 200,
+      "time_seconds": 0.899985,
+      "ok": true,
+      "customerId": "2149990943",
+      "apiVersion": "v22"
+    },
+    "dashboard_last_7d": {
+      "http": 200,
+      "time_seconds": 4.357099,
+      "ok": true,
+      "platform_roas": 11.700718743761232,
+      "internal_confirmed_revenue": 1574000,
+      "internal_confirmed_roas": 0.4,
+      "campaign_id_coverage": 0.7,
+      "send_candidate_true": false,
+      "upload_candidate_count": 0
+    },
+    "dashboard_last_30d": {
+      "http": 200,
+      "time_seconds": 3.0286,
+      "ok": true,
+      "platform_roas": 9.580324933126128,
+      "internal_confirmed_revenue": 6493020,
+      "internal_confirmed_roas": 0.27,
+      "campaign_id_coverage": 0.84,
+      "send_candidate_true": false,
+      "upload_candidate_count": 0
+    }
+  },
+  "guard": {
+    "google_ads_upload": 0,
+    "platform_send": 0,
+    "send_candidate_true": 0,
+    "actual_send_candidate_true": 0,
+    "raw_email_log_delta": 0,
+    "raw_phone_log_delta": 0,
+    "sensitive_field_name_log_delta": 0,
+    "gtm_publish": 0
+  },
+  "verdict": "PASS: VM dashboard last_30d 502 resolved by local_first mode; route is read-only and no upload/send path changed."
+}

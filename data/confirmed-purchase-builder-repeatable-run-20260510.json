@@ -1,0 +1,73 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 20:23:38 KST",
+  "mode": "confirmed_purchase_builder_repeatable_run_no_send",
+  "source": {
+    "primary_confirmed_source": "operational_db_PAYMENT_COMPLETE_or_admin_confirmed",
+    "support_sources": [
+      "VM Cloud Path B order bridge evidence",
+      "VM Cloud NPay intent/order evidence",
+      "Google Ads click_view read-only campaign join"
+    ],
+    "base_artifact": "data/confirmed-purchase-builder-same-window-input-20260510.json",
+    "note": "최근 30일 운영DB PAYMENT_COMPLETE primary + VM Cloud Path B/NPay evidence 보조 구조를 같은 shape로 재사용한다."
+  },
+  "invariants": {
+    "npay_actual_confirmed_included": true,
+    "homepage_confirmed_included": true,
+    "click_only_blocked": true,
+    "add_payment_info_only_blocked": true,
+    "unpaid_or_test_or_controlled_blocked": true,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate_count": 0,
+    "complete_time_blank_not_blocking_alone": true,
+    "imweb_status_blank_not_blocking_alone": true
+  },
+  "current_summary": {
+    "integrated_candidate_count": 2152,
+    "homepage_confirmed_count": 2009,
+    "npay_actual_confirmed_count": 143,
+    "payment_method_counts": {
+      "homepage": 2009,
+      "npay": 143
+    },
+    "with_google_click_id": 31,
+    "vm_order_evidence_matched_count": 1686,
+    "vm_prep_matched_count": 35,
+    "path_b_same_order_count": 0,
+    "send_candidate": 0,
+    "actual_send_candidate": 0,
+    "upload_candidate": 0,
+    "block_reason_counts": {
+      "already_in_ga4_unknown": 2152,
+      "approval_required": 2152,
+      "missing_google_click_id": 2121,
+      "read_only_integrated_input": 2152,
+      "read_only_phase": 2152,
+      "send_candidate_forced_false": 2152,
+      "missing_attribution_vm_evidence": 466,
+      "npay_actual_confirmed_from_primary_source": 143,
+      "npay_intent_purchase_without_intent": 76,
+      "order_has_return_reason": 11,
+      "npay_intent_ambiguous": 24,
+      "npay_intent_not_a_grade_strong": 22
+    },
+    "controlled_path_b_reference": {
+      "order_no": "",
+      "verdict": "PASS_REAL_GOOGLE_AD_CLICK_TO_ORDER_COMPLETE_NO_SEND_BRIDGE__CONFIRMED_PAYMENT_HOLD",
+      "click_id_hash_present": true,
+      "email_hash_present": true,
+      "order_no_hash_present": true,
+      "client_session_present": true
+    }
+  },
+  "repeatable_run_contract": {
+    "input_window_required": true,
+    "source_freshness_required": true,
+    "block_reason_distribution_required": true,
+    "raw_order_or_pii_output_allowed": false,
+    "output_pattern": "data/confirmed-purchase-builder-repeatable-input-YYYYMMDD.json + gdn/confirmed-purchase-builder-repeatable-input-YYYYMMDD.md"
+  },
+  "generated_at": "2026-05-10T11:23:38.646Z"
+}

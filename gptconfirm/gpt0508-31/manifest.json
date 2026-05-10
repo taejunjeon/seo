@@ -1,0 +1,105 @@
+{
+  "batch": "gpt0508-31",
+  "created_at_kst": "2026-05-10 20:32:38 KST",
+  "purpose": "VM Google Ads dashboard local_first deploy, BigQuery archive+daily union, and repeatable no-send ROAS inputs",
+  "track_progress": {
+    "A": {
+      "name": "ConfirmedPurchasePrep 통합 input",
+      "previous_percent": 89,
+      "current_percent": 90,
+      "delta_percent": 1
+    },
+    "B": {
+      "name": "Google Ads campaign_id 조인/ROAS 분해",
+      "previous_percent": 68,
+      "current_percent": 73,
+      "delta_percent": 5
+    },
+    "C": {
+      "name": "BigQuery campaign funnel quality",
+      "previous_percent": 66,
+      "current_percent": 76,
+      "delta_percent": 10
+    },
+    "D/KR6": {
+      "name": "Meta funnel CAPI Test Events readiness",
+      "previous_percent": 70,
+      "current_percent": 70,
+      "delta_percent": 0
+    },
+    "E": {
+      "name": "Harness/multi-agent/HOLD Reducer",
+      "previous_percent": 87,
+      "current_percent": 87,
+      "delta_percent": 0
+    },
+    "F": {
+      "name": "Frontend/Data Trust Dashboard",
+      "previous_percent": 42,
+      "current_percent": 46,
+      "delta_percent": 4
+    }
+  },
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-31/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-31/00-result-report.md",
+      "why_included": "batch result report",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/google-ads-dashboard-local-first-deploy-result-20260510.md",
+      "copy": "gptconfirm/gpt0508-31/01-google-ads-dashboard-local-first-deploy-result-20260510.md",
+      "why_included": "VM dashboard route local_first deploy evidence",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/bigquery-archive-daily-union-dry-run-20260510.md",
+      "copy": "gptconfirm/gpt0508-31/02-bigquery-archive-daily-union-dry-run-20260510.md",
+      "why_included": "BigQuery archive+daily union coverage result",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/confirmed-purchase-builder-repeatable-runbook-20260510.md",
+      "copy": "gptconfirm/gpt0508-31/03-confirmed-purchase-builder-repeatable-runbook-20260510.md",
+      "why_included": "repeatable no-send confirmed purchase input",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/google-ads-campaign-id-join-coverage-extension-20260510.md",
+      "copy": "gptconfirm/gpt0508-31/04-google-ads-campaign-id-join-coverage-extension-20260510.md",
+      "why_included": "campaign_id join coverage expansion",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/frontend-dashboard-data-contract-20260510.md",
+      "copy": "gptconfirm/gpt0508-31/05-frontend-dashboard-data-contract-20260510.md",
+      "why_included": "frontend F0 data contract",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-31/06-telegram-completion-note.md",
+      "copy": "gptconfirm/gpt0508-31/06-telegram-completion-note.md",
+      "why_included": "telegram completion payload record",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-31/99-total-current-copy.md",
+      "why_included": "canonical snapshot",
+      "approval_needed": false
+    }
+  ],
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action change",
+    "Meta CAPI Test Events actual call",
+    "GTM Production publish",
+    "frontend implementation start",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "NPay click/count as purchase",
+    "new Google Ads/GA4/Meta/TikTok/Naver send",
+    "raw email/phone/member_code/order/payment storage or logging"
+  ]
+}
