@@ -926,6 +926,62 @@ export default function GoogleAdsPerformancePage() {
           </div>
         </section>
 
+        <section
+          aria-label="data trust guard"
+          style={{
+            marginBottom: 18,
+            padding: 16,
+            borderRadius: 14,
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            <strong style={{ color: "#0f172a", fontSize: "0.9rem" }}>Data Trust Guard</strong>
+            <span style={{ color: "#64748b", fontSize: "0.7rem", fontWeight: 750 }}>
+              read-only · no platform send · no upload
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 10 }}>
+            <div style={{ padding: 10, borderRadius: 10, background: "#ecfdf5", border: "1px solid #bbf7d0" }}>
+              <div style={{ color: "#047857", fontSize: "0.68rem", fontWeight: 850 }}>Upload / Send Guard</div>
+              <div style={{ color: "#064e3b", fontSize: "0.84rem", fontWeight: 900, marginTop: 4 }}>
+                upload 0건 · send 0건
+              </div>
+              <div style={{ color: "#065f46", fontSize: "0.68rem", marginTop: 3 }}>
+                send_candidate false · actual_send_candidate false
+              </div>
+            </div>
+            <div style={{ padding: 10, borderRadius: 10, background: "#eff6ff", border: "1px solid #bfdbfe" }}>
+              <div style={{ color: "#1d4ed8", fontSize: "0.68rem", fontWeight: 850 }}>BigQuery coverage</div>
+              <div style={{ color: "#1e3a8a", fontSize: "0.84rem", fontWeight: 900, marginTop: 4 }}>
+                7d PASS · 14d PASS · 30d PASS
+              </div>
+              <div style={{ color: "#1e40af", fontSize: "0.68rem", marginTop: 3 }}>
+                archive+daily union · gpt0508-33 기준
+              </div>
+            </div>
+            <div style={{ padding: 10, borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa" }}>
+              <div style={{ color: "#9a3412", fontSize: "0.68rem", fontWeight: 850 }}>NPay click warning</div>
+              <div style={{ color: "#7c2d12", fontSize: "0.84rem", fontWeight: 900, marginTop: 4 }}>
+                click/count는 구매가 아님
+              </div>
+              <div style={{ color: "#9a3412", fontSize: "0.68rem", marginTop: 3 }}>
+                actual confirmed만 내부 ROAS 분자 포함
+              </div>
+            </div>
+            <div style={{ padding: 10, borderRadius: 10, background: "#f5f3ff", border: "1px solid #ddd6fe" }}>
+              <div style={{ color: "#5b21b6", fontSize: "0.68rem", fontWeight: 850 }}>다음 안전 액션</div>
+              <div style={{ color: "#3b0764", fontSize: "0.84rem", fontWeight: 900, marginTop: 4 }}>
+                ConfirmedPurchasePrep 갱신 시 click_view 재조인
+              </div>
+              <div style={{ color: "#5b21b6", fontSize: "0.68rem", marginTop: 3 }}>
+                Google Ads upload는 명시 승인 전 HOLD
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 16, marginBottom: 16 }}>
           <Panel title="CSV 임시 분석">
             <label style={{

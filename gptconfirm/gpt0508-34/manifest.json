@@ -1,0 +1,75 @@
+{
+  "batch": "gpt0508-34",
+  "created_at_kst": "2026-05-10 22:50:00 KST",
+  "purpose": "Momentum sprint — Green 분석 반복에서 Yellow/Red approval-ready 패킷으로 전환. Path B canary v2, ConfirmedPurchasePrep next-step, Frontend F0 patch, Google Ads conversion action Red 옵션, NPay matching rail, Meta CAPI KR6 Test Events smoke 승인안.",
+  "lane": "Green_with_Yellow_Red_proposals",
+  "track_progress": {
+    "A": {"name": "ConfirmedPurchasePrep 통합 input", "previous_percent": 90, "current_percent": 93, "delta_percent": 3},
+    "B": {"name": "Google Ads campaign_id 조인/ROAS 분해", "previous_percent": 76, "current_percent": 82, "delta_percent": 6},
+    "C": {"name": "BigQuery campaign funnel quality", "previous_percent": 82, "current_percent": 84, "delta_percent": 2},
+    "D/KR6": {"name": "Meta funnel CAPI Test Events readiness", "previous_percent": 70, "current_percent": 72, "delta_percent": 2},
+    "E": {"name": "Harness/multi-agent/HOLD Reducer", "previous_percent": 89, "current_percent": 92, "delta_percent": 3},
+    "F": {"name": "Frontend/Data Trust Dashboard", "previous_percent": 52, "current_percent": 64, "delta_percent": 12}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-34/00-result-report.md", "copy": "gptconfirm/gpt0508-34/00-result-report.md", "why_included": "batch result report"},
+    {"source": "gdn/path-b-order-bridge-limited-deploy-approval-v2-20260511.md", "copy": "gptconfirm/gpt0508-34/01-path-b-order-bridge-limited-deploy-approval-v2-20260511.md", "why_included": "작업1 Path B Yellow canary 승인안"},
+    {"source": "gdn/confirmed-purchase-prep-integration-next-step-20260511.md", "copy": "gptconfirm/gpt0508-34/02-confirmed-purchase-prep-integration-next-step-20260511.md", "why_included": "작업2 builder cross_reference design"},
+    {"source": "gdn/frontend-f0-readonly-implementation-plan-or-result-20260511.md", "copy": "gptconfirm/gpt0508-34/03-frontend-f0-readonly-implementation-plan-or-result-20260511.md", "why_included": "작업3 frontend F0 patch result + Yellow build 승인안"},
+    {"source": "gdn/google-ads-conversion-action-red-options-20260511.md", "copy": "gptconfirm/gpt0508-34/04-google-ads-conversion-action-red-options-20260511.md", "why_included": "작업4 Red 옵션 3개"},
+    {"source": "gdn/npay-actual-matching-rail-next-step-20260511.md", "copy": "gptconfirm/gpt0508-34/05-npay-actual-matching-rail-next-step-20260511.md", "why_included": "작업5 NPay 5단계 rail + Yellow canary"},
+    {"source": "capivm/meta-capi-kr6-momentum-check-20260511.md", "copy": "gptconfirm/gpt0508-34/06-meta-capi-kr6-momentum-check-20260511.md", "why_included": "작업6 Meta CAPI Yellow smoke 승인안"},
+    {"source": "gptconfirm/gpt0508-34/07-telegram-completion-note.md", "copy": "gptconfirm/gpt0508-34/07-telegram-completion-note.md", "why_included": "telegram completion payload"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-34/99-total-current-copy.md", "why_included": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/path-b-order-bridge-limited-deploy-approval-v2-20260511.json",
+    "data/confirmed-purchase-prep-integration-next-step-20260511.json",
+    "data/google-ads-conversion-action-red-options-20260511.json",
+    "data/npay-actual-matching-rail-next-step-20260511.json"
+  ],
+  "code_changes": [
+    {"file": "frontend/src/app/ads/google/page.tsx", "scope": "+63 LOC Data Trust Guard section (정적 카드 4개)", "typecheck": "PASS", "build_executed": false}
+  ],
+  "verification": {
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_check_strict": "PASS",
+    "git_diff_check": "PASS",
+    "frontend_typecheck": "PASS",
+    "backend_typecheck": "skipped_no_backend_code_change",
+    "raw_pii_pattern_scan": "PASS"
+  },
+  "actual_executions": {
+    "green": ["frontend Data Trust Guard section 추가", "6 산출 문서/JSON 생성", "gptconfirm 패키지 생성"],
+    "yellow": [],
+    "red": [],
+    "platform_actual_send": 0,
+    "google_ads_upload": 0,
+    "gtm_publish": 0,
+    "operational_db_write": 0
+  },
+  "approval_proposals": {
+    "yellow_pending": [
+      "frontend npm run build (7010 반영)",
+      "Path B ORDER_BRIDGE_WRITE_ENABLED=true 1h canary",
+      "NPay npay_intent_log 3컬럼 추가 1h canary",
+      "Meta CAPI ViewContent/AddToCart/InitiateCheckout/AddPaymentInfo 30분 Test Events smoke"
+    ],
+    "red_pending": [
+      "Google Ads 옵션1 관찰 only",
+      "Google Ads 옵션2 TechSol Secondary→Off (추천, 자신감 78%)",
+      "Google Ads 옵션3 신규 BI confirmed_purchase action + 7일 병행"
+    ]
+  },
+  "forbidden_actions_not_taken": [
+    "Google Ads upload/send",
+    "Google Ads conversion action 실제 변경",
+    "GA4/Meta/TikTok/Naver 운영 전송",
+    "GTM Production publish",
+    "운영DB write",
+    "raw email/phone/order/payment/member_code 저장 또는 logging",
+    "NPay click/count/add_payment_info 를 purchase로 승격",
+    "time-window-only attribution을 예산 판단에 사용"
+  ]
+}

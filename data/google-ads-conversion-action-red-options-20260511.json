@@ -1,0 +1,130 @@
+{
+  "ok": true,
+  "schema_version": "google_ads_conversion_action_red_options_20260511",
+  "generated_at_kst": "2026-05-10 22:30:00 KST",
+  "site": "biocom",
+  "mode": "approval_packet_no_actual_change",
+  "harness_preflight": {
+    "lane_overall": "Red_proposed",
+    "lane_for_this_artifact": "Green",
+    "read_only": true,
+    "no_actual_conversion_action_change": true,
+    "source_window_freshness_confidence": {
+      "source": "VM Cloud Google Ads dashboard last_30d conversionActions array (46 actions) + gdn/techsol-gads-npay-click-conversion-audit-20260510.md",
+      "window": "Google Ads conversion_action 전체 (status != REMOVED), 30d 호출 시각 2026-05-10 21:41 KST",
+      "freshness": "2026-05-10 22:30 KST",
+      "confidence": 0.86
+    }
+  },
+  "purpose": "platform ROAS와 internal confirmed ROAS의 큰 gap이 NPay click/count 성격 conversion action이 입찰 학습에 들어가서 발생할 수 있다. 본 packet은 실제 변경 없이 Red 옵션 3개를 제시해 TJ가 목표달성 관점에서 선택하게 한다.",
+  "current_state_audit": {
+    "total_conversion_actions": 46,
+    "purchase_category": {
+      "primary_for_goal_enabled": [
+        {"id": "7130249515", "name": "구매완료", "category": "PURCHASE", "status": "ENABLED", "primary_for_goal": true, "interpretation": "현재 입찰 학습에 가장 영향력 큰 결제완료 신호로 추정"}
+      ],
+      "secondary_enabled": [
+        {"id": "7564830949", "name": "TechSol - NPAY구매 50739", "category": "PURCHASE", "status": "ENABLED", "primary_for_goal": false, "labels": ["3yjICOXRmJccEJixj5EB"], "interpretation": "Secondary action이지만 NPay click/intent 성격 의심. 이전 audit risk MEDIUM."}
+      ],
+      "hidden_or_legacy": [
+        {"id": "781508597", "name": "결제완료 (전체 웹사이트 데이터)", "category": "DEFAULT", "status": "HIDDEN", "primary_for_goal": true},
+        {"id": "781508600", "name": "결제페이지 진입 (전체 웹사이트 데이터)", "category": "DEFAULT", "status": "HIDDEN", "primary_for_goal": true, "interpretation": "결제페이지 진입은 actual purchase 아님. HIDDEN 유지 정상"},
+        {"id": "6630514046", "name": "[G4] biocom.kr (web) 결제완료", "category": "PURCHASE", "status": "HIDDEN", "primary_for_goal": false},
+        {"id": "6630514043", "name": "[G4] biocom.kr (web) 결제페이지_진입", "category": "DEFAULT", "status": "HIDDEN", "primary_for_goal": false},
+        {"id": "782218494", "name": "Transactions (A_view)", "category": "PURCHASE", "status": "HIDDEN", "primary_for_goal": true},
+        {"id": "917325117", "name": "Transactions (전체 웹사이트 데이터)", "category": "PURCHASE", "status": "HIDDEN", "primary_for_goal": true}
+      ]
+    },
+    "summary_observations": [
+      "ENABLED + primary_for_goal=true PURCHASE는 사실상 7130249515 '구매완료' 1개로 보인다. 이 신호의 원천을 확인하기 전에는 변경 위험 크다.",
+      "TechSol - NPAY구매 50739는 Secondary 라서 입찰 직접 학습 영향은 작지만 화면/리포트 ROAS에는 포함된다.",
+      "HIDDEN 항목은 화면에서 안 보이지만 일부는 primary_for_goal=true라 아카이브 상태에서도 데이터 흐름은 살아있을 수 있다."
+    ]
+  },
+  "red_options": [
+    {
+      "option_id": 1,
+      "title": "관찰 only — 현상 유지 + dashboard warning 강화",
+      "what_changes": "Google Ads 변경 0건. 대신 frontend Data Trust Guard에 'NPay click/count는 입찰 학습에 들어갈 수 있다' warning을 추가하고, 운영자에게 매주 conversion action audit를 read-only로 보고한다.",
+      "advantage": [
+        "위험 0",
+        "rollback 불필요",
+        "광고 학습 흔들림 0",
+        "본 sprint 내에 frontend patch만으로 진행 가능"
+      ],
+      "risk": [
+        "NPay click 오염이 platform ROAS에 계속 남는다",
+        "internal confirmed ROAS와 platform ROAS gap이 줄지 않는다",
+        "campaign_id missing 2,121건 병목 자체는 해결 안 됨"
+      ],
+      "expected_impact": "platform ROAS 11.7→11.7 유지. internal confirmed ROAS 0.4→0.4 유지. gap 그대로.",
+      "rollback": "n/a (변경 없음)",
+      "approval_text": "[승인] gpt0508-34 작업4 옵션1: Google Ads 변경 없음, frontend Data Trust Guard만 추가.",
+      "use_when": "TJ가 광고 학습 안정성을 최우선으로 둘 때"
+    },
+    {
+      "option_id": 2,
+      "title": "중간 — TechSol Secondary action을 입찰 제외 또는 Secondary→Off 라벨로 명시",
+      "what_changes": "Google Ads UI에서 TechSol - NPAY구매 50739(7564830949)의 Conversion Goals 적용을 'Secondary, exclude from bidding' 또는 'Off'로 전환. 다른 ENABLED PURCHASE 13개는 손대지 않는다.",
+      "advantage": [
+        "NPay click 오염을 입찰 신호에서 단계적으로 제거",
+        "Secondary 변경이라 primary 학습 흐름은 보존",
+        "UI single-action 변경이라 rollback 단순"
+      ],
+      "risk": [
+        "TechSol action에 광고 알고리즘이 의존하던 부분이 흔들릴 가능성",
+        "변경 직후 1~2일 conversion volume 표시 변동 가능",
+        "ROAS 분모 cost는 그대로지만 분자가 일시적으로 감소 표시"
+      ],
+      "expected_impact": "platform ROAS가 NPay click 부풀이를 잃어 5~15% 하락 가능. internal confirmed ROAS는 변동 없음. ROAS gap이 줄어든다.",
+      "rollback": "Google Ads UI에서 TechSol action을 Secondary→Primary 또는 원래 상태로 복귀. 7일 내에는 학습 흔들림 회복 가능.",
+      "smoke_after_change": [
+        "24h 후 dashboard last_7d 비교: TechSol all_conversion_value 감소 폭 측정",
+        "internal_confirmed_roas 변동 없음 확인",
+        "campaign별 cost 분포가 급변하는지 확인"
+      ],
+      "approval_text": "[승인] gpt0508-34 작업4 옵션2: Google Ads UI에서 conversion action 7564830949(TechSol - NPAY구매 50739)을 Secondary 또는 Off로 전환, 24h dashboard 모니터링, 광고비 분배 급변 시 즉시 rollback.",
+      "use_when": "TJ가 NPay click 오염 제거를 단계적으로 시도하고 싶을 때"
+    },
+    {
+      "option_id": 3,
+      "title": "적극 — confirmed_purchase 전용 conversion action 신규 + 기존 오염 action 재분류 + 7일 병행 관찰",
+      "what_changes": "Google Ads UI에서 (a) ConfirmedPurchasePrep payload용 신규 conversion action 'BI confirmed_purchase'를 PURCHASE category로 생성, status DRAFT로 시작. (b) TechSol - NPAY구매 50739를 Secondary→Off 전환. (c) 7일 동안 신규 action에 데이터 적재(upload는 별도 Red 승인 필요)하면서 기존 '구매완료'(7130249515)와 병행 관찰. (d) 7일 PASS 시 신규 action을 Primary로 승격.",
+      "advantage": [
+        "campaign_id matched 31건이 신규 action 통해 정확히 분리 학습 시작 가능",
+        "long-term ROAS gap 축소 효과 가장 큼",
+        "data contract v2의 platform vs internal 분리가 광고 플랫폼 영역에서도 구조적으로 가능해진다"
+      ],
+      "risk": [
+        "신규 conversion action 생성과 기존 action 재분류가 동시에 진행되면 광고 학습이 2~3일 흔들릴 가능성",
+        "DRAFT→Primary 승격 시점에 cost/conversion 분배 급변",
+        "upload는 별도 Red 승인 필요. 본 옵션에는 upload 미포함"
+      ],
+      "expected_impact": "단기 platform ROAS 변동 ±10~20%, 7일 후 internal confirmed ROAS와 신규 action 기반 platform ROAS의 정렬 시작. ROAS gap 30~50% 축소 가능.",
+      "rollback": "신규 action을 DRAFT로 되돌리고, TechSol을 원래 상태로 복귀. 7일 내 학습 회복 가능.",
+      "smoke_after_change": [
+        "24h/72h/168h 후 dashboard 비교 (last_7d/last_14d)",
+        "신규 action에 upload 0건 유지 확인",
+        "캠페인별 cost 분배 변동 모니터링"
+      ],
+      "approval_text": "[승인] gpt0508-34 작업4 옵션3: confirmed_purchase 전용 conversion action 'BI confirmed_purchase' 신규 생성(DRAFT), TechSol Secondary→Off, 7일 병행 관찰, upload는 별도 Red 승인 후 진행.",
+      "use_when": "TJ가 platform ROAS 신뢰도 자체를 구조적으로 회복하고자 할 때"
+    }
+  ],
+  "recommended_option": {
+    "option_id": 2,
+    "rationale": "옵션1은 병목을 안 푼다. 옵션3은 구조 변경 폭이 커 회복 기간이 길다. 옵션2는 NPay click 오염을 단계적으로 제거하면서 rollback이 단순하고 광고 학습 흔들림을 1~2일 안에 흡수 가능하다.",
+    "confidence_pct": 78,
+    "unknowns": [
+      "TechSol action을 사용하는 Conversion Goal에 다른 캠페인이 의존하는지 (UI 진입 후 확인 필요)",
+      "변경 후 입찰 알고리즘 학습 회복 기간이 정확히 며칠인지 (브랜드/카테고리/세팅 의존)"
+    ]
+  },
+  "forbidden_until_explicit_approval": [
+    "Google Ads conversion action 실제 변경",
+    "Google Ads confirmed_purchase upload",
+    "GTM Production publish",
+    "platform actual send"
+  ],
+  "verdict": "RED_OPTIONS_READY_PENDING_HUMAN_GATE"
+}

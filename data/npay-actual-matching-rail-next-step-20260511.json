@@ -1,0 +1,119 @@
+{
+  "ok": true,
+  "schema_version": "npay_actual_matching_rail_next_step_20260511",
+  "generated_at_kst": "2026-05-10 22:35:00 KST",
+  "site": "biocom",
+  "mode": "design_plus_dry_run_no_runtime_change",
+  "harness_preflight": {
+    "lane_overall": "Yellow_proposed_for_minimal_hashed_mapping_canary",
+    "lane_for_this_artifact": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "source_window_freshness_confidence": {
+      "source": "backend/src/npayIntentLog.ts + backend/src/coffeeNpayIntentLog.ts + backend/src/npayRoasDryRun.ts + backend/src/routes/attribution.ts:2379 (POST /api/attribution/npay-intent) + ConfirmedPurchasePrep blocker breakdown (gpt0508-33)",
+      "window": "2026-05-10 read-only inspection",
+      "freshness": "2026-05-10 22:35 KST",
+      "confidence": 0.88
+    }
+  },
+  "purpose": "NPay no-return 문제(주문완료 후 NPay → 가맹점 콜백이 끊겨 channel_order_no를 다시 못 받는 케이스)를 Path B로 억지 해결하지 말고, npay_intent_log + actual order source(operational PG) + Path B order_bridge_ledger 세 축으로 actual 결제완료 매칭 rail을 만든다.",
+  "current_state_audit": {
+    "intent_log_module": "backend/src/npayIntentLog.ts",
+    "intent_log_columns": [
+      "intentKey (PK)",
+      "matchStatus",
+      "duplicateCount",
+      "gclid", "gbraid", "wbraid",
+      "fbclid", "ttclid",
+      "utm_source", "utm_medium", "utm_campaign",
+      "member_code_hash",
+      "phone_hash", "email_hash"
+    ],
+    "intent_log_columns_missing": [
+      "channel_order_no_hash",
+      "order_no_hash",
+      "payment_complete_at"
+    ],
+    "endpoint": "POST /api/attribution/npay-intent (backend/src/routes/attribution.ts:2379)",
+    "operational_source_of_truth": "tb_playauto_orders + tb_iamweb_users (운영 PG read-only) + admin confirmed flag",
+    "vm_dashboard_internal": "internal_confirmed.confirmedOrders 25 (last_30d) — npay_actual 분리 row 별도 노출 없음",
+    "current_npay_actual_count_in_confirmed_purchase_prep": 0,
+    "blocker_categories_from_gpt0508_33": {
+      "C_npay_no_click_with_utm": 27,
+      "D_npay_no_click_no_utm": 107
+    }
+  },
+  "matching_rail_design": {
+    "stage_1_intent_capture": {
+      "what": "NPay 결제 시작 시점에 funnel-capi v3가 hash-only NPay intent row를 npay_intent_log에 기록 (현재 이미 운영 중)",
+      "key_fields": ["intentKey", "member_code_hash", "phone_hash", "email_hash", "gclid", "utm_*"],
+      "no_change_needed": true
+    },
+    "stage_2_actual_order_link": {
+      "what": "주문완료 시점에 channel_order_no 또는 order_no를 hash해서 npay_intent_log에 reverse-link 컬럼 추가. 현재 이 단계가 누락이라 intent와 actual order가 분리되어 있다.",
+      "proposed_columns_to_add": ["channel_order_no_hash", "order_no_hash", "payment_complete_at"],
+      "schema_migration_required": true,
+      "lane": "Yellow_proposed",
+      "blast_radius": "small_local_sqlite_only",
+      "rollback": "DROP COLUMN 또는 NULL 유지"
+    },
+    "stage_3_operational_pg_join": {
+      "what": "운영 PG `tb_playauto_orders`/`tb_iamweb_users`에서 NPay payment_method + payment_complete + channel_order_no를 read-only로 가져와 stage_2 ledger의 channel_order_no_hash와 join",
+      "operational_pg_write": false,
+      "read_only_query": "SELECT order_id, channel_order_no, payment_method, payment_complete_at FROM tb_playauto_orders WHERE payment_method='npay' AND payment_complete_at >= NOW() - INTERVAL '30 days'",
+      "lane": "Green"
+    },
+    "stage_4_path_b_bridge_overlay": {
+      "what": "Path B order_bridge_ledger의 hashed identity material과 stage_3 PG join 결과를 cross-reference해 click_id_hash가 같은 row를 confirm",
+      "lane": "Green (read-only 비교)",
+      "budget_usable_when": "Path B canary write 활성화 (Path B 작업1 승인 후)"
+    },
+    "stage_5_confirmed_purchase_prep_label": {
+      "what": "ConfirmedPurchasePrep input pipeline이 stage_3 결과를 받아 npay_actual_count를 0이 아닌 실제 confirmed로 라벨링",
+      "current_npay_actual_count": 0,
+      "expected_npay_actual_count_after_rail": "approx 134 (confirmed 2,152건 중 NPay 결제수단 분포)",
+      "promotion_to_purchase_rule": "PAYMENT_COMPLETE + admin confirmed flag만 actual purchase로 라벨링. NPay click/count/add_payment_info는 절대 승격 금지."
+    }
+  },
+  "minimal_hashed_mapping_canary": {
+    "purpose": "stage_2 schema 추가가 안전한지 확인하기 위해 1h 짧은 canary로 npay_intent_log 신규 컬럼에 hash-only 값을 적재하고 raw 저장 0건을 확인한다.",
+    "lane": "Yellow_proposed",
+    "scope": "biocom only",
+    "max_rows": 50,
+    "duration_min": 60,
+    "rollback_command": "DROP COLUMN npay_intent_log.channel_order_no_hash, order_no_hash, payment_complete_at",
+    "smoke": [
+      "pre / post npay_intent_log row count diff",
+      "raw email/phone/order/channel_order_no 저장 0 확인",
+      "platform_send_count 0 확인"
+    ],
+    "approval_required_from": ["TJ", "ChatGPT operator"],
+    "approval_text": "[승인] gpt0508-34 작업5 minimal hashed mapping canary: npay_intent_log에 channel_order_no_hash/order_no_hash/payment_complete_at 컬럼 추가, 1h canary, max 50 rows, raw 저장 0 유지, rollback DROP COLUMN."
+  },
+  "forbidden_unchanged": [
+    "NPay click/count/add_payment_info를 purchase로 승격",
+    "VM Cloud complete_time 공백만으로 NPay 미결제 판정",
+    "운영 PG write",
+    "raw email/phone/order/channel_order_no/payment 저장",
+    "platform actual send"
+  ],
+  "result_summary": {
+    "code_touched": false,
+    "design_artifacts": [
+      "data/npay-actual-matching-rail-next-step-20260511.json",
+      "gdn/npay-actual-matching-rail-next-step-20260511.md"
+    ],
+    "next_green_action": "stage_3 read-only PG query 시범 실행하고 NPay confirmed 30d 분포 확인",
+    "next_yellow_action": "stage_2 schema migration + 1h canary 승인 요청"
+  },
+  "recommended_option": {
+    "option": "Stage_3_Green_first_then_Stage_2_Yellow_canary",
+    "confidence_pct": 84,
+    "unknowns": [
+      "tb_playauto_orders의 NPay channel_order_no 정합률",
+      "기존 npay_intent_log 누적량과 actual order 매칭 hit-rate"
+    ]
+  },
+  "verdict": "DESIGN_READY_PG_READONLY_GREEN_PLUS_HASHED_CANARY_YELLOW_PROPOSED"
+}

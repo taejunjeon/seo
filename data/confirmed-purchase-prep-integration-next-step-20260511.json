@@ -1,0 +1,122 @@
+{
+  "ok": true,
+  "schema_version": "confirmed_purchase_prep_integration_next_step_20260511",
+  "generated_at_kst": "2026-05-10 22:10:00 KST",
+  "site": "biocom",
+  "mode": "design_plus_dry_run_no_runtime_change",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "code_touched": false,
+    "source_window_freshness_confidence": {
+      "source": "backend/src/routes/attribution.ts:1104 buildConfirmedPurchaseNoSendPreview + ConfirmedPurchasePrep same-window input artifacts + Path B order bridge ledger module",
+      "window": "2026-05-10 read-only inspection",
+      "freshness": "2026-05-10 22:10 KST",
+      "confidence": 0.9
+    }
+  },
+  "purpose": "campaign_id missing 2,121건이 다음 sprint에 자동으로 줄어들도록, 운영DB PAYMENT_COMPLETE + NPay actual confirmed + Path B bridge evidence + paid_click_intent ledger + Google Ads click_view를 한 input pipeline으로 합치는 구조를 설계한다.",
+  "current_pipeline_audit": {
+    "entry_function": "buildConfirmedPurchaseNoSendPreview",
+    "entry_file": "backend/src/routes/attribution.ts:1104",
+    "input_keys_supported": [
+      "site", "order_number", "channel_order_no", "payment_method", "signal_stage",
+      "paid_at", "value", "currency", "client_id", "ga_session_id",
+      "gclid", "gbraid", "wbraid", "fbclid", "ttclid",
+      "page_location", "page_referrer", "is_test", "is_manual", "is_canceled", "is_refunded"
+    ],
+    "block_reasons_used": [
+      "site_not_allowed", "missing_order_identity", "payment_method_not_allowed",
+      "blocked_signal_stage_<stage>", "signal_stage_must_be_payment_complete",
+      "invalid_paid_at", "invalid_value", "currency_not_allowed",
+      "test_order", "manual_order", "canceled_order", "refunded_order"
+    ],
+    "evidence_sources_currently_joined": [
+      "single order body click_identifiers (gclid/gbraid/wbraid/fbclid/ttclid) — present-only",
+      "Google Ads click_view (별도 batch script로 join, runtime 합침 없음)"
+    ],
+    "evidence_sources_NOT_joined_yet": [
+      "paid_click_intent_ledger (backend/src/paidClickIntentLog.ts) — order에 click_id 없을 때 hash 매칭으로 campaign 후보 도출 가능",
+      "order_bridge_ledger (backend/src/orderBridgeLedger.ts) — Path B canary write 활성 시 hashed bridge row 누적",
+      "npay_intent_log (backend/src/npayIntentLog.ts) — NPay actual confirmed 보강",
+      "operational PG payment_complete window — primary_confirmed_source 인증",
+      "VM Cloud confirmed_purchase_prep recalc snapshot"
+    ]
+  },
+  "bottleneck_root_cause": {
+    "category_E_homepage_confirmed_no_click_with_utm": 1054,
+    "category_F_homepage_confirmed_no_click_no_utm": 933,
+    "category_C_npay_confirmed_no_click_with_utm": 27,
+    "category_D_npay_confirmed_no_click_no_utm": 107,
+    "primary_root_cause": "imweb 주문 테이블에 gclid/gbraid/wbraid가 보존되지 않아 buildConfirmedPurchaseNoSendPreview 호출 시점에 click_identifiers가 비어 있다. 결과적으로 click_view exact join 후보 자체가 31건으로 고정.",
+    "secondary_root_cause": "paid_click_intent_ledger와 order_bridge_ledger를 동일 confirmed order key로 cross-reference하는 함수가 없다."
+  },
+  "next_step_design": {
+    "patch_candidate_1": {
+      "name": "buildConfirmedPurchaseNoSendPreview에 cross_reference_evidence 필드 추가",
+      "scope": "backend/src/routes/attribution.ts (function-level, request-time read-only join)",
+      "behavior": [
+        "input click_identifiers가 비어 있을 때, hashed identity material(email/phone/order)을 기반으로 paid_click_intent_ledger와 order_bridge_ledger에서 same-order exact match를 lookup",
+        "exact match가 있으면 evidence={category: 'A_click_present_via_ledger', source_table, click_id_type, hash_prefix} 를 추가",
+        "exact match가 없으면 evidence={category: 'B~G', blocker_reason} 를 추가",
+        "여전히 send_candidate=false / actual_send_candidate=false 유지"
+      ],
+      "no_runtime_change_required_for_this_packet": true,
+      "code_change_estimate_loc": "약 60 LOC (이번 sprint 미적용, design only)"
+    },
+    "patch_candidate_2": {
+      "name": "ConfirmedPurchaseBuilder same-window input pipeline에 4 evidence merge step 추가",
+      "scope": "backend script (별도 builder, runtime endpoint와 분리)",
+      "behavior": [
+        "same-window input 생성 시 operational PG payment_complete + Path B ledger summary + paid_click_intent ledger + Google Ads click_view 30d를 join 단계로 명시",
+        "각 row에 confidence={A,B,C,D}와 reason field 부여",
+        "category A는 budget-usable, B~D는 diagnostic"
+      ],
+      "code_change_estimate_loc": "약 120 LOC (이번 sprint 미적용, design only)"
+    },
+    "no_actual_purchase_promotion": {
+      "ga4_purchase_event_to_actual_purchase": false,
+      "npay_click_to_actual_purchase": false,
+      "vm_cloud_complete_time_blank_only_to_npay_unpaid": false,
+      "primary_confirmed_source": "operational PG payment_complete + admin confirmed flag"
+    }
+  },
+  "fixture_dry_run_plan": {
+    "fixture_count": 4,
+    "fixtures": [
+      {
+        "name": "homepage_confirmed_with_gclid_in_paid_click_intent_ledger_same_order",
+        "expected_category": "A_via_ledger",
+        "expected_budget_usable": true
+      },
+      {
+        "name": "homepage_confirmed_no_click_no_utm",
+        "expected_category": "F",
+        "expected_budget_usable": false
+      },
+      {
+        "name": "npay_confirmed_no_click_with_utm",
+        "expected_category": "C",
+        "expected_budget_usable": false
+      },
+      {
+        "name": "vbank_unpaid_path_b_bridge_present",
+        "expected_category": "G",
+        "expected_budget_usable": false
+      }
+    ],
+    "verification_method": "fixture JSON → buildConfirmedPurchaseNoSendPreview + (proposed) cross_reference_evidence → block_reasons / category 비교"
+  },
+  "result_summary": {
+    "code_touched": false,
+    "design_artifacts_added": [
+      "data/confirmed-purchase-prep-integration-next-step-20260511.json",
+      "gdn/confirmed-purchase-prep-integration-next-step-20260511.md"
+    ],
+    "next_green_action": "fixture 4개 작성 + (proposed) cross_reference_evidence 함수 stub PR draft. 본 sprint 다음 sprint(gpt0508-35)에서 진행 예정.",
+    "yellow_proposal": "patch_candidate_1을 별도 sprint에서 fixture test PASS 후 backend route에 wire."
+  },
+  "verdict": "DESIGN_READY_NEXT_SPRINT_CODE_PATCH"
+}

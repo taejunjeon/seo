@@ -1,0 +1,118 @@
+{
+  "ok": true,
+  "schema_version": "path_b_order_bridge_limited_deploy_approval_v2_20260511",
+  "generated_at_kst": "2026-05-10 22:05:00 KST",
+  "site": "biocom",
+  "mode": "approval_packet_no_actual_deploy",
+  "harness_preflight": {
+    "lane_overall": "Yellow_proposed",
+    "green_steps": ["packet 작성", "endpoint 코드/플래그 read-only 점검", "rollback/smoke 명령 정리"],
+    "yellow_steps": ["limited canary deploy with ORDER_BRIDGE_WRITE_ENABLED=true", "1h canary window", "24h observation"],
+    "red_steps": ["platform_send 활성", "GTM Production publish"],
+    "lane_for_this_artifact": "Green",
+    "source_window_freshness_confidence": {
+      "source": "backend/src/orderBridgeIdentityHmac.ts + backend/src/orderBridgeLedger.ts + backend/src/routes/attribution.ts (no-send endpoint @ line 2882) + Path B real evidence 20260510 + end-of-day status 20260510",
+      "window": "2026-05-10 read-only inspection. canary window 제안: 승인 후 KST 화~목 11:00~12:00 1h",
+      "freshness": "2026-05-10 22:05 KST 생성. backend code 현 main 기준",
+      "confidence": 0.92
+    }
+  },
+  "purpose": "campaign_id missing 2,121건 병목을 줄이려면 주문완료 시점에 click/order bridge가 hash-only 형태로 ledger에 누적돼야 한다. 본 packet은 기존 no-send identity HMAC 엔드포인트를 1h canary 윈도우 동안만 ORDER_BRIDGE_WRITE_ENABLED=true로 켜서 hash-only ledger 누적을 실측 검증하는 Yellow lane 승인 요청이다.",
+  "current_state": {
+    "endpoint": "POST /api/attribution/order-bridge/identity-hmac/no-send",
+    "endpoint_file": "backend/src/routes/attribution.ts:2882",
+    "ledger_module": "backend/src/orderBridgeLedger.ts",
+    "hash_module": "backend/src/orderBridgeIdentityHmac.ts",
+    "env_flags": {
+      "ORDER_BRIDGE_WRITE_ENABLED": {"current": false, "default": false, "controls": "hash-only canary write 허용 여부"},
+      "ORDER_BRIDGE_WRITE_MAX_ROWS": {"current": 200, "default": 200, "controls": "ledger row 상한"},
+      "ORDER_BRIDGE_RAW_BODY_LOGGING": {"current": false, "default": false, "controls": "절대 true로 켜지 않는다"},
+      "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": {"current": false, "default": false, "controls": "platform 실제 전송. 본 packet 범위 밖"},
+      "ORDER_BRIDGE_IDENTITY_HASH_SECRET": {"current": "set", "default": "missing_blocks_endpoint", "controls": "hash secret 부재 시 503"}
+    },
+    "ledger_summary_endpoint": "GET /api/attribution/order-bridge/ledger/summary",
+    "live_evidence_baseline": {
+      "row_count": 4,
+      "unique_order_no_hash": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "duplicate_dedupe_count": 1,
+      "source": "data/path-b-end-of-day-status-20260510.json"
+    }
+  },
+  "proposal_v2": {
+    "what_changes": "1h canary window 동안만 ORDER_BRIDGE_WRITE_ENABLED=true로 전환하고 hash-only ledger row를 200건 상한 안에서 누적한다. raw body logging은 false 유지. platform send는 false 유지.",
+    "scope": {
+      "endpoint": "POST /api/attribution/order-bridge/identity-hmac/no-send",
+      "ledger_table": "order_bridge_ledger (better-sqlite3)",
+      "site": "biocom only",
+      "max_rows": 200,
+      "raw_body_logging": false,
+      "platform_send": false
+    },
+    "why_now": [
+      "campaign_id missing 2,121건은 이미 6 카테고리로 분류했고, 더 줄이려면 ledger 누적 자체가 시작돼야 한다.",
+      "no-send 엔드포인트와 ledger 모듈은 이미 production code path에 들어가 있고 read-only 모드로 안전하다.",
+      "raw 저장은 코드/스키마/플래그 모두 차단되어 PII 위험이 낮다.",
+      "200건 상한이 코드에 박혀 있어 blast radius가 작다."
+    ],
+    "blast_radius": "small_local_sqlite_only",
+    "rollback_command": "ORDER_BRIDGE_WRITE_ENABLED=false 로 환경변수 즉시 복구 + 필요 시 SQLite ledger row 삭제 (DELETE FROM order_bridge_ledger WHERE site='biocom' AND created_at >= '<canary_start_kst>')",
+    "smoke_commands": [
+      "curl -s -o /tmp/order-bridge-summary-pre.json https://att.ainativeos.net/api/attribution/order-bridge/ledger/summary",
+      "POST 1건 valid identity payload (TJ 직접 호출, 내부 IP 또는 인증된 admin context 만 허용)",
+      "curl -s -o /tmp/order-bridge-summary-post.json https://att.ainativeos.net/api/attribution/order-bridge/ledger/summary",
+      "diff pre/post 로 row_count 1 증가 + raw_stored_count 0 + platform_send_count 0 확인"
+    ],
+    "canary_window_proposal": {
+      "duration_min": 60,
+      "site": "biocom",
+      "start_condition": "TJ + ChatGPT 명시 승인 후 평일 오전 11:00 KST",
+      "stop_condition_any_of": [
+        "raw_stored_count != 0",
+        "platform_send_count != 0",
+        "endpoint 5xx rate > 1%",
+        "row_count > 200 (자동 reject)",
+        "TJ 중단 명령"
+      ]
+    },
+    "post_canary_observation": {
+      "duration_h": 24,
+      "checks": [
+        "ledger_summary row_count 누적 추세",
+        "duplicate_dedupe_count 비율",
+        "raw_stored_count == 0 유지",
+        "platform_send_count == 0 유지",
+        "endpoint 4xx/5xx 분포",
+        "응답에 raw email/phone/order/payment 노출 0"
+      ]
+    },
+    "extension_after_pass": "PASS면 다음 sprint에서 7일 long-canary로 확장 (max_rows 1,000 검토). 실패면 즉시 ORDER_BRIDGE_WRITE_ENABLED=false 복구."
+  },
+  "data_safety_check": {
+    "raw_email_phone_order_in_response": false,
+    "raw_email_phone_order_in_logs": false,
+    "raw_email_phone_order_in_ledger_columns": false,
+    "hash_only_columns": ["email_hash", "phone_hash", "order_no_hash", "click_id_hash", "client_session"],
+    "hash_version": "hmac_sha256_identity_v1",
+    "secret_required": "ORDER_BRIDGE_IDENTITY_HASH_SECRET",
+    "platform_send_disabled": true,
+    "gtm_publish_disabled": true,
+    "operational_db_write": "no_remote_pg_write_local_sqlite_only"
+  },
+  "approval_gate_summary": {
+    "approval_status": "pending_TJ_and_ChatGPT",
+    "approval_text_for_human_to_paste": "[승인] gpt0508-34 작업1 Path B order_bridge limited deploy v2: ORDER_BRIDGE_WRITE_ENABLED=true 1h canary 진행, raw body logging false 유지, platform send false 유지, max_rows 200, rollback 명령 사전 등록, post-canary 24h 관찰 후 PASS/FAIL 보고.",
+    "rejection_text": "[보류] gpt0508-34 작업1 보류. 사유: <TJ 코멘트>",
+    "approval_required_from": ["TJ", "ChatGPT operator"]
+  },
+  "recommended_option": {
+    "option": "Yellow_canary_1h_with_24h_observation",
+    "confidence_pct": 88,
+    "unknowns": [
+      "canary 1h 동안 실제 주문완료 호출이 충분히 발생할지 (시간대/트래픽 변동)",
+      "ledger summary endpoint 캐시가 있을 경우 즉시 반영 지연"
+    ]
+  },
+  "verdict": "APPROVAL_PACKET_READY_PENDING_HUMAN_GATE"
+}
