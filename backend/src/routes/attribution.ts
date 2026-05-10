@@ -56,6 +56,7 @@ import {
 import { buildNpayRoasDryRunReport } from "../npayRoasDryRun";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
+import { classifyCrossReferenceEvidence } from "../confirmedPurchaseCrossReferenceEvidence";
 import {
   appendTikTokPixelEvent,
   buildTikTokPixelEventSummary,
@@ -1148,6 +1149,22 @@ const buildConfirmedPurchaseNoSendPreview = (body: Record<string, unknown>) => {
   const dedupeKey = `confirmed_purchase:${site}:${channelOrderNo || orderNumber || "missing"}`;
   const canonicalBlockReasons = canonicalAttributionBlockReasons(blockReasons);
   const clickIdentifiers = { gclid, gbraid, wbraid, fbclid, ttclid };
+  const utmCampaign = textField(body, "utm_campaign") || textField(body, "utmCampaign");
+  const pathBBridgePresent = booleanField(body, "path_b_bridge_present") || booleanField(body, "pathBBridgePresent");
+  const confirmedPaidPurchaseInput =
+    typeof body.confirmed_paid_purchase === "boolean"
+      ? (body.confirmed_paid_purchase as boolean)
+      : typeof body.confirmedPaidPurchase === "boolean"
+        ? (body.confirmedPaidPurchase as boolean)
+        : !blockReasons.includes("canceled_order") && !blockReasons.includes("refunded_order");
+  const crossReferenceEvidence = classifyCrossReferenceEvidence({
+    click_identifiers: clickIdentifiers,
+    payment_method: paymentMethod,
+    utm_campaign: utmCampaign,
+    path_b_bridge_present: pathBBridgePresent,
+    confirmed_paid_purchase: confirmedPaidPurchaseInput,
+    ledger_lookup: null,
+  });
 
   return {
     site,
@@ -1165,6 +1182,7 @@ const buildConfirmedPurchaseNoSendPreview = (body: Record<string, unknown>) => {
     ga_session_id: gaSessionId,
     click_ids: clickIdentifiers,
     click_identifiers: clickIdentifiers,
+    cross_reference_evidence: crossReferenceEvidence,
     sanitized_page_location: sanitizedPageLocation,
     sanitized_page_referrer: sanitizedPageReferrer,
     has_google_click_id: Boolean(googleClickId),

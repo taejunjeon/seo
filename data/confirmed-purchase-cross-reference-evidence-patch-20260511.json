@@ -1,0 +1,73 @@
+{
+  "ok": true,
+  "schema_version": "confirmed_purchase_cross_reference_evidence_patch_20260511",
+  "generated_at_kst": "2026-05-10 22:55:00 KST",
+  "site": "biocom",
+  "execution_status": "EXECUTED_PATCH_TYPECHECK_PASS_FIXTURE_5_OF_5_PASS",
+  "harness_preflight": {
+    "lane": "Green",
+    "code_touched": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false
+  },
+  "purpose": "ConfirmedPurchase no-send preview에 cross_reference_evidence 필드를 추가해 다음 input이 들어올 때 click 부재 row가 어떤 카테고리(A~G)인지 자동 분류되게 한다. 본 sprint는 stub 단계라 ledger 실제 lookup은 비활성(ledger_lookup=null)이고 다음 sprint에서 wire 한다.",
+  "code_changes": [
+    {
+      "file": "backend/src/confirmedPurchaseCrossReferenceEvidence.ts",
+      "kind": "new_module",
+      "loc": 119,
+      "exports": ["classifyCrossReferenceEvidence", "CrossReferenceCategory", "CrossReferenceEvidence", "CrossReferenceInput", "CrossReferenceLedgerLookup", "CrossReferenceClickIdentifiers"]
+    },
+    {
+      "file": "backend/src/routes/attribution.ts",
+      "kind": "import_plus_inline_call",
+      "loc_added": 17,
+      "scope": "buildConfirmedPurchaseNoSendPreview 안에서 클래시파이 호출 + 응답에 cross_reference_evidence 추가",
+      "send_candidate_changed": false,
+      "actual_send_candidate_changed": false,
+      "would_store_changed": false
+    },
+    {
+      "file": "backend/tests/confirmed-purchase-cross-reference-evidence.test.ts",
+      "kind": "new_test_file",
+      "loc": 86,
+      "fixtures": 5
+    }
+  ],
+  "fixture_results": [
+    {"name": "homepage_confirmed_with_gclid_present", "expected_category": "A_click_present_campaign_matched", "expected_budget_usable": true, "result": "PASS"},
+    {"name": "homepage_confirmed_no_click_no_utm", "expected_category": "F_homepage_no_click_no_utm", "expected_budget_usable": false, "result": "PASS"},
+    {"name": "npay_confirmed_no_click_with_utm", "expected_category": "C_npay_no_click_with_utm", "expected_budget_usable": false, "result": "PASS"},
+    {"name": "vbank_unpaid_path_b_bridge_present", "expected_category": "G_path_b_bridge_present_payment_not_confirmed", "expected_budget_usable": false, "result": "PASS"},
+    {"name": "ledger_lookup_hit_promotes_to_A_via_ledger", "expected_category": "A_via_ledger", "expected_budget_usable": true, "result": "PASS"}
+  ],
+  "fixture_summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "duration_ms": 148.17
+  },
+  "verification": {
+    "backend_typecheck_npx_tsc_noEmit": "PASS",
+    "backend_test_npx_tsx_test_confirmed_purchase_cross_reference_evidence": "PASS_5_OF_5",
+    "raw_pii_pattern_scan": "PASS"
+  },
+  "send_candidate_invariant": {
+    "send_candidate_after_patch": false,
+    "actual_send_candidate_after_patch": false,
+    "would_store_after_patch": false,
+    "would_send_after_patch": false,
+    "platform_send_count_after_patch": 0
+  },
+  "design_for_next_sprint_wire": {
+    "ledger_lookup_implementation": [
+      "paid_click_intent_log lookup: same order_no_hash 또는 hashed identity material 매칭 시 matched_click_id_type/hash_prefix 채움",
+      "order_bridge_ledger lookup: same order_no_hash + click_id_hash 매칭 시 matched_click_id_type/hash_prefix 채움",
+      "둘 다 미스면 ledger_lookup=null 그대로 두어 카테고리 B~G 분기"
+    ],
+    "lane_for_wire": "Green code (backend route 변경)",
+    "expected_effect_on_missing_2121": "Path B canary가 PASS해서 ledger row가 누적되면, 다음 sprint(gpt0508-36 또는 -37)에서 wire 후 31건 외 budget-usable 후보가 늘어나기 시작"
+  },
+  "verdict": "PATCH_EXECUTED_FIXTURE_PASS_LEDGER_WIRE_NEXT_SPRINT"
+}

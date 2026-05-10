@@ -1,0 +1,95 @@
+{
+  "ok": true,
+  "schema_version": "path_b_order_bridge_1h_canary_result_20260511",
+  "generated_at_kst": "2026-05-10 22:47:30 KST",
+  "site": "biocom",
+  "execution_status": "STOPPED_BEFORE_FLAG_TOGGLE",
+  "stop_reason_category": "blocked_access_vm_admin",
+  "stop_reason": "VM 환경변수 ORDER_BRIDGE_WRITE_ENABLED를 토글할 admin endpoint 또는 SSH 접근 권한이 Codex에 없다. /api/admin/order-bridge/write-flag 같은 admin route는 404. 따라서 환경변수 변경 자체는 TJ가 VM Cloud(att.ainativeos.net 호스트)에서 진행해야 한다.",
+  "harness_preflight": {
+    "lane": "Yellow_partial_executed",
+    "approval_received": "[승인] gpt0508-35 작업1 Path B order_bridge limited deploy v2",
+    "approval_actually_executed": false,
+    "executed_steps": [
+      "pre-snapshot read-only fetch",
+      "post-snapshot read-only fetch (no flag toggle)",
+      "VM admin endpoint probe (HTTP 404 — admin access not available)"
+    ],
+    "skipped_steps": [
+      "ORDER_BRIDGE_WRITE_ENABLED=true toggle (VM admin access 부재)",
+      "1h canary window 진행",
+      "rollback execution (변경 없음)"
+    ],
+    "no_send_verified": true,
+    "no_write_verified": true,
+    "no_deploy_verified": true,
+    "no_publish_verified": true,
+    "no_platform_send_verified": true,
+    "raw_pii_logged": false
+  },
+  "pre_snapshot": {
+    "fetched_at_iso": "2026-05-10T13:42:16.405Z",
+    "summary": {
+      "site": "biocom",
+      "row_count": 4,
+      "unique_order_no_hash": 4,
+      "unique_email_hash": 3,
+      "unique_phone_hash": 1,
+      "unique_click_id_hash": 1,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "duplicate_dedupe_count": 1,
+      "status_counts": {
+        "full_bridge": 0,
+        "identity_only_quarantine": 2,
+        "session_only_quarantine": 0,
+        "click_missing_hold": 0,
+        "ambiguous": 0,
+        "do_not_send": 0
+      }
+    },
+    "write_flag_on": false,
+    "write_max_rows": 200
+  },
+  "post_snapshot_baseline_no_flag_toggle": {
+    "fetched_at_iso": "2026-05-10T13:47:02.807Z",
+    "row_count": 4,
+    "raw_stored_count": 0,
+    "platform_send_count": 0,
+    "delta_vs_pre": {
+      "row_count": 0,
+      "raw_stored_count": 0,
+      "platform_send_count": 0
+    }
+  },
+  "what_codex_actually_did_in_sprint_window": [
+    "ledger summary read-only 두 번 호출 (pre / post 5분 간격) — 모두 row_count 4 / write_flag_on false / raw_stored_count 0",
+    "VM admin endpoint /api/admin/order-bridge/write-flag GET probe — HTTP 404. Codex가 환경변수 toggle을 직접 트리거할 경로가 없다.",
+    "rollback 명령(`ORDER_BRIDGE_WRITE_ENABLED=false`)을 사전에 본 산출물에 박아 둠 — 실행자가 즉시 복귀할 수 있도록"
+  ],
+  "tj_action_required_to_proceed": {
+    "what": "VM Cloud(att.ainativeos.net 백엔드 호스트)에 SSH 또는 PaaS 콘솔로 접속해서 ORDER_BRIDGE_WRITE_ENABLED=true로 1시간만 켠 다음, 1시간 후 false로 복귀.",
+    "why": "Path B order_bridge ledger row가 누적돼야 다음 sprint부터 campaign_id missing 2,121건 줄이는 evidence가 자랍니다. 현재 ledger row는 4건뿐이고 raw 저장 0 / platform send 0이라 위험은 낮습니다.",
+    "where": "att.ainativeos.net 백엔드 프로세스 (pm2 또는 systemd로 운영 중인 attribution 프로세스).",
+    "how_step_by_step": [
+      "1. SSH into VM",
+      "2. `pm2 env attribution | grep ORDER_BRIDGE` (현재 값 확인)",
+      "3. `ORDER_BRIDGE_WRITE_ENABLED=true pm2 restart attribution --update-env` 또는 환경변수 파일 수정 후 restart",
+      "4. 1시간 동안 실주문 발생 시 ledger summary endpoint 호출하여 row_count 증가 확인",
+      "5. 1시간 경과 또는 stop 조건 도달 시 `ORDER_BRIDGE_WRITE_ENABLED=false pm2 restart attribution --update-env`"
+    ],
+    "stop_condition_any_of": [
+      "raw_stored_count > 0",
+      "platform_send_count > 0",
+      "row_count > 200",
+      "endpoint 5xx > 1%",
+      "TJ 중단 명령"
+    ],
+    "smoke_after": "https://att.ainativeos.net/api/attribution/order-bridge/ledger/summary 호출 후 row_count 증가 / raw_stored_count 0 / platform_send_count 0 확인",
+    "rollback_one_liner": "ORDER_BRIDGE_WRITE_ENABLED=false pm2 restart attribution --update-env",
+    "approval_already_granted_in_prompt": true,
+    "codex_substitution_possible": false,
+    "codex_substitution_reason": "Codex는 VM 호스트 SSH/PaaS 자격증명 없음. backend admin 라우트도 toggle endpoint 미제공."
+  },
+  "verdict": "EXECUTION_HALTED_BLOCKED_ACCESS_TJ_VM_TOGGLE_REQUIRED"
+}

@@ -1,0 +1,68 @@
+{
+  "ok": true,
+  "schema_version": "npay_actual_matching_rail_execution_20260511",
+  "generated_at_kst": "2026-05-10 23:05:00 KST",
+  "site": "biocom",
+  "execution_status": "STAGE_3_PG_READ_ONLY_PASS_STAGE_2_HOLD_DEPENDS_ON_PATH_B_CANARY",
+  "harness_preflight": {
+    "lane": "Green_stage_3_executed_yellow_stage_2_blocked_on_dependency",
+    "approval_received": "[조건부 승인] gpt0508-35 작업5 NPay rail",
+    "stage_3_executed": true,
+    "stage_2_executed": false,
+    "stage_2_skip_reason": "Path B canary가 본 sprint에서 미실행(blocked_access_vm_admin)이라 조건부 승인 게이트 통과 안 됨",
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false
+  },
+  "stage_3_pg_readonly_query_result": {
+    "data_source": "운영 PG (DATABASE_URL → dashboard.public.tb_iamweb_users)",
+    "query_window": "ord_time::timestamp >= NOW() - INTERVAL '30 days'",
+    "executed_at_kst": "2026-05-10 22:55 KST",
+    "method": "psql read-only SELECT, 운영DB write 없음",
+    "results": {
+      "total_rows_30d": 2840,
+      "payment_method_distribution_top": [
+        {"payment_method": "CARD", "count": 1803},
+        {"payment_method": "SUBSCRIPTION", "count": 473},
+        {"payment_method": "NAVERPAY_ORDER", "count": 237},
+        {"payment_method": "VIRTUAL", "count": 234},
+        {"payment_method": "FREE", "count": 93}
+      ],
+      "naverpay_30d_total": 237,
+      "naverpay_30d_payment_status_breakdown": [
+        {"payment_status": "PAYMENT_COMPLETE", "count": 210},
+        {"payment_status": "REFUND_COMPLETE", "count": 17},
+        {"payment_status": "CANCELLED_BEFORE_DEPOSIT", "count": 8},
+        {"payment_status": "PAYMENT_PREPARATION", "count": 2}
+      ],
+      "naverpay_30d_actual_confirmed": 210,
+      "naverpay_30d_with_channel_order_no": 237,
+      "naverpay_30d_distinct_channel_order_no": 237,
+      "channel_order_no_integrity_rate": 1.0,
+      "naverpay_30d_with_payment_complete_time_present": 227
+    },
+    "interpretation_human_language": [
+      "운영 PG 기준 30일 NPay 주문은 237건이고, 그중 실제 결제완료(PAYMENT_COMPLETE)는 210건이다.",
+      "환불 완료 17건과 미입금 취소 8건은 confirmed 합계에서 제외해야 한다.",
+      "channel_order_no(order_section_item_no) 정합률 100% — NPay 주문 모두 채널 주문번호를 보유.",
+      "현재 ConfirmedPurchasePrep의 npay_actual_count=0 은 운영DB의 NPay 실제 결제완료 210건을 누락하고 있다는 뜻."
+    ]
+  },
+  "stage_2_schema_canary_status": {
+    "lane": "Yellow_pending_dependency",
+    "dependency_blocker": "Path B 1h canary 미실행 (gpt0508-35 작업1)",
+    "what_should_happen_after_dependency_clears": [
+      "npay_intent_log 테이블에 channel_order_no_hash, order_no_hash, payment_complete_at 컬럼 추가",
+      "max_rows 50, 1h canary",
+      "raw 저장 0 강제 (스키마 단에서 hash-only)",
+      "rollback DROP COLUMN"
+    ],
+    "rollback_command_ready": "ALTER TABLE npay_intent_log DROP COLUMN IF EXISTS channel_order_no_hash; ALTER TABLE npay_intent_log DROP COLUMN IF EXISTS order_no_hash; ALTER TABLE npay_intent_log DROP COLUMN IF EXISTS payment_complete_at;"
+  },
+  "expected_after_full_rail": {
+    "npay_actual_count_in_confirmed_purchase_prep": 210,
+    "matched_revenue_addition_estimate": "기존 31건 ₩761만 + NPay actual 210건 (실제 매출은 별도 합산 필요)",
+    "promotion_to_purchase_rule_unchanged": "PAYMENT_COMPLETE + admin confirmed flag만 actual purchase. NPay click/count/add_payment_info는 절대 승격 금지."
+  },
+  "verdict": "STAGE_3_GREEN_PASS_NPAY_ACTUAL_210_30D_STAGE_2_HOLD_ON_PATH_B"
+}

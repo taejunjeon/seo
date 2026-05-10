@@ -1,0 +1,83 @@
+{
+  "batch": "gpt0508-35",
+  "created_at_kst": "2026-05-10 23:15:00 KST",
+  "purpose": "Execution Sprint — Codex가 직접 끝낼 수 있는 작업(frontend build / backend cross_reference patch + fixture / 운영 PG NPay 30d 측정)을 끝까지 진행, VM/UI/env 자격증명이 필요한 작업은 access_blocker로 분류 후 절차/명령/rollback까지 인계",
+  "lane": "Green_executed_plus_yellow_partial_plus_red_pre_audit",
+  "track_progress": {
+    "A": {"name": "ConfirmedPurchasePrep 통합 input", "previous_percent": 93, "current_percent": 96, "delta_percent": 3},
+    "B": {"name": "Google Ads campaign_id 조인/ROAS 분해", "previous_percent": 82, "current_percent": 86, "delta_percent": 4},
+    "C": {"name": "BigQuery campaign funnel quality", "previous_percent": 84, "current_percent": 85, "delta_percent": 1},
+    "D/KR6": {"name": "Meta funnel CAPI Test Events readiness", "previous_percent": 72, "current_percent": 74, "delta_percent": 2},
+    "E": {"name": "Harness/multi-agent/HOLD Reducer", "previous_percent": 92, "current_percent": 94, "delta_percent": 2},
+    "F": {"name": "Frontend/Data Trust Dashboard", "previous_percent": 64, "current_percent": 72, "delta_percent": 8}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-35/00-result-report.md", "copy": "gptconfirm/gpt0508-35/00-result-report.md", "why_included": "종합 결과보고서 (사람이 읽는 무엇을/왜/다음)"},
+    {"source": "gdn/path-b-order-bridge-1h-canary-result-20260511.md", "copy": "gptconfirm/gpt0508-35/01-path-b-order-bridge-1h-canary-result-20260511.md", "why_included": "작업1 Path B canary pre/post + TJ VM 토글 절차"},
+    {"source": "gdn/frontend-f0-build-data-trust-guard-result-20260511.md", "copy": "gptconfirm/gpt0508-35/02-frontend-f0-build-data-trust-guard-result-20260511.md", "why_included": "작업2 frontend build PASS + 7010 visual check 절차"},
+    {"source": "gdn/confirmed-purchase-cross-reference-evidence-patch-20260511.md", "copy": "gptconfirm/gpt0508-35/03-confirmed-purchase-cross-reference-evidence-patch-20260511.md", "why_included": "작업3 backend patch + fixture 5/5 PASS"},
+    {"source": "gdn/google-ads-techsol-secondary-off-preaudit-or-result-20260511.md", "copy": "gptconfirm/gpt0508-35/04-google-ads-techsol-secondary-off-preaudit-or-result-20260511.md", "why_included": "작업4 TechSol pre-audit + 진짜 ROAS gap root cause(구매완료 7130249515) 명확화"},
+    {"source": "gdn/npay-actual-matching-rail-execution-20260511.md", "copy": "gptconfirm/gpt0508-35/05-npay-actual-matching-rail-execution-20260511.md", "why_included": "작업5 NPay rail Stage 3 PG read-only PASS + Stage 2 HOLD on Path B"},
+    {"source": "capivm/meta-capi-kr6-test-events-smoke-result-20260511.md", "copy": "gptconfirm/gpt0508-35/06-meta-capi-kr6-test-events-smoke-result-20260511.md", "why_included": "작업6 Meta KR6 env blocker 명확화 + TJ Test Events 코드 발급 절차"},
+    {"source": "gptconfirm/gpt0508-35/07-telegram-completion-note.md", "copy": "gptconfirm/gpt0508-35/07-telegram-completion-note.md", "why_included": "telegram completion payload"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-35/99-total-current-copy.md", "why_included": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/path-b-order-bridge-1h-canary-result-20260511.json",
+    "data/confirmed-purchase-cross-reference-evidence-patch-20260511.json",
+    "data/google-ads-techsol-secondary-off-preaudit-or-result-20260511.json",
+    "data/npay-actual-matching-rail-execution-20260511.json"
+  ],
+  "code_changes": [
+    {"file": "backend/src/confirmedPurchaseCrossReferenceEvidence.ts", "kind": "new_module", "loc": 119, "typecheck": "PASS"},
+    {"file": "backend/src/routes/attribution.ts", "kind": "import + builder wire", "loc_added": 17, "typecheck": "PASS"},
+    {"file": "backend/tests/confirmed-purchase-cross-reference-evidence.test.ts", "kind": "new_test", "loc": 86, "test_pass": "5_of_5", "duration_ms": 148.17}
+  ],
+  "executions": {
+    "codex_directly_completed": [
+      "frontend npm run build (PASS)",
+      "backend cross_reference_evidence helper + builder wire (typecheck PASS)",
+      "backend fixture 5/5 PASS",
+      "Path B ledger summary read-only pre/post snapshot",
+      "운영 PG read-only NPay 30d distribution (210 actual confirmed identified)",
+      "Google Ads conversion action read-only audit (TechSol primary_for_goal=false confirmed)",
+      "Meta env blocker check + dedup contract maintained"
+    ],
+    "tj_action_required": [
+      "VM SSH로 ORDER_BRIDGE_WRITE_ENABLED=true 1h canary toggle",
+      "Google Ads UI에서 옵션2(TechSol Off) 또는 옵션3(BI confirmed_purchase 신규+구매완료 강등) 결정",
+      "Meta Events Manager에서 Test Events 코드 발급 후 backend .env 추가",
+      "7010 화면 Data Trust Guard 카드 4개 노출 시각 확인"
+    ],
+    "platform_actual_send": 0,
+    "google_ads_upload": 0,
+    "gtm_publish": 0,
+    "operational_db_write": 0,
+    "raw_pii_logged": 0
+  },
+  "verification": {
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_check_strict": "PASS",
+    "git_diff_check": "PASS",
+    "backend_typecheck": "PASS",
+    "backend_test_cross_reference": "PASS_5_OF_5_148ms",
+    "frontend_build": "PASS",
+    "frontend_typecheck": "PASS",
+    "raw_pii_pattern_scan": "PASS"
+  },
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "승인 조건 밖 Google Ads conversion action 변경",
+    "GA4/Meta/TikTok/Naver 운영 전송",
+    "GTM Production publish",
+    "운영DB write",
+    "raw email/phone/order/payment/member_code 저장 또는 logging",
+    "NPay click/count/add_payment_info를 purchase로 승격",
+    "time-window-only attribution을 예산 판단에 사용",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING=true",
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED=true"
+  ]
+}

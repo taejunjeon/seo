@@ -1,0 +1,104 @@
+{
+  "ok": true,
+  "schema_version": "google_ads_techsol_secondary_off_preaudit_or_result_20260511",
+  "generated_at_kst": "2026-05-10 23:00:00 KST",
+  "site": "biocom",
+  "execution_status": "PRE_AUDIT_DONE_ACTUAL_CHANGE_STOP_FOR_TJ_UI",
+  "stop_reason_category": "blocked_access_google_ads_ui_credentials",
+  "stop_reason": "conversion action 변경은 Google Ads UI(또는 ACI write API)에서 진행해야 한다. 현재 backend는 Google Ads read-only API만 사용하고 있고 UI 자격증명 또는 management write 토큰은 Codex 환경 밖이다. 따라서 pre-audit는 read-only로 완수했고, 실제 변경 클릭은 TJ가 UI에서 해야 한다.",
+  "harness_preflight": {
+    "lane": "Red_pre_audit_executed_actual_change_held",
+    "approval_received": "[조건부 승인] gpt0508-35 작업4 Google Ads Red 옵션2",
+    "approval_actually_executed": false,
+    "executed_steps": [
+      "VM dashboard read-only 호출 통해 conversion action 7564830949 상세 추출",
+      "primary_for_goal / conversions / conversionValue / allConversions / allConversionValue / labels / sendTo / classification / riskFlags 확보",
+      "다른 Primary PURCHASE action 영향 분석",
+      "rollback 경로 명시"
+    ],
+    "skipped_steps": [
+      "Google Ads UI에서 TechSol action을 Secondary 또는 Off/exclude로 실제 토글",
+      "24h smoke 진행"
+    ]
+  },
+  "techsol_preaudit": {
+    "conversionActionId": "7564830949",
+    "conversionActionResourceName": "customers/2149990943/conversionActions/7564830949",
+    "name": "TechSol - NPAY구매 50739",
+    "status": "ENABLED",
+    "category": "PURCHASE",
+    "primaryForGoal": false,
+    "countingType": "MANY_PER_CLICK",
+    "labels": ["3yjICOXRmJccEJixj5EB"],
+    "sendTo": ["AW-304339096/3yjICOXRmJccEJixj5EB"],
+    "classification": "secondary_known_npay",
+    "riskFlags": ["known_npay_label", "all_conversions_only_value"],
+    "campaignCount": 5,
+    "campaigns": ["[PM]건기식 실적최대화", "[PM]검사권 실적최대화", "[PM] 이벤트", "[SA]바이오컴 검사권"],
+    "metrics_30d": {
+      "conversions": 0,
+      "conversionValue": 0,
+      "allConversions": 1960.1,
+      "allConversionValue": 191473361.51,
+      "viewThroughConversions": 1
+    },
+    "interpretation_human_language": [
+      "이미 primary_for_goal=false. 즉 입찰 학습에 직접 들어가는 신호가 아니다 (conversions=0, conversionValue=0이 그 증거).",
+      "그런데도 'All conv. value'에는 ₩1.91억이 잡혀 있어 dashboard 표시값을 부풀린다.",
+      "옵션2(Off/exclude from bidding)의 효과는 입찰 학습에는 거의 없고, dashboard에서 platform 주장값이 줄어드는 효과만 있다.",
+      "즉 ROAS gap의 진짜 원인은 TechSol이 아니라 '구매완료(7130249515)'에 있다."
+    ]
+  },
+  "real_root_cause": {
+    "conversionActionId": "7130249515",
+    "name": "구매완료",
+    "status": "ENABLED",
+    "primaryForGoal": true,
+    "category": "PURCHASE",
+    "metrics_30d": {
+      "conversions": 2210.99,
+      "conversionValue": 226732645.92,
+      "allConversions": 2221.99,
+      "allConversionValue": 229742116.92
+    },
+    "classification": "primary_known_npay",
+    "riskFlags": ["known_npay_label", "primary_bid_signal_is_npay"],
+    "shareOfPlatformConversionValue": 1,
+    "campaignCount": 5,
+    "interpretation": "이 action이 입찰 학습 본체이고 conversionValue 2.27억(99.99%)을 차지한다. 본 sprint Red 옵션은 이 action을 건드리지 않으므로 platform ROAS의 NPay 오염은 그대로 남는다. 진짜 정렬은 옵션3(신규 confirmed_purchase action 생성 + 구매완료 재분류 + 7일 병행)이 필요하다."
+  },
+  "dependency_audit": {
+    "techsol_action_in_conversion_goals": "5 캠페인에 연결됨 (Primary 캠페인 4개 + SA 1개). primary_for_goal=false라 입찰 학습에는 안 들어가지만 화면 표시에는 영향.",
+    "other_primary_purchase_actions_affected_by_techsol_off": "없음. '구매완료(7130249515)'는 별도 ID라 영향 받지 않음.",
+    "rollback_method": "Google Ads UI에서 TechSol action의 Conversion Goals 적용 상태를 원래대로 복귀 (Off→Secondary 또는 Off→Primary 복귀)."
+  },
+  "recommended_options_revised": {
+    "option_2_off_exclude": {
+      "still_recommended": true,
+      "expected_effect": "Dashboard platform conv. value에서 ₩1.91억(All conv. only) 사라짐. platform ROAS 9.58 → 약 7.5~8 수준으로 감소(시뮬레이션, 정확치 아님).",
+      "real_input_to_internal_roas_gap": "거의 없음 (이미 conversions=0)",
+      "confidence_pct": 78,
+      "use_when": "TJ가 dashboard 표시값에서라도 NPay click 흔적을 깨끗이 정리하려는 경우"
+    },
+    "option_3_new_confirmed_purchase_action": {
+      "still_recommended_more_strongly": true,
+      "expected_effect": "신규 'BI confirmed_purchase' action을 DRAFT로 만들고 7일 병행 운영, '구매완료(7130249515)'를 Secondary로 강등하면 platform ROAS가 internal ROAS와 정렬 시작",
+      "rationale": "ROAS gap의 진짜 원인은 TechSol이 아니라 '구매완료'다. 옵션 2만으로는 dashboard 표시만 정리될 뿐 입찰 학습은 그대로다.",
+      "confidence_pct": 72,
+      "risk": "단기 입찰 학습 흔들림 2~3일",
+      "use_when": "TJ가 광고 학습 자체를 internal confirmed 기준으로 재정렬하려는 경우"
+    }
+  },
+  "tj_action_required": {
+    "what_minimal": "Google Ads UI에서 TechSol - NPAY구매 50739 (id 7564830949) 의 Conversion Goal 적용을 'Off / exclude from bidding' 으로 단계적으로 전환 + 24h dashboard 비교.",
+    "url": "https://ads.google.com/aw/conversions",
+    "filter": "Conversion action ID = 7564830949 또는 이름에 'TechSol' 검색",
+    "before_state": "ENABLED · Secondary (primary_for_goal=false) · Conversion Goal 5 캠페인 연결",
+    "target_state": "ENABLED → Off (또는 exclude from bidding) · Conversion Goal 연결 해제",
+    "rollback_path": "동일 화면에서 다시 Secondary로 복귀",
+    "smoke_24h": "VM dashboard last_7d/last_30d 호출하여 platform conv. value, conversion volume, all_conv_value 변화 측정. 광고비 분배 급변 시 즉시 rollback.",
+    "codex_substitution_possible": false,
+    "codex_substitution_reason": "Google Ads UI write 자격증명 없음. backend는 read-only API customer/conversion_action 조회만."
+  },
+  "verdict": "PRE_AUDIT_PASS_TECHSOL_OFF_OPTIONAL_REAL_GAP_FIX_NEEDS_OPTION_3"
+}
