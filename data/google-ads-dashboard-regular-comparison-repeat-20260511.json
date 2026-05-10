@@ -1,0 +1,176 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 21:45:30 KST",
+  "site": "biocom",
+  "mode": "green_read_only_vm_dashboard_regular_comparison_repeat",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "no_platform_send": true,
+    "source": "VM Cloud Google Ads dashboard local_first route",
+    "window": "Google Ads last_7d 2026-05-03~2026-05-09 KST, last_30d 2026-04-10~2026-05-09 KST",
+    "freshness": "VM fetchedAt 2026-05-10T12:41:37.748Z (last_7d) / 12:41:41.058Z (last_30d). status checkedAt 2026-05-10T12:41:34.291Z",
+    "confidence": 0.95
+  },
+  "purpose": "VM dashboard read-only로 status / last_7d / last_30d 200 유지를 다시 확인하고 platform vs internal confirmed ROAS, campaign_join_coverage, upload_candidate 분리를 추적한다.",
+  "endpoints": [
+    {
+      "label": "status",
+      "url": "https://att.ainativeos.net/api/google-ads/status",
+      "http_status": 200,
+      "ok": true,
+      "checked_at": "2026-05-10T12:41:34.291Z",
+      "api_version": "v22",
+      "customer_id": "2149990943",
+      "customer_descriptive_name": "바이오컴",
+      "manager": false,
+      "test_account": false,
+      "service_account_client_email_present": true,
+      "query_resource_consumption": "54"
+    },
+    {
+      "label": "last_7d",
+      "url": "https://att.ainativeos.net/api/google-ads/dashboard?date_preset=last_7d",
+      "http_status": 200,
+      "ok": true,
+      "fetched_at": "2026-05-10T12:41:37.748Z",
+      "api_version": "v22",
+      "data_source": "google_ads_api + local_attribution_ledger",
+      "date_range": {"startDate": "2026-05-03", "endDate": "2026-05-09", "timezone": "Asia/Seoul"},
+      "summary_platform": {
+        "cost_krw": 3973244.31,
+        "impressions": 225390,
+        "clicks": 6928,
+        "platform_conversions": 487.182344,
+        "platform_conversion_value_krw": 46489814.17,
+        "all_conversions": 1280.844396,
+        "all_conversion_value_krw": 91329588.52,
+        "platform_roas": 11.7
+      },
+      "internal_confirmed": {
+        "orders": 10,
+        "confirmed_orders": 6,
+        "confirmed_revenue_krw": 1574000,
+        "pending_orders": 4,
+        "pending_revenue_krw": 0,
+        "internal_confirmed_roas": 0.4,
+        "platform_minus_confirmed_revenue_krw": 44915814.17,
+        "matched_campaign_orders": 5,
+        "unknown_campaign_orders": 3,
+        "campaign_id_coverage": 0.7,
+        "data_source": "local_attribution_ledger"
+      },
+      "campaign_count": 4,
+      "diagnostics": {
+        "campaign_rows": 4,
+        "daily_rows": 7,
+        "conversion_action_rows": 46,
+        "conversion_action_metric_rows": 17,
+        "truncated_any": false
+      }
+    },
+    {
+      "label": "last_30d",
+      "url": "https://att.ainativeos.net/api/google-ads/dashboard?date_preset=last_30d",
+      "http_status": 200,
+      "ok": true,
+      "fetched_at": "2026-05-10T12:41:41.058Z",
+      "api_version": "v22",
+      "data_source": "google_ads_api + local_attribution_ledger",
+      "date_range": {"startDate": "2026-04-10", "endDate": "2026-05-09", "timezone": "Asia/Seoul"},
+      "summary_platform": {
+        "cost_krw": 23666491.84,
+        "impressions": 1877729,
+        "clicks": 37113,
+        "platform_conversions": 2246.965092,
+        "platform_conversion_value_krw": 226732681.89,
+        "all_conversions": 6130.323218,
+        "all_conversion_value_krw": 421270045.51,
+        "platform_roas": 9.58
+      },
+      "internal_confirmed": {
+        "orders": 31,
+        "confirmed_orders": 25,
+        "confirmed_revenue_krw": 6493020,
+        "pending_orders": 6,
+        "pending_revenue_krw": 0,
+        "internal_confirmed_roas": 0.27,
+        "platform_minus_confirmed_revenue_krw": 220239661.89,
+        "matched_campaign_orders": 9,
+        "unknown_campaign_orders": 5,
+        "campaign_id_coverage": 0.84,
+        "data_source": "local_attribution_ledger"
+      },
+      "campaign_count": 5,
+      "diagnostics": {
+        "campaign_rows": 5,
+        "daily_rows": 30,
+        "conversion_action_rows": 46,
+        "conversion_action_metric_rows": 22,
+        "truncated_any": false
+      }
+    }
+  ],
+  "metric_table": [
+    {
+      "metric": "HTTP status",
+      "status_endpoint": 200,
+      "last_7d_endpoint": 200,
+      "last_30d_endpoint": 200,
+      "pass": true
+    },
+    {
+      "metric": "platform_roas_reference",
+      "last_7d": 11.7,
+      "last_30d": 9.58,
+      "note": "platform conversion (Purchase + 광고 플랫폼 자체 conversion action) 기준. budget 판단의 절대값으로 쓰지 않는다."
+    },
+    {
+      "metric": "internal_confirmed_roas",
+      "last_7d": 0.4,
+      "last_30d": 0.27,
+      "note": "운영 attribution ledger에서 Google click/UTM 증거가 있는 payment_success만 집계. campaign_id 미매칭 row는 internal-only/unknown으로 분리."
+    },
+    {
+      "metric": "primary_npay_share_in_internal_confirmed",
+      "last_7d": "n/a (확정 주문 6건 중 NPay 분리 row dashboard 노출 없음)",
+      "last_30d": "n/a (확정 주문 25건 중 NPay 분리 row dashboard 노출 없음)",
+      "note": "VM dashboard internal block은 confirmed/pending/canceled 분리만 노출. NPay 분리는 ConfirmedPurchasePrep 별도 산출물에서 0 (npay_actual_count=0) 유지."
+    },
+    {
+      "metric": "campaign_join_coverage",
+      "last_7d": 0.7,
+      "last_30d": 0.84,
+      "note": "matched_campaign_orders / (matched + unknown_campaign_orders). orders 전체 대비 절대 coverage가 아니라 google attribution evidence 보유 row 안에서의 비율."
+    },
+    {
+      "metric": "upload_candidate_count",
+      "last_7d": 0,
+      "last_30d": 0,
+      "note": "본 sprint(gpt0508-33)도 upload 0 유지. campaign_id exact match 31건 외 새 budget-usable row 없음."
+    }
+  ],
+  "result": {
+    "all_endpoints_200": true,
+    "platform_internal_separation_kept": true,
+    "upload_candidate_count_total": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "delta_vs_gpt0508_32": {
+      "status_endpoint_status": "unchanged_200",
+      "last_7d_endpoint_status": "unchanged_200",
+      "last_30d_endpoint_status": "unchanged_200",
+      "platform_roas_last_7d_delta": 0.0,
+      "platform_roas_last_30d_delta": 0.0,
+      "internal_confirmed_roas_last_7d_delta": 0.0,
+      "internal_confirmed_roas_last_30d_delta": 0.0,
+      "campaign_id_coverage_last_7d_delta": 0.0,
+      "campaign_id_coverage_last_30d_delta": 0.0,
+      "upload_candidate_delta": 0,
+      "note": "VM dashboard fetchedAt이 거의 동일한 시각이어서 cost/conv/ROAS 모두 직전 비교와 동일."
+    }
+  },
+  "verdict": "PASS"
+}

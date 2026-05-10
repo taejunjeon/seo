@@ -1,0 +1,117 @@
+{
+  "batch": "gpt0508-33",
+  "created_at_kst": "2026-05-10 21:50:00 KST",
+  "purpose": "campaign_id exact join 반복, ConfirmedPurchasePrep blocker breakdown, VM dashboard 정기 비교 반복, BigQuery union internal match readiness",
+  "lane": "Green",
+  "track_progress": {
+    "A": {
+      "name": "ConfirmedPurchasePrep 통합 input",
+      "previous_percent": 90,
+      "current_percent": 90,
+      "delta_percent": 0
+    },
+    "B": {
+      "name": "Google Ads campaign_id 조인/ROAS 분해",
+      "previous_percent": 76,
+      "current_percent": 76,
+      "delta_percent": 0
+    },
+    "C": {
+      "name": "BigQuery campaign funnel quality",
+      "previous_percent": 82,
+      "current_percent": 82,
+      "delta_percent": 0
+    },
+    "D/KR6": {
+      "name": "Meta funnel CAPI Test Events readiness",
+      "previous_percent": 70,
+      "current_percent": 70,
+      "delta_percent": 0
+    },
+    "E": {
+      "name": "Harness/multi-agent/HOLD Reducer",
+      "previous_percent": 88,
+      "current_percent": 89,
+      "delta_percent": 1
+    },
+    "F": {
+      "name": "Frontend/Data Trust Dashboard",
+      "previous_percent": 52,
+      "current_percent": 52,
+      "delta_percent": 0
+    }
+  },
+  "documents": [
+    {
+      "source": "gptconfirm/gpt0508-33/00-result-report.md",
+      "copy": "gptconfirm/gpt0508-33/00-result-report.md",
+      "why_included": "batch result report",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/google-ads-campaign-id-exact-join-repeat-20260511.md",
+      "copy": "gptconfirm/gpt0508-33/01-google-ads-campaign-id-exact-join-repeat-20260511.md",
+      "why_included": "gpt0508-33 deliverable: campaign_id exact join 반복",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/confirmed-purchase-campaign-id-blocker-breakdown-20260511.md",
+      "copy": "gptconfirm/gpt0508-33/02-confirmed-purchase-campaign-id-blocker-breakdown-20260511.md",
+      "why_included": "gpt0508-33 deliverable: ConfirmedPurchasePrep blocker breakdown",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/google-ads-dashboard-regular-comparison-repeat-20260511.md",
+      "copy": "gptconfirm/gpt0508-33/03-google-ads-dashboard-regular-comparison-repeat-20260511.md",
+      "why_included": "gpt0508-33 deliverable: VM dashboard 정기 비교 반복",
+      "approval_needed": false
+    },
+    {
+      "source": "gdn/campaign-funnel-quality-union-internal-match-readiness-20260511.md",
+      "copy": "gptconfirm/gpt0508-33/04-campaign-funnel-quality-union-internal-match-readiness-20260511.md",
+      "why_included": "gpt0508-33 deliverable: BigQuery union internal match readiness",
+      "approval_needed": false
+    },
+    {
+      "source": "gptconfirm/gpt0508-33/05-telegram-completion-note.md",
+      "copy": "gptconfirm/gpt0508-33/05-telegram-completion-note.md",
+      "why_included": "telegram completion payload record",
+      "approval_needed": false
+    },
+    {
+      "source": "total/!total-current.md",
+      "copy": "gptconfirm/gpt0508-33/99-total-current-copy.md",
+      "why_included": "canonical snapshot",
+      "approval_needed": false
+    }
+  ],
+  "data_artifacts": [
+    "data/google-ads-campaign-id-exact-join-repeat-20260511.json",
+    "data/confirmed-purchase-campaign-id-blocker-breakdown-20260511.json",
+    "data/google-ads-dashboard-regular-comparison-repeat-20260511.json",
+    "data/campaign-funnel-quality-union-internal-match-readiness-20260511.json"
+  ],
+  "verification": {
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_check_strict": "PASS",
+    "git_diff_check": "PASS",
+    "backend_typecheck": "skipped_no_code_change",
+    "raw_pii_pattern_scan": "PASS"
+  },
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action 변경",
+    "GA4/Meta/TikTok/Naver 신규 전송",
+    "Meta CAPI actual Test Events 호출",
+    "GTM Production publish",
+    "frontend 구현 착수",
+    "운영DB write",
+    "VM write/restart/deploy",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "NPay click/count/add_payment_info 를 purchase로 승격",
+    "raw email/phone/member_code/order/payment 저장 또는 logging",
+    "time-window-only attribution을 예산 판단에 사용"
+  ]
+}

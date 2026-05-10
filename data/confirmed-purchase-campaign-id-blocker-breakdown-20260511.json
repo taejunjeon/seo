@@ -1,0 +1,155 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 21:45:30 KST",
+  "site": "biocom",
+  "mode": "green_read_only_confirmed_purchase_campaign_id_blocker_breakdown",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "no_platform_send": true,
+    "source": "data/google-ads-campaign-id-join-candidates-20260510.json + ConfirmedPurchasePrep same-window input 20260510",
+    "window": "operational paid orders 2026-04-11~2026-05-10 KST",
+    "freshness": "2026-05-10 21:45:30 KST 생성. join-candidates 18:41 KST.",
+    "confidence": 0.93
+  },
+  "purpose": "내부 confirmed 2,152건 중 31건만 campaign_id로 이어진 이유를 사람이 볼 수 있는 blocker 분류표로 만든다. upload 후보는 0 유지.",
+  "totals": {
+    "confirmed_orders": 2152,
+    "campaign_id_matched": 31,
+    "campaign_id_missing": 2121,
+    "matched_revenue_krw": 7611210,
+    "matched_revenue_share": 0.0144
+  },
+  "blocker_breakdown": [
+    {
+      "category_id": "A",
+      "category": "click id present + campaign_id matched",
+      "count": 31,
+      "share_of_total": 0.0144,
+      "share_of_missing": null,
+      "click_id_present": true,
+      "campaign_id_matched": true,
+      "use_for_budget": true,
+      "evidence": "gclid + Google Ads click_view exact",
+      "blocker_summary": "이미 campaign_id가 붙은 row. 예산 판단 floor sample.",
+      "remediation_lane": "n/a"
+    },
+    {
+      "category_id": "B",
+      "category": "click id present + click_view not found",
+      "count": 0,
+      "share_of_missing": 0.0,
+      "click_id_present": true,
+      "campaign_id_matched": false,
+      "use_for_budget": false,
+      "evidence": "n/a",
+      "blocker_summary": "현재 산출물에서는 click_id 보유 31건 모두 click_view exact match. 이 카테고리는 0.",
+      "remediation_lane": "Green watch (다음 같은 window 재호출 시 재확인)"
+    },
+    {
+      "category_id": "C",
+      "category": "NPay confirmed + click evidence missing + UTM only",
+      "count": 27,
+      "share_of_missing": 0.0127,
+      "click_id_present": false,
+      "campaign_id_matched": false,
+      "payment_method": "npay",
+      "use_for_budget": false,
+      "evidence": "UTM hint diagnostic only",
+      "blocker_summary": "NPay 결제 완료(channel_order_no 존재)지만 order에 google click_id 부재. UTM hint는 google 채널을 명시하지 않음. campaign_id 확정 불가.",
+      "remediation_lane": "Green watch (NPay funnel-capi click bridge 누적 필요. budget 판단에 사용 금지)"
+    },
+    {
+      "category_id": "D",
+      "category": "NPay confirmed + click evidence missing + no UTM",
+      "count": 107,
+      "share_of_missing": 0.0504,
+      "click_id_present": false,
+      "campaign_id_matched": false,
+      "payment_method": "npay",
+      "use_for_budget": false,
+      "evidence": "none",
+      "blocker_summary": "NPay 결제 완료지만 order에 click_id도 UTM도 없음. campaign 추정 불가.",
+      "remediation_lane": "Green watch"
+    },
+    {
+      "category_id": "E",
+      "category": "homepage confirmed + click evidence missing + UTM only",
+      "count": 1054,
+      "share_of_missing": 0.4970,
+      "click_id_present": false,
+      "campaign_id_matched": false,
+      "payment_method": "homepage",
+      "use_for_budget": false,
+      "evidence": "UTM hint diagnostic only",
+      "blocker_summary": "홈페이지 결제 완료. UTM은 대부분 meta_*, naverbrandsearch_*, topbanner_*, newmember_coupon. google 채널 명시 UTM은 0건. campaign_id 확정 불가.",
+      "remediation_lane": "Green watch (UTM은 사람이 볼 단서로만 유지)"
+    },
+    {
+      "category_id": "F",
+      "category": "homepage confirmed + click evidence missing + no UTM",
+      "count": 933,
+      "share_of_missing": 0.4399,
+      "click_id_present": false,
+      "campaign_id_matched": false,
+      "payment_method": "homepage",
+      "use_for_budget": false,
+      "evidence": "none",
+      "blocker_summary": "홈페이지 결제 완료지만 order에 click_id도 UTM도 없음. campaign 추정 불가.",
+      "remediation_lane": "Green watch"
+    },
+    {
+      "category_id": "G",
+      "category": "Path B bridge present + payment not confirmed",
+      "count": 0,
+      "share_of_missing": 0.0,
+      "click_id_present": true,
+      "campaign_id_matched": false,
+      "use_for_budget": false,
+      "evidence": "Path B controlled traffic / identity-first canary preview (would_store=false)",
+      "blocker_summary": "real Google ad click→order-complete bridge evidence는 1건 있으나 virtual_account_deposit_done=false 라 confirmed payment에 합산되지 않음. ledger도 would_store=false. 예산 row 0.",
+      "remediation_lane": "Green watch (다음 deposit 완료 시 재검토)"
+    }
+  ],
+  "blocker_summary_by_payment_method": {
+    "homepage_total_missing": 1987,
+    "homepage_with_utm_missing": 1054,
+    "homepage_no_utm_missing": 933,
+    "npay_total_missing": 134,
+    "npay_with_utm_missing": 27,
+    "npay_no_utm_missing": 107
+  },
+  "diagnostic_top_utm_hints_in_missing": [
+    {"utm_campaign": "(empty)", "count": 1040, "use_for_budget": false},
+    {"utm_campaign": "naverbrandsearch_biocom_MO_mainhome", "count": 157, "use_for_budget": false},
+    {"utm_campaign": "1", "count": 81, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_yeonddle_igg", "count": 76, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_songyuul08", "count": 62, "use_for_budget": false},
+    {"utm_campaign": "topbanner_MO", "count": 59, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_sosohantoon01_igg", "count": 58, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_kkunoping02_igg", "count": 45, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_skincare_igg", "count": 44, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_kangman03_igg", "count": 39, "use_for_budget": false},
+    {"utm_campaign": "newmember_coupon", "count": 29, "use_for_budget": false},
+    {"utm_campaign": "naverbrandsearch_biocom_PC_mainhome", "count": 28, "use_for_budget": false},
+    {"utm_campaign": "meta_story_kangman2_igg", "count": 21, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_sikdanstory_igg", "count": 19, "use_for_budget": false},
+    {"utm_campaign": "meta_biocom_igevsiggblog_igg", "count": 18, "use_for_budget": false}
+  ],
+  "google_like_utm_in_missing": {
+    "count": 0,
+    "note": "missing 2,121건 UTM 분포에서 google_ads/google/searchad 키워드를 명시한 row 없음. naverbrandsearch는 Naver Search Ads 채널이라 google 후보 아님."
+  },
+  "result_summary": {
+    "blockers_count": 7,
+    "categories_use_for_budget": ["A"],
+    "categories_diagnostic_only": ["B", "C", "D", "E", "F", "G"],
+    "upload_candidate_count": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "budget_decision": "HOLD_except_category_A_floor"
+  },
+  "verdict": "HOLD_BUT_BLOCKER_CATEGORIES_HUMAN_READABLE"
+}

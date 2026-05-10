@@ -1,0 +1,155 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-10 21:45:30 KST",
+  "site": "biocom",
+  "mode": "green_read_only_bigquery_union_internal_confirmed_match_readiness",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "no_platform_send": true,
+    "source": "data/campaign-funnel-quality-union-7_14_30d-20260511.json (BigQuery archive+daily union) + data/google-ads-campaign-id-join-candidates-20260510.json (internal confirmed)",
+    "window": "BigQuery union last_7d/14d/30d ending 2026-05-09 KST, internal confirmed 2026-04-11~2026-05-10 KST",
+    "freshness": "2026-05-10 21:45:30 KST 생성. union 21:17 KST.",
+    "confidence": 0.9
+  },
+  "purpose": "BigQuery archive+daily union 7/14/30d coverage PASS를 유지하면서, paid_google campaign_hint별로 internal confirmed 조인이 막히는 이유를 '조인 가능 / 조인 필요 / 불가 사유' 3분류로 더 구체화한다. GA4 purchase는 actual purchase로 확정하지 않고, NPay click/add_payment_info는 purchase로 승격하지 않는다.",
+  "coverage_status": {
+    "last_7d": "PASS",
+    "last_14d": "PASS",
+    "last_30d": "PASS",
+    "trend_comparison_status": "PASS",
+    "note": "archive_backfill suffix <= 20260506, daily_export suffix >= 20260507 union으로 7/14/30 day window 모두 PASS 유지."
+  },
+  "bigquery_session_breakdown": [
+    {
+      "window": "last_7d",
+      "sessions": 65993,
+      "paid_google_sessions": 5696,
+      "paid_meta_sessions": 28683,
+      "paid_tiktok_sessions": 20937,
+      "organic_search_sessions": 4278,
+      "npay_click_sessions": 499,
+      "ga4_purchase_events": 430
+    },
+    {
+      "window": "last_14d",
+      "sessions": 125942,
+      "paid_google_sessions": 12300,
+      "paid_meta_sessions": 52500,
+      "paid_tiktok_sessions": 41352,
+      "organic_search_sessions": 8031,
+      "npay_click_sessions": 1157,
+      "ga4_purchase_events": 874
+    },
+    {
+      "window": "last_30d",
+      "sessions": 391430,
+      "paid_google_sessions": 29418,
+      "paid_meta_sessions": 122532,
+      "paid_tiktok_sessions": 199375,
+      "organic_search_sessions": 17344,
+      "npay_click_sessions": 2000,
+      "ga4_purchase_events": 3715
+    }
+  ],
+  "internal_confirmed_anchor": {
+    "confirmed_orders_30d": 2152,
+    "campaign_id_matched": 31,
+    "campaign_id_missing": 2121,
+    "matched_revenue_krw": 7611210,
+    "match_method_for_matched_31": "Google Ads click_view exact via order-level gclid"
+  },
+  "internal_match_readiness_by_campaign_hint": [
+    {
+      "campaign_hint": "paid_google",
+      "bigquery_session_count_last_30d": 29418,
+      "join_status": "조인 가능",
+      "join_method": "session.gclid → Google Ads click_view → campaign_id, ConfirmedPurchasePrep order-level gclid 31건과 동일 source",
+      "internal_confirmed_match_count": 31,
+      "use_for_budget": true,
+      "note": "현재 budget-usable floor는 31 row(₩761만). BigQuery paid_google session count(29,418)와 비교하면 attribution evidence 보유 비율이 낮다.",
+      "blocker_for_extra_rows": null
+    },
+    {
+      "campaign_hint": "paid_google",
+      "bigquery_session_count_last_30d": 29418,
+      "join_status": "조인 필요",
+      "join_method": "ConfirmedPurchasePrep operational order에 gclid/gbraid/wbraid가 새로 채워질 때 click_view exact join 반복",
+      "internal_confirmed_match_count": 0,
+      "use_for_budget": false,
+      "note": "BigQuery paid_google session에는 traffic_source.source/medium=google/cpc 가 잡히는데, 운영 imweb 주문에는 click_id가 안 따라옴. funnel-capi v3가 imweb 영역에서 gclid를 보존해야 함.",
+      "blocker_for_extra_rows": "imweb 주문 테이블에 gclid/gbraid/wbraid 저장 미적용"
+    },
+    {
+      "campaign_hint": "paid_meta",
+      "bigquery_session_count_last_30d": 122532,
+      "join_status": "불가 사유",
+      "join_method": "n/a",
+      "internal_confirmed_match_count": null,
+      "use_for_budget": false,
+      "note": "Meta는 Google Ads campaign_id 후보 아님. ROAS 분해는 Meta CAPI ledger 재구성 트랙(D/KR6)에서 처리.",
+      "blocker_for_extra_rows": "out_of_scope_for_google_ads"
+    },
+    {
+      "campaign_hint": "paid_tiktok",
+      "bigquery_session_count_last_30d": 199375,
+      "join_status": "불가 사유",
+      "join_method": "n/a",
+      "internal_confirmed_match_count": null,
+      "use_for_budget": false,
+      "note": "TikTok도 Google Ads 영역 밖.",
+      "blocker_for_extra_rows": "out_of_scope_for_google_ads"
+    },
+    {
+      "campaign_hint": "organic_search",
+      "bigquery_session_count_last_30d": 17344,
+      "join_status": "불가 사유",
+      "join_method": "n/a",
+      "internal_confirmed_match_count": null,
+      "use_for_budget": false,
+      "note": "organic은 광고 비용/예산 판단 대상 아님.",
+      "blocker_for_extra_rows": "not_paid_traffic"
+    },
+    {
+      "campaign_hint": "npay_click",
+      "bigquery_session_count_last_30d": 2000,
+      "join_status": "불가 사유",
+      "join_method": "n/a",
+      "internal_confirmed_match_count": null,
+      "use_for_budget": false,
+      "note": "NPay click event는 purchase 의도 신호 일부일 뿐 actual purchase 아님. NPay click/count/add_payment_info를 purchase로 승격 금지.",
+      "blocker_for_extra_rows": "npay_click_not_purchase"
+    },
+    {
+      "campaign_hint": "ga4_purchase_events",
+      "bigquery_event_count_last_30d": 3715,
+      "join_status": "불가 사유",
+      "join_method": "n/a",
+      "internal_confirmed_match_count": null,
+      "use_for_budget": false,
+      "note": "GA4 purchase event는 actual purchase로 확정하지 않는다. 운영 imweb payment_complete 원장(2,152)이 internal confirmed 진실의 원천이며, GA4 카운트 차이는 attribution metadata로만 본다.",
+      "blocker_for_extra_rows": "ga4_purchase_not_confirmed"
+    }
+  ],
+  "result_summary": {
+    "windows_pass": ["last_7d", "last_14d", "last_30d"],
+    "internal_match_currently_attributable_to_paid_google": 31,
+    "internal_match_pending_more_click_evidence_to_paid_google": 2121,
+    "internal_match_out_of_scope_for_google_ads": "paid_meta + paid_tiktok + organic_search + npay_click + ga4_purchase_events",
+    "upload_candidate_count": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "ga4_purchase_promoted_to_actual_purchase": false,
+    "npay_click_promoted_to_purchase": false,
+    "delta_vs_gpt0508_32": {
+      "windows_pass_delta": "unchanged",
+      "internal_match_delta": 0,
+      "upload_candidate_delta": 0,
+      "ga4_purchase_promotion_delta": "unchanged_false",
+      "npay_click_promotion_delta": "unchanged_false"
+    }
+  },
+  "verdict": "PASS_FOR_COVERAGE_HOLD_FOR_INTERNAL_MATCH_EXTENSION"
+}
