@@ -241,7 +241,11 @@ const kstNow = () =>
     hour12: false,
   }).format(new Date())} KST`;
 
-const readOperationalOrders = async (options: CliOptions): Promise<PgOrderRow[]> => {
+const readOperationalOrders = async (
+  options: CliOptions,
+  startAt: string,
+  endExclusiveAt: string,
+): Promise<PgOrderRow[]> => {
   const result = await queryPg<PgOrderRow>(
     `
     WITH raw AS (
@@ -289,7 +293,7 @@ const readOperationalOrders = async (options: CliOptions): Promise<PgOrderRow[]>
     SELECT *
     FROM order_level
     WHERE "paidAt" >= $1::timestamptz
-      AND "paidAt" < ($2::date + INTERVAL '1 day')::timestamptz
+      AND "paidAt" < $2::timestamptz
       AND "orderAmount" > 0
       AND "paymentStatus" NOT IN (
         'REFUND_COMPLETE',
@@ -303,7 +307,7 @@ const readOperationalOrders = async (options: CliOptions): Promise<PgOrderRow[]>
     ORDER BY "paidAt" ASC
     LIMIT $3
     `,
-    [options.start, options.end, options.limit],
+    [startAt, endExclusiveAt, options.limit],
   );
   return result.rows;
 };
@@ -795,7 +799,9 @@ const main = async () => {
   const options = parseArgs();
   const generatedAt = new Date();
   const generatedAtIso = generatedAt.toISOString();
-  const orders = await readOperationalOrders(options);
+  const startAt = kstStartOfDay(options.start);
+  const endExclusiveAt = kstStartOfDay(nextDay(options.end));
+  const orders = await readOperationalOrders(options, startAt, endExclusiveAt);
   const imwebFreshness = await readImwebOperationalFreshness(generatedAtIso);
   const ledger = indexVmLedger(options.vmDbPath);
   const intents = indexVmNpayIntents(options.vmDbPath);
@@ -854,7 +860,9 @@ const main = async () => {
     window: {
       start: options.start,
       end: options.end,
-      timezone_note: "operational order paidAt filter uses timestamptz; report dates are KST-oriented operational windows.",
+      start_at: startAt,
+      end_exclusive_at: endExclusiveAt,
+      timezone_note: "operational order paidAt filter uses KST day boundaries converted to timestamptz. This avoids excluding KST orders that are still previous-day UTC.",
     },
     summary: {
       operational_orders: candidates.length,

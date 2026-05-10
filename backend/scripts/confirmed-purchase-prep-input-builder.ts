@@ -61,8 +61,14 @@ type ImwebOrderRow = {
   payment_amount: number;
   total_price: number;
   complete_time: string;
+  payment_complete_time: string;
   order_time: string;
   imweb_status: string;
+  payment_status: string;
+  source_order_status: string;
+  admin_confirmed: number | string;
+  source_evidence_type: string;
+  controlled_test_evidence: number | string;
 };
 
 type PaidClickIntentLedgerRow = {
@@ -111,9 +117,33 @@ type Candidate = {
   };
   path_a_status: "matched" | "missing_vm_evidence" | "skipped";
   path_c_status: PathCStatus;
+  status_guard: OrderStatusGuard;
   ga4_guard: Ga4GuardStatus;
   send_candidate: false;
   block_reasons: string[];
+};
+
+type OrderStatusGuard = {
+  primary_confirmed: boolean;
+  lifecycle_completed: boolean;
+  admin_confirmed: boolean;
+  payment_status: string;
+  source_order_status: string;
+  imweb_status: string;
+  payment_complete_time_present: boolean;
+  complete_time_blank_allowed: boolean;
+  imweb_status_blank_allowed: boolean;
+  exclusion_reason: string;
+};
+
+type ExcludedOrder = {
+  site: "biocom";
+  order_number: string;
+  channel_order_no: string;
+  payment_method: "homepage" | "npay_actual";
+  exclusion_reason: string;
+  status_guard: OrderStatusGuard;
+  send_candidate: false;
 };
 
 const argValue = (name: string) =>
@@ -212,6 +242,138 @@ const isCompletedStatus = (status: string): boolean => {
   return COMPLETED_STATUS_SET.has(trimmed) || COMPLETED_STATUS_SET.has(trimmed.toUpperCase());
 };
 
+const PAYMENT_CONFIRMED_STATUS_SET = new Set([
+  "PAYMENT_COMPLETE",
+  "PAY_COMPLETE",
+  "COMPLETE",
+  "ORDER_PAID",
+  "ORDER_COMPLETE",
+  "PAID",
+  "CONFIRMED",
+  "결제완료",
+  "N 결제 완료",
+]);
+
+const PAYMENT_BLOCKED_STATUS_SET = new Set([
+  "PAY_WAIT",
+  "PAYMENT_WAIT",
+  "WAITING_FOR_DEPOSIT",
+  "UNPAID",
+  "PENDING",
+  "CANCEL",
+  "CANCELLED",
+  "CANCELED",
+  "RETURN",
+  "REFUND",
+  "REFUNDED",
+  "EXCHANGE",
+  "PAYMENT_OVERDUE",
+  "CANCELLED_BEFORE_DEPOSIT",
+  "REFUND_COMPLETE",
+  "PARTIAL_REFUND_COMPLETE",
+  "결제대기",
+  "입금대기",
+  "취소",
+  "환불",
+  "반품",
+  "교환",
+]);
+
+const normalizeStatus = (status: string): string => (status || "").trim().toUpperCase();
+
+const isPaymentConfirmedStatus = (status: string): boolean => {
+  const trimmed = (status || "").trim();
+  if (!trimmed) return false;
+  return PAYMENT_CONFIRMED_STATUS_SET.has(trimmed) || PAYMENT_CONFIRMED_STATUS_SET.has(normalizeStatus(trimmed));
+};
+
+const isBlockedPaymentStatus = (status: string): boolean => {
+  const trimmed = (status || "").trim();
+  if (!trimmed) return false;
+  const normalized = normalizeStatus(trimmed);
+  return (
+    PAYMENT_BLOCKED_STATUS_SET.has(trimmed) ||
+    PAYMENT_BLOCKED_STATUS_SET.has(normalized) ||
+    normalized.includes("CANCEL") ||
+    normalized.includes("REFUND") ||
+    normalized.includes("RETURN")
+  );
+};
+
+const isTruthyFlag = (value: number | string): boolean => {
+  if (typeof value === "number") return value === 1;
+  return ["1", "true", "yes", "y", "confirmed"].includes((value || "").trim().toLowerCase());
+};
+
+const getNpayNonPurchaseEvidenceReason = (order: ImwebOrderRow): string => {
+  const evidence = normalizeStatus(order.source_evidence_type);
+  if (!evidence) return "";
+  if (evidence.includes("ADD_PAYMENT_INFO")) return "npay_add_payment_info_not_purchase";
+  if (evidence.includes("PAYMENT_START")) return "npay_payment_start_not_purchase";
+  if (evidence.includes("COUNT")) return "npay_count_not_purchase";
+  if (evidence.includes("CLICK")) return "npay_click_only_not_purchase";
+  return "";
+};
+
+const getOrderStatusGuard = (order: ImwebOrderRow): OrderStatusGuard => {
+  const paymentMethod = classifyPaymentMethod(order);
+  const lifecycleCompleted = isCompletedStatus(order.imweb_status);
+  const adminConfirmed = isTruthyFlag(order.admin_confirmed);
+  const primaryConfirmed =
+    paymentMethod === "npay_actual"
+      ? isPaymentConfirmedStatus(order.payment_status) ||
+        isPaymentConfirmedStatus(order.source_order_status) ||
+        adminConfirmed
+      : lifecycleCompleted;
+
+  let exclusionReason = "";
+  if (isTruthyFlag(order.controlled_test_evidence)) {
+    exclusionReason = "controlled_test_evidence";
+  } else if (paymentMethod === "npay_actual" && getNpayNonPurchaseEvidenceReason(order)) {
+    exclusionReason = getNpayNonPurchaseEvidenceReason(order);
+  } else if (
+    isBlockedPaymentStatus(order.payment_status) ||
+    isBlockedPaymentStatus(order.source_order_status) ||
+    isBlockedPaymentStatus(order.imweb_status)
+  ) {
+    exclusionReason = "not_confirmed_payment_status";
+  } else if (!primaryConfirmed) {
+    exclusionReason =
+      paymentMethod === "npay_actual" ? "npay_primary_confirmation_missing" : "not_completed_status";
+  }
+
+  return {
+    primary_confirmed: primaryConfirmed,
+    lifecycle_completed: lifecycleCompleted,
+    admin_confirmed: adminConfirmed,
+    payment_status: order.payment_status,
+    source_order_status: order.source_order_status,
+    imweb_status: order.imweb_status,
+    payment_complete_time_present: Boolean(order.payment_complete_time),
+    complete_time_blank_allowed:
+      paymentMethod === "npay_actual" && primaryConfirmed && !order.complete_time,
+    imweb_status_blank_allowed:
+      paymentMethod === "npay_actual" && primaryConfirmed && !order.imweb_status,
+    exclusion_reason: exclusionReason,
+  };
+};
+
+const shouldIncludeOrder = (order: ImwebOrderRow): boolean =>
+  getOrderStatusGuard(order).primary_confirmed && !getOrderStatusGuard(order).exclusion_reason;
+
+const buildExcludedOrder = (order: ImwebOrderRow): ExcludedOrder => {
+  const statusGuard = getOrderStatusGuard(order);
+  return {
+    site: "biocom",
+    order_number: order.order_no,
+    channel_order_no: order.channel_order_no,
+    payment_method: classifyPaymentMethod(order),
+    exclusion_reason: statusGuard.exclusion_reason || "not_confirmed_payment_status",
+    status_guard: statusGuard,
+    send_candidate: false,
+  };
+};
+
 const tableHasColumn = (
   db: Database.Database,
   table: string,
@@ -234,6 +396,15 @@ const readImwebOrders = (
   endIso: string,
   site: string,
 ): ImwebOrderRow[] => {
+  const cols = new Set(
+    (db.prepare(`PRAGMA table_info(imweb_orders)`).all() as Array<{ name: string }>).map(
+      (c) => c.name,
+    ),
+  );
+  const textCol = (column: string) =>
+    cols.has(column) ? `COALESCE(${column}, '') AS ${column}` : `'' AS ${column}`;
+  const numericCol = (column: string) =>
+    cols.has(column) ? `COALESCE(${column}, 0) AS ${column}` : `0 AS ${column}`;
   const sql = `SELECT
       order_no,
       COALESCE(channel_order_no, '') AS channel_order_no,
@@ -243,8 +414,14 @@ const readImwebOrders = (
       COALESCE(payment_amount, 0) AS payment_amount,
       COALESCE(total_price, 0) AS total_price,
       COALESCE(complete_time, '') AS complete_time,
+      ${textCol("payment_complete_time")},
       COALESCE(order_time, '') AS order_time,
-      COALESCE(imweb_status, '') AS imweb_status
+      COALESCE(imweb_status, '') AS imweb_status,
+      ${textCol("payment_status")},
+      ${textCol("source_order_status")},
+      ${numericCol("admin_confirmed")},
+      ${textCol("source_evidence_type")},
+      ${numericCol("controlled_test_evidence")}
     FROM imweb_orders
     WHERE site = ?
       AND order_time >= ?
@@ -308,7 +485,12 @@ const buildCandidate = (
   ga4Map: Map<string, Ga4GuardStatus>,
 ): Candidate => {
   const paymentMethod = classifyPaymentMethod(order);
-  const conversionTime = isoFromDbTime(order.complete_time || order.order_time);
+  const statusGuard = getOrderStatusGuard(order);
+  const conversionTime = isoFromDbTime(
+    paymentMethod === "npay_actual"
+      ? order.payment_complete_time || order.complete_time || order.order_time
+      : order.complete_time || order.order_time,
+  );
   const value = Math.round(Number(order.payment_amount || order.total_price || 0));
   const memberCodePresent = Boolean(order.member_code);
   const memberCodeHash = sha256Prefix(order.member_code);
@@ -376,7 +558,14 @@ const buildCandidate = (
   const blockReasons = ["read_only_phase", "approval_required", "google_ads_conversion_action_not_created", "conversion_upload_not_approved"];
   if (!conversionTime) blockReasons.push("missing_conversion_time");
   if (value <= 0) blockReasons.push("invalid_value");
-  if (!isCompletedStatus(order.imweb_status)) blockReasons.push("not_completed_status");
+  if (paymentMethod === "npay_actual") {
+    if (!statusGuard.primary_confirmed) blockReasons.push("npay_primary_confirmation_missing");
+    if (statusGuard.complete_time_blank_allowed) blockReasons.push("npay_complete_time_blank_allowed_by_primary_source");
+    if (statusGuard.imweb_status_blank_allowed) blockReasons.push("npay_imweb_status_blank_allowed_by_primary_source");
+  } else if (!isCompletedStatus(order.imweb_status)) {
+    blockReasons.push("not_completed_status");
+  }
+  if (statusGuard.exclusion_reason) blockReasons.push(statusGuard.exclusion_reason);
   if (ga4Status === "present") blockReasons.push("already_in_ga4");
   if (ga4Status === "unknown") blockReasons.push("already_in_ga4_unknown");
   // path_a 평가는 본 builder 범위 외 (vm_evidence 입력 없음). missing_vm_evidence 만 기록.
@@ -415,6 +604,7 @@ const buildCandidate = (
     },
     path_a_status: pathAStatus,
     path_c_status: pathCStatus,
+    status_guard: statusGuard,
     ga4_guard: ga4Status,
     send_candidate: false,
     block_reasons: blockReasons,
@@ -423,6 +613,7 @@ const buildCandidate = (
 
 type Summary = {
   candidate_count: number;
+  excluded_order_count: number;
   homepage_count: number;
   npay_actual_count: number;
   path_a_match_count: number;
@@ -439,11 +630,12 @@ type Summary = {
   member_code_column_absent: number;
 };
 
-const buildSummary = (rows: Candidate[]): Summary => {
+const buildSummary = (rows: Candidate[], excludedOrders: ExcludedOrder[] = []): Summary => {
   const pathCMatched = rows.filter((r) => r.path_c_status === "matched" || r.path_c_status === "ambiguous").length;
   const pathAMatched = rows.filter((r) => r.path_a_status === "matched").length;
   return {
     candidate_count: rows.length,
+    excluded_order_count: excludedOrders.length,
     homepage_count: rows.filter((r) => r.payment_method === "homepage").length,
     npay_actual_count: rows.filter((r) => r.payment_method === "npay_actual").length,
     path_a_match_count: pathAMatched,
@@ -478,7 +670,7 @@ const renderMarkdown = (payload: Record<string, any>): string => {
     "",
     "## 5줄 결론",
     "",
-    `1. candidate=${s.candidate_count} (homepage=${s.homepage_count} / npay_actual=${s.npay_actual_count}) — read-only 운영 sqlite imweb_orders 매개.`,
+    `1. candidate=${s.candidate_count} (homepage=${s.homepage_count} / npay_actual=${s.npay_actual_count}) / excluded=${s.excluded_order_count} — read-only 운영 sqlite imweb_orders 매개.`,
     `2. Path A 매칭=${s.path_a_match_count} (vm_evidence 미사용, 본 builder 범위 외).`,
     `3. Path C 매칭=${s.path_c_match_count} (member_code 매개), uplift=${s.path_c_uplift}.`,
     `4. 차단 분포: missing_member_code=${s.missing_member_code} / missing_paid_click_intent=${s.missing_paid_click_intent} / outside_window=${s.outside_window} / after_paid_at=${s.after_paid_at} / ambiguous=${s.ambiguous} / already_in_ga4=${s.already_in_ga4}.`,
@@ -490,6 +682,7 @@ const renderMarkdown = (payload: Record<string, any>): string => {
       ["metric", "value"],
       [
         ["candidate_count", s.candidate_count],
+        ["excluded_order_count", s.excluded_order_count],
         ["homepage_count", s.homepage_count],
         ["npay_actual_count", s.npay_actual_count],
         ["with_member_code", s.with_member_code],
@@ -543,6 +736,7 @@ type BuildResult = {
   window: { start: string; end: string; lookback_days: number; timezone_note: string };
   summary: Summary;
   candidates: Candidate[];
+  excluded_orders: ExcludedOrder[];
 };
 
 const runBuilder = (options: CliOptions): BuildResult => {
@@ -562,9 +756,9 @@ const runBuilder = (options: CliOptions): BuildResult => {
       pciTablePresent && tableHasColumn(db, "paid_click_intent_ledger", "member_code");
     const orders = readImwebOrders(db, startIsoKst, endIsoKst, options.site);
     const ga4Map = loadGa4GuardMap(options.ga4GuardFrom);
-    const candidates = orders
-      .filter((o) => isCompletedStatus(o.imweb_status))
-      .map((order) => {
+    const eligibleOrders = orders.filter((o) => shouldIncludeOrder(o));
+    const excludedOrders = orders.filter((o) => !shouldIncludeOrder(o)).map(buildExcludedOrder);
+    const candidates = eligibleOrders.map((order) => {
         let pathCRows: PaidClickIntentLedgerRow[] | null = null;
         if (pciMemberColumnPresent && order.member_code) {
           pathCRows = readPaidClickIntentRowsByMember(
@@ -576,7 +770,7 @@ const runBuilder = (options: CliOptions): BuildResult => {
         }
         return buildCandidate(order, lookbackStartIsoKst, endIsoKst, pathCRows, pciMemberColumnPresent, ga4Map);
       });
-    const summary = buildSummary(candidates);
+    const summary = buildSummary(candidates, excludedOrders);
     return {
       ok: true,
       generated_at: generatedAtIso,
@@ -605,6 +799,7 @@ const runBuilder = (options: CliOptions): BuildResult => {
       },
       summary,
       candidates,
+      excluded_orders: excludedOrders,
     };
   } finally {
     db.close();
@@ -640,7 +835,9 @@ const setupFixtureDb = (): Database.Database => {
       orderer_name TEXT, orderer_call TEXT, pay_type TEXT, pg_type TEXT,
       price_currency TEXT, total_price INTEGER, payment_amount INTEGER,
       coupon_amount INTEGER, delivery_price INTEGER, use_issue_coupon_codes TEXT,
-      raw_json TEXT, synced_at TEXT, imweb_status TEXT, imweb_status_synced_at TEXT
+      raw_json TEXT, synced_at TEXT, imweb_status TEXT, imweb_status_synced_at TEXT,
+      payment_status TEXT, payment_complete_time TEXT, source_order_status TEXT,
+      admin_confirmed INTEGER, source_evidence_type TEXT, controlled_test_evidence INTEGER
     );
     CREATE TABLE paid_click_intent_ledger (
       intent_id TEXT, site TEXT, captured_at TEXT, received_at TEXT,
@@ -654,19 +851,31 @@ const setupFixtureDb = (): Database.Database => {
       reject_reason TEXT, expires_at TEXT, created_at TEXT, updated_at TEXT
     );
   `);
-  // Fixture orders (3 종):
+  // Fixture orders:
   //   F1 — homepage, member_code 보유, paid_click_intent 1건 매칭 (positive)
   //   F2 — homepage, member_code 보유, paid_click_intent 2건 (multiple ambiguity)
   //   F3 — npay_actual, member_code 보유, paid_click_intent 1건이 paid_at 이후 (제외 필요)
+  //   F4 — npay PAYMENT_COMPLETE + complete_time blank + STANDBY (include)
+  //   F5 — npay PAYMENT_COMPLETE + complete_time blank + imweb_status blank (include)
+  //   F6 — npay click/add_payment_info only (block)
+  //   F7 — npay unpaid/pending (block)
+  //   F8 — npay controlled test evidence (evidence only / block)
   const insertOrder = db.prepare(`INSERT INTO imweb_orders (
     site, order_no, channel_order_no, member_code, pay_type, pg_type,
-    payment_amount, total_price, complete_time, order_time, imweb_status
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    payment_amount, total_price, complete_time, order_time, imweb_status,
+    payment_status, payment_complete_time, source_order_status, admin_confirmed,
+    source_evidence_type, controlled_test_evidence
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   // ISO 8601 UTC ('Z' suffix) — better-sqlite3 sync 가 imweb_orders 에 저장하는 실제 형식과 동일.
   // KST 5/7 23:30 = UTC 5/7 14:30 / KST 5/8 02:00 = UTC 5/7 17:00 / KST 5/8 04:00 = UTC 5/7 19:00
-  insertOrder.run("biocom", "F1", "F1-CH", "m20260507aaa", "card", "tosspayments", 35000, 35000, "2026-05-07T14:30:00.000Z", "2026-05-07T14:30:00.000Z", "order_paid");
-  insertOrder.run("biocom", "F2", "F2-CH", "m20260508bbb", "card", "tosspayments", 50000, 50000, "2026-05-07T17:00:00.000Z", "2026-05-07T17:00:00.000Z", "order_paid");
-  insertOrder.run("biocom", "F3", "F3-CH", "m20260508ccc", "npay", "npay", 28000, 28000, "2026-05-07T19:00:00.000Z", "2026-05-07T19:00:00.000Z", "order_paid");
+  insertOrder.run("biocom", "F1", "F1-CH", "m20260507aaa", "card", "tosspayments", 35000, 35000, "2026-05-07T14:30:00.000Z", "2026-05-07T14:30:00.000Z", "order_paid", "", "", "", 0, "", 0);
+  insertOrder.run("biocom", "F2", "F2-CH", "m20260508bbb", "card", "tosspayments", 50000, 50000, "2026-05-07T17:00:00.000Z", "2026-05-07T17:00:00.000Z", "order_paid", "", "", "", 0, "", 0);
+  insertOrder.run("biocom", "F3", "F3-CH", "m20260508ccc", "npay", "npay", 28000, 28000, "2026-05-07T19:00:00.000Z", "2026-05-07T19:00:00.000Z", "order_paid", "PAYMENT_COMPLETE", "2026-05-07T19:00:00.000Z", "PAYMENT_COMPLETE", 0, "", 0);
+  insertOrder.run("biocom", "F4", "F4-CH", "m20260508ddd", "npay", "npay", 39000, 39000, "", "2026-05-07T19:30:00.000Z", "STANDBY", "PAYMENT_COMPLETE", "2026-05-07T19:30:00.000Z", "PAYMENT_COMPLETE", 0, "", 0);
+  insertOrder.run("biocom", "F5", "F5-CH", "m20260508eee", "npay", "npay", 531000, 531000, "", "2026-05-07T20:00:00.000Z", "", "PAYMENT_COMPLETE", "", "PAYMENT_COMPLETE", 0, "", 0);
+  insertOrder.run("biocom", "F6", "F6-CH", "m20260508fff", "npay", "npay", 117000, 117000, "", "2026-05-07T20:30:00.000Z", "", "", "", "", 0, "add_payment_info", 0);
+  insertOrder.run("biocom", "F7", "F7-CH", "m20260508ggg", "npay", "npay", 59800, 59800, "", "2026-05-07T21:00:00.000Z", "PAY_WAIT", "PAY_WAIT", "", "PAY_WAIT", 0, "", 0);
+  insertOrder.run("biocom", "F8", "F8-CH", "m20260508hhh", "npay", "npay", 35000, 35000, "", "2026-05-07T21:30:00.000Z", "STANDBY", "PAYMENT_COMPLETE", "", "PAYMENT_COMPLETE", 0, "controlled_preview", 1);
 
   const insertPci = db.prepare(`INSERT INTO paid_click_intent_ledger (
     intent_id, site, captured_at, received_at, platform_hint, capture_stage,
@@ -706,13 +915,15 @@ const runFixtureSelfTest = (): { ok: boolean; failures: string[]; result: BuildR
   })();
   const orders = readImwebOrders(db, startIsoKst, endIsoKst, "biocom");
   const pciMemberColumnPresent = tableHasColumn(db, "paid_click_intent_ledger", "member_code");
-  const candidates = orders.map((order) => {
+  const eligibleOrders = orders.filter((o) => shouldIncludeOrder(o));
+  const excludedOrders = orders.filter((o) => !shouldIncludeOrder(o)).map(buildExcludedOrder);
+  const candidates = eligibleOrders.map((order) => {
     const rows = pciMemberColumnPresent && order.member_code
       ? readPaidClickIntentRowsByMember(db, "biocom", order.member_code, lookbackStartIso)
       : null;
     return buildCandidate(order, lookbackStartIso, endIsoKst, rows, pciMemberColumnPresent, new Map());
   });
-  const summary = buildSummary(candidates);
+  const summary = buildSummary(candidates, excludedOrders);
   db.close();
 
   const failures: string[] = [];
@@ -721,10 +932,11 @@ const runFixtureSelfTest = (): { ok: boolean; failures: string[]; result: BuildR
   };
 
   // 검증 expectations
-  expect(summary.candidate_count === 3, `candidate_count expected 3, got ${summary.candidate_count}`);
+  expect(summary.candidate_count === 5, `candidate_count expected 5, got ${summary.candidate_count}`);
+  expect(summary.excluded_order_count === 3, `excluded_order_count expected 3, got ${summary.excluded_order_count}`);
   expect(summary.homepage_count === 2, `homepage_count expected 2, got ${summary.homepage_count}`);
-  expect(summary.npay_actual_count === 1, `npay_actual_count expected 1, got ${summary.npay_actual_count}`);
-  expect(summary.with_member_code === 3, `with_member_code expected 3, got ${summary.with_member_code}`);
+  expect(summary.npay_actual_count === 3, `npay_actual_count expected 3, got ${summary.npay_actual_count}`);
+  expect(summary.with_member_code === 5, `with_member_code expected 5, got ${summary.with_member_code}`);
 
   const f1 = candidates.find((c) => c.order_number === "F1");
   expect(Boolean(f1) && f1!.path_c_status === "matched", "F1 path_c_status expected 'matched'");
@@ -742,6 +954,22 @@ const runFixtureSelfTest = (): { ok: boolean; failures: string[]; result: BuildR
   expect(Boolean(f3) && f3!.payment_method === "npay_actual", "F3 payment_method expected 'npay_actual'");
   expect(Boolean(f3) && f3!.include_reason === "npay_actual_confirmed_order", "F3 include_reason expected 'npay_actual_confirmed_order'");
 
+  const f4 = candidates.find((c) => c.order_number === "F4");
+  expect(Boolean(f4), "F4 PAYMENT_COMPLETE + STANDBY expected included");
+  expect(Boolean(f4) && f4!.status_guard.primary_confirmed === true, "F4 primary_confirmed expected true");
+  expect(Boolean(f4) && f4!.status_guard.complete_time_blank_allowed === true, "F4 complete_time blank expected allowed");
+  expect(Boolean(f4) && !f4!.block_reasons.includes("not_completed_status"), "F4 must not be blocked by lifecycle status");
+
+  const f5 = candidates.find((c) => c.order_number === "F5");
+  expect(Boolean(f5), "F5 PAYMENT_COMPLETE + blank imweb_status expected included");
+  expect(Boolean(f5) && f5!.status_guard.imweb_status_blank_allowed === true, "F5 imweb_status blank expected allowed");
+  expect(Boolean(f5) && !f5!.block_reasons.includes("not_completed_status"), "F5 must not be blocked by blank imweb_status");
+
+  const excludedByOrder = new Map(excludedOrders.map((o) => [o.order_number, o.exclusion_reason]));
+  expect(excludedByOrder.get("F6") === "npay_add_payment_info_not_purchase", `F6 expected add_payment_info block, got ${excludedByOrder.get("F6")}`);
+  expect(excludedByOrder.get("F7") === "not_confirmed_payment_status", `F7 expected pending block, got ${excludedByOrder.get("F7")}`);
+  expect(excludedByOrder.get("F8") === "controlled_test_evidence", `F8 expected controlled_test_evidence block, got ${excludedByOrder.get("F8")}`);
+
   // raw member_code 노출 없음 체크 (member_code_hash 만 존재).
   for (const c of candidates) {
     expect(!("member_code" in c), `${c.order_number} candidate must not contain raw member_code`);
@@ -757,7 +985,7 @@ const runFixtureSelfTest = (): { ok: boolean; failures: string[]; result: BuildR
   expect(summary.path_c_uplift === 2, `path_c_uplift expected 2, got ${summary.path_c_uplift}`);
   expect(summary.after_paid_at === 1, `after_paid_at expected 1, got ${summary.after_paid_at}`);
   expect(summary.ambiguous === 1, `ambiguous expected 1, got ${summary.ambiguous}`);
-  expect(summary.missing_paid_click_intent === 0, `missing_paid_click_intent expected 0, got ${summary.missing_paid_click_intent}`);
+  expect(summary.missing_paid_click_intent === 2, `missing_paid_click_intent expected 2 (F4+F5), got ${summary.missing_paid_click_intent}`);
 
   return {
     ok: failures.length === 0,
@@ -776,6 +1004,7 @@ const runFixtureSelfTest = (): { ok: boolean; failures: string[]; result: BuildR
       window: { start: "2026-05-07", end: "2026-05-08", lookback_days: 30, timezone_note: "fixture KST naive" },
       summary,
       candidates,
+      excluded_orders: excludedOrders,
     },
   };
 };
@@ -788,6 +1017,7 @@ const main = () => {
   const options = parseArgs();
   if (options.fixture) {
     const { ok, failures, result } = runFixtureSelfTest();
+    writeOutputs(result, options);
     process.stdout.write(`${JSON.stringify({ summary: result.summary, failures }, null, 2)}\n`);
     if (!ok) {
       process.stderr.write(`fixture self-test FAILED:\n${failures.map((f) => ` - ${f}`).join("\n")}\n`);
