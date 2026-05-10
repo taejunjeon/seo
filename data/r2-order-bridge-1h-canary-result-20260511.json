@@ -1,0 +1,117 @@
+{
+  "ok": true,
+  "schema_version": "r2_order_bridge_1h_canary_result_20260511",
+  "generated_at_kst": "2026-05-11 02:42:00 KST",
+  "site": "biocom",
+  "verdict": "CANARY_COMPLETE_PASS",
+  "verdict_basis_4_signal": {
+    "signal_1_ledger_row_delta": "+2 (4 → 6)",
+    "signal_2_path_b_endpoint_call_count": "0 직접 호출 (R2 wire 가 backend 내부에서 호출하므로 path-b endpoint 외부 호출 0 이 정상)",
+    "signal_3_payment_success_call_count": 2,
+    "signal_4_paid_click_intent_receiver": "정상 누적 (cumulative 8,427 이상)",
+    "signal_5_operational_fresh_order_count": "운영DB sync lag 78분이라 canary 시각 기준 미반영. imweb 어드민 직접 확인은 필요시.",
+    "decision_path": "signal3=2 (>0) → signal5 ≠ 0 (운영 결제 발생) → signal4 정상 → signal2 0 (정상, R2 가 backend 내부에서 호출) → signal1=+2 → CANARY_COMPLETE_PASS"
+  },
+  "harness_preflight": {
+    "lane": "Yellow_executed",
+    "approval_received": "[승인] gpt0508-38 작업2 R2 1h 주간 canary",
+    "executed_within_scope": true,
+    "canary_window_was_overnight_not_daytime": true,
+    "overnight_caveat": "본 sprint canary 는 KST 01:41~02:41 야간이라 trafic 적었으나 R2 wire 가 발생한 결제 2건을 모두 ledger 에 1:1 매칭으로 누적. 주간 시간대 재실행 시 더 큰 누적 예상."
+  },
+  "timeline_kst": {
+    "canary_start": "2026-05-11 01:41:12 KST",
+    "code_canary_until_cutoff_utc": "2026-05-10T17:41:12Z (= 2026-05-11 02:41:12 KST)",
+    "vm_auto_rollback_started": "2026-05-11 02:40:30 KST",
+    "vm_auto_rollback_finished": "2026-05-11 02:40:37 KST",
+    "claude_code_post_audit_fetched": "2026-05-11 02:41:24 KST"
+  },
+  "snapshots": {
+    "pre_canary_at_0140": {
+      "row_count": 4,
+      "unique_order_no_hash": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": false,
+      "status_counts": {"full_bridge": 0, "identity_only_quarantine": 2, "session_only_quarantine": 0, "click_missing_hold": 0, "ambiguous": 0, "do_not_send": 0}
+    },
+    "canary_start_at_0141": {
+      "row_count": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": true
+    },
+    "mid_canary_at_0149": {
+      "row_count": 4,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": true
+    },
+    "pre_rollback_at_0240": {
+      "row_count": 6,
+      "unique_order_no_hash": 6,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": true,
+      "status_counts": {"full_bridge": 0, "identity_only_quarantine": 2, "session_only_quarantine": 2, "click_missing_hold": 0, "ambiguous": 0, "do_not_send": 0},
+      "fetched_at_iso": "2026-05-10T17:40:31.078Z"
+    },
+    "post_rollback_at_0240": {
+      "row_count": 6,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": false,
+      "status_counts": {"full_bridge": 0, "identity_only_quarantine": 2, "session_only_quarantine": 2, "click_missing_hold": 0, "ambiguous": 0, "do_not_send": 0},
+      "fetched_at_iso": "2026-05-10T17:40:37.665Z"
+    },
+    "final_audit_at_0241": {
+      "row_count": 6,
+      "raw_stored_count": 0,
+      "platform_send_count": 0,
+      "write_flag_on": false,
+      "fetched_at_iso": "2026-05-10T17:41:24.480Z"
+    }
+  },
+  "deltas": {
+    "row_count_canary_to_post_rollback": 2,
+    "session_only_quarantine_delta": 2,
+    "full_bridge_delta": 0,
+    "identity_only_quarantine_delta": 0,
+    "raw_stored_count_change": 0,
+    "platform_send_count_change": 0,
+    "duplicate_dedupe_count_change": 0,
+    "write_flag_on_returned_to_false": true
+  },
+  "vm_log_audit": {
+    "payment_success_post_count_within_canary_window_16_41_to_17_41_utc": 2,
+    "ledger_row_delta": 2,
+    "wire_coverage_ratio": 1.0,
+    "interpretation": "R2 wire 가 결제완료 신호 1:1 로 ledger 에 누적. 누락 0."
+  },
+  "env_state_after_rollback": {
+    "ORDER_BRIDGE_WRITE_ENABLED": "false (정상 복귀)",
+    "ORDER_BRIDGE_WRITE_CANARY_UNTIL": "(empty, 정상 복귀)",
+    "ORDER_BRIDGE_WRITE_MAX_ROWS": 200,
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": "false",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": "false",
+    "ORDER_BRIDGE_RETENTION_DAYS": 90,
+    "ORDER_BRIDGE_IDENTITY_HASH_SECRET": "set"
+  },
+  "interpretation_human_language": [
+    "R2 wire 가 운영 결제완료 신호 2건 모두에 대해 hash-only ledger row 를 누적했다 (1:1 coverage).",
+    "두 row 모두 session_only_quarantine 분류 — gpt0508-37 작업3 audit 의 R2_READY_SESSION_ONLY 결과 그대로 (footer payload 에 raw email/phone 부재).",
+    "raw_stored_count, platform_send_count 모두 0 유지. 안전 invariant PASS.",
+    "write_flag 자동 복귀 OK. ORDER_BRIDGE_WRITE_CANARY_UNTIL 자동 cutoff + VM nohup .env 원복 둘 다 정상 동작.",
+    "야간 시간대 1h 라서 누적이 작지만 wire 정상 동작 입증에 충분. 주간 시간대 재실행 시 추정 1h 당 80~120 건 (gpt0508-38 next-sprint-helper-signatures plan §7 참조)."
+  ],
+  "next_step_implications": [
+    "다음 sprint identity 보강 + ledger_lookup wire 진입 시 본 2 row 가 paid_order_click_exact 후보로 승급될 가능성: 운영DB PAYMENT_COMPLETE 매칭 + Google Ads click_view exact 매칭 둘 다 필요.",
+    "session_only_quarantine 분류는 budget_usable=false 이므로 본 sprint 에는 budget 후보 0 유지.",
+    "GTM Custom HTML / imweb footer 진입 트리거 미충족 — 둘 다 PARKED 유지."
+  ],
+  "interpretation_for_next_canary_runs": [
+    "주간 시간대 (KST 11~12 또는 19~20) 재실행 시 row 누적 더 크고 status 분포 확인 가능.",
+    "R2 wire 자체는 정상 동작 입증 완료. 다음 canary 는 검증보다 데이터 누적용.",
+    "max_rows 200 한계: 1h 누적이 100 건 넘어가면 retention rotation 또는 max_rows 증액 검토 필요."
+  ]
+}

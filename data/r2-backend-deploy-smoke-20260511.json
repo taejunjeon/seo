@@ -1,0 +1,101 @@
+{
+  "ok": true,
+  "schema_version": "r2_backend_deploy_smoke_20260511",
+  "generated_at_kst": "2026-05-11 01:42:00 KST",
+  "site": "biocom",
+  "purpose": "gpt0508-37 R2 wire(payment-success → order_bridge_ledger 자동 기록) + operationalDbFreshness 75 LOC patch 를 VM 운영 backend 에 반영. write_flag=false 유지로 ledger 영향 0.",
+  "harness_preflight": {
+    "lane": "Yellow_executed",
+    "approval_received": "[승인] gpt0508-38 작업1 R2 backend deploy",
+    "executed_in_this_sprint": true,
+    "raw_pii_logged": false
+  },
+  "deploy_method": "tar+ssh + npm ci + npm run build + pm2 restart seo-backend --update-env (vm/!vm.md 4.1 절차)",
+  "timeline_kst": {
+    "tar_pipe_ssh": "2026-05-11 01:38:30 KST",
+    "vm_swap_src_tests_package": "2026-05-11 01:38:55 KST",
+    "vm_npm_ci": "2026-05-11 01:39:00 KST (16s)",
+    "vm_npm_run_build": "2026-05-11 01:39:18 KST",
+    "vm_pm2_restart": "2026-05-11 01:39:30 KST (uptime reset to 0s)",
+    "post_smoke_finished": "2026-05-11 01:40:30 KST"
+  },
+  "vm_pm2_state_post_deploy": {
+    "id": 0,
+    "name": "seo-backend",
+    "status": "online",
+    "version": "1.0.0",
+    "restarts": 3846,
+    "uptime_seconds_at_smoke": 4
+  },
+  "smoke_results": {
+    "status_endpoint_http_200": true,
+    "status_apiVersion": "v22",
+    "status_customerId": "2149990943",
+    "ledger_summary_http_200": true,
+    "ledger_row_count_pre_deploy": 4,
+    "ledger_row_count_post_deploy": 4,
+    "ledger_row_count_delta": 0,
+    "ledger_write_flag_on_post_deploy": false,
+    "ledger_raw_stored_count": 0,
+    "ledger_platform_send_count": 0,
+    "dashboard_last_30d_http_200": true,
+    "dashboard_response_npayActualCorrection_present": true,
+    "dashboard_response_operationalDbFreshness_present": true
+  },
+  "live_response_npay_actual_correction_last_30d": {
+    "windowDays": 30,
+    "npayActualConfirmedPgCount": 209,
+    "npayActualConfirmedPgRevenueKrw": 37638900,
+    "internalConfirmedRevenueCurrentKrw": 6203110,
+    "internalConfirmedRevenueWithNpayActualPgKrw": 43842010,
+    "internalConfirmedRoasCurrent": 0.2699,
+    "internalConfirmedRoasWithNpayActualPg": 1.9078,
+    "npayActualWireStatus": "wired_from_pg_snapshot",
+    "googleAdsBudgetFloorNpayExactCount": 9,
+    "uploadCandidateCount": 0
+  },
+  "live_response_operational_db_freshness_last_30d": {
+    "source": "operational_db_tb_iamweb_users",
+    "maxOrderDateKst": "2026-05-11 00:22:15.000 KST",
+    "maxPaymentCompleteKst": "2026-05-10 15:25:08.000 KST",
+    "syncLagMinutes": 78,
+    "status": "lagged",
+    "warnings": ["운영DB sync lag 1시간 초과. 카운트는 lag 기준값."]
+  },
+  "live_response_internal_summary_last_30d": {
+    "platformRoas": 9.97,
+    "internalConfirmedRoas": 0.27,
+    "platformCost": 22980592.19,
+    "confirmedRevenue": 6203110,
+    "confirmedOrders": 23,
+    "campaignIdCoverage": 0.84,
+    "matchedCampaignOrders": 11,
+    "unknownCampaignOrders": 5
+  },
+  "interpretation_human_language": [
+    "Deploy 자체는 안전선 PASS — write_flag=false 유지라 ledger 영향 0, 외부 전송 0.",
+    "신규 응답 필드 두 개(npayActualCorrection 11필드 + operationalDbFreshness 6필드) 모두 라이브 노출 확인.",
+    "운영DB sync lag 가 직전 sprint 9시간에서 78분(lagged 상태) 까지 회복됨 — 운영자 dashboard 에서 데이터 freshness 가 시각적으로 확인 가능.",
+    "internal ROAS 보정 전 0.27 vs 보정 후 1.91 분리 표시 정상.",
+    "payment-success 호출 smoke 는 origin 검사(enforceOriginSourceMatch) 때문에 외부에서 직접 못 함. 다음 작업2 1h canary 윈도우에서 자연 traffic 으로 검증."
+  ],
+  "invariants_verified": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate_count": 0,
+    "raw_pii_in_response": false,
+    "platform_actual_send": 0,
+    "operational_db_write": 0,
+    "ORDER_BRIDGE_WRITE_ENABLED": "false (deploy 직후 그대로)",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": "false",
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": "false"
+  },
+  "rollback_path_if_needed": {
+    "src_backup_dir_on_vm": "/home/biocomkr_sns/seo/repo/backend/src.bak_20260510T163857Z",
+    "tests_backup_dir_on_vm": "/home/biocomkr_sns/seo/repo/backend/tests.bak_gpt0508-37",
+    "manual_rollback_commands": [
+      "ssh taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"cd /home/biocomkr_sns/seo/repo/backend && rm -rf src tests && mv src.bak_20260510T163857Z src && mv tests.bak_gpt0508-37 tests && export PATH=/home/biocomkr_sns/seo/node/bin:\\$PATH && npm run build && pm2 restart seo-backend --update-env\"'"
+    ]
+  },
+  "verdict": "DEPLOY_PASS_NEW_FIELDS_LIVE_INVARIANTS_HELD"
+}

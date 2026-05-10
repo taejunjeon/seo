@@ -1,0 +1,103 @@
+{
+  "ok": true,
+  "schema_version": "confirmed_purchase_ledger_lookup_wire_readiness_20260511",
+  "generated_at_kst": "2026-05-11 02:08:00 KST",
+  "site": "biocom",
+  "purpose": "ConfirmedPurchasePrep cross_reference_evidence.ledger_lookup wire 의 다음 sprint 진입을 위한 readiness 평가. R2 ledger row + budget classifier helper 와 결합하기 위한 사전 준비.",
+  "harness_preflight": {
+    "lane": "Green code (small lookup helper) + design",
+    "code_touched": true,
+    "lookup_helper_added_loc": 18,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false
+  },
+  "components_in_place": [
+    {
+      "name": "classifyCrossReferenceEvidence",
+      "file": "backend/src/confirmedPurchaseCrossReferenceEvidence.ts",
+      "status": "ready",
+      "since_sprint": "gpt0508-35",
+      "fixture_pass": "5_of_5"
+    },
+    {
+      "name": "ConfirmedPurchaseNoSendPreview builder wire",
+      "file": "backend/src/routes/attribution.ts (buildConfirmedPurchaseNoSendPreview)",
+      "status": "wired_with_ledger_lookup_null",
+      "since_sprint": "gpt0508-35",
+      "next_step": "ledger_lookup 인자에 실제 row 결과 채움"
+    },
+    {
+      "name": "recordPaymentSuccessOrderBridgeLedger (R2 wire)",
+      "file": "backend/src/routes/attribution.ts",
+      "status": "deployed_with_write_flag_false",
+      "since_sprint": "gpt0508-37 + gpt0508-38 deploy",
+      "fixture_pass": "6_of_6"
+    },
+    {
+      "name": "classifyLedgerRowToBudgetClassification (paid_order_click_exact 승급 분류기)",
+      "file": "backend/src/orderBridgeLedgerBudgetClassifier.ts",
+      "status": "ready",
+      "since_sprint": "gpt0508-38 작업3",
+      "fixture_pass": "7_of_7"
+    },
+    {
+      "name": "findOrderBridgeRowsByOrderHash (신규 lookup helper)",
+      "file": "backend/src/orderBridgeLedger.ts",
+      "status": "added_in_this_sprint",
+      "loc": 18,
+      "next_step": "cross_reference_evidence ledger_lookup 분기에서 사용"
+    }
+  ],
+  "missing_for_full_wire": [
+    {
+      "name": "operational_payment_complete_lookup_helper",
+      "purpose": "운영DB read-only로 order_no 기준 PAYMENT_COMPLETE 상태 조회 (transient input, hash 처리 즉시)",
+      "estimated_loc": 30,
+      "lane": "Green code",
+      "next_sprint": true
+    },
+    {
+      "name": "google_ads_click_view_exact_lookup_helper",
+      "purpose": "Google Ads click_view API 또는 캐시된 결과에서 gclid/gbraid/wbraid 매칭 + campaign_id 반환",
+      "estimated_loc": 40,
+      "lane": "Green code",
+      "note": "기존 google-ads-campaign-id-join-candidates 산출 로직과 통합 가능"
+    },
+    {
+      "name": "cross_reference_evidence wire integration",
+      "purpose": "buildConfirmedPurchaseNoSendPreview 안에서 ledger_lookup={...} 을 채우기",
+      "estimated_loc": 40,
+      "lane": "Green code"
+    },
+    {
+      "name": "운영 dry-run with real ledger row + paid evidence",
+      "purpose": "1h canary 가 누적한 row 가 있을 때 builder dry-run 으로 budget_usable 분포 측정",
+      "lane": "Green dry-run",
+      "depends_on": "1h canary PASS + ledger row > 0"
+    }
+  ],
+  "wire_pseudo_code_for_next_sprint": [
+    "function attachLedgerLookup(orderNoHash):",
+    "  rows = findOrderBridgeRowsByOrderHash(orderNoHash, site)",
+    "  if rows.length == 0: return null",
+    "  payment = await operationalPaymentCompleteLookup(orderNoHash)  // transient",
+    "  click = await googleAdsClickViewExactLookup(rows[0].click_id_hash)",
+    "  classification = classifyLedgerRowToBudgetClassification({ ledger_row: rows[0].previewSnapshot, payment_complete_join: payment, click_view_exact: click })",
+    "  return { paid_click_intent_same_order_match: classification.budget_usable, order_bridge_same_order_match: rows[0].click_id_hash !== '', matched_click_id_type: classification.click_id_type, matched_hash_prefix: rows[0].order_no_hash.slice(0,8) }"
+  ],
+  "expected_effect_after_full_wire": {
+    "before_wire": {"missing_2121_count": 2121, "campaign_id_matched": 31},
+    "after_wire_with_population_p_paid_p_click": "session_only_quarantine row 누적 + 운영DB PAYMENT_COMPLETE join + click_view exact 가 동시 있는 row 만큼 A_via_ledger_budget_floor 후보로 승급. 첫 1h canary 에는 0~소수 row 예상 (footer payload 에 raw email/phone 부재 + 운영DB sync lag 영향).",
+    "next_signal_to_watch": "다음 sprint full wire 후 builder dry-run 의 npay_actual_confirmed_count + cross_reference_evidence A_via_ledger_budget_floor 카운트"
+  },
+  "invariants_unchanged": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate_count": 0,
+    "raw_pii_logged": false,
+    "platform_actual_send": 0,
+    "operational_db_write": 0
+  },
+  "verdict": "READINESS_PASS_HELPERS_IN_PLACE_NEXT_SPRINT_FULL_WIRE"
+}

@@ -39,7 +39,11 @@
 | **로컬DB** | TJ님 맥북 | `/Users/vibetj/coding/seo/backend/data/crm.sqlite3` (better-sqlite3 · 멀티 사이트 구분은 `site` 컬럼) |
 | AIBIO Supabase | 별도 인스턴스 | `AIBIO_SUPABASE_PROJECT_ID` + `AIBIO_SUPABASE_SECRET_KEY` (`.env` 195~200행). 운영DB와 같은 supabase인지 다른지 확인 전에는 별도로 부른다. |
 
-## 데이터 source 사용 순서 (정본: gdn/attribution-data-source-decision-guide-20260511.md)
+## 데이터 source 사용 순서
+
+정본: [`gdn/attribution-data-source-decision-guide-20260511.md`](./gdn/attribution-data-source-decision-guide-20260511.md). 모든 attribution/ROAS/ledger 작업 시작 전 먼저 참조.
+
+
 
 매 보고/산출물에서 “주문/결제 정본”과 “광고 클릭-주문 연결 evidence”는 분리해서 본다. 한쪽 0이 다른 쪽 0을 의미하지 않는다.
 

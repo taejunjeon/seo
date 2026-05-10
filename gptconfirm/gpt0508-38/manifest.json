@@ -1,0 +1,85 @@
+{
+  "batch": "gpt0508-38",
+  "created_at_kst": "2026-05-11 02:45:00 KST",
+  "purpose": "Claude Code R2 Deploy & Canary Sprint — gpt0508-37 R2 wire 를 운영 VM 에 반영하고 1h canary 로 row 누적 검증. CANARY_COMPLETE_PASS (row +2, 1:1 coverage).",
+  "lane": "Yellow_executed_with_invariants_held",
+  "track_progress": {
+    "A": {"name": "ConfirmedPurchasePrep 통합 input", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "B": {"name": "Google Ads campaign_id 조인/ROAS 분해", "previous_percent": 93, "current_percent": 95, "delta_percent": 2},
+    "C": {"name": "BigQuery campaign funnel quality", "previous_percent": 85, "current_percent": 85, "delta_percent": 0},
+    "D/KR6": {"name": "Meta funnel CAPI Test Events readiness", "previous_percent": 74, "current_percent": 74, "delta_percent": 0},
+    "E": {"name": "Harness/HOLD Reducer", "previous_percent": 97, "current_percent": 98, "delta_percent": 1},
+    "F": {"name": "Frontend/Data Trust Dashboard", "previous_percent": 79, "current_percent": 80, "delta_percent": 1}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-38/00-result-report.md", "copy": "gptconfirm/gpt0508-38/00-result-report.md", "why_included": "종합 결과보고서 (text-report-template.md v3 양식)"},
+    {"source": "gdn/r2-backend-deploy-smoke-20260511.md", "copy": "gptconfirm/gpt0508-38/01-r2-backend-deploy-smoke-20260511.md", "why_included": "작업1 R2 deploy smoke 결과"},
+    {"source": "gdn/r2-order-bridge-1h-canary-result-20260511.md", "copy": "gptconfirm/gpt0508-38/02-r2-order-bridge-1h-canary-result-20260511.md", "why_included": "작업2 1h canary CANARY_COMPLETE_PASS"},
+    {"source": "gdn/r2-session-only-to-paid-order-click-exact-plan-or-patch-20260511.md", "copy": "gptconfirm/gpt0508-38/03-r2-session-only-to-paid-order-click-exact-plan-or-patch-20260511.md", "why_included": "작업3 paid_order_click_exact 분류기"},
+    {"source": "gdn/confirmed-purchase-ledger-lookup-wire-readiness-20260511.md", "copy": "gptconfirm/gpt0508-38/04-confirmed-purchase-ledger-lookup-wire-readiness-20260511.md", "why_included": "작업4 ledger_lookup wire readiness"},
+    {"source": "gdn/total-current-r2-state-update-20260511.md", "copy": "gptconfirm/gpt0508-38/05-total-current-r2-state-update-20260511.md", "why_included": "작업5 total-current 갱신"},
+    {"source": "gdn/r2-vs-gtm-footer-post-canary-decision-20260511.md", "copy": "gptconfirm/gpt0508-38/06-r2-vs-gtm-footer-post-canary-decision-20260511.md", "why_included": "작업6 R2 PRIMARY GTM/footer parked 결정"},
+    {"source": "gptconfirm/gpt0508-38/07-telegram-completion-note.md", "copy": "gptconfirm/gpt0508-38/07-telegram-completion-note.md", "why_included": "telegram completion record (NOT sent)"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-38/99-total-current-copy.md", "why_included": "canonical snapshot (gpt0508-37/38 state 갱신 반영)"}
+  ],
+  "data_artifacts": [
+    "data/r2-backend-deploy-smoke-20260511.json",
+    "data/r2-order-bridge-1h-canary-result-20260511.json",
+    "data/r2-session-only-to-paid-order-click-exact-plan-or-patch-20260511.json",
+    "data/confirmed-purchase-ledger-lookup-wire-readiness-20260511.json"
+  ],
+  "additional_green_followup_documents": [
+    "gdn/next-sprint-helper-signatures-20260511.md (다음 sprint helper 3개 시그니처 + 운영DB 사전 시뮬레이션)"
+  ],
+  "code_changes": [
+    {"file": "AGENTS.md + CLAUDE.md", "kind": "Data Source Decision Guide reference 한 줄 추가", "loc_added": 4, "typecheck": "n/a"},
+    {"file": "backend/src/orderBridgeLedger.ts", "kind": "findOrderBridgeRowsByOrderHash export 추가", "loc_added": 18, "typecheck": "PASS"},
+    {"file": "backend/src/orderBridgeLedgerBudgetClassifier.ts", "kind": "신규 helper module (paid_order_click_exact 승급 분류기)", "loc": 132, "typecheck": "PASS"},
+    {"file": "backend/tests/order-bridge-ledger-budget-classifier.test.ts", "kind": "신규 fixture", "loc": 92, "fixtures": 7, "test_pass": "7_of_7_157ms"},
+    {"file": "total/!total-current.md", "kind": "헤더 + 새 sprint state 섹션 추가", "loc_added": 25, "typecheck": "n/a"}
+  ],
+  "vm_operations_executed": {
+    "deploy_method": "tar+ssh + npm ci + npm run build + pm2 restart seo-backend --update-env",
+    "deploy_pass": true,
+    "src_backup_on_vm": "/home/biocomkr_sns/seo/repo/backend/src.bak_20260510T163857Z",
+    "tests_backup_on_vm": "/home/biocomkr_sns/seo/repo/backend/tests.bak_gpt0508-37",
+    "canary_window_kst": "2026-05-11 01:41:12 ~ 02:41:12 KST (1h)",
+    "canary_pass": true,
+    "ledger_row_count_pre": 4,
+    "ledger_row_count_post": 6,
+    "ledger_row_delta": 2,
+    "wire_coverage_ratio": 1.0,
+    "raw_stored_count": 0,
+    "platform_send_count": 0,
+    "write_flag_returned_to_false": true,
+    "auto_rollback_executed_by_vm_nohup_scheduler": true
+  },
+  "verification": {
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_check_strict": "PASS",
+    "git_diff_check": "PASS",
+    "backend_typecheck": "PASS",
+    "backend_fixture_cumulative": "PASS_24_OF_24",
+    "live_dashboard_npayActualCorrection_response": "PASS",
+    "live_dashboard_operationalDbFreshness_response": "PASS",
+    "raw_pii_pattern_scan": "PASS"
+  },
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action 변경",
+    "GA4/Meta/TikTok/Naver 운영 전송",
+    "GTM Production publish",
+    "imweb footer/header 직접 수정",
+    "운영DB write",
+    "raw email/phone/order/payment/member_code 저장 또는 logging",
+    "NPay click/count/add_payment_info 를 actual purchase로 승격",
+    "exact evidence 없는 NPay actual을 Google Ads campaign_id에 귀속",
+    "time-window-only attribution을 예산 판단에 사용",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING=true",
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED=true",
+    "텔레그램 발송 (사용자 명시 skip)"
+  ]
+}

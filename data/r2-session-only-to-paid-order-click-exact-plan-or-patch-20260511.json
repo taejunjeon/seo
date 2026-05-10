@@ -1,0 +1,60 @@
+{
+  "ok": true,
+  "schema_version": "r2_session_only_to_paid_order_click_exact_20260511",
+  "generated_at_kst": "2026-05-11 02:00:00 KST",
+  "site": "biocom",
+  "purpose": "R2 wire 가 누적하는 session_only_quarantine row 를 운영DB PAYMENT_COMPLETE same-order + Google Ads click_view exact 결합으로 budget_usable 후보(A_via_ledger_budget_floor)로 승급할 수 있는 helper 와 fixture 추가.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false,
+    "send_candidate_invariant": false,
+    "upload_candidate_invariant": 0
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/orderBridgeLedgerBudgetClassifier.ts",
+      "kind": "new helper module",
+      "loc": 132,
+      "exports": ["classifyLedgerRowToBudgetClassification", "BudgetClassification", "PAID_ORDER_CLICK_EXACT_CLASSIFICATION", "LedgerRowSnapshot", "PaymentCompleteJoinResult", "ClickViewExactResult"]
+    },
+    {
+      "file": "backend/tests/order-bridge-ledger-budget-classifier.test.ts",
+      "kind": "new fixture test",
+      "loc": 92,
+      "fixtures": 7,
+      "test_pass": "7_of_7_157ms"
+    }
+  ],
+  "classification_set": [
+    {"label": "A_via_ledger_budget_floor", "budget_usable": true, "condition": "ledger order_no_hash 존재 + 운영DB PAYMENT_COMPLETE + Google Ads click_view exact 매칭"},
+    {"label": "paid_order_click_exact", "alias_of": "A_via_ledger_budget_floor", "purpose": "사람이 보는 명칭"},
+    {"label": "paid_order_no_click_hold", "budget_usable": false, "condition": "ledger order 존재 + PAYMENT_COMPLETE + click exact 부재"},
+    {"label": "unpaid_order_bridge_hold", "budget_usable": false, "condition": "운영DB status가 REFUND_COMPLETE / CANCELLED_BEFORE_DEPOSIT / PAYMENT_PREPARATION / VIRTUAL_ACCOUNT_PENDING"},
+    {"label": "session_only_quarantine_no_paid_evidence", "budget_usable": false, "condition": "ledger session_only_quarantine + 운영DB join 미매칭 (sync lag 또는 미발생)"},
+    {"label": "do_not_classify", "budget_usable": false, "condition": "order_no_hash 부재 등 분류 불가"}
+  ],
+  "fixture_results": [
+    {"name": "paid + click exact + click_view match → A_via_ledger_budget_floor", "result": "PASS"},
+    {"name": "paid + no click exact → paid_order_no_click_hold", "result": "PASS"},
+    {"name": "REFUND_COMPLETE → unpaid_order_bridge_hold", "result": "PASS"},
+    {"name": "VIRTUAL_ACCOUNT_PENDING → unpaid_order_bridge_hold", "result": "PASS"},
+    {"name": "session_only_quarantine + no payment join yet → session_only_quarantine_no_paid_evidence", "result": "PASS"},
+    {"name": "order_no_hash absent → do_not_classify", "result": "PASS"},
+    {"name": "invariants always false even on budget_usable=true", "result": "PASS"}
+  ],
+  "fixture_summary": {"total": 7, "passed": 7, "failed": 0, "duration_ms": 156.61},
+  "rules_unchanged": {
+    "actual_purchase_definition": "PAYMENT_COMPLETE + cancel/return empty + amount > 0",
+    "npay_click_to_purchase": false,
+    "ga4_purchase_to_actual_purchase": false,
+    "vm_complete_time_blank_to_npay_unpaid": false,
+    "time_window_only_to_budget": false,
+    "utm_hint_to_budget": false,
+    "send_candidate_promotion_required_path": "별도 Red 승인 + 동의/검증"
+  },
+  "next_sprint_wire_target": "이 helper 를 ConfirmedPurchasePrep cross_reference_evidence.ledger_lookup 분기 안에서 사용 (작업4 ledger_lookup wire readiness 와 연동)",
+  "verdict": "HELPER_READY_FIXTURE_PASS_WIRE_NEXT_SPRINT"
+}

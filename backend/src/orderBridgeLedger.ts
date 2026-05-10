@@ -152,6 +152,26 @@ const dbRowToRow = (row: Record<string, unknown>): OrderBridgeLedgerRow => ({
   expiresAt: String(row.expires_at),
 });
 
+/**
+ * order_bridge_ledger row 를 site + order_no_hash 로 조회한다.
+ * ConfirmedPurchasePrep cross_reference_evidence.ledger_lookup wire (다음 sprint) 가
+ * same-order match 후보를 가져올 때 사용.
+ *
+ * read-only. raw email/phone/order 인자 금지 — order_no_hash 만 받는다.
+ */
+export const findOrderBridgeRowsByOrderHash = (
+  orderNoHash: string,
+  site: string = "biocom",
+): OrderBridgeLedgerRow[] => {
+  if (!orderNoHash) return [];
+  const db = getCrmDb();
+  ensureTable(db);
+  const rows = db
+    .prepare(`SELECT * FROM ${TABLE} WHERE site = ? AND order_no_hash = ? ORDER BY created_at ASC`)
+    .all(site, orderNoHash) as Array<Record<string, unknown>>;
+  return rows.map(dbRowToRow);
+};
+
 const selectByDedupeKey = (db: Database.Database, dedupeKey: string): OrderBridgeLedgerRow | null => {
   const row = db.prepare(`SELECT * FROM ${TABLE} WHERE dedupe_key = ?`).get(dedupeKey) as
     | Record<string, unknown>
