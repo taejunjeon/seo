@@ -1,0 +1,99 @@
+{
+  "ok": true,
+  "schema_version": "imweb_orders_status_sync_gap_audit_20260511",
+  "generated_at_kst": "2026-05-11 20:50:00 KST",
+  "purpose": "VM Cloud SQLite 의 imweb_orders.max_order_time NPay 가 5/8 stale 인 원인 분석.",
+  "db_naming_rule": "본 문서의 모든 테이블 명은 어느 DB 인지 명시 (로컬DB | 운영DB | VM Cloud).",
+  "audit_target_table": {
+    "location": "VM Cloud SQLite",
+    "path": "/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+    "table": "imweb_orders",
+    "scope": "biocom + thecleancoffee 통합"
+  },
+  "root_cause": "VM Cloud `imweb_orders.imweb_status_synced_at` 마지막 = 2026-05-10 06:11 (KST 15:11). 그 후 imweb_status sync 한 번도 실행 안 됨. imweb_status 채우는 sync 는 별도 endpoint `POST /api/crm-local/imweb/sync-order-statuses` 가 처리하는데, 일반 `POST /api/crm-local/imweb/sync-orders` 와 분리됨 (backend/src/routes/crmLocal.ts:823~899).",
+  "evidence_1_synced_at_normal": {
+    "fact": "VM Cloud `imweb_orders.synced_at` 마지막 = 2026-05-11 09:40 (KST 18:40, 약 90분 전)",
+    "meaning": "일반 sync-orders 는 정상 동작 — order_time / pay_type / payment_amount 등은 5/11 KST 18:40 까지 최신"
+  },
+  "evidence_2_status_synced_at_stale": {
+    "fact": "VM Cloud `imweb_orders.imweb_status_synced_at` 분포: biocom max=2026-05-10 06:11 / thecleancoffee max=2026-05-10 06:12",
+    "meaning": "imweb_status sync 가 5/10 06:11 이후 한 번도 실행 안 됨. 5/10 이후 도착한 새 NPay 주문은 imweb_status 가 비어있음"
+  },
+  "evidence_3_biocom_npay_order_vs_status": {
+    "comparison_by_date": [
+      {"order_date": "2026-05-04", "rows": 4, "with_status": 4},
+      {"order_date": "2026-05-05", "rows": 9, "with_status": 9},
+      {"order_date": "2026-05-06", "rows": 5, "with_status": 5},
+      {"order_date": "2026-05-07", "rows": 10, "with_status": 10},
+      {"order_date": "2026-05-08", "rows": 7, "with_status": 7, "note": "5/10 06:11 status sync 시점 이전 → 정상"},
+      {"order_date": "2026-05-09", "rows": 5, "with_status": 5, "note": "5/10 06:11 status sync 시점 이전 → 정상"},
+      {"order_date": "2026-05-10", "rows": 13, "with_status": 6, "note": "5/10 06:11 status sync 이후 도착한 7건 미라벨"},
+      {"order_date": "2026-05-11", "rows": 2, "with_status": 0, "note": "전부 5/10 06:11 이후 → 미라벨"}
+    ]
+  },
+  "downstream_impact": [
+    {
+      "downstream": "summary API derived.npay_revenue_30d",
+      "filter_used": "complete_time != '' AND complete_time IS NOT NULL",
+      "consequence": "complete_time 컬럼은 imweb_status sync 와 별개로 sync-orders 응답 안 complete_time 정수 0 / null 로 들어옴. 5/8 이후 NPay 결제완료 정보가 imweb v2 API 응답에서 비어있는 가능성 + status sync 안 돌아 이중 영향. summary API 의 max_order_time 이 5/8 까지로 표시됨",
+      "actual_revenue_uncounted": "biocom 5/9~5/11 NPay 약 20건 + thecleancoffee 약 37건이 매출 합계에서 제외됨"
+    },
+    {
+      "downstream": "운영DB tb_iamweb_users 와 비교 시 row 수 차이 74건",
+      "consequence": "직전 audit (gpt0508-45) 의 74 row 차이의 일부는 본 status sync gap 으로 설명 가능"
+    }
+  ],
+  "code_path_breakdown": {
+    "sync_orders_endpoint": {
+      "method": "POST /api/crm-local/imweb/sync-orders",
+      "file": "backend/src/routes/crmLocal.ts (별도 함수, syncOneSite 흐름)",
+      "fills_columns": ["order_no", "order_code", "channel_order_no", "order_time", "complete_time", "pay_type", "pg_type", "payment_amount", "raw_json", "synced_at"],
+      "does_not_fill": ["imweb_status", "imweb_status_synced_at"]
+    },
+    "sync_order_statuses_endpoint": {
+      "method": "POST /api/crm-local/imweb/sync-order-statuses (또는 비슷한 이름, syncOneSiteOrderStatuses)",
+      "file": "backend/src/routes/crmLocal.ts:823~899",
+      "logic": "imweb v2 API 의 status 필터 list (PURCHASE_CONFIRMATION/COMPLETE/CANCEL/STANDBY/PAY_WAIT/DELIVERING/RETURN 등) 별로 GET 호출 → 매칭된 order_no 의 imweb_status 컬럼 UPDATE",
+      "fills_columns": ["imweb_status", "imweb_status_synced_at"],
+      "last_executed": "2026-05-10 06:11 KST (약 1일 14시간 전)"
+    },
+    "cron_or_agent": {
+      "scheduling": "코드 grep 으로 `sync-order-statuses` 호출하는 cron / agent 미발견. 수동 호출에 의존 추정",
+      "evidence": "VM Cloud imweb_status_synced_at 분포가 단 1 일 (5/10 06:11) 만 채워짐 — 정기 cron 이면 매일 또는 시간당 다른 timestamp 분포 예상"
+    }
+  },
+  "remediation_options": [
+    {
+      "option": "A",
+      "name": "즉시 수동 sync 호출",
+      "command": "curl -X POST 'http://localhost:7020/api/crm-local/imweb/sync-order-statuses' (VM 안에서) 또는 backend script 직접 실행",
+      "claude_code_can_do": true,
+      "expected_outcome": "5/10 06:11 이후 도착한 NPay 약 60 row 의 imweb_status 채워짐 → summary API NPay 매출 정확화",
+      "risk": "low — UPDATE imweb_orders 만, 운영DB write 0"
+    },
+    {
+      "option": "B",
+      "name": "cron 등록 (시간당)",
+      "command": "backend/scripts/aios-agent-runner.ts 에 imweb-order-status-sync agent 추가 또는 systemd timer 등록",
+      "claude_code_can_do": "PARTIAL — script 작성은 가능, cron 등록은 VM 에서 systemctl 또는 crontab 권한 필요",
+      "expected_outcome": "imweb_status_synced_at 가 매시간 갱신",
+      "risk": "medium — cron 실패 시 알림 필요, 별도 monitor"
+    },
+    {
+      "option": "C",
+      "name": "imweb v2 API 응답에서 status 직접 추출",
+      "rationale": "raw_json 안에 orderStatus 필드 이미 존재 (D audit 결과 참조)",
+      "implementation": "sync-orders 단계에서 raw_json.orderStatus 를 imweb_status 컬럼에 같이 채움 (별도 sync 불필요)",
+      "claude_code_can_do": true,
+      "expected_outcome": "구조적 fix — sync 분리 자체 제거",
+      "risk": "low — backend code 1 파일 변경, fixture 추가, deploy"
+    }
+  ],
+  "recommended_remediation": "옵션 A 즉시 + 옵션 C 다음 sprint. B 는 옵션 C 가 fix 하면 불필요.",
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "raw_pii_logged": false
+  },
+  "verdict": "STATUS_SYNC_LAST_AT_2026_05_10_06_11_KST_FIX_BY_OPTION_A_PLUS_C"
+}
