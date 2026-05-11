@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_backend_deploy_readiness_and_owner_check_20260511",
+  "generated_at_kst": "2026-05-11 17:25:00 KST",
+  "claude_code_capability_summary": {
+    "ssh_to_vm_taejun": true,
+    "sudo_n_biocomkr_sns": true,
+    "scp_files": true,
+    "vm_npx_tsc_run": true,
+    "vm_npm_build": true,
+    "pm2_restart": true,
+    "curl_verification": true,
+    "no_extra_credentials_needed_in_current_scope": true
+  },
+  "deploy_packet_corrections": {
+    "git_pull_assumption_was_wrong": true,
+    "actual_method": "scp + cp + npm run build + pm2 restart",
+    "vm_has_git_installed": false
+  },
+  "tj_actions_actually_required_in_this_scope": [],
+  "tj_actions_required_only_if": [
+    "VM 에 신규 git 설치 (apt install git, root)",
+    "Cloudflare Tunnel hostname 추가",
+    "pm2 ecosystem 신규 등록"
+  ],
+  "verdict": "CLAUDE_CODE_CAN_DEPLOY_DIRECTLY_NO_TJ_ACTION_NEEDED_IN_THIS_SCOPE"
+}

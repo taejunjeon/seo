@@ -1,0 +1,69 @@
+{
+  "batch": "gpt0508-43",
+  "created_at_kst": "2026-05-11 18:00:00 KST",
+  "purpose": "Claude Code Imweb Landing Deploy-B Sprint — gpt0508-42 의 site_landing fan-out + summary API + frontend page 를 운영 서버에 직접 deploy. deploy 후 15분 안 첫 실 트래픽 2 row 도착 + hash only 정책 100% 검증. 보고서 양식 v1.3 (사람 말 우선 / 금지선 채팅 금지 / 5 문서 한도) 정본 갱신.",
+  "lane": "Green_code_deploy_executed_plus_yellow_gtm_preview_packet_ready",
+  "package_document_count": 5,
+  "package_document_limit_basic": 5,
+  "package_document_limit_max": 8,
+  "track_progress": {
+    "A": {"name": "Order Truth / Payment Bridge", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "B": {"name": "Imweb Source Capture", "previous_percent": 75, "current_percent": 88, "delta_percent": 13},
+    "C": {"name": "Imweb Attribution Builder", "previous_percent": 92, "current_percent": 94, "delta_percent": 2},
+    "D": {"name": "Dashboard Decision View", "previous_percent": 87, "current_percent": 90, "delta_percent": 3},
+    "E": {"name": "Platform Exact Attribution", "previous_percent": 45, "current_percent": 45, "delta_percent": 0},
+    "F": {"name": "QA / Guard / Data Guide", "previous_percent": 95, "current_percent": 96, "delta_percent": 1},
+    "G": {"name": "Site Landing Ledger", "previous_percent": 86, "current_percent": 95, "delta_percent": 9}
+  },
+  "documents": [
+    {"path": "gptconfirm/gpt0508-43/00-result-report.md", "purpose": "사람 말 5 필드 결과 + Track + 다음 할 일 owner+점수표 + Telegram skip + 멀티 에이전트 활용 여부"},
+    {"path": "gptconfirm/gpt0508-43/01-implementation-and-validation.md", "purpose": "작업 1 readable rewrite + 작업 3 deploy readiness + 작업 4 실 deploy 명령 + 검증 결과 + 금지선 준수 상세표 + rollback"},
+    {"path": "gptconfirm/gpt0508-43/02-analysis-and-decision.md", "purpose": "작업 5 source gap 측정 + GTM verdict (conditional recommended)"},
+    {"path": "gptconfirm/gpt0508-43/03-approval-and-next-actions.md", "purpose": "작업 0 v1.3 양식 + 모든 작업의 다음 액션 통합 + 멀티 에이전트 활용 여부"},
+    {"path": "gptconfirm/gpt0508-43/99-total-current-copy.md", "purpose": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/report-template-v1-3-readable-owner-scoring-20260511.json",
+    "data/site-landing-backend-deploy-readiness-and-owner-check-20260511.json",
+    "data/site-landing-deploy-b-result-or-approval-20260511.json",
+    "data/site-landing-source-gap-after-deploy-or-dryrun-20260511.json"
+  ],
+  "code_changes_pushed_in_this_sprint": [
+    "harness/common/REPORTING_TEMPLATE.md (v1.3 헤더 추가)"
+  ],
+  "vm_files_changed_via_direct_ssh_deploy": [
+    "/home/biocomkr_sns/seo/repo/backend/src/siteLandingLedger.ts (신규)",
+    "/home/biocomkr_sns/seo/repo/backend/src/siteLandingChannelClassifier.ts (신규)",
+    "/home/biocomkr_sns/seo/repo/backend/src/siteLandingFanout.ts (신규)",
+    "/home/biocomkr_sns/seo/repo/backend/src/routes/attribution.ts (편집, 백업 attribution.ts.bak_20260511_gpt0508_43)",
+    "/home/biocomkr_sns/seo/repo/frontend/src/app/ads/site-landing/page.tsx (신규)"
+  ],
+  "live_post_deploy_verification": {
+    "first_live_rows_at": "deploy 후 15분",
+    "total_rows": 2,
+    "channel_distribution": {"paid_search": 2},
+    "source_breakdown_top10": [{"source": "google.com", "count": 2}],
+    "utm_campaign_top10": [{"campaign": "googleads_shopping_supplements_youngdays", "count": 2}],
+    "joinable_session_key_count": 2,
+    "click_id_storage_mode_distribution": {"hash": 2, "raw": 0, "none": 0},
+    "hash_only_policy_verified_in_production": true,
+    "raw_pii_pattern_hit_in_response": 0
+  },
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "gtm_production_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "raw_email_phone_member_payment_order_logged_or_stored": 0,
+    "raw_click_id_storage_mode_used_in_production": "hash_only",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": false,
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": false,
+    "telegram_send": 0
+  },
+  "multi_agent_used": false,
+  "multi_agent_reason": "본 sprint 의 7 작업이 같은 산출에 sequential 의존, deploy 중간 결과가 다음 작업 입력이라 sequential 이 더 효율. 멀티 에이전트가 의미 있었을 케이스 (외부 API 동시 호출 / 여러 site 병렬 audit) 는 본 sprint 에 없었음.",
+  "verdict": "SPRINT_DEPLOY_B_LIVE_TRAFFIC_VERIFIED_HASH_ONLY_POLICY_100_PCT_GTM_CONDITIONAL"
+}

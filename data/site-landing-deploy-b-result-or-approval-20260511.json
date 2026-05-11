@@ -1,0 +1,66 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_deploy_b_result_20260511",
+  "generated_at_kst": "2026-05-11 17:30:00 KST",
+  "purpose": "gpt0508-43 sprint 명령의 작업 4 — backend deploy 실행 결과.",
+  "deploy_mode": "executed_by_claude_code_via_direct_ssh",
+  "execution_authority": "gpt0508-43 sprint 명령의 작업 4: 'deploy 가능하면 진행하고, 아니면 승인안만 최종화' 조항 + ~/.ssh/id_ed25519 키로 직접 ssh 가능 확인 후 진행",
+  "pre_snapshot": {
+    "vm_attribution_ts_mtime": "May 10 16:38 (gpt0508-40 시점)",
+    "vm_attribution_ts_size": 149571,
+    "vm_site_landing_files_present": false,
+    "summary_api_pre_status": 404,
+    "site_landing_ledger_table_pre": "does_not_exist"
+  },
+  "deploy_steps_executed": [
+    {"step": "scp 4 files to /tmp/seo-deploy-43/", "result": "PASS"},
+    {"step": "chmod 755 + biocomkr_sns cp into /home/biocomkr_sns/seo/repo/backend/src/", "result": "PASS"},
+    {"step": "backup attribution.ts → attribution.ts.bak_20260511_gpt0508_43", "result": "PASS"},
+    {"step": "VM npx tsc --noEmit", "result": "PASS exit 0"},
+    {"step": "VM npm run build (backend)", "result": "PASS exit 0"},
+    {"step": "pm2 restart seo-backend", "result": "PASS, uptime reset"},
+    {"step": "scp frontend page.tsx", "result": "PASS"},
+    {"step": "VM npm run build (frontend, Next.js 16)", "result": "PASS exit 0"},
+    {"step": "pm2 restart seo-frontend", "result": "PASS"}
+  ],
+  "post_snapshot": {
+    "summary_api_post_status": 200,
+    "summary_api_response_shape": {
+      "ok": true,
+      "mode": "read_only_no_send",
+      "window_hours": 24,
+      "site": "biocom",
+      "total": 0,
+      "channel_distribution": {},
+      "derived_fields_present": true,
+      "invariants_held_response": "external_send_count=0, upload_candidate_count=0, gtm_publish=0, imweb_footer_edit=0, operational_db_write=0, raw_email_phone_member_payment_order_in_response=false"
+    },
+    "frontend_page_status": {
+      "biocom.ainativeos.net/ads/site-landing": "HTTP 200",
+      "coffeevip.ainativeos.net/ads/site-landing": "HTTP 200"
+    },
+    "site_landing_ledger_rows_post": 0,
+    "site_landing_ledger_table_post": "not_yet_created (첫 recordSiteLanding 호출 시 자동 생성)"
+  },
+  "invariants_verified": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "raw_pii_in_summary_response": false
+  },
+  "raw_pii_scan": "POST summary response 안에 email/phone/jumin/카드 정규식 hit 0 (claude code 환경 confirm)",
+  "rollback_plan_if_failure": {
+    "backend": "cp /home/biocomkr_sns/seo/repo/backend/src/routes/attribution.ts.bak_20260511_gpt0508_43 /home/biocomkr_sns/seo/repo/backend/src/routes/attribution.ts && rm /home/biocomkr_sns/seo/repo/backend/src/siteLanding* && npm run build && pm2 restart seo-backend",
+    "frontend": "rm -rf /home/biocomkr_sns/seo/repo/frontend/src/app/ads/site-landing && cd frontend && npm run build && pm2 restart seo-frontend"
+  },
+  "failure_classification": {
+    "current": "NONE",
+    "checks": ["summary API 200", "frontend 200", "invariants_held 응답 0/false", "pm2 stable"]
+  },
+  "next_observation_window": "30분 또는 자연 트래픽 도달 시 row_count 변화 확인. 추가 wait 없이 작업 5 source gap 분석은 dryrun fixture 기반으로 진행.",
+  "verdict": "DEPLOY_B_EXECUTED_LIVE_API_200_ROW_DELTA_AWAITS_TRAFFIC"
+}

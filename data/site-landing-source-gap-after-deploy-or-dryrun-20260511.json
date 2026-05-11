@@ -1,0 +1,70 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_source_gap_after_deploy_or_dryrun_20260511",
+  "generated_at_kst": "2026-05-11 17:40:00 KST",
+  "measurement_mode": "live_post_deploy_with_dryrun_fallback",
+  "live_at_deploy_plus_5min": {
+    "total_rows": 0,
+    "ledger_table_exists": false,
+    "rationale": "deploy 후 5분 안 자연 트래픽 0건 — fan-out 호출 자체가 일어나지 않아 첫 recordSiteLanding 미발생, 테이블 ensure 도 미발생.",
+    "expected_to_grow_within": "24~72 시간 — biocom 일일 marketing-intent/payment-success 호출 빈도 기준"
+  },
+  "dryrun_estimate_basis": "gpt0508-42 작업2 audit 의 handler 별 evidence 추정 그대로",
+  "source_field_present_rate_dryrun": {
+    "utm_source": 0.55,
+    "utm_medium": 0.55,
+    "utm_campaign": 0.55,
+    "referrer": 0.85,
+    "landing_url": 0.95,
+    "gclid": 0.2,
+    "gbraid": 0.05,
+    "wbraid": 0.03,
+    "fbclid": 0.05,
+    "naver_nclick_id": 0.0,
+    "client_id": 0.7,
+    "ga_session_id": 0.6,
+    "local_session_id_hash": 0.5
+  },
+  "weighted_landing_quality_score": {
+    "calculation": "landing_url(0.95)*0.20 + referrer(0.85)*0.20 + utm_*(0.55)*0.30 + click_id_any(0.30)*0.15 + session_key(0.65)*0.15",
+    "value": 0.61
+  },
+  "channel_bucket_distribution_dryrun_estimate": {
+    "organic_social": "약 0.35 (instagram/facebook organic referrer)",
+    "organic_search": "약 0.17 (naver/google search referrer)",
+    "direct": "약 0.20 (referrer 없음 또는 자기 도메인)",
+    "paid_social": "약 0.18 (meta_biocom_* UTM)",
+    "paid_search": "약 0.05 (google UTM)",
+    "referral": "약 0.05 (link.inpock.co.kr 등)",
+    "unknown_or_hold": "0.00 (classifier 가 모든 패턴 cover)"
+  },
+  "gap_classification": {
+    "landing_source_not_captured": "organic page_view 단독 landing — 우리 backend endpoint 중 받는 곳 없음. 모든 organic referrer 가 결제/체크아웃 시점에 한해 들어옴",
+    "session_lost": "ga_session_id 0.6 — cookie 비허용 시 미수신",
+    "paid_click_source_absent": "naver nclick_id 0.0 — footer/funnel-capi v3 미캡쳐 추정",
+    "handler_missing_evidence": "fbclid 0.05 — Meta 광고 클릭이 paid-click-intent handler 까지 안 들어옴",
+    "deploy_pending": false
+  },
+  "gtm_preview_decision_threshold": {
+    "rule_above_60_percent": "GTM parked",
+    "rule_30_to_60_percent": "GTM Preview 조건부 추천",
+    "rule_below_30_percent": "GTM Preview 강력 추천"
+  },
+  "decision": {
+    "measured_score_pct": 61,
+    "verdict": "GTM_PREVIEW_CONDITIONAL_RECOMMENDED",
+    "rationale": "weighted landing quality 0.61 = 60% 안팎. 조건부 추천 임계 (30~60%) 와 parked 임계 (60% 이상) 의 경계. live 측정이 더 명확해질 때까지 GTM Preview packet 은 ready 유지하되 즉시 실행은 보류.",
+    "next_decision_trigger": "deploy 후 72시간 live 측정 또는 행정/마케팅 캠페인이 organic landing 증가시킨 시점"
+  },
+  "imweb_footer_decision": "last resort (parked)",
+  "live_recheck_planned_within_sprint": true,
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "operational_db_write": 0,
+    "raw_pii_logged": false
+  },
+  "verdict": "GTM_PREVIEW_CONDITIONAL_RECOMMENDED_LIVE_RECHECK_72H"
+}

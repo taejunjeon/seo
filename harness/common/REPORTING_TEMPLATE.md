@@ -1,9 +1,52 @@
-# Growth Data Agent Reporting Template v1.2
+# Growth Data Agent Reporting Template v1.3
 
 작성 시각: 2026-05-02 23:12 KST
-최근 업데이트: 2026-05-11 15:10 KST (gpt0508-42: 5줄 결론 폐지 / 사람이 이해하는 작업 설명 / owner 분리 / 추천 점수표)
+최근 업데이트: 2026-05-11 17:00 KST (gpt0508-43: 사람 말 우선 / 금지선 긴 섹션 채팅 금지 / 기술어 치환표 / gptconfirm 5 문서 한도)
 목적: 작업 완료 보고, 승인 요청, Auditor verdict의 공통 형식
 상태: 공통 하네스 기준판
+
+## v1.3 변경 (2026-05-11)
+
+채팅/텍스트 완료 보고 (사용자가 직접 읽는 답변) 와 gptconfirm 마크다운 문서 (sprint 산출) 의 보고 깊이를 명확히 분리한다. 핵심 변화:
+
+### 채팅/텍스트 완료 보고 규칙
+
+- **"금지선 준수" 긴 표 / 섹션 금지**. invariant 표는 gptconfirm 문서에만.
+- "사람이 이해하는 작업 설명" 5 필드 (`이번에 가능해진 것` / `왜 필요했는지` / `어떻게 작동하는지 (비개발자용)` / `실제로 확인된 결과` / `아직 안 된 것`) 가 반드시 첫 섹션.
+- 각 작업 설명은 **사람 말 1문장 → 기술 이름 괄호 1회 → 검증 결과 → 다음 병목** 순서.
+- 5줄 결론 / 한 줄 결론 같은 자연어 only 섹션 사용 금지 (v1.2 부터 폐지 유지).
+- 다음 할 일 owner 분리 + 추천 점수표 (v1.2 §5) 그대로 적용.
+
+### 기술어 치환표 (단독 사용 금지, 반드시 사람 말 먼저)
+
+| 기술어 | 사람 말 |
+|---|---|
+| site_landing_ledger | 고객 유입 장부 |
+| backend handler | 서버가 신호를 받는 입구 |
+| fan-out wire | 들어온 신호를 유입 장부에도 같이 적도록 연결 |
+| recordSiteLanding | 유입 장부에 기록하는 기능 |
+| marketing-intent | 광고/마케팅 유입 신호 |
+| checkout-context | 결제 단계 진입 신호 |
+| payment-success | 결제완료 신호 |
+| paid-click-intent | 유료 광고 클릭 신호 |
+| summary API | 화면이 읽을 수 있는 유입 분석 결과 조회 기능 |
+| frontend minimal view | 유입 분석 결과를 보여주는 간단한 화면 |
+| fixture PASS | 테스트용 데이터 검증 성공 |
+| production trigger | 실제 운영 트래픽이 들어오는 연결점 |
+
+권장 형식: "사람 말 설명 (기술어 이름)" 1 회 등장 후 다음부터는 사람 말로 반복. 예: "고객 유입 장부 (site_landing_ledger)" → 이후 "고객 유입 장부" 만 사용.
+
+### gptconfirm 마크다운 문서 (sprint 패키지)
+
+- 기본 **5 문서 이하 + manifest.json**. 최대 8 문서 (사유 명시 시).
+- 권장 구조: `00-result-report.md` / `01-implementation-and-validation.md` / `02-analysis-and-decision.md` / `03-approval-and-next-actions.md` / `99-total-current-copy.md` / `manifest.json`.
+- 합칠 수 있는 문서는 합친다. 산출 evidence 는 `gdn/` 와 `data/` 에 두고, gptconfirm copy 는 묶음만.
+- **금지선 준수 상세표 + 검증 결과 상세 + raw/send/upload invariant** 는 gptconfirm 문서 안에만 둔다.
+- telegram skip note 는 별도 문서로 만들지 말고 00 또는 03 안에 한 문단 통합.
+
+### Green 작업 진행 원칙 (v1.2 부터 유지)
+
+Green 영역 작업은 1차 개발 (helper / endpoint / fixture) 완료 후 멈추지 말고 추가 조사 → 설계 → approval packet 까지 같은 sprint 안에서 끌고 간다. Yellow / Red 는 승인 게이트.
 
 ## v1.2 변경 (2026-05-11)
 

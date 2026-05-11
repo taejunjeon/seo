@@ -1,0 +1,41 @@
+{
+  "ok": true,
+  "schema_version": "report_template_v1_3_readable_owner_scoring_20260511",
+  "generated_at_kst": "2026-05-11 17:00:00 KST",
+  "purpose": "보고서 v1.3 — 사람 말 우선 / 금지선 긴 섹션 채팅 금지 / 기술어 치환표 / gptconfirm 5 문서 한도.",
+  "applies_to": ["sprint chat result", "interim chat report", "gptconfirm package"],
+  "v1_3_changes": {
+    "chat_text_report_rules": [
+      "금지선 준수 긴 표 / 섹션 금지 in 채팅",
+      "사람이 이해하는 작업 설명 5 필드 (이번에 가능해진 것 / 왜 필요했는지 / 어떻게 작동하는지 비개발자용 / 실제 결과 / 아직 안 된 것) 가 첫 섹션",
+      "기술어 치환표 단독 사용 금지, '사람 말 (기술어)' 형식 1회",
+      "다음 할 일 owner 분리 + 추천 점수표 (v1.2 §5 유지)"
+    ],
+    "gptconfirm_package_rules": [
+      "기본 5 문서 + manifest, 최대 8 (사유 명시)",
+      "권장 구조 00-result + 01-impl-val + 02-analysis-decision + 03-approval-next + 99-total + manifest",
+      "금지선 준수 상세표 + 검증 결과 상세 + raw/send/upload invariant 는 gptconfirm 문서에만",
+      "telegram skip note 별도 문서 X — 00 또는 03 안 한 문단"
+    ]
+  },
+  "tech_term_translation_table": {
+    "site_landing_ledger": "고객 유입 장부",
+    "backend_handler": "서버가 신호를 받는 입구",
+    "fan_out_wire": "들어온 신호를 유입 장부에도 같이 적도록 연결",
+    "recordSiteLanding": "유입 장부에 기록하는 기능",
+    "marketing_intent": "광고/마케팅 유입 신호",
+    "checkout_context": "결제 단계 진입 신호",
+    "payment_success": "결제완료 신호",
+    "paid_click_intent": "유료 광고 클릭 신호",
+    "summary_api": "화면이 읽을 수 있는 유입 분석 결과 조회 기능",
+    "frontend_minimal_view": "유입 분석 결과를 보여주는 간단한 화면",
+    "fixture_pass": "테스트용 데이터 검증 성공",
+    "production_trigger": "실제 운영 트래픽이 들어오는 연결점"
+  },
+  "files_changed": [
+    "harness/common/REPORTING_TEMPLATE.md (v1.3 헤더 + 변경 §)",
+    "~/.claude/projects/-Users-vibetj-coding-seo/memory/feedback_readable_report_language.md (신규)",
+    "~/.claude/projects/-Users-vibetj-coding-seo/memory/MEMORY.md (인덱스 갱신)"
+  ],
+  "verdict": "TEMPLATE_V1_3_LIVE_APPLIED_FROM_GPT0508_43"
+}
