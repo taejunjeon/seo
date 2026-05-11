@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_revenue_join_v2_bridge_success_20260511",
+  "generated_at_kst": "2026-05-11 19:30:00 KST",
+  "purpose": "L2 attribution ladder 첫 매출 join 성공. site_landing → 로컬DB imweb_orders → 운영DB tb_iamweb_users 3-hop bridge.",
+  "key_discovery": "imwebapi.md (§71-72) 에 의하면 로컬DB imweb_orders 테이블이 order_code 와 order_no 둘 다 보유. 운영DB 가 못 했던 매칭을 로컬DB bridge 로 해결.",
+  "bridge_chain": [
+    "site_landing_ledger.landing_url → parse('order_code=') → site_landing_order_code",
+    "site_landing_order_code → JOIN imweb_orders.order_code → imweb_orders.order_no",
+    "imweb_orders.order_no → tb_iamweb_users.order_number (운영DB)"
+  ],
+  "step1_bridge": {
+    "site_landing_with_order_code": 32,
+    "unique_order_codes": 30,
+    "imweb_orders_matched": 10,
+    "match_rate_pct": 33.3,
+    "rationale_for_partial_match": "site_landing 의 order_code 중 일부는 아직 imweb_orders 로컬 sync 가 진행되지 않은 최신 주문일 가능성, 또는 thecleancoffee.imweb.me 의 비활성 주문일 가능성"
+  },
+  "step2_operational_db_match": {
+    "op_db_rows_found_for_matched_order_no": 4,
+    "payment_complete": 4,
+    "refunded_or_cancelled": 0,
+    "total_revenue_krw": 551000,
+    "revenue_by_payment_method": {"CARD": 551000},
+    "average_order_value_krw": 137750
+  },
+  "site_distribution_of_matched_bridge": {
+    "biocom": 5,
+    "thecleancoffee": 5
+  },
+  "korean_amount_format": "총 매출 ₩55만 1,000",
+  "missing_chain": "10 bridge matched 중 6건 이 운영DB 에서 안 잡힘 — 운영DB sync lag (imweb 어드민 → supabase 3~9h 지연) 또는 thecleancoffee 의 운영DB 미적재",
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "raw_pii_logged": false,
+    "raw_order_code_persisted_in_output": false,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0
+  },
+  "verdict": "L2_REVENUE_JOIN_FIRST_SUCCESS_4_ROWS_551K_KRW_VIA_LOCAL_DB_IMWEB_ORDERS_BRIDGE"
+}
