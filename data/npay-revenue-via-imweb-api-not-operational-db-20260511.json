@@ -1,0 +1,78 @@
+{
+  "ok": true,
+  "schema_version": "npay_revenue_via_imweb_api_not_operational_db_20260511",
+  "generated_at_kst": "2026-05-11 19:55:00 KST",
+  "purpose": "NPay 매출은 운영DB(9h lag) 가 아닌 imweb v2 API → VM imweb_orders (freshness 1.3h) 가 가능함을 검증.",
+  "key_discovery": "VM imweb_orders 는 imweb v2 API /v2/shop/orders 응답을 거의 실시간으로 sync — pay_type/pg_type 컬럼이 NAVERPAY 식별 가능. 운영DB tb_iamweb_users 의 NPay sync lag 9시간을 우회.",
+  "comparison": {
+    "operational_db_tb_iamweb_users": {
+      "freshness_at_audit": "NPay max(order_date) = KST 2026-05-11 09:47 (현재 시점 약 10시간 lag)",
+      "rows_30d_naverpay_payment_complete": 214,
+      "amount_30d_krw": 38270000,
+      "amount_30d_krw_korean": "약 ₩3,827만",
+      "weakness": "imweb 어드민 → supabase sync 9h lag, NPay 만성"
+    },
+    "vm_imweb_orders_pay_type_npay": {
+      "freshness_at_audit": "max(order_time) NPay = KST 2026-05-11 16:55 (현재 시점 약 1시간 20분)",
+      "rows_30d_npay_complete": {
+        "biocom": 124,
+        "thecleancoffee": 244,
+        "total": 368
+      },
+      "amount_30d_krw_complete": {
+        "biocom": 24497400,
+        "thecleancoffee": 10299100,
+        "total": 34796500
+      },
+      "amount_30d_krw_korean": "biocom ₩2,449만 7,400 + thecleancoffee ₩1,029만 9,100 = ₩3,479만 6,500",
+      "strength": "imweb v2 API 직접 sync, 운영DB lag 무관, site 컬럼으로 사이트 분리 명확"
+    },
+    "row_count_difference_analysis": {
+      "operational_db_214_vs_vm_imweb_orders_368": "운영DB tb_iamweb_users 는 biocom 중심 정본 + cancellation/return 제외, VM imweb_orders 는 biocom+thecleancoffee 합산 + complete_time != null 만 별도 cancellation 필터 없음. 정확한 매칭은 site/취소사유 별도 처리 필요"
+    }
+  },
+  "code_path_verification": {
+    "vm_imweb_orders_columns_relevant_to_npay": [
+      "pay_type ('npay' / 'card' / 'virtual' / 'etc' / 'iche' / 'free')",
+      "pg_type ('NAVERPAY_ORDER' / 'tosspayments' / 'TOSSPAYMENTS' / 'NICEPAY' / 'BANK_TRANSFER' / '')",
+      "channel_order_no (NPay 결제 시 NPay 측 식별자)",
+      "order_no (imweb 15자리 숫자 — 운영DB order_number 와 매핑)",
+      "order_code (imweb URL 식별자 o+8+13hex)",
+      "payment_amount (정수 KRW)",
+      "complete_time (결제완료 시각 — null 이면 미완료)"
+    ],
+    "imweb_v2_api_endpoint": "https://api.imweb.me/v2/shop/orders?offset={page}&limit=100",
+    "imweb_v2_api_doc": "imwebapi.md §59-92",
+    "sync_method": "수동 POST /api/crm-local/imweb/sync-orders 또는 cron",
+    "sync_frequency_observed": "VM imweb_orders max(order_time) = 1.3h 전 — 시간당 또는 그보다 자주 sync 중"
+  },
+  "alternative_apis_considered": {
+    "naver_pay_open_api": {
+      "exists": true,
+      "auth_required": "가맹점 partnerID + API key (Naver Pay 가맹점 콘솔)",
+      "evaluation": "별도 가맹점 인증 + Naver Developers 등록 필요. imweb v2 API 가 이미 NPay 정보 보유하므로 추가 가치 낮음",
+      "decision": "보류 (1차 목표 외)"
+    },
+    "toss_api_via_tb_sales_toss": {
+      "exists": true,
+      "evaluation": "Toss PG 거래만 (NPay 가 Toss 안 거치는 케이스 존재). imweb v2 API 보다 부분적",
+      "decision": "보류 (cross-check 용도만)"
+    }
+  },
+  "site_landing_join_status": {
+    "site_landing_30_order_codes_matched_imweb_orders": 11,
+    "matched_pay_type_distribution": {"card": 11},
+    "matched_npay_via_order_code": 0,
+    "reason": "site_landing 의 NPay landing URL 은 thecleancoffee.com/shop_view (NaPm 파라미터만, order_code 없음). NPay 완료 URL 의 channel_order_no 는 브라우저 referrer policy 가 path 자름 → site_landing 직접 capture 불가",
+    "future_path": "site_landing 의 NPay session 식별이 필요하면 (1) NaPm 파라미터 별도 컬럼 추출 (2) imweb_orders 의 channel_order_no 와 session/시간 윈도우 매칭 시도"
+  },
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "raw_pii_logged": false,
+    "raw_order_no_persisted_in_output": false,
+    "send_candidate": false,
+    "upload_candidate": 0
+  },
+  "verdict": "NPAY_REVENUE_AVAILABLE_VIA_IMWEB_V2_API_VM_SYNC_NO_OPERATIONAL_DB_DEPENDENCY"
+}
