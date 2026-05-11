@@ -1,0 +1,59 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_fanout_utm_parse_audit_20260511",
+  "generated_at_kst": "2026-05-11 19:10:00 KST",
+  "purpose": "site_landing_ledger 137 row 중 utm_source = utm_medium = utm_campaign 같은 값으로 들어온 92 row 의 원인 분석.",
+  "audit_mode": "read_only_sql_group_by_plus_backend_and_footer_code_inspect",
+  "pattern_distribution": {
+    "ALL_THREE_SAME (utm_source = utm_medium = utm_campaign)": 92,
+    "NORMAL (셋 다 다름)": 18,
+    "SOURCE_EQ_MEDIUM (source = medium)": 8,
+    "no_utm": 19,
+    "total": 137
+  },
+  "all_three_same_breakdown": {
+    "googleads_shopping_supplements_*": "추정 92 (전부)",
+    "patterns": [
+      "googleads_shopping_supplements_dangdang",
+      "googleads_shopping_supplements_youngdays",
+      "googleads_shopping_supplements_biobalance",
+      "googleads_shopping_supplements_resetday",
+      "googleads_shopping_supplements_poongsung"
+    ]
+  },
+  "normal_breakdown": {
+    "thecleancoffee paid_social (kakao + brand-message + b2026...feeb63db)": 12,
+    "biocom paid_search (naver + powerlink + 1)": 1,
+    "etc": 5
+  },
+  "code_audit_results": {
+    "backend_attribution_buildLedgerEntry": "정상 — utmSource/utmMedium/utmCampaign 각각 firstString(input, ['utmSource','utm_source']) 등 별도 key 에서 추출. backend 단에서 같은 값으로 채우는 로직 없음.",
+    "footer_biocomimwebcode_collectTrackingParams": "정상 — new URLSearchParams(location.search).get('utm_source') 등 각각 별도 query 파라미터에서 추출.",
+    "snapshot_script_groupBy_utm_top10": "정상 — GROUP BY utm_campaign, utm_source, utm_medium 별도 column 사용."
+  },
+  "root_cause": "Google Ads 광고 destination URL 의 설정 자체에서 utm_source / utm_medium / utm_campaign 가 모두 같은 ValueTrack 매크로 ({campaign} 또는 직접 같은 문자열) 로 채워져 있음. 즉 광고 클릭 시 URL 에 들어오는 query string 자체가 비정상. backend / footer 의 파싱 버그 아님.",
+  "expected_url_pattern_when_normal": "https://biocom.kr/?utm_source=google&utm_medium=cpc&utm_campaign=googleads_shopping_supplements_dangdang",
+  "actual_url_pattern_observed": "https://biocom.kr/?utm_source=googleads_shopping_supplements_dangdang&utm_medium=googleads_shopping_supplements_dangdang&utm_campaign=googleads_shopping_supplements_dangdang",
+  "impact_on_classifier": {
+    "channel_classified_for_92_rows": "paid_search (정확) — utm_medium 이 PAID_MEDIUMS 매칭 실패하지만 referrer host=google.com 또는 click_id 가 있어 paid_search 로 fallback 분류됨",
+    "side_effect": "utm_source 가 google 이 아니라 캠페인 이름이라 channel 의 source_breakdown 이 '캠페인 이름' 으로 들어감 (예: 'googleads_shopping_supplements_dangdang')",
+    "channel report quality": "분류는 정확하나 source/medium 분리 분석은 불가"
+  },
+  "suggested_actions": {
+    "for_claude_code": [
+      "classifier 에 'utm_source 가 googleads_* 또는 metaads_* 처럼 광고 캠페인 prefix 형태면 source_breakdown 을 platform 으로 정규화 (예: google / meta)' rule 추가 — fix 가능, 25 LOC 정도"
+    ],
+    "for_tj": [
+      "Google Ads dashboard 에서 광고 destination URL 의 final URL suffix 정정 — utm_source=google, utm_medium=cpc, utm_campaign={campaign} 으로 설정",
+      "Web UI 작업 — Claude Code 가 직접 못 함",
+      "정정 후 24h 안 site_landing 의 ALL_THREE_SAME 비율이 감소하는지 측정"
+    ]
+  },
+  "invariants_held": {
+    "raw_pii_logged": false,
+    "external_send_count": 0,
+    "operational_db_write": 0,
+    "google_ads_settings_changed": false
+  },
+  "verdict": "UTM_BUG_NOT_IN_BACKEND_OR_FOOTER_IT_IS_GOOGLE_ADS_URL_CONFIG"
+}

@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_revenue_join_attempt_20260511",
+  "generated_at_kst": "2026-05-11 19:00:00 KST",
+  "purpose": "site_landing ↔ 운영DB tb_iamweb_users 매출 join 시도 결과. L2 attribution ladder.",
+  "execution_mode": "read_only_no_send",
+  "join_attempts": [
+    {
+      "method": "site_landing.ga_session_id ↔ order_bridge_ledger.ga_session_id",
+      "matched_sessions": 0,
+      "sll_with_session": 116,
+      "obl_with_session": 10,
+      "reason_fail": "두 ledger 의 시간대 다름 — order_bridge_ledger 마지막 row 2026-05-11T02:28Z (gpt0508-40 canary), site_landing 첫 row 06:44Z (gpt0508-43 deploy 이후). deploy 후 order_bridge_ledger 에 신규 row 0건"
+    },
+    {
+      "method": "site_landing.click_id_value_or_hash ↔ order_bridge_ledger.click_id_hash",
+      "matched": 0,
+      "sll_with_click": 92,
+      "obl_with_click": 1,
+      "reason_fail": "동일 — 시간대 분리 + order_bridge_ledger fanout 미연결"
+    },
+    {
+      "method": "site_landing.landing_url 에서 order_code 추출 → HMAC → tb_iamweb_users.order_number HMAC 매칭",
+      "site_landing_rows_with_order_code": 32,
+      "unique_order_codes": 30,
+      "operational_db_30d_pool_scanned": 2676,
+      "matched": 0,
+      "reason_fail": "운영DB order_number 형식 (15자리 숫자, 예 202605117572683) ≠ imweb URL order_code 형식 (1자 prefix + 8자리 날짜 + 13자리 hex, 예 o202605117efbbbeb34166). 두 식별자는 완전히 다른 체계"
+    },
+    {
+      "method": "운영DB raw_data JSON 안 order_code 검색",
+      "tested_codes": 5,
+      "matched": 0,
+      "reason_fail": "raw_data 안에 order_code 필드 없음, o-prefix 패턴 등장 0"
+    }
+  ],
+  "diagnosis": "현 schema 로는 직접 매출 join 0건 가능. site_landing 과 운영DB 가 서로 다른 식별자 체계 사용.",
+  "true_revenue_join_path_for_next_sprint": [
+    "site_landing_ledger 에 order_no_hash 컬럼 추가 — payment-success handler 에서 raw order_number 들어올 때 HMAC 변환 저장",
+    "또는 운영DB 의 다른 테이블 (tb_iamweb_orders 등) 에서 order_code↔order_number 매핑 존재 여부 확인",
+    "또는 backend AttributionLedgerEntry 의 orderId 를 fan-out 시 site_landing 에 추가 저장"
+  ],
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "raw_pii_in_output": false,
+    "raw_order_code_logged": "transient_during_join_only_not_persisted"
+  },
+  "verdict": "REVENUE_JOIN_BLOCKED_BY_SCHEMA_GAP_NEXT_SPRINT_ORDER_NO_HASH_COLUMN"
+}
