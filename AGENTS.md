@@ -30,6 +30,7 @@
 - 운영DB: 개발팀이 관리하는 운영 PostgreSQL dashboard DB. 대표 테이블은 dashboard.public.tb_iamweb_users.
 - VM Cloud: TJ님이 개발·관리하는 Cloudflare 기반 수집/보조 원장 환경. 대표 접속 도메인은 att.ainativeos.net이며 내부 SQLite를 사용한다. 운영DB와 구분하고, 운영 환경처럼 오해될 수 있는 VM 표현을 붙이지 않는다.
 - 로컬: 이 맥북 PC와 그 안의 개발 파일/DB. 대표 로컬 DB는 /Users/vibetj/coding/seo/backend/data/crm.sqlite3.
+- 데이터 위치 인벤토리: `data/!data_inventory.md` — 로컬DB + VM Cloud SQLite 의 48 테이블 + 싱크 주기 4분류 (실시간/수동/cron/AIBIO) + site 별 분리 + source of truth 원칙. 새 SQL 작업 전 본 파일에서 테이블/주기 먼저 확인.
 
 ## 에이전트 전용 지침 (AGENTS.md 반영)
 - 세션 재개·압축 후: 반드시 루트 `AGENTS.md` 재독, 프로젝트별 `AGENTS.md` 우선.

@@ -16,6 +16,7 @@
 - [harness/common/AUTONOMY_POLICY.md](./harness/common/AUTONOMY_POLICY.md) — Green은 자율 진행, Yellow는 스프린트 1회 승인 후 자율, Red는 명시 승인 전 중단
 - [harness/common/REPORTING_TEMPLATE.md](./harness/common/REPORTING_TEMPLATE.md) — Auditor verdict, source/window/freshness/confidence, 완료 보고/승인 요청 공통 형식
 - [data/dbstructure.md](./data/dbstructure.md) — 전사 DB 구조 (원격 PG + AIBIO Supabase + 로컬 SQLite) · 채널 매핑 · 통합 키 전략
+- [data/!data_inventory.md](./data/!data_inventory.md) — 로컬DB + VM Cloud SQLite 의 48 테이블 + 싱크 주기 (실시간/수동/cron/AIBIO) + source of truth + 더클린커피 엑셀 정본
 - [aibio/aibiodb.md](./aibio/aibiodb.md) — AIBIO Supabase 43개 테이블 스키마 덤프
 - [aibio/aibio_sync_design.md](./aibio/aibio_sync_design.md) — AIBIO → 로컬 SQLite sync 설계 및 구현 진척
 - [aibio/aibio_revenue_reconciliation.md](./aibio/aibio_revenue_reconciliation.md) — 대시보드 vs DB 매출 정합성 분석
