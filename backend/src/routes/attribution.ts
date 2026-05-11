@@ -33,6 +33,8 @@ import {
 } from "../attribution";
 import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
+import { recordSiteLanding, type SiteLandingChannelClassified } from "../siteLandingLedger";
+import { classifySiteLandingChannel } from "../siteLandingChannelClassifier";
 import { getNpayIntentSummary, listNpayIntents, recordNpayIntent } from "../npayIntentLog";
 import {
   bootstrapOrderBridgeLedgerTable,
@@ -4062,6 +4064,102 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "hourly attribution compare failed";
       res.status(500).json({ ok: false, error: "attribution_hourly_compare_error", message });
+    }
+  });
+
+  // gpt0508-41: site_landing_ledger receiver (L1/L2 attribution ladder, no-send, internal write only)
+  router.post("/api/attribution/site-landing", (req: Request, res: Response) => {
+    try {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const get = (k: string): string => {
+        const v = body[k];
+        return typeof v === "string" ? v : "";
+      };
+      const utm = (body.utm ?? {}) as Record<string, unknown>;
+      const sessionKey = (body.sessionKey ?? {}) as Record<string, unknown>;
+      const clickIdInput = (body.clickId ?? null) as Record<string, unknown> | null;
+
+      const landingUrl = get("landingUrl");
+      const referrerFullUrl = get("referrerFullUrl");
+      const referrerHost = get("referrerHost");
+      const landedAt = get("landedAt") || new Date().toISOString();
+
+      if (!landingUrl) {
+        res.status(400).json({ ok: false, error: "missing_landing_url" });
+        return;
+      }
+
+      const classification = classifySiteLandingChannel({
+        referrerHost,
+        referrerFullUrl,
+        utm: {
+          source: typeof utm.source === "string" ? utm.source : "",
+          medium: typeof utm.medium === "string" ? utm.medium : "",
+          campaign: typeof utm.campaign === "string" ? utm.campaign : "",
+        },
+        clickIdType:
+          clickIdInput && typeof clickIdInput.type === "string" ? clickIdInput.type : "",
+      });
+
+      const result = recordSiteLanding({
+        site: "biocom",
+        landedAt,
+        receivedAt: new Date().toISOString(),
+        referrerHost,
+        referrerFullUrl,
+        landingUrl,
+        landingPath: get("landingPath"),
+        utm: {
+          source: typeof utm.source === "string" ? utm.source : "",
+          medium: typeof utm.medium === "string" ? utm.medium : "",
+          campaign: typeof utm.campaign === "string" ? utm.campaign : "",
+          term: typeof utm.term === "string" ? utm.term : "",
+          content: typeof utm.content === "string" ? utm.content : "",
+        },
+        clickId: clickIdInput && typeof clickIdInput.type === "string" && typeof clickIdInput.valueOrHash === "string"
+          ? {
+              type: clickIdInput.type,
+              valueOrHash: clickIdInput.valueOrHash,
+              storageMode: (clickIdInput.storageMode === "hash" || clickIdInput.storageMode === "raw")
+                ? (clickIdInput.storageMode as "hash" | "raw")
+                : "none",
+            }
+          : undefined,
+        sessionKey: {
+          gaSessionId: typeof sessionKey.gaSessionId === "string" ? sessionKey.gaSessionId : "",
+          clientId: typeof sessionKey.clientId === "string" ? sessionKey.clientId : "",
+          localSessionIdHash:
+            typeof sessionKey.localSessionIdHash === "string" ? sessionKey.localSessionIdHash : "",
+        },
+        channelClassified: classification.channel as SiteLandingChannelClassified,
+        sourceBreakdown: classification.source_breakdown,
+      });
+
+      if (!result.stored) {
+        res.status(400).json({ ok: false, rejected: true, reason: result.reason });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        mode: "no_send_internal_write_only",
+        deduped: result.deduped,
+        landing_id_prefix: result.row.landingId.slice(0, 12),
+        channel_classified: result.row.channelClassified,
+        source_breakdown: result.row.sourceBreakdown,
+        click_id_storage_mode: result.row.clickId.storageMode,
+        is_self_domain: result.row.isSelfDomain,
+        invariants_held: {
+          send_candidate: false,
+          actual_send_candidate: false,
+          upload_candidate: 0,
+          external_platform_send: 0,
+          operational_db_write: 0,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "site_landing receiver failed";
+      res.status(500).json({ ok: false, error: "site_landing_receiver_error", message });
     }
   });
 

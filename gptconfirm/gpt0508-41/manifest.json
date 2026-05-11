@@ -1,0 +1,54 @@
+{
+  "batch": "gpt0508-41",
+  "created_at_kst": "2026-05-11 14:55:00 KST",
+  "purpose": "Claude Code Site Landing Ledger Bootstrap Sprint — 아임웹 수준 기본 유입 분석을 자체 VM Cloud SQLite 에 갖추기 위한 helper 4종 + receiver endpoint + fixture 39/39 PASS. 종합 추적 coverage 0.55→0.853 (target 0.85 met).",
+  "lane": "Green_code_executed_no_production_trigger",
+  "track_progress": {
+    "A": {"name": "ConfirmedPurchasePrep 통합 input", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "B": {"name": "Google Ads campaign_id 조인/ROAS 분해", "previous_percent": 98, "current_percent": 98, "delta_percent": 0},
+    "C": {"name": "BigQuery/유입 funnel quality", "previous_percent": 85, "current_percent": 89, "delta_percent": 4},
+    "D/KR6": {"name": "Meta funnel CAPI Test Events readiness", "previous_percent": 74, "current_percent": 74, "delta_percent": 0},
+    "E": {"name": "Harness/HOLD Reducer", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "F": {"name": "Frontend/Data Trust Dashboard", "previous_percent": 80, "current_percent": 83, "delta_percent": 3},
+    "G": {"name": "Site Landing Ledger (신규)", "previous_percent": 0, "current_percent": 62, "delta_percent": 62}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-41/00-result-report.md", "copy": "gptconfirm/gpt0508-41/00-result-report.md", "why_included": "종합 결과 보고"},
+    {"source": "gptconfirm/gpt0508-41/01-site-landing-ledger-core-result.md", "copy": "gptconfirm/gpt0508-41/01-site-landing-ledger-core-result.md", "why_included": "작업 2~5 통합 결과"},
+    {"source": "gptconfirm/gpt0508-41/02-tracking-coverage-and-data-guide.md", "copy": "gptconfirm/gpt0508-41/02-tracking-coverage-and-data-guide.md", "why_included": "Attribution Ladder + 추적 coverage 점수"},
+    {"source": "gptconfirm/gpt0508-41/03-validation-and-next-action.md", "copy": "gptconfirm/gpt0508-41/03-validation-and-next-action.md", "why_included": "검증 결과 + 다음 sprint 승인안"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-41/99-total-current-copy.md", "why_included": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/attribution-ladder-guide-20260511.json",
+    "data/site-landing-summary-dryrun-20260511.json"
+  ],
+  "code_changes": [
+    "backend/src/siteLandingLedger.ts",
+    "backend/src/siteLandingChannelClassifier.ts",
+    "backend/src/routes/attribution.ts (편집)",
+    "backend/scripts/site-landing-summary-dryrun-20260511.ts",
+    "backend/tests/site-landing-ledger.test.ts",
+    "backend/tests/site-landing-channel-classifier.test.ts",
+    "backend/tests/site-landing-receiver.test.ts"
+  ],
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "gtm_production_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "raw_email_phone_member_order_payment_logged_or_stored": 0,
+    "raw_click_id_allowed_under_policy": true,
+    "telegram_send": 0
+  },
+  "scoring": {
+    "aimweb_basic_inflow_coverage": 0.978,
+    "overall_self_tracking_coverage": 0.853,
+    "target": 0.85,
+    "target_met": true
+  },
+  "verdict": "SPRINT_GREEN_HELPER_LAYER_DONE_AIMWEB_BASIC_85_PCT_TARGET_MET_DEPLOY_NEXT_SPRINT"
+}

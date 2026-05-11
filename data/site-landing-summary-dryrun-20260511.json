@@ -1,0 +1,117 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_summary_dryrun_20260511",
+  "generated_at_kst": "2026-05-11T04:19:25.367Z",
+  "rows_created_in_dryrun": 3704,
+  "summary": {
+    "total": 3281,
+    "channel_distribution": {
+      "direct": 917,
+      "organic_search": 538,
+      "organic_social": 1313,
+      "paid_search": 60,
+      "paid_social": 419,
+      "referral": 34
+    },
+    "source_breakdown_top10": [
+      {
+        "source": "instagram.com",
+        "count": 1025
+      },
+      {
+        "source": "l.facebook.com",
+        "count": 241
+      },
+      {
+        "source": "syndicatedsearch.goog",
+        "count": 230
+      },
+      {
+        "source": "instagram",
+        "count": 230
+      },
+      {
+        "source": "m.search.naver.com",
+        "count": 165
+      },
+      {
+        "source": "facebook",
+        "count": 159
+      },
+      {
+        "source": "google",
+        "count": 60
+      },
+      {
+        "source": "kauth.kakao.com",
+        "count": 55
+      },
+      {
+        "source": "www.google.com",
+        "count": 46
+      },
+      {
+        "source": "search.naver.com",
+        "count": 33
+      }
+    ],
+    "utm_campaign_top10": [
+      {
+        "campaign": "camp-instagram",
+        "count": 1255
+      },
+      {
+        "campaign": "camp-facebook",
+        "count": 159
+      },
+      {
+        "campaign": "camp-google",
+        "count": 60
+      },
+      {
+        "campaign": "camp-tiktok",
+        "count": 30
+      }
+    ],
+    "joinable_session_key_count": 3281,
+    "click_id_storage_mode_distribution": {
+      "hash": 0,
+      "raw": 30,
+      "none": 3251
+    },
+    "pii_safety_check": {
+      "rows_scanned": 0,
+      "forbidden_hits": 0
+    }
+  },
+  "rates": {
+    "channel_known_rate": 1,
+    "joinable_session_key_rate": 1
+  },
+  "scores": {
+    "component": {
+      "l1_referrer_utm_landing_storage": 0.95,
+      "l1_channel_classification": 1,
+      "l2_session_key_join_ready": 1,
+      "l3_paid_click_intent": 0.65,
+      "l4_click_view_exact": 0.7,
+      "l5_platform_send": 0
+    },
+    "aimweb_basic_inflow_coverage": 0.978,
+    "overall_self_tracking_coverage": 0.853
+  },
+  "target_check": {
+    "aimweb_basic_target": 0.85,
+    "aimweb_basic_met": true,
+    "overall_target": 0.85,
+    "overall_met": true
+  },
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "operational_db_write": 0,
+    "raw_pii_logged": false
+  }
+}

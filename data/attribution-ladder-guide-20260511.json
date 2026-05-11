@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "schema_version": "attribution_ladder_guide_20260511",
+  "generated_at_kst": "2026-05-11 14:50:00 KST",
+  "purpose": "attribution 작업의 5 단계 ladder 정의. L1~L2 빠르게 넓게, L3~L5 천천히 정확하게.",
+  "related_canonical": "gdn/attribution-data-source-decision-guide-20260511.md",
+  "ladder": [
+    {"level": "L1", "name": "referrer/UTM/landing 기반 유입 분석", "signal": ["document.referrer", "UTM 5필드", "landing_url", "is_self_domain", "sessionKey"], "storage": "VM Cloud site_landing_ledger", "current_percent": 10, "target_percent_this_sprint": 60},
+    {"level": "L2", "name": "sessionKey 기반 전환 연결", "signal": ["ga_session_id", "client_id", "local_session_id_hash", "order_no_hash", "member_code_hash"], "storage": "site_landing ↔ order_bridge_ledger ↔ tb_iamweb_users", "current_percent": 30, "target_percent_this_sprint": 60},
+    {"level": "L3", "name": "click_id 기반 paid 광고 분석", "signal": ["gclid", "gbraid", "wbraid", "ttclid", "nclick_id"], "storage": "VM Cloud paid_click_intent_ledger", "current_percent": 65, "target_percent_this_sprint": 65, "policy_update": "raw click_id 저장 fallback 허용 (TTL 30d, no log/no frontend/no export/no external send)"},
+    {"level": "L4", "name": "Google Ads click_view campaign_id exact", "signal": ["click_id_hash", "click_view 30d snapshot", "campaign_id"], "storage": "cross_reference_evidence A_via_ledger_budget_floor", "current_percent": 70, "target_percent_this_sprint": 70},
+    {"level": "L5", "name": "플랫폼 전송 후보", "signal": ["actual_send_candidate"], "storage": "보류 — 본 sprint 범위 아님", "current_percent": 0, "target_percent_this_sprint": 0, "invariant": "actual_send_candidate=false 유지"}
+  ],
+  "self_tracking_score": {
+    "before_gpt0508_41": 0.55,
+    "target_after_gpt0508_41": 0.85,
+    "computed_after_gpt0508_41": null
+  },
+  "raw_click_id_storage_policy": {
+    "enabled": true,
+    "ttl_days": 30,
+    "forbidden": ["log output", "frontend exposure", "export", "external platform send", "replicate to non-analysis DB"],
+    "allowed_access": ["backend server", "direct DB read"]
+  },
+  "forbidden_in_all_levels": ["raw email", "raw phone", "raw member_code", "raw order_no", "raw payment"],
+  "verdict": "LADDER_V1_DEFINED_L1_FOCUS_FOR_GPT0508_41"
+}
