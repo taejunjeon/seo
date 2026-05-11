@@ -1,0 +1,61 @@
+{
+  "ok": true,
+  "schema_version": "click_view_candidates_inject_automation_20260511",
+  "generated_at_kst": "2026-05-11 13:05:00 KST",
+  "site": "biocom",
+  "purpose": "R2 ledger row 의 sessionKey + 시간 윈도우 기준으로 로컬 SQLite paid_click_intent_ledger 에서 PaidClickIntentCandidate 와 GoogleAdsClickViewCandidate 를 자동 생성하는 read-only injector. 작업 3 bridge helper + 작업 2 enricher 의 입력으로 forward.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "raw_pii_logged": false,
+    "operational_db_read": 0,
+    "external_api_call": 0,
+    "data_scope": "local SQLite paid_click_intent_ledger only"
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/clickViewCandidatesInjector.ts",
+      "kind": "new module",
+      "loc": 175,
+      "exports": ["injectClickViewCandidatesFromPaidIntent", "CandidatesInjectorInput", "CandidatesInjectorResult", "SessionWindow"]
+    },
+    {
+      "file": "backend/tests/click-view-candidates-injector.test.ts",
+      "kind": "new fixture",
+      "loc": 125,
+      "fixtures": 6,
+      "test_pass": "6_of_6_212ms"
+    }
+  ],
+  "fixture_results": [
+    {"name": "ga_session_id match within 1h window returns gclid + click_view candidate", "result": "PASS"},
+    {"name": "client_id fallback works for gbraid row", "result": "PASS"},
+    {"name": "empty click_id_value rows are excluded", "result": "PASS"},
+    {"name": "default 1h window skips 3h-old row", "result": "PASS"},
+    {"name": "explicit 6h window includes 3h-old row", "result": "PASS"},
+    {"name": "sessionKeys empty → 0 candidates + warning", "result": "PASS"}
+  ],
+  "design_notes": [
+    "match key 우선순위: ga_session_id IN (…) OR client_id IN (…). limit default 500 / max 2000 으로 후보 폭주 방지.",
+    "click_id_type 가 gclid/gbraid/wbraid 인 row 만 click_view_candidate 로 변환 (ttclid/nclick_id 는 Google Ads click_view 와 무관).",
+    "campaignId 는 paid_click_intent_ledger 에 없으므로 null. campaignName 자리에 utm_campaign 을 임시 추가 (click_view exact lookup 에서 별도 utm 검사용).",
+    "Google Ads click_view 30d snapshot 은 별도 source. 본 injector 는 paid_click_intent_ledger 만 사용 — click_view 도 inject 가 필요하면 다음 sprint 에 BQ/Ads Query 결과 fetch helper 추가.",
+    "raw click_id_value 는 candidate.rawClickIdValue/rawClickId 로 forward 만. 본 injector 출력에는 candidate 객체 자체가 들어가므로 caller 가 추가 forward 시점에 sha256Hex 변환 책임."
+  ],
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "operational_db_write": 0,
+    "operational_db_read": 0,
+    "external_api_call": 0,
+    "raw_pii_logged_in_output": false
+  },
+  "next_sprint_extension": {
+    "google_ads_click_view_fetch": "BQ / Google Ads Query 로 30d click_view snapshot 을 prep table 에 저장하고, 본 injector 가 그 prep table 도 SELECT 하도록 union 확장",
+    "wbraid_handling": "wbraid 도 toClickViewClickIdType 에서 click_view 후보로 변환 — 이미 enable 됨",
+    "ttclid_routing": "ttclid 는 click_view 가 아니라 TikTok 쪽 lookup 으로 분기 — 추후 별도 injector 모듈"
+  },
+  "verdict": "INJECTOR_PASS_FIXTURE_PASS_LIVE_NEEDS_PAID_INTENT_ROWS"
+}

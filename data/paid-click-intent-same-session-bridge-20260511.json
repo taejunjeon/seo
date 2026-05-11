@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "schema_version": "paid_click_intent_same_session_bridge_20260511",
+  "generated_at_kst": "2026-05-11 12:35:00 KST",
+  "site": "biocom",
+  "purpose": "R2 order_bridge_ledger row 에 click_id_hash 가 없을 때 같은 ga_session_id / client_id 의 paid_click_intent_ledger row 에서 click evidence 를 보강할 수 있는지 평가하는 read-only helper.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "raw_pii_logged": false
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/paidClickIntentSameSessionBridge.ts",
+      "kind": "new module",
+      "loc": 150,
+      "exports": ["evaluatePaidClickIntentSameSessionBridge", "PaidClickIntentCandidate", "LedgerSessionKey", "SameSessionBridgeMatchStrength", "SameSessionBridgeRow", "SameSessionBridgeResult", "SameSessionBridgeInput"]
+    },
+    {
+      "file": "backend/tests/paid-click-intent-same-session-bridge.test.ts",
+      "kind": "new fixture",
+      "loc": 78,
+      "fixtures": 4,
+      "test_pass": "4_of_4_156ms"
+    }
+  ],
+  "fixture_results": [
+    {"name": "same ga_session_id + click present → same_session_exact", "result": "PASS"},
+    {"name": "no session match → blocked no_same_session_paid_intent_match", "result": "PASS"},
+    {"name": "session match + payment_complete_match=false → unpaid_or_pending_payment_complete hold", "result": "PASS"},
+    {"name": "raw click_id_value never appears in helper output", "result": "PASS"}
+  ],
+  "policy_invariants": {
+    "budget_usable_candidate_max_value": false,
+    "time_window_only_match_accepted": false,
+    "raw_click_id_value_echoed_in_output": false
+  },
+  "design_notes": [
+    "Bridge 는 evidence 보강 helper. budget_usable=true 승급은 click_view exact 만 부여 — bridge 단독으로는 절대 false.",
+    "match key 우선순위: ga_session_id > client_id. local_session_id_hash 는 R2 row 가 이미 hash 라 raw paid_intent local_session_id 와 직접 비교 불가 → 추후 paid_intent 도 hash 컬럼 추가 시 enable.",
+    "candidate 의 rawClickIdValue 는 transient — caller 가 paid_click_intent_ledger 에서 read-only fetch 한 직후 helper 호출 → match 성공 시 enricher 에 forward 해 sha256Hex → click_view exact lookup.",
+    "0건 매칭 시 warnings 에 paidIntentCandidates 비어있음을 명시 — caller 의 candidates inject 누락 디버깅용."
+  ],
+  "expected_live_outcome": {
+    "sprint_canary_9_rows_likely_match_count": 0,
+    "rationale": "audit 산출물 click-evidence-capture-gap-audit-20260511 에서 sprint canary 9 row 의 ga_session_id 가 paid_click_intent_ledger 와 0 match — TJ controlled traffic 작업 6 에서 첫 실측 가능."
+  },
+  "verdict": "BRIDGE_HELPER_PASS_FIXTURE_PASS_LIVE_AWAIT_TJ_TRAFFIC"
+}

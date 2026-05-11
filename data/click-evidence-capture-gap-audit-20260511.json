@@ -1,0 +1,95 @@
+{
+  "ok": true,
+  "schema_version": "click_evidence_capture_gap_audit_20260511",
+  "generated_at_kst": "2026-05-11 12:00:00 KST",
+  "site": "biocom",
+  "purpose": "R2 canary 11 row 중 9 신규 row 가 click_id_hash 0 인 원인을 code-level + ledger cross-check 로 분리한다.",
+  "harness_preflight": {
+    "lane": "Green read-only audit",
+    "code_touched": false,
+    "raw_pii_logged": false
+  },
+  "code_path_audit": {
+    "payment_success_handler": "backend/src/routes/attribution.ts:3180 router.post('/api/attribution/payment-success')",
+    "recordPaymentSuccessOrderBridgeLedger_click_id_extraction": "textField(body, 'click_id') || textField(body, 'clickId') || textField(body, 'gclid') || textField(body, 'gbraid') || textField(body, 'wbraid') || textField(body, 'ttclid') || textField(body, 'nclick_id') || ''",
+    "buildOrderBridgeIdentityHmacMaterial_click_id_extraction": "textField(input, 'click_id', 'clickId', 'gclid', 'gbraid', 'wbraid', 'ttclid', 'nclick_id')",
+    "mapping_bug_found": false,
+    "mapping_bug_evidence": "두 함수 모두 gclid/gbraid/wbraid 키 변형 다 커버. 매핑 버그는 없다."
+  },
+  "footer_payload_audit": {
+    "source": "footer/biocomimwebcode.md Block 3 payment_success (Line 1620~)",
+    "gclid_field_in_payload": "tracking.gclid (firstNonEmpty([base.gclid, params.get('gclid')]))",
+    "tracking_base_source": "lastTouch (_p1s1a_last_touch localStorage) + imwebSession (__bs_imweb_session sessionStorage) + URL params",
+    "potential_loss_scenarios": [
+      "결제완료 페이지가 광고 landing 과 다른 origin 으로 도착 시 sessionStorage 키 손실",
+      "_p1s1a_last_touch 가 다른 페이지 흐름에서 초기화됐을 가능성",
+      "url params 가 redirect 흐름에서 사라졌을 가능성",
+      "사용자가 광고 클릭 없이 직접 URL 또는 즐겨찾기로 들어와 결제 (organic / direct)"
+    ]
+  },
+  "paid_click_intent_ledger_cross_check": {
+    "table": "VM Cloud SQLite paid_click_intent_ledger",
+    "total_count": 3656,
+    "count_since_2026_05_10": 1183,
+    "interpretation": "광고 클릭 landing 자체는 1일 수백 건 활발히 누적. wire/source 자체는 정상 동작."
+  },
+  "session_bridge_analysis_for_11_order_bridge_rows": {
+    "method": "order_bridge_ledger.ga_session_id == paid_click_intent_ledger.ga_session_id 직접 raw 매칭 (VM SQLite 안에서)",
+    "rows_checked": 11,
+    "rows_with_paid_intent_session_match": 2,
+    "rows_with_paid_intent_session_match_and_click_hash_present": 2,
+    "matched_rows": [
+      {"bridge_id_prefix": "658e925e", "status": "received", "paid_intent_match_count": 5, "with_click_hash": 5, "note": "2026-05-09 Tag Assistant evidence (controlled)"},
+      {"bridge_id_prefix": "f32cb09c", "status": "identity_only_quarantine", "paid_intent_match_count": 5, "with_click_hash": 5, "note": "2026-05-09 Tag Assistant evidence (controlled)"}
+    ],
+    "unmatched_rows_count": 9,
+    "unmatched_rows_status_distribution": {
+      "session_only_quarantine": 6,
+      "click_missing_hold": 1,
+      "identity_only_quarantine": 1,
+      "received": 1
+    },
+    "interpretation": "본 sprint canary 의 신규 9 row 중 어느 것도 paid_click_intent_ledger 의 같은 ga_session_id 와 매칭되지 않음. 동일 세션 paid_intent bridge 가능성 0."
+  },
+  "verdict_breakdown": {
+    "CLICK_MISSING_ORGANIC_SAMPLE": "확률 높음 — 야간/주간 결제 일부는 직접/organic 가능",
+    "CLICK_PRESENT_MAPPING_BUG": "0 — 코드 매핑 버그 없음 (gclid/gbraid/wbraid 모두 커버)",
+    "CLICK_PRESENT_STORAGE_LOST_AT_CHECKOUT": "가능성 있음 — imweb 결제 페이지가 다른 origin 인 경우 sessionStorage 손실 가능",
+    "CLICK_PRESENT_PAID_INTENT_ONLY": "0 — paid_intent 와 같은 ga_session_id 매칭 0 이라 paid_intent 단독으로 click 살아 있음 안 확인됨",
+    "CLICK_SOURCE_BLOCKED": "n/a"
+  },
+  "verdict": "MIXED",
+  "verdict_explanation": [
+    "코드 흐름은 정상 — payment-success handler 와 recordPaymentSuccessOrderBridgeLedger 가 gclid/gbraid/wbraid/ttclid/nclick_id 모두 커버.",
+    "footer payload tracking.gclid 흐름도 lastTouch + imwebSession + URL params 다중 fallback 으로 정상 설계.",
+    "그러나 본 sprint canary 신규 9 row 중 paid_click_intent_ledger 와 같은 ga_session_id 매칭이 0 건 — 동일 세션 paid_intent bridge 자체가 불가능.",
+    "원인 후보: (a) 야간/주간 야간 1h 표본이 우연히 organic/direct 비율이 높았을 가능성, (b) imweb 결제 페이지 origin 차이로 ga_session_id 가 새 세션으로 바뀐 가능성.",
+    "다음 sprint 정점 1h canary + TJ 광고 클릭 controlled traffic 으로 어느 후보가 맞는지 판별 가능."
+  ],
+  "next_patch_candidates": [
+    {
+      "candidate": "정점 시간 canary + TJ controlled traffic",
+      "what": "TJ 가 KST 정점에 Google Ads 광고를 클릭한 뒤 같은 흐름으로 결제 1건 진행. 그 결과 ledger 가 click_id_hash 보유 row 를 누적하면 organic 가설 검증. 누적 안 되면 storage_lost 가설 검증.",
+      "lane": "Yellow (이미 승인된 invariant)",
+      "estimated_signal_size": "row 1+ with click_id_hash present"
+    },
+    {
+      "candidate": "paid_click_intent bridge wire (작업 3)",
+      "what": "동일 세션 bridge 가 0 이라 본 sprint 효과는 0 이지만 helper 자체는 작성해 둠. 다음 sprint 표본 확보 후 효과 측정.",
+      "lane": "Green code"
+    },
+    {
+      "candidate": "footer storage_lost 진단",
+      "what": "TJ controlled traffic 에서 click_id_hash 미보유 row 가 또 나오면 imweb checkout 페이지 origin / sessionStorage 흐름 점검.",
+      "lane": "Yellow proposed"
+    }
+  ],
+  "invariants_held": {
+    "raw_email_phone_order_click_id_in_output": false,
+    "operational_db_write": 0,
+    "hash_inversion": "none",
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0
+  }
+}

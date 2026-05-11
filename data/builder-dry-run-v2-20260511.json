@@ -1,0 +1,97 @@
+{
+  "ok": true,
+  "schema_version": "builder_dry_run_v2_20260511",
+  "generated_at_kst": "2026-05-11T04:00:21.300Z",
+  "total_rows": 11,
+  "distribution": {
+    "A_via_ledger_budget_floor": 2,
+    "paid_order_no_click_hold": 6,
+    "unpaid_order_bridge_hold": 3
+  },
+  "per_row": [
+    {
+      "label": "5/9-tag-assistant-A (paid_click_intent matched)",
+      "category": "A_via_ledger_budget_floor",
+      "budget_usable": true,
+      "click_view_exact": true,
+      "payment_match": true
+    },
+    {
+      "label": "5/9-tag-assistant-B",
+      "category": "A_via_ledger_budget_floor",
+      "budget_usable": true,
+      "click_view_exact": true,
+      "payment_match": true
+    },
+    {
+      "label": "canary-row-001 (no click_id)",
+      "category": "paid_order_no_click_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": true
+    },
+    {
+      "label": "canary-row-002 (no click_id)",
+      "category": "paid_order_no_click_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": true
+    },
+    {
+      "label": "canary-row-003 (no click_id)",
+      "category": "paid_order_no_click_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": true
+    },
+    {
+      "label": "canary-row-004 (no click_id)",
+      "category": "paid_order_no_click_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": true
+    },
+    {
+      "label": "canary-row-005 (no click_id)",
+      "category": "paid_order_no_click_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": true
+    },
+    {
+      "label": "canary-row-006 (no click_id)",
+      "category": "paid_order_no_click_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": true
+    },
+    {
+      "label": "canary-row-007 (REFUND)",
+      "category": "unpaid_order_bridge_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": false
+    },
+    {
+      "label": "canary-row-008 (no click_id, unpaid)",
+      "category": "unpaid_order_bridge_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": false
+    },
+    {
+      "label": "canary-row-009 (no click_id, failed)",
+      "category": "unpaid_order_bridge_hold",
+      "budget_usable": false,
+      "click_view_exact": false,
+      "payment_match": false
+    }
+  ],
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "operational_db_write": 0,
+    "raw_pii_in_output": false
+  }
+}

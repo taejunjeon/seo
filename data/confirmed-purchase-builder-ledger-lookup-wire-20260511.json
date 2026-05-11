@@ -1,0 +1,56 @@
+{
+  "ok": true,
+  "schema_version": "confirmed_purchase_builder_ledger_lookup_wire_20260511",
+  "generated_at_kst": "2026-05-11 12:10:00 KST",
+  "site": "biocom",
+  "purpose": "buildConfirmedPurchaseNoSendPreview 호출 직후 enrichConfirmedPurchaseWithLedgerLookup 으로 R2 ledger + 운영DB PAYMENT_COMPLETE + Google Ads click_view exact 분류를 자동 첨부할 수 있는 async helper 추가. fixture 5/5 PASS.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "raw_pii_logged": false
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/confirmedPurchaseLedgerLookupEnricher.ts",
+      "kind": "new module",
+      "loc": 185,
+      "exports": ["enrichConfirmedPurchaseWithLedgerLookup", "EnrichmentInput", "EnrichmentDeps", "EnrichmentResult"]
+    },
+    {
+      "file": "backend/tests/confirmed-purchase-ledger-lookup-enricher.test.ts",
+      "kind": "new fixture",
+      "loc": 158,
+      "fixtures": 5,
+      "test_pass": "5_of_5_223ms"
+    }
+  ],
+  "fixture_results": [
+    {"name": "ledger paid + click_view exact → A_via_ledger_budget_floor", "result": "PASS"},
+    {"name": "ledger paid + no click → paid_order_no_click_hold", "result": "PASS"},
+    {"name": "ledger row absent → cross_reference fallback to default branches", "result": "PASS"},
+    {"name": "ledger paid REFUND → unpaid_order_bridge_hold", "result": "PASS"},
+    {"name": "raw inputs never appear in helper output", "result": "PASS"}
+  ],
+  "design_notes": [
+    "buildConfirmedPurchaseNoSendPreview 는 sync 함수라 그대로 유지. async 호출자(route)에서 helper 호출 후 cross_reference_evidence 만 갱신하는 패턴.",
+    "ledger lookup 은 better-sqlite3 sync. 운영DB lookup 은 async. 둘을 Promise 안에서 합침.",
+    "deps 객체로 operationalPaymentCompleteLookupDeps + clickViewCandidates + ledgerRowOverride 주입 가능 — fixture stub + 실제 운영 모두 호환.",
+    "응답 invariants: send_candidate=false, actual_send_candidate=false, upload_candidate=0 항상 박힘.",
+    "raw 입력은 transient — 응답에 echo 안 됨 (fixture 5번이 직접 JSON.stringify 검사)."
+  ],
+  "route_integration_status": {
+    "wire_executed_in_this_sprint": false,
+    "reason": "본 sprint scope 는 helper + fixture 까지. route 에 await 추가 시 confirmed-purchase no-send 핸들러를 async 로 바꾸는 작업이 필요 — 별도 deploy 시점에 wire (다음 sprint).",
+    "next_sprint_wire_target": "router.post('/api/attribution/confirmed-purchase/no-send') async 변경 + await enrichConfirmedPurchaseWithLedgerLookup 호출"
+  },
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "raw_pii_in_helper_output": false,
+    "operational_db_write": 0,
+    "hash_inversion": "none"
+  },
+  "verdict": "HELPER_PASS_FIXTURE_PASS_ROUTE_WIRE_NEXT_SPRINT"
+}

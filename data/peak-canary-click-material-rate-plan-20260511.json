@@ -1,0 +1,49 @@
+{
+  "ok": true,
+  "schema_version": "peak_canary_click_material_rate_plan_20260511",
+  "generated_at_kst": "2026-05-11 13:50:00 KST",
+  "site": "biocom",
+  "purpose": "정점 트래픽 window 에서 R2 ledger 의 click_id_hash_present_rate / payment_complete_match_rate / click_view_exact_rate 3 지표 측정 계획. TJ controlled traffic 협조 시점에 실측.",
+  "harness_preflight": {
+    "lane": "Yellow (peak canary 측정)",
+    "execution_blocked_pending": "TJ controlled traffic 시점 합의",
+    "code_touched": true,
+    "no_send": true,
+    "operational_db_write": 0
+  },
+  "code_changes": [
+    {
+      "file": "backend/scripts/peak-canary-click-material-rate-20260511.ts",
+      "kind": "new measurement script",
+      "loc": 132,
+      "execution_guard": "ATT_LEDGER_FETCH_URL + ORDER_BRIDGE_IDENTITY_HASH_SECRET 환경 필요"
+    }
+  ],
+  "measurement_plan": {
+    "windows_candidate_kst": ["2026-05-11 11:00~12:00", "2026-05-11 19:00~20:00"],
+    "tj_action_required": "각 window 안에 1~2회 Google 광고 클릭 → 결제 시도 (결제 직전 취소 OK)",
+    "measure_after": "TJ 클릭 + 결제 시도 60분 후 본 script 실행 (paid_click_intent_ledger TTL 안에 있어야 함)",
+    "indicators": {
+      "click_id_hash_present_rate": "R2 ledger row 중 clickIdHash != '' 비율",
+      "ga_session_present_rate": "R2 ledger row 중 gaSessionId != '' 비율",
+      "category_distribution": "enricher 분류 5 카테고리 카운트"
+    },
+    "thresholds_for_next_action": {
+      "click_id_hash_present_rate_ge_0_50": "go_signal — wire route + GTM ramp 단계 진입 검토 가능",
+      "click_id_hash_present_rate_0_10_0_50": "investigate — payment-success body 캡처 보강 + funnel-capi v3 보완",
+      "click_id_hash_present_rate_lt_0_10": "block — 광고 트래픽 자체가 organic 비중과 다른 패턴인지 재검증 + 광고 클릭 → checkout 흐름 reconciliation"
+    }
+  },
+  "execution_template": {
+    "command": "ORDER_BRIDGE_IDENTITY_HASH_SECRET=$secret ATT_LEDGER_FETCH_URL=https://att.ainativeos.net/api/attribution/order-bridge-ledger/recent npx tsx backend/scripts/peak-canary-click-material-rate-20260511.ts --window-hours=1",
+    "expected_output": "JSON to stdout — 산출물에 저장 시 redirect: > data/peak-canary-click-material-rate-result-YYYYMMDD-HHMM.json"
+  },
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "operational_db_write": 0,
+    "raw_pii_logged_in_output": false
+  },
+  "verdict": "MEASUREMENT_PLAN_READY_LIVE_AWAITS_TJ_TRAFFIC_APPROVAL"
+}

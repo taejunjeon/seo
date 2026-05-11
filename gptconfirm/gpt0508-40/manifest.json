@@ -1,0 +1,55 @@
+{
+  "batch": "gpt0508-40",
+  "created_at_kst": "2026-05-11 14:30:00 KST",
+  "purpose": "Claude Code Click Evidence Closure Sprint — R2 ledger row 의 click_id_hash 부재 원인 분리 + 3 helper (enricher / bridge / injector) 신설 + 11 row dry-run 분포 + peak canary 측정 plan. operational DB write 0, GTM 변경 0, footer 변경 0.",
+  "lane": "Green_code_executed_plus_yellow_peak_canary_measurement_plan_ready",
+  "track_progress": {
+    "A": {"name": "ConfirmedPurchasePrep 통합 input", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "B": {"name": "Google Ads campaign_id 조인/ROAS 분해", "previous_percent": 97, "current_percent": 98, "delta_percent": 1},
+    "C": {"name": "BigQuery campaign funnel quality", "previous_percent": 85, "current_percent": 85, "delta_percent": 0},
+    "D/KR6": {"name": "Meta funnel CAPI Test Events readiness", "previous_percent": 74, "current_percent": 74, "delta_percent": 0},
+    "E": {"name": "Harness/HOLD Reducer", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "F": {"name": "Frontend/Data Trust Dashboard", "previous_percent": 80, "current_percent": 80, "delta_percent": 0}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-40/00-result-report.md", "copy": "gptconfirm/gpt0508-40/00-result-report.md", "why_included": "종합 결과보고서"},
+    {"source": "gdn/click-evidence-capture-gap-audit-20260511.md", "copy": "gptconfirm/gpt0508-40/01-click-evidence-capture-gap-audit-20260511.md", "why_included": "작업1 audit (매핑 버그 0)"},
+    {"source": "gdn/confirmed-purchase-builder-ledger-lookup-wire-20260511.md", "copy": "gptconfirm/gpt0508-40/02-confirmed-purchase-builder-ledger-lookup-wire-20260511.md", "why_included": "작업2 enricher helper + fixture 5/5"},
+    {"source": "gdn/paid-click-intent-same-session-bridge-20260511.md", "copy": "gptconfirm/gpt0508-40/03-paid-click-intent-same-session-bridge-20260511.md", "why_included": "작업3 same-session bridge helper + fixture 4/4"},
+    {"source": "gdn/click-view-candidates-inject-automation-20260511.md", "copy": "gptconfirm/gpt0508-40/04-click-view-candidates-inject-automation-20260511.md", "why_included": "작업4 candidates injector + fixture 6/6"},
+    {"source": "gdn/builder-dry-run-v2-20260511.md", "copy": "gptconfirm/gpt0508-40/05-builder-dry-run-v2-20260511.md", "why_included": "작업5 11 row 분포 검증"},
+    {"source": "gdn/peak-canary-click-material-rate-plan-20260511.md", "copy": "gptconfirm/gpt0508-40/06-peak-canary-click-material-rate-plan-20260511.md", "why_included": "작업6 peak canary 측정 plan + script"},
+    {"source": "gdn/click-evidence-closure-next-action-decision-20260511.md", "copy": "gptconfirm/gpt0508-40/07-click-evidence-closure-next-action-decision-20260511.md", "why_included": "작업7 next action decision tree"},
+    {"source": "gptconfirm/gpt0508-40/08-telegram-completion-note.md", "copy": "gptconfirm/gpt0508-40/08-telegram-completion-note.md", "why_included": "telegram skip 기록"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-40/99-total-current-copy.md", "why_included": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/click-evidence-capture-gap-audit-20260511.json",
+    "data/confirmed-purchase-builder-ledger-lookup-wire-20260511.json",
+    "data/paid-click-intent-same-session-bridge-20260511.json",
+    "data/click-view-candidates-inject-automation-20260511.json",
+    "data/builder-dry-run-v2-20260511.json",
+    "data/peak-canary-click-material-rate-plan-20260511.json"
+  ],
+  "code_changes": [
+    "backend/src/confirmedPurchaseLedgerLookupEnricher.ts",
+    "backend/src/paidClickIntentSameSessionBridge.ts",
+    "backend/src/clickViewCandidatesInjector.ts",
+    "backend/scripts/builder-dry-run-v2-20260511.ts",
+    "backend/scripts/peak-canary-click-material-rate-20260511.ts",
+    "backend/tests/confirmed-purchase-ledger-lookup-enricher.test.ts",
+    "backend/tests/paid-click-intent-same-session-bridge.test.ts",
+    "backend/tests/click-view-candidates-injector.test.ts"
+  ],
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "gtm_production_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "raw_pii_echo": 0,
+    "telegram_send": 0
+  },
+  "verdict": "SPRINT_GREEN_HELPER_LAYER_DONE_LIVE_MEASUREMENT_AWAITS_TJ_TRAFFIC"
+}
