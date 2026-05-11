@@ -1,0 +1,41 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_internal_test_traffic_filter_20260511",
+  "generated_at_kst": "2026-05-11 18:20:00 KST",
+  "purpose": "내부 테스트 / 자동 생성 ID / TJ 검증 트래픽을 likely_real_customer 와 분리해 분포 해석을 흐리지 않게 한다.",
+  "no_raw_ip_storage": true,
+  "no_raw_user_agent_storage": true,
+  "rules": {
+    "test_prefix_regexes": ["^test", "^debug", "^claude", "^staging"],
+    "short_numeric_only_regex": "^\\d{1,3}$",
+    "imweb_auto_id_regex": "^b\\d{8}[a-z0-9]{10,30}$",
+    "known_admin_paths_excluded": ["/admin/*", "/auth/*", "/login*", "/checkout/success*"],
+    "biocom_ainativeos_dashboard_paths_treated_as_self_internal": ["/ads/*", "/seo/*"]
+  },
+  "tag_outputs": ["likely_real_customer", "likely_internal_test", "unknown"],
+  "first_run_application": {
+    "total_rows": 12,
+    "tagged_as_real_customer": 8,
+    "tagged_as_internal_test": 4,
+    "internal_test_breakdown": [
+      {"utm_campaign": "b2026051144755feeb63db", "count": 3, "reason": "imweb_auto_id_pattern"},
+      {"utm_campaign": "1", "count": 1, "reason": "short_numeric_only"}
+    ]
+  },
+  "tj_browser_visit_policy": {
+    "purpose": "UI 확인용",
+    "use_as_baseline_for_source_distribution": false,
+    "recommended_approach": "TJ 가 ads/site-landing 페이지를 본인 브라우저로 방문하더라도 그 self_internal row 는 source_evidence_present_rate / channel_distribution baseline 에서 제외하고 별도 internal_or_test_traffic_count 에만 반영"
+  },
+  "future_enhancement_candidates": [
+    "user_agent family (mobile vs desktop) 통계 add",
+    "biocomkr_sns admin IP 범위 식별 (IP hash 비교)",
+    "manual test timestamp window (TJ 가 특정 5분 안 사이트 방문) 표시"
+  ],
+  "invariants_held": {
+    "raw_ip_stored": false,
+    "raw_user_agent_stored": false,
+    "raw_pii_in_output": false
+  },
+  "verdict": "INTERNAL_TEST_FILTER_V1_APPLIED_4_OF_12_ROWS_FILTERED"
+}

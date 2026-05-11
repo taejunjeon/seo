@@ -1,0 +1,51 @@
+{
+  "ok": true,
+  "schema_version": "paid_search_campaign_sanity_check_20260511",
+  "generated_at_kst": "2026-05-11 18:30:00 KST",
+  "purpose": "첫 paid_search row 의 campaign 값이 UTM 인지 mapped 인지 sanity check. campaign_id exact 시도 안 함.",
+  "campaign_values_observed": [
+    {
+      "campaign_value": "googleads_shopping_supplements_dangdang",
+      "count": 4,
+      "source_breakdown_match": "google.com",
+      "channel_classified": "paid_search",
+      "campaign_source_type": "utm_campaign",
+      "confidence": 0.95,
+      "rationale": "UTM 형식 prefix `googleads_` + 사람이 작성한 의미 있는 한국어 token (`shopping_supplements_dangdang`). Google Ads 쇼핑 캠페인 utm_campaign 으로 보임. mapped name (campaign_id 매핑된 디코드 결과) 가능성도 있으나, snapshot 의 utm_campaign_top10 에 그대로 노출된 것으로 보아 UTM 원본.",
+      "allowed_for_channel_report": true,
+      "allowed_for_campaign_budget": false,
+      "reason_not_for_budget": "campaign_id exact 매칭 없이 utm_campaign 만으로는 Google Ads 의 실 budget 분배와 연결 안 됨. 본 sprint scope 외."
+    },
+    {
+      "campaign_value": "googleads_shopping_supplements_youngdays",
+      "count": 3,
+      "campaign_source_type": "utm_campaign",
+      "confidence": 0.95,
+      "allowed_for_channel_report": true,
+      "allowed_for_campaign_budget": false
+    },
+    {
+      "campaign_value": "b2026051144755feeb63db",
+      "count": 3,
+      "campaign_source_type": "inferred (imweb auto id)",
+      "confidence": 0.1,
+      "allowed_for_channel_report": false,
+      "allowed_for_campaign_budget": false,
+      "reason_not_for_channel_report": "imweb 자동 transaction ID 가 utm_campaign 슬롯에 잘못 들어온 것으로 추정 — internal/test 로 분류"
+    },
+    {
+      "campaign_value": "1",
+      "count": 1,
+      "campaign_source_type": "unknown",
+      "confidence": 0.0,
+      "allowed_for_channel_report": false,
+      "allowed_for_campaign_budget": false,
+      "reason_not_allowed": "단일 숫자 — UTM 오작성 또는 internal test"
+    }
+  ],
+  "google_ads_upload_or_send_attempted": false,
+  "google_ads_conversion_action_changed": false,
+  "campaign_id_exact_match_attempted": false,
+  "verdict": "PAID_SEARCH_2_CAMPAIGNS_OK_FOR_CHANNEL_REPORT_NOT_FOR_BUDGET_2_INVALID_FILTERED",
+  "next_action": "channel report 에서는 `googleads_shopping_supplements_*` 2 캠페인만 사용. campaign_id exact 는 2차 목표 — Ads API credentials 확보 후 별도 sprint."
+}

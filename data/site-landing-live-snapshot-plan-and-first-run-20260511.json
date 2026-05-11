@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_live_snapshot_plan_and_first_run_20260511",
+  "generated_at_kst": "2026-05-11 18:15:00 KST",
+  "purpose": "운영 site_landing_ledger 분포를 6h/24h/72h 윈도우로 측정하는 script + 1차 실행 결과.",
+  "script_path": "backend/scripts/site-landing-live-snapshot-20260511.ts",
+  "script_mode": "read_only_no_write_no_send",
+  "indicator_fields": [
+    "snapshot_at_kst", "window_hours",
+    "total_rows", "unique_session_count",
+    "source_evidence_present_rate",
+    "channel_distribution",
+    "paid_search_count", "paid_social_count",
+    "organic_search_count", "organic_social_count",
+    "direct_count", "referral_count", "unknown_count",
+    "utm_campaign_distribution", "source_breakdown",
+    "hash_only_rate", "raw_click_count",
+    "internal_or_test_traffic_count",
+    "sample_too_small_warning",
+    "gtm_verdict_provisional",
+    "invariants_held"
+  ],
+  "first_run_at_kst": "2026-05-11 18:13 KST",
+  "deploy_to_first_snapshot_minutes": 30,
+  "first_run_summary": {
+    "window_hours_tested": [6, 24, 72],
+    "total_rows_all_windows": 12,
+    "rationale_same_count": "deploy 후 30분 시점이라 세 윈도우 모두 같은 데이터",
+    "source_evidence_present_rate": 1.0,
+    "channel_distribution": {"paid_search": 7, "organic_search": 2, "referral": 2, "self_internal": 1},
+    "internal_or_test_traffic_count_after_regex_v2": 4,
+    "hash_only_rate": 1.0,
+    "raw_click_count": 0,
+    "gtm_verdict_provisional": "INSUFFICIENT_SAMPLE_HOLD",
+    "sample_too_small_threshold": 50
+  },
+  "cron_or_timer_status": "approval_packet_only_not_registered",
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_send_count": 0,
+    "raw_pii_logged": false,
+    "operational_db_write": 0
+  },
+  "verdict": "SNAPSHOT_SCRIPT_READY_FIRST_RUN_SAMPLE_INSUFFICIENT_24H_RERUN_PLANNED"
+}

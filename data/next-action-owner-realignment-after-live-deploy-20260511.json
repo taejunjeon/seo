@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "schema_version": "next_action_owner_realignment_after_live_deploy_20260511",
+  "generated_at_kst": "2026-05-11 18:40:00 KST",
+  "purpose": "deploy 후 live 분포가 들어오면서 다음 액션 owner 재정렬 — TJ 액션 최소화, Claude Code 직접 가능한 항목 우선.",
+  "rationale_for_realignment": [
+    "Claude Code 가 SSH 직접 가능 + summary API curl + snapshot script 실행 + sanity check 모두 자체 가능 확인됨 (gpt0508-43 작업3 결과)",
+    "TJ 브라우저 방문은 UI 확인용으로만 — 분포 baseline 에서 별도 internal_or_test_count 로 분리",
+    "GTM Preview 와 Google Ads click_view 는 외부 권한 필수 — 명확히 TJ 영역",
+    "그 외 모든 read-only 분석/snapshot/audit/packet 작성 은 Claude Code"
+  ],
+  "actions": [
+    {
+      "id": "A01",
+      "owner": "Claude Code",
+      "action": "24h 시점 (2026-05-12 18 KST) snapshot 재실행 + GTM verdict 정정",
+      "direct_capable": "YES",
+      "blocker_if_any": "—",
+      "data_sufficient": 85, "timing": 90, "impact": 90, "risk_inv": 5, "score": 86,
+      "recommendation": "진행 (시간 조건)"
+    },
+    {
+      "id": "A02",
+      "owner": "Claude Code",
+      "action": "72h 시점 (2026-05-14 18 KST) final snapshot + GTM verdict 확정",
+      "direct_capable": "YES",
+      "data_sufficient": 85, "timing": 60, "impact": 95, "risk_inv": 5, "score": 80,
+      "recommendation": "진행 (시간 조건)"
+    },
+    {
+      "id": "A03",
+      "owner": "Claude Code",
+      "action": "snapshot script 의 cron / systemd timer 등록 approval packet 작성",
+      "direct_capable": "YES (packet 까지)",
+      "data_sufficient": 70, "timing": 70, "impact": 60, "risk_inv": 15, "score": 65,
+      "recommendation": "보류 (24h verdict 확정 후 결정)"
+    },
+    {
+      "id": "A04",
+      "owner": "Claude Code",
+      "action": "internal/test traffic regex 보강 (live row 누적 시 새 패턴 발견 시)",
+      "direct_capable": "YES",
+      "data_sufficient": 70, "timing": 60, "impact": 50, "risk_inv": 10, "score": 60,
+      "recommendation": "진행 (수시)"
+    },
+    {
+      "id": "A05",
+      "owner": "Claude Code",
+      "action": "paid_search campaign 채널 보고 작성 (24h 표본 50+ 도달 시)",
+      "direct_capable": "YES",
+      "data_sufficient": 80, "timing": 70, "impact": 80, "risk_inv": 5, "score": 75,
+      "recommendation": "진행 (표본 조건)"
+    },
+    {
+      "id": "A06",
+      "owner": "TJ님",
+      "action": "GTM Container 진입 + Custom HTML Preview 활성화",
+      "direct_capable": "NO",
+      "blocker_if_any": "Container admin 권한, Web UI 자동 조작 불가",
+      "alternative_route": "TJ 가 GTM JSON export 주면 Claude Code 가 충돌 검토 + Custom HTML draft",
+      "trigger_condition": "24h/72h verdict 가 GTM_PREVIEW_CONDITIONAL_RECOMMENDED 또는 GTM_PREVIEW_STRONGLY_RECOMMENDED 로 정정될 때만",
+      "data_sufficient": 70, "timing": 50, "impact": 90, "risk_inv": 30, "score": 65,
+      "recommendation": "대기 (조건부 trigger)"
+    },
+    {
+      "id": "A07",
+      "owner": "TJ님",
+      "action": "Google Ads click_view 30d CSV export 또는 Ads API credentials 발급",
+      "direct_capable": "NO",
+      "blocker_if_any": "Google 계정 권한 + OAuth2 credentials",
+      "trigger_condition": "1차 목표 (아임웹 수준 유입 분석) live verdict 가 안정화된 후 2차 목표 진입",
+      "data_sufficient": 50, "timing": 30, "impact": 70, "risk_inv": 30, "score": 50,
+      "recommendation": "보류"
+    },
+    {
+      "id": "A08",
+      "owner": "TJ님",
+      "action": "biocom.ainativeos.net/ads/site-landing UI 한 번 확인",
+      "direct_capable": "NO (TJ optional, UI 확인 그 자체가 목적)",
+      "trigger_condition": "본인 편의",
+      "data_sufficient": 50, "timing": 80, "impact": 30, "risk_inv": 5, "score": 50,
+      "recommendation": "optional (분포 baseline 영향 X)"
+    }
+  ],
+  "claude_code_actions_count": 5,
+  "tj_actions_count": 3,
+  "tj_actions_all_blocked_or_optional": true,
+  "verdict": "OWNER_REALIGNED_5_CLAUDE_3_TJ_TJ_ALL_BLOCKED_OR_OPTIONAL"
+}

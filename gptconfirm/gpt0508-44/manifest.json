@@ -1,0 +1,74 @@
+{
+  "batch": "gpt0508-44",
+  "created_at_kst": "2026-05-11 18:50:00 KST",
+  "purpose": "Claude Code Imweb Live Attribution Stabilization Sprint — deploy 후 첫 자연 트래픽 12 row 가 도착한 시점에 6h/24h/72h snapshot script + internal/test traffic 필터 + paid_search campaign sanity check + GTM Preview verdict 숫자 결정 규칙 + frontend 작은 표본 안내. Claude Code 직접 deploy 까지.",
+  "lane": "Green_snapshot_executed_plus_yellow_gtm_verdict_packet",
+  "package_document_count": 5,
+  "package_document_limit_basic": 5,
+  "package_document_limit_max": 8,
+  "track_progress": {
+    "A": {"name": "Order Truth / Payment Bridge", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "B": {"name": "Imweb Source Capture", "previous_percent": 88, "current_percent": 90, "delta_percent": 2},
+    "C": {"name": "Imweb Attribution Builder", "previous_percent": 94, "current_percent": 95, "delta_percent": 1},
+    "D": {"name": "Dashboard Decision View", "previous_percent": 90, "current_percent": 92, "delta_percent": 2},
+    "E": {"name": "Platform Exact Attribution", "previous_percent": 45, "current_percent": 45, "delta_percent": 0},
+    "F": {"name": "QA / Guard / Data Guide", "previous_percent": 96, "current_percent": 97, "delta_percent": 1},
+    "G": {"name": "Site Landing Ledger", "previous_percent": 95, "current_percent": 96, "delta_percent": 1}
+  },
+  "documents": [
+    {"path": "gptconfirm/gpt0508-44/00-result-report.md", "purpose": "사람 말 결과 + 숫자 + Track + 다음 할 일 owner 점수표"},
+    {"path": "gptconfirm/gpt0508-44/01-live-snapshot-and-analysis.md", "purpose": "작업 1 snapshot + 작업 2 filter + 작업 5 sanity + 작업 4 frontend + 금지선 상세표 + 검증"},
+    {"path": "gptconfirm/gpt0508-44/02-gtm-decision-and-approval.md", "purpose": "작업 3 GTM verdict + 24h/72h 분기 + approval 상태"},
+    {"path": "gptconfirm/gpt0508-44/03-next-actions-and-owner-score.md", "purpose": "작업 6 next action owner 재정렬 점수표"},
+    {"path": "gptconfirm/gpt0508-44/99-total-current-copy.md", "purpose": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/site-landing-live-snapshot-plan-and-first-run-20260511.json",
+    "data/site-landing-live-snapshot-20260511-h6.json",
+    "data/site-landing-live-snapshot-20260511-h24.json",
+    "data/site-landing-live-snapshot-20260511-h72.json",
+    "data/site-landing-internal-test-traffic-filter-20260511.json",
+    "data/gtm-preview-need-verdict-after-live-snapshot-20260511.json",
+    "data/paid-search-campaign-sanity-check-20260511.json",
+    "data/next-action-owner-realignment-after-live-deploy-20260511.json"
+  ],
+  "code_changes_in_this_sprint": [
+    "backend/scripts/site-landing-live-snapshot-20260511.ts (신규)",
+    "frontend/src/app/ads/site-landing/page.tsx (작은 표본 안내 배너 +5 LOC)"
+  ],
+  "vm_files_changed_via_direct_ssh_deploy": [
+    "/home/biocomkr_sns/seo/repo/frontend/src/app/ads/site-landing/page.tsx (편집)",
+    "frontend dist 재빌드 + pm2 restart seo-frontend"
+  ],
+  "live_first_snapshot_result_summary": {
+    "snapshot_at_kst": "2026-05-11 18:13 KST",
+    "deploy_to_first_snapshot_minutes": 30,
+    "total_rows_24h_window": 12,
+    "channel_distribution": {"paid_search": 7, "organic_search": 2, "referral": 2, "self_internal": 1},
+    "source_evidence_present_rate": 1.0,
+    "hash_only_rate": 1.0,
+    "raw_click_count": 0,
+    "internal_or_test_count_after_filter_v2": 4,
+    "gtm_verdict_provisional": "GTM_PARKED_PROVISIONAL",
+    "sample_too_small_warning": true
+  },
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "gtm_production_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "raw_email_phone_member_payment_order_logged_or_stored": 0,
+    "raw_click_id_storage_mode_used_in_production": "hash_only",
+    "google_ads_upload_or_conversion_action_change": 0,
+    "campaign_id_exact_match_attempted": 0,
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": false,
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": false,
+    "telegram_send": 0
+  },
+  "multi_agent_used": false,
+  "multi_agent_reason": "본 sprint 의 7 작업이 같은 snapshot 결과(12 row)를 기반으로 sequential 작성 — filter/sanity/GTM verdict/owner 재정렬 모두 같은 데이터를 입력으로 받음. 병렬 분리 시 같은 데이터 재fetch 발생.",
+  "verdict": "SPRINT_LIVE_STABILIZATION_SNAPSHOT_OK_GTM_PARKED_PROVISIONAL_24H_RERUN_PLANNED"
+}

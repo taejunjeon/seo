@@ -37,6 +37,11 @@ export default function SiteLandingSummaryPage() {
         ))}
       </div>
       {err && <div style={{ color: "#c33", fontSize: 13 }}>에러: {err}</div>}
+      {summary && summary.total < 50 && (
+        <div style={{ background: "#fff8e1", border: "1px solid #ffd54f", padding: 10, borderRadius: 6, fontSize: 12, marginBottom: 12 }}>
+          표본 {fmtNum(summary.total)} 건은 작은 표본 — 비율 해석 보류. 50 건 도달 이후 의미 있는 비율로 봅니다.
+        </div>
+      )}
       {summary && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
           <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 6 }}>

@@ -1,0 +1,57 @@
+{
+  "ok": true,
+  "schema_version": "gtm_preview_need_verdict_after_live_snapshot_20260511",
+  "generated_at_kst": "2026-05-11 18:25:00 KST",
+  "purpose": "GTM Preview 필요 여부를 숫자 기반으로 판정 + 24h/72h 업데이트 규칙.",
+  "decision_rules": {
+    "rule_above_60_pct_at_24h": "GTM parked",
+    "rule_30_to_60_pct_at_24h": "GTM Preview 조건부 추천",
+    "rule_below_30_pct_at_24h": "GTM Preview 강력 추천",
+    "rule_72h_organic_direct_referral_zero": "landing page_view capture 보강 필요 → GTM Preview 추천",
+    "rule_paid_only_growing": "backend fan-out 이 paid 흐름만 잡고 있을 가능성 audit",
+    "rule_sample_under_50": "INSUFFICIENT_SAMPLE_HOLD — 판정 보류"
+  },
+  "current_snapshot": {
+    "snapshot_at_kst": "2026-05-11 18:13 KST",
+    "window_hours": 24,
+    "total_rows": 12,
+    "source_evidence_present_rate": 1.0,
+    "channel_distribution": {
+      "paid_search": 7,
+      "organic_search": 2,
+      "referral": 2,
+      "self_internal": 1
+    },
+    "after_internal_test_filter": {
+      "real_customer_rows": 8,
+      "internal_test_rows": 4
+    }
+  },
+  "provisional_verdict": {
+    "verdict": "GTM_PARKED_PROVISIONAL",
+    "confidence": 0.6,
+    "rationale": [
+      "source_evidence_present_rate 1.0 → 60% 임계 위로 측정됨 (현재 표본 12).",
+      "channel 분포가 paid_search 7 + organic_search 2 + referral 2 + self_internal 1 → 4 카테고리 cover. paid_only_growing 우려 해소.",
+      "그러나 표본 12 < 50 임계 → 24h/72h 확정 verdict 전 INSUFFICIENT_SAMPLE_HOLD 도 동시에 적용.",
+      "한 표본만으로 GTM_PARKED 확정 금지. 24h 시점 재산출이 final verdict 의 1차 분기."
+    ]
+  },
+  "next_snapshot_decisions": {
+    "at_24h_kst_2026_05_12_18": {
+      "if_total_rows_below_50": "INSUFFICIENT_SAMPLE_HOLD 유지, 72h 까지 대기",
+      "if_present_rate_above_60_pct_and_organic_above_zero": "GTM_PARKED 확정 → packet archive",
+      "if_present_rate_below_60_pct": "GTM_PREVIEW_CONDITIONAL_RECOMMENDED 로 정정",
+      "if_paid_only_growing_organic_zero": "GTM_PREVIEW_RECOMMENDED_FAN_OUT_BIAS — backend handler 추가 audit"
+    },
+    "at_72h_kst_2026_05_14_18": "final verdict 확정. 본 packet archive 또는 GTM Preview 즉시 실행 분기"
+  },
+  "imweb_footer_decision": "계속 last resort (parked)",
+  "approval_status": "본 packet 은 verdict 와 update 규칙만. GTM Production publish 본 sprint 와 다음 sprint 모두 금지.",
+  "invariants_held": {
+    "gtm_production_publish": 0,
+    "imweb_footer_edit": 0,
+    "external_send_count": 0
+  },
+  "verdict": "GTM_PARKED_PROVISIONAL_PENDING_24H_72H_RECONFIRM"
+}
