@@ -1,0 +1,133 @@
+{
+  "site": "biocom",
+  "snapshot_at_kst": "2026-05-11T08:10:06.063Z",
+  "window_hours": 24,
+  "total_rows": 86,
+  "unique_session_count": 68,
+  "source_evidence_present_rate": 1,
+  "channel_distribution": {
+    "direct": 1,
+    "organic_search": 2,
+    "paid_search": 68,
+    "paid_social": 1,
+    "self_internal": 14
+  },
+  "paid_search_count": 68,
+  "paid_social_count": 1,
+  "organic_search_count": 2,
+  "organic_social_count": 0,
+  "direct_count": 15,
+  "referral_count": 0,
+  "unknown_count": 0,
+  "utm_campaign_distribution": [
+    {
+      "campaign": "googleads_shopping_supplements_dangdang",
+      "source": "googleads_shopping_supplements_dangdang",
+      "medium": "googleads_shopping_supplements_dangdang",
+      "count": 18,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "googleads_shopping_supplements_biobalance",
+      "source": "googleads_shopping_supplements_biobalance",
+      "medium": "googleads_shopping_supplements_biobalance",
+      "count": 10,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "googleads_shopping_supplements_resetday",
+      "source": "googleads_shopping_supplements_resetday",
+      "medium": "googleads_shopping_supplements_resetday",
+      "count": 10,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "googleads_shopping_supplements_youngdays",
+      "source": "googleads_shopping_supplements_youngdays",
+      "medium": "googleads_shopping_supplements_youngdays",
+      "count": 7,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "googleads_shopping_supplements_poongsung",
+      "source": "googleads_shopping_supplements_poongsung",
+      "medium": "googleads_shopping_supplements_poongsung",
+      "count": 5,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "googleads_shopping_supplements_metadream",
+      "source": "googleads_shopping_supplements_metadream",
+      "medium": "googleads_shopping_supplements_metadream",
+      "count": 3,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "meta_biocom_nurostory_nuro",
+      "source": "meta_biocom_nurostory_nuro",
+      "medium": "meta_biocom_nurostory_nuro",
+      "count": 3,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "googleads_shopping_supplements_neuromaster",
+      "source": "googleads_shopping_supplements_neuromaster",
+      "medium": "googleads_shopping_supplements_neuromaster",
+      "count": 2,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "googleads_shopping_test_mineral",
+      "source": "googleads_shopping_test_mineral",
+      "medium": "googleads_shopping_test_mineral",
+      "count": 2,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "googleads_testSA_foodallergy_SA",
+      "source": "googleads_testsa_foodallergy_sa",
+      "medium": "googleads_testsa_foodallergy_sa",
+      "count": 2,
+      "test_tag": "likely_real_customer"
+    }
+  ],
+  "source_breakdown": [
+    {
+      "source": "google.com",
+      "count": 67
+    },
+    {
+      "source": "biocom.kr",
+      "count": 13
+    },
+    {
+      "source": "m.search.naver.com",
+      "count": 2
+    },
+    {
+      "source": "www.biocom.kr",
+      "count": 1
+    },
+    {
+      "source": "tiktok.com",
+      "count": 1
+    },
+    {
+      "source": "naver",
+      "count": 1
+    }
+  ],
+  "hash_only_rate": 1,
+  "raw_click_count": 0,
+  "internal_or_test_traffic_count": 0,
+  "sample_too_small_warning": false,
+  "gtm_verdict_provisional": "GTM_PARKED",
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_send_count": 0,
+    "raw_pii_logged": false,
+    "operational_db_write": 0
+  }
+}

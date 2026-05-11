@@ -17,6 +17,8 @@ import { createHash } from "node:crypto";
 import type { AttributionLedgerEntry } from "./attribution";
 import {
   recordSiteLanding,
+  detectSiteFromUrl,
+  type SiteKey,
   type SiteLandingChannelClassified,
   type SiteLandingRecordResult,
 } from "./siteLandingLedger";
@@ -77,16 +79,20 @@ export const fanOutEntryToSiteLanding = (
   const clickId = pickClickId(entry);
   const sessionKey = pickSessionKey(entry);
 
+  // gpt0508-45 정정: landing URL 의 host 로 site 자동 감지. 모르면 biocom 으로 fallback.
+  const detectedSite: SiteKey = detectSiteFromUrl(entry.landing) ?? "biocom";
+
   const classification = classifySiteLandingChannel({
     referrerHost,
     referrerFullUrl,
     utm: { source: entry.utmSource, medium: entry.utmMedium, campaign: entry.utmCampaign },
     clickIdType: clickId?.type ?? "",
+    site: detectedSite,
   });
 
   try {
     const result: SiteLandingRecordResult = recordSiteLanding({
-      site: "biocom",
+      site: detectedSite,
       landedAt: entry.loggedAt,
       receivedAt: new Date().toISOString(),
       referrerHost,
@@ -168,16 +174,20 @@ export const fanOutPaidClickIntentPreviewToSiteLanding = (input: {
     clickValue = input.clickIds.fbclid;
   }
 
+  // gpt0508-45 정정: landing URL 의 host 로 site 자동 감지.
+  const detectedSite: SiteKey = detectSiteFromUrl(input.landingUrl) ?? "biocom";
+
   const classification = classifySiteLandingChannel({
     referrerHost,
     referrerFullUrl,
     utm: { source: input.utm.source, medium: input.utm.medium, campaign: input.utm.campaign },
     clickIdType: clickType,
+    site: detectedSite,
   });
 
   try {
     const result = recordSiteLanding({
-      site: "biocom",
+      site: detectedSite,
       landedAt: input.capturedAt,
       receivedAt: new Date().toISOString(),
       referrerHost,

@@ -1,0 +1,75 @@
+{
+  "site": "thecleancoffee",
+  "snapshot_at_kst": "2026-05-11T08:10:06.603Z",
+  "window_hours": 24,
+  "total_rows": 17,
+  "unique_session_count": 17,
+  "source_evidence_present_rate": 1,
+  "channel_distribution": {
+    "organic_search": 3,
+    "paid_social": 12,
+    "referral": 1,
+    "self_internal": 1
+  },
+  "paid_search_count": 0,
+  "paid_social_count": 12,
+  "organic_search_count": 3,
+  "organic_social_count": 0,
+  "direct_count": 1,
+  "referral_count": 1,
+  "unknown_count": 0,
+  "utm_campaign_distribution": [
+    {
+      "campaign": "b2026051144755feeb63db",
+      "source": "kakao",
+      "medium": "brand-message",
+      "count": 12,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "instagram_theclean_bangtan_teamketoinpock",
+      "source": "instagram_theclean_bangtan_teamketoinpock",
+      "medium": "instagram_theclean_bangtan_teamketoinpock",
+      "count": 1,
+      "test_tag": "likely_real_customer"
+    },
+    {
+      "campaign": "meta_theclean_bangtan_review1",
+      "source": "meta_theclean_bangtan_review1",
+      "medium": "meta_theclean_bangtan_review1",
+      "count": 1,
+      "test_tag": "likely_real_customer"
+    }
+  ],
+  "source_breakdown": [
+    {
+      "source": "kakao",
+      "count": 12
+    },
+    {
+      "source": "thecleancoffee.com",
+      "count": 2
+    },
+    {
+      "source": "pay.naver.com",
+      "count": 2
+    },
+    {
+      "source": "m.search.naver.com",
+      "count": 1
+    }
+  ],
+  "hash_only_rate": 1,
+  "raw_click_count": 0,
+  "internal_or_test_traffic_count": 0,
+  "sample_too_small_warning": true,
+  "gtm_verdict_provisional": "INSUFFICIENT_SAMPLE_HOLD",
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_send_count": 0,
+    "raw_pii_logged": false,
+    "operational_db_write": 0
+  }
+}

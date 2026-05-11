@@ -25,12 +25,26 @@ const parseArgs = () => {
 };
 
 /**
- * internal/test traffic 분리 규칙 (gpt0508-44 작업2)
- * - test/debug/claude/staging prefix → 명확한 test
- * - 짧은 숫자만 (`1`, `2` 등) → UTM 오작성, internal 의심
- * - imweb 자동 생성 trans id 패턴 (`b` + YYYYMMDD + 숫자 + hex) → automated_id (internal 의심)
- * - 그 외 → likely_real_customer
+ * internal/test traffic 분리 규칙 (gpt0508-45 정정)
+ *
+ * 정정 사유: gpt0508-44 sprint 의 regex 가 false positive 4 건을 internal_test 로
+ * 잘못 분류함. 실제 데이터 확인 결과:
+ * - `b2026051144755feeb63db` = 카카오 알림톡 (utm_source=kakao + utm_medium=brand-message) 의 캠페인 ID
+ * - `1` = 네이버 파워링크 (utm_source=naver + utm_medium=powerlink) 의 캠페인 ID
+ * 따라서 utm_source/medium 이 명확한 광고 채널이면 internal_test 분류 제외.
+ *
+ * 정정 규칙:
+ * - utm_source 가 광고 채널 (kakao/naver/google/meta/facebook/instagram/tiktok 등) 이면 → real_customer
+ * - 그 외에 test/debug/claude/staging prefix → internal_test
+ * - utm_source 없이 짧은 숫자만 또는 imweb 자동 ID → internal_test
  */
+const KNOWN_AD_UTM_SOURCES = new Set([
+  "kakao", "naver", "google", "googleads", "google_ads",
+  "meta", "facebook", "instagram",
+  "tiktok", "youtube", "twitter", "x",
+  "bing", "yahoo", "daum", "baidu",
+]);
+
 const TEST_PREFIX_REGEXES: ReadonlyArray<RegExp> = [
   /^test/i,
   /^debug/i,
@@ -39,10 +53,16 @@ const TEST_PREFIX_REGEXES: ReadonlyArray<RegExp> = [
 ];
 
 const SHORT_NUMERIC_ONLY = /^\d{1,3}$/;
-// imweb 자동 trans id: b + YYYYMMDD(8자리) + 숫자 + hex 혼합, 보통 22~32자
 const IMWEB_AUTO_ID = /^b\d{8}[a-z0-9]{10,30}$/i;
 
-const tagInternalTest = (campaign: string): "likely_internal_test" | "likely_real_customer" | "unknown" => {
+const tagInternalTest = (
+  campaign: string,
+  utmSource: string = "",
+): "likely_internal_test" | "likely_real_customer" | "unknown" => {
+  if (!campaign && !utmSource) return "unknown";
+  // 광고 채널 utm_source 가 있으면 real customer 로 인정 (정정 핵심)
+  const src = utmSource.toLowerCase();
+  if (src && KNOWN_AD_UTM_SOURCES.has(src)) return "likely_real_customer";
   if (!campaign) return "unknown";
   for (const re of TEST_PREFIX_REGEXES) {
     if (re.test(campaign)) return "likely_internal_test";
@@ -58,7 +78,7 @@ type SummaryResponse = {
   total: number;
   channel_distribution: Record<string, number>;
   source_breakdown_top10: Array<{ source: string; count: number }>;
-  utm_campaign_top10: Array<{ campaign: string; count: number }>;
+  utm_campaign_top10: Array<{ campaign: string; source?: string; medium?: string; count: number }>;
   joinable_session_key_count: number;
   click_id_storage_mode_distribution: Record<string, number>;
   derived?: {
@@ -72,8 +92,8 @@ type SummaryResponse = {
   };
 };
 
-const fetchSummary = async (windowHours: number): Promise<SummaryResponse> => {
-  const url = `${ATT_API_BASE}/api/attribution/site-landing/summary?windowHours=${windowHours}`;
+const fetchSummary = async (windowHours: number, site: string): Promise<SummaryResponse> => {
+  const url = `${ATT_API_BASE}/api/attribution/site-landing/summary?windowHours=${windowHours}&site=${encodeURIComponent(site)}`;
   const res = await fetch(url, { headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`summary api ${url} returned ${res.status}`);
   return (await res.json()) as SummaryResponse;
@@ -88,8 +108,10 @@ const computeSnapshot = (s: SummaryResponse) => {
 
   const utmTagged = s.utm_campaign_top10.map((c) => ({
     campaign: c.campaign,
+    source: c.source ?? "",
+    medium: c.medium ?? "",
     count: c.count,
-    test_tag: tagInternalTest(c.campaign),
+    test_tag: tagInternalTest(c.campaign, c.source ?? ""),
   }));
   const internalTestCount = utmTagged
     .filter((r) => r.test_tag === "likely_internal_test")
@@ -140,8 +162,9 @@ const computeSnapshot = (s: SummaryResponse) => {
 const main = async () => {
   const args = parseArgs();
   const windowHours = Number(args["window-hours"] || process.env.WINDOW_HOURS || "24");
-  const summary = await fetchSummary(windowHours);
-  const snapshot = computeSnapshot(summary);
+  const site = args["site"] || process.env.SITE || "biocom";
+  const summary = await fetchSummary(windowHours, site);
+  const snapshot = { site, ...computeSnapshot(summary) };
   console.log(JSON.stringify(snapshot, null, 2));
 };
 

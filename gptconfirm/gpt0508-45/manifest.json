@@ -1,0 +1,87 @@
+{
+  "batch": "gpt0508-45",
+  "created_at_kst": "2026-05-11 18:30:00 KST",
+  "purpose": "Claude Code Correction Sprint — gpt0508-44 의 internal/test 자동 분류 false positive 4건 정정 + 더클린커피 site 다중화 + 운영 backfill (16 row site fix + 13 row channel 재분류) + biocom GTM_PARKED 확정 + 24h 자동 진행 plan.",
+  "lane": "Green_correction_executed_live_deploy_done",
+  "package_document_count": 4,
+  "package_document_limit_basic": 5,
+  "package_document_limit_max": 8,
+  "track_progress": {
+    "A": {"name": "Order Truth / Payment Bridge", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "B": {"name": "Imweb Source Capture", "previous_percent": 90, "current_percent": 92, "delta_percent": 2},
+    "C": {"name": "Imweb Attribution Builder", "previous_percent": 95, "current_percent": 96, "delta_percent": 1},
+    "D": {"name": "Dashboard Decision View", "previous_percent": 92, "current_percent": 92, "delta_percent": 0},
+    "E": {"name": "Platform Exact Attribution", "previous_percent": 45, "current_percent": 45, "delta_percent": 0},
+    "F": {"name": "QA / Guard / Data Guide", "previous_percent": 97, "current_percent": 98, "delta_percent": 1},
+    "G": {"name": "Site Landing Ledger", "previous_percent": 96, "current_percent": 98, "delta_percent": 2}
+  },
+  "documents": [
+    {"path": "gptconfirm/gpt0508-45/00-result-report.md", "purpose": "사람 말 결과 + 양 site 분포 + Track + 다음 할 일 owner+점수표"},
+    {"path": "gptconfirm/gpt0508-45/01-correction-and-validation.md", "purpose": "정정 내용 + 변경 파일 + 검증 결과 + 운영 backfill + 금지선 상세표"},
+    {"path": "gptconfirm/gpt0508-45/02-next-24h-plan-and-owner-scoring.md", "purpose": "24시간 동안 Claude Code 가 진행할 8 후보 점수 평가 + 자동 진행 3 추천"},
+    {"path": "gptconfirm/gpt0508-45/99-total-current-copy.md", "purpose": "canonical snapshot"}
+  ],
+  "code_changes_pushed_in_this_sprint": [
+    "backend/src/siteLandingLedger.ts (SiteKey + detectSiteFromUrl + SELF_DOMAINS_BY_SITE + summarize site 파라미터)",
+    "backend/src/siteLandingChannelClassifier.ts (site 별 self_domain + EXTRA_PAID_MEDIUMS + ClassifierInput.site)",
+    "backend/src/siteLandingFanout.ts (landing host 로 site 자동 감지)",
+    "backend/src/routes/attribution.ts (summary API site 파라미터 + receiver site 자동 감지)",
+    "backend/scripts/site-landing-live-snapshot-20260511.ts (tagInternalTest source 받음 + site 인자)",
+    "backend/tests/site-landing-multi-site.test.ts (신규 11 fixture)"
+  ],
+  "vm_live_actions_executed": [
+    "scp 4 backend src 파일 → VM /tmp/",
+    "VM cp + npm run build + pm2 restart seo-backend",
+    "운영 SQLite backfill: UPDATE site_landing_ledger SET site='thecleancoffee' WHERE referrer/landing 이 thecleancoffee.com — 16 rows",
+    "운영 SQLite backfill: UPDATE channel_classified='paid_social' WHERE utm_source=kakao + utm_medium=brand-message — 12 rows",
+    "운영 SQLite backfill: UPDATE channel_classified='paid_search' WHERE utm_source=naver + utm_medium=powerlink — 1 row"
+  ],
+  "post_correction_metrics": {
+    "biocom_24h": {
+      "total_rows": 86,
+      "channel_distribution": {"paid_search": 68, "self_internal": 14, "organic_search": 2, "paid_social": 1, "direct": 1},
+      "source_evidence_present_rate": 1.0,
+      "internal_or_test_traffic_count": 0,
+      "gtm_verdict": "GTM_PARKED"
+    },
+    "thecleancoffee_24h": {
+      "total_rows": 17,
+      "channel_distribution": {"paid_social": 12, "organic_search": 3, "self_internal": 1, "referral": 1},
+      "source_evidence_present_rate": 1.0,
+      "internal_or_test_traffic_count": 0,
+      "gtm_verdict": "INSUFFICIENT_SAMPLE_HOLD"
+    }
+  },
+  "fixture_results": {
+    "all_site_landing": "64/64 PASS",
+    "new_multi_site": "11/11 PASS",
+    "backend_tsc": "PASS",
+    "vm_npm_build_backend": "PASS"
+  },
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "gtm_production_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "local_sqlite_backfill_rows": 29,
+    "raw_email_phone_member_payment_order_logged_or_stored": 0,
+    "raw_click_id_storage_mode_used_in_production": "hash_only",
+    "google_ads_upload_or_conversion_action_change": 0,
+    "campaign_id_exact_match_attempted": 0,
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": false,
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": false,
+    "telegram_send": 0
+  },
+  "multi_agent_used": false,
+  "multi_agent_reason": "6 작업이 모두 같은 운영 SQLite 데이터에 sequential 의존 (regex → site 분리 → backfill → snapshot → audit → plan). 병렬 분리 시 DB 상태 race condition.",
+  "next_24h_actions_recommended": [
+    "#1 site_landing ↔ 운영DB 매출 join (L2 ladder)",
+    "#2 frontend 페이지 site 토글 추가 (≤80 LOC)",
+    "#3 utm_source/medium/campaign 동일 값 fan-out 파싱 audit",
+    "24h 시점 양 site snapshot 재실행 + verdict 정정"
+  ],
+  "verdict": "SPRINT_CORRECTION_DONE_FALSE_POSITIVE_4_TO_0_SITE_MULTIPLEX_LIVE_BIOCOM_GTM_PARKED_CONFIRMED"
+}

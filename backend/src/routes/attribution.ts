@@ -36,6 +36,8 @@ import { getCrmDb } from "../crmLocalDb";
 import {
   recordSiteLanding,
   summarizeSiteLanding,
+  detectSiteFromUrl,
+  type SiteKey,
   type SiteLandingChannelClassified,
 } from "../siteLandingLedger";
 import { classifySiteLandingChannel } from "../siteLandingChannelClassifier";
@@ -4106,12 +4108,14 @@ export const createAttributionRouter = () => {
           720,
         ),
       );
-      const summary = summarizeSiteLanding("biocom", windowHours);
+      const siteRaw = typeof req.query.site === "string" ? req.query.site : "biocom";
+      const site: SiteKey = siteRaw === "thecleancoffee" ? "thecleancoffee" : "biocom";
+      const summary = summarizeSiteLanding(site, windowHours);
       res.json({
         ok: true,
         mode: "read_only_no_send",
         window_hours: windowHours,
-        site: "biocom",
+        site,
         ...summary,
         invariants_held: {
           external_send_count: 0,
@@ -4150,6 +4154,9 @@ export const createAttributionRouter = () => {
         return;
       }
 
+      // gpt0508-45 정정: landing URL 의 host 로 site 자동 감지.
+      const detectedSite: SiteKey = detectSiteFromUrl(landingUrl) ?? "biocom";
+
       const classification = classifySiteLandingChannel({
         referrerHost,
         referrerFullUrl,
@@ -4160,10 +4167,11 @@ export const createAttributionRouter = () => {
         },
         clickIdType:
           clickIdInput && typeof clickIdInput.type === "string" ? clickIdInput.type : "",
+        site: detectedSite,
       });
 
       const result = recordSiteLanding({
-        site: "biocom",
+        site: detectedSite,
         landedAt,
         receivedAt: new Date().toISOString(),
         referrerHost,

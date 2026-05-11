@@ -65,7 +65,40 @@ const ensureTable = (db: Database.Database) => {
   tableReady = true;
 };
 
-const SELF_DOMAINS = ["biocom.kr", "www.biocom.kr", "biocom.imweb.me"];
+/**
+ * site 별 자기 도메인. gpt0508-45 정정: thecleancoffee 트래픽이 같은 backend 로 들어와서
+ * 별도 site 로 저장하기 위해 site 별 SELF_DOMAINS 매핑.
+ */
+export type SiteKey = "biocom" | "thecleancoffee";
+
+const SELF_DOMAINS_BY_SITE: Record<SiteKey, ReadonlyArray<string>> = {
+  biocom: ["biocom.kr", "www.biocom.kr", "biocom.imweb.me"],
+  thecleancoffee: ["thecleancoffee.com", "www.thecleancoffee.com", "thecleancoffee.imweb.me"],
+};
+
+const SELF_DOMAINS_FLAT: ReadonlyArray<string> = [
+  ...SELF_DOMAINS_BY_SITE.biocom,
+  ...SELF_DOMAINS_BY_SITE.thecleancoffee,
+];
+
+export const detectSiteFromHost = (host: string): SiteKey | null => {
+  if (!host) return null;
+  const h = host.toLowerCase();
+  for (const site of Object.keys(SELF_DOMAINS_BY_SITE) as SiteKey[]) {
+    if (SELF_DOMAINS_BY_SITE[site].some((d) => h === d || h.endsWith(`.${d}`))) return site;
+  }
+  return null;
+};
+
+export const detectSiteFromUrl = (url: string): SiteKey | null => {
+  if (!url) return null;
+  try {
+    const host = new URL(url).host.toLowerCase();
+    return detectSiteFromHost(host);
+  } catch {
+    return null;
+  }
+};
 
 const PII_FORBIDDEN_PATTERNS: ReadonlyArray<RegExp> = [
   /\b\d{6}-?\d{7}\b/, // 주민번호
@@ -87,7 +120,7 @@ export type SiteLandingChannelClassified =
   | "unknown";
 
 export type SiteLandingInput = {
-  site: "biocom";
+  site: SiteKey;
   landedAt: string;
   receivedAt?: string;
   referrerHost?: string;
@@ -141,10 +174,10 @@ export type SiteLandingRecordResult =
   | { stored: true; deduped: true; row: SiteLandingRow }
   | { stored: false; rejected: true; reason: string };
 
-const isSelfDomain = (host: string): boolean => {
+const isSelfDomain = (host: string, site: SiteKey): boolean => {
   if (!host) return true;
   const h = host.toLowerCase();
-  return SELF_DOMAINS.some((d) => h === d || h.endsWith(`.${d}`));
+  return SELF_DOMAINS_BY_SITE[site].some((d) => h === d || h.endsWith(`.${d}`));
 };
 
 const extractHost = (url: string): string => {
@@ -310,7 +343,7 @@ export const recordSiteLanding = (input: SiteLandingInput): SiteLandingRecordRes
 
   const landingId = `sll-${randomUUID()}`;
   const now = new Date().toISOString();
-  const isSelf = isSelfDomain(referrerHostInput) ? 1 : 0;
+  const isSelf = isSelfDomain(referrerHostInput, input.site) ? 1 : 0;
 
   db.prepare(
     `INSERT INTO ${TABLE}
@@ -360,7 +393,7 @@ export type SiteLandingSummary = {
   total: number;
   channel_distribution: Record<string, number>;
   source_breakdown_top10: Array<{ source: string; count: number }>;
-  utm_campaign_top10: Array<{ campaign: string; count: number }>;
+  utm_campaign_top10: Array<{ campaign: string; source: string; medium: string; count: number }>;
   joinable_session_key_count: number;
   click_id_storage_mode_distribution: Record<ClickIdStorageMode, number>;
   pii_safety_check: { rows_scanned: number; forbidden_hits: number };
@@ -380,7 +413,7 @@ export type SiteLandingSummary = {
 };
 
 export const summarizeSiteLanding = (
-  site: "biocom",
+  site: SiteKey,
   windowHours = 24,
 ): SiteLandingSummary => {
   const db = getCrmDb();
@@ -408,14 +441,21 @@ export const summarizeSiteLanding = (
     .all(site, sinceIso) as Array<{ s: string; n: number }>;
   const source_breakdown_top10 = sourceRows.map((r) => ({ source: r.s, count: Number(r.n) }));
 
+  // gpt0508-45 정정: utm_campaign 만이 아니라 utm_source / utm_medium 도 함께 group by.
+  // internal_test 판정 / 광고 채널 매칭에서 utm_source 가 필수.
   const utmRows = db
     .prepare(
-      `SELECT utm_campaign AS c, COUNT(*) AS n FROM ${TABLE}
+      `SELECT utm_campaign AS c, utm_source AS s, utm_medium AS m, COUNT(*) AS n FROM ${TABLE}
        WHERE site = ? AND landed_at >= ? AND utm_campaign != ''
-       GROUP BY utm_campaign ORDER BY n DESC LIMIT 10`,
+       GROUP BY utm_campaign, utm_source, utm_medium ORDER BY n DESC LIMIT 10`,
     )
-    .all(site, sinceIso) as Array<{ c: string; n: number }>;
-  const utm_campaign_top10 = utmRows.map((r) => ({ campaign: r.c, count: Number(r.n) }));
+    .all(site, sinceIso) as Array<{ c: string; s: string; m: string; n: number }>;
+  const utm_campaign_top10 = utmRows.map((r) => ({
+    campaign: r.c,
+    source: r.s ?? "",
+    medium: r.m ?? "",
+    count: Number(r.n),
+  }));
 
   const joinableRow = db
     .prepare(

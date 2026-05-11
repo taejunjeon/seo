@@ -19,7 +19,12 @@
  * GA4 default channel grouping 과 호환하되 한국 채널 (naver, daum, kakao) 명시.
  */
 
-const SELF_DOMAINS = ["biocom.kr", "www.biocom.kr", "biocom.imweb.me"];
+const SELF_DOMAINS_BY_SITE: Record<string, ReadonlyArray<string>> = {
+  biocom: ["biocom.kr", "www.biocom.kr", "biocom.imweb.me"],
+  thecleancoffee: ["thecleancoffee.com", "www.thecleancoffee.com", "thecleancoffee.imweb.me"],
+};
+
+const ALL_SELF_DOMAINS: ReadonlyArray<string> = Object.values(SELF_DOMAINS_BY_SITE).flat();
 
 const SEARCH_ENGINE_HOSTS = [
   "naver.com",
@@ -106,7 +111,23 @@ export type ClassifierInput = {
   referrerFullUrl?: string;
   utm?: { source?: string; medium?: string; campaign?: string };
   clickIdType?: string;
+  /** gpt0508-45 정정: 어느 site 기준으로 self_domain 분류할지. 미설정 시 ALL_SELF_DOMAINS 사용. */
+  site?: "biocom" | "thecleancoffee";
 };
+
+// gpt0508-45 정정: utm_medium 이 kakao 알림톡(brand-message), naver powerlink 같은
+// 광고/마케팅 medium 도 paid 로 분류. 기존 (cpc/cpm/paid/ads/sem/ppc/paid_*) 외 추가.
+const EXTRA_PAID_MEDIUMS = new Set([
+  "brand-message",
+  "brand_message",
+  "brandmessage",
+  "powerlink",
+  "power-link",
+  "biz-message",
+  "bizmessage",
+  "alimtalk",
+  "kakao-message",
+]);
 
 export type ClassifierChannel =
   | "direct"
@@ -162,7 +183,8 @@ export const classifySiteLandingChannel = (input: ClassifierInput): ClassifierRe
   }
 
   // 2. UTM medium 기반 paid
-  if (utmMedium && PAID_MEDIUMS.has(utmMedium)) {
+  const allPaidMediums = utmMedium && (PAID_MEDIUMS.has(utmMedium) || EXTRA_PAID_MEDIUMS.has(utmMedium));
+  if (allPaidMediums) {
     if (PAID_SOCIAL_UTM_SOURCES.has(utmSource)) {
       return { channel: "paid_social", source_breakdown: utmSource, reason: "utm_paid_medium_social_source" };
     }
@@ -180,8 +202,9 @@ export const classifySiteLandingChannel = (input: ClassifierInput): ClassifierRe
     return { channel: "organic_social", source_breakdown: utmSource || refHost, reason: "utm_organic_social" };
   }
 
-  // 4. 자기 도메인
-  if (refHost && matchesHostList(refHost, SELF_DOMAINS)) {
+  // 4. 자기 도메인 (site 별 분기)
+  const selfDomains = input.site ? SELF_DOMAINS_BY_SITE[input.site] ?? ALL_SELF_DOMAINS : ALL_SELF_DOMAINS;
+  if (refHost && matchesHostList(refHost, selfDomains)) {
     return { channel: "self_internal", source_breakdown: refHost, reason: "self_domain_referrer" };
   }
 
