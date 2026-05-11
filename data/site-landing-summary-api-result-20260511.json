@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_summary_api_result_20260511",
+  "generated_at_kst": "2026-05-11 15:50:00 KST",
+  "purpose": "site_landing 분포를 builder/dashboard 가 읽을 수 있는 read-only summary API.",
+  "endpoint": {
+    "method": "GET",
+    "path": "/api/attribution/site-landing/summary",
+    "query": { "windowHours": "default 24, max 720" },
+    "response_fields": [
+      "ok", "mode='read_only_no_send'", "window_hours", "site",
+      "total", "channel_distribution", "source_breakdown_top10", "utm_campaign_top10",
+      "joinable_session_key_count", "click_id_storage_mode_distribution",
+      "pii_safety_check",
+      "derived.source_evidence_present_rate",
+      "derived.paid_hint_count", "derived.organic_count", "derived.direct_count", "derived.referral_count",
+      "derived.unknown_or_hold_count", "derived.raw_click_mode_count", "derived.ttl_expiring_24h_count",
+      "derived.external_send_count=0", "derived.upload_candidate_count=0",
+      "invariants_held"
+    ]
+  },
+  "code_changes": [
+    {"file": "backend/src/siteLandingLedger.ts", "kind": "edit", "added": "derived 8 필드", "loc_added": 50},
+    {"file": "backend/src/routes/attribution.ts", "kind": "edit", "added": "GET /api/attribution/site-landing/summary", "loc_added": 28},
+    {"file": "backend/tests/site-landing-summary-api.test.ts", "kind": "new fixture", "fixtures": 6, "result": "6_of_6_PASS_473ms"}
+  ],
+  "fixture_results": [
+    {"name": "default windowHours=24, total>=4", "result": "PASS"},
+    {"name": "derived 8 필드 모두 존재 + 타입 number", "result": "PASS"},
+    {"name": "paid_hint_count=3, direct_count=1 분포 정확", "result": "PASS"},
+    {"name": "invariants_held 모두 0/false", "result": "PASS"},
+    {"name": "windowHours 9999 → 720 clamp", "result": "PASS"},
+    {"name": "response 안에 raw email/phone/jumin 패턴 0", "result": "PASS"}
+  ],
+  "invariants_held": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "raw_email_phone_member_payment_order_in_response": false,
+    "write_or_send_button_in_api": false
+  },
+  "verdict": "SUMMARY_API_PASS_FIXTURE_PASS_DEPLOY_AWAIT"
+}

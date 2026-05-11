@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_fanout_backend_deploy_approval_20260511",
+  "generated_at_kst": "2026-05-11 16:20:00 KST",
+  "purpose": "site_landing fan-out wire + summary API + frontend minimal view 가 production VM 에 반영되도록 deploy 승인안.",
+  "lane": "Yellow (deploy)",
+  "execution_blocked_pending": "TJ 명시 승인 + SSH 키 환경 확인",
+  "deploy_target": {
+    "vm_host": "34.64.104.94",
+    "ssh_user": "taejun (sudo-as biocomkr_sns)",
+    "backend_path": "/home/biocomkr_sns/seo/repo/backend",
+    "frontend_path": "/home/biocomkr_sns/seo/repo/frontend",
+    "pm2_app": "seo-backend",
+    "node_path": "/home/biocomkr_sns/seo/node/bin"
+  },
+  "deploy_targets_file_list": [
+    "backend/src/siteLandingLedger.ts",
+    "backend/src/siteLandingChannelClassifier.ts",
+    "backend/src/siteLandingFanout.ts",
+    "backend/src/routes/attribution.ts",
+    "frontend/src/app/ads/site-landing/page.tsx"
+  ],
+  "pre_snapshot_commands": [
+    "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"cd /home/biocomkr_sns/seo/repo && git rev-parse HEAD\"'",
+    "curl -s 'https://att.ainativeos.net/api/attribution/site-landing/summary?windowHours=24' > /tmp/pre-summary.json (404 예상 — endpoint 미배포 상태 확인)"
+  ],
+  "deploy_commands_sequence": [
+    "1. git pull on VM: ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"cd /home/biocomkr_sns/seo/repo && git fetch origin main && git reset --hard origin/main\"'",
+    "2. backend dependency 변경 0 — npm install 불필요",
+    "3. backend pm2 restart: ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"export PATH=/home/biocomkr_sns/seo/node/bin:$PATH; cd /home/biocomkr_sns/seo/repo/backend && pm2 restart seo-backend --update-env && pm2 save\"'",
+    "4. frontend build (supervisor 가 자동 재시작 안 하면): ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"export PATH=/home/biocomkr_sns/seo/node/bin:$PATH; cd /home/biocomkr_sns/seo/repo/frontend && npm run build\"'"
+  ],
+  "post_snapshot_commands": [
+    "curl -sS 'https://att.ainativeos.net/api/attribution/site-landing/summary?windowHours=24' > /tmp/post-summary.json (200 OK 예상)",
+    "diff -u /tmp/pre-summary.json /tmp/post-summary.json (전: 404 / 후: 200 + ok:true)",
+    "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"cd /home/biocomkr_sns/seo/repo/backend && pm2 describe seo-backend --no-color | sed -n 1,35p\"'",
+    "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"sqlite3 /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 \\\"SELECT count(*), max(landed_at) FROM site_landing_ledger;\\\"\"' (table 존재 + count >= 0)"
+  ],
+  "smoke_check_30min": [
+    "30분 후 다시 summary curl",
+    "site_landing_ledger total > 0 (실 트래픽이 marketing-intent/checkout/payment-success/paid-click-intent 한 번이라도 호출됐다면)",
+    "raw click_id 저장된 row 0건 (storage_mode='hash' 만)",
+    "send_candidate / actual_send_candidate / upload_candidate 모두 0"
+  ],
+  "rollback_command": "ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 'sudo -n -u biocomkr_sns bash -lc \"cd /home/biocomkr_sns/seo/repo && git reset --hard <PRE_SNAPSHOT_HEAD> && cd backend && pm2 restart seo-backend --update-env && pm2 save\"'",
+  "failure_conditions": [
+    "summary curl 가 500 또는 timeout",
+    "pm2 describe 가 errored / stopped",
+    "site_landing_ledger 가 SELECT 실패 (table 없음 또는 권한 오류)",
+    "smoke 30분 후 row delta 0 인데 fan-out 호출 로그 있음 → 정합성 오류 → rollback"
+  ],
+  "expected_site_landing_row_delta_per_24h": {
+    "low_estimate": 50,
+    "high_estimate": 500,
+    "rationale": "biocom payment-success + checkout 빈도 + paid-click-intent 빈도 기준"
+  },
+  "raw_send_upload_zero_verification": [
+    "post-summary JSON 의 derived.external_send_count == 0",
+    "post-summary JSON 의 derived.upload_candidate_count == 0",
+    "pm2 log seo-backend 에서 'external send' / 'platform send' 로그 0건"
+  ],
+  "claude_code_capability": {
+    "can_do": [
+      "deploy 명령 sequence 작성 (위 commands)",
+      "rollback 명령 작성",
+      "post-snapshot summary curl 명령 작성",
+      "expected row delta 추정",
+      "raw send/upload 0 검증 SQL/curl 명령 작성"
+    ],
+    "cannot_do_directly": [
+      "VM 34.64.104.94 SSH 접속 — TJ Mac 의 ~/.ssh/id_ed25519 키가 Claude Code 환경에서 자동 사용 불가",
+      "pm2 restart 실행 — sudo biocomkr_sns 권한이 TJ 환경에만 등록",
+      "production 트래픽 모니터링 — VM 안 pm2 로그 실시간 추적은 TJ 가 봐야 가능"
+    ],
+    "tj_required_screens": [
+      "Mac terminal 에서 ssh 명령 실행",
+      "pm2 list / pm2 describe seo-backend 출력 확인",
+      "att.ainativeos.net/api/attribution/site-landing/summary curl"
+    ],
+    "alternative_route": "TJ 가 ssh agent 또는 1 회용 key forwarding 후 Claude Code 가 deploy 실행 — 별도 보안 검토 필요"
+  },
+  "approval_required": true,
+  "publish_or_send_in_this_packet": false,
+  "verdict": "DEPLOY_PACKET_READY_AWAITS_TJ_EXPLICIT_APPROVAL"
+}

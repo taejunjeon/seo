@@ -33,8 +33,16 @@ import {
 } from "../attribution";
 import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
-import { recordSiteLanding, type SiteLandingChannelClassified } from "../siteLandingLedger";
+import {
+  recordSiteLanding,
+  summarizeSiteLanding,
+  type SiteLandingChannelClassified,
+} from "../siteLandingLedger";
 import { classifySiteLandingChannel } from "../siteLandingChannelClassifier";
+import {
+  fanOutEntryToSiteLanding,
+  fanOutPaidClickIntentPreviewToSiteLanding,
+} from "../siteLandingFanout";
 import { getNpayIntentSummary, listNpayIntents, recordNpayIntent } from "../npayIntentLog";
 import {
   bootstrapOrderBridgeLedgerTable,
@@ -2972,6 +2980,19 @@ export const createAttributionRouter = () => {
         }
       }
 
+      const siteLandingFanout = fanOutPaidClickIntentPreviewToSiteLanding({
+        capturedAt: preview.captured_at,
+        landingUrl: preview.sanitized_landing_url,
+        referrer: preview.sanitized_referrer,
+        utm: preview.utm,
+        clickIds: preview.click_ids,
+        sessionKey: {
+          gaSessionId: preview.ga_session_id,
+          clientId: preview.client_id,
+          localSessionIdHash: preview.local_session_id,
+        },
+      });
+
       const previewForResponse = ledgerStored
         ? { ...preview, would_store: true }
         : preview;
@@ -2994,6 +3015,7 @@ export const createAttributionRouter = () => {
         }),
         preview: previewForResponse,
         ledger: ledgerInfo,
+        site_landing_fanout: siteLandingFanout,
         source: {
           mode: sourceMode,
           receivedAt,
@@ -3277,11 +3299,13 @@ export const createAttributionRouter = () => {
         },
       };
       const ledgerPath = await appendLedgerEntry(enrichedEntry);
+      const siteLandingFanout = fanOutEntryToSiteLanding(enrichedEntry, "marketing_intent");
       res.status(201).json({
         ok: true,
         receiver: "marketing_intent",
         storedAt: ledgerPath,
         entry: enrichedEntry,
+        site_landing_fanout: siteLandingFanout,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "marketing intent logging failed";
@@ -3297,11 +3321,13 @@ export const createAttributionRouter = () => {
         buildLedgerEntry("checkout_started", body, buildRequestContext(req)),
       );
       const ledgerPath = await appendLedgerEntry(entry);
+      const siteLandingFanout = fanOutEntryToSiteLanding(entry, "checkout_started");
       res.status(201).json({
         ok: true,
         receiver: "checkout_context",
         storedAt: ledgerPath,
         entry,
+        site_landing_fanout: siteLandingFanout,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "checkout attribution logging failed";
@@ -3342,12 +3368,14 @@ export const createAttributionRouter = () => {
 
       const ledgerPath = await appendLedgerEntry(entry);
       const orderBridgeR2 = recordPaymentSuccessOrderBridgeLedger(body, entry);
+      const siteLandingFanout = fanOutEntryToSiteLanding(entry, "payment_success");
       res.status(201).json({
         ok: true,
         receiver: "payment_success",
         storedAt: ledgerPath,
         entry,
         orderBridgeR2,
+        site_landing_fanout: siteLandingFanout,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "payment attribution logging failed";
@@ -4064,6 +4092,39 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "hourly attribution compare failed";
       res.status(500).json({ ok: false, error: "attribution_hourly_compare_error", message });
+    }
+  });
+
+  // gpt0508-42 작업3: site_landing summary read-only API
+  router.get("/api/attribution/site-landing/summary", (req: Request, res: Response) => {
+    try {
+      const windowHoursRaw = req.query.windowHours;
+      const windowHours = Math.max(
+        1,
+        Math.min(
+          Number.isFinite(Number(windowHoursRaw)) ? Number(windowHoursRaw) : 24,
+          720,
+        ),
+      );
+      const summary = summarizeSiteLanding("biocom", windowHours);
+      res.json({
+        ok: true,
+        mode: "read_only_no_send",
+        window_hours: windowHours,
+        site: "biocom",
+        ...summary,
+        invariants_held: {
+          external_send_count: 0,
+          upload_candidate_count: 0,
+          gtm_publish: 0,
+          imweb_footer_edit: 0,
+          operational_db_write: 0,
+          raw_email_phone_member_payment_order_in_response: false,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "site_landing summary failed";
+      res.status(500).json({ ok: false, error: "site_landing_summary_error", message });
     }
   });
 

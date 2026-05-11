@@ -1,0 +1,67 @@
+{
+  "batch": "gpt0508-42",
+  "created_at_kst": "2026-05-11 16:45:00 KST",
+  "purpose": "Claude Code Imweb Landing Deploy-A Sprint — site_landing_ledger 가 실제 트래픽을 받도록 4 backend handler 에 fan-out wire + summary API + frontend minimal view + deploy/GTM/Ads prep approval packets. 보고서 양식 v1.2 (5줄 결론 폐지) 도 같은 sprint 안에서 정본 갱신.",
+  "lane": "Green_code_executed_plus_yellow_deploy_gtm_ads_packets_ready",
+  "track_progress": {
+    "A": {"name": "Order Truth / Payment Bridge", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "B": {"name": "Imweb Source Capture", "previous_percent": 62, "current_percent": 75, "delta_percent": 13},
+    "C": {"name": "Imweb Attribution Builder", "previous_percent": 89, "current_percent": 92, "delta_percent": 3},
+    "D": {"name": "Dashboard Decision View", "previous_percent": 83, "current_percent": 87, "delta_percent": 4},
+    "E": {"name": "Platform Exact Attribution", "previous_percent": 45, "current_percent": 45, "delta_percent": 0},
+    "F": {"name": "QA / Guard / Data Guide", "previous_percent": 92, "current_percent": 95, "delta_percent": 3},
+    "G": {"name": "Site Landing Ledger", "previous_percent": 62, "current_percent": 86, "delta_percent": 24}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-42/00-result-report.md", "copy": "gptconfirm/gpt0508-42/00-result-report.md", "why_included": "종합 결과 보고 (v1.2 양식 적용)"},
+    {"source": "gdn/report-template-owner-action-scoring-update-20260511.md", "copy": "gptconfirm/gpt0508-42/01-report-template-owner-action-scoring-update-20260511.md", "why_included": "작업 0 양식 v1.2 정본 갱신"},
+    {"source": "gdn/site-landing-handler-fanout-wire-20260511.md", "copy": "gptconfirm/gpt0508-42/02-site-landing-handler-fanout-wire-20260511.md", "why_included": "작업 1 fan-out wire 결과"},
+    {"source": "gdn/site-landing-source-evidence-gap-audit-20260511.md", "copy": "gptconfirm/gpt0508-42/03-site-landing-source-evidence-gap-audit-20260511.md", "why_included": "작업 2 verdict audit"},
+    {"source": "gdn/site-landing-summary-api-result-20260511.md", "copy": "gptconfirm/gpt0508-42/04-site-landing-summary-api-result-20260511.md", "why_included": "작업 3 summary API"},
+    {"source": "gdn/frontend-site-landing-summary-minimal-view-20260511.md", "copy": "gptconfirm/gpt0508-42/05-frontend-site-landing-summary-minimal-view-20260511.md", "why_included": "작업 4 frontend minimal view"},
+    {"source": "gdn/gtm-preview-site-landing-capture-approval-20260511.md", "copy": "gptconfirm/gpt0508-42/06-gtm-preview-site-landing-capture-approval-20260511.md", "why_included": "작업 5 GTM Preview packet"},
+    {"source": "gdn/site-landing-fanout-backend-deploy-approval-20260511.md", "copy": "gptconfirm/gpt0508-42/07-site-landing-fanout-backend-deploy-approval-20260511.md", "why_included": "작업 6 deploy packet"},
+    {"source": "gdn/google-ads-click-view-snapshot-prep-design-20260511.md", "copy": "gptconfirm/gpt0508-42/08-google-ads-click-view-snapshot-prep-design-20260511.md", "why_included": "작업 7 prep design"},
+    {"source": "gptconfirm/gpt0508-42/09-telegram-skip-note.md", "copy": "gptconfirm/gpt0508-42/09-telegram-skip-note.md", "why_included": "telegram skip 기록"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-42/99-total-current-copy.md", "why_included": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/report-template-owner-action-scoring-update-20260511.json",
+    "data/site-landing-handler-fanout-wire-20260511.json",
+    "data/site-landing-source-evidence-gap-audit-20260511.json",
+    "data/site-landing-summary-api-result-20260511.json",
+    "data/gtm-preview-site-landing-capture-approval-20260511.json",
+    "data/site-landing-fanout-backend-deploy-approval-20260511.json",
+    "data/google-ads-click-view-snapshot-prep-design-20260511.json"
+  ],
+  "code_changes": [
+    "backend/src/siteLandingFanout.ts (신규)",
+    "backend/src/siteLandingLedger.ts (derived 8 필드 추가)",
+    "backend/src/routes/attribution.ts (fan-out 4 곳 + summary endpoint)",
+    "backend/tests/site-landing-fanout.test.ts (신규 8 fixture)",
+    "backend/tests/site-landing-summary-api.test.ts (신규 6 fixture)",
+    "frontend/src/app/ads/site-landing/page.tsx (신규 68 LOC)",
+    "harness/common/REPORTING_TEMPLATE.md (v1.2 헤더 + 변경 §)"
+  ],
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "gtm_production_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "raw_email_phone_member_payment_order_logged_or_stored": 0,
+    "raw_click_id_storage_mode_used": "hash_only",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": false,
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": false,
+    "telegram_send": 0
+  },
+  "fixture_results": {
+    "site-landing-fanout": "8/8 PASS (219ms)",
+    "site-landing-summary-api": "6/6 PASS (473ms)",
+    "backend_tsc": "PASS",
+    "frontend_tsc": "PASS"
+  },
+  "verdict": "SPRINT_GREEN_DEPLOY_A_DONE_PACKETS_READY_AWAITS_TJ_DEPLOY_AND_GTM_APPROVAL"
+}

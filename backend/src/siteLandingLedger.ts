@@ -356,10 +356,7 @@ export const recordSiteLanding = (input: SiteLandingInput): SiteLandingRecordRes
   return { stored: true, deduped: false, row: dbRowToRow(row) };
 };
 
-export const summarizeSiteLanding = (
-  site: "biocom",
-  windowHours = 24,
-): {
+export type SiteLandingSummary = {
   total: number;
   channel_distribution: Record<string, number>;
   source_breakdown_top10: Array<{ source: string; count: number }>;
@@ -367,7 +364,25 @@ export const summarizeSiteLanding = (
   joinable_session_key_count: number;
   click_id_storage_mode_distribution: Record<ClickIdStorageMode, number>;
   pii_safety_check: { rows_scanned: number; forbidden_hits: number };
-} => {
+  /** gpt0508-42 작업3: dashboard 표시용 추가 derived 필드 */
+  derived?: {
+    source_evidence_present_rate: number;
+    paid_hint_count: number;
+    organic_count: number;
+    direct_count: number;
+    referral_count: number;
+    unknown_or_hold_count: number;
+    raw_click_mode_count: number;
+    ttl_expiring_24h_count: number;
+    external_send_count: 0;
+    upload_candidate_count: 0;
+  };
+};
+
+export const summarizeSiteLanding = (
+  site: "biocom",
+  windowHours = 24,
+): SiteLandingSummary => {
   const db = getCrmDb();
   ensureTable(db);
   const sinceIso = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
@@ -423,13 +438,53 @@ export const summarizeSiteLanding = (
     if (k === "hash" || k === "raw" || k === "none") click_id_storage_mode_distribution[k] = Number(r.n);
   }
 
+  const total = Number(totalRow.n);
+  const paidHint =
+    (channel_distribution["paid_search"] ?? 0) + (channel_distribution["paid_social"] ?? 0);
+  const organic =
+    (channel_distribution["organic_search"] ?? 0) + (channel_distribution["organic_social"] ?? 0);
+  const direct = (channel_distribution["direct"] ?? 0) + (channel_distribution["self_internal"] ?? 0);
+  const referral = channel_distribution["referral"] ?? 0;
+  const unknown = channel_distribution["unknown"] ?? 0;
+
+  // source_evidence_present_rate = referrer 또는 utm_source 또는 click_id_value_or_hash 가 한 개라도 있는 row 비율
+  const evidenceRow = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM ${TABLE} WHERE site = ? AND landed_at >= ?
+       AND (referrer_host != '' OR utm_source != '' OR click_id_value_or_hash != '')`,
+    )
+    .get(site, sinceIso) as { n: number };
+
+  const ttlExpiringRow = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM ${TABLE} WHERE site = ? AND landed_at >= ? AND expires_at <= ?`,
+    )
+    .get(
+      site,
+      sinceIso,
+      new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    ) as { n: number };
+
   return {
-    total: Number(totalRow.n),
+    total,
     channel_distribution,
     source_breakdown_top10,
     utm_campaign_top10,
     joinable_session_key_count: Number(joinableRow.n),
     click_id_storage_mode_distribution,
     pii_safety_check: { rows_scanned: 0, forbidden_hits: 0 },
+    derived: {
+      source_evidence_present_rate:
+        total > 0 ? Number((Number(evidenceRow.n) / total).toFixed(3)) : 0,
+      paid_hint_count: paidHint,
+      organic_count: organic,
+      direct_count: direct,
+      referral_count: referral,
+      unknown_or_hold_count: unknown,
+      raw_click_mode_count: click_id_storage_mode_distribution.raw,
+      ttl_expiring_24h_count: Number(ttlExpiringRow.n),
+      external_send_count: 0,
+      upload_candidate_count: 0,
+    },
   };
 };

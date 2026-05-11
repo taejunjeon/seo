@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_source_evidence_gap_audit_20260511",
+  "generated_at_kst": "2026-05-11 15:40:00 KST",
+  "purpose": "fan-out wire 적용 후 handler 별 evidence 품질 + source 별 present rate 추정 + verdict 분류.",
+  "harness_preflight": {
+    "lane": "Green read-only audit (no code)",
+    "code_touched": false,
+    "operational_db_query": false,
+    "external_api_call": false
+  },
+  "handler_evidence_quality": {
+    "marketing_intent": {
+      "captures": ["referrer", "landing", "utm.source", "utm.medium", "utm.campaign", "gclid", "fbclid", "ttclid", "gaSessionId", "metadata.clientId"],
+      "trigger_scope": "TikTok intent 위주 — strictTikTokReasons 가 0 이면 skipped 분기. 일반 organic 은 들어오지 않음",
+      "expected_present_rate_when_called": 0.95,
+      "expected_call_frequency_per_day_in_production": "낮음 — TikTok 광고 클릭 시점만"
+    },
+    "checkout_context": {
+      "captures": ["referrer", "landing", "utm.*", "gclid/fbclid/ttclid", "gaSessionId"],
+      "trigger_scope": "체크아웃 시작 — 결제 직전. organic + paid 둘 다 통과",
+      "expected_present_rate_when_called": 0.9,
+      "expected_call_frequency_per_day_in_production": "중간 — 체크아웃 시작 매번"
+    },
+    "payment_success": {
+      "captures": ["referrer", "landing", "utm.*", "click ids", "gaSessionId", "enrichPaymentSuccessFirstTouch"],
+      "trigger_scope": "결제 완료 — 모든 결제 traffic 통과",
+      "expected_present_rate_when_called": 0.95,
+      "expected_call_frequency_per_day_in_production": "결제 건수 정도"
+    },
+    "paid_click_intent": {
+      "captures": ["sanitized_landing_url", "sanitized_referrer", "utm.*", "click_ids (gclid/gbraid/wbraid/ttclid/fbclid)", "ga_session_id", "client_id", "local_session_id"],
+      "trigger_scope": "광고 클릭 직후 landing — gclid/gbraid/wbraid 가 있을 때만 의미. organic 안 받음",
+      "expected_present_rate_when_called": 0.95,
+      "expected_call_frequency_per_day_in_production": "광고 click 만큼"
+    }
+  },
+  "source_field_present_rate_estimate": {
+    "utm_source": {"rate": 0.55, "notes": "paid traffic 일 때만 채워짐. organic 의 70% 가 utm 없음"},
+    "utm_medium": {"rate": 0.55, "notes": "동일"},
+    "utm_campaign": {"rate": 0.55, "notes": "동일"},
+    "referrer": {"rate": 0.85, "notes": "대부분 endpoint 가 받음. direct 만 빈값"},
+    "landing_url": {"rate": 0.95, "notes": "fan-out 가능한 모든 endpoint 가 landing 보유"},
+    "gclid": {"rate": 0.2, "notes": "Google 광고 클릭 traffic 만"},
+    "gbraid": {"rate": 0.05, "notes": "Google iOS 일부"},
+    "wbraid": {"rate": 0.03, "notes": "Google web 일부"},
+    "fbclid": {"rate": 0.05, "notes": "Meta 광고 일부"},
+    "naver_nclick_id": {"rate": 0.0, "notes": "footer/funnel-capi v3 가 nclick_id 미캡쳐 추정. CAPTURE GAP"},
+    "client_id": {"rate": 0.7, "notes": "metadata.clientId 가 들어오는 경우만"},
+    "ga_session_id": {"rate": 0.6, "notes": "사용자가 cookie 비허용 시 미수신"},
+    "local_session_id_hash": {"rate": 0.5, "notes": "paid_click_intent 에만 들어옴"}
+  },
+  "average_source_present_rate": 0.43,
+  "weighted_landing_quality_score": {
+    "calculation": "landing_url(0.95)*0.20 + referrer(0.85)*0.20 + utm_*(0.55)*0.30 + click_id_any(0.30)*0.15 + session_key(0.65)*0.15",
+    "value": 0.61
+  },
+  "verdict_options": [
+    "EXISTING_BACKEND_EVIDENCE_SUFFICIENT",
+    "BACKEND_EVIDENCE_PARTIAL_GTM_PREVIEW_RECOMMENDED",
+    "LANDING_SOURCE_CAPTURE_GAP_GTM_REQUIRED",
+    "FOOTER_LAST_RESORT_ONLY"
+  ],
+  "verdict": "BACKEND_EVIDENCE_PARTIAL_GTM_PREVIEW_RECOMMENDED",
+  "verdict_reason": [
+    "paid traffic / 결제 완료 / 체크아웃 traffic 의 fan-out 은 fixture 8/8 PASS 로 검증됨.",
+    "organic / direct / referral landing 은 backend 가 받는 endpoint 가 없어 site_landing_ledger 가 paid 위주로만 채워질 위험.",
+    "naver nclick_id 미캡쳐 추정 — naver 광고 채널 분석 0건 우려.",
+    "전체 source field 평균 present rate 0.43, weighted landing quality 0.61. 60% 미만 → GTM Preview packet 작성 권장.",
+    "footer 수정은 last resort (parked) — GTM Preview 가 더 안전."
+  ],
+  "gap_split": {
+    "data_present_but_builder_doesnt_use": ["referrer host 분류는 classifier 가 사용 중", "channel breakdown 은 ledger 에 저장 됨"],
+    "data_not_collected_yet": ["organic page_view 단독 landing", "naver nclick_id", "instagram organic referrer 의 session key (cookie 제한 시)"]
+  },
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "operational_db_write": 0,
+    "raw_pii_logged": false
+  }
+}

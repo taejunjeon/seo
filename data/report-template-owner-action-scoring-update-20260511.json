@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "schema_version": "report_template_owner_action_scoring_update_20260511",
+  "generated_at_kst": "2026-05-11 15:10:00 KST",
+  "purpose": "결과보고 양식 v1.2 — 5줄 결론 자연어 only 섹션 폐지, 사람이 이해하는 6 필드 + owner 분리 점수표 강제.",
+  "applies_to": ["sprint result report", "interim report", "single-turn answer"],
+  "v1_2_changes": {
+    "deprecated": ["한 줄 결론 자연어 only 섹션", "5줄 결론 자연어 only 섹션"],
+    "new_required_sections": [
+      "1. 사람이 이해하는 작업 설명 (6 필드)",
+      "2. 작업별 결과표 (owner 칼럼 포함)",
+      "3. Track 진척률",
+      "4. 금지선 준수 invariant 표",
+      "5. 다음 할 일 owner 분리 + 추천 점수표"
+    ],
+    "human_understand_fields": ["무엇을", "왜", "어떻게", "결과", "목표 영향", "남은 병목"],
+    "next_action_columns": [
+      "Owner (Claude Code | TJ님)",
+      "Action",
+      "Claude Code 직접 가능 (YES | NO | PARTIAL)",
+      "못 하면 이유",
+      "데이터 충분도 0-100",
+      "타이밍 0-100",
+      "목표 영향도 0-100",
+      "위험도 0-100 (낮을수록 좋음)",
+      "종합 추천 점수 0-100",
+      "추천 (진행 | 조건부 진행 | 보류)"
+    ]
+  },
+  "green_continuation_rule": "Green 영역 1차 개발 완료 후 추가 조사 + 설계 + approval packet 까지 같은 sprint 안에 진행.",
+  "files_changed": [
+    "harness/common/REPORTING_TEMPLATE.md",
+    "~/.claude/projects/-Users-vibetj-coding-seo/memory/feedback_5_line_conclusion.md",
+    "~/.claude/projects/-Users-vibetj-coding-seo/memory/feedback_next_action_owner_scoring.md",
+    "~/.claude/projects/-Users-vibetj-coding-seo/memory/MEMORY.md"
+  ],
+  "verdict": "TEMPLATE_V1_2_LIVE_APPLIED_FROM_GPT0508_42"
+}

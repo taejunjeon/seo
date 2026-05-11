@@ -1,0 +1,94 @@
+{
+  "ok": true,
+  "schema_version": "gtm_preview_site_landing_capture_approval_20260511",
+  "generated_at_kst": "2026-05-11 16:10:00 KST",
+  "purpose": "작업2 audit 의 verdict BACKEND_EVIDENCE_PARTIAL_GTM_PREVIEW_RECOMMENDED 에 따른 GTM Preview approval packet. Production publish 는 본 sprint 와 다음 sprint 모두 금지. 본 packet 은 TJ 의 별도 명시 승인 후 GTM Preview 만 활성화.",
+  "harness_preflight": {
+    "lane": "Yellow (GTM Preview)",
+    "execution_blocked_pending": "TJ 명시 승인",
+    "publish_to_production": false,
+    "preview_only": true,
+    "imweb_footer_edit": false
+  },
+  "rationale": {
+    "from_audit": "site-landing-source-evidence-gap-audit-20260511 — weighted landing quality 0.61 / source 평균 present rate 0.43. organic page_view + naver nclick_id 캡쳐 갭 채우려면 GTM Preview Custom HTML 태그 필요.",
+    "alternative_paths_considered": [
+      "backend handler fan-out — 작업 1 에서 완료. organic landing 단독 trigger 없음",
+      "imweb footer 직접 수정 — last resort (parked). funnel-capi v3 호환성 위험"
+    ]
+  },
+  "preview_design": {
+    "trigger": {
+      "type": "page_view (window loaded) + history change",
+      "scope": "biocom.kr / www.biocom.kr / biocom.imweb.me 도메인 전체",
+      "exclude": ["/admin/*", "/auth/*", "/login*", "/checkout/success*"]
+    },
+    "dataLayer_fields": [
+      "page_location (= window.location.href)",
+      "page_referrer (= document.referrer)",
+      "ga_session_id (= GA4 client.session_id)",
+      "client_id (= GA4 client_id)",
+      "gclid / gbraid / wbraid (URL param)",
+      "fbclid (URL param)",
+      "ttclid (URL param)",
+      "nclick_id 또는 naver search query 파라미터 (URL param)",
+      "utm_source / utm_medium / utm_campaign / utm_term / utm_content"
+    ],
+    "endpoint": {
+      "method": "POST",
+      "url": "https://att.ainativeos.net/api/attribution/site-landing",
+      "body_template": {
+        "landingUrl": "{{page_location}}",
+        "referrerFullUrl": "{{page_referrer}}",
+        "referrerHost": "(parsed host from page_referrer)",
+        "utm": {"source": "{{utm_source}}", "medium": "{{utm_medium}}", "campaign": "{{utm_campaign}}", "term": "{{utm_term}}", "content": "{{utm_content}}"},
+        "clickId": {"type": "(gclid|gbraid|wbraid|fbclid|ttclid|nclick_id depending on which present)", "valueOrHash": "{{raw_value}}", "storageMode": "hash"},
+        "sessionKey": {"gaSessionId": "{{ga_session_id}}", "clientId": "{{client_id}}"}
+      }
+    },
+    "raw_guard": {
+      "click_id_storage_mode": "hash (sha256 인 backend 가 변환)",
+      "no_pii_in_dataLayer": true,
+      "no_email_phone_member_payment_order_field": true
+    }
+  },
+  "preview_only_success_criteria": [
+    "Preview 환경에서 sample URL 3 개 (organic instagram referrer / naver search referrer / direct) 가 site_landing_ledger 에 새 row 로 저장 (deduped 가 아닌 stored:true)",
+    "각 row 의 channel_classified 가 예상한 카테고리와 일치 (instagram → organic_social, naver → organic_search, direct → direct)",
+    "raw click_id 가 storage_mode='hash' 로 저장 — frontend response / log 에 raw 출력 0",
+    "raw email/phone/member_code 패턴 응답/저장 0"
+  ],
+  "rollback_command": "GTM Tag → Pause → 변경 사항 Discard. Production publish 진행하지 않았으므로 라이브 영향 0.",
+  "publish_forbidden": true,
+  "publish_block_reasons": [
+    "본 packet 의 scope 는 Preview only",
+    "Production publish 는 별도 Sprint 에서 추가 approval 필요",
+    "publish 시 imweb 사이트 전체에 GTM Custom HTML 이 실행되므로 충분한 staging 필요"
+  ],
+  "claude_code_capability": {
+    "can_do": [
+      "GTM Container 의 JSON export 분석 (TJ 가 export 제공 시)",
+      "Custom HTML 태그 코드 draft 작성",
+      "endpoint payload schema validation"
+    ],
+    "cannot_do": [
+      "GTM Web UI 자동 조작 — TJ 의 Google 계정 GTM Container 권한 필요",
+      "Preview mode 활성화 — GTM admin 권한",
+      "Container publish — 명시 금지 + admin 권한 필요"
+    ],
+    "tj_required_screens": [
+      "https://tagmanager.google.com/ → 해당 Container",
+      "Workspace → New Tag → Custom HTML",
+      "Preview 버튼 (Tag Assistant)"
+    ]
+  },
+  "next_sprint_publish_packet_when_preview_passes": "별도 sprint gpt0508-43 GTM Production publish approval. 본 sprint 는 Preview only.",
+  "invariants_held": {
+    "gtm_production_publish": 0,
+    "imweb_footer_edit": 0,
+    "external_platform_send": 0,
+    "raw_pii_in_dataLayer": false,
+    "raw_click_id_storage_mode_used": "hash_only"
+  },
+  "verdict": "PREVIEW_PACKET_READY_AWAITS_TJ_EXPLICIT_APPROVAL"
+}

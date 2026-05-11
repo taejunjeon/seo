@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_handler_fanout_wire_20260511",
+  "generated_at_kst": "2026-05-11 15:30:00 KST",
+  "purpose": "marketing-intent / checkout-context / payment-success / paid-click-intent 4 handler 가 처리한 referrer/UTM/session/click 신호를 site_landing_ledger 에 best-effort 저장하는 fan-out helper wire.",
+  "harness_preflight": {
+    "lane": "Green code (no deploy)",
+    "code_touched": true,
+    "no_send": true,
+    "no_external_platform_send": true,
+    "no_gtm_publish": true,
+    "no_footer_edit": true,
+    "no_operational_db_write": true,
+    "raw_click_id_storage_mode": "hash (sha256)"
+  },
+  "code_changes": [
+    {"file": "backend/src/siteLandingFanout.ts", "kind": "new module", "loc": 191},
+    {"file": "backend/src/routes/attribution.ts", "kind": "edit", "fanout_calls_added": 4, "endpoints": ["marketing-intent", "checkout-context", "payment-success", "paid-click-intent (no-send branch)"]},
+    {"file": "backend/tests/site-landing-fanout.test.ts", "kind": "new fixture", "fixtures": 8, "result": "8_of_8_PASS_219ms"}
+  ],
+  "fixture_results": [
+    {"name": "marketing_intent UTM paid → paid_social channel", "result": "PASS"},
+    {"name": "gclid → sha256 hash 저장 (raw 미저장)", "result": "PASS"},
+    {"name": "landing 없으면 skipped", "result": "PASS"},
+    {"name": "naver search → organic_search", "result": "PASS"},
+    {"name": "payment_success mirror", "result": "PASS"},
+    {"name": "paid_click_intent preview gclid → hash 저장 + paid_search channel", "result": "PASS"},
+    {"name": "paid_click_intent click 없으면 referrer 기반 channel", "result": "PASS"},
+    {"name": "site_landing row 에 raw email/phone/jumin 없음 (regex scan)", "result": "PASS"}
+  ],
+  "invariants_held": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "external_platform_send": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "operational_db_write": 0,
+    "raw_click_id_storage_mode_used": "hash_only",
+    "raw_pii_logged": false,
+    "fanout_failure_does_not_block_handler": true
+  },
+  "design_notes": [
+    "fan-out 은 best-effort. recordSiteLanding 실패 시 handler 본 흐름 차단하지 않음 (try/catch).",
+    "click_id 가 있는 entry 는 sha256 변환 후 storage_mode='hash' 로 저장 — raw 모드 사용 안 함.",
+    "landing 이 없는 entry 는 skip (record 의미 없음).",
+    "dedupe 는 site_landing_ledger 의 (10분 bucket + sessionKey + URL + UTM + referrer) hash 사용 — handler 중복 fan-out 자동 dedup."
+  ],
+  "verdict": "FANOUT_WIRE_PASS_FIXTURE_PASS_DEPLOY_AWAIT_TJ_APPROVAL"
+}

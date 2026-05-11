@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "schema_version": "google_ads_click_view_snapshot_prep_design_20260511",
+  "generated_at_kst": "2026-05-11 16:30:00 KST",
+  "purpose": "Google Ads click_view 30d snapshot 을 자체 prep table 로 가져오는 design only — campaign_id exact attribution 2차 목표용. raw click_id 평문 저장 금지, hash join 만 사용.",
+  "lane": "Yellow design only (no execution)",
+  "scope": ["schema draft", "dry-run plan", "claude code capability matrix"],
+  "out_of_scope_in_this_sprint": ["BQ / Ads Query API call", "credentials use", "prep table 실제 write"],
+  "schema_draft": {
+    "table": "google_ads_click_view_prep",
+    "columns": [
+      {"name": "click_id_hash", "type": "TEXT", "key": "PRIMARY", "note": "sha256(rawClickId), 64 char hex. raw 저장 안 함"},
+      {"name": "click_id_type", "type": "TEXT", "note": "gclid | gbraid | wbraid"},
+      {"name": "campaign_id", "type": "TEXT"},
+      {"name": "campaign_name_safe", "type": "TEXT", "note": "PII 패턴 정규식 통과 필요"},
+      {"name": "ad_group_id", "type": "TEXT"},
+      {"name": "ad_group_name_safe", "type": "TEXT"},
+      {"name": "click_time_iso", "type": "TEXT"},
+      {"name": "device", "type": "TEXT"},
+      {"name": "match_type", "type": "TEXT"},
+      {"name": "fetched_at", "type": "TEXT"},
+      {"name": "expires_at", "type": "TEXT", "note": "30d TTL, 자동 cleanup cron 별도"},
+      {"name": "raw_click_id_redacted", "type": "INTEGER", "default": 1, "note": "항상 1, raw 절대 저장 안 함"}
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_gacvp_click_hash ON google_ads_click_view_prep(click_id_hash)",
+      "CREATE INDEX idx_gacvp_campaign ON google_ads_click_view_prep(campaign_id, click_time_iso DESC)",
+      "CREATE INDEX idx_gacvp_expires ON google_ads_click_view_prep(expires_at)"
+    ]
+  },
+  "dry_run_plan": {
+    "step_1_fetch_options": [
+      {"source": "Google Ads Query Language (GAQL) via REST", "method": "POST https://googleads.googleapis.com/<api_version>/customers/<customer_id>/googleAds:search", "credentials_needed": ["developer_token", "OAuth2 access_token", "customer_id", "manager_account_id"], "claude_code_can_call": false},
+      {"source": "BigQuery export (Google Ads transfer)", "method": "bq query --format=json", "credentials_needed": ["GCP project + dataset 권한"], "claude_code_can_call": false},
+      {"source": "Google Ads UI manual export (CSV)", "method": "Ads UI → Reports → click_view dimensions", "claude_code_can_call": false}
+    ],
+    "step_2_transform": [
+      "각 row 의 raw click_id (gclid/gbraid/wbraid) 를 sha256Hex 변환",
+      "raw 컬럼 즉시 폐기 — 메모리에서도 reference 제거",
+      "campaign_name / ad_group_name 은 PII 정규식 (email/phone/jumin/카드) 통과 검사"
+    ],
+    "step_3_write": [
+      "google_ads_click_view_prep INSERT/REPLACE",
+      "expires_at = fetched_at + 30d",
+      "raw_click_id_redacted = 1 강제"
+    ],
+    "step_4_join_with_site_landing": [
+      "site_landing_ledger 의 click_id_value_or_hash (storage_mode='hash') 와 sha256 비교 join",
+      "match 한 row 에 campaign_id 부여 → cross_reference_evidence 의 A_via_ledger_budget_floor 카테고리 승급",
+      "raw click_id 비교는 절대 사용하지 않음 (storage_mode='hash' 만 비교)"
+    ],
+    "step_5_cron": "일 1회 fetch + prep table 갱신 — TTL 30d 안 만료된 click 만 유지"
+  },
+  "raw_click_id_policy_check": {
+    "platform_response_payload_stored_raw": false,
+    "transform_to_hash_before_write": true,
+    "memory_redaction_after_hash": true,
+    "raw_log_output": false,
+    "raw_export": false
+  },
+  "claude_code_capability": {
+    "can_do": [
+      "본 schema + dry-run plan 작성",
+      "fetch script draft (credentials placeholder)",
+      "sha256 변환 helper 작성",
+      "join SQL 작성"
+    ],
+    "cannot_do_directly": [
+      "Google Ads API 호출 — OAuth2 access_token 및 developer_token 이 TJ Google 계정 필요",
+      "BigQuery query 실행 — GCP credentials 필요",
+      "Ads UI 자동 조작 — Web UI 자동화 불가"
+    ],
+    "tj_required_screens_or_credentials": [
+      "Google Ads Manager > API Center > Developer Token",
+      "GCP Console > APIs & Services > Credentials > OAuth2 client",
+      "BigQuery Console (대안)",
+      "Ads UI Reports (수동 CSV export 대안)"
+    ],
+    "alternative_route": "TJ 가 Ads UI 에서 CSV export 후 Claude Code 가 그 파일을 sha256 변환 + prep table write"
+  },
+  "blocker_summary": "API credentials 없이 본 sprint 안에서 실제 fetch / write 불가. design 만 완성.",
+  "approval_required_to_execute": true,
+  "execution_in_this_sprint": false,
+  "verdict": "PREP_TABLE_DESIGN_READY_AWAITS_TJ_ADS_API_CREDENTIALS_OR_CSV_EXPORT"
+}
