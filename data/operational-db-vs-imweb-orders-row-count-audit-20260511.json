@@ -1,0 +1,78 @@
+{
+  "ok": true,
+  "schema_version": "operational_db_vs_imweb_orders_row_count_audit_20260511",
+  "generated_at_kst": "2026-05-11 20:15:00 KST",
+  "purpose": "직전 작업의 운영DB 214 vs imweb_orders 368 row 수 차이 audit. biocom only + cancellation 필터 + site 분리 분석. + 운영DB tb_iamweb_users.raw_data site 키 path 검색.",
+  "audit_a_row_count_difference": {
+    "operational_db_tb_iamweb_users_30d": {
+      "where": "payment_method='NAVERPAY_ORDER' AND order_date 30d",
+      "by_payment_status": {
+        "PAYMENT_COMPLETE": {"count": 211, "amount_krw": 37625000},
+        "REFUND_COMPLETE": {"count": 19, "amount_krw": 0},
+        "CANCELLED_BEFORE_DEPOSIT": {"count": 8, "amount_krw": 0},
+        "PAYMENT_PREPARATION": {"count": 7, "amount_krw": 0}
+      },
+      "complete_with_cancellation_empty_only": {"count": 211, "amount_krw": 37625000, "korean": "₩3,762만 5,000"},
+      "by_payment_complete_time_30d": {"count": 227, "amount_krw": 37520300, "max_complete_time": "2026-05-11T00:48:17.000Z"}
+    },
+    "vm_imweb_orders_30d": {
+      "where": "pay_type='npay' AND order_time 30d",
+      "by_site_and_complete": {
+        "biocom_all": {"count": 178, "amount_krw": 32934300},
+        "biocom_complete_time_filled": {"count": 124, "amount_krw": 24497400},
+        "thecleancoffee_complete_time_filled": {"count": 244, "amount_krw": 10299100}
+      },
+      "biocom_by_imweb_status_30d": {
+        "PURCHASE_CONFIRMATION": {"count": 89, "amount": 16595200},
+        "COMPLETE": {"count": 34, "amount": 7832500},
+        "CANCEL": {"count": 22, "amount": 3310500},
+        "STANDBY": {"count": 14, "amount": 2545400},
+        "empty": {"count": 9, "amount": 717500},
+        "DELIVERING": {"count": 5, "amount": 834700},
+        "PAY_WAIT": {"count": 3, "amount": 837000},
+        "RETURN": {"count": 2, "amount": 261500}
+      },
+      "biocom_complete_excluding_cancel_return_standby_paywait": {"count": 137, "rationale": "PURCHASE_CONFIRMATION 89 + COMPLETE 34 + DELIVERING 5 + empty 9 = 137"}
+    },
+    "difference_analysis": {
+      "op_db_complete_211_minus_imweb_biocom_clean_137": 74,
+      "likely_root_cause": "imweb v2 API 페이지네이션 (imwebapi.md §90) — 일부 NPay 페이지 회수율 낮음 + 수동 sync 시점 차이. 운영DB 가 더 풍부.",
+      "site_difference_explanation": "운영DB tb_iamweb_users 는 biocom 단일 사이트 (D audit 참조). thecleancoffee NPay 는 운영DB 미적재.",
+      "recommended_primary_source_for_npay_revenue": "운영DB tb_iamweb_users (biocom NPay), 단 9.5h sync lag 감수. 또는 imweb v2 API 재 sync 후 imweb_orders 사용."
+    }
+  },
+  "audit_d_site_key_path_in_raw_data": {
+    "raw_data_top_level_keys_30d_sample": [
+      "itemPrice", "device", "saleChannel", "currency", "deliveryPrice",
+      "payments", "totalRefundPendingPoint", "ordererEmail", "isSubscription",
+      "unipassNumber", "gradeDiscount", "memberCode", "country",
+      "deliveryExtraPrice", "sections", "isFirst", "totalRefundPendingPrice",
+      "memberUid", "orderStatus", "ordererName", "totalPaymentPrice",
+      "totalPrice", "totalRefundedPoint", "isMember", "deliveryIslandPrice",
+      "isCancelReq"
+    ],
+    "site_candidate_keys_tested": ["unit_code", "unitCode", "site", "siteCode", "channel", "shop", "shop_no", "mall_no", "unit", "store"],
+    "all_site_candidate_keys_count": 0,
+    "conclusion": "운영DB tb_iamweb_users 의 raw_data 안에 site 분리 키 부재 → 운영DB tb_iamweb_users 는 단일 사이트 (biocom) 전용 적재 확정",
+    "thecleancoffee_npay_revenue_must_use_imweb_orders": true
+  },
+  "audit_b_summary_api_npay_derived_deploy": {
+    "code_change": "backend/src/siteLandingLedger.ts +50 LOC — summarizeSiteLanding derived 에 npay_revenue_30d 블록 추가 (imweb_orders.pay_type='npay' + complete_time != null, site 분리, 한국어 단위 fmt)",
+    "vm_deploy": "scp + npm run build + pm2 restart seo-backend, exit 0",
+    "live_verification": {
+      "biocom": {"complete_count": 121, "complete_amount_krw": 24323000, "korean": "₩2,432만 3,000", "max_order_time": "2026-05-08T01:44:49.000Z"},
+      "thecleancoffee": {"complete_count": 242, "complete_amount_krw": 10237300, "korean": "₩1,023만 7,300", "max_order_time": "2026-05-08T06:01:25.000Z"}
+    },
+    "max_order_time_observation": "양 site max = 2026-05-08 → 3일 stale 추정. 직전 audit 시점 5/11 16:55 (1.3h) 와 차이 — sync 일부 사이트만 또는 시점 변동. 추가 audit 필요."
+  },
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "raw_pii_logged": false,
+    "raw_order_no_persisted": false,
+    "send_candidate": false,
+    "upload_candidate": 0,
+    "raw_click_id_storage_mode_in_summary_response": "hash_only"
+  },
+  "verdict": "AUDIT_DONE_OP_DB_BIOCOM_SINGLE_SITE_IMWEB_ORDERS_SYNC_PARTIAL_NPAY_DERIVED_LIVE"
+}

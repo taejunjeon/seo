@@ -409,6 +409,14 @@ export type SiteLandingSummary = {
     ttl_expiring_24h_count: number;
     external_send_count: 0;
     upload_candidate_count: 0;
+    /** gpt0508-45 정정: imweb v2 API → 로컬 imweb_orders 정본 NPay 매출 (운영DB 우회) */
+    npay_revenue_30d?: {
+      source: "imweb_orders (imweb v2 API cached)";
+      complete_count: number;
+      complete_amount_krw: number;
+      complete_amount_krw_korean: string;
+      max_order_time: string | null;
+    };
   };
 };
 
@@ -505,6 +513,54 @@ export const summarizeSiteLanding = (
       new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     ) as { n: number };
 
+  // gpt0508-45 정정: NPay 매출은 운영DB sync lag (9h) 회피, imweb v2 API → 로컬 imweb_orders 정본 사용.
+  // imweb_orders 테이블이 있을 때만 (없으면 빈값). 30d 윈도우 고정.
+  let npay_revenue_30d: SiteLandingSummary["derived"] extends infer D
+    ? D extends { npay_revenue_30d?: infer N }
+      ? N
+      : never
+    : never;
+  try {
+    const tableExists = db
+      .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='imweb_orders'`)
+      .get() as { name?: string } | undefined;
+    if (tableExists?.name) {
+      const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const npayRow = db
+        .prepare(
+          `SELECT COUNT(*) AS cnt, SUM(payment_amount) AS amt, MAX(order_time) AS max_t
+           FROM imweb_orders
+           WHERE site = ? AND pay_type = 'npay'
+             AND complete_time != '' AND complete_time IS NOT NULL
+             AND order_time >= ?`,
+        )
+        .get(site, thirtyDaysAgoIso) as { cnt: number; amt: number | null; max_t: string | null };
+      const amount = Number(npayRow.amt) || 0;
+      const koreanAmount = (() => {
+        if (amount === 0) return "₩0";
+        const eok = Math.floor(amount / 100_000_000);
+        const man = Math.floor((amount % 100_000_000) / 10_000);
+        const rest = amount % 10_000;
+        const parts: string[] = [];
+        if (eok > 0) parts.push(`${eok}억`);
+        if (man > 0) parts.push(`${man.toLocaleString("ko-KR")}만`);
+        if (rest > 0 && eok === 0) parts.push(`${rest.toLocaleString("ko-KR")}`);
+        return `₩${parts.join(" ")}`.trim() || `₩${amount.toLocaleString("ko-KR")}`;
+      })();
+      npay_revenue_30d = {
+        source: "imweb_orders (imweb v2 API cached)" as const,
+        complete_count: Number(npayRow.cnt),
+        complete_amount_krw: amount,
+        complete_amount_krw_korean: koreanAmount,
+        max_order_time: npayRow.max_t,
+      };
+    } else {
+      npay_revenue_30d = undefined as never;
+    }
+  } catch {
+    npay_revenue_30d = undefined as never;
+  }
+
   return {
     total,
     channel_distribution,
@@ -525,6 +581,7 @@ export const summarizeSiteLanding = (
       ttl_expiring_24h_count: Number(ttlExpiringRow.n),
       external_send_count: 0,
       upload_candidate_count: 0,
+      ...(npay_revenue_30d ? { npay_revenue_30d } : {}),
     },
   };
 };
