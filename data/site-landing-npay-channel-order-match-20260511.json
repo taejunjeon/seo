@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "schema_version": "site_landing_npay_channel_order_match_20260511",
+  "generated_at_kst": "2026-05-11 18:10:00 KST",
+  "follow_up_of": "data/site-landing-revenue-join-v2-bridge-success-20260511.json",
+  "purpose": "L2 attribution ladder 의 NPay 결제 매출 join 시도. site_landing → 로컬DB imweb_orders → 운영DB tb_iamweb_users 의 NAVERPAY_ORDER 매칭.",
+
+  "key_findings": [
+    "site_landing_ledger 에는 NPay 완료 URL (`order/result/mall/{channel_order_no}`) 형식이 0건. 브라우저 referrer policy 가 cross-origin 시 path 를 잘라내어 pay.naver.com 의 root 만 남김. 따라서 URL 직접 추출은 0건.",
+    "site_landing 의 referrer_host LIKE '%pay.naver.com%' row 6 건은 모두 thecleancoffee 의 /shop_view/ landing. NaPm 파라미터 (네이버 쇼핑/검색 클릭 추적) 만 보유하고 channel_order_no 는 없음.",
+    "site_landing window (2026-05-11 06:44~09:13 UTC = KST 15:44~18:13) 와 겹치는 imweb_orders npay 5건 (모두 thecleancoffee, 합계 ₩28만 200) 추출 성공. order_no 와 channel_order_no 모두 보유.",
+    "운영DB tb_iamweb_users.order_number 에 5건 후보로 매칭 시도 → 모두 0건. order_no/channel_order_no 어느 키로도 0건.",
+    "원인은 식별자 mismatch 가 아니라 운영DB NAVERPAY_ORDER sync lag. CARD 는 max(order_date)=KST 16:47:57 (lag ≈1h), SUBSCRIPTION 은 KST 14:58, NAVERPAY_ORDER 는 KST 09:47:22 만 적재됨 (lag ≈9h).",
+    "운영DB 자체의 NPay 적재는 정상 — 30일 214건 ₩3,827만, 본 일 5건 ₩55만 6,100 까지 sync 완료. 식별자 형식은 imweb order_no 와 동일 (15자리 숫자, 모두 'all_digits').",
+    "imweb_orders 첫 row 의 order_no=...6618 (KST 09:07:21) 가 운영DB NPay 09:07:21 row 의 order_number=...6618 와 일치 → 운영DB 가 imweb order_no 를 그대로 사용함이 cross-check 됨."
+  ],
+
+  "step1_site_landing_npay_referrer": {
+    "rows_with_pay_naver_referrer": 6,
+    "rows_with_order_code_in_landing_url": 0,
+    "rows_with_npay_completion_path_in_url": 0,
+    "site_distribution": { "thecleancoffee": 6, "biocom": 0 },
+    "rationale_for_zero_url_extraction": "browser strict-origin-when-cross-origin referrer policy. NPay 완료 URL 의 path (order/result/mall/{channel_order_no}) 가 잘려 root 만 referrer 로 보존됨."
+  },
+
+  "step2_imweb_orders_npay_in_window": {
+    "candidate_count": 5,
+    "site_distribution": { "thecleancoffee": 5, "biocom": 0 },
+    "imweb_local_sum_payment_amount_krw": 280200,
+    "window_utc": "2026-05-11T06:45:45.000Z ~ 2026-05-11T07:55:25.000Z",
+    "window_kst": "2026-05-11 15:45:45 ~ 16:55:25 KST"
+  },
+
+  "step3_operational_db_match": {
+    "match_by_imweb_order_no": 0,
+    "match_by_channel_order_no": 0,
+    "match_by_channel_last8": 0,
+    "payment_complete": 0,
+    "refunded_or_cancelled": 0,
+    "total_revenue_krw": 0,
+    "average_order_value_krw": 0
+  },
+
+  "korean_amount_format": "총 매출 ₩0 (매칭 0건)",
+
+  "diagnosis_root_cause": "운영DB NAVERPAY_ORDER sync lag. 운영DB max(order_date) by payment_method (오늘 2026-05-11 기준): CARD = KST 16:47:57 / SUBSCRIPTION = KST 14:58:43 / NAVERPAY_ORDER = KST 09:47:22. NPay 만 약 9시간 lag. 본 sprint candidate 5건 (KST 15:45~16:55) 은 lag window 안에 들어가 운영DB 에 아직 미적재.",
+
+  "next_check_window_hint": "내일 (2026-05-12) KST 18:00 이후 같은 query 재실행 시 5건이 운영DB 에 적재됐을 가능성 높음. NPay sync lag 가 24h 이상 누적되면 별도 sync pipeline 점검 필요.",
+
+  "compared_to_prev_sprint_v2_bridge": {
+    "prev_match_count": 4,
+    "prev_total_krw": 551000,
+    "prev_payment_method_distribution": { "CARD": 4, "NPay": 0 },
+    "prev_rationale": "CARD sync lag 가 짧아 직전 sprint 의 v2 bridge 가 CARD 4건 매칭 성공. NPay 는 같은 window 안에서 sync lag 9h 로 0건."
+  },
+
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "raw_pii_logged": false,
+    "raw_order_code_persisted_in_output": false,
+    "raw_order_no_persisted_in_output": false,
+    "raw_channel_order_no_persisted_in_output": false,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "gtm_publish": 0
+  },
+
+  "verdict": "L2_NPAY_REVENUE_JOIN_ZERO_DUE_TO_OPERATIONAL_DB_SYNC_LAG_NOT_IDENTIFIER_MISMATCH"
+}
