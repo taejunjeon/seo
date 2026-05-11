@@ -1,0 +1,117 @@
+{
+  "ok": true,
+  "schema_version": "confirmed_purchase_builder_r2_ledger_dry_run_20260511",
+  "generated_at_kst": "2026-05-11 10:55:00 KST",
+  "site": "biocom",
+  "purpose": "gpt0508-38 R2 canary 의 신규 2 row 를 실제 운영DB 후보 + click_view 후보(자동 skip)로 cross_reference_evidence 분류 dry-run. paid_order_click_exact / A_via_ledger_budget_floor 승급 가능성 실측.",
+  "harness_preflight": {
+    "lane": "Green dry-run",
+    "read_only": true,
+    "code_touched": false,
+    "raw_pii_logged": false
+  },
+  "input": {
+    "ledger_order_no_hash_full_count": 2,
+    "ledger_order_no_hash_prefix_8chars": ["598f3a69", "f2498ee8"],
+    "ledger_click_id_hash_count": 0,
+    "ledger_click_id_hash_status": "absent (둘 다 gclid 없는 결제)",
+    "operational_payment_complete_window_days": 7,
+    "google_ads_click_view_window_days": "skipped (click_id_hash 0)"
+  },
+  "operationalPaymentCompleteLookup_result": {
+    "ok": true,
+    "window_days": 7,
+    "candidates_scanned_7d": 642,
+    "matches": 2,
+    "pending_sync_lag": 0,
+    "unpaid_hold": 0,
+    "rows": [
+      {
+        "ledger_order_no_hash_prefix": "598f3a69",
+        "payment_complete_match": true,
+        "match_key_type": "order_number_hash",
+        "payment_status": "PAYMENT_COMPLETE",
+        "payment_method_family": "card",
+        "amount_krw_bucket": "100000_to_300000",
+        "sync_lag_note": "stale"
+      },
+      {
+        "ledger_order_no_hash_prefix": "f2498ee8",
+        "payment_complete_match": true,
+        "match_key_type": "order_number_hash",
+        "payment_status": "PAYMENT_COMPLETE",
+        "payment_method_family": "card",
+        "amount_krw_bucket": "100000_to_300000",
+        "sync_lag_note": "stale"
+      }
+    ]
+  },
+  "googleAdsClickViewExactLookup_result": {
+    "ok": true,
+    "total_ledger_hashes": 0,
+    "matches": 0,
+    "source_blocked": 0,
+    "rows": [],
+    "skip_reason": "ledger click_id_hash absent in both rows"
+  },
+  "cross_reference_evidence_classifications": [
+    {
+      "ledger_order_no_hash_prefix": "598f3a69",
+      "category": "paid_order_no_click_hold",
+      "budget_usable": false,
+      "blocker_reason": "paid_but_no_click_view_exact",
+      "send_candidate": false,
+      "actual_send_candidate": false
+    },
+    {
+      "ledger_order_no_hash_prefix": "f2498ee8",
+      "category": "paid_order_no_click_hold",
+      "budget_usable": false,
+      "blocker_reason": "paid_but_no_click_view_exact",
+      "send_candidate": false,
+      "actual_send_candidate": false
+    }
+  ],
+  "summary_counts": {
+    "total_r2_rows_from_canary": 2,
+    "session_only_quarantine_before": 2,
+    "payment_complete_matched": 2,
+    "click_view_exact_matched": 0,
+    "campaign_id_exact_matched": 0,
+    "paid_order_click_exact": 0,
+    "A_via_ledger_budget_floor": 0,
+    "paid_order_no_click_hold": 2,
+    "unpaid_order_bridge_hold": 0,
+    "pending_sync_lag_hold": 0,
+    "upload_candidate_count": 0,
+    "send_candidate_count": 0,
+    "actual_send_candidate_count": 0
+  },
+  "key_findings": [
+    "R2 wire 가 운영DB 와 정상 연결됨 — order_no_hash 2건 모두 운영DB tb_iamweb_users.order_number HMAC 와 정확히 매칭 (match_key_type=order_number_hash, payment_complete_match=true).",
+    "둘 다 카드 결제 (CARD), ₩10~30만 구간, PAYMENT_COMPLETE 상태 — 실제 우리 매출 2건이 R2 ledger 에 잘 누적되어 운영DB 와 연결됐다는 직접 증거.",
+    "click_id_hash 가 0 인 결과로 click_view exact 매칭 자체가 불가능 → paid_order_no_click_hold 로 분류. budget_usable 승급은 0건.",
+    "budget_usable 승급이 0 인 이유는 wire 결함이 아니라 '광고 클릭 없는 결제'였기 때문 — 다음 sprint 또는 주간 canary 에서 gclid 보유 결제가 들어오면 자동으로 A_via_ledger_budget_floor 후보 1+ 가 측정될 것."
+  ],
+  "interpretation_for_humans": [
+    "R2 wire 가 실제 운영DB 와 진짜 연결됐다는 것이 처음으로 운영 데이터로 검증됐오. payment-success → order_bridge_ledger → 운영DB order_number 까지 HMAC 일치율 100%.",
+    "신규 2 row 는 가게가 카드 결제로 ₩10~30만 사이 받은 진짜 우리 매출이오. 다만 footer 가 gclid 를 안 보낸 결제라 'Google 광고가 들여보낸 손님'이라고 증명할 수 없소.",
+    "이 두 row 는 internal ROAS 분자에는 합류하지만(이미 dashboard 라이브 internal 응답에 반영), 예산 판단 광고 floor 후보로는 자동 승급되지 않소.",
+    "정상이오 — 본 sprint 정책 그대로 'exact evidence 없는 row 는 광고 귀속 금지'."
+  ],
+  "next_step_outlook": {
+    "주간_canary_재실행시_예상": "주간 트래픽은 google ads 비율이 더 높아 click_id_hash 보유 row 가 누적될 가능성 큼. 그 경우 일부 row 가 A_via_ledger_budget_floor 로 자동 승급될 수 있음.",
+    "다음_sprint_연결할것": "본 sprint 의 helper 3개(operationalPaymentCompleteLookup + googleAdsClickViewExactLookup + cross_reference integration) 를 ConfirmedPurchasePrep builder buildConfirmedPurchaseNoSendPreview 안에 wire — 본 dry-run 의 결과가 builder 응답에 자동 포함되도록.",
+    "Google_Ads_API_click_view_caller_integration": "googleAdsClickViewExactLookup 에 raw click_id 후보를 inject 할 caller 로직 추가 (Google Ads click_view API 호출 또는 paid_click_intent_log read-only 조회)."
+  },
+  "invariants_held": {
+    "send_candidate": 0,
+    "actual_send_candidate": 0,
+    "upload_candidate_count": 0,
+    "raw_pii_in_response": false,
+    "raw_order_no_in_response": false,
+    "operational_db_write": 0,
+    "platform_actual_send": 0
+  },
+  "verdict": "DRY_RUN_PASS_WIRE_CONNECTED_2_ROWS_PAID_BUT_NO_CLICK"
+}

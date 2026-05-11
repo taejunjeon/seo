@@ -1,0 +1,59 @@
+{
+  "ok": true,
+  "schema_version": "operational_payment_complete_lookup_helper_20260511",
+  "generated_at_kst": "2026-05-11 10:50:00 KST",
+  "site": "biocom",
+  "purpose": "order_bridge_ledger 의 order_no_hash 를 운영DB tb_iamweb_users PAYMENT_COMPLETE 와 read-only HMAC 비교로 매칭하는 helper 추가. hash 역산 금지.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "no_operational_db_write": true,
+    "raw_pii_logged": false
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/operationalPaymentCompleteLookup.ts",
+      "kind": "new module",
+      "loc": 220,
+      "exports": ["lookupOperationalPaymentComplete", "OperationalPaymentCompleteLookupInput", "OperationalPaymentCompleteLookupResult", "OperationalPaymentCompleteLookupRow", "OperationalPaymentCompleteLookupDeps", "OperationalPaymentCompleteRunner", "PaymentMethodFamily", "PaymentCompleteMatchKeyType", "AmountKrwBucket"]
+    },
+    {
+      "file": "backend/tests/operational-payment-complete-lookup.test.ts",
+      "kind": "new fixture",
+      "loc": 100,
+      "fixtures": 5,
+      "test_pass": "5_of_5"
+    }
+  ],
+  "fixture_results": [
+    {"name": "ledger order_hash matches order_number HMAC", "result": "PASS"},
+    {"name": "ledger order_hash matches channel_order_no HMAC", "result": "PASS"},
+    {"name": "ledger order_hash no match → pending_sync_lag", "result": "PASS"},
+    {"name": "payment_status not COMPLETE → unpaid_hold", "result": "PASS"},
+    {"name": "raw order_no never appears in output", "result": "PASS"}
+  ],
+  "live_dry_run_result": {
+    "input_ledger_hashes": 2,
+    "candidates_scanned_7d": 642,
+    "matches": 2,
+    "match_key_type_all": "order_number_hash",
+    "payment_status_all": "PAYMENT_COMPLETE",
+    "payment_method_family_all": "card",
+    "amount_krw_bucket_all": "100000_to_300000",
+    "sync_lag_note": "stale (query 시점에 따라 lagged 도 가능)"
+  },
+  "design_decisions": [
+    "DI(dependency injection) 패턴 적용 — deps 객체로 isDatabaseConfigured, queryPg 주입 가능해 fixture stub 가능",
+    "단일 query 로 7d/30d 후보 fetch + transient HMAC index 생성. raw order_no 는 함수 종료 후 가비지 콜렉트.",
+    "응답에는 hash prefix(보고용) 또는 hash 자체만 포함. raw 값/PII 절대 출력 안 됨.",
+    "payment_method_family 분류로 NPay/card/vbank 구분 가능. amount_krw_bucket 으로 금액 분포는 noise 없이 표시."
+  ],
+  "invariants_verified": {
+    "raw_order_no_in_response": false,
+    "raw_email_phone_in_response": false,
+    "operational_db_write": 0,
+    "send_candidate_change": "none (helper 자체는 send 영향 0)"
+  },
+  "verdict": "HELPER_PASS_FIXTURE_PASS_LIVE_DRY_RUN_PASS"
+}

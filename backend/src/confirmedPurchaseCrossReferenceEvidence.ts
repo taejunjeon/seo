@@ -11,6 +11,13 @@ export type CrossReferenceLedgerLookup = {
   order_bridge_same_order_match?: boolean;
   matched_click_id_type?: "gclid" | "gbraid" | "wbraid" | null;
   matched_hash_prefix?: string | null;
+  /** gpt0508-39 추가 — operationalPaymentCompleteLookup + googleAdsClickViewExactLookup 결과 통합 */
+  ledger_row_present?: boolean;
+  payment_complete_match?: boolean;
+  payment_status?: string | null;
+  click_view_exact_match?: boolean;
+  campaign_id?: string | null;
+  sync_lag_status?: "fresh" | "lagged" | "stale" | "unknown";
 };
 
 export type CrossReferenceInput = {
@@ -25,6 +32,11 @@ export type CrossReferenceInput = {
 export type CrossReferenceCategory =
   | "A_click_present_campaign_matched"
   | "A_via_ledger"
+  | "A_via_ledger_budget_floor"
+  | "paid_order_click_unknown_campaign"
+  | "paid_order_no_click_hold"
+  | "unpaid_order_bridge_hold"
+  | "pending_sync_lag_hold"
   | "B_click_present_click_view_not_found"
   | "C_npay_no_click_with_utm"
   | "D_npay_no_click_no_utm"
@@ -77,6 +89,70 @@ export const classifyCrossReferenceEvidence = (
       source: "body_click_id",
       click_id_type: clickIdType,
       hash_prefix: null,
+      send_candidate: false,
+      actual_send_candidate: false,
+    };
+  }
+
+  // gpt0508-39 — ledger lookup 분기 (R2 ledger row + 운영DB PAYMENT_COMPLETE + Google Ads click_view exact 결합)
+  if (lookup?.ledger_row_present) {
+    if (lookup.payment_complete_match === false && lookup.payment_status && !["", "PAYMENT_COMPLETE"].includes(lookup.payment_status)) {
+      return {
+        category: "unpaid_order_bridge_hold",
+        budget_usable: false,
+        blocker_reason: `unpaid_status_${lookup.payment_status}`,
+        source: "ledger_match",
+        click_id_type: lookup.matched_click_id_type ?? "none",
+        hash_prefix: lookup.matched_hash_prefix ?? null,
+        send_candidate: false,
+        actual_send_candidate: false,
+      };
+    }
+    if (lookup.payment_complete_match === false) {
+      return {
+        category: "pending_sync_lag_hold",
+        budget_usable: false,
+        blocker_reason: `pending_sync_lag_${lookup.sync_lag_status ?? "unknown"}`,
+        source: "ledger_match",
+        click_id_type: lookup.matched_click_id_type ?? "none",
+        hash_prefix: lookup.matched_hash_prefix ?? null,
+        send_candidate: false,
+        actual_send_candidate: false,
+      };
+    }
+    // payment_complete_match === true 분기
+    if (lookup.click_view_exact_match && lookup.campaign_id) {
+      return {
+        category: "A_via_ledger_budget_floor",
+        budget_usable: true,
+        blocker_reason: null,
+        source: "ledger_match",
+        click_id_type: lookup.matched_click_id_type ?? "none",
+        hash_prefix: lookup.matched_hash_prefix ?? null,
+        send_candidate: false,
+        actual_send_candidate: false,
+      };
+    }
+    if (lookup.click_view_exact_match && !lookup.campaign_id) {
+      return {
+        category: "paid_order_click_unknown_campaign",
+        budget_usable: false,
+        blocker_reason: "click_view_matched_but_campaign_id_absent",
+        source: "ledger_match",
+        click_id_type: lookup.matched_click_id_type ?? "none",
+        hash_prefix: lookup.matched_hash_prefix ?? null,
+        send_candidate: false,
+        actual_send_candidate: false,
+      };
+    }
+    // paid but no click exact
+    return {
+      category: "paid_order_no_click_hold",
+      budget_usable: false,
+      blocker_reason: "paid_but_no_click_view_exact",
+      source: "ledger_match",
+      click_id_type: lookup.matched_click_id_type ?? "none",
+      hash_prefix: lookup.matched_hash_prefix ?? null,
       send_candidate: false,
       actual_send_candidate: false,
     };

@@ -1,0 +1,121 @@
+{
+  "ok": true,
+  "schema_version": "r2_capture_retention_maxrows_approval_options_20260511",
+  "generated_at_kst": "2026-05-11 10:45:00 KST",
+  "site": "biocom",
+  "purpose": "R2 canary 가 반복 PASS 하면 1h 실험에서 지속 수집으로 전환할지 판단할 수 있게 3 옵션 비교. 본 sprint 에는 실행 0, approval packet 만.",
+  "harness_preflight": {
+    "lane_for_this_artifact": "Green",
+    "lane_for_each_option": {
+      "option_1": "Green (현상 유지)",
+      "option_2": "Yellow proposed (max_rows 500, KST 11~13 2h/day 자동 canary)",
+      "option_3": "Yellow proposed (7일 always-on, max_rows 2000, retention 정책)"
+    },
+    "approval_status": "pending_TJ",
+    "executed_in_this_sprint": false
+  },
+  "current_state_baseline": {
+    "ledger_row_count_at_audit": 6,
+    "ORDER_BRIDGE_WRITE_MAX_ROWS": 200,
+    "ORDER_BRIDGE_RETENTION_DAYS": 90,
+    "ORDER_BRIDGE_WRITE_ENABLED_default": false,
+    "canary_runs_so_far": 2,
+    "canary_total_payment_success_2": "gpt0508-38 (2 row) + gpt0508-39 작업6 (진행 중)"
+  },
+  "options": [
+    {
+      "option_id": 1,
+      "name": "현상 유지 — 수동 1h canary 반복",
+      "lane": "Green",
+      "what_changes": "변경 없음. 매 sprint 또는 TJ 결정 시점에 1h 수동 canary 실행.",
+      "advantages": [
+        "위험 0",
+        "rollback 자동 (canary_until + nohup)",
+        "max_rows 200 안에서 안전",
+        "코드 변경 0"
+      ],
+      "risks": [
+        "row 누적 속도 느림 (1h 당 2~20 row 추정)",
+        "다음 sprint cross_reference wire 후 실측 효과 측정에 시간 더 필요",
+        "TJ 또는 Claude Code 가 매번 toggle 명령 실행해야 함"
+      ],
+      "rollback": "n/a (변경 없음)",
+      "expected_row_volume_per_week": "약 14~140 row",
+      "raw_send_guard": "유지",
+      "recommendation": "단기 추천 — 본 sprint 와 다음 sprint 까지는 이 옵션이 합리적",
+      "confidence_pct": 92
+    },
+    {
+      "option_id": 2,
+      "name": "제한 운영 — KST 주간 2h/day 자동 canary, max_rows 500",
+      "lane": "Yellow_proposed",
+      "what_changes": [
+        "VM cron 또는 systemd timer 로 매일 KST 11:00~13:00 자동 canary 시작",
+        "ORDER_BRIDGE_WRITE_MAX_ROWS=500",
+        "ORDER_BRIDGE_RETENTION_DAYS=90 유지",
+        "raw/send/upload invariant 그대로"
+      ],
+      "advantages": [
+        "row 누적 속도 ↑ (1주 약 200~1400 row)",
+        "사람 개입 없이 정기 누적",
+        "주간 트래픽 구간 자동 포착으로 click_id_hash 보유 row 비율 ↑"
+      ],
+      "risks": [
+        "VM cron 설정 변경 (시스템 운영 영역)",
+        "max_rows 500 까지 빠르게 차면 일부 row 누락",
+        "회전(retention rotation) 정책 미정",
+        "auto canary 실패 알림 채널 필요"
+      ],
+      "rollback": "cron job 비활성 + ORDER_BRIDGE_WRITE_ENABLED=false + max_rows=200 복귀",
+      "expected_row_volume_per_week": "약 200~1400 row",
+      "raw_send_guard": "유지",
+      "recommendation": "중기 추천 — 다음 sprint cross_reference wire 가 PASS 한 뒤에 진입",
+      "confidence_pct": 78
+    },
+    {
+      "option_id": 3,
+      "name": "적극 운영 — 7일 always-on, max_rows 2000, retention 7/30/90일 정책",
+      "lane": "Yellow_proposed_with_red_components",
+      "what_changes": [
+        "ORDER_BRIDGE_WRITE_ENABLED=true 7일 always-on",
+        "ORDER_BRIDGE_WRITE_MAX_ROWS=2000",
+        "ORDER_BRIDGE_RETENTION_DAYS=90 (또는 retention rotation 정책 추가)",
+        "정기 압축/회전 cron 또는 scheduled job 필요"
+      ],
+      "advantages": [
+        "1주에 모든 결제 traffic 의 R2 ledger 가 운영DB 와 자동 연결됨",
+        "click_id_hash 보유 row 누적 최대",
+        "다음 sprint wire 후 budget_usable 후보가 즉시 측정 가능"
+      ],
+      "risks": [
+        "max_rows 2000 도달 시점에 정책 자동 동작 필요",
+        "always-on 은 사실상 운영 정책 변경이라 7일 후에도 자동 끄는 게이트 필요",
+        "PII 정책 추가 검토 — hash-only 유지지만 row 양 증가",
+        "rollback 시 정합성 ledger row 삭제 정책 명확화"
+      ],
+      "rollback": "ORDER_BRIDGE_WRITE_ENABLED=false 즉시 + max_rows=200 복귀 + 추가 row 정리 옵션 (DELETE WHERE created_at > X)",
+      "expected_row_volume_per_week": "약 700~3500 row (max_rows 한도 안)",
+      "raw_send_guard": "유지",
+      "recommendation": "추천 보류 — 다음 sprint wire PASS + 2 옵션 1~2주 누적 후 검토",
+      "confidence_pct": 65
+    }
+  ],
+  "claude_code_recommendation": {
+    "primary_option": 1,
+    "rationale": "본 sprint 와 다음 sprint 까지는 옵션 1(현상 유지) 로도 cross_reference wire 검증에 충분. 옵션 2 는 wire PASS + budget_usable 후보 실측 후 진입.",
+    "decision_trigger_for_option_2": "다음 sprint(cross_reference wire) 가 PASS 하고, paid_order_click_exact 후보가 1+ 측정되는 시점",
+    "decision_trigger_for_option_3": "옵션 2 가 1~2주 운영 PASS + retention rotation 검증 통과 + dashboard freshness 라이브 확인 후"
+  },
+  "out_of_scope_for_this_sprint": [
+    "VM cron 설정 변경",
+    "always-on 진입",
+    "max_rows 증액 실행",
+    "retention rotation 코드 추가"
+  ],
+  "approval_text_per_option": {
+    "option_1": "현상 유지 — 별도 승인 필요 없음",
+    "option_2": "[승인] gpt0508-NN R2 자동 canary 옵션 2: VM cron KST 11~13 2h/day, ORDER_BRIDGE_WRITE_ENABLED=true 윈도우 안에서만, ORDER_BRIDGE_WRITE_MAX_ROWS=500, retention 90일 유지, raw/send/upload 0 유지, rollback cron 비활성 + max_rows 복귀.",
+    "option_3": "[승인] gpt0508-NN R2 자동 canary 옵션 3: 7일 always-on, ORDER_BRIDGE_WRITE_MAX_ROWS=2000, retention rotation 정책 추가, 자동 종료 게이트 7일 후 토글, raw/send/upload 0 유지, rollback ORDER_BRIDGE_WRITE_ENABLED=false 즉시 + max_rows 복귀."
+  },
+  "verdict": "OPTIONS_LOCKED_OPTION_1_RECOMMENDED_FOR_NOW"
+}

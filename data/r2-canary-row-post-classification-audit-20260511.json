@@ -1,0 +1,102 @@
+{
+  "ok": true,
+  "schema_version": "r2_canary_row_post_classification_audit_20260511",
+  "generated_at_kst": "2026-05-11 10:35:00 KST",
+  "site": "biocom",
+  "purpose": "gpt0508-38 R2 1h canary 동안 누적된 신규 2 row 를 raw 출력 없이 상태 분해. paid_order_click_exact 승급 가능성 사전 평가.",
+  "harness_preflight": {
+    "lane": "Green",
+    "read_only": true,
+    "raw_pii_logged": false,
+    "raw_order_no_logged": false,
+    "raw_click_id_logged": false,
+    "hash_prefix_only_output": true
+  },
+  "audit_source": {
+    "table": "VM Cloud SQLite order_bridge_ledger",
+    "query_filter": "site='biocom' AND created_at >= '2026-05-10T16:41:00.000Z' (canary 시작 시각 직전)",
+    "query_method": "ssh + sudo -u biocomkr_sns + better-sqlite3 read-only"
+  },
+  "rows": [
+    {
+      "bridge_id": "5590d226-e120-462c-8e12-3108efb6cafb",
+      "capture_stage": "order_confirm_preview",
+      "created_at_utc": "2026-05-10T17:19:13.824Z",
+      "created_at_kst": "2026-05-11 02:19:13 KST",
+      "status": "session_only_quarantine",
+      "hash_length_summary": {
+        "order_no_hash_len": 64,
+        "click_id_hash_len": 0,
+        "email_hash_len": 0,
+        "phone_hash_len": 0,
+        "local_session_id_hash_len": 0,
+        "client_id_len": 20,
+        "ga_session_id_len": 10,
+        "dedupe_key_len": 64
+      },
+      "order_no_hash_prefix_8chars": "598f3a69",
+      "duplicate_count": 0,
+      "raw_payload_stored": 0,
+      "platform_send_count": 0,
+      "post_classification": "session_only_quarantine_click_missing",
+      "post_classification_reason": "hasOrder=true + hasIdentity=false (email/phone hash 0) + hasSession=true (client_id/ga_session_id 보유) + hasClick=false (click_id_hash 0)",
+      "promotion_path_to_paid_order_click_exact": {
+        "operational_payment_complete_check": "POSSIBLE (order_no_hash 보유, 운영DB sync lag 안에서 매칭 시도 가능)",
+        "google_ads_click_view_exact_check": "BLOCKED (click_id_hash 0 — gclid 없는 결제)",
+        "promotable": false,
+        "blocker_reason": "click_id_hash_absent"
+      }
+    },
+    {
+      "bridge_id": "dadbdfe6-8cd8-4a50-9044-3ed7d0bdab22",
+      "capture_stage": "order_confirm_preview",
+      "created_at_utc": "2026-05-10T17:36:01.433Z",
+      "created_at_kst": "2026-05-11 02:36:01 KST",
+      "status": "session_only_quarantine",
+      "hash_length_summary": {
+        "order_no_hash_len": 64,
+        "click_id_hash_len": 0,
+        "email_hash_len": 0,
+        "phone_hash_len": 0,
+        "local_session_id_hash_len": 0,
+        "client_id_len": 20,
+        "ga_session_id_len": 10,
+        "dedupe_key_len": 64
+      },
+      "order_no_hash_prefix_8chars": "f2498ee8",
+      "duplicate_count": 0,
+      "raw_payload_stored": 0,
+      "platform_send_count": 0,
+      "post_classification": "session_only_quarantine_click_missing",
+      "post_classification_reason": "hasOrder=true + hasIdentity=false + hasSession=true + hasClick=false",
+      "promotion_path_to_paid_order_click_exact": {
+        "operational_payment_complete_check": "POSSIBLE",
+        "google_ads_click_view_exact_check": "BLOCKED (click_id_hash 0)",
+        "promotable": false,
+        "blocker_reason": "click_id_hash_absent"
+      }
+    }
+  ],
+  "summary": {
+    "total_canary_rows": 2,
+    "session_only_quarantine_click_present": 0,
+    "session_only_quarantine_click_missing": 2,
+    "missing_order_hash": 0,
+    "duplicate_deduped": 0,
+    "other": 0,
+    "paid_order_click_exact_promotable_estimated": 0,
+    "primary_promotion_blocker": "click_id_hash_absent (둘 다 결제완료 시점 페이로드에 gclid 가 없었음 — direct/non-google traffic 또는 footer 가 gclid 를 보존하지 못한 케이스)"
+  },
+  "interpretation_human_language": [
+    "신규 2 row 모두 session_only_quarantine_click_missing — order_no_hash 와 session(client_id/ga_session_id) 은 보유했지만 gclid/gbraid/wbraid 가 전혀 없는 결제다.",
+    "이건 footer payload 의 tracking.gclid 가 비어 있었다는 뜻이고, 둘 다 야간에 들어온 결제라 다이렉트 또는 비-google 채널 가능성이 큼 (또는 결제완료 시점에 referrer/landing 의 gclid 가 만료됐을 수 있음).",
+    "두 row 모두 paid_order_click_exact 승급은 본 sprint 에서 불가능. operationalPaymentCompleteLookup 으로 PAYMENT_COMPLETE 매칭은 가능하지만 click_view exact 입력 자체가 0 이라 budget_usable 승급 0.",
+    "주간 시간대 canary 재실행 시 google 트래픽 비율 더 높아 click_id_hash 보유 row 가 누적될 가능성 있음."
+  ],
+  "next_helper_input_implications": {
+    "operationalPaymentCompleteLookup_input": "order_no_hash 2건 (598f3a69, f2498ee8) — 운영DB 최근 30d 후보를 transient HMAC 후 비교",
+    "googleAdsClickViewExactLookup_input": "click_id_hash 0건 — 두 row 모두 입력 0, 자동 click_view_not_found",
+    "cross_reference_evidence_expected_classification": "paid_order_no_click_hold (payment_complete 매칭 시) 또는 session_only_quarantine_no_paid_evidence (sync_lag) — 둘 다 budget_usable=false"
+  },
+  "verdict": "AUDIT_PASS_BOTH_ROWS_CLICK_HASH_ABSENT_PROMOTION_BLOCKED_AT_CLICK_EVIDENCE"
+}

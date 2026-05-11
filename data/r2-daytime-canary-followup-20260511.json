@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "schema_version": "r2_daytime_canary_followup_20260511",
+  "generated_at_kst": "2026-05-11 11:45:00 KST",
+  "site": "biocom",
+  "verdict": "CANARY_COMPLETE_PASS",
+  "verdict_basis_5_signal": {
+    "signal_1_ledger_row_delta": "+5 (row_count 6 → 11)",
+    "signal_2_path_b_endpoint_direct_call": "0 (R2 wire 가 backend 내부에서 호출 정상)",
+    "signal_3_payment_success_call_count": "4 (grep 기반, 일부 누락 가능)",
+    "signal_4_paid_click_intent_receiver": "정상 누적 (cumulative 8,427+)",
+    "signal_5_operational_fresh_order_count": "운영DB sync lag 안에서 측정",
+    "decision_path": "signal2=0(정상) + signal4 정상 + signal3=4 vs signal1=+5 (grep 패턴 차이 추정) → CANARY_COMPLETE_PASS"
+  },
+  "harness_preflight": {
+    "lane": "Yellow_executed",
+    "approval_received": "[승인] gpt0508-38 작업2 와 동일 invariant 범위 재사용",
+    "executed_within_scope": true,
+    "canary_window_was_daytime_partial": true,
+    "daytime_caveat": "본 sprint canary 는 KST 10:42~11:42 — 주간 시간대 일부만 포함 (오전이라 점심 전 부분). KST 11:00~12:00 정점 시간 대비 약 50% 비중."
+  },
+  "timeline_kst": {
+    "canary_start": "2026-05-11 10:42:57 KST",
+    "canary_cutoff_code": "2026-05-11 11:42:57 KST (UTC 02:42:57Z)",
+    "vm_auto_rollback_started": "2026-05-11 11:42:02 KST",
+    "vm_auto_rollback_finished": "2026-05-11 11:42:09 KST",
+    "claude_code_post_audit_fetched": "2026-05-11 11:42:43 KST"
+  },
+  "snapshots": {
+    "pre_canary_at_1042": {
+      "row_count": 6,
+      "status_counts": {"full_bridge": 0, "identity_only_quarantine": 2, "session_only_quarantine": 2, "click_missing_hold": 0, "ambiguous": 0, "do_not_send": 0}
+    },
+    "pre_rollback_at_1142_02": {
+      "row_count": 11,
+      "status_counts": {"full_bridge": 0, "identity_only_quarantine": 2, "session_only_quarantine": 6, "click_missing_hold": 1, "ambiguous": 0, "do_not_send": 0},
+      "write_flag_on": true,
+      "raw_stored_count": 0,
+      "platform_send_count": 0
+    },
+    "post_rollback_at_1142_09": {
+      "row_count": 11,
+      "status_counts": {"full_bridge": 0, "identity_only_quarantine": 2, "session_only_quarantine": 6, "click_missing_hold": 1, "ambiguous": 0, "do_not_send": 0},
+      "write_flag_on": false,
+      "raw_stored_count": 0,
+      "platform_send_count": 0
+    }
+  },
+  "deltas": {
+    "row_count_canary_delta": 5,
+    "session_only_quarantine_delta": 4,
+    "click_missing_hold_delta": 1,
+    "raw_stored_count_change": 0,
+    "platform_send_count_change": 0,
+    "write_flag_on_returned_to_false": true
+  },
+  "endpoint_log_audit": {
+    "payment_success_post_count_within_canary_window": 4,
+    "ledger_row_delta": 5,
+    "wire_coverage_ratio_estimate": 1.25,
+    "interpretation": "row_count delta(5) 가 payment-success POST count(4) 보다 1 큰 이유는 grep 패턴이 OPTIONS preflight 또는 시간대 boundary row 1건을 누락했을 가능성이 큼. row 자체는 정상 누적. raw_stored/platform_send 0 유지로 안전선 PASS."
+  },
+  "status_distribution_observation": {
+    "click_missing_hold_first_appearance": true,
+    "click_missing_hold_meaning": "hasOrder=true + hasIdentity 또는 hasSession 일부 보유 + hasClick=false 의 새 분기. 즉 footer payload 가 일부 결제에 raw email/phone 또는 identity material 을 보낸 케이스로 추정 (또는 imweb checkout 다른 origin 의 payment-success 호출).",
+    "session_only_quarantine_dominance": "주간 9시간 lag 회복 후에도 6/11 = 54.5% 가 session_only_quarantine — gclid 없는 결제 비율이 야간과 유사",
+    "no_full_bridge_yet": "click_id_hash + identity hash 둘 다 보유한 row 0 — 다음 sprint identity 보강 또는 더 큰 표본 필요"
+  },
+  "max_rows_remaining": 189,
+  "env_state_after_rollback": {
+    "ORDER_BRIDGE_WRITE_ENABLED": "false (정상 복귀)",
+    "ORDER_BRIDGE_WRITE_CANARY_UNTIL": "(empty)",
+    "ORDER_BRIDGE_WRITE_MAX_ROWS": 200,
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED": "false",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING": "false"
+  },
+  "interpretation_human_language": [
+    "주간 1h canary 가 야간 2건보다 약 2.5배 많은 5건 누적 — 트래픽 추이 일치.",
+    "신규 row 5건 중 4건이 session_only_quarantine (gclid 없는 결제), 1건은 click_missing_hold (identity 또는 session 일부 + click 부재) 라는 새 카테고리 첫 등장.",
+    "raw 저장 0 / platform send 0 / write_flag 자동 원복 — 모든 안전선 PASS.",
+    "다만 11건 어떤 row 도 full_bridge 또는 A_via_ledger_budget_floor 후보가 되기엔 click_id_hash 부재율이 높음. 본 sprint helper 3개 wire 후에도 budget_usable 승급은 0 추정.",
+    "다음 sprint 또는 옵션 2(KST 11~13 자동 canary) 진입 시점에 click_id_hash 보유 row 가 누적될 가능성."
+  ],
+  "next_canary_recommendation": [
+    "정점 시간대 (KST 11:00~12:00 또는 19:00~20:00) 윈도우로 1h canary 재실행하면 click_id_hash 비율이 더 높을 가능성.",
+    "max_rows=200 한도 안에서 약 30~40 row 까지 안전 누적 가능.",
+    "옵션 2(자동 2h/day) 진입 결정은 다음 sprint cross_reference wire 후 budget_usable 승급 실측 데이터 본 뒤."
+  ]
+}

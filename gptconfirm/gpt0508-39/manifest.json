@@ -1,0 +1,96 @@
+{
+  "batch": "gpt0508-39",
+  "created_at_kst": "2026-05-11 11:50:00 KST",
+  "purpose": "Claude Code Ledger Promotion Sprint — R2 ledger 2 row 를 운영DB PAYMENT_COMPLETE + Google Ads click_view exact 로 paid_order_click_exact 승급 가능성 검증. helper 3개 추가 + cross_reference integration + 주간 canary +5 row.",
+  "lane": "Green_code_executed_plus_yellow_daytime_canary_pass",
+  "track_progress": {
+    "A": {"name": "ConfirmedPurchasePrep 통합 input", "previous_percent": 99, "current_percent": 99, "delta_percent": 0},
+    "B": {"name": "Google Ads campaign_id 조인/ROAS 분해", "previous_percent": 95, "current_percent": 97, "delta_percent": 2},
+    "C": {"name": "BigQuery campaign funnel quality", "previous_percent": 85, "current_percent": 85, "delta_percent": 0},
+    "D/KR6": {"name": "Meta funnel CAPI Test Events readiness", "previous_percent": 74, "current_percent": 74, "delta_percent": 0},
+    "E": {"name": "Harness/HOLD Reducer", "previous_percent": 98, "current_percent": 99, "delta_percent": 1},
+    "F": {"name": "Frontend/Data Trust Dashboard", "previous_percent": 80, "current_percent": 80, "delta_percent": 0}
+  },
+  "documents": [
+    {"source": "gptconfirm/gpt0508-39/00-result-report.md", "copy": "gptconfirm/gpt0508-39/00-result-report.md", "why_included": "종합 결과보고서"},
+    {"source": "gdn/r2-canary-row-post-classification-audit-20260511.md", "copy": "gptconfirm/gpt0508-39/01-r2-canary-row-post-classification-audit-20260511.md", "why_included": "작업1 신규 2 row hash-only 분해"},
+    {"source": "gdn/operational-payment-complete-lookup-helper-20260511.md", "copy": "gptconfirm/gpt0508-39/02-operational-payment-complete-lookup-helper-20260511.md", "why_included": "작업2 helper + live dry-run"},
+    {"source": "gdn/google-ads-click-view-exact-lookup-helper-20260511.md", "copy": "gptconfirm/gpt0508-39/03-google-ads-click-view-exact-lookup-helper-20260511.md", "why_included": "작업3 helper + fixture"},
+    {"source": "gdn/cross-reference-evidence-ledger-lookup-integration-20260511.md", "copy": "gptconfirm/gpt0508-39/04-cross-reference-evidence-ledger-lookup-integration-20260511.md", "why_included": "작업4 5 신규 카테고리 integration"},
+    {"source": "gdn/confirmed-purchase-builder-r2-ledger-dry-run-20260511.md", "copy": "gptconfirm/gpt0508-39/05-confirmed-purchase-builder-r2-ledger-dry-run-20260511.md", "why_included": "작업5 운영DB 첫 실측 연결 검증"},
+    {"source": "gdn/r2-daytime-canary-followup-20260511.md", "copy": "gptconfirm/gpt0508-39/06-r2-daytime-canary-followup-20260511.md", "why_included": "작업6 주간 canary +5 row"},
+    {"source": "gdn/r2-capture-retention-maxrows-approval-options-20260511.md", "copy": "gptconfirm/gpt0508-39/07-r2-capture-retention-maxrows-approval-options-20260511.md", "why_included": "작업7 3 옵션 packet"},
+    {"source": "gptconfirm/gpt0508-39/08-telegram-completion-note.md", "copy": "gptconfirm/gpt0508-39/08-telegram-completion-note.md", "why_included": "telegram skip record"},
+    {"source": "total/!total-current.md", "copy": "gptconfirm/gpt0508-39/99-total-current-copy.md", "why_included": "canonical snapshot"}
+  ],
+  "data_artifacts": [
+    "data/r2-canary-row-post-classification-audit-20260511.json",
+    "data/operational-payment-complete-lookup-helper-20260511.json",
+    "data/google-ads-click-view-exact-lookup-helper-20260511.json",
+    "data/cross-reference-evidence-ledger-lookup-integration-20260511.json",
+    "data/confirmed-purchase-builder-r2-ledger-dry-run-20260511.json",
+    "data/r2-daytime-canary-followup-20260511.json",
+    "data/r2-capture-retention-maxrows-approval-options-20260511.json"
+  ],
+  "code_changes": [
+    {"file": "backend/src/operationalPaymentCompleteLookup.ts", "kind": "new module", "loc": 220, "typecheck": "PASS"},
+    {"file": "backend/src/googleAdsClickViewExactLookup.ts", "kind": "new module", "loc": 188, "typecheck": "PASS"},
+    {"file": "backend/src/confirmedPurchaseCrossReferenceEvidence.ts", "kind": "patch — 5 new categories + 6 new ledger_lookup fields + branch", "loc_added": 75, "typecheck": "PASS"},
+    {"file": "backend/tests/operational-payment-complete-lookup.test.ts", "kind": "new fixture", "loc": 100, "fixtures": 5, "test_pass": "5_of_5"},
+    {"file": "backend/tests/google-ads-click-view-exact-lookup.test.ts", "kind": "new fixture", "loc": 92, "fixtures": 5, "test_pass": "5_of_5"},
+    {"file": "backend/tests/cross-reference-evidence-ledger-lookup-integration.test.ts", "kind": "new fixture", "loc": 110, "fixtures": 6, "test_pass": "6_of_6"}
+  ],
+  "vm_operations_executed": {
+    "method": "ssh + sudo -u biocomkr_sns + env toggle + pm2 restart + nohup auto-rollback",
+    "canary_window_kst": "2026-05-11 10:42 ~ 11:42 KST (1h)",
+    "ledger_row_count_pre": 6,
+    "ledger_row_count_post": 11,
+    "ledger_row_delta": 5,
+    "payment_success_post_count_in_window": 4,
+    "wire_coverage_ratio_estimate": 1.25,
+    "raw_stored_count": 0,
+    "platform_send_count": 0,
+    "write_flag_returned_to_false": true,
+    "auto_rollback_executed_by_vm_nohup_scheduler": true
+  },
+  "live_dry_run_executed": {
+    "input_ledger_order_hashes": 2,
+    "operational_db_candidates_scanned_7d": 642,
+    "payment_complete_matches": 2,
+    "match_key_type": "order_number_hash",
+    "payment_status": "PAYMENT_COMPLETE",
+    "click_view_exact_matches": 0,
+    "cross_reference_categories": "paid_order_no_click_hold × 2",
+    "budget_usable_count": 0
+  },
+  "verification": {
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_check_strict": "PASS",
+    "git_diff_check": "PASS",
+    "backend_typecheck": "PASS",
+    "backend_fixture_cumulative": "PASS_40_OF_40",
+    "raw_pii_pattern_scan": "PASS",
+    "hash_inversion_attempt": "NONE",
+    "operational_db_write": 0,
+    "platform_actual_send": 0
+  },
+  "forbidden_actions_not_taken": [
+    "Google Ads confirmed_purchase upload",
+    "Google Ads conversion action 변경",
+    "GA4/Meta/TikTok/Naver 운영 전송",
+    "GTM Production publish",
+    "imweb footer/header 직접 수정",
+    "운영DB write",
+    "raw email/phone/order/payment/member_code 저장 또는 logging",
+    "NPay click/count/add_payment_info 를 actual purchase로 승격",
+    "exact evidence 없는 NPay actual을 Google Ads campaign_id에 귀속",
+    "time-window-only attribution을 예산 판단에 사용",
+    "send_candidate=true",
+    "actual_send_candidate=true",
+    "ORDER_BRIDGE_RAW_BODY_LOGGING=true",
+    "ORDER_BRIDGE_PLATFORM_SEND_ENABLED=true",
+    "max_rows 200 증액",
+    "텔레그램 발송 (사용자 명시 skip 유지)"
+  ]
+}

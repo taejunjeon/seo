@@ -1,0 +1,67 @@
+{
+  "ok": true,
+  "schema_version": "cross_reference_evidence_ledger_lookup_integration_20260511",
+  "generated_at_kst": "2026-05-11 10:54:00 KST",
+  "site": "biocom",
+  "purpose": "operationalPaymentCompleteLookup + googleAdsClickViewExactLookup 의 결과를 cross_reference_evidence 의 ledger_lookup 분기에 통합. 6개 신규 카테고리 추가.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "raw_pii_logged": false
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/confirmedPurchaseCrossReferenceEvidence.ts",
+      "kind": "patch — CrossReferenceLedgerLookup type 확장 + CrossReferenceCategory 5종 추가 + classifyCrossReferenceEvidence 분기 추가",
+      "loc_added": 75
+    },
+    {
+      "file": "backend/tests/cross-reference-evidence-ledger-lookup-integration.test.ts",
+      "kind": "new fixture",
+      "loc": 110,
+      "fixtures": 6,
+      "test_pass": "6_of_6"
+    }
+  ],
+  "new_categories_added_to_CrossReferenceCategory": [
+    "A_via_ledger_budget_floor",
+    "paid_order_click_unknown_campaign",
+    "paid_order_no_click_hold",
+    "unpaid_order_bridge_hold",
+    "pending_sync_lag_hold"
+  ],
+  "new_fields_added_to_CrossReferenceLedgerLookup": [
+    "ledger_row_present",
+    "payment_complete_match",
+    "payment_status",
+    "click_view_exact_match",
+    "campaign_id",
+    "sync_lag_status"
+  ],
+  "decision_branch": {
+    "ledger_row_present=true and payment_status not in (PAYMENT_COMPLETE, empty)": "unpaid_order_bridge_hold",
+    "ledger_row_present=true and payment_complete_match=false": "pending_sync_lag_hold",
+    "ledger_row_present=true and payment_complete_match=true and click_view_exact_match=true and campaign_id present": "A_via_ledger_budget_floor (budget_usable=true)",
+    "ledger_row_present=true and payment_complete_match=true and click_view_exact_match=true and campaign_id absent": "paid_order_click_unknown_campaign",
+    "ledger_row_present=true and payment_complete_match=true and click_view_exact_match=false": "paid_order_no_click_hold",
+    "ledger_row_present=false 또는 ledger_lookup undefined": "기존 (A_via_ledger / B~G / H_unknown) 분기 유지"
+  },
+  "fixture_results": [
+    {"name": "ledger paid + click_view_exact + campaign_id → A_via_ledger_budget_floor", "result": "PASS"},
+    {"name": "ledger paid + click_view exact + campaign_id absent → paid_order_click_unknown_campaign", "result": "PASS"},
+    {"name": "ledger paid + no click_view exact → paid_order_no_click_hold", "result": "PASS"},
+    {"name": "ledger unpaid (REFUND_COMPLETE) → unpaid_order_bridge_hold", "result": "PASS"},
+    {"name": "ledger sync lag pending → pending_sync_lag_hold", "result": "PASS"},
+    {"name": "raw fields never output (JSON.stringify scan)", "result": "PASS"}
+  ],
+  "regression_test_pass": "기존 5 fixture (gpt0508-35) + 본 sprint 6 fixture = 누적 11 fixture PASS",
+  "invariants_verified": {
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate": 0,
+    "raw_pii_in_response": false,
+    "ledger_lookup_input_supports_undefined": true
+  },
+  "verdict": "INTEGRATION_PASS_FIXTURE_PASS_NO_REGRESSION"
+}

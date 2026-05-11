@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "schema_version": "google_ads_click_view_exact_lookup_helper_20260511",
+  "generated_at_kst": "2026-05-11 10:52:00 KST",
+  "site": "biocom",
+  "purpose": "order_bridge_ledger 의 click_id_hash 를 Google Ads click_view 또는 paid_click_intent_log 의 raw click_id 후보와 transient HMAC 비교로 매칭하는 helper. hash 역산 금지.",
+  "harness_preflight": {
+    "lane": "Green code",
+    "code_touched": true,
+    "no_send": true,
+    "no_google_ads_write": true,
+    "raw_click_id_logged": false
+  },
+  "code_changes": [
+    {
+      "file": "backend/src/googleAdsClickViewExactLookup.ts",
+      "kind": "new module",
+      "loc": 188,
+      "exports": ["lookupGoogleAdsClickViewExact", "ClickIdType", "ClickViewExactMatchSource", "GoogleAdsClickViewCandidate", "GoogleAdsClickViewExactLookupInput", "GoogleAdsClickViewExactLookupRow", "GoogleAdsClickViewExactLookupResult", "HMAC_HEX"]
+    },
+    {
+      "file": "backend/tests/google-ads-click-view-exact-lookup.test.ts",
+      "kind": "new fixture",
+      "loc": 92,
+      "fixtures": 5,
+      "test_pass": "5_of_5"
+    }
+  ],
+  "fixture_results": [
+    {"name": "ledger click_hash matches gclid → campaign_id exact", "result": "PASS"},
+    {"name": "ledger click_hash matches gbraid → campaign_id exact", "result": "PASS"},
+    {"name": "ledger click_hash no match → click_view_not_found", "result": "PASS"},
+    {"name": "no candidates injected → source_blocked all", "result": "PASS"},
+    {"name": "raw gclid/gbraid never appears in output", "result": "PASS"}
+  ],
+  "design_decisions": [
+    "caller 가 click_view 후보를 inject 하는 패턴 — Google Ads API 호출 또는 paid_click_intent_log read-only 조회는 caller 의 책임. helper 는 transient HMAC + 비교만.",
+    "click_id_hash 는 orderBridgeIdentityHmac.ts 의 click hash 생성 방식(sha256, HMAC 아님)과 일치 — clickIdHashOf 함수에서 sha256 으로 비교.",
+    "source 구분: google_ads_click_view / paid_click_intent_hash / fallback_blocked.",
+    "응답에는 campaign_id, campaign_name_safe, click_id_type, match_source, reason 만 — raw click_id 절대 출력 안 됨."
+  ],
+  "live_dry_run_result": {
+    "input_ledger_click_hashes": 0,
+    "skip_reason": "gpt0508-38 canary 2 row 모두 click_id_hash 부재 (gclid 없는 결제)",
+    "auto_behavior": "ledgerClickHashes empty 시 빈 row 반환 + warnings 안내",
+    "expected_full_wire_result_after_next_canary_with_gclid": "click_id_hash 보유 row 가 누적되면 caller 가 Google Ads click_view 후보를 inject 후 호출 → matched rows 측정 가능"
+  },
+  "invariants_verified": {
+    "raw_click_id_in_response": false,
+    "raw_click_id_in_log": false,
+    "google_ads_api_write": 0,
+    "platform_actual_send": 0
+  },
+  "verdict": "HELPER_PASS_FIXTURE_PASS_WAIT_FOR_CLICK_HASH_NEXT_CANARY"
+}
