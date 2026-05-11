@@ -241,8 +241,61 @@ data/coffee/coffee_payments_YYYY.xlsx
 
 ---
 
-# Part C. 다음 보완 후보 (gpt0508-45 추가)
+# Part C. 운영DB `dashboard.public` 스키마 inventory (gpt0508-45 추가)
 
-- 운영DB `dashboard.public` 스키마 의 다른 테이블 (예: `tb_iamweb_users / tb_imweb_orders / tb_playauto_orders / tb_imweb_member / tb_sales_toss`) 도 동일 양식으로 inventory 추가.
+> 본 part 는 2026-05-11 별도 audit (멀티 에이전트 병렬 실행) 결과. 정본은 `gdn/operational-db-public-schema-inventory-20260511.md` + `data/operational-db-public-schema-inventory-20260511.json`. 본 part 는 핵심만 요약.
+
+## C1. 전체 분포
+
+| 분류 | 개수 |
+|---|---:|
+| 총 객체 | **89** (base table 75 + view 14) |
+| 데이터 있음 | 56 |
+| 비어 있음 / 0 row | 19 |
+
+## C2. 우선 17 테이블 row 수 (최상위)
+
+| 테이블 | row | 비고 |
+|---|---:|---|
+| `tb_playauto_orders` | 123,997 | PlayAuto 발송/주문 |
+| `tb_iamweb_users` | 99,126 | imweb 주문 정본 (biocom 중심) |
+| `tb_laplace` | 92,571 | **freshness 2025-11-04 stale** |
+| `customer_report_info` | 35,882 | 고객 리포트 |
+| `tb_sales_toss` | 34,298 | Toss 매출 |
+| `tb_sales_coupang` | 21,006 | 쿠팡 매출 |
+| `tb_teamketo_smartstore` | 11,031 | 스마트스토어 (teamketo) |
+| `tb_sales_naver_vat` | 9,730 | 네이버 VAT |
+| `tb_consultation_records` | 8,763 | 상담 기록 |
+| `tb_naver_orders` | 4,251 | 네이버 주문 |
+| `tb_sales_nicepay` | 3,959 | **2026-01-31 정체** |
+| `transactions` | 1,751 | |
+| `tb_teamketo_cafe24` | 834 | cafe24 (teamketo) |
+| `tb_sales_recovery_lab` | 334 | **2026-01-31 정체** (AIBIO 매출) |
+| `tb_iamweb_Products` | 53 | 상품 마스터 |
+| `tb_iamweb_backfill_jobs` | 14 | **running 3건 2026-04-22 정체** |
+| `tb_imweb_member` | 0 | **로컬DB 84,563 vs 운영DB 0** — 운영DB sync 미적재 |
+
+## C3. 주요 발견 (다음 sprint 후보)
+
+| 발견 | 의미 |
+|---|---|
+| `tb_iamweb_users.raw_data->>'site_code'` 99,126건 모두 NULL | site 키가 다른 path 에 있을 가능성 — 추가 조사 필요 |
+| `tb_laplace` freshness 2025-11-04 | 6개월 stale, 사용 시 주의 |
+| `tb_imweb_member` 운영DB 0건 vs 로컬DB 84,563건 | 운영DB 회원 sync 미진행 — `tb_iamweb_users.customer_*` 또는 별도 stream 사용 추정 |
+| `tb_iamweb_backfill_jobs` running 3건 2026-04-22 정체 | 백필 job 멈춰있음 — 개발팀 협업 후보 |
+| `tb_sales_nicepay` / `tb_sales_recovery_lab` 2026-01-31 정체 | 3 개월 sync 멈춤 |
+
+## C4. NPay 매출 join 시도 결과 (gpt0508-45 액션)
+
+- site_landing → imweb_orders → 운영DB `tb_iamweb_users` NAVERPAY_ORDER 매칭 **0건**.
+- 원인: 운영DB NPay sync 9시간 lag (NPay max(order_date) = KST 09:47 vs CARD = KST 16:47).
+- 후보 5건 (imweb_orders thecleancoffee NPay, KST 15:45~16:55 합계 ₩28만 200) 는 운영DB 미적재 시점.
+- 부가 발견: site_landing 의 NPay 완료 URL 직접 capture 0건 (브라우저 referrer policy 가 path 자름) — imweb_orders bridge 필수.
+- 정본: `gdn/site-landing-npay-channel-order-match-20260511.md`.
+
+## C5. 다음 보완 후보
+
 - cron 주기 정확한 schedule 확인 (`backend/scripts/aios-agent-runner.ts` + crontab).
 - 본 문서를 `data/` 의 정본 inventory 로 유지하고 `dbstructure.md` 와 cross-link.
+- `tb_iamweb_users.raw_data` JSON 내부 site 키 path 찾기 (운영DB site 분리 회복).
+- `tb_imweb_member` 운영DB 미적재 회수 — 개발팀 협업.
