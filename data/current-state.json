@@ -1,7 +1,7 @@
 {
-  "updated_at_kst": "2026-05-12 23:34:34 KST",
+  "updated_at_kst": "2026-05-12 23:44:47 KST",
   "sprint": "gpt0508-48",
-  "current_goal": "Finish the thecleancoffee Imweb API plus GA4 BigQuery feasibility review and checkpoint/report package.",
+  "current_goal": "Feasibility review completed; next is optional Green local patch and Yellow deploy approval for live summary inclusion.",
   "lane": "Green",
   "mode": "read_only_no_send_no_write_no_deploy",
   "site": "thecleancoffee",
@@ -17,13 +17,28 @@
     "Confirmed VM Cloud status distribution: 31 cancel rows / 1796400 KRW should be excluded; paid non-cancel-or-status-blank candidate is 306 orders / 14577700 KRW.",
     "Confirmed GA4 BigQuery analytics_326949178 guard can query order/channel keys but current key hits are 0, so GA4 is guard only, not payment truth.",
     "Created gdn/coffee-imweb-ga4-vm-source-feasibility-20260512.md, data/coffee-imweb-ga4-vm-source-feasibility-20260512.json, and gdn/coffee-imweb-summary-inclusion-deploy-approval-20260512.md.",
-    "Patched attribution data source guide to clarify that coffee source exists through Imweb v2 / VM Cloud, while tb_iamweb_users remains forbidden for coffee actual."
+    "Patched attribution data source guide to clarify that coffee source exists through Imweb v2 / VM Cloud, while tb_iamweb_users remains forbidden for coffee actual.",
+    "Validation passed: JSON parse, wiki links, harness preflight, git diff check, no-send/no-write grep docs-only.",
+    "Committed and pushed scoped Green docs/checkpoint package: ddb3a72 gdn: document coffee imweb source feasibility."
   ],
   "next_commands": [
-    "Finalize gptconfirm/gpt0508-48/00-result-report.md.",
-    "Run JSON parse, wiki link validation, harness preflight, git diff --check, and no-send/no-write grep.",
-    "Commit and push only scoped Green docs/checkpoint files if validation passes."
+    "If continuing Green work, patch backend summary reader locally so site=thecleancoffee can use VM Cloud imweb_orders as actual source.",
+    "Run backend typecheck/tests and update gptconfirm/gpt0508-48 if patch is made.",
+    "Do not deploy/restart VM Cloud backend until TJ approves Yellow packet."
   ],
+  "git": {
+    "committed": true,
+    "pushed": true,
+    "head": "ddb3a72",
+    "commit_message": "gdn: document coffee imweb source feasibility",
+    "unrelated_dirty_excluded": [
+      "tiktok/fetchresult.md",
+      "=",
+      "tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-10T03-05-04-541Z.md",
+      "tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-11T03-44-26-513Z.md",
+      "tiktok/monitoring/tiktok_guard_monitor_48h_2026-05-11T03-43-06-764Z.md"
+    ]
+  },
   "latest_metrics": {
     "vm_cloud_imweb_orders": {
       "site": "thecleancoffee",

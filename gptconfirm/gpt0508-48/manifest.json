@@ -1,8 +1,9 @@
 {
   "sprint": "gpt0508-48",
-  "generated_at_kst": "2026-05-12 23:34:34 KST",
+  "generated_at_kst": "2026-05-12 23:44:47 KST",
   "lane": "Green",
-  "status": "report_checkpoint",
+  "status": "completed_green_review_committed_pushed",
+  "git_commit": "ddb3a72",
   "files": [
     "00-result-report.md"
   ],

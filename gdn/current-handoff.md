@@ -1,10 +1,10 @@
 # Current Handoff
 
-작성 시각: 2026-05-12 23:34 KST
+작성 시각: 2026-05-12 23:44 KST
 
 ## 현재 목표
 
-더클린커피 Imweb API 키와 GA4 BigQuery를 이용해 VM Cloud에 더클린커피 주문만 분리되는 actual order source를 구축할 수 있는지 검토하고, source guide/checkpoint/gptconfirm을 갱신한다. 이번 턴은 Green Lane: read-only 검토, dry-run, 문서/checkpoint 갱신만 한다.
+더클린커피 Imweb API 키와 GA4 BigQuery를 이용해 VM Cloud에 더클린커피 주문만 분리되는 actual order source를 구축할 수 있는지 검토했다. 이번 턴은 Green Lane: read-only 검토, dry-run, 문서/checkpoint 갱신, scoped commit/push까지 완료했다.
 
 ## 완료한 것
 
@@ -16,12 +16,14 @@
 - 취소 status 31건/₩1,796,400을 제외하면 paid non-cancel 후보는 306건/₩14,577,700이다. status blank 11건/₩619,800은 warning 또는 pending 처리 대상이다.
 - GA4 BigQuery `analytics_326949178`은 337건의 order/channel key 674개를 robust search했지만 hit 0건이었다. 결제 정본이 아니라 `already_in_ga4` guard로만 쓴다.
 - source guide와 feasibility JSON/MD, Yellow 승인안 초안을 작성했다.
+- 검증 PASS: JSON parse, wiki links, harness preflight, git diff check, no-send/no-write grep docs-only.
+- commit/push 완료: `ddb3a72 gdn: document coffee imweb source feasibility`.
 
 ## 다음 명령
 
-1. `gptconfirm/gpt0508-48/00-result-report.md`를 최종 갱신한다.
-2. JSON parse, wiki link, harness preflight, diff check, no-send/no-write grep을 실행한다.
-3. 이상 없으면 scoped commit/push를 수행한다. unrelated dirty file은 절대 stage하지 않는다.
+1. 다음 Green 로컬 patch에서 coffee용 Imweb actual reader를 추가한다.
+2. patch/test PASS 후 `gdn/coffee-imweb-summary-inclusion-deploy-approval-20260512.md` 기준으로 Yellow deploy/restart 승인 여부를 TJ님이 결정한다.
+3. 승인 전에는 live summary API를 바꾸지 않는다.
 
 ## 절대 건드리면 안 되는 것
 

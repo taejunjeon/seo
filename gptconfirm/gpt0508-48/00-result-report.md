@@ -1,7 +1,7 @@
 # 더클린커피 Imweb/GA4 source feasibility report
 
-작성 시각: 2026-05-12 23:34 KST
-상태: 결과 보고 checkpoint
+작성 시각: 2026-05-12 23:44 KST
+상태: Green review 완료 / commit push 완료
 
 ```yaml
 harness_preflight:
@@ -101,6 +101,21 @@ GA4는 결제 정본이 아닙니다. GA4 BigQuery는 주문번호가 이미 GA4
 - Imweb header/footer 변경 0건.
 - secret/raw PII 출력 0건.
 
+## 검증 결과
+
+- JSON parse PASS.
+- wiki link validation PASS.
+- `python3 scripts/harness-preflight-check.py --strict` PASS.
+- `git diff --check` PASS.
+- no-send/no-write grep: 금지선 설명 문구만 match, 실행 코드 추가 없음.
+- raw order id / PII pattern scan: output 0.
+
+## 현재 영향 / 서버 · 커밋 상태
+
+- live VM Cloud backend는 변경하지 않았다. 현재 live coffee summary는 그대로 `bridge_pending`이다.
+- scoped commit/push 완료: `ddb3a72 gdn: document coffee imweb source feasibility`.
+- unrelated dirty file은 stage/commit에서 제외했다.
+
 ## 변경 파일
 
 - `gdn/current-handoff.md`
@@ -111,6 +126,7 @@ GA4는 결제 정본이 아닙니다. GA4 BigQuery는 주문번호가 이미 GA4
 - `gdn/attribution-data-source-decision-guide-20260511.md`
 - `data/attribution-data-source-decision-guide-20260511.json`
 - `gptconfirm/gpt0508-48/00-result-report.md`
+- `gptconfirm/gpt0508-48/manifest.json`
 
 ## 다음 할일
 
