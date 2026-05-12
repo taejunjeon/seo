@@ -1,95 +1,65 @@
 {
-  "updated_at_kst": "2026-05-12 23:44:47 KST",
-  "sprint": "gpt0508-48",
-  "current_goal": "Feasibility review completed; next is optional Green local patch and Yellow deploy approval for live summary inclusion.",
+  "updated_at_kst": "2026-05-13 00:30:00 KST",
+  "sprint": "gpt0508-49",
+  "current_goal": "Connect thecleancoffee Imweb v2 / VM Cloud imweb_orders NPay actual source to the local summary API, then package tests, dry-run, source guide, and Yellow deploy approval. Do not deploy/restart VM before approval.",
   "lane": "Green",
-  "mode": "read_only_no_send_no_write_no_deploy",
-  "site": "thecleancoffee",
+  "mode": "local_code_patch_read_only_dry_run_no_send_no_write_no_deploy",
   "completed": [
-    "Re-read root AGENTS.md after compaction/resume.",
-    "Re-read common Growth Data harness and coffee-data harness docs.",
-    "Confirmed prior gpt0508-47 live state: biocom actual included PASS, thecleancoffee bridge_pending PASS.",
-    "Confirmed local .env has coffee Imweb and GA4 keys set without exposing values.",
-    "Confirmed crmLocal Imweb sync already has site=thecleancoffee support.",
-    "Confirmed current summary API keeps thecleancoffee actual bridge_pending because operational tb_iamweb_users site isolation is unproven.",
-    "Confirmed VM Cloud imweb_orders.site='thecleancoffee' is fresh and site-isolated.",
-    "Confirmed direct Imweb v2 type=npay last-30-day aggregate: 337 orders / 16374100 KRW with 337/337 order_code and channel_order_no coverage.",
-    "Confirmed VM Cloud status distribution: 31 cancel rows / 1796400 KRW should be excluded; paid non-cancel-or-status-blank candidate is 306 orders / 14577700 KRW.",
-    "Confirmed GA4 BigQuery analytics_326949178 guard can query order/channel keys but current key hits are 0, so GA4 is guard only, not payment truth.",
-    "Created gdn/coffee-imweb-ga4-vm-source-feasibility-20260512.md, data/coffee-imweb-ga4-vm-source-feasibility-20260512.json, and gdn/coffee-imweb-summary-inclusion-deploy-approval-20260512.md.",
-    "Patched attribution data source guide to clarify that coffee source exists through Imweb v2 / VM Cloud, while tb_iamweb_users remains forbidden for coffee actual.",
-    "Validation passed: JSON parse, wiki links, harness preflight, git diff check, no-send/no-write grep docs-only.",
-    "Committed and pushed scoped Green docs/checkpoint package: ddb3a72 gdn: document coffee imweb source feasibility."
+    "Created gptconfirm/gpt0508-49 package directory and sprint checkpoint.",
+    "Patched backend/src/npayActualConfirmedPgReader.ts with a site router: biocom keeps operational DB PAYMENT_COMPLETE; thecleancoffee uses imweb_v2_vm_cloud_imweb_orders.",
+    "Patched backend/src/siteLandingLedger.ts and backend/src/routes/attribution.ts to expose source, included_with_warning, status blank, cancel exclusion, freshness, and GA4 guard fields.",
+    "Added regression and response-shape tests covering coffee inclusion, cancel/return/exchange exclusion, blank complete_time not unpaid, GA4 guard not actual, raw order id non-exposure, and biocom source regression.",
+    "Validated backend typecheck PASS and targeted tsx tests PASS 16/16.",
+    "Ran VM Cloud SQLite read-only dry-run for thecleancoffee NPay last 30 days.",
+    "Updated data inventory, attribution source guide, coffee current doc, and total current doc with gpt0508-49 source rules.",
+    "Confirmed AGENTS.md already contains requested success criteria, assumption disclosure, Green autonomy, verification loop, and human-first reporting rules."
   ],
-  "next_commands": [
-    "If continuing Green work, patch backend summary reader locally so site=thecleancoffee can use VM Cloud imweb_orders as actual source.",
-    "Run backend typecheck/tests and update gptconfirm/gpt0508-48 if patch is made.",
-    "Do not deploy/restart VM Cloud backend until TJ approves Yellow packet."
-  ],
-  "git": {
-    "committed": true,
-    "pushed": true,
-    "head_check_command": "git rev-parse --short HEAD",
-    "commits_created_this_turn": [
-      "gdn: document coffee imweb source feasibility",
-      "gdn: refresh coffee feasibility handoff"
-    ],
-    "unrelated_dirty_excluded": [
-      "tiktok/fetchresult.md",
-      "=",
-      "tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-10T03-05-04-541Z.md",
-      "tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-11T03-44-26-513Z.md",
-      "tiktok/monitoring/tiktok_guard_monitor_48h_2026-05-11T03-43-06-764Z.md"
-    ]
-  },
   "latest_metrics": {
-    "vm_cloud_imweb_orders": {
-      "site": "thecleancoffee",
-      "last_30d_npay_orders": 337,
-      "last_30d_npay_amount_krw": 16374100,
-      "paid_non_cancel_or_status_blank_orders": 306,
-      "paid_non_cancel_or_status_blank_amount_krw": 14577700,
-      "fully_status_known_non_cancel_orders": 295,
-      "fully_status_known_non_cancel_amount_krw": 13957900,
-      "cancel_orders": 31,
-      "cancel_amount_krw": 1796400,
-      "status_blank_orders": 11,
-      "status_blank_amount_krw": 619800,
-      "max_synced_at": "2026-05-12 14:14:56",
-      "max_imweb_status_synced_at": "2026-05-12 04:11:07"
-    },
-    "ga4_bigquery_guard": {
-      "dataset": "analytics_326949178",
-      "window_suffix_start": "20260412",
-      "window_suffix_end": "20260512",
-      "imweb_order_and_channel_keys": 674,
-      "purchase_transaction_key_hits": 0,
-      "distinct_event_param_key_hits": 0,
-      "usage": "guard_only_not_payment_truth"
-    }
+    "source": "VM Cloud SQLite imweb_orders",
+    "site": "thecleancoffee",
+    "window_days": 30,
+    "generated_at_kst": "2026-05-13 00:24:28 KST",
+    "gross_count": 339,
+    "gross_amount_krw": 16631400,
+    "excluded_cancel_return_exchange_count": 31,
+    "excluded_cancel_return_exchange_amount_krw": 1796400,
+    "included_with_warning_count": 308,
+    "included_with_warning_amount_krw": 14835000,
+    "confirmed_status_only_count": 295,
+    "confirmed_status_only_amount_krw": 13957900,
+    "status_blank_count": 13,
+    "status_blank_amount_krw": 877100,
+    "complete_time_blank_count": 78,
+    "complete_time_blank_amount_krw": 5478600,
+    "max_order_time_utc": "2026-05-12T14:32:39.000Z",
+    "max_synced_at": "2026-05-12 15:14:50",
+    "max_status_synced_at": "2026-05-12 04:11:07",
+    "status_sync_warning": "status_sync_stale_over_6h",
+    "confidence": 0.86
   },
+  "next_commands": [
+    "Complete gptconfirm/gpt0508-49 docs and manifest.",
+    "Run JSON parse, wiki links, harness-preflight strict, git diff check, raw pattern scan, and final backend verification.",
+    "Commit and push scoped changes if validations pass."
+  ],
   "forbidden": [
     "operational_db_write_or_import",
-    "vm_cloud_schema_migration_or_apply",
-    "backend_deploy_or_restart_without_yellow_approval",
-    "cron_registration_or_change_without_approval",
+    "vm_backend_deploy_or_restart_without_yellow_approval",
+    "vm_cloud_schema_migration",
+    "cron_registration_or_change",
     "gtm_publish",
     "imweb_footer_or_header_edit",
     "platform_send_or_upload",
     "secret_or_raw_pii_output",
-    "reverting_unrelated_dirty_files"
+    "ga4_revenue_as_actual_npay_source",
+    "npay_click_count_add_payment_info_as_purchase"
   ],
-  "source_window_freshness_confidence": {
-    "source": "local docs/code + VM Cloud read-only SQLite + Imweb v2 direct read-only + GA4 BigQuery read-only",
-    "window": "last 30 days, checked 2026-05-12 KST",
-    "freshness": "VM Cloud imweb_orders max_synced_at=2026-05-12 14:14:56; status max=2026-05-12 04:11:07",
-    "confidence": 0.9
-  },
   "invariants": {
     "external_send_count": 0,
     "upload_candidate_count": 0,
     "operational_db_write": 0,
     "vm_cloud_write": 0,
+    "vm_backend_deploy_restart": 0,
     "gtm_publish": 0,
     "imweb_footer_edit": 0,
     "raw_secret_or_pii_output": false

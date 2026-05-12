@@ -1,9 +1,10 @@
 /**
- * NPay actual confirmed snapshot reader (운영 PG read-only).
+ * NPay actual confirmed snapshot reader (site별 read-only source router).
  *
  * 목적:
- *   - 운영 PG `dashboard.public.tb_iamweb_users` 에서 NAVERPAY_ORDER + PAYMENT_COMPLETE 분포를 read-only로 가져온다.
- *   - cancellation_reason / return_reason 빈값 + final_order_amount > 0 이중 필터로 confirmed actual 매출만 라벨링한다.
+ *   - biocom: 운영DB `dashboard.public.tb_iamweb_users` 에서 NAVERPAY_ORDER + PAYMENT_COMPLETE 분포를 read-only로 가져온다.
+ *   - thecleancoffee: VM Cloud/로컬 SQLite `imweb_orders` 의 Imweb v2 NPay 주문을 read-only로 가져온다.
+ *   - cancellation_reason / return_reason 또는 imweb_status exclusion 필터로 confirmed actual 후보 매출만 라벨링한다.
  *   - ConfirmedPurchasePrep `npay_actual_count` 0 누락을 메우는 보조 입력 source.
  *
  * 금지:
@@ -13,6 +14,7 @@
  *   - send_candidate / actual_send_candidate / upload_candidate true
  */
 
+import { getCrmDb } from "./crmLocalDb";
 import { isDatabaseConfigured, queryPg } from "./postgres";
 
 export type NpayActualConfirmedSnapshotInput = {
@@ -102,11 +104,23 @@ const formatKrwKorean = (amount: number): string => {
   return `₩${parts.join(" ")}`.trim() || `₩${amount.toLocaleString("ko-KR")}`;
 };
 
+export type NpayActualConfirmedSiteLandingStatus =
+  | "included"
+  | "included_with_warning"
+  | "bridge_pending"
+  | "unavailable";
+
+export type NpayActualConfirmedSiteLandingSource =
+  | "operational_db.tb_iamweb_users PAYMENT_COMPLETE"
+  | "imweb_v2_vm_cloud_imweb_orders"
+  | "unavailable";
+
 export type NpayActualConfirmedSiteLandingSummary = {
   ok: boolean;
   site: "biocom" | "thecleancoffee";
   windowDays: number;
-  status: "included" | "bridge_pending" | "unavailable";
+  source: NpayActualConfirmedSiteLandingSource;
+  status: NpayActualConfirmedSiteLandingStatus;
   completeCount: number;
   completeAmountKrw: number;
   completeAmountKrwKorean: string;
@@ -114,6 +128,22 @@ export type NpayActualConfirmedSiteLandingSummary = {
   maxOrderDate: string | null;
   reason: string;
   warnings: string[];
+  grossCount?: number;
+  grossAmountKrw?: number;
+  grossAmountKrwKorean?: string;
+  excludedCancelReturnExchangeCount?: number;
+  excludedCancelReturnExchangeAmountKrw?: number;
+  excludedCancelReturnExchangeAmountKrwKorean?: string;
+  confirmedStatusCount?: number;
+  confirmedStatusAmountKrw?: number;
+  confirmedStatusAmountKrwKorean?: string;
+  statusBlankCount?: number;
+  statusBlankAmountKrw?: number;
+  statusBlankAmountKrwKorean?: string;
+  maxOrderTime?: string | null;
+  maxSyncedAt?: string | null;
+  maxStatusSyncedAt?: string | null;
+  ga4GuardRole?: "already_in_ga4_guard_only_not_actual_source";
 };
 
 type SiteLandingAggRow = {
@@ -121,6 +151,17 @@ type SiteLandingAggRow = {
   total_amt: string | number;
   max_payment_complete_time: string | null;
   max_order_date: string | null;
+};
+
+type SqliteAggRow = {
+  cnt: number;
+  amount_krw: number | null;
+  max_order_time: string | null;
+};
+
+type SqliteFreshnessRow = {
+  max_synced_at: string | null;
+  max_status_synced_at: string | null;
 };
 
 const siteLandingSummarySql = `
@@ -148,6 +189,167 @@ SELECT
 FROM grouped
 `;
 
+const readCoffeeAgg = (whereSql: string, params: unknown[]): SqliteAggRow => {
+  const db = getCrmDb();
+  return db
+    .prepare(
+      `
+        SELECT
+          COUNT(*) AS cnt,
+          COALESCE(SUM(payment_amount), 0) AS amount_krw,
+          MAX(order_time) AS max_order_time
+        FROM imweb_orders
+        WHERE ${whereSql}
+      `,
+    )
+    .get(...params) as SqliteAggRow;
+};
+
+const parseSqliteTimestampMs = (value: string | null): number | null => {
+  if (!value) return null;
+  const normalized = value.includes("T") ? value : `${value.replace(" ", "T")}Z`;
+  const ms = Date.parse(normalized);
+  return Number.isFinite(ms) ? ms : null;
+};
+
+const fetchCoffeeNpayActualConfirmedSiteLandingSummary = (
+  windowDays: number,
+): NpayActualConfirmedSiteLandingSummary => {
+  try {
+    const db = getCrmDb();
+    const tableExists = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'imweb_orders'",
+      )
+      .get();
+
+    if (!tableExists) {
+      return {
+        ok: false,
+        site: "thecleancoffee",
+        windowDays,
+        source: "unavailable",
+        status: "unavailable",
+        completeCount: 0,
+        completeAmountKrw: 0,
+        completeAmountKrwKorean: "₩0",
+        maxPaymentCompleteTime: null,
+        maxOrderDate: null,
+        reason: "VM Cloud imweb_orders table is not available for thecleancoffee actual source.",
+        warnings: ["imweb_orders_missing"],
+      };
+    }
+
+    const thresholdIso = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+    const baseWhere =
+      "site = ? AND pay_type = 'npay' AND order_time >= ? AND payment_amount > 0";
+    const baseParams = ["thecleancoffee", thresholdIso];
+    const normalizedStatus = "COALESCE(NULLIF(TRIM(imweb_status), ''), '')";
+
+    const gross = readCoffeeAgg(baseWhere, baseParams);
+    const included = readCoffeeAgg(
+      `${baseWhere} AND ${normalizedStatus} NOT IN ('CANCEL', 'RETURN', 'EXCHANGE')`,
+      baseParams,
+    );
+    const excluded = readCoffeeAgg(
+      `${baseWhere} AND ${normalizedStatus} IN ('CANCEL', 'RETURN', 'EXCHANGE')`,
+      baseParams,
+    );
+    const confirmedStatus = readCoffeeAgg(
+      `${baseWhere} AND ${normalizedStatus} != '' AND ${normalizedStatus} NOT IN ('CANCEL', 'RETURN', 'EXCHANGE')`,
+      baseParams,
+    );
+    const statusBlank = readCoffeeAgg(
+      `${baseWhere} AND ${normalizedStatus} = ''`,
+      baseParams,
+    );
+    const freshness = db
+      .prepare(
+        `
+          SELECT
+            MAX(synced_at) AS max_synced_at,
+            MAX(imweb_status_synced_at) AS max_status_synced_at
+          FROM imweb_orders
+          WHERE site = ?
+        `,
+      )
+      .get("thecleancoffee") as SqliteFreshnessRow;
+
+    const warnings = ["ga4_guard_not_actual_source"];
+    if (statusBlank.cnt > 0) {
+      warnings.push("status_blank_rows_included_with_warning");
+    }
+    if (!freshness.max_status_synced_at) {
+      warnings.push("status_sync_freshness_unknown");
+    } else {
+      const statusSyncedAtMs = parseSqliteTimestampMs(freshness.max_status_synced_at);
+      const statusSyncAgeHours =
+        statusSyncedAtMs === null ? null : (Date.now() - statusSyncedAtMs) / (60 * 60 * 1000);
+      if (statusSyncAgeHours === null || statusSyncAgeHours > 6) {
+        warnings.push("status_sync_stale_over_6h");
+      }
+    }
+    if (gross.cnt === 0) {
+      warnings.push("coffee_npay_no_rows_in_window");
+    }
+
+    const status: NpayActualConfirmedSiteLandingStatus =
+      statusBlank.cnt > 0 ? "included_with_warning" : "included";
+    const includedAmount = Number(included.amount_krw || 0);
+    const grossAmount = Number(gross.amount_krw || 0);
+    const excludedAmount = Number(excluded.amount_krw || 0);
+    const confirmedAmount = Number(confirmedStatus.amount_krw || 0);
+    const statusBlankAmount = Number(statusBlank.amount_krw || 0);
+
+    return {
+      ok: true,
+      site: "thecleancoffee",
+      windowDays,
+      source: "imweb_v2_vm_cloud_imweb_orders",
+      status,
+      completeCount: Number(included.cnt || 0),
+      completeAmountKrw: includedAmount,
+      completeAmountKrwKorean: formatKrwKorean(includedAmount),
+      maxPaymentCompleteTime: null,
+      maxOrderDate: included.max_order_time,
+      reason:
+        "thecleancoffee actual source uses VM Cloud imweb_orders captured from Imweb v2. NPay positive-amount orders are included after excluding CANCEL/RETURN/EXCHANGE; GA4 is only an already_in_ga4 guard, not an actual revenue source.",
+      warnings,
+      grossCount: Number(gross.cnt || 0),
+      grossAmountKrw: grossAmount,
+      grossAmountKrwKorean: formatKrwKorean(grossAmount),
+      excludedCancelReturnExchangeCount: Number(excluded.cnt || 0),
+      excludedCancelReturnExchangeAmountKrw: excludedAmount,
+      excludedCancelReturnExchangeAmountKrwKorean: formatKrwKorean(excludedAmount),
+      confirmedStatusCount: Number(confirmedStatus.cnt || 0),
+      confirmedStatusAmountKrw: confirmedAmount,
+      confirmedStatusAmountKrwKorean: formatKrwKorean(confirmedAmount),
+      statusBlankCount: Number(statusBlank.cnt || 0),
+      statusBlankAmountKrw: statusBlankAmount,
+      statusBlankAmountKrwKorean: formatKrwKorean(statusBlankAmount),
+      maxOrderTime: included.max_order_time,
+      maxSyncedAt: freshness.max_synced_at,
+      maxStatusSyncedAt: freshness.max_status_synced_at,
+      ga4GuardRole: "already_in_ga4_guard_only_not_actual_source",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      site: "thecleancoffee",
+      windowDays,
+      source: "unavailable",
+      status: "unavailable",
+      completeCount: 0,
+      completeAmountKrw: 0,
+      completeAmountKrwKorean: "₩0",
+      maxPaymentCompleteTime: null,
+      maxOrderDate: null,
+      reason: error instanceof Error ? error.message : String(error),
+      warnings: ["imweb_orders_read_failed"],
+    };
+  }
+};
+
 export const fetchNpayActualConfirmedSiteLandingSummary = async (
   input: {
     site: "biocom" | "thecleancoffee";
@@ -156,26 +358,14 @@ export const fetchNpayActualConfirmedSiteLandingSummary = async (
 ): Promise<NpayActualConfirmedSiteLandingSummary> => {
   const windowDays = input.windowDays ?? NPAY_ACTUAL_CONFIRMED_DEFAULT_WINDOW_DAYS;
   if (input.site !== "biocom") {
-    return {
-      ok: false,
-      site: input.site,
-      windowDays,
-      status: "bridge_pending",
-      completeCount: 0,
-      completeAmountKrw: 0,
-      completeAmountKrwKorean: "₩0",
-      maxPaymentCompleteTime: null,
-      maxOrderDate: null,
-      reason:
-        "운영DB tb_iamweb_users의 thecleancoffee site 격리가 아직 검증되지 않아 actual confirmed는 bridge_pending으로 둔다.",
-      warnings: ["site_isolation_unproven"],
-    };
+    return fetchCoffeeNpayActualConfirmedSiteLandingSummary(windowDays);
   }
   if (!isDatabaseConfigured()) {
     return {
       ok: false,
       site: input.site,
       windowDays,
+      source: "unavailable",
       status: "unavailable",
       completeCount: 0,
       completeAmountKrw: 0,
@@ -194,6 +384,7 @@ export const fetchNpayActualConfirmedSiteLandingSummary = async (
     ok: true,
     site: input.site,
     windowDays,
+    source: "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
     status: "included",
     completeCount: numFromBig(row?.orders),
     completeAmountKrw: amount,

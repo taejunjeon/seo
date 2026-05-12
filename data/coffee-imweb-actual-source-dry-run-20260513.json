@@ -1,0 +1,81 @@
+{
+  "sprint": "gpt0508-49",
+  "generated_at_kst": "2026-05-13 00:24:28 KST",
+  "lane": "Green read-only dry-run",
+  "site": "thecleancoffee",
+  "source": "VM Cloud SQLite imweb_orders",
+  "actual_source_candidate": "imweb_v2_vm_cloud_imweb_orders",
+  "window": {
+    "days": 30,
+    "since_utc": "2026-04-12T15:24:27.985Z"
+  },
+  "filters": {
+    "site": "thecleancoffee",
+    "pay_type": "npay",
+    "order_time": ">= now - 30 days",
+    "payment_amount": "> 0",
+    "excluded_statuses": ["CANCEL", "RETURN", "EXCHANGE"],
+    "complete_time_role": "legacy_diagnostic_only",
+    "ga4_role": "already_in_ga4_guard_only_not_actual_source"
+  },
+  "dry_run_result": {
+    "gross": {
+      "count": 339,
+      "amount_krw": 16631400
+    },
+    "excluded_cancel_return_exchange": {
+      "count": 31,
+      "amount_krw": 1796400
+    },
+    "included_with_warning_candidate": {
+      "count": 308,
+      "amount_krw": 14835000,
+      "status": "included_with_warning"
+    },
+    "confirmed_status_only_option": {
+      "count": 295,
+      "amount_krw": 13957900,
+      "status": "included_if_status_blank_pending"
+    },
+    "status_blank": {
+      "count": 13,
+      "amount_krw": 877100,
+      "meaning": "imweb_status is empty; this is not proof of unpaid order",
+      "recommended_treatment": "include_with_warning_and_expose_count"
+    },
+    "complete_time_blank": {
+      "count": 78,
+      "amount_krw": 5478600,
+      "meaning": "legacy diagnostic only; blank complete_time is not unpaid proof"
+    },
+    "freshness": {
+      "max_order_time_utc": "2026-05-12T14:32:39.000Z",
+      "max_synced_at": "2026-05-12 15:14:50",
+      "max_status_synced_at": "2026-05-12 04:11:07",
+      "status_sync_warning": "status_sync_stale_over_6h"
+    },
+    "status_distribution": [
+      { "status": "PURCHASE_CONFIRMATION", "count": 199, "amount_krw": 8531700 },
+      { "status": "DELIVERING", "count": 37, "amount_krw": 1689600 },
+      { "status": "CANCEL", "count": 31, "amount_krw": 1796400 },
+      { "status": "STANDBY", "count": 30, "amount_krw": 2545000 },
+      { "status": "COMPLETE", "count": 28, "amount_krw": 1157700 },
+      { "status": "(blank)", "count": 13, "amount_krw": 877100 },
+      { "status": "PAY_COMPLETE", "count": 1, "amount_krw": 33900 }
+    ]
+  },
+  "recommendation": {
+    "policy": "included_with_warning",
+    "reason": "The rows are site-isolated Imweb v2 NPay positive-amount orders and are not cancel/return/exchange. Blank imweb_status and stale status sync are real warnings, so the API should include the amount but expose blank count, blank amount, source, and freshness warning.",
+    "confidence": 0.86,
+    "deploy_lane": "Yellow approval required"
+  },
+  "invariants": {
+    "operational_db_write": 0,
+    "vm_cloud_write": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "raw_email_phone_member_payment_order_click_id_output": false
+  }
+}

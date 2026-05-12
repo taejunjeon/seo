@@ -70,8 +70,52 @@ test("site_landing summary: NPay actual confirmed is separated from complete_tim
   assert.equal(derived.upload_candidate_count, 0);
   assert.equal(
     derived.source_disagreement_reason,
-    "complete_time legacy와 운영DB PAYMENT_COMPLETE actual confirmed가 다르므로 예산 판단에는 actual confirmed만 사용한다.",
+    "complete_time legacy와 actual confirmed source가 다르므로 예산 판단에는 actual confirmed만 사용한다.",
   );
+});
+
+test("site_landing summary: thecleancoffee included_with_warning actual source is accepted", () => {
+  const summary = ledger.summarizeSiteLanding("thecleancoffee", 24, {
+    npayActualConfirmed30d: {
+      source: "imweb_v2_vm_cloud_imweb_orders",
+      status: "included_with_warning",
+      complete_count: 3,
+      complete_amount_krw: 9000,
+      complete_amount_krw_korean: "₩9,000",
+      max_payment_complete_time: null,
+      max_order_date: "2026-05-13T02:00:00.000Z",
+      reason: "coffee Imweb v2 fixture",
+      warnings: ["status_blank_rows_included_with_warning", "ga4_guard_not_actual_source"],
+      gross_count: 6,
+      gross_amount_krw: 21000,
+      gross_amount_krw_korean: "₩2만 1,000",
+      excluded_cancel_return_exchange_count: 3,
+      excluded_cancel_return_exchange_amount_krw: 12000,
+      excluded_cancel_return_exchange_amount_krw_korean: "₩1만 2,000",
+      confirmed_status_count: 2,
+      confirmed_status_amount_krw: 3000,
+      confirmed_status_amount_krw_korean: "₩3,000",
+      status_blank_count: 1,
+      status_blank_amount_krw: 6000,
+      status_blank_amount_krw_korean: "₩6,000",
+      max_order_time: "2026-05-13T02:00:00.000Z",
+      max_synced_at: "2026-05-13T03:00:00.000Z",
+      max_status_synced_at: "2026-05-13T03:00:00.000Z",
+      ga4_guard_role: "already_in_ga4_guard_only_not_actual_source",
+    },
+  });
+
+  const derived = summary.derived;
+  assert.ok(derived);
+  assert.equal(derived.npay_revenue_30d_actual_confirmed?.source, "imweb_v2_vm_cloud_imweb_orders");
+  assert.equal(derived.npay_revenue_30d_actual_confirmed?.status, "included_with_warning");
+  assert.equal(derived.npay_revenue_30d_actual_confirmed?.status_blank_count, 1);
+  assert.equal(derived.npay_revenue_source?.actual_paid_source_primary, "imweb_v2_vm_cloud_imweb_orders");
+  assert.equal(
+    derived.npay_revenue_freshness?.actual_confirmed_source,
+    "imweb_v2_vm_cloud_imweb_orders",
+  );
+  assert.equal(derived.npay_revenue_freshness?.confidence, "medium");
 });
 
 test("site_landing summary: source guard keeps forbidden proxies visible and no raw PII patterns", () => {

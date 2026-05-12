@@ -176,11 +176,17 @@ export type SiteLandingRecordResult =
 
 export type NpayActualConfirmedSourceStatus =
   | "included"
+  | "included_with_warning"
   | "bridge_pending"
   | "unavailable";
 
+export type NpayActualConfirmedSourceName =
+  | "operational_db.tb_iamweb_users PAYMENT_COMPLETE"
+  | "imweb_v2_vm_cloud_imweb_orders"
+  | "unavailable";
+
 export type SiteLandingNpayActualConfirmed30d = {
-  source: "operational_db.tb_iamweb_users PAYMENT_COMPLETE" | "unavailable";
+  source: NpayActualConfirmedSourceName;
   status: NpayActualConfirmedSourceStatus;
   complete_count: number;
   complete_amount_krw: number;
@@ -189,6 +195,22 @@ export type SiteLandingNpayActualConfirmed30d = {
   max_order_date: string | null;
   reason: string;
   warnings: string[];
+  gross_count?: number;
+  gross_amount_krw?: number;
+  gross_amount_krw_korean?: string;
+  excluded_cancel_return_exchange_count?: number;
+  excluded_cancel_return_exchange_amount_krw?: number;
+  excluded_cancel_return_exchange_amount_krw_korean?: string;
+  confirmed_status_count?: number;
+  confirmed_status_amount_krw?: number;
+  confirmed_status_amount_krw_korean?: string;
+  status_blank_count?: number;
+  status_blank_amount_krw?: number;
+  status_blank_amount_krw_korean?: string;
+  max_order_time?: string | null;
+  max_synced_at?: string | null;
+  max_status_synced_at?: string | null;
+  ga4_guard_role?: "already_in_ga4_guard_only_not_actual_source";
 };
 
 type SiteLandingNpayLegacyCompleteTime30d = {
@@ -211,7 +233,7 @@ type SiteLandingNpayBridgePending30d = {
 };
 
 type SiteLandingNpayRevenueFreshness = {
-  actual_confirmed_source: "operational_db.tb_iamweb_users";
+  actual_confirmed_source: Exclude<NpayActualConfirmedSourceName, "unavailable"> | "unavailable";
   actual_confirmed_status: NpayActualConfirmedSourceStatus;
   actual_confirmed_max_payment_complete_time: string | null;
   actual_confirmed_max_order_date: string | null;
@@ -484,12 +506,15 @@ export type SiteLandingSummary = {
     npay_revenue_30d_actual_confirmed?: SiteLandingNpayActualConfirmed30d;
     npay_revenue_30d_bridge_pending?: SiteLandingNpayBridgePending30d;
     npay_revenue_source?: {
-      actual_paid_source_primary: "operational_db.tb_iamweb_users PAYMENT_COMPLETE";
-      bridge_source: "site_landing_ledger -> imweb_orders.order_code/order_no -> operational_db.order_number";
+      actual_paid_source_primary: NpayActualConfirmedSourceName;
+      bridge_source:
+        | "site_landing_ledger -> imweb_orders.order_code/order_no -> operational_db.order_number"
+        | "site_landing_ledger -> imweb_orders.order_code/order_no -> Imweb v2 order identity";
       diagnostic_source: Array<"imweb_status" | "raw_json.orderStatus" | "complete_time">;
       freshness_source: Array<
         | "operational_db.order_date"
         | "operational_db.payment_complete_time"
+        | "imweb_v2.order_time"
         | "imweb_orders.synced_at"
         | "imweb_orders.imweb_status_synced_at"
       >;
@@ -693,17 +718,20 @@ export const summarizeSiteLanding = (
         "운영DB read-only actual confirmed source가 summary 호출에 주입되지 않았다. complete_time legacy 값은 actual purchase로 승격하지 않는다.",
       warnings: ["actual_confirmed_source_not_injected"],
     } satisfies SiteLandingNpayActualConfirmed30d);
+  const actualConfirmedIncluded =
+    npayActualConfirmed30d.status === "included" ||
+    npayActualConfirmed30d.status === "included_with_warning";
 
   const sourceDisagreementReason = (() => {
     if (!npay_revenue_30d_complete_time_legacy) return "local_imweb_orders_missing";
-    if (npayActualConfirmed30d.status !== "included") return npayActualConfirmed30d.reason;
+    if (!actualConfirmedIncluded) return npayActualConfirmed30d.reason;
     if (
       npayActualConfirmed30d.complete_count !==
         npay_revenue_30d_complete_time_legacy.complete_count ||
       npayActualConfirmed30d.complete_amount_krw !==
         npay_revenue_30d_complete_time_legacy.complete_amount_krw
     ) {
-      return "complete_time legacy와 운영DB PAYMENT_COMPLETE actual confirmed가 다르므로 예산 판단에는 actual confirmed만 사용한다.";
+      return "complete_time legacy와 actual confirmed source가 다르므로 예산 판단에는 actual confirmed만 사용한다.";
     }
     return "none";
   })();
@@ -735,13 +763,19 @@ export const summarizeSiteLanding = (
       npay_revenue_30d_actual_confirmed: npayActualConfirmed30d,
       ...(npay_revenue_30d_bridge_pending ? { npay_revenue_30d_bridge_pending } : {}),
       npay_revenue_source: {
-        actual_paid_source_primary: "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+        actual_paid_source_primary:
+          npayActualConfirmed30d.source === "unavailable"
+            ? "unavailable"
+            : npayActualConfirmed30d.source,
         bridge_source:
-          "site_landing_ledger -> imweb_orders.order_code/order_no -> operational_db.order_number",
+          site === "thecleancoffee"
+            ? "site_landing_ledger -> imweb_orders.order_code/order_no -> Imweb v2 order identity"
+            : "site_landing_ledger -> imweb_orders.order_code/order_no -> operational_db.order_number",
         diagnostic_source: ["imweb_status", "raw_json.orderStatus", "complete_time"],
         freshness_source: [
           "operational_db.order_date",
           "operational_db.payment_complete_time",
+          "imweb_v2.order_time",
           "imweb_orders.synced_at",
           "imweb_orders.imweb_status_synced_at",
         ],
@@ -752,7 +786,7 @@ export const summarizeSiteLanding = (
         ],
       },
       npay_revenue_freshness: {
-        actual_confirmed_source: "operational_db.tb_iamweb_users",
+        actual_confirmed_source: npayActualConfirmed30d.source,
         actual_confirmed_status: npayActualConfirmed30d.status,
         actual_confirmed_max_payment_complete_time:
           npayActualConfirmed30d.max_payment_complete_time,
@@ -762,7 +796,8 @@ export const summarizeSiteLanding = (
         confidence:
           npayActualConfirmed30d.status === "included"
             ? "high"
-            : npayActualConfirmed30d.status === "bridge_pending"
+            : npayActualConfirmed30d.status === "included_with_warning" ||
+                npayActualConfirmed30d.status === "bridge_pending"
               ? "medium"
               : "low",
       },

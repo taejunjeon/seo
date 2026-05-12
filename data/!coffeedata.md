@@ -48,6 +48,8 @@ harness_preflight:
 
 정본 순서는 `주문·결제 장부 확정 → GA4 BigQuery guard → NPay intent 미래키 수집 → A-6 외부 전송 dry-run → 플랫폼 전송 승인`이다. 현재는 A-4 NPay intent live publish 이후 A-5 monitoring 구간이며, 2026-05-07 01:51 KST read-only 기준 real intent row는 아직 적지만 A-6 join 후보가 4건 생겼다. 2026-05-07 09:01 KST 확인 결과 VM cron은 UTC 기준 `0 9 * * *`라 실제 실행 시각이 KST 18:00이다.
 
+2026-05-13 gpt0508-49 기준으로 더클린커피 NPay actual source는 Imweb v2 / VM Cloud `imweb_orders(site='thecleancoffee')`로 summary API 로컬 패치에 연결됐다. live VM 배포 전이므로 현재 live summary는 아직 `bridge_pending`이지만, read-only dry-run에서는 최근 30일 `included_with_warning` 후보가 308건 / ₩14,835,000이다. status blank 13건 / ₩877,100은 `imweb_status`가 비어 있는 row이며 미결제 단정 근거가 아니다. GA4 BigQuery는 actual 매출 source가 아니라 `already_in_ga4` guard로만 쓴다.
+
 Phase2 Coffee NPay 과거 매칭은 TJ님 YES로 100% 종결됐다. 과거 purchase 자동 복구 전송은 열지 않고, `분석 완료 / 전송 금지 / 미래 intent 장부로 이관`으로 닫는다. 컨펌 근거는 [[confirm0507-1]]이다.
 
 실제 전송은 여전히 0건이다. Coffee GA4/Meta/Google/TikTok/Naver로 purchase를 보내려면 A-5 closure, A-6 backend dry-run, 중복 guard, TJ님 Red 승인까지 필요하다.
@@ -95,6 +97,10 @@ Phase2 Coffee NPay 과거 매칭은 TJ님 YES로 100% 종결됐다. 과거 purch
 | 2026-05-07 A-5 monitoring real rows | 0건 | VM cron/local public stats 기준 |
 | 2026-05-07 A-6 ledger real rows | 6건 | public list 기준 |
 | 2026-05-07 A-6 join 가능 후보 | 4건 | real + confirm_to_pay + imweb_order_code |
+| 2026-05-13 gpt0508-49 최근 30일 VM Cloud coffee NPay gross | 339건 / 16,631,400원 | `imweb_orders(site='thecleancoffee', pay_type='npay')` |
+| 2026-05-13 gpt0508-49 coffee NPay included_with_warning 후보 | 308건 / 14,835,000원 | 취소/반품/교환 제외, status blank 포함 warning |
+| 2026-05-13 gpt0508-49 coffee status 확정 non-cancel | 295건 / 13,957,900원 | status blank 제외 기준 |
+| 2026-05-13 gpt0508-49 coffee status blank | 13건 / 877,100원 | 미결제 단정 금지, freshness warning 필요 |
 
 감사용 원문 숫자:
 

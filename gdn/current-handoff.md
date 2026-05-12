@@ -1,34 +1,30 @@
 # Current Handoff
 
-작성 시각: 2026-05-12 23:44 KST
+작성 시각: 2026-05-13 00:30 KST
 
 ## 현재 목표
 
-더클린커피 Imweb API 키와 GA4 BigQuery를 이용해 VM Cloud에 더클린커피 주문만 분리되는 actual order source를 구축할 수 있는지 검토했다. 이번 턴은 Green Lane: read-only 검토, dry-run, 문서/checkpoint 갱신, scoped commit/push까지 완료했다.
+gpt0508-49: 더클린커피 NPay 실제 결제 매출을 VM Cloud `imweb_orders(site='thecleancoffee')` 기준으로 로컬 summary API에 연결하고, 배포 전 code/test/dry-run/source guide/gptconfirm/approval packet까지 완료한다. VM backend deploy/restart는 승인 전 금지다.
 
 ## 완료한 것
 
-- gpt0508-47 Option C live 배포는 biocom actual included PASS, thecleancoffee bridge_pending 유지 PASS 상태로 완료됐다.
-- 루트 `AGENTS.md`, 공통 harness, coffee harness, `imwebapi.md`, `data/!coffeedata.md`를 재확인했다.
-- `.env`에는 더클린커피 Imweb API key/secret과 GA4 coffee key들이 설정돼 있음을 값 노출 없이 확인했다.
-- 코드상 기존 `crmLocal` Imweb sync는 `site=thecleancoffee`를 지원하고, 현재 summary API는 coffee actual을 운영DB site 격리 미검증 때문에 bridge_pending으로 고정한다.
-- VM Cloud `imweb_orders.site='thecleancoffee'`는 최신 주문 source로 확인됐다. 최근 30일 Imweb v2 `type=npay`는 337건/₩16,374,100, `order_code`와 `channel_order_no`는 337/337 채워져 있다.
-- 취소 status 31건/₩1,796,400을 제외하면 paid non-cancel 후보는 306건/₩14,577,700이다. status blank 11건/₩619,800은 warning 또는 pending 처리 대상이다.
-- GA4 BigQuery `analytics_326949178`은 337건의 order/channel key 674개를 robust search했지만 hit 0건이었다. 결제 정본이 아니라 `already_in_ga4` guard로만 쓴다.
-- source guide와 feasibility JSON/MD, Yellow 승인안 초안을 작성했다.
-- 검증 PASS: JSON parse, wiki links, harness preflight, git diff check, no-send/no-write grep docs-only.
-- commit/push 완료. 정확한 현재 HEAD는 `git rev-parse --short HEAD`로 확인한다.
+- `gptconfirm/gpt0508-49` 패키지 폴더를 만들고 sprint checkpoint를 시작했다.
+- `backend/src/npayActualConfirmedPgReader.ts`에 site router를 추가했다. biocom은 운영DB `tb_iamweb_users PAYMENT_COMPLETE`, thecleancoffee는 `imweb_v2_vm_cloud_imweb_orders` source를 쓴다.
+- summary API response에 coffee gross/excluded/status_blank/freshness/GA4 guard 필드를 연결했다.
+- typecheck PASS, 핵심 테스트 16/16 PASS.
+- VM Cloud read-only dry-run: gross 339건/₩16,631,400, included_with_warning 후보 308건/₩14,835,000, confirmed_status_only 295건/₩13,957,900, status blank 13건/₩877,100.
+- source guide, data inventory, `data/!coffeedata.md`, `total/!total-current.md`를 coffee source rule에 맞게 갱신했다.
+- AGENTS.md에는 요청한 성공 기준/가정 공개/Green 자율/검증 루프/사람 말 우선 보고 규칙이 이미 반영돼 있어 추가 수정하지 않았다.
 
 ## 다음 명령
 
-1. 다음 Green 로컬 patch에서 coffee용 Imweb actual reader를 추가한다.
-2. patch/test PASS 후 `gdn/coffee-imweb-summary-inclusion-deploy-approval-20260512.md` 기준으로 Yellow deploy/restart 승인 여부를 TJ님이 결정한다.
-3. 승인 전에는 live summary API를 바꾸지 않는다.
+1. `gptconfirm/gpt0508-49` 문서 5개 이하 + manifest를 완성한다.
+2. `python3 scripts/harness-preflight-check.py --strict`, JSON parse, wiki link check, `git diff --check`, raw pattern scan을 실행한다.
+3. 문제 없으면 scoped commit/push 한다.
 
 ## 절대 건드리면 안 되는 것
 
-- 운영DB write/import, VM Cloud schema migration/apply, backend deploy/restart, cron 등록/변경, GTM publish, Imweb footer/header 변경.
-- GA4/Meta/TikTok/Google Ads/Naver actual send/upload.
-- `.env` secret 값 출력 또는 커밋.
-- raw email/phone/member_code/order/payment/click_id 출력.
-- 기존 unrelated dirty file: `tiktok/fetchresult.md`, 루트 `=`, `tiktok/monitoring/*2026-05-10*`, `tiktok/monitoring/*2026-05-11*`.
+- 운영DB write/import, VM backend deploy/restart, VM schema migration, cron 변경, GTM publish, Imweb footer/header 변경.
+- GA4/Meta/TikTok/Google Ads/Naver send/upload.
+- secret/raw email/phone/member_code/order/payment/click_id 출력.
+- GA4 revenue를 actual NPay 매출로 사용하거나 NPay click/count/add_payment_info를 구매완료로 승격.

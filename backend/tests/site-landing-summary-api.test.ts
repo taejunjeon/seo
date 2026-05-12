@@ -43,6 +43,26 @@ test.before(async () => {
     sessionKey: { gaSessionId: "sum-direct" },
     channelClassified: "direct",
   });
+  ledger.recordSiteLanding({
+    site: "thecleancoffee",
+    landedAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+    landingUrl: "https://thecleancoffee.com/shop",
+    sessionKey: { gaSessionId: "sum-coffee" },
+    channelClassified: "paid_search",
+  });
+
+  const db = crmLocal.getCrmDb();
+  const now = new Date().toISOString();
+  const coffeeStmt = db.prepare(`
+    INSERT INTO imweb_orders (
+      order_key, site, order_no, order_code, channel_order_no, order_time, complete_time,
+      pay_type, payment_amount, total_price, raw_json, synced_at, imweb_status, imweb_status_synced_at
+    )
+    VALUES (?, 'thecleancoffee', ?, ?, ?, ?, ?, 'npay', ?, ?, '{}', ?, ?, ?)
+  `);
+  coffeeStmt.run("api-coffee-paid", "API_SECRET_ORDER_001", "api-code-1", "api-channel-1", now, "", 12000, 12000, now, "PURCHASE_CONFIRMATION", now);
+  coffeeStmt.run("api-coffee-blank", "API_SECRET_ORDER_002", "api-code-2", "api-channel-2", now, "", 8000, 8000, now, "", now);
+  coffeeStmt.run("api-coffee-cancel", "API_SECRET_ORDER_003", "api-code-3", "api-channel-3", now, "", 5000, 5000, now, "CANCEL", now);
 
   app = express();
   app.use(express.json({ limit: "1mb" }));
@@ -125,4 +145,25 @@ test("summary API: response 안에 raw email/phone/jumin 패턴 0", async () => 
   const serialized = JSON.stringify(r.data);
   assert.ok(!/\b\d{6}-?\d{7}\b/.test(serialized));
   assert.ok(!/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(serialized));
+});
+
+test("summary API: thecleancoffee actual source uses Imweb v2 source and does not leak raw order ids", async () => {
+  const r = await get("/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24");
+  assert.equal(r.status, 200);
+  assert.equal(r.data.site, "thecleancoffee");
+  const derived = r.data.derived as Record<string, unknown>;
+  const actual = derived.npay_revenue_30d_actual_confirmed as Record<string, unknown>;
+  assert.equal(actual.source, "imweb_v2_vm_cloud_imweb_orders");
+  assert.equal(actual.status, "included_with_warning");
+  assert.equal(actual.complete_count, 2);
+  assert.equal(actual.complete_amount_krw, 20000);
+  assert.equal(actual.gross_count, 3);
+  assert.equal(actual.excluded_cancel_return_exchange_count, 1);
+  assert.equal(actual.status_blank_count, 1);
+  assert.equal(actual.ga4_guard_role, "already_in_ga4_guard_only_not_actual_source");
+
+  const serialized = JSON.stringify(r.data);
+  assert.ok(!serialized.includes("API_SECRET_ORDER_001"));
+  assert.ok(!serialized.includes("api-code-1"));
+  assert.ok(!serialized.includes("api-channel-1"));
 });

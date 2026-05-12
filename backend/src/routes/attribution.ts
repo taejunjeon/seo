@@ -66,7 +66,10 @@ import {
   recordPaidClickIntent,
 } from "../paidClickIntentLog";
 import { buildNpayRoasDryRunReport } from "../npayRoasDryRun";
-import { fetchNpayActualConfirmedSiteLandingSummary } from "../npayActualConfirmedPgReader";
+import {
+  fetchNpayActualConfirmedSiteLandingSummary,
+  type NpayActualConfirmedSiteLandingSummary,
+} from "../npayActualConfirmedPgReader";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import { classifyCrossReferenceEvidence } from "../confirmedPurchaseCrossReferenceEvidence";
@@ -4112,10 +4115,11 @@ export const createAttributionRouter = () => {
       const siteRaw = typeof req.query.site === "string" ? req.query.site : "biocom";
       const site: SiteKey = siteRaw === "thecleancoffee" ? "thecleancoffee" : "biocom";
       const actual = await fetchNpayActualConfirmedSiteLandingSummary({ site, windowDays: 30 }).catch(
-        () => ({
+        (): NpayActualConfirmedSiteLandingSummary => ({
           ok: false,
           site,
           windowDays: 30,
+          source: "unavailable" as const,
           status: "unavailable" as const,
           completeCount: 0,
           completeAmountKrw: 0,
@@ -4128,10 +4132,7 @@ export const createAttributionRouter = () => {
       );
       const summary = summarizeSiteLanding(site, windowHours, {
         npayActualConfirmed30d: {
-          source:
-            actual.status === "included"
-              ? "operational_db.tb_iamweb_users PAYMENT_COMPLETE"
-              : "unavailable",
+          source: actual.source,
           status: actual.status,
           complete_count: actual.completeCount,
           complete_amount_krw: actual.completeAmountKrw,
@@ -4140,6 +4141,25 @@ export const createAttributionRouter = () => {
           max_order_date: actual.maxOrderDate,
           reason: actual.reason,
           warnings: actual.warnings,
+          gross_count: actual.grossCount,
+          gross_amount_krw: actual.grossAmountKrw,
+          gross_amount_krw_korean: actual.grossAmountKrwKorean,
+          excluded_cancel_return_exchange_count:
+            actual.excludedCancelReturnExchangeCount,
+          excluded_cancel_return_exchange_amount_krw:
+            actual.excludedCancelReturnExchangeAmountKrw,
+          excluded_cancel_return_exchange_amount_krw_korean:
+            actual.excludedCancelReturnExchangeAmountKrwKorean,
+          confirmed_status_count: actual.confirmedStatusCount,
+          confirmed_status_amount_krw: actual.confirmedStatusAmountKrw,
+          confirmed_status_amount_krw_korean: actual.confirmedStatusAmountKrwKorean,
+          status_blank_count: actual.statusBlankCount,
+          status_blank_amount_krw: actual.statusBlankAmountKrw,
+          status_blank_amount_krw_korean: actual.statusBlankAmountKrwKorean,
+          max_order_time: actual.maxOrderTime,
+          max_synced_at: actual.maxSyncedAt,
+          max_status_synced_at: actual.maxStatusSyncedAt,
+          ga4_guard_role: actual.ga4GuardRole,
         },
       });
       res.json({

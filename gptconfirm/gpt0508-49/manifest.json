@@ -1,0 +1,58 @@
+{
+  "sprint": "gpt0508-49",
+  "created_at_kst": "2026-05-13 00:30:00 KST",
+  "owner": "Codex",
+  "lane": "Green local patch complete; Yellow deploy approval pending",
+  "documents": [
+    {
+      "path": "gptconfirm/gpt0508-49/00-result-report.md",
+      "purpose": "Human-first result report and decision summary"
+    },
+    {
+      "path": "gptconfirm/gpt0508-49/01-implementation-and-validation.md",
+      "purpose": "Code changes, tests, and validation evidence"
+    },
+    {
+      "path": "gptconfirm/gpt0508-49/02-source-analysis-and-dry-run.md",
+      "purpose": "Coffee Imweb source analysis, dry-run numbers, and status blank policy"
+    },
+    {
+      "path": "gptconfirm/gpt0508-49/03-next-actions-and-approval.md",
+      "purpose": "Yellow deploy approval packet, rollback, and handoff"
+    },
+    {
+      "path": "gptconfirm/gpt0508-49/99-total-current-copy.md",
+      "purpose": "Copy of total current canonical state after this sprint"
+    }
+  ],
+  "evidence_files": [
+    "data/coffee-imweb-actual-source-dry-run-20260513.json",
+    "data/current-state.json",
+    "gdn/current-handoff.md"
+  ],
+  "validation": {
+    "backend_typecheck": "PASS",
+    "targeted_tests": "PASS 16/16",
+    "vm_cloud_dry_run": "PASS read-only",
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight_strict": "PASS",
+    "git_diff_check": "PASS",
+    "raw_pattern_scan": "PASS"
+  },
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "operational_db_write": 0,
+    "vm_cloud_write": 0,
+    "vm_backend_deploy_restart": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "raw_secret_or_pii_output": false
+  },
+  "recommendation": {
+    "deploy_approval": "conditional_yes",
+    "confidence": 0.86,
+    "reason": "Local code/tests and VM Cloud dry-run support coffee actual inclusion, but status blank and status freshness warnings must be visible."
+  }
+}
