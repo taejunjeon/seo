@@ -1,0 +1,90 @@
+{
+  "schema_version": "option_c_source_sufficiency_audit_v1",
+  "generated_at_kst": "2026-05-12 21:28:00 KST",
+  "sprint": "gpt0508-46",
+  "harness_preflight": {
+    "common_harness_read": true,
+    "project_harness_read": true,
+    "required_context_docs": [
+      "CLAUDE.md",
+      "AGENTS.md",
+      "harness/common/REPORTING_TEMPLATE.md",
+      "harness/common/HARNESS_GUIDELINES.md",
+      "harness/common/AUTONOMY_POLICY.md",
+      "docurule.md",
+      "data/!data_inventory.md",
+      "gdn/attribution-data-source-decision-guide-20260511.md"
+    ],
+    "lane": "Green",
+    "allowed_actions": [
+      "local_code_patch",
+      "fixture_test",
+      "read_only_vm_sqlite_query",
+      "read_only_operational_db_query",
+      "local_document_update",
+      "gptconfirm_packaging"
+    ],
+    "forbidden_actions": [
+      "vm_deploy_restart",
+      "operational_db_write",
+      "platform_send_upload",
+      "gtm_publish",
+      "npay_click_to_purchase_promotion"
+    ],
+    "source_window_freshness_confidence": {
+      "window": "last_30d",
+      "freshness": "operational_db and VM Cloud read-only checked at 2026-05-12 21:24-21:27 KST",
+      "confidence": 0.9
+    }
+  },
+  "source_roles": {
+    "actual_paid_source_primary": {
+      "source": "operational_db.public.tb_iamweb_users",
+      "rule": "payment_method='NAVERPAY_ORDER' AND payment_status='PAYMENT_COMPLETE' AND cancellation_reason/return_reason empty AND final_order_amount > 0",
+      "use": "NPay actual confirmed revenue"
+    },
+    "bridge_source": {
+      "source": "VM Cloud or local SQLite imweb_orders.order_code/order_no",
+      "use": "site_landing order_code to operational_db order_number bridge"
+    },
+    "diagnostic_source": [
+      "imweb_orders.complete_time",
+      "imweb_orders.imweb_status",
+      "raw_json.orderStatus"
+    ],
+    "freshness_source": [
+      "operational_db.order_date",
+      "operational_db.payment_complete_time",
+      "imweb_orders.synced_at",
+      "imweb_orders.imweb_status_synced_at"
+    ],
+    "forbidden_proxy": [
+      "complete_time blank-only unpaid",
+      "imweb_status-only actual purchase",
+      "NPay click/count/add_payment_info purchase promotion"
+    ]
+  },
+  "option_c_readiness_score": {
+    "data_sufficiency": 92,
+    "timing": 90,
+    "goal_impact": 94,
+    "risk_low_is_better": 14,
+    "overall_recommendation": 91,
+    "verdict": "PROCEED_GREEN_LOCAL_PATCH"
+  },
+  "decision": {
+    "is_complete_time_backfill": false,
+    "is_actual_confirmed_source_change": true,
+    "actual_confirmed_primary_fixed_to_operational_db": true,
+    "imweb_status_role": "diagnostic_only",
+    "complete_time_role": "legacy_diagnostic_only"
+  },
+  "invariants": {
+    "operational_db_write": 0,
+    "vm_write_restart_deploy": 0,
+    "platform_send_upload": 0,
+    "gtm_publish": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false
+  }
+}

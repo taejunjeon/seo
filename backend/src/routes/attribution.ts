@@ -66,6 +66,7 @@ import {
   recordPaidClickIntent,
 } from "../paidClickIntentLog";
 import { buildNpayRoasDryRunReport } from "../npayRoasDryRun";
+import { fetchNpayActualConfirmedSiteLandingSummary } from "../npayActualConfirmedPgReader";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "../orderKeys";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import { classifyCrossReferenceEvidence } from "../confirmedPurchaseCrossReferenceEvidence";
@@ -4098,7 +4099,7 @@ export const createAttributionRouter = () => {
   });
 
   // gpt0508-42 작업3: site_landing summary read-only API
-  router.get("/api/attribution/site-landing/summary", (req: Request, res: Response) => {
+  router.get("/api/attribution/site-landing/summary", async (req: Request, res: Response) => {
     try {
       const windowHoursRaw = req.query.windowHours;
       const windowHours = Math.max(
@@ -4110,7 +4111,37 @@ export const createAttributionRouter = () => {
       );
       const siteRaw = typeof req.query.site === "string" ? req.query.site : "biocom";
       const site: SiteKey = siteRaw === "thecleancoffee" ? "thecleancoffee" : "biocom";
-      const summary = summarizeSiteLanding(site, windowHours);
+      const actual = await fetchNpayActualConfirmedSiteLandingSummary({ site, windowDays: 30 }).catch(
+        () => ({
+          ok: false,
+          site,
+          windowDays: 30,
+          status: "unavailable" as const,
+          completeCount: 0,
+          completeAmountKrw: 0,
+          completeAmountKrwKorean: "₩0",
+          maxPaymentCompleteTime: null,
+          maxOrderDate: null,
+          reason: "운영DB read-only actual confirmed 조회 실패. complete_time legacy는 actual purchase로 쓰지 않는다.",
+          warnings: ["operational_db_read_failed"],
+        }),
+      );
+      const summary = summarizeSiteLanding(site, windowHours, {
+        npayActualConfirmed30d: {
+          source:
+            actual.status === "included"
+              ? "operational_db.tb_iamweb_users PAYMENT_COMPLETE"
+              : "unavailable",
+          status: actual.status,
+          complete_count: actual.completeCount,
+          complete_amount_krw: actual.completeAmountKrw,
+          complete_amount_krw_korean: actual.completeAmountKrwKorean,
+          max_payment_complete_time: actual.maxPaymentCompleteTime,
+          max_order_date: actual.maxOrderDate,
+          reason: actual.reason,
+          warnings: actual.warnings,
+        },
+      });
       res.json({
         ok: true,
         mode: "read_only_no_send",

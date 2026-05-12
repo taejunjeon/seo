@@ -1,0 +1,42 @@
+{
+  "schema_version": "gptconfirm_manifest_v1",
+  "sprint": "gpt0508-46",
+  "generated_at_kst": "2026-05-12 21:35:00 KST",
+  "folder": "gptconfirm/gpt0508-46",
+  "documents": [
+    "00-result-report.md",
+    "01-option-a-result-and-option-c-source-fix.md",
+    "02-implementation-and-validation.md",
+    "03-next-actions-and-approval.md",
+    "99-total-current-copy.md"
+  ],
+  "included_artifacts": [
+    "data/option-c-source-sufficiency-audit-20260512.json",
+    "gdn/option-c-source-sufficiency-audit-20260512.md",
+    "data/summary-api-npay-actual-source-patch-20260512.json",
+    "gdn/summary-api-npay-actual-source-patch-20260512.md",
+    "data/summary-api-npay-actual-source-fixtures-20260512.json",
+    "gdn/summary-api-npay-actual-source-fixtures-20260512.md",
+    "data/option-c-dry-run-npay-summary-recalculation-20260512.json",
+    "gdn/option-c-dry-run-npay-summary-recalculation-20260512.md",
+    "data/seo-data-location-inventory-option-c-update-20260512.json",
+    "gdn/seo-data-location-inventory-option-c-update-20260512.md",
+    "data/option-c-summary-api-deploy-approval-20260512.json",
+    "gdn/option-c-summary-api-deploy-approval-20260512.md"
+  ],
+  "option_a_result_included": true,
+  "option_c_source_fix_included": true,
+  "data_location_inventory_review_included": true,
+  "telegram": {
+    "sent": false,
+    "reason": "사용자 skip 유지 조건"
+  },
+  "invariants": {
+    "operational_db_write": 0,
+    "vm_deploy_restart": 0,
+    "platform_send_upload": 0,
+    "gtm_publish": 0,
+    "send_candidate": false,
+    "actual_send_candidate": false
+  }
+}

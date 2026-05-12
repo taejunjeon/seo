@@ -1,0 +1,46 @@
+{
+  "schema_version": "summary_api_npay_actual_source_patch_v1",
+  "generated_at_kst": "2026-05-12 21:30:00 KST",
+  "sprint": "gpt0508-46",
+  "changed_files": [
+    "backend/src/siteLandingLedger.ts",
+    "backend/src/npayActualConfirmedPgReader.ts",
+    "backend/src/routes/attribution.ts",
+    "backend/tests/site-landing-npay-actual-source.test.ts"
+  ],
+  "new_response_fields": [
+    "derived.npay_revenue_30d_complete_time_legacy",
+    "derived.npay_revenue_30d_actual_confirmed",
+    "derived.npay_revenue_30d_bridge_pending",
+    "derived.npay_revenue_source",
+    "derived.npay_revenue_freshness",
+    "derived.source_disagreement_reason"
+  ],
+  "backward_compatibility": {
+    "legacy_field_kept": "derived.npay_revenue_30d",
+    "legacy_meaning": "complete_time based diagnostic value only",
+    "frontend_breaking_change": false
+  },
+  "actual_confirmed_rule": {
+    "source": "operational_db.public.tb_iamweb_users",
+    "payment_method": "NAVERPAY_ORDER",
+    "payment_status": "PAYMENT_COMPLETE",
+    "cancel_return_excluded": true,
+    "amount_positive": true,
+    "grouping": "order_number aggregate, raw order_number not returned"
+  },
+  "site_handling": {
+    "biocom": "operational_db actual confirmed aggregate included when read-only query succeeds",
+    "thecleancoffee": "bridge_pending until operational_db site isolation is proven"
+  },
+  "guards": {
+    "complete_time_blank_only_unpaid": false,
+    "imweb_status_only_actual_purchase": false,
+    "npay_click_count_add_payment_info_purchase": false,
+    "send_candidate": false,
+    "actual_send_candidate": false,
+    "upload_candidate_count": 0,
+    "external_send_count": 0
+  },
+  "status": "LOCAL_PATCH_DONE_NOT_DEPLOYED"
+}

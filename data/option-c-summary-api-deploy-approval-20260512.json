@@ -1,0 +1,59 @@
+{
+  "schema_version": "option_c_summary_api_deploy_approval_v1",
+  "generated_at_kst": "2026-05-12 21:34:00 KST",
+  "sprint": "gpt0508-46",
+  "approval_required": true,
+  "claude_code_can_deploy": {
+    "answer": "YES_AFTER_TJ_APPROVAL",
+    "possible_scope": [
+      "copy changed backend files to VM Cloud",
+      "run backend build/typecheck",
+      "restart seo-backend",
+      "run post-snapshot curl checks"
+    ],
+    "not_executed_in_this_sprint": true
+  },
+  "changed_files": [
+    "backend/src/siteLandingLedger.ts",
+    "backend/src/npayActualConfirmedPgReader.ts",
+    "backend/src/routes/attribution.ts",
+    "backend/tests/site-landing-npay-actual-source.test.ts",
+    "data/!data_inventory.md",
+    "data/dbstructure.md"
+  ],
+  "pre_snapshot_commands": [
+    "curl -sS 'https://att.ainativeos.net/api/attribution/site-landing/summary?site=biocom&windowHours=24'",
+    "curl -sS 'https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24'"
+  ],
+  "deploy_commands": [
+    "scp changed backend src files to VM Cloud",
+    "ssh VM Cloud 'cd /home/biocomkr_sns/seo/repo/backend && npm run build && pm2 restart seo-backend --update-env'"
+  ],
+  "post_snapshot_commands": [
+    "curl -sS 'https://att.ainativeos.net/api/attribution/site-landing/summary?site=biocom&windowHours=24' | jq '.derived.npay_revenue_30d_actual_confirmed'",
+    "curl -sS 'https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24' | jq '.derived.npay_revenue_30d_actual_confirmed, .derived.npay_revenue_30d_bridge_pending'"
+  ],
+  "rollback_commands": [
+    "restore VM Cloud backend/src files from pre-deploy backup",
+    "cd /home/biocomkr_sns/seo/repo/backend && npm run build && pm2 restart seo-backend --update-env"
+  ],
+  "failure_conditions": [
+    "HTTP status not 200",
+    "derived.npay_revenue_30d missing",
+    "derived.npay_revenue_30d_actual_confirmed missing",
+    "invariants_held external_send_count/upload_candidate_count not zero",
+    "raw PII pattern appears in response"
+  ],
+  "expected_summary_api_changes": {
+    "biocom": "actual_confirmed included from operational_db PAYMENT_COMPLETE",
+    "thecleancoffee": "actual_confirmed bridge_pending until site isolation proven",
+    "legacy": "complete_time field kept for comparison"
+  },
+  "invariants": {
+    "operational_db_write": 0,
+    "platform_send_upload": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "cron_registration": 0
+  }
+}

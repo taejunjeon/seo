@@ -2,6 +2,8 @@
 
 작성 배경: AIBIO (Recovery Lab) Supabase DB 접근 권한 확보 이후 전사 데이터 소스를 한 페이지에 정리. 통합 VIP 멤버십 전략(`coffee/coffeevip.md`)의 금액대 산정·sync 설계의 기준 문서.
 
+> 최신 데이터 위치/신선도 원칙은 `data/!data_inventory.md`를 우선한다. 특히 2026-05-12 이후 NPay summary는 `complete_time` 단독이 아니라 운영DB `tb_iamweb_users PAYMENT_COMPLETE` actual confirmed 기준과 VM Cloud `imweb_orders` bridge 기준을 분리한다.
+
 ---
 
 ## 1. 데이터 소스 지도 (Source of Truth)

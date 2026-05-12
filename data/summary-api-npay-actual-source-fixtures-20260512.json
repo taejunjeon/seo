@@ -1,0 +1,49 @@
+{
+  "schema_version": "summary_api_npay_actual_source_fixtures_v1",
+  "generated_at_kst": "2026-05-12 21:31:00 KST",
+  "test_file": "backend/tests/site-landing-npay-actual-source.test.ts",
+  "fixture_cases": [
+    {
+      "case": "NPay PAYMENT_COMPLETE in operational_db + complete_time blank",
+      "expected": "actual_confirmed included"
+    },
+    {
+      "case": "NPay complete_time present but PAYMENT_COMPLETE missing",
+      "expected": "legacy_only_or_hold, actual_confirmed excluded"
+    },
+    {
+      "case": "imweb_status PURCHASE_CONFIRMATION but payment_status not complete",
+      "expected": "diagnostic_only, actual_confirmed excluded"
+    },
+    {
+      "case": "PAY_WAIT/STANDBY/DELIVERING lifecycle status",
+      "expected": "actual_confirmed excluded unless operational_db PAYMENT_COMPLETE"
+    },
+    {
+      "case": "site_landing order_code bridge matches operational_db order_number",
+      "expected": "actual_confirmed bridge included via aggregate input"
+    },
+    {
+      "case": "operational_db sync lag",
+      "expected": "bridge_pending with freshness label"
+    },
+    {
+      "case": "raw email/phone/order/payment/member_code never output",
+      "expected": "PII regex scan pass"
+    },
+    {
+      "case": "NPay click/count/add_payment_info",
+      "expected": "not promoted"
+    }
+  ],
+  "test_results": {
+    "command": "npx tsx --test tests/site-landing-npay-actual-source.test.ts tests/site-landing-summary-api.test.ts tests/npay-actual-confirmed-pg-reader.test.ts",
+    "tests": 12,
+    "pass": 12,
+    "fail": 0
+  },
+  "typecheck": {
+    "command": "npm run typecheck",
+    "status": "PASS"
+  }
+}

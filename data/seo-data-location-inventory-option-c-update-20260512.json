@@ -1,0 +1,22 @@
+{
+  "schema_version": "seo_data_location_inventory_option_c_update_v1",
+  "generated_at_kst": "2026-05-12 21:33:00 KST",
+  "updated_files": [
+    "data/!data_inventory.md",
+    "data/dbstructure.md"
+  ],
+  "rules_added": [
+    "complete_time is not NPay actual primary",
+    "imweb_status is lifecycle/diagnostic source",
+    "NPay actual primary is operational_db tb_iamweb_users PAYMENT_COMPLETE",
+    "imweb_orders.order_code/order_no is bridge source",
+    "VM Cloud imweb_orders is partial sync and requires freshness labels",
+    "local_db imweb_orders can be richer for backfill but must be checked for staleness",
+    "Notion management table is documentation registry, not row/freshness source of truth"
+  ],
+  "cross_links": [
+    "data/!data_inventory.md#A15",
+    "data/dbstructure.md top note"
+  ],
+  "status": "UPDATED"
+}

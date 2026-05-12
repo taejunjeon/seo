@@ -1,0 +1,64 @@
+{
+  "schema_version": "option_c_dry_run_npay_summary_recalculation_v1",
+  "generated_at_kst": "2026-05-12 21:32:00 KST",
+  "sources": {
+    "vm_cloud_sqlite": "read-only SSH sqlite aggregate, no raw identifiers returned",
+    "operational_db": "read-only aggregate from public.tb_iamweb_users",
+    "live_summary_api": "https://att.ainativeos.net/api/attribution/site-landing/summary, read-only"
+  },
+  "biocom": {
+    "legacy_complete_time_current_live": {
+      "count": 128,
+      "revenue_krw": 25664000,
+      "max_order_time": "2026-05-11T00:47:22.000Z"
+    },
+    "vm_cloud_bridge_pending": {
+      "count": 59,
+      "revenue_krw": 7841600,
+      "max_order_time": "2026-05-12T07:09:55.000Z"
+    },
+    "actual_confirmed_operational_db": {
+      "count": 163,
+      "revenue_krw": 29500200,
+      "max_payment_complete_time": "2026-05-12T07:10:27.000Z",
+      "max_order_date": "2026-05-12 16:09:55"
+    },
+    "source_disagreement_reason": "complete_time legacy and operational_db PAYMENT_COMPLETE differ; budget/revenue decision should use actual_confirmed"
+  },
+  "thecleancoffee": {
+    "legacy_complete_time_current_live": {
+      "count": 261,
+      "revenue_krw": 11182700,
+      "max_order_time": "2026-05-11T05:08:29.000Z"
+    },
+    "vm_cloud_bridge_pending": {
+      "count": 75,
+      "revenue_krw": 5067700,
+      "max_order_time": "2026-05-12T12:08:16.000Z"
+    },
+    "actual_confirmed_operational_db": {
+      "status": "bridge_pending",
+      "reason": "operational_db tb_iamweb_users site isolation for thecleancoffee is not proven"
+    },
+    "source_disagreement_reason": "coffee actual confirmed requires site-isolated operational source or order bridge"
+  },
+  "freshness": {
+    "operational_db": {
+      "biocom_max_order_date": "2026-05-12 16:09:55",
+      "biocom_max_payment_complete_time": "2026-05-12T07:10:27.000Z"
+    },
+    "vm_cloud_imweb_orders": {
+      "biocom_max_synced_at": "2026-05-12 12:26:59",
+      "biocom_max_status_synced_at": "2026-05-12 04:10:18",
+      "thecleancoffee_max_synced_at": "2026-05-12 12:27:08",
+      "thecleancoffee_max_status_synced_at": "2026-05-12 04:11:07"
+    },
+    "local_db_imweb_orders": {
+      "biocom_max_synced_at": "2026-04-15 12:22:28",
+      "biocom_max_status_synced_at": "2026-04-15 12:28:20",
+      "thecleancoffee_status": "stale_or_absent_for_last_30d"
+    }
+  },
+  "deploy_value": "HIGH",
+  "deploy_status": "approval_required_not_executed"
+}

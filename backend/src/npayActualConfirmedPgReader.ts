@@ -90,6 +90,122 @@ const numFromBig = (value: string | number | null | undefined): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const formatKrwKorean = (amount: number): string => {
+  if (amount === 0) return "₩0";
+  const eok = Math.floor(amount / 100_000_000);
+  const man = Math.floor((amount % 100_000_000) / 10_000);
+  const rest = amount % 10_000;
+  const parts: string[] = [];
+  if (eok > 0) parts.push(`${eok}억`);
+  if (man > 0) parts.push(`${man.toLocaleString("ko-KR")}만`);
+  if (rest > 0 && eok === 0) parts.push(`${rest.toLocaleString("ko-KR")}`);
+  return `₩${parts.join(" ")}`.trim() || `₩${amount.toLocaleString("ko-KR")}`;
+};
+
+export type NpayActualConfirmedSiteLandingSummary = {
+  ok: boolean;
+  site: "biocom" | "thecleancoffee";
+  windowDays: number;
+  status: "included" | "bridge_pending" | "unavailable";
+  completeCount: number;
+  completeAmountKrw: number;
+  completeAmountKrwKorean: string;
+  maxPaymentCompleteTime: string | null;
+  maxOrderDate: string | null;
+  reason: string;
+  warnings: string[];
+};
+
+type SiteLandingAggRow = {
+  orders: number;
+  total_amt: string | number;
+  max_payment_complete_time: string | null;
+  max_order_date: string | null;
+};
+
+const siteLandingSummarySql = `
+WITH grouped AS (
+  SELECT
+    order_number,
+    MAX(final_order_amount::numeric) AS amt,
+    MAX(NULLIF(trim(payment_complete_time::text), '')) AS max_payment_complete_time,
+    MAX(NULLIF(trim(order_date::text), '')) AS max_order_date
+  FROM public.tb_iamweb_users
+  WHERE order_date::timestamp >= NOW() - ($1::int || ' days')::interval
+    AND payment_method = 'NAVERPAY_ORDER'
+    AND payment_status = 'PAYMENT_COMPLETE'
+    AND (cancellation_reason IS NULL OR trim(cancellation_reason::text) IN ('', 'nan'))
+    AND (return_reason IS NULL OR trim(return_reason::text) IN ('', 'nan'))
+    AND final_order_amount IS NOT NULL
+    AND final_order_amount > 0
+  GROUP BY order_number
+)
+SELECT
+  COUNT(*)::int AS orders,
+  COALESCE(SUM(amt), 0)::bigint AS total_amt,
+  MAX(max_payment_complete_time) AS max_payment_complete_time,
+  MAX(max_order_date) AS max_order_date
+FROM grouped
+`;
+
+export const fetchNpayActualConfirmedSiteLandingSummary = async (
+  input: {
+    site: "biocom" | "thecleancoffee";
+    windowDays?: number;
+  },
+): Promise<NpayActualConfirmedSiteLandingSummary> => {
+  const windowDays = input.windowDays ?? NPAY_ACTUAL_CONFIRMED_DEFAULT_WINDOW_DAYS;
+  if (input.site !== "biocom") {
+    return {
+      ok: false,
+      site: input.site,
+      windowDays,
+      status: "bridge_pending",
+      completeCount: 0,
+      completeAmountKrw: 0,
+      completeAmountKrwKorean: "₩0",
+      maxPaymentCompleteTime: null,
+      maxOrderDate: null,
+      reason:
+        "운영DB tb_iamweb_users의 thecleancoffee site 격리가 아직 검증되지 않아 actual confirmed는 bridge_pending으로 둔다.",
+      warnings: ["site_isolation_unproven"],
+    };
+  }
+  if (!isDatabaseConfigured()) {
+    return {
+      ok: false,
+      site: input.site,
+      windowDays,
+      status: "unavailable",
+      completeCount: 0,
+      completeAmountKrw: 0,
+      completeAmountKrwKorean: "₩0",
+      maxPaymentCompleteTime: null,
+      maxOrderDate: null,
+      reason: "DATABASE_URL 미설정 — 운영DB PAYMENT_COMPLETE actual confirmed를 조회하지 않았다.",
+      warnings: ["DATABASE_URL_missing"],
+    };
+  }
+
+  const result = await queryPg<SiteLandingAggRow>(siteLandingSummarySql, [windowDays]);
+  const row = result.rows[0];
+  const amount = numFromBig(row?.total_amt);
+  return {
+    ok: true,
+    site: input.site,
+    windowDays,
+    status: "included",
+    completeCount: numFromBig(row?.orders),
+    completeAmountKrw: amount,
+    completeAmountKrwKorean: formatKrwKorean(amount),
+    maxPaymentCompleteTime: row?.max_payment_complete_time ?? null,
+    maxOrderDate: row?.max_order_date ?? null,
+    reason:
+      "운영DB tb_iamweb_users의 NAVERPAY_ORDER + PAYMENT_COMPLETE + 취소/반품 제외 + 금액 양수 조건을 실제 결제완료 기준으로 사용한다.",
+    warnings: [],
+  };
+};
+
 export const fetchNpayActualConfirmedSnapshot = async (
   input: NpayActualConfirmedSnapshotInput = { windowDays: NPAY_ACTUAL_CONFIRMED_DEFAULT_WINDOW_DAYS },
 ): Promise<NpayActualConfirmedSnapshot> => {

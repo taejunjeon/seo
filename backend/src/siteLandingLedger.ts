@@ -174,6 +174,56 @@ export type SiteLandingRecordResult =
   | { stored: true; deduped: true; row: SiteLandingRow }
   | { stored: false; rejected: true; reason: string };
 
+export type NpayActualConfirmedSourceStatus =
+  | "included"
+  | "bridge_pending"
+  | "unavailable";
+
+export type SiteLandingNpayActualConfirmed30d = {
+  source: "operational_db.tb_iamweb_users PAYMENT_COMPLETE" | "unavailable";
+  status: NpayActualConfirmedSourceStatus;
+  complete_count: number;
+  complete_amount_krw: number;
+  complete_amount_krw_korean: string;
+  max_payment_complete_time: string | null;
+  max_order_date: string | null;
+  reason: string;
+  warnings: string[];
+};
+
+type SiteLandingNpayLegacyCompleteTime30d = {
+  source: "imweb_orders.complete_time legacy";
+  role: "legacy_diagnostic_only";
+  complete_count: number;
+  complete_amount_krw: number;
+  complete_amount_krw_korean: string;
+  max_order_time: string | null;
+  warning: string;
+};
+
+type SiteLandingNpayBridgePending30d = {
+  source: "imweb_orders.order_code/order_no bridge readiness";
+  pending_count: number;
+  pending_amount_krw: number;
+  pending_amount_krw_korean: string;
+  max_order_time: string | null;
+  reason: string;
+};
+
+type SiteLandingNpayRevenueFreshness = {
+  actual_confirmed_source: "operational_db.tb_iamweb_users";
+  actual_confirmed_status: NpayActualConfirmedSourceStatus;
+  actual_confirmed_max_payment_complete_time: string | null;
+  actual_confirmed_max_order_date: string | null;
+  local_imweb_orders_max_synced_at: string | null;
+  local_imweb_orders_max_status_synced_at: string | null;
+  confidence: "high" | "medium" | "low";
+};
+
+export type SiteLandingSummaryOptions = {
+  npayActualConfirmed30d?: SiteLandingNpayActualConfirmed30d;
+};
+
 const isSelfDomain = (host: string, site: SiteKey): boolean => {
   if (!host) return true;
   const h = host.toLowerCase();
@@ -205,6 +255,18 @@ const sanitize = (raw: string | undefined | null, maxLen = 300): string => {
 
 const containsForbiddenPii = (...values: ReadonlyArray<string>): boolean =>
   values.some((v) => v && PII_FORBIDDEN_PATTERNS.some((re) => re.test(v)));
+
+const formatKrwKorean = (amount: number): string => {
+  if (amount === 0) return "₩0";
+  const eok = Math.floor(amount / 100_000_000);
+  const man = Math.floor((amount % 100_000_000) / 10_000);
+  const rest = amount % 10_000;
+  const parts: string[] = [];
+  if (eok > 0) parts.push(`${eok}억`);
+  if (man > 0) parts.push(`${man.toLocaleString("ko-KR")}만`);
+  if (rest > 0 && eok === 0) parts.push(`${rest.toLocaleString("ko-KR")}`);
+  return `₩${parts.join(" ")}`.trim() || `₩${amount.toLocaleString("ko-KR")}`;
+};
 
 const computeDedupeKey = (input: {
   site: string;
@@ -417,12 +479,35 @@ export type SiteLandingSummary = {
       complete_amount_krw_korean: string;
       max_order_time: string | null;
     };
+    /** gpt0508-46: complete_time legacy 와 actual confirmed source 분리 */
+    npay_revenue_30d_complete_time_legacy?: SiteLandingNpayLegacyCompleteTime30d;
+    npay_revenue_30d_actual_confirmed?: SiteLandingNpayActualConfirmed30d;
+    npay_revenue_30d_bridge_pending?: SiteLandingNpayBridgePending30d;
+    npay_revenue_source?: {
+      actual_paid_source_primary: "operational_db.tb_iamweb_users PAYMENT_COMPLETE";
+      bridge_source: "site_landing_ledger -> imweb_orders.order_code/order_no -> operational_db.order_number";
+      diagnostic_source: Array<"imweb_status" | "raw_json.orderStatus" | "complete_time">;
+      freshness_source: Array<
+        | "operational_db.order_date"
+        | "operational_db.payment_complete_time"
+        | "imweb_orders.synced_at"
+        | "imweb_orders.imweb_status_synced_at"
+      >;
+      forbidden_proxy: Array<
+        | "complete_time_blank_only_unpaid"
+        | "imweb_status_only_actual_purchase"
+        | "npay_click_count_add_payment_info_purchase"
+      >;
+    };
+    npay_revenue_freshness?: SiteLandingNpayRevenueFreshness;
+    source_disagreement_reason?: string;
   };
 };
 
 export const summarizeSiteLanding = (
   site: SiteKey,
   windowHours = 24,
+  options: SiteLandingSummaryOptions = {},
 ): SiteLandingSummary => {
   const db = getCrmDb();
   ensureTable(db);
@@ -513,13 +598,18 @@ export const summarizeSiteLanding = (
       new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     ) as { n: number };
 
-  // gpt0508-45 정정: NPay 매출은 운영DB sync lag (9h) 회피, imweb v2 API → 로컬 imweb_orders 정본 사용.
-  // imweb_orders 테이블이 있을 때만 (없으면 빈값). 30d 윈도우 고정.
+  // gpt0508-46: complete_time legacy 값은 계속 반환하되, actual confirmed 와 분리한다.
   let npay_revenue_30d: SiteLandingSummary["derived"] extends infer D
     ? D extends { npay_revenue_30d?: infer N }
       ? N
       : never
     : never;
+  let npay_revenue_30d_complete_time_legacy:
+    | SiteLandingNpayLegacyCompleteTime30d
+    | undefined;
+  let npay_revenue_30d_bridge_pending: SiteLandingNpayBridgePending30d | undefined;
+  let localImwebOrdersMaxSyncedAt: string | null = null;
+  let localImwebOrdersMaxStatusSyncedAt: string | null = null;
   try {
     const tableExists = db
       .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='imweb_orders'`)
@@ -536,17 +626,7 @@ export const summarizeSiteLanding = (
         )
         .get(site, thirtyDaysAgoIso) as { cnt: number; amt: number | null; max_t: string | null };
       const amount = Number(npayRow.amt) || 0;
-      const koreanAmount = (() => {
-        if (amount === 0) return "₩0";
-        const eok = Math.floor(amount / 100_000_000);
-        const man = Math.floor((amount % 100_000_000) / 10_000);
-        const rest = amount % 10_000;
-        const parts: string[] = [];
-        if (eok > 0) parts.push(`${eok}억`);
-        if (man > 0) parts.push(`${man.toLocaleString("ko-KR")}만`);
-        if (rest > 0 && eok === 0) parts.push(`${rest.toLocaleString("ko-KR")}`);
-        return `₩${parts.join(" ")}`.trim() || `₩${amount.toLocaleString("ko-KR")}`;
-      })();
+      const koreanAmount = formatKrwKorean(amount);
       npay_revenue_30d = {
         source: "imweb_orders (imweb v2 API cached)" as const,
         complete_count: Number(npayRow.cnt),
@@ -554,12 +634,79 @@ export const summarizeSiteLanding = (
         complete_amount_krw_korean: koreanAmount,
         max_order_time: npayRow.max_t,
       };
+      npay_revenue_30d_complete_time_legacy = {
+        source: "imweb_orders.complete_time legacy",
+        role: "legacy_diagnostic_only",
+        complete_count: Number(npayRow.cnt),
+        complete_amount_krw: amount,
+        complete_amount_krw_korean: koreanAmount,
+        max_order_time: npayRow.max_t,
+        warning:
+          "complete_time은 NPay actual primary가 아니다. 화면 호환과 차이 진단용으로만 유지한다.",
+      };
+      const bridgeRow = db
+        .prepare(
+          `SELECT COUNT(*) AS cnt, SUM(payment_amount) AS amt, MAX(order_time) AS max_t
+           FROM imweb_orders
+           WHERE site = ? AND pay_type = 'npay'
+             AND order_time >= ?
+             AND (complete_time IS NULL OR complete_time = '')`,
+        )
+        .get(site, thirtyDaysAgoIso) as { cnt: number; amt: number | null; max_t: string | null };
+      const pendingAmount = Number(bridgeRow.amt) || 0;
+      npay_revenue_30d_bridge_pending = {
+        source: "imweb_orders.order_code/order_no bridge readiness",
+        pending_count: Number(bridgeRow.cnt),
+        pending_amount_krw: pendingAmount,
+        pending_amount_krw_korean: formatKrwKorean(pendingAmount),
+        max_order_time: bridgeRow.max_t,
+        reason:
+          "complete_time 공백 row는 미결제가 아니라 운영DB PAYMENT_COMPLETE 또는 관리자 confirmed source와 주문 단위 bridge가 필요한 row다.",
+      };
+      const freshnessRow = db
+        .prepare(
+          `SELECT MAX(synced_at) AS max_synced_at, MAX(imweb_status_synced_at) AS max_status_synced_at
+           FROM imweb_orders
+           WHERE site = ?`,
+        )
+        .get(site) as { max_synced_at: string | null; max_status_synced_at: string | null };
+      localImwebOrdersMaxSyncedAt = freshnessRow.max_synced_at ?? null;
+      localImwebOrdersMaxStatusSyncedAt = freshnessRow.max_status_synced_at ?? null;
     } else {
       npay_revenue_30d = undefined as never;
     }
   } catch {
     npay_revenue_30d = undefined as never;
   }
+
+  const npayActualConfirmed30d =
+    options.npayActualConfirmed30d ??
+    ({
+      source: "unavailable",
+      status: "unavailable",
+      complete_count: 0,
+      complete_amount_krw: 0,
+      complete_amount_krw_korean: "₩0",
+      max_payment_complete_time: null,
+      max_order_date: null,
+      reason:
+        "운영DB read-only actual confirmed source가 summary 호출에 주입되지 않았다. complete_time legacy 값은 actual purchase로 승격하지 않는다.",
+      warnings: ["actual_confirmed_source_not_injected"],
+    } satisfies SiteLandingNpayActualConfirmed30d);
+
+  const sourceDisagreementReason = (() => {
+    if (!npay_revenue_30d_complete_time_legacy) return "local_imweb_orders_missing";
+    if (npayActualConfirmed30d.status !== "included") return npayActualConfirmed30d.reason;
+    if (
+      npayActualConfirmed30d.complete_count !==
+        npay_revenue_30d_complete_time_legacy.complete_count ||
+      npayActualConfirmed30d.complete_amount_krw !==
+        npay_revenue_30d_complete_time_legacy.complete_amount_krw
+    ) {
+      return "complete_time legacy와 운영DB PAYMENT_COMPLETE actual confirmed가 다르므로 예산 판단에는 actual confirmed만 사용한다.";
+    }
+    return "none";
+  })();
 
   return {
     total,
@@ -582,6 +729,44 @@ export const summarizeSiteLanding = (
       external_send_count: 0,
       upload_candidate_count: 0,
       ...(npay_revenue_30d ? { npay_revenue_30d } : {}),
+      ...(npay_revenue_30d_complete_time_legacy
+        ? { npay_revenue_30d_complete_time_legacy }
+        : {}),
+      npay_revenue_30d_actual_confirmed: npayActualConfirmed30d,
+      ...(npay_revenue_30d_bridge_pending ? { npay_revenue_30d_bridge_pending } : {}),
+      npay_revenue_source: {
+        actual_paid_source_primary: "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+        bridge_source:
+          "site_landing_ledger -> imweb_orders.order_code/order_no -> operational_db.order_number",
+        diagnostic_source: ["imweb_status", "raw_json.orderStatus", "complete_time"],
+        freshness_source: [
+          "operational_db.order_date",
+          "operational_db.payment_complete_time",
+          "imweb_orders.synced_at",
+          "imweb_orders.imweb_status_synced_at",
+        ],
+        forbidden_proxy: [
+          "complete_time_blank_only_unpaid",
+          "imweb_status_only_actual_purchase",
+          "npay_click_count_add_payment_info_purchase",
+        ],
+      },
+      npay_revenue_freshness: {
+        actual_confirmed_source: "operational_db.tb_iamweb_users",
+        actual_confirmed_status: npayActualConfirmed30d.status,
+        actual_confirmed_max_payment_complete_time:
+          npayActualConfirmed30d.max_payment_complete_time,
+        actual_confirmed_max_order_date: npayActualConfirmed30d.max_order_date,
+        local_imweb_orders_max_synced_at: localImwebOrdersMaxSyncedAt,
+        local_imweb_orders_max_status_synced_at: localImwebOrdersMaxStatusSyncedAt,
+        confidence:
+          npayActualConfirmed30d.status === "included"
+            ? "high"
+            : npayActualConfirmed30d.status === "bridge_pending"
+              ? "medium"
+              : "low",
+      },
+      source_disagreement_reason: sourceDisagreementReason,
     },
   };
 };
