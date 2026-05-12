@@ -43,6 +43,11 @@
 - 완료/에러/마일스톤 시 별도 알림 발송은 기본 생략. 서버 상태·접속 경로·검증 결과는 대화 내 최종 보고에만 포함.
 - 서버 점검 단축키: `lsof -i :포트`, `ps aux | grep <proc>`, `curl http://localhost:<port>`.
 - 금지: 테스트 없는 핵심 로직, `--no-verify`, 프로덕션 더미 데이터, 무분별한 대규모 리팩토링.
+- 작업 운영 기준: 시작 전 “무엇이 되면 성공인지”를 숫자/API/테스트/화면 기준으로 먼저 적으시오. 성공 기준이 불명확하면 구현으로 바로 들어가지 말고 Green Lane 조사로 기준을 먼저 만든 뒤 진행하시오.
+- 가정 공개: 데이터가 없다고 단정하지 말고 `데이터 없음`, `source가 다름`, `sync 지연`, `필터 불일치`, `권한 부족`을 분리해 보고하시오. 근거가 직접 관측이 아니라 추론이면 추론이라고 명시하시오.
+- Green Lane 자율 실행은 유지하되, 목적이 불명확한 speculative feature 추가는 금지하시오. Green 완료 후 추가 조사·dry-run·approval packet 작성까지 이어갈 수 있지만, 사용자의 목표와 직접 연결되는 범위 안에서만 진행하시오.
+- 검증 루프: 코드 변경 후에는 typecheck/test/API smoke 중 최소 1개 이상으로 확인하시오. 데이터 작업은 source/window/freshness/confidence를 함께 남기고, 실패 시 `접근 권한`, `계정/2FA`, `브라우저/CORS`, `데이터 부족`, `기술 실패`, `source_freshness_gap`, `verification_gap` 중 blocker category를 붙이시오.
+- 보고 순서: 기술어를 먼저 쓰지 말고 `무엇이 가능해졌나 → 왜 중요한가 → 실제 숫자/검증 → 아직 안 된 것 → 다음 행동` 순서로 사람 말 우선 보고하시오.
 - 데이터 정합성 작업: 운영DB, VM Cloud SQLite, 로컬 DB, 외부 API 중 하나를 단일 정답으로 보지 말고 질문별 primary/cross-check/fallback을 정하시오. 모든 숫자는 source, 기준 시각, window, site, freshness, confidence를 같이 기록하시오.
 - Attribution 보고/산출물에서 “주문/결제 정본 vs 광고 클릭-주문 연결 evidence”를 분리하고, source 결정 순서가 헷갈릴 때는 `gdn/attribution-data-source-decision-guide-20260511.md`를 먼저 참조하시오 (DB 명칭 3분류·금지 proxy 목록·4-signal canary decision tree 정본).
 - 백필/보정 작업: 로컬 DB 쓰기는 백업 → dry-run → apply → 중복/금액/잔여 미조인 검증 → `data/!datacheckplan.md` 업데이트 순서로 진행하시오. 프로덕션 DB 쓰기나 스키마 변경은 사전 승인 없이는 하지 마시오.
