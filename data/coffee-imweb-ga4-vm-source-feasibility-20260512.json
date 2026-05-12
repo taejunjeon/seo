@@ -1,0 +1,144 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-12 23:34:34 KST",
+  "sprint": "gpt0508-48",
+  "site": "thecleancoffee",
+  "lane": "Green",
+  "mode": "read_only_no_send_no_write_no_deploy",
+  "verdict": "COFFEE_IMWEB_SOURCE_READY_FOR_LOCAL_PATCH_YELLOW_DEPLOY_REQUIRED_FOR_LIVE",
+  "plain_language_conclusion": "더클린커피 주문만 분리되는 actual source는 운영DB tb_iamweb_users가 아니라 Imweb v2 API와 VM Cloud imweb_orders.site='thecleancoffee'로 구축 가능하다. GA4는 결제 정본이 아니라 중복/이미수신 guard로만 사용한다.",
+  "sources": {
+    "local_env_redacted": {
+      "backend_env_lines_91_94": {
+        "GA4_COFFEE_PROPERTY_ID": "SET",
+        "GA4_MEASUREMENT_ID_COFFEE": "SET",
+        "GA4_MP_API_SECRET_COFFEE": "SET"
+      },
+      "backend_env_lines_104_106": {
+        "IMWEB_API_KEY_COFFEE": "SET",
+        "IMWEB_SECRET_KEY_COFFEE": "SET"
+      },
+      "secret_values_printed": false
+    },
+    "vm_cloud_env_redacted": {
+      "IMWEB_API_KEY_COFFEE": "SET",
+      "IMWEB_SECRET_KEY_COFFEE": "SET",
+      "GA4_COFFEE_PROPERTY_ID": "SET",
+      "GA4_BIOCOM_SERVICE_ACCOUNT_KEY": "SET",
+      "note": "VM Cloud .env does not need GA4 MP secret for read-only matching; BigQuery readonly service account is enough.",
+      "secret_values_printed": false
+    },
+    "vm_cloud_sqlite": {
+      "db": "/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+      "table": "imweb_orders",
+      "site_filter": "site='thecleancoffee'",
+      "all_rows": 3340,
+      "all_npay_rows": 1356,
+      "all_npay_amount_krw": 58037900,
+      "max_order_time": "2026-05-12T14:00:05.000Z",
+      "max_synced_at": "2026-05-12 14:14:56",
+      "max_imweb_status_synced_at": "2026-05-12 04:11:07"
+    },
+    "direct_imweb_v2_type_npay": {
+      "source": "https://api.imweb.me/v2/shop/orders?type=npay",
+      "window_days": 30,
+      "rows": 337,
+      "amount_krw": 16374100,
+      "complete_time_filled": 261,
+      "complete_time_blank": 76,
+      "channel_order_no_filled": 337,
+      "order_code_filled": 337,
+      "newest_paid_at_iso": "2026-05-12T13:35:10.000Z",
+      "raw_order_ids_printed": false,
+      "raw_pii_printed": false
+    },
+    "vm_cloud_summary_current": {
+      "api": "https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24",
+      "current_actual_status": "bridge_pending",
+      "current_bridge_reason": "operational tb_iamweb_users site isolation unproven",
+      "legacy_complete_time_rows": 260,
+      "legacy_complete_time_amount_krw": 11127900,
+      "bridge_pending_rows": 77,
+      "bridge_pending_amount_krw": 5246200,
+      "invariants_held": true
+    },
+    "vm_cloud_imweb_status_distribution_30d": {
+      "threshold": "last 30 days using ISO timestamp, matching backend summary behavior",
+      "rows": 337,
+      "amount_krw": 16374100,
+      "status_rows": {
+        "PURCHASE_CONFIRMATION": 199,
+        "DELIVERING": 37,
+        "CANCEL": 31,
+        "STANDBY": 30,
+        "COMPLETE": 28,
+        "blank": 11,
+        "PAY_COMPLETE": 1
+      },
+      "paid_non_cancel_or_status_blank_rows": 306,
+      "paid_non_cancel_or_status_blank_amount_krw": 14577700,
+      "fully_status_known_non_cancel_rows": 295,
+      "fully_status_known_non_cancel_amount_krw": 13957900,
+      "cancel_rows": 31,
+      "cancel_amount_krw": 1796400
+    },
+    "ga4_bigquery_guard": {
+      "dataset": "project-dadba7dd-0229-4ff6-81c.analytics_326949178",
+      "window_suffix_start": "20260412",
+      "window_suffix_end": "20260512",
+      "imweb_npay_orders": 337,
+      "imweb_order_and_channel_keys": 674,
+      "ga4_purchase_events": 975,
+      "ga4_purchase_revenue_krw": 46626964,
+      "ga4_distinct_purchase_transaction_ids": 975,
+      "purchase_transaction_key_hits": 0,
+      "distinct_event_param_key_hits": 0,
+      "conclusion": "GA4 BigQuery is usable as already_in_ga4 guard, not as payment truth for coffee NPay actual.",
+      "platform_send": 0
+    },
+    "operational_db_readonly_cross_check": {
+      "window_days": 30,
+      "imweb_npay_orders": 337,
+      "tb_playauto_orders_shop_name_imweb_c_matched_orders": 275,
+      "tb_playauto_orders_item_rows": 396,
+      "tb_iamweb_users_matched_orders": 0,
+      "tb_sales_toss_store_coffee_matched_orders": 0,
+      "operational_db_write": 0
+    }
+  },
+  "implementation_recommendation": {
+    "summary_api_source_for_biocom": "operational_db.tb_iamweb_users PAYMENT_COMPLETE remains primary",
+    "summary_api_source_for_thecleancoffee": "VM Cloud imweb_orders from Imweb v2 API, filtered by site='thecleancoffee', pay_type='npay', payment_amount>0, and cancellation lifecycle exclusions",
+    "recommended_filter": [
+      "site='thecleancoffee'",
+      "pay_type='npay'",
+      "order_time >= ISO now - 30 days",
+      "payment_amount > 0",
+      "imweb_status NOT IN ('CANCEL','RETURN','EXCHANGE')",
+      "complete_time is diagnostic only, not primary"
+    ],
+    "freshness_guards": [
+      "MAX(synced_at) should be reported",
+      "MAX(imweb_status_synced_at) should be reported",
+      "status_blank_count should be reported or held as pending if status sync is stale"
+    ],
+    "ga4_usage": [
+      "Use GA4 BigQuery export analytics_326949178 for already_in_ga4 robust guard",
+      "Do not use GA4 Measurement Protocol secret for matching; it is for sending and remains forbidden without Red approval",
+      "Do not treat GA4 purchase revenue as NPay actual payment truth"
+    ],
+    "next_lane": "Yellow for VM Cloud backend deploy/restart if TJ wants live summary included"
+  },
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "operational_db_write": 0,
+    "vm_cloud_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "secret_values_printed": false,
+    "raw_order_ids_printed": false,
+    "raw_pii_printed": false
+  },
+  "confidence": 0.9
+}

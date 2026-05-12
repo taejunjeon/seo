@@ -2,7 +2,7 @@
   "ok": true,
   "schema_version": "attribution_data_source_decision_guide_v1_20260511",
   "generated_at_kst": "2026-05-11 01:00:00 KST",
-  "site": "biocom",
+  "site": "multi-site",
   "purpose": "Claude Code 가 매 sprint 마다 source 를 헷갈리지 않도록, '주문/결제 정본' 과 'attribution evidence' 의 사용 순서를 한 표로 고정한다.",
   "core_principle": "주문/결제 정본 (운영DB) 과 광고 클릭-주문 연결 evidence (Path B order_bridge_ledger / paid_click_intent_log) 는 서로 다른 source 다. 한쪽이 0 이라고 다른 쪽도 0 이라고 단정하지 않는다.",
   "db_naming_three_tier": {
@@ -12,11 +12,18 @@
   },
   "data_source_table": {
     "actual_paid_purchase": {
-      "primary": {
+      "primary_biocom": {
         "name": "운영DB tb_iamweb_users",
         "filter": "payment_status='PAYMENT_COMPLETE' AND cancellation_reason/return_reason empty AND final_order_amount > 0",
         "freshness": "imweb 자체 DB → 운영DB sync 3~9시간 lag",
         "lag_aware": true
+      },
+      "primary_candidate_thecleancoffee": {
+        "name": "VM Cloud/로컬DB imweb_orders(site='thecleancoffee')",
+        "via": "Imweb v2 API with IMWEB_API_KEY_COFFEE / IMWEB_SECRET_KEY_COFFEE",
+        "filter": "pay_type='npay' AND payment_amount > 0 AND imweb_status NOT IN ('CANCEL','RETURN','EXCHANGE')",
+        "freshness": "MAX(synced_at), MAX(imweb_status_synced_at), status_blank_count를 함께 보고",
+        "limitation": "주문 헤더 중심. 상품 라인아이템은 PlayAuto/운영DB/Excel cross-check가 필요."
       },
       "secondary": {
         "name": "로컬DB imweb_orders (backend/data/crm.sqlite3)",
@@ -32,14 +39,17 @@
       ]
     },
     "npay_actual": {
-      "primary": "운영DB tb_iamweb_users where payment_method='NAVERPAY_ORDER' AND payment_status='PAYMENT_COMPLETE'",
+      "primary_biocom": "운영DB tb_iamweb_users where payment_method='NAVERPAY_ORDER' AND payment_status='PAYMENT_COMPLETE'",
+      "primary_candidate_thecleancoffee": "Imweb v2 / VM Cloud imweb_orders where site='thecleancoffee' AND pay_type='npay' AND payment_amount > 0 AND imweb_status NOT IN ('CANCEL','RETURN','EXCHANGE')",
       "secondary": "VM Cloud npay_intent_log 의 strong_match (channel_order_no_hash 매칭, 다음 sprint schema canary 후 활성)",
-      "freshness": "primary 와 동일 sync lag",
+      "freshness": "biocom은 운영DB sync lag, thecleancoffee는 imweb_orders synced_at/status_synced_at",
       "forbidden_proxies": [
         "NPay click event 를 actual purchase 로 사용 금지",
         "NPay count event 를 actual purchase 로 사용 금지",
         "NPay add_payment_info 를 actual purchase 로 사용 금지",
-        "VM Cloud complete_time blank-only 를 NPay 미결제 판정으로 사용 금지"
+        "VM Cloud complete_time blank-only 를 NPay 미결제 판정으로 사용 금지",
+        "thecleancoffee 를 tb_iamweb_users site filter 없이 actual included 로 승격 금지",
+        "GA4 purchase revenue 를 NPay actual payment truth 로 사용 금지"
       ]
     },
     "google_ads_attribution_exact_evidence": {
@@ -118,8 +128,12 @@
     },
     {
       "question": "이 매출 중 NPay 가 얼마인가?",
-      "answer_source_order": ["운영DB tb_iamweb_users WHERE payment_method='NAVERPAY_ORDER' AND payment_status='PAYMENT_COMPLETE'"],
-      "always_attach": ["sync lag 라벨", "NPay click 미포함 명시"]
+      "answer_source_order": [
+        "biocom: 운영DB tb_iamweb_users WHERE payment_method='NAVERPAY_ORDER' AND payment_status='PAYMENT_COMPLETE'",
+        "thecleancoffee: Imweb v2 / VM Cloud imweb_orders(site='thecleancoffee', pay_type='npay') + 취소/반품/교환 제외",
+        "GA4 BigQuery analytics_326949178 robust guard는 already_in_ga4 확인용"
+      ],
+      "always_attach": ["sync lag/freshness 라벨", "status blank count", "NPay click 미포함 명시", "GA4는 결제 정본이 아니라 guard임을 명시"]
     },
     {
       "question": "이 매출 중 Google Ads 캠페인이 들여보낸 손님은?",

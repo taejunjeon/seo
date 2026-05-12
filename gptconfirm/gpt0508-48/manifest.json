@@ -1,0 +1,26 @@
+{
+  "sprint": "gpt0508-48",
+  "generated_at_kst": "2026-05-12 23:34:34 KST",
+  "lane": "Green",
+  "status": "report_checkpoint",
+  "files": [
+    "00-result-report.md"
+  ],
+  "evidence_files": [
+    "../../gdn/coffee-imweb-ga4-vm-source-feasibility-20260512.md",
+    "../../data/coffee-imweb-ga4-vm-source-feasibility-20260512.json",
+    "../../gdn/coffee-imweb-summary-inclusion-deploy-approval-20260512.md",
+    "../../gdn/current-handoff.md",
+    "../../data/current-state.json"
+  ],
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "operational_db_write": 0,
+    "vm_cloud_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "secret_values_printed": false,
+    "raw_pii_printed": false
+  }
+}
