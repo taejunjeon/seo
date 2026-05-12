@@ -2,7 +2,7 @@
 
 ## 무엇이 가능해졌나
 
-더클린커피 NPay 매출을 summary API가 읽을 수 있는 local code path가 생겼다. 기존에는 `site=thecleancoffee`가 무조건 `bridge_pending`이었지만, 이제 로컬 코드 기준으로는 VM Cloud `imweb_orders`에서 Imweb v2 NPay 주문만 집계해 `actual_confirmed` 후보로 주입할 수 있다.
+더클린커피 NPay 매출을 summary API가 읽을 수 있는 code path가 live backend에 반영됐다. 기존에는 `site=thecleancoffee`가 무조건 `bridge_pending`이었지만, 이제 VM Cloud `imweb_orders`에서 Imweb v2 NPay 주문만 집계해 `actual_confirmed` 후보로 주입한다.
 
 ## 바뀐 파일
 
@@ -49,8 +49,8 @@ npm run typecheck
 npx tsx --test tests/npay-actual-confirmed-pg-reader.test.ts tests/site-landing-npay-actual-source.test.ts tests/site-landing-summary-api.test.ts
 ```
 
-결과는 typecheck PASS, targeted tests 16/16 PASS다.
+결과는 local typecheck PASS, targeted tests 16/16 PASS다. 승인된 VM 배포 과정에서도 remote backend `npm run typecheck`와 `npm run build`가 PASS했다.
 
 ## 서버 영향
 
-로컬 코드만 변경했다. VM Cloud backend deploy/restart는 실행하지 않았다. 운영DB write, VM Cloud write, 외부 플랫폼 send/upload, GTM publish, Imweb footer/header 변경은 모두 0이다.
+승인 범위 안에서 backend 3파일을 VM repo에 반영하고 `seo-backend`를 restart했다. post-snapshot에서 `thecleancoffee` actual source는 `imweb_v2_vm_cloud_imweb_orders`, status는 `included_with_warning`, count/amount는 309건 / 14,902,800원으로 확인됐다. biocom actual source/status는 기존 운영DB `PAYMENT_COMPLETE` included를 유지했다. 운영DB write, VM Cloud schema write, 외부 플랫폼 send/upload, GTM publish, Imweb footer/header 변경은 모두 0이다.

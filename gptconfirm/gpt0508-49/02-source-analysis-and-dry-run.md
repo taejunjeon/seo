@@ -23,6 +23,19 @@
 | max synced_at | 2026-05-12 15:14:50 |
 | max status synced_at | 2026-05-12 04:11:07 |
 
+## live post-snapshot
+
+2026-05-13 00:57 KST 승인 배포 후 live summary API는 같은 source rule로 coffee actual을 반환한다. dry-run 대비 일반 sync 진행으로 1건 / 67,800원이 증가했다.
+
+| 항목 | 값 |
+|---|---:|
+| source | `imweb_v2_vm_cloud_imweb_orders` |
+| status | `included_with_warning` |
+| included_with_warning live | 309건 / 14,902,800원 |
+| status blank live | 14건 / 944,900원 |
+| warnings | `ga4_guard_not_actual_source`, `status_blank_rows_included_with_warning`, `status_sync_stale_over_6h` |
+| biocom regression check | PASS, 162건 / 29,463,300원 |
+
 ## status blank 의미
 
 `status blank`는 `imweb_orders.imweb_status`가 비어 있다는 뜻이다. 이것은 “미결제”도 아니고 “결제완료 확정”도 아니다. 이번 데이터에서는 `pay_type='npay'`이고 `payment_amount > 0`이며 취소/반품/교환 status가 아니므로 actual 후보에는 포함한다. 대신 `included_with_warning` 상태로 표시하고, blank count/amount와 status freshness warning을 같이 내려준다.

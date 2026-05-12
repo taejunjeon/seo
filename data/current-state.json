@@ -1,50 +1,62 @@
 {
-  "updated_at_kst": "2026-05-13 00:30:00 KST",
+  "updated_at_kst": "2026-05-13 01:13:00 KST",
   "sprint": "gpt0508-49",
-  "current_goal": "Connect thecleancoffee Imweb v2 / VM Cloud imweb_orders NPay actual source to the local summary API, then package tests, dry-run, source guide, and Yellow deploy approval. Do not deploy/restart VM before approval.",
-  "lane": "Green",
-  "mode": "local_code_patch_read_only_dry_run_no_send_no_write_no_deploy",
+  "current_goal": "VM deploy/restart is complete, post-snapshot passed, project sprint docs are created. Run validation and scoped commit/push.",
+  "lane": "Yellow deploy completed, Green planning/docs complete",
+  "mode": "approved_vm_deploy_done_then_read_only_docs",
   "completed": [
-    "Created gptconfirm/gpt0508-49 package directory and sprint checkpoint.",
-    "Patched backend/src/npayActualConfirmedPgReader.ts with a site router: biocom keeps operational DB PAYMENT_COMPLETE; thecleancoffee uses imweb_v2_vm_cloud_imweb_orders.",
-    "Patched backend/src/siteLandingLedger.ts and backend/src/routes/attribution.ts to expose source, included_with_warning, status blank, cancel exclusion, freshness, and GA4 guard fields.",
-    "Added regression and response-shape tests covering coffee inclusion, cancel/return/exchange exclusion, blank complete_time not unpaid, GA4 guard not actual, raw order id non-exposure, and biocom source regression.",
-    "Validated backend typecheck PASS and targeted tsx tests PASS 16/16.",
-    "Ran VM Cloud SQLite read-only dry-run for thecleancoffee NPay last 30 days.",
-    "Updated data inventory, attribution source guide, coffee current doc, and total current doc with gpt0508-49 source rules.",
-    "Confirmed AGENTS.md already contains requested success criteria, assumption disclosure, Green autonomy, verification loop, and human-first reporting rules."
+    "Local patch/test/package/commit/push completed at commit 5359a47.",
+    "Pre-snapshot saved for thecleancoffee, biocom, and health.",
+    "Remote backup created at /home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-49-20260513T005354KST.",
+    "Deployed approved backend files: npayActualConfirmedPgReader.ts, siteLandingLedger.ts, routes/attribution.ts.",
+    "Remote backend typecheck PASS and build PASS.",
+    "Restarted pm2 process seo-backend successfully.",
+    "Post-snapshot PASS: thecleancoffee actual source imweb_v2_vm_cloud_imweb_orders, status included_with_warning.",
+    "Post-snapshot PASS: biocom actual source operational_db.tb_iamweb_users PAYMENT_COMPLETE remains included.",
+    "No rollback required.",
+    "Read docurule.md, plans.md.md, gdn/!gdnplan_new.md, and data/!channelfunnel.md.",
+    "Created project/sprint1.md, project/sprint2.md, and project/sprint3.md.",
+    "Updated gptconfirm/gpt0508-49 package to live deploy PASS state."
   ],
+  "deployment": {
+    "commit": "5359a47",
+    "pre_snapshot_timestamp": "20260513T005316KST",
+    "post_snapshot_timestamp": "20260513T005716KST",
+    "remote_backup_path": "/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-49-20260513T005354KST",
+    "health_endpoint": "https://att.ainativeos.net/health",
+    "api_health_note": "https://att.ainativeos.net/api/health returns route_not_found"
+  },
   "latest_metrics": {
-    "source": "VM Cloud SQLite imweb_orders",
-    "site": "thecleancoffee",
-    "window_days": 30,
-    "generated_at_kst": "2026-05-13 00:24:28 KST",
-    "gross_count": 339,
-    "gross_amount_krw": 16631400,
-    "excluded_cancel_return_exchange_count": 31,
-    "excluded_cancel_return_exchange_amount_krw": 1796400,
-    "included_with_warning_count": 308,
-    "included_with_warning_amount_krw": 14835000,
-    "confirmed_status_only_count": 295,
-    "confirmed_status_only_amount_krw": 13957900,
-    "status_blank_count": 13,
-    "status_blank_amount_krw": 877100,
-    "complete_time_blank_count": 78,
-    "complete_time_blank_amount_krw": 5478600,
-    "max_order_time_utc": "2026-05-12T14:32:39.000Z",
-    "max_synced_at": "2026-05-12 15:14:50",
-    "max_status_synced_at": "2026-05-12 04:11:07",
-    "status_sync_warning": "status_sync_stale_over_6h",
-    "confidence": 0.86
+    "thecleancoffee": {
+      "source": "imweb_v2_vm_cloud_imweb_orders",
+      "status": "included_with_warning",
+      "count": 309,
+      "amount_krw": 14902800,
+      "status_blank_count": 14,
+      "status_blank_amount_krw": 944900,
+      "warnings": [
+        "ga4_guard_not_actual_source",
+        "status_blank_rows_included_with_warning",
+        "status_sync_stale_over_6h"
+      ]
+    },
+    "biocom": {
+      "source": "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+      "status": "included",
+      "count": 162,
+      "amount_krw": 29463300
+    }
   },
   "next_commands": [
-    "Complete gptconfirm/gpt0508-49 docs and manifest.",
-    "Run JSON parse, wiki links, harness-preflight strict, git diff check, raw pattern scan, and final backend verification.",
-    "Commit and push scoped changes if validations pass."
+    "Run wiki link validation on gptconfirm/project/source docs.",
+    "Run JSON parse validation.",
+    "Run harness-preflight-check --strict.",
+    "Run git diff --check.",
+    "Run raw identifier pattern scan.",
+    "Scoped commit and push."
   ],
   "forbidden": [
     "operational_db_write_or_import",
-    "vm_backend_deploy_or_restart_without_yellow_approval",
     "vm_cloud_schema_migration",
     "cron_registration_or_change",
     "gtm_publish",
@@ -58,10 +70,8 @@
     "external_send_count": 0,
     "upload_candidate_count": 0,
     "operational_db_write": 0,
-    "vm_cloud_write": 0,
-    "vm_backend_deploy_restart": 0,
     "gtm_publish": 0,
     "imweb_footer_edit": 0,
-    "raw_secret_or_pii_output": false
+    "raw_email_phone_member_payment_order_click_id_output": false
   }
 }

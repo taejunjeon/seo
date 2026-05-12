@@ -1,0 +1,65 @@
+{
+  "sprint": "gpt0508-49",
+  "generated_at_kst": "2026-05-13 00:57:30 KST",
+  "lane": "Yellow approved VM backend deploy/restart",
+  "commit": "5359a47",
+  "deployed_files": [
+    "backend/src/npayActualConfirmedPgReader.ts",
+    "backend/src/siteLandingLedger.ts",
+    "backend/src/routes/attribution.ts"
+  ],
+  "pre_snapshot_timestamp": "20260513T005316KST",
+  "post_snapshot_timestamp": "20260513T005716KST",
+  "remote_backup_path": "/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-49-20260513T005354KST",
+  "remote_validation": {
+    "typecheck": "PASS",
+    "build": "PASS",
+    "pm2_restart": "PASS",
+    "seo_backend_status": "online"
+  },
+  "health": {
+    "endpoint": "https://att.ainativeos.net/health",
+    "status": "ok",
+    "note": "https://att.ainativeos.net/api/health returns route_not_found"
+  },
+  "post_snapshot": {
+    "thecleancoffee": {
+      "summary_ok": true,
+      "mode": "read_only_no_send",
+      "actual_source": "imweb_v2_vm_cloud_imweb_orders",
+      "actual_status": "included_with_warning",
+      "actual_count": 309,
+      "actual_amount_krw": 14902800,
+      "status_blank_count": 14,
+      "status_blank_amount_krw": 944900,
+      "warnings": [
+        "ga4_guard_not_actual_source",
+        "status_blank_rows_included_with_warning",
+        "status_sync_stale_over_6h"
+      ],
+      "bridge_pending_count": 79,
+      "bridge_pending_amount_krw": 5546400
+    },
+    "biocom": {
+      "summary_ok": true,
+      "mode": "read_only_no_send",
+      "actual_source": "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+      "actual_status": "included",
+      "actual_count": 162,
+      "actual_amount_krw": 29463300,
+      "bridge_pending_count": 63,
+      "bridge_pending_amount_krw": 7349100
+    }
+  },
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "raw_email_phone_member_payment_order_click_id_output": false
+  },
+  "rollback": {
+    "needed": false,
+    "failure_conditions_seen": []
+  }
+}

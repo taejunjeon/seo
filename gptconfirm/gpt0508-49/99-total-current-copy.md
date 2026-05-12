@@ -1,8 +1,8 @@
 # 월별 유입 채널 매출 정합성 현재 정본
 
 작성 시각: 2026-05-06 23:46 KST
-최종 업데이트: 2026-05-11 02:10 KST
-기준일: 2026-05-11
+최종 업데이트: 2026-05-13 01:12 KST
+기준일: 2026-05-13
 상태: active canonical
 Owner: total / attribution
 Author: Claude Code
@@ -18,13 +18,13 @@ Option C live 배포는 PASS다. 화면이 보던 NPay 매출을 `complete_time`
 
 금지선은 유지됐다. 운영DB write 0, Google Ads/GA4/Meta/TikTok/Naver 전송 0, GTM publish 0, Imweb footer 변경 0, cron 등록 0이다. VM rollback backup은 `/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-47-20260512T2153KST`에 있으며 핵심 3파일(`siteLandingLedger.ts`, `npayActualConfirmedPgReader.ts`, `routes/attribution.ts`) 복구가 가능하다.
 
-## 2026-05-13 sprint state (gpt0508-49 Coffee Imweb actual source local patch)
+## 2026-05-13 sprint state (gpt0508-49 Coffee Imweb actual source live patch)
 
-더클린커피 NPay actual source를 로컬 summary API 코드에 연결하는 패치가 Green 범위에서 진행 중이다. `biocom`은 기존처럼 운영DB `tb_iamweb_users PAYMENT_COMPLETE`를 쓰고, `thecleancoffee`는 VM Cloud `imweb_orders(site='thecleancoffee', pay_type='npay')`를 `imweb_v2_vm_cloud_imweb_orders` source로 계산한다. GA4 BigQuery는 actual 매출 source가 아니라 `already_in_ga4` guard로만 남긴다.
+더클린커피 NPay actual source를 live summary API에 연결하는 gpt0508-49 VM 배포/restart는 PASS다. `biocom`은 기존처럼 운영DB `tb_iamweb_users PAYMENT_COMPLETE`를 쓰고, `thecleancoffee`는 VM Cloud `imweb_orders(site='thecleancoffee', pay_type='npay')`를 `imweb_v2_vm_cloud_imweb_orders` source로 계산한다. GA4 BigQuery는 actual 매출 source가 아니라 `already_in_ga4` guard로만 남긴다.
 
-VM Cloud read-only dry-run 기준(2026-05-13 00:24 KST, window 30d): 더클린커피 gross NPay는 339건 / ₩16,631,400, 취소 제외는 31건 / ₩1,796,400, `included_with_warning` 후보는 308건 / ₩14,835,000이다. status 확정 non-cancel만 보면 295건 / ₩13,957,900이고, status blank는 13건 / ₩877,100이다. status blank는 `imweb_status`가 비어 있는 row이며 미결제라는 뜻이 아니다. 다만 status sync freshness가 약 11시간 전이라 live included 시 warning을 같이 보여줘야 한다.
+post-snapshot 기준(2026-05-13 00:57 KST, window 30d): 더클린커피 actual confirmed는 `included_with_warning`, source는 `imweb_v2_vm_cloud_imweb_orders`, included 후보는 309건 / ₩14,902,800이다. status blank는 14건 / ₩944,900이고, warnings에는 `ga4_guard_not_actual_source`, `status_blank_rows_included_with_warning`, `status_sync_stale_over_6h`가 붙는다. biocom actual confirmed는 162건 / ₩29,463,300으로 기존 `operational_db.tb_iamweb_users PAYMENT_COMPLETE` included를 유지했다. status blank는 `imweb_status`가 비어 있는 row이며 미결제라는 뜻이 아니다. 다만 status sync freshness가 6시간을 넘었으므로 화면/API에서 warning으로 같이 보여줘야 한다.
 
-이번 sprint에서 VM backend deploy/restart는 하지 않는다. 로컬 코드/test/dry-run/source guide/gptconfirm/approval packet까지만 진행하고, live coffee summary는 승인 전까지 gpt0508-47의 `bridge_pending`으로 남는다. 현재 확인 기준 프론트 대시보드 코드는 `frontend/src/app/ads/site-landing/page.tsx`에 있지만 로컬 7010 응답은 타임아웃이고, 확실히 접근 가능한 것은 라이브 백엔드 summary API다. 실제 화면 연결/재시작은 별도 승인 뒤 확인한다.
+배포 산출은 pre-snapshot, remote backup, backend typecheck/build, PM2 restart, post-snapshot까지 완료됐다. rollback backup은 `/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-49-20260513T005354KST`에 있다. `/health`는 200이고, `/api/health`는 기존 라우트 미존재로 404 JSON을 반환한다. 현재 확인 기준 프론트 대시보드 코드는 `frontend/src/app/ads/site-landing/page.tsx`에 있지만 로컬 7010 응답은 타임아웃이고, 확실히 접근 가능한 것은 라이브 백엔드 summary API다. 실제 화면 재확인/프론트 고도화는 다음 sprint에서 별도로 진행한다.
 
 ## 2026-05-11 sprint state (gpt0508-37 + gpt0508-38)
 

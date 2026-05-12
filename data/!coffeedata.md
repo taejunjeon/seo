@@ -1,8 +1,8 @@
 # 더클린커피 데이터 정합성 현재 정본
 
 작성 시각: 2026-05-07 01:52 KST
-최신 업데이트: 2026-05-07 14:58 KST
-기준일: 2026-05-07
+최신 업데이트: 2026-05-13 01:12 KST
+기준일: 2026-05-13
 상태: active canonical
 Owner: coffee-data / attribution
 Supersedes: [[!coffeedata_old|기존 chronological 정본]]
@@ -48,7 +48,7 @@ harness_preflight:
 
 정본 순서는 `주문·결제 장부 확정 → GA4 BigQuery guard → NPay intent 미래키 수집 → A-6 외부 전송 dry-run → 플랫폼 전송 승인`이다. 현재는 A-4 NPay intent live publish 이후 A-5 monitoring 구간이며, 2026-05-07 01:51 KST read-only 기준 real intent row는 아직 적지만 A-6 join 후보가 4건 생겼다. 2026-05-07 09:01 KST 확인 결과 VM cron은 UTC 기준 `0 9 * * *`라 실제 실행 시각이 KST 18:00이다.
 
-2026-05-13 gpt0508-49 기준으로 더클린커피 NPay actual source는 Imweb v2 / VM Cloud `imweb_orders(site='thecleancoffee')`로 summary API 로컬 패치에 연결됐다. live VM 배포 전이므로 현재 live summary는 아직 `bridge_pending`이지만, read-only dry-run에서는 최근 30일 `included_with_warning` 후보가 308건 / ₩14,835,000이다. status blank 13건 / ₩877,100은 `imweb_status`가 비어 있는 row이며 미결제 단정 근거가 아니다. GA4 BigQuery는 actual 매출 source가 아니라 `already_in_ga4` guard로만 쓴다.
+2026-05-13 gpt0508-49 기준으로 더클린커피 NPay actual source는 Imweb v2 / VM Cloud `imweb_orders(site='thecleancoffee')`로 live summary API에 배포됐다. post-snapshot 기준 최근 30일 `included_with_warning` 후보는 309건 / ₩14,902,800이고, status blank 14건 / ₩944,900은 `imweb_status`가 비어 있는 row이며 미결제 단정 근거가 아니다. warnings에는 `ga4_guard_not_actual_source`, `status_blank_rows_included_with_warning`, `status_sync_stale_over_6h`가 표시된다. GA4 BigQuery는 actual 매출 source가 아니라 `already_in_ga4` guard로만 쓴다.
 
 Phase2 Coffee NPay 과거 매칭은 TJ님 YES로 100% 종결됐다. 과거 purchase 자동 복구 전송은 열지 않고, `분석 완료 / 전송 금지 / 미래 intent 장부로 이관`으로 닫는다. 컨펌 근거는 [[confirm0507-1]]이다.
 
@@ -101,6 +101,8 @@ Phase2 Coffee NPay 과거 매칭은 TJ님 YES로 100% 종결됐다. 과거 purch
 | 2026-05-13 gpt0508-49 coffee NPay included_with_warning 후보 | 308건 / 14,835,000원 | 취소/반품/교환 제외, status blank 포함 warning |
 | 2026-05-13 gpt0508-49 coffee status 확정 non-cancel | 295건 / 13,957,900원 | status blank 제외 기준 |
 | 2026-05-13 gpt0508-49 coffee status blank | 13건 / 877,100원 | 미결제 단정 금지, freshness warning 필요 |
+| 2026-05-13 gpt0508-49 live post-snapshot coffee actual | 309건 / 14,902,800원 | `source=imweb_v2_vm_cloud_imweb_orders`, `status=included_with_warning` |
+| 2026-05-13 gpt0508-49 live post-snapshot coffee status blank | 14건 / 944,900원 | status sync stale warning 포함 |
 
 감사용 원문 숫자:
 
