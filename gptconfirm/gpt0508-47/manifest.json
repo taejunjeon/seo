@@ -1,0 +1,50 @@
+{
+  "schema_version": "gptconfirm_manifest_v1",
+  "batch": "gpt0508-47",
+  "generated_at_kst": "2026-05-12 22:35:00 KST",
+  "title": "Option C Summary API Live Deploy And Source Follow-through",
+  "operator": "Codex",
+  "lane": "Yellow approved deploy completed + Green follow-through",
+  "verdict": "PASS_WITH_NOTES",
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "purpose": "human-readable final result report"
+    },
+    {
+      "path": "01-live-deploy-and-validation.md",
+      "purpose": "deploy, post-snapshot, rollback readiness"
+    },
+    {
+      "path": "02-coffee-and-source-guide-deep-dive.md",
+      "purpose": "thecleancoffee source isolation and guide audit"
+    },
+    {
+      "path": "03-next-actions-and-approval.md",
+      "purpose": "next actions and approval boundaries"
+    },
+    {
+      "path": "99-total-current-copy.md",
+      "purpose": "total current snapshot pointer and latest state"
+    }
+  ],
+  "evidence_files": [
+    "data/option-c-live-pre-snapshot-20260512.json",
+    "data/option-c-live-post-snapshot-20260512.json",
+    "data/option-c-live-deploy-result-20260512.json",
+    "data/thecleancoffee-actual-source-isolation-deep-dive-20260512.json",
+    "data/option-c-source-guide-consistency-audit-20260512.json",
+    "data/option-c-next-wide-deep-plan-20260512.json",
+    "gdn/option-c-live-dashboard-impact-summary-20260512.md",
+    "gdn/option-c-live-rollback-readiness-20260512.md"
+  ],
+  "invariants": {
+    "operational_db_write": 0,
+    "platform_send_upload": 0,
+    "gtm_publish": 0,
+    "cron_registration": 0,
+    "imweb_footer_edit": 0,
+    "raw_pii_output": false
+  },
+  "commit_scope_notes": "Exclude unrelated dirty TikTok files and root '=' file."
+}

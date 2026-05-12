@@ -1,0 +1,91 @@
+{
+  "schema_version": "option_c_live_pre_snapshot_v1",
+  "generated_at_kst": "2026-05-12 21:54:10 KST",
+  "sprint": "gpt0508-47",
+  "commit_to_deploy": "880f979",
+  "http_status": {
+    "biocom_summary": 200,
+    "thecleancoffee_summary": 200,
+    "health": 200
+  },
+  "pre_summary": {
+    "biocom": {
+      "ok": true,
+      "site": "biocom",
+      "total": 1048,
+      "legacy": {
+        "source": "imweb_orders (imweb v2 API cached)",
+        "complete_count": 128,
+        "complete_amount_krw": 25664000,
+        "complete_amount_krw_korean": "₩2,566만 4,000",
+        "max_order_time": "2026-05-11T00:47:22.000Z"
+      },
+      "actual_confirmed": null,
+      "bridge_pending": null,
+      "invariants_held": {
+        "external_send_count": 0,
+        "upload_candidate_count": 0,
+        "gtm_publish": 0,
+        "imweb_footer_edit": 0,
+        "operational_db_write": 0,
+        "raw_email_phone_member_payment_order_in_response": false
+      }
+    },
+    "thecleancoffee": {
+      "ok": true,
+      "site": "thecleancoffee",
+      "total": 239,
+      "legacy": {
+        "source": "imweb_orders (imweb v2 API cached)",
+        "complete_count": 261,
+        "complete_amount_krw": 11182700,
+        "complete_amount_krw_korean": "₩1,118만 2,700",
+        "max_order_time": "2026-05-11T05:08:29.000Z"
+      },
+      "actual_confirmed": null,
+      "bridge_pending": null,
+      "invariants_held": {
+        "external_send_count": 0,
+        "upload_candidate_count": 0,
+        "gtm_publish": 0,
+        "imweb_footer_edit": 0,
+        "operational_db_write": 0,
+        "raw_email_phone_member_payment_order_in_response": false
+      }
+    }
+  },
+  "health": {
+    "ok": null,
+    "status": "ok",
+    "node_env": null
+  },
+  "vm_status_text_redacted": "repo_head=git_unavailable_on_vm\nrepo_status=git_unavailable_on_vm\npm2=[pm2_json_redacted_in_snapshot]",
+  "vm_git_status": "git_unavailable_on_vm",
+  "raw_pattern_scan": {
+    "biocom": {
+      "email": false,
+      "phone": false,
+      "resident_id": false,
+      "raw_click_id_hint": false
+    },
+    "thecleancoffee": {
+      "email": false,
+      "phone": false,
+      "resident_id": false,
+      "raw_click_id_hint": false
+    },
+    "health": {
+      "email": false,
+      "phone": false,
+      "resident_id": false,
+      "raw_click_id_hint": false
+    }
+  },
+  "invariants": {
+    "operational_db_write": 0,
+    "platform_send_upload": 0,
+    "gtm_publish": 0,
+    "cron_registration": 0,
+    "imweb_footer_edit": 0
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": "option_c_source_guide_consistency_audit_v1",
+  "generated_at_kst": "2026-05-12 22:24:00 KST",
+  "sprint": "gpt0508-47",
+  "lane": "Green",
+  "audited_files": [
+    "data/!data_inventory.md",
+    "data/dbstructure.md",
+    "gdn/attribution-data-source-decision-guide-20260511.md",
+    "total/!total-current.md",
+    "backend/src/siteLandingLedger.ts",
+    "backend/src/npayActualConfirmedPgReader.ts",
+    "backend/src/routes/attribution.ts"
+  ],
+  "rules": {
+    "payment_complete_actual_primary": {
+      "status": "PASS_WITH_SITE_SCOPE",
+      "details": "biocom uses operational DB tb_iamweb_users PAYMENT_COMPLETE actual confirmed. thecleancoffee remains bridge_pending until site-isolated source is proven."
+    },
+    "complete_time_legacy_diagnostic": {
+      "status": "PASS",
+      "details": "summary API keeps legacy field and adds npay_revenue_30d_complete_time_legacy."
+    },
+    "imweb_status_lifecycle_diagnostic": {
+      "status": "PASS",
+      "details": "imweb_status/raw_json.orderStatus are diagnostic only."
+    },
+    "bridge_pending_separate": {
+      "status": "PASS",
+      "details": "complete_time blank row is exposed as npay_revenue_30d_bridge_pending."
+    },
+    "npay_click_not_purchase": {
+      "status": "PASS",
+      "details": "NPay click/count/add_payment_info purchase promotion remains forbidden."
+    },
+    "coffee_site_isolation_before_included": {
+      "status": "PASS_AFTER_PATCH",
+      "details": "attribution source guide and total current were patched to state coffee bridge_pending continuation."
+    }
+  },
+  "patches_applied": [
+    {
+      "file": "gdn/attribution-data-source-decision-guide-20260511.md",
+      "change": "Added 2026-05-12 Option C site-scope note and thecleancoffee bridge_pending rule."
+    },
+    {
+      "file": "total/!total-current.md",
+      "change": "Added gpt0508-47 live state summary, current live metrics, and rollback backup location."
+    }
+  ],
+  "source_window_freshness_confidence": {
+    "source": "live summary API, VM Cloud SQLite read-only, operational DB aggregate read-only, local docs/code",
+    "window": "last_30d NPay plus 24h site_landing live API",
+    "freshness": "2026-05-12 22:11-22:24 KST",
+    "confidence": 0.93
+  },
+  "invariants": {
+    "operational_db_write": 0,
+    "platform_send_upload": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "raw_pii_output": false
+  },
+  "verdict": "PASS_WITH_NOTES"
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": "option_c_next_wide_deep_plan_v1",
+  "generated_at_kst": "2026-05-12 22:28:00 KST",
+  "sprint": "gpt0508-47",
+  "current_verdict": "PASS",
+  "branches": {
+    "biocom_live_pass": {
+      "status": true,
+      "next_actions": [
+        "Dashboard frontend actual/legacy/bridge_pending display check",
+        "24h NPay actual freshness monitor",
+        "Google Ads ROAS gap recalculation using internal confirmed NPay actual"
+      ]
+    },
+    "coffee_source_ready": {
+      "status": false,
+      "reason": "0/337 coffee VM order_no matched in tb_iamweb_users and raw site key probe is 0"
+    },
+    "coffee_pending": {
+      "status": true,
+      "next_actions": [
+        "Keep summary API actual_confirmed.status=bridge_pending",
+        "Ask or verify developer-owned site-isolated coffee actual source",
+        "Use VM Cloud Imweb v2 + PlayAuto/Toss/Excel cross-check until source is proven"
+      ]
+    },
+    "unexpected_api_issue": {
+      "status": false,
+      "rollback_ready": true
+    },
+    "source_guide_conflict": {
+      "status": "patched",
+      "patched_files": [
+        "gdn/attribution-data-source-decision-guide-20260511.md",
+        "total/!total-current.md"
+      ]
+    }
+  },
+  "recommended_next_actions": [
+    {
+      "owner": "Codex",
+      "lane": "Green",
+      "action": "Run 24h live monitor for summary API biocom actual/legacy/bridge and coffee pending state",
+      "confidence": 0.93,
+      "approval_required": false
+    },
+    {
+      "owner": "Codex",
+      "lane": "Green",
+      "action": "Recalculate Google Ads ROAS gap with internal confirmed NPay actual separated from platform claimed ROAS",
+      "confidence": 0.88,
+      "approval_required": false
+    },
+    {
+      "owner": "TJ님",
+      "lane": "Yellow",
+      "action": "Confirm whether development team has a site-isolated coffee actual order source or can expose one read-only",
+      "confidence": 0.78,
+      "approval_required": true
+    },
+    {
+      "owner": "TJ님",
+      "lane": "Red",
+      "action": "Do not approve Google Ads conversion upload until confirmed-only guard and exact campaign attribution are closed",
+      "confidence": 0.95,
+      "approval_required": true
+    }
+  ],
+  "forbidden_until_next_approval": [
+    "Google Ads conversion upload",
+    "GA4/Meta/TikTok/Naver purchase send",
+    "GTM production publish",
+    "operational DB write",
+    "thecleancoffee actual included promotion"
+  ]
+}

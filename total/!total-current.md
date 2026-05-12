@@ -10,6 +10,14 @@ Supersedes: [[!total_past|기존 Phase 순서 정본]]
 Next document: [[../gdn/total-current-r2-state-update-20260511]] R2 deploy + canary 진행상태 / [[../gdn/payment-success-order-bridge-r2-wire-20260511]] R2 wire 본체 / [[../gdn/r2-backend-deploy-smoke-20260511]] R2 deploy smoke / [[../gdn/r2-session-only-to-paid-order-click-exact-plan-or-patch-20260511]] paid_order_click_exact 분류기 / [[../gdn/confirmed-purchase-ledger-lookup-wire-readiness-20260511]] ledger_lookup wire readiness
 Do not use for: Google Ads 전환 변경, conversion upload, confirmed purchase dispatcher 운영 전송, 운영DB/ledger write 승인
 
+## 2026-05-12 sprint state (gpt0508-47 Option C live)
+
+Option C live 배포는 PASS다. 화면이 보던 NPay 매출을 `complete_time` legacy 진단값과 실제 결제완료 기준값으로 분리했고, biocom은 운영DB `PAYMENT_COMPLETE` actual confirmed가 live summary API에 included로 붙었다. thecleancoffee는 운영DB `tb_iamweb_users` site 격리와 주문번호 매칭이 아직 증명되지 않아 actual included가 아니라 `bridge_pending`을 유지한다.
+
+현재 live refresh 기준(2026-05-12 22:11 KST): biocom actual confirmed는 163건 / ₩29,500,200 / max payment complete 2026-05-12T07:10:27.000Z이고, legacy `complete_time`은 127건 / ₩25,168,000이다. biocom bridge pending은 61건 / ₩8,108,600이다. thecleancoffee actual confirmed는 `bridge_pending`, bridge pending은 75~76건 / 약 ₩5,067,700~₩5,110,600 범위로 일반 sync 진행에 따라 1건 변동 중이다.
+
+금지선은 유지됐다. 운영DB write 0, Google Ads/GA4/Meta/TikTok/Naver 전송 0, GTM publish 0, Imweb footer 변경 0, cron 등록 0이다. VM rollback backup은 `/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-47-20260512T2153KST`에 있으며 핵심 3파일(`siteLandingLedger.ts`, `npayActualConfirmedPgReader.ts`, `routes/attribution.ts`) 복구가 가능하다.
+
 ## 2026-05-11 sprint state (gpt0508-37 + gpt0508-38)
 
 | 항목 | 상태 |

@@ -1,0 +1,61 @@
+{
+  "schema_version": "option_c_live_deploy_result_v1",
+  "generated_at_kst": "2026-05-12 22:25:00 KST",
+  "sprint": "gpt0508-47",
+  "deployed_commit": "880f979",
+  "lane": "Yellow approved scope completed",
+  "health": {
+    "url": "https://att.ainativeos.net/health",
+    "http_status": 200,
+    "service": "biocom-seo-backend",
+    "status": "ok"
+  },
+  "pm2": {
+    "process_name": "seo-backend",
+    "status": "online",
+    "checked_at_kst": "2026-05-12 22:11 KST"
+  },
+  "summary_api": {
+    "biocom": {
+      "http_status": 200,
+      "actual_confirmed_status": "included",
+      "actual_confirmed_count": 163,
+      "actual_confirmed_revenue_krw": 29500200,
+      "legacy_complete_time_count": 127,
+      "legacy_complete_time_revenue_krw": 25168000,
+      "bridge_pending_count": 61,
+      "bridge_pending_revenue_krw": 8108600,
+      "max_payment_complete_time": "2026-05-12T07:10:27.000Z",
+      "max_bridge_order_time": "2026-05-12T12:55:53.000Z"
+    },
+    "thecleancoffee": {
+      "http_status": 200,
+      "actual_confirmed_status": "bridge_pending",
+      "actual_confirmed_count": 0,
+      "actual_confirmed_revenue_krw": 0,
+      "legacy_complete_time_count": 261,
+      "legacy_complete_time_revenue_krw": 11182700,
+      "bridge_pending_count": 76,
+      "bridge_pending_revenue_krw": 5110600,
+      "max_bridge_order_time": "2026-05-12T13:13:52.000Z"
+    }
+  },
+  "rollback_backup": {
+    "path": "/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-47-20260512T2153KST",
+    "files_present": [
+      "backend/src/siteLandingLedger.ts",
+      "backend/src/npayActualConfirmedPgReader.ts",
+      "backend/src/routes/attribution.ts"
+    ],
+    "readiness": "PASS"
+  },
+  "invariants": {
+    "operational_db_write": 0,
+    "platform_send_upload": 0,
+    "gtm_publish": 0,
+    "cron_registration": 0,
+    "imweb_footer_edit": 0,
+    "raw_pii_pattern_leak": false
+  },
+  "verdict": "PASS"
+}

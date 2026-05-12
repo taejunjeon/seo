@@ -1,0 +1,128 @@
+{
+  "schema_version": "thecleancoffee_actual_source_isolation_deep_dive_v1",
+  "generated_at_kst": "2026-05-12 22:19:29 KST",
+  "sprint": "gpt0508-47",
+  "harness_preflight": {
+    "common_harness_read": true,
+    "project_harness_read": true,
+    "required_context_docs": [
+      "AGENTS.md",
+      "docurule.md",
+      "docs/report/text-report-template.md",
+      "harness/common/HARNESS_GUIDELINES.md",
+      "harness/common/AUTONOMY_POLICY.md",
+      "harness/common/REPORTING_TEMPLATE.md",
+      "docs/agent-harness/growth-data-harness-v0.md",
+      "harness/npay-recovery/README.md",
+      "harness/coffee-data/README.md",
+      "harness/coffee-data/RULES.md",
+      "data/!data_inventory.md",
+      "gdn/attribution-data-source-decision-guide-20260511.md"
+    ],
+    "lane": "Green",
+    "allowed_actions": [
+      "read_only_vm_cloud_sqlite_query",
+      "read_only_operational_db_query",
+      "local_document_update",
+      "audit_packaging"
+    ],
+    "forbidden_actions": [
+      "operational_db_write",
+      "platform_send_upload",
+      "gtm_publish",
+      "cron_registration",
+      "imweb_footer_edit",
+      "thecleancoffee_actual_included_promotion"
+    ],
+    "source_window_freshness_confidence": {
+      "window": "last_30d",
+      "freshness": "VM Cloud SQLite and operational DB read-only checked at 2026-05-12 22:19 KST",
+      "confidence": 0.91
+    }
+  },
+  "sources": {
+    "vm_cloud_sqlite": "/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+    "operational_db": "dashboard.public aggregate read-only via DATABASE_URL",
+    "live_summary_api": "https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24"
+  },
+  "window": {
+    "days": 30,
+    "since_iso": "2026-04-12T13:19:22.813Z"
+  },
+  "vm_cloud_sqlite": {
+    "imweb_npay_30d": {
+      "site": "thecleancoffee",
+      "rows": 337,
+      "distinct_order_no": 337,
+      "order_no_present": 337,
+      "order_code_present": 337,
+      "channel_order_no_present": 337,
+      "complete_time_present": 261,
+      "bridge_pending": 76,
+      "payment_amount_sum": 16293300,
+      "max_order_time": "2026-05-12T13:13:52.000Z",
+      "max_synced_at": "2026-05-12 13:14:51",
+      "max_status_synced_at": "2026-05-12 04:11:07"
+    },
+    "site_landing_30d": {
+      "site": "thecleancoffee",
+      "rows": 442,
+      "rows_with_order_code_param": 249,
+      "paid_search": 51,
+      "paid_social": 16,
+      "max_landed_at": "2026-05-12T12:29:28.569Z"
+    }
+  },
+  "operational_db": {
+    "tb_iamweb_users_grouped_npay_30d": {
+      "orders": 163,
+      "revenue_krw": 29500200,
+      "site_scope": "not safe for thecleancoffee; included only for biocom summary",
+      "max_order_date": "2026-05-12 16:09:55",
+      "max_payment_complete_time": "2026-05-12T07:10:27.000Z"
+    },
+    "tb_iamweb_users_site_key_probe": {
+      "rows": 99260,
+      "raw_site_key": 0,
+      "raw_siteCode_key": 0,
+      "raw_site_code_key": 0,
+      "raw_unit_code_key": 0,
+      "raw_key_coffee_hint": 0
+    },
+    "coffee_text_hint_probe": {
+      "rows_with_coffee_text_hint": 44,
+      "rows_with_coffee_text_hint_30d": 44,
+      "npay_complete_30d_with_coffee_text_hint": 14,
+      "interpretation": "text hint is not a site isolation key and must not promote actual included"
+    },
+    "vm_order_no_match_probe": {
+      "coffee_order_nos_probed": 337,
+      "coffee_matched_in_tb_iamweb_users": 0,
+      "biocom_order_nos_probed": 188,
+      "biocom_matched_in_tb_iamweb_users": 186
+    },
+    "playauto_coffee_30d": {
+      "orders": 1151,
+      "max_ord_time": "2026-05-11 18:13:42",
+      "max_synced_at": "2026-05-11 20:00:10.107129"
+    },
+    "toss_coffee_30d": {
+      "transactions": 488,
+      "net_revenue_krw": 24593250,
+      "max_approved_at": "2026-05-12 05:33:17"
+    }
+  },
+  "decision": {
+    "verdict": "COFFEE_BRIDGE_PENDING_CONTINUE",
+    "actual_included_allowed": false,
+    "reason": "VM Cloud thecleancoffee NPay order_no is complete, but operational DB tb_iamweb_users has no proven coffee site key and matches 0/337 coffee order numbers. biocom control matches 186/188, so the non-match is source isolation evidence rather than query failure.",
+    "next_safe_path": "Use VM Cloud/Imweb v2 coffee NPay aggregate as bridge evidence and request/verify a site-isolated coffee actual source before promotion."
+  },
+  "invariants": {
+    "raw_identifiers_output": false,
+    "operational_db_write": 0,
+    "platform_send_upload": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0
+  }
+}

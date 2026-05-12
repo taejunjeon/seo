@@ -1,0 +1,197 @@
+{
+  "schema_version": "option_c_live_post_snapshot_v1",
+  "generated_at_kst": "2026-05-12 21:57:35 KST",
+  "sprint": "gpt0508-47",
+  "deployed_commit": "880f979",
+  "http_status": {
+    "biocom_summary": 200,
+    "thecleancoffee_summary": 200,
+    "health": 200
+  },
+  "post_summary": {
+    "biocom": {
+      "ok": true,
+      "site": "biocom",
+      "total": 1053,
+      "legacy": {
+        "source": "imweb_orders (imweb v2 API cached)",
+        "complete_count": 128,
+        "complete_amount_krw": 25664000,
+        "complete_amount_krw_korean": "₩2,566만 4,000",
+        "max_order_time": "2026-05-11T00:47:22.000Z"
+      },
+      "legacy_diagnostic": {
+        "source": "imweb_orders.complete_time legacy",
+        "role": "legacy_diagnostic_only",
+        "complete_count": 128,
+        "complete_amount_krw": 25664000,
+        "complete_amount_krw_korean": "₩2,566만 4,000",
+        "max_order_time": "2026-05-11T00:47:22.000Z",
+        "warning": "complete_time은 NPay actual primary가 아니다. 화면 호환과 차이 진단용으로만 유지한다."
+      },
+      "actual_confirmed": {
+        "source": "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+        "status": "included",
+        "complete_count": 163,
+        "complete_amount_krw": 29500200,
+        "complete_amount_krw_korean": "₩2,950만 200",
+        "max_payment_complete_time": "2026-05-12T07:10:27.000Z",
+        "max_order_date": "2026-05-12 16:09:55",
+        "reason": "운영DB tb_iamweb_users의 NAVERPAY_ORDER + PAYMENT_COMPLETE + 취소/반품 제외 + 금액 양수 조건을 실제 결제완료 기준으로 사용한다.",
+        "warnings": []
+      },
+      "bridge_pending": {
+        "source": "imweb_orders.order_code/order_no bridge readiness",
+        "pending_count": 59,
+        "pending_amount_krw": 7841600,
+        "pending_amount_krw_korean": "₩784만 1,600",
+        "max_order_time": "2026-05-12T07:09:55.000Z",
+        "reason": "complete_time 공백 row는 미결제가 아니라 운영DB PAYMENT_COMPLETE 또는 관리자 confirmed source와 주문 단위 bridge가 필요한 row다."
+      },
+      "source_disagreement_reason": "complete_time legacy와 운영DB PAYMENT_COMPLETE actual confirmed가 다르므로 예산 판단에는 actual confirmed만 사용한다.",
+      "freshness": {
+        "actual_confirmed_source": "operational_db.tb_iamweb_users",
+        "actual_confirmed_status": "included",
+        "actual_confirmed_max_payment_complete_time": "2026-05-12T07:10:27.000Z",
+        "actual_confirmed_max_order_date": "2026-05-12 16:09:55",
+        "local_imweb_orders_max_synced_at": "2026-05-12 12:41:59",
+        "local_imweb_orders_max_status_synced_at": "2026-05-12 04:10:18",
+        "confidence": "high"
+      },
+      "invariants_held": {
+        "external_send_count": 0,
+        "upload_candidate_count": 0,
+        "gtm_publish": 0,
+        "imweb_footer_edit": 0,
+        "operational_db_write": 0,
+        "raw_email_phone_member_payment_order_in_response": false
+      }
+    },
+    "thecleancoffee": {
+      "ok": true,
+      "site": "thecleancoffee",
+      "total": 234,
+      "legacy": {
+        "source": "imweb_orders (imweb v2 API cached)",
+        "complete_count": 261,
+        "complete_amount_krw": 11182700,
+        "complete_amount_krw_korean": "₩1,118만 2,700",
+        "max_order_time": "2026-05-11T05:08:29.000Z"
+      },
+      "legacy_diagnostic": {
+        "source": "imweb_orders.complete_time legacy",
+        "role": "legacy_diagnostic_only",
+        "complete_count": 261,
+        "complete_amount_krw": 11182700,
+        "complete_amount_krw_korean": "₩1,118만 2,700",
+        "max_order_time": "2026-05-11T05:08:29.000Z",
+        "warning": "complete_time은 NPay actual primary가 아니다. 화면 호환과 차이 진단용으로만 유지한다."
+      },
+      "actual_confirmed": {
+        "source": "unavailable",
+        "status": "bridge_pending",
+        "complete_count": 0,
+        "complete_amount_krw": 0,
+        "complete_amount_krw_korean": "₩0",
+        "max_payment_complete_time": null,
+        "max_order_date": null,
+        "reason": "운영DB tb_iamweb_users의 thecleancoffee site 격리가 아직 검증되지 않아 actual confirmed는 bridge_pending으로 둔다.",
+        "warnings": [
+          "site_isolation_unproven"
+        ]
+      },
+      "bridge_pending": {
+        "source": "imweb_orders.order_code/order_no bridge readiness",
+        "pending_count": 75,
+        "pending_amount_krw": 5067700,
+        "pending_amount_krw_korean": "₩506만 7,700",
+        "max_order_time": "2026-05-12T12:08:16.000Z",
+        "reason": "complete_time 공백 row는 미결제가 아니라 운영DB PAYMENT_COMPLETE 또는 관리자 confirmed source와 주문 단위 bridge가 필요한 row다."
+      },
+      "source_disagreement_reason": "운영DB tb_iamweb_users의 thecleancoffee site 격리가 아직 검증되지 않아 actual confirmed는 bridge_pending으로 둔다.",
+      "freshness": {
+        "actual_confirmed_source": "operational_db.tb_iamweb_users",
+        "actual_confirmed_status": "bridge_pending",
+        "actual_confirmed_max_payment_complete_time": null,
+        "actual_confirmed_max_order_date": null,
+        "local_imweb_orders_max_synced_at": "2026-05-12 12:42:13",
+        "local_imweb_orders_max_status_synced_at": "2026-05-12 04:11:07",
+        "confidence": "medium"
+      },
+      "invariants_held": {
+        "external_send_count": 0,
+        "upload_candidate_count": 0,
+        "gtm_publish": 0,
+        "imweb_footer_edit": 0,
+        "operational_db_write": 0,
+        "raw_email_phone_member_payment_order_in_response": false
+      }
+    }
+  },
+  "health": {
+    "ok": null,
+    "status": "ok",
+    "node_env": null
+  },
+  "pm2": [
+    {
+      "name": "seo-backend",
+      "status": "online",
+      "restart_time": 3856,
+      "pm_uptime": 1778590579666,
+      "pid": 624163
+    },
+    {
+      "name": "seo-cloudflared",
+      "status": "online",
+      "restart_time": 0,
+      "pm_uptime": 1777029247375,
+      "pid": 654
+    },
+    {
+      "name": "seo-frontend",
+      "status": "online",
+      "restart_time": 19,
+      "pm_uptime": 1778482633434,
+      "pid": 582128
+    }
+  ],
+  "raw_pattern_scan": {
+    "biocom": {
+      "email": false,
+      "phone": false,
+      "resident_id": false,
+      "raw_click_id_hint": false,
+      "raw_payment_hint": false
+    },
+    "thecleancoffee": {
+      "email": false,
+      "phone": false,
+      "resident_id": false,
+      "raw_click_id_hint": false,
+      "raw_payment_hint": false
+    },
+    "health": {
+      "email": false,
+      "phone": false,
+      "resident_id": false,
+      "raw_click_id_hint": false,
+      "raw_payment_hint": false
+    }
+  },
+  "checks": {
+    "biocom_http_200": true,
+    "coffee_http_200": true,
+    "health_http_200": true,
+    "biocom_actual_included": true,
+    "biocom_actual_expected_direction": true,
+    "biocom_legacy_present": true,
+    "biocom_bridge_pending_present": true,
+    "coffee_not_included": true,
+    "coffee_bridge_pending_status": true,
+    "coffee_bridge_pending_present": true,
+    "invariants_zero": true,
+    "raw_patterns_zero": true
+  },
+  "verdict": "PASS"
+}
