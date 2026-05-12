@@ -41,8 +41,10 @@ gtmaudit/*.log
 gtmaudit/*backup*.json
 gtmaudit/*result*.json
 
-# Raw TikTok monitoring JSON can include order/payment URLs; commit redacted MD summaries instead.
+# Raw/generated TikTok monitoring artifacts can include order/payment identifiers.
+# Commit only manually redacted summaries.
 tiktok/monitoring/*.json
+tiktok/monitoring/tiktok_guard_monitor_*.md
 
 # Contains copied secret values; keep local only.
 naver/npayfeedbackreply.md

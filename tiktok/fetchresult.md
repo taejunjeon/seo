@@ -815,3 +815,12 @@ tiktok/monitoring/ads_tiktok_dashboard_20260425_api_collected.png
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-09T03-05-03-626Z.md`
 - source: VM Cloud API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-05-10~2026-05-11 TikTok Guard 자동 모니터링 요약
+
+- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+- privacy: 상세 report는 실제 order key/order_no가 포함되어 커밋하지 않고, 집계 요약만 보존한다.
+- 2026-05-10 24h: WARN, totalEvents 141, uniqueOrderKeys 47, released_unknown_purchase 47, anomalies none
+- 2026-05-11 48h: WARN, totalEvents 300, uniqueOrderKeys 100, released_unknown_purchase 100, anomalies none
+- 2026-05-11 24h: WARN, totalEvents 159, uniqueOrderKeys 53, released_unknown_purchase 53, anomalies none
