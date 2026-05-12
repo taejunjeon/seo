@@ -29,8 +29,11 @@
   "git": {
     "committed": true,
     "pushed": true,
-    "head": "ddb3a72",
-    "commit_message": "gdn: document coffee imweb source feasibility",
+    "head_check_command": "git rev-parse --short HEAD",
+    "commits_created_this_turn": [
+      "gdn: document coffee imweb source feasibility",
+      "gdn: refresh coffee feasibility handoff"
+    ],
     "unrelated_dirty_excluded": [
       "tiktok/fetchresult.md",
       "=",

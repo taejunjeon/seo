@@ -17,7 +17,7 @@
 - GA4 BigQuery `analytics_326949178`은 337건의 order/channel key 674개를 robust search했지만 hit 0건이었다. 결제 정본이 아니라 `already_in_ga4` guard로만 쓴다.
 - source guide와 feasibility JSON/MD, Yellow 승인안 초안을 작성했다.
 - 검증 PASS: JSON parse, wiki links, harness preflight, git diff check, no-send/no-write grep docs-only.
-- commit/push 완료: `ddb3a72 gdn: document coffee imweb source feasibility`.
+- commit/push 완료. 정확한 현재 HEAD는 `git rev-parse --short HEAD`로 확인한다.
 
 ## 다음 명령
 

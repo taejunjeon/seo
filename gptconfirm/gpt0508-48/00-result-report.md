@@ -113,7 +113,7 @@ GA4는 결제 정본이 아닙니다. GA4 BigQuery는 주문번호가 이미 GA4
 ## 현재 영향 / 서버 · 커밋 상태
 
 - live VM Cloud backend는 변경하지 않았다. 현재 live coffee summary는 그대로 `bridge_pending`이다.
-- scoped commit/push 완료: `ddb3a72 gdn: document coffee imweb source feasibility`.
+- scoped commit/push 완료. 정확한 현재 HEAD는 `git rev-parse --short HEAD`로 확인한다.
 - unrelated dirty file은 stage/commit에서 제외했다.
 
 ## 변경 파일

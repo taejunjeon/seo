@@ -3,7 +3,7 @@
   "generated_at_kst": "2026-05-12 23:44:47 KST",
   "lane": "Green",
   "status": "completed_green_review_committed_pushed",
-  "git_commit": "ddb3a72",
+  "git_head_check_command": "git rev-parse --short HEAD",
   "files": [
     "00-result-report.md"
   ],
