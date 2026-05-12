@@ -1,0 +1,104 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-12T17:02:15.345Z",
+  "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+  "table": "imweb_orders",
+  "status_column": "imweb_status",
+  "site": "thecleancoffee",
+  "latest_sync": {
+    "max_status_synced_at": "2026-05-12 04:11:07",
+    "max_synced_at": "2026-05-12 16:59:56"
+  },
+  "windows": [
+    {
+      "days": 7,
+      "threshold": "2026-05-05T17:02:15.345Z",
+      "included_count": 101,
+      "included_amount": 6034000,
+      "blank_count": 16,
+      "blank_amount": 1012700,
+      "blank_missing_status_sync_marker": 16,
+      "blank_synced_after_latest_status_sync": 16,
+      "blank_order_after_latest_status_sync": 14,
+      "blank_complete_time_present": 0,
+      "blank_complete_time_missing": 16,
+      "blank_min_order_time": "2026-05-10T13:44:43.000Z",
+      "blank_max_order_time": "2026-05-12T16:57:59.000Z",
+      "blank_min_synced_at": "2026-05-12 16:44:45",
+      "blank_max_synced_at": "2026-05-12 16:59:46",
+      "blank_min_status_synced_at": null,
+      "blank_max_status_synced_at": null
+    },
+    {
+      "days": 30,
+      "threshold": "2026-04-12T17:02:15.345Z",
+      "included_count": 311,
+      "included_amount": 14970600,
+      "blank_count": 16,
+      "blank_amount": 1012700,
+      "blank_missing_status_sync_marker": 16,
+      "blank_synced_after_latest_status_sync": 16,
+      "blank_order_after_latest_status_sync": 14,
+      "blank_complete_time_present": 0,
+      "blank_complete_time_missing": 16,
+      "blank_min_order_time": "2026-05-10T13:44:43.000Z",
+      "blank_max_order_time": "2026-05-12T16:57:59.000Z",
+      "blank_min_synced_at": "2026-05-12 16:44:45",
+      "blank_max_synced_at": "2026-05-12 16:59:46",
+      "blank_min_status_synced_at": null,
+      "blank_max_status_synced_at": null
+    }
+  ],
+  "status_distribution_30d": [
+    {
+      "status_group": "PURCHASE_CONFIRMATION",
+      "cnt": 199,
+      "amount_krw": 8531700,
+      "min_order_time": "2026-04-12T22:50:19.000Z",
+      "max_order_time": "2026-05-08T02:39:54.000Z"
+    },
+    {
+      "status_group": "DELIVERING",
+      "cnt": 37,
+      "amount_krw": 1689600,
+      "min_order_time": "2026-05-08T07:17:07.000Z",
+      "max_order_time": "2026-05-11T05:08:29.000Z"
+    },
+    {
+      "status_group": "CANCEL",
+      "cnt": 31,
+      "amount_krw": 1796400,
+      "min_order_time": "2026-04-18T04:01:04.000Z",
+      "max_order_time": "2026-05-11T23:07:46.000Z"
+    },
+    {
+      "status_group": "STANDBY",
+      "cnt": 30,
+      "amount_krw": 2545000,
+      "min_order_time": "2026-04-12T23:51:53.000Z",
+      "max_order_time": "2026-05-11T23:14:28.000Z"
+    },
+    {
+      "status_group": "COMPLETE",
+      "cnt": 28,
+      "amount_krw": 1157700,
+      "min_order_time": "2026-04-30T23:29:56.000Z",
+      "max_order_time": "2026-05-11T01:19:17.000Z"
+    },
+    {
+      "status_group": "(blank)",
+      "cnt": 16,
+      "amount_krw": 1012700,
+      "min_order_time": "2026-05-10T13:44:43.000Z",
+      "max_order_time": "2026-05-12T16:57:59.000Z"
+    },
+    {
+      "status_group": "PAY_COMPLETE",
+      "cnt": 1,
+      "amount_krw": 33900,
+      "min_order_time": "2026-05-12T04:00:48.000Z",
+      "max_order_time": "2026-05-12T04:00:48.000Z"
+    }
+  ],
+  "conclusion": "VM Cloud SQLite imweb_orders.imweb_status blank rows have no imweb_status_synced_at marker and were synced after the latest status sync pass; this is source_freshness_gap/status sync lag, not evidence of unpaid orders."
+}

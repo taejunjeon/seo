@@ -1,9 +1,9 @@
 {
-  "updated_at_kst": "2026-05-13 01:13:00 KST",
-  "sprint": "gpt0508-49",
-  "current_goal": "VM deploy/restart is complete, post-snapshot passed, project sprint docs are created. Run validation and scoped commit/push.",
-  "lane": "Yellow deploy completed, Green planning/docs complete",
-  "mode": "approved_vm_deploy_done_then_read_only_docs",
+  "updated_at_kst": "2026-05-13 02:28:00 KST",
+  "sprint": "gpt0508-49-plus-roas-recompute",
+  "current_goal": "Coffee actual live deploy is complete, local dashboard is usable, ROAS gap recompute and sprint docs are updated. Run validation and scoped commit/push.",
+  "lane": "Yellow deploy completed, Green ROAS recompute completed",
+  "mode": "approved_vm_deploy_done_then_read_only_roas_recompute",
   "completed": [
     "Local patch/test/package/commit/push completed at commit 5359a47.",
     "Pre-snapshot saved for thecleancoffee, biocom, and health.",
@@ -16,7 +16,18 @@
     "No rollback required.",
     "Read docurule.md, plans.md.md, gdn/!gdnplan_new.md, and data/!channelfunnel.md.",
     "Created project/sprint1.md, project/sprint2.md, and project/sprint3.md.",
-    "Updated gptconfirm/gpt0508-49 package to live deploy PASS state."
+    "Updated gptconfirm/gpt0508-49 package to live deploy PASS state.",
+    "Restarted local frontend dev server on port 7010 after stale Next process timed out.",
+    "Verified local dashboard URL: http://localhost:7010/ads/site-landing returns 200.",
+    "Verified local backend health: http://localhost:7020/health returns 200.",
+    "Completed ROAS gap recompute using live Google Ads dashboard API, VM Cloud coffee imweb_orders read-only aggregate, and site summary API.",
+    "Wrote data/project/roas-gap-recompute-20260513.json and gdn/roas-gap-recompute-after-coffee-actual-20260513.md.",
+    "Upgraded frontend/src/app/ads/site-landing/page.tsx to a report-worthy local dashboard with live/local API toggle, site/window selectors, NPay actual/legacy/bridge/status blank cards, and warning explanations.",
+    "Restarted stale backend process on port 7020; local backend summary API now returns 200.",
+    "Playwright smoke verified http://localhost:7010/ads/site-landing with live API 200 and no page console errors.",
+    "Read-only root-cause check completed for VM Cloud SQLite imweb_orders.imweb_status blank rows.",
+    "Updated project/sprint1.md, project/sprint2.md, and project/sprint3.md to include 100% conditions, execution steps, owner, DB location, and source/window/freshness/confidence.",
+    "Updated ROAS recompute to latest coffee VM Cloud SQLite aggregate: 311 rows / 14,970,600 KRW in 30d."
   ],
   "deployment": {
     "commit": "5359a47",
@@ -29,11 +40,17 @@
   "latest_metrics": {
     "thecleancoffee": {
       "source": "imweb_v2_vm_cloud_imweb_orders",
+      "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+      "table": "imweb_orders",
+      "status_column": "imweb_status",
       "status": "included_with_warning",
-      "count": 309,
-      "amount_krw": 14902800,
-      "status_blank_count": 14,
-      "status_blank_amount_krw": 944900,
+      "count": 311,
+      "amount_krw": 14970600,
+      "status_blank_count": 16,
+      "status_blank_amount_krw": 1012700,
+      "blank_root_cause": "source_freshness_gap_status_sync_lag",
+      "latest_order_sync": "2026-05-12 16:59:56",
+      "latest_status_sync": "2026-05-12 04:11:07",
       "warnings": [
         "ga4_guard_not_actual_source",
         "status_blank_rows_included_with_warning",
@@ -47,12 +64,38 @@
       "amount_krw": 29463300
     }
   },
+  "local_dashboard": {
+    "frontend_url": "http://localhost:7010/ads/site-landing",
+    "frontend_status": 200,
+    "backend_health_url": "http://localhost:7020/health",
+    "backend_status": "ok",
+    "backend_summary_url": "http://localhost:7020/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24",
+    "backend_summary_status": 200,
+    "screenshot": "data/project/site-landing-dashboard-20260513.png"
+  },
+  "roas_gap_recompute": {
+    "source": "live_google_ads_dashboard_api + vm_cloud_sqlite_imweb_orders_readonly + site_summary_api",
+    "generated_at_kst": "2026-05-13 02:18:00 KST",
+    "last_7d": {
+      "google_ads_platform_roas": 10.5157,
+      "internal_current_roas": 0.4059,
+      "internal_with_biocom_npay_actual_roas": 3.1788,
+      "coffee_cross_site_reference_overlay_roas": 4.8451,
+      "budget_value": "internal_with_biocom_npay_actual"
+    },
+    "last_30d": {
+      "google_ads_platform_roas": 10.2673,
+      "internal_current_roas": 0.2924,
+      "internal_with_biocom_npay_actual_roas": 2.0722,
+      "coffee_cross_site_reference_overlay_roas": 2.7509,
+      "budget_value": "internal_with_biocom_npay_actual"
+    },
+    "coffee_overlay_note": "Coffee actual is a cross-site reference line, not Google Ads budget ROAS, until campaign/site spend mapping is confirmed."
+  },
   "next_commands": [
-    "Run wiki link validation on gptconfirm/project/source docs.",
-    "Run JSON parse validation.",
-    "Run harness-preflight-check --strict.",
-    "Run git diff --check.",
-    "Run raw identifier pattern scan.",
+    "Run frontend typecheck and page-scoped eslint.",
+    "Run Playwright dashboard smoke.",
+    "Run wiki link validation, JSON parse validation, harness-preflight-check --strict, git diff --check, and raw identifier scan.",
     "Scoped commit and push."
   ],
   "forbidden": [

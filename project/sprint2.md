@@ -1,7 +1,7 @@
 # Sprint 2. ROAS Gap Recompute
 
-작성 시각: 2026-05-13 01:08 KST
-상태: 준비 완료 / read-only recompute next
+작성 시각: 2026-05-13 02:26 KST
+상태: read-only recompute 완료 / coffee correction line 설계 85% / Option 3 packet 갱신 next
 Owner: Codex
 Lane: Green read-only, Red send/upload 금지
 Do not use for: Google Ads conversion upload, Google Ads conversion action 변경, 광고 예산 자동 변경, GA4/Meta/TikTok/Naver 실제 전송
@@ -19,10 +19,11 @@ harness_preflight:
     - total/!total-current.md
     - data/!coffeedata.md
     - project/sprint1.md
-  lane: Green read-only ROAS recompute preparation
+  lane: Green read-only ROAS recompute completed
   allowed_actions:
     - Google Ads dashboard read-only API
-    - summary API read-only API
+    - VM Cloud SQLite read-only aggregate
+    - site summary API read-only API
     - local JSON/Markdown evidence
     - no-send dry-run design
   forbidden_actions:
@@ -32,73 +33,64 @@ harness_preflight:
     - GTM publish
     - campaign budget change
   source_window_freshness_confidence:
-    source: "VM Google Ads dashboard API + site landing summary API + gpt0508-49 post-snapshot"
-    window: "Google Ads last_7d/last_30d, coffee/biocom NPay actual 30d"
-    freshness: "Google Ads read-only 2026-05-13 01:02 KST, summary API post-snapshot 2026-05-13 00:57 KST"
+    source: "VM Cloud Google Ads dashboard API + VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders + site landing summary API"
+    window: "Google Ads last_7d/last_30d, coffee Imweb NPay actual 7d/30d, biocom NPay actual dashboard correction"
+    freshness: "Google Ads read-only 2026-05-13 01:34 KST, coffee VM Cloud read-only refreshed 2026-05-13 02:02 KST"
     confidence: 0.88
 ```
 
 ## 10초 요약
 
-이 스프린트의 목적은 플랫폼이 주장하는 ROAS와 내부 confirmed ROAS를 다시 분리해서 보는 것이다. Coffee actual source가 live에 붙었기 때문에, 다음 계산부터는 biocom NPay actual과 coffee NPay actual을 따로 분자에 올릴 수 있다. 단, Google Ads upload나 Primary 전환 변경은 아직 Red Lane이다.
+이 스프린트의 목적은 플랫폼이 주장하는 ROAS와 내부 confirmed ROAS를 다시 분리해서 보는 것이다. Read-only 재계산은 완료됐고, Google Ads 예산 판단값은 `biocom NPay 보정 후 내부 ROAS`로 둔다. Coffee actual은 source/site가 다르므로 dashboard correction 합계에 조용히 섞지 않고 별도 line으로 보여준다.
 
 ## Phase-Sprint 요약표 — 실제 개발 순서 기준
 
 | Priority | Phase/Sprint | 무엇을 하는가 | 왜 하는가 | 어떻게 진행하는가 | 지금 상태 | 현재 진척률 % | 100% 조건 | 다음 단계 / 담당 | 승인 필요 여부 | Source 문서 |
 |---:|---|---|---|---|---|---:|---|---|---|---|
-| P0 | [[#Phase2-Sprint1]] | platform claim과 internal confirmed를 같은 window에서 다시 비교한다 | 광고 플랫폼 숫자를 예산 판단값으로 쓰면 NPay click 오염이 섞인다 | Google Ads dashboard last_7d/30d와 internal summary를 나란히 저장한다 | 입력 확보 | 70% | last_7d/30d gap table이 최신 API 기준으로 재계산된다 | Codex: recompute 문서/JSON 생성 | NO, Green | [[../data/project/google-ads-dashboard-last30d-20260513.json]] |
-| P0 | [[#Phase2-Sprint2]] | NPay actual correction에 coffee actual을 추가한다 | 기존 Google Ads dashboard correction은 biocom PG NPay 중심이고 coffee actual이 빠져 있었다 | biocom operational DB actual, coffee Imweb actual, bridge_pending을 source별 line item으로 분리한다 | 준비 | 55% | internal confirmed revenue current/with biocom NPay/with coffee NPay가 분리된다 | Codex: recompute script 설계 | NO, Green | [[../project/sprint1]] |
-| P1 | [[#Phase2-Sprint3]] | Google Ads Option 3 필요성을 최신화한다 | internal ROAS가 올라도 platform ROAS 오염이 남으면 Primary 전환 구조를 바꿔야 한다 | gap 원인을 NPay actual 누락, NPay click 오염, click id 유실, internal join coverage로 나눈다 | 대기 | 45% | Red 승인안이 최신 수치로 갱신된다 | Codex: approval packet update 후보 | YES, Red 실행은 별도 | [[../gdn/google-ads-conversion-action-red-options-20260511]] |
+| P0 | [[#Phase2-Sprint1]] | platform claim과 internal confirmed를 같은 window에서 다시 비교한다 | 광고 플랫폼 숫자를 예산 판단값으로 쓰면 NPay click 오염이 섞인다 | Google Ads dashboard last_7d/30d와 internal summary를 나란히 저장한다 | 완료 | 100% | last_7d/30d gap table이 최신 API 기준으로 재계산된다 | 완료. Option 3 packet 갱신으로 이동 | NO, Green | [[../gdn/roas-gap-recompute-after-coffee-actual-20260513]] |
+| P0 | [[#Phase2-Sprint2]] | coffee actual을 별도 correction line으로 추가한다 | biocom 보정값과 coffee actual을 한 숫자로 합치면 source/site confidence가 흐려진다 | biocom 운영DB PostgreSQL actual, coffee VM Cloud SQLite actual, bridge_pending, legacy complete_time을 source별 line item으로 분리한다 | 설계/로컬 화면 완료, `/total` contract 남음 | 85% | dashboard/API contract가 coffee actual line을 별도 노출하고 Google Ads biocom 예산 ROAS 합계에는 자동 가산하지 않는다 | Codex: `/total` source line contract 작성 | NO, Green | [[../data/project/roas-gap-recompute-20260513]] |
+| P1 | [[#Phase2-Sprint3]] | Google Ads Option 3 필요성을 최신화한다 | internal ROAS가 올라도 platform ROAS 오염이 남으면 Primary 전환 구조를 바꿔야 한다 | gap 원인을 NPay actual 누락, NPay click 오염, click id 유실, internal join coverage로 나눈다 | 다음 | 60% | Red 승인안이 최신 수치와 실패 조건으로 갱신된다 | Codex: approval packet update 후보 | YES, Red 실행은 별도 | [[../gdn/google-ads-conversion-action-red-options-20260511]] |
 
 ## 다음 할일 — Auto Green / Approval Needed / Blocked-Parked
 
 ### Auto Green
 
-#### A1. last_7d/last_30d gap table 만들기
-- 무엇을 하는가: Google Ads platform ROAS와 internal confirmed ROAS를 같은 window로 표준화한다.
-- 왜 하는가: platform ROAS는 광고 플랫폼이 주장하는 값이고, internal confirmed ROAS는 실제 결제완료 원장 기준값이다.
-- 어떻게 하는가: `data/project/google-ads-dashboard-last7d-20260513.json`와 `data/project/google-ads-dashboard-last30d-20260513.json`을 읽어 platform cost/value/ROAS, internal revenue/ROAS, NPay correction을 산출한다.
-- 성공 기준: last_7d와 last_30d 각각 platform ROAS, internal current ROAS, internal with NPay actual ROAS, gap이 나온다.
-- 실패 시 다음 확인점: dashboard API 응답 shape, Google Ads token, internal ledger freshness.
-- 승인 필요 여부: NO, read-only.
-- 산출물: `data/project/roas-gap-recompute-20260513.json`, `gdn/roas-gap-recompute-after-coffee-actual-20260513.md`.
-- 진척률에 미치는 영향: Phase2-Sprint1 70% -> 100%.
-- 의존성: live dashboard API 200.
+#### A1. `/total` 공통 correction line contract
+- 무엇을 하는가: coffee actual을 `source_line_items[]` 형태로 전체 장부와 dashboard가 같이 쓸 수 있게 정의한다.
+- 왜 하는가: site/source가 다른 매출을 한 ROAS 분자에 섞으면 예산 판단이 왜곡된다.
+- 어떻게 하는가: `source`, `db_location`, `site`, `status`, `count`, `amount_krw`, `warning`, `use_for_budget_roas`, `confidence`, `freshness` 필드를 문서와 fixture로 고정한다.
+- 성공 기준: biocom 운영DB PostgreSQL `dashboard.public.tb_iamweb_users` NPay actual과 coffee VM Cloud SQLite `imweb_orders` actual이 별도 line으로 보인다.
+- 실패 시 다음 확인점: `/total` route schema, frontend copy, source guide mismatch.
+- 승인 필요 여부: NO, Green.
+- 산출물: `/total` dashboard contract 문서 또는 Sprint 2 appendix.
+- 진척률에 미치는 영향: Phase2-Sprint2 85% -> 100%.
+- 의존성: Sprint 1 live summary PASS.
 
-#### A2. coffee actual line item을 internal correction에 붙이는 설계
-- 무엇을 하는가: coffee actual 309건 / 14,902,800원을 internal correction의 별도 line으로 둔다.
-- 왜 하는가: biocom과 coffee의 source가 다르므로 한 숫자로 합치면 source confidence가 흐려진다.
-- 어떻게 하는가: `source`, `status`, `amount`, `confidence`, `use_for_budget`, `warning` 필드를 가진 correction item 배열을 설계한다.
-- 성공 기준: `biocom_npay_actual`, `coffee_npay_actual_warning`, `bridge_pending`, `legacy_complete_time`이 분리된다.
-- 실패 시 다음 확인점: included_with_warning을 확정값으로 표시하는지 provisional로 표시하는지 UI 문구.
-- 승인 필요 여부: NO, Green design.
-- 산출물: API contract draft.
-- 진척률에 미치는 영향: Phase2-Sprint2 55% -> 80%.
-- 의존성: Sprint 1 PASS.
+#### A2. Google Ads Option 3 Red packet 숫자 갱신
+- 무엇을 하는가: Google Ads Primary 전환 구조 변경안의 예상 효과를 최신 gap 수치로 갱신한다.
+- 왜 하는가: NPay actual 보정 후에도 Google Ads 플랫폼 ROAS 10.27과 내부 예산 판단 ROAS 2.07 사이 gap이 8.20p 남는다.
+- 어떻게 하는가: `gdn/google-ads-conversion-action-red-options-20260511.md`의 숫자를 `data/project/roas-gap-recompute-20260513.json` 기준으로 갱신할 승인안을 만든다.
+- 성공 기준: TJ님이 YES/NO로 판단 가능한 Red 승인안이 된다.
+- 실패 시 다음 확인점: no-send 후보 수, click id coverage, duplicate guard.
+- 승인 필요 여부: 문서 갱신은 NO, 실제 Google Ads 변경은 YES Red.
+- 산출물: approval packet.
+- 진척률에 미치는 영향: Phase2-Sprint3 60% -> 75%.
+- 의존성: Phase2-Sprint1 완료.
 
-#### A3. Meta/GA4/TikTok platform reference 확장 입력 목록 만들기
-- 무엇을 하는가: Google Ads 외 Meta/GA4/TikTok의 platform reference를 같은 틀로 비교할 입력을 정한다.
-- 왜 하는가: 전체 목표는 Google Ads만이 아니라 모든 플랫폼과 내부 장부를 같은 말로 맞추는 것이다.
-- 어떻게 하는가: platform cost/value, internal confirmed revenue, source freshness, guard warning 필드 계약을 만든다.
-- 성공 기준: `/total` MVP가 쓸 공통 ROAS comparison schema가 생긴다.
-- 실패 시 다음 확인점: Meta/TikTok API token 또는 export freshness.
-- 승인 필요 여부: NO, Green design. API mutate/send는 금지.
-- 산출물: `project/sprint2.md` 후속 섹션 또는 gdn contract.
+#### A3. campaign/site spend mapping gap 줄이기
+- 무엇을 하는가: coffee overlay를 Google Ads 예산 판단값으로 쓸 수 있는지 campaign/site spend mapping을 확인한다.
+- 왜 하는가: coffee actual은 내부 매출로는 의미가 있지만, biocom Google Ads cost와 같은 분모에 바로 얹으면 안 된다.
+- 어떻게 하는가: landing/site/campaign 기준으로 `biocom`과 `thecleancoffee` spend가 분리되는지 read-only API와 기존 ledger를 대조한다.
+- 성공 기준: `cross_site_reference_only`인지 `site_specific_budget_roas`인지 분류된다.
+- 실패 시 다음 확인점: campaign naming, UTM site marker, landing URL site attribution.
+- 승인 필요 여부: NO, Green.
+- 산출물: mapping note.
 - 진척률에 미치는 영향: Track D/F 상승.
-- 의존성: 일부 독립, platform export 필요 시 TJ action.
+- 의존성: 일부 독립.
 
 ### Approval Needed
 
-#### B1. Google Ads Option 3 Red packet 갱신 여부
-- 무엇을 하는가: 새 confirmed_purchase 전환을 만들고 기존 NPay click 성격의 `구매완료` Primary를 낮추는 실행안 갱신 여부를 결정한다.
-- 왜 하는가: internal ROAS를 보정해도 Google Ads 자동입찰은 여전히 플랫폼 Primary 전환을 학습한다.
-- 어떻게 하는가: A1/A2 계산 후 `google-ads-conversion-action-red-options` 문서를 최신 수치로 갱신한다.
-- 성공 기준: TJ님이 YES/NO로 판단 가능한 Red 승인안.
-- 실패 시 다음 확인점: no-send 후보 수, click id coverage, 중복 guard.
-- 승인 필요 여부: 문서 갱신은 NO, 실제 Google Ads 변경은 YES Red.
-- 산출물: approval packet.
-- 진척률에 미치는 영향: Phase2-Sprint3 45% -> 75%.
-- 의존성: A1/A2 결과.
+현재 recompute와 contract 갱신에는 TJ님 승인이 필요 없다. 실제 Google Ads conversion action 변경, upload/send, campaign budget 변경은 Red Lane으로 별도 명시 승인 전 금지다.
 
 ### Blocked/Parked
 
@@ -110,15 +102,24 @@ harness_preflight:
 
 ## 현재 입력값
 
-| window | platform ROAS | platform cost | platform conv value | internal confirmed ROAS | internal confirmed revenue | with NPay actual ROAS | NPay actual correction |
+| window | platform ROAS | platform cost | platform conv value | internal confirmed ROAS | internal confirmed revenue | with biocom NPay actual ROAS | biocom NPay actual correction |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| last_7d | 10.52 | 3,621,244.55원 | 38,080,022.54원 | 0.41 | 1,470,000원 | 3.18 | 70건 / 10,041,200원 |
-| last_30d | 10.27 | 22,055,517.32원 | 226,450,143.41원 | 0.29 | 6,448,110원 | 2.07 | 230건 / 39,254,600원 |
+| last_7d | 10.52 | 3,621,240.75원 | 38,080,022.54원 | 0.41 | 1,470,000원 | 3.18 | 70건 / 10,041,200원 |
+| last_30d | 10.27 | 22,055,513.52원 | 226,450,143.41원 | 0.29 | 6,448,110원 | 2.07 | 230건 / 39,254,600원 |
+
+## 재계산 결과
+
+| window | 예산 판단 ROAS | Google Ads 주장 ROAS | 남은 ROAS gap | coffee 참고 overlay ROAS | 해석 |
+|---|---:|---:|---:|---:|---|
+| last_7d | 3.18 | 10.52 | 7.34p | 4.85 | biocom NPay actual을 넣어도 gap이 크다 |
+| last_30d | 2.07 | 10.27 | 8.20p | 2.75 | 30일 기준도 Primary 전환 구조 문제가 남는다 |
+
+Coffee actual은 latest read-only 기준 last_7d 101건 / 6,034,000원, last_30d 311건 / 14,970,600원이다. source는 VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3`의 `imweb_orders(site='thecleancoffee', pay_type='npay')`다. status blank는 16건 / 1,012,700원이며, 원인은 `imweb_orders.imweb_status` status sync lag로 분류했다.
 
 주의:
 - 위 NPay actual correction은 Google Ads dashboard의 기존 biocom PG snapshot이다.
-- coffee actual 309건 / 14,902,800원은 Sprint 1에서 live summary에 붙었지만, Google Ads dashboard correction에는 아직 별도 line item으로 들어가지 않았다.
-- coffee actual은 `included_with_warning`이므로 예산 판단값에 넣을 때 warning label이 필요하다.
+- coffee actual은 Sprint 1에서 live summary에 붙었지만, Google Ads biocom 예산 판단 ROAS에는 아직 넣지 않는다.
+- coffee actual은 `included_with_warning`이므로 화면과 문서에 warning label이 필요하다.
 
 ## 상세 Sprint 설명 — 각 Sprint별 무엇/왜/어떻게/% 올리려면
 
@@ -130,11 +131,16 @@ harness_preflight:
 
 목표는 Google Ads platform ROAS와 internal confirmed ROAS를 같은 기간으로 다시 보는 것이다.
 
-현재 확인:
-- last_7d platform ROAS 10.52, internal current 0.41, with NPay actual 3.18.
-- last_30d platform ROAS 10.27, internal current 0.29, with NPay actual 2.07.
+완료한 것:
+- last_7d platform ROAS 10.52, internal current 0.41, biocom NPay 보정 후 3.18, coffee 참고 overlay 4.85.
+- last_30d platform ROAS 10.27, internal current 0.29, biocom NPay 보정 후 2.07, coffee 참고 overlay 2.75.
+- 외부 전송/upload 0, 운영DB write 0.
 
-현재 진척률: 70%.
+100% 조건:
+- latest API 기준 last_7d/last_30d platform claim과 internal confirmed가 같은 문서에 분리되어 있다.
+- 예산 판단값과 참고값이 구분되어 있다.
+
+현재 진척률: 100%.
 
 ### Phase2-Sprint2
 
@@ -144,21 +150,46 @@ harness_preflight:
 
 목표는 coffee actual을 dashboard correction에 섞지 않고 별도 line으로 추가하는 것이다.
 
-필드 초안:
+무엇을 하는가:
+- Google Ads dashboard의 biocom NPay 보정값과 더클린커피 NPay actual을 같은 correction 합계로 더하지 않는다.
+- 대신 source line item으로 보여준다.
+- 운영자는 “예산 판단에 쓸 값”과 “내부 매출 참고값”을 구분해서 본다.
+
+왜 필요한가:
+- biocom NPay actual은 운영DB PostgreSQL `dashboard.public.tb_iamweb_users` `PAYMENT_COMPLETE` 기준이다.
+- coffee actual은 VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3` `imweb_orders` 기준이다.
+- 두 source를 한 숫자로 합치면 source confidence와 site attribution이 흐려진다.
+
+현재 field contract 후보:
 
 ```json
 {
   "source": "imweb_v2_vm_cloud_imweb_orders",
+  "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+  "table": "imweb_orders",
   "site": "thecleancoffee",
   "status": "included_with_warning",
-  "count": 309,
-  "amount_krw": 14902800,
+  "count": 311,
+  "amount_krw": 14970600,
+  "status_blank_count": 16,
+  "status_blank_amount_krw": 1012700,
   "warning": ["status_blank_rows_included_with_warning", "status_sync_stale_over_6h"],
-  "use_for_budget_roas": "provisional_internal_actual"
+  "use_for_budget_roas": "cross_site_reference_only_until_campaign_site_mapping"
 }
 ```
 
-현재 진척률: 55%.
+100% 조건:
+- `/ads/site-landing` 화면과 API contract가 coffee actual을 별도 line으로 노출한다.
+- `/total` 또는 공통 dashboard contract에도 같은 line item이 들어간다.
+- Google Ads biocom 예산 판단 ROAS에는 coffee가 자동 가산되지 않는다.
+- status blank root cause와 DB 위치가 문서에 같이 남는다.
+
+실행 단계:
+1. [Codex] `/total` source line item contract를 문서화한다.
+2. [Codex] coffee line의 `use_for_budget_roas` 값을 `cross_site_reference_only_until_campaign_site_mapping`로 고정할지, TJ님 초안의 `provisional_internal_actual`로 둘지 의미를 분리한다.
+3. [Codex] fixture 또는 smoke로 raw identifier 출력이 없는지 확인한다.
+
+현재 진척률: 85%.
 
 ### Phase2-Sprint3
 
@@ -170,17 +201,37 @@ harness_preflight:
 
 현재 판단:
 - NPay actual 합류 후 internal ROAS는 크게 올라간다.
-- 그래도 platform ROAS 10.27과 internal with NPay 2.07 사이 gap은 남는다.
+- 그래도 platform ROAS 10.27과 internal with biocom NPay 2.07 사이 gap은 8.20p 남는다.
 - 따라서 NPay actual 합류만으로는 자동입찰 학습 신호 오염을 해소하지 못한다.
 
-현재 진척률: 45%.
+100% 조건:
+- Red 승인안에 최신 ROAS gap, 실패 조건, rollback, no-send guard가 들어간다.
+- TJ님이 실제 Google Ads 화면에서 무엇을 바꾸는지 이해할 수 있다.
+
+실행 단계:
+1. [Codex] 최신 ROAS gap을 Red approval packet에 반영한다.
+2. [Codex] 변경 화면, 설정 이름, 효과, 안 바꾸면 남는 문제를 쉬운 말로 정리한다.
+3. [TJ] 실제 Google Ads 전환 설정 변경 여부를 승인한다.
+
+현재 진척률: 60%.
+
+## Completed Ledger
+
+| 완료 시각 | 항목 | 결과 |
+|---|---|---|
+| 2026-05-13 01:34 KST | Google Ads dashboard last_7d/30d read-only 저장 | PASS |
+| 2026-05-13 01:41 KST | ROAS recompute v1 | coffee 309건 overlay |
+| 2026-05-13 02:02 KST | coffee VM Cloud SQLite refresh | coffee 311건, status blank 16건 |
+| 2026-05-13 02:18 KST | ROAS recompute 최신화 | coffee overlay last_7d 4.85, last_30d 2.75 |
 
 ## Source / Window / Freshness / Confidence
 
 | 영역 | 값 |
 |---|---|
-| Google Ads dashboard | `https://att.ainativeos.net/api/google-ads/dashboard?date_preset=last_7d,last_30d` |
-| Site summary | `https://att.ainativeos.net/api/attribution/site-landing/summary` |
+| Google Ads dashboard | VM Cloud API `https://att.ainativeos.net/api/google-ads/dashboard?date_preset=last_7d,last_30d` |
+| biocom actual source | 운영DB PostgreSQL `dashboard.public.tb_iamweb_users`, Google Ads dashboard `npayActualCorrection` snapshot |
+| coffee actual source | VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3` `imweb_orders(site='thecleancoffee', pay_type='npay')` |
+| Site summary | VM Cloud API `https://att.ainativeos.net/api/attribution/site-landing/summary` |
 | Window | last_7d, last_30d, NPay actual 30d |
-| Freshness | 2026-05-13 01:02 KST read-only |
+| Freshness | 2026-05-13 02:18 KST read-only; coffee status sync 2026-05-12 04:11:07 |
 | Confidence | 0.88 |

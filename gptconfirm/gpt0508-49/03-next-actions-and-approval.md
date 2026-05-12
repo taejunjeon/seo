@@ -2,7 +2,7 @@
 
 ## 현재 목표
 
-더클린커피 NPay actual source VM backend deploy/restart는 TJ님 승인 범위 안에서 완료됐다. 다음 목표는 배포 결과, backup 위치, rollback 가능 조건, 그리고 ROAS gap/프론트 대시보드 후속 작업을 명확히 고정하는 것이다.
+더클린커피 NPay actual source VM backend deploy/restart는 TJ님 승인 범위 안에서 완료됐다. 다음 목표는 배포 결과, backup 위치, rollback 가능 조건, 그리고 ROAS gap/프론트 대시보드 후속 작업을 명확히 고정하는 것이다. 2026-05-13 02:02 KST latest read-only에서는 VM Cloud SQLite `imweb_orders` coffee actual이 311건 / 14,970,600원으로 움직였고, status blank 16건 / 1,012,700원은 status sync lag로 분류됐다.
 
 ## 완료한 것
 
@@ -71,8 +71,8 @@ curl -sS -m 20 'https://att.ainativeos.net/api/attribution/site-landing/summary?
 
 - thecleancoffee `derived.npay_revenue_30d_actual_confirmed.source`: `imweb_v2_vm_cloud_imweb_orders`
 - thecleancoffee status: `included_with_warning`
-- thecleancoffee included 후보: 309건 / 14,902,800원 post-snapshot PASS
-- thecleancoffee status blank: 14건 / 944,900원 post-snapshot PASS
+- thecleancoffee included 후보: 309건 / 14,902,800원 post-snapshot PASS, latest read-only 311건 / 14,970,600원
+- thecleancoffee status blank: 14건 / 944,900원 post-snapshot PASS, latest read-only 16건 / 1,012,700원
 - thecleancoffee warnings: `ga4_guard_not_actual_source`, `status_blank_rows_included_with_warning`, `status_sync_stale_over_6h`
 - biocom actual confirmed: 기존 `operational_db.tb_iamweb_users PAYMENT_COMPLETE` included 유지, 162건 / 29,463,300원
 - invariants: external send 0, upload 0, operational DB write 0, GTM publish 0, raw PII/order/payment/click id exposure false
@@ -81,7 +81,7 @@ curl -sS -m 20 'https://att.ainativeos.net/api/attribution/site-landing/summary?
 
 | site | actual source | status | count | amount | 판정 |
 |---|---|---|---:|---:|---|
-| `thecleancoffee` | `imweb_v2_vm_cloud_imweb_orders` | `included_with_warning` | 309 | 14,902,800원 | PASS |
+| `thecleancoffee` | `imweb_v2_vm_cloud_imweb_orders` | `included_with_warning` | 309 post-snapshot / 311 latest | 14,902,800원 post-snapshot / 14,970,600원 latest | PASS |
 | `biocom` | `operational_db.tb_iamweb_users PAYMENT_COMPLETE` | `included` | 162 | 29,463,300원 | PASS |
 
 Health는 `https://att.ainativeos.net/health` 기준 200이다. `https://att.ainativeos.net/api/health`는 기존 라우트 미존재로 `route_not_found`를 반환하므로 rollback 조건으로 보지 않는다.
@@ -134,4 +134,4 @@ ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeou
 
 ## TJ님 승인 판단
 
-이번 승인 범위 실행은 PASS다. 추가 승인 판단은 프론트 대시보드 배포/재시작, Google Ads 전환 upload, GTM publish 같은 별도 Yellow/Red 작업에만 필요하다. Codex 추천은 다음 Green 작업인 24h monitor, ROAS gap recompute, channel funnel 최신화는 바로 진행하는 것이다.
+이번 승인 범위 실행은 PASS다. 추가 승인 판단은 운영 프론트 대시보드 배포/재시작, Google Ads 전환 upload, GTM publish 같은 별도 Yellow/Red 작업에만 필요하다. Codex 추천은 다음 Green 작업인 24h monitor, `/total` correction line contract, channel funnel 최신화를 바로 진행하는 것이다.

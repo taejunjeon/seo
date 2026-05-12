@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-12T17:18:00.000Z",
+  "source": "vm_cloud_sqlite_imweb_orders_readonly",
+  "results": [
+    {
+      "days": 7,
+      "threshold": "2026-05-05T16:38:05.263Z",
+      "gross": {
+        "cnt": 112,
+        "amount_krw": 7015800,
+        "max_order_time": "2026-05-12T16:57:59.000Z"
+      },
+      "included": {
+        "cnt": 101,
+        "amount_krw": 6034000,
+        "max_order_time": "2026-05-12T16:57:59.000Z"
+      },
+      "excluded": {
+        "cnt": 11,
+        "amount_krw": 981800,
+        "max_order_time": "2026-05-11T23:07:46.000Z"
+      },
+      "confirmed": {
+        "cnt": 85,
+        "amount_krw": 5021300,
+        "max_order_time": "2026-05-12T04:00:48.000Z"
+      },
+      "blank": {
+        "cnt": 16,
+        "amount_krw": 1012700,
+        "max_order_time": "2026-05-12T16:57:59.000Z"
+      },
+      "freshness": {
+        "max_status_synced_at": "2026-05-12 04:11:07",
+        "max_synced_at": "2026-05-12 16:59:56"
+      },
+      "root_cause": {
+        "blank_missing_status_sync_marker": 16,
+        "blank_synced_after_latest_status_sync": 16,
+        "blank_complete_time_present": 0,
+        "blank_complete_time_missing": 16,
+        "conclusion": "VM Cloud SQLite imweb_orders.imweb_status blank rows have no imweb_status_synced_at marker and were synced after the latest status sync pass; this is source_freshness_gap/status sync lag, not evidence of unpaid orders."
+      }
+    },
+    {
+      "days": 30,
+      "threshold": "2026-04-12T16:38:05.293Z",
+      "gross": {
+        "cnt": 342,
+        "amount_krw": 16767000,
+        "max_order_time": "2026-05-12T16:57:59.000Z"
+      },
+      "included": {
+        "cnt": 311,
+        "amount_krw": 14970600,
+        "max_order_time": "2026-05-12T16:57:59.000Z"
+      },
+      "excluded": {
+        "cnt": 31,
+        "amount_krw": 1796400,
+        "max_order_time": "2026-05-11T23:07:46.000Z"
+      },
+      "confirmed": {
+        "cnt": 295,
+        "amount_krw": 13957900,
+        "max_order_time": "2026-05-12T04:00:48.000Z"
+      },
+      "blank": {
+        "cnt": 16,
+        "amount_krw": 1012700,
+        "max_order_time": "2026-05-12T16:57:59.000Z"
+      },
+      "freshness": {
+        "max_status_synced_at": "2026-05-12 04:11:07",
+        "max_synced_at": "2026-05-12 16:59:56"
+      },
+      "root_cause": {
+        "blank_missing_status_sync_marker": 16,
+        "blank_synced_after_latest_status_sync": 16,
+        "blank_complete_time_present": 0,
+        "blank_complete_time_missing": 16,
+        "conclusion": "VM Cloud SQLite imweb_orders.imweb_status blank rows have no imweb_status_synced_at marker and were synced after the latest status sync pass; this is source_freshness_gap/status sync lag, not evidence of unpaid orders."
+      }
+    }
+  ],
+  "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+  "table": "imweb_orders",
+  "status_column": "imweb_status"
+}

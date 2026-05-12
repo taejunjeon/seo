@@ -1,0 +1,178 @@
+{
+  "run_id": "roas-gap-recompute-after-coffee-actual-20260513",
+  "generated_at_kst": "2026-05-13 02:18:00 KST",
+  "lane": "Green read-only / no-send / no-write",
+  "source_window_freshness_confidence": {
+    "source": {
+      "google_ads_dashboard": "https://att.ainativeos.net/api/google-ads/dashboard?date_preset=last_7d,last_30d",
+      "coffee_actual": "VM Cloud SQLite imweb_orders read-only + live site summary API",
+      "biocom_actual": "Google Ads dashboard npayActualCorrection + live site summary API cross-check"
+    },
+    "window": "Google Ads last_7d/last_30d; coffee Imweb actual 7d/30d; site summary NPay actual 30d",
+    "freshness": {
+      "generated_at_kst": "2026-05-13 02:18:00 KST",
+      "google_ads_operational_db_freshness": {
+        "source": "operational_db_tb_iamweb_users",
+        "maxOrderDateKst": "2026-05-13 05:53:37.000 KST",
+        "maxPaymentCompleteKst": "2026-05-12 20:54:42.000 KST",
+        "syncLagMinutes": 0,
+        "status": "fresh",
+        "warnings": []
+      },
+      "coffee_max_synced_at": "2026-05-12 16:59:56",
+      "coffee_max_status_synced_at": "2026-05-12 04:11:07",
+      "biocom_max_payment_complete_time": "2026-05-12T07:10:27.000Z"
+    },
+    "confidence": 0.88
+  },
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "raw_identifier_output": false
+  },
+  "summaries": [
+    {
+      "window": "last_7d",
+      "days": 7,
+      "platform_claim": {
+        "cost_krw": 3621240.75,
+        "conversion_value_krw": 38080022.54,
+        "roas": 10.5157
+      },
+      "internal_current": {
+        "confirmed_orders": 6,
+        "confirmed_revenue_krw": 1470000,
+        "roas": 0.4059,
+        "roas_gap_internal_minus_platform": -10.1098,
+        "platform_minus_internal_revenue_krw": 36610022.54,
+        "campaign_id_coverage": 0.67
+      },
+      "internal_with_biocom_npay_actual": {
+        "npay_count": 70,
+        "npay_revenue_krw": 10041200,
+        "confirmed_revenue_krw": 11511200,
+        "roas": 3.1788,
+        "roas_gap_internal_minus_platform": -7.3369,
+        "platform_minus_internal_revenue_krw": 26568822.54,
+        "gap_closed_roas_points_vs_current": 2.7729,
+        "gap_closed_pct_vs_current_gap": 0.2743,
+        "upload_candidate_count": 0,
+        "source": "google_ads_dashboard.npayActualCorrection / operational_db.tb_iamweb_users PAYMENT_COMPLETE snapshot"
+      },
+      "cross_site_with_coffee_actual_overlay": {
+        "use_for_google_ads_budget_roas": false,
+        "reason": "coffee actual은 site/source가 분리된 내부 매출 참고 line이다. Google Ads 예산 판단값으로 쓰려면 campaign/site spend mapping이 먼저 필요하다.",
+        "coffee_source": "vm_cloud_sqlite.imweb_orders site=thecleancoffee pay_type=npay",
+        "coffee_status": "included_with_warning",
+        "coffee_count": 101,
+        "coffee_revenue_krw": 6034000,
+        "coffee_status_blank_count": 16,
+        "coffee_status_blank_amount_krw": 1012700,
+        "combined_reference_revenue_krw": 17545200,
+        "combined_reference_roas": 4.8451,
+        "roas_gap_reference_internal_minus_platform": -5.6706,
+        "platform_minus_reference_revenue_krw": 20534822.54,
+        "additional_gap_closed_roas_points_vs_biocom_only": 1.6663,
+        "gap_closed_pct_vs_current_gap": 0.5609,
+        "warnings": [
+          "status_blank_rows_included_with_warning",
+          "status_sync_stale_over_6h",
+          "cross_site_reference_not_google_ads_budget_roas"
+        ]
+      },
+      "verdict": {
+        "budget_value_now": "internal_with_biocom_npay_actual",
+        "reference_only_value": "cross_site_with_coffee_actual_overlay",
+        "remaining_gap_after_budget_value_roas_points": 7.3369,
+        "remaining_gap_after_reference_overlay_roas_points": 5.6706,
+        "interpretation": "NPay actual 누락을 보정해도 Google Ads 플랫폼 ROAS와 내부 결제완료 ROAS의 차이는 크게 남는다. 다음 원인은 click/order attribution coverage와 platform primary conversion 구조다."
+      }
+    },
+    {
+      "window": "last_30d",
+      "days": 30,
+      "platform_claim": {
+        "cost_krw": 22055513.52,
+        "conversion_value_krw": 226450143.41,
+        "roas": 10.2673
+      },
+      "internal_current": {
+        "confirmed_orders": 24,
+        "confirmed_revenue_krw": 6448110,
+        "roas": 0.2924,
+        "roas_gap_internal_minus_platform": -9.9749,
+        "platform_minus_internal_revenue_krw": 220002033.41,
+        "campaign_id_coverage": 0.84
+      },
+      "internal_with_biocom_npay_actual": {
+        "npay_count": 230,
+        "npay_revenue_krw": 39254600,
+        "confirmed_revenue_krw": 45702710,
+        "roas": 2.0722,
+        "roas_gap_internal_minus_platform": -8.1951,
+        "platform_minus_internal_revenue_krw": 180747433.41,
+        "gap_closed_roas_points_vs_current": 1.7798,
+        "gap_closed_pct_vs_current_gap": 0.1784,
+        "upload_candidate_count": 0,
+        "source": "google_ads_dashboard.npayActualCorrection / operational_db.tb_iamweb_users PAYMENT_COMPLETE snapshot"
+      },
+      "cross_site_with_coffee_actual_overlay": {
+        "use_for_google_ads_budget_roas": false,
+        "reason": "coffee actual은 site/source가 분리된 내부 매출 참고 line이다. Google Ads 예산 판단값으로 쓰려면 campaign/site spend mapping이 먼저 필요하다.",
+        "coffee_source": "vm_cloud_sqlite.imweb_orders site=thecleancoffee pay_type=npay",
+        "coffee_status": "included_with_warning",
+        "coffee_count": 311,
+        "coffee_revenue_krw": 14970600,
+        "coffee_status_blank_count": 16,
+        "coffee_status_blank_amount_krw": 1012700,
+        "combined_reference_revenue_krw": 60673310,
+        "combined_reference_roas": 2.7509,
+        "roas_gap_reference_internal_minus_platform": -7.5164,
+        "platform_minus_reference_revenue_krw": 165776833.41,
+        "additional_gap_closed_roas_points_vs_biocom_only": 0.6787,
+        "gap_closed_pct_vs_current_gap": 0.7535,
+        "warnings": [
+          "status_blank_rows_included_with_warning",
+          "status_sync_stale_over_6h",
+          "cross_site_reference_not_google_ads_budget_roas"
+        ]
+      },
+      "verdict": {
+        "budget_value_now": "internal_with_biocom_npay_actual",
+        "reference_only_value": "cross_site_with_coffee_actual_overlay",
+        "remaining_gap_after_budget_value_roas_points": 8.1951,
+        "remaining_gap_after_reference_overlay_roas_points": 7.5164,
+        "interpretation": "NPay actual 누락을 보정해도 Google Ads 플랫폼 ROAS와 내부 결제완료 ROAS의 차이는 크게 남는다. 다음 원인은 click/order attribution coverage와 platform primary conversion 구조다."
+      }
+    }
+  ],
+  "source_line_items": {
+    "biocom_site_summary_30d": {
+      "source": "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+      "status": "included",
+      "count": 162,
+      "amount_krw": 29463300,
+      "note": "site landing summary source cross-check; Google Ads dashboard correction uses its own 30d PG snapshot count/revenue."
+    },
+    "coffee_site_summary_30d": {
+      "source": "imweb_v2_vm_cloud_imweb_orders",
+      "status": "included_with_warning",
+      "count": 311,
+      "amount_krw": 14970600,
+      "status_blank_count": 16,
+      "status_blank_amount_krw": 1012700,
+      "warnings": [
+        "ga4_guard_not_actual_source",
+        "status_blank_rows_included_with_warning",
+        "status_sync_stale_over_6h"
+      ],
+      "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+      "table": "imweb_orders",
+      "status_column": "imweb_status",
+      "blank_root_cause": "source_freshness_gap_status_sync_lag"
+    }
+  }
+}

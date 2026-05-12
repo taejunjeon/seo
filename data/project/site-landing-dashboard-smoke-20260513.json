@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-13 02:30:00 KST",
+  "url": "http://localhost:7010/ads/site-landing",
+  "frontend_status": 200,
+  "backend_summary_status": 200,
+  "live_api_url": "https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24",
+  "included_with_warning_visible": true,
+  "status_blank_copy_visible": true,
+  "vm_cloud_db_location_visible": true,
+  "console_errors": [],
+  "screenshot": "data/project/site-landing-dashboard-20260513.png",
+  "note": "Wallet extension console noise from TJ browser is unrelated; Playwright clean profile saw no page console errors."
+}

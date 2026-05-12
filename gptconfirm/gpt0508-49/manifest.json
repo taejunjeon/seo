@@ -1,8 +1,8 @@
 {
   "sprint": "gpt0508-49",
-  "created_at_kst": "2026-05-13 01:12:00 KST",
+  "created_at_kst": "2026-05-13 02:30:00 KST",
   "owner": "Codex",
-  "lane": "Yellow approved VM deploy/restart complete; Green planning/docs complete",
+  "lane": "Yellow approved VM deploy/restart complete; Green dashboard/ROAS/docs complete",
   "documents": [
     {
       "path": "gptconfirm/gpt0508-49/00-result-report.md",
@@ -33,7 +33,17 @@
     "project/sprint2.md",
     "project/sprint3.md",
     "data/current-state.json",
-    "gdn/current-handoff.md"
+    "gdn/current-handoff.md",
+    "data/project/coffee-status-blank-root-cause-20260513.json",
+    "gdn/coffee-status-blank-root-cause-20260513.md",
+    "data/project/coffee-vm-imweb-orders-7d-30d-20260513.json",
+    "data/project/roas-gap-recompute-20260513.json",
+    "gdn/roas-gap-recompute-after-coffee-actual-20260513.md",
+    "data/project/site-landing-dashboard-20260513.png",
+    "data/ads_csv/tiktok/processed/20260507_20260512_daily_campaign.csv",
+    "data/project/site-landing-dashboard-smoke-20260513.json",
+    "data/ads_csv/tiktok/api/tiktok_business_api_campaign_daily_20260507_20260512.csv",
+    "data/ads_csv/tiktok/api/tiktok_business_api_campaign_daily_20260507_20260512.json"
   ],
   "validation": {
     "backend_typecheck": "PASS",
@@ -47,7 +57,11 @@
     "wiki_links": "PASS",
     "harness_preflight_strict": "PASS",
     "git_diff_check": "PASS",
-    "raw_pattern_scan": "PASS"
+    "raw_pattern_scan": "PASS no raw values; labels only",
+    "frontend_typecheck": "PASS npx tsc --noEmit",
+    "page_scoped_eslint": "PASS npx eslint src/app/ads/site-landing/page.tsx",
+    "repo_wide_frontend_lint": "FAIL pre-existing unrelated lint errors outside site-landing page",
+    "local_dashboard_smoke": "PASS Playwright API 200 console error 0"
   },
   "invariants": {
     "external_send_count": 0,
@@ -62,6 +76,6 @@
   "recommendation": {
     "deploy_result": "pass_no_rollback",
     "confidence": 0.91,
-    "reason": "Live summary API now returns coffee actual source as imweb_v2_vm_cloud_imweb_orders with included_with_warning. Status blank and stale status sync remain visible as warnings."
+    "reason": "Live summary API returns coffee actual source as imweb_v2_vm_cloud_imweb_orders with included_with_warning. Latest status blank root cause is VM Cloud SQLite imweb_orders status sync lag, not unpaid evidence. Local dashboard now renders the source/warning fields."
   }
 }
