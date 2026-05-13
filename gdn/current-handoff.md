@@ -1,33 +1,32 @@
 # Current Handoff
 
-작성 시각: 2026-05-14 02:03 KST
+작성 시각: 2026-05-14 03:01 KST
 
 ## 현재 목표
 
-`/total`에서 네이버 paid/brandsearch/organic 후보를 제한 item slice가 아니라 VM Cloud 전체 aggregate 기준으로 일관되게 보여주고, 네이버 광고 URL 표준화는 1개 canary 승인안으로 좁힌다. gptconfirm 패키지는 `gptconfirm/gpt0514-3`이다.
+`/total`이 네이버 후보를 VM Cloud 전체 aggregate 기준으로 읽게 만든 운영 backend 반영을 닫고, Naver Ads URL 표준화는 1개 광고그룹 UI canary로 넘긴다. gptconfirm 패키지는 `gptconfirm/gpt0514-4`다.
 
 ## 완료한 것
 
-- `gptconfirm/gpt0514-3` 자동 선택 및 문서 패키지 생성.
-- local aggregate-only endpoint `GET /api/attribution/ledger/naver-evidence-aggregate` 구현.
-- `/total` monthly response와 frontend에 `naver_evidence_aggregate` 표시 연결.
-- 로컬 브라우저 smoke PASS: UTM 후보 표, 참고용 문구, raw id 미노출 확인.
-- VM Cloud `attribution_ledger` payment_success 기준 네이버 전체 aggregate 기준값 216건 유지.
-- VM Cloud `site_landing_ledger`에서 biocom.kr 직접 입력 후보가 landing-level direct로 일부 구분되는지 확인.
-- scoped commit/push 완료: `6bf2f79 total: add naver evidence aggregate drilldown`.
+- VM Cloud backend deploy/restart PASS.
+- `GET /api/attribution/ledger/naver-evidence-aggregate` 200.
+- `/api/total/monthly-channel-summary?site=biocom&month=2026-05` 200.
+- 네이버 aggregate: paid 352 / brandsearch 326 / organic candidate 0 / referrer-only 12.
+- `budgetRoasIncluded=false`, `rawIdentifierOutput=false` 확인.
+- Naver Ads read-only URL audit 완료. API URL update는 unsafe/blocked, UI canary로 전환.
 
 ## 다음 명령
 
-1. 운영 반영 승인 시 `gptconfirm/gpt0514-3/03-next-actions-and-approval.md`의 pre/post snapshot 순서대로 진행.
-2. Green 후속으로 biocom.kr direct typed revenue drilldown을 aggregate-only로 조사.
-3. 네이버 URL canary 승인 시 Naver Ads 1개 캠페인/광고그룹만 변경 후 24~72h 관찰.
+1. `python3 scripts/validate_wiki_links.py gptconfirm/gpt0514-4/*.md`
+2. `python3 scripts/harness-preflight-check.py --strict`
+3. scoped `git add` 후 commit/push: backend Naver aggregate deploy docs + canary audit.
 
 ## 절대 건드리면 안 되는 것
 
 - 운영DB write/import.
-- VM Cloud SQLite write/schema migration.
-- Google Ads/GA4/Meta/TikTok/Naver send/upload.
+- VM Cloud SQLite schema migration.
+- Google Ads/GA4/Meta/TikTok/Naver conversion send/upload.
 - GTM publish.
-- 운영 frontend/backend deploy/restart without TJ approval.
+- Imweb footer/header change.
 - 네이버 후보를 budget ROAS에 자동 포함.
 - raw email/phone/member_code/주문번호/결제키/click id 값 출력.

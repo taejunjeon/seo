@@ -1,0 +1,121 @@
+{
+  "checked_at_kst": "2026-05-14T02:59:32",
+  "scope": "VM Cloud backend deploy post-snapshot",
+  "no_operational_db_write": true,
+  "no_external_send_upload": true,
+  "no_gtm_publish": true,
+  "health_status": 200,
+  "health_ok": true,
+  "health_attempts": 1,
+  "aggregate_status": 200,
+  "aggregate_ok": true,
+  "aggregate_attempts": 1,
+  "aggregate_summary": {
+    "rowsTotal": 23882,
+    "naverAny": 690,
+    "byClass": {
+      "paid_naver": 352,
+      "naver_brandsearch": 326,
+      "organic_naver_candidate": 0,
+      "naver_referrer_or_utm_only": 12
+    }
+  },
+  "aggregate_flags": {
+    "aggregateOnly": true,
+    "rawIdentifierOutput": false,
+    "budgetRoasIncluded": false
+  },
+  "aggregate_rows": [
+    {
+      "class": "naver_brandsearch",
+      "touchpoint": "checkout_started",
+      "rows": 227,
+      "bridgeKeyPresent": 173,
+      "confidence": "aggregate_only",
+      "budgetRoasIncluded": false,
+      "useForBudgetRoas": "reference_only_not_budget",
+      "note": "brandsearch marker가 있어 네이버 브랜드검색 후보로만 둔다."
+    },
+    {
+      "class": "naver_brandsearch",
+      "touchpoint": "payment_success",
+      "rows": 99,
+      "bridgeKeyPresent": 99,
+      "confidence": "aggregate_only",
+      "budgetRoasIncluded": false,
+      "useForBudgetRoas": "reference_only_not_budget",
+      "note": "brandsearch marker가 있어 네이버 브랜드검색 후보로만 둔다."
+    },
+    {
+      "class": "naver_referrer_or_utm_only",
+      "touchpoint": "checkout_started",
+      "rows": 10,
+      "bridgeKeyPresent": 8,
+      "confidence": "aggregate_only",
+      "budgetRoasIncluded": false,
+      "useForBudgetRoas": "reference_only_not_budget",
+      "note": "네이버 흔적은 있으나 paid/brandsearch/organic 확정 조건을 충족하지 않는다."
+    },
+    {
+      "class": "naver_referrer_or_utm_only",
+      "touchpoint": "payment_success",
+      "rows": 2,
+      "bridgeKeyPresent": 2,
+      "confidence": "aggregate_only",
+      "budgetRoasIncluded": false,
+      "useForBudgetRoas": "reference_only_not_budget",
+      "note": "네이버 흔적은 있으나 paid/brandsearch/organic 확정 조건을 충족하지 않는다."
+    },
+    {
+      "class": "paid_naver",
+      "touchpoint": "checkout_started",
+      "rows": 294,
+      "bridgeKeyPresent": 74,
+      "confidence": "aggregate_only",
+      "budgetRoasIncluded": false,
+      "useForBudgetRoas": "reference_only_not_budget",
+      "note": "NaPm/n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다."
+    },
+    {
+      "class": "paid_naver",
+      "touchpoint": "payment_success",
+      "rows": 58,
+      "bridgeKeyPresent": 58,
+      "confidence": "aggregate_only",
+      "budgetRoasIncluded": false,
+      "useForBudgetRoas": "reference_only_not_budget",
+      "note": "NaPm/n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다."
+    }
+  ],
+  "total_status": 200,
+  "total_ok": true,
+  "total_attempts": 1,
+  "total_error_text": null,
+  "total_naver_summary": {
+    "rowsTotal": 23882,
+    "naverAny": 690,
+    "byClass": {
+      "paid_naver": 352,
+      "naver_brandsearch": 326,
+      "organic_naver_candidate": 0,
+      "naver_referrer_or_utm_only": 12
+    }
+  },
+  "total_naver_flags": {
+    "endpointStatus": "available",
+    "aggregateOnly": true,
+    "rawIdentifierOutput": false,
+    "budgetRoasIncluded": false
+  },
+  "unknown_direct_domain_note": {
+    "current_rule": "biocom.kr 직접입력/북마크는 referrer가 없으므로 확정 direct 채널이 아니라 no_referrer 또는 self_or_internal_referrer_only 계열 unknown으로 남는다.",
+    "may_2026_self_internal_referrer_only_orders": 71,
+    "may_2026_self_internal_referrer_only_revenue_krw": 20914719,
+    "may_2026_no_referrer_detail_observed": false
+  },
+  "public_total_frontend": {
+    "url": "https://biocom.ainativeos.net/total",
+    "status_observed_before_doc": 404,
+    "note": "VM Cloud backend API is live, but public frontend route still returns 404 until frontend deploy/router update."
+  }
+}

@@ -1,91 +1,84 @@
 {
-  "updated_at_kst": "2026-05-14 02:03:28 KST",
-  "workstream": "naver_evidence_aggregate_endpoint_and_canary_url_standardization",
-  "lane": "Green read-only local code and approval packet",
-  "current_goal": "Make /total use aggregate-only Naver evidence instead of limited item slice and prepare a one-campaign/ad-group Naver URL standardization canary approval packet.",
+  "updated_at_kst": "2026-05-14 03:01:00 KST",
+  "workstream": "naver_evidence_aggregate_endpoint_vm_cloud_deploy_and_url_canary",
+  "lane": "Yellow approved VM Cloud backend deploy + Green canary audit",
+  "current_goal": "Make /total backend use aggregate-only Naver evidence and document a one-adgroup URL standardization canary without platform send/upload.",
   "source_window_freshness_confidence": {
-    "source": "운영DB monthly actual spine + VM Cloud attribution_ledger/site_landing_ledger + local browser/API smoke",
-    "window": "2026-05 monthly KST",
-    "freshness": "2026-05-14 02:03 KST",
-    "confidence": 0.88
+    "source": "VM Cloud attribution_ledger aggregate endpoint, /total monthly API, Naver Search Ad API read-only",
+    "window": "biocom 2026-05 KST monthly window",
+    "freshness": "2026-05-14 02:59 KST post-snapshot",
+    "confidence": 0.91
   },
   "latest_result": {
-    "package": "gptconfirm/gpt0514-3",
-    "contract_version": "naver-evidence-aggregate-v0.1",
-    "aggregate_endpoint": {
-      "local_shape_smoke": "PASS",
-      "aggregate_only": true,
-      "raw_identifier_output": false,
-      "budget_roas_included": false
+    "package": "gptconfirm/gpt0514-4",
+    "backend_deploy": {
+      "vm_cloud": true,
+      "health_ok": true,
+      "aggregate_endpoint_ok": true,
+      "total_monthly_api_ok": true,
+      "pm2_seo_backend": "online",
+      "backup": "/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0514-4-20260513T173652Z"
     },
-    "browser_smoke": {
-      "url": "http://localhost:7010/total",
-      "result": "PASS",
-      "utm_candidate_table_visible": true,
-      "reference_copy_visible": true,
-      "raw_identifier_leak_text_detected": false
-    },
-    "remote_current_state": {
-      "new_endpoint_deployed": false,
-      "fallback_status": "limited_item_slice_fallback",
-      "item_slice_naver_any": 500,
-      "note": "Fallback item slice mixes checkout/payment and must not be compared directly with payment_success aggregate 216."
-    },
-    "vm_cloud_payment_success_aggregate_basis": {
-      "source": "VM Cloud SQLite attribution_ledger",
-      "touchpoint": "payment_success",
-      "total": 854,
-      "naver_any": 216,
-      "napm": 158,
-      "brandsearch": 100,
-      "n_param": 8,
-      "bridge_key_present": 854,
-      "classification": {
-        "paid_naver": 59,
-        "naver_brandsearch": 100,
-        "organic_naver_candidate": 39,
-        "naver_referrer_or_utm_only": 17
+    "naver_evidence_aggregate": {
+      "contract_version": "naver-evidence-aggregate-v0.1",
+      "rowsTotal": 23882,
+      "naverAny": 690,
+      "byClass": {
+        "paid_naver": 352,
+        "naver_brandsearch": 326,
+        "organic_naver_candidate": 0,
+        "naver_referrer_or_utm_only": 12
       },
-      "budget_roas_included": false
+      "aggregateOnly": true,
+      "rawIdentifierOutput": false,
+      "budgetRoasIncluded": false
     },
-    "biocom_direct_domain": {
-      "source": "VM Cloud SQLite site_landing_ledger",
-      "total_site_landing_rows": 2930,
-      "channel_direct_rows": 23,
-      "strict_no_referrer_no_utm_no_click_candidate_rows": 7,
-      "channel_self_internal_rows": 373,
-      "order_level_revenue_confirmed": false
+    "frontend_public_route": {
+      "url": "https://biocom.ainativeos.net/total",
+      "observed_status": 404,
+      "note": "Backend API is deployed. Public frontend route needs separate deploy/router work."
     },
-    "url_canary": {
-      "scope": "1 campaign or 1 ad group",
-      "status": "approval_packet_only",
+    "naver_ads_url_canary": {
+      "api_read_only_audit": "PASS",
+      "candidate": "바이오컴_파워링크_영양중금속검사 / 01_메인키워드_PC",
+      "current_tracking": "idx only, no UTM",
+      "recommended_utm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "바이오컴_파워링크_영양중금속검사",
+        "utm_content": "01_메인키워드_PC",
+        "utm_term": "{keyword}"
+      },
+      "api_write_status": "blocked_by_searchad_api_update_fields",
+      "manual_ui_canary_status": "ready",
       "actual_platform_change": false
     },
-    "commit": {
-      "hash": "6bf2f79",
-      "message": "total: add naver evidence aggregate drilldown",
-      "pushed_to": "origin/main"
+    "biocom_direct_domain": {
+      "current_rule": "biocom.kr direct/bookmark is not a confirmed direct revenue channel; it remains no_referrer or self_or_internal_referrer_only unknown unless first-party evidence is captured.",
+      "may_2026_self_internal_referrer_only_orders": 71,
+      "may_2026_self_internal_referrer_only_revenue_krw": 20914719
     }
   },
   "artifacts": {
-    "gptconfirm": "gptconfirm/gpt0514-3",
-    "result_report": "gptconfirm/gpt0514-3/00-result-report.md",
-    "aggregate_report": "gptconfirm/gpt0514-3/01-naver-aggregate-endpoint-and-smoke.md",
-    "canary_report": "gptconfirm/gpt0514-3/02-naver-url-standardization-canary.md",
-    "next_actions": "gptconfirm/gpt0514-3/03-next-actions-and-approval.md",
-    "data_json": "data/naver-evidence-aggregate-canary-20260514.json",
-    "total_doc": "project/total.md"
+    "gptconfirm": "gptconfirm/gpt0514-4",
+    "result_report": "gptconfirm/gpt0514-4/00-result-report.md",
+    "deploy_report": "gptconfirm/gpt0514-4/01-vm-cloud-backend-deploy-and-validation.md",
+    "canary_report": "gptconfirm/gpt0514-4/02-naver-url-current-vs-standard-canary.md",
+    "next_actions": "gptconfirm/gpt0514-4/03-next-actions-and-rollback.md",
+    "deploy_data": "data/naver-evidence-aggregate-live-post-20260514.json",
+    "canary_data": "data/naver-ads-url-canary-audit-20260514.json"
   },
   "next_action": {
-    "codex": "Prepare Yellow deploy execution if TJ approves aggregate endpoint production rollout; otherwise continue Green direct typed revenue drilldown.",
-    "tj": "Approve or reject the one-campaign/ad-group Naver Ads URL canary before any external platform URL change."
+    "codex": "Run validation, commit/push scoped files, then prepare frontend /total deploy approval if requested.",
+    "tj": "If proceeding with Naver Ads URL canary, change exactly one adgroup URL in Naver Ads UI after backing up current PC/MO URLs."
   },
   "forbidden_actions_not_taken": [
-    "external platform send/upload",
-    "operating DB write",
-    "VM Cloud schema migration/write/deploy/restart",
+    "operational DB write",
+    "VM Cloud schema migration",
+    "external platform conversion send/upload",
     "GTM publish",
-    "Imweb footer/header change"
+    "Imweb footer/header change",
+    "Naver candidate auto inclusion in budget ROAS"
   ],
   "raw_identifier_output": false
 }

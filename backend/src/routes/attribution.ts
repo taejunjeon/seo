@@ -2576,6 +2576,13 @@ type NaverEvidenceAggregateRow = {
   note: string;
 };
 
+const NAVER_EVIDENCE_CLASSES: NaverEvidenceClass[] = [
+  "paid_naver",
+  "naver_brandsearch",
+  "organic_naver_candidate",
+  "naver_referrer_or_utm_only",
+];
+
 const ledgerFirstTouch = (entry: AttributionLedgerEntry) => {
   const value = entry.metadata?.firstTouch;
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -2687,10 +2694,13 @@ const buildNaverEvidenceAggregate = (
   const ordered = Array.from(rows.values()).sort((a, b) =>
     a.class.localeCompare(b.class) || a.touchpoint.localeCompare(b.touchpoint),
   );
-  const byClass = ordered.reduce<Record<string, number>>((acc, row) => {
-    acc[row.class] = (acc[row.class] || 0) + row.rows;
+  const byClass = NAVER_EVIDENCE_CLASSES.reduce<Record<NaverEvidenceClass, number>>((acc, key) => {
+    acc[key] = 0;
     return acc;
-  }, {});
+  }, {} as Record<NaverEvidenceClass, number>);
+  for (const row of ordered) {
+    byClass[row.class] = (byClass[row.class] || 0) + row.rows;
+  }
 
   return {
     contractVersion: "naver-evidence-aggregate-v0.1",

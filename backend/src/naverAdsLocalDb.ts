@@ -41,6 +41,22 @@ const ensureTable = (db: Database.Database) => {
   ready = true;
 };
 
+const emptySummary = () => ({
+  total_rows: 0,
+  total_imp: 0,
+  total_clk: 0,
+  total_sales_amt_krw: 0,
+  total_conv_amt_krw: 0,
+  by_campaign: [],
+});
+
+const tableExists = (db: Database.Database) => {
+  const row = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(TABLE) as { name?: string } | undefined;
+  return row?.name === TABLE;
+};
+
 export const bootstrapNaverAdsDailyTable = () => ensureTable(getCrmDb());
 
 export type NaverAdsDailyUpsert = {
@@ -138,7 +154,9 @@ export const summarizeNaverAdsDaily = (input: {
   }>;
 } => {
   const db = getCrmDb();
-  ensureTable(db);
+  // Read-only callers such as /total must not create VM Cloud SQLite schema.
+  // Collection/upsert paths call bootstrap/upsert explicitly when writes are approved.
+  if (!tableExists(db)) return emptySummary();
   const site = input.site ?? "biocom";
   const totalRow = db
     .prepare(

@@ -1,0 +1,465 @@
+{
+  "ok": true,
+  "source": "Naver Search Ad API read-only",
+  "checkedAtKst": "2026-05-14T02:58:06",
+  "campaignsScanned": 9,
+  "externalWrite": false,
+  "platformUpload": false,
+  "rows": [
+    {
+      "campaign": {
+        "id": "cmp-a001-01-000000002258113",
+        "name": "바이오컴_파워링크_영양중금속검사",
+        "status": "ELIGIBLE",
+        "campaignTp": "WEB_SITE"
+      },
+      "adgroup": {
+        "id": "grp-a001-01-000000012258110",
+        "name": "01_메인키워드_PC",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 7,
+      "sampleAd": {
+        "id": "nad-a001-01-000000340765268",
+        "type": "RSA_AD",
+        "status": "ELIGIBLE",
+        "inspectStatus": "APPROVED",
+        "creativeKeys": [
+          "mobile",
+          "pc"
+        ],
+        "pcFinal": {
+          "origin": "https://www.biocom.kr",
+          "path": "/mineraltest_store/",
+          "queryKeys": [
+            "idx"
+          ],
+          "tracking": {}
+        },
+        "mobileFinal": {
+          "origin": "https://www.biocom.kr",
+          "path": "/mineraltest_store/",
+          "queryKeys": [
+            "idx"
+          ],
+          "tracking": {}
+        }
+      },
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "바이오컴_파워링크_영양중금속검사",
+        "utm_content": "01_메인키워드_PC",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    },
+    {
+      "campaign": {
+        "id": "cmp-a001-01-000000002302334",
+        "name": "바이오컴_파워링크_장내세균검사",
+        "status": "ELIGIBLE",
+        "campaignTp": "WEB_SITE"
+      },
+      "adgroup": {
+        "id": "grp-a001-01-000000012461415",
+        "name": "01_메인키워드_PC",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 8,
+      "sampleAd": {
+        "id": "nad-a001-01-000000157266254",
+        "type": "TEXT_45",
+        "status": "PAUSED",
+        "inspectStatus": "APPROVED",
+        "creativeKeys": [
+          "description",
+          "headline",
+          "mobile",
+          "pc"
+        ],
+        "pcFinal": {
+          "origin": "https://www.biocom.kr",
+          "path": "/microbiome",
+          "queryKeys": [],
+          "tracking": {}
+        },
+        "mobileFinal": {
+          "origin": "https://www.biocom.kr",
+          "path": "/microbiome",
+          "queryKeys": [],
+          "tracking": {}
+        }
+      },
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "바이오컴_파워링크_장내세균검사",
+        "utm_content": "01_메인키워드_PC",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    },
+    {
+      "campaign": {
+        "id": "cmp-a001-01-000000003173679",
+        "name": "바이오컴_파워링크_지연성검사",
+        "status": "ELIGIBLE",
+        "campaignTp": "WEB_SITE"
+      },
+      "adgroup": {
+        "id": "grp-a001-01-000000016491306",
+        "name": "01_메인키워드_PC",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 5,
+      "sampleAd": {
+        "id": "nad-a001-01-000000316574715",
+        "type": "RSA_AD",
+        "status": "PAUSED",
+        "inspectStatus": "APPROVED",
+        "creativeKeys": [
+          "mobile",
+          "pc"
+        ],
+        "pcFinal": {
+          "origin": "http://www.biocom.kr",
+          "path": "/igg_store/",
+          "queryKeys": [
+            "idx",
+            "utm_campaign",
+            "utm_medium",
+            "utm_source"
+          ],
+          "tracking": {
+            "utm_source": "naver",
+            "utm_medium": "powerlink",
+            "utm_campaign": "1"
+          }
+        },
+        "mobileFinal": {
+          "origin": "http://www.biocom.kr",
+          "path": "/igg_store/",
+          "queryKeys": [
+            "idx",
+            "utm_campaign",
+            "utm_medium",
+            "utm_source"
+          ],
+          "tracking": {
+            "utm_source": "naver",
+            "utm_medium": "powerlink",
+            "utm_campaign": "1"
+          }
+        }
+      },
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "바이오컴_파워링크_지연성검사",
+        "utm_content": "01_메인키워드_PC",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    },
+    {
+      "campaign": {
+        "id": "cmp-a001-01-000000008131977",
+        "name": "[파워링크] 04_호르몬검사_바이오컴",
+        "status": "ELIGIBLE",
+        "campaignTp": "WEB_SITE"
+      },
+      "adgroup": {
+        "id": "grp-a001-01-000000042572429",
+        "name": "01_메인_MO",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 5,
+      "sampleAd": {
+        "id": "nad-a001-01-000000472906772",
+        "type": "TEXT_45",
+        "status": "ELIGIBLE",
+        "inspectStatus": "APPROVED",
+        "creativeKeys": [
+          "description",
+          "headline",
+          "mobile",
+          "pc"
+        ],
+        "pcFinal": {
+          "origin": "https://biocom.kr",
+          "path": "/shop_view",
+          "queryKeys": [
+            "idx"
+          ],
+          "tracking": {}
+        },
+        "mobileFinal": {
+          "origin": "https://biocom.kr",
+          "path": "/shop_view",
+          "queryKeys": [
+            "idx"
+          ],
+          "tracking": {}
+        }
+      },
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "[파워링크] 04_호르몬검사_바이오컴",
+        "utm_content": "01_메인_MO",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    },
+    {
+      "campaign": {
+        "id": "cmp-a001-01-000000008737571",
+        "name": "[파워링크] 종합대사기능분석 런칭",
+        "status": "ELIGIBLE",
+        "campaignTp": "WEB_SITE"
+      },
+      "adgroup": {
+        "id": "grp-a001-01-000000046151216",
+        "name": "01.통합키워드_mo",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 6,
+      "sampleAd": {
+        "id": "nad-a001-01-000000331205596",
+        "type": "TEXT_45",
+        "status": "ELIGIBLE",
+        "inspectStatus": "APPROVED",
+        "creativeKeys": [
+          "description",
+          "headline",
+          "mobile",
+          "pc"
+        ],
+        "pcFinal": {
+          "origin": "https://biocom.kr",
+          "path": "/organicacid_store/",
+          "queryKeys": [
+            "idx",
+            "utm_campaign",
+            "utm_content",
+            "utm_medium",
+            "utm_source"
+          ],
+          "tracking": {
+            "utm_source": "naver_cpc_organicacid3_pc",
+            "utm_medium": "naver_cpc_organicacid3_pc",
+            "utm_campaign": "naver_cpc_organicacid3_pc",
+            "utm_content": "naver_cpc_organicacid3_pc"
+          }
+        },
+        "mobileFinal": {
+          "origin": "https://biocom.kr",
+          "path": "/organicacid_store/",
+          "queryKeys": [
+            "idx",
+            "utm_campaign",
+            "utm_content",
+            "utm_medium",
+            "utm_source"
+          ],
+          "tracking": {
+            "utm_source": "naver_cpc_organicacid3_mo",
+            "utm_medium": "naver_cpc_organicacid3_mo",
+            "utm_campaign": "naver_cpc_organicacid3_mo",
+            "utm_content": "naver_cpc_organicacid3_mo"
+          }
+        }
+      },
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "[파워링크] 종합대사기능분석 런칭",
+        "utm_content": "01.통합키워드_mo",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    },
+    {
+      "campaign": {
+        "id": "cmp-a001-01-000000010299206",
+        "name": "바이오컴_파워링크_종합 호르몬균형 검사",
+        "status": "ELIGIBLE",
+        "campaignTp": "WEB_SITE"
+      },
+      "adgroup": {
+        "id": "grp-a001-01-000000061878304",
+        "name": "성호르몬_MO",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 0,
+      "sampleAd": null,
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "바이오컴_파워링크_종합 호르몬균형 검사",
+        "utm_content": "성호르몬_MO",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    },
+    {
+      "campaign": {
+        "id": "cmp-a001-02-000000002765406",
+        "name": "쇼핑검색01_바이오컴 아임웹",
+        "status": "ELIGIBLE",
+        "campaignTp": "SHOPPING"
+      },
+      "adgroup": {
+        "id": "grp-a001-02-000000042725241",
+        "name": "06_다래케어_MO",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 1,
+      "sampleAd": {
+        "id": "nad-a001-02-000000304269796",
+        "type": "SHOPPING_PRODUCT_AD",
+        "status": "ELIGIBLE",
+        "inspectStatus": "APPROVED",
+        "creativeKeys": [
+          "imageColorCode",
+          "imageHeight",
+          "imagePath",
+          "imageWidth",
+          "productColor",
+          "productName"
+        ],
+        "pcFinal": null,
+        "mobileFinal": null
+      },
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "쇼핑검색01_바이오컴 아임웹",
+        "utm_content": "06_다래케어_MO",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    },
+    {
+      "campaign": {
+        "id": "cmp-a001-03-000000003579888",
+        "name": "파워컨텐츠01_검사권_바이오컴",
+        "status": "ELIGIBLE",
+        "campaignTp": "POWER_CONTENTS"
+      },
+      "adgroup": {
+        "id": "grp-a001-03-000000048366093",
+        "name": "파워컨텐츠02_음식물과민증검사_PC",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 5,
+      "sampleAd": {
+        "id": "nad-a001-03-000000494814866",
+        "type": "CONTENTS_AD_INFORMATION",
+        "status": "PAUSED",
+        "inspectStatus": "PENDING",
+        "creativeKeys": [
+          "companyName",
+          "contentImages",
+          "contentIssueDate",
+          "description",
+          "headline",
+          "imageCount",
+          "imageHeight",
+          "imagePath",
+          "imageWidth",
+          "mobile",
+          "pc",
+          "profileImgUrlOrg",
+          "representImage",
+          "useContentImage",
+          "useProfileImage"
+        ],
+        "pcFinal": {
+          "origin": "https://blog.naver.com",
+          "path": "/biocomkr/224029949977",
+          "queryKeys": [
+            "utm_campaign",
+            "utm_content",
+            "utm_medium",
+            "utm_source"
+          ],
+          "tracking": {
+            "utm_source": "naver_sa_powercontents_foodallergy",
+            "utm_medium": "naver_sa_powercontents_foodallergy",
+            "utm_campaign": "naver_sa_powercontents_foodallergy",
+            "utm_content": "naver_sa_powercontents_foodallergy"
+          }
+        },
+        "mobileFinal": {
+          "origin": "https://blog.naver.com",
+          "path": "/biocomkr/224029949977",
+          "queryKeys": [
+            "utm_campaign",
+            "utm_content",
+            "utm_medium",
+            "utm_source"
+          ],
+          "tracking": {
+            "utm_source": "naver_sa_powercontents_foodallergy",
+            "utm_medium": "naver_sa_powercontents_foodallergy",
+            "utm_campaign": "naver_sa_powercontents_foodallergy",
+            "utm_content": "naver_sa_powercontents_foodallergy"
+          }
+        }
+      },
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "cpc",
+        "utm_campaign": "파워컨텐츠01_검사권_바이오컴",
+        "utm_content": "파워컨텐츠02_음식물과민증검사_PC",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    },
+    {
+      "campaign": {
+        "id": "cmp-a001-04-000000003660865",
+        "name": "브랜드검색01_바이오컴",
+        "status": "ELIGIBLE",
+        "campaignTp": "BRAND_SEARCH"
+      },
+      "adgroup": {
+        "id": "grp-a001-04-000000041281932",
+        "name": "바이오컴PC_0321",
+        "status": "ELIGIBLE"
+      },
+      "adsCount": 4,
+      "sampleAd": {
+        "id": "nad-a001-04-000000510956439",
+        "type": "BRAND_SEARCH_AD",
+        "status": "ELIGIBLE",
+        "inspectStatus": "APPROVED",
+        "creativeKeys": [
+          "dittoId",
+          "thumbnail"
+        ],
+        "pcFinal": null,
+        "mobileFinal": null
+      },
+      "recommendedStandardUtm": {
+        "utm_source": "naver",
+        "utm_medium": "brandsearch",
+        "utm_campaign": "브랜드검색01_바이오컴",
+        "utm_content": "바이오컴PC_0321",
+        "utm_term": "{keyword}"
+      },
+      "canaryApiWriteStatus": "blocked_by_searchad_api_update_fields",
+      "canaryManualStatus": "ready_for_single_adgroup_ui_change"
+    }
+  ]
+}

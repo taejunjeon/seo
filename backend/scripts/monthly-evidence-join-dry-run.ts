@@ -122,6 +122,13 @@ type NaverEvidenceAggregateRow = {
   note: string;
 };
 
+const NAVER_EVIDENCE_CLASSES: NaverEvidenceAggregateRow["class"][] = [
+  "paid_naver",
+  "naver_brandsearch",
+  "organic_naver_candidate",
+  "naver_referrer_or_utm_only",
+];
+
 type NaverEvidenceAggregate = {
   contractVersion: string;
   aggregateOnly: true;
@@ -1421,6 +1428,13 @@ const buildNaverAggregateFromItems = (
   const ordered = Array.from(rows.values()).sort((a, b) =>
     a.class.localeCompare(b.class) || a.touchpoint.localeCompare(b.touchpoint),
   );
+  const byClass = NAVER_EVIDENCE_CLASSES.reduce<Record<NaverEvidenceAggregateRow["class"], number>>((acc, key) => {
+    acc[key] = 0;
+    return acc;
+  }, {} as Record<NaverEvidenceAggregateRow["class"], number>);
+  for (const row of ordered) {
+    byClass[row.class] = (byClass[row.class] || 0) + row.rows;
+  }
   return {
     contractVersion: "naver-evidence-aggregate-v0.1",
     aggregateOnly: true,
@@ -1435,10 +1449,7 @@ const buildNaverAggregateFromItems = (
     summary: {
       rowsTotal: items.length,
       naverAny: ordered.reduce((sum, row) => sum + row.rows, 0),
-      byClass: ordered.reduce<Record<string, number>>((acc, row) => {
-        acc[row.class] = (acc[row.class] || 0) + row.rows;
-        return acc;
-      }, {}),
+      byClass,
     },
     rows: ordered,
     warnings: [

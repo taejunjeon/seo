@@ -1,0 +1,34 @@
+{
+  "package": "gpt0514-4",
+  "created_at_kst": "2026-05-14 03:00 KST",
+  "owner": "Codex",
+  "title": "Naver evidence aggregate endpoint VM Cloud deploy and URL canary audit",
+  "documents": [
+    "00-result-report.md",
+    "01-vm-cloud-backend-deploy-and-validation.md",
+    "02-naver-url-current-vs-standard-canary.md",
+    "03-next-actions-and-rollback.md",
+    "99-total-current-copy.md"
+  ],
+  "evidence_files": [
+    "data/naver-evidence-aggregate-live-post-20260514.json",
+    "data/naver-ads-url-canary-audit-20260514.json"
+  ],
+  "verification": {
+    "backend_typecheck_local": "PASS",
+    "backend_typecheck_vm_cloud": "PASS",
+    "backend_build_vm_cloud": "PASS",
+    "health": "PASS",
+    "naver_evidence_aggregate_api": "PASS",
+    "total_monthly_api": "PASS",
+    "raw_identifier_output": false,
+    "budget_roas_auto_included": false,
+    "operational_db_write": 0,
+    "vm_cloud_schema_migration": 0,
+    "external_send_upload": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_change": 0
+  },
+  "status": "backend_deployed_frontend_route_pending",
+  "telegram": "skip"
+}
