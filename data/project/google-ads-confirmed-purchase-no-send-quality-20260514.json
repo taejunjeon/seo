@@ -1,0 +1,227 @@
+{
+  "contract_version": "google-ads-confirmed-purchase-no-send-quality-v0.1",
+  "generated_at_kst": "2026-05-14T02:05:00+09:00",
+  "lane": "Green",
+  "mode": "read_only_dry_run",
+  "verdict": "B_NOT_READY_CLICK_ID_GAP",
+  "verdict_one_line": "BI confirmed_purchase_offline action 자체는 준비됨. 그러나 last_30d 전체 결제완료 2,225건 중 Google click id (gclid/gbraid/wbraid) 가 붙은 row 가 23건 (1.03%) 뿐. upload 매칭 품질 미달.",
+  "dry_run_target": {
+    "action_id": "7609289411",
+    "action_name": "BI confirmed_purchase_offline",
+    "action_type": "UPLOAD_CLICKS",
+    "category": "PURCHASE",
+    "primary_for_goal": false,
+    "status": "ENABLED",
+    "click_through_lookback_window_days": 30,
+    "view_through_lookback_window_days": 1,
+    "value_settings": { "default_value_krw": 1, "always_use_default_value": false, "dynamic_value": true },
+    "ref_postcheck": "data/project/google-ads-bi-confirmed-purchase-offline-postcheck-20260514.json"
+  },
+  "source": {
+    "operational_db": {
+      "table": "운영DB tb_iamweb_users",
+      "row_count": 99392,
+      "source_max_payment_complete_at_utc": "2026-05-13T16:34:12.000Z",
+      "source_max_order_date_at_utc": "2026-05-14T01:32:02.000Z",
+      "source_lag_hours": 0.5,
+      "freshness_status": "fresh"
+    },
+    "vm_cloud": {
+      "table": "VM Cloud SQLite order_bridge_ledger / paid_click_intent_log",
+      "join_method": "order_number / channel_order_no / payment_key"
+    },
+    "builder_script": "backend/scripts/bi-confirmed-purchase-operational-dry-run.ts",
+    "builder_command": "npx tsx scripts/bi-confirmed-purchase-operational-dry-run.ts --start=2026-04-14 --end=2026-05-13 --skip-bigquery --output=<path>",
+    "skip_bigquery": true,
+    "skip_bigquery_reason": "BigQuery GA4 cross-check 가 별도 권한 필요. 본 dry-run 은 운영DB + VM Cloud SQLite 만으로 click_id 매칭 품질 산출."
+  },
+  "window": {
+    "since_kst": "2026-04-14",
+    "until_kst": "2026-05-13",
+    "timezone": "Asia/Seoul",
+    "days": 30
+  },
+  "site": "biocom",
+  "include_criteria": [
+    "site = biocom",
+    "결제완료 주문 (PAYMENT_COMPLETE)",
+    "홈페이지 결제완료 또는 NPay 실제 결제완료",
+    "value > 0",
+    "order_number 또는 channel_order_no 존재",
+    "duplicate guard 통과 (order_number + click_id pair unique)"
+  ],
+  "exclude_criteria": [
+    "NPay click only",
+    "NPay count",
+    "NPay payment start",
+    "add_payment_info only",
+    "payment_status != COMPLETE",
+    "cancelled / refunded / returned",
+    "test / manual row",
+    "duplicate guard missing",
+    "missing Google click id (gclid/gbraid/wbraid 모두 없음)",
+    "already sent (ClickConversion upload 이력 존재)",
+    "approval required (Red Lane 명시 승인 전)",
+    "read-only phase (정책)"
+  ],
+  "metrics": {
+    "total_confirmed_orders": 2225,
+    "homepage_confirmed_orders": 2061,
+    "npay_actual_confirmed_orders": 164,
+    "total_amount_krw": 508480596,
+    "total_amount_korean": "₩5억 848만",
+    "homepage_amount_krw": 479377096,
+    "npay_amount_krw": 29103500,
+    "with_google_click_id_count": 23,
+    "with_google_click_id_breakdown": {
+      "gclid_only": 17,
+      "gclid_and_gbraid_both": 6,
+      "gbraid_only": 0,
+      "wbraid_only": 0
+    },
+    "with_gclid_count": 23,
+    "with_gbraid_count": 6,
+    "with_wbraid_count": 0,
+    "missing_google_click_id_count": 2202,
+    "click_id_fill_rate_pct": 1.03,
+    "click_id_fill_rate_baseline_20260510_pct": 1.44,
+    "click_id_fill_rate_delta_pp": -0.41,
+    "duplicate_blocked_count": 0,
+    "duplicate_guard_pairs_unique": 23,
+    "zero_or_negative_value_count": 0,
+    "already_sent_count": 0,
+    "theoretical_upload_eligible_count": 23,
+    "theoretical_upload_eligible_amount_krw": 5585210,
+    "theoretical_upload_eligible_amount_korean": "₩559만",
+    "theoretical_upload_eligible_homepage_orders": 18,
+    "theoretical_upload_eligible_homepage_amount_krw": 4978110,
+    "theoretical_upload_eligible_npay_orders": 5,
+    "theoretical_upload_eligible_npay_amount_krw": 607100,
+    "actual_send_candidate": 0,
+    "upload_candidate": 0,
+    "send_candidate": false
+  },
+  "block_reason_counts": {
+    "read_only_phase": 2225,
+    "approval_required": 2225,
+    "already_in_ga4_unknown": 2225,
+    "missing_google_click_id": 2202,
+    "missing_attribution_vm_evidence": 1014,
+    "npay_intent_purchase_without_intent": 120,
+    "npay_intent_ambiguous": 17,
+    "order_has_return_reason": 14,
+    "npay_intent_not_a_grade_strong": 14
+  },
+  "block_reason_explanation": {
+    "read_only_phase": "정책 차단. read-only sprint 이므로 모든 candidate 가 자동 차단.",
+    "approval_required": "정책 차단. Red Lane 명시 승인 전 모든 candidate 자동 차단.",
+    "already_in_ga4_unknown": "GA4 cross-check lookup status 가 모두 unknown — BigQuery skip 으로 인한 미작동. dispatch 단계가 아니므로 이번 sprint 영향 없음.",
+    "missing_google_click_id": "실제 매칭 병목. 운영DB 주문에 대응되는 VM Cloud ledger row 에 gclid/gbraid/wbraid 가 모두 비어있음. → 진짜 fix target.",
+    "missing_attribution_vm_evidence": "VM Cloud ledger 자체에 매칭 row 가 없음. 1,014건 중 일부는 missing_google_click_id 와 중첩.",
+    "npay_intent_purchase_without_intent": "NPay 결제완료지만 paid_click_intent_log 에 대응 intent 가 없음. NPay click capture 미작동 시점.",
+    "npay_intent_ambiguous": "NPay intent 매칭 모호 — 한 주문에 여러 intent 후보.",
+    "npay_intent_not_a_grade_strong": "NPay intent 매칭 신뢰도 B 이하.",
+    "order_has_return_reason": "운영DB 에 return_reason 기록 있음 — 환불/취소 row."
+  },
+  "earliest_safe_canary": {
+    "action_create_first_seen_at_utc": "2026-05-13T16:44:15.169Z",
+    "action_create_first_seen_at_kst": "2026-05-14T01:44:15+09:00",
+    "minimum_24h_buffer_kst": "2026-05-15T01:44+09:00",
+    "minimum_6h_buffer_kst": "2026-05-14T07:44+09:00",
+    "policy": "Google Ads UPLOAD_CLICKS action 생성 직후 6시간 미만에는 conversion upload 시도하지 않는다. 24시간 권장. 본 sprint 는 어느 쪽이든 0 upload 유지."
+  },
+  "purchase_primary_inventory_link": {
+    "summary": "BI confirmed_purchase_offline 외에도 PURCHASE primary action 이 8개 ENABLED 상태. BI 가 향후 primary 로 승격되어도 학습 신호가 단순 정리되지 않음.",
+    "count": 8,
+    "list": [
+      {"id": "782218494", "name": "Transactions (A_view)", "type": "GA_imported", "click_window_days": 30},
+      {"id": "916482221", "name": "Transactions (바이오컴펫_main - 필터적용)", "type": "GA_imported", "click_window_days": 30},
+      {"id": "916483619", "name": "더클린커피 웹 (web) purchase", "type": "GA_imported", "click_window_days": 30},
+      {"id": "917303941", "name": "바이오컴펫_와이즈 - GA4 (web) purchase", "type": "GA_imported", "click_window_days": 30},
+      {"id": "917325117", "name": "Transactions (전체 웹사이트 데이터)", "type": "GA_imported", "click_window_days": 30},
+      {"id": "922178603", "name": "[G4] biocom.kr (web) in_app_purchase", "type": "GA4_imported", "click_window_days": 90},
+      {"id": "945320590", "name": "Transactions (전체 웹사이트 데이터)", "type": "GA_imported", "click_window_days": 30},
+      {"id": "7130249515", "name": "구매완료", "type": "WEBPAGE", "click_window_days": 7}
+    ],
+    "implication": "BI confirmed_purchase_offline 후보 품질이 좋아도 단순 primary 승격만으로 학습 신호가 정리되지 않는다. → 8개 정리는 별도 Red Lane sprint.",
+    "this_sprint_invariant": {
+      "primary_for_goal_change_count": 0,
+      "campaign_change_count": 0,
+      "budget_change_count": 0
+    }
+  },
+  "verdict_decision_tree": {
+    "A_READY_FOR_SECONDARY_UPLOAD_CANARY": {
+      "result": "NO",
+      "reason": "theoretical_upload_eligible_count=23 의미는 있으나 click id fill-rate 가 baseline 1.44% 보다 더 낮은 1.03% — 개선 아님. canary 결정 보류."
+    },
+    "B_NOT_READY_CLICK_ID_GAP": {
+      "result": "YES",
+      "reason": "missing_google_click_id=2,202 (98.97%) 가 압도적 병목. action 자체는 ENABLED 정상 등록되었으나 upload 매칭 품질 매우 낮음. 다음 작업은 click id capture/ledger 개선."
+    },
+    "C_NOT_READY_GUARD_GAP": {
+      "result": "NO",
+      "reason": "duplicate guard 0 위반 / value > 0 100% / cancel_return_exclusion 14건 정상 차단. guard 자체는 통과. 문제는 click_id 부족이지 guard 불충분 아님."
+    }
+  },
+  "invariants_held": {
+    "conversion_action_mutate": 0,
+    "existing_primary_modified": 0,
+    "new_action_primary_changed": 0,
+    "techsol_modified": 0,
+    "techsol_deleted": 0,
+    "click_conversion_uploaded": 0,
+    "data_manager_ingest": 0,
+    "file_upload": 0,
+    "campaign_mutate": 0,
+    "campaign_budget_mutate": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "vm_cloud_sqlite_schema_migration": 0,
+    "gtm_publish": 0,
+    "external_send_count": 0,
+    "raw_identifier_leak": false
+  },
+  "next_actions": [
+    {
+      "id": "next-1",
+      "owner": "Claude Code",
+      "lane": "Green",
+      "subject": "click id capture 개선 — site-landing-ledger 와 paid_click_intent_log 에 gclid/gbraid/wbraid 가 들어오는지 last_30d 점검",
+      "rationale": "98.97% 가 missing_google_click_id. 어디서 click id 가 누락되는지 확인 필요. 진짜 ROAS 산출에도 영향.",
+      "blocker": "none",
+      "scores": { "data": 95, "timing": 100, "impact": 95, "risk": 0 },
+      "recommend_score": 94
+    },
+    {
+      "id": "next-2",
+      "owner": "Claude Code",
+      "lane": "Green",
+      "subject": "GTM tracking inventory 재점검 — gclid query param capture 가 모든 landing page 에서 fire 되는지 확인",
+      "rationale": "click id missing 의 근본 원인 가능성. coffee/imweb 에는 이미 funnel-capi v3 있으나 biocom 쪽 capture 정확 시점/필드 점검.",
+      "blocker": "none",
+      "scores": { "data": 80, "timing": 80, "impact": 90, "risk": 0 },
+      "recommend_score": 85
+    },
+    {
+      "id": "next-3",
+      "owner": "TJ",
+      "lane": "Red",
+      "subject": "8개 PURCHASE primary action 정리 결정 sprint",
+      "rationale": "BI confirmed_purchase_offline 향후 primary 승격 결정 전 기존 7개 GA4-imported primary 정리 정책 결정 필요.",
+      "blocker": "Red Lane 명시 승인",
+      "scores": { "data": 70, "timing": 50, "impact": 90, "risk": 80 },
+      "recommend_score": 80
+    },
+    {
+      "id": "next-4",
+      "owner": "TJ",
+      "lane": "UI confirm",
+      "subject": "Google Ads UI 재확인 — BI confirmed_purchase_offline 의 click window 90일 / view window 3일 입력값 (UPLOAD_CLICKS type 시스템 clamp 가능성)",
+      "rationale": "어제 post-check 에서 FAIL 2건 (90→30 / 3→1). UPLOAD_CLICKS type max 가 30/1 강제 가능성. 운영자가 직접 UI 확인 필요.",
+      "blocker": "TJ UI access",
+      "scores": { "data": 100, "timing": 100, "impact": 70, "risk": 0 },
+      "recommend_score": 87
+    }
+  ]
+}
