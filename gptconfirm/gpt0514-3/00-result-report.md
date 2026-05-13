@@ -82,6 +82,7 @@ harness_preflight:
 - 운영 `att.ainativeos.net`에는 아직 새 aggregate endpoint가 없다.
 - 운영 반영은 별도 Yellow 승인 후 backend/frontend deploy/restart가 필요하다.
 - 임시 local backend `:7021` smoke 서버는 검증 후 종료했다.
+- scoped commit/push 완료: `6bf2f79 total: add naver evidence aggregate drilldown`.
 
 ## 남은 리스크
 

@@ -14,16 +14,13 @@
 - 로컬 브라우저 smoke PASS: UTM 후보 표, 참고용 문구, raw id 미노출 확인.
 - VM Cloud `attribution_ledger` payment_success 기준 네이버 전체 aggregate 기준값 216건 유지.
 - VM Cloud `site_landing_ledger`에서 biocom.kr 직접 입력 후보가 landing-level direct로 일부 구분되는지 확인.
+- scoped commit/push 완료: `6bf2f79 total: add naver evidence aggregate drilldown`.
 
 ## 다음 명령
 
-1. `npm run typecheck` in `backend`.
-2. `npm run build` in `frontend`.
-3. `jq . gptconfirm/gpt0514-3/manifest.json data/naver-evidence-aggregate-canary-20260514.json data/current-state.json`.
-4. `python3 scripts/validate_wiki_links.py gptconfirm/gpt0514-3/*.md`.
-5. `python3 scripts/harness-preflight-check.py --strict`.
-6. `git diff --check`.
-7. scoped commit/push: 이번 sprint 관련 파일만 add.
+1. 운영 반영 승인 시 `gptconfirm/gpt0514-3/03-next-actions-and-approval.md`의 pre/post snapshot 순서대로 진행.
+2. Green 후속으로 biocom.kr direct typed revenue drilldown을 aggregate-only로 조사.
+3. 네이버 URL canary 승인 시 Naver Ads 1개 캠페인/광고그룹만 변경 후 24~72h 관찰.
 
 ## 절대 건드리면 안 되는 것
 
