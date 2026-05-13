@@ -14,6 +14,8 @@ backend/.env:226 BIOCOM_STORE_APP_ID=***MASKED***
 backend/.env:227 BIOCOM_STORE_APP_SECRET=***MASKED***
 ```
 
+네이버 커머스API 센터에서 서버 IP 허용이 필요하면, 현재 VM Cloud backend의 outbound IP는 `34.64.104.94`로 등록한다. 2026-05-13 13:49 KST에 VM에서 `https://api.ipify.org`를 read-only로 호출해 동일 값을 확인했다. `att.ainativeos.net` DNS는 Cloudflare proxy IP를 반환하므로 네이버 API센터 허용 IP로 쓰지 않는다.
+
 이번 점검에서 공식 문서 기준을 `2.77.0 (2026-04-29)`로 올렸다. 네이버 공식 문서상 커머스API는 인증, 통계, 주문, 정산, 상품, 판매자정보 영역을 제공한다. 우리 프로젝트에서 당장 중요한 것은 `주문 조회`, `정산 조회`, `마케팅/검색 통계`다. 단, 통계 API 일부는 `[브랜드스토어 전용]`이고 API데이터솔루션 구독이 필요할 수 있다.
 
 VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3`를 read-only로 확인한 결과, 현재 네이버 커머스API 전용 테이블은 없다. 관련 이름으로 잡히는 것은 `npay_intent_log`, `coffee_npay_intent_log`처럼 NPay intent 장부뿐이다. 이 테이블들은 버튼 클릭/결제 의도 원장이지 네이버 커머스 주문/정산 원장이 아니다.
