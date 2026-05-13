@@ -483,6 +483,15 @@ export default function TikTokOffImpactPage() {
   const coopDropShare = coopAdjustment?.shareOfObservedDropPct;
   const coopDelta = coopAdjustment?.deltaIncludedAmountPerDay ?? 0;
   const nonCoopDelta = coopAdjustment?.nonCoopDeltaRevenuePerDay;
+  const hasObservedDrop = (data?.overall.deltaRevenuePerDay ?? 0) < 0;
+  const overallDropAbs = Math.abs(data?.overall.deltaRevenuePerDay ?? 0);
+  const canCompareCoopToObservedDrop = coopAdjustment?.status === "included" && hasObservedDrop;
+  const nonCoopDropShare = canCompareCoopToObservedDrop && nonCoopDelta != null && overallDropAbs > 0
+    ? (Math.abs(nonCoopDelta) / overallDropAbs) * 100
+    : null;
+  const coopExplainsMostDrop = canCompareCoopToObservedDrop
+    && coopDropShare != null
+    && coopDropShare >= 60;
 
   return (
     <>
@@ -507,8 +516,8 @@ export default function TikTokOffImpactPage() {
                   TikTok OFF 전후 매출 영향 감사
                 </h1>
                 <p style={{ margin: 0, color: "#475569", lineHeight: 1.65, fontSize: 15 }}>
-                  TikTok 광고를 껐을 때 줄어든 매출이 TikTok 때문인지, Google·Meta·오가닉 중 어디에서 줄었는지
-                  VM Cloud 보조 원장과 GA4 교차검증으로 나눠 봅니다.
+                  TikTok 광고를 껐을 때 줄어든 매출을 보정 전 채널 분류와 공동구매 일정 보정으로 나눠 봅니다.
+                  채널 분류는 VM Cloud 보조 원장 기준이고, 공동구매 보정은 운영DB 공동구매 집계 기준입니다.
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -618,9 +627,19 @@ export default function TikTokOffImpactPage() {
                 />
                 <KpiCard
                   tone={topDrop?.label === "TikTok 광고" ? "amber" : "blue"}
-                  label="하락분이 가장 크게 잡힌 곳"
+                  label="보정 전 가장 크게 줄어 보인 채널"
                   value={topDrop?.label ?? "확인 불가"}
-                  sub={topDrop ? `${fmtKrwSigned(topDrop.deltaRevenuePerDay)} / 일 · 관측 하락 설명 ${topDrop.shareOfObservedDropPct?.toFixed(1) ?? "-"}%` : "분류 row 없음"}
+                  sub={topDrop ? `${fmtKrwSigned(topDrop.deltaRevenuePerDay)} / 일 · 공동구매 포함 원장 기준` : "분류 row 없음"}
+                />
+                <KpiCard
+                  tone={coopExplainsMostDrop ? "green" : "amber"}
+                  label="공동구매 제외 후 남는 하락"
+                  value={canCompareCoopToObservedDrop ? `${fmtKrwSigned(nonCoopDelta)} / 일` : "비교 불가"}
+                  sub={
+                    canCompareCoopToObservedDrop
+                      ? `전체 하락 중 ${nonCoopDropShare?.toFixed(1) ?? "-"}%만 남음 · 채널 원인 재판단 기준`
+                      : "전체 매출 하락이 확인될 때만 계산합니다."
+                  }
                 />
                 <KpiCard
                   tone={strictTikTokRevenue > 0 ? "amber" : "green"}
@@ -639,9 +658,11 @@ export default function TikTokOffImpactPage() {
                   label="공동구매 감소 영향"
                   value={coopAdjustment?.status === "included" ? `${fmtKrwSigned(coopDelta)} / 일` : "확인 불가"}
                   sub={
-                    coopAdjustment?.status === "included"
-                      ? `관측 하락 설명 ${coopDropShare?.toFixed(1) ?? "-"}% · 공동구매 제외 후 ${fmtKrwSigned(nonCoopDelta)} / 일`
-                      : "운영DB 공동구매 집계를 불러오지 못했습니다."
+                    canCompareCoopToObservedDrop
+                      ? `전체 하락 설명 ${coopDropShare?.toFixed(1) ?? "-"}% · 광고 채널과 별도 보정`
+                      : coopAdjustment?.status === "included"
+                        ? "운영DB 공동구매 집계는 포함됨 · 전체 하락 기준 비교 불가"
+                        : "운영DB 공동구매 집계를 불러오지 못했습니다."
                   }
                 />
               </section>
@@ -654,16 +675,29 @@ export default function TikTokOffImpactPage() {
                       <Pill tone="plain">조회 {fmtDate(data.checked_at)}</Pill>
                     </div>
                     <h2 style={{ margin: "12px 0 8px", fontSize: 24, lineHeight: 1.25 }}>
-                      TikTok을 꺼서 매출은 줄었지만, 현재 원장상 하락분은 TikTok보다 {topDropLabel} 쪽에서 크게 잡힙니다.
+                      {!hasObservedDrop
+                        ? "현재 기간에서는 전체 매출 하락이 확인되지 않습니다."
+                        : coopExplainsMostDrop
+                        ? "현재 부분 기간에서는 공동구매 감소를 먼저 빼고 봐야 합니다."
+                        : `현재 원장상 하락분은 TikTok보다 ${topDropLabel} 쪽에서 크게 잡힙니다.`}
                     </h2>
                     <p style={{ margin: 0, color: "#334155", lineHeight: 1.7 }}>
                       TikTok 광고비는 OFF 기간에 사실상 0원으로 내려갔고, 같은 기간 전체 결제완료 매출은 일평균
                       {` ${fmtKrw(data.overall.baseline.revenuePerDay)}에서 ${fmtKrw(data.overall.off.revenuePerDay)}로 `}
-                      줄었습니다. 다만 TikTok 직접 결제완료는 0원이고, VM Cloud 유입 근거 분류에서는 {topDropLabel} 라인이
-                      관측 하락분의 대부분을 설명합니다.
-                      {coopAdjustment?.status === "included"
-                        ? ` 같은 기간 운영DB 공동구매 매출도 일평균 ${fmtKrwSigned(coopDelta)} 변해, 공동구매 일정 효과를 함께 봐야 합니다.`
-                        : ""}
+                      {hasObservedDrop ? "줄었습니다." : "하락이 확인되지 않습니다."}
+                      {hasObservedDrop ? ` VM Cloud 보정 전 채널 분류에서는 ${topDropLabel} 라인이 가장 크게 줄어 보입니다.` : ""}
+                      {coopExplainsMostDrop
+                        ? ` 하지만 운영DB 공동구매 매출이 일평균 ${fmtKrwSigned(coopDelta)} 변해 전체 하락의 ${coopDropShare?.toFixed(1) ?? "-"}%를 설명하므로, 공동구매를 제외하면 남는 하락은 ${fmtKrwSigned(nonCoopDelta)} / 일입니다.`
+                        : hasObservedDrop
+                          ? " TikTok 직접 결제완료는 0원이라 대규모 미추적 가능성은 낮게 봅니다."
+                          : " 원장 매출이 0원으로 보이면 로컬 데이터 부족 또는 기간/source mismatch를 먼저 확인해야 합니다."
+                      }
+                      {!hasObservedDrop
+                        ? " 현재 기간에서는 전체 하락이 확인되지 않아 공동구매 보정 비중을 계산하지 않습니다."
+                        : coopAdjustment?.status !== "included"
+                          ? " 공동구매 보정은 아직 포함되지 않았습니다."
+                          : ""
+                      }
                     </p>
                   </div>
                   <div style={{ display: "grid", gap: 10 }}>
@@ -696,7 +730,7 @@ export default function TikTokOffImpactPage() {
                       <div>
                         <h2 style={{ margin: 0, fontSize: 22 }}>공동구매 보정 라인</h2>
                         <p style={{ margin: "8px 0 0", color: "#64748b", lineHeight: 1.55 }}>
-                          광고 채널 매출과 섞지 않고, 운영DB 공동구매 테이블을 별도 라인으로 비교합니다.
+                          보정 전 채널 매출에는 공동구매 주문이 섞일 수 있습니다. 그래서 운영DB 공동구매 테이블을 별도 라인으로 빼서 비교합니다.
                         </p>
                       </div>
                       <Pill tone={coopAdjustment.status === "included" ? "amber" : "red"}>
@@ -725,7 +759,7 @@ export default function TikTokOffImpactPage() {
                         <p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.55 }}>
                           공동구매 변화 {fmtKrwSigned(coopDelta)} / 일
                           <br />
-                          제외 후 남는 변화 {fmtKrwSigned(nonCoopDelta)} / 일
+                          제외 후 남는 변화 {canCompareCoopToObservedDrop ? `${fmtKrwSigned(nonCoopDelta)} / 일` : "비교 불가"}
                         </p>
                       </Card>
                     </div>
@@ -757,9 +791,9 @@ export default function TikTokOffImpactPage() {
               <Card>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: 22 }}>광고 OFF 전후 채널별 매출 변화</h2>
+                    <h2 style={{ margin: 0, fontSize: 22 }}>보정 전 채널별 매출 변화</h2>
                     <p style={{ margin: "8px 0 0", color: "#64748b", lineHeight: 1.55 }}>
-                      일평균 결제완료 매출 기준입니다. 기간 길이가 달라 총액이 아니라 하루 평균으로 비교합니다.
+                      VM Cloud 보조 원장의 일평균 결제완료 매출 기준입니다. 이 표에는 공동구매 주문이 포함될 수 있어 원인 확정값이 아니라 보정 전 분류값입니다.
                     </p>
                   </div>
                   <Pill tone="blue">source: VM Cloud 보조 원장</Pill>

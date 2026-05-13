@@ -1,8 +1,8 @@
 {
-  "updated_at_kst": "2026-05-13 18:10:00 KST",
-  "workstream": "tiktok_off_impact_coop_adjustment",
+  "updated_at_kst": "2026-05-13 18:35:00 KST",
+  "workstream": "tiktok_off_impact_coop_adjustment_ux_consistency",
   "lane": "Yellow approved VM Cloud frontend/backend deploy/restart",
-  "current_goal": "Show group-buy revenue change as a separate correction line on the TikTok OFF impact page without mixing it into ad-channel revenue.",
+  "current_goal": "Make the TikTok OFF impact page clearly separate pre-adjustment channel classification from post group-buy correction judgment.",
   "live_urls": {
     "frontend": "https://biocom.ainativeos.net/ads/tiktok/off-impact",
     "backend_api": "https://att.ainativeos.net/api/ads/tiktok/off-impact-audit",
@@ -29,7 +29,7 @@
       "baseline_kst": "2026-05-01 to 2026-05-07",
       "off_partial_kst": "2026-05-08 to 2026-05-12"
     },
-    "freshness": "2026-05-13 18:10 KST",
+    "freshness": "2026-05-13 18:35 KST",
     "confidence": 0.9
   },
   "latest_live_metrics": {
@@ -73,7 +73,11 @@
     "Added operational DB group-buy correction aggregate to the TikTok OFF impact API.",
     "Added group-buy correction KPI and card to the TikTok OFF impact frontend page.",
     "Added operational_db_coop field to the coop-order-summary API so VM Cloud item/master mismatch no longer appears as a false zero-only result.",
+    "Renamed the misleading frontend label from top drop cause wording to pre-adjustment channel wording.",
+    "Added a post group-buy correction KPI showing the residual daily drop after excluding group-buy movement.",
+    "Added frontend guard so residual drop is only displayed when an actual overall drop exists.",
     "Deployed backend/src/routes/ads.ts and frontend/src/app/ads/tiktok/off-impact/page.tsx to VM Cloud.",
+    "Deployed the frontend UX consistency correction to VM Cloud and restarted seo-frontend.",
     "Restarted seo-backend and seo-frontend.",
     "Verified live API, live frontend HTML, and live browser render."
   ],
@@ -89,6 +93,7 @@
     "live_coop_summary_api": "PASS",
     "live_frontend_html": "PASS",
     "live_browser_smoke": "PASS",
+    "live_ux_consistency_smoke": "PASS",
     "raw_identifier_scan": "PASS"
   },
   "server_state": {
@@ -99,7 +104,8 @@
       "seo_cloudflared": "online"
     },
     "backup_paths": [
-      "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-coop-adjustment-20260513T1755KST"
+      "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-coop-adjustment-20260513T1755KST",
+      "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-ux-consistency-20260513T1831KST"
     ]
   },
   "invariants": {

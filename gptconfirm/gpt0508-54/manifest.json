@@ -1,0 +1,62 @@
+{
+  "sprint": "gpt0508-54",
+  "title": "TikTok OFF frontend UX consistency correction",
+  "owner": "Codex",
+  "created_at_kst": "2026-05-13 18:35:00 KST",
+  "lane": "Yellow approved VM Cloud frontend deploy/restart continuation",
+  "documents": [
+    {
+      "path": "gptconfirm/gpt0508-54/00-result-report.md",
+      "purpose": "Human-readable report for the frontend consistency correction"
+    }
+  ],
+  "related_checkpoint_files": [
+    "gdn/current-handoff.md",
+    "data/current-state.json"
+  ],
+  "live_urls": {
+    "frontend": "https://biocom.ainativeos.net/ads/tiktok/off-impact",
+    "backend_api": "https://att.ainativeos.net/api/ads/tiktok/off-impact-audit"
+  },
+  "source_window_freshness_confidence": {
+    "source": {
+      "pre_adjustment_channel": "VM Cloud SQLite attribution_ledger direct read-only",
+      "coop_adjustment": "operational_db.public.tb_influencer_group_buy_customer read-only"
+    },
+    "window": {
+      "baseline_kst": "2026-05-01 to 2026-05-07",
+      "off_partial_kst": "2026-05-08 to 2026-05-12"
+    },
+    "freshness": "2026-05-13 18:35 KST",
+    "confidence": 0.91
+  },
+  "deployment": {
+    "vm_cloud_ip": "34.64.104.94",
+    "backup_path": "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-ux-consistency-20260513T1831KST",
+    "pm2": {
+      "seo_backend": "online",
+      "seo_frontend": "online",
+      "seo_cloudflared": "online"
+    }
+  },
+  "validation": {
+    "local_frontend_typecheck": "PASS",
+    "local_playwright_smoke": "PASS",
+    "remote_frontend_typecheck": "PASS",
+    "remote_frontend_build": "PASS",
+    "remote_frontend_restart": "PASS",
+    "live_frontend_http_200": "PASS",
+    "live_api_smoke": "PASS",
+    "live_browser_smoke": "PASS",
+    "raw_identifier_scan": "PASS",
+    "no_send_no_write_no_publish": "PASS"
+  },
+  "invariants": {
+    "backend_api_logic_changed": false,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  }
+}
