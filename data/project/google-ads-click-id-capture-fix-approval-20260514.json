@@ -1,0 +1,196 @@
+{
+  "contract_version": "google-ads-click-id-capture-fix-approval-v0.1",
+  "generated_at_kst": "2026-05-14T03:00:00+09:00",
+  "lane": "Green (approval packet — 실행 금지)",
+  "purpose": "click id capture root cause 분석 결과 도출된 9개 fix 후보를 Green/Yellow/Red 로 분류하고 TJ 승인 packet 으로 정리.",
+  "summary": {
+    "green_immediate_count": 1,
+    "yellow_approval_count": 5,
+    "red_approval_count": 3,
+    "total_count": 9
+  },
+  "items": [
+    {
+      "id": "G-1",
+      "lane": "Green",
+      "subject": "본 root-cause 산출 + approval packet 작성",
+      "owner": "Claude Code",
+      "status": "DONE",
+      "blocker": "none",
+      "evidence": [
+        "gdn/google-ads-click-id-capture-root-cause-20260514.md",
+        "data/project/google-ads-click-id-capture-root-cause-20260514.json"
+      ]
+    },
+    {
+      "id": "Y-1",
+      "lane": "Yellow",
+      "subject": "VM snapshot refresh cron 등록 — 24h TTL 자동화",
+      "owner": "Claude Code (TJ 1회 승인 후)",
+      "rationale": "RC-1. builder 가 5/5 snapshot 사용 중. 8일 stale. 자동 refresh 없으면 click id fill-rate 영구적으로 stale.",
+      "design": {
+        "script": "backend/scripts/vm-snapshot-refresh.ts (신규)",
+        "source": "att.ainativeos.net /api/attribution/ledger/snapshot",
+        "target": "backend/data/vm-attribution-snapshot.sqlite3 (atomic rename)",
+        "cron": "매일 KST 03:00",
+        "ttl_invariant": "vm_snapshot_age_hours <= 24",
+        "fail_safe": "builder DEFAULT_VM_DB 가 stale 시 fail-fast (exit code 1)"
+      },
+      "risk": "TTL gate 가 너무 엄격하면 dry-run pipeline 자체가 멈출 수 있음. 48h soft warn / 72h hard block 권장.",
+      "no_send_invariant": "snapshot refresh 단계는 read-only — Google Ads upload 0 유지",
+      "next_action_after_approval": "구현 → smoke test → audit",
+      "recommend_score": 88
+    },
+    {
+      "id": "Y-2",
+      "lane": "Yellow",
+      "subject": "npay_intent_log → order_no matching pipeline 구현",
+      "owner": "Claude Code (TJ 1회 승인 후)",
+      "rationale": "RC-4. 820 intents 중 715 gclid 보유. 그러나 matched_order_no 0건. 매칭 없으면 NPay actual confirmed 164건 중 5건만 eligible.",
+      "design": {
+        "matching_keys_in_priority": [
+          "intent_key (예: NPay intent_key 안에 order/merchant 정보 있음)",
+          "page_location query param merchant_uid",
+          "page_location query param orderNo / order_number",
+          "(client_id + captured_at window 30min) → 운영DB tb_iamweb_users order_date"
+        ],
+        "target_field": "npay_intent_log.matched_order_no",
+        "match_status_transition": "pending → matched / unmatched / ambiguous",
+        "cron": "매 시간 (또는 builder pre-step)",
+        "dedupe": "intent_key UNIQUE 유지"
+      },
+      "risk": "false-positive 매칭이 잘못된 gclid 를 order 에 부착할 수 있음. confidence A/B/C 등급 + ambiguous 처리 필요.",
+      "no_send_invariant": "매칭 결과는 npay_intent_log 의 matched_order_no 컬럼만 갱신. upload 자동 발화 없음.",
+      "next_action_after_approval": "구현 → 50건 manual audit → cron 등록",
+      "recommend_score": 86
+    },
+    {
+      "id": "Y-3",
+      "lane": "Yellow",
+      "subject": "server-side gclid echo route (Meta CAPI 패턴 따라)",
+      "owner": "Claude Code (TJ 1회 승인 후)",
+      "rationale": "RC-5. fbclid 는 checkout 22.9% → payment 33.8% 로 server-side fill 작동. gclid 동등 채널 부재.",
+      "design": {
+        "route": "backend/src/routes/funnelCapi.ts 안에 gclid echo logic 추가",
+        "trigger": "payment_success event 수신 시점에 session cache 의 gclid 를 attribution_ledger 에 fill",
+        "session_cache_source": "client_id + ga_session_id 기준 npay_intent_log lookup (RC-4 결과 활용)",
+        "field_target": "attribution_ledger.gclid (touchpoint=payment_success 만)",
+        "ttl": "30분 cache · 그 이후 unknown 으로 처리"
+      },
+      "risk": "잘못된 client session 매칭 시 다른 사용자 gclid 가 fill 될 수 있음. ga_session_id 까지 일치하는 경우만 fill.",
+      "no_send_invariant": "ledger 에 fill 되어도 upload 발화 없음. 별도 Red 단계에서 결정.",
+      "next_action_after_approval": "구현 → smoke 5건 → Preview 검증 → live 라이트 deploy",
+      "recommend_score": 82
+    },
+    {
+      "id": "Y-4",
+      "lane": "Yellow",
+      "subject": "Imweb attribution snippet patch deploy + checkout→payment query param 보존",
+      "owner": "Claude Code (TJ 1회 승인 후)",
+      "rationale": "RC-3. checkout_started gclid 440 → payment_success 19 retention 4.3%. snippet 에서 query param 을 다음 step 으로 forward 하지 않는 것으로 추정.",
+      "design": {
+        "file": "backend/src/imwebAttributionSnippet.ts",
+        "change": "checkout → payment 사이 query string 또는 sessionStorage 의 gclid/gbraid/wbraid 를 결제 redirect URL 에 포함",
+        "preserve_methods": [
+          "sessionStorage 'google_click_id_v1' 키 (TTL 30분)",
+          "결제 success URL 에 ?gclid=... 재첨부 (서버 echo 와 중복 안전)"
+        ]
+      },
+      "risk": "결제 URL 에 query param 첨부 시 user-visible URL 에 click_id 노출 — sessionStorage 우선",
+      "no_send_invariant": "snippet patch 만으로 upload 발화 없음",
+      "next_action_after_approval": "snippet 수정 → Preview 검증 → live 배포",
+      "recommend_score": 80
+    },
+    {
+      "id": "Y-5",
+      "lane": "Yellow",
+      "subject": "GTM Preview verification — marketing_intent landing trigger 발화 시점 점검",
+      "owner": "TJ (UI) + Claude Code (분석)",
+      "rationale": "RC-2. marketing_intent ledger 10,119 rows / gclid 0. landing 시점 trigger 가 gclid query param 읽기 전에 발화하거나, query allowlist 가 좁음.",
+      "design": {
+        "step_1": "GTM Preview 모드에서 광고 클릭 URL (gclid 포함) 진입 → marketing_intent fire 시점에 dataLayer 확인",
+        "step_2": "GTM trigger 의 query param read timing 확인",
+        "step_3": "allowlist 에 gclid/gbraid/wbraid 모두 포함되어 있는지 확인"
+      },
+      "risk": "TJ UI 작업 필요 — Claude Code 직접 실행 불가",
+      "no_send_invariant": "Preview 단계 — Production publish 별도 Red 승인",
+      "recommend_score": 78
+    },
+    {
+      "id": "R-1",
+      "lane": "Red",
+      "subject": "GTM Production publish — marketing_intent landing capture 강화",
+      "owner": "TJ",
+      "rationale": "Y-5 Preview 검증 후 Production publish 필요. RC-2 의 근본 해결.",
+      "design": {
+        "blocked_by": "Y-5 Preview verification 결과 첨부",
+        "ramp": "10% → 50% → 100% (GTM has no canary, but post-publish monitor)",
+        "rollback": "GTM 이전 version revert"
+      },
+      "risk": "Production tag 변경은 GA4 / Meta CAPI / 기타 dispatch 에 영향 가능. 사전 site_summary baseline lock.",
+      "no_send_invariant": "Google Ads upload 자동 발화 없음 — 별도 R-3 결정",
+      "recommend_score": 75
+    },
+    {
+      "id": "R-2",
+      "lane": "Red",
+      "subject": "8 PURCHASE primary action 정리 (UA 4개 deprecate + GA4 imported 3개 분리 + 구매완료 유지/강등)",
+      "owner": "TJ + Claude Code (제안)",
+      "rationale": "BI confirmed_purchase_offline 향후 primary 승격 결정 전 학습 신호 정리. UA (Universal Analytics) 는 2023-07 sunset 이므로 실데이터 흐름 끊겼을 가능성.",
+      "design_link": "data/project/google-ads-purchase-primary-inventory-20260514.json",
+      "risk": "primary 변경 시 입찰 학습 reset / ROAS 변동 가능. canary period 2주 권장.",
+      "no_send_invariant": "upload 자동 발화 없음",
+      "recommend_score": 72
+    },
+    {
+      "id": "R-3",
+      "lane": "Red",
+      "subject": "Google Ads BI confirmed_purchase_offline upload canary (action 7609289411)",
+      "owner": "TJ",
+      "rationale": "fill-rate 50%+ 도달 후 + earliest_safe_canary 시점 (2026-05-15 01:44 KST 이후 권장) 가능. 본 sprint 는 1.03%, canary 불가.",
+      "design": {
+        "blocker": ["Y-1 snapshot refresh", "Y-2 intent matching", "Y-3 server-side gclid echo", "Y-4 snippet patch", "Y-5 + R-1 GTM publish"],
+        "canary_size": "1일 5건 → 7일 50건 → 28일 500건",
+        "rollback": "ClickConversionUploadService.adjustment_type=RETRACT 또는 즉시 action ENABLED=false"
+      },
+      "risk": "Google Ads 학습 신호 영향. ROAS / 입찰 disruption 가능. site_summary baseline 확보 필수.",
+      "no_send_invariant_until_approval": "본 sprint 종료까지 upload 0",
+      "recommend_score": 68
+    }
+  ],
+  "blockers_dependency_graph": {
+    "Y-1": [],
+    "Y-2": ["Y-1"],
+    "Y-3": ["Y-1", "Y-2"],
+    "Y-4": ["Y-1"],
+    "Y-5": [],
+    "R-1": ["Y-5"],
+    "R-2": [],
+    "R-3": ["Y-1", "Y-2", "Y-3", "Y-4", "Y-5", "R-1"]
+  },
+  "invariants_held": {
+    "google_ads_conversion_action_mutate": 0,
+    "google_ads_upload_send": 0,
+    "bi_primary_change": 0,
+    "existing_primary_modified": 0,
+    "techsol_modified": 0,
+    "techsol_deleted": 0,
+    "campaign_mutate": 0,
+    "campaign_budget_mutate": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "vm_cloud_sqlite_schema_migration": 0,
+    "gtm_publish": 0,
+    "backend_deploy": 0,
+    "backend_restart": 0,
+    "cron_registration": 0,
+    "monitor_automation": 0,
+    "external_send_count": 0,
+    "raw_identifier_leak": false
+  },
+  "tj_decision_required": [
+    "어느 Yellow 후보 (Y-1 ~ Y-5) 를 먼저 진행할지 priority",
+    "Red 후보 (R-1 GTM publish / R-2 8 primary 정리 / R-3 upload canary) 의 별도 sprint 분리 시점",
+    "Google Ads UI 의 BI action click window 90→30 / view 3→1 mismatch 재확인 결과"
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "contract_version": "google-ads-purchase-primary-inventory-v0.1",
+  "generated_at_kst": "2026-05-14T03:05:00+09:00",
+  "lane": "Green",
+  "mode": "read_only_inventory",
+  "purpose": "Google Ads customer 214-999-0943 의 PURCHASE category conversion action 11개 (primary 8 + secondary 3) 를 read-only 로 정리. 본 sprint 는 mutate 0. 정리 순서 초안만.",
+  "source": {
+    "api": "Google Ads API v22 conversion_action",
+    "endpoint": "/api/google-ads/dashboard?date_preset=last_30d",
+    "customer_id": "2149990943",
+    "fetched_at_kst": "2026-05-14T01:44:15+09:00"
+  },
+  "primaries": [
+    {
+      "id": "782218494",
+      "name": "Transactions (A_view)",
+      "type": "UNIVERSAL_ANALYTICS_TRANSACTION",
+      "status": "ENABLED",
+      "primary_for_goal": true,
+      "click_through_lookback_window_days": 30,
+      "view_through_lookback_window_days": null,
+      "deprecation_concern": "UA sunset 2023-07-01. 새 데이터 흐름 없을 가능성 높음 — 학습 신호로는 stale.",
+      "recommended_action": "deprecate (primary_for_goal=false) 또는 status=REMOVED 검토",
+      "risk_level": "low (UA dead source)"
+    },
+    {
+      "id": "916482221",
+      "name": "Transactions (바이오컴펫_main - 필터적용)",
+      "type": "UNIVERSAL_ANALYTICS_TRANSACTION",
+      "status": "ENABLED",
+      "primary_for_goal": true,
+      "click_through_lookback_window_days": 30,
+      "deprecation_concern": "UA sunset 2023-07-01. 동일 사유.",
+      "recommended_action": "deprecate",
+      "risk_level": "low"
+    },
+    {
+      "id": "916483619",
+      "name": "더클린커피 웹 (web) purchase",
+      "type": "GOOGLE_ANALYTICS_4_PURCHASE",
+      "status": "ENABLED",
+      "primary_for_goal": true,
+      "click_through_lookback_window_days": 30,
+      "deprecation_concern": "더클린커피 (thecleancoffee) 사이트 GA4 purchase import. biocom primary 학습에 외부 site 신호 포함 — 입찰 모델 혼선 가능성.",
+      "recommended_action": "biocom 만 학습하려면 secondary 강등 또는 별도 campaign 분리",
+      "risk_level": "medium (cross-site signal)"
+    },
+    {
+      "id": "917303941",
+      "name": "바이오컴펫_와이즈 - GA4 (web) purchase",
+      "type": "GOOGLE_ANALYTICS_4_PURCHASE",
+      "status": "ENABLED",
+      "primary_for_goal": true,
+      "click_through_lookback_window_days": 30,
+      "deprecation_concern": "바이오컴펫 사이트 GA4 purchase. biocom main 과 분리할지 결정 필요.",
+      "recommended_action": "campaign 매핑 검토 — biocom main campaign 에 잡히면 secondary 강등",
+      "risk_level": "medium"
+    },
+    {
+      "id": "917325117",
+      "name": "Transactions (전체 웹사이트 데이터)",
+      "type": "UNIVERSAL_ANALYTICS_TRANSACTION",
+      "status": "ENABLED",
+      "primary_for_goal": true,
+      "click_through_lookback_window_days": 30,
+      "deprecation_concern": "UA sunset.",
+      "recommended_action": "deprecate",
+      "risk_level": "low"
+    },
+    {
+      "id": "922178603",
+      "name": "[G4] biocom.kr (web) in_app_purchase",
+      "type": "GOOGLE_ANALYTICS_4_CUSTOM",
+      "status": "ENABLED",
+      "primary_for_goal": true,
+      "click_through_lookback_window_days": 90,
+      "deprecation_concern": "GA4 custom event in_app_purchase. biocom 사이트 GA4 신호 — 실제 결제완료와 별개 가능성. 90d window 가 가장 김.",
+      "recommended_action": "신호 quality audit 후 secondary 강등 검토",
+      "risk_level": "medium-high"
+    },
+    {
+      "id": "945320590",
+      "name": "Transactions (전체 웹사이트 데이터)",
+      "type": "UNIVERSAL_ANALYTICS_TRANSACTION",
+      "status": "ENABLED",
+      "primary_for_goal": true,
+      "click_through_lookback_window_days": 30,
+      "deprecation_concern": "UA sunset. 917325117 과 동일 이름 — 중복 가능성.",
+      "recommended_action": "deprecate (917325117 과 함께 정리)",
+      "risk_level": "low"
+    },
+    {
+      "id": "7130249515",
+      "name": "구매완료",
+      "type": "WEBPAGE",
+      "status": "ENABLED",
+      "primary_for_goal": true,
+      "click_through_lookback_window_days": 7,
+      "deprecation_concern": "현재 biocom main 결제완료 primary. NPay click trigger 와 직접 연결 가능성 (이전 sprint 분석). 7d window 가 가장 짧음.",
+      "recommended_action": "현 sprint 유지 (다른 8개 정리 후 NPay click 신호 재검토)",
+      "risk_level": "high (active primary)"
+    }
+  ],
+  "secondaries": [
+    {
+      "id": "6630514046",
+      "name": "[G4] biocom.kr (web) 결제완료",
+      "type": "GOOGLE_ANALYTICS_4_CUSTOM",
+      "status": "ENABLED",
+      "primary_for_goal": false,
+      "click_through_lookback_window_days": 90,
+      "deprecation_concern": "이미 secondary. 신호 quality audit 필요 (실제 결제완료와 일치율).",
+      "recommended_action": "유지 (BI confirmed_purchase_offline 와 비교 baseline)",
+      "risk_level": "low"
+    },
+    {
+      "id": "7564830949",
+      "name": "TechSol - NPAY구매 50739",
+      "type": "WEBPAGE",
+      "status": "ENABLED",
+      "primary_for_goal": false,
+      "click_through_lookback_window_days": 90,
+      "deprecation_concern": "이름과 달리 NPay 클릭/intent 신호. 90d window — All conversion value 에 ~₩1.7억~1.9억 추가 (이전 sprint).",
+      "recommended_action": "유지 (이전 sprint decision — NPay click 보조 신호)",
+      "risk_level": "low"
+    },
+    {
+      "id": "7609289411",
+      "name": "BI confirmed_purchase_offline",
+      "type": "UPLOAD_CLICKS",
+      "status": "ENABLED",
+      "primary_for_goal": false,
+      "click_through_lookback_window_days": 30,
+      "deprecation_concern": "어제 TJ UI 신규 생성. 향후 primary 승격 후보. 현재 upload 0.",
+      "recommended_action": "유지 (click id fill-rate 개선 후 canary)",
+      "risk_level": "low"
+    }
+  ],
+  "cleanup_order_draft": [
+    {
+      "step": 1,
+      "action": "UA 4개 (782218494, 916482221, 917325117, 945320590) primary_for_goal=false 또는 status=REMOVED",
+      "rationale": "UA 2023-07-01 sunset, 새 데이터 흐름 없음 — 학습 신호 dead",
+      "expected_impact": "입찰 모델에서 dead 신호 4개 제거. 새 학습 시그널 정리.",
+      "rollback": "primary_for_goal=true 로 복원",
+      "blocker": "Red Lane 명시 승인"
+    },
+    {
+      "step": 2,
+      "action": "GA4 imported 외부 site (916483619 더클린커피, 917303941 바이오컴펫_와이즈) campaign 매핑 audit → biocom 학습에 포함되면 secondary 강등",
+      "rationale": "cross-site 신호로 biocom 입찰 모델 혼선 방지",
+      "expected_impact": "biocom 학습이 biocom 신호만 사용",
+      "rollback": "primary_for_goal=true 로 복원"
+    },
+    {
+      "step": 3,
+      "action": "922178603 ([G4] in_app_purchase) 신호 quality audit + secondary 강등 검토",
+      "rationale": "GA4 custom event 와 실제 결제완료 일치율 확인",
+      "expected_impact": "GA4 신호 정리"
+    },
+    {
+      "step": 4,
+      "action": "BI confirmed_purchase_offline (7609289411) primary 승격 (fill-rate 50%+ + canary 통과 후)",
+      "rationale": "직접 upload-based 신호로 입찰 학습",
+      "blocker": "Y-1~Y-5 + R-1 + fill-rate 개선"
+    },
+    {
+      "step": 5,
+      "action": "구매완료 (7130249515) secondary 강등 검토",
+      "rationale": "NPay click trigger 와 직접 연결되어 있어 BI 가 안정화되면 강등 가능",
+      "blocker": "BI primary 승격 후 2주 monitoring"
+    }
+  ],
+  "this_sprint_invariants_held": {
+    "primary_for_goal_change_count": 0,
+    "status_remove_count": 0,
+    "campaign_mutate": 0,
+    "campaign_budget_mutate": 0,
+    "google_ads_upload_send": 0
+  },
+  "no_action_in_this_sprint": "본 inventory 는 read-only 정본. 실제 정리 (step 1~5) 는 별도 Red Lane sprint 에서 TJ 명시 승인 후 진행."
+}

@@ -1,0 +1,248 @@
+{
+  "contract_version": "google-ads-click-id-capture-root-cause-v0.1",
+  "generated_at_kst": "2026-05-14T02:50:00+09:00",
+  "lane": "Green",
+  "mode": "read_only_root_cause_investigation",
+  "verdict": "B_ROOT_CAUSE_FOUND_APPROVAL_NEEDED",
+  "verdict_one_line": "click id capture funnel 5단계 추적 결과 원인 5+개 A-grade 특정. Green fix design 일부 가능하지만 실제 fix 는 backend patch deploy / snapshot refresh cron / GTM publish / Google Ads UI 변경 등 Yellow~Red 승인 필요.",
+  "ten_second_summary": [
+    "광고 클릭 진입 시점 (marketing_intent, 10,119건) gclid capture 0건 — landing 단계에서 query param 이 ledger 에 들어오지 않음",
+    "checkout_started 단계 gclid 440건 (11.1%) → payment_success 19건 (1.30%) — 결제 funnel 에서 95.7% 가 손실",
+    "같은 funnel 의 fbclid 는 checkout 22.9% → payment_success 33.8% (서버 증식) — Meta CAPI 패턴 작동 중. Google 은 동등 채널 부재",
+    "npay_intent_log 820건 중 715건 (87%) 이 gclid 보유 — 그러나 matched_order_no 100% pending (single match 0건) — intent → order bridge 자체 미작동",
+    "builder source vm-npay-intent-20260505.sqlite3 는 5/5 까지 snapshot — 9일 stale. 5/6~5/13 click capture 미반영"
+  ],
+  "source": {
+    "vm_snapshot": "backend/data/vm-npay-intent-20260505.sqlite3",
+    "vm_snapshot_age_days": 9,
+    "operational_db": "tb_iamweb_users",
+    "builder_script": "backend/scripts/bi-confirmed-purchase-operational-dry-run.ts",
+    "click_id_extraction_path": "attribution_ledger.gclid + npay_intent_log.gclid (via matched_order_no)"
+  },
+  "window": {
+    "since_kst": "2026-04-14",
+    "until_kst": "2026-05-13",
+    "days": 30
+  },
+  "funnel_stages": {
+    "A_google_ads_click_landing": {
+      "source": "attribution_ledger touchpoint='marketing_intent'",
+      "rows_total": 10119,
+      "with_gclid": 0,
+      "with_gbraid": 0,
+      "with_wbraid": 0,
+      "with_fbclid": 0,
+      "gclid_fill_rate_pct": 0.0,
+      "observation": "광고 진입 시점 marketing_intent ledger 에는 gclid 가 단 한 건도 없음. landing 시점 capture 실패의 직접 증거."
+    },
+    "B_checkout_started": {
+      "source": "attribution_ledger touchpoint='checkout_started'",
+      "rows_total": 3962,
+      "with_gclid": 440,
+      "with_fbclid": 910,
+      "gclid_fill_rate_pct": 11.10,
+      "fbclid_fill_rate_pct": 22.97,
+      "observation": "체크아웃 단계에선 일부 gclid 회복 (Imweb checkout snippet 동작). 그러나 fbclid 의 절반 수준."
+    },
+    "C_payment_success": {
+      "source": "attribution_ledger touchpoint='payment_success' AND payment_status='confirmed'",
+      "rows_total": 1466,
+      "with_gclid": 19,
+      "with_fbclid": 496,
+      "gclid_fill_rate_pct": 1.30,
+      "fbclid_fill_rate_pct": 33.83,
+      "observation": "결제완료까지 gclid retention 19/440 = 4.3% — NPay/Imweb 결제 flow 에서 query param 보존 실패. fbclid 는 33.8% 로 오히려 증가 — Meta CAPI 서버 측 fill 패턴이 Google 에는 없음."
+    },
+    "D_npay_intent": {
+      "source": "npay_intent_log site=biocom environment=live",
+      "rows_total": 820,
+      "with_gclid": 715,
+      "with_gbraid": 1,
+      "with_wbraid": 0,
+      "with_fbclid": 25,
+      "gclid_fill_rate_pct": 87.20,
+      "matched_order_no_count": 0,
+      "match_status_breakdown": { "pending": 820 },
+      "observation": "NPay intent capture 단계는 gclid 87% — 매우 잘 받음. 그러나 matched_order_no 0건 — intent → order bridge 가 0건 완성. builder 가 NPay intent gclid 를 사용 못 함."
+    },
+    "E_builder_input": {
+      "source": "backend/scripts/bi-confirmed-purchase-operational-dry-run.ts indexVmLedger + indexVmNpayIntents",
+      "ledger_join_keys": ["order_id", "payment_key", "referrerPayment.orderNo/orderId/channelOrderNo", "metadata.order_number"],
+      "intent_join_keys": ["matched_order_no"],
+      "observation": "builder 는 attribution_ledger 의 order_id/payment_key 기준 join. NPay intent 는 matched_order_no 가 비어있어 builder 에 도달 못함. ledger 단계에서 1.30% 만 살아 있어 결과 with_google_click_id=23 (운영DB 2,225 대비 1.03%)."
+    }
+  },
+  "root_causes": [
+    {
+      "id": "RC-1",
+      "topic": "VM snapshot stale",
+      "evidence": "data/vm-npay-intent-20260505.sqlite3 mtime 2026-05-05 22:01, builder DEFAULT_VM_DB 이 이 파일을 정본으로 사용. window 2026-04-14~2026-05-13 중 마지막 8일 (5/6~5/13) 의 click capture 가 ledger 에 없음.",
+      "affected_count": "추정 ~600 row (1227 × 8/14)",
+      "confidence": "A",
+      "green_fix_possible": "snapshot refresh policy 설계 (산출만)",
+      "yellow_red_needed": "Yellow — backend cron 등록 / VM snapshot pull 자동화",
+      "next_action": "approval packet 작성"
+    },
+    {
+      "id": "RC-2",
+      "topic": "marketing_intent landing 단계 gclid 0건",
+      "evidence": "attribution_ledger touchpoint='marketing_intent' rows=10,119 / with_gclid=0 (last_30d biocom_imweb).",
+      "affected_count": "10,119 landing rows · 결제완료 매출 영향 분리 필요",
+      "confidence": "A",
+      "green_fix_possible": "landing capture 시점 GTM trigger / query param allowlist audit (read-only 분석)",
+      "yellow_red_needed": "Yellow — GTM Preview verification · Red — GTM Production publish",
+      "next_action": "approval packet 작성"
+    },
+    {
+      "id": "RC-3",
+      "topic": "checkout → payment retention 4.3%",
+      "evidence": "checkout_started gclid 440 → payment_success gclid 19. 421 drop. 같은 funnel fbclid 는 oppositely 910→496 (54% retention) — Meta server CAPI fill 작동, Google 없음.",
+      "affected_count": "421 dropped click candidates · NPay/Imweb 결제 redirect 경로 영향",
+      "confidence": "A",
+      "green_fix_possible": "Imweb attribution snippet · NPay return URL · checkout flow 점검 (read-only)",
+      "yellow_red_needed": "Yellow — attribution snippet patch deploy · Red — GTM Production publish",
+      "next_action": "approval packet 작성"
+    },
+    {
+      "id": "RC-4",
+      "topic": "npay_intent_log matched_order_no 0건",
+      "evidence": "npay_intent_log biocom live 820 rows, match_status='pending' 820 (100%), matched_order_no='' 820 (100%). intent → order matching pipeline 단 한 건도 작동 안 함.",
+      "affected_count": "715 gclid-bearing intents 미사용 · 운영DB NPay actual 164건 중 5건만 eligible 의 직접 원인",
+      "confidence": "A",
+      "green_fix_possible": "matching pipeline 설계 (intent_key / page_location order_no 추출 / merchant_uid join key) — read-only 설계",
+      "yellow_red_needed": "Yellow — matching cron 등록 / backend route patch deploy",
+      "next_action": "approval packet 작성"
+    },
+    {
+      "id": "RC-5",
+      "topic": "server-side gclid fill 채널 부재 (Meta CAPI 비교)",
+      "evidence": "동일 attribution_ledger 안에서 fbclid 가 checkout 22.9% → payment_success 33.8% 로 증가 — Meta CAPI 서버 측 echo. gclid 는 11.1% → 1.30% 로 감소 — 동등 채널 부재.",
+      "affected_count": "전체 funnel — 모든 stage 영향",
+      "confidence": "A",
+      "green_fix_possible": "Meta CAPI 코드 패턴 분석 / server-side gclid echo route 설계 (read-only)",
+      "yellow_red_needed": "Yellow — backend route patch deploy + GTM tag patch (Preview)",
+      "next_action": "approval packet 작성"
+    },
+    {
+      "id": "RC-6",
+      "topic": "gbraid / wbraid 거의 0건",
+      "evidence": "attribution_ledger 전체에서 gbraid=1, wbraid=0 (npay_intent_log 안에서). iOS App campaign / cookieless restricted 광고에서 들어오는 클릭 ID 채널 미수신.",
+      "affected_count": "iOS App / restricted 광고 클릭 — 추정 작은 수치 (운영DB raw_data 확인 필요)",
+      "confidence": "B",
+      "green_fix_possible": "landing capture allowlist 에 gbraid/wbraid query param 추가 여부 확인 (read-only audit)",
+      "yellow_red_needed": "Yellow — GTM trigger 확장 · Red — GTM publish",
+      "next_action": "approval packet 작성"
+    },
+    {
+      "id": "RC-7",
+      "topic": "site_landing_ledger 로컬 0 rows",
+      "evidence": "backend/data/crm.sqlite3 site_landing_ledger 테이블 정의 있으나 row=0. attribution_ledger marketing_intent 가 사실상 대체.",
+      "affected_count": "분리 capture path 미작동 — 그러나 attribution_ledger 가 같은 역할 수행 중이라 이중 누락 아님",
+      "confidence": "B",
+      "green_fix_possible": "site_landing_ledger 사용 정책 결정 (deprecated 명시 또는 활성화 plan)",
+      "yellow_red_needed": "Yellow — schema migration / 활성화 결정",
+      "next_action": "정책 문서화"
+    }
+  ],
+  "homepage_vs_npay_drilldown": {
+    "homepage_confirmed_orders_last_30d": 2061,
+    "homepage_eligible_with_click_id": 18,
+    "homepage_root_cause_split": {
+      "landing_capture_failure_marketing_intent_gclid_0_pct": "primary — 10,119 landing rows 중 0건 capture",
+      "checkout_payment_retention_4_3_pct": "primary — 440 checkout gclid 중 19 만 살아남음",
+      "snapshot_stale_8_days": "secondary — 5/6 이후 데이터 미반영"
+    },
+    "npay_actual_confirmed_orders_last_30d": 164,
+    "npay_eligible_with_click_id": 5,
+    "npay_root_cause_split": {
+      "intent_match_pipeline_failure_matched_order_no_0_pct": "primary — 820 intent 중 715 gclid 가 매칭 불가",
+      "snapshot_stale_8_days": "secondary"
+    }
+  },
+  "purchase_primary_inventory_link": {
+    "summary": "별도 산출 google-ads-purchase-primary-inventory-20260514.md 참조. 본 sprint 에서 mutate 0.",
+    "ref": "data/project/google-ads-purchase-primary-inventory-20260514.json"
+  },
+  "fix_approval_packet_link": {
+    "ref": "data/project/google-ads-click-id-capture-fix-approval-20260514.json",
+    "lane_breakdown": {
+      "green_immediate": 1,
+      "yellow_approval": 5,
+      "red_approval": 3
+    }
+  },
+  "invariants_held": {
+    "google_ads_conversion_action_mutate": 0,
+    "google_ads_upload_send": 0,
+    "bi_primary_change": 0,
+    "existing_primary_modified": 0,
+    "techsol_modified": 0,
+    "techsol_deleted": 0,
+    "campaign_mutate": 0,
+    "campaign_budget_mutate": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "vm_cloud_sqlite_schema_migration": 0,
+    "gtm_publish": 0,
+    "backend_deploy": 0,
+    "backend_restart": 0,
+    "cron_registration": 0,
+    "monitor_automation": 0,
+    "external_send_count": 0,
+    "raw_identifier_leak": false
+  },
+  "next_actions_3_step": {
+    "now_today": [
+      {
+        "id": "now-1",
+        "subject": "approval packet decision — TJ 가 5 Yellow + 3 Red 후보 검토",
+        "owner": "TJ",
+        "lane": "Decision",
+        "rationale": "fix 실행 차단 해제 결정 필요. Yellow 5개 (snapshot refresh, intent matching cron, server-side gclid echo, snippet patch deploy, GTM Preview verify) 와 Red 3개 (GTM publish, 8 PURCHASE primary 정리, Google Ads upload canary) 의 우선순위 결정."
+      }
+    ],
+    "this_week": [
+      {
+        "id": "week-1",
+        "subject": "Yellow #1 — VM snapshot refresh cron 등록 + 운영 attribution VM 에서 직접 pull (snapshot age <24h 유지)",
+        "owner": "Claude Code",
+        "lane": "Yellow",
+        "blocker": "TJ 1회 승인"
+      },
+      {
+        "id": "week-2",
+        "subject": "Yellow #2 — npay_intent_log → order_no matching pipeline 구현 (intent_key 또는 page_location 의 order_no 추출 → order_bridge_ledger join)",
+        "owner": "Claude Code",
+        "lane": "Yellow",
+        "blocker": "TJ 1회 승인"
+      },
+      {
+        "id": "week-3",
+        "subject": "Yellow #3 — server-side gclid echo route (Meta CAPI 패턴 따라 funnel-capi v3 안에 gclid 채워넣기)",
+        "owner": "Claude Code",
+        "lane": "Yellow",
+        "blocker": "TJ 1회 승인 · Preview 단계 검증"
+      }
+    ],
+    "next_batch": [
+      {
+        "id": "batch-1",
+        "subject": "Red #1 — GTM Production publish (marketing_intent landing capture 강화)",
+        "owner": "TJ",
+        "lane": "Red"
+      },
+      {
+        "id": "batch-2",
+        "subject": "Red #2 — 8 PURCHASE primary 정리 (UA 4개 deprecate 후보)",
+        "owner": "TJ + Claude Code",
+        "lane": "Red"
+      },
+      {
+        "id": "batch-3",
+        "subject": "Red #3 — Google Ads BI confirmed_purchase_offline upload canary (fill-rate 50%+ 도달 후)",
+        "owner": "TJ",
+        "lane": "Red"
+      }
+    ]
+  }
+}
