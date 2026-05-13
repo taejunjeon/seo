@@ -1,0 +1,76 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-13 13:00:59",
+  "lane": "Green read-only readiness; no upload/send/write/deploy",
+  "source_window_freshness_confidence": {
+    "source": {
+      "platform_claim": "Google Ads dashboard API read-only cached evidence",
+      "biocom_actual": "운영DB PostgreSQL dashboard.public.tb_iamweb_users PAYMENT_COMPLETE snapshot via dashboard correction",
+      "coffee_actual": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders monitor"
+    },
+    "window": "last_7d and last_30d for ROAS; coffee latest 30d monitor for cross-site reference",
+    "freshness": {
+      "roas_input": "/Users/vibetj/coding/seo/data/project/roas-gap-recompute-20260513.json",
+      "coffee_checked_at_kst": "2026-05-13 12:56:38",
+      "coffee_max_order_time": "2026-05-13T02:38:12.000Z",
+      "coffee_max_synced_at": "2026-05-13 03:44:57",
+      "coffee_max_status_synced_at": "2026-05-12 04:11:07"
+    },
+    "confidence": 0.88
+  },
+  "ready_windows": [
+    {
+      "window": "last_7d",
+      "platform_roas_reference": 10.5157,
+      "platform_cost_krw": 3621240.75,
+      "platform_conversion_value_krw": 38080022.54,
+      "internal_current_roas": 0.4059,
+      "internal_with_biocom_npay_actual_roas": 3.1788,
+      "remaining_gap_after_budget_value_roas_points": 7.3369,
+      "coffee_overlay_is_budget_roas": false,
+      "coffee_overlay_reference_roas": 4.8451
+    },
+    {
+      "window": "last_30d",
+      "platform_roas_reference": 10.2673,
+      "platform_cost_krw": 22055513.52,
+      "platform_conversion_value_krw": 226450143.41,
+      "internal_current_roas": 0.2924,
+      "internal_with_biocom_npay_actual_roas": 2.0722,
+      "remaining_gap_after_budget_value_roas_points": 8.1951,
+      "coffee_overlay_is_budget_roas": false,
+      "coffee_overlay_reference_roas": 2.7509
+    }
+  ],
+  "latest_coffee_monitor": {
+    "actual_count": 317,
+    "actual_amount": 15547500,
+    "status_blank_count": 28,
+    "status_blank_amount": 1848000,
+    "status_sync_lag_hours": 23.76,
+    "warnings": [
+      "ga4_guard_not_actual_source",
+      "status_blank_rows_included_with_warning",
+      "status_sync_stale_over_6h"
+    ]
+  },
+  "next_recompute_inputs_needed": [
+    "fresh Google Ads dashboard last_7d and last_30d read-only snapshots",
+    "fresh biocom NPay actual correction from 운영DB PostgreSQL PAYMENT_COMPLETE",
+    "fresh coffee actual monitor from VM Cloud SQLite imweb_orders",
+    "same-window internal confirmed revenue and ad spend",
+    "campaign/site spend mapping before coffee can be used for budget ROAS"
+  ],
+  "recommended_next_command": [
+    "curl -sS 'http://localhost:7020/api/google-ads/dashboard?date_preset=last_7d'",
+    "curl -sS 'http://localhost:7020/api/google-ads/dashboard?date_preset=last_30d'",
+    "cd backend && npx tsx scripts/coffee-actual-status-monitor.ts --output=../data/project/coffee-actual-status-monitor-script-YYYYMMDD.json"
+  ],
+  "correction_contract_snapshot": {
+    "file": "/Users/vibetj/coding/seo/data/project/total-correction-line-contract-20260513.json",
+    "generated_at_kst": "2026-05-13 12:56:38 KST"
+  },
+  "no_send": true,
+  "no_write": true,
+  "raw_identifier_output": false
+}

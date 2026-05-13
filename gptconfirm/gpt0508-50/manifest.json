@@ -1,0 +1,59 @@
+{
+  "sprint": "gpt0508-50",
+  "owner": "Codex",
+  "created_at_kst": "2026-05-13 13:05:00 KST",
+  "lane": "Green local code/docs/read-only verification; Yellow approval required for cron and operating deploy",
+  "documents": [
+    {
+      "path": "gptconfirm/gpt0508-50/00-result-report.md",
+      "purpose": "Human-first result report"
+    },
+    {
+      "path": "gptconfirm/gpt0508-50/01-coffee-status-monitor.md",
+      "purpose": "Coffee actual status monitor script, latest result, and cron approval scope"
+    },
+    {
+      "path": "gptconfirm/gpt0508-50/02-total-ux-decision-layer.md",
+      "purpose": "/total UX decision layer implementation and smoke evidence"
+    },
+    {
+      "path": "gptconfirm/gpt0508-50/03-roas-gap-and-imweb-ux-gap.md",
+      "purpose": "ROAS recompute readiness and Imweb UX comparison"
+    },
+    {
+      "path": "gptconfirm/gpt0508-50/04-next-actions-and-approval.md",
+      "purpose": "Cron, operating deploy, and recompute approval/actions"
+    },
+    {
+      "path": "gptconfirm/gpt0508-50/99-total-current-copy.md",
+      "purpose": "Snapshot copy of total current context"
+    }
+  ],
+  "evidence": {
+    "coffee_monitor_json": "data/project/coffee-actual-status-monitor-script-20260513.json",
+    "total_smoke_json": "data/project/total-ux-decision-layer-smoke-20260513.json",
+    "total_screenshot": "data/project/total-ux-decision-layer-20260513.png",
+    "roas_readiness_json": "data/project/roas-gap-recompute-readiness-20260513.json",
+    "current_state": "data/current-state.json",
+    "current_handoff": "gdn/current-handoff.md"
+  },
+  "validation": {
+    "json_parse": "PASS",
+    "backend_typecheck": "PASS",
+    "frontend_typecheck": "PASS",
+    "frontend_targeted_eslint_total": "PASS",
+    "frontend_full_lint": "FAIL_pre_existing_unrelated",
+    "git_diff_check": "PASS",
+    "playwright_total_smoke": "PASS",
+    "raw_identifier_scan": "PASS",
+    "external_send": 0,
+    "upload": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_edit": 0
+  },
+  "multi_agent": {
+    "used": false,
+    "reason": "Current sprint tasks were tightly coupled across one monitor script, one frontend surface, and one report package; parallel shell checks were used instead."
+  }
+}

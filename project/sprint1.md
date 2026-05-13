@@ -34,7 +34,7 @@ harness_preflight:
     - Imweb footer/header edit
   source_window_freshness_confidence:
     source: "VM Cloud summary API + VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders + local frontend smoke"
-    window: "thecleancoffee NPay recent 30d, post-snapshot 2026-05-13 00:57 KST, latest read-only refresh 2026-05-13 10:37 KST"
+    window: "thecleancoffee NPay recent 30d, post-snapshot 2026-05-13 00:57 KST, latest dedicated monitor 2026-05-13 12:56 KST"
     freshness: "summary API live after seo-backend restart; VM Cloud SQLite imweb_orders status sync remains stale"
     confidence: 0.91
 ```
@@ -48,7 +48,7 @@ harness_preflight:
 | Priority | Phase/Sprint | 무엇을 하는가 | 왜 하는가 | 어떻게 진행하는가 | 지금 상태 | 현재 진척률 % | 100% 조건 | 다음 단계 / 담당 | 승인 필요 여부 | Source 문서 |
 |---:|---|---|---|---|---|---:|---|---|---|---|
 | P0 | [[#Phase1-Sprint1]] | coffee NPay actual source를 live summary API에 붙인다 | coffee 매출이 bridge_pending에 갇히면 내부 매출과 ROAS 판단이 낮게 나온다 | reader patch, test, VM Cloud backend 배포, post-snapshot 순서로 닫는다 | 완료 | 100% | coffee actual source/status/count가 live API에 보이고 biocom regression이 없다 | 완료. Sprint 2 ROAS recompute로 연결됨 | NO, 완료 | [[../gptconfirm/gpt0508-49/00-result-report]] |
-| P0 | [[#Phase1-Sprint2]] | status blank를 warning으로 운영한다 | blank status를 미결제로 단정하면 매출을 누락하고, 확정으로 숨기면 취소 반영 리스크가 생긴다 | `included_with_warning`에 포함하되 blank count/amount/freshness/root cause를 같이 표시한다 | 24h 수동 monitor 완료, 전용 cron은 미구축 | 100% | status blank 변화와 원인이 source/window/freshness와 함께 기록된다 | 다음: 전용 status monitor 스크립트/cron 승인안 | NO, Green / cron 등록은 Yellow | [[../data/project/coffee-actual-24h-monitor-20260513]] |
+| P0 | [[#Phase1-Sprint2]] | status blank를 warning으로 운영한다 | blank status를 미결제로 단정하면 매출을 누락하고, 확정으로 숨기면 취소 반영 리스크가 생긴다 | `included_with_warning`에 포함하되 blank count/amount/freshness/root cause를 같이 표시한다 | 전용 read-only monitor script 완료, cron은 미등록 | 100% | status blank 변화와 원인이 source/window/freshness와 함께 기록된다 | 다음: cron 등록 승인안 판단 | NO, Green / cron 등록은 Yellow | [[../data/project/coffee-actual-status-monitor-script-20260513]] |
 | P1 | [[#Phase1-Sprint3]] | coffee actual을 운영 대시보드와 전체 장부에 반영한다 | API만 바뀌고 화면/월별 장부가 안 쓰면 운영 기준이 바뀌지 않는다 | `/ads/site-landing`은 로컬 smoke 완료, `/total` contract는 source line item으로 확장한다 | `/total` contract/로컬 화면 반영 완료 | 90% | 운영자가 coffee actual, blank warning, bridge_pending, ROAS 참고 여부를 한 화면과 `/total`에서 본다 | 다음: 운영 deploy 여부 판단 | NO, Green / 배포는 별도 승인 | [[../project/sprint2]] |
 
 ## 다음 할일 — Auto Green / Approval Needed / Blocked-Parked
@@ -57,9 +57,9 @@ harness_preflight:
 
 #### A1. 24h coffee actual freshness monitor
 - 상태: 완료. Dedicated status blank monitor는 자동 실행 중이 아니었다. 기존 VM Cloud cron은 `/home/biocomkr_sns/seo/coffee-monitoring/run.sh` → `scripts/coffee-npay-intent-monitoring-report.ts`이며, 더클린커피 actual `imweb_status` blank 모니터가 아니다.
-- 결과: 2026-05-13 10:37 KST 수동 read-only 기준 coffee actual은 318건 / 15,503,000원, status blank는 26건 / 1,663,600원이다.
-- 원인: VM Cloud SQLite `imweb_orders` order sync는 `2026-05-13 01:30:03`까지 진행됐지만 `imweb_status_synced_at`은 `2026-05-12 04:11:07`에서 멈춰 있었다. 따라서 `source_freshness_gap_status_sync_lag`로 유지한다.
-- 산출물: `data/project/coffee-actual-24h-monitor-20260513.json`, `gdn/coffee-actual-24h-monitor-20260513.md`.
+- 결과: 2026-05-13 12:56 KST 전용 monitor 기준 coffee actual은 317건 / 15,547,500원, status blank는 28건 / 1,848,000원이다.
+- 원인: VM Cloud SQLite `imweb_orders` order sync는 `2026-05-13 03:44:57`까지 진행됐지만 `imweb_status_synced_at`은 `2026-05-12 04:11:07`에서 멈춰 있었다. 따라서 `source_freshness_gap_status_sync_lag`로 유지한다.
+- 산출물: `backend/scripts/coffee-actual-status-monitor.ts`, `data/project/coffee-actual-status-monitor-script-20260513.json`.
 - 다음: cron 등록은 하지 않았다. 전용 monitor script/cron이 필요하면 별도 Yellow 승인안으로 넘긴다.
 
 #### A2. `/total` 전체 장부 adoption contract
@@ -87,13 +87,13 @@ harness_preflight:
 
 ## 현재 기준 숫자
 
-| 항목 | post-snapshot 2026-05-13 00:57 KST | latest read-only 2026-05-13 10:37 KST |
+| 항목 | post-snapshot 2026-05-13 00:57 KST | latest monitor 2026-05-13 12:56 KST |
 |---|---:|---:|
 | coffee actual source | `imweb_v2_vm_cloud_imweb_orders` | `imweb_v2_vm_cloud_imweb_orders` |
 | coffee actual status | `included_with_warning` | `included_with_warning` |
-| coffee actual count | 309 | 318 |
-| coffee actual amount | 14,902,800원 | 15,503,000원 |
-| coffee status blank | 14건 / 944,900원 | 26건 / 1,663,600원 |
+| coffee actual count | 309 | 317 |
+| coffee actual amount | 14,902,800원 | 15,547,500원 |
+| coffee status blank | 14건 / 944,900원 | 28건 / 1,848,000원 |
 | coffee status source | VM Cloud SQLite `imweb_orders.imweb_status` | VM Cloud SQLite `imweb_orders.imweb_status` |
 | coffee root cause | status sync stale | status sync lag/source freshness gap |
 | biocom actual source | 운영DB PostgreSQL `dashboard.public.tb_iamweb_users` | 운영DB PostgreSQL `dashboard.public.tb_iamweb_users` |
@@ -101,13 +101,13 @@ harness_preflight:
 | biocom actual count | 162 | 166 |
 | biocom actual amount | 29,463,300원 | 29,642,500원 |
 
-숫자가 309건에서 318건으로 움직인 것은 VM Cloud SQLite `imweb_orders`의 order sync가 계속 들어왔기 때문이다. 같은 시각 status sync는 `2026-05-12 04:11:07`에서 멈춰 있어 `imweb_status` blank warning은 유지된다.
+숫자가 309건에서 317건으로 움직인 것은 VM Cloud SQLite `imweb_orders`의 30일 rolling window와 order sync가 계속 움직이기 때문이다. 같은 시각 status sync는 `2026-05-12 04:11:07`에서 멈춰 있어 `imweb_status` blank warning은 유지된다.
 
 ## status blank가 무엇이고 왜 비어 있는가
 
 `status blank`는 VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3`의 `imweb_orders.imweb_status` 값이 빈 row를 뜻한다. 운영DB PostgreSQL `dashboard.public.tb_iamweb_users`의 `payment_status` blank가 아니다. 로컬DB `/Users/vibetj/coding/seo/backend/data/crm.sqlite3`의 row도 아니다.
 
-2026-05-13 10:37 KST read-only 확인에서 blank 26건은 모두 `imweb_status_synced_at` marker가 없었다. 또한 최신 status sync 시각은 `2026-05-12 04:11:07`이고, VM Cloud SQLite `imweb_orders.synced_at`은 `2026-05-13 01:30:03`까지 진행됐다. 따라서 현재 원인은 결제 실패가 아니라 `source_freshness_gap`, 즉 주문 수집은 최신인데 status 보강 sync가 늦은 상태로 보는 것이 맞다.
+2026-05-13 12:56 KST read-only 확인에서 blank 28건은 모두 `imweb_status_synced_at` marker가 없었다. 또한 최신 status sync 시각은 `2026-05-12 04:11:07`이고, VM Cloud SQLite `imweb_orders.synced_at`은 `2026-05-13 03:44:57`까지 진행됐다. 따라서 현재 원인은 결제 실패가 아니라 `source_freshness_gap`, 즉 주문 수집은 최신인데 status 보강 sync가 늦은 상태로 보는 것이 맞다.
 
 ## 상세 Sprint 설명 — 각 Sprint별 무엇/왜/어떻게/% 올리려면
 
@@ -196,8 +196,8 @@ harness_preflight:
 | 2026-05-13 00:57 KST | post-snapshot | coffee included_with_warning, biocom included |
 | 2026-05-13 02:02 KST | status blank root cause | VM Cloud SQLite `imweb_orders.imweb_status` status sync lag |
 | 2026-05-13 02:12 KST | local dashboard smoke | `http://localhost:7010/ads/site-landing` 200, API 200, console error 0 |
-| 2026-05-13 10:37 KST | 24h manual status monitor | dedicated auto monitor 없음, coffee actual 318건 / 15,503,000원, status blank 26건 |
-| 2026-05-13 10:37 KST | `/total` correction line contract | backend/frontend contract v0.1 추가, coffee는 reference line |
+| 2026-05-13 12:56 KST | dedicated status monitor script | coffee actual 317건 / 15,547,500원, status blank 28건, root cause = status sync lag |
+| 2026-05-13 12:59 KST | `/total` decision layer smoke | 7010 화면에서 7020 API 200, 상단 판단 카드와 reference line 표시 |
 
 ## Source / Window / Freshness / Confidence
 
@@ -205,5 +205,5 @@ harness_preflight:
 |---|---|
 | source | VM Cloud summary API, VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3` `imweb_orders`, local frontend smoke |
 | window | coffee NPay recent 30d |
-| freshness | post-snapshot 2026-05-13 00:57 KST, latest read-only 2026-05-13 10:37 KST, status sync stale warning present |
+| freshness | post-snapshot 2026-05-13 00:57 KST, latest dedicated monitor 2026-05-13 12:56 KST, status sync stale warning present |
 | confidence | 0.92 |

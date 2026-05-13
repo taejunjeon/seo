@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
 
 type FreshnessKey =
   | "fresh"
@@ -212,25 +212,25 @@ const PLATFORM_LABEL: Record<string, string> = {
 };
 
 const FRESHNESS_LABEL: Record<string, { text: string; tone: "green" | "yellow" | "red" | "neutral" }> = {
-  fresh: { text: "fresh — 플랫폼 source 최신", tone: "green" },
-  local_cache: { text: "local cache — 원본 대조 필요", tone: "yellow" },
-  blocked: { text: "blocked — 권한·원천 미연결", tone: "red" },
-  blocked_or_empty: { text: "blocked / empty — 미연결", tone: "red" },
-  fallback: { text: "fallback — 판단 보류", tone: "red" },
-  error: { text: "error — 조회 실패", tone: "red" },
-  not_queried: { text: "not queried", tone: "neutral" },
-  unavailable: { text: "unavailable", tone: "red" },
+  fresh: { text: "최신 데이터", tone: "green" },
+  local_cache: { text: "참고용 캐시", tone: "yellow" },
+  blocked: { text: "연결 필요", tone: "red" },
+  blocked_or_empty: { text: "연결 필요", tone: "red" },
+  fallback: { text: "판단 보류", tone: "red" },
+  error: { text: "조회 실패", tone: "red" },
+  not_queried: { text: "미조회", tone: "neutral" },
+  unavailable: { text: "사용 불가", tone: "red" },
 };
 
 const STATUS_BADGE: Record<string, { text: string; tone: "green" | "yellow" | "red" | "neutral" }> = {
-  joined: { text: "joined", tone: "green" },
-  partial_join: { text: "partial join", tone: "yellow" },
-  skeleton_only: { text: "skeleton only", tone: "neutral" },
-  unavailable: { text: "unavailable", tone: "red" },
-  not_joined: { text: "not joined", tone: "red" },
-  included: { text: "included", tone: "green" },
-  included_with_warning: { text: "included with warning", tone: "yellow" },
-  bridge_pending: { text: "bridge pending", tone: "yellow" },
+  joined: { text: "연결됨", tone: "green" },
+  partial_join: { text: "일부 연결", tone: "yellow" },
+  skeleton_only: { text: "뼈대만 있음", tone: "neutral" },
+  unavailable: { text: "사용 불가", tone: "red" },
+  not_joined: { text: "미연결", tone: "red" },
+  included: { text: "포함", tone: "green" },
+  included_with_warning: { text: "포함, 주의 필요", tone: "yellow" },
+  bridge_pending: { text: "주문 연결 대기", tone: "yellow" },
 };
 
 function FreshBadge({ freshness }: { freshness?: string }) {
@@ -257,6 +257,22 @@ function StatusBadge({ status }: { status?: string }) {
       ? styles.badgeBlocked
       : styles.badgeNeutral;
   return <span className={`${styles.badge} ${cls}`}>{meta.text}</span>;
+}
+
+const correctionAmount = (lines: CorrectionLineItem[], included: boolean) =>
+  lines
+    .filter((line) => line.included_in_budget_roas === included)
+    .reduce((sum, line) => sum + (line.amount_krw || 0), 0);
+
+function channelAction(row: ChannelRow): { text: string; tone: "green" | "yellow" | "red" | "neutral" } {
+  if (row.primary_channel === "unknown") return { text: "데이터 연결 필요", tone: "red" };
+  if (row.primary_channel === "npay") return { text: "판단 보류", tone: "yellow" };
+  if (row.primary_channel === "paid_naver") return { text: "데이터 연결 필요", tone: "red" };
+  if (row.primary_channel.startsWith("paid_") && row.revenue > 0) {
+    return { text: "예산 유지", tone: "green" };
+  }
+  if (row.primary_channel.startsWith("paid_")) return { text: "예산 축소 후보", tone: "yellow" };
+  return { text: "관찰 유지", tone: "neutral" };
 }
 
 type DiagnosticEntry = {
@@ -546,6 +562,14 @@ export default function TotalPage() {
 
   const diagnostics = useMemo(() => (data ? normalizeDiagnostics(data) : []), [data]);
   const stale = diagnostics.filter((d) => d.budgetDecisionImpact !== "usable");
+  const correctionLines = data?.correction_lines?.items || [];
+  const referenceCorrectionAmount = correctionAmount(correctionLines, false);
+  const budgetCorrectionAmount = correctionAmount(correctionLines, true);
+  const holdRevenue = data
+    ? data.evidence.totals.unknown_revenue +
+      data.monthly_spine.review_revenue_c +
+      data.monthly_spine.quarantine_revenue_d
+    : 0;
   const submitMonth = () => {
     setLoading(true);
     setError(null);
@@ -597,30 +621,52 @@ export default function TotalPage() {
 
       {data && (
         <>
-          <div className={styles.warningBanner}>
-            <strong>읽기 전 주의 5가지</strong>
-            <ul>
-              <li>
-                내부 확정 순매출은 <code>monthly_spine.confirmed_net_revenue_ab</code>(아임웹+토스 정본) 기준입니다. 플랫폼 주장값을 더하지 않습니다.
-              </li>
-              <li>
-                <code>fresh</code> 는 <em>플랫폼 source 가 최신</em>이라는 뜻이지, 그 플랫폼 value 가 내부 정본 매출이라는 뜻이 아닙니다.
-              </li>
-              <li>
-                TikTok ROAS 는 <code>local_cache</code> + 한국어 export 중복 구매 헤더 추정 기준입니다. Ads Manager 원본 대조 전까지 예산 판단에 쓰지 마세요.
-              </li>
-              <li>
-                Naver 내부 후보 매출은 <code>NaPm</code> 또는 paid UTM 기반 후보이고 Naver Ads 플랫폼 확정 매출이 아닙니다. Naver Ads spend/value/ROAS 는 source 미연결로 보류 상태입니다.
-              </li>
-              <li>
-                NPay intent source 가 연결되기 전까지 NPay confirmed 주문의 matched/unmatched 분포는 확정하지 않습니다.
-              </li>
-            </ul>
-          </div>
+          <section className={styles.decisionHero}>
+            <div className={`${styles.decisionCard} ${styles.primaryDecision}`}>
+              <span className={styles.kpiLabel}>예산 판단 가능 매출</span>
+              <strong className={styles.decisionValue}>
+                {fmtKRW(data.monthly_spine.confirmed_net_revenue_ab + budgetCorrectionAmount)}
+              </strong>
+              <span className={styles.kpiSub}>biocom 내부 확정 기준 · 플랫폼 주장값 합산 금지</span>
+            </div>
+            <div className={styles.decisionCard}>
+              <span className={styles.kpiLabel}>참고용 보정 매출</span>
+              <strong className={styles.decisionValue}>{fmtKRW(referenceCorrectionAmount)}</strong>
+              <span className={styles.kpiSub}>더클린커피 등 예산 ROAS 제외 line</span>
+            </div>
+            <div className={styles.decisionCard}>
+              <span className={styles.kpiLabel}>미분류/보류 매출</span>
+              <strong className={styles.decisionValue}>{fmtKRW(holdRevenue)}</strong>
+              <span className={styles.kpiSub}>유입 증거 부족 + review/quarantine</span>
+            </div>
+            <div className={styles.decisionCard}>
+              <span className={styles.kpiLabel}>데이터 연결 경고</span>
+              <strong className={styles.decisionValue}>{fmtNum(stale.length)}개</strong>
+              <span className={styles.kpiSub}>
+                {stale.length ? "연결·원본 대조 후 예산 판단" : "현재 경고 없음"}
+              </span>
+            </div>
+          </section>
+
+          <details className={styles.disclosure}>
+            <summary>읽기 전 주의와 데이터 연결 경고 보기</summary>
+            <div className={styles.warningBanner}>
+              <strong>주의 기준</strong>
+              <ul>
+                <li>내부 확정 순매출은 아임웹+토스 정본 기준입니다. 플랫폼 주장값을 더하지 않습니다.</li>
+                <li>최신 데이터는 source freshness 뜻이고, 플랫폼 value가 내부 정본이라는 뜻이 아닙니다.</li>
+                <li>TikTok ROAS는 Ads Manager 원본 대조 전까지 참고용입니다.</li>
+                <li>Naver Ads spend/value/ROAS는 source 미연결로 보류 상태입니다.</li>
+                <li>NPay intent source 연결 전까지 matched/unmatched 분포는 확정하지 않습니다.</li>
+              </ul>
+            </div>
+          </details>
 
           {stale.length > 0 && (
-            <div className={styles.warningBanner} style={{ background: "#fef2f2", borderColor: "#fecaca", borderLeftColor: "#dc2626" }}>
-              <strong>예산 판단 보류 source ({stale.length})</strong>
+            <details className={styles.disclosure}>
+              <summary>예산 판단 보류 source {stale.length}개 보기</summary>
+              <div className={styles.warningBanner} style={{ background: "#fef2f2", borderColor: "#fecaca", borderLeftColor: "#dc2626" }}>
+              <strong>예산 판단 보류 source</strong>
               <ul>
                 {stale.map((d, i) => (
                   <li key={`${d.scope}-${d.source}-${i}`}>
@@ -631,10 +677,11 @@ export default function TotalPage() {
                   </li>
                 ))}
               </ul>
-            </div>
+              </div>
+            </details>
           )}
 
-          <CorrectionLinesSection lines={data.correction_lines?.items || []} />
+          <CorrectionLinesSection lines={correctionLines} />
 
           <div className={styles.kpiRow}>
             <div className={`${styles.kpiCard} ${styles.primary}`}>
@@ -740,6 +787,7 @@ export default function TotalPage() {
                   <th style={{ textAlign: "right" }}>주문</th>
                   <th style={{ textAlign: "right" }}>매출</th>
                   <th style={{ textAlign: "right" }}>비중</th>
+                  <th>운영 액션</th>
                   <th style={{ textAlign: "right" }}>A confidence</th>
                   <th style={{ textAlign: "right" }}>B confidence</th>
                   <th>참고</th>
@@ -749,28 +797,40 @@ export default function TotalPage() {
                 {data.evidence.channel_summary
                   .slice()
                   .sort((a, b) => b.revenue - a.revenue)
-                  .map((row) => (
-                    <tr key={row.primary_channel}>
-                      <td>
-                        <strong>{row.display_label}</strong>{" "}
-                        <span style={{ color: "#94a3b8", fontSize: 11 }}>{row.primary_channel}</span>
-                      </td>
-                      <td className={styles.num}>{fmtNum(row.orders)}</td>
-                      <td className={styles.num}>{fmtKRW(row.revenue)}</td>
-                      <td className={styles.num}>{fmtPct(row.share_of_confirmed_revenue)}</td>
-                      <td className={styles.num}>{fmtKRW(row.confidence?.A ?? 0)}</td>
-                      <td className={styles.num}>{fmtKRW(row.confidence?.B ?? 0)}</td>
-                      <td style={{ fontSize: 11.5, color: "#64748b" }}>
-                        {row.primary_channel === "paid_naver"
-                          ? "NaPm 클릭ID 또는 paid UTM 기반 내부 후보 (Naver Ads 확정 매출 아님)"
-                          : row.primary_channel === "npay"
-                          ? "NPay confirmed — intent source 연결 전까지 matched/unmatched 확정 보류"
-                          : row.primary_channel === "unknown"
-                          ? "유입 증거 부족 — 매출이 없는 게 아님"
-                          : ""}
-                      </td>
-                    </tr>
-                  ))}
+                  .map((row) => {
+                    const action = channelAction(row);
+                    const actionCls =
+                      action.tone === "green"
+                        ? styles.badgeFresh
+                        : action.tone === "yellow"
+                        ? styles.badgeLocal
+                        : action.tone === "red"
+                        ? styles.badgeBlocked
+                        : styles.badgeNeutral;
+                    return (
+                      <tr key={row.primary_channel}>
+                        <td>
+                          <strong>{row.display_label}</strong>{" "}
+                          <span style={{ color: "#94a3b8", fontSize: 11 }}>{row.primary_channel}</span>
+                        </td>
+                        <td className={styles.num}>{fmtNum(row.orders)}</td>
+                        <td className={styles.num}>{fmtKRW(row.revenue)}</td>
+                        <td className={styles.num}>{fmtPct(row.share_of_confirmed_revenue)}</td>
+                        <td><span className={`${styles.badge} ${actionCls}`}>{action.text}</span></td>
+                        <td className={styles.num}>{fmtKRW(row.confidence?.A ?? 0)}</td>
+                        <td className={styles.num}>{fmtKRW(row.confidence?.B ?? 0)}</td>
+                        <td style={{ fontSize: 11.5, color: "#64748b" }}>
+                          {row.primary_channel === "paid_naver"
+                            ? "NaPm/paid UTM 후보. Naver Ads 확정 매출 아님"
+                            : row.primary_channel === "npay"
+                            ? "NPay 결제완료. 광고 연결은 보류"
+                            : row.primary_channel === "unknown"
+                            ? "매출은 있으나 유입 증거 부족"
+                            : ""}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </section>
@@ -825,11 +885,9 @@ export default function TotalPage() {
             </section>
           )}
 
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>
-              Source freshness
-              <small>fresh = 플랫폼 source 최신. 정본 매출 의미 아님.</small>
-            </h2>
+          <details className={`${styles.section} ${styles.disclosure}`}>
+            <summary>Source freshness 상세 보기</summary>
+            <h2 className={styles.sectionTitle}>Source freshness</h2>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -863,15 +921,11 @@ export default function TotalPage() {
                 ))}
               </tbody>
             </table>
-          </section>
+          </details>
 
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>
-              sourceDiagnostics (정규화 배열)
-              <small>
-                Codex 가 route 응답에 통일해주기로 한 형태. 현재는 프론트에서 즉시 파생.
-              </small>
-            </h2>
+          <details className={`${styles.section} ${styles.disclosure}`}>
+            <summary>sourceDiagnostics 상세 보기</summary>
+            <h2 className={styles.sectionTitle}>sourceDiagnostics</h2>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -917,7 +971,7 @@ export default function TotalPage() {
             <div className={styles.glossary}>
               <strong>용어:</strong> <code>fresh</code>=플랫폼 source 최신 (단, 내부 정본 매출 의미 아님) · <code>local_cache</code>=로컬 cache, 원본 대조 전 참고용 · <code>blocked</code>=권한·원천 미연결, 예산 판단 보류 · <code>budgetDecisionImpact: usable</code>=예산 판단 사용 가능, <code>reference_only</code>=참고만, <code>blocked</code>=보류.
             </div>
-          </section>
+          </details>
 
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>headline / API 메타</h2>

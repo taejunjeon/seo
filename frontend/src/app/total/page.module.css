@@ -145,6 +145,69 @@
   color: var(--slate);
 }
 
+.decisionHero {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 16px;
+}
+
+@media (max-width: 920px) {
+  .decisionHero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .decisionHero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.decisionCard {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.primaryDecision {
+  border-color: #86efac;
+  background: linear-gradient(180deg, #f0fdf4 0%, white 72%);
+}
+
+.decisionValue {
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 850;
+  letter-spacing: 0;
+  color: #0f172a;
+}
+
+.disclosure {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.disclosure summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+  color: #334155;
+}
+
+.disclosure[open] summary {
+  margin-bottom: 10px;
+}
+
 .section {
   margin: 32px 0 0;
 }

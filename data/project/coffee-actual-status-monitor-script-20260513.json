@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "site": "thecleancoffee",
+  "checked_at_kst": "2026-05-13 12:56:38",
+  "window_days": 30,
+  "window_hours_summary_api": 24,
+  "source": "imweb_v2_vm_cloud_imweb_orders",
+  "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+  "actual_count": 317,
+  "actual_amount": 15547500,
+  "status_blank_count": 28,
+  "status_blank_amount": 1848000,
+  "status_blank_missing_marker_count": 28,
+  "status_blank_root_cause": "VM Cloud SQLite imweb_orders status sync lag: blank rows have no imweb_status_synced_at marker",
+  "cancel_excluded_count": 31,
+  "cancel_excluded_amount": 1796400,
+  "gross_count": 348,
+  "gross_amount": 17343900,
+  "confirmed_status_count": 289,
+  "confirmed_status_amount": 13699500,
+  "max_order_time": "2026-05-13T02:38:12.000Z",
+  "max_synced_at": "2026-05-13 03:44:57",
+  "max_status_synced_at": "2026-05-12 04:11:07",
+  "status_sync_lag_hours": 23.76,
+  "warnings": [
+    "ga4_guard_not_actual_source",
+    "status_blank_rows_included_with_warning",
+    "status_sync_stale_over_6h"
+  ],
+  "summary_api_cross_check": {
+    "source": "imweb_v2_vm_cloud_imweb_orders",
+    "status": "included_with_warning",
+    "complete_count": 317,
+    "complete_amount_krw": 15547500,
+    "status_blank_count": 28,
+    "status_blank_amount_krw": 1848000,
+    "warnings": [
+      "ga4_guard_not_actual_source",
+      "status_blank_rows_included_with_warning",
+      "status_sync_stale_over_6h"
+    ]
+  },
+  "no_send": true,
+  "no_write": true,
+  "raw_identifier_output": false
+}

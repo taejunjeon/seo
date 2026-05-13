@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "url": "http://localhost:7010/total",
+  "title": "총 월별 채널 매출 ( /total )",
+  "firstViewport": "총 월별 채널 매출 ( /total )\n\n이번 달 실제 확정 매출이 어느 유입 채널에서 왔는지 빠르게 판단하기 위한 화면입니다. 내부 확정 매출과 플랫폼 주장값은 절대 합산하지 않습니다.\n\n월:\n조회\nsite=biocom · queried 2026. 05. 13. 12:59 · mode=dry_run · contract total-monthly-channel-summary-v0.2\n예산 판단 가능 매출\n₩5억 2,947만\nbiocom 내부 확정 기준 · 플랫폼 주장값 합산 금지\n참고용 보정 매출\n₩1,555만\n더클린커피 등 예산 ROAS 제외 line\n미분류/보류 매출\n₩1억 7,202만\n유입 증거 부족 + review/quarantine\n데이터 연결 경고\n4개\n연결·원본 대조 후 예산 판단\n읽기 전 주의와 데이터 연결 경고 보기\n예산 판단 보류 source 4개 보기\n보정 라인\nsite/source 별도 표시 · cross-site 자동 합산 금지\n\nbiocom 예산 ROAS에 들어가는 보정값과 더클린커피 내부 actual 후보를 별도 line으로 보여준다. 더클린커피 line은 campaign/site spend mapping 전까지 참고값이다.\n\nline\tsite / source\t주문\t금액\tstatus / blank\t예산 ROAS 사용\nbiocom NPay actual correction\norder_payment_actual_primary\n\t\nbiocom · operational_db.tb_iamweb_users PAYMENT_COMPLETE\n운영DB PostgreSQL dashboard.public.tb_iamweb_users · dashboard.public.tb_iamweb_users\n\t166\t₩2,964만\t\n포함\n\t예산 ROAS 포함\nincluded_for_biocom_google_ads_budget_roas\n\n더클린커피 NPay actual correction line\ncross_site_internal_actual_candidate\n\t\nthecleancoffee · imweb_v2_vm_cloud_imweb_orders\nVM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 · imweb_orders\n\t317\t₩1,555만\t\n포함, 주의 필요\nstatus blank 28건 / ₩185만\nga4_guard_not_actual_so",
+  "closedDisclosures": 4,
+  "openDisclosures": 0,
+  "errorTextPresent": false,
+  "events": {
+    "console": [],
+    "failed": [],
+    "responses": [
+      {
+        "url": "http://localhost:7020/api/total/monthly-channel-summary?site=biocom&month=2026-04&mode=dry_run",
+        "status": 200
+      }
+    ]
+  }
+}

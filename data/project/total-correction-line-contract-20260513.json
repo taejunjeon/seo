@@ -1,6 +1,6 @@
 {
   "run_id": "total-correction-line-contract-20260513",
-  "generated_at_kst": "2026-05-13 10:37:23 KST",
+  "generated_at_kst": "2026-05-13 12:56:38 KST",
   "lane": "Green read-only / no-send / no-write",
   "contract_version": "total-correction-lines-v0.1",
   "source_window_freshness_confidence": {
@@ -11,11 +11,11 @@
     "window": "recent 30d by source-specific order/payment time",
     "freshness": {
       "biocom_max_payment_complete_time": "2026-05-12T22:43:01.000Z",
-      "coffee_max_order_time": "2026-05-13T01:21:01.000Z",
-      "coffee_max_synced_at": "2026-05-13 01:30:03",
+      "coffee_max_order_time": "2026-05-13T02:38:12.000Z",
+      "coffee_max_synced_at": "2026-05-13 03:44:57",
       "coffee_max_status_synced_at": "2026-05-12 04:11:07"
     },
-    "confidence": 0.9
+    "confidence": 0.91
   },
   "budget_roas_policy": {
     "budget_roas_site": "biocom",
@@ -41,25 +41,25 @@
       "status_column": "imweb_status",
       "site": "thecleancoffee",
       "status": "included_with_warning",
-      "count": 318,
-      "amount_krw": 15503000,
-      "gross_count": 349,
-      "gross_amount_krw": 17299400,
-      "confirmed_status_count": 292,
-      "confirmed_status_amount_krw": 13839400,
-      "status_blank_count": 26,
-      "status_blank_amount_krw": 1663600,
+      "count": 317,
+      "amount_krw": 15547500,
+      "gross_count": 348,
+      "gross_amount_krw": 17343900,
+      "confirmed_status_count": 289,
+      "confirmed_status_amount_krw": 13699500,
+      "status_blank_count": 28,
+      "status_blank_amount_krw": 1848000,
       "excluded_cancel_return_exchange_count": 31,
       "excluded_cancel_return_exchange_amount_krw": 1796400,
-      "max_order_time": "2026-05-13T01:21:01.000Z",
-      "max_synced_at": "2026-05-13 01:30:03",
+      "max_order_time": "2026-05-13T02:38:12.000Z",
+      "max_synced_at": "2026-05-13 03:44:57",
       "max_status_synced_at": "2026-05-12 04:11:07",
       "warnings": [
         "ga4_guard_not_actual_source",
         "status_blank_rows_included_with_warning",
         "status_sync_stale_over_6h"
       ],
-      "blank_root_cause": "source_freshness_gap_status_sync_lag",
+      "blank_root_cause": "VM Cloud SQLite imweb_orders status sync lag: blank rows have no imweb_status_synced_at marker",
       "use_for_budget_roas": "provisional_internal_actual_reference_only_until_campaign_site_mapping"
     }
   },

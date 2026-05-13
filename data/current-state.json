@@ -1,18 +1,16 @@
 {
-  "updated_at_kst": "2026-05-13 10:47:00 KST",
-  "sprint": "gpt0508-49-plus-status-monitor-total-correction-line",
-  "current_goal": "Close coffee status blank 24h monitor check and add /total correction line contract without mixing coffee actual into biocom budget ROAS.",
-  "lane": "Green read-only/docs/local code/test; no deploy/restart/send/write",
+  "updated_at_kst": "2026-05-13 13:02:00 KST",
+  "sprint": "gpt0508-50",
+  "current_goal": "Create a dedicated thecleancoffee actual status monitor and make /total a CEO decision layer instead of an engineer diagnostic page.",
+  "lane": "Green local code/docs/read-only checks; cron registration and operating deploy are approval-only",
   "completed": [
-    "Confirmed dedicated coffee actual imweb_status 24h monitor is not running automatically.",
-    "Confirmed existing VM Cloud cron /home/biocomkr_sns/seo/coffee-monitoring/run.sh runs scripts/coffee-npay-intent-monitoring-report.ts, not coffee actual status blank monitoring.",
-    "Ran manual read-only live summary API and VM Cloud SQLite aggregate for thecleancoffee.",
-    "Wrote data/project/coffee-actual-24h-monitor-20260513.json and gdn/coffee-actual-24h-monitor-20260513.md.",
-    "Added /total correction_lines contract in backend/src/routes/total.ts.",
-    "Added /total correction line table in frontend/src/app/total/page.tsx.",
-    "Wrote data/project/total-correction-line-contract-20260513.json.",
-    "Updated project/sprint1.md, project/sprint2.md, and total/total-api-contract-20260504.md.",
-    "Verified backend typecheck, targeted tests, frontend typecheck, live summary API, local /total API, and Playwright smoke."
+    "Added backend/scripts/coffee-actual-status-monitor.ts.",
+    "Ran the coffee monitor against live summary API and VM Cloud SQLite imweb_orders.",
+    "Confirmed status blank root cause is VM Cloud SQLite imweb_orders status sync lag, not operational DB or local DB blank.",
+    "Updated data/project/total-correction-line-contract-20260513.json with the latest coffee monitor numbers.",
+    "Added /total top decision cards, channel action labels, Korean status/freshness labels, collapsed diagnostics, and default local API base http://localhost:7020.",
+    "Verified /total local smoke at http://localhost:7010/total with backend 7020 API 200.",
+    "Added backend/scripts/roas-gap-recompute-readiness.ts and generated data/project/roas-gap-recompute-readiness-20260513.json."
   ],
   "latest_metrics": {
     "thecleancoffee": {
@@ -21,19 +19,22 @@
       "table": "imweb_orders",
       "status_column": "imweb_status",
       "status": "included_with_warning",
-      "count": 318,
-      "amount_krw": 15503000,
-      "gross_count": 349,
-      "gross_amount_krw": 17299400,
-      "confirmed_status_count": 292,
-      "confirmed_status_amount_krw": 13839400,
-      "status_blank_count": 26,
-      "status_blank_amount_krw": 1663600,
-      "excluded_cancel_return_exchange_count": 31,
-      "excluded_cancel_return_exchange_amount_krw": 1796400,
-      "latest_order_sync": "2026-05-13 01:30:03",
-      "latest_status_sync": "2026-05-12 04:11:07",
-      "blank_root_cause": "source_freshness_gap_status_sync_lag",
+      "actual_count": 317,
+      "actual_amount_krw": 15547500,
+      "gross_count": 348,
+      "gross_amount_krw": 17343900,
+      "confirmed_status_count": 289,
+      "confirmed_status_amount_krw": 13699500,
+      "status_blank_count": 28,
+      "status_blank_amount_krw": 1848000,
+      "status_blank_missing_marker_count": 28,
+      "cancel_excluded_count": 31,
+      "cancel_excluded_amount_krw": 1796400,
+      "max_order_time": "2026-05-13T02:38:12.000Z",
+      "max_synced_at": "2026-05-13 03:44:57",
+      "max_status_synced_at": "2026-05-12 04:11:07",
+      "status_sync_lag_hours": 23.76,
+      "blank_root_cause": "VM Cloud SQLite imweb_orders status sync lag: blank rows have no imweb_status_synced_at marker",
       "warnings": [
         "ga4_guard_not_actual_source",
         "status_blank_rows_included_with_warning",
@@ -45,52 +46,45 @@
       "db_location": "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
       "status": "included",
       "count": 166,
-      "amount_krw": 29642500,
-      "max_payment_complete_time": "2026-05-12T22:43:01.000Z"
+      "amount_krw": 29642500
     }
-  },
-  "total_correction_lines": {
-    "api_url": "http://localhost:7020/api/total/monthly-channel-summary?site=biocom&month=2026-04&mode=dry_run",
-    "contract_version": "total-correction-lines-v0.1",
-    "items": [
-      {
-        "id": "biocom_npay_actual_30d",
-        "site": "biocom",
-        "included_in_budget_roas": true,
-        "count": 166,
-        "amount_krw": 29642500
-      },
-      {
-        "id": "thecleancoffee_npay_actual_30d",
-        "site": "thecleancoffee",
-        "included_in_budget_roas": false,
-        "use_for_budget_roas": "provisional_internal_actual_reference_only_until_campaign_site_mapping",
-        "count": 318,
-        "amount_krw": 15503000,
-        "status_blank_count": 26,
-        "status_blank_amount_krw": 1663600
-      }
-    ]
   },
   "local_dashboard": {
     "total_url": "http://localhost:7010/total",
-    "total_status": 200,
-    "total_screenshot": "data/project/total-correction-lines-20260513.png",
-    "site_landing_url": "http://localhost:7010/ads/site-landing"
+    "backend_api": "http://localhost:7020/api/total/monthly-channel-summary?site=biocom&month=2026-04&mode=dry_run",
+    "smoke_result": "PASS",
+    "screenshot": "data/project/total-ux-decision-layer-20260513.png",
+    "closed_disclosures": 4,
+    "api_error_present": false
+  },
+  "roas_readiness": {
+    "source_file": "data/project/roas-gap-recompute-readiness-20260513.json",
+    "last_7d": {
+      "platform_roas_reference": 10.5157,
+      "internal_with_biocom_npay_actual_roas": 3.1788,
+      "remaining_gap_roas_points": 7.3369
+    },
+    "last_30d": {
+      "platform_roas_reference": 10.2673,
+      "internal_with_biocom_npay_actual_roas": 2.0722,
+      "remaining_gap_roas_points": 8.1951
+    },
+    "coffee_overlay_budget_roas": false
   },
   "validation": {
+    "coffee_monitor_script_run": "PASS",
+    "roas_readiness_script_run": "PASS",
     "backend_typecheck": "PASS",
-    "targeted_tests": "PASS 4/4 in this follow-up",
     "frontend_typecheck": "PASS",
-    "live_summary_api": "PASS",
-    "local_total_api": "PASS",
-    "playwright_total_smoke": "PASS",
-    "harness_preflight_strict": "PASS"
+    "json_parse": "PASS",
+    "git_diff_check": "PASS",
+    "playwright_total_smoke": "PASS"
   },
   "forbidden": [
     "operational_db_write_or_import",
     "vm_cloud_schema_migration",
     "cron_registration_or_change",
+    "operating_frontend_backend_deploy_or_restart",
     "gtm_publish",
     "imweb_footer_or_header_edit",
     "platform_send_or_upload",
@@ -104,6 +98,7 @@
     "operational_db_write": 0,
     "vm_cloud_write": 0,
     "cron_registration_changed": false,
+    "operating_deploy": 0,
     "gtm_publish": 0,
     "imweb_footer_edit": 0,
     "raw_email_phone_member_payment_order_click_id_output": false

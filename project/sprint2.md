@@ -35,7 +35,7 @@ harness_preflight:
   source_window_freshness_confidence:
     source: "VM Cloud Google Ads dashboard API + VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders + site landing summary API"
     window: "Google Ads last_7d/last_30d, coffee Imweb NPay actual 7d/30d, biocom NPay actual dashboard correction"
-    freshness: "Google Ads read-only 2026-05-13 01:34 KST, coffee VM Cloud read-only refreshed 2026-05-13 10:37 KST for /total correction line"
+    freshness: "Google Ads read-only 2026-05-13 01:34 KST, coffee VM Cloud dedicated monitor refreshed 2026-05-13 12:56 KST for /total correction line"
     confidence: 0.88
 ```
 
@@ -48,7 +48,7 @@ harness_preflight:
 | Priority | Phase/Sprint | 무엇을 하는가 | 왜 하는가 | 어떻게 진행하는가 | 지금 상태 | 현재 진척률 % | 100% 조건 | 다음 단계 / 담당 | 승인 필요 여부 | Source 문서 |
 |---:|---|---|---|---|---|---:|---|---|---|---|
 | P0 | [[#Phase2-Sprint1]] | platform claim과 internal confirmed를 같은 window에서 다시 비교한다 | 광고 플랫폼 숫자를 예산 판단값으로 쓰면 NPay click 오염이 섞인다 | Google Ads dashboard last_7d/30d와 internal summary를 나란히 저장한다 | 완료 | 100% | last_7d/30d gap table이 최신 API 기준으로 재계산된다 | 완료. Option 3 packet 갱신으로 이동 | NO, Green | [[../gdn/roas-gap-recompute-after-coffee-actual-20260513]] |
-| P0 | [[#Phase2-Sprint2]] | coffee actual을 별도 correction line으로 추가한다 | biocom 보정값과 coffee actual을 한 숫자로 합치면 source/site confidence가 흐려진다 | biocom 운영DB PostgreSQL actual, coffee VM Cloud SQLite actual, bridge_pending, legacy complete_time을 source별 line item으로 분리한다 | `/total` contract/API/frontend 반영 완료 | 100% | dashboard/API contract가 coffee actual line을 별도 노출하고 Google Ads biocom 예산 ROAS 합계에는 자동 가산하지 않는다 | 완료. 운영 deploy는 별도 승인 | NO, Green | [[../data/project/total-correction-line-contract-20260513]] |
+| P0 | [[#Phase2-Sprint2]] | coffee actual을 별도 correction line으로 추가한다 | biocom 보정값과 coffee actual을 한 숫자로 합치면 source/site confidence가 흐려진다 | biocom 운영DB PostgreSQL actual, coffee VM Cloud SQLite actual, bridge_pending, legacy complete_time을 source별 line item으로 분리한다 | `/total` contract/API/frontend + decision layer 반영 완료 | 100% | dashboard/API contract가 coffee actual line을 별도 노출하고 Google Ads biocom 예산 ROAS 합계에는 자동 가산하지 않는다 | 완료. 운영 deploy는 별도 승인 | NO, Green | [[../data/project/total-correction-line-contract-20260513]] |
 | P1 | [[#Phase2-Sprint3]] | Google Ads Option 3 필요성을 최신화한다 | internal ROAS가 올라도 platform ROAS 오염이 남으면 Primary 전환 구조를 바꿔야 한다 | gap 원인을 NPay actual 누락, NPay click 오염, click id 유실, internal join coverage로 나눈다 | 다음 | 60% | Red 승인안이 최신 수치와 실패 조건으로 갱신된다 | Codex: approval packet update 후보 | YES, Red 실행은 별도 | [[../gdn/google-ads-conversion-action-red-options-20260511]] |
 
 ## 다음 할일 — Auto Green / Approval Needed / Blocked-Parked
@@ -113,7 +113,7 @@ harness_preflight:
 | last_7d | 3.18 | 10.52 | 7.34p | 4.85 | biocom NPay actual을 넣어도 gap이 크다 |
 | last_30d | 2.07 | 10.27 | 8.20p | 2.75 | 30일 기준도 Primary 전환 구조 문제가 남는다 |
 
-Coffee actual은 ROAS recompute 당시 latest read-only 기준 last_7d 101건 / 6,034,000원, last_30d 311건 / 14,970,600원이었다. 2026-05-13 10:37 KST 24h monitor 기준 `/total` correction line 최신값은 last_30d 318건 / 15,503,000원이다. source는 VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3`의 `imweb_orders(site='thecleancoffee', pay_type='npay')`다. status blank는 26건 / 1,663,600원이며, 원인은 `imweb_orders.imweb_status` status sync lag로 분류했다.
+Coffee actual은 ROAS recompute 당시 latest read-only 기준 last_7d 101건 / 6,034,000원, last_30d 311건 / 14,970,600원이었다. 2026-05-13 12:56 KST dedicated monitor 기준 `/total` correction line 최신값은 last_30d 317건 / 15,547,500원이다. source는 VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3`의 `imweb_orders(site='thecleancoffee', pay_type='npay')`다. status blank는 28건 / 1,848,000원이며, 원인은 `imweb_orders.imweb_status` status sync lag로 분류했다.
 
 주의:
 - 위 NPay actual correction은 Google Ads dashboard의 기존 biocom PG snapshot이다.
@@ -168,10 +168,10 @@ Coffee actual은 ROAS recompute 당시 latest read-only 기준 last_7d 101건 / 
   "table": "imweb_orders",
   "site": "thecleancoffee",
   "status": "included_with_warning",
-  "count": 318,
-  "amount_krw": 15503000,
-  "status_blank_count": 26,
-  "status_blank_amount_krw": 1663600,
+  "count": 317,
+  "amount_krw": 15547500,
+  "status_blank_count": 28,
+  "status_blank_amount_krw": 1848000,
   "warning": ["status_blank_rows_included_with_warning", "status_sync_stale_over_6h"],
   "included_in_budget_roas": false,
   "use_for_budget_roas": "provisional_internal_actual_reference_only_until_campaign_site_mapping"
@@ -180,13 +180,14 @@ Coffee actual은 ROAS recompute 당시 latest read-only 기준 last_7d 101건 / 
 
 100% 조건:
 - `/ads/site-landing` 화면과 API contract가 coffee actual을 별도 line으로 노출한다.
-- `/total` 또는 공통 dashboard contract에도 같은 line item이 들어간다.
+- `/total` 또는 공통 dashboard contract에도 같은 line item이 들어가고, 화면 첫 영역은 판단 카드로 시작한다.
 - Google Ads biocom 예산 판단 ROAS에는 coffee가 자동 가산되지 않는다.
 - status blank root cause와 DB 위치가 문서에 같이 남는다.
 
 실행 단계:
 1. [완료] `/total` source line item contract를 문서화하고 backend/frontend에 반영한다.
 2. [완료] coffee line은 `provisional_internal_actual`의 의미를 살리되 예산 ROAS 자동 합산을 막기 위해 `provisional_internal_actual_reference_only_until_campaign_site_mapping`으로 고정한다.
+3. [완료] `/total` 화면 상단에 예산 판단 가능 매출, 참고용 보정 매출, 미분류/보류 매출, 데이터 연결 경고 카드를 추가하고 source diagnostics는 기본 접힘으로 낮춘다.
 3. [완료] fixture/test로 coffee line이 `included_in_budget_roas=false`인지 확인한다.
 
 현재 진척률: 100%.
@@ -223,7 +224,8 @@ Coffee actual은 ROAS recompute 당시 latest read-only 기준 last_7d 101건 / 
 | 2026-05-13 01:41 KST | ROAS recompute v1 | coffee 309건 overlay |
 | 2026-05-13 02:02 KST | coffee VM Cloud SQLite refresh | coffee 311건, status blank 16건 |
 | 2026-05-13 02:18 KST | ROAS recompute 최신화 | coffee overlay last_7d 4.85, last_30d 2.75 |
-| 2026-05-13 10:37 KST | `/total` correction line contract | coffee 318건 / 15,503,000원, blank 26건을 별도 reference line으로 고정 |
+| 2026-05-13 12:56 KST | coffee dedicated monitor + `/total` correction line refresh | coffee 317건 / 15,547,500원, blank 28건을 별도 reference line으로 고정 |
+| 2026-05-13 12:59 KST | `/total` decision layer smoke | local 7010 화면 + backend 7020 API 200, 진단 details 4개 기본 접힘 |
 
 ## Source / Window / Freshness / Confidence
 
@@ -234,5 +236,5 @@ Coffee actual은 ROAS recompute 당시 latest read-only 기준 last_7d 101건 / 
 | coffee actual source | VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3` `imweb_orders(site='thecleancoffee', pay_type='npay')` |
 | Site summary | VM Cloud API `https://att.ainativeos.net/api/attribution/site-landing/summary` |
 | Window | last_7d, last_30d, NPay actual 30d |
-| Freshness | ROAS recompute 2026-05-13 02:18 KST; `/total` correction line latest 2026-05-13 10:37 KST; coffee status sync 2026-05-12 04:11:07 |
+| Freshness | ROAS recompute 2026-05-13 02:18 KST; `/total` correction line latest 2026-05-13 12:56 KST; coffee status sync 2026-05-12 04:11:07 |
 | Confidence | 0.9 |
