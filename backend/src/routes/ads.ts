@@ -2967,6 +2967,8 @@ type TikTokOffImpactAuditItem = {
 
 const TIKTOK_OFF_DEFAULT_BASELINE: DateRange = { startDate: "2026-05-01", endDate: "2026-05-07" };
 const TIKTOK_OFF_DEFAULT_OFF: DateRange = { startDate: "2026-05-08", endDate: "2026-05-12" };
+const TIKTOK_OFF_IMPACT_CACHE_PATH = path.join(DATA_DIR, "tiktok-off-impact-audit-cache.json");
+const TIKTOK_OFF_IMPACT_CACHE_VERSION = 1;
 
 const OFF_CHANNEL_LABELS: Record<TikTokOffImpactChannelKey, { label: string; explanation: string }> = {
   paid_meta: {
@@ -3047,6 +3049,92 @@ const eachIsoDateInRange = (range: DateRange) => {
 
 const daysInRange = (range: DateRange) => eachIsoDateInRange(range).length;
 
+const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const tiktokOffImpactCacheKey = (baselineRange: DateRange, offRange: DateRange) =>
+  `${baselineRange.startDate}_${baselineRange.endDate}__${offRange.startDate}_${offRange.endDate}`;
+
+const readTikTokOffImpactCacheFile = async (): Promise<{
+  version: number;
+  records: Record<string, { generatedAt: string; payload: Record<string, unknown> }>;
+}> => {
+  try {
+    const raw = await fs.readFile(TIKTOK_OFF_IMPACT_CACHE_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as {
+      version?: number;
+      records?: Record<string, { generatedAt: string; payload: Record<string, unknown> }>;
+    };
+    return {
+      version: parsed.version ?? TIKTOK_OFF_IMPACT_CACHE_VERSION,
+      records: parsed.records ?? {},
+    };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { version: TIKTOK_OFF_IMPACT_CACHE_VERSION, records: {} };
+    }
+    throw error;
+  }
+};
+
+const readTikTokOffImpactCache = async (key: string) => {
+  const cache = await readTikTokOffImpactCacheFile();
+  return cache.records[key] ?? null;
+};
+
+const writeTikTokOffImpactCache = async (key: string, payload: Record<string, unknown>) => {
+  const cache = await readTikTokOffImpactCacheFile();
+  const generatedAt = new Date().toISOString();
+  cache.records[key] = { generatedAt, payload };
+  await fs.mkdir(path.dirname(TIKTOK_OFF_IMPACT_CACHE_PATH), { recursive: true });
+  await fs.writeFile(
+    TIKTOK_OFF_IMPACT_CACHE_PATH,
+    `${JSON.stringify({ version: TIKTOK_OFF_IMPACT_CACHE_VERSION, records: cache.records }, null, 2)}\n`,
+  );
+  return generatedAt;
+};
+
+const withTikTokOffImpactCacheMeta = (
+  payload: Record<string, unknown>,
+  cache: Record<string, unknown>,
+) => ({
+  ...payload,
+  cache,
+});
+
+const fetchRemoteJsonWithRetry = async (
+  url: URL,
+  context: string,
+  attempts = 3,
+): Promise<Record<string, unknown>> => {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url.toString(), {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(45_000),
+      });
+      const text = await response.text();
+      let body: Record<string, unknown>;
+      try {
+        body = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        throw new Error(`${context} non_json_response_${response.status}`);
+      }
+      if (!response.ok || body.ok !== true) {
+        const message = typeof body.error === "string" ? body.error : response.statusText;
+        throw new Error(`${context} ${message || `http_${response.status}`}`);
+      }
+      return body;
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        await waitMs(450 * attempt);
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`${context} failed`);
+};
+
 const fetchOperationalLedgerEntriesForAdsByDay = async (
   site: SiteKey,
   range: DateRange,
@@ -3062,12 +3150,7 @@ const fetchOperationalLedgerEntriesForAdsByDay = async (
     url.searchParams.set("startAt", `${shiftIsoDateByDays(date, -1)}T15:00:00.000Z`);
     url.searchParams.set("endAt", `${date}T15:00:00.000Z`);
 
-    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(20_000) });
-    const body = await response.json() as Record<string, unknown>;
-    if (!response.ok || body.ok !== true) {
-      const message = typeof body.error === "string" ? body.error : response.statusText;
-      throw new Error(`${site} VM Cloud ledger ${date} 조회 실패: ${message}`);
-    }
+    const body = await fetchRemoteJsonWithRetry(url, `${site} VM Cloud ledger ${date}`);
 
     const items = Array.isArray(body.items) ? body.items : [];
     const summary = toObject(body.summary);
@@ -3530,6 +3613,7 @@ export const createAdsRouter = () => {
   });
 
   router.get("/api/ads/tiktok/off-impact-audit", async (req: Request, res: Response) => {
+    let cacheKey: string | null = null;
     try {
       const baselineRange = parseOptionalDateRange(
         req.query.baseline_start,
@@ -3545,6 +3629,21 @@ export const createAdsRouter = () => {
         "off_start",
         "off_end",
       );
+      cacheKey = tiktokOffImpactCacheKey(baselineRange, offRange);
+      const forceRefresh = req.query.refresh === "1" || req.query.force === "1";
+
+      if (!forceRefresh) {
+        const cached = await readTikTokOffImpactCache(cacheKey);
+        if (cached) {
+          res.json(withTikTokOffImpactCacheMeta(cached.payload, {
+            hit: true,
+            key: cacheKey,
+            generated_at: cached.generatedAt,
+            stale_due_to_error: false,
+          }));
+          return;
+        }
+      }
 
       const [
         baselineLedger,
@@ -3592,7 +3691,7 @@ export const createAdsRouter = () => {
         .filter((row) => row.deltaRevenuePerDay < 0)
         .slice(0, 5);
 
-      res.json({
+      const payload: Record<string, unknown> = {
         ok: true,
         site: "biocom",
         checked_at: new Date().toISOString(),
@@ -3677,9 +3776,33 @@ export const createAdsRouter = () => {
           no_publish: true,
           raw_identifier_suppressed: true,
         },
-      });
+      };
+      const generatedAt = await writeTikTokOffImpactCache(cacheKey, payload);
+      res.json(withTikTokOffImpactCacheMeta(payload, {
+        hit: false,
+        key: cacheKey,
+        generated_at: generatedAt,
+        stale_due_to_error: false,
+      }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "tiktok off impact audit failed";
+      if (cacheKey) {
+        try {
+          const cached = await readTikTokOffImpactCache(cacheKey);
+          if (cached) {
+            res.json(withTikTokOffImpactCacheMeta(cached.payload, {
+              hit: true,
+              key: cacheKey,
+              generated_at: cached.generatedAt,
+              stale_due_to_error: true,
+              refresh_error: message,
+            }));
+            return;
+          }
+        } catch {
+          // Fall through to the original error when cache read also fails.
+        }
+      }
       res.status(500).json({ ok: false, error: message });
     }
   });

@@ -1,5 +1,5 @@
 {
-  "updated_at_kst": "2026-05-13 15:28:00 KST",
+  "updated_at_kst": "2026-05-13 15:52:00 KST",
   "workstream": "tiktok_off_impact_mistracking_audit",
   "lane": "Green local code/docs/read-only checks",
   "current_goal": "Show whether revenue dropped after TikTok ads were turned off, and whether the drop is more likely TikTok mistracking or another channel shift.",
@@ -24,7 +24,7 @@
       "baseline_kst": "2026-05-01 to 2026-05-07",
       "off_partial_kst": "2026-05-08 to 2026-05-12"
     },
-    "freshness": "2026-05-13 15:28 KST",
+    "freshness": "2026-05-13 15:52 KST",
     "confidence": 0.86
   },
   "latest_metrics": {
@@ -84,13 +84,20 @@
     "Added link from /ads/tiktok to the new off-impact audit page.",
     "Split Meta paid evidence from fbp-only Meta pixel evidence.",
     "Added tiktok/tiktok_mistracking_audit_20260513.md.",
-    "Verified desktop and mobile Playwright smoke."
+    "Verified desktop and mobile Playwright smoke.",
+    "Added VM Cloud remote read retry and server-side file cache for /api/ads/tiktok/off-impact-audit.",
+    "Added browser localStorage cache, progress bar, and stale-cache fallback for /ads/tiktok/off-impact.",
+    "Confirmed first load stores one browser cache entry, reload uses browser cache, and forced recalculation completes."
   ],
   "validation": {
     "backend_typecheck": "PASS",
     "frontend_typecheck": "PASS",
     "api_smoke": "PASS",
+    "api_cache_hit_smoke": "PASS",
+    "api_force_refresh_smoke": "PASS",
     "desktop_playwright_smoke": "PASS",
+    "frontend_cache_smoke": "PASS",
+    "frontend_progress_smoke": "PASS",
     "mobile_playwright_smoke": "PASS",
     "mobile_horizontal_overflow": false
   },

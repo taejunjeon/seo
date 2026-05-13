@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import GlobalNav from "@/components/common/GlobalNav";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
+const STORAGE_PREFIX = "seo:tiktok-off-impact-audit:v2:";
 
 type Metric = {
   days: number;
@@ -103,6 +104,18 @@ type TikTokOffImpactResponse = {
     no_publish: boolean;
     raw_identifier_suppressed: boolean;
   };
+  cache?: {
+    hit: boolean;
+    key: string;
+    generated_at: string;
+    stale_due_to_error?: boolean;
+    refresh_error?: string;
+  };
+};
+
+type StoredAudit = {
+  savedAt: string;
+  payload: TikTokOffImpactResponse;
 };
 
 const fmtNum = (value: number | null | undefined) => Math.round(value ?? 0).toLocaleString("ko-KR");
@@ -123,6 +136,43 @@ const confidenceLabel: Record<ChannelRow["confidence"], string> = {
   high: "근거 높음",
   medium: "보조 근거",
   low: "분류 주의",
+};
+
+const buildStorageKey = (baselineStart: string, baselineEnd: string, offStart: string, offEnd: string) =>
+  `${STORAGE_PREFIX}${baselineStart}_${baselineEnd}__${offStart}_${offEnd}`;
+
+const readStoredAudit = (key: string): StoredAudit | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredAudit;
+    return parsed?.payload?.ok ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredAudit = (key: string, payload: TikTokOffImpactResponse) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), payload }));
+  } catch {
+    // localStorage quota or private mode should not block the dashboard.
+  }
+};
+
+const formatSavedAt = (value: string | null | undefined) => {
+  if (!value) return "저장 시각 없음";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 16);
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
 };
 
 function Card({
@@ -177,7 +227,7 @@ function KpiCard({
   );
 }
 
-function Pill({ children, tone = "plain" }: { children: React.ReactNode; tone?: "plain" | "green" | "amber" | "red" | "blue" }) {
+function Pill({ children, tone = "plain" }: { children: ReactNode; tone?: "plain" | "green" | "amber" | "red" | "blue" }) {
   const palette = {
     plain: { border: "#cbd5e1", bg: "#f8fafc", text: "#334155" },
     green: { border: "#86efac", bg: "#dcfce7", text: "#166534" },
@@ -294,9 +344,27 @@ export default function TikTokOffImpactPage() {
   const [data, setData] = useState<TikTokOffImpactResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [cacheStatus, setCacheStatus] = useState<string | null>(null);
+  const [forceRefreshKey, setForceRefreshKey] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const storageKey = useMemo(
+    () => buildStorageKey(baselineStart, baselineEnd, offStart, offEnd),
+    [baselineStart, baselineEnd, offStart, offEnd],
+  );
 
   useEffect(() => {
+    const forceRefresh = forceRefreshKey === storageKey;
+    const stored = !forceRefresh ? readStoredAudit(storageKey) : null;
+    if (stored) {
+      setData(stored.payload);
+      setLoading(false);
+      setLoadingProgress(100);
+      setError(null);
+      setCacheStatus(`브라우저 저장본 ${formatSavedAt(stored.savedAt)}`);
+      return;
+    }
+
     const controller = new AbortController();
     const params = new URLSearchParams({
       baseline_start: baselineStart,
@@ -304,9 +372,23 @@ export default function TikTokOffImpactPage() {
       off_start: offStart,
       off_end: offEnd,
     });
+    if (forceRefresh) {
+      params.set("refresh", "1");
+    }
 
     setLoading(true);
+    setLoadingProgress(8);
     setError(null);
+    setCacheStatus(forceRefresh ? "새로 계산 중" : null);
+
+    const progressTimer = window.setInterval(() => {
+      setLoadingProgress((value) => {
+        if (value < 35) return value + 7;
+        if (value < 70) return value + 4;
+        if (value < 92) return value + 2;
+        return value;
+      });
+    }, 900);
 
     fetch(`${API_BASE}/api/ads/tiktok/off-impact-audit?${params.toString()}`, {
       signal: controller.signal,
@@ -316,18 +398,36 @@ export default function TikTokOffImpactPage() {
         if (!response.ok || !payload.ok) {
           throw new Error(payload.error ?? `API ${response.status}`);
         }
+        writeStoredAudit(storageKey, payload);
         setData(payload);
+        setLoadingProgress(100);
+        setCacheStatus(
+          payload.cache?.hit
+            ? `서버 저장본 ${formatSavedAt(payload.cache.generated_at)}`
+            : `계산 완료·저장 ${formatSavedAt(new Date().toISOString())}`,
+        );
       })
       .catch((err) => {
         if (err instanceof Error && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "TikTok OFF 감사 데이터를 불러오지 못했습니다.");
+        const fallback = readStoredAudit(storageKey);
+        if (fallback) {
+          setData(fallback.payload);
+          setCacheStatus(`새 계산 실패·저장본 표시 ${formatSavedAt(fallback.savedAt)}`);
+          setError(`새 계산은 실패했습니다. 저장본을 표시합니다. 원인: ${err instanceof Error ? err.message : "unknown"}`);
+        } else {
+          setError(err instanceof Error ? err.message : "TikTok OFF 감사 데이터를 불러오지 못했습니다.");
+        }
       })
       .finally(() => {
+        window.clearInterval(progressTimer);
         if (!controller.signal.aborted) setLoading(false);
       });
 
-    return () => controller.abort();
-  }, [baselineStart, baselineEnd, offStart, offEnd, refreshKey]);
+    return () => {
+      window.clearInterval(progressTimer);
+      controller.abort();
+    };
+  }, [baselineStart, baselineEnd, offStart, offEnd, forceRefreshKey, refreshKey, storageKey]);
 
   const sortedChannels = useMemo(() => {
     const rows = data?.channel_shift.rows ?? [];
@@ -377,6 +477,7 @@ export default function TikTokOffImpactPage() {
                 <Pill tone="green">Green read-only</Pill>
                 <Pill tone="blue">외부 전송 없음</Pill>
                 <Pill tone="blue">운영DB 쓰기 없음</Pill>
+                {cacheStatus && <Pill tone={error ? "amber" : "plain"}>{cacheStatus}</Pill>}
               </div>
             </div>
 
@@ -384,6 +485,7 @@ export default function TikTokOffImpactPage() {
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
+                  setForceRefreshKey(storageKey);
                   setRefreshKey((value) => value + 1);
                 }}
                 style={{
@@ -436,10 +538,27 @@ export default function TikTokOffImpactPage() {
 
           {loading && (
             <Card tone="blue">
-              <strong>데이터를 계산하는 중입니다.</strong>
+              <strong>{data ? "새 계산을 진행 중입니다. 기존 결과는 아래에 유지됩니다." : "데이터를 계산하는 중입니다."}</strong>
               <p style={{ margin: "8px 0 0", color: "#475569" }}>
                 기간별 VM Cloud 보조 원장과 TikTok Ads 캐시, GA4 교차검증을 read-only로 불러옵니다.
               </p>
+              <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
+                <div style={{ height: 10, background: "#dbeafe", borderRadius: 999, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      width: `${loadingProgress}%`,
+                      height: "100%",
+                      background: "linear-gradient(90deg, #0f766e, #2563eb)",
+                      borderRadius: 999,
+                      transition: "width 500ms ease",
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#475569", fontSize: 12, fontWeight: 800 }}>
+                  <span>{loadingProgress < 35 ? "원장 조회" : loadingProgress < 70 ? "채널별 집계" : "화면 저장 준비"}</span>
+                  <span>{Math.round(loadingProgress)}%</span>
+                </div>
+              </div>
             </Card>
           )}
 
@@ -450,7 +569,7 @@ export default function TikTokOffImpactPage() {
             </Card>
           )}
 
-          {data && !loading && (
+          {data && (
             <>
               <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
                 <KpiCard

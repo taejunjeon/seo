@@ -1,6 +1,6 @@
 # Current Handoff
 
-작성 시각: 2026-05-13 15:28 KST
+작성 시각: 2026-05-13 15:52 KST
 
 ## 현재 목표
 
@@ -16,6 +16,8 @@ TikTok 광고 OFF 전후 매출 하락이 TikTok 미추적인지, 아니면 Goog
 - 채널별 하락: Meta 광고 -2,304,761원/일, Naver 광고 후보 -517,077원/일, 자연 소셜 -371,800원/일, TikTok 광고 -33,429원/일, Google 광고 +41,143원/일.
 - TikTok 미추적 가능성 27/100, 플랫폼 과대 attribution 가능성 70/100.
 - 문서 추가: `tiktok/tiktok_mistracking_audit_20260513.md`.
+- 500 `terminated` 오류 대응: VM Cloud 원격 read 재시도, 서버 파일 캐시, 브라우저 localStorage 저장본 표시 추가.
+- 화면 UX 보강: 계산 중 progress bar 표시, 새 계산 중에도 기존 결과 유지, 같은 기간은 저장본으로 즉시 표시.
 
 ## 다음 명령
 
@@ -24,7 +26,7 @@ TikTok 광고 OFF 전후 매출 하락이 TikTok 미추적인지, 아니면 Goog
 3. `git diff --check`
 4. `cd backend && npm run typecheck`
 5. `cd frontend && npx tsc --noEmit`
-6. `curl -sS -m 90 'http://localhost:7020/api/ads/tiktok/off-impact-audit' | jq '{ok, overall:.overall.deltaRevenuePct, top:.channel_shift.topDropChannels[0].label, missing:.mistracking_audit.missingTrackingProbabilityScore, send:.invariants.no_send, write:.invariants.no_write}'`
+6. `curl -sS -m 90 'http://localhost:7020/api/ads/tiktok/off-impact-audit' | jq '{ok, cache:.cache, overall:.overall.deltaRevenuePct, top:.channel_shift.topDropChannels[0].label, send:.invariants.no_send, write:.invariants.no_write}'`
 
 ## 절대 건드리면 안 되는 것
 
