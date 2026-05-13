@@ -2969,11 +2969,56 @@ const TIKTOK_OFF_DEFAULT_BASELINE: DateRange = { startDate: "2026-05-01", endDat
 const TIKTOK_OFF_DEFAULT_OFF: DateRange = { startDate: "2026-05-08", endDate: "2026-05-12" };
 const TIKTOK_OFF_IMPACT_CACHE_PATH = path.join(DATA_DIR, "tiktok-off-impact-audit-cache.json");
 const TIKTOK_OFF_IMPACT_CACHE_VERSION = 1;
+const TIKTOK_ADS_DAILY_PROCESSED_DIR = path.resolve(
+  process.cwd(),
+  "..",
+  "data",
+  "ads_csv",
+  "tiktok",
+  "processed",
+);
+
+type TikTokOffImpactAdsSummary = {
+  spend: number;
+  platformPurchases: number;
+  platformPurchaseValue: number;
+  platformRoas: number | null;
+  rows: number;
+  files: number;
+  source: string;
+  warnings: string[];
+};
+
+type AttributionLedgerDbRowForAds = {
+  touchpoint: string;
+  capture_mode: string;
+  payment_status: string | null;
+  logged_at: string;
+  order_id: string;
+  payment_key: string;
+  approved_at: string;
+  checkout_id: string;
+  customer_key: string;
+  landing: string;
+  referrer: string;
+  ga_session_id: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  utm_term: string;
+  utm_content: string;
+  gclid: string;
+  fbclid: string;
+  ttclid: string;
+  source: string;
+  metadata_json: string;
+  request_context_json: string;
+};
 
 const OFF_CHANNEL_LABELS: Record<TikTokOffImpactChannelKey, { label: string; explanation: string }> = {
   paid_meta: {
     label: "Meta 광고",
-    explanation: "fbclid/fbc 또는 Meta paid UTM 근거가 붙은 결제완료",
+    explanation: "Meta 클릭 식별자 또는 Meta paid UTM 근거가 붙은 결제완료",
   },
   meta_pixel_only: {
     label: "Meta 픽셀 흔적",
@@ -2981,11 +3026,11 @@ const OFF_CHANNEL_LABELS: Record<TikTokOffImpactChannelKey, { label: string; exp
   },
   paid_google: {
     label: "Google 광고",
-    explanation: "gclid/gbraid/wbraid 또는 Google paid UTM 근거가 붙은 결제완료",
+    explanation: "Google 클릭 식별자 또는 Google paid UTM 근거가 붙은 결제완료",
   },
   paid_tiktok: {
     label: "TikTok 광고",
-    explanation: "ttclid 또는 TikTok UTM/referrer/firstTouch 근거가 붙은 결제완료",
+    explanation: "TikTok 클릭 식별자 또는 TikTok UTM/referrer/firstTouch 근거가 붙은 결제완료",
   },
   paid_naver: {
     label: "Naver 광고 후보",
@@ -3093,6 +3138,101 @@ const writeTikTokOffImpactCache = async (key: string, payload: Record<string, un
   return generatedAt;
 };
 
+const splitCsvLine = (line: string) => {
+  const values: string[] = [];
+  let current = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+    if (char === '"' && quoted && next === '"') {
+      current += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      values.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  values.push(current);
+  return values;
+};
+
+const parseCsvRecords = (raw: string) => {
+  const lines = raw.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return [];
+  const headers = splitCsvLine(lines[0]).map((header) => header.trim());
+  return lines.slice(1).map((line) => {
+    const values = splitCsvLine(line);
+    const record: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      record[header] = values[index]?.trim() ?? "";
+    });
+    return record;
+  });
+};
+
+const readTikTokAdsDailySummaryFromCsv = async (
+  range: DateRange,
+): Promise<TikTokOffImpactAdsSummary> => {
+  const warnings: string[] = [];
+  let names: string[] = [];
+  try {
+    names = await fs.readdir(TIKTOK_ADS_DAILY_PROCESSED_DIR);
+  } catch (error) {
+    warnings.push(`TikTok Ads processed CSV directory missing: ${(error as Error).message}`);
+  }
+
+  const files = names
+    .filter((name) => /^\d{8}_\d{8}_daily_campaign\.csv$/.test(name))
+    .sort();
+  const rowsByKey = new Map<string, Record<string, string>>();
+
+  for (const file of files) {
+    try {
+      const raw = await fs.readFile(path.join(TIKTOK_ADS_DAILY_PROCESSED_DIR, file), "utf-8");
+      for (const row of parseCsvRecords(raw)) {
+        const reportDate = row.report_date;
+        const campaignId = row.campaign_id || row.campaign_name || "unknown";
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(reportDate)) continue;
+        if (reportDate < range.startDate || reportDate > range.endDate) continue;
+        rowsByKey.set(`${reportDate}__${campaignId}`, row);
+      }
+    } catch (error) {
+      warnings.push(`TikTok Ads processed CSV read failed: ${file}: ${(error as Error).message}`);
+    }
+  }
+
+  let spend = 0;
+  let platformPurchases = 0;
+  let platformPurchaseValue = 0;
+  for (const row of rowsByKey.values()) {
+    spend += toNumber(row.spend);
+    platformPurchases += toNumber(row.purchase_count);
+    platformPurchaseValue += toNumber(row.purchase_value);
+  }
+
+  if (files.length === 0) {
+    warnings.push("TikTok Ads processed CSV source is empty; spend/platform claim set to 0.");
+  } else if (rowsByKey.size === 0) {
+    warnings.push(`TikTok Ads processed CSV has no rows for ${range.startDate}~${range.endDate}.`);
+  }
+
+  return {
+    spend: Math.round(spend),
+    platformPurchases: Math.round(platformPurchases),
+    platformPurchaseValue: Math.round(platformPurchaseValue),
+    platformRoas: spend > 0 ? round2(platformPurchaseValue / spend) : null,
+    rows: rowsByKey.size,
+    files: files.length,
+    source: "repo data/ads_csv/tiktok/processed daily_campaign CSV read-only",
+    warnings,
+  };
+};
+
 const withTikTokOffImpactCacheMeta = (
   payload: Record<string, unknown>,
   cache: Record<string, unknown>,
@@ -3162,6 +3302,101 @@ const fetchOperationalLedgerEntriesForAdsByDay = async (
   }
 
   return { entries, warnings };
+};
+
+const parseJsonObjectForAds = (raw: string): Record<string, unknown> => {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+const normalizeLedgerDbRowForAds = (row: AttributionLedgerDbRowForAds): AttributionLedgerEntry => ({
+  touchpoint:
+    row.touchpoint === "marketing_intent"
+      ? "marketing_intent"
+      : row.touchpoint === "payment_success"
+        ? "payment_success"
+        : row.touchpoint === "form_submit"
+          ? "form_submit"
+          : "checkout_started",
+  captureMode:
+    row.capture_mode === "replay"
+      ? "replay"
+      : row.capture_mode === "smoke"
+        ? "smoke"
+        : "live",
+  paymentStatus:
+    row.payment_status === "confirmed"
+      ? "confirmed"
+      : row.payment_status === "canceled"
+        ? "canceled"
+        : row.payment_status === "pending"
+          ? "pending"
+          : null,
+  loggedAt: row.logged_at,
+  orderId: row.order_id,
+  paymentKey: row.payment_key,
+  approvedAt: row.approved_at,
+  checkoutId: row.checkout_id,
+  customerKey: row.customer_key,
+  landing: row.landing,
+  referrer: row.referrer,
+  gaSessionId: row.ga_session_id,
+  utmSource: row.utm_source,
+  utmMedium: row.utm_medium,
+  utmCampaign: row.utm_campaign,
+  utmTerm: row.utm_term,
+  utmContent: row.utm_content,
+  gclid: row.gclid,
+  fbclid: row.fbclid,
+  ttclid: row.ttclid,
+  metadata: {
+    ...parseJsonObjectForAds(row.metadata_json),
+    source: row.source,
+  },
+  requestContext: {
+    ip: "",
+    userAgent: "",
+    origin: "",
+    requestReferer: "",
+    method: "",
+    path: "",
+    ...parseJsonObjectForAds(row.request_context_json),
+  } as AttributionLedgerEntry["requestContext"],
+});
+
+const readOperationalLedgerEntriesForAds = async (
+  site: SiteKey,
+  range: DateRange,
+): Promise<{ entries: AttributionLedgerEntry[]; warnings: string[] }> => {
+  const source = `${site}_imweb`;
+  const startAt = `${shiftIsoDateByDays(range.startDate, -1)}T15:00:00.000Z`;
+  const endAt = `${range.endDate}T15:00:00.000Z`;
+  const db = getCrmDb();
+  const rows = db.prepare(`
+    SELECT
+      touchpoint, capture_mode, payment_status, logged_at,
+      order_id, payment_key, approved_at, checkout_id, customer_key,
+      landing, referrer, ga_session_id, utm_source, utm_medium,
+      utm_campaign, utm_term, utm_content, gclid, fbclid, ttclid,
+      source, metadata_json, request_context_json
+    FROM attribution_ledger
+    WHERE source = @source
+      AND capture_mode = 'live'
+      AND logged_at >= @startAt
+      AND logged_at < @endAt
+    ORDER BY logged_at DESC, rowid DESC
+  `).all({ source, startAt, endAt }) as AttributionLedgerDbRowForAds[];
+
+  return {
+    entries: rows.map(normalizeLedgerDbRowForAds),
+    warnings: [],
+  };
 };
 
 const includeText = (value: unknown, needles: string[]) => {
@@ -3645,17 +3880,13 @@ export const createAdsRouter = () => {
         }
       }
 
-      const [
-        baselineLedger,
-        offLedger,
-        baselineTikTok,
-        offTikTok,
-        ga4ChannelComparison,
-      ] = await Promise.all([
-        fetchOperationalLedgerEntriesForAdsByDay("biocom", baselineRange),
-        fetchOperationalLedgerEntriesForAdsByDay("biocom", offRange),
-        buildTikTokRoasComparison({ startDate: baselineRange.startDate, endDate: baselineRange.endDate }),
-        buildTikTokRoasComparison({ startDate: offRange.startDate, endDate: offRange.endDate }),
+      const [baselineLedger, offLedger] = await Promise.all([
+        readOperationalLedgerEntriesForAds("biocom", baselineRange),
+        readOperationalLedgerEntriesForAds("biocom", offRange),
+      ]);
+      const [baselineTikTokAds, offTikTokAds, ga4ChannelComparison] = await Promise.all([
+        readTikTokAdsDailySummaryFromCsv(baselineRange),
+        readTikTokAdsDailySummaryFromCsv(offRange),
         buildGa4ChannelComparison(baselineRange, offRange),
       ]);
 
@@ -3667,9 +3898,9 @@ export const createAdsRouter = () => {
       const baselineGa4TikTok = ga4ChannelComparison.rows.find((row) => row.channel === "paid_tiktok")?.baseline;
       const offGa4TikTok = ga4ChannelComparison.rows.find((row) => row.channel === "paid_tiktok")?.off;
       const auditItems = buildTikTokTrackingAuditItems({
-        baselineTiktokSpend: baselineTikTok.ads_report.summary.spend,
-        offTiktokSpend: offTikTok.ads_report.summary.spend,
-        baselinePlatformValue: baselineTikTok.ads_report.summary.purchaseValue,
+        baselineTiktokSpend: baselineTikTokAds.spend,
+        offTiktokSpend: offTikTokAds.spend,
+        baselinePlatformValue: baselineTikTokAds.platformPurchaseValue,
         baselineTiktokIntentRows: baselineTikTokEvidence.marketingIntentRows,
         offTiktokIntentRows: offTikTokEvidence.marketingIntentRows,
         baselineTiktokCheckoutOrders: baselineTikTokEvidence.checkoutOrders,
@@ -3709,9 +3940,9 @@ export const createAdsRouter = () => {
           },
         },
         source: {
-          primary: "VM Cloud SQLite 보조 원장 / att.ainativeos.net /api/attribution/ledger source=biocom_imweb captureMode=live",
+          primary: "VM Cloud SQLite 보조 원장 직접 read-only / attribution_ledger source=biocom_imweb captureMode=live",
           ga4_cross_check: "GA4 Data API / biocom property / session source-medium revenue",
-          tiktok_ads: "로컬 TikTok Ads daily cache + TikTok Business API read-only auto sync",
+          tiktok_ads: baselineTikTokAds.source,
           notes: [
             "채널별 매출은 예산 판단용 확정치가 아니라 VM Cloud 결제완료 row의 유입 근거 분류다.",
             "기간 길이가 달라 총액 대신 일평균 주문/매출로 비교한다.",
@@ -3721,6 +3952,8 @@ export const createAdsRouter = () => {
         warnings: [
           ...baselineLedger.warnings,
           ...offLedger.warnings,
+          ...baselineTikTokAds.warnings,
+          ...offTikTokAds.warnings,
           ...(ga4ChannelComparison.error ? [`GA4 cross-check 실패: ${ga4ChannelComparison.error}`] : []),
         ],
         overall: {
@@ -3733,17 +3966,22 @@ export const createAdsRouter = () => {
             : null,
         },
         tiktok_spend_and_claim: {
+          source: baselineTikTokAds.source,
           baseline: {
-            spend: baselineTikTok.ads_report.summary.spend,
-            platformPurchases: baselineTikTok.ads_report.summary.purchases,
-            platformPurchaseValue: baselineTikTok.ads_report.summary.purchaseValue,
-            platformRoas: baselineTikTok.ads_report.summary.platformRoas,
+            spend: baselineTikTokAds.spend,
+            platformPurchases: baselineTikTokAds.platformPurchases,
+            platformPurchaseValue: baselineTikTokAds.platformPurchaseValue,
+            platformRoas: baselineTikTokAds.platformRoas,
+            sourceRows: baselineTikTokAds.rows,
+            sourceFiles: baselineTikTokAds.files,
           },
           off: {
-            spend: offTikTok.ads_report.summary.spend,
-            platformPurchases: offTikTok.ads_report.summary.purchases,
-            platformPurchaseValue: offTikTok.ads_report.summary.purchaseValue,
-            platformRoas: offTikTok.ads_report.summary.platformRoas,
+            spend: offTikTokAds.spend,
+            platformPurchases: offTikTokAds.platformPurchases,
+            platformPurchaseValue: offTikTokAds.platformPurchaseValue,
+            platformRoas: offTikTokAds.platformRoas,
+            sourceRows: offTikTokAds.rows,
+            sourceFiles: offTikTokAds.files,
           },
         },
         tiktok_internal_evidence: {

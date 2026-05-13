@@ -1,0 +1,23 @@
+{
+  "sprint": "gpt0508-52",
+  "created_at_kst": "2026-05-13 16:35:00 KST",
+  "owner": "Codex",
+  "lane": "Yellow approved VM Cloud deploy/restart",
+  "documents": [
+    {
+      "path": "gptconfirm/gpt0508-52/00-result-report.md",
+      "purpose": "TikTok OFF live deploy result, validation, and next actions"
+    }
+  ],
+  "live_urls": [
+    "https://biocom.ainativeos.net/ads/tiktok/off-impact",
+    "https://att.ainativeos.net/api/ads/tiktok/off-impact-audit"
+  ],
+  "invariants": {
+    "platform_send_or_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  }
+}
