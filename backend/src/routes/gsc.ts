@@ -25,12 +25,26 @@ const gscDimensionSchema = z.enum([
   "searchAppearance",
 ]);
 
+const gscDimensionFilterSchema = z.object({
+  dimension: gscDimensionSchema,
+  operator: z
+    .enum(["equals", "notEquals", "contains", "notContains", "includingRegex", "excludingRegex"])
+    .optional(),
+  expression: z.string().min(1),
+});
+
+const gscDimensionFilterGroupSchema = z.object({
+  groupType: z.enum(["and", "or"]).optional(),
+  filters: z.array(gscDimensionFilterSchema).min(1).max(10),
+});
+
 const gscQuerySchema = z
   .object({
     siteUrl: z.string().min(1).optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "startDate must use YYYY-MM-DD"),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "endDate must use YYYY-MM-DD"),
     dimensions: z.array(gscDimensionSchema).min(1).max(5).default(["page", "query"]),
+    dimensionFilterGroups: z.array(gscDimensionFilterGroupSchema).max(5).optional(),
     rowLimit: z.coerce.number().int().min(1).max(25000).default(50),
     startRow: z.coerce.number().int().min(0).default(0),
     type: z.enum(["web", "image", "video", "news", "discover", "googleNews"]).optional(),
