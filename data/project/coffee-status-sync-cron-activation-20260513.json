@@ -1,0 +1,102 @@
+{
+  "run_id": "coffee-status-sync-cron-activation-20260513",
+  "executed_at_kst": "2026-05-13 21:03:15 KST",
+  "owner": "Codex",
+  "lane": "Yellow approved by TJ",
+  "actions": {
+    "monitor_script_deployed": true,
+    "one_shot_status_sync_executed": true,
+    "one_shot_monitor_executed": true,
+    "cron_registered": true
+  },
+  "source_window_freshness_confidence": {
+    "source": {
+      "primary": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders",
+      "status_source_api": "Imweb v2 GET /shop/orders?status={STATUS}&offset={page}&limit={limit}",
+      "status_sync_route": "VM Cloud backend POST /api/crm-local/imweb/sync-order-statuses",
+      "summary_cross_check": "VM Cloud summary API https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24"
+    },
+    "window": "thecleancoffee NPay rolling last_30d",
+    "freshness": "monitor checked_at_kst 2026-05-13 21:03:15; max_status_synced_at 2026-05-13 12:02:48 UTC stored in VM Cloud SQLite",
+    "confidence": 0.92
+  },
+  "before_latest_read_only_monitor": {
+    "checked_at_kst": "2026-05-13 18:48:54 KST",
+    "actual_count": 315,
+    "actual_amount_krw": 15477100,
+    "status_blank_count": 32,
+    "status_blank_amount_krw": 1983600,
+    "status_sync_lag_hours": 29.63,
+    "warnings": [
+      "ga4_guard_not_actual_source",
+      "status_blank_rows_included_with_warning",
+      "status_sync_stale_over_6h"
+    ]
+  },
+  "after_one_shot_status_sync_monitor": {
+    "checked_at_kst": "2026-05-13 21:03:15 KST",
+    "actual_count": 315,
+    "actual_amount_krw": 15486200,
+    "status_blank_count": 2,
+    "status_blank_amount_krw": 68700,
+    "cancel_excluded_count": 31,
+    "max_order_time": "2026-05-13T11:11:58.000Z",
+    "max_synced_at": "2026-05-13 11:50:25",
+    "max_status_synced_at": "2026-05-13 12:02:48",
+    "status_sync_lag_hours": 0.01,
+    "warnings": [
+      "ga4_guard_not_actual_source",
+      "status_blank_rows_included_with_warning"
+    ],
+    "no_send": true,
+    "no_write_monitor": true,
+    "raw_identifier_output": false
+  },
+  "live_summary_post_check": {
+    "source": "imweb_v2_vm_cloud_imweb_orders",
+    "status": "included_with_warning",
+    "complete_count": 315,
+    "complete_amount_krw": 15486200,
+    "status_blank_count": 2,
+    "status_blank_amount_krw": 68700,
+    "excluded_cancel_return_exchange_count": 31,
+    "excluded_cancel_return_exchange_amount_krw": 1796400,
+    "warnings": [
+      "ga4_guard_not_actual_source",
+      "status_blank_rows_included_with_warning"
+    ],
+    "status_sync_stale_over_6h_present": false
+  },
+  "cron": {
+    "vm_user": "biocomkr_sns",
+    "server_timezone": "UTC",
+    "backup_dir": "/home/biocomkr_sns/seo/repo/.deploy-backups/coffee-status-sync-monitor-20260513T120354UTC",
+    "relevant_cron_lines": 2,
+    "status_sync_schedule_server_utc": "10 0,6,12,18 * * *",
+    "status_sync_schedule_kst": "03:10,09:10,15:10,21:10 KST",
+    "monitor_schedule_server": "40 * * * *",
+    "monitor_schedule_kst": "hourly at minute 40"
+  },
+  "notes": [
+    "The first status sync response was not printed because the post-curl formatter missed the node PATH, but the sync write is verified by max_status_synced_at moving to the execution time and status_blank dropping from 32 to 2.",
+    "The monitor script writes output JSON/log only and reports no_send=true and raw_identifier_output=false.",
+    "VM Cloud SQLite write scope for approved execution was limited to imweb_orders.imweb_status and imweb_status_synced_at."
+  ],
+  "invariants": {
+    "platform_send_or_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_schema_migration": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_change": 0,
+    "raw_identifier_output": false
+  },
+  "next_gate": {
+    "observe_hours": "48-72",
+    "hourly_status_sync_upgrade_requirements": [
+      "Imweb API 429 count is zero",
+      "average status sync duration is under 10 minutes",
+      "summary API and VM Cloud SQLite aggregate mismatch is zero",
+      "backend health remains stable"
+    ]
+  }
+}

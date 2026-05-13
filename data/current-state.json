@@ -1,8 +1,8 @@
 {
-  "updated_at_kst": "2026-05-13 19:28:00 KST",
-  "workstream": "coffee_status_sync_monitor_cron_approval_and_tiktok_exact_utm_rule",
-  "lane": "Green approval/design documentation; Yellow/Red execution gated",
-  "current_goal": "Document a Coffee Imweb status sync plus read-only monitor cron approval packet and a TikTok campaign_id exact UTM rule without registering cron, executing status sync, or changing ads.",
+  "updated_at_kst": "2026-05-13 21:05:00 KST",
+  "workstream": "coffee_status_sync_monitor_cron_activation_and_tiktok_exact_utm_rule",
+  "lane": "Yellow approved coffee status sync cron executed; TikTok Red/Yellow execution gated",
+  "current_goal": "Observe the registered Coffee Imweb status sync and hourly monitor for 48-72 hours before deciding whether to upgrade status sync to hourly.",
   "source_window_freshness_confidence": {
     "source": {
       "coffee_actual": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders read-only",
@@ -11,26 +11,29 @@
       "tiktok_ads_export": "local data/ads_csv/tiktok/processed/20260507_20260512_daily_campaign.csv read-only"
     },
     "window": {
-      "coffee_actual": "rolling last_30d, checked 2026-05-13 18:48:54 KST",
+      "coffee_actual": "rolling last_30d, checked 2026-05-13 21:03:15 KST",
       "google_ads": "last_7d and last_30d, checked 2026-05-13 18:49 KST",
       "ga4_channel_funnel": "last_7d 2026-05-06 to 2026-05-12, last_14d 2026-04-29 to 2026-05-12, last_30d 2026-04-13 to 2026-05-12",
       "tiktok_ads_export": "2026-05-07 to 2026-05-12"
     },
-    "freshness": "2026-05-13 19:15 KST",
-    "confidence": 0.88
+    "freshness": "2026-05-13 21:05 KST",
+    "confidence": 0.9
   },
   "approval_packets": {
     "coffee_status_sync_monitor_cron": {
       "document": "gdn/coffee-status-monitor-cron-approval-20260513.md",
       "json": "data/project/coffee-status-monitor-cron-approval-20260513.json",
       "execution_lane": "Yellow",
-      "proposed_status_sync_schedule_kst": "10 3,9,15,21 * * *",
-      "proposed_monitor_schedule_kst": "40 * * * *",
+      "registered_status_sync_schedule_server_utc": "10 0,6,12,18 * * *",
+      "registered_status_sync_schedule_kst": "03:10,09:10,15:10,21:10 KST",
+      "registered_monitor_schedule": "40 * * * *",
       "proposed_user": "biocomkr_sns",
       "status_sync_route": "POST http://127.0.0.1:7020/api/crm-local/imweb/sync-order-statuses",
       "status_sync_scope": "VM Cloud SQLite imweb_orders.imweb_status and imweb_status_synced_at",
       "output_json": "/home/biocomkr_sns/seo/repo/data/project/monitoring/coffee-actual-status-monitor-latest.json",
-      "status": "approval_packet_ready_not_executed"
+      "status": "registered_and_one_shot_verified",
+      "activation_document": "gdn/coffee-status-sync-cron-activation-20260513.md",
+      "activation_json": "data/project/coffee-status-sync-cron-activation-20260513.json"
     },
     "tiktok_campaign_id_exact_utm": {
       "document": "gdn/tiktok-campaign-id-exact-utm-rule-20260513.md",
@@ -51,19 +54,18 @@
       "site": "thecleancoffee",
       "source": "imweb_v2_vm_cloud_imweb_orders",
       "actual_count": 315,
-      "actual_amount_krw": 15477100,
-      "status_blank_count": 32,
-      "status_blank_amount_krw": 1983600,
+      "actual_amount_krw": 15486200,
+      "status_blank_count": 2,
+      "status_blank_amount_krw": 68700,
       "cancel_excluded_count": 31,
       "cancel_excluded_amount_krw": 1796400,
-      "max_order_time": "2026-05-13T08:25:11.000Z",
-      "max_synced_at": "2026-05-13 09:35:27",
-      "max_status_synced_at": "2026-05-12 04:11:07",
-      "status_sync_lag_hours": 29.63,
+      "max_order_time": "2026-05-13T11:11:58.000Z",
+      "max_synced_at": "2026-05-13 11:50:25",
+      "max_status_synced_at": "2026-05-13 12:02:48",
+      "status_sync_lag_hours": 0.01,
       "warnings": [
         "ga4_guard_not_actual_source",
-        "status_blank_rows_included_with_warning",
-        "status_sync_stale_over_6h"
+        "status_blank_rows_included_with_warning"
       ]
     },
     "sprint2_google_ads_roas_gap": {
@@ -125,6 +127,7 @@
     "Updated project/sprint3.md with latest GA4 7/14/30 union rerun and TikTok spend-quality semantic join dry-run.",
     "Created Coffee actual status monitor cron approval packet.",
     "Revised Coffee cron approval packet to status sync four times daily plus hourly read-only monitor because daily monitor alone does not reduce status blank rows.",
+    "Executed approved Coffee Imweb status sync one-shot and registered status sync four times daily plus hourly monitor cron on VM Cloud.",
     "Created TikTok campaign_id exact UTM rule design.",
     "Updated project/sprint1.md and project/sprint3.md with approval/design next actions.",
     "Updated gdn/current-handoff.md checkpoint."
@@ -132,11 +135,11 @@
   "invariants": {
     "no_send": true,
     "no_upload": true,
-    "cron_registration": 0,
+    "cron_registration": 1,
     "tiktok_ads_api_write": 0,
     "tiktok_campaign_or_budget_change": 0,
     "operational_db_write": 0,
-    "vm_cloud_sqlite_write": 0,
+    "vm_cloud_sqlite_write": "imweb_orders.imweb_status and imweb_status_synced_at only",
     "platform_mutation": 0,
     "gtm_publish": 0,
     "imweb_footer_header_change": 0,
@@ -145,13 +148,12 @@
   "forbidden_next": [
     "google_ads_conversion_action_change_without_red_approval",
     "platform_send_or_upload",
-    "coffee_cron_registration_without_yellow_approval",
-    "coffee_status_sync_execution_without_yellow_approval",
+    "coffee_hourly_status_sync_upgrade_without_48_72h_observation",
     "tiktok_budget_or_campaign_change",
     "tiktok_ads_url_parameter_change_without_approval",
     "operational_db_write_or_import",
     "vm_cloud_sqlite_schema_migration",
-    "vm_cloud_sqlite_status_enrichment_write_without_yellow_approval",
+    "vm_cloud_sqlite_status_enrichment_write_outside_registered_coffee_sync_scope",
     "gtm_publish",
     "secret_or_raw_identifier_output"
   ]

@@ -1,0 +1,33 @@
+{
+  "sprint": "gpt0508-57",
+  "created_at_kst": "2026-05-13 21:10:00 KST",
+  "author": "Codex",
+  "lane": "Yellow approved VM Cloud cron/status sync execution",
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "purpose": "Human-readable report for Coffee Imweb status sync cron activation"
+    }
+  ],
+  "primary_outputs": [
+    "gdn/coffee-status-sync-cron-activation-20260513.md",
+    "data/project/coffee-status-sync-cron-activation-20260513.json",
+    "project/sprint1.md",
+    "gdn/current-handoff.md",
+    "data/current-state.json"
+  ],
+  "invariants": {
+    "platform_send_or_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_schema_migration": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_change": 0,
+    "raw_identifier_output": false
+  },
+  "approved_execution": {
+    "vm_cloud_cron_registration": 1,
+    "vm_cloud_sqlite_write_scope": "imweb_orders.imweb_status and imweb_status_synced_at only",
+    "status_sync_schedule_kst": "03:10,09:10,15:10,21:10",
+    "monitor_schedule": "hourly at minute 40"
+  }
+}
