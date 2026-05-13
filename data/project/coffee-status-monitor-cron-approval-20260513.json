@@ -1,16 +1,18 @@
 {
-  "run_id": "coffee-status-monitor-cron-approval-20260513",
-  "created_at_kst": "2026-05-13 19:10:00 KST",
+  "run_id": "coffee-status-sync-monitor-cron-approval-20260513",
+  "created_at_kst": "2026-05-13 19:28:00 KST",
   "owner": "Codex",
   "lane": {
     "document": "Green approval packet",
-    "execution": "Yellow cron registration if approved"
+    "execution": "Yellow VM Cloud cron registration and status sync if approved"
   },
-  "purpose": "Run the thecleancoffee actual status monitor once per day so status blank count, amount, and status sync lag are tracked without manual polling.",
+  "purpose": "Run the thecleancoffee Imweb status sync four times per day to reduce status blank lag, and run the read-only actual status monitor hourly to observe freshness and warnings.",
   "source_window_freshness_confidence": {
     "source": {
       "primary": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders",
-      "cross_check": "VM Cloud summary API https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24"
+      "status_source_api": "Imweb v2 GET /shop/orders?status={STATUS}&offset={page}&limit={limit}",
+      "status_sync_route": "VM Cloud backend POST /api/crm-local/imweb/sync-order-statuses",
+      "monitor_cross_check": "VM Cloud summary API https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24"
     },
     "window": "thecleancoffee NPay rolling last_30d, latest read-only monitor 2026-05-13 18:48:54 KST",
     "freshness": {
@@ -33,36 +35,66 @@
       "status_sync_stale_over_6h"
     ]
   },
-  "proposed_cron": {
-    "user": "biocomkr_sns",
-    "schedule_kst": "20 9 * * *",
-    "frequency": "daily",
-    "command_summary": "cd /home/biocomkr_sns/seo/repo/backend && npx tsx scripts/coffee-actual-status-monitor.ts --mode=local --site=thecleancoffee --window-days=30 --window-hours=24 --summary-base-url=https://att.ainativeos.net --sqlite-path=/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 --output=/home/biocomkr_sns/seo/repo/data/project/monitoring/coffee-actual-status-monitor-latest.json",
-    "output_json": "/home/biocomkr_sns/seo/repo/data/project/monitoring/coffee-actual-status-monitor-latest.json",
-    "log_file": "/home/biocomkr_sns/seo/logs/coffee-actual-status-monitor.log"
+  "proposed_jobs": {
+    "status_sync": {
+      "user": "biocomkr_sns",
+      "schedule_kst": "10 3,9,15,21 * * *",
+      "frequency": "four_times_daily",
+      "command_summary": "curl -sS -m 900 -X POST http://127.0.0.1:7020/api/crm-local/imweb/sync-order-statuses -H 'Content-Type: application/json' -d '{\"site\":\"thecleancoffee\",\"pageLimit\":100}'",
+      "writes": [
+        "VM Cloud SQLite imweb_orders.imweb_status",
+        "VM Cloud SQLite imweb_orders.imweb_status_synced_at"
+      ],
+      "log_file": "/home/biocomkr_sns/seo/logs/coffee-imweb-status-sync.log"
+    },
+    "read_only_monitor": {
+      "user": "biocomkr_sns",
+      "schedule_kst": "40 * * * *",
+      "frequency": "hourly",
+      "command_summary": "cd /home/biocomkr_sns/seo/repo/backend && npx tsx scripts/coffee-actual-status-monitor.ts --mode=local --site=thecleancoffee --window-days=30 --window-hours=24 --summary-base-url=https://att.ainativeos.net --sqlite-path=/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 --output=/home/biocomkr_sns/seo/repo/data/project/monitoring/coffee-actual-status-monitor-latest.json",
+      "output_json": "/home/biocomkr_sns/seo/repo/data/project/monitoring/coffee-actual-status-monitor-latest.json",
+      "log_file": "/home/biocomkr_sns/seo/logs/coffee-actual-status-monitor.log"
+    }
+  },
+  "hourly_status_sync_upgrade_condition": {
+    "candidate_schedule_kst": "10 * * * *",
+    "observe_first_hours": 48,
+    "requirements": [
+      "status sync API 429 count is zero",
+      "average status sync duration is under 10 minutes",
+      "status sync lag is stable under 6 hours or root cause is newly classified",
+      "summary API and VM Cloud SQLite aggregate match on count and amount",
+      "backend health remains stable"
+    ]
   },
   "success_criteria": [
-    "one-shot dry-run JSON ok=true",
-    "exactly one biocomkr_sns crontab line contains coffee-actual-status-monitor.ts",
-    "output includes actual/status_blank/cancel_excluded/freshness/warnings",
+    "one-shot status sync HTTP 200",
+    "one-shot monitor JSON ok=true",
+    "max_status_synced_at moves near the status sync execution time",
+    "exactly one crontab line contains sync-order-statuses for thecleancoffee",
+    "exactly one crontab line contains coffee-actual-status-monitor.ts",
+    "monitor output includes actual/status_blank/cancel_excluded/freshness/warnings",
     "raw_identifier_output=false",
-    "no_send=true",
-    "no_write=true",
-    "3 consecutive daily outputs are available"
+    "platform send/upload remains zero",
+    "operational DB write remains zero",
+    "VM Cloud SQLite write is limited to imweb_status and imweb_status_synced_at"
   ],
   "stop_criteria": [
-    "raw identifier appears in output",
-    "no_send or no_write becomes false",
+    "Imweb API 429 or TOO MANY REQUEST repeats",
+    "status sync runs longer than 20 minutes",
     "summary API and SQLite aggregate mismatch on count or amount",
-    "script fails two consecutive days",
-    "status sync lag exceeds 48h and keeps increasing",
-    "cancel/return/exchange appears included"
+    "cancel/return/exchange appears included",
+    "raw identifier appears in output or logs",
+    "external send/upload appears",
+    "operational DB write appears",
+    "VM Cloud backend health degrades"
   ],
   "rollback": {
-    "method": "remove crontab line containing coffee-actual-status-monitor.ts",
-    "db_rollback_required": false
+    "method": "remove crontab lines containing sync-order-statuses for thecleancoffee and coffee-actual-status-monitor.ts",
+    "db_rollback_required": false,
+    "note": "Status enrichment values already written by approved sync are not deleted unless separate evidence shows wrong status labels."
   },
-  "invariants": {
+  "invariants_for_this_document_creation": {
     "platform_send_or_upload": 0,
     "operational_db_write": 0,
     "vm_cloud_sqlite_write": 0,
@@ -71,9 +103,18 @@
     "imweb_footer_header_change": 0,
     "raw_identifier_output": false
   },
+  "invariants_for_approved_execution": {
+    "platform_send_or_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write_scope": "imweb_orders.imweb_status and imweb_status_synced_at only",
+    "vm_cloud_schema_migration": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_change": 0,
+    "raw_identifier_output": false
+  },
   "recommendation": {
     "decision": "conditional_go_after_yellow_approval",
-    "score_pct": 86,
-    "reason": "The monitor has low operational risk and closes the status_blank freshness gap, but crontab modification is a VM Cloud Yellow change."
+    "score_pct": 90,
+    "reason": "Daily monitoring alone observes the problem but does not reduce status blank rows. Four-times-daily status sync limits freshness lag while allowing rate-limit and duration monitoring before hourly write sync."
   }
 }

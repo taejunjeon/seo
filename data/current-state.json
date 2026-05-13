@@ -1,8 +1,8 @@
 {
-  "updated_at_kst": "2026-05-13 19:15:00 KST",
-  "workstream": "coffee_cron_approval_and_tiktok_exact_utm_rule",
+  "updated_at_kst": "2026-05-13 19:28:00 KST",
+  "workstream": "coffee_status_sync_monitor_cron_approval_and_tiktok_exact_utm_rule",
   "lane": "Green approval/design documentation; Yellow/Red execution gated",
-  "current_goal": "Document a Coffee actual status monitor cron approval packet and a TikTok campaign_id exact UTM rule without registering cron or changing ads.",
+  "current_goal": "Document a Coffee Imweb status sync plus read-only monitor cron approval packet and a TikTok campaign_id exact UTM rule without registering cron, executing status sync, or changing ads.",
   "source_window_freshness_confidence": {
     "source": {
       "coffee_actual": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders read-only",
@@ -20,12 +20,15 @@
     "confidence": 0.88
   },
   "approval_packets": {
-    "coffee_status_monitor_cron": {
+    "coffee_status_sync_monitor_cron": {
       "document": "gdn/coffee-status-monitor-cron-approval-20260513.md",
       "json": "data/project/coffee-status-monitor-cron-approval-20260513.json",
       "execution_lane": "Yellow",
-      "proposed_schedule_kst": "20 9 * * *",
+      "proposed_status_sync_schedule_kst": "10 3,9,15,21 * * *",
+      "proposed_monitor_schedule_kst": "40 * * * *",
       "proposed_user": "biocomkr_sns",
+      "status_sync_route": "POST http://127.0.0.1:7020/api/crm-local/imweb/sync-order-statuses",
+      "status_sync_scope": "VM Cloud SQLite imweb_orders.imweb_status and imweb_status_synced_at",
       "output_json": "/home/biocomkr_sns/seo/repo/data/project/monitoring/coffee-actual-status-monitor-latest.json",
       "status": "approval_packet_ready_not_executed"
     },
@@ -121,6 +124,7 @@
     "Updated project/sprint2.md with latest Google Ads ROAS gap, Option 3 packet refresh, and campaign-site spend mapping readiness.",
     "Updated project/sprint3.md with latest GA4 7/14/30 union rerun and TikTok spend-quality semantic join dry-run.",
     "Created Coffee actual status monitor cron approval packet.",
+    "Revised Coffee cron approval packet to status sync four times daily plus hourly read-only monitor because daily monitor alone does not reduce status blank rows.",
     "Created TikTok campaign_id exact UTM rule design.",
     "Updated project/sprint1.md and project/sprint3.md with approval/design next actions.",
     "Updated gdn/current-handoff.md checkpoint."
@@ -142,10 +146,12 @@
     "google_ads_conversion_action_change_without_red_approval",
     "platform_send_or_upload",
     "coffee_cron_registration_without_yellow_approval",
+    "coffee_status_sync_execution_without_yellow_approval",
     "tiktok_budget_or_campaign_change",
     "tiktok_ads_url_parameter_change_without_approval",
     "operational_db_write_or_import",
-    "vm_cloud_sqlite_write_or_schema_migration",
+    "vm_cloud_sqlite_schema_migration",
+    "vm_cloud_sqlite_status_enrichment_write_without_yellow_approval",
     "gtm_publish",
     "secret_or_raw_identifier_output"
   ]

@@ -1,7 +1,7 @@
 # Sprint 1. Coffee Actual Source Patch
 
 작성 시각: 2026-05-13 19:15 KST
-상태: live 배포 완료 / post-snapshot PASS / 로컬 대시보드 smoke PASS / latest status monitor read-only 재확인 완료 / cron 승인안 작성 완료
+상태: live 배포 완료 / post-snapshot PASS / 로컬 대시보드 smoke PASS / latest status monitor read-only 재확인 완료 / status sync+monitor cron 승인안 작성 완료
 Owner: Codex
 Lane: Yellow 승인 실행 완료 + Green follow-up
 Do not use for: GA4/Meta/Google/TikTok/Naver 실제 전송, 운영DB write/import, GTM publish, Imweb footer/header 변경
@@ -49,7 +49,7 @@ harness_preflight:
 - 결과: VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3` `imweb_orders(site='thecleancoffee', pay_type='npay')` 기준 coffee actual은 315건 / 15,477,100원이다.
 - status blank: 32건 / 1,983,600원이다. 모든 blank row는 status marker가 비어 있어 결제 실패가 아니라 `imweb_status` 보강 sync 지연으로 분류한다.
 - freshness: `imweb_orders.synced_at` 최신값은 2026-05-13 09:35:27, `imweb_orders.imweb_status_synced_at` 최신값은 2026-05-12 04:11:07이라 status sync lag는 29.63h다.
-- cron 승인안: 하루 1회 09:20 KST에 같은 read-only monitor를 VM Cloud에서 실행하는 Yellow 승인안을 작성했다. 실제 cron 등록은 하지 않았다.
+- cron 승인안: status blank를 실제로 줄이기 위해 VM Cloud에서 더클린커피 Imweb status sync를 하루 4회 실행하고, read-only monitor는 매시간 실행하는 Yellow 승인안으로 갱신했다. 실제 cron 등록과 status sync 실행은 하지 않았다.
 - 산출물: `data/project/coffee-actual-status-monitor-latest-20260513.json`, `gdn/coffee-status-monitor-cron-approval-20260513.md`.
 
 ## Phase-Sprint 요약표 — 실제 개발 순서 기준
@@ -57,7 +57,7 @@ harness_preflight:
 | Priority | Phase/Sprint | 무엇을 하는가 | 왜 하는가 | 어떻게 진행하는가 | 지금 상태 | 현재 진척률 % | 100% 조건 | 다음 단계 / 담당 | 승인 필요 여부 | Source 문서 |
 |---:|---|---|---|---|---|---:|---|---|---|---|
 | P0 | [[#Phase1-Sprint1]] | coffee NPay actual source를 live summary API에 붙인다 | coffee 매출이 bridge_pending에 갇히면 내부 매출과 ROAS 판단이 낮게 나온다 | reader patch, test, VM Cloud backend 배포, post-snapshot 순서로 닫는다 | 완료 | 100% | coffee actual source/status/count가 live API에 보이고 biocom regression이 없다 | 완료. Sprint 2 ROAS recompute로 연결됨 | NO, 완료 | [[../gptconfirm/gpt0508-49/00-result-report]] |
-| P0 | [[#Phase1-Sprint2]] | status blank를 warning으로 운영한다 | blank status를 미결제로 단정하면 매출을 누락하고, 확정으로 숨기면 취소 반영 리스크가 생긴다 | `included_with_warning`에 포함하되 blank count/amount/freshness/root cause를 같이 표시한다 | 전용 read-only monitor script 완료, 최신 수동 재확인 완료, cron 승인안 작성 완료 | 100% | status blank 변화와 원인이 source/window/freshness와 함께 기록된다 | TJ: cron 등록 승인 여부 판단 / Codex: 승인 시 precheck부터 실행 | YES, Yellow cron 등록 | [[../gdn/coffee-status-monitor-cron-approval-20260513]] |
+| P0 | [[#Phase1-Sprint2]] | status blank를 warning으로 운영한다 | blank status를 미결제로 단정하면 매출을 누락하고, 확정으로 숨기면 취소 반영 리스크가 생긴다 | `included_with_warning`에 포함하되 blank count/amount/freshness/root cause를 같이 표시한다 | 전용 read-only monitor script 완료, 최신 수동 재확인 완료, status sync 4회/일 + monitor hourly 승인안 작성 완료 | 100% | status blank 변화와 원인이 source/window/freshness와 함께 기록되고, 승인 시 status sync lag가 6시간 이하로 내려간다 | TJ: cron 등록 승인 여부 판단 / Codex: 승인 시 precheck부터 실행 | YES, Yellow cron 등록 + VM Cloud SQLite status 보강 write | [[../gdn/coffee-status-monitor-cron-approval-20260513]] |
 | P1 | [[#Phase1-Sprint3]] | coffee actual을 운영 대시보드와 전체 장부에 반영한다 | API만 바뀌고 화면/월별 장부가 안 쓰면 운영 기준이 바뀌지 않는다 | `/ads/site-landing`은 로컬 smoke 완료, `/total` contract는 source line item으로 확장한다 | `/total` contract/로컬 화면 반영 완료 | 90% | 운영자가 coffee actual, blank warning, bridge_pending, ROAS 참고 여부를 한 화면과 `/total`에서 본다 | 다음: 운영 deploy 여부 판단 | NO, Green / 배포는 별도 승인 | [[../project/sprint2]] |
 
 ## 다음 할일 — Auto Green / Approval Needed / Blocked-Parked
@@ -69,7 +69,7 @@ harness_preflight:
 - 결과: 2026-05-13 18:48:54 KST 전용 monitor 기준 coffee actual은 315건 / 15,477,100원, status blank는 32건 / 1,983,600원이다.
 - 원인: VM Cloud SQLite `imweb_orders` order sync는 `2026-05-13 09:35:27`까지 진행됐지만 `imweb_status_synced_at`은 `2026-05-12 04:11:07`에서 멈춰 있었다. 따라서 `source_freshness_gap_status_sync_lag`로 유지한다.
 - 산출물: `backend/scripts/coffee-actual-status-monitor.ts`, `data/project/coffee-actual-status-monitor-script-20260513.json`, `data/project/coffee-actual-status-monitor-latest-20260513.json`.
-- 다음: cron 등록은 하지 않았다. 전용 monitor script/cron이 필요하면 별도 Yellow 승인안으로 넘긴다.
+- 다음: cron 등록과 status sync 실행은 하지 않았다. 승인 시 status sync 4회/일 + read-only monitor 1시간 단위로 시작한다.
 
 #### A2. `/total` 전체 장부 adoption contract
 - 무엇을 하는가: coffee actual line을 `/total` 장부에 섞어 더하지 않고 별도 source line으로 넣는 contract를 만든다.
@@ -84,16 +84,17 @@ harness_preflight:
 
 ### Approval Needed
 
-#### B1. Coffee actual status monitor cron 등록
+#### B1. Coffee Imweb status sync + actual status monitor cron 등록
 - 상태: 승인안 작성 완료. 실제 등록은 하지 않았다.
-- 무엇을 하는가: VM Cloud `biocomkr_sns` crontab에 하루 1회 09:20 KST monitor 1줄을 등록한다.
-- 왜 하는가: 더클린커피 actual은 `included_with_warning`이고, warning의 핵심인 `imweb_status` status sync lag를 매일 같은 숫자로 봐야 한다.
-- 어떻게 하는가: 승인 후 precheck → one-shot dry-run → crontab backup → cron 1줄 등록 → post-check → rollback command 확인 순서로 진행한다.
-- 성공 기준: output JSON `ok=true`, `no_send=true`, `no_write=true`, `raw_identifier_output=false`, status blank count/amount/freshness가 매일 남는다.
-- 실패 시 다음 확인점: script 존재 여부, `tsx` 실행 가능 여부, summary API/VM Cloud SQLite aggregate mismatch, status sync lag 48h 초과.
-- 승인 필요 여부: YES, Yellow. VM Cloud crontab 변경이기 때문이다.
+- 무엇을 하는가: VM Cloud `biocomkr_sns` crontab에 더클린커피 Imweb status sync 1줄과 read-only monitor 1줄을 등록한다.
+- 왜 하는가: monitor만 하루 1회 돌리면 status blank를 볼 수는 있지만 줄이지 못한다. status blank의 현재 원인은 VM Cloud SQLite `imweb_orders.imweb_status` 보강 sync 지연이므로, Imweb v2 status 목록을 주기적으로 다시 읽어야 한다.
+- 어떻게 하는가: 승인 후 precheck → one-shot status sync → one-shot monitor → crontab backup → cron 2줄 등록 → post-check → rollback command 확인 순서로 진행한다.
+- 권장 주기: status sync는 03:10/09:10/15:10/21:10 KST 하루 4회, read-only monitor는 매시간 40분.
+- 성공 기준: status sync HTTP 200, monitor JSON `ok=true`, `max_status_synced_at` 최신화, raw identifier output 0, 운영DB write 0, platform send/upload 0, VM Cloud SQLite write는 `imweb_status`/`imweb_status_synced_at` 보강 범위로 제한.
+- 실패 시 다음 확인점: Imweb API 429, status sync 20분 초과, summary API/VM Cloud SQLite aggregate mismatch, cancel/return/exchange included evidence, backend health.
+- 승인 필요 여부: YES, Yellow. VM Cloud crontab 변경과 VM Cloud SQLite status 보강 write이기 때문이다.
 - 산출물: `gdn/coffee-status-monitor-cron-approval-20260513.md`, `data/project/coffee-status-monitor-cron-approval-20260513.json`.
-- 추천 점수/자신감: 86%.
+- 추천 점수/자신감: 90%.
 
 ### Blocked/Parked
 
@@ -217,7 +218,8 @@ harness_preflight:
 | 2026-05-13 12:56 KST | dedicated status monitor script | coffee actual 317건 / 15,547,500원, status blank 28건, root cause = status sync lag |
 | 2026-05-13 12:59 KST | `/total` decision layer smoke | 7010 화면에서 7020 API 200, 상단 판단 카드와 reference line 표시 |
 | 2026-05-13 18:48 KST | latest status monitor read-only rerun | coffee actual 315건 / 15,477,100원, status blank 32건 / 1,983,600원, status sync lag 29.63h |
-| 2026-05-13 19:10 KST | cron approval packet 작성 | 하루 1회 09:20 KST monitor 등록 범위, 성공 기준, 중단 기준, rollback 명령 정리. 실제 cron 등록 0 |
+| 2026-05-13 19:10 KST | cron approval packet 작성 | 최초안은 하루 1회 09:20 KST monitor 등록 범위였음. 실제 cron 등록 0 |
+| 2026-05-13 19:28 KST | cron approval packet 갱신 | status blank를 줄이려면 monitor가 아니라 status sync가 필요하므로 status sync 4회/일 + monitor hourly 구조로 승인안 갱신. 실제 cron 등록/status sync 실행 0 |
 
 ## Source / Window / Freshness / Confidence
 
