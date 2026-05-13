@@ -1,128 +1,117 @@
 {
-  "updated_at_kst": "2026-05-13 18:35:00 KST",
-  "workstream": "tiktok_off_impact_coop_adjustment_ux_consistency",
-  "lane": "Yellow approved VM Cloud frontend/backend deploy/restart",
-  "current_goal": "Make the TikTok OFF impact page clearly separate pre-adjustment channel classification from post group-buy correction judgment.",
-  "live_urls": {
-    "frontend": "https://biocom.ainativeos.net/ads/tiktok/off-impact",
-    "backend_api": "https://att.ainativeos.net/api/ads/tiktok/off-impact-audit",
-    "coop_api": "https://att.ainativeos.net/api/ads/coop-order-summary?site=biocom&start_date=2026-05-01&end_date=2026-05-08"
-  },
-  "local_urls": {
-    "frontend": "http://localhost:7010/ads/tiktok/off-impact",
-    "backend_api": "http://localhost:7020/api/ads/tiktok/off-impact-audit",
-    "coop_api": "http://localhost:7020/api/ads/coop-order-summary?site=biocom&start_date=2026-05-01&end_date=2026-05-08"
-  },
+  "updated_at_kst": "2026-05-13 19:10:00 KST",
+  "workstream": "project_sprint_green_followthrough",
+  "lane": "Green read-only investigation and design documentation",
+  "current_goal": "Advance project/sprint1.md, project/sprint2.md, and project/sprint3.md using only read-only data checks and design documentation.",
   "source_window_freshness_confidence": {
     "source": {
-      "overall_revenue": "VM Cloud SQLite attribution_ledger direct read-only, source=biocom_imweb, captureMode=live",
-      "coop_adjustment": "operational_db.public.tb_influencer_group_buy_customer read-only",
-      "tiktok_ads": "VM Cloud repo data/ads_csv/tiktok/processed daily_campaign CSV read-only",
-      "cross_check": "GA4 Data API biocom property session source-medium",
-      "db_locations": {
-        "operational_db": "read-only for group-buy correction only; no write/import",
-        "vm_cloud": "read-only attribution ledger and flat CSV cache; no SQLite write/schema migration",
-        "local": "source code, typecheck, and deploy staging"
-      }
+      "coffee_actual": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders read-only",
+      "google_ads_roas": "VM Cloud API https://att.ainativeos.net/api/google-ads/dashboard read-only",
+      "ga4_channel_funnel": "GA4 BigQuery project-dadba7dd-0229-4ff6-81c analytics_304759974_hurdlers_backfill + analytics_304759974 read-only",
+      "tiktok_ads_export": "local data/ads_csv/tiktok/processed/20260507_20260512_daily_campaign.csv read-only"
     },
     "window": {
-      "baseline_kst": "2026-05-01 to 2026-05-07",
-      "off_partial_kst": "2026-05-08 to 2026-05-12"
+      "coffee_actual": "rolling last_30d, checked 2026-05-13 18:48:54 KST",
+      "google_ads": "last_7d and last_30d, checked 2026-05-13 18:49 KST",
+      "ga4_channel_funnel": "last_7d 2026-05-06 to 2026-05-12, last_14d 2026-04-29 to 2026-05-12, last_30d 2026-04-13 to 2026-05-12",
+      "tiktok_ads_export": "2026-05-07 to 2026-05-12"
     },
-    "freshness": "2026-05-13 18:35 KST",
+    "freshness": "2026-05-13 19:10 KST",
     "confidence": 0.9
   },
-  "latest_live_metrics": {
-    "overall": {
-      "baseline_revenue_krw": 113303723,
-      "baseline_revenue_per_day_krw": 16186246,
-      "off_revenue_krw": 66550987,
-      "off_revenue_per_day_krw": 13310197,
-      "delta_revenue_per_day_krw": -2876049,
-      "delta_revenue_pct": -17.77,
-      "baseline_orders": 433,
-      "off_orders": 260
+  "latest_metrics": {
+    "sprint1_coffee_status_monitor": {
+      "site": "thecleancoffee",
+      "source": "imweb_v2_vm_cloud_imweb_orders",
+      "actual_count": 315,
+      "actual_amount_krw": 15477100,
+      "status_blank_count": 32,
+      "status_blank_amount_krw": 1983600,
+      "cancel_excluded_count": 31,
+      "cancel_excluded_amount_krw": 1796400,
+      "max_order_time": "2026-05-13T08:25:11.000Z",
+      "max_synced_at": "2026-05-13 09:35:27",
+      "max_status_synced_at": "2026-05-12 04:11:07",
+      "status_sync_lag_hours": 29.63,
+      "warnings": [
+        "ga4_guard_not_actual_source",
+        "status_blank_rows_included_with_warning",
+        "status_sync_stale_over_6h"
+      ]
     },
-    "coop_adjustment": {
-      "status": "included",
-      "baseline_included_rows": 97,
-      "baseline_included_amount_krw": 29445300,
-      "baseline_included_amount_per_day_krw": 4206471,
-      "off_included_rows": 29,
-      "off_included_amount_krw": 7202600,
-      "off_included_amount_per_day_krw": 1440520,
-      "delta_included_amount_per_day_krw": -2765951,
-      "share_of_observed_drop_pct": 96.17,
-      "non_coop_delta_revenue_per_day_krw": -110098
+    "sprint2_google_ads_roas_gap": {
+      "last_7d": {
+        "platform_roas": 10.5868,
+        "internal_current_roas": 0.4059,
+        "internal_with_biocom_npay_roas": 3.5998,
+        "remaining_gap_points": 6.987,
+        "biocom_npay_actual_count": 77,
+        "biocom_npay_actual_amount_krw": 11565900
+      },
+      "last_30d": {
+        "platform_roas": 10.2789,
+        "internal_current_roas": 0.2924,
+        "internal_with_biocom_npay_roas": 2.0792,
+        "remaining_gap_points": 8.1997,
+        "biocom_npay_actual_count": 232,
+        "biocom_npay_actual_amount_krw": 39410800
+      },
+      "coffee_budget_roas_policy": "reference_only_until_campaign_site_spend_mapping_exists",
+      "option3_red_packet_confidence_pct": 79
     },
-    "tiktok_ads": {
-      "spend_baseline_krw": 1041554,
-      "spend_off_krw": 47,
-      "platform_claim_baseline_krw": 3218171,
-      "platform_claim_off_krw": 0
-    },
-    "tiktok_evidence": {
-      "strict_confirmed_baseline_krw": 0,
-      "strict_confirmed_off_krw": 0,
-      "first_touch_candidate_baseline_krw": 234000,
-      "missing_tracking_probability_score": 27,
-      "platform_over_credit_probability_score": 70
+    "sprint3_tiktok_funnel": {
+      "ga4_latest_coverage": {
+        "last_7d": {
+          "sessions": 59481,
+          "paid_tiktok_sessions": 10575,
+          "ga4_purchase_events": 398,
+          "coverage": "PASS"
+        },
+        "last_14d": {
+          "sessions": 116852,
+          "paid_tiktok_sessions": 28806,
+          "ga4_purchase_events": 853,
+          "coverage": "PASS"
+        },
+        "last_30d": {
+          "sessions": 347663,
+          "paid_tiktok_sessions": 152673,
+          "ga4_purchase_events": 3478,
+          "coverage": "PASS"
+        }
+      },
+      "tiktok_export_window": "2026-05-07 to 2026-05-12",
+      "tiktok_ads_spend_krw": 140850,
+      "tiktok_ads_clicks": 5754,
+      "tiktok_platform_purchase_value_krw": 0,
+      "ga4_paid_tiktok_sessions": 5581,
+      "ga4_paid_tiktok_scroll90_rate_pct": 1.59,
+      "ga4_paid_tiktok_avg_engagement_seconds": 0.61,
+      "ga4_paid_tiktok_purchase_events": 1,
+      "ga4_paid_tiktok_purchase_value_krw": 225300,
+      "verdict": "paid_tiktok_quality_risk_persists_with_join_gap"
     }
   },
   "completed": [
-    "Added operational DB group-buy correction aggregate to the TikTok OFF impact API.",
-    "Added group-buy correction KPI and card to the TikTok OFF impact frontend page.",
-    "Added operational_db_coop field to the coop-order-summary API so VM Cloud item/master mismatch no longer appears as a false zero-only result.",
-    "Renamed the misleading frontend label from top drop cause wording to pre-adjustment channel wording.",
-    "Added a post group-buy correction KPI showing the residual daily drop after excluding group-buy movement.",
-    "Added frontend guard so residual drop is only displayed when an actual overall drop exists.",
-    "Deployed backend/src/routes/ads.ts and frontend/src/app/ads/tiktok/off-impact/page.tsx to VM Cloud.",
-    "Deployed the frontend UX consistency correction to VM Cloud and restarted seo-frontend.",
-    "Restarted seo-backend and seo-frontend.",
-    "Verified live API, live frontend HTML, and live browser render."
+    "Updated project/sprint1.md with the latest coffee status monitor read-only result.",
+    "Updated project/sprint2.md with latest Google Ads ROAS gap, Option 3 packet refresh, and campaign-site spend mapping readiness.",
+    "Updated project/sprint3.md with latest GA4 7/14/30 union rerun and TikTok spend-quality semantic join dry-run.",
+    "Updated gdn/current-handoff.md checkpoint."
   ],
-  "validation": {
-    "local_backend_typecheck": "PASS",
-    "local_frontend_typecheck": "PASS",
-    "remote_backend_typecheck": "PASS",
-    "remote_backend_build": "PASS",
-    "remote_frontend_typecheck": "PASS",
-    "remote_frontend_build": "PASS",
-    "remote_health": "PASS",
-    "live_api_refresh": "PASS",
-    "live_coop_summary_api": "PASS",
-    "live_frontend_html": "PASS",
-    "live_browser_smoke": "PASS",
-    "live_ux_consistency_smoke": "PASS",
-    "raw_identifier_scan": "PASS"
-  },
-  "server_state": {
-    "vm_cloud_ip": "34.64.104.94",
-    "pm2": {
-      "seo_backend": "online",
-      "seo_frontend": "online",
-      "seo_cloudflared": "online"
-    },
-    "backup_paths": [
-      "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-coop-adjustment-20260513T1755KST",
-      "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-ux-consistency-20260513T1831KST"
-    ]
-  },
   "invariants": {
     "no_send": true,
-    "no_write": true,
+    "no_upload": true,
     "operational_db_write": 0,
     "vm_cloud_sqlite_write": 0,
-    "platform_send_or_upload": 0,
+    "platform_mutation": 0,
     "gtm_publish": 0,
     "imweb_footer_header_change": 0,
     "raw_identifier_output": false
   },
   "forbidden_next": [
-    "tiktok_ad_on_off_change",
-    "tiktok_ads_api_write",
-    "tiktok_events_api_send",
-    "ga4_meta_google_naver_conversion_send",
+    "google_ads_conversion_action_change_without_red_approval",
+    "platform_send_or_upload",
+    "tiktok_budget_or_campaign_change",
     "operational_db_write_or_import",
     "vm_cloud_sqlite_write_or_schema_migration",
     "gtm_publish",

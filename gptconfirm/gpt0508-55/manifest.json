@@ -1,0 +1,43 @@
+{
+  "sprint": "gpt0508-55",
+  "created_at_kst": "2026-05-13 19:12:00 KST",
+  "author": "Codex",
+  "lane": "Green read-only investigation and design documentation",
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "purpose": "Human-readable result report and next actions"
+    },
+    {
+      "path": "01-green-evidence.md",
+      "purpose": "Source/window/freshness metrics for sprint1, sprint2, and sprint3"
+    }
+  ],
+  "source_documents_updated": [
+    "project/sprint1.md",
+    "project/sprint2.md",
+    "project/sprint3.md",
+    "gdn/current-handoff.md",
+    "data/current-state.json"
+  ],
+  "evidence_files": [
+    "data/project/coffee-actual-status-monitor-latest-20260513.json",
+    "data/project/google-ads-dashboard-last7d-latest-20260513.json",
+    "data/project/google-ads-dashboard-last30d-latest-20260513.json",
+    "data/project/google-ads-option3-red-packet-refresh-20260513.json",
+    "data/project/google-ads-campaign-site-mapping-readiness-20260513.json",
+    "data/project/channel-funnel-7_14_30d-latest-20260513.json",
+    "data/project/channel-funnel-quality-tiktok-export-window-20260513.json",
+    "data/project/tiktok-spend-quality-join-20260513.json"
+  ],
+  "invariants": {
+    "platform_send_or_upload": 0,
+    "google_ads_mutation": 0,
+    "tiktok_ads_mutation": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_change": 0,
+    "raw_identifier_output": false
+  }
+}

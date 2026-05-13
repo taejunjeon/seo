@@ -1,0 +1,240 @@
+{
+  "ok": true,
+  "run_id": "tiktok-spend-quality-join-20260513",
+  "generated_at_kst": "2026-05-13 18:55:11 KST",
+  "lane": "Green read-only dry-run",
+  "source_window_freshness_confidence": {
+    "source": {
+      "tiktok_ads": "local data/ads_csv/tiktok/processed/20260507_20260512_daily_campaign.csv",
+      "ga4_bigquery": "data/project/channel-funnel-quality-tiktok-export-window-20260513.json"
+    },
+    "window": "2026-05-07 to 2026-05-12",
+    "freshness": "2026-05-13 18:55:11 KST",
+    "confidence": 0.78
+  },
+  "totals": {
+    "tiktok_ads": {
+      "spend_krw": 140850,
+      "clicks": 5754,
+      "impressions": 80752,
+      "purchase_count": 0,
+      "purchase_value_krw": 0
+    },
+    "ga4_paid_tiktok": {
+      "sessions": 5581,
+      "scroll90_sessions": 89,
+      "engagement_seconds": 3380.02,
+      "begin_checkout_sessions": 2,
+      "add_payment_info_sessions": 1,
+      "npay_click_sessions": 1,
+      "ga4_purchase_events": 1,
+      "ga4_purchase_value_krw": 225300,
+      "avg_engagement_seconds": 0.61,
+      "scroll90_rate": 1.59,
+      "checkout_rate": 0.036,
+      "purchase_rate": 0.018
+    }
+  },
+  "join_rows": [
+    {
+      "campaign_id": "1854347729644690",
+      "campaign_name": "음과검 스마트+ 캠페인",
+      "spend_krw": 75633,
+      "clicks": 2629,
+      "impressions": 48512,
+      "purchase_count": 0,
+      "purchase_value_krw": 0,
+      "days": [
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-09",
+        "2026-05-10",
+        "2026-05-11",
+        "2026-05-12"
+      ],
+      "semantic_join_status": "semantic_matched",
+      "matched_ga4_campaign_hints": [
+        "tiktok_biocom_yeonddle_iggacidset"
+      ],
+      "join_confidence": "medium",
+      "join_reason": "Korean product/campaign semantic match: 음과검 set ↔ igg/acid set UTM",
+      "ga4": {
+        "sessions": 2636,
+        "scroll90_sessions": 16,
+        "engagement_seconds": 764.4399999999999,
+        "begin_checkout_sessions": 0,
+        "add_payment_info_sessions": 0,
+        "npay_click_sessions": 0,
+        "ga4_purchase_events": 0,
+        "ga4_purchase_value_krw": 0,
+        "avg_engagement_seconds": 0.29,
+        "scroll90_rate": 0.61,
+        "checkout_rate": 0,
+        "purchase_rate": 0
+      }
+    },
+    {
+      "campaign_id": "1854918885396689",
+      "campaign_name": "종합대사기능 분석 스마트+캠페인",
+      "spend_krw": 46315,
+      "clicks": 2501,
+      "impressions": 28428,
+      "purchase_count": 0,
+      "purchase_value_krw": 0,
+      "days": [
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-09",
+        "2026-05-10",
+        "2026-05-11",
+        "2026-05-12"
+      ],
+      "semantic_join_status": "semantic_matched",
+      "matched_ga4_campaign_hints": [
+        "tiktok_biocom_yeonddle_acid",
+        "tiktok_biocom_acidcam_acid"
+      ],
+      "join_confidence": "medium",
+      "join_reason": "Korean metabolic/acid product semantic match; exact campaign_id is absent from GA4",
+      "ga4": {
+        "sessions": 2313,
+        "scroll90_sessions": 65,
+        "engagement_seconds": 1670.3,
+        "begin_checkout_sessions": 2,
+        "add_payment_info_sessions": 1,
+        "npay_click_sessions": 1,
+        "ga4_purchase_events": 1,
+        "ga4_purchase_value_krw": 225300,
+        "avg_engagement_seconds": 0.72,
+        "scroll90_rate": 2.81,
+        "checkout_rate": 0.086,
+        "purchase_rate": 0.043
+      }
+    },
+    {
+      "campaign_id": "1856156648605858",
+      "campaign_name": "영양중금속분석 스마트+ 캠페인",
+      "spend_krw": 18902,
+      "clicks": 624,
+      "impressions": 3812,
+      "purchase_count": 0,
+      "purchase_value_krw": 0,
+      "days": [
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-09",
+        "2026-05-10",
+        "2026-05-11",
+        "2026-05-12"
+      ],
+      "semantic_join_status": "semantic_matched",
+      "matched_ga4_campaign_hints": [
+        "tiktok_biocom_mineralcam_mineral"
+      ],
+      "join_confidence": "medium",
+      "join_reason": "Korean nutrition/heavy-metal ↔ mineral UTM semantic match",
+      "ga4": {
+        "sessions": 504,
+        "scroll90_sessions": 5,
+        "engagement_seconds": 120.96,
+        "begin_checkout_sessions": 0,
+        "add_payment_info_sessions": 0,
+        "npay_click_sessions": 0,
+        "ga4_purchase_events": 0,
+        "ga4_purchase_value_krw": 0,
+        "avg_engagement_seconds": 0.24,
+        "scroll90_rate": 0.99,
+        "checkout_rate": 0,
+        "purchase_rate": 0
+      }
+    },
+    {
+      "campaign_id": "1856728035726529",
+      "campaign_name": "호르몬 검사 캠페인",
+      "spend_krw": 0,
+      "clicks": 0,
+      "impressions": 0,
+      "purchase_count": 0,
+      "purchase_value_krw": 0,
+      "days": [
+        "2026-05-07",
+        "2026-05-09",
+        "2026-05-10",
+        "2026-05-11",
+        "2026-05-12"
+      ],
+      "semantic_join_status": "not_matched_or_zero_spend",
+      "matched_ga4_campaign_hints": [],
+      "join_confidence": "low",
+      "join_reason": "zero spend/clicks in TikTok export; no active GA4 hint required",
+      "ga4": {
+        "sessions": 0,
+        "scroll90_sessions": 0,
+        "engagement_seconds": 0,
+        "begin_checkout_sessions": 0,
+        "add_payment_info_sessions": 0,
+        "npay_click_sessions": 0,
+        "ga4_purchase_events": 0,
+        "ga4_purchase_value_krw": 0,
+        "avg_engagement_seconds": 0,
+        "scroll90_rate": 0,
+        "checkout_rate": 0,
+        "purchase_rate": 0
+      }
+    },
+    {
+      "campaign_id": "1858788275666081",
+      "campaign_name": "건강기능식품 스마트+캠페인",
+      "spend_krw": 0,
+      "clicks": 0,
+      "impressions": 0,
+      "purchase_count": 0,
+      "purchase_value_krw": 0,
+      "days": [
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-09",
+        "2026-05-10",
+        "2026-05-11",
+        "2026-05-12"
+      ],
+      "semantic_join_status": "not_matched_or_zero_spend",
+      "matched_ga4_campaign_hints": [],
+      "join_confidence": "low",
+      "join_reason": "zero spend/clicks in TikTok export; no active GA4 hint required",
+      "ga4": {
+        "sessions": 0,
+        "scroll90_sessions": 0,
+        "engagement_seconds": 0,
+        "begin_checkout_sessions": 0,
+        "add_payment_info_sessions": 0,
+        "npay_click_sessions": 0,
+        "ga4_purchase_events": 0,
+        "ga4_purchase_value_krw": 0,
+        "avg_engagement_seconds": 0,
+        "scroll90_rate": 0,
+        "checkout_rate": 0,
+        "purchase_rate": 0
+      }
+    }
+  ],
+  "verdict": {
+    "status": "paid_tiktok_quality_risk_persists_with_join_gap",
+    "confidence_pct": 78,
+    "reason": [
+      "TikTok API shows 140,850원 spend and 5,754 clicks with 0 platform purchase value in 2026-05-07~2026-05-12.",
+      "GA4 BigQuery paid_tiktok shows 5,581 sessions, 1.59% scroll90, 0.61s average engagement, 1 GA4 purchase event / 225,300원.",
+      "Semantic campaign join covers active spend campaigns, but GA4 does not carry TikTok campaign_id exact, so budget decisions still need UTM/campaign_id normalization."
+    ],
+    "not_for_budget_change": true
+  },
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "google_ads_mutation": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  }
+}

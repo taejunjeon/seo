@@ -1,0 +1,124 @@
+{
+  "ok": true,
+  "run_id": "google-ads-campaign-site-mapping-readiness-20260513",
+  "generated_at_kst": "2026-05-13 18:55:11 KST",
+  "lane": "Green read-only mapping design",
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud Google Ads dashboard API last_30d campaigns array read-only + campaign name inference",
+    "window": "last_30d Google Ads dashboard snapshot fetched 2026-05-13 18:48 KST",
+    "freshness": "2026-05-13 18:55:11 KST",
+    "confidence": 0.82
+  },
+  "result": {
+    "verdict": "coffee_actual_reference_only_continue",
+    "reason": "No thecleancoffee-specific Google Ads spend marker was found in the last_30d campaign list. Coffee actual must not be added to biocom Google Ads budget ROAS until campaign/site spend mapping exists.",
+    "by_site": [
+      {
+        "site": "biocom",
+        "campaigns": 6,
+        "cost_krw": 22055510.650000002,
+        "conversion_value_krw": 226707351.04,
+        "cost_share_pct": 100
+      }
+    ],
+    "campaign_rows": [
+      {
+        "campaign_id": "22018174474",
+        "campaign_name": "[PM]건기식 실적최대화",
+        "status": "ENABLED",
+        "channel": "PERFORMANCE_MAX",
+        "cost_krw": 9411587.27,
+        "conversion_value_krw": 103552628.44,
+        "roas": 11.0027,
+        "inferred_site": "biocom",
+        "confidence": "high",
+        "reason": "biocom marker in campaign name"
+      },
+      {
+        "campaign_id": "21807994952",
+        "campaign_name": "[PM]검사권 실적최대화",
+        "status": "ENABLED",
+        "channel": "PERFORMANCE_MAX",
+        "cost_krw": 5720848.3,
+        "conversion_value_krw": 71015272.48,
+        "roas": 12.4134,
+        "inferred_site": "biocom",
+        "confidence": "high",
+        "reason": "biocom marker in campaign name"
+      },
+      {
+        "campaign_id": "23171999678",
+        "campaign_name": "[PM] 이벤트",
+        "status": "PAUSED",
+        "channel": "PERFORMANCE_MAX",
+        "cost_krw": 4968343.5,
+        "conversion_value_krw": 46970386.58,
+        "roas": 9.4539,
+        "inferred_site": "biocom",
+        "confidence": "medium",
+        "reason": "Google Ads account/campaign names are biocom product/service campaigns; no coffee marker observed."
+      },
+      {
+        "campaign_id": "14629255429",
+        "campaign_name": "[SA]바이오컴 검사권",
+        "status": "ENABLED",
+        "channel": "SEARCH",
+        "cost_krw": 1534582.77,
+        "conversion_value_krw": 4724017.54,
+        "roas": 3.0784,
+        "inferred_site": "biocom",
+        "confidence": "high",
+        "reason": "biocom marker in campaign name"
+      },
+      {
+        "campaign_id": "23820127165",
+        "campaign_name": "[PMAX] 바이오컴 검사권 캠페인",
+        "status": "PAUSED",
+        "channel": "PERFORMANCE_MAX",
+        "cost_krw": 420092.01,
+        "conversion_value_krw": 445046,
+        "roas": 1.0594,
+        "inferred_site": "biocom",
+        "confidence": "high",
+        "reason": "biocom marker in campaign name"
+      },
+      {
+        "campaign_id": "23844198697",
+        "campaign_name": "[PMAX] 바이오컴 검사권 (2)",
+        "status": "ENABLED",
+        "channel": "PERFORMANCE_MAX",
+        "cost_krw": 56.8,
+        "conversion_value_krw": 0,
+        "roas": 0,
+        "inferred_site": "biocom",
+        "confidence": "high",
+        "reason": "biocom marker in campaign name"
+      }
+    ],
+    "coffee_actual_reference_line": {
+      "count": 315,
+      "amount_krw": 15477100,
+      "status_blank_count": 32,
+      "status_blank_amount_krw": 1983600,
+      "included_in_budget_roas": false
+    }
+  },
+  "next_design": {
+    "required_keys": [
+      "campaign_name site marker",
+      "landing URL domain/site marker",
+      "UTM site marker",
+      "campaign_id exact site map"
+    ],
+    "minimum_success": ">=95% spend can be assigned to biocom/thecleancoffee before coffee actual can enter site-specific budget ROAS."
+  },
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "google_ads_mutation": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  }
+}

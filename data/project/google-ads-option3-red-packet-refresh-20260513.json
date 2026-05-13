@@ -1,0 +1,99 @@
+{
+  "ok": true,
+  "run_id": "google-ads-option3-red-packet-refresh-20260513",
+  "generated_at_kst": "2026-05-13 18:55:11 KST",
+  "lane": "Green packet update only / Red execution forbidden",
+  "source_window_freshness_confidence": {
+    "source": {
+      "google_ads_dashboard": "VM Cloud API https://att.ainativeos.net/api/google-ads/dashboard read-only",
+      "roas_previous_packet": "data/project/roas-gap-recompute-20260513.json",
+      "coffee_actual_context": "VM Cloud SQLite imweb_orders read-only monitor for reference-only coffee line"
+    },
+    "window": "Google Ads last_7d and last_30d as of 2026-05-13 18:48 KST; coffee actual rolling 30d monitor 2026-05-13 18:48 KST",
+    "freshness": "2026-05-13 18:55:11 KST",
+    "confidence": 0.9
+  },
+  "latest_roas_windows": [
+    {
+      "window": "last_7d",
+      "days": 7,
+      "platform_claim": {
+        "cost_krw": 3621237.88,
+        "conversion_value_krw": 38337230.18,
+        "roas": 10.5868
+      },
+      "internal_current": {
+        "confirmed_revenue_krw": 1470000,
+        "roas": 0.4059,
+        "platform_minus_internal_roas_points": 10.1809
+      },
+      "internal_with_biocom_npay_actual": {
+        "npay_count": 77,
+        "npay_revenue_krw": 11565900,
+        "confirmed_revenue_krw": 13035900,
+        "roas": 3.5998,
+        "platform_minus_budget_roas_points": 6.987,
+        "upload_candidate_count": 0,
+        "google_ads_budget_floor_npay_exact_count": 9
+      }
+    },
+    {
+      "window": "last_30d",
+      "days": 30,
+      "platform_claim": {
+        "cost_krw": 22055510.65,
+        "conversion_value_krw": 226707351.05,
+        "roas": 10.2789
+      },
+      "internal_current": {
+        "confirmed_revenue_krw": 6448110,
+        "roas": 0.2924,
+        "platform_minus_internal_roas_points": 9.9865
+      },
+      "internal_with_biocom_npay_actual": {
+        "npay_count": 232,
+        "npay_revenue_krw": 39410800,
+        "confirmed_revenue_krw": 45858910,
+        "roas": 2.0792,
+        "platform_minus_budget_roas_points": 8.1997,
+        "upload_candidate_count": 0,
+        "google_ads_budget_floor_npay_exact_count": 9
+      }
+    }
+  ],
+  "decision": {
+    "current_budget_value": "internal_with_biocom_npay_actual",
+    "red_execution_recommendation": "Option 3 remains recommended for structural ROAS trust recovery, but execution must wait for TJ Red approval.",
+    "why": [
+      "NPay actual correction lifts internal ROAS but platform ROAS remains far higher.",
+      "last_30d platform ROAS 10.2789 vs internal budget ROAS 2.0792 leaves 8.1997p gap.",
+      "last_7d platform ROAS 10.5868 vs internal budget ROAS 3.5998 leaves 6.9870p gap.",
+      "upload_candidate_count is still 0, so this packet does not authorize any external send."
+    ],
+    "recommended_red_option": {
+      "id": 3,
+      "name": "BI confirmed_purchase 신규 전환 action + 기존 오염 action 재분류 + 7일 병행 관찰",
+      "confidence_pct": 79,
+      "reason_for_confidence_change": "internal budget anchor is stronger after biocom NPay actual wiring, but Google Ads UI write and learning fluctuation risk remain."
+    },
+    "approval_scope_if_tj_says_yes": [
+      "Google Ads UI에서 신규 BI confirmed_purchase conversion action을 DRAFT 또는 Secondary로 생성한다.",
+      "기존 NPay click 성격 의심 action은 입찰 제외 또는 Off 후보로 둔다.",
+      "7일은 관찰만 하며 upload/send는 별도 Red 승인 없이는 0건 유지한다."
+    ],
+    "hard_fail": [
+      "upload/send가 필요해지는 순간 중단",
+      "conversion action을 Primary로 즉시 전환해야 하는 경우 중단",
+      "campaign cost distribution 급변 또는 UI 권한 부족 발견 시 중단"
+    ]
+  },
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "google_ads_mutation": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  }
+}
