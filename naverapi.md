@@ -1,8 +1,192 @@
 # 네이버 커머스API 정리
 
 작성 시각: 2026-04-20 01:02 KST
-최종 업데이트: 2026-04-20 01:41 KST
-기준 문서: 네이버 커머스API `2.76.0 (2026-04-15)`
+최종 업데이트: 2026-05-13 13:42 KST
+기준 문서: 네이버 커머스API `2.77.0 (2026-04-29)`
+
+## 2026-05-13 추가 점검 결론
+
+TJ님이 `backend/.env` 225~227행에 네이버 커머스API 센터 값을 추가한 상태다. 원문 secret은 문서화하지 않는다.
+
+```text
+backend/.env:225 #네이버 커머스API 센터
+backend/.env:226 BIOCOM_STORE_APP_ID=***MASKED***
+backend/.env:227 BIOCOM_STORE_APP_SECRET=***MASKED***
+```
+
+이번 점검에서 공식 문서 기준을 `2.77.0 (2026-04-29)`로 올렸다. 네이버 공식 문서상 커머스API는 인증, 통계, 주문, 정산, 상품, 판매자정보 영역을 제공한다. 우리 프로젝트에서 당장 중요한 것은 `주문 조회`, `정산 조회`, `마케팅/검색 통계`다. 단, 통계 API 일부는 `[브랜드스토어 전용]`이고 API데이터솔루션 구독이 필요할 수 있다.
+
+VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3`를 read-only로 확인한 결과, 현재 네이버 커머스API 전용 테이블은 없다. 관련 이름으로 잡히는 것은 `npay_intent_log`, `coffee_npay_intent_log`처럼 NPay intent 장부뿐이다. 이 테이블들은 버튼 클릭/결제 의도 원장이지 네이버 커머스 주문/정산 원장이 아니다.
+
+따라서 결론은 아래다.
+
+1. **토큰 발급 smoke만 할 거면 새 테이블은 필요 없다.** 1회성 read-only probe는 파일 출력 또는 메모리 처리로 충분하다.
+2. **VM Cloud에서 정기 sync를 하려면 신규 테이블이 필요하다.** 최소 `sync_runs`, `sync_state`, `product_order_snapshots` 3개가 필요하다.
+3. **정산까지 닫으려면 `settlement_daily` 또는 `settlement_case` 테이블이 추가로 필요하다.**
+4. **마케팅/검색 통계를 쓰려면 별도 `bizdata_*` 테이블이 필요하다.** 다만 브랜드스토어 전용/솔루션 구독 제약 때문에 먼저 권한 smoke가 필요하다.
+5. VM Cloud schema 변경은 Yellow 승인 대상이다. 이번 문서 갱신에서는 테이블을 만들지 않았다.
+
+## VM Cloud 테이블 추가 검토
+
+### 현재 VM Cloud 상태
+
+확인 시각: 2026-05-13 13:36 KST
+source: VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3`
+방법: SSH + sqlite schema read-only
+confidence: 0.94
+
+현재 전체 table 수는 50개다. 네이버 커머스API 전용 테이블은 없다. 이름상 관련 테이블은 아래뿐이다.
+
+| 테이블 | 위치 | 성격 | 커머스API 주문/정산 source로 사용 가능 여부 |
+|---|---|---|---|
+| `npay_intent_log` | VM Cloud SQLite | NPay 클릭/결제 의도 원장 | NO. purchase actual 아님 |
+| `coffee_npay_intent_log` | VM Cloud SQLite | 더클린커피 NPay intent 원장 | NO. purchase actual 아님 |
+| `toss_settlements` | VM Cloud SQLite | Toss 정산 원장 | NO. 네이버 정산 아님 |
+| `coupang_settlements_api` | VM Cloud SQLite | Coupang 정산 원장 | NO. 네이버 정산 아님 |
+
+### 최소 권장 신규 테이블
+
+운영 반영 전까지는 만들지 않는다. 아래는 승인안 작성용 설계다.
+
+#### 1. `naver_commerce_sync_runs`
+
+목적: 어떤 API를 언제 호출했고, 네이버 gateway trace/rate/quota가 어땠는지 남긴다.
+
+권장 필드:
+
+```sql
+CREATE TABLE naver_commerce_sync_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  site TEXT NOT NULL,
+  account_scope TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  window_from TEXT,
+  window_to TEXT,
+  status TEXT NOT NULL,
+  http_status INTEGER,
+  trace_id TEXT,
+  rate_limit_remaining INTEGER,
+  quota_remaining INTEGER,
+  row_count INTEGER DEFAULT 0,
+  error_code TEXT,
+  error_message TEXT,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  no_send INTEGER NOT NULL DEFAULT 1,
+  no_write_external INTEGER NOT NULL DEFAULT 1
+);
+```
+
+주의: `trace_id`는 저장 가능하지만 access token, client secret, signature는 절대 저장하지 않는다.
+
+#### 2. `naver_commerce_sync_state`
+
+목적: 변경 상품 주문 조회의 pagination/cursor를 보존한다. 공식 문서상 `lastChangedFrom`, `moreSequence`를 이어서 써야 할 수 있다.
+
+권장 필드:
+
+```sql
+CREATE TABLE naver_commerce_sync_state (
+  site TEXT NOT NULL,
+  account_scope TEXT NOT NULL,
+  resource TEXT NOT NULL,
+  cursor_from TEXT,
+  cursor_to TEXT,
+  more_from TEXT,
+  more_sequence TEXT,
+  last_success_at TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (site, account_scope, resource)
+);
+```
+
+#### 3. `naver_commerce_product_order_snapshots`
+
+목적: 네이버 상품 주문 상태와 결제 금액을 내부 confirmed 원장 cross-check에 쓴다.
+
+권장 필드:
+
+```sql
+CREATE TABLE naver_commerce_product_order_snapshots (
+  site TEXT NOT NULL,
+  account_scope TEXT NOT NULL,
+  order_id TEXT NOT NULL,
+  product_order_id TEXT NOT NULL,
+  product_order_status TEXT,
+  claim_status TEXT,
+  order_date TEXT,
+  payment_date TEXT,
+  changed_at TEXT,
+  total_payment_amount INTEGER,
+  delivery_fee_amount INTEGER,
+  product_amount INTEGER,
+  quantity INTEGER,
+  raw_status_json TEXT,
+  synced_at TEXT NOT NULL,
+  PRIMARY KEY (site, account_scope, product_order_id)
+);
+```
+
+주의:
+- `order_id`, `product_order_id`는 join key라 DB 내부에는 필요할 수 있다.
+- 그러나 보고서/채팅/로그에는 raw order id를 출력하지 않는다.
+- 구매자 이름, 연락처, 주소, 이메일은 저장하지 않는다.
+- 네이버 상세 응답 전체 `raw_json`을 그대로 저장하면 PII 위험이 크다. 저장한다면 redaction 후 `raw_status_json` 수준으로 제한한다.
+
+#### 4. `naver_commerce_settlement_daily`
+
+목적: 네이버 gross/net, 수수료, 정산일 기준을 닫는다.
+
+권장 필드:
+
+```sql
+CREATE TABLE naver_commerce_settlement_daily (
+  site TEXT NOT NULL,
+  account_scope TEXT NOT NULL,
+  settle_date TEXT NOT NULL,
+  gross_amount INTEGER,
+  commission_amount INTEGER,
+  settlement_amount INTEGER,
+  order_count INTEGER,
+  source_endpoint TEXT NOT NULL,
+  synced_at TEXT NOT NULL,
+  PRIMARY KEY (site, account_scope, settle_date, source_endpoint)
+);
+```
+
+#### 5. 선택: `naver_commerce_bizdata_channel_daily`
+
+목적: 네이버 커머스 통계의 마케팅 채널/검색어 성과를 `/total`의 Naver platform reference 후보로 붙인다.
+
+전제:
+- 공식 문서상 API데이터솔루션 일부는 `[브랜드스토어 전용]`이다.
+- 솔루션 구독이 없거나 브랜드스토어가 아니면 응답이 제한될 수 있다.
+
+권장 필드:
+
+```sql
+CREATE TABLE naver_commerce_bizdata_channel_daily (
+  site TEXT NOT NULL,
+  channel_no TEXT NOT NULL,
+  stat_date TEXT NOT NULL,
+  report_type TEXT NOT NULL,
+  channel_name TEXT,
+  visits INTEGER,
+  payments INTEGER,
+  payment_amount INTEGER,
+  raw_metric_json TEXT,
+  synced_at TEXT NOT NULL,
+  PRIMARY KEY (site, channel_no, stat_date, report_type, channel_name)
+);
+```
+
+### 테이블 추가 추천 순서
+
+1. Green: token/order read-only probe 설계. 테이블 생성 없음.
+2. Yellow 승인: `naver_commerce_sync_runs`, `naver_commerce_sync_state`, `naver_commerce_product_order_snapshots` 생성.
+3. Green: 주문 변경 조회 dry-run → snapshot insert dry-run → row count/amount/status 검증.
+4. Yellow 승인: 정산 API까지 연동할 때 `naver_commerce_settlement_daily` 추가.
+5. Green/조건부: 통계 API 권한이 확인되면 `naver_commerce_bizdata_channel_daily` 추가.
 
 ## 10초 요약
 
@@ -11,8 +195,9 @@
 현재 `backend/.env`에는 `BIOCOM_STORE_APP_ID`, `BIOCOM_STORE_APP_SECRET`이 등록되어 있다.
 이 값으로 OAuth 토큰 발급용 전자서명을 만들 수 있다.
 
-2026-04-20 스모크 테스트 결과, 현재 등록된 값만으로 `SELF` 토큰 발급과 주문 변경/상세 조회가 모두 200으로 열렸다.
-하지만 현재 토큰이 볼 수 있는 채널은 `바이오컴 스토어` 1개뿐이다.
+2026-04-20 스모크 테스트 결과, 당시 등록된 바이오컴 키로 `SELF` 토큰 발급과 주문 변경/상세 조회가 모두 200으로 열렸다.
+하지만 당시 토큰이 볼 수 있는 채널은 `바이오컴 스토어` 1개뿐이었다.
+2026-05-13 현재는 `backend/.env` 225~227행의 키 존재와 공식 문서/VM Cloud schema만 확인했다. 토큰 발급과 주문 조회는 이번 점검에서 재실행하지 않았다.
 더클린커피 GA4 `NPAY - ...` 65건을 네이버 주문 원장과 닫으려면 더클린커피 통합매니저 권한 또는 더클린커피용 커머스API 앱 자격 증명이 필요하다.
 
 ## 문서 목적
@@ -22,7 +207,7 @@
 
 ## 현재 로컬 설정
 
-`backend/.env` 212~214행에 네이버 커머스API 센터 값이 등록되어 있다.
+`backend/.env` 225~227행에 네이버 커머스API 센터 값이 등록되어 있다.
 
 ```text
 # 네이버 커머스API 센터
@@ -423,10 +608,11 @@ GET /v1/pay-order/seller/orders/:orderId/product-order-ids
 
 네이버 커머스API는 더클린커피/바이오컴의 Naver Pay 원장 대사를 닫는 데 필요한 공식 경로다.
 
-현재 앱 ID와 시크릿은 정상 동작한다.
-`SELF` 토큰으로 바이오컴 주문 변경/상세 조회가 가능하다는 것도 확인했다.
+2026-04-20 read-only 스모크 기준으로 바이오컴 앱 ID와 시크릿은 정상 동작했다.
+`SELF` 토큰으로 바이오컴 주문 변경/상세 조회가 가능하다는 것도 당시 확인했다.
+2026-05-13 점검에서는 secret 출력 방지를 위해 토큰 발급을 재시도하지 않았다.
 
-다만 현재 앱 ID와 시크릿의 채널 범위는 바이오컴 스토어 1개다.
+다만 당시 앱 ID와 시크릿의 채널 범위는 바이오컴 스토어 1개였다.
 바이오컴 API로 더클린커피 스토어 주문 원장에 접근하는 방법은 현재 API 응답과 공식 권한 구조 기준으로 없다.
 
 2026-05-08 네이버페이 운영팀(이민영) 공식 답변으로 더클린커피(`np_cnexi899940`)는 호스팅사 `아임웹`을 통해 가입된 `네이버페이 주문형서비스` 가맹점이며, 호스팅사 제휴 가맹점은 자체 네이버페이 API 연동/라이센스 발급이 구조적으로 불가하다는 것이 확정됐다.
@@ -533,13 +719,13 @@ backend no-send dry-run → (Red 승인 후) GA4 MP enforce
 
 ## 공식 문서 출처
 
-- 커머스API 소개: https://apicenter.commerce.naver.com/docs/introduction
-- RESTful API: https://apicenter.commerce.naver.com/docs/restful-api
-- 인증: https://apicenter.commerce.naver.com/docs/auth
+- 커머스API 최신 문서: https://apicenter.commerce.naver.com/docs/commerce-api/current
 - OAuth 2.0 / 토큰 발급: https://apicenter.commerce.naver.com/docs/commerce-api/current/o-auth-2-0
-- 제약 사항: https://apicenter.commerce.naver.com/docs/restriction
-- 문제 해결: https://apicenter.commerce.naver.com/docs/trouble-shooting
-- 주문 API 목록: https://apicenter.commerce.naver.com/docs/commerce-api/current/%EA%B5%90%ED%99%98
+- 인증 토큰 발급 요청: https://apicenter.commerce.naver.com/docs/commerce-api/current/issue-token-commerce-id
+- 주문 조회 API 목록: https://apicenter.commerce.naver.com/docs/commerce-api/current/%EC%A3%BC%EB%AC%B8-%EC%A1%B0%ED%9A%8C
+- 정산 내역 API 목록: https://apicenter.commerce.naver.com/docs/commerce-api/current/%EC%A0%95%EC%82%B0-%EB%82%B4%EC%97%AD
+- API데이터솔루션 마케팅 채널 일별: https://apicenter.commerce.naver.com/docs/commerce-api/current/all-channel-daily-report-using-get-bizdata-stats
+- 솔루션 가이드: https://apicenter.commerce.naver.com/docs/solution-doc
 - 매니저 초대 기능 안내: https://apicenter.commerce.naver.com/docs/solution-doc/6000/%EB%A7%A4%EB%8B%88%EC%A0%80%EC%B4%88%EB%8C%80-%EA%B8%B0%EB%8A%A5-%EC%95%88%EB%82%B4
 - 기본 연동 요소 가이드: https://apicenter.commerce.naver.com/docs/solution-doc/3000/%EA%B8%B0%EB%B3%B8-%EC%97%B0%EB%8F%99-%EC%9A%94%EC%86%8C-%EA%B0%80%EC%9D%B4%EB%93%9C
 - 판매자 커머스 아이디 인증: https://apicenter.commerce.naver.com/docs/solution-doc/3000/%ED%8C%90%EB%A7%A4%EC%9E%90-%EC%BB%A4%EB%A8%B8%EC%8A%A4-%EC%95%84%EC%9D%B4%EB%94%94-%EC%9D%B8%EC%A6%9D
