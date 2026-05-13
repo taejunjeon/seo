@@ -1,0 +1,220 @@
+{
+  "contract_version": "google-ads-bi-confirmed-purchase-offline-postcheck-v0.1",
+  "generated_at_kst": "2026-05-14T01:45:00+09:00",
+  "lane": "Green",
+  "mode": "read_only_post_check",
+  "intent": "TJ 가 Google Ads UI 에서 신규 생성한 BI confirmed_purchase_offline 전환 action 의 실제 API 값을 확인하고, no-send 후보 품질 재계산 준비를 위한 정본 기록.",
+  "source": {
+    "api": "Google Ads API v22",
+    "endpoint": "/api/google-ads/dashboard?date_preset=last_7d",
+    "customer_id": "2149990943",
+    "customer_descriptive_name": "바이오컴",
+    "fetched_at_utc": "2026-05-13T16:44:15.169Z",
+    "fetched_at_kst": "2026-05-14T01:44:15+09:00",
+    "query": "SELECT conversion_action.id, conversion_action.name, conversion_action.status, conversion_action.type, conversion_action.category, conversion_action.primary_for_goal, conversion_action.counting_type, conversion_action.click_through_lookback_window_days, conversion_action.view_through_lookback_window_days, conversion_action.value_settings.* FROM conversion_action WHERE conversion_action.status != REMOVED ORDER BY conversion_action.category, conversion_action.id"
+  },
+  "new_action": {
+    "id": "7609289411",
+    "resource_name": "customers/2149990943/conversionActions/7609289411",
+    "name": "BI confirmed_purchase_offline",
+    "status": "ENABLED",
+    "type": "UPLOAD_CLICKS",
+    "category": "PURCHASE",
+    "primary_for_goal": false,
+    "counting_type": "MANY_PER_CLICK",
+    "click_through_lookback_window_days": 30,
+    "view_through_lookback_window_days": 1,
+    "value_settings": {
+      "default_value_krw": 1,
+      "always_use_default_value": false,
+      "dynamic_value": true
+    },
+    "send_to": [],
+    "conversion_id": null,
+    "conversion_labels": [],
+    "snippet_types": []
+  },
+  "checks_13": [
+    {
+      "id": 1,
+      "label": "새 action id",
+      "expected": "신규 id 발급",
+      "observed": "7609289411",
+      "verdict": "PASS"
+    },
+    {
+      "id": 2,
+      "label": "name = BI confirmed_purchase_offline",
+      "expected": "BI confirmed_purchase_offline",
+      "observed": "BI confirmed_purchase_offline",
+      "verdict": "PASS"
+    },
+    {
+      "id": 3,
+      "label": "category = PURCHASE",
+      "expected": "PURCHASE",
+      "observed": "PURCHASE",
+      "verdict": "PASS"
+    },
+    {
+      "id": 4,
+      "label": "type/source = click import / upload clicks / offline 계열",
+      "expected": "UPLOAD_CLICKS (offline 계열)",
+      "observed": "UPLOAD_CLICKS",
+      "verdict": "PASS",
+      "note": "UI '클릭에서 가져오기' 설정의 정식 API enum"
+    },
+    {
+      "id": 5,
+      "label": "primary_for_goal = false (보조)",
+      "expected": false,
+      "observed": false,
+      "verdict": "PASS"
+    },
+    {
+      "id": 6,
+      "label": "status = ENABLED",
+      "expected": "ENABLED",
+      "observed": "ENABLED",
+      "verdict": "PASS"
+    },
+    {
+      "id": 7,
+      "label": "counting_type",
+      "expected": "MANY_PER_CLICK (UI '모든 전환')",
+      "observed": "MANY_PER_CLICK",
+      "verdict": "PASS"
+    },
+    {
+      "id": 8,
+      "label": "click-through conversion window = 90일",
+      "expected_days": 90,
+      "observed_days": 30,
+      "verdict": "FAIL",
+      "note": "UI 의도 90일과 다름. Google Ads UPLOAD_CLICKS type 의 기본 max click window 정책 확인 또는 UI 재설정 필요."
+    },
+    {
+      "id": 9,
+      "label": "value setting = dynamic value",
+      "expected": "dynamic value (각기 다른 값 사용, 값 없는 경우 ₩1)",
+      "observed": {
+        "default_value_krw": 1,
+        "always_use_default_value": false,
+        "interpretation": "dynamic value · 업로드 시 conv value 가 있으면 그 값 사용, 없으면 default ₩1"
+      },
+      "verdict": "PASS"
+    },
+    {
+      "id": 10,
+      "label": "기존 구매완료(7130249515) primary_for_goal=true 유지",
+      "expected": true,
+      "observed": true,
+      "verdict": "PASS"
+    },
+    {
+      "id": 11,
+      "label": "TechSol(7564830949) primary_for_goal=false 유지",
+      "expected": false,
+      "observed": false,
+      "verdict": "PASS"
+    },
+    {
+      "id": 12,
+      "label": "Google Ads upload/send/Data Manager ingest = 0",
+      "expected": 0,
+      "observed": 0,
+      "verdict": "PASS",
+      "evidence": "본 sprint 는 read-only post-check. ClickConversion upload API · Data Manager API · OfflineConversion API 모두 호출하지 않음."
+    },
+    {
+      "id": 13,
+      "label": "campaign/budget change = 0",
+      "expected": 0,
+      "observed": 0,
+      "verdict": "PASS",
+      "evidence": "campaign / campaign_budget mutate API 호출 없음."
+    }
+  ],
+  "additional_findings": [
+    {
+      "topic": "view_through_lookback_window mismatch",
+      "expected_days": 3,
+      "observed_days": 1,
+      "verdict": "FAIL",
+      "note": "TJ UI 설정 의도 '조회 완료 전환 추적 기간: 3일' 과 다름. 1일이 적용된 상태. UPLOAD_CLICKS type 의 기본 view-through window 정책 확인 또는 UI 재설정 필요."
+    },
+    {
+      "topic": "PURCHASE primary action 다중 존재",
+      "count": 8,
+      "list": [
+        {"id": "782218494", "name": "Transactions (A_view)", "click_window_days": 30},
+        {"id": "916482221", "name": "Transactions (바이오컴펫_main - 필터적용)", "click_window_days": 30},
+        {"id": "916483619", "name": "더클린커피 웹 (web) purchase", "click_window_days": 30},
+        {"id": "917303941", "name": "바이오컴펫_와이즈 - GA4 (web) purchase", "click_window_days": 30},
+        {"id": "917325117", "name": "Transactions (전체 웹사이트 데이터)", "click_window_days": 30},
+        {"id": "922178603", "name": "[G4] biocom.kr (web) in_app_purchase", "click_window_days": 90},
+        {"id": "945320590", "name": "Transactions (전체 웹사이트 데이터)", "click_window_days": 30},
+        {"id": "7130249515", "name": "구매완료", "click_window_days": 7}
+      ],
+      "implication": "BI confirmed_purchase_offline 가 향후 primary 로 승격되어도, 다른 7개 GA4 imported / Transactions primary 가 동시에 학습 중. 입찰 학습 분배 영향 분리 필요."
+    },
+    {
+      "topic": "PURCHASE secondary action 현재 분포",
+      "count": 3,
+      "list": [
+        {"id": "6630514046", "name": "[G4] biocom.kr (web) 결제완료", "type": "GOOGLE_ANALYTICS_4_CUSTOM", "click_window_days": 90},
+        {"id": "7564830949", "name": "TechSol - NPAY구매 50739", "type": "WEBPAGE", "click_window_days": 90},
+        {"id": "7609289411", "name": "BI confirmed_purchase_offline", "type": "UPLOAD_CLICKS", "click_window_days": 30}
+      ]
+    }
+  ],
+  "documentation_decisions": [
+    {
+      "id": "decision-1",
+      "topic": "BI confirmed_purchase_offline 역할 정의",
+      "decision": "confirmed_purchase 업로드용 관찰 (observation) action 으로 문서화한다. 실제 ClickConversion upload 는 별도 명시 승인 전까지 0.",
+      "owner": "TJ",
+      "blocker": "upload candidate count > 0 일 때 별도 sprint 로 승인 필요"
+    },
+    {
+      "id": "decision-2",
+      "topic": "TechSol - NPAY구매 50739 역할 정의",
+      "decision": "NPay click/intent 보조 신호로 유지. confirmed_purchase 대체 불가 — '구매' 라는 이름과 달리 실제 NPay 버튼 클릭 시점 트리거이므로 운영자 결제완료 매출(tb_iamweb_users PAYMENT_COMPLETE)과 합산 금지.",
+      "owner": "TJ",
+      "evidence": [
+        "gdn/techsol-gads-npay-click-conversion-audit-20260510.md",
+        "gdn/google-ads-techsol-secondary-off-preaudit-or-result-20260511.md"
+      ]
+    },
+    {
+      "id": "decision-3",
+      "topic": "이번 sprint 는 read-only post-check",
+      "decision": "현재 화면 설정값과 API 반환값이 일치하는지만 확인. 실제 업로드는 하지 않음.",
+      "owner": "TJ"
+    }
+  ],
+  "blocking_questions_for_tj": [
+    "Q1. click-through window 90일 의도였는데 API 가 30일로 반환. Google Ads UI 다시 확인 필요. (UPLOAD_CLICKS type 의 max click window 제한이 30일일 가능성 — UI 에서 90일 입력해도 시스템이 30일로 clamp)",
+    "Q2. view-through window 3일 의도였는데 API 가 1일로 반환. 같은 사유 가능성. UI 확인 필요.",
+    "Q3. BI confirmed_purchase_offline 향후 primary 승격 계획이 있는가? 있다면 기존 7개 PURCHASE primary (특히 GA4 imported Transactions 류) 정리 시점도 같이 결정 필요."
+  ],
+  "invariants_held": {
+    "conversion_action_mutate": 0,
+    "existing_primary_modified": 0,
+    "new_action_primary_changed": 0,
+    "techsol_modified": 0,
+    "techsol_deleted": 0,
+    "click_conversion_uploaded": 0,
+    "data_manager_ingest": 0,
+    "campaign_mutate": 0,
+    "campaign_budget_mutate": 0,
+    "file_upload": 0,
+    "external_send_count": 0,
+    "operational_db_write": 0
+  },
+  "next_actions_for_tj": [
+    "Action 1 — Google Ads UI 재확인: BI confirmed_purchase_offline 의 '클릭연결 전환 추적 기간' 과 '조회 완료 전환 추적 기간' 입력값을 다시 확인. UI 에서 90/3 이 표시되더라도 시스템이 UPLOAD_CLICKS type 기본값으로 clamp 했을 가능성. (Owner: TJ · Recommend: 87점)",
+    "Action 2 — no-send 후보 품질 재계산: 새 action 의 id=7609289411 을 ClickConversion upload candidate 후보 dry-run 산출에 반영. 현재 candidate_count=0 invariant 유지. (Owner: Claude Code · Recommend: 92점)",
+    "Action 3 — 8개 PURCHASE primary 정리 결정 sprint 별도: BI confirmed_purchase_offline 승격 vs 기존 GA4 transactions / 구매완료 강등 vs 동시 운영. (Owner: TJ + Claude Code · Recommend: 80점 · Lane: Red)"
+  ]
+}
