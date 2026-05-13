@@ -40,6 +40,144 @@
   color: var(--slate);
 }
 
+/* gpt0508-49 UX 개선 — 비개발자 친화 신규 클래스 */
+
+.queryBtn {
+  background: #1d4ed8;
+  color: white;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.queryBtn:hover {
+  background: #1e40af;
+}
+
+.controlMeta {
+  font-size: 12px;
+  color: var(--slate);
+}
+
+.controlMeta strong {
+  color: #0f172a;
+}
+
+.unknownCallout {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin: 18px 0;
+}
+
+.calloutTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  color: #78350f;
+}
+
+.calloutSub {
+  font-size: 12px;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.calloutDesc {
+  font-size: 13px;
+  color: #78350f;
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.calloutDesc strong {
+  color: #7c2d12;
+}
+
+.calloutTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 10px;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.calloutTable th,
+.calloutTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #fde68a;
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.calloutTable th {
+  background: #fef3c7;
+  font-weight: 600;
+  color: #78350f;
+}
+
+.calloutFix {
+  font-size: 12.5px;
+  color: #78350f;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  background: #fef3c7;
+  border-radius: 6px;
+}
+
+.calloutFix strong {
+  color: #7c2d12;
+}
+
+.codeHint {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  background: #e2e8f0;
+  color: #475569;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: 6px;
+  cursor: help;
+  vertical-align: middle;
+}
+
+.shareBar {
+  display: inline-block;
+  width: 50px;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.shareBarFill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.shareText {
+  font-size: 12px;
+  color: #334155;
+  vertical-align: middle;
+}
+
 .metaBar code {
   background: var(--slate-bg);
   padding: 2px 6px;

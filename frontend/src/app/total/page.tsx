@@ -264,6 +264,69 @@ const correctionAmount = (lines: CorrectionLineItem[], included: boolean) =>
     .filter((line) => line.included_in_budget_roas === included)
     .reduce((sum, line) => sum + (line.amount_krw || 0), 0);
 
+// 비개발자 친화 라벨 변환 (gpt0508-49 UX 개선)
+function translateUnknownReason(reason: string): string {
+  const map: Record<string, string> = {
+    unknown: "유입 흔적 부족 (전체)",
+    no_click_id: "광고 클릭 ID 없음",
+    no_utm: "UTM 태그 없음",
+    no_referrer: "referrer 없음 (직접 입력 / 북마크 추정)",
+    session_lost: "세션 키 손실 (쿠키 비허용 / 다른 origin redirect)",
+    no_evidence: "유입 증거 전혀 없음",
+    expired_evidence: "유입 증거 만료 (TTL 초과)",
+  };
+  return map[reason] || `기타: ${reason}`;
+}
+
+function translateSource(source: string): string {
+  const map: Record<string, string> = {
+    ga4_bigquery_raw: "GA4 BigQuery 원본",
+    npay_intent: "NPay 클릭 의도",
+    platform_meta: "Meta 광고",
+    platform_tiktok: "TikTok 광고",
+    platform_google: "Google 광고",
+    platform_naver: "네이버 광고",
+    naver: "네이버 광고",
+    imweb_operational: "아임웹 운영 주문",
+    toss_operational: "토스 결제",
+    attribution_vm: "VM Cloud 유입 장부",
+  };
+  return map[source] || source;
+}
+
+function translateFreshness(f: string | undefined): string {
+  const map: Record<string, string> = {
+    fresh: "최신",
+    local_cache: "캐시 (원본 대조 전 참고)",
+    blocked: "연결 끊김",
+    blocked_or_empty: "연결 안 됨 또는 비어있음",
+    fallback: "대체 데이터 사용 중",
+    error: "조회 실패",
+    not_queried: "미조회",
+    unavailable: "사용 불가",
+  };
+  return map[f || "not_queried"] || f || "-";
+}
+
+function translateChannelCode(primary: string): string {
+  const map: Record<string, string> = {
+    paid_meta: "Meta 광고",
+    paid_tiktok: "TikTok 광고",
+    paid_google: "Google 광고",
+    paid_naver: "네이버 광고",
+    paid_search: "유료 검색",
+    paid_social: "유료 소셜",
+    organic_search: "자연 검색",
+    organic_social: "자연 소셜",
+    direct: "직접 방문",
+    referral: "추천 링크",
+    self_internal: "자기 도메인 이동",
+    npay: "NPay 결제",
+    unknown: "어디서 왔는지 모름",
+  };
+  return map[primary] || primary;
+}
+
 function channelAction(row: ChannelRow): { text: string; tone: "green" | "yellow" | "red" | "neutral" } {
   if (row.primary_channel === "unknown") return { text: "데이터 연결 필요", tone: "red" };
   if (row.primary_channel === "npay") return { text: "판단 보류", tone: "yellow" };
@@ -391,17 +454,17 @@ function PlatformCard({ row }: { row: PlatformRow }) {
       </div>
 
       <dl className={styles.pNums}>
-        <dt>내부 확정 매출</dt>
+        <dt>실제 결제 매출</dt>
         <dd>{fmtKRW(internal.revenue)}</dd>
-        <dt>내부 확정 주문</dt>
+        <dt>실제 결제 주문</dt>
         <dd>{fmtNum(internal.orders)}건</dd>
-        <dt>플랫폼 주장값</dt>
+        <dt>광고 플랫폼 주장 매출</dt>
         <dd>{fmtKRW(ref.conversionValueKrw ?? null)}</dd>
         <dt>광고비</dt>
         <dd>{fmtKRW(ref.spendKrw ?? null)}</dd>
-        <dt>플랫폼 ROAS</dt>
+        <dt>플랫폼 주장 ROAS</dt>
         <dd>{fmtRoas(ref.roas)}</dd>
-        <dt>gap (플랫폼 − 내부)</dt>
+        <dt>광고 플랫폼이 더 잡은 매출 (over-claim)</dt>
         <dd className={`${styles.gap} ${gap != null && gap > 0 ? styles.pos : styles.neg}`}>
           {gap == null ? "-" : (gap > 0 ? "+" : "") + fmtKRW(gap)}
         </dd>
@@ -578,9 +641,9 @@ export default function TotalPage() {
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>총 월별 채널 매출 ( /total )</h1>
+      <h1 className={styles.title}>월 매출 어디서 왔는가</h1>
       <p className={styles.subtitle}>
-        이번 달 실제 확정 매출이 어느 유입 채널에서 왔는지 빠르게 판단하기 위한 화면입니다. 내부 확정 매출과 플랫폼 주장값은 절대 합산하지 않습니다.
+        이번 달 실제 결제완료 매출이 어느 채널 (광고 / 자연 검색 / 직접 방문 / 추천) 에서 들어왔는지 한 화면에 보여줍니다. 광고 플랫폼이 주장하는 매출은 절대 더하지 않습니다.
       </p>
 
       <div className={styles.controls}>
@@ -594,14 +657,12 @@ export default function TotalPage() {
             onChange={(e) => setDraftMonth(e.target.value)}
           />
         </label>
-        <button type="button" onClick={submitMonth}>
+        <button type="button" onClick={submitMonth} className={styles.queryBtn}>
           조회
         </button>
         {data && (
-          <span style={{ fontSize: 12, color: "#64748b" }}>
-            site=<code>{data.metadata.site}</code> · queried{" "}
-            <code>{fmtTs(data.metadata.queried_at)}</code> · mode=<code>{data.metadata.mode}</code>{" "}
-            · contract <code>{data.metadata.contract_version}</code>
+          <span className={styles.controlMeta}>
+            사이트 <strong>{data.metadata.site}</strong> · 조회 시각 {fmtTs(data.metadata.queried_at)}
           </span>
         )}
       </div>
@@ -623,162 +684,167 @@ export default function TotalPage() {
         <>
           <section className={styles.decisionHero}>
             <div className={`${styles.decisionCard} ${styles.primaryDecision}`}>
-              <span className={styles.kpiLabel}>예산 판단 가능 매출</span>
+              <span className={styles.kpiLabel}>이번 달 광고 예산 판단에 쓸 매출</span>
               <strong className={styles.decisionValue}>
                 {fmtKRW(data.monthly_spine.confirmed_net_revenue_ab + budgetCorrectionAmount)}
               </strong>
-              <span className={styles.kpiSub}>biocom 내부 확정 기준 · 플랫폼 주장값 합산 금지</span>
-            </div>
-            <div className={styles.decisionCard}>
-              <span className={styles.kpiLabel}>참고용 보정 매출</span>
-              <strong className={styles.decisionValue}>{fmtKRW(referenceCorrectionAmount)}</strong>
-              <span className={styles.kpiSub}>더클린커피 등 예산 ROAS 제외 line</span>
-            </div>
-            <div className={styles.decisionCard}>
-              <span className={styles.kpiLabel}>미분류/보류 매출</span>
-              <strong className={styles.decisionValue}>{fmtKRW(holdRevenue)}</strong>
-              <span className={styles.kpiSub}>유입 증거 부족 + review/quarantine</span>
-            </div>
-            <div className={styles.decisionCard}>
-              <span className={styles.kpiLabel}>데이터 연결 경고</span>
-              <strong className={styles.decisionValue}>{fmtNum(stale.length)}개</strong>
               <span className={styles.kpiSub}>
-                {stale.length ? "연결·원본 대조 후 예산 판단" : "현재 경고 없음"}
+                바이오컴 결제완료 (아임웹 + 토스 정본). 광고 플랫폼 주장값과 합치지 않음
+              </span>
+            </div>
+            <div className={styles.decisionCard}>
+              <span className={styles.kpiLabel}>참고용 매출 (예산 판단 제외)</span>
+              <strong className={styles.decisionValue}>{fmtKRW(referenceCorrectionAmount)}</strong>
+              <span className={styles.kpiSub}>더클린커피 등 다른 사이트 매출</span>
+            </div>
+            <div className={styles.decisionCard}>
+              <span className={styles.kpiLabel}>어디서 왔는지 모르는 매출</span>
+              <strong className={styles.decisionValue}>{fmtKRW(holdRevenue)}</strong>
+              <span className={styles.kpiSub}>
+                {fmtNum(data.evidence.totals.unknown_orders)}건 — 유입 흔적 부족, 광고/자연/직접 분류 불가
+              </span>
+            </div>
+            <div className={styles.decisionCard}>
+              <span className={styles.kpiLabel}>데이터 신뢰도 경고</span>
+              <strong className={styles.decisionValue} style={{ color: stale.length ? "#b91c1c" : "#16a34a" }}>
+                {stale.length ? `${fmtNum(stale.length)}건` : "정상"}
+              </strong>
+              <span className={styles.kpiSub}>
+                {stale.length ? "원본 대조 후 예산 판단 권장" : "모든 데이터 source 정상"}
               </span>
             </div>
           </section>
 
-          <details className={styles.disclosure}>
-            <summary>읽기 전 주의와 데이터 연결 경고 보기</summary>
-            <div className={styles.warningBanner}>
-              <strong>주의 기준</strong>
-              <ul>
-                <li>내부 확정 순매출은 아임웹+토스 정본 기준입니다. 플랫폼 주장값을 더하지 않습니다.</li>
-                <li>최신 데이터는 source freshness 뜻이고, 플랫폼 value가 내부 정본이라는 뜻이 아닙니다.</li>
-                <li>TikTok ROAS는 Ads Manager 원본 대조 전까지 참고용입니다.</li>
-                <li>Naver Ads spend/value/ROAS는 source 미연결로 보류 상태입니다.</li>
-                <li>NPay intent source 연결 전까지 matched/unmatched 분포는 확정하지 않습니다.</li>
-              </ul>
-            </div>
-          </details>
+          {/* 미분류 매출이 큰 카테고리면 즉시 drilldown 노출 */}
+          {data.evidence.totals.unknown_revenue > 0 && (
+            <section className={styles.unknownCallout}>
+              <h2 className={styles.calloutTitle}>
+                어디서 왔는지 모르는 매출 분석
+                <span className={styles.calloutSub}>
+                  전체의 {fmtPct(data.evidence.totals.unknown_revenue / (data.evidence.totals.revenue_total_ab || 1))} · {fmtKRW(data.evidence.totals.unknown_revenue)} · {fmtNum(data.evidence.totals.unknown_orders)}건
+                </span>
+              </h2>
+              <p className={styles.calloutDesc}>
+                이 주문들에는 광고 클릭 ID / UTM / referrer 정보가 충분히 남아있지 않아서 자동 채널 분류가 안 됐습니다.
+                <strong> 매출은 분명 있지만 어떻게 들어왔는지 모르는 상태</strong>입니다.
+              </p>
+              {data.evidence.unknown_reasons && data.evidence.unknown_reasons.length > 0 && (
+                <table className={styles.calloutTable}>
+                  <thead>
+                    <tr>
+                      <th>부족한 정보</th>
+                      <th style={{ textAlign: "right" }}>주문</th>
+                      <th style={{ textAlign: "right" }}>매출</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.evidence.unknown_reasons
+                      .slice()
+                      .sort((a, b) => b.revenue - a.revenue)
+                      .map((r) => (
+                        <tr key={r.reason || r.unknownReason || "unknown"}>
+                          <td>{translateUnknownReason(r.reason || r.unknownReason || "unknown")}</td>
+                          <td className={styles.num}>{fmtNum(r.orders)}</td>
+                          <td className={styles.num}>{fmtKRW(r.revenue)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+              <p className={styles.calloutFix}>
+                <strong>줄이는 방법:</strong> 광고 destination URL 의 UTM 정정 (utm_source/medium 분리) + 카카오 알림톡 / 네이버 파워링크 같은 한국 채널 트래픽도 광고 클릭 ID 캡쳐 추가.
+              </p>
+            </section>
+          )}
 
           {stale.length > 0 && (
-            <details className={styles.disclosure}>
-              <summary>예산 판단 보류 source {stale.length}개 보기</summary>
+            <details className={styles.disclosure} open>
+              <summary>데이터 연결 경고 {stale.length}건 (펼쳐 보임 — 예산 판단 전 점검)</summary>
               <div className={styles.warningBanner} style={{ background: "#fef2f2", borderColor: "#fecaca", borderLeftColor: "#dc2626" }}>
-              <strong>예산 판단 보류 source</strong>
-              <ul>
-                {stale.map((d, i) => (
-                  <li key={`${d.scope}-${d.source}-${i}`}>
-                    <code>{d.source || d.platform || d.scope}</code> — {d.freshness}
-                    {d.warning ? ` · ${d.warning}` : ""}
-                    {d.fallbackReason ? ` · ${d.fallbackReason}` : ""}
-                    {d.error ? ` · ${d.error}` : ""}
-                  </li>
-                ))}
-              </ul>
+                <strong>예산 판단 전 점검 필요</strong>
+                <ul>
+                  {stale.map((d, i) => (
+                    <li key={`${d.scope}-${d.source}-${i}`}>
+                      <strong>{translateSource(d.source || d.platform || d.scope)}</strong> — {translateFreshness(d.freshness)}
+                      {d.warning ? ` · ${d.warning}` : ""}
+                      {d.fallbackReason ? ` · ${d.fallbackReason}` : ""}
+                      {d.error ? ` · ${d.error}` : ""}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </details>
           )}
 
+          <details className={styles.disclosure}>
+            <summary>읽기 전 주의사항 (펼쳐 보기)</summary>
+            <div className={styles.warningBanner}>
+              <strong>주의 기준</strong>
+              <ul>
+                <li>내부 확정 매출은 아임웹 주문 + 토스 결제·취소 정본 기준입니다. 광고 플랫폼이 자기 attribution 기준으로 주장하는 값은 절대 더하지 않습니다.</li>
+                <li>광고 플랫폼 카드의 ROAS / 매출은 광고 플랫폼이 주장하는 참고값입니다. 예산 판단은 화면 맨 위 "이번 달 광고 예산 판단에 쓸 매출" 만 사용하세요.</li>
+                <li>TikTok ROAS 는 자체 캐시 기반이라 Ads Manager 원본 대조 전까지 참고용입니다.</li>
+                <li>Naver Ads 광고비 / 매출 / ROAS 는 source 미연결 — 현재 보류 상태.</li>
+                <li>NPay 결제 매칭은 별도 source 연결 전까지 분포 확정 안 함.</li>
+              </ul>
+            </div>
+          </details>
+
           <CorrectionLinesSection lines={correctionLines} />
 
-          <div className={styles.kpiRow}>
-            <div className={`${styles.kpiCard} ${styles.primary}`}>
-              <span className={styles.kpiLabel}>① 내부 확정 순매출 (A/B)</span>
-              <span className={`${styles.kpiValue} ${styles.large}`}>
-                {fmtKRW(data.monthly_spine.confirmed_net_revenue_ab)}
-              </span>
-              <span className={styles.kpiSub}>
-                아임웹 주문 × 토스 결제·취소 정본
-              </span>
-            </div>
-            <div className={styles.kpiCard}>
-              <span className={styles.kpiLabel}>② 분류 완료 매출</span>
-              <span className={styles.kpiValue}>{fmtKRW(data.evidence.totals.assigned_revenue)}</span>
-              <span className={styles.kpiSub}>{fmtNum(data.evidence.totals.assigned_orders)}건 — 채널 증거 OK</span>
-            </div>
-            <div className={styles.kpiCard}>
-              <span className={styles.kpiLabel}>③ 미분류 매출</span>
-              <span className={styles.kpiValue}>{fmtKRW(data.evidence.totals.unknown_revenue)}</span>
-              <span className={styles.kpiSub}>
-                {fmtNum(data.evidence.totals.unknown_orders)}건 — 매출 0 아님, 유입 증거 부족
-              </span>
-            </div>
-            <div className={styles.kpiCard}>
-              <span className={styles.kpiLabel}>④ 채널 ( primary )</span>
-              <span className={styles.kpiValue}>{fmtNum(data.evidence.channel_summary.length)}</span>
-              <span className={styles.kpiSub}>1차 채널 분류 — assist 는 합계 미반영</span>
-            </div>
-            <div className={styles.kpiCard}>
-              <span className={styles.kpiLabel}>⑤ Source 경고</span>
-              <span className={styles.kpiValue} style={{ color: stale.length ? "#b91c1c" : "#16a34a" }}>
-                {fmtNum(stale.length)}
-              </span>
-              <span className={styles.kpiSub}>
-                {stale.length ? "예산 판단 보류 source 수" : "모든 source fresh"}
-              </span>
-            </div>
-          </div>
-
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>
-              A/B 확정 vs 후보 차이
-              <small>candidate(A/B/C) − confirmed(A/B) = review_revenue_c</small>
-            </h2>
-            <p className={styles.sectionDesc}>
-              spine dry-run 의 후보값({fmtKRW(data.monthly_spine.net_revenue_candidate_including_c)})과
-              A/B 확정값({fmtKRW(data.monthly_spine.confirmed_net_revenue_ab)})의 차이는{" "}
-              {fmtKRW(
-                data.monthly_spine.net_revenue_candidate_including_c -
-                  data.monthly_spine.confirmed_net_revenue_ab,
-              )}{" "}
-              이며, <code>imweb_virtual_without_toss</code>(가상계좌 결제 완료, 토스 매칭 미확인) 가 C
-              review 로 격리된 결과입니다.
-            </p>
-            <div className={styles.diffCard}>
-              <div className={styles.diffGrid}>
-                <div className={styles.diffCell}>
-                  <div className={styles.kpiLabel}>confirmed_net_revenue_ab</div>
-                  <div className={styles.kpiValue}>{fmtKRW(data.monthly_spine.confirmed_net_revenue_ab)}</div>
-                  <div className={styles.kpiSub}>예산·내부 정본 기준</div>
-                </div>
-                <div className={styles.diffCell}>
-                  <div className={styles.kpiLabel}>net_revenue_candidate_including_c</div>
-                  <div className={styles.kpiValue}>
-                    {fmtKRW(data.monthly_spine.net_revenue_candidate_including_c)}
+          {(data.monthly_spine.review_revenue_c > 0 ||
+            data.monthly_spine.quarantine_revenue_d > 0 ||
+            data.monthly_spine.toss_only_month_boundary_revenue > 0) && (
+            <details className={styles.disclosure}>
+              <summary>
+                예산 판단에서 제외된 매출{" "}
+                {fmtKRW(
+                  data.monthly_spine.review_revenue_c +
+                    data.monthly_spine.quarantine_revenue_d +
+                    data.monthly_spine.toss_only_month_boundary_revenue,
+                )}{" "}
+                있음 (펼쳐 보기)
+              </summary>
+              <div className={styles.diffCard}>
+                <p style={{ margin: "0 0 12px", fontSize: 13 }}>
+                  아래 매출은 결제는 들어왔지만 정합성 검증 / 환불 처리 / 토스 매칭 등의 이유로
+                  이번 달 광고 예산 판단에 <strong>포함하지 않은</strong> 금액입니다.
+                </p>
+                <div className={styles.diffGrid}>
+                  <div className={styles.diffCell}>
+                    <div className={styles.kpiLabel}>가상계좌 매출 (토스 매칭 못 함)</div>
+                    <div className={styles.kpiValue}>
+                      {fmtKRW(data.monthly_spine.review_revenue_c)}
+                    </div>
+                    <div className={styles.kpiSub}>아임웹은 결제완료, 토스 대조 전까지 보류</div>
                   </div>
-                  <div className={styles.kpiSub}>참고: A/B/C 합산 후보</div>
-                </div>
-                <div className={`${styles.diffCell} ${styles.exclude}`}>
-                  <div className={styles.kpiLabel}>excluded_from_ab (review_revenue_c)</div>
-                  <div className={styles.kpiValue}>{fmtKRW(data.monthly_spine.review_revenue_c)}</div>
-                  <div className={styles.kpiSub}>
-                    reason: <code>imweb_virtual_without_toss_review</code>
+                  <div className={styles.diffCell}>
+                    <div className={styles.kpiLabel}>격리 매출 (환불 처리 중)</div>
+                    <div className={styles.kpiValue}>
+                      {fmtKRW(data.monthly_spine.quarantine_revenue_d)}
+                    </div>
+                    <div className={styles.kpiSub}>월 마감 전 점검 대상</div>
+                  </div>
+                  <div className={styles.diffCell}>
+                    <div className={styles.kpiLabel}>월 경계 매출 (토스만 잡힘)</div>
+                    <div className={styles.kpiValue}>
+                      {fmtKRW(data.monthly_spine.toss_only_month_boundary_revenue)}
+                    </div>
+                    <div className={styles.kpiSub}>주문 시점과 결제 시점이 다른 달</div>
                   </div>
                 </div>
               </div>
-              <div className={styles.diffNote}>
-                참고: <code>toss_only_month_boundary_revenue</code>{" "}
-                {fmtKRW(data.monthly_spine.toss_only_month_boundary_revenue)} ·{" "}
-                <code>quarantine_revenue_d</code>{" "}
-                {fmtKRW(data.monthly_spine.quarantine_revenue_d)}. 두 값은 모두 A/B 확정에 포함되지
-                않으며 별도 격리되어 close 전 점검 대상입니다.
-              </div>
-            </div>
-          </section>
+            </details>
+          )}
 
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>
-              채널별 내부 확정 매출
-              <small>
-                A/B confidence 기준 · primary_channel 합 ={" "}
-                {fmtKRW(data.evidence.totals.revenue_total_ab)}
-              </small>
+              채널별 매출 (큰 채널부터)
+              <small>합계 {fmtKRW(data.evidence.totals.revenue_total_ab)}</small>
             </h2>
             <p className={styles.sectionDesc}>
-              이 표의 값은 <strong>내부 정본 매출</strong>이며 광고 플랫폼 주장값과 합산하지 않습니다.
-              <code> assist_channels</code> 는 합계 중복 반영을 막기 위해 포함하지 않았습니다.
+              아래 표의 값은 <strong>실제 결제완료 매출</strong>입니다. 광고 플랫폼이 자기 기준으로 주장하는 값과는 다릅니다.
+              "신뢰 강" = 광고 클릭 ID 또는 유입 흔적이 명확한 매출, "신뢰 중" = 추정 매출입니다.
             </p>
             <table className={styles.table}>
               <thead>
@@ -787,9 +853,8 @@ export default function TotalPage() {
                   <th style={{ textAlign: "right" }}>주문</th>
                   <th style={{ textAlign: "right" }}>매출</th>
                   <th style={{ textAlign: "right" }}>비중</th>
-                  <th>운영 액션</th>
-                  <th style={{ textAlign: "right" }}>A confidence</th>
-                  <th style={{ textAlign: "right" }}>B confidence</th>
+                  <th>다음 액션</th>
+                  <th style={{ textAlign: "right" }}>신뢰도</th>
                   <th>참고</th>
                 </tr>
               </thead>
@@ -807,25 +872,54 @@ export default function TotalPage() {
                         : action.tone === "red"
                         ? styles.badgeBlocked
                         : styles.badgeNeutral;
+                    const confA = row.confidence?.A ?? 0;
+                    const confB = row.confidence?.B ?? 0;
+                    const totalConf = confA + confB;
+                    const confLabel = totalConf === 0
+                      ? "-"
+                      : confA >= confB * 2
+                      ? "강"
+                      : confB >= confA * 2
+                      ? "중"
+                      : "강+중";
+                    const channelKr = translateChannelCode(row.primary_channel) || row.display_label;
                     return (
                       <tr key={row.primary_channel}>
                         <td>
-                          <strong>{row.display_label}</strong>{" "}
-                          <span style={{ color: "#94a3b8", fontSize: 11 }}>{row.primary_channel}</span>
+                          <strong>{channelKr}</strong>
+                          <span
+                            className={styles.codeHint}
+                            title={`내부 코드: ${row.primary_channel}`}
+                          >
+                            ?
+                          </span>
                         </td>
                         <td className={styles.num}>{fmtNum(row.orders)}</td>
-                        <td className={styles.num}>{fmtKRW(row.revenue)}</td>
-                        <td className={styles.num}>{fmtPct(row.share_of_confirmed_revenue)}</td>
-                        <td><span className={`${styles.badge} ${actionCls}`}>{action.text}</span></td>
-                        <td className={styles.num}>{fmtKRW(row.confidence?.A ?? 0)}</td>
-                        <td className={styles.num}>{fmtKRW(row.confidence?.B ?? 0)}</td>
+                        <td className={styles.num}>
+                          <strong>{fmtKRW(row.revenue)}</strong>
+                        </td>
+                        <td className={styles.num}>
+                          <span className={styles.shareBar}>
+                            <span
+                              className={styles.shareBarFill}
+                              style={{ width: `${Math.min((row.share_of_confirmed_revenue ?? 0) * 100, 100)}%` }}
+                            />
+                          </span>
+                          <span className={styles.shareText}>{fmtPct(row.share_of_confirmed_revenue)}</span>
+                        </td>
+                        <td>
+                          <span className={`${styles.badge} ${actionCls}`}>{action.text}</span>
+                        </td>
+                        <td className={styles.num} title={`A 신뢰 ${fmtKRW(confA)} / B 신뢰 ${fmtKRW(confB)}`}>
+                          {confLabel}
+                        </td>
                         <td style={{ fontSize: 11.5, color: "#64748b" }}>
                           {row.primary_channel === "paid_naver"
-                            ? "NaPm/paid UTM 후보. Naver Ads 확정 매출 아님"
+                            ? "네이버 광고는 광고비 source 미연결 — 추정값"
                             : row.primary_channel === "npay"
-                            ? "NPay 결제완료. 광고 연결은 보류"
+                            ? "NPay 결제완료, 광고 연결은 보류"
                             : row.primary_channel === "unknown"
-                            ? "매출은 있으나 유입 증거 부족"
+                            ? "매출은 있으나 유입 흔적 부족"
                             : ""}
                         </td>
                       </tr>
@@ -837,11 +931,12 @@ export default function TotalPage() {
 
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>
-              플랫폼 참고값 (광고 플랫폼 주장값)
-              <small>합산 금지 · reference only · do_not_add_to_internal_confirmed_revenue</small>
+              광고 플랫폼이 주장하는 매출 (참고용)
+              <small>예산 판단에는 위의 "내부 확정 매출" 사용</small>
             </h2>
             <p className={styles.sectionDesc}>
-              아래 카드의 모든 플랫폼 ROAS 와 conversion value 는 광고 플랫폼이 자기 attribution 기준으로 주장한 참고값입니다. 내부 확정 매출에 더하지 마세요.
+              아래 카드의 ROAS 와 매출은 광고 플랫폼이 자기 attribution 기준으로 "이 광고 덕분에 매출이 났다"
+              고 주장하는 참고값입니다. 광고 플랫폼끼리는 같은 매출을 중복으로 자기 공으로 잡기 때문에 합치면 안 됩니다.
             </p>
             <div className={styles.platformGrid}>
               {(data.platform_reference.rows || []).map((row, i) => (
@@ -850,61 +945,30 @@ export default function TotalPage() {
             </div>
           </section>
 
-          {data.evidence.unknown_reasons && data.evidence.unknown_reasons.length > 0 && (
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>
-                미분류 사유 (drilldown)
-                <small>합계 = {fmtKRW(data.evidence.totals.unknown_revenue)}</small>
-              </h2>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>reason</th>
-                    <th style={{ textAlign: "right" }}>주문</th>
-                    <th style={{ textAlign: "right" }}>매출</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.evidence.unknown_reasons
-                    .slice()
-                    .sort((a, b) => b.revenue - a.revenue)
-                    .map((r) => {
-                      const key = r.reason || r.unknownReason || "unknown";
-                      return (
-                        <tr key={key}>
-                          <td>
-                            <code>{key}</code>
-                          </td>
-                          <td className={styles.num}>{fmtNum(r.orders)}</td>
-                          <td className={styles.num}>{fmtKRW(r.revenue)}</td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </section>
-          )}
-
           <details className={`${styles.section} ${styles.disclosure}`}>
-            <summary>Source freshness 상세 보기</summary>
-            <h2 className={styles.sectionTitle}>Source freshness</h2>
+            <summary>데이터 source 신선도 (펼쳐 보기 · 기술 상세)</summary>
+            <h2 className={styles.sectionTitle}>데이터 source 신선도</h2>
+            <p className={styles.sectionDesc}>
+              운영DB / VM Cloud / 외부 API 각각의 데이터가 얼마나 최신인지. "최신" 외의 상태는 예산 판단 전 점검.
+            </p>
             <table className={styles.table}>
               <thead>
                 <tr>
                   <th>source</th>
-                  <th>role</th>
-                  <th>status</th>
-                  <th>conf</th>
-                  <th>queried at</th>
-                  <th>latest observed</th>
-                  <th>fallback / reason</th>
+                  <th>역할</th>
+                  <th>상태</th>
+                  <th>신뢰</th>
+                  <th>조회 시각</th>
+                  <th>최근 데이터</th>
+                  <th>fallback / 사유</th>
                 </tr>
               </thead>
               <tbody>
                 {data.source_freshness.map((s, i) => (
                   <tr key={`${s.source}-${i}`}>
                     <td>
-                      <code>{s.source}</code>
+                      <strong>{translateSource(s.source)}</strong>
+                      <span className={styles.codeHint} title={`내부 코드: ${s.source}`}>?</span>
                     </td>
                     <td style={{ fontSize: 12 }}>{s.role}</td>
                     <td>
@@ -924,8 +988,8 @@ export default function TotalPage() {
           </details>
 
           <details className={`${styles.section} ${styles.disclosure}`}>
-            <summary>sourceDiagnostics 상세 보기</summary>
-            <h2 className={styles.sectionTitle}>sourceDiagnostics</h2>
+            <summary>데이터 source 진단 상세 (펼쳐 보기 · 기술 상세)</summary>
+            <h2 className={styles.sectionTitle}>데이터 source 진단</h2>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -973,8 +1037,8 @@ export default function TotalPage() {
             </div>
           </details>
 
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>headline / API 메타</h2>
+          <details className={`${styles.section} ${styles.disclosure}`}>
+            <summary>기술 메타 (개발자용)</summary>
             <div className={styles.diffCard}>
               <p style={{ margin: "0 0 8px", fontSize: 14 }}>
                 <strong>{data.frontend_copy.headline}</strong>
@@ -984,24 +1048,24 @@ export default function TotalPage() {
               </p>
               <ul className={styles.diagList}>
                 <li>
-                  contract: <code>{data.metadata.contract_version}</code> · spine{" "}
+                  계약 버전: <code>{data.metadata.contract_version}</code> · spine{" "}
                   <code>{data.metadata.source_contracts.spine}</code> · evidence{" "}
                   <code>{data.metadata.source_contracts.evidence}</code>
                 </li>
                 <li>
-                  window: <code>{data.metadata.date_start}</code> ~{" "}
-                  <code>{data.metadata.date_end_exclusive}</code> ({data.metadata.timezone}) · mode=
-                  <code>{data.metadata.mode}</code> · write=<code>{String(data.metadata.write)}</code>{" "}
-                  · send=<code>{String(data.metadata.send)}</code> · deploy=
+                  윈도우: <code>{data.metadata.date_start}</code> ~{" "}
+                  <code>{data.metadata.date_end_exclusive}</code> ({data.metadata.timezone}) · 모드{" "}
+                  <code>{data.metadata.mode}</code> · write <code>{String(data.metadata.write)}</code>{" "}
+                  · send <code>{String(data.metadata.send)}</code> · deploy{" "}
                   <code>{String(data.metadata.deploy)}</code>
                 </li>
                 <li>
-                  primary sum matches revenue:{" "}
+                  primary 합산이 매출과 일치:{" "}
                   <code>{String(data.monthly_spine.primary_sum_matches_revenue)}</code>
                 </li>
               </ul>
             </div>
-          </section>
+          </details>
         </>
       )}
     </main>
