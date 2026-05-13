@@ -1,28 +1,29 @@
 # Current Handoff
 
-작성 시각: 2026-05-13 16:35 KST
+작성 시각: 2026-05-13 18:10 KST
 
 ## 현재 목표
 
-TikTok OFF 전후 매출 영향 감사 화면을 VM Cloud에 배포하고, TJ님이 `https://biocom.ainativeos.net/ads/tiktok/off-impact`에서 바로 볼 수 있게 한다.
+TikTok OFF 전후 매출 영향 화면에서 “공동구매 때문에 줄어든 매출”을 광고 채널 매출과 섞지 않고 별도 보정 라인으로 보여준다.
 
 ## 완료한 것
 
-- VM Cloud frontend/backend 배포 완료.
+- VM Cloud frontend/backend 배포 및 `seo-backend`, `seo-frontend` restart 완료.
 - live URL 200 확인: `https://biocom.ainativeos.net/ads/tiktok/off-impact`.
-- API 404/500/terminated 대응 완료: `GET https://att.ainativeos.net/api/ads/tiktok/off-impact-audit`.
-- VM Cloud SQLite `attribution_ledger` 직접 read-only 조회로 원장 계산 전환.
-- TikTok Ads processed CSV 18개를 VM Cloud repo에 배치하고 read-only로 광고비/플랫폼 주장 매출 계산.
-- live 핵심값: 전체 일평균 매출 -17.77%, 가장 큰 하락 Meta 광고, TikTok 광고비 1,041,554원 -> 47원, TikTok 플랫폼 주장 매출 3,218,171원 -> 0원, TikTok 미추적 가능성 27/100.
-- no-send/no-write/raw identifier suppression smoke PASS.
+- live API 확인: `https://att.ainativeos.net/api/ads/tiktok/off-impact-audit`.
+- 공동구매 보정 source: 운영DB `public.tb_influencer_group_buy_customer` read-only.
+- 매출 원장 source: VM Cloud SQLite `attribution_ledger` read-only.
+- 핵심값: 전체 일평균 매출 -2,876,049원, 공동구매 일평균 -2,765,951원, 공동구매 설명 비중 96.17%, 공동구매 제외 후 -110,098원.
+- 공동구매 상세 API도 운영DB 보조 필드 추가: `/api/ads/coop-order-summary`.
+- live browser smoke PASS, raw identifier 노출 없음, no-send/no-write/no-publish PASS.
 
 ## 다음 명령
 
-1. `curl -sS -m 30 'https://att.ainativeos.net/api/ads/tiktok/off-impact-audit' | jq '{ok, cache:.cache, delta:.overall.deltaRevenuePct, top:.channel_shift.topDropChannels[0].label, spend_before:.tiktok_spend_and_claim.baseline.spend, spend_after:.tiktok_spend_and_claim.off.spend}'`
-2. `cd backend && npm run typecheck`
-3. `git diff --check`
-4. `python3 scripts/harness-preflight-check.py --strict`
-5. `python3 scripts/validate_wiki_links.py gptconfirm/gpt0508-52/00-result-report.md gdn/current-handoff.md`
+1. `curl -sS -m 30 'https://att.ainativeos.net/api/ads/tiktok/off-impact-audit' | jq '{ok, overall:.overall.deltaRevenuePerDay, coop:.coop_adjustment.deltaIncludedAmountPerDay, share:.coop_adjustment.shareOfObservedDropPct, non_coop:.coop_adjustment.nonCoopDeltaRevenuePerDay, invariants}'`
+2. `curl -sS -m 30 'https://att.ainativeos.net/api/ads/coop-order-summary?site=biocom&start_date=2026-05-01&end_date=2026-05-08' | jq '{ok, op:.operational_db_coop}'`
+3. `cd backend && npm run typecheck`
+4. `cd frontend && npx tsc --noEmit`
+5. `git diff --check && python3 scripts/harness-preflight-check.py --strict`
 
 ## 절대 건드리면 안 되는 것
 

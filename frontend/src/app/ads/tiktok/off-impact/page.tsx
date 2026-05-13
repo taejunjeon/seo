@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import GlobalNav from "@/components/common/GlobalNav";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
-const STORAGE_PREFIX = "seo:tiktok-off-impact-audit:v2:";
+const STORAGE_PREFIX = "seo:tiktok-off-impact-audit:v3:";
 
 type Metric = {
   days: number;
@@ -49,6 +49,26 @@ type TikTokEvidence = {
   firstTouchConfirmedRevenue: number;
 };
 
+type CoopRange = {
+  days: number;
+  rows: number;
+  groupBuys: number;
+  grossAmount: number;
+  grossAmountPerDay: number;
+  includedRows: number;
+  includedAmount: number;
+  includedAmountPerDay: number;
+  excludedRows: number;
+  excludedAmount: number;
+  topGroups: Array<{
+    groupBuyId: number;
+    title: string;
+    rows: number;
+    amount: number;
+    amountPerDay: number;
+  }>;
+};
+
 type TikTokOffImpactResponse = {
   ok: boolean;
   error?: string;
@@ -62,6 +82,7 @@ type TikTokOffImpactResponse = {
     primary: string;
     ga4_cross_check: string;
     tiktok_ads: string;
+    coop_adjustment?: string;
     notes: string[];
   };
   warnings: string[];
@@ -79,6 +100,19 @@ type TikTokOffImpactResponse = {
   tiktok_internal_evidence: {
     baseline: TikTokEvidence;
     off: TikTokEvidence;
+  };
+  coop_adjustment?: {
+    status: "included" | "unavailable";
+    source: string;
+    sourceLocation: "operational_db";
+    baseline: CoopRange;
+    off: CoopRange;
+    deltaRows: number;
+    deltaIncludedAmountPerDay: number;
+    deltaIncludedAmountPct: number | null;
+    shareOfObservedDropPct: number | null;
+    nonCoopDeltaRevenuePerDay: number | null;
+    warnings: string[];
   };
   channel_shift: {
     source: string;
@@ -445,6 +479,10 @@ export default function TikTokOffImpactPage() {
   const strictTikTokRevenue = data?.tiktok_internal_evidence.baseline.strictConfirmedRevenue ?? 0;
   const assistedTikTokRevenue = data?.tiktok_internal_evidence.baseline.firstTouchConfirmedRevenue ?? 0;
   const topDropLabel = topDrop?.label ?? "특정 채널";
+  const coopAdjustment = data?.coop_adjustment;
+  const coopDropShare = coopAdjustment?.shareOfObservedDropPct;
+  const coopDelta = coopAdjustment?.deltaIncludedAmountPerDay ?? 0;
+  const nonCoopDelta = coopAdjustment?.nonCoopDeltaRevenuePerDay;
 
   return (
     <>
@@ -596,6 +634,16 @@ export default function TikTokOffImpactPage() {
                   value={`${missingScore}/100`}
                   sub={`플랫폼 과대 attribution 가능성 ${overCreditScore}/100 · ${data.mistracking_audit.recommendation}`}
                 />
+                <KpiCard
+                  tone={coopAdjustment?.status === "included" && coopDelta < 0 ? "amber" : "plain"}
+                  label="공동구매 감소 영향"
+                  value={coopAdjustment?.status === "included" ? `${fmtKrwSigned(coopDelta)} / 일` : "확인 불가"}
+                  sub={
+                    coopAdjustment?.status === "included"
+                      ? `관측 하락 설명 ${coopDropShare?.toFixed(1) ?? "-"}% · 공동구매 제외 후 ${fmtKrwSigned(nonCoopDelta)} / 일`
+                      : "운영DB 공동구매 집계를 불러오지 못했습니다."
+                  }
+                />
               </section>
 
               <Card tone={missingScore >= 60 ? "amber" : "green"}>
@@ -613,6 +661,9 @@ export default function TikTokOffImpactPage() {
                       {` ${fmtKrw(data.overall.baseline.revenuePerDay)}에서 ${fmtKrw(data.overall.off.revenuePerDay)}로 `}
                       줄었습니다. 다만 TikTok 직접 결제완료는 0원이고, VM Cloud 유입 근거 분류에서는 {topDropLabel} 라인이
                       관측 하락분의 대부분을 설명합니다.
+                      {coopAdjustment?.status === "included"
+                        ? ` 같은 기간 운영DB 공동구매 매출도 일평균 ${fmtKrwSigned(coopDelta)} 변해, 공동구매 일정 효과를 함께 봐야 합니다.`
+                        : ""}
                     </p>
                   </div>
                   <div style={{ display: "grid", gap: 10 }}>
@@ -637,6 +688,71 @@ export default function TikTokOffImpactPage() {
                   </div>
                 </div>
               </Card>
+
+              {coopAdjustment && (
+                <Card tone={coopAdjustment.status === "included" && coopDelta < 0 ? "amber" : "plain"}>
+                  <div style={{ display: "grid", gap: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+                      <div>
+                        <h2 style={{ margin: 0, fontSize: 22 }}>공동구매 보정 라인</h2>
+                        <p style={{ margin: "8px 0 0", color: "#64748b", lineHeight: 1.55 }}>
+                          광고 채널 매출과 섞지 않고, 운영DB 공동구매 테이블을 별도 라인으로 비교합니다.
+                        </p>
+                      </div>
+                      <Pill tone={coopAdjustment.status === "included" ? "amber" : "red"}>
+                        source: 운영DB 공동구매
+                      </Pill>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                      <Card tone="plain">
+                        <strong>OFF 전 공동구매</strong>
+                        <p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.55 }}>
+                          {fmtNum(coopAdjustment.baseline.includedRows)}건 · {fmtKrw(coopAdjustment.baseline.includedAmount)}
+                          <br />
+                          일평균 {fmtKrw(coopAdjustment.baseline.includedAmountPerDay)}
+                        </p>
+                      </Card>
+                      <Card tone="plain">
+                        <strong>OFF 후 공동구매</strong>
+                        <p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.55 }}>
+                          {fmtNum(coopAdjustment.off.includedRows)}건 · {fmtKrw(coopAdjustment.off.includedAmount)}
+                          <br />
+                          일평균 {fmtKrw(coopAdjustment.off.includedAmountPerDay)}
+                        </p>
+                      </Card>
+                      <Card tone={coopDelta < 0 ? "amber" : "green"}>
+                        <strong>공동구매 제외 후 변화</strong>
+                        <p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.55 }}>
+                          공동구매 변화 {fmtKrwSigned(coopDelta)} / 일
+                          <br />
+                          제외 후 남는 변화 {fmtKrwSigned(nonCoopDelta)} / 일
+                        </p>
+                      </Card>
+                    </div>
+                    {coopAdjustment.baseline.topGroups.length + coopAdjustment.off.topGroups.length > 0 && (
+                      <details>
+                        <summary style={{ cursor: "pointer", fontWeight: 900, color: "#334155" }}>공동구매 상세 보기</summary>
+                        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+                          {[
+                            ["OFF 전", coopAdjustment.baseline.topGroups],
+                            ["OFF 후", coopAdjustment.off.topGroups],
+                          ].map(([label, groups]) => (
+                            <div key={label as string} style={{ display: "grid", gap: 8 }}>
+                              <strong>{label as string}</strong>
+                              {(groups as CoopRange["topGroups"]).map((group) => (
+                                <div key={`${label}-${group.groupBuyId}`} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, color: "#475569" }}>
+                                  <span>{group.title}</span>
+                                  <strong style={{ color: "#0f172a", whiteSpace: "nowrap" }}>{fmtKrw(group.amount)}</strong>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                </Card>
+              )}
 
               <Card>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>

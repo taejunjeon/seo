@@ -2965,10 +2965,44 @@ type TikTokOffImpactAuditItem = {
   whatItMeans: string;
 };
 
+type OperationalCoopRangeSummary = {
+  days: number;
+  rows: number;
+  groupBuys: number;
+  grossAmount: number;
+  grossAmountPerDay: number;
+  includedRows: number;
+  includedAmount: number;
+  includedAmountPerDay: number;
+  excludedRows: number;
+  excludedAmount: number;
+  topGroups: Array<{
+    groupBuyId: number;
+    title: string;
+    rows: number;
+    amount: number;
+    amountPerDay: number;
+  }>;
+};
+
+type OperationalCoopImpactSummary = {
+  status: "included" | "unavailable";
+  source: string;
+  sourceLocation: "operational_db";
+  baseline: OperationalCoopRangeSummary;
+  off: OperationalCoopRangeSummary;
+  deltaRows: number;
+  deltaIncludedAmountPerDay: number;
+  deltaIncludedAmountPct: number | null;
+  shareOfObservedDropPct: number | null;
+  nonCoopDeltaRevenuePerDay: number | null;
+  warnings: string[];
+};
+
 const TIKTOK_OFF_DEFAULT_BASELINE: DateRange = { startDate: "2026-05-01", endDate: "2026-05-07" };
 const TIKTOK_OFF_DEFAULT_OFF: DateRange = { startDate: "2026-05-08", endDate: "2026-05-12" };
 const TIKTOK_OFF_IMPACT_CACHE_PATH = path.join(DATA_DIR, "tiktok-off-impact-audit-cache.json");
-const TIKTOK_OFF_IMPACT_CACHE_VERSION = 1;
+const TIKTOK_OFF_IMPACT_CACHE_VERSION = 2;
 const TIKTOK_ADS_DAILY_PROCESSED_DIR = path.resolve(
   process.cwd(),
   "..",
@@ -3109,6 +3143,9 @@ const readTikTokOffImpactCacheFile = async (): Promise<{
       version?: number;
       records?: Record<string, { generatedAt: string; payload: Record<string, unknown> }>;
     };
+    if (parsed.version !== TIKTOK_OFF_IMPACT_CACHE_VERSION) {
+      return { version: TIKTOK_OFF_IMPACT_CACHE_VERSION, records: {} };
+    }
     return {
       version: parsed.version ?? TIKTOK_OFF_IMPACT_CACHE_VERSION,
       records: parsed.records ?? {},
@@ -3397,6 +3434,192 @@ const readOperationalLedgerEntriesForAds = async (
     entries: rows.map(normalizeLedgerDbRowForAds),
     warnings: [],
   };
+};
+
+const emptyOperationalCoopRangeSummary = (range: DateRange): OperationalCoopRangeSummary => {
+  const days = daysInRange(range);
+  return {
+    days,
+    rows: 0,
+    groupBuys: 0,
+    grossAmount: 0,
+    grossAmountPerDay: 0,
+    includedRows: 0,
+    includedAmount: 0,
+    includedAmountPerDay: 0,
+    excludedRows: 0,
+    excludedAmount: 0,
+    topGroups: [],
+  };
+};
+
+const readOperationalCoopRangeSummary = async (
+  range: DateRange,
+): Promise<OperationalCoopRangeSummary> => {
+  const days = daysInRange(range);
+  const total = await queryPg<{
+    rows: number;
+    group_buys: number;
+    gross_amount: string | number | null;
+    included_rows: number;
+    included_amount: string | number | null;
+    excluded_rows: number;
+    excluded_amount: string | number | null;
+  }>(`
+    WITH normalized AS (
+      SELECT
+        c.group_buy_id,
+        COALESCE(c.total_amount, c.order_amount, 0) AS amount,
+        COALESCE(c.order_status, '') AS order_status,
+        CASE
+          WHEN c.order_date ~ '^\\d{4}-\\d{2}-\\d{2}' THEN substring(c.order_date FROM 1 FOR 10)::date
+          WHEN c.created_at IS NOT NULL THEN c.created_at::date
+          ELSE NULL
+        END AS order_day
+      FROM public.tb_influencer_group_buy_customer c
+    )
+    SELECT
+      COUNT(*)::int AS rows,
+      COUNT(DISTINCT group_buy_id)::int AS group_buys,
+      COALESCE(SUM(amount), 0)::bigint AS gross_amount,
+      COUNT(*) FILTER (WHERE order_status NOT IN ('cancelled', 'refunded'))::int AS included_rows,
+      COALESCE(SUM(amount) FILTER (WHERE order_status NOT IN ('cancelled', 'refunded')), 0)::bigint AS included_amount,
+      COUNT(*) FILTER (WHERE order_status IN ('cancelled', 'refunded'))::int AS excluded_rows,
+      COALESCE(SUM(amount) FILTER (WHERE order_status IN ('cancelled', 'refunded')), 0)::bigint AS excluded_amount
+    FROM normalized
+    WHERE order_day BETWEEN $1::date AND $2::date
+  `, [range.startDate, range.endDate]);
+
+  const groups = await queryPg<{
+    group_buy_id: number;
+    title: string | null;
+    rows: number;
+    amount: string | number | null;
+  }>(`
+    WITH normalized AS (
+      SELECT
+        c.group_buy_id,
+        COALESCE(c.total_amount, c.order_amount, 0) AS amount,
+        COALESCE(c.order_status, '') AS order_status,
+        CASE
+          WHEN c.order_date ~ '^\\d{4}-\\d{2}-\\d{2}' THEN substring(c.order_date FROM 1 FOR 10)::date
+          WHEN c.created_at IS NOT NULL THEN c.created_at::date
+          ELSE NULL
+        END AS order_day
+      FROM public.tb_influencer_group_buy_customer c
+    )
+    SELECT
+      g.id AS group_buy_id,
+      g.title,
+      COUNT(*)::int AS rows,
+      COALESCE(SUM(n.amount), 0)::bigint AS amount
+    FROM normalized n
+    JOIN public.tb_influencer_group_buy g ON g.id = n.group_buy_id
+    WHERE n.order_day BETWEEN $1::date AND $2::date
+      AND n.order_status NOT IN ('cancelled', 'refunded')
+    GROUP BY g.id, g.title
+    ORDER BY amount DESC
+    LIMIT 8
+  `, [range.startDate, range.endDate]);
+
+  const row = total.rows[0];
+  const grossAmount = Math.round(toNumber(row?.gross_amount));
+  const includedAmount = Math.round(toNumber(row?.included_amount));
+  const excludedAmount = Math.round(toNumber(row?.excluded_amount));
+
+  return {
+    days,
+    rows: Number(row?.rows ?? 0),
+    groupBuys: Number(row?.group_buys ?? 0),
+    grossAmount,
+    grossAmountPerDay: Math.round(grossAmount / Math.max(days, 1)),
+    includedRows: Number(row?.included_rows ?? 0),
+    includedAmount,
+    includedAmountPerDay: Math.round(includedAmount / Math.max(days, 1)),
+    excludedRows: Number(row?.excluded_rows ?? 0),
+    excludedAmount,
+    topGroups: groups.rows.map((group) => {
+      const amount = Math.round(toNumber(group.amount));
+      return {
+        groupBuyId: Number(group.group_buy_id),
+        title: group.title || `group_buy_${group.group_buy_id}`,
+        rows: Number(group.rows ?? 0),
+        amount,
+        amountPerDay: Math.round(amount / Math.max(days, 1)),
+      };
+    }),
+  };
+};
+
+const buildOperationalCoopImpactSummary = async (
+  baselineRange: DateRange,
+  offRange: DateRange,
+  overallDeltaRevenuePerDay: number | null,
+): Promise<OperationalCoopImpactSummary> => {
+  const source = "operational_db.public.tb_influencer_group_buy_customer read-only";
+  const warnings: string[] = [];
+
+  if (!isDatabaseConfigured()) {
+    warnings.push("operational_db_not_configured");
+    return {
+      status: "unavailable",
+      source,
+      sourceLocation: "operational_db",
+      baseline: emptyOperationalCoopRangeSummary(baselineRange),
+      off: emptyOperationalCoopRangeSummary(offRange),
+      deltaRows: 0,
+      deltaIncludedAmountPerDay: 0,
+      deltaIncludedAmountPct: null,
+      shareOfObservedDropPct: null,
+      nonCoopDeltaRevenuePerDay: overallDeltaRevenuePerDay,
+      warnings,
+    };
+  }
+
+  try {
+    const [baseline, off] = await Promise.all([
+      readOperationalCoopRangeSummary(baselineRange),
+      readOperationalCoopRangeSummary(offRange),
+    ]);
+    const deltaIncludedAmountPerDay = off.includedAmountPerDay - baseline.includedAmountPerDay;
+    const observedDrop = overallDeltaRevenuePerDay != null && overallDeltaRevenuePerDay < 0
+      ? Math.abs(overallDeltaRevenuePerDay)
+      : 0;
+    return {
+      status: "included",
+      source,
+      sourceLocation: "operational_db",
+      baseline,
+      off,
+      deltaRows: off.includedRows - baseline.includedRows,
+      deltaIncludedAmountPerDay,
+      deltaIncludedAmountPct: baseline.includedAmountPerDay > 0
+        ? round2((deltaIncludedAmountPerDay / baseline.includedAmountPerDay) * 100)
+        : null,
+      shareOfObservedDropPct: observedDrop > 0 && deltaIncludedAmountPerDay < 0
+        ? round2((Math.abs(deltaIncludedAmountPerDay) / observedDrop) * 100)
+        : null,
+      nonCoopDeltaRevenuePerDay: overallDeltaRevenuePerDay == null
+        ? null
+        : overallDeltaRevenuePerDay - deltaIncludedAmountPerDay,
+      warnings,
+    };
+  } catch (error) {
+    warnings.push(`operational_db_coop_query_failed: ${error instanceof Error ? error.message : String(error)}`);
+    return {
+      status: "unavailable",
+      source,
+      sourceLocation: "operational_db",
+      baseline: emptyOperationalCoopRangeSummary(baselineRange),
+      off: emptyOperationalCoopRangeSummary(offRange),
+      deltaRows: 0,
+      deltaIncludedAmountPerDay: 0,
+      deltaIncludedAmountPct: null,
+      shareOfObservedDropPct: null,
+      nonCoopDeltaRevenuePerDay: overallDeltaRevenuePerDay,
+      warnings,
+    };
+  }
 };
 
 const includeText = (value: unknown, needles: string[]) => {
@@ -3884,14 +4107,16 @@ export const createAdsRouter = () => {
         readOperationalLedgerEntriesForAds("biocom", baselineRange),
         readOperationalLedgerEntriesForAds("biocom", offRange),
       ]);
-      const [baselineTikTokAds, offTikTokAds, ga4ChannelComparison] = await Promise.all([
+      const baselineVm = buildVmChannelMetrics(baselineLedger.entries, baselineRange);
+      const offVm = buildVmChannelMetrics(offLedger.entries, offRange);
+      const overallDeltaRevenuePerDay = offVm.total.revenuePerDay - baselineVm.total.revenuePerDay;
+      const [baselineTikTokAds, offTikTokAds, ga4ChannelComparison, coopAdjustment] = await Promise.all([
         readTikTokAdsDailySummaryFromCsv(baselineRange),
         readTikTokAdsDailySummaryFromCsv(offRange),
         buildGa4ChannelComparison(baselineRange, offRange),
+        buildOperationalCoopImpactSummary(baselineRange, offRange, overallDeltaRevenuePerDay),
       ]);
 
-      const baselineVm = buildVmChannelMetrics(baselineLedger.entries, baselineRange);
-      const offVm = buildVmChannelMetrics(offLedger.entries, offRange);
       const channelRows = buildVmChannelComparison(baselineVm, offVm);
       const baselineTikTokEvidence = buildTikTokPaymentEvidenceSummary(baselineLedger.entries, baselineRange);
       const offTikTokEvidence = buildTikTokPaymentEvidenceSummary(offLedger.entries, offRange);
@@ -3943,8 +4168,10 @@ export const createAdsRouter = () => {
           primary: "VM Cloud SQLite 보조 원장 직접 read-only / attribution_ledger source=biocom_imweb captureMode=live",
           ga4_cross_check: "GA4 Data API / biocom property / session source-medium revenue",
           tiktok_ads: baselineTikTokAds.source,
+          coop_adjustment: coopAdjustment.source,
           notes: [
             "채널별 매출은 예산 판단용 확정치가 아니라 VM Cloud 결제완료 row의 유입 근거 분류다.",
+            "공동구매 보정 매출은 운영DB 공동구매 테이블의 read-only 집계이며 광고 채널 매출에 섞지 않는다.",
             "기간 길이가 달라 총액 대신 일평균 주문/매출로 비교한다.",
             "응답에는 raw order/payment/click/member identifier를 포함하지 않는다.",
           ],
@@ -3954,17 +4181,19 @@ export const createAdsRouter = () => {
           ...offLedger.warnings,
           ...baselineTikTokAds.warnings,
           ...offTikTokAds.warnings,
+          ...coopAdjustment.warnings,
           ...(ga4ChannelComparison.error ? [`GA4 cross-check 실패: ${ga4ChannelComparison.error}`] : []),
         ],
         overall: {
           baseline: baselineVm.total,
           off: offVm.total,
           deltaOrdersPerDay: round2(offVm.total.ordersPerDay - baselineVm.total.ordersPerDay),
-          deltaRevenuePerDay: offVm.total.revenuePerDay - baselineVm.total.revenuePerDay,
+          deltaRevenuePerDay: overallDeltaRevenuePerDay,
           deltaRevenuePct: baselineVm.total.revenuePerDay > 0
-            ? round2(((offVm.total.revenuePerDay - baselineVm.total.revenuePerDay) / baselineVm.total.revenuePerDay) * 100)
+            ? round2((overallDeltaRevenuePerDay / baselineVm.total.revenuePerDay) * 100)
             : null,
         },
+        coop_adjustment: coopAdjustment,
         tiktok_spend_and_claim: {
           source: baselineTikTokAds.source,
           baseline: {
@@ -5007,6 +5236,36 @@ export const createAdsRouter = () => {
         }
       }
 
+      let operationalDbCoop: Record<string, unknown> | null = null;
+      if (siteParam === "biocom") {
+        const operationalEndDate = endDate > startDate ? shiftIsoDateByDays(endDate, -1) : endDate;
+        try {
+          const summary = await readOperationalCoopRangeSummary({ startDate, endDate: operationalEndDate });
+          operationalDbCoop = {
+            status: "included",
+            source: "operational_db.public.tb_influencer_group_buy_customer read-only",
+            source_location: "operational_db",
+            range: { start: startDate, end_inclusive: operationalEndDate },
+            rows: summary.rows,
+            group_buys: summary.groupBuys,
+            gross_amount: summary.grossAmount,
+            included_rows: summary.includedRows,
+            included_amount: summary.includedAmount,
+            excluded_rows: summary.excludedRows,
+            excluded_amount: summary.excludedAmount,
+            top_groups: summary.topGroups,
+            note: "VM Cloud 상품명/마스터 매칭과 별개로 운영DB 공동구매 테이블을 primary cross-check로 제공한다.",
+          };
+        } catch (error) {
+          operationalDbCoop = {
+            status: "unavailable",
+            source: "operational_db.public.tb_influencer_group_buy_customer read-only",
+            source_location: "operational_db",
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }
+
       res.json({
         ok: true,
         site: siteParam,
@@ -5023,6 +5282,7 @@ export const createAdsRouter = () => {
         by_campaign: Array.from(byCampaign.values())
           .map((c) => ({ ...c, revenue: round2(c.revenue) }))
           .sort((a, b) => b.revenue - a.revenue),
+        operational_db_coop: operationalDbCoop,
       });
     } catch (error) {
       res.status(500).json({

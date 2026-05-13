@@ -1,24 +1,27 @@
 {
-  "updated_at_kst": "2026-05-13 16:35:00 KST",
-  "workstream": "tiktok_off_impact_vm_deploy",
+  "updated_at_kst": "2026-05-13 18:10:00 KST",
+  "workstream": "tiktok_off_impact_coop_adjustment",
   "lane": "Yellow approved VM Cloud frontend/backend deploy/restart",
-  "current_goal": "Expose the TikTok OFF impact audit page on VM Cloud and keep the audit read-only.",
+  "current_goal": "Show group-buy revenue change as a separate correction line on the TikTok OFF impact page without mixing it into ad-channel revenue.",
   "live_urls": {
     "frontend": "https://biocom.ainativeos.net/ads/tiktok/off-impact",
-    "backend_api": "https://att.ainativeos.net/api/ads/tiktok/off-impact-audit"
+    "backend_api": "https://att.ainativeos.net/api/ads/tiktok/off-impact-audit",
+    "coop_api": "https://att.ainativeos.net/api/ads/coop-order-summary?site=biocom&start_date=2026-05-01&end_date=2026-05-08"
   },
   "local_urls": {
     "frontend": "http://localhost:7010/ads/tiktok/off-impact",
-    "backend_api": "http://localhost:7020/api/ads/tiktok/off-impact-audit"
+    "backend_api": "http://localhost:7020/api/ads/tiktok/off-impact-audit",
+    "coop_api": "http://localhost:7020/api/ads/coop-order-summary?site=biocom&start_date=2026-05-01&end_date=2026-05-08"
   },
   "source_window_freshness_confidence": {
     "source": {
-      "primary": "VM Cloud SQLite attribution_ledger direct read-only, source=biocom_imweb, captureMode=live",
+      "overall_revenue": "VM Cloud SQLite attribution_ledger direct read-only, source=biocom_imweb, captureMode=live",
+      "coop_adjustment": "operational_db.public.tb_influencer_group_buy_customer read-only",
       "tiktok_ads": "VM Cloud repo data/ads_csv/tiktok/processed daily_campaign CSV read-only",
       "cross_check": "GA4 Data API biocom property session source-medium",
       "db_locations": {
-        "operational_db": "not written; not primary for this audit",
-        "vm_cloud": "read-only attribution ledger and flat CSV cache",
+        "operational_db": "read-only for group-buy correction only; no write/import",
+        "vm_cloud": "read-only attribution ledger and flat CSV cache; no SQLite write/schema migration",
         "local": "source code, typecheck, and deploy staging"
       }
     },
@@ -26,24 +29,37 @@
       "baseline_kst": "2026-05-01 to 2026-05-07",
       "off_partial_kst": "2026-05-08 to 2026-05-12"
     },
-    "freshness": "2026-05-13 16:35 KST",
-    "confidence": 0.88
+    "freshness": "2026-05-13 18:10 KST",
+    "confidence": 0.9
   },
   "latest_live_metrics": {
     "overall": {
-      "delta_revenue_pct": -17.77,
+      "baseline_revenue_krw": 113303723,
+      "baseline_revenue_per_day_krw": 16186246,
+      "off_revenue_krw": 66550987,
+      "off_revenue_per_day_krw": 13310197,
       "delta_revenue_per_day_krw": -2876049,
-      "top_drop_channel": "Meta 광고",
+      "delta_revenue_pct": -17.77,
       "baseline_orders": 433,
       "off_orders": 260
+    },
+    "coop_adjustment": {
+      "status": "included",
+      "baseline_included_rows": 97,
+      "baseline_included_amount_krw": 29445300,
+      "baseline_included_amount_per_day_krw": 4206471,
+      "off_included_rows": 29,
+      "off_included_amount_krw": 7202600,
+      "off_included_amount_per_day_krw": 1440520,
+      "delta_included_amount_per_day_krw": -2765951,
+      "share_of_observed_drop_pct": 96.17,
+      "non_coop_delta_revenue_per_day_krw": -110098
     },
     "tiktok_ads": {
       "spend_baseline_krw": 1041554,
       "spend_off_krw": 47,
       "platform_claim_baseline_krw": 3218171,
-      "platform_claim_off_krw": 0,
-      "source_rows_baseline": 32,
-      "source_rows_off": 24
+      "platform_claim_off_krw": 0
     },
     "tiktok_evidence": {
       "strict_confirmed_baseline_krw": 0,
@@ -54,24 +70,25 @@
     }
   },
   "completed": [
-    "Deployed frontend page to VM Cloud.",
-    "Deployed backend off-impact API to VM Cloud.",
-    "Copied 18 TikTok processed daily campaign CSV files to VM Cloud repo.",
-    "Changed off-impact API to compute TikTok spend/platform claim from read-only CSV instead of SQLite import.",
-    "Changed off-impact API to read VM Cloud SQLite attribution_ledger directly instead of calling the public ledger API recursively.",
-    "Refreshed server cache at backend/data/tiktok-off-impact-audit-cache.json.",
-    "Verified live frontend render and live backend cache hit."
+    "Added operational DB group-buy correction aggregate to the TikTok OFF impact API.",
+    "Added group-buy correction KPI and card to the TikTok OFF impact frontend page.",
+    "Added operational_db_coop field to the coop-order-summary API so VM Cloud item/master mismatch no longer appears as a false zero-only result.",
+    "Deployed backend/src/routes/ads.ts and frontend/src/app/ads/tiktok/off-impact/page.tsx to VM Cloud.",
+    "Restarted seo-backend and seo-frontend.",
+    "Verified live API, live frontend HTML, and live browser render."
   ],
   "validation": {
     "local_backend_typecheck": "PASS",
+    "local_frontend_typecheck": "PASS",
     "remote_backend_typecheck": "PASS",
     "remote_backend_build": "PASS",
+    "remote_frontend_typecheck": "PASS",
+    "remote_frontend_build": "PASS",
     "remote_health": "PASS",
     "live_api_refresh": "PASS",
-    "live_api_cache_hit": "PASS",
+    "live_coop_summary_api": "PASS",
     "live_frontend_html": "PASS",
     "live_browser_smoke": "PASS",
-    "git_diff_check": "PASS",
     "raw_identifier_scan": "PASS"
   },
   "server_state": {
@@ -82,8 +99,7 @@
       "seo_cloudflared": "online"
     },
     "backup_paths": [
-      "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-impact-20260513T1608KST",
-      "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-impact-csv-source-20260513T1623KST"
+      "/home/biocomkr_sns/seo/repo/.deploy-backups/tiktok-off-coop-adjustment-20260513T1755KST"
     ]
   },
   "invariants": {
