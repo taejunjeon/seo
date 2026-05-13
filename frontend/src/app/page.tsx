@@ -56,12 +56,7 @@ export default function Home() {
 
   /* 새 state — 탭을 URL hash로 동기화 */
   const TAB_SLUGS = useMemo(() => ["overview", "column", "keyword", "ai-report", "cwv", "behavior", "diagnosis", "ai-crm", "solution"], []);
-  const [activeTab, setActiveTabRaw] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    const hash = window.location.hash.replace("#", "");
-    const idx = TAB_SLUGS.indexOf(hash);
-    return idx >= 0 ? idx : 0;
-  });
+  const [activeTab, setActiveTabRaw] = useState(0);
   const setActiveTab = useCallback((i: number) => {
     setActiveTabRaw(i);
     const slug = TAB_SLUGS[i];
@@ -1750,6 +1745,7 @@ export default function Home() {
                 { href: "/npay", title: "네이버페이 주문형 분석", desc: "주문형→결제형 전환 리스크, 월별 NPay 매출, 상품 믹스, 손실 시나리오", icon: "🟢" },
                 { href: "/ads", title: "Meta 광고성과", desc: "Meta 광고 캠페인별 노출/클릭/비용/전환 실시간 모니터링", icon: "📊" },
                 { href: "/ads/google", title: "Google Ads 광고성과", desc: "Google Ads API live 전환 액션·ROAS 점검, CSV 수동 대조", icon: "📈" },
+                { href: "/total", title: "전체 매출·ROAS 판단", desc: "예산 판단 매출, 참고용 보정 매출, 보류 매출, 데이터 연결 경고", icon: "🧮" },
                 { href: "/ads/tiktok", title: "틱톡 광고성과", desc: "TikTok 유입 전환, pending 주문, ROAS 비교 가능 여부 점검", icon: "🎵" },
                 { href: "/acquisition-analysis", title: "유입분석", desc: "AIBIO·더클린커피·바이오컴 주요 전환 유입원과 캠페인 인사이트", icon: "🧭" },
                 { href: "/ads/roas", title: "ROAS · iROAS", desc: "광고비 대비 매출(ROAS) + 증분 광고수익률(iROAS) 모니터링", icon: "📉" },
