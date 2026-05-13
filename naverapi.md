@@ -732,3 +732,169 @@ backend no-send dry-run → (Red 승인 후) GA4 MP enforce
 - 기본 연동 요소 가이드: https://apicenter.commerce.naver.com/docs/solution-doc/3000/%EA%B8%B0%EB%B3%B8-%EC%97%B0%EB%8F%99-%EC%9A%94%EC%86%8C-%EA%B0%80%EC%9D%B4%EB%93%9C
 - 판매자 커머스 아이디 인증: https://apicenter.commerce.naver.com/docs/solution-doc/3000/%ED%8C%90%EB%A7%A4%EC%9E%90-%EC%BB%A4%EB%A8%B8%EC%8A%A4-%EC%95%84%EC%9D%B4%EB%94%94-%EC%9D%B8%EC%A6%9D
 - 스마트스토어 통합매니저 위임 FAQ: https://help.sell.smartstore.naver.com/faq/content.help?faqId=12468
+
+---
+
+# 네이버 검색광고 API (Search Ad API) — 별도 시스템
+
+> 2026-05-13 추가 (gpt0508-49). 본 § 은 **네이버 커머스API 와 다른** 별도 시스템입니다. 커머스 = 스마트스토어 주문/정산. 검색광고 = 파워링크 / 브랜드검색 광고 운영. 두 API 의 base URL / 인증 / 권한 / 토큰 / 키 모두 다름.
+> 참조 정본: <https://naver.github.io/searchad-apidoc/#/guides>
+
+## 13. 환경 변수 (검색광고)
+
+`.env` (backend/.env) 229~232 행에 등록.
+
+| env 키 | 의미 | HTTP 헤더 위치 |
+|---|---|---|
+| `BIOCOM_NAVER_ADS_CUSTOMER_ID` | 광고주 고객 ID (정수) | `X-Customer` |
+| `BIOCOM_NAVER_ADS_ACESS` | Access License (오타 `ACESS` 그대로) | `X-API-KEY` |
+| `BIOCOM_NAVER_ADS_SECRET_KEY` | Secret Key (HMAC 서명용) | (서명 생성에만 사용, 헤더로 직접 보내지 않음) |
+
+> 본 키 3종은 네이버 검색광고 도구 → 도구 메뉴 → API 관리 화면에서 발급. 검색광고 매니저 권한 필요. 커머스API 의 client_id/client_secret 과 별개.
+
+## 14. Base URL + Rate Limit (검색광고)
+
+| 항목 | 값 |
+|---|---|
+| Base URL | `https://api.searchad.naver.com` |
+| Rate Limit (일반) | 호출 간격 0.5초 이상 권장 (분당 약 100건) |
+| 동시성 | 같은 customer 에 동시 호출 5건 이하 권장 |
+| 응답 형식 | JSON |
+| timezone | KST (Asia/Seoul) |
+
+## 15. 인증 — HTTP 헤더 4 종 + HMAC 서명
+
+모든 호출에 아래 4 헤더 필수.
+
+| 헤더 | 값 |
+|---|---|
+| `X-Timestamp` | 현재 시각의 unix millisecond (예: `1747123200000`) |
+| `X-API-KEY` | `BIOCOM_NAVER_ADS_ACESS` |
+| `X-Customer` | `BIOCOM_NAVER_ADS_CUSTOMER_ID` |
+| `X-Signature` | `base64(HMAC-SHA256(secret, "{timestamp}.{method}.{uri}"))` |
+
+서명 구성:
+
+- `timestamp`: `X-Timestamp` 와 동일
+- `method`: HTTP method 대문자
+- `uri`: path only (query 제외) — 예 `/ncc/campaigns`
+- `secret`: `BIOCOM_NAVER_ADS_SECRET_KEY`
+
+### 15-1. TypeScript helper 초안
+
+```ts
+import { createHmac } from "node:crypto";
+
+export const buildNaverSearchAdHeaders = (
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  uri: string,
+): Record<string, string> => {
+  const timestamp = Date.now().toString();
+  const accessKey = process.env.BIOCOM_NAVER_ADS_ACESS ?? "";
+  const customerId = process.env.BIOCOM_NAVER_ADS_CUSTOMER_ID ?? "";
+  const secret = process.env.BIOCOM_NAVER_ADS_SECRET_KEY ?? "";
+  if (!accessKey || !customerId || !secret) {
+    throw new Error("BIOCOM_NAVER_ADS_* env 미설정");
+  }
+  const message = `${timestamp}.${method}.${uri}`;
+  const signature = createHmac("sha256", secret).update(message).digest("base64");
+  return {
+    "X-Timestamp": timestamp,
+    "X-API-KEY": accessKey,
+    "X-Customer": customerId,
+    "X-Signature": signature,
+    "Content-Type": "application/json; charset=UTF-8",
+  };
+};
+```
+
+## 16. 주요 endpoint (read-only 우선)
+
+| 분류 | URI | 용도 | 우선순위 |
+|---|---|---|---|
+| 캠페인 list | `GET /ncc/campaigns` | 캠페인 id / 이름 / 채널 / 상태 / 일 예산 | ★★★ |
+| 캠페인 상세 | `GET /ncc/campaigns/{id}` | 단건 | ★★ |
+| 광고 그룹 list | `GET /ncc/adgroups?nccCampaignId={id}` | 광고 그룹 id / 이름 / 입찰 / 디바이스 | ★★★ |
+| 광고 (소재) list | `GET /ncc/ads?nccAdgroupId={id}` | 소재 id / 헤드라인 / 설명 / 상태 | ★★ |
+| 키워드 list | `GET /ncc/keywords?nccAdgroupId={id}` | 키워드 / 입찰 / 매치 | ★★ |
+| **Stats (일별 성과)** | `GET /stats?ids=...&fields=...&timeRange=...` | 노출 / 클릭 / 광고비 / 전환 | ★★★ |
+| **Master Report 생성** | `POST /master-reports` | 비동기 대량 다운로드 등록 | ★★★ |
+| Master Report 상태 | `GET /master-reports/{id}` | `BUILT` 되면 downloadUrl | ★★★ |
+| BizMoney (광고비 잔액) | `GET /billing/bizmoney` | 잔액 확인 | ★ |
+
+### 16-1. Stats 응답 필드 (read-only 사용)
+
+| 필드 | 의미 |
+|---|---|
+| `impCnt` | 노출 수 |
+| `clkCnt` | 클릭 수 |
+| `ctr` | CTR % |
+| `cpc` | CPC (원) |
+| `salesAmt` | **광고비 (원)** — 광고비 정본 후보 |
+| `convAmt` | 광고 플랫폼이 주장하는 매출 (원) — **참고값**, 내부 매출과 합산 금지 |
+| `ccnt` | 전환 수 |
+| `crto` | 전환율 |
+
+> `convAmt` / `ccnt` 는 네이버가 자기 attribution 기준으로 주장하는 값. `/total` 페이지의 "광고 플랫폼이 주장하는 매출" 카드에만 사용. **운영DB `tb_iamweb_users` 의 결제완료 매출과 절대 합산 금지**.
+
+### 16-2. Master Report (대량 history 다운로드) 3 단계
+
+```
+1) POST /master-reports  body: {"reportTp":"CAMPAIGN","fromTime":"2026-04-01T00:00:00Z"}
+   → reportId 반환
+2) GET /master-reports/{reportId}  polling
+   → status=BUILT 되면 downloadUrl 반환
+3) GET {downloadUrl}  (presigned, 인증 헤더 불필요)
+   → TSV (탭 구분) 파일 다운로드
+```
+
+`reportTp` 종류: `CAMPAIGN` / `ADGROUP` / `AD` / `KEYWORD` / `AD_CONVERSION`.
+
+## 17. 본 프로젝트의 활용 시나리오
+
+### 17-1. 단기 (우선순위 ★★★)
+- `/total` 페이지의 "광고 플랫폼이 주장하는 매출" 의 **naver 카드 blocked → live** 로 정정.
+- 일 1회 cron 으로 `GET /stats` 호출 → 캠페인별 광고비 + 노출 / 클릭 / convAmt 캐시.
+- **로컬DB SQLite 신규 테이블 후보**: `naver_ads_daily` (site / campaignId / campaignName / date / impCnt / clkCnt / costKrw / convAmt / ccnt / cached_at).
+
+### 17-2. 중기 (★★)
+- 캠페인 id ↔ utm_campaign 매핑 추출.
+- **VM Cloud `site_landing_ledger`** 의 `utm_source='naver' AND utm_medium='powerlink'` row 의 `utm_campaign` 과 로컬DB `naver_ads_daily` 의 캠페인명 join → 네이버 광고 ROAS 측정 (단, 광고 클릭 → 결제 매핑 정확도 별도 검증).
+
+### 17-3. 장기 (★)
+- 키워드별 ROAS 측정 (`KEYWORD` reportTp + site_landing 의 utm_term 매핑).
+
+## 18. 절대 금지 (정책)
+
+- **광고 게재 상태 변경** (`PUT /ncc/campaigns/{id}` 등) — 명시 승인 전 금지.
+- **입찰가 변경** (`PUT /ncc/keywords/{id}`) — 동일.
+- **키워드 추가 / 삭제** (`POST/DELETE`) — 동일.
+- `BIOCOM_NAVER_ADS_SECRET_KEY` 를 로그 / 응답 / 외부 시스템에 출력 금지.
+- `convAmt` (네이버 주장 매출) 를 운영DB `tb_iamweb_users` 의 결제완료 매출과 합산 금지.
+
+## 19. 다음 액션
+
+| Owner | Action | Claude Code 직접 가능 | 못 하면 이유 | 데이터 충분도 | 타이밍 | 영향도 | 위험도 (↓) | 종합 추천 | 추천 |
+|---|---|---|---|---:|---:|---:|---:|---:|---|
+| Claude Code | `backend/src/naverAdsClient.ts` 신규 — 헤더 4종 helper + `GET /ncc/campaigns` ping | YES — env 3종 이미 있음 | — | 90 | 90 | 85 | 10 | **87** | 진행 |
+| Claude Code | 로컬DB SQLite `naver_ads_daily` 테이블 신설 + 일 1회 cron 또는 수동 sync endpoint | YES | — | 85 | 80 | 80 | 15 | **76** | 진행 (helper 후) |
+| Claude Code | `/total` 페이지의 Naver 플랫폼 카드 blocked → live 데이터 wire | YES — 위 2 작업 후 | — | 80 | 70 | 80 | 15 | **74** | 진행 (조건부) |
+| Claude Code | utm_campaign 매핑 audit (VM Cloud `site_landing_ledger` ↔ 로컬DB `naver_ads_daily`) | YES — read-only | — | 75 | 60 | 75 | 10 | **68** | 보류 (위 3 작업 후) |
+| TJ님 | 네이버 검색광고 키워드 / 입찰 변경 작업 (필요 시) | NO — Naver 검색광고 UI | 운영 권한 + 입찰 정책 결정 | 60 | 40 | 40 | 30 | **42** | 보류 |
+
+## 20. 정책 / 보안 (검색광고 invariant)
+
+| invariant | 결과 |
+|---|---|
+| Secret key 본 문서에 출력 | 0 |
+| Secret key 로그 출력 | 0 |
+| 광고 게재 상태 변경 | 0 (read-only only) |
+| `convAmt` ↔ 내부 매출 합산 | 0 |
+| 운영DB write | 0 (네이버 sync 결과는 로컬DB / VM Cloud 만) |
+
+## 21. 검색광고 API 참고 링크
+
+- 정본 가이드: <https://naver.github.io/searchad-apidoc/#/guides>
+- API 발급 화면: 검색광고 도구 → 도구 메뉴 → API 관리
+- 검색광고 공지: <https://saedu.naver.com/notice>
+
