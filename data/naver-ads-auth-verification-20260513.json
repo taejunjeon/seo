@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "schema_version": "naver_ads_auth_verification_20260513",
+  "generated_at_kst": "2026-05-13 19:55:00 KST",
+  "step": "1 of 3 (인증 검증)",
+  "purpose": "BIOCOM_NAVER_ADS_* 3종 env 로 네이버 검색광고 API 와 인증 성공 여부 검증. listCampaigns 호출 1회 + stats 1회 ping.",
+  "auth_result": {
+    "configured": true,
+    "campaigns_endpoint_ok": true,
+    "campaigns_count": 37,
+    "sample_campaign": {
+      "id_prefix": "cmp-a001-01-000000002258113",
+      "name_redacted": "바이오컴_파워링크_***",
+      "status": "ELIGIBLE",
+      "campaignTp": "WEB_SITE"
+    }
+  },
+  "hmac_signature_works": true,
+  "headers_4_types_accepted": ["X-Timestamp", "X-API-KEY", "X-Customer", "X-Signature"],
+  "stats_endpoint_issue": {
+    "tried_format": "GET /stats?ids=[\"...\"]&fields=[\"...\"]&timeRange={\"since\":\"...\",\"until\":\"...\"}",
+    "response_status": "BAD_REQUEST",
+    "naver_error_code": 11001,
+    "naver_error_message": "유효하지 않은 ID 형식입니다",
+    "diagnosis": "/stats endpoint 가 ids 배열 JSON.stringify 형식을 거부. 단수 id + datePreset 형식 시도 필요 (다음 단계)"
+  },
+  "code_changes": [
+    {"file": "backend/src/naverAdsClient.ts", "kind": "new module", "loc": 158},
+    {"file": "backend/scripts/naver-ads-ping-20260513.ts", "kind": "new ping script", "loc": 27}
+  ],
+  "validation": {
+    "tsc": "PASS",
+    "ping_exit_code": 0,
+    "raw_secret_in_output": 0,
+    "raw_campaign_name_in_output": "sanitized (prefix only)",
+    "raw_revenue_in_output": 0
+  },
+  "next_step_2": {
+    "name": "수집 (광고비 + 캠페인 매출)",
+    "tasks": [
+      "stats endpoint 형식 fix — 단수 id + datePreset 또는 master-reports 사용",
+      "로컬DB SQLite naver_ads_daily 테이블 신설",
+      "37 캠페인 별 7일 광고비/노출/클릭/convAmt 수집"
+    ]
+  },
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "naver_ads_state_change": 0,
+    "secret_key_in_output_or_log": 0,
+    "convAmt_added_to_internal_revenue": 0
+  },
+  "verdict": "STEP1_AUTH_PASS_37_CAMPAIGNS_FOUND_STATS_FORMAT_FIX_NEEDED_FOR_STEP2"
+}
