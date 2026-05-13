@@ -543,6 +543,16 @@ export default function AdsPage() {
       appToken: { configured: boolean };
     };
   } | null>(null);
+  const [realRoas, setRealRoas] = useState<{
+    window: { since: string; until: string };
+    internal_revenue_korean: string;
+    internal_revenue_krw: number;
+    orders: number;
+    internal_real_roas: number | null;
+    source: string;
+  } | null>(null);
+  const [realRoasLoading, setRealRoasLoading] = useState(false);
+  const [realRoasError, setRealRoasError] = useState<string | null>(null);
   // CANCEL/Refund/Identity Coverage state는 /ads/quality 로 이전 (Phase 1A)
   // CAPI 수렴 비교 state는 /ads/quality 로 이전 (Phase 1B)
   // AIBIO acquisition state는 /ads/quality 로 이전 (Phase 1C)
@@ -643,6 +653,52 @@ export default function AdsPage() {
   }, [selectedSite, datePreset, attrWindow]);
 
   useEffect(() => { loadSiteData(); }, [loadSiteData]);
+
+  // gpt0508-52: evidence-join same-window 진짜 ROAS (paid_meta)
+  useEffect(() => {
+    if (selectedSite.site !== "biocom") return; // 운영DB 정본은 biocom 만
+    const totalSpend = campaignSummary?.totalSpend ?? 0;
+    if (totalSpend <= 0) return;
+    const presetDays = datePreset === "last_30d" ? 30 : datePreset === "last_14d" ? 14 : datePreset === "last_90d" ? 90 : 7;
+    const today = new Date();
+    const kst = new Date(today.getTime() + 9 * 60 * 60 * 1000);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const until = fmt(new Date(kst.getTime() - 1 * 86400000));
+    const since = fmt(new Date(kst.getTime() - presetDays * 86400000));
+    let cancelled = false;
+    setRealRoasLoading(true);
+    setRealRoasError(null);
+    fetch(`${API_BASE}/api/ads/internal-real-roas?platform=paid_meta&since=${since}&until=${until}&spend_krw=${Math.round(totalSpend)}`)
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok?: boolean;
+          window?: { since: string; until: string };
+          internal?: { revenue_krw: number; revenue_korean: string; orders: number; source: string };
+          internal_real_roas?: number | null;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!j.ok || !j.window || !j.internal) {
+          setRealRoasError(j.error ?? "unknown");
+          return;
+        }
+        setRealRoas({
+          window: j.window,
+          internal_revenue_korean: j.internal.revenue_korean,
+          internal_revenue_krw: j.internal.revenue_krw,
+          orders: j.internal.orders,
+          internal_real_roas: j.internal_real_roas ?? null,
+          source: j.internal.source,
+        });
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setRealRoasError(e instanceof Error ? e.message : "fetch_failed");
+      })
+      .finally(() => {
+        if (!cancelled) setRealRoasLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedSite.site, datePreset, campaignSummary?.totalSpend]);
 
   const selectedSiteSummary = siteSummary?.sites.find((site) => site.site === selectedSite.site) ?? null;
   const selectedAccountId = selectedSiteSummary?.account_id ?? selectedSite.account_id;
@@ -1369,6 +1425,28 @@ export default function AdsPage() {
                   <div style={{ fontSize: "1.1rem", fontWeight: 700, color: kpi.color }}>{kpi.value}</div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {selectedSite.site === "biocom" && campaignSummary && (
+            <div style={{
+              marginBottom: 24, padding: "12px 16px",
+              background: realRoasError ? "#fef2f2" : realRoas ? "#ecfdf5" : "#f1f5f9",
+              border: realRoasError ? "1px solid #fecaca" : realRoas ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
+              borderRadius: 10, fontSize: "0.8rem", color: realRoasError ? "#991b1b" : realRoas ? "#065f46" : "#475569",
+            }}>
+              {realRoasLoading ? "evidence-join 동일 윈도우 paid_meta 매출 산출 중… (최대 90초)" :
+                realRoasError ? `⚠️ evidence-join 실패: ${realRoasError}` :
+                realRoas ? (
+                  <>
+                    <strong>✓ 진짜 ROAS (evidence-join · 동일 윈도우)</strong>{" "}
+                    광고비 {fmtKRW(campaignSummary.totalSpend)} · 내부 paid_meta 매출{" "}
+                    <strong>{realRoas.internal_revenue_korean}</strong> ({realRoas.orders}건) · 진짜 ROAS{" "}
+                    <strong>{realRoas.internal_real_roas != null ? `${realRoas.internal_real_roas}x` : "—"}</strong>{" "}
+                    · 윈도우 {realRoas.window.since} ~ {realRoas.window.until}
+                    <span style={{ display: "block", marginTop: 4, fontSize: "0.7rem", color: "#047857" }}>출처: {realRoas.source}</span>
+                  </>
+                ) : "광고비/내부매출 동기화 대기"}
             </div>
           )}
 

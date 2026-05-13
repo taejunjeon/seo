@@ -783,6 +783,16 @@ export default function TikTokAdsPerformancePage() {
     google: null,
     error: null,
   });
+  const [realRoas, setRealRoas] = useState<{
+    window: { since: string; until: string };
+    internal_revenue_korean: string;
+    internal_revenue_krw: number;
+    orders: number;
+    internal_real_roas: number | null;
+    source: string;
+  } | null>(null);
+  const [realRoasLoading, setRealRoasLoading] = useState(false);
+  const [realRoasError, setRealRoasError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -945,6 +955,48 @@ export default function TikTokAdsPerformancePage() {
   }, [startDate, endDate]);
 
   const summary = data?.ads_report.summary;
+
+  // gpt0508-52: evidence-join same-window 진짜 ROAS (paid_tiktok).
+  // TikTok roas-comparison API 응답이 늦거나 실패해도 chip 은 떠야 하므로 startDate/endDate 만으로 fire.
+  // spend 가 늦게 들어오면 (또는 ₩0 이어도) chip 은 paid_tiktok 내부 매출 0건 검증 의미로 의미가 있음.
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+    let cancelled = false;
+    setRealRoasLoading(true);
+    setRealRoasError(null);
+    const spendForUrl = Math.max(0, Math.round(summary?.spend ?? 0));
+    fetch(`${API_BASE_URL}/api/ads/internal-real-roas?platform=paid_tiktok&since=${startDate}&until=${endDate}&spend_krw=${spendForUrl}`)
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok?: boolean;
+          window?: { since: string; until: string };
+          internal?: { revenue_krw: number; revenue_korean: string; orders: number; source: string };
+          internal_real_roas?: number | null;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!j.ok || !j.window || !j.internal) {
+          setRealRoasError(j.error ?? "unknown");
+          return;
+        }
+        setRealRoas({
+          window: j.window,
+          internal_revenue_korean: j.internal.revenue_korean,
+          internal_revenue_krw: j.internal.revenue_krw,
+          orders: j.internal.orders,
+          internal_real_roas: j.internal_real_roas ?? null,
+          source: j.internal.source,
+        });
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setRealRoasError(e instanceof Error ? e.message : "fetch_failed");
+      })
+      .finally(() => {
+        if (!cancelled) setRealRoasLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [summary?.spend, startDate, endDate]);
+
   const ga4CrossCheck = data?.ga4_cross_check;
   const ga4Totals = ga4CrossCheck?.totals;
   const ledger = data?.operational_ledger.byStatus;
@@ -1797,6 +1849,26 @@ export default function TikTokAdsPerformancePage() {
               ))}
             </div>
           </section>
+
+          <div style={{
+            marginBottom: 12, padding: "12px 16px",
+            background: realRoasError ? "#fef2f2" : realRoas ? "#ecfdf5" : "#f1f5f9",
+            border: realRoasError ? "1px solid #fecaca" : realRoas ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
+            borderRadius: 10, fontSize: 13, color: realRoasError ? "#991b1b" : realRoas ? "#065f46" : "#475569",
+          }}>
+            {realRoasLoading ? "evidence-join 동일 윈도우 paid_tiktok 매출 산출 중… (최대 90초)" :
+              realRoasError ? `⚠️ evidence-join 실패: ${realRoasError}` :
+              realRoas ? (
+                <>
+                  <strong>✓ 진짜 ROAS (evidence-join · 동일 윈도우)</strong>{" "}
+                  광고비 {fmtKRW(summary?.spend)} · 내부 paid_tiktok 매출{" "}
+                  <strong>{realRoas.internal_revenue_korean}</strong> ({realRoas.orders}건) · 진짜 ROAS{" "}
+                  <strong>{realRoas.internal_real_roas != null ? `${realRoas.internal_real_roas}x` : "—"}</strong>{" "}
+                  · 윈도우 {realRoas.window.since} ~ {realRoas.window.until}
+                  <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#047857" }}>출처: {realRoas.source}</span>
+                </>
+              ) : "광고비/내부매출 동기화 대기"}
+          </div>
 
           <section
             style={{

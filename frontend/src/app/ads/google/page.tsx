@@ -707,6 +707,16 @@ export default function GoogleAdsPerformancePage() {
   const [liveData, setLiveData] = useState<GoogleAdsDashboardResponse | null>(null);
   const [liveLoading, setLiveLoading] = useState(true);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [realRoas, setRealRoas] = useState<{
+    window: { since: string; until: string };
+    internal_revenue_korean: string;
+    internal_revenue_krw: number;
+    orders: number;
+    internal_real_roas: number | null;
+    source: string;
+  } | null>(null);
+  const [realRoasLoading, setRealRoasLoading] = useState(false);
+  const [realRoasError, setRealRoasError] = useState<string | null>(null);
 
   const loadLiveData = useCallback(async () => {
     setLiveLoading(true);
@@ -730,6 +740,52 @@ export default function GoogleAdsPerformancePage() {
   useEffect(() => {
     void loadLiveData();
   }, [loadLiveData]);
+
+  // gpt0508-52: evidence-join same-window 진짜 ROAS (paid_google channel)
+  useEffect(() => {
+    if (parsed) return; // CSV mode 에선 skip
+    const summary = liveData?.summary;
+    if (!summary || summary.cost <= 0) return;
+    const days = datePreset === "last_7d" ? 7 : datePreset === "last_14d" ? 14 : datePreset === "last_90d" ? 90 : 30;
+    const today = new Date();
+    const kst = new Date(today.getTime() + 9 * 60 * 60 * 1000);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const until = fmt(new Date(kst.getTime() - 1 * 86400000));
+    const since = fmt(new Date(kst.getTime() - days * 86400000));
+    let cancelled = false;
+    setRealRoasLoading(true);
+    setRealRoasError(null);
+    fetch(`${API_BASE}/api/ads/internal-real-roas?platform=paid_google&since=${since}&until=${until}&spend_krw=${Math.round(summary.cost)}`)
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok?: boolean;
+          window?: { since: string; until: string };
+          internal?: { revenue_krw: number; revenue_korean: string; orders: number; source: string };
+          internal_real_roas?: number | null;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!j.ok || !j.window || !j.internal) {
+          setRealRoasError(j.error ?? "unknown");
+          return;
+        }
+        setRealRoas({
+          window: j.window,
+          internal_revenue_korean: j.internal.revenue_korean,
+          internal_revenue_krw: j.internal.revenue_krw,
+          orders: j.internal.orders,
+          internal_real_roas: j.internal_real_roas ?? null,
+          source: j.internal.source,
+        });
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setRealRoasError(e instanceof Error ? e.message : "fetch_failed");
+      })
+      .finally(() => {
+        if (!cancelled) setRealRoasLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [parsed, liveData?.summary?.cost, datePreset]);
 
   const csvSummary = useMemo(() => sumRows(parsed?.rows ?? []), [parsed]);
   const csvCampaigns = useMemo(() => groupCampaigns(parsed?.rows ?? []), [parsed]);
@@ -1130,6 +1186,28 @@ export default function GoogleAdsPerformancePage() {
             </>
           )}
         </div>
+
+        {!parsed && (
+          <div style={{
+            marginBottom: 16, padding: "12px 16px",
+            background: realRoasError ? "#fef2f2" : realRoas ? "#ecfdf5" : "#f1f5f9",
+            border: realRoasError ? "1px solid #fecaca" : realRoas ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
+            borderRadius: 10, fontSize: "0.78rem", color: realRoasError ? "#991b1b" : realRoas ? "#065f46" : "#475569",
+          }}>
+            {realRoasLoading ? "evidence-join 동일 윈도우 paid_google 매출 산출 중… (최대 90초)" :
+              realRoasError ? `⚠️ evidence-join 실패: ${realRoasError}` :
+              realRoas ? (
+                <>
+                  <strong>✓ 진짜 ROAS (evidence-join · 동일 윈도우)</strong>{" "}
+                  광고비 {fmtKRW(summary.cost)} · 내부 paid_google 매출{" "}
+                  <strong>{realRoas.internal_revenue_korean}</strong> ({realRoas.orders}건) · 진짜 ROAS{" "}
+                  <strong>{realRoas.internal_real_roas != null ? `${realRoas.internal_real_roas}x` : "—"}</strong>{" "}
+                  · 윈도우 {realRoas.window.since} ~ {realRoas.window.until}
+                  <span style={{ display: "block", marginTop: 4, fontSize: "0.7rem", color: "#047857" }}>출처: {realRoas.source}</span>
+                </>
+              ) : "광고비/내부매출 동기화 대기"}
+          </div>
+        )}
 
         {!parsed && (
           <div style={{ marginBottom: 16 }}>

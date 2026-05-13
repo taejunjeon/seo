@@ -28,6 +28,7 @@ import { createCoffeeRouter } from "../routes/coffee";
 import { createCoupangRouter } from "../routes/coupang";
 import { createNpayRouter } from "../routes/npay";
 import { createNaverAdsRouter } from "../routes/naverAds";
+import { createAdsInternalRoasRouter } from "../routes/adsInternalRoas";
 
 export const registerRoutes = (app: Application) => {
   app.use(createGscRouter());
@@ -58,6 +59,7 @@ export const registerRoutes = (app: Application) => {
   app.use(createCoupangRouter());
   app.use(createNpayRouter());
   app.use(createNaverAdsRouter());
+  app.use(createAdsInternalRoasRouter());
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({
