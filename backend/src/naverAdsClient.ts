@@ -116,7 +116,50 @@ export type NaverStatsRow = {
   crto?: number;
 };
 
-export const getStats = async (input: {
+export type NaverStatsDailyResponse = {
+  summary?: { dateStart: string; dateEnd: string };
+  data: Array<{
+    dateStart: string;
+    dateEnd: string;
+    impCnt?: number;
+    clkCnt?: number;
+    ctr?: number;
+    cpc?: number;
+    salesAmt?: number;
+    convAmt?: number;
+    ccnt?: number;
+    crto?: number;
+  }>;
+};
+
+/**
+ * 일별 광고 stats — 형식 B (?id=단수 + timeRange) 사용 자동 일별 분해.
+ */
+export const getDailyStats = async (input: {
+  campaignId: string;
+  since: string;
+  until: string;
+  fields?: NaverStatsField[];
+}): Promise<
+  { ok: true; daily: NaverStatsDailyResponse } | { ok: false; status: number; error: string }
+> => {
+  const fields = input.fields ?? ["impCnt", "clkCnt", "ctr", "cpc", "salesAmt", "convAmt", "ccnt", "crto"];
+  const res = await callNaverSearchAd<NaverStatsDailyResponse>("GET", "/stats", {
+    id: input.campaignId,
+    fields: JSON.stringify(fields),
+    timeRange: JSON.stringify({ since: input.since, until: input.until }),
+  });
+  if (!res.ok) return { ok: false, status: res.status, error: res.error };
+  const body = res.body && typeof res.body === "object" && "data" in res.body
+    ? (res.body as NaverStatsDailyResponse)
+    : { data: [] };
+  return { ok: true, daily: body };
+};
+
+/**
+ * 합산 형식 (형식 C). 여러 id 통합 합계만 필요할 때.
+ */
+export const getStatsSummary = async (input: {
   ids: string[];
   since: string;
   until: string;
@@ -125,15 +168,20 @@ export const getStats = async (input: {
   { ok: true; stats: NaverStatsRow[] } | { ok: false; status: number; error: string }
 > => {
   const fields = input.fields ?? ["impCnt", "clkCnt", "ctr", "cpc", "salesAmt", "convAmt", "ccnt", "crto"];
-  const res = await callNaverSearchAd<NaverStatsRow[]>("GET", "/stats", {
-    ids: JSON.stringify(input.ids),
+  const res = await callNaverSearchAd<{ data: NaverStatsRow[] }>("GET", "/stats", {
+    ids: input.ids.join(","),
     fields: JSON.stringify(fields),
     timeRange: JSON.stringify({ since: input.since, until: input.until }),
   });
   if (!res.ok) return { ok: false, status: res.status, error: res.error };
-  const list = Array.isArray(res.body) ? res.body : [];
+  const list = res.body && typeof res.body === "object" && "data" in res.body && Array.isArray(res.body.data)
+    ? res.body.data
+    : [];
   return { ok: true, stats: list };
 };
+
+/** 호환성: 기존 getStats = getStatsSummary alias */
+export const getStats = getStatsSummary;
 
 export const verifyNaverAdsAuth = async (): Promise<{
   ok: boolean;
@@ -156,8 +204,8 @@ export const verifyNaverAdsAuth = async (): Promise<{
     return { ok: true, configured: true, campaigns_count: 0 };
   }
   const first = c.campaigns[0];
-  const stats = await getStats({
-    ids: [first.nccCampaignId],
+  const stats = await getDailyStats({
+    campaignId: first.nccCampaignId,
     since: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     until: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
   });
@@ -171,7 +219,10 @@ export const verifyNaverAdsAuth = async (): Promise<{
       status: first.status,
       campaignTp: first.campaignTp,
     },
-    stats_sample: stats.ok && stats.stats.length > 0 ? stats.stats[0] : undefined,
+    stats_sample:
+      stats.ok && stats.daily.data.length > 0
+        ? ({ id: first.nccCampaignId, ...stats.daily.data[0] } as NaverStatsRow)
+        : undefined,
     error: stats.ok ? undefined : stats.error,
   };
 };

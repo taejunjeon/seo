@@ -1,0 +1,98 @@
+수집 윈도우: 2026-05-06 ~ 2026-05-12 (어제까지 7일)
+캠페인 수: 37
+  진행: 10/37 (rows 70)
+  진행: 20/37 (rows 140)
+  진행: 30/37 (rows 210)
+{
+  "schema_version": "naver-ads-collect-7d-20260513",
+  "window": {
+    "since": "2026-05-06",
+    "until": "2026-05-12"
+  },
+  "campaigns": {
+    "total": 37,
+    "success": 37,
+    "failed": 0
+  },
+  "rows_written": 259,
+  "failures": [],
+  "summary_7d": {
+    "total_imp": 247090,
+    "total_clk": 3000,
+    "total_spend_krw": 1698930,
+    "total_spend_korean": "₩170만",
+    "total_conv_amt_krw_naver_claim": 31501866,
+    "total_conv_amt_korean_naver_claim": "₩3,150만",
+    "naver_claim_roas": 18.54,
+    "campaigns_with_spend": 7
+  },
+  "top5_by_spend": [
+    {
+      "ncc_campaign_id": "cmp-a001-01-000000003173679",
+      "campaign_name": "바이오컴_파워링크_지연성검사",
+      "campaign_tp": "WEB_SITE",
+      "status": "ELIGIBLE",
+      "days": 7,
+      "imp": 48081,
+      "clk": 994,
+      "spend_krw_korean": "₩104만",
+      "conv_amt_korean_naver_claim": "₩1,467만",
+      "naver_claim_roas": 14.09
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-02-000000002765406",
+      "campaign_name": "쇼핑검색01_바이오컴 아임웹",
+      "campaign_tp": "SHOPPING",
+      "status": "ELIGIBLE",
+      "days": 7,
+      "imp": 138874,
+      "clk": 210,
+      "spend_krw_korean": "₩25만",
+      "conv_amt_korean_naver_claim": "₩186만",
+      "naver_claim_roas": 7.37
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-01-000000008737571",
+      "campaign_name": "[파워링크] 종합대사기능분석 런칭",
+      "campaign_tp": "WEB_SITE",
+      "status": "ELIGIBLE",
+      "days": 7,
+      "imp": 15925,
+      "clk": 135,
+      "spend_krw_korean": "₩13만",
+      "conv_amt_korean_naver_claim": "₩56만",
+      "naver_claim_roas": 4.14
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-01-000000008131977",
+      "campaign_name": "[파워링크] 04_호르몬검사_바이오컴",
+      "campaign_tp": "WEB_SITE",
+      "status": "ELIGIBLE",
+      "days": 7,
+      "imp": 28620,
+      "clk": 76,
+      "spend_krw_korean": "₩9만",
+      "conv_amt_korean_naver_claim": "₩25만",
+      "naver_claim_roas": 2.78
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-01-000000002258113",
+      "campaign_name": "바이오컴_파워링크_영양중금속검사",
+      "campaign_tp": "WEB_SITE",
+      "status": "ELIGIBLE",
+      "days": 7,
+      "imp": 5589,
+      "clk": 88,
+      "spend_krw_korean": "₩7만",
+      "conv_amt_korean_naver_claim": "₩57만",
+      "naver_claim_roas": 7.99
+    }
+  ],
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "raw_secret_logged": false,
+    "naver_ads_state_change": 0,
+    "convAmt_added_to_internal_revenue": 0
+  }
+}
