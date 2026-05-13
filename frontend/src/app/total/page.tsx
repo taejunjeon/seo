@@ -217,6 +217,7 @@ const FRESHNESS_LABEL: Record<string, { text: string; tone: "green" | "yellow" |
   blocked: { text: "연결 필요", tone: "red" },
   blocked_or_empty: { text: "연결 필요", tone: "red" },
   fallback: { text: "판단 보류", tone: "red" },
+  stale: { text: "오래된 데이터", tone: "yellow" },
   error: { text: "조회 실패", tone: "red" },
   not_queried: { text: "미조회", tone: "neutral" },
   unavailable: { text: "사용 불가", tone: "red" },
@@ -301,6 +302,7 @@ function translateFreshness(f: string | undefined): string {
     blocked: "연결 끊김",
     blocked_or_empty: "연결 안 됨 또는 비어있음",
     fallback: "대체 데이터 사용 중",
+    stale: "오래된 데이터",
     error: "조회 실패",
     not_queried: "미조회",
     unavailable: "사용 불가",
@@ -353,6 +355,22 @@ type DiagnosticEntry = {
   budgetDecisionImpact: "usable" | "reference_only" | "blocked";
   error?: string | null;
   fallbackReason?: string | null;
+};
+
+const LOADING_STAGES = [
+  "요청 준비",
+  "운영DB 월 매출 원장 확인",
+  "VM Cloud 유입 증거 대조",
+  "광고 플랫폼 참고값 점검",
+  "화면용 숫자 정리",
+] as const;
+
+const loadingStageForProgress = (progress: number) => {
+  if (progress < 22) return 0;
+  if (progress < 48) return 1;
+  if (progress < 68) return 2;
+  if (progress < 86) return 3;
+  return 4;
 };
 
 function normalizeDiagnostics(data: ApiResponse): DiagnosticEntry[] {
@@ -410,7 +428,7 @@ function normalizeDiagnostics(data: ApiResponse): DiagnosticEntry[] {
   for (const src of data.source_freshness) {
     if (src.role === "platform_reference") continue;
     const isFresh = src.status === "fresh";
-    const isStale = ["blocked", "blocked_or_empty", "fallback", "error", "unavailable"].includes(src.status);
+    const isStale = ["blocked", "blocked_or_empty", "fallback", "stale", "error", "unavailable"].includes(src.status);
     out.push({
       scope: src.role,
       source: src.source,
@@ -592,16 +610,26 @@ export default function TotalPage() {
   const [draftMonth, setDraftMonth] = useState("2026-04");
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let progressTimer: number | null = null;
     setLoading(true);
+    setLoadingProgress(7);
     setError(null);
     // gpt0508-49 UX fix: 새 fetch 시작 시 옛 data 유지 — 카드 회색 처리 + 로딩 표시
     const url = `${API_BASE}/api/total/monthly-channel-summary?site=biocom&month=${encodeURIComponent(
       month,
     )}&mode=dry_run`;
+    progressTimer = window.setInterval(() => {
+      setLoadingProgress((current) => {
+        if (current >= 92) return current;
+        const next = current + (current < 35 ? 8 : current < 70 ? 5 : 2);
+        return Math.min(next, 92);
+      });
+    }, 650);
     fetch(url)
       .then(async (res) => {
         const json = (await res.json()) as ApiResponse | ApiError;
@@ -610,6 +638,7 @@ export default function TotalPage() {
           setError("error" in json ? json.error : `HTTP ${res.status}`);
           // 에러 시에도 옛 data 유지 (사용자가 어디 있었는지 알도록)
         } else {
+          setLoadingProgress(100);
           setData(json);
         }
       })
@@ -618,10 +647,16 @@ export default function TotalPage() {
         setError(err instanceof Error ? err.message : "fetch failed");
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (progressTimer) window.clearInterval(progressTimer);
+        if (!cancelled) {
+          window.setTimeout(() => {
+            if (!cancelled) setLoading(false);
+          }, 160);
+        }
       });
     return () => {
       cancelled = true;
+      if (progressTimer) window.clearInterval(progressTimer);
     };
   }, [month]);
 
@@ -635,8 +670,10 @@ export default function TotalPage() {
       data.monthly_spine.review_revenue_c +
       data.monthly_spine.quarantine_revenue_d
     : 0;
+  const loadingStageIndex = loadingStageForProgress(loadingProgress);
   const submitMonth = () => {
     setLoading(true);
+    setLoadingProgress(7);
     setError(null);
     setMonth(draftMonth);
   };
@@ -670,9 +707,38 @@ export default function TotalPage() {
       </div>
 
       {loading && (
-        <div className={styles.loading}>
-          <span className={styles.spinner} />
-          이번 달 데이터 불러오는 중… (운영DB + VM Cloud 조회 약 10~15초 소요)
+        <div
+          className={styles.loadingPanel}
+          role="status"
+          aria-live="polite"
+          aria-label={`이번 달 데이터 불러오는 중 ${loadingProgress}%`}
+        >
+          <div className={styles.loadingTopRow}>
+            <div>
+              <strong>이번 달 데이터 불러오는 중</strong>
+              <span>운영DB + VM Cloud 조회 약 10~15초 소요</span>
+            </div>
+            <b>{loadingProgress}%</b>
+          </div>
+          <div className={styles.progressTrack} aria-hidden="true">
+            <div className={styles.progressFill} style={{ width: `${loadingProgress}%` }} />
+          </div>
+          <ol className={styles.loadingSteps}>
+            {LOADING_STAGES.map((stage, index) => (
+              <li
+                key={stage}
+                className={
+                  index < loadingStageIndex
+                    ? styles.stepDone
+                    : index === loadingStageIndex
+                    ? styles.stepActive
+                    : undefined
+                }
+              >
+                {stage}
+              </li>
+            ))}
+          </ol>
         </div>
       )}
 

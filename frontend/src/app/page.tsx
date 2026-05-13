@@ -1745,6 +1745,7 @@ export default function Home() {
                 { href: "/npay", title: "네이버페이 주문형 분석", desc: "주문형→결제형 전환 리스크, 월별 NPay 매출, 상품 믹스, 손실 시나리오", icon: "🟢" },
                 { href: "/ads", title: "Meta 광고성과", desc: "Meta 광고 캠페인별 노출/클릭/비용/전환 실시간 모니터링", icon: "📊" },
                 { href: "/ads/google", title: "Google Ads 광고성과", desc: "Google Ads API live 전환 액션·ROAS 점검, CSV 수동 대조", icon: "📈" },
+                { href: "/ads/naver", title: "네이버 광고 분석", desc: "검색광고 API live · 캠페인별 광고비/CTR/ROAS · paid_naver 채널 매출과 분리", icon: "🟩" },
                 { href: "/total", title: "전체 매출·ROAS 판단", desc: "예산 판단 매출, 참고용 보정 매출, 보류 매출, 데이터 연결 경고", icon: "🧮" },
                 { href: "/ads/tiktok", title: "틱톡 광고성과", desc: "TikTok 유입 전환, pending 주문, ROAS 비교 가능 여부 점검", icon: "🎵" },
                 { href: "/acquisition-analysis", title: "유입분석", desc: "AIBIO·더클린커피·바이오컴 주요 전환 유입원과 캠페인 인사이트", icon: "🧭" },
