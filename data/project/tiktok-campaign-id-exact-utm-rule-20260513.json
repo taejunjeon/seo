@@ -1,0 +1,89 @@
+{
+  "run_id": "tiktok-campaign-id-exact-utm-rule-20260513",
+  "created_at_kst": "2026-05-13 19:10:00 KST",
+  "owner": "Codex",
+  "lane": {
+    "document": "Green design",
+    "execution": "Yellow or Red depending on TikTok Ads Manager URL change scope"
+  },
+  "purpose": "Make TikTok campaign/day spend joinable to GA4 paid_tiktok session quality by carrying campaign_id as an exact URL parameter.",
+  "source_window_freshness_confidence": {
+    "source": {
+      "tiktok_ads": "local data/ads_csv/tiktok/processed/20260507_20260512_daily_campaign.csv",
+      "ga4_bigquery": "data/project/channel-funnel-quality-tiktok-export-window-20260513.json",
+      "join_evidence": "data/project/tiktok-spend-quality-join-20260513.json"
+    },
+    "window": "TikTok export 2026-05-07 to 2026-05-12, GA4 latest through 2026-05-12",
+    "freshness": "2026-05-13 18:55 KST",
+    "confidence": 0.82
+  },
+  "current_problem": {
+    "join_status": "semantic_join_only",
+    "reason": "GA4 BigQuery currently has campaign hints such as tiktok_biocom_yeonddle_iggacidset but not TikTok campaign_id exact.",
+    "budget_decision_status": "HOLD"
+  },
+  "required_url_parameters": {
+    "utm_source": "tiktok",
+    "utm_medium": "paid_social",
+    "utm_campaign": "<human_readable_campaign_slug>",
+    "utm_id": "<tiktok_campaign_id>",
+    "tt_campaign_id": "<tiktok_campaign_id>",
+    "tt_adgroup_id": "<tiktok_adgroup_id_if_available>",
+    "tt_ad_id": "<tiktok_ad_id_if_available>",
+    "utm_content": "<creative_or_ad_slug_if_available>"
+  },
+  "slug_rule": {
+    "format": "tiktok_<site>_<product_family>_<offer_or_angle>_<objective>",
+    "allowed_characters": "lowercase ascii letters, numbers, underscore",
+    "examples": [
+      "tiktok_biocom_yeonddle_iggacidset_smart",
+      "tiktok_biocom_yeonddle_acid_smart",
+      "tiktok_biocom_mineral_mineralcam_smart"
+    ]
+  },
+  "campaign_examples": [
+    {
+      "campaign_name": "음과검 스마트+ 캠페인",
+      "campaign_id": "1854347729644690",
+      "utm_campaign": "tiktok_biocom_yeonddle_iggacidset_smart"
+    },
+    {
+      "campaign_name": "종합대사기능 분석 스마트+캠페인",
+      "campaign_id": "1854918885396689",
+      "utm_campaign": "tiktok_biocom_yeonddle_acid_smart"
+    },
+    {
+      "campaign_name": "영양중금속분석 스마트+ 캠페인",
+      "campaign_id": "1856156648605858",
+      "utm_campaign": "tiktok_biocom_mineral_mineralcam_smart"
+    }
+  ],
+  "success_criteria": [
+    "GA4 BigQuery shows tt_campaign_id or utm_id for active TikTok paid sessions",
+    "Exact campaign id coverage is at least 95% after 7 days for active spend campaigns",
+    "Semantic join and exact join are reported separately",
+    "TikTok Ads Manager spend/click joins to GA4 sessions/scroll/checkout/purchase by campaign_id and date",
+    "No external conversion send occurs"
+  ],
+  "stop_criteria": [
+    "Landing URL breaks",
+    "GA4 tiktok sessions disappear",
+    "utm_source, utm_medium, and utm_campaign become the same value",
+    "Exact campaign id coverage remains below 50% after 7 days",
+    "ttclid presence drops"
+  ],
+  "invariants": {
+    "tiktok_ads_api_write": 0,
+    "tiktok_events_api_send": 0,
+    "platform_send_or_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  },
+  "recommendation": {
+    "decision": "conditional_go_for_1_to_3_active_campaigns",
+    "score_pct": 80,
+    "reason": "The rule addresses the current campaign/day exact join gap, but actual URL changes must be controlled and verified over 24h/72h/7d."
+  }
+}

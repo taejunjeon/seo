@@ -596,6 +596,9 @@ export default function TotalPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
+    // gpt0508-49 UX fix: 새 fetch 시작 시 옛 data 유지 — 카드 회색 처리 + 로딩 표시
     const url = `${API_BASE}/api/total/monthly-channel-summary?site=biocom&month=${encodeURIComponent(
       month,
     )}&mode=dry_run`;
@@ -605,7 +608,7 @@ export default function TotalPage() {
         if (cancelled) return;
         if (!res.ok || json.ok === false) {
           setError("error" in json ? json.error : `HTTP ${res.status}`);
-          setData(null);
+          // 에러 시에도 옛 data 유지 (사용자가 어디 있었는지 알도록)
         } else {
           setData(json);
         }
@@ -613,7 +616,6 @@ export default function TotalPage() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "fetch failed");
-        setData(null);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -667,7 +669,12 @@ export default function TotalPage() {
         )}
       </div>
 
-      {loading && <div className={styles.loading}>불러오는 중…</div>}
+      {loading && (
+        <div className={styles.loading}>
+          <span className={styles.spinner} />
+          이번 달 데이터 불러오는 중… (운영DB + VM Cloud 조회 약 10~15초 소요)
+        </div>
+      )}
 
       {error && (
         <div className={styles.errorBox}>
@@ -681,7 +688,7 @@ export default function TotalPage() {
       )}
 
       {data && (
-        <>
+        <div className={loading ? styles.dataDimmed : undefined}>
           <section className={styles.decisionHero}>
             <div className={`${styles.decisionCard} ${styles.primaryDecision}`}>
               <span className={styles.kpiLabel}>이번 달 광고 예산 판단에 쓸 매출</span>
@@ -1066,7 +1073,7 @@ export default function TotalPage() {
               </ul>
             </div>
           </details>
-        </>
+        </div>
       )}
     </main>
   );

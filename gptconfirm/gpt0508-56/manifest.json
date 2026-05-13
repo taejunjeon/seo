@@ -1,0 +1,35 @@
+{
+  "sprint": "gpt0508-56",
+  "created_at_kst": "2026-05-13 19:15:00 KST",
+  "author": "Codex",
+  "lane": "Green approval/design documentation",
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "purpose": "Human-readable report for coffee cron approval and TikTok campaign_id UTM rule design"
+    }
+  ],
+  "primary_outputs": [
+    "gdn/coffee-status-monitor-cron-approval-20260513.md",
+    "data/project/coffee-status-monitor-cron-approval-20260513.json",
+    "gdn/tiktok-campaign-id-exact-utm-rule-20260513.md",
+    "data/project/tiktok-campaign-id-exact-utm-rule-20260513.json"
+  ],
+  "source_documents_updated": [
+    "project/sprint1.md",
+    "project/sprint3.md",
+    "gdn/current-handoff.md",
+    "data/current-state.json"
+  ],
+  "invariants": {
+    "cron_registration": 0,
+    "tiktok_ads_api_write": 0,
+    "tiktok_campaign_or_budget_change": 0,
+    "platform_send_or_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_change": 0,
+    "raw_identifier_output": false
+  }
+}

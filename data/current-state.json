@@ -1,8 +1,8 @@
 {
-  "updated_at_kst": "2026-05-13 19:10:00 KST",
-  "workstream": "project_sprint_green_followthrough",
-  "lane": "Green read-only investigation and design documentation",
-  "current_goal": "Advance project/sprint1.md, project/sprint2.md, and project/sprint3.md using only read-only data checks and design documentation.",
+  "updated_at_kst": "2026-05-13 19:15:00 KST",
+  "workstream": "coffee_cron_approval_and_tiktok_exact_utm_rule",
+  "lane": "Green approval/design documentation; Yellow/Red execution gated",
+  "current_goal": "Document a Coffee actual status monitor cron approval packet and a TikTok campaign_id exact UTM rule without registering cron or changing ads.",
   "source_window_freshness_confidence": {
     "source": {
       "coffee_actual": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders read-only",
@@ -16,8 +16,32 @@
       "ga4_channel_funnel": "last_7d 2026-05-06 to 2026-05-12, last_14d 2026-04-29 to 2026-05-12, last_30d 2026-04-13 to 2026-05-12",
       "tiktok_ads_export": "2026-05-07 to 2026-05-12"
     },
-    "freshness": "2026-05-13 19:10 KST",
-    "confidence": 0.9
+    "freshness": "2026-05-13 19:15 KST",
+    "confidence": 0.88
+  },
+  "approval_packets": {
+    "coffee_status_monitor_cron": {
+      "document": "gdn/coffee-status-monitor-cron-approval-20260513.md",
+      "json": "data/project/coffee-status-monitor-cron-approval-20260513.json",
+      "execution_lane": "Yellow",
+      "proposed_schedule_kst": "20 9 * * *",
+      "proposed_user": "biocomkr_sns",
+      "output_json": "/home/biocomkr_sns/seo/repo/data/project/monitoring/coffee-actual-status-monitor-latest.json",
+      "status": "approval_packet_ready_not_executed"
+    },
+    "tiktok_campaign_id_exact_utm": {
+      "document": "gdn/tiktok-campaign-id-exact-utm-rule-20260513.md",
+      "json": "data/project/tiktok-campaign-id-exact-utm-rule-20260513.json",
+      "execution_lane": "Yellow_or_Red_depending_on_ads_change_scope",
+      "required_params": [
+        "utm_source=tiktok",
+        "utm_medium=paid_social",
+        "utm_campaign=<human_readable_slug>",
+        "utm_id=<tiktok_campaign_id>",
+        "tt_campaign_id=<tiktok_campaign_id>"
+      ],
+      "status": "design_ready_not_applied"
+    }
   },
   "latest_metrics": {
     "sprint1_coffee_status_monitor": {
@@ -96,11 +120,17 @@
     "Updated project/sprint1.md with the latest coffee status monitor read-only result.",
     "Updated project/sprint2.md with latest Google Ads ROAS gap, Option 3 packet refresh, and campaign-site spend mapping readiness.",
     "Updated project/sprint3.md with latest GA4 7/14/30 union rerun and TikTok spend-quality semantic join dry-run.",
+    "Created Coffee actual status monitor cron approval packet.",
+    "Created TikTok campaign_id exact UTM rule design.",
+    "Updated project/sprint1.md and project/sprint3.md with approval/design next actions.",
     "Updated gdn/current-handoff.md checkpoint."
   ],
   "invariants": {
     "no_send": true,
     "no_upload": true,
+    "cron_registration": 0,
+    "tiktok_ads_api_write": 0,
+    "tiktok_campaign_or_budget_change": 0,
     "operational_db_write": 0,
     "vm_cloud_sqlite_write": 0,
     "platform_mutation": 0,
@@ -111,7 +141,9 @@
   "forbidden_next": [
     "google_ads_conversion_action_change_without_red_approval",
     "platform_send_or_upload",
+    "coffee_cron_registration_without_yellow_approval",
     "tiktok_budget_or_campaign_change",
+    "tiktok_ads_url_parameter_change_without_approval",
     "operational_db_write_or_import",
     "vm_cloud_sqlite_write_or_schema_migration",
     "gtm_publish",

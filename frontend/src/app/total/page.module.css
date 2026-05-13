@@ -178,6 +178,30 @@
   vertical-align: middle;
 }
 
+/* 로딩 spinner + 옛 데이터 회색 처리 (gpt0508-49 UX fix) */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #bfdbfe;
+  border-top-color: #1d4ed8;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.dataDimmed {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: grayscale(0.3);
+  transition: opacity 0.2s, filter 0.2s;
+}
+
 .metaBar code {
   background: var(--slate-bg);
   padding: 2px 6px;
