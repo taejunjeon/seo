@@ -824,3 +824,10 @@ tiktok/monitoring/ads_tiktok_dashboard_20260425_api_collected.png
 - 2026-05-10 24h: WARN, totalEvents 141, uniqueOrderKeys 47, released_unknown_purchase 47, anomalies none
 - 2026-05-11 48h: WARN, totalEvents 300, uniqueOrderKeys 100, released_unknown_purchase 100, anomalies none
 - 2026-05-11 24h: WARN, totalEvents 159, uniqueOrderKeys 53, released_unknown_purchase 53, anomalies none
+
+
+## 2026-05-12 TikTok Guard 자동 모니터링 24h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-12T20-54-04-205Z.md`
+- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
