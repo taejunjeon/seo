@@ -1,0 +1,220 @@
+{
+  "contract_version": "google-ads-click-id-capture-yellow-a-result-v0.1",
+  "generated_at_kst": "2026-05-14T04:00:00+09:00",
+  "lane": "Yellow Sprint A (TJ 명시 승인)",
+  "verdict": "C_YELLOW_A_FAIL_NEEDS_GTM_OR_BACKEND_PATCH",
+  "verdict_one_line": "Y-1 snapshot refresh + Y-2 matching dry-run 모두 click id fill-rate 개선 미미. Y-1 +0.14pp (1.03%→1.17%), Y-2 A-grade 25 match 중 gclid 보유 intent 0건 → fill-rate 추가 +0. 본체는 RC-2/RC-3 (landing/checkout 단계 자체 gclid 손실). Y-3/Y-4/R-1 승인안으로 이전.",
+  "ten_second_summary": [
+    "Y-1 VM snapshot refresh 완료 — 5/5 stale → 5/13 fresh, with_click_id 23 → 26 (+3)",
+    "Y-1 결과 fill-rate 1.03% → 1.17% (+0.14pp). snapshot stale 은 본체 원인 아님 확정",
+    "Y-2 NPay intent → order matching dry-run: A-grade 25 match (₩772만) — 그러나 25건 모두 gclid 보유 intent 0건",
+    "Y-2 A-grade write 실행해도 fill-rate 추가 0 — NPay button click 한 사용자(gclid 87%)와 실제 NPay 결제완료 사용자가 분리됨",
+    "Y-5 GTM Preview 대신 backend snippet 분석: imwebAttributionSnippet 에 gbraid/wbraid 완전 누락. gclid 만 capture · payment_success 시점에 lastTouch.gclid 또는 URL 만 읽음 — NPay redirect 시 sessionStorage 손실 시 0 fill"
+  ],
+  "snapshot_refresh_result_Y1": {
+    "source": "https://att.ainativeos.net/api/attribution/ledger time-bucket pagination (API offset 무시 — week buckets)",
+    "old_snapshot": "backend/data/vm-npay-intent-20260505.sqlite3 (5/5 22:01 mtime, 9d stale)",
+    "new_snapshot": "backend/data/vm-attribution-snapshot-20260514.sqlite3 (5/14 03:00 mtime)",
+    "attribution_ledger_rows_new": 19637,
+    "attribution_ledger_rows_old": 18406,
+    "max_logged_at_new_kst": "2026-05-13T23:59:06+09:00",
+    "max_logged_at_old_kst": "2026-05-05T22:00:41+09:00",
+    "bucket_loss_warning": "5/3~5/10 bucket totalEntries=22317 > limit=10000, 약 6317 rows 누락 가능 — fill-rate 영향 미미 (lossy bucket 안에서 with_gclid 도 동일 비율로 sampling)",
+    "old_snapshot_preserved": true,
+    "rollback_path": "DEFAULT_VM_DB 환경변수로 vm-npay-intent-20260505.sqlite3 복귀 가능"
+  },
+  "y2_matching_dry_run_result": {
+    "window_kst": "2026-04-14 ~ 2026-05-13",
+    "intent_total": 820,
+    "intent_with_gclid": 715,
+    "npay_payment_complete_orders_total": 233,
+    "matching_keys_used": ["product_idx (intent) ↔ raw_data->sections->sectionItems->productInfo->prodNo (운영DB)", "captured_at + order_date 30min~24h window"],
+    "matching_grade_distribution": {
+      "A_grade_product_idx_30min_unique": {
+        "count": 25,
+        "amount_krw": 7720600,
+        "amount_korean": "₩772만",
+        "intents_with_gclid_among_A": 0,
+        "verdict": "click id fill-rate 개선에 기여 0 — NPay button click 사용자와 실제 NPay 결제완료 사용자 분리됨"
+      },
+      "B_grade_product_idx_30min_to_24h_single": 100,
+      "C_grade_product_idx_30min_to_24h_multiple": 145,
+      "ambiguous_30min_multiple_candidates": 5,
+      "unmatched": 545
+    },
+    "false_positive_risk": "B/C/ambiguous 250건은 product_idx 일치 + 30min 초과 → 다른 사용자가 같은 제품 결제했을 가능성. write 시 잘못된 gclid 부착 위험 → write 금지 (TJ 승인 조건 충족)",
+    "one_shot_write_recommendation": "A-grade 25건은 deterministic 매칭이지만 gclid 보유 0건이므로 ROAS 학습 신호 추가 contribution=0. 따라서 one-shot write 실행 불필요. approval packet 작성 생략."
+  },
+  "y5_gtm_preview_alternative_backend_code_audit": {
+    "method": "GTM Preview 는 TJ UI 작업이므로 직접 수행 불가. 대신 backend `imwebAttributionSnippet.ts` 와 `paidClickIntentLog.ts` 정독해 capture timing/allowlist/field mapping 점검.",
+    "findings": [
+      {
+        "id": "F1",
+        "topic": "imwebAttributionSnippet 에 gbraid/wbraid 완전 누락",
+        "evidence": "backend/src/imwebAttributionSnippet.ts line 283: gclid 만 capture. gbraid / wbraid 변수 자체 없음 (grep count=0).",
+        "implication": "iOS App campaign / restricted 광고에서 들어온 gbraid/wbraid query param 은 어느 단계에서도 attribution_ledger.gclid 컬럼에 fill 안 됨. RC-6 확정.",
+        "recommended_fix": "snippet 패치 line 283 옆에 gbraid/wbraid 두 줄 추가."
+      },
+      {
+        "id": "F2",
+        "topic": "payment_success 시점 gclid source 가 lastTouch + URL query 뿐",
+        "evidence": "snippet line 283: gclid: firstNonEmpty([trim(lastTouch.gclid), getSearchParam(['gclid'])])",
+        "implication": "lastTouch.gclid (localStorage `_p1s1a_last_touch`) 가 비어있고 결제 success URL 에 gclid 없으면 0 fill. NPay redirect (외부 도메인) 시 sessionStorage 손실 가능성 + 결제 success URL 에 gclid 첨부 안 함 → RC-3 retention 4.3% 의 mechanism",
+        "recommended_fix": "Y-3 server-side echo (npay_intent_log 또는 attribution_ledger marketing_intent 에서 client_id+ga_session_id 매칭으로 fill) + Y-4 snippet 의 lastTouch.gclid 보존/NPay return URL 에 gclid 재첨부"
+      },
+      {
+        "id": "F3",
+        "topic": "siteLandingChannelClassifier 는 분류 시 gbraid/wbraid 인식하지만 source 데이터가 비어 분류 결과 paid_search 출현 안 함",
+        "evidence": "siteLandingChannelClassifier.ts line 175: clickIdType === 'gbraid' OR 'wbraid' → paid_search 분류 가능. 그러나 attribution_ledger.gclid 컬럼만 있고 별도 gbraid/wbraid 컬럼 없음.",
+        "implication": "데이터 모델 단계에서 gbraid/wbraid 컬럼 부재 — 분류 코드는 있어도 실제 데이터 항상 0",
+        "recommended_fix": "attribution_ledger schema 확장 (gbraid TEXT, wbraid TEXT) + snippet/receiver fill 로직 추가 → 별도 Yellow sprint"
+      },
+      {
+        "id": "F4",
+        "topic": "GTM Preview 직접 검증 필요한 항목 (TJ UI 작업)",
+        "evidence": "Codex 가 직접 수행 불가",
+        "items_for_tj_to_check": [
+          "광고 URL 클릭 후 landing 시점에 dataLayer 에 gclid/gbraid/wbraid 가 들어오는가",
+          "marketing_intent trigger 가 query param read 전에 fire 되는가",
+          "receiver tag 의 query param allowlist 에 gclid 포함되는가",
+          "redirect 또는 hash 변경에서 query strip 되는가",
+          "NPay 결제 return URL 에 gclid 가 재첨부되는가"
+        ]
+      }
+    ]
+  },
+  "no_send_recalc": {
+    "baseline_post_5_14_no_refresh": {
+      "operational_orders": 2225,
+      "with_google_click_id": 23,
+      "fill_rate_pct": 1.03
+    },
+    "after_Y1_snapshot_refresh": {
+      "operational_orders": 2228,
+      "with_google_click_id": 26,
+      "fill_rate_pct": 1.17,
+      "delta_pp": 0.14,
+      "block_reasons": {
+        "read_only_phase": 2228,
+        "approval_required": 2228,
+        "already_in_ga4_unknown": 2228,
+        "missing_google_click_id": 2202,
+        "missing_attribution_vm_evidence": 716,
+        "npay_intent_purchase_without_intent": 122,
+        "npay_intent_ambiguous": 17,
+        "order_has_return_reason": 14,
+        "npay_intent_not_a_grade_strong": 14
+      }
+    },
+    "after_Y2_dry_run_projected": {
+      "operational_orders": 2228,
+      "with_google_click_id_projected": 26,
+      "fill_rate_pct_projected": 1.17,
+      "delta_from_baseline_pp": 0.14,
+      "delta_from_post_Y1_pp": 0,
+      "note": "Y-2 A-grade 25건 모두 gclid 보유 intent 와 매칭 0건 → write 실행해도 click_id pool 증가 0"
+    },
+    "homepage_eligible": 18,
+    "npay_eligible": 5,
+    "actual_send_candidate": 0,
+    "upload_candidate": 0,
+    "send_candidate": false
+  },
+  "ua_deletion_capability_review": {
+    "request": "TJ가 너가 UA 4개 삭제 가능한지 검토해봐 라고 했음",
+    "candidate_actions": [
+      {"id": "782218494", "name": "Transactions (A_view)", "type": "UNIVERSAL_ANALYTICS_TRANSACTION"},
+      {"id": "916482221", "name": "Transactions (바이오컴펫_main - 필터적용)", "type": "UNIVERSAL_ANALYTICS_TRANSACTION"},
+      {"id": "917325117", "name": "Transactions (전체 웹사이트 데이터)", "type": "UNIVERSAL_ANALYTICS_TRANSACTION"},
+      {"id": "945320590", "name": "Transactions (전체 웹사이트 데이터)", "type": "UNIVERSAL_ANALYTICS_TRANSACTION"}
+    ],
+    "capability_check": {
+      "auth_scope": "https://www.googleapis.com/auth/adwords (full scope — read/write 가능)",
+      "service_account_status": "Explorer Access (post-check 에서 'read-only added' 명시)",
+      "actual_permission": "Explorer Access 는 UI 에서 read-only 권한일 가능성. mutate API 호출 시 PERMISSION_DENIED 가능성 높음",
+      "backend_code_implemented": "googleAds:search (read) 만 구현. googleAds:mutate / conversionActions:mutate 미구현",
+      "verdict": "현재 codebase 에서 즉시 삭제 불가",
+      "to_enable_options": [
+        "옵션 A (권장): TJ가 Google Ads UI 에서 직접 4개 action 의 primary_for_goal=false 또는 status=REMOVED. 이 경우 codex 작업 불필요.",
+        "옵션 B: Google Cloud Console 에서 service account 권한 standard access 승격 + backend 에 mutate route 추가 — Red Lane 별도 sprint 필요"
+      ]
+    },
+    "this_sprint_action": "삭제 미실행. TJ UI 직접 작업 권장 (옵션 A)."
+  },
+  "verdict_decision_tree": {
+    "A_YELLOW_A_PASS_NEXT_Y3_Y4_DESIGN": {
+      "result": "NO",
+      "reason": "Y-1 효과 +0.14pp · Y-2 효과 +0pp — fill-rate 개선 미미. 'snapshot refresh + Y-2 dry-run 으로 개선 방향 확인됨' 조건 미충족."
+    },
+    "B_YELLOW_A_PARTIAL_NEEDS_Y2_WRITE_APPROVAL": {
+      "result": "NO",
+      "reason": "Y-2 A-grade 25건 모두 gclid 보유 0건이므로 write 실행해도 click id pool 증가 0. one-shot write approval packet 작성 불필요."
+    },
+    "C_YELLOW_A_FAIL_NEEDS_GTM_OR_BACKEND_PATCH": {
+      "result": "YES",
+      "reason": "snapshot refresh + Y-2 모두 효과 미미. landing/checkout 단계 자체에서 gclid 손실이 본체. 추가 fix 는 Y-3/Y-4/R-1 backend snippet 수정 + GTM publish 필요."
+    }
+  },
+  "invariants_held": {
+    "google_ads_conversion_action_mutate": 0,
+    "google_ads_upload_send": 0,
+    "bi_primary_change": 0,
+    "existing_primary_modified": 0,
+    "techsol_modified": 0,
+    "techsol_deleted": 0,
+    "campaign_mutate": 0,
+    "campaign_budget_mutate": 0,
+    "operational_db_write": 0,
+    "operational_db_import": 0,
+    "vm_cloud_sqlite_write_outside_new_snapshot": 0,
+    "vm_cloud_sqlite_schema_migration": 0,
+    "gtm_publish": 0,
+    "y2_one_shot_write_executed": 0,
+    "y3_backend_deploy": 0,
+    "y4_snippet_patch_deploy": 0,
+    "cron_registered": 0,
+    "external_send_count": 0,
+    "raw_identifier_leak": false
+  },
+  "next_actions": {
+    "codex_done": [
+      "Y-1 one-shot snapshot refresh + atomic rename + builder rerun",
+      "Y-2 matching dry-run aggregate 산출 (A-grade 25 · gclid 매칭 0 확정)",
+      "Y-5 backend snippet 코드 audit (gbraid/wbraid 누락 + lastTouch.gclid 단일 source 발견)",
+      "UA 4개 삭제 capability 검토 (read-only)"
+    ],
+    "tj_decision_needed": [
+      {
+        "id": "decision-1",
+        "subject": "Y-1 cron 등록 진행 여부 — 매일 KST 03:00 snapshot refresh 자동화",
+        "context": "Yellow Sprint A 승인 안에 24h TTL monitor/cron 포함. 본 sprint 에서 cron 0 유지 (위반 안 함). TJ 가 cron 등록 진행할지 decision 필요.",
+        "owner": "TJ"
+      },
+      {
+        "id": "decision-2",
+        "subject": "Y-2 one-shot write 실행 여부",
+        "context": "A-grade 25건 / ₩772만 deterministic match 확인. 그러나 gclid 매칭 0건이라 fill-rate 개선 0. write 실행 비용 대비 효과 무. 권장: write 생략.",
+        "owner": "TJ",
+        "recommend": "skip"
+      },
+      {
+        "id": "decision-3",
+        "subject": "Y-3/Y-4 승인 검토 — backend snippet 패치 (gbraid/wbraid 추가 + lastTouch 보존 + NPay return URL gclid 재첨부)",
+        "context": "본 root cause 가 RC-2/RC-3/RC-6 임이 추가 evidence 로 확정. Y-3/Y-4 가 진짜 fix.",
+        "owner": "TJ"
+      },
+      {
+        "id": "decision-4",
+        "subject": "R-1 GTM Production publish 승인 검토 — marketing_intent landing capture trigger 강화",
+        "context": "Y-5 backend audit 으로는 GTM 측 query param read timing / allowlist 까지 검증 불가. TJ UI Preview 필요.",
+        "owner": "TJ"
+      },
+      {
+        "id": "decision-5",
+        "subject": "UA 4개 삭제 — TJ Google Ads UI 직접 작업 권장 (옵션 A)",
+        "context": "Codex codebase 즉시 삭제 불가. UI 작업 1분 내 가능.",
+        "owner": "TJ"
+      }
+    ]
+  }
+}
