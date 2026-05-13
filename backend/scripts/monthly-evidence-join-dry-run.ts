@@ -2,6 +2,7 @@ import { getPgPool, queryPg } from "../src/postgres";
 import { env } from "../src/env";
 import { buildNpayRoasDryRunReport, type NpayRoasDryRunOrderResult, type NpayRoasDryRunReport } from "../src/npayRoasDryRun";
 import { buildTikTokRoasComparison } from "../src/tiktokRoasComparison";
+import { summarizeNaverAdsDaily } from "../src/naverAdsLocalDb";
 import { google } from "googleapis";
 
 type Options = {
@@ -888,12 +889,63 @@ const fetchGooglePlatformReference = async (
   }
 };
 
-const fetchNaverPlatformReference = async (): Promise<PlatformFetchResult> =>
-  unavailablePlatformReference(
-    "Naver Ads API/export",
-    "Naver Ads spend/conversion reference source is not connected in this repo yet",
-    "blocked",
-  );
+/**
+ * gpt0508-49 단계3: 로컬DB SQLite naver_ads_daily (네이버 검색광고 API 일별 캐시) 에서 광고비 + convAmt 합산.
+ * - 광고비 (salesAmt) 는 정본 후보 — /total "광고비" 카드에 사용 가능
+ * - convAmt 는 네이버 자체 attribution 기준 주장 매출 — 참고값, 내부 매출과 합산 금지
+ */
+const fetchNaverPlatformReference = async (
+  startDate: string,
+  endDateInclusive: string,
+): Promise<PlatformFetchResult> => {
+  try {
+    const summary = summarizeNaverAdsDaily({
+      site: "biocom",
+      since: startDate,
+      until: endDateInclusive,
+    });
+    if (summary.total_rows === 0) {
+      return unavailablePlatformReference(
+        "Naver Search Ad API (local cache)",
+        "naver_ads_daily 캐시 비어있음 — backend/scripts/naver-ads-collect-7d-20260513.ts 또는 별도 sync 명령 실행 필요",
+        "blocked_or_empty",
+      );
+    }
+    const dates = summary.by_campaign.length > 0 ? summary.by_campaign[0].days : 0;
+    return joinedPlatformReference({
+      source: "Naver Search Ad API → 로컬DB naver_ads_daily",
+      spendKrw: summary.total_sales_amt_krw,
+      conversionValueKrw: summary.total_conv_amt_krw,
+      roas:
+        summary.total_sales_amt_krw > 0
+          ? round2(summary.total_conv_amt_krw / summary.total_sales_amt_krw)
+          : null,
+      attributionWindow: "네이버 자체 attribution (보통 7일 클릭, 1일 view)",
+      actionReportTime: null,
+      queriedAt: new Date().toISOString(),
+      freshness: "local_cache",
+      sourceWindow: {
+        startDate,
+        endDate: endDateInclusive,
+        latestDate: endDateInclusive,
+      },
+      sourceDiagnostics: {
+        rows: summary.total_rows,
+        campaigns_with_spend: summary.by_campaign.filter((c) => c.salesAmtKrw > 0).length,
+        campaigns_total: summary.by_campaign.length,
+        cached_days: dates,
+        warning:
+          "convAmt 는 네이버 자체 attribution. 운영DB tb_iamweb_users 결제완료 매출과 합산 금지.",
+      },
+    });
+  } catch (error) {
+    return unavailablePlatformReference(
+      "Naver Search Ad API (local cache)",
+      error instanceof Error ? error.message : "Naver Ads local cache read failed",
+      "error",
+    );
+  }
+};
 
 const buildPlatformReference = async (
   channelSummary: ChannelSummaryRow[],
@@ -906,7 +958,7 @@ const buildPlatformReference = async (
     fetchMetaPlatformReference(range.startDate, endDateInclusive),
     fetchTikTokPlatformReference(range.startDate, endDateInclusive),
     fetchGooglePlatformReference(range.startDate, endDateInclusive),
-    fetchNaverPlatformReference(),
+    fetchNaverPlatformReference(range.startDate, endDateInclusive),
   ]);
   const platforms: PlatformReferenceRow["platform"][] = ["meta", "tiktok", "google", "naver"];
   results.forEach((result, index) => {

@@ -1,0 +1,56 @@
+{
+  "ok": true,
+  "schema_version": "naver_ads_total_card_live_20260513",
+  "generated_at_kst": "2026-05-13 20:25:00 KST",
+  "step": "3 of 3 (의사결정 — /total Naver 카드 live)",
+  "purpose": "/total 페이지의 Naver platform_reference 카드를 blocked 에서 live (joined + 로컬DB naver_ads_daily 정본) 로 활성화.",
+  "deployment": {
+    "code_change": "backend/scripts/monthly-evidence-join-dry-run.ts fetchNaverPlatformReference() 수정 — unavailable → summarizeNaverAdsDaily 호출",
+    "live_endpoint": "GET /api/total/monthly-channel-summary?month=2026-05&site=biocom"
+  },
+  "live_response_naver_platform_reference_2026_05": {
+    "status": "joined",
+    "freshness": "local_cache",
+    "source": "Naver Search Ad API → 로컬DB naver_ads_daily",
+    "spend_krw": 1698930,
+    "spend_korean": "₩170만",
+    "naver_claim_revenue_krw": 31501866,
+    "naver_claim_revenue_korean": "₩3,150만",
+    "naver_claim_roas": 18.54,
+    "internal_confirmed": {
+      "orders": 65,
+      "revenue_krw": 17913149,
+      "revenue_korean": "₩1,791만"
+    },
+    "internal_roas_paid_naver_channel": 10.54,
+    "platform_over_claim_krw": 13588717,
+    "platform_over_claim_korean": "₩1,358만",
+    "interpretation": "네이버는 ₩3,150만 매출이 자기 광고 덕분이라 주장. 우리 내부 측정 기준 paid_naver 채널 매출은 ₩1,791만 (65건). 네이버 over-claim ₩1,358만 (자체 attribution 기준 일부 자연유입까지 자기 공으로 잡았을 가능성)."
+  },
+  "playwright_verification": {
+    "tests_passed": 1,
+    "test_file": "frontend/tests/verify-total-naver-live.spec.ts",
+    "verified_assertions": [
+      "Status badge '연결됨' visible",
+      "광고비 ₩170만 텍스트 노출",
+      "네이버 주장 매출 ₩3,150만 텍스트 노출",
+      "네이버 주장 ROAS 18.54 텍스트 노출",
+      "blocked 메시지 부재"
+    ]
+  },
+  "utm_campaign_join_status": {
+    "attempt": "VM Cloud site_landing_ledger 의 utm_source=naver row 의 utm_campaign vs 로컬DB naver_ads_daily 의 ncc_campaign_id direct join",
+    "result": "직접 join 0% — 두 값 형식 완전 다름. 광고 API: cmp-a001-... 형식 / site_landing: naver_brand_search / naverbrandsearch_biocom_pc_mainhome / 1 등 사람 작성 라벨",
+    "current_aggregation": "전체 합산 비교만 가능 (총 광고비 vs paid_naver 채널 총 매출). 캠페인별 ROAS 산출은 광고 URL 의 utm_campaign 정정 후 가능",
+    "recommended_next_action": "TJ 가 광고 destination URL 의 utm_campaign 을 {nccCampaignId} 매크로 또는 일관된 캠페인명 규칙으로 정렬 (다음 sprint, TJ 광고팀 협업)"
+  },
+  "invariants_held": {
+    "operational_db_write": 0,
+    "external_send_count": 0,
+    "naver_ads_state_change": 0,
+    "secret_key_logged": 0,
+    "convAmt_added_to_internal_revenue": 0,
+    "frontend_dashboard_show_naver_claim_separately": true
+  },
+  "verdict": "STEP3_NAVER_CARD_LIVE_PLAYWRIGHT_PASS_PARTIAL_JOIN_AGGREGATION_ONLY"
+}
