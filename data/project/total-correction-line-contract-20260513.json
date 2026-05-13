@@ -1,0 +1,74 @@
+{
+  "run_id": "total-correction-line-contract-20260513",
+  "generated_at_kst": "2026-05-13 10:37:23 KST",
+  "lane": "Green read-only / no-send / no-write",
+  "contract_version": "total-correction-lines-v0.1",
+  "source_window_freshness_confidence": {
+    "source": {
+      "biocom_actual": "운영DB PostgreSQL dashboard.public.tb_iamweb_users via live site summary API",
+      "coffee_actual": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders via live site summary API and direct read-only aggregate"
+    },
+    "window": "recent 30d by source-specific order/payment time",
+    "freshness": {
+      "biocom_max_payment_complete_time": "2026-05-12T22:43:01.000Z",
+      "coffee_max_order_time": "2026-05-13T01:21:01.000Z",
+      "coffee_max_synced_at": "2026-05-13 01:30:03",
+      "coffee_max_status_synced_at": "2026-05-12 04:11:07"
+    },
+    "confidence": 0.9
+  },
+  "budget_roas_policy": {
+    "budget_roas_site": "biocom",
+    "budget_roas_numerator": "internal_with_biocom_npay_actual_when_window_matches",
+    "cross_site_lines_auto_added": false,
+    "coffee_line_policy": "reference_only_until_campaign_site_mapping"
+  },
+  "source_line_items": {
+    "biocom_site_summary_30d": {
+      "source": "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+      "db_location": "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
+      "table": "dashboard.public.tb_iamweb_users",
+      "status": "included",
+      "count": 166,
+      "amount_krw": 29642500,
+      "max_payment_complete_time": "2026-05-12T22:43:01.000Z",
+      "note": "biocom actual source remains operational DB PostgreSQL PAYMENT_COMPLETE; monthly /total budget use still requires matching the requested month/window."
+    },
+    "coffee_site_summary_30d": {
+      "source": "imweb_v2_vm_cloud_imweb_orders",
+      "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+      "table": "imweb_orders",
+      "status_column": "imweb_status",
+      "site": "thecleancoffee",
+      "status": "included_with_warning",
+      "count": 318,
+      "amount_krw": 15503000,
+      "gross_count": 349,
+      "gross_amount_krw": 17299400,
+      "confirmed_status_count": 292,
+      "confirmed_status_amount_krw": 13839400,
+      "status_blank_count": 26,
+      "status_blank_amount_krw": 1663600,
+      "excluded_cancel_return_exchange_count": 31,
+      "excluded_cancel_return_exchange_amount_krw": 1796400,
+      "max_order_time": "2026-05-13T01:21:01.000Z",
+      "max_synced_at": "2026-05-13 01:30:03",
+      "max_status_synced_at": "2026-05-12 04:11:07",
+      "warnings": [
+        "ga4_guard_not_actual_source",
+        "status_blank_rows_included_with_warning",
+        "status_sync_stale_over_6h"
+      ],
+      "blank_root_cause": "source_freshness_gap_status_sync_lag",
+      "use_for_budget_roas": "provisional_internal_actual_reference_only_until_campaign_site_mapping"
+    }
+  },
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "raw_identifier_output": false
+  }
+}

@@ -242,6 +242,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+.table code {
+  background: var(--slate-bg);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .table td.muted {
   color: #94a3b8;
 }

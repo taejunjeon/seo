@@ -1,7 +1,7 @@
 # 월별 유입 채널 매출 정합성 현재 정본
 
 작성 시각: 2026-05-06 23:46 KST
-최종 업데이트: 2026-05-13 01:12 KST
+최종 업데이트: 2026-05-13 10:47 KST
 기준일: 2026-05-13
 상태: active canonical
 Owner: total / attribution
@@ -24,7 +24,11 @@ Option C live 배포는 PASS다. 화면이 보던 NPay 매출을 `complete_time`
 
 post-snapshot 기준(2026-05-13 00:57 KST, window 30d): 더클린커피 actual confirmed는 `included_with_warning`, source는 `imweb_v2_vm_cloud_imweb_orders`, included 후보는 309건 / ₩14,902,800이다. status blank는 14건 / ₩944,900이고, warnings에는 `ga4_guard_not_actual_source`, `status_blank_rows_included_with_warning`, `status_sync_stale_over_6h`가 붙는다. biocom actual confirmed는 162건 / ₩29,463,300으로 기존 `operational_db.tb_iamweb_users PAYMENT_COMPLETE` included를 유지했다. status blank는 `imweb_status`가 비어 있는 row이며 미결제라는 뜻이 아니다. 다만 status sync freshness가 6시간을 넘었으므로 화면/API에서 warning으로 같이 보여줘야 한다.
 
-배포 산출은 pre-snapshot, remote backup, backend typecheck/build, PM2 restart, post-snapshot까지 완료됐다. rollback backup은 `/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-49-20260513T005354KST`에 있다. `/health`는 200이고, `/api/health`는 기존 라우트 미존재로 404 JSON을 반환한다. 현재 확인 기준 프론트 대시보드 코드는 `frontend/src/app/ads/site-landing/page.tsx`에 있지만 로컬 7010 응답은 타임아웃이고, 확실히 접근 가능한 것은 라이브 백엔드 summary API다. 실제 화면 재확인/프론트 고도화는 다음 sprint에서 별도로 진행한다.
+2026-05-13 10:37 KST latest read-only 기준: 더클린커피 actual confirmed는 318건 / ₩15,503,000이고 status blank는 26건 / ₩1,663,600이다. VM Cloud SQLite `/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3` `imweb_orders` order sync는 `2026-05-13 01:30:03`까지 진행됐지만 `imweb_status_synced_at`은 `2026-05-12 04:11:07`에서 멈춰 있다. 따라서 status blank 증가는 결제 실패가 아니라 `source_freshness_gap/status sync lag`다. 운영DB PostgreSQL `dashboard.public.tb_iamweb_users` blank가 아니고, 로컬DB row도 아니다.
+
+배포 산출은 pre-snapshot, remote backup, backend typecheck/build, PM2 restart, post-snapshot까지 완료됐다. rollback backup은 `/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0508-49-20260513T005354KST`에 있다. `/health`는 200이고, `/api/health`는 기존 라우트 미존재로 404 JSON을 반환한다. 로컬 프론트는 `http://localhost:7010/ads/site-landing`과 `http://localhost:7010/total` 모두 200이다. `/total` backend contract는 `total-monthly-channel-summary-v0.2`이며 top-level `correction_lines`를 내려준다. biocom line은 운영DB PostgreSQL `dashboard.public.tb_iamweb_users`, coffee line은 VM Cloud SQLite `imweb_orders`이며 coffee는 `included_in_budget_roas=false`로 표시한다.
+
+Dedicated 24h coffee actual status monitor는 자동 실행 중이 아니다. VM Cloud cron의 `/home/biocomkr_sns/seo/coffee-monitoring/run.sh`는 기존 `coffee-npay-intent-monitoring-report.ts` 실행용이라 actual `imweb_status` blank monitor가 아니다. Cron 등록/변경은 하지 않았다.
 
 ## 2026-05-11 sprint state (gpt0508-37 + gpt0508-38)
 

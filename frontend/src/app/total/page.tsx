@@ -68,6 +68,27 @@ type SourceFreshnessRow = {
   summary?: unknown;
 };
 
+type CorrectionLineItem = {
+  id: string;
+  label: string;
+  site: string;
+  source: string;
+  db_location: string;
+  table: string;
+  source_role: string;
+  status: string;
+  count: number | null;
+  amount_krw: number | null;
+  status_blank_count?: number | null;
+  status_blank_amount_krw?: number | null;
+  warnings: string[];
+  use_for_budget_roas: string;
+  included_in_budget_roas: boolean;
+  freshness: string;
+  confidence: "high" | "medium" | "low";
+  notes: string[];
+};
+
 type ApiResponse = {
   ok: true;
   metadata: {
@@ -82,7 +103,7 @@ type ApiResponse = {
     write: boolean;
     send: boolean;
     deploy: boolean;
-    source_contracts: { spine: string; evidence: string };
+    source_contracts: { spine: string; evidence: string; correction_lines?: string };
   };
   monthly_spine: {
     confirmed_net_revenue_ab: number;
@@ -118,6 +139,19 @@ type ApiResponse = {
     rows?: PlatformRow[];
     joinStatus?: string;
     [k: string]: unknown;
+  };
+  correction_lines?: {
+    contract_version: string;
+    generated_at: string;
+    source_status: "loaded" | "missing";
+    purpose: string;
+    budget_roas_policy: {
+      budget_roas_site: string;
+      budget_roas_numerator: string;
+      cross_site_lines_auto_added: false;
+      coffee_line_policy: string;
+    };
+    items: CorrectionLineItem[];
   };
   source_freshness: SourceFreshnessRow[];
   frontend_copy: {
@@ -194,6 +228,9 @@ const STATUS_BADGE: Record<string, { text: string; tone: "green" | "yellow" | "r
   skeleton_only: { text: "skeleton only", tone: "neutral" },
   unavailable: { text: "unavailable", tone: "red" },
   not_joined: { text: "not joined", tone: "red" },
+  included: { text: "included", tone: "green" },
+  included_with_warning: { text: "included with warning", tone: "yellow" },
+  bridge_pending: { text: "bridge pending", tone: "yellow" },
 };
 
 function FreshBadge({ freshness }: { freshness?: string }) {
@@ -398,6 +435,79 @@ function PlatformCard({ row }: { row: PlatformRow }) {
   );
 }
 
+function CorrectionLinesSection({ lines }: { lines: CorrectionLineItem[] }) {
+  if (!lines.length) return null;
+
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>
+        보정 라인
+        <small>site/source 별도 표시 · cross-site 자동 합산 금지</small>
+      </h2>
+      <p className={styles.sectionDesc}>
+        biocom 예산 ROAS에 들어가는 보정값과 더클린커피 내부 actual 후보를 별도 line으로 보여준다.
+        더클린커피 line은 campaign/site spend mapping 전까지 참고값이다.
+      </p>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>line</th>
+            <th>site / source</th>
+            <th style={{ textAlign: "right" }}>주문</th>
+            <th style={{ textAlign: "right" }}>금액</th>
+            <th>status / blank</th>
+            <th>예산 ROAS 사용</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((line) => (
+            <tr key={line.id}>
+              <td>
+                <strong>{line.label}</strong>
+                <div className={styles.kpiSub}>{line.source_role}</div>
+              </td>
+              <td>
+                <div>
+                  <code>{line.site}</code> · <code>{line.source}</code>
+                </div>
+                <div className={styles.kpiSub}>
+                  {line.db_location} · {line.table}
+                </div>
+              </td>
+              <td className={styles.num}>{fmtNum(line.count)}</td>
+              <td className={styles.num}>{fmtKRW(line.amount_krw)}</td>
+              <td>
+                <div>
+                  <StatusBadge status={line.status} />
+                </div>
+                {line.status_blank_count != null && line.status_blank_count > 0 && (
+                  <div className={styles.kpiSub}>
+                    status blank {fmtNum(line.status_blank_count)}건 /{" "}
+                    {fmtKRW(line.status_blank_amount_krw)}
+                  </div>
+                )}
+                {line.warnings.length > 0 && (
+                  <div className={styles.kpiSub}>{line.warnings.join(" / ")}</div>
+                )}
+              </td>
+              <td>
+                <span
+                  className={`${styles.badge} ${
+                    line.included_in_budget_roas ? styles.badgeFresh : styles.badgeLocal
+                  }`}
+                >
+                  {line.included_in_budget_roas ? "예산 ROAS 포함" : "참고 line"}
+                </span>
+                <div className={styles.kpiSub}>{line.use_for_budget_roas}</div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 export default function TotalPage() {
   const [month, setMonth] = useState("2026-04");
   const [draftMonth, setDraftMonth] = useState("2026-04");
@@ -523,6 +633,8 @@ export default function TotalPage() {
               </ul>
             </div>
           )}
+
+          <CorrectionLinesSection lines={data.correction_lines?.items || []} />
 
           <div className={styles.kpiRow}>
             <div className={`${styles.kpiCard} ${styles.primary}`}>

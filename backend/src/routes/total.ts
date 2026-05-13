@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -7,7 +8,14 @@ import { Router, type Request, type Response } from "express";
 const execFileAsync = promisify(execFile);
 
 const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
+const REPO_ROOT = path.resolve(BACKEND_ROOT, "..");
 const SCRIPT_TIMEOUT_MS = 90_000;
+const DEFAULT_CORRECTION_SOURCE_FILE = path.resolve(
+  REPO_ROOT,
+  "data",
+  "project",
+  "total-correction-line-contract-20260513.json",
+);
 
 const parseSite = (value: unknown): "biocom" => {
   const site = typeof value === "string" && value.trim() ? value.trim() : "biocom";
@@ -127,6 +135,63 @@ type EvidencePayload = {
   sampleRows?: unknown[];
 };
 
+type RoasSourceLineItems = {
+  biocom_site_summary_30d?: {
+    source?: string;
+    status?: string;
+    count?: number;
+    amount_krw?: number;
+    note?: string;
+  };
+  coffee_site_summary_30d?: {
+    source?: string;
+    db_location?: string;
+    table?: string;
+    status?: string;
+    count?: number;
+    amount_krw?: number;
+    status_blank_count?: number;
+    status_blank_amount_krw?: number;
+    warnings?: string[];
+    blank_root_cause?: string;
+  };
+};
+
+type TotalCorrectionLineItem = {
+  id: string;
+  label: string;
+  site: string;
+  source: string;
+  db_location: string;
+  table: string;
+  source_role: string;
+  status: string;
+  count: number | null;
+  amount_krw: number | null;
+  status_blank_count?: number | null;
+  status_blank_amount_krw?: number | null;
+  warnings: string[];
+  use_for_budget_roas: string;
+  included_in_budget_roas: boolean;
+  freshness: string;
+  confidence: "high" | "medium" | "low";
+  notes: string[];
+};
+
+type TotalCorrectionLines = {
+  contract_version: "total-correction-lines-v0.1";
+  generated_at: string;
+  source_status: "loaded" | "missing";
+  purpose: string;
+  budget_roas_policy: {
+    budget_roas_site: "biocom";
+    budget_roas_numerator: string;
+    cross_site_lines_auto_added: false;
+    coffee_line_policy: string;
+  };
+  items: TotalCorrectionLineItem[];
+};
+
 const channelLabels: Record<string, string> = {
   paid_meta: "Meta 광고",
   paid_tiktok: "TikTok 광고",
@@ -137,6 +202,97 @@ const channelLabels: Record<string, string> = {
   influencer_non_paid: "비광고 인플루언서/공구",
   unknown: "유입 증거 없음",
   quarantine: "보류",
+};
+
+const asNumberOrNull = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
+const readCorrectionLineSourceItems = (): RoasSourceLineItems | null => {
+  const sourceFile = process.env.TOTAL_CORRECTION_SOURCE_FILE?.trim() || DEFAULT_CORRECTION_SOURCE_FILE;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(sourceFile, "utf8")) as {
+      source_line_items?: RoasSourceLineItems;
+    };
+    return parsed.source_line_items ?? null;
+  } catch {
+    return null;
+  }
+};
+
+export const buildTotalCorrectionLines = (
+  sourceLineItems: RoasSourceLineItems | null,
+  generatedAt: string,
+): TotalCorrectionLines => {
+  const items: TotalCorrectionLineItem[] = [];
+
+  const biocom = sourceLineItems?.biocom_site_summary_30d;
+  if (biocom) {
+    items.push({
+      id: "biocom_npay_actual_30d",
+      label: "biocom NPay actual correction",
+      site: "biocom",
+      source: biocom.source || "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+      db_location: "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
+      table: "dashboard.public.tb_iamweb_users",
+      source_role: "order_payment_actual_primary",
+      status: biocom.status || "included",
+      count: asNumberOrNull(biocom.count),
+      amount_krw: asNumberOrNull(biocom.amount_krw),
+      warnings: [],
+      use_for_budget_roas: "included_for_biocom_google_ads_budget_roas",
+      included_in_budget_roas: true,
+      freshness: "source_snapshot_from_roas_gap_recompute",
+      confidence: "high",
+      notes: [
+        biocom.note ||
+          "Google Ads dashboard correction uses its own 30d operational DB PostgreSQL snapshot.",
+      ],
+    });
+  }
+
+  const coffee = sourceLineItems?.coffee_site_summary_30d;
+  if (coffee) {
+    items.push({
+      id: "thecleancoffee_npay_actual_30d",
+      label: "더클린커피 NPay actual correction line",
+      site: "thecleancoffee",
+      source: coffee.source || "imweb_v2_vm_cloud_imweb_orders",
+      db_location:
+        coffee.db_location || "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+      table: coffee.table || "imweb_orders",
+      source_role: "cross_site_internal_actual_candidate",
+      status: coffee.status || "included_with_warning",
+      count: asNumberOrNull(coffee.count),
+      amount_krw: asNumberOrNull(coffee.amount_krw),
+      status_blank_count: asNumberOrNull(coffee.status_blank_count),
+      status_blank_amount_krw: asNumberOrNull(coffee.status_blank_amount_krw),
+      warnings: Array.isArray(coffee.warnings) ? coffee.warnings : [],
+      use_for_budget_roas: "provisional_internal_actual_reference_only_until_campaign_site_mapping",
+      included_in_budget_roas: false,
+      freshness: "VM Cloud SQLite imweb_orders order sync fresh; imweb_status sync stale",
+      confidence: "medium",
+      notes: [
+        "Do not add this line to biocom Google Ads budget ROAS until campaign/site spend mapping is proven.",
+        "GA4 is an already_in_ga4 guard only, not an actual NPay revenue source.",
+        `status blank root cause: ${coffee.blank_root_cause || "source_freshness_gap_status_sync_lag"}`,
+      ],
+    });
+  }
+
+  return {
+    contract_version: "total-correction-lines-v0.1",
+    generated_at: generatedAt,
+    source_status: sourceLineItems ? "loaded" : "missing",
+    purpose:
+      "Show actual correction sources as separate site/source lines. Cross-site coffee actual is never silently added to biocom budget ROAS.",
+    budget_roas_policy: {
+      budget_roas_site: "biocom",
+      budget_roas_numerator: "internal_with_biocom_npay_actual",
+      cross_site_lines_auto_added: false,
+      coffee_line_policy: "reference_only_until_campaign_site_mapping",
+    },
+    items,
+  };
 };
 
 const buildSourceFreshness = (spine: SpinePayload, evidence: EvidencePayload) => {
@@ -246,17 +402,18 @@ export const createTotalRouter = () => {
         runDryRunScript<SpinePayload>("scripts/monthly-spine-dry-run.ts", args),
         runDryRunScript<EvidencePayload>("scripts/monthly-evidence-join-dry-run.ts", args),
       ]);
+      const queriedAt = new Date().toISOString();
 
       const response = {
         ok: true,
         metadata: {
-          contract_version: "total-monthly-channel-summary-v0.1",
+          contract_version: "total-monthly-channel-summary-v0.2",
           site,
           month,
           timezone: evidence.metadata.timezone,
           date_start: evidence.metadata.dateStart,
           date_end_exclusive: evidence.metadata.dateEndExclusive,
-          queried_at: new Date().toISOString(),
+          queried_at: queriedAt,
           mode,
           write: false,
           send: false,
@@ -264,6 +421,7 @@ export const createTotalRouter = () => {
           source_contracts: {
             spine: spine.metadata.contractVersion,
             evidence: evidence.metadata.contractVersion,
+            correction_lines: "total-correction-lines-v0.1",
           },
         },
         monthly_spine: {
@@ -300,6 +458,7 @@ export const createTotalRouter = () => {
           npay_intent_status_summary: evidence.npayIntentStatusSummary,
         },
         platform_reference: evidence.platformReference,
+        correction_lines: buildTotalCorrectionLines(readCorrectionLineSourceItems(), queriedAt),
         source_freshness: buildSourceFreshness(spine, evidence),
         frontend_copy: {
           headline: `${month} ${site} 내부 확정 순매출은 ${spine.summary.confirmed_net_revenue_ab.toLocaleString("ko-KR")}원입니다.`,

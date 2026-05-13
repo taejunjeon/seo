@@ -2,7 +2,7 @@
   "sprint": "gpt0508-49",
   "created_at_kst": "2026-05-13 02:30:00 KST",
   "owner": "Codex",
-  "lane": "Yellow approved VM deploy/restart complete; Green dashboard/ROAS/docs complete",
+  "lane": "Yellow approved VM deploy/restart complete; Green dashboard/ROAS/status-monitor/total-contract docs complete",
   "documents": [
     {
       "path": "gptconfirm/gpt0508-49/00-result-report.md",
@@ -38,6 +38,10 @@
     "gdn/coffee-status-blank-root-cause-20260513.md",
     "data/project/coffee-vm-imweb-orders-7d-30d-20260513.json",
     "data/project/roas-gap-recompute-20260513.json",
+    "data/project/coffee-actual-24h-monitor-20260513.json",
+    "gdn/coffee-actual-24h-monitor-20260513.md",
+    "data/project/total-correction-line-contract-20260513.json",
+    "data/project/total-correction-lines-20260513.png",
     "gdn/roas-gap-recompute-after-coffee-actual-20260513.md",
     "data/project/site-landing-dashboard-20260513.png",
     "data/ads_csv/tiktok/processed/20260507_20260512_daily_campaign.csv",
@@ -61,7 +65,11 @@
     "frontend_typecheck": "PASS npx tsc --noEmit",
     "page_scoped_eslint": "PASS npx eslint src/app/ads/site-landing/page.tsx",
     "repo_wide_frontend_lint": "FAIL pre-existing unrelated lint errors outside site-landing page",
-    "local_dashboard_smoke": "PASS Playwright API 200 console error 0"
+    "local_dashboard_smoke": "PASS Playwright API 200 console error 0",
+    "total_correction_line_test": "PASS targeted node:test",
+    "local_total_api": "PASS contract total-monthly-channel-summary-v0.2 correction_lines loaded",
+    "local_total_smoke": "PASS Playwright coffee correction line visible console error 0",
+    "coffee_status_monitor_check": "PASS manual read-only; dedicated cron not running"
   },
   "invariants": {
     "external_send_count": 0,
@@ -75,7 +83,7 @@
   },
   "recommendation": {
     "deploy_result": "pass_no_rollback",
-    "confidence": 0.91,
-    "reason": "Live summary API returns coffee actual source as imweb_v2_vm_cloud_imweb_orders with included_with_warning. Latest status blank root cause is VM Cloud SQLite imweb_orders status sync lag, not unpaid evidence. Local dashboard now renders the source/warning fields."
+    "confidence": 0.92,
+    "reason": "Live summary API returns coffee actual source as imweb_v2_vm_cloud_imweb_orders with included_with_warning. Latest status blank root cause is VM Cloud SQLite imweb_orders status sync lag, not unpaid evidence. Local dashboard and /total correction line now render the source/warning fields while keeping coffee out of biocom budget ROAS."
   }
 }

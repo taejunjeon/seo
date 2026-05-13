@@ -343,6 +343,54 @@ Claude Code는 `/total` 화면을 구현할 때 아래 순서를 지킨다.
 `backend/src/routes/total.ts`가 `GET /api/total/monthly-channel-summary`를 제공한다.
 이 route는 운영 DB write 없이 `monthly-spine-dry-run.ts`와 `monthly-evidence-join-dry-run.ts`를 read-only로 실행한 뒤 이 계약 형태로 감싼다.
 
+### v0.2 correction_lines
+
+2026-05-13에 `total-monthly-channel-summary-v0.2`를 추가했다. 목적은 더클린커피 actual을 biocom Google Ads 예산 ROAS 보정값에 조용히 섞지 않고, site/source 별도 line으로 보여주는 것이다.
+
+새 top-level field:
+
+```json
+{
+  "correction_lines": {
+    "contract_version": "total-correction-lines-v0.1",
+    "budget_roas_policy": {
+      "budget_roas_site": "biocom",
+      "budget_roas_numerator": "internal_with_biocom_npay_actual",
+      "cross_site_lines_auto_added": false,
+      "coffee_line_policy": "reference_only_until_campaign_site_mapping"
+    },
+    "items": [
+      {
+        "id": "biocom_npay_actual_30d",
+        "site": "biocom",
+        "source": "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+        "db_location": "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
+        "included_in_budget_roas": true
+      },
+      {
+        "id": "thecleancoffee_npay_actual_30d",
+        "site": "thecleancoffee",
+        "source": "imweb_v2_vm_cloud_imweb_orders",
+        "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+        "status": "included_with_warning",
+        "count": 318,
+        "amount_krw": 15503000,
+        "status_blank_count": 26,
+        "status_blank_amount_krw": 1663600,
+        "included_in_budget_roas": false,
+        "use_for_budget_roas": "provisional_internal_actual_reference_only_until_campaign_site_mapping"
+      }
+    ]
+  }
+}
+```
+
+주의:
+- 운영DB PostgreSQL `dashboard.public.tb_iamweb_users`와 VM Cloud SQLite `imweb_orders`는 다른 source다.
+- 더클린커피 line은 내부 actual 후보로 보여주되, campaign/site spend mapping 전까지 biocom Google Ads 예산 ROAS 분자에 자동 가산하지 않는다.
+- `status blank`는 VM Cloud SQLite `imweb_orders.imweb_status`가 빈 row라는 뜻이며 운영DB PostgreSQL payment status blank가 아니다.
+- GA4는 `already_in_ga4` guard일 뿐 actual NPay 매출 source가 아니다.
+
 검증한 로컬 호출:
 
 ```text

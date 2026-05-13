@@ -1,0 +1,160 @@
+{
+  "run_id": "coffee-actual-24h-monitor-20260513",
+  "generated_at_kst": "2026-05-13 10:37:23 KST",
+  "lane": "Green read-only / no-send / no-write",
+  "monitor_status": {
+    "dedicated_status_blank_monitor_running": false,
+    "detected_existing_cron": {
+      "schedule": "0 9 * * *",
+      "timezone": "Asia/Seoul",
+      "path": "/home/biocomkr_sns/seo/coffee-monitoring/run.sh",
+      "script": "scripts/coffee-npay-intent-monitoring-report.ts",
+      "classification": "existing coffee NPay intent monitoring, not coffee actual imweb_status blank monitor"
+    },
+    "manual_read_only_monitor_completed": true,
+    "cron_registration_changed": false
+  },
+  "source_window_freshness_confidence": {
+    "source": {
+      "live_api": "https://att.ainativeos.net/api/attribution/site-landing/summary?site=thecleancoffee&windowHours=24",
+      "vm_cloud_sqlite": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders"
+    },
+    "window": "recent 30d NPay actual by order_time, plus 24h site landing API smoke",
+    "freshness": {
+      "max_order_time": "2026-05-13T01:21:01.000Z",
+      "max_synced_at": "2026-05-13 01:30:03",
+      "max_status_synced_at": "2026-05-12 04:11:07",
+      "status_sync_stale_over_6h": true
+    },
+    "confidence": 0.92
+  },
+  "previous_baseline": {
+    "captured_at_kst": "2026-05-13 02:02:00 KST",
+    "source": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders",
+    "actual_count": 311,
+    "actual_amount_krw": 14970600,
+    "status_blank_count": 16,
+    "status_blank_amount_krw": 1012700,
+    "max_status_synced_at": "2026-05-12 04:11:07"
+  },
+  "current_live_api": {
+    "ok": true,
+    "site": "thecleancoffee",
+    "window_hours": 24,
+    "actual_source": "imweb_v2_vm_cloud_imweb_orders",
+    "actual_status": "included_with_warning",
+    "actual_count": 318,
+    "actual_amount_krw": 15503000,
+    "gross_count": 349,
+    "gross_amount_krw": 17299400,
+    "excluded_cancel_return_exchange_count": 31,
+    "excluded_cancel_return_exchange_amount_krw": 1796400,
+    "confirmed_status_count": 292,
+    "confirmed_status_amount_krw": 13839400,
+    "status_blank_count": 26,
+    "status_blank_amount_krw": 1663600,
+    "max_order_time": "2026-05-13T01:21:01.000Z",
+    "max_synced_at": "2026-05-13 01:30:03",
+    "max_status_synced_at": "2026-05-12 04:11:07",
+    "warnings": [
+      "ga4_guard_not_actual_source",
+      "status_blank_rows_included_with_warning",
+      "status_sync_stale_over_6h"
+    ],
+    "invariants_held": {
+      "external_send_count": 0,
+      "upload_candidate_count": 0,
+      "gtm_publish": 0,
+      "imweb_footer_edit": 0,
+      "operational_db_write": 0,
+      "raw_email_phone_member_payment_order_in_response": false
+    }
+  },
+  "current_vm_cloud_sqlite_aggregate": {
+    "db": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+    "table": "imweb_orders",
+    "site": "thecleancoffee",
+    "pay_type": "npay",
+    "window": "last_30_days_by_order_time",
+    "generated_at_utc": "2026-05-13 01:37:23",
+    "gross_count": 349,
+    "gross_amount_krw": 17299400,
+    "excluded_cancel_return_exchange_count": 31,
+    "excluded_cancel_return_exchange_amount_krw": 1796400,
+    "included_count": 318,
+    "included_amount_krw": 15503000,
+    "confirmed_status_count": 292,
+    "confirmed_status_amount_krw": 13839400,
+    "status_blank_count": 26,
+    "status_blank_amount_krw": 1663600,
+    "min_blank_order_time": "2026-05-10T13:44:43.000Z",
+    "max_blank_order_time": "2026-05-13T01:21:01.000Z",
+    "blank_without_status_sync_ts": 26,
+    "max_order_time": "2026-05-13T01:21:01.000Z",
+    "max_synced_at": "2026-05-13 01:29:58",
+    "max_status_synced_at": "2026-05-12 04:11:07",
+    "status_distribution": [
+      {
+        "status": "PURCHASE_CONFIRMATION",
+        "count": 197,
+        "amount_krw": 8452700
+      },
+      {
+        "status": "DELIVERING",
+        "count": 37,
+        "amount_krw": 1689600
+      },
+      {
+        "status": "CANCEL",
+        "count": 31,
+        "amount_krw": 1796400
+      },
+      {
+        "status": "STANDBY",
+        "count": 29,
+        "amount_krw": 2505500
+      },
+      {
+        "status": "COMPLETE",
+        "count": 28,
+        "amount_krw": 1157700
+      },
+      {
+        "status": "",
+        "count": 26,
+        "amount_krw": 1663600
+      },
+      {
+        "status": "PAY_COMPLETE",
+        "count": 1,
+        "amount_krw": 33900
+      }
+    ]
+  },
+  "delta_from_previous_baseline": {
+    "actual_count_delta": 7,
+    "actual_amount_krw_delta": 532400,
+    "status_blank_count_delta": 10,
+    "status_blank_amount_krw_delta": 650900,
+    "max_status_synced_at_changed": false
+  },
+  "status_blank_root_cause": {
+    "classification": "source_freshness_gap_status_sync_lag",
+    "meaning": "VM Cloud SQLite imweb_orders.imweb_status is blank. This is not 운영DB PostgreSQL dashboard.public.tb_iamweb_users payment status, and not 로컬DB crm.sqlite3.",
+    "evidence": [
+      "26 status blank rows have no imweb_status_synced_at marker.",
+      "VM Cloud SQLite imweb_orders order sync advanced to 2026-05-13 01:30:03, but imweb_status sync stayed at 2026-05-12 04:11:07.",
+      "Blank rows remain NPay positive amount rows and are included only with warning after CANCEL/RETURN/EXCHANGE exclusion."
+    ]
+  },
+  "verdict": "Dedicated 24h coffee actual status monitor was not running automatically. Existing cron is a coffee NPay intent monitor. Manual read-only monitor completed and shows coffee actual source still included_with_warning; status blank increased from 16 to 26 because order sync advanced while status sync did not.",
+  "invariants": {
+    "external_send_count": 0,
+    "upload_candidate_count": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_edit": 0,
+    "cron_registration_changed": false,
+    "raw_identifier_output": false
+  }
+}
