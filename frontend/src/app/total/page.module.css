@@ -42,7 +42,8 @@
 
 /* gpt0508-49 UX 개선 — 비개발자 친화 신규 클래스 */
 
-.queryBtn {
+/* specificity 0,1,1 (.controls button) 을 이기기 위해 .controls .queryBtn 사용 */
+.controls .queryBtn {
   background: #1d4ed8;
   color: white;
   border: 0;
@@ -53,7 +54,7 @@
   cursor: pointer;
 }
 
-.queryBtn:hover {
+.controls .queryBtn:hover {
   background: #1e40af;
 }
 
