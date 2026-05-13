@@ -8,6 +8,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020"
 type FreshnessKey =
   | "fresh"
   | "local_cache"
+  | "warn"
+  | "stale"
+  | "empty"
+  | "missing"
+  | "data_sparse"
   | "blocked"
   | "blocked_or_empty"
   | "fallback"
@@ -132,6 +137,72 @@ type ApiResponse = {
       orders: number;
       revenue: number;
     }>;
+    unknown_reason_details?: Array<{
+      rootReason: string;
+      detail: string;
+      orders: number;
+      revenue: number;
+      nextEvidenceNeeded: string;
+      recommendedFix: string;
+      confidence?: string;
+    }>;
+    naver_organic_evidence?: Array<{
+      label: string;
+      orders: number;
+      revenue: number | null;
+      confidence: string;
+      source: string;
+      useForBudgetRoas: string;
+      note: string;
+    }>;
+    naver_evidence_aggregate?: {
+      contractVersion: string;
+      aggregateOnly: boolean;
+      rawIdentifierOutput: boolean;
+      budgetRoasIncluded: boolean;
+      source: string;
+      coverageStatus?: string;
+      endpointStatus?: string;
+      summary?: {
+        rowsTotal: number;
+        naverAny: number;
+        byClass: Record<string, number>;
+      };
+      rows: Array<{
+        class: string;
+        touchpoint: string;
+        rows: number;
+        bridgeKeyPresent: number;
+        confidence: string;
+        budgetRoasIncluded: boolean;
+        useForBudgetRoas: string;
+        note: string;
+      }>;
+      warnings?: string[];
+    } | null;
+    utm_invalid_audit?: Array<{
+      source: string;
+      medium: string;
+      campaign: string;
+      family: string;
+      candidateRule: string;
+      orders: number;
+      revenue: number;
+      useForBudgetRoas: string;
+      note: string;
+    }>;
+    subscription_acquisition_summary?: {
+      renewable_order_count: number;
+      renewable_revenue: number;
+      first_subscription_order_count: number;
+      first_subscription_revenue: number;
+      first_acquisition_channel_found: number;
+      first_acquisition_revenue_found: number;
+      archive_lookup_needed: number;
+      archive_lookup_needed_revenue: number;
+      member_key_missing: number;
+      member_key_missing_revenue: number;
+    } | null;
     evidence_tier_summary: unknown[];
     npay_intent_status_summary: unknown[];
   };
@@ -162,6 +233,28 @@ type ApiResponse = {
 };
 
 type ApiError = { ok: false; error: string };
+type SelectedSite = "biocom" | "thecleancoffee";
+
+const defaultReportMonth = (): string => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  return year && month ? `${year}-${month}` : "2026-05";
+};
+
+const SITE_OPTIONS: Array<{ id: SelectedSite; label: string; helper: string }> = [
+  { id: "biocom", label: "바이오컴", helper: "월별 채널 분석" },
+  { id: "thecleancoffee", label: "더클린커피", helper: "최근 30일 actual line" },
+];
+
+const SITE_LABEL: Record<SelectedSite | string, string> = {
+  biocom: "바이오컴",
+  thecleancoffee: "더클린커피",
+};
 
 const fmtKRW = (v: number | null | undefined): string => {
   if (v == null || Number.isNaN(v)) return "-";
@@ -214,6 +307,10 @@ const PLATFORM_LABEL: Record<string, string> = {
 const FRESHNESS_LABEL: Record<string, { text: string; tone: "green" | "yellow" | "red" | "neutral" }> = {
   fresh: { text: "최신 데이터", tone: "green" },
   local_cache: { text: "참고용 캐시", tone: "yellow" },
+  warn: { text: "주의 필요", tone: "yellow" },
+  empty: { text: "데이터 비어있음", tone: "yellow" },
+  missing: { text: "연결 없음", tone: "red" },
+  data_sparse: { text: "최근 데이터 적음", tone: "yellow" },
   blocked: { text: "연결 필요", tone: "red" },
   blocked_or_empty: { text: "연결 필요", tone: "red" },
   fallback: { text: "판단 보류", tone: "red" },
@@ -275,13 +372,130 @@ function translateUnknownReason(reason: string): string {
     session_lost: "세션 키 손실 (쿠키 비허용 / 다른 origin redirect)",
     no_evidence: "유입 증거 전혀 없음",
     expired_evidence: "유입 증거 만료 (TTL 초과)",
+    vm_payment_success_missing: "결제완료 이벤트 연결 누락",
+    missing_channel_evidence: "채널 증거 부족",
+    subscription_without_acquisition_evidence: "구독 최초 유입 확인 필요",
+    subscription_first_without_acquisition_evidence: "첫 구독 시작 유입 근거 부족",
+    npay_intent_ambiguous: "NPay 의도 매칭 후보 여러 개",
   };
   return map[reason] || `기타: ${reason}`;
+}
+
+function translateUnknownDetail(detail: string): string {
+  const map: Record<string, string> = {
+    payment_success_missing_in_vm_cloud: "VM Cloud 유입 장부에 결제완료 이벤트가 없음",
+    checkout_started_but_payment_success_missing: "결제 시작은 보이나 결제완료 연결이 없음",
+    payment_success_order_key_normalize_failed: "결제완료 주문번호 연결 규칙 확인 필요",
+    npay_return_missing: "NPay 완료 후 사이트 복귀/주문 연결 부족",
+    naver_referrer_present_but_order_bridge_missing: "네이버 검색 유입은 보이나 주문 연결 부족",
+    no_click_id_utm_referrer_or_first_touch: "광고 클릭 ID, UTM, referrer, 첫 방문 정보가 모두 부족",
+    utm_present_but_not_classifiable: "UTM은 있으나 광고/자연/추천 규칙으로 분류 불가",
+    utm_present_but_invalid_rule: "UTM은 있으나 규칙이 맞지 않음",
+    self_or_internal_referrer_only: "외부 유입 없이 내부 도메인 이동 흔적만 있음",
+    no_click_id_or_referrer: "광고 클릭 ID와 referrer가 없음",
+    no_referrer: "referrer와 첫 유입 정보가 부족",
+    no_paid_or_referrer_evidence: "광고 클릭 또는 자연/추천 referrer 근거 부족",
+    click_id_missing: "광고 클릭 ID가 부족",
+    first_touch_expired: "첫 유입 정보 보존 기간 확인 필요",
+    first_subscription_missing_acquisition_evidence: "첫 구독 시작 시점의 유입 근거 부족",
+    first_order_outside_window: "첫 주문이 현재 조회 기간 밖에 있음",
+    member_hash_missing: "회원 연결 key가 부족",
+    acquisition_archive_lookup_needed: "과거 유입 장부 조회 필요",
+    npay_intent_multiple_candidates: "NPay 클릭 의도 후보가 여러 개라 한 주문으로 확정 불가",
+  };
+  return map[detail] || detail;
+}
+
+function translateEvidenceNeed(value: string): string {
+  const map: Record<string, string> = {
+    "VM Cloud attribution_ledger payment_success coverage": "VM Cloud 결제완료 이벤트가 충분히 남았는지",
+    "original external referrer before internal redirect": "내부 이동 전 최초 외부 유입 주소",
+    "utm_source/utm_medium naming rule": "광고/자연검색을 구분할 수 있는 UTM 규칙",
+    "subscription first-order acquisition archive": "첫 구독 시작 당시의 과거 유입 장부",
+    "first order outside current report window": "현재 월 밖에 있는 최초 주문 유입",
+    "VM Cloud checkout event to payment_success continuity": "결제 시작에서 결제완료까지 이어지는 서버 신호",
+    "NPay intent disambiguation key": "NPay 클릭 후보를 한 주문으로 좁히는 key",
+  };
+  return map[value] || value;
+}
+
+function translateRecommendedFix(value: string): string {
+  const map: Record<string, string> = {
+    "server-side payment_success capture 또는 order id normalize rule 점검": "서버 결제완료 수집과 주문 연결 규칙을 점검",
+    "내부 도메인 이동 전 최초 referrer/landing 보존": "내부 이동 전에 최초 유입 주소와 landing을 보존",
+    "paid/organic 판정 가능한 UTM source/medium 표준으로 정리": "광고와 자연검색이 구분되도록 UTM 이름을 표준화",
+    "첫 구독 시작 주문의 과거 유입 장부 archive lookup 설계": "첫 구독 시작 시점의 과거 유입 장부 조회 설계",
+    "월별 화면 밖 최초 주문 acquisition을 archive에서 조회": "현재 월 밖 최초 주문의 획득 채널을 archive에서 조회",
+    "checkout 진입 후 결제완료 신호가 끊기는 구간의 server-side success capture 점검": "결제 시작 뒤 결제완료 서버 신호가 끊기는 구간을 점검",
+    "NPay intent ledger의 order/session key 정밀도 개선": "NPay 클릭 장부의 주문/세션 key 정밀도 개선",
+  };
+  return map[value] || value;
+}
+
+function translateNaverEvidenceLabel(label: string): string {
+  const map: Record<string, string> = {
+    organic_naver_order_level_strong: "주문 단위 네이버 자연검색",
+    organic_naver_session_level_medium: "세션 단위 네이버 자연검색 후보",
+    naver_referrer_but_order_bridge_missing: "네이버 유입 보임, 주문 연결 부족",
+    naver_searchadvisor_aggregate_only: "Search Advisor 참고 지표",
+    naver_search_referrer_paid_marker_excluded: "네이버 검색 유입 중 유료 표식 제외",
+    naver_non_search_referrer_reference_only: "네이버 비검색 referrer 참고",
+  };
+  return map[label] || label;
+}
+
+function translateNaverAggregateClass(value: string): string {
+  const map: Record<string, string> = {
+    paid_naver: "네이버 광고 후보",
+    naver_brandsearch: "네이버 브랜드검색 후보",
+    organic_naver_candidate: "네이버 자연검색 후보",
+    naver_referrer_or_utm_only: "네이버 흔적 있음, 분류 보류",
+  };
+  return map[value] || value;
+}
+
+function translateTouchpoint(value: string): string {
+  const map: Record<string, string> = {
+    marketing_intent: "광고 클릭/의도",
+    checkout_started: "결제 시작",
+    checkout_context: "결제 시작",
+    payment_success: "결제 완료",
+    form_submit: "폼 제출",
+  };
+  return map[value] || value;
+}
+
+function translateUtmFamily(family: string): string {
+  const map: Record<string, string> = {
+    naver_brandsearch: "네이버 브랜드검색 후보",
+    paid_naver_candidate: "네이버 유료검색 후보",
+    naver_utm_needs_rule: "네이버 UTM 규칙 확인",
+    kakao_candidate: "카카오 후보",
+    meta_candidate: "Meta 후보",
+    google_candidate: "Google 후보",
+    unknown_utm_invalid: "규칙 없는 UTM",
+  };
+  return map[family] || family;
+}
+
+function translateUtmCandidateRule(rule: string): string {
+  const map: Record<string, string> = {
+    naver_brandsearch_reference: "브랜드검색 참고 evidence",
+    paid_naver_reference: "네이버 광고 참고 evidence",
+    naver_rule_review: "네이버 규칙 추가 검토",
+    kakao_reference: "카카오 참고 evidence",
+    paid_meta_reference: "Meta 참고 evidence",
+    paid_google_reference: "Google 참고 evidence",
+    unknown_utm_invalid: "자동 분류 보류",
+  };
+  return map[rule] || rule;
 }
 
 function translateSource(source: string): string {
   const map: Record<string, string> = {
     ga4_bigquery_raw: "GA4 BigQuery 원본",
+    ga4_bigquery_biocom: "GA4 BigQuery 원본",
+    ga4_bigquery_thecleancoffee: "더클린커피 GA4 BigQuery",
     npay_intent: "NPay 클릭 의도",
     platform_meta: "Meta 광고",
     platform_tiktok: "TikTok 광고",
@@ -299,6 +513,10 @@ function translateFreshness(f: string | undefined): string {
   const map: Record<string, string> = {
     fresh: "최신",
     local_cache: "캐시 (원본 대조 전 참고)",
+    warn: "주의 필요",
+    empty: "데이터 비어있음",
+    missing: "연결 없음",
+    data_sparse: "최근 데이터 적음",
     blocked: "연결 끊김",
     blocked_or_empty: "연결 안 됨 또는 비어있음",
     fallback: "대체 데이터 사용 중",
@@ -319,11 +537,13 @@ function translateChannelCode(primary: string): string {
     paid_search: "유료 검색",
     paid_social: "유료 소셜",
     organic_search: "자연 검색",
+    organic_naver: "네이버 자연검색",
     organic_social: "자연 소셜",
     direct: "직접 방문",
     referral: "추천 링크",
     self_internal: "자기 도메인 이동",
     npay: "NPay 결제",
+    subscription_recurring: "구독/정기결제",
     unknown: "어디서 왔는지 모름",
   };
   return map[primary] || primary;
@@ -332,6 +552,7 @@ function translateChannelCode(primary: string): string {
 function channelAction(row: ChannelRow): { text: string; tone: "green" | "yellow" | "red" | "neutral" } {
   if (row.primary_channel === "unknown") return { text: "데이터 연결 필요", tone: "red" };
   if (row.primary_channel === "npay") return { text: "판단 보류", tone: "yellow" };
+  if (row.primary_channel === "subscription_recurring") return { text: "유지 매출", tone: "neutral" };
   if (row.primary_channel === "paid_naver") return { text: "데이터 연결 필요", tone: "red" };
   if (row.primary_channel.startsWith("paid_") && row.revenue > 0) {
     return { text: "예산 유지", tone: "green" };
@@ -428,7 +649,7 @@ function normalizeDiagnostics(data: ApiResponse): DiagnosticEntry[] {
   for (const src of data.source_freshness) {
     if (src.role === "platform_reference") continue;
     const isFresh = src.status === "fresh";
-    const isStale = ["blocked", "blocked_or_empty", "fallback", "stale", "error", "unavailable"].includes(src.status);
+    const isStale = ["blocked", "blocked_or_empty", "fallback", "stale", "error", "unavailable", "missing", "empty"].includes(src.status);
     out.push({
       scope: src.role,
       source: src.source,
@@ -605,12 +826,96 @@ function CorrectionLinesSection({ lines }: { lines: CorrectionLineItem[] }) {
   );
 }
 
+function CoffeeReferenceView({
+  line,
+  queriedAt,
+  month,
+}: {
+  line?: CorrectionLineItem;
+  queriedAt?: string | null;
+  month: string;
+}) {
+  if (!line) {
+    return (
+      <section className={styles.blockedPanel}>
+        <h2>더클린커피 데이터 연결 대기</h2>
+        <p>
+          현재 `/total` 응답에 더클린커피 correction line이 없습니다. backend correction source 파일 또는
+          site-landing summary API 연결 상태를 먼저 확인해야 합니다.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <div>
+      <section className={styles.decisionHero}>
+        <div className={`${styles.decisionCard} ${styles.primaryDecision}`}>
+          <span className={styles.kpiLabel}>더클린커피 실제 NPay 매출 후보</span>
+          <strong className={styles.decisionValue}>{fmtKRW(line.amount_krw)}</strong>
+          <span className={styles.kpiSub}>
+            최근 30일 rolling actual line · {fmtNum(line.count)}건
+          </span>
+        </div>
+        <div className={styles.decisionCard}>
+          <span className={styles.kpiLabel}>현재 상태</span>
+          <strong className={styles.decisionValue}>
+            <StatusBadge status={line.status} />
+          </strong>
+          <span className={styles.kpiSub}>VM Cloud SQLite imweb_orders 기준</span>
+        </div>
+        <div className={styles.decisionCard}>
+          <span className={styles.kpiLabel}>status blank</span>
+          <strong className={styles.decisionValue}>{fmtNum(line.status_blank_count ?? 0)}건</strong>
+          <span className={styles.kpiSub}>{fmtKRW(line.status_blank_amount_krw ?? 0)} · sync lag 관찰 대상</span>
+        </div>
+        <div className={styles.decisionCard}>
+          <span className={styles.kpiLabel}>예산 ROAS 사용</span>
+          <strong className={styles.decisionValue}>제외</strong>
+          <span className={styles.kpiSub}>biocom 광고 예산 판단에 자동 합산 금지</span>
+        </div>
+      </section>
+
+      <section className={styles.blockedPanel}>
+        <h2>더클린커피 탭은 아직 월별 채널 분석이 아닙니다</h2>
+        <p>
+          이 탭은 {month} 월별 채널 breakdown이 아니라, 더클린커피 NPay actual correction line을 별도로
+          보여주는 참고 화면입니다. 광고/자연검색/직접방문 분해는 coffee용 월별 spine과 channel evidence가
+          붙은 뒤 열어야 합니다.
+        </p>
+        <ul>
+          <li>source: <code>{line.source}</code></li>
+          <li>위치: <code>{line.db_location}</code> · <code>{line.table}</code></li>
+          <li>정책: <code>{line.use_for_budget_roas}</code></li>
+          <li>조회 시각: {fmtTs(queriedAt)}</li>
+        </ul>
+      </section>
+
+      {line.warnings.length > 0 && (
+        <section className={styles.warningBanner}>
+          <strong>주의할 점</strong>
+          <ul>
+            {line.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+            <li>GA4는 already_in_ga4 guard일 뿐 actual 매출 source가 아닙니다.</li>
+            <li>campaign/site spend mapping 전까지 biocom budget ROAS에 더하지 않습니다.</li>
+          </ul>
+        </section>
+      )}
+
+      <CorrectionLinesSection lines={[line]} />
+    </div>
+  );
+}
+
 export default function TotalPage() {
-  const [month, setMonth] = useState("2026-04");
-  const [draftMonth, setDraftMonth] = useState("2026-04");
+  const [month, setMonth] = useState(defaultReportMonth);
+  const [draftMonth, setDraftMonth] = useState(defaultReportMonth);
+  const [selectedSite, setSelectedSite] = useState<SelectedSite>("biocom");
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(7);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -663,7 +968,7 @@ export default function TotalPage() {
   const diagnostics = useMemo(() => (data ? normalizeDiagnostics(data) : []), [data]);
   const stale = diagnostics.filter((d) => d.budgetDecisionImpact !== "usable");
   const correctionLines = data?.correction_lines?.items || [];
-  const referenceCorrectionAmount = correctionAmount(correctionLines, false);
+  const coffeeLine = correctionLines.find((line) => line.site === "thecleancoffee");
   const budgetCorrectionAmount = correctionAmount(correctionLines, true);
   const holdRevenue = data
     ? data.evidence.totals.unknown_revenue +
@@ -685,6 +990,22 @@ export default function TotalPage() {
         이번 달 실제 결제완료 매출이 어느 채널 (광고 / 자연 검색 / 직접 방문 / 추천) 에서 들어왔는지 한 화면에 보여줍니다. 광고 플랫폼이 주장하는 매출은 절대 더하지 않습니다.
       </p>
 
+      <div className={styles.siteTabs} role="tablist" aria-label="사이트 선택">
+        {SITE_OPTIONS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={selectedSite === option.id}
+            className={`${styles.siteTab} ${selectedSite === option.id ? styles.siteTabActive : ""}`.trim()}
+            onClick={() => setSelectedSite(option.id)}
+          >
+            <span>{option.label}</span>
+            <small>{option.helper}</small>
+          </button>
+        ))}
+      </div>
+
       <div className={styles.controls}>
         <label>
           월:
@@ -701,7 +1022,7 @@ export default function TotalPage() {
         </button>
         {data && (
           <span className={styles.controlMeta}>
-            사이트 <strong>{data.metadata.site}</strong> · 조회 시각 {fmtTs(data.metadata.queried_at)}
+            표시 사이트 <strong>{SITE_LABEL[selectedSite]}</strong> · source 조회 시각 {fmtTs(data.metadata.queried_at)}
           </span>
         )}
       </div>
@@ -753,7 +1074,13 @@ export default function TotalPage() {
         </div>
       )}
 
-      {data && (
+      {data && selectedSite === "thecleancoffee" && (
+        <div className={loading ? styles.dataDimmed : undefined}>
+          <CoffeeReferenceView line={coffeeLine} queriedAt={data.metadata.queried_at} month={month} />
+        </div>
+      )}
+
+      {data && selectedSite === "biocom" && (
         <div className={loading ? styles.dataDimmed : undefined}>
           <section className={styles.decisionHero}>
             <div className={`${styles.decisionCard} ${styles.primaryDecision}`}>
@@ -764,11 +1091,6 @@ export default function TotalPage() {
               <span className={styles.kpiSub}>
                 바이오컴 결제완료 (아임웹 + 토스 정본). 광고 플랫폼 주장값과 합치지 않음
               </span>
-            </div>
-            <div className={styles.decisionCard}>
-              <span className={styles.kpiLabel}>참고용 매출 (예산 판단 제외)</span>
-              <strong className={styles.decisionValue}>{fmtKRW(referenceCorrectionAmount)}</strong>
-              <span className={styles.kpiSub}>더클린커피 등 다른 사이트 매출</span>
             </div>
             <div className={styles.decisionCard}>
               <span className={styles.kpiLabel}>어디서 왔는지 모르는 매출</span>
@@ -799,7 +1121,8 @@ export default function TotalPage() {
               </h2>
               <p className={styles.calloutDesc}>
                 이 주문들에는 광고 클릭 ID / UTM / referrer 정보가 충분히 남아있지 않아서 자동 채널 분류가 안 됐습니다.
-                <strong> 매출은 분명 있지만 어떻게 들어왔는지 모르는 상태</strong>입니다.
+                <strong> 매출은 분명 있지만 어떻게 들어왔는지 모르는 상태</strong>입니다. 구독/정기결제는 첫 구독 시작만 유입을 보고,
+                2회차 이후 매출은 별도 `구독/정기결제` 채널로 분리했습니다.
               </p>
               {data.evidence.unknown_reasons && data.evidence.unknown_reasons.length > 0 && (
                 <table className={styles.calloutTable}>
@@ -823,6 +1146,140 @@ export default function TotalPage() {
                       ))}
                   </tbody>
                 </table>
+              )}
+              {data.evidence.unknown_reason_details && data.evidence.unknown_reason_details.length > 0 && (
+                <table className={styles.calloutTable}>
+                  <thead>
+                    <tr>
+                      <th>구체 원인</th>
+                      <th style={{ textAlign: "right" }}>주문</th>
+                      <th style={{ textAlign: "right" }}>매출</th>
+                      <th>다음 확인</th>
+                      <th>줄이는 방법</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.evidence.unknown_reason_details
+                      .slice()
+                      .sort((a, b) => b.revenue - a.revenue)
+                      .map((row) => (
+                        <tr key={`${row.rootReason}-${row.detail}`}>
+                          <td>
+                            <strong>{translateUnknownReason(row.rootReason)}</strong>
+                            <br />
+                            <span className={styles.detailMuted}>{translateUnknownDetail(row.detail)}</span>
+                          </td>
+                          <td className={styles.num}>{fmtNum(row.orders)}</td>
+                          <td className={styles.num}>{fmtKRW(row.revenue)}</td>
+                          <td>{translateEvidenceNeed(row.nextEvidenceNeeded)}</td>
+                          <td>{translateRecommendedFix(row.recommendedFix)}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+              {data.evidence.naver_organic_evidence && data.evidence.naver_organic_evidence.length > 0 && (
+                <table className={styles.calloutTable}>
+                  <thead>
+                    <tr>
+                      <th>네이버 검색 근거</th>
+                      <th style={{ textAlign: "right" }}>건수</th>
+                      <th style={{ textAlign: "right" }}>매출</th>
+                      <th>예산 판단</th>
+                      <th>설명</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.evidence.naver_organic_evidence.map((row) => (
+                      <tr key={row.label}>
+                        <td>
+                          <strong>{translateNaverEvidenceLabel(row.label)}</strong>
+                          <br />
+                          <span className={styles.detailMuted}>{row.source}</span>
+                        </td>
+                        <td className={styles.num}>{fmtNum(row.orders)}</td>
+                        <td className={styles.num}>{row.revenue == null ? "-" : fmtKRW(row.revenue)}</td>
+                        <td>
+                          {row.useForBudgetRoas === "yes_order_level"
+                            ? "주문 단위 사용 가능"
+                            : row.useForBudgetRoas === "reference_only"
+                            ? "참고용"
+                            : "예산 판단 제외"}
+                        </td>
+                        <td>{row.note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {data.evidence.naver_evidence_aggregate && data.evidence.naver_evidence_aggregate.rows.length > 0 && (
+                <>
+                  <p className={styles.calloutFix}>
+                    <strong>네이버 전체 원장 기준:</strong> {fmtNum(data.evidence.naver_evidence_aggregate.summary?.naverAny || 0)}건 · {data.evidence.naver_evidence_aggregate.coverageStatus === "full_aggregate" ? "전체 aggregate" : "제한된 item 기준"} · 모두 참고용, 예산 판단 제외
+                  </p>
+                  <table className={styles.calloutTable}>
+                    <thead>
+                      <tr>
+                        <th>분류</th>
+                        <th>단계</th>
+                        <th style={{ textAlign: "right" }}>건수</th>
+                        <th style={{ textAlign: "right" }}>연결키 있음</th>
+                        <th>예산 판단</th>
+                        <th>설명</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.evidence.naver_evidence_aggregate.rows.map((row) => (
+                        <tr key={`${row.class}-${row.touchpoint}`}>
+                          <td><strong>{translateNaverAggregateClass(row.class)}</strong></td>
+                          <td>{translateTouchpoint(row.touchpoint)}</td>
+                          <td className={styles.num}>{fmtNum(row.rows)}</td>
+                          <td className={styles.num}>{fmtNum(row.bridgeKeyPresent)}</td>
+                          <td>참고용, 예산 판단 제외</td>
+                          <td>{row.note}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+              {data.evidence.utm_invalid_audit && data.evidence.utm_invalid_audit.length > 0 && (
+                <table className={styles.calloutTable}>
+                  <thead>
+                    <tr>
+                      <th>UTM 규칙 후보</th>
+                      <th style={{ textAlign: "right" }}>주문</th>
+                      <th style={{ textAlign: "right" }}>매출</th>
+                      <th>판정</th>
+                      <th>검증용 값</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.evidence.utm_invalid_audit.slice(0, 8).map((row) => (
+                      <tr key={`${row.family}-${row.source}-${row.medium}-${row.campaign}`}>
+                        <td>
+                          <strong>{translateUtmFamily(row.family)}</strong>
+                          <br />
+                          <span className={styles.detailMuted}>{translateUtmCandidateRule(row.candidateRule)}</span>
+                        </td>
+                        <td className={styles.num}>{fmtNum(row.orders)}</td>
+                        <td className={styles.num}>{fmtKRW(row.revenue)}</td>
+                        <td>참고용, 예산 판단 제외</td>
+                        <td>
+                          <span className={styles.detailMuted}>
+                            source={row.source} / medium={row.medium} / campaign={row.campaign}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {data.evidence.subscription_acquisition_summary && (
+                <p className={styles.calloutFix}>
+                  <strong>구독/정기결제:</strong> 2회차 이후 {fmtNum(data.evidence.subscription_acquisition_summary.renewable_order_count)}건 · {fmtKRW(data.evidence.subscription_acquisition_summary.renewable_revenue)}은
+                  별도 구독 매출로 분리했습니다. 첫 구독 중 유입 확인이 필요한 건은 {fmtNum(data.evidence.subscription_acquisition_summary.archive_lookup_needed)}건입니다.
+                </p>
               )}
               <p className={styles.calloutFix}>
                 <strong>줄이는 방법:</strong> 광고 destination URL 의 UTM 정정 (utm_source/medium 분리) + 카카오 알림톡 / 네이버 파워링크 같은 한국 채널 트래픽도 광고 클릭 ID 캡쳐 추가.
@@ -988,9 +1445,11 @@ export default function TotalPage() {
                         </td>
                         <td style={{ fontSize: 11.5, color: "#64748b" }}>
                           {row.primary_channel === "paid_naver"
-                            ? "네이버 광고는 광고비 source 미연결 — 추정값"
+                            ? "네이버 광고비는 로컬 캐시 연결, 캠페인별 주문 join은 보류"
                             : row.primary_channel === "npay"
                             ? "NPay 결제완료, 광고 연결은 보류"
+                            : row.primary_channel === "organic_naver"
+                            ? "네이버 검색 referrer 기반, paid marker 없음"
                             : row.primary_channel === "unknown"
                             ? "매출은 있으나 유입 흔적 부족"
                             : ""}

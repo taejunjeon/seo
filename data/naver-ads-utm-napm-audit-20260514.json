@@ -1,0 +1,238 @@
+{
+  "ok": true,
+  "package": "gptconfirm/gpt0514-2",
+  "generated_at_kst": "2026-05-14 01:28:41 KST",
+  "mode": "green_read_only_naver_ads_utm_napm_tracking_audit",
+  "site": "biocom",
+  "window": {
+    "label": "2026-05 monthly KST",
+    "start_at_utc": "2026-04-30T15:00:00.000Z",
+    "end_at_utc": "2026-05-31T15:00:00.000Z"
+  },
+  "source_window_freshness_confidence": {
+    "actual_revenue_spine": {
+      "source": "운영DB PostgreSQL dashboard.public.tb_iamweb_users via local backend dry-run",
+      "window": "2026-05-01 KST <= paid/order month < 2026-06-01 KST",
+      "freshness": "local API smoke at 2026-05-14 KST",
+      "confidence": "B+"
+    },
+    "channel_evidence": {
+      "source": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 attribution_ledger and site_landing_ledger",
+      "window": "2026-04-30T15:00:00.000Z <= logged_at/received_at < 2026-05-31T15:00:00.000Z",
+      "freshness": "SSH read-only query at 2026-05-14 KST",
+      "confidence": "B"
+    },
+    "ga4_cross_check": {
+      "source": "BigQuery project-dadba7dd-0229-4ff6-81c analytics_304759974_hurdlers_backfill + analytics_304759974 union",
+      "window": "last_7d/14d/30d ending 2026-05-12",
+      "freshness": "BigQuery read-only union dry-run at 2026-05-14 KST",
+      "confidence": "A- for traffic source cross-check, not actual revenue"
+    }
+  },
+  "monthly_total_api_smoke": {
+    "ok": true,
+    "actual_spine_orders": 941,
+    "actual_spine_revenue_krw": 204006680,
+    "assigned_orders": 431,
+    "assigned_revenue_krw": 80373978,
+    "unknown_orders": 510,
+    "unknown_revenue_krw": 123632702,
+    "utm_invalid_audit_rows": 15,
+    "primary_sum_matches_revenue": true
+  },
+  "vm_cloud_attribution_inventory": [
+    {
+      "touchpoint": "checkout_started",
+      "total": 2199,
+      "naver_any": 629,
+      "search_referrer": 476,
+      "napm": 488,
+      "brandsearch": 229,
+      "n_param": 15,
+      "bridge_key_present": 1790
+    },
+    {
+      "touchpoint": "marketing_intent",
+      "total": 20827,
+      "naver_any": 225,
+      "search_referrer": 0,
+      "napm": 6,
+      "brandsearch": 0,
+      "n_param": 219,
+      "bridge_key_present": 0
+    },
+    {
+      "touchpoint": "payment_success",
+      "total": 854,
+      "naver_any": 216,
+      "search_referrer": 157,
+      "napm": 158,
+      "brandsearch": 100,
+      "n_param": 8,
+      "bridge_key_present": 854
+    }
+  ],
+  "vm_cloud_naver_classification_v1": [
+    {
+      "class": "naver_brandsearch",
+      "touchpoint": "checkout_started",
+      "rows": 229,
+      "bridge_key_present": 175,
+      "use_for_budget_roas": "reference_only_not_budget"
+    },
+    {
+      "class": "naver_brandsearch",
+      "touchpoint": "payment_success",
+      "rows": 100,
+      "bridge_key_present": 100,
+      "use_for_budget_roas": "reference_only_not_budget"
+    },
+    {
+      "class": "paid_naver",
+      "touchpoint": "checkout_started",
+      "rows": 297,
+      "bridge_key_present": 77,
+      "use_for_budget_roas": "reference_only_not_budget"
+    },
+    {
+      "class": "paid_naver",
+      "touchpoint": "payment_success",
+      "rows": 59,
+      "bridge_key_present": 59,
+      "use_for_budget_roas": "reference_only_not_budget"
+    },
+    {
+      "class": "organic_naver_candidate",
+      "touchpoint": "checkout_started",
+      "rows": 70,
+      "bridge_key_present": 70,
+      "use_for_budget_roas": "reference_only_not_budget"
+    },
+    {
+      "class": "organic_naver_candidate",
+      "touchpoint": "payment_success",
+      "rows": 39,
+      "bridge_key_present": 39,
+      "use_for_budget_roas": "reference_only_not_budget"
+    },
+    {
+      "class": "naver_referrer_or_utm_only",
+      "touchpoint": "checkout_started",
+      "rows": 29,
+      "bridge_key_present": 27,
+      "use_for_budget_roas": "reference_only_not_budget"
+    },
+    {
+      "class": "naver_referrer_or_utm_only",
+      "touchpoint": "payment_success",
+      "rows": 17,
+      "bridge_key_present": 17,
+      "use_for_budget_roas": "reference_only_not_budget"
+    }
+  ],
+  "vm_cloud_site_landing_inventory": {
+    "total": 2912,
+    "utm_any": 2154,
+    "naver_any": 138,
+    "naver_search_referrer": 47,
+    "napm": 99,
+    "brandsearch": 68,
+    "n_param": 3,
+    "session_key_present": 2145
+  },
+  "local_naver_ads_daily_cache": {
+    "source": "로컬DB backend/data/crm.sqlite3 naver_ads_daily",
+    "window": "2026-05-06..2026-05-12 cached rows inside requested month",
+    "rows": 259,
+    "impressions": 247090,
+    "clicks": 3000,
+    "spend_krw": 1698930,
+    "platform_claim_conversions": 383,
+    "platform_claim_conversion_value_krw": 31501866,
+    "use_for_budget_roas": "platform_reference_only"
+  },
+  "utm_invalid_audit_top": [
+    {
+      "source": "topbanner_mo",
+      "medium": "topbanner_mo",
+      "campaign": "topbanner_mo",
+      "family": "unknown_utm_invalid",
+      "orders": 9,
+      "revenue_krw": 2278179
+    },
+    {
+      "source": "kakao",
+      "medium": "plus",
+      "campaign": "(blank)",
+      "family": "kakao_candidate",
+      "orders": 7,
+      "revenue_krw": 1868783
+    },
+    {
+      "source": "newmember_coupon",
+      "medium": "newmember_coupon",
+      "campaign": "newmember_coupon",
+      "family": "unknown_utm_invalid",
+      "orders": 6,
+      "revenue_krw": 1652500
+    },
+    {
+      "source": "kakao",
+      "medium": "brand-message",
+      "campaign": "b2026051158d12c08c11ca",
+      "family": "kakao_candidate",
+      "orders": 26,
+      "revenue_krw": 1310992
+    },
+    {
+      "source": "youtube_biocom_dangdangcare_badhabit",
+      "medium": "youtube_biocom_dangdangcare_badhabit",
+      "campaign": "youtube_biocom_dangdangcare_badhabit",
+      "family": "google_candidate",
+      "orders": 11,
+      "revenue_krw": 844731
+    }
+  ],
+  "ga4_bigquery_cross_check": {
+    "mode": "green_read_only_bigquery_archive_daily_union_dry_run",
+    "windows": [
+      {
+        "label": "last_7d",
+        "start_date": "2026-05-06",
+        "end_date": "2026-05-12",
+        "coverage_status": "PASS",
+        "event_rows": 355173,
+        "sessions": 59482,
+        "organic_search_sessions": 6190,
+        "paid_naver_brandsearch_mo_sessions": 469,
+        "paid_naver_brandsearch_pc_sessions": 141
+      },
+      {
+        "label": "last_30d",
+        "start_date": "2026-04-13",
+        "end_date": "2026-05-12",
+        "coverage_status": "PASS",
+        "event_rows": 2078719,
+        "sessions": 347662,
+        "organic_search_sessions": 18901,
+        "paid_naver_brandsearch_mo_sessions": 1771,
+        "paid_naver_brandsearch_pc_sessions": 691
+      }
+    ],
+    "warning": "GA4 source_group and campaign_hint can disagree, so GA4 is cross-check only and not actual revenue attribution."
+  },
+  "code_changes": [
+    "backend/scripts/monthly-evidence-join-dry-run.ts adds utmInvalidAudit aggregate and safer UTM family classification",
+    "backend/src/routes/total.ts exposes evidence.utm_invalid_audit",
+    "frontend/src/app/total/page.tsx renders UTM rule candidates inside unknown drilldown"
+  ],
+  "forbidden_actions_not_taken": [
+    "external platform send/upload",
+    "operating DB write",
+    "VM Cloud schema migration/write",
+    "GTM publish",
+    "Imweb footer/header change",
+    "deploy/restart"
+  ],
+  "raw_identifier_output": false
+}

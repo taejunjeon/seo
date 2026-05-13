@@ -1,0 +1,53 @@
+{
+  "checked_at_kst": "2026-05-13 23:34:00 KST",
+  "lane": "Approved Yellow VM Cloud backend deploy/restart",
+  "approval": "TJ님 approved 신규 전환 운영",
+  "remote": {
+    "host": "34.64.104.94",
+    "user": "biocomkr_sns",
+    "repo": "/home/biocomkr_sns/seo/repo",
+    "backup": "/home/biocomkr_sns/seo/repo/.deploy-backups/sourcefreshness-new-export-20260513T2328KST"
+  },
+  "deployed_files": [
+    "backend/src/sourceFreshness.ts",
+    "backend/src/routes/total.ts"
+  ],
+  "pre_snapshot": {
+    "source": "https://att.ainativeos.net/api/source-freshness",
+    "ga4_bigquery_biocom_status": "stale",
+    "table": "hurdlers-naver-pay.analytics_304759974.events_20260506",
+    "freshness_at": "2026-05-06T23:59:52+09:00",
+    "age_hours": 167.5
+  },
+  "post_snapshot": {
+    "source": "https://att.ainativeos.net/api/source-freshness",
+    "ga4_bigquery_biocom_status": "fresh",
+    "table": "project-dadba7dd-0229-4ff6-81c.analytics_304759974.events_20260512",
+    "freshness_at": "2026-05-12T23:59:57+09:00",
+    "age_hours": 23.6,
+    "latest_table_rows": 49111,
+    "purchase_events": 64,
+    "distinct_purchase_transaction_ids": 64,
+    "segments": [
+      "historical_backfill events_20240909~events_20260506, 605 tables",
+      "current_export events_20260507~events_20260512, 6 tables"
+    ],
+    "boundary": "archive/current boundary contiguous"
+  },
+  "verification": {
+    "remote_backend_typecheck": "PASS",
+    "remote_backend_build": "PASS",
+    "seo_backend_restart": "PASS",
+    "seo_backend_status": "online",
+    "source_freshness_api": "PASS",
+    "total_monthly_api": "pre-existing script missing: monthly-spine-dry-run.ts not present on VM Cloud backend"
+  },
+  "invariants": {
+    "bigquery_write_copy_delete": 0,
+    "operational_db_write": 0,
+    "external_platform_send_upload": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_change": 0,
+    "raw_identifier_output": false
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "checked_at_kst": "2026-05-13 23:40:00 KST",
+  "lane": "Green frontend local patch after approved sourceFreshness deploy",
+  "page": "/total",
+  "feature": "biocom_thecleancoffee_site_tabs",
+  "decision": {
+    "implementation": "frontend-only tab for thecleancoffee",
+    "reason": "backend /api/total monthly spine/evidence supports biocom only; coffee is available as correction line in the biocom response",
+    "coffee_api_direct_call": false,
+    "coffee_semantics": "reference-only recent 30d actual correction line, not full monthly channel attribution"
+  },
+  "coffee_line_from_local_smoke": {
+    "site": "thecleancoffee",
+    "source": "VM Cloud SQLite imweb_orders via correction line contract",
+    "status": "included_with_warning",
+    "count": 317,
+    "amount_krw": 15547500,
+    "status_blank_count": 28,
+    "included_in_budget_roas": false
+  },
+  "verification": {
+    "frontend_typecheck": "PASS",
+    "backend_typecheck": "PASS",
+    "local_total_api_smoke": "PASS",
+    "playwright_tab_click": "PASS",
+    "coffee_api_calls_when_clicking_tab": 0
+  },
+  "invariants": {
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_schema_migration": 0,
+    "external_send_upload": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  }
+}

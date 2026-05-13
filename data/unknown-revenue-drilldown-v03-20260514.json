@@ -1,0 +1,127 @@
+{
+  "created_at_kst": "2026-05-14 00:55:00 KST",
+  "owner": "Codex",
+  "sprint": "gpt0514-1",
+  "lane": "Green read-only local code and dry-run",
+  "site": "biocom",
+  "window": {
+    "timezone": "Asia/Seoul",
+    "date_start": "2026-05-01",
+    "date_end_exclusive": "2026-06-01"
+  },
+  "sources": {
+    "primary_revenue": "운영DB 월별 결제완료 spine",
+    "channel_evidence": "VM Cloud attribution_ledger",
+    "local_cache": "로컬DB 보조 캐시",
+    "search_aggregate": "Naver Search Advisor aggregate only"
+  },
+  "dry_run": {
+    "write": false,
+    "send": false,
+    "contract_version": "monthly-evidence-join-dry-run-v0.5"
+  },
+  "totals": {
+    "orders_total_ab": 941,
+    "revenue_total_ab": 204006680,
+    "assigned_orders": 431,
+    "assigned_revenue": 80373978,
+    "unknown_orders": 510,
+    "unknown_revenue": 123632702,
+    "primary_sum_matches_revenue": true
+  },
+  "unknown_reason_details": [
+    {
+      "root_reason": "vm_payment_success_missing",
+      "detail": "payment_success_order_key_normalize_failed",
+      "orders": 334,
+      "revenue": 89337146,
+      "confidence": "C",
+      "next_evidence_needed": "VM Cloud attribution_ledger payment_success coverage",
+      "recommended_fix": "server-side payment_success capture 또는 key normalize rule 점검"
+    },
+    {
+      "root_reason": "missing_channel_evidence",
+      "detail": "self_or_internal_referrer_only",
+      "orders": 71,
+      "revenue": 20914719,
+      "confidence": "C",
+      "next_evidence_needed": "original external referrer before internal redirect",
+      "recommended_fix": "내부 도메인 이동 전 최초 referrer/landing 보존"
+    },
+    {
+      "root_reason": "missing_channel_evidence",
+      "detail": "utm_present_but_invalid_rule",
+      "orders": 75,
+      "revenue": 11386862,
+      "confidence": "C",
+      "next_evidence_needed": "utm_source/utm_medium naming rule",
+      "recommended_fix": "paid/organic 판정 가능한 UTM source/medium 표준으로 정리"
+    },
+    {
+      "root_reason": "subscription_without_acquisition_evidence",
+      "detail": "acquisition_archive_lookup_needed",
+      "orders": 26,
+      "revenue": 1000875,
+      "confidence": "C",
+      "next_evidence_needed": "subscription first acquisition archive",
+      "recommended_fix": "첫 구독 시작 주문의 과거 유입 장부 archive lookup 설계"
+    },
+    {
+      "root_reason": "vm_payment_success_missing",
+      "detail": "checkout_started_but_payment_success_missing",
+      "orders": 4,
+      "revenue": 993100,
+      "confidence": "C",
+      "next_evidence_needed": "VM Cloud checkout event to payment_success continuity",
+      "recommended_fix": "checkout 진입 후 결제완료 신호가 끊기는 구간의 server-side success capture 점검"
+    }
+  ],
+  "naver_organic_evidence": [
+    {
+      "label": "naver_search_referrer_paid_marker_excluded",
+      "events": 144,
+      "revenue": null,
+      "confidence": "aggregate_only",
+      "source": "VM Cloud attribution_ledger referrer aggregate",
+      "use_for_budget_roas": "no",
+      "note": "네이버 검색 referrer가 보이지만 NaPm/브랜드검색 등 유료 표식이 있어 자연검색 매출로 분류하지 않는다."
+    },
+    {
+      "label": "naver_non_search_referrer_reference_only",
+      "events": 2,
+      "revenue": null,
+      "confidence": "aggregate_only",
+      "source": "VM Cloud attribution_ledger referrer aggregate",
+      "use_for_budget_roas": "no",
+      "note": "네이버 도메인 referrer는 있으나 검색 referrer가 아니라 자연검색 주문 근거로 쓰지 않는다."
+    },
+    {
+      "label": "naver_searchadvisor_aggregate_only",
+      "events": 0,
+      "revenue": null,
+      "confidence": "aggregate_only",
+      "source": "Naver Search Advisor aggregate export/API",
+      "use_for_budget_roas": "no",
+      "note": "Search Advisor는 검색어/페이지/day aggregate 근거다. 주문 단위 매출 정본이나 자동 채널 배정에는 쓰지 않는다."
+    }
+  ],
+  "subscription_acquisition_summary": {
+    "renewable_order_count": 125,
+    "renewable_revenue": 5441500,
+    "first_subscription_order_count": 26,
+    "first_subscription_revenue": 1000875,
+    "first_acquisition_channel_found": 0,
+    "first_acquisition_revenue_found": 0,
+    "archive_lookup_needed": 26,
+    "archive_lookup_needed_revenue": 1000875,
+    "member_key_missing": 0,
+    "member_key_missing_revenue": 0
+  },
+  "invariants": {
+    "platform_send_or_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  }
+}

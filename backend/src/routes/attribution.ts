@@ -212,6 +212,16 @@ const ACQUISITION_REMOTE_LEDGER_SOURCES = [
 const ACQUISITION_REMOTE_LEDGER_LIMIT = 10000;
 const ACQUISITION_REMOTE_LEDGER_TIMEOUT_MS = 30000;
 const ACQUISITION_REMOTE_LEDGER_LOOKBACK_DAYS = 365;
+const NAVER_SEARCH_REFERRERS = ["search.naver.com", "m.search.naver.com"];
+const NAVER_REFERRERS = [
+  "search.naver.com",
+  "m.search.naver.com",
+  "naver.com",
+  "blog.naver.com",
+  "m.blog.naver.com",
+  "shopping.naver.com",
+  "m.shopping.naver.com",
+];
 
 const parsePositiveInt = (value: unknown, fallback: number, max: number) => {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number.NaN;
@@ -232,6 +242,28 @@ const parseBooleanish = (value: unknown, fallback: boolean) => {
 const readOne = (value: unknown) => {
   if (Array.isArray(value)) return typeof value[0] === "string" ? value[0].trim() : "";
   return typeof value === "string" ? value.trim() : "";
+};
+
+const readText = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+const lowerIncludesAny = (value: string, tokens: string[]) => {
+  const lower = value.toLowerCase();
+  return tokens.some((token) => lower.includes(token));
+};
+
+const safeUrlParam = (key: string, ...values: unknown[]) => {
+  for (const value of values) {
+    const raw = readText(value);
+    if (!raw) continue;
+    try {
+      const parsed = new URL(raw, "https://biocom.kr");
+      const found = parsed.searchParams.get(key)?.trim();
+      if (found) return found;
+    } catch {
+      // Ignore malformed URLs in aggregate-only diagnostics.
+    }
+  }
+  return "";
 };
 
 const readCsvList = (value: unknown) =>
@@ -2523,8 +2555,161 @@ export const findDuplicateFormSubmitEntry = (
       return existingFormId === formId;
     }
 
-    return Boolean(formPage) && existingFormPage === formPage;
+  return Boolean(formPage) && existingFormPage === formPage;
   });
+};
+
+type NaverEvidenceClass =
+  | "paid_naver"
+  | "naver_brandsearch"
+  | "organic_naver_candidate"
+  | "naver_referrer_or_utm_only";
+
+type NaverEvidenceAggregateRow = {
+  class: NaverEvidenceClass;
+  touchpoint: AttributionLedgerEntry["touchpoint"];
+  rows: number;
+  bridgeKeyPresent: number;
+  confidence: "B" | "C" | "aggregate_only";
+  budgetRoasIncluded: false;
+  useForBudgetRoas: "reference_only_not_budget";
+  note: string;
+};
+
+const ledgerFirstTouch = (entry: AttributionLedgerEntry) => {
+  const value = entry.metadata?.firstTouch;
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+};
+
+const naverEvidenceText = (entry: AttributionLedgerEntry) => {
+  const firstTouch = ledgerFirstTouch(entry);
+  return [
+    entry.landing,
+    entry.referrer,
+    entry.utmSource,
+    entry.utmMedium,
+    entry.utmCampaign,
+    entry.utmTerm,
+    entry.utmContent,
+    firstTouch.landing,
+    firstTouch.referrer,
+    firstTouch.utmSource,
+    firstTouch.utmMedium,
+    firstTouch.utmCampaign,
+    firstTouch.utmTerm,
+    firstTouch.utmContent,
+  ].map((value) => readText(value).toLowerCase()).join(" ");
+};
+
+const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
+  const firstTouch = ledgerFirstTouch(entry);
+  const directReferrer = readText(entry.referrer).toLowerCase();
+  const firstReferrer = readText(firstTouch.referrer).toLowerCase();
+  const text = naverEvidenceText(entry);
+  const directNapm = safeUrlParam("NaPm", entry.landing, entry.referrer);
+  const firstNapm = safeUrlParam("NaPm", firstTouch.landing, firstTouch.referrer);
+  const paidUtm =
+    (lowerIncludesAny(readText(entry.utmSource), ["naver"]) || lowerIncludesAny(readText(firstTouch.utmSource), ["naver"])) &&
+    /^(cpc|ppc|paid|paid_social|display|shopping|brandsearch|powerlink|sa|bs)$/i.test(
+      readText(entry.utmMedium) || readText(firstTouch.utmMedium),
+    );
+  const hasNaverSearchReferrer = lowerIncludesAny(`${directReferrer} ${firstReferrer}`, NAVER_SEARCH_REFERRERS);
+  const hasNaverReferrer = lowerIncludesAny(`${directReferrer} ${firstReferrer} ${text}`, NAVER_REFERRERS);
+  const hasBrandsearch = lowerIncludesAny(text, ["brandsearch", "brand_search", "naverbrandsearch"]);
+  const hasNaverParam = lowerIncludesAny(text, [
+    "nclid=",
+    "n_media=",
+    "n_query=",
+    "n_rank=",
+    "n_ad_group=",
+    "n_ad=",
+    "n_keyword_id=",
+    "n_keyword=",
+    "n_match=",
+  ]);
+  const hasPowerlink = lowerIncludesAny(text, ["powerlink", "shoppingsearch"]);
+  const hasPaidMarker = Boolean(directNapm || firstNapm || paidUtm || hasNaverParam || hasBrandsearch || hasPowerlink);
+  const hasNaverAny = hasNaverReferrer || hasPaidMarker || lowerIncludesAny(text, ["naver", "napm"]);
+  return {
+    text,
+    hasNaverAny,
+    hasNaverSearchReferrer,
+    hasNaverReferrer,
+    hasBrandsearch,
+    hasPaidMarker,
+  };
+};
+
+const classifyNaverEvidence = (entry: AttributionLedgerEntry): NaverEvidenceClass | null => {
+  const profile = naverEvidenceProfile(entry);
+  if (!profile.hasNaverAny) return null;
+  if (profile.hasBrandsearch) return "naver_brandsearch";
+  if (profile.hasPaidMarker) return "paid_naver";
+  if (profile.hasNaverSearchReferrer) return "organic_naver_candidate";
+  if (profile.hasNaverReferrer || lowerIncludesAny(profile.text, ["naver"])) return "naver_referrer_or_utm_only";
+  return null;
+};
+
+const naverEvidenceNote = (classification: NaverEvidenceClass) => {
+  if (classification === "paid_naver") return "NaPm/n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다.";
+  if (classification === "naver_brandsearch") return "brandsearch marker가 있어 네이버 브랜드검색 후보로만 둔다.";
+  if (classification === "organic_naver_candidate") return "네이버 검색 referrer는 있으나 paid marker가 없어 자연검색 후보로 둔다.";
+  return "네이버 흔적은 있으나 paid/brandsearch/organic 확정 조건을 충족하지 않는다.";
+};
+
+const buildNaverEvidenceAggregate = (
+  entries: AttributionLedgerEntry[],
+  filters: Record<string, unknown>,
+) => {
+  const rows = new Map<string, NaverEvidenceAggregateRow>();
+  const add = (classification: NaverEvidenceClass, entry: AttributionLedgerEntry) => {
+    const key = `${classification}:${entry.touchpoint}`;
+    const current = rows.get(key) || {
+      class: classification,
+      touchpoint: entry.touchpoint,
+      rows: 0,
+      bridgeKeyPresent: 0,
+      confidence: classification === "organic_naver_candidate" ? "C" as const : "aggregate_only" as const,
+      budgetRoasIncluded: false as const,
+      useForBudgetRoas: "reference_only_not_budget" as const,
+      note: naverEvidenceNote(classification),
+    };
+    current.rows += 1;
+    if (entry.orderId || entry.paymentKey) current.bridgeKeyPresent += 1;
+    rows.set(key, current);
+  };
+
+  for (const entry of entries) {
+    const classification = classifyNaverEvidence(entry);
+    if (classification) add(classification, entry);
+  }
+
+  const ordered = Array.from(rows.values()).sort((a, b) =>
+    a.class.localeCompare(b.class) || a.touchpoint.localeCompare(b.touchpoint),
+  );
+  const byClass = ordered.reduce<Record<string, number>>((acc, row) => {
+    acc[row.class] = (acc[row.class] || 0) + row.rows;
+    return acc;
+  }, {});
+
+  return {
+    contractVersion: "naver-evidence-aggregate-v0.1",
+    aggregateOnly: true,
+    rawIdentifierOutput: false,
+    budgetRoasIncluded: false,
+    source: "attribution_ledger full filtered aggregate",
+    filters,
+    summary: {
+      rowsTotal: entries.length,
+      naverAny: ordered.reduce((sum, row) => sum + row.rows, 0),
+      byClass,
+    },
+    rows: ordered,
+    warnings: [
+      "UTM/NaPm/n_*는 채널 evidence이며 actual 매출 정본이 아니다.",
+      "예산 ROAS에는 자동 포함하지 않는다.",
+    ],
+  };
 };
 
 export const createAttributionRouter = () => {
@@ -3516,6 +3701,53 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "payment decision failed";
       res.status(500).json({ ok: false, error: "attribution_payment_decision_error", message });
+    }
+  });
+
+  router.get("/api/attribution/ledger/naver-evidence-aggregate", async (req: Request, res: Response) => {
+    try {
+      const allEntries = await readLedgerEntries();
+      const source = typeof req.query.source === "string" ? req.query.source.trim() : "";
+      const captureMode = typeof req.query.captureMode === "string" ? req.query.captureMode.trim() : "";
+      const startAt = typeof req.query.startAt === "string" ? req.query.startAt.trim() : "";
+      const endAt = typeof req.query.endAt === "string" ? req.query.endAt.trim() : "";
+
+      const startMs = startAt ? Date.parse(startAt) : Number.NaN;
+      const endMs = endAt ? Date.parse(endAt) : Number.NaN;
+      const hasStartFilter = Number.isFinite(startMs);
+      const hasEndFilter = Number.isFinite(endMs);
+
+      const withinRange = (entry: AttributionLedgerEntry) => {
+        if (!hasStartFilter && !hasEndFilter) return true;
+        const loggedMs = Date.parse(entry.loggedAt);
+        if (!Number.isFinite(loggedMs)) return true;
+        if (hasStartFilter && loggedMs < startMs) return false;
+        if (hasEndFilter && loggedMs > endMs) return false;
+        return true;
+      };
+
+      const base = (source || captureMode)
+        ? filterLedgerEntries(allEntries, {
+            source: source || undefined,
+            captureMode: captureMode || undefined,
+          })
+        : allEntries;
+      const filtered = (hasStartFilter || hasEndFilter) ? base.filter(withinRange) : base;
+      const filters = {
+        source: source || null,
+        captureMode: captureMode || null,
+        startAt: startAt || null,
+        endAt: endAt || null,
+      };
+
+      res.json({
+        ok: true,
+        filters,
+        aggregate: buildNaverEvidenceAggregate(filtered, filters),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "naver evidence aggregate read failed";
+      res.status(500).json({ ok: false, error: "naver_evidence_aggregate_read_error", message });
     }
   });
 

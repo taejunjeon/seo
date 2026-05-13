@@ -1,0 +1,22 @@
+{
+  "package": "gptconfirm/gpt0514-3",
+  "generated_at_kst": "2026-05-14 02:03:28 KST",
+  "title": "Codex Naver Evidence Aggregate Endpoint & Canary URL Standardization Sprint",
+  "documents": [
+    "00-result-report.md",
+    "01-naver-aggregate-endpoint-and-smoke.md",
+    "02-naver-url-standardization-canary.md",
+    "03-next-actions-and-approval.md",
+    "99-total-current-copy.md"
+  ],
+  "primary_evidence": "data/naver-evidence-aggregate-canary-20260514.json",
+  "forbidden_actions_not_taken": [
+    "external platform send/upload",
+    "operating DB write",
+    "VM Cloud schema migration/write/deploy/restart",
+    "GTM publish",
+    "Imweb footer/header change"
+  ],
+  "raw_identifier_output": false,
+  "agent": "Codex"
+}

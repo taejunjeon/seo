@@ -1,0 +1,45 @@
+{
+  "sprint": "gpt0514-1",
+  "created_at_kst": "2026-05-14 00:55:00 KST",
+  "owner": "Codex",
+  "lane": "Green read-only local code and dry-run",
+  "documents": [
+    {
+      "path": "gptconfirm/gpt0514-1/00-result-report.md",
+      "purpose": "Human-readable result report, validation, and next actions"
+    },
+    {
+      "path": "gptconfirm/gpt0514-1/01-unknown-revenue-drilldown.md",
+      "purpose": "Unknown revenue blocker breakdown and subscription handling"
+    },
+    {
+      "path": "gptconfirm/gpt0514-1/02-naver-organic-and-search-tools.md",
+      "purpose": "Naver organic evidence audit and external tool role matrix"
+    },
+    {
+      "path": "gptconfirm/gpt0514-1/03-next-actions-and-approval.md",
+      "purpose": "Next actions and Yellow approval path"
+    },
+    {
+      "path": "gptconfirm/gpt0514-1/99-total-current-copy.md",
+      "purpose": "Compact handoff copy for /total state"
+    }
+  ],
+  "local_urls": [
+    "http://localhost:7010/total",
+    "http://localhost:7020/api/total/monthly-channel-summary?site=biocom&month=2026-05&mode=dry_run"
+  ],
+  "artifacts": [
+    "data/unknown-revenue-drilldown-v03-20260514.json",
+    "project/total.md",
+    "gdn/current-handoff.md",
+    "data/current-state.json"
+  ],
+  "invariants": {
+    "platform_send_or_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": false
+  }
+}

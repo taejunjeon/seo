@@ -1,0 +1,66 @@
+{
+  "checked_at_kst": "2026-05-13 23:25:00 KST",
+  "lane": "Green read-only local backend sourceFreshness patch verification",
+  "site": "biocom",
+  "source": {
+    "name": "ga4_bigquery_biocom",
+    "storage": "BigQuery",
+    "role": "traffic_source_cross_check",
+    "not_revenue_primary": true
+  },
+  "local_backend_result": {
+    "status": "fresh",
+    "table": "project-dadba7dd-0229-4ff6-81c.analytics_304759974.events_20260512",
+    "total_rows_latest_table": 49111,
+    "freshness_at_kst": "2026-05-12T23:59:57+09:00",
+    "age_hours": 23.3,
+    "purchase_events": 64,
+    "distinct_purchase_transaction_ids": 64,
+    "confidence": "A-"
+  },
+  "segments": [
+    {
+      "label": "historical_backfill",
+      "role": "archive",
+      "storage": "BigQuery",
+      "dataset": "project-dadba7dd-0229-4ff6-81c.analytics_304759974_hurdlers_backfill",
+      "first_table": "events_20240909",
+      "latest_table": "events_20260506",
+      "table_count": 605,
+      "status": "available",
+      "note": "old hurdlers-naver-pay export copied through 2026-05-06"
+    },
+    {
+      "label": "current_export",
+      "role": "current",
+      "storage": "BigQuery",
+      "dataset": "project-dadba7dd-0229-4ff6-81c.analytics_304759974",
+      "first_table": "events_20260507",
+      "latest_table": "events_20260512",
+      "table_count": 6,
+      "status": "available"
+    }
+  ],
+  "coverage": {
+    "boundary": "archive/current boundary contiguous",
+    "combined_window": "events_20240909~events_20260512",
+    "current_freshness_source": "current_export latest event_timestamp",
+    "historical_source": "archive segment for older analysis windows"
+  },
+  "total_route_result": {
+    "endpoint": "GET /api/total/monthly-channel-summary?site=biocom&month=2026-05&mode=dry_run",
+    "ga4_source": "ga4_bigquery_biocom",
+    "ga4_status": "fresh",
+    "ga4_confidence": "A",
+    "ga4_fallback_reason": null,
+    "warning_count_after_change": 3
+  },
+  "invariants": {
+    "bigquery_write_copy_delete": 0,
+    "operational_db_write": 0,
+    "vm_cloud_deploy_restart": 0,
+    "google_ads_upload_send": 0,
+    "ga4_revenue_used_as_actual": false,
+    "raw_identifier_output": false
+  }
+}

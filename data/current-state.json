@@ -1,160 +1,86 @@
 {
-  "updated_at_kst": "2026-05-13 21:05:00 KST",
-  "workstream": "coffee_status_sync_monitor_cron_activation_and_tiktok_exact_utm_rule",
-  "lane": "Yellow approved coffee status sync cron executed; TikTok Red/Yellow execution gated",
-  "current_goal": "Observe the registered Coffee Imweb status sync and hourly monitor for 48-72 hours before deciding whether to upgrade status sync to hourly.",
+  "updated_at_kst": "2026-05-14 02:03:28 KST",
+  "workstream": "naver_evidence_aggregate_endpoint_and_canary_url_standardization",
+  "lane": "Green read-only local code and approval packet",
+  "current_goal": "Make /total use aggregate-only Naver evidence instead of limited item slice and prepare a one-campaign/ad-group Naver URL standardization canary approval packet.",
   "source_window_freshness_confidence": {
-    "source": {
-      "coffee_actual": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3 imweb_orders read-only",
-      "google_ads_roas": "VM Cloud API https://att.ainativeos.net/api/google-ads/dashboard read-only",
-      "ga4_channel_funnel": "GA4 BigQuery project-dadba7dd-0229-4ff6-81c analytics_304759974_hurdlers_backfill + analytics_304759974 read-only",
-      "tiktok_ads_export": "local data/ads_csv/tiktok/processed/20260507_20260512_daily_campaign.csv read-only"
-    },
-    "window": {
-      "coffee_actual": "rolling last_30d, checked 2026-05-13 21:03:15 KST",
-      "google_ads": "last_7d and last_30d, checked 2026-05-13 18:49 KST",
-      "ga4_channel_funnel": "last_7d 2026-05-06 to 2026-05-12, last_14d 2026-04-29 to 2026-05-12, last_30d 2026-04-13 to 2026-05-12",
-      "tiktok_ads_export": "2026-05-07 to 2026-05-12"
-    },
-    "freshness": "2026-05-13 21:05 KST",
-    "confidence": 0.9
+    "source": "운영DB monthly actual spine + VM Cloud attribution_ledger/site_landing_ledger + local browser/API smoke",
+    "window": "2026-05 monthly KST",
+    "freshness": "2026-05-14 02:03 KST",
+    "confidence": 0.88
   },
-  "approval_packets": {
-    "coffee_status_sync_monitor_cron": {
-      "document": "gdn/coffee-status-monitor-cron-approval-20260513.md",
-      "json": "data/project/coffee-status-monitor-cron-approval-20260513.json",
-      "execution_lane": "Yellow",
-      "registered_status_sync_schedule_server_utc": "10 0,6,12,18 * * *",
-      "registered_status_sync_schedule_kst": "03:10,09:10,15:10,21:10 KST",
-      "registered_monitor_schedule": "40 * * * *",
-      "proposed_user": "biocomkr_sns",
-      "status_sync_route": "POST http://127.0.0.1:7020/api/crm-local/imweb/sync-order-statuses",
-      "status_sync_scope": "VM Cloud SQLite imweb_orders.imweb_status and imweb_status_synced_at",
-      "output_json": "/home/biocomkr_sns/seo/repo/data/project/monitoring/coffee-actual-status-monitor-latest.json",
-      "status": "registered_and_one_shot_verified",
-      "activation_document": "gdn/coffee-status-sync-cron-activation-20260513.md",
-      "activation_json": "data/project/coffee-status-sync-cron-activation-20260513.json"
+  "latest_result": {
+    "package": "gptconfirm/gpt0514-3",
+    "contract_version": "naver-evidence-aggregate-v0.1",
+    "aggregate_endpoint": {
+      "local_shape_smoke": "PASS",
+      "aggregate_only": true,
+      "raw_identifier_output": false,
+      "budget_roas_included": false
     },
-    "tiktok_campaign_id_exact_utm": {
-      "document": "gdn/tiktok-campaign-id-exact-utm-rule-20260513.md",
-      "json": "data/project/tiktok-campaign-id-exact-utm-rule-20260513.json",
-      "execution_lane": "Yellow_or_Red_depending_on_ads_change_scope",
-      "required_params": [
-        "utm_source=tiktok",
-        "utm_medium=paid_social",
-        "utm_campaign=<human_readable_slug>",
-        "utm_id=<tiktok_campaign_id>",
-        "tt_campaign_id=<tiktok_campaign_id>"
-      ],
-      "status": "design_ready_not_applied"
+    "browser_smoke": {
+      "url": "http://localhost:7010/total",
+      "result": "PASS",
+      "utm_candidate_table_visible": true,
+      "reference_copy_visible": true,
+      "raw_identifier_leak_text_detected": false
+    },
+    "remote_current_state": {
+      "new_endpoint_deployed": false,
+      "fallback_status": "limited_item_slice_fallback",
+      "item_slice_naver_any": 500,
+      "note": "Fallback item slice mixes checkout/payment and must not be compared directly with payment_success aggregate 216."
+    },
+    "vm_cloud_payment_success_aggregate_basis": {
+      "source": "VM Cloud SQLite attribution_ledger",
+      "touchpoint": "payment_success",
+      "total": 854,
+      "naver_any": 216,
+      "napm": 158,
+      "brandsearch": 100,
+      "n_param": 8,
+      "bridge_key_present": 854,
+      "classification": {
+        "paid_naver": 59,
+        "naver_brandsearch": 100,
+        "organic_naver_candidate": 39,
+        "naver_referrer_or_utm_only": 17
+      },
+      "budget_roas_included": false
+    },
+    "biocom_direct_domain": {
+      "source": "VM Cloud SQLite site_landing_ledger",
+      "total_site_landing_rows": 2930,
+      "channel_direct_rows": 23,
+      "strict_no_referrer_no_utm_no_click_candidate_rows": 7,
+      "channel_self_internal_rows": 373,
+      "order_level_revenue_confirmed": false
+    },
+    "url_canary": {
+      "scope": "1 campaign or 1 ad group",
+      "status": "approval_packet_only",
+      "actual_platform_change": false
     }
   },
-  "latest_metrics": {
-    "sprint1_coffee_status_monitor": {
-      "site": "thecleancoffee",
-      "source": "imweb_v2_vm_cloud_imweb_orders",
-      "actual_count": 315,
-      "actual_amount_krw": 15486200,
-      "status_blank_count": 2,
-      "status_blank_amount_krw": 68700,
-      "cancel_excluded_count": 31,
-      "cancel_excluded_amount_krw": 1796400,
-      "max_order_time": "2026-05-13T11:11:58.000Z",
-      "max_synced_at": "2026-05-13 11:50:25",
-      "max_status_synced_at": "2026-05-13 12:02:48",
-      "status_sync_lag_hours": 0.01,
-      "warnings": [
-        "ga4_guard_not_actual_source",
-        "status_blank_rows_included_with_warning"
-      ]
-    },
-    "sprint2_google_ads_roas_gap": {
-      "last_7d": {
-        "platform_roas": 10.5868,
-        "internal_current_roas": 0.4059,
-        "internal_with_biocom_npay_roas": 3.5998,
-        "remaining_gap_points": 6.987,
-        "biocom_npay_actual_count": 77,
-        "biocom_npay_actual_amount_krw": 11565900
-      },
-      "last_30d": {
-        "platform_roas": 10.2789,
-        "internal_current_roas": 0.2924,
-        "internal_with_biocom_npay_roas": 2.0792,
-        "remaining_gap_points": 8.1997,
-        "biocom_npay_actual_count": 232,
-        "biocom_npay_actual_amount_krw": 39410800
-      },
-      "coffee_budget_roas_policy": "reference_only_until_campaign_site_spend_mapping_exists",
-      "option3_red_packet_confidence_pct": 79
-    },
-    "sprint3_tiktok_funnel": {
-      "ga4_latest_coverage": {
-        "last_7d": {
-          "sessions": 59481,
-          "paid_tiktok_sessions": 10575,
-          "ga4_purchase_events": 398,
-          "coverage": "PASS"
-        },
-        "last_14d": {
-          "sessions": 116852,
-          "paid_tiktok_sessions": 28806,
-          "ga4_purchase_events": 853,
-          "coverage": "PASS"
-        },
-        "last_30d": {
-          "sessions": 347663,
-          "paid_tiktok_sessions": 152673,
-          "ga4_purchase_events": 3478,
-          "coverage": "PASS"
-        }
-      },
-      "tiktok_export_window": "2026-05-07 to 2026-05-12",
-      "tiktok_ads_spend_krw": 140850,
-      "tiktok_ads_clicks": 5754,
-      "tiktok_platform_purchase_value_krw": 0,
-      "ga4_paid_tiktok_sessions": 5581,
-      "ga4_paid_tiktok_scroll90_rate_pct": 1.59,
-      "ga4_paid_tiktok_avg_engagement_seconds": 0.61,
-      "ga4_paid_tiktok_purchase_events": 1,
-      "ga4_paid_tiktok_purchase_value_krw": 225300,
-      "verdict": "paid_tiktok_quality_risk_persists_with_join_gap"
-    }
+  "artifacts": {
+    "gptconfirm": "gptconfirm/gpt0514-3",
+    "result_report": "gptconfirm/gpt0514-3/00-result-report.md",
+    "aggregate_report": "gptconfirm/gpt0514-3/01-naver-aggregate-endpoint-and-smoke.md",
+    "canary_report": "gptconfirm/gpt0514-3/02-naver-url-standardization-canary.md",
+    "next_actions": "gptconfirm/gpt0514-3/03-next-actions-and-approval.md",
+    "data_json": "data/naver-evidence-aggregate-canary-20260514.json",
+    "total_doc": "project/total.md"
   },
-  "completed": [
-    "Updated project/sprint1.md with the latest coffee status monitor read-only result.",
-    "Updated project/sprint2.md with latest Google Ads ROAS gap, Option 3 packet refresh, and campaign-site spend mapping readiness.",
-    "Updated project/sprint3.md with latest GA4 7/14/30 union rerun and TikTok spend-quality semantic join dry-run.",
-    "Created Coffee actual status monitor cron approval packet.",
-    "Revised Coffee cron approval packet to status sync four times daily plus hourly read-only monitor because daily monitor alone does not reduce status blank rows.",
-    "Executed approved Coffee Imweb status sync one-shot and registered status sync four times daily plus hourly monitor cron on VM Cloud.",
-    "Created TikTok campaign_id exact UTM rule design.",
-    "Updated project/sprint1.md and project/sprint3.md with approval/design next actions.",
-    "Updated gdn/current-handoff.md checkpoint."
+  "next_action": {
+    "codex": "Run final JSON/wiki/harness/diff validations, close temporary local backend, then scoped commit/push only relevant files.",
+    "tj": "Approve or reject the one-campaign/ad-group Naver Ads URL canary before any external platform URL change."
+  },
+  "forbidden_actions_not_taken": [
+    "external platform send/upload",
+    "operating DB write",
+    "VM Cloud schema migration/write/deploy/restart",
+    "GTM publish",
+    "Imweb footer/header change"
   ],
-  "invariants": {
-    "no_send": true,
-    "no_upload": true,
-    "cron_registration": 1,
-    "tiktok_ads_api_write": 0,
-    "tiktok_campaign_or_budget_change": 0,
-    "operational_db_write": 0,
-    "vm_cloud_sqlite_write": "imweb_orders.imweb_status and imweb_status_synced_at only",
-    "platform_mutation": 0,
-    "gtm_publish": 0,
-    "imweb_footer_header_change": 0,
-    "raw_identifier_output": false
-  },
-  "forbidden_next": [
-    "google_ads_conversion_action_change_without_red_approval",
-    "platform_send_or_upload",
-    "coffee_hourly_status_sync_upgrade_without_48_72h_observation",
-    "tiktok_budget_or_campaign_change",
-    "tiktok_ads_url_parameter_change_without_approval",
-    "operational_db_write_or_import",
-    "vm_cloud_sqlite_schema_migration",
-    "vm_cloud_sqlite_status_enrichment_write_outside_registered_coffee_sync_scope",
-    "gtm_publish",
-    "secret_or_raw_identifier_output"
-  ]
+  "raw_identifier_output": false
 }

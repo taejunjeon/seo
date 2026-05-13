@@ -5,6 +5,13 @@ import { promisify } from "node:util";
 
 import { Router, type Request, type Response } from "express";
 
+import {
+  collectSourceFreshness,
+  getDefaultSourceFreshnessOptions,
+  type SourceFreshnessResult,
+  type SourceFreshnessStatus,
+} from "../sourceFreshness";
+
 const execFileAsync = promisify(execFile);
 
 const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
@@ -130,6 +137,72 @@ type EvidencePayload = {
     }>;
   };
   unknownReasons: unknown[];
+  unknownReasonDetails?: Array<{
+    rootReason: string;
+    detail: string;
+    orders: number;
+    revenue: number;
+    nextEvidenceNeeded: string;
+    recommendedFix: string;
+    confidence?: string;
+  }>;
+  naverOrganicEvidence?: Array<{
+    label: string;
+    orders: number;
+    revenue: number | null;
+    confidence: string;
+    source: string;
+    useForBudgetRoas: string;
+    note: string;
+  }>;
+  naverEvidenceAggregate?: {
+    contractVersion: string;
+    aggregateOnly: boolean;
+    rawIdentifierOutput: boolean;
+    budgetRoasIncluded: boolean;
+    source: string;
+    coverageStatus?: string;
+    endpointStatus?: string;
+    summary?: {
+      rowsTotal: number;
+      naverAny: number;
+      byClass: Record<string, number>;
+    };
+    rows: Array<{
+      class: string;
+      touchpoint: string;
+      rows: number;
+      bridgeKeyPresent: number;
+      confidence: string;
+      budgetRoasIncluded: boolean;
+      useForBudgetRoas: string;
+      note: string;
+    }>;
+    warnings?: string[];
+  };
+  utmInvalidAudit?: Array<{
+    source: string;
+    medium: string;
+    campaign: string;
+    family: string;
+    candidateRule: string;
+    orders: number;
+    revenue: number;
+    useForBudgetRoas: string;
+    note: string;
+  }>;
+  subscriptionAcquisitionSummary?: {
+    renewable_order_count: number;
+    renewable_revenue: number;
+    first_subscription_order_count: number;
+    first_subscription_revenue: number;
+    first_acquisition_channel_found: number;
+    first_acquisition_revenue_found: number;
+    archive_lookup_needed: number;
+    archive_lookup_needed_revenue: number;
+    member_key_missing: number;
+    member_key_missing_revenue: number;
+  };
   evidenceTierSummary: unknown[];
   npayIntentStatusSummary: unknown[];
   sampleRows?: unknown[];
@@ -197,7 +270,9 @@ const channelLabels: Record<string, string> = {
   paid_tiktok: "TikTok 광고",
   paid_google: "Google 광고",
   paid_naver: "Naver 광고 후보",
+  organic_naver: "네이버 자연검색",
   npay: "NPay confirmed",
+  subscription_recurring: "구독/정기결제",
   organic_search: "자연 검색",
   influencer_non_paid: "비광고 인플루언서/공구",
   unknown: "유입 증거 없음",
@@ -295,7 +370,59 @@ export const buildTotalCorrectionLines = (
   };
 };
 
-const buildSourceFreshness = (spine: SpinePayload, evidence: EvidencePayload) => {
+const sourceFreshnessConfidence = (status: SourceFreshnessStatus | string) => {
+  if (status === "fresh") return "A";
+  if (status === "warn" || status === "data_sparse") return "B";
+  if (status === "stale" || status === "empty") return "C";
+  return "D";
+};
+
+const buildGa4SourceFreshnessRow = (
+  evidence: EvidencePayload,
+  liveFreshness: SourceFreshnessResult[] | null,
+) => {
+  const liveGa4 = liveFreshness?.find((row) => row.source === "ga4_bigquery_biocom");
+  if (liveGa4) {
+    return {
+      source: liveGa4.source,
+      role: "traffic_source_cross_check",
+      status: liveGa4.status,
+      queried_at: evidence.metadata.queriedAt,
+      latest_observed_at: liveGa4.freshnessAt,
+      row_count: liveGa4.totalRows,
+      confidence: sourceFreshnessConfidence(liveGa4.status),
+      fallback: false,
+      fallback_reason: liveGa4.status === "fresh" ? null : liveGa4.note,
+      summary: {
+        storage: liveGa4.storage,
+        table: liveGa4.table,
+        freshness_column: liveGa4.freshnessColumn,
+        age_hours: liveGa4.ageHours,
+        note: liveGa4.note,
+        segments: liveGa4.segments ?? [],
+      },
+    };
+  }
+
+  return {
+    source: "ga4_bigquery_biocom",
+    role: "traffic_source_cross_check",
+    status: "stale",
+    queried_at: evidence.metadata.queriedAt,
+    latest_observed_at: "2026-05-06T23:59:52+09:00",
+    row_count: null,
+    confidence: "C",
+    fallback: false,
+    fallback_reason:
+      "sourceFreshness live check unavailable in /total; known fallback was old hurdlers-naver-pay.analytics_304759974.events_20260506 while new export project-dadba7dd.analytics_304759974 is available by read-only postcheck",
+  };
+};
+
+const buildSourceFreshness = (
+  spine: SpinePayload,
+  evidence: EvidencePayload,
+  liveFreshness: SourceFreshnessResult[] | null,
+) => {
   const base = [
     {
       source: "imweb_operational",
@@ -343,17 +470,7 @@ const buildSourceFreshness = (spine: SpinePayload, evidence: EvidencePayload) =>
       fallback_reason: "token_or_snapshot_required_when_sourceAccess_is_not_available",
       summary: evidence.source.npayIntentMatching ?? null,
     },
-    {
-      source: "ga4_bigquery_raw",
-      role: "traffic_source_cross_check",
-      status: "blocked",
-      queried_at: evidence.metadata.queriedAt,
-      latest_observed_at: null,
-      row_count: null,
-      confidence: "D",
-      fallback: false,
-      fallback_reason: "biocom_ga4_bigquery_raw_permission_denied",
-    },
+    buildGa4SourceFreshnessRow(evidence, liveFreshness),
   ];
 
   const platformSources = (evidence.platformReference.rows || []).map((row) => {
@@ -398,9 +515,11 @@ export const createTotalRouter = () => {
       }
 
       const args = [`--site=${site}`, `--month=${month}`];
-      const [spine, evidence] = await Promise.all([
+      const sourceFreshnessPromise = collectSourceFreshness(getDefaultSourceFreshnessOptions()).catch(() => null);
+      const [spine, evidence, sourceFreshnessPayload] = await Promise.all([
         runDryRunScript<SpinePayload>("scripts/monthly-spine-dry-run.ts", args),
         runDryRunScript<EvidencePayload>("scripts/monthly-evidence-join-dry-run.ts", args),
+        sourceFreshnessPromise,
       ]);
       const queriedAt = new Date().toISOString();
 
@@ -454,19 +573,24 @@ export const createTotalRouter = () => {
             display_label: channelLabels[row.primaryChannel] ?? row.primaryChannel,
           })),
           unknown_reasons: evidence.unknownReasons,
+          unknown_reason_details: evidence.unknownReasonDetails ?? [],
+          naver_organic_evidence: evidence.naverOrganicEvidence ?? [],
+          naver_evidence_aggregate: evidence.naverEvidenceAggregate ?? null,
+          utm_invalid_audit: evidence.utmInvalidAudit ?? [],
+          subscription_acquisition_summary: evidence.subscriptionAcquisitionSummary ?? null,
           evidence_tier_summary: evidence.evidenceTierSummary,
           npay_intent_status_summary: evidence.npayIntentStatusSummary,
         },
         platform_reference: evidence.platformReference,
         correction_lines: buildTotalCorrectionLines(readCorrectionLineSourceItems(), queriedAt),
-        source_freshness: buildSourceFreshness(spine, evidence),
+        source_freshness: buildSourceFreshness(spine, evidence, sourceFreshnessPayload?.results ?? null),
         frontend_copy: {
           headline: `${month} ${site} 내부 확정 순매출은 ${spine.summary.confirmed_net_revenue_ab.toLocaleString("ko-KR")}원입니다.`,
           subtext: "이 금액은 아임웹 주문과 토스 결제/취소를 맞춘 내부 장부 기준입니다.",
           warnings: [
             "플랫폼 ROAS는 참고값이며 내부 confirmed revenue에 합산하지 않습니다.",
             "NPay intent source가 연결되기 전까지 NPay confirmed 주문의 matched/unmatched 분포는 보류입니다.",
-            "GA4 BigQuery raw 권한이 열리기 전까지 GA4 traffic source 교차검증은 제한됩니다.",
+            "GA4 BigQuery는 유입 교차검증용입니다. actual 매출 정본이나 광고 플랫폼 전환값으로 합산하지 않습니다.",
           ],
         },
       };

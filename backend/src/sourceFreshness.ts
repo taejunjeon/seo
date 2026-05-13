@@ -27,6 +27,20 @@ export type SourceFreshnessResult = {
   eventMax: Record<string, string | null>;
   syncMax: Record<string, string | null>;
   note: string;
+  segments?: SourceFreshnessSegment[];
+};
+
+export type SourceFreshnessSegment = {
+  label: string;
+  role: "current" | "archive" | "legacy";
+  sourceProjectId: string;
+  dataset: string;
+  tablePrefix: string;
+  firstTable: string | null;
+  latestTable: string | null;
+  tableCount: number;
+  status: "available" | "empty" | "missing" | "error";
+  note?: string;
 };
 
 export type SourceFreshnessOptions = {
@@ -48,7 +62,7 @@ const PER_SOURCE_THRESHOLDS: Record<string, PerSourceThreshold> = {
   imweb_operational: { warnHours: 24, staleHours: 36, action: "아임웹 운영 주문 원장 tb_iamweb_users 적재 지연 확인, payment_complete_time 최신 주문 대조" },
   imweb_local_orders: { warnHours: 24, staleHours: 48, action: "POST /api/crm-local/imweb/sync-orders 재실행 후 imweb_status_synced_at 확인" },
   ga4_bigquery_thecleancoffee: { warnHours: 48, staleHours: 72, action: "GA4 daily export 허들러스에 지연 여부 확인, BigQuery events_* 최신 suffix 점검" },
-  ga4_bigquery_biocom: { warnHours: 48, staleHours: 72, action: "허들러스 hurdlers-naver-pay 프로젝트의 biocom raw export 적재 지연 확인. 우리 service account 권한 확보 필요 시 에러로 표시됨" },
+  ga4_bigquery_biocom: { warnHours: 48, staleHours: 72, action: "biocom 신규 GA4 export와 historical backfill dataset 적재 지연 확인. current는 project-dadba7dd.analytics_304759974, archive는 analytics_304759974_hurdlers_backfill" },
   toss_local_transactions: { warnHours: 72, staleHours: 120, action: "Toss 로컬 미러 싱크 스케줄 점검 (정본은 toss_operational)" },
   toss_local_settlements: { warnHours: 72, staleHours: 120, action: "Toss 정산 미러 스케줄 점검 (정본은 toss_operational)" },
   attribution_ledger: { warnHours: 12, staleHours: 24, action: "VM att.ainativeos.net 헬스 체크, webhook·payment_success 이벤트 수신 여부 확인" },
@@ -113,6 +127,16 @@ type BigQuerySourceConfig = {
   dataset: string;
   location?: string;
   tablePrefix: string;
+  archiveSegments?: BigQuerySourceSegmentConfig[];
+};
+
+type BigQuerySourceSegmentConfig = {
+  label: string;
+  role: "archive" | "legacy";
+  sourceProjectId: string;
+  dataset: string;
+  tablePrefix?: string;
+  note?: string;
 };
 
 const backendRoot = path.resolve(__dirname, "..");
@@ -183,15 +207,26 @@ const BIGQUERY_SOURCES: BigQuerySourceConfig[] = [
     dataset: `analytics_${process.env.GA4_COFFEE_PROPERTY_ID?.trim() || "326949178"}`,
     tablePrefix: "events_",
   },
-  // biocom raw export 는 허들러스 소유 프로젝트에 있고, job 은 우리 통합 후보 프로젝트에서 생성한다.
-  // 허들러스에는 dataset read 권한만 유지하고, query job 권한·비용은 project-dadba7dd 쪽에서 관리한다.
+  // biocom GA4 는 2026-05-13 기준 source 전환 완료:
+  // - archive: 과거 hurdlers export 를 project-dadba7dd backfill dataset 으로 복사한 구간.
+  // - current: 신규 GA4 daily export dataset. freshness 판정은 current 최신 event_timestamp 로 한다.
   {
     source: "ga4_bigquery_biocom",
-    sourceProjectId: "hurdlers-naver-pay",
+    sourceProjectId: "project-dadba7dd-0229-4ff6-81c",
     jobProjectId: "project-dadba7dd-0229-4ff6-81c",
     dataset: `analytics_${process.env.GA4_BIOCOM_PROPERTY_ID?.trim() || "304759974"}`,
     location: "asia-northeast3",
     tablePrefix: "events_",
+    archiveSegments: [
+      {
+        label: "historical_backfill",
+        role: "archive",
+        sourceProjectId: "project-dadba7dd-0229-4ff6-81c",
+        dataset: `analytics_${process.env.GA4_BIOCOM_PROPERTY_ID?.trim() || "304759974"}_hurdlers_backfill`,
+        tablePrefix: "events_",
+        note: "old hurdlers-naver-pay export copied through 2026-05-06",
+      },
+    ],
   },
 ];
 
@@ -264,6 +299,7 @@ const buildFreshnessResult = (params: {
   syncMax: Record<string, string | null>;
   note: string;
   fallback: Pick<SourceFreshnessOptions, "warnHours" | "staleHours">;
+  segments?: SourceFreshnessSegment[];
 }): SourceFreshnessResult => {
   const threshold = resolvePerSourceThresholds(params.source, params.fallback);
   return {
@@ -282,6 +318,7 @@ const buildFreshnessResult = (params: {
     eventMax: params.eventMax,
     syncMax: params.syncMax,
     note: params.note,
+    ...(params.segments ? { segments: params.segments } : {}),
   };
 };
 
@@ -473,6 +510,121 @@ const runBigQuery = async (
   ) as Array<Record<string, unknown>>;
 };
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const listBigQueryEventTables = async (
+  bq: bigquery_v2.Bigquery,
+  projectId: string,
+  dataset: string,
+  tablePrefix: string,
+) => {
+  const tableIds: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const response = await bq.tables.list({
+      projectId,
+      datasetId: dataset,
+      maxResults: 1000,
+      pageToken,
+    });
+    tableIds.push(
+      ...((response.data.tables ?? [])
+        .map((table) => table.tableReference?.tableId ?? "")
+        .filter(Boolean)),
+    );
+    pageToken = response.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  const tablePattern = new RegExp(`^${escapeRegExp(tablePrefix)}\\d{8}$`);
+  return tableIds.filter((tableId) => tablePattern.test(tableId)).sort();
+};
+
+const summarizeBigQuerySegment = async (
+  bq: bigquery_v2.Bigquery,
+  segment: {
+    label: string;
+    role: SourceFreshnessSegment["role"];
+    sourceProjectId: string;
+    dataset: string;
+    tablePrefix: string;
+    note?: string;
+  },
+): Promise<SourceFreshnessSegment> => {
+  try {
+    await bq.datasets.get({ projectId: segment.sourceProjectId, datasetId: segment.dataset });
+    const tables = await listBigQueryEventTables(
+      bq,
+      segment.sourceProjectId,
+      segment.dataset,
+      segment.tablePrefix,
+    );
+    return {
+      label: segment.label,
+      role: segment.role,
+      sourceProjectId: segment.sourceProjectId,
+      dataset: segment.dataset,
+      tablePrefix: segment.tablePrefix,
+      firstTable: tables[0] ?? null,
+      latestTable: tables.at(-1) ?? null,
+      tableCount: tables.length,
+      status: tables.length > 0 ? "available" : "empty",
+      note: segment.note,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      label: segment.label,
+      role: segment.role,
+      sourceProjectId: segment.sourceProjectId,
+      dataset: segment.dataset,
+      tablePrefix: segment.tablePrefix,
+      firstTable: null,
+      latestTable: null,
+      tableCount: 0,
+      status: /not\s+found|404/i.test(message) ? "missing" : "error",
+      note: message,
+    };
+  }
+};
+
+const tableSuffix = (tableId: string | null, tablePrefix: string) => (
+  tableId?.startsWith(tablePrefix) ? tableId.slice(tablePrefix.length) : null
+);
+
+const suffixUtcMs = (suffix: string | null) => {
+  if (!suffix || !/^\d{8}$/.test(suffix)) return null;
+  const year = Number(suffix.slice(0, 4));
+  const month = Number(suffix.slice(4, 6));
+  const day = Number(suffix.slice(6, 8));
+  return Date.UTC(year, month - 1, day);
+};
+
+const describeCoverageBoundary = (segments: SourceFreshnessSegment[]) => {
+  const archive = segments
+    .filter((segment) => segment.role === "archive" && segment.status === "available")
+    .sort((a, b) => (a.latestTable ?? "").localeCompare(b.latestTable ?? ""))
+    .at(-1);
+  const current = segments.find((segment) => segment.role === "current");
+  if (!archive || !current) return "single current export";
+
+  const archiveLatest = suffixUtcMs(tableSuffix(archive.latestTable, archive.tablePrefix));
+  const currentFirst = suffixUtcMs(tableSuffix(current.firstTable, current.tablePrefix));
+  if (archiveLatest === null || currentFirst === null) return "archive/current boundary unknown";
+
+  const dayDiff = Math.round((currentFirst - archiveLatest) / 86_400_000);
+  if (dayDiff === 1) return "archive/current boundary contiguous";
+  if (dayDiff === 0) return "archive/current overlap on boundary day";
+  if (dayDiff > 1) return `archive/current gap ${dayDiff - 1} day(s)`;
+  return `archive/current overlap ${Math.abs(dayDiff) + 1} day(s)`;
+};
+
+const describeSegmentCoverage = (segment: SourceFreshnessSegment) => {
+  if (segment.status !== "available") {
+    return `${segment.label}:${segment.status}${segment.note ? ` (${segment.note})` : ""}`;
+  }
+  return `${segment.label}:${segment.firstTable ?? "?"}~${segment.latestTable ?? "?"} (${segment.tableCount} tables)`;
+};
+
 const checkBigQuerySource = async (
   bq: bigquery_v2.Bigquery,
   config: BigQuerySourceConfig,
@@ -483,31 +635,40 @@ const checkBigQuerySource = async (
   const threshold = resolvePerSourceThresholds(config.source, fallback);
   const jobProjectId = config.jobProjectId ?? config.sourceProjectId;
   const location = config.location ?? "asia-northeast3";
+  const currentSegmentConfig = {
+    label: "current_export",
+    role: "current" as const,
+    sourceProjectId: config.sourceProjectId,
+    dataset: config.dataset,
+    tablePrefix: config.tablePrefix,
+  };
+  const segmentConfigs = [
+    ...(config.archiveSegments ?? []).map((segment) => ({
+      ...segment,
+      tablePrefix: segment.tablePrefix ?? config.tablePrefix,
+    })),
+    currentSegmentConfig,
+  ];
+  const segments = await Promise.all(
+    segmentConfigs.map((segment) => summarizeBigQuerySegment(bq, segment)),
+  );
+  const currentSegment = segments.find((segment) => segment.role === "current");
+  const coverageNote = `coverage ${segments.map(describeSegmentCoverage).join(" + ")}; ${describeCoverageBoundary(segments)}`;
 
   try {
-    await bq.datasets.get({ projectId: config.sourceProjectId, datasetId: config.dataset });
-    const tableResponse = await bq.tables.list({
-      projectId: config.sourceProjectId,
-      datasetId: config.dataset,
-      maxResults: 1000,
-    });
-
-    const latestTable = (tableResponse.data.tables ?? [])
-      .map((table) => table.tableReference?.tableId ?? "")
-      .filter((tableId) => new RegExp(`^${config.tablePrefix}\\d{8}$`).test(tableId))
-      .sort()
-      .at(-1);
-
-    if (!latestTable) {
+    if (!currentSegment || currentSegment.status !== "available" || !currentSegment.latestTable) {
+      const status: SourceFreshnessStatus =
+        currentSegment?.status === "empty" ? "empty" : currentSegment?.status === "missing" ? "missing" : "error";
       return buildFreshnessResult({
         source: config.source, storage: "bigquery",
         table: `${config.sourceProjectId}.${config.dataset}.${config.tablePrefix}*`,
-        status: "empty", totalRows: 0, freshnessAt: null, freshnessColumn: null,
-        ageHours: null, eventMax: {}, syncMax: {}, note: "no events tables", fallback,
+        status, totalRows: currentSegment?.status === "empty" ? 0 : null, freshnessAt: null, freshnessColumn: null,
+        ageHours: null, eventMax: {}, syncMax: {}, note: `current export unavailable; ${coverageNote}`, fallback,
+        segments,
       });
     }
 
-    const suffix = latestTable.slice(config.tablePrefix.length);
+    const suffix = currentSegment.latestTable.slice(currentSegment.tablePrefix.length);
     const rows = await runBigQuery(
       bq,
       jobProjectId,
@@ -521,7 +682,7 @@ const checkBigQuerySource = async (
             WHERE ep.key = 'transaction_id'
           ), NULL)) AS distinct_purchase_transaction_ids,
           FORMAT_TIMESTAMP('%FT%T%Ez', MAX(TIMESTAMP_MICROS(event_timestamp)), 'Asia/Seoul') AS max_event_time_kst
-        FROM \`${config.sourceProjectId}.${config.dataset}.${config.tablePrefix}*\`
+        FROM \`${currentSegment.sourceProjectId}.${currentSegment.dataset}.${currentSegment.tablePrefix}*\`
         WHERE _TABLE_SUFFIX = '${suffix}'
       `,
       location,
@@ -536,12 +697,13 @@ const checkBigQuerySource = async (
 
     return buildFreshnessResult({
       source: config.source, storage: "bigquery",
-      table: `${config.sourceProjectId}.${config.dataset}.${latestTable}`,
+      table: `${currentSegment.sourceProjectId}.${currentSegment.dataset}.${currentSegment.latestTable}`,
       status: statusFromAge(totalRows, age, threshold),
       totalRows, freshnessAt, freshnessColumn: "event_timestamp",
       ageHours: age, eventMax: { event_timestamp: freshnessAt }, syncMax: {},
-      note: `latest table ${latestTable}; job project ${jobProjectId}; purchase ${purchaseEvents ?? 0}; distinct txn ${distinctPurchaseTransactionIds ?? 0}`,
+      note: `${coverageNote}; latest current table ${currentSegment.latestTable}; job project ${jobProjectId}; purchase ${purchaseEvents ?? 0}; distinct txn ${distinctPurchaseTransactionIds ?? 0}`,
       fallback,
+      segments,
     });
   } catch (error) {
     return buildFreshnessResult({
@@ -549,7 +711,8 @@ const checkBigQuerySource = async (
       table: `${config.sourceProjectId}.${config.dataset}.${config.tablePrefix}*`,
       status: "error", totalRows: null, freshnessAt: null, freshnessColumn: null,
       ageHours: null, eventMax: {}, syncMax: {},
-      note: error instanceof Error ? error.message : String(error), fallback,
+      note: `${coverageNote}; ${error instanceof Error ? error.message : String(error)}`, fallback,
+      segments,
     });
   }
 };

@@ -22,6 +22,8 @@ type SpineRow = {
   order_id_base: string | null;
   payment_method: string;
   payment_status: string;
+  subscription_sequence: string | number | null;
+  subscription_member_key_present: boolean | string | null;
   gross_revenue: string | number;
   net_revenue: string | number;
   join_method: string;
@@ -59,8 +61,12 @@ type Assignment = {
   evidenceConfidence: "A" | "B" | "C" | "D";
   evidenceTier: string;
   unknownReason: string;
+  unknownDetail?: string;
   matchedBy: string[];
   npayIntentStatus?: string;
+  subscriptionSequence?: number | null;
+  subscriptionMemberKeyPresent?: boolean | null;
+  utmAudit?: UtmAuditSignature;
 };
 
 type ChannelSummaryRow = {
@@ -68,6 +74,83 @@ type ChannelSummaryRow = {
   orders: number;
   revenue: number;
   confidence: Record<string, number>;
+};
+
+type UnknownReasonDetailRow = {
+  rootReason: string;
+  detail: string;
+  orders: number;
+  revenue: number;
+  nextEvidenceNeeded: string;
+  recommendedFix: string;
+  confidence: Assignment["evidenceConfidence"];
+};
+
+type EvidenceAuditRow = {
+  label: string;
+  orders: number;
+  revenue: number | null;
+  confidence: Assignment["evidenceConfidence"] | "aggregate_only";
+  source: string;
+  useForBudgetRoas: "yes_order_level" | "reference_only" | "no";
+  note: string;
+};
+
+type UtmAuditSignature = {
+  source: string;
+  medium: string;
+  campaign: string;
+  family: string;
+  candidateRule: string;
+};
+
+type UtmInvalidAuditRow = UtmAuditSignature & {
+  orders: number;
+  revenue: number;
+  useForBudgetRoas: "reference_only_not_budget";
+  note: string;
+};
+
+type NaverEvidenceAggregateRow = {
+  class: "paid_naver" | "naver_brandsearch" | "organic_naver_candidate" | "naver_referrer_or_utm_only";
+  touchpoint: string;
+  rows: number;
+  bridgeKeyPresent: number;
+  confidence: "B" | "C" | "aggregate_only";
+  budgetRoasIncluded: false;
+  useForBudgetRoas: "reference_only_not_budget";
+  note: string;
+};
+
+type NaverEvidenceAggregate = {
+  contractVersion: string;
+  aggregateOnly: true;
+  rawIdentifierOutput: false;
+  budgetRoasIncluded: false;
+  source: string;
+  coverageStatus: "full_aggregate" | "limited_item_slice_fallback" | "unavailable";
+  endpointStatus: "available" | "unavailable";
+  filters: Record<string, unknown>;
+  summary: {
+    rowsTotal: number;
+    naverAny: number;
+    byClass: Record<string, number>;
+  };
+  rows: NaverEvidenceAggregateRow[];
+  warnings: string[];
+};
+
+type SubscriptionAcquisitionSummary = {
+  renewable_order_count: number;
+  renewable_revenue: number;
+  first_subscription_order_count: number;
+  first_subscription_revenue: number;
+  first_acquisition_channel_found: number;
+  first_acquisition_revenue_found: number;
+  archive_lookup_needed: number;
+  archive_lookup_needed_revenue: number;
+  member_key_missing: number;
+  member_key_missing_revenue: number;
 };
 
 type PlatformReferenceRow = {
@@ -105,7 +188,7 @@ type PlatformReferenceRow = {
   forbiddenUse: "do_not_add_to_internal_confirmed_revenue";
 };
 
-const CONTRACT_VERSION = "monthly-evidence-join-dry-run-v0.4";
+const CONTRACT_VERSION = "monthly-evidence-join-dry-run-v0.5";
 const ATTRIBUTION_BASE_URL = process.env.ATTRIBUTION_OPERATIONAL_BASE_URL || "https://att.ainativeos.net";
 
 const argValue = (name: string) => {
@@ -241,12 +324,130 @@ const sourceIs = (value: unknown, tokens: string[]) => {
   return tokens.some((token) => source.includes(token));
 };
 
+const hasAnyValue = (...values: unknown[]) => values.some((value) => readString(value).length > 0);
+const confidenceRank = (confidence: Assignment["evidenceConfidence"]) => ({
+  A: 4,
+  B: 3,
+  C: 2,
+  D: 1,
+}[confidence] || 0);
+
+const safeUtmPart = (value: unknown) => {
+  const normalized = readString(value).trim().toLowerCase().replace(/\s+/g, "_");
+  if (!normalized) return "(blank)";
+  return normalized.slice(0, 80);
+};
+
+const hasWordToken = (text: string, tokens: string[]) =>
+  tokens.some((token) => new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, "i").test(text));
+
+const utmFamily = (source: string, medium: string, campaign: string) => {
+  const text = `${source} ${medium} ${campaign}`.toLowerCase();
+  if (text.includes("naverbrandsearch") || text.includes("brandsearch")) return "naver_brandsearch";
+  if (text.includes("powerlink") || text.includes("shoppingsearch")) return "paid_naver_candidate";
+  if (text.includes("naver") && hasWordToken(text, ["cpc", "paid", "powerlink", "search", "sa", "bs"])) {
+    return "paid_naver_candidate";
+  }
+  if (text.includes("naver")) return "naver_utm_needs_rule";
+  if (text.includes("kakao") || text.includes("talk")) return "kakao_candidate";
+  if (hasWordToken(text, ["meta", "facebook", "instagram", "fb"])) return "meta_candidate";
+  if (text.includes("google") || text.includes("youtube")) return "google_candidate";
+  return "unknown_utm_invalid";
+};
+
+const utmCandidateRule = (family: string) => {
+  if (family === "naver_brandsearch") return "naver_brandsearch_reference";
+  if (family === "paid_naver_candidate") return "paid_naver_reference";
+  if (family === "naver_utm_needs_rule") return "naver_rule_review";
+  if (family === "kakao_candidate") return "kakao_reference";
+  if (family === "meta_candidate") return "paid_meta_reference";
+  if (family === "google_candidate") return "paid_google_reference";
+  return "unknown_utm_invalid";
+};
+
+const buildUtmAuditSignature = (entry: LedgerItem | undefined): UtmAuditSignature | undefined => {
+  if (!entry) return undefined;
+  const firstTouch = getFirstTouch(entry);
+  const source = safeUtmPart(entry.utmSource) !== "(blank)" ? safeUtmPart(entry.utmSource) : safeUtmPart(firstTouch.utmSource);
+  const medium = safeUtmPart(entry.utmMedium) !== "(blank)" ? safeUtmPart(entry.utmMedium) : safeUtmPart(firstTouch.utmMedium);
+  const campaign = safeUtmPart(entry.utmCampaign) !== "(blank)" ? safeUtmPart(entry.utmCampaign) : safeUtmPart(firstTouch.utmCampaign);
+  if (source === "(blank)" && medium === "(blank)" && campaign === "(blank)") return undefined;
+  const family = utmFamily(source, medium, campaign);
+  return {
+    source,
+    medium,
+    campaign,
+    family,
+    candidateRule: utmCandidateRule(family),
+  };
+};
+
+const NAVER_SEARCH_REFERRERS = ["search.naver.com", "m.search.naver.com"];
+const NAVER_REFERRERS = [
+  "search.naver.com",
+  "m.search.naver.com",
+  "naver.com",
+  "blog.naver.com",
+  "m.blog.naver.com",
+  "shopping.naver.com",
+  "m.shopping.naver.com",
+];
+
+const naverEvidenceProfile = (entry: LedgerItem | undefined) => {
+  if (!entry) {
+    return {
+      hasNaverReferrer: false,
+      hasNaverSearchReferrer: false,
+      hasNaverPaidMarker: false,
+      hasDirectNaverSearchReferrer: false,
+      hasFirstTouchNaverSearchReferrer: false,
+    };
+  }
+  const firstTouch = getFirstTouch(entry);
+  const directReferrer = readString(entry.referrer).toLowerCase();
+  const firstReferrer = readString(firstTouch.referrer).toLowerCase();
+  const directText = evidenceText(entry);
+  const firstTouchText = [
+    firstTouch.landing,
+    firstTouch.referrer,
+    firstTouch.utmSource,
+    firstTouch.utmMedium,
+    firstTouch.utmCampaign,
+    firstTouch.utmTerm,
+    firstTouch.utmContent,
+  ].map((value) => readString(value).toLowerCase()).join(" ");
+  const allText = `${directText} ${firstTouchText}`;
+  const directNapm = safeUrlParam("NaPm", entry.landing, entry.referrer);
+  const firstNapm = safeUrlParam("NaPm", firstTouch.landing, firstTouch.referrer);
+  const paidUtm =
+    (sourceIs(entry.utmSource, ["naver"]) || sourceIs(firstTouch.utmSource, ["naver"])) &&
+    (paidMedium(entry.utmMedium) || paidMedium(firstTouch.utmMedium));
+  const paidMarker = directNapm || firstNapm || paidUtm || includesAny(allText, [
+    "powerlink",
+    "brandsearch",
+    "naverad",
+    "nvadid",
+    "n_media",
+    "n_query",
+  ]);
+  const hasDirectNaverSearchReferrer = includesAny(directReferrer, NAVER_SEARCH_REFERRERS);
+  const hasFirstTouchNaverSearchReferrer = includesAny(firstReferrer, NAVER_SEARCH_REFERRERS);
+  return {
+    hasNaverReferrer: includesAny(`${directReferrer} ${firstReferrer}`, NAVER_REFERRERS),
+    hasNaverSearchReferrer: hasDirectNaverSearchReferrer || hasFirstTouchNaverSearchReferrer,
+    hasNaverPaidMarker: Boolean(paidMarker),
+    hasDirectNaverSearchReferrer,
+    hasFirstTouchNaverSearchReferrer,
+  };
+};
+
 const classifyEvidence = (entry: LedgerItem | undefined): {
   channel: string;
   tier: string;
   confidence: Assignment["evidenceConfidence"];
   assistChannels: string[];
   reason: string;
+  detail: string;
 } => {
   if (!entry) {
     return {
@@ -255,6 +456,7 @@ const classifyEvidence = (entry: LedgerItem | undefined): {
       confidence: "C",
       assistChannels: [],
       reason: "vm_payment_success_missing",
+      detail: "payment_success_missing_in_vm_cloud",
     };
   }
 
@@ -306,6 +508,30 @@ const classifyEvidence = (entry: LedgerItem | undefined): {
   const firstTouchStrong = Array.isArray(firstTouchMatch.matchedBy)
     ? firstTouchMatch.matchedBy.some((key) => ["checkout_id", "ga_session_id", "client_id", "user_pseudo_id"].includes(readString(key)))
     : Object.keys(firstTouch).length > 0;
+  const hasAnyClickId = Boolean(
+    directGclid || firstGclid || directTtclid || firstTtclid || directFbclid || firstFbclid || directFbc || firstFbc || directNapm || firstNapm,
+  );
+  const hasAnyUtm = hasAnyValue(
+    entry.utmSource,
+    entry.utmMedium,
+    entry.utmCampaign,
+    entry.utmTerm,
+    entry.utmContent,
+    firstTouch.utmSource,
+    firstTouch.utmMedium,
+    firstTouch.utmCampaign,
+    firstTouch.utmTerm,
+    firstTouch.utmContent,
+  );
+  const hasAnyReferrer = hasAnyValue(entry.referrer, firstTouch.referrer);
+  const hasFirstTouch = Object.keys(firstTouch).length > 0;
+  const hasSelfInternalReferrer = includesAny(`${directText} ${firstTouchText}`, [
+    "biocom.kr",
+    "biocom.co.kr",
+    "m.biocom.kr",
+    "biocom.imweb.me",
+  ]);
+  const naverProfile = naverEvidenceProfile(entry);
 
   if (directGclid) add({ channel: "paid_google", tier: "paid_google_order_click_id", confidence: "A", strength: 100 });
   if (directTtclid) add({ channel: "paid_tiktok", tier: "paid_tiktok_order_click_id", confidence: "A", strength: 100 });
@@ -342,22 +568,45 @@ const classifyEvidence = (entry: LedgerItem | undefined): {
       confidence: winner.confidence === "A" ? "B" : winner.confidence,
       assistChannels: ordered.slice(1).map((candidate) => candidate.channel),
       reason: "",
+      detail: "",
     };
   }
 
   if (ordered.length === 1) {
     const winner = ordered[0];
-    const hasFirstTouch = Object.keys(firstTouch).length > 0;
     return {
       channel: winner.channel,
       tier: winner.tier,
       confidence: winner.confidence,
       assistChannels: [],
       reason: "",
+      detail: "",
     };
   }
 
-  const hasSearchReferrer = includesAny(`${directText} ${firstTouchText}`, ["search.naver.com", "google.com/search", "bing.com"]);
+  if (naverProfile.hasDirectNaverSearchReferrer && !naverProfile.hasNaverPaidMarker) {
+    return {
+      channel: "organic_naver",
+      tier: "organic_naver_payment_success_referrer",
+      confidence: "B",
+      assistChannels: [],
+      reason: "",
+      detail: "",
+    };
+  }
+
+  if (naverProfile.hasFirstTouchNaverSearchReferrer && !naverProfile.hasNaverPaidMarker) {
+    return {
+      channel: "organic_naver",
+      tier: "organic_naver_checkout_first_touch",
+      confidence: "C",
+      assistChannels: [],
+      reason: "",
+      detail: "",
+    };
+  }
+
+  const hasSearchReferrer = includesAny(`${directText} ${firstTouchText}`, ["google.com/search", "bing.com"]);
 
   if (hasSearchReferrer) {
     return {
@@ -366,6 +615,7 @@ const classifyEvidence = (entry: LedgerItem | undefined): {
       confidence: "C",
       assistChannels: [],
       reason: "",
+      detail: "",
     };
   }
 
@@ -376,8 +626,21 @@ const classifyEvidence = (entry: LedgerItem | undefined): {
       confidence: "C",
       assistChannels: [],
       reason: "",
+      detail: "",
     };
   }
+
+  const unknownDetail = !hasAnyClickId && !hasAnyUtm && !hasAnyReferrer && !hasFirstTouch
+    ? "no_referrer"
+    : !hasAnyClickId && hasAnyUtm
+      ? "utm_present_but_invalid_rule"
+      : !hasAnyClickId && hasSelfInternalReferrer
+        ? "self_or_internal_referrer_only"
+        : !hasAnyClickId && !hasAnyReferrer
+          ? "no_referrer"
+          : !hasFirstTouch
+            ? "first_touch_expired"
+            : "click_id_missing";
 
   return {
     channel: "unknown",
@@ -385,6 +648,7 @@ const classifyEvidence = (entry: LedgerItem | undefined): {
     confidence: "C",
     assistChannels: [],
     reason: "missing_channel_evidence",
+    detail: unknownDetail,
   };
 };
 
@@ -402,22 +666,52 @@ const fetchVmLedger = async (source: string, startAt: string, endAt: string) => 
   return await response.json() as { summary?: unknown; items?: LedgerItem[]; filters?: unknown };
 };
 
+const ledgerOrderKeys = (entry: LedgerItem) => [
+  normalizeOrderIdBase(entry.orderId),
+  normalizeOrderIdBase(readString(entry.metadata?.orderIdBase)),
+  normalizeOrderIdBase(readString(objectValue(entry.metadata?.referrerPayment).orderNo)),
+  normalizeOrderIdBase(readString(objectValue(entry.metadata?.referrerPayment).orderId)),
+].filter(Boolean);
+
 const getSpineRows = async (site: string, startDate: string, endDateExclusive: string) => {
   const result = await queryPg<SpineRow>(
     `
     WITH
-      imweb AS (
+      subscription_history AS (
         SELECT
           order_number,
-          MAX(COALESCE(final_order_amount, 0)) AS imweb_amount,
-          MAX(COALESCE(total_refunded_price, 0)) AS imweb_refund,
-          MAX(payment_method) AS payment_method,
-          MAX(payment_status) AS payment_status,
-          MAX(raw_data->>'channelOrderNo') AS channel_order_no
-        FROM public.tb_iamweb_users
-        WHERE order_date::timestamp >= $1::timestamp
-          AND order_date::timestamp < $2::timestamp
-        GROUP BY order_number
+          customer_number IS NOT NULL AS subscription_member_key_present,
+          ROW_NUMBER() OVER (
+            PARTITION BY COALESCE(customer_number, order_number)
+            ORDER BY order_date_kst, order_number
+          ) AS subscription_sequence
+        FROM (
+          SELECT
+            order_number,
+            MAX(NULLIF(customer_number, '')) AS customer_number,
+            MIN(order_date::timestamp) AS order_date_kst
+          FROM public.tb_iamweb_users
+          WHERE payment_method = 'SUBSCRIPTION'
+            AND payment_status = 'PAYMENT_COMPLETE'
+          GROUP BY order_number
+        ) history_base
+      ),
+      imweb AS (
+        SELECT
+          u.order_number,
+          MIN(u.order_date::timestamp) AS order_date_kst,
+          MAX(COALESCE(u.final_order_amount, 0)) AS imweb_amount,
+          MAX(COALESCE(u.total_refunded_price, 0)) AS imweb_refund,
+          MAX(u.payment_method) AS payment_method,
+          MAX(u.payment_status) AS payment_status,
+          MAX(u.raw_data->>'channelOrderNo') AS channel_order_no,
+          MAX(sh.subscription_sequence) AS subscription_sequence,
+          BOOL_OR(COALESCE(sh.subscription_member_key_present, false)) AS subscription_member_key_present
+        FROM public.tb_iamweb_users u
+        LEFT JOIN subscription_history sh ON sh.order_number = u.order_number
+        WHERE u.order_date::timestamp >= $1::timestamp
+          AND u.order_date::timestamp < $2::timestamp
+        GROUP BY u.order_number
       ),
       toss AS (
         SELECT
@@ -443,6 +737,8 @@ const getSpineRows = async (site: string, startDate: string, endDateExclusive: s
           t.order_id_base,
           i.payment_method,
           i.payment_status,
+          i.subscription_sequence,
+          i.subscription_member_key_present,
           i.imweb_amount AS gross_revenue,
           CASE
             WHEN t.payment_key IS NOT NULL THEN t.toss_balance
@@ -483,25 +779,50 @@ const buildLedgerIndexes = (items: LedgerItem[]) => {
   const paymentEntries = items.filter((item) => item.touchpoint === "payment_success" && item.paymentStatus === "confirmed");
   const byPaymentKey = new Map<string, LedgerItem>();
   const byOrderId = new Map<string, LedgerItem>();
+  const byRelatedOrderId = new Map<string, LedgerItem>();
+
+  for (const entry of items) {
+    for (const key of ledgerOrderKeys(entry)) {
+      const current = byRelatedOrderId.get(key);
+      const entryRank = entry.touchpoint === "checkout_started" || entry.touchpoint === "checkout_context" ? 2 : 1;
+      const currentRank = current?.touchpoint === "checkout_started" || current?.touchpoint === "checkout_context" ? 2 : 1;
+      if (!current || entryRank > currentRank) byRelatedOrderId.set(key, entry);
+    }
+  }
 
   for (const entry of paymentEntries) {
     if (entry.paymentKey && !byPaymentKey.has(entry.paymentKey)) byPaymentKey.set(entry.paymentKey, entry);
-    for (const key of [
-      normalizeOrderIdBase(entry.orderId),
-      normalizeOrderIdBase(readString(entry.metadata?.orderIdBase)),
-      normalizeOrderIdBase(readString(objectValue(entry.metadata?.referrerPayment).orderNo)),
-      normalizeOrderIdBase(readString(objectValue(entry.metadata?.referrerPayment).orderId)),
-    ].filter(Boolean)) {
+    for (const key of ledgerOrderKeys(entry)) {
       if (!byOrderId.has(key)) byOrderId.set(key, entry);
     }
   }
 
-  return { byPaymentKey, byOrderId };
+  return { byPaymentKey, byOrderId, byRelatedOrderId };
 };
 
 type NpayContext = {
   sourceAccess: "available" | "empty_or_unavailable" | "error";
   byOrderNumber: Map<string, NpayRoasDryRunOrderResult>;
+};
+
+const readBool = (value: boolean | string | null | undefined) =>
+  value === true || value === "true" || value === "t" || value === "1";
+
+const missingPaymentSuccessDetail = (row: SpineRow, relatedEntry?: LedgerItem): string => {
+  const relatedNaver = naverEvidenceProfile(relatedEntry);
+  if (relatedNaver.hasNaverSearchReferrer && !relatedNaver.hasNaverPaidMarker) {
+    return "naver_referrer_present_but_order_bridge_missing";
+  }
+  if (relatedEntry) return "checkout_started_but_payment_success_missing";
+  if (row.join_method === "imweb_npay_confirmed") return "npay_return_missing";
+  return "payment_success_order_key_normalize_failed";
+};
+
+const subscriptionUnknownDetail = (row: SpineRow, classifiedDetail: string, entry?: LedgerItem): string => {
+  if (!readBool(row.subscription_member_key_present)) return "member_hash_missing";
+  if (!entry) return "acquisition_archive_lookup_needed";
+  if (classifiedDetail === "no_referrer") return "first_touch_expired";
+  return classifiedDetail || "acquisition_archive_lookup_needed";
 };
 
 const assignRow = (
@@ -511,6 +832,16 @@ const assignRow = (
 ): Assignment => {
   const matchedBy: string[] = [];
   let entry: LedgerItem | undefined;
+  let relatedEntry: LedgerItem | undefined;
+  const subscriptionSequence = row.join_method === "imweb_subscription_confirmed"
+    ? toNumber(row.subscription_sequence)
+    : null;
+  const subscriptionFields = row.join_method === "imweb_subscription_confirmed"
+    ? {
+        subscriptionSequence,
+        subscriptionMemberKeyPresent: readBool(row.subscription_member_key_present),
+      }
+    : {};
 
   if (row.payment_key) {
     entry = indexes.byPaymentKey.get(row.payment_key);
@@ -522,6 +853,10 @@ const assignRow = (
     entry = indexes.byOrderId.get(orderKey);
     if (entry) matchedBy.push("order_id_base");
   }
+  if (!entry && orderKey) {
+    relatedEntry = indexes.byRelatedOrderId.get(orderKey);
+    if (relatedEntry) matchedBy.push("related_order_event");
+  }
 
   if (row.join_method === "imweb_npay_confirmed") {
     const npayResult = npay.byOrderNumber.get(row.order_number);
@@ -531,9 +866,10 @@ const assignRow = (
       joinMethod: row.join_method,
       primaryChannel: "npay",
       assistChannels: [],
-      unknownReason: "",
-      matchedBy,
-    };
+        unknownReason: "",
+        matchedBy,
+        ...subscriptionFields,
+      };
 
     if (npay.sourceAccess !== "available") {
       return {
@@ -579,6 +915,7 @@ const assignRow = (
         evidenceConfidence: "D",
         evidenceTier: "npay_confirmed_intent_ambiguous",
         unknownReason: "npay_intent_ambiguous",
+        unknownDetail: "npay_intent_multiple_candidates",
         npayIntentStatus: "ambiguous",
       };
     }
@@ -591,7 +928,55 @@ const assignRow = (
     };
   }
 
+  if (row.join_method === "imweb_subscription_confirmed" && toNumber(row.subscription_sequence) > 1) {
+    return {
+      orderNumber: row.order_number,
+      netRevenue: toNumber(row.net_revenue),
+      joinMethod: row.join_method,
+      primaryChannel: "subscription_recurring",
+      assistChannels: [],
+      evidenceConfidence: "B",
+      evidenceTier: "subscription_recurring_second_plus",
+      unknownReason: "",
+      matchedBy,
+      ...subscriptionFields,
+    };
+  }
+
+  if (!entry) {
+    const detail = missingPaymentSuccessDetail(row, relatedEntry);
+    if (row.join_method === "imweb_subscription_confirmed") {
+      return {
+        orderNumber: row.order_number,
+        netRevenue: toNumber(row.net_revenue),
+        joinMethod: row.join_method,
+        primaryChannel: "unknown",
+        assistChannels: [],
+        evidenceConfidence: "C",
+        evidenceTier: "subscription_without_acquisition_evidence",
+        unknownReason: "subscription_without_acquisition_evidence",
+        unknownDetail: subscriptionUnknownDetail(row, detail, entry),
+        matchedBy,
+        ...subscriptionFields,
+      };
+    }
+    return {
+      orderNumber: row.order_number,
+      netRevenue: toNumber(row.net_revenue),
+      joinMethod: row.join_method,
+      primaryChannel: "unknown",
+      assistChannels: [],
+      evidenceConfidence: "C",
+      evidenceTier: "no_vm_payment_success",
+      unknownReason: "vm_payment_success_missing",
+      unknownDetail: detail,
+      matchedBy,
+      ...subscriptionFields,
+    };
+  }
+
   const classified = classifyEvidence(entry);
+  const utmAudit = buildUtmAuditSignature(entry);
   if (row.join_method === "imweb_subscription_confirmed" && classified.channel === "unknown") {
     return {
       orderNumber: row.order_number,
@@ -602,7 +987,10 @@ const assignRow = (
       evidenceConfidence: "C",
       evidenceTier: "subscription_without_acquisition_evidence",
       unknownReason: "subscription_without_acquisition_evidence",
+      unknownDetail: subscriptionUnknownDetail(row, classified.detail, entry),
       matchedBy,
+      utmAudit,
+      ...subscriptionFields,
     };
   }
 
@@ -615,15 +1003,128 @@ const assignRow = (
     evidenceConfidence: classified.confidence,
     evidenceTier: classified.tier,
     unknownReason: classified.reason,
+    unknownDetail: classified.detail,
     matchedBy,
+    utmAudit,
+    ...subscriptionFields,
   };
+};
+
+const unknownDetailMeta = (rootReason: string, detail = "") => {
+  const key = `${rootReason}:${detail || "unspecified"}`;
+  const fallback = {
+    nextEvidenceNeeded: "source aggregate review",
+    recommendedFix: "원인별 source coverage를 추가 점검",
+  };
+  const map: Record<string, { nextEvidenceNeeded: string; recommendedFix: string }> = {
+    "vm_payment_success_missing:checkout_started_but_payment_success_missing": {
+      nextEvidenceNeeded: "VM Cloud checkout event to payment_success continuity",
+      recommendedFix: "checkout 진입 후 결제완료 신호가 끊기는 구간의 server-side success capture 점검",
+    },
+    "vm_payment_success_missing:payment_success_order_key_normalize_failed": {
+      nextEvidenceNeeded: "VM Cloud attribution_ledger payment_success coverage",
+      recommendedFix: "server-side payment_success capture 또는 order id normalize rule 점검",
+    },
+    "vm_payment_success_missing:npay_return_missing": {
+      nextEvidenceNeeded: "NPay return/success bridge",
+      recommendedFix: "NPay 결제완료 후 주문번호가 고객 유입 장부에 남는지 확인",
+    },
+    "vm_payment_success_missing:naver_referrer_present_but_order_bridge_missing": {
+      nextEvidenceNeeded: "Naver organic referrer + order bridge",
+      recommendedFix: "네이버 검색 유입이 보이는 checkout/session을 결제완료 주문과 연결하는 bridge 보강",
+    },
+    "missing_channel_evidence:no_referrer": {
+      nextEvidenceNeeded: "click id, UTM, referrer, first touch capture",
+      recommendedFix: "referrer 보존과 first touch cookie/cross-domain capture 점검",
+    },
+    "missing_channel_evidence:utm_present_but_invalid_rule": {
+      nextEvidenceNeeded: "utm_source/utm_medium naming rule",
+      recommendedFix: "paid/organic 판정 가능한 UTM source/medium 표준으로 정리",
+    },
+    "missing_channel_evidence:self_or_internal_referrer_only": {
+      nextEvidenceNeeded: "original external referrer before internal redirect",
+      recommendedFix: "내부 도메인 이동 전 최초 referrer/landing 보존",
+    },
+    "missing_channel_evidence:click_id_missing": {
+      nextEvidenceNeeded: "ad click id or external referrer",
+      recommendedFix: "gclid/fbclid/ttclid/NaPm capture와 referrer 보존 점검",
+    },
+    "missing_channel_evidence:first_touch_expired": {
+      nextEvidenceNeeded: "first touch retention window",
+      recommendedFix: "first touch TTL과 결제까지 걸린 시간 분포를 보고 보존 기간 조정",
+    },
+    "subscription_without_acquisition_evidence:first_touch_expired": {
+      nextEvidenceNeeded: "first subscription acquisition first touch",
+      recommendedFix: "첫 구독 시작 전 최초 유입 보존 기간과 결제완료 연결 확인",
+    },
+    "subscription_without_acquisition_evidence:utm_present_but_invalid_rule": {
+      nextEvidenceNeeded: "first subscription UTM naming rule",
+      recommendedFix: "첫 구독 시작 유입 UTM source/medium 표준화",
+    },
+    "subscription_without_acquisition_evidence:member_hash_missing": {
+      nextEvidenceNeeded: "member hash or internal join key",
+      recommendedFix: "raw 회원정보 없이 내부 join 가능한 회원 key 보존 여부 확인",
+    },
+    "subscription_without_acquisition_evidence:acquisition_archive_lookup_needed": {
+      nextEvidenceNeeded: "subscription first-order acquisition archive",
+      recommendedFix: "첫 구독 시작 주문의 과거 유입 장부 archive lookup 설계",
+    },
+    "subscription_without_acquisition_evidence:first_order_outside_window": {
+      nextEvidenceNeeded: "first order outside current report window",
+      recommendedFix: "월별 화면 밖 최초 주문 acquisition을 archive에서 조회",
+    },
+    "npay_intent_ambiguous:npay_intent_multiple_candidates": {
+      nextEvidenceNeeded: "NPay intent disambiguation key",
+      recommendedFix: "NPay intent ledger의 order/session key 정밀도 개선",
+    },
+  };
+  return map[key] ?? fallback;
 };
 
 const summarizeAssignments = (assignments: Assignment[]) => {
   const byChannel = new Map<string, { orders: number; revenue: number; confidence: Record<string, number> }>();
   const unknownReasons = new Map<string, { orders: number; revenue: number }>();
+  const unknownReasonDetails = new Map<string, UnknownReasonDetailRow>();
   const evidenceTiers = new Map<string, { orders: number; revenue: number }>();
   const npayIntentStatuses = new Map<string, { orders: number; revenue: number }>();
+  const naverOrganicEvidence = new Map<string, EvidenceAuditRow>();
+  const utmInvalidAudit = new Map<string, UtmInvalidAuditRow>();
+  const subscriptionAcquisition: SubscriptionAcquisitionSummary = {
+    renewable_order_count: 0,
+    renewable_revenue: 0,
+    first_subscription_order_count: 0,
+    first_subscription_revenue: 0,
+    first_acquisition_channel_found: 0,
+    first_acquisition_revenue_found: 0,
+    archive_lookup_needed: 0,
+    archive_lookup_needed_revenue: 0,
+    member_key_missing: 0,
+    member_key_missing_revenue: 0,
+  };
+
+  const addNaverEvidence = (
+    key: string,
+    input: Omit<EvidenceAuditRow, "orders" | "revenue"> & { revenue: number | null },
+    assignment?: Assignment,
+  ) => {
+    const current = naverOrganicEvidence.get(key) || {
+      ...input,
+      orders: 0,
+      revenue: input.revenue == null ? null : 0,
+    };
+    if (assignment) {
+      current.orders += 1;
+      current.revenue = (current.revenue || 0) + assignment.netRevenue;
+      if (
+        input.confidence !== "aggregate_only" &&
+        current.confidence !== "aggregate_only" &&
+        confidenceRank(input.confidence) > confidenceRank(current.confidence)
+      ) {
+        current.confidence = input.confidence;
+      }
+    }
+    naverOrganicEvidence.set(key, current);
+  };
 
   for (const assignment of assignments) {
     const channel = byChannel.get(assignment.primaryChannel) || { orders: 0, revenue: 0, confidence: {} };
@@ -637,6 +1138,39 @@ const summarizeAssignments = (assignments: Assignment[]) => {
       reason.orders += 1;
       reason.revenue += assignment.netRevenue;
       unknownReasons.set(assignment.unknownReason, reason);
+
+      const detail = assignment.unknownDetail || "unspecified";
+      const detailKey = `${assignment.unknownReason}:${detail}`;
+      const meta = unknownDetailMeta(assignment.unknownReason, detail);
+      const current = unknownReasonDetails.get(detailKey) || {
+        rootReason: assignment.unknownReason,
+        detail,
+        orders: 0,
+        revenue: 0,
+        nextEvidenceNeeded: meta.nextEvidenceNeeded,
+        recommendedFix: meta.recommendedFix,
+        confidence: assignment.evidenceConfidence,
+      };
+      current.orders += 1;
+      current.revenue += assignment.netRevenue;
+      if (confidenceRank(assignment.evidenceConfidence) > confidenceRank(current.confidence)) {
+        current.confidence = assignment.evidenceConfidence;
+      }
+      unknownReasonDetails.set(detailKey, current);
+
+      if (assignment.unknownDetail === "utm_present_but_invalid_rule" && assignment.utmAudit) {
+        const signature = `${assignment.utmAudit.source}|${assignment.utmAudit.medium}|${assignment.utmAudit.campaign}|${assignment.utmAudit.family}`;
+        const utmCurrent = utmInvalidAudit.get(signature) || {
+          ...assignment.utmAudit,
+          orders: 0,
+          revenue: 0,
+          useForBudgetRoas: "reference_only_not_budget" as const,
+          note: "UTM 이름만으로 actual 매출 채널을 확정하지 않고, channel evidence 후보로만 둔다.",
+        };
+        utmCurrent.orders += 1;
+        utmCurrent.revenue += assignment.netRevenue;
+        utmInvalidAudit.set(signature, utmCurrent);
+      }
     }
 
     const tier = evidenceTiers.get(assignment.evidenceTier) || { orders: 0, revenue: 0 };
@@ -651,7 +1185,81 @@ const summarizeAssignments = (assignments: Assignment[]) => {
       npayStatus.revenue += assignment.netRevenue;
       npayIntentStatuses.set(statusKey, npayStatus);
     }
+
+    if (assignment.evidenceTier === "organic_naver_payment_success_referrer") {
+      addNaverEvidence(
+        "organic_naver_order_level_strong",
+        {
+          label: "organic_naver_order_level_strong",
+          revenue: 0,
+          confidence: "B",
+          source: "VM Cloud attribution_ledger payment_success referrer",
+          useForBudgetRoas: "yes_order_level",
+          note: "결제완료 신호에 네이버 검색 referrer가 있고 NaPm/paid UTM이 없다.",
+        },
+        assignment,
+      );
+    }
+    if (assignment.evidenceTier === "organic_naver_checkout_first_touch") {
+      addNaverEvidence(
+        "organic_naver_session_level_medium",
+        {
+          label: "organic_naver_session_level_medium",
+          revenue: 0,
+          confidence: "C",
+          source: "VM Cloud attribution_ledger first_touch referrer",
+          useForBudgetRoas: "reference_only",
+          note: "같은 주문의 결제완료에는 직접 referrer가 없지만 first touch에 네이버 검색 referrer가 있다.",
+        },
+        assignment,
+      );
+    }
+    if (assignment.unknownDetail === "naver_referrer_present_but_order_bridge_missing") {
+      addNaverEvidence(
+        "naver_referrer_but_order_bridge_missing",
+        {
+          label: "naver_referrer_but_order_bridge_missing",
+          revenue: 0,
+          confidence: "C",
+          source: "VM Cloud attribution_ledger related checkout/session event",
+          useForBudgetRoas: "reference_only",
+          note: "네이버 검색 referrer는 보이나 결제완료 주문 bridge가 없어 예산 판단 채널로 승격하지 않는다.",
+        },
+        assignment,
+      );
+    }
+
+    if (assignment.joinMethod === "imweb_subscription_confirmed") {
+      if ((assignment.subscriptionSequence || 0) > 1) {
+        subscriptionAcquisition.renewable_order_count += 1;
+        subscriptionAcquisition.renewable_revenue += assignment.netRevenue;
+      } else {
+        subscriptionAcquisition.first_subscription_order_count += 1;
+        subscriptionAcquisition.first_subscription_revenue += assignment.netRevenue;
+        if (assignment.primaryChannel !== "unknown") {
+          subscriptionAcquisition.first_acquisition_channel_found += 1;
+          subscriptionAcquisition.first_acquisition_revenue_found += assignment.netRevenue;
+        }
+      }
+      if (assignment.unknownDetail === "acquisition_archive_lookup_needed") {
+        subscriptionAcquisition.archive_lookup_needed += 1;
+        subscriptionAcquisition.archive_lookup_needed_revenue += assignment.netRevenue;
+      }
+      if (assignment.unknownDetail === "member_hash_missing") {
+        subscriptionAcquisition.member_key_missing += 1;
+        subscriptionAcquisition.member_key_missing_revenue += assignment.netRevenue;
+      }
+    }
   }
+
+  addNaverEvidence("naver_searchadvisor_aggregate_only", {
+    label: "naver_searchadvisor_aggregate_only",
+    revenue: null,
+    confidence: "aggregate_only",
+    source: "Naver Search Advisor aggregate export/API",
+    useForBudgetRoas: "no",
+    note: "Search Advisor는 검색어/페이지/day aggregate 근거다. 주문 단위 매출 정본이나 자동 채널 배정에는 쓰지 않는다.",
+  });
 
   return {
     byChannel: Array.from(byChannel.entries())
@@ -660,13 +1268,232 @@ const summarizeAssignments = (assignments: Assignment[]) => {
     unknownReasons: Array.from(unknownReasons.entries())
       .map(([unknownReason, value]) => ({ unknownReason, ...value }))
       .sort((a, b) => b.revenue - a.revenue),
+    unknownReasonDetails: Array.from(unknownReasonDetails.values())
+      .sort((a, b) => b.revenue - a.revenue),
     evidenceTiers: Array.from(evidenceTiers.entries())
       .map(([evidenceTier, value]) => ({ evidenceTier, ...value }))
       .sort((a, b) => b.revenue - a.revenue),
     npayIntentStatuses: Array.from(npayIntentStatuses.entries())
       .map(([npayIntentStatus, value]) => ({ npayIntentStatus, ...value }))
       .sort((a, b) => b.revenue - a.revenue),
+    naverOrganicEvidence: Array.from(naverOrganicEvidence.values())
+      .sort((a, b) => (b.revenue || 0) - (a.revenue || 0)),
+    utmInvalidAudit: Array.from(utmInvalidAudit.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 20),
+    subscriptionAcquisition,
   };
+};
+
+const summarizeNaverLedgerAggregate = (
+  items: LedgerItem[],
+  assignmentRows: EvidenceAuditRow[],
+): EvidenceAuditRow[] => {
+  const existing = new Map(assignmentRows.map((row) => [row.label, { ...row }]));
+  let checkoutSearchEvents = 0;
+  let paymentSearchEvents = 0;
+  let paidMarkedSearchEvents = 0;
+  let nonSearchNaverReferenceEvents = 0;
+
+  for (const item of items) {
+    const profile = naverEvidenceProfile(item);
+    if (profile.hasNaverSearchReferrer && profile.hasNaverPaidMarker) {
+      paidMarkedSearchEvents += 1;
+      continue;
+    }
+    if (profile.hasNaverReferrer && !profile.hasNaverSearchReferrer && !profile.hasNaverPaidMarker) {
+      nonSearchNaverReferenceEvents += 1;
+      continue;
+    }
+    if (!profile.hasNaverSearchReferrer || profile.hasNaverPaidMarker) continue;
+    if (item.touchpoint === "payment_success") paymentSearchEvents += 1;
+    if (item.touchpoint === "checkout_started" || item.touchpoint === "checkout_context") {
+      checkoutSearchEvents += 1;
+    }
+  }
+
+  if (paymentSearchEvents > 0 && !existing.has("organic_naver_order_level_strong")) {
+    existing.set("organic_naver_order_level_strong", {
+      label: "organic_naver_order_level_strong",
+      orders: paymentSearchEvents,
+      revenue: null,
+      confidence: "B",
+      source: "VM Cloud attribution_ledger payment_success referrer aggregate",
+      useForBudgetRoas: "reference_only",
+      note: "결제완료 이벤트에는 네이버 검색 referrer가 있으나 운영DB 주문 매출 bridge 검증 전이라 참고용으로만 둔다.",
+    });
+  }
+
+  if (checkoutSearchEvents > 0 && !existing.has("organic_naver_session_level_medium")) {
+    existing.set("organic_naver_session_level_medium", {
+      label: "organic_naver_session_level_medium",
+      orders: checkoutSearchEvents,
+      revenue: null,
+      confidence: "C",
+      source: "VM Cloud attribution_ledger checkout_started referrer aggregate",
+      useForBudgetRoas: "reference_only",
+      note: "네이버 검색 referrer가 있는 checkout/session 건수다. 주문 매출 bridge가 닫히기 전까지 예산 판단 매출로 쓰지 않는다.",
+    });
+  }
+
+  if (paidMarkedSearchEvents > 0 && !existing.has("naver_search_referrer_paid_marker_excluded")) {
+    existing.set("naver_search_referrer_paid_marker_excluded", {
+      label: "naver_search_referrer_paid_marker_excluded",
+      orders: paidMarkedSearchEvents,
+      revenue: null,
+      confidence: "aggregate_only",
+      source: "VM Cloud attribution_ledger referrer aggregate",
+      useForBudgetRoas: "no",
+      note: "네이버 검색 referrer가 보이지만 NaPm/브랜드검색 등 유료 표식이 있어 자연검색 매출로 분류하지 않는다.",
+    });
+  }
+
+  if (nonSearchNaverReferenceEvents > 0 && !existing.has("naver_non_search_referrer_reference_only")) {
+    existing.set("naver_non_search_referrer_reference_only", {
+      label: "naver_non_search_referrer_reference_only",
+      orders: nonSearchNaverReferenceEvents,
+      revenue: null,
+      confidence: "aggregate_only",
+      source: "VM Cloud attribution_ledger referrer aggregate",
+      useForBudgetRoas: "no",
+      note: "네이버 도메인 referrer는 있으나 검색 referrer가 아니라 자연검색 주문 근거로 쓰지 않는다.",
+    });
+  }
+
+  return Array.from(existing.values()).sort((a, b) => (b.revenue || 0) - (a.revenue || 0) || b.orders - a.orders);
+};
+
+const classifyNaverAggregateItem = (item: LedgerItem): NaverEvidenceAggregateRow["class"] | null => {
+  const profile = naverEvidenceProfile(item);
+  const firstTouch = getFirstTouch(item);
+  const text = [
+    evidenceText(item),
+    firstTouch.landing,
+    firstTouch.referrer,
+    firstTouch.utmSource,
+    firstTouch.utmMedium,
+    firstTouch.utmCampaign,
+    firstTouch.utmTerm,
+    firstTouch.utmContent,
+  ].map((value) => readString(value).toLowerCase()).join(" ");
+  const hasNaverAny = profile.hasNaverReferrer || profile.hasNaverPaidMarker || text.includes("naver") || text.includes("napm");
+  if (!hasNaverAny) return null;
+  if (includesAny(text, ["brandsearch", "brand_search", "naverbrandsearch"])) return "naver_brandsearch";
+  if (profile.hasNaverPaidMarker) return "paid_naver";
+  if (profile.hasNaverSearchReferrer) return "organic_naver_candidate";
+  if (profile.hasNaverReferrer || text.includes("naver")) return "naver_referrer_or_utm_only";
+  return null;
+};
+
+const naverAggregateNote = (classification: NaverEvidenceAggregateRow["class"]) => {
+  if (classification === "paid_naver") return "NaPm/n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다.";
+  if (classification === "naver_brandsearch") return "brandsearch marker가 있어 네이버 브랜드검색 후보로만 둔다.";
+  if (classification === "organic_naver_candidate") return "네이버 검색 referrer는 있으나 paid marker가 없어 자연검색 후보로 둔다.";
+  return "네이버 흔적은 있으나 paid/brandsearch/organic 확정 조건을 충족하지 않는다.";
+};
+
+const buildNaverAggregateFromItems = (
+  items: LedgerItem[],
+  filters: Record<string, unknown>,
+  coverageStatus: NaverEvidenceAggregate["coverageStatus"],
+  endpointStatus: NaverEvidenceAggregate["endpointStatus"],
+): NaverEvidenceAggregate => {
+  const rows = new Map<string, NaverEvidenceAggregateRow>();
+  for (const item of items) {
+    const classification = classifyNaverAggregateItem(item);
+    if (!classification) continue;
+    const touchpoint = item.touchpoint || "unknown";
+    const key = `${classification}:${touchpoint}`;
+    const current = rows.get(key) || {
+      class: classification,
+      touchpoint,
+      rows: 0,
+      bridgeKeyPresent: 0,
+      confidence: classification === "organic_naver_candidate" ? "C" as const : "aggregate_only" as const,
+      budgetRoasIncluded: false as const,
+      useForBudgetRoas: "reference_only_not_budget" as const,
+      note: naverAggregateNote(classification),
+    };
+    current.rows += 1;
+    if (item.orderId || item.paymentKey) current.bridgeKeyPresent += 1;
+    rows.set(key, current);
+  }
+  const ordered = Array.from(rows.values()).sort((a, b) =>
+    a.class.localeCompare(b.class) || a.touchpoint.localeCompare(b.touchpoint),
+  );
+  return {
+    contractVersion: "naver-evidence-aggregate-v0.1",
+    aggregateOnly: true,
+    rawIdentifierOutput: false,
+    budgetRoasIncluded: false,
+    source: coverageStatus === "full_aggregate"
+      ? "attribution_ledger full filtered aggregate"
+      : "attribution_ledger limited item slice fallback",
+    coverageStatus,
+    endpointStatus,
+    filters,
+    summary: {
+      rowsTotal: items.length,
+      naverAny: ordered.reduce((sum, row) => sum + row.rows, 0),
+      byClass: ordered.reduce<Record<string, number>>((acc, row) => {
+        acc[row.class] = (acc[row.class] || 0) + row.rows;
+        return acc;
+      }, {}),
+    },
+    rows: ordered,
+    warnings: [
+      "UTM/NaPm/n_*는 채널 evidence이며 actual 매출 정본이 아니다.",
+      "예산 ROAS에는 자동 포함하지 않는다.",
+      ...(coverageStatus === "limited_item_slice_fallback"
+        ? ["aggregate endpoint unavailable; /api/attribution/ledger item slice 기준이므로 VM Cloud 전체 숫자와 다를 수 있다."]
+        : []),
+    ],
+  };
+};
+
+const fetchVmNaverEvidenceAggregate = async (
+  source: string,
+  startAt: string,
+  endAt: string,
+  fallbackItems: LedgerItem[],
+): Promise<NaverEvidenceAggregate> => {
+  const url = new URL("/api/attribution/ledger/naver-evidence-aggregate", ATTRIBUTION_BASE_URL);
+  url.searchParams.set("source", source);
+  url.searchParams.set("startAt", startAt);
+  url.searchParams.set("endAt", endAt);
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    if (!response.ok) {
+      return buildNaverAggregateFromItems(
+        fallbackItems,
+        { source, startAt, endAt },
+        "limited_item_slice_fallback",
+        "unavailable",
+      );
+    }
+    const body = await response.json() as { aggregate?: NaverEvidenceAggregate };
+    if (!body.aggregate?.rows) {
+      return buildNaverAggregateFromItems(
+        fallbackItems,
+        { source, startAt, endAt },
+        "limited_item_slice_fallback",
+        "unavailable",
+      );
+    }
+    return {
+      ...body.aggregate,
+      coverageStatus: "full_aggregate",
+      endpointStatus: "available",
+      warnings: body.aggregate.warnings || [],
+    };
+  } catch {
+    return buildNaverAggregateFromItems(
+      fallbackItems,
+      { source, startAt, endAt },
+      "limited_item_slice_fallback",
+      "unavailable",
+    );
+  }
 };
 
 type PlatformFetchResult = {
@@ -1124,6 +1951,13 @@ const run = async (options: Options) => {
     .filter((assignment) => assignment.primaryChannel !== "unknown" && assignment.primaryChannel !== "quarantine")
     .reduce((sum, assignment) => sum + assignment.netRevenue, 0);
   const summary = summarizeAssignments(assignments);
+  const naverOrganicEvidence = summarizeNaverLedgerAggregate(vm.items || [], summary.naverOrganicEvidence);
+  const naverEvidenceAggregate = await fetchVmNaverEvidenceAggregate(
+    `${options.site}_imweb`,
+    range.startAtUtc,
+    range.endAtUtc,
+    vm.items || [],
+  );
   const platformReference = await buildPlatformReference(summary.byChannel, range);
 
   return {
@@ -1170,14 +2004,30 @@ const run = async (options: Options) => {
     channelSummary: summary.byChannel,
     platformReference,
     unknownReasons: summary.unknownReasons,
+    unknownReasonDetails: summary.unknownReasonDetails,
+    naverOrganicEvidence,
+    naverEvidenceAggregate,
+    utmInvalidAudit: summary.utmInvalidAudit,
+    subscriptionAcquisitionSummary: summary.subscriptionAcquisition,
     evidenceTierSummary: summary.evidenceTiers,
     npayIntentStatusSummary: summary.npayIntentStatuses,
-    sampleRows: assignments.slice(0, 20),
+    sampleRows: [],
   };
 };
 
 const printMarkdown = (payload: Awaited<ReturnType<typeof run>>) => {
-  const { metadata, totals, channelSummary, platformReference, unknownReasons } = payload;
+  const {
+    metadata,
+    totals,
+    channelSummary,
+    platformReference,
+    unknownReasons,
+    unknownReasonDetails,
+    naverOrganicEvidence,
+    naverEvidenceAggregate,
+    utmInvalidAudit,
+    subscriptionAcquisitionSummary,
+  } = payload;
   console.log(`# monthly-evidence-join-dry-run ${metadata.site} ${metadata.month}`);
   console.log("");
   console.log(`- contract_version: ${metadata.contractVersion}`);
@@ -1229,6 +2079,48 @@ const printMarkdown = (payload: Awaited<ReturnType<typeof run>>) => {
   console.log("|---|---:|---:|");
   for (const row of unknownReasons) {
     console.log(`| ${row.unknownReason} | ${row.orders.toLocaleString("ko-KR")} | ${krw(row.revenue)} |`);
+  }
+  console.log("");
+  console.log("## Unknown Reason Details");
+  console.log("");
+  console.log("| root_reason | detail | orders | revenue | next_evidence_needed | recommended_fix |");
+  console.log("|---|---|---:|---:|---|---|");
+  for (const row of unknownReasonDetails) {
+    console.log(`| ${row.rootReason} | ${row.detail} | ${row.orders.toLocaleString("ko-KR")} | ${krw(row.revenue)} | ${row.nextEvidenceNeeded} | ${row.recommendedFix} |`);
+  }
+  console.log("");
+  console.log("## Naver Organic Evidence");
+  console.log("");
+  console.log("| label | orders | revenue | confidence | use_for_budget_roas | source | note |");
+  console.log("|---|---:|---:|---|---|---|---|");
+  for (const row of naverOrganicEvidence) {
+    console.log(`| ${row.label} | ${row.orders.toLocaleString("ko-KR")} | ${row.revenue == null ? "-" : krw(row.revenue)} | ${row.confidence} | ${row.useForBudgetRoas} | ${row.source} | ${row.note} |`);
+  }
+  console.log("");
+  console.log("## Naver Evidence Aggregate");
+  console.log("");
+  console.log(`- coverage_status: ${naverEvidenceAggregate.coverageStatus}`);
+  console.log(`- endpoint_status: ${naverEvidenceAggregate.endpointStatus}`);
+  console.log("| class | touchpoint | rows | bridge_key_present | use_for_budget_roas | note |");
+  console.log("|---|---|---:|---:|---|---|");
+  for (const row of naverEvidenceAggregate.rows) {
+    console.log(`| ${row.class} | ${row.touchpoint} | ${row.rows.toLocaleString("ko-KR")} | ${row.bridgeKeyPresent.toLocaleString("ko-KR")} | ${row.useForBudgetRoas} | ${row.note} |`);
+  }
+  console.log("");
+  console.log("## UTM Invalid Audit");
+  console.log("");
+  console.log("| family | source | medium | campaign | candidate_rule | orders | revenue |");
+  console.log("|---|---|---|---|---|---:|---:|");
+  for (const row of utmInvalidAudit) {
+    console.log(`| ${row.family} | ${row.source} | ${row.medium} | ${row.campaign} | ${row.candidateRule} | ${row.orders.toLocaleString("ko-KR")} | ${krw(row.revenue)} |`);
+  }
+  console.log("");
+  console.log("## Subscription Acquisition Summary");
+  console.log("");
+  console.log("| metric | value |");
+  console.log("|---|---:|");
+  for (const [key, value] of Object.entries(subscriptionAcquisitionSummary)) {
+    console.log(`| ${key} | ${typeof value === "number" ? value.toLocaleString("ko-KR") : value} |`);
   }
 };
 

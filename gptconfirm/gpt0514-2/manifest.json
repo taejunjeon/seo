@@ -1,0 +1,40 @@
+{
+  "package": "gptconfirm/gpt0514-2",
+  "auto_selected_package": true,
+  "created_at_kst": "2026-05-14 01:28:41 KST",
+  "owner": "Codex",
+  "sprint": "Codex Naver Ads UTM/NaPm Tracking Audit Sprint",
+  "lane": "Green",
+  "documents": [
+    "00-result-report.md",
+    "01-naver-ads-utm-napm-audit.md",
+    "02-naver-paid-organic-classification.md",
+    "03-next-actions-and-approval.md",
+    "99-total-current-copy.md"
+  ],
+  "evidence": [
+    "../../data/naver-ads-utm-napm-audit-20260514.json"
+  ],
+  "code_changes": [
+    "backend/scripts/monthly-evidence-join-dry-run.ts",
+    "backend/src/routes/total.ts",
+    "frontend/src/app/total/page.tsx"
+  ],
+  "validation": {
+    "backend_typecheck": "PASS",
+    "frontend_build": "PASS",
+    "monthly_dry_run_json": "PASS",
+    "local_total_api_smoke": "PASS",
+    "bigquery_union_readonly": "PASS",
+    "json_parse": "PASS",
+    "validate_wiki_links": "PASS",
+    "harness_preflight_strict": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_value_pattern_scan": "PASS",
+    "external_send_upload": 0,
+    "operating_db_write": 0,
+    "gtm_publish": 0,
+    "imweb_footer_header_change": 0
+  },
+  "raw_identifier_output": false
+}
