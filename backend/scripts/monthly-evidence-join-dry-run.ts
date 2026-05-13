@@ -8,6 +8,8 @@ import { google } from "googleapis";
 type Options = {
   site: "biocom";
   month: string;
+  since: string | null;
+  until: string | null;
   json: boolean;
   npayIntentDbPath?: string;
 };
@@ -113,14 +115,26 @@ const argValue = (name: string) => {
 
 const parseArgs = (): Options => {
   const site = argValue("site") || "biocom";
-  const month = argValue("month") || "2026-04";
+  const since = argValue("since");
+  const until = argValue("until");
+  const month = argValue("month") || (!since && !until ? "2026-04" : "");
 
   if (site !== "biocom") throw new Error("Only --site=biocom is supported in v0.1");
-  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("--month must be YYYY-MM");
+  // --since/--until 가 주어지면 그 윈도우 우선. 둘 다 주어져야 함.
+  if (since || until) {
+    if (!since || !until) throw new Error("--since 와 --until 은 함께 지정");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(since)) throw new Error("--since must be YYYY-MM-DD");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(until)) throw new Error("--until must be YYYY-MM-DD");
+    if (since > until) throw new Error("--since must be <= --until");
+  } else if (!/^\d{4}-\d{2}$/.test(month)) {
+    throw new Error("--month must be YYYY-MM (또는 --since/--until 사용)");
+  }
 
   return {
     site,
-    month,
+    month: month || `${since}~${until}`,
+    since: since ?? null,
+    until: until ?? null,
     json: process.argv.includes("--json"),
     npayIntentDbPath: argValue("npay-intent-db"),
   };
@@ -138,6 +152,23 @@ const monthRange = (month: string) => {
   return {
     startDate: `${yearRaw}-${monthRaw}-01`,
     endDateExclusive: fmtDate(new Date(Date.UTC(year, monthIndex + 1, 1))),
+    startAtUtc: startKstAsUtc.toISOString(),
+    endAtUtc: endKstAsUtc.toISOString(),
+  };
+};
+
+// since~until (둘 다 inclusive YYYY-MM-DD KST) 를 monthRange 와 동일 shape 으로 반환.
+const customRange = (since: string, until: string) => {
+  const [sYear, sMonth, sDay] = since.split("-").map((v) => Number(v));
+  const [uYear, uMonth, uDay] = until.split("-").map((v) => Number(v));
+  // KST 00:00 = UTC 15:00 (전일)
+  const startKstAsUtc = new Date(Date.UTC(sYear, sMonth - 1, sDay - 1, 15, 0, 0));
+  const endKstAsUtc = new Date(Date.UTC(uYear, uMonth - 1, uDay, 15, 0, 0));
+  const fmtDate = (date: Date) =>
+    `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+  return {
+    startDate: since,
+    endDateExclusive: fmtDate(new Date(Date.UTC(uYear, uMonth - 1, uDay + 1))),
     startAtUtc: startKstAsUtc.toISOString(),
     endAtUtc: endKstAsUtc.toISOString(),
   };
@@ -1057,7 +1088,10 @@ const buildPlatformReference = async (
 };
 
 const run = async (options: Options) => {
-  const range = monthRange(options.month);
+  const range =
+    options.since && options.until
+      ? customRange(options.since, options.until)
+      : monthRange(options.month);
   const rows = await getSpineRows(options.site, range.startDate, range.endDateExclusive);
   const vm = await fetchVmLedger(`${options.site}_imweb`, range.startAtUtc, range.endAtUtc);
   const indexes = buildLedgerIndexes(vm.items || []);

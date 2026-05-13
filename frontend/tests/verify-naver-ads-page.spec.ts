@@ -11,9 +11,10 @@ test("AI CRM page — 네이버 광고 분석 카드 존재", async ({ page }) =
 });
 
 test("/ads/naver — 캠페인별 ROAS / 광고비 / 네이버 주장 매출 노출", async ({ page }) => {
-  test.setTimeout(60000);
+  test.setTimeout(120000);
   await page.goto("http://localhost:7010/ads/naver", { waitUntil: "domcontentloaded" });
-  await page.waitForResponse((r) => r.url().includes("/api/ads/naver/campaign-summary"), { timeout: 20000 });
+  // gpt0508-50: evidence-join script spawn 으로 응답이 최대 90초까지 걸릴 수 있음
+  await page.waitForResponse((r) => r.url().includes("/api/ads/naver/campaign-summary"), { timeout: 100000 });
   await page.waitForTimeout(800);
 
   const bodyText = await page.locator("body").innerText();

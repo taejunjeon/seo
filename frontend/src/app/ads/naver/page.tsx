@@ -42,7 +42,7 @@ type ApiResponse = {
     internal_real_roas?: number | null;
     internal_revenue_source?: string;
     internal_revenue_warning?: string | null;
-    internal_revenue_month?: string | null;
+    internal_revenue_window?: { since: string; until: string } | null;
     over_claim_krw?: number | null;
     over_claim_korean?: string | null;
   };
@@ -217,14 +217,19 @@ export default function NaverAdsPage() {
             <KpiCard label="활성 캠페인" value={`${data.totals.campaigns_with_spend}/${data.totals.campaigns_total}`} sub={`총 노출 ${fmtNum(data.totals.total_imp)}회`} />
           </section>
 
-          {data.totals.internal_revenue_warning && (
+          {data.totals.internal_revenue_warning ? (
             <div style={{ marginBottom: 16, padding: "10px 14px", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#78350f" }}>
               ⚠️ 진짜 ROAS 주의: {data.totals.internal_revenue_warning}
               {data.totals.internal_revenue_source && (
                 <span style={{ display: "block", marginTop: 4, color: "#92400e" }}>출처: {data.totals.internal_revenue_source}</span>
               )}
             </div>
-          )}
+          ) : data.totals.internal_revenue_window ? (
+            <div style={{ marginBottom: 16, padding: "8px 14px", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, fontSize: 12, color: "#065f46" }}>
+              ✓ 진짜 ROAS 는 광고비와 <strong>같은 윈도우</strong> ({data.totals.internal_revenue_window.since} ~ {data.totals.internal_revenue_window.until}) 의 paid_naver 매출 기준.
+              <span style={{ display: "block", marginTop: 2, color: "#047857", fontSize: 11 }}>출처: {data.totals.internal_revenue_source}</span>
+            </div>
+          ) : null}
 
           <section style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, margin: "0 0 8px" }}>

@@ -4,12 +4,47 @@
  * 운영DB tb_iamweb_users 결제완료 매출과 합산 금지 — convAmt 는 참고용.
  */
 
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import { Router, type Request, type Response } from "express";
 
 import { summarizeNaverAdsDaily } from "../naverAdsLocalDb";
 import { isNaverAdsConfigured } from "../naverAdsClient";
 import { getCrmDb } from "../crmLocalDb";
-import { queryPg, isDatabaseConfigured } from "../postgres";
+
+const execFileAsync = promisify(execFile);
+const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
+const TSX_BIN = path.resolve(BACKEND_ROOT, "node_modules", ".bin", "tsx");
+const EVIDENCE_SCRIPT = "scripts/monthly-evidence-join-dry-run.ts";
+const EVIDENCE_TIMEOUT_MS = 90_000;
+
+type EvidencePayload = {
+  metadata: { dateStart: string; dateEndExclusive: string; month: string };
+  channelSummary: Array<{ primaryChannel: string; orders: number; revenue: number }>;
+};
+
+const runEvidenceJoin = async (site: string, since: string, until: string): Promise<EvidencePayload> => {
+  const nodeBinDir = path.dirname(process.execPath);
+  const mergedPath = [nodeBinDir, process.env.PATH || ""].filter(Boolean).join(path.delimiter);
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [TSX_BIN, EVIDENCE_SCRIPT, `--site=${site}`, `--since=${since}`, `--until=${until}`, "--json"],
+    {
+      cwd: BACKEND_ROOT,
+      timeout: EVIDENCE_TIMEOUT_MS,
+      maxBuffer: 25 * 1024 * 1024,
+      env: {
+        ...process.env,
+        PATH: mergedPath,
+        BACKGROUND_JOBS_ENABLED: "false",
+        SCHEDULED_SEND_ENABLED: "false",
+      },
+    },
+  );
+  return JSON.parse(stdout) as EvidencePayload;
+};
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmtKrw = (n: number): string => {
@@ -47,48 +82,28 @@ export const createNaverAdsRouter = () => {
         .prepare(`SELECT MAX(cached_at) AS last_cached, MAX(date) AS last_date FROM naver_ads_daily WHERE site = ?`)
         .get(site) as { last_cached: string | null; last_date: string | null };
 
-      // gpt0508-49 step3+: 진짜 ROAS = 광고비 vs 내부 paid_naver 채널 매출.
-      // /total API 의 paid_naver channel_summary (evidence-join NaPm/paid UTM/search referrer 분류) reuse.
-      // since 의 month 기준으로 paid_naver 월 매출 매핑 (정확 윈도우 비교는 다음 sprint, 본 sprint 는 월 단위 비교).
+      // gpt0508-50: 진짜 ROAS = 광고비 vs 내부 paid_naver 채널 매출, **광고비와 같은 since~until 윈도우**.
+      // evidence-join script (NaPm/paid UTM/search referrer 분류) 를 since/until 직접 전달해 실행 → window mismatch 제거.
       let internalRevenue = 0;
       let internalOrders = 0;
-      let internalRevenueSource: string = "/total paid_naver channel (evidence-join NaPm/paid UTM/search referrer)";
+      const internalRevenueSource =
+        "evidence-join paid_naver channel (NaPm/paid UTM/search referrer · 광고비와 동일 since~until 윈도우)";
       let internalRevenueWarning: string | null = null;
-      let internalMonth: string | null = null;
+      let internalWindow: { since: string; until: string } | null = null;
       try {
-        const monthOfSince = since.slice(0, 7); // YYYY-MM
-        internalMonth = monthOfSince;
-        const totalRes = await fetch(
-          `http://localhost:7020/api/total/monthly-channel-summary?month=${monthOfSince}&site=biocom&mode=dry_run`,
-          { signal: AbortSignal.timeout(30000) },
+        const evidence = await runEvidenceJoin(site, since, until);
+        internalWindow = { since, until };
+        const paidNaver = (evidence.channelSummary || []).find(
+          (r) => r.primaryChannel === "paid_naver",
         );
-        if (totalRes.ok) {
-          const totalJson = (await totalRes.json()) as {
-            ok?: boolean;
-            evidence?: { channel_summary?: Array<{ primary_channel: string; orders: number; revenue: number }> };
-            platform_reference?: { rows?: Array<{ platform: string; internalConfirmed?: { orders: number; revenue: number } }> };
-          };
-          if (totalJson.ok) {
-            // paid_naver row 추출
-            const paidNaver = (totalJson.evidence?.channel_summary || []).find(
-              (r) => r.primary_channel === "paid_naver",
-            );
-            if (paidNaver) {
-              internalRevenue = paidNaver.revenue;
-              internalOrders = paidNaver.orders;
-              internalRevenueWarning =
-                `${monthOfSince} 월 paid_naver 채널 매출 기준 (월 단위 합산). 광고비 윈도우 (${since}~${until}) 와 mismatch 가능.`;
-            } else {
-              internalRevenueWarning = `${monthOfSince} paid_naver 채널 0건`;
-            }
-          } else {
-            internalRevenueWarning = "/total API 응답 ok=false";
-          }
+        if (paidNaver) {
+          internalRevenue = paidNaver.revenue;
+          internalOrders = paidNaver.orders;
         } else {
-          internalRevenueWarning = `/total HTTP ${totalRes.status}`;
+          internalRevenueWarning = `paid_naver 채널 0건 (${since}~${until})`;
         }
       } catch (e) {
-        internalRevenueWarning = e instanceof Error ? e.message.slice(0, 100) : "/total fetch 실패";
+        internalRevenueWarning = e instanceof Error ? e.message.slice(0, 140) : "evidence-join 실패";
       }
 
       const totalSpend = summary.total_sales_amt_krw;
@@ -140,7 +155,7 @@ export const createNaverAdsRouter = () => {
           internal_real_roas: internalRoas,
           internal_revenue_source: internalRevenueSource,
           internal_revenue_warning: internalRevenueWarning,
-          internal_revenue_month: internalMonth,
+          internal_revenue_window: internalWindow,
           over_claim_krw: internalRevenue > 0 ? totalConv - internalRevenue : null,
           over_claim_korean: internalRevenue > 0 ? fmtKrw(totalConv - internalRevenue) : null,
         },
