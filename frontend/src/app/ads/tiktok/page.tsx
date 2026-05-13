@@ -1190,6 +1190,12 @@ export default function TikTokAdsPerformancePage() {
               <Link href="/?tab=crm" style={{ color: "#0f766e", fontSize: "0.78rem", fontWeight: 800 }}>
                 AI CRM으로 돌아가기
               </Link>
+              <Link
+                href="/ads/tiktok/off-impact"
+                style={{ marginLeft: 12, color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 800 }}
+              >
+                TikTok OFF 전후 감사표 보기
+              </Link>
               <h1 style={{ margin: "8px 0 8px", fontSize: "1.8rem", lineHeight: 1.2, fontWeight: 900 }}>
                 틱톡 ROAS 정합성
               </h1>

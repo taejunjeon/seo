@@ -1,106 +1,118 @@
 {
-  "updated_at_kst": "2026-05-13 13:02:00 KST",
-  "sprint": "gpt0508-50",
-  "current_goal": "Create a dedicated thecleancoffee actual status monitor and make /total a CEO decision layer instead of an engineer diagnostic page.",
-  "lane": "Green local code/docs/read-only checks; cron registration and operating deploy are approval-only",
-  "completed": [
-    "Added backend/scripts/coffee-actual-status-monitor.ts.",
-    "Ran the coffee monitor against live summary API and VM Cloud SQLite imweb_orders.",
-    "Confirmed status blank root cause is VM Cloud SQLite imweb_orders status sync lag, not operational DB or local DB blank.",
-    "Updated data/project/total-correction-line-contract-20260513.json with the latest coffee monitor numbers.",
-    "Added /total top decision cards, channel action labels, Korean status/freshness labels, collapsed diagnostics, and default local API base http://localhost:7020.",
-    "Verified /total local smoke at http://localhost:7010/total with backend 7020 API 200.",
-    "Added backend/scripts/roas-gap-recompute-readiness.ts and generated data/project/roas-gap-recompute-readiness-20260513.json."
-  ],
-  "latest_metrics": {
-    "thecleancoffee": {
-      "source": "imweb_v2_vm_cloud_imweb_orders",
-      "db_location": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
-      "table": "imweb_orders",
-      "status_column": "imweb_status",
-      "status": "included_with_warning",
-      "actual_count": 317,
-      "actual_amount_krw": 15547500,
-      "gross_count": 348,
-      "gross_amount_krw": 17343900,
-      "confirmed_status_count": 289,
-      "confirmed_status_amount_krw": 13699500,
-      "status_blank_count": 28,
-      "status_blank_amount_krw": 1848000,
-      "status_blank_missing_marker_count": 28,
-      "cancel_excluded_count": 31,
-      "cancel_excluded_amount_krw": 1796400,
-      "max_order_time": "2026-05-13T02:38:12.000Z",
-      "max_synced_at": "2026-05-13 03:44:57",
-      "max_status_synced_at": "2026-05-12 04:11:07",
-      "status_sync_lag_hours": 23.76,
-      "blank_root_cause": "VM Cloud SQLite imweb_orders status sync lag: blank rows have no imweb_status_synced_at marker",
-      "warnings": [
-        "ga4_guard_not_actual_source",
-        "status_blank_rows_included_with_warning",
-        "status_sync_stale_over_6h"
-      ]
+  "updated_at_kst": "2026-05-13 15:28:00 KST",
+  "workstream": "tiktok_off_impact_mistracking_audit",
+  "lane": "Green local code/docs/read-only checks",
+  "current_goal": "Show whether revenue dropped after TikTok ads were turned off, and whether the drop is more likely TikTok mistracking or another channel shift.",
+  "local_urls": {
+    "frontend": "http://localhost:7010/ads/tiktok/off-impact",
+    "backend_api": "http://localhost:7020/api/ads/tiktok/off-impact-audit"
+  },
+  "source_window_freshness_confidence": {
+    "source": {
+      "primary": "VM Cloud SQLite support ledger via att.ainativeos.net /api/attribution/ledger source=biocom_imweb captureMode=live",
+      "cross_check": [
+        "GA4 Data API biocom property session source-medium",
+        "local TikTok Ads daily cache plus TikTok Business API read-only dry-run"
+      ],
+      "db_locations": {
+        "operational_db": "not written; not primary for this audit",
+        "vm_cloud": "read-only attribution ledger",
+        "local": "frontend/backend code and TikTok Ads cache"
+      }
     },
-    "biocom": {
-      "source": "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
-      "db_location": "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
-      "status": "included",
-      "count": 166,
-      "amount_krw": 29642500
+    "window": {
+      "baseline_kst": "2026-05-01 to 2026-05-07",
+      "off_partial_kst": "2026-05-08 to 2026-05-12"
+    },
+    "freshness": "2026-05-13 15:28 KST",
+    "confidence": 0.86
+  },
+  "latest_metrics": {
+    "overall": {
+      "baseline_revenue_per_day": 16186246,
+      "off_revenue_per_day": 13310197,
+      "delta_revenue_per_day": -2876049,
+      "delta_revenue_pct": -17.77
+    },
+    "channel_drop_per_day": [
+      {
+        "label": "Meta 광고",
+        "delta_krw_per_day": -2304761,
+        "share_of_observed_drop_pct": 80.14,
+        "confidence": "high",
+        "note": "fbclid/fbc or Meta paid UTM, not fbp-only"
+      },
+      {
+        "label": "Naver 광고 후보",
+        "delta_krw_per_day": -517077,
+        "share_of_observed_drop_pct": 17.98,
+        "confidence": "medium"
+      },
+      {
+        "label": "자연 소셜",
+        "delta_krw_per_day": -371800,
+        "share_of_observed_drop_pct": 12.93,
+        "confidence": "low"
+      },
+      {
+        "label": "TikTok 광고",
+        "delta_krw_per_day": -33429,
+        "share_of_observed_drop_pct": 1.16,
+        "confidence": "high"
+      },
+      {
+        "label": "Google 광고",
+        "delta_krw_per_day": 41143,
+        "share_of_observed_drop_pct": null,
+        "confidence": "high"
+      }
+    ],
+    "tiktok_evidence": {
+      "spend_baseline_krw": 1041554,
+      "spend_off_krw": 47,
+      "platform_claim_baseline_krw": 3218171,
+      "strict_confirmed_baseline_krw": 0,
+      "strict_confirmed_off_krw": 0,
+      "first_touch_candidate_baseline_krw": 234000,
+      "missing_tracking_probability_score": 27,
+      "platform_over_credit_probability_score": 70
     }
   },
-  "local_dashboard": {
-    "total_url": "http://localhost:7010/total",
-    "backend_api": "http://localhost:7020/api/total/monthly-channel-summary?site=biocom&month=2026-04&mode=dry_run",
-    "smoke_result": "PASS",
-    "screenshot": "data/project/total-ux-decision-layer-20260513.png",
-    "closed_disclosures": 4,
-    "api_error_present": false
-  },
-  "roas_readiness": {
-    "source_file": "data/project/roas-gap-recompute-readiness-20260513.json",
-    "last_7d": {
-      "platform_roas_reference": 10.5157,
-      "internal_with_biocom_npay_actual_roas": 3.1788,
-      "remaining_gap_roas_points": 7.3369
-    },
-    "last_30d": {
-      "platform_roas_reference": 10.2673,
-      "internal_with_biocom_npay_actual_roas": 2.0722,
-      "remaining_gap_roas_points": 8.1951
-    },
-    "coffee_overlay_budget_roas": false
-  },
+  "completed": [
+    "Added backend /api/ads/tiktok/off-impact-audit read-only route.",
+    "Added frontend /ads/tiktok/off-impact page.",
+    "Added link from /ads/tiktok to the new off-impact audit page.",
+    "Split Meta paid evidence from fbp-only Meta pixel evidence.",
+    "Added tiktok/tiktok_mistracking_audit_20260513.md.",
+    "Verified desktop and mobile Playwright smoke."
+  ],
   "validation": {
-    "coffee_monitor_script_run": "PASS",
-    "roas_readiness_script_run": "PASS",
     "backend_typecheck": "PASS",
     "frontend_typecheck": "PASS",
-    "json_parse": "PASS",
-    "git_diff_check": "PASS",
-    "playwright_total_smoke": "PASS"
+    "api_smoke": "PASS",
+    "desktop_playwright_smoke": "PASS",
+    "mobile_playwright_smoke": "PASS",
+    "mobile_horizontal_overflow": false
   },
-  "forbidden": [
-    "operational_db_write_or_import",
-    "vm_cloud_schema_migration",
-    "cron_registration_or_change",
-    "operating_frontend_backend_deploy_or_restart",
-    "gtm_publish",
-    "imweb_footer_or_header_edit",
-    "platform_send_or_upload",
-    "secret_or_raw_pii_output",
-    "ga4_revenue_as_actual_npay_source",
-    "npay_click_count_add_payment_info_as_purchase"
-  ],
   "invariants": {
-    "external_send_count": 0,
-    "upload_candidate_count": 0,
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_publish": true,
     "operational_db_write": 0,
     "vm_cloud_write": 0,
-    "cron_registration_changed": false,
-    "operating_deploy": 0,
-    "gtm_publish": 0,
-    "imweb_footer_edit": 0,
-    "raw_email_phone_member_payment_order_click_id_output": false
-  }
+    "platform_send_or_upload": 0,
+    "raw_identifier_output": false
+  },
+  "forbidden_next": [
+    "tiktok_ad_on_off_change",
+    "tiktok_ads_api_write",
+    "tiktok_events_api_send",
+    "ga4_meta_google_naver_conversion_send",
+    "operational_db_write_or_import",
+    "vm_cloud_sqlite_write_or_schema_migration",
+    "gtm_publish",
+    "operating_frontend_backend_deploy_or_restart",
+    "secret_or_raw_identifier_output"
+  ]
 }

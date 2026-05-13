@@ -36,7 +36,7 @@ import { isDatabaseConfigured, queryPg } from "../postgres";
 import { categorizeProductName, normalizePhone } from "../consultation";
 import { normalizeOrderIdBase } from "../orderKeys";
 import { buildTikTokRoasComparison } from "../tiktokRoasComparison";
-import { queryGA4PaidTrafficQuality } from "../ga4";
+import { queryGA4PaidTrafficQuality, queryGA4SourceConversion } from "../ga4";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
 const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
@@ -2902,6 +2902,605 @@ const buildPaidTrafficVmFunnel = (
   };
 };
 
+type TikTokOffImpactChannelKey =
+  | "paid_meta"
+  | "meta_pixel_only"
+  | "paid_google"
+  | "paid_tiktok"
+  | "paid_naver"
+  | "organic_search"
+  | "organic_social"
+  | "direct"
+  | "referral"
+  | "self_internal"
+  | "unknown";
+
+type TikTokOffImpactMetric = {
+  days: number;
+  orders: number;
+  revenue: number;
+  ordersPerDay: number;
+  revenuePerDay: number;
+};
+
+type TikTokOffImpactChannelRow = {
+  channel: TikTokOffImpactChannelKey;
+  label: string;
+  explanation: string;
+  confidence: "high" | "medium" | "low";
+  baseline: TikTokOffImpactMetric;
+  off: TikTokOffImpactMetric;
+  deltaOrdersPerDay: number;
+  deltaRevenuePerDay: number;
+  deltaRevenuePct: number | null;
+  shareOfObservedDropPct: number | null;
+};
+
+type TikTokOffImpactGa4ChannelRow = {
+  channel: TikTokOffImpactChannelKey;
+  label: string;
+  baseline: {
+    sessions: number;
+    purchases: number;
+    revenue: number;
+    sessionsPerDay: number;
+    revenuePerDay: number;
+  };
+  off: {
+    sessions: number;
+    purchases: number;
+    revenue: number;
+    sessionsPerDay: number;
+    revenuePerDay: number;
+  };
+  deltaRevenuePerDay: number;
+  deltaSessionsPerDay: number;
+};
+
+type TikTokOffImpactAuditItem = {
+  item: string;
+  answer: "낮음" | "중간" | "높음" | "남아있음";
+  score: number;
+  evidence: string;
+  whatItMeans: string;
+};
+
+const TIKTOK_OFF_DEFAULT_BASELINE: DateRange = { startDate: "2026-05-01", endDate: "2026-05-07" };
+const TIKTOK_OFF_DEFAULT_OFF: DateRange = { startDate: "2026-05-08", endDate: "2026-05-12" };
+
+const OFF_CHANNEL_LABELS: Record<TikTokOffImpactChannelKey, { label: string; explanation: string }> = {
+  paid_meta: {
+    label: "Meta 광고",
+    explanation: "fbclid/fbc 또는 Meta paid UTM 근거가 붙은 결제완료",
+  },
+  meta_pixel_only: {
+    label: "Meta 픽셀 흔적",
+    explanation: "fbp 등 픽셀 쿠키만 있어 Meta 광고 성과로 확정하지 않는 결제완료",
+  },
+  paid_google: {
+    label: "Google 광고",
+    explanation: "gclid/gbraid/wbraid 또는 Google paid UTM 근거가 붙은 결제완료",
+  },
+  paid_tiktok: {
+    label: "TikTok 광고",
+    explanation: "ttclid 또는 TikTok UTM/referrer/firstTouch 근거가 붙은 결제완료",
+  },
+  paid_naver: {
+    label: "Naver 광고 후보",
+    explanation: "nclick 또는 Naver paid UTM 근거가 붙은 결제완료",
+  },
+  organic_search: {
+    label: "자연 검색",
+    explanation: "Google/Naver/Daum/Bing 등 검색 referrer 또는 organic UTM 결제완료",
+  },
+  organic_social: {
+    label: "자연 소셜",
+    explanation: "광고 클릭 ID 없이 Instagram/Facebook/TikTok 등 소셜 referrer로 들어온 결제완료",
+  },
+  direct: {
+    label: "직접/미식별",
+    explanation: "referrer와 광고 식별자가 없어서 직접 방문 또는 미식별로 남은 결제완료",
+  },
+  referral: {
+    label: "외부 추천",
+    explanation: "검색/소셜/자기 도메인이 아닌 외부 referrer 결제완료",
+  },
+  self_internal: {
+    label: "사이트 내부 이동",
+    explanation: "자기 도메인 referrer만 남아 최초 유입이 가려진 결제완료",
+  },
+  unknown: {
+    label: "기타/분류 보류",
+    explanation: "현재 룰로 채널을 안전하게 분류하지 못한 결제완료",
+  },
+};
+
+const SEARCH_ENGINE_NEEDLES = ["google", "naver", "daum", "bing", "yahoo", "duckduckgo"];
+const SOCIAL_NEEDLES = ["instagram", "facebook", "meta", "tiktok", "threads", "youtube", "twitter", "x.com"];
+const PAID_NEEDLES = ["cpc", "paid", "ads", "sem", "ppc", "paid_social", "paid_search", "powerlink"];
+
+const parseOptionalDateRange = (
+  startValue: unknown,
+  endValue: unknown,
+  fallback: DateRange,
+  startLabel: string,
+  endLabel: string,
+) => {
+  const startDate = typeof startValue === "string" && startValue.trim()
+    ? parseIsoDateParam(startValue, startLabel)
+    : fallback.startDate;
+  const endDate = typeof endValue === "string" && endValue.trim()
+    ? parseIsoDateParam(endValue, endLabel)
+    : fallback.endDate;
+  return ensureValidDateRange(startDate, endDate);
+};
+
+const eachIsoDateInRange = (range: DateRange) => {
+  const dates: string[] = [];
+  let cursor = range.startDate;
+  while (cursor <= range.endDate) {
+    dates.push(cursor);
+    cursor = shiftIsoDateByDays(cursor, 1);
+  }
+  return dates;
+};
+
+const daysInRange = (range: DateRange) => eachIsoDateInRange(range).length;
+
+const fetchOperationalLedgerEntriesForAdsByDay = async (
+  site: SiteKey,
+  range: DateRange,
+): Promise<{ entries: AttributionLedgerEntry[]; warnings: string[] }> => {
+  const entries: AttributionLedgerEntry[] = [];
+  const warnings: string[] = [];
+
+  for (const date of eachIsoDateInRange(range)) {
+    const url = new URL("/api/attribution/ledger", env.ATTRIBUTION_OPERATIONAL_BASE_URL);
+    url.searchParams.set("source", `${site}_imweb`);
+    url.searchParams.set("captureMode", "live");
+    url.searchParams.set("limit", "10000");
+    url.searchParams.set("startAt", `${shiftIsoDateByDays(date, -1)}T15:00:00.000Z`);
+    url.searchParams.set("endAt", `${date}T15:00:00.000Z`);
+
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(20_000) });
+    const body = await response.json() as Record<string, unknown>;
+    if (!response.ok || body.ok !== true) {
+      const message = typeof body.error === "string" ? body.error : response.statusText;
+      throw new Error(`${site} VM Cloud ledger ${date} 조회 실패: ${message}`);
+    }
+
+    const items = Array.isArray(body.items) ? body.items : [];
+    const summary = toObject(body.summary);
+    const totalEntries = toNumber(summary.totalEntries);
+    if (totalEntries > items.length) {
+      warnings.push(`${date} VM Cloud ledger가 ${items.length}/${totalEntries}행만 반환했다.`);
+    }
+    entries.push(...items.map(normalizeRemoteLedgerEntryForAds));
+  }
+
+  return { entries, warnings };
+};
+
+const includeText = (value: unknown, needles: string[]) => {
+  const text = typeof value === "string" ? value.toLowerCase() : "";
+  return Boolean(text && needles.some((needle) => text.includes(needle)));
+};
+
+const urlParamPresent = (values: string[], keys: string[]) =>
+  keys.some((key) => values.some((value) => Boolean(extractUrlParam(value, key))));
+
+const hostContainsAny = (values: string[], needles: string[]) =>
+  values.some((value) => includeText(resolveHost(value), needles));
+
+const hasStrongMetaPaidSignal = (entry: AttributionLedgerEntry) => {
+  const reasons = getPaidChannelReasons(entry, "meta");
+  const values = evidenceTextValues(entry);
+  const urls = [entry.landing, entry.referrer, entry.requestContext.requestReferer].filter(Boolean);
+  const medium = [
+    entry.utmMedium,
+    firstMetadataString(entry.metadata, ["utmMedium", "utm_medium", "medium"]),
+  ].join(" ").toLowerCase();
+  const source = [
+    entry.utmSource,
+    firstMetadataString(entry.metadata, ["utmSource", "utm_source", "source"]),
+  ].join(" ").toLowerCase();
+
+  return (
+    reasons.some((reason) => reason.includes("fbclid") || reason.includes("fbc"))
+    || urlParamPresent(urls, ["fbclid", "fbc"])
+    || (includeText(source, ["meta", "facebook", "instagram"]) && includeText(medium, PAID_NEEDLES))
+    || values.some((value) => {
+      const text = String(value).toLowerCase();
+      return (
+        (text.includes("utm_source=meta") || text.includes("utm_source=facebook") || text.includes("utm_source=instagram"))
+        && PAID_NEEDLES.some((needle) => text.includes(`utm_medium=${needle}`) || text.includes(`medium=${needle}`))
+      );
+    })
+  );
+};
+
+const firstTouchObject = (entry: AttributionLedgerEntry) => ({
+  firstTouch: toObject(entry.metadata.firstTouch),
+  firstTouchMatch: toObject(entry.metadata.firstTouchMatch),
+});
+
+const evidenceTextValues = (entry: AttributionLedgerEntry) => {
+  const { firstTouch, firstTouchMatch } = firstTouchObject(entry);
+  const referrerPayment = toObject(entry.metadata.referrerPayment);
+  return [
+    entry.utmSource,
+    entry.utmMedium,
+    entry.utmCampaign,
+    entry.utmContent,
+    entry.utmTerm,
+    entry.landing,
+    entry.referrer,
+    entry.gclid,
+    entry.fbclid,
+    entry.ttclid,
+    firstMetadataString(entry.metadata, ["utmSource", "utm_source", "source", "medium", "campaign", "landing", "url"]),
+    firstMetadataString(referrerPayment, ["source", "medium", "campaign", "landing", "url"]),
+    firstMetadataString(firstTouch, ["utmSource", "utm_source", "utmMedium", "utm_medium", "utmCampaign", "utm_campaign", "landing", "referrer", "ttclid", "gclid", "fbclid"]),
+    firstMetadataString(firstTouchMatch, ["utmSource", "utm_source", "utmMedium", "utm_medium", "utmCampaign", "utm_campaign", "landing", "referrer", "ttclid", "gclid", "fbclid"]),
+  ].filter(Boolean);
+};
+
+const classifyPaymentEntryChannel = (entry: AttributionLedgerEntry): {
+  channel: TikTokOffImpactChannelKey;
+  confidence: "high" | "medium" | "low";
+} => {
+  const values = evidenceTextValues(entry);
+  const joined = values.join(" ").toLowerCase();
+  const urls = [entry.landing, entry.referrer, entry.requestContext.requestReferer].filter(Boolean);
+  const medium = [
+    entry.utmMedium,
+    firstMetadataString(entry.metadata, ["utmMedium", "utm_medium", "medium"]),
+  ].join(" ").toLowerCase();
+  const source = [
+    entry.utmSource,
+    firstMetadataString(entry.metadata, ["utmSource", "utm_source", "source"]),
+  ].join(" ").toLowerCase();
+
+  if (getPaidChannelReasons(entry, "tiktok").length > 0) {
+    return { channel: "paid_tiktok", confidence: "high" };
+  }
+  if (hasStrongMetaPaidSignal(entry)) {
+    return { channel: "paid_meta", confidence: "high" };
+  }
+  if (
+    Boolean(entry.gclid.trim())
+    || urlParamPresent(urls, ["gclid", "gbraid", "wbraid"])
+    || (includeText(source, ["google"]) && includeText(medium, PAID_NEEDLES))
+  ) {
+    return { channel: "paid_google", confidence: "high" };
+  }
+  if (
+    urlParamPresent(urls, ["nclick_id", "n_media", "n_query"])
+    || (includeText(source, ["naver"]) && includeText(medium, PAID_NEEDLES))
+  ) {
+    return { channel: "paid_naver", confidence: "medium" };
+  }
+  if (includeText(medium, ["organic", "organic_search"]) || hostContainsAny([entry.referrer, entry.landing], SEARCH_ENGINE_NEEDLES)) {
+    return { channel: "organic_search", confidence: "medium" };
+  }
+  if (hostContainsAny([entry.referrer], SOCIAL_NEEDLES) || (SOCIAL_NEEDLES.some((needle) => joined.includes(needle)) && !includeText(medium, PAID_NEEDLES))) {
+    return { channel: "organic_social", confidence: "low" };
+  }
+  if (getPaidChannelReasons(entry, "meta").length > 0) {
+    return { channel: "meta_pixel_only", confidence: "low" };
+  }
+  if (hostContainsAny([entry.referrer], ["biocom.kr", "biocom.imweb.me"])) {
+    return { channel: "self_internal", confidence: "low" };
+  }
+  if (resolveHost(entry.referrer)) {
+    return { channel: "referral", confidence: "low" };
+  }
+  if (!entry.referrer.trim() && !entry.utmSource.trim() && !entry.utmCampaign.trim()) {
+    return { channel: "direct", confidence: "low" };
+  }
+  return { channel: "unknown", confidence: "low" };
+};
+
+const metricFromTotals = (days: number, orders: number, revenue: number): TikTokOffImpactMetric => ({
+  days,
+  orders,
+  revenue: Math.round(revenue),
+  ordersPerDay: round2(orders / Math.max(days, 1)),
+  revenuePerDay: Math.round(revenue / Math.max(days, 1)),
+});
+
+const buildVmChannelMetrics = (
+  entries: AttributionLedgerEntry[],
+  range: DateRange,
+) => {
+  const days = daysInRange(range);
+  const grouped = new Map<string, AttributionLedgerEntry[]>();
+
+  entries
+    .filter((entry) => entry.touchpoint === "payment_success")
+    .filter((entry) => entry.paymentStatus === "confirmed")
+    .filter((entry) => entryInKstRange(entry, range))
+    .forEach((entry, index) => {
+      const orderKey = orderKeyFromLedgerEntry(entry) || getOrderKey(entry, index);
+      if (isManualPaidTrafficTestEntry(entry, orderKey)) return;
+      const bucket = grouped.get(orderKey) ?? [];
+      bucket.push(entry);
+      grouped.set(orderKey, bucket);
+    });
+
+  const totals = new Map<TikTokOffImpactChannelKey, { orders: number; revenue: number; confidence: "high" | "medium" | "low" }>();
+  let allOrders = 0;
+  let allRevenue = 0;
+
+  for (const group of grouped.values()) {
+    const preferred = sortEntriesByPreference(group);
+    const carrier = preferred.find((entry) => (
+      getPaidChannelReasons(entry, "tiktok").length > 0
+      || hasStrongMetaPaidSignal(entry)
+      || Boolean(entry.gclid || entry.fbclid || entry.ttclid || entry.utmSource || entry.utmCampaign)
+    )) ?? preferred[0];
+    if (!carrier) continue;
+    const amount = preferred.map(amountFromLedgerEntry).find((value) => value > 0) ?? 0;
+    const classification = classifyPaymentEntryChannel(carrier);
+    const existing = totals.get(classification.channel) ?? {
+      orders: 0,
+      revenue: 0,
+      confidence: classification.confidence,
+    };
+    existing.orders += 1;
+    existing.revenue += amount;
+    if (existing.confidence === "low" && classification.confidence !== "low") {
+      existing.confidence = classification.confidence;
+    }
+    totals.set(classification.channel, existing);
+    allOrders += 1;
+    allRevenue += amount;
+  }
+
+  return {
+    days,
+    total: metricFromTotals(days, allOrders, allRevenue),
+    channels: totals,
+  };
+};
+
+const emptyOffMetric = (days: number): TikTokOffImpactMetric => metricFromTotals(days, 0, 0);
+
+const buildVmChannelComparison = (
+  baseline: ReturnType<typeof buildVmChannelMetrics>,
+  off: ReturnType<typeof buildVmChannelMetrics>,
+): TikTokOffImpactChannelRow[] => {
+  const channels = new Set<TikTokOffImpactChannelKey>([
+    ...Object.keys(OFF_CHANNEL_LABELS) as TikTokOffImpactChannelKey[],
+    ...baseline.channels.keys(),
+    ...off.channels.keys(),
+  ]);
+  const observedDrop = Math.max(0, baseline.total.revenuePerDay - off.total.revenuePerDay);
+
+  return [...channels].map((channel) => {
+    const base = baseline.channels.get(channel);
+    const next = off.channels.get(channel);
+    const baselineMetric = base
+      ? metricFromTotals(baseline.days, base.orders, base.revenue)
+      : emptyOffMetric(baseline.days);
+    const offMetric = next
+      ? metricFromTotals(off.days, next.orders, next.revenue)
+      : emptyOffMetric(off.days);
+    const deltaRevenuePerDay = offMetric.revenuePerDay - baselineMetric.revenuePerDay;
+    const deltaOrdersPerDay = round2(offMetric.ordersPerDay - baselineMetric.ordersPerDay);
+    const deltaRevenuePct = baselineMetric.revenuePerDay > 0
+      ? round2((deltaRevenuePerDay / baselineMetric.revenuePerDay) * 100)
+      : null;
+    const meta = OFF_CHANNEL_LABELS[channel];
+    return {
+      channel,
+      label: meta.label,
+      explanation: meta.explanation,
+      confidence: next?.confidence ?? base?.confidence ?? "low",
+      baseline: baselineMetric,
+      off: offMetric,
+      deltaOrdersPerDay,
+      deltaRevenuePerDay,
+      deltaRevenuePct,
+      shareOfObservedDropPct: observedDrop > 0 && deltaRevenuePerDay < 0
+        ? round2((Math.abs(deltaRevenuePerDay) / observedDrop) * 100)
+        : null,
+    };
+  }).sort((a, b) => Math.abs(b.deltaRevenuePerDay) - Math.abs(a.deltaRevenuePerDay));
+};
+
+const classifyGa4SourceChannel = (row: { channel: string; sessionSource: string; sessionMedium: string }): TikTokOffImpactChannelKey => {
+  const source = row.sessionSource.toLowerCase();
+  const medium = row.sessionMedium.toLowerCase();
+  const channel = row.channel.toLowerCase();
+  if (channel === "tiktok" || source.includes("tiktok") || medium.includes("tiktok")) return "paid_tiktok";
+  if (channel === "meta" || source.includes("facebook") || source.includes("instagram") || source.includes("meta")) return "paid_meta";
+  if (source.includes("google") && PAID_NEEDLES.some((needle) => medium.includes(needle))) return "paid_google";
+  if (source.includes("naver") && PAID_NEEDLES.some((needle) => medium.includes(needle))) return "paid_naver";
+  if (medium.includes("organic") || SEARCH_ENGINE_NEEDLES.some((needle) => source.includes(needle))) return "organic_search";
+  if (channel === "direct" || source.includes("direct")) return "direct";
+  if (SOCIAL_NEEDLES.some((needle) => source.includes(needle))) return "organic_social";
+  return source === "(not set)" || channel === "not_set" ? "unknown" : "referral";
+};
+
+const buildGa4ChannelComparison = async (
+  baselineRange: DateRange,
+  offRange: DateRange,
+): Promise<{ rows: TikTokOffImpactGa4ChannelRow[]; error: string | null }> => {
+  try {
+    const [baseline, off] = await Promise.all([
+      queryGA4SourceConversion({ startDate: baselineRange.startDate, endDate: baselineRange.endDate, limit: 250 }),
+      queryGA4SourceConversion({ startDate: offRange.startDate, endDate: offRange.endDate, limit: 250 }),
+    ]);
+    const baselineDays = daysInRange(baselineRange);
+    const offDays = daysInRange(offRange);
+    const aggregate = (rows: typeof baseline.rows) => {
+      const map = new Map<TikTokOffImpactChannelKey, { sessions: number; purchases: number; revenue: number }>();
+      for (const row of rows) {
+        const channel = classifyGa4SourceChannel(row);
+        const bucket = map.get(channel) ?? { sessions: 0, purchases: 0, revenue: 0 };
+        bucket.sessions += row.sessions;
+        bucket.purchases += row.ecommercePurchases;
+        bucket.revenue += row.grossPurchaseRevenue;
+        map.set(channel, bucket);
+      }
+      return map;
+    };
+    const baseMap = aggregate(baseline.rows);
+    const offMap = aggregate(off.rows);
+    const channels = new Set<TikTokOffImpactChannelKey>([
+      ...baseMap.keys(),
+      ...offMap.keys(),
+      "paid_tiktok",
+      "paid_meta",
+      "paid_google",
+      "organic_search",
+      "direct",
+    ]);
+    const rows = [...channels].map((channel) => {
+      const base = baseMap.get(channel) ?? { sessions: 0, purchases: 0, revenue: 0 };
+      const next = offMap.get(channel) ?? { sessions: 0, purchases: 0, revenue: 0 };
+      const meta = OFF_CHANNEL_LABELS[channel];
+      return {
+        channel,
+        label: meta.label,
+        baseline: {
+          sessions: base.sessions,
+          purchases: base.purchases,
+          revenue: Math.round(base.revenue),
+          sessionsPerDay: Math.round(base.sessions / Math.max(baselineDays, 1)),
+          revenuePerDay: Math.round(base.revenue / Math.max(baselineDays, 1)),
+        },
+        off: {
+          sessions: next.sessions,
+          purchases: next.purchases,
+          revenue: Math.round(next.revenue),
+          sessionsPerDay: Math.round(next.sessions / Math.max(offDays, 1)),
+          revenuePerDay: Math.round(next.revenue / Math.max(offDays, 1)),
+        },
+        deltaRevenuePerDay: Math.round(next.revenue / Math.max(offDays, 1) - base.revenue / Math.max(baselineDays, 1)),
+        deltaSessionsPerDay: Math.round(next.sessions / Math.max(offDays, 1) - base.sessions / Math.max(baselineDays, 1)),
+      };
+    }).sort((a, b) => Math.abs(b.deltaRevenuePerDay) - Math.abs(a.deltaRevenuePerDay));
+    return { rows, error: null };
+  } catch (error) {
+    return { rows: [], error: error instanceof Error ? error.message : String(error) };
+  }
+};
+
+const buildTikTokTrackingAuditItems = (params: {
+  baselineTiktokSpend: number;
+  offTiktokSpend: number;
+  baselinePlatformValue: number;
+  baselineTiktokIntentRows: number;
+  offTiktokIntentRows: number;
+  baselineTiktokCheckoutOrders: number;
+  offTiktokCheckoutOrders: number;
+  baselineTiktokConfirmedRevenue: number;
+  offTiktokConfirmedRevenue: number;
+  baselineFirstTouchRevenue: number;
+  offFirstTouchRevenue: number;
+  baselineGa4TikTokRevenue: number;
+  offGa4TikTokRevenue: number;
+}): TikTokOffImpactAuditItem[] => ([
+  {
+    item: "광고비가 실제로 꺼졌나",
+    answer: params.offTiktokSpend <= 100 ? "낮음" : "중간",
+    score: params.offTiktokSpend <= 100 ? 8 : 45,
+    evidence: `OFF 기간 TikTok spend ${Math.round(params.offTiktokSpend).toLocaleString("ko-KR")}원, baseline ${Math.round(params.baselineTiktokSpend).toLocaleString("ko-KR")}원`,
+    whatItMeans: "spend 기준으로는 광고 중단 상태로 볼 수 있다.",
+  },
+  {
+    item: "유입 수집 자체를 못 했나",
+    answer: params.baselineTiktokIntentRows > 1000 ? "낮음" : "중간",
+    score: params.baselineTiktokIntentRows > 1000 ? 22 : 48,
+    evidence: `OFF 전 TikTok 유입 row ${params.baselineTiktokIntentRows.toLocaleString("ko-KR")}건, OFF 후 ${params.offTiktokIntentRows.toLocaleString("ko-KR")}건`,
+    whatItMeans: "TikTok 클릭/유입 수집점은 살아 있었다. 완전 미수집 가능성은 낮다.",
+  },
+  {
+    item: "결제 연결에서 놓쳤나",
+    answer: params.baselineTiktokConfirmedRevenue === 0 && params.baselineFirstTouchRevenue > 0 ? "중간" : "낮음",
+    score: params.baselineTiktokConfirmedRevenue === 0 && params.baselineFirstTouchRevenue > 0 ? 42 : 28,
+    evidence: `OFF 전 TikTok checkout 후보 ${params.baselineTiktokCheckoutOrders.toLocaleString("ko-KR")}건, strict confirmed ${Math.round(params.baselineTiktokConfirmedRevenue).toLocaleString("ko-KR")}원, firstTouch 후보 ${Math.round(params.baselineFirstTouchRevenue).toLocaleString("ko-KR")}원`,
+    whatItMeans: "직접 결제 근거는 없지만 보조 후보는 있어 일부 assisted 가능성은 남는다.",
+  },
+  {
+    item: "GA4가 TikTok 구매를 못 봤나",
+    answer: params.baselineGa4TikTokRevenue === 0 && params.offGa4TikTokRevenue === 0 ? "낮음" : "중간",
+    score: params.baselineGa4TikTokRevenue === 0 && params.offGa4TikTokRevenue === 0 ? 24 : 45,
+    evidence: `GA4 TikTok purchase revenue baseline ${Math.round(params.baselineGa4TikTokRevenue).toLocaleString("ko-KR")}원, OFF ${Math.round(params.offGa4TikTokRevenue).toLocaleString("ko-KR")}원`,
+    whatItMeans: "GA4 cross-check에서도 TikTok 구매가 보이지 않는다.",
+  },
+  {
+    item: "view-through / 다른 기기 구매 가능성",
+    answer: params.baselinePlatformValue > 0 && params.baselineTiktokConfirmedRevenue === 0 ? "남아있음" : "낮음",
+    score: params.baselinePlatformValue > 0 && params.baselineTiktokConfirmedRevenue === 0 ? 40 : 20,
+    evidence: `TikTok 플랫폼 주장 매출 ${Math.round(params.baselinePlatformValue).toLocaleString("ko-KR")}원과 내부 strict 0원 사이에 gap이 있다.`,
+    whatItMeans: "사용자가 보고 나중에 검색/직접/다른 기기로 구매한 assisted 효과는 strict 원장만으로 완전히 닫기 어렵다.",
+  },
+]);
+
+const sumAuditScores = (items: TikTokOffImpactAuditItem[]) =>
+  Math.round(items.reduce((sum, item) => sum + item.score, 0) / Math.max(items.length, 1));
+
+const buildTikTokPaymentEvidenceSummary = (
+  entries: AttributionLedgerEntry[],
+  range: DateRange,
+) => {
+  const marketingIntentClients = new Set<string>();
+  const checkoutOrders = new Set<string>();
+  const strictOrders = new Set<string>();
+  const firstTouchOrders = new Set<string>();
+  let marketingIntentRows = 0;
+  let checkoutRows = 0;
+  let strictRevenue = 0;
+  let firstTouchRevenue = 0;
+
+  for (const entry of entries) {
+    if (!entryInKstRange(entry, range)) continue;
+    const orderKey = orderKeyFromLedgerEntry(entry);
+    if (isManualPaidTrafficTestEntry(entry, orderKey)) continue;
+
+    const directReasons = getAttributionTikTokMatchReasons(entry);
+    const firstTouchReasons = getStoredFirstTouchReasons(entry, "tiktok");
+    const hasTikTokEvidence = directReasons.length > 0 || firstTouchReasons.length > 0;
+    if (!hasTikTokEvidence) continue;
+
+    if (entry.touchpoint === "marketing_intent") {
+      marketingIntentRows += 1;
+      const clientKey = clientKeyFromLedgerEntry(entry);
+      if (clientKey) marketingIntentClients.add(clientKey);
+    }
+    if (entry.touchpoint === "checkout_started") {
+      checkoutRows += 1;
+      if (orderKey) checkoutOrders.add(orderKey);
+    }
+    if (entry.touchpoint === "payment_success" && entry.paymentStatus === "confirmed") {
+      const amount = amountFromLedgerEntry(entry);
+      if (directReasons.length > 0) {
+        if (orderKey && strictOrders.has(orderKey)) continue;
+        if (orderKey) strictOrders.add(orderKey);
+        strictRevenue += amount;
+      } else if (firstTouchReasons.length > 0) {
+        if (orderKey && firstTouchOrders.has(orderKey)) continue;
+        if (orderKey) firstTouchOrders.add(orderKey);
+        firstTouchRevenue += amount;
+      }
+    }
+  }
+
+  return {
+    marketingIntentRows,
+    marketingIntentClients: marketingIntentClients.size,
+    checkoutRows,
+    checkoutOrders: checkoutOrders.size,
+    strictConfirmedOrders: strictOrders.size,
+    strictConfirmedRevenue: Math.round(strictRevenue),
+    firstTouchConfirmedOrders: firstTouchOrders.size,
+    firstTouchConfirmedRevenue: Math.round(firstTouchRevenue),
+  };
+};
+
 export const createAdsRouter = () => {
   const router = express.Router();
 
@@ -2926,6 +3525,161 @@ export const createAdsRouter = () => {
       res.json(payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : "tiktok roas comparison failed";
+      res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  router.get("/api/ads/tiktok/off-impact-audit", async (req: Request, res: Response) => {
+    try {
+      const baselineRange = parseOptionalDateRange(
+        req.query.baseline_start,
+        req.query.baseline_end,
+        TIKTOK_OFF_DEFAULT_BASELINE,
+        "baseline_start",
+        "baseline_end",
+      );
+      const offRange = parseOptionalDateRange(
+        req.query.off_start,
+        req.query.off_end,
+        TIKTOK_OFF_DEFAULT_OFF,
+        "off_start",
+        "off_end",
+      );
+
+      const [
+        baselineLedger,
+        offLedger,
+        baselineTikTok,
+        offTikTok,
+        ga4ChannelComparison,
+      ] = await Promise.all([
+        fetchOperationalLedgerEntriesForAdsByDay("biocom", baselineRange),
+        fetchOperationalLedgerEntriesForAdsByDay("biocom", offRange),
+        buildTikTokRoasComparison({ startDate: baselineRange.startDate, endDate: baselineRange.endDate }),
+        buildTikTokRoasComparison({ startDate: offRange.startDate, endDate: offRange.endDate }),
+        buildGa4ChannelComparison(baselineRange, offRange),
+      ]);
+
+      const baselineVm = buildVmChannelMetrics(baselineLedger.entries, baselineRange);
+      const offVm = buildVmChannelMetrics(offLedger.entries, offRange);
+      const channelRows = buildVmChannelComparison(baselineVm, offVm);
+      const baselineTikTokEvidence = buildTikTokPaymentEvidenceSummary(baselineLedger.entries, baselineRange);
+      const offTikTokEvidence = buildTikTokPaymentEvidenceSummary(offLedger.entries, offRange);
+      const baselineGa4TikTok = ga4ChannelComparison.rows.find((row) => row.channel === "paid_tiktok")?.baseline;
+      const offGa4TikTok = ga4ChannelComparison.rows.find((row) => row.channel === "paid_tiktok")?.off;
+      const auditItems = buildTikTokTrackingAuditItems({
+        baselineTiktokSpend: baselineTikTok.ads_report.summary.spend,
+        offTiktokSpend: offTikTok.ads_report.summary.spend,
+        baselinePlatformValue: baselineTikTok.ads_report.summary.purchaseValue,
+        baselineTiktokIntentRows: baselineTikTokEvidence.marketingIntentRows,
+        offTiktokIntentRows: offTikTokEvidence.marketingIntentRows,
+        baselineTiktokCheckoutOrders: baselineTikTokEvidence.checkoutOrders,
+        offTiktokCheckoutOrders: offTikTokEvidence.checkoutOrders,
+        baselineTiktokConfirmedRevenue: baselineTikTokEvidence.strictConfirmedRevenue,
+        offTiktokConfirmedRevenue: offTikTokEvidence.strictConfirmedRevenue,
+        baselineFirstTouchRevenue: baselineTikTokEvidence.firstTouchConfirmedRevenue,
+        offFirstTouchRevenue: offTikTokEvidence.firstTouchConfirmedRevenue,
+        baselineGa4TikTokRevenue: baselineGa4TikTok?.revenue ?? 0,
+        offGa4TikTokRevenue: offGa4TikTok?.revenue ?? 0,
+      });
+      const missingTrackingScore = sumAuditScores(auditItems);
+      const platformOverCreditScore = Math.max(
+        0,
+        Math.min(100, Math.round(70 - (baselineTikTokEvidence.strictConfirmedRevenue > 0 ? 25 : 0))),
+      );
+      const observedRevenueDropPerDay = baselineVm.total.revenuePerDay - offVm.total.revenuePerDay;
+      const topDropChannels = channelRows
+        .filter((row) => row.deltaRevenuePerDay < 0)
+        .slice(0, 5);
+
+      res.json({
+        ok: true,
+        site: "biocom",
+        checked_at: new Date().toISOString(),
+        lane: "Green read-only",
+        ranges: {
+          baseline: {
+            ...baselineRange,
+            label: "TikTok OFF 전",
+            days: daysInRange(baselineRange),
+          },
+          off: {
+            ...offRange,
+            label: "TikTok OFF 후",
+            days: daysInRange(offRange),
+          },
+        },
+        source: {
+          primary: "VM Cloud SQLite 보조 원장 / att.ainativeos.net /api/attribution/ledger source=biocom_imweb captureMode=live",
+          ga4_cross_check: "GA4 Data API / biocom property / session source-medium revenue",
+          tiktok_ads: "로컬 TikTok Ads daily cache + TikTok Business API read-only auto sync",
+          notes: [
+            "채널별 매출은 예산 판단용 확정치가 아니라 VM Cloud 결제완료 row의 유입 근거 분류다.",
+            "기간 길이가 달라 총액 대신 일평균 주문/매출로 비교한다.",
+            "응답에는 raw order/payment/click/member identifier를 포함하지 않는다.",
+          ],
+        },
+        warnings: [
+          ...baselineLedger.warnings,
+          ...offLedger.warnings,
+          ...(ga4ChannelComparison.error ? [`GA4 cross-check 실패: ${ga4ChannelComparison.error}`] : []),
+        ],
+        overall: {
+          baseline: baselineVm.total,
+          off: offVm.total,
+          deltaOrdersPerDay: round2(offVm.total.ordersPerDay - baselineVm.total.ordersPerDay),
+          deltaRevenuePerDay: offVm.total.revenuePerDay - baselineVm.total.revenuePerDay,
+          deltaRevenuePct: baselineVm.total.revenuePerDay > 0
+            ? round2(((offVm.total.revenuePerDay - baselineVm.total.revenuePerDay) / baselineVm.total.revenuePerDay) * 100)
+            : null,
+        },
+        tiktok_spend_and_claim: {
+          baseline: {
+            spend: baselineTikTok.ads_report.summary.spend,
+            platformPurchases: baselineTikTok.ads_report.summary.purchases,
+            platformPurchaseValue: baselineTikTok.ads_report.summary.purchaseValue,
+            platformRoas: baselineTikTok.ads_report.summary.platformRoas,
+          },
+          off: {
+            spend: offTikTok.ads_report.summary.spend,
+            platformPurchases: offTikTok.ads_report.summary.purchases,
+            platformPurchaseValue: offTikTok.ads_report.summary.purchaseValue,
+            platformRoas: offTikTok.ads_report.summary.platformRoas,
+          },
+        },
+        tiktok_internal_evidence: {
+          baseline: baselineTikTokEvidence,
+          off: offTikTokEvidence,
+        },
+        channel_shift: {
+          source: "VM Cloud SQLite 보조 원장 결제완료 row channel classifier",
+          observedRevenueDropPerDay,
+          topDropChannels,
+          rows: channelRows,
+        },
+        ga4_channel_cross_check: {
+          source: "GA4 Data API sessionSource/sessionMedium",
+          error: ga4ChannelComparison.error,
+          rows: ga4ChannelComparison.rows,
+        },
+        mistracking_audit: {
+          missingTrackingProbabilityScore: missingTrackingScore,
+          platformOverCreditProbabilityScore: platformOverCreditScore,
+          recommendation: missingTrackingScore >= 60
+            ? "TikTok 제한 재테스트 전 추적 보강이 먼저다."
+            : "대규모 미추적보다는 플랫폼 과대 attribution 가능성이 더 크다. 7일 OFF 결과를 닫고 제한 재테스트 여부를 결정한다.",
+          items: auditItems,
+        },
+        invariants: {
+          no_send: true,
+          no_write: true,
+          no_deploy: true,
+          no_publish: true,
+          raw_identifier_suppressed: true,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "tiktok off impact audit failed";
       res.status(500).json({ ok: false, error: message });
     }
   });
