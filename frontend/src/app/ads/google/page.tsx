@@ -416,6 +416,27 @@ const fmtPct = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(1
 const fmtRoas = (v: number | null) => (v == null ? "—" : `${v.toFixed(2)}x`);
 const fmtSignedRoas = (v: number | null) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)}x`);
 const fmtChartRoas = (v: string | number | undefined) => `${Number(v ?? 0).toFixed(2)}x`;
+
+// gpt0508-53: progress bar 단계명. 0 표시 금지 — 옛 값 유지 + skeleton.
+const LOADING_STAGES = [
+  "인증 상태 확인",
+  "Google Ads campaign metrics 조회",
+  "conversion_action / conversion value 조회",
+  "내부 confirmed revenue 조회",
+  "NPay actual correction 조회",
+  "ROAS gap 계산",
+  "source freshness · no-send guard",
+] as const;
+
+const loadingStageForProgress = (progress: number) => {
+  if (progress < 15) return 0;
+  if (progress < 30) return 1;
+  if (progress < 45) return 2;
+  if (progress < 60) return 3;
+  if (progress < 75) return 4;
+  if (progress < 88) return 5;
+  return 6;
+};
 const fmtDateTime = (value: string | null | undefined) => {
   if (!value) return "—";
   const date = new Date(value);
@@ -682,6 +703,96 @@ function KpiCard({ label, value, sub, tone = "neutral" }: {
   );
 }
 
+function ProgressPanel({ progress, hasPreviousData }: { progress: number; hasPreviousData: boolean }) {
+  const stageIndex = loadingStageForProgress(progress);
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={`Google Ads 데이터 불러오는 중 ${progress}%`}
+      style={{
+        marginBottom: 16,
+        padding: "16px 18px",
+        border: "1px solid #bfdbfe",
+        background: "#f8fbff",
+        borderRadius: 10,
+        boxShadow: "0 8px 28px rgba(15,23,42,0.06)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <strong style={{ fontSize: 14, color: "#0f172a" }}>
+            {hasPreviousData ? "새 데이터 조회 중 (이전 값 유지)" : "Google Ads 데이터 불러오는 중"}
+          </strong>
+          <span style={{ fontSize: 12, color: "#64748b" }}>
+            Google Ads API + 운영DB confirmed + VM Cloud ledger 조회 — 약 5~15초 소요
+          </span>
+        </div>
+        <b style={{ fontSize: 16, color: "#1d4ed8", fontVariantNumeric: "tabular-nums" }}>{progress}%</b>
+      </div>
+      <div style={{ height: 10, width: "100%", overflow: "hidden", borderRadius: 999, background: "#dbeafe" }}>
+        <div
+          style={{
+            height: "100%",
+            borderRadius: "inherit",
+            background: "linear-gradient(90deg, #2563eb 0%, #16a34a 100%)",
+            width: `${progress}%`,
+            transition: "width 0.45s ease",
+          }}
+        />
+      </div>
+      <ol
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${LOADING_STAGES.length}, minmax(0, 1fr))`,
+          gap: 8,
+          margin: "14px 0 0",
+          padding: 0,
+          listStyle: "none",
+        }}
+      >
+        {LOADING_STAGES.map((stage, index) => {
+          const done = index < stageIndex;
+          const active = index === stageIndex;
+          const color = done ? "#166534" : active ? "#1d4ed8" : "#94a3b8";
+          const dotBg = done ? "#16a34a" : active ? "#1d4ed8" : "#cbd5e1";
+          return (
+            <li
+              key={stage}
+              style={{
+                position: "relative",
+                paddingTop: 16,
+                minWidth: 0,
+                color,
+                fontSize: 11,
+                lineHeight: 1.35,
+                textAlign: "center",
+                wordBreak: "keep-all",
+                fontWeight: active ? 750 : 500,
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: "50%",
+                  width: active ? 10 : 8,
+                  height: active ? 10 : 8,
+                  borderRadius: "50%",
+                  transform: "translateX(-50%)",
+                  background: dotBg,
+                  boxShadow: active ? "0 0 0 4px #dbeafe" : "none",
+                }}
+              />
+              {stage}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 function Panel({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <section style={{
@@ -707,6 +818,7 @@ export default function GoogleAdsPerformancePage() {
   const [liveData, setLiveData] = useState<GoogleAdsDashboardResponse | null>(null);
   const [liveLoading, setLiveLoading] = useState(true);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(7);
   const [realRoas, setRealRoas] = useState<{
     window: { since: string; until: string };
     internal_revenue_korean: string;
@@ -719,8 +831,20 @@ export default function GoogleAdsPerformancePage() {
   const [realRoasError, setRealRoasError] = useState<string | null>(null);
 
   const loadLiveData = useCallback(async () => {
+    // gpt0508-53: progress bar — 옛 liveData 는 유지 (0 으로 리셋 금지) · creep 7→92%
     setLiveLoading(true);
     setLiveError(null);
+    setLoadingProgress(7);
+    let progressTimer: number | null = null;
+    if (typeof window !== "undefined") {
+      progressTimer = window.setInterval(() => {
+        setLoadingProgress((current) => {
+          if (current >= 92) return current;
+          const next = current + (current < 35 ? 8 : current < 70 ? 5 : 2);
+          return Math.min(next, 92);
+        });
+      }, 650);
+    }
     try {
       const res = await fetch(`${API_BASE}/api/google-ads/dashboard?date_preset=${datePreset}`, {
         cache: "no-store",
@@ -730,10 +854,12 @@ export default function GoogleAdsPerformancePage() {
         throw new Error(JSON.stringify("error" in data ? data.error ?? data.errors : data).slice(0, 500));
       }
       setLiveData(data);
+      setLoadingProgress(100);
     } catch (error) {
       setLiveError(error instanceof Error ? error.message : "Google Ads live API 조회 실패");
     } finally {
-      setLiveLoading(false);
+      if (progressTimer != null) window.clearInterval(progressTimer);
+      window.setTimeout(() => setLiveLoading(false), 160);
     }
   }, [datePreset]);
 
@@ -1172,7 +1298,23 @@ export default function GoogleAdsPerformancePage() {
           </Panel>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: 12, marginBottom: 16 }}>
+        {liveLoading && !parsed && (
+          <ProgressPanel
+            progress={loadingProgress}
+            hasPreviousData={liveData != null}
+          />
+        )}
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
+            gap: 12,
+            marginBottom: 16,
+            opacity: liveLoading && liveData ? 0.55 : 1,
+            transition: "opacity 0.3s ease",
+          }}
+        >
           <KpiCard label="광고비" value={fmtKRW(summary.cost)} sub={sourceLabel} />
           <KpiCard label="전환수" value={fmtNum(summary.conversions)} sub="Conversions" />
           <KpiCard label="전환값" value={fmtKRW(summary.conversionValue)} sub="Conv. value" tone="success" />
