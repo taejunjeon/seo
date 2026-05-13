@@ -9,6 +9,7 @@ import { Router, type Request, type Response } from "express";
 import { summarizeNaverAdsDaily } from "../naverAdsLocalDb";
 import { isNaverAdsConfigured } from "../naverAdsClient";
 import { getCrmDb } from "../crmLocalDb";
+import { queryPg, isDatabaseConfigured } from "../postgres";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmtKrw = (n: number): string => {
@@ -46,9 +47,54 @@ export const createNaverAdsRouter = () => {
         .prepare(`SELECT MAX(cached_at) AS last_cached, MAX(date) AS last_date FROM naver_ads_daily WHERE site = ?`)
         .get(site) as { last_cached: string | null; last_date: string | null };
 
+      // gpt0508-49 step3+: 진짜 ROAS = 광고비 vs 내부 paid_naver 채널 매출.
+      // /total API 의 paid_naver channel_summary (evidence-join NaPm/paid UTM/search referrer 분류) reuse.
+      // since 의 month 기준으로 paid_naver 월 매출 매핑 (정확 윈도우 비교는 다음 sprint, 본 sprint 는 월 단위 비교).
+      let internalRevenue = 0;
+      let internalOrders = 0;
+      let internalRevenueSource: string = "/total paid_naver channel (evidence-join NaPm/paid UTM/search referrer)";
+      let internalRevenueWarning: string | null = null;
+      let internalMonth: string | null = null;
+      try {
+        const monthOfSince = since.slice(0, 7); // YYYY-MM
+        internalMonth = monthOfSince;
+        const totalRes = await fetch(
+          `http://localhost:7020/api/total/monthly-channel-summary?month=${monthOfSince}&site=biocom&mode=dry_run`,
+          { signal: AbortSignal.timeout(30000) },
+        );
+        if (totalRes.ok) {
+          const totalJson = (await totalRes.json()) as {
+            ok?: boolean;
+            evidence?: { channel_summary?: Array<{ primary_channel: string; orders: number; revenue: number }> };
+            platform_reference?: { rows?: Array<{ platform: string; internalConfirmed?: { orders: number; revenue: number } }> };
+          };
+          if (totalJson.ok) {
+            // paid_naver row 추출
+            const paidNaver = (totalJson.evidence?.channel_summary || []).find(
+              (r) => r.primary_channel === "paid_naver",
+            );
+            if (paidNaver) {
+              internalRevenue = paidNaver.revenue;
+              internalOrders = paidNaver.orders;
+              internalRevenueWarning =
+                `${monthOfSince} 월 paid_naver 채널 매출 기준 (월 단위 합산). 광고비 윈도우 (${since}~${until}) 와 mismatch 가능.`;
+            } else {
+              internalRevenueWarning = `${monthOfSince} paid_naver 채널 0건`;
+            }
+          } else {
+            internalRevenueWarning = "/total API 응답 ok=false";
+          }
+        } else {
+          internalRevenueWarning = `/total HTTP ${totalRes.status}`;
+        }
+      } catch (e) {
+        internalRevenueWarning = e instanceof Error ? e.message.slice(0, 100) : "/total fetch 실패";
+      }
+
       const totalSpend = summary.total_sales_amt_krw;
       const totalConv = summary.total_conv_amt_krw;
       const naverClaimRoas = totalSpend > 0 ? round2(totalConv / totalSpend) : null;
+      const internalRoas = totalSpend > 0 ? round2(internalRevenue / totalSpend) : null;
 
       const campaigns = summary.by_campaign.map((c) => ({
         ncc_campaign_id: c.nccCampaignId,
@@ -87,6 +133,16 @@ export const createNaverAdsRouter = () => {
           naver_claim_total_revenue_krw: totalConv,
           naver_claim_total_revenue_korean: fmtKrw(totalConv),
           naver_claim_total_roas: naverClaimRoas,
+          // 진짜 ROAS (내부 결제완료 매출 기준)
+          internal_paid_naver_revenue_krw: internalRevenue,
+          internal_paid_naver_revenue_korean: fmtKrw(internalRevenue),
+          internal_paid_naver_orders: internalOrders,
+          internal_real_roas: internalRoas,
+          internal_revenue_source: internalRevenueSource,
+          internal_revenue_warning: internalRevenueWarning,
+          internal_revenue_month: internalMonth,
+          over_claim_krw: internalRevenue > 0 ? totalConv - internalRevenue : null,
+          over_claim_korean: internalRevenue > 0 ? fmtKrw(totalConv - internalRevenue) : null,
         },
         campaigns_by_spend_desc: campaigns,
         guardrails: {
