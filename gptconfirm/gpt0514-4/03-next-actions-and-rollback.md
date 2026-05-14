@@ -4,7 +4,7 @@
 
 ## 현재 판정
 
-VM Cloud backend 반영은 PASS다. 네이버 evidence aggregate는 `/total` backend response에 포함된다. public frontend `/total` route는 아직 404라서 사용자 화면 노출은 별도 작업이다.
+VM Cloud backend 반영은 PASS다. 네이버 evidence aggregate는 `/total` backend response에 포함된다. VM Cloud frontend `/total` route는 아직 404라서 `https://biocom.ainativeos.net/total` 화면 노출은 별도 작업이다. `운영DB`는 개발팀 관장 Supabase/Postgres만 뜻한다.
 
 Naver Ads URL canary는 API로 직접 실행하지 않았다. 공식 update 필드가 landing URL을 지원하지 않아 UI 수동 canary가 안전하다.
 
@@ -48,11 +48,11 @@ curl -sS 'https://att.ainativeos.net/api/total/monthly-channel-summary?site=bioc
 
 ## 다음 할일 — Codex
 
-1. 운영 프론트 `/total` route 반영 승인안 작성 또는 deploy 준비
-- 왜: backend에는 네이버 aggregate가 있으나 public frontend가 404라 TJ님이 화면에서 볼 수 없다.
+1. VM Cloud frontend `/total` route 반영 승인안 작성 또는 deploy 준비
+- 왜: VM Cloud backend에는 네이버 aggregate가 있으나 VM Cloud frontend route가 404라 `https://biocom.ainativeos.net/total`에서는 볼 수 없다.
 - 어떻게: frontend build, route availability, `/total` page smoke, rollback plan을 묶는다.
 - 성공 기준: `https://biocom.ainativeos.net/total` 200, 네이버 후보 4개 class 표시, budget ROAS 제외 문구 표시.
-- 승인 필요: YES, frontend 운영 deploy.
+- 승인 필요: YES, VM Cloud frontend deploy.
 - 추천 점수/자신감: 88%.
 
 2. canary 관찰 query 준비

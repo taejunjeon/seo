@@ -4,7 +4,7 @@
 
 ## 현재 목표
 
-`/total`이 네이버 후보를 VM Cloud 전체 aggregate 기준으로 읽게 만든 운영 backend 반영을 닫고, Naver Ads URL 표준화는 1개 광고그룹 UI canary로 넘긴다. gptconfirm 패키지는 `gptconfirm/gpt0514-4`다.
+`/total`이 네이버 후보를 VM Cloud 전체 aggregate 기준으로 읽게 만든 VM Cloud backend 반영을 닫고, Naver Ads URL 표준화는 1개 광고그룹 UI canary로 넘긴다. gptconfirm 패키지는 `gptconfirm/gpt0514-4`다.
 
 ## 완료한 것
 

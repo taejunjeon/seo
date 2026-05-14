@@ -61,7 +61,7 @@ VM Cloud backend에는 반영됐다.
 - `seo-backend`: PM2 online.
 - remote backup: `/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0514-4-20260513T173652Z`.
 
-운영 프론트는 아직 별도다. `https://biocom.ainativeos.net/total`은 2026-05-14 02:52 KST 확인 시 404였다. 즉, backend API 운영 반영은 끝났지만, public frontend route 노출은 별도 frontend deploy/router 작업이 남아 있다.
+VM Cloud public frontend route는 아직 별도다. `https://biocom.ainativeos.net/total`은 2026-05-14 02:52 KST 확인 시 404였다. 즉, VM Cloud backend API 반영은 끝났지만, VM Cloud frontend route 노출은 별도 frontend deploy/router 작업이 남아 있다. 여기서 `운영DB`는 개발팀 관장 Supabase/Postgres만 뜻하므로 frontend/backend 배포 문맥에는 쓰지 않는다.
 
 ## URL canary 판단
 
@@ -95,7 +95,7 @@ utm_term={keyword}
 
 ## 확인하면 좋은 문서
 
-1. `gptconfirm/gpt0514-4/01-vm-cloud-backend-deploy-and-validation.md` — backend 운영 반영과 숫자 검증 근거.
+1. `gptconfirm/gpt0514-4/01-vm-cloud-backend-deploy-and-validation.md` — VM Cloud backend 반영과 숫자 검증 근거.
 2. `gptconfirm/gpt0514-4/02-naver-url-current-vs-standard-canary.md` — 현재 UTM과 표준 UTM 차이, canary 적용 방법.
 3. `gptconfirm/gpt0514-4/03-next-actions-and-rollback.md` — 다음 실행 순서와 rollback.
 

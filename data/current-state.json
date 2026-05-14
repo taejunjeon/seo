@@ -36,7 +36,7 @@
     "frontend_public_route": {
       "url": "https://biocom.ainativeos.net/total",
       "observed_status": 404,
-      "note": "Backend API is deployed. Public frontend route needs separate deploy/router work."
+      "note": "VM Cloud backend API is deployed. VM Cloud frontend public route needs separate deploy/router work. 운영DB means only the dev-team-managed Supabase/Postgres DB."
     },
     "naver_ads_url_canary": {
       "api_read_only_audit": "PASS",

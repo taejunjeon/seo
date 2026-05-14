@@ -87,9 +87,9 @@ curl 'https://att.ainativeos.net/api/total/monthly-channel-summary?site=biocom&m
 
 따라서 현재 `/total`이 써야 할 기준은 690건 전체 aggregate다. 단, 이 690건은 매출 정본이 아니라 채널 evidence이므로 budget ROAS에는 자동 포함하지 않는다.
 
-## 운영 프론트 상태
+## VM Cloud frontend route 상태
 
-`https://biocom.ainativeos.net/total`은 2026-05-14 02:52 KST 기준 404다. backend API는 운영 반영됐지만 public frontend route는 별도 배포가 필요하다.
+`https://biocom.ainativeos.net/total`은 2026-05-14 02:52 KST 기준 404다. VM Cloud backend API는 반영됐지만 VM Cloud frontend route는 별도 배포가 필요하다. `운영DB`는 개발팀 관장 Supabase/Postgres만 뜻하므로 이 문서에서는 frontend/backend를 `VM Cloud`로 구분한다.
 
 ## No-Send / No-Write
 
