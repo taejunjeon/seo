@@ -151,9 +151,11 @@ const dbRowToEntry = (row: AttributionLedgerRow): AttributionLedgerEntry => ({
       ? "marketing_intent"
       : row.touchpoint === "payment_success"
         ? "payment_success"
-        : row.touchpoint === "form_submit"
-          ? "form_submit"
-          : "checkout_started",
+        : row.touchpoint === "payment_page_seen"
+          ? "payment_page_seen"
+          : row.touchpoint === "form_submit"
+            ? "form_submit"
+            : "checkout_started",
   captureMode:
     row.capture_mode === "replay"
       ? "replay"
@@ -188,6 +190,43 @@ const dbRowToEntry = (row: AttributionLedgerRow): AttributionLedgerEntry => ({
   metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
   requestContext: JSON.parse(row.request_context_json) as AttributionLedgerEntry["requestContext"],
 } as AttributionLedgerEntry & { entryId: string });
+
+const escapeSqlLike = (value: string) => value.replace(/[\\%_]/g, (match) => `\\${match}`);
+
+const normalizeLookupValues = (values?: string[]) =>
+  Array.from(new Set((values ?? []).map((value) => value.trim()).filter(Boolean)));
+
+const appendInClause = (
+  column: string,
+  values: string[],
+  params: Record<string, unknown>,
+  prefix: string,
+) => {
+  if (values.length === 0) return "";
+  const placeholders = values.map((value, index) => {
+    const key = `${prefix}${index}`;
+    params[key] = value;
+    return `@${key}`;
+  });
+  return `${column} IN (${placeholders.join(", ")})`;
+};
+
+const appendLikeClauses = (
+  columns: string[],
+  values: string[],
+  params: Record<string, unknown>,
+  prefix: string,
+) => {
+  const clauses: string[] = [];
+  values.forEach((value, index) => {
+    const key = `${prefix}${index}`;
+    params[key] = `%${escapeSqlLike(value)}%`;
+    for (const column of columns) {
+      clauses.push(`${column} LIKE @${key} ESCAPE '\\'`);
+    }
+  });
+  return clauses;
+};
 
 export const insertAttributionLedgerEntries = (entries: AttributionLedgerEntry[]) => {
   if (entries.length === 0) return 0;
@@ -354,6 +393,71 @@ export const listAttributionLedgerEntries = (): AttributionLedgerEntry[] => {
     FROM ${ATTRIBUTION_LEDGER_TABLE}
     ORDER BY logged_at DESC, rowid DESC
   `).all() as AttributionLedgerRow[];
+
+  return rows.map(dbRowToEntry);
+};
+
+export const listAttributionLedgerPaymentDecisionCandidates = (lookup: {
+  paymentKeys?: string[];
+  orderKeys?: string[];
+  orderCodes?: string[];
+  paymentCodes?: string[];
+  limit?: number;
+}): AttributionLedgerEntry[] => {
+  const paymentKeys = normalizeLookupValues(lookup.paymentKeys);
+  const orderKeys = normalizeLookupValues(lookup.orderKeys);
+  const orderCodes = normalizeLookupValues(lookup.orderCodes);
+  const paymentCodes = normalizeLookupValues(lookup.paymentCodes);
+
+  if (
+    paymentKeys.length === 0 &&
+    orderKeys.length === 0 &&
+    orderCodes.length === 0 &&
+    paymentCodes.length === 0
+  ) {
+    return [];
+  }
+
+  const db = getCrmDb();
+  ensureAttributionLedgerSchema(db);
+
+  const params: Record<string, unknown> = {
+    limit: Math.max(1, Math.min(lookup.limit ?? 20, 100)),
+  };
+  const clauses = [
+    appendInClause("payment_key", paymentKeys, params, "paymentKey"),
+    appendInClause("order_id", orderKeys, params, "orderKey"),
+    ...appendLikeClauses(
+      ["landing", "referrer", "metadata_json", "request_context_json"],
+      [...orderCodes, ...paymentCodes],
+      params,
+      "urlToken",
+    ),
+  ].filter(Boolean);
+
+  if (clauses.length === 0) return [];
+
+  const rows = db.prepare(`
+    SELECT
+      entry_id, touchpoint, capture_mode, payment_status, logged_at,
+      order_id, payment_key, approved_at, checkout_id, customer_key,
+      landing, referrer, ga_session_id, utm_source, utm_medium,
+      utm_campaign, utm_term, utm_content, gclid, fbclid, ttclid,
+      source, metadata_json, request_context_json
+    FROM ${ATTRIBUTION_LEDGER_TABLE}
+    WHERE touchpoint = 'payment_success'
+      AND (${clauses.join(" OR ")})
+    ORDER BY
+      CASE payment_status
+        WHEN 'confirmed' THEN 3
+        WHEN 'pending' THEN 2
+        WHEN 'canceled' THEN 1
+        ELSE 0
+      END DESC,
+      logged_at DESC,
+      rowid DESC
+    LIMIT @limit
+  `).all(params) as AttributionLedgerRow[];
 
   return rows.map(dbRowToEntry);
 };

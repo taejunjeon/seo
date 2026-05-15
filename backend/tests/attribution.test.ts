@@ -25,12 +25,16 @@ import {
   buildMetaCapiLogDiagnostics,
   buildMetaCapiOrderEventSuccessKey,
   buildMetaCapiSyncAlreadyRunningResult,
+  getMetaCapiNoSendReason,
   selectMetaCapiSyncCandidates,
 } from "../src/metaCapi";
 import {
   buildAttributionPaymentDecision,
   buildAttributionPaymentStatusSyncPlan,
+  buildFastLedgerPaymentDecision,
+  buildOperationalPaymentCompleteBridgePlan,
   findDuplicateFormSubmitEntry,
+  getPaymentSuccessDowngradeReason,
 } from "../src/routes/attribution";
 import { normalizeTikTokPixelEventPayload } from "../src/tiktokPixelEvents";
 
@@ -677,6 +681,55 @@ test("attribution: buildLedgerEntry rejects empty payment_success payload", () =
         "2026-03-29T00:00:00.000Z",
       ),
     /payment_success requires orderId or paymentKey/,
+  );
+});
+
+test("attribution: payment_page_seen is stored as a diagnostic non-purchase touchpoint", () => {
+  const entry = buildLedgerEntry(
+    "payment_page_seen",
+    {
+      checkoutId: "checkout-page-seen-1",
+      landing: "https://biocom.kr/shop_payment/?order_no=202605150000001",
+      source: "biocom_imweb",
+      metadata: {
+        semantic_touchpoint: "payment_page_seen",
+        meta_purchase_candidate: false,
+        selected_payment_method: "card",
+      },
+    },
+    {
+      ip: "127.0.0.1",
+      userAgent: "node-test",
+      origin: "https://biocom.kr",
+      requestReferer: "",
+      method: "POST",
+      path: "/api/attribution/payment-page-seen",
+    },
+    "2026-05-15T02:00:00.000Z",
+  );
+
+  assert.equal(entry.touchpoint, "payment_page_seen");
+  assert.equal(entry.paymentStatus, null);
+  assert.equal(entry.metadata.semantic_touchpoint, "payment_page_seen");
+});
+
+test("attribution: payment_success guard downgrades shop_payment progress URLs", () => {
+  assert.equal(
+    getPaymentSuccessDowngradeReason({
+      landing: "https://biocom.kr/shop_payment/?order_no=202605150000002",
+      source: "biocom_imweb",
+      metadata: {},
+    }),
+    "shop_payment_progress_url_without_completion_signal",
+  );
+
+  assert.equal(
+    getPaymentSuccessDowngradeReason({
+      landing: "https://biocom.kr/shop_payment_complete?order_no=202605150000003",
+      source: "biocom_imweb",
+      metadata: { semantic_touchpoint: "payment_success" },
+    }),
+    "",
   );
 });
 
@@ -1645,6 +1698,86 @@ test("attribution: payment decision allows only confirmed server status", () => 
   assert.equal(confirmed.matchedBy, "ledger_order_code");
 });
 
+test("attribution: fast payment decision allows confirmed positive ledger exact match", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+  const confirmedEntry = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202605150000101",
+      paymentKey: "pay-fast-confirmed",
+      paymentStatus: "confirmed",
+      landing:
+        "https://biocom.kr/shop_payment_complete?order_code=o20260515fast&payment_code=pa20260515fast&order_no=202605150000101",
+      metadata: {
+        source: "biocom_imweb",
+        semantic_touchpoint: "payment_success",
+        page_location_class: "payment_success_allowlist",
+        value: 11900,
+      },
+    },
+    requestContext,
+    "2026-05-15T02:11:48.000Z",
+  );
+
+  const decision = buildFastLedgerPaymentDecision([confirmedEntry], {
+    orderId: "",
+    orderNo: "202605150000101",
+    orderCode: "o20260515fast",
+    paymentCode: "",
+    paymentKey: "",
+    store: "biocom",
+  });
+
+  assert.equal(decision?.status, "confirmed");
+  assert.equal(decision?.browserAction, "allow_purchase");
+  assert.equal(decision?.matchedBy, "ledger_order_id");
+  assert.equal(decision?.reason, "fast_ledger_confirmed_positive_exact_match");
+});
+
+test("attribution: fast payment decision blocks pending ledger exact match", () => {
+  const pendingEntry = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202605150000102",
+      paymentStatus: "pending",
+      metadata: {
+        source: "biocom_imweb",
+        status: "WAITING_FOR_DEPOSIT",
+        value: 55000,
+      },
+    },
+    {
+      ip: "127.0.0.1",
+      userAgent: "node-test",
+      origin: "https://biocom.kr",
+      requestReferer: "",
+      method: "POST",
+      path: "/api/attribution/payment-success",
+    },
+    "2026-05-15T02:12:48.000Z",
+  );
+
+  const decision = buildFastLedgerPaymentDecision([pendingEntry], {
+    orderId: "",
+    orderNo: "202605150000102",
+    orderCode: "",
+    paymentCode: "",
+    paymentKey: "",
+    store: "biocom",
+  });
+
+  assert.equal(decision?.status, "pending");
+  assert.equal(decision?.browserAction, "block_purchase_virtual_account");
+  assert.equal(decision?.reason, "fast_ledger_pending_status");
+});
+
 test("attribution: payment decision prefers current Toss direct status over ledger", () => {
   const requestContext = {
     ip: "127.0.0.1",
@@ -1696,6 +1829,140 @@ test("attribution: payment decision prefers current Toss direct status over ledg
   assert.equal(decision.matched?.source, "toss_direct_api");
 });
 
+test("attribution: payment decision allows operational DB PAYMENT_COMPLETE before ledger", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+  const pendingLedgerEntry = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202605150000001",
+      metadata: { status: "WAITING_FOR_DEPOSIT" },
+    },
+    requestContext,
+    "2026-05-15T12:00:00.000Z",
+  );
+
+  const decision = buildAttributionPaymentDecision(
+    [pendingLedgerEntry],
+    {
+      orderId: "",
+      orderNo: "202605150000001",
+      orderCode: "",
+      paymentCode: "",
+      paymentKey: "",
+      store: "biocom",
+    },
+    [],
+    [
+      {
+        orderNumber: "202605150000001",
+        channelOrderNo: "",
+        paymentStatus: "PAYMENT_COMPLETE",
+        paymentMethod: "CARD",
+        paidAt: "2026-05-15T12:01:00+09:00",
+        orderAmount: 35000,
+        refundAmount: 0,
+        refundPendingAmount: 0,
+        hasCancel: false,
+        hasReturn: false,
+        isNpay: false,
+      },
+    ],
+  );
+
+  assert.equal(decision.status, "confirmed");
+  assert.equal(decision.browserAction, "allow_purchase");
+  assert.equal(decision.matchedBy, "operational_db_order_number");
+  assert.equal(decision.reason, "operational_db_payment_complete");
+  assert.equal(decision.matched?.source, "operational_db_tb_iamweb_users");
+});
+
+test("attribution: payment decision blocks operational DB pending before Toss", () => {
+  const decision = buildAttributionPaymentDecision(
+    [],
+    {
+      orderId: "",
+      orderNo: "202605150000002",
+      orderCode: "",
+      paymentCode: "",
+      paymentKey: "",
+      store: "biocom",
+    },
+    [
+      {
+        paymentKey: "pay-operational-pending",
+        orderId: "202605150000002",
+        approvedAt: "2026-05-15T12:01:00+09:00",
+        status: "DONE",
+        channel: "카드",
+        store: "biocom",
+        totalAmount: 35000,
+        syncSource: "toss_direct_api_fallback",
+      },
+    ],
+    [
+      {
+        orderNumber: "202605150000002",
+        channelOrderNo: "",
+        paymentStatus: "WAITING_FOR_DEPOSIT",
+        paymentMethod: "VIRTUAL",
+        paidAt: "",
+        orderAmount: 35000,
+        refundAmount: 0,
+        refundPendingAmount: 0,
+        hasCancel: false,
+        hasReturn: false,
+        isNpay: false,
+      },
+    ],
+  );
+
+  assert.equal(decision.status, "pending");
+  assert.equal(decision.browserAction, "block_purchase_virtual_account");
+  assert.equal(decision.matchedBy, "operational_db_order_number");
+  assert.equal(decision.reason, "operational_db_payment_pending");
+});
+
+test("attribution: payment decision treats unconfirmed virtual account as pending block", () => {
+  const decision = buildAttributionPaymentDecision(
+    [],
+    {
+      orderId: "",
+      orderNo: "202605150000003",
+      orderCode: "",
+      paymentCode: "",
+      paymentKey: "",
+      store: "biocom",
+    },
+    [],
+    [
+      {
+        orderNumber: "202605150000003",
+        channelOrderNo: "",
+        paymentStatus: "입금대기",
+        paymentMethod: "무통장입금",
+        paidAt: "",
+        orderAmount: 35000,
+        refundAmount: 0,
+        refundPendingAmount: 0,
+        hasCancel: false,
+        hasReturn: false,
+        isNpay: false,
+      },
+    ],
+  );
+
+  assert.equal(decision.status, "pending");
+  assert.equal(decision.browserAction, "block_purchase_virtual_account");
+  assert.equal(decision.reason, "operational_db_virtual_or_bank_not_complete");
+});
+
 test("attribution: selectMetaCapiSyncCandidates keeps confirmed live payments only", () => {
   const requestContext = {
     ip: "127.0.0.1",
@@ -1744,6 +2011,292 @@ test("attribution: selectMetaCapiSyncCandidates keeps confirmed live payments on
   assert.equal(candidates[0]?.orderId, "order-confirmed");
   assert.equal(candidates[0]?.paymentStatus, "confirmed");
   assert.equal(candidates[0]?.captureMode, "live");
+});
+
+test("attribution: selectMetaCapiSyncCandidates excludes operational bridge no-send rows", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+
+  const candidates = selectMetaCapiSyncCandidates([
+    buildLedgerEntry(
+      "payment_success",
+      {
+        orderId: "order-bridge",
+        paymentKey: "pay-bridge",
+        paymentStatus: "confirmed",
+        metadata: {
+          source: "biocom_imweb",
+          status: "PAYMENT_COMPLETE",
+          value: 123000,
+          paymentStatusSyncSource: "operational_db_tb_iamweb_users_payment_complete_bridge",
+          metaCapiAutoSendAllowed: false,
+        },
+      },
+      requestContext,
+      "2026-05-14T07:00:00.000Z",
+    ),
+    buildLedgerEntry(
+      "payment_success",
+      {
+        orderId: "order-normal",
+        paymentKey: "pay-normal",
+        paymentStatus: "confirmed",
+        metadata: { source: "biocom_imweb", status: "DONE", value: 99000 },
+      },
+      requestContext,
+      "2026-05-14T07:10:00.000Z",
+    ),
+  ]);
+
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.orderId, "order-normal");
+});
+
+test("attribution: meta capi value guard blocks payment page and unsafe values", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+
+  const pageSeen = buildLedgerEntry(
+    "payment_page_seen",
+    {
+      checkoutId: "checkout-payment-page",
+      landing: "https://biocom.kr/shop_payment/?order_no=202605150000004",
+      metadata: { source: "biocom_imweb", semantic_touchpoint: "payment_page_seen", value: 99000 },
+    },
+    requestContext,
+    "2026-05-15T02:10:00.000Z",
+  );
+  const pendingGuard = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-needs-value-guard",
+      paymentKey: "pay-needs-value-guard",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        status: "DONE",
+        value: 99000,
+        value_guard_required_before_meta_send: true,
+      },
+    },
+    requestContext,
+    "2026-05-15T02:11:00.000Z",
+  );
+  const mismatch = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-value-mismatch",
+      paymentKey: "pay-value-mismatch",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        status: "DONE",
+        value: 99000,
+        valueGuard: { status: "passed", sourceTotalKrw: 88000 },
+      },
+    },
+    requestContext,
+    "2026-05-15T02:12:00.000Z",
+  );
+  const passed = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-value-pass",
+      paymentKey: "pay-value-pass",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        status: "DONE",
+        value: 99000,
+        value_guard_required_before_meta_send: true,
+        valueGuard: { status: "passed", sourceTotalKrw: 99000 },
+      },
+    },
+    requestContext,
+    "2026-05-15T02:13:00.000Z",
+  );
+
+  assert.equal(getMetaCapiNoSendReason(pageSeen), "payment_page_seen_not_purchase");
+  assert.equal(getMetaCapiNoSendReason(pendingGuard), "value_guard_required_not_passed");
+  assert.equal(getMetaCapiNoSendReason(mismatch), "value_source_total_mismatch");
+  assert.equal(getMetaCapiNoSendReason(passed), "");
+
+  const candidates = selectMetaCapiSyncCandidates([pageSeen, pendingGuard, mismatch, passed]);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.orderId, "order-value-pass");
+});
+
+test("attribution: meta capi candidate gate allows confirmed completion URL with runtime Toss value guard", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+
+  const completionConfirmed = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-runtime-toss-guard",
+      paymentKey: "pay-runtime-toss-guard",
+      paymentStatus: "confirmed",
+      landing: "https://biocom.kr/shop_payment_complete?order_no=order-runtime-toss-guard",
+      metadata: {
+        source: "biocom_imweb",
+        semantic_touchpoint: "payment_success",
+        page_location_class: "payment_success_allowlist",
+        completed_url_allowlist_pass: true,
+        completion_url: true,
+        meta_purchase_candidate: false,
+        value_guard_required_before_meta_send: true,
+        value: 11900,
+      },
+    },
+    requestContext,
+    "2026-05-15T02:11:48.000Z",
+  );
+  const paymentPageOnly = buildLedgerEntry(
+    "payment_page_seen",
+    {
+      checkoutId: "checkout-runtime-toss-guard",
+      landing: "https://biocom.kr/shop_payment/?order_no=order-runtime-toss-guard",
+      metadata: {
+        source: "biocom_imweb",
+        semantic_touchpoint: "payment_page_seen",
+        meta_purchase_candidate: false,
+        value: 11900,
+      },
+    },
+    requestContext,
+    "2026-05-15T02:10:48.000Z",
+  );
+
+  assert.equal(getMetaCapiNoSendReason(completionConfirmed), "");
+  assert.equal(getMetaCapiNoSendReason(paymentPageOnly), "payment_page_seen_not_purchase");
+
+  const candidates = selectMetaCapiSyncCandidates([paymentPageOnly, completionConfirmed]);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.orderId, "order-runtime-toss-guard");
+});
+
+test("attribution: operational PAYMENT_COMPLETE bridge upgrades only safe biocom rows", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+  const makePending = (orderId: string, source = "biocom_imweb") =>
+    buildLedgerEntry(
+      "payment_success",
+      {
+        orderId,
+        paymentStatus: "pending",
+        metadata: { source },
+      },
+      requestContext,
+      "2026-05-14T07:00:00.000Z",
+    );
+
+  const plan = buildOperationalPaymentCompleteBridgePlan(
+    [
+      makePending("safe-card"),
+      makePending("free-zero"),
+      makePending("npay-order"),
+      makePending("cancel-order"),
+      makePending("missing-order"),
+      makePending("coffee-order", "thecleancoffee_imweb"),
+    ],
+    [
+      {
+        orderNumber: "safe-card",
+        channelOrderNo: "",
+        paymentStatus: "PAYMENT_COMPLETE",
+        paymentMethod: "CARD",
+        paidAt: "2026-05-14 15:00:00+09",
+        orderAmount: 226113,
+        refundAmount: 0,
+        refundPendingAmount: 0,
+        hasCancel: false,
+        hasReturn: false,
+        isNpay: false,
+      },
+      {
+        orderNumber: "free-zero",
+        channelOrderNo: "",
+        paymentStatus: "PAYMENT_COMPLETE",
+        paymentMethod: "FREE",
+        paidAt: "2026-05-14 15:10:00+09",
+        orderAmount: 0,
+        refundAmount: 0,
+        refundPendingAmount: 0,
+        hasCancel: false,
+        hasReturn: false,
+        isNpay: false,
+      },
+      {
+        orderNumber: "npay-order",
+        channelOrderNo: "npay-channel-order",
+        paymentStatus: "PAYMENT_COMPLETE",
+        paymentMethod: "NAVERPAY_ORDER",
+        paidAt: "2026-05-14 15:20:00+09",
+        orderAmount: 133900,
+        refundAmount: 0,
+        refundPendingAmount: 0,
+        hasCancel: false,
+        hasReturn: false,
+        isNpay: true,
+      },
+      {
+        orderNumber: "cancel-order",
+        channelOrderNo: "",
+        paymentStatus: "PAYMENT_COMPLETE",
+        paymentMethod: "CARD",
+        paidAt: "2026-05-14 15:30:00+09",
+        orderAmount: 45000,
+        refundAmount: 0,
+        refundPendingAmount: 0,
+        hasCancel: true,
+        hasReturn: false,
+        isNpay: false,
+      },
+    ],
+    100,
+    "2026-05-14T10:00:00.000Z",
+  );
+
+  assert.equal(plan.totalCandidates, 6);
+  assert.equal(plan.scopedCandidates, 5);
+  assert.equal(plan.updatedRows, 1);
+  assert.equal(plan.confirmedAmountKrw, 226113);
+  assert.equal(plan.noSendGateRows, 1);
+  assert.equal(plan.exclusionsByReason.free_zero_amount?.count, 1);
+  assert.equal(plan.exclusionsByReason.npay_excluded?.count, 1);
+  assert.equal(plan.exclusionsByReason.cancel_or_return_present?.count, 1);
+  assert.equal(plan.exclusionsByReason.operational_row_not_found?.count, 1);
+  assert.equal(plan.exclusionsByReason.out_of_scope_source?.count, 1);
+  assert.equal(plan.updates[0]?.nextEntry.paymentStatus, "confirmed");
+  assert.equal(plan.updates[0]?.nextEntry.metadata.metaCapiAutoSendAllowed, false);
+  assert.equal(
+    plan.updates[0]?.nextEntry.metadata.paymentStatusSyncSource,
+    "operational_db_tb_iamweb_users_payment_complete_bridge",
+  );
 });
 
 test("attribution: selectMetaCapiSyncCandidates filters target before limit", () => {

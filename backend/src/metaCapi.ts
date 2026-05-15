@@ -251,6 +251,129 @@ type MetaCapiSyncParams = {
   paymentKey?: string;
 };
 
+const isMetaCapiAutoSendBlockedByBridge = (entry: AttributionLedgerEntry) => {
+  const metadata = entry.metadata ?? {};
+  const bridgeMetadata = isRecord(metadata.operationalPaymentCompleteBridge)
+    ? metadata.operationalPaymentCompleteBridge
+    : {};
+  const syncSource = typeof metadata.paymentStatusSyncSource === "string"
+    ? metadata.paymentStatusSyncSource.trim()
+    : "";
+
+  return (
+    metadata.metaCapiAutoSendAllowed === false ||
+    metadata.bridgeAutoSendAllowed === false ||
+    bridgeMetadata.metaCapiAutoSendAllowed === false ||
+    syncSource === "operational_db_tb_iamweb_users_payment_complete_bridge"
+  );
+};
+
+const metadataBoolean = (metadata: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (["1", "true", "yes", "y"].includes(normalized)) return true;
+      if (["0", "false", "no", "n"].includes(normalized)) return false;
+    }
+  }
+  return undefined;
+};
+
+const metadataPositiveNumber = (metadata: Record<string, unknown>, keys: string[]) => {
+  const value = pickNumber(metadata, keys);
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+};
+
+const valueGuardPassed = (metadata: Record<string, unknown>) => {
+  const directPassed = metadataBoolean(metadata, ["valueGuardPassed", "value_guard_passed"]);
+  if (directPassed === true) return true;
+  const guard = getMetadataRecord(metadata, ["valueGuard", "value_guard"]);
+  if (!guard) return false;
+  const status = pickString(guard, ["status", "result"]).toLowerCase();
+  return ["pass", "passed", "ok", "safe"].includes(status);
+};
+
+const isConfirmedPaymentSuccessEntry = (entry: AttributionLedgerEntry) =>
+  entry.touchpoint === "payment_success" &&
+  entry.captureMode === "live" &&
+  entry.paymentStatus === "confirmed";
+
+const hasCompletionSignal = (metadata: Record<string, unknown>) =>
+  metadata.semantic_touchpoint === "payment_success" ||
+  metadata.completed_url_allowlist_pass === true ||
+  metadata.completion_url === true ||
+  metadata.page_location_class === "payment_success_allowlist";
+
+const allowsRuntimeTossValueGuard = (
+  entry: AttributionLedgerEntry,
+  metadata: Record<string, unknown>,
+  value: number | undefined,
+) =>
+  isConfirmedPaymentSuccessEntry(entry) &&
+  hasCompletionSignal(metadata) &&
+  Boolean(entry.paymentKey) &&
+  typeof value === "number" &&
+  value > 0;
+
+export const getMetaCapiNoSendReason = (entry: AttributionLedgerEntry) => {
+  const metadata = entry.metadata ?? {};
+  if (entry.touchpoint === "payment_page_seen") return "payment_page_seen_not_purchase";
+  if (metadata.semantic_touchpoint === "payment_page_seen") return "semantic_payment_page_seen_not_purchase";
+  if (isMetaCapiAutoSendBlockedByBridge(entry)) return "bridge_no_send_gate";
+
+  const value = metadataPositiveNumber(metadata, ["value", "amount", "totalAmount"]);
+  if (
+    (metadata.meta_purchase_candidate === false || metadata.is_purchase_candidate === false) &&
+    !allowsRuntimeTossValueGuard(entry, metadata, value)
+  ) {
+    return "explicit_non_purchase_candidate";
+  }
+  if (typeof value === "number" && value <= 0) return "non_positive_value";
+  if (typeof value !== "number" && !entry.paymentKey) return "missing_value_without_payment_key_fallback";
+
+  const refundAmount = metadataPositiveNumber(metadata, [
+    "refundAmount",
+    "refund_amount",
+    "refundPendingAmount",
+    "refund_pending_amount",
+  ]);
+  if (typeof refundAmount === "number" && refundAmount > 0) return "refund_amount_present";
+
+  const cancelFlag = metadataBoolean(metadata, ["hasCancel", "has_cancel", "canceled", "cancelled", "refunded"]);
+  if (cancelFlag === true) return "cancel_or_refund_flag_present";
+
+  const valueGuardRequired = metadataBoolean(metadata, [
+    "valueGuardRequiredBeforeMetaSend",
+    "value_guard_required_before_meta_send",
+  ]);
+
+  const guard = getMetadataRecord(metadata, ["valueGuard", "value_guard"]);
+  const sourceTotal = guard
+    ? metadataPositiveNumber(guard, ["sourceTotalKrw", "source_total_krw", "orderTotalKrw", "order_total_krw"])
+    : metadataPositiveNumber(metadata, [
+      "sourceTotalKrw",
+      "source_total_krw",
+      "orderTotalKrw",
+      "order_total_krw",
+      "confirmedAmountKrw",
+      "confirmed_amount_krw",
+    ]);
+  if (typeof sourceTotal === "number" && typeof value === "number" && Math.abs(sourceTotal - value) > 1) {
+    return "value_source_total_mismatch";
+  }
+  if (
+    valueGuardRequired === true &&
+    !valueGuardPassed(metadata) &&
+    !allowsRuntimeTossValueGuard(entry, metadata, value)
+  ) {
+    return "value_guard_required_not_passed";
+  }
+
+  return "";
+};
+
 export const selectMetaCapiSyncCandidates = (
   entries: AttributionLedgerEntry[],
   limit = Number.POSITIVE_INFINITY,
@@ -264,7 +387,8 @@ export const selectMetaCapiSyncCandidates = (
       (entry) =>
         entry.touchpoint === "payment_success" &&
         entry.captureMode === "live" &&
-        entry.paymentStatus === "confirmed",
+        entry.paymentStatus === "confirmed" &&
+        !getMetaCapiNoSendReason(entry),
     )
     .filter((entry) => {
       const targetOrderId = filter?.orderId?.trim();
@@ -1606,6 +1730,9 @@ const buildSyncInput = async (entry: AttributionLedgerEntry): Promise<MetaCapiSe
 
     if (tossPayment.status === "CANCELED") {
       throw new Error("결제 상태 CANCELED");
+    }
+    if (tossPayment.status && !["DONE", "PAID", "APPROVED"].includes(tossPayment.status.toUpperCase())) {
+      throw new Error(`결제 미완료(${tossPayment.status})`);
     }
     if (tossPayment.method === "가상계좌" && tossPayment.status !== "DONE") {
       throw new Error(`가상계좌 미완료(${tossPayment.status ?? "UNKNOWN"})`);

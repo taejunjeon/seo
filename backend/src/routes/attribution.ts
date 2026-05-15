@@ -31,7 +31,10 @@ import {
   readLedgerEntries,
   type TossJoinRow,
 } from "../attribution";
-import { updateAttributionLedgerEntries } from "../attributionLedgerDb";
+import {
+  listAttributionLedgerPaymentDecisionCandidates,
+  updateAttributionLedgerEntries,
+} from "../attributionLedgerDb";
 import { getCrmDb } from "../crmLocalDb";
 import {
   recordSiteLanding,
@@ -80,6 +83,9 @@ import {
   normalizeTikTokPixelEventPayload,
 } from "../tiktokPixelEvents";
 import { getTossBasicAuth, inferTossStoreFromPaymentKey, normalizeTossStore, type TossStore } from "../tossConfig";
+import { readMetaCapiSendLogs } from "../metaCapi";
+import { buildFunnelHealthReport, parseFunnelHealthQuery } from "../funnelHealth";
+import { readPaymentDecisionMeasurements, recordPaymentDecisionMeasurement } from "../paymentDecisionLatency";
 
 type TossRow = {
   paymentKey: string | null;
@@ -144,6 +150,71 @@ export type AttributionStatusSyncResult = {
   items: AttributionStatusSyncItem[];
 };
 
+type OperationalPaymentCompleteBridgeRow = {
+  orderNumber: string;
+  channelOrderNo: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  paidAt: string;
+  orderAmount: number;
+  refundAmount: number;
+  refundPendingAmount: number;
+  hasCancel: boolean;
+  hasReturn: boolean;
+  isNpay: boolean;
+};
+
+type OperationalPaymentCompleteBridgeMatchType = "order_number" | "channel_order_no" | "unmatched";
+
+type OperationalPaymentCompleteBridgeReason =
+  | "confirmed_candidate"
+  | "out_of_scope_source"
+  | "operational_row_not_found"
+  | "operational_payment_not_complete"
+  | "free_zero_amount"
+  | "npay_excluded"
+  | "refund_amount_present"
+  | "refund_pending_amount_present"
+  | "cancel_or_return_present"
+  | "ambiguous_operational_match";
+
+export type OperationalPaymentCompleteBridgeItem = {
+  action: "updated" | "skipped";
+  reason: OperationalPaymentCompleteBridgeReason;
+  previousStatus: AttributionPaymentStatus;
+  nextStatus: AttributionPaymentStatus | null;
+  matchType: OperationalPaymentCompleteBridgeMatchType;
+  paymentMethodFamily: "card" | "subscription" | "free" | "npay" | "other";
+  amountKrw: number;
+};
+
+export type OperationalPaymentCompleteBridgePlan = {
+  totalCandidates: number;
+  scopedCandidates: number;
+  matchedRows: number;
+  updatedRows: number;
+  confirmedAmountKrw: number;
+  excludedRows: number;
+  excludedAmountKrw: number;
+  noSendGateRows: number;
+  items: OperationalPaymentCompleteBridgeItem[];
+  exclusionsByReason: Record<string, { count: number; amountKrw: number }>;
+  matchTypes: Record<string, number>;
+  paymentMethods: Record<string, { count: number; amountKrw: number }>;
+  updates: Array<{ previousEntry: AttributionLedgerEntry; nextEntry: AttributionLedgerEntry }>;
+};
+
+export type OperationalPaymentCompleteBridgeResult = OperationalPaymentCompleteBridgePlan & {
+  ok: true;
+  dryRun: boolean;
+  writtenRows: number;
+  source: {
+    primary: "운영DB PostgreSQL dashboard.public.tb_iamweb_users";
+    target: "VM Cloud SQLite attribution_ledger";
+  };
+  notes: string[];
+};
+
 type AttributionStatusSyncPlan = Omit<
   AttributionStatusSyncResult,
   "ok" | "dryRun" | "writtenRows" | "directFallbackRows" | "imwebOverdueRows" | "directFallbackErrors"
@@ -151,7 +222,7 @@ type AttributionStatusSyncPlan = Omit<
   updates: Array<{ previousEntry: AttributionLedgerEntry; nextEntry: AttributionLedgerEntry }>;
 };
 
-type PaymentDecisionLookup = {
+export type PaymentDecisionLookup = {
   orderId: string;
   orderNo: string;
   orderCode: string;
@@ -161,6 +232,8 @@ type PaymentDecisionLookup = {
 };
 
 type PaymentDecisionMatchType =
+  | "operational_db_order_number"
+  | "operational_db_channel_order_no"
   | "toss_direct_payment_key"
   | "toss_direct_order_id"
   | "ledger_payment_key"
@@ -183,7 +256,7 @@ export type AttributionPaymentDecision = {
   reason: string;
   notes: string[];
   matched?: {
-    source: "toss_direct_api" | "attribution_ledger";
+    source: "operational_db_tb_iamweb_users" | "toss_direct_api" | "attribution_ledger";
     orderId: string;
     paymentKey: string;
     status: string;
@@ -520,6 +593,7 @@ const normalizeRemoteTouchpoint = (value: unknown): AttributionLedgerEntry["touc
   if (
     value === "marketing_intent" ||
     value === "checkout_started" ||
+    value === "payment_page_seen" ||
     value === "payment_success" ||
     value === "form_submit"
   ) {
@@ -536,6 +610,637 @@ const normalizeRemoteCaptureMode = (value: unknown): AttributionLedgerEntry["cap
 const normalizeRemotePaymentStatus = (value: unknown): AttributionLedgerEntry["paymentStatus"] => {
   if (value === "pending" || value === "confirmed" || value === "canceled") return value;
   return null;
+};
+
+const normalizeBlankMarker = (value: unknown) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const isBlankOperationalMarker = (value: unknown) => {
+  const normalized = normalizeBlankMarker(value);
+  return normalized === "" || normalized === "nan" || normalized === "null" || normalized === "undefined";
+};
+
+const normalizeBridgeNumber = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/,/g, "").trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+};
+
+const classifyBridgePaymentMethod = (
+  method: string,
+  isNpay: boolean,
+): OperationalPaymentCompleteBridgeItem["paymentMethodFamily"] => {
+  const upper = method.trim().toUpperCase();
+  if (isNpay || upper.includes("NAVERPAY") || upper.includes("NPAY") || method.includes("네이버")) return "npay";
+  if (upper === "FREE") return "free";
+  if (upper === "SUBSCRIPTION") return "subscription";
+  if (upper === "CARD" || upper === "CREDIT_CARD") return "card";
+  return "other";
+};
+
+const getLedgerSource = (entry: AttributionLedgerEntry) =>
+  typeof entry.metadata?.source === "string" ? entry.metadata.source.trim() : "";
+
+const getExactEntryOrderKeys = (entry: AttributionLedgerEntry) =>
+  Array.from(
+    new Set(
+      [
+        entry.orderId,
+        typeof entry.metadata?.orderNo === "string" ? entry.metadata.orderNo : "",
+        isRecord(entry.metadata?.landingPayment) && typeof entry.metadata.landingPayment.orderNo === "string"
+          ? entry.metadata.landingPayment.orderNo
+          : "",
+      ]
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
+
+const addBridgeAggregate = (
+  target: Record<string, { count: number; amountKrw: number }>,
+  key: string,
+  amountKrw: number,
+) => {
+  const current = target[key] ?? { count: 0, amountKrw: 0 };
+  current.count += 1;
+  current.amountKrw += amountKrw;
+  target[key] = current;
+};
+
+const addBridgeCount = (target: Record<string, number>, key: string) => {
+  target[key] = (target[key] ?? 0) + 1;
+};
+
+const buildOperationalBridgeIndexes = (rows: OperationalPaymentCompleteBridgeRow[]) => {
+  const byOrderNumber = new Map<string, OperationalPaymentCompleteBridgeRow[]>();
+  const byChannelOrderNo = new Map<string, OperationalPaymentCompleteBridgeRow[]>();
+
+  for (const row of rows) {
+    if (row.orderNumber) {
+      const items = byOrderNumber.get(row.orderNumber) ?? [];
+      items.push(row);
+      byOrderNumber.set(row.orderNumber, items);
+    }
+    if (row.channelOrderNo) {
+      const items = byChannelOrderNo.get(row.channelOrderNo) ?? [];
+      items.push(row);
+      byChannelOrderNo.set(row.channelOrderNo, items);
+    }
+  }
+
+  return { byOrderNumber, byChannelOrderNo };
+};
+
+const findOperationalBridgeRow = (
+  entry: AttributionLedgerEntry,
+  rows: OperationalPaymentCompleteBridgeRow[],
+): { row: OperationalPaymentCompleteBridgeRow | null; matchType: OperationalPaymentCompleteBridgeMatchType; ambiguous: boolean } => {
+  const indexes = buildOperationalBridgeIndexes(rows);
+  const matches: Array<{ row: OperationalPaymentCompleteBridgeRow; matchType: OperationalPaymentCompleteBridgeMatchType }> = [];
+
+  for (const key of getExactEntryOrderKeys(entry)) {
+    for (const row of indexes.byOrderNumber.get(key) ?? []) {
+      matches.push({ row, matchType: "order_number" });
+    }
+    for (const row of indexes.byChannelOrderNo.get(key) ?? []) {
+      matches.push({ row, matchType: "channel_order_no" });
+    }
+  }
+
+  const unique = new Map<string, { row: OperationalPaymentCompleteBridgeRow; matchType: OperationalPaymentCompleteBridgeMatchType }>();
+  for (const match of matches) {
+    const key = `${match.row.orderNumber}\u001f${match.row.channelOrderNo}`;
+    if (!unique.has(key)) unique.set(key, match);
+  }
+  const uniqueMatches = [...unique.values()];
+  if (uniqueMatches.length === 0) return { row: null, matchType: "unmatched", ambiguous: false };
+  if (uniqueMatches.length > 1) return { row: uniqueMatches[0]?.row ?? null, matchType: uniqueMatches[0]?.matchType ?? "unmatched", ambiguous: true };
+  return { row: uniqueMatches[0]?.row ?? null, matchType: uniqueMatches[0]?.matchType ?? "unmatched", ambiguous: false };
+};
+
+const fetchOperationalPaymentCompleteRowsByPendingEntries = async (
+  entries: AttributionLedgerEntry[],
+  limit: number,
+): Promise<OperationalPaymentCompleteBridgeRow[]> => {
+  if (!isDatabaseConfigured() || entries.length === 0) return [];
+
+  const orderKeys = [
+    ...new Set(entries.flatMap(getExactEntryOrderKeys).map((value) => value.trim()).filter(Boolean)),
+  ];
+  if (orderKeys.length === 0) return [];
+
+  const result = await queryPg<{
+    orderNumber: string | null;
+    channelOrderNo: string | null;
+    paymentStatus: string | null;
+    paymentMethod: string | null;
+    paidAt: string | null;
+    orderAmount: string | number | null;
+    refundAmount: string | number | null;
+    refundPendingAmount: string | number | null;
+    hasCancel: boolean | null;
+    hasReturn: boolean | null;
+    isNpay: boolean | null;
+  }>(
+    `
+    WITH raw AS (
+      SELECT
+        COALESCE(NULLIF(TRIM(order_number::text), ''), '') AS order_number,
+        COALESCE(NULLIF(TRIM(raw_data ->> 'channelOrderNo'), ''), '') AS channel_order_no,
+        COALESCE(NULLIF(TRIM(payment_status::text), ''), '') AS payment_status,
+        COALESCE(NULLIF(TRIM(payment_method::text), ''), '') AS payment_method,
+        CASE
+          WHEN TRIM(COALESCE(payment_complete_time::text, '')) ~ '^\\d{4}-\\d{2}-\\d{2}'
+            THEN payment_complete_time::timestamptz
+          WHEN TRIM(COALESCE(order_date::text, '')) ~ '^\\d{4}-\\d{2}-\\d{2}'
+            THEN order_date::timestamptz
+          ELSE NULL
+        END AS paid_at,
+        NULLIF(final_order_amount, 0)::numeric AS final_order_amount,
+        NULLIF(paid_price, 0)::numeric AS paid_price,
+        NULLIF(total_price, 0)::numeric AS total_price,
+        COALESCE(NULLIF(total_refunded_price, 0), 0)::numeric AS refund_amount,
+        COALESCE(NULLIF(cancellation_reason::text, ''), '') AS cancellation_reason,
+        COALESCE(NULLIF(return_reason::text, ''), '') AS return_reason
+      FROM public.tb_iamweb_users
+      WHERE COALESCE(NULLIF(TRIM(order_number::text), ''), '') = ANY($1::text[])
+        OR COALESCE(NULLIF(TRIM(raw_data ->> 'channelOrderNo'), ''), '') = ANY($1::text[])
+    ),
+    order_level AS (
+      SELECT
+        order_number AS "orderNumber",
+        MAX(channel_order_no) AS "channelOrderNo",
+        MAX(payment_status) AS "paymentStatus",
+        MAX(payment_method) AS "paymentMethod",
+        MIN(paid_at)::text AS "paidAt",
+        COALESCE(MAX(final_order_amount), SUM(COALESCE(paid_price, total_price, 0)), MAX(total_price), 0)::numeric AS "orderAmount",
+        COALESCE(MAX(refund_amount), 0)::numeric AS "refundAmount",
+        0::numeric AS "refundPendingAmount",
+        BOOL_OR(NOT (cancellation_reason IN ('', 'nan', 'null', 'undefined'))) AS "hasCancel",
+        BOOL_OR(NOT (return_reason IN ('', 'nan', 'null', 'undefined'))) AS "hasReturn",
+        BOOL_OR(payment_method ~* '(naver|npay)' OR payment_method LIKE '%네이버%' OR channel_order_no <> '') AS "isNpay"
+      FROM raw
+      WHERE order_number <> ''
+      GROUP BY order_number
+    )
+    SELECT *
+    FROM order_level
+    ORDER BY "paidAt" DESC NULLS LAST
+    LIMIT $2
+    `,
+    [orderKeys, Math.max(limit * 5, 100)],
+  );
+
+  return result.rows.map((row) => ({
+    orderNumber: row.orderNumber ?? "",
+    channelOrderNo: row.channelOrderNo ?? "",
+    paymentStatus: row.paymentStatus ?? "",
+    paymentMethod: row.paymentMethod ?? "",
+    paidAt: row.paidAt ?? "",
+    orderAmount: normalizeBridgeNumber(row.orderAmount),
+    refundAmount: normalizeBridgeNumber(row.refundAmount),
+    refundPendingAmount: normalizeBridgeNumber(row.refundPendingAmount),
+    hasCancel: Boolean(row.hasCancel),
+    hasReturn: Boolean(row.hasReturn),
+    isNpay: Boolean(row.isNpay),
+  }));
+};
+
+const buildOperationalBridgeNextEntry = (
+  entry: AttributionLedgerEntry,
+  row: OperationalPaymentCompleteBridgeRow,
+  matchType: OperationalPaymentCompleteBridgeMatchType,
+  syncedAt: string,
+): AttributionLedgerEntry => ({
+  ...entry,
+  paymentStatus: "confirmed",
+  approvedAt: row.paidAt ? normalizeApprovedAtToIso(row.paidAt, entry.approvedAt || entry.loggedAt) : entry.approvedAt,
+  metadata: {
+    ...entry.metadata,
+    value: row.orderAmount,
+    totalAmount: row.orderAmount,
+    paymentStatus: "confirmed",
+    status: "PAYMENT_COMPLETE",
+    channel: row.paymentMethod || entry.metadata?.channel,
+    store: "biocom",
+    operationalDbPaymentStatus: "PAYMENT_COMPLETE",
+    paymentStatusSyncSource: "operational_db_tb_iamweb_users_payment_complete_bridge",
+    operationalPaymentCompleteBridge: {
+      source: "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
+      target: "VM Cloud SQLite attribution_ledger",
+      syncedAt,
+      matchType,
+      amountKrw: row.orderAmount,
+      refundAmountKrw: row.refundAmount,
+      refundPendingAmountKrw: row.refundPendingAmount,
+      metaCapiAutoSendAllowed: false,
+      reason: "Meta CAPI send requires separate approval",
+    },
+    bridgeAutoSendAllowed: false,
+    metaCapiAutoSendAllowed: false,
+  },
+});
+
+export const buildOperationalPaymentCompleteBridgePlan = (
+  entries: AttributionLedgerEntry[],
+  operationalRows: OperationalPaymentCompleteBridgeRow[],
+  limit = 100,
+  syncedAt = new Date().toISOString(),
+): OperationalPaymentCompleteBridgePlan => {
+  const candidates = entries
+    .filter((entry) => entry.touchpoint === "payment_success" && entry.paymentStatus === "pending")
+    .slice(0, Math.max(1, Math.min(limit, 500)));
+  const items: OperationalPaymentCompleteBridgeItem[] = [];
+  const updates: Array<{ previousEntry: AttributionLedgerEntry; nextEntry: AttributionLedgerEntry }> = [];
+  const exclusionsByReason: Record<string, { count: number; amountKrw: number }> = {};
+  const matchTypes: Record<string, number> = {};
+  const paymentMethods: Record<string, { count: number; amountKrw: number }> = {};
+  let scopedCandidates = 0;
+  let matchedRows = 0;
+  let confirmedAmountKrw = 0;
+  let excludedRows = 0;
+  let excludedAmountKrw = 0;
+
+  for (const entry of candidates) {
+    const previousStatus = entry.paymentStatus ?? "pending";
+    if (getLedgerSource(entry) !== "biocom_imweb") {
+      excludedRows += 1;
+      addBridgeAggregate(exclusionsByReason, "out_of_scope_source", 0);
+      items.push({
+        action: "skipped",
+        reason: "out_of_scope_source",
+        previousStatus,
+        nextStatus: null,
+        matchType: "unmatched",
+        paymentMethodFamily: "other",
+        amountKrw: 0,
+      });
+      continue;
+    }
+
+    scopedCandidates += 1;
+    const { row, matchType, ambiguous } = findOperationalBridgeRow(entry, operationalRows);
+    addBridgeCount(matchTypes, matchType);
+
+    if (!row) {
+      excludedRows += 1;
+      addBridgeAggregate(exclusionsByReason, "operational_row_not_found", 0);
+      items.push({
+        action: "skipped",
+        reason: "operational_row_not_found",
+        previousStatus,
+        nextStatus: null,
+        matchType,
+        paymentMethodFamily: "other",
+        amountKrw: 0,
+      });
+      continue;
+    }
+
+    matchedRows += 1;
+    const amountKrw = Math.round(row.orderAmount);
+    const paymentMethodFamily = classifyBridgePaymentMethod(row.paymentMethod, row.isNpay);
+    addBridgeAggregate(paymentMethods, paymentMethodFamily, amountKrw);
+
+    let reason: OperationalPaymentCompleteBridgeReason = "confirmed_candidate";
+    if (ambiguous) reason = "ambiguous_operational_match";
+    else if (row.paymentStatus.toUpperCase() !== "PAYMENT_COMPLETE") reason = "operational_payment_not_complete";
+    else if (row.isNpay || paymentMethodFamily === "npay") reason = "npay_excluded";
+    else if (amountKrw <= 0 || paymentMethodFamily === "free") reason = "free_zero_amount";
+    else if (row.refundAmount > 0) reason = "refund_amount_present";
+    else if (row.refundPendingAmount > 0) reason = "refund_pending_amount_present";
+    else if (row.hasCancel || row.hasReturn) reason = "cancel_or_return_present";
+
+    if (reason !== "confirmed_candidate") {
+      excludedRows += 1;
+      excludedAmountKrw += amountKrw;
+      addBridgeAggregate(exclusionsByReason, reason, amountKrw);
+      items.push({
+        action: "skipped",
+        reason,
+        previousStatus,
+        nextStatus: null,
+        matchType,
+        paymentMethodFamily,
+        amountKrw,
+      });
+      continue;
+    }
+
+    const nextEntry = buildOperationalBridgeNextEntry(entry, row, matchType, syncedAt);
+    confirmedAmountKrw += amountKrw;
+    updates.push({ previousEntry: entry, nextEntry });
+    items.push({
+      action: "updated",
+      reason,
+      previousStatus,
+      nextStatus: "confirmed",
+      matchType,
+      paymentMethodFamily,
+      amountKrw,
+    });
+  }
+
+  return {
+    totalCandidates: candidates.length,
+    scopedCandidates,
+    matchedRows,
+    updatedRows: updates.length,
+    confirmedAmountKrw,
+    excludedRows,
+    excludedAmountKrw,
+    noSendGateRows: updates.length,
+    items,
+    exclusionsByReason,
+    matchTypes,
+    paymentMethods,
+    updates,
+  };
+};
+
+export const syncAttributionPaymentStatusesFromOperationalPaymentComplete = async (params?: {
+  limit?: number;
+  dryRun?: boolean;
+  orderIds?: string[];
+  loggedAtGte?: string;
+}): Promise<OperationalPaymentCompleteBridgeResult> => {
+  const dryRun = params?.dryRun ?? true;
+  const limit = Math.max(1, Math.min(params?.limit ?? 100, 500));
+  const loggedAtGte = params?.loggedAtGte?.trim() ?? "";
+  const orderIdFilter = new Set((params?.orderIds ?? []).map((value) => value.trim()).filter(Boolean));
+  const entries = await readLedgerEntries();
+  const pendingCandidates = entries
+    .filter((entry) => entry.touchpoint === "payment_success" && entry.paymentStatus === "pending")
+    .filter((entry) => !loggedAtGte || entry.loggedAt >= loggedAtGte)
+    .filter((entry) => {
+      if (orderIdFilter.size === 0) return true;
+      return getExactEntryOrderKeys(entry).some((key) => orderIdFilter.has(key));
+    })
+    .slice(0, limit);
+  const operationalRows = await fetchOperationalPaymentCompleteRowsByPendingEntries(pendingCandidates, limit);
+  const plan = buildOperationalPaymentCompleteBridgePlan(pendingCandidates, operationalRows, limit);
+  const writtenRows = dryRun ? 0 : updateAttributionLedgerEntries(plan.updates);
+
+  return {
+    ok: true,
+    dryRun,
+    ...plan,
+    writtenRows,
+    source: {
+      primary: "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
+      target: "VM Cloud SQLite attribution_ledger",
+    },
+    notes: [
+      "운영DB PAYMENT_COMPLETE는 결제완료 정본으로만 사용했고, 운영DB에는 write하지 않았다.",
+      "VM Cloud attribution_ledger row는 안전 후보만 confirmed로 표시하되 metaCapiAutoSendAllowed=false marker를 남긴다.",
+      "이 bridge가 만든 confirmed row는 별도 Meta send 승인 전 자동 전송 후보에서 제외된다.",
+      "FREE 0원, NPay 미조인, 환불/취소/반품, ambiguous row는 유지한다.",
+    ],
+  };
+};
+
+const IMWEB_BRIDGE_STATUS_VALUES = [
+  "PAY_WAIT",
+  "PAY_COMPLETE",
+  "STANDBY",
+  "DELIVERING",
+  "COMPLETE",
+  "PURCHASE_CONFIRMATION",
+  "CANCEL",
+  "RETURN",
+  "EXCHANGE",
+] as const;
+
+type ImwebBridgeStatus = (typeof IMWEB_BRIDGE_STATUS_VALUES)[number];
+type ImwebFallbackClassification =
+  | "confirmed_by_imweb_api"
+  | "pending_or_unpaid_by_imweb_api"
+  | "canceled_or_refunded_by_imweb_api"
+  | "api_not_found"
+  | "api_unavailable";
+
+const fetchBiocomImwebToken = async () => {
+  const key = process.env.IMWEB_API_KEY?.trim() ?? "";
+  const secret = process.env.IMWEB_SECRET_KEY?.trim() ?? "";
+  if (!key || !secret) return "";
+  const response = await fetch("https://api.imweb.me/v2/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, secret }),
+  });
+  const data = (await response.json()) as { access_token?: string };
+  return typeof data.access_token === "string" ? data.access_token : "";
+};
+
+const fetchBiocomImwebOrdersByStatus = async (
+  token: string,
+  status: ImwebBridgeStatus,
+  page: number,
+  limit: number,
+) => {
+  const response = await fetch(
+    `https://api.imweb.me/v2/shop/orders?status=${encodeURIComponent(status)}&offset=${page}&limit=${limit}`,
+    { headers: { "Content-Type": "application/json", "access-token": token } },
+  );
+  const data = (await response.json()) as {
+    code?: number;
+    msg?: string;
+    data?: {
+      list?: Array<Record<string, unknown>>;
+      pagenation?: { total_page?: string | number };
+    };
+  };
+  return {
+    list: data.data?.list ?? [],
+    totalPage: Number.parseInt(String(data.data?.pagenation?.total_page ?? "0"), 10),
+    error: data.code && data.code !== 200 ? data.msg ?? `Imweb API code ${data.code}` : null,
+  };
+};
+
+const getImwebOrderKeys = (row: Record<string, unknown>) =>
+  [row.order_no, row.order_code, row.channel_order_no]
+    .map((value) => (typeof value === "string" || typeof value === "number" ? String(value).trim() : ""))
+    .filter(Boolean);
+
+const getImwebOrderAmount = (row: Record<string, unknown>) => {
+  const payment = isRecord(row.payment) ? row.payment : {};
+  return Math.round(
+    normalizeBridgeNumber(payment.payment_amount) ||
+      normalizeBridgeNumber(payment.total_price) ||
+      normalizeBridgeNumber(row.payment_amount) ||
+      normalizeBridgeNumber(row.total_price),
+  );
+};
+
+const classifyImwebFallbackStatus = (status: string): ImwebFallbackClassification => {
+  if (["PAY_COMPLETE", "STANDBY", "DELIVERING", "COMPLETE", "PURCHASE_CONFIRMATION"].includes(status)) {
+    return "confirmed_by_imweb_api";
+  }
+  if (["CANCEL", "RETURN", "EXCHANGE"].includes(status)) return "canceled_or_refunded_by_imweb_api";
+  if (status === "PAY_WAIT") return "pending_or_unpaid_by_imweb_api";
+  return "api_not_found";
+};
+
+const inspectVmCloudImwebCacheAggregate = (targetKeys: string[]) => {
+  const empty = {
+    table: "VM Cloud SQLite imweb_orders",
+    available: false,
+    matchedRows: 0,
+    statusBlankRows: 0,
+    maxSyncedAt: "",
+    maxStatusSyncedAt: "",
+  };
+  if (targetKeys.length === 0) return empty;
+
+  try {
+    const db = getCrmDb();
+    const table = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='imweb_orders'")
+      .get() as { name?: string } | undefined;
+    if (!table?.name) return empty;
+    const placeholders = targetKeys.map(() => "?").join(",");
+    const row = db.prepare(`
+      SELECT
+        COUNT(*) AS matchedRows,
+        SUM(CASE WHEN COALESCE(TRIM(imweb_status), '') = '' THEN 1 ELSE 0 END) AS statusBlankRows,
+        MAX(synced_at) AS maxSyncedAt,
+        MAX(imweb_status_synced_at) AS maxStatusSyncedAt
+      FROM imweb_orders
+      WHERE site='biocom'
+        AND (order_no IN (${placeholders}) OR channel_order_no IN (${placeholders}) OR order_code IN (${placeholders}))
+    `).get([...targetKeys, ...targetKeys, ...targetKeys]) as {
+      matchedRows?: number;
+      statusBlankRows?: number;
+      maxSyncedAt?: string;
+      maxStatusSyncedAt?: string;
+    } | undefined;
+
+    return {
+      ...empty,
+      available: true,
+      matchedRows: Number(row?.matchedRows ?? 0),
+      statusBlankRows: Number(row?.statusBlankRows ?? 0),
+      maxSyncedAt: row?.maxSyncedAt ?? "",
+      maxStatusSyncedAt: row?.maxStatusSyncedAt ?? "",
+    };
+  } catch {
+    return empty;
+  }
+};
+
+const runBiocomImwebApiStatusFallbackDryRun = async (params?: {
+  limit?: number;
+  maxPagesPerStatus?: number;
+  loggedAtGte?: string;
+}) => {
+  const limit = Math.max(1, Math.min(params?.limit ?? 100, 500));
+  const maxPagesPerStatus = Math.max(1, Math.min(params?.maxPagesPerStatus ?? 5, 20));
+  const loggedAtGte = params?.loggedAtGte?.trim() ?? "";
+  const entries = await readLedgerEntries();
+  const pendingCandidates = entries
+    .filter((entry) => entry.touchpoint === "payment_success" && entry.paymentStatus === "pending")
+    .filter((entry) => !loggedAtGte || entry.loggedAt >= loggedAtGte)
+    .filter((entry) => getLedgerSource(entry) === "biocom_imweb")
+    .slice(0, limit);
+  const operationalRows = await fetchOperationalPaymentCompleteRowsByPendingEntries(pendingCandidates, limit);
+  const bridgePlan = buildOperationalPaymentCompleteBridgePlan(pendingCandidates, operationalRows, limit);
+  const bridgeMatched = new Set(bridgePlan.updates.map((update) => update.previousEntry));
+  const targets = pendingCandidates.filter((entry) => !bridgeMatched.has(entry));
+  const targetKeys = Array.from(new Set(targets.flatMap(getExactEntryOrderKeys)));
+  const cache = inspectVmCloudImwebCacheAggregate(targetKeys);
+  const summary: Record<ImwebFallbackClassification, { count: number; amountKrw: number }> = {
+    confirmed_by_imweb_api: { count: 0, amountKrw: 0 },
+    pending_or_unpaid_by_imweb_api: { count: 0, amountKrw: 0 },
+    canceled_or_refunded_by_imweb_api: { count: 0, amountKrw: 0 },
+    api_not_found: { count: 0, amountKrw: 0 },
+    api_unavailable: { count: 0, amountKrw: 0 },
+  };
+  const statusCounts: Record<string, number> = {};
+  const errors: Record<string, number> = {};
+
+  if (targets.length === 0) {
+    return {
+      ok: true,
+      dryRun: true,
+      targetRows: 0,
+      source: "Imweb v2 API direct status read-only",
+      vmCloudCache: cache,
+      summary,
+      statusCounts,
+      errors,
+      notes: ["운영DB bridge 이후 Imweb API fallback 대상 row가 없다."],
+    };
+  }
+
+  const token = await fetchBiocomImwebToken();
+  if (!token) {
+    summary.api_unavailable.count = targets.length;
+    return {
+      ok: true,
+      dryRun: true,
+      targetRows: targets.length,
+      source: "Imweb v2 API direct status read-only",
+      vmCloudCache: cache,
+      summary,
+      statusCounts,
+      errors: { token_unavailable: 1 },
+      notes: ["IMWEB_API_KEY/IMWEB_SECRET_KEY 토큰 발급 실패 또는 미설정으로 direct fallback을 수행하지 못했다."],
+    };
+  }
+
+  const imwebByKey = new Map<string, { status: ImwebBridgeStatus; amountKrw: number }>();
+  for (const status of IMWEB_BRIDGE_STATUS_VALUES) {
+    for (let page = 0; page < maxPagesPerStatus; page++) {
+      const result = await fetchBiocomImwebOrdersByStatus(token, status, page, 100);
+      if (result.error) {
+        errors[status] = (errors[status] ?? 0) + 1;
+        break;
+      }
+      for (const row of result.list) {
+        const amountKrw = getImwebOrderAmount(row);
+        for (const key of getImwebOrderKeys(row)) {
+          if (targetKeys.includes(key) && !imwebByKey.has(key)) {
+            imwebByKey.set(key, { status, amountKrw });
+          }
+        }
+      }
+      if (result.list.length === 0 || (result.totalPage > 0 && page + 1 >= result.totalPage)) break;
+    }
+  }
+
+  for (const entry of targets) {
+    const match = getExactEntryOrderKeys(entry)
+      .map((key) => imwebByKey.get(key))
+      .find(Boolean);
+    if (!match) {
+      summary.api_not_found.count += 1;
+      continue;
+    }
+    const classification = classifyImwebFallbackStatus(match.status);
+    summary[classification].count += 1;
+    summary[classification].amountKrw += match.amountKrw;
+    statusCounts[match.status] = (statusCounts[match.status] ?? 0) + 1;
+  }
+
+  return {
+    ok: true,
+    dryRun: true,
+    targetRows: targets.length,
+    source: "Imweb v2 API direct status read-only",
+    vmCloudCache: cache,
+    summary,
+    statusCounts,
+    errors,
+    notes: [
+      "Imweb v2 API는 fallback 증거로만 사용했고 VM Cloud/운영DB에 write하지 않았다.",
+      "raw order id/payment key는 response에 포함하지 않는다.",
+      "confirmed_by_imweb_api row는 2차 bridge 승인안 대상이며, 이번 route는 dry-run만 수행한다.",
+    ],
+  };
 };
 
 const normalizeRemoteLedgerEntry = (value: unknown): AttributionLedgerEntry | null => {
@@ -2040,6 +2745,146 @@ const findLedgerDecisionMatch = (
   return undefined;
 };
 
+const getPaymentDecisionFastLedgerEntries = (lookup: PaymentDecisionLookup) => {
+  const orderKeys = [
+    lookup.orderId,
+    lookup.orderNo,
+    normalizeDecisionOrderKey(lookup.orderId),
+    normalizeDecisionOrderKey(lookup.orderNo),
+  ].filter(Boolean);
+
+  return listAttributionLedgerPaymentDecisionCandidates({
+    paymentKeys: [lookup.paymentKey],
+    orderKeys,
+    orderCodes: [lookup.orderCode],
+    paymentCodes: [lookup.paymentCode],
+    limit: 20,
+  });
+};
+
+const metadataNumberValue = (metadata: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(/,/g, "").trim());
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+};
+
+const metadataBooleanValue = (metadata: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (["1", "true", "yes", "y"].includes(normalized)) return true;
+      if (["0", "false", "no", "n"].includes(normalized)) return false;
+    }
+  }
+  return undefined;
+};
+
+const getLedgerEntryAmountKrw = (entry: AttributionLedgerEntry) =>
+  metadataNumberValue(entry.metadata ?? {}, [
+    "value",
+    "amount",
+    "totalAmount",
+    "confirmedAmountKrw",
+    "confirmed_amount_krw",
+  ]);
+
+const ledgerEntryHasCancelOrRefundSignal = (entry: AttributionLedgerEntry) => {
+  if (entry.paymentStatus === "canceled") return true;
+  const metadata = entry.metadata ?? {};
+  const cancelFlag = metadataBooleanValue(metadata, ["hasCancel", "has_cancel", "canceled", "cancelled", "refunded"]);
+  if (cancelFlag === true) return true;
+  const refundAmount = metadataNumberValue(metadata, [
+    "refundAmount",
+    "refund_amount",
+    "refundPendingAmount",
+    "refund_pending_amount",
+  ]);
+  return typeof refundAmount === "number" && refundAmount > 0;
+};
+
+export const buildFastLedgerPaymentDecision = (
+  entries: AttributionLedgerEntry[],
+  lookup: PaymentDecisionLookup,
+): AttributionPaymentDecision | undefined => {
+  const ledgerMatch = findLedgerDecisionMatch(entries, lookup);
+  if (!ledgerMatch) return undefined;
+
+  const { entry, matchedBy } = ledgerMatch;
+  if (ledgerEntryHasCancelOrRefundSignal(entry)) {
+    return decisionFromStatus("canceled", {
+      matchedBy,
+      confidence: "high",
+      reason: "fast_ledger_cancel_or_refund",
+      notes: ["VM Cloud SQLite 보조 원장 exact match에서 취소/환불 신호가 있어 Purchase를 차단했다."],
+      matched: {
+        source: "attribution_ledger",
+        orderId: entry.orderId,
+        paymentKey: entry.paymentKey,
+        status: entry.paymentStatus ?? "",
+        approvedAt: entry.approvedAt,
+        channel: typeof entry.metadata?.channel === "string" ? entry.metadata.channel : "",
+        store: typeof entry.metadata?.store === "string" ? entry.metadata.store : "",
+        loggedAt: entry.loggedAt,
+        captureMode: entry.captureMode,
+      },
+    });
+  }
+
+  if (entry.paymentStatus === "pending") {
+    return decisionFromStatus("pending", {
+      matchedBy,
+      confidence: "high",
+      reason: "fast_ledger_pending_status",
+      notes: ["VM Cloud SQLite 보조 원장 exact match가 pending이라 Browser Purchase를 차단했다."],
+      matched: {
+        source: "attribution_ledger",
+        orderId: entry.orderId,
+        paymentKey: entry.paymentKey,
+        status: entry.paymentStatus,
+        approvedAt: entry.approvedAt,
+        channel: typeof entry.metadata?.channel === "string" ? entry.metadata.channel : "",
+        store: typeof entry.metadata?.store === "string" ? entry.metadata.store : "",
+        loggedAt: entry.loggedAt,
+        captureMode: entry.captureMode,
+      },
+    });
+  }
+
+  if (entry.paymentStatus !== "confirmed") return undefined;
+
+  const amountKrw = getLedgerEntryAmountKrw(entry);
+  if (typeof amountKrw !== "number" || amountKrw <= 0) return undefined;
+
+  return decisionFromStatus("confirmed", {
+    matchedBy,
+    confidence: "high",
+    reason: "fast_ledger_confirmed_positive_exact_match",
+    notes: [
+      "VM Cloud SQLite 보조 원장에서 payment_success confirmed, 양수 금액, 취소/환불 없음 exact match를 먼저 찾았다.",
+      "운영DB sync 지연과 Toss API 지연을 기다리지 않고 Browser Purchase 허용 판단을 반환한다.",
+    ],
+    matched: {
+      source: "attribution_ledger",
+      orderId: entry.orderId,
+      paymentKey: entry.paymentKey,
+      status: entry.paymentStatus,
+      approvedAt: entry.approvedAt,
+      channel: typeof entry.metadata?.channel === "string" ? entry.metadata.channel : "",
+      store: typeof entry.metadata?.store === "string" ? entry.metadata.store : "",
+      loggedAt: entry.loggedAt,
+      captureMode: entry.captureMode,
+    },
+  });
+};
+
 const findTossDecisionMatch = (
   rows: TossJoinRow[],
   lookup: PaymentDecisionLookup,
@@ -2057,6 +2902,199 @@ const findTossDecisionMatch = (
 
   const row = rows.find((candidate) => lookupOrderKeys.includes(normalizeDecisionOrderKey(candidate.orderId)));
   return row ? { row, matchedBy: "toss_direct_order_id" } : undefined;
+};
+
+const getPaymentDecisionLookupKeys = (lookup: PaymentDecisionLookup) =>
+  Array.from(
+    new Set(
+      [
+        lookup.orderId,
+        lookup.orderNo,
+        lookup.orderCode,
+        lookup.paymentCode,
+      ]
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
+
+const fetchOperationalPaymentDecisionRows = async (
+  lookup: PaymentDecisionLookup,
+): Promise<OperationalPaymentCompleteBridgeRow[]> => {
+  if (!isDatabaseConfigured()) return [];
+
+  const orderKeys = getPaymentDecisionLookupKeys(lookup);
+  if (orderKeys.length === 0) return [];
+
+  const result = await queryPg<{
+    orderNumber: string | null;
+    channelOrderNo: string | null;
+    paymentStatus: string | null;
+    paymentMethod: string | null;
+    paidAt: string | null;
+    orderAmount: string | number | null;
+    refundAmount: string | number | null;
+    refundPendingAmount: string | number | null;
+    hasCancel: boolean | null;
+    hasReturn: boolean | null;
+    isNpay: boolean | null;
+  }>(
+    `
+    WITH raw AS (
+      SELECT
+        COALESCE(NULLIF(TRIM(order_number::text), ''), '') AS order_number,
+        COALESCE(NULLIF(TRIM(raw_data ->> 'channelOrderNo'), ''), '') AS channel_order_no,
+        COALESCE(NULLIF(TRIM(payment_status::text), ''), '') AS payment_status,
+        COALESCE(NULLIF(TRIM(payment_method::text), ''), '') AS payment_method,
+        CASE
+          WHEN TRIM(COALESCE(payment_complete_time::text, '')) ~ '^\\d{4}-\\d{2}-\\d{2}'
+            THEN payment_complete_time::timestamptz
+          WHEN TRIM(COALESCE(order_date::text, '')) ~ '^\\d{4}-\\d{2}-\\d{2}'
+            THEN order_date::timestamptz
+          ELSE NULL
+        END AS paid_at,
+        NULLIF(final_order_amount, 0)::numeric AS final_order_amount,
+        NULLIF(paid_price, 0)::numeric AS paid_price,
+        NULLIF(total_price, 0)::numeric AS total_price,
+        COALESCE(NULLIF(total_refunded_price, 0), 0)::numeric AS refund_amount,
+        COALESCE(NULLIF(cancellation_reason::text, ''), '') AS cancellation_reason,
+        COALESCE(NULLIF(return_reason::text, ''), '') AS return_reason
+      FROM public.tb_iamweb_users
+      WHERE COALESCE(NULLIF(TRIM(order_number::text), ''), '') = ANY($1::text[])
+        OR COALESCE(NULLIF(TRIM(raw_data ->> 'channelOrderNo'), ''), '') = ANY($1::text[])
+        OR COALESCE(NULLIF(TRIM(raw_data ->> 'orderNo'), ''), '') = ANY($1::text[])
+        OR COALESCE(NULLIF(TRIM(raw_data ->> 'orderCode'), ''), '') = ANY($1::text[])
+        OR COALESCE(NULLIF(TRIM(raw_data ->> 'order_code'), ''), '') = ANY($1::text[])
+        OR COALESCE(NULLIF(TRIM(raw_data ->> 'paymentCode'), ''), '') = ANY($1::text[])
+        OR COALESCE(NULLIF(TRIM(raw_data ->> 'payment_code'), ''), '') = ANY($1::text[])
+    ),
+    order_level AS (
+      SELECT
+        order_number AS "orderNumber",
+        MAX(channel_order_no) AS "channelOrderNo",
+        MAX(payment_status) AS "paymentStatus",
+        MAX(payment_method) AS "paymentMethod",
+        MIN(paid_at)::text AS "paidAt",
+        COALESCE(MAX(final_order_amount), SUM(COALESCE(paid_price, total_price, 0)), MAX(total_price), 0)::numeric AS "orderAmount",
+        COALESCE(MAX(refund_amount), 0)::numeric AS "refundAmount",
+        0::numeric AS "refundPendingAmount",
+        BOOL_OR(NOT (LOWER(cancellation_reason) IN ('', 'nan', 'null', 'undefined'))) AS "hasCancel",
+        BOOL_OR(NOT (LOWER(return_reason) IN ('', 'nan', 'null', 'undefined'))) AS "hasReturn",
+        BOOL_OR(payment_method ~* '(naver|npay)' OR payment_method LIKE '%네이버%' OR channel_order_no <> '') AS "isNpay"
+      FROM raw
+      WHERE order_number <> ''
+      GROUP BY order_number
+    )
+    SELECT *
+    FROM order_level
+    ORDER BY
+      CASE
+        WHEN UPPER(COALESCE("paymentStatus", '')) = 'PAYMENT_COMPLETE' THEN 3
+        WHEN UPPER(COALESCE("paymentStatus", '')) LIKE '%COMPLETE%' THEN 3
+        WHEN UPPER(COALESCE("paymentStatus", '')) LIKE '%CANCEL%' THEN 2
+        ELSE 1
+      END DESC,
+      "paidAt" DESC NULLS LAST
+    LIMIT 20
+    `,
+    [orderKeys],
+  );
+
+  return result.rows.map((row) => ({
+    orderNumber: row.orderNumber ?? "",
+    channelOrderNo: row.channelOrderNo ?? "",
+    paymentStatus: row.paymentStatus ?? "",
+    paymentMethod: row.paymentMethod ?? "",
+    paidAt: row.paidAt ?? "",
+    orderAmount: normalizeBridgeNumber(row.orderAmount),
+    refundAmount: normalizeBridgeNumber(row.refundAmount),
+    refundPendingAmount: normalizeBridgeNumber(row.refundPendingAmount),
+    hasCancel: Boolean(row.hasCancel),
+    hasReturn: Boolean(row.hasReturn),
+    isNpay: Boolean(row.isNpay),
+  }));
+};
+
+const findOperationalPaymentDecisionMatch = (
+  rows: OperationalPaymentCompleteBridgeRow[],
+  lookup: PaymentDecisionLookup,
+): { row: OperationalPaymentCompleteBridgeRow; matchedBy: PaymentDecisionMatchType } | undefined => {
+  const lookupKeys = getPaymentDecisionLookupKeys(lookup);
+  if (lookupKeys.length === 0) return undefined;
+
+  const orderNumberMatch = rows.find((row) => lookupKeys.includes(row.orderNumber));
+  if (orderNumberMatch) return { row: orderNumberMatch, matchedBy: "operational_db_order_number" };
+
+  const channelOrderNoMatch = rows.find((row) => row.channelOrderNo && lookupKeys.includes(row.channelOrderNo));
+  if (channelOrderNoMatch) return { row: channelOrderNoMatch, matchedBy: "operational_db_channel_order_no" };
+
+  return undefined;
+};
+
+const isOperationalVirtualOrBankPendingHint = (row: OperationalPaymentCompleteBridgeRow) => {
+  const status = row.paymentStatus.trim().toUpperCase();
+  const method = row.paymentMethod.trim().toUpperCase();
+  return (
+    status.includes("WAIT") ||
+    status.includes("READY") ||
+    status.includes("PENDING") ||
+    status.includes("DEPOSIT") ||
+    method.includes("VIRTUAL") ||
+    method.includes("BANK") ||
+    row.paymentMethod.includes("무통장") ||
+    row.paymentMethod.includes("가상")
+  );
+};
+
+const decisionStatusFromOperationalRow = (row: OperationalPaymentCompleteBridgeRow) => {
+  const normalized = normalizePaymentStatus(row.paymentStatus) ?? "unknown";
+  const amountKrw = Math.round(row.orderAmount);
+
+  if (row.hasCancel || row.hasReturn || row.refundAmount > 0 || row.refundPendingAmount > 0) {
+    return {
+      status: "canceled" as const,
+      reason: "operational_db_cancel_or_refund",
+      notes: ["운영DB 결제 row에 취소/환불 신호가 있어 Browser Purchase를 차단했다."],
+    };
+  }
+
+  if (normalized === "confirmed" && amountKrw > 0) {
+    return {
+      status: "confirmed" as const,
+      reason: "operational_db_payment_complete",
+      notes: ["운영DB PAYMENT_COMPLETE, 양수 금액, 취소/환불 없음 조건을 통과했다."],
+    };
+  }
+
+  if (normalized === "confirmed" && amountKrw <= 0) {
+    return {
+      status: "canceled" as const,
+      reason: "operational_db_non_positive_amount",
+      notes: ["운영DB는 결제완료지만 금액이 0원 이하라 Purchase 발화를 차단했다."],
+    };
+  }
+
+  if (normalized === "pending") {
+    return {
+      status: "pending" as const,
+      reason: "operational_db_payment_pending",
+      notes: ["운영DB에서 아직 결제완료가 아니므로 Purchase 대신 보류/차단한다."],
+    };
+  }
+
+  if (isOperationalVirtualOrBankPendingHint(row)) {
+    return {
+      status: "pending" as const,
+      reason: "operational_db_virtual_or_bank_not_complete",
+      notes: ["운영DB에서 가상계좌/무통장 계열 결제완료가 확인되지 않아 Purchase를 차단했다."],
+    };
+  }
+
+  return {
+    status: "unknown" as const,
+    reason: "operational_db_status_unknown",
+    notes: ["운영DB row는 찾았지만 결제완료/대기/취소 중 하나로 안전하게 분류되지 않았다."],
+  };
 };
 
 const decisionFromStatus = (
@@ -2123,7 +3161,28 @@ export const buildAttributionPaymentDecision = (
   entries: AttributionLedgerEntry[],
   lookup: PaymentDecisionLookup,
   tossRows: TossJoinRow[] = [],
+  operationalRows: OperationalPaymentCompleteBridgeRow[] = [],
 ): AttributionPaymentDecision => {
+  const operationalMatch = findOperationalPaymentDecisionMatch(operationalRows, lookup);
+  if (operationalMatch) {
+    const statusDecision = decisionStatusFromOperationalRow(operationalMatch.row);
+    return decisionFromStatus(statusDecision.status, {
+      matchedBy: operationalMatch.matchedBy,
+      confidence: statusDecision.status === "unknown" ? "medium" : "high",
+      reason: statusDecision.reason,
+      notes: statusDecision.notes,
+      matched: {
+        source: "operational_db_tb_iamweb_users",
+        orderId: operationalMatch.row.orderNumber,
+        paymentKey: "",
+        status: operationalMatch.row.paymentStatus,
+        approvedAt: operationalMatch.row.paidAt,
+        channel: operationalMatch.row.paymentMethod,
+        store: "biocom",
+      },
+    });
+  }
+
   const tossMatch = findTossDecisionMatch(tossRows, lookup);
   if (tossMatch) {
     const status = normalizePaymentStatus(tossMatch.row.status) ?? "unknown";
@@ -2524,6 +3583,79 @@ const resolveOriginSiteSource = (req: Request) => {
   const originRaw = typeof req.headers.origin === "string" ? req.headers.origin : "";
   const originKey = originRaw.replace(/\/$/, "").toLowerCase();
   return ORIGIN_SOURCE_MAP[originKey] ?? "";
+};
+
+const PAYMENT_SUCCESS_COMPLETION_URL_PATTERN =
+  /shop_payment_complete|shop_order_done|order_complete|payment_complete|payment_success/i;
+const SHOP_PAYMENT_PROGRESS_URL_PATTERN = /(^|\/)shop_payment(?:\/|\?|$)/i;
+
+const metadataRecord = (body: Record<string, unknown>) =>
+  isRecord(body.metadata) ? body.metadata as Record<string, unknown> : {};
+
+const bodyUrlEvidence = (body: Record<string, unknown>, req?: Request) => {
+  const metadata = metadataRecord(body);
+  return [
+    body.landing,
+    body.landingPath,
+    body.landing_path,
+    body.currentUrl,
+    body.current_url,
+    body.pageLocation,
+    body.page_location,
+    body.referrer,
+    body.referer,
+    metadata.paymentUrl,
+    metadata.checkoutUrl,
+    metadata.imweb_landing_url,
+    metadata.page_location,
+    metadata.pageLocation,
+    req?.headers.referer,
+  ].map(readText).filter(Boolean);
+};
+
+const hasPaymentSuccessCompletionUrl = (body: Record<string, unknown>, req?: Request) =>
+  bodyUrlEvidence(body, req).some((value) => PAYMENT_SUCCESS_COMPLETION_URL_PATTERN.test(value));
+
+const hasShopPaymentProgressUrl = (body: Record<string, unknown>, req?: Request) =>
+  bodyUrlEvidence(body, req).some((value) => SHOP_PAYMENT_PROGRESS_URL_PATTERN.test(value));
+
+export const isPaymentPageSeenPayload = (body: Record<string, unknown>) => {
+  const metadata = metadataRecord(body);
+  return (
+    readText(body.touchpoint) === "payment_page_seen" ||
+    readText(metadata.semantic_touchpoint) === "payment_page_seen" ||
+    readText(metadata.page_location_class) === "shop_payment"
+  );
+};
+
+export const getPaymentSuccessDowngradeReason = (body: Record<string, unknown>, req?: Request) => {
+  const metadata = metadataRecord(body);
+  if (isPaymentPageSeenPayload(body)) return "semantic_payment_page_seen";
+  if (hasShopPaymentProgressUrl(body, req) && !hasPaymentSuccessCompletionUrl(body, req)) {
+    return "shop_payment_progress_url_without_completion_signal";
+  }
+  if (
+    (metadata.meta_purchase_candidate === false || metadata.is_purchase_candidate === false) &&
+    !hasPaymentSuccessCompletionUrl(body, req)
+  ) {
+    return "explicit_non_purchase_candidate_without_completion_signal";
+  }
+  return "";
+};
+
+const markPaymentPageSeenGuardMetadata = (body: Record<string, unknown>, reason: string) => {
+  const existing = metadataRecord(body);
+  body.metadata = {
+    ...existing,
+    semantic_touchpoint: "payment_page_seen",
+    downgraded_from_touchpoint: "payment_success",
+    downgrade_reason: reason,
+    is_purchase_candidate: false,
+    meta_purchase_candidate: false,
+    confirmed_bridge_candidate: false,
+    value_guard_required_before_meta_send: true,
+    server_guard: "payment_success_downgrade_to_payment_page_seen",
+  };
 };
 
 export const findDuplicateFormSubmitEntry = (
@@ -3517,15 +4649,17 @@ export const createAttributionRouter = () => {
   router.post("/api/attribution/checkout-context", async (req: Request, res: Response) => {
     try {
       const body = parseBody(req.body);
-      enforceOriginSourceMatch(req, body, "checkout_started");
-      const entry = enrichCheckoutStartedFirstTouch(
-        buildLedgerEntry("checkout_started", body, buildRequestContext(req)),
-      );
+      const touchpoint = isPaymentPageSeenPayload(body) ? "payment_page_seen" : "checkout_started";
+      enforceOriginSourceMatch(req, body, touchpoint);
+      const builtEntry = buildLedgerEntry(touchpoint, body, buildRequestContext(req));
+      const entry = touchpoint === "checkout_started"
+        ? enrichCheckoutStartedFirstTouch(builtEntry)
+        : builtEntry;
       const ledgerPath = await appendLedgerEntry(entry);
-      const siteLandingFanout = fanOutEntryToSiteLanding(entry, "checkout_started");
+      const siteLandingFanout = fanOutEntryToSiteLanding(entry, touchpoint);
       res.status(201).json({
         ok: true,
-        receiver: "checkout_context",
+        receiver: touchpoint === "payment_page_seen" ? "payment_page_seen" : "checkout_context",
         storedAt: ledgerPath,
         entry,
         site_landing_fanout: siteLandingFanout,
@@ -3536,10 +4670,61 @@ export const createAttributionRouter = () => {
     }
   });
 
+  router.post("/api/attribution/payment-page-seen", async (req: Request, res: Response) => {
+    try {
+      const body = parseBody(req.body);
+      const metadata = metadataRecord(body);
+      body.metadata = {
+        ...metadata,
+        semantic_touchpoint: "payment_page_seen",
+        is_purchase_candidate: false,
+        meta_purchase_candidate: false,
+        confirmed_bridge_candidate: false,
+        value_guard_required_before_meta_send: true,
+      };
+      enforceOriginSourceMatch(req, body, "payment_page_seen");
+      const entry = buildLedgerEntry("payment_page_seen", body, buildRequestContext(req));
+      const ledgerPath = await appendLedgerEntry(entry);
+      const siteLandingFanout = fanOutEntryToSiteLanding(entry, "payment_page_seen");
+      res.status(201).json({
+        ok: true,
+        receiver: "payment_page_seen",
+        storedAt: ledgerPath,
+        entry,
+        site_landing_fanout: siteLandingFanout,
+        warnings: ["payment_page_seen은 결제 진행 진단 신호이며 Meta Purchase 후보가 아니다."],
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "payment page seen attribution logging failed";
+      res.status(400).json({ ok: false, error: "payment_page_seen_attribution_log_error", message });
+    }
+  });
+
   router.post("/api/attribution/payment-success", async (req: Request, res: Response) => {
     try {
       const body = parseBody(req.body);
       enforceOriginSourceMatch(req, body, "payment_success");
+      const downgradeReason = getPaymentSuccessDowngradeReason(body, req);
+      if (downgradeReason) {
+        markPaymentPageSeenGuardMetadata(body, downgradeReason);
+        const entry = buildLedgerEntry("payment_page_seen", body, buildRequestContext(req));
+        const ledgerPath = await appendLedgerEntry(entry);
+        const siteLandingFanout = fanOutEntryToSiteLanding(entry, "payment_page_seen");
+        res.status(202).json({
+          ok: true,
+          receiver: "payment_page_seen",
+          downgraded: true,
+          reason: downgradeReason,
+          storedAt: ledgerPath,
+          entry,
+          site_landing_fanout: siteLandingFanout,
+          warnings: [
+            "/shop_payment/는 결제완료가 아니므로 payment_success로 저장하지 않았다.",
+            "payment_page_seen은 Meta Purchase 후보가 될 수 없다.",
+          ],
+        });
+        return;
+      }
       const existing = await readLedgerEntries();
       const entry = enrichPaymentSuccessFirstTouch(
         buildLedgerEntry("payment_success", body, buildRequestContext(req)),
@@ -3642,11 +4827,76 @@ export const createAttributionRouter = () => {
 
   router.get("/api/attribution/payment-decision", async (req: Request, res: Response) => {
     try {
+      const routeStartedAt = Date.now();
       res.set("Cache-Control", "no-store");
       const lookup = parsePaymentDecisionLookup(req);
       const tossEnabled = parseBooleanish(req.query.toss ?? req.query.directToss, true);
       const debug = parseBooleanish(req.query.debug, false);
+      const fastLedgerEntries = getPaymentDecisionFastLedgerEntries(lookup);
+      const fastLedgerDecision = buildFastLedgerPaymentDecision(fastLedgerEntries, lookup);
+
+      if (fastLedgerDecision) {
+        const elapsedMs = Date.now() - routeStartedAt;
+        recordPaymentDecisionMeasurement({
+          receivedAtMs: Date.now(),
+          elapsedMs,
+          status: fastLedgerDecision.status,
+          browserAction: fastLedgerDecision.browserAction,
+        });
+        res.json({
+          ok: true,
+          version: "2026-05-15.payment-decision.fast-ledger-v3",
+          generatedAt: new Date().toISOString(),
+          elapsedMs,
+          decision: {
+            status: fastLedgerDecision.status,
+            browserAction: fastLedgerDecision.browserAction,
+            confidence: fastLedgerDecision.confidence,
+            matchedBy: fastLedgerDecision.matchedBy,
+            reason: fastLedgerDecision.reason,
+            notes: fastLedgerDecision.notes,
+          },
+          lookup: {
+            orderId: lookup.orderId || null,
+            orderNo: lookup.orderNo || null,
+            orderCode: lookup.orderCode || null,
+            paymentCode: lookup.paymentCode || null,
+            paymentKey: lookup.paymentKey ? "***" : null,
+            store: lookup.store,
+          },
+          fastPath: {
+            attempted: true,
+            source: "VM Cloud SQLite attribution_ledger",
+            matchedRows: fastLedgerEntries.length,
+            returned: true,
+          },
+          directToss: {
+            attempted: false,
+            matchedRows: 0,
+            errors: 0,
+          },
+          operationalDb: {
+            source: "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
+            attempted: false,
+            matchedRows: 0,
+            skippedReason: "fast_ledger_decision_returned",
+          },
+          debug: debug
+            ? {
+                matched: fastLedgerDecision.matched,
+              }
+            : undefined,
+          notes: [
+            "브라우저 문구가 아니라 서버가 아는 결제 상태로 Browser Purchase 허용 여부를 판단하는 read-only endpoint다.",
+            "fast path는 VM Cloud SQLite 보조 원장의 exact payment_success confirmed match를 먼저 확인해 운영DB sync 지연과 외부 API 지연을 줄인다.",
+            "confirmed만 allow_purchase다. pending은 VirtualAccountIssued로 낮추고, canceled/unknown은 Purchase를 보내지 않는다.",
+          ],
+        });
+        return;
+      }
+
       const entries = await readLedgerEntries();
+      const operationalDecisionRows = await fetchOperationalPaymentDecisionRows(lookup);
       const directToss = tossEnabled
         ? await fetchTossDecisionRows(lookup)
         : { rows: [], errors: [], attempted: false };
@@ -3669,12 +4919,20 @@ export const createAttributionRouter = () => {
         directToss.attempted = directToss.attempted || paymentKeyFallback.attempted;
       }
 
-      const decision = buildAttributionPaymentDecision(entries, lookup, directToss.rows);
+      const decision = buildAttributionPaymentDecision(entries, lookup, directToss.rows, operationalDecisionRows);
 
+      const elapsedMs = Date.now() - routeStartedAt;
+      recordPaymentDecisionMeasurement({
+        receivedAtMs: Date.now(),
+        elapsedMs,
+        status: decision.status,
+        browserAction: decision.browserAction,
+      });
       res.json({
         ok: true,
-        version: "2026-04-12.payment-decision.v1",
+        version: "2026-05-15.payment-decision.fast-ledger-v3",
         generatedAt: new Date().toISOString(),
+        elapsedMs,
         decision: {
           status: decision.status,
           browserAction: decision.browserAction,
@@ -3691,10 +4949,21 @@ export const createAttributionRouter = () => {
           paymentKey: lookup.paymentKey ? "***" : null,
           store: lookup.store,
         },
+        fastPath: {
+          attempted: true,
+          source: "VM Cloud SQLite attribution_ledger",
+          matchedRows: fastLedgerEntries.length,
+          returned: false,
+        },
         directToss: {
           attempted: directToss.attempted,
           matchedRows: directToss.rows.length,
           errors: directToss.errors.length,
+        },
+        operationalDb: {
+          source: "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
+          attempted: isDatabaseConfigured() && getPaymentDecisionLookupKeys(lookup).length > 0,
+          matchedRows: operationalDecisionRows.length,
         },
         debug: debug
           ? {
@@ -3809,6 +5078,7 @@ export const createAttributionRouter = () => {
             "현재 workspace에는 기존 PG successUrl/server callback 구현이 보이지 않아, 이 API를 표준 수신 엔드포인트로 추가했다.",
           canonicalReceivers: [
             "POST /api/attribution/checkout-context",
+            "POST /api/attribution/payment-page-seen",
             "POST /api/attribution/payment-success",
             "POST /api/attribution/replay/toss",
           ],
@@ -4306,6 +5576,110 @@ export const createAttributionRouter = () => {
     }
   });
 
+  router.post("/api/attribution/sync-status/operational-payment-complete", async (req: Request, res: Response) => {
+    try {
+      const limit = parsePositiveInt(
+        typeof req.body?.limit === "number" ? String(req.body.limit) : req.query.limit,
+        100,
+        500,
+      );
+      const dryRun = parseBooleanish(req.body?.dryRun ?? req.query.dryRun, true);
+      const loggedAtGte = typeof req.body?.loggedAtGte === "string"
+        ? req.body.loggedAtGte.trim()
+        : typeof req.query.loggedAtGte === "string"
+          ? req.query.loggedAtGte.trim()
+          : "";
+      const rawOrderIds: unknown[] = Array.isArray(req.body?.orderIds)
+        ? req.body.orderIds
+        : typeof req.query.orderIds === "string"
+          ? req.query.orderIds.split(",")
+          : [];
+      const orderIds = rawOrderIds
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, 500);
+      const result = await syncAttributionPaymentStatusesFromOperationalPaymentComplete({ limit, dryRun, orderIds, loggedAtGte });
+
+      res.json({
+        ok: true,
+        dryRun,
+        filters: {
+          limit,
+          orderIds: orderIds.length,
+          loggedAtGte,
+        },
+        source: result.source,
+        summary: {
+          totalCandidates: result.totalCandidates,
+          scopedCandidates: result.scopedCandidates,
+          matchedRows: result.matchedRows,
+          updatedRows: result.updatedRows,
+          writtenRows: result.writtenRows,
+          confirmedAmountKrw: result.confirmedAmountKrw,
+          excludedRows: result.excludedRows,
+          excludedAmountKrw: result.excludedAmountKrw,
+          noSendGateRows: result.noSendGateRows,
+          metaCapiSendCandidateCount: 0,
+          duplicateEventIdSendRiskRows: 0,
+        },
+        exclusionsByReason: result.exclusionsByReason,
+        matchTypes: result.matchTypes,
+        paymentMethods: result.paymentMethods,
+        itemReasonCounts: result.items.reduce<Record<string, number>>((acc, item) => {
+          acc[item.reason] = (acc[item.reason] ?? 0) + 1;
+          return acc;
+        }, {}),
+        notes: result.notes,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "operational payment complete bridge failed";
+      res.status(500).json({ ok: false, error: "attribution_operational_payment_complete_bridge_error", message });
+    }
+  });
+
+  router.post("/api/attribution/imweb-status-fallback/dry-run", async (req: Request, res: Response) => {
+    try {
+      const limit = parsePositiveInt(
+        typeof req.body?.limit === "number" ? String(req.body.limit) : req.query.limit,
+        100,
+        500,
+      );
+      const maxPagesPerStatus = parsePositiveInt(
+        typeof req.body?.maxPagesPerStatus === "number"
+          ? String(req.body.maxPagesPerStatus)
+          : req.query.maxPagesPerStatus,
+        5,
+        20,
+      );
+      const loggedAtGte = typeof req.body?.loggedAtGte === "string"
+        ? req.body.loggedAtGte.trim()
+        : typeof req.query.loggedAtGte === "string"
+          ? req.query.loggedAtGte.trim()
+          : "";
+      const result = await runBiocomImwebApiStatusFallbackDryRun({ limit, maxPagesPerStatus, loggedAtGte });
+      res.json({
+        ok: true,
+        dryRun: true,
+        filters: { limit, maxPagesPerStatus, loggedAtGte },
+        source: {
+          primary: "Imweb v2 API direct status read-only",
+          cache: "VM Cloud SQLite imweb_orders",
+          target: "VM Cloud SQLite attribution_ledger pending payment_success aggregate",
+        },
+        targetRows: result.targetRows,
+        vmCloudCache: result.vmCloudCache,
+        summary: result.summary,
+        statusCounts: result.statusCounts,
+        errors: result.errors,
+        notes: result.notes,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "imweb status fallback dry-run failed";
+      res.status(500).json({ ok: false, error: "attribution_imweb_status_fallback_dry_run_error", message });
+    }
+  });
+
   router.get("/api/attribution/hourly-compare", async (req: Request, res: Response) => {
     try {
       const date = resolveKstDate(req.query.date);
@@ -4522,6 +5896,37 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "site_landing receiver failed";
       res.status(500).json({ ok: false, error: "site_landing_receiver_error", message });
+    }
+  });
+
+  // 전환 퍼널 관제 (gpt0515-17): read-only aggregate. raw identifier 노출 금지.
+  router.get("/api/attribution/funnel-health", async (req: Request, res: Response) => {
+    try {
+      const parsed = parseFunnelHealthQuery({
+        site: req.query.site,
+        window: req.query.window,
+        granularity: req.query.granularity,
+        paymentMethod: req.query.paymentMethod,
+        source: req.query.source,
+      });
+      const ledgerEntries = await readLedgerEntries();
+      const capiLogs = await readMetaCapiSendLogs();
+      // 1d/7d/14d/30d 모두 커버하려면 30일 전 ~ 지금 범위 모두 읽음
+      const nowMs = Date.now();
+      const paymentDecisionRecords = readPaymentDecisionMeasurements(
+        nowMs - 30 * 24 * 60 * 60 * 1000,
+        nowMs,
+      );
+      const result = buildFunnelHealthReport({
+        ledgerEntries,
+        capiLogs,
+        paymentDecisionRecords,
+        ...parsed,
+      });
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "funnel_health build failed";
+      res.status(500).json({ ok: false, error: "funnel_health_error", message });
     }
   });
 

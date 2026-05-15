@@ -1751,6 +1751,7 @@ export default function Home() {
                 { href: "/acquisition-analysis", title: "유입분석", desc: "AIBIO·더클린커피·바이오컴 주요 전환 유입원과 캠페인 인사이트", icon: "🧭" },
                 { href: "/ads/roas", title: "ROAS · iROAS", desc: "광고비 대비 매출(ROAS) + 증분 광고수익률(iROAS) 모니터링", icon: "📉" },
                 { href: "/tracking-integrity", title: "추적 코드 및 데이터 정합성", desc: "아임웹 헤더·푸터 추적 코드, CAPI, Meta ROAS 차이와 보정 로드맵", icon: "🧩" },
+                { href: "/ai-crm/conversion-funnel", title: "전환 퍼널 관제", desc: "유입·결제 시작·결제완료·Meta CAPI 전송 누락을 일별/주별로 확인 (광고/아임웹/CAPI 어디서 새는지 30초 안에 판단)", icon: "🔭" },
                 { href: "/ads/landing", title: "랜딩뷰 · Clarity", desc: "클릭→랜딩뷰 이탈 분석, UX 히트맵, 전환율 개선 인사이트", icon: "🔍" },
                 { href: "/solution", title: "솔루션 소개", desc: "Biocom Growth AI Agent — 분석에서 실행까지 연결하는 AI CRM", icon: "🧠" },
               ].map((card) => (

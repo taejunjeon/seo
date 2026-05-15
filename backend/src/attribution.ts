@@ -12,7 +12,12 @@ import {
 } from "./attributionLedgerDb";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "./orderKeys";
 
-export type AttributionTouchpoint = "marketing_intent" | "checkout_started" | "payment_success" | "form_submit";
+export type AttributionTouchpoint =
+  | "marketing_intent"
+  | "checkout_started"
+  | "payment_page_seen"
+  | "payment_success"
+  | "form_submit";
 export type AttributionCaptureMode = "live" | "replay" | "smoke";
 export type AttributionPaymentStatus = "pending" | "confirmed" | "canceled";
 
@@ -580,13 +585,13 @@ export const buildLedgerEntry = (
 ): AttributionLedgerEntry => {
   const payload = normalizeAttributionPayload(raw);
   if (
-    touchpoint === "checkout_started" &&
+    (touchpoint === "checkout_started" || touchpoint === "payment_page_seen") &&
     !payload.checkoutId &&
     !payload.customerKey &&
     !payload.landing &&
     !payload.gaSessionId
   ) {
-    throw new Error("checkout_started requires at least one of checkoutId, customerKey, landing, gaSessionId");
+    throw new Error(`${touchpoint} requires at least one of checkoutId, customerKey, landing, gaSessionId`);
   }
   if (
     touchpoint === "marketing_intent" &&
@@ -960,9 +965,11 @@ const coerceLedgerEntry = (parsed: Partial<AttributionLedgerEntry>): Attribution
       ? "marketing_intent"
       : parsed.touchpoint === "payment_success"
         ? "payment_success"
-        : parsed.touchpoint === "form_submit"
-          ? "form_submit"
-          : "checkout_started";
+        : parsed.touchpoint === "payment_page_seen"
+          ? "payment_page_seen"
+          : parsed.touchpoint === "form_submit"
+            ? "form_submit"
+            : "checkout_started";
   const metadata = parsed.metadata ?? {};
   const requestContext = normalizeLedgerRequestContext(parsed.requestContext);
 

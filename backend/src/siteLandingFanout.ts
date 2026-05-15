@@ -68,7 +68,7 @@ export type FanoutOutcome =
  */
 export const fanOutEntryToSiteLanding = (
   entry: AttributionLedgerEntry,
-  sourceTag: "marketing_intent" | "payment_success" | "checkout_started",
+  sourceTag: "marketing_intent" | "payment_success" | "checkout_started" | "payment_page_seen",
 ): FanoutOutcome => {
   if (!entry.landing) {
     return { ok: false, source: sourceTag, skipped: true, reason: "missing_landing" };
