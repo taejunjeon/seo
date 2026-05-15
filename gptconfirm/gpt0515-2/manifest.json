@@ -1,0 +1,39 @@
+{
+  "package": "gptconfirm/gpt0515-2",
+  "generated_at_kst": "2026-05-15 00:55 KST",
+  "owner": "Codex",
+  "mode": "incident_fast_track",
+  "verdict": [
+    "A_API_NOT_FOUND_CLASSIFIED_FAST_TRACK_READY",
+    "B_NEED_ADMIN_UI_LOOKUP_FOR_REMAINDER",
+    "D_BROWSER_PURCHASE_TEST_PATH_READY",
+    "E_VALUE_GUARD_DEPLOY_APPROVAL_NEEDED"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-api-not-found-journey-map.md",
+    "02-bridge-value-guard.md",
+    "03-browser-purchase-test-only-plan.md",
+    "04-next-actions.md"
+  ],
+  "guards": {
+    "meta_operational_purchase_send": 0,
+    "meta_correction_cancel_send": 0,
+    "pixel_full_direct_insertion": 0,
+    "imweb_header_footer_save": 0,
+    "gtm_publish": 0,
+    "backend_deploy_restart": 0,
+    "operational_db_write_import": 0,
+    "vm_cloud_schema_migration": 0,
+    "campaign_budget_mutate": 0,
+    "raw_identifier_report_chat_telegram_git_output": 0,
+    "telegram_summary_sent": true
+  },
+  "validation": {
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS"
+  }
+}

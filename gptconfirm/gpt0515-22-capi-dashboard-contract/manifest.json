@@ -1,0 +1,44 @@
+{
+  "package": "gpt0515-22-capi-dashboard-contract",
+  "created_at_kst": "2026-05-15 17:50",
+  "agent": "Codex",
+  "lane": "Green local patch; Yellow VM Cloud deploy not executed",
+  "documents": [
+    "00-result-report.md",
+    "01-site-pixel-filter-patch.md",
+    "02-metric-data-contract.md",
+    "03-missing-queue-triage.md",
+    "04-frontend-handoff.md",
+    "manifest.json"
+  ],
+  "code_changes": [
+    "backend/src/funnelHealth.ts",
+    "backend/tests/funnel-health.test.ts"
+  ],
+  "source_summary": {
+    "capi_log": "VM Cloud meta-capi-sends.jsonl read-only",
+    "ledger": "VM Cloud SQLite attribution_ledger read-only",
+    "biocom_pixel_id": "1283400029487161",
+    "thecleancoffee_pixel_id": "1186437633687388"
+  },
+  "key_findings": {
+    "biocom_capi_24h_success": 52,
+    "strong_meta_evidence_count": 19,
+    "strong_meta_evidence_pct": 36.5,
+    "non_meta_or_unproven_meta_count": 33,
+    "non_meta_or_unproven_meta_pct": 63.5,
+    "known_non_meta_evidence_count": 16,
+    "known_non_meta_evidence_pct": 30.8,
+    "latest_missing_queue_count": 15,
+    "latest_missing_queue_amount_krw": 2754484
+  },
+  "verification": {
+    "backend_typecheck": "PASS",
+    "focused_fixture": "PASS",
+    "external_send_upload": 0,
+    "operational_db_write": 0,
+    "vm_cloud_deploy_restart": 0,
+    "raw_identifier_output": 0
+  },
+  "telegram_summary_sent": true
+}

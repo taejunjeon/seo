@@ -1,0 +1,44 @@
+{
+  "package": "gptconfirm/gpt0515-4",
+  "generated_at_kst": "2026-05-15 01:32 KST",
+  "owner": "Codex",
+  "mode": "incident_fast_track",
+  "verdict": [
+    "FOOTER_V4_4_DRAFT_READY",
+    "PAYMENT_PAGE_SEEN_CONTRACT_READY",
+    "BACKEND_ENDPOINT_EXTENSION_NEEDED",
+    "META_PIXEL_TEST_CHECKLIST_READY",
+    "VALUE_GUARD_PARALLEL_APPROVAL_READY"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-footer-v4-4-code-draft.md",
+    "02-payment-page-seen-data-contract.md",
+    "03-api-not-found-funnel-enrichment.md",
+    "04-meta-pixel-test-checklist.md"
+  ],
+  "source_window_freshness_confidence": {
+    "source": "gpt0515-3 VM Cloud aggregate + local footer/backend source review",
+    "window": "2026-05-14 13:00 KST 이후 artifact window",
+    "freshness": "2026-05-15 01:32 KST",
+    "site": "biocom",
+    "confidence": 0.9
+  },
+  "guards": {
+    "meta_operational_purchase_send": 0,
+    "pixel_full_direct_insertion": 0,
+    "gtm_publish": 0,
+    "imweb_save_without_approval": 0,
+    "backend_deploy_restart_without_approval": 0,
+    "operational_db_write_import": 0,
+    "raw_identifier_report_chat_telegram_git_output": 0,
+    "telegram_summary_sent": true
+  },
+  "validation": {
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "package": "gpt0515-19-header-guard-v31-1-code",
+  "created_at_kst": "2026-05-15 15:40 KST",
+  "created_by": "Codex",
+  "mode": "Incident execution mode",
+  "lane": "Green code-only draft",
+  "verdict": "HEADER_GUARD_V31_1_CODE_READY",
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "purpose": "10초 요약과 적용 방법"
+    },
+    {
+      "path": "01-diff-summary.md",
+      "purpose": "v3.1 대비 v3.1.1 변경점"
+    },
+    {
+      "path": "02-header-guard-v31-1-code.md",
+      "purpose": "아임웹 Header에 붙일 전체 script 코드"
+    },
+    {
+      "path": "03-test-checklist.md",
+      "purpose": "적용 후 브라우저 확인 절차"
+    }
+  ],
+  "no_send": true,
+  "no_write": true,
+  "no_deploy": true,
+  "no_publish": true,
+  "block4_changed": false,
+  "footer_changed": false,
+  "raw_identifier_output": false,
+  "telegram_summary_sent": true
+}

@@ -1,0 +1,37 @@
+{
+  "package": "gptconfirm/gpt0515-5",
+  "generated_at_kst": "2026-05-15 02:14 KST",
+  "owner": "Codex",
+  "mode": "green_read_only_postcheck",
+  "verdict": [
+    "V4_4_1_LIVE_CODE_CONFIRMED",
+    "PAYMENT_PAGE_SEEN_RECEIVING",
+    "PAYMENT_SUCCESS_ARTIFACT_STOPPED_AFTER_SWITCH"
+  ],
+  "documents": [
+    "00-result-report.md"
+  ],
+  "source_window_freshness_confidence": {
+    "source": "biocom.kr HTML curl + VM Cloud attribution_ledger read-only aggregate",
+    "window": "2026-05-15 02:00~02:11 KST 중심",
+    "freshness": "2026-05-15 02:14 KST",
+    "site": "biocom",
+    "confidence": 0.94
+  },
+  "guards": {
+    "meta_operational_purchase_send": 0,
+    "browser_execution_smoke": 0,
+    "imweb_save_by_codex": 0,
+    "gtm_publish": 0,
+    "backend_deploy_restart": 0,
+    "operational_db_write_import": 0,
+    "raw_identifier_output": 0
+  },
+  "validation": {
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS"
+  }
+}

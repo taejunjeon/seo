@@ -1,0 +1,42 @@
+{
+  "package": "gptconfirm/gpt0515-8",
+  "created_at_kst": "2026-05-15T03:43:00+09:00",
+  "mode": "incident_emergency",
+  "lane": "Yellow",
+  "verdict": "PURCHASE_RESTORE_DEPLOY_PASS_ALLOW_READY",
+  "documents": [
+    {
+      "path": "gptconfirm/gpt0515-8/00-result-report.md",
+      "why": "TJ님 확인용 긴급 복구 결과 보고"
+    }
+  ],
+  "evidence": [
+    "data/deploy-snapshots/gpt0515-8-pre-snapshot.json",
+    "data/deploy-snapshots/gpt0515-8-post-endpoint-smoke.json",
+    "data/deploy-snapshots/gpt0515-8-payment-decision-complete-dry-run-final.json",
+    "data/deploy-snapshots/gpt0515-8-payment-decision-pending-blank-dry-run-final.json",
+    "data/deploy-snapshots/gpt0515-8-ledger-post-aggregate.json",
+    "data/deploy-snapshots/gpt0515-8-meta-send-post-aggregate.json"
+  ],
+  "validation": {
+    "local_typecheck": "PASS",
+    "local_attribution_test": "PASS_43_OF_43",
+    "vm_cloud_typecheck": "PASS",
+    "vm_cloud_build": "PASS",
+    "vm_cloud_attribution_test": "PASS_43_OF_43",
+    "health": "PASS",
+    "payment_page_seen_endpoint": "PASS_201",
+    "payment_success_shop_payment_downgrade": "PASS_202",
+    "payment_decision_complete": "PASS_ALLOW_PURCHASE",
+    "payment_decision_virtual_or_bank_pending": "PASS_BLOCK_PURCHASE_VIRTUAL_ACCOUNT",
+    "meta_purchase_send": 0,
+    "operational_db_write": 0,
+    "vm_cloud_schema_migration": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  },
+  "backup_paths": [
+    "/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0515-8-20260515T033052KST",
+    "/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0515-8-pending-hotfix-20260515T033841KST"
+  ]
+}

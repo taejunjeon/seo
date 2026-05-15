@@ -1,0 +1,32 @@
+{
+  "package": "gpt0515-16-header-guard-v31",
+  "created_at_kst": "2026-05-15",
+  "lane": "Green",
+  "verdict": "HEADER_GUARD_V31_READY_FOR_IMWEB_HEADER_REPLACE_DRAFT",
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "purpose": "사람 말 우선 결과보고와 적용 판단"
+    },
+    {
+      "path": "01-header-guard-v31-diff.md",
+      "purpose": "v3 hotfix와 v3.1 full 차이"
+    },
+    {
+      "path": "02-header-guard-v31-code.md",
+      "purpose": "아임웹 Header 교체용 코드 초안"
+    },
+    {
+      "path": "03-test-checklist.md",
+      "purpose": "적용 전후 브라우저/Meta 테스트 절차"
+    }
+  ],
+  "forbidden_actions_confirmed": {
+    "meta_operating_purchase_send": 0,
+    "imweb_header_saved": 0,
+    "gtm_publish": 0,
+    "vm_cloud_deploy_restart": 0,
+    "operational_db_write_import": 0,
+    "raw_identifier_report_output": 0
+  }
+}

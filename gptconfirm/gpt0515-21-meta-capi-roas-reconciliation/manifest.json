@@ -1,0 +1,51 @@
+{
+  "package": "gpt0515-21-meta-capi-roas-reconciliation",
+  "created_at_kst": "2026-05-15 17:10",
+  "mode": "Incident analytics",
+  "lane": "Green read-only",
+  "owner": "Codex",
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "why": "TJ님 확인용 최종 요약"
+    },
+    {
+      "path": "01-capi-attribution-quality.md",
+      "why": "CAPI 신호 품질과 match proxy 숫자"
+    },
+    {
+      "path": "02-ads-manager-roas-reconciliation.md",
+      "why": "Ads Manager ROAS 대조와 UI/API 지연 판단"
+    },
+    {
+      "path": "03-dashboard-mismatch-analysis.md",
+      "why": "/total 표시 불일치 원인"
+    },
+    {
+      "path": "04-next-actions.md",
+      "why": "다음 실행 순서와 승인 필요 여부"
+    }
+  ],
+  "verdict": [
+    "A. CAPI_SIGNAL_HEALTHY_ADS_UI_DELAY",
+    "D. CAPI_MISSING_CONFIRMED_ROWS",
+    "E. BROWSER_PURCHASE_REQUIRED_FOR_DEDUP_ONLY as secondary"
+  ],
+  "guardrails": {
+    "meta_operational_send": 0,
+    "bulk_backfill": 0,
+    "new_ad_account_created": 0,
+    "second_pixel_inserted": 0,
+    "gtm_publish": 0,
+    "vm_deploy_restart": 0,
+    "operational_db_write_import": 0,
+    "raw_identifier_output": 0
+  },
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud attribution_ledger + Meta CAPI send log + Meta Ads Insights read-only",
+    "window": "recent 24h, today, recent 7d",
+    "freshness": "fresh as of 2026-05-15 17:04 KST",
+    "confidence": "medium_high"
+  },
+  "telegram_summary_sent": true
+}

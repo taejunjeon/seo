@@ -1,0 +1,44 @@
+{
+  "package": "gptconfirm/gpt0515-6",
+  "generated_at_kst": "2026-05-15 03:01 KST",
+  "owner": "Codex",
+  "mode": "incident_fast_track_green_local_patch",
+  "verdict": [
+    "BROWSER_PIXEL_PAGEVIEW_NETWORK_200",
+    "TEST_EVENTS_UI_BLIND_LIKELY",
+    "PAYMENT_PAGE_SEEN_VM_CLOUD_RECEIVING",
+    "BACKEND_GUARD_LOCAL_PATCH_PASS",
+    "VALUE_GUARD_LOCAL_PATCH_PASS",
+    "VM_CLOUD_DEPLOY_APPROVAL_REQUIRED"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-browser-network-audit.md",
+    "02-backend-guard-and-value-guard.md",
+    "03-next-actions-and-approval.md"
+  ],
+  "source_window_freshness_confidence": {
+    "source": "TJ Chrome Network evidence + biocom.kr live HTML + VM Cloud attribution_ledger + local backend tests",
+    "window": "2026-05-15 02:00-03:01 KST",
+    "freshness": "2026-05-15 03:01 KST",
+    "site": "biocom",
+    "confidence": 0.92
+  },
+  "guards": {
+    "meta_operational_purchase_send": 0,
+    "imweb_code_save_by_codex": 0,
+    "gtm_publish": 0,
+    "vm_cloud_deploy_restart": 0,
+    "operational_db_write_import": 0,
+    "raw_identifier_output": 0
+  },
+  "validation": {
+    "backend_typecheck": "PASS",
+    "backend_attribution_test": "PASS",
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS"
+  }
+}

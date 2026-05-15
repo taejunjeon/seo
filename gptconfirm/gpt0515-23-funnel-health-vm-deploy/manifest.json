@@ -1,0 +1,53 @@
+{
+  "package": "gpt0515-23-funnel-health-vm-deploy",
+  "created_at_kst": "2026-05-15 19:05",
+  "agent": "Codex",
+  "lane": "Yellow approved VM Cloud backend deploy/restart",
+  "documents": [
+    "00-result-report.md",
+    "01-vm-deploy-result.md",
+    "02-live-api-postcheck.md",
+    "03-missing-queue-status.md",
+    "04-frontend-contract-live.md",
+    "manifest.json"
+  ],
+  "deploy": {
+    "target": "VM Cloud backend",
+    "file": "backend/src/funnelHealth.ts",
+    "backup_path": "/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0515-23-20260515T185946KST/backend/src/funnelHealth.ts",
+    "typecheck": "PASS",
+    "build": "PASS",
+    "restart": "PASS",
+    "app": "seo-backend"
+  },
+  "postcheck": {
+    "health": "PASS",
+    "biocom_capi_7d": 351,
+    "biocom_pixel_id": "1283400029487161",
+    "coffee_capi_7d": 311,
+    "coffee_pixel_id": "1186437633687388",
+    "all_sites_capi_7d": 662,
+    "metric_contract_live": true,
+    "no_ledger_match_bucket_live": true,
+    "strong_meta_evidence_bucket_live": true,
+    "non_meta_or_unproven_meta_bucket_live": true
+  },
+  "ads_manager_lag_monitor": {
+    "today_purchase": 0,
+    "today_purchase_value_krw": 0,
+    "today_spend_krw": 2501482,
+    "last_7d_purchase": 219,
+    "last_7d_purchase_value_krw": 58123707,
+    "last_7d_spend_krw": 28956769,
+    "same_day_lag_possible": true
+  },
+  "guardrails": {
+    "meta_operating_purchase_send": 0,
+    "backfill_send": 0,
+    "google_ga4_tiktok_naver_send_upload": 0,
+    "operational_db_write_import": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  },
+  "telegram_summary_sent": true
+}

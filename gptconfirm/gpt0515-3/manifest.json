@@ -1,0 +1,47 @@
+{
+  "package": "gptconfirm/gpt0515-3",
+  "generated_at_kst": "2026-05-15 01:16 KST",
+  "owner": "Codex",
+  "mode": "incident_fast_track",
+  "verdict": [
+    "SHOP_PAYMENT_PAYMENT_SUCCESS_ARTIFACT_CONFIRMED",
+    "FOOTER_V4_4_EVENT_SPLIT_APPROVAL_NEEDED",
+    "API_NOT_FOUND_FUNNEL_NO_SEND",
+    "VALUE_GUARD_DEPLOY_APPROVAL_NEEDED",
+    "BROWSER_PURCHASE_TEST_ONLY_APPROVAL_READY"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-footer-v4-4-event-split-plan.md",
+    "02-api-not-found-funnel-journey.md",
+    "03-value-guard-and-backfill-candidates.md",
+    "04-browser-purchase-test-plan.md"
+  ],
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud SQLite attribution_ledger/npay_intent_log read-only aggregate + gpt0515-2 evidence + existing Imweb footer/source docs",
+    "window": "2026-05-14 13:00 KST 이후 중심; logged_at >= 2026-05-14T04:00:00Z",
+    "freshness": "2026-05-15 01:16 KST",
+    "site": "biocom",
+    "confidence": 0.88
+  },
+  "guards": {
+    "meta_operational_purchase_send": 0,
+    "meta_correction_cancel_send": 0,
+    "pixel_full_direct_insertion": 0,
+    "imweb_header_footer_save": 0,
+    "gtm_publish": 0,
+    "backend_deploy_restart": 0,
+    "operational_db_write_import": 0,
+    "vm_cloud_schema_migration": 0,
+    "campaign_budget_mutate": 0,
+    "raw_identifier_report_chat_telegram_git_output": 0,
+    "telegram_summary_sent": true
+  },
+  "validation": {
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS"
+  }
+}

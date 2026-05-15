@@ -1,0 +1,35 @@
+{
+  "package": "gptconfirm/gpt0515-15",
+  "created_at_kst": "2026-05-15 12:18",
+  "updated_at_kst": "2026-05-15 12:50",
+  "title": "Emergency Meta Purchase restore execution",
+  "owner": "Codex",
+  "lane": {
+    "local_patch": "Green completed",
+    "vm_cloud_deploy": "Yellow approved and executed",
+    "meta_capi_single_backfill": "Red approved; manual send skipped because auto_sync already sent target"
+  },
+  "documents": [
+    "00-result-report.md",
+    "01-fast-decision-patch.md",
+    "02-capi-candidate-gate.md",
+    "03-single-backfill-approval.md"
+  ],
+  "validation": {
+    "backend_attribution_test": "PASS 46/46",
+    "backend_typecheck": "PASS",
+    "backend_build": "PASS",
+    "vm_cloud_read_only_dry_run": "PASS candidates_after_patch=1",
+    "vm_cloud_remote_typecheck": "PASS",
+    "vm_cloud_remote_build": "PASS",
+    "vm_cloud_health": "PASS /health 200",
+    "payment_decision_fast_path": "PASS elapsedMs=53-83 allow_purchase",
+    "target_meta_capi": "PASS safe_c8f321804aa1 auto_sync response_status=200 events_received=1",
+    "meta_capi_send_since_deploy": "PASS_WITH_NOTES auto_sync 26 Purchase events_received=26; manual backfill not executed",
+    "telegram_summary_sent": true,
+    "vm_cloud_deploy": 1,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_report_output": 0
+  }
+}

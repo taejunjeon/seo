@@ -1,0 +1,55 @@
+{
+  "captured_at_kst": "2026-05-15T03:34:04+0900",
+  "health": {
+  "status": "ok",
+  "service": "biocom-seo-backend",
+  "backgroundJobs": {
+    "capiAutoSync": {
+      "enabled": true,
+      "intervalMs": 1800000,
+      "limit": 100
+    },
+    "attributionStatusSync": {
+      "enabled": true,
+      "intervalMs": 900000,
+      "limit": 100
+    }
+  }
+}
+,
+  "payment_page_seen": {
+  "ok": true,
+  "receiver": "payment_page_seen",
+  "warnings": [
+    "payment_page_seen은 결제 진행 진단 신호이며 Meta Purchase 후보가 아니다."
+  ],
+  "semantic": "payment_page_seen",
+  "purchase_candidate": false
+}
+,
+  "checkout_context_semantic_page_seen": {
+  "ok": true,
+  "receiver": "payment_page_seen",
+  "semantic": "payment_page_seen",
+  "touchpoint": "payment_page_seen"
+}
+,
+  "payment_success_shop_payment_downgrade": {
+  "ok": true,
+  "receiver": "payment_page_seen",
+  "downgraded": true,
+  "reason": "shop_payment_progress_url_without_completion_signal",
+  "semantic": "payment_page_seen",
+  "purchase_candidate": false
+}
+,
+  "payment_success_completion_url": {
+  "ok": true,
+  "receiver": "payment_success",
+  "skipped": null,
+  "reason": null,
+  "touchpoint": "payment_success",
+  "paymentStatus": "pending"
+}
+
+}

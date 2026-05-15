@@ -1,0 +1,33 @@
+{
+  "package": "gpt0515-17-funnel-monitor-design",
+  "created_at_kst": "2026-05-15",
+  "lane": "Green",
+  "verdict": "FUNNEL_MONITOR_DESIGN_READY_FOR_CLAUDE_CODE_IMPLEMENTATION",
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "purpose": "설계 결과 요약과 사용자 베네핏"
+    },
+    {
+      "path": "01-ux-page-design.md",
+      "purpose": "전환 퍼널 관제 화면 구조"
+    },
+    {
+      "path": "02-funnel-data-contract.md",
+      "purpose": "read-only API 응답 계약"
+    },
+    {
+      "path": "03-implementation-handoff.md",
+      "purpose": "Claude Code 구현 인계"
+    }
+  ],
+  "implementation_owner": "Claude Code",
+  "codex_scope": "design_only",
+  "forbidden_actions_confirmed": {
+    "frontend_implementation": 0,
+    "vm_cloud_deploy_restart": 0,
+    "platform_send": 0,
+    "gtm_publish": 0,
+    "operational_db_write_import": 0
+  }
+}

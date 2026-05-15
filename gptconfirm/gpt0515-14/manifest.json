@@ -1,0 +1,33 @@
+{
+  "package": "gptconfirm/gpt0515-14",
+  "created_at_kst": "2026-05-15 11:48 KST",
+  "mode": "Incident fast-track",
+  "verdict": [
+    "DECISION_BACKEND_SLOW_TIMEOUT",
+    "DECISION_GUARD_ABORT_TOO_SHORT",
+    "DECISION_ALLOWED_BUT_BROWSER_ABORTED"
+  ],
+  "safe_ref": "safe_80dd8eb5da6f",
+  "documents": [
+    "00-result-report.md",
+    "01-card-purchase-trace.md",
+    "02-payment-decision-canceled-root-cause.md",
+    "03-purchase-restore-patch-plan.md",
+    "04-capi-backfill-or-autosend-plan.md"
+  ],
+  "invariants": {
+    "meta_operational_purchase_send": 0,
+    "browser_purchase_unguarded_fallback": 0,
+    "pixel_full_direct_insert": 0,
+    "gtm_publish": 0,
+    "operational_db_write_import": 0,
+    "vm_cloud_deploy_restart": 0,
+    "raw_identifier_report_chat_telegram_git_output": 0
+  },
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud SQLite attribution_ledger + VM Cloud payment-decision API + 운영DB dashboard.public.tb_iamweb_users + Imweb v2 API + Meta CAPI send log",
+    "window": "2026-05-15 00:00 KST 이후, 대상 safe_ref 1건",
+    "freshness": "2026-05-15 11:39-11:44 KST read-only",
+    "confidence": "high for root cause; medium for Meta UI reflection"
+  }
+}

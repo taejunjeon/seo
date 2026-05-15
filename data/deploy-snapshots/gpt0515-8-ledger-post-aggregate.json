@@ -1,0 +1,11 @@
+{
+  "checked_at_kst": "2026-05-15T03:42:01+09:00",
+  "source": "VM Cloud SQLite attribution_ledger aggregate only",
+  "window": "last_10_minutes",
+  "total_recent": 8,
+  "payment_success_recent": 1,
+  "payment_page_seen_recent": 6,
+  "shop_payment_payment_success_recent": 0,
+  "page_seen_non_purchase_recent": 6,
+  "raw_identifier_output": 0
+}

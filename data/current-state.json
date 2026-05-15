@@ -1,84 +1,63 @@
 {
-  "updated_at_kst": "2026-05-14 03:01:00 KST",
-  "workstream": "naver_evidence_aggregate_endpoint_vm_cloud_deploy_and_url_canary",
-  "lane": "Yellow approved VM Cloud backend deploy + Green canary audit",
-  "current_goal": "Make /total backend use aggregate-only Naver evidence and document a one-adgroup URL standardization canary without platform send/upload.",
+  "current_goal": "gpt0515-24 today Meta attribution truth table closed; commit/push accumulated safe work",
+  "updated_at_kst": "2026-05-15 23:40:00 KST",
+  "lane": "Green commit/push cleanup; raw identifier evidence excluded from git",
+  "status": "ready_to_commit_safe_subset",
   "source_window_freshness_confidence": {
-    "source": "VM Cloud attribution_ledger aggregate endpoint, /total monthly API, Naver Search Ad API read-only",
-    "window": "biocom 2026-05 KST monthly window",
-    "freshness": "2026-05-14 02:59 KST post-snapshot",
-    "confidence": 0.91
+    "source": "VM Cloud SQLite attribution_ledger + Meta CAPI send log + Meta Ads Insights API + frontend /api/ads/roas source check",
+    "window": "2026-05-15 KST today, site=biocom, pixel=1283400029487161",
+    "freshness": "2026-05-15 23:21-23:40 KST",
+    "site": "biocom",
+    "confidence": 0.88
   },
   "latest_result": {
-    "package": "gptconfirm/gpt0514-4",
-    "backend_deploy": {
-      "vm_cloud": true,
-      "health_ok": true,
-      "aggregate_endpoint_ok": true,
-      "total_monthly_api_ok": true,
-      "pm2_seo_backend": "online",
-      "backup": "/home/biocomkr_sns/seo/repo/.deploy-backups/gpt0514-4-20260513T173652Z"
+    "package": "gptconfirm/gpt0515-24-today-meta-attribution-truth-table",
+    "verdicts": [
+      "TODAY_CAPI_HEALTHY_ADS_LAG",
+      "FRONTEND_ROAS_SOURCE_MISLABELED",
+      "INSUFFICIENT_WAIT_12H_RECHECK"
+    ],
+    "truth_table": {
+      "confirmed_purchase_count": 61,
+      "confirmed_purchase_amount_krw": 17494197,
+      "strong_meta_evidence_count": 24,
+      "strong_meta_evidence_amount_krw": 9157467,
+      "capi_success_count": 56,
+      "capi_success_amount_krw": 16028197,
+      "events_received_count": 56,
+      "duplicate_event_id_count": 0,
+      "ads_manager_today_purchase": 0,
+      "ads_manager_today_value_krw": 0,
+      "frontend_internal_roas_today": 2.08,
+      "frontend_internal_orders_today": 19
     },
-    "naver_evidence_aggregate": {
-      "contract_version": "naver-evidence-aggregate-v0.1",
-      "rowsTotal": 23882,
-      "naverAny": 690,
-      "byClass": {
-        "paid_naver": 352,
-        "naver_brandsearch": 326,
-        "organic_naver_candidate": 0,
-        "naver_referrer_or_utm_only": 12
-      },
-      "aggregateOnly": true,
-      "rawIdentifierOutput": false,
-      "budgetRoasIncluded": false
-    },
-    "frontend_public_route": {
-      "url": "https://biocom.ainativeos.net/total",
-      "observed_status": 404,
-      "note": "VM Cloud backend API is deployed. VM Cloud frontend public route needs separate deploy/router work. 운영DB means only the dev-team-managed Supabase/Postgres DB."
-    },
-    "naver_ads_url_canary": {
-      "api_read_only_audit": "PASS",
-      "candidate": "바이오컴_파워링크_영양중금속검사 / 01_메인키워드_PC",
-      "current_tracking": "idx only, no UTM",
-      "recommended_utm": {
-        "utm_source": "naver",
-        "utm_medium": "cpc",
-        "utm_campaign": "바이오컴_파워링크_영양중금속검사",
-        "utm_content": "01_메인키워드_PC",
-        "utm_term": "{keyword}"
-      },
-      "api_write_status": "blocked_by_searchad_api_update_fields",
-      "manual_ui_canary_status": "ready",
-      "actual_platform_change": false
-    },
-    "biocom_direct_domain": {
-      "current_rule": "biocom.kr direct/bookmark is not a confirmed direct revenue channel; it remains no_referrer or self_or_internal_referrer_only unknown unless first-party evidence is captured.",
-      "may_2026_self_internal_referrer_only_orders": 71,
-      "may_2026_self_internal_referrer_only_revenue_krw": 20914719
-    }
+    "notes": [
+      "CAPI sends actual purchases to Meta; only a subset has strong Meta ad evidence.",
+      "Current 24h CAPI non-meta-or-unproven share is 35/56 = 62.5%.",
+      "Frontend /api/ads/roas is internal attribution ROAS, not Ads Manager ROAS."
+    ]
   },
-  "artifacts": {
-    "gptconfirm": "gptconfirm/gpt0514-4",
-    "result_report": "gptconfirm/gpt0514-4/00-result-report.md",
-    "deploy_report": "gptconfirm/gpt0514-4/01-vm-cloud-backend-deploy-and-validation.md",
-    "canary_report": "gptconfirm/gpt0514-4/02-naver-url-current-vs-standard-canary.md",
-    "next_actions": "gptconfirm/gpt0514-4/03-next-actions-and-rollback.md",
-    "deploy_data": "data/naver-evidence-aggregate-live-post-20260514.json",
-    "canary_data": "data/naver-ads-url-canary-audit-20260514.json"
+  "commit_cleanup": {
+    "safe_to_commit": [
+      "backend guard/value/funnel-health code and tests",
+      "frontend conversion funnel page and launcher card",
+      "sanitized gptconfirm/gdn/capivm reports",
+      "handoff/current-state/docs"
+    ],
+    "excluded_from_commit_due_raw_or_account_evidence": [
+      "capivm/biocom-imweb-api-status-fallback-dry-run-20260514.md",
+      "data/project/*raw/debug JSON",
+      "data/project/google-ads-option3-observe-action-*.json containing account/service evidence",
+      "data/ads_csv/tiktok/api/*.json with long request/account hashes",
+      "tiktok/fetchresult.md"
+    ]
   },
-  "next_action": {
-    "codex": "Run validation, commit/push scoped files, then prepare frontend /total deploy approval if requested.",
-    "tj": "If proceeding with Naver Ads URL canary, change exactly one adgroup URL in Naver Ads UI after backing up current PC/MO URLs."
-  },
-  "forbidden_actions_not_taken": [
-    "operational DB write",
-    "VM Cloud schema migration",
-    "external platform conversion send/upload",
-    "GTM publish",
-    "Imweb footer/header change",
-    "Naver candidate auto inclusion in budget ROAS"
-  ],
-  "raw_identifier_output": false
+  "forbidden_actions_preserved": {
+    "meta_operational_purchase_send_this_cleanup": 0,
+    "platform_send_upload_this_cleanup": 0,
+    "vm_cloud_deploy_restart_this_cleanup": 0,
+    "operational_db_write_import": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output_in_reports": 0
+  }
 }

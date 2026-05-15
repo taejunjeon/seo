@@ -1,0 +1,17 @@
+{
+  "checked_at_kst": "2026-05-15T03:37:00+09:00",
+  "source": "운영DB PostgreSQL dashboard.public.tb_iamweb_users read-only + VM Cloud payment-decision API",
+  "pending_uncanceled_virtual_or_bank_candidate": {
+    "found": true,
+    "decision": {
+      "http_status": 200,
+      "ok": true,
+      "decision_status": "unknown",
+      "browser_action": "hold_or_block_purchase",
+      "matched_by": "operational_db_order_number",
+      "reason": "operational_db_status_unknown",
+      "operational_matched_rows": 1
+    }
+  },
+  "raw_identifier_output": 0
+}

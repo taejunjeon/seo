@@ -1,0 +1,12 @@
+{
+  "captured_at_kst": "2026-05-15T03:29:48+0900",
+  "health": {"status":"ok","service":"biocom-seo-backend","timestamp":"2026-05-14T18:29:49.083Z","backgroundJobs":{"enabled":true,"cwvAutoSync":{"enabled":false},"attributionStatusSync":{"enabled":true,"intervalMs":900000,"limit":100},"capiAutoSync":{"enabled":true,"intervalMs":1800000,"limit":100},"imwebAutoSync":{"enabled":true,"intervalMs":900000,"maxPage":30},"tossAutoSync":{"enabled":true,"intervalMs":900000,"windowHours":6}},"apis":{"gsc":true,"pagespeed":true,"ga4":false,"ga4Properties":{"default":{"propertyId":null,"configured":false},"biocom":{"propertyId":"304759974","configured":true},"thecleancoffee":{"propertyId":"326949178","configured":true},"aibio":{"propertyId":"326993019","configured":true}},"serpapi":true,"perplexity":true,"supabase":true,"database":true,"openai":true,"channeltalk":{"sdk":true,"openApi":true,"memberHash":false,"marketing":false},"kakao":{"restApi":true,"javascript":true,"admin":true},"aligo":{"apiKey":true,"userId":true,"senderKey":true,"senderPhone":true,"kakaoChannelId":true,"ready":true},"toss":{"shopId":true,"liveKey":true,"testKey":true,"ready":true,"stores":{"biocom":{"shopId":true,"liveKey":true,"testKey":true,"ready":true},"coffee":{"shopId":true,"liveKey":true,"testKey":true,"ready":true}}},"meta":{"token":true,"appSecret":true,"ready":true},"imweb":{"apiKey":true,"secretKey":true,"ready":true},"playauto":{"apiKey":true,"email":true,"ready":true},"crmLocal":{"experiments":7,"assignments":3637,"conversions":264,"messages":0,"leads":0,"lead_events":0,"consents":0,"imwebMembers":83277,"imwebOrders":14545,"imwebCouponMasters":888,"imwebIssueCoupons":2654,"tossTransactions":41289,"tossSettlements":34663}}},
+  "summary_biocom_status": {
+  "ok": true,
+  "actual_status": "included",
+  "actual_source": "operational_db.tb_iamweb_users PAYMENT_COMPLETE",
+  "warnings": [],
+  "total": 2085
+}
+
+}

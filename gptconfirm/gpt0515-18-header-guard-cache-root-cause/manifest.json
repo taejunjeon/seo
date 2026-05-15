@@ -1,0 +1,45 @@
+{
+  "package": "gpt0515-18-header-guard-cache-root-cause",
+  "created_at_kst": "2026-05-15 15:21 KST",
+  "created_by": "Codex",
+  "mode": "Incident fast-track",
+  "lane": "Green",
+  "verdicts": [
+    "CANCELED_REQUEST_OVERWROTE_ALLOW_CACHE",
+    "CACHE_KEY_MISMATCH_BETWEEN_PREFETCH_AND_PURCHASE",
+    "RESPONSE_SHAPE_PARSE_BUG_UNLIKELY"
+  ],
+  "documents": [
+    {
+      "path": "00-result-report.md",
+      "purpose": "대표용 결과 요약과 다음 액션"
+    },
+    {
+      "path": "01-payment-decision-response-vs-cache.md",
+      "purpose": "서버 응답과 브라우저 캐시 실패 원인 대조"
+    },
+    {
+      "path": "02-cache-key-analysis.md",
+      "purpose": "snake_case/camelCase와 payment_key/order_id field-set 차이 분석"
+    },
+    {
+      "path": "03-header-guard-v31-1-patch-plan.md",
+      "purpose": "Header Guard v3.1.1 캐시/파서 패치 초안"
+    },
+    {
+      "path": "04-capi-send-status.md",
+      "purpose": "Meta CAPI 서버 전송 경로 read-only 상태"
+    }
+  ],
+  "no_send": true,
+  "no_write": true,
+  "no_deploy": true,
+  "no_publish": true,
+  "telegram_summary_sent": true,
+  "raw_identifier_output": false,
+  "source_window": {
+    "payment_decision": "VM Cloud pm2-out recent 80 requests",
+    "meta_capi": "VM Cloud meta-capi-sends recent 6h",
+    "header_code": "gptconfirm/gpt0515-16-header-guard-v31/02-header-guard-v31-code.md"
+  }
+}

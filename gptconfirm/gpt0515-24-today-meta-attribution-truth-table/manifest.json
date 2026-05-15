@@ -1,0 +1,60 @@
+{
+  "package": "gpt0515-24-today-meta-attribution-truth-table",
+  "created_at_kst": "2026-05-15 23:24",
+  "agent": "Codex",
+  "lane": "Green read-only analytics",
+  "site": "biocom",
+  "pixel_id": "1283400029487161",
+  "window": "2026-05-15 00:00-23:24 KST",
+  "documents": [
+    "00-result-report.md",
+    "01-today-confirmed-meta-evidence.md",
+    "02-today-capi-vs-ads-manager.md",
+    "03-frontend-roas-source-check.md",
+    "04-next-actions.md",
+    "manifest.json"
+  ],
+  "verdicts": [
+    "TODAY_CAPI_HEALTHY_ADS_LAG",
+    "FRONTEND_ROAS_SOURCE_MISLABELED",
+    "INSUFFICIENT_WAIT_12H_RECHECK"
+  ],
+  "truth_table": {
+    "vm_cloud_confirmed_purchases": {
+      "count": 61,
+      "amount_krw": 17494197
+    },
+    "strong_meta_evidence_confirmed": {
+      "count": 24,
+      "amount_krw": 9157467
+    },
+    "meta_capi_sent_success": {
+      "count": 56,
+      "amount_krw": 16028197,
+      "events_received": 56,
+      "failed": 0,
+      "duplicate_event_ids": 0
+    },
+    "ads_manager_today": {
+      "purchase": 0,
+      "purchase_value_krw": 0,
+      "spend_krw": 3383604,
+      "roas": null
+    },
+    "frontend_today_roas_source": {
+      "endpoint": "/api/ads/roas",
+      "source": "VM Cloud internal attribution + Meta spend",
+      "roas": 2.08,
+      "orders": 19,
+      "attributed_revenue_krw": 7046067
+    }
+  },
+  "guardrails": {
+    "meta_send_backfill": 0,
+    "vm_deploy_restart": 0,
+    "operational_db_write_import": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  },
+  "telegram_summary_sent": true
+}

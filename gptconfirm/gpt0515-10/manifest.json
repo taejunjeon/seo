@@ -1,0 +1,26 @@
+{
+  "package": "gptconfirm/gpt0515-10",
+  "created_at_kst": "2026-05-15 10:27",
+  "purpose": "Meta browser funnel fallback Block 4 v0.3.1 draft",
+  "documents": [
+    {
+      "path": "gptconfirm/gpt0515-10/00-result-report.md",
+      "purpose": "사람 말 우선 결과보고"
+    },
+    {
+      "path": "gptconfirm/gpt0515-10/01-block4-v0-3-1-code.md",
+      "purpose": "아임웹 Footer Block 4 v0.3.1 전체 코드"
+    }
+  ],
+  "guardrails": {
+    "purchase_fallback": 0,
+    "pageview_viewcontent_modified": 0,
+    "meta_operational_send": 0,
+    "imweb_footer_saved": 0,
+    "gtm_publish": 0,
+    "operational_db_write": 0,
+    "vm_cloud_schema_migration": 0,
+    "raw_identifier_output": 0
+  },
+  "verdict": "BLOCK4_V0_3_1_READY_FOR_TJ_FOOTER_APPROVAL"
+}

@@ -1,34 +1,29 @@
 {
   "sprint": "gpt0508-51",
-  "created_at_kst": "2026-05-13 15:28:00 KST",
+  "created_at_kst": "2026-05-13 22:52:00 KST",
   "owner": "Codex",
-  "lane": "Green",
+  "status": "blocked_access_permission",
   "documents": [
     {
-      "path": "gptconfirm/gpt0508-51/00-result-report.md",
-      "purpose": "TikTok OFF impact audit result, frontend URL, numbers, validation, and next actions"
-    },
-    {
-      "path": "tiktok/tiktok_mistracking_audit_20260513.md",
-      "purpose": "Detailed TikTok mistracking audit table and channel shift evidence"
-    },
-    {
-      "path": "gdn/current-handoff.md",
-      "purpose": "Compact-safe current goal, completed work, next commands, and forbidden actions"
-    },
-    {
-      "path": "data/current-state.json",
-      "purpose": "Machine-readable current state checkpoint"
+      "path": "00-result-report.md",
+      "purpose": "사람이 읽는 결과 보고와 다음 액션"
     }
   ],
-  "local_urls": {
-    "frontend": "http://localhost:7010/ads/tiktok/off-impact",
-    "backend_api": "http://localhost:7020/api/ads/tiktok/off-impact-audit"
-  },
+  "source_artifacts": [
+    "gdn/google-ads-option3-observe-action-result-20260513.md",
+    "data/project/google-ads-option3-observe-action-result-20260513.json",
+    "data/project/google-ads-option3-observe-action-pre-20260513.json",
+    "data/project/google-ads-option3-observe-action-post-blocked-20260513.json",
+    "data/project/google-ads-option3-observe-action-create-blocked-20260513.json",
+    "backend/scripts/google-ads-option3-observe-action.ts"
+  ],
   "invariants": {
-    "no_send": true,
-    "no_write": true,
-    "no_deploy": true,
-    "no_publish": true
+    "google_ads_upload_send": 0,
+    "data_manager_ingest": 0,
+    "enhanced_conversion_send": 0,
+    "campaign_budget_change": 0,
+    "legacy_purchase_action_mutation": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0
   }
 }

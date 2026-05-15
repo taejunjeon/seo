@@ -1,0 +1,10 @@
+{
+  "checked_at_kst": "2026-05-15T03:42:41+09:00",
+  "source": "VM Cloud backend logs/meta-capi-sends.jsonl aggregate only",
+  "window": "last_15_minutes",
+  "total_meta_capi_send_logs": 0,
+  "operational_meta_purchase_send_logs": 0,
+  "manual_send_logs": 0,
+  "test_event_logs": 0,
+  "raw_identifier_output": 0
+}

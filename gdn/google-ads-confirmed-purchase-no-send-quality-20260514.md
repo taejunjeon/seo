@@ -157,20 +157,20 @@ baseline 대비 4일간 click id capture 개선 없음. 오히려 -8 건 감소.
 
 ## invariants held
 
-| invariant | value |
-|---|---|
-| conversion_action_mutate | 0 |
-| existing_primary_modified | 0 |
-| new_action_primary_changed | 0 |
-| techsol_modified / techsol_deleted | 0 / 0 |
-| click_conversion_uploaded | 0 |
-| data_manager_ingest / file_upload | 0 / 0 |
+| invariant                                | value |
+| ---------------------------------------- | ----- |
+| conversion_action_mutate                 | 0     |
+| existing_primary_modified                | 0     |
+| new_action_primary_changed               | 0     |
+| techsol_modified / techsol_deleted       | 0 / 0 |
+| click_conversion_uploaded                | 0     |
+| data_manager_ingest / file_upload        | 0 / 0 |
 | campaign_mutate / campaign_budget_mutate | 0 / 0 |
-| operational_db_write | 0 |
+| operational_db_write                     | 0     |
 | vm_cloud_sqlite_write / schema_migration | 0 / 0 |
-| gtm_publish | 0 |
-| external_send_count | 0 |
-| raw_identifier_leak | false |
+| gtm_publish                              | 0     |
+| external_send_count                      | 0     |
+| raw_identifier_leak                      | false |
 
 ## next-action 점수표
 

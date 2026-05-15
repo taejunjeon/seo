@@ -1,0 +1,45 @@
+{
+  "package": "gptconfirm/gpt0515-7",
+  "generated_at_kst": "2026-05-15 03:31 KST",
+  "owner": "Codex",
+  "mode": "incident_fast_track_green_packet",
+  "verdict": [
+    "BACKEND_GUARD_READY_FOR_YELLOW_DEPLOY",
+    "FALLBACK_BLOCK4_READY",
+    "C_PLAN_30MIN_EXPERIMENT_OPTIONAL",
+    "BROWSER_PURCHASE_TEST_ONLY_STILL_NEEDED",
+    "PURCHASE_RESTORE_FASTEST_PATH_PAYMENT_DECISION_CONFIRMED_MATCH"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-backend-guard-deploy-packet.md",
+    "02-meta-browser-fallback-block4-code.md",
+    "03-direct-pixel-c-plan-secondary.md",
+    "04-browser-purchase-test-only.md"
+  ],
+  "source_window_freshness_confidence": {
+    "source": "TJ Network evidence + biocom.kr live HTML + VM Cloud attribution_ledger read-only from gpt0515-6 + local backend patch state",
+    "window": "2026-05-15 02:00-03:31 KST",
+    "freshness": "2026-05-15 03:31 KST",
+    "site": "biocom",
+    "confidence": 0.86
+  },
+  "guards": {
+    "meta_operational_purchase_send": 0,
+    "purchase_browser_fallback_applied": 0,
+    "whole_pixel_direct_insert_applied": 0,
+    "imweb_code_save_by_codex": 0,
+    "gtm_publish": 0,
+    "vm_cloud_deploy_restart": 0,
+    "operational_db_write_import": 0,
+    "vm_cloud_schema_migration": 0,
+    "raw_identifier_output": 0
+  },
+  "validation": {
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS"
+  }
+}

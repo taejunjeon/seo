@@ -1,0 +1,37 @@
+{
+  "package": "gptconfirm/gpt0515-1",
+  "generated_at_kst": "2026-05-15 00:32 KST",
+  "owner": "Codex",
+  "site": "biocom",
+  "verdict": "SERVER_ONLY_TEST_PASS_AND_API_NOT_FOUND_DRILLDOWN_PARTIAL_CLASSIFIED_NO_SEND",
+  "documents": [
+    "00-result-report.md",
+    "01-meta-purchase-test-only-smoke.md",
+    "02-api-not-found-drilldown.md",
+    "03-next-actions.md"
+  ],
+  "source_artifacts": [
+    "capivm/biocom-purchase-test-only-smoke-result-20260515.md",
+    "data/project/biocom-purchase-test-only-smoke-result-20260515.json",
+    "capivm/biocom-api-not-found-raw-key-drilldown-20260515.md",
+    "data/project/biocom-api-not-found-raw-key-drilldown-20260515.json"
+  ],
+  "guards": {
+    "meta_operational_purchase_send": 0,
+    "meta_test_events_send": 1,
+    "platform_upload_or_mutate": 0,
+    "operational_db_write": 0,
+    "vm_cloud_schema_migration": 0,
+    "gtm_publish": 0,
+    "imweb_header_footer_save": 0,
+    "raw_identifier_output": 0,
+    "telegram_summary_sent": true
+  },
+  "validation": {
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS"
+  }
+}

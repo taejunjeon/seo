@@ -1,0 +1,35 @@
+{
+  "package": "gpt0515-20-browser-purchase-capi-status",
+  "created_at_kst": "2026-05-15 16:38 KST",
+  "mode": "incident_execution",
+  "lane": "Green",
+  "verdict": "CAPI_SENT_SUCCESS_BROWSER_PURCHASE_AUXILIARY",
+  "documents": [
+    "00-result-report.md",
+    "01-capi-status.md",
+    "02-browser-purchase-diagnostic-plan.md",
+    "03-decision-matrix.md"
+  ],
+  "sources": {
+    "vm_cloud_sqlite": "attribution_ledger read-only",
+    "vm_cloud_capi_log": "meta-capi-sends.jsonl read-only",
+    "window": "recent_4h",
+    "checked_at_kst": "2026-05-15 16:37:48 KST"
+  },
+  "key_result": {
+    "target_safe_ref": "safe_e551374302",
+    "amount_krw": 11900,
+    "capi_send_path": "auto_sync",
+    "capi_http_status": 200,
+    "events_received": 1,
+    "recent_4h_purchase_count": 44,
+    "recent_4h_events_received_1": 44,
+    "recent_4h_failed_or_non_1": 0
+  },
+  "no_send": true,
+  "no_write": true,
+  "no_deploy": true,
+  "no_publish": true,
+  "raw_identifier_output": false,
+  "telegram_summary_sent": true
+}

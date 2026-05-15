@@ -25,14 +25,14 @@ confidence: 0.87
 
 현재 UTM과 표준 UTM 차이:
 
-| 항목 | 현재 | 표준 canary |
-|---|---|---|
-| `utm_source` | 없음 | `naver` |
-| `utm_medium` | 없음 | `cpc` |
-| `utm_campaign` | 없음 | `바이오컴_파워링크_영양중금속검사` |
-| `utm_content` | 없음 | `01_메인키워드_PC` |
-| `utm_term` | 없음 | `{keyword}` |
-| `NaPm` | 네이버 redirect에서 자동 부여될 수 있음 | 유지 확인 대상 |
+| 항목             | 현재                         | 표준 canary           |
+| -------------- | -------------------------- | ------------------- |
+| `utm_source`   | 없음                         | `naver`             |
+| `utm_medium`   | 없음                         | `cpc`               |
+| `utm_campaign` | 없음                         | `바이오컴_파워링크_영양중금속검사` |
+| `utm_content`  | 없음                         | `01_메인키워드_PC`       |
+| `utm_term`     | 없음                         | `{keyword}`         |
+| `NaPm`         | 네이버 redirect에서 자동 부여될 수 있음 | 유지 확인 대상            |
 
 일부 캠페인은 이미 비표준 UTM이 있다. 예를 들어 `utm_source=naver_cpc_organicacid3_pc`, `utm_medium=naver_cpc_organicacid3_pc`처럼 source와 medium이 같은 값으로 들어간다. 이 방식은 사람이 읽기 어렵고, rule 기반 paid_naver 분류를 어렵게 만든다.
 
