@@ -1,0 +1,32 @@
+{
+  "package": "gpt0515-27-meta-cohort-clean-landing",
+  "created_at_kst": "2026-05-16 01:51 KST",
+  "lane": "Green read-only",
+  "site": "biocom",
+  "pixel_id": "1283400029487161",
+  "window": "2026-05-09..2026-05-15 KST",
+  "source": [
+    "VM Cloud attribution_ledger read-only aggregate",
+    "VM Cloud Meta CAPI send log read-only aggregate",
+    "Meta Ads Insights API read-only"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-seven-day-meta-cohort.md",
+    "02-route-segmentation.md",
+    "03-att-roas-vs-ads-roas-gap.md",
+    "04-clean-landing-experiment.md",
+    "05-new-account-decision.md"
+  ],
+  "no_send": true,
+  "no_write": true,
+  "no_deploy": true,
+  "no_publish": true,
+  "raw_identifier_output": false,
+  "verdict": [
+    "META_CAPI_COVERAGE_HEALTHY",
+    "ADS_ATTRIBUTION_20260515_ZERO_ANOMALY",
+    "CLEAN_LANDING_EXPERIMENT_RECOMMENDED",
+    "NEW_ACCOUNT_SECOND_PIXEL_HOLD"
+  ]
+}

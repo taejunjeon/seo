@@ -1,0 +1,15 @@
+{
+  "package": "gptconfirm/gpt0516-1-vm-cloud-hammer-root-cause",
+  "created_at_kst": "2026-05-16",
+  "lane": "Green read-only",
+  "documents": [
+    "00-result-report.md",
+    "01-hard-guard-patch.md"
+  ],
+  "external_send": 0,
+  "platform_upload": 0,
+  "operational_db_write": 0,
+  "vm_cloud_deploy_restart": 0,
+  "gtm_publish": 0,
+  "raw_identifier_output": 0
+}

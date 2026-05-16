@@ -1,0 +1,24 @@
+{
+  "package": "gpt0516-3-roas-summary-precompute-design",
+  "created_at_kst": "2026-05-16 14:25",
+  "lane": "Green design only",
+  "decision": "Proceed to local implementation next; VM Cloud deploy requires Yellow approval",
+  "files": [
+    "00-result-report.md",
+    "01-architecture.md",
+    "02-api-contract.md",
+    "03-yellow-deploy-packet.md",
+    "manifest.json"
+  ],
+  "validation": {
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS",
+    "external_send": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "vm_deploy": "not_run"
+  }
+}

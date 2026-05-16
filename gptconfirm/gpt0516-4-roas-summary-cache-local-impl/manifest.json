@@ -1,0 +1,33 @@
+{
+  "package": "gpt0516-4-roas-summary-cache-local-impl",
+  "created_at_kst": "2026-05-16",
+  "lane": "Green local implementation; Yellow required for VM Cloud deploy",
+  "decision": "ROAS summary cache implementation deployed to VM Cloud and postcheck passed",
+  "changed_code": [
+    "backend/src/routes/ads.ts",
+    "backend/src/bootstrap/startBackgroundJobs.ts"
+  ],
+  "files": [
+    "00-result-report.md",
+    "01-implementation.md",
+    "02-yellow-deploy-packet.md",
+    "03-vm-deploy-result.md",
+    "manifest.json"
+  ],
+  "validation": {
+    "backend_typecheck": "PASS",
+    "backend_build": "PASS",
+    "json_parse": "PASS",
+    "wiki_links": "PASS",
+    "harness_preflight": "PASS",
+    "git_diff_check": "PASS",
+    "raw_identifier_scan": "PASS",
+    "external_send": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "vm_deploy": "PASS",
+    "vm_backup": "/home/biocomkr_sns/seo/repo/backend/_roas-summary-cache-deploy-backup-20260516-gpt0516-4",
+    "vm_restart": "PASS",
+    "post_snapshot": "PASS"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "package": "gpt0515-25-ads-manager-attribution-gap",
+  "created_at_kst": "2026-05-16T00:20:00+09:00",
+  "mode": "Incident analytics execution",
+  "lane": "Green read-only",
+  "site": "biocom",
+  "pixel_id": "1283400029487161",
+  "window": "2026-05-15 KST",
+  "verdict": [
+    "ADS_MANAGER_LAG_LIKELY",
+    "META_STRONG_CAPI_OK_ADS_ATTRIBUTION_ZERO",
+    "INSUFFICIENT_API_DUE_RATE_LIMIT"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-ads-action-raw-breakdown.md",
+    "02-today-meta-strong-truth-table.md",
+    "03-adset-optimization-check.md",
+    "04-missing-queue-action.md"
+  ],
+  "safety": {
+    "meta_send": 0,
+    "backfill_send": 0,
+    "vm_cloud_deploy_restart": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0,
+    "telegram_summary_sent": true
+  },
+  "sources": [
+    "Meta Graph API insights read-only",
+    "VM Cloud attribution_ledger read-only",
+    "VM Cloud meta-capi-sends.jsonl read-only",
+    "VM Cloud /api/meta/campaigns/health read-only",
+    "VM Cloud /api/ads/roas read-only"
+  ]
+}

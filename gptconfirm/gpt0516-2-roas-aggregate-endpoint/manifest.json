@@ -1,0 +1,32 @@
+{
+  "package": "gpt0516-2-roas-aggregate-endpoint",
+  "created_at_kst": "2026-05-16",
+  "lane": "Green local patch; Yellow deploy required",
+  "files": [
+    "00-result-report.md",
+    "01-contract.md",
+    "02-deploy-check.md",
+    "manifest.json"
+  ],
+  "code_changes": [
+    "backend/src/routes/ads.ts"
+  ],
+  "validation": {
+    "backend_typecheck": "PASS",
+    "vm_deploy": "PASS",
+    "vm_build": "PASS",
+    "live_roas_summary_smoke": "PASS",
+    "live_funnel_health_cache_regression": "PASS",
+    "external_send": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0
+  },
+  "vm_cloud": {
+    "deployed_files": [
+      "backend/src/routes/ads.ts"
+    ],
+    "backup": "/home/biocomkr_sns/seo/repo/backend/_roas-summary-deploy-backup-20260516-gpt0516-2/ads.ts.before",
+    "seo_backend_pid": 766366,
+    "seo_backend_restart_count": 4154
+  }
+}

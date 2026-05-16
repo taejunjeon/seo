@@ -1,0 +1,38 @@
+{
+  "package": "gpt0515-26-meta-data-source-restriction-impact",
+  "created_at_kst": "2026-05-16 00:53",
+  "lane": "Green read-only",
+  "site": "biocom",
+  "pixel_id": "1283400029487161",
+  "window": "2026-05-15 KST",
+  "verdict": [
+    "DATA_SOURCE_RESTRICTION_PLAUSIBLE_BUT_NOT_PROVEN",
+    "CAPI_SIGNAL_STILL_USABLE_PROVISIONAL",
+    "NEW_ACCOUNT_SECOND_PIXEL_NOT_RECOMMENDED_NOW"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-data-source-category-impact.md",
+    "02-biocom-restriction-checklist.md",
+    "03-ads-purchase-zero-cause-reassessment.md",
+    "04-new-account-second-pixel-decision.md",
+    "05-next-actions.md"
+  ],
+  "forbidden_actions_verified": {
+    "meta_send_or_backfill": 0,
+    "new_ad_account": 0,
+    "second_pixel_insertion": 0,
+    "gtm_publish": 0,
+    "vm_cloud_deploy_or_restart": 0,
+    "operational_db_write_or_import": 0,
+    "raw_identifier_output": 0
+  },
+  "sources": [
+    "gptconfirm/gpt0515-25-ads-manager-attribution-gap",
+    "https://searchengineland.com/meta-ads-restrictions-health-wellness-campaigns-453094",
+    "https://www.facebook.com/business/help/511197658391698",
+    "https://www.facebook.com/business/help/361948878201809?id=188852726110565",
+    "https://storage.googleapis.com/lr-tech-docs-resources/PDFs/Conversions-API-Direct-Integration-Playbook_English.pdf",
+    "https://www.everywhereplus.com/wp-content/uploads/2025/01/Meta-Categories-Guide-Jan-25.pdf"
+  ]
+}
