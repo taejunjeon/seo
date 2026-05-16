@@ -9,6 +9,7 @@
  * - raw identifier (orderId, paymentKey, click id, email, phone, member code) 출력 금지
  */
 
+import { createHash } from "node:crypto";
 import type { AttributionLedgerEntry } from "./attribution";
 import { resolveLedgerRevenueValue } from "./attribution";
 import type { MetaCapiSendLogRecord } from "./metaCapi";
@@ -36,6 +37,23 @@ export type FunnelHealthSource =
   | "no_ledger_match";
 
 export type FunnelHealthStatusLabel = "정상" | "주의" | "긴급";
+
+export type FunnelHealthActionQueueDetail = {
+  safe_ref: string;
+  logged_at_kst: string;
+  amount_krw: number;
+  payment_method: FunnelHealthPaymentMethod;
+  payment_method_label: string;
+  source_bucket: FunnelHealthSource;
+  source_label: string;
+  evidence: string[];
+  confirmed_basis: string;
+  capi_status: "missing_send_log_match" | "not_applicable";
+  missing_reason: string;
+  recommended_action: string;
+  age_minutes: number | null;
+  confidence: "high" | "medium" | "low";
+};
 
 export type FunnelHealthLandingEvidence = {
   source: "VM Cloud site_landing_ledger";
@@ -336,6 +354,106 @@ const eventsReceivedCount = (row: MetaCapiSendLogRecord): number => {
   return classifyCapiSuccess(row) ? 1 : 0;
 };
 
+const safeRefForLedgerEntry = (entry: AttributionLedgerEntry): string => {
+  const joinKey = ledgerJoinKey(entry);
+  const fallback = [
+    entry.loggedAt,
+    entry.touchpoint,
+    entry.captureMode,
+    resolveLedgerRevenueValue(entry),
+    entry.checkoutId,
+    entry.customerKey,
+  ].join("\u001f");
+  const digest = createHash("sha256")
+    .update(joinKey || fallback, "utf8")
+    .digest("hex")
+    .slice(0, 10);
+  return `safe_${digest}`;
+};
+
+const sourceLabelKo = (source: FunnelHealthSource): string => {
+  const labels: Record<FunnelHealthSource, string> = {
+    all: "전체",
+    meta: "Meta 유입 증거 있음",
+    google: "Google 유입 증거 있음",
+    naver: "Naver 유입 증거 있음",
+    organic: "자연/추천 유입",
+    direct: "직접/내부 유입",
+    utm_present: "UTM은 있으나 채널 미분류",
+    utm_missing: "UTM 없음",
+    no_ledger_match: "원장 매칭 없음",
+  };
+  return labels[source] ?? source;
+};
+
+const paymentMethodLabelKo = (method: FunnelHealthPaymentMethod): string => {
+  const labels: Record<FunnelHealthPaymentMethod, string> = {
+    all: "전체",
+    card: "카드",
+    npay: "NPay",
+    virtual_account: "가상계좌",
+    bank_transfer: "무통장/계좌이체",
+    other: "기타/불명",
+  };
+  return labels[method] ?? method;
+};
+
+const metadataString = (entry: AttributionLedgerEntry, keys: string[]): string => {
+  for (const key of keys) {
+    const value = entry.metadata?.[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+};
+
+const metadataPresent = (entry: AttributionLedgerEntry, keys: string[]): boolean =>
+  Boolean(metadataString(entry, keys));
+
+const evidenceLabelsForEntry = (entry: AttributionLedgerEntry): string[] => {
+  const labels: string[] = [];
+  if (entry.fbclid) labels.push("fbclid 있음");
+  if (metadataPresent(entry, ["fbc", "_fbc"])) labels.push("fbc 있음");
+  if (metadataPresent(entry, ["fbp", "_fbp"])) labels.push("fbp 있음");
+  if (entry.gclid) labels.push("gclid 있음");
+  if (entry.ttclid) labels.push("ttclid 있음");
+  if (entry.utmSource || entry.utmMedium || entry.utmCampaign) labels.push("UTM 있음");
+  if (entry.referrer) labels.push("referrer 있음");
+  if (entry.approvedAt) labels.push("결제완료 시각 있음");
+  if (entry.paymentKey) labels.push("결제키 있음(값 숨김)");
+  if (entry.orderId) labels.push("주문키 있음(값 숨김)");
+  return labels.length > 0 ? labels : ["광고/유입 증거 없음"];
+};
+
+const actionDetailForConfirmedNoCapi = (
+  entry: AttributionLedgerEntry,
+  asOf: Date,
+): FunnelHealthActionQueueDetail => {
+  const loggedAtMs = Date.parse(entry.loggedAt);
+  const ageMinutes = Number.isFinite(loggedAtMs)
+    ? Math.max(0, Math.round((asOf.getTime() - loggedAtMs) / 60000))
+    : null;
+  const source = classifySource(entry);
+  const paymentMethod = classifyPaymentMethod(entry);
+  return {
+    safe_ref: safeRefForLedgerEntry(entry),
+    logged_at_kst: Number.isFinite(loggedAtMs) ? toKst(new Date(loggedAtMs)) : "불명",
+    amount_krw: Math.round(resolveLedgerRevenueValue(entry)),
+    payment_method: paymentMethod,
+    payment_method_label: paymentMethodLabelKo(paymentMethod),
+    source_bucket: source,
+    source_label: sourceLabelKo(source),
+    evidence: evidenceLabelsForEntry(entry),
+    confirmed_basis: entry.approvedAt
+      ? "VM Cloud attribution_ledger의 payment_success confirmed + 결제완료 시각 있음"
+      : "VM Cloud attribution_ledger의 payment_success confirmed",
+    capi_status: "missing_send_log_match",
+    missing_reason: "같은 결제/주문 safe key로 성공한 Meta CAPI Purchase send log가 없음",
+    recommended_action: "value guard와 duplicate를 확인한 뒤 backfill 후보로 분류",
+    age_minutes: ageMinutes,
+    confidence: "high",
+  };
+};
+
 export type FunnelHealthResult = {
   ok: true;
   site: FunnelHealthSite;
@@ -434,6 +552,7 @@ export type FunnelHealthResult = {
     }>;
   };
   action_queue: Array<{
+    key: string;
     priority: "critical" | "high" | "medium" | "watch";
     title: string;
     detail: string;
@@ -441,6 +560,7 @@ export type FunnelHealthResult = {
     count: number;
     amount_krw: number;
     explanation_ko: string;
+    details?: FunnelHealthActionQueueDetail[];
   }>;
   capi_attribution_join: {
     window_label: string;
@@ -1122,11 +1242,19 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
   // Unmatched reasons (drilldown)
   type ReasonAcc = { count: number; amount: number };
   const reasonMap = new Map<string, ReasonAcc>();
+  const reasonDetails = new Map<string, FunnelHealthActionQueueDetail[]>();
   const bump = (key: string, amount: number) => {
     const cur = reasonMap.get(key) ?? { count: 0, amount: 0 };
     cur.count += 1;
     cur.amount += amount;
     reasonMap.set(key, cur);
+  };
+  const rememberReasonDetail = (key: string, detail: FunnelHealthActionQueueDetail) => {
+    const rows = reasonDetails.get(key) ?? [];
+    if (rows.length < 50) {
+      rows.push(detail);
+      reasonDetails.set(key, rows);
+    }
   };
 
   for (const entry of ledger) {
@@ -1164,6 +1292,7 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     if (joinKey && successfulCapiOrderHints.has(joinKey)) continue;
     if (!joinKey) continue;
     bump("confirmed_but_no_capi_send", resolveLedgerRevenueValue(entry));
+    rememberReasonDetail("confirmed_but_no_capi_send", actionDetailForConfirmedNoCapi(entry, asOf));
   }
   // payment_page_seen 만 있고 confirmed 가 없는 경우 = payment_decision_timeout/canceled 가능성
   const ledgerOrderConfirmed = new Set<string>();
@@ -1465,7 +1594,14 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
   // === action_queue ===
   const actionQueue: FunnelHealthResult["action_queue"] = [];
   for (const item of unresolvedItems) {
+    const details = (reasonDetails.get(item.key) ?? [])
+      .slice()
+      .sort((a, b) => {
+        if (b.amount_krw !== a.amount_krw) return b.amount_krw - a.amount_krw;
+        return (b.age_minutes ?? 0) - (a.age_minutes ?? 0);
+      });
     actionQueue.push({
+      key: item.key,
       priority: item.priority,
       title: item.human_label,
       detail: `${item.count.toLocaleString()}건${item.amount_krw > 0 ? ` · 추정 ₩${Math.round(item.amount_krw).toLocaleString()}` : ""}`,
@@ -1473,11 +1609,13 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
       count: item.count,
       amount_krw: item.amount_krw,
       explanation_ko: item.explanation_ko,
+      details: details.length > 0 ? details : undefined,
     });
   }
   // browser_purchase 0 은 watch 로 항상 추가 (server_capi 활성 시)
   if (serverCapiActive && !browserPurchaseActive) {
     actionQueue.push({
+      key: "browser_purchase_missing_watch",
       priority: "watch",
       title: "Browser Purchase 0 (보조 신호 누락)",
       detail: "Server CAPI 정상 전송 중이라 즉시 조치 불요",

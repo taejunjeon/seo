@@ -86,6 +86,7 @@ type FunnelHealth = {
     }>;
   };
   action_queue: Array<{
+    key: string;
     priority: "critical" | "high" | "medium" | "watch";
     title: string;
     detail: string;
@@ -93,6 +94,22 @@ type FunnelHealth = {
     count: number;
     amount_krw: number;
     explanation_ko: string;
+    details?: Array<{
+      safe_ref: string;
+      logged_at_kst: string;
+      amount_krw: number;
+      payment_method: string;
+      payment_method_label: string;
+      source_bucket: string;
+      source_label: string;
+      evidence: string[];
+      confirmed_basis: string;
+      capi_status: string;
+      missing_reason: string;
+      recommended_action: string;
+      age_minutes: number | null;
+      confidence: "high" | "medium" | "low";
+    }>;
   }>;
   capi_attribution_join: {
     window_label: string;
@@ -447,6 +464,7 @@ export default function ConversionFunnelPage() {
   const [forceRefreshTick, setForceRefreshTick] = useState<number>(Date.now());
   const [forceRefreshFlag, setForceRefreshFlag] = useState<number>(0);
   const [funnelView, setFunnelView] = useState<"all_traffic" | "paid_attributed">("all_traffic");
+  const [expandedActionKey, setExpandedActionKey] = useState<string | null>(null);
 
   // Meta ROAS 카드 — 기본은 어제 사전 계산값, 당일은 사용자 버튼으로만 조회.
   type MetaRoasPreset = "today" | "yesterday" | "last_7d";
@@ -1399,15 +1417,30 @@ export default function ConversionFunnelPage() {
                     watch: "모니터",
                   };
                   const easyNext = humanizeActionText(a.next_action);
+                  const actionKey = a.key || `${a.title}-${i}`;
+                  const hasDetails = Array.isArray(a.details) && a.details.length > 0;
+                  const isExpanded = expandedActionKey === actionKey;
                   return (
-                    <div key={i} className={`${styles.actionItem} ${styles[`prio_${a.priority}`]}`}>
-                      <div className={styles.actionHead}>
+                    <div key={actionKey} className={`${styles.actionItem} ${styles[`prio_${a.priority}`]}`}>
+                      <button
+                        type="button"
+                        className={`${styles.actionHead} ${styles.actionHeadButton}`}
+                        onClick={() => hasDetails && setExpandedActionKey(isExpanded ? null : actionKey)}
+                        aria-expanded={hasDetails ? isExpanded : undefined}
+                        disabled={!hasDetails}
+                        title={hasDetails ? "상세 row 펼치기" : "이 항목은 상세 row가 없습니다"}
+                      >
                         <span className={`${styles.actionBadge} ${styles[`badge_${a.priority}`]}`}>
                           {prioLabel[a.priority] ?? a.priority.toUpperCase()}
                         </span>
                         <strong>{a.title}</strong>
                         <span className={styles.actionDetail}>{a.detail}</span>
-                      </div>
+                        {hasDetails && (
+                          <span className={styles.actionExpandHint}>
+                            {isExpanded ? "상세 접기" : `${a.details?.length ?? 0}건 상세 보기`}
+                          </span>
+                        )}
+                      </button>
                       <div className={styles.actionWhy}>
                         <strong>이게 왜 중요한지</strong>: {a.explanation_ko}
                       </div>
@@ -1417,6 +1450,48 @@ export default function ConversionFunnelPage() {
                       {easyNext !== a.next_action && (
                         <div className={styles.actionNextTechnical}>
                           <strong>원문 (기술 용어)</strong>: <code>{a.next_action}</code>
+                        </div>
+                      )}
+                      {hasDetails && isExpanded && (
+                        <div className={styles.actionDetailPanel}>
+                          <div className={styles.actionDetailPanelHead}>
+                            <strong>상세 row</strong>
+                            <span>
+                              raw 주문번호·결제키·click id는 숨기고 safe_ref만 표시합니다. 기준: VM Cloud attribution_ledger + Meta CAPI send log.
+                            </span>
+                          </div>
+                          <div className={styles.actionDetailTableWrap}>
+                            <table className={`${styles.table} ${styles.tableSmall}`}>
+                              <thead>
+                                <tr>
+                                  <th>safe_ref</th>
+                                  <th>결제완료 시각</th>
+                                  <th className={styles.num}>금액</th>
+                                  <th>결제수단</th>
+                                  <th>유입 근거</th>
+                                  <th>증거</th>
+                                  <th>확정 근거</th>
+                                  <th>왜 빠졌나</th>
+                                  <th>다음 조치</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {a.details?.map((row, detailIndex) => (
+                                  <tr key={`${row.safe_ref}-${row.logged_at_kst}-${detailIndex}`}>
+                                    <td><code>{row.safe_ref}</code></td>
+                                    <td>{row.logged_at_kst}</td>
+                                    <td className={styles.num}>{fmtKRW(row.amount_krw)}</td>
+                                    <td>{row.payment_method_label}</td>
+                                    <td>{row.source_label}</td>
+                                    <td>{row.evidence.join(" · ")}</td>
+                                    <td>{row.confirmed_basis}</td>
+                                    <td>{row.missing_reason}</td>
+                                    <td>{row.recommended_action}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       )}
                     </div>

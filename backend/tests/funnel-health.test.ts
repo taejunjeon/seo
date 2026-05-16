@@ -215,3 +215,48 @@ test("funnel health uses site_landing_ledger evidence for landing step", () => {
   assert.equal(report.utm_breakdown.find((row) => row.channel === "direct")?.landing_count, 10);
   assert.equal(report.series.find((row) => row.date === "2026-05-15")?.landing, 100);
 });
+
+test("funnel health exposes safe details for confirmed purchases missing Meta CAPI send", () => {
+  const report = buildFunnelHealthReport({
+    ledgerEntries: [
+      entry({
+        orderId: "raw-order-should-not-leak",
+        paymentKey: "raw-payment-should-not-leak",
+        loggedAt: "2026-05-15T01:00:00.000Z",
+        approvedAt: "2026-05-15T01:00:00.000Z",
+        landing: "https://biocom.kr/shop_payment_complete",
+        utmSource: "meta",
+        fbclid: "raw-fbclid-should-not-leak",
+        metadata: {
+          site: "biocom",
+          value: 1000,
+          fbc: "raw-fbc-should-not-leak",
+          fbp: "raw-fbp-should-not-leak",
+        },
+      }),
+    ],
+    capiLogs: [],
+    site: "biocom",
+    window: "7d",
+    granularity: "day",
+    paymentMethod: "all",
+    source: "all",
+    asOf: new Date("2026-05-15T02:00:00.000Z"),
+  });
+
+  const item = report.action_queue.find((row) => row.key === "confirmed_but_no_capi_send");
+  assert.ok(item);
+  assert.equal(item.count, 1);
+  assert.equal(item.details?.length, 1);
+
+  const detail = item.details?.[0];
+  assert.ok(detail);
+  assert.match(detail.safe_ref, /^safe_[a-f0-9]{10}$/);
+  assert.equal(detail.source_bucket, "meta");
+  assert.equal(detail.amount_krw, 1000);
+
+  const serialized = JSON.stringify(detail);
+  assert.equal(serialized.includes("raw-order-should-not-leak"), false);
+  assert.equal(serialized.includes("raw-payment-should-not-leak"), false);
+  assert.equal(serialized.includes("raw-fbclid-should-not-leak"), false);
+});
