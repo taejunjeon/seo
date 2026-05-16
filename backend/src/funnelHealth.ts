@@ -37,10 +37,37 @@ export type FunnelHealthSource =
 
 export type FunnelHealthStatusLabel = "정상" | "주의" | "긴급";
 
+export type FunnelHealthLandingEvidence = {
+  source: "VM Cloud site_landing_ledger";
+  unit: "first_party_landing_row";
+  total: number;
+  byFunnelSource: Partial<Record<FunnelHealthSource, number>>;
+  series: Array<{
+    date: string;
+    landing: number;
+    byFunnelSource?: Partial<Record<FunnelHealthSource, number>>;
+  }>;
+  cartPageViews?: {
+    source: "VM Cloud site_landing_ledger";
+    unit: "first_party_cart_page_landing_row";
+    pathPattern: "/shop_cart";
+    total: number;
+    byFunnelSource: Partial<Record<FunnelHealthSource, number>>;
+    series?: Array<{
+      date: string;
+      cart_page_view: number;
+      byFunnelSource?: Partial<Record<FunnelHealthSource, number>>;
+    }>;
+    caveat: string;
+  };
+  caveat: string;
+};
+
 export type FunnelHealthInput = {
   ledgerEntries: AttributionLedgerEntry[];
   capiLogs: MetaCapiSendLogRecord[];
   paymentDecisionRecords?: PaymentDecisionRecord[];
+  siteLandingEvidence?: FunnelHealthLandingEvidence;
   site: FunnelHealthSite;
   window: FunnelHealthWindow;
   granularity: FunnelHealthGranularity;
@@ -59,7 +86,7 @@ type FunnelStepKey =
   | "meta_capi_success"
   | "browser_purchase";
 
-const WINDOW_HOURS: Record<FunnelHealthWindow, number> = {
+export const FUNNEL_HEALTH_WINDOW_HOURS: Record<FunnelHealthWindow, number> = {
   "1d": 24,
   "7d": 24 * 7,
   "14d": 24 * 14,
@@ -75,7 +102,7 @@ const WINDOW_LABEL: Record<FunnelHealthWindow, string> = {
 
 const FUNNEL_STEP_LABELS: Record<FunnelStepKey, string> = {
   landing: "유입",
-  add_to_cart: "장바구니",
+  add_to_cart: "장바구니 페이지 진입",
   payment_started: "결제 시작",
   payment_method_selected: "결제수단 선택",
   confirmed_purchase: "실제 결제완료",
@@ -324,6 +351,26 @@ export type FunnelHealthResult = {
     confidence: "low" | "medium" | "medium_high" | "high";
     latest_logged_at_kst: string | null;
     latest_logged_age_hours: number | null;
+  };
+  site_landing_evidence: {
+    applied_to_funnel_landing: boolean;
+    source: string;
+    unit: string;
+    total: number;
+    selected_count: number;
+    attribution_ledger_marketing_intent_count: number;
+    by_funnel_source: Partial<Record<FunnelHealthSource, number>>;
+    cart_page_views?: {
+      source: string;
+      unit: string;
+      path_pattern: string;
+      total: number;
+      selected_count: number;
+      attribution_ledger_add_to_cart_count: number;
+      by_funnel_source: Partial<Record<FunnelHealthSource, number>>;
+      caveat: string;
+    };
+    caveat: string;
   };
   metric_contract: {
     site: FunnelHealthSite;
@@ -637,7 +684,7 @@ const determineStatus = (params: {
 export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthResult => {
   const asOf = input.asOf ?? new Date();
   const windowEndMs = asOf.getTime();
-  const windowStartMs = windowEndMs - WINDOW_HOURS[input.window] * 60 * 60 * 1000;
+  const windowStartMs = windowEndMs - FUNNEL_HEALTH_WINDOW_HOURS[input.window] * 60 * 60 * 1000;
   const sitePixelIds = SITE_PIXEL_IDS[input.site] ?? [];
 
   const ledger = input.ledgerEntries.filter((entry) => {
@@ -708,13 +755,13 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
   let confirmedRevenue = 0;
   let confirmedCount = 0;
   let paymentStartedCount = 0;
-  let landingCount = 0;
-  let addToCartCount = 0;
+  let attributionLedgerLandingCount = 0;
+  let attributionLedgerAddToCartCount = 0;
   let addPaymentInfoCount = 0;
 
   for (const entry of ledger) {
-    if (isLandingEntry(entry)) landingCount += 1;
-    if (isAddToCartEntry(entry)) addToCartCount += 1;
+    if (isLandingEntry(entry)) attributionLedgerLandingCount += 1;
+    if (isAddToCartEntry(entry)) attributionLedgerAddToCartCount += 1;
     if (isPaymentStartedEntry(entry)) paymentStartedCount += 1;
     if (isAddPaymentInfoEntry(entry)) addPaymentInfoCount += 1;
     if (isConfirmedPurchaseEntry(entry)) {
@@ -722,6 +769,21 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
       confirmedRevenue += resolveLedgerRevenueValue(entry);
     }
   }
+
+  const siteLandingEvidenceCount =
+    input.siteLandingEvidence
+      ? input.source === "all"
+        ? input.siteLandingEvidence.total
+        : input.siteLandingEvidence.byFunnelSource[input.source] ?? 0
+      : null;
+  const landingCount = siteLandingEvidenceCount ?? attributionLedgerLandingCount;
+  const cartPageViewEvidenceCount =
+    input.siteLandingEvidence?.cartPageViews
+      ? input.source === "all"
+        ? input.siteLandingEvidence.cartPageViews.total
+        : input.siteLandingEvidence.cartPageViews.byFunnelSource[input.source] ?? 0
+      : null;
+  const addToCartCount = cartPageViewEvidenceCount ?? attributionLedgerAddToCartCount;
 
   let capiSuccessCount = 0;
   let capiEventsReceivedTotal = 0;
@@ -931,6 +993,15 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     const b = ensureBucket(key);
     b.meta_capi_success += 1;
   }
+  if (input.siteLandingEvidence) {
+    for (const row of input.siteLandingEvidence.series) {
+      const b = ensureBucket(row.date);
+      b.landing =
+        input.source === "all"
+          ? row.landing
+          : row.byFunnelSource?.[input.source] ?? 0;
+    }
+  }
 
   const series = Array.from(bucketMap.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
@@ -983,6 +1054,21 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
         entry.ttclid ||
         (typeof entry.metadata?.source === "string" && entry.metadata.source.trim());
       if (!hasAttribution) acc.unmatched += 1;
+    }
+  }
+  if (input.siteLandingEvidence) {
+    for (const acc of breakdownMap.values()) {
+      acc.landing = 0;
+    }
+    if (input.source === "all") {
+      for (const channel of channels) {
+        const acc = breakdownMap.get(channel);
+        if (!acc) continue;
+        acc.landing = input.siteLandingEvidence.byFunnelSource[channel] ?? 0;
+      }
+    } else {
+      const acc = breakdownMap.get(input.source);
+      if (acc) acc.landing = input.siteLandingEvidence.byFunnelSource[input.source] ?? 0;
     }
   }
   // CAPI success 는 ledger_entry.touchpoint 별로 매핑
@@ -1227,7 +1313,7 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     isWithinWindow(entry.loggedAt, windowStartMs, windowEndMs),
   ).length;
   const rowsAfterFilters = ledger.length;
-  const isEmpty = rowsAfterFilters === 0;
+  const isEmpty = rowsAfterFilters === 0 && landingCount === 0;
 
   let emptyReason:
     | "no_rows_in_window_but_data_exists_before"
@@ -1235,8 +1321,14 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     | "rows_filtered_out_by_site_or_method"
     | "has_rows"
     | "unknown" = "has_rows";
-  let emptyHuman = "이 기간에 row 가 있어 정상 집계되었습니다.";
-  let emptyNext = "신호가 약한 단계가 있다면 해당 단계의 drilldown 을 확인하세요.";
+  let emptyHuman =
+    rowsAfterFilters === 0 && landingCount > 0
+      ? "landing row 는 있으나 결제/주문 단계 ledger row 는 아직 없습니다."
+      : "이 기간에 row 가 있어 정상 집계되었습니다.";
+  let emptyNext =
+    rowsAfterFilters === 0 && landingCount > 0
+      ? "유입은 잡히므로 결제 시작·결제완료 단계 수집 여부를 확인하세요."
+      : "신호가 약한 단계가 있다면 해당 단계의 drilldown 을 확인하세요.";
   if (isEmpty) {
     if (totalRowsAllTime === 0) {
       emptyReason = "no_rows_anywhere";
@@ -1765,6 +1857,18 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     const joinKey = capiJoinKey(row);
     if (joinKey && bCapiOrders.has(joinKey)) bCapiSuccess += 1;
   }
+  const paidLandingEvidenceCount = input.siteLandingEvidence
+    ? (input.siteLandingEvidence.byFunnelSource.meta ?? 0) +
+      (input.siteLandingEvidence.byFunnelSource.google ?? 0) +
+      (input.siteLandingEvidence.byFunnelSource.naver ?? 0) +
+      (input.siteLandingEvidence.byFunnelSource.utm_present ?? 0)
+    : null;
+  const paidCartPageViewEvidenceCount = input.siteLandingEvidence?.cartPageViews
+    ? (input.siteLandingEvidence.cartPageViews.byFunnelSource.meta ?? 0) +
+      (input.siteLandingEvidence.cartPageViews.byFunnelSource.google ?? 0) +
+      (input.siteLandingEvidence.cartPageViews.byFunnelSource.naver ?? 0) +
+      (input.siteLandingEvidence.cartPageViews.byFunnelSource.utm_present ?? 0)
+    : null;
   const buildSteps = (counts: {
     landing: number;
     add_to_cart: number;
@@ -1783,8 +1887,8 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     { step: "browser_purchase", label: FUNNEL_STEP_LABELS.browser_purchase, count: counts.browser_purchase, rate_from_previous: safeRate(counts.browser_purchase, counts.meta_capi_success), status: counts.confirmed_purchase > 0 && counts.browser_purchase === 0 ? "warning" : "normal" },
   ];
   const paidAttributedSteps = buildSteps({
-    landing: bLanding,
-    add_to_cart: bAddToCart,
+    landing: paidLandingEvidenceCount ?? bLanding,
+    add_to_cart: paidCartPageViewEvidenceCount ?? bAddToCart,
     payment_started: bPaymentStarted,
     payment_method_selected: bAddPaymentInfo,
     confirmed_purchase: bConfirmed,
@@ -1818,12 +1922,38 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     source_filter: input.source,
     checked_at_kst: toKst(asOf),
     source_summary: {
-      primary: "VM Cloud attribution_ledger",
+      primary: input.siteLandingEvidence
+        ? "VM Cloud site_landing_ledger + attribution_ledger"
+        : "VM Cloud attribution_ledger",
       cross_check: ["Meta CAPI send log", "운영DB PAYMENT_COMPLETE (cross-check only)"],
       freshness,
       confidence: confirmedCount > 0 ? "medium_high" : "medium",
       latest_logged_at_kst: latestLoggedAtKst,
       latest_logged_age_hours: latestLoggedAgeHours,
+    },
+    site_landing_evidence: {
+      applied_to_funnel_landing: Boolean(input.siteLandingEvidence),
+      source: input.siteLandingEvidence?.source ?? "VM Cloud attribution_ledger",
+      unit: input.siteLandingEvidence?.unit ?? "marketing_intent_row",
+      total: input.siteLandingEvidence?.total ?? attributionLedgerLandingCount,
+      selected_count: landingCount,
+      attribution_ledger_marketing_intent_count: attributionLedgerLandingCount,
+      by_funnel_source: input.siteLandingEvidence?.byFunnelSource ?? {},
+      cart_page_views: input.siteLandingEvidence?.cartPageViews
+        ? {
+            source: input.siteLandingEvidence.cartPageViews.source,
+            unit: input.siteLandingEvidence.cartPageViews.unit,
+            path_pattern: input.siteLandingEvidence.cartPageViews.pathPattern,
+            total: input.siteLandingEvidence.cartPageViews.total,
+            selected_count: addToCartCount,
+            attribution_ledger_add_to_cart_count: attributionLedgerAddToCartCount,
+            by_funnel_source: input.siteLandingEvidence.cartPageViews.byFunnelSource,
+            caveat: input.siteLandingEvidence.cartPageViews.caveat,
+          }
+        : undefined,
+      caveat:
+        input.siteLandingEvidence?.caveat ??
+        "site_landing_ledger evidence가 주입되지 않아 legacy marketing_intent row만 landing으로 사용했습니다.",
     },
     metric_contract: {
       site: input.site,
@@ -1832,6 +1962,32 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
       window: input.window,
       last_updated_at: toKst(asOf),
       metrics: {
+        landing: {
+          source: input.siteLandingEvidence
+            ? "VM Cloud site_landing_ledger"
+            : "VM Cloud attribution_ledger marketing_intent fallback",
+          unit: input.siteLandingEvidence ? "first-party landing row" : "marketing_intent event row",
+          window: WINDOW_LABEL[input.window],
+          site: input.site,
+          pixel_id: null,
+          caveat: input.siteLandingEvidence
+            ? "Meta/Google/Naver가 세는 클릭수가 아니라, VM Cloud가 첫 방문/랜딩 단계에서 받은 자체 landing row입니다."
+            : "site_landing_ledger 주입이 없어 landing이 과소 집계될 수 있습니다.",
+        },
+        cart_page_view: {
+          source: input.siteLandingEvidence?.cartPageViews
+            ? "VM Cloud site_landing_ledger landing_path=/shop_cart"
+            : "VM Cloud attribution_ledger browser event fallback",
+          unit: input.siteLandingEvidence?.cartPageViews
+            ? "first-party cart page landing row"
+            : "AddToCart/ViewContent event row",
+          window: WINDOW_LABEL[input.window],
+          site: input.site,
+          pixel_id: null,
+          caveat: input.siteLandingEvidence?.cartPageViews
+            ? "장바구니 담기 클릭이 아니라 /shop_cart 페이지 진입입니다. 아임웹/GTM 수정 없이 VM Cloud가 이미 받은 landing row를 사용합니다."
+            : "site_landing_ledger /shop_cart 증거가 없으면 legacy event row만 fallback으로 씁니다.",
+        },
         vm_order_signals: {
           source: "VM Cloud attribution_ledger",
           unit: "event row",

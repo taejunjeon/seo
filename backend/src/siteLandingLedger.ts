@@ -529,6 +529,252 @@ export type SiteLandingSummary = {
   };
 };
 
+export type SiteLandingFunnelEvidence = {
+  source: "VM Cloud site_landing_ledger";
+  unit: "first_party_landing_row";
+  total: number;
+  byFunnelSource: Record<string, number>;
+  series: Array<{ date: string; landing: number; byFunnelSource: Record<string, number> }>;
+  cartPageViews: {
+    source: "VM Cloud site_landing_ledger";
+    unit: "first_party_cart_page_landing_row";
+    pathPattern: "/shop_cart";
+    total: number;
+    byFunnelSource: Record<string, number>;
+    series: Array<{ date: string; cart_page_view: number; byFunnelSource: Record<string, number> }>;
+    caveat: string;
+  };
+  caveat: string;
+};
+
+const FUNNEL_SOURCE_KEYS = [
+  "meta",
+  "google",
+  "naver",
+  "organic",
+  "direct",
+  "utm_present",
+  "utm_missing",
+  "no_ledger_match",
+] as const;
+
+const emptyFunnelSourceCounts = (): Record<string, number> =>
+  Object.fromEntries(FUNNEL_SOURCE_KEYS.map((key) => [key, 0]));
+
+const CART_PAGE_WHERE_SQL =
+  "(landing_path = '/shop_cart' OR landing_path LIKE '/shop_cart/%' OR landing_url LIKE '%/shop_cart%')";
+
+const classifyLandingFunnelSource = (params: {
+  channelClassified: string;
+  sourceBreakdown: string;
+  utmSource: string;
+  utmMedium: string;
+}): string => {
+  const channel = params.channelClassified.toLowerCase();
+  const source = params.sourceBreakdown.toLowerCase();
+  const utmSource = params.utmSource.toLowerCase();
+  const utmMedium = params.utmMedium.toLowerCase();
+  const combined = `${source} ${utmSource} ${utmMedium}`;
+
+  if (
+    combined.includes("meta") ||
+    combined.includes("facebook") ||
+    combined.includes("instagram") ||
+    source === "ig"
+  ) {
+    return "meta";
+  }
+  if (combined.includes("google")) return "google";
+  if (combined.includes("naver")) return "naver";
+  if (channel === "organic_search" || channel === "organic_social") return "organic";
+  if (channel === "direct" || channel === "self_internal") return "direct";
+  if (utmSource || utmMedium || channel === "paid_search" || channel === "paid_social" || channel === "referral") {
+    return "utm_present";
+  }
+  return "utm_missing";
+};
+
+export const summarizeSiteLandingFunnelEvidence = (
+  site: SiteKey | "all_sites",
+  windowHours = 24,
+): SiteLandingFunnelEvidence => {
+  const db = getCrmDb();
+  ensureTable(db);
+  const sinceIso = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
+  const whereSql = site === "all_sites" ? "landed_at >= ?" : "site = ? AND landed_at >= ?";
+  const params: Array<string | number> = site === "all_sites" ? [sinceIso] : [site, sinceIso];
+
+  const totalRow = db
+    .prepare(`SELECT COUNT(*) AS n FROM ${TABLE} WHERE ${whereSql}`)
+    .get(...params) as { n: number };
+
+  const groupedRows = db
+    .prepare(
+      `SELECT channel_classified AS channel, source_breakdown AS source,
+              utm_source AS utmSource, utm_medium AS utmMedium, COUNT(*) AS n
+       FROM ${TABLE}
+       WHERE ${whereSql}
+       GROUP BY channel_classified, source_breakdown, utm_source, utm_medium`,
+    )
+    .all(...params) as Array<{
+      channel: string;
+      source: string;
+      utmSource: string;
+      utmMedium: string;
+      n: number;
+    }>;
+
+  const byFunnelSource = emptyFunnelSourceCounts();
+  for (const row of groupedRows) {
+    const key = classifyLandingFunnelSource({
+      channelClassified: row.channel ?? "",
+      sourceBreakdown: row.source ?? "",
+      utmSource: row.utmSource ?? "",
+      utmMedium: row.utmMedium ?? "",
+    });
+    byFunnelSource[key] = (byFunnelSource[key] ?? 0) + Number(row.n);
+  }
+
+  const seriesRows = db
+    .prepare(
+      `SELECT substr(landed_at, 1, 10) AS date, channel_classified AS channel,
+              source_breakdown AS source, utm_source AS utmSource, utm_medium AS utmMedium,
+              COUNT(*) AS n
+       FROM ${TABLE}
+       WHERE ${whereSql}
+       GROUP BY substr(landed_at, 1, 10), channel_classified, source_breakdown, utm_source, utm_medium
+       ORDER BY date ASC`,
+    )
+    .all(...params) as Array<{
+      date: string;
+      channel: string;
+      source: string;
+      utmSource: string;
+      utmMedium: string;
+      n: number;
+    }>;
+
+  const seriesMap = new Map<string, { landing: number; byFunnelSource: Record<string, number> }>();
+  for (const row of seriesRows) {
+    const date = row.date || "";
+    if (!date) continue;
+    let acc = seriesMap.get(date);
+    if (!acc) {
+      acc = { landing: 0, byFunnelSource: emptyFunnelSourceCounts() };
+      seriesMap.set(date, acc);
+    }
+    const n = Number(row.n);
+    const key = classifyLandingFunnelSource({
+      channelClassified: row.channel ?? "",
+      sourceBreakdown: row.source ?? "",
+      utmSource: row.utmSource ?? "",
+      utmMedium: row.utmMedium ?? "",
+    });
+    acc.landing += n;
+    acc.byFunnelSource[key] = (acc.byFunnelSource[key] ?? 0) + n;
+  }
+
+  const cartTotalRow = db
+    .prepare(`SELECT COUNT(*) AS n FROM ${TABLE} WHERE ${whereSql} AND ${CART_PAGE_WHERE_SQL}`)
+    .get(...params) as { n: number };
+
+  const cartGroupedRows = db
+    .prepare(
+      `SELECT channel_classified AS channel, source_breakdown AS source,
+              utm_source AS utmSource, utm_medium AS utmMedium, COUNT(*) AS n
+       FROM ${TABLE}
+       WHERE ${whereSql} AND ${CART_PAGE_WHERE_SQL}
+       GROUP BY channel_classified, source_breakdown, utm_source, utm_medium`,
+    )
+    .all(...params) as Array<{
+      channel: string;
+      source: string;
+      utmSource: string;
+      utmMedium: string;
+      n: number;
+    }>;
+
+  const cartByFunnelSource = emptyFunnelSourceCounts();
+  for (const row of cartGroupedRows) {
+    const key = classifyLandingFunnelSource({
+      channelClassified: row.channel ?? "",
+      sourceBreakdown: row.source ?? "",
+      utmSource: row.utmSource ?? "",
+      utmMedium: row.utmMedium ?? "",
+    });
+    cartByFunnelSource[key] = (cartByFunnelSource[key] ?? 0) + Number(row.n);
+  }
+
+  const cartSeriesRows = db
+    .prepare(
+      `SELECT substr(landed_at, 1, 10) AS date, channel_classified AS channel,
+              source_breakdown AS source, utm_source AS utmSource, utm_medium AS utmMedium,
+              COUNT(*) AS n
+       FROM ${TABLE}
+       WHERE ${whereSql} AND ${CART_PAGE_WHERE_SQL}
+       GROUP BY substr(landed_at, 1, 10), channel_classified, source_breakdown, utm_source, utm_medium
+       ORDER BY date ASC`,
+    )
+    .all(...params) as Array<{
+      date: string;
+      channel: string;
+      source: string;
+      utmSource: string;
+      utmMedium: string;
+      n: number;
+    }>;
+
+  const cartSeriesMap = new Map<string, { cart_page_view: number; byFunnelSource: Record<string, number> }>();
+  for (const row of cartSeriesRows) {
+    const date = row.date || "";
+    if (!date) continue;
+    let acc = cartSeriesMap.get(date);
+    if (!acc) {
+      acc = { cart_page_view: 0, byFunnelSource: emptyFunnelSourceCounts() };
+      cartSeriesMap.set(date, acc);
+    }
+    const n = Number(row.n);
+    const key = classifyLandingFunnelSource({
+      channelClassified: row.channel ?? "",
+      sourceBreakdown: row.source ?? "",
+      utmSource: row.utmSource ?? "",
+      utmMedium: row.utmMedium ?? "",
+    });
+    acc.cart_page_view += n;
+    acc.byFunnelSource[key] = (acc.byFunnelSource[key] ?? 0) + n;
+  }
+
+  return {
+    source: "VM Cloud site_landing_ledger",
+    unit: "first_party_landing_row",
+    total: Number(totalRow.n),
+    byFunnelSource,
+    series: Array.from(seriesMap.entries()).map(([date, acc]) => ({
+      date,
+      landing: acc.landing,
+      byFunnelSource: acc.byFunnelSource,
+    })),
+    cartPageViews: {
+      source: "VM Cloud site_landing_ledger",
+      unit: "first_party_cart_page_landing_row",
+      pathPattern: "/shop_cart",
+      total: Number(cartTotalRow.n),
+      byFunnelSource: cartByFunnelSource,
+      series: Array.from(cartSeriesMap.entries()).map(([date, acc]) => ({
+        date,
+        cart_page_view: acc.cart_page_view,
+        byFunnelSource: acc.byFunnelSource,
+      })),
+      caveat:
+        "장바구니 담기 클릭이 아니라 VM Cloud site_landing_ledger에 남은 /shop_cart 페이지 진입 row입니다. " +
+        "아임웹/GTM/Meta Pixel 코드를 추가로 바꾸지 않고 관측 가능한 장바구니 단계입니다.",
+    },
+    caveat:
+      "Meta/Google/Naver 플랫폼 클릭수가 아니라 VM Cloud가 자체 수집한 first-party landing row입니다. " +
+      "광고 플랫폼 수치와 직접 동일해야 하는 값은 아니며, 퍼널의 첫 단계 분모로 사용합니다.",
+  };
+};
+
 export const summarizeSiteLanding = (
   site: SiteKey,
   windowHours = 24,

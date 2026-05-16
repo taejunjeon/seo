@@ -121,7 +121,10 @@ function qs(params: Record<string, string | number | undefined | null>): string 
 export default function CallpricePage() {
   /* ── 필터 상태 ── */
   const [startDate, setStartDate] = useState("2024-04-01");
-  const [endDate, setEndDate] = useState("2026-03-27");
+  // default end_date = 오늘 KST. backend precompute worker 도 같은 default 를 미리 계산해 cache hit 보장.
+  const [endDate, setEndDate] = useState(() =>
+    new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  );
   const [maturityDays, setMaturityDays] = useState(90);
   const [baselineScope, setBaselineScope] = useState("global_non_consultation");
   const [manager, setManager] = useState("");

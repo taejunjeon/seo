@@ -135,3 +135,83 @@ test("funnel health filters Meta CAPI by site pixel and keeps all_sites separate
   assert.equal(allSites.kpis.meta_capi_success.count, 2);
   assert.equal(allSites.meta_capi_breakdown.capi_site_filter.all_sites_mode, true);
 });
+
+test("funnel health uses site_landing_ledger evidence for landing step", () => {
+  const report = buildFunnelHealthReport({
+    ledgerEntries: [
+      entry({
+        touchpoint: "marketing_intent",
+        paymentStatus: "pending",
+        loggedAt: "2026-05-15T01:00:00.000Z",
+        metadata: { site: "biocom" },
+      }),
+      entry({
+        touchpoint: "checkout_started",
+        paymentStatus: "pending",
+        loggedAt: "2026-05-15T01:10:00.000Z",
+        metadata: { site: "biocom" },
+      }),
+    ],
+    capiLogs: [],
+    siteLandingEvidence: {
+      source: "VM Cloud site_landing_ledger",
+      unit: "first_party_landing_row",
+      total: 100,
+      byFunnelSource: {
+        meta: 40,
+        google: 50,
+        direct: 10,
+      },
+      series: [
+        {
+          date: "2026-05-15",
+          landing: 100,
+          byFunnelSource: {
+            meta: 40,
+            google: 50,
+            direct: 10,
+          },
+        },
+      ],
+      cartPageViews: {
+        source: "VM Cloud site_landing_ledger",
+        unit: "first_party_cart_page_landing_row",
+        pathPattern: "/shop_cart",
+        total: 7,
+        byFunnelSource: {
+          meta: 3,
+          google: 4,
+        },
+        series: [
+          {
+            date: "2026-05-15",
+            cart_page_view: 7,
+            byFunnelSource: {
+              meta: 3,
+              google: 4,
+            },
+          },
+        ],
+        caveat: "test cart page evidence",
+      },
+      caveat: "test evidence",
+    },
+    site: "biocom",
+    window: "7d",
+    granularity: "day",
+    paymentMethod: "all",
+    source: "all",
+    asOf: new Date("2026-05-15T02:00:00.000Z"),
+  });
+
+  assert.equal(report.funnel.find((step) => step.step === "landing")?.count, 100);
+  assert.equal(report.funnel.find((step) => step.step === "add_to_cart")?.label, "장바구니 페이지 진입");
+  assert.equal(report.funnel.find((step) => step.step === "add_to_cart")?.count, 7);
+  assert.equal(report.site_landing_evidence.applied_to_funnel_landing, true);
+  assert.equal(report.site_landing_evidence.cart_page_views?.total, 7);
+  assert.equal(report.site_landing_evidence.attribution_ledger_marketing_intent_count, 1);
+  assert.equal(report.utm_breakdown.find((row) => row.channel === "meta")?.landing_count, 40);
+  assert.equal(report.utm_breakdown.find((row) => row.channel === "google")?.landing_count, 50);
+  assert.equal(report.utm_breakdown.find((row) => row.channel === "direct")?.landing_count, 10);
+  assert.equal(report.series.find((row) => row.date === "2026-05-15")?.landing, 100);
+});

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import GlobalNav from "@/components/common/GlobalNav";
 import styles from "./page.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
@@ -9,6 +10,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020"
 const META_ACCOUNT_BY_SITE: Record<string, string> = {
   biocom: "act_3138805896402376",
   thecleancoffee: "act_654671961007474",
+};
+
+// site 한글 라벨 단일 진실 — 화면 곳곳에서 호출
+const siteLabelKo = (site: string): string => {
+  if (site === "biocom") return "바이오컴";
+  if (site === "thecleancoffee") return "더클린커피";
+  if (site === "all_sites") return "전체 (all_sites · pixel 합산)";
+  return site;
 };
 
 type FunnelStepKey =
@@ -177,6 +186,14 @@ type FunnelHealth = {
         caveat: string;
       }
     >;
+  };
+  cache?: {
+    cached: boolean;
+    cached_at_kst: string | null;
+    next_refresh_at_kst: string | null;
+    generation_ms: number;
+    staleness_ms: number;
+    source: string;
   };
   funnel: Array<{
     step: FunnelStepKey;
@@ -424,9 +441,24 @@ export default function ConversionFunnelPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedStep, setExpandedStep] = useState<FunnelStepKey | null>(null);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
+  // Option B: 강제 새로고침 — cache miss 유도. 연타 방지 위해 5분 cooldown.
+  const [forceRefreshCooldownMs, setForceRefreshCooldownMs] = useState<number>(0);
+  const [forceRefreshTick, setForceRefreshTick] = useState<number>(Date.now());
+  const [forceRefreshFlag, setForceRefreshFlag] = useState<number>(0);
   const [funnelView, setFunnelView] = useState<"all_traffic" | "paid_attributed">("all_traffic");
 
-  // Meta ROAS 카드 3종 (today / yesterday / last_7d) — Ads Manager source
+  // Meta ROAS 카드 — 기본은 어제 사전 계산값, 당일은 사용자 버튼으로만 조회.
+  type MetaRoasPreset = "today" | "yesterday" | "last_7d";
+  type MetaRoasError = {
+    error: string;
+    status?: number;
+    endpoint?: string;
+    date_preset?: string;
+    account_id_suffix?: string;
+    timestamp?: string;
+    response_message?: string;
+  };
   type MetaRoasSummary = {
     spend: number;
     attributedRevenue: number;
@@ -434,11 +466,35 @@ export default function ConversionFunnelPage() {
     orders: number;
     queried_at?: string;
     date_range?: { start_date?: string; end_date?: string };
-  } | { error: string };
+  } | MetaRoasError;
   const [metaRoasToday, setMetaRoasToday] = useState<MetaRoasSummary | null>(null);
   const [metaRoasYesterday, setMetaRoasYesterday] = useState<MetaRoasSummary | null>(null);
-  const [metaRoasLast7d, setMetaRoasLast7d] = useState<MetaRoasSummary | null>(null);
+  const [, setMetaRoasLast7d] = useState<MetaRoasSummary | null>(null);
+  const [metaRoasView, setMetaRoasView] = useState<"yesterday" | "today">("yesterday");
   const [metaRoasLoading, setMetaRoasLoading] = useState(false);
+
+  // v9: 카드 별 보조 상태 — 마지막 성공값 / 실패 카운트 / 쿨다운
+  type RoasSuccessSummary = {
+    spend: number;
+    attributedRevenue: number;
+    roas: number | null;
+    orders: number;
+    queried_at?: string;
+    date_range?: { start_date?: string; end_date?: string };
+    captured_at: string; // 이 success 가 잡힌 시각 (UI 의 "마지막 정상값" 표시용)
+  };
+  type RoasAuxState = {
+    lastSuccess: RoasSuccessSummary | null;
+    failCount: number;
+    cooldownUntilMs: number;
+  };
+  const initialAux: RoasAuxState = { lastSuccess: null, failCount: 0, cooldownUntilMs: 0 };
+  const [metaRoasAux, setMetaRoasAux] = useState<Record<MetaRoasPreset, RoasAuxState>>({
+    today: initialAux,
+    yesterday: initialAux,
+    last_7d: initialAux,
+  });
+  const [cooldownTickMs, setCooldownTickMs] = useState(Date.now());
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState("");
 
@@ -446,6 +502,9 @@ export default function ConversionFunnelPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const requestedSite = site; // closure capture — 응답 시점에 user 가 site 를 바꿨는지 검사용
+    const ac = new AbortController();
+    const hardTimeout = setTimeout(() => ac.abort(), 30000); // 30초 hard timeout
     try {
       const url = new URL(`${API_BASE}/api/attribution/funnel-health`);
       url.searchParams.set("site", site);
@@ -453,7 +512,11 @@ export default function ConversionFunnelPage() {
       url.searchParams.set("granularity", granularity);
       url.searchParams.set("paymentMethod", paymentMethod);
       url.searchParams.set("source", sourceFilter);
-      const res = await fetch(url.toString(), { cache: "no-store" });
+      // 강제 새로고침 — backend precompute cache 건너뛰고 실시간 계산
+      if (forceRefreshFlag > 0) {
+        url.searchParams.set("force", "true");
+      }
+      const res = await fetch(url.toString(), { cache: "no-store", signal: ac.signal });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`API ${res.status}: ${text.slice(0, 200)}`);
@@ -463,21 +526,36 @@ export default function ConversionFunnelPage() {
         const errBody = body as { error?: string; message?: string };
         throw new Error(`서버가 응답은 했지만 ok=false. (${errBody.error ?? "unknown"}: ${errBody.message ?? ""})`);
       }
+      // site mismatch — user 가 fetch 도중 site 를 바꿨다면 stale 응답이므로 화면 갱신 skip
+      if (body.site !== requestedSite) {
+        console.warn("funnel_health_stale_dropped", { requested: requestedSite, received: body.site });
+        return;
+      }
       setData(body);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
+      const aborted = e instanceof DOMException && e.name === "AbortError";
+      const msg = aborted ? "요청 취소 또는 30초 timeout" : e instanceof Error ? e.message : String(e);
+      if (!aborted) setError(msg);
     } finally {
+      clearTimeout(hardTimeout);
       setLoading(false);
     }
-  }, [site, windowKey, granularity, paymentMethod, sourceFilter]);
+  }, [site, windowKey, granularity, paymentMethod, sourceFilter, forceRefreshFlag]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  // Meta ROAS 별도 비동기 fetch (Meta Insights API 가 호출당 10-17초 걸리므로 funnel-health 와 분리)
+  // 강제 새로고침 쿨다운 카운트다운 (1초 tick)
+  useEffect(() => {
+    if (forceRefreshCooldownMs <= 0) return;
+    const id = setInterval(() => setForceRefreshTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [forceRefreshCooldownMs]);
+
+  // Meta ROAS 별도 비동기 fetch. 기본 로드는 어제 사전 계산값 1개만 읽어 화면 진입을 막지 않는다.
   const loadMetaRoas = useCallback(async () => {
+    const requestedPreset: MetaRoasPreset = metaRoasView === "today" ? "today" : "yesterday";
     if (site === "all_sites") {
       const msg = "all_sites 합산 ROAS 는 site 별 광고비 합산이 필요. backend /api/ads/roas multi-account 보강 대기";
       setMetaRoasToday({ error: msg });
@@ -497,50 +575,229 @@ export default function ConversionFunnelPage() {
     setMetaRoasYesterday(null);
     setMetaRoasLast7d(null);
 
-    const fetchOne = async (preset: string): Promise<MetaRoasSummary> => {
+    const accountSuffix = accountId.slice(-4);
+    type BatchSuccess = {
+      summary: { spend: number; attributedRevenue: number; roas: number | null; orders: number };
+      queried_at?: string;
+      date_range?: { start_date?: string; end_date?: string };
+      cache?: { cached_at?: string; stale?: boolean };
+    };
+    const makeError = (
+      preset: MetaRoasPreset,
+      error: string,
+      extras: Partial<MetaRoasError> = {},
+    ): MetaRoasSummary => ({
+      error,
+      endpoint: "/api/ads/roas-summary",
+      date_preset: preset,
+      account_id_suffix: accountSuffix,
+      timestamp: new Date().toISOString(),
+      ...extras,
+    });
+    const tryBatch = async (preset: MetaRoasPreset): Promise<MetaRoasSummary> => {
       try {
-        const url = new URL(`${API_BASE}/api/ads/roas`);
+        const url = new URL(`${API_BASE}/api/ads/roas-summary`);
         url.searchParams.set("account_id", accountId);
-        url.searchParams.set("date_preset", preset);
-        const res = await fetch(url.toString(), { cache: "no-store" });
-        if (!res.ok) return { error: `HTTP ${res.status}` };
+        url.searchParams.set("presets", preset);
+        url.searchParams.set("ui_mode", metaRoasView === "today" ? "today_button_4h_precompute" : "default_yesterday_precompute");
+        const ac = new AbortController();
+        const to = setTimeout(() => ac.abort(), 20000);
+        const res = await fetch(url.toString(), { cache: "no-store", signal: ac.signal });
+        clearTimeout(to);
+        if (!res.ok) {
+          let responseMessage = "";
+          try {
+            const errBody = await res.json();
+            responseMessage = typeof errBody?.error === "string" ? errBody.error : "";
+          } catch {
+            /* ignore */
+          }
+          return makeError(preset, `HTTP ${res.status}`, { status: res.status, response_message: responseMessage });
+        }
         const body = (await res.json()) as {
           ok: boolean;
-          summary?: { spend: number; attributedRevenue: number; roas: number | null; orders: number };
-          queried_at?: string;
-          date_range?: { start_date?: string; end_date?: string };
-          error?: string;
+          results?: Record<string, BatchSuccess>;
+          errors?: Record<string, { error: string; status?: number; response_message?: string; retry_after_ms?: number }>;
         };
-        if (!body.ok || !body.summary) return { error: body.error ?? "응답 비정상" };
-        return {
-          ...body.summary,
-          queried_at: body.queried_at,
-          date_range: body.date_range,
-        };
+        if (!body.ok) return makeError(preset, "응답 비정상");
+        const ok = body.results?.[preset];
+        if (ok?.summary) {
+          return { ...ok.summary, queried_at: ok.queried_at, date_range: ok.date_range };
+        }
+        const err = body.errors?.[preset];
+        if (err) {
+          return makeError(preset, err.error, { status: err.status, response_message: err.response_message });
+        }
+        return makeError(preset, "missing_in_batch");
       } catch (e) {
-        return { error: e instanceof Error ? e.message : String(e) };
+        const aborted = e instanceof DOMException && e.name === "AbortError";
+        return makeError(requestedPreset, aborted ? "timeout (20s)" : e instanceof Error ? e.message : String(e));
       }
     };
 
-    // 병렬 fetch
-    const [today, yesterday, last7d] = await Promise.all([
-      fetchOne("today"),
-      fetchOne("yesterday"),
-      fetchOne("last_7d"),
-    ]);
-    setMetaRoasToday(today);
-    setMetaRoasYesterday(yesterday);
-    setMetaRoasLast7d(last7d);
+    const nextSummary = await tryBatch(requestedPreset);
+    console.info("roas_batch_used", { endpoint: "/api/ads/roas-summary", preset: requestedPreset });
+
+    // 카드별 lastSuccess + failCount + cooldown 업데이트
+    const applyAux = (
+      preset: MetaRoasPreset,
+      next: MetaRoasSummary,
+      prevAux: typeof metaRoasAux,
+    ): RoasAuxState => {
+      const prev = prevAux[preset];
+      if ("error" in next) {
+        const wait = nextCooldownMs(prev.failCount + 1);
+        return {
+          lastSuccess: prev.lastSuccess,
+          failCount: prev.failCount + 1,
+          cooldownUntilMs: Date.now() + wait,
+        };
+      }
+      return {
+        lastSuccess: { ...next, captured_at: new Date().toISOString() },
+        failCount: 0,
+        cooldownUntilMs: 0,
+      };
+    };
+
+    setMetaRoasToday(requestedPreset === "today" ? nextSummary : null);
+    setMetaRoasYesterday(requestedPreset === "yesterday" ? nextSummary : null);
+    setMetaRoasLast7d(null);
+    setMetaRoasAux((prevAux) => ({
+      ...prevAux,
+      [requestedPreset]: applyAux(requestedPreset, nextSummary, prevAux),
+    }));
     setMetaRoasLoading(false);
-  }, [site]);
+  }, [metaRoasView, site]);
+
+  const retryMetaRoas = useCallback(
+    async (preset: "today" | "yesterday" | "last_7d") => {
+      if (site === "all_sites") return;
+      const accountId = META_ACCOUNT_BY_SITE[site];
+      if (!accountId) return;
+      // cooldown 강제 — 사용자 연타로 Meta API 호출 폭증 방지
+      const aux = metaRoasAux[preset];
+      if (aux.cooldownUntilMs > Date.now()) {
+        console.warn("roas_retry_blocked_by_cooldown", {
+          preset,
+          remaining_ms: aux.cooldownUntilMs - Date.now(),
+        });
+        return;
+      }
+      const setter =
+        preset === "today" ? setMetaRoasToday : preset === "yesterday" ? setMetaRoasYesterday : setMetaRoasLast7d;
+      setter(null);
+      const accountSuffix = accountId.slice(-4);
+      const ts = new Date().toISOString();
+      const ac = new AbortController();
+      const to = setTimeout(() => ac.abort(), 45000);
+      const baseErr = {
+        endpoint: "/api/ads/roas-summary",
+        date_preset: preset,
+        account_id_suffix: accountSuffix,
+        timestamp: ts,
+      };
+      const bumpAuxFail = (extra?: { retryAfterMs?: number }) => {
+        setMetaRoasAux((prev) => {
+          const p = prev[preset];
+          const wait = nextCooldownMs(p.failCount + 1, extra?.retryAfterMs);
+          return {
+            ...prev,
+            [preset]: {
+              lastSuccess: p.lastSuccess,
+              failCount: p.failCount + 1,
+              cooldownUntilMs: Date.now() + wait,
+            },
+          };
+        });
+      };
+      const setAuxSuccess = (summary: { spend: number; attributedRevenue: number; roas: number | null; orders: number; queried_at?: string; date_range?: { start_date?: string; end_date?: string } }) => {
+        setMetaRoasAux((prev) => ({
+          ...prev,
+          [preset]: {
+            lastSuccess: { ...summary, captured_at: new Date().toISOString() },
+            failCount: 0,
+            cooldownUntilMs: 0,
+          },
+        }));
+      };
+      try {
+        const url = new URL(`${API_BASE}/api/ads/roas-summary`);
+        url.searchParams.set("account_id", accountId);
+        url.searchParams.set("presets", preset);
+        url.searchParams.set("ui_mode", preset === "today" ? "today_button_4h_precompute_retry" : "manual_retry_precompute");
+        const res = await fetch(url.toString(), { cache: "no-store", signal: ac.signal });
+        if (!res.ok) {
+          let respMsg = "";
+          let retryAfterMs: number | undefined;
+          try {
+            const eb = await res.json();
+            respMsg = typeof eb?.error === "string" ? eb.error : "";
+            if (typeof eb?.retry_after_ms === "number") retryAfterMs = eb.retry_after_ms;
+          } catch {/* */}
+          console.error("roas_fetch_failed", { ...baseErr, status: res.status, message: respMsg });
+          setter({ error: `HTTP ${res.status}`, status: res.status, response_message: respMsg, ...baseErr });
+          bumpAuxFail({ retryAfterMs });
+          return;
+        }
+        const body = await res.json();
+        const item = body.results?.[preset];
+        const itemError = body.errors?.[preset];
+        if (!body.ok || (!item?.summary && !itemError)) {
+          console.error("roas_fetch_failed", { ...baseErr, status: res.status, message: body.error });
+          setter({
+            error: body.error ?? "응답 비정상",
+            status: res.status,
+            response_message: body.error,
+            ...baseErr,
+          });
+          bumpAuxFail({ retryAfterMs: typeof body.retry_after_ms === "number" ? body.retry_after_ms : undefined });
+          return;
+        }
+        if (itemError) {
+          setter({
+            error: itemError.error ?? "응답 비정상",
+            status: itemError.status,
+            response_message: itemError.response_message,
+            ...baseErr,
+          });
+          bumpAuxFail({ retryAfterMs: typeof itemError.retry_after_ms === "number" ? itemError.retry_after_ms : undefined });
+          return;
+        }
+        setter({ ...item.summary, queried_at: item.queried_at, date_range: item.date_range });
+        setAuxSuccess({ ...item.summary, queried_at: item.queried_at, date_range: item.date_range });
+      } catch (e) {
+        const aborted = e instanceof DOMException && e.name === "AbortError";
+        const msg = aborted ? "timeout (45s)" : e instanceof Error ? e.message : String(e);
+        console.error("roas_fetch_failed", { ...baseErr, message: msg });
+        setter({ error: msg, ...baseErr });
+        bumpAuxFail();
+      } finally {
+        clearTimeout(to);
+      }
+    },
+    [site, metaRoasAux],
+  );
 
   useEffect(() => {
     void loadMetaRoas();
   }, [loadMetaRoas]);
 
+  // cooldown 1초 tick — 버튼 disabled / 카운트다운 표시용
+  useEffect(() => {
+    const anyActive =
+      metaRoasAux.today.cooldownUntilMs > Date.now() ||
+      metaRoasAux.yesterday.cooldownUntilMs > Date.now() ||
+      metaRoasAux.last_7d.cooldownUntilMs > Date.now();
+    if (!anyActive) return;
+    const id = setInterval(() => setCooldownTickMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [metaRoasAux]);
+
   // 데이터 로딩 progress (시간 기반 추정 — funnel-health ≈ 1-3초, Meta ROAS ≈ 10-17초)
   useEffect(() => {
-    const isBusy = loading || metaRoasLoading;
+    // error 가 set 됐으면 progress 즉시 종료. 한쪽 fetch 실패해도 progress 가 계속 회전하던 문제 fix.
+    const isBusy = (loading || metaRoasLoading) && !error;
     if (!isBusy) {
       // 완료 시 100% 까지 채우고 잠시 후 사라지게
       setLoadingProgress((prev) => (prev > 0 ? 100 : 0));
@@ -553,20 +810,25 @@ export default function ConversionFunnelPage() {
     setLoadingProgress(2);
     setLoadingStep("요청 보내는 중");
     const startMs = Date.now();
+    const HARD_TIMEOUT_MS = 60000; // 60초 넘어가면 progress 자체 중단
     const id = setInterval(() => {
       const elapsed = Date.now() - startMs;
-      // 0~20초에 걸쳐 0~95% (log 곡선: 처음 빠르게, 뒤로 갈수록 느리게)
+      if (elapsed > HARD_TIMEOUT_MS) {
+        setLoadingProgress(95);
+        setLoadingStep("⚠ 60초 초과 — 응답 대기. 새로고침 또는 재조회를 권장합니다");
+        return;
+      }
       const pct = Math.min(95, Math.round(95 * (1 - Math.exp(-elapsed / 6500))));
       setLoadingProgress(pct);
       if (elapsed < 1500) setLoadingStep("VM Cloud attribution_ledger 집계 중");
       else if (elapsed < 3500) setLoadingStep("Meta CAPI send log 분석 중");
       else if (elapsed < 6000) setLoadingStep("위험 조합 · 미해결 누수 · 신호 품질 계산 중");
-      else if (elapsed < 10000) setLoadingStep("Meta ROAS 오늘 조회 중 (Meta Insights API)");
-      else if (elapsed < 14000) setLoadingStep("Meta ROAS 어제 조회 중");
-      else setLoadingStep("Meta ROAS 최근 7일 조회 중 — 가장 오래 걸리는 단계");
+      else if (elapsed < 10000) setLoadingStep(metaRoasView === "today" ? "당일 ROAS 사전 계산값 조회 중" : "어제 ROAS 사전 계산값 조회 중");
+      else if (elapsed < 14000) setLoadingStep("캐시가 비어 있어 백엔드 계산 응답 대기 중");
+      else setLoadingStep("응답 지연 — 오늘 데이터는 버튼 조회 후 4시간 단위 캐시로 갱신됩니다");
     }, 200);
     return () => clearInterval(id);
-  }, [loading, metaRoasLoading]);
+  }, [loading, metaRoasLoading, error, metaRoasView]);
 
   const maxSeriesCount = useMemo(() => {
     if (!data) return 1;
@@ -577,17 +839,114 @@ export default function ConversionFunnelPage() {
   }, [data]);
 
   return (
-    <main className={styles.page}>
-      <h1 className={styles.title}>오늘 전환 신호가 어디서 새는가</h1>
+    <>
+      <GlobalNav activeSlug="ai-crm" />
+      <main className={styles.page}>
+      <h1 className={styles.title}>
+        오늘 전환 신호가 어디서 새는가
+        <span className={styles.siteChip}>{siteLabelKo(site)}</span>
+      </h1>
       <p className={styles.subtitle}>
-        유입부터 결제완료, Meta CAPI 전송까지 한 화면에서 확인합니다. 광고 플랫폼 주장값이 아니라 VM Cloud
-        수집 원장 기준입니다. <span className={styles.muted}>(전환 API = 서버가 Meta에 구매 이벤트를 보내는 통로)</span>
+        유입부터 결제완료, Meta 로 구매 신호 전송까지 한 화면에서 확인합니다. 광고 플랫폼 주장값이 아니라 VM Cloud
+        수집 원장 기준입니다.
       </p>
+
+      {/* 용어 풀이 박스 — 한 번 열어두면 화면 곳곳의 영문 약어가 이해됨 */}
+      <div className={styles.glossary}>
+        <button
+          type="button"
+          className={styles.glossaryToggle}
+          onClick={() => setGlossaryOpen((v) => !v)}
+          aria-expanded={glossaryOpen}
+        >
+          {glossaryOpen ? "▾" : "▸"} 용어 풀이 (처음 보는 단어가 있으면 펼치기)
+        </button>
+        {glossaryOpen && (
+          <div className={styles.glossaryBody}>
+            <dl>
+              <dt>전환 API · Server CAPI · Meta CAPI</dt>
+              <dd>
+                서버가 Meta(페이스북/인스타그램)로 구매·이벤트를 보내는 통로. 브라우저 픽셀이 깨져도 서버가 대체로 보내므로
+                광고 학습이 끊기지 않게 해 줍니다. <code>CAPI = Conversions API</code>.
+              </dd>
+              <dt>브라우저 구매 신호 · Browser Purchase</dt>
+              <dd>
+                사용자 브라우저에서 직접 발화되는 Meta 픽셀 이벤트 (<code>ev=Purchase</code>). 위의 서버 CAPI 와 짝을 이루는 보조 경로.
+                서버 CAPI 가 살아 있으면 0 이어도 치명 장애 아님.
+              </dd>
+              <dt>events_received</dt>
+              <dd>
+                Meta 가 우리 서버 전송을 정상 수신했다고 응답한 카운트. 1 = 1건 받음.
+                <strong> 전송 성공 ≠ 구매 발생</strong> — send 시도 단위입니다.
+              </dd>
+              <dt>fbp / fbc / fbclid / gclid</dt>
+              <dd>
+                광고 식별자. <code>fbp</code> = 페이스북 방문자 쿠키 (광고 클릭 증거 아님),{" "}
+                <code>fbc</code>/<code>fbclid</code> = Meta 광고 클릭 증거,{" "}
+                <code>gclid</code> = Google 광고 클릭 증거.
+              </dd>
+              <dt>p50 / p95</dt>
+              <dd>
+                응답 시간 분포. p50 = 보통 응답 시간 (절반 기준), p95 = 가장 느린 5% 응답 시간.
+              </dd>
+              <dt>전송 대기 줄 · Eligibility Queue</dt>
+              <dd>
+                결제완료 됐는데 아직 Meta 로 안 보낸 주문 줄. 오래 묵을수록 Meta 학습에 그만큼 늦게 도달.
+              </dd>
+              <dt>사후 보충 전송 · backfill</dt>
+              <dd>
+                놓친 주문/이벤트를 나중에 Meta 로 보내 채우는 작업. backfill 후보 = 지금 보내야 할 주문 목록.
+              </dd>
+              <dt>결제완료 판단 응답 끊김 · payment-decision canceled</dt>
+              <dd>
+                사용자가 결제 완료 버튼을 눌렀는데 우리 서버 응답이 늦거나 끊겨서 결제완료 판단이 안 된 상태.
+                매출은 잡혔어도 브라우저 Purchase 발화가 막힐 수 있음.
+              </dd>
+              <dt>원장 매칭 실패 · no_ledger_match</dt>
+              <dd>
+                Meta CAPI 로 보낸 주문번호가 우리 VM 원장에서 못 찾는 row. 0% 면 정합성 정상.
+              </dd>
+              <dt>strong_meta_ad_evidence · 강한 Meta 광고 증거</dt>
+              <dd>
+                fbclid 또는 fbc 또는 Meta UTM 중 하나 이상이 잡힌 주문. 이 주문은 Meta 광고로 들어왔다는 점을 입증.
+              </dd>
+              <dt>non_meta_or_unproven_meta · 비-Meta 또는 미입증</dt>
+              <dd>
+                fbp 만 있거나 다른 채널(구글/네이버) evidence 가 더 강한 주문. 광고 귀속이 약한 그룹.
+              </dd>
+              <dt>safe_ref</dt>
+              <dd>
+                주문번호의 안전한 약식 표기 (앞 8자만). raw 주문번호/결제키/회원코드는 화면 노출 금지.
+              </dd>
+              <dt>광고 매니저 ROAS · Ads Manager ROAS</dt>
+              <dd>
+                Meta 가 광고 매니저 화면에서 보여주는 attributed ROAS. <strong>내부 ROAS 와 source 가 다름</strong>.
+                내부 ROAS = VM 원장 결제완료 매출 ÷ Meta 광고비.
+              </dd>
+            </dl>
+          </div>
+        )}
+      </div>
 
       {/* 컨트롤 바 */}
       <div className={styles.controls}>
         <span className={styles.controlLabel}>사이트</span>
-        <select value={site} onChange={(e) => setSite(e.target.value as "biocom" | "thecleancoffee" | "all_sites")}>
+        <select
+          value={site}
+          onChange={(e) => {
+            const next = e.target.value as "biocom" | "thecleancoffee" | "all_sites";
+            // site 변경 시 stale 데이터를 즉시 비워서 사용자가 이전 site 카드/배너를 보지 않게.
+            // 이후 useEffect 가 새 loadData / loadMetaRoas 를 site 인자로 다시 발화.
+            setData(null);
+            setError(null);
+            setMetaRoasToday(null);
+            setMetaRoasYesterday(null);
+            setMetaRoasLast7d(null);
+            setMetaRoasAux({ today: initialAux, yesterday: initialAux, last_7d: initialAux });
+            setExpandedStep(null);
+            setSite(next);
+          }}
+        >
           <option value="biocom">바이오컴</option>
           <option value="thecleancoffee">더클린커피</option>
           <option value="all_sites">전체 (all_sites · pixel 합산)</option>
@@ -638,13 +997,28 @@ export default function ConversionFunnelPage() {
         <div className={styles.error}>
           <strong>API 호출이 실패했습니다.</strong>
           <div style={{ marginTop: 6 }}>{error}</div>
-          <div style={{ marginTop: 6, fontSize: 12 }}>
-            backend(<code>{API_BASE}</code>)가 7020 포트에서 실행 중인지 확인하세요.
+          <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.55 }}>
+            backend endpoint: <code>{API_BASE}</code>
+            <br />
+            • 화면이 한 번 켜진 적 있는데 갑자기 실패: <strong>backend 일시적 재시작 또는 Meta API 호출 제한</strong> 가능성. 잠시 후 다시 시도.
+            <br />
+            • 처음부터 실패하고 <code>localhost:7020</code> 으로 표시되면: 로컬 개발 환경인데 backend 가 안 켜진 상태. <code>cd backend && npm run dev</code>.
           </div>
+          <button
+            type="button"
+            className={styles.errorRetryBtn}
+            onClick={() => {
+              setError(null);
+              void loadData();
+              void loadMetaRoas();
+            }}
+          >
+            ↻ 다시 시도
+          </button>
         </div>
       )}
 
-      {(loading || metaRoasLoading || loadingProgress > 0) && (
+      {((loading || metaRoasLoading || loadingProgress > 0) && !error) && (
         <div className={styles.loadingBox}>
           <div className={styles.loadingHead}>
             <span className={styles.loadingSpinner} />
@@ -689,6 +1063,53 @@ export default function ConversionFunnelPage() {
             </div>
           </div>
 
+          {/* Option B 캐시 배너 — 데이터 기준 시각 + 강제 새로고침 */}
+          {data.cache && (
+            <div className={`${styles.cacheBanner} ${data.cache.cached ? styles.cacheBannerCached : styles.cacheBannerLive}`}>
+              <div className={styles.cacheBannerHead}>
+                {data.cache.cached ? (
+                  <>
+                    <span className={`${styles.sourceBadge} ${styles.sourceContract}`}>cached</span>
+                    <strong>데이터 기준 {data.cache.cached_at_kst} KST</strong>
+                    <span className={styles.muted}>
+                      · 다음 갱신 {data.cache.next_refresh_at_kst ?? "—"} KST
+                      {" "}· 백그라운드 사전 집계 (in_memory_precompute, 5분 주기)
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className={`${styles.sourceBadge} ${styles.sourceAmber}`}>live</span>
+                    <strong>실시간 계산 응답</strong>
+                    <span className={styles.muted}>
+                      · 계산 시간 {data.cache.generation_ms}ms
+                      {" "}· source: {data.cache.source}
+                      {" "}· 캐시 hit 이 아닙니다. (옵션 변경 또는 강제 새로고침)
+                    </span>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className={styles.forceRefreshBtn}
+                  disabled={forceRefreshCooldownMs - forceRefreshTick > 0}
+                  onClick={() => {
+                    setForceRefreshFlag((n) => n + 1);
+                    setForceRefreshCooldownMs(Date.now() + 5 * 60 * 1000); // 5분
+                    setForceRefreshTick(Date.now());
+                  }}
+                >
+                  {forceRefreshCooldownMs - forceRefreshTick > 0
+                    ? `↻ 강제 새로고침 (쿨다운 ${Math.ceil((forceRefreshCooldownMs - forceRefreshTick) / 1000)}초)`
+                    : "↻ 지금 강제 새로고침"}
+                </button>
+              </div>
+              <div className={styles.cacheBannerBody}>
+                {data.cache.cached
+                  ? "백엔드가 5분마다 site × window 조합을 미리 계산해 두고, 사용자 요청은 그 결과를 그대로 읽어 < 50ms 안에 응답합니다. 신선도와 응답 속도를 동시에 잡는 패턴입니다. (아임웹 유입 분석 같은 사전 집계 방식)"
+                  : "이 응답은 캐시가 아닌 실시간 계산입니다. 백엔드 startup 직후이거나, 사용자 옵션이 사전 집계 대상이 아니거나, 강제 새로고침을 누른 경우입니다."}
+              </div>
+            </div>
+          )}
+
           {/* metric_contract 상단 요약 — Codex backend v6 live contract */}
           {data.metric_contract && (
             <div className={styles.metricContract}>
@@ -717,7 +1138,7 @@ export default function ConversionFunnelPage() {
               <div>
                 <strong>Meta ROAS 두 source 비교</strong>{" "}
                 <span className={styles.muted}>
-                  · {data.site === "biocom" ? "바이오컴" : data.site === "thecleancoffee" ? "더클린커피" : "전체 (all_sites)"}
+                  · {siteLabelKo(data.site)}
                   {" "}· account {META_ACCOUNT_BY_SITE[data.site] ?? "—"}
                 </span>
               </div>
@@ -751,32 +1172,77 @@ export default function ConversionFunnelPage() {
               </div>
             </div>
 
-            {/* Row 2: Ads Manager ROAS — Meta Insights API (today / yesterday / last_7d) */}
+            {/* Row 2: 내부 Meta 귀속 ROAS — /api/ads/roas (VM confirmed purchase + Meta spend) */}
             <div className={styles.roasRowHead} style={{ marginTop: 12 }}>
-              <span className={`${styles.sourceBadge} ${styles.sourceAdsManager}`}>ads_manager</span>
-              <strong>Meta Ads Manager ROAS</strong>
+              <span className={`${styles.sourceBadge} ${styles.sourceInternalAttr}`}>internal_attr</span>
+              <strong>내부 Meta 귀속 ROAS</strong>
               <span className={styles.muted}>
-                · Meta Ads Insights API · attributed purchase value (action_values[purchase]) · {"<"}1일 lag 가능
+                · 기본은 <strong>어제 사전 계산값</strong> · endpoint <code>/api/ads/roas-summary</code>{" "}
+                · 당일 데이터는 버튼을 눌렀을 때 4시간 단위 캐시를 읽습니다
               </span>
             </div>
+            <div className={styles.roasModeBar}>
+              <div className={styles.roasBasisText}>
+                <strong>
+                  {metaRoasView === "today" ? "당일 데이터" : "기본 화면: 어제 데이터"}
+                </strong>
+                <span>
+                  기준 데이터 날짜 {metaRoasView === "today" ? getKstIsoDate(0) : getKstIsoDate(-1)} KST
+                  {" "}· 사전 계산 cache 우선 · 광고 플랫폼 주장값이 아닌 내부 귀속 계산값
+                </span>
+              </div>
+              <div className={styles.roasModeBtns} aria-label="Meta ROAS 표시 기간">
+                <button
+                  type="button"
+                  className={`${styles.roasModeBtn} ${metaRoasView === "yesterday" ? styles.roasModeBtnActive : ""}`}
+                  onClick={() => setMetaRoasView("yesterday")}
+                  disabled={metaRoasLoading && metaRoasView === "yesterday"}
+                >
+                  어제 데이터 보기
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.roasModeBtn} ${metaRoasView === "today" ? styles.roasModeBtnActive : ""}`}
+                  onClick={() => setMetaRoasView("today")}
+                  disabled={metaRoasLoading && metaRoasView === "today"}
+                >
+                  당일 데이터 보기
+                </button>
+              </div>
+            </div>
             <div className={styles.metaRoasGrid}>
-              <MetaRoasCard
-                title="오늘"
-                preset="today"
-                data={metaRoasToday}
-                caveatLag={
-                  data.risk_combo.server_capi_active
-                    ? "Server CAPI 가 살아 있으면 Ads Manager today purchase=0 이어도 정상 가능 — Meta same-day 집계 lag 입니다. CAPI 가 죽었다면 진짜 문제."
-                    : "Meta same-day 집계 lag 가능"
-                }
-              />
-              <MetaRoasCard title="어제" preset="yesterday" data={metaRoasYesterday} />
-              <MetaRoasCard title="최근 7일" preset="last_7d" data={metaRoasLast7d} />
+              {metaRoasView === "today" ? (
+                <MetaRoasCard
+                  title="오늘 · 4시간 단위 사전 계산"
+                  preset="today"
+                  data={metaRoasToday}
+                  lastSuccess={metaRoasAux.today.lastSuccess}
+                  failCount={metaRoasAux.today.failCount}
+                  cooldownLeftMs={Math.max(0, metaRoasAux.today.cooldownUntilMs - cooldownTickMs)}
+                  onRetry={() => void retryMetaRoas("today")}
+                  caveatLag={
+                    data.risk_combo.server_capi_active
+                      ? "당일 값은 Meta 집계 지연과 4시간 cache 주기 때문에 Ads Manager 화면보다 늦거나 다르게 보일 수 있습니다."
+                      : "Meta same-day 집계 lag 가능"
+                  }
+                />
+              ) : (
+                <MetaRoasCard
+                  title="어제 · 기본 사전 계산값"
+                  preset="yesterday"
+                  data={metaRoasYesterday}
+                  lastSuccess={metaRoasAux.yesterday.lastSuccess}
+                  failCount={metaRoasAux.yesterday.failCount}
+                  cooldownLeftMs={Math.max(0, metaRoasAux.yesterday.cooldownUntilMs - cooldownTickMs)}
+                  onRetry={() => void retryMetaRoas("yesterday")}
+                />
+              )}
             </div>
             <div className={styles.legendRow}>
               <span>
-                ROAS 분자 = Meta 측 conversion value (PG confirmed revenue 아님). VM 내부 매출과 단순 비교 금지.
-                예산 판단 정본은 위 행의 <strong>internal</strong> 매출이고, Ads Manager 행은 platform reference 입니다.
+                💡 이 row 의 ROAS 는 <strong>내부 attribution</strong> 기반입니다 (VM confirmed purchase 분자 + Meta spend 분모).
+                Meta Ads Manager 화면의 attributed ROAS 는 별도 source 이며 같지 않습니다.
+                기본 화면은 어제 값만 읽어 느린 당일 API 호출을 피하고, 당일 값은 필요할 때만 버튼으로 확인합니다.
               </span>
             </div>
           </div>
@@ -836,7 +1302,7 @@ export default function ConversionFunnelPage() {
               badgeLabel="예산 판단 가능"
             />
             <KpiCard
-              title="Meta CAPI 성공"
+              title="Meta로 구매 신호 전송 성공 (Meta CAPI)"
               value={fmtNum(data.kpis.meta_capi_success.count)}
               unit={data.kpis.meta_capi_success.unit}
               period={data.period_label}
@@ -846,7 +1312,7 @@ export default function ConversionFunnelPage() {
               badgeLabel={data.kpis.confirmed_purchases.count > 0 && data.kpis.meta_capi_success.count === 0 ? "조치 필요" : "참고용"}
             />
             <KpiCard
-              title="Browser Purchase"
+              title="브라우저 구매 발화 (Browser Purchase)"
               value={fmtNum(data.kpis.browser_purchase.count)}
               unit={data.kpis.browser_purchase.unit}
               period={data.period_label}
@@ -894,10 +1360,10 @@ export default function ConversionFunnelPage() {
             </div>
             <div className={styles.riskComboBody}>
               <span className={styles.riskChip}>
-                Server CAPI {data.risk_combo.server_capi_active ? "✅ 활성" : "❌ 0건"}
+                서버→Meta 전송 (Server CAPI) {data.risk_combo.server_capi_active ? "✅ 정상" : "❌ 0건"}
               </span>
               <span className={styles.riskChip}>
-                Browser Purchase {data.risk_combo.browser_purchase_active ? "✅ 활성" : "⚠️ 0건"}
+                브라우저 구매 발화 (Browser Purchase) {data.risk_combo.browser_purchase_active ? "✅ 정상" : "⚠️ 0건"}
               </span>
               <span className={styles.riskComboExplain}>{data.risk_combo.explanation_ko}</span>
             </div>
@@ -911,33 +1377,51 @@ export default function ConversionFunnelPage() {
               아래는 항상 점검되는 4 카테고리이며, 해당하는 row 가 있을 때만 카드로 채워집니다.
             </p>
             <div className={styles.actionLegend}>
-              <span className={`${styles.actionBadge} ${styles.badge_critical}`}>CRITICAL</span> Confirmed but CAPI missing
+              <span className={`${styles.actionBadge} ${styles.badge_critical}`}>긴급 (CRITICAL)</span>
+              결제는 됐는데 Meta 로 안 보내진 주문
               <span className={styles.actionLegendDivider}>·</span>
-              <span className={`${styles.actionBadge} ${styles.badge_high}`}>HIGH</span> payment-decision canceled
+              <span className={`${styles.actionBadge} ${styles.badge_high}`}>높음 (HIGH)</span>
+              결제 페이지에서 완료 판단 응답이 끊긴 케이스
               <span className={styles.actionLegendDivider}>·</span>
-              <span className={`${styles.actionBadge} ${styles.badge_medium}`}>MEDIUM</span> Click ID missing
+              <span className={`${styles.actionBadge} ${styles.badge_medium}`}>보통 (MEDIUM)</span>
+              광고 클릭 식별자가 빠진 결제완료
               <span className={styles.actionLegendDivider}>·</span>
-              <span className={`${styles.actionBadge} ${styles.badge_watch}`}>WATCH</span> Browser Purchase 0 but CAPI OK
+              <span className={`${styles.actionBadge} ${styles.badge_watch}`}>모니터 (WATCH)</span>
+              브라우저 구매 신호 0 이지만 서버 CAPI 정상 (치명 아님)
             </div>
             {data.action_queue.length > 0 ? (
               <div className={styles.actionList}>
-                {data.action_queue.map((a, i) => (
-                  <div key={i} className={`${styles.actionItem} ${styles[`prio_${a.priority}`]}`}>
-                    <div className={styles.actionHead}>
-                      <span className={`${styles.actionBadge} ${styles[`badge_${a.priority}`]}`}>
-                        {a.priority.toUpperCase()}
-                      </span>
-                      <strong>{a.title}</strong>
-                      <span className={styles.actionDetail}>{a.detail}</span>
+                {data.action_queue.map((a, i) => {
+                  const prioLabel: Record<string, string> = {
+                    critical: "긴급",
+                    high: "높음",
+                    medium: "보통",
+                    watch: "모니터",
+                  };
+                  const easyNext = humanizeActionText(a.next_action);
+                  return (
+                    <div key={i} className={`${styles.actionItem} ${styles[`prio_${a.priority}`]}`}>
+                      <div className={styles.actionHead}>
+                        <span className={`${styles.actionBadge} ${styles[`badge_${a.priority}`]}`}>
+                          {prioLabel[a.priority] ?? a.priority.toUpperCase()}
+                        </span>
+                        <strong>{a.title}</strong>
+                        <span className={styles.actionDetail}>{a.detail}</span>
+                      </div>
+                      <div className={styles.actionWhy}>
+                        <strong>이게 왜 중요한지</strong>: {a.explanation_ko}
+                      </div>
+                      <div className={styles.actionNext}>
+                        <strong>지금 할 일 (쉬운 풀이)</strong>: {easyNext}
+                      </div>
+                      {easyNext !== a.next_action && (
+                        <div className={styles.actionNextTechnical}>
+                          <strong>원문 (기술 용어)</strong>: <code>{a.next_action}</code>
+                        </div>
+                      )}
                     </div>
-                    <div className={styles.actionWhy}>
-                      <strong>이게 왜 중요한지</strong>: {a.explanation_ko}
-                    </div>
-                    <div className={styles.actionNext}>
-                      <strong>지금 할 일</strong>: {a.next_action}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className={styles.actionEmpty}>
@@ -1376,12 +1860,12 @@ export default function ConversionFunnelPage() {
             })()}
             <div className={styles.capiBreakdown}>
               <div className={styles.capiBox}>
-                <div className={styles.capiBoxTitle}>Send attempts</div>
+                <div className={styles.capiBoxTitle}>전송 시도 수 (send attempts)</div>
                 <div className={styles.capiBoxValue}>{fmtNum(data.meta_capi_breakdown.send_attempts)}</div>
-                <div className={styles.capiBoxSub}>총 시도 / event_name=Purchase</div>
+                <div className={styles.capiBoxSub}>Meta 로 보낸 구매 이벤트(event_name=Purchase) 의 총 시도 수</div>
               </div>
               <div className={styles.capiBox}>
-                <div className={styles.capiBoxTitle}>events_received=1</div>
+                <div className={styles.capiBoxTitle}>Meta 정상 수신 (events_received=1)</div>
                 <div className={styles.capiBoxValue}>
                   {fmtNum(data.meta_capi_breakdown.events_received_count)}
                   <span className={styles.capiBoxRate}>
@@ -1391,36 +1875,36 @@ export default function ConversionFunnelPage() {
                   </span>
                 </div>
                 <div className={styles.capiBoxSub}>
-                  실패 {fmtNum(data.meta_capi_breakdown.failed)}건
+                  Meta 가 정상 수신했다고 응답한 건수 · 실패 {fmtNum(data.meta_capi_breakdown.failed)}건
                 </div>
               </div>
               <div className={styles.capiBox}>
-                <div className={styles.capiBoxTitle}>Unique purchase</div>
+                <div className={styles.capiBoxTitle}>고유 주문 수 (unique purchase)</div>
                 <div className={styles.capiBoxValue}>{fmtNum(data.meta_capi_breakdown.unique_orders)}</div>
-                <div className={styles.capiBoxSub}>중복 제거된 order 수</div>
+                <div className={styles.capiBoxSub}>중복 제거된 주문 수 — 한 주문에 여러 번 보냈으면 1로 셈</div>
               </div>
               <div className={styles.capiBox}>
-                <div className={styles.capiBoxTitle}>중복 추정</div>
+                <div className={styles.capiBoxTitle}>중복 전송 추정</div>
                 <div className={styles.capiBoxValue}>
                   {fmtNum(data.meta_capi_breakdown.duplicate_estimate)}
                 </div>
                 <div className={styles.capiBoxSub}>
-                  events_received=1 합 − unique order. event_id 다양성 = {fmtNum(data.meta_capi_breakdown.unique_event_ids)}
+                  같은 주문을 두 번 이상 보낸 추정 건수 · 이벤트 ID 종류 {fmtNum(data.meta_capi_breakdown.unique_event_ids)}개
                 </div>
               </div>
               <div className={`${styles.capiBox} ${styles.capiBoxLatency}`}>
-                <div className={styles.capiBoxTitle}>전송 지연 (결제완료→CAPI send)</div>
+                <div className={styles.capiBoxTitle}>결제 후 Meta 도착 시간 (전송 지연)</div>
                 <div className={styles.capiBoxValue}>
                   {data.meta_capi_breakdown.latency_minutes.p50 !== null
-                    ? `p50 ${fmtNum(data.meta_capi_breakdown.latency_minutes.p50)}분`
+                    ? `보통 ${fmtNum(data.meta_capi_breakdown.latency_minutes.p50)}분`
                     : "—"}
                 </div>
                 <div className={styles.capiBoxSub}>
-                  p95{" "}
+                  가장 느린 5%{" "}
                   {data.meta_capi_breakdown.latency_minutes.p95 !== null
                     ? `${fmtNum(data.meta_capi_breakdown.latency_minutes.p95)}분`
                     : "—"}
-                  {" · "}sample {fmtNum(data.meta_capi_breakdown.latency_minutes.sample_size)}건
+                  {" · "}표본 {fmtNum(data.meta_capi_breakdown.latency_minutes.sample_size)}건 (p50/p95)
                 </div>
               </div>
             </div>
@@ -1505,7 +1989,7 @@ export default function ConversionFunnelPage() {
 
           {/* Purchase Eligibility Queue */}
           <div className={styles.section}>
-            <h2 className={styles.sectionTitle}>Purchase Eligibility Queue (보낼 준비된 주문 큐)</h2>
+            <h2 className={styles.sectionTitle}>Meta 로 보낼 대기 주문 줄 (Purchase Eligibility Queue)</h2>
             <p className={styles.sectionSub}>
               {data.purchase_eligibility_queue.explanation_ko}
             </p>
@@ -1665,9 +2149,9 @@ export default function ConversionFunnelPage() {
               <strong>한글로 쉽게</strong>: {data.browser_funnel_health.explanation_ko}
             </p>
             <div className={styles.pixelTooltip}>
-              💡 <strong>Meta Pixel Helper / Chrome Network 와 VM ledger 의 카운트는 항상 다릅니다.</strong>{" "}
-              Pixel Helper 는 사용자 브라우저 한 대의 발화를 보는 진단 도구이고, 여기 카운트는 server 가
-              forward 받은 row 의 누적 집계입니다.
+              💡 <strong>Meta Pixel Helper / Chrome Network 와 이 화면의 숫자는 다릅니다.</strong>{" "}
+              Pixel Helper 는 <em>내 브라우저 한 대</em>의 발화를 보는 진단 도구이고,
+              여기 숫자는 <em>모든 사용자 브라우저의 발화가 서버로 들어온 누적 집계</em>입니다. 비교 대상이 아닙니다.
             </div>
             <table className={`${styles.table} ${styles.tableSmall}`}>
               <thead>
@@ -1766,7 +2250,8 @@ export default function ConversionFunnelPage() {
           </div>
         </>
       )}
-    </main>
+      </main>
+    </>
   );
 }
 
@@ -1826,9 +2311,28 @@ function MetaRoasCard(props: {
   title: string;
   preset: string;
   caveatLag?: string;
+  onRetry?: () => void;
+  cooldownLeftMs?: number;
+  failCount?: number;
+  lastSuccess?: {
+    spend: number;
+    attributedRevenue: number;
+    roas: number | null;
+    orders: number;
+    queried_at?: string;
+    captured_at: string;
+  } | null;
   data:
     | { spend: number; attributedRevenue: number; roas: number | null; orders: number; queried_at?: string; date_range?: { start_date?: string; end_date?: string } }
-    | { error: string }
+    | {
+        error: string;
+        status?: number;
+        endpoint?: string;
+        date_preset?: string;
+        account_id_suffix?: string;
+        timestamp?: string;
+        response_message?: string;
+      }
     | null;
 }) {
   if (props.data === null) {
@@ -1836,22 +2340,94 @@ function MetaRoasCard(props: {
       <div className={styles.metaRoasCard}>
         <div className={styles.metaRoasTitle}>
           {props.title}
-          <span className={`${styles.sourceBadge} ${styles.sourceAdsManager}`}>ads_manager</span>
+          <span className={`${styles.sourceBadge} ${styles.sourceInternalAttr}`}>internal_attr</span>
         </div>
-        <div className={styles.metaRoasLoading}>Meta Insights 조회 중…</div>
+        <div className={styles.metaRoasLoading}>VM 내부 귀속 ROAS 조회 중…</div>
         <div className={styles.metaRoasSub}>date_preset={props.preset}</div>
       </div>
     );
   }
   if ("error" in props.data) {
+    const err = props.data;
+    const kind = classifyRoasError(err) ?? "backend_unknown";
+    const cooldownSec = props.cooldownLeftMs && props.cooldownLeftMs > 0 ? Math.ceil(props.cooldownLeftMs / 1000) : 0;
+    const last = props.lastSuccess;
+    const kindMeta: Record<RoasErrorKind, { wrapper: string; badge: string; badgeLabel: string; topline: string; hint?: string }> = {
+      meta_rate_limit: {
+        wrapper: styles.metaRoasAmber,
+        badge: styles.sourceAmber,
+        badgeLabel: "Meta API 호출 제한",
+        topline:
+          "Meta Graph API 의 호출 횟수 제한(rate limit, code 80004)에 걸렸습니다. " +
+          "광고가 0 이라는 의미가 아니라, Meta 가 \"잠깐 호출 너무 많다, 기다려라\"고 응답한 정상 throttling 입니다.",
+        hint:
+          "잠시 후 ↻ 재시도 (자동 쿨다운 적용). backend 캐시 patch 가 들어오면 사용자 화면에서 거의 안 보입니다.",
+      },
+      backend_unknown: {
+        wrapper: styles.metaRoasAmber,
+        badge: styles.sourceAmber,
+        badgeLabel: "API 오류",
+        topline:
+          "내부 계산용 ROAS API 가 응답을 못 줬습니다. 광고가 0 이라는 의미가 아니라, 계산을 위한 백엔드 API 호출이 실패한 것입니다.",
+      },
+      // 아래 두 enum 은 실제로는 error 객체에서 안 나오지만 type 안전을 위해 placeholder.
+      no_data: { wrapper: styles.metaRoasAmber, badge: styles.sourceAmber, badgeLabel: "데이터 없음", topline: "" },
+      real_zero: { wrapper: styles.metaRoasAmber, badge: styles.sourceAmber, badgeLabel: "성과 0", topline: "" },
+    };
+    const k = kindMeta[kind];
     return (
-      <div className={`${styles.metaRoasCard} ${styles.metaRoasError}`}>
+      <div className={`${styles.metaRoasCard} ${k.wrapper}`}>
         <div className={styles.metaRoasTitle}>
           {props.title}
-          <span className={`${styles.sourceBadge} ${styles.sourceAdsManager}`}>ads_manager</span>
+          <span className={`${styles.sourceBadge} ${styles.sourceInternalAttr}`}>internal_attr</span>
+          <span className={`${styles.sourceBadge} ${k.badge}`}>{k.badgeLabel}</span>
         </div>
-        <div className={styles.metaRoasErrorMsg}>오류: {props.data.error}</div>
-        <div className={styles.metaRoasSub}>date_preset={props.preset}</div>
+        <div className={styles.metaRoasErrorTopline}>{k.topline}</div>
+        {k.hint && <div className={styles.metaRoasErrorHint}>💡 {k.hint}</div>}
+
+        {/* 마지막 성공값 표시 — 사용자가 "성과 0" 으로 오해하지 않게 */}
+        {last && (
+          <div className={styles.lastSuccessBox}>
+            <div className={styles.lastSuccessTopline}>
+              <strong>최신 계산 실패, 마지막 정상값 표시 중</strong>
+              <span className={styles.muted}>· captured {toKstShort(last.captured_at)}</span>
+            </div>
+            <div className={styles.lastSuccessRow}>
+              <span className={styles.lastSuccessRoas}>
+                {last.roas !== null ? `${last.roas.toFixed(2)}×` : "—"}
+              </span>
+              <span className={styles.muted}>
+                광고비 {fmtKRW(last.spend)} · 매출 {fmtKRW(last.attributedRevenue)} · 주문 {fmtNum(last.orders)}건
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className={styles.metaRoasErrorDiag}>
+          <div><strong>status</strong>: {err.status ?? "—"} · <strong>error</strong>: {err.error}</div>
+          {err.response_message && (
+            <div><strong>response_message</strong>: {err.response_message}</div>
+          )}
+          <div>
+            <strong>endpoint</strong>: <code>{err.endpoint ?? "/api/ads/roas"}</code> · <strong>date_preset</strong>: {err.date_preset ?? props.preset}
+          </div>
+          <div>
+            <strong>account suffix</strong>: …{err.account_id_suffix ?? "????"} · <strong>at</strong>: {err.timestamp ? toKstShort(err.timestamp) : "—"}
+          </div>
+          {props.failCount !== undefined && props.failCount > 0 && (
+            <div><strong>연속 실패</strong>: {props.failCount}회</div>
+          )}
+        </div>
+        {props.onRetry && (
+          <button
+            type="button"
+            className={styles.retryBtn}
+            onClick={() => props.onRetry && props.onRetry()}
+            disabled={cooldownSec > 0}
+          >
+            {cooldownSec > 0 ? `↻ 재시도 가능까지 ${cooldownSec}초` : "↻ 이 카드만 재시도"}
+          </button>
+        )}
       </div>
     );
   }
@@ -1869,11 +2445,32 @@ function MetaRoasCard(props: {
   const dateRangeText = props.data.date_range
     ? `${props.data.date_range.start_date ?? ""} ~ ${props.data.date_range.end_date ?? ""}`
     : null;
+  const okKind = classifyRoasError(props.data);
+  const okBadge: { cls?: string; label?: string; wrapper?: string; note?: string } =
+    okKind === "no_data"
+      ? {
+          cls: styles.sourceGray,
+          label: "데이터 없음",
+          wrapper: styles.metaRoasGray,
+          note:
+            "이 기간 광고비/매출이 모두 0 입니다. 광고가 안 돌고 있거나 (새벽/캠페인 off) Meta 가 아직 집계 전입니다. " +
+            "치명 장애 아닙니다.",
+        }
+      : okKind === "real_zero"
+        ? {
+            cls: styles.sourceRed,
+            label: "성과 0",
+            wrapper: styles.metaRoasRed,
+            note:
+              "광고비는 썼는데 귀속 주문이 0 — 실제 성과 0 케이스. 캠페인 점검 필요.",
+          }
+        : {};
   return (
-    <div className={styles.metaRoasCard}>
+    <div className={`${styles.metaRoasCard} ${okBadge.wrapper ?? ""}`}>
       <div className={styles.metaRoasTitle}>
         {props.title}
-        <span className={`${styles.sourceBadge} ${styles.sourceAdsManager}`}>ads_manager</span>
+        <span className={`${styles.sourceBadge} ${styles.sourceInternalAttr}`}>internal_attr</span>
+        {okBadge.label && <span className={`${styles.sourceBadge} ${okBadge.cls}`}>{okBadge.label}</span>}
       </div>
       <div className={styles.metaRoasValueRow}>
         <span className={styles.metaRoasRoas} style={{ color: roasColor }}>
@@ -1892,6 +2489,7 @@ function MetaRoasCard(props: {
           <span className={styles.metaRoasLabel}>주문</span> {fmtNum(props.data.orders)}건
         </div>
       </div>
+      {okBadge.note && <div className={styles.metaRoasCaveat}>ℹ {okBadge.note}</div>}
       {props.caveatLag && (
         <div className={styles.metaRoasCaveat}>⚠ {props.caveatLag}</div>
       )}
@@ -1903,6 +2501,80 @@ function MetaRoasCard(props: {
   );
 }
 
+// v9: ROAS error 의 색상/카피 분기를 위한 분류
+type RoasErrorKind = "meta_rate_limit" | "no_data" | "real_zero" | "backend_unknown";
+type _RoasOk = { spend: number; attributedRevenue: number; roas: number | null; orders: number };
+type _RoasErr = { error: string; status?: number; response_message?: string };
+const classifyRoasError = (
+  data: _RoasOk | _RoasErr,
+): RoasErrorKind | null => {
+  if ("error" in data) {
+    const err = data as _RoasErr;
+    const msg = ((err.response_message ?? "") + " " + (err.error ?? "")).toLowerCase();
+    if (msg.includes("meta_rate_limit") || msg.includes("80004") || msg.includes("rate limit") || msg.includes("too many calls")) {
+      return "meta_rate_limit";
+    }
+    if (msg.includes("fetch failed") || msg.includes("network")) {
+      return "meta_rate_limit";
+    }
+    return "backend_unknown";
+  }
+  const ok = data as _RoasOk;
+  if (ok.spend === 0 && ok.orders === 0) return "no_data";
+  if (ok.spend > 0 && ok.orders === 0) return "real_zero";
+  return null;
+};
+
+// 쿨다운 시간 결정. retry_after_ms 가 응답에 있으면 우선. 없으면 failCount 기반 5s → 15s → 30s.
+const nextCooldownMs = (failCount: number, retryAfterMs?: number): number => {
+  if (typeof retryAfterMs === "number" && retryAfterMs > 0) {
+    return Math.min(retryAfterMs, 60000);
+  }
+  if (failCount <= 1) return 5000;
+  if (failCount <= 2) return 15000;
+  return 30000;
+};
+
+// Action 큐의 raw 기술 카피를 일반 사용자가 이해할 수 있는 풀이로 변환.
+// 매핑이 없으면 원문 그대로 반환.
+const ACTION_HUMANIZE_RULES: Array<{ match: RegExp; rewrite: string }> = [
+  {
+    match: /Eligibility queue.*oldest age.*backfill 후보/i,
+    rewrite:
+      "Meta 로 아직 안 보낸 주문 대기열(Eligibility queue) 에서 가장 오래 묵은 주문부터 사후 보충 전송(backfill) 대상으로 추리세요. " +
+      "운영 메뉴: '미해결 누수 → 결제완료 but CAPI 없음' 12건 중 가장 오래된 것부터.",
+  },
+  {
+    match: /Header Guard v3\.1\.1.*prefetch cache/i,
+    rewrite:
+      "결제완료 판단 응답이 끊기는 케이스(payment-decision canceled) 처리: Header Guard v3.1.1 패치 적용 후 prefetch 캐시를 비워서 같은 증상이 재발하는지 다시 보세요.",
+  },
+  {
+    match: /광고 link tagging.*click id capture/i,
+    rewrite:
+      "광고 링크 UTM 일관성과 클라이언트의 광고 클릭 ID(gclid/fbclid) 수집 타이밍을 점검하세요. " +
+      "광고를 누르고 들어왔는데 click ID 가 비어 있다면 광고 link 에 파라미터가 빠졌거나 redirect 단계에서 잘립니다.",
+  },
+  {
+    match: /Meta CAPI sync.*큐.*사유 분포/i,
+    rewrite:
+      "Meta 로 보내는 자동 전송(CAPI sync) 의 대기 큐와 실패 사유 분포를 확인하고 재전송 정책을 손보세요.",
+  },
+  {
+    match: /광고 link UTM.*referrer 유지/i,
+    rewrite:
+      "광고 링크의 UTM 파라미터가 일관되게 붙어 있는지, 그리고 결제 시작 단계 wrapper 가 referrer 값을 유지하는지 확인하세요.",
+  },
+];
+
+const humanizeActionText = (raw: string): string => {
+  if (!raw) return raw;
+  for (const rule of ACTION_HUMANIZE_RULES) {
+    if (rule.match.test(raw)) return rule.rewrite;
+  }
+  return raw;
+};
+
 const toKstShort = (iso: string): string => {
   try {
     const d = new Date(iso);
@@ -1912,6 +2584,12 @@ const toKstShort = (iso: string): string => {
   } catch {
     return iso;
   }
+};
+
+const getKstIsoDate = (offsetDays: number): string => {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000 + offsetDays * 24 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
 };
 
 const CATEGORY_LABEL: Record<string, string> = {

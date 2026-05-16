@@ -1,5 +1,7 @@
 import express, { type Request, type Response } from "express";
 import { env } from "../env";
+import { buildLazyCacheMeta, getLazyCached, getLazyCachedStale, setLazyCached } from "../lib/lazyCache";
+const META_LAZY_CACHE_TTL_MS = 5 * 60 * 1000;
 import {
   buildMetaCapiDedupCandidateDetails,
   buildMetaCapiLogDiagnostics,
@@ -252,7 +254,7 @@ const classifyCampaignCreateError = (error: string) => {
     return { status: 400, error: "budget_error" };
   }
 
-  return { status: 502, error: "meta_api_error" };
+  return { status: 503, error: "meta_api_error" };
 };
 
 type MetaApiError = {
@@ -264,38 +266,58 @@ type MetaApiError = {
   type?: string;
 };
 
-const fetchMeta = async <T>(path: string, params: Record<string, string> = {}, method: "GET" | "POST" = "GET"): Promise<{ ok: true; data: T } | { ok: false; error: string; errorDetail?: MetaApiError }> => {
+const fetchMeta = async <T>(
+  path: string,
+  params: Record<string, string> = {},
+  method: "GET" | "POST" = "GET",
+): Promise<{ ok: true; data: T } | { ok: false; error: string; errorDetail?: MetaApiError }> => {
   const token = resolveTokenFromPath(path);
   if (!token) return { ok: false, error: "META_ADMANAGER_API_KEY 미설정" };
 
-  const url = new URL(`${META_GRAPH_URL}${path}`);
-  url.searchParams.set("access_token", token);
+  const RATE_LIMIT_CODES = new Set([80004, 17, 32, 613]); // 80004 = ad-account rate limit
+  const performOnce = async (): Promise<{ ok: true; data: T } | { ok: false; error: string; errorDetail?: MetaApiError; rateLimited?: boolean }> => {
+    const url = new URL(`${META_GRAPH_URL}${path}`);
+    url.searchParams.set("access_token", token);
 
-  let fetchRes: globalThis.Response;
-  if (method === "POST") {
-    const formData = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) formData.set(k, v);
-    fetchRes = await fetch(url.toString(), { method: "POST", body: formData, signal: AbortSignal.timeout(15000) });
-  } else {
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-    fetchRes = await fetch(url.toString(), { signal: AbortSignal.timeout(15000) });
-  }
+    let fetchRes: globalThis.Response;
+    if (method === "POST") {
+      const formData = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) formData.set(k, v);
+      fetchRes = await fetch(url.toString(), { method: "POST", body: formData, signal: AbortSignal.timeout(15000) });
+    } else {
+      for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+      fetchRes = await fetch(url.toString(), { signal: AbortSignal.timeout(15000) });
+    }
 
-  const body = await fetchRes.json() as Record<string, unknown>;
-  if (body.error) {
-    const err = body.error as MetaApiError;
-    const detail: MetaApiError = {
-      message: err.message ?? "Meta API error",
-      code: err.code,
-      error_subcode: err.error_subcode,
-      error_data: err.error_data,
-      fbtrace_id: err.fbtrace_id,
-      type: err.type,
-    };
-    console.error(`[Meta API Error] ${method} ${path}`, JSON.stringify(detail));
-    return { ok: false, error: err.message ?? "Meta API error", errorDetail: detail };
+    const body = await fetchRes.json() as Record<string, unknown>;
+    if (body.error) {
+      const err = body.error as MetaApiError;
+      const detail: MetaApiError = {
+        message: err.message ?? "Meta API error",
+        code: err.code,
+        error_subcode: err.error_subcode,
+        error_data: err.error_data,
+        fbtrace_id: err.fbtrace_id,
+        type: err.type,
+      };
+      const rateLimited = typeof err.code === "number" && RATE_LIMIT_CODES.has(err.code);
+      console.error(`[Meta API Error] ${method} ${path}`, JSON.stringify(detail));
+      return { ok: false, error: err.message ?? "Meta API error", errorDetail: detail, rateLimited };
+    }
+    return { ok: true, data: body as T };
+  };
+
+  // 1회 시도 — rate limit (80004) 이면 jitter 후 1회 재시도 (Meta API 호출 늘리는 자동 재시도가 아니라 1회만)
+  const first = await performOnce();
+  if (first.ok) return first;
+  if ((first as { rateLimited?: boolean }).rateLimited) {
+    const jitterMs = 1500 + Math.floor(Math.random() * 1500); // 1.5~3s
+    await new Promise((resolve) => setTimeout(resolve, jitterMs));
+    console.log(`[Meta API retry] rate-limit 후 ${jitterMs}ms 대기 후 1회 재시도 — ${method} ${path}`);
+    const second = await performOnce();
+    return second;
   }
-  return { ok: true, data: body as T };
+  return first;
 };
 
 const ACCOUNT_STATUS: Record<number, string> = {
@@ -548,7 +570,7 @@ export const createMetaRouter = () => {
         fields: "id,name,account_status,currency,business_name",
         limit: "50",
       });
-      if (!result.ok) { res.status(502).json(result); return; }
+      if (!result.ok) { res.status(503).json(result); return; }
 
       const accounts = (result.data.data ?? []).map((a) => ({
         ...a,
@@ -571,7 +593,7 @@ export const createMetaRouter = () => {
         fields: "id,name,status,objective,daily_budget,lifetime_budget",
         limit: "100",
       });
-      if (!result.ok) { res.status(502).json(result); return; }
+      if (!result.ok) { res.status(503).json(result); return; }
 
       res.json({ ok: true, account_id: accountId, campaigns: result.data.data ?? [] });
     } catch (error) {
@@ -581,6 +603,7 @@ export const createMetaRouter = () => {
 
   // 계정 성과 (Insights)
   router.get("/api/meta/insights", async (req: Request, res: Response) => {
+    let cacheKey = "";
     try {
       const accountId = (req.query.account_id as string) ?? "";
       if (!accountId) { res.status(400).json({ ok: false, error: "account_id 필요" }); return; }
@@ -589,15 +612,49 @@ export const createMetaRouter = () => {
       const level = (req.query.level as string) ?? "campaign";
       const attrWindow = (req.query.attribution_window as string) ?? "";
       const VALID_WINDOWS = ["1d_click", "7d_click", "28d_click", "1d_view"];
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+
+      // 사용자 지정 날짜 범위 (start_date + end_date) — 둘 다 있으면 date_preset 무시.
+      const rawStartDate = typeof req.query.start_date === "string" ? req.query.start_date.trim() : "";
+      const rawEndDate = typeof req.query.end_date === "string" ? req.query.end_date.trim() : "";
+      const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+      let customRange: { since: string; until: string } | null = null;
+      if (rawStartDate || rawEndDate) {
+        if (!ISO_DATE_RE.test(rawStartDate) || !ISO_DATE_RE.test(rawEndDate)) {
+          res.status(400).json({ ok: false, error: "start_date/end_date 는 둘 다 YYYY-MM-DD 형식이어야 함" });
+          return;
+        }
+        if (rawStartDate > rawEndDate) {
+          res.status(400).json({ ok: false, error: "start_date 는 end_date 보다 늦을 수 없음" });
+          return;
+        }
+        customRange = { since: rawStartDate, until: rawEndDate };
+      }
+
+      const rangeKey = customRange ? `range:${customRange.since}~${customRange.until}` : `preset:${datePreset}`;
+
+      // Lazy cache lookup (Meta API rate limit 흡수)
+      cacheKey = `meta-insights:${accountId}:${rangeKey}:${level}:${attrWindow || "default"}`;
+      if (!forceRefresh) {
+        const cached = getLazyCached(cacheKey);
+        if (cached) {
+          res.json({ ...(cached.result as object), cache: buildLazyCacheMeta(cached, "lazy_cache_hit") });
+          return;
+        }
+      }
 
       const fields = "campaign_name,campaign_id,impressions,clicks,spend,cpc,cpm,ctr,actions,action_values,purchase_roas,website_purchase_roas";
       const fetchParams: Record<string, string> = {
         fields,
-        date_preset: datePreset,
         level,
         limit: "100",
         action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
       };
+      if (customRange) {
+        fetchParams.time_range = JSON.stringify(customRange);
+      } else {
+        fetchParams.date_preset = datePreset;
+      }
       let metaReference = buildMetaReference();
       if (VALID_WINDOWS.includes(attrWindow)) {
         fetchParams.action_attribution_windows = JSON.stringify([attrWindow]);
@@ -611,7 +668,7 @@ export const createMetaRouter = () => {
       }
 
       const result = await fetchMeta<{ data: MetaInsight[] }>(`/${accountId}/insights`, fetchParams);
-      if (!result.ok) { res.status(502).json(result); return; }
+      if (!result.ok) { res.status(503).json(result); return; }
 
       const pickValue = (a: { value: string; "1d_click"?: string; "7d_click"?: string; "28d_click"?: string; "1d_view"?: string }): number => {
         if (attrWindow && VALID_WINDOWS.includes(attrWindow)) {
@@ -678,23 +735,39 @@ export const createMetaRouter = () => {
         totalPurchaseValue: rows.reduce((s, r) => s + r.purchase_value, 0),
       };
 
-      res.json({
+      const responseBody = {
         ok: true,
         ...buildMetaQueryContext({
-          datePreset,
+          datePreset: customRange ? `custom:${customRange.since}~${customRange.until}` : datePreset,
           level,
           fields,
           attributionWindow: VALID_WINDOWS.includes(attrWindow) ? attrWindow : null,
         }),
         account_id: accountId,
-        date_preset: datePreset,
+        date_preset: customRange ? null : datePreset,
+        start_date: customRange?.since ?? null,
+        end_date: customRange?.until ?? null,
         level,
         meta_reference: metaReference,
         summary,
         rows,
-      });
+      };
+      const cachedEntry = setLazyCached(cacheKey, responseBody, META_LAZY_CACHE_TTL_MS);
+      res.json({ ...responseBody, cache: buildLazyCacheMeta(cachedEntry, forceRefresh ? "live_force" : "live_cache_miss") });
     } catch (error) {
-      res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "insights failed" });
+      const message = error instanceof Error ? error.message : "insights failed";
+      // stale-while-revalidate
+      if (cacheKey) {
+        const stale = getLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildLazyCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+      }
+      res.status(500).json({ ok: false, error: message });
     }
   });
 
@@ -715,7 +788,7 @@ export const createMetaRouter = () => {
         action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
         use_unified_attribution_setting: "true",
       });
-      if (!result.ok) { res.status(502).json(result); return; }
+      if (!result.ok) { res.status(503).json(result); return; }
 
       const rows = (result.data.data ?? []).map((r) => {
         const actions: Record<string, number> = {};
@@ -814,23 +887,73 @@ export const createMetaRouter = () => {
 
   // 캠페인 목표 헬스체크 — 목표가 잘못된 캠페인 자동 감지
   router.get("/api/meta/campaigns/health", async (req: Request, res: Response) => {
+    let cacheKey = "";
     try {
       const accountId = (req.query.account_id as string) ?? "";
       if (!accountId) { res.status(400).json({ ok: false, error: "account_id 필요" }); return; }
 
+      // 사용자 지정 범위 — 없으면 last_30d.
+      const rawStartDate = typeof req.query.start_date === "string" ? req.query.start_date.trim() : "";
+      const rawEndDate = typeof req.query.end_date === "string" ? req.query.end_date.trim() : "";
+      const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+      let customRange: { since: string; until: string } | null = null;
+      if (rawStartDate || rawEndDate) {
+        if (!ISO_DATE_RE.test(rawStartDate) || !ISO_DATE_RE.test(rawEndDate)) {
+          res.status(400).json({ ok: false, error: "start_date/end_date 는 둘 다 YYYY-MM-DD 형식이어야 함" });
+          return;
+        }
+        if (rawStartDate > rawEndDate) {
+          res.status(400).json({ ok: false, error: "start_date 는 end_date 보다 늦을 수 없음" });
+          return;
+        }
+        customRange = { since: rawStartDate, until: rawEndDate };
+      }
+
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+      const rangeKey = customRange ? `range:${customRange.since}~${customRange.until}` : `preset:last_30d`;
+      cacheKey = `meta-campaigns-health:${accountId}:${rangeKey}`;
+      if (!forceRefresh) {
+        const cached = getLazyCached(cacheKey);
+        if (cached) {
+          res.json({ ...(cached.result as object), cache: buildLazyCacheMeta(cached, "lazy_cache_hit") });
+          return;
+        }
+      }
+
       // 캠페인 목록 + insights + 광고세트 동시 조회
+      const insightsParams: Record<string, string> = {
+        fields: "campaign_id,impressions,clicks,spend,ctr,actions",
+        level: "campaign",
+        limit: "50",
+      };
+      if (customRange) {
+        insightsParams.time_range = JSON.stringify(customRange);
+      } else {
+        insightsParams.date_preset = "last_30d";
+      }
       const [campResult, insightsResult, adsetsResult] = await Promise.all([
         fetchMeta<{ data: Array<{ id: string; name: string; objective: string; status: string; daily_budget?: string; lifetime_budget?: string }> }>(`/${accountId}/campaigns`, {
           fields: "name,objective,status,daily_budget,lifetime_budget", limit: "50",
         }),
-        fetchMeta<{ data: Array<{ campaign_id: string; impressions: string; clicks: string; spend: string; ctr: string; actions?: Array<{ action_type: string; value: string }> }> }>(`/${accountId}/insights`, {
-          fields: "campaign_id,impressions,clicks,spend,ctr,actions", date_preset: "last_30d", level: "campaign", limit: "50",
-        }),
+        fetchMeta<{ data: Array<{ campaign_id: string; impressions: string; clicks: string; spend: string; ctr: string; actions?: Array<{ action_type: string; value: string }> }> }>(`/${accountId}/insights`, insightsParams),
         fetchMeta<{ data: Array<{ id: string; campaign_id: string; name: string; optimization_goal?: string; promoted_object?: { pixel_id?: string; page_id?: string; custom_event_type?: string; application_id?: string } }> }>(`/${accountId}/adsets`, {
           fields: "campaign_id,name,optimization_goal,promoted_object", limit: "100",
         }),
       ]);
-      if (!campResult.ok) { res.status(502).json(campResult); return; }
+      if (!campResult.ok) {
+        // Meta 캠페인 호출 실패 — stale cache 있으면 그것 반환
+        if (cacheKey) {
+          const stale = getLazyCachedStale(cacheKey);
+          if (stale) {
+            res.json({
+              ...(stale.result as object),
+              cache: { ...buildLazyCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: campResult.error },
+            });
+            return;
+          }
+        }
+        res.status(503).json(campResult); return;
+      }
 
       // insights를 campaign_id로 매핑
       const insightsMap = new Map<string, { impressions: number; clicks: number; spend: number; ctr: number; leads: number; purchases: number; landingViews: number }>();
@@ -979,9 +1102,33 @@ export const createMetaRouter = () => {
       const activeCount = campaigns.filter((c) => c.status === "ACTIVE").length;
       const issueCount = campaigns.filter((c) => c.issues.length > 0).length;
 
-      res.json({ ok: true, account_id: accountId, total: campaigns.length, active: activeCount, issues: issueCount, campaigns });
+      const responseBody = {
+        ok: true,
+        account_id: accountId,
+        start_date: customRange?.since ?? null,
+        end_date: customRange?.until ?? null,
+        date_preset: customRange ? null : "last_30d",
+        total: campaigns.length,
+        active: activeCount,
+        issues: issueCount,
+        campaigns,
+      };
+      const cachedEntry = setLazyCached(cacheKey, responseBody, META_LAZY_CACHE_TTL_MS);
+      res.json({ ...responseBody, cache: buildLazyCacheMeta(cachedEntry, forceRefresh ? "live_force" : "live_cache_miss") });
+      return; // 명시적 끝 — 아래 catch 절은 fetchMeta 실패만 처리
     } catch (error) {
-      res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "campaign health failed" });
+      const message = error instanceof Error ? error.message : "campaign health failed";
+      if (cacheKey) {
+        const stale = getLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildLazyCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+      }
+      res.status(500).json({ ok: false, error: message });
     }
   });
 
@@ -994,7 +1141,7 @@ export const createMetaRouter = () => {
       const adsetResult = await fetchMeta<{ data: Array<{ id: string; name: string; status: string; targeting?: Record<string, unknown>; daily_budget?: string; optimization_goal?: string; promoted_object?: { pixel_id?: string; page_id?: string; custom_event_type?: string } }> }>(
         `/${campaignId}/adsets`, { fields: "id,name,status,targeting,daily_budget,optimization_goal,promoted_object", limit: "20" },
       );
-      if (!adsetResult.ok) { res.status(502).json(adsetResult); return; }
+      if (!adsetResult.ok) { res.status(503).json(adsetResult); return; }
       const adsets = adsetResult.data.data ?? [];
 
       // 각 광고세트의 소재 조회
@@ -1390,7 +1537,7 @@ export const createMetaRouter = () => {
     try {
       const { campaignId } = req.params;
       const result = await fetchMeta<{ success: boolean }>(`/${campaignId}`, { status: "PAUSED" }, "POST");
-      if (!result.ok) { res.status(502).json(result); return; }
+      if (!result.ok) { res.status(503).json(result); return; }
       res.json({ ok: true, campaignId, action: "paused", result: result.data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "pause failed" });
@@ -1402,7 +1549,7 @@ export const createMetaRouter = () => {
     try {
       const { campaignId } = req.params;
       const result = await fetchMeta<{ success: boolean }>(`/${campaignId}`, { status: "ACTIVE" }, "POST");
-      if (!result.ok) { res.status(502).json(result); return; }
+      if (!result.ok) { res.status(503).json(result); return; }
       res.json({ ok: true, campaignId, action: "activated", result: result.data });
     } catch (error) {
       res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "activate failed" });
@@ -1642,8 +1789,29 @@ export const createMetaCapiRouter = () => {
         : scope === "recent_operational"
           ? 7
           : null;
-      const explicitSinceTimestampMs = parseOptionalTimestampMs(req.query.since);
-      const explicitUntilTimestampMs = parseOptionalTimestampMs(req.query.until);
+
+      // 사용자 지정 YYYY-MM-DD (KST) — start_date/end_date 가 있으면 since/until ISO 보다 우선.
+      const rawStartDate = typeof req.query.start_date === "string" ? req.query.start_date.trim() : "";
+      const rawEndDate = typeof req.query.end_date === "string" ? req.query.end_date.trim() : "";
+      const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+      let dateRangeSinceMs: number | null = null;
+      let dateRangeUntilMs: number | null = null;
+      if (rawStartDate || rawEndDate) {
+        if (!ISO_DATE_RE.test(rawStartDate) || !ISO_DATE_RE.test(rawEndDate)) {
+          res.status(400).json({ ok: false, error: "start_date/end_date 는 둘 다 YYYY-MM-DD 형식이어야 함" });
+          return;
+        }
+        if (rawStartDate > rawEndDate) {
+          res.status(400).json({ ok: false, error: "start_date 는 end_date 보다 늦을 수 없음" });
+          return;
+        }
+        // KST 자정 ~ KST 23:59:59.999 (== UTC 전날 15:00:00 ~ 당일 14:59:59.999)
+        dateRangeSinceMs = Date.parse(`${rawStartDate}T00:00:00+09:00`);
+        dateRangeUntilMs = Date.parse(`${rawEndDate}T23:59:59.999+09:00`);
+      }
+
+      const explicitSinceTimestampMs = dateRangeSinceMs !== null ? dateRangeSinceMs : parseOptionalTimestampMs(req.query.since);
+      const explicitUntilTimestampMs = dateRangeUntilMs !== null ? dateRangeUntilMs : parseOptionalTimestampMs(req.query.until);
       if (Number.isNaN(explicitSinceTimestampMs)) {
         res.status(400).json({ ok: false, error: "since must be an ISO timestamp" });
         return;
@@ -1705,6 +1873,8 @@ export const createMetaCapiRouter = () => {
           response_status_class: responseStatusClass || (scope === "recent_operational" ? "success" : null),
           scope: scope || "all",
           since_days: sinceDays,
+          start_date: rawStartDate || null,
+          end_date: rawEndDate || null,
           since: explicitSinceTimestampMs === null ? null : new Date(explicitSinceTimestampMs).toISOString(),
           until: explicitUntilTimestampMs === null ? null : new Date(explicitUntilTimestampMs).toISOString(),
           include_dedup_candidates: includeDedupCandidates,

@@ -90,19 +90,38 @@ export function SourceFreshnessBadge({
 
   useEffect(() => {
     const ac = new AbortController();
-    fetch(`${API_BASE}/api/source-freshness`, { signal: ac.signal })
-      .then((r) => r.json())
-      .then((payload: SourceFreshnessResponse) => {
+    // backend 일시 재시작/502 대비 1회 retry-with-backoff. backend SQLite 기반이라 안전한 retry.
+    let retried = false;
+    const fetchOnce = async (): Promise<void> => {
+      try {
+        const r = await fetch(`${API_BASE}/api/source-freshness`, { signal: ac.signal });
+        if (!r.ok) {
+          if (!retried && (r.status === 502 || r.status === 503 || r.status === 504)) {
+            retried = true;
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            if (ac.signal.aborted) return;
+            return fetchOnce();
+          }
+          throw new Error(`backend 일시 응답 실패 (HTTP ${r.status}).`);
+        }
+        const payload: SourceFreshnessResponse = await r.json();
         if (!payload?.ok) throw new Error(payload?.message ?? payload?.error ?? "source freshness unavailable");
         setData(payload);
         setError(null);
-      })
-      .catch((err) => {
-        if (!ac.signal.aborted) {
-          setData(null);
-          setError(err instanceof Error ? err.message : "source freshness unavailable");
+      } catch (err) {
+        if (ac.signal.aborted) return;
+        const isNetworkErr = err instanceof TypeError;
+        if (!retried && isNetworkErr) {
+          retried = true;
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          if (ac.signal.aborted) return;
+          return fetchOnce();
         }
-      });
+        setData(null);
+        setError(err instanceof Error ? err.message : "source freshness unavailable");
+      }
+    };
+    void fetchOnce();
     return () => ac.abort();
   }, []);
 

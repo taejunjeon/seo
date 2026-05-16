@@ -352,12 +352,16 @@ const SITES = [
 ];
 
 const DATE_PRESETS = [
+  { value: "today", label: "오늘" },
+  { value: "yesterday", label: "어제" },
   { value: "last_7d", label: "최근 7일" },
   { value: "last_14d", label: "최근 14일" },
   { value: "last_30d", label: "최근 30일" },
   { value: "last_90d", label: "최근 90일" },
 ];
 const DATE_PRESET_DAY_COUNTS: Record<string, number> = {
+  today: 1,
+  yesterday: 1,
   last_7d: 7,
   last_14d: 14,
   last_30d: 30,
@@ -519,6 +523,10 @@ const formatDateRangeMeta = (range: AdsDateRangeMeta | null | undefined) => {
 export default function AdsPage() {
   const [selectedSite, setSelectedSite] = useState(SITES[0]);
   const [datePreset, setDatePreset] = useState("last_7d");
+  // 사용자 지정 날짜 범위 — 둘 다 채우면 datePreset 무시하고 start_date/end_date 사용.
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [useCustomRange, setUseCustomRange] = useState(false);
   const [attrWindow, setAttrWindow] = useState(META_PRIMARY_ATTR_WINDOW);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [campaignSummary, setCampaignSummary] = useState<CampaignSummary | null>(null);
@@ -566,19 +574,45 @@ export default function AdsPage() {
 
   useEffect(() => {
     const ac = new AbortController();
-    fetch(`${API_BASE}/api/source-freshness`, { signal: ac.signal })
-      .then((r) => r.json())
-      .then((data: SourceFreshnessResponse) => {
-        if (!data?.ok) throw new Error(data?.message ?? data?.error ?? "source freshness unavailable");
+    // 502/503/timeout 같은 일시적 backend 재시작 케이스 대비 — 1회 retry-with-backoff (3초)
+    // backend SQLite 기반이라 Meta API 호출 늘리지 않음. 안전한 retry.
+    let retried = false;
+    const fetchOnce = async (): Promise<void> => {
+      try {
+        const r = await fetch(`${API_BASE}/api/source-freshness`, { signal: ac.signal });
+        if (!r.ok) {
+          // 502/503/504 면 한 번 재시도, 그 외 (400/404 등) 는 즉시 에러
+          if (!retried && (r.status === 502 || r.status === 503 || r.status === 504)) {
+            retried = true;
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            if (ac.signal.aborted) return;
+            return fetchOnce();
+          }
+          throw new Error(`backend 일시 응답 실패 (HTTP ${r.status}). 잠시 후 새로고침 권장.`);
+        }
+        const data: SourceFreshnessResponse = await r.json();
+        if (!data?.ok) {
+          throw new Error(data?.message ?? data?.error ?? "source freshness unavailable");
+        }
         setSourceFreshness(data);
         setSourceFreshnessError(null);
-      })
-      .catch((error) => {
-        if (!ac.signal.aborted) {
-          setSourceFreshness(null);
-          setSourceFreshnessError(error instanceof Error ? error.message : "source freshness unavailable");
+      } catch (error) {
+        if (ac.signal.aborted) return;
+        // network 레벨 실패 (ERR_FAILED 등) 도 1회 retry
+        const isNetworkErr = error instanceof TypeError;
+        if (!retried && isNetworkErr) {
+          retried = true;
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          if (ac.signal.aborted) return;
+          return fetchOnce();
         }
-      });
+        setSourceFreshness(null);
+        setSourceFreshnessError(
+          error instanceof Error ? error.message : "source freshness unavailable",
+        );
+      }
+    };
+    void fetchOnce();
     return () => ac.abort();
   }, []);
 
@@ -615,28 +649,60 @@ export default function AdsPage() {
     setLoading(true);
     try {
       const attrWindowQuery = attrWindow ? `&attribution_window=${attrWindow}` : "";
+      const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+      const customRangeActive = useCustomRange
+        && ISO_DATE.test(customStartDate)
+        && ISO_DATE.test(customEndDate)
+        && customStartDate <= customEndDate;
+      // 사용자 지정 범위면 start_date/end_date, 아니면 date_preset.
+      const dateQuery = customRangeActive
+        ? `start_date=${customStartDate}&end_date=${customEndDate}`
+        : `date_preset=${datePreset}`;
       const campaignRoasApiBase = selectedSite.site === "biocom" ? API_BASE : ADS_REPORTING_API_BASE;
-      const [insightsRes, dailyRes, siteSummaryRes, campaignRoasRes] = await Promise.all([
-        fetch(`${ADS_REPORTING_API_BASE}/api/meta/insights?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindowQuery}`),
-        fetch(`${ADS_REPORTING_API_BASE}/api/ads/roas/daily?account_id=${selectedSite.account_id}&date_preset=${datePreset}${attrWindowQuery}`),
-        fetch(`${ADS_REPORTING_API_BASE}/api/ads/site-summary?date_preset=${datePreset}${attrWindowQuery}`),
-        fetch(`${campaignRoasApiBase}/api/ads/roas?account_id=${selectedSite.account_id}&date_preset=${datePreset}`),
+      // 500/502 일 때 1회 재시도 (3초 후) — Meta API rate limit/일시 backend restart 흡수.
+      // Meta API 호출 늘리는 자동 재시도 아니라 backend 응답 실패 시 1회만.
+      const fetchWithRetry = async (url: string): Promise<Response | null> => {
+        try {
+          const r = await fetch(url);
+          if (r.ok) return r;
+          if (r.status === 500 || r.status === 502 || r.status === 503) {
+            await new Promise((res) => setTimeout(res, 3000));
+            return fetch(url).catch(() => null);
+          }
+          return r;
+        } catch {
+          return null;
+        }
+      };
+      // Promise.allSettled — 하나 실패해도 다른 카드 표시. 사용자가 "전부 로딩 중" 무한 대기 안 함.
+      const settled = await Promise.allSettled([
+        fetchWithRetry(`${ADS_REPORTING_API_BASE}/api/meta/insights?account_id=${selectedSite.account_id}&${dateQuery}${attrWindowQuery}`),
+        fetchWithRetry(`${ADS_REPORTING_API_BASE}/api/ads/roas/daily?account_id=${selectedSite.account_id}&${dateQuery}${attrWindowQuery}`),
+        fetchWithRetry(`${ADS_REPORTING_API_BASE}/api/ads/site-summary?${dateQuery}${attrWindowQuery}`),
+        fetchWithRetry(`${campaignRoasApiBase}/api/ads/roas?account_id=${selectedSite.account_id}&${dateQuery}`),
       ]);
+      const [insightsRes, dailyRes, siteSummaryRes, campaignRoasRes] = settled.map((s) =>
+        s.status === "fulfilled" ? s.value : null,
+      );
       const campaignLtvRoasRes = selectedSite.site === "biocom"
-        ? await fetch(`${API_BASE}/api/ads/campaign-ltv-roas?account_id=${selectedSite.account_id}&date_preset=${datePreset}&ltv_window_days=180`).catch(() => null)
+        ? await fetchWithRetry(`${API_BASE}/api/ads/campaign-ltv-roas?account_id=${selectedSite.account_id}&${dateQuery}&ltv_window_days=180`)
         : null;
-      const insightsData = await insightsRes.json();
-      const dailyData = await dailyRes.json();
-      const siteSummaryData = await siteSummaryRes.json();
-      const campaignRoasData = await campaignRoasRes.json();
-      const campaignLtvRoasData = campaignLtvRoasRes ? await campaignLtvRoasRes.json().catch(() => null) as CampaignLtvRoasResponse | null : null;
-      if (insightsData.ok) {
+      const safeJson = async (r: Response | null) => {
+        if (!r || !r.ok) return null;
+        try { return await r.json(); } catch { return null; }
+      };
+      const insightsData = await safeJson(insightsRes);
+      const dailyData = await safeJson(dailyRes);
+      const siteSummaryData = await safeJson(siteSummaryRes);
+      const campaignRoasData = await safeJson(campaignRoasRes);
+      const campaignLtvRoasData = (await safeJson(campaignLtvRoasRes)) as CampaignLtvRoasResponse | null;
+      if (insightsData?.ok) {
         setCampaigns(insightsData.rows ?? []);
         setCampaignSummary(insightsData.summary ?? null);
       }
-      if (dailyData.ok) setDaily(dailyData.rows ?? []);
-      if (siteSummaryData.ok) setSiteSummary(siteSummaryData);
-      if (campaignRoasData.ok) setCampaignRoas(campaignRoasData);
+      if (dailyData?.ok) setDaily(dailyData.rows ?? []);
+      if (siteSummaryData?.ok) setSiteSummary(siteSummaryData);
+      if (campaignRoasData?.ok) setCampaignRoas(campaignRoasData);
       if (campaignLtvRoasData?.ok) {
         setCampaignLtvRoas(campaignLtvRoasData);
         setCampaignLtvRoasError(null);
@@ -650,7 +716,7 @@ export default function AdsPage() {
       }
     } catch { /* ignore */ }
     setLoading(false);
-  }, [selectedSite, datePreset, attrWindow]);
+  }, [selectedSite, datePreset, attrWindow, useCustomRange, customStartDate, customEndDate]);
 
   useEffect(() => { loadSiteData(); }, [loadSiteData]);
 
@@ -670,6 +736,14 @@ export default function AdsPage() {
     setRealRoasError(null);
     fetch(`${API_BASE}/api/ads/internal-real-roas?platform=paid_meta&since=${since}&until=${until}&spend_krw=${Math.round(totalSpend)}`)
       .then(async (r) => {
+        // 운영 backend 에 아직 endpoint 가 등록 안 됐을 수 있다 (404). 그럴 땐 silent — 사용자 콘솔에 빨간 에러 안 띄우고 카드 안 보이게.
+        if (r.status === 404) {
+          if (!cancelled) {
+            setRealRoas(null);
+            setRealRoasError(null);
+          }
+          return;
+        }
         const j = (await r.json()) as {
           ok?: boolean;
           window?: { since: string; until: string };
@@ -747,10 +821,27 @@ export default function AdsPage() {
     && selectedMetaPurchaseRoas != null
       ? selectedMetaPurchaseRoas / selectedAttributedRoas
       : null;
-  const currentPresetLabel = DATE_PRESETS.find((preset) => preset.value === datePreset)?.label ?? "선택 기간";
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const isCustomRangeActive = useCustomRange
+    && ISO_DATE_RE.test(customStartDate)
+    && ISO_DATE_RE.test(customEndDate)
+    && customStartDate <= customEndDate;
+  const customRangeDays = isCustomRangeActive
+    ? Math.floor((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / 86400000) + 1
+    : 0;
+  const currentPresetLabel = isCustomRangeActive
+    ? `${customStartDate} ~ ${customEndDate}`
+    : DATE_PRESETS.find((preset) => preset.value === datePreset)?.label ?? "선택 기간";
   const currentAttrWindowLabel = ATTR_WINDOWS.find((window) => window.value === attrWindow)?.label ?? attrWindow;
-  const currentPresetDays = DATE_PRESET_DAY_COUNTS[datePreset] ?? 30;
-  const isLongWindow = datePreset === "last_30d" || datePreset === "last_90d";
+  const currentPresetDays = isCustomRangeActive
+    ? customRangeDays
+    : DATE_PRESET_DAY_COUNTS[datePreset] ?? 30;
+  const isLongWindow = isCustomRangeActive
+    ? customRangeDays > 14
+    : datePreset === "last_30d" || datePreset === "last_90d";
+  const dateQueryString = isCustomRangeActive
+    ? `start_date=${customStartDate}&end_date=${customEndDate}`
+    : `date_preset=${datePreset}`;
   const selectedMetaPurchases = campaignSummary?.totalPurchases ?? 0;
   const selectedMetaAov = selectedMetaPurchases > 0 ? selectedMetaPurchaseValue / selectedMetaPurchases : null;
   const selectedMetaCpa = campaignSummary && selectedMetaPurchases > 0 ? campaignSummary.totalSpend / selectedMetaPurchases : null;
@@ -800,15 +891,51 @@ export default function AdsPage() {
             <Link href="/ads/tiktok" style={{ color: "#0f766e", fontWeight: 600, textDecoration: "none" }}>틱톡 광고성과 →</Link>
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {DATE_PRESETS.map((dp) => (
-            <button key={dp.value} onClick={() => setDatePreset(dp.value)} style={{
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {DATE_PRESETS.map((dp) => (
+              <button key={dp.value} onClick={() => { setDatePreset(dp.value); setUseCustomRange(false); }} style={{
+                padding: "6px 12px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: "0.75rem", fontWeight: 600,
+                background: (!useCustomRange && datePreset === dp.value) ? "#6366f1" : "#fff",
+                color: (!useCustomRange && datePreset === dp.value) ? "#fff" : "#64748b",
+                cursor: "pointer",
+              }}>{dp.label}</button>
+            ))}
+            <button onClick={() => setUseCustomRange((v) => !v)} style={{
               padding: "6px 12px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: "0.75rem", fontWeight: 600,
-              background: datePreset === dp.value ? "#6366f1" : "#fff",
-              color: datePreset === dp.value ? "#fff" : "#64748b",
+              background: useCustomRange ? "#6366f1" : "#fff",
+              color: useCustomRange ? "#fff" : "#64748b",
               cursor: "pointer",
-            }}>{dp.label}</button>
-          ))}
+            }}>사용자 지정</button>
+          </div>
+          {useCustomRange ? (
+            <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.75rem", color: "#64748b" }}>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #cbd5f5", fontSize: "0.75rem" }}
+                aria-label="시작 날짜"
+              />
+              <span>~</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #cbd5f5", fontSize: "0.75rem" }}
+                aria-label="끝 날짜"
+              />
+              {customStartDate && customEndDate && customStartDate > customEndDate ? (
+                <span style={{ color: "#dc2626", fontWeight: 600 }}>시작이 끝보다 늦음</span>
+              ) : !customStartDate || !customEndDate ? (
+                <span style={{ color: "#94a3b8" }}>둘 다 채워야 적용됨</span>
+              ) : (
+                <span style={{ color: "#0f766e", fontWeight: 600 }}>
+                  {Math.floor((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / 86400000) + 1}일 적용
+                </span>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -2073,13 +2200,13 @@ export default function AdsPage() {
           })()}
 
           {/* CAPI 현황 + 가설 검증 */}
-          <CapiStatusSection />
+          <CapiStatusSection dateQuery={dateQueryString} />
 
           {/* 결제완료 식별자 품질 */}
-          <AttributionCallerCoverageSection />
+          <AttributionCallerCoverageSection dateQuery={dateQueryString} />
 
           {/* 캠페인 관리 */}
-          <CampaignManagerSection selectedSite={selectedSite!} />
+          <CampaignManagerSection selectedSite={selectedSite!} dateQuery={dateQueryString} />
 
           {/* UX 분석 · Clarity 현황 */}
           {campaignSummary && campaignSummary.totalLandingViews > 0 && (() => {
@@ -2691,7 +2818,7 @@ type CampaignDetail = {
   }>;
 };
 
-function CampaignManagerSection({ selectedSite }: { selectedSite: { site: string; label: string; account_id: string } }) {
+function CampaignManagerSection({ selectedSite, dateQuery }: { selectedSite: { site: string; label: string; account_id: string }; dateQuery: string }) {
   const [campaigns, setCampaigns] = useState<CampaignHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -2727,12 +2854,12 @@ function CampaignManagerSection({ selectedSite }: { selectedSite: { site: string
 
   const loadHealth = useCallback(() => {
     setLoading(true);
-    fetch(`${API_BASE}/api/meta/campaigns/health?account_id=${selectedSite.account_id}`)
+    fetch(`${API_BASE}/api/meta/campaigns/health?account_id=${selectedSite.account_id}&${dateQuery}`)
       .then((r) => r.json())
       .then((d) => { if (d.ok) setCampaigns(d.campaigns ?? []); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [selectedSite.account_id]);
+  }, [selectedSite.account_id, dateQuery]);
 
   useEffect(() => { loadHealth(); }, [loadHealth]);
 
@@ -3378,7 +3505,7 @@ function CloneAsLeadsSection({ accountId, campaigns, onDone }: { accountId: stri
   );
 }
 
-function CapiStatusSection() {
+function CapiStatusSection({ dateQuery }: { dateQuery: string }) {
   const [capiLog, setCapiLog] = useState<{
     summary: CapiLogSummary;
     dedupCandidateDetails: CapiDedupCandidateDetail[];
@@ -3386,7 +3513,12 @@ function CapiStatusSection() {
   } | null>(null);
 
   useEffect(() => {
-    fetch(`${ADS_REPORTING_API_BASE}/api/meta/capi/log?limit=500&scope=recent_operational&since_days=7&include_dedup_candidates=1&dedup_candidate_limit=3`)
+    // 사용자 지정 범위면 dateQuery (start_date/end_date) 사용. 아니면 기본 since_days=7.
+    const customRangeActive = dateQuery.includes("start_date=");
+    const url = customRangeActive
+      ? `${ADS_REPORTING_API_BASE}/api/meta/capi/log?limit=500&scope=recent_operational&${dateQuery}&include_dedup_candidates=1&dedup_candidate_limit=3`
+      : `${ADS_REPORTING_API_BASE}/api/meta/capi/log?limit=500&scope=recent_operational&since_days=7&include_dedup_candidates=1&dedup_candidate_limit=3`;
+    fetch(url)
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
@@ -3398,7 +3530,7 @@ function CapiStatusSection() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [dateQuery]);
 
   const capiSummary = capiLog?.summary ?? null;
   const capiBreakdown = capiSummary?.duplicateOrderEventBreakdown ?? null;
@@ -3558,16 +3690,19 @@ function CapiStatusSection() {
   );
 }
 
-function AttributionCallerCoverageSection() {
+function AttributionCallerCoverageSection({ dateQuery }: { dateQuery: string }) {
   const [coverageReport, setCoverageReport] = useState<CallerCoverageReport | null>(null);
   const [coffeeCoverageReport, setCoffeeCoverageReport] = useState<CallerCoverageReport | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    // 사용자 지정 범위면 start_date/end_date 추가. 아니면 전체 ledger.
+    const customRangeActive = dateQuery.includes("start_date=");
+    const rangeSuffix = customRangeActive ? `&${dateQuery}` : "";
     Promise.all([
-      fetch(`${ADS_REPORTING_API_BASE}/api/attribution/caller-coverage?paymentLimit=5&checkoutLimit=5`).then((r) => r.json()),
-      fetch(`${ADS_REPORTING_API_BASE}/api/attribution/caller-coverage?source=thecleancoffee_imweb&paymentLimit=5&checkoutLimit=5`).then((r) => r.json()),
+      fetch(`${ADS_REPORTING_API_BASE}/api/attribution/caller-coverage?paymentLimit=5&checkoutLimit=5${rangeSuffix}`).then((r) => r.json()),
+      fetch(`${ADS_REPORTING_API_BASE}/api/attribution/caller-coverage?source=thecleancoffee_imweb&paymentLimit=5&checkoutLimit=5${rangeSuffix}`).then((r) => r.json()),
     ])
       .then(([allData, coffeeData]) => {
         if (cancelled) return;
@@ -3585,7 +3720,7 @@ function AttributionCallerCoverageSection() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dateQuery]);
 
   const payment = coverageReport?.paymentSuccess ?? null;
   const checkout = coverageReport?.checkoutStarted ?? null;

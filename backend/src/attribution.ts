@@ -9,6 +9,7 @@ import {
   insertAttributionLedgerEntries,
   insertAttributionLedgerEntry,
   listAttributionLedgerEntries,
+  listAttributionLedgerEntriesInRange,
 } from "./attributionLedgerDb";
 import { normalizeOrderIdBase, normalizePhoneDigits } from "./orderKeys";
 
@@ -1065,6 +1066,23 @@ export const readLedgerEntries = async (ledgerPath?: string): Promise<Attributio
 
   await ensureDefaultLedgerMigrated();
   return listAttributionLedgerEntries();
+};
+
+/**
+ * 명확한 logged_at date range 가 있을 때만 사용. SQLite 인덱스(logged_at)로 빠른 범위 query.
+ * funnel-health precompute 같이 window 가 30d 등으로 고정된 영역에서만 호출.
+ *
+ * 효과:
+ *  - mem: 전체 ledger 가 아니라 30d row 만 메모리에 → 1.4GB → 500MB 안정 기대
+ *  - 응답시간: 전체 read 가 1~3초 걸리던 게 30d range read 는 0.2~0.5초
+ */
+export const readLedgerEntriesInRange = async (params: {
+  loggedAtFromIso?: string;
+  loggedAtToIso?: string;
+  limit?: number;
+}): Promise<AttributionLedgerEntry[]> => {
+  await ensureDefaultLedgerMigrated();
+  return listAttributionLedgerEntriesInRange(params);
 };
 
 export const filterLedgerEntries = (

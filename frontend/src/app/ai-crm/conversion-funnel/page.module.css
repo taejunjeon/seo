@@ -24,12 +24,81 @@
   font-size: 22px;
   font-weight: 800;
   margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.siteChip {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  border: 1px solid #bfdbfe;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
 }
 
 .subtitle {
   font-size: 13px;
   color: var(--slate);
+  margin: 0 0 12px;
+}
+
+/* 용어 풀이 박스 (collapsible) */
+.glossary {
   margin: 0 0 16px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  border-radius: 8px;
+}
+.glossaryToggle {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e3a8a;
+  cursor: pointer;
+}
+.glossaryToggle:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+.glossaryBody {
+  padding: 0 16px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #1e293b;
+}
+.glossaryBody dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 4px 14px;
+}
+.glossaryBody dt {
+  font-weight: 700;
+  color: #1e3a8a;
+}
+.glossaryBody dd {
+  margin: 0 0 6px;
+  color: #334155;
+}
+.glossaryBody code {
+  background: #f1f5f9;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #0f172a;
+}
+@media (max-width: 720px) {
+  .glossaryBody dl {
+    grid-template-columns: 1fr;
+  }
 }
 
 .statusBar {
@@ -379,6 +448,20 @@
   border-radius: 4px;
   border-left: 2px solid #0d9488;
 }
+.actionNextTechnical {
+  font-size: 11px;
+  color: var(--slate);
+  margin-top: 4px;
+  padding: 2px 8px;
+  background: var(--slate-bg);
+  border-radius: 4px;
+}
+.actionNextTechnical code {
+  background: white;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
 
 /* Eligibility queue grid */
 .eligibleGrid {
@@ -440,6 +523,59 @@
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
+.roasModeBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+.roasBasisText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.45;
+}
+.roasBasisText strong {
+  color: #1e3a8a;
+  font-size: 13px;
+}
+.roasModeBtns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.roasModeBtn {
+  background: white;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.roasModeBtn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.roasModeBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.roasModeBtnActive {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
 .metaRoasCard {
   background: var(--slate-bg);
   border: 1px solid var(--border);
@@ -452,6 +588,94 @@
 .metaRoasError {
   background: var(--red-bg);
   border-color: #fecaca;
+}
+.metaRoasAmber {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.metaRoasGray {
+  background: #f8fafc;
+  border-color: var(--border);
+}
+.metaRoasRed {
+  background: var(--red-bg);
+  border-color: #fecaca;
+}
+
+/* 마지막 성공값 박스 (rate limit 시 stale 표시) */
+.lastSuccessBox {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-top: 4px;
+}
+.lastSuccessTopline {
+  font-size: 11px;
+  color: #78350f;
+  margin-bottom: 2px;
+}
+.lastSuccessRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.lastSuccessRoas {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+}
+.retryBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--slate-bg);
+}
+.metaRoasErrorTopline {
+  font-size: 12px;
+  color: #92400e;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+.metaRoasErrorHint {
+  font-size: 12px;
+  color: #78350f;
+  margin-top: 4px;
+  line-height: 1.55;
+  background: rgba(255, 247, 237, 0.7);
+  border-left: 2px solid #d97706;
+  padding: 4px 8px;
+}
+.metaRoasErrorDiag {
+  font-size: 11px;
+  color: #78350f;
+  margin-top: 6px;
+  line-height: 1.6;
+  background: rgba(254, 243, 199, 0.5);
+  border: 1px dashed #fde68a;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.metaRoasErrorDiag code {
+  background: #fef3c7;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+.retryBtn {
+  margin-top: 6px;
+  background: white;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.retryBtn:hover {
+  background: #fef3c7;
 }
 .metaRoasTitle {
   font-size: 12px;
@@ -499,6 +723,55 @@
 .metaRoasErrorMsg {
   font-size: 12px;
   color: #7f1d1d;
+}
+
+/* Option B 캐시 배너 */
+.cacheBanner {
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+}
+.cacheBannerCached {
+  background: linear-gradient(180deg, #ecfdf5, #ffffff);
+  border-color: #bbf7d0;
+}
+.cacheBannerLive {
+  background: linear-gradient(180deg, #fffbeb, #ffffff);
+  border-color: #fde68a;
+}
+.cacheBannerHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.cacheBannerBody {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.55;
+}
+.forceRefreshBtn {
+  margin-left: auto;
+  background: white;
+  color: var(--primary);
+  border: 1px solid #bfdbfe;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.forceRefreshBtn:hover:not(:disabled) {
+  background: var(--primary-bg);
+}
+.forceRefreshBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--slate-bg);
 }
 
 /* metric_contract 상단 요약 */
@@ -623,6 +896,26 @@
   background: #eef2ff;
   color: #4338ca;
   border: 1px solid #c7d2fe;
+}
+.sourceInternalAttr {
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+.sourceAmber {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.sourceGray {
+  background: var(--slate-bg);
+  color: var(--slate);
+  border: 1px solid var(--border);
+}
+.sourceRed {
+  background: var(--red-bg);
+  color: #7f1d1d;
+  border: 1px solid #fecaca;
 }
 .sourceWaiting {
   background: var(--slate-bg);
@@ -998,6 +1291,20 @@
   color: #7f1d1d;
   font-size: 13px;
   margin-bottom: 14px;
+}
+.errorRetryBtn {
+  margin-top: 10px;
+  background: white;
+  color: #7f1d1d;
+  border: 1px solid #fecaca;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.errorRetryBtn:hover {
+  background: #fef2f2;
 }
 
 .loading {

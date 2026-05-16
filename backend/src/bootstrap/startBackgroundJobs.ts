@@ -24,6 +24,13 @@ import {
 } from "../pagespeed";
 import { syncAttributionPaymentStatusesFromToss } from "../routes/attribution";
 import { persistPageSpeedResult } from "../routes/pagespeed";
+import { readLedgerEntries, readLedgerEntriesInRange } from "../attribution";
+import { readMetaCapiSendLogs } from "../metaCapi";
+import { readPaymentDecisionMeasurements } from "../paymentDecisionLatency";
+import { startFunnelHealthPrecomputeWorker } from "../funnelHealthPrecompute";
+import { startAcquisitionPrecomputeWorker } from "../acquisitionPrecompute";
+import { fetchRemoteLedgerEntriesForAcquisition } from "../routes/attribution";
+import { startCallpricePrecomputeWorker } from "../callpricePrecompute";
 
 export const startBackgroundJobs = () => {
   if (!env.BACKGROUND_JOBS_ENABLED) {
@@ -322,6 +329,191 @@ export const startBackgroundJobs = () => {
   } else {
     // eslint-disable-next-line no-console
     console.log("[Temp group cleanup] disabled by TEMP_GROUP_CLEANUP_ENABLED=false");
+  }
+
+  // funnel-health precompute (Option B):
+  // 5분마다 site × window 조합 미리 계산해 두면 frontend 요청은 cache read 만 (< 50ms).
+  // 환경변수로 끌 수 있게: FUNNEL_HEALTH_PRECOMPUTE_ENABLED=0 / FUNNEL_HEALTH_PRECOMPUTE_INTERVAL_MS=300000
+  const funnelPrecomputeEnabled = process.env.FUNNEL_HEALTH_PRECOMPUTE_ENABLED !== "0";
+  const funnelPrecomputeIntervalMs = Number(process.env.FUNNEL_HEALTH_PRECOMPUTE_INTERVAL_MS ?? "300000");
+  if (funnelPrecomputeEnabled && Number.isFinite(funnelPrecomputeIntervalMs) && funnelPrecomputeIntervalMs >= 60000) {
+    startFunnelHealthPrecomputeWorker(async () => {
+      // funnel-health 최대 window 가 30d 라 ledger 도 30d 만 가져오면 충분.
+      // SQLite 인덱스로 range query → 전체 ledger read 보다 5~10배 빠르고 mem 부담 ↓
+      const nowMs = Date.now();
+      const fromMs = nowMs - 31 * 24 * 60 * 60 * 1000; // 30d + 1d 여유
+      const ledgerEntries = await readLedgerEntriesInRange({
+        loggedAtFromIso: new Date(fromMs).toISOString(),
+      });
+      const capiLogs = await readMetaCapiSendLogs();
+      const paymentDecisionRecords = readPaymentDecisionMeasurements(
+        nowMs - 30 * 24 * 60 * 60 * 1000,
+        nowMs,
+      );
+      return { ledgerEntries, capiLogs, paymentDecisionRecords };
+    }, funnelPrecomputeIntervalMs);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[funnel-health precompute] 활성화 — ${Math.round(funnelPrecomputeIntervalMs / 60000)}분 주기 (8개 site×window 조합 미리 계산)`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[funnel-health precompute] disabled by FUNNEL_HEALTH_PRECOMPUTE_ENABLED=0 또는 interval<60s");
+  }
+
+  // acquisition precompute (Option B 확장):
+  // /api/attribution/cohort-ltr, channel-category-repeat, reverse-funnel 3개 endpoint 가
+  // 같은 cohort ledger 를 사용 → ledger 1회 load 후 4 window × 3 endpoint = 12 cache.
+  // 환경변수: ACQUISITION_PRECOMPUTE_ENABLED, ACQUISITION_PRECOMPUTE_INTERVAL_MS
+  const acquisitionPrecomputeEnabled =
+    process.env.ACQUISITION_PRECOMPUTE_ENABLED === "1" ||
+    process.env.ACQUISITION_PRECOMPUTE_ENABLED === "true";
+  const acquisitionPrecomputeIntervalMs = Number(
+    process.env.ACQUISITION_PRECOMPUTE_INTERVAL_MS ?? "300000",
+  );
+  if (
+    acquisitionPrecomputeEnabled &&
+    Number.isFinite(acquisitionPrecomputeIntervalMs) &&
+    acquisitionPrecomputeIntervalMs >= 60000
+  ) {
+    startAcquisitionPrecomputeWorker(async () => {
+      const remote = await fetchRemoteLedgerEntriesForAcquisition();
+      return {
+        ledgerEntries: remote.entries,
+        dataSource: "operational_vm_ledger",
+        remoteWarnings: remote.warnings,
+      };
+    }, acquisitionPrecomputeIntervalMs);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[acquisition precompute] 활성화 — ${Math.round(acquisitionPrecomputeIntervalMs / 60000)}분 주기 (4 window × 3 endpoint = 12 조합)`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[acquisition precompute] disabled by ACQUISITION_PRECOMPUTE_ENABLED!=1 또는 interval<60s");
+  }
+
+  // callprice (상담사 가치 분석) precompute:
+  // /callprice 페이지가 14 endpoint 를 동시 호출 → 운영DB join 쿼리로 매 5~10s+ 대기.
+  // 5분 주기로 default 조합 (시작일 2024-04-01 ~ 오늘, maturity 90/180/365) 을 self-fetch 로 채워둠.
+  // 환경변수: CALLPRICE_PRECOMPUTE_ENABLED=0 / CALLPRICE_PRECOMPUTE_INTERVAL_MS
+  const callpricePrecomputeEnabled = process.env.CALLPRICE_PRECOMPUTE_ENABLED !== "0";
+  const callpricePrecomputeIntervalMs = Number(
+    process.env.CALLPRICE_PRECOMPUTE_INTERVAL_MS ?? "300000",
+  );
+  if (
+    callpricePrecomputeEnabled
+    && Number.isFinite(callpricePrecomputeIntervalMs)
+    && callpricePrecomputeIntervalMs >= 60000
+  ) {
+    startCallpricePrecomputeWorker(callpricePrecomputeIntervalMs);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[callprice precompute] 활성화 — ${Math.round(callpricePrecomputeIntervalMs / 60000)}분 주기 (14 endpoint default 조합 미리 계산)`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[callprice precompute] disabled by CALLPRICE_PRECOMPUTE_ENABLED=0 또는 interval<60s");
+  }
+
+  // ROAS summary precompute:
+  // 기본 화면은 어제 확정 데이터를 즉시 보여주고, 당일 데이터는 4시간 단위로만 갱신한다.
+  // 사용자가 버튼을 눌렀을 때도 사전 계산된 today cache 를 먼저 읽게 해 Meta API hammer 를 막는다.
+  const roasSummaryPrecomputeEnabled = process.env.ROAS_SUMMARY_PRECOMPUTE_ENABLED !== "0";
+  const roasSummaryPrecomputeIntervalMs = Number(
+    process.env.ROAS_SUMMARY_PRECOMPUTE_INTERVAL_MS ?? "14400000",
+  );
+  const roasSummaryPrecomputeStartDelayMs = Number(
+    process.env.ROAS_SUMMARY_PRECOMPUTE_START_DELAY_MS ?? "90000",
+  );
+  const roasSummaryPrecomputeTimeoutMs = Number(
+    process.env.ROAS_SUMMARY_PRECOMPUTE_TIMEOUT_MS ?? "80000",
+  );
+  const roasSummaryPrecomputeTargets = (
+    process.env.ROAS_SUMMARY_PRECOMPUTE_TARGETS
+      ?? "act_3138805896402376,act_654671961007474"
+  )
+    .split(",")
+    .map((accountId) => accountId.trim())
+    .filter(Boolean);
+  if (
+    roasSummaryPrecomputeEnabled &&
+    Number.isFinite(roasSummaryPrecomputeIntervalMs) &&
+    roasSummaryPrecomputeIntervalMs >= 60000 &&
+    roasSummaryPrecomputeTargets.length > 0
+  ) {
+    let roasSummaryRunning = false;
+    const runRoasSummaryPrecompute = async () => {
+      if (roasSummaryRunning) {
+        // eslint-disable-next-line no-console
+        console.log("[ROAS summary precompute] skip — previous tick still running");
+        return;
+      }
+      roasSummaryRunning = true;
+      let ok = 0;
+      let failed = 0;
+      try {
+        for (const accountId of roasSummaryPrecomputeTargets) {
+          const presetGroups = ["yesterday", "today"];
+          for (const presets of presetGroups) {
+            try {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), roasSummaryPrecomputeTimeoutMs);
+              const url = new URL(`${selfBaseUrl}/api/ads/roas-summary`);
+              url.searchParams.set("account_id", accountId);
+              url.searchParams.set("presets", presets);
+              url.searchParams.set("force", "true");
+              url.searchParams.set("cache_write", "1");
+              url.searchParams.set("precompute", "1");
+              const response = await fetch(url.toString(), {
+                method: "GET",
+                signal: controller.signal,
+                cache: "no-store",
+              });
+              clearTimeout(timer);
+              const body = (await response.json().catch(() => null)) as
+                | { ok?: boolean; cache?: { source?: string; generation_ms?: number | null } }
+                | null;
+              if (response.ok && body?.ok) {
+                ok += 1;
+                // eslint-disable-next-line no-console
+                console.log(
+                  `[ROAS summary precompute] ok account=*${accountId.slice(-4)} presets=${presets} source=${body.cache?.source ?? "?"} generationMs=${body.cache?.generation_ms ?? "?"}`,
+                );
+              } else {
+                failed += 1;
+                // eslint-disable-next-line no-console
+                console.error(`[ROAS summary precompute] fail account=*${accountId.slice(-4)} presets=${presets} HTTP ${response.status}`);
+              }
+            } catch (error) {
+              failed += 1;
+              // eslint-disable-next-line no-console
+              console.error(
+                `[ROAS summary precompute] error account=*${accountId.slice(-4)} presets=${presets}`,
+                error instanceof Error ? error.message : error,
+              );
+            }
+          }
+        }
+      } finally {
+        roasSummaryRunning = false;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[ROAS summary precompute] tick — ok=${ok} failed=${failed} next=${Math.round(roasSummaryPrecomputeIntervalMs / 1000)}s`,
+        );
+      }
+    };
+    setTimeout(() => {
+      void runRoasSummaryPrecompute();
+      setInterval(() => { void runRoasSummaryPrecompute(); }, roasSummaryPrecomputeIntervalMs);
+    }, Number.isFinite(roasSummaryPrecomputeStartDelayMs) ? roasSummaryPrecomputeStartDelayMs : 90_000);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[ROAS summary precompute] 활성화 — ${Math.round(roasSummaryPrecomputeIntervalMs / 60000)}분 주기 (${roasSummaryPrecomputeTargets.length} accounts × yesterday/today)`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[ROAS summary precompute] disabled by ROAS_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s 또는 targets empty");
   }
 };
 

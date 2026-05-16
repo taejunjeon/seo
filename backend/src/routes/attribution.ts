@@ -29,6 +29,7 @@ import {
   normalizeApprovedAtToIso,
   normalizePaymentStatus,
   readLedgerEntries,
+  readLedgerEntriesInRange,
   type TossJoinRow,
 } from "../attribution";
 import {
@@ -38,6 +39,7 @@ import {
 import { getCrmDb } from "../crmLocalDb";
 import {
   recordSiteLanding,
+  summarizeSiteLandingFunnelEvidence,
   summarizeSiteLanding,
   detectSiteFromUrl,
   type SiteKey,
@@ -84,8 +86,14 @@ import {
 } from "../tiktokPixelEvents";
 import { getTossBasicAuth, inferTossStoreFromPaymentKey, normalizeTossStore, type TossStore } from "../tossConfig";
 import { readMetaCapiSendLogs } from "../metaCapi";
-import { buildFunnelHealthReport, parseFunnelHealthQuery } from "../funnelHealth";
+import {
+  buildFunnelHealthReport,
+  FUNNEL_HEALTH_WINDOW_HOURS,
+  parseFunnelHealthQuery,
+} from "../funnelHealth";
 import { readPaymentDecisionMeasurements, recordPaymentDecisionMeasurement } from "../paymentDecisionLatency";
+import { getPrecomputedFunnelHealth } from "../funnelHealthPrecompute";
+import { getPrecomputedAcquisition } from "../acquisitionPrecompute";
 
 type TossRow = {
   paymentKey: string | null;
@@ -302,6 +310,12 @@ const parsePositiveInt = (value: unknown, fallback: number, max: number) => {
   return Math.max(1, Math.min(max, parsed));
 };
 
+const parsePositiveEnvInt = (value: string | undefined, fallback: number, max: number) => {
+  const parsed = value ? Number.parseInt(value, 10) : Number.NaN;
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(max, parsed));
+};
+
 const parseBooleanish = (value: unknown, fallback: boolean) => {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -318,6 +332,71 @@ const readOne = (value: unknown) => {
 };
 
 const readText = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+const ATTRIBUTION_LEDGER_TRUSTED_READ_IPS = new Set(
+  (process.env.ATTRIBUTION_LEDGER_TRUSTED_READ_IPS || "127.0.0.1,::1,::ffff:127.0.0.1,34.64.104.94")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean),
+);
+const ATTRIBUTION_LEDGER_PUBLIC_MAX_LIMIT = parsePositiveEnvInt(
+  process.env.ATTRIBUTION_LEDGER_PUBLIC_MAX_LIMIT,
+  1000,
+  10000,
+);
+const ATTRIBUTION_LEDGER_PUBLIC_LONG_RANGE_MAX_LIMIT = parsePositiveEnvInt(
+  process.env.ATTRIBUTION_LEDGER_PUBLIC_LONG_RANGE_MAX_LIMIT,
+  500,
+  10000,
+);
+const ATTRIBUTION_LEDGER_LONG_RANGE_DAYS = parsePositiveEnvInt(
+  process.env.ATTRIBUTION_LEDGER_LONG_RANGE_DAYS,
+  3,
+  365,
+);
+const ATTRIBUTION_LEDGER_RATE_WINDOW_MS = parsePositiveEnvInt(
+  process.env.ATTRIBUTION_LEDGER_RATE_WINDOW_MS,
+  60_000,
+  10 * 60_000,
+);
+const ATTRIBUTION_LEDGER_PUBLIC_RATE_LIMIT = parsePositiveEnvInt(
+  process.env.ATTRIBUTION_LEDGER_PUBLIC_RATE_LIMIT,
+  60,
+  10_000,
+);
+const attributionLedgerRateBuckets = new Map<string, number[]>();
+
+const getClientIpForGuard = (req: Request) => {
+  const forwarded = req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"];
+  const firstForwarded = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return (firstForwarded || req.ip || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+};
+
+const isTrustedLedgerReadCaller = (req: Request) => ATTRIBUTION_LEDGER_TRUSTED_READ_IPS.has(getClientIpForGuard(req));
+
+const checkAttributionLedgerReadRateLimit = (req: Request) => {
+  if (isTrustedLedgerReadCaller(req)) {
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  const key = getClientIpForGuard(req);
+  const now = Date.now();
+  const cutoff = now - ATTRIBUTION_LEDGER_RATE_WINDOW_MS;
+  const recent = (attributionLedgerRateBuckets.get(key) || []).filter((time) => time >= cutoff);
+  if (recent.length >= ATTRIBUTION_LEDGER_PUBLIC_RATE_LIMIT) {
+    attributionLedgerRateBuckets.set(key, recent);
+    return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((recent[0] + ATTRIBUTION_LEDGER_RATE_WINDOW_MS - now) / 1000)) };
+  }
+  recent.push(now);
+  attributionLedgerRateBuckets.set(key, recent);
+  if (attributionLedgerRateBuckets.size > 1000) {
+    for (const [bucketKey, times] of attributionLedgerRateBuckets) {
+      const alive = times.filter((time) => time >= cutoff);
+      if (alive.length === 0) attributionLedgerRateBuckets.delete(bucketKey);
+      else attributionLedgerRateBuckets.set(bucketKey, alive);
+    }
+  }
+  return { allowed: true, retryAfterSeconds: 0 };
+};
 
 const lowerIncludesAny = (value: string, tokens: string[]) => {
   const lower = value.toLowerCase();
@@ -2403,7 +2482,7 @@ const enrichRemoteLedgerCustomerKeys = (
   return { entries: enriched, identity };
 };
 
-const fetchRemoteLedgerEntriesForAcquisition = async (): Promise<EnrichedRemoteLedger> => {
+export const fetchRemoteLedgerEntriesForAcquisition = async (): Promise<EnrichedRemoteLedger> => {
   const entries: AttributionLedgerEntry[] = [];
   const warnings: string[] = [];
   const seen = new Set<string>();
@@ -5032,10 +5111,28 @@ export const createAttributionRouter = () => {
 
   router.get("/api/attribution/ledger", async (req: Request, res: Response) => {
     try {
+      const rateLimit = checkAttributionLedgerReadRateLimit(req);
+      if (!rateLimit.allowed) {
+        res
+          .status(429)
+          .setHeader("Retry-After", String(rateLimit.retryAfterSeconds))
+          .json({
+            ok: false,
+            error: "attribution_ledger_rate_limited",
+            retryAfterSeconds: rateLimit.retryAfterSeconds,
+            guard: {
+              reason: "public_ledger_item_api_rate_limit",
+              recommendation: "Use aggregate endpoints or reduce polling frequency.",
+            },
+          });
+        return;
+      }
+
       const allEntries = await readLedgerEntries();
       const source = typeof req.query.source === "string" ? req.query.source.trim() : "";
       const captureMode = typeof req.query.captureMode === "string" ? req.query.captureMode.trim() : "";
-      const limit = parsePositiveInt(req.query.limit, 50, 10000);
+      const requestedLimit = parsePositiveInt(req.query.limit, 50, 10000);
+      const summaryOnly = parseBooleanish(req.query.summaryOnly ?? req.query.summary_only, false);
       const startAt = typeof req.query.startAt === "string" ? req.query.startAt.trim() : "";
       const endAt = typeof req.query.endAt === "string" ? req.query.endAt.trim() : "";
 
@@ -5043,6 +5140,22 @@ export const createAttributionRouter = () => {
       const endMs = endAt ? Date.parse(endAt) : Number.NaN;
       const hasStartFilter = Number.isFinite(startMs);
       const hasEndFilter = Number.isFinite(endMs);
+      const rangeDays = hasStartFilter && hasEndFilter
+        ? Math.max(0, Math.ceil((endMs - startMs) / (24 * 60 * 60 * 1000)))
+        : null;
+      const trustedInternalCaller = isTrustedLedgerReadCaller(req);
+      const publicMaxLimit = rangeDays !== null && rangeDays > ATTRIBUTION_LEDGER_LONG_RANGE_DAYS
+        ? ATTRIBUTION_LEDGER_PUBLIC_LONG_RANGE_MAX_LIMIT
+        : ATTRIBUTION_LEDGER_PUBLIC_MAX_LIMIT;
+      const effectiveLimit = summaryOnly
+        ? 0
+        : trustedInternalCaller
+          ? requestedLimit
+          : Math.min(requestedLimit, publicMaxLimit);
+      const guardApplied = summaryOnly || effectiveLimit < requestedLimit;
+      if (guardApplied) {
+        res.setHeader("X-Attribution-Ledger-Guard", summaryOnly ? "summary-only" : "limit-capped");
+      }
 
       const withinRange = (entry: AttributionLedgerEntry) => {
         if (!hasStartFilter && !hasEndFilter) return true;
@@ -5068,10 +5181,24 @@ export const createAttributionRouter = () => {
           captureMode: captureMode || null,
           startAt: startAt || null,
           endAt: endAt || null,
+          requestedLimit,
+          limit: effectiveLimit,
+          summaryOnly,
+          rangeDays,
         },
         summary: buildLedgerSummary(filtered),
         allEntriesSummary: (source || captureMode || hasStartFilter || hasEndFilter) ? buildLedgerSummary(allEntries) : undefined,
-        items: filtered.slice(0, limit),
+        items: effectiveLimit > 0 ? filtered.slice(0, effectiveLimit) : [],
+        guard: {
+          applied: guardApplied,
+          trustedInternalCaller,
+          publicMaxLimit,
+          rateLimitPerWindow: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_PUBLIC_RATE_LIMIT,
+          rateLimitWindowMs: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_RATE_WINDOW_MS,
+          note: guardApplied
+            ? "Large public item responses are capped. Use summaryOnly=true or aggregate endpoints for dashboards."
+            : "No ledger guard cap was applied.",
+        },
         codebaseDiscovery: {
           successHandlerFoundInWorkspace: false,
           note:
@@ -5094,8 +5221,28 @@ export const createAttributionRouter = () => {
     try {
       const startAt = readOne(req.query.startAt);
       const endAt = readOne(req.query.endAt);
-      const channels = parseAcquisitionChannelFilter(readOne(req.query.channel));
+      const channelQuery = (readOne(req.query.channel) ?? "").trim();
+      const channels = parseAcquisitionChannelFilter(channelQuery);
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+      const dataSourceRaw = typeof req.query.dataSource === "string" ? req.query.dataSource : "";
+
+      // Option B: precompute cache lookup (channel 필터 없음 + dataSource=vm 만 hit)
+      if (!forceRefresh && channelQuery.length === 0 && (dataSourceRaw === "vm" || dataSourceRaw === "")) {
+        const cached = getPrecomputedAcquisition({
+          endpoint: "cohort-ltr",
+          startAt: startAt ?? "",
+          endAt: endAt ?? "",
+          dataSource: "operational_vm_ledger",
+          channels: null,
+        });
+        if (cached) {
+          res.json({ ...(cached.entry.result as object), cache: cached.meta });
+          return;
+        }
+      }
+
       const cohortLedger = await resolveAcquisitionCohortLedger(req.query.dataSource);
+      const builtAt = Date.now();
       const report = buildAttributionCohortLtrReport({
         startAt,
         endAt,
@@ -5108,6 +5255,14 @@ export const createAttributionRouter = () => {
         dataSource: cohortLedger.dataSource,
         remoteWarnings: cohortLedger.remoteWarnings,
         ...report,
+        cache: {
+          cached: false,
+          cached_at_kst: null,
+          next_refresh_at_kst: null,
+          generation_ms: Date.now() - builtAt,
+          staleness_ms: 0,
+          source: forceRefresh ? "live_force_refresh" : "live_cache_miss",
+        },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "attribution cohort LTR failed";
@@ -5123,7 +5278,24 @@ export const createAttributionRouter = () => {
     try {
       const startAt = readOne(req.query.startAt);
       const endAt = readOne(req.query.endAt);
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+      const dataSourceRaw = typeof req.query.dataSource === "string" ? req.query.dataSource : "";
+
+      if (!forceRefresh && (dataSourceRaw === "vm" || dataSourceRaw === "")) {
+        const cached = getPrecomputedAcquisition({
+          endpoint: "channel-category-repeat",
+          startAt: startAt ?? "",
+          endAt: endAt ?? "",
+          dataSource: "operational_vm_ledger",
+        });
+        if (cached) {
+          res.json({ ...(cached.entry.result as object), cache: cached.meta });
+          return;
+        }
+      }
+
       const cohortLedger = await resolveAcquisitionCohortLedger(req.query.dataSource);
+      const builtAt = Date.now();
       const report = buildChannelCategoryRepeatReport({
         startAt,
         endAt,
@@ -5135,6 +5307,14 @@ export const createAttributionRouter = () => {
         dataSource: cohortLedger.dataSource,
         remoteWarnings: cohortLedger.remoteWarnings,
         ...report,
+        cache: {
+          cached: false,
+          cached_at_kst: null,
+          next_refresh_at_kst: null,
+          generation_ms: Date.now() - builtAt,
+          staleness_ms: 0,
+          source: forceRefresh ? "live_force_refresh" : "live_cache_miss",
+        },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "channel category repeat failed";
@@ -5150,7 +5330,24 @@ export const createAttributionRouter = () => {
     try {
       const startAt = readOne(req.query.startAt);
       const endAt = readOne(req.query.endAt);
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+      const dataSourceRaw = typeof req.query.dataSource === "string" ? req.query.dataSource : "";
+
+      if (!forceRefresh && (dataSourceRaw === "vm" || dataSourceRaw === "")) {
+        const cached = getPrecomputedAcquisition({
+          endpoint: "reverse-funnel",
+          startAt: startAt ?? "",
+          endAt: endAt ?? "",
+          dataSource: "operational_vm_ledger",
+        });
+        if (cached) {
+          res.json({ ...(cached.entry.result as object), cache: cached.meta });
+          return;
+        }
+      }
+
       const cohortLedger = await resolveAcquisitionCohortLedger(req.query.dataSource);
+      const builtAt = Date.now();
       const report = buildReverseFunnelReport({
         startAt,
         endAt,
@@ -5162,6 +5359,14 @@ export const createAttributionRouter = () => {
         dataSource: cohortLedger.dataSource,
         remoteWarnings: cohortLedger.remoteWarnings,
         ...report,
+        cache: {
+          cached: false,
+          cached_at_kst: null,
+          next_refresh_at_kst: null,
+          generation_ms: Date.now() - builtAt,
+          staleness_ms: 0,
+          source: forceRefresh ? "live_force_refresh" : "live_cache_miss",
+        },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "reverse funnel failed";
@@ -5430,13 +5635,44 @@ export const createAttributionRouter = () => {
       const paymentLimit = parsePositiveInt(req.query.paymentLimit, 20, 100);
       const checkoutLimit = parsePositiveInt(req.query.checkoutLimit, 10, 100);
 
-      const filtered = source
+      // 사용자 지정 KST 날짜 범위 — loggedAt 필터.
+      const rawStartDate = typeof req.query.start_date === "string" ? req.query.start_date.trim() : "";
+      const rawEndDate = typeof req.query.end_date === "string" ? req.query.end_date.trim() : "";
+      const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+      let sinceMs: number | null = null;
+      let untilMs: number | null = null;
+      if (rawStartDate || rawEndDate) {
+        if (!ISO_DATE_RE.test(rawStartDate) || !ISO_DATE_RE.test(rawEndDate)) {
+          res.status(400).json({ ok: false, error: "start_date/end_date 는 둘 다 YYYY-MM-DD 형식이어야 함" });
+          return;
+        }
+        if (rawStartDate > rawEndDate) {
+          res.status(400).json({ ok: false, error: "start_date 는 end_date 보다 늦을 수 없음" });
+          return;
+        }
+        sinceMs = Date.parse(`${rawStartDate}T00:00:00+09:00`);
+        untilMs = Date.parse(`${rawEndDate}T23:59:59.999+09:00`);
+      }
+
+      const sourceFiltered = source
         ? filterLedgerEntries(allEntries, { source })
         : allEntries;
+      const filtered = sinceMs !== null && untilMs !== null
+        ? sourceFiltered.filter((entry) => {
+            if (!entry.loggedAt) return false;
+            const ts = Date.parse(entry.loggedAt);
+            if (!Number.isFinite(ts)) return false;
+            return ts >= sinceMs! && ts <= untilMs!;
+          })
+        : sourceFiltered;
 
       res.json({
         ok: true,
-        filters: { source: source || null },
+        filters: {
+          source: source || null,
+          start_date: rawStartDate || null,
+          end_date: rawEndDate || null,
+        },
         report: buildAttributionCallerCoverageReport(filtered, { paymentLimit, checkoutLimit }),
       });
     } catch (error) {
@@ -5900,6 +6136,8 @@ export const createAttributionRouter = () => {
   });
 
   // 전환 퍼널 관제 (gpt0515-17): read-only aggregate. raw identifier 노출 금지.
+  // Option B (gpt0516): precompute cache lookup → cache hit 면 즉시 반환 (< 50ms).
+  //                     ?force=true 또는 cache miss 면 실시간 계산 fallback.
   router.get("/api/attribution/funnel-health", async (req: Request, res: Response) => {
     try {
       const parsed = parseFunnelHealthQuery({
@@ -5909,21 +6147,61 @@ export const createAttributionRouter = () => {
         paymentMethod: req.query.paymentMethod,
         source: req.query.source,
       });
-      const ledgerEntries = await readLedgerEntries();
-      const capiLogs = await readMetaCapiSendLogs();
-      // 1d/7d/14d/30d 모두 커버하려면 30일 전 ~ 지금 범위 모두 읽음
+      const forceRefresh =
+        req.query.force === "true" || req.query.force === "1" || req.query.force === "yes";
+
+      // 1) precompute cache lookup (force=true 면 skip)
+      if (!forceRefresh) {
+        const cached = getPrecomputedFunnelHealth({
+          site: parsed.site,
+          window: parsed.window,
+          granularity: parsed.granularity,
+          paymentMethod: parsed.paymentMethod,
+          source: parsed.source,
+        });
+        if (cached) {
+          res.json({
+            ...cached.entry.result,
+            cache: cached.meta,
+          });
+          return;
+        }
+      }
+
+      // 2) cache miss / force → 실시간 계산 fallback
+      // funnel-health 의 window 가 30d 가 최대 → ledger 도 30d range 만 읽어 SQL 인덱스 활용.
       const nowMs = Date.now();
+      const ledgerFromMs = nowMs - 31 * 24 * 60 * 60 * 1000;
+      const ledgerEntries = await readLedgerEntriesInRange({
+        loggedAtFromIso: new Date(ledgerFromMs).toISOString(),
+      });
+      const capiLogs = await readMetaCapiSendLogs();
       const paymentDecisionRecords = readPaymentDecisionMeasurements(
         nowMs - 30 * 24 * 60 * 60 * 1000,
         nowMs,
       );
+      const builtAtMs = Date.now();
       const result = buildFunnelHealthReport({
         ledgerEntries,
         capiLogs,
         paymentDecisionRecords,
+        siteLandingEvidence: summarizeSiteLandingFunnelEvidence(
+          parsed.site,
+          FUNNEL_HEALTH_WINDOW_HOURS[parsed.window],
+        ),
         ...parsed,
       });
-      res.json(result);
+      res.json({
+        ...result,
+        cache: {
+          cached: false,
+          cached_at_kst: null,
+          next_refresh_at_kst: null,
+          generation_ms: Date.now() - builtAtMs,
+          staleness_ms: 0,
+          source: forceRefresh ? "live_force_refresh" : "live_cache_miss",
+        },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "funnel_health build failed";
       res.status(500).json({ ok: false, error: "funnel_health_error", message });

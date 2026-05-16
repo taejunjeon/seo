@@ -397,6 +397,47 @@ export const listAttributionLedgerEntries = (): AttributionLedgerEntry[] => {
   return rows.map(dbRowToEntry);
 };
 
+/**
+ * logged_at 컬럼 인덱스(idx_attribution_ledger_logged_at) 를 활용해 date range 만 읽는다.
+ * ISO 8601 형식의 logged_at 은 lexicographic 비교로 정확한 시간순 필터 가능.
+ * 전체 ledger 가 수만 row 까지 커져도 30d 만 메모리에 올리면 mem/응답시간 모두 안정.
+ */
+export const listAttributionLedgerEntriesInRange = (params: {
+  loggedAtFromIso?: string; // inclusive
+  loggedAtToIso?: string;   // exclusive — 사용 안 하면 끝까지
+  limit?: number;
+}): AttributionLedgerEntry[] => {
+  const db = getCrmDb();
+  ensureAttributionLedgerSchema(db);
+  const where: string[] = [];
+  const args: (string | number)[] = [];
+  if (params.loggedAtFromIso) {
+    where.push("logged_at >= ?");
+    args.push(params.loggedAtFromIso);
+  }
+  if (params.loggedAtToIso) {
+    where.push("logged_at < ?");
+    args.push(params.loggedAtToIso);
+  }
+  const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  const limitSql = params.limit ? "LIMIT ?" : "";
+  if (params.limit) args.push(params.limit);
+  const sql = `
+    SELECT
+      entry_id, touchpoint, capture_mode, payment_status, logged_at,
+      order_id, payment_key, approved_at, checkout_id, customer_key,
+      landing, referrer, ga_session_id, utm_source, utm_medium,
+      utm_campaign, utm_term, utm_content, gclid, fbclid, ttclid,
+      source, metadata_json, request_context_json
+    FROM ${ATTRIBUTION_LEDGER_TABLE}
+    ${whereSql}
+    ORDER BY logged_at DESC, rowid DESC
+    ${limitSql}
+  `;
+  const rows = db.prepare(sql).all(...args) as AttributionLedgerRow[];
+  return rows.map(dbRowToEntry);
+};
+
 export const listAttributionLedgerPaymentDecisionCandidates = (lookup: {
   paymentKeys?: string[];
   orderKeys?: string[];

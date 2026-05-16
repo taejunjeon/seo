@@ -515,8 +515,17 @@ const SiteDetail = ({
   </section>
 );
 
+type SiteTab = "all" | "biocom" | "thecleancoffee" | "aibio";
+const SITE_TABS: Array<{ key: SiteTab; label: string }> = [
+  { key: "all", label: "전체 비교" },
+  { key: "biocom", label: "바이오컴 자사몰" },
+  { key: "thecleancoffee", label: "더클린커피" },
+  { key: "aibio", label: "AIBIO 센터" },
+];
+
 export default function AcquisitionAnalysisPage() {
   const [rangeDays, setRangeDays] = useState<(typeof RANGE_OPTIONS)[number]>(30);
+  const [activeSite, setActiveSite] = useState<SiteTab>("all");
   const [data, setData] = useState<AcquisitionSummaryResponse | null>(null);
   const [aibioMeta, setAibioMeta] = useState<MetaInsightsResponse | null>(null);
   const [aibioMetaLoading, setAibioMetaLoading] = useState(true);
@@ -576,26 +585,34 @@ export default function AcquisitionAnalysisPage() {
     return () => abortController.abort();
   }, []);
 
+  // 활성 site 탭에 따라 표시할 site 목록 filter
+  const visibleSites = useMemo(() => {
+    if (!data) return [];
+    if (activeSite === "all") return data.sites;
+    return data.sites.filter((s) => s.key === activeSite);
+  }, [data, activeSite]);
+
   const totalConversions = useMemo(
-    () => data?.sites.reduce((sum, site) => sum + getOperationalConversions(site), 0) ?? 0,
-    [data],
+    () => visibleSites.reduce((sum, site) => sum + getOperationalConversions(site), 0),
+    [visibleSites],
   );
   const totalRawConversions = useMemo(
-    () => data?.sites.reduce((sum, site) => sum + getRawConversions(site), 0) ?? 0,
-    [data],
+    () => visibleSites.reduce((sum, site) => sum + getRawConversions(site), 0),
+    [visibleSites],
   );
   const totalExcludedConversions = useMemo(
-    () => data?.sites.reduce((sum, site) => sum + site.excludedConversions, 0) ?? 0,
-    [data],
+    () => visibleSites.reduce((sum, site) => sum + site.excludedConversions, 0),
+    [visibleSites],
   );
   const bestSite = useMemo(
     () =>
-      data?.sites.reduce<SiteReport | null>(
+      visibleSites.reduce<SiteReport | null>(
         (best, site) => (!best || getOperationalConversions(site) > getOperationalConversions(best) ? site : best),
         null,
-      ) ?? null,
-    [data],
+      ),
+    [visibleSites],
   );
+  const activeTabLabel = SITE_TABS.find((t) => t.key === activeSite)?.label ?? "";
 
   return (
     <div className={styles.page}>
@@ -605,11 +622,67 @@ export default function AcquisitionAnalysisPage() {
           <div className={styles.headerRow}>
             <div>
               <p className={styles.eyebrow}>Acquisition Intelligence</p>
-              <h1>유입분석</h1>
+              <h1>
+                유입분석
+                <span
+                  style={{
+                    marginLeft: 10,
+                    padding: "3px 12px",
+                    borderRadius: 999,
+                    background: "#eff6ff",
+                    color: "#1d4ed8",
+                    border: "1px solid #bfdbfe",
+                    fontSize: "0.6em",
+                    fontWeight: 700,
+                    letterSpacing: 0.3,
+                    verticalAlign: "middle",
+                  }}
+                >
+                  {activeTabLabel}
+                </span>
+              </h1>
               <p>
                 AIBIO 센터, 더클린커피, 바이오컴 자사몰의 주요 전환이 어느 유입원에서 발생하는지
-                운영 Attribution 원장 기준으로 비교합니다.
+                운영 Attribution 원장 기준으로 비교합니다. 사이트 탭을 클릭해서 사이트별로 좁혀 볼 수 있습니다.
               </p>
+              {/* 사이트 탭 — 한 번에 한 사이트만 보거나 전체 비교 */}
+              <div
+                role="tablist"
+                aria-label="사이트 선택"
+                style={{
+                  display: "inline-flex",
+                  marginTop: 12,
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 8,
+                  padding: 3,
+                  gap: 2,
+                  flexWrap: "wrap",
+                }}
+              >
+                {SITE_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeSite === tab.key}
+                    onClick={() => setActiveSite(tab.key)}
+                    style={{
+                      border: 0,
+                      padding: "7px 14px",
+                      borderRadius: 6,
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      background: activeSite === tab.key ? "#1d4ed8" : "transparent",
+                      color: activeSite === tab.key ? "white" : "#475569",
+                      transition: "background 0.15s",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className={styles.rangeGroup} aria-label="분석 기간">
               {RANGE_OPTIONS.map((option) => (
@@ -640,15 +713,18 @@ export default function AcquisitionAnalysisPage() {
             </p>
           </div>
           <div className={styles.heroPanel}>
-            <span>기간 내 운영 전환</span>
+            <span>
+              {activeSite === "all" ? "기간 내 운영 전환 (전체)" : `${activeTabLabel} · 기간 내 운영 전환`}
+            </span>
             <strong>{loading ? "..." : fmtNum(totalConversions)}</strong>
             <p>
               기준: {resolveDataSourceLabel(data?.dataSource)}
               <br />
               원장 raw {fmtNum(totalRawConversions)}건 / 제외 {fmtNum(totalExcludedConversions)}건
               <br />
-              가장 많은 전환 source: {bestSite ? bestSite.name : "-"}
-              <br />
+              {activeSite === "all" ? (
+                <>가장 많은 전환 source: {bestSite ? bestSite.name : "-"}<br /></>
+              ) : null}
               생성 시각: {fmtKst(data?.generatedAt)} KST
             </p>
           </div>
@@ -660,7 +736,7 @@ export default function AcquisitionAnalysisPage() {
         {data && !loading && (
           <>
             <div className={styles.siteGrid}>
-              {data.sites.map((site) => <SiteHeroCard key={site.key} site={site} />)}
+              {visibleSites.map((site) => <SiteHeroCard key={site.key} site={site} />)}
             </div>
 
             <section className={styles.notesBox}>
@@ -670,9 +746,10 @@ export default function AcquisitionAnalysisPage() {
               {(data.remoteWarnings ?? []).map((warning) => <p key={warning}>운영 원장 경고: {warning}</p>)}
             </section>
 
-            <FunnelLeakageSnapshot />
+            {/* FunnelLeakageSnapshot 은 바이오컴 결제 흐름 진단이라 바이오컴/전체 탭에서만 표시 */}
+            {(activeSite === "all" || activeSite === "biocom") && <FunnelLeakageSnapshot />}
 
-            {data.sites.map((site) => (
+            {visibleSites.map((site) => (
               <SiteDetail
                 key={site.key}
                 site={site}
@@ -681,11 +758,35 @@ export default function AcquisitionAnalysisPage() {
               />
             ))}
 
-            {/* GA4 채널별 결제 분석 */}
-            <GA4ChannelAnalysis />
+            {/* GA4 채널별 결제 분석 — 바이오컴/전체 탭에서만 (제목에 "바이오컴" 명시됨) */}
+            {(activeSite === "all" || activeSite === "biocom") && <GA4ChannelAnalysis />}
 
-            {/* Sprint9 결과: 유입채널 × 상품 카테고리 × 재구매 교차 */}
-            <CohortCategoryCard />
+            {/* 유입채널 × 상품 카테고리 × 재구매 — backend 가 cells/byChannel 마다 site 필드 채움.
+                frontend 가 activeSite 따라 filter. */}
+            <CohortCategoryCard activeSite={activeSite} />
+            {/* aibio 탭은 supplement/test_kit 분류에 해당하는 결제 row 가 거의 없을 수 있어 안내 추가 */}
+
+            {/* 다른 site 탭에서 안 보이는 섹션이 있을 때 안내 (바이오컴 한정 섹션이 있는 thecleancoffee/aibio 탭에서만) */}
+            {(activeSite === "thecleancoffee" || activeSite === "aibio") && (
+              <section
+                style={{
+                  marginTop: 32,
+                  padding: "12px 16px",
+                  background: "#f8fafc",
+                  border: "1px dashed #e2e8f0",
+                  borderRadius: 8,
+                  fontSize: "0.78rem",
+                  color: "#475569",
+                  lineHeight: 1.6,
+                }}
+              >
+                <strong>📌 다른 탭에서만 보이는 섹션</strong>
+                <div style={{ marginTop: 4 }}>
+                  · <em>GA4 채널별 결제 분석</em> · <em>결제 흐름 누수 진단</em> — 바이오컴/전체 탭에서만 표시
+                  (바이오컴 결제 흐름 한정 데이터)
+                </div>
+              </section>
+            )}
           </>
         )}
       </main>
@@ -978,18 +1079,30 @@ function GA4ChannelAnalysis() {
 
 type CohortWindowSummary = { n: number; revenue: number; median: number | null };
 type CohortChannel = {
+  site?: "biocom" | "thecleancoffee" | "aibio" | "unknown";
   channel: string;
   customerCount: number;
   matureCohort: { d30: CohortWindowSummary; d90: CohortWindowSummary; d180: CohortWindowSummary };
 };
+type CacheMeta = {
+  cached: boolean;
+  cached_at_kst: string | null;
+  next_refresh_at_kst: string | null;
+  generation_ms: number;
+  staleness_ms: number;
+  source: string;
+};
+
 type CohortLtrResponse = {
   ok: boolean;
   dataSource?: string;
   range?: { startAt: string; endAt: string };
   channels: CohortChannel[];
+  cache?: CacheMeta;
 };
 
 type CategoryRepeatCell = {
+  site?: "biocom" | "thecleancoffee" | "aibio" | "unknown";
   channel: string;
   category: "test_kit" | "supplement" | "other";
   isDangdangcare: boolean;
@@ -1003,18 +1116,26 @@ type ChannelCategoryRepeatResponse = {
   ok: boolean;
   dataSource?: string;
   cells: CategoryRepeatCell[];
+  cache?: CacheMeta;
 };
 
 type ReverseFunnelByChannel = {
+  site?: "biocom" | "thecleancoffee" | "aibio" | "unknown";
   channel: string;
+  supplementFirstBuyers: number;
+  convertedToTest: number;
+  rate: number;
+};
+type ReverseFunnelSummary = {
   supplementFirstBuyers: number;
   convertedToTest: number;
   rate: number;
 };
 type ReverseFunnelResponse = {
   ok: boolean;
-  overall: ReverseFunnelByChannel;
+  overall: ReverseFunnelSummary;
   byChannel: ReverseFunnelByChannel[];
+  cache?: CacheMeta;
 };
 
 type IdentityDiagnosticsResponse = {
@@ -1050,27 +1171,68 @@ const CATEGORY_DISPLAY: Record<CategoryRepeatCell["category"], { label: string; 
   other: { label: "기타", color: "#94a3b8" },
 };
 
-function CohortCategoryCard() {
+function CohortCategoryCard({ activeSite }: { activeSite: SiteTab }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cohort, setCohort] = useState<CohortLtrResponse | null>(null);
-  const [cells, setCells] = useState<CategoryRepeatCell[]>([]);
-  const [funnel, setFunnel] = useState<ReverseFunnelResponse | null>(null);
+  const [cohortRaw, setCohortRaw] = useState<CohortLtrResponse | null>(null);
+  const [cellsRaw, setCellsRaw] = useState<CategoryRepeatCell[]>([]);
+  const [repeatCache, setRepeatCache] = useState<CacheMeta | null>(null);
+  const [funnelRaw, setFunnelRaw] = useState<ReverseFunnelResponse | null>(null);
   const [diag, setDiag] = useState<IdentityDiagnosticsResponse | null>(null);
 
+  // activeSite 따라 raw 응답을 filter — backend cells/channels/byChannel 각각에 site 필드 포함
+  const cohort = useMemo<CohortLtrResponse | null>(() => {
+    if (!cohortRaw) return null;
+    if (activeSite === "all") return cohortRaw;
+    return {
+      ...cohortRaw,
+      channels: cohortRaw.channels.filter((c) => c.site === activeSite),
+    };
+  }, [cohortRaw, activeSite]);
+  const cells = useMemo<CategoryRepeatCell[]>(() => {
+    if (activeSite === "all") return cellsRaw;
+    return cellsRaw.filter((c) => c.site === activeSite);
+  }, [cellsRaw, activeSite]);
+  const funnel = useMemo<ReverseFunnelResponse | null>(() => {
+    if (!funnelRaw) return null;
+    if (activeSite === "all") return funnelRaw;
+    const siteFiltered = funnelRaw.byChannel.filter((b) => b.site === activeSite);
+    // overall 도 site 별로 재계산
+    const supplementFirstBuyers = siteFiltered.reduce((s, b) => s + b.supplementFirstBuyers, 0);
+    const convertedToTest = siteFiltered.reduce((s, b) => s + b.convertedToTest, 0);
+    return {
+      ...funnelRaw,
+      byChannel: siteFiltered,
+      overall: {
+        supplementFirstBuyers,
+        convertedToTest,
+        rate: supplementFirstBuyers > 0 ? convertedToTest / supplementFirstBuyers : 0,
+      },
+    };
+  }, [funnelRaw, activeSite]);
+  const [forceFlag, setForceFlag] = useState(0); // 강제 새로고침 trigger
+  const [forceCooldownUntilMs, setForceCooldownUntilMs] = useState(0);
+  const [tickMs, setTickMs] = useState(Date.now());
+
   // 기본 조회 범위: 최근 365일 (VM 원장 기본 lookback과 일치)
+  // KST 보정: new Date().toISOString() 은 UTC 기준이라 backend precompute key 와 mismatch.
   const [range] = useState(() => {
+    const fmtKst = (d: Date) => {
+      const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+      return kst.toISOString().slice(0, 10);
+    };
     const end = new Date();
     const start = new Date(end);
     start.setDate(start.getDate() - 365);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    return { startAt: fmt(start), endAt: fmt(end) };
+    return { startAt: fmtKst(start), endAt: fmtKst(end) };
   });
 
   useEffect(() => {
     const abort = new AbortController();
     const base = `${API_BASE}/api/attribution`;
-    const params = `startAt=${range.startAt}&endAt=${range.endAt}&dataSource=vm`;
+    const forceQs = forceFlag > 0 ? "&force=true" : "";
+    const params = `startAt=${range.startAt}&endAt=${range.endAt}&dataSource=vm${forceQs}`;
+    setLoading(true);
     Promise.all([
       fetch(`${base}/cohort-ltr?${params}`, { signal: abort.signal }).then((r) => r.json()),
       fetch(`${base}/channel-category-repeat?${params}`, { signal: abort.signal }).then((r) => r.json()),
@@ -1078,9 +1240,10 @@ function CohortCategoryCard() {
       fetch(`${base}/identity-diagnostics?dataSource=vm`, { signal: abort.signal }).then((r) => r.json()),
     ])
       .then(([c, r, f, d]) => {
-        setCohort(c);
-        setCells((r?.cells as CategoryRepeatCell[]) ?? []);
-        setFunnel(f);
+        setCohortRaw(c);
+        setCellsRaw((r?.cells as CategoryRepeatCell[]) ?? []);
+        setRepeatCache((r?.cache as CacheMeta) ?? null);
+        setFunnelRaw(f);
         setDiag(d);
         setLoading(false);
       })
@@ -1090,7 +1253,33 @@ function CohortCategoryCard() {
         setLoading(false);
       });
     return () => abort.abort();
-  }, [range]);
+  }, [range, forceFlag]);
+
+  // 강제 새로고침 cooldown 카운트다운 (1초 tick)
+  useEffect(() => {
+    if (forceCooldownUntilMs <= Date.now()) return;
+    const id = setInterval(() => setTickMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [forceCooldownUntilMs]);
+
+  // 3 endpoint cache 메타 중 가장 오래된 것 기준으로 배너 표시
+  const aggregateCache = useMemo<CacheMeta | null>(() => {
+    const caches = [cohort?.cache, repeatCache, funnel?.cache].filter(Boolean) as CacheMeta[];
+    if (caches.length === 0) return null;
+    const allCached = caches.every((c) => c.cached);
+    const oldest = caches.reduce((acc, c) => (acc && acc.staleness_ms > c.staleness_ms ? acc : c), caches[0]);
+    const totalGenMs = caches.reduce((sum, c) => sum + (c.generation_ms ?? 0), 0);
+    return {
+      cached: allCached,
+      cached_at_kst: oldest.cached_at_kst,
+      next_refresh_at_kst: oldest.next_refresh_at_kst,
+      generation_ms: totalGenMs,
+      staleness_ms: oldest.staleness_ms,
+      source: oldest.source,
+    };
+  }, [cohort, repeatCache, funnel]);
+
+  const cooldownLeftSec = Math.max(0, Math.ceil((forceCooldownUntilMs - tickMs) / 1000));
 
   const totalCustomers = useMemo(
     () => cohort?.channels.reduce((sum, c) => sum + c.customerCount, 0) ?? 0,
@@ -1107,10 +1296,102 @@ function CohortCategoryCard() {
 
   return (
     <section className={styles.section} style={{ marginTop: 32 }}>
+      {/* Option B 캐시 배너 — 데이터 기준 시각 + 강제 새로고침 */}
+      {aggregateCache && (
+        <div
+          style={{
+            background: aggregateCache.cached
+              ? "linear-gradient(180deg, #ecfdf5, #ffffff)"
+              : "linear-gradient(180deg, #fffbeb, #ffffff)",
+            border: `1px solid ${aggregateCache.cached ? "#bbf7d0" : "#fde68a"}`,
+            borderRadius: 10,
+            padding: "10px 14px",
+            marginBottom: 14,
+            fontSize: "0.78rem",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            {aggregateCache.cached ? (
+              <>
+                <strong>✅ 백그라운드 사전 집계 결과</strong> · 데이터 기준{" "}
+                <strong>{aggregateCache.cached_at_kst} KST</strong>
+                {aggregateCache.next_refresh_at_kst && (
+                  <> · 다음 갱신 {aggregateCache.next_refresh_at_kst} KST</>
+                )}
+                <span style={{ marginLeft: 8, color: "#64748b" }}>
+                  · 5분 주기 batch precompute · 응답 시간 {aggregateCache.generation_ms}ms
+                </span>
+              </>
+            ) : (
+              <>
+                <strong>⚡ 실시간 계산 응답</strong> · 계산 시간 {aggregateCache.generation_ms}ms · source:{" "}
+                <code style={{ fontSize: 11 }}>{aggregateCache.source}</code>
+                <span style={{ marginLeft: 8, color: "#92400e" }}>
+                  · 캐시 hit 이 아닙니다 (옵션 변경 또는 강제 새로고침)
+                </span>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={cooldownLeftSec > 0 || loading}
+            onClick={() => {
+              setForceFlag((n) => n + 1);
+              setForceCooldownUntilMs(Date.now() + 5 * 60 * 1000);
+              setTickMs(Date.now());
+            }}
+            style={{
+              background: "white",
+              color: "#1d4ed8",
+              border: "1px solid #bfdbfe",
+              padding: "5px 12px",
+              borderRadius: 6,
+              fontSize: "0.78rem",
+              fontWeight: 600,
+              cursor: cooldownLeftSec > 0 || loading ? "not-allowed" : "pointer",
+              opacity: cooldownLeftSec > 0 || loading ? 0.5 : 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {cooldownLeftSec > 0
+              ? `↻ 재시도 가능까지 ${cooldownLeftSec}초`
+              : loading
+                ? "조회 중…"
+                : "↻ 지금 강제 새로고침"}
+          </button>
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
         <div>
           <h2 className={styles.sectionTitle} style={{ margin: 0 }}>
             유입채널 × 상품 카테고리 × 재구매 코호트
+            <span
+              style={{
+                marginLeft: 8,
+                padding: "2px 10px",
+                borderRadius: 999,
+                background: activeSite === "all" ? "#f1f5f9" : "#eff6ff",
+                color: activeSite === "all" ? "#475569" : "#1d4ed8",
+                border: `1px solid ${activeSite === "all" ? "#e2e8f0" : "#bfdbfe"}`,
+                fontSize: "0.62em",
+                fontWeight: 700,
+                verticalAlign: "middle",
+              }}
+            >
+              {activeSite === "all"
+                ? "전체"
+                : activeSite === "biocom"
+                  ? "바이오컴"
+                  : activeSite === "thecleancoffee"
+                    ? "더클린커피"
+                    : "AIBIO"}
+            </span>
           </h2>
           <p style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 4, marginBottom: 0 }}>
             Attribution 원장(VM) · Imweb 주문(로컬 SQLite) · Playauto 상품 라인(Postgres)을 join한 고객 단위 집계. 론 코하비

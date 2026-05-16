@@ -1,4 +1,5 @@
 import express, { type Request, type Response } from "express";
+import { createHash } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -51,7 +52,66 @@ const META_DEFAULT_ACTION_REPORT_TIME = "conversion";
 const META_DEFAULT_ATTRIBUTION_WINDOWS = ["7d_click", "1d_view"] as const;
 const META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING = true;
 const ADS_DEFAULT_DATE_PRESET = "last_7d";
+
+// Lazy TTL cache (Option B 패턴) — 첫 호출은 15초 걸려도 5분 동안은 즉시 응답.
+// Meta API 호출 횟수도 자연 감소 (rate limit 압박 ↓).
+type AdsCacheEntry = { result: unknown; cachedAtMs: number; expiresAtMs: number };
+const adsLazyCache = new Map<string, AdsCacheEntry>();
+const ADS_LAZY_CACHE_TTL_MS = 5 * 60 * 1000; // 5분
+const toKstShortAds = (ms: number): string => {
+  const kst = new Date(ms + 9 * 60 * 60 * 1000);
+  return `${kst.toISOString().slice(0, 10)} ${kst.toISOString().slice(11, 16)}`;
+};
+const getAdsLazyCached = (key: string): AdsCacheEntry | null => {
+  const e = adsLazyCache.get(key);
+  if (!e) return null;
+  if (Date.now() > e.expiresAtMs) {
+    adsLazyCache.delete(key);
+    return null;
+  }
+  return e;
+};
+/**
+ * stale-while-revalidate — expire 후에도 staleMaxAgeMs 안에 있으면 반환.
+ * Meta API 일시 실패 시 옛 데이터라도 보여줘 사용자 화면 안정.
+ */
+const ADS_LAZY_STALE_MAX_AGE_MS = 30 * 60 * 1000;
+const getAdsLazyCachedStale = (key: string): AdsCacheEntry | null => {
+  const e = adsLazyCache.get(key);
+  if (!e) return null;
+  if (Date.now() - e.cachedAtMs > ADS_LAZY_STALE_MAX_AGE_MS) {
+    adsLazyCache.delete(key);
+    return null;
+  }
+  return e;
+};
+const setAdsLazyCached = (key: string, result: unknown): AdsCacheEntry => {
+  const entry: AdsCacheEntry = {
+    result,
+    cachedAtMs: Date.now(),
+    expiresAtMs: Date.now() + ADS_LAZY_CACHE_TTL_MS,
+  };
+  adsLazyCache.set(key, entry);
+  return entry;
+};
+const buildAdsCacheMeta = (entry: AdsCacheEntry | null, source: "lazy_cache_hit" | "live_force" | "live_cache_miss"): {
+  cached: boolean;
+  cached_at_kst: string | null;
+  next_refresh_at_kst: string | null;
+  ttl_seconds: number;
+  source: string;
+} => ({
+  cached: source === "lazy_cache_hit",
+  cached_at_kst: entry ? toKstShortAds(entry.cachedAtMs) : null,
+  next_refresh_at_kst: entry ? toKstShortAds(entry.expiresAtMs) : null,
+  ttl_seconds: Math.round(ADS_LAZY_CACHE_TTL_MS / 1000),
+  source,
+});
 const VALID_META_ATTRIBUTION_WINDOWS = ["1d_click", "7d_click", "28d_click", "1d_view"] as const;
+const ROAS_SUMMARY_CACHE_FRESH_MS = 4 * 60 * 60 * 1000;
+const ROAS_SUMMARY_CACHE_STALE_MAX_MS = 8 * 60 * 60 * 1000;
+const ROAS_SUMMARY_FORCE_COOLDOWN_MS = 5 * 60 * 1000;
+const ROAS_SUMMARY_DEFAULT_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 export type SiteKey = "biocom" | "thecleancoffee" | "aibio";
 type AdsChannel = "meta" | "google" | "daangn";
@@ -105,6 +165,43 @@ type MetaInsightRow = {
 type MetaFetchResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+type RoasSummaryBody = Record<string, unknown> & {
+  batch?: Record<string, unknown>;
+};
+
+type RoasSummaryCacheSource =
+  | "in_memory_precompute"
+  | "live_cache_miss"
+  | "live_force_refresh"
+  | "live_error_no_cache"
+  | "force_cooldown_cache"
+  | "refresh_in_flight_cache"
+  | "stale_fallback";
+
+type RoasSummaryCacheEntry = {
+  body: RoasSummaryBody;
+  computedAtMs: number;
+  generationMs: number;
+  nextRefreshAtMs: number;
+};
+
+type RoasSummaryCacheMeta = {
+  cached: boolean;
+  cached_at_kst: string | null;
+  next_refresh_at_kst: string | null;
+  generation_ms: number | null;
+  staleness_ms: number | null;
+  source: RoasSummaryCacheSource;
+  stale: boolean;
+  force_cooldown_remaining_ms: number;
+  refresh_in_flight: boolean;
+  cache_key: string;
+  error_from_refresh?: string;
+};
+
+const roasSummaryCache = new Map<string, RoasSummaryCacheEntry>();
+const roasSummaryRefreshInFlight = new Set<string>();
 
 type MetaReference = {
   mode: "ads_manager_parity" | "custom_window_override";
@@ -619,6 +716,101 @@ const parseAdsLedgerSource = (value: unknown): AdsLedgerSourceRequest => {
   throw new Error(`지원하지 않는 ledger_source: ${requested}`);
 };
 
+const parsePositiveMsEnv = (key: string, fallback: number, min: number = 0) => {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= min ? parsed : fallback;
+};
+
+const getRoasSummaryCacheConfig = () => ({
+  freshMs: parsePositiveMsEnv("ROAS_SUMMARY_CACHE_FRESH_MS", ROAS_SUMMARY_CACHE_FRESH_MS, 60_000),
+  staleMaxMs: parsePositiveMsEnv("ROAS_SUMMARY_STALE_MAX_AGE_MS", ROAS_SUMMARY_CACHE_STALE_MAX_MS, 60_000),
+  forceCooldownMs: parsePositiveMsEnv("ROAS_SUMMARY_FORCE_COOLDOWN_MS", ROAS_SUMMARY_FORCE_COOLDOWN_MS, 0),
+  intervalMs: parsePositiveMsEnv("ROAS_SUMMARY_PRECOMPUTE_INTERVAL_MS", ROAS_SUMMARY_DEFAULT_INTERVAL_MS, 60_000),
+});
+
+const toKstMinute = (value: Date): string => {
+  const kst = new Date(value.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.toISOString().slice(0, 10)} ${kst.toISOString().slice(11, 16)}`;
+};
+
+const normalizeRoasSummaryPresets = (presets: string[]) => (
+  [...new Set(presets.map((preset) => preset.trim()).filter(Boolean))]
+    .sort()
+    .join(",")
+);
+
+const buildRoasSummaryCacheKey = (params: {
+  accountId: string;
+  presets: string[];
+  ledgerSource: AdsLedgerSourceRequest;
+}) => [
+  "roas_summary",
+  params.accountId.trim(),
+  normalizeRoasSummaryPresets(params.presets),
+  params.ledgerSource,
+].join(":");
+
+const buildRoasSummaryCacheMeta = (params: {
+  cacheKey: string;
+  entry: RoasSummaryCacheEntry | null;
+  source: RoasSummaryCacheSource;
+  stale?: boolean;
+  refreshInFlight?: boolean;
+  forceCooldownRemainingMs?: number;
+  errorFromRefresh?: string;
+}): RoasSummaryCacheMeta => {
+  const now = Date.now();
+  return {
+    cached: Boolean(params.entry),
+    cached_at_kst: params.entry ? toKstMinute(new Date(params.entry.computedAtMs)) : null,
+    next_refresh_at_kst: params.entry ? toKstMinute(new Date(params.entry.nextRefreshAtMs)) : null,
+    generation_ms: params.entry?.generationMs ?? null,
+    staleness_ms: params.entry ? now - params.entry.computedAtMs : null,
+    source: params.source,
+    stale: Boolean(params.stale),
+    force_cooldown_remaining_ms: Math.max(0, Math.round(params.forceCooldownRemainingMs ?? 0)),
+    refresh_in_flight: Boolean(params.refreshInFlight),
+    cache_key: params.cacheKey,
+    ...(params.errorFromRefresh ? { error_from_refresh: params.errorFromRefresh } : {}),
+  };
+};
+
+const cloneRoasSummaryBodyWithCache = (params: {
+  cacheKey: string;
+  entry: RoasSummaryCacheEntry;
+  source: RoasSummaryCacheSource;
+  stale?: boolean;
+  refreshInFlight?: boolean;
+  forceCooldownRemainingMs?: number;
+  errorFromRefresh?: string;
+}): RoasSummaryBody => {
+  const batch = params.entry.body.batch && typeof params.entry.body.batch === "object"
+    ? { ...params.entry.body.batch }
+    : {};
+  return {
+    ...params.entry.body,
+    served_at: new Date().toISOString(),
+    cache: buildRoasSummaryCacheMeta({
+      cacheKey: params.cacheKey,
+      entry: params.entry,
+      source: params.source,
+      stale: params.stale,
+      refreshInFlight: params.refreshInFlight,
+      forceCooldownRemainingMs: params.forceCooldownRemainingMs,
+      errorFromRefresh: params.errorFromRefresh,
+    }),
+    batch: {
+      ...batch,
+      source: params.source,
+      request_ledger_fetch_count: 0,
+      generated_ledger_fetch_count: batch.ledger_fetch_count ?? null,
+      cache_hit: true,
+    },
+  };
+};
+
 const normalizeDateLike = (value: string): string | null => {
   const raw = value.trim();
   if (!raw) return null;
@@ -800,17 +992,37 @@ const loadLocalAuditAdCampaignMap = async (
 const fetchMetaAdsetCampaignMap = async (
   accountId: string,
 ): Promise<{ map: AdsetCampaignMap; error: string | null }> => {
-  const result = await fetchMeta<{
+  let result: MetaFetchResult<{
     data: Array<{
       id: string;
       name?: string;
       campaign_id?: string;
       campaign?: { id?: string; name?: string };
     }>;
-  }>(
-    `/${accountId}/adsets`,
-    { fields: "id,name,campaign_id,campaign{id,name}", limit: "500" },
-  );
+  }>;
+  try {
+    result = await fetchMeta<{
+      data: Array<{
+        id: string;
+        name?: string;
+        campaign_id?: string;
+        campaign?: { id?: string; name?: string };
+      }>;
+    }>(
+      `/${accountId}/adsets`,
+      { fields: "id,name,campaign_id,campaign{id,name}", limit: "500" },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const siteAccount = findSiteAccountByAccountId(accountId);
+    const fallbackMap = await loadLocalAuditAdsetCampaignMap(siteAccount?.site ?? null);
+    return {
+      map: fallbackMap,
+      error: fallbackMap.size > 0
+        ? `${message}; local alias audit fallback adsets=${fallbackMap.size}`
+        : message,
+    };
+  }
 
   if (!result.ok) {
     const siteAccount = findSiteAccountByAccountId(accountId);
@@ -2193,38 +2405,65 @@ const buildLedgerFreshness = (
   ), null),
 });
 
+// /ads 페이지가 동시에 5~10개 endpoint 를 호출 → 각 endpoint 가 3 site × ledger self-fetch → 15~30 concurrent self-fetches → backend memory 폭주 → OOM.
+// (site,range) 조합별로 60초 lazy cache + in-flight promise coalescing 으로 concurrent call 을 1회 fetch 로 합친다.
+type LedgerFetchEntry = {
+  promise: Promise<{ entries: AttributionLedgerEntry[]; warnings: string[] }>;
+  cachedAtMs: number;
+  ttlMs: number;
+};
+const operationalLedgerFetchCache = new Map<string, LedgerFetchEntry>();
+const OPERATIONAL_LEDGER_TTL_MS = 60_000;
+
 const fetchOperationalLedgerEntriesForAds = async (
   site: SiteKey,
   range?: DateRange,
 ): Promise<{ entries: AttributionLedgerEntry[]; warnings: string[] }> => {
-  const warnings: string[] = [];
-  const url = new URL("/api/attribution/ledger", env.ATTRIBUTION_OPERATIONAL_BASE_URL);
-  url.searchParams.set("source", `${site}_imweb`);
-  url.searchParams.set("captureMode", "live");
-  url.searchParams.set("limit", "10000");
-
-  if (range) {
-    url.searchParams.set("startAt", `${shiftIsoDateByDays(range.startDate, -1)}T00:00:00.000Z`);
-    url.searchParams.set("endAt", `${shiftIsoDateByDays(range.endDate, 3)}T00:00:00.000Z`);
+  const cacheKey = `${site}|${range?.startDate ?? ""}|${range?.endDate ?? ""}`;
+  const now = Date.now();
+  const existing = operationalLedgerFetchCache.get(cacheKey);
+  if (existing && now - existing.cachedAtMs < existing.ttlMs) {
+    return existing.promise;
   }
 
-  const response = await fetch(url.toString(), { signal: AbortSignal.timeout(15_000) });
-  const body = await response.json() as Record<string, unknown>;
-  if (!response.ok || body.ok !== true) {
-    const message = typeof body.error === "string" ? body.error : response.statusText;
-    throw new Error(`${site} 운영 VM ledger 조회 실패: ${message}`);
-  }
+  const doFetch = async (): Promise<{ entries: AttributionLedgerEntry[]; warnings: string[] }> => {
+    const warnings: string[] = [];
+    const url = new URL("/api/attribution/ledger", env.ATTRIBUTION_OPERATIONAL_BASE_URL);
+    url.searchParams.set("source", `${site}_imweb`);
+    url.searchParams.set("captureMode", "live");
+    url.searchParams.set("limit", "10000");
 
-  const items = Array.isArray(body.items) ? body.items : [];
-  const summary = toObject(body.summary);
-  const totalEntries = toNumber(summary.totalEntries);
-  if (totalEntries > items.length) {
-    warnings.push(`${site} 운영 VM ledger가 ${items.length}/${totalEntries}행만 반환했다. 더 긴 기간은 분할 조회가 필요하다.`);
-  }
-  return {
-    entries: items.map(normalizeRemoteLedgerEntryForAds),
-    warnings,
+    if (range) {
+      url.searchParams.set("startAt", `${shiftIsoDateByDays(range.startDate, -1)}T00:00:00.000Z`);
+      url.searchParams.set("endAt", `${shiftIsoDateByDays(range.endDate, 3)}T00:00:00.000Z`);
+    }
+
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(15_000) });
+    const body = await response.json() as Record<string, unknown>;
+    if (!response.ok || body.ok !== true) {
+      const message = typeof body.error === "string" ? body.error : response.statusText;
+      throw new Error(`${site} 운영 VM ledger 조회 실패: ${message}`);
+    }
+
+    const items = Array.isArray(body.items) ? body.items : [];
+    const summary = toObject(body.summary);
+    const totalEntries = toNumber(summary.totalEntries);
+    if (totalEntries > items.length) {
+      warnings.push(`${site} 운영 VM ledger가 ${items.length}/${totalEntries}행만 반환했다. 더 긴 기간은 분할 조회가 필요하다.`);
+    }
+    return {
+      entries: items.map(normalizeRemoteLedgerEntryForAds),
+      warnings,
+    };
   };
+
+  const promise = doFetch().catch((err) => {
+    // fail 도 즉시 cache 제거 — 다음 호출이 재시도 가능
+    operationalLedgerFetchCache.delete(cacheKey);
+    throw err;
+  });
+  operationalLedgerFetchCache.set(cacheKey, { promise, cachedAtMs: now, ttlMs: OPERATIONAL_LEDGER_TTL_MS });
+  return promise;
 };
 
 const loadLocalLedgerOrders = async (
@@ -2778,14 +3017,19 @@ const clientKeyFromLedgerEntry = (entry: AttributionLedgerEntry) => firstNonEmpt
   entry.requestContext.ip,
 ]);
 
+const hashManualTestKey = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, 16);
+
 const isManualPaidTrafficTestEntry = (entry: AttributionLedgerEntry, orderKey: string) => {
-  const knownManualOrderKeys = new Set([
-    "202605035698347",
-    "o20260502c0c1ce5d28e95",
-    "202605036519253",
-    "o202605033af504ba376d9",
+  const knownManualOrderKeyHashes = new Set([
+    "35606607e09666d7",
+    "37dded9748aab2c7",
+    "273fc10424556dc2",
+    "876be2ae6ffa901f",
   ]);
-  if (knownManualOrderKeys.has(orderKey) || knownManualOrderKeys.has(normalizeOrderIdBase(entry.orderId))) {
+  if (
+    knownManualOrderKeyHashes.has(hashManualTestKey(orderKey)) ||
+    knownManualOrderKeyHashes.has(hashManualTestKey(normalizeOrderIdBase(entry.orderId)))
+  ) {
     return true;
   }
 
@@ -4348,6 +4592,353 @@ export const createAdsRouter = () => {
     }
   });
 
+  router.get("/api/ads/roas-summary", async (req: Request, res: Response) => {
+    try {
+      const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
+      if (!accountId) {
+        res.status(400).json({ ok: false, error: "account_id 필요" });
+        return;
+      }
+
+      const requestedPresets = (
+        typeof req.query.presets === "string" && req.query.presets.trim()
+          ? req.query.presets
+          : "today,yesterday,last_7d"
+      )
+        .split(",")
+        .map((preset) => preset.trim())
+        .filter(Boolean);
+      const uniquePresets = [...new Set(requestedPresets)];
+
+      const presetRanges = uniquePresets
+        .map((preset) => ({ preset, range: resolveDatePresetRange(preset) }))
+        .filter((item): item is { preset: string; range: DateRange } => Boolean(item.range));
+      const invalidPresets = uniquePresets.filter((preset) => !resolveDatePresetRange(preset));
+
+      if (presetRanges.length === 0) {
+        res.status(400).json({
+          ok: false,
+          error: "지원하는 presets 필요",
+          invalid_presets: invalidPresets,
+          supported_presets: [
+            "today",
+            "yesterday",
+            "last_7d",
+            "last_14d",
+            "last_30d",
+            "last_90d",
+            "this_month",
+            "last_month",
+          ],
+        });
+        return;
+      }
+
+      const unionRange = presetRanges.reduce<DateRange>(
+        (current, item) => ({
+          startDate: item.range.startDate < current.startDate ? item.range.startDate : current.startDate,
+          endDate: item.range.endDate > current.endDate ? item.range.endDate : current.endDate,
+        }),
+        { ...presetRanges[0].range },
+      );
+      const siteAccount = findSiteAccountByAccountId(accountId);
+      const forceRefresh =
+        req.query.force === "true" || req.query.force === "1" || req.query.force === "yes";
+      const ledgerSource = parseAdsLedgerSource(req.query.ledger_source ?? req.query.data_source);
+      const cacheKey = buildRoasSummaryCacheKey({
+        accountId,
+        presets: uniquePresets,
+        ledgerSource,
+      });
+      const cacheConfig = getRoasSummaryCacheConfig();
+      const cached = roasSummaryCache.get(cacheKey) ?? null;
+      const cachedAgeMs = cached ? Date.now() - cached.computedAtMs : Number.POSITIVE_INFINITY;
+      const cacheWithinStaleLimit = Boolean(cached && cachedAgeMs <= cacheConfig.staleMaxMs);
+
+      if (!forceRefresh && cacheWithinStaleLimit && cached) {
+        res.json(cloneRoasSummaryBodyWithCache({
+          cacheKey,
+          entry: cached,
+          source: cachedAgeMs <= cacheConfig.freshMs ? "in_memory_precompute" : "stale_fallback",
+          stale: cachedAgeMs > cacheConfig.freshMs,
+        }));
+        return;
+      }
+
+      const forceCooldownRemainingMs = cached
+        ? cacheConfig.forceCooldownMs - cachedAgeMs
+        : 0;
+      if (forceRefresh && cached && forceCooldownRemainingMs > 0) {
+        res.json(cloneRoasSummaryBodyWithCache({
+          cacheKey,
+          entry: cached,
+          source: "force_cooldown_cache",
+          stale: cachedAgeMs > cacheConfig.freshMs,
+          forceCooldownRemainingMs,
+        }));
+        return;
+      }
+
+      if (roasSummaryRefreshInFlight.has(cacheKey) && cached) {
+        res.json(cloneRoasSummaryBodyWithCache({
+          cacheKey,
+          entry: cached,
+          source: "refresh_in_flight_cache",
+          stale: cachedAgeMs > cacheConfig.freshMs,
+          refreshInFlight: true,
+        }));
+        return;
+      }
+
+      const generationStartedAtMs = Date.now();
+      roasSummaryRefreshInFlight.add(cacheKey);
+      try {
+      const ledgerOptions = ledgerQueryOptions(req, unionRange, siteAccount ? [siteAccount.site] : undefined);
+      const [adsetCampaigns, creativeEvidence, aliasCampaigns, ledger] = await Promise.all([
+        fetchMetaAdsetCampaignMap(accountId),
+        fetchMetaAdCreativeEvidenceMaps(accountId),
+        fetchManualVerifiedAliasMap(siteAccount?.site ?? null),
+        loadLedgerOrders(ledgerOptions),
+      ]);
+
+      const accountOrders = filterOrdersForAccount(ledger.orders, accountId);
+      const campaignAliasMap = mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap);
+      const results: Record<string, unknown> = {};
+      const errors: Record<string, unknown> = {};
+
+      await Promise.all(presetRanges.map(async ({ preset, range }) => {
+        const metaResult = await fetchMetaInsights({
+          accountId,
+          fields: "campaign_name,campaign_id,impressions,clicks,spend",
+          level: "campaign",
+          datePreset: preset,
+          limit: "100",
+          actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
+          useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
+        });
+
+        if (!metaResult.ok) {
+          errors[preset] = {
+            error: metaResult.error,
+            status: 502,
+            response_message: metaResult.error,
+          };
+          return;
+        }
+
+        const filteredOrders = filterOrdersByRange(accountOrders, range);
+        const campaigns = buildCampaignRoasRows({
+          metaRows: metaResult.data,
+          orders: filteredOrders,
+          ledgerAvailable: ledger.entries.length > 0,
+          adsetCampaignMap: adsetCampaigns.map,
+          adCampaignMap: creativeEvidence.adMap,
+          campaignAliasMap,
+        });
+        const totalSpend = round2(campaigns.reduce((sum, row) => sum + row.spend, 0));
+        const totalAttributedRevenue = round2(campaigns.reduce((sum, row) => sum + row.attributedRevenue, 0));
+        const totalOrders = campaigns.reduce((sum, row) => sum + row.orders, 0);
+        const coopRows = campaigns.filter((row) => row.campaignType === "coop");
+        const generalRows = campaigns.filter((row) => row.campaignType === "general");
+        const coopSpend = round2(coopRows.reduce((sum, row) => sum + row.spend, 0));
+        const coopRevenue = round2(coopRows.reduce((sum, row) => sum + row.attributedRevenue, 0));
+        const generalSpend = round2(generalRows.reduce((sum, row) => sum + row.spend, 0));
+        const generalRevenue = round2(generalRows.reduce((sum, row) => sum + row.attributedRevenue, 0));
+
+        results[preset] = {
+          ok: true,
+          queried_at: new Date().toISOString(),
+          date_range: {
+            start_date: range.startDate,
+            end_date: range.endDate,
+            timezone: KST_TIMEZONE,
+            inclusivity: "KST calendar dates inclusive",
+          },
+          summary: {
+            spend: totalSpend,
+            attributedRevenue: totalAttributedRevenue,
+            roas: computeRoas(totalAttributedRevenue, totalSpend, ledger.entries.length > 0),
+            orders: totalOrders,
+            general: {
+              spend: generalSpend,
+              attributedRevenue: generalRevenue,
+              roas: computeRoas(generalRevenue, generalSpend, ledger.entries.length > 0),
+              orders: generalRows.reduce((sum, row) => sum + row.orders, 0),
+            },
+            coop: {
+              spend: coopSpend,
+              attributedRevenue: coopRevenue,
+              roas: computeRoas(coopRevenue, coopSpend, ledger.entries.length > 0),
+              orders: coopRows.reduce((sum, row) => sum + row.orders, 0),
+              campaignCount: coopRows.length,
+            },
+          },
+        };
+      }));
+
+      for (const preset of invalidPresets) {
+        errors[preset] = {
+          error: `지원하지 않는 date_preset: ${preset}`,
+          status: 400,
+          response_message: `지원하지 않는 date_preset: ${preset}`,
+        };
+      }
+
+      const responseBody: RoasSummaryBody = {
+        ok: true,
+        ...ledgerResponseMeta(ledger, {
+          range: unionRange,
+          datePreset: "batch",
+          accountId,
+          site: siteAccount?.site ?? null,
+          metaLevel: "campaign",
+          metaFields: "campaign_name,campaign_id,impressions,clicks,spend",
+        }),
+        account_id: accountId,
+        presets: uniquePresets,
+        valid_presets: presetRanges.map((item) => item.preset),
+        invalid_presets: invalidPresets,
+        union_range: unionRange,
+        meta_reference: buildMetaReference(),
+        adset_mapping_error: adsetCampaigns.error,
+        ad_mapping_error: creativeEvidence.error,
+        alias_mapping_error: aliasCampaigns.error,
+        batch: {
+          mode: "aggregate_summary",
+          ledger_fetch_count: 1,
+          meta_insights_fetch_count: presetRanges.length,
+          raw_ledger_items_returned: 0,
+          fallback_prevented: true,
+          caveat: "프론트가 today/yesterday/last_7d를 따로 호출하지 않도록 ledger를 한 번만 읽고 기간별 요약만 반환한다.",
+        },
+        metric_contract: {
+          source: {
+            revenue: ledger.dataSource === "operational_vm"
+              ? "VM Cloud attribution ledger"
+              : "local attribution ledger fallback",
+            spend: "Meta Ads Insights API",
+          },
+          unit: {
+            revenue: "unique confirmed/pending ledger order matched to Meta evidence",
+            spend: "KRW campaign spend",
+            roas: "attributedRevenue / spend",
+          },
+          window: "date_preset batch",
+          site: siteAccount?.site ?? null,
+          account_id: accountId,
+          last_updated_at: new Date().toISOString(),
+          caveat: "Ads Manager가 주장하는 platform ROAS가 아니라 내부 attribution ledger 기준 ATT ROAS다.",
+        },
+        results,
+        errors,
+      };
+      const computedAtMs = Date.now();
+      const entry: RoasSummaryCacheEntry = {
+        body: responseBody,
+        computedAtMs,
+        generationMs: computedAtMs - generationStartedAtMs,
+        nextRefreshAtMs: computedAtMs + cacheConfig.intervalMs,
+      };
+      roasSummaryCache.set(cacheKey, entry);
+      const source: RoasSummaryCacheSource = forceRefresh ? "live_force_refresh" : "live_cache_miss";
+      const batch = responseBody.batch && typeof responseBody.batch === "object"
+        ? { ...responseBody.batch }
+        : {};
+      res.json({
+        ...responseBody,
+        served_at: new Date().toISOString(),
+        cache: buildRoasSummaryCacheMeta({
+          cacheKey,
+          entry,
+          source,
+        }),
+        batch: {
+          ...batch,
+          source,
+          cache_hit: false,
+          request_ledger_fetch_count: 1,
+          generated_ledger_fetch_count: batch.ledger_fetch_count ?? null,
+        },
+      });
+      } catch (liveError) {
+        const message = liveError instanceof Error ? liveError.message : String(liveError);
+        if (cached && cacheWithinStaleLimit) {
+          res.json(cloneRoasSummaryBodyWithCache({
+            cacheKey,
+            entry: cached,
+            source: "stale_fallback",
+            stale: true,
+            errorFromRefresh: message,
+          }));
+          return;
+        }
+        const nowIso = new Date().toISOString();
+        const errors = Object.fromEntries(presetRanges.map(({ preset }) => [
+          preset,
+          {
+            error: message,
+            status: 502,
+            response_message: message,
+          },
+        ]));
+        res.json({
+          ok: true,
+          account_id: accountId,
+          presets: uniquePresets,
+          valid_presets: presetRanges.map((item) => item.preset),
+          invalid_presets: invalidPresets,
+          union_range: unionRange,
+          served_at: nowIso,
+          queried_at: nowIso,
+          meta_reference: buildMetaReference(),
+          results: {},
+          errors,
+          batch: {
+            mode: "aggregate_summary",
+            source: "live_error_no_cache",
+            cache_hit: false,
+            ledger_fetch_count: 0,
+            meta_insights_fetch_count: 0,
+            raw_ledger_items_returned: 0,
+            fallback_prevented: true,
+            caveat: "ROAS summary live 계산이 실패했지만 프론트가 느린 개별 /api/ads/roas fallback을 때리지 않도록 200 + errors contract로 반환한다.",
+          },
+          metric_contract: {
+            source: {
+              revenue: "VM Cloud attribution ledger",
+              spend: "Meta Ads Insights API",
+            },
+            unit: {
+              revenue: "unique confirmed/pending ledger order matched to Meta evidence",
+              spend: "KRW campaign spend",
+              roas: "attributedRevenue / spend",
+            },
+            window: "date_preset batch",
+            site: siteAccount?.site ?? null,
+            account_id: accountId,
+            last_updated_at: nowIso,
+            caveat: "live no-cache 계산 실패. 다음 precompute tick 또는 캐시 생성 후 정상값을 제공한다.",
+          },
+          cache: buildRoasSummaryCacheMeta({
+            cacheKey,
+            entry: null,
+            source: "live_error_no_cache",
+            stale: true,
+            errorFromRefresh: message,
+          }),
+        });
+        return;
+      } finally {
+        roasSummaryRefreshInFlight.delete(cacheKey);
+      }
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: error instanceof Error ? error.message : "ads roas summary failed",
+      });
+    }
+  });
+
   router.get("/api/ads/roas", async (req: Request, res: Response) => {
     try {
       const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
@@ -4356,14 +4947,8 @@ export const createAdsRouter = () => {
         return;
       }
 
-      const datePreset = typeof req.query.date_preset === "string"
-        ? req.query.date_preset.trim()
-        : ADS_DEFAULT_DATE_PRESET;
-      const range = resolveDatePresetRange(datePreset);
-      if (!range) {
-        res.status(400).json({ ok: false, error: `지원하지 않는 date_preset: ${datePreset}` });
-        return;
-      }
+      // 사용자 지정 (start_date+end_date) 우선, 없으면 date_preset.
+      const { range, datePreset } = resolveOptionalRange(req);
 
       const siteAccount = findSiteAccountByAccountId(accountId);
       const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
@@ -4372,7 +4957,7 @@ export const createAdsRouter = () => {
           accountId,
           fields: "campaign_name,campaign_id,impressions,clicks,spend",
           level: "campaign",
-          datePreset,
+          ...(datePreset ? { datePreset } : { range }),
           limit: "100",
           actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
           useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
@@ -4459,6 +5044,7 @@ export const createAdsRouter = () => {
   });
 
   router.get("/api/ads/campaign-ltv-roas", async (req: Request, res: Response) => {
+    let cacheKey = "";
     try {
       const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
       if (!accountId) {
@@ -4478,6 +5064,17 @@ export const createAdsRouter = () => {
         365,
         Math.max(30, Number.parseInt(typeof req.query.ltv_window_days === "string" ? req.query.ltv_window_days : "180", 10) || 180),
       );
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+
+      // Lazy TTL cache (Option B): 첫 호출 15초 → 다음 5분간 ~10ms.
+      cacheKey = `ltv-roas:${accountId}:${datePreset}:${ltvWindowDays}`;
+      if (!forceRefresh) {
+        const cached = getAdsLazyCached(cacheKey);
+        if (cached) {
+          res.json({ ...(cached.result as object), cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
+          return;
+        }
+      }
 
       const siteAccount = findSiteAccountByAccountId(accountId);
       const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
@@ -4524,7 +5121,7 @@ export const createAdsRouter = () => {
       });
 
       const mappedRows = rows.filter((row) => row.campaignId);
-      res.json({
+      const responseBody = {
         ok: true,
         ...ledgerResponseMeta(ledger, {
           range,
@@ -4557,12 +5154,24 @@ export const createAdsRouter = () => {
           readyCampaigns: mappedRows.filter((row) => row.ltvStatus === "ready").length,
           blockedCampaigns: mappedRows.filter((row) => row.ltvStatus === "blocked" || row.ltvStatus === "identity_missing").length,
         },
-      });
+      };
+      // 캐시에 저장 (다음 5분간은 즉시 응답)
+      const cached = setAdsLazyCached(cacheKey, responseBody);
+      res.json({ ...responseBody, cache: buildAdsCacheMeta(cached, forceRefresh ? "live_force" : "live_cache_miss") });
     } catch (error) {
-      res.status(500).json({
-        ok: false,
-        error: error instanceof Error ? error.message : "campaign ltv roas failed",
-      });
+      const message = error instanceof Error ? error.message : "campaign ltv roas failed";
+      // stale-while-revalidate
+      if (cacheKey) {
+        const stale = getAdsLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+      }
+      res.status(500).json({ ok: false, error: message });
     }
   });
 
@@ -4757,9 +5366,22 @@ export const createAdsRouter = () => {
   });
 
   router.get("/api/ads/site-summary", async (req: Request, res: Response) => {
+    // cacheKey 를 try 밖에 선언해 catch 에서 stale-fallback 참조 가능하게.
+    let cacheKey = "";
     try {
       const { range, datePreset } = resolveOptionalRange(req);
       const attributionWindow = parseMetaAttributionWindow(req.query.attribution_window);
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+
+      // Lazy TTL cache — 첫 호출 2~5초, 다음 5분간 ~10ms.
+      cacheKey = `site-summary:${datePreset}:${attributionWindow ?? "default"}`;
+      if (!forceRefresh) {
+        const cached = getAdsLazyCached(cacheKey);
+        if (cached) {
+          res.json({ ...(cached.result as object), cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
+          return;
+        }
+      }
       const ledgerOptions = ledgerQueryOptions(req, range);
       const [siteResults, ledger] = await Promise.all([
         Promise.all(SITE_ACCOUNTS.map((site) => fetchSiteMetaSummary({
@@ -4835,7 +5457,7 @@ export const createAdsRouter = () => {
       const totalConfirmedRoas = computeRoas(totalRevenue, totalSpend, ledgerAvailable);
       const totalOfficialRoas = computeRoas(totalOfficialRevenue, totalSpend, ledgerAvailable);
 
-      res.json({
+      const responseBody = {
         ok: true,
         ...ledgerResponseMeta(ledger, {
           range,
@@ -4871,10 +5493,23 @@ export const createAdsRouter = () => {
           metaPurchaseRoas: computeObservedRoas(totalMetaPurchaseValue, totalSpend),
           orders: sites.reduce((sum, site) => sum + site.orders, 0),
         },
-      });
+      };
+      const cachedEntry = setAdsLazyCached(cacheKey, responseBody);
+      res.json({ ...responseBody, cache: buildAdsCacheMeta(cachedEntry, forceRefresh ? "live_force" : "live_cache_miss") });
     } catch (error) {
       const message = error instanceof Error ? error.message : "site summary failed";
       const status = message.includes("YYYY-MM-DD") || message.includes("date_preset") || message.includes("attribution_window") ? 400 : 500;
+      // stale-while-revalidate — Meta API 일시 실패 시 옛 cache 가 있으면 반환
+      if (status === 500 && cacheKey) {
+        const stale = getAdsLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+      }
       res.status(status).json({ ok: false, error: message });
     }
   });

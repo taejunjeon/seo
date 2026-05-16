@@ -9,6 +9,28 @@ export const ACQUISITION_CHANNELS = ["youtube", "meta", "tiktok", "google", "oth
 export type AcquisitionChannel = typeof ACQUISITION_CHANNELS[number];
 export type FirstPurchaseCategory = ConsultationProductCategory;
 
+// site 분류 — ledger entry 의 metadata.site 우선, 없으면 landing/referrer host 로 추정
+export const ACQUISITION_SITES = ["biocom", "thecleancoffee", "aibio", "unknown"] as const;
+export type AcquisitionSite = typeof ACQUISITION_SITES[number];
+
+export const classifyEntrySite = (entry: {
+  metadata?: Record<string, unknown>;
+  landing?: string;
+  referrer?: string;
+}): AcquisitionSite => {
+  const meta = entry.metadata;
+  const metaSiteRaw = typeof meta?.site === "string" ? meta.site.trim().toLowerCase() : "";
+  if (metaSiteRaw === "biocom") return "biocom";
+  if (metaSiteRaw === "thecleancoffee" || metaSiteRaw === "coffee") return "thecleancoffee";
+  if (metaSiteRaw === "aibio") return "aibio";
+
+  const blob = `${entry.landing ?? ""} ${entry.referrer ?? ""}`.toLowerCase();
+  if (blob.includes("biocom.kr") || blob.includes("biocom.imweb")) return "biocom";
+  if (blob.includes("thecleancoffee")) return "thecleancoffee";
+  if (blob.includes("aibio")) return "aibio";
+  return "unknown";
+};
+
 export type ChannelClassificationInput = {
   utmSource?: unknown;
   utm_source?: unknown;
@@ -22,6 +44,7 @@ export type FirstTouchSnapshot = {
   customer_key: string;
   first_touch_at: string;
   acquisition_channel: AcquisitionChannel;
+  acquisition_site: AcquisitionSite;
   utm_source: string;
   utm_medium: string;
   utm_campaign: string;
@@ -47,6 +70,7 @@ type CohortWindowSummary = {
 };
 
 export type AttributionCohortLtrChannel = {
+  site: AcquisitionSite;
   channel: AcquisitionChannel;
   customerCount: number;
   matureCohort: {
@@ -76,6 +100,7 @@ export type FirstPurchaseSnapshot = FirstTouchSnapshot & {
 };
 
 export type ChannelCategoryRepeatCell = {
+  site: AcquisitionSite;
   channel: AcquisitionChannel;
   category: FirstPurchaseCategory;
   isDangdangcare: boolean;
@@ -102,6 +127,7 @@ export type ReverseFunnelSummary = {
 };
 
 export type ReverseFunnelChannel = ReverseFunnelSummary & {
+  site: AcquisitionSite;
   channel: AcquisitionChannel;
 };
 
@@ -471,6 +497,7 @@ export const buildFirstTouchSnapshots = (
         ttclid: entry.ttclid,
         gclid: entry.gclid,
       }),
+      acquisition_site: classifyEntrySite(entry),
       utm_source: entry.utmSource,
       utm_medium: entry.utmMedium,
       utm_campaign: entry.utmCampaign,
@@ -748,19 +775,30 @@ export const buildAttributionCohortLtrReport = (input: {
       startAt: input.startAt,
       endAt: input.endAt,
     },
-    channels: selectedChannels.map((channel) => {
-      const rows = ltrRows.filter((row) => row.acquisition_channel === channel);
-      return {
-        channel,
-        customerCount: rows.length,
-        matureCohort: {
-          d30: summarizeWindow(rows.map((row) => row.ltr_30d)),
-          d90: summarizeWindow(rows.map((row) => row.ltr_90d)),
-          d180: summarizeWindow(rows.map((row) => row.ltr_180d)),
-        },
-        sampleFirstTouches: rows.slice(0, sampleLimit).map(toSample),
-      };
-    }),
+    // channels 를 site × channel 조합으로 확장. 데이터 0 인 조합은 skip.
+    channels: (() => {
+      const out: AttributionCohortLtrChannel[] = [];
+      for (const site of ACQUISITION_SITES) {
+        for (const channel of selectedChannels) {
+          const rows = ltrRows.filter(
+            (row) => row.acquisition_site === site && row.acquisition_channel === channel,
+          );
+          if (rows.length === 0) continue;
+          out.push({
+            site,
+            channel,
+            customerCount: rows.length,
+            matureCohort: {
+              d30: summarizeWindow(rows.map((row) => row.ltr_30d)),
+              d90: summarizeWindow(rows.map((row) => row.ltr_90d)),
+              d180: summarizeWindow(rows.map((row) => row.ltr_180d)),
+            },
+            sampleFirstTouches: rows.slice(0, sampleLimit).map(toSample),
+          });
+        }
+      }
+      return out;
+    })(),
   };
 };
 
@@ -809,6 +847,7 @@ const buildPurchaseCohortRows = (input: {
 };
 
 const summarizeRepeatCell = (
+  site: AcquisitionSite,
   channel: AcquisitionChannel,
   category: FirstPurchaseCategory,
   isDangdangcare: boolean,
@@ -817,6 +856,7 @@ const summarizeRepeatCell = (
   const customerCount = rows.length;
   const repeaterCount = rows.filter((row) => row.hasRepeat180d).length;
   return {
+    site,
     channel,
     category,
     isDangdangcare,
@@ -843,15 +883,24 @@ export const buildChannelCategoryRepeatReport = (input: {
   const cohortRows = buildPurchaseCohortRows(input);
   const cells: ChannelCategoryRepeatCell[] = [];
 
-  for (const channel of ACQUISITION_CHANNELS) {
-    for (const category of PRODUCT_CATEGORIES) {
-      const rows = cohortRows.filter((row) =>
-        row.acquisition_channel === channel && row.first_purchase_category === category,
-      );
-      cells.push(summarizeRepeatCell(channel, category, false, rows));
+  for (const site of ACQUISITION_SITES) {
+    for (const channel of ACQUISITION_CHANNELS) {
+      for (const category of PRODUCT_CATEGORIES) {
+        const rows = cohortRows.filter((row) =>
+          row.acquisition_site === site
+          && row.acquisition_channel === channel
+          && row.first_purchase_category === category,
+        );
+        // 0 건 cell 은 응답 크기를 줄이려 skip (전체 ACQUISITION_SITES × CHANNELS × CATEGORIES = 4×5×3 = 60 → 데이터 있는 것만)
+        if (rows.length === 0) continue;
+        cells.push(summarizeRepeatCell(site, channel, category, false, rows));
 
-      if (category === "supplement") {
-        cells.push(summarizeRepeatCell(channel, category, true, rows.filter((row) => row.is_dangdangcare)));
+        if (category === "supplement") {
+          const ddRows = rows.filter((row) => row.is_dangdangcare);
+          if (ddRows.length > 0) {
+            cells.push(summarizeRepeatCell(site, channel, category, true, ddRows));
+          }
+        }
       }
     }
   }
@@ -887,6 +936,18 @@ export const buildReverseFunnelReport = (input: {
   const supplementRows = buildPurchaseCohortRows(input)
     .filter((row) => row.first_purchase_category === "supplement");
 
+  // byChannel 을 site × channel 조합으로 확장. 데이터 없는 조합은 skip 해서 응답 크기 축소.
+  const byChannel: ReverseFunnelChannel[] = [];
+  for (const site of ACQUISITION_SITES) {
+    for (const channel of ACQUISITION_CHANNELS) {
+      const rows = supplementRows.filter(
+        (row) => row.acquisition_site === site && row.acquisition_channel === channel,
+      );
+      if (rows.length === 0) continue;
+      byChannel.push({ site, channel, ...summarizeReverseFunnel(rows) });
+    }
+  }
+
   return {
     generatedAt,
     range: {
@@ -894,9 +955,6 @@ export const buildReverseFunnelReport = (input: {
       endAt: input.endAt,
     },
     overall: summarizeReverseFunnel(supplementRows),
-    byChannel: ACQUISITION_CHANNELS.map((channel) => ({
-      channel,
-      ...summarizeReverseFunnel(supplementRows.filter((row) => row.acquisition_channel === channel)),
-    })),
+    byChannel,
   };
 };
