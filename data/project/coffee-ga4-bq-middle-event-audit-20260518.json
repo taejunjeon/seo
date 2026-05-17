@@ -1,0 +1,293 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-18 05:45 KST",
+  "mode": "green_read_only_coffee_ga4_bq_middle_event_audit",
+  "site": "thecleancoffee",
+  "ga4_source": {
+    "project": "project-dadba7dd-0229-4ff6-81c",
+    "dataset": "analytics_326949178",
+    "property_id": "326949178",
+    "measurement_id_from_gtm_ui_capture": "G-JLSBXX7300",
+    "location": "asia-northeast3"
+  },
+  "gtm_publish_observed": {
+    "container": "GTM-5M33GC4",
+    "version": 21,
+    "version_name": "AGENTSOS GA4 begin_checkout rename - 2026-05-18",
+    "published_at_kst": "2026-05-18 05:37",
+    "changed_tag": "AGENTSOS - [GA4 이벤트전송] begin_checkout",
+    "scope": "rename existing GA4 begin_checkout sender; event contract unchanged"
+  },
+  "window_7d": {
+    "start_date": "2026-05-10",
+    "end_date": "2026-05-17",
+    "latest_table_date": "20260516",
+    "latest_event_kst": "2026-05-16 23:57:40.911358",
+    "total_events": 77451
+  },
+  "target_presence": {
+    "add_payment_info_7d": false,
+    "coupon_or_promotion_7d": true,
+    "registration_7d": true,
+    "scroll50_or_page_view_long_7d": true,
+    "begin_checkout_7d": false
+  },
+  "seven_day_summary": [
+    {
+      "bucket": "context",
+      "event_name": "scroll",
+      "events": 21035,
+      "users": 2453,
+      "sessions": 2977,
+      "first_event_kst": "2026-05-10 00:00:13.851253",
+      "latest_event_kst": "2026-05-16 23:57:07.224487",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "context",
+      "event_name": "view_item",
+      "events": 1099,
+      "users": 450,
+      "sessions": 510,
+      "first_event_kst": "2026-05-10 00:00:07.169065",
+      "latest_event_kst": "2026-05-16 23:25:51.104887",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "context",
+      "event_name": "purchase",
+      "events": 514,
+      "users": 422,
+      "sessions": 432,
+      "first_event_kst": "2026-05-10 08:17:45.046121",
+      "latest_event_kst": "2026-05-16 23:22:45.433899",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "context",
+      "event_name": "add_to_cart",
+      "events": 393,
+      "users": 197,
+      "sessions": 205,
+      "first_event_kst": "2026-05-10 07:35:37.794070",
+      "latest_event_kst": "2026-05-16 21:44:34.599759",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "click",
+      "events": 854,
+      "users": 186,
+      "sessions": 192,
+      "first_event_kst": "2026-05-10 12:24:12.926395",
+      "latest_event_kst": "2026-05-16 23:21:10.752014",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "scroll",
+      "events": 530,
+      "users": 171,
+      "sessions": 176,
+      "first_event_kst": "2026-05-10 12:25:24.341447",
+      "latest_event_kst": "2026-05-16 23:02:10.350677",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "page_view",
+      "events": 404,
+      "users": 186,
+      "sessions": 194,
+      "first_event_kst": "2026-05-10 12:24:12.926395",
+      "latest_event_kst": "2026-05-16 23:21:10.752014",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "user_engagement",
+      "events": 180,
+      "users": 97,
+      "sessions": 100,
+      "first_event_kst": "2026-05-10 12:30:48.607559",
+      "latest_event_kst": "2026-05-16 23:08:09.242605",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "session_start",
+      "events": 21,
+      "users": 21,
+      "sessions": 21,
+      "first_event_kst": "2026-05-11 10:14:22.784577",
+      "latest_event_kst": "2026-05-16 23:07:27.509059",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "first_visit",
+      "events": 13,
+      "users": 13,
+      "sessions": 13,
+      "first_event_kst": "2026-05-11 10:14:22.784577",
+      "latest_event_kst": "2026-05-15 17:18:02.269510",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "form_start",
+      "events": 2,
+      "users": 1,
+      "sessions": 1,
+      "first_event_kst": "2026-05-11 19:08:04.476993",
+      "latest_event_kst": "2026-05-11 19:08:04.481481",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "page_view_long",
+      "events": 1,
+      "users": 1,
+      "sessions": 1,
+      "first_event_kst": "2026-05-11 23:58:43.487458",
+      "latest_event_kst": "2026-05-11 23:58:43.487458",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "registration",
+      "event_name": "1초회원가입",
+      "events": 43,
+      "users": 38,
+      "sessions": 38,
+      "first_event_kst": "2026-05-10 12:17:22.660389",
+      "latest_event_kst": "2026-05-16 16:33:53.254476",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "scroll50_or_page_view_long",
+      "event_name": "page_view_long",
+      "events": 745,
+      "users": 546,
+      "sessions": 679,
+      "first_event_kst": "2026-05-10 07:08:05.583270",
+      "latest_event_kst": "2026-05-16 22:49:57.780743",
+      "scroll50_param_events": 0
+    }
+  ],
+  "thirty_day_target_summary": [
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "click",
+      "events": 1483,
+      "users": 350,
+      "sessions": 394,
+      "first_event_kst": "2026-04-17 11:51:06.483352",
+      "latest_event_kst": "2026-05-16 23:21:10.752014",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "scroll",
+      "events": 1064,
+      "users": 331,
+      "sessions": 369,
+      "first_event_kst": "2026-04-17 11:50:59.115575",
+      "latest_event_kst": "2026-05-16 23:02:10.350677",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "page_view",
+      "events": 771,
+      "users": 362,
+      "sessions": 408,
+      "first_event_kst": "2026-04-17 11:50:25.404226",
+      "latest_event_kst": "2026-05-16 23:21:10.752014",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "user_engagement",
+      "events": 355,
+      "users": 189,
+      "sessions": 202,
+      "first_event_kst": "2026-04-17 12:59:48.568034",
+      "latest_event_kst": "2026-05-16 23:08:09.242605",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "session_start",
+      "events": 58,
+      "users": 53,
+      "sessions": 58,
+      "first_event_kst": "2026-04-17 11:50:25.404226",
+      "latest_event_kst": "2026-05-16 23:07:27.509059",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "first_visit",
+      "events": 26,
+      "users": 26,
+      "sessions": 26,
+      "first_event_kst": "2026-04-19 10:13:49.961261",
+      "latest_event_kst": "2026-05-15 17:18:02.269510",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "page_view_long",
+      "events": 3,
+      "users": 3,
+      "sessions": 3,
+      "first_event_kst": "2026-05-01 13:18:05.805758",
+      "latest_event_kst": "2026-05-11 23:58:43.487458",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "coupon_or_promotion",
+      "event_name": "form_start",
+      "events": 2,
+      "users": 1,
+      "sessions": 1,
+      "first_event_kst": "2026-05-11 19:08:04.476993",
+      "latest_event_kst": "2026-05-11 19:08:04.481481",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "registration",
+      "event_name": "1초회원가입",
+      "events": 93,
+      "users": 79,
+      "sessions": 79,
+      "first_event_kst": "2026-04-17 11:04:58.348221",
+      "latest_event_kst": "2026-05-16 16:33:53.254476",
+      "scroll50_param_events": 0
+    },
+    {
+      "bucket": "scroll50_or_page_view_long",
+      "event_name": "page_view_long",
+      "events": 1579,
+      "users": 926,
+      "sessions": 1343,
+      "first_event_kst": "2026-04-17 10:13:21.044471",
+      "latest_event_kst": "2026-05-16 22:49:57.780743",
+      "scroll50_param_events": 0
+    }
+  ],
+  "interpretation": {
+    "ga4_export_lag_note": "GTM Preview/Realtime events from 2026-05-18 may not appear in daily BigQuery export until the next export table is available.",
+    "coupon_note": "Coupon detection is based on event_name and safe text/url params containing coupon/쿠폰/promotion/discount/할인. It is aggregate-only and not an order-level truth source.",
+    "registration_note": "Registration detection includes GA4 standard sign_up/complete_registration and existing Korean 1초회원가입 naming.",
+    "no_send_write_publish": true
+  },
+  "invariants": {
+    "ga4_measurement_protocol_send": 0,
+    "meta_capi_send": 0,
+    "google_ads_upload": 0,
+    "operating_db_write": 0,
+    "vm_cloud_deploy": 0,
+    "raw_identifier_output": 0
+  }
+}

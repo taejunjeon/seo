@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-17 17:46 KST",
+  "site": "thecleancoffee",
+  "lane": "Yellow Preview only",
+  "container": {
+    "public_id": "GTM-5M33GC4",
+    "site": "thecleancoffee.com",
+    "workspace_rule": "fresh workspace from latest live; Default Workspace prohibited"
+  },
+  "events_to_preview": [
+    "view_cart",
+    "begin_checkout",
+    "add_payment_info"
+  ],
+  "forbidden": [
+    "purchase tag change",
+    "GTM submit/create_version/publish",
+    "Meta/Google/TikTok/Naver send or upload",
+    "operating DB write",
+    "Imweb header/footer save",
+    "raw identifier report output"
+  ],
+  "success_criteria": {
+    "view_cart": "cart page entry fires once",
+    "begin_checkout": "checkout/payment page entry fires once, not on cart view",
+    "add_payment_info": "payment method selection evidence fires once with limited enum payment_type",
+    "purchase": "must not fire during preview-only middle-event test"
+  },
+  "safety": {
+    "gtm_publish": 0,
+    "purchase_change": 0,
+    "platform_send_or_upload": 0,
+    "operating_db_write": 0,
+    "raw_identifier_output": false
+  }
+}

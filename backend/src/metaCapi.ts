@@ -281,9 +281,14 @@ const metadataBoolean = (metadata: Record<string, unknown>, keys: string[]) => {
   return undefined;
 };
 
-const metadataPositiveNumber = (metadata: Record<string, unknown>, keys: string[]) => {
+const metadataFiniteNumber = (metadata: Record<string, unknown>, keys: string[]) => {
   const value = pickNumber(metadata, keys);
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+};
+
+const metadataPositiveNumber = (metadata: Record<string, unknown>, keys: string[]) => {
+  const value = metadataFiniteNumber(metadata, keys);
+  return typeof value === "number" && value > 0 ? value : undefined;
 };
 
 const valueGuardPassed = (metadata: Record<string, unknown>) => {
@@ -323,7 +328,7 @@ export const getMetaCapiNoSendReason = (entry: AttributionLedgerEntry) => {
   if (metadata.semantic_touchpoint === "payment_page_seen") return "semantic_payment_page_seen_not_purchase";
   if (isMetaCapiAutoSendBlockedByBridge(entry)) return "bridge_no_send_gate";
 
-  const value = metadataPositiveNumber(metadata, ["value", "amount", "totalAmount"]);
+  const value = metadataFiniteNumber(metadata, ["value", "amount", "totalAmount"]);
   if (
     (metadata.meta_purchase_candidate === false || metadata.is_purchase_candidate === false) &&
     !allowsRuntimeTossValueGuard(entry, metadata, value)
@@ -351,8 +356,8 @@ export const getMetaCapiNoSendReason = (entry: AttributionLedgerEntry) => {
 
   const guard = getMetadataRecord(metadata, ["valueGuard", "value_guard"]);
   const sourceTotal = guard
-    ? metadataPositiveNumber(guard, ["sourceTotalKrw", "source_total_krw", "orderTotalKrw", "order_total_krw"])
-    : metadataPositiveNumber(metadata, [
+    ? metadataFiniteNumber(guard, ["sourceTotalKrw", "source_total_krw", "orderTotalKrw", "order_total_krw"])
+    : metadataFiniteNumber(metadata, [
       "sourceTotalKrw",
       "source_total_krw",
       "orderTotalKrw",

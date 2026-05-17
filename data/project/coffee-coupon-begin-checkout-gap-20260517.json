@@ -1,0 +1,130 @@
+{
+  "checked_at_kst": "2026-05-18 02:54 KST",
+  "mode": "green_read_only_design",
+  "site": {
+    "key": "thecleancoffee",
+    "domain": "thecleancoffee.com",
+    "gtm_container": "GTM-5M33GC4",
+    "ga4_measurement_id": "G-JLSBXX7300",
+    "ga4_bigquery_dataset": "analytics_326949178"
+  },
+  "source_window": {
+    "gtm_inventory_source": "data/project/gtm-ga4-full-inventory-20260517.json",
+    "ga4_export_window": "2026-04-07..2026-05-16",
+    "latest_ga4_export_at_kst": "2026-05-16",
+    "runtime_preview_source": "TJ screenshots 2026-05-17 and 2026-05-18",
+    "confidence": "high_for_static_inventory_medium_for_runtime_until_preview"
+  },
+  "coupon_event": {
+    "dedicated_gtm_tag_present": false,
+    "dedicated_ga4_event_present": false,
+    "meta_auto_detected_subscribed_button_click_observed": true,
+    "recommended_internal_event": "coupon_download",
+    "recommended_vm_touchpoint": "coupon_download",
+    "ga4_candidate_event": "coupon_download",
+    "ga4_optional_recommended_event": "select_promotion",
+    "purchase_candidate": false,
+    "budget_roas_included": false
+  },
+  "ga4_event_counts": {
+    "view_item": {
+      "events": 3438,
+      "users": 1267,
+      "sessions": 1603,
+      "latest_event_at_kst": "2026-05-16 23:25:51"
+    },
+    "add_to_cart": {
+      "events": 1603,
+      "users": 669,
+      "sessions": 770,
+      "latest_event_at_kst": "2026-05-16 21:44:34"
+    },
+    "view_cart": {
+      "events": 0
+    },
+    "begin_checkout": {
+      "events": 0
+    },
+    "add_payment_info": {
+      "events": 0
+    },
+    "purchase": {
+      "events": 1370,
+      "users": 1063,
+      "sessions": 1168,
+      "latest_event_at_kst": "2026-05-16 23:22:45"
+    }
+  },
+  "begin_checkout_gap": {
+    "gtm_begin_checkout_tag_present": true,
+    "gtm_begin_checkout_data_layer_tag_present": true,
+    "current_semantic_definition": "order_form_dom_ready_not_product_buy_button_click",
+    "known_gap": "GA4 BigQuery begin_checkout is 0 across export window",
+    "runtime_preview_20260518": {
+      "shop_payment_page_reached": true,
+      "order_query_present": true,
+      "hurdlers_data_layer_order_form_tag_fired": true,
+      "ga4_begin_checkout_event_tag_fired": false,
+      "tag_assistant_begin_checkout_event_observed": false,
+      "console_errors_observed": 0,
+      "meta_initiate_checkout_observed": false,
+      "raw_order_identifiers_stored": false
+    },
+    "codex_chrome_runtime_check_20260518_0319": {
+      "codex_chrome_extension_recovered_after_one_extension_disabled": true,
+      "tag_assistant_begin_checkout_observed": false,
+      "order_page_data_layer_begin_checkout_count": 0,
+      "order_page_dom_ready": true,
+      "shop_payment_body_class_present": true,
+      "oms_shop_payment_root_present": true,
+      "selector_counts": {
+        ".shop_item_thumb": 0,
+        ".shop_item_title": 0,
+        ".shop_item_pay > span": 0,
+        ".shop_item_opt": 0
+      },
+      "primary_root_cause": "gtm_order_form_custom_html_selector_mismatch",
+      "chrome_extension_conflict_is_possible_but_not_begin_checkout_root_cause": true,
+      "raw_identifiers_stored": false
+    },
+    "runtime_data_layer_20260518": {
+      "scroll_depth_event_observed": true,
+      "scroll_threshold_percent": 25,
+      "buy_button_link_click_observed": true,
+      "buy_button_click_text": "구매하기",
+      "buy_button_class_contains_btn_buy": true,
+      "hurdlers_ga4_items_present_on_buy_click": true,
+      "product_item_present_on_buy_click": true,
+      "purchase_button_click_can_support_checkout_intent": true,
+      "buy_click_is_not_begin_checkout_by_current_gtm_definition": true,
+      "buy_click_sequence_observed": true,
+      "buy_click_plain_click_event_observed": true,
+      "buy_click_link_click_event_observed": true,
+      "post_click_container_reinitialization_observed": true,
+      "custom_checkout_event_between_click_and_reload_observed": false,
+      "begin_checkout_between_click_and_reload_observed": false,
+      "recommended_checkout_intent_location": "product_detail_buy_button_click",
+      "recommended_begin_checkout_location": "shop_payment_order_form_dom_ready",
+      "gtm_trigger_id_only_not_fired_tag_proof": true,
+      "raw_identifiers_stored": false
+    },
+    "gap_candidates": [
+      "order_form_dom_selector_or_parser_failure",
+      "custom_html_load_timing_miss",
+      "order_form_value_or_quantity_parser_failure",
+      "data_layer_event_to_ga4_trigger_mismatch",
+      "ga4_export_delay_low_probability"
+    ],
+    "current_primary_suspect": "buy_click_is_captured_with_items_but_not_connected_to_standard_checkout_intent_and_order_form_custom_html_does_not_emit_begin_checkout",
+    "recommended_new_event_before_checkout": "checkout_intent",
+    "recommended_keep_begin_checkout_definition": "order_form_reached_and_items_detected"
+  },
+  "invariants": {
+    "gtm_publish": 0,
+    "gtm_create_version": 0,
+    "vm_cloud_deploy": 0,
+    "platform_send": 0,
+    "operational_db_write": 0,
+    "raw_identifier_output": 0
+  }
+}

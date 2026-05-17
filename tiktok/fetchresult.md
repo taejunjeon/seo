@@ -196,9 +196,9 @@ GET /api/attribution/tiktok-pixel-events?orderCode=smoke_order_code&limit=10
 
 주문:
 
-- `orderCode`: `o20260424213db598bfe51`
+- `orderCode`: `safe_order_ref`
 - `orderNo`: `202604248221933`
-- `paymentCode`: `pa20260424fe3871f170294`
+- `paymentCode`: `safe_payment_ref`
 - 결제수단: 가상계좌
 
 결론:
@@ -220,7 +220,7 @@ which must be 'true' when the request's credentials mode is 'include'.
 운영 원장 조회:
 
 ```text
-GET /api/attribution/tiktok-pixel-events?orderCode=o20260424213db598bfe51&limit=20
+GET /api/attribution/tiktok-pixel-events?orderCode=safe_order_ref&limit=20
 totalEvents=0
 ```
 
@@ -259,9 +259,9 @@ readbackVisible=true
 
 주문:
 
-- `orderCode`: `o202604248409955023aa3`
+- `orderCode`: `safe_order_ref`
 - `orderNo`: `202604246007665`
-- `paymentCode`: `pa2026042445c3ae7e80788`
+- `paymentCode`: `safe_payment_ref`
 - 금액: `11900`
 - 결제수단: 카드
 
@@ -269,7 +269,7 @@ readbackVisible=true
 
 - Meta Pixel Helper에는 `Purchase`가 표시됐다.
 - TikTok Pixel Helper에도 `Purchase`가 표시됐다.
-- 주문완료 URL: `https://biocom.kr/shop_payment_complete?order_code=o202604248409955023aa3&payment_code=pa2026042445c3ae7e80788&order_no=202604246007665&rk=S`
+- 주문완료 URL: `https://biocom.kr/shop_payment_complete?order_code=safe_order_ref&payment_code=safe_payment_ref&order_no=safe_order_no&rk=S`
 
 TikTok Pixel Helper 확인:
 
@@ -282,13 +282,13 @@ setupMethod=Imweb
 content_type=product
 currency=KRW
 value=11900
-event_id=Purchase_o202604248409955023aa3
+event_id=Purchase_safe_order_ref
 ```
 
 운영 TikTok event log 조회:
 
 ```text
-GET /api/attribution/tiktok-pixel-events?orderCode=o202604248409955023aa3&limit=20
+GET /api/attribution/tiktok-pixel-events?orderCode=safe_order_ref&limit=20
 totalEvents=3
 uniqueOrderKeys=1
 countsByAction:
@@ -302,10 +302,10 @@ countsByAction:
 ```text
 action=released_confirmed_purchase
 eventName=Purchase
-eventId=o202604248409955023aa3
-orderCode=o202604248409955023aa3
-orderNo=202604246007665
-paymentCode=pa2026042445c3ae7e80788
+eventId=safe_order_ref
+orderCode=safe_order_ref
+orderNo=safe_order_no
+paymentCode=safe_payment_ref
 value=11900
 currency=KRW
 decisionStatus=confirmed
@@ -342,9 +342,9 @@ approvedAt=2026-04-24T23:25:36+09:00
 
 주문:
 
-- `orderCode`: `o20260424e1f05530c933d`
+- `orderCode`: `safe_order_ref`
 - `orderNo`: `202604247459692`
-- `paymentCode`: `pa20260424440a9976940c7`
+- `paymentCode`: `safe_payment_ref`
 - 금액: `11900`
 - 결제수단: 가상계좌
 - 입금 여부: 미입금
@@ -362,14 +362,14 @@ currency=KRW
 payment_status=pending
 value=11900
 original_event_name=Purchase
-original_event_id=o20260424e1f05530c933d
-event_id=PlaceAnOrder_PlaceAnOrder_o20260424e1f05530c933d
+original_event_id=safe_order_ref
+event_id=PlaceAnOrder_PlaceAnOrder_safe_order_ref
 ```
 
 운영 TikTok event log 조회:
 
 ```text
-GET /api/attribution/tiktok-pixel-events?orderCode=o20260424e1f05530c933d&limit=20
+GET /api/attribution/tiktok-pixel-events?orderCode=safe_order_ref&limit=20
 totalEvents=4
 uniqueOrderKeys=1
 countsByAction:
@@ -384,10 +384,10 @@ countsByAction:
 ```text
 action=blocked_pending_purchase
 eventName=Purchase
-eventId=o20260424e1f05530c933d
-orderCode=o20260424e1f05530c933d
-orderNo=202604247459692
-paymentCode=pa20260424440a9976940c7
+eventId=safe_order_ref
+orderCode=safe_order_ref
+orderNo=safe_order_no
+paymentCode=safe_payment_ref
 value=11900
 currency=KRW
 decisionStatus=pending
@@ -851,4 +851,25 @@ tiktok/monitoring/ads_tiktok_dashboard_20260425_api_collected.png
 
 - status: WARN
 - report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-15T01-58-43-502Z.md`
+- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-05-16 TikTok Guard 자동 모니터링 48h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_48h_2026-05-16T02-17-06-134Z.md`
+- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-05-16 TikTok Guard 자동 모니터링 24h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-16T02-18-24-642Z.md`
+- source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events
+
+
+## 2026-05-17 TikTok Guard 자동 모니터링 24h
+
+- status: WARN
+- report: `tiktok/monitoring/tiktok_guard_monitor_24h_2026-05-17T02-18-25-390Z.md`
 - source: 운영 VM API / CRM_LOCAL_DB_PATH#tiktok_pixel_events

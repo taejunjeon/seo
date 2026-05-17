@@ -51,6 +51,7 @@ export type FunnelHealthActionQueueDetail = {
   capi_status: "missing_send_log_match" | "not_applicable";
   missing_reason: string;
   recommended_action: string;
+  missing_policy?: "current_missing_watch" | "legacy_do_not_backfill";
   age_minutes: number | null;
   confidence: "high" | "medium" | "low";
 };
@@ -328,7 +329,7 @@ const isAddPaymentInfoEntry = (entry: AttributionLedgerEntry): boolean => {
 
 const isAddToCartEntry = (entry: AttributionLedgerEntry): boolean => {
   const eventName = firstString(entry.metadata, ["eventName", "event_name"]);
-  return eventName === "AddToCart" || eventName === "ViewContent";
+  return eventName === "AddToCart";
 };
 
 const classifyCapiSuccess = (row: MetaCapiSendLogRecord): boolean => {
@@ -424,6 +425,18 @@ const evidenceLabelsForEntry = (entry: AttributionLedgerEntry): string[] => {
   return labels.length > 0 ? labels : ["광고/유입 증거 없음"];
 };
 
+const kstDateKeyForIso = (iso: string): string | null => {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const kst = new Date(ms + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+};
+
+const isNoBackfillLegacyBacklog = (entry: AttributionLedgerEntry): boolean => {
+  const kstDate = kstDateKeyForIso(entry.loggedAt);
+  return kstDate === "2026-05-14" || kstDate === "2026-05-15";
+};
+
 const actionDetailForConfirmedNoCapi = (
   entry: AttributionLedgerEntry,
   asOf: Date,
@@ -434,6 +447,7 @@ const actionDetailForConfirmedNoCapi = (
     : null;
   const source = classifySource(entry);
   const paymentMethod = classifyPaymentMethod(entry);
+  const legacyDoNotBackfill = isNoBackfillLegacyBacklog(entry);
   return {
     safe_ref: safeRefForLedgerEntry(entry),
     logged_at_kst: Number.isFinite(loggedAtMs) ? toKst(new Date(loggedAtMs)) : "불명",
@@ -447,8 +461,13 @@ const actionDetailForConfirmedNoCapi = (
       ? "VM Cloud attribution_ledger의 payment_success confirmed + 결제완료 시각 있음"
       : "VM Cloud attribution_ledger의 payment_success confirmed",
     capi_status: "missing_send_log_match",
-    missing_reason: "같은 결제/주문 safe key로 성공한 Meta CAPI Purchase send log가 없음",
-    recommended_action: "value guard와 duplicate를 확인한 뒤 backfill 후보로 분류",
+    missing_reason: legacyDoNotBackfill
+      ? "5/14~5/15 수리 전 legacy backlog입니다. 같은 결제/주문 safe key로 성공한 Meta CAPI Purchase send log는 없지만, ROAS 오염 방지를 위해 전송하지 않습니다."
+      : "같은 결제/주문 safe key로 성공한 Meta CAPI Purchase send log가 없음",
+    recommended_action: legacyDoNotBackfill
+      ? "보관만, 전송하지 않음 — 과거 장애 기록으로만 유지"
+      : "다음 CAPI sync 후에도 남으면 current 누락으로 사유 분류",
+    missing_policy: legacyDoNotBackfill ? "legacy_do_not_backfill" : "current_missing_watch",
     age_minutes: ageMinutes,
     confidence: "high",
   };
@@ -760,7 +779,7 @@ const determineStatus = (params: {
     return {
       label: "긴급",
       main_issue: `결제완료가 있는데 CAPI 전송 기록이 없는 row ${confirmedButNoCapi}건`,
-      next_action: "Eligibility queue 의 oldest age 확인 후 backfill 후보 추리세요.",
+      next_action: "5/17 이후 새 누락인지, 5/14~5/15 보관 전용 legacy backlog인지 먼저 분리하세요.",
     };
   }
   // Yellow: decision canceled 가 결제 시작의 10% 이상
@@ -1539,7 +1558,7 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     confirmed_but_no_capi_send: {
       priority: "critical",
       human: "결제완료가 있는데 Meta CAPI 전송 기록이 없음",
-      nextAction: "Eligibility queue 점검 후 backfill 후보 추리고, Meta CAPI sync 큐 사유 분포 확인",
+      nextAction: "5/17 이후 새 누락은 CAPI sync 사유를 분류하고, 5/14~5/15 legacy backlog는 보관만 합니다.",
       explanation:
         "결제는 끝났는데 Meta 로 구매 이벤트가 안 갔다는 뜻입니다. 광고비 효율을 직접 깎는 항목이라 가장 시급합니다.",
     },
@@ -1571,14 +1590,23 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
   for (const [reason, acc] of reasonMap.entries()) {
     const meta = leakPriorityMap[reason];
     if (!meta) continue;
+    const detailsForReason = reasonDetails.get(reason) ?? [];
+    const allLegacyDoNotBackfill =
+      reason === "confirmed_but_no_capi_send" &&
+      detailsForReason.length > 0 &&
+      detailsForReason.every((detail) => detail.missing_policy === "legacy_do_not_backfill");
     unresolvedItems.push({
       key: reason,
-      human_label: meta.human,
+      human_label: allLegacyDoNotBackfill ? "과거 CAPI 누락 기록 — 보관만, 전송하지 않음" : meta.human,
       count: acc.count,
       amount_krw: Math.round(acc.amount),
-      priority: meta.priority,
-      next_action: meta.nextAction,
-      explanation_ko: meta.explanation,
+      priority: allLegacyDoNotBackfill ? "watch" : meta.priority,
+      next_action: allLegacyDoNotBackfill
+        ? "5/14~5/15 수리 전 legacy backlog입니다. ROAS 오염 방지를 위해 backfill하지 말고 기록으로만 보관하세요."
+        : meta.nextAction,
+      explanation_ko: allLegacyDoNotBackfill
+        ? "현재 코드 품질 문제가 아니라 수리 전 과거 누락 기록입니다. 이미 no-backfill로 결정했으므로 Meta로 다시 보내지 않습니다."
+        : meta.explanation,
     });
   }
   // sort by priority weight then count desc
@@ -1600,15 +1628,23 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
         if (b.amount_krw !== a.amount_krw) return b.amount_krw - a.amount_krw;
         return (b.age_minutes ?? 0) - (a.age_minutes ?? 0);
       });
+    const allLegacyDoNotBackfill =
+      item.key === "confirmed_but_no_capi_send" &&
+      details.length > 0 &&
+      details.every((detail) => detail.missing_policy === "legacy_do_not_backfill");
     actionQueue.push({
       key: item.key,
-      priority: item.priority,
-      title: item.human_label,
+      priority: allLegacyDoNotBackfill ? "watch" : item.priority,
+      title: allLegacyDoNotBackfill ? "과거 CAPI 누락 기록 — 보관만, 전송하지 않음" : item.human_label,
       detail: `${item.count.toLocaleString()}건${item.amount_krw > 0 ? ` · 추정 ₩${Math.round(item.amount_krw).toLocaleString()}` : ""}`,
-      next_action: item.next_action,
+      next_action: allLegacyDoNotBackfill
+        ? "5/14~5/15 수리 전 legacy backlog입니다. ROAS 오염 방지를 위해 backfill하지 말고 기록으로만 보관하세요."
+        : item.next_action,
       count: item.count,
       amount_krw: item.amount_krw,
-      explanation_ko: item.explanation_ko,
+      explanation_ko: allLegacyDoNotBackfill
+        ? "현재 코드 품질 문제가 아니라 수리 전 과거 누락 기록입니다. 이미 no-backfill로 결정했으므로 Meta로 다시 보내지 않습니다."
+        : item.explanation_ko,
       details: details.length > 0 ? details : undefined,
     });
   }
@@ -2118,13 +2154,13 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
             : "VM Cloud attribution_ledger browser event fallback",
           unit: input.siteLandingEvidence?.cartPageViews
             ? "first-party cart page landing row"
-            : "AddToCart/ViewContent event row",
+            : "AddToCart event row",
           window: WINDOW_LABEL[input.window],
           site: input.site,
           pixel_id: null,
           caveat: input.siteLandingEvidence?.cartPageViews
             ? "장바구니 담기 클릭이 아니라 /shop_cart 페이지 진입입니다. 아임웹/GTM 수정 없이 VM Cloud가 이미 받은 landing row를 사용합니다."
-            : "site_landing_ledger /shop_cart 증거가 없으면 legacy event row만 fallback으로 씁니다.",
+            : "site_landing_ledger /shop_cart 증거가 없으면 AddToCart event row만 fallback으로 씁니다. ViewContent는 상품 조회라 장바구니 단계로 세지 않습니다.",
         },
         vm_order_signals: {
           source: "VM Cloud attribution_ledger",

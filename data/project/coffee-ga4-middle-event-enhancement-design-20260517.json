@@ -1,0 +1,77 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-17 17:20 KST",
+  "mode": "green_design_no_send_no_publish",
+  "site": "thecleancoffee",
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud SQLite safe bridge dry-run + GA4 BigQuery daily export + Google official GA4 docs",
+    "window": "rolling latest 7d",
+    "freshness": "2026-05-17 runtime dry-run",
+    "confidence": "high for observed GA4 middle-event gap; medium_high for event design"
+  },
+  "observed_gap": {
+    "vm_confirmed_safe_sessions": 326,
+    "ga4_joined_confirmed_sessions": 316,
+    "confirmed_join_rate_pct": 96.93,
+    "vm_dropped_checkout_safe_sessions": 378,
+    "ga4_joined_dropped_sessions": 357,
+    "dropped_join_rate_pct": 94.44,
+    "ga4_confirmed_begin_checkout_rate_pct": 0,
+    "ga4_confirmed_add_payment_info_rate_pct": 0,
+    "ga4_confirmed_purchase_event_rate_pct": 99.05
+  },
+  "recommended_events": [
+    {
+      "event_name": "view_cart",
+      "purpose": "장바구니 페이지 진입을 별도 중간 행동으로 본다.",
+      "send_status": "design_only"
+    },
+    {
+      "event_name": "begin_checkout",
+      "purpose": "결제 시작 분모를 만든다.",
+      "send_status": "design_only"
+    },
+    {
+      "event_name": "add_payment_info",
+      "purpose": "결제수단 선택 이후 이탈을 본다.",
+      "send_status": "design_only"
+    },
+    {
+      "event_name": "purchase",
+      "purpose": "기존 purchase는 유지하되 신규 중복 발화 금지.",
+      "send_status": "do_not_add_in_this_design"
+    }
+  ],
+  "official_sources": [
+    "https://support.google.com/analytics/answer/9267735",
+    "https://developers.google.com/analytics/devguides/collection/ga4/ecommerce",
+    "https://developers.google.com/analytics/devguides/collection/ga4/reference/events"
+  ],
+  "plan_b_raw_id": {
+    "status": "not_executed",
+    "approval_required": true,
+    "allowed_scope_if_approved": "secure local/VM evidence only, no raw value in markdown/chat/telegram/git"
+  },
+  "gpt55_feedback": {
+    "status": "reviewed_and_reflected",
+    "summary": [
+      "event split direction aligns with GA4 ecommerce recommended events",
+      "do not add duplicate purchase; current gap is middle-event instrumentation",
+      "add_payment_info should require confirmed payment-method submission or strong selection evidence",
+      "dropped_checkout needs later-purchase/session-rollover/window-difference recheck before being treated as true abandonment",
+      "new middle-event value must remain behavior reference, not revenue truth"
+    ]
+  },
+  "safety": {
+    "ga4_send": 0,
+    "meta_capi_send": 0,
+    "google_ads_send": 0,
+    "tiktok_send": 0,
+    "naver_send": 0,
+    "gtm_publish": 0,
+    "imweb_header_footer_save": 0,
+    "operating_db_write": 0,
+    "vm_cloud_deploy": 0,
+    "raw_identifier_output": false
+  }
+}

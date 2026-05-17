@@ -216,6 +216,38 @@ test("funnel health uses site_landing_ledger evidence for landing step", () => {
   assert.equal(report.series.find((row) => row.date === "2026-05-15")?.landing, 100);
 });
 
+test("funnel health does not count ViewContent as cart page entry fallback", () => {
+  const report = buildFunnelHealthReport({
+    ledgerEntries: [
+      entry({
+        touchpoint: "marketing_intent",
+        paymentStatus: "pending",
+        loggedAt: "2026-05-15T01:00:00.000Z",
+        metadata: { site: "biocom", eventName: "ViewContent" },
+      }),
+      entry({
+        touchpoint: "marketing_intent",
+        paymentStatus: "pending",
+        loggedAt: "2026-05-15T01:05:00.000Z",
+        metadata: { site: "biocom", eventName: "AddToCart" },
+      }),
+    ],
+    capiLogs: [],
+    site: "biocom",
+    window: "7d",
+    granularity: "day",
+    paymentMethod: "all",
+    source: "all",
+    asOf: new Date("2026-05-15T02:00:00.000Z"),
+  });
+
+  const cartStep = report.funnel.find((step) => step.step === "add_to_cart");
+  assert.equal(cartStep?.label, "장바구니 페이지 진입");
+  assert.equal(cartStep?.count, 1);
+  assert.equal(report.metric_contract.metrics.cart_page_view.unit, "AddToCart event row");
+  assert.match(report.metric_contract.metrics.cart_page_view.caveat, /ViewContent는 상품 조회/);
+});
+
 test("funnel health exposes safe details for confirmed purchases missing Meta CAPI send", () => {
   const report = buildFunnelHealthReport({
     ledgerEntries: [
@@ -247,16 +279,69 @@ test("funnel health exposes safe details for confirmed purchases missing Meta CA
   const item = report.action_queue.find((row) => row.key === "confirmed_but_no_capi_send");
   assert.ok(item);
   assert.equal(item.count, 1);
+  assert.equal(item.priority, "watch");
+  assert.match(item.title, /보관만, 전송하지 않음/);
+  assert.match(item.next_action, /backfill하지 말고/);
   assert.equal(item.details?.length, 1);
+  const leak = report.unresolved_leaks.items.find((row) => row.key === "confirmed_but_no_capi_send");
+  assert.ok(leak);
+  assert.equal(leak.priority, "watch");
+  assert.match(leak.human_label, /보관만, 전송하지 않음/);
 
   const detail = item.details?.[0];
   assert.ok(detail);
   assert.match(detail.safe_ref, /^safe_[a-f0-9]{10}$/);
   assert.equal(detail.source_bucket, "meta");
   assert.equal(detail.amount_krw, 1000);
+  assert.equal(detail.missing_policy, "legacy_do_not_backfill");
+  assert.match(detail.missing_reason, /legacy backlog/);
+  assert.match(detail.recommended_action, /보관만, 전송하지 않음/);
 
   const serialized = JSON.stringify(detail);
   assert.equal(serialized.includes("raw-order-should-not-leak"), false);
   assert.equal(serialized.includes("raw-payment-should-not-leak"), false);
   assert.equal(serialized.includes("raw-fbclid-should-not-leak"), false);
+});
+
+test("funnel health keeps current missing CAPI rows as watch queue instead of legacy no-send", () => {
+  const report = buildFunnelHealthReport({
+    ledgerEntries: [
+      entry({
+        orderId: "current-order-should-not-leak",
+        paymentKey: "current-payment-should-not-leak",
+        loggedAt: "2026-05-17T01:00:00.000Z",
+        approvedAt: "2026-05-17T01:00:00.000Z",
+        landing: "https://biocom.kr/shop_payment_complete",
+        utmSource: "meta",
+        metadata: {
+          site: "biocom",
+          value: 2000,
+          fbc: "current-fbc-should-not-leak",
+        },
+      }),
+    ],
+    capiLogs: [],
+    site: "biocom",
+    window: "7d",
+    granularity: "day",
+    paymentMethod: "all",
+    source: "all",
+    asOf: new Date("2026-05-17T02:00:00.000Z"),
+  });
+
+  const item = report.action_queue.find((row) => row.key === "confirmed_but_no_capi_send");
+  assert.ok(item);
+  assert.equal(item.priority, "critical");
+  assert.equal(item.title, "결제완료가 있는데 Meta CAPI 전송 기록이 없음");
+  assert.equal(item.details?.length, 1);
+
+  const detail = item.details?.[0];
+  assert.ok(detail);
+  assert.equal(detail.missing_policy, "current_missing_watch");
+  assert.match(detail.recommended_action, /current 누락/);
+
+  const serialized = JSON.stringify(detail);
+  assert.equal(serialized.includes("current-order-should-not-leak"), false);
+  assert.equal(serialized.includes("current-payment-should-not-leak"), false);
+  assert.equal(serialized.includes("current-fbc-should-not-leak"), false);
 });

@@ -1,0 +1,662 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-17 16:58 KST",
+  "mode": "green_read_only_ga4_vm_join_key_and_coffee_gap",
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud SQLite aggregate read-only + GA4 BigQuery daily export read-only",
+    "window": "VM Cloud rolling last 7d; GA4 latest daily table minus 6 days",
+    "freshness": "VM Cloud queried at runtime; GA4 latest daily table per site",
+    "confidence": "medium_high for key presence; medium for row-level buyer/dropout join until safe bridge is built"
+  },
+  "vm_cloud": {
+    "coverage_by_touchpoint": [
+      {
+        "site": "biocom",
+        "touchpoint": "checkout_started",
+        "rows": 1312,
+        "with_ga_session_id": 1256,
+        "with_checkout_id": 1312,
+        "with_order_key": 1011,
+        "with_payment_key": 0,
+        "with_metadata_client_id": 1260,
+        "with_metadata_user_pseudo_id": 1260,
+        "with_metadata_ga_session_id": 1256,
+        "with_ga_join_key_marker": 24
+      },
+      {
+        "site": "biocom",
+        "touchpoint": "marketing_intent",
+        "rows": 127,
+        "with_ga_session_id": 83,
+        "with_checkout_id": 0,
+        "with_order_key": 0,
+        "with_payment_key": 0,
+        "with_metadata_client_id": 88,
+        "with_metadata_user_pseudo_id": 88,
+        "with_metadata_ga_session_id": 83,
+        "with_ga_join_key_marker": 0
+      },
+      {
+        "site": "biocom",
+        "touchpoint": "payment_page_seen",
+        "rows": 1033,
+        "with_ga_session_id": 685,
+        "with_checkout_id": 1033,
+        "with_order_key": 667,
+        "with_payment_key": 0,
+        "with_metadata_client_id": 685,
+        "with_metadata_user_pseudo_id": 685,
+        "with_metadata_ga_session_id": 685,
+        "with_ga_join_key_marker": 685
+      },
+      {
+        "site": "biocom",
+        "touchpoint": "payment_success",
+        "rows": 535,
+        "with_ga_session_id": 448,
+        "with_checkout_id": 535,
+        "with_order_key": 535,
+        "with_payment_key": 396,
+        "with_metadata_client_id": 448,
+        "with_metadata_user_pseudo_id": 448,
+        "with_metadata_ga_session_id": 448,
+        "with_ga_join_key_marker": 0
+      },
+      {
+        "site": "thecleancoffee",
+        "touchpoint": "checkout_started",
+        "rows": 876,
+        "with_ga_session_id": 846,
+        "with_checkout_id": 876,
+        "with_order_key": 726,
+        "with_payment_key": 0,
+        "with_metadata_client_id": 850,
+        "with_metadata_user_pseudo_id": 850,
+        "with_metadata_ga_session_id": 846,
+        "with_ga_join_key_marker": 0
+      },
+      {
+        "site": "thecleancoffee",
+        "touchpoint": "payment_success",
+        "rows": 365,
+        "with_ga_session_id": 362,
+        "with_checkout_id": 364,
+        "with_order_key": 365,
+        "with_payment_key": 340,
+        "with_metadata_client_id": 362,
+        "with_metadata_user_pseudo_id": 362,
+        "with_metadata_ga_session_id": 362,
+        "with_ga_join_key_marker": 0
+      }
+    ],
+    "confirmed_join_coverage": [
+      {
+        "site": "biocom",
+        "confirmed_rows": 410,
+        "with_ga_session_id": 387,
+        "with_checkout_id": 410,
+        "with_payment_key": 390,
+        "with_metadata_client_id": 387,
+        "matched_prior_by_checkout_id": 409,
+        "matched_prior_by_ga_session_id": 386,
+        "matched_site_landing_by_ga_session_id": 319,
+        "matched_site_landing_by_client_id": 319,
+        "ga_session_id_rate_pct": 94.39,
+        "checkout_id_rate_pct": 100,
+        "metadata_client_id_rate_pct": 94.39,
+        "prior_checkout_id_match_rate_pct": 99.76,
+        "prior_ga_session_match_rate_pct": 94.15,
+        "site_landing_ga_session_match_rate_pct": 77.8,
+        "site_landing_client_id_match_rate_pct": 77.8,
+        "same_population_status": "needs_key_capture_improvement"
+      },
+      {
+        "site": "thecleancoffee",
+        "confirmed_rows": 335,
+        "with_ga_session_id": 332,
+        "with_checkout_id": 334,
+        "with_payment_key": 335,
+        "with_metadata_client_id": 332,
+        "matched_prior_by_checkout_id": 334,
+        "matched_prior_by_ga_session_id": 331,
+        "matched_site_landing_by_ga_session_id": 268,
+        "matched_site_landing_by_client_id": 268,
+        "ga_session_id_rate_pct": 99.1,
+        "checkout_id_rate_pct": 99.7,
+        "metadata_client_id_rate_pct": 99.1,
+        "prior_checkout_id_match_rate_pct": 99.7,
+        "prior_ga_session_match_rate_pct": 98.81,
+        "site_landing_ga_session_match_rate_pct": 80,
+        "site_landing_client_id_match_rate_pct": 80,
+        "same_population_status": "strong_enough_for_next_row_level_dry_run"
+      }
+    ],
+    "site_landing_coverage": [
+      {
+        "site": "biocom",
+        "rows": 10809,
+        "with_ga_session_id": 7116,
+        "with_client_id": 7116,
+        "with_local_session_id_hash": 8653,
+        "cart_path_rows": 29,
+        "payment_path_rows": 1620
+      },
+      {
+        "site": "thecleancoffee",
+        "rows": 1002,
+        "with_ga_session_id": 973,
+        "with_client_id": 976,
+        "with_local_session_id_hash": 0,
+        "cart_path_rows": 4,
+        "payment_path_rows": 584
+      }
+    ]
+  },
+  "ga4_event_gap": [
+    {
+      "site": "biocom",
+      "display_name": "바이오컴",
+      "property_id": "304759974",
+      "window": {
+        "start_date": "2026-05-10",
+        "end_date": "2026-05-16",
+        "latest_daily_table": "events_20260516"
+      },
+      "source": [
+        {
+          "label": "current",
+          "dataset": "project-dadba7dd-0229-4ff6-81c.analytics_304759974",
+          "start_suffix": "20260510",
+          "end_suffix": "20260516"
+        }
+      ],
+      "middle_event_sessions": {
+        "view_item_sessions": 11465,
+        "add_to_cart_sessions": 623,
+        "view_cart_sessions": 17,
+        "begin_checkout_sessions": 773,
+        "add_payment_info_sessions": 454,
+        "sign_up_sessions": 436,
+        "purchase_sessions": 416
+      },
+      "payment_page_event_evidence": [
+        {
+          "event_name": "page_view",
+          "payment_page_events": 2143,
+          "sessions": 57027
+        },
+        {
+          "event_name": "user_id",
+          "payment_page_events": 2131,
+          "sessions": 48124
+        },
+        {
+          "event_name": "session_start",
+          "payment_page_events": 204,
+          "sessions": 58163
+        },
+        {
+          "event_name": "first_visit",
+          "payment_page_events": 85,
+          "sessions": 40555
+        },
+        {
+          "event_name": "user_engagement",
+          "payment_page_events": 1306,
+          "sessions": 13267
+        },
+        {
+          "event_name": "view_item",
+          "payment_page_events": 18,
+          "sessions": 11465
+        },
+        {
+          "event_name": "scroll",
+          "payment_page_events": 556,
+          "sessions": 7793
+        },
+        {
+          "event_name": "page_view_long",
+          "payment_page_events": 114,
+          "sessions": 4982
+        },
+        {
+          "event_name": "결제페이지_진입",
+          "payment_page_events": 1355,
+          "sessions": 911
+        },
+        {
+          "event_name": "begin_checkout",
+          "payment_page_events": 1128,
+          "sessions": 773
+        },
+        {
+          "event_name": "add_payment_info",
+          "payment_page_events": 1,
+          "sessions": 454
+        },
+        {
+          "event_name": "add_to_cart",
+          "payment_page_events": 3,
+          "sessions": 623
+        },
+        {
+          "event_name": "purchase",
+          "payment_page_events": 443,
+          "sessions": 416
+        },
+        {
+          "event_name": "결제완료",
+          "payment_page_events": 89,
+          "sessions": 85
+        },
+        {
+          "event_name": "3test_payment",
+          "payment_page_events": 8,
+          "sessions": 6
+        }
+      ],
+      "top_events": [
+        {
+          "event_name": "page_view",
+          "events": 91138,
+          "sessions": 57027,
+          "payment_page_events": 2143,
+          "cart_page_events": 1138,
+          "product_page_events": 9050
+        },
+        {
+          "event_name": "user_id",
+          "events": 81533,
+          "sessions": 48124,
+          "payment_page_events": 2131,
+          "cart_page_events": 1169,
+          "product_page_events": 8377
+        },
+        {
+          "event_name": "session_start",
+          "events": 58456,
+          "sessions": 58163,
+          "payment_page_events": 204,
+          "cart_page_events": 55,
+          "product_page_events": 5507
+        },
+        {
+          "event_name": "first_visit",
+          "events": 40633,
+          "sessions": 40555,
+          "payment_page_events": 85,
+          "cart_page_events": 8,
+          "product_page_events": 3515
+        },
+        {
+          "event_name": "user_engagement",
+          "events": 39688,
+          "sessions": 13267,
+          "payment_page_events": 1306,
+          "cart_page_events": 1217,
+          "product_page_events": 4312
+        },
+        {
+          "event_name": "view_item",
+          "events": 13891,
+          "sessions": 11465,
+          "payment_page_events": 18,
+          "cart_page_events": 0,
+          "product_page_events": 1157
+        },
+        {
+          "event_name": "scroll",
+          "events": 10761,
+          "sessions": 7793,
+          "payment_page_events": 556,
+          "cart_page_events": 142,
+          "product_page_events": 609
+        },
+        {
+          "event_name": "page_view_long",
+          "events": 5395,
+          "sessions": 4982,
+          "payment_page_events": 114,
+          "cart_page_events": 32,
+          "product_page_events": 692
+        },
+        {
+          "event_name": "view_search_results",
+          "events": 1426,
+          "sessions": 361,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "결제페이지_진입",
+          "events": 1355,
+          "sessions": 911,
+          "payment_page_events": 1355,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "begin_checkout",
+          "events": 1133,
+          "sessions": 773,
+          "payment_page_events": 1128,
+          "cart_page_events": 0,
+          "product_page_events": 4
+        },
+        {
+          "event_name": "add_payment_info",
+          "events": 826,
+          "sessions": 454,
+          "payment_page_events": 1,
+          "cart_page_events": 42,
+          "product_page_events": 99
+        },
+        {
+          "event_name": "add_to_cart",
+          "events": 811,
+          "sessions": 623,
+          "payment_page_events": 3,
+          "cart_page_events": 0,
+          "product_page_events": 146
+        },
+        {
+          "event_name": "purchase",
+          "events": 443,
+          "sessions": 416,
+          "payment_page_events": 443,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "sign_up",
+          "events": 437,
+          "sessions": 436,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "결제완료",
+          "events": 89,
+          "sessions": 85,
+          "payment_page_events": 89,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "view_cart",
+          "events": 34,
+          "sessions": 17,
+          "payment_page_events": 0,
+          "cart_page_events": 34,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "video_progress",
+          "events": 18,
+          "sessions": 4,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "3test_payment",
+          "events": 8,
+          "sessions": 6,
+          "payment_page_events": 8,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "video_start",
+          "events": 7,
+          "sessions": 5,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "review_submit",
+          "events": 6,
+          "sessions": 6,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "video_complete",
+          "events": 4,
+          "sessions": 4,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "supplements_payment",
+          "events": 2,
+          "sessions": 2,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 1
+        }
+      ],
+      "gap_interpretation": "GA4 middle event availability should be read with VM Cloud cross-check."
+    },
+    {
+      "site": "thecleancoffee",
+      "display_name": "더클린커피",
+      "property_id": "326949178",
+      "window": {
+        "start_date": "2026-05-10",
+        "end_date": "2026-05-16",
+        "latest_daily_table": "events_20260516"
+      },
+      "source": [
+        {
+          "label": "current",
+          "dataset": "project-dadba7dd-0229-4ff6-81c.analytics_326949178",
+          "start_suffix": "20260510",
+          "end_suffix": "20260516"
+        }
+      ],
+      "middle_event_sessions": {
+        "view_item_sessions": 510,
+        "add_to_cart_sessions": 205,
+        "view_cart_sessions": 0,
+        "begin_checkout_sessions": 0,
+        "add_payment_info_sessions": 0,
+        "sign_up_sessions": 0,
+        "purchase_sessions": 432
+      },
+      "payment_page_event_evidence": [
+        {
+          "event_name": "scroll",
+          "payment_page_events": 3157,
+          "sessions": 2986
+        },
+        {
+          "event_name": "click",
+          "payment_page_events": 791,
+          "sessions": 2097
+        },
+        {
+          "event_name": "page_view",
+          "payment_page_events": 1537,
+          "sessions": 4767
+        },
+        {
+          "event_name": "user_engagement",
+          "payment_page_events": 649,
+          "sessions": 2551
+        },
+        {
+          "event_name": "session_start",
+          "payment_page_events": 162,
+          "sessions": 5010
+        },
+        {
+          "event_name": "first_visit",
+          "payment_page_events": 69,
+          "sessions": 3067
+        },
+        {
+          "event_name": "form_start",
+          "payment_page_events": 664,
+          "sessions": 590
+        },
+        {
+          "event_name": "form_submit",
+          "payment_page_events": 6,
+          "sessions": 456
+        },
+        {
+          "event_name": "page_view_long",
+          "payment_page_events": 52,
+          "sessions": 680
+        },
+        {
+          "event_name": "purchase",
+          "payment_page_events": 352,
+          "sessions": 432
+        },
+        {
+          "event_name": "kakaochannel_click",
+          "payment_page_events": 32,
+          "sessions": 32
+        }
+      ],
+      "top_events": [
+        {
+          "event_name": "scroll",
+          "events": 21565,
+          "sessions": 2986,
+          "payment_page_events": 3157,
+          "cart_page_events": 1596,
+          "product_page_events": 5924
+        },
+        {
+          "event_name": "click",
+          "events": 18795,
+          "sessions": 2097,
+          "payment_page_events": 791,
+          "cart_page_events": 1159,
+          "product_page_events": 5788
+        },
+        {
+          "event_name": "page_view",
+          "events": 16104,
+          "sessions": 4767,
+          "payment_page_events": 1537,
+          "cart_page_events": 952,
+          "product_page_events": 5543
+        },
+        {
+          "event_name": "user_engagement",
+          "events": 8169,
+          "sessions": 2551,
+          "payment_page_events": 649,
+          "cart_page_events": 548,
+          "product_page_events": 3270
+        },
+        {
+          "event_name": "session_start",
+          "events": 5036,
+          "sessions": 5010,
+          "payment_page_events": 162,
+          "cart_page_events": 30,
+          "product_page_events": 3645
+        },
+        {
+          "event_name": "first_visit",
+          "events": 3071,
+          "sessions": 3067,
+          "payment_page_events": 69,
+          "cart_page_events": 6,
+          "product_page_events": 2493
+        },
+        {
+          "event_name": "view_item",
+          "events": 1099,
+          "sessions": 510,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 286
+        },
+        {
+          "event_name": "form_start",
+          "events": 994,
+          "sessions": 590,
+          "payment_page_events": 664,
+          "cart_page_events": 33,
+          "product_page_events": 14
+        },
+        {
+          "event_name": "form_submit",
+          "events": 884,
+          "sessions": 456,
+          "payment_page_events": 6,
+          "cart_page_events": 216,
+          "product_page_events": 244
+        },
+        {
+          "event_name": "page_view_long",
+          "events": 746,
+          "sessions": 680,
+          "payment_page_events": 52,
+          "cart_page_events": 11,
+          "product_page_events": 379
+        },
+        {
+          "event_name": "purchase",
+          "events": 514,
+          "sessions": 432,
+          "payment_page_events": 352,
+          "cart_page_events": 74,
+          "product_page_events": 28
+        },
+        {
+          "event_name": "add_to_cart",
+          "events": 393,
+          "sessions": 205,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 74
+        },
+        {
+          "event_name": "1초회원가입",
+          "events": 43,
+          "sessions": 38,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "kakaochannel_click",
+          "events": 33,
+          "sessions": 32,
+          "payment_page_events": 32,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        },
+        {
+          "event_name": "view_search_results",
+          "events": 5,
+          "sessions": 5,
+          "payment_page_events": 0,
+          "cart_page_events": 0,
+          "product_page_events": 0
+        }
+      ],
+      "gap_interpretation": "GA4 purchase exists but begin_checkout/add_payment_info are absent. This is event instrumentation gap, not proof that checkout did not happen."
+    }
+  ],
+  "safety": {
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_publish": true,
+    "raw_identifier_output": false
+  }
+}

@@ -2138,6 +2138,93 @@ test("attribution: meta capi value guard blocks payment page and unsafe values",
   assert.equal(candidates[0]?.orderId, "order-value-pass");
 });
 
+test("attribution: meta capi candidate gate blocks zero, negative, and zero source totals", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+
+  const zeroValue = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-zero-value",
+      paymentKey: "pay-zero-value",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        status: "DONE",
+        value: 0,
+        semantic_touchpoint: "payment_success",
+        completed_url_allowlist_pass: true,
+      },
+    },
+    requestContext,
+    "2026-05-15T03:00:00.000Z",
+  );
+  const negativeValue = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-negative-value",
+      paymentKey: "pay-negative-value",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        status: "DONE",
+        value: -1000,
+        semantic_touchpoint: "payment_success",
+        completed_url_allowlist_pass: true,
+      },
+    },
+    requestContext,
+    "2026-05-15T03:01:00.000Z",
+  );
+  const zeroSourceTotal = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-zero-source-total",
+      paymentKey: "pay-zero-source-total",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        status: "DONE",
+        value: 99000,
+        valueGuard: { status: "passed", sourceTotalKrw: 0 },
+      },
+    },
+    requestContext,
+    "2026-05-15T03:02:00.000Z",
+  );
+  const positiveValue = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "order-positive-value",
+      paymentKey: "pay-positive-value",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        status: "DONE",
+        value: 99000,
+        valueGuard: { status: "passed", sourceTotalKrw: 99000 },
+      },
+    },
+    requestContext,
+    "2026-05-15T03:03:00.000Z",
+  );
+
+  assert.equal(getMetaCapiNoSendReason(zeroValue), "non_positive_value");
+  assert.equal(getMetaCapiNoSendReason(negativeValue), "non_positive_value");
+  assert.equal(getMetaCapiNoSendReason(zeroSourceTotal), "value_source_total_mismatch");
+  assert.equal(getMetaCapiNoSendReason(positiveValue), "");
+
+  const candidates = selectMetaCapiSyncCandidates([zeroValue, negativeValue, zeroSourceTotal, positiveValue]);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.orderId, "order-positive-value");
+});
+
 test("attribution: meta capi candidate gate allows confirmed completion URL with runtime Toss value guard", () => {
   const requestContext = {
     ip: "127.0.0.1",

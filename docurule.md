@@ -1,8 +1,8 @@
 # docurule.md
 
-작성 시각: 2026-05-10 09:47 KST
-기준일: 2026-05-10
-버전: v8 (이전본: v7; Phase-Sprint 요약표/다음 할일 압축 규칙, 100% 조건, 담당 표시 강화)
+작성 시각: 2026-05-17 01:28 KST
+기준일: 2026-05-17
+버전: v9 (이전본: v8; 반드시 지킬 체크리스트 추가)
 
 이 문서는 `결과보고서`, `로드맵`, `Phase 상세 메모`, `개발 진행 보고`를 쓸 때의 공통 문서 규칙이다.
 목표는 하나다.
@@ -22,6 +22,28 @@
 - 결과보고서, 로드맵, 작업 메모의 톤이 서로 달라 읽는 사람이 문서마다 해석을 다시 해야 한다.
 
 그래서 앞으로 문서는 아래 원칙을 지킨다.
+
+---
+
+## 0A. 반드시 지킬 체크리스트
+
+문서를 저장하거나 보고하기 전 아래 항목을 반드시 확인한다. 하나라도 빠지면 저장하지 말고 먼저 보강한다.
+
+- [ ] 문서 최상단에 `작성 시각: YYYY-MM-DD HH:MM KST`, 기준일, 문서 성격이 있다.
+- [ ] 첫 화면에 `10초 요약` 또는 같은 역할의 결론 섹션이 있고, 사람이 바로 이해할 수 있는 말로 썼다.
+- [ ] 기술어보다 목적을 먼저 썼다. 처음 나오는 기술어는 쉬운 풀이를 붙였다.
+- [ ] Phase/Sprint가 있으면 요약표와 상세 섹션이 서로 연결된다. Obsidian 링크는 `[[#헤딩]]` 형식만 쓴다.
+- [ ] 각 Sprint 상세에는 `무엇을 하는가`, `왜 하는가`, `어떻게 하는가`, `개발 계획`, `현재 진척률`, `100% 조건`, `역할 구분`이 있다.
+- [ ] 진행 중 Sprint에는 담당 태그가 붙은 실행 단계가 있다. 각 단계는 `무엇`, `왜`, `어떻게`, `산출물`, `검증`, `의존성`을 포함한다.
+- [ ] 다음 할일은 `Auto Green`, `Approval Needed`, `Blocked/Parked` 중 맞는 bucket에 들어가며, TJ/Codex/Claude Code 담당이 분리되어 있다.
+- [ ] TJ님에게 요청하는 일은 Codex가 대신 할 수 없는 이유, 화면/URL/메뉴, 성공 기준, 실패 시 확인점을 함께 적었다.
+- [ ] 숫자는 source, 기준 시각, window, site, freshness, confidence를 함께 적었다.
+- [ ] 운영DB, VM Cloud, 로컬 DB, 외부 API를 구분해서 썼다. `VM Cloud`를 운영DB처럼 부르지 않았다.
+- [ ] 외부 전송, 운영DB write, GTM publish, VM Cloud deploy/restart 같은 승인 필요 작업은 Green/Yellow/Red Lane으로 분리했다.
+- [ ] 금지선과 하지 않은 일을 명시했다. 특히 send/upload/write/publish/deploy 여부를 0 또는 실행 여부로 썼다.
+- [ ] raw order/payment/click/member/email/phone 같은 식별자는 보고서/대화/커밋에 출력하지 않았다.
+- [ ] 저장 전 `python3 scripts/validate_wiki_links.py <문서경로>`를 실행해 wiki 링크가 실제 헤딩과 맞는지 확인했다.
+- [ ] Growth Data/Tracking/Attribution/ROAS 문서는 `python3 scripts/harness-preflight-check.py --strict` 기준을 통과하거나, 실패 사유를 blocker category로 기록했다.
 
 ---
 

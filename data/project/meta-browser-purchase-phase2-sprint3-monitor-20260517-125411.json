@@ -1,0 +1,153 @@
+{
+  "ok": true,
+  "verdict": "PASS_WITH_NOTES_CURRENT_CAPI_MISSING_QUEUE",
+  "checked_at_kst": "2026-05-17 12:54:11 KST",
+  "site": "biocom",
+  "window": "7d",
+  "source": "VM Cloud funnel-health API",
+  "endpoint": "https://att.ainativeos.net/api/attribution/funnel-health?site=biocom&window=7d",
+  "cache": {
+    "cached": true,
+    "cached_at_kst": "2026-05-17 12:49",
+    "next_refresh_at_kst": "2026-05-17 12:54",
+    "generation_ms": 227,
+    "staleness_ms": 296044,
+    "source": "in_memory_precompute"
+  },
+  "metric_contract": {
+    "site": "biocom",
+    "pixel_ids": [
+      "1283400029487161"
+    ],
+    "window": "7d",
+    "last_updated_at": "2026-05-17 12:49"
+  },
+  "counts": {
+    "confirmed_purchase_count": 386,
+    "confirmed_purchase_amount_krw": 103900797,
+    "meta_capi_success_count": 373,
+    "meta_capi_events_received": 373,
+    "browser_purchase_count": 0,
+    "payment_started_count": 2169
+  },
+  "capi_health": {
+    "last_success_at_kst": "2026-05-17 12:29",
+    "last_1h": {
+      "attempted": 4,
+      "success": 4,
+      "events_received": 4,
+      "failed": 0
+    },
+    "today": {
+      "attempted": 25,
+      "success": 25,
+      "events_received": 25,
+      "failed": 0
+    },
+    "last_7d": {
+      "attempted": 373,
+      "success": 373,
+      "events_received": 373,
+      "failed": 0
+    }
+  },
+  "payment_decision_latency": {
+    "available": false,
+    "explanation_ko": "결제완료 판단 응답 지연(payment-decision latency)이란, 사용자가 결제 페이지에서 완료 버튼을 눌렀을 때 서버가 '이 주문이 진짜 결제완료인지 / 가상계좌 미입금인지 / 취소인지' 를 판단해 응답을 돌려주는 데 걸린 시간입니다. p50 은 보통 응답 시간, p95 는 가장 느린 5% 응답 시간입니다. 이 응답이 늦거나 끊기면 브라우저 Purchase 발화가 막힙니다.",
+    "not_available_reason": "Backend 가동 후 아직 payment-decision 호출이 없어 in-memory ring buffer 가 비어 있습니다. Backend restart 시 reset 됩니다. 결제 시도가 들어오는 대로 자동으로 채워집니다.",
+    "p50_ms": null,
+    "p95_ms": null,
+    "sample_size": 0,
+    "status_distribution": {
+      "allow_purchase": 0,
+      "virtual_account_issued": 0,
+      "canceled": 0,
+      "unknown": 0
+    }
+  },
+  "browser_funnel_health": {
+    "available": false,
+    "explanation_ko": "브라우저 픽셀 단계별 발화 근사치입니다. funnel-capi v3 가 브라우저에서 픽셀 이벤트를 발화시키면서 server CAPI 로도 같이 forward 하기 때문에, 그때 들어온 ledger metadata.eventName 을 단계별로 집계합니다. PageView 가 0이면 funnel-capi v3 헤더가 실제 발화 안 되는 의심, AddToCart/InitiateCheckout 가 비정상적으로 작으면 block4 fallback 또는 native FBE 어느 한쪽이 깨져 있는 의심입니다.",
+    "not_available_reason": "이 기간 ledger 에 metadata.eventName 이 채워진 row 가 없습니다. funnel-capi v3 헤더가 결제 페이지를 거치는 row 자체가 없거나, eventName 필드 자체가 미정착일 수 있습니다.",
+    "stages": [
+      {
+        "stage": "PageView",
+        "count": 0,
+        "source": "ledger metadata.eventName=PageView"
+      },
+      {
+        "stage": "ViewContent",
+        "count": 0,
+        "source": "ledger metadata.eventName=ViewContent"
+      },
+      {
+        "stage": "AddToCart",
+        "count": 0,
+        "source": "ledger metadata.eventName=AddToCart"
+      },
+      {
+        "stage": "InitiateCheckout",
+        "count": 0,
+        "source": "ledger metadata.eventName=InitiateCheckout"
+      },
+      {
+        "stage": "AddPaymentInfo",
+        "count": 0,
+        "source": "ledger metadata.eventName=AddPaymentInfo"
+      },
+      {
+        "stage": "Purchase",
+        "count": 0,
+        "source": "ledger metadata.eventName=Purchase (또는 payment_success row)"
+      }
+    ]
+  },
+  "action_queue_summary": [
+    {
+      "key": "confirmed_but_no_capi_send",
+      "priority": "critical",
+      "title": "결제완료가 있는데 Meta CAPI 전송 기록이 없음",
+      "count": 15,
+      "amount_krw": 3500185,
+      "next_action": "5/17 이후 새 누락은 CAPI sync 사유를 분류하고, 5/14~5/15 legacy backlog는 보관만 합니다.",
+      "explanation_ko": "결제는 끝났는데 Meta 로 구매 이벤트가 안 갔다는 뜻입니다. 광고비 효율을 직접 깎는 항목이라 가장 시급합니다."
+    },
+    {
+      "key": "payment_decision_timeout_or_canceled",
+      "priority": "high",
+      "title": "결제 페이지까지 갔으나 완료 판단 응답이 끊김 / 취소됨",
+      "count": 773,
+      "amount_krw": 0,
+      "next_action": "Header Guard v3.1.1 적용 후 canceled 재발 여부 + prefetch cache 무효화 확인",
+      "explanation_ko": "사용자가 결제하려고 누르긴 했는데 서버 응답이 늦거나 끊겨서 결제완료 판단이 안 된 케이스입니다. 정말 결제 안 한 경우와 결제는 됐는데 응답만 끊긴 경우가 섞여 있어, 후자는 매출이 잡혀도 Purchase 발화가 안 됩니다."
+    },
+    {
+      "key": "click_id_missing",
+      "priority": "medium",
+      "title": "결제완료에 광고 click id (gclid/fbclid/ttclid) 가 없음",
+      "count": 239,
+      "amount_krw": 0,
+      "next_action": "광고 link tagging 일관성 + 클라이언트 click id capture timing 점검",
+      "explanation_ko": "결제완료는 잡혔는데 어느 광고로 들어왔는지 식별자가 비어 있어 광고 귀속이 약해지는 케이스입니다. utm 만 있을 수도 있으니 진단 hint 입니다."
+    },
+    {
+      "key": "browser_purchase_missing_watch",
+      "priority": "watch",
+      "title": "Browser Purchase 0 (보조 신호 누락)",
+      "count": 0,
+      "amount_krw": 0,
+      "next_action": "복구는 시간이 있을 때 — 브라우저 픽셀 발화 점검",
+      "explanation_ko": "브라우저에서 facebook.com/tr ev=Purchase 가 안 보입니다. 다만 서버 쪽 CAPI 가 살아 있어 Meta 학습에 큰 손실은 없는 상태입니다. Server CAPI 가 죽으면 즉시 Critical 로 올려야 합니다."
+    }
+  ],
+  "guardrails": {
+    "raw_identifier_output": 0,
+    "platform_send_from_this_endpoint": 0,
+    "operational_db_write": 0
+  },
+  "interpretation_ko": "Server CAPI는 대체로 살아 있지만, 현재 window에 아직 send log가 없는 결제완료 큐가 남아 있습니다.",
+  "no_send": true,
+  "no_write": true,
+  "no_deploy": true,
+  "no_publish": true
+}

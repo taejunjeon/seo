@@ -1,0 +1,72 @@
+{
+  "generated_at_kst": "2026-05-17 14:38",
+  "lane": "Green read-only audit",
+  "site": "biocom",
+  "scope": "AddPaymentInfo source gap audit",
+  "forbidden_actions_confirmed": {
+    "meta_send": 0,
+    "gtm_publish": 0,
+    "vm_cloud_deploy_restart": 0,
+    "operational_db_write": 0,
+    "raw_identifier_output": 0
+  },
+  "sources": [
+    {
+      "name": "VM Cloud funnel-health API",
+      "url": "https://att.ainativeos.net/api/attribution/funnel-health",
+      "windows": ["1d", "7d"],
+      "freshness_kst": "cached_at_kst 2026-05-17 14:34",
+      "confidence": "high"
+    },
+    {
+      "name": "local backend code inspection",
+      "files": [
+        "backend/src/funnelHealth.ts",
+        "backend/src/routes/meta.ts",
+        "backend/src/metaCapi.ts"
+      ],
+      "freshness_kst": "2026-05-17 14:38 local read",
+      "confidence": "high"
+    },
+    {
+      "name": "GTM export audit",
+      "files": ["gtmaudit/gtm-audit-2026-05-16.json", "GA4/gtm.md"],
+      "freshness_kst": "latest export file dated 2026-05-16",
+      "confidence": "medium_high"
+    }
+  ],
+  "observations": {
+    "vm_cloud_browser_funnel_health": {
+      "available": false,
+      "reason": "VM Cloud ledger has no browser event rows with metadata.eventName for the requested windows.",
+      "add_payment_info_count_1d": 0,
+      "add_payment_info_count_7d": 0
+    },
+    "backend_contract": {
+      "funnel_health_addpaymentinfo_rule": "Counts rows where VM Cloud ledger metadata.eventName or metadata.event_name equals AddPaymentInfo.",
+      "meta_capi_route_support": "backend supports AddPaymentInfo in the server CAPI funnel route, but this route is a send path and needs a no-send capture layer before production use."
+    },
+    "gtm_biocom": {
+      "ga4_add_payment_info_present": true,
+      "meaning": "Current GTM add_payment_info is tied to GA4 or NPay intent style tracking. It is not the same as VM Cloud ledger storage or Meta CAPI server source.",
+      "vm_cloud_bridge_present": false
+    },
+    "block4_browser_fallback": {
+      "browser_event_recovery": "AddPaymentInfo can be fired as browser pixel fallback.",
+      "vm_cloud_storage": "No confirmed evidence that the browser fallback is also stored into VM Cloud ledger as metadata.eventName=AddPaymentInfo.",
+      "purchase_candidate": false
+    }
+  },
+  "conclusion": {
+    "status": "SOURCE_GAP_CONFIRMED",
+    "plain_language": "결제수단 선택 신호 자체는 만들 수 있지만, 현재 바이오컴에서는 그 신호가 VM Cloud 원장에 AddPaymentInfo 단계로 남는 연결이 없다.",
+    "blocker_category": "source_gap",
+    "confidence": 0.9
+  },
+  "recommendation": [
+    "Do not promote current GA4/NPay add_payment_info into Meta CAPI as-is.",
+    "Add a VM Cloud no-send intermediate event receiver first.",
+    "Let GTM or Imweb code send AddPaymentInfo to VM Cloud only with purchase_candidate=false.",
+    "After no-send storage is stable, run one-event Test Events smoke under explicit approval."
+  ]
+}

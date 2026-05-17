@@ -107,6 +107,7 @@ type FunnelHealth = {
       capi_status: string;
       missing_reason: string;
       recommended_action: string;
+      missing_policy?: "current_missing_watch" | "legacy_do_not_backfill";
       age_minutes: number | null;
       confidence: "high" | "medium" | "low";
     }>;
@@ -913,7 +914,8 @@ export default function ConversionFunnelPage() {
               </dd>
               <dt>사후 보충 전송 · backfill</dt>
               <dd>
-                놓친 주문/이벤트를 나중에 Meta 로 보내 채우는 작업. backfill 후보 = 지금 보내야 할 주문 목록.
+                놓친 주문/이벤트를 나중에 Meta 로 보내 채우는 작업. 단, 5/14~5/15 수리 전 과거 누락은
+                ROAS 오염을 막기 위해 후보가 아니라 <strong>보관만, 전송하지 않음</strong>으로 표시합니다.
               </dd>
               <dt>결제완료 판단 응답 끊김 · payment-decision canceled</dt>
               <dd>
@@ -2616,8 +2618,12 @@ const ACTION_HUMANIZE_RULES: Array<{ match: RegExp; rewrite: string }> = [
   {
     match: /Eligibility queue.*oldest age.*backfill 후보/i,
     rewrite:
-      "Meta 로 아직 안 보낸 주문 대기열(Eligibility queue) 에서 가장 오래 묵은 주문부터 사후 보충 전송(backfill) 대상으로 추리세요. " +
-      "운영 메뉴: '미해결 누수 → 결제완료 but CAPI 없음' 12건 중 가장 오래된 것부터.",
+      "5/14~5/15 수리 전 과거 누락 기록은 ROAS 오염 방지를 위해 보관만 하고 전송하지 않습니다. " +
+      "5/17 이후 새 누락만 current monitor 에서 확인하세요.",
+  },
+  {
+    match: /보관만.*전송하지 않음/i,
+    rewrite: "과거 장애 기록으로만 보관합니다. Meta 로 다시 보내지 않으며 예산 판단 ROAS 에도 보정 전송으로 섞지 않습니다.",
   },
   {
     match: /Header Guard v3\.1\.1.*prefetch cache/i,

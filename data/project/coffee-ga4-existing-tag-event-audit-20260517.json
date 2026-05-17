@@ -1,0 +1,409 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-17 18:26 KST",
+  "mode": "green_read_only_coffee_ga4_existing_tag_event_audit",
+  "site": "thecleancoffee",
+  "ga4_source": {
+    "project": "project-dadba7dd-0229-4ff6-81c",
+    "dataset": "analytics_326949178",
+    "property_id": "326949178",
+    "measurement_id_from_gtm_ui_capture": "G-JLSBXX7300"
+  },
+  "window": {
+    "start_date": "2026-05-10",
+    "end_date": "2026-05-16",
+    "latest_daily_table": "events_20260516"
+  },
+  "target_event_summary": [
+    {
+      "event_name": "page_view_long",
+      "events": 746,
+      "sessions": 680,
+      "cart_page_events": 11,
+      "payment_page_events": 52,
+      "product_page_events": 379
+    },
+    {
+      "event_name": "add_to_cart",
+      "events": 393,
+      "sessions": 205,
+      "cart_page_events": 0,
+      "payment_page_events": 0,
+      "product_page_events": 74
+    },
+    {
+      "event_name": "view_cart",
+      "events": 0,
+      "sessions": 0,
+      "cart_page_events": 0,
+      "payment_page_events": 0,
+      "product_page_events": 0
+    },
+    {
+      "event_name": "begin_checkout",
+      "events": 0,
+      "sessions": 0,
+      "cart_page_events": 0,
+      "payment_page_events": 0,
+      "product_page_events": 0
+    },
+    {
+      "event_name": "add_payment_info",
+      "events": 0,
+      "sessions": 0,
+      "cart_page_events": 0,
+      "payment_page_events": 0,
+      "product_page_events": 0
+    },
+    {
+      "event_name": "purchase",
+      "events": 514,
+      "sessions": 432,
+      "cart_page_events": 74,
+      "payment_page_events": 352,
+      "product_page_events": 28
+    }
+  ],
+  "suspect_event_names": [
+    {
+      "event_name": "add_to_cart",
+      "events": 393,
+      "sessions": 205,
+      "cart_page_events": 0,
+      "payment_page_events": 0
+    }
+  ],
+  "suspect_param_keys": [
+    {
+      "event_name": "scroll",
+      "param_key": "page_location",
+      "rows": 5188,
+      "sessions": 837
+    },
+    {
+      "event_name": "scroll",
+      "param_key": "page_referrer",
+      "rows": 4060,
+      "sessions": 775
+    },
+    {
+      "event_name": "click",
+      "param_key": "page_referrer",
+      "rows": 3217,
+      "sessions": 673
+    },
+    {
+      "event_name": "page_view",
+      "param_key": "page_location",
+      "rows": 2987,
+      "sessions": 1021
+    },
+    {
+      "event_name": "page_view",
+      "param_key": "page_referrer",
+      "rows": 2824,
+      "sessions": 923
+    },
+    {
+      "event_name": "click",
+      "param_key": "page_location",
+      "rows": 2706,
+      "sessions": 699
+    },
+    {
+      "event_name": "user_engagement",
+      "param_key": "page_location",
+      "rows": 1348,
+      "sessions": 572
+    },
+    {
+      "event_name": "user_engagement",
+      "param_key": "page_referrer",
+      "rows": 1086,
+      "sessions": 501
+    },
+    {
+      "event_name": "form_start",
+      "param_key": "page_location",
+      "rows": 739,
+      "sessions": 502
+    },
+    {
+      "event_name": "form_start",
+      "param_key": "form_destination",
+      "rows": 738,
+      "sessions": 503
+    },
+    {
+      "event_name": "form_submit",
+      "param_key": "form_destination",
+      "rows": 630,
+      "sessions": 381
+    },
+    {
+      "event_name": "page_view",
+      "param_key": "source",
+      "rows": 577,
+      "sessions": 370
+    },
+    {
+      "event_name": "click",
+      "param_key": "link_url",
+      "rows": 550,
+      "sessions": 288
+    },
+    {
+      "event_name": "click",
+      "param_key": "link_classes",
+      "rows": 550,
+      "sessions": 288
+    },
+    {
+      "event_name": "session_start",
+      "param_key": "page_referrer",
+      "rows": 475,
+      "sessions": 473
+    },
+    {
+      "event_name": "page_view",
+      "param_key": "medium",
+      "rows": 454,
+      "sessions": 278
+    },
+    {
+      "event_name": "session_start",
+      "param_key": "page_location",
+      "rows": 448,
+      "sessions": 445
+    },
+    {
+      "event_name": "purchase",
+      "param_key": "page_location",
+      "rows": 426,
+      "sessions": 382
+    },
+    {
+      "event_name": "purchase",
+      "param_key": "page_referrer",
+      "rows": 377,
+      "sessions": 355
+    },
+    {
+      "event_name": "session_start",
+      "param_key": "source",
+      "rows": 363,
+      "sessions": 362
+    },
+    {
+      "event_name": "form_submit",
+      "param_key": "page_referrer",
+      "rows": 316,
+      "sessions": 184
+    },
+    {
+      "event_name": "form_start",
+      "param_key": "page_referrer",
+      "rows": 310,
+      "sessions": 222
+    },
+    {
+      "event_name": "form_submit",
+      "param_key": "page_location",
+      "rows": 266,
+      "sessions": 170
+    },
+    {
+      "event_name": "session_start",
+      "param_key": "medium",
+      "rows": 265,
+      "sessions": 265
+    },
+    {
+      "event_name": "first_visit",
+      "param_key": "page_referrer",
+      "rows": 235,
+      "sessions": 234
+    },
+    {
+      "event_name": "first_visit",
+      "param_key": "page_location",
+      "rows": 212,
+      "sessions": 211
+    },
+    {
+      "event_name": "first_visit",
+      "param_key": "source",
+      "rows": 210,
+      "sessions": 209
+    },
+    {
+      "event_name": "view_item",
+      "param_key": "page_referrer",
+      "rows": 163,
+      "sessions": 104
+    },
+    {
+      "event_name": "purchase",
+      "param_key": "transaction_id",
+      "rows": 162,
+      "sessions": 131
+    },
+    {
+      "event_name": "first_visit",
+      "param_key": "medium",
+      "rows": 141,
+      "sessions": 141
+    },
+    {
+      "event_name": "click",
+      "param_key": "link_id",
+      "rows": 137,
+      "sessions": 79
+    },
+    {
+      "event_name": "page_view",
+      "param_key": "campaign",
+      "rows": 116,
+      "sessions": 71
+    },
+    {
+      "event_name": "page_view",
+      "param_key": "content",
+      "rows": 116,
+      "sessions": 71
+    },
+    {
+      "event_name": "click",
+      "param_key": "source",
+      "rows": 109,
+      "sessions": 62
+    },
+    {
+      "event_name": "click",
+      "param_key": "medium",
+      "rows": 104,
+      "sessions": 58
+    },
+    {
+      "event_name": "page_view_long",
+      "param_key": "page_referrer",
+      "rows": 90,
+      "sessions": 87
+    },
+    {
+      "event_name": "page_view_long",
+      "param_key": "page_location",
+      "rows": 76,
+      "sessions": 75
+    },
+    {
+      "event_name": "session_start",
+      "param_key": "content",
+      "rows": 61,
+      "sessions": 61
+    },
+    {
+      "event_name": "session_start",
+      "param_key": "campaign",
+      "rows": 61,
+      "sessions": 61
+    },
+    {
+      "event_name": "add_to_cart",
+      "param_key": "page_referrer",
+      "rows": 50,
+      "sessions": 35
+    },
+    {
+      "event_name": "first_visit",
+      "param_key": "content",
+      "rows": 36,
+      "sessions": 36
+    },
+    {
+      "event_name": "first_visit",
+      "param_key": "campaign",
+      "rows": 36,
+      "sessions": 36
+    },
+    {
+      "event_name": "kakaochannel_click",
+      "param_key": "page_referrer",
+      "rows": 32,
+      "sessions": 31
+    },
+    {
+      "event_name": "kakaochannel_click",
+      "param_key": "page_location",
+      "rows": 32,
+      "sessions": 31
+    },
+    {
+      "event_name": "click",
+      "param_key": "campaign",
+      "rows": 14,
+      "sessions": 8
+    },
+    {
+      "event_name": "click",
+      "param_key": "content",
+      "rows": 14,
+      "sessions": 8
+    },
+    {
+      "event_name": "1초회원가입",
+      "param_key": "page_referrer",
+      "rows": 12,
+      "sessions": 11
+    },
+    {
+      "event_name": "view_search_results",
+      "param_key": "source",
+      "rows": 4,
+      "sessions": 4
+    },
+    {
+      "event_name": "view_search_results",
+      "param_key": "page_referrer",
+      "rows": 4,
+      "sessions": 4
+    },
+    {
+      "event_name": "session_start",
+      "param_key": "link_classes",
+      "rows": 1,
+      "sessions": 1
+    },
+    {
+      "event_name": "session_start",
+      "param_key": "link_url",
+      "rows": 1,
+      "sessions": 1
+    },
+    {
+      "event_name": "view_item",
+      "param_key": "source",
+      "rows": 1,
+      "sessions": 1
+    }
+  ],
+  "interpretation": {
+    "page_view_long_loaded": true,
+    "add_to_cart_loaded": true,
+    "view_cart_loaded": false,
+    "begin_checkout_loaded": false,
+    "add_payment_info_loaded": false,
+    "purchase_loaded": true,
+    "hurdlers_named_event_loaded": false,
+    "naver_or_npay_named_event_loaded": false,
+    "preview_needed_reason": "BigQuery confirms some existing behavior events, but GTM tag names are not exported to GA4. Preview is needed to map HURDLERS dataLayer/cart tags to actual GA4 event names or to confirm they do not send GA4 ecommerce events."
+  },
+  "invariants": {
+    "ga4_measurement_protocol_send": 0,
+    "meta_capi_send": 0,
+    "google_ads_upload": 0,
+    "gtm_publish": 0,
+    "operating_db_write": 0,
+    "raw_identifier_output": 0
+  }
+}

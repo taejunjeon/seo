@@ -1,13 +1,89 @@
 # Channel funnel quality 정본 (실제 개발 순서)
 
 작성 시각: 2026-05-08 02:00 KST
-최종 업데이트: 2026-05-10 15:36 KST
-기준일: 2026-05-10
+최종 업데이트: 2026-05-17 00:37 KST
+기준일: 2026-05-17
 상태: active canonical
 Owner: data / channelfunnel
 Supersedes: none (신규 정본)
 Next document: [[../gdn/bi-confirmed-purchase-operational-dry-run-20260510]] / [[../gdn/confirmed-purchase-prep-recalc-20260510]] / [[../gdn/vm-cloud-imweb-sync-status-review-20260510]] / [[../gdn/path-b-real-paid-click-actual-order-preview-result-20260510]]
 Do not use for: GA4/Meta/Google Ads/TikTok/Naver 실제 전송, conversion upload, conversion action 변경, 광고 변경, 운영DB write 외 (paid_click_intent canary 범위 안에서만)
+
+## 프로젝트 OKR와 액션플랜
+
+이 프로젝트의 목적은 **광고비를 어디에 더 쓰고 어디를 줄일지 판단할 수 있게, 유입부터 실제 결제완료와 Meta CAPI 전송까지 한 화면에서 믿을 수 있게 보는 것**이다. 광고 플랫폼이 주장하는 구매가 아니라, VM Cloud 수집 원장과 운영DB 결제완료 기준을 분리해서 본다. 이 문서는 전송 실행 문서가 아니며, Google Ads/Meta/TikTok/Naver upload·send·광고 변경은 별도 Red 승인 전에는 하지 않는다.
+
+### Objective
+
+2026년 5월 말까지 `유입 -> 장바구니 페이지 진입 -> 결제 시작 -> 결제수단 선택 -> 실제 결제완료 -> Meta CAPI 성공 -> 내부/플랫폼 ROAS 비교` 흐름을 일별·주별로 안정적으로 감시한다. 대표 화면에서는 “지금 어디가 새고 있는지”를 30초 안에 보고, 개발 화면에서는 “어떤 source/table/API를 고쳐야 하는지”를 바로 찾게 한다.
+
+### Key Results
+
+1. **퍼널 관제 속도**: `/ai-crm/conversion-funnel` 기본 화면은 사전 계산된 캐시를 우선 읽어 500ms 안에 보여준다. 기준 데이터 날짜와 다음 갱신 시각을 화면에 표시한다.
+2. **결제완료와 CAPI 누락 감시**: `결제완료는 있는데 Meta CAPI 성공 로그가 없는 row`를 0건에 가깝게 유지한다. 누락이 있으면 safe_ref 기준 상세 사유와 다음 조치를 펼쳐 볼 수 있어야 한다.
+3. **채널 근거 분리**: Meta/Naver/Google/organic/direct/unknown을 섞지 않는다. 주문·결제 정본과 광고 클릭 evidence를 분리하고, 예산 판단용 값과 참고용 값을 화면과 문서에 명시한다.
+4. **ROAS 두 값 병렬 표시**: 내부 ATT ROAS(실제 결제완료 주문 원장 기준)와 매체 주장 ROAS(광고 플랫폼 Ads Manager/Google Ads 기준)를 일별·7일 기준으로 함께 보여준다. 두 값이 다르면 source/window/freshness/caveat를 같이 남긴다.
+5. **운영 안전성**: Browser Purchase가 0이어도 Server CAPI가 살아 있으면 치명 장애로 보지 않는다. 단 CAPI failed, duplicate, no-send queue, site/pixel 혼입은 Critical로 올린다.
+6. **KR7 전송 준비 분리**: Meta CAPI / GA4 / 외부 전송은 `준비 상태`와 `실제 전송 실행`을 분리한다. no-send, duplicate guard, dedup key, refund/cancel guard, Meta Events Manager 검증, Test Events smoke가 PASS하기 전에는 actual purchase 전송을 확장하지 않는다.
+
+### 현재 판단
+
+- **5/16 이후 CAPI 누락이 줄어든 핵심 이유는 Meta 유입 감소보다 VM Cloud backend 보강 영향이 더 크다.** 5/16에도 Meta evidence confirmed가 있었고, CAPI success가 결제완료 수를 커버했다.
+- **Browser Purchase는 아직 보조 리스크다.** Meta 학습 신호는 Server CAPI 성공 여부를 우선 본다.
+- **장바구니 단계는 클릭이 아니라 `장바구니 페이지 진입` 기준으로 표시한다.** 아임웹/GTM 코드를 추가로 건드리지 않고 VM Cloud landing row로 먼저 구현한다.
+- **당일 데이터는 무거운 실시간 조회가 아니라 4시간 단위 사전 계산값으로 본다.** 기본 화면은 어제 데이터 또는 최신 안정 캐시를 우선 보여주고, 당일 데이터는 버튼으로 분리한다.
+- **KR7은 이 문서에 포함한다.** channel funnel은 단순 유입 분석이 아니라 `실제 결제완료 신호가 Meta/GA4/광고 플랫폼으로 안전하게 갈 준비가 됐는지`까지 보는 화면이므로, no-send/중복/환불/Events Manager 검증을 별도 트랙으로 관리해야 한다.
+
+### 액션플랜
+
+#### P0. 관제 화면을 빠르고 안정적으로 만든다
+- 무엇을 한다: funnel-health와 ROAS summary를 캐시 기반으로 읽고, 기본 화면은 어제 안정 데이터 또는 최신 precompute 결과를 먼저 보여준다.
+- 왜 한다: 대표가 화면을 열 때 Meta API/VM Cloud 실시간 계산 때문에 로딩이 길어지면 관제 화면으로 쓸 수 없다.
+- 성공 기준: 기본 로딩 500ms 이하, `데이터 기준 시각`, `다음 갱신 시각`, `source=in_memory_precompute 또는 roas_summary_precompute`가 화면에 보인다.
+- 담당: Codex/Claude Code.
+- 승인: VM Cloud 배포는 Yellow, 로컬/문서/계약 정리는 Green.
+
+#### P0. CAPI 누락 큐를 사람이 바로 볼 수 있게 한다
+- 무엇을 한다: `결제완료는 있는데 Meta CAPI 전송 기록이 없음` 카드를 클릭하면 각 row의 safe_ref, 금액, 결제 시각, source bucket, no-send/누락 사유, 추천 조치가 펼쳐지게 한다.
+- 왜 한다: CAPI 누락은 광고 학습 신호가 빠지는 직접 원인이라 Critical이다. 요약 숫자만 있으면 실제 조치를 못 한다.
+- 성공 기준: raw order/payment/click/member/email/phone 없이 safe_ref만 표시하고, backfill_ready/no_send_guard/duplicate/value_mismatch/source_gap으로 분류된다.
+- 담당: Codex.
+- 승인: 표시/분류는 Green, 실제 Meta backfill send는 Red.
+
+#### P0. KR7 전송 준비 guard를 화면과 문서에 고정한다
+- 무엇을 한다: Meta CAPI / GA4 / 외부 전송 준비 상태를 `no-send`, `dedup`, `duplicate`, `refund/cancel`, `Events Manager`, `Test Events` 체크로 나누어 관리한다.
+- 왜 한다: channel funnel에서 결제완료까지 봐도, 실제 전송 guard가 약하면 Meta/GA4/Google Ads에 중복 구매나 환불 전 구매가 들어가 ROAS가 오염된다.
+- 성공 기준: actual purchase 전송 확대 전 `중복 event_id 0`, `환불/취소 no-send`, `0원 no-send`, `payment_page_seen no-send`, `Events Manager 수신 확인`, `Test Events smoke PASS`가 각각 보인다.
+- 담당: Codex.
+- 승인: guard 설계·화면 표시·dry-run은 Green, 실제 플랫폼 send/upload 확대는 Red.
+
+#### P0. 장바구니 단계를 VM Cloud 기준으로 복구한다
+- 무엇을 한다: 장바구니 클릭이 아니라 `/shop_cart` 또는 장바구니 URL landing row를 `cart_page_seen`으로 계산해 퍼널 단계에 넣는다.
+- 왜 한다: Meta Pixel AddToCart와 VM Cloud 원장은 다른 source다. 현재 관제 화면은 VM Cloud 기준이므로 VM Cloud에 이미 있는 페이지 진입 evidence부터 써야 한다.
+- 성공 기준: `유입 -> 장바구니 페이지 진입 -> 결제 시작` 단계가 모두 0이 아닌 실제 row 기준으로 보이고, source가 `VM Cloud site_landing_ledger`임을 표시한다.
+- 담당: Codex.
+- 승인: backend/frontend 배포는 Yellow, read-only 검증은 Green.
+
+#### P1. 5/14~5/15 Meta evidence CAPI 누락분을 재분류한다
+- 무엇을 한다: 5/14, 5/15에 남은 Meta evidence missing row를 backfill_ready/no_send_guard/duplicate/value_mismatch/source_gap으로 분류한다.
+- 왜 한다: 5/16 이후는 안정됐지만 incident 구간의 빠진 구매 신호는 별도 복구 판단이 필요하다.
+- 성공 기준: 각 row가 send 가능/금지/보류 중 하나로 닫히고, 실제 send 후보는 duplicate 0과 value guard pass가 확인된다.
+- 담당: Codex.
+- 승인: 분류는 Green, Meta backfill send는 Red.
+
+#### P1. 14일/30일 채널 퍼널을 정기화한다
+- 무엇을 한다: 7일 기준뿐 아니라 14일/30일로 Meta, Google, Naver, TikTok, organic, direct의 유입 품질과 결제 전환을 본다.
+- 왜 한다: 하루나 7일만 보면 광고 품질과 tracking 장애를 혼동할 수 있다.
+- 성공 기준: landing, cart_page_seen, payment_started, payment_page_seen, confirmed_purchase, CAPI success, Ads Manager attributed purchase가 같은 window로 비교된다.
+- 담당: Codex.
+- 승인: read-only/문서 Green.
+
+#### P2. Meta clean landing 실험을 설계한다
+- 무엇을 한다: Meta 유입용 landing bucket을 리뷰/고객 사례/웰니스 가이드처럼 민감도가 낮은 path로 분리하는 실험안을 만든다.
+- 왜 한다: biocom.kr이 건강/웰빙 데이터 소스 제한을 받고 있어 Ads Manager attribution이 낮게 잡힐 수 있다.
+- 성공 기준: 기존 landing vs clean landing의 내부 ATT ROAS, Ads Manager ROAS, CAPI success, Meta strong evidence가 3~7일 기준으로 비교된다.
+- 담당: Codex 설계, TJ님 광고 플랫폼 변경 승인.
+- 승인: 설계 Green, 광고 URL/예산 변경 Red 또는 Yellow.
 
 ```yaml
 harness_preflight:

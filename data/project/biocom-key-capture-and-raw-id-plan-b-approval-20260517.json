@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-17 17:45 KST",
+  "site": "biocom",
+  "lane": {
+    "design": "Green",
+    "hash_only_capture_smoke": "Yellow approval required",
+    "raw_id_plan_b": "Red approval required when raw values may be inspected"
+  },
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud SQLite safe hash + GA4 BigQuery daily export",
+    "window": "rolling latest 7d",
+    "freshness": "queried 2026-05-17 17:44 KST",
+    "confidence": "high for gap existence, medium_low for row-level behavior conclusion"
+  },
+  "current_gap": {
+    "confirmed_purchase": {
+      "vm_safe_sessions": 380,
+      "ga4_joined_sessions": 112,
+      "join_rate_pct": 29.47
+    },
+    "dropped_checkout": {
+      "vm_safe_sessions": 715,
+      "ga4_joined_sessions": 205,
+      "join_rate_pct": 28.67
+    }
+  },
+  "recommendation": {
+    "first": "green_key_capture_coverage_breakdown",
+    "second": "yellow_hash_only_capture_smoke",
+    "third": "red_raw_id_plan_b_only_for_specific_unresolved_safe_ref"
+  },
+  "safety": {
+    "raw_identifier_output": false,
+    "platform_send_or_upload": 0,
+    "operating_db_write": 0,
+    "vm_cloud_schema_migration": 0,
+    "gtm_publish": 0
+  }
+}

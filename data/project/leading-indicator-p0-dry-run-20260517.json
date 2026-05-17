@@ -1,0 +1,539 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-17 15:44 KST",
+  "mode": "green_read_only_p0_dry_run",
+  "site": "biocom",
+  "base_url": "https://att.ainativeos.net",
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud funnel-health cached aggregate + local docs",
+    "window": "1d and 7d",
+    "freshness": {
+      "1d": "2026-05-17 15:42 / in_memory_precompute",
+      "7d": "2026-05-17 15:42 / in_memory_precompute"
+    },
+    "confidence": 0.78,
+    "caveat": "dwell/scroll/signup은 아직 GA4/GTM/VM route join 전이므로 source inventory 단계로만 해석한다."
+  },
+  "source_matrix": [
+    {
+      "indicator_id": "landing",
+      "label_ko": "유입",
+      "business_question": "어떤 채널이 구매 전 행동의 시작점을 만들고 있는가.",
+      "primary_source": "VM Cloud site_landing_ledger",
+      "cross_check_source": "GA4 session/source medium",
+      "fallback_source": "VM Cloud attribution_ledger marketing_intent diagnostic",
+      "current_status": "available",
+      "blocker_category": null,
+      "latest_counts": {
+        "1d": 1604,
+        "7d": 10720
+      },
+      "freshness": "2026-05-17 15:42 / in_memory_precompute",
+      "confidence": "high"
+    },
+    {
+      "indicator_id": "cart_page_seen",
+      "label_ko": "장바구니 페이지 진입",
+      "business_question": "구매 전 장바구니까지 온 사용자가 얼마나 되는가.",
+      "primary_source": "VM Cloud site_landing_ledger landing_path=/shop_cart",
+      "cross_check_source": "GTM/GA4 add_to_cart and view_cart",
+      "fallback_source": "Browser AddToCart event, but ViewContent excluded",
+      "current_status": "available",
+      "blocker_category": null,
+      "latest_counts": {
+        "1d": 6,
+        "7d": 29
+      },
+      "freshness": "2026-05-17 15:42 / in_memory_precompute",
+      "confidence": "high_for_page_seen_medium_for_click"
+    },
+    {
+      "indicator_id": "payment_started",
+      "label_ko": "결제 시작",
+      "business_question": "구매 의도가 있는 사용자가 결제 페이지까지 얼마나 도달하는가.",
+      "primary_source": "VM Cloud attribution_ledger checkout_started + payment_page_seen",
+      "cross_check_source": "Meta Browser InitiateCheckout / GA4 begin_checkout",
+      "fallback_source": "site_landing_ledger shop_payment path evidence",
+      "current_status": "available",
+      "blocker_category": null,
+      "latest_counts": {
+        "1d": 477,
+        "7d": 2250
+      },
+      "freshness": "2026-05-17 15:42 / in_memory_precompute",
+      "confidence": "medium_high"
+    },
+    {
+      "indicator_id": "payment_method_selected",
+      "label_ko": "결제수단 선택",
+      "business_question": "결제 페이지에서 실제 결제수단 선택까지 가는가.",
+      "primary_source": "VM Cloud payment_page_seen metadata selected_payment_method",
+      "cross_check_source": "GTM/GA4 add_payment_info",
+      "fallback_source": "Block 4 AddPaymentInfo browser observation",
+      "current_status": "source_gap",
+      "blocker_category": "source_freshness_gap",
+      "latest_counts": {
+        "1d": 0,
+        "7d": 0
+      },
+      "freshness": "2026-05-17 15:42 / in_memory_precompute",
+      "confidence": "low",
+      "next_fix": "payment_page_seen metadata를 aggregate로 노출하거나 intermediate no-send receiver에 AddPaymentInfo를 저장한다."
+    },
+    {
+      "indicator_id": "confirmed_purchase",
+      "label_ko": "실제 결제완료",
+      "business_question": "선행 행동이 실제 매출로 이어졌는가.",
+      "primary_source": "VM Cloud attribution_ledger confirmed payment_success",
+      "cross_check_source": "운영DB PAYMENT_COMPLETE / Toss / Imweb direct",
+      "fallback_source": "fresh VM Cloud imweb_orders cache",
+      "current_status": "available",
+      "blocker_category": null,
+      "latest_counts": {
+        "1d": 53,
+        "7d": 388
+      },
+      "freshness": "2026-05-17 15:42 / in_memory_precompute",
+      "confidence": "medium_high"
+    },
+    {
+      "indicator_id": "meta_capi_success",
+      "label_ko": "Meta CAPI 성공",
+      "business_question": "구매 신호가 Meta 학습 쪽으로 실제 전달됐는가.",
+      "primary_source": "VM Cloud Meta CAPI send log, Pixel filtered",
+      "cross_check_source": "Meta Events Manager UI",
+      "fallback_source": "Ads Manager attributed purchase, delayed",
+      "current_status": "available",
+      "blocker_category": null,
+      "latest_counts": {
+        "1d": 53,
+        "7d": 376
+      },
+      "freshness": "2026-05-17 15:42 / in_memory_precompute",
+      "confidence": "high_for_send_medium_for_ads_attribution"
+    },
+    {
+      "indicator_id": "dwell_time",
+      "label_ko": "평균 체류시간",
+      "business_question": "구매자는 이탈자보다 오래 머무는가.",
+      "primary_source": "GA4 BigQuery engagement_time_msec",
+      "cross_check_source": "future VM Cloud engagement-intent receiver",
+      "fallback_source": "none",
+      "current_status": "needs_ga4_join",
+      "blocker_category": "권한 부족 또는 source join 필요",
+      "latest_counts": null,
+      "freshness": "GA4 access dependent",
+      "confidence": "medium_when_ga4_available"
+    },
+    {
+      "indicator_id": "scroll50",
+      "label_ko": "50% 스크롤",
+      "business_question": "구매자는 초기에 페이지 절반 이상을 읽는가.",
+      "primary_source": "GTM scrollDepth trigger exists; VM Cloud route not wired",
+      "cross_check_source": "GA4 scroll / ProductEngagementSummary POC",
+      "fallback_source": "Scroll90 historical analysis",
+      "current_status": "source_exists_route_gap",
+      "blocker_category": "route 미구현",
+      "latest_counts": null,
+      "freshness": "GTM doc snapshot + historical channel funnel",
+      "confidence": "medium_for_source_low_for_vm"
+    },
+    {
+      "indicator_id": "complete_registration",
+      "label_ko": "회원가입 완료",
+      "business_question": "회원가입이 구매 전 강한 행동인지 확인한다.",
+      "primary_source": "GTM GA4 sign_up tag",
+      "cross_check_source": "GA4 sign_up event",
+      "fallback_source": "future VM Cloud intermediate no-send receiver",
+      "current_status": "source_exists_route_gap",
+      "blocker_category": "route 미구현",
+      "latest_counts": null,
+      "freshness": "GTM doc snapshot",
+      "confidence": "medium"
+    },
+    {
+      "indicator_id": "youtube_content",
+      "label_ko": "YouTube 콘텐츠 유입",
+      "business_question": "YouTube 콘텐츠 유입이 구매 전 몰입과 구매를 예고하는가.",
+      "primary_source": "UTM/referrer classification needed",
+      "cross_check_source": "GA4 source/medium/page path",
+      "fallback_source": "manual campaign naming inventory",
+      "current_status": "source_gap",
+      "blocker_category": "필터 불일치",
+      "latest_counts": null,
+      "freshness": "not connected to funnel-health source enum",
+      "confidence": "low"
+    }
+  ],
+  "cohort_dry_run": [
+    {
+      "source": "all",
+      "label": "전체",
+      "by_window": {
+        "1d": {
+          "landing": 1604,
+          "cart_page_seen": 6,
+          "payment_started": 477,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 53,
+          "meta_capi_success": 53,
+          "meta_capi_success_all_sources_observed": null,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 1551,
+          "same_population_rate_safe": true,
+          "landing_to_purchase_rate_pct": 3.3,
+          "checkout_to_purchase_rate_pct": 11.11,
+          "capi_coverage_pct": 100,
+          "freshness": "2026-05-17 15:42 / in_memory_precompute"
+        },
+        "7d": {
+          "landing": 10720,
+          "cart_page_seen": 29,
+          "payment_started": 2250,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 388,
+          "meta_capi_success": 376,
+          "meta_capi_success_all_sources_observed": null,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 10332,
+          "same_population_rate_safe": true,
+          "landing_to_purchase_rate_pct": 3.62,
+          "checkout_to_purchase_rate_pct": 17.24,
+          "capi_coverage_pct": 96.91,
+          "freshness": "2026-05-17 15:42 / in_memory_precompute"
+        }
+      },
+      "interpretation": "VM Cloud funnel-health aggregate 기준 baseline.",
+      "caveat": "전체 funnel은 같은 화면 기준 전체 흐름으로 해석 가능."
+    },
+    {
+      "source": "meta",
+      "label": "Meta 광고 유입 증거",
+      "by_window": {
+        "1d": {
+          "landing": 204,
+          "cart_page_seen": 5,
+          "payment_started": 210,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 30,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 53,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 174,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        },
+        "7d": {
+          "landing": 913,
+          "cart_page_seen": 9,
+          "payment_started": 705,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 155,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 376,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 758,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        }
+      },
+      "interpretation": "Meta evidence가 있는 유입의 구매 전 funnel diagnostic. source별 단계는 같은 모집단 전환율이 아니므로 구매 예고 후보만 본다.",
+      "caveat": "source별 funnel-health는 CAPI 성공과 일부 단계가 source-filtered unique order로 닫히지 않아 전환율보다 방향성 진단으로만 사용."
+    },
+    {
+      "source": "google",
+      "label": "Google 광고 유입 증거",
+      "by_window": {
+        "1d": {
+          "landing": 1200,
+          "cart_page_seen": 0,
+          "payment_started": 43,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 0,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 53,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 1200,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        },
+        "7d": {
+          "landing": 8437,
+          "cart_page_seen": 1,
+          "payment_started": 244,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 6,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 376,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 8431,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        }
+      },
+      "interpretation": "VM Cloud funnel-health aggregate 기준 baseline.",
+      "caveat": "source별 funnel-health는 CAPI 성공과 일부 단계가 source-filtered unique order로 닫히지 않아 전환율보다 방향성 진단으로만 사용."
+    },
+    {
+      "source": "naver",
+      "label": "Naver 유입 증거",
+      "by_window": {
+        "1d": {
+          "landing": 61,
+          "cart_page_seen": 1,
+          "payment_started": 65,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 5,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 53,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 56,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        },
+        "7d": {
+          "landing": 353,
+          "cart_page_seen": 3,
+          "payment_started": 392,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 44,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 376,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 309,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        }
+      },
+      "interpretation": "VM Cloud funnel-health aggregate 기준 baseline.",
+      "caveat": "source별 funnel-health는 CAPI 성공과 일부 단계가 source-filtered unique order로 닫히지 않아 전환율보다 방향성 진단으로만 사용."
+    },
+    {
+      "source": "organic",
+      "label": "오가닉/추천 유입",
+      "by_window": {
+        "1d": {
+          "landing": 0,
+          "cart_page_seen": 0,
+          "payment_started": 88,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 14,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 53,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 0,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        },
+        "7d": {
+          "landing": 6,
+          "cart_page_seen": 0,
+          "payment_started": 519,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 103,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 376,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 0,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        }
+      },
+      "interpretation": "오가닉/추천 유입 diagnostic. 검색어/콘텐츠별 선행지표는 GA4/Search source join이 필요.",
+      "caveat": "source별 funnel-health는 CAPI 성공과 일부 단계가 source-filtered unique order로 닫히지 않아 전환율보다 방향성 진단으로만 사용."
+    },
+    {
+      "source": "direct",
+      "label": "직접 유입",
+      "by_window": {
+        "1d": {
+          "landing": 115,
+          "cart_page_seen": 0,
+          "payment_started": 4,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 0,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 53,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 115,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        },
+        "7d": {
+          "landing": 744,
+          "cart_page_seen": 15,
+          "payment_started": 24,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 0,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 376,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 744,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        }
+      },
+      "interpretation": "VM Cloud funnel-health aggregate 기준 baseline.",
+      "caveat": "source별 funnel-health는 CAPI 성공과 일부 단계가 source-filtered unique order로 닫히지 않아 전환율보다 방향성 진단으로만 사용."
+    },
+    {
+      "source": "utm_present",
+      "label": "UTM 있음, 채널 미분류",
+      "by_window": {
+        "1d": {
+          "landing": 27,
+          "cart_page_seen": 0,
+          "payment_started": 356,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 38,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 53,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 0,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        },
+        "7d": {
+          "landing": 271,
+          "cart_page_seen": 1,
+          "payment_started": 1526,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 274,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 376,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 0,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        }
+      },
+      "interpretation": "UTM은 있으나 channel rule이 닫히지 않은 bucket. naming rule 개선 후보.",
+      "caveat": "source별 funnel-health는 CAPI 성공과 일부 단계가 source-filtered unique order로 닫히지 않아 전환율보다 방향성 진단으로만 사용."
+    },
+    {
+      "source": "utm_missing",
+      "label": "UTM 없음",
+      "by_window": {
+        "1d": {
+          "landing": 0,
+          "cart_page_seen": 0,
+          "payment_started": 124,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 15,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 53,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 0,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        },
+        "7d": {
+          "landing": 0,
+          "cart_page_seen": 0,
+          "payment_started": 726,
+          "payment_method_selected": 0,
+          "confirmed_purchase": 114,
+          "meta_capi_success": null,
+          "meta_capi_success_all_sources_observed": 376,
+          "browser_purchase": 0,
+          "dropped_without_confirmed_purchase": 0,
+          "same_population_rate_safe": false,
+          "landing_to_purchase_rate_pct": null,
+          "checkout_to_purchase_rate_pct": null,
+          "capi_coverage_pct": null,
+          "freshness": "live_cache_miss"
+        }
+      },
+      "interpretation": "VM Cloud funnel-health aggregate 기준 baseline.",
+      "caveat": "source별 funnel-health는 CAPI 성공과 일부 단계가 source-filtered unique order로 닫히지 않아 전환율보다 방향성 진단으로만 사용."
+    }
+  ],
+  "p0_progress_recommendation": {
+    "Phase1-Sprint1": {
+      "before_pct": 30,
+      "after_pct": 65,
+      "reason": "지표별 primary/cross-check/fallback source와 live aggregate counts가 생성됐다.",
+      "remaining": [
+        "GA4 dwell/scroll join",
+        "CompleteRegistration VM route",
+        "YouTube source classification"
+      ]
+    },
+    "Phase1-Sprint2": {
+      "before_pct": 15,
+      "after_pct": 35,
+      "reason": "source별 aggregate purchased/dropped baseline은 생성됐지만 row/session-level dwell/scroll join은 아직 없다.",
+      "remaining": [
+        "safe session cohort",
+        "GA4 engagement join",
+        "median/p75 dwell",
+        "YouTube cohort"
+      ]
+    }
+  },
+  "frontend_handoff": {
+    "owner": "Claude Code",
+    "suggested_route": "/ai-crm/leading-indicators",
+    "required_cards": [
+      "오늘 구매 전 강한 신호",
+      "Meta 유입 구매자 vs 이탈자",
+      "장바구니/결제 시작/결제수단 선택 source 상태",
+      "오가닉/YouTube 후보",
+      "source gap blocker table",
+      "오늘 실험 추천"
+    ],
+    "required_fields": [
+      "source",
+      "window",
+      "freshness",
+      "confidence",
+      "blocker_category",
+      "owner"
+    ]
+  },
+  "no_send_no_write": {
+    "meta_capi_send": 0,
+    "gtm_publish": 0,
+    "operational_db_write": 0,
+    "vm_cloud_deploy_restart": 0
+  }
+}
