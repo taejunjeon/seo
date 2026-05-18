@@ -28,6 +28,7 @@ data/coffee/*.xlsx
 data/screenshot/*.pdf
 data/*공동구매*.xlsx
 backend/scripts/*.out.json
+~$*.xlsx
 
 # Local agent backups and runtime logs
 .codex-backups/

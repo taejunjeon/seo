@@ -33,6 +33,7 @@ import {
   loadAliasReviewItems,
   type AliasReviewDecision,
 } from "../metaCampaignAliasReview";
+import { metaCampaignAliasAuditPathForSite } from "../metaCampaignAliasPaths";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import { categorizeProductName, normalizePhone } from "../consultation";
 import { normalizeOrderIdBase } from "../orderKeys";
@@ -52,12 +53,14 @@ const META_DEFAULT_ACTION_REPORT_TIME = "conversion";
 const META_DEFAULT_ATTRIBUTION_WINDOWS = ["7d_click", "1d_view"] as const;
 const META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING = true;
 const ADS_DEFAULT_DATE_PRESET = "last_7d";
+const ADS_OPERATIONAL_LEDGER_DIRECT_SQLITE = process.env.ADS_OPERATIONAL_LEDGER_DIRECT_SQLITE === "1";
 
 // Lazy TTL cache (Option B 패턴) — 첫 호출은 15초 걸려도 5분 동안은 즉시 응답.
 // Meta API 호출 횟수도 자연 감소 (rate limit 압박 ↓).
 type AdsCacheEntry = { result: unknown; cachedAtMs: number; expiresAtMs: number };
 const adsLazyCache = new Map<string, AdsCacheEntry>();
 const ADS_LAZY_CACHE_TTL_MS = 5 * 60 * 1000; // 5분
+const SITE_SUMMARY_CACHE_TTL_MS = 15 * 60 * 1000; // /ads 핵심 카드: heavy cache miss 빈도 완화
 const toKstShortAds = (ms: number): string => {
   const kst = new Date(ms + 9 * 60 * 60 * 1000);
   return `${kst.toISOString().slice(0, 10)} ${kst.toISOString().slice(11, 16)}`;
@@ -85,26 +88,27 @@ const getAdsLazyCachedStale = (key: string): AdsCacheEntry | null => {
   }
   return e;
 };
-const setAdsLazyCached = (key: string, result: unknown): AdsCacheEntry => {
+const setAdsLazyCached = (key: string, result: unknown, ttlMs: number = ADS_LAZY_CACHE_TTL_MS): AdsCacheEntry => {
   const entry: AdsCacheEntry = {
     result,
     cachedAtMs: Date.now(),
-    expiresAtMs: Date.now() + ADS_LAZY_CACHE_TTL_MS,
+    expiresAtMs: Date.now() + ttlMs,
   };
   adsLazyCache.set(key, entry);
   return entry;
 };
-const buildAdsCacheMeta = (entry: AdsCacheEntry | null, source: "lazy_cache_hit" | "live_force" | "live_cache_miss"): {
+type AdsLazyCacheSource = "lazy_cache_hit" | "live_force" | "live_cache_miss" | "live_error_no_cache";
+const buildAdsCacheMeta = (entry: AdsCacheEntry | null, source: AdsLazyCacheSource): {
   cached: boolean;
   cached_at_kst: string | null;
   next_refresh_at_kst: string | null;
   ttl_seconds: number;
   source: string;
 } => ({
-  cached: source === "lazy_cache_hit",
+  cached: source === "lazy_cache_hit" && Boolean(entry),
   cached_at_kst: entry ? toKstShortAds(entry.cachedAtMs) : null,
   next_refresh_at_kst: entry ? toKstShortAds(entry.expiresAtMs) : null,
-  ttl_seconds: Math.round(ADS_LAZY_CACHE_TTL_MS / 1000),
+  ttl_seconds: entry ? Math.round((entry.expiresAtMs - entry.cachedAtMs) / 1000) : 0,
   source,
 });
 const VALID_META_ATTRIBUTION_WINDOWS = ["1d_click", "7d_click", "28d_click", "1d_view"] as const;
@@ -260,6 +264,7 @@ export type NormalizedLedgerOrder = {
   campaignIdHint: string;
   adsetIdHint: string;
   adIdHint: string;
+  landingPaths: string[];
   captureMode: AttributionCaptureMode;
   paymentStatus: AttributionPaymentStatus;
   status: string;
@@ -611,6 +616,35 @@ const normalizeMetaNumericId = (value: string) => {
   return /^\d{8,}$/.test(raw) ? raw : "";
 };
 
+const normalizeLandingPathPathname = (pathName: string): string => {
+  const cleanedPath = pathName.split(/[?#]/)[0]?.replace(/\/+$/, "") || "/";
+  if (cleanedPath === "/") return "";
+  if (cleanedPath.includes("/backpg/")) return "";
+  if (cleanedPath.includes("shop_payment")) return "";
+  return cleanedPath;
+};
+
+const normalizeLandingPathCandidate = (value: string): string => {
+  const raw = value.trim();
+  if (!raw) return "";
+  if (raw.startsWith("/")) return normalizeLandingPathPathname(raw);
+  const urlLike = /^https?:\/\//i.test(raw)
+    ? raw
+    : /(^|\s)([a-z0-9-]+\.)+[a-z]{2,}\//i.test(raw)
+      ? `https://${raw.replace(/^\s+/, "")}`
+      : raw;
+  try {
+    const parsed = new URL(urlLike);
+    return normalizeLandingPathPathname(parsed.pathname);
+  } catch {
+    return "";
+  }
+};
+
+const extractLandingPathCandidates = (values: string[]) => (
+  [...new Set(values.map(normalizeLandingPathCandidate).filter(Boolean))]
+);
+
 const extractFirstNumericUrlParam = (values: string[], keys: string[]) => {
   for (const key of keys) {
     const value = firstNonEmpty(values.map((candidate) => (
@@ -935,7 +969,7 @@ const loadLocalAuditAdsetCampaignMap = async (
   if (!site) return map;
 
   try {
-    const raw = await fs.readFile(path.resolve(DATA_DIR, `meta_campaign_alias_audit.${site}.json`), "utf8");
+    const raw = await fs.readFile(metaCampaignAliasAuditPathForSite(site), "utf8");
     const audit = JSON.parse(raw) as LocalAliasAuditFile;
     for (const campaign of audit.campaigns ?? []) {
       const campaignId = campaign.campaignId?.trim() ?? "";
@@ -964,7 +998,7 @@ const loadLocalAuditAdCampaignMap = async (
   if (!site) return map;
 
   try {
-    const raw = await fs.readFile(path.resolve(DATA_DIR, `meta_campaign_alias_audit.${site}.json`), "utf8");
+    const raw = await fs.readFile(metaCampaignAliasAuditPathForSite(site), "utf8");
     const audit = JSON.parse(raw) as LocalAliasAuditFile;
     for (const campaign of audit.campaigns ?? []) {
       const campaignId = campaign.campaignId?.trim() ?? "";
@@ -1127,9 +1161,18 @@ const extractMetaAliasKeysFromCreative = (creative: unknown) => {
   return [...aliases].filter(Boolean);
 };
 
+const extractMetaLandingPathsFromCreative = (creative: unknown) => (
+  extractLandingPathCandidates(collectStringValuesDeep(creative))
+);
+
 const fetchMetaAdCreativeEvidenceMaps = async (
   accountId: string,
-): Promise<{ adMap: AdCampaignMap; aliasMap: CampaignAliasMap; error: string | null }> => {
+): Promise<{
+  adMap: AdCampaignMap;
+  aliasMap: CampaignAliasMap;
+  landingPathMap: LandingPathCampaignMap;
+  error: string | null;
+}> => {
   const siteAccount = findSiteAccountByAccountId(accountId);
   const localAdMap = await loadLocalAuditAdCampaignMap(siteAccount?.site ?? null);
   let result: MetaFetchResult<MetaAdCreativeEvidenceRow[]>;
@@ -1137,7 +1180,15 @@ const fetchMetaAdCreativeEvidenceMaps = async (
     result = await fetchMetaPaged<MetaAdCreativeEvidenceRow>(
       `/${accountId}/ads`,
       {
-        fields: "id,name,adset_id,campaign_id,campaign{id,name},adset{id,name},creative{id,name,url_tags}",
+        fields: [
+          "id",
+          "name",
+          "adset_id",
+          "campaign_id",
+          "campaign{id,name}",
+          "adset{id,name}",
+          "creative{id,name,url_tags,link_url,object_url,object_story_spec,asset_feed_spec,instagram_permalink_url}",
+        ].join(","),
         limit: "200",
       },
       1000,
@@ -1147,6 +1198,7 @@ const fetchMetaAdCreativeEvidenceMaps = async (
     return {
       adMap: localAdMap,
       aliasMap: new Map(),
+      landingPathMap: new Map(),
       error: localAdMap.size > 0
         ? `${message}; local alias audit fallback ads=${localAdMap.size}`
         : message,
@@ -1157,6 +1209,7 @@ const fetchMetaAdCreativeEvidenceMaps = async (
     return {
       adMap: localAdMap,
       aliasMap: new Map(),
+      landingPathMap: new Map(),
       error: localAdMap.size > 0
         ? `${result.error}; local alias audit fallback ads=${localAdMap.size}`
         : result.error,
@@ -1165,6 +1218,7 @@ const fetchMetaAdCreativeEvidenceMaps = async (
 
   const adMap: AdCampaignMap = new Map(localAdMap);
   const aliasBuckets = new Map<string, CampaignAliasMatch[]>();
+  const landingPathBuckets = new Map<string, LandingPathCampaignMatch[]>();
   for (const ad of result.data) {
     const campaignId = ad.campaign_id ?? ad.campaign?.id ?? "";
     if (!ad.id || !campaignId) continue;
@@ -1187,6 +1241,18 @@ const fetchMetaAdCreativeEvidenceMaps = async (
       });
       aliasBuckets.set(aliasKey, bucket);
     }
+
+    for (const landingPath of extractMetaLandingPathsFromCreative(ad.creative)) {
+      const bucket = landingPathBuckets.get(landingPath) ?? [];
+      bucket.push({
+        campaignId,
+        campaignName,
+        adsetName: ad.adset?.name ?? "",
+        adName: ad.name ?? "",
+        confidence: "live_creative_single_landing_path",
+      });
+      landingPathBuckets.set(landingPath, bucket);
+    }
   }
 
   const aliasMap: CampaignAliasMap = new Map();
@@ -1197,7 +1263,148 @@ const fetchMetaAdCreativeEvidenceMaps = async (
     if (match) aliasMap.set(aliasKey, [match]);
   }
 
-  return { adMap, aliasMap, error: null };
+  const landingPathMap: LandingPathCampaignMap = new Map();
+  for (const [landingPath, matches] of landingPathBuckets) {
+    const uniqueCampaignIds = new Set(matches.map((match) => match.campaignId));
+    if (uniqueCampaignIds.size !== 1) continue;
+    landingPathMap.set(landingPath, matches);
+  }
+
+  return { adMap, aliasMap, landingPathMap, error: null };
+};
+
+type MetaAdsetCampaignMapResult = Awaited<ReturnType<typeof fetchMetaAdsetCampaignMap>>;
+type MetaAdCreativeEvidenceMapResult = Awaited<ReturnType<typeof fetchMetaAdCreativeEvidenceMaps>>;
+type TimedValue<T> = { value: T; cachedAtMs: number; expiresAtMs: number };
+
+const META_MAPPING_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const META_MAPPING_COLD_WAIT_MS = 2500;
+const metaAdsetCampaignMapCache = new Map<string, TimedValue<MetaAdsetCampaignMapResult>>();
+const metaAdCreativeEvidenceMapCache = new Map<string, TimedValue<MetaAdCreativeEvidenceMapResult>>();
+const metaAdsetCampaignMapInFlight = new Map<string, Promise<MetaAdsetCampaignMapResult>>();
+const metaAdCreativeEvidenceMapInFlight = new Map<string, Promise<MetaAdCreativeEvidenceMapResult>>();
+let metaMappingWarmupStarted = false;
+
+const getTimedValue = <T>(cache: Map<string, TimedValue<T>>, key: string): TimedValue<T> | null => {
+  const cached = cache.get(key);
+  if (!cached) return null;
+  if (Date.now() > cached.expiresAtMs) {
+    cache.delete(key);
+    return null;
+  }
+  return cached;
+};
+
+const setTimedValue = <T>(cache: Map<string, TimedValue<T>>, key: string, value: T, ttlMs: number): TimedValue<T> => {
+  const now = Date.now();
+  const entry = { value, cachedAtMs: now, expiresAtMs: now + ttlMs };
+  cache.set(key, entry);
+  return entry;
+};
+
+const waitForPromiseWithin = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
+  if (timeoutMs <= 0) return null;
+  return Promise.race([
+    promise.then((value) => ({ timedOut: false as const, value })),
+    new Promise<{ timedOut: true }>((resolve) => {
+      setTimeout(() => resolve({ timedOut: true }), timeoutMs);
+    }),
+  ]).then((result) => (result.timedOut ? null : result.value));
+};
+
+const warmMetaAdsetCampaignMap = (accountId: string): Promise<MetaAdsetCampaignMapResult> => {
+  const existing = metaAdsetCampaignMapInFlight.get(accountId);
+  if (existing) return existing;
+  const promise = fetchMetaAdsetCampaignMap(accountId)
+    .then((result) => {
+      setTimedValue(metaAdsetCampaignMapCache, accountId, result, META_MAPPING_CACHE_TTL_MS);
+      return result;
+    })
+    .catch((error) => ({
+      map: new Map(),
+      error: error instanceof Error ? error.message : String(error),
+    }))
+    .finally(() => {
+      metaAdsetCampaignMapInFlight.delete(accountId);
+    });
+  metaAdsetCampaignMapInFlight.set(accountId, promise);
+  return promise;
+};
+
+const warmMetaAdCreativeEvidenceMap = (accountId: string): Promise<MetaAdCreativeEvidenceMapResult> => {
+  const existing = metaAdCreativeEvidenceMapInFlight.get(accountId);
+  if (existing) return existing;
+  const promise = fetchMetaAdCreativeEvidenceMaps(accountId)
+    .then((result) => {
+      setTimedValue(metaAdCreativeEvidenceMapCache, accountId, result, META_MAPPING_CACHE_TTL_MS);
+      return result;
+    })
+    .catch((error) => ({
+      adMap: new Map(),
+      aliasMap: new Map(),
+      landingPathMap: new Map(),
+      error: error instanceof Error ? error.message : String(error),
+    }))
+    .finally(() => {
+      metaAdCreativeEvidenceMapInFlight.delete(accountId);
+    });
+  metaAdCreativeEvidenceMapInFlight.set(accountId, promise);
+  return promise;
+};
+
+const getFastMetaAdsetCampaignMap = async (accountId: string): Promise<MetaAdsetCampaignMapResult> => {
+  const cached = getTimedValue(metaAdsetCampaignMapCache, accountId);
+  if (cached) return cached.value;
+
+  const warmPromise = warmMetaAdsetCampaignMap(accountId);
+  const warmResult = await waitForPromiseWithin(warmPromise, META_MAPPING_COLD_WAIT_MS);
+  if (warmResult) return warmResult;
+
+  const siteAccount = findSiteAccountByAccountId(accountId);
+  const fallbackMap = await loadLocalAuditAdsetCampaignMap(siteAccount?.site ?? null);
+  return {
+    map: fallbackMap,
+    error: fallbackMap.size > 0
+      ? `live Meta adset map warming; local alias audit fallback adsets=${fallbackMap.size}`
+      : "live Meta adset map warming; local alias audit fallback 없음",
+  };
+};
+
+const getFastMetaAdCreativeEvidenceMaps = async (accountId: string): Promise<MetaAdCreativeEvidenceMapResult> => {
+  const cached = getTimedValue(metaAdCreativeEvidenceMapCache, accountId);
+  if (cached) return cached.value;
+
+  const warmPromise = warmMetaAdCreativeEvidenceMap(accountId);
+  const warmResult = await waitForPromiseWithin(warmPromise, META_MAPPING_COLD_WAIT_MS);
+  if (warmResult) return warmResult;
+
+  const siteAccount = findSiteAccountByAccountId(accountId);
+  const localAdMap = await loadLocalAuditAdCampaignMap(siteAccount?.site ?? null);
+  return {
+    adMap: localAdMap,
+    aliasMap: new Map(),
+    landingPathMap: new Map(),
+    error: localAdMap.size > 0
+      ? `live Meta creative map warming; local alias audit fallback ads=${localAdMap.size}`
+      : "live Meta creative map warming; local alias audit fallback 없음",
+  };
+};
+
+const startMetaMappingWarmupOnce = () => {
+  if (metaMappingWarmupStarted) return;
+  metaMappingWarmupStarted = true;
+  setTimeout(() => {
+    void (async () => {
+      for (const account of SITE_ACCOUNTS) {
+        await Promise.all([
+          warmMetaAdsetCampaignMap(account.accountId),
+          warmMetaAdCreativeEvidenceMap(account.accountId),
+        ]);
+      }
+    })().catch((error) => {
+      console.warn("[ads] Meta mapping warmup failed", error instanceof Error ? error.message : String(error));
+    });
+  }, 5000);
 };
 
 const buildMetaReference = (params?: {
@@ -1602,6 +1809,7 @@ export const buildNormalizedLedgerOrders = (
       campaignIdHint,
       adsetIdHint,
       adIdHint,
+      landingPaths: extractLandingPathCandidates(urlCandidates),
       captureMode: attributionCarrier?.captureMode ?? preferred[0]?.captureMode ?? "live",
       paymentStatus,
       status,
@@ -1712,6 +1920,65 @@ type AdCampaignMatch = AdsetCampaignMatch & {
 
 type AdCampaignMap = Map<string, AdCampaignMatch>;
 
+type LandingPathCampaignMatch = AdCampaignMatch & {
+  confidence: string;
+};
+
+type LandingPathCampaignMap = Map<string, LandingPathCampaignMatch[]>;
+
+const MANUAL_VERIFIED_LANDING_PATH_CAMPAIGNS: Array<{
+  site: SiteKey;
+  landingPath: string;
+  campaignId: string;
+  campaignName: string;
+  adsetName: string;
+  adName: string;
+  confidence: string;
+}> = [
+  {
+    site: "biocom",
+    landingPath: "/iiary02",
+    campaignId: "120245003319500396",
+    campaignName: "meta_biocom_influencer_260506",
+    adsetName: "meta_biocom_iiari_260518",
+    adName: "meta_biocom_iiari_acid_260518",
+    confidence: "manual_verified_single_landing_path_20260518",
+  },
+];
+
+const getManualVerifiedLandingPathCampaignMap = (site: SiteKey | null): LandingPathCampaignMap => {
+  const map: LandingPathCampaignMap = new Map();
+  if (!site) return map;
+
+  for (const item of MANUAL_VERIFIED_LANDING_PATH_CAMPAIGNS.filter((candidate) => candidate.site === site)) {
+    const landingPath = normalizeLandingPathCandidate(item.landingPath);
+    if (!landingPath) continue;
+    const bucket = map.get(landingPath) ?? [];
+    bucket.push({
+      campaignId: item.campaignId,
+      campaignName: item.campaignName,
+      adsetName: item.adsetName,
+      adName: item.adName,
+      confidence: item.confidence,
+    });
+    map.set(landingPath, bucket);
+  }
+
+  return map;
+};
+
+const mergeLandingPathCampaignMaps = (...maps: LandingPathCampaignMap[]): LandingPathCampaignMap => {
+  const merged: LandingPathCampaignMap = new Map();
+  for (const map of maps) {
+    for (const [landingPath, matches] of map) {
+      const bucket = merged.get(landingPath) ?? [];
+      bucket.push(...matches);
+      merged.set(landingPath, bucket);
+    }
+  }
+  return merged;
+};
+
 type CampaignAliasMatch = {
   campaignId: string;
   campaignName: string | null;
@@ -1770,6 +2037,22 @@ const isAliasMatchActive = (match: CampaignAliasMatch, orderDate: string | null)
   return true;
 };
 
+const matchCampaignIdByLandingPath = (
+  order: NormalizedLedgerOrder,
+  campaigns: MetaCampaignAggregate[],
+  landingPathCampaignMap: LandingPathCampaignMap = new Map(),
+): string | null => {
+  const campaignIds = new Set<string>();
+  for (const landingPath of order.landingPaths) {
+    for (const match of landingPathCampaignMap.get(landingPath) ?? []) {
+      if (campaigns.some((campaign) => campaign.campaignId === match.campaignId)) {
+        campaignIds.add(match.campaignId);
+      }
+    }
+  }
+  return campaignIds.size === 1 ? [...campaignIds][0] ?? null : null;
+};
+
 const matchCampaignId = (
   utmCampaign: string,
   campaigns: MetaCampaignAggregate[],
@@ -1797,6 +2080,7 @@ const matchCampaignIdForOrder = (
   adsetCampaignMap: AdsetCampaignMap = new Map(),
   adCampaignMap: AdCampaignMap = new Map(),
   campaignAliasMap: CampaignAliasMap = new Map(),
+  landingPathCampaignMap: LandingPathCampaignMap = new Map(),
 ): string | null => {
   const campaignIdHint = order.campaignIdHint.trim();
   if (campaignIdHint && campaigns.some((campaign) => campaign.campaignId === campaignIdHint)) {
@@ -1824,7 +2108,9 @@ const matchCampaignIdForOrder = (
       .map((match) => match.campaignId),
   );
 
-  return activeAliasCampaignIds.size === 1 ? [...activeAliasCampaignIds][0] ?? null : null;
+  if (activeAliasCampaignIds.size === 1) return [...activeAliasCampaignIds][0] ?? null;
+
+  return matchCampaignIdByLandingPath(order, campaigns, landingPathCampaignMap);
 };
 
 export const buildCampaignRoasRows = (params: {
@@ -1834,6 +2120,7 @@ export const buildCampaignRoasRows = (params: {
   adsetCampaignMap?: AdsetCampaignMap;
   adCampaignMap?: AdCampaignMap;
   campaignAliasMap?: CampaignAliasMap;
+  landingPathCampaignMap?: LandingPathCampaignMap;
 }): CampaignRoasRow[] => {
   const campaigns = aggregateMetaCampaigns(params.metaRows);
   const revenueByCampaignId = new Map<string, { revenue: number; orders: number }>();
@@ -1847,6 +2134,7 @@ export const buildCampaignRoasRows = (params: {
       params.adsetCampaignMap,
       params.adCampaignMap,
       params.campaignAliasMap,
+      params.landingPathCampaignMap,
     );
     if (!matchedCampaignId) {
       unmappedRevenue += order.amount ?? 0;
@@ -2028,6 +2316,7 @@ const buildCampaignOrderMap = (params: {
   adsetCampaignMap?: AdsetCampaignMap;
   adCampaignMap?: AdCampaignMap;
   campaignAliasMap?: CampaignAliasMap;
+  landingPathCampaignMap?: LandingPathCampaignMap;
 }) => {
   const matched = new Map<string, NormalizedLedgerOrder[]>();
   for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
@@ -2037,6 +2326,7 @@ const buildCampaignOrderMap = (params: {
       params.adsetCampaignMap,
       params.adCampaignMap,
       params.campaignAliasMap,
+      params.landingPathCampaignMap,
     );
     if (!campaignId) continue;
     const bucket = matched.get(campaignId) ?? [];
@@ -2069,6 +2359,7 @@ const buildCampaignLtvRoasRows = async (params: {
   adsetCampaignMap?: AdsetCampaignMap;
   adCampaignMap?: AdCampaignMap;
   campaignAliasMap?: CampaignAliasMap;
+  landingPathCampaignMap?: LandingPathCampaignMap;
   ltvWindowDays: number;
 }): Promise<CampaignLtvRoasRow[]> => {
   if (!isDatabaseConfigured()) {
@@ -2081,16 +2372,30 @@ const buildCampaignLtvRoasRows = async (params: {
     adsetCampaignMap: params.adsetCampaignMap,
     adCampaignMap: params.adCampaignMap,
     campaignAliasMap: params.campaignAliasMap,
+    landingPathCampaignMap: params.landingPathCampaignMap,
   });
-  const orderNumbers = [...campaignOrderMap.values()].flat().map((order) => order.orderId);
-  const orderFactsByOrderNumber = await fetchOrderFactsByOrderNumbers(orderNumbers);
-  const phones = [...new Set([...orderFactsByOrderNumber.values()].map((fact) => fact.normalizedPhone))];
-  const futureOrdersByPhone = await fetchOrderFactsByPhones(
-    phones,
-    params.range.startDate,
-    shiftIsoDateByDays(params.range.endDate, params.ltvWindowDays),
+  const campaignOrders = [...campaignOrderMap.values()].flat();
+  const directPhoneByOrderKey = new Map(
+    campaignOrders
+      .map((order) => [order.key, normalizePhone(order.customerKey)] as const)
+      .filter(([, phone]) => Boolean(phone)),
   );
-  const completedConsultationPhones = await fetchCompletedConsultationPhones(phones);
+  const orderNumbersNeedingPhone = campaignOrders
+    .filter((order) => !directPhoneByOrderKey.get(order.key))
+    .map((order) => order.orderId);
+  const orderFactsByOrderNumber = await fetchOrderFactsByOrderNumbers(orderNumbersNeedingPhone);
+  const phones = [...new Set([
+    ...directPhoneByOrderKey.values(),
+    ...[...orderFactsByOrderNumber.values()].map((fact) => fact.normalizedPhone),
+  ].filter(Boolean))];
+  const [futureOrdersByPhone, completedConsultationPhones] = await Promise.all([
+    fetchOrderFactsByPhones(
+      phones,
+      params.range.startDate,
+      shiftIsoDateByDays(params.range.endDate, params.ltvWindowDays),
+    ),
+    fetchCompletedConsultationPhones(phones),
+  ]);
 
   return params.campaignRows.map((row) => {
     if (!row.campaignId) {
@@ -2132,7 +2437,7 @@ const buildCampaignLtvRoasRows = async (params: {
 
     for (const order of campaignOrders) {
       const fact = orderFactsByOrderNumber.get(order.orderId);
-      const phone = fact?.normalizedPhone ?? normalizePhone(order.customerKey);
+      const phone = directPhoneByOrderKey.get(order.key) ?? fact?.normalizedPhone ?? "";
       if (!phone) {
         unmatchedAttributedRevenue += order.amount ?? 0;
         continue;
@@ -2489,8 +2794,13 @@ const loadOperationalLedgerOrders = async (
   const requestedSource = options.source ?? "auto";
   const sites = [...new Set(options.sites?.length ? options.sites : SITE_ACCOUNTS.map((site) => site.site))];
   const warnings: string[] = [];
+  const loadSiteEntries = (site: SiteKey) => (
+    ADS_OPERATIONAL_LEDGER_DIRECT_SQLITE && options.range
+      ? readOperationalLedgerEntriesForAds(site, options.range)
+      : fetchOperationalLedgerEntriesForAds(site, options.range)
+  );
   const perSite = await Promise.allSettled(
-    sites.map(async (site) => ({ site, ...(await fetchOperationalLedgerEntriesForAds(site, options.range)) })),
+    sites.map(async (site) => ({ site, ...(await loadSiteEntries(site)) })),
   );
   const entries: AttributionLedgerEntry[] = [];
 
@@ -2541,6 +2851,125 @@ const loadLedgerOrders = async (
       "운영 VM ledger 조회 실패로 로컬 attribution_ledger로 fallback했다.",
     ]);
   }
+};
+
+type CampaignRoasBaseContext = {
+  accountId: string;
+  range: DateRange;
+  datePreset: string | null;
+  siteAccount: ReturnType<typeof findSiteAccountByAccountId>;
+  ledger: LoadedAdsLedger;
+  adsetCampaigns: MetaAdsetCampaignMapResult;
+  creativeEvidence: MetaAdCreativeEvidenceMapResult;
+  aliasCampaigns: { map: CampaignAliasMap; error: string | null };
+  campaignAliasMap: CampaignAliasMap;
+  landingPathCampaignMap: LandingPathCampaignMap;
+  filteredOrders: NormalizedLedgerOrder[];
+  campaignAggregates: MetaCampaignAggregate[];
+  campaignRows: CampaignRoasRow[];
+  generatedAtMs: number;
+  generationMs: number;
+};
+
+const CAMPAIGN_ROAS_BASE_CACHE_TTL_MS = 15 * 60 * 1000;
+const campaignRoasBaseCache = new Map<string, TimedValue<CampaignRoasBaseContext>>();
+const campaignRoasBaseInFlight = new Map<string, Promise<CampaignRoasBaseContext>>();
+
+const buildCampaignRoasBaseCacheKey = (params: {
+  accountId: string;
+  range: DateRange;
+  datePreset: string | null;
+  ledgerSource: AdsLedgerSourceRequest | undefined;
+}) => {
+  const rangeKey = params.datePreset ?? `${params.range.startDate}:${params.range.endDate}`;
+  return `campaign-roas-base:${params.accountId}:${rangeKey}:${params.ledgerSource ?? "auto"}`;
+};
+
+const loadCampaignRoasBaseContext = async (params: {
+  accountId: string;
+  range: DateRange;
+  datePreset: string | null;
+  siteAccount: ReturnType<typeof findSiteAccountByAccountId>;
+  ledgerOptions: AdsLedgerLoadOptions;
+  forceRefresh: boolean;
+}): Promise<CampaignRoasBaseContext> => {
+  const cacheKey = buildCampaignRoasBaseCacheKey({
+    accountId: params.accountId,
+    range: params.range,
+    datePreset: params.datePreset,
+    ledgerSource: params.ledgerOptions.source,
+  });
+  if (!params.forceRefresh) {
+    const cached = getTimedValue(campaignRoasBaseCache, cacheKey);
+    if (cached) return cached.value;
+    const inFlight = campaignRoasBaseInFlight.get(cacheKey);
+    if (inFlight) return inFlight;
+  }
+
+  const generationStartedAtMs = Date.now();
+  const promise = Promise.all([
+    fetchMetaInsights({
+      accountId: params.accountId,
+      fields: "campaign_name,campaign_id,impressions,clicks,spend",
+      level: "campaign",
+      ...(params.datePreset ? { datePreset: params.datePreset } : { range: params.range }),
+      limit: "100",
+      actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
+      useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
+    }),
+    getFastMetaAdsetCampaignMap(params.accountId),
+    getFastMetaAdCreativeEvidenceMaps(params.accountId),
+    fetchManualVerifiedAliasMap(params.siteAccount?.site ?? null),
+    loadLedgerOrders(params.ledgerOptions),
+  ]).then(([metaResult, adsetCampaigns, creativeEvidence, aliasCampaigns, ledger]) => {
+    if (!metaResult.ok) {
+      throw new Error(metaResult.error);
+    }
+
+    const filteredOrders = filterOrdersByRange(filterOrdersForAccount(ledger.orders, params.accountId), params.range);
+    const campaignAliasMap = mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap);
+    const landingPathCampaignMap = mergeLandingPathCampaignMaps(
+      getManualVerifiedLandingPathCampaignMap(params.siteAccount?.site ?? null),
+      creativeEvidence.landingPathMap,
+    );
+    const campaignAggregates = aggregateMetaCampaigns(metaResult.data);
+    const campaignRows = buildCampaignRoasRows({
+      metaRows: metaResult.data,
+      orders: filteredOrders,
+      ledgerAvailable: ledger.entries.length > 0,
+      adsetCampaignMap: adsetCampaigns.map,
+      adCampaignMap: creativeEvidence.adMap,
+      campaignAliasMap,
+      landingPathCampaignMap,
+    });
+    const generatedAtMs = Date.now();
+    const context: CampaignRoasBaseContext = {
+      accountId: params.accountId,
+      range: params.range,
+      datePreset: params.datePreset,
+      siteAccount: params.siteAccount,
+      ledger,
+      adsetCampaigns,
+      creativeEvidence,
+      aliasCampaigns,
+      campaignAliasMap,
+      landingPathCampaignMap,
+      filteredOrders,
+      campaignAggregates,
+      campaignRows,
+      generatedAtMs,
+      generationMs: generatedAtMs - generationStartedAtMs,
+    };
+    setTimedValue(campaignRoasBaseCache, cacheKey, context, CAMPAIGN_ROAS_BASE_CACHE_TTL_MS);
+    return context;
+  }).finally(() => {
+    campaignRoasBaseInFlight.delete(cacheKey);
+  });
+
+  if (!params.forceRefresh) {
+    campaignRoasBaseInFlight.set(cacheKey, promise);
+  }
+  return promise;
 };
 
 const ledgerQueryOptions = (
@@ -2668,6 +3097,765 @@ const ledgerResponseMeta = (
       meta_attribution_windows: metaAttributionContext.meta_attribution_windows,
       meta_action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
       meta_use_unified_attribution_setting: metaAttributionContext.meta_use_unified_attribution_setting,
+    },
+  };
+};
+
+type MetaUtmLevel = "campaign" | "adset" | "ad";
+type MetaUtmSection = "ready" | "blocked";
+
+type MetaUtmCampaignEntity = {
+  id: string;
+  name?: string;
+  status?: string;
+  effective_status?: string;
+  configured_status?: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+  objective?: string;
+};
+
+type MetaUtmAdsetEntity = {
+  id: string;
+  name?: string;
+  campaign_id?: string;
+  campaign?: { id?: string; name?: string };
+  status?: string;
+  effective_status?: string;
+  configured_status?: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+  optimization_goal?: string;
+  learning_stage_info?: Record<string, unknown>;
+};
+
+type MetaUtmCreative = {
+  id?: string;
+  name?: string;
+  thumbnail_url?: string;
+  image_url?: string;
+  url_tags?: string;
+  link_url?: string;
+  object_url?: string;
+  object_story_spec?: unknown;
+  asset_feed_spec?: unknown;
+  instagram_permalink_url?: string;
+};
+
+type MetaUtmAdEntity = {
+  id: string;
+  name?: string;
+  adset_id?: string;
+  campaign_id?: string;
+  adset?: { id?: string; name?: string };
+  campaign?: { id?: string; name?: string };
+  status?: string;
+  effective_status?: string;
+  configured_status?: string;
+  creative?: MetaUtmCreative;
+};
+
+type MetaUtmInsightRow = MetaInsightRow & {
+  adset_name?: string;
+  adset_id?: string;
+  ad_name?: string;
+  ad_id?: string;
+  reach?: string;
+};
+
+type MetaUtmMetrics = {
+  impressions: number;
+  reach: number;
+  clicks: number;
+  spend: number;
+  cpm: number;
+  cpc: number;
+  purchases: number;
+  purchaseValue: number;
+  costPerPurchase: number | null;
+};
+
+type MetaUtmBudget = {
+  amount: number | null;
+  label: string;
+  source: "campaign" | "adset" | "none";
+};
+
+type MetaUtmEvidence = {
+  hasMetaSource: boolean;
+  hasPaidMedium: boolean;
+  hasCampaignId: boolean;
+  hasAdsetId: boolean;
+  hasAdId: boolean;
+  hasCampaignMacro: boolean;
+  hasAdsetMacro: boolean;
+  hasAdMacro: boolean;
+  hasLandingUrl: boolean;
+  sampleUrl: string | null;
+  sampleTags: string | null;
+  readyAdCount: number;
+  blockedAdCount: number;
+  totalAdCount: number;
+  reasons: string[];
+};
+
+type MetaUtmRow = {
+  rowKey: string;
+  level: MetaUtmLevel;
+  section: MetaUtmSection;
+  name: string;
+  campaignId: string;
+  campaignName: string;
+  adsetId: string | null;
+  adsetName: string | null;
+  adId: string | null;
+  adName: string | null;
+  thumbnailUrl: string | null;
+  status: string;
+  effectiveStatus: string;
+  deliveryLabel: string;
+  deliveryRaw: string;
+  budget: MetaUtmBudget;
+  metrics: MetaUtmMetrics;
+  att: {
+    roas: number | null;
+    revenue: number;
+    orders: number;
+    scope: "campaign" | "exact_adset" | "exact_ad" | "none";
+    calculable: boolean;
+  };
+  evidence: MetaUtmEvidence;
+};
+
+const META_UTM_DIAGNOSTICS_CACHE_TTL_MS = 15 * 60 * 1000;
+
+const isMetaActiveLike = (status: string, spend: number): boolean => {
+  const normalized = status.trim().toUpperCase();
+  return spend > 0 || [
+    "ACTIVE",
+    "IN_PROCESS",
+    "PENDING_REVIEW",
+    "PREAPPROVED",
+    "WITH_ISSUES",
+  ].includes(normalized);
+};
+
+const parseMetaUtmBudget = (
+  entity: { daily_budget?: string; lifetime_budget?: string } | undefined,
+  source: MetaUtmBudget["source"],
+): MetaUtmBudget => {
+  const daily = toPositiveNumber(entity?.daily_budget);
+  if (daily) return { amount: daily, label: "일 예산", source };
+  const lifetime = toPositiveNumber(entity?.lifetime_budget);
+  if (lifetime) return { amount: lifetime, label: "총 예산", source };
+  return { amount: null, label: source === "none" ? "예산 없음" : `${source === "campaign" ? "캠페인" : "광고세트"} 예산 사용`, source };
+};
+
+const stringifyLearningStage = (value: unknown): string => {
+  if (!value || typeof value !== "object") return "";
+  return JSON.stringify(value).toUpperCase();
+};
+
+const mapMetaDeliveryLabel = (params: {
+  status?: string;
+  effectiveStatus?: string;
+  learningStageInfo?: unknown;
+  spend: number;
+  impressions: number;
+}): string => {
+  const status = (params.effectiveStatus || params.status || "").toUpperCase();
+  const learning = stringifyLearningStage(params.learningStageInfo);
+  if (learning.includes("LEARNING")) return "머신러닝 진행 중";
+  if (status === "ACTIVE") return "활동 중";
+  if (status === "PENDING_REVIEW" || status === "PREAPPROVED") return "준비중";
+  if (status === "WITH_ISSUES") return "광고 오류";
+  if (status.includes("PAUSED")) return params.spend > 0 || params.impressions > 0 ? "최근 게재됨" : "꺼짐";
+  if (!status && (params.spend > 0 || params.impressions > 0)) return "최근 게재됨";
+  return status || "상태 미확인";
+};
+
+const pickMetaUtmId = (
+  values: string[],
+  keys: string[],
+  macroNames: string[],
+): { id: string; hasMacro: boolean } => {
+  const id = extractFirstNumericUrlParam(values, keys);
+  const lowerValues = values.map((value) => value.toLowerCase());
+  const hasMacro = macroNames.some((macro) => lowerValues.some((value) => value.includes(macro.toLowerCase())));
+  return { id, hasMacro };
+};
+
+const firstUrlLikeValue = (values: string[]): string | null => {
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  }
+  return null;
+};
+
+const collectCreativeTrackingValues = (creative: MetaUtmCreative | undefined): string[] => (
+  collectStringValuesDeep({
+    url_tags: creative?.url_tags,
+    link_url: creative?.link_url,
+    object_url: creative?.object_url,
+    object_story_spec: creative?.object_story_spec,
+    asset_feed_spec: creative?.asset_feed_spec,
+    instagram_permalink_url: creative?.instagram_permalink_url,
+  })
+);
+
+const buildAdUtmEvidence = (
+  ad: MetaUtmAdEntity,
+): MetaUtmEvidence => {
+  const creativeValues = collectCreativeTrackingValues(ad.creative);
+  const utmSource = extractFirstUrlParam(creativeValues, "utm_source").toLowerCase();
+  const utmMedium = extractFirstUrlParam(creativeValues, "utm_medium").toLowerCase();
+  const campaign = pickMetaUtmId(
+    creativeValues,
+    ["meta_campaign_id", "campaign_id", "utm_id", "utm_campaign"],
+    ["{{campaign.id}}", "{{campaign_id}}"],
+  );
+  const adset = pickMetaUtmId(
+    creativeValues,
+    ["meta_adset_id", "adset_id", "utm_term"],
+    ["{{adset.id}}", "{{adset_id}}"],
+  );
+  const adId = pickMetaUtmId(
+    creativeValues,
+    ["meta_ad_id", "ad_id", "utm_content"],
+    ["{{ad.id}}", "{{ad_id}}"],
+  );
+  const hasMetaSource = utmSource.includes("meta") || utmSource.includes("facebook") || utmSource.includes("instagram");
+  const hasPaidMedium = utmMedium.includes("paid") || utmMedium.includes("cpc") || utmMedium.includes("social");
+  const hasCampaignId = Boolean(campaign.id || campaign.hasMacro);
+  const hasAdsetId = Boolean(adset.id || adset.hasMacro);
+  const hasAdId = Boolean(adId.id || adId.hasMacro);
+  const hasLandingUrl = creativeValues.some((value) => /^https?:\/\//i.test(value.trim()));
+  const reasons: string[] = [];
+  if (hasMetaSource) reasons.push("utm_source가 Meta 계열로 확인됨");
+  if (hasPaidMedium) reasons.push("utm_medium이 유료 광고 계열로 확인됨");
+  if (hasCampaignId) reasons.push("campaign id 또는 dynamic macro 확인");
+  if (hasAdsetId) reasons.push("adset id 또는 dynamic macro 확인");
+  if (hasAdId) reasons.push("ad id 또는 dynamic macro 확인");
+  if (!hasMetaSource) reasons.push("utm_source=meta/facebook/instagram 확인 필요");
+  if (!hasPaidMedium) reasons.push("utm_medium=paid_social/cpc 확인 필요");
+  if (!hasCampaignId) reasons.push("utm_campaign 또는 meta_campaign_id에 campaign id 필요");
+  if (!hasAdsetId) reasons.push("utm_term 또는 meta_adset_id에 adset id 필요");
+  if (!hasAdId) reasons.push("utm_content 또는 meta_ad_id에 ad id 필요");
+
+  return {
+    hasMetaSource,
+    hasPaidMedium,
+    hasCampaignId,
+    hasAdsetId,
+    hasAdId,
+    hasCampaignMacro: campaign.hasMacro,
+    hasAdsetMacro: adset.hasMacro,
+    hasAdMacro: adId.hasMacro,
+    hasLandingUrl,
+    sampleUrl: firstUrlLikeValue(creativeValues),
+    sampleTags: ad.creative?.url_tags ?? null,
+    readyAdCount: 0,
+    blockedAdCount: 0,
+    totalAdCount: 1,
+    reasons,
+  };
+};
+
+const isAdUtmReady = (evidence: MetaUtmEvidence) => (
+  evidence.hasMetaSource
+  && evidence.hasPaidMedium
+  && evidence.hasCampaignId
+  && evidence.hasAdsetId
+  && evidence.hasAdId
+);
+
+const aggregateUtmEvidence = (evidences: MetaUtmEvidence[]): MetaUtmEvidence => {
+  const readyAdCount = evidences.filter(isAdUtmReady).length;
+  const blockedAdCount = evidences.length - readyAdCount;
+  const reasons = new Set<string>();
+  const addMissing = (condition: boolean, message: string) => {
+    if (!condition) reasons.add(message);
+  };
+  const hasMetaSource = evidences.length > 0 && evidences.every((item) => item.hasMetaSource);
+  const hasPaidMedium = evidences.length > 0 && evidences.every((item) => item.hasPaidMedium);
+  const hasCampaignId = evidences.length > 0 && evidences.every((item) => item.hasCampaignId);
+  const hasAdsetId = evidences.length > 0 && evidences.every((item) => item.hasAdsetId);
+  const hasAdId = evidences.length > 0 && evidences.every((item) => item.hasAdId);
+  if (readyAdCount > 0) reasons.add(`UTM 준비 광고 ${readyAdCount}개`);
+  if (blockedAdCount > 0) reasons.add(`UTM 보완 필요 광고 ${blockedAdCount}개`);
+  addMissing(evidences.length > 0, "하위 광고 URL evidence 없음");
+  addMissing(hasMetaSource, "일부 광고의 utm_source 보완 필요");
+  addMissing(hasPaidMedium, "일부 광고의 utm_medium 보완 필요");
+  addMissing(hasCampaignId, "일부 광고의 campaign id 보완 필요");
+  addMissing(hasAdsetId, "일부 광고의 adset id 보완 필요");
+  addMissing(hasAdId, "일부 광고의 ad id 보완 필요");
+
+  return {
+    hasMetaSource,
+    hasPaidMedium,
+    hasCampaignId,
+    hasAdsetId,
+    hasAdId,
+    hasCampaignMacro: evidences.some((item) => item.hasCampaignMacro),
+    hasAdsetMacro: evidences.some((item) => item.hasAdsetMacro),
+    hasAdMacro: evidences.some((item) => item.hasAdMacro),
+    hasLandingUrl: evidences.some((item) => item.hasLandingUrl),
+    sampleUrl: evidences.find((item) => item.sampleUrl)?.sampleUrl ?? null,
+    sampleTags: evidences.find((item) => item.sampleTags)?.sampleTags ?? null,
+    readyAdCount,
+    blockedAdCount,
+    totalAdCount: evidences.length,
+    reasons: [...reasons],
+  };
+};
+
+const parseMetaUtmMetrics = (row: MetaUtmInsightRow | undefined): MetaUtmMetrics => {
+  const actions = parseActions(row?.actions, null);
+  const purchaseValue = parsePurchaseValue(row?.action_values, null);
+  const spend = round2(toNumber(row?.spend));
+  const clicks = toNumber(row?.clicks);
+  const impressions = toNumber(row?.impressions);
+  const purchases = actions.purchases;
+  return {
+    impressions,
+    reach: toNumber(row?.reach),
+    clicks,
+    spend,
+    cpm: row?.cpm ? round2(toNumber(row.cpm)) : impressions > 0 ? round2((spend / impressions) * 1000) : 0,
+    cpc: row?.cpc ? round2(toNumber(row.cpc)) : clicks > 0 ? round2(spend / clicks) : 0,
+    purchases,
+    purchaseValue: round2(purchaseValue),
+    costPerPurchase: purchases > 0 ? round2(spend / purchases) : null,
+  };
+};
+
+const emptyMetaUtmMetrics = (): MetaUtmMetrics => ({
+  impressions: 0,
+  reach: 0,
+  clicks: 0,
+  spend: 0,
+  cpm: 0,
+  cpc: 0,
+  purchases: 0,
+  purchaseValue: 0,
+  costPerPurchase: null,
+});
+
+const buildMetaUtmAtt = (params: {
+  revenue: number;
+  orders: number;
+  spend: number;
+  ledgerAvailable: boolean;
+  scope: MetaUtmRow["att"]["scope"];
+  calculable: boolean;
+}): MetaUtmRow["att"] => ({
+  revenue: round2(params.revenue),
+  orders: params.orders,
+  roas: params.calculable ? computeRoas(params.revenue, params.spend, params.ledgerAvailable) : null,
+  scope: params.scope,
+  calculable: params.calculable,
+});
+
+const buildMetaUtmDiagnostics = async (params: {
+  accountId: string;
+  range: DateRange;
+  datePreset: string | null;
+  siteAccount: ReturnType<typeof findSiteAccountByAccountId>;
+  ledgerOptions: AdsLedgerLoadOptions;
+  forceRefresh: boolean;
+}) => {
+  const baseContext = await loadCampaignRoasBaseContext({
+    accountId: params.accountId,
+    range: params.range,
+    datePreset: params.datePreset,
+    siteAccount: params.siteAccount,
+    ledgerOptions: params.ledgerOptions,
+    forceRefresh: params.forceRefresh,
+  });
+
+  const insightsParams: Record<string, string> = {
+    fields: [
+      "campaign_name",
+      "campaign_id",
+      "adset_name",
+      "adset_id",
+      "ad_name",
+      "ad_id",
+      "impressions",
+      "reach",
+      "clicks",
+      "spend",
+      "cpc",
+      "cpm",
+      "actions",
+      "action_values",
+    ].join(","),
+    limit: "200",
+    action_report_time: META_DEFAULT_ACTION_REPORT_TIME,
+    use_unified_attribution_setting: "true",
+  };
+  if (params.datePreset) {
+    insightsParams.date_preset = params.datePreset;
+  } else {
+    insightsParams.time_range = JSON.stringify({
+      since: params.range.startDate,
+      until: params.range.endDate,
+    });
+  }
+
+  const [campaignEntitiesResult, adsetEntitiesResult, adEntitiesResult, campaignInsightsResult, adsetInsightsResult, adInsightsResult] = await Promise.all([
+    fetchMetaPaged<MetaUtmCampaignEntity>(
+      `/${params.accountId}/campaigns`,
+      { fields: "id,name,status,effective_status,configured_status,daily_budget,lifetime_budget,objective", limit: "200" },
+      500,
+    ),
+    fetchMetaPaged<MetaUtmAdsetEntity>(
+      `/${params.accountId}/adsets`,
+      { fields: "id,name,campaign_id,campaign{id,name},status,effective_status,configured_status,daily_budget,lifetime_budget,optimization_goal,learning_stage_info", limit: "200" },
+      1500,
+    ),
+    fetchMetaPaged<MetaUtmAdEntity>(
+      `/${params.accountId}/ads`,
+      {
+        fields: [
+          "id",
+          "name",
+          "adset_id",
+          "campaign_id",
+          "status",
+          "effective_status",
+          "configured_status",
+          "adset{id,name}",
+          "campaign{id,name}",
+          "creative{id,thumbnail_url,image_url,url_tags,link_url}",
+        ].join(","),
+        limit: "100",
+      },
+      1500,
+    ),
+    fetchMetaPaged<MetaUtmInsightRow>(
+      `/${params.accountId}/insights`,
+      { ...insightsParams, level: "campaign" },
+      500,
+    ),
+    fetchMetaPaged<MetaUtmInsightRow>(
+      `/${params.accountId}/insights`,
+      { ...insightsParams, level: "adset" },
+      1500,
+    ),
+    fetchMetaPaged<MetaUtmInsightRow>(
+      `/${params.accountId}/insights`,
+      { ...insightsParams, level: "ad" },
+      2500,
+    ),
+  ]);
+
+  if (
+    !campaignEntitiesResult.ok
+    || !adsetEntitiesResult.ok
+    || !adEntitiesResult.ok
+    || !campaignInsightsResult.ok
+    || !adsetInsightsResult.ok
+    || !adInsightsResult.ok
+  ) {
+    const errors = {
+      campaigns: campaignEntitiesResult.ok ? null : campaignEntitiesResult.error,
+      adsets: adsetEntitiesResult.ok ? null : adsetEntitiesResult.error,
+      ads: adEntitiesResult.ok ? null : adEntitiesResult.error,
+      campaign_insights: campaignInsightsResult.ok ? null : campaignInsightsResult.error,
+      adset_insights: adsetInsightsResult.ok ? null : adsetInsightsResult.error,
+      ad_insights: adInsightsResult.ok ? null : adInsightsResult.error,
+    };
+    throw new Error(Object.entries(errors).filter(([, value]) => value).map(([key, value]) => `${key}: ${value}`).join(" / "));
+  }
+
+  const errors = {
+    campaigns: null,
+    adsets: null,
+    ads: null,
+    campaign_insights: null,
+    adset_insights: null,
+    ad_insights: null,
+  };
+  const campaigns: MetaUtmCampaignEntity[] = campaignEntitiesResult.data;
+  const adsets: MetaUtmAdsetEntity[] = adsetEntitiesResult.data;
+  const ads: MetaUtmAdEntity[] = adEntitiesResult.data;
+  const campaignInsights: MetaUtmInsightRow[] = campaignInsightsResult.data;
+  const adsetInsights: MetaUtmInsightRow[] = adsetInsightsResult.data;
+  const adInsights: MetaUtmInsightRow[] = adInsightsResult.data;
+
+  const campaignById = new Map(campaigns.map((campaign) => [campaign.id, campaign]));
+  const adsetById = new Map(adsets.map((adset) => [adset.id, adset]));
+  const adsByCampaignId = new Map<string, MetaUtmAdEntity[]>();
+  const adsByAdsetId = new Map<string, MetaUtmAdEntity[]>();
+  for (const ad of ads) {
+    const campaignId = ad.campaign_id ?? ad.campaign?.id ?? "";
+    const adsetId = ad.adset_id ?? ad.adset?.id ?? "";
+    if (campaignId) {
+      const bucket = adsByCampaignId.get(campaignId) ?? [];
+      bucket.push(ad);
+      adsByCampaignId.set(campaignId, bucket);
+    }
+    if (adsetId) {
+      const bucket = adsByAdsetId.get(adsetId) ?? [];
+      bucket.push(ad);
+      adsByAdsetId.set(adsetId, bucket);
+    }
+  }
+
+  const insightByCampaignId = new Map<string, MetaUtmInsightRow>();
+  for (const row of campaignInsights) {
+    if (row.campaign_id) insightByCampaignId.set(row.campaign_id, row);
+  }
+  const insightByAdsetId = new Map<string, MetaUtmInsightRow>();
+  for (const row of adsetInsights) {
+    if (row.adset_id) insightByAdsetId.set(row.adset_id, row);
+  }
+  const insightByAdId = new Map<string, MetaUtmInsightRow>();
+  for (const row of adInsights) {
+    if (row.ad_id) insightByAdId.set(row.ad_id, row);
+  }
+  const campaignRoasById = new Map(baseContext.campaignRows.filter((row) => row.campaignId).map((row) => [row.campaignId ?? "", row]));
+
+  const adToAdsetId = new Map<string, string>();
+  for (const ad of ads) {
+    const adsetId = ad.adset_id ?? ad.adset?.id ?? "";
+    if (ad.id && adsetId) adToAdsetId.set(ad.id, adsetId);
+  }
+
+  const exactAdsetRevenue = new Map<string, { revenue: number; orders: number }>();
+  const exactAdRevenue = new Map<string, { revenue: number; orders: number }>();
+  for (const order of baseContext.filteredOrders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
+    const amount = order.amount ?? 0;
+    const adId = order.adIdHint.trim();
+    if (adId) {
+      const adExisting = exactAdRevenue.get(adId) ?? { revenue: 0, orders: 0 };
+      adExisting.revenue += amount;
+      adExisting.orders += 1;
+      exactAdRevenue.set(adId, adExisting);
+
+      const parentAdsetId = adToAdsetId.get(adId);
+      if (parentAdsetId) {
+        const adsetExisting = exactAdsetRevenue.get(parentAdsetId) ?? { revenue: 0, orders: 0 };
+        adsetExisting.revenue += amount;
+        adsetExisting.orders += 1;
+        exactAdsetRevenue.set(parentAdsetId, adsetExisting);
+      }
+    }
+
+    const adsetId = order.adsetIdHint.trim();
+    if (adsetId) {
+      const existing = exactAdsetRevenue.get(adsetId) ?? { revenue: 0, orders: 0 };
+      existing.revenue += amount;
+      existing.orders += 1;
+      exactAdsetRevenue.set(adsetId, existing);
+    }
+  }
+
+  const adEvidenceById = new Map(ads.map((ad) => [ad.id, buildAdUtmEvidence(ad)]));
+  const buildEntityEvidence = (childAds: MetaUtmAdEntity[]) => aggregateUtmEvidence(
+    childAds.map((ad) => adEvidenceById.get(ad.id)).filter((item): item is MetaUtmEvidence => Boolean(item)),
+  );
+
+  const campaignRows: MetaUtmRow[] = campaigns.map((campaign) => {
+    const metrics = parseMetaUtmMetrics(insightByCampaignId.get(campaign.id));
+    const childAds = (adsByCampaignId.get(campaign.id) ?? [])
+      .filter((ad) => isMetaActiveLike(ad.effective_status ?? ad.status ?? "", parseMetaUtmMetrics(insightByAdId.get(ad.id)).spend));
+    const evidence = buildEntityEvidence(childAds);
+    const section: MetaUtmSection = evidence.totalAdCount > 0 && evidence.blockedAdCount === 0 ? "ready" : "blocked";
+    const roasRow = campaignRoasById.get(campaign.id);
+    return {
+      rowKey: `campaign:${campaign.id}`,
+      level: "campaign" as const,
+      section,
+      name: campaign.name ?? campaign.id,
+      campaignId: campaign.id,
+      campaignName: campaign.name ?? campaign.id,
+      adsetId: null,
+      adsetName: null,
+      adId: null,
+      adName: null,
+      thumbnailUrl: null,
+      status: campaign.status ?? "",
+      effectiveStatus: campaign.effective_status ?? "",
+      deliveryLabel: mapMetaDeliveryLabel({
+        status: campaign.status,
+        effectiveStatus: campaign.effective_status,
+        spend: metrics.spend,
+        impressions: metrics.impressions,
+      }),
+      deliveryRaw: campaign.effective_status ?? campaign.status ?? "",
+      budget: parseMetaUtmBudget(campaign, "campaign"),
+      metrics,
+      att: buildMetaUtmAtt({
+        revenue: roasRow?.attributedRevenue ?? 0,
+        orders: roasRow?.orders ?? 0,
+        spend: metrics.spend,
+        ledgerAvailable: baseContext.ledger.entries.length > 0,
+        scope: "campaign",
+        calculable: section === "ready",
+      }),
+      evidence,
+    };
+  }).filter((row) => isMetaActiveLike(row.effectiveStatus || row.status, row.metrics.spend));
+
+  const adsetRows: MetaUtmRow[] = adsets.map((adset) => {
+    const adsetId = adset.id;
+    const campaignId = adset.campaign_id ?? adset.campaign?.id ?? "";
+    const campaign = campaignById.get(campaignId);
+    const metrics = parseMetaUtmMetrics(insightByAdsetId.get(adsetId));
+    const childAds = (adsByAdsetId.get(adsetId) ?? [])
+      .filter((ad) => isMetaActiveLike(ad.effective_status ?? ad.status ?? "", parseMetaUtmMetrics(insightByAdId.get(ad.id)).spend));
+    const evidence = buildEntityEvidence(childAds);
+    const section: MetaUtmSection = evidence.totalAdCount > 0 && evidence.blockedAdCount === 0 ? "ready" : "blocked";
+    const exact = exactAdsetRevenue.get(adsetId);
+    return {
+      rowKey: `adset:${adsetId}`,
+      level: "adset" as const,
+      section,
+      name: adset.name ?? adsetId,
+      campaignId,
+      campaignName: campaign?.name ?? adset.campaign?.name ?? campaignId,
+      adsetId,
+      adsetName: adset.name ?? adsetId,
+      adId: null,
+      adName: null,
+      thumbnailUrl: null,
+      status: adset.status ?? "",
+      effectiveStatus: adset.effective_status ?? "",
+      deliveryLabel: mapMetaDeliveryLabel({
+        status: adset.status,
+        effectiveStatus: adset.effective_status,
+        learningStageInfo: adset.learning_stage_info,
+        spend: metrics.spend,
+        impressions: metrics.impressions,
+      }),
+      deliveryRaw: adset.effective_status ?? adset.status ?? "",
+      budget: parseMetaUtmBudget(adset, "adset"),
+      metrics,
+      att: buildMetaUtmAtt({
+        revenue: exact?.revenue ?? 0,
+        orders: exact?.orders ?? 0,
+        spend: metrics.spend,
+        ledgerAvailable: baseContext.ledger.entries.length > 0,
+        scope: "exact_adset",
+        calculable: section === "ready",
+      }),
+      evidence,
+    };
+  }).filter((row) => isMetaActiveLike(row.effectiveStatus || row.status, row.metrics.spend));
+
+  const adRows: MetaUtmRow[] = ads.map((ad) => {
+    const campaignId = ad.campaign_id ?? ad.campaign?.id ?? "";
+    const adsetId = ad.adset_id ?? ad.adset?.id ?? "";
+    const campaign = campaignById.get(campaignId);
+    const adset = adsetById.get(adsetId);
+    const metrics = parseMetaUtmMetrics(insightByAdId.get(ad.id));
+    const evidence = adEvidenceById.get(ad.id) ?? buildAdUtmEvidence(ad);
+    const section: MetaUtmSection = isAdUtmReady(evidence) ? "ready" : "blocked";
+    const exact = exactAdRevenue.get(ad.id);
+    return {
+      rowKey: `ad:${ad.id}`,
+      level: "ad" as const,
+      section,
+      name: ad.name ?? ad.id,
+      campaignId,
+      campaignName: campaign?.name ?? ad.campaign?.name ?? campaignId,
+      adsetId,
+      adsetName: adset?.name ?? ad.adset?.name ?? adsetId,
+      adId: ad.id,
+      adName: ad.name ?? ad.id,
+      thumbnailUrl: ad.creative?.thumbnail_url ?? ad.creative?.image_url ?? null,
+      status: ad.status ?? "",
+      effectiveStatus: ad.effective_status ?? "",
+      deliveryLabel: mapMetaDeliveryLabel({
+        status: ad.status,
+        effectiveStatus: ad.effective_status,
+        spend: metrics.spend,
+        impressions: metrics.impressions,
+      }),
+      deliveryRaw: ad.effective_status ?? ad.status ?? "",
+      budget: parseMetaUtmBudget(adset, "adset"),
+      metrics,
+      att: buildMetaUtmAtt({
+        revenue: exact?.revenue ?? 0,
+        orders: exact?.orders ?? 0,
+        spend: metrics.spend,
+        ledgerAvailable: baseContext.ledger.entries.length > 0,
+        scope: "exact_ad",
+        calculable: section === "ready",
+      }),
+      evidence,
+    };
+  }).filter((row) => isMetaActiveLike(row.effectiveStatus || row.status, row.metrics.spend));
+
+  const rows = [...campaignRows, ...adsetRows, ...adRows].sort((a, b) => {
+    const levelRank: Record<MetaUtmLevel, number> = { campaign: 0, adset: 1, ad: 2 };
+    return levelRank[a.level] - levelRank[b.level]
+      || b.metrics.spend - a.metrics.spend
+      || a.name.localeCompare(b.name, "ko-KR");
+  });
+  const readyRows = rows.filter((row) => row.section === "ready");
+  const blockedRows = rows.filter((row) => row.section === "blocked");
+  const byLevel = (level: MetaUtmLevel) => rows.filter((row) => row.level === level);
+  const totalsFor = (inputRows: MetaUtmRow[]) => ({
+    rows: inputRows.length,
+    spend: round2(inputRows.reduce((sum, row) => sum + row.metrics.spend, 0)),
+    purchases: inputRows.reduce((sum, row) => sum + row.metrics.purchases, 0),
+    attRevenue: round2(inputRows.reduce((sum, row) => sum + row.att.revenue, 0)),
+    attOrders: inputRows.reduce((sum, row) => sum + row.att.orders, 0),
+  });
+
+  return {
+    ok: true,
+    ...ledgerResponseMeta(baseContext.ledger, {
+      range: params.range,
+      datePreset: params.datePreset,
+      accountId: params.accountId,
+      site: params.siteAccount?.site ?? null,
+      metaLevel: "campaign/adset/ad",
+      metaFields: insightsParams.fields,
+    }),
+    account_id: params.accountId,
+    date_preset: params.datePreset,
+    range: params.range,
+    generated_at: new Date().toISOString(),
+    sections: {
+      ready: readyRows,
+      blocked: blockedRows,
+    },
+    rows,
+    summary: {
+      total: totalsFor(rows),
+      ready: totalsFor(readyRows),
+      blocked: totalsFor(blockedRows),
+      byLevel: {
+        campaign: totalsFor(byLevel("campaign")),
+        adset: totalsFor(byLevel("adset")),
+        ad: totalsFor(byLevel("ad")),
+      },
+      rawCounts: {
+        campaigns: campaigns.length,
+        adsets: adsets.length,
+        ads: ads.length,
+        campaignInsights: campaignInsights.length,
+        adsetInsights: adsetInsights.length,
+        adInsights: adInsights.length,
+      },
+    },
+    diagnostics: {
+      errors,
+      limitations: [
+        "Ads Manager의 게재 문구는 Meta API effective_status와 adset learning_stage_info를 기준으로 근사한다.",
+        "광고세트/광고 단위 ATT ROAS는 주문 원장에 adset id 또는 ad id가 남은 경우에만 정확히 계산한다.",
+        "campaign 단위 ATT ROAS는 기존 /api/ads/roas와 같은 VM Cloud attribution ledger + Meta evidence 기준이다.",
+        "Section A는 현재 하위 광고 URL evidence가 모두 utm_source, utm_medium, campaign/adset/ad id를 갖춘 경우다.",
+      ],
+    },
+    performance: {
+      campaign_base_shared: true,
+      campaign_base_generation_ms: baseContext.generationMs,
     },
   };
 };
@@ -3656,8 +4844,8 @@ const readOperationalLedgerEntriesForAds = async (
   range: DateRange,
 ): Promise<{ entries: AttributionLedgerEntry[]; warnings: string[] }> => {
   const source = `${site}_imweb`;
-  const startAt = `${shiftIsoDateByDays(range.startDate, -1)}T15:00:00.000Z`;
-  const endAt = `${range.endDate}T15:00:00.000Z`;
+  const startAt = `${shiftIsoDateByDays(range.startDate, -1)}T00:00:00.000Z`;
+  const endAt = `${shiftIsoDateByDays(range.endDate, 3)}T00:00:00.000Z`;
   const db = getCrmDb();
   const rows = db.prepare(`
     SELECT
@@ -4287,6 +5475,7 @@ const buildTikTokPaymentEvidenceSummary = (
 };
 
 export const createAdsRouter = () => {
+  startMetaMappingWarmupOnce();
   const router = express.Router();
 
   router.get("/api/ads/tiktok/roas-comparison", async (req: Request, res: Response) => {
@@ -4703,6 +5892,10 @@ export const createAdsRouter = () => {
 
       const accountOrders = filterOrdersForAccount(ledger.orders, accountId);
       const campaignAliasMap = mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap);
+      const landingPathCampaignMap = mergeLandingPathCampaignMaps(
+        getManualVerifiedLandingPathCampaignMap(siteAccount?.site ?? null),
+        creativeEvidence.landingPathMap,
+      );
       const results: Record<string, unknown> = {};
       const errors: Record<string, unknown> = {};
 
@@ -4734,6 +5927,7 @@ export const createAdsRouter = () => {
           adsetCampaignMap: adsetCampaigns.map,
           adCampaignMap: creativeEvidence.adMap,
           campaignAliasMap,
+          landingPathCampaignMap,
         });
         const totalSpend = round2(campaigns.reduce((sum, row) => sum + row.spend, 0));
         const totalAttributedRevenue = round2(campaigns.reduce((sum, row) => sum + row.attributedRevenue, 0));
@@ -4940,6 +6134,7 @@ export const createAdsRouter = () => {
   });
 
   router.get("/api/ads/roas", async (req: Request, res: Response) => {
+    let cacheKey = "";
     try {
       const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
       if (!accountId) {
@@ -4949,39 +6144,35 @@ export const createAdsRouter = () => {
 
       // 사용자 지정 (start_date+end_date) 우선, 없으면 date_preset.
       const { range, datePreset } = resolveOptionalRange(req);
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
 
       const siteAccount = findSiteAccountByAccountId(accountId);
       const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
-      const [metaResult, adsetCampaigns, creativeEvidence, aliasCampaigns, ledger] = await Promise.all([
-        fetchMetaInsights({
-          accountId,
-          fields: "campaign_name,campaign_id,impressions,clicks,spend",
-          level: "campaign",
-          ...(datePreset ? { datePreset } : { range }),
-          limit: "100",
-          actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
-          useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
-        }),
-        fetchMetaAdsetCampaignMap(accountId),
-        fetchMetaAdCreativeEvidenceMaps(accountId),
-        fetchManualVerifiedAliasMap(siteAccount?.site ?? null),
-        loadLedgerOrders(ledgerOptions),
-      ]);
-
-      if (!metaResult.ok) {
-        res.status(502).json(metaResult);
-        return;
+      const rangeKey = datePreset ?? `${range.startDate}:${range.endDate}`;
+      cacheKey = `campaign-roas:${accountId}:${rangeKey}:${ledgerOptions.source ?? "auto"}`;
+      if (!forceRefresh) {
+        const cached = getAdsLazyCached(cacheKey);
+        if (cached) {
+          res.json({ ...(cached.result as object), cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
+          return;
+        }
       }
 
-      const filteredOrders = filterOrdersByRange(filterOrdersForAccount(ledger.orders, accountId), range);
-      const campaigns = buildCampaignRoasRows({
-        metaRows: metaResult.data,
-        orders: filteredOrders,
-        ledgerAvailable: ledger.entries.length > 0,
-        adsetCampaignMap: adsetCampaigns.map,
-        adCampaignMap: creativeEvidence.adMap,
-        campaignAliasMap: mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap),
+      const baseContext = await loadCampaignRoasBaseContext({
+        accountId,
+        range,
+        datePreset,
+        siteAccount,
+        ledgerOptions,
+        forceRefresh,
       });
+      const {
+        ledger,
+        adsetCampaigns,
+        creativeEvidence,
+        aliasCampaigns,
+        campaignRows: campaigns,
+      } = baseContext;
       const totalSpend = round2(campaigns.reduce((sum, row) => sum + row.spend, 0));
       const totalAttributedRevenue = round2(campaigns.reduce((sum, row) => sum + row.attributedRevenue, 0));
       const totalOrders = campaigns.reduce((sum, row) => sum + row.orders, 0);
@@ -4996,7 +6187,7 @@ export const createAdsRouter = () => {
       const generalRevenue = round2(generalRows.reduce((sum, row) => sum + row.attributedRevenue, 0));
       const generalOrders = generalRows.reduce((sum, row) => sum + row.orders, 0);
 
-      res.json({
+      const responseBody = {
         ok: true,
         ...ledgerResponseMeta(ledger, {
           range,
@@ -5014,6 +6205,10 @@ export const createAdsRouter = () => {
         ad_mapping_error: creativeEvidence.error,
         alias_mapping_error: aliasCampaigns.error,
         campaigns,
+        performance: {
+          campaign_base_shared: true,
+          campaign_base_generation_ms: baseContext.generationMs,
+        },
         summary: {
           spend: totalSpend,
           attributedRevenue: totalAttributedRevenue,
@@ -5034,11 +6229,91 @@ export const createAdsRouter = () => {
             campaignCount: coopRows.length,
           },
         },
-      });
+      };
+      const cached = setAdsLazyCached(cacheKey, responseBody, SITE_SUMMARY_CACHE_TTL_MS);
+      res.json({ ...responseBody, cache: buildAdsCacheMeta(cached, forceRefresh ? "live_force" : "live_cache_miss") });
     } catch (error) {
-      res.status(500).json({
+      const message = error instanceof Error ? error.message : "ads roas failed";
+      const status = message.includes("YYYY-MM-DD") || message.includes("start_date") ? 400 : 500;
+      if (status === 500 && cacheKey) {
+        const stale = getAdsLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+      }
+      if (status === 400) {
+        res.status(status).json({ ok: false, error: message });
+        return;
+      }
+      res.json({
         ok: false,
-        error: error instanceof Error ? error.message : "ads roas failed",
+        degraded: true,
+        error: message,
+        cache: { ...buildAdsCacheMeta(null, "live_error_no_cache"), stale: true, stale_reason: message },
+      });
+    }
+  });
+
+  router.get("/api/ads/meta-utm-diagnostics", async (req: Request, res: Response) => {
+    let cacheKey = "";
+    try {
+      const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
+      if (!accountId) {
+        res.status(400).json({ ok: false, error: "account_id 필요" });
+        return;
+      }
+
+      const { range, datePreset } = resolveOptionalRange(req);
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+      const siteAccount = findSiteAccountByAccountId(accountId);
+      const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
+      const rangeKey = datePreset ?? `${range.startDate}:${range.endDate}`;
+      cacheKey = `meta-utm-diagnostics:${accountId}:${rangeKey}:${ledgerOptions.source ?? "auto"}`;
+
+      if (!forceRefresh) {
+        const cached = getAdsLazyCached(cacheKey);
+        if (cached) {
+          res.json({ ...(cached.result as object), cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
+          return;
+        }
+      }
+
+      const responseBody = await buildMetaUtmDiagnostics({
+        accountId,
+        range,
+        datePreset,
+        siteAccount,
+        ledgerOptions,
+        forceRefresh,
+      });
+      const cached = setAdsLazyCached(cacheKey, responseBody, META_UTM_DIAGNOSTICS_CACHE_TTL_MS);
+      res.json({ ...responseBody, cache: buildAdsCacheMeta(cached, forceRefresh ? "live_force" : "live_cache_miss") });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "meta utm diagnostics failed";
+      const status = message.includes("YYYY-MM-DD") || message.includes("start_date") ? 400 : 500;
+      if (status === 500 && cacheKey) {
+        const stale = getAdsLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+      }
+      if (status === 400) {
+        res.status(status).json({ ok: false, error: message });
+        return;
+      }
+      res.json({
+        ok: false,
+        degraded: true,
+        error: message,
+        cache: { ...buildAdsCacheMeta(null, "live_error_no_cache"), stale: true, stale_reason: message },
       });
     }
   });
@@ -5078,37 +6353,25 @@ export const createAdsRouter = () => {
 
       const siteAccount = findSiteAccountByAccountId(accountId);
       const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
-      const [metaResult, adsetCampaigns, creativeEvidence, aliasCampaigns, ledger] = await Promise.all([
-        fetchMetaInsights({
-          accountId,
-          fields: "campaign_name,campaign_id,impressions,clicks,spend",
-          level: "campaign",
-          datePreset,
-          limit: "100",
-          actionReportTime: META_DEFAULT_ACTION_REPORT_TIME,
-          useUnifiedAttributionSetting: META_DEFAULT_UNIFIED_ATTRIBUTION_SETTING,
-        }),
-        fetchMetaAdsetCampaignMap(accountId),
-        fetchMetaAdCreativeEvidenceMaps(accountId),
-        fetchManualVerifiedAliasMap(siteAccount?.site ?? null),
-        loadLedgerOrders(ledgerOptions),
-      ]);
-
-      if (!metaResult.ok) {
-        res.status(502).json(metaResult);
-        return;
-      }
-
-      const filteredOrders = filterOrdersByRange(filterOrdersForAccount(ledger.orders, accountId), range);
-      const campaigns = aggregateMetaCampaigns(metaResult.data);
-      const campaignRoasRows = buildCampaignRoasRows({
-        metaRows: metaResult.data,
-        orders: filteredOrders,
-        ledgerAvailable: ledger.entries.length > 0,
-        adsetCampaignMap: adsetCampaigns.map,
-        adCampaignMap: creativeEvidence.adMap,
-        campaignAliasMap: mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap),
+      const baseContext = await loadCampaignRoasBaseContext({
+        accountId,
+        range,
+        datePreset,
+        siteAccount,
+        ledgerOptions,
+        forceRefresh,
       });
+      const {
+        ledger,
+        adsetCampaigns,
+        creativeEvidence,
+        aliasCampaigns,
+        campaignAliasMap,
+        landingPathCampaignMap,
+        filteredOrders,
+        campaignAggregates: campaigns,
+        campaignRows: campaignRoasRows,
+      } = baseContext;
       const rows = await buildCampaignLtvRoasRows({
         campaignRows: campaignRoasRows,
         campaigns,
@@ -5116,7 +6379,8 @@ export const createAdsRouter = () => {
         range,
         adsetCampaignMap: adsetCampaigns.map,
         adCampaignMap: creativeEvidence.adMap,
-        campaignAliasMap: mergeCampaignAliasMaps(aliasCampaigns.map, creativeEvidence.aliasMap),
+        campaignAliasMap,
+        landingPathCampaignMap,
         ltvWindowDays,
       });
 
@@ -5139,6 +6403,10 @@ export const createAdsRouter = () => {
         adset_mapping_error: adsetCampaigns.error,
         ad_mapping_error: creativeEvidence.error,
         alias_mapping_error: aliasCampaigns.error,
+        performance: {
+          campaign_base_shared: true,
+          campaign_base_generation_ms: baseContext.generationMs,
+        },
         rows,
         summary: {
           spend: round2(mappedRows.reduce((sum, row) => sum + row.spend, 0)),
@@ -5171,11 +6439,17 @@ export const createAdsRouter = () => {
           return;
         }
       }
-      res.status(500).json({ ok: false, error: message });
+      res.json({
+        ok: false,
+        degraded: true,
+        error: message,
+        cache: { ...buildAdsCacheMeta(null, "live_error_no_cache"), stale: true, stale_reason: message },
+      });
     }
   });
 
   router.get("/api/ads/roas/daily", async (req: Request, res: Response) => {
+    let cacheKey = "";
     try {
       const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
       if (!accountId) {
@@ -5185,8 +6459,19 @@ export const createAdsRouter = () => {
 
       const { range, datePreset } = resolveOptionalRange(req);
       const attributionWindow = parseMetaAttributionWindow(req.query.attribution_window);
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
       const siteAccount = findSiteAccountByAccountId(accountId);
       const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
+      const rangeKey = datePreset ?? `${range.startDate}:${range.endDate}`;
+      cacheKey = `daily-roas:${accountId}:${rangeKey}:${attributionWindow ?? "default"}:${ledgerOptions.source ?? "auto"}`;
+      if (!forceRefresh) {
+        const cached = getAdsLazyCached(cacheKey);
+        if (cached) {
+          res.json({ ...(cached.result as object), cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
+          return;
+        }
+      }
+
       const [metaResult, ledger] = await Promise.all([
         fetchMetaInsights({
           accountId,
@@ -5205,7 +6490,40 @@ export const createAdsRouter = () => {
       ]);
 
       if (!metaResult.ok) {
-        res.status(502).json(metaResult);
+        const stale = getAdsLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: metaResult.error },
+          });
+          return;
+        }
+        res.json({
+          ok: false,
+          degraded: true,
+          error: metaResult.error,
+          account_id: accountId,
+          date_preset: datePreset,
+          start_date: range.startDate,
+          end_date: range.endDate,
+          rows: [],
+          summary: {
+            spend: 0,
+            revenue: 0,
+            confirmedRevenue: 0,
+            pendingRevenue: 0,
+            potentialRevenue: 0,
+            metaPurchaseValue: 0,
+            roas: null,
+            confirmedRoas: null,
+            officialRoas: null,
+            fastSignalRoas: null,
+            roasGap: null,
+            potentialRoas: null,
+            metaPurchaseRoas: null,
+          },
+          cache: { ...buildAdsCacheMeta(null, "live_error_no_cache"), stale: true, stale_reason: metaResult.error },
+        });
         return;
       }
 
@@ -5225,7 +6543,7 @@ export const createAdsRouter = () => {
       const totalConfirmedRoas = computeRoas(totalRevenue, totalSpend, ledger.entries.length > 0);
       const totalOfficialRoas = computeRoas(totalOfficialRevenue, totalSpend, ledger.entries.length > 0);
 
-      res.json({
+      const responseBody = {
         ok: true,
         ...ledgerResponseMeta(ledger, {
           range,
@@ -5261,11 +6579,32 @@ export const createAdsRouter = () => {
           potentialRoas: computeRoas(totalPotentialRevenue, totalSpend, ledger.entries.length > 0),
           metaPurchaseRoas: computeObservedRoas(totalMetaPurchaseValue, totalSpend),
         },
-      });
+      };
+      const cached = setAdsLazyCached(cacheKey, responseBody, SITE_SUMMARY_CACHE_TTL_MS);
+      res.json({ ...responseBody, cache: buildAdsCacheMeta(cached, forceRefresh ? "live_force" : "live_cache_miss") });
     } catch (error) {
       const message = error instanceof Error ? error.message : "daily roas failed";
       const status = message.includes("YYYY-MM-DD") || message.includes("start_date") || message.includes("attribution_window") ? 400 : 500;
-      res.status(status).json({ ok: false, error: message });
+      if (status === 500 && cacheKey) {
+        const stale = getAdsLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+      }
+      if (status === 400) {
+        res.status(status).json({ ok: false, error: message });
+        return;
+      }
+      res.json({
+        ok: false,
+        degraded: true,
+        error: message,
+        cache: { ...buildAdsCacheMeta(null, "live_error_no_cache"), stale: true, stale_reason: message },
+      });
     }
   });
 
@@ -5494,7 +6833,7 @@ export const createAdsRouter = () => {
           orders: sites.reduce((sum, site) => sum + site.orders, 0),
         },
       };
-      const cachedEntry = setAdsLazyCached(cacheKey, responseBody);
+      const cachedEntry = setAdsLazyCached(cacheKey, responseBody, SITE_SUMMARY_CACHE_TTL_MS);
       res.json({ ...responseBody, cache: buildAdsCacheMeta(cachedEntry, forceRefresh ? "live_force" : "live_cache_miss") });
     } catch (error) {
       const message = error instanceof Error ? error.message : "site summary failed";
@@ -5510,7 +6849,16 @@ export const createAdsRouter = () => {
           return;
         }
       }
-      res.status(status).json({ ok: false, error: message });
+      if (status === 400) {
+        res.status(status).json({ ok: false, error: message });
+        return;
+      }
+      res.json({
+        ok: false,
+        degraded: true,
+        error: message,
+        cache: { ...buildAdsCacheMeta(null, "live_error_no_cache"), stale: true, stale_reason: message },
+      });
     }
   });
 

@@ -46,6 +46,22 @@ type VmSafeSessionRow = {
   amount_krw: number;
   touchpoint_count: number;
   confidence: "high" | "medium" | "low";
+  diagnostics?: {
+    touchpoint_counts?: Record<string, number>;
+    payment_status_counts?: Record<string, number>;
+    semantic_touchpoint_counts?: Record<string, number>;
+    page_location_class_counts?: Record<string, number>;
+    snippet_version_counts?: Record<string, number>;
+    payment_success_rows?: number;
+    confirmed_payment_success_rows?: number;
+    pending_or_unknown_payment_success_rows?: number;
+    completion_url_rows?: number;
+    order_code_present_rows?: number;
+    order_no_present_rows?: number;
+    payment_key_present_rows?: number;
+    transaction_id_present_rows?: number;
+    value_present_rows?: number;
+  };
 };
 
 type VmSafePayload = {
@@ -77,7 +93,13 @@ type Ga4SessionRow = {
 const execFileAsync = promisify(execFile);
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const OUTPUT_DATE = "20260517";
+const OUTPUT_DATE = process.env.GA4_VM_BRIDGE_OUTPUT_DATE?.trim() || "20260518";
+const WINDOW_DAYS = Math.max(
+  1,
+  Math.min(30, Number.parseInt(process.env.GA4_VM_BRIDGE_WINDOW_DAYS ?? "7", 10) || 7),
+);
+const WINDOW_LABEL = `rolling_last_${WINDOW_DAYS}d`;
+const WINDOW_HUMAN = `rolling latest ${WINDOW_DAYS}d`;
 const JOB_PROJECT_ID = process.env.BIGQUERY_JOB_PROJECT_ID?.trim() || "project-dadba7dd-0229-4ff6-81c";
 const DEFAULT_PROJECT_ID = "project-dadba7dd-0229-4ff6-81c";
 const DEFAULT_LOCATION = process.env.GA4_BQ_LOCATION?.trim() || "asia-northeast3";
@@ -131,7 +153,7 @@ const createBigQueryClient = () => {
   return google.bigquery({ version: "v2", auth });
 };
 
-const mapRows = (response: bigquery_v2.Schema$QueryResponse): Row[] => {
+const mapRows = (response: Pick<bigquery_v2.Schema$QueryResponse, "schema" | "rows">): Row[] => {
   const fields = response.schema?.fields ?? [];
   return (response.rows ?? []).map((row) =>
     Object.fromEntries((row.f ?? []).map((cell, index) => [fields[index]?.name ?? String(index), cell.v])),
@@ -152,7 +174,24 @@ const runQuery = async (bq: bigquery_v2.Bigquery, location: string, query: strin
   if (!response.data.jobComplete) {
     throw new Error(`BigQuery job did not complete: ${response.data.jobReference?.jobId ?? "unknown"}`);
   }
-  return mapRows(response.data);
+  const rows = [...mapRows(response.data)];
+  let pageToken = response.data.pageToken ?? undefined;
+  const jobId = response.data.jobReference?.jobId;
+  const jobProjectId = response.data.jobReference?.projectId ?? JOB_PROJECT_ID;
+  if (!jobId) return rows;
+
+  while (pageToken) {
+    const page = await bq.jobs.getQueryResults({
+      projectId: jobProjectId,
+      jobId,
+      location,
+      pageToken,
+      maxResults: 20_000,
+    });
+    rows.push(...mapRows(page.data));
+    pageToken = page.data.pageToken ?? undefined;
+  }
+  return rows;
 };
 
 const listDailySuffixes = async (bq: bigquery_v2.Bigquery, segment: DatasetSegment): Promise<string[]> => {
@@ -346,7 +385,7 @@ const buildGa4SafeSessions = async (bq: bigquery_v2.Bigquery, config: SiteConfig
   }
 
   const endDate = dateFromSuffix(latestSuffix);
-  const startDate = addDays(endDate, -6);
+  const startDate = addDays(endDate, -(WINDOW_DAYS - 1));
   const startSuffix = suffix(startDate);
   const parts: string[] = [];
   const source: Array<Record<string, unknown>> = [];
@@ -409,7 +448,7 @@ import sqlite3, json, hashlib, datetime, re
 from urllib.parse import urlparse
 
 DB = "/home/biocomkr_sns/seo/shared/backend-data/crm.sqlite3"
-SINCE = "datetime('now','-7 days')"
+SINCE = "datetime('now','-${WINDOW_DAYS} days')"
 SITE_BY_SOURCE = {"biocom_imweb": "biocom", "thecleancoffee_imweb": "thecleancoffee"}
 
 def safe_json(raw):
@@ -423,6 +462,21 @@ def text(value):
     if value is None:
         return ""
     return str(value).strip()
+
+def blank_key(value):
+    raw = text(value)
+    return raw if raw else "blank"
+
+def inc(counter, key):
+    normalized = blank_key(key)
+    counter[normalized] = counter.get(normalized, 0) + 1
+
+def is_true(value):
+    if value is True:
+        return True
+    if value is False or value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
 def amount_of(meta):
     for key in ["totalAmount", "total_amount", "amount", "paymentAmount", "payment_amount", "value"]:
@@ -522,7 +576,7 @@ rows = conn.execute("""
 SELECT source, touchpoint, payment_status, logged_at, checkout_id, landing, referrer, ga_session_id,
        utm_source, utm_medium, utm_campaign, utm_term, utm_content, metadata_json
 FROM attribution_ledger
-WHERE logged_at >= datetime('now','-7 days')
+WHERE logged_at >= datetime('now','-${WINDOW_DAYS} days')
   AND source IN ('biocom_imweb','thecleancoffee_imweb')
   AND touchpoint IN ('checkout_started','payment_page_seen','payment_success')
 ORDER BY logged_at ASC
@@ -550,6 +604,22 @@ for row in rows:
         "landing_buckets": {},
         "amount_krw": 0,
         "confirmed": False,
+        "diagnostics": {
+            "touchpoint_counts": {},
+            "payment_status_counts": {},
+            "semantic_touchpoint_counts": {},
+            "page_location_class_counts": {},
+            "snippet_version_counts": {},
+            "payment_success_rows": 0,
+            "confirmed_payment_success_rows": 0,
+            "pending_or_unknown_payment_success_rows": 0,
+            "completion_url_rows": 0,
+            "order_code_present_rows": 0,
+            "order_no_present_rows": 0,
+            "payment_key_present_rows": 0,
+            "transaction_id_present_rows": 0,
+            "value_present_rows": 0,
+        },
     })
     for item in hashes:
         group["safe_session_keys"].add(item)
@@ -558,6 +628,30 @@ for row in rows:
     lb = landing_bucket(row["landing"] or meta.get("imweb_landing_url") or meta.get("checkoutUrl") or "")
     group["source_groups"][sg] = group["source_groups"].get(sg, 0) + 1
     group["landing_buckets"][lb] = group["landing_buckets"].get(lb, 0) + 1
+    diag = group["diagnostics"]
+    inc(diag["touchpoint_counts"], row["touchpoint"])
+    inc(diag["payment_status_counts"], row["payment_status"])
+    inc(diag["semantic_touchpoint_counts"], meta.get("semantic_touchpoint"))
+    inc(diag["page_location_class_counts"], meta.get("page_location_class"))
+    inc(diag["snippet_version_counts"], meta.get("snippetVersion") or meta.get("snippet_version"))
+    if row["touchpoint"] == "payment_success":
+        diag["payment_success_rows"] += 1
+        if row["payment_status"] == "confirmed":
+            diag["confirmed_payment_success_rows"] += 1
+        else:
+            diag["pending_or_unknown_payment_success_rows"] += 1
+    if is_true(meta.get("completion_url")) or is_true(meta.get("completed_url_allowlist_pass")):
+        diag["completion_url_rows"] += 1
+    if is_true(meta.get("order_code_present")):
+        diag["order_code_present_rows"] += 1
+    if is_true(meta.get("order_no_present")):
+        diag["order_no_present_rows"] += 1
+    if is_true(meta.get("payment_key_present")):
+        diag["payment_key_present_rows"] += 1
+    if is_true(meta.get("transaction_id_present")):
+        diag["transaction_id_present_rows"] += 1
+    if amount_of(meta) > 0:
+        diag["value_present_rows"] += 1
     if row["touchpoint"] == "payment_success" and row["payment_status"] == "confirmed":
         group["confirmed"] = True
         group["amount_krw"] += amount_of(meta)
@@ -583,6 +677,7 @@ for (_site, _hash), group in session_groups.items():
         "amount_krw": group["amount_krw"],
         "touchpoint_count": len(touchpoints),
         "confidence": confidence,
+        "diagnostics": group["diagnostics"],
     })
 
 coverage = []
@@ -602,7 +697,7 @@ for site in ["biocom", "thecleancoffee"]:
 print(json.dumps({
     "ok": True,
     "generated_at_kst": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M KST"),
-    "window": "rolling_last_7d",
+    "window": "${WINDOW_LABEL}",
     "rows": output_rows,
     "coverage": coverage,
     "safety": {
@@ -651,6 +746,43 @@ const topBuckets = (values: string[], limit = 6) => {
     .map(([bucket, count]) => ({ bucket, count }));
 };
 
+const sumDiagnosticCounters = (
+  rows: VmSafeSessionRow[],
+  key:
+    | "touchpoint_counts"
+    | "payment_status_counts"
+    | "semantic_touchpoint_counts"
+    | "page_location_class_counts"
+    | "snippet_version_counts",
+  limit = 8,
+) => {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const counter = row.diagnostics?.[key] ?? {};
+    for (const [bucket, value] of Object.entries(counter)) {
+      counts.set(bucket, (counts.get(bucket) ?? 0) + Number(value ?? 0));
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([bucket, count]) => ({ bucket, count }));
+};
+
+const sumDiagnosticNumber = (
+  rows: VmSafeSessionRow[],
+  key:
+    | "payment_success_rows"
+    | "confirmed_payment_success_rows"
+    | "pending_or_unknown_payment_success_rows"
+    | "completion_url_rows"
+    | "order_code_present_rows"
+    | "order_no_present_rows"
+    | "payment_key_present_rows"
+    | "transaction_id_present_rows"
+    | "value_present_rows",
+) => rows.reduce((sum, row) => sum + Number(row.diagnostics?.[key] ?? 0), 0);
+
 const summarizeCohort = (
   site: SiteKey,
   cohort: VmSafeSessionRow["cohort"],
@@ -696,6 +828,7 @@ const summarizeCohort = (
 };
 
 type CoffeeTruthDimension = "source_group" | "landing_bucket";
+type BiocomMetaOnlyCohort = "buyer" | "non_buyer";
 
 const joinVmToGa4 = (rows: VmSafeSessionRow[], ga4ByKey: Map<string, Ga4SessionRow>) =>
   rows.map((row) => {
@@ -779,6 +912,344 @@ const summarizeCoffeeTruthDimension = (
   });
 };
 
+const behaviorRates = (joined: Array<{ vm: VmSafeSessionRow; ga4: Ga4SessionRow; join_method: string }>) => ({
+  p50_dwell_seconds: percentile(
+    joined.map((item) => item.ga4.engagement_seconds),
+    50,
+  ),
+  p75_dwell_seconds: percentile(
+    joined.map((item) => item.ga4.engagement_seconds),
+    75,
+  ),
+  scroll50_rate_pct: pct(joined.filter((item) => item.ga4.max_scroll_percent >= 50).length, joined.length),
+  scroll90_rate_pct: pct(joined.filter((item) => item.ga4.max_scroll_percent >= 90).length, joined.length),
+  view_item_rate_pct: pct(joined.filter((item) => item.ga4.view_item_events > 0).length, joined.length),
+  add_to_cart_or_view_cart_rate_pct: pct(
+    joined.filter((item) => item.ga4.add_to_cart_events > 0 || item.ga4.view_cart_events > 0).length,
+    joined.length,
+  ),
+  begin_checkout_rate_pct: pct(joined.filter((item) => item.ga4.begin_checkout_events > 0).length, joined.length),
+  add_payment_info_rate_pct: pct(joined.filter((item) => item.ga4.add_payment_info_events > 0).length, joined.length),
+  ga4_purchase_event_rate_pct: pct(joined.filter((item) => item.ga4.purchase_events > 0).length, joined.length),
+});
+
+const allSafeKeys = (row: VmSafeSessionRow) =>
+  row.safe_session_keys.length ? row.safe_session_keys : [row.safe_session_key].filter(Boolean);
+
+const classifyVmGa4PurchaseConflict = (row: VmSafeSessionRow, confirmedKeySet: Set<string>) => {
+  const diag = row.diagnostics ?? {};
+  const sharesConfirmedKey = allSafeKeys(row).some((key) => confirmedKeySet.has(key));
+  if (sharesConfirmedKey) return "same_safe_key_has_confirmed_purchase_elsewhere";
+  if (Number(diag.confirmed_payment_success_rows ?? 0) > 0) return "vm_confirmed_present_but_cohort_mismatch";
+  if (Number(diag.payment_success_rows ?? 0) > 0) return "vm_payment_success_not_confirmed";
+  if (Number(diag.completion_url_rows ?? 0) > 0) return "completion_url_seen_but_not_confirmed";
+  if (Number(diag.payment_key_present_rows ?? 0) > 0 || Number(diag.transaction_id_present_rows ?? 0) > 0) {
+    return "payment_identifier_present_but_no_confirmed_vm_purchase";
+  }
+  const touchpoints = diag.touchpoint_counts ?? {};
+  if (Number(touchpoints.payment_page_seen ?? 0) > 0) return "payment_page_seen_only_ga4_purchase";
+  if (Number(touchpoints.checkout_started ?? 0) > 0) return "checkout_started_only_ga4_purchase";
+  return "unknown_conflict";
+};
+
+const summarizeBiocomMetaOnlyBuyerLeaver = (vmRows: VmSafeSessionRow[], ga4ByKey: Map<string, Ga4SessionRow>) => {
+  const scoped = vmRows.filter((row) => row.site === "biocom" && row.source_group === "meta");
+  const allBiocomConfirmedKeySet = new Set(
+    vmRows
+      .filter((row) => row.site === "biocom" && row.cohort === "confirmed_purchase")
+      .flatMap((row) => allSafeKeys(row)),
+  );
+  const byCohort = (cohort: BiocomMetaOnlyCohort) => {
+    const cohortRows = scoped.filter((row) =>
+      cohort === "buyer" ? row.cohort === "confirmed_purchase" : row.cohort === "dropped_checkout",
+    );
+    const joined = joinVmToGa4(cohortRows, ga4ByKey).filter(
+      (item): item is { vm: VmSafeSessionRow; ga4: Ga4SessionRow; join_method: string } => Boolean(item.ga4),
+    );
+    const amount = cohortRows.reduce((sum, row) => sum + row.amount_krw, 0);
+    return {
+      cohort,
+      vm_safe_sessions: cohortRows.length,
+      ga4_joined_sessions: joined.length,
+      join_rate_pct: pct(joined.length, cohortRows.length),
+      amount_krw: amount,
+      ...behaviorRates(joined),
+      vm_landing_buckets: topBuckets(cohortRows.map((row) => row.landing_bucket)),
+      ga4_source_groups: topBuckets(joined.map((item) => item.ga4.source_group)),
+      ga4_landing_buckets: topBuckets(joined.map((item) => item.ga4.landing_bucket)),
+      join_methods: topBuckets(joined.map((item) => item.join_method)),
+    };
+  };
+
+  const nonBuyerRows = scoped.filter((row) => row.cohort === "dropped_checkout");
+  const nonBuyerJoined = joinVmToGa4(nonBuyerRows, ga4ByKey).filter(
+    (item): item is { vm: VmSafeSessionRow; ga4: Ga4SessionRow; join_method: string } => Boolean(item.ga4),
+  );
+  const ga4PurchaseConflictRows = nonBuyerJoined
+    .filter((item) => item.ga4.purchase_events > 0)
+    .map((item) => item.vm);
+  const conflictReasons = topBuckets(
+    ga4PurchaseConflictRows.map((row) => classifyVmGa4PurchaseConflict(row, allBiocomConfirmedKeySet)),
+    10,
+  );
+
+  const buyer = byCohort("buyer");
+  const nonBuyer = byCohort("non_buyer");
+  const joinedTotal = buyer.ga4_joined_sessions + nonBuyer.ga4_joined_sessions;
+  const scopedTotal = buyer.vm_safe_sessions + nonBuyer.vm_safe_sessions;
+  const overallJoinRate = pct(joinedTotal, scopedTotal);
+  const buyerDwell = buyer.p50_dwell_seconds;
+  const leaverDwell = nonBuyer.p50_dwell_seconds;
+  const confidence =
+    scopedTotal >= 100 && (overallJoinRate ?? 0) >= 70
+      ? "high"
+      : scopedTotal >= 50 && (overallJoinRate ?? 0) >= 45
+        ? "medium"
+        : "low_bridge_limited";
+
+  return {
+    site: "biocom",
+    source_group: "meta",
+    scope_definition: "VM Cloud source_group=meta, then joined to GA4 by safe session hash.",
+    vm_meta_safe_sessions: scopedTotal,
+    ga4_joined_sessions: joinedTotal,
+    join_rate_pct: overallJoinRate,
+    buyer,
+    non_buyer: nonBuyer,
+    deltas: {
+      buyer_minus_non_buyer_p50_dwell_seconds:
+        buyerDwell !== null && leaverDwell !== null ? Number((buyerDwell - leaverDwell).toFixed(2)) : null,
+      buyer_minus_non_buyer_scroll90_rate_pct:
+        buyer.scroll90_rate_pct !== null && nonBuyer.scroll90_rate_pct !== null
+          ? Number((buyer.scroll90_rate_pct - nonBuyer.scroll90_rate_pct).toFixed(2))
+          : null,
+      buyer_minus_non_buyer_view_item_rate_pct:
+        buyer.view_item_rate_pct !== null && nonBuyer.view_item_rate_pct !== null
+          ? Number((buyer.view_item_rate_pct - nonBuyer.view_item_rate_pct).toFixed(2))
+          : null,
+      buyer_minus_non_buyer_add_to_cart_rate_pct:
+        buyer.add_to_cart_or_view_cart_rate_pct !== null && nonBuyer.add_to_cart_or_view_cart_rate_pct !== null
+          ? Number((buyer.add_to_cart_or_view_cart_rate_pct - nonBuyer.add_to_cart_or_view_cart_rate_pct).toFixed(2))
+          : null,
+      buyer_minus_non_buyer_begin_checkout_rate_pct:
+        buyer.begin_checkout_rate_pct !== null && nonBuyer.begin_checkout_rate_pct !== null
+          ? Number((buyer.begin_checkout_rate_pct - nonBuyer.begin_checkout_rate_pct).toFixed(2))
+          : null,
+      buyer_minus_non_buyer_add_payment_info_rate_pct:
+        buyer.add_payment_info_rate_pct !== null && nonBuyer.add_payment_info_rate_pct !== null
+          ? Number((buyer.add_payment_info_rate_pct - nonBuyer.add_payment_info_rate_pct).toFixed(2))
+          : null,
+    },
+    ga4_purchase_conflict: {
+      definition:
+        "VM Cloud에서는 Meta non-buyer로 남았지만, 같은 safe session hash로 붙은 GA4에는 purchase event가 있는 row.",
+      vm_safe_sessions: ga4PurchaseConflictRows.length,
+      rate_among_non_buyer_joined_pct: pct(ga4PurchaseConflictRows.length, nonBuyer.ga4_joined_sessions),
+      reason_buckets: conflictReasons,
+      payment_status_counts: sumDiagnosticCounters(ga4PurchaseConflictRows, "payment_status_counts"),
+      touchpoint_counts: sumDiagnosticCounters(ga4PurchaseConflictRows, "touchpoint_counts"),
+      semantic_touchpoint_counts: sumDiagnosticCounters(ga4PurchaseConflictRows, "semantic_touchpoint_counts"),
+      page_location_class_counts: sumDiagnosticCounters(ga4PurchaseConflictRows, "page_location_class_counts"),
+      snippet_version_counts: sumDiagnosticCounters(ga4PurchaseConflictRows, "snippet_version_counts"),
+      presence_counts: {
+        payment_success_rows: sumDiagnosticNumber(ga4PurchaseConflictRows, "payment_success_rows"),
+        confirmed_payment_success_rows: sumDiagnosticNumber(ga4PurchaseConflictRows, "confirmed_payment_success_rows"),
+        pending_or_unknown_payment_success_rows: sumDiagnosticNumber(
+          ga4PurchaseConflictRows,
+          "pending_or_unknown_payment_success_rows",
+        ),
+        completion_url_rows: sumDiagnosticNumber(ga4PurchaseConflictRows, "completion_url_rows"),
+        order_code_present_rows: sumDiagnosticNumber(ga4PurchaseConflictRows, "order_code_present_rows"),
+        order_no_present_rows: sumDiagnosticNumber(ga4PurchaseConflictRows, "order_no_present_rows"),
+        payment_key_present_rows: sumDiagnosticNumber(ga4PurchaseConflictRows, "payment_key_present_rows"),
+        transaction_id_present_rows: sumDiagnosticNumber(ga4PurchaseConflictRows, "transaction_id_present_rows"),
+        value_present_rows: sumDiagnosticNumber(ga4PurchaseConflictRows, "value_present_rows"),
+      },
+      interpretation:
+        ga4PurchaseConflictRows.length > 0
+          ? "이 row들은 순수 이탈자가 아니라 GA4와 VM Cloud의 구매 판정이 충돌한 bucket이다. 구매자/비결제자 행동 비교에서는 별도 제외하거나 보류 bucket으로 표시해야 한다."
+          : "현재 conflict row가 없어 non-buyer를 그대로 이탈 cohort로 읽을 수 있다.",
+    },
+    confidence,
+    classification_caveat:
+      (nonBuyer.ga4_purchase_event_rate_pct ?? 0) > 0
+        ? "비결제자 cohort 안에도 GA4 purchase event가 있어, 진짜 이탈자와 window/session/source mismatch를 한 번 더 분리해야 한다."
+        : "",
+    interpretation:
+      confidence === "low_bridge_limited"
+        ? "Meta-only 숫자는 뽑혔지만 GA4-VM safe session 연결률이 낮아 예산 판단용 확정 표가 아니라 key capture 보강 전 탐색 표로만 사용한다."
+        : "Meta-only 구매자/비결제자 행동 차이를 선행지표 후보로 비교할 수 있다. 단, 비결제자 안의 GA4 purchase 충돌 row는 별도 bucket으로 분리해야 한다.",
+  };
+};
+
+const buildBiocomMetaOnlyMarkdown = (payload: Record<string, unknown>) => {
+  const truth = payload.truth_table as Record<string, unknown>;
+  const buyer = truth.buyer as Record<string, unknown>;
+  const nonBuyer = truth.non_buyer as Record<string, unknown>;
+  const deltas = truth.deltas as Record<string, unknown>;
+  const conflict = truth.ga4_purchase_conflict as Record<string, unknown>;
+  const confidence = String(truth.confidence ?? "");
+  const isBridgeHigh = confidence === "high";
+  const nonBuyerGa4PurchaseRate = Number(nonBuyer.ga4_purchase_event_rate_pct ?? 0);
+  const percent = (value: unknown) => (value === null || value === undefined ? "" : `${value}%`);
+  const sec = (value: unknown) => (value === null || value === undefined ? "" : `${value}s`);
+  const won = (value: unknown) => {
+    const n = Number(value ?? 0);
+    return Number.isFinite(n) ? `₩${Math.round(n).toLocaleString("ko-KR")}` : "";
+  };
+  const lines: string[] = [];
+  lines.push("# 바이오컴 Meta-only 구매자 vs 비결제자 선행지표 Dry-run");
+  lines.push("");
+  lines.push(`작성 시각: ${payload.checked_at_kst}`);
+  lines.push("Lane: Green read-only");
+  lines.push("대상: biocom / source_group=meta");
+  lines.push("");
+  lines.push("```yaml");
+  lines.push("harness_preflight:");
+  lines.push("  common_harness_read:");
+  lines.push("    - AGENTS.md");
+  lines.push("    - harness/common/HARNESS_GUIDELINES.md");
+  lines.push("    - harness/common/AUTONOMY_POLICY.md");
+  lines.push("    - harness/common/REPORTING_TEMPLATE.md");
+  lines.push("  project_harness_read:");
+  lines.push("    - data/!data_inventory.md");
+  lines.push("  lane: Green");
+  lines.push("  allowed_actions:");
+  lines.push("    - vm_cloud_sqlite_read_only_safe_hash");
+  lines.push("    - ga4_bigquery_read_only_safe_hash");
+  lines.push("    - local_aggregate_truth_table_report");
+  lines.push("  forbidden_actions:");
+  lines.push("    - operating_db_write");
+  lines.push("    - vm_cloud_write_or_schema_migration");
+  lines.push("    - platform_send_or_upload");
+  lines.push("    - gtm_publish");
+  lines.push("    - raw_identifier_report_output");
+  lines.push("  source_window_freshness_confidence:");
+  lines.push("    source: VM Cloud SQLite + GA4 BigQuery daily export");
+  lines.push(`    window: ${WINDOW_HUMAN}`);
+  lines.push("    freshness: runtime query");
+  lines.push(`    confidence: ${truth.confidence}`);
+  lines.push("```");
+  lines.push("");
+  lines.push("## 10초 요약");
+  lines.push("");
+  lines.push(`- VM Cloud에서 Meta 유입으로 분류된 바이오컴 safe session은 ${truth.vm_meta_safe_sessions}건이고, 이 중 GA4와 붙은 것은 ${truth.ga4_joined_sessions}건(${percent(truth.join_rate_pct)})이다.`);
+  lines.push(`- Meta 구매자는 ${buyer.vm_safe_sessions}건, 비결제자는 ${nonBuyer.vm_safe_sessions}건이다.`);
+  lines.push(`- GA4로 붙은 row 기준 구매자 p50 체류시간은 ${sec(buyer.p50_dwell_seconds)}, 비결제자는 ${sec(nonBuyer.p50_dwell_seconds)}로 차이는 ${sec(deltas.buyer_minus_non_buyer_p50_dwell_seconds)}이다.`);
+  lines.push(`- 비결제자처럼 보였지만 GA4 purchase가 있는 충돌 row는 ${conflict.vm_safe_sessions}건(${percent(conflict.rate_among_non_buyer_joined_pct)})이다. 이 row는 순수 이탈자가 아니라 보류 bucket으로 떼어내야 한다.`);
+  if (isBridgeHigh) {
+    lines.push(`- 현재 판정은 ${confidence}다. 즉, Meta-only 행동 비교를 볼 만큼 GA4-VM 연결은 충분히 닫혔다. 다만 비결제자 중 GA4 purchase가 ${percent(nonBuyer.ga4_purchase_event_rate_pct)} 있어 진짜 이탈자와 분류 충돌 row를 분리해야 한다.`);
+  } else {
+    lines.push(`- 현재 판정은 ${confidence}다. 즉, 숫자는 방향성 탐색에는 쓸 수 있지만 Meta-only 확정 결론으로 쓰기에는 key bridge 보강이 필요하다.`);
+  }
+  lines.push("");
+  lines.push("## Meta-only truth table");
+  lines.push("");
+  lines.push("| 구분 | VM safe sessions | GA4 joined | join rate | 금액 | p50 체류 | p75 체류 | scroll90 | view_item | cart/view_cart | begin_checkout | add_payment_info | GA4 purchase |");
+  lines.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+  for (const row of [buyer, nonBuyer]) {
+    const label = row.cohort === "buyer" ? "구매자" : "비결제자";
+    lines.push(
+      `| ${label} | ${row.vm_safe_sessions} | ${row.ga4_joined_sessions} | ${percent(row.join_rate_pct)} | ${won(row.amount_krw)} | ${sec(row.p50_dwell_seconds)} | ${sec(row.p75_dwell_seconds)} | ${percent(row.scroll90_rate_pct)} | ${percent(row.view_item_rate_pct)} | ${percent(row.add_to_cart_or_view_cart_rate_pct)} | ${percent(row.begin_checkout_rate_pct)} | ${percent(row.add_payment_info_rate_pct)} | ${percent(row.ga4_purchase_event_rate_pct)} |`,
+    );
+  }
+  lines.push("");
+  lines.push("## 차이값");
+  lines.push("");
+  lines.push(`- 체류시간: 구매자 - 비결제자 = ${sec(deltas.buyer_minus_non_buyer_p50_dwell_seconds)}.`);
+  lines.push(`- scroll90: 구매자 - 비결제자 = ${percent(deltas.buyer_minus_non_buyer_scroll90_rate_pct)}.`);
+  lines.push(`- view_item: 구매자 - 비결제자 = ${percent(deltas.buyer_minus_non_buyer_view_item_rate_pct)}.`);
+  lines.push(`- cart/view_cart: 구매자 - 비결제자 = ${percent(deltas.buyer_minus_non_buyer_add_to_cart_rate_pct)}.`);
+  lines.push(`- begin_checkout: 구매자 - 비결제자 = ${percent(deltas.buyer_minus_non_buyer_begin_checkout_rate_pct)}.`);
+  lines.push(`- add_payment_info: 구매자 - 비결제자 = ${percent(deltas.buyer_minus_non_buyer_add_payment_info_rate_pct)}.`);
+  lines.push("");
+  lines.push("## `비결제자인데 GA4 purchase` 충돌 분석");
+  lines.push("");
+  lines.push("이 bucket은 VM Cloud에서는 같은 safe session 안에서 실제 결제완료로 닫히지 않았지만, GA4 BigQuery에는 purchase event가 있는 경우다. 따라서 `결제 안 한 사람`으로 섞으면 안 되고, 원인 확인 전에는 `구매 판정 충돌`로 분리한다.");
+  lines.push("");
+  lines.push(`- 충돌 row: ${conflict.vm_safe_sessions}건`);
+  lines.push(`- 비결제자 GA4 join row 중 비중: ${percent(conflict.rate_among_non_buyer_joined_pct)}`);
+  lines.push("");
+  lines.push("### 원인 bucket");
+  lines.push("");
+  lines.push("| 원인 후보 | row | 사람이 읽는 의미 |");
+  lines.push("|---|---:|---|");
+  const reasonText: Record<string, string> = {
+    same_safe_key_has_confirmed_purchase_elsewhere:
+      "같은 safe key가 다른 VM Cloud confirmed_purchase row와도 연결된다. 세션/키 grouping 또는 source bucket 재분류 이슈다.",
+    vm_confirmed_present_but_cohort_mismatch: "VM row 안에 confirmed payment_success가 있는데 cohort가 비결제로 남은 내부 분류 오류 후보.",
+    vm_payment_success_not_confirmed:
+      "VM Cloud에도 payment_success row는 있지만 status가 confirmed가 아니다. 운영DB/Imweb/Toss 확인 전 pending/unknown으로 남은 케이스다.",
+    completion_url_seen_but_not_confirmed:
+      "완료 URL까지는 본 흔적이 있으나 VM confirmed bridge가 닫지 못했다. status lookup 또는 value guard 확인 대상이다.",
+    payment_identifier_present_but_no_confirmed_vm_purchase:
+      "결제 식별자 존재 흔적은 있으나 confirmed 구매로 승격되지 않았다. key mapping 또는 guard 확인 대상이다.",
+    payment_page_seen_only_ga4_purchase:
+      "VM Cloud는 결제 페이지 진입까지만 봤고 완료를 못 봤는데 GA4는 purchase를 봤다. 결제완료 URL/브라우저 이벤트만 GA4로 갔을 가능성이 있다.",
+    checkout_started_only_ga4_purchase:
+      "VM Cloud는 결제 시작까지만 봤고 완료를 못 봤는데 GA4는 purchase를 봤다. 세션 전환 또는 VM completion capture 누락 후보.",
+    unknown_conflict: "현재 aggregate 필드만으로는 원인 분류가 부족하다.",
+  };
+  for (const row of (conflict.reason_buckets as Array<Record<string, unknown>> | undefined) ?? []) {
+    const bucket = String(row.bucket ?? "unknown_conflict");
+    lines.push(`| ${bucket} | ${row.count} | ${reasonText[bucket] ?? "추가 분류 필요"} |`);
+  }
+  lines.push("");
+  lines.push("### VM Cloud 흔적");
+  lines.push("");
+  const presence = conflict.presence_counts as Record<string, unknown>;
+  lines.push(`- payment_success row: ${presence.payment_success_rows ?? 0}`);
+  lines.push(`- confirmed payment_success row: ${presence.confirmed_payment_success_rows ?? 0}`);
+  lines.push(`- pending/unknown payment_success row: ${presence.pending_or_unknown_payment_success_rows ?? 0}`);
+  lines.push(`- 완료 URL 흔적: ${presence.completion_url_rows ?? 0}`);
+  lines.push(`- 결제키/거래키 presence: payment_key ${presence.payment_key_present_rows ?? 0}, transaction_id ${presence.transaction_id_present_rows ?? 0}`);
+  lines.push(`- value presence: ${presence.value_present_rows ?? 0}`);
+  lines.push("");
+  lines.push("## 왜 바로 예산 판단이 아닌가");
+  lines.push("");
+  lines.push("- row-level join은 `같은 사람/같은 세션`으로 VM Cloud와 GA4가 붙는지를 보는 절차다.");
+  if (isBridgeHigh) {
+    lines.push("- 이번 dry-run에서는 Meta-only 범위의 GA4-VM 연결률이 충분히 높아졌다. 기존 30~34% 가정은 BigQuery query result 2만 row 제한으로 생긴 dry-run 구현 문제였다.");
+    lines.push(`- 그래도 비결제자 cohort 안에 GA4 purchase event가 ${percent(nonBuyer.ga4_purchase_event_rate_pct)} 남아 있다. 이것은 진짜 이탈자가 아니라 세션 window 차이, 결제창 이동, source 분류 차이일 가능성이 있다.`);
+    lines.push("- 그래서 이 표는 `구매자는 더 오래 머물렀는가`, `스크롤·장바구니·결제시작이 구매를 예고하는가`를 찾는 선행지표 후보 표로 쓰고, 예산 자동 판단에는 분류 충돌 row를 먼저 떼어낸 뒤 써야 한다.");
+  } else {
+    lines.push("- 현재 바이오컴은 Meta-only 범위에서도 GA4-VM 연결률이 충분히 높지 않다.");
+    lines.push("- 그래서 이 표는 `구매자는 더 오래 머물렀는가`, `스크롤·장바구니·결제시작이 구매를 예고하는가`를 찾는 탐색표다.");
+    lines.push("- 예산 판단이나 자동입찰 전송 기준으로 쓰려면 raw-id Plan B 또는 key capture 보강으로 join율을 먼저 올려야 한다.");
+  }
+  lines.push("");
+  lines.push("## 해결 방안");
+  lines.push("");
+  if (isBridgeHigh) {
+    lines.push("1. `비결제자이지만 GA4 purchase가 있는 row`를 별도 conflict bucket으로 분리한다.");
+    lines.push("2. 프론트엔드 선행지표 화면에서는 `확정 구매자`, `결제 시작 후 미구매`, `GA4 purchase 충돌`을 나눠 보여준다.");
+    lines.push("3. conflict bucket이 계속 크면 그 row만 raw-id Plan B 승인 후 secure evidence 안에서 key mapping 오류를 확인한다.");
+    lines.push("4. key capture 보강은 계속 유지하되, 지금 병목은 join율 자체보다 비결제자 정의 정리다.");
+    lines.push("");
+    lines.push("## 구체 실행 계획");
+    lines.push("");
+    lines.push("1. P0: 선행지표 API/문서에서는 Meta-only cohort를 `confirmed_buyer`, `checkout_non_buyer`, `ga4_purchase_conflict` 3개로 나눈다.");
+    lines.push("   - 무엇을: 비결제자 중 GA4 purchase가 있는 세션을 일반 이탈자에서 제외한다.");
+    lines.push("   - 왜: 이 row를 이탈자로 두면 구매자/비결제자 행동 차이가 희석된다.");
+    lines.push("   - 성공 기준: conflict bucket count/rate가 별도 숫자로 보이고, pure checkout_non_buyer의 체류·스크롤·장바구니 지표가 다시 계산된다.");
+    lines.push("2. P1: Claude Code 프론트엔드 선행지표 화면은 세 그룹을 사람이 이해할 수 있는 말로 보여준다.");
+    lines.push("   - 무엇을: `구매 완료`, `결제 시작 후 멈춤`, `GA4와 VM 판단 충돌` 카드로 분리한다.");
+    lines.push("   - 왜: 운영자가 `광고 유입자가 왜 안 샀는지`를 보려면 충돌 데이터를 이탈로 섞으면 안 된다.");
+    lines.push("   - 성공 기준: Meta-only 필터에서 각 그룹의 p50 체류시간, scroll90, view_item, cart/view_cart, begin_checkout, add_payment_info가 나온다.");
+    lines.push("3. P2: conflict bucket이 5% 이상 유지될 때만 raw-id Plan B를 검토한다.");
+    lines.push("   - 무엇을: 승인받은 secure evidence 안에서만 원문 key를 잠시 사용해 mapping 오류를 확인한다.");
+    lines.push("   - 왜: 현재 join율은 높으므로 원문 ID 디버그를 기본값으로 쓸 필요가 없다.");
+    lines.push("   - 성공 기준: raw identifier는 보고서/대화/git에 0건이고, conflict 원인이 `window mismatch`, `source mismatch`, `key mapping error` 중 하나로 분류된다.");
+  } else {
+    lines.push("1. Header/Footer/VM payload에 GA4 client/session key가 완료 페이지까지 보존되는지 점검한다.");
+    lines.push("2. Meta 유입 landing → checkout → payment_success 사이에서 safe_session_key가 바뀌는 구간을 찾는다.");
+    lines.push("3. 그래도 안 닫히는 row는 raw-id Plan B를 승인받아 secure evidence 안에서만 key mapping 오류를 확인한다.");
+    lines.push("4. join율이 60% 이상으로 올라가면 Meta-only buyer/leaver 선행지표를 프론트엔드 지표 후보로 승격한다.");
+  }
+  lines.push("");
+  return `${lines.join("\n").trimEnd()}\n`;
+};
+
 const buildCoffeeTruthMarkdown = (payload: Record<string, unknown>) => {
   const channels = payload.channel_truth_table as Array<Record<string, unknown>>;
   const landings = payload.landing_truth_table as Array<Record<string, unknown>>;
@@ -815,7 +1286,7 @@ const buildCoffeeTruthMarkdown = (payload: Record<string, unknown>) => {
   lines.push("    - raw_identifier_report_output");
   lines.push("  source_window_freshness_confidence:");
   lines.push("    source: VM Cloud SQLite + GA4 BigQuery daily export");
-  lines.push("    window: rolling latest 7d");
+  lines.push(`    window: ${WINDOW_HUMAN}`);
   lines.push("    freshness: runtime query");
   lines.push("    confidence: high for safe bridge coverage, medium for dropped-checkout interpretation");
   lines.push("```");
@@ -871,6 +1342,17 @@ const readinessFor = (confirmed: ReturnType<typeof summarizeCohort>, dropped: Re
 const buildMarkdown = (payload: Record<string, unknown>) => {
   const cohorts = payload.cohort_summary as Array<Record<string, unknown>>;
   const readiness = payload.readiness as Array<Record<string, unknown>>;
+  const cohort = (site: string, name: string) => cohorts.find((row) => row.site === site && row.cohort === name);
+  const biocomConfirmed = cohort("biocom", "confirmed_purchase");
+  const biocomDropped = cohort("biocom", "dropped_checkout");
+  const coffeeConfirmed = cohort("thecleancoffee", "confirmed_purchase");
+  const coffeeDropped = cohort("thecleancoffee", "dropped_checkout");
+  const minJoin = (...rows: Array<Record<string, unknown> | undefined>) => {
+    const values = rows.map((row) => Number(row?.join_rate_pct ?? 0)).filter((value) => Number.isFinite(value));
+    return values.length ? Math.min(...values) : 0;
+  };
+  const biocomMinJoin = minJoin(biocomConfirmed, biocomDropped);
+  const coffeeMinJoin = minJoin(coffeeConfirmed, coffeeDropped);
   const lines: string[] = [];
   lines.push("# GA4 ↔ VM Cloud Row-level Safe Bridge Dry-run");
   lines.push("");
@@ -903,7 +1385,7 @@ const buildMarkdown = (payload: Record<string, unknown>) => {
   lines.push("    - raw_identifier_report_output");
   lines.push("  source_window_freshness_confidence:");
   lines.push("    source: VM Cloud SQLite + GA4 BigQuery daily export");
-  lines.push("    window: rolling latest 7d");
+  lines.push(`    window: ${WINDOW_HUMAN}`);
   lines.push("    freshness: runtime query");
   lines.push("    confidence: medium_high for joined sessions, medium for dropout interpretation");
   lines.push("```");
@@ -911,8 +1393,8 @@ const buildMarkdown = (payload: Record<string, unknown>) => {
   lines.push("## 10초 요약");
   lines.push("");
   lines.push("- 원문 주문번호/결제키/회원값을 보고서에 쓰지 않고, VM Cloud와 GA4 양쪽에서 같은 방식의 safe session hash를 만들어 붙였다.");
-  lines.push("- 더클린커피는 구매 세션과 이탈 세션 모두 GA4와 94% 이상 이어져 row-level 행동 비교가 가능하다.");
-  lines.push("- 바이오컴은 strict safe hash 기준 GA4 연결률이 30%대라, 같은 사람/세션을 닫는 키 보강이 먼저 필요하다.");
+  lines.push(`- 바이오컴은 구매 세션과 이탈 세션이 최소 ${biocomMinJoin}% 이상 GA4와 이어졌다. 기존 30%대 연결률은 BigQuery 결과를 2만 row까지만 읽던 dry-run 구현 제한 영향이었다.`);
+  lines.push(`- 더클린커피는 구매 세션과 이탈 세션이 최소 ${coffeeMinJoin}% 이상 GA4와 이어져 row-level 행동 비교가 가능하다.`);
   lines.push("- 결제 페이지까지 갔지만 구매로 닫히지 않은 세션은 `원인 비교용`이지 예산 판단용 전환율이 아니다.");
   lines.push("- Plan B raw id 디버그는 실행하지 않았다. 필요 시 승인받아 secure evidence 내부에서만 쓰는 방식으로 남겼다.");
   lines.push("");
@@ -986,6 +1468,7 @@ const main = async () => {
   ]);
   const coffeeChannelTruthTable = summarizeCoffeeTruthDimension("source_group", vmSafe.rows, ga4ByKey);
   const coffeeLandingTruthTable = summarizeCoffeeTruthDimension("landing_bucket", vmSafe.rows, ga4ByKey);
+  const biocomMetaOnlyTruthTable = summarizeBiocomMetaOnlyBuyerLeaver(vmSafe.rows, ga4ByKey);
 
   const readiness = siteConfigs().map((config) => {
     const confirmed = cohortSummary.find((row) => row.site === config.site && row.cohort === "confirmed_purchase");
@@ -1013,7 +1496,7 @@ const main = async () => {
     mode: "green_read_only_row_level_safe_bridge_dry_run",
     source_window_freshness_confidence: {
       source: "VM Cloud SQLite hashed in VM process + GA4 BigQuery SHA256 session hash",
-      window: "rolling latest 7d",
+      window: WINDOW_HUMAN,
       freshness: "queried at runtime",
       confidence: "medium_high for safe session joins; medium for dropped checkout inference",
     },
@@ -1050,6 +1533,17 @@ const main = async () => {
   const mdPath = path.join(REPO_ROOT, "project", `ga4-vm-row-level-safe-bridge-dry-run-${OUTPUT_DATE}.md`);
   const coffeeTruthJsonPath = path.join(REPO_ROOT, "data", "project", `coffee-channel-cohort-truth-table-${OUTPUT_DATE}.json`);
   const coffeeTruthMdPath = path.join(REPO_ROOT, "project", `coffee-channel-cohort-truth-table-${OUTPUT_DATE}.md`);
+  const biocomMetaOnlyJsonPath = path.join(
+    REPO_ROOT,
+    "data",
+    "project",
+    `biocom-meta-only-buyer-leaver-truth-table-${OUTPUT_DATE}.json`,
+  );
+  const biocomMetaOnlyMdPath = path.join(
+    REPO_ROOT,
+    "project",
+    `biocom-meta-only-buyer-leaver-truth-table-${OUTPUT_DATE}.md`,
+  );
   const coffeeTruthPayload = {
     ok: true,
     checked_at_kst: payload.checked_at_kst,
@@ -1069,12 +1563,37 @@ const main = async () => {
     ],
     safety: payload.safety,
   };
+  const biocomMetaOnlyPayload = {
+    ok: true,
+    checked_at_kst: payload.checked_at_kst,
+    mode: "green_read_only_biocom_meta_only_buyer_vs_leaver_truth_table",
+    source_window_freshness_confidence: {
+      ...payload.source_window_freshness_confidence,
+      confidence: biocomMetaOnlyTruthTable.confidence,
+    },
+    site: "biocom",
+    source_group: "meta",
+    pixel_or_platform_send: 0,
+    operating_db_write: 0,
+    vm_cloud_write: 0,
+    gtm_publish: 0,
+    truth_table: biocomMetaOnlyTruthTable,
+    caveats: [
+      "This table filters VM Cloud source_group=meta first, then joins GA4 behavior by safe session hash.",
+      "GA4 purchase is a behavior cross-check, not actual revenue truth.",
+      "Low bridge coverage means this is a leading-indicator exploration table, not a budget or attribution truth table.",
+      "Raw-id Plan B was not executed.",
+    ],
+    safety: payload.safety,
+  };
   await fs.mkdir(path.dirname(jsonPath), { recursive: true });
   await fs.mkdir(path.dirname(mdPath), { recursive: true });
   await fs.writeFile(jsonPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   await fs.writeFile(mdPath, buildMarkdown(payload), "utf8");
   await fs.writeFile(coffeeTruthJsonPath, `${JSON.stringify(coffeeTruthPayload, null, 2)}\n`, "utf8");
   await fs.writeFile(coffeeTruthMdPath, buildCoffeeTruthMarkdown(coffeeTruthPayload), "utf8");
+  await fs.writeFile(biocomMetaOnlyJsonPath, `${JSON.stringify(biocomMetaOnlyPayload, null, 2)}\n`, "utf8");
+  await fs.writeFile(biocomMetaOnlyMdPath, buildBiocomMetaOnlyMarkdown(biocomMetaOnlyPayload), "utf8");
   console.log(
     JSON.stringify(
       {
@@ -1083,6 +1602,8 @@ const main = async () => {
         mdPath,
         coffeeTruthJsonPath,
         coffeeTruthMdPath,
+        biocomMetaOnlyJsonPath,
+        biocomMetaOnlyMdPath,
         checked_at_kst: payload.checked_at_kst,
       },
       null,

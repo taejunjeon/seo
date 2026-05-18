@@ -1,0 +1,568 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-18 23:01 KST",
+  "mode": "green_read_only_row_level_safe_bridge_dry_run",
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud SQLite hashed in VM process + GA4 BigQuery SHA256 session hash",
+    "window": "rolling latest 3d",
+    "freshness": "queried at runtime",
+    "confidence": "medium_high for safe session joins; medium for dropped checkout inference"
+  },
+  "vm_cloud": {
+    "window": "rolling_last_3d",
+    "generated_at_kst": "2026-05-18 23:01 KST",
+    "coverage": [
+      {
+        "site": "biocom",
+        "safe_session_rows": 540,
+        "confirmed_purchase_sessions": 210,
+        "dropped_checkout_sessions": 330,
+        "confirmed_amount_krw": 65472566,
+        "missing_hash_rows": 537
+      },
+      {
+        "site": "thecleancoffee",
+        "safe_session_rows": 214,
+        "confirmed_purchase_sessions": 102,
+        "dropped_checkout_sessions": 112,
+        "confirmed_amount_krw": 7081032,
+        "missing_hash_rows": 8
+      }
+    ],
+    "safe_session_rows_total": 754
+  },
+  "ga4": [
+    {
+      "site": "biocom",
+      "display_name": "바이오컴",
+      "status": "ok",
+      "window": {
+        "start_date": "2026-05-15",
+        "end_date": "2026-05-17",
+        "latest_daily_table": "events_20260517"
+      },
+      "source": [
+        {
+          "label": "current",
+          "project_id": "project-dadba7dd-0229-4ff6-81c",
+          "dataset_id": "analytics_304759974",
+          "table_start": "events_20260515",
+          "table_end": "events_20260517",
+          "table_count": 3
+        }
+      ],
+      "safe_session_rows": 29188
+    },
+    {
+      "site": "thecleancoffee",
+      "display_name": "더클린커피",
+      "status": "ok",
+      "window": {
+        "start_date": "2026-05-15",
+        "end_date": "2026-05-17",
+        "latest_daily_table": "events_20260517"
+      },
+      "source": [
+        {
+          "label": "current",
+          "project_id": "project-dadba7dd-0229-4ff6-81c",
+          "dataset_id": "analytics_326949178",
+          "table_start": "events_20260515",
+          "table_end": "events_20260517",
+          "table_count": 3
+        }
+      ],
+      "safe_session_rows": 1395
+    }
+  ],
+  "cohort_summary": [
+    {
+      "site": "biocom",
+      "cohort": "confirmed_purchase",
+      "vm_safe_sessions": 210,
+      "ga4_joined_sessions": 160,
+      "join_rate_pct": 76.19,
+      "amount_krw": 65472566,
+      "p50_engagement_seconds": 205.95,
+      "p75_engagement_seconds": 425.1,
+      "scroll50_rate_pct": 92.5,
+      "scroll90_rate_pct": 92.5,
+      "view_item_rate_pct": 53.75,
+      "add_to_cart_rate_pct": 18.75,
+      "begin_checkout_rate_pct": 98.75,
+      "add_payment_info_rate_pct": 3.75,
+      "ga4_purchase_event_rate_pct": 99.38,
+      "vm_source_groups": [
+        {
+          "bucket": "other",
+          "count": 89
+        },
+        {
+          "bucket": "meta",
+          "count": 80
+        },
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 29
+        },
+        {
+          "bucket": "google_paid",
+          "count": 5
+        },
+        {
+          "bucket": "youtube",
+          "count": 4
+        },
+        {
+          "bucket": "naver_other",
+          "count": 2
+        }
+      ],
+      "vm_landing_buckets": [
+        {
+          "bucket": "checkout",
+          "count": 188
+        },
+        {
+          "bucket": "cart",
+          "count": 16
+        },
+        {
+          "bucket": "home_or_other",
+          "count": 5
+        },
+        {
+          "bucket": "product",
+          "count": 1
+        }
+      ],
+      "ga4_source_groups": [
+        {
+          "bucket": "meta",
+          "count": 75
+        },
+        {
+          "bucket": "organic",
+          "count": 39
+        },
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 35
+        },
+        {
+          "bucket": "naver_other",
+          "count": 5
+        },
+        {
+          "bucket": "google_paid",
+          "count": 4
+        },
+        {
+          "bucket": "youtube",
+          "count": 2
+        }
+      ],
+      "ga4_landing_buckets": [
+        {
+          "bucket": "home_or_other",
+          "count": 130
+        },
+        {
+          "bucket": "product",
+          "count": 14
+        },
+        {
+          "bucket": "content_guide",
+          "count": 6
+        },
+        {
+          "bucket": "cart",
+          "count": 5
+        },
+        {
+          "bucket": "checkout",
+          "count": 4
+        },
+        {
+          "bucket": "review_or_story",
+          "count": 1
+        }
+      ],
+      "join_methods": [
+        {
+          "bucket": "primary_user_session_hash",
+          "count": 160
+        }
+      ]
+    },
+    {
+      "site": "biocom",
+      "cohort": "dropped_checkout",
+      "vm_safe_sessions": 330,
+      "ga4_joined_sessions": 223,
+      "join_rate_pct": 67.58,
+      "amount_krw": 0,
+      "p50_engagement_seconds": 112.19,
+      "p75_engagement_seconds": 226.07,
+      "scroll50_rate_pct": 72.2,
+      "scroll90_rate_pct": 72.2,
+      "view_item_rate_pct": 34.08,
+      "add_to_cart_rate_pct": 11.66,
+      "begin_checkout_rate_pct": 54.26,
+      "add_payment_info_rate_pct": 4.04,
+      "ga4_purchase_event_rate_pct": 5.38,
+      "vm_source_groups": [
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 145
+        },
+        {
+          "bucket": "other",
+          "count": 117
+        },
+        {
+          "bucket": "meta",
+          "count": 46
+        },
+        {
+          "bucket": "direct_or_unknown",
+          "count": 13
+        },
+        {
+          "bucket": "google_paid",
+          "count": 5
+        },
+        {
+          "bucket": "naver_other",
+          "count": 2
+        }
+      ],
+      "vm_landing_buckets": [
+        {
+          "bucket": "checkout",
+          "count": 197
+        },
+        {
+          "bucket": "home_or_other",
+          "count": 113
+        },
+        {
+          "bucket": "product",
+          "count": 16
+        },
+        {
+          "bucket": "cart",
+          "count": 3
+        },
+        {
+          "bucket": "content_guide",
+          "count": 1
+        }
+      ],
+      "ga4_source_groups": [
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 83
+        },
+        {
+          "bucket": "meta",
+          "count": 51
+        },
+        {
+          "bucket": "google_paid",
+          "count": 38
+        },
+        {
+          "bucket": "other",
+          "count": 28
+        },
+        {
+          "bucket": "organic",
+          "count": 18
+        },
+        {
+          "bucket": "naver_other",
+          "count": 5
+        }
+      ],
+      "ga4_landing_buckets": [
+        {
+          "bucket": "home_or_other",
+          "count": 104
+        },
+        {
+          "bucket": "checkout",
+          "count": 60
+        },
+        {
+          "bucket": "content_guide",
+          "count": 36
+        },
+        {
+          "bucket": "product",
+          "count": 19
+        },
+        {
+          "bucket": "cart",
+          "count": 2
+        },
+        {
+          "bucket": "review_or_story",
+          "count": 2
+        }
+      ],
+      "join_methods": [
+        {
+          "bucket": "primary_user_session_hash",
+          "count": 223
+        }
+      ]
+    },
+    {
+      "site": "thecleancoffee",
+      "cohort": "confirmed_purchase",
+      "vm_safe_sessions": 102,
+      "ga4_joined_sessions": 80,
+      "join_rate_pct": 78.43,
+      "amount_krw": 7081032,
+      "p50_engagement_seconds": 283.47,
+      "p75_engagement_seconds": 518.3,
+      "scroll50_rate_pct": 100,
+      "scroll90_rate_pct": 100,
+      "view_item_rate_pct": 43.75,
+      "add_to_cart_rate_pct": 28.75,
+      "begin_checkout_rate_pct": 0,
+      "add_payment_info_rate_pct": 0,
+      "ga4_purchase_event_rate_pct": 100,
+      "vm_source_groups": [
+        {
+          "bucket": "direct_or_unknown",
+          "count": 43
+        },
+        {
+          "bucket": "meta",
+          "count": 20
+        },
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 19
+        },
+        {
+          "bucket": "youtube",
+          "count": 15
+        },
+        {
+          "bucket": "other",
+          "count": 4
+        },
+        {
+          "bucket": "naver_other",
+          "count": 1
+        }
+      ],
+      "vm_landing_buckets": [
+        {
+          "bucket": "checkout",
+          "count": 96
+        },
+        {
+          "bucket": "home_or_other",
+          "count": 3
+        },
+        {
+          "bucket": "product",
+          "count": 2
+        },
+        {
+          "bucket": "cart",
+          "count": 1
+        }
+      ],
+      "ga4_source_groups": [
+        {
+          "bucket": "other",
+          "count": 40
+        },
+        {
+          "bucket": "meta",
+          "count": 14
+        },
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 14
+        },
+        {
+          "bucket": "youtube",
+          "count": 11
+        },
+        {
+          "bucket": "organic",
+          "count": 1
+        }
+      ],
+      "ga4_landing_buckets": [
+        {
+          "bucket": "home_or_other",
+          "count": 46
+        },
+        {
+          "bucket": "product",
+          "count": 21
+        },
+        {
+          "bucket": "review_or_story",
+          "count": 9
+        },
+        {
+          "bucket": "checkout",
+          "count": 4
+        }
+      ],
+      "join_methods": [
+        {
+          "bucket": "primary_user_session_hash",
+          "count": 80
+        }
+      ]
+    },
+    {
+      "site": "thecleancoffee",
+      "cohort": "dropped_checkout",
+      "vm_safe_sessions": 112,
+      "ga4_joined_sessions": 85,
+      "join_rate_pct": 75.89,
+      "amount_krw": 0,
+      "p50_engagement_seconds": 159.37,
+      "p75_engagement_seconds": 282.32,
+      "scroll50_rate_pct": 94.12,
+      "scroll90_rate_pct": 94.12,
+      "view_item_rate_pct": 35.29,
+      "add_to_cart_rate_pct": 15.29,
+      "begin_checkout_rate_pct": 0,
+      "add_payment_info_rate_pct": 0,
+      "ga4_purchase_event_rate_pct": 16.47,
+      "vm_source_groups": [
+        {
+          "bucket": "direct_or_unknown",
+          "count": 49
+        },
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 27
+        },
+        {
+          "bucket": "meta",
+          "count": 17
+        },
+        {
+          "bucket": "other",
+          "count": 7
+        },
+        {
+          "bucket": "naver_other",
+          "count": 6
+        },
+        {
+          "bucket": "youtube",
+          "count": 6
+        }
+      ],
+      "vm_landing_buckets": [
+        {
+          "bucket": "checkout",
+          "count": 92
+        },
+        {
+          "bucket": "product",
+          "count": 12
+        },
+        {
+          "bucket": "home_or_other",
+          "count": 8
+        }
+      ],
+      "ga4_source_groups": [
+        {
+          "bucket": "other",
+          "count": 47
+        },
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 21
+        },
+        {
+          "bucket": "meta",
+          "count": 9
+        },
+        {
+          "bucket": "youtube",
+          "count": 4
+        },
+        {
+          "bucket": "naver_other",
+          "count": 3
+        },
+        {
+          "bucket": "organic",
+          "count": 1
+        }
+      ],
+      "ga4_landing_buckets": [
+        {
+          "bucket": "home_or_other",
+          "count": 58
+        },
+        {
+          "bucket": "checkout",
+          "count": 13
+        },
+        {
+          "bucket": "product",
+          "count": 11
+        },
+        {
+          "bucket": "review_or_story",
+          "count": 3
+        }
+      ],
+      "join_methods": [
+        {
+          "bucket": "primary_user_session_hash",
+          "count": 85
+        }
+      ]
+    }
+  ],
+  "readiness": [
+    {
+      "site": "biocom",
+      "display_name": "바이오컴",
+      "status": "partial_bridge_usable_with_caveat",
+      "interpretation": "구매자 쪽은 충분하지만 이탈자 쪽은 누락 가능성을 함께 표시해야 한다."
+    },
+    {
+      "site": "thecleancoffee",
+      "display_name": "더클린커피",
+      "status": "partial_bridge_usable_with_caveat",
+      "interpretation": "구매자 쪽은 충분하지만 이탈자 쪽은 누락 가능성을 함께 표시해야 한다."
+    }
+  ],
+  "raw_id_plan_b": {
+    "status": "not_executed",
+    "lane": "approval_required_before_execution",
+    "reason": "Only needed if safe hash bridge cannot classify a specific row or a key-mapping error must be proven.",
+    "safeguards": [
+      "secure_local_or_vm_evidence_only",
+      "no_raw_identifier_in_markdown_chat_telegram_git",
+      "aggregate_or_safe_ref_output_only",
+      "delete_temporary_raw_evidence_after_review"
+    ]
+  },
+  "safety": {
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_publish": true,
+    "raw_identifier_output": false
+  }
+}

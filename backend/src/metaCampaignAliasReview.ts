@@ -1,5 +1,9 @@
 import { promises as fs } from "fs";
-import path from "path";
+
+import {
+  metaCampaignAliasAuditPathForSite,
+  metaCampaignAliasSeedPathForSite,
+} from "./metaCampaignAliasPaths";
 
 export type AliasReviewSite = "biocom" | "thecleancoffee" | "aibio";
 export type AliasReviewDecision = "yes" | "no";
@@ -128,7 +132,6 @@ export type AliasReviewResponse = {
   items: AliasReviewItem[];
 };
 
-const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
 const SUPPORTED_SITES = new Set<AliasReviewSite>(["biocom", "thecleancoffee", "aibio"]);
 
 const round2 = (value: number) => Number(value.toFixed(2));
@@ -141,10 +144,10 @@ const ensureSite = (site: string): AliasReviewSite => {
 };
 
 const auditPathForSite = (site: AliasReviewSite) =>
-  path.resolve(DATA_DIR, `meta_campaign_alias_audit.${site}.json`);
+  metaCampaignAliasAuditPathForSite(site);
 
 const seedPathForSite = (site: AliasReviewSite) =>
-  path.resolve(DATA_DIR, `meta_campaign_aliases.${site}.json`);
+  metaCampaignAliasSeedPathForSite(site);
 
 const readJsonFile = async <T>(filePath: string, fallback: T): Promise<T> => {
   try {

@@ -28,6 +28,7 @@ import { readLedgerEntries, readLedgerEntriesInRange } from "../attribution";
 import { readMetaCapiSendLogs } from "../metaCapi";
 import { readPaymentDecisionMeasurements } from "../paymentDecisionLatency";
 import { startFunnelHealthPrecomputeWorker } from "../funnelHealthPrecompute";
+import { startLeadingIndicatorsPrecomputeWorker } from "../leadingIndicators";
 import { startAcquisitionPrecomputeWorker } from "../acquisitionPrecompute";
 import { fetchRemoteLedgerEntriesForAcquisition } from "../routes/attribution";
 import { startCallpricePrecomputeWorker } from "../callpricePrecompute";
@@ -359,6 +360,38 @@ export const startBackgroundJobs = () => {
   } else {
     // eslint-disable-next-line no-console
     console.log("[funnel-health precompute] disabled by FUNNEL_HEALTH_PRECOMPUTE_ENABLED=0 또는 interval<60s");
+  }
+
+  // leading-indicators precompute (P1 skeleton):
+  // 화면은 aggregate cache 만 읽고, row-level key 는 API 응답에 노출하지 않는다.
+  // hammer 방지를 위해 명시적으로 켠 경우에만 작동한다.
+  // 환경변수: LEADING_INDICATORS_PRECOMPUTE_ENABLED=1 / LEADING_INDICATORS_PRECOMPUTE_INTERVAL_MS=1800000
+  const leadingIndicatorsPrecomputeEnabled =
+    process.env.LEADING_INDICATORS_PRECOMPUTE_ENABLED === "1" ||
+    process.env.LEADING_INDICATORS_PRECOMPUTE_ENABLED === "true";
+  const leadingIndicatorsPrecomputeIntervalMs = Number(
+    process.env.LEADING_INDICATORS_PRECOMPUTE_INTERVAL_MS ?? "1800000",
+  );
+  if (
+    leadingIndicatorsPrecomputeEnabled &&
+    Number.isFinite(leadingIndicatorsPrecomputeIntervalMs) &&
+    leadingIndicatorsPrecomputeIntervalMs >= 300000
+  ) {
+    startLeadingIndicatorsPrecomputeWorker(async () => {
+      const nowMs = Date.now();
+      const fromMs = nowMs - 31 * 24 * 60 * 60 * 1000;
+      const ledgerEntries = await readLedgerEntriesInRange({
+        loggedAtFromIso: new Date(fromMs).toISOString(),
+      });
+      return { ledgerEntries };
+    }, leadingIndicatorsPrecomputeIntervalMs);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[leading-indicators precompute] 활성화 — ${Math.round(leadingIndicatorsPrecomputeIntervalMs / 60000)}분 주기 (site×window×channel×dimension 주요 조합 사전 계산)`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[leading-indicators precompute] disabled by LEADING_INDICATORS_PRECOMPUTE_ENABLED!=1 또는 interval<300s");
   }
 
   // acquisition precompute (Option B 확장):

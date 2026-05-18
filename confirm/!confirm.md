@@ -1,10 +1,10 @@
 # TJ 승인 큐
 
 작성 시각: 2026-05-07 12:42 KST
-최신 업데이트: 2026-05-07 14:58 KST
+최신 업데이트: 2026-05-19 01:50 KST
 상태: active
 Owner: total / approval
-Next document: none
+Next document: confirm/confirm0519-1.md
 Do not use for: 이미 승인되지 않은 운영 배포, DB write, 플랫폼 전송 실행
 
 ```yaml
@@ -17,24 +17,27 @@ harness_preflight:
     - harness/common/REPORTING_TEMPLATE.md
   project_harness_read:
     - total/!total-current.md
-  lane: Green 승인 큐 정리
+  lane: Green 승인 큐 정리 / frontend confirmation tracking
   allowed_actions:
     - 현재 승인 필요 여부 정리
     - future approval 후보 기록
+    - frontend confirmation 후보 기록
   forbidden_actions:
     - 승인 전 운영 DB/ledger write
     - 승인 전 GTM publish
     - 승인 전 platform send
   source_window_freshness_confidence:
-    source: "total/!total-current.md + data/!coffeedata.md + coffee closure docs"
-    window: "2026-05-07 KST"
-    freshness: "Mode B 실행 완료, 24h/72h monitoring 대기 + Coffee NPay closure decision approved"
+    source: "confirm/confirm0519-1.md + meta/meta-utm-diagnostics-frontend-20260519.md + local frontend/backend smoke"
+    window: "2026-05-12 ~ 2026-05-18 KST for Meta UTM data, confirmation queue updated 2026-05-19 KST"
+    freshness: "Meta UTM local cache 2026-05-19 01:55 KST + confirmation queue updated 2026-05-19 01:50 KST"
     confidence: 0.9
 ```
 
 ## 10초 결론
 
-현재 TJ님이 **지금 확인할 open approval은 없다**.
+현재 TJ님이 확인할 open confirmation은 **1건**이다.
+
+[[confirm0519-1]]은 Meta UTM 진단 프론트엔드 화면 확인용 컨펌이다. 운영 배포 승인이 아니라, TJ님이 화면 구조와 지표 구성을 확인한 뒤 다음 운영 배포 승인안으로 넘어갈지 결정하는 단계다.
 
 [[confirm0507-1]]은 승인 완료됐다. 더클린커피 NPay 과거 매칭 Sprint는 “자동 복구 전송 없이 종결하고 future intent/A-6로 넘김”으로 닫는다.
 
@@ -42,6 +45,7 @@ harness_preflight:
 
 | 항목 | 상태 | 해석 |
 |---|---|---|
+| Meta UTM 진단 프론트엔드 화면 | TJ님 확인 대기 | [[confirm0519-1]]에서 `/ads/meta-utm` 화면 구성, Section A/B 기준, 광고 썸네일/ID/성과 열을 확인한다. 운영 배포는 아직 승인하지 않았다 |
 | paid_click_intent Mode B | 승인 완료 / 실행 완료 | backend no-write receiver route, smoke, GTM publish, live smoke까지 완료 |
 | 24h/72h monitoring | 승인 불필요 | read-only monitoring 이므로 Codex가 정시에 실행 |
 | Coffee NPay 과거 매칭 종결 | 승인 완료 / closed | [[confirm0507-1]]에서 YES 승인됨. Phase2를 100% / 100%로 닫고, 과거 자동 복구 전송 금지를 고정 |

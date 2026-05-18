@@ -668,7 +668,49 @@ export const createMetaRouter = () => {
       }
 
       const result = await fetchMeta<{ data: MetaInsight[] }>(`/${accountId}/insights`, fetchParams);
-      if (!result.ok) { res.status(503).json(result); return; }
+      if (!result.ok) {
+        const stale = getLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildLazyCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: result.error },
+          });
+          return;
+        }
+        res.json({
+          ok: false,
+          degraded: true,
+          error: result.error,
+          error_detail: result.errorDetail ?? null,
+          account_id: accountId,
+          date_preset: customRange ? null : datePreset,
+          start_date: customRange?.since ?? null,
+          end_date: customRange?.until ?? null,
+          level,
+          meta_reference: metaReference,
+          summary: {
+            totalImpressions: 0,
+            totalClicks: 0,
+            totalSpend: 0,
+            avgCpc: 0,
+            totalLandingViews: 0,
+            totalLeads: 0,
+            totalPurchases: 0,
+            totalPurchaseValue: 0,
+          },
+          rows: [],
+          cache: {
+            cached: false,
+            cached_at_kst: null,
+            next_refresh_at_kst: null,
+            ttl_seconds: 0,
+            source: "live_error_no_cache",
+            stale: true,
+            stale_reason: result.error,
+          },
+        });
+        return;
+      }
 
       const pickValue = (a: { value: string; "1d_click"?: string; "7d_click"?: string; "28d_click"?: string; "1d_view"?: string }): number => {
         if (attrWindow && VALID_WINDOWS.includes(attrWindow)) {
@@ -767,7 +809,20 @@ export const createMetaRouter = () => {
           return;
         }
       }
-      res.status(500).json({ ok: false, error: message });
+      res.json({
+        ok: false,
+        degraded: true,
+        error: message,
+        cache: {
+          cached: false,
+          cached_at_kst: null,
+          next_refresh_at_kst: null,
+          ttl_seconds: 0,
+          source: "live_error_no_cache",
+          stale: true,
+          stale_reason: message,
+        },
+      });
     }
   });
 
@@ -892,7 +947,11 @@ export const createMetaRouter = () => {
       const accountId = (req.query.account_id as string) ?? "";
       if (!accountId) { res.status(400).json({ ok: false, error: "account_id 필요" }); return; }
 
-      // 사용자 지정 범위 — 없으면 last_30d.
+      // 사용자 지정 범위 - 없으면 date_preset. /ads 화면은 last_7d를 넘기므로
+      // 여기서 무시하면 캠페인 관리 카드만 last_30d로 엇갈린다.
+      const datePreset = typeof req.query.date_preset === "string" && req.query.date_preset.trim()
+        ? req.query.date_preset.trim()
+        : "last_30d";
       const rawStartDate = typeof req.query.start_date === "string" ? req.query.start_date.trim() : "";
       const rawEndDate = typeof req.query.end_date === "string" ? req.query.end_date.trim() : "";
       const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -910,7 +969,7 @@ export const createMetaRouter = () => {
       }
 
       const forceRefresh = req.query.force === "true" || req.query.force === "1";
-      const rangeKey = customRange ? `range:${customRange.since}~${customRange.until}` : `preset:last_30d`;
+      const rangeKey = customRange ? `range:${customRange.since}~${customRange.until}` : `preset:${datePreset}`;
       cacheKey = `meta-campaigns-health:${accountId}:${rangeKey}`;
       if (!forceRefresh) {
         const cached = getLazyCached(cacheKey);
@@ -929,7 +988,7 @@ export const createMetaRouter = () => {
       if (customRange) {
         insightsParams.time_range = JSON.stringify(customRange);
       } else {
-        insightsParams.date_preset = "last_30d";
+        insightsParams.date_preset = datePreset;
       }
       const [campResult, insightsResult, adsetsResult] = await Promise.all([
         fetchMeta<{ data: Array<{ id: string; name: string; objective: string; status: string; daily_budget?: string; lifetime_budget?: string }> }>(`/${accountId}/campaigns`, {
@@ -952,7 +1011,22 @@ export const createMetaRouter = () => {
             return;
           }
         }
-        res.status(503).json(campResult); return;
+        res.json({
+          ok: false,
+          error: "meta_campaign_health_unavailable",
+          message: campResult.error,
+          account_id: accountId,
+          start_date: customRange?.since ?? null,
+          end_date: customRange?.until ?? null,
+          date_preset: customRange ? null : datePreset,
+          total: 0,
+          active: 0,
+          issues: 0,
+          campaigns: [],
+          degraded: true,
+          source: "Meta API",
+        });
+        return;
       }
 
       // insights를 campaign_id로 매핑
@@ -1107,7 +1181,7 @@ export const createMetaRouter = () => {
         account_id: accountId,
         start_date: customRange?.since ?? null,
         end_date: customRange?.until ?? null,
-        date_preset: customRange ? null : "last_30d",
+        date_preset: customRange ? null : datePreset,
         total: campaigns.length,
         active: activeCount,
         issues: issueCount,
@@ -1128,7 +1202,17 @@ export const createMetaRouter = () => {
           return;
         }
       }
-      res.status(500).json({ ok: false, error: message });
+      res.json({
+        ok: false,
+        error: "meta_campaign_health_error",
+        message,
+        total: 0,
+        active: 0,
+        issues: 0,
+        campaigns: [],
+        degraded: true,
+        source: "Meta campaign health route",
+      });
     }
   });
 

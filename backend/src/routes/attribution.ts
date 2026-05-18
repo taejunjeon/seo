@@ -91,6 +91,13 @@ import {
   FUNNEL_HEALTH_WINDOW_HOURS,
   parseFunnelHealthQuery,
 } from "../funnelHealth";
+import {
+  buildLeadingIndicatorsReport,
+  getPrecomputedLeadingIndicators,
+  LEADING_INDICATOR_WINDOW_HOURS,
+  LeadingIndicatorsValidationError,
+  parseLeadingIndicatorsQuery,
+} from "../leadingIndicators";
 import { readPaymentDecisionMeasurements, recordPaymentDecisionMeasurement } from "../paymentDecisionLatency";
 import { getPrecomputedFunnelHealth } from "../funnelHealthPrecompute";
 import { getPrecomputedAcquisition } from "../acquisitionPrecompute";
@@ -6132,6 +6139,68 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "site_landing receiver failed";
       res.status(500).json({ ok: false, error: "site_landing_receiver_error", message });
+    }
+  });
+
+  // 선행지표 에이전트 P1: read-only aggregate endpoint. raw identifier 노출 금지.
+  // P1 skeleton 은 precompute cache hit 우선, cache miss/force 는 30d 이내 ledger range 로 live fallback.
+  router.get("/api/attribution/leading-indicators", async (req: Request, res: Response) => {
+    try {
+      const parsed = parseLeadingIndicatorsQuery({
+        site: req.query.site,
+        window: req.query.window,
+        channel: req.query.channel,
+        dimension: req.query.dimension,
+        freshness: req.query.freshness,
+        force: req.query.force,
+      });
+
+      if (parsed.freshness !== "force") {
+        const cached = getPrecomputedLeadingIndicators({
+          site: parsed.site,
+          window: parsed.window,
+          channel: parsed.channel,
+          dimension: parsed.dimension,
+        });
+        if (cached) {
+          res.json({
+            ...cached.entry.result,
+            cache: cached.meta,
+          });
+          return;
+        }
+      }
+
+      const nowMs = Date.now();
+      const maxWindowHours = Math.max(...Object.values(LEADING_INDICATOR_WINDOW_HOURS));
+      const ledgerEntries = await readLedgerEntriesInRange({
+        loggedAtFromIso: new Date(nowMs - (maxWindowHours + 24) * 60 * 60 * 1000).toISOString(),
+      });
+      const builtAtMs = Date.now();
+      const result = buildLeadingIndicatorsReport({
+        ledgerEntries,
+        site: parsed.site,
+        window: parsed.window,
+        channel: parsed.channel,
+        dimension: parsed.dimension,
+        asOfMs: nowMs,
+      });
+
+      res.json({
+        ...result,
+        cache: {
+          cached: false,
+          cached_at_kst: null,
+          next_refresh_at_kst: null,
+          generation_ms: Date.now() - builtAtMs,
+          staleness_ms: 0,
+          source: parsed.freshness === "force" ? "live_force_refresh" : "live_cache_miss",
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "leading indicators build failed";
+      const status = error instanceof LeadingIndicatorsValidationError ? 400 : 500;
+      res.status(status).json({ ok: false, error: "leading_indicators_error", message });
     }
   });
 

@@ -1,7 +1,7 @@
 # Meta campaign alias mapping
 
 작성일: 2026-04-25 KST
-최종 업데이트: 2026-05-06 22:45 KST
+최종 업데이트: 2026-05-18 22:49 KST
 
 ## 목적
 
@@ -32,14 +32,62 @@ Source: `/Users/vibetj/Downloads/campaign-mapping-manual-check-template-20260505
 | 1 | 주문 URL의 `meta_campaign_id`, `campaign_id`, `utm_campaign={{campaign.id}}` | 매우 강함 | 주문에 실제 Meta campaign ID가 남으면 사람이 만든 alias보다 우선한다. |
 | 2 | 주문 URL 또는 attribution ledger의 `utm_term={{adset.id}}` | 강함 | adset ID를 Meta evidence에서 parent campaign으로 역추적할 수 있으면 campaign-level 매핑 가능하다. |
 | 3 | 광고 creative URL 또는 url_tags의 `utm_campaign=alias` | 강함 | 광고 소재 URL에 alias가 직접 들어 있으면 해당 광고의 campaign으로 매핑한다. |
-| 4 | 광고명/광고세트명/인플루언서명/랜딩/상품군 일치 | 중간 | 직접 ID나 URL 증거가 없을 때 보조 증거로만 사용한다. |
-| 5 | 상품군만 일치 | 약함 | IGG 상품을 샀다는 사실만으로 특정 Meta 캠페인에 귀속하면 안 된다. |
+| 4 | 주문 원장의 랜딩 경로가 현재 Meta creative URL에서 단일 campaign으로만 좁혀짐 | 중간+ | 예: 주문 원장 `/iiary02`와 현재 Meta creative URL의 `/iiary02`가 단일 campaign 후보이면 campaign-level 수동 매칭에 사용한다. |
+| 5 | 광고명/광고세트명/인플루언서명/랜딩/상품군 일치 | 중간 | 직접 ID나 URL 증거가 없을 때 보조 증거로만 사용한다. |
+| 6 | 상품군만 일치 | 약함 | IGG 상품을 샀다는 사실만으로 특정 Meta 캠페인에 귀속하면 안 된다. |
+
+## 2026-05-18 단일 랜딩 경로 매칭 기준 추가
+
+TJ님 승인 결정으로 `utm_campaign={{campaign.id}}`처럼 동적값이 깨진 주문이라도, 주문 원장에 남은 랜딩 경로가 현재 Meta creative URL에서 단일 campaign으로만 좁혀지면 campaign-level 수동 매칭에 반영한다.
+
+승인 기록:
+
+- 승인자: TJ님
+- 승인 시각: 2026-05-18 22:41 KST
+- 승인 범위: `/iiary02`를 `meta_biocom_iiari_acid_260518` 근거로 campaign-level 매칭하고, 앞으로 같은 수준의 단일 랜딩 경로 증거는 campaign-level 매칭하는 기준
+- 승인 제외: 운영 DB 쓰기, Meta 광고 설정 변경, 광고세트/광고 단위 확정 매칭
+
+적용 기준:
+
+- 주문 원장에 Meta 흔적이 있어야 한다. 예: `utm_source=meta`, `fbclid`, 또는 Meta placeholder.
+- 결제완료/백엔드 URL은 제외하고 실제 유입 랜딩 경로만 본다.
+- 현재 Meta creative URL, source URL, website URL, URL Parameters를 read-only로 조회한다.
+- 같은 랜딩 경로가 여러 campaign에 걸치면 자동 매칭하지 않는다.
+- 단일 campaign으로만 좁혀져도 광고세트/광고 단위 ROAS 확정은 별도 보류한다. 캠페인 매출 귀속만 허용한다.
+
+2026-05-18 적용 사례:
+
+- 주문 해시 `d2d7f2e4c3`, 금액 `459,000원`, 원장 랜딩 `/iiary02`
+- 현재 Meta creative 단일 후보: campaign `120245003319500396` `meta_biocom_influencer_260506`
+- 참고 adset/ad 후보: adset `120245700952890396` `meta_biocom_iiari_260518`, ad `120245700952900396` `meta_biocom_iiari_acid_260518`
+- 결정: campaign-level 수동 매칭 yes. adset/ad-level 확정은 no.
+
+2026-05-18 22:47 KST 구현 반영:
+
+- 적용 위치: `backend/src/routes/ads.ts`.
+- 적용 내용: 원장/문서에 `/iiary02`처럼 경로만 남아도 랜딩 경로로 인식하고, 바이오컴 `/iiary02`는 campaign `120245003319500396` `meta_biocom_influencer_260506`의 수동 검증 단일 랜딩 후보로 반영했다.
+- source: VM Cloud SQLite read-only + VM Cloud live API `att.ainativeos.net`.
+- window: API 검증은 `date_preset=today`, 즉 `2026-05-18~2026-05-18` KST. 기본 `/ads`의 `last_7d`는 Meta completed-day 기준이라 `2026-05-11~2026-05-17`이고, 이 주문은 아직 기본 표 window에 들어가지 않는다.
+- freshness: 2026-05-18 22:43~22:47 KST 직접 재계산.
+- confidence: 0.95.
+- `/iiary02` Meta confirmed 주문 집계: 3건 / `1,139,400원`.
+- 이 중 직접 campaign id로 이미 붙던 주문: 2건 / `680,400원`.
+- 이번 랜딩 경로 수동 매칭으로 새로 붙은 주문: 1건 / `459,000원`.
+- `date_preset=today` live API 결과: `(unmapped)`는 1건 / `926,250원`만 남고, target campaign `meta_biocom_influencer_260506`는 4건 / `1,814,400원`으로 계산된다.
+- 남은 `(unmapped)` 1건은 `/songyuul07`이며, 현재 문서 기준 반례로 둔 케이스와 같다. 단일 Meta creative 후보가 확인되지 않았으므로 quarantine을 유지한다.
+
+반례:
+
+- 주문 해시 `3cd55a3732`, 원장 랜딩 `/songyuul07`
+- 현재 Meta creative URL에서 `/songyuul07` 단일 후보가 확인되지 않았다.
+- 결정: `fbclid`가 있어도 campaign/adset/ad 역산이 불가능하므로 quarantine 유지.
 
 ## 판정 원칙
 
 - Meta campaign ID 또는 adset ID가 있으면 상품군 후보보다 ID 증거를 우선한다.
 - 같은 alias가 여러 campaign에 걸치면 자동 확정하지 않는다. 기간, 광고비, 광고명, URL 증거를 같이 확인한다.
 - `meta_` prefix가 없는 alias는 기본적으로 Meta 캠페인 매핑 대상이 아니다. `fbclid`가 있어도 campaign/adset ID가 없으면 Meta ROAS에 강제 배정하지 않는다.
+- 단일 랜딩 경로 후보는 campaign-level 매칭에만 사용한다. 광고세트/광고 단위 확정은 `utm_term`, `utm_content`, `meta_adset_id`, `meta_ad_id` 같은 ID가 남았을 때만 한다.
 - product-family 분류와 campaign attribution은 분리한다. 예를 들어 IGG 상품 주문이라도 Meta campaign 근거가 없으면 캠페인 ROAS에는 넣지 않는다.
 - stale audit 파일과 현재 attribution ledger 수치가 다르면 현재 ledger + imweb_orders + imweb_order_items 조인을 우선하고, audit 파일 생성 시각을 같이 기록한다.
 

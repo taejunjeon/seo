@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect, react/no-unescaped-entities */
+/* eslint-disable react/no-unescaped-entities */
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -30,6 +30,13 @@ type CampaignRow = {
   view_content?: number;
   add_to_cart?: number;
   initiate_checkout?: number;
+};
+
+type CampaignPerformanceRow = CampaignRow & {
+  isUnmappedAttribution?: boolean;
+  unmappedAttributedRevenue?: number;
+  unmappedOrders?: number;
+  unmappedShare?: number | null;
 };
 
 type CampaignSummary = {
@@ -551,16 +558,6 @@ export default function AdsPage() {
       appToken: { configured: boolean };
     };
   } | null>(null);
-  const [realRoas, setRealRoas] = useState<{
-    window: { since: string; until: string };
-    internal_revenue_korean: string;
-    internal_revenue_krw: number;
-    orders: number;
-    internal_real_roas: number | null;
-    source: string;
-  } | null>(null);
-  const [realRoasLoading, setRealRoasLoading] = useState(false);
-  const [realRoasError, setRealRoasError] = useState<string | null>(null);
   // CANCEL/Refund/Identity Coverage state는 /ads/quality 로 이전 (Phase 1A)
   // CAPI 수렴 비교 state는 /ads/quality 로 이전 (Phase 1B)
   // AIBIO acquisition state는 /ads/quality 로 이전 (Phase 1C)
@@ -720,64 +717,23 @@ export default function AdsPage() {
 
   useEffect(() => { loadSiteData(); }, [loadSiteData]);
 
-  // gpt0508-52: evidence-join same-window 진짜 ROAS (paid_meta)
-  useEffect(() => {
-    if (selectedSite.site !== "biocom") return; // 운영DB 정본은 biocom 만
-    const totalSpend = campaignSummary?.totalSpend ?? 0;
-    if (totalSpend <= 0) return;
-    const presetDays = datePreset === "last_30d" ? 30 : datePreset === "last_14d" ? 14 : datePreset === "last_90d" ? 90 : 7;
-    const today = new Date();
-    const kst = new Date(today.getTime() + 9 * 60 * 60 * 1000);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const until = fmt(new Date(kst.getTime() - 1 * 86400000));
-    const since = fmt(new Date(kst.getTime() - presetDays * 86400000));
-    let cancelled = false;
-    setRealRoasLoading(true);
-    setRealRoasError(null);
-    fetch(`${API_BASE}/api/ads/internal-real-roas?platform=paid_meta&since=${since}&until=${until}&spend_krw=${Math.round(totalSpend)}`)
-      .then(async (r) => {
-        // 운영 backend 에 아직 endpoint 가 등록 안 됐을 수 있다 (404). 그럴 땐 silent — 사용자 콘솔에 빨간 에러 안 띄우고 카드 안 보이게.
-        if (r.status === 404) {
-          if (!cancelled) {
-            setRealRoas(null);
-            setRealRoasError(null);
-          }
-          return;
-        }
-        const j = (await r.json()) as {
-          ok?: boolean;
-          window?: { since: string; until: string };
-          internal?: { revenue_krw: number; revenue_korean: string; orders: number; source: string };
-          internal_real_roas?: number | null;
-          error?: string;
-        };
-        if (cancelled) return;
-        if (!j.ok || !j.window || !j.internal) {
-          setRealRoasError(j.error ?? "unknown");
-          return;
-        }
-        setRealRoas({
-          window: j.window,
-          internal_revenue_korean: j.internal.revenue_korean,
-          internal_revenue_krw: j.internal.revenue_krw,
-          orders: j.internal.orders,
-          internal_real_roas: j.internal_real_roas ?? null,
-          source: j.internal.source,
-        });
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setRealRoasError(e instanceof Error ? e.message : "fetch_failed");
-      })
-      .finally(() => {
-        if (!cancelled) setRealRoasLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [selectedSite.site, datePreset, campaignSummary?.totalSpend]);
-
   const selectedSiteSummary = siteSummary?.sites.find((site) => site.site === selectedSite.site) ?? null;
   const selectedAccountId = selectedSiteSummary?.account_id ?? selectedSite.account_id;
   const selectedAttributedRevenue = selectedSiteSummary?.revenue ?? 0;
   const selectedAttributedRoas = selectedSiteSummary?.roas ?? null;
+  const realRoas = selectedSite.site === "biocom" && selectedSiteSummary && siteSummary?.date_range
+    ? {
+      window: {
+        since: siteSummary.date_range.start_date,
+        until: siteSummary.date_range.end_date,
+      },
+      internal_revenue_korean: fmtKRW(selectedSiteSummary.revenue),
+      internal_revenue_krw: selectedSiteSummary.revenue,
+      orders: selectedSiteSummary.orders,
+      internal_real_roas: selectedSiteSummary.roas,
+      source: `${ledgerSourceLabel(siteSummary.ledger_source)} site-summary confirmed attribution · ${attrWindow || "Meta 기본 attribution window"}`,
+    }
+    : null;
   const selectedAttributedOrders = selectedSiteSummary?.orders ?? 0;
   const selectedPendingRevenue = selectedSiteSummary?.pendingRevenue ?? 0;
   const selectedPendingOrders = selectedSiteSummary?.pendingOrders ?? 0;
@@ -815,6 +771,33 @@ export default function AdsPage() {
   const unmappedRevenueShare = unmappedRow && totalAttributedRevenueForMapping > 0
     ? unmappedRow.attributedRevenue / totalAttributedRevenueForMapping
     : null;
+  const unmappedLtvRow = campaignLtvRoas?.rows.find((row) => !row.campaignId) ?? null;
+  const unmappedCampaignPerformanceRow: CampaignPerformanceRow | null =
+    unmappedRow && unmappedRow.attributedRevenue > 0
+      ? {
+        campaign_id: "__unmapped_attribution__",
+        campaign_name: "미맵핑 캠페인 매출",
+        impressions: 0,
+        clicks: 0,
+        spend: 0,
+        cpc: 0,
+        cpm: 0,
+        ctr: 0,
+        link_clicks: 0,
+        landing_page_views: 0,
+        leads: 0,
+        purchases: 0,
+        purchase_value: 0,
+        isUnmappedAttribution: true,
+        unmappedAttributedRevenue: unmappedRow.attributedRevenue,
+        unmappedOrders: unmappedRow.orders,
+        unmappedShare: unmappedRevenueShare,
+      }
+      : null;
+  const campaignPerformanceRows: CampaignPerformanceRow[] = [
+    ...(unmappedCampaignPerformanceRow ? [unmappedCampaignPerformanceRow] : []),
+    ...campaigns,
+  ];
   const selectedRoasGapRatio =
     selectedAttributedRoas != null
     && selectedAttributedRoas > 0
@@ -842,6 +825,26 @@ export default function AdsPage() {
   const dateQueryString = isCustomRangeActive
     ? `start_date=${customStartDate}&end_date=${customEndDate}`
     : `date_preset=${datePreset}`;
+  const siteSummaryCampaignFallback: CampaignSummary | null = selectedSiteSummary
+    && (
+      selectedSiteSummary.impressions > 0
+      || selectedSiteSummary.clicks > 0
+      || selectedSiteSummary.spend > 0
+      || selectedSiteSummary.landing_page_views > 0
+    )
+    ? {
+      totalImpressions: selectedSiteSummary.impressions,
+      totalClicks: selectedSiteSummary.clicks,
+      totalSpend: selectedSiteSummary.spend,
+      avgCpc: selectedSiteSummary.cpc,
+      totalLandingViews: selectedSiteSummary.landing_page_views,
+      totalLeads: selectedSiteSummary.leads,
+      totalPurchases: selectedSiteSummary.purchases,
+      totalPurchaseValue: selectedSiteSummary.metaPurchaseValue,
+    }
+    : null;
+  const funnelCampaignSummary = campaignSummary ?? siteSummaryCampaignFallback;
+  const campaignInsightsUnavailable = campaigns.length === 0 && !loading && Boolean(siteSummaryCampaignFallback);
   const selectedMetaPurchases = campaignSummary?.totalPurchases ?? 0;
   const selectedMetaAov = selectedMetaPurchases > 0 ? selectedMetaPurchaseValue / selectedMetaPurchases : null;
   const selectedMetaCpa = campaignSummary && selectedMetaPurchases > 0 ? campaignSummary.totalSpend / selectedMetaPurchases : null;
@@ -1558,22 +1561,20 @@ export default function AdsPage() {
           {selectedSite.site === "biocom" && campaignSummary && (
             <div style={{
               marginBottom: 24, padding: "12px 16px",
-              background: realRoasError ? "#fef2f2" : realRoas ? "#ecfdf5" : "#f1f5f9",
-              border: realRoasError ? "1px solid #fecaca" : realRoas ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
-              borderRadius: 10, fontSize: "0.8rem", color: realRoasError ? "#991b1b" : realRoas ? "#065f46" : "#475569",
+              background: realRoas ? "#ecfdf5" : "#f1f5f9",
+              border: realRoas ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
+              borderRadius: 10, fontSize: "0.8rem", color: realRoas ? "#065f46" : "#475569",
             }}>
-              {realRoasLoading ? "evidence-join 동일 윈도우 paid_meta 매출 산출 중… (최대 90초)" :
-                realRoasError ? `⚠️ evidence-join 실패: ${realRoasError}` :
-                realRoas ? (
+              {realRoas ? (
                   <>
-                    <strong>✓ 진짜 ROAS (evidence-join · 동일 윈도우)</strong>{" "}
-                    광고비 {fmtKRW(campaignSummary.totalSpend)} · 내부 paid_meta 매출{" "}
-                    <strong>{realRoas.internal_revenue_korean}</strong> ({realRoas.orders}건) · 진짜 ROAS{" "}
+                    <strong>✓ 내부 confirmed ROAS (site-summary · 동일 윈도우)</strong>{" "}
+                    광고비 {fmtKRW(campaignSummary.totalSpend)} · 내부 confirmed 매출{" "}
+                    <strong>{realRoas.internal_revenue_korean}</strong> ({realRoas.orders}건) · 내부 ROAS{" "}
                     <strong>{realRoas.internal_real_roas != null ? `${realRoas.internal_real_roas}x` : "—"}</strong>{" "}
                     · 윈도우 {realRoas.window.since} ~ {realRoas.window.until}
                     <span style={{ display: "block", marginTop: 4, fontSize: "0.7rem", color: "#047857" }}>출처: {realRoas.source}</span>
                   </>
-                ) : "광고비/내부매출 동기화 대기"}
+                ) : "광고비/내부 confirmed 매출 동기화 대기"}
             </div>
           )}
 
@@ -1661,7 +1662,7 @@ export default function AdsPage() {
 
           {campaignRoas && unmappedRow && unmappedRow.attributedRevenue > 0 && (
             <div style={{ marginBottom: 24, padding: "14px 16px", borderRadius: 12, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: "0.76rem", color: "#7c2d12", lineHeight: 1.75 }}>
-              <strong style={{ color: "#9a3412" }}>(unmapped) revenue 경고</strong>: 현재 선택 사이트 confirmed attribution 매출 중
+              <strong style={{ color: "#9a3412" }}>미맵핑 캠페인 매출 경고</strong>: 현재 선택 사이트 confirmed attribution 매출 중
               {" "}
               <strong>{fmtKRW(unmappedRow.attributedRevenue)}</strong>
               {" "}
@@ -1839,7 +1840,7 @@ export default function AdsPage() {
           )}
 
           {/* 캠페인별 테이블 */}
-          {campaigns.length > 0 && (
+          {campaignPerformanceRows.length > 0 && (
             <div style={{ padding: "16px 20px", borderRadius: 14, background: "#fff", border: "1px solid #f1f5f9", marginBottom: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
                 <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", margin: 0 }}>캠페인별 성과</h3>
@@ -1879,20 +1880,22 @@ export default function AdsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {campaigns
+                    {campaignPerformanceRows
                       .filter((c) => {
+                        if (c.isUnmappedAttribution) return campaignTypeFilter !== "coop";
                         if (campaignTypeFilter === "all") return true;
                         const t = getCampaignType(c);
                         return t === campaignTypeFilter;
                       })
                       .map((c) => {
-                      const metaRoas = c.spend > 0 && (c.purchase_value ?? 0) > 0 ? c.purchase_value! / c.spend : null;
-                      const attrRow = attributionRoasByCampaignId.get(c.campaign_id);
-                      const ltvRow = ltvRoasByCampaignId.get(c.campaign_id);
+                      const isUnmapped = Boolean(c.isUnmappedAttribution);
+                      const metaRoas = !isUnmapped && c.spend > 0 && (c.purchase_value ?? 0) > 0 ? c.purchase_value! / c.spend : null;
+                      const attrRow = isUnmapped ? unmappedRow : attributionRoasByCampaignId.get(c.campaign_id);
+                      const ltvRow = isUnmapped ? unmappedLtvRow : ltvRoasByCampaignId.get(c.campaign_id);
                       // 추정 LTV ROAS: callprice 검사유형별 LTV 승수 × Meta ROAS
                       // 광고 유입 보정: 전체 모수 재구매율의 50%만 적용 (광고 유입 고객은 자연유입 대비 재구매율 30~50% 낮음)
                       const AD_CHANNEL_DISCOUNT = 0.5;
-                      const ltvMatch = matchCampaignLtv(c.campaign_name);
+                      const ltvMatch = isUnmapped ? null : matchCampaignLtv(c.campaign_name);
                       const estLtvRoas = (() => {
                         if (!ltvMatch || metaRoas == null || c.purchases <= 0) return null;
                         const avgOv = (c.purchase_value ?? 0) / c.purchases;
@@ -1908,23 +1911,40 @@ export default function AdsPage() {
                           ? "#d97706"
                           : ltvRow
                             ? "#64748b"
-                            : "#94a3b8";
+                          : "#94a3b8";
 
-                      const cType = getCampaignType(c);
+                      const cType = isUnmapped ? "general" : getCampaignType(c);
                       return (
-                        <tr key={c.campaign_id} style={{ borderBottom: "1px solid #f1f5f9", background: cType === "coop" ? "#fffbeb" : undefined }}>
+                        <tr
+                          key={c.campaign_id}
+                          style={{
+                            borderBottom: "1px solid #f1f5f9",
+                            background: isUnmapped ? "#fff7ed" : cType === "coop" ? "#fffbeb" : undefined,
+                          }}
+                        >
                           <td style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#1e293b", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {isUnmapped && (
+                              <span style={{ display: "inline-block", padding: "1px 6px", marginRight: 6, borderRadius: 4, background: "#fed7aa", color: "#9a3412", fontSize: "0.64rem", fontWeight: 800, verticalAlign: "middle" }}>미맵핑</span>
+                            )}
                             {cType === "coop" && (
                               <span style={{ display: "inline-block", padding: "1px 6px", marginRight: 6, borderRadius: 4, background: "#fef3c7", color: "#92400e", fontSize: "0.64rem", fontWeight: 700, verticalAlign: "middle" }}>공동구매</span>
                             )}
                             {c.campaign_name}
+                            {isUnmapped && (
+                              <div style={{ color: "#9a3412", fontSize: "0.64rem", marginTop: 2, fontWeight: 700 }}>
+                                confirmed 주문 {fmtNum(c.unmappedOrders ?? 0)}건 · Meta attributed 중 {c.unmappedShare != null ? `${(c.unmappedShare * 100).toFixed(1)}%` : "비중 미확인"}
+                              </div>
+                            )}
                           </td>
-                          <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtNum(c.impressions)}</td>
-                          <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{fmtNum(c.clicks)}</td>
-                          <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{c.ctr.toFixed(2)}%</td>
-                          <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#ef4444" }}>{fmtKRW(c.spend)}</td>
-                          <td style={{ padding: "8px 10px", textAlign: "right", color: "#10b981" }}>{fmtNum(c.landing_page_views)}</td>
-                          <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#8b5cf6" }}>{c.leads + c.purchases}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: isUnmapped ? "#cbd5e1" : "#475569" }}>{isUnmapped ? "—" : fmtNum(c.impressions)}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: isUnmapped ? "#cbd5e1" : "#475569" }}>{isUnmapped ? "—" : fmtNum(c.clicks)}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: isUnmapped ? "#cbd5e1" : "#475569" }}>{isUnmapped ? "—" : `${c.ctr.toFixed(2)}%`}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: isUnmapped ? "#cbd5e1" : "#ef4444" }}>{isUnmapped ? "—" : fmtKRW(c.spend)}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", color: isUnmapped ? "#cbd5e1" : "#10b981" }}>{isUnmapped ? "—" : fmtNum(c.landing_page_views)}</td>
+                          <td title={isUnmapped ? "campaign id로 나뉘지 않은 confirmed attribution 주문 수" : undefined} style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: isUnmapped ? "#9a3412" : "#8b5cf6" }}>
+                            {isUnmapped ? fmtNum(c.unmappedOrders ?? 0) : c.leads + c.purchases}
+                            {isUnmapped && <div style={{ fontSize: "0.58rem", color: "#9a3412", marginTop: 1 }}>confirmed</div>}
+                          </td>
                           <td style={{ padding: "8px 10px", textAlign: "right", color: (c.purchase_value ?? 0) > 0 ? "#16a34a" : "#94a3b8", fontWeight: 600 }}>
                             {(c.purchase_value ?? 0) > 0 ? fmtKRW(c.purchase_value!) : "—"}
                           </td>
@@ -1968,7 +1988,18 @@ export default function AdsPage() {
           {/* 데이터 없음 */}
           {campaigns.length === 0 && !loading && (
             <div style={{ textAlign: "center", padding: 40, color: "#94a3b8", background: "#f8fafc", borderRadius: 14 }}>
-              {selectedSite.label}에 해당 기간 광고 데이터가 없습니다.
+              {campaignInsightsUnavailable ? (
+                <>
+                  <strong style={{ color: "#64748b" }}>캠페인별 Meta row 조회가 일시적으로 비어 있습니다.</strong>
+                  <div style={{ marginTop: 6, fontSize: "0.78rem", lineHeight: 1.6 }}>
+                    site-summary 기준으로는 {selectedSite.label} 광고비 {fmtKRW(siteSummaryCampaignFallback!.totalSpend)},
+                    클릭 {fmtNum(siteSummaryCampaignFallback!.totalClicks)}건, 랜딩뷰 {fmtNum(siteSummaryCampaignFallback!.totalLandingViews)}건이 확인됩니다.
+                    아래 퍼널/Clarity 카드는 이 fallback 기준으로 유지합니다.
+                  </div>
+                </>
+              ) : (
+                `${selectedSite.label}에 해당 기간 광고 데이터가 없습니다.`
+              )}
             </div>
           )}
 
@@ -1997,18 +2028,32 @@ export default function AdsPage() {
                   cellcleanerreel/inpork 재분류 제안, yes/no 검토는 전용 화면에서 봅니다.
                 </p>
               </div>
-              <Link href="/ads/campaign-mapping" style={{
-                padding: "10px 14px",
-                borderRadius: 12,
-                background: "#0f766e",
-                color: "#fff",
-                textDecoration: "none",
-                fontSize: "0.78rem",
-                fontWeight: 900,
-                whiteSpace: "nowrap",
-              }}>
-                캠페인 매핑 열기
-              </Link>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <Link href="/ads/meta-utm" style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  background: "#2563eb",
+                  color: "#fff",
+                  textDecoration: "none",
+                  fontSize: "0.78rem",
+                  fontWeight: 900,
+                  whiteSpace: "nowrap",
+                }}>
+                  Meta UTM 진단 열기
+                </Link>
+                <Link href="/ads/campaign-mapping" style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  background: "#0f766e",
+                  color: "#fff",
+                  textDecoration: "none",
+                  fontSize: "0.78rem",
+                  fontWeight: 900,
+                  whiteSpace: "nowrap",
+                }}>
+                  캠페인 매핑 열기
+                </Link>
+              </div>
             </div>
           )}
 
@@ -2209,14 +2254,16 @@ export default function AdsPage() {
           <CampaignManagerSection selectedSite={selectedSite!} dateQuery={dateQueryString} />
 
           {/* UX 분석 · Clarity 현황 */}
-          {campaignSummary && campaignSummary.totalLandingViews > 0 && (() => {
-            const clickToLanding = campaignSummary.totalLandingViews / Math.max(campaignSummary.totalClicks, 1);
-            const totalConversions = campaignSummary.totalLeads + campaignSummary.totalPurchases;
-            const landingToConv = totalConversions / Math.max(campaignSummary.totalLandingViews, 1);
-            const droppedClicks = campaignSummary.totalClicks - campaignSummary.totalLandingViews;
+          {funnelCampaignSummary && funnelCampaignSummary.totalLandingViews > 0 && (() => {
+            const funnelSummary = funnelCampaignSummary;
+            const clickToLanding = funnelSummary.totalLandingViews / Math.max(funnelSummary.totalClicks, 1);
+            const totalConversions = funnelSummary.totalLeads + funnelSummary.totalPurchases;
+            const landingToConv = totalConversions / Math.max(funnelSummary.totalLandingViews, 1);
+            const droppedClicks = funnelSummary.totalClicks - funnelSummary.totalLandingViews;
             const isLeadSite = selectedSite.site === "aibio";
             const convLabel = isLeadSite ? "리드(상담예약)" : "구매";
             const convBenchmark = isLeadSite ? "리드 전환율 벤치마크: 3~8%" : "구매 전환율 벤치마크: 1~3%";
+            const funnelSourceLabel = campaignSummary ? "Meta campaign insights" : "site-summary fallback";
 
             return (
             <div style={{ padding: "24px", borderRadius: 14, background: "linear-gradient(180deg, #fff7ed, #fff)", border: "1px solid #fed7aa", marginTop: 24 }}>
@@ -2228,6 +2275,9 @@ export default function AdsPage() {
                 <span style={{ fontSize: "0.68rem", padding: "3px 8px", borderRadius: 6, background: "#dcfce7", color: "#16a34a", fontWeight: 700 }}>
                   Clarity 3사이트 설치 완료
                 </span>
+              </div>
+              <div style={{ fontSize: "0.7rem", color: campaignSummary ? "#94a3b8" : "#c2410c", margin: "-6px 0 12px" }}>
+                기준 데이터: {funnelSourceLabel}
               </div>
 
               {/* 병목 현황 KPI */}
@@ -2248,7 +2298,7 @@ export default function AdsPage() {
                   <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>{convLabel} 전환</div>
                   <div style={{ fontSize: "1.3rem", fontWeight: 700, color: totalConversions > 0 ? "#16a34a" : "#d97706" }}>{fmtNum(totalConversions)}건</div>
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 4 }}>
-                    {totalConversions > 0 ? `비용 대비 ${fmtKRW(campaignSummary.totalSpend / totalConversions)}/건` : isLeadSite ? "리드 캠페인 데이터 축적 중" : "전환 데이터 확인 필요"}
+                    {totalConversions > 0 ? `비용 대비 ${fmtKRW(funnelSummary.totalSpend / totalConversions)}/건` : isLeadSite ? "리드 캠페인 데이터 축적 중" : "전환 데이터 확인 필요"}
                   </div>
                 </div>
               </div>
@@ -2325,8 +2375,8 @@ export default function AdsPage() {
                         <div style={{ padding: "10px 12px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 10 }}>
                           <strong style={{ color: "#16a34a" }}>Meta 광고 계정 연동 완료 — 퍼널은 양호</strong>
                           <p style={{ margin: "4px 0 0" }}>
-                            최근 7일 1d_click 기준 클릭 {fmtNum(campaignSummary.totalClicks)}건 → 랜딩뷰 {fmtNum(campaignSummary.totalLandingViews)}건
-                            ({(clickToLanding * 100).toFixed(1)}%) → 구매 {fmtNum(campaignSummary.totalPurchases)}건
+                            최근 7일 1d_click 기준 클릭 {fmtNum(funnelSummary.totalClicks)}건 → 랜딩뷰 {fmtNum(funnelSummary.totalLandingViews)}건
+                            ({(clickToLanding * 100).toFixed(1)}%) → 구매 {fmtNum(funnelSummary.totalPurchases)}건
                             ({(landingToConv * 100).toFixed(2)}%).
                             클릭→랜딩 {(clickToLanding * 100).toFixed(1)}%는 정상 이상이고, 랜딩→구매 {(landingToConv * 100).toFixed(2)}%는 일반 커머스 벤치마크 1~3%보다 높다.
                           </p>
@@ -2334,7 +2384,7 @@ export default function AdsPage() {
                         <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fed7aa", marginBottom: 10 }}>
                           <strong style={{ color: "#d97706" }}>Att ROAS 낮음은 UX보다 식별자/귀속 문제</strong>
                           <p style={{ margin: "4px 0 0" }}>
-                            Meta 구매 {fmtNum(campaignSummary.totalPurchases)}건 중 내부 Attribution confirmed는 {fmtNum(selectedAttributedOrders)}건입니다.
+                            Meta 구매 {fmtNum(funnelSummary.totalPurchases)}건 중 내부 Attribution confirmed는 {fmtNum(selectedAttributedOrders)}건입니다.
                             사이트 전체 confirmed 주문 {fmtNum(selectedSiteSummary?.siteConfirmedOrders ?? 0)}건과 비교해도 광고 귀속 주문이 적습니다.
                             먼저 결제완료 식별자 coverage와 clean baseline을 보강해야 합니다.
                           </p>
@@ -2344,7 +2394,7 @@ export default function AdsPage() {
                           <ol style={{ margin: "6px 0 0", paddingLeft: 16 }}>
                             <li style={{ marginBottom: 3 }}>모바일 상품 옵션 선택 후 장바구니/구매 버튼까지 막힘 없는지</li>
                             <li style={{ marginBottom: 3 }}>네이버페이·카카오싱크·토스 복귀 구간에서 결제완료 페이지 진입이 끊기는지</li>
-                            <li>구매하지 않은 랜딩뷰 {fmtNum(Math.max(0, campaignSummary.totalLandingViews - campaignSummary.totalPurchases))}명의 Dead click/Rage click 패턴</li>
+                            <li>구매하지 않은 랜딩뷰 {fmtNum(Math.max(0, funnelSummary.totalLandingViews - funnelSummary.totalPurchases))}명의 Dead click/Rage click 패턴</li>
                           </ol>
                         </div>
                       </>
@@ -2361,7 +2411,7 @@ export default function AdsPage() {
                         <div style={{ padding: "10px 12px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 10 }}>
                           <strong style={{ color: "#16a34a" }}>Clarity 역할: 랜딩뷰→구매 전환율</strong>
                           <p style={{ margin: "4px 0 0" }}>
-                            현재 {(landingToConv * 100).toFixed(2)}% 전환율을 2%로 올리면 월 +{fmtNum(Math.round(campaignSummary.totalLandingViews * 0.0075))}건 추가 전환.
+                            현재 {(landingToConv * 100).toFixed(2)}% 전환율을 2%로 올리면 월 +{fmtNum(Math.round(funnelSummary.totalLandingViews * 0.0075))}건 추가 전환.
                             히트맵/세션 리플레이로 CTA 위치, 스크롤 depth, 결제 퍼널 이탈 지점 분석.
                           </p>
                         </div>
@@ -2818,9 +2868,22 @@ type CampaignDetail = {
   }>;
 };
 
+type CampaignHealthMeta = {
+  total: number;
+  active: number;
+  datePreset: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  cacheSource: string | null;
+  cachedAtKst: string | null;
+  stale: boolean;
+};
+
 function CampaignManagerSection({ selectedSite, dateQuery }: { selectedSite: { site: string; label: string; account_id: string }; dateQuery: string }) {
   const [campaigns, setCampaigns] = useState<CampaignHealth[]>([]);
   const [loading, setLoading] = useState(true);
+  const [healthError, setHealthError] = useState<string | null>(null);
+  const [healthMeta, setHealthMeta] = useState<CampaignHealthMeta | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionResult, setActionResult] = useState<{ id: string; msg: string; ok: boolean } | null>(null);
   const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
@@ -2854,10 +2917,38 @@ function CampaignManagerSection({ selectedSite, dateQuery }: { selectedSite: { s
 
   const loadHealth = useCallback(() => {
     setLoading(true);
-    fetch(`${API_BASE}/api/meta/campaigns/health?account_id=${selectedSite.account_id}&${dateQuery}`)
-      .then((r) => r.json())
-      .then((d) => { if (d.ok) setCampaigns(d.campaigns ?? []); })
-      .catch(() => {})
+    setHealthError(null);
+    const url = `${API_BASE}/api/meta/campaigns/health?account_id=${selectedSite.account_id}&${dateQuery}`;
+    const fetchHealth = async () => {
+      const response = await fetch(url);
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!body?.ok) throw new Error(body?.message ?? body?.error ?? "캠페인 관리 API 응답 실패");
+      return body;
+    };
+    fetchHealth()
+      .catch(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        return fetchHealth();
+      })
+      .then((d) => {
+        setCampaigns(d.campaigns ?? []);
+        setHealthMeta({
+          total: Number(d.total ?? 0),
+          active: Number(d.active ?? 0),
+          datePreset: d.date_preset ?? null,
+          startDate: d.start_date ?? null,
+          endDate: d.end_date ?? null,
+          cacheSource: d.cache?.source ?? null,
+          cachedAtKst: d.cache?.cached_at_kst ?? null,
+          stale: Boolean(d.cache?.stale ?? d.degraded),
+        });
+      })
+      .catch((error) => {
+        setCampaigns([]);
+        setHealthMeta(null);
+        setHealthError(error instanceof Error ? error.message : "캠페인 목록 조회 실패");
+      })
       .finally(() => setLoading(false));
   }, [selectedSite.account_id, dateQuery]);
 
@@ -2902,6 +2993,16 @@ function CampaignManagerSection({ selectedSite, dateQuery }: { selectedSite: { s
           {issueCount > 0 && (
             <span style={{ fontSize: "0.68rem", padding: "3px 8px", borderRadius: 6, background: "#fef2f2", color: "#dc2626", fontWeight: 700 }}>
               문제 {issueCount}건
+            </span>
+          )}
+          {!loading && !healthError && healthMeta && (
+            <span style={{ fontSize: "0.68rem", padding: "3px 8px", borderRadius: 6, background: "#fff", color: "#92400e", border: "1px solid #fde68a", fontWeight: 700 }}>
+              조회 {healthMeta.total}건 · 활성 {healthMeta.active}건
+            </span>
+          )}
+          {!loading && healthMeta?.stale && (
+            <span style={{ fontSize: "0.68rem", padding: "3px 8px", borderRadius: 6, background: "#fff7ed", color: "#c2410c", border: "1px solid #fed7aa", fontWeight: 700 }}>
+              임시 캐시
             </span>
           )}
         </div>
@@ -2957,8 +3058,27 @@ function CampaignManagerSection({ selectedSite, dateQuery }: { selectedSite: { s
       {/* 캠페인 목록 */}
       {loading ? (
         <div style={{ textAlign: "center", padding: 20, color: "#94a3b8", fontSize: "0.82rem" }}>캠페인 목록 로딩 중...</div>
+      ) : healthError ? (
+        <div style={{ padding: "14px 16px", borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", fontSize: "0.78rem", lineHeight: 1.7 }}>
+          <strong style={{ display: "block", marginBottom: 4 }}>캠페인 목록 조회 실패</strong>
+          <div>Meta 캠페인 관리 API가 일시 실패했습니다. 실제 캠페인이 없다는 뜻은 아닙니다.</div>
+          <div style={{ marginTop: 6, color: "#c2410c", fontSize: "0.72rem" }}>
+            오류: {healthError} · 계정: {selectedSite.account_id} · 기간: {dateQuery}
+          </div>
+          <button type="button" onClick={loadHealth} style={{
+            marginTop: 10, padding: "6px 12px", borderRadius: 6, border: "1px solid #fdba74",
+            background: "#fff", color: "#9a3412", fontSize: "0.74rem", fontWeight: 700, cursor: "pointer",
+          }}>
+            다시 조회
+          </button>
+        </div>
       ) : campaigns.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 20, color: "#94a3b8", fontSize: "0.82rem" }}>캠페인 없음</div>
+        <div style={{ textAlign: "center", padding: 20, color: "#94a3b8", fontSize: "0.82rem" }}>
+          캠페인 0건
+          <div style={{ marginTop: 4, fontSize: "0.72rem" }}>
+            조회는 성공했지만 Meta가 이 계정의 캠페인 목록을 0건으로 응답했습니다.
+          </div>
+        </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
