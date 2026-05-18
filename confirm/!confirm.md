@@ -1,7 +1,7 @@
 # TJ 승인 큐
 
 작성 시각: 2026-05-07 12:42 KST
-최신 업데이트: 2026-05-19 01:50 KST
+최신 업데이트: 2026-05-19 02:58 KST
 상태: active
 Owner: total / approval
 Next document: confirm/confirm0519-1.md
@@ -35,9 +35,9 @@ harness_preflight:
 
 ## 10초 결론
 
-현재 TJ님이 확인할 open confirmation은 **1건**이다.
+현재 TJ님이 승인해야 할 open confirmation은 **0건**이다.
 
-[[confirm0519-1]]은 Meta UTM 진단 프론트엔드 화면 확인용 컨펌이다. 운영 배포 승인이 아니라, TJ님이 화면 구조와 지표 구성을 확인한 뒤 다음 운영 배포 승인안으로 넘어갈지 결정하는 단계다.
+[[confirm0519-1]]은 Meta UTM 진단 프론트엔드 화면 확인용 컨펌이었고, 2026-05-19 02:54 KST에 운영 배포까지 완료됐다. 남은 것은 승인 대기가 아니라 `https://biocom.ainativeos.net/ads/meta-utm` 운영 화면을 TJ님이 직접 확인하는 것이다.
 
 [[confirm0507-1]]은 승인 완료됐다. 더클린커피 NPay 과거 매칭 Sprint는 “자동 복구 전송 없이 종결하고 future intent/A-6로 넘김”으로 닫는다.
 
@@ -45,7 +45,7 @@ harness_preflight:
 
 | 항목 | 상태 | 해석 |
 |---|---|---|
-| Meta UTM 진단 프론트엔드 화면 | TJ님 확인 대기 | [[confirm0519-1]]에서 `/ads/meta-utm` 화면 구성, Section A/B 기준, 광고 썸네일/ID/성과 열을 확인한다. 운영 배포는 아직 승인하지 않았다 |
+| Meta UTM 진단 프론트엔드 화면 | 운영 배포 완료 / TJ님 운영 화면 확인 대기 | [[confirm0519-1]]에 배포 결과와 운영 캡처를 추가했다. `https://biocom.ainativeos.net/ads/meta-utm`에서 Section A/B 기준, 광고 썸네일/ID/성과 열을 확인한다 |
 | paid_click_intent Mode B | 승인 완료 / 실행 완료 | backend no-write receiver route, smoke, GTM publish, live smoke까지 완료 |
 | 24h/72h monitoring | 승인 불필요 | read-only monitoring 이므로 Codex가 정시에 실행 |
 | Coffee NPay 과거 매칭 종결 | 승인 완료 / closed | [[confirm0507-1]]에서 YES 승인됨. Phase2를 100% / 100%로 닫고, 과거 자동 복구 전송 금지를 고정 |
