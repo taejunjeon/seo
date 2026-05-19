@@ -1228,7 +1228,9 @@ const fetchMetaAdCreativeEvidenceMaps = async (
     adMap.set(ad.id, {
       campaignId,
       campaignName,
+      adsetId: ad.adset_id ?? ad.adset?.id ?? "",
       adsetName: ad.adset?.name ?? "",
+      adId: ad.id,
       adName: ad.name ?? "",
     });
 
@@ -1249,7 +1251,9 @@ const fetchMetaAdCreativeEvidenceMaps = async (
       bucket.push({
         campaignId,
         campaignName,
+        adsetId: ad.adset_id ?? ad.adset?.id ?? "",
         adsetName: ad.adset?.name ?? "",
+        adId: ad.id,
         adName: ad.name ?? "",
         confidence: "live_creative_single_landing_path",
       });
@@ -1911,12 +1915,14 @@ const normalizeCampaignKey = (value: string) =>
 type AdsetCampaignMatch = {
   campaignId: string;
   campaignName: string;
+  adsetId?: string;
   adsetName: string;
 };
 
 type AdsetCampaignMap = Map<string, AdsetCampaignMatch>;
 
 type AdCampaignMatch = AdsetCampaignMatch & {
+  adId?: string;
   adName: string;
 };
 
@@ -1933,7 +1939,9 @@ const MANUAL_VERIFIED_LANDING_PATH_CAMPAIGNS: Array<{
   landingPath: string;
   campaignId: string;
   campaignName: string;
+  adsetId?: string;
   adsetName: string;
+  adId?: string;
   adName: string;
   confidence: string;
 }> = [
@@ -1942,9 +1950,31 @@ const MANUAL_VERIFIED_LANDING_PATH_CAMPAIGNS: Array<{
     landingPath: "/iiary02",
     campaignId: "120245003319500396",
     campaignName: "meta_biocom_influencer_260506",
+    adsetId: "120245700952890396",
     adsetName: "meta_biocom_iiari_260518",
+    adId: "120245700952900396",
     adName: "meta_biocom_iiari_acid_260518",
     confidence: "manual_verified_single_landing_path_20260518",
+  },
+  {
+    site: "biocom",
+    landingPath: "/songyuul07",
+    campaignId: "120245003319500396",
+    campaignName: "meta_biocom_influencer_260506",
+    adsetId: "120245370784880396",
+    adsetName: "meta_biocom_songyuul_260512",
+    adName: "수동 검증: 광고 ID 미제공",
+    confidence: "manual_verified_ads_manager_landing_path_20260519",
+  },
+  {
+    site: "biocom",
+    landingPath: "/hwajung01",
+    campaignId: "120245003319500396",
+    campaignName: "meta_biocom_influencer_260506",
+    adsetId: "120245498758680396",
+    adsetName: "meta_biocom_hwajung_260514",
+    adName: "수동 검증: 광고 ID 미제공",
+    confidence: "manual_verified_ads_manager_landing_path_20260519",
   },
 ];
 
@@ -1959,7 +1989,9 @@ const getManualVerifiedLandingPathCampaignMap = (site: SiteKey | null): LandingP
     bucket.push({
       campaignId: item.campaignId,
       campaignName: item.campaignName,
+      adsetId: item.adsetId,
       adsetName: item.adsetName,
+      adId: item.adId,
       adName: item.adName,
       confidence: item.confidence,
     });
@@ -2053,6 +2085,22 @@ const matchCampaignIdByLandingPath = (
     }
   }
   return campaignIds.size === 1 ? [...campaignIds][0] ?? null : null;
+};
+
+const matchAdsetIdByLandingPath = (
+  order: NormalizedLedgerOrder,
+  landingPathCampaignMap: LandingPathCampaignMap = new Map(),
+  adsetById: Map<string, MetaUtmAdsetEntity> = new Map(),
+): string | null => {
+  const adsetIds = new Set<string>();
+  for (const landingPath of order.landingPaths) {
+    for (const match of landingPathCampaignMap.get(landingPath) ?? []) {
+      if (match.adsetId && adsetById.has(match.adsetId)) {
+        adsetIds.add(match.adsetId);
+      }
+    }
+  }
+  return adsetIds.size === 1 ? [...adsetIds][0] ?? null : null;
 };
 
 const matchCampaignId = (
@@ -3898,6 +3946,7 @@ const buildMetaUtmDiagnostics = async (params: {
 
   const exactAdsetRevenue = new Map<string, { revenue: number; orders: number }>();
   const exactAdRevenue = new Map<string, { revenue: number; orders: number }>();
+  const landingPathAdsetEvidence = new Set<string>();
   for (const order of baseContext.filteredOrders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
     const amount = order.amount ?? 0;
     const adId = order.adIdHint.trim();
@@ -3922,6 +3971,21 @@ const buildMetaUtmDiagnostics = async (params: {
       existing.revenue += amount;
       existing.orders += 1;
       exactAdsetRevenue.set(adsetId, existing);
+    }
+
+    if (!adId && !adsetId) {
+      const landingPathAdsetId = matchAdsetIdByLandingPath(
+        order,
+        baseContext.landingPathCampaignMap,
+        adsetById,
+      );
+      if (landingPathAdsetId) {
+        const existing = exactAdsetRevenue.get(landingPathAdsetId) ?? { revenue: 0, orders: 0 };
+        existing.revenue += amount;
+        existing.orders += 1;
+        exactAdsetRevenue.set(landingPathAdsetId, existing);
+        landingPathAdsetEvidence.add(landingPathAdsetId);
+      }
     }
   }
 
@@ -4012,7 +4076,13 @@ const buildMetaUtmDiagnostics = async (params: {
       matchedOrders: exact?.orders ?? 0,
       matchedRevenue: exact?.revenue ?? 0,
       evidenceTotalAdCount: evidence.totalAdCount,
-      basis: exact?.orders ? ["주문 원장에 광고세트 ID 또는 하위 광고 ID가 남음"] : [],
+      basis: exact?.orders
+        ? [
+            landingPathAdsetEvidence.has(adsetId)
+              ? "랜딩 경로 수동 검증으로 광고세트 매칭"
+              : "주문 원장에 광고세트 ID 또는 하위 광고 ID가 남음",
+          ]
+        : [],
     });
     const section = classifyMetaUtmSection(match.rate);
     return {
