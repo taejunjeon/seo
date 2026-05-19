@@ -469,11 +469,19 @@ export const startBackgroundJobs = () => {
     .split(",")
     .map((accountId) => accountId.trim())
     .filter(Boolean);
+  const roasSummaryPrecomputePresetGroups = (
+    process.env.ROAS_SUMMARY_PRECOMPUTE_PRESET_GROUPS
+      ?? "yesterday|today|last_3d,last_7d,last_30d"
+  )
+    .split("|")
+    .map((presets) => presets.trim())
+    .filter(Boolean);
   if (
     roasSummaryPrecomputeEnabled &&
     Number.isFinite(roasSummaryPrecomputeIntervalMs) &&
     roasSummaryPrecomputeIntervalMs >= 60000 &&
-    roasSummaryPrecomputeTargets.length > 0
+    roasSummaryPrecomputeTargets.length > 0 &&
+    roasSummaryPrecomputePresetGroups.length > 0
   ) {
     let roasSummaryRunning = false;
     const runRoasSummaryPrecompute = async () => {
@@ -487,8 +495,7 @@ export const startBackgroundJobs = () => {
       let failed = 0;
       try {
         for (const accountId of roasSummaryPrecomputeTargets) {
-          const presetGroups = ["yesterday", "today"];
-          for (const presets of presetGroups) {
+          for (const presets of roasSummaryPrecomputePresetGroups) {
             try {
               const controller = new AbortController();
               const timer = setTimeout(() => controller.abort(), roasSummaryPrecomputeTimeoutMs);
@@ -542,11 +549,11 @@ export const startBackgroundJobs = () => {
     }, Number.isFinite(roasSummaryPrecomputeStartDelayMs) ? roasSummaryPrecomputeStartDelayMs : 90_000);
     // eslint-disable-next-line no-console
     console.log(
-      `[ROAS summary precompute] 활성화 — ${Math.round(roasSummaryPrecomputeIntervalMs / 60000)}분 주기 (${roasSummaryPrecomputeTargets.length} accounts × yesterday/today)`,
+      `[ROAS summary precompute] 활성화 — ${Math.round(roasSummaryPrecomputeIntervalMs / 60000)}분 주기 (${roasSummaryPrecomputeTargets.length} accounts × ${roasSummaryPrecomputePresetGroups.join("/")})`,
     );
   } else {
     // eslint-disable-next-line no-console
-    console.log("[ROAS summary precompute] disabled by ROAS_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s 또는 targets empty");
+    console.log("[ROAS summary precompute] disabled by ROAS_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s 또는 targets/presetGroups empty");
   }
 
   // Meta UTM diagnostics precompute:

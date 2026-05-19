@@ -14,13 +14,21 @@ const SITES = [
 ] as const;
 
 const DATE_PRESETS = [
+  { value: "last_3d", label: "최근 3일" },
   { value: "last_7d", label: "최근 7일" },
   { value: "last_14d", label: "최근 14일" },
   { value: "last_30d", label: "최근 30일" },
 ] as const;
 
+const PERIOD_SUMMARY_PRESETS = [
+  { value: "last_3d", label: "최근 3일" },
+  { value: "last_7d", label: "최근 7일" },
+  { value: "last_30d", label: "최근 30일" },
+] as const;
+
 type MetaUtmLevel = "campaign" | "adset" | "ad";
 type MetaUtmSection = "ready" | "blocked" | "unmapped";
+type PeriodPreset = (typeof PERIOD_SUMMARY_PRESETS)[number]["value"];
 
 type MetaUtmMatch = {
   rate: number;
@@ -144,6 +152,43 @@ type MetaUtmDiagnostics = {
   degraded?: boolean;
 };
 
+type PeriodRoasSummary = {
+  queried_at?: string;
+  date_range?: { start_date: string; end_date: string; timezone: string } | null;
+  summary?: {
+    spend: number;
+    attributedRevenue: number;
+    roas: number | null;
+    orders: number;
+    metaPurchaseValue?: number;
+    metaPurchaseRoas?: number | null;
+    meta?: {
+      spend: number;
+      purchaseValue: number;
+      roas: number | null;
+    };
+    att?: {
+      spend: number;
+      purchaseValue: number;
+      roas: number | null;
+      orders: number;
+    };
+  };
+};
+
+type PeriodRoasSummaryResponse = {
+  ok: boolean;
+  results?: Partial<Record<PeriodPreset, PeriodRoasSummary>>;
+  errors?: Record<string, { error?: string; response_message?: string }>;
+  cache?: {
+    source: string;
+    cached?: boolean;
+    cached_at_kst?: string | null;
+    next_refresh_at_kst?: string | null;
+    stale?: boolean;
+  };
+};
+
 const LEVEL_LABEL: Record<MetaUtmLevel, string> = {
   campaign: "캠페인",
   adset: "광고 세트",
@@ -154,7 +199,7 @@ const fmtNum = (value: number) => Math.round(value).toLocaleString("ko-KR");
 const fmtKRW = (value: number | null | undefined) => (
   value == null ? "—" : `₩${Math.round(value).toLocaleString("ko-KR")}`
 );
-const fmtRoas = (value: number | null) => (value == null ? "—" : `${value.toFixed(2)}x`);
+const fmtRoas = (value: number | null | undefined) => (value == null ? "—" : `${value.toFixed(2)}x`);
 const fmtRatio = (value: number) => `${value.toFixed(0)}%`;
 
 const formatDateTime = (value: string | null | undefined) => {
@@ -203,7 +248,6 @@ const summarize = (rows: MetaUtmRow[]) => ({
   rows: rows.length,
   spend: rows.reduce((sum, row) => sum + row.metrics.spend, 0),
   purchases: rows.reduce((sum, row) => sum + row.metrics.purchases, 0),
-  purchaseValue: rows.reduce((sum, row) => sum + row.metrics.purchaseValue, 0),
   attRevenue: rows.reduce((sum, row) => sum + row.att.revenue, 0),
   attOrders: rows.reduce((sum, row) => sum + row.att.orders, 0),
 });
@@ -377,8 +421,8 @@ function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: Me
                 <div className="metricSub">Meta 구매</div>
               </td>
               <td>
-                <div className="metricMain">{fmtKRW(row.metrics.purchaseValue)}</div>
-                <div className="metricSub">Meta 전환값</div>
+                <div className="metricMain">{fmtKRW(row.att.revenue)}</div>
+                <div className="metricSub">{row.att.orders > 0 ? `내부 원장 ${fmtNum(row.att.orders)}건` : getRowSection(row) === "unmapped" ? "미맵핑" : "내부 매출 없음"}</div>
               </td>
               <td><div className="metricMain">{fmtNum(row.metrics.reach)}</div></td>
               <td><div className="metricMain">{fmtKRW(row.metrics.cpm)}</div></td>
@@ -423,7 +467,7 @@ function SectionPanel({
           <span>{fmtNum(stats.rows)}행</span>
           <span>{fmtKRW(stats.spend)}</span>
           <span>Meta 구매 {fmtNum(stats.purchases)}</span>
-          <span>전환금액 {fmtKRW(stats.purchaseValue)}</span>
+          <span>내부매출 {fmtKRW(stats.attRevenue)}</span>
           <span>{fmtRatio(spendShare)}</span>
         </div>
       </div>
@@ -462,14 +506,79 @@ function UnmappedOrdersPanel({ summary }: { summary?: MetaUtmDiagnostics["unmapp
   );
 }
 
+function PeriodRoasCards({
+  data,
+  loading,
+  error,
+}: {
+  data: PeriodRoasSummaryResponse | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <section className="periodRoasPanel">
+      <div className="periodRoasHead">
+        <div>
+          <h2>기간별 ROAS 기준 비교</h2>
+          <p>Meta 기준은 플랫폼이 내려주는 구매 전환값이고, ATT 기준은 내부 attribution 원장에 매칭된 결제완료 매출입니다. 예산 판단은 ATT 기준을 우선합니다.</p>
+        </div>
+        <div className="periodRoasStatus">
+          <strong>{loading ? "조회 중" : data?.cache?.cached ? "캐시 응답" : "라이브/캐시 응답"}</strong>
+          <span>{error ?? (data?.cache?.cached_at_kst ? `계산 시각 ${data.cache.cached_at_kst}` : "3일·7일·30일 통합 조회")}</span>
+        </div>
+      </div>
+      <div className="periodRoasGrid">
+        {PERIOD_SUMMARY_PRESETS.map((period) => {
+          const result = data?.results?.[period.value];
+          const summary = result?.summary;
+          const meta = summary?.meta ?? {
+            spend: summary?.spend ?? 0,
+            purchaseValue: summary?.metaPurchaseValue ?? 0,
+            roas: summary?.metaPurchaseRoas ?? null,
+          };
+          const att = summary?.att ?? {
+            spend: summary?.spend ?? 0,
+            purchaseValue: summary?.attributedRevenue ?? 0,
+            roas: summary?.roas ?? null,
+            orders: summary?.orders ?? 0,
+          };
+          const itemError = data?.errors?.[period.value]?.error ?? data?.errors?.[period.value]?.response_message ?? null;
+          return (
+            <article key={period.value} className="periodRoasCard">
+              <div className="periodRoasCardTitle">
+                <strong>{period.label}</strong>
+                <span>{result?.date_range ? `${result.date_range.start_date}~${result.date_range.end_date}` : itemError ? "조회 실패" : "계산 대기"}</span>
+              </div>
+              <div className="periodSourceRow meta">
+                <span>Meta 기준</span>
+                <strong>{fmtRoas(meta.roas)}</strong>
+                <small>구매전환값 {fmtKRW(meta.purchaseValue)} · 광고비 {fmtKRW(meta.spend)}</small>
+              </div>
+              <div className="periodSourceRow att">
+                <span>ATT 기준</span>
+                <strong>{fmtRoas(att.roas)}</strong>
+                <small>내부매출 {fmtKRW(att.purchaseValue)} · 광고비 {fmtKRW(att.spend)} · {fmtNum(att.orders)}건</small>
+              </div>
+              {itemError && <em>{itemError}</em>}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function MetaUtmPage() {
   const [selectedSite, setSelectedSite] = useState<(typeof SITES)[number]>(SITES[0]);
   const [datePreset, setDatePreset] = useState("last_7d");
   const [level, setLevel] = useState<MetaUtmLevel>("campaign");
   const [query, setQuery] = useState("");
   const [data, setData] = useState<MetaUtmDiagnostics | null>(null);
+  const [periodSummary, setPeriodSummary] = useState<PeriodRoasSummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [periodLoading, setPeriodLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [periodError, setPeriodError] = useState<string | null>(null);
 
   const load = useCallback((force = false) => {
     setLoading(true);
@@ -490,10 +599,34 @@ export default function MetaUtmPage() {
       .finally(() => setLoading(false));
   }, [datePreset, selectedSite.account_id]);
 
+  const loadPeriodSummary = useCallback((force = false) => {
+    setPeriodLoading(true);
+    setPeriodError(null);
+    const params = new URLSearchParams({
+      account_id: selectedSite.account_id,
+      presets: PERIOD_SUMMARY_PRESETS.map((period) => period.value).join(","),
+    });
+    if (force) params.set("force", "1");
+    fetch(`${API_BASE}/api/ads/roas-summary?${params.toString()}`)
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok || !body.ok) throw new Error(body.error ?? `HTTP ${response.status}`);
+        return body as PeriodRoasSummaryResponse;
+      })
+      .then(setPeriodSummary)
+      .catch((err) => setPeriodError(err instanceof Error ? err.message : "기간별 ROAS 요약 조회 실패"))
+      .finally(() => setPeriodLoading(false));
+  }, [selectedSite.account_id]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => load(false), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => loadPeriodSummary(false), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadPeriodSummary]);
 
   const rows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -553,7 +686,7 @@ export default function MetaUtmPage() {
           <div className="actions">
             <Link href="/ads" className="secondaryLink">ROAS 대시보드</Link>
             <Link href="/ads/campaign-mapping" className="secondaryLink">캠페인 매핑</Link>
-            <button type="button" onClick={() => load(true)} disabled={loading}>{loading ? "조회 중" : "새로고침"}</button>
+            <button type="button" onClick={() => { load(true); loadPeriodSummary(true); }} disabled={loading || periodLoading}>{loading || periodLoading ? "조회 중" : "새로고침"}</button>
           </div>
         </div>
 
@@ -583,6 +716,8 @@ export default function MetaUtmPage() {
             <span>{cacheStatus}</span>
           </div>
         </div>
+
+        <PeriodRoasCards data={periodSummary} loading={periodLoading} error={periodError} />
 
         <div className={`decisionBanner ${error && !data ? "needsFix" : blockedSpendShare >= 0.9 ? "needsFix" : "balanced"}`}>
           <div>
@@ -667,7 +802,8 @@ export default function MetaUtmPage() {
             매칭율은 내부 주문 ID evidence와 광고 URL의 campaign/adset/ad ID 또는 dynamic macro를 합쳐 계산합니다.
             85% 이상이면 예산 판단 후보로 보고, 1~84%는 보완/샘플 검토, 0%는 미맵핑으로 분리합니다.
             캠페인 단위 ROAS는 기존 내부 attribution 계산과 같고, 광고세트/광고 단위 ROAS는 주문 원장에 해당 ID가 남은 경우 정확도가 높습니다.
-            구매 전환 금액은 Meta Ads Insights의 purchase conversion value이며, 내부 ATT 매출과는 별도 참고값입니다.
+            상세 표의 구매 전환 금액은 내부 attribution 원장에 해당 광고 구조로 매칭된 결제완료 매출입니다.
+            상단 Meta 기준 구매전환값은 Meta Ads Insights의 action_values[purchase]라 최근 Meta 데이터 제한 영향으로 낮거나 비어 있을 수 있습니다.
           </p>
           {data?.diagnostics?.limitations?.map((item) => <span key={item}>{item}</span>)}
           <span>Source: Meta Ads Insights API + VM Cloud attribution ledger. Window: {data?.date_range ? `${data.date_range.start_date}~${data.date_range.end_date} KST` : datePreset}. Freshness: {data?.source_max_timestamp ?? "Meta live/cache 기준"}. Confidence: {data?.source_confidence ?? "API 응답 기준"}.</span>
@@ -682,7 +818,7 @@ export default function MetaUtmPage() {
           padding: 96px 18px 36px;
           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
-        .topBar, .toolbar, .summaryGrid, .levelTabs, .sectionPanel, .unmappedOrdersPanel, .notes, .errorBox, .loadingBox {
+        .topBar, .toolbar, .periodRoasPanel, .summaryGrid, .levelTabs, .sectionPanel, .unmappedOrdersPanel, .notes, .errorBox, .loadingBox {
           max-width: 1760px;
           margin-left: auto;
           margin-right: auto;
@@ -1145,14 +1281,15 @@ export default function MetaUtmPage() {
           font-weight: 800;
         }
         @media (max-width: 980px) {
-          .topBar, .toolbar, .summaryGrid, .sectionHeader {
+          .topBar, .toolbar, .periodRoasHead, .summaryGrid, .sectionHeader {
             grid-template-columns: 1fr;
           }
-          .actions, .metaInfo, .sectionStats {
+          .actions, .metaInfo, .periodRoasStatus, .sectionStats {
             justify-content: flex-start;
             align-items: flex-start;
+            text-align: left;
           }
-          .summaryGrid {
+          .periodRoasGrid, .summaryGrid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
@@ -1161,7 +1298,7 @@ export default function MetaUtmPage() {
             padding-left: 10px;
             padding-right: 10px;
           }
-          .summaryGrid {
+          .periodRoasGrid, .summaryGrid {
             grid-template-columns: 1fr;
           }
           .levelTabs {
@@ -1216,6 +1353,119 @@ export default function MetaUtmPage() {
           font-size: 0.74rem;
           font-weight: 700;
           line-height: 1.45;
+        }
+        .metaUtmPage .periodRoasPanel {
+          max-width: 1760px;
+          margin: 0 auto 12px;
+          background: #ffffff;
+          border: 1px solid #d8e0ea;
+          border-radius: 8px;
+          padding: 14px;
+        }
+        .metaUtmPage .periodRoasHead {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 14px;
+          align-items: start;
+          margin-bottom: 12px;
+        }
+        .metaUtmPage .periodRoasHead h2 {
+          margin: 0;
+          color: #111827;
+          font-size: 0.98rem;
+          line-height: 1.35;
+          letter-spacing: 0;
+        }
+        .metaUtmPage .periodRoasHead p {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 0.76rem;
+          line-height: 1.55;
+        }
+        .metaUtmPage .periodRoasStatus {
+          display: grid;
+          gap: 3px;
+          text-align: right;
+          color: #64748b;
+          font-size: 0.72rem;
+          font-weight: 800;
+        }
+        .metaUtmPage .periodRoasStatus strong {
+          color: #111827;
+          font-size: 0.8rem;
+        }
+        .metaUtmPage .periodRoasGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .metaUtmPage .periodRoasCard {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 11px;
+          display: grid;
+          gap: 8px;
+        }
+        .metaUtmPage .periodRoasCardTitle {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          align-items: baseline;
+        }
+        .metaUtmPage .periodRoasCardTitle strong {
+          color: #111827;
+          font-size: 0.84rem;
+        }
+        .metaUtmPage .periodRoasCardTitle span {
+          color: #64748b;
+          font-size: 0.68rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+        .metaUtmPage .periodSourceRow {
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #fff;
+          padding: 8px;
+          display: grid;
+          grid-template-columns: auto auto;
+          gap: 3px 8px;
+          align-items: baseline;
+        }
+        .metaUtmPage .periodSourceRow span {
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .periodSourceRow strong {
+          justify-self: end;
+          color: #111827;
+          font-size: 1rem;
+          font-variant-numeric: tabular-nums;
+        }
+        .metaUtmPage .periodSourceRow small {
+          grid-column: 1 / -1;
+          color: #64748b;
+          font-size: 0.68rem;
+          font-weight: 700;
+          line-height: 1.45;
+        }
+        .metaUtmPage .periodSourceRow.meta strong {
+          color: #475569;
+        }
+        .metaUtmPage .periodSourceRow.att {
+          border-color: #bbf7d0;
+          background: #f7fef9;
+        }
+        .metaUtmPage .periodSourceRow.att strong {
+          color: #047857;
+        }
+        .metaUtmPage .periodRoasCard em {
+          color: #9a3412;
+          font-size: 0.66rem;
+          font-style: normal;
+          font-weight: 800;
         }
         .metaUtmPage .sectionPanel {
           max-width: 1760px;
@@ -1533,15 +1783,25 @@ export default function MetaUtmPage() {
         }
         @media (max-width: 980px) {
           .metaUtmPage .decisionBanner,
+          .metaUtmPage .periodRoasHead,
           .metaUtmPage .sectionHeader {
             grid-template-columns: 1fr;
           }
           .metaUtmPage .decisionBanner div:last-child,
+          .metaUtmPage .periodRoasStatus,
           .metaUtmPage .sectionStats {
             text-align: left;
             justify-content: flex-start;
           }
+          .metaUtmPage .periodRoasGrid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
           .metaUtmPage .unmappedList {
+            grid-template-columns: 1fr;
+          }
+        }
+        @media (max-width: 640px) {
+          .metaUtmPage .periodRoasGrid {
             grid-template-columns: 1fr;
           }
         }

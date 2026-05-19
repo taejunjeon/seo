@@ -674,6 +674,8 @@ export const resolveDatePresetRange = (
     case "yesterday": {
       return { startDate: lastCompletedDate, endDate: lastCompletedDate };
     }
+    case "last_3d":
+      return { startDate: shiftIsoDateByDays(lastCompletedDate, -2), endDate: lastCompletedDate };
     case "last_7d":
       return { startDate: shiftIsoDateByDays(lastCompletedDate, -6), endDate: lastCompletedDate };
     case "last_14d":
@@ -6131,6 +6133,7 @@ export const createAdsRouter = () => {
           supported_presets: [
             "today",
             "yesterday",
+            "last_3d",
             "last_7d",
             "last_14d",
             "last_30d",
@@ -6221,7 +6224,7 @@ export const createAdsRouter = () => {
       await Promise.all(presetRanges.map(async ({ preset, range }) => {
         const metaResult = await fetchMetaInsights({
           accountId,
-          fields: "campaign_name,campaign_id,impressions,clicks,spend",
+          fields: "campaign_name,campaign_id,impressions,clicks,spend,action_values",
           level: "campaign",
           datePreset: preset,
           limit: "100",
@@ -6238,6 +6241,7 @@ export const createAdsRouter = () => {
           return;
         }
 
+        const metaTotals = summarizeMetaRows(metaResult.data);
         const filteredOrders = filterOrdersByRange(accountOrders, range);
         const campaigns = buildCampaignRoasRows({
           metaRows: metaResult.data,
@@ -6251,6 +6255,7 @@ export const createAdsRouter = () => {
         const totalSpend = round2(campaigns.reduce((sum, row) => sum + row.spend, 0));
         const totalAttributedRevenue = round2(campaigns.reduce((sum, row) => sum + row.attributedRevenue, 0));
         const totalOrders = campaigns.reduce((sum, row) => sum + row.orders, 0);
+        const totalMetaPurchaseValue = round2(metaTotals.purchaseValue);
         const coopRows = campaigns.filter((row) => row.campaignType === "coop");
         const generalRows = campaigns.filter((row) => row.campaignType === "general");
         const coopSpend = round2(coopRows.reduce((sum, row) => sum + row.spend, 0));
@@ -6272,6 +6277,19 @@ export const createAdsRouter = () => {
             attributedRevenue: totalAttributedRevenue,
             roas: computeRoas(totalAttributedRevenue, totalSpend, ledger.entries.length > 0),
             orders: totalOrders,
+            metaPurchaseValue: totalMetaPurchaseValue,
+            metaPurchaseRoas: computeObservedRoas(totalMetaPurchaseValue, totalSpend),
+            meta: {
+              spend: totalSpend,
+              purchaseValue: totalMetaPurchaseValue,
+              roas: computeObservedRoas(totalMetaPurchaseValue, totalSpend),
+            },
+            att: {
+              spend: totalSpend,
+              purchaseValue: totalAttributedRevenue,
+              roas: computeRoas(totalAttributedRevenue, totalSpend, ledger.entries.length > 0),
+              orders: totalOrders,
+            },
             general: {
               spend: generalSpend,
               attributedRevenue: generalRevenue,
@@ -6305,7 +6323,7 @@ export const createAdsRouter = () => {
           accountId,
           site: siteAccount?.site ?? null,
           metaLevel: "campaign",
-          metaFields: "campaign_name,campaign_id,impressions,clicks,spend",
+          metaFields: "campaign_name,campaign_id,impressions,clicks,spend,action_values",
         }),
         account_id: accountId,
         presets: uniquePresets,
@@ -6330,11 +6348,13 @@ export const createAdsRouter = () => {
               ? "VM Cloud attribution ledger"
               : "local attribution ledger fallback",
             spend: "Meta Ads Insights API",
+            meta_purchase_value: "Meta Ads Insights API action_values[purchase]",
           },
           unit: {
             revenue: "unique confirmed/pending ledger order matched to Meta evidence",
             spend: "KRW campaign spend",
             roas: "attributedRevenue / spend",
+            meta_roas: "Meta action_values[purchase] / spend",
           },
           window: "date_preset batch",
           site: siteAccount?.site ?? null,
