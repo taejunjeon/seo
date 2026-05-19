@@ -132,6 +132,28 @@ const formatDateTime = (value: string | null | undefined) => {
   });
 };
 
+const describeMetaUtmError = (message: string) => {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("too many calls")
+    || lower.includes("rate-limiting")
+    || lower.includes("user request limit")
+  ) {
+    return {
+      title: "Meta API 호출 제한으로 새 데이터를 기다리는 중입니다",
+      message: "캠페인 데이터가 없다는 뜻은 아닙니다. Meta가 이 광고 계정의 API 호출을 잠시 제한해 새 결과를 못 가져온 상태입니다.",
+      action: "사전계산이 한 번 성공하면 이 화면은 캐시된 결과로 바로 표시됩니다. 지금은 10~20분 뒤 새로고침하거나, 호출량이 줄어든 뒤 다시 확인하면 됩니다.",
+      technical: message,
+    };
+  }
+  return {
+    title: "Meta UTM 진단 조회 실패",
+    message: "새 결과를 가져오지 못했습니다. 캐시가 없으면 표가 비어 보일 수 있습니다.",
+    action: "잠시 뒤 새로고침하고, 같은 문제가 반복되면 backend 로그와 Meta API 응답을 확인해야 합니다.",
+    technical: message,
+  };
+};
+
 const deliveryTone = (label: string) => {
   if (label.includes("활동") || label.includes("머신러닝")) return { bg: "#ecfdf5", fg: "#047857", dot: "#059669", border: "#bbf7d0" };
   if (label.includes("준비")) return { bg: "#eff6ff", fg: "#1d4ed8", dot: "#3b82f6", border: "#bfdbfe" };
@@ -352,16 +374,24 @@ export default function MetaUtmPage() {
   const blockedRows = rows.filter((row) => row.section === "blocked");
   const levelSummary = data?.summary.byLevel[level] ?? { rows: 0, spend: 0, purchases: 0, attRevenue: 0, attOrders: 0 };
   const blockedSpendShare = levelSummary.spend > 0 ? blockedRows.reduce((sum, row) => sum + row.metrics.spend, 0) / levelSummary.spend : 0;
-  const cacheStatus = data?.cache?.cached
+  const errorInfo = error ? describeMetaUtmError(error) : null;
+  const cacheStatus = error && !data
+    ? "조회 제한"
+    : data?.cache?.cached
     ? data.cache.stale
       ? "지난 계산값"
       : "사전계산/캐시 응답"
     : loading && data
       ? "갱신 중"
       : "라이브 조회";
-  const currentDecision = blockedSpendShare >= 0.9
+  const currentDecision = error && !data
+    ? "현재는 Meta API 제한으로 새 결과를 기다리는 중입니다"
+    : blockedSpendShare >= 0.9
     ? "현재 예산 판단은 UTM 보완부터 해야 합니다"
     : "ROAS 산정 가능 항목과 보완 항목을 나눠 볼 수 있습니다";
+  const decisionDetail = error && !data
+    ? "실제 광고 데이터가 없다는 뜻은 아니며, 마지막 성공 캐시가 없어 표를 비워 둔 상태입니다"
+    : `${LEVEL_LABEL[level]} 기준 Section B 지출 ${fmtKRW(blockedRows.reduce((sum, row) => sum + row.metrics.spend, 0))} · 전체 대비 ${fmtRatio(blockedSpendShare * 100)}`;
 
   return (
     <>
@@ -410,13 +440,10 @@ export default function MetaUtmPage() {
           </div>
         </div>
 
-        <div className={`decisionBanner ${blockedSpendShare >= 0.9 ? "needsFix" : "balanced"}`}>
+        <div className={`decisionBanner ${error && !data ? "needsFix" : blockedSpendShare >= 0.9 ? "needsFix" : "balanced"}`}>
           <div>
             <strong>{currentDecision}</strong>
-            <span>
-              {LEVEL_LABEL[level]} 기준 Section B 지출 {fmtKRW(blockedRows.reduce((sum, row) => sum + row.metrics.spend, 0))}
-              {" "}· 전체 대비 {fmtRatio(blockedSpendShare * 100)}
-            </span>
+            <span>{decisionDetail}</span>
           </div>
           <div>
             <strong>{cacheStatus}</strong>
@@ -424,10 +451,15 @@ export default function MetaUtmPage() {
           </div>
         </div>
 
-        {error && (
+        {errorInfo && (
           <div className="errorBox">
-            <strong>Meta UTM 진단 조회 실패</strong>
-            <span>{error}</span>
+            <strong>{errorInfo.title}</strong>
+            <span>{errorInfo.message}</span>
+            <small>{errorInfo.action}</small>
+            <details>
+              <summary>기술 원문 보기</summary>
+              <code>{errorInfo.technical}</code>
+            </details>
           </div>
         )}
 
@@ -464,6 +496,8 @@ export default function MetaUtmPage() {
 
         {loading && !data ? (
           <div className="loadingBox">Meta 캠페인, 광고 세트, 광고와 내부 attribution 원장을 읽는 중입니다.</div>
+        ) : error && !data ? (
+          <div className="loadingBox">조회 제한으로 아직 표를 채우지 못했습니다. 사전계산 캐시가 준비되면 Section A/B가 자동으로 표시됩니다.</div>
         ) : (
           <>
             <SectionPanel title="Section A · UTM 정상, ROAS 산정 가능" tone="ready" rows={readyRows} level={level} levelSpend={levelSummary.spend} />
@@ -840,6 +874,27 @@ export default function MetaUtmPage() {
           background: #fff7ed;
           border-color: #fed7aa;
           color: #9a3412;
+        }
+        .errorBox small {
+          color: #7c2d12;
+          font-size: 0.74rem;
+          line-height: 1.55;
+        }
+        .errorBox details {
+          margin-top: 3px;
+          color: #9a3412;
+          font-size: 0.7rem;
+        }
+        .errorBox summary {
+          cursor: pointer;
+          font-weight: 900;
+        }
+        .errorBox code {
+          display: block;
+          margin-top: 6px;
+          white-space: pre-wrap;
+          word-break: break-word;
+          color: #7c2d12;
         }
         .notes {
           display: grid;
