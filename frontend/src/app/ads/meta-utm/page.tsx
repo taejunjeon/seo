@@ -520,7 +520,7 @@ function PeriodRoasCards({
       <div className="periodRoasHead">
         <div>
           <h2>기간별 ROAS 기준 비교</h2>
-          <p>Meta 기준은 플랫폼이 내려주는 구매 전환값이고, ATT 기준은 내부 attribution 원장에 매칭된 결제완료 매출입니다. 예산 판단은 ATT 기준을 우선합니다.</p>
+          <p>집계 기간은 KST 완료일 기준이며 오늘은 제외합니다. Meta 기준은 플랫폼이 내려주는 구매 전환값이고, ATT 기준은 내부 attribution 원장에 매칭된 결제완료 매출입니다. 예산 판단은 ATT 기준을 우선합니다.</p>
         </div>
         <div className="periodRoasStatus">
           <strong>{loading ? "조회 중" : data?.cache?.cached ? "캐시 응답" : "라이브/캐시 응답"}</strong>
@@ -547,7 +547,7 @@ function PeriodRoasCards({
             <article key={period.value} className="periodRoasCard">
               <div className="periodRoasCardTitle">
                 <strong>{period.label}</strong>
-                <span>{result?.date_range ? `${result.date_range.start_date}~${result.date_range.end_date}` : itemError ? "조회 실패" : "계산 대기"}</span>
+                <span>{result?.date_range ? `완료일 기준 ${result.date_range.start_date}~${result.date_range.end_date}` : itemError ? "조회 실패" : "계산 대기"}</span>
               </div>
               <div className="periodSourceRow meta">
                 <span>Meta 기준</span>
@@ -1421,7 +1421,7 @@ export default function MetaUtmPage() {
           color: #64748b;
           font-size: 0.68rem;
           font-weight: 800;
-          white-space: nowrap;
+          text-align: right;
         }
         .metaUtmPage .periodSourceRow {
           border: 1px solid #e2e8f0;
