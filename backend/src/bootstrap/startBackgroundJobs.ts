@@ -548,6 +548,114 @@ export const startBackgroundJobs = () => {
     // eslint-disable-next-line no-console
     console.log("[ROAS summary precompute] disabled by ROAS_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s 또는 targets empty");
   }
+
+  // Meta UTM diagnostics precompute:
+  // /ads/meta-utm 기본 화면은 Meta campaigns/adsets/ads + 3개 insights call 을 동시에 읽어 첫 miss 가 길다.
+  // 가장 많이 보는 biocom last_7d 조합을 먼저 warm 해 두고, 사용자는 lazy cache hit 를 받게 한다.
+  const metaUtmPrecomputeEnabled = process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_ENABLED !== "0";
+  const metaUtmPrecomputeIntervalMs = Number(
+    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_INTERVAL_MS ?? "720000",
+  );
+  const metaUtmPrecomputeStartDelayMs = Number(
+    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_START_DELAY_MS ?? "30000",
+  );
+  const metaUtmPrecomputeTimeoutMs = Number(
+    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_TIMEOUT_MS ?? "120000",
+  );
+  const metaUtmPrecomputeTargets = (
+    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_TARGETS
+      ?? "act_3138805896402376"
+  )
+    .split(",")
+    .map((accountId) => accountId.trim())
+    .filter(Boolean);
+  const metaUtmPrecomputePresets = (
+    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_PRESETS
+      ?? "last_7d"
+  )
+    .split(",")
+    .map((preset) => preset.trim())
+    .filter(Boolean);
+  if (
+    metaUtmPrecomputeEnabled
+    && Number.isFinite(metaUtmPrecomputeIntervalMs)
+    && metaUtmPrecomputeIntervalMs >= 300000
+    && metaUtmPrecomputeTargets.length > 0
+    && metaUtmPrecomputePresets.length > 0
+  ) {
+    let metaUtmRunning = false;
+    const runMetaUtmPrecompute = async () => {
+      if (metaUtmRunning) {
+        // eslint-disable-next-line no-console
+        console.log("[Meta UTM precompute] skip - previous tick still running");
+        return;
+      }
+      metaUtmRunning = true;
+      let ok = 0;
+      let failed = 0;
+      try {
+        for (const accountId of metaUtmPrecomputeTargets) {
+          for (const preset of metaUtmPrecomputePresets) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), metaUtmPrecomputeTimeoutMs);
+            try {
+              const url = new URL(`${selfBaseUrl}/api/ads/meta-utm-diagnostics`);
+              url.searchParams.set("account_id", accountId);
+              url.searchParams.set("date_preset", preset);
+              url.searchParams.set("force", "1");
+              url.searchParams.set("precompute", "1");
+              const startedAt = Date.now();
+              const response = await fetch(url.toString(), {
+                method: "GET",
+                signal: controller.signal,
+                cache: "no-store",
+              });
+              const body = (await response.json().catch(() => null)) as
+                | { ok?: boolean; rows?: unknown[]; cache?: { source?: string; cached_at_kst?: string | null } }
+                | null;
+              if (response.ok && body?.ok) {
+                ok += 1;
+                // eslint-disable-next-line no-console
+                console.log(
+                  `[Meta UTM precompute] ok account=*${accountId.slice(-4)} preset=${preset} rows=${body.rows?.length ?? "?"} source=${body.cache?.source ?? "?"} ${Date.now() - startedAt}ms`,
+                );
+              } else {
+                failed += 1;
+                // eslint-disable-next-line no-console
+                console.error(`[Meta UTM precompute] fail account=*${accountId.slice(-4)} preset=${preset} HTTP ${response.status}`);
+              }
+            } catch (error) {
+              failed += 1;
+              // eslint-disable-next-line no-console
+              console.error(
+                `[Meta UTM precompute] error account=*${accountId.slice(-4)} preset=${preset}`,
+                error instanceof Error ? error.message : error,
+              );
+            } finally {
+              clearTimeout(timer);
+            }
+          }
+        }
+      } finally {
+        metaUtmRunning = false;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Meta UTM precompute] tick - ok=${ok} failed=${failed} next=${Math.round(metaUtmPrecomputeIntervalMs / 1000)}s`,
+        );
+      }
+    };
+    setTimeout(() => {
+      void runMetaUtmPrecompute();
+      setInterval(() => { void runMetaUtmPrecompute(); }, metaUtmPrecomputeIntervalMs);
+    }, Number.isFinite(metaUtmPrecomputeStartDelayMs) ? metaUtmPrecomputeStartDelayMs : 30_000);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[Meta UTM precompute] 활성화 - ${Math.round(metaUtmPrecomputeIntervalMs / 60000)}분 주기 (${metaUtmPrecomputeTargets.length} accounts x ${metaUtmPrecomputePresets.join("/")})`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[Meta UTM precompute] disabled by META_UTM_DIAGNOSTICS_PRECOMPUTE_ENABLED=0 또는 interval<300s 또는 targets/presets empty");
+  }
 };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

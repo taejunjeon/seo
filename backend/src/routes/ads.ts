@@ -97,7 +97,7 @@ const setAdsLazyCached = (key: string, result: unknown, ttlMs: number = ADS_LAZY
   adsLazyCache.set(key, entry);
   return entry;
 };
-type AdsLazyCacheSource = "lazy_cache_hit" | "live_force" | "live_cache_miss" | "live_error_no_cache";
+type AdsLazyCacheSource = "lazy_cache_hit" | "disk_cache_hit" | "live_force" | "live_cache_miss" | "live_error_no_cache";
 const buildAdsCacheMeta = (entry: AdsCacheEntry | null, source: AdsLazyCacheSource): {
   cached: boolean;
   cached_at_kst: string | null;
@@ -105,7 +105,7 @@ const buildAdsCacheMeta = (entry: AdsCacheEntry | null, source: AdsLazyCacheSour
   ttl_seconds: number;
   source: string;
 } => ({
-  cached: source === "lazy_cache_hit" && Boolean(entry),
+  cached: (source === "lazy_cache_hit" || source === "disk_cache_hit") && Boolean(entry),
   cached_at_kst: entry ? toKstShortAds(entry.cachedAtMs) : null,
   next_refresh_at_kst: entry ? toKstShortAds(entry.expiresAtMs) : null,
   ttl_seconds: entry ? Math.round((entry.expiresAtMs - entry.cachedAtMs) / 1000) : 0,
@@ -3228,6 +3228,88 @@ type MetaUtmRow = {
 };
 
 const META_UTM_DIAGNOSTICS_CACHE_TTL_MS = 15 * 60 * 1000;
+const META_UTM_DIAGNOSTICS_DISK_STALE_MAX_MS = 24 * 60 * 60 * 1000;
+const META_UTM_DIAGNOSTICS_DISK_CACHE_PATH = path.join(DATA_DIR, "runtime-cache", "meta-utm-diagnostics-cache.json");
+type MetaUtmDiagnosticsDiskCache = {
+  version: 1;
+  saved_at: string;
+  entries: Record<string, AdsCacheEntry>;
+};
+let metaUtmDiagnosticsDiskCache: MetaUtmDiagnosticsDiskCache | null = null;
+let metaUtmDiagnosticsDiskLoad: Promise<MetaUtmDiagnosticsDiskCache> | null = null;
+let metaUtmDiagnosticsDiskWrite: Promise<void> = Promise.resolve();
+
+const isAdsCacheEntry = (value: unknown): value is AdsCacheEntry => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { result?: unknown; cachedAtMs?: unknown; expiresAtMs?: unknown };
+  return (
+    candidate.result !== undefined
+    && typeof candidate.cachedAtMs === "number"
+    && Number.isFinite(candidate.cachedAtMs)
+    && typeof candidate.expiresAtMs === "number"
+    && Number.isFinite(candidate.expiresAtMs)
+  );
+};
+
+const loadMetaUtmDiagnosticsDiskCache = async (): Promise<MetaUtmDiagnosticsDiskCache> => {
+  if (metaUtmDiagnosticsDiskCache) return metaUtmDiagnosticsDiskCache;
+  if (metaUtmDiagnosticsDiskLoad) return metaUtmDiagnosticsDiskLoad;
+  metaUtmDiagnosticsDiskLoad = (async () => {
+    try {
+      const raw = await fs.readFile(META_UTM_DIAGNOSTICS_DISK_CACHE_PATH, "utf-8");
+      const parsed = JSON.parse(raw) as { version?: unknown; saved_at?: unknown; entries?: unknown };
+      const entries: Record<string, AdsCacheEntry> = {};
+      if (parsed.entries && typeof parsed.entries === "object") {
+        for (const [key, entry] of Object.entries(parsed.entries as Record<string, unknown>)) {
+          if (isAdsCacheEntry(entry) && Date.now() - entry.cachedAtMs <= META_UTM_DIAGNOSTICS_DISK_STALE_MAX_MS) {
+            entries[key] = entry;
+          }
+        }
+      }
+      metaUtmDiagnosticsDiskCache = {
+        version: 1,
+        saved_at: typeof parsed.saved_at === "string" ? parsed.saved_at : new Date(0).toISOString(),
+        entries,
+      };
+    } catch {
+      metaUtmDiagnosticsDiskCache = { version: 1, saved_at: new Date(0).toISOString(), entries: {} };
+    } finally {
+      metaUtmDiagnosticsDiskLoad = null;
+    }
+    return metaUtmDiagnosticsDiskCache;
+  })();
+  return metaUtmDiagnosticsDiskLoad;
+};
+
+const getMetaUtmDiagnosticsDiskCached = async (
+  key: string,
+  maxAgeMs: number,
+): Promise<AdsCacheEntry | null> => {
+  const diskCache = await loadMetaUtmDiagnosticsDiskCache();
+  const entry = diskCache.entries[key];
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAtMs > maxAgeMs) {
+    delete diskCache.entries[key];
+    return null;
+  }
+  adsLazyCache.set(key, entry);
+  return entry;
+};
+
+const setMetaUtmDiagnosticsDiskCached = async (key: string, entry: AdsCacheEntry): Promise<void> => {
+  const diskCache = await loadMetaUtmDiagnosticsDiskCache();
+  diskCache.entries[key] = entry;
+  diskCache.saved_at = new Date().toISOString();
+  metaUtmDiagnosticsDiskWrite = metaUtmDiagnosticsDiskWrite
+    .catch(() => undefined)
+    .then(async () => {
+      await fs.mkdir(path.dirname(META_UTM_DIAGNOSTICS_DISK_CACHE_PATH), { recursive: true });
+      const tmpPath = `${META_UTM_DIAGNOSTICS_DISK_CACHE_PATH}.tmp`;
+      await fs.writeFile(tmpPath, `${JSON.stringify(diskCache, null, 2)}\n`, "utf-8");
+      await fs.rename(tmpPath, META_UTM_DIAGNOSTICS_DISK_CACHE_PATH);
+    });
+  await metaUtmDiagnosticsDiskWrite;
+};
 
 const isMetaActiveLike = (status: string, spend: number): boolean => {
   const normalized = status.trim().toUpperCase();
@@ -6280,6 +6362,11 @@ export const createAdsRouter = () => {
           res.json({ ...(cached.result as object), cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
           return;
         }
+        const diskCached = await getMetaUtmDiagnosticsDiskCached(cacheKey, META_UTM_DIAGNOSTICS_CACHE_TTL_MS);
+        if (diskCached) {
+          res.json({ ...(diskCached.result as object), cache: buildAdsCacheMeta(diskCached, "disk_cache_hit") });
+          return;
+        }
       }
 
       const responseBody = await buildMetaUtmDiagnostics({
@@ -6291,6 +6378,7 @@ export const createAdsRouter = () => {
         forceRefresh,
       });
       const cached = setAdsLazyCached(cacheKey, responseBody, META_UTM_DIAGNOSTICS_CACHE_TTL_MS);
+      await setMetaUtmDiagnosticsDiskCached(cacheKey, cached);
       res.json({ ...responseBody, cache: buildAdsCacheMeta(cached, forceRefresh ? "live_force" : "live_cache_miss") });
     } catch (error) {
       const message = error instanceof Error ? error.message : "meta utm diagnostics failed";
@@ -6301,6 +6389,14 @@ export const createAdsRouter = () => {
           res.json({
             ...(stale.result as object),
             cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+        const diskStale = await getMetaUtmDiagnosticsDiskCached(cacheKey, META_UTM_DIAGNOSTICS_DISK_STALE_MAX_MS);
+        if (diskStale) {
+          res.json({
+            ...(diskStale.result as object),
+            cache: { ...buildAdsCacheMeta(diskStale, "disk_cache_hit"), stale: true, stale_reason: message },
           });
           return;
         }

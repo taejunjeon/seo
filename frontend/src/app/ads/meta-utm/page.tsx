@@ -264,9 +264,21 @@ function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: Me
   );
 }
 
-function SectionPanel({ title, tone, rows, level }: { title: string; tone: "ready" | "blocked"; rows: MetaUtmRow[]; level: MetaUtmLevel }) {
+function SectionPanel({
+  title,
+  tone,
+  rows,
+  level,
+  levelSpend,
+}: {
+  title: string;
+  tone: "ready" | "blocked";
+  rows: MetaUtmRow[];
+  level: MetaUtmLevel;
+  levelSpend: number;
+}) {
   const stats = summarize(rows);
-  const spendShare = rows.length > 0 ? 100 : 0;
+  const spendShare = levelSpend > 0 ? (stats.spend / levelSpend) * 100 : 0;
   return (
     <section className={`sectionPanel ${tone}`}>
       <div className="sectionHeader">
@@ -340,11 +352,21 @@ export default function MetaUtmPage() {
   const blockedRows = rows.filter((row) => row.section === "blocked");
   const levelSummary = data?.summary.byLevel[level] ?? { rows: 0, spend: 0, purchases: 0, attRevenue: 0, attOrders: 0 };
   const blockedSpendShare = levelSummary.spend > 0 ? blockedRows.reduce((sum, row) => sum + row.metrics.spend, 0) / levelSummary.spend : 0;
+  const cacheStatus = data?.cache?.cached
+    ? data.cache.stale
+      ? "지난 계산값"
+      : "사전계산/캐시 응답"
+    : loading && data
+      ? "갱신 중"
+      : "라이브 조회";
+  const currentDecision = blockedSpendShare >= 0.9
+    ? "현재 예산 판단은 UTM 보완부터 해야 합니다"
+    : "ROAS 산정 가능 항목과 보완 항목을 나눠 볼 수 있습니다";
 
   return (
     <>
       <GlobalNav />
-      <main className="page">
+      <main className="metaUtmPage page">
         <div className="topBar">
           <div>
             <div className="eyebrow">Meta UTM 진단</div>
@@ -384,7 +406,21 @@ export default function MetaUtmPage() {
           <div className="metaInfo">
             <span>계정 {selectedSite.account_id}</span>
             <span>기준 {formatDateTime(data?.generated_at)}</span>
-            <span>{data?.cache?.cached ? "캐시 응답" : "라이브 조회"}</span>
+            <span>{cacheStatus}</span>
+          </div>
+        </div>
+
+        <div className={`decisionBanner ${blockedSpendShare >= 0.9 ? "needsFix" : "balanced"}`}>
+          <div>
+            <strong>{currentDecision}</strong>
+            <span>
+              {LEVEL_LABEL[level]} 기준 Section B 지출 {fmtKRW(blockedRows.reduce((sum, row) => sum + row.metrics.spend, 0))}
+              {" "}· 전체 대비 {fmtRatio(blockedSpendShare * 100)}
+            </span>
+          </div>
+          <div>
+            <strong>{cacheStatus}</strong>
+            <span>{data?.cache?.cached_at_kst ? `계산 시각 ${data.cache.cached_at_kst}` : "첫 조회는 서버 계산 후 캐시에 저장됩니다"}</span>
           </div>
         </div>
 
@@ -430,8 +466,8 @@ export default function MetaUtmPage() {
           <div className="loadingBox">Meta 캠페인, 광고 세트, 광고와 내부 attribution 원장을 읽는 중입니다.</div>
         ) : (
           <>
-            <SectionPanel title="Section A · UTM 정상, ROAS 산정 가능" tone="ready" rows={readyRows} level={level} />
-            <SectionPanel title="Section B · UTM 보완 필요, ROAS 산정 보류" tone="blocked" rows={blockedRows} level={level} />
+            <SectionPanel title="Section A · UTM 정상, ROAS 산정 가능" tone="ready" rows={readyRows} level={level} levelSpend={levelSummary.spend} />
+            <SectionPanel title="Section B · UTM 보완 필요, ROAS 산정 보류" tone="blocked" rows={blockedRows} level={level} levelSpend={levelSummary.spend} />
           </>
         )}
 
@@ -850,6 +886,294 @@ export default function MetaUtmPage() {
           .levelTabs button {
             border-right: 0;
             border-bottom: 1px solid #d8e0ea;
+          }
+        }
+      `}</style>
+      <style jsx global>{`
+        .metaUtmPage .decisionBanner {
+          max-width: 1760px;
+          margin: 0 auto 12px;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 14px;
+          align-items: center;
+          border: 1px solid #d8e0ea;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 12px 14px;
+        }
+        .metaUtmPage .decisionBanner.needsFix {
+          border-color: #fed7aa;
+          background: #fffaf3;
+        }
+        .metaUtmPage .decisionBanner.balanced {
+          border-color: #bbf7d0;
+          background: #f7fef9;
+        }
+        .metaUtmPage .decisionBanner div {
+          min-width: 0;
+          display: grid;
+          gap: 3px;
+        }
+        .metaUtmPage .decisionBanner div:last-child {
+          text-align: right;
+        }
+        .metaUtmPage .decisionBanner strong {
+          color: #111827;
+          font-size: 0.86rem;
+          line-height: 1.35;
+        }
+        .metaUtmPage .decisionBanner span {
+          color: #64748b;
+          font-size: 0.74rem;
+          font-weight: 700;
+          line-height: 1.45;
+        }
+        .metaUtmPage .sectionPanel {
+          max-width: 1760px;
+          margin: 0 auto 14px;
+          background: #ffffff;
+          border: 1px solid #d8e0ea;
+          border-top: 0;
+          padding: 14px;
+        }
+        .metaUtmPage .sectionPanel.ready {
+          border-left: 4px solid #059669;
+        }
+        .metaUtmPage .sectionPanel.blocked {
+          border-left: 4px solid #dc2626;
+        }
+        .metaUtmPage .sectionHeader {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 16px;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+        .metaUtmPage .sectionHeader h2 {
+          margin: 0;
+          color: #111827;
+          font-size: 0.98rem;
+          line-height: 1.35;
+          letter-spacing: 0;
+        }
+        .metaUtmPage .sectionHeader p {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 0.76rem;
+          line-height: 1.55;
+        }
+        .metaUtmPage .sectionStats {
+          display: flex;
+          gap: 7px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .metaUtmPage .sectionStats span {
+          padding: 5px 8px;
+          border-radius: 6px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          color: #475569;
+          font-size: 0.72rem;
+          font-weight: 900;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+        .metaUtmPage .tableWrap {
+          overflow-x: auto;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #ffffff;
+        }
+        .metaUtmPage table {
+          width: 100%;
+          min-width: 1480px;
+          border-collapse: collapse;
+          table-layout: fixed;
+          font-size: 0.74rem;
+        }
+        .metaUtmPage th,
+        .metaUtmPage td {
+          border-bottom: 1px solid #edf2f7;
+          text-align: left;
+          vertical-align: middle;
+        }
+        .metaUtmPage th {
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: #f8fafc;
+          color: #334155;
+          padding: 8px 10px;
+          font-size: 0.68rem;
+          font-weight: 900;
+          line-height: 1.25;
+          white-space: nowrap;
+        }
+        .metaUtmPage td {
+          padding: 7px 10px;
+          color: #334155;
+          font-variant-numeric: tabular-nums;
+          line-height: 1.35;
+        }
+        .metaUtmPage tr:nth-child(even) td {
+          background: #f8fafc;
+        }
+        .metaUtmPage tr:last-child td {
+          border-bottom: 0;
+        }
+        .metaUtmPage .nameCol {
+          width: 390px;
+          min-width: 390px;
+        }
+        .metaUtmPage th:nth-child(2),
+        .metaUtmPage td:nth-child(2) {
+          width: 112px;
+        }
+        .metaUtmPage th:nth-child(3),
+        .metaUtmPage td:nth-child(3) {
+          width: 190px;
+        }
+        .metaUtmPage th:nth-child(4),
+        .metaUtmPage td:nth-child(4),
+        .metaUtmPage th:nth-child(5),
+        .metaUtmPage td:nth-child(5),
+        .metaUtmPage th:nth-child(6),
+        .metaUtmPage td:nth-child(6),
+        .metaUtmPage th:nth-child(11),
+        .metaUtmPage td:nth-child(11) {
+          width: 116px;
+        }
+        .metaUtmPage th:nth-child(7),
+        .metaUtmPage td:nth-child(7),
+        .metaUtmPage th:nth-child(8),
+        .metaUtmPage td:nth-child(8),
+        .metaUtmPage th:nth-child(9),
+        .metaUtmPage td:nth-child(9),
+        .metaUtmPage th:nth-child(10),
+        .metaUtmPage td:nth-child(10) {
+          width: 92px;
+        }
+        .metaUtmPage .nameCell {
+          display: grid;
+          gap: 9px;
+          align-items: center;
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .metaUtmPage .nameCell.withThumb {
+          grid-template-columns: auto minmax(0, 1fr);
+        }
+        .metaUtmPage .thumbBox {
+          width: 42px;
+          height: 42px;
+          border-radius: 4px;
+          overflow: hidden;
+          background: #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #94a3b8;
+          font-size: 0.56rem;
+          text-align: center;
+        }
+        .metaUtmPage .thumbBox img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .metaUtmPage .nameText {
+          min-width: 0;
+          display: grid;
+          gap: 2px;
+        }
+        .metaUtmPage .nameText strong {
+          color: #1f2937;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 0.78rem;
+        }
+        .metaUtmPage .nameText span,
+        .metaUtmPage .nameText small,
+        .metaUtmPage .metricSub,
+        .metaUtmPage .idStack span {
+          color: #64748b;
+          font-size: 0.66rem;
+          font-weight: 700;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .metaUtmPage .nameText small {
+          color: #9a3412;
+        }
+        .metaUtmPage .statusPill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          border: 1px solid;
+          border-radius: 999px;
+          padding: 4px 8px;
+          white-space: nowrap;
+          font-size: 0.68rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .statusDot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          flex: 0 0 auto;
+        }
+        .metaUtmPage .idStack {
+          display: grid;
+          gap: 2px;
+          max-width: 180px;
+        }
+        .metaUtmPage .idStack strong,
+        .metaUtmPage .monoValue {
+          display: block;
+          color: #111827;
+          font-size: 0.68rem;
+          font-weight: 900;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .metaUtmPage .metricMain,
+        .metaUtmPage .roasOk,
+        .metaUtmPage .roasBlocked {
+          color: #111827;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .metaUtmPage .roasOk {
+          color: #047857;
+        }
+        .metaUtmPage .roasBlocked {
+          color: #94a3b8;
+        }
+        .metaUtmPage .emptyState,
+        .metaUtmPage .loadingBox {
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+          border-radius: 6px;
+          padding: 26px 18px;
+          color: #64748b;
+          font-size: 0.84rem;
+          text-align: center;
+          font-weight: 800;
+        }
+        @media (max-width: 980px) {
+          .metaUtmPage .decisionBanner,
+          .metaUtmPage .sectionHeader {
+            grid-template-columns: 1fr;
+          }
+          .metaUtmPage .decisionBanner div:last-child,
+          .metaUtmPage .sectionStats {
+            text-align: left;
+            justify-content: flex-start;
           }
         }
       `}</style>
