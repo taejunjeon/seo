@@ -203,6 +203,7 @@ const summarize = (rows: MetaUtmRow[]) => ({
   rows: rows.length,
   spend: rows.reduce((sum, row) => sum + row.metrics.spend, 0),
   purchases: rows.reduce((sum, row) => sum + row.metrics.purchases, 0),
+  purchaseValue: rows.reduce((sum, row) => sum + row.metrics.purchaseValue, 0),
   attRevenue: rows.reduce((sum, row) => sum + row.att.revenue, 0),
   attOrders: rows.reduce((sum, row) => sum + row.att.orders, 0),
 });
@@ -348,6 +349,7 @@ function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: Me
             <th>ROAS(att)</th>
             <th>지출금액</th>
             <th>구매(수)</th>
+            <th>구매 전환 금액</th>
             <th>도달</th>
             <th>CPM</th>
             <th>CPC(전체)</th>
@@ -373,6 +375,10 @@ function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: Me
               <td>
                 <div className="metricMain">{fmtNum(row.metrics.purchases)}</div>
                 <div className="metricSub">Meta 구매</div>
+              </td>
+              <td>
+                <div className="metricMain">{fmtKRW(row.metrics.purchaseValue)}</div>
+                <div className="metricSub">Meta 전환값</div>
               </td>
               <td><div className="metricMain">{fmtNum(row.metrics.reach)}</div></td>
               <td><div className="metricMain">{fmtKRW(row.metrics.cpm)}</div></td>
@@ -417,6 +423,7 @@ function SectionPanel({
           <span>{fmtNum(stats.rows)}행</span>
           <span>{fmtKRW(stats.spend)}</span>
           <span>Meta 구매 {fmtNum(stats.purchases)}</span>
+          <span>전환금액 {fmtKRW(stats.purchaseValue)}</span>
           <span>{fmtRatio(spendShare)}</span>
         </div>
       </div>
@@ -660,6 +667,7 @@ export default function MetaUtmPage() {
             매칭율은 내부 주문 ID evidence와 광고 URL의 campaign/adset/ad ID 또는 dynamic macro를 합쳐 계산합니다.
             85% 이상이면 예산 판단 후보로 보고, 1~84%는 보완/샘플 검토, 0%는 미맵핑으로 분리합니다.
             캠페인 단위 ROAS는 기존 내부 attribution 계산과 같고, 광고세트/광고 단위 ROAS는 주문 원장에 해당 ID가 남은 경우 정확도가 높습니다.
+            구매 전환 금액은 Meta Ads Insights의 purchase conversion value이며, 내부 ATT 매출과는 별도 참고값입니다.
           </p>
           {data?.diagnostics?.limitations?.map((item) => <span key={item}>{item}</span>)}
           <span>Source: Meta Ads Insights API + VM Cloud attribution ledger. Window: {data?.date_range ? `${data.date_range.start_date}~${data.date_range.end_date} KST` : datePreset}. Freshness: {data?.source_max_timestamp ?? "Meta live/cache 기준"}. Confidence: {data?.source_confidence ?? "API 응답 기준"}.</span>
