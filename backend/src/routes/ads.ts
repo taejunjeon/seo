@@ -3102,7 +3102,8 @@ const ledgerResponseMeta = (
 };
 
 type MetaUtmLevel = "campaign" | "adset" | "ad";
-type MetaUtmSection = "ready" | "blocked";
+type MetaUtmSection = "ready" | "blocked" | "unmapped";
+type MetaUtmMatchLevel = "confirmed" | "probable" | "review" | "unmapped";
 
 type MetaUtmCampaignEntity = {
   id: string;
@@ -3181,6 +3182,18 @@ type MetaUtmBudget = {
   source: "campaign" | "adset" | "none";
 };
 
+type MetaUtmMatch = {
+  rate: number;
+  threshold: number;
+  level: MetaUtmMatchLevel;
+  label: string;
+  matchedOrders: number;
+  matchedRevenue: number;
+  unmappedOrders: number;
+  unmappedRevenue: number;
+  basis: string[];
+};
+
 type MetaUtmEvidence = {
   hasMetaSource: boolean;
   hasPaidMedium: boolean;
@@ -3225,6 +3238,24 @@ type MetaUtmRow = {
     calculable: boolean;
   };
   evidence: MetaUtmEvidence;
+  match: MetaUtmMatch;
+};
+
+type MetaUtmUnmappedOrderSample = {
+  approvedDate: string | null;
+  amount: number;
+  utmSource: string;
+  utmCampaign: string;
+  utmTerm: string;
+  utmContent: string;
+  landingPath: string | null;
+  reason: string;
+};
+
+type MetaUtmUnmappedOrderSummary = {
+  orders: number;
+  revenue: number;
+  samples: MetaUtmUnmappedOrderSample[];
 };
 
 const META_UTM_DIAGNOSTICS_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -3539,6 +3570,163 @@ const buildMetaUtmAtt = (params: {
   calculable: params.calculable,
 });
 
+const META_UTM_MATCH_THRESHOLD = 85;
+
+const clampMetaUtmMatchRate = (value: number): number => (
+  Math.max(0, Math.min(100, Math.round(Number.isFinite(value) ? value : 0)))
+);
+
+const scoreMetaUtmEvidenceForLevel = (evidence: MetaUtmEvidence, level: MetaUtmLevel): number => {
+  let score = 0;
+  if (level === "campaign") {
+    if (evidence.hasCampaignId) score += 70;
+    if (evidence.hasMetaSource) score += 15;
+    if (evidence.hasPaidMedium) score += 10;
+    if (evidence.hasLandingUrl) score += 5;
+    return clampMetaUtmMatchRate(score);
+  }
+
+  if (level === "adset") {
+    if (evidence.hasCampaignId) score += 30;
+    if (evidence.hasAdsetId) score += 45;
+    if (evidence.hasMetaSource) score += 10;
+    if (evidence.hasPaidMedium) score += 10;
+    if (evidence.hasLandingUrl) score += 5;
+    return clampMetaUtmMatchRate(score);
+  }
+
+  if (evidence.hasCampaignId) score += 25;
+  if (evidence.hasAdsetId) score += 25;
+  if (evidence.hasAdId) score += 35;
+  if (evidence.hasMetaSource) score += 5;
+  if (evidence.hasPaidMedium) score += 5;
+  if (evidence.hasLandingUrl) score += 5;
+  return clampMetaUtmMatchRate(score);
+};
+
+const scoreMetaUtmEntityEvidenceForLevel = (
+  evidences: MetaUtmEvidence[],
+  level: MetaUtmLevel,
+): number => {
+  if (evidences.length === 0) return 0;
+  const sum = evidences.reduce((total, evidence) => total + scoreMetaUtmEvidenceForLevel(evidence, level), 0);
+  return clampMetaUtmMatchRate(sum / evidences.length);
+};
+
+const classifyMetaUtmMatchLevel = (rate: number): MetaUtmMatchLevel => {
+  if (rate >= 95) return "confirmed";
+  if (rate >= META_UTM_MATCH_THRESHOLD) return "probable";
+  if (rate > 0) return "review";
+  return "unmapped";
+};
+
+const classifyMetaUtmSection = (rate: number): MetaUtmSection => {
+  if (rate >= META_UTM_MATCH_THRESHOLD) return "ready";
+  if (rate > 0) return "blocked";
+  return "unmapped";
+};
+
+const buildMetaUtmMatch = (params: {
+  level: MetaUtmLevel;
+  evidenceRate: number;
+  matchedOrders: number;
+  matchedRevenue: number;
+  evidenceTotalAdCount: number;
+  basis: string[];
+}): MetaUtmMatch => {
+  const orderRate = params.matchedOrders > 0
+    ? params.level === "campaign"
+      ? 95
+      : 100
+    : 0;
+  const rate = clampMetaUtmMatchRate(Math.max(orderRate, params.evidenceRate));
+  const level = classifyMetaUtmMatchLevel(rate);
+  const basis = new Set<string>();
+  if (params.matchedOrders > 0) {
+    basis.add(`${params.matchedOrders}건/${round2(params.matchedRevenue).toLocaleString("ko-KR")}원 내부 주문 매칭`);
+  }
+  if (params.evidenceRate >= META_UTM_MATCH_THRESHOLD) {
+    basis.add(`광고 URL ID evidence ${params.evidenceRate}%`);
+  } else if (params.evidenceRate > 0) {
+    basis.add(`광고 URL evidence ${params.evidenceRate}%`);
+  }
+  if (params.evidenceTotalAdCount > 0) {
+    basis.add(`하위 광고 ${params.evidenceTotalAdCount}개 기준`);
+  }
+  for (const item of params.basis) {
+    if (item) basis.add(item);
+  }
+  if (basis.size === 0) basis.add("캠페인/광고세트/광고를 특정할 evidence 부족");
+
+  return {
+    rate,
+    threshold: META_UTM_MATCH_THRESHOLD,
+    level,
+    label: rate >= META_UTM_MATCH_THRESHOLD
+      ? "85% 이상 매칭"
+      : rate > 0
+        ? "검토 필요"
+        : "미맵핑",
+    matchedOrders: params.matchedOrders,
+    matchedRevenue: round2(params.matchedRevenue),
+    unmappedOrders: 0,
+    unmappedRevenue: 0,
+    basis: [...basis].slice(0, 5),
+  };
+};
+
+const compactMetaUtmSampleText = (value: string, maxLength = 96): string => {
+  const trimmed = value.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, maxLength - 1)}…`;
+};
+
+const buildMetaUtmUnmappedOrderSummary = (params: {
+  orders: NormalizedLedgerOrder[];
+  campaigns: MetaCampaignAggregate[];
+  adsetCampaignMap: AdsetCampaignMap;
+  adCampaignMap: AdCampaignMap;
+  campaignAliasMap: CampaignAliasMap;
+  landingPathCampaignMap: LandingPathCampaignMap;
+}): MetaUtmUnmappedOrderSummary => {
+  let orders = 0;
+  let revenue = 0;
+  const samples: MetaUtmUnmappedOrderSample[] = [];
+
+  for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
+    const matchedCampaignId = matchCampaignIdForOrder(
+      order,
+      params.campaigns,
+      params.adsetCampaignMap,
+      params.adCampaignMap,
+      params.campaignAliasMap,
+      params.landingPathCampaignMap,
+    );
+    if (matchedCampaignId) continue;
+
+    orders += 1;
+    revenue += order.amount ?? 0;
+    if (samples.length < 20) {
+      samples.push({
+        approvedDate: order.approvedDate,
+        amount: round2(order.amount ?? 0),
+        utmSource: compactMetaUtmSampleText(order.utmSource || "—", 72),
+        utmCampaign: compactMetaUtmSampleText(order.utmCampaign || "—"),
+        utmTerm: compactMetaUtmSampleText(order.utmTerm || "—"),
+        utmContent: compactMetaUtmSampleText(order.utmContent || "—"),
+        landingPath: order.landingPaths[0] ? compactMetaUtmSampleText(order.landingPaths[0], 120) : null,
+        reason: "현재 campaign id/adset id/ad id/alias/landing path 기준으로 단일 캠페인 확정 실패",
+      });
+    }
+  }
+
+  return {
+    orders,
+    revenue: round2(revenue),
+    samples,
+  };
+};
+
 const buildMetaUtmDiagnostics = async (params: {
   accountId: string;
   range: DateRange;
@@ -3735,18 +3923,40 @@ const buildMetaUtmDiagnostics = async (params: {
     }
   }
 
+  const unmapped = buildMetaUtmUnmappedOrderSummary({
+    orders: baseContext.filteredOrders,
+    campaigns: baseContext.campaignAggregates,
+    adsetCampaignMap: baseContext.adsetCampaigns.map,
+    adCampaignMap: baseContext.creativeEvidence.adMap,
+    campaignAliasMap: baseContext.campaignAliasMap,
+    landingPathCampaignMap: baseContext.landingPathCampaignMap,
+  });
+
   const adEvidenceById = new Map(ads.map((ad) => [ad.id, buildAdUtmEvidence(ad)]));
+  const buildEntityEvidences = (childAds: MetaUtmAdEntity[]) => (
+    childAds.map((ad) => adEvidenceById.get(ad.id)).filter((item): item is MetaUtmEvidence => Boolean(item))
+  );
   const buildEntityEvidence = (childAds: MetaUtmAdEntity[]) => aggregateUtmEvidence(
-    childAds.map((ad) => adEvidenceById.get(ad.id)).filter((item): item is MetaUtmEvidence => Boolean(item)),
+    buildEntityEvidences(childAds),
   );
 
   const campaignRows: MetaUtmRow[] = campaigns.map((campaign) => {
     const metrics = parseMetaUtmMetrics(insightByCampaignId.get(campaign.id));
     const childAds = (adsByCampaignId.get(campaign.id) ?? [])
       .filter((ad) => isMetaActiveLike(ad.effective_status ?? ad.status ?? "", parseMetaUtmMetrics(insightByAdId.get(ad.id)).spend));
+    const childEvidences = buildEntityEvidences(childAds);
     const evidence = buildEntityEvidence(childAds);
-    const section: MetaUtmSection = evidence.totalAdCount > 0 && evidence.blockedAdCount === 0 ? "ready" : "blocked";
+    const evidenceRate = scoreMetaUtmEntityEvidenceForLevel(childEvidences, "campaign");
     const roasRow = campaignRoasById.get(campaign.id);
+    const match = buildMetaUtmMatch({
+      level: "campaign",
+      evidenceRate,
+      matchedOrders: roasRow?.orders ?? 0,
+      matchedRevenue: roasRow?.attributedRevenue ?? 0,
+      evidenceTotalAdCount: evidence.totalAdCount,
+      basis: roasRow?.orders ? ["기존 /api/ads/roas 캠페인 매칭과 동일 기준"] : [],
+    });
+    const section = classifyMetaUtmSection(match.rate);
     return {
       rowKey: `campaign:${campaign.id}`,
       level: "campaign" as const,
@@ -3776,9 +3986,10 @@ const buildMetaUtmDiagnostics = async (params: {
         spend: metrics.spend,
         ledgerAvailable: baseContext.ledger.entries.length > 0,
         scope: "campaign",
-        calculable: section === "ready",
+        calculable: match.rate >= META_UTM_MATCH_THRESHOLD,
       }),
       evidence,
+      match,
     };
   }).filter((row) => isMetaActiveLike(row.effectiveStatus || row.status, row.metrics.spend));
 
@@ -3789,9 +4000,19 @@ const buildMetaUtmDiagnostics = async (params: {
     const metrics = parseMetaUtmMetrics(insightByAdsetId.get(adsetId));
     const childAds = (adsByAdsetId.get(adsetId) ?? [])
       .filter((ad) => isMetaActiveLike(ad.effective_status ?? ad.status ?? "", parseMetaUtmMetrics(insightByAdId.get(ad.id)).spend));
+    const childEvidences = buildEntityEvidences(childAds);
     const evidence = buildEntityEvidence(childAds);
-    const section: MetaUtmSection = evidence.totalAdCount > 0 && evidence.blockedAdCount === 0 ? "ready" : "blocked";
+    const evidenceRate = scoreMetaUtmEntityEvidenceForLevel(childEvidences, "adset");
     const exact = exactAdsetRevenue.get(adsetId);
+    const match = buildMetaUtmMatch({
+      level: "adset",
+      evidenceRate,
+      matchedOrders: exact?.orders ?? 0,
+      matchedRevenue: exact?.revenue ?? 0,
+      evidenceTotalAdCount: evidence.totalAdCount,
+      basis: exact?.orders ? ["주문 원장에 광고세트 ID 또는 하위 광고 ID가 남음"] : [],
+    });
+    const section = classifyMetaUtmSection(match.rate);
     return {
       rowKey: `adset:${adsetId}`,
       level: "adset" as const,
@@ -3822,9 +4043,10 @@ const buildMetaUtmDiagnostics = async (params: {
         spend: metrics.spend,
         ledgerAvailable: baseContext.ledger.entries.length > 0,
         scope: "exact_adset",
-        calculable: section === "ready",
+        calculable: match.rate >= META_UTM_MATCH_THRESHOLD,
       }),
       evidence,
+      match,
     };
   }).filter((row) => isMetaActiveLike(row.effectiveStatus || row.status, row.metrics.spend));
 
@@ -3835,8 +4057,17 @@ const buildMetaUtmDiagnostics = async (params: {
     const adset = adsetById.get(adsetId);
     const metrics = parseMetaUtmMetrics(insightByAdId.get(ad.id));
     const evidence = adEvidenceById.get(ad.id) ?? buildAdUtmEvidence(ad);
-    const section: MetaUtmSection = isAdUtmReady(evidence) ? "ready" : "blocked";
+    const evidenceRate = scoreMetaUtmEvidenceForLevel(evidence, "ad");
     const exact = exactAdRevenue.get(ad.id);
+    const match = buildMetaUtmMatch({
+      level: "ad",
+      evidenceRate,
+      matchedOrders: exact?.orders ?? 0,
+      matchedRevenue: exact?.revenue ?? 0,
+      evidenceTotalAdCount: evidence.totalAdCount,
+      basis: exact?.orders ? ["주문 원장에 광고 ID가 직접 남음"] : [],
+    });
+    const section = classifyMetaUtmSection(match.rate);
     return {
       rowKey: `ad:${ad.id}`,
       level: "ad" as const,
@@ -3866,9 +4097,10 @@ const buildMetaUtmDiagnostics = async (params: {
         spend: metrics.spend,
         ledgerAvailable: baseContext.ledger.entries.length > 0,
         scope: "exact_ad",
-        calculable: section === "ready",
+        calculable: match.rate >= META_UTM_MATCH_THRESHOLD,
       }),
       evidence,
+      match,
     };
   }).filter((row) => isMetaActiveLike(row.effectiveStatus || row.status, row.metrics.spend));
 
@@ -3880,6 +4112,7 @@ const buildMetaUtmDiagnostics = async (params: {
   });
   const readyRows = rows.filter((row) => row.section === "ready");
   const blockedRows = rows.filter((row) => row.section === "blocked");
+  const unmappedRows = rows.filter((row) => row.section === "unmapped");
   const byLevel = (level: MetaUtmLevel) => rows.filter((row) => row.level === level);
   const totalsFor = (inputRows: MetaUtmRow[]) => ({
     rows: inputRows.length,
@@ -3906,12 +4139,15 @@ const buildMetaUtmDiagnostics = async (params: {
     sections: {
       ready: readyRows,
       blocked: blockedRows,
+      unmapped: unmappedRows,
     },
     rows,
+    unmapped,
     summary: {
       total: totalsFor(rows),
       ready: totalsFor(readyRows),
       blocked: totalsFor(blockedRows),
+      unmapped: totalsFor(unmappedRows),
       byLevel: {
         campaign: totalsFor(byLevel("campaign")),
         adset: totalsFor(byLevel("adset")),
@@ -3932,7 +4168,8 @@ const buildMetaUtmDiagnostics = async (params: {
         "Ads Manager의 게재 문구는 Meta API effective_status와 adset learning_stage_info를 기준으로 근사한다.",
         "광고세트/광고 단위 ATT ROAS는 주문 원장에 adset id 또는 ad id가 남은 경우에만 정확히 계산한다.",
         "campaign 단위 ATT ROAS는 기존 /api/ads/roas와 같은 VM Cloud attribution ledger + Meta evidence 기준이다.",
-        "Section A는 현재 하위 광고 URL evidence가 모두 utm_source, utm_medium, campaign/adset/ad id를 갖춘 경우다.",
+        `Section A는 매칭율 ${META_UTM_MATCH_THRESHOLD}% 이상이다. UTM 완전성만 보지 않고 내부 주문 ID evidence와 광고 URL의 campaign/adset/ad ID 또는 dynamic macro를 함께 본다.`,
+        "Section C 미맵핑 주문은 결제완료 Meta evidence는 있으나 campaign id/adset id/ad id/alias/landing path 기준으로 단일 캠페인 확정에 실패한 건이다.",
       ],
     },
     performance: {

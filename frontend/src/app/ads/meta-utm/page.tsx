@@ -20,7 +20,19 @@ const DATE_PRESETS = [
 ] as const;
 
 type MetaUtmLevel = "campaign" | "adset" | "ad";
-type MetaUtmSection = "ready" | "blocked";
+type MetaUtmSection = "ready" | "blocked" | "unmapped";
+
+type MetaUtmMatch = {
+  rate: number;
+  threshold: number;
+  level: "confirmed" | "probable" | "review" | "unmapped";
+  label: string;
+  matchedOrders: number;
+  matchedRevenue: number;
+  unmappedOrders: number;
+  unmappedRevenue: number;
+  basis: string[];
+};
 
 type MetaUtmRow = {
   rowKey: string;
@@ -62,6 +74,12 @@ type MetaUtmRow = {
     calculable: boolean;
   };
   evidence: {
+    hasMetaSource?: boolean;
+    hasPaidMedium?: boolean;
+    hasCampaignId?: boolean;
+    hasAdsetId?: boolean;
+    hasAdId?: boolean;
+    hasLandingUrl?: boolean;
     readyAdCount: number;
     blockedAdCount: number;
     totalAdCount: number;
@@ -69,6 +87,18 @@ type MetaUtmRow = {
     sampleTags: string | null;
     sampleUrl: string | null;
   };
+  match?: MetaUtmMatch;
+};
+
+type MetaUtmUnmappedOrderSample = {
+  approvedDate: string | null;
+  amount: number;
+  utmSource: string;
+  utmCampaign: string;
+  utmTerm: string;
+  utmContent: string;
+  landingPath: string | null;
+  reason: string;
 };
 
 type MetaUtmDiagnostics = {
@@ -83,11 +113,19 @@ type MetaUtmDiagnostics = {
   sections: {
     ready: MetaUtmRow[];
     blocked: MetaUtmRow[];
+    unmapped?: MetaUtmRow[];
   };
   rows: MetaUtmRow[];
+  unmapped?: {
+    orders: number;
+    revenue: number;
+    samples: MetaUtmUnmappedOrderSample[];
+  };
   summary: {
+    total?: { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number };
     ready: { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number };
     blocked: { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number };
+    unmapped?: { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number };
     byLevel: Record<MetaUtmLevel, { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number }>;
     rawCounts: { campaigns: number; adsets: number; ads: number; campaignInsights: number; adsetInsights: number; adInsights: number };
   };
@@ -169,6 +207,46 @@ const summarize = (rows: MetaUtmRow[]) => ({
   attOrders: rows.reduce((sum, row) => sum + row.att.orders, 0),
 });
 
+const MATCH_THRESHOLD = 85;
+
+const estimateLegacyMatchRate = (row: MetaUtmRow) => {
+  if (row.match) return row.match.rate;
+  if (row.att.orders > 0) return row.level === "campaign" ? 95 : 100;
+  if (row.section === "ready") return 95;
+  if (row.evidence.readyAdCount > 0) return 75;
+  if (row.evidence.totalAdCount > 0) return 45;
+  return 0;
+};
+
+const getRowMatch = (row: MetaUtmRow): MetaUtmMatch => {
+  if (row.match) return row.match;
+  const rate = estimateLegacyMatchRate(row);
+  return {
+    rate,
+    threshold: MATCH_THRESHOLD,
+    level: rate >= 95 ? "confirmed" : rate >= MATCH_THRESHOLD ? "probable" : rate > 0 ? "review" : "unmapped",
+    label: rate >= MATCH_THRESHOLD ? "85% 이상 매칭" : rate > 0 ? "검토 필요" : "미맵핑",
+    matchedOrders: row.att.orders,
+    matchedRevenue: row.att.revenue,
+    unmappedOrders: 0,
+    unmappedRevenue: 0,
+    basis: row.evidence.reasons.length > 0 ? row.evidence.reasons : ["이전 캐시 응답이라 매칭 근거를 보수적으로 추정"],
+  };
+};
+
+const getRowSection = (row: MetaUtmRow): MetaUtmSection => {
+  const rate = getRowMatch(row).rate;
+  if (rate >= MATCH_THRESHOLD) return "ready";
+  if (rate > 0) return "blocked";
+  return "unmapped";
+};
+
+const matchTone = (rate: number) => {
+  if (rate >= MATCH_THRESHOLD) return { bg: "#ecfdf5", fg: "#047857", border: "#bbf7d0", bar: "#059669" };
+  if (rate > 0) return { bg: "#fff7ed", fg: "#c2410c", border: "#fed7aa", bar: "#f97316" };
+  return { bg: "#f8fafc", fg: "#64748b", border: "#e2e8f0", bar: "#94a3b8" };
+};
+
 function StatusPill({ label }: { label: string }) {
   const tone = deliveryTone(label);
   return (
@@ -176,6 +254,22 @@ function StatusPill({ label }: { label: string }) {
       <span className="statusDot" style={{ background: tone.dot }} />
       {label}
     </span>
+  );
+}
+
+function MatchRateCell({ row }: { row: MetaUtmRow }) {
+  const match = getRowMatch(row);
+  const tone = matchTone(match.rate);
+  return (
+    <div className="matchRateCell" title={match.basis.join(" · ")}>
+      <span style={{ background: tone.bg, color: tone.fg, borderColor: tone.border }}>
+        {match.rate}%
+      </span>
+      <div className="matchBar" aria-hidden="true">
+        <i style={{ width: `${Math.min(100, Math.max(0, match.rate))}%`, background: tone.bar }} />
+      </div>
+      <small>{match.label}</small>
+    </div>
   );
 }
 
@@ -201,9 +295,11 @@ function IdStack({ row }: { row: MetaUtmRow }) {
 }
 
 function NameCell({ row }: { row: MetaUtmRow }) {
-  const reason = row.section === "ready"
-    ? `UTM 준비 광고 ${row.evidence.readyAdCount || (row.level === "ad" ? 1 : 0)}개`
-    : row.evidence.reasons.slice(0, 2).join(" · ");
+  const match = getRowMatch(row);
+  const section = getRowSection(row);
+  const reason = section === "ready"
+    ? match.basis[0] ?? `85% 이상 매칭 ${row.evidence.readyAdCount || (row.level === "ad" ? 1 : 0)}개`
+    : match.basis.slice(0, 2).join(" · ");
   return (
     <div className={`nameCell ${row.level === "ad" ? "withThumb" : ""}`}>
       {row.level === "ad" && (
@@ -230,8 +326,10 @@ function NameCell({ row }: { row: MetaUtmRow }) {
 
 function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: MetaUtmSection; level: MetaUtmLevel }) {
   const emptyText = section === "ready"
-    ? `${LEVEL_LABEL[level]} 중 현재 UTM 기준을 모두 통과한 항목이 없습니다.`
-    : `${LEVEL_LABEL[level]} 중 UTM 보완이 필요한 항목이 없습니다.`;
+    ? `${LEVEL_LABEL[level]} 중 매칭율 85% 이상 항목이 없습니다.`
+    : section === "blocked"
+      ? `${LEVEL_LABEL[level]} 중 1~84% 검토 항목이 없습니다.`
+      : `${LEVEL_LABEL[level]} 중 미맵핑 항목이 없습니다.`;
 
   if (rows.length === 0) {
     return <div className="emptyState">{emptyText}</div>;
@@ -244,6 +342,7 @@ function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: Me
           <tr>
             <th className="nameCol">{LEVEL_LABEL[level]}</th>
             <th>게재</th>
+            <th>매칭율%</th>
             <th>캠페인 ID</th>
             <th>예산</th>
             <th>ROAS(att)</th>
@@ -260,6 +359,7 @@ function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: Me
             <tr key={row.rowKey}>
               <td className="nameCol"><NameCell row={row} /></td>
               <td><StatusPill label={row.deliveryLabel} /></td>
+              <td><MatchRateCell row={row} /></td>
               <td><IdStack row={row} /></td>
               <td>
                 <div className="metricMain">{fmtKRW(row.budget.amount)}</div>
@@ -267,7 +367,7 @@ function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: Me
               </td>
               <td>
                 <div className={row.att.calculable ? "roasOk" : "roasBlocked"}>{fmtRoas(row.att.roas)}</div>
-                <div className="metricSub">{row.att.calculable ? `${fmtKRW(row.att.revenue)} · ${fmtNum(row.att.orders)}건` : "UTM 보완 필요"}</div>
+                <div className="metricSub">{row.att.calculable ? `${fmtKRW(row.att.revenue)} · ${fmtNum(row.att.orders)}건` : getRowSection(row) === "unmapped" ? "미맵핑" : "검토 필요"}</div>
               </td>
               <td><div className="metricMain">{fmtKRW(row.metrics.spend)}</div></td>
               <td>
@@ -294,19 +394,24 @@ function SectionPanel({
   levelSpend,
 }: {
   title: string;
-  tone: "ready" | "blocked";
+  tone: MetaUtmSection;
   rows: MetaUtmRow[];
   level: MetaUtmLevel;
   levelSpend: number;
 }) {
   const stats = summarize(rows);
   const spendShare = levelSpend > 0 ? (stats.spend / levelSpend) * 100 : 0;
+  const description = tone === "ready"
+    ? "광고 구조와 매출을 85% 이상 확률로 연결할 수 있어 ROAS 산정 후보로 볼 묶음입니다."
+    : tone === "blocked"
+      ? "일부 evidence는 있지만 85%에는 못 미쳐 보완하거나 샘플 검토가 필요한 묶음입니다."
+      : "현재 기준으로 캠페인/광고세트/광고를 특정하기 어려워 별도 확인해야 하는 묶음입니다.";
   return (
     <section className={`sectionPanel ${tone}`}>
       <div className="sectionHeader">
         <div>
           <h2>{title}</h2>
-          <p>{tone === "ready" ? "광고 링크에 Meta UTM/ID가 남아 내부 ROAS 계산에 쓸 수 있는 묶음입니다." : "UTM/ID evidence가 부족해 광고별 내부 ROAS를 신뢰하기 어려운 묶음입니다."}</p>
+          <p>{description}</p>
         </div>
         <div className="sectionStats">
           <span>{fmtNum(stats.rows)}행</span>
@@ -316,6 +421,36 @@ function SectionPanel({
         </div>
       </div>
       <MetricTable rows={rows} section={tone} level={level} />
+    </section>
+  );
+}
+
+function UnmappedOrdersPanel({ summary }: { summary?: MetaUtmDiagnostics["unmapped"] }) {
+  if (!summary || summary.orders === 0) return null;
+  return (
+    <section className="unmappedOrdersPanel">
+      <div className="sectionHeader">
+        <div>
+          <h2>미맵핑 주문 묶음</h2>
+          <p>Meta 유입 결제완료 evidence는 있지만 현재 alias/ID/landing path 기준으로 단일 캠페인을 확정하지 못한 건입니다.</p>
+        </div>
+        <div className="sectionStats">
+          <span>{fmtNum(summary.orders)}건</span>
+          <span>{fmtKRW(summary.revenue)}</span>
+          <span>샘플 {fmtNum(summary.samples.length)}개</span>
+        </div>
+      </div>
+      <div className="unmappedList">
+        {summary.samples.map((sample, index) => (
+          <div key={`${sample.approvedDate ?? "date"}:${index}`} className="unmappedItem">
+            <strong>{fmtKRW(sample.amount)}</strong>
+            <span>{sample.approvedDate ?? "일자 미확인"}</span>
+            <small>campaign {sample.utmCampaign} · term {sample.utmTerm} · content {sample.utmContent}</small>
+            <small>source {sample.utmSource} · landing {sample.landingPath ?? "미확인"}</small>
+            <em>{sample.reason}</em>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -370,10 +505,12 @@ export default function MetaUtmPage() {
         ].some((value) => value.toLowerCase().includes(normalizedQuery));
       });
   }, [data?.rows, level, query]);
-  const readyRows = rows.filter((row) => row.section === "ready");
-  const blockedRows = rows.filter((row) => row.section === "blocked");
+  const readyRows = rows.filter((row) => getRowSection(row) === "ready");
+  const blockedRows = rows.filter((row) => getRowSection(row) === "blocked");
+  const unmappedRows = rows.filter((row) => getRowSection(row) === "unmapped");
   const levelSummary = data?.summary.byLevel[level] ?? { rows: 0, spend: 0, purchases: 0, attRevenue: 0, attOrders: 0 };
-  const blockedSpendShare = levelSummary.spend > 0 ? blockedRows.reduce((sum, row) => sum + row.metrics.spend, 0) / levelSummary.spend : 0;
+  const attentionSpend = [...blockedRows, ...unmappedRows].reduce((sum, row) => sum + row.metrics.spend, 0);
+  const blockedSpendShare = levelSummary.spend > 0 ? attentionSpend / levelSummary.spend : 0;
   const errorInfo = error ? describeMetaUtmError(error) : null;
   const cacheStatus = error && !data
     ? "조회 제한"
@@ -387,11 +524,11 @@ export default function MetaUtmPage() {
   const currentDecision = error && !data
     ? "현재는 Meta API 제한으로 새 결과를 기다리는 중입니다"
     : blockedSpendShare >= 0.9
-    ? "현재 예산 판단은 UTM 보완부터 해야 합니다"
-    : "ROAS 산정 가능 항목과 보완 항목을 나눠 볼 수 있습니다";
+    ? "현재 예산 판단은 매칭 보완부터 해야 합니다"
+    : "85% 이상 매칭 항목과 미맵핑 항목을 나눠 볼 수 있습니다";
   const decisionDetail = error && !data
     ? "실제 광고 데이터가 없다는 뜻은 아니며, 마지막 성공 캐시가 없어 표를 비워 둔 상태입니다"
-    : `${LEVEL_LABEL[level]} 기준 Section B 지출 ${fmtKRW(blockedRows.reduce((sum, row) => sum + row.metrics.spend, 0))} · 전체 대비 ${fmtRatio(blockedSpendShare * 100)}`;
+    : `${LEVEL_LABEL[level]} 기준 검토/미맵핑 지출 ${fmtKRW(attentionSpend)} · 전체 대비 ${fmtRatio(blockedSpendShare * 100)}`;
 
   return (
     <>
@@ -400,10 +537,10 @@ export default function MetaUtmPage() {
         <div className="topBar">
           <div>
             <div className="eyebrow">Meta UTM 진단</div>
-            <h1>광고 링크가 ROAS 계산에 충분한지 계층별로 확인합니다</h1>
+            <h1>매출을 어느 Meta 광고 구조에 붙일 수 있는지 계층별로 확인합니다</h1>
             <p>
-              Section A는 광고 링크에 UTM과 Meta ID가 충분히 남아 내부 ROAS를 계산할 수 있는 항목,
-              Section B는 보완 전까지 ROAS 판단에서 제외해야 하는 항목입니다.
+              UTM이 완벽하지 않아도 campaign/adset/ad ID, dynamic macro, 내부 주문 evidence를 합쳐 85% 이상이면 ROAS 산정 후보로 봅니다.
+              낮은 확률과 미맵핑은 따로 모아 보완 우선순위를 정합니다.
             </p>
           </div>
           <div className="actions">
@@ -475,14 +612,24 @@ export default function MetaUtmPage() {
             <small>Meta Ads Insights API 기준</small>
           </div>
           <div className="summaryItem">
-            <span>UTM 보완 대상 지출</span>
-            <strong>{fmtKRW(blockedRows.reduce((sum, row) => sum + row.metrics.spend, 0))}</strong>
+            <span>85% 이상 매칭 지출</span>
+            <strong>{fmtKRW(readyRows.reduce((sum, row) => sum + row.metrics.spend, 0))}</strong>
+            <small>{fmtNum(readyRows.length)}행 · 예산 판단 후보</small>
+          </div>
+          <div className="summaryItem">
+            <span>검토/미맵핑 지출</span>
+            <strong>{fmtKRW(attentionSpend)}</strong>
             <small>비중 {fmtRatio(blockedSpendShare * 100)}</small>
           </div>
           <div className="summaryItem">
             <span>내부 ATT 매출</span>
             <strong>{fmtKRW(levelSummary.attRevenue)}</strong>
             <small>{fmtNum(levelSummary.attOrders)}건 · source confidence {data?.source_confidence ?? "미확인"}</small>
+          </div>
+          <div className="summaryItem">
+            <span>미맵핑 주문</span>
+            <strong>{fmtNum(data?.unmapped?.orders ?? 0)}건</strong>
+            <small>{fmtKRW(data?.unmapped?.revenue ?? 0)} · campaign 확정 실패</small>
           </div>
         </div>
 
@@ -497,19 +644,22 @@ export default function MetaUtmPage() {
         {loading && !data ? (
           <div className="loadingBox">Meta 캠페인, 광고 세트, 광고와 내부 attribution 원장을 읽는 중입니다.</div>
         ) : error && !data ? (
-          <div className="loadingBox">조회 제한으로 아직 표를 채우지 못했습니다. 사전계산 캐시가 준비되면 Section A/B가 자동으로 표시됩니다.</div>
+          <div className="loadingBox">조회 제한으로 아직 표를 채우지 못했습니다. 사전계산 캐시가 준비되면 Section A/B/C가 자동으로 표시됩니다.</div>
         ) : (
           <>
-            <SectionPanel title="Section A · UTM 정상, ROAS 산정 가능" tone="ready" rows={readyRows} level={level} levelSpend={levelSummary.spend} />
-            <SectionPanel title="Section B · UTM 보완 필요, ROAS 산정 보류" tone="blocked" rows={blockedRows} level={level} levelSpend={levelSummary.spend} />
+            <SectionPanel title="Section A · 매칭율 85% 이상, ROAS 산정 후보" tone="ready" rows={readyRows} level={level} levelSpend={levelSummary.spend} />
+            <SectionPanel title="Section B · 1~84%, 보완 후 판단" tone="blocked" rows={blockedRows} level={level} levelSpend={levelSummary.spend} />
+            <SectionPanel title="Section C · 미맵핑, 별도 확인" tone="unmapped" rows={unmappedRows} level={level} levelSpend={levelSummary.spend} />
+            <UnmappedOrdersPanel summary={data?.unmapped} />
           </>
         )}
 
         <div className="notes">
           <strong>판단 기준</strong>
           <p>
-            광고 링크에 `utm_source`, `utm_medium`, campaign id, adset id, ad id가 모두 있어야 Section A로 봅니다.
-            캠페인 단위 ROAS는 기존 내부 attribution 계산과 같고, 광고세트/광고 단위 ROAS는 주문 원장에 해당 ID가 남은 경우만 계산합니다.
+            매칭율은 내부 주문 ID evidence와 광고 URL의 campaign/adset/ad ID 또는 dynamic macro를 합쳐 계산합니다.
+            85% 이상이면 예산 판단 후보로 보고, 1~84%는 보완/샘플 검토, 0%는 미맵핑으로 분리합니다.
+            캠페인 단위 ROAS는 기존 내부 attribution 계산과 같고, 광고세트/광고 단위 ROAS는 주문 원장에 해당 ID가 남은 경우 정확도가 높습니다.
           </p>
           {data?.diagnostics?.limitations?.map((item) => <span key={item}>{item}</span>)}
           <span>Source: Meta Ads Insights API + VM Cloud attribution ledger. Window: {data?.date_range ? `${data.date_range.start_date}~${data.date_range.end_date} KST` : datePreset}. Freshness: {data?.source_max_timestamp ?? "Meta live/cache 기준"}. Confidence: {data?.source_confidence ?? "API 응답 기준"}.</span>
@@ -524,7 +674,7 @@ export default function MetaUtmPage() {
           padding: 96px 18px 36px;
           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
-        .topBar, .toolbar, .summaryGrid, .levelTabs, .sectionPanel, .notes, .errorBox, .loadingBox {
+        .topBar, .toolbar, .summaryGrid, .levelTabs, .sectionPanel, .unmappedOrdersPanel, .notes, .errorBox, .loadingBox {
           max-width: 1760px;
           margin-left: auto;
           margin-right: auto;
@@ -624,7 +774,7 @@ export default function MetaUtmPage() {
         }
         .summaryGrid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 10px;
           margin-bottom: 12px;
         }
@@ -688,7 +838,10 @@ export default function MetaUtmPage() {
           border-left: 4px solid #059669;
         }
         .sectionPanel.blocked {
-          border-left: 4px solid #dc2626;
+          border-left: 4px solid #f97316;
+        }
+        .sectionPanel.unmapped {
+          border-left: 4px solid #64748b;
         }
         .sectionHeader {
           display: grid;
@@ -730,7 +883,7 @@ export default function MetaUtmPage() {
         }
         table {
           width: 100%;
-          min-width: 1360px;
+          min-width: 1540px;
           border-collapse: collapse;
           font-size: 0.76rem;
         }
@@ -830,6 +983,38 @@ export default function MetaUtmPage() {
           border-radius: 50%;
           flex: 0 0 auto;
         }
+        .matchRateCell {
+          display: grid;
+          gap: 4px;
+          min-width: 92px;
+        }
+        .matchRateCell span {
+          display: inline-flex;
+          width: fit-content;
+          border: 1px solid;
+          border-radius: 999px;
+          padding: 3px 7px;
+          font-size: 0.68rem;
+          font-weight: 1000;
+        }
+        .matchRateCell small {
+          color: #64748b;
+          font-size: 0.62rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+        .matchBar {
+          width: 76px;
+          height: 5px;
+          background: #e2e8f0;
+          border-radius: 999px;
+          overflow: hidden;
+        }
+        .matchBar i {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+        }
         .idStack {
           display: grid;
           gap: 2px;
@@ -914,6 +1099,43 @@ export default function MetaUtmPage() {
           font-size: 0.74rem;
           line-height: 1.6;
         }
+        .unmappedOrdersPanel {
+          background: #fff;
+          border: 1px solid #d8e0ea;
+          border-left: 4px solid #64748b;
+          border-radius: 8px;
+          padding: 14px;
+          margin-bottom: 14px;
+        }
+        .unmappedList {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .unmappedItem {
+          display: grid;
+          gap: 3px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #f8fafc;
+          padding: 9px 10px;
+        }
+        .unmappedItem strong {
+          color: #111827;
+          font-size: 0.84rem;
+        }
+        .unmappedItem span, .unmappedItem small {
+          color: #64748b;
+          font-size: 0.68rem;
+          line-height: 1.45;
+          overflow-wrap: anywhere;
+        }
+        .unmappedItem em {
+          color: #9a3412;
+          font-size: 0.66rem;
+          font-style: normal;
+          font-weight: 800;
+        }
         @media (max-width: 980px) {
           .topBar, .toolbar, .summaryGrid, .sectionHeader {
             grid-template-columns: 1fr;
@@ -941,6 +1163,9 @@ export default function MetaUtmPage() {
           .levelTabs button {
             border-right: 0;
             border-bottom: 1px solid #d8e0ea;
+          }
+          .unmappedList {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
@@ -996,7 +1221,10 @@ export default function MetaUtmPage() {
           border-left: 4px solid #059669;
         }
         .metaUtmPage .sectionPanel.blocked {
-          border-left: 4px solid #dc2626;
+          border-left: 4px solid #f97316;
+        }
+        .metaUtmPage .sectionPanel.unmapped {
+          border-left: 4px solid #64748b;
         }
         .metaUtmPage .sectionHeader {
           display: grid;
@@ -1043,7 +1271,7 @@ export default function MetaUtmPage() {
         }
         .metaUtmPage table {
           width: 100%;
-          min-width: 1480px;
+          min-width: 1600px;
           border-collapse: collapse;
           table-layout: fixed;
           font-size: 0.74rem;
@@ -1088,26 +1316,30 @@ export default function MetaUtmPage() {
         }
         .metaUtmPage th:nth-child(3),
         .metaUtmPage td:nth-child(3) {
-          width: 190px;
+          width: 112px;
         }
         .metaUtmPage th:nth-child(4),
-        .metaUtmPage td:nth-child(4),
+        .metaUtmPage td:nth-child(4) {
+          width: 190px;
+        }
         .metaUtmPage th:nth-child(5),
         .metaUtmPage td:nth-child(5),
         .metaUtmPage th:nth-child(6),
         .metaUtmPage td:nth-child(6),
-        .metaUtmPage th:nth-child(11),
-        .metaUtmPage td:nth-child(11) {
-          width: 116px;
-        }
         .metaUtmPage th:nth-child(7),
         .metaUtmPage td:nth-child(7),
+        .metaUtmPage th:nth-child(12),
+        .metaUtmPage td:nth-child(12) {
+          width: 116px;
+        }
         .metaUtmPage th:nth-child(8),
         .metaUtmPage td:nth-child(8),
         .metaUtmPage th:nth-child(9),
         .metaUtmPage td:nth-child(9),
         .metaUtmPage th:nth-child(10),
-        .metaUtmPage td:nth-child(10) {
+        .metaUtmPage td:nth-child(10),
+        .metaUtmPage th:nth-child(11),
+        .metaUtmPage td:nth-child(11) {
           width: 92px;
         }
         .metaUtmPage .nameCell {
@@ -1180,6 +1412,38 @@ export default function MetaUtmPage() {
           border-radius: 50%;
           flex: 0 0 auto;
         }
+        .metaUtmPage .matchRateCell {
+          display: grid;
+          gap: 4px;
+          min-width: 92px;
+        }
+        .metaUtmPage .matchRateCell span {
+          display: inline-flex;
+          width: fit-content;
+          border: 1px solid;
+          border-radius: 999px;
+          padding: 3px 7px;
+          font-size: 0.68rem;
+          font-weight: 1000;
+        }
+        .metaUtmPage .matchRateCell small {
+          color: #64748b;
+          font-size: 0.62rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+        .metaUtmPage .matchBar {
+          width: 76px;
+          height: 5px;
+          background: #e2e8f0;
+          border-radius: 999px;
+          overflow: hidden;
+        }
+        .metaUtmPage .matchBar i {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+        }
         .metaUtmPage .idStack {
           display: grid;
           gap: 2px;
@@ -1220,6 +1484,45 @@ export default function MetaUtmPage() {
           text-align: center;
           font-weight: 800;
         }
+        .metaUtmPage .unmappedOrdersPanel {
+          max-width: 1760px;
+          margin: 0 auto 14px;
+          background: #ffffff;
+          border: 1px solid #d8e0ea;
+          border-left: 4px solid #64748b;
+          border-radius: 8px;
+          padding: 14px;
+        }
+        .metaUtmPage .unmappedList {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .metaUtmPage .unmappedItem {
+          display: grid;
+          gap: 3px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #f8fafc;
+          padding: 9px 10px;
+        }
+        .metaUtmPage .unmappedItem strong {
+          color: #111827;
+          font-size: 0.84rem;
+        }
+        .metaUtmPage .unmappedItem span,
+        .metaUtmPage .unmappedItem small {
+          color: #64748b;
+          font-size: 0.68rem;
+          line-height: 1.45;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .unmappedItem em {
+          color: #9a3412;
+          font-size: 0.66rem;
+          font-style: normal;
+          font-weight: 800;
+        }
         @media (max-width: 980px) {
           .metaUtmPage .decisionBanner,
           .metaUtmPage .sectionHeader {
@@ -1229,6 +1532,9 @@ export default function MetaUtmPage() {
           .metaUtmPage .sectionStats {
             text-align: left;
             justify-content: flex-start;
+          }
+          .metaUtmPage .unmappedList {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
