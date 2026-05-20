@@ -177,8 +177,28 @@ const extractHost = (sanitizedUrl: string) => {
   }
 };
 
+const extractUrlParam = (sanitizedUrl: string, key: string) => {
+  if (!sanitizedUrl) return "";
+  try {
+    return new URL(sanitizedUrl, "https://biocom.kr").searchParams.get(key)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const normalizeGoogleCampaignId = (value: string) => {
+  const trimmed = value.trim();
+  return /^\d{6,}$/.test(trimmed) ? trimmed.slice(0, 32) : "";
+};
+
 const buildAllowedQueryJson = (preview: PaidClickIntentPreview) => {
   const allowed: Record<string, string> = {};
+  const googleCampaignId = normalizeGoogleCampaignId(
+    extractUrlParam(preview.sanitized_landing_url, "gad_campaignid"),
+  );
+  const gadSource = extractUrlParam(preview.sanitized_landing_url, "gad_source").slice(0, 32);
+  if (googleCampaignId) allowed.gad_campaignid = googleCampaignId;
+  if (gadSource) allowed.gad_source = gadSource;
   if (preview.utm.source) allowed.utm_source = preview.utm.source;
   if (preview.utm.medium) allowed.utm_medium = preview.utm.medium;
   if (preview.utm.campaign) allowed.utm_campaign = preview.utm.campaign;

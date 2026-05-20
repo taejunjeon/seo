@@ -1,0 +1,286 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-20T11:21:06.395Z",
+  "generated_at_kst": "2026-05-20 20:21:06 KST",
+  "mode": "read_only_no_send_loss_point_diagnostics",
+  "harness_preflight": {
+    "common_harness_read": [
+      "harness/common/HARNESS_GUIDELINES.md",
+      "harness/common/AUTONOMY_POLICY.md",
+      "harness/common/REPORTING_TEMPLATE.md"
+    ],
+    "project_harness_read": [
+      "AGENTS.md",
+      "docs/agent-harness/growth-data-harness-v0.md",
+      "harness/npay-recovery/README.md",
+      "gdn/attribution-data-source-decision-guide-20260511.md",
+      "data/!data_inventory.md"
+    ],
+    "lane": "Green",
+    "allowed_actions": [
+      "read_only_vm_cloud_sqlite",
+      "read_only_operational_dry_run_input",
+      "local_report_write"
+    ],
+    "forbidden_actions": [
+      "operating_db_write",
+      "vm_cloud_write",
+      "platform_send_or_upload",
+      "gtm_publish",
+      "deploy_or_restart"
+    ],
+    "source_window_freshness_confidence": {
+      "source": "운영DB tb_iamweb_users no-send dry-run + VM Cloud SQLite snapshot",
+      "window": {
+        "start": "2026-05-13",
+        "end": "2026-05-19",
+        "start_at": "2026-05-13T00:00:00+09:00",
+        "end_exclusive_at": "2026-05-20T00:00:00+09:00",
+        "timezone_note": "operational order paidAt filter uses KST day boundaries converted to timestamptz. This avoids excluding KST orders that are still previous-day UTC."
+      },
+      "freshness": "2026-05-20 20:11:44 KST",
+      "confidence": "medium_high"
+    }
+  },
+  "source": {
+    "operational_dry_run_input": "/tmp/bi-confirmed-purchase-operational-dry-run-20260520-2011-last7.json",
+    "vm_cloud_sqlite_snapshot": "/tmp/vm-cloud-crm-20260520201104.sqlite3",
+    "upstream_generated_at_kst": "2026-05-20 20:11:44 KST",
+    "upstream_window": {
+      "start": "2026-05-13",
+      "end": "2026-05-19",
+      "start_at": "2026-05-13T00:00:00+09:00",
+      "end_exclusive_at": "2026-05-20T00:00:00+09:00",
+      "timezone_note": "operational order paidAt filter uses KST day boundaries converted to timestamptz. This avoids excluding KST orders that are still previous-day UTC."
+    },
+    "source_freshness": {
+      "imweb_operational": {
+        "row_count": 99999,
+        "source_max_payment_complete_at": "2026-05-20T08:55:53.000Z",
+        "source_max_order_date_at": "2026-05-20T17:54:51.000Z",
+        "source_lag_hours": 2.3,
+        "freshness_status": "fresh",
+        "freshness_note": "fresh 기준. 그래도 외부 전송 전에는 최신성 재확인이 필요하다."
+      }
+    },
+    "lookback_days": 30
+  },
+  "summary": {
+    "total_orders": 475,
+    "total_revenue_krw": 122874695,
+    "vm_order_evidence_orders": 385,
+    "vm_order_evidence_rate_pct": 81.05,
+    "order_click_id_orders": 9,
+    "order_click_id_rate_pct": 1.89,
+    "order_evidence_no_click_id_orders": 376,
+    "prior_session_evidence_orders": 367,
+    "prior_google_click_id_orders": 11,
+    "prior_click_lost_before_order_orders": 2,
+    "google_like_orders": 22,
+    "google_like_order_click_id_orders": 9,
+    "google_like_order_click_id_rate_pct": 40.91,
+    "google_like_prior_click_id_orders": 11,
+    "send_candidate": 0
+  },
+  "stage_breakdown": [
+    {
+      "group": "early_session_tracked_without_click_id",
+      "orders": 356,
+      "revenue": 107157255,
+      "share_of_orders_pct": 74.95,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 356,
+      "label": "초기 세션은 잡혔지만 Google click id가 없음"
+    },
+    {
+      "group": "order_join_missing",
+      "orders": 90,
+      "revenue": 9588368,
+      "share_of_orders_pct": 18.95,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 0,
+      "label": "운영DB 결제완료 주문과 VM Cloud 주문 evidence 조인 없음"
+    },
+    {
+      "group": "order_evidence_has_no_session_key",
+      "orders": 18,
+      "revenue": 4404430,
+      "share_of_orders_pct": 3.79,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 0,
+      "label": "주문 evidence는 있지만 세션 키가 없음"
+    },
+    {
+      "group": "kept_to_order",
+      "orders": 9,
+      "revenue": 1574527,
+      "share_of_orders_pct": 1.89,
+      "with_order_click_id": 9,
+      "with_prior_click_id": 9,
+      "with_prior_session_evidence": 9,
+      "label": "보존 성공: 주문 evidence까지 Google click id가 남음"
+    },
+    {
+      "group": "lost_between_early_session_and_order",
+      "orders": 2,
+      "revenue": 150115,
+      "share_of_orders_pct": 0.42,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 2,
+      "with_prior_session_evidence": 2,
+      "label": "초기 세션에는 click id가 있었지만 주문 evidence에는 없음"
+    }
+  ],
+  "payment_method_breakdown": [
+    {
+      "group": "homepage",
+      "orders": 445,
+      "revenue": 116707595,
+      "share_of_orders_pct": 93.68,
+      "with_order_click_id": 6,
+      "with_prior_click_id": 8,
+      "with_prior_session_evidence": 338
+    },
+    {
+      "group": "npay",
+      "orders": 30,
+      "revenue": 6167100,
+      "share_of_orders_pct": 6.32,
+      "with_order_click_id": 3,
+      "with_prior_click_id": 3,
+      "with_prior_session_evidence": 29
+    }
+  ],
+  "source_group_breakdown": [
+    {
+      "group": "crm_or_owned",
+      "orders": 153,
+      "revenue": 48954536,
+      "share_of_orders_pct": 32.21,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 146
+    },
+    {
+      "group": "meta",
+      "orders": 129,
+      "revenue": 42492290,
+      "share_of_orders_pct": 27.16,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 120
+    },
+    {
+      "group": "direct_or_unknown",
+      "orders": 90,
+      "revenue": 9588368,
+      "share_of_orders_pct": 18.95,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 0
+    },
+    {
+      "group": "naver",
+      "orders": 43,
+      "revenue": 11186152,
+      "share_of_orders_pct": 9.05,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 42
+    },
+    {
+      "group": "other",
+      "orders": 20,
+      "revenue": 5264600,
+      "share_of_orders_pct": 4.21,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 20
+    },
+    {
+      "group": "kakao",
+      "orders": 18,
+      "revenue": 2351307,
+      "share_of_orders_pct": 3.79,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 18
+    },
+    {
+      "group": "google_click_id_observed",
+      "orders": 11,
+      "revenue": 1724642,
+      "share_of_orders_pct": 2.32,
+      "with_order_click_id": 9,
+      "with_prior_click_id": 11,
+      "with_prior_session_evidence": 11
+    },
+    {
+      "group": "google_utm_like",
+      "orders": 11,
+      "revenue": 1312800,
+      "share_of_orders_pct": 2.32,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 10
+    }
+  ],
+  "google_like_stage_breakdown": [
+    {
+      "group": "early_session_tracked_without_click_id",
+      "orders": 10,
+      "revenue": 1263000,
+      "share_of_orders_pct": 45.45,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 10,
+      "label": "초기 세션은 잡혔지만 Google click id가 없음"
+    },
+    {
+      "group": "kept_to_order",
+      "orders": 9,
+      "revenue": 1574527,
+      "share_of_orders_pct": 40.91,
+      "with_order_click_id": 9,
+      "with_prior_click_id": 9,
+      "with_prior_session_evidence": 9,
+      "label": "보존 성공: 주문 evidence까지 Google click id가 남음"
+    },
+    {
+      "group": "lost_between_early_session_and_order",
+      "orders": 2,
+      "revenue": 150115,
+      "share_of_orders_pct": 9.09,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 2,
+      "with_prior_session_evidence": 2,
+      "label": "초기 세션에는 click id가 있었지만 주문 evidence에는 없음"
+    },
+    {
+      "group": "order_evidence_has_no_session_key",
+      "orders": 1,
+      "revenue": 49800,
+      "share_of_orders_pct": 4.55,
+      "with_order_click_id": 0,
+      "with_prior_click_id": 0,
+      "with_prior_session_evidence": 0,
+      "label": "주문 evidence는 있지만 세션 키가 없음"
+    }
+  ],
+  "interpretation": {
+    "primary_loss_point": "전체 결제완료 주문에는 Meta/Naver/Kakao/직접 유입도 섞여 있다. 따라서 전체 click id 보존률은 시장 전체 숫자이고, 실제 개선 우선순위는 Google UTM 의심 주문 중 click id가 없는 묶음이다.",
+    "secondary_loss_point": "운영DB 결제완료 주문이 VM Cloud 주문 evidence와 조인되지 않는 주문도 별도 병목이다. 이 경우 payment_success 또는 NPay intent/order bridge가 주문번호까지 못 가져온 것이다.",
+    "upload_decision": "send_candidate는 0건으로 유지한다. click id 유실 지점이 닫히기 전 Google Ads conversion upload는 열면 안 된다."
+  },
+  "guardrails": {
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_publish": true,
+    "no_platform_send": true,
+    "raw_identifier_output": false
+  }
+}

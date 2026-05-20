@@ -1,0 +1,115 @@
+{
+  "run_id": "google-ads-gad-campaignid-campaign-matching-audit-20260520-2300",
+  "created_at_kst": "2026-05-20 23:00:52 KST",
+  "site": "biocom",
+  "mode": "read_only_no_send_no_write",
+  "source": {
+    "primary": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+    "cross_check": "local backend code inspection",
+    "confidence": "medium_high"
+  },
+  "user_test_click": {
+    "clicked_at_kst": "2026-05-20 22:39",
+    "environment": "Chrome desktop",
+    "final_url_had_gad_campaignid": true,
+    "gad_campaignid": "21808018766",
+    "final_url_had_gclid": true,
+    "final_url_had_gbraid": true,
+    "vm_cloud_site_landing_seen": true,
+    "vm_cloud_paid_click_seen": true,
+    "stored_gad_campaignid_in_site_landing": false,
+    "stored_gad_campaignid_in_paid_click_allowed_query": false,
+    "interpretation": "click id capture works, but campaign id is currently dropped by collection/sanitizer allowlist"
+  },
+  "windows": {
+    "rolling_last_7d": {
+      "checked_at_kst": "2026-05-20 23:00",
+      "site_landing_ledger": {
+        "rows": 13160,
+        "click_id_rows": 10364,
+        "landing_url_gad_campaignid_rows": 0,
+        "landing_url_gclid_rows": 9949,
+        "landing_url_gbraid_rows": 696,
+        "landing_url_wbraid_rows": 113,
+        "click_id_rows_utm_campaign_blank": 434,
+        "click_id_rows_utm_campaign_present": 9930,
+        "latest_at_utc": "2026-05-20T13:58:35.127Z"
+      },
+      "paid_click_intent_ledger": {
+        "rows": 10952,
+        "allowed_query_gad_campaignid_rows": 0,
+        "allowed_query_gad_source_rows": 0,
+        "allowed_query_gclid_present_rows": 10839,
+        "allowed_query_gbraid_present_rows": 641,
+        "allowed_query_wbraid_present_rows": 113,
+        "click_id_rows_utm_campaign_blank": 377,
+        "click_id_rows_utm_campaign_present": 10575,
+        "latest_at_utc": "2026-05-20T13:58:35.127Z"
+      },
+      "attribution_ledger": {
+        "rows": 4367,
+        "landing_or_metadata_gad_campaignid_rows": 107,
+        "landing_or_metadata_gad_source_rows": 108,
+        "click_id_evidence_rows": 4314,
+        "confirmed_payment_success_rows": 371,
+        "confirmed_rows_with_gad_campaignid": 2,
+        "latest_at_utc": "2026-05-20T13:53:54.707Z",
+        "top_gad_campaignids": [
+          { "gad_campaignid": "23249701426", "rows": 72, "confirmed_rows": 0 },
+          { "gad_campaignid": "23844227518", "rows": 12, "confirmed_rows": 0 },
+          { "gad_campaignid": "21808018766", "rows": 8, "confirmed_rows": 0 },
+          { "gad_campaignid": "14629255429", "rows": 6, "confirmed_rows": 1 },
+          { "gad_campaignid": "22018178854", "rows": 4, "confirmed_rows": 1 }
+        ]
+      }
+    },
+    "rolling_last_30d": {
+      "checked_at_kst": "2026-05-20 23:00",
+      "site_landing_ledger": {
+        "rows": 15920,
+        "click_id_rows": 12427,
+        "landing_url_gad_campaignid_rows": 0,
+        "landing_url_gclid_rows": 11966,
+        "landing_url_gbraid_rows": 879,
+        "landing_url_wbraid_rows": 123,
+        "click_id_rows_utm_campaign_blank": 586,
+        "click_id_rows_utm_campaign_present": 11844,
+        "latest_at_utc": "2026-05-20T13:58:35.127Z"
+      },
+      "paid_click_intent_ledger": {
+        "rows": 17171,
+        "allowed_query_gad_campaignid_rows": 0,
+        "allowed_query_gad_source_rows": 0,
+        "allowed_query_gclid_present_rows": 17040,
+        "allowed_query_gbraid_present_rows": 963,
+        "allowed_query_wbraid_present_rows": 132,
+        "click_id_rows_utm_campaign_blank": 826,
+        "click_id_rows_utm_campaign_present": 16345,
+        "latest_at_utc": "2026-05-20T13:58:35.127Z"
+      },
+      "attribution_ledger": {
+        "rows": 30943,
+        "landing_or_metadata_gad_campaignid_rows": 572,
+        "landing_or_metadata_gad_source_rows": 573,
+        "click_id_evidence_rows": 8471,
+        "confirmed_payment_success_rows": 1743,
+        "confirmed_rows_with_gad_campaignid": 15,
+        "latest_at_utc": "2026-05-20T13:53:54.707Z"
+      }
+    }
+  },
+  "guardrails": {
+    "no_send_verified": true,
+    "no_write_verified": true,
+    "no_deploy_verified": true,
+    "no_publish_verified": true,
+    "no_platform_send_verified": true,
+    "upload_candidate_count": 0
+  },
+  "recommended_design": {
+    "store_gad_campaignid": true,
+    "store_raw_click_id_in_reports": false,
+    "internal_reporting_confidence_threshold_pct": 85,
+    "use_for_google_ads_upload_without_exact_click_view": false
+  }
+}

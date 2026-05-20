@@ -1025,6 +1025,9 @@ export default function GoogleAdsPerformancePage() {
             <Link href="/ads/roas" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", color: "#334155", textDecoration: "none", fontSize: "0.76rem", fontWeight: 800 }}>
               ROAS
             </Link>
+            <Link href="/ads/google-roas-report" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #bfdbfe", color: "#1d4ed8", background: "#eff6ff", textDecoration: "none", fontSize: "0.76rem", fontWeight: 800 }}>
+              정합성 보고서
+            </Link>
           </div>
         </div>
 

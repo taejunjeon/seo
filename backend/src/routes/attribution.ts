@@ -1431,16 +1431,23 @@ const MARKETING_INTENT_PII_KEYS = new Set([
   "tel",
 ]);
 const MARKETING_INTENT_URL_QUERY_ALLOWLIST = new Set([
+  "gad_campaignid",
+  "gad_source",
+  "gbraid",
+  "gclid",
   "ttclid",
   "utm_source",
   "utm_medium",
   "utm_campaign",
   "utm_content",
   "utm_term",
+  "wbraid",
 ]);
 const PRODUCT_ENGAGEMENT_ALLOWED_SITES = new Set(["biocom"]);
 const PRODUCT_ENGAGEMENT_EVENT_NAME = "ProductEngagementSummary";
 const PRODUCT_ENGAGEMENT_URL_QUERY_ALLOWLIST = new Set([
+  "gad_campaignid",
+  "gad_source",
   "idx",
   "utm_source",
   "utm_medium",
@@ -1482,6 +1489,8 @@ const CONFIRMED_PURCHASE_BLOCKED_STAGES = new Set([
   "checkout_started",
 ]);
 const CONFIRMED_PURCHASE_URL_QUERY_ALLOWLIST = new Set([
+  "gad_campaignid",
+  "gad_source",
   "idx",
   "utm_source",
   "utm_medium",
@@ -1517,6 +1526,8 @@ const PAID_CLICK_INTENT_ALLOWED_STAGES = new Set([
   "npay_intent",
 ]);
 const PAID_CLICK_INTENT_URL_QUERY_ALLOWLIST = new Set([
+  "gad_campaignid",
+  "gad_source",
   "idx",
   "utm_source",
   "utm_medium",
@@ -1710,6 +1721,17 @@ const sanitizePaidClickIntentUrl = (value: string) => {
   return parsed.toString().slice(0, 2000);
 };
 
+const urlParamFromRaw = (value: string, key: string) => {
+  const parsed = parseUrlSafe(value);
+  if (!parsed) return "";
+  return parsed.searchParams.get(key)?.trim() ?? "";
+};
+
+const normalizeGoogleCampaignId = (value: string) => {
+  const trimmed = value.trim();
+  return /^\d{6,}$/.test(trimmed) ? trimmed.slice(0, 32) : "";
+};
+
 const findConfirmedPurchaseRejectedField = (value: unknown, path: string[] = []): string | null => {
   if (!value || typeof value !== "object") return null;
   if (Array.isArray(value)) {
@@ -1881,6 +1903,14 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   const landingUrlRaw = textField(body, "landing_url") || textField(body, "landingUrl") || textField(body, "page_location") || textField(body, "pageLocation");
   const currentUrlRaw = textField(body, "current_url") || textField(body, "currentUrl") || landingUrlRaw;
   const referrerRaw = textField(body, "referrer") || textField(body, "page_referrer") || textField(body, "pageReferrer");
+  const googleCampaignId = normalizeGoogleCampaignId(
+    urlParamFromRaw(landingUrlRaw, "gad_campaignid")
+    || urlParamFromRaw(currentUrlRaw, "gad_campaignid"),
+  );
+  const gadSource = (
+    urlParamFromRaw(landingUrlRaw, "gad_source")
+    || urlParamFromRaw(currentUrlRaw, "gad_source")
+  ).slice(0, 32);
   const eventId = textField(body, "event_id") || textField(body, "eventId") || `PaidClickIntent_${captureStage}_${Date.now()}`;
   const storageKey = textField(body, "storage_key") || textField(body, "storageKey") || "bi_paid_click_intent_v1";
   const memberCodeRaw = textField(body, "member_code") || textField(body, "memberCode");
@@ -1937,6 +1967,9 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
     sanitized_landing_url: landingUrlRaw ? sanitizePaidClickIntentUrl(landingUrlRaw) : "",
     sanitized_current_url: currentUrlRaw ? sanitizePaidClickIntentUrl(currentUrlRaw) : "",
     sanitized_referrer: referrerRaw ? sanitizePaidClickIntentUrl(referrerRaw) : "",
+    google_campaign_id: googleCampaignId,
+    gad_campaignid: googleCampaignId,
+    gad_source: gadSource,
     member_code: memberCode,
   };
 };
