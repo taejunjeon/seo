@@ -1,10 +1,10 @@
 # ROAS Summary Precompute Permanent ON Result
 
-작성 시각: 2026-05-19 20:37 KST  
-기준일: 2026-05-19  
-문서 성격: ROAS summary 상시 사전계산 운영 반영 결과보고  
-대상: VM Cloud `seo-backend` / `GET /api/ads/roas-summary`  
-대상 site/account: biocom / Meta account `act_...2376`  
+작성 시각: 2026-05-19 20:37 KST
+기준일: 2026-05-19
+문서 성격: ROAS summary 상시 사전계산 운영 반영 결과보고
+대상: VM Cloud `seo-backend` / `GET /api/ads/roas-summary`
+대상 site/account: biocom / Meta account `act_...2376`
 판정: **PERMANENT_ON_APPLIED_WITH_24H_MONITOR**
 
 ```yaml
@@ -172,4 +172,3 @@ rollback 기준:
    - 실패 시 다음 확인점: PM2 max-memory 로그, Meta API rate limit, ledger fetch latency.
    - 승인 필요 여부: 없음. 승인된 범위 안의 monitor/rollback이다.
    - 추천 점수/자신감: 90%.
-

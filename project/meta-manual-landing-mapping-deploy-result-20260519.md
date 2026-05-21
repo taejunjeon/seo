@@ -1,7 +1,7 @@
 # Meta 수동 검증 랜딩 매핑 backend 배포 결과
 
-작성 시각: 2026-05-19 18:58 KST  
-대상: VM Cloud `seo-backend` / `/api/ads`, `/api/ads/meta-utm-diagnostics`  
+작성 시각: 2026-05-19 18:58 KST
+대상: VM Cloud `seo-backend` / `/api/ads`, `/api/ads/meta-utm-diagnostics`
 결과: PASS_WITH_NOTES
 
 ```yaml

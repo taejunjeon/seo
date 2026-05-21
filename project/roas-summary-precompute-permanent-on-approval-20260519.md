@@ -37,10 +37,10 @@ harness_preflight:
     confidence: B+; API와 env는 직접 확인, 장기 메모리 영향은 smoke 필요
 ---
 
-작성 시각: 2026-05-19 17:30 KST  
-기준일: 2026-05-19  
-문서 성격: ROAS summary 상시 사전계산 승인안  
-대상 화면/API: `/ads/meta-utm`, `/ads`, `/api/ads/roas-summary`  
+작성 시각: 2026-05-19 17:30 KST
+기준일: 2026-05-19
+문서 성격: ROAS summary 상시 사전계산 승인안
+대상 화면/API: `/ads/meta-utm`, `/ads`, `/api/ads/roas-summary`
 대상 site/account: biocom / Meta account `act_...2376`
 
 ## 10초 요약
