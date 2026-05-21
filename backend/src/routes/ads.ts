@@ -116,6 +116,8 @@ const ROAS_SUMMARY_CACHE_FRESH_MS = 4 * 60 * 60 * 1000;
 const ROAS_SUMMARY_CACHE_STALE_MAX_MS = 8 * 60 * 60 * 1000;
 const ROAS_SUMMARY_FORCE_COOLDOWN_MS = 5 * 60 * 1000;
 const ROAS_SUMMARY_DEFAULT_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const ROAS_SUMMARY_DISK_STALE_MAX_MS = 24 * 60 * 60 * 1000;
+const ROAS_SUMMARY_DISK_CACHE_PATH = path.join(DATA_DIR, "runtime-cache", "roas-summary-cache.json");
 
 export type SiteKey = "biocom" | "thecleancoffee" | "aibio";
 type AdsChannel = "meta" | "google" | "daangn";
@@ -175,12 +177,14 @@ type RoasSummaryBody = Record<string, unknown> & {
 };
 
 type RoasSummaryCacheSource =
+  | "disk_cache_hit"
   | "in_memory_precompute"
   | "live_cache_miss"
   | "live_force_refresh"
   | "live_error_no_cache"
   | "force_cooldown_cache"
   | "refresh_in_flight_cache"
+  | "refresh_in_flight_wait"
   | "stale_fallback";
 
 type RoasSummaryCacheEntry = {
@@ -205,7 +209,16 @@ type RoasSummaryCacheMeta = {
 };
 
 const roasSummaryCache = new Map<string, RoasSummaryCacheEntry>();
-const roasSummaryRefreshInFlight = new Set<string>();
+const roasSummaryRefreshInFlight = new Map<string, Promise<RoasSummaryCacheEntry>>();
+
+type RoasSummaryDiskCache = {
+  version: 1;
+  saved_at: string;
+  entries: Record<string, RoasSummaryCacheEntry>;
+};
+let roasSummaryDiskCache: RoasSummaryDiskCache | null = null;
+let roasSummaryDiskLoad: Promise<RoasSummaryDiskCache> | null = null;
+let roasSummaryDiskWrite: Promise<void> = Promise.resolve();
 
 type MetaReference = {
   mode: "ads_manager_parity" | "custom_window_override";
@@ -845,6 +858,98 @@ const cloneRoasSummaryBodyWithCache = (params: {
       cache_hit: true,
     },
   };
+};
+
+const isRoasSummaryCacheEntry = (value: unknown): value is RoasSummaryCacheEntry => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as {
+    body?: unknown;
+    computedAtMs?: unknown;
+    generationMs?: unknown;
+    nextRefreshAtMs?: unknown;
+  };
+  return (
+    candidate.body !== null
+    && typeof candidate.body === "object"
+    && typeof candidate.computedAtMs === "number"
+    && Number.isFinite(candidate.computedAtMs)
+    && typeof candidate.generationMs === "number"
+    && Number.isFinite(candidate.generationMs)
+    && typeof candidate.nextRefreshAtMs === "number"
+    && Number.isFinite(candidate.nextRefreshAtMs)
+  );
+};
+
+const getRoasSummaryDiskStaleMaxMs = () => (
+  parsePositiveMsEnv(
+    "ROAS_SUMMARY_DISK_STALE_MAX_AGE_MS",
+    ROAS_SUMMARY_DISK_STALE_MAX_MS,
+    60_000,
+  )
+);
+
+const loadRoasSummaryDiskCache = async (): Promise<RoasSummaryDiskCache> => {
+  if (roasSummaryDiskCache) return roasSummaryDiskCache;
+  if (roasSummaryDiskLoad) return roasSummaryDiskLoad;
+  roasSummaryDiskLoad = (async () => {
+    try {
+      const raw = await fs.readFile(ROAS_SUMMARY_DISK_CACHE_PATH, "utf-8");
+      const parsed = JSON.parse(raw) as { version?: unknown; saved_at?: unknown; entries?: unknown };
+      const entries: Record<string, RoasSummaryCacheEntry> = {};
+      const staleMaxMs = getRoasSummaryDiskStaleMaxMs();
+      if (parsed.entries && typeof parsed.entries === "object") {
+        for (const [key, entry] of Object.entries(parsed.entries as Record<string, unknown>)) {
+          if (isRoasSummaryCacheEntry(entry) && Date.now() - entry.computedAtMs <= staleMaxMs) {
+            entries[key] = entry;
+          }
+        }
+      }
+      roasSummaryDiskCache = {
+        version: 1,
+        saved_at: typeof parsed.saved_at === "string" ? parsed.saved_at : new Date(0).toISOString(),
+        entries,
+      };
+    } catch {
+      roasSummaryDiskCache = { version: 1, saved_at: new Date(0).toISOString(), entries: {} };
+    } finally {
+      roasSummaryDiskLoad = null;
+    }
+    return roasSummaryDiskCache;
+  })();
+  return roasSummaryDiskLoad;
+};
+
+const getRoasSummaryDiskCached = async (
+  key: string,
+  maxAgeMs: number,
+): Promise<RoasSummaryCacheEntry | null> => {
+  const diskCache = await loadRoasSummaryDiskCache();
+  const entry = diskCache.entries[key];
+  if (!entry) return null;
+  if (Date.now() - entry.computedAtMs > maxAgeMs) {
+    delete diskCache.entries[key];
+    return null;
+  }
+  roasSummaryCache.set(key, entry);
+  return entry;
+};
+
+const setRoasSummaryDiskCached = async (
+  key: string,
+  entry: RoasSummaryCacheEntry,
+): Promise<void> => {
+  const diskCache = await loadRoasSummaryDiskCache();
+  diskCache.entries[key] = entry;
+  diskCache.saved_at = new Date().toISOString();
+  roasSummaryDiskWrite = roasSummaryDiskWrite
+    .catch(() => undefined)
+    .then(async () => {
+      await fs.mkdir(path.dirname(ROAS_SUMMARY_DISK_CACHE_PATH), { recursive: true });
+      const tmpPath = `${ROAS_SUMMARY_DISK_CACHE_PATH}.tmp`;
+      await fs.writeFile(tmpPath, `${JSON.stringify(diskCache, null, 2)}\n`, "utf-8");
+      await fs.rename(tmpPath, ROAS_SUMMARY_DISK_CACHE_PATH);
+    });
+  await roasSummaryDiskWrite;
 };
 
 const normalizeDateLike = (value: string): string | null => {
@@ -1976,6 +2081,26 @@ const MANUAL_VERIFIED_LANDING_PATH_CAMPAIGNS: Array<{
     adName: "수동 검증: 광고 ID 미제공",
     confidence: "manual_verified_ads_manager_landing_path_20260519",
   },
+  {
+    site: "biocom",
+    landingPath: "/nanabebe05",
+    campaignId: "120245003319500396",
+    campaignName: "meta_biocom_influencer_260506",
+    adsetId: "120245143376260396",
+    adsetName: "수동 검증: 광고세트명 미제공",
+    adName: "수동 검증: 광고 ID 미제공",
+    confidence: "manual_verified_growth_team_landing_path_20260521",
+  },
+  {
+    site: "biocom",
+    landingPath: "/hangzassi01",
+    campaignId: "120242626179290396",
+    campaignName: "공동구매 인플루언서 파트너 광고 모음_3 (260323)",
+    adsetId: "120242626179270396",
+    adsetName: "수동 검증: 광고세트명 미제공",
+    adName: "수동 검증: 광고 ID 미제공",
+    confidence: "manual_verified_growth_team_landing_path_20260521",
+  },
 ];
 
 const getManualVerifiedLandingPathCampaignMap = (site: SiteKey | null): LandingPathCampaignMap => {
@@ -2847,6 +2972,8 @@ const loadOperationalLedgerOrders = async (
   const loadSiteEntries = (site: SiteKey) => (
     ADS_OPERATIONAL_LEDGER_DIRECT_SQLITE && options.range
       ? readOperationalLedgerEntriesForAds(site, options.range)
+      : options.range
+        ? fetchOperationalLedgerEntriesForAdsByDay(site, options.range)
       : fetchOperationalLedgerEntriesForAds(site, options.range)
   );
   const perSite = await Promise.allSettled(
@@ -6232,7 +6359,15 @@ export const createAdsRouter = () => {
         ledgerSource,
       });
       const cacheConfig = getRoasSummaryCacheConfig();
-      const cached = roasSummaryCache.get(cacheKey) ?? null;
+      let cached = roasSummaryCache.get(cacheKey) ?? null;
+      let cachedFromDisk = false;
+      if (!cached) {
+        const diskCached = await getRoasSummaryDiskCached(cacheKey, cacheConfig.staleMaxMs);
+        if (diskCached) {
+          cached = diskCached;
+          cachedFromDisk = true;
+        }
+      }
       const cachedAgeMs = cached ? Date.now() - cached.computedAtMs : Number.POSITIVE_INFINITY;
       const cacheWithinStaleLimit = Boolean(cached && cachedAgeMs <= cacheConfig.staleMaxMs);
 
@@ -6240,7 +6375,11 @@ export const createAdsRouter = () => {
         res.json(cloneRoasSummaryBodyWithCache({
           cacheKey,
           entry: cached,
-          source: cachedAgeMs <= cacheConfig.freshMs ? "in_memory_precompute" : "stale_fallback",
+          source: cachedFromDisk
+            ? "disk_cache_hit"
+            : cachedAgeMs <= cacheConfig.freshMs
+              ? "in_memory_precompute"
+              : "stale_fallback",
           stale: cachedAgeMs > cacheConfig.freshMs,
         }));
         return;
@@ -6260,7 +6399,8 @@ export const createAdsRouter = () => {
         return;
       }
 
-      if (roasSummaryRefreshInFlight.has(cacheKey) && cached) {
+      const existingRefresh = roasSummaryRefreshInFlight.get(cacheKey);
+      if (existingRefresh && cached) {
         res.json(cloneRoasSummaryBodyWithCache({
           cacheKey,
           entry: cached,
@@ -6270,9 +6410,87 @@ export const createAdsRouter = () => {
         }));
         return;
       }
+      if (existingRefresh) {
+        try {
+          const sharedEntry = await existingRefresh;
+          res.json(cloneRoasSummaryBodyWithCache({
+            cacheKey,
+            entry: sharedEntry,
+            source: "refresh_in_flight_wait",
+            refreshInFlight: true,
+          }));
+          return;
+        } catch (sharedError) {
+          const message = sharedError instanceof Error ? sharedError.message : String(sharedError);
+          const nowIso = new Date().toISOString();
+          const errors = Object.fromEntries(presetRanges.map(({ preset }) => [
+            preset,
+            {
+              error: message,
+              status: 502,
+              response_message: message,
+            },
+          ]));
+          res.json({
+            ok: true,
+            account_id: accountId,
+            presets: uniquePresets,
+            valid_presets: presetRanges.map((item) => item.preset),
+            invalid_presets: invalidPresets,
+            union_range: unionRange,
+            served_at: nowIso,
+            queried_at: nowIso,
+            meta_reference: buildMetaReference(),
+            results: {},
+            errors,
+            batch: {
+              mode: "aggregate_summary",
+              source: "live_error_no_cache",
+              cache_hit: false,
+              ledger_fetch_count: 0,
+              meta_insights_fetch_count: 0,
+              raw_ledger_items_returned: 0,
+              fallback_prevented: true,
+              caveat: "ROAS summary live 계산이 실패했지만 프론트가 느린 개별 /api/ads/roas fallback을 때리지 않도록 200 + errors contract로 반환한다.",
+            },
+            metric_contract: {
+              source: {
+                revenue: "VM Cloud attribution ledger",
+                spend: "Meta Ads Insights API",
+              },
+              unit: {
+                revenue: "unique confirmed/pending ledger order matched to Meta evidence",
+                spend: "KRW campaign spend",
+                roas: "attributedRevenue / spend",
+              },
+              window: "date_preset batch",
+              site: siteAccount?.site ?? null,
+              account_id: accountId,
+              last_updated_at: nowIso,
+              caveat: "shared live no-cache 계산 실패. 다음 precompute tick 또는 캐시 생성 후 정상값을 제공한다.",
+            },
+            cache: buildRoasSummaryCacheMeta({
+              cacheKey,
+              entry: null,
+              source: "live_error_no_cache",
+              stale: true,
+              refreshInFlight: true,
+              errorFromRefresh: message,
+            }),
+          });
+          return;
+        }
+      }
 
       const generationStartedAtMs = Date.now();
-      roasSummaryRefreshInFlight.add(cacheKey);
+      let resolveRefresh!: (entry: RoasSummaryCacheEntry) => void;
+      let rejectRefresh!: (error: unknown) => void;
+      const refreshPromise = new Promise<RoasSummaryCacheEntry>((resolve, reject) => {
+        resolveRefresh = resolve;
+        rejectRefresh = reject;
+      });
+      refreshPromise.catch(() => undefined);
+      roasSummaryRefreshInFlight.set(cacheKey, refreshPromise);
       try {
       const ledgerOptions = ledgerQueryOptions(req, unionRange, siteAccount ? [siteAccount.site] : undefined);
       const [adsetCampaigns, creativeEvidence, aliasCampaigns, ledger] = await Promise.all([
@@ -6443,6 +6661,16 @@ export const createAdsRouter = () => {
         nextRefreshAtMs: computedAtMs + cacheConfig.intervalMs,
       };
       roasSummaryCache.set(cacheKey, entry);
+      try {
+        await setRoasSummaryDiskCached(cacheKey, entry);
+      } catch (cacheWriteError) {
+        // eslint-disable-next-line no-console
+        console.error(
+          "[ROAS summary cache] disk write failed:",
+          cacheWriteError instanceof Error ? cacheWriteError.message : cacheWriteError,
+        );
+      }
+      resolveRefresh(entry);
       const source: RoasSummaryCacheSource = forceRefresh ? "live_force_refresh" : "live_cache_miss";
       const batch = responseBody.batch && typeof responseBody.batch === "object"
         ? { ...responseBody.batch }
@@ -6464,6 +6692,7 @@ export const createAdsRouter = () => {
         },
       });
       } catch (liveError) {
+        rejectRefresh(liveError);
         const message = liveError instanceof Error ? liveError.message : String(liveError);
         if (cached && cacheWithinStaleLimit) {
           res.json(cloneRoasSummaryBodyWithCache({
@@ -6532,7 +6761,9 @@ export const createAdsRouter = () => {
         });
         return;
       } finally {
-        roasSummaryRefreshInFlight.delete(cacheKey);
+        if (roasSummaryRefreshInFlight.get(cacheKey) === refreshPromise) {
+          roasSummaryRefreshInFlight.delete(cacheKey);
+        }
       }
     } catch (error) {
       res.status(500).json({

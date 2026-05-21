@@ -229,6 +229,14 @@
 .compareSummary strong {
   color: var(--ink);
 }
+.auditSubsection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.auditSubsection .channelTable {
+  margin-top: 10px;
+}
 
 .compareTable {
   width: 100%;
@@ -278,6 +286,184 @@
 }
 .deltaNeutral {
   color: var(--muted);
+}
+
+.pageLongGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.pageLongCard,
+.pageLongEmpty {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px 18px;
+}
+.pageLongHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.pageLongHeader h3 {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+.pageLongReading,
+.pageLongEmpty p {
+  margin: 0 0 12px;
+  color: var(--slate);
+  font-size: 13px;
+}
+.pageLongEmpty strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink);
+  font-size: 14px;
+}
+.pageLongMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.pageLongMetricGrid div {
+  border-radius: 10px;
+  background: var(--slate-bg);
+  padding: 10px;
+}
+.pageLongMetricGrid span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pageLongMetricGrid strong {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+  margin-top: 2px;
+}
+.pageLongSevenMinute {
+  border: 1px solid var(--yellow-border);
+  border-radius: 10px;
+  background: var(--yellow-bg);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.pageLongSevenMinute span {
+  display: block;
+  color: var(--yellow);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.pageLongSevenMinute strong {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  margin-top: 3px;
+}
+.pageLongSevenMinute p {
+  margin: 6px 0 0;
+  color: var(--slate);
+  font-size: 12px;
+}
+.pageLongTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.pageLongTable th,
+.pageLongTable td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+.pageLongTable th:first-child,
+.pageLongTable td:first-child {
+  text-align: left;
+}
+.pageLongTable thead th {
+  color: var(--muted);
+  background: var(--slate-bg);
+  font-weight: 800;
+}
+.pageLongTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.denominatorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.denominatorCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px 18px;
+}
+.denominatorCard h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.scrollChangeBox {
+  border: 1px solid var(--primary-border);
+  border-radius: 10px;
+  background: var(--primary-bg);
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+.scrollChangeBox span {
+  display: block;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.scrollChangeBox strong {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.scrollChangeBox p {
+  margin: 6px 0 0;
+  color: var(--slate);
+  font-size: 12px;
+}
+.denominatorCard dl {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto;
+  gap: 6px 12px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--slate-bg);
+}
+.denominatorCard dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.denominatorCard dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+.denominatorCard p {
+  margin: 8px 0 0;
+  color: var(--slate);
+  font-size: 12px;
 }
 
 .cohortSplitBox {
@@ -552,6 +738,8 @@
 @media (max-width: 960px) {
   .headlineGrid { grid-template-columns: 1fr; }
   .cohortSplitGrid { grid-template-columns: 1fr; }
+  .pageLongGrid { grid-template-columns: 1fr; }
+  .denominatorGrid { grid-template-columns: 1fr; }
   .indicatorGrid { grid-template-columns: 1fr; }
   .trustGrid { grid-template-columns: 1fr; }
   .queueGrid { grid-template-columns: 1fr; }
@@ -561,12 +749,15 @@
   .compareTable th,
   .compareTable td,
   .channelTable th,
-  .channelTable td {
+  .channelTable td,
+  .pageLongTable th,
+  .pageLongTable td {
     padding: 6px 6px;
     font-size: 12px;
   }
   .title { font-size: 19px; }
   .headlineTitle { font-size: 14px; }
+  .pageLongMetricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 480px) {
@@ -574,5 +765,8 @@
   .compareCard { padding: 14px; }
   .indicatorCard,
   .trustCard,
-  .queueCard { padding: 14px; }
+  .queueCard,
+  .pageLongCard,
+  .pageLongEmpty { padding: 14px; }
+  .pageLongMetricGrid { grid-template-columns: 1fr; }
 }

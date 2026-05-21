@@ -290,6 +290,10 @@ const STATUS_RANK: Record<AttributionPaymentStatus, number> = {
 };
 const TOSS_BASE_URL = "https://api.tosspayments.com";
 const TOSS_DIRECT_FALLBACK_TIMEOUT_MS = 10000;
+const PAYMENT_DECISION_TOSS_DIRECT_TIMEOUT_MS = 1800;
+const PAYMENT_DECISION_FAST_WAIT_DELAYS_MS = [150, 350, 600, 900];
+const PAYMENT_DECISION_LEDGER_FALLBACK_LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
+const PAYMENT_DECISION_VERSION = "2026-05-21.payment-decision.fast-wait-v4";
 const OPERATIONAL_ATTRIBUTION_BASE_URL =
   process.env.ATTRIBUTION_OPERATIONAL_BASE_URL?.trim() || "https://att.ainativeos.net";
 const ACQUISITION_REMOTE_LEDGER_SOURCES = [
@@ -2645,6 +2649,7 @@ const resolveTossStoreForEntry = (
 const fetchTossPaymentDetail = async (
   path: string,
   store: TossStore,
+  timeoutMs = TOSS_DIRECT_FALLBACK_TIMEOUT_MS,
 ): Promise<TossPaymentDetail> => {
   const auth = getTossBasicAuth(store, "live");
   if (!auth) {
@@ -2657,7 +2662,7 @@ const fetchTossPaymentDetail = async (
 
   const res = await fetch(`${TOSS_BASE_URL}${path}`, {
     headers: { Authorization: auth },
-    signal: AbortSignal.timeout(TOSS_DIRECT_FALLBACK_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await res.text();
   let body: unknown = {};
@@ -2879,6 +2884,74 @@ const getPaymentDecisionFastLedgerEntries = (lookup: PaymentDecisionLookup) => {
     paymentCodes: [lookup.paymentCode],
     limit: 20,
   });
+};
+
+const hasPaymentDecisionFastLookup = (lookup: PaymentDecisionLookup) =>
+  Boolean(lookup.paymentKey || lookup.orderId || lookup.orderNo || lookup.orderCode || lookup.paymentCode);
+
+const sleep = (ms: number) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+const getPaymentDecisionRecentLedgerFromIso = (nowMs = Date.now()) =>
+  new Date(nowMs - PAYMENT_DECISION_LEDGER_FALLBACK_LOOKBACK_MS).toISOString();
+
+const resolveFastLedgerPaymentDecisionWithWait = async (
+  lookup: PaymentDecisionLookup,
+): Promise<{
+  entries: AttributionLedgerEntry[];
+  decision: AttributionPaymentDecision | undefined;
+  attempts: number;
+  waitMs: number;
+  returnedAfterWait: boolean;
+}> => {
+  if (!hasPaymentDecisionFastLookup(lookup)) {
+    return {
+      entries: [],
+      decision: undefined,
+      attempts: 0,
+      waitMs: 0,
+      returnedAfterWait: false,
+    };
+  }
+
+  let entries = getPaymentDecisionFastLedgerEntries(lookup);
+  let decision = buildFastLedgerPaymentDecision(entries, lookup);
+  if (decision) {
+    return {
+      entries,
+      decision,
+      attempts: 1,
+      waitMs: 0,
+      returnedAfterWait: false,
+    };
+  }
+
+  let waitMs = 0;
+  for (let index = 0; index < PAYMENT_DECISION_FAST_WAIT_DELAYS_MS.length; index += 1) {
+    const delayMs = PAYMENT_DECISION_FAST_WAIT_DELAYS_MS[index];
+    await sleep(delayMs);
+    waitMs += delayMs;
+    entries = getPaymentDecisionFastLedgerEntries(lookup);
+    decision = buildFastLedgerPaymentDecision(entries, lookup);
+    if (decision) {
+      return {
+        entries,
+        decision,
+        attempts: index + 2,
+        waitMs,
+        returnedAfterWait: true,
+      };
+    }
+  }
+
+  return {
+    entries,
+    decision: undefined,
+    attempts: 1 + PAYMENT_DECISION_FAST_WAIT_DELAYS_MS.length,
+    waitMs,
+    returnedAfterWait: false,
+  };
 };
 
 const metadataNumberValue = (metadata: Record<string, unknown>, keys: string[]) => {
@@ -3351,6 +3424,7 @@ export const buildAttributionPaymentDecision = (
 
 const fetchTossDecisionRows = async (
   lookup: PaymentDecisionLookup,
+  timeoutMs = TOSS_DIRECT_FALLBACK_TIMEOUT_MS,
 ): Promise<{ rows: TossJoinRow[]; errors: string[]; attempted: boolean }> => {
   const rows: TossJoinRow[] = [];
   const errors: string[] = [];
@@ -3370,7 +3444,7 @@ const fetchTossDecisionRows = async (
   if (lookup.paymentKey) {
     try {
       addRow(toTossDirectJoinRow(
-        await fetchTossPaymentDetail(`/v1/payments/${encodeURIComponent(lookup.paymentKey)}`, store),
+        await fetchTossPaymentDetail(`/v1/payments/${encodeURIComponent(lookup.paymentKey)}`, store, timeoutMs),
         store,
       ));
     } catch (error) {
@@ -3388,7 +3462,7 @@ const fetchTossDecisionRows = async (
     for (const candidate of orderCandidates) {
       try {
         const row = toTossDirectJoinRow(
-          await fetchTossPaymentDetail(`/v1/payments/orders/${encodeURIComponent(candidate)}`, store),
+          await fetchTossPaymentDetail(`/v1/payments/orders/${encodeURIComponent(candidate)}`, store, timeoutMs),
           store,
         );
         if (row) {
@@ -4951,8 +5025,9 @@ export const createAttributionRouter = () => {
       const lookup = parsePaymentDecisionLookup(req);
       const tossEnabled = parseBooleanish(req.query.toss ?? req.query.directToss, true);
       const debug = parseBooleanish(req.query.debug, false);
-      const fastLedgerEntries = getPaymentDecisionFastLedgerEntries(lookup);
-      const fastLedgerDecision = buildFastLedgerPaymentDecision(fastLedgerEntries, lookup);
+      const fastLedger = await resolveFastLedgerPaymentDecisionWithWait(lookup);
+      const fastLedgerEntries = fastLedger.entries;
+      const fastLedgerDecision = fastLedger.decision;
 
       if (fastLedgerDecision) {
         const elapsedMs = Date.now() - routeStartedAt;
@@ -4964,7 +5039,7 @@ export const createAttributionRouter = () => {
         });
         res.json({
           ok: true,
-          version: "2026-05-15.payment-decision.fast-ledger-v3",
+          version: PAYMENT_DECISION_VERSION,
           generatedAt: new Date().toISOString(),
           elapsedMs,
           decision: {
@@ -4988,6 +5063,9 @@ export const createAttributionRouter = () => {
             source: "VM Cloud SQLite attribution_ledger",
             matchedRows: fastLedgerEntries.length,
             returned: true,
+            attempts: fastLedger.attempts,
+            waitMs: fastLedger.waitMs,
+            returnedAfterWait: fastLedger.returnedAfterWait,
           },
           directToss: {
             attempted: false,
@@ -5014,31 +5092,92 @@ export const createAttributionRouter = () => {
         return;
       }
 
-      const entries = await readLedgerEntries();
-      const operationalDecisionRows = await fetchOperationalPaymentDecisionRows(lookup);
-      const directToss = tossEnabled
-        ? await fetchTossDecisionRows(lookup)
-        : { rows: [], errors: [], attempted: false };
+      const ledgerFallbackFromIso = getPaymentDecisionRecentLedgerFromIso(routeStartedAt);
+      const entries = await readLedgerEntriesInRange({
+        loggedAtFromIso: ledgerFallbackFromIso,
+      });
       const ledgerFallbackMatch = findLedgerDecisionMatch(entries, lookup);
-
-      if (
-        tossEnabled &&
-        directToss.rows.length === 0 &&
-        ledgerFallbackMatch?.entry.paymentKey &&
-        ledgerFallbackMatch.entry.paymentKey !== lookup.paymentKey
-      ) {
-        const paymentKeyFallback = await fetchTossDecisionRows({
-          ...lookup,
-          orderId: "",
-          orderNo: "",
-          paymentKey: ledgerFallbackMatch.entry.paymentKey,
+      const recentLedgerDecision = buildFastLedgerPaymentDecision(entries, lookup);
+      if (recentLedgerDecision) {
+        const decision = recentLedgerDecision;
+        const elapsedMs = Date.now() - routeStartedAt;
+        recordPaymentDecisionMeasurement({
+          receivedAtMs: Date.now(),
+          elapsedMs,
+          status: decision.status,
+          browserAction: decision.browserAction,
         });
-        directToss.rows.push(...paymentKeyFallback.rows);
-        directToss.errors.push(...paymentKeyFallback.errors.map((message) => `ledger paymentKey fallback: ${message}`));
-        directToss.attempted = directToss.attempted || paymentKeyFallback.attempted;
+        res.json({
+          ok: true,
+          version: PAYMENT_DECISION_VERSION,
+          generatedAt: new Date().toISOString(),
+          elapsedMs,
+          decision: {
+            status: decision.status,
+            browserAction: decision.browserAction,
+            confidence: decision.confidence,
+            matchedBy: decision.matchedBy,
+            reason: decision.reason,
+            notes: decision.notes,
+          },
+          lookup: {
+            orderId: lookup.orderId || null,
+            orderNo: lookup.orderNo || null,
+            orderCode: lookup.orderCode || null,
+            paymentCode: lookup.paymentCode || null,
+            paymentKey: lookup.paymentKey ? "***" : null,
+            store: lookup.store,
+          },
+          fastPath: {
+            attempted: true,
+            source: "VM Cloud SQLite attribution_ledger",
+            matchedRows: fastLedgerEntries.length,
+            returned: false,
+            attempts: fastLedger.attempts,
+            waitMs: fastLedger.waitMs,
+            returnedAfterWait: false,
+          },
+          recentLedgerFallback: {
+            attempted: true,
+            source: "VM Cloud SQLite attribution_ledger",
+            loggedAtFromIso: ledgerFallbackFromIso,
+            rowsRead: entries.length,
+            matched: true,
+            matchedBy: decision.matchedBy,
+          },
+          directToss: {
+            attempted: false,
+            matchedRows: 0,
+            errors: 0,
+            skippedReason: "recent_ledger_decision_returned",
+          },
+          operationalDb: {
+            source: "운영DB PostgreSQL dashboard.public.tb_iamweb_users",
+            attempted: false,
+            matchedRows: 0,
+            skippedReason: "recent_ledger_decision_returned",
+          },
+          debug: debug
+            ? {
+                matched: decision.matched,
+              }
+            : undefined,
+          notes: [
+            "브라우저 문구가 아니라 서버가 아는 결제 상태로 Browser Purchase 허용 여부를 판단하는 read-only endpoint다.",
+            "fast path miss 뒤 짧은 wait 로 VM Cloud SQLite 보조 원장 row 생성 지연을 흡수한다.",
+            "fast path 가 계속 miss 여도 최근 원장 범위만 읽어 전체 ledger read 지연을 줄인다.",
+            "confirmed만 allow_purchase다. pending은 VirtualAccountIssued로 낮추고, canceled/unknown은 Purchase를 보내지 않는다.",
+          ],
+        });
+        return;
       }
 
-      const decision = buildAttributionPaymentDecision(entries, lookup, directToss.rows, operationalDecisionRows);
+      const operationalDecisionRows = await fetchOperationalPaymentDecisionRows(lookup);
+      const directToss = tossEnabled
+        ? await fetchTossDecisionRows(lookup, PAYMENT_DECISION_TOSS_DIRECT_TIMEOUT_MS)
+        : { rows: [], errors: [], attempted: false };
+
+      const decision = buildAttributionPaymentDecision([], lookup, directToss.rows, operationalDecisionRows);
 
       const elapsedMs = Date.now() - routeStartedAt;
       recordPaymentDecisionMeasurement({
@@ -5049,7 +5188,7 @@ export const createAttributionRouter = () => {
       });
       res.json({
         ok: true,
-        version: "2026-05-15.payment-decision.fast-ledger-v3",
+        version: PAYMENT_DECISION_VERSION,
         generatedAt: new Date().toISOString(),
         elapsedMs,
         decision: {
@@ -5073,11 +5212,23 @@ export const createAttributionRouter = () => {
           source: "VM Cloud SQLite attribution_ledger",
           matchedRows: fastLedgerEntries.length,
           returned: false,
+          attempts: fastLedger.attempts,
+          waitMs: fastLedger.waitMs,
+          returnedAfterWait: false,
+        },
+        recentLedgerFallback: {
+          attempted: true,
+          source: "VM Cloud SQLite attribution_ledger",
+          loggedAtFromIso: ledgerFallbackFromIso,
+          rowsRead: entries.length,
+          matched: Boolean(ledgerFallbackMatch),
+          returned: false,
         },
         directToss: {
           attempted: directToss.attempted,
           matchedRows: directToss.rows.length,
           errors: directToss.errors.length,
+          timeoutMs: PAYMENT_DECISION_TOSS_DIRECT_TIMEOUT_MS,
         },
         operationalDb: {
           source: "운영DB PostgreSQL dashboard.public.tb_iamweb_users",

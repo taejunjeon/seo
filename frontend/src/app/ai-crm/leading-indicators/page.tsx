@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import GlobalNav from "@/components/common/GlobalNav";
 import styles from "./page.module.css";
@@ -10,6 +10,8 @@ import {
   COHORT_SUMMARY,
   CohortRow,
   DRY_RUN_META,
+  PAGE_LONG_THRESHOLD_FIT,
+  PageLongThresholdRow,
   READINESS,
   channelLabelKo,
 } from "./dry-run";
@@ -19,10 +21,162 @@ type WindowKey = "1d" | "7d" | "14d" | "30d";
 type ChannelKey =
   | "meta"
   | "youtube"
+  | "google_paid"
   | "naver_paid_or_brand"
   | "direct_or_unknown"
   | "all";
 type DimensionKey = "buyer_vs_leaver" | "channel";
+
+type GoogleAdsAuditReadiness = "ok" | "verify_click_id_capture" | "gap" | "not_found";
+
+type GoogleAdsFinalUrlSiteSummary = {
+  site: "biocom" | "thecleancoffee" | "other" | "unknown";
+  label: string;
+  rows: number;
+  finalUrls: number;
+  manualUtmRows: number;
+  googleClickParamRows: number;
+  trackingTemplateRows: number;
+  finalUrlSuffixRows: number;
+  readiness: GoogleAdsAuditReadiness;
+  interpretation: string;
+};
+
+type LandingClickIdAudit = {
+  site: "biocom" | "thecleancoffee";
+  label: string;
+  windowDays: number;
+  totalLandingRows: number;
+  googleClickIdRows: number;
+  googleClickIdRowsByType: {
+    gclid: number;
+    gbraid: number;
+    wbraid: number;
+  };
+  googleUtmRows: number;
+  googleChannelRows: number;
+  googleEvidenceRows: number;
+  nonGooglePaidSearchRows: number;
+  googleEvidenceBreakdown: Array<{
+    segment: "google_ads_paid" | "google_organic" | "google_unknown" | "not_google_paid_search";
+    label: string;
+    rows: number;
+    confidence: "high" | "medium" | "low";
+    interpretation: string;
+  }>;
+  latestLandingAt: string | null;
+  topLandingPaths: Array<{
+    path: string;
+    rows: number;
+    googleEvidenceRows: number;
+  }>;
+  captureStatus:
+    | "google_click_id_present"
+    | "google_channel_without_click_id"
+    | "not_google_paid_search"
+    | "landing_rows_present_no_google_evidence"
+    | "no_landing_rows"
+    | "table_unavailable";
+  interpretation: string;
+};
+
+type OtherFinalUrlSummary = {
+  totalRows: number;
+  finalUrls: number;
+  dispositionSummary: Array<{
+    disposition: string;
+    label: string;
+    rows: number;
+    finalUrls: number;
+    interpretation: string;
+  }>;
+  samples: Array<{
+    campaignName: string;
+    campaignStatus: string;
+    channel: string;
+    parentName: string | null;
+    entityStatus: string;
+    hosts: string[];
+    sampleUrls: string[];
+    disposition: string;
+    dispositionLabel: string;
+    reason: string;
+  }>;
+  interpretation: string;
+};
+
+type GoogleAdsTrafficRouteAudit = {
+  site: "biocom" | "thecleancoffee";
+  label: string;
+  windowDays: number;
+  decision:
+    | "actual_google_paid_click_confirmed"
+    | "ads_config_present_but_no_landing_evidence"
+    | "paused_or_legacy_config_only"
+    | "no_ads_config_no_landing_evidence"
+    | "landing_table_unavailable";
+  confidence: "high" | "medium" | "low";
+  accountEvidence: {
+    currentAccountFinalUrlRows: number;
+    enabledRows: number;
+    pausedOrRemovedRows: number;
+    manualUtmRows: number;
+    googleClickParamRows: number;
+    trackingTemplateRows: number;
+    finalUrlSuffixRows: number;
+    legacyOrOtherRows: number;
+    legacyNeedsMappingRows: number;
+  };
+  landingEvidence: {
+    totalLandingRows: number;
+    googleClickIdRows: number;
+    googleEvidenceRows: number;
+    nonGooglePaidSearchRows: number;
+    latestLandingAt: string | null;
+  };
+  routeSteps: Array<{
+    step: string;
+    label: string;
+    status: "pass" | "warn" | "fail";
+    evidence: string;
+    interpretation: string;
+  }>;
+  nextActions: Array<{
+    owner: "Codex" | "TJ";
+    action: string;
+    why: string;
+    successCriteria: string;
+  }>;
+  interpretation: string;
+};
+
+type GoogleAdsFinalUrlAuditResponse = {
+  ok: boolean;
+  fetchedAt?: string;
+  customerId?: string;
+  autoTaggingEnabled?: boolean | null;
+  customer?: {
+    descriptiveName?: string;
+  } | null;
+  summary?: {
+    totalRows: number;
+    adRows: number;
+    assetGroupRows: number;
+    finalUrls: number;
+    manualUtmRows: number;
+    googleClickParamRows: number;
+    trackingTemplateRows: number;
+    finalUrlSuffixRows: number;
+    siteSummary: GoogleAdsFinalUrlSiteSummary[];
+    landingClickIdAudit?: LandingClickIdAudit[];
+    otherUrlSummary?: OtherFinalUrlSummary;
+    actualTrafficRouteAudit?: GoogleAdsTrafficRouteAudit[];
+    warnings: string[];
+  };
+  error?: unknown;
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
 
 const SITE_OPTIONS: { value: SiteKey; label: string }[] = [
   { value: "biocom", label: "바이오컴" },
@@ -39,6 +193,7 @@ const WINDOW_OPTIONS: { value: WindowKey; label: string }[] = [
 const CHANNEL_OPTIONS: { value: ChannelKey; label: string }[] = [
   { value: "meta", label: "Meta" },
   { value: "youtube", label: "YouTube" },
+  { value: "google_paid", label: "Google 유료" },
   { value: "naver_paid_or_brand", label: "네이버 paid/brand" },
   { value: "direct_or_unknown", label: "직접/불명" },
   { value: "all", label: "전체" },
@@ -72,6 +227,82 @@ const fmtSeconds = (value: number | null): string => {
   return `${value.toFixed(1)}초`;
 };
 
+const fmtCount = (value: number): string => value.toLocaleString("ko-KR");
+
+const fmtRateFraction = (
+  numerator: number,
+  denominator: number,
+  rate: number | null
+): string => {
+  if (denominator === 0 || rate === null) return "표본 없음";
+  return `${numerator}/${denominator}명 · ${fmtPct(rate)}`;
+};
+
+const pageLongStatusLabel = (row: PageLongThresholdRow): string => {
+  if (row.vmSafeSessions === 0) return "유입 0 또는 미매핑";
+  if (row.confirmedGa4JoinedSessions < 20) return "표본 부족";
+  if (row.recommendationStatus === "shorter_threshold_better_for_primary_indicator") {
+    return "3분 기준 우선";
+  }
+  return "7분은 보조 기준";
+};
+
+const pageLongInterpretation = (row: PageLongThresholdRow): string => {
+  if (row.vmSafeSessions === 0) {
+    return "현재 VM Cloud가 Google 유료로 분류한 세션이 없습니다. 실제 유입이 없었는지, gclid/utm 값이 다른 bucket으로 들어갔는지 source 미매핑 점검이 필요합니다.";
+  }
+  if (row.confirmedGa4JoinedSessions < 20) {
+    const stepPct =
+      row.confirmedGa4JoinedSessions > 0 ? 100 / row.confirmedGa4JoinedSessions : null;
+    return `구매자 표본이 ${row.confirmedGa4JoinedSessions}명뿐이라 1명만 달라져도 ${
+      stepPct ? `${stepPct.toFixed(1)}%p` : "큰 폭"
+    } 움직입니다. 그래서 60%, 40%, 20%처럼 딱 떨어지는 숫자는 방향만 봐야 합니다.`;
+  }
+  if (row.current7Min.liftPct !== null && row.current7Min.liftPct < 3) {
+    return "7분까지 오래 읽은 사람만 보면 구매자와 비결제자의 차이가 거의 사라집니다. 7분은 초고의도 보조 신호로 두고, 2~3분을 기본 관심 신호로 보는 편이 낫습니다.";
+  }
+  return `7분도 차이는 있지만 도달자가 줄어듭니다. 기본 선행지표는 ${row.recommendedThresholdLabel ?? "2~3분"} 기준, 7분은 강한 관심 방문 보조 지표로 보는 것이 안전합니다.`;
+};
+
+const SCROLL_DENOMINATOR_AUDIT = [
+  {
+    site: "바이오컴",
+    ga4Sessions: 64063,
+    oldBuyerRatePct: 92.98,
+    oldNonBuyerRatePct: 76.52,
+    rawScroll90RatePct: 14.2,
+    assumedScrollRatePct: 14.2,
+    currentMetaBuyerRatePct: 51.1,
+    currentMetaNonBuyerRatePct: 30.0,
+    pageViewLongRatePct: 8.3,
+    reviewReachRatePct: 23.5,
+    changeSummary:
+      "과거 화면은 결제자 92.98% / 비결제자 76.52%처럼 보였지만, 최신 원본 GA4 전체 세션 기준은 14.2%입니다. Meta cohort만 다시 보면 결제자 51.1% / 비결제자 30.0%입니다.",
+    currentReading:
+      "숫자가 낮아진 핵심 이유는 고객이 갑자기 덜 읽어서가 아니라, 분모가 달라졌기 때문입니다. 예전 값은 결제 흐름에 들어온 cohort 위주였고, 새 값은 전체 GA4 세션과 Meta cohort를 나눠 봅니다.",
+    nextAction:
+      "화면에는 전체 방문자 기준, Meta 결제자 기준, Meta 비결제자 기준을 함께 표시해 예전 90%대 숫자와 최신 14.2%/51.1% 숫자를 혼동하지 않게 합니다.",
+  },
+  {
+    site: "더클린커피",
+    ga4Sessions: 3904,
+    oldBuyerRatePct: 99.68,
+    oldNonBuyerRatePct: 88.52,
+    rawScroll90RatePct: 0,
+    assumedScrollRatePct: 56.5,
+    currentMetaBuyerRatePct: null,
+    currentMetaNonBuyerRatePct: null,
+    pageViewLongRatePct: 14.0,
+    reviewReachRatePct: 26.5,
+    changeSummary:
+      "과거 화면은 결제자 99.68% / 비결제자 88.52%처럼 보였지만, 최신 GA4 원본에서 percent_scrolled 값이 없어 raw 90% 도달률은 0%입니다. scroll 이벤트 자체를 90%로 간주하면 56.5%지만, 이 값은 부풀려질 수 있습니다.",
+    currentReading:
+      "여기는 고객 행동이 나빠진 것이 아니라 측정값이 비어 있는 문제입니다. 더클린커피는 scroll 이벤트는 많지만 90%인지 50%인지 구분하는 percent_scrolled 값이 빠져 있어 기존 90%대 숫자를 그대로 믿으면 안 됩니다.",
+    nextAction:
+      "50%/90% 스크롤을 명시 이벤트로 보내거나, VM Cloud에 가장 깊게 본 스크롤 비율(max_scroll_percent)을 별도로 저장해야 결제자/비결제자 스크롤 차이를 다시 볼 수 있습니다.",
+  },
+];
+
 const dwellDeltaSeconds = (row: CohortRow): number | null => {
   if (row.buyerP50DwellSeconds === null || row.leaverP50DwellSeconds === null) return null;
   return Number((row.buyerP50DwellSeconds - row.leaverP50DwellSeconds).toFixed(1));
@@ -87,9 +318,16 @@ export default function LeadingIndicatorsPage() {
   const [windowKey, setWindowKey] = useState<WindowKey>("7d");
   const [channel, setChannel] = useState<ChannelKey>("meta");
   const [dimension, setDimension] = useState<DimensionKey>("buyer_vs_leaver");
+  const [googleAdsAudit, setGoogleAdsAudit] = useState<GoogleAdsFinalUrlAuditResponse | null>(null);
+  const [googleAdsAuditError, setGoogleAdsAuditError] = useState<string | null>(null);
 
   const coffeeMetaRow = useMemo(() => findCoffeeChannel("meta")!, []);
   const selectedCoffeeRow = useMemo(() => findCoffeeChannel(channel), [channel]);
+  const pageLongRows = useMemo(() => {
+    const siteRows = PAGE_LONG_THRESHOLD_FIT.filter((row) => row.site === site);
+    if (channel === "all") return siteRows;
+    return siteRows.filter((row) => row.sourceGroup === channel);
+  }, [channel, site]);
 
   const biocomConfirmed = COHORT_SUMMARY.find(
     (r) => r.site === "biocom" && r.cohort === "confirmed_purchase"
@@ -113,6 +351,40 @@ export default function LeadingIndicatorsPage() {
       ? ""
       : "(현재 dry-run 은 7일 snapshot 만 보유, 다른 기간은 P1 라이브 API 연결 후 분리)";
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12_000);
+
+    fetch(`${API_BASE}/api/google-ads/final-url-audit?limit=1000`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json() as Promise<GoogleAdsFinalUrlAuditResponse>;
+      })
+      .then((body) => {
+        if (!body.ok) {
+          throw new Error("Google Ads final URL audit failed");
+        }
+        setGoogleAdsAudit(body);
+        setGoogleAdsAuditError(null);
+      })
+      .catch((error) => {
+        if ((error as Error).name !== "AbortError") {
+          setGoogleAdsAuditError(error instanceof Error ? error.message : "audit fetch failed");
+        }
+      })
+      .finally(() => window.clearTimeout(timeout));
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
   return (
     <>
       <GlobalNav activeSlug="ai-crm" />
@@ -128,9 +400,9 @@ export default function LeadingIndicatorsPage() {
           </span>
         </div>
         <p className={styles.subtitle}>
-          결제한 사람과 결제하지 않은 사람의 체류시간, 스크롤, 장바구니, 결제 시작 차이를
-          비교합니다. 광고 플랫폼 주장값이 아니라 VM Cloud 와 GA4 를 맞춰 본 내부 행동
-          분석입니다.
+          결제한 사람과 결제하지 않은 사람의 체류시간(페이지에 머문 시간), 스크롤,
+          장바구니, 결제 시작 차이를 비교합니다. 광고 플랫폼 주장값이 아니라 VM Cloud 와
+          GA4 를 맞춰 본 내부 행동 분석입니다.
         </p>
 
         <p className={styles.linkRow}>
@@ -240,6 +512,21 @@ export default function LeadingIndicatorsPage() {
           </div>
         </div>
 
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>페이지 롱 뷰 기준 시간 · 7분이 맞는가?</h2>
+          <p className={styles.sectionDesc}>
+            페이지 롱 뷰는 “방문자가 페이지에 오래 머물렀다”는 신호입니다. 현재 7분은
+            너무 강한 기준이라 많은 방문자를 놓칠 수 있습니다. 아래 표는 1분, 2분, 3분,
+            5분, 7분 기준에서 결제자와 비결제자가 얼마나 남는지 비교합니다.
+          </p>
+          <PageLongThresholdPanel rows={pageLongRows} site={site} channel={channel} />
+        </section>
+
+        <GooglePaidFinalUrlAuditPanel
+          audit={googleAdsAudit}
+          error={googleAdsAuditError}
+        />
+
         {/* 구매자 vs 비결제자 비교 */}
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>
@@ -255,6 +542,8 @@ export default function LeadingIndicatorsPage() {
           <div className={styles.compareCard}>
             {site === "thecleancoffee" && selectedCoffeeRow ? (
               <CoffeeChannelCompare row={selectedCoffeeRow} />
+            ) : site === "thecleancoffee" && channel !== "all" ? (
+              <MissingCoffeeChannelCompare channel={channel} />
             ) : site === "thecleancoffee" ? (
               <CoffeeAllCompare confirmed={coffeeConfirmed} dropped={coffeeDropped} />
             ) : (
@@ -277,12 +566,63 @@ export default function LeadingIndicatorsPage() {
           <IndicatorRanking row={coffeeMetaRow} />
         </section>
 
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>90% 스크롤 수치가 낮아진 이유</h2>
+          <p className={styles.sectionDesc}>
+            90% 스크롤은 “방문자가 페이지의 90% 지점까지 봤다”는 뜻으로 쓰고 싶지만,
+            사이트마다 수집 방식이 달라 그대로 비교하면 오해가 납니다. 아래 표는 최근
+            7일 GA4 원본과 VM Cloud cohort 화면의 차이를 사람이 이해할 수 있게 나눈
+            점검표입니다. 핵심은 “고객이 갑자기 덜 읽었다”가 아니라 “예전 숫자와 지금
+            숫자의 분모와 측정 기준이 다르다”입니다.
+          </p>
+          <div className={styles.denominatorGrid}>
+            {SCROLL_DENOMINATOR_AUDIT.map((row) => (
+              <article key={row.site} className={styles.denominatorCard}>
+                <h3>{row.site}</h3>
+                <div className={styles.scrollChangeBox}>
+                  <span>얼마에서 얼마로 바뀌었나</span>
+                  <strong>
+                    과거 결제자/비결제자 {fmtPct(row.oldBuyerRatePct)} /{" "}
+                    {fmtPct(row.oldNonBuyerRatePct)} → 최신 원본{" "}
+                    {fmtPct(row.rawScroll90RatePct)}
+                  </strong>
+                  <p>{row.changeSummary}</p>
+                </div>
+                <dl>
+                  <dt>GA4 세션</dt>
+                  <dd>{row.ga4Sessions.toLocaleString("ko-KR")}</dd>
+                  <dt>GA4 원본 90% 스크롤</dt>
+                  <dd>{fmtPct(row.rawScroll90RatePct)}</dd>
+                  <dt>scroll 이벤트를 90으로 간주할 때</dt>
+                  <dd>{fmtPct(row.assumedScrollRatePct)}</dd>
+                  <dt>현재 Meta 결제자 / 비결제자</dt>
+                  <dd>
+                    {row.currentMetaBuyerRatePct === null
+                      ? "측정 보강 필요"
+                      : `${fmtPct(row.currentMetaBuyerRatePct)} / ${fmtPct(
+                          row.currentMetaNonBuyerRatePct
+                        )}`}
+                  </dd>
+                  <dt>긴 조회 이벤트(page_view_long)</dt>
+                  <dd>{fmtPct(row.pageViewLongRatePct)}</dd>
+                  <dt>리뷰 URL/이벤트 도달</dt>
+                  <dd>{fmtPct(row.reviewReachRatePct)}</dd>
+                </dl>
+                <p>{row.currentReading}</p>
+                <p>
+                  <strong>다음 보강:</strong> {row.nextAction}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         {/* 채널별 비교 */}
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>채널별 비교 · 더클린커피 최근 7일</h2>
           <p className={styles.sectionDesc}>
-            같은 매출도 채널마다 결제 전 행동이 다릅니다. 결제율이 낮아도 결제자 체류시간이
-            긴 채널은 랜딩/결제 흐름 개선 후보입니다.
+            같은 매출도 채널마다 결제 전 행동이 다릅니다. 결제율이 낮아도 결제한 사람이
+            페이지에 오래 머무른 채널은 랜딩/결제 흐름 개선 후보입니다.
           </p>
           <CoffeeChannelTable rows={COFFEE_CHANNEL_TRUTH} />
         </section>
@@ -361,7 +701,7 @@ export default function LeadingIndicatorsPage() {
                 더클린커피 Meta: 3분 이상 체류 비율을 캠페인/랜딩별로 비교
               </h3>
               <p className={styles.queueDetail}>
-                현재 화면은 채널 단위까지만 본다. P2 에서 캠페인/랜딩별 dwell 분포를 분해해
+                현재 화면은 채널 단위까지만 본다. P2 에서 캠페인/랜딩별 체류시간 분포를 분해해
                 어느 광고와 랜딩을 키울지 결정한다.
               </p>
               <span className={styles.queueMeta}>승인: 없음</span>
@@ -411,6 +751,521 @@ export default function LeadingIndicatorsPage() {
   );
 }
 
+function PageLongThresholdPanel({
+  rows,
+  site,
+  channel,
+}: {
+  rows: PageLongThresholdRow[];
+  site: SiteKey;
+  channel: ChannelKey;
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className={styles.pageLongEmpty}>
+        <strong>
+          {siteLabelKo(site)} · {channel === "all" ? "전체" : channelLabelKo(channel)} 기준은
+          아직 page long view 비교표가 없습니다.
+        </strong>
+        <p>
+          현재 dry-run은 Meta, Google 유료, YouTube만 우선 비교했습니다. 네이버/직접/기타는
+          P1 live endpoint가 붙으면 같은 방식으로 채울 수 있습니다.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.pageLongGrid}>
+      {rows.map((row) => (
+        <article key={`${row.site}-${row.sourceGroup}`} className={styles.pageLongCard}>
+          <div className={styles.pageLongHeader}>
+            <div>
+              <span className={styles.headlineKicker}>
+                {row.siteLabel} · {row.sourceLabel}
+              </span>
+              <h3>{pageLongStatusLabel(row)}</h3>
+            </div>
+            <span
+              className={`${styles.trustBadge} ${
+                row.confirmedGa4JoinedSessions < 20 || row.vmSafeSessions === 0
+                  ? styles.low
+                  : styles.mid
+              }`}
+            >
+              {row.vmSafeSessions === 0 ? "미매핑 점검" : `GA4 연결 ${fmtPct(row.joinRatePct)}`}
+            </span>
+          </div>
+
+          <p className={styles.pageLongReading}>{pageLongInterpretation(row)}</p>
+
+          <div className={styles.pageLongMetricGrid}>
+            <div>
+              <span>전체 후보 세션</span>
+              <strong>{fmtCount(row.vmSafeSessions)}</strong>
+            </div>
+            <div>
+              <span>구매자 표본</span>
+              <strong>{fmtCount(row.confirmedGa4JoinedSessions)}</strong>
+            </div>
+            <div>
+              <span>비결제자 표본</span>
+              <strong>{fmtCount(row.droppedGa4JoinedSessions)}</strong>
+            </div>
+            <div>
+              <span>추천 기준</span>
+              <strong>{row.recommendedThresholdLabel ?? "보류"}</strong>
+            </div>
+          </div>
+
+          <div className={styles.pageLongSevenMinute}>
+            <span>현재 7분 기준</span>
+            <strong>
+              구매자{" "}
+              {fmtRateFraction(
+                row.current7Min.confirmedAboveSessions,
+                row.confirmedGa4JoinedSessions,
+                row.current7Min.confirmedRatePct
+              )}{" "}
+              / 비결제자{" "}
+              {fmtRateFraction(
+                row.current7Min.droppedAboveSessions,
+                row.droppedGa4JoinedSessions,
+                row.current7Min.droppedRatePct
+              )}
+            </strong>
+            <p>
+              차이 {fmtPct(row.current7Min.liftPct)}. 이 차이가 작거나 표본이 작으면 7분은
+              기본 KPI가 아니라 보조 신호로만 봅니다.
+            </p>
+          </div>
+
+          <table className={styles.pageLongTable}>
+            <thead>
+              <tr>
+                <th>기준</th>
+                <th>구매자</th>
+                <th>비결제자</th>
+                <th>차이</th>
+              </tr>
+            </thead>
+            <tbody>
+              {row.thresholdRows.map((threshold) => (
+                <tr key={threshold.label}>
+                  <td>{threshold.label} 이상</td>
+                  <td>
+                    {fmtRateFraction(
+                      threshold.confirmedAboveSessions,
+                      row.confirmedGa4JoinedSessions,
+                      threshold.confirmedRatePct
+                    )}
+                  </td>
+                  <td>
+                    {fmtRateFraction(
+                      threshold.droppedAboveSessions,
+                      row.droppedGa4JoinedSessions,
+                      threshold.droppedRatePct
+                    )}
+                  </td>
+                  <td>{fmtPct(threshold.liftPct)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function googleAdsReadinessLabel(readiness: GoogleAdsAuditReadiness): string {
+  if (readiness === "ok") return "UTM 있음";
+  if (readiness === "verify_click_id_capture") return "클릭 ID 확인 필요";
+  if (readiness === "gap") return "추적 단서 부족";
+  return "광고 URL 없음";
+}
+
+function googleAdsReadinessClass(readiness: GoogleAdsAuditReadiness): string {
+  if (readiness === "ok") return styles.high;
+  if (readiness === "verify_click_id_capture") return styles.mid;
+  return styles.low;
+}
+
+function landingCaptureLabel(status: LandingClickIdAudit["captureStatus"]): string {
+  if (status === "google_click_id_present") return "클릭 ID 보존";
+  if (status === "google_channel_without_click_id") return "Google 단서만 있음";
+  if (status === "not_google_paid_search") return "Google 아님";
+  if (status === "landing_rows_present_no_google_evidence") return "Google 단서 없음";
+  if (status === "no_landing_rows") return "랜딩 row 없음";
+  return "원장 확인 불가";
+}
+
+function landingCaptureClass(status: LandingClickIdAudit["captureStatus"]): string {
+  if (status === "google_click_id_present") return styles.high;
+  if (status === "google_channel_without_click_id") return styles.mid;
+  if (status === "not_google_paid_search") return styles.mid;
+  return styles.low;
+}
+
+function trafficRouteDecisionLabel(decision: GoogleAdsTrafficRouteAudit["decision"]): string {
+  if (decision === "actual_google_paid_click_confirmed") return "실제 Google 유입 확인";
+  if (decision === "ads_config_present_but_no_landing_evidence") return "설정 있음 · 실제 유입 증거 없음";
+  if (decision === "paused_or_legacy_config_only") return "일시중지/과거 설정만 있음";
+  if (decision === "landing_table_unavailable") return "랜딩 원장 확인 실패";
+  return "Google 유입 증거 없음";
+}
+
+function trafficRouteDecisionClass(decision: GoogleAdsTrafficRouteAudit["decision"]): string {
+  if (decision === "actual_google_paid_click_confirmed") return styles.high;
+  if (decision === "ads_config_present_but_no_landing_evidence") return styles.mid;
+  if (decision === "paused_or_legacy_config_only") return styles.mid;
+  return styles.low;
+}
+
+function routeStepClass(status: GoogleAdsTrafficRouteAudit["routeSteps"][number]["status"]): string {
+  if (status === "pass") return styles.high;
+  if (status === "warn") return styles.mid;
+  return styles.low;
+}
+
+function GooglePaidFinalUrlAuditPanel({
+  audit,
+  error,
+}: {
+  audit: GoogleAdsFinalUrlAuditResponse | null;
+  error: string | null;
+}) {
+  const siteSummary = audit?.summary?.siteSummary ?? [];
+  const landingAudit = audit?.summary?.landingClickIdAudit ?? [];
+  const otherUrlSummary = audit?.summary?.otherUrlSummary ?? null;
+  const biocom = siteSummary.find((row) => row.site === "biocom");
+  const coffee = siteSummary.find((row) => row.site === "thecleancoffee");
+  const biocomLanding = landingAudit.find((row) => row.site === "biocom");
+  const coffeeLanding = landingAudit.find((row) => row.site === "thecleancoffee");
+  const coffeeTrafficRoute = audit?.summary?.actualTrafficRouteAudit?.find(
+    (row) => row.site === "thecleancoffee",
+  );
+  const rows = [
+    {
+      site: "바이오컴",
+      googleAds: biocom,
+      landing: biocomLanding,
+    },
+    {
+      site: "더클린커피",
+      googleAds: coffee,
+      landing: coffeeLanding,
+    },
+  ];
+
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>Google 유료 유입 미매핑 점검</h2>
+      <p className={styles.sectionDesc}>
+        Google Ads 최종 URL은 “광고를 누르면 사용자를 어디로 보내는지”입니다. 여기에
+        UTM(광고 출처 이름표)이나 gclid/gbraid/wbraid(구글 클릭 식별자)가 살아 있어야
+        VM Cloud가 Google 유료 유입으로 분류할 수 있습니다.
+      </p>
+      <div className={styles.compareCard}>
+        <div className={styles.compareHeader}>
+          <p className={styles.compareSummary}>
+            <strong>Google Ads API read-only audit</strong> · 계정{" "}
+            {audit?.customer?.descriptiveName ?? "조회 중"} · 자동 태깅{" "}
+            {audit?.autoTaggingEnabled === true
+              ? "ON"
+              : audit?.autoTaggingEnabled === false
+                ? "OFF"
+                : "확인 중"}
+          </p>
+          <span className={`${styles.trustBadge} ${error ? styles.low : audit ? styles.high : styles.mid}`}>
+            {error ? "조회 실패" : audit ? "읽기 전용 확인" : "조회 중"}
+          </span>
+        </div>
+        {error && (
+          <p className={styles.compareSummary}>
+            Google Ads 최종 URL audit API 응답을 받지 못했습니다: {error}. 아래 VM Cloud
+            진단값은 마지막 read-only audit 결과를 기준으로 표시합니다.
+          </p>
+        )}
+        <table className={styles.channelTable}>
+	          <thead>
+	            <tr>
+	              <th>사이트</th>
+	              <th>Google Ads 최종 URL row</th>
+	              <th>UTM row</th>
+	              <th>템플릿/URL suffix</th>
+	              <th>VM Cloud landing row</th>
+	              <th>판정</th>
+	            </tr>
+	          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const googleAds = row.googleAds;
+              const readiness = googleAds?.readiness ?? "not_found";
+              return (
+	                <tr key={row.site}>
+	                  <td className={styles.metricLabel}>
+	                    {row.site}
+	                    <span className={styles.metricHint}>
+	                      {row.landing?.interpretation ??
+	                        "VM Cloud landing 원장 응답을 기다리는 중입니다."}
+	                    </span>
+	                  </td>
+	                  <td>{googleAds ? `${googleAds.rows}개 · URL ${googleAds.finalUrls}개` : "조회 중"}</td>
+	                  <td>{googleAds ? `${googleAds.manualUtmRows}개` : "—"}</td>
+                  <td>
+                    {googleAds
+                      ? `template ${googleAds.trackingTemplateRows} · suffix ${googleAds.finalUrlSuffixRows}`
+	                      : "—"}
+		                  </td>
+		                  <td>
+		                    {row.landing
+		                      ? `전체 ${fmtCount(row.landing.totalLandingRows)} · 클릭ID ${fmtCount(row.landing.googleClickIdRows)} · 진짜 Google 단서 ${fmtCount(row.landing.googleEvidenceRows ?? 0)}`
+		                      : "조회 중"}
+		                    {row.landing && (
+		                      <span className={styles.metricHint}>
+		                        gclid {fmtCount(row.landing.googleClickIdRowsByType.gclid)} · gbraid{" "}
+		                        {fmtCount(row.landing.googleClickIdRowsByType.gbraid)} · wbraid{" "}
+		                        {fmtCount(row.landing.googleClickIdRowsByType.wbraid)} · Google 아님 paid_search{" "}
+		                        {fmtCount(row.landing.nonGooglePaidSearchRows ?? 0)} · 최신{" "}
+		                        {row.landing.latestLandingAt ?? "없음"}
+		                      </span>
+		                    )}
+	                  </td>
+	                  <td>
+	                    <span className={`${styles.trustBadge} ${googleAdsReadinessClass(readiness)}`}>
+	                      {googleAdsReadinessLabel(readiness)}
+	                    </span>
+	                    {row.landing && (
+	                      <span className={`${styles.trustBadge} ${landingCaptureClass(row.landing.captureStatus)}`}>
+	                        {landingCaptureLabel(row.landing.captureStatus)}
+	                      </span>
+	                    )}
+	                    <span className={styles.metricHint}>
+	                      {googleAds?.interpretation ??
+	                        "Google Ads API 응답을 기다리는 중입니다. 응답 전까지는 VM Cloud capture gap 기준으로 봅니다."}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+	      </table>
+	        {coffeeLanding && (
+	          <div className={styles.auditSubsection}>
+	            <div className={styles.compareHeader}>
+	              <p className={styles.compareSummary}>
+	                <strong>더클린커피 실제 Google Ads 클릭 ID 보존 여부</strong> · 최근{" "}
+	                {coffeeLanding.windowDays}일 VM Cloud landing row {fmtCount(coffeeLanding.totalLandingRows)}건
+	              </p>
+	              <span className={`${styles.trustBadge} ${landingCaptureClass(coffeeLanding.captureStatus)}`}>
+	                {landingCaptureLabel(coffeeLanding.captureStatus)}
+	              </span>
+	            </div>
+		            <p className={styles.compareSummary}>
+		              결론: 더클린커피는 landing row는 있지만 gclid/gbraid/wbraid가{" "}
+		              <strong>{fmtCount(coffeeLanding.googleClickIdRows)}건</strong>입니다. 예전에는 paid_search
+		              row를 Google 단서로 보았지만, 실제로는 Google-specific 값이{" "}
+		              <strong>{fmtCount(coffeeLanding.googleEvidenceRows ?? 0)}건</strong>이고 Google이 아닌
+		              다른 매체 paid_search가 {fmtCount(coffeeLanding.nonGooglePaidSearchRows ?? 0)}건입니다.
+		              현재 판정은 “Google 유료 클릭 식별자가 VM Cloud에 잡히지 않는다”입니다.
+		            </p>
+		            <table className={styles.channelTable}>
+		              <thead>
+		                <tr>
+		                  <th>분류</th>
+		                  <th>row</th>
+		                  <th>해석</th>
+		                </tr>
+		              </thead>
+		              <tbody>
+		                {(coffeeLanding.googleEvidenceBreakdown ?? []).map((bucket) => (
+		                  <tr key={bucket.segment}>
+		                    <td className={styles.metricLabel}>
+		                      {bucket.label}
+		                      <span className={styles.metricHint}>신뢰도 {bucket.confidence}</span>
+		                    </td>
+		                    <td>{fmtCount(bucket.rows)}</td>
+		                    <td>{bucket.interpretation}</td>
+		                  </tr>
+		                ))}
+		              </tbody>
+		            </table>
+		            <table className={styles.channelTable}>
+		              <thead>
+		                <tr>
+		                  <th>랜딩 경로</th>
+		                  <th>전체 row</th>
+		                  <th>진짜 Google 단서 row</th>
+		                </tr>
+	              </thead>
+	              <tbody>
+	                {coffeeLanding.topLandingPaths.slice(0, 5).map((path) => (
+	                  <tr key={path.path}>
+	                    <td>{path.path || "/"}</td>
+	                    <td>{fmtCount(path.rows)}</td>
+	                    <td>{fmtCount(path.googleEvidenceRows)}</td>
+	                  </tr>
+	                ))}
+	              </tbody>
+	            </table>
+	          </div>
+	        )}
+	        {coffeeTrafficRoute && (
+	          <div className={styles.auditSubsection}>
+	            <div className={styles.compareHeader}>
+	              <p className={styles.compareSummary}>
+	                <strong>더클린커피 Google Ads 실제 유입 재확인 루트</strong> · 최근{" "}
+	                {coffeeTrafficRoute.windowDays}일 · 신뢰도 {coffeeTrafficRoute.confidence}
+	              </p>
+	              <span
+	                className={`${styles.trustBadge} ${trafficRouteDecisionClass(coffeeTrafficRoute.decision)}`}
+	              >
+	                {trafficRouteDecisionLabel(coffeeTrafficRoute.decision)}
+	              </span>
+	            </div>
+	            <p className={styles.compareSummary}>
+	              {coffeeTrafficRoute.interpretation} 광고 계정 설정값만 보고 Google 유입이라고
+	              세지 않고, 실제 방문 원장에 Google 클릭 이름표가 남았는지까지 확인한 판정입니다.
+	            </p>
+	            <table className={styles.channelTable}>
+	              <thead>
+	                <tr>
+	                  <th>확인 단계</th>
+	                  <th>증거</th>
+	                  <th>해석</th>
+	                </tr>
+	              </thead>
+	              <tbody>
+	                {coffeeTrafficRoute.routeSteps.map((step) => (
+	                  <tr key={step.step}>
+	                    <td className={styles.metricLabel}>
+	                      {step.label}
+	                      <span className={`${styles.trustBadge} ${routeStepClass(step.status)}`}>
+	                        {step.status === "pass" ? "확인" : step.status === "warn" ? "주의" : "미확인"}
+	                      </span>
+	                    </td>
+	                    <td>{step.evidence}</td>
+	                    <td>{step.interpretation}</td>
+	                  </tr>
+	                ))}
+	              </tbody>
+	            </table>
+	            <table className={styles.channelTable}>
+	              <thead>
+	                <tr>
+	                  <th>바로 다음 확인</th>
+	                  <th>왜 필요한가</th>
+	                  <th>성공 기준</th>
+	                </tr>
+	              </thead>
+	              <tbody>
+	                {coffeeTrafficRoute.nextActions.map((action, index) => (
+	                  <tr key={`${action.owner}-${index}`}>
+	                    <td className={styles.metricLabel}>
+	                      {action.owner === "TJ" ? "TJ님" : "Codex"} · {action.action}
+	                    </td>
+	                    <td>{action.why}</td>
+	                    <td>{action.successCriteria}</td>
+	                  </tr>
+	                ))}
+	              </tbody>
+	            </table>
+	          </div>
+	        )}
+	        {otherUrlSummary && (
+	          <div className={styles.auditSubsection}>
+	            <div className={styles.compareHeader}>
+	              <p className={styles.compareSummary}>
+	                <strong>Google Ads 최종 URL 기타 도메인 분류</strong> · other row{" "}
+	                {fmtCount(otherUrlSummary.totalRows)}건 · URL {fmtCount(otherUrlSummary.finalUrls)}개
+	              </p>
+	              <span className={`${styles.trustBadge} ${styles.mid}`}>운영 검토용</span>
+	            </div>
+	            <p className={styles.compareSummary}>{otherUrlSummary.interpretation}</p>
+	            <table className={styles.channelTable}>
+	              <thead>
+	                <tr>
+	                  <th>분류</th>
+	                  <th>row</th>
+	                  <th>의미</th>
+	                </tr>
+	              </thead>
+	              <tbody>
+	                {otherUrlSummary.dispositionSummary.map((row) => (
+	                  <tr key={row.disposition}>
+	                    <td>{row.label}</td>
+	                    <td>{fmtCount(row.rows)}</td>
+	                    <td>{row.interpretation}</td>
+	                  </tr>
+	                ))}
+	              </tbody>
+	            </table>
+	            <table className={styles.channelTable}>
+	              <thead>
+	                <tr>
+	                  <th>캠페인/광고그룹</th>
+	                  <th>host</th>
+	                  <th>분류 근거</th>
+	                </tr>
+	              </thead>
+	              <tbody>
+	                {otherUrlSummary.samples.slice(0, 8).map((sample, index) => (
+	                  <tr key={`${sample.campaignName}-${sample.parentName}-${index}`}>
+	                    <td className={styles.metricLabel}>
+	                      {sample.campaignName}
+	                      <span className={styles.metricHint}>
+	                        {sample.parentName ?? "광고그룹 없음"} · campaign {sample.campaignStatus} · entity{" "}
+	                        {sample.entityStatus}
+	                      </span>
+	                    </td>
+	                    <td>{sample.hosts.join(", ") || "host 없음"}</td>
+	                    <td>
+	                      <span className={`${styles.trustBadge} ${
+	                        sample.disposition === "ignore_external_or_legacy" ? styles.high : styles.mid
+	                      }`}>
+	                        {sample.dispositionLabel}
+	                      </span>
+	                      <span className={styles.metricHint}>{sample.reason}</span>
+	                    </td>
+	                  </tr>
+	                ))}
+	              </tbody>
+	            </table>
+	          </div>
+	        )}
+	        <ul className={styles.caveatList}>
+	          <li>
+	            더클린커피가 Google 유료 0세션으로 보이면 “주문이 없다”가 아니라, 현재 VM Cloud
+	            원장에 gclid/gbraid/wbraid 같은 광고 클릭 식별자가 남지 않는다는 뜻입니다.
+	          </li>
+          <li>
+            Google Ads 계정에 더클린커피 최종 URL row가 없으면, 이 계정에서 더클린커피
+            Google 광고를 집행하지 않거나 다른 광고 계정에 있을 가능성이 큽니다.
+          </li>
+          <li>
+            최종 URL row는 있는데 UTM이 없으면, 실제 클릭 URL에서 자동 태깅 값이 살아남는지
+            1건의 클릭 landing row로 확인해야 합니다. 운영 설정 변경은 이 화면에서 하지 않습니다.
+          </li>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function MissingCoffeeChannelCompare({ channel }: { channel: ChannelKey }) {
+  return (
+    <div className={styles.pageLongEmpty}>
+      <strong>더클린커피 · {channelLabelKo(channel)} 비교표는 아직 확정 cohort가 없습니다.</strong>
+      <p>
+        특히 Google 유료는 이번 dry-run에서 VM Cloud가 Google 유료 세션을 0건으로 잡았습니다.
+        실제 유입이 없는지, gclid/utm 값이 다른 source bucket으로 들어갔는지 먼저 확인해야
+        결제자/비결제자 비교를 만들 수 있습니다.
+      </p>
+    </div>
+  );
+}
+
 // 더클린커피 채널 1개를 buyer vs leaver 비교표로
 function CoffeeChannelCompare({ row }: { row: CohortRow }) {
   return (
@@ -454,7 +1309,7 @@ function CoffeeChannelCompare({ row }: { row: CohortRow }) {
           <tr>
             <td className={styles.metricLabel}>
               중앙 체류시간
-              <span className={styles.metricHint}>결제자가 더 길면 좋은 신호</span>
+              <span className={styles.metricHint}>페이지에 머문 시간의 중간값</span>
             </td>
             <td>{fmtSeconds(row.buyerP50DwellSeconds)}</td>
             <td>{fmtSeconds(row.leaverP50DwellSeconds)}</td>
@@ -566,6 +1421,19 @@ function BiocomCompare({
   channel: ChannelKey;
 }) {
   const isMetaOnly = channel === "meta";
+  if (channel !== "all" && !isMetaOnly) {
+    return (
+      <div className={styles.pageLongEmpty}>
+        <strong>바이오컴 · {channelLabelKo(channel)} 전체 행동 비교표는 아직 보류입니다.</strong>
+        <p>
+          지금 화면의 바이오컴 구매자/비결제자 상세 비교는 전체 또는 Meta-only 기준만
+          신뢰할 수 있습니다. Google 유료와 YouTube는 위 “페이지 롱 뷰 기준 시간” 섹션에서
+          표본 수를 먼저 확인하고, P1 live endpoint에서 채널별 cohort가 닫히면 전체 행동표로
+          확장합니다.
+        </p>
+      </div>
+    );
+  }
   return (
     <>
       <div className={styles.compareHeader}>
@@ -660,8 +1528,8 @@ function CohortMetricsTable({
       leaver: fmtPct(dropped.joinRatePct),
     },
     {
-      label: "중앙 engagement 시간",
-      hint: "결제자가 더 길면 좋은 신호",
+      label: "중앙 체류시간",
+      hint: "페이지에 머문 시간의 중간값",
       buyer: fmtSeconds(confirmed.p50EngagementSeconds),
       leaver: fmtSeconds(dropped.p50EngagementSeconds),
       delta: `${(confirmed.p50EngagementSeconds - dropped.p50EngagementSeconds).toFixed(1)}초`,
@@ -760,7 +1628,7 @@ function IndicatorRanking({ row }: { row: CohortRow }) {
         row.leaverP50DwellSeconds
       )} · 차이 +${dwellDeltaSeconds(row)?.toFixed(1)}초`,
       action:
-        "3분 이상 머무는 Meta 유입을 늘리세요. 랜딩에서 리뷰/구매평 영역 진입을 더 빠르게 만들어 dwell 을 끌어올립니다.",
+        "3분 이상 머무는 Meta 유입을 늘리세요. 랜딩에서 리뷰/구매평 영역 진입을 더 빠르게 만들어 페이지에 머무는 시간을 늘립니다.",
     },
     {
       name: "결제 페이지 도달",
@@ -794,7 +1662,7 @@ function IndicatorRanking({ row }: { row: CohortRow }) {
         row.leaverScroll90RatePct
       )}`,
       action:
-        "scroll90 대신 scroll50, page_view_long, 특정 리뷰 영역 도달 같은 더 앞단 지표가 필요합니다.",
+        "90% 스크롤 대신 50% 스크롤, 긴 조회 이벤트(page_view_long), 특정 리뷰 영역 도달 같은 더 앞단 지표가 필요합니다.",
     },
   ];
   return (
@@ -829,8 +1697,8 @@ function CoffeeChannelTable({ rows }: { rows: CohortRow[] }) {
           <th>safe session</th>
           <th>결제율</th>
           <th>결제금액</th>
-          <th>결제자 dwell</th>
-          <th>비결제자 dwell</th>
+          <th>결제자 체류시간</th>
+          <th>비결제자 체류시간</th>
           <th>차이</th>
           <th>장바구니 결제자/비결제자</th>
           <th>해석</th>
@@ -843,11 +1711,11 @@ function CoffeeChannelTable({ rows }: { rows: CohortRow[] }) {
           if (r.channel === "youtube") read = "체류시간 우위, 강한 후보";
           else if (r.channel === "meta") read = "체류시간 우위, 장바구니는 주의";
           else if (r.channel === "naver_paid_or_brand")
-            read = "결제율 낮지만 dwell 우위 — 랜딩/결제 개선 후보";
+            read = "결제율 낮지만 체류시간 우위 — 랜딩/결제 개선 후보";
           else if (r.channel === "direct_or_unknown")
             read = "결제 수 큼, 유입 분류 attribution 보강 후보";
           else if (r.channel === "naver_other") read = "표본 작음, 방향성만";
-          else if (r.channel === "other") read = "결제자 dwell 가 오히려 짧음, 보류";
+          else if (r.channel === "other") read = "결제자 체류시간이 오히려 짧음, 보류";
           return (
             <tr key={r.channel}>
               <td className={styles.metricLabel}>{r.channelLabel}</td>

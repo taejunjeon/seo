@@ -16,6 +16,7 @@ export type LeadingIndicatorSite = "biocom" | "thecleancoffee";
 export type LeadingIndicatorWindow = "1d" | "7d" | "14d" | "30d";
 export type LeadingIndicatorChannel =
   | "meta"
+  | "google_paid"
   | "youtube"
   | "naver_paid_or_brand"
   | "organic"
@@ -64,7 +65,22 @@ type LeadingIndicatorMetrics = {
   confirmed_purchases: number;
   confirmed_revenue_krw: number;
   p50_dwell_seconds: number | null;
+  dwell_known_sessions: number;
+  scroll_known_sessions: number;
+  scroll_unknown_sessions: number;
+  scroll90_sessions: number;
+  /**
+   * Backward-compatible alias. Same value as scroll90_known_rate_pct.
+   * Frontend should prefer explicit denominator fields below.
+   */
   scroll90_rate_pct: number | null;
+  scroll90_known_rate_pct: number | null;
+  scroll90_all_sessions_rate_pct: number | null;
+  scroll_denominator_note: string;
+  page_view_long_sessions: number;
+  page_view_long_rate_pct: number | null;
+  review_reach_sessions: number;
+  review_reach_rate_pct: number | null;
   begin_checkout_rate_pct: number | null;
   add_to_cart_rate_pct: number | null;
   coupon_event_rate_pct: number | null;
@@ -221,7 +237,15 @@ export const parseLeadingIndicatorsQuery = (query: {
     ),
     channel: parseEnum(
       query.channel,
-      ["meta", "youtube", "naver_paid_or_brand", "organic", "direct_or_unknown", "all"] as const,
+      [
+        "meta",
+        "google_paid",
+        "youtube",
+        "naver_paid_or_brand",
+        "organic",
+        "direct_or_unknown",
+        "all",
+      ] as const,
       DEFAULT_QUERY.channel,
       "channel",
     ),
@@ -332,6 +356,52 @@ const hasPaidNaverMarker = (entry: AttributionLedgerEntry): boolean => {
   );
 };
 
+const hasPaidGoogleMarker = (entry: AttributionLedgerEntry): boolean => {
+  const utmSource = normalizeText(entry.utmSource);
+  const utmMedium = normalizeText(entry.utmMedium);
+  const metadataBlob = normalizeText(JSON.stringify(entry.metadata ?? {}));
+  const blob = normalizeText(
+    [
+      entry.landing,
+      entry.referrer,
+      entry.utmSource,
+      entry.utmMedium,
+      entry.utmCampaign,
+      entry.utmTerm,
+      entry.utmContent,
+      metadataBlob,
+    ].join(" "),
+  );
+
+  const hasGoogleClickId =
+    Boolean(entry.gclid) ||
+    blob.includes("gclid=") ||
+    blob.includes("gbraid=") ||
+    blob.includes("wbraid=") ||
+    blob.includes("gad_source=");
+
+  const hasGoogleSource =
+    utmSource.includes("google") ||
+    utmSource.includes("adwords") ||
+    utmSource.includes("googleads");
+
+  const hasPaidMedium =
+    utmMedium.includes("cpc") ||
+    utmMedium.includes("paid") ||
+    utmMedium.includes("ppc") ||
+    utmMedium.includes("sem") ||
+    utmMedium.includes("display");
+
+  return (
+    hasGoogleClickId ||
+    (hasGoogleSource && hasPaidMedium) ||
+    blob.includes("google_ads") ||
+    blob.includes("googleads") ||
+    blob.includes("google paid") ||
+    blob.includes("google cpc")
+  );
+};
+
 const classifyChannel = (entry: AttributionLedgerEntry): LeadingIndicatorChannel => {
   const utmSource = normalizeText(entry.utmSource);
   const utmMedium = normalizeText(entry.utmMedium);
@@ -353,6 +423,10 @@ const classifyChannel = (entry: AttributionLedgerEntry): LeadingIndicatorChannel
     landing.includes("fbclid=")
   ) {
     return "meta";
+  }
+
+  if (hasPaidGoogleMarker(entry)) {
+    return "google_paid";
   }
 
   if (
@@ -452,6 +526,8 @@ type SessionAggregate = {
   confirmedRevenueKrw: number;
   maxVisibleSeconds: number | null;
   maxScrollPercent: number | null;
+  hasPageViewLong: boolean;
+  hasReviewReach: boolean;
   hasBeginCheckout: boolean;
   hasAddToCart: boolean;
   hasCouponEvent: boolean;
@@ -562,6 +638,24 @@ const isCouponEvent = (entry: AttributionLedgerEntry): boolean => {
   return text.includes("coupon") || text.includes("쿠폰");
 };
 
+const isPageViewLong = (entry: AttributionLedgerEntry): boolean => {
+  const eventName = normalizeText(stringValue(entry.metadata, ["eventName", "event_name", "semantic_touchpoint"]));
+  return eventName === "page_view_long" || eventName.includes("page_view_long");
+};
+
+const isReviewReach = (entry: AttributionLedgerEntry): boolean => {
+  const eventName = normalizeText(stringValue(entry.metadata, ["eventName", "event_name", "semantic_touchpoint"]));
+  const text = normalizeText(
+    [
+      eventName,
+      entry.landing,
+      entry.referrer,
+      stringValue(entry.metadata, ["page_location", "pageLocation", "url", "path"]),
+    ].join(" "),
+  );
+  return text.includes("review") || text.includes("리뷰") || text.includes("구매평");
+};
+
 const median = (values: number[]): number | null => {
   const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
   if (sorted.length === 0) return null;
@@ -581,6 +675,10 @@ const metricFor = (sessions: SessionAggregate[]): LeadingIndicatorMetrics => {
     .filter((value): value is number => value !== null);
   const scrollKnown = sessions.filter((session) => session.maxScrollPercent !== null);
   const scroll90 = scrollKnown.filter((session) => (session.maxScrollPercent ?? 0) >= 90).length;
+  const scroll90KnownRate = pct(scroll90, scrollKnown.length);
+  const scroll90AllSessionsRate = pct(scroll90, sessions.length);
+  const pageViewLong = sessions.filter((session) => session.hasPageViewLong).length;
+  const reviewReach = sessions.filter((session) => session.hasReviewReach).length;
 
   return {
     sessions: sessions.length,
@@ -589,7 +687,19 @@ const metricFor = (sessions: SessionAggregate[]): LeadingIndicatorMetrics => {
       sessions.reduce((sum, session) => sum + session.confirmedRevenueKrw, 0),
     ),
     p50_dwell_seconds: median(dwell),
-    scroll90_rate_pct: pct(scroll90, scrollKnown.length),
+    dwell_known_sessions: dwell.length,
+    scroll_known_sessions: scrollKnown.length,
+    scroll_unknown_sessions: Math.max(0, sessions.length - scrollKnown.length),
+    scroll90_sessions: scroll90,
+    scroll90_rate_pct: scroll90KnownRate,
+    scroll90_known_rate_pct: scroll90KnownRate,
+    scroll90_all_sessions_rate_pct: scroll90AllSessionsRate,
+    scroll_denominator_note:
+      "scroll90_rate_pct는 스크롤 값을 수집한 세션만 분모로 둔 기존 호환값입니다. 전체 세션 기준 비교에는 scroll90_all_sessions_rate_pct를 사용하세요.",
+    page_view_long_sessions: pageViewLong,
+    page_view_long_rate_pct: pct(pageViewLong, sessions.length),
+    review_reach_sessions: reviewReach,
+    review_reach_rate_pct: pct(reviewReach, sessions.length),
     begin_checkout_rate_pct: pct(
       sessions.filter((session) => session.hasBeginCheckout).length,
       sessions.length,
@@ -779,6 +889,8 @@ export const buildLeadingIndicatorsReport = (input: {
         confirmedRevenueKrw: 0,
         maxVisibleSeconds: null,
         maxScrollPercent: null,
+        hasPageViewLong: false,
+        hasReviewReach: false,
         hasBeginCheckout: false,
         hasAddToCart: false,
         hasCouponEvent: false,
@@ -793,6 +905,8 @@ export const buildLeadingIndicatorsReport = (input: {
     session.hasBeginCheckout = session.hasBeginCheckout || isBeginCheckout(entry);
     session.hasAddToCart = session.hasAddToCart || isAddToCart(entry);
     session.hasCouponEvent = session.hasCouponEvent || isCouponEvent(entry);
+    session.hasPageViewLong = session.hasPageViewLong || isPageViewLong(entry);
+    session.hasReviewReach = session.hasReviewReach || isReviewReach(entry);
 
     const dwell = visibleSeconds(entry);
     if (dwell !== null) {
@@ -839,6 +953,8 @@ export const buildLeadingIndicatorsReport = (input: {
     "non_buyer는 GA4 purchase 충돌과 pending/unknown/canceled payment_success 흔적이 없는 순수 비결제자입니다. GA4 purchase가 보이지만 VM confirmed purchase가 없는 세션은 ga4_purchase_conflict로 분리합니다.",
     "ga4_purchase_conflict는 GA4 purchase가 매출 정본이라는 뜻이 아니라, session/window mismatch 또는 VM confirmed bridge 누락 가능성을 따로 점검하라는 보류 bucket입니다.",
     "pending_payment_success는 VM payment_success 흔적은 있으나 confirmed로 닫히지 않은 세션입니다. 실제 미결제, 취소, sync 지연, bridge 누락 가능성이 있어 순수 비결제자 평균에 섞지 않습니다.",
+    "scroll90은 이제 두 분모를 함께 제공합니다. scroll90_known_rate_pct는 스크롤 값이 있는 세션 기준이고, scroll90_all_sessions_rate_pct는 전체 safe session 기준입니다.",
+    "page_view_long은 GTM 타이머 기반 오래 머문 방문 신호입니다. 바이오컴 문서 기준 타이머는 420초(7분)이며, site별 GTM 설정이 다를 수 있어 site 문서와 함께 확인해야 합니다.",
   ];
 
   return {
@@ -917,10 +1033,12 @@ const PRECOMPUTE_TARGETS: Array<Omit<LeadingIndicatorQuery, "freshness">> = [
   { site: "biocom", window: "1d", channel: "meta", dimension: "buyer_vs_leaver" },
   { site: "biocom", window: "7d", channel: "meta", dimension: "buyer_vs_leaver" },
   { site: "biocom", window: "7d", channel: "meta", dimension: "landing_bucket" },
+  { site: "biocom", window: "7d", channel: "google_paid", dimension: "buyer_vs_leaver" },
   { site: "biocom", window: "7d", channel: "all", dimension: "channel" },
   { site: "thecleancoffee", window: "1d", channel: "meta", dimension: "buyer_vs_leaver" },
   { site: "thecleancoffee", window: "7d", channel: "meta", dimension: "buyer_vs_leaver" },
   { site: "thecleancoffee", window: "7d", channel: "meta", dimension: "landing_bucket" },
+  { site: "thecleancoffee", window: "7d", channel: "google_paid", dimension: "buyer_vs_leaver" },
   { site: "thecleancoffee", window: "7d", channel: "all", dimension: "channel" },
 ];
 

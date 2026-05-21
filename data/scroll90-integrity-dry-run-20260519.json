@@ -1,0 +1,378 @@
+{
+  "generated_at_kst": "2026-05-19 23:49 KST",
+  "safety": {
+    "raw_identifier_output": false,
+    "external_platform_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write": 0,
+    "gtm_publish": 0
+  },
+  "sites": [
+    {
+      "site": "biocom",
+      "display_name": "바이오컴",
+      "window": {
+        "label": "latest_7d_ga4_daily_export",
+        "start_date": "2026-05-12",
+        "end_date": "2026-05-18"
+      },
+      "ga4_integrity": {
+        "sessions": 64063,
+        "sessions_with_scroll_event": 9108,
+        "sessions_with_percent_param": 9108,
+        "sessions_raw_percent90": 9108,
+        "sessions_assumed_scroll90": 9108,
+        "raw_scroll90_rate_pct": 14.22,
+        "assumed_scroll90_rate_pct": 14.22,
+        "scroll90_inflation_pct_point": 0,
+        "scroll_event_rate_pct": 14.22,
+        "page_view_long_sessions": 5287,
+        "page_view_long_rate_pct": 8.25,
+        "review_url_sessions": 15055,
+        "review_url_rate_pct": 23.5,
+        "review_event_sessions": 8,
+        "review_event_rate_pct": 0.01,
+        "p50_dwell_seconds": 0,
+        "p75_dwell_seconds": 1,
+        "view_item_rate_pct": 18.26,
+        "begin_checkout_rate_pct": 1.12,
+        "add_payment_info_rate_pct": 0.59
+      },
+      "ga4_event_distribution": [
+        {
+          "event_name": "view_item",
+          "events": 14174,
+          "sessions": 11696,
+          "percent_scrolled_0_events": 14174,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 2406
+        },
+        {
+          "event_name": "scroll",
+          "events": 12130,
+          "sessions": 9108,
+          "percent_scrolled_0_events": 0,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 12130,
+          "review_url_events": 172
+        },
+        {
+          "event_name": "page_view_long",
+          "events": 5727,
+          "sessions": 5287,
+          "percent_scrolled_0_events": 5727,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 699
+        },
+        {
+          "event_name": "begin_checkout",
+          "events": 1080,
+          "sessions": 719,
+          "percent_scrolled_0_events": 1080,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 0
+        },
+        {
+          "event_name": "add_payment_info",
+          "events": 703,
+          "sessions": 381,
+          "percent_scrolled_0_events": 703,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 1
+        },
+        {
+          "event_name": "purchase",
+          "events": 444,
+          "sessions": 416,
+          "percent_scrolled_0_events": 444,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 0
+        },
+        {
+          "event_name": "review_submit",
+          "events": 18,
+          "sessions": 8,
+          "percent_scrolled_0_events": 18,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 0
+        }
+      ],
+      "leading_indicators_live": {
+        "cohort": {
+          "safe_sessions": 429,
+          "ga4_joined_sessions": 420,
+          "buyer_sessions": 187,
+          "non_buyer_sessions": 210,
+          "confirmed_buyer_sessions": 187,
+          "checkout_non_buyer_sessions": 210,
+          "ga4_purchase_conflict_sessions": 0,
+          "pending_payment_success_sessions": 32,
+          "ga4_purchase_conflict_rate_pct": 0,
+          "confirmed_purchases": 188,
+          "confirmed_revenue_krw": 65436742,
+          "ledger_rows_scanned": 1587
+        },
+        "comparison": {
+          "buyer": {
+            "sessions": 187,
+            "confirmed_purchases": 188,
+            "confirmed_revenue_krw": 65436742,
+            "p50_dwell_seconds": 49,
+            "scroll90_rate_pct": 51.1,
+            "begin_checkout_rate_pct": 99.5,
+            "add_to_cart_rate_pct": 9.1,
+            "coupon_event_rate_pct": 0.5
+          },
+          "non_buyer": {
+            "sessions": 210,
+            "confirmed_purchases": 0,
+            "confirmed_revenue_krw": 0,
+            "p50_dwell_seconds": 32,
+            "scroll90_rate_pct": 30,
+            "begin_checkout_rate_pct": 89.5,
+            "add_to_cart_rate_pct": 1.9,
+            "coupon_event_rate_pct": 0
+          },
+          "confirmed_buyer": {
+            "sessions": 187,
+            "confirmed_purchases": 188,
+            "confirmed_revenue_krw": 65436742,
+            "p50_dwell_seconds": 49,
+            "scroll90_rate_pct": 51.1,
+            "begin_checkout_rate_pct": 99.5,
+            "add_to_cart_rate_pct": 9.1,
+            "coupon_event_rate_pct": 0.5
+          },
+          "checkout_non_buyer": {
+            "sessions": 210,
+            "confirmed_purchases": 0,
+            "confirmed_revenue_krw": 0,
+            "p50_dwell_seconds": 32,
+            "scroll90_rate_pct": 30,
+            "begin_checkout_rate_pct": 89.5,
+            "add_to_cart_rate_pct": 1.9,
+            "coupon_event_rate_pct": 0
+          },
+          "ga4_purchase_conflict": {
+            "sessions": 0,
+            "confirmed_purchases": 0,
+            "confirmed_revenue_krw": 0,
+            "p50_dwell_seconds": null,
+            "scroll90_rate_pct": null,
+            "begin_checkout_rate_pct": null,
+            "add_to_cart_rate_pct": null,
+            "coupon_event_rate_pct": null
+          },
+          "pending_payment_success": {
+            "sessions": 32,
+            "confirmed_purchases": 0,
+            "confirmed_revenue_krw": 0,
+            "p50_dwell_seconds": 48,
+            "scroll90_rate_pct": 42.9,
+            "begin_checkout_rate_pct": 100,
+            "add_to_cart_rate_pct": 6.3,
+            "coupon_event_rate_pct": 0
+          }
+        },
+        "headline": {
+          "decision": "확정 구매자와 순수 비결제자를 aggregate로 비교했습니다. GA4 purchase 충돌 0건과 결제확인 보류 32건은 별도 cohort로 분리했고, 체류시간 차이=17초, 스크롤90 차이=21.1%p 입니다.",
+          "buyer_dwell_delta_seconds": 17,
+          "buyer_scroll90_delta_pct": 21.1
+        },
+        "caveats": [
+          "이 응답은 raw 주문/결제/회원/click/session id를 반환하지 않는 aggregate 전용입니다.",
+          "GA4 BigQuery row-level dwell/scroll join은 P1 skeleton에서 아직 cross-check로만 표시하며, 매출 정본은 VM Cloud confirmed payment_success입니다.",
+          "non_buyer는 GA4 purchase 충돌과 pending/unknown/canceled payment_success 흔적이 없는 순수 비결제자입니다. GA4 purchase가 보이지만 VM confirmed purchase가 없는 세션은 ga4_purchase_conflict로 분리합니다.",
+          "ga4_purchase_conflict는 GA4 purchase가 매출 정본이라는 뜻이 아니라, session/window mismatch 또는 VM confirmed bridge 누락 가능성을 따로 점검하라는 보류 bucket입니다.",
+          "pending_payment_success는 VM payment_success 흔적은 있으나 confirmed로 닫히지 않은 세션입니다. 실제 미결제, 취소, sync 지연, bridge 누락 가능성이 있어 순수 비결제자 평균에 섞지 않습니다."
+        ]
+      }
+    },
+    {
+      "site": "thecleancoffee",
+      "display_name": "더클린커피",
+      "window": {
+        "label": "latest_7d_ga4_daily_export",
+        "start_date": "2026-05-12",
+        "end_date": "2026-05-18"
+      },
+      "ga4_integrity": {
+        "sessions": 3904,
+        "sessions_with_scroll_event": 2205,
+        "sessions_with_percent_param": 0,
+        "sessions_raw_percent90": 0,
+        "sessions_assumed_scroll90": 2205,
+        "raw_scroll90_rate_pct": 0,
+        "assumed_scroll90_rate_pct": 56.48,
+        "scroll90_inflation_pct_point": 56.48,
+        "scroll_event_rate_pct": 56.48,
+        "page_view_long_sessions": 545,
+        "page_view_long_rate_pct": 13.96,
+        "review_url_sessions": 1035,
+        "review_url_rate_pct": 26.51,
+        "review_event_sessions": 0,
+        "review_event_rate_pct": 0,
+        "p50_dwell_seconds": 14,
+        "p75_dwell_seconds": 90,
+        "view_item_rate_pct": 10.09,
+        "begin_checkout_rate_pct": 1.05,
+        "add_payment_info_rate_pct": 0
+      },
+      "ga4_event_distribution": [
+        {
+          "event_name": "scroll",
+          "events": 16540,
+          "sessions": 2205,
+          "percent_scrolled_0_events": 16540,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 1069
+        },
+        {
+          "event_name": "view_item",
+          "events": 837,
+          "sessions": 394,
+          "percent_scrolled_0_events": 837,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 0
+        },
+        {
+          "event_name": "page_view_long",
+          "events": 599,
+          "sessions": 545,
+          "percent_scrolled_0_events": 599,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 95
+        },
+        {
+          "event_name": "purchase",
+          "events": 378,
+          "sessions": 318,
+          "percent_scrolled_0_events": 378,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 0
+        },
+        {
+          "event_name": "begin_checkout",
+          "events": 57,
+          "sessions": 41,
+          "percent_scrolled_0_events": 57,
+          "percent_scrolled_1_49_events": 0,
+          "percent_scrolled_50_89_events": 0,
+          "percent_scrolled_90_plus_events": 0,
+          "review_url_events": 0
+        }
+      ],
+      "leading_indicators_live": {
+        "cohort": {
+          "safe_sessions": 107,
+          "ga4_joined_sessions": 105,
+          "buyer_sessions": 43,
+          "non_buyer_sessions": 62,
+          "confirmed_buyer_sessions": 43,
+          "checkout_non_buyer_sessions": 62,
+          "ga4_purchase_conflict_sessions": 0,
+          "pending_payment_success_sessions": 2,
+          "ga4_purchase_conflict_rate_pct": 0,
+          "confirmed_purchases": 43,
+          "confirmed_revenue_krw": 2514869,
+          "ledger_rows_scanned": 151
+        },
+        "comparison": {
+          "buyer": {
+            "sessions": 43,
+            "confirmed_purchases": 43,
+            "confirmed_revenue_krw": 2514869,
+            "p50_dwell_seconds": null,
+            "scroll90_rate_pct": null,
+            "begin_checkout_rate_pct": 97.7,
+            "add_to_cart_rate_pct": 0,
+            "coupon_event_rate_pct": 0
+          },
+          "non_buyer": {
+            "sessions": 62,
+            "confirmed_purchases": 0,
+            "confirmed_revenue_krw": 0,
+            "p50_dwell_seconds": null,
+            "scroll90_rate_pct": null,
+            "begin_checkout_rate_pct": 64.5,
+            "add_to_cart_rate_pct": 0,
+            "coupon_event_rate_pct": 0
+          },
+          "confirmed_buyer": {
+            "sessions": 43,
+            "confirmed_purchases": 43,
+            "confirmed_revenue_krw": 2514869,
+            "p50_dwell_seconds": null,
+            "scroll90_rate_pct": null,
+            "begin_checkout_rate_pct": 97.7,
+            "add_to_cart_rate_pct": 0,
+            "coupon_event_rate_pct": 0
+          },
+          "checkout_non_buyer": {
+            "sessions": 62,
+            "confirmed_purchases": 0,
+            "confirmed_revenue_krw": 0,
+            "p50_dwell_seconds": null,
+            "scroll90_rate_pct": null,
+            "begin_checkout_rate_pct": 64.5,
+            "add_to_cart_rate_pct": 0,
+            "coupon_event_rate_pct": 0
+          },
+          "ga4_purchase_conflict": {
+            "sessions": 0,
+            "confirmed_purchases": 0,
+            "confirmed_revenue_krw": 0,
+            "p50_dwell_seconds": null,
+            "scroll90_rate_pct": null,
+            "begin_checkout_rate_pct": null,
+            "add_to_cart_rate_pct": null,
+            "coupon_event_rate_pct": null
+          },
+          "pending_payment_success": {
+            "sessions": 2,
+            "confirmed_purchases": 0,
+            "confirmed_revenue_krw": 0,
+            "p50_dwell_seconds": null,
+            "scroll90_rate_pct": null,
+            "begin_checkout_rate_pct": 100,
+            "add_to_cart_rate_pct": 0,
+            "coupon_event_rate_pct": 0
+          }
+        },
+        "headline": {
+          "decision": "아직 확정 구매자와 순수 비결제자의 행동 차이를 확정할 만큼 row-level 행동 데이터가 부족합니다.",
+          "buyer_dwell_delta_seconds": null,
+          "buyer_scroll90_delta_pct": null
+        },
+        "caveats": [
+          "이 응답은 raw 주문/결제/회원/click/session id를 반환하지 않는 aggregate 전용입니다.",
+          "GA4 BigQuery row-level dwell/scroll join은 P1 skeleton에서 아직 cross-check로만 표시하며, 매출 정본은 VM Cloud confirmed payment_success입니다.",
+          "non_buyer는 GA4 purchase 충돌과 pending/unknown/canceled payment_success 흔적이 없는 순수 비결제자입니다. GA4 purchase가 보이지만 VM confirmed purchase가 없는 세션은 ga4_purchase_conflict로 분리합니다.",
+          "ga4_purchase_conflict는 GA4 purchase가 매출 정본이라는 뜻이 아니라, session/window mismatch 또는 VM confirmed bridge 누락 가능성을 따로 점검하라는 보류 bucket입니다.",
+          "pending_payment_success는 VM payment_success 흔적은 있으나 confirmed로 닫히지 않은 세션입니다. 실제 미결제, 취소, sync 지연, bridge 누락 가능성이 있어 순수 비결제자 평균에 섞지 않습니다."
+        ]
+      }
+    }
+  ]
+}

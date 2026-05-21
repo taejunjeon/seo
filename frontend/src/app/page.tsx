@@ -1745,6 +1745,7 @@ export default function Home() {
                 { href: "/npay", title: "네이버페이 주문형 분석", desc: "주문형→결제형 전환 리스크, 월별 NPay 매출, 상품 믹스, 손실 시나리오", icon: "🟢" },
                 { href: "/ads", title: "Meta 광고성과", desc: "Meta 광고 캠페인별 노출/클릭/비용/전환 실시간 모니터링", icon: "📊" },
                 { href: "/ads/google", title: "Google Ads 광고성과", desc: "Google Ads API live 전환 액션·ROAS 점검, CSV 수동 대조", icon: "📈" },
+                { href: "/ads/google-roas-report", title: "Google ROAS 정합성 보고서", desc: "KR 현재%, 액션플랜, 내부 결제완료 ROAS, NPay actual 보정을 한 화면에서 예산 판단", icon: "G" },
                 { href: "/ads/naver", title: "네이버 광고 분석", desc: "검색광고 API live · 캠페인별 광고비/CTR/ROAS · paid_naver 채널 매출과 분리", icon: "🟩" },
                 { href: "/total", title: "전체 매출·ROAS 판단", desc: "예산 판단 매출, 참고용 보정 매출, 보류 매출, 데이터 연결 경고", icon: "🧮" },
                 { href: "/ads/tiktok", title: "틱톡 광고성과", desc: "TikTok 유입 전환, pending 주문, ROAS 비교 가능 여부 점검", icon: "🎵" },
@@ -1752,6 +1753,7 @@ export default function Home() {
                 { href: "/ads/roas", title: "ROAS · iROAS", desc: "광고비 대비 매출(ROAS) + 증분 광고수익률(iROAS) 모니터링", icon: "📉" },
                 { href: "/tracking-integrity", title: "추적 코드 및 데이터 정합성", desc: "아임웹 헤더·푸터 추적 코드, CAPI, Meta ROAS 차이와 보정 로드맵", icon: "🧩" },
                 { href: "/ai-crm/conversion-funnel", title: "전환 퍼널 관제", desc: "유입·결제 시작·결제완료·Meta CAPI 전송 누락을 일별/주별로 확인 (광고/아임웹/CAPI 어디서 새는지 30초 안에 판단)", icon: "🔭" },
+                { href: "/ai-crm/capi-report", title: "Meta CAPI 개발 보고서", desc: "구매 신호 복구, CAPI 성공/누락, source confidence와 다음 개발 액션을 한 화면에서 확인", icon: "🧾" },
                 { href: "/ads/landing", title: "랜딩뷰 · Clarity", desc: "클릭→랜딩뷰 이탈 분석, UX 히트맵, 전환율 개선 인사이트", icon: "🔍" },
                 { href: "/solution", title: "솔루션 소개", desc: "Biocom Growth AI Agent — 분석에서 실행까지 연결하는 AI CRM", icon: "🧠" },
               ].map((card) => (

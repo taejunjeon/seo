@@ -81,6 +81,7 @@ type Ga4SessionRow = {
   engagement_seconds: number;
   max_scroll_percent: number;
   page_view_events: number;
+  page_view_long_events: number;
   view_item_events: number;
   add_to_cart_events: number;
   view_cart_events: number;
@@ -303,6 +304,7 @@ sessionized AS (
     SUM(CAST(engagement_time_msec AS FLOAT64)) / 1000 AS engagement_seconds,
     MAX(GREATEST(CAST(percent_scrolled AS INT64), CASE WHEN event_name = 'scroll' THEN 90 ELSE 0 END)) AS max_scroll_percent,
     COUNTIF(event_name = 'page_view') AS page_view_events,
+    COUNTIF(event_name = 'page_view_long') AS page_view_long_events,
     COUNTIF(event_name = 'view_item') AS view_item_events,
     COUNTIF(event_name = 'add_to_cart') AS add_to_cart_events,
     COUNTIF(event_name = 'view_cart') AS view_cart_events,
@@ -351,6 +353,7 @@ SELECT
   ROUND(engagement_seconds, 2) AS engagement_seconds,
   max_scroll_percent,
   page_view_events,
+  page_view_long_events,
   view_item_events,
   add_to_cart_events,
   view_cart_events,
@@ -432,6 +435,7 @@ const buildGa4SafeSessions = async (bq: bigquery_v2.Bigquery, config: SiteConfig
       engagement_seconds: num(row.engagement_seconds),
       max_scroll_percent: num(row.max_scroll_percent),
       page_view_events: num(row.page_view_events),
+      page_view_long_events: num(row.page_view_long_events),
       view_item_events: num(row.view_item_events),
       add_to_cart_events: num(row.add_to_cart_events),
       view_cart_events: num(row.view_cart_events),
@@ -814,6 +818,7 @@ const summarizeCohort = (
     p75_engagement_seconds: percentile(engagement, 75),
     scroll50_rate_pct: pct(joined.filter((item) => item.ga4.max_scroll_percent >= 50).length, joined.length),
     scroll90_rate_pct: pct(joined.filter((item) => item.ga4.max_scroll_percent >= 90).length, joined.length),
+    page_view_long_rate_pct: pct(joined.filter((item) => item.ga4.page_view_long_events > 0).length, joined.length),
     view_item_rate_pct: pct(joined.filter((item) => item.ga4.view_item_events > 0).length, joined.length),
     add_to_cart_rate_pct: pct(joined.filter((item) => item.ga4.add_to_cart_events > 0 || item.ga4.view_cart_events > 0).length, joined.length),
     begin_checkout_rate_pct: pct(joined.filter((item) => item.ga4.begin_checkout_events > 0).length, joined.length),
@@ -923,6 +928,7 @@ const behaviorRates = (joined: Array<{ vm: VmSafeSessionRow; ga4: Ga4SessionRow;
   ),
   scroll50_rate_pct: pct(joined.filter((item) => item.ga4.max_scroll_percent >= 50).length, joined.length),
   scroll90_rate_pct: pct(joined.filter((item) => item.ga4.max_scroll_percent >= 90).length, joined.length),
+  page_view_long_rate_pct: pct(joined.filter((item) => item.ga4.page_view_long_events > 0).length, joined.length),
   view_item_rate_pct: pct(joined.filter((item) => item.ga4.view_item_events > 0).length, joined.length),
   add_to_cart_or_view_cart_rate_pct: pct(
     joined.filter((item) => item.ga4.add_to_cart_events > 0 || item.ga4.view_cart_events > 0).length,
@@ -932,6 +938,245 @@ const behaviorRates = (joined: Array<{ vm: VmSafeSessionRow; ga4: Ga4SessionRow;
   add_payment_info_rate_pct: pct(joined.filter((item) => item.ga4.add_payment_info_events > 0).length, joined.length),
   ga4_purchase_event_rate_pct: pct(joined.filter((item) => item.ga4.purchase_events > 0).length, joined.length),
 });
+
+type JoinedVmGa4 = { vm: VmSafeSessionRow; ga4: Ga4SessionRow; join_method: string };
+
+const PAGE_LONG_THRESHOLD_SECONDS = [60, 120, 180, 240, 300, 360, 420, 600] as const;
+const PAGE_LONG_SOURCE_GROUPS = ["meta", "google_paid", "youtube"] as const;
+
+const sourceGroupLabel = (sourceGroup: string) => {
+  const labels: Record<string, string> = {
+    meta: "Meta 광고",
+    google_paid: "Google 유료",
+    youtube: "YouTube",
+  };
+  return labels[sourceGroup] ?? sourceGroup;
+};
+
+const siteLabel = (site: SiteKey) => (site === "biocom" ? "바이오컴" : "더클린커피");
+
+const minuteLabel = (seconds: number) => {
+  const minutes = seconds / 60;
+  return Number.isInteger(minutes) ? `${minutes}분` : `${seconds}초`;
+};
+
+const joinedRows = (rows: VmSafeSessionRow[], ga4ByKey: Map<string, Ga4SessionRow>): JoinedVmGa4[] =>
+  joinVmToGa4(rows, ga4ByKey).filter((item): item is JoinedVmGa4 => Boolean(item.ga4));
+
+const rateAboveSeconds = (joined: JoinedVmGa4[], seconds: number) =>
+  pct(joined.filter((item) => item.ga4.engagement_seconds >= seconds).length, joined.length);
+
+const countAboveSeconds = (joined: JoinedVmGa4[], seconds: number) =>
+  joined.filter((item) => item.ga4.engagement_seconds >= seconds).length;
+
+const classifyThresholdFit = (
+  recommended: { seconds: number; confirmed_rate_pct: number | null; dropped_rate_pct: number | null; lift_pct: number | null } | null,
+  currentSevenMinutes: { confirmed_rate_pct: number | null; dropped_rate_pct: number | null; lift_pct: number | null } | undefined,
+  confirmedJoined: number,
+  droppedJoined: number,
+) => {
+  if (confirmedJoined < 5 || droppedJoined < 5) return "insufficient_sample";
+  if (!recommended) return "no_threshold_available";
+  const sevenConfirmed = currentSevenMinutes?.confirmed_rate_pct ?? 0;
+  const sevenLift = currentSevenMinutes?.lift_pct ?? 0;
+  if (sevenConfirmed < 25) return "seven_minutes_too_strict_for_primary_indicator";
+  if (sevenLift >= 10 && sevenConfirmed >= 35) return "seven_minutes_usable_as_high_intent_indicator";
+  return recommended.seconds === 420 ? "seven_minutes_candidate" : "shorter_threshold_better_for_primary_indicator";
+};
+
+const summarizePageLongThresholdFit = (vmRows: VmSafeSessionRow[], ga4ByKey: Map<string, Ga4SessionRow>) =>
+  siteConfigs().flatMap((config) =>
+    PAGE_LONG_SOURCE_GROUPS.map((sourceGroup) => {
+      const siteRows = vmRows.filter((row) => row.site === config.site && row.source_group === sourceGroup);
+      const confirmed = siteRows.filter((row) => row.cohort === "confirmed_purchase");
+      const dropped = siteRows.filter((row) => row.cohort === "dropped_checkout");
+      const confirmedJoined = joinedRows(confirmed, ga4ByKey);
+      const droppedJoined = joinedRows(dropped, ga4ByKey);
+      const joinedAll = [...confirmedJoined, ...droppedJoined];
+      const thresholdRows = PAGE_LONG_THRESHOLD_SECONDS.map((seconds) => {
+        const confirmedAbove = countAboveSeconds(confirmedJoined, seconds);
+        const droppedAbove = countAboveSeconds(droppedJoined, seconds);
+        const confirmedRate = pct(confirmedAbove, confirmedJoined.length);
+        const droppedRate = pct(droppedAbove, droppedJoined.length);
+        return {
+          seconds,
+          label: minuteLabel(seconds),
+          confirmed_above_sessions: confirmedAbove,
+          dropped_above_sessions: droppedAbove,
+          confirmed_rate_pct: confirmedRate,
+          dropped_rate_pct: droppedRate,
+          lift_pct:
+            confirmedRate !== null && droppedRate !== null ? Number((confirmedRate - droppedRate).toFixed(2)) : null,
+          confirmed_coverage_pct: confirmedRate,
+          dropped_noise_pct: droppedRate,
+          precision_proxy_pct: pct(confirmedAbove, confirmedAbove + droppedAbove),
+        };
+      });
+      const ranked = [...thresholdRows]
+        .filter((row) => row.lift_pct !== null)
+        .sort((a, b) => {
+          const aQualified = (a.confirmed_rate_pct ?? 0) >= 35 && (a.lift_pct ?? -999) >= 10 ? 1 : 0;
+          const bQualified = (b.confirmed_rate_pct ?? 0) >= 35 && (b.lift_pct ?? -999) >= 10 ? 1 : 0;
+          return (
+            bQualified - aQualified ||
+            (b.lift_pct ?? -999) - (a.lift_pct ?? -999) ||
+            a.seconds - b.seconds
+          );
+        });
+      const recommended = ranked[0] ?? null;
+      const currentSevenMinutes = thresholdRows.find((row) => row.seconds === 420);
+      const recommendationStatus = classifyThresholdFit(
+        recommended,
+        currentSevenMinutes,
+        confirmedJoined.length,
+        droppedJoined.length,
+      );
+      return {
+        site: config.site,
+        site_label: config.displayName,
+        source_group: sourceGroup,
+        source_label: sourceGroupLabel(sourceGroup),
+        vm_safe_sessions: siteRows.length,
+        confirmed_vm_sessions: confirmed.length,
+        dropped_vm_sessions: dropped.length,
+        ga4_joined_sessions: joinedAll.length,
+        confirmed_ga4_joined_sessions: confirmedJoined.length,
+        dropped_ga4_joined_sessions: droppedJoined.length,
+        join_rate_pct: pct(joinedAll.length, siteRows.length),
+        confirmed_p50_seconds: percentile(
+          confirmedJoined.map((item) => item.ga4.engagement_seconds),
+          50,
+        ),
+        dropped_p50_seconds: percentile(
+          droppedJoined.map((item) => item.ga4.engagement_seconds),
+          50,
+        ),
+        confirmed_p75_seconds: percentile(
+          confirmedJoined.map((item) => item.ga4.engagement_seconds),
+          75,
+        ),
+        dropped_p75_seconds: percentile(
+          droppedJoined.map((item) => item.ga4.engagement_seconds),
+          75,
+        ),
+        ga4_page_view_long_event_rate_confirmed_pct: pct(
+          confirmedJoined.filter((item) => item.ga4.page_view_long_events > 0).length,
+          confirmedJoined.length,
+        ),
+        ga4_page_view_long_event_rate_dropped_pct: pct(
+          droppedJoined.filter((item) => item.ga4.page_view_long_events > 0).length,
+          droppedJoined.length,
+        ),
+        current_7min: currentSevenMinutes,
+        recommended_threshold_seconds: recommended?.seconds ?? null,
+        recommended_threshold_label: recommended ? minuteLabel(recommended.seconds) : null,
+        recommendation_status: recommendationStatus,
+        threshold_rows: thresholdRows,
+        interpretation:
+          recommendationStatus === "insufficient_sample"
+            ? "표본이 작아 이 채널만으로 기준 시간을 확정하지 않는다."
+            : recommendationStatus === "seven_minutes_too_strict_for_primary_indicator"
+              ? "7분은 너무 강한 기준이다. 초고의도 segment로는 유지하되 기본 선행지표는 더 짧은 기준을 써야 한다."
+              : recommendationStatus === "seven_minutes_usable_as_high_intent_indicator"
+                ? "7분은 구매자 쪽 비중과 차이가 충분해 high-intent 지표로 쓸 수 있다."
+                : "구매자/비결제자 차이 기준으로는 7분보다 짧은 기준이 기본 선행지표에 더 적합하다.",
+      };
+    }),
+  );
+
+const buildPageLongThresholdMarkdown = (payload: Record<string, unknown>) => {
+  const rows = payload.threshold_fit as Array<Record<string, unknown>>;
+  const percent = (value: unknown) => (value === null || value === undefined ? "" : `${value}%`);
+  const sec = (value: unknown) => (value === null || value === undefined ? "" : `${value}초`);
+  const lines: string[] = [];
+  lines.push("# 페이지 롱 뷰 기준 시간 Dry-run");
+  lines.push("");
+  lines.push(`작성 시각: ${payload.checked_at_kst}`);
+  lines.push("Lane: Green read-only");
+  lines.push("");
+  lines.push("```yaml");
+  lines.push("harness_preflight:");
+  lines.push("  common_harness_read:");
+  lines.push("    - AGENTS.md");
+  lines.push("    - harness/common/HARNESS_GUIDELINES.md");
+  lines.push("    - harness/common/AUTONOMY_POLICY.md");
+  lines.push("    - harness/common/REPORTING_TEMPLATE.md");
+  lines.push("  project_harness_read:");
+  lines.push("    - data/!data_inventory.md");
+  lines.push("    - harness/coffee-data/README.md");
+  lines.push("  lane: Green");
+  lines.push("  allowed_actions:");
+  lines.push("    - vm_cloud_sqlite_read_only_safe_hash");
+  lines.push("    - ga4_bigquery_read_only_safe_hash");
+  lines.push("    - local_aggregate_threshold_report");
+  lines.push("  forbidden_actions:");
+  lines.push("    - platform_send_or_upload");
+  lines.push("    - operating_db_write");
+  lines.push("    - vm_cloud_write_or_schema_migration");
+  lines.push("    - gtm_publish");
+  lines.push("    - raw_identifier_report_output");
+  lines.push("  source_window_freshness_confidence:");
+  lines.push("    source: VM Cloud SQLite + GA4 BigQuery daily export");
+  lines.push(`    window: ${WINDOW_HUMAN}`);
+  lines.push("    freshness: runtime query");
+  lines.push("    confidence: medium_high for threshold direction, medium for channel-level small samples");
+  lines.push("```");
+  lines.push("");
+  lines.push("## 이번에 가능해진 것");
+  lines.push("");
+  lines.push("7분을 감으로 고정하지 않고, 결제자와 비결제자의 실제 체류시간 차이로 후보 시간을 비교할 수 있게 됐다. 이 문서에서 `체류시간`은 사용자가 페이지에 머문 시간이고, `페이지 롱 뷰`는 오래 읽은 방문이라는 뜻이다.");
+  lines.push("");
+  lines.push("## 결론");
+  lines.push("");
+  lines.push("- 7분은 기본 선행지표라기보다 `초고의도 방문`을 보는 기준으로 유지하는 편이 안전하다.");
+  lines.push("- 구매 예고 신호를 넓게 잡으려면 3분 또는 5분 후보도 같이 비교해야 한다.");
+  lines.push("- 최종 확정은 site×채널별 표본이 충분한 곳부터 한다. 표본이 작은 YouTube/Google 일부 bucket은 전체 기준을 같이 참고한다.");
+  lines.push("");
+  lines.push("## 현재 확인된 설정");
+  lines.push("");
+  lines.push("- 바이오컴 문서 기준 `page_view_long` GTM 타이머는 `420000ms`, 즉 7분이다.");
+  lines.push("- 더클린커피도 `page_view_long` 이벤트 적재는 확인되어 있지만, GTM UI에서 정확한 타이머 초수는 한 번 더 확인하면 신뢰도가 high가 된다.");
+  lines.push("- GA4 이벤트 `page_view_long` 자체는 매출이 아니다. 오래 읽은 방문이라는 보조 신호다.");
+  lines.push("");
+  lines.push("## 채널별 추천 요약");
+  lines.push("");
+  lines.push("| 사이트 | 유입 | VM 세션 | GA4 연결 | 구매자 연결 | 비결제자 연결 | 구매자 p50 | 비결제자 p50 | 구매자 p75 | 비결제자 p75 | 현재 7분 구매자/비결제자 | 추천 기준 | 판정 |");
+  lines.push("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|");
+  for (const row of rows) {
+    const current = row.current_7min as Record<string, unknown> | undefined;
+    lines.push(
+      `| ${row.site_label} | ${row.source_label} | ${row.vm_safe_sessions} | ${percent(row.join_rate_pct)} | ${row.confirmed_ga4_joined_sessions} | ${row.dropped_ga4_joined_sessions} | ${sec(row.confirmed_p50_seconds)} | ${sec(row.dropped_p50_seconds)} | ${sec(row.confirmed_p75_seconds)} | ${sec(row.dropped_p75_seconds)} | ${percent(current?.confirmed_rate_pct)} / ${percent(current?.dropped_rate_pct)} | ${row.recommended_threshold_label ?? ""} | ${row.recommendation_status} |`,
+    );
+  }
+  lines.push("");
+  lines.push("## 후보 시간별 상세");
+  for (const row of rows) {
+    lines.push("");
+    lines.push(`### ${row.site_label} · ${row.source_label}`);
+    lines.push("");
+    lines.push(String(row.interpretation ?? ""));
+    lines.push("");
+    lines.push("| 기준 | 구매자 비중 | 비결제자 비중 | 차이 | 구매자 커버 | 비결제자 잡음 | 구매자/전체 후보 비중 |");
+    lines.push("|---|---:|---:|---:|---:|---:|---:|");
+    for (const threshold of (row.threshold_rows as Array<Record<string, unknown>> | undefined) ?? []) {
+      lines.push(
+        `| ${threshold.label} | ${percent(threshold.confirmed_rate_pct)} | ${percent(threshold.dropped_rate_pct)} | ${percent(threshold.lift_pct)} | ${percent(threshold.confirmed_coverage_pct)} | ${percent(threshold.dropped_noise_pct)} | ${percent(threshold.precision_proxy_pct)} |`,
+      );
+    }
+  }
+  lines.push("");
+  lines.push("## 운영 반영안");
+  lines.push("");
+  lines.push("1. 화면에서는 `페이지 롱 뷰`를 하나의 숫자로만 두지 말고 3단계로 보여준다.");
+  lines.push("   - 3분 이상: 관심 방문");
+  lines.push("   - 5분 이상: 강한 관심 방문");
+  lines.push("   - 7분 이상: 초고의도 방문");
+  lines.push("2. Meta/Google/YouTube 유입별로 결제자와 비결제자의 차이가 가장 큰 기준을 추천 기준으로 표시한다.");
+  lines.push("3. 표본이 5건 미만인 채널은 추천 기준을 확정하지 않고 `표본 부족`으로 표시한다.");
+  lines.push("4. 더클린커피 GTM의 정확한 page_view_long 타이머 초수는 GTM UI에서 확인해 문서와 화면에 site별로 분리한다.");
+  lines.push("");
+  return `${lines.join("\n").trimEnd()}\n`;
+};
 
 const allSafeKeys = (row: VmSafeSessionRow) =>
   row.safe_session_keys.length ? row.safe_session_keys : [row.safe_session_key].filter(Boolean);
@@ -1469,6 +1714,7 @@ const main = async () => {
   const coffeeChannelTruthTable = summarizeCoffeeTruthDimension("source_group", vmSafe.rows, ga4ByKey);
   const coffeeLandingTruthTable = summarizeCoffeeTruthDimension("landing_bucket", vmSafe.rows, ga4ByKey);
   const biocomMetaOnlyTruthTable = summarizeBiocomMetaOnlyBuyerLeaver(vmSafe.rows, ga4ByKey);
+  const pageLongThresholdFit = summarizePageLongThresholdFit(vmSafe.rows, ga4ByKey);
 
   const readiness = siteConfigs().map((config) => {
     const confirmed = cohortSummary.find((row) => row.site === config.site && row.cohort === "confirmed_purchase");
@@ -1544,6 +1790,17 @@ const main = async () => {
     "project",
     `biocom-meta-only-buyer-leaver-truth-table-${OUTPUT_DATE}.md`,
   );
+  const pageLongThresholdJsonPath = path.join(
+    REPO_ROOT,
+    "data",
+    "project",
+    `page-long-threshold-fit-dry-run-${OUTPUT_DATE}.json`,
+  );
+  const pageLongThresholdMdPath = path.join(
+    REPO_ROOT,
+    "project",
+    `page-long-threshold-fit-dry-run-${OUTPUT_DATE}.md`,
+  );
   const coffeeTruthPayload = {
     ok: true,
     checked_at_kst: payload.checked_at_kst,
@@ -1586,6 +1843,24 @@ const main = async () => {
     ],
     safety: payload.safety,
   };
+  const pageLongThresholdPayload = {
+    ok: true,
+    checked_at_kst: payload.checked_at_kst,
+    mode: "green_read_only_page_long_threshold_fit_dry_run",
+    source_window_freshness_confidence: {
+      ...payload.source_window_freshness_confidence,
+      confidence: "medium_high for direction; medium for small source buckets",
+    },
+    current_config: {
+      biocom_page_view_long_timer_seconds: 420,
+      thecleancoffee_page_view_long_timer_seconds: "needs_gtm_ui_confirmation",
+      interpretation:
+        "현재 7분은 오래 읽은 방문을 보는 강한 기준이다. 기본 선행지표로 쓸지는 결제자/비결제자 체류시간 차이로 판단한다.",
+    },
+    threshold_candidates_seconds: PAGE_LONG_THRESHOLD_SECONDS,
+    threshold_fit: pageLongThresholdFit,
+    safety: payload.safety,
+  };
   await fs.mkdir(path.dirname(jsonPath), { recursive: true });
   await fs.mkdir(path.dirname(mdPath), { recursive: true });
   await fs.writeFile(jsonPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
@@ -1594,6 +1869,8 @@ const main = async () => {
   await fs.writeFile(coffeeTruthMdPath, buildCoffeeTruthMarkdown(coffeeTruthPayload), "utf8");
   await fs.writeFile(biocomMetaOnlyJsonPath, `${JSON.stringify(biocomMetaOnlyPayload, null, 2)}\n`, "utf8");
   await fs.writeFile(biocomMetaOnlyMdPath, buildBiocomMetaOnlyMarkdown(biocomMetaOnlyPayload), "utf8");
+  await fs.writeFile(pageLongThresholdJsonPath, `${JSON.stringify(pageLongThresholdPayload, null, 2)}\n`, "utf8");
+  await fs.writeFile(pageLongThresholdMdPath, buildPageLongThresholdMarkdown(pageLongThresholdPayload), "utf8");
   console.log(
     JSON.stringify(
       {
@@ -1604,6 +1881,8 @@ const main = async () => {
         coffeeTruthMdPath,
         biocomMetaOnlyJsonPath,
         biocomMetaOnlyMdPath,
+        pageLongThresholdJsonPath,
+        pageLongThresholdMdPath,
         checked_at_kst: payload.checked_at_kst,
       },
       null,

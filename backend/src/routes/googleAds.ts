@@ -45,7 +45,20 @@ type DateRange = {
   endDate: string;
   startAt: string;
   endAt: string;
+  endExclusiveAt?: string;
   timezone: typeof KST_TIME_ZONE;
+  basis?: "payment_complete_time" | "paid_at_fallback";
+};
+
+type GoogleAdsClickIdHealthWindowKey = "last_1d" | "rolling_24h" | "last_7d" | "last_30d";
+
+type GoogleAdsClickIdHealthWindow = DateRange & {
+  key: GoogleAdsClickIdHealthWindowKey;
+  label: string;
+  windowDays: number | null;
+  windowHours: number | null;
+  isRolling: boolean;
+  basis: "payment_complete_time";
 };
 
 type OperationalLedgerChunk = {
@@ -264,7 +277,10 @@ type GoogleAdsClickIdHealthIntentRow = {
 };
 
 type GoogleAdsClickIdHealth = {
-  windowDays: number;
+  windowDays: number | null;
+  windowHours?: number | null;
+  windowKey?: GoogleAdsClickIdHealthWindowKey;
+  windowLabel?: string;
   dateRange: DateRange;
   generatedAt: string;
   source: "operational_db_and_vm_cloud_sqlite";
@@ -604,6 +620,11 @@ const shiftIsoDate = (date: string, days: number) => {
   return utc.toISOString().slice(0, 10);
 };
 
+const toKstIsoWithOffset = (date: Date) =>
+  new Date(date.getTime() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .replace("Z", "+09:00");
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const resolvePresetDateRange = (preset: DatePreset): DateRange => {
@@ -616,7 +637,66 @@ const resolvePresetDateRange = (preset: DatePreset): DateRange => {
     endDate,
     startAt: `${startDate}T00:00:00.000+09:00`,
     endAt: `${endDate}T23:59:59.999+09:00`,
+    endExclusiveAt: `${shiftIsoDate(endDate, 1)}T00:00:00.000+09:00`,
     timezone: KST_TIME_ZONE,
+    basis: "paid_at_fallback",
+  };
+};
+
+const ALLOWED_CLICK_ID_HEALTH_WINDOWS: GoogleAdsClickIdHealthWindowKey[] = [
+  "last_1d",
+  "rolling_24h",
+  "last_7d",
+  "last_30d",
+];
+
+const parseClickIdHealthWindowKey = (value: unknown): GoogleAdsClickIdHealthWindowKey | null => {
+  if (value == null || value === "") return "last_1d";
+  if (typeof value !== "string") return null;
+  return (ALLOWED_CLICK_ID_HEALTH_WINDOWS as string[]).includes(value)
+    ? (value as GoogleAdsClickIdHealthWindowKey)
+    : null;
+};
+
+const resolveClickIdHealthWindow = (
+  key: GoogleAdsClickIdHealthWindowKey,
+  now = new Date(),
+): GoogleAdsClickIdHealthWindow => {
+  const today = kstDate(now);
+  if (key === "rolling_24h") {
+    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    return {
+      key,
+      label: "최근 24시간(조회 시각 기준)",
+      startDate: kstDate(start),
+      endDate: kstDate(now),
+      startAt: toKstIsoWithOffset(start),
+      endAt: toKstIsoWithOffset(now),
+      endExclusiveAt: toKstIsoWithOffset(now),
+      timezone: KST_TIME_ZONE,
+      windowDays: null,
+      windowHours: 24,
+      isRolling: true,
+      basis: "payment_complete_time",
+    };
+  }
+
+  const days = key === "last_1d" ? 1 : key === "last_7d" ? 7 : 30;
+  const startDate = shiftIsoDate(today, -days);
+  const endDate = shiftIsoDate(today, -1);
+  return {
+    key,
+    label: key === "last_1d" ? "전일 완료일 기준" : `최근 ${days}일 완료일 기준`,
+    startDate,
+    endDate,
+    startAt: `${startDate}T00:00:00.000+09:00`,
+    endAt: `${endDate}T23:59:59.999+09:00`,
+    endExclusiveAt: `${today}T00:00:00.000+09:00`,
+    timezone: KST_TIME_ZONE,
+    windowDays: days,
+    windowHours: null,
+    isRolling: false,
+    basis: "payment_complete_time",
   };
 };
 
@@ -2919,7 +2999,64 @@ const readGoogleClickIdHealthOrders = async (
     ORDER BY "paidAt" ASC
     LIMIT 10000
     `,
-    [range.startAt, `${shiftIsoDate(range.endDate, 1)}T00:00:00.000+09:00`],
+    [range.startAt, range.endExclusiveAt ?? `${shiftIsoDate(range.endDate, 1)}T00:00:00.000+09:00`],
+  );
+  return rows;
+};
+
+const readGoogleClickIdHealthOrdersForWindow = async (
+  window: GoogleAdsClickIdHealthWindow,
+): Promise<GoogleAdsClickIdHealthOrderRow[]> => {
+  if (!isDatabaseConfigured()) return [];
+  const { rows } = await queryPg<GoogleAdsClickIdHealthOrderRow>(
+    `
+    WITH raw AS (
+      SELECT
+        order_number::text AS order_number,
+        COALESCE(NULLIF(TRIM(raw_data ->> 'channelOrderNo'), ''), '') AS channel_order_no,
+        COALESCE(NULLIF(TRIM(payment_method::text), ''), '(blank)') AS payment_method,
+        COALESCE(NULLIF(TRIM(payment_status::text), ''), '(blank)') AS payment_status,
+        CASE
+          WHEN TRIM(COALESCE(payment_complete_time::text, '')) ~ '^\\d{4}-\\d{2}-\\d{2}'
+            THEN payment_complete_time::timestamptz
+          ELSE NULL
+        END AS paid_at,
+        NULLIF(final_order_amount, 0)::numeric AS final_order_amount,
+        NULLIF(paid_price, 0)::numeric AS paid_price,
+        NULLIF(total_price, 0)::numeric AS total_price,
+        COALESCE(NULLIF(total_refunded_price, 0), 0)::numeric AS total_refunded_price,
+        COALESCE(NULLIF(cancellation_reason::text, ''), '') AS cancellation_reason,
+        COALESCE(NULLIF(return_reason::text, ''), '') AS return_reason
+      FROM public.tb_iamweb_users
+      WHERE order_number IS NOT NULL
+    ),
+    order_level AS (
+      SELECT
+        order_number AS "orderNumber",
+        MAX(channel_order_no) AS "channelOrderNo",
+        MIN(paid_at) AS "paidAt",
+        MAX(payment_method) AS "paymentMethod",
+        MAX(payment_status) AS "paymentStatus",
+        COALESCE(MAX(final_order_amount), SUM(COALESCE(paid_price, total_price, 0)), MAX(total_price), 0)::numeric AS "orderAmount",
+        COALESCE(MAX(total_refunded_price), 0)::numeric AS "refundAmount",
+        BOOL_OR(cancellation_reason NOT IN ('', 'nan', 'null')) AS "hasCancel",
+        BOOL_OR(return_reason NOT IN ('', 'nan', 'null')) AS "hasReturn",
+        BOOL_OR(payment_method ~* '(naver|npay)' OR payment_method LIKE '%네이버%' OR channel_order_no <> '') AS "isNpay"
+      FROM raw
+      GROUP BY order_number
+    )
+    SELECT *
+    FROM order_level
+    WHERE "paidAt" >= $1::timestamptz
+      AND "paidAt" < $2::timestamptz
+      AND "orderAmount" > 0
+      AND "paymentStatus" = 'PAYMENT_COMPLETE'
+      AND "hasCancel" = false
+      AND "hasReturn" = false
+    ORDER BY "paidAt" ASC
+    LIMIT 10000
+    `,
+    [window.startAt, window.endExclusiveAt ?? window.endAt],
   );
   return rows;
 };
@@ -3040,13 +3177,17 @@ const classifyClickIdHealthPaymentMethod = (
   return order.paymentMethod ? "homepage" : "unknown";
 };
 
-const buildGoogleAdsClickIdHealth = async (
-  datePreset: DatePreset,
-  sourceFreshness: OperationalDbFreshness,
-): Promise<GoogleAdsClickIdHealth> => {
-  const dateRange = resolvePresetDateRange(datePreset);
-  const windowDays = datePresetWindowDays(datePreset);
-  const orders = await readGoogleClickIdHealthOrders(dateRange);
+const summarizeGoogleAdsClickIdHealth = (params: {
+  orders: GoogleAdsClickIdHealthOrderRow[];
+  dateRange: DateRange;
+  sourceFreshness: OperationalDbFreshness;
+  windowDays: number | null;
+  windowHours?: number | null;
+  windowKey?: GoogleAdsClickIdHealthWindowKey;
+  windowLabel?: string;
+  caveats?: string[];
+}): GoogleAdsClickIdHealth => {
+  const { orders, dateRange, sourceFreshness, windowDays, windowHours, windowKey, windowLabel } = params;
   const ledger = buildGoogleClickIdLedgerIndex();
   const intents = buildGoogleClickIdIntentIndex();
   const clickIdBreakdown = { gclid: 0, gbraid: 0, wbraid: 0 };
@@ -3089,6 +3230,9 @@ const buildGoogleAdsClickIdHealth = async (
   const missingGoogleClickId = Math.max(0, orderCount - withGoogleClickId);
   return {
     windowDays,
+    ...(windowHours !== undefined ? { windowHours } : {}),
+    ...(windowKey ? { windowKey } : {}),
+    ...(windowLabel ? { windowLabel } : {}),
     dateRange,
     generatedAt: new Date().toISOString(),
     source: "operational_db_and_vm_cloud_sqlite",
@@ -3113,12 +3257,47 @@ const buildGoogleAdsClickIdHealth = async (
       missingAttributionVmEvidence,
     },
     sourceFreshness,
-    caveats: [
+    caveats: params.caveats ?? [
       "no-send/read-only 집계다. Google Ads conversion upload 후보가 아니다.",
       "주문/결제 정본은 운영DB tb_iamweb_users, 광고 클릭 evidence는 VM Cloud SQLite attribution/intent 원장을 분리해서 본다.",
       "npay_intent fuzzy 매칭은 포함하지 않고 matched_order_no 또는 payment_success exact evidence만 센다. 따라서 upload 판단 전 별도 no-send builder 재실행이 필요하다.",
     ],
   };
+};
+
+const buildGoogleAdsClickIdHealth = async (
+  datePreset: DatePreset,
+  sourceFreshness: OperationalDbFreshness,
+): Promise<GoogleAdsClickIdHealth> => {
+  const dateRange = resolvePresetDateRange(datePreset);
+  const orders = await readGoogleClickIdHealthOrders(dateRange);
+  return summarizeGoogleAdsClickIdHealth({
+    orders,
+    dateRange,
+    sourceFreshness,
+    windowDays: datePresetWindowDays(datePreset),
+  });
+};
+
+const buildGoogleAdsClickIdHealthForWindow = async (
+  window: GoogleAdsClickIdHealthWindow,
+  sourceFreshness: OperationalDbFreshness,
+): Promise<GoogleAdsClickIdHealth> => {
+  const orders = await readGoogleClickIdHealthOrdersForWindow(window);
+  return summarizeGoogleAdsClickIdHealth({
+    orders,
+    dateRange: window,
+    sourceFreshness,
+    windowDays: window.windowDays,
+    windowHours: window.windowHours,
+    windowKey: window.key,
+    windowLabel: window.label,
+    caveats: [
+      "no-send/read-only 집계다. Google Ads conversion upload 후보가 아니다.",
+      "분모는 운영DB tb_iamweb_users payment_complete_time 기준 실제 결제완료 주문이다.",
+      "분자는 VM Cloud attribution/intent 원장의 exact Google click id evidence만 센다. fuzzy time-window 매칭은 제외한다.",
+    ],
+  });
 };
 
 const emptyGoogleCampaignMatchHealth = (
@@ -3469,6 +3648,57 @@ export const createGoogleAdsRouter = () => {
       res.status(500).json({
         ok: false,
         error: error instanceof Error ? error.message : "Google Ads status check failed",
+      });
+    }
+  });
+
+  router.get("/api/google-ads/click-id-health", async (req: Request, res: Response) => {
+    try {
+      const site = typeof req.query.site === "string" && req.query.site.trim()
+        ? req.query.site.trim()
+        : "biocom";
+      if (site !== "biocom") {
+        res.status(400).json({
+          ok: false,
+          error: "unsupported_site",
+          allowedSites: ["biocom"],
+        });
+        return;
+      }
+
+      const windowKey = parseClickIdHealthWindowKey(req.query.window);
+      if (!windowKey) {
+        res.status(400).json({
+          ok: false,
+          error: "unsupported_window",
+          allowedWindows: ALLOWED_CLICK_ID_HEALTH_WINDOWS,
+        });
+        return;
+      }
+
+      const window = resolveClickIdHealthWindow(windowKey);
+      const operationalDbFreshness = await buildOperationalDbFreshness();
+      const health = await buildGoogleAdsClickIdHealthForWindow(window, operationalDbFreshness);
+
+      res.json({
+        ok: true,
+        fetchedAt: new Date().toISOString(),
+        site,
+        health,
+        invariants: {
+          uploadCandidateCount: 0,
+          sendCandidateCount: 0,
+          externalSendCount: 0,
+          operationalDbWrite: 0,
+          vmCloudWrite: 0,
+          rawClickIdInResponse: false,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: "google_ads_click_id_health_error",
+        message: error instanceof Error ? error.message : "Google Ads click id health failed",
       });
     }
   });
