@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "folder": "gptconfirm/gpt0515-29-leading-indicators-deploy-google-paid-audit",
+  "created_at_kst": "2026-05-20",
+  "mode": "yellow_frontend_deploy_plus_green_read_only_source_audit",
+  "files": [
+    "00-result-report.md",
+    "manifest.json"
+  ],
+  "external_send": 0,
+  "gtm_publish": 0,
+  "operating_db_write": 0,
+  "vm_cloud_schema_migration": 0,
+  "raw_identifier_output": 0
+}

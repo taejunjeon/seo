@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-05-21T03:14:35.493Z",
+  "mode": "apply_workspace_update",
+  "backup": {
+    "jsonPath": "/Users/vibetj/coding/seo/data/gtm-paid-click-intent-tag279-backup-20260521T031433Z.json",
+    "htmlPath": "/Users/vibetj/coding/seo/data/gtm-paid-click-intent-tag279-backup-20260521T031433Z.html",
+    "updatedHtmlPath": "/Users/vibetj/coding/seo/data/gtm-paid-click-intent-tag279-v2-20260521T031433Z.html",
+    "oldHtmlSha256": "c3cdfd9f4fd9991bb912c5fa10b14d0646e13ce76fb5a6599474b5b20de19f7d",
+    "newHtmlSha256": "d6f5ad8158658a75faab13ec207fe398911ecbb81172b311f128572e2bc283fe"
+  },
+  "container": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "publicId": "GTM-W2Z6PHN",
+    "liveVersionId": "142",
+    "liveVersionName": "paid_click_intent_v1_receiver_20260506T150218Z"
+  },
+  "target": {
+    "tag": {
+      "tagId": "279",
+      "name": "codex_paid_click_intent_v1_receiver_no_send",
+      "type": "html",
+      "fingerprint": "1778079744829",
+      "firingTriggerId": [
+        "278"
+      ],
+      "blockingTriggerId": [],
+      "notes": "Mode B. Stores Google click id in browser storage and calls no-write/no-send receiver only. No conversion send."
+    },
+    "trigger": {
+      "triggerId": "278",
+      "name": "codex_paid_click_intent_v1_all_pages_guarded",
+      "type": "pageview",
+      "notes": "All Pages trigger. Client-side guard only sends receiver payload when Google click id exists; admin/internal paths are skipped."
+    }
+  },
+  "invariants": {
+    "existingTagModifiedInFreshWorkspaceOnly": true,
+    "triggerIdUnchanged": true,
+    "receiverUrlUnchanged": true,
+    "storageKeyUnchanged": true,
+    "sentKeyUnchanged": true,
+    "noSubmitCreateVersionPublish": true,
+    "noPlatformSend": true
+  },
+  "workspace": {
+    "workspaceId": "168",
+    "name": "codex_paid_click_intent_gad_campaignid_preview_20260521T031433Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/168",
+    "fingerprint": "1779333278624"
+  },
+  "updatedTag": {
+    "tagId": "279",
+    "name": "codex_paid_click_intent_v1_receiver_no_send",
+    "type": "html",
+    "fingerprint": "1779333281031",
+    "firingTriggerId": [
+      "278"
+    ],
+    "blockingTriggerId": [],
+    "notes": "Mode B. Stores Google click id in browser storage and calls no-write/no-send receiver only. No conversion send.\n2026-05-21 Codex Preview: preserve gad_campaignid/gad_source in paid click evidence and refresh landing_url on new Google evidence. No conversion send."
+  },
+  "workspaceStatus": {
+    "workspaceChangeCount": 1,
+    "mergeConflictCount": 0,
+    "changes": [
+      {
+        "changeStatus": "updated",
+        "tag": {
+          "tagId": "279",
+          "name": "codex_paid_click_intent_v1_receiver_no_send",
+          "type": "html",
+          "fingerprint": "1779333281031",
+          "firingTriggerId": [
+            "278"
+          ],
+          "blockingTriggerId": [],
+          "notes": "Mode B. Stores Google click id in browser storage and calls no-write/no-send receiver only. No conversion send.\n2026-05-21 Codex Preview: preserve gad_campaignid/gad_source in paid click evidence and refresh landing_url on new Google evidence. No conversion send."
+        },
+        "trigger": null
+      }
+    ]
+  }
+}

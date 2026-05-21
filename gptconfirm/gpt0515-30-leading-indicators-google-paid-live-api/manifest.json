@@ -1,0 +1,39 @@
+{
+  "package": "gpt0515-30-leading-indicators-google-paid-live-api",
+  "created_at_kst": "2026-05-20 13:31:28 KST",
+  "lane": "Yellow deploy + Green read-only audit",
+  "files": [
+    "00-result-report.md",
+    "01-google-paid-api-deploy.md",
+    "02-thecleancoffee-google-landing-param-audit.md",
+    "manifest.json"
+  ],
+  "changed_files": [
+    "backend/src/leadingIndicators.ts"
+  ],
+  "deploy": {
+    "vm_cloud": true,
+    "backup_dir": "/home/biocomkr_sns/seo/repo/.deploy-backups/leading-indicators-google-paid-20260520132126",
+    "service": "seo-backend",
+    "manual_platform_send": 0,
+    "gtm_publish": 0,
+    "operating_db_write": 0,
+    "vm_schema_migration": 0
+  },
+  "validation": {
+    "local_typecheck": "PASS",
+    "local_build": "PASS",
+    "remote_build": "PASS",
+    "api_smoke": "PASS",
+    "json_parse": "PASS",
+    "git_diff_check": "PASS",
+    "harness_preflight_strict": "PASS",
+    "raw_identifier_scan": "PASS"
+  },
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud leading-indicators API + VM Cloud SQLite",
+    "window": "leadingIndicators 7d; thecleancoffee site_landing 7d; attribution/paid_click 30d",
+    "freshness_kst": "2026-05-20 13:21-13:31",
+    "confidence": "high for API availability; medium-high for thecleancoffee Google paid evidence absence"
+  }
+}
