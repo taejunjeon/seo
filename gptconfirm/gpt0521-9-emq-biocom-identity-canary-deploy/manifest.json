@@ -1,0 +1,35 @@
+{
+  "created_at_kst": "2026-05-21 12:40",
+  "folder": "gptconfirm/gpt0521-9-emq-biocom-identity-canary-deploy",
+  "purpose": "Deploy biocom-only Meta CAPI identity enrichment canary to VM Cloud",
+  "lane": "Yellow",
+  "files": [
+    "00-result-report.md",
+    "01-deploy-and-env-result.md",
+    "02-postcheck-monitoring.md",
+    "manifest.json"
+  ],
+  "deployed_files": [
+    "backend/src/env.ts",
+    "backend/src/metaCapi.ts"
+  ],
+  "vm_backup": "/home/biocomkr_sns/seo/repo/backend/_deploy-backup-20260521-emq-identity-canary",
+  "meta_send_or_backfill": false,
+  "manual_purchase_send": false,
+  "browser_purchase_enabled": false,
+  "event_id_hash_enabled": false,
+  "email_enabled": false,
+  "site_allowlist": [
+    "biocom"
+  ],
+  "postcheck": {
+    "backend_typecheck": "pass",
+    "backend_build": "pass",
+    "health_http_200": true,
+    "biocom_presence_records": 8,
+    "biocom_ph_true": 2,
+    "biocom_external_id_true": 2,
+    "coffee_ph_true": 0,
+    "coffee_external_id_true": 0
+  }
+}

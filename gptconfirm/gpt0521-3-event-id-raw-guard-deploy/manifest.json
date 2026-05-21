@@ -1,0 +1,18 @@
+{
+  "package": "gpt0521-3-event-id-raw-guard-deploy",
+  "created_at_kst": "2026-05-21",
+  "scope": "Meta CAPI event_id raw guard deploy",
+  "files": [
+    "00-result-report.md",
+    "01-event-id-dedup-review.md",
+    "manifest.json"
+  ],
+  "code_changes": [
+    "backend/src/env.ts",
+    "backend/src/metaCapi.ts"
+  ],
+  "raw_identifier_output": false,
+  "meta_send": false,
+  "gtm_publish": false,
+  "operating_db_write": false
+}

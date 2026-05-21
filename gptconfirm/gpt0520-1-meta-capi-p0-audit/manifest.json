@@ -1,0 +1,31 @@
+{
+  "package": "gpt0520-1-meta-capi-p0-audit",
+  "created_at_kst": "2026-05-20",
+  "lane": "Green",
+  "site_scope": ["biocom", "thecleancoffee"],
+  "primary_site": "biocom",
+  "primary_goal": "Meta CAPI P0 current missing audit",
+  "external_send_count": 0,
+  "vm_deploy_count": 0,
+  "production_db_write_count": 0,
+  "gtm_publish_count": 0,
+  "raw_identifier_output": false,
+  "files": [
+    "00-result-report.md",
+    "01-live-capi-p0-audit.md",
+    "02-current-missing-root-cause.md",
+    "03-next-diagnostic-patch-plan.md",
+    "manifest.json"
+  ],
+  "code_artifacts": [
+    "backend/scripts/meta-capi-current-missing-diagnostic-20260520.ts"
+  ],
+  "summary": {
+    "biocom_rolling_24h_confirmed_orders": 49,
+    "biocom_rolling_24h_capi_success": 47,
+    "biocom_current_missing_count": 2,
+    "biocom_current_missing_amount_krw": 691400,
+    "coffee_rolling_24h_confirmed_orders": 18,
+    "coffee_rolling_24h_capi_success": 18
+  }
+}

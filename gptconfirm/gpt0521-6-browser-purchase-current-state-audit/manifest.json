@@ -1,0 +1,28 @@
+{
+  "package": "gpt0521-6-browser-purchase-current-state-audit",
+  "created_at_kst": "2026-05-21",
+  "lane": "Green",
+  "purpose": "Define Browser Purchase and verify current Server CAPI eventID state without firing Meta events",
+  "files": [
+    "00-result-report.md",
+    "01-browser-purchase-verification-procedure.md",
+    "02-server-capi-eventid-sample-audit.md",
+    "manifest.json"
+  ],
+  "source": [
+    "VM Cloud /api/meta/capi/log aggregate only",
+    "backend/src/metaCapi.ts",
+    "backend/src/routes/attribution.ts",
+    "gptconfirm/gpt0521-4-browser-safe-event-id-design",
+    "gptconfirm/gpt0521-5-browser-capi-eventid-audit"
+  ],
+  "safety": {
+    "meta_send": 0,
+    "browser_purchase_live_fire": 0,
+    "gtm_publish": 0,
+    "imweb_header_footer_save": 0,
+    "vm_deploy_restart": 0,
+    "operating_db_write": 0,
+    "raw_identifier_output": 0
+  }
+}

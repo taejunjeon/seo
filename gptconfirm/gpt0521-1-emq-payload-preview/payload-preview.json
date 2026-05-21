@@ -1,0 +1,141 @@
+{
+  "generated_at_utc": "2026-05-20T16:09:50.067565+00:00",
+  "generated_at_kst": "2026-05-21 01:09 KST",
+  "raw_identifier_output": false,
+  "mode": "no_send_payload_preview",
+  "external_send": false,
+  "windows": {
+    "24h": {
+      "sites": {
+        "biocom": {
+          "confirmed_candidates": 42,
+          "send_log": {
+            "success": 41,
+            "failed": 0,
+            "events_received": 41
+          },
+          "current_user_data_presence_counts": {
+            "client_ip_address": 42,
+            "client_user_agent": 42,
+            "fbp": 41,
+            "fbc": 19,
+            "em": 0,
+            "ph": 0,
+            "external_id": 0
+          },
+          "no_send_preview_presence_counts": {
+            "ph_from_imweb_orderer_call": 42,
+            "external_id_from_imweb_member_hmac": 42
+          },
+          "candidate_rates_pct": {
+            "ph_preview": 100.0,
+            "external_id_preview": 100.0,
+            "current_fbc": 45.24,
+            "current_fbp": 97.62
+          }
+        },
+        "thecleancoffee": {
+          "confirmed_candidates": 15,
+          "send_log": {
+            "success": 15,
+            "failed": 0,
+            "events_received": 15
+          },
+          "current_user_data_presence_counts": {
+            "client_ip_address": 15,
+            "client_user_agent": 15,
+            "fbp": 15,
+            "fbc": 5,
+            "em": 0,
+            "ph": 0,
+            "external_id": 0
+          },
+          "no_send_preview_presence_counts": {
+            "ph_from_imweb_orderer_call": 15,
+            "external_id_from_imweb_member_hmac": 15
+          },
+          "candidate_rates_pct": {
+            "ph_preview": 100.0,
+            "external_id_preview": 100.0,
+            "current_fbc": 33.33,
+            "current_fbp": 100.0
+          }
+        }
+      }
+    },
+    "7d": {
+      "sites": {
+        "biocom": {
+          "confirmed_candidates": 369,
+          "send_log": {
+            "success": 353,
+            "failed": 0,
+            "events_received": 353
+          },
+          "current_user_data_presence_counts": {
+            "client_ip_address": 369,
+            "client_user_agent": 369,
+            "fbp": 363,
+            "fbc": 171,
+            "em": 0,
+            "ph": 0,
+            "external_id": 0
+          },
+          "no_send_preview_presence_counts": {
+            "ph_from_imweb_orderer_call": 369,
+            "external_id_from_imweb_member_hmac": 369
+          },
+          "candidate_rates_pct": {
+            "ph_preview": 100.0,
+            "external_id_preview": 100.0,
+            "current_fbc": 46.34,
+            "current_fbp": 98.37
+          }
+        },
+        "thecleancoffee": {
+          "confirmed_candidates": 173,
+          "send_log": {
+            "success": 172,
+            "failed": 0,
+            "events_received": 172
+          },
+          "current_user_data_presence_counts": {
+            "client_ip_address": 173,
+            "client_user_agent": 173,
+            "fbp": 173,
+            "fbc": 41,
+            "em": 0,
+            "ph": 0,
+            "external_id": 0
+          },
+          "no_send_preview_presence_counts": {
+            "ph_from_imweb_orderer_call": 173,
+            "external_id_from_imweb_member_hmac": 173
+          },
+          "candidate_rates_pct": {
+            "ph_preview": 100.0,
+            "external_id_preview": 100.0,
+            "current_fbc": 23.7,
+            "current_fbp": 100.0
+          }
+        }
+      }
+    }
+  },
+  "sanitized_payload_shape": {
+    "event_name": "Purchase",
+    "user_data": {
+      "client_ip_address": "present_or_absent",
+      "client_user_agent": "present_or_absent",
+      "fbp": "present_or_absent",
+      "fbc": "present_or_absent",
+      "ph": "sha256_normalized_phone_if_approved",
+      "external_id": "hmac_sha256_site_member_code_if_approved"
+    },
+    "custom_data": {
+      "currency": "KRW",
+      "value": "positive_confirmed_order_total",
+      "order_id": "already_sent_order_key"
+    }
+  }
+}

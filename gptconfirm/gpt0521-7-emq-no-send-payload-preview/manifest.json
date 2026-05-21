@@ -1,0 +1,34 @@
+{
+  "created_at_kst": "2026-05-21 11:22",
+  "folder": "gptconfirm/gpt0521-7-emq-no-send-payload-preview",
+  "purpose": "Meta CAPI event match quality identity enrichment no-send payload preview",
+  "mode": "Green read-only no-send preview",
+  "source": [
+    "VM Cloud SQLite read-only aggregate",
+    "VM Cloud meta-capi-sends.jsonl read-only aggregate"
+  ],
+  "files": [
+    "00-result-report.md",
+    "01-preview-result-and-deploy-opinion.md",
+    "payload-preview.json",
+    "manifest.json"
+  ],
+  "invariants": {
+    "meta_send": 0,
+    "backfill": 0,
+    "vm_deploy_restart": 0,
+    "operating_db_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  },
+  "result": {
+    "biocom_24h_confirmed_candidates": 40,
+    "biocom_24h_ph_preview_rate_pct": 100,
+    "biocom_24h_external_id_preview_rate_pct": 100,
+    "coffee_24h_confirmed_candidates": 19,
+    "coffee_24h_ph_preview_rate_pct": 100,
+    "coffee_24h_external_id_preview_rate_pct": 100,
+    "biocom_7d_confirmed_candidates": 365,
+    "coffee_7d_confirmed_candidates": 164
+  }
+}

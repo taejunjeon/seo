@@ -1,0 +1,31 @@
+{
+  "name": "gpt0520-2-provider-toss-capi-diagnostic",
+  "created_at": "2026-05-20T13:40:00Z",
+  "site": "biocom",
+  "pixel_id": "1283400029487161",
+  "window": "rolling_24h",
+  "lane": "Green read-only diagnosis + local patch",
+  "files": [
+    "00-result-report.md",
+    "01-provider-toss-readonly-truth-table.md",
+    "02-local-sync-patch.md",
+    "03-next-actions.md",
+    "manifest.json"
+  ],
+  "changed_local_files": [
+    "backend/scripts/meta-capi-current-missing-diagnostic-20260520.ts",
+    "backend/src/metaCapi.ts"
+  ],
+  "provider_status_counts": {
+    "done_or_paid": 1,
+    "canceled_or_refunded": 2
+  },
+  "safety": {
+    "raw_identifier_output": false,
+    "meta_send_count": 0,
+    "production_db_write_count": 0,
+    "vm_write_count": 0,
+    "gtm_publish_count": 0,
+    "vm_deploy_count": 0
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "package": "gpt0521-1-emq-payload-preview",
+  "created_at_kst": "2026-05-21 01:09",
+  "lane": "Green",
+  "mode": "no_send_payload_preview",
+  "site_scope": ["biocom", "thecleancoffee"],
+  "source": ["VM Cloud SQLite read-only", "VM CAPI send log read-only", "local backend source read-only"],
+  "windows": ["recent_24h", "recent_7d"],
+  "raw_identifier_output": false,
+  "external_send": false,
+  "vm_deploy_or_restart": false,
+  "gtm_publish": false,
+  "operating_db_write": false,
+  "files": [
+    "00-result-report.md",
+    "01-implementation-opinion.md",
+    "payload-preview.json",
+    "scripts/no_send_payload_preview.py",
+    "manifest.json"
+  ]
+}

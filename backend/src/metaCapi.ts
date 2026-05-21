@@ -1,8 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { readLedgerEntries, type AttributionLedgerEntry } from "./attribution";
+import { getCrmDb } from "./crmLocalDb";
 import { env } from "./env";
 import { getTossBasicAuth, inferTossStoreFromPaymentKey } from "./tossConfig";
 
@@ -25,6 +26,7 @@ type MetaCapiResponseBody = Record<string, unknown> | string;
 type MetaCapiUserData = {
   em?: string[];
   ph?: string[];
+  external_id?: string[];
   client_ip_address?: string;
   client_user_agent?: string;
   fbc?: string;
@@ -89,6 +91,16 @@ type LedgerEntrySummary = {
   requestPath?: string;
 };
 
+type MetaCapiUserDataPresence = {
+  em: boolean;
+  ph: boolean;
+  external_id: boolean;
+  client_ip_address: boolean;
+  client_user_agent: boolean;
+  fbc: boolean;
+  fbp: boolean;
+};
+
 export type MetaCapiSendLogRecord = {
   event_id: string;
   pixel_id: string;
@@ -100,6 +112,7 @@ export type MetaCapiSendLogRecord = {
   event_source_url?: string;
   send_path?: MetaCapiSendPath;
   test_event_code?: string;
+  user_data_presence?: MetaCapiUserDataPresence;
 };
 
 export type MetaCapiLogSegment = "operational" | "manual" | "test";
@@ -189,6 +202,7 @@ export type MetaCapiSendInput = {
   value?: number;
   email?: string;
   phone?: string;
+  externalId?: string;
   clientIpAddress?: string;
   clientUserAgent?: string;
   fbc?: string;
@@ -210,6 +224,7 @@ type PreparedMetaCapiSend = {
   eventName: string;
   eventSourceUrl?: string;
   ledgerSummary: LedgerEntrySummary;
+  userDataPresence: MetaCapiUserDataPresence;
 };
 
 export type MetaCapiSendResult = {
@@ -458,6 +473,46 @@ const hashPhone = (value?: string) => {
   return normalized ? hashSha256(normalized) : undefined;
 };
 
+const normalizeHashHex = (value?: string) => {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return /^[a-f0-9]{64}$/.test(normalized) ? normalized : undefined;
+};
+
+const hashSiteScopedMemberExternalId = (params: {
+  site: string;
+  memberCode?: string | null;
+}) => {
+  const secret = env.META_CAPI_EXTERNAL_ID_SECRET?.trim();
+  const site = params.site.trim();
+  const memberCode = params.memberCode?.trim() ?? "";
+  if (!secret || !site || !memberCode) return undefined;
+
+  return createHmac("sha256", secret)
+    .update(`site=${site}|member=${memberCode}`)
+    .digest("hex");
+};
+
+const hashMetaCapiEventId = (eventIdMaterial: string) => {
+  if (env.META_CAPI_ENABLE_EVENT_ID_HASH !== true) return eventIdMaterial;
+
+  const secret = env.META_CAPI_EVENT_ID_SECRET?.trim();
+  if (!secret) {
+    throw new Error("META_CAPI_EVENT_ID_SECRET 필요");
+  }
+
+  return `mcap_${createHmac("sha256", secret).update(eventIdMaterial).digest("hex")}`;
+};
+
+const summarizeUserDataPresence = (userData: MetaCapiUserData): MetaCapiUserDataPresence => ({
+  em: Boolean(userData.em?.length),
+  ph: Boolean(userData.ph?.length),
+  external_id: Boolean(userData.external_id?.length),
+  client_ip_address: Boolean(userData.client_ip_address),
+  client_user_agent: Boolean(userData.client_user_agent),
+  fbc: Boolean(userData.fbc),
+  fbp: Boolean(userData.fbp),
+});
+
 const parseUrlValue = (value?: string) => {
   if (!value) return null;
   try {
@@ -560,9 +615,9 @@ export const buildMetaCapiEventId = (
   const eventNameKey = normalizeEventNameForCapiEventId(eventName);
   if (eventNameKey === "purchase") {
     const imwebOrderCode = resolveImwebOrderCodeForPixelEventId(input);
-    if (imwebOrderCode) return `Purchase.${imwebOrderCode}`;
+    if (imwebOrderCode) return hashMetaCapiEventId(`Purchase.${imwebOrderCode}`);
   }
-  return `${eventNameKey}:${orderId}`;
+  return hashMetaCapiEventId(`${eventNameKey}:${orderId}`);
 };
 
 export const buildMetaCapiOrderEventSuccessKey = (params: {
@@ -681,6 +736,139 @@ const resolvePixelId = (params: {
       return env.META_PIXEL_ID_BIOCOM;
     default:
       return "";
+  }
+};
+
+const resolveImwebSiteFromMetaSource = (source: string) => {
+  switch (source) {
+    case "biocom":
+    case "biocom_imweb":
+      return "biocom";
+    case "thecleancoffee":
+    case "thecleancoffee_imweb":
+    case "coffee":
+    case "coffee_imweb":
+      return "thecleancoffee";
+    case "aibio":
+    case "aibio_imweb":
+      return "aibio";
+    default:
+      return "";
+  }
+};
+
+const normalizeMetaCapiSite = (site: string) => site.trim().toLowerCase();
+
+const parseMetaCapiIdentitySiteAllowlist = () => {
+  const raw = env.META_CAPI_IDENTITY_ENRICHMENT_SITE_ALLOWLIST?.trim();
+  if (!raw) return new Set<string>();
+
+  return new Set(
+    raw
+      .split(",")
+      .map(normalizeMetaCapiSite)
+      .filter(Boolean),
+  );
+};
+
+const isMetaCapiIdentityEnrichmentSiteAllowed = (site: string) => {
+  const allowlist = parseMetaCapiIdentitySiteAllowlist();
+  if (allowlist.size === 0) return true;
+
+  const normalizedSite = normalizeMetaCapiSite(site);
+  return Boolean(normalizedSite && allowlist.has(normalizedSite));
+};
+
+const collectImwebOrderLookupKeys = (entry: AttributionLedgerEntry) => {
+  const metadata = entry.metadata ?? {};
+  const keys = new Set<string>();
+  const add = (value: unknown) => {
+    if (typeof value === "string" || typeof value === "number") {
+      const trimmed = String(value).trim();
+      if (trimmed) keys.add(trimmed);
+    }
+  };
+
+  add(entry.orderId);
+  add(pickString(metadata, [
+    "orderNo",
+    "order_no",
+    "orderCode",
+    "order_code",
+    "imwebOrderNo",
+    "imwebOrderCode",
+    "transaction_id",
+    "transactionId",
+  ]));
+
+  const referrerPayment = getMetadataRecord(metadata, ["referrerPayment"]);
+  if (referrerPayment) {
+    add(pickString(referrerPayment, ["orderNo", "order_no", "orderCode", "order_code", "transaction_id", "transactionId"]));
+  }
+
+  for (const url of [entry.landing, entry.referrer]) {
+    add(queryParamFromUrls("order_no", [url]));
+    add(queryParamFromUrls("orderNo", [url]));
+    add(queryParamFromUrls("order_code", [url]));
+    add(queryParamFromUrls("orderCode", [url]));
+  }
+
+  return [...keys];
+};
+
+type ImwebOrderMatchingContext = {
+  phone?: string;
+  externalId?: string;
+};
+
+const resolveImwebOrderMatchingContext = (
+  entry: AttributionLedgerEntry,
+  source: string,
+): ImwebOrderMatchingContext => {
+  const phoneHashEnabled = env.META_CAPI_ENABLE_IMWEB_PHONE_HASH === true;
+  const externalIdEnabled = env.META_CAPI_ENABLE_MEMBER_EXTERNAL_ID === true;
+  if (!phoneHashEnabled && !externalIdEnabled) return {};
+
+  const site = resolveImwebSiteFromMetaSource(source);
+  if (!site || !isMetaCapiIdentityEnrichmentSiteAllowed(site)) return {};
+
+  const lookupKeys = collectImwebOrderLookupKeys(entry);
+  if (lookupKeys.length === 0) return {};
+
+  try {
+    const db = getCrmDb();
+    const table = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='imweb_orders'")
+      .get() as { name?: string } | undefined;
+    if (!table?.name) return {};
+
+    const placeholders = lookupKeys.map(() => "?").join(",");
+    const row = db
+      .prepare(`
+        SELECT orderer_call, member_code
+        FROM imweb_orders
+        WHERE site = ?
+          AND (
+            order_no IN (${placeholders})
+            OR order_code IN (${placeholders})
+            OR channel_order_no IN (${placeholders})
+          )
+        ORDER BY COALESCE(complete_time_unix, order_time_unix, 0) DESC
+        LIMIT 1
+      `)
+      .get(site, ...lookupKeys, ...lookupKeys, ...lookupKeys) as {
+        orderer_call?: string | null;
+        member_code?: string | null;
+      } | undefined;
+
+    if (!row) return {};
+
+    return {
+      ...(phoneHashEnabled && row.orderer_call?.trim() ? { phone: row.orderer_call } : {}),
+      ...(externalIdEnabled ? { externalId: hashSiteScopedMemberExternalId({ site, memberCode: row.member_code }) } : {}),
+    };
+  } catch {
+    return {};
   }
 };
 
@@ -957,6 +1145,9 @@ const prepareMetaCapiSend = (input: MetaCapiSendInput): PreparedMetaCapiSend => 
   const hashedPhone = hashPhone(phone);
   if (hashedPhone) userData.ph = [hashedPhone];
 
+  const hashedExternalId = normalizeHashHex(input.externalId);
+  if (hashedExternalId) userData.external_id = [hashedExternalId];
+
   const metadata = input.metadata ?? input.ledgerEntry?.metadata;
   const eventSourceUrl = resolveEventSourceUrl(input, resolvedSource);
   const contentIds = collectMetaContentIds(metadata);
@@ -987,6 +1178,7 @@ const prepareMetaCapiSend = (input: MetaCapiSendInput): PreparedMetaCapiSend => 
     eventId,
     eventName,
     eventSourceUrl,
+    userDataPresence: summarizeUserDataPresence(userData),
     ledgerSummary: summarizeLedgerEntry({
       ledgerEntry: input.ledgerEntry,
       input,
@@ -1038,6 +1230,28 @@ const fetchTossPayment = async (paymentKey: string): Promise<TossPayment> => {
     card: isRecord(body.card) ? body.card : undefined,
     virtualAccount: isRecord(body.virtualAccount) ? body.virtualAccount : undefined,
   };
+};
+
+const normalizeTossPaymentStatus = (status?: string) => (status ?? "").trim().toUpperCase();
+
+const isTossPaymentDoneStatus = (status?: string) =>
+  ["DONE", "PAID", "APPROVED"].includes(normalizeTossPaymentStatus(status));
+
+const isTossPaymentCanceledOrRefundedStatus = (status?: string) =>
+  ["CANCELED", "PARTIAL_CANCELED", "REFUNDED"].includes(normalizeTossPaymentStatus(status));
+
+const classifyTossPaymentBlockReason = (payment: TossPayment) => {
+  const status = normalizeTossPaymentStatus(payment.status);
+  if (isTossPaymentCanceledOrRefundedStatus(status)) {
+    return `결제 취소/환불 상태(${status || "UNKNOWN"})`;
+  }
+  if (status && !isTossPaymentDoneStatus(status)) {
+    return `결제 미완료(${status})`;
+  }
+  if (payment.method === "가상계좌" && status !== "DONE") {
+    return `가상계좌 미완료(${status || "UNKNOWN"})`;
+  }
+  return "";
 };
 
 const parseJsonlFile = async <T>(filePath: string): Promise<T[]> => {
@@ -1689,6 +1903,7 @@ export const sendMetaConversion = async (input: MetaCapiSendInput): Promise<Meta
     response_status: res.status,
     response_body: responseBody,
     event_source_url: prepared.eventSourceUrl,
+    user_data_presence: prepared.userDataPresence,
     send_path: input.testEventCode?.trim()
       ? "test_event"
       : prepared.ledgerSummary.captureMode === "manual" || prepared.ledgerSummary.touchpoint === "manual"
@@ -1733,16 +1948,13 @@ const buildSyncInput = async (entry: AttributionLedgerEntry): Promise<MetaCapiSe
   if (entry.paymentKey) {
     tossPayment = await fetchTossPayment(entry.paymentKey);
 
-    if (tossPayment.status === "CANCELED") {
-      throw new Error("결제 상태 CANCELED");
-    }
-    if (tossPayment.status && !["DONE", "PAID", "APPROVED"].includes(tossPayment.status.toUpperCase())) {
-      throw new Error(`결제 미완료(${tossPayment.status})`);
-    }
-    if (tossPayment.method === "가상계좌" && tossPayment.status !== "DONE") {
-      throw new Error(`가상계좌 미완료(${tossPayment.status ?? "UNKNOWN"})`);
+    const tossBlockReason = classifyTossPaymentBlockReason(tossPayment);
+    if (tossBlockReason) {
+      throw new Error(tossBlockReason);
     }
   }
+
+  const imwebMatching = resolveImwebOrderMatchingContext(entry, source);
 
   return {
     orderId: entry.orderId || tossPayment?.orderId || "",
@@ -1757,7 +1969,8 @@ const buildSyncInput = async (entry: AttributionLedgerEntry): Promise<MetaCapiSe
       metadata: entry.metadata,
     }),
     email: tossPayment?.customerEmail,
-    phone: tossPayment?.customerMobilePhone,
+    phone: tossPayment?.customerMobilePhone || imwebMatching.phone,
+    externalId: imwebMatching.externalId,
     clientIpAddress: entry.requestContext.ip,
     clientUserAgent: entry.requestContext.userAgent,
     fbc: getMetadataString(entry.metadata, ["fbc"]),
@@ -1859,6 +2072,8 @@ const syncMetaConversionsFromLedgerInternal = async (
       const source = typeof entry.metadata?.source === "string" ? entry.metadata.source : "";
       const isSkip = [
         "결제 상태 CANCELED",
+        "결제 취소/환불 상태",
+        "결제 미완료(",
         "Pixel ID를 해석할 수 없음",
         "META_PIXEL_ID_BIOCOM placeholder 상태",
         "가상계좌 미완료",

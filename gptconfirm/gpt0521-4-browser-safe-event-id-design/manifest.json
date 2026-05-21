@@ -1,0 +1,25 @@
+{
+  "package": "gpt0521-4-browser-safe-event-id-design",
+  "created_at_kst": "2026-05-21",
+  "lane": "Green",
+  "purpose": "Design server-minted safe event_id contract for Browser Purchase and Server CAPI dedup",
+  "files": [
+    "00-result-report.md",
+    "01-safe-event-id-contract.md",
+    "02-implementation-plan.md",
+    "manifest.json"
+  ],
+  "touched_runtime_code": false,
+  "meta_send": false,
+  "browser_purchase_fire": false,
+  "gtm_publish": false,
+  "vm_deploy_restart": false,
+  "operating_db_write": false,
+  "raw_identifier_output": false,
+  "source_window_freshness_confidence": {
+    "source": "local repo + latest deploy docs",
+    "window": "current code as of 2026-05-21",
+    "freshness": "fresh_after_event_id_raw_guard_deploy",
+    "confidence": "high_for_contract_design_medium_until_test_events_smoke"
+  }
+}

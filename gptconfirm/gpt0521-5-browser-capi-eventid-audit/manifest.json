@@ -1,0 +1,37 @@
+{
+  "package": "gpt0521-5-browser-capi-eventid-audit",
+  "created_at_kst": "2026-05-21",
+  "lane": "Green",
+  "site_scope": ["biocom", "thecleancoffee"],
+  "primary_question": "Can Browser Purchase and Server CAPI use matching eventID safely, and should Browser+CAPI be mixed now?",
+  "files": [
+    "00-result-report.md",
+    "01-read-only-audit.md",
+    "02-browser-capi-mix-vs-capi-only.md",
+    "03-frontend-report-update.md",
+    "manifest.json"
+  ],
+  "sources": [
+    "VM Cloud /api/meta/capi/log read-only",
+    "backend/logs/meta-capi-sends.jsonl aggregate only",
+    "backend/src/metaCapi.ts",
+    "gptconfirm/gpt0521-4-browser-safe-event-id-design"
+  ],
+  "actions_taken": [
+    "read-only CAPI log aggregate audit",
+    "frontend CAPI report Browser vs CAPI comparison update",
+    "documentation package creation"
+  ],
+  "forbidden_actions_observed": {
+    "meta_send_or_backfill": 0,
+    "gtm_publish": 0,
+    "vm_deploy_or_restart": 0,
+    "operating_db_write": 0,
+    "raw_identifier_output": 0
+  },
+  "verdict": [
+    "CAPI_ONLY_RECOMMENDED_NOW",
+    "BROWSER_CAPI_MIX_REQUIRES_TEST_ONLY_EVENT_ID_MATCH",
+    "BROWSER_EVENT_ID_READ_ONLY_VERIFICATION_GAP"
+  ]
+}

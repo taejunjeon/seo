@@ -634,16 +634,23 @@
     "valid_from": "2026-03-11",
     "valid_to": null,
     "confidence": "growth_manual_excluded_non_meta",
-    "review_reason": "2026-05-04 16:10 KST 그로스파트 수동 확인 엑셀(campaign-mapping-manual-check-template-20260505.xlsx): Meta 숫자 campaign/adset/ad id가 없으므로 Meta 캠페인 ROAS에 붙이지 않는다. 상품군 매출에는 포함 가능하지만 channel은 quarantine/non-meta influencer로 분리한다.",
+    "review_reason": "2026-05-21 11:25 KST 그로스팀 추가 확인: campaign=inpork_biocom_igg, source=inpork_biocom_igg, content=inpork_biocom_igg, landing=/igg_store 조합은 광고가 아니라 인스타그램 프로필 링크의 인포크 기능을 통한 유입을 구분하기 위한 UTM이다. Meta 숫자 campaign/adset/ad id가 없고 광고 집행 캠페인이 아니므로 Meta 캠페인 ROAS에 붙이지 않는다. 상품군 매출에는 포함 가능하지만 channel은 non_meta_influencer_igg로 분리한다.",
     "evidence": {
       "confirmed_orders": 7,
       "confirmed_revenue": 1969500,
       "growth_required_decision": "제외",
-      "decision_maker": "신현태"
+      "decision_maker": "그로스팀",
+      "utm_campaign": "inpork_biocom_igg",
+      "utm_source": "inpork_biocom_igg",
+      "utm_term": null,
+      "utm_content": "inpork_biocom_igg",
+      "landing_path": "/igg_store",
+      "traffic_meaning": "인스타그램 프로필 링크 인포크 기능 유입 구분용 UTM",
+      "not_meta_ad_campaign": true
     },
     "selected_campaign_id": null,
     "selected_campaign_name": null,
-    "reviewed_at": "2026-05-04T07:10:00Z",
+    "reviewed_at": "2026-05-21T02:25:00Z",
     "rejected_campaign_ids": []
   }
 ]

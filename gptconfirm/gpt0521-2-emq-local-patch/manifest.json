@@ -1,0 +1,26 @@
+{
+  "package": "gpt0521-2-emq-local-patch",
+  "created_at_kst": "2026-05-21",
+  "lane": "Green",
+  "purpose": "Meta CAPI 이벤트 매칭 품질 개선을 위한 로컬 backend 패치",
+  "documents": [
+    "00-result-report.md",
+    "01-implementation-and-validation.md",
+    "manifest.json"
+  ],
+  "changed_code_files": [
+    "backend/src/env.ts",
+    "backend/src/metaCapi.ts"
+  ],
+  "external_send": false,
+  "vm_deploy": false,
+  "backend_restart": false,
+  "operating_db_write": false,
+  "gtm_publish": false,
+  "raw_identifier_output": false,
+  "validation": {
+    "backend_typecheck": "pass",
+    "git_diff_check": "pass",
+    "raw_identifier_scan_docs": "pass"
+  }
+}

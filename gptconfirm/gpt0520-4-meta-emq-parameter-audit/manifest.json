@@ -1,0 +1,19 @@
+{
+  "package": "gpt0520-4-meta-emq-parameter-audit",
+  "created_at_kst": "2026-05-20 23:20",
+  "lane": "Green",
+  "raw_identifier_output": false,
+  "external_send": false,
+  "vm_deploy_or_restart": false,
+  "frontend_deploy": false,
+  "files": [
+    "00-result-report.md",
+    "01-capi-user-data-coverage.md",
+    "02-frontend-report-update.md",
+    "manifest.json"
+  ],
+  "frontend_files_touched": [
+    "frontend/src/app/ai-crm/capi-report/page.tsx",
+    "frontend/src/app/ai-crm/capi-report/page.module.css"
+  ]
+}

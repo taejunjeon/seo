@@ -1,0 +1,31 @@
+{
+  "created_at_kst": "2026-05-21 11:36",
+  "folder": "gptconfirm/gpt0521-8-emq-biocom-identity-canary-approval",
+  "purpose": "Finalize biocom Purchase CAPI identity enrichment 24h canary approval packet",
+  "mode": "approval_packet_with_local_backend_guard_patch",
+  "lane": "Red for actual Meta customer identifier send, Yellow for VM deploy/restart, Green for document/local guard patch",
+  "files": [
+    "00-result-report.md",
+    "01-canary-approval-packet.md",
+    "02-runbook-and-monitoring.md",
+    "manifest.json"
+  ],
+  "local_code_files": [
+    "backend/src/env.ts",
+    "backend/src/metaCapi.ts"
+  ],
+  "canary_scope": {
+    "site": "biocom",
+    "event": "Purchase",
+    "fields": ["ph", "external_id"],
+    "duration": "24h initial monitoring, continue if no stop criteria",
+    "excluded": ["thecleancoffee", "Browser Purchase", "event_id hashing", "bulk backfill", "email"]
+  },
+  "invariants": {
+    "meta_send_executed_in_this_sprint": 0,
+    "vm_deploy_restart_executed_in_this_sprint": 0,
+    "operating_db_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  }
+}
