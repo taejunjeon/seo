@@ -1,0 +1,318 @@
+{
+  "schema_version": "2026-05-22-meta-initiate-checkout-narrowing-v1",
+  "generated_at_kst": "2026-05-22 00:20 KST",
+  "site": "biocom",
+  "pixel_id": "1283400029487161",
+  "purpose": "InitiateCheckout 후보를 Meta UI 숫자에 억지로 맞추지 않고, VM Cloud 후보가 왜 넓게 잡히는지 원인별로 좁힌 no-send dry-run",
+  "safety": {
+    "lane": "Green",
+    "meta_send": 0,
+    "vm_cloud_write": 0,
+    "operating_db_write": 0,
+    "gtm_publish": 0,
+    "deploy_or_restart": 0,
+    "raw_identifier_output": false,
+    "aggregate_only": true
+  },
+  "sources": {
+    "primary": "VM Cloud SQLite attribution_ledger read-only aggregate",
+    "cross_check": "VM Cloud funnel-health live API aggregate",
+    "manual_reference": "Meta Events Manager screenshot for 2026-05-13~2026-05-19 KST",
+    "freshness_kst": "2026-05-22 00:11 KST",
+    "confidence": {
+      "vm_aggregate": "high",
+      "meta_ui_comparison": "medium"
+    }
+  },
+  "definitions": {
+    "raw_payment_started_row": "VM Cloud 원장에 남은 checkout_started 또는 payment_page_seen 기록 1줄. 같은 주문 흐름이 enter/exit/revisit로 여러 줄 생길 수 있다.",
+    "deduped_safe_key": "raw id를 출력하지 않고 같은 주문/결제 흐름을 한 번만 세기 위한 안전 집계 키.",
+    "deduped_order_key": "주문 키가 존재하는 흐름만 한 번씩 센 값. raw 값은 출력하지 않는다.",
+    "strong_meta_evidence": "fbclid, fbc, Meta/Facebook/Instagram 계열 UTM처럼 Meta 광고 클릭 근거가 있는 흐름.",
+    "any_meta_including_fbp": "strong_meta_evidence에 fbp까지 포함한 넓은 범위. fbp는 브라우저 식별자라 Meta 광고 클릭 증거로는 약하다."
+  },
+  "live_funnel_health_reference": {
+    "window": "rolling_7d",
+    "generated_at_kst": "2026-05-22 00:07 KST",
+    "source": "funnel-health API live_cache_miss",
+    "metrics": {
+      "landing": 11959,
+      "add_to_cart": 55,
+      "payment_started": 4209,
+      "payment_method_selected": 0,
+      "confirmed_purchase": 379,
+      "meta_capi_success": 371,
+      "browser_purchase": 0
+    },
+    "note": "payment_started는 Meta InitiateCheckout 수신 수가 아니라 VM Cloud 내부 결제 시작/결제 페이지 관측 신호다."
+  },
+  "rolling_7d_vm_raw_audit": {
+    "window": "latest_7d_from_vm_now",
+    "cutoff_utc": "2026-05-14T15:11:44.000Z",
+    "filters": {
+      "source": "biocom_imweb",
+      "capture_mode": "live",
+      "touchpoint": [
+        "checkout_started",
+        "payment_page_seen"
+      ]
+    },
+    "summary": {
+      "raw_rows": 4214,
+      "unique_safe_key": 1760,
+      "unique_checkout_id": 1337,
+      "unique_order_key": 885,
+      "checkout_started_rows": 1375,
+      "payment_page_seen_rows": 2835,
+      "shop_payment_rows": 2994,
+      "completion_url_rows": 0,
+      "order_key_present_rows": 2634,
+      "payment_key_present_rows": 0,
+      "metadata_event_name_initiate_checkout_rows": 0
+    },
+    "repeat_analysis": {
+      "safe_keys_with_2_or_more_rows": 1286,
+      "rows_in_safe_keys_with_2_or_more_rows": 3737,
+      "safe_keys_with_3_or_more_rows": 617,
+      "rows_in_safe_keys_with_3_or_more_rows": 2399,
+      "checkout_ids_with_2_or_more_rows": 928,
+      "rows_in_checkout_ids_with_2_or_more_rows": 3801
+    }
+  },
+  "rolling_7d_narrowing_ladder": [
+    {
+      "step": "00_raw_payment_started_rows",
+      "meaning": "현재 화면의 넓은 결제 시작 후보와 가장 가까운 raw row",
+      "rows": 4214,
+      "unique_safe_key": 1760,
+      "unique_order_key": 885
+    },
+    {
+      "step": "01_exclude_exit_rows",
+      "meaning": "결제 페이지를 떠날 때 찍힌 exit row 제외",
+      "rows": 2271,
+      "unique_safe_key": 1347,
+      "unique_order_key": 817
+    },
+    {
+      "step": "02_checkout_started_only",
+      "meaning": "checkout_started만 집계",
+      "rows": 1375,
+      "unique_safe_key": 1320,
+      "unique_order_key": 792
+    },
+    {
+      "step": "03_payment_page_enter_only",
+      "meaning": "payment_page_seen 중 enter만 집계",
+      "rows": 916,
+      "unique_safe_key": 897,
+      "unique_order_key": 803
+    },
+    {
+      "step": "04_checkout_started_or_payment_enter",
+      "meaning": "checkout_started 또는 결제 페이지 enter",
+      "rows": 2291,
+      "unique_safe_key": 1345,
+      "unique_order_key": 817
+    },
+    {
+      "step": "05_layer04_require_order_key",
+      "meaning": "주문 키가 있는 흐름만 남김",
+      "rows": 1657,
+      "unique_safe_key": 817,
+      "unique_order_key": 817
+    },
+    {
+      "step": "06_layer04_require_shop_payment_path_or_class",
+      "meaning": "실제 /shop_payment/ 계열 결제 페이지 근거가 있는 흐름만 남김",
+      "rows": 1847,
+      "unique_safe_key": 912,
+      "unique_order_key": 817
+    },
+    {
+      "step": "07_layer06_one_per_order_key",
+      "meaning": "주문 흐름당 1회로 dedupe",
+      "rows": 817,
+      "unique_safe_key": 817,
+      "unique_order_key": 817
+    },
+    {
+      "step": "08_browser_initiate_event_rows",
+      "meaning": "VM 원장에서 metadata.eventName=InitiateCheckout으로 직접 잡힌 row",
+      "rows": 0,
+      "unique_safe_key": 0,
+      "unique_order_key": 0
+    }
+  ],
+  "meta_ui_screenshot_window_audit": {
+    "window": "2026-05-13~2026-05-19 KST",
+    "utc_start": "2026-05-12T15:00:00.000Z",
+    "utc_end": "2026-05-19T15:00:00.000Z",
+    "meta_ui_reference": {
+      "initiate_checkout": 439,
+      "add_to_cart": 299,
+      "purchase": 128,
+      "add_payment_info": 26,
+      "source": "TJ screenshot, Events Manager UI",
+      "confidence": "medium"
+    },
+    "vm_raw": {
+      "raw_rows": 3439,
+      "unique_safe_key": 1606,
+      "unique_order_key": 895,
+      "checkout_started_rows": 1334,
+      "payment_page_seen_rows": 2105,
+      "exit_rows": 1458,
+      "enter_rows": 673,
+      "metadata_event_name_initiate_checkout_rows": 0,
+      "narrowed_unique_order_key": 841
+    },
+    "meta_evidence_split": {
+      "raw_all": {
+        "rows": 3439,
+        "unique_safe_key": 1606,
+        "unique_order_key": 895
+      },
+      "raw_strong_meta": {
+        "rows": 1335,
+        "unique_safe_key": 563,
+        "unique_order_key": 422
+      },
+      "raw_any_meta_including_fbp": {
+        "rows": 3223,
+        "unique_safe_key": 1442,
+        "unique_order_key": 883
+      },
+      "narrowed_all": {
+        "rows": 1650,
+        "unique_safe_key": 948,
+        "unique_order_key": 841
+      },
+      "narrowed_strong_meta": {
+        "rows": 687,
+        "unique_safe_key": 395,
+        "unique_order_key": 390
+      },
+      "narrowed_any_meta_including_fbp": {
+        "rows": 1622,
+        "unique_safe_key": 935,
+        "unique_order_key": 829
+      }
+    },
+    "narrowed_strong_meta_breakdown": {
+      "by_touchpoint": [
+        {
+          "touchpoint": "checkout_started",
+          "rows": 412,
+          "unique_safe_key": 394,
+          "unique_order_key": 389
+        },
+        {
+          "touchpoint": "payment_page_seen",
+          "rows": 275,
+          "unique_safe_key": 272,
+          "unique_order_key": 271
+        }
+      ],
+      "by_phase": [
+        {
+          "phase": "enter",
+          "rows": 277,
+          "unique_safe_key": 274,
+          "unique_order_key": 273
+        },
+        {
+          "phase": "exit",
+          "rows": 11,
+          "unique_safe_key": 2,
+          "unique_order_key": 2
+        },
+        {
+          "phase": "missing",
+          "rows": 399,
+          "unique_safe_key": 394,
+          "unique_order_key": 389
+        }
+      ],
+      "by_order_key_presence": [
+        {
+          "bucket": "order_key_missing",
+          "rows": 6,
+          "unique_safe_key": 5,
+          "unique_order_key": 0
+        },
+        {
+          "bucket": "order_key_present",
+          "rows": 681,
+          "unique_safe_key": 390,
+          "unique_order_key": 390
+        }
+      ]
+    }
+  },
+  "root_cause_findings": [
+    {
+      "cause": "unit_mismatch",
+      "description": "VM raw payment_started는 원장 row 수이고 Meta UI는 Meta가 받은 이벤트 수다.",
+      "evidence": "rolling 7d raw rows 4214 vs unique order key 885"
+    },
+    {
+      "cause": "repeat_rows",
+      "description": "같은 결제 흐름이 enter/exit/revisit로 여러 번 남는다.",
+      "evidence": "rolling 7d safe keys with 2+ rows 1286"
+    },
+    {
+      "cause": "exit_phase_inflation",
+      "description": "결제 페이지를 떠날 때 찍힌 exit row가 후보를 부풀린다.",
+      "evidence": "rolling 7d exit rows 1939; screenshot window exit rows 1458"
+    },
+    {
+      "cause": "broad_payment_page_seen",
+      "description": "payment_page_seen은 좋은 내부 진단 신호지만, 그대로 InitiateCheckout CAPI 후보로 쓰기에는 넓다.",
+      "evidence": "rolling 7d payment_page_seen rows 2835"
+    },
+    {
+      "cause": "vm_browser_event_contract_gap",
+      "description": "VM 원장에는 metadata.eventName=InitiateCheckout row가 0이라, 브라우저에서 실제 발화된 InitiateCheckout을 VM이 직접 분리해 보지 못한다.",
+      "evidence": "metadata_event_name_initiate_checkout_rows 0"
+    },
+    {
+      "cause": "fbp_is_not_ad_click_evidence",
+      "description": "fbp까지 Meta evidence로 넣으면 후보가 과도하게 넓어진다.",
+      "evidence": "screenshot narrowed strong Meta 390 unique order keys vs any Meta including fbp 829 unique order keys"
+    }
+  ],
+  "recommended_candidate_policy": {
+    "do_not_force_match_meta_ui": true,
+    "internal_funnel_metric": {
+      "name": "VM 결제 페이지 도달",
+      "rule": "checkout_started 또는 payment_page_seen enter를 safe key로 dedupe",
+      "use": "운영 진단과 이탈 위치 분석",
+      "not_use": "Meta CAPI send 후보로 바로 사용하지 않음"
+    },
+    "meta_capi_initiate_checkout_dry_run_candidate": {
+      "name": "Meta 광고 근거가 있는 결제 시작 후보",
+      "rule": "strong_meta_evidence AND order_key_present AND checkout_started_or_payment_page_enter AND shop_payment_path_or_class AND one_per_order_key",
+      "screenshot_window_unique_order_key": 390,
+      "use": "향후 InitiateCheckout CAPI 전송 후보 dry-run",
+      "requires_before_send": [
+        "Test Events smoke",
+        "dedupe event_id 설계",
+        "no Purchase 영향 확인",
+        "TJ approval"
+      ]
+    },
+    "exclude_from_capi_candidate": [
+      "payment_page_seen exit",
+      "fbp-only Meta evidence",
+      "order key missing unless checkout_id based diagnostic only",
+      "completion URL row",
+      "duplicate same order flow"
+    ]
+  },
+  "decision": {
+    "summary": "현재 VM 후보가 Meta UI보다 큰 이유는 Meta가 틀려서가 아니라 VM이 더 넓은 내부 결제 페이지 관측 row를 세고 있기 때문이다.",
+    "best_next_metric": "strong_meta_evidence + dedupe + enter/checkout_started 기준 후보",
+    "meta_ui_alignment": "narrowed_strong_meta 390 unique order keys는 Meta UI 439와 같은 규모지만, 정확히 맞추는 목적이 아니라 원인 분해 결과로 본다."
+  }
+}

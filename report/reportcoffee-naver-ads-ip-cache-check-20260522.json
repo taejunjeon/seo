@@ -1,0 +1,58 @@
+{
+  "report": "reportcoffee_naver_ads_ip_cache_check_20260522",
+  "generated_at_kst": "2026-05-22 02:10 KST",
+  "site": "thecleancoffee",
+  "mode": "read_only_check",
+  "checks": {
+    "vm_cloud_thecleancoffee_endpoint": {
+      "ok": true,
+      "configured": true,
+      "cache_status": "empty_cache",
+      "rows_in_window": 0,
+      "window": "2026-04-21 - 2026-05-20",
+      "meaning": "VM Cloud endpoint and Naver Ads env are configured, but no naver_ads_daily rows are cached under site=thecleancoffee."
+    },
+    "vm_cloud_biocom_endpoint": {
+      "ok": true,
+      "configured": true,
+      "cache_status": "ready",
+      "rows_in_window": 1110,
+      "window": "2026-04-21 - 2026-05-20",
+      "spend_krw": 7276795,
+      "internal_paid_naver_revenue_krw": 12346493,
+      "internal_real_roas": 1.7
+    },
+    "vm_cloud_naver_api_dry_run_as_thecleancoffee": {
+      "ok": true,
+      "configured": true,
+      "campaigns_total": 37,
+      "campaigns_success": 37,
+      "campaigns_failed": 0,
+      "rows_previewed": 1110,
+      "rows_written": 0,
+      "window": "2026-04-21 - 2026-05-20",
+      "spend_krw_all_account": 7276795,
+      "warning": "The collector --site value is only a row label. Without campaign allowlist, writing --site=thecleancoffee would tag all account campaigns, including biocom, as coffee."
+    },
+    "local_cache_coffee_campaign_name_probe": {
+      "source": "local SQLite naver_ads_daily site=biocom cache",
+      "coffee_campaign_rows": 6,
+      "coffee_campaign_status": "all_paused",
+      "coffee_campaign_spend_krw": 0,
+      "window": "2026-04-21 - 2026-05-20"
+    }
+  },
+  "decision": {
+    "ip_registration_status": "API reachable from VM Cloud; IP/env appear valid.",
+    "cache_status": "biocom cache is populated; thecleancoffee cache is empty.",
+    "coffee_spend_status": "Existing coffee-named campaigns in the account are paused and spend 0 in the checked window.",
+    "safe_next_action": "Do not run write with --site=thecleancoffee until a campaign allowlist/filter is added. For now, Naver spend can remain pending or be shown as 0 only with a 'coffee campaigns paused / no coffee cache' note."
+  },
+  "guardrails": {
+    "sqlite_write": 0,
+    "naver_ads_state_change": 0,
+    "external_send_count": 0,
+    "raw_secret_logged": false,
+    "raw_identifier_output": 0
+  }
+}

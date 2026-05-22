@@ -1,0 +1,98 @@
+{
+  "report": "reportcoffee_npay_weekly_aggregate_v1",
+  "generated_at": "2026-05-21T15:50:27.791Z",
+  "site": "thecleancoffee",
+  "source": {
+    "system": "sqlite_imweb_orders_read_only",
+    "db_path": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "table": "imweb_orders",
+    "primary_rule": "site + pay_type=npay + payment_amount>0 + order_time window + cancel/return/exchange excluded",
+    "diagnostic_only": [
+      "complete_time",
+      "imweb_status",
+      "imweb_status_synced_at"
+    ]
+  },
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-05-15",
+    "end_date_inclusive": "2026-05-21",
+    "start_utc": "2026-05-14T15:00:00.000Z",
+    "end_exclusive_utc": "2026-05-21T15:00:00.000Z",
+    "requested_days": 7
+  },
+  "source_freshness": {
+    "site_npay_rows_all_time": 855,
+    "site_npay_amount_krw_all_time": 34568500,
+    "max_order_time": "2026-04-04T01:32:57.000Z",
+    "max_synced_at": "2026-04-04 04:18:18",
+    "max_status_synced_at": "2026-04-19 17:34:24",
+    "freshness_gap_for_requested_window": true
+  },
+  "npay_actual": {
+    "status": "included",
+    "count": 0,
+    "amount_krw": 0,
+    "max_order_time": null,
+    "max_synced_at": null,
+    "max_status_synced_at": null
+  },
+  "diagnostics": {
+    "gross_before_status_exclusion": {
+      "count": 0,
+      "amount_krw": 0,
+      "max_order_time": null,
+      "max_complete_time": null,
+      "max_synced_at": null,
+      "max_status_synced_at": null
+    },
+    "excluded_cancel_return_exchange": {
+      "count": 0,
+      "amount_krw": 0,
+      "max_order_time": null,
+      "max_complete_time": null,
+      "max_synced_at": null,
+      "max_status_synced_at": null
+    },
+    "included_status_present": {
+      "count": 0,
+      "amount_krw": 0,
+      "max_order_time": null,
+      "max_complete_time": null,
+      "max_synced_at": null,
+      "max_status_synced_at": null
+    },
+    "included_status_blank_freshness_warning": {
+      "count": 0,
+      "amount_krw": 0,
+      "max_order_time": null,
+      "max_complete_time": null,
+      "max_synced_at": null,
+      "max_status_synced_at": null
+    },
+    "complete_time_legacy": {
+      "count": 0,
+      "amount_krw": 0,
+      "max_order_time": null,
+      "max_complete_time": null,
+      "max_synced_at": null,
+      "max_status_synced_at": null
+    },
+    "bridge_pending_complete_time_blank": {
+      "count": 0,
+      "amount_krw": 0,
+      "max_order_time": null,
+      "max_complete_time": null,
+      "max_synced_at": null,
+      "max_status_synced_at": null
+    }
+  },
+  "guardrails": {
+    "complete_time_blank_is_not_unpaid": true,
+    "imweb_status_is_diagnostic_not_actual_primary": true,
+    "npay_click_promoted_to_purchase": false,
+    "raw_identifier_output": 0,
+    "send_or_write": 0
+  },
+  "confidence": "source_freshness_gap_run_on_fresh_vm_cloud_db"
+}

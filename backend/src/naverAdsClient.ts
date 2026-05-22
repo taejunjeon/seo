@@ -18,7 +18,10 @@ import "./env";
 const BASE_URL = "https://api.searchad.naver.com";
 
 const readNaverAdsEnv = () => {
-  const accessKey = process.env.BIOCOM_NAVER_ADS_ACESS ?? "";
+  const accessKey =
+    process.env.BIOCOM_NAVER_ADS_ACCESS ??
+    process.env.BIOCOM_NAVER_ADS_ACESS ??
+    "";
   const customerId = process.env.BIOCOM_NAVER_ADS_CUSTOMER_ID ?? "";
   const secretKey = process.env.BIOCOM_NAVER_ADS_SECRET_KEY ?? "";
   return { accessKey, customerId, secretKey };
@@ -35,7 +38,7 @@ export const buildNaverSearchAdHeaders = (
 ): Record<string, string> => {
   const { accessKey, customerId, secretKey } = readNaverAdsEnv();
   if (!accessKey || !customerId || !secretKey) {
-    throw new Error("BIOCOM_NAVER_ADS_* env 미설정 (CUSTOMER_ID / ACESS / SECRET_KEY)");
+    throw new Error("BIOCOM_NAVER_ADS_* env 미설정 (CUSTOMER_ID / ACCESS 또는 ACESS / SECRET_KEY)");
   }
   const timestamp = Date.now().toString();
   const message = `${timestamp}.${method}.${uri}`;

@@ -28,10 +28,13 @@ import {
   getMetaCapiNoSendReason,
   selectMetaCapiSyncCandidates,
 } from "../src/metaCapi";
+import { buildLeadingIndicatorsReport } from "../src/leadingIndicators";
 import {
   buildAttributionPaymentDecision,
   buildAttributionPaymentStatusSyncPlan,
   buildFastLedgerPaymentDecision,
+  buildPaidClickIntentNoSendPreview,
+  buildNaverEvidenceAggregate,
   buildOperationalPaymentCompleteBridgePlan,
   findDuplicateFormSubmitEntry,
   getPaymentSuccessDowngradeReason,
@@ -82,6 +85,162 @@ test("attribution: normalizeAttributionPayload extracts Imweb order keys from la
     orderNo: "202604188765432",
     paymentCode: "pa20260418abc",
   });
+});
+
+test("attribution: Naver aggregate separates NaPm-only organic from paid markers", () => {
+  const requestContext = {
+    ip: "",
+    userAgent: "",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/checkout-context",
+  };
+
+  const organic = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing: "https://biocom.kr/?NaPm=ct%3Dsample%7Cci%3Dorganic%7Ctr%3Dds%7Chk%3Dhash",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      source: "biocom_imweb",
+      checkoutId: "chk-naver-organic",
+    },
+    requestContext,
+    "2026-05-21T13:00:00.000Z",
+  );
+
+  const paid = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing:
+        "https://www.biocom.kr/mineraltest_store/?idx=6&utm_source=naver&utm_medium=cpc&n_media=27758&n_query=biocom&n_ad_group=grp-1&n_ad=nad-1&n_match=2&NaPm=ct%3Dsample%7Ctr%3Dsa%7Chk%3Dhash",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      utm_source: "naver",
+      utm_medium: "cpc",
+      source: "biocom_imweb",
+      checkoutId: "chk-naver-paid",
+    },
+    requestContext,
+    "2026-05-21T13:01:00.000Z",
+  );
+
+  const shopping = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing: "https://biocom.kr/shop_view/?idx=85&NaPm=ct%3Dsample%7Ctr%3Dslsl%7Csn%3D1043174%7Chk%3Dhash",
+      referrer: "https://shopping.naver.com/",
+      source: "biocom_imweb",
+      checkoutId: "chk-naver-shopping",
+    },
+    requestContext,
+    "2026-05-21T13:02:00.000Z",
+  );
+
+  const aggregate = buildNaverEvidenceAggregate([organic, paid, shopping], { fixture: "naver-split" });
+
+  assert.equal(aggregate.summary.byClass.organic_naver_candidate, 1);
+  assert.equal(aggregate.summary.byClass.paid_naver, 1);
+  assert.equal(aggregate.summary.byClass.naver_shopping_search_candidate, 1);
+  assert.equal(aggregate.summary.naverAny, 3);
+});
+
+test("leading indicators: Naver NaPm-only organic does not enter paid or brand bucket", () => {
+  const requestContext = {
+    ip: "",
+    userAgent: "",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/checkout-context",
+  };
+  const asOfMs = Date.parse("2026-05-21T13:10:00.000Z");
+
+  const organic = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing: "https://biocom.kr/?NaPm=ct%3Dsample%7Cci%3Dorganic%7Ctr%3Dds%7Chk%3Dhash",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      source: "biocom_imweb",
+      checkoutId: "chk-leading-naver-organic",
+    },
+    requestContext,
+    "2026-05-21T13:00:00.000Z",
+  );
+
+  const paid = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing:
+        "https://biocom.kr/mineraltest_store/?idx=6&utm_source=naver&utm_medium=cpc&n_media=27758&n_query=biocom&NaPm=ct%3Dsample%7Ctr%3Dsa%7Chk%3Dhash",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      utm_source: "naver",
+      utm_medium: "cpc",
+      source: "biocom_imweb",
+      checkoutId: "chk-leading-naver-paid",
+    },
+    requestContext,
+    "2026-05-21T13:01:00.000Z",
+  );
+
+  const organicReport = buildLeadingIndicatorsReport({
+    ledgerEntries: [organic, paid],
+    site: "biocom",
+    window: "1d",
+    channel: "organic",
+    dimension: "channel",
+    freshness: "cached",
+    asOfMs,
+  });
+  const paidReport = buildLeadingIndicatorsReport({
+    ledgerEntries: [organic, paid],
+    site: "biocom",
+    window: "1d",
+    channel: "naver_paid_or_brand",
+    dimension: "channel",
+    freshness: "cached",
+    asOfMs,
+  });
+
+  assert.equal(organicReport.cohort.safe_sessions, 1);
+  assert.equal(paidReport.cohort.safe_sessions, 1);
+});
+
+test("paid-click-intent: stale preview secondary click id does not block live Google click", () => {
+  const preview = buildPaidClickIntentNoSendPreview({
+    site: "biocom",
+    capture_stage: "landing",
+    captured_at: "2026-05-21T04:15:25.790Z",
+    gclid: "CjwKCAjwt7XQBhBkEiwAtStpp05zLNcr6STRx_gs9wZ9ZvqhsLLSbP6Bfk68G6UEChpmeehxs8TR4hoCsUgQAvD_BwE",
+    gbraid: "0AAAAABIj2JiXX_Uuh_3-jfs4r_uy-M4B_",
+    wbraid: "test_wbraid_20260514",
+    landing_url:
+      "https://biocom.kr/mineraltest_store/?idx=6&gad_campaignid=14629255429&gclid=CjwKCAjwt7XQBhBkEiwAtStpp05zLNcr6STRx_gs9wZ9ZvqhsLLSbP6Bfk68G6UEChpmeehxs8TR4hoCsUgQAvD_BwE&gbraid=0AAAAABIj2JiXX_Uuh_3-jfs4r_uy-M4B_",
+    local_session_id: "pciv1_fbvrfte2x7q",
+  });
+
+  assert.equal(preview.test_click_id, false);
+  assert.equal(preview.live_candidate_after_approval, true);
+  assert.equal(preview.click_ids.gclid.startsWith("CjwKCA"), true);
+  assert.equal(preview.click_ids.gbraid, "0AAAAABIj2JiXX_Uuh_3-jfs4r_uy-M4B_");
+  assert.equal(preview.click_ids.wbraid, "");
+  assert.deepEqual(preview.ignored_preview_click_id_types, ["wbraid"]);
+  assert.equal(preview.block_reasons.includes("test_click_id_rejected_for_live"), false);
+});
+
+test("paid-click-intent: preview-only Google click id remains blocked", () => {
+  const preview = buildPaidClickIntentNoSendPreview({
+    site: "biocom",
+    capture_stage: "landing",
+    captured_at: "2026-05-21T04:15:25.790Z",
+    wbraid: "test_wbraid_20260514",
+    landing_url: "https://biocom.kr/mineraltest_store/?idx=6&wbraid=test_wbraid_20260514",
+    local_session_id: "pciv1_test",
+  });
+
+  assert.equal(preview.test_click_id, true);
+  assert.equal(preview.live_candidate_after_approval, false);
+  assert.equal(preview.click_ids.wbraid, "test_wbraid_20260514");
+  assert.equal(preview.block_reasons.includes("test_click_id_rejected_for_live"), true);
 });
 
 test("attribution: firstTouch snapshot preserves checkout TikTok and caller IDs", () => {

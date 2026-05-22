@@ -1,0 +1,354 @@
+{
+  "ok": true,
+  "verdict": "PREVIEW_READY_NO_SEND",
+  "checked_at_kst": "2026-05-22 11:38:31 KST",
+  "site": "biocom",
+  "window": "1d",
+  "source": "VM Cloud funnel-health API",
+  "endpoint": "https://att.ainativeos.net/api/attribution/funnel-health?site=biocom&window=1d&force=true",
+  "cache": {
+    "cached": false,
+    "cached_at_kst": null,
+    "next_refresh_at_kst": null,
+    "generation_ms": 237,
+    "staleness_ms": 0,
+    "source": "live_force_refresh"
+  },
+  "metric_contract": {
+    "site": "biocom",
+    "pixel_ids": [
+      "1283400029487161"
+    ],
+    "window": "1d",
+    "last_updated_at": "2026-05-22 11:38"
+  },
+  "source_snapshot": {
+    "landing_count": 2133,
+    "cart_page_view_count": 7,
+    "payment_started_count": 628,
+    "vm_payment_page_reached_count": 628,
+    "meta_initiate_checkout_received_count": 0,
+    "meta_capi_initiate_checkout_candidate_count": 61,
+    "payment_method_selected_count": 0,
+    "confirmed_purchase_count": 59,
+    "meta_capi_success_count": 60,
+    "browser_add_to_cart_count": 0,
+    "browser_initiate_checkout_count": 0,
+    "browser_add_payment_info_count": 0
+  },
+  "events": [
+    {
+      "event_name": "AddToCart",
+      "semantic_touchpoint": "cart_page_seen_or_add_to_cart",
+      "available_count": 7,
+      "source": "VM Cloud site_landing_ledger /shop_cart + attribution_ledger metadata.eventName=AddToCart",
+      "unit": "first-party cart page landing row or browser event row",
+      "backend_route_supported_now": true,
+      "status": "preview_ready_no_send",
+      "readiness_note_ko": "장바구니 담기 클릭과 장바구니 페이지 진입을 같은 Purchase로 세지 않고, 보조 전환 후보로만 본다.",
+      "send_allowed": false,
+      "test_events_allowed_without_new_approval": false,
+      "purchase_candidate": false,
+      "payload_preview": {
+        "event_name": "AddToCart",
+        "action_source": "website",
+        "event_time": "runtime_unix_seconds",
+        "event_id": "safe_session_event_id_or_hash_only",
+        "event_source_url_policy": "path_bucket_only_query_removed",
+        "user_data_allowed_presence_only": [
+          "fbp",
+          "fbc",
+          "client_ip_address",
+          "client_user_agent"
+        ],
+        "custom_data_policy": {
+          "value": "omitted_until_explicit_approval",
+          "currency": "omitted_until_explicit_approval",
+          "content_name": "forbidden_health_wellness_sensitive",
+          "product_name": "forbidden_health_wellness_sensitive"
+        },
+        "metadata": {
+          "semantic_touchpoint": "cart_page_seen_or_add_to_cart",
+          "purchase_candidate": false,
+          "included_in_purchase_roas": false,
+          "included_in_budget_roas": false,
+          "red_approval_required_before_send": true
+        }
+      },
+      "forbidden_fields": [
+        "raw_order_code",
+        "raw_order_no",
+        "raw_payment_key",
+        "raw_member_code",
+        "raw_email",
+        "raw_phone",
+        "raw_click_id",
+        "health_related_content_name",
+        "health_related_product_name"
+      ],
+      "success_criteria_before_staged_on": [
+        "Test Events에서 server source 1건 이하 수신 확인",
+        "Purchase count/value/ROAS 변화 0",
+        "raw identifier output 0",
+        "event별 OFF rollback 가능",
+        "Meta health/wellness data restriction 검토"
+      ]
+    },
+    {
+      "event_name": "InitiateCheckout",
+      "semantic_touchpoint": "checkout_or_payment_page_seen",
+      "available_count": 61,
+      "source": "VM Cloud checkout_signal_split.meta_capi_initiate_checkout_candidate",
+      "unit": "deduped no-send candidate",
+      "backend_route_supported_now": true,
+      "status": "preview_ready_no_send",
+      "readiness_note_ko": "결제 페이지 도달 전체가 아니라, Meta 광고 단서가 강하고 exit/completion URL을 제외한 좁은 서버 CAPI 후보만 본다. 현재는 no-send preview다.",
+      "send_allowed": false,
+      "test_events_allowed_without_new_approval": false,
+      "purchase_candidate": false,
+      "payload_preview": {
+        "event_name": "InitiateCheckout",
+        "action_source": "website",
+        "event_time": "runtime_unix_seconds",
+        "event_id": "safe_session_event_id_or_hash_only",
+        "event_source_url_policy": "path_bucket_only_query_removed",
+        "user_data_allowed_presence_only": [
+          "fbp",
+          "fbc",
+          "client_ip_address",
+          "client_user_agent"
+        ],
+        "custom_data_policy": {
+          "value": "omitted_until_explicit_approval",
+          "currency": "omitted_until_explicit_approval",
+          "content_name": "forbidden_health_wellness_sensitive",
+          "product_name": "forbidden_health_wellness_sensitive"
+        },
+        "metadata": {
+          "semantic_touchpoint": "checkout_or_payment_page_seen",
+          "purchase_candidate": false,
+          "included_in_purchase_roas": false,
+          "included_in_budget_roas": false,
+          "red_approval_required_before_send": true
+        }
+      },
+      "forbidden_fields": [
+        "raw_order_code",
+        "raw_order_no",
+        "raw_payment_key",
+        "raw_member_code",
+        "raw_email",
+        "raw_phone",
+        "raw_click_id",
+        "health_related_content_name",
+        "health_related_product_name"
+      ],
+      "success_criteria_before_staged_on": [
+        "Test Events에서 server source 1건 이하 수신 확인",
+        "Purchase count/value/ROAS 변화 0",
+        "raw identifier output 0",
+        "event별 OFF rollback 가능",
+        "Meta health/wellness data restriction 검토"
+      ]
+    },
+    {
+      "event_name": "AddPaymentInfo",
+      "semantic_touchpoint": "payment_method_selected",
+      "available_count": 0,
+      "source": "VM Cloud attribution_ledger metadata.eventName=AddPaymentInfo",
+      "unit": "event row",
+      "backend_route_supported_now": true,
+      "status": "source_gap_no_send",
+      "readiness_note_ko": "결제수단 선택은 현재 source가 약하면 source_gap으로 둔다. 미입금/가상계좌를 Purchase로 올리지 않는다.",
+      "send_allowed": false,
+      "test_events_allowed_without_new_approval": false,
+      "purchase_candidate": false,
+      "payload_preview": {
+        "event_name": "AddPaymentInfo",
+        "action_source": "website",
+        "event_time": "runtime_unix_seconds",
+        "event_id": "safe_session_event_id_or_hash_only",
+        "event_source_url_policy": "path_bucket_only_query_removed",
+        "user_data_allowed_presence_only": [
+          "fbp",
+          "fbc",
+          "client_ip_address",
+          "client_user_agent"
+        ],
+        "custom_data_policy": {
+          "value": "omitted_until_explicit_approval",
+          "currency": "omitted_until_explicit_approval",
+          "content_name": "forbidden_health_wellness_sensitive",
+          "product_name": "forbidden_health_wellness_sensitive"
+        },
+        "metadata": {
+          "semantic_touchpoint": "payment_method_selected",
+          "purchase_candidate": false,
+          "included_in_purchase_roas": false,
+          "included_in_budget_roas": false,
+          "red_approval_required_before_send": true
+        }
+      },
+      "forbidden_fields": [
+        "raw_order_code",
+        "raw_order_no",
+        "raw_payment_key",
+        "raw_member_code",
+        "raw_email",
+        "raw_phone",
+        "raw_click_id",
+        "health_related_content_name",
+        "health_related_product_name"
+      ],
+      "success_criteria_before_staged_on": [
+        "Test Events에서 server source 1건 이하 수신 확인",
+        "Purchase count/value/ROAS 변화 0",
+        "raw identifier output 0",
+        "event별 OFF rollback 가능",
+        "Meta health/wellness data restriction 검토"
+      ]
+    },
+    {
+      "event_name": "CompleteRegistration",
+      "semantic_touchpoint": "registration_completed",
+      "available_count": 0,
+      "source": "not_connected_to_VM_Cloud_for_site_yet",
+      "unit": "not_available",
+      "backend_route_supported_now": false,
+      "status": "backend_route_not_ready",
+      "readiness_note_ko": "회원가입 완료는 현재 선택 site의 VM Cloud route에서 별도 중간 CAPI 후보로 닫히지 않았다. source 연결과 route allowlist가 먼저 필요하다.",
+      "send_allowed": false,
+      "test_events_allowed_without_new_approval": false,
+      "purchase_candidate": false,
+      "payload_preview": {
+        "event_name": "CompleteRegistration",
+        "action_source": "website",
+        "event_time": "runtime_unix_seconds",
+        "event_id": "safe_session_event_id_or_hash_only",
+        "event_source_url_policy": "path_bucket_only_query_removed",
+        "user_data_allowed_presence_only": [
+          "fbp",
+          "fbc",
+          "client_ip_address",
+          "client_user_agent"
+        ],
+        "custom_data_policy": {
+          "value": "omitted_until_explicit_approval",
+          "currency": "omitted_until_explicit_approval",
+          "content_name": "forbidden_health_wellness_sensitive",
+          "product_name": "forbidden_health_wellness_sensitive"
+        },
+        "metadata": {
+          "semantic_touchpoint": "registration_completed",
+          "purchase_candidate": false,
+          "included_in_purchase_roas": false,
+          "included_in_budget_roas": false,
+          "red_approval_required_before_send": true
+        }
+      },
+      "forbidden_fields": [
+        "raw_order_code",
+        "raw_order_no",
+        "raw_payment_key",
+        "raw_member_code",
+        "raw_email",
+        "raw_phone",
+        "raw_click_id",
+        "health_related_content_name",
+        "health_related_product_name"
+      ],
+      "success_criteria_before_staged_on": [
+        "Test Events에서 server source 1건 이하 수신 확인",
+        "Purchase count/value/ROAS 변화 0",
+        "raw identifier output 0",
+        "event별 OFF rollback 가능",
+        "Meta health/wellness data restriction 검토"
+      ]
+    },
+    {
+      "event_name": "Scroll50",
+      "semantic_touchpoint": "scroll_50_percent",
+      "available_count": 0,
+      "source": "not_connected_to_VM_Cloud_for_site_yet",
+      "unit": "not_available",
+      "backend_route_supported_now": false,
+      "status": "backend_route_not_ready",
+      "readiness_note_ko": "50% 스크롤은 표준 Purchase가 아니며 health/wellness 제한과 custom event 정책 검토가 먼저 필요하다.",
+      "send_allowed": false,
+      "test_events_allowed_without_new_approval": false,
+      "purchase_candidate": false,
+      "payload_preview": {
+        "event_name": "Scroll50",
+        "action_source": "website",
+        "event_time": "runtime_unix_seconds",
+        "event_id": "safe_session_event_id_or_hash_only",
+        "event_source_url_policy": "path_bucket_only_query_removed",
+        "user_data_allowed_presence_only": [
+          "fbp",
+          "fbc",
+          "client_ip_address",
+          "client_user_agent"
+        ],
+        "custom_data_policy": {
+          "value": "omitted_until_explicit_approval",
+          "currency": "omitted_until_explicit_approval",
+          "content_name": "forbidden_health_wellness_sensitive",
+          "product_name": "forbidden_health_wellness_sensitive"
+        },
+        "metadata": {
+          "semantic_touchpoint": "scroll_50_percent",
+          "purchase_candidate": false,
+          "included_in_purchase_roas": false,
+          "included_in_budget_roas": false,
+          "red_approval_required_before_send": true
+        }
+      },
+      "forbidden_fields": [
+        "raw_order_code",
+        "raw_order_no",
+        "raw_payment_key",
+        "raw_member_code",
+        "raw_email",
+        "raw_phone",
+        "raw_click_id",
+        "health_related_content_name",
+        "health_related_product_name"
+      ],
+      "success_criteria_before_staged_on": [
+        "Test Events에서 server source 1건 이하 수신 확인",
+        "Purchase count/value/ROAS 변화 0",
+        "raw identifier output 0",
+        "event별 OFF rollback 가능",
+        "Meta health/wellness data restriction 검토"
+      ]
+    }
+  ],
+  "approval_packet_summary": {
+    "green_done": [
+      "capture source inventory",
+      "no-send payload preview",
+      "forbidden field list",
+      "event-level staged ON gate"
+    ],
+    "yellow_or_red_required_next": [
+      "Meta Test Events smoke 1건 이하",
+      "event별 staged CAPI ON",
+      "VM Cloud deploy/restart if route allowlist changes are implemented"
+    ],
+    "hard_stop_conditions": [
+      "Purchase count/value changes during intermediate event smoke",
+      "raw identifier appears in payload/report",
+      "health/wellness sensitive content_name/product_name required",
+      "event cannot be rolled back per event name"
+    ]
+  },
+  "guardrails": {
+    "raw_identifier_output": 0,
+    "platform_send_from_this_endpoint": 0,
+    "operational_db_write": 0
+  },
+  "no_send": true,
+  "no_write": true,
+  "no_deploy": true,
+  "no_publish": true
+}

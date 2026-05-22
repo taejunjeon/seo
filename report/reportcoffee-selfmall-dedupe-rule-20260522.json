@@ -1,0 +1,133 @@
+{
+  "ok": true,
+  "report": "reportcoffee_selfmall_dedupe_rule_v0_2",
+  "site": "thecleancoffee",
+  "generated_at_kst": "2026-05-22 00:25:00",
+  "lane": "Green",
+  "source_windows": {
+    "last_7d": "2026-05-15 - 2026-05-21",
+    "last_30d": "2026-04-22 - 2026-05-21"
+  },
+  "send_write_invariants": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "raw_identifier_output_in_artifacts": 0
+  },
+  "decision": {
+    "selfmall_amount_rule_v0_2": "Toss/store=coffee reportable net + VM Cloud NPay actual. siteConfirmedRevenue는 광고/유입 ledger confirmed 후보라 자사몰 결제수단 합계에 더하지 않는다.",
+    "weekly_status": "Toss known minimum only. NPay weekly amount is pending because the public summary exposes NPay actual as 30d only.",
+    "monthly_status": "Toss 30d + NPay actual 30d can be used as self-mall included-with-warning amount.",
+    "playauto_role": "아임웹-C 주문/상품/배송 cross-check. pay_amt가 0이라 amount source가 아니다.",
+    "site_confirmed_revenue_role": "diagnostic only for current report; do not sum with Toss/NPay.",
+    "toss_reconcile_endpoint_warning": "/api/crm-local/imweb/toss-reconcile has useful aggregate coverage but includes raw samples in response. Slack/report automation must use aggregate-only wrapper."
+  },
+  "evidence": {
+    "last_7d": {
+      "playauto_selfmall": {
+        "rows": 281,
+        "quantity": 399,
+        "pay_amt_sum": 0,
+        "max_date": "2026-05-20"
+      },
+      "toss_coffee": {
+        "rows": 152,
+        "reportable_net_amount_krw": 9611622,
+        "max_date": "2026-05-21"
+      },
+      "playauto_toss_bridge": {
+        "matched_toss_orders": 141,
+        "total_toss_orders": 152,
+        "order_coverage_percent": 92.76,
+        "matched_toss_amount_krw": 9240291,
+        "total_toss_amount_krw": 9611622,
+        "amount_coverage_percent": 96.14,
+        "unmatched_toss_amount_krw": 371331,
+        "join_type": "order base contained in PlayAuto shop_ord_no; aggregate only"
+      },
+      "npay_actual": {
+        "status": "weekly_amount_pending",
+        "reason": "VM Cloud public summary currently returns NPay actual 30d, not weekly window."
+      },
+      "selfmall_reportable": {
+        "known_minimum_krw": 9611622,
+        "status": "included_minimum_with_npay_pending"
+      }
+    },
+    "last_30d": {
+      "playauto_selfmall": {
+        "rows": 1165,
+        "quantity": 1398,
+        "pay_amt_sum": 0,
+        "max_date": "2026-05-20"
+      },
+      "toss_coffee": {
+        "rows": 551,
+        "reportable_net_amount_krw": 31444064,
+        "max_date": "2026-05-21"
+      },
+      "playauto_toss_bridge": {
+        "matched_toss_orders": 539,
+        "total_toss_orders": 551,
+        "order_coverage_percent": 97.82,
+        "matched_toss_amount_krw": 31072733,
+        "total_toss_amount_krw": 31444064,
+        "amount_coverage_percent": 98.82,
+        "unmatched_toss_amount_krw": 371331,
+        "join_type": "order base contained in PlayAuto shop_ord_no; aggregate only"
+      },
+      "npay_actual": {
+        "source": "VM Cloud imweb_orders site=thecleancoffee pay_type=npay",
+        "status": "included_with_warning",
+        "complete_count": 304,
+        "complete_amount_krw": 15538800,
+        "gross_amount_krw": 17743000,
+        "excluded_cancel_return_exchange_amount_krw": 2204200,
+        "status_blank_amount_krw": 141600,
+        "max_order_time": "2026-05-21T13:21:38.000Z"
+      },
+      "selfmall_reportable": {
+        "toss_plus_npay_actual_krw": 46982864,
+        "status": "included_with_warning",
+        "pending_other_rails": "possible non-Toss non-NPay rows remain in Imweb/Toss reconcile missing bucket"
+      },
+      "diagnostic_only": {
+        "site_confirmed_revenue_krw": 32661233,
+        "reason": "attribution ledger confirmed candidate; undercounts vs Toss+NPay and should not be summed."
+      }
+    }
+  },
+  "revised_report_totals": {
+    "last_7d": {
+      "selfmall_known_minimum_krw": 9611622,
+      "smartstore_krw": 2297220,
+      "coupang_krw": null,
+      "included_sales_minimum_krw": 11908842,
+      "included_ad_spend_krw": 1952104,
+      "ad_spend_share_percent_on_minimum": 16.39,
+      "status": "minimum_only_npay_and_coupang_pending"
+    },
+    "last_30d": {
+      "selfmall_toss_plus_npay_krw": 46982864,
+      "smartstore_krw": 8844270,
+      "coupang_krw": null,
+      "included_sales_krw": 55827134,
+      "included_ad_spend_krw": 3966919,
+      "ad_spend_share_percent": 7.11,
+      "status": "included_with_warning_coupang_pending"
+    }
+  },
+  "next_actions": [
+    {
+      "owner": "Codex",
+      "action": "VM Cloud NPay actual weekly aggregate endpoint or read-only query path",
+      "confidence_percent": 84
+    },
+    {
+      "owner": "Codex",
+      "action": "aggregate-only Toss reconcile wrapper for report automation",
+      "confidence_percent": 88
+    }
+  ]
+}

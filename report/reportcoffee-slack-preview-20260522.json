@@ -1,0 +1,96 @@
+{
+  "report": "reportcoffee_slack_no_send_preview_20260522",
+  "generated_at_kst": "2026-05-22 01:55 KST",
+  "site": "thecleancoffee",
+  "mode": "no_send_preview",
+  "send_status": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  },
+  "source_policy": {
+    "sales_strict_definition": "더클린커피로 분류 가능한 자사몰 + 스마트스토어 + 쿠팡 coffee_hint 매출",
+    "teamketo_account_total_reference": "TeamKeto 쿠팡 계정 전체 합계. 팀키토 상품이 섞여 있어 더클린커피 strict 총매출과 분리 표시",
+    "ad_spend_share_formula": "included_ad_spend_krw / sales_strict_krw * 100",
+    "platform_purchase_value_policy": "Meta 플랫폼 주장 구매값은 참고값이며 내부 매출 합계에 더하지 않음"
+  },
+  "weekly": {
+    "window": "2026-05-15 - 2026-05-21 KST",
+    "sales_strict_krw": 16647142,
+    "sales_with_teamketo_account_total_krw": 17570342,
+    "included_ad_spend_krw": 1952104,
+    "ad_spend_share_percent": 11.73,
+    "ad_spend_share_with_teamketo_account_total_percent": 11.11,
+    "channels": {
+      "self_mall": {
+        "amount_krw": 13305022,
+        "components": {
+          "toss_store_coffee_krw": 9611622,
+          "npay_actual_krw": 3693400
+        },
+        "status": "included_with_warning",
+        "warning": "NPay status blank 4건 / 141,600원은 미결제가 아니라 freshness warning"
+      },
+      "smartstore": {
+        "amount_krw": 2297220,
+        "status": "included_with_warning",
+        "source": "운영DB tb_playauto_orders shop_name='스마트스토어'"
+      },
+      "coupang": {
+        "coffee_hint_amount_krw": 1044900,
+        "teamketo_hint_amount_krw": 923200,
+        "account_total_amount_krw": 1968100,
+        "status": "included_candidate_split_required"
+      }
+    },
+    "ad_spend": {
+      "meta_krw": 1952104,
+      "naver": "0_candidate_api_reachable_campaigns_paused_cache_empty",
+      "google": "pending_campaign_mapping",
+      "tiktok": "pending_campaign_mapping"
+    }
+  },
+  "rolling_30d": {
+    "window": "2026-04-22 - 2026-05-21 KST",
+    "sales_strict_krw": 60244934,
+    "sales_with_teamketo_account_total_krw": 63091634,
+    "included_ad_spend_krw": 3966919,
+    "ad_spend_share_percent": 6.58,
+    "ad_spend_share_with_teamketo_account_total_percent": 6.29,
+    "channels": {
+      "self_mall": {
+        "amount_krw": 46982864,
+        "components": {
+          "toss_store_coffee_krw": 31444064,
+          "npay_actual_krw": 15538800
+        },
+        "status": "included_with_warning"
+      },
+      "smartstore": {
+        "amount_krw": 8844270,
+        "status": "included_with_warning",
+        "source": "운영DB tb_playauto_orders shop_name='스마트스토어'"
+      },
+      "coupang": {
+        "coffee_hint_amount_krw": 4417800,
+        "teamketo_hint_amount_krw": 2846700,
+        "account_total_amount_krw": 7264500,
+        "status": "included_candidate_split_required"
+      }
+    },
+    "ad_spend": {
+      "meta_krw": 3966919,
+      "naver": "0_candidate_api_reachable_campaigns_paused_cache_empty",
+      "google": "pending_campaign_mapping",
+      "tiktok": "pending_campaign_mapping"
+    }
+  },
+  "next_required_before_send": [
+    "TJ님 Slack 채널/주기 승인",
+    "Naver Ads coffee campaign allowlist 추가 또는 0원 표시 결정",
+    "Google/TikTok 더클린커피 campaign mapping 전까지 pending 유지"
+  ]
+}

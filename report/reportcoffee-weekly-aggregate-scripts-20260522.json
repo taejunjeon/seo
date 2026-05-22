@@ -1,0 +1,60 @@
+{
+  "report": "reportcoffee_weekly_aggregate_scripts_20260522",
+  "site": "thecleancoffee",
+  "generated_at_kst": "2026-05-22 00:51 KST",
+  "lane": "Green",
+  "scope": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  },
+  "scripts": {
+    "npay_weekly_aggregate": {
+      "path": "backend/scripts/reportcoffee-npay-weekly-aggregate.ts",
+      "purpose": "VM Cloud 또는 로컬 SQLite imweb_orders에서 더클린커피 NPay actual 후보를 KST 주간/월간 window로 합계만 산출",
+      "primary_source_rule": "site=thecleancoffee + pay_type=npay + payment_amount>0 + order_time window + cancel/return/exchange excluded",
+      "diagnostic_only": ["complete_time", "imweb_status", "imweb_status_synced_at"],
+      "smoke_output": "report/reportcoffee-npay-weekly-aggregate-smoke-20260522.json",
+      "smoke_result": {
+        "window": "2026-05-15 - 2026-05-21 KST",
+        "local_db_count": 0,
+        "local_db_amount_krw": 0,
+        "confidence": "source_freshness_gap_run_on_fresh_vm_cloud_db",
+        "local_db_max_order_time": "2026-04-04T01:32:57.000Z"
+      },
+      "fresh_weekly_condition": "VM Cloud fresh crm.sqlite3 경로에서 같은 스크립트를 실행해야 실제 주간 NPay 금액이 나온다."
+    },
+    "coupang_teamketo_ordersheets_aggregate": {
+      "path": "backend/scripts/reportcoffee-coupang-teamketo-ordersheets-aggregate.ts",
+      "purpose": "Coupang Wing TeamKeto ordersheets를 read-only로 조회해 고객/주문 식별자 없이 합계와 제품 분류만 산출",
+      "smoke_output": "report/reportcoffee-coupang-teamketo-ordersheets-weekly-smoke-20260522.json",
+      "smoke_result": {
+        "window": "2026-05-15 - 2026-05-21 KST",
+        "api_calls": 42,
+        "api_errors": 0,
+        "order_sheets": 41,
+        "items": 43,
+        "quantity": 44,
+        "amount_krw": 1968100,
+        "coffee_hint_amount_krw": 1044900,
+        "teamketo_hint_amount_krw": 923200
+      }
+    }
+  },
+  "track_progress": {
+    "A_source_rule": { "previous": 38, "current": 42, "delta": 4 },
+    "B_coffee_revenue_source": { "previous": 68, "current": 78, "delta": 10 },
+    "C_coffee_ad_spend_source": { "previous": 35, "current": 35, "delta": 0 },
+    "D_biocom_report_source_map": { "previous": 10, "current": 10, "delta": 0 },
+    "E_slack_no_send_design": { "previous": 40, "current": 42, "delta": 2 },
+    "F_automation_readiness": { "previous": 15, "current": 28, "delta": 13 }
+  },
+  "next": [
+    "NPay weekly actual은 VM Cloud fresh DB에서 read-only 실행해 숫자를 채운다.",
+    "Coupang weekly aggregate를 Slack no-send preview의 쿠팡 채널 매출 후보로 연결한다.",
+    "Meta spend와 자사몰/스마트스토어/쿠팡 매출을 같은 KST 주간 window로 합친다."
+  ]
+}

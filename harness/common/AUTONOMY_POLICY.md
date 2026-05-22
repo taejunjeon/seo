@@ -18,6 +18,10 @@ GTM Production publish, 광고 플랫폼 전환 전송, 운영DB write, destruct
 이미 승인된 Yellow Lane을 다시 `TJ님 다음 할 일`로 돌리지 않는다.
 승인 범위 안에서 실행을 시도하고, 성공/실패/접근 blocker를 결과로 보고한다.
 
+Green First:
+
+Codex가 안전하게 할 수 있는 문서 조사, read-only 조회, dry-run, 로컬 테스트, 설계, 승인안 작성, 스코프 내 로컬 수정은 확인 요청 없이 진행한다. 하네스의 기본 목적은 확인 단계를 늘리는 것이 아니라, 위험한 선을 좁게 막고 나머지 실행 속도를 올리는 것이다.
+
 ## Green Lane
 
 Green Lane은 자동 진행한다.
@@ -40,6 +44,8 @@ Green Lane에서 묻지 않는다.
 ## Multi-Agent Worktree Rule
 
 멀티에이전트 병렬화는 read-only 조사와 proposal-only 문서 초안까지 Green Lane으로 허용한다.
+
+Subagent는 속도를 올리는 도구다. 코드베이스 조사, 문서 검토, QA, 프론트 smoke, 승인안 초안처럼 서로 충돌하지 않는 작업은 병렬화한다.
 
 코드 구현은 parent agent가 통합 수행한다. 병렬 구현이 필요한 경우에만 별도 worktree/branch 또는 명확한 disjoint write set을 사용하고, parent agent가 patch를 review/import한다.
 

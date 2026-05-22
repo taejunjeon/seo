@@ -817,6 +817,7 @@ const collectImwebOrderLookupKeys = (entry: AttributionLedgerEntry) => {
 };
 
 type ImwebOrderMatchingContext = {
+  email?: string;
   phone?: string;
   externalId?: string;
 };
@@ -825,9 +826,10 @@ const resolveImwebOrderMatchingContext = (
   entry: AttributionLedgerEntry,
   source: string,
 ): ImwebOrderMatchingContext => {
+  const emailHashEnabled = env.META_CAPI_ENABLE_IMWEB_EMAIL_HASH === true;
   const phoneHashEnabled = env.META_CAPI_ENABLE_IMWEB_PHONE_HASH === true;
   const externalIdEnabled = env.META_CAPI_ENABLE_MEMBER_EXTERNAL_ID === true;
-  if (!phoneHashEnabled && !externalIdEnabled) return {};
+  if (!emailHashEnabled && !phoneHashEnabled && !externalIdEnabled) return {};
 
   const site = resolveImwebSiteFromMetaSource(source);
   if (!site || !isMetaCapiIdentityEnrichmentSiteAllowed(site)) return {};
@@ -842,21 +844,34 @@ const resolveImwebOrderMatchingContext = (
       .get() as { name?: string } | undefined;
     if (!table?.name) return {};
 
+    const membersTable = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='imweb_members'")
+      .get() as { name?: string } | undefined;
+    const canJoinMemberEmail = emailHashEnabled && Boolean(membersTable?.name);
     const placeholders = lookupKeys.map(() => "?").join(",");
     const row = db
       .prepare(`
-        SELECT orderer_call, member_code
-        FROM imweb_orders
-        WHERE site = ?
+        SELECT
+          o.orderer_call,
+          o.member_code
+          ${canJoinMemberEmail ? ", m.email AS member_email" : ""}
+        FROM imweb_orders o
+        ${
+          canJoinMemberEmail
+            ? "LEFT JOIN imweb_members m ON m.site = o.site AND m.member_code = o.member_code"
+            : ""
+        }
+        WHERE o.site = ?
           AND (
-            order_no IN (${placeholders})
-            OR order_code IN (${placeholders})
-            OR channel_order_no IN (${placeholders})
+            o.order_no IN (${placeholders})
+            OR o.order_code IN (${placeholders})
+            OR o.channel_order_no IN (${placeholders})
           )
-        ORDER BY COALESCE(complete_time_unix, order_time_unix, 0) DESC
+        ORDER BY COALESCE(o.complete_time_unix, o.order_time_unix, 0) DESC
         LIMIT 1
       `)
       .get(site, ...lookupKeys, ...lookupKeys, ...lookupKeys) as {
+        member_email?: string | null;
         orderer_call?: string | null;
         member_code?: string | null;
       } | undefined;
@@ -864,6 +879,7 @@ const resolveImwebOrderMatchingContext = (
     if (!row) return {};
 
     return {
+      ...(emailHashEnabled && row.member_email?.trim() ? { email: row.member_email } : {}),
       ...(phoneHashEnabled && row.orderer_call?.trim() ? { phone: row.orderer_call } : {}),
       ...(externalIdEnabled ? { externalId: hashSiteScopedMemberExternalId({ site, memberCode: row.member_code }) } : {}),
     };
@@ -1968,7 +1984,7 @@ const buildSyncInput = async (entry: AttributionLedgerEntry): Promise<MetaCapiSe
       ledgerEntry: entry,
       metadata: entry.metadata,
     }),
-    email: tossPayment?.customerEmail,
+    email: tossPayment?.customerEmail || imwebMatching.email,
     phone: tossPayment?.customerMobilePhone || imwebMatching.phone,
     externalId: imwebMatching.externalId,
     clientIpAddress: entry.requestContext.ip,

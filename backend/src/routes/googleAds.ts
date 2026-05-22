@@ -369,6 +369,38 @@ type GoogleCampaignMatchHealth = {
     confirmedRows: number;
     matchedToDashboardCampaign: boolean;
   }>;
+  healthSplit: {
+    roasAttribution: {
+      source: "site_landing_ledger_and_attribution_ledger";
+      status: "usable_for_budget_review" | "collecting" | "blocked";
+      rows: number;
+      googleClickIdRows: number;
+      gadCampaignIdRows: number;
+      currentCampaignIdCoverageRate: number | null;
+      latestAt: string | null;
+      interpretation: string;
+    };
+    paidClickIntentTag: {
+      source: "paid_click_intent_ledger";
+      status: "monitoring" | "needs_exact_click_diagnosis" | "collecting" | "blocked";
+      rows: number;
+      googleClickIdRows: number;
+      gadCampaignIdRows: number;
+      currentCampaignIdCoverageRate: number | null;
+      latestAt: string | null;
+      interpretation: string;
+    };
+    orderAttribution: {
+      source: "attribution_ledger";
+      status: "usable_for_order_join" | "collecting" | "blocked";
+      rows: number;
+      googleClickIdEvidenceRows: number;
+      confirmedPaymentSuccessRows: number;
+      confirmedRowsWithGadCampaignId: number;
+      latestAt: string | null;
+      interpretation: string;
+    };
+  };
   summary: {
     status:
       | "allowlist_deployed_waiting_new_click"
@@ -3306,6 +3338,36 @@ const emptyGoogleCampaignMatchHealth = (
   interpretation: string,
 ): GoogleCampaignMatchHealth => {
   const windowDays = datePresetWindowDays(datePreset);
+  const siteLanding = {
+    rows: 0,
+    googleClickIdRows: 0,
+    gadCampaignIdRows: 0,
+    gadSourceRows: 0,
+    utmBlankGoogleClickIdRows: 0,
+    utmPresentGoogleClickIdRows: 0,
+    currentCampaignIdCoverageRate: null,
+    potentialCoverageRateAfterAllowlist: null,
+    latestAt: null,
+  };
+  const paidClickIntent = {
+    rows: 0,
+    googleClickIdRows: 0,
+    gadCampaignIdRows: 0,
+    gadSourceRows: 0,
+    utmBlankGoogleClickIdRows: 0,
+    utmPresentGoogleClickIdRows: 0,
+    currentCampaignIdCoverageRate: null,
+    potentialCoverageRateAfterAllowlist: null,
+    latestAt: null,
+  };
+  const attributionLedger = {
+    rows: 0,
+    gadCampaignIdRows: 0,
+    googleClickIdEvidenceRows: 0,
+    confirmedPaymentSuccessRows: 0,
+    confirmedRowsWithGadCampaignId: 0,
+    latestAt: null,
+  };
   return {
     windowDays,
     generatedAt: new Date().toISOString(),
@@ -3318,36 +3380,9 @@ const emptyGoogleCampaignMatchHealth = (
       policy:
         "오늘 작업일은 ROAS 재계산 기준 후보일 뿐이다. 신규 유입에서 gad_campaignid 보존이 확인된 뒤부터 재계산 기준점으로 승격한다.",
     },
-    siteLanding: {
-      rows: 0,
-      googleClickIdRows: 0,
-      gadCampaignIdRows: 0,
-      gadSourceRows: 0,
-      utmBlankGoogleClickIdRows: 0,
-      utmPresentGoogleClickIdRows: 0,
-      currentCampaignIdCoverageRate: null,
-      potentialCoverageRateAfterAllowlist: null,
-      latestAt: null,
-    },
-    paidClickIntent: {
-      rows: 0,
-      googleClickIdRows: 0,
-      gadCampaignIdRows: 0,
-      gadSourceRows: 0,
-      utmBlankGoogleClickIdRows: 0,
-      utmPresentGoogleClickIdRows: 0,
-      currentCampaignIdCoverageRate: null,
-      potentialCoverageRateAfterAllowlist: null,
-      latestAt: null,
-    },
-    attributionLedger: {
-      rows: 0,
-      gadCampaignIdRows: 0,
-      googleClickIdEvidenceRows: 0,
-      confirmedPaymentSuccessRows: 0,
-      confirmedRowsWithGadCampaignId: 0,
-      latestAt: null,
-    },
+    siteLanding,
+    paidClickIntent,
+    attributionLedger,
     confidenceThresholds: {
       exactClickViewPct: 95,
       gadCampaignIdWithClickIdPct: 85,
@@ -3356,6 +3391,7 @@ const emptyGoogleCampaignMatchHealth = (
       unmappedPct: 0,
     },
     topCampaignIds: [],
+    healthSplit: buildGoogleCampaignHealthSplit({ siteLanding, paidClickIntent, attributionLedger }),
     summary: {
       status,
       mappedRows: 0,
@@ -3390,6 +3426,86 @@ const extractGadCampaignIdFromText = (value: unknown): string => {
 
 const campaignSignalRate = (matched: number, denominator: number) =>
   denominator > 0 ? round4(matched / denominator) : null;
+
+const buildGoogleCampaignHealthSplit = ({
+  siteLanding,
+  paidClickIntent,
+  attributionLedger,
+}: {
+  siteLanding: GoogleCampaignMatchHealth["siteLanding"];
+  paidClickIntent: GoogleCampaignMatchHealth["paidClickIntent"];
+  attributionLedger: GoogleCampaignMatchHealth["attributionLedger"];
+}): GoogleCampaignMatchHealth["healthSplit"] => {
+  const siteLandingHasCampaignId = siteLanding.gadCampaignIdRows > 0;
+  const siteLandingHasClickId = siteLanding.googleClickIdRows > 0;
+  const paidIntentHasCampaignId = paidClickIntent.gadCampaignIdRows > 0;
+  const paidIntentHasClickId = paidClickIntent.googleClickIdRows > 0;
+  const orderHasCampaignId = attributionLedger.confirmedRowsWithGadCampaignId > 0;
+  const orderHasGoogleEvidence = attributionLedger.googleClickIdEvidenceRows > 0;
+  const paidIntentBehindLanding =
+    siteLanding.gadCampaignIdRows > 0 && paidClickIntent.gadCampaignIdRows < siteLanding.gadCampaignIdRows;
+
+  return {
+    roasAttribution: {
+      source: "site_landing_ledger_and_attribution_ledger",
+      status: siteLandingHasCampaignId
+        ? "usable_for_budget_review"
+        : siteLandingHasClickId
+          ? "collecting"
+          : "blocked",
+      rows: siteLanding.rows,
+      googleClickIdRows: siteLanding.googleClickIdRows,
+      gadCampaignIdRows: siteLanding.gadCampaignIdRows,
+      currentCampaignIdCoverageRate: siteLanding.currentCampaignIdCoverageRate,
+      latestAt: siteLanding.latestAt,
+      interpretation: siteLandingHasCampaignId
+        ? "예산 판단용 내부 ROAS는 site_landing_ledger와 attribution_ledger를 우선 기준으로 본다. 이 경로에는 Google click id와 gad_campaignid가 함께 남고 있다."
+        : siteLandingHasClickId
+          ? "Google click id는 들어오지만 gad_campaignid가 부족하다. 캠페인별 ROAS 기준점으로 쓰려면 신규 클릭의 campaign id 보존을 더 확인해야 한다."
+          : "최근 window에 Google click id 유입 row가 없어 ROAS 캠페인 매칭 기준으로 쓸 수 없다.",
+    },
+    paidClickIntentTag: {
+      source: "paid_click_intent_ledger",
+      status: paidIntentBehindLanding
+        ? "needs_exact_click_diagnosis"
+        : paidIntentHasCampaignId
+          ? "monitoring"
+          : paidIntentHasClickId
+            ? "collecting"
+            : "blocked",
+      rows: paidClickIntent.rows,
+      googleClickIdRows: paidClickIntent.googleClickIdRows,
+      gadCampaignIdRows: paidClickIntent.gadCampaignIdRows,
+      currentCampaignIdCoverageRate: paidClickIntent.currentCampaignIdCoverageRate,
+      latestAt: paidClickIntent.latestAt,
+      interpretation: paidIntentBehindLanding
+        ? "paid_click_intent_ledger는 태그/receiver 진단용이다. site_landing보다 campaign id row가 적어 exact-click miss를 별도 이슈로 봐야 한다."
+        : paidIntentHasCampaignId
+          ? "paid-click-intent 태그가 Google click id와 gad_campaignid를 함께 저장하고 있다. 이 값은 ROAS 정본이 아니라 태그 건강도 확인용이다."
+          : paidIntentHasClickId
+            ? "paid-click-intent 태그는 click id를 저장하지만 campaign id 보존이 아직 부족하다."
+            : "paid-click-intent 태그 원장에 최근 Google click id row가 없어 태그 건강도를 판단하기 어렵다.",
+    },
+    orderAttribution: {
+      source: "attribution_ledger",
+      status: orderHasCampaignId
+        ? "usable_for_order_join"
+        : orderHasGoogleEvidence
+          ? "collecting"
+          : "blocked",
+      rows: attributionLedger.rows,
+      googleClickIdEvidenceRows: attributionLedger.googleClickIdEvidenceRows,
+      confirmedPaymentSuccessRows: attributionLedger.confirmedPaymentSuccessRows,
+      confirmedRowsWithGadCampaignId: attributionLedger.confirmedRowsWithGadCampaignId,
+      latestAt: attributionLedger.latestAt,
+      interpretation: orderHasCampaignId
+        ? "주문 원장에도 Google campaign id evidence가 남아 있다. 결제완료 주문 기준 ROAS join의 보조 근거로 쓸 수 있다."
+        : orderHasGoogleEvidence
+          ? "주문 원장에는 Google click evidence가 있으나 결제완료 campaign id 연결은 더 쌓여야 한다."
+          : "주문 원장에서 Google click evidence가 부족해 결제완료 ROAS join 기준으로 쓰기 어렵다.",
+    },
+  };
+};
 
 const buildGoogleCampaignMatchHealth = (
   datePreset: DatePreset,
@@ -3527,6 +3643,42 @@ const buildGoogleCampaignMatchHealth = (
       : status === "allowlist_deployed_waiting_new_click"
         ? "gad_campaignid allowlist는 배포됐습니다. 배포 전 window에는 캠페인 ID가 0건이라 신규 Google 클릭 row가 쌓인 뒤 매칭률을 다시 확인해야 합니다."
         : "최근 window에 Google click id row가 없어 캠페인 ID 매칭률을 판단할 수 없습니다.";
+    const siteLandingHealth = {
+      rows: toNumber(siteLanding.rows),
+      googleClickIdRows: siteLandingGoogleClickIdRows,
+      gadCampaignIdRows: siteLandingGadCampaignIdRows,
+      gadSourceRows: toNumber(siteLanding.gadSourceRows),
+      utmBlankGoogleClickIdRows: siteLandingRecoverableRows,
+      utmPresentGoogleClickIdRows: toNumber(siteLanding.utmPresentGoogleClickIdRows),
+      currentCampaignIdCoverageRate: campaignSignalRate(siteLandingGadCampaignIdRows, siteLandingGoogleClickIdRows),
+      potentialCoverageRateAfterAllowlist: campaignSignalRate(
+        siteLandingGadCampaignIdRows + siteLandingRecoverableRows,
+        siteLandingGoogleClickIdRows,
+      ),
+      latestAt: toStringValue(siteLanding.latestAt) || null,
+    };
+    const paidClickIntentHealth = {
+      rows: toNumber(paidClickIntent.rows),
+      googleClickIdRows: paidClickGoogleClickIdRows,
+      gadCampaignIdRows: paidClickGadCampaignIdRows,
+      gadSourceRows: toNumber(paidClickIntent.gadSourceRows),
+      utmBlankGoogleClickIdRows: paidClickRecoverableRows,
+      utmPresentGoogleClickIdRows: toNumber(paidClickIntent.utmPresentGoogleClickIdRows),
+      currentCampaignIdCoverageRate: campaignSignalRate(paidClickGadCampaignIdRows, paidClickGoogleClickIdRows),
+      potentialCoverageRateAfterAllowlist: campaignSignalRate(
+        paidClickGadCampaignIdRows + paidClickRecoverableRows,
+        paidClickGoogleClickIdRows,
+      ),
+      latestAt: toStringValue(paidClickIntent.latestAt) || null,
+    };
+    const attributionLedgerHealth = {
+      rows: toNumber(attributionLedger.rows),
+      gadCampaignIdRows: toNumber(attributionLedger.gadCampaignIdRows),
+      googleClickIdEvidenceRows: toNumber(attributionLedger.googleClickIdEvidenceRows),
+      confirmedPaymentSuccessRows: toNumber(attributionLedger.confirmedPaymentSuccessRows),
+      confirmedRowsWithGadCampaignId: toNumber(attributionLedger.confirmedRowsWithGadCampaignId),
+      latestAt: toStringValue(attributionLedger.latestAt) || null,
+    };
 
     return {
       windowDays,
@@ -3540,42 +3692,9 @@ const buildGoogleCampaignMatchHealth = (
         policy:
           `오늘 작업일은 ROAS 재계산 기준 후보일 뿐이다. allowlist 배포 시각(${GOOGLE_CAMPAIGN_MATCH_ALLOWLIST_DEPLOYED_AT_KST}) 이후 신규 유입에서 gad_campaignid 보존이 확인된 뒤부터 재계산 기준점으로 승격한다.`,
       },
-      siteLanding: {
-        rows: toNumber(siteLanding.rows),
-        googleClickIdRows: siteLandingGoogleClickIdRows,
-        gadCampaignIdRows: siteLandingGadCampaignIdRows,
-        gadSourceRows: toNumber(siteLanding.gadSourceRows),
-        utmBlankGoogleClickIdRows: siteLandingRecoverableRows,
-        utmPresentGoogleClickIdRows: toNumber(siteLanding.utmPresentGoogleClickIdRows),
-        currentCampaignIdCoverageRate: campaignSignalRate(siteLandingGadCampaignIdRows, siteLandingGoogleClickIdRows),
-        potentialCoverageRateAfterAllowlist: campaignSignalRate(
-          siteLandingGadCampaignIdRows + siteLandingRecoverableRows,
-          siteLandingGoogleClickIdRows,
-        ),
-        latestAt: toStringValue(siteLanding.latestAt) || null,
-      },
-      paidClickIntent: {
-        rows: toNumber(paidClickIntent.rows),
-        googleClickIdRows: paidClickGoogleClickIdRows,
-        gadCampaignIdRows: paidClickGadCampaignIdRows,
-        gadSourceRows: toNumber(paidClickIntent.gadSourceRows),
-        utmBlankGoogleClickIdRows: paidClickRecoverableRows,
-        utmPresentGoogleClickIdRows: toNumber(paidClickIntent.utmPresentGoogleClickIdRows),
-        currentCampaignIdCoverageRate: campaignSignalRate(paidClickGadCampaignIdRows, paidClickGoogleClickIdRows),
-        potentialCoverageRateAfterAllowlist: campaignSignalRate(
-          paidClickGadCampaignIdRows + paidClickRecoverableRows,
-          paidClickGoogleClickIdRows,
-        ),
-        latestAt: toStringValue(paidClickIntent.latestAt) || null,
-      },
-      attributionLedger: {
-        rows: toNumber(attributionLedger.rows),
-        gadCampaignIdRows: toNumber(attributionLedger.gadCampaignIdRows),
-        googleClickIdEvidenceRows: toNumber(attributionLedger.googleClickIdEvidenceRows),
-        confirmedPaymentSuccessRows: toNumber(attributionLedger.confirmedPaymentSuccessRows),
-        confirmedRowsWithGadCampaignId: toNumber(attributionLedger.confirmedRowsWithGadCampaignId),
-        latestAt: toStringValue(attributionLedger.latestAt) || null,
-      },
+      siteLanding: siteLandingHealth,
+      paidClickIntent: paidClickIntentHealth,
+      attributionLedger: attributionLedgerHealth,
       confidenceThresholds: {
         exactClickViewPct: 95,
         gadCampaignIdWithClickIdPct: 85,
@@ -3593,6 +3712,11 @@ const buildGoogleCampaignMatchHealth = (
         }))
         .sort((a, b) => b.rows - a.rows || b.confirmedRows - a.confirmedRows)
         .slice(0, 8),
+      healthSplit: buildGoogleCampaignHealthSplit({
+        siteLanding: siteLandingHealth,
+        paidClickIntent: paidClickIntentHealth,
+        attributionLedger: attributionLedgerHealth,
+      }),
       summary: {
         status,
         mappedRows,

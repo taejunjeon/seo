@@ -1,0 +1,65 @@
+{
+  "ok": true,
+  "severity": "ok",
+  "should_notify": false,
+  "notify_mode": "alert_only",
+  "reasons": [
+    "confirmed_missing_capi_in_grace=2"
+  ],
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud /health + funnel-health aggregate + Meta CAPI send log aggregate",
+    "window": "1d",
+    "site": "biocom",
+    "pixel_id": "1283400029487161",
+    "freshness": "fresh",
+    "checked_at_kst": "2026-05-21 22:58",
+    "confidence": "high_for_api_contract_medium_for_business_queue"
+  },
+  "metrics": {
+    "confirmed_but_no_capi_count": 2,
+    "confirmed_but_no_capi_amount_krw": 479000,
+    "confirmed_but_no_capi_oldest_age_minutes": 23,
+    "confirmed_but_no_capi_grace_minutes": 30,
+    "capi_1d_success": 46,
+    "capi_1d_failure": 0,
+    "duplicate_event_ids": 0,
+    "duplicate_order_event_keys": 0,
+    "required_failed_checks": []
+  },
+  "meta_roas_yesterday": {
+    "preset": "yesterday",
+    "date_range": {
+      "start_date": "2026-05-20",
+      "end_date": "2026-05-20",
+      "timezone": "Asia/Seoul",
+      "inclusivity": "KST calendar dates inclusive"
+    },
+    "spend_krw": 3613405,
+    "internal_attributed_revenue_krw": 5914374,
+    "internal_attributed_roas": 1.64,
+    "internal_attributed_orders": 18,
+    "meta_ads_purchase_value_krw": 5275454,
+    "meta_ads_purchase_roas": 1.46,
+    "cache_source": "in_memory_precompute",
+    "cache_stale": false
+  },
+  "meta_roas_fetch": {
+    "status": "ok",
+    "path": "/Users/vibetj/coding/seo/data/project/meta-capi-daily-monitor-roas-local-roas-smoke-20260521225847.json",
+    "preset": "yesterday",
+    "source": "VM Cloud /api/ads/roas-summary",
+    "caveat": "내부귀속 ROAS는 VM Cloud 결제완료 원장 기준이고, AdsManager ROAS는 Meta가 광고에 귀속한 구매값 기준이다."
+  },
+  "slack_text_preview": "✅ Meta CAPI daily monitor OK\nsite=biocom window=1d pixel=1283400029487161\nconfirmed-but-no-CAPI=2건 / ₩479,000\nmissing_oldest_age=23분 grace=30분\nCAPI 1d success=46 failure=0 duplicate_event_id=0\n어제 Meta ROAS: 내부귀속=1.64x / AdsManager=1.46x\n어제 광고비=₩3,613,405 내부매출=₩5,914,374 Meta매출=₩5,275,454 주문=18건\naction=5/17 이후 새 누락은 CAPI sync 사유를 분류하고, 5/14~5/15 legacy backlog는 보관만 합니다.\nchecked_at=2026-05-21 22:58:51 KST",
+  "postcheck_path": "/Users/vibetj/coding/seo/data/project/meta-capi-phase1-sprint1-postcheck-local-roas-smoke-20260521225847.json",
+  "generated_at_kst": "2026-05-21 22:58:51 KST",
+  "forbidden_actions_observed_from_this_script": {
+    "meta_capi_operational_send": 0,
+    "google_ads_upload": 0,
+    "ga4_measurement_protocol_send": 0,
+    "tiktok_or_naver_send": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_report_output": 0
+  }
+}

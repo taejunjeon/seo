@@ -31,6 +31,16 @@ type FunnelStepKey =
 
 type FunnelStatusLabel = "정상" | "주의" | "긴급";
 
+type CheckoutSignalItem = {
+  label: string;
+  count: number | null;
+  source: string;
+  unit: string;
+  basis: string;
+  caveat: string;
+  send_allowed?: false;
+};
+
 type FunnelHealth = {
   ok: true;
   site: "biocom" | "thecleancoffee" | "all_sites";
@@ -160,6 +170,35 @@ type FunnelHealth = {
     explanation_ko: string;
     not_available_reason: string;
     stages: Array<{ stage: string; count: number; source: string }>;
+  };
+  checkout_signal_split?: {
+    vm_payment_page_reached: CheckoutSignalItem & { count: number };
+    meta_initiate_checkout_received: CheckoutSignalItem;
+    meta_capi_initiate_checkout_candidate: CheckoutSignalItem & { count: number; send_allowed: false };
+    root_causes: Array<{
+      reason: string;
+      count: number;
+      explanation_ko: string;
+    }>;
+    ordered_exclusion_steps?: Array<{
+      step: number;
+      reason: string;
+      label: string;
+      count: number;
+      rate_of_payment_page_reached: number | null;
+      effect: "start" | "exclude" | "dedupe" | "keep";
+      explanation_ko: string;
+      next_action_ko: string;
+    }>;
+    summary?: {
+      raw_payment_page_rows: number;
+      excluded_rows: number;
+      deduped_repeat_rows: number;
+      candidate_rows_before_dedupe: number;
+      final_candidate_rows: number;
+      final_candidate_rate: number | null;
+      caveat: string;
+    };
   };
   period_label: string;
   kpis: {
@@ -317,6 +356,11 @@ const fmtNum = (n: number): string => {
   return n.toLocaleString();
 };
 
+const fmtOptionalNum = (n: number | null | undefined): string => {
+  if (n === null || n === undefined) return "—";
+  return fmtNum(n);
+};
+
 const csvEscape = (v: unknown): string => {
   const s = v === null || v === undefined ? "" : String(v);
   if (s.includes(",") || s.includes("\"") || s.includes("\n")) {
@@ -400,11 +444,41 @@ const describeStepDetail = (step: FunnelStepKey, data: FunnelHealth): StepDetail
     };
   }
   if (step === "payment_started") {
+    if (data.checkout_signal_split) {
+      const split = data.checkout_signal_split;
+      return {
+        title: "결제 화면 신호 — 3개 기준 분리",
+        description:
+          "같은 '결제 시작'처럼 보여도 내부 진단값, Meta가 받은 값, 서버 CAPI 후보는 서로 다른 숫자입니다.",
+        headers: ["구분", "건수", "뜻", "주의점"],
+        numCols: new Set([1]),
+        rows: [
+          [
+            split.vm_payment_page_reached.label,
+            fmtOptionalNum(split.vm_payment_page_reached.count),
+            "우리 VM Cloud가 주문서/결제 페이지 도착을 본 넓은 진단값",
+            split.vm_payment_page_reached.caveat,
+          ],
+          [
+            split.meta_initiate_checkout_received.label,
+            fmtOptionalNum(split.meta_initiate_checkout_received.count),
+            "Meta 픽셀/forward 경로에서 InitiateCheckout 이름으로 들어온 수신 근사값",
+            split.meta_initiate_checkout_received.caveat,
+          ],
+          [
+            split.meta_capi_initiate_checkout_candidate.label,
+            fmtOptionalNum(split.meta_capi_initiate_checkout_candidate.count),
+            "Meta 광고 단서가 강한 결제 시작 흐름만 남긴 서버 전송 후보",
+            split.meta_capi_initiate_checkout_candidate.caveat,
+          ],
+        ],
+      };
+    }
     const total = data.utm_breakdown.reduce((s, r) => s + r.payment_started_count, 0);
     return {
-      title: "결제 시작 단계 — 유입별 분포",
-      description: `이 기간 총 결제 시작 ${fmtNum(total)}건의 유입별 분포입니다.`,
-      headers: ["유입", "결제시작", "결제완료", "매칭없음"],
+      title: "결제 페이지 도달 단계 — 유입별 분포",
+      description: `이 기간 총 결제 페이지 도달 ${fmtNum(total)}건의 유입별 분포입니다.`,
+      headers: ["유입", "결제 페이지 도달", "결제완료", "매칭없음"],
       numCols: new Set([1, 2, 3]),
       rows: data.utm_breakdown.map((r) => [
         r.human_label,
@@ -418,7 +492,7 @@ const describeStepDetail = (step: FunnelStepKey, data: FunnelHealth): StepDetail
     return {
       title: "유입 단계 — UTM/Referrer 분포",
       description: "유입(landing) 신호의 분포입니다. UTM 누락이 큰 채널부터 점검하세요.",
-      headers: ["유입", "유입수", "결제시작", "결제완료"],
+      headers: ["유입", "유입수", "결제 페이지 도달", "결제완료"],
       numCols: new Set([1, 2, 3]),
       rows: data.utm_breakdown.map((r) => [
         r.human_label,
@@ -1302,7 +1376,7 @@ export default function ConversionFunnelPage() {
               badgeLabel="참고용"
             />
             <KpiCard
-              title="결제 시작"
+              title="결제 페이지 도달"
               value={fmtNum(data.kpis.payment_started.count)}
               unit={data.kpis.payment_started.unit}
               period={data.period_label}
@@ -1371,6 +1445,90 @@ export default function ConversionFunnelPage() {
               badgeLabel={data.unresolved_leaks.total_count > 0 ? "조치 필요" : "정상"}
             />
           </div>
+
+          {data.checkout_signal_split && (
+            <div className={styles.checkoutSplit}>
+              <div className={styles.checkoutSplitHead}>
+                <div>
+                  <h2 className={styles.sectionTitle}>결제 시작 화면 신호를 3개로 나눠 봅니다</h2>
+                  <p className={styles.sectionSub}>
+                    내부 원장이 본 화면 도달, Meta가 받은 InitiateCheckout, 앞으로 서버 CAPI로 보낼 수 있는 후보는 서로 다른 숫자입니다.
+                  </p>
+                </div>
+                <span className={styles.checkoutSplitBadge}>no-send preview</span>
+              </div>
+              <div className={styles.checkoutSplitGrid}>
+                {[
+                  data.checkout_signal_split.vm_payment_page_reached,
+                  data.checkout_signal_split.meta_initiate_checkout_received,
+                  data.checkout_signal_split.meta_capi_initiate_checkout_candidate,
+                ].map((item) => (
+                  <div key={item.label} className={styles.checkoutSplitCard}>
+                    <div className={styles.checkoutSplitLabel}>{item.label}</div>
+                    <div className={styles.checkoutSplitValue}>{fmtOptionalNum(item.count)}</div>
+                    <div className={styles.checkoutSplitMeta}>{item.basis}</div>
+                    <div className={styles.checkoutSplitCaveat}>{item.caveat}</div>
+                  </div>
+                ))}
+              </div>
+              {data.checkout_signal_split.summary && (
+                <div className={styles.checkoutSplitSummary}>
+                  <strong>
+                    {fmtNum(data.checkout_signal_split.summary.raw_payment_page_rows)}건 중{" "}
+                    {fmtNum(data.checkout_signal_split.summary.final_candidate_rows)}건만 남김
+                  </strong>
+                  <span>
+                    최종 후보율 {fmtPct(data.checkout_signal_split.summary.final_candidate_rate)} · 제외/중복 제거{" "}
+                    {fmtNum(data.checkout_signal_split.summary.excluded_rows)}건
+                  </span>
+                  <small>{data.checkout_signal_split.summary.caveat}</small>
+                </div>
+              )}
+              {data.checkout_signal_split.ordered_exclusion_steps && data.checkout_signal_split.ordered_exclusion_steps.length > 0 && (
+                <div className={styles.checkoutSplitOrdered}>
+                  <div className={styles.checkoutSplitOrderedHead}>
+                    <strong>왜 최종 후보가 줄어드는가</strong>
+                    <span>위에서 아래로 순서대로 걸러낸 값입니다. 같은 row를 여러 원인에 중복 집계하지 않습니다.</span>
+                  </div>
+                  {data.checkout_signal_split.ordered_exclusion_steps.map((step) => (
+                    <div key={`${step.step}-${step.reason}`} className={styles.checkoutSplitStep}>
+                      <div className={styles.checkoutStepIndex}>{step.step}</div>
+                      <div className={styles.checkoutStepBody}>
+                        <div className={styles.checkoutStepTitle}>
+                          <span>{step.label}</span>
+                          <em className={styles[`checkoutEffect_${step.effect}`] ?? styles.checkoutEffect_keep}>
+                            {step.effect === "start"
+                              ? "분모"
+                              : step.effect === "exclude"
+                                ? "제외"
+                                : step.effect === "dedupe"
+                                  ? "중복 제거"
+                                  : "후보"}
+                          </em>
+                        </div>
+                        <div className={styles.checkoutStepMeta}>
+                          <strong>{fmtNum(step.count)}건</strong>
+                          <span>결제 페이지 도달 대비 {fmtPct(step.rate_of_payment_page_reached)}</span>
+                        </div>
+                        <p>{step.explanation_ko}</p>
+                        <small>다음 조치: {step.next_action_ko}</small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {data.checkout_signal_split.root_causes.length > 0 && (
+                <div className={styles.checkoutSplitReasons}>
+                  {data.checkout_signal_split.root_causes.map((reason) => (
+                    <div key={reason.reason} className={styles.checkoutSplitReason}>
+                      <strong>{fmtNum(reason.count)}건</strong>
+                      <span>{reason.explanation_ko}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 위험 조합 (Server CAPI × Browser Purchase) */}
           <div className={`${styles.riskCombo} ${styles[`risk_${data.risk_combo.state}`] ?? ""}`}>
@@ -1723,7 +1881,7 @@ export default function ConversionFunnelPage() {
                   {granularity === "week" ? "주별 추세" : "일별 추세"}
                 </h2>
                 <p className={styles.sectionSub}>
-                  결제 시작 / 실제 결제완료 / Meta CAPI 성공 / 매칭 안 된 흐름의 추세를 같은 축에서 비교합니다.
+                  결제 페이지 도달 / 실제 결제완료 / Meta CAPI 성공 / 매칭 안 된 흐름의 추세를 같은 축에서 비교합니다.
                 </p>
               </div>
               <button
@@ -1745,7 +1903,7 @@ export default function ConversionFunnelPage() {
               <>
                 <div className={styles.legendRow}>
                   <span className={styles.legendChip}>
-                    <span className={`${styles.legendDot} ${styles.legendStarted}`} /> 결제시작
+                    <span className={`${styles.legendDot} ${styles.legendStarted}`} /> 결제 페이지 도달
                   </span>
                   <span className={styles.legendChip}>
                     <span className={`${styles.legendDot} ${styles.legendConfirmed}`} /> 결제완료
@@ -1761,7 +1919,7 @@ export default function ConversionFunnelPage() {
                   <div className={styles.multiHead}>
                     <div>{granularity === "week" ? "주차(월시작)" : "날짜"}</div>
                     <div>4개 신호 비교(같은 축)</div>
-                    <div style={{ textAlign: "right" }}>결제시작</div>
+                    <div style={{ textAlign: "right" }}>결제 페이지 도달</div>
                     <div style={{ textAlign: "right" }}>결제완료</div>
                     <div style={{ textAlign: "right" }}>CAPI성공</div>
                     <div style={{ textAlign: "right" }}>매칭없음</div>
@@ -1827,7 +1985,7 @@ export default function ConversionFunnelPage() {
                 <tr>
                   <th>유입</th>
                   <th className={styles.num}>유입</th>
-                  <th className={styles.num}>결제시작</th>
+                  <th className={styles.num}>결제 페이지 도달</th>
                   <th className={styles.num}>결제완료</th>
                   <th className={styles.num}>CAPI성공</th>
                   <th className={styles.num}>매칭없음</th>

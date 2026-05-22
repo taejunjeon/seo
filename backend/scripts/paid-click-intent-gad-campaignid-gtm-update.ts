@@ -18,7 +18,10 @@ const BASE = "https://tagmanager.googleapis.com/tagmanager/v2";
 const TAG_ID = "279";
 const TRIGGER_ID = "278";
 const RUN_ID = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-const WORKSPACE_NAME = `codex_paid_click_intent_gad_campaignid_preview_${RUN_ID}`;
+const HTML_SOURCE_PATH = process.env.GTM_PAID_CLICK_INTENT_HTML_PATH?.trim() || "";
+const WORKSPACE_NAME = HTML_SOURCE_PATH
+  ? `codex_paid_click_intent_v3_stale_click_guard_preview_${RUN_ID}`
+  : `codex_paid_click_intent_gad_campaignid_preview_${RUN_ID}`;
 const RECEIVER_URL = "https://att.ainativeos.net/api/attribution/paid-click-intent/no-send";
 const SHOULD_APPLY = process.argv.includes("--apply");
 
@@ -96,6 +99,13 @@ function writeFile(relativePath: string, content: string) {
 }
 
 function buildUpdatedHtml() {
+  if (HTML_SOURCE_PATH) {
+    const sourcePath = path.isAbsolute(HTML_SOURCE_PATH)
+      ? HTML_SOURCE_PATH
+      : path.join(repoRoot, HTML_SOURCE_PATH);
+    return fs.readFileSync(sourcePath, "utf8");
+  }
+
   return `<script>
 (function () {
   var VERSION = "paid_click_intent_v2_gad_campaignid_20260521";
@@ -334,7 +344,10 @@ async function main() {
     }, null, 2)}\n`,
   );
   const backupHtmlPath = writeFile(`data/gtm-paid-click-intent-tag279-backup-${RUN_ID}.html`, oldHtml);
-  const updatedHtmlPath = writeFile(`data/gtm-paid-click-intent-tag279-v2-${RUN_ID}.html`, newHtml);
+  const updatedHtmlPath = writeFile(
+    `data/gtm-paid-click-intent-tag279-${HTML_SOURCE_PATH ? "v3" : "v2"}-${RUN_ID}.html`,
+    newHtml,
+  );
 
   const result: Record<string, unknown> = {
     generatedAt: new Date().toISOString(),
@@ -382,7 +395,9 @@ async function main() {
     method: "POST",
     body: {
       name: WORKSPACE_NAME,
-      description: "Codex Preview workspace: update existing tag 279 to preserve gad_campaignid. No submit/create version/publish.",
+      description: HTML_SOURCE_PATH
+        ? "Codex Preview workspace: update existing tag 279 to v3 stale Google click id guard. No submit/create version/publish."
+        : "Codex Preview workspace: update existing tag 279 to preserve gad_campaignid. No submit/create version/publish.",
     },
   });
   if (!workspace.path || !workspace.workspaceId) throw new Error("workspace path/workspaceId missing");
@@ -396,7 +411,9 @@ async function main() {
     ...workspaceTag,
     notes: [
       workspaceTag.notes || "",
-      "2026-05-21 Codex Preview: preserve gad_campaignid/gad_source in paid click evidence and refresh landing_url on new Google evidence. No conversion send.",
+      HTML_SOURCE_PATH
+        ? "2026-05-21 Codex Preview: v3 ignores stale stored Google click id types when current URL has a fresh Google click id. No conversion send."
+        : "2026-05-21 Codex Preview: preserve gad_campaignid/gad_source in paid click evidence and refresh landing_url on new Google evidence. No conversion send.",
     ].filter(Boolean).join("\n"),
   };
   setHtmlParam(updatedTag, newHtml);

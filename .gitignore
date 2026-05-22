@@ -32,10 +32,15 @@ backend/scripts/*.out.json
 
 # Local agent backups and runtime logs
 .codex-backups/
+.local/
+.deploy-backups/
 frontend/server-*.log
 frontend/logs/
 *.launchd.*.log
 data/*.pid
+
+# Unrelated local presentation captured during agent sessions.
+harness/claude code (desktop) *.pptx
 
 # GTM operation backups/results are reproducible local artifacts.
 gtmaudit/*.log

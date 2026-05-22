@@ -1822,6 +1822,30 @@ const isPreviewClickId = (value: string) => {
   return normalized.startsWith("TEST_") || normalized.startsWith("DEBUG_") || normalized.startsWith("PREVIEW_");
 };
 
+type PaidClickIntentGoogleClickType = "gclid" | "gbraid" | "wbraid";
+
+const normalizePaidClickIntentGoogleClickIds = (clickIds: Record<PaidClickIntentGoogleClickType, string>) => {
+  const entries = (Object.entries(clickIds) as Array<[PaidClickIntentGoogleClickType, string]>)
+    .filter(([, value]) => Boolean(value));
+  const liveEntries = entries.filter(([, value]) => !isPreviewClickId(value));
+  const previewEntries = entries.filter(([, value]) => isPreviewClickId(value));
+  const hasLiveEntry = liveEntries.length > 0;
+  const normalized = { ...clickIds };
+
+  if (hasLiveEntry) {
+    for (const [type] of previewEntries) {
+      normalized[type] = "";
+    }
+  }
+
+  return {
+    clickIds: normalized,
+    googleClickIds: (hasLiveEntry ? liveEntries : entries).map(([, value]) => value),
+    testClickId: !hasLiveEntry && previewEntries.length > 0,
+    ignoredPreviewClickIdTypes: hasLiveEntry ? previewEntries.map(([type]) => type) : [],
+  };
+};
+
 const uniqueNonEmpty = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
 
 const canonicalAttributionBlockReason = (reason: string) => {
@@ -1886,7 +1910,7 @@ const buildNoSendGuard = ({
   confidence,
 });
 
-const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
+export const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   const site = textField(body, "site") || "biocom";
   const eventName = textField(body, "event_name") || textField(body, "eventName") || "PaidClickIntent";
   const captureStage = (textField(body, "capture_stage") || textField(body, "captureStage") || "landing").toLowerCase();
@@ -1924,9 +1948,10 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
     if (v.length > 64) return "";
     return /^(m|gu)[a-z0-9]{0,62}$/i.test(v) ? v : "";
   })();
-  const googleClickIds = [gclid, gbraid, wbraid].filter(Boolean);
+  const googleClickDecision = normalizePaidClickIntentGoogleClickIds({ gclid, gbraid, wbraid });
+  const googleClickIds = googleClickDecision.googleClickIds;
   const hasGoogleClickId = googleClickIds.length > 0;
-  const testClickId = googleClickIds.some(isPreviewClickId);
+  const testClickId = googleClickDecision.testClickId;
   const sessionKey = gaSessionId || localSessionId || clientId || "missing_session";
   const blockReasons = ["read_only_phase", "approval_required"];
 
@@ -1937,7 +1962,7 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   if (testClickId) blockReasons.push("test_click_id_rejected_for_live");
   const canonicalBlockReasons = canonicalAttributionBlockReasons(blockReasons);
   const legacyBlockReasons = legacyAttributionBlockReasons(blockReasons);
-  const clickIdentifiers = { gclid, gbraid, wbraid, fbclid, ttclid };
+  const clickIdentifiers = { ...googleClickDecision.clickIds, fbclid, ttclid };
 
   return {
     site,
@@ -1956,6 +1981,7 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
     would_send: false,
     block_reasons: canonicalBlockReasons,
     legacy_block_reasons: legacyBlockReasons,
+    ignored_preview_click_id_types: googleClickDecision.ignoredPreviewClickIdTypes,
     click_ids: clickIdentifiers,
     click_identifiers: clickIdentifiers,
     utm: {
@@ -3887,6 +3913,7 @@ export const findDuplicateFormSubmitEntry = (
 type NaverEvidenceClass =
   | "paid_naver"
   | "naver_brandsearch"
+  | "naver_shopping_search_candidate"
   | "organic_naver_candidate"
   | "naver_referrer_or_utm_only";
 
@@ -3904,6 +3931,7 @@ type NaverEvidenceAggregateRow = {
 const NAVER_EVIDENCE_CLASSES: NaverEvidenceClass[] = [
   "paid_naver",
   "naver_brandsearch",
+  "naver_shopping_search_candidate",
   "organic_naver_candidate",
   "naver_referrer_or_utm_only",
 ];
@@ -3933,6 +3961,22 @@ const naverEvidenceText = (entry: AttributionLedgerEntry) => {
   ].map((value) => readText(value).toLowerCase()).join(" ");
 };
 
+const decodeTextLoose = (value: string) => {
+  const text = readText(value);
+  if (!text) return "";
+  try {
+    return decodeURIComponent(text).toLowerCase();
+  } catch {
+    return text.toLowerCase();
+  }
+};
+
+const extractNapmTrCode = (napm: string) => {
+  const decoded = decodeTextLoose(napm);
+  const match = decoded.match(/(?:^|\|)tr=([^|&]+)/i);
+  return match?.[1]?.toLowerCase() ?? "";
+};
+
 const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
   const firstTouch = ledgerFirstTouch(entry);
   const directReferrer = readText(entry.referrer).toLowerCase();
@@ -3940,9 +3984,10 @@ const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
   const text = naverEvidenceText(entry);
   const directNapm = safeUrlParam("NaPm", entry.landing, entry.referrer);
   const firstNapm = safeUrlParam("NaPm", firstTouch.landing, firstTouch.referrer);
+  const napmTrCodes = [extractNapmTrCode(directNapm), extractNapmTrCode(firstNapm)].filter(Boolean);
   const paidUtm =
     (lowerIncludesAny(readText(entry.utmSource), ["naver"]) || lowerIncludesAny(readText(firstTouch.utmSource), ["naver"])) &&
-    /^(cpc|ppc|paid|paid_social|display|shopping|brandsearch|powerlink|sa|bs)$/i.test(
+    /^(cpc|ppc|paid|paid_social|display|powerlink|sa)$/i.test(
       readText(entry.utmMedium) || readText(firstTouch.utmMedium),
     );
   const hasNaverSearchReferrer = lowerIncludesAny(`${directReferrer} ${firstReferrer}`, NAVER_SEARCH_REFERRERS);
@@ -3959,9 +4004,19 @@ const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
     "n_keyword=",
     "n_match=",
   ]);
-  const hasPowerlink = lowerIncludesAny(text, ["powerlink", "shoppingsearch"]);
-  const hasPaidMarker = Boolean(directNapm || firstNapm || paidUtm || hasNaverParam || hasBrandsearch || hasPowerlink);
-  const hasNaverAny = hasNaverReferrer || hasPaidMarker || lowerIncludesAny(text, ["naver", "napm"]);
+  const hasPowerlink = lowerIncludesAny(text, ["powerlink"]);
+  const hasPaidMarker = Boolean(paidUtm || hasNaverParam || hasPowerlink || napmTrCodes.includes("sa"));
+  const hasShoppingSearch = Boolean(
+    napmTrCodes.includes("slsl") ||
+    lowerIncludesAny(`${directReferrer} ${firstReferrer} ${text}`, ["shopping.naver.com", "m.shopping.naver.com", "shoppingsearch"]),
+  );
+  const hasOrganicSearchMarker = Boolean(
+    napmTrCodes.includes("ds") ||
+    napmTrCodes.includes("nexearch") ||
+    hasNaverSearchReferrer,
+  );
+  const hasNapm = Boolean(directNapm || firstNapm || lowerIncludesAny(text, ["napm="]));
+  const hasNaverAny = hasNaverReferrer || hasPaidMarker || hasShoppingSearch || hasNapm || lowerIncludesAny(text, ["naver"]);
   return {
     text,
     hasNaverAny,
@@ -3969,6 +4024,8 @@ const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
     hasNaverReferrer,
     hasBrandsearch,
     hasPaidMarker,
+    hasShoppingSearch,
+    hasOrganicSearchMarker,
   };
 };
 
@@ -3977,19 +4034,21 @@ const classifyNaverEvidence = (entry: AttributionLedgerEntry): NaverEvidenceClas
   if (!profile.hasNaverAny) return null;
   if (profile.hasBrandsearch) return "naver_brandsearch";
   if (profile.hasPaidMarker) return "paid_naver";
-  if (profile.hasNaverSearchReferrer) return "organic_naver_candidate";
+  if (profile.hasShoppingSearch) return "naver_shopping_search_candidate";
+  if (profile.hasOrganicSearchMarker) return "organic_naver_candidate";
   if (profile.hasNaverReferrer || lowerIncludesAny(profile.text, ["naver"])) return "naver_referrer_or_utm_only";
   return null;
 };
 
 const naverEvidenceNote = (classification: NaverEvidenceClass) => {
-  if (classification === "paid_naver") return "NaPm/n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다.";
+  if (classification === "paid_naver") return "n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다. NaPm 단독은 paid 근거로 쓰지 않는다.";
   if (classification === "naver_brandsearch") return "brandsearch marker가 있어 네이버 브랜드검색 후보로만 둔다.";
+  if (classification === "naver_shopping_search_candidate") return "shopping.naver 또는 NaPm shopping marker가 있어 네이버 쇼핑검색 후보로만 둔다.";
   if (classification === "organic_naver_candidate") return "네이버 검색 referrer는 있으나 paid marker가 없어 자연검색 후보로 둔다.";
   return "네이버 흔적은 있으나 paid/brandsearch/organic 확정 조건을 충족하지 않는다.";
 };
 
-const buildNaverEvidenceAggregate = (
+export const buildNaverEvidenceAggregate = (
   entries: AttributionLedgerEntry[],
   filters: Record<string, unknown>,
 ) => {

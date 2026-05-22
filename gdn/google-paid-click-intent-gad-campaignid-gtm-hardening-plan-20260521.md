@@ -433,11 +433,113 @@ VM Cloud read-only 결과:
 - 성공: TJ님 주문 여정은 VM Cloud `site_landing_ledger`와 `attribution_ledger`에 Google click id/UTM/order_no로 연결됐다.
 - 성공: 가상계좌 미입금 주문은 `payment_success` URL까지 갔지만 `pending`으로 남았고, Meta CAPI Purchase로 전송되지 않았다. 이는 현재 guard 기준상 정상이다.
 - 보류: TJ님 exact click은 `site_landing_ledger`에는 있으나 `paid_click_intent_ledger`에는 없다. `PAID_CLICK_INTENT_WRITE_ENABLED=true`, `PAID_CLICK_INTENT_WRITE_SAMPLE_RATE=1`이므로 단순 샘플링 누락은 아니다.
-- 추정 원인: GTM `bi_paid_click_intent_v1_sent` dedupe 또는 브라우저 storage state가 특정 클릭의 paid-click minimal ledger 저장만 막고, no-send receiver의 site_landing fanout은 저장한 것으로 보인다. 이 부분은 후속으로 dedupe key/response logging을 보강해야 한다.
+- 추가 진단: 서버 access log에서 TJ님 브라우저/IP의 `POST /api/attribution/paid-click-intent/no-send`가 2026-05-21T04:15:38Z에 200으로 도달했다. 따라서 CORS, fetch 자체 실패, GTM 미실행은 1차 원인이 아니다.
+- 추가 진단: 같은 window의 `paid_click_intent_ledger`를 `captured_at`, `received_at`, `updated_at`, exact click prefix, `pciv1_fbvrfte2x7q` local session 기준으로 재조회했지만 신규/중복 갱신 row가 없었다.
+- 추가 진단: 같은 payload 계열은 `site_landing_ledger` fanout으로는 저장됐다. 주문서/완료 페이지 row도 같은 Google click evidence를 보존했다.
+- 추가 진단: 실제 주문의 `attribution_ledger.payment_success` metadata에 `wbraid=test_wbraid_20260514`, `click_id_restore_source=checkout_context`, `has_wbraid=true`가 남아 있었다. 실제 URL에는 `gclid`와 `gbraid`가 있었고 `wbraid`는 없었다.
+- 추가 진단: 현재 GTM v2는 URL에 새 `gclid/gbraid`가 있어도 `wbraid: getParam("wbraid") || stored.wbraid || ""` 형태로 이전 저장값을 같이 payload에 싣는다.
+- 추가 진단: backend no-send preview는 `[gclid, gbraid, wbraid].some(isPreviewClickId)`로 test/debug/preview click id가 하나라도 있으면 `test_click_id_rejected_for_live`를 붙이고 `live_candidate_after_approval=false`로 만든다.
+- local simulation: 실제 `gclid+gbraid`만 있으면 `live_candidate_after_approval=true`, 여기에 stale `wbraid=test_wbraid_20260514`가 섞이면 `live_candidate_after_approval=false`가 된다.
+- 원인 분리 결론: 이번 miss는 `paid-click-intent 태그가 서버에 못 보낸 문제`가 아니라, no-send receiver가 200으로 응답한 뒤 `minimal paid_click_intent_ledger write branch`만 저장하지 않은 문제다.
+- 가장 가능성 높은 원인: 브라우저 저장소에 남아 있던 과거 테스트 `wbraid`가 실제 `gclid/gbraid` payload에 섞였고, backend가 이를 `test_click_id_rejected_for_live`로 판단해 `preview.live_candidate_after_approval=false`가 된 것으로 본다. 따라서 `site_landing_ledger` fanout은 저장됐지만 `paid_click_intent_ledger` minimal write만 빠진 현상과 맞다.
+- 보완할 점: 당시 no-send 응답 body가 서버에 남아 있지 않아 `ledger.stored=false`의 직접 응답값은 없다. 다만 VM Cloud DB row, GTM v2 payload 구성, backend guard 로직, local simulation이 같은 결론을 가리킨다.
+- 운영 판단: ROAS 재계산 기준은 `site_landing_ledger + attribution_ledger`로 분리 승격하고, `paid_click_intent_ledger`는 GTM/receiver 진단용 health로만 본다.
+- 후속 보강 1: GTM payload에서 새 Google evidence가 URL에 있을 때는 이전 저장소의 다른 click id 타입을 섞지 않는다. 예: URL에 `gclid/gbraid/gad_campaignid`가 있으면 `wbraid`는 URL param에 있을 때만 전송한다.
+- 후속 보강 2: backend guard는 primary real click id가 있으면 stale secondary test id를 live write 탈락 사유로 쓰지 않도록 조정한다. 단, raw test id를 운영 전환으로 보내는 기능은 계속 금지한다.
+- 후속 보강 3: paid-click-intent receiver response에 `ledger.stored/rejected/source.mode`를 24h ring buffer 또는 요약 counter로 남겨, 다음 exact-click miss는 브라우저 콘솔 없이도 원인을 확정한다.
 - 기준점 판단: Google ROAS 재계산 기준점은 `site_landing_ledger + attribution_ledger` 기준으로는 승격 가능하다. `paid_click_intent_ledger` 단독 기준점은 exact-click miss 원인 해소 전까지 보류한다.
+
+2026-05-21 15:52 KST Green 구현 결과:
+
+- backend local patch: `buildPaidClickIntentNoSendPreview`가 유효한 live `gclid/gbraid/wbraid`와 preview/test click id가 섞인 경우 preview/test secondary id를 무시하고 live 후보를 유지한다.
+- backend guard 유지: Google click id가 test/debug/preview 값뿐이면 기존처럼 `test_click_id_rejected_for_live`로 차단한다.
+- GTM local source: `data/gtm-paid-click-intent-tag279-v3-stale-click-id-guard-20260521T1552KST.html` 추가. URL에 새 `gclid/gbraid/wbraid`가 있으면 저장소의 다른 Google click id 타입을 섞지 않는다.
+- 검증: `npm run typecheck` PASS, `npx tsx --test tests/attribution.test.ts` PASS 49건, v3 GTM source static check PASS.
+- 운영 상태: backend deploy 없음, GTM publish 없음, 광고 플랫폼 send 없음. 운영 반영하려면 별도 승인 필요.
+
+2026-05-21 16:32 KST backend deploy 결과:
+
+- TJ님 승인: `backend 배포 승인`.
+- deploy 대상: VM Cloud `seo-backend`, 파일 `backend/src/routes/attribution.ts`.
+- deploy 방식: `/tmp/paid-click-intent-attribution.ts` 전송 → VM source/dist 백업 → source 교체 → `npm run build` → `pm2 restart seo-backend --update-env` → `pm2 save`.
+- backup: `/home/biocomkr_sns/seo/repo/.deploy-backups/paid-click-intent-stale-wbraid-guard-20260521T072544Z`.
+- restart: `seo-backend` 4306 → 4307, 4분 후 추가 restart 없음, memory 약 239.6 MB.
+- post-deploy smoke: `POST /api/attribution/paid-click-intent/no-send` synthetic payload 1건.
+  - status 200, `source.mode=minimal_ledger_canary_write`.
+  - `preview.live_candidate_after_approval=true`.
+  - `preview.test_click_id=false`.
+  - `preview.ignored_preview_click_id_types=["wbraid"]`.
+  - `preview.click_ids.wbraid=""`.
+  - `ledger.stored=true`, `no_platform_send_verified=true`.
+- VM SQLite 확인: synthetic smoke row 1건 저장 (`utm_campaign=googleads_smoke_stale_wbraid_guard`, `status=received`, `reject_reason=''`).
+- public API smoke: `/api/ads/roas-summary?account_id=act_3138805896402376&presets=last_7d` status 200, 0.27s, `disk_cache_hit`.
+- GTM 상태: v3 Preview/Production publish는 아직 하지 않았다.
+- 부수 관측: deploy 후 `pm2 env 0` 기준 `ROAS_SUMMARY_PRECOMPUTE_ENABLED=0`이다. 이번 deploy에서 바꾼 값은 아니지만, 과거 상시 ON 의도와 다르므로 별도 판단이 필요하다.
 
 ## 다음 할일
 
-1. Codex: paid-click-intent exact-click miss 원인을 Green Lane으로 좁힌다. 우선 GTM dedupe key, `bi_paid_click_intent_v1_sent`, backend response의 `ledger` field, site_landing fanout source를 함께 보는 no-write diagnostic을 설계한다.
-2. Codex: Google ROAS report의 campaign id health에서 `site_landing_ledger`와 `paid_click_intent_ledger`를 분리 표시한다. 지금은 site landing 기준은 성공, paid click minimal ledger 기준은 부분 성공이다.
+1. Codex: Google ROAS report의 campaign id health에서 `site_landing_ledger + attribution_ledger`와 `paid_click_intent_ledger`를 분리 표시한다. 지금은 예산 판단 기준은 성공, paid-click minimal ledger 기준은 exact-click miss 진단 필요다.
+2. Codex: paid-click-intent receiver의 `ledger.stored/rejected/source.mode`를 저장하는 no-send response audit 설계를 별도 Yellow 배포안으로 준비한다. 운영 전송은 없지만 backend deploy가 필요하므로 바로 배포하지 않는다.
 3. Codex: workspace `167`은 publish하지 않고, 백업 후 cleanup할지 별도 판단한다. Default Workspace `147`은 변경 0건 기준점으로 유지한다.
+
+2026-05-21 16:56 KST GTM v3 Preview 결과:
+
+- TJ님 승인: `GTM v3 Preview 승인`.
+- 적용 범위: GTM workspace `169`에 tag `279` HTML만 v3로 교체한 Preview draft. Production publish, submit, create version은 하지 않았다.
+- live container: version `144` / `paid_click_intent_v2_gad_campaignid_20260521` 그대로 유지.
+- workspace `169`: `codex_paid_click_intent_v3_stale_click_guard_preview_20260521T074835Z`, change 1건, merge conflict 0건.
+- 기존 tag/trigger 유지: tag `279` `codex_paid_click_intent_v1_receiver_no_send`, trigger `278` `codex_paid_click_intent_v1_all_pages_guarded`.
+- dry-run backup:
+  - `data/gtm-paid-click-intent-tag279-backup-20260521T074756Z.json`
+  - `data/gtm-paid-click-intent-tag279-backup-20260521T074756Z.html`
+  - `data/gtm-paid-click-intent-tag279-v3-20260521T074756Z.html`
+- apply backup/result:
+  - `data/gtm-paid-click-intent-tag279-backup-20260521T074835Z.json`
+  - `data/gtm-paid-click-intent-tag279-backup-20260521T074835Z.html`
+  - `data/gtm-paid-click-intent-tag279-v3-20260521T074835Z.html`
+  - `data/gtm-paid-click-intent-tag279-gad-campaignid-preview-update-20260521T074835Z.json`
+- Preview smoke:
+  - result: `data/gtm-paid-click-intent-tag279-preview-smoke-20260521T075045Z.json`
+  - screenshot: `data/gtm-paid-click-intent-tag279-preview-smoke-20260521T075045Z.png`
+  - `expectedVersionInstalled=true`
+  - `gadCampaignIdInPayload=true`
+  - `gadSourceInPayload=true`
+  - `gadCampaignIdInLandingUrl=true`
+  - `receiverOk=true`
+  - `noNetworkErrors=true`
+  - `productionPublished=false`, `submitCreateVersionPublish=false`, `platformSend=false`
+- stale wbraid specific smoke:
+  - result: `data/gtm-paid-click-intent-v3-stale-wbraid-preview-smoke-20260521T075405Z.json`
+  - 방식: localStorage/sessionStorage에 과거 `wbraid=TEST_WBRAID_STALE_20260514`를 주입한 뒤, 현재 URL에 fresh `gclid+gbraid+gad_campaignid`가 있는 Preview page를 열었다. receiver는 Playwright route로 가로채 운영 원장 write 없이 payload만 확인했다.
+  - `v3Installed=true`
+  - `freshGclidPresent=true`
+  - `freshGbraidPresent=true`
+  - `staleWbraidDropped=true`
+  - `gadCampaignIdFresh=true`
+  - `platformSend=false`, `productionPublished=false`
+- 남은 판단: 운영 반영은 GTM Production publish라 Red Lane이다. publish 전 workspace `169`의 Preview 결과를 기준으로 승인 여부를 별도 판단한다.
+
+2026-05-21 17:20 KST GTM v3 Production publish 결과:
+
+- TJ님 승인: `GTM v3 운영 반영하고 잘 되었는지 테스트해`.
+- publish 대상: GTM container `GTM-W2Z6PHN`, workspace `169`, tag `279`.
+- publish 전 live: version `144` / `paid_click_intent_v2_gad_campaignid_20260521`.
+- publish 후 live: version `145` / `paid_click_intent_v3_stale_click_id_guard_20260521`.
+- publish result: `data/gtm-paid-click-intent-tag279-production-publish-20260521T081507Z.json`.
+- prepublish backup: `data/gtm-paid-click-intent-tag279-prepublish-backup-20260521T081507Z.json`.
+- public `gtm.js` 확인: 최초 1회는 CDN cache로 v2가 내려왔으나 2026-05-21 17:17 KST 재조회에서 v3 문자열 확인.
+- 운영 페이지 smoke:
+  - result: `data/gtm-paid-click-intent-tag279-production-smoke-20260521T081839Z.json`
+  - screenshot: `data/gtm-paid-click-intent-tag279-production-smoke-20260521T081839Z.png`
+  - `v3Installed=true`
+  - `freshGclidPresent=true`
+  - `freshGbraidPresent=true`
+  - `staleWbraidDropped=true`
+  - `gadCampaignIdFresh=true`
+  - `receiverReached=true`
+  - `receiverOk=true`
+  - `noNetworkErrors=true`
+  - `receiverNoPlatformSendVerified=true`
+  - `testClickIdBlockedForLive=true`
+- smoke 방식: 실제 `biocom.kr/mineraltest_store` 운영 페이지를 열었고, Google/Meta 등 외부 측정 요청은 Playwright route에서 204로 차단했다. 우리 no-send receiver만 허용했다.
+- 주의: synthetic `TEST_` click id로 receiver를 호출했기 때문에 live purchase 후보는 차단됐다. no-send receiver의 site landing fanout diagnostic row는 1건 생성됐을 수 있으나, 광고 플랫폼 전환 전송과 운영DB write는 없었다.

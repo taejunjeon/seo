@@ -326,6 +326,34 @@ const numberValue = (
 
 const normalizeText = (value: string): string => value.trim().toLowerCase();
 
+const safeUrlParam = (key: string, ...values: string[]): string => {
+  for (const value of values) {
+    if (!value) continue;
+    try {
+      const parsed = new URL(value, "https://biocom.kr");
+      const found = parsed.searchParams.get(key)?.trim();
+      if (found) return found;
+    } catch {
+      // Ignore malformed attribution evidence.
+    }
+  }
+  return "";
+};
+
+const decodeTextLoose = (value: string): string => {
+  if (!value) return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const extractNapmTrCode = (napm: string): string => {
+  const decoded = decodeTextLoose(napm);
+  return decoded.match(/(?:^|\|)tr=([^|&]+)/i)?.[1]?.toLowerCase() || "";
+};
+
 const classifySite = (entry: AttributionLedgerEntry): LeadingIndicatorSite | null => {
   const metaSite = normalizeText(stringValue(entry.metadata, ["site", "store"]));
   if (metaSite === "biocom") return "biocom";
@@ -347,12 +375,17 @@ const classifySite = (entry: AttributionLedgerEntry): LeadingIndicatorSite | nul
 
 const hasPaidNaverMarker = (entry: AttributionLedgerEntry): boolean => {
   const blob = normalizeText([entry.landing, entry.referrer, entry.utmCampaign].join(" "));
+  const napmTrCode = extractNapmTrCode(safeUrlParam("NaPm", entry.landing, entry.referrer));
   return (
-    blob.includes("napm=") ||
+    napmTrCode === "sa" ||
+    napmTrCode === "brnd" ||
     blob.includes("nclid=") ||
     blob.includes("brandsearch") ||
     blob.includes("powerlink") ||
-    blob.includes("n_media=")
+    blob.includes("n_media=") ||
+    blob.includes("n_query=") ||
+    blob.includes("n_ad_group=") ||
+    blob.includes("n_ad=")
   );
 };
 

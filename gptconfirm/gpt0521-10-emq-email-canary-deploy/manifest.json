@@ -1,0 +1,18 @@
+{
+  "sprint": "gpt0521-10-emq-email-canary-deploy",
+  "created_at_kst": "2026-05-21",
+  "site": "biocom",
+  "lane": "Yellow",
+  "status": "deployed",
+  "changed_files": [
+    "backend/src/env.ts",
+    "backend/src/metaCapi.ts"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-implementation-validation.md",
+    "02-monitoring-next-actions.md"
+  ],
+  "external_send": "no manual send; existing CAPI auto-sync only",
+  "raw_identifier_output": false
+}

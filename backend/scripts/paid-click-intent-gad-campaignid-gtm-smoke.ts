@@ -16,6 +16,9 @@ const CONTAINER_PUBLIC_ID = "GTM-W2Z6PHN";
 const CONTAINER_PATH = `accounts/${ACCOUNT_ID}/containers/${CONTAINER_ID}`;
 const BASE = "https://tagmanager.googleapis.com/tagmanager/v2";
 const WORKSPACE_ID = process.env.GTM_PAID_CLICK_INTENT_WORKSPACE_ID?.trim() || "168";
+const EXPECTED_INSTALLED_VERSION =
+  process.env.GTM_PAID_CLICK_INTENT_EXPECTED_VERSION?.trim()
+  || "paid_click_intent_v2_gad_campaignid_20260521";
 const RUN_ID = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
 const OUTPUT_PATH = path.join(repoRoot, `data/gtm-paid-click-intent-tag279-preview-smoke-${RUN_ID}.json`);
 const TEST_CLICK_ID = `TEST_GCLID_GAD_CAMPAIGNID_${RUN_ID}`;
@@ -221,7 +224,18 @@ async function runPreviewPage(environment: any) {
   });
   page.on("requestfailed", (request) => {
     const url = request.url();
-    if (url.includes("googletagmanager") || url.includes("/api/attribution/paid-click-intent/no-send")) {
+    let shouldTrackFailure = false;
+    try {
+      const parsed = new URL(url);
+      shouldTrackFailure =
+        parsed.hostname === "www.googletagmanager.com"
+        || parsed.pathname.includes("/api/attribution/paid-click-intent/no-send");
+    } catch {
+      shouldTrackFailure =
+        url.includes("www.googletagmanager.com/gtm.js")
+        || url.includes("/api/attribution/paid-click-intent/no-send");
+    }
+    if (shouldTrackFailure) {
       networkErrors.push(`${request.failure()?.errorText ?? "requestfailed"} ${redactPreviewUrl(url)}`);
     }
   });
@@ -320,7 +334,8 @@ async function main() {
     assertions: {
       pageLoaded: smoke.pageLoaded,
       gtmLoaded: Boolean((smoke.pageState as any).gtmLoaded),
-      v2Installed: (smoke.pageState as any).installed === "paid_click_intent_v2_gad_campaignid_20260521",
+      expectedInstalledVersion: EXPECTED_INSTALLED_VERSION,
+      expectedVersionInstalled: (smoke.pageState as any).installed === EXPECTED_INSTALLED_VERSION,
       payloadPresent: Boolean(payload && Object.keys(payload).length > 0),
       gadCampaignIdInPayload: payload.gad_campaignid === "14629255429",
       gadSourceInPayload: payload.gad_source === "1",

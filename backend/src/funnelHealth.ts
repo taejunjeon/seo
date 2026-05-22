@@ -122,7 +122,7 @@ const WINDOW_LABEL: Record<FunnelHealthWindow, string> = {
 const FUNNEL_STEP_LABELS: Record<FunnelStepKey, string> = {
   landing: "유입",
   add_to_cart: "장바구니 페이지 진입",
-  payment_started: "결제 시작",
+  payment_started: "결제 페이지 도달",
   payment_method_selected: "결제수단 선택",
   confirmed_purchase: "실제 결제완료",
   meta_capi_success: "Meta CAPI 성공",
@@ -410,6 +410,72 @@ const metadataString = (entry: AttributionLedgerEntry, keys: string[]): string =
 const metadataPresent = (entry: AttributionLedgerEntry, keys: string[]): boolean =>
   Boolean(metadataString(entry, keys));
 
+const metadataBlobLower = (entry: AttributionLedgerEntry, keys: string[]): string =>
+  keys.map((key) => metadataString(entry, [key]).toLowerCase()).filter(Boolean).join(" ");
+
+const hasStrongMetaEvidence = (entry: AttributionLedgerEntry): boolean => {
+  const utmSource = (entry.utmSource ?? "").toLowerCase();
+  const utmMedium = (entry.utmMedium ?? "").toLowerCase();
+  const utmCampaign = (entry.utmCampaign ?? "").toLowerCase();
+  const sourceBlob = [
+    utmSource,
+    utmMedium,
+    utmCampaign,
+    (entry.referrer ?? "").toLowerCase(),
+    metadataBlobLower(entry, ["source", "source_group", "platform", "utm_source", "utm_medium", "utm_campaign"]),
+  ].join(" ");
+
+  return Boolean(
+    entry.fbclid ||
+      metadataPresent(entry, ["fbc", "_fbc"]) ||
+      /\b(meta|facebook|instagram|fb)\b/.test(sourceBlob),
+  );
+};
+
+const paymentPagePhase = (entry: AttributionLedgerEntry): string =>
+  metadataBlobLower(entry, ["event_phase", "eventPhase", "phase", "page_phase"]);
+
+const isPaymentPageExitEntry = (entry: AttributionLedgerEntry): boolean =>
+  /(^|\s)(exit|pagehide|hidden|visibility_hidden|leave)(\s|$)/.test(paymentPagePhase(entry));
+
+const isCompletionLikeEntry = (entry: AttributionLedgerEntry): boolean => {
+  const urlBlob = [
+    entry.referrer ?? "",
+    metadataBlobLower(entry, [
+      "landing",
+      "page_location",
+      "pageLocation",
+      "event_source_url",
+      "eventSourceUrl",
+      "checkoutUrl",
+      "checkout_url",
+      "paymentUrl",
+      "payment_url",
+    ]),
+  ].join(" ").toLowerCase();
+
+  return /shop_payment_complete|shop_order_done|order_complete|payment_complete|payment_success/.test(urlBlob);
+};
+
+const isMetaInitiateCheckoutCandidateEntry = (entry: AttributionLedgerEntry): boolean => {
+  if (!isPaymentStartedEntry(entry)) return false;
+  if (isPaymentPageExitEntry(entry)) return false;
+  if (isCompletionLikeEntry(entry)) return false;
+  return hasStrongMetaEvidence(entry);
+};
+
+const initiateCheckoutCandidateKey = (entry: AttributionLedgerEntry): string => {
+  const key = ledgerJoinKey(entry) || [
+    entry.checkoutId,
+    entry.customerKey,
+    kstDateKeyForIso(entry.loggedAt),
+    entry.touchpoint,
+    metadataString(entry, ["event_phase", "eventPhase", "phase"]),
+  ].filter(Boolean).join("\u001f") || safeRefForLedgerEntry(entry);
+
+  return createHash("sha256").update(key, "utf8").digest("hex").slice(0, 16);
+};
+
 const evidenceLabelsForEntry = (entry: AttributionLedgerEntry): string[] => {
   const labels: string[] = [];
   if (entry.fbclid) labels.push("fbclid 있음");
@@ -630,6 +696,57 @@ export type FunnelHealthResult = {
     not_available_reason: string;
     stages: Array<{ stage: string; count: number; source: string }>;
   };
+  checkout_signal_split: {
+    vm_payment_page_reached: {
+      label: string;
+      count: number;
+      source: string;
+      unit: string;
+      basis: string;
+      caveat: string;
+    };
+    meta_initiate_checkout_received: {
+      label: string;
+      count: number | null;
+      source: string;
+      unit: string;
+      basis: string;
+      caveat: string;
+    };
+    meta_capi_initiate_checkout_candidate: {
+      label: string;
+      count: number;
+      source: string;
+      unit: string;
+      basis: string;
+      send_allowed: false;
+      caveat: string;
+    };
+    root_causes: Array<{
+      reason: string;
+      count: number;
+      explanation_ko: string;
+    }>;
+    ordered_exclusion_steps: Array<{
+      step: number;
+      reason: string;
+      label: string;
+      count: number;
+      rate_of_payment_page_reached: number | null;
+      effect: "start" | "exclude" | "dedupe" | "keep";
+      explanation_ko: string;
+      next_action_ko: string;
+    }>;
+    summary: {
+      raw_payment_page_rows: number;
+      excluded_rows: number;
+      deduped_repeat_rows: number;
+      candidate_rows_before_dedupe: number;
+      final_candidate_rows: number;
+      final_candidate_rate: number | null;
+      caveat: string;
+    };
+  };
   period_label: string;
   kpis: {
     vm_order_signals: { count: number; amount_krw: number; source: string; unit: string; basis: string };
@@ -782,7 +899,7 @@ const determineStatus = (params: {
       next_action: "5/17 이후 새 누락인지, 5/14~5/15 보관 전용 legacy backlog인지 먼저 분리하세요.",
     };
   }
-  // Yellow: decision canceled 가 결제 시작의 10% 이상
+  // Yellow: decision canceled 가 결제 페이지 도달의 10% 이상
   if (decisionCanceled > 0 && paymentStarted > 0 && decisionCanceled / paymentStarted >= 0.1) {
     return {
       label: "주의",
@@ -802,7 +919,7 @@ const determineStatus = (params: {
   if (paymentStarted > 0 && confirmedPurchases === 0) {
     return {
       label: "주의",
-      main_issue: "결제 시작은 있는데 실제 결제완료가 없음",
+      main_issue: "결제 페이지 도달은 있는데 실제 결제완료가 없음",
       next_action: "결제 페이지 artifact, payment-decision timeout, 운영DB sync lag 를 확인하세요.",
     };
   }
@@ -1992,6 +2109,184 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     stages: browserFunnelStages,
   };
 
+  let broadPaymentPageRows = 0;
+  let initiateCheckoutCandidateRows = 0;
+  const initiateCheckoutCandidateKeys = new Set<string>();
+  let paymentPageExitRows = 0;
+  let completionLikeRows = 0;
+  let fbpOnlyRows = 0;
+  let noStrongMetaEvidenceRows = 0;
+
+  for (const entry of ledger) {
+    if (!isPaymentStartedEntry(entry)) continue;
+    broadPaymentPageRows += 1;
+    if (isPaymentPageExitEntry(entry)) {
+      paymentPageExitRows += 1;
+      continue;
+    }
+    if (isCompletionLikeEntry(entry)) {
+      completionLikeRows += 1;
+      continue;
+    }
+    if (!hasStrongMetaEvidence(entry)) {
+      noStrongMetaEvidenceRows += 1;
+      if (metadataPresent(entry, ["fbp", "_fbp"])) fbpOnlyRows += 1;
+      continue;
+    }
+    if (isMetaInitiateCheckoutCandidateEntry(entry)) {
+      initiateCheckoutCandidateRows += 1;
+      initiateCheckoutCandidateKeys.add(initiateCheckoutCandidateKey(entry));
+    }
+  }
+
+  const finalInitiateCheckoutCandidateRows = initiateCheckoutCandidateKeys.size;
+  const dedupedRepeatRows = Math.max(0, initiateCheckoutCandidateRows - finalInitiateCheckoutCandidateRows);
+  const excludedInitiateCheckoutRows = Math.max(0, broadPaymentPageRows - finalInitiateCheckoutCandidateRows);
+  const rateOfPaymentPageReached = (count: number): number | null =>
+    broadPaymentPageRows > 0 ? count / broadPaymentPageRows : null;
+
+  const checkoutSignalSplit: FunnelHealthResult["checkout_signal_split"] = {
+    vm_payment_page_reached: {
+      label: "결제 페이지 도달",
+      count: broadPaymentPageRows,
+      source: "VM Cloud attribution_ledger touchpoint=checkout_started/payment_page_seen",
+      unit: "event row",
+      basis: "결제 페이지나 주문서 화면에 도착한 내부 관측값입니다. Meta InitiateCheckout 수신 건수와 같은 뜻이 아닙니다.",
+      caveat: "진단용 넓은 신호입니다. exit/pagehide 중복과 fbp-only 광고 단서가 섞일 수 있어 Meta CAPI 후보로 바로 쓰지 않습니다.",
+    },
+    meta_initiate_checkout_received: {
+      label: "Meta InitiateCheckout 수신",
+      count: browserAvailable ? browserStageCounts.InitiateCheckout : null,
+      source: "VM Cloud attribution_ledger metadata.eventName=InitiateCheckout",
+      unit: "browser/server forwarded event row",
+      basis: "브라우저 픽셀 또는 funnel-capi forward 경로에서 InitiateCheckout 이름으로 들어온 수신 근사값입니다.",
+      caveat: "Meta Events Manager UI 숫자와 지연/필터/중복 기준이 다를 수 있습니다. null이면 이 기간 eventName 원천이 없습니다.",
+    },
+    meta_capi_initiate_checkout_candidate: {
+      label: "Meta CAPI 후보",
+      count: finalInitiateCheckoutCandidateRows,
+      source: "VM Cloud narrowed no-send candidate: checkout_started/payment_page_seen + strong Meta evidence + no exit/completion",
+      unit: "deduped safe order-flow candidate",
+      basis: "Meta 클릭/캠페인 단서가 강하고, 완료 URL이나 pagehide가 아닌 결제 시작 흐름만 dedupe 한 no-send 후보입니다.",
+      send_allowed: false,
+      caveat: "현재는 설계/preview 전용입니다. Meta로 실제 전송하려면 Test Events smoke와 event별 rollback gate가 먼저 필요합니다.",
+    },
+    root_causes: [
+      {
+        reason: "broad_vm_page_signal",
+        count: Math.max(0, broadPaymentPageRows - initiateCheckoutCandidateRows),
+        explanation_ko: "VM 내부 결제 페이지 도달값은 Meta 후보보다 넓습니다. 그래서 숫자가 Meta InitiateCheckout보다 커질 수 있습니다.",
+      },
+      {
+        reason: "page_exit_or_duplicate_phase",
+        count: paymentPageExitRows,
+        explanation_ko: "pagehide/exit 성격의 row는 사용자가 결제 화면을 떠나는 순간에도 생길 수 있어 CAPI 후보에서 제외했습니다.",
+      },
+      {
+        reason: "completion_url_excluded",
+        count: completionLikeRows,
+        explanation_ko: "완료 URL 성격의 row는 InitiateCheckout이 아니라 Purchase/결제완료 판단 영역이라 후보에서 제외했습니다.",
+      },
+      {
+        reason: "fbp_only_or_no_strong_meta_evidence",
+        count: noStrongMetaEvidenceRows,
+        explanation_ko:
+          fbpOnlyRows > 0
+            ? "fbp만 있거나 강한 Meta 클릭/캠페인 단서가 없는 row는 Meta 광고 기여 후보로 보수적으로 제외했습니다."
+            : "강한 Meta 클릭/캠페인 단서가 없는 row는 Meta 광고 기여 후보로 보수적으로 제외했습니다.",
+      },
+    ],
+    ordered_exclusion_steps: [
+      {
+        step: 1,
+        reason: "raw_payment_page_reached",
+        label: "넓게 잡은 결제 페이지 도달",
+        count: broadPaymentPageRows,
+        rate_of_payment_page_reached: rateOfPaymentPageReached(broadPaymentPageRows),
+        effect: "start",
+        explanation_ko:
+          "주문서나 결제 페이지에 도착한 내부 관측값입니다. 아직 Meta 광고 신호인지, 중복인지, 완료 URL인지 구분하기 전의 넓은 분모입니다.",
+        next_action_ko: "이 숫자는 퍼널 병목 진단용으로 유지하고, Meta CAPI 전송 후보로는 아래 단계에서 다시 좁힙니다.",
+      },
+      {
+        step: 2,
+        reason: "page_exit_or_hidden_phase",
+        label: "나갈 때 생긴 row 제외",
+        count: paymentPageExitRows,
+        rate_of_payment_page_reached: rateOfPaymentPageReached(paymentPageExitRows),
+        effect: "exclude",
+        explanation_ko:
+          "pagehide, exit, hidden 같은 phase는 결제 화면을 본 순간이 아니라 떠나는 순간에도 생길 수 있습니다. 결제 시작 신호로 보내면 중복/과대 집계 위험이 큽니다.",
+        next_action_ko: "footer payload에서 enter/exit phase가 계속 분리되는지 유지합니다.",
+      },
+      {
+        step: 3,
+        reason: "completion_url_excluded",
+        label: "완료 URL 제외",
+        count: completionLikeRows,
+        rate_of_payment_page_reached: rateOfPaymentPageReached(completionLikeRows),
+        effect: "exclude",
+        explanation_ko:
+          "결제완료 URL은 InitiateCheckout이 아니라 Purchase 판단 영역입니다. 중간 전환 후보에서 제외해야 Purchase와 섞이지 않습니다.",
+        next_action_ko: "완료 URL은 confirmed Purchase guard/value guard 경로에서만 봅니다.",
+      },
+      {
+        step: 4,
+        reason: "weak_or_no_meta_evidence",
+        label: "Meta 단서 부족 제외",
+        count: noStrongMetaEvidenceRows,
+        rate_of_payment_page_reached: rateOfPaymentPageReached(noStrongMetaEvidenceRows),
+        effect: "exclude",
+        explanation_ko:
+          "fbclid/fbc 또는 Meta 캠페인 단서가 없는 row입니다. fbp만 있는 경우도 일반 브라우저 쿠키일 수 있어 Meta 광고 후보로 바로 쓰지 않습니다.",
+        next_action_ko: "Meta UTM/source 미매핑 audit과 click-id 보존 개선으로 이 구간을 줄입니다.",
+      },
+      {
+        step: 5,
+        reason: "candidate_rows_before_dedupe",
+        label: "Meta 단서가 강한 후보 row",
+        count: initiateCheckoutCandidateRows,
+        rate_of_payment_page_reached: rateOfPaymentPageReached(initiateCheckoutCandidateRows),
+        effect: "keep",
+        explanation_ko:
+          "Meta 클릭/캠페인 단서가 있고, exit/완료 URL이 아닌 결제 페이지 도달 row입니다. 아직 같은 주문 흐름 중복을 제거하기 전입니다.",
+        next_action_ko: "같은 주문 흐름은 한 번만 보내도록 safe key로 dedupe 합니다.",
+      },
+      {
+        step: 6,
+        reason: "same_order_flow_repeat_deduped",
+        label: "같은 주문 흐름 중복 제거",
+        count: dedupedRepeatRows,
+        rate_of_payment_page_reached: rateOfPaymentPageReached(dedupedRepeatRows),
+        effect: "dedupe",
+        explanation_ko:
+          "같은 주문/checkout 흐름에서 여러 row가 생긴 것으로 보이는 값입니다. 그대로 보내면 Meta InitiateCheckout이 중복될 수 있어 1건으로 줄입니다.",
+        next_action_ko: "event_id 설계 때 이 dedupe key를 서버 CAPI event_id 생성 근거로 사용합니다.",
+      },
+      {
+        step: 7,
+        reason: "final_meta_capi_no_send_candidate",
+        label: "최종 no-send 후보",
+        count: finalInitiateCheckoutCandidateRows,
+        rate_of_payment_page_reached: rateOfPaymentPageReached(finalInitiateCheckoutCandidateRows),
+        effect: "keep",
+        explanation_ko:
+          "지금 기준으로 서버 CAPI InitiateCheckout 후보로 볼 수 있는 dedupe 후 최종 수입니다. 아직 실제 Meta 전송은 하지 않습니다.",
+        next_action_ko: "payload preview와 Test Events smoke를 통과한 뒤에만 event별 canary를 검토합니다.",
+      },
+    ],
+    summary: {
+      raw_payment_page_rows: broadPaymentPageRows,
+      excluded_rows: excludedInitiateCheckoutRows,
+      deduped_repeat_rows: dedupedRepeatRows,
+      candidate_rows_before_dedupe: initiateCheckoutCandidateRows,
+      final_candidate_rows: finalInitiateCheckoutCandidateRows,
+      final_candidate_rate: rateOfPaymentPageReached(finalInitiateCheckoutCandidateRows),
+      caveat:
+        "ordered_exclusion_steps는 앞 단계에서 이미 제외된 row를 다음 단계에서 다시 세지 않는 순차 분해입니다. root_causes는 기존 호환용 요약이라 일부 해석이 넓습니다.",
+    },
+  };
+
   // === Funnel A/B views ===
   // A: 전체 (이미 위에서 계산한 단일 funnel)
   // B: 광고 귀속 (paid click evidence 가 있는 ledger 만)
@@ -2162,6 +2457,32 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
             ? "장바구니 담기 클릭이 아니라 /shop_cart 페이지 진입입니다. 아임웹/GTM 수정 없이 VM Cloud가 이미 받은 landing row를 사용합니다."
             : "site_landing_ledger /shop_cart 증거가 없으면 AddToCart event row만 fallback으로 씁니다. ViewContent는 상품 조회라 장바구니 단계로 세지 않습니다.",
         },
+        vm_payment_page_reached: {
+          source: "VM Cloud attribution_ledger checkout_started/payment_page_seen",
+          unit: "event row",
+          window: WINDOW_LABEL[input.window],
+          site: input.site,
+          pixel_id: null,
+          caveat:
+            "내부 결제 페이지 도달 진단값입니다. Meta InitiateCheckout 수신값이나 CAPI 후보와 같은 의미가 아닙니다.",
+        },
+        meta_initiate_checkout_received: {
+          source: "VM Cloud attribution_ledger metadata.eventName=InitiateCheckout",
+          unit: "browser/server forwarded event row",
+          window: WINDOW_LABEL[input.window],
+          site: input.site,
+          pixel_id: sitePixelIds.length === 1 ? sitePixelIds[0] : null,
+          caveat: "Meta UI 숫자와 지연/중복/필터 기준이 다를 수 있어 수신 근사값으로만 봅니다.",
+        },
+        meta_capi_initiate_checkout_candidate: {
+          source: "VM Cloud narrowed no-send candidate",
+          unit: "deduped safe order-flow candidate",
+          window: WINDOW_LABEL[input.window],
+          site: input.site,
+          pixel_id: sitePixelIds.length === 1 ? sitePixelIds[0] : null,
+          caveat:
+            "Meta 클릭/캠페인 단서가 강한 결제 시작 흐름만 남긴 no-send 후보입니다. 현재 endpoint는 전송하지 않습니다.",
+        },
         vm_order_signals: {
           source: "VM Cloud attribution_ledger",
           unit: "event row",
@@ -2232,9 +2553,9 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
       },
       payment_started: {
         count: paymentStartedCount,
-        source: "ledger touchpoint = checkout_started + payment_page_seen",
+        source: checkoutSignalSplit.vm_payment_page_reached.source,
         unit: "event row",
-        basis: "InitiateCheckout 후보 + payment_page_seen 합산 (중복 가능)",
+        basis: "결제 페이지 도달 내부 진단값입니다. Meta InitiateCheckout/CAPI 후보는 checkout_signal_split에서 별도로 봅니다.",
       },
       confirmed_purchases: {
         count: confirmedCount,
@@ -2319,6 +2640,7 @@ export const buildFunnelHealthReport = (input: FunnelHealthInput): FunnelHealthR
     signal_quality: signalQuality,
     payment_decision_latency: paymentDecisionLatency,
     browser_funnel_health: browserFunnelHealth,
+    checkout_signal_split: checkoutSignalSplit,
     capi_health: {
       last_success_at_kst: lastSuccessAtKst,
       last_1h: bucketCapi(oneHourAgoMs),

@@ -65,6 +65,38 @@ type GoogleCampaignMatchHealth = {
     confirmedRows: number;
     matchedToDashboardCampaign: boolean;
   }>;
+  healthSplit?: {
+    roasAttribution: {
+      source: "site_landing_ledger_and_attribution_ledger";
+      status: "usable_for_budget_review" | "collecting" | "blocked";
+      rows: number;
+      googleClickIdRows: number;
+      gadCampaignIdRows: number;
+      currentCampaignIdCoverageRate: number | null;
+      latestAt: string | null;
+      interpretation: string;
+    };
+    paidClickIntentTag: {
+      source: "paid_click_intent_ledger";
+      status: "monitoring" | "needs_exact_click_diagnosis" | "collecting" | "blocked";
+      rows: number;
+      googleClickIdRows: number;
+      gadCampaignIdRows: number;
+      currentCampaignIdCoverageRate: number | null;
+      latestAt: string | null;
+      interpretation: string;
+    };
+    orderAttribution: {
+      source: "attribution_ledger";
+      status: "usable_for_order_join" | "collecting" | "blocked";
+      rows: number;
+      googleClickIdEvidenceRows: number;
+      confirmedPaymentSuccessRows: number;
+      confirmedRowsWithGadCampaignId: number;
+      latestAt: string | null;
+      interpretation: string;
+    };
+  };
   summary: {
     status:
       | "needs_allowlist_deploy"
@@ -397,8 +429,8 @@ const phasePlan = [
     phase: "Phase 1",
     sprint: "Sprint 1",
     title: "신규 Google 클릭 row가 어떤 파라미터를 들고 들어오는지 확인",
-    status: "진행 중",
-    progress: 35,
+    status: "기준 분리 완료",
+    progress: 70,
     tone: "warn",
     why: "백엔드 allowlist를 배포했더라도 실제 Google 클릭 URL에 gad_campaignid가 붙지 않으면 캠페인별 ROAS를 정확히 나눌 수 없습니다.",
     cadence: "신규 배포 또는 실제 광고 클릭 후 T+30분, T+2시간, T+24시간에만 재조회합니다. 24시간 동안 0건이면 단순 대기 종료입니다.",
@@ -408,8 +440,8 @@ const phasePlan = [
       "대시보드 API last_7d, last_30d를 다시 불러 campaign id coverage가 올라갔는지 확인합니다.",
     ],
     success: "배포 이후 신규 Google 클릭 중 gad_campaignidRows가 1건 이상이고, 같은 row에 gclid 또는 gbraid/wbraid가 함께 남습니다.",
-    currentResult: "2026-05-21 00:13 KST read-only 확인: 배포 이후 Google click row 6건, gad_campaignid 0건입니다.",
-    nextDecision: "24시간 확인까지 0건이면 Google Ads URL 설정 보강 승인안으로 넘어갑니다.",
+    currentResult: "2026-05-21 13:16 KST 실클릭 확인: site_landing과 attribution에는 campaign id와 click id가 남았습니다. paid_click_intent exact row만 별도 miss입니다.",
+    nextDecision: "예산 판단용 ROAS는 site_landing + attribution 기준으로 보고, paid_click_intent는 태그 진단 health로 분리합니다.",
     owner: "Codex",
     evidence: "VM Cloud SQLite read-only + /api/google-ads/dashboard",
   },
@@ -491,7 +523,7 @@ const keyResults = [
       "품질 기준: 최근 7일 결제완료 주문 기준 보존률 95%에 근접하고 중복 저장이 없어야 합니다.",
     ],
     why: "광고 클릭 ID가 주문 완료 시점까지 남아야 Google 광고비와 실제 결제완료 주문을 같은 고객 여정으로 묶을 수 있습니다. 24h canary로 유실, 중복, 서버 부담을 먼저 확인해야 잘못된 클릭 증거를 정식 원장에 쌓지 않습니다.",
-    evidence: "현재 live click id health: 최근 7일 463건 중 7건 보존, no-send prep: 623건 중 5건 보존",
+    evidence: "2026-05-21 실클릭 canary: site_landing/attribution 보존 PASS, paid_click_intent exact row MISS",
     tone: "normal",
   },
   {
@@ -682,6 +714,110 @@ const campaignMatchStatusClass = (status: GoogleCampaignMatchHealth["summary"]["
   if (status === "allowlist_deployed_waiting_new_click") return `${styles.status} ${styles.statusWarn}`;
   if (status === "needs_allowlist_deploy") return `${styles.status} ${styles.statusWarn}`;
   return `${styles.status} ${styles.statusHold}`;
+};
+
+const roleStatusClass = (status: string) => {
+  if (status === "usable_for_budget_review" || status === "usable_for_order_join" || status === "monitoring") {
+    return styles.status;
+  }
+  if (status === "collecting" || status === "needs_exact_click_diagnosis") {
+    return `${styles.status} ${styles.statusWarn}`;
+  }
+  return `${styles.status} ${styles.statusHold}`;
+};
+
+const roleStatusLabel = (status: string) => {
+  if (status === "usable_for_budget_review") return "예산 판단 가능";
+  if (status === "usable_for_order_join") return "주문 연결 가능";
+  if (status === "monitoring") return "태그 관찰 정상";
+  if (status === "needs_exact_click_diagnosis") return "exact-click 진단 필요";
+  if (status === "collecting") return "더 쌓는 중";
+  return "사용 보류";
+};
+
+const campaignHealthSplitCards = (health: GoogleCampaignMatchHealth) => {
+  const roasAttribution = health.healthSplit?.roasAttribution ?? {
+    source: "site_landing_ledger_and_attribution_ledger" as const,
+    status: health.siteLanding.gadCampaignIdRows > 0 ? "usable_for_budget_review" as const : "collecting" as const,
+    rows: health.siteLanding.rows,
+    googleClickIdRows: health.siteLanding.googleClickIdRows,
+    gadCampaignIdRows: health.siteLanding.gadCampaignIdRows,
+    currentCampaignIdCoverageRate: health.siteLanding.currentCampaignIdCoverageRate,
+    latestAt: health.siteLanding.latestAt,
+    interpretation:
+      "예산 판단용 내부 ROAS는 고객 유입 원장과 주문 원장을 우선 기준으로 봅니다. paid-click-intent 태그 원장과 섞지 않습니다.",
+  };
+  const orderAttribution = health.healthSplit?.orderAttribution ?? {
+    source: "attribution_ledger" as const,
+    status: health.attributionLedger.confirmedRowsWithGadCampaignId > 0 ? "usable_for_order_join" as const : "collecting" as const,
+    rows: health.attributionLedger.rows,
+    googleClickIdEvidenceRows: health.attributionLedger.googleClickIdEvidenceRows,
+    confirmedPaymentSuccessRows: health.attributionLedger.confirmedPaymentSuccessRows,
+    confirmedRowsWithGadCampaignId: health.attributionLedger.confirmedRowsWithGadCampaignId,
+    latestAt: health.attributionLedger.latestAt,
+    interpretation:
+      "결제완료 주문까지 이어진 evidence입니다. 플랫폼 전송 후보가 아니라 내부 ROAS 재계산의 주문 연결 근거입니다.",
+  };
+  const paidClickIntentTag = health.healthSplit?.paidClickIntentTag ?? {
+    source: "paid_click_intent_ledger" as const,
+    status: health.paidClickIntent.gadCampaignIdRows < health.siteLanding.gadCampaignIdRows
+      ? "needs_exact_click_diagnosis" as const
+      : "monitoring" as const,
+    rows: health.paidClickIntent.rows,
+    googleClickIdRows: health.paidClickIntent.googleClickIdRows,
+    gadCampaignIdRows: health.paidClickIntent.gadCampaignIdRows,
+    currentCampaignIdCoverageRate: health.paidClickIntent.currentCampaignIdCoverageRate,
+    latestAt: health.paidClickIntent.latestAt,
+    interpretation:
+      "GTM paid-click-intent 태그가 최소 click evidence를 남기는지 보는 보조 헬스입니다. 예산 판단용 ROAS 정본으로 쓰지 않습니다.",
+  };
+
+  return [
+    {
+      key: "roas",
+      title: "예산 판단용 헬스",
+      subtitle: "고객 유입 원장 + 주문 원장",
+      status: roasAttribution.status,
+      rate: roasAttribution.currentCampaignIdCoverageRate,
+      primary: roasAttribution.gadCampaignIdRows,
+      secondary: roasAttribution.googleClickIdRows,
+      primaryLabel: "campaign id 보존",
+      secondaryLabel: "Google click id",
+      latestAt: roasAttribution.latestAt,
+      interpretation: roasAttribution.interpretation,
+      source: roasAttribution.source,
+    },
+    {
+      key: "order",
+      title: "주문 연결 헬스",
+      subtitle: "결제완료 기준 attribution",
+      status: orderAttribution.status,
+      rate: orderAttribution.confirmedPaymentSuccessRows > 0
+        ? orderAttribution.confirmedRowsWithGadCampaignId / orderAttribution.confirmedPaymentSuccessRows
+        : null,
+      primary: orderAttribution.confirmedRowsWithGadCampaignId,
+      secondary: orderAttribution.confirmedPaymentSuccessRows,
+      primaryLabel: "결제완료 campaign id",
+      secondaryLabel: "결제완료 row",
+      latestAt: orderAttribution.latestAt,
+      interpretation: orderAttribution.interpretation,
+      source: orderAttribution.source,
+    },
+    {
+      key: "tag",
+      title: "태그 진단용 헬스",
+      subtitle: "paid_click_intent_ledger",
+      status: paidClickIntentTag.status,
+      rate: paidClickIntentTag.currentCampaignIdCoverageRate,
+      primary: paidClickIntentTag.gadCampaignIdRows,
+      secondary: paidClickIntentTag.googleClickIdRows,
+      primaryLabel: "campaign id 보존",
+      secondaryLabel: "Google click id",
+      latestAt: paidClickIntentTag.latestAt,
+      interpretation: paidClickIntentTag.interpretation,
+      source: paidClickIntentTag.source,
+    },
+  ];
 };
 
 const formatFetchedAt = (value: string | undefined) => {
@@ -938,10 +1074,47 @@ export default function GoogleRoasProjectReportPage() {
               <h2>Google 캠페인 ID 매칭률</h2>
               <p>
                 gad_campaignid는 Google 광고가 붙여주는 캠페인 번호입니다. UTM이 없어도 이 번호와 click id가 함께 남으면 내부 ROAS를 캠페인 단위로 더 정확히 나눌 수 있습니다.
+                이 화면은 ROAS 산정 헬스와 GTM 태그 진단 헬스를 분리해서 봅니다.
               </p>
             </div>
             <span className={styles.metaText}>
               기준 후보일: {last30.googleCampaignMatchHealth.baseline.candidateStartedAtKst} · upload 후보 {last30.googleCampaignMatchHealth.summary.uploadCandidateCount}건
+            </span>
+          </div>
+          <div className={styles.healthStandardGrid}>
+            {campaignHealthSplitCards(last7.googleCampaignMatchHealth).map((card) => (
+              <article key={card.key} className={styles.healthStandardCard}>
+                <div className={styles.healthTop}>
+                  <div>
+                    <span className={styles.healthLabel}>{card.subtitle}</span>
+                    <strong>{card.title}</strong>
+                  </div>
+                  <span className={roleStatusClass(card.status)}>{roleStatusLabel(card.status)}</span>
+                </div>
+                <p>{card.interpretation}</p>
+                <div className={styles.healthStats}>
+                  <div>
+                    <span>{card.primaryLabel}</span>
+                    <strong>{formatCount(card.primary)}</strong>
+                  </div>
+                  <div>
+                    <span>{card.secondaryLabel}</span>
+                    <strong>{formatCount(card.secondary)}</strong>
+                  </div>
+                  <div>
+                    <span>매칭률</span>
+                    <strong>{formatRatePct(card.rate)}</strong>
+                  </div>
+                </div>
+                <em>source: {card.source} · latest {formatFetchedAt(card.latestAt ?? undefined)}</em>
+              </article>
+            ))}
+          </div>
+          <div className={styles.probeNote}>
+            <strong>2026-05-21 실클릭 canary 해석</strong>
+            <span>
+              주문 202605214186402는 고객 유입 원장과 주문 원장에 gclid, gbraid, gad_campaignid가 남았습니다.
+              반면 paid-click-intent exact row는 누락되어 이 원장은 ROAS 정본이 아니라 태그 진단 대상으로 분리합니다.
             </span>
           </div>
           <div className={styles.campaignMatchGrid}>

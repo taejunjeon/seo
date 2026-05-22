@@ -79,6 +79,7 @@ const envSource = {
   META_PIXEL_ID_AIBIO: process.env.META_PIXEL_ID_AIBIO ?? "1068377347547682",
   META_EVENT_CODE_BIOCOM: process.env.META_EVENT_CODE_BIOCOM,
   META_EVENT_CODE_COFFEE: process.env.META_EVENT_CODE_COFFEE,
+  META_CAPI_ENABLE_IMWEB_EMAIL_HASH: process.env.META_CAPI_ENABLE_IMWEB_EMAIL_HASH,
   META_CAPI_ENABLE_IMWEB_PHONE_HASH: process.env.META_CAPI_ENABLE_IMWEB_PHONE_HASH,
   META_CAPI_ENABLE_MEMBER_EXTERNAL_ID: process.env.META_CAPI_ENABLE_MEMBER_EXTERNAL_ID,
   META_CAPI_EXTERNAL_ID_SECRET: process.env.META_CAPI_EXTERNAL_ID_SECRET,
@@ -249,6 +250,10 @@ const envSchema = z.object({
   META_PIXEL_ID_AIBIO: z.string().min(1).default("1068377347547682"),
   META_EVENT_CODE_BIOCOM: z.string().min(1).optional(),
   META_EVENT_CODE_COFFEE: z.string().min(1).optional(),
+  META_CAPI_ENABLE_IMWEB_EMAIL_HASH: z
+    .string()
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
   META_CAPI_ENABLE_IMWEB_PHONE_HASH: z
     .string()
     .optional()

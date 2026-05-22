@@ -257,11 +257,46 @@
   gap: 12px;
 }
 
+.healthStandardGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .healthCard {
   padding: 16px;
   border: 1px solid #fee2e2;
   border-radius: 12px;
   background: #ffffff;
+}
+
+.healthStandardCard {
+  padding: 15px;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.healthStandardCard p {
+  margin: 10px 0 0;
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.62;
+}
+
+.healthStandardCard .healthTop strong {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.healthStandardCard em {
+  display: block;
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 750;
 }
 
 .campaignMatchCard {
@@ -369,6 +404,30 @@
 .healthNote {
   margin: 12px 0 0;
   color: #7f1d1d;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.probeNote {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fff7ed;
+}
+
+.probeNote strong {
+  flex: 0 0 190px;
+  color: #9a3412;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.probeNote span {
+  color: #7c2d12;
   font-size: 0.76rem;
   line-height: 1.55;
 }
@@ -955,7 +1014,8 @@
     grid-template-columns: 1fr;
   }
 
-  .healthGrid {
+  .healthGrid,
+  .healthStandardGrid {
     grid-template-columns: 1fr;
   }
 
@@ -994,6 +1054,14 @@
 
   .methodRow em {
     text-align: left;
+  }
+
+  .probeNote {
+    flex-direction: column;
+  }
+
+  .probeNote strong {
+    flex: none;
   }
 
   .decisionBand,

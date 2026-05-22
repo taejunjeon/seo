@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-05-21T07:48:36.590Z",
+  "mode": "apply_workspace_update",
+  "backup": {
+    "jsonPath": "/Users/vibetj/coding/seo/data/gtm-paid-click-intent-tag279-backup-20260521T074835Z.json",
+    "htmlPath": "/Users/vibetj/coding/seo/data/gtm-paid-click-intent-tag279-backup-20260521T074835Z.html",
+    "updatedHtmlPath": "/Users/vibetj/coding/seo/data/gtm-paid-click-intent-tag279-v3-20260521T074835Z.html",
+    "oldHtmlSha256": "d6f5ad8158658a75faab13ec207fe398911ecbb81172b311f128572e2bc283fe",
+    "newHtmlSha256": "7d6d97e3ff3d81a0aa3aee6c0ba8502b1601df4b46f739c3e2ce4d8a47524c43"
+  },
+  "container": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "publicId": "GTM-W2Z6PHN",
+    "liveVersionId": "144",
+    "liveVersionName": "paid_click_intent_v2_gad_campaignid_20260521"
+  },
+  "target": {
+    "tag": {
+      "tagId": "279",
+      "name": "codex_paid_click_intent_v1_receiver_no_send",
+      "type": "html",
+      "fingerprint": "1779333281031",
+      "firingTriggerId": [
+        "278"
+      ],
+      "blockingTriggerId": [],
+      "notes": "Mode B. Stores Google click id in browser storage and calls no-write/no-send receiver only. No conversion send.\n2026-05-21 Codex Preview: preserve gad_campaignid/gad_source in paid click evidence and refresh landing_url on new Google evidence. No conversion send."
+    },
+    "trigger": {
+      "triggerId": "278",
+      "name": "codex_paid_click_intent_v1_all_pages_guarded",
+      "type": "pageview",
+      "notes": "All Pages trigger. Client-side guard only sends receiver payload when Google click id exists; admin/internal paths are skipped."
+    }
+  },
+  "invariants": {
+    "existingTagModifiedInFreshWorkspaceOnly": true,
+    "triggerIdUnchanged": true,
+    "receiverUrlUnchanged": true,
+    "storageKeyUnchanged": true,
+    "sentKeyUnchanged": true,
+    "noSubmitCreateVersionPublish": true,
+    "noPlatformSend": true
+  },
+  "workspace": {
+    "workspaceId": "169",
+    "name": "codex_paid_click_intent_v3_stale_click_guard_preview_20260521T074835Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/169",
+    "fingerprint": "1779349717685"
+  },
+  "updatedTag": {
+    "tagId": "279",
+    "name": "codex_paid_click_intent_v1_receiver_no_send",
+    "type": "html",
+    "fingerprint": "1779349720317",
+    "firingTriggerId": [
+      "278"
+    ],
+    "blockingTriggerId": [],
+    "notes": "Mode B. Stores Google click id in browser storage and calls no-write/no-send receiver only. No conversion send.\n2026-05-21 Codex Preview: preserve gad_campaignid/gad_source in paid click evidence and refresh landing_url on new Google evidence. No conversion send.\n2026-05-21 Codex Preview: v3 ignores stale stored Google click id types when current URL has a fresh Google click id. No conversion send."
+  },
+  "workspaceStatus": {
+    "workspaceChangeCount": 1,
+    "mergeConflictCount": 0,
+    "changes": [
+      {
+        "changeStatus": "updated",
+        "tag": {
+          "tagId": "279",
+          "name": "codex_paid_click_intent_v1_receiver_no_send",
+          "type": "html",
+          "fingerprint": "1779349720317",
+          "firingTriggerId": [
+            "278"
+          ],
+          "blockingTriggerId": [],
+          "notes": "Mode B. Stores Google click id in browser storage and calls no-write/no-send receiver only. No conversion send.\n2026-05-21 Codex Preview: preserve gad_campaignid/gad_source in paid click evidence and refresh landing_url on new Google evidence. No conversion send.\n2026-05-21 Codex Preview: v3 ignores stale stored Google click id types when current URL has a fresh Google click id. No conversion send."
+        },
+        "trigger": null
+      }
+    ]
+  }
+}

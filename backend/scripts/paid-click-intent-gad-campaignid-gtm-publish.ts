@@ -14,20 +14,30 @@ const CONTAINER_ID = "13158774";
 const CONTAINER_PUBLIC_ID = "GTM-W2Z6PHN";
 const CONTAINER_PATH = `accounts/${ACCOUNT_ID}/containers/${CONTAINER_ID}`;
 const BASE = "https://tagmanager.googleapis.com/tagmanager/v2";
-const WORKSPACE_ID = "168";
+const WORKSPACE_ID = process.env.GTM_PAID_CLICK_INTENT_WORKSPACE_ID?.trim() || "168";
 const TAG_ID = "279";
 const EXPECTED_TAG_NAME = "codex_paid_click_intent_v1_receiver_no_send";
-const EXPECTED_VERSION = "paid_click_intent_v2_gad_campaignid_20260521";
+const EXPECTED_VERSION =
+  process.env.GTM_PAID_CLICK_INTENT_EXPECTED_VERSION?.trim()
+  || "paid_click_intent_v2_gad_campaignid_20260521";
 const RUN_ID = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-const VERSION_NAME = "paid_click_intent_v2_gad_campaignid_20260521";
+const VERSION_NAME =
+  process.env.GTM_PAID_CLICK_INTENT_VERSION_NAME?.trim()
+  || "paid_click_intent_v2_gad_campaignid_20260521";
+const PREVIEW_RESULT_PATH =
+  process.env.GTM_PAID_CLICK_INTENT_PREVIEW_RESULT_PATH?.trim()
+  || "data/gtm-paid-click-intent-tag279-preview-smoke-20260521T032711Z.json";
+const ROLLBACK_HTML_PATH =
+  process.env.GTM_PAID_CLICK_INTENT_ROLLBACK_HTML_PATH?.trim()
+  || "data/gtm-paid-click-intent-tag279-backup-20260521T031433Z.html";
 const VERSION_NOTES = [
   "TJ approved GTM Production publish.",
   "Scope: existing tag_id=279 only.",
-  "Purpose: preserve gad_campaignid/gad_source/utm_id in paid-click-intent no-send evidence.",
+  "Purpose: preserve Google paid-click evidence and prevent stale stored Google click id type mixing.",
   "No Google Ads/GA4/Meta/TikTok/Naver conversion send added.",
   "Trigger id 278 unchanged. Storage keys unchanged.",
-  "Preview PASS: data/gtm-paid-click-intent-tag279-preview-smoke-20260521T032711Z.json.",
-  "Rollback: restore previous live version or tag 279 HTML backup data/gtm-paid-click-intent-tag279-backup-20260521T031433Z.html.",
+  `Preview PASS: ${PREVIEW_RESULT_PATH}.`,
+  `Rollback: restore previous live version or tag 279 HTML backup ${ROLLBACK_HTML_PATH}.`,
 ].join("\n");
 
 type RequestOptions = {

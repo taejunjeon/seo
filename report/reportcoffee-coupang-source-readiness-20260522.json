@@ -1,0 +1,128 @@
+{
+  "ok": true,
+  "report": "reportcoffee_coupang_source_readiness_v0_1",
+  "site": "thecleancoffee",
+  "generated_at_kst": "2026-05-22 00:25:00",
+  "lane": "Green",
+  "send_write_invariants": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "raw_identifier_output_in_artifacts": 0
+  },
+  "decision": {
+    "current_status": "COUPANG_AMOUNT_SOURCE_PENDING",
+    "reason": "fresh PlayAuto has coffee product/quantity but amount is 0; amount-bearing sources are stale, non-coffee, or need a dedicated read-only sync wrapper.",
+    "do_not_include_in_slack_total_yet": true
+  },
+  "sources": {
+    "playauto_coupang": {
+      "source": "운영DB public.tb_playauto_orders shop_name='쿠팡'",
+      "role": "fresh product and quantity cross-check",
+      "last_7d": {
+        "rows": 30,
+        "quantity": 31,
+        "coffee_hint_rows": 17,
+        "coffee_hint_quantity": 18,
+        "pay_amt_sum": 0,
+        "max_date": "2026-05-20"
+      },
+      "last_30d": {
+        "rows": 166,
+        "quantity": 174,
+        "coffee_hint_rows": 118,
+        "coffee_hint_quantity": 126,
+        "pay_amt_sum": 0,
+        "max_date": "2026-05-20"
+      },
+      "verdict": "not_amount_source"
+    },
+    "local_coupang_rg_orders_api": {
+      "source": "로컬 SQLite coupang_rg_orders_api",
+      "role": "historical TeamKeto coffee gross source",
+      "teamketo_all_time": {
+        "rows": 436,
+        "gross_amount_krw": 14238900,
+        "max_paid_at": "2026-04-23T21:02:56.000Z"
+      },
+      "last_30d_partial": {
+        "rows": 15,
+        "gross_amount_krw": 496500,
+        "max_paid_at": "2026-04-23T21:02:56.000Z"
+      },
+      "verdict": "stale_after_2026_04_23"
+    },
+    "local_coupang_settlements_api": {
+      "source": "로컬 SQLite coupang_settlements_api",
+      "role": "monthly settlement source",
+      "teamketo": {
+        "rows": 15,
+        "final_amount_krw": 15966931,
+        "total_sale_krw": 45932600,
+        "max_recognition_year_month": "2026-04",
+        "max_settlement_date": "2026-06-01"
+      },
+      "verdict": "monthly_settlement_only_not_weekly_current"
+    },
+    "operational_tb_sales_coupang": {
+      "source": "운영DB public.tb_sales_coupang",
+      "role": "manual settlement upload candidate",
+      "last_7d": {
+        "rows": 0,
+        "net_amount_krw": 0
+      },
+      "last_30d": {
+        "max_date": "2026-04-30",
+        "by_project": [
+          { "channel": "coupang_rg", "project": "영양제", "rows": 209, "net_amount_krw": 11635990 },
+          { "channel": "coupang_rg", "project": "미분류", "rows": 3, "net_amount_krw": 343010 },
+          { "channel": "coupang_3p", "project": "미분류", "rows": 5, "net_amount_krw": 240800 }
+        ]
+      },
+      "verdict": "not_safe_for_coffee_weekly"
+    },
+    "operational_tb_coupang_orders_rg": {
+      "source": "운영DB public.tb_coupang_orders_rg",
+      "role": "BIOCOM RG current gross source",
+      "last_7d": {
+        "vendor_id": "A00668577",
+        "gross_amount_krw": 6014870,
+        "coffee_hint_gross_krw": 0,
+        "max_date": "2026-05-20"
+      },
+      "last_30d": {
+        "vendor_id": "A00668577",
+        "gross_amount_krw": 33794580,
+        "coffee_hint_gross_krw": 0,
+        "max_date": "2026-05-20"
+      },
+      "verdict": "biocom_not_coffee"
+    },
+    "coupang_wing_api_probe": {
+      "source": "Coupang Wing API read-only",
+      "teamketo_configured": true,
+      "biocom_configured": true,
+      "teamketo_rg_2026_05_21_count": 0,
+      "teamketo_ordersheets_24h_status_aggregate": {
+        "order_sheets": 11,
+        "item_count": 11,
+        "amount_krw": 449600,
+        "coffee_hint_amount_krw": 0
+      },
+      "verdict": "api_accessible_but_needs_daily_product_classifier_and_safe_cache"
+    }
+  },
+  "next_actions": [
+    {
+      "owner": "Codex",
+      "action": "Build no-write Coupang TeamKeto ordersheets daily aggregate script with product classifier and no raw output",
+      "confidence_percent": 82
+    },
+    {
+      "owner": "TJ님",
+      "action": "No immediate action. If report needs settlement-grade numbers, confirm whether TeamKeto settlement total_sale or final_amount should be the business metric.",
+      "confidence_percent": 64
+    }
+  ]
+}
