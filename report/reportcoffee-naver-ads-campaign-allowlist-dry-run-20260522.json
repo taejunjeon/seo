@@ -1,0 +1,241 @@
+{
+  "ok": true,
+  "schema_version": "reportcoffee-naver-ads-campaign-allowlist-dry-run-v1-20260522",
+  "mode": "dry_run_no_write",
+  "generated_at_kst": "2026-05-22 13:28:33 KST",
+  "site": "thecleancoffee",
+  "configured": true,
+  "window": {
+    "since": "2026-04-22",
+    "until": "2026-05-21",
+    "timezone": "KST date labels"
+  },
+  "filters": {
+    "include_keywords": [
+      "더클린커피",
+      "클린커피",
+      "thecleancoffee",
+      "clean coffee"
+    ],
+    "exclude_keywords": [
+      "바이오컴",
+      "biocom",
+      "aibio",
+      "아이바이오"
+    ],
+    "exact_allowlist_ids_used": false,
+    "allowlist_ids_count": 0
+  },
+  "summary": {
+    "campaigns_total": 37,
+    "allowlist_candidates": 6,
+    "excluded_by_keyword": 20,
+    "not_matched": 11,
+    "read_failures": 0,
+    "account_total_spend_krw": 7305482,
+    "account_total_spend_text": "7,305,482원",
+    "candidate_spend_krw": 0,
+    "candidate_spend_text": "0원",
+    "candidate_clicks": 0,
+    "non_candidate_spend_krw": 7305482,
+    "candidate_status": "zero_spend_candidate_all_inactive",
+    "recommendation": "Naver spend can be shown as 0 candidate, but cache write still needs allowlist approval."
+  },
+  "proposed_allowlist": [
+    {
+      "ncc_campaign_id": "cmp-a001-02-000000006341098",
+      "campaign_name": "[쇼핑검색] 04_더클린커피 아임웹",
+      "campaign_tp": "SHOPPING",
+      "status": "PAUSED",
+      "matched_keywords": [
+        "더클린커피",
+        "클린커피"
+      ],
+      "days": 30,
+      "impressions": 0,
+      "clicks": 0,
+      "spend_krw": 0,
+      "spend_text": "0원",
+      "naver_claim_conversion_value_krw": 0
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-02-000000003820754",
+      "campaign_name": "[쇼핑검색] 04_더클린커피 아임웹 커피",
+      "campaign_tp": "SHOPPING",
+      "status": "PAUSED",
+      "matched_keywords": [
+        "더클린커피",
+        "클린커피"
+      ],
+      "days": 30,
+      "impressions": 0,
+      "clicks": 0,
+      "spend_krw": 0,
+      "spend_text": "0원",
+      "naver_claim_conversion_value_krw": 0
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-01-000000002716571",
+      "campaign_name": "[파워링크] 07-1_더클린커피_아임웹",
+      "campaign_tp": "WEB_SITE",
+      "status": "PAUSED",
+      "matched_keywords": [
+        "더클린커피",
+        "클린커피"
+      ],
+      "days": 30,
+      "impressions": 0,
+      "clicks": 0,
+      "spend_krw": 0,
+      "spend_text": "0원",
+      "naver_claim_conversion_value_krw": 0
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-01-000000005809664",
+      "campaign_name": "[파워링크] 07-3_더클린커피_록하트",
+      "campaign_tp": "WEB_SITE",
+      "status": "PAUSED",
+      "matched_keywords": [
+        "더클린커피",
+        "클린커피"
+      ],
+      "days": 30,
+      "impressions": 0,
+      "clicks": 0,
+      "spend_krw": 0,
+      "spend_text": "0원",
+      "naver_claim_conversion_value_krw": 0
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-01-000000006340588",
+      "campaign_name": "[파워링크] 더클린커피_아임웹/NXL",
+      "campaign_tp": "WEB_SITE",
+      "status": "PAUSED",
+      "matched_keywords": [
+        "더클린커피",
+        "클린커피"
+      ],
+      "days": 30,
+      "impressions": 0,
+      "clicks": 0,
+      "spend_krw": 0,
+      "spend_text": "0원",
+      "naver_claim_conversion_value_krw": 0
+    },
+    {
+      "ncc_campaign_id": "cmp-a001-04-000000006586542",
+      "campaign_name": "브랜드검색03_더클린커피",
+      "campaign_tp": "BRAND_SEARCH",
+      "status": "PAUSED",
+      "matched_keywords": [
+        "더클린커피",
+        "클린커피"
+      ],
+      "days": 30,
+      "impressions": 0,
+      "clicks": 0,
+      "spend_krw": 0,
+      "spend_text": "0원",
+      "naver_claim_conversion_value_krw": 0
+    }
+  ],
+  "excluded_samples": [
+    {
+      "campaign_name": "바이오컴_파워링크_영양중금속검사",
+      "status": "ELIGIBLE",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 325305
+    },
+    {
+      "campaign_name": "바이오컴_파워링크_장내세균검사",
+      "status": "ELIGIBLE",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 209469
+    },
+    {
+      "campaign_name": "[파워링크] 08_펫영양검사_바이오컴펫",
+      "status": "PAUSED",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 0
+    },
+    {
+      "campaign_name": "바이오컴_파워링크_지연성검사",
+      "status": "ELIGIBLE",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 4757345
+    },
+    {
+      "campaign_name": "[파워링크] 05-2_다빈치랩_바이오컴",
+      "status": "PAUSED",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 0
+    },
+    {
+      "campaign_name": "[파워링크] Z_닥터머콜라_바이오컴펫",
+      "status": "PAUSED",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 0
+    },
+    {
+      "campaign_name": "[파워링크] 11_핏포즈_바이오컴펫",
+      "status": "PAUSED",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 0
+    },
+    {
+      "campaign_name": "[파워링크] 07_바이오컴펫영양제",
+      "status": "PAUSED",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 0
+    },
+    {
+      "campaign_name": "[파워링크] 05-1_건기식_바이오컴",
+      "status": "PAUSED",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 0
+    },
+    {
+      "campaign_name": "[파워링크] 바이오컴펫_더클린펫푸드",
+      "status": "PAUSED",
+      "excluded_keywords": [
+        "바이오컴"
+      ],
+      "spend_krw": 0
+    }
+  ],
+  "top_non_candidate_spend": [
+    {
+      "campaign_name": "[파워링크] 종합대사기능분석 런칭",
+      "status": "ELIGIBLE",
+      "spend_krw": 424410,
+      "reason": "not matched by coffee include keywords"
+    }
+  ],
+  "read_failures": [],
+  "invariants_held": {
+    "sqlite_write": 0,
+    "naver_ads_state_change": 0,
+    "external_send_count": 0,
+    "platform_conversion_send": 0,
+    "raw_secret_logged": false,
+    "internal_revenue_from_naver_conv_amt": 0
+  }
+}

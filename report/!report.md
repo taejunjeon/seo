@@ -1,10 +1,11 @@
 # 바이오컴·더클린커피 매출액/광고비 비중 리포트 계획
 
-작성 시각: 2026-05-21 23:35 KST
-기준일: 2026-05-21
+작성 시각: 2026-05-22 14:08 KST
+기준일: 2026-05-22
 문서 성격: Slack 주간/월간 매출·광고비 리포트 설계 정본 초안
 담당: Codex
-상세 문서: [[reportcoffee]], [[reportbiocom]], [[reportcoffee-dry-run-20260521]], [[reportcoffee-selfmall-dedupe-rule-20260522]], [[reportcoffee-coupang-source-readiness-20260522]], [[reportcoffee-weekly-aggregate-scripts-20260522]], [[reportcoffee-okr-action-plan-20260522]], [[reportcoffee-slack-preview-20260522]]
+상세 문서: [[reportcoffee]], [[reportbiocom]], [[reportcoffee-dry-run-20260521]], [[reportcoffee-selfmall-dedupe-rule-20260522]], [[reportcoffee-coupang-source-readiness-20260522]], [[reportcoffee-weekly-aggregate-scripts-20260522]], [[reportcoffee-okr-action-plan-20260522]], [[reportcoffee-slack-preview-20260522]], [[reportcoffee-naver-ads-campaign-allowlist-dry-run-20260522]], [[reportcoffee-product-sales-design-20260522]], [[reportcoffee-smartstore-product-sales-20260522]]
+프론트엔드 HTML 보고서: `report/reportcoffee-project-executive-report-20260522.html`
 
 ```yaml
 harness_preflight:
@@ -47,7 +48,7 @@ harness_preflight:
 
 시작은 더클린커피가 맞다. 더클린커피는 자사몰, 스마트스토어, 쿠팡이 분리돼 있고, 이미 `thecleancoffee` site source와 Meta 광고비 source가 일부 열려 있다. 다만 채널마다 정본이 다르므로 한 DB에서 다 끝내면 안 된다.
 
-현재 결론은 “바로 리포트 초안은 만들 수 있지만, 자동 Slack 발송 전에는 채널별 매출 source를 고정해야 한다”다. 특히 더클린커피 쿠팡과 네이버 광고비는 아직 fresh source가 약하다.
+현재 결론은 “바로 리포트 초안은 만들 수 있지만, 자동 Slack 발송 전에는 채널별 매출 데이터 출처(source: 숫자가 나온 원천)를 고정해야 한다”다. 더클린커피 Naver Ads는 API/IP 문제가 아니라 “더클린커피 캠페인 6개만 통과시키는 허용 목록 안전장치(allowlist guard)” 문제로 좁혀졌다. 후보 6개는 모두 PAUSED라 최근 30일 광고비 0원 후보로 볼 수 있다.
 
 ## 보고서 정의
 
@@ -56,7 +57,7 @@ harness_preflight:
 매출액은 광고 플랫폼이 주장하는 전환값이 아니라 내부 결제완료 원장 기준 금액이다.
 
 - 자사몰 매출: Imweb/PG/운영DB 또는 VM Cloud 주문 원장 기준 결제완료 금액
-- 스마트스토어 매출: 운영DB `tb_naver_orders` 또는 검증된 PlayAuto/정산 원장
+- 스마트스토어 매출: 운영DB `tb_playauto_orders shop_name='스마트스토어'`. `tb_naver_orders`는 더클린커피 상품명 conflict가 있어 primary로 쓰지 않음
 - 쿠팡 매출: 운영DB `tb_sales_coupang`, `tb_coupang_orders_rg`, 쿠팡 API/정산 source
 - GA4 purchase: 실제 매출 source가 아니라 guard 또는 참고값
 
@@ -106,6 +107,7 @@ confidence: medium_high
 - 자사몰 Toss 계열 `store=coffee`: last_7d 9,611,622원, last_30d 31,444,064원.
 - 자사몰 dedupe v0.2: 월간은 `Toss + NPay actual = 46,982,864원`을 included with warning으로 본다. 주간은 VM Cloud fresh DB read-only 기준 NPay actual 72건 / 3,693,400원이 확인되어 `Toss 9,611,622원 + NPay 3,693,400원 = 13,305,022원`까지 채울 수 있다.
 - 스마트스토어 운영DB `tb_playauto_orders shop_name='스마트스토어'`: last_7d 2,297,220원, last_30d 8,844,270원. `tb_naver_orders`는 TOP 상품명이 바이오컴 제품이라 더클린커피 primary에서 제외한다.
+- 스마트스토어 fresh dry-run: 2026-05-15 - 2026-05-21 KST 2,563,520원, 2026-05-01 - 2026-05-21 KST 6,731,430원, 2026-04-22 - 2026-05-21 KST 9,110,570원. TOP 상품까지 산출 완료.
 - 쿠팡: TeamKeto ordersheets API aggregate script가 생겼다. 2026-05-15 - 2026-05-21 KST 기준 41건 / 1,968,100원이며, coffee hint 1,044,900원과 teamketo hint 923,200원으로 분리된다. 2026-04-22 - 2026-05-21 rolling 30d 기준은 161건 / 7,264,500원, coffee hint 4,417,800원이다.
 - Meta 광고비: `/api/ads/site-summary?date_preset=last_7d`에서 더클린커피 spend 1,952,104원, 내부 confirmed revenue 2,040,491원, 내부 ROAS 1.05가 확인됐다. Meta 플랫폼 주장 구매값 7,191,017원은 참고값이다.
 - Naver 광고비: VM Cloud `/api/ads/naver/campaign-summary?site=thecleancoffee`는 `naver_ads_daily` 테이블 없음으로 500이다. 로컬 캐시는 `site=biocom` 위주이며 max date 2026-05-12다.
@@ -168,8 +170,30 @@ Slack 발송 전에는 아래를 no-send preview로 먼저 만든다.
 성공 기준:
 
 - 자사몰 전체 결제완료 매출이 NPay, Toss, 정기결제, 기타 결제수단으로 분리된다.
-- 스마트스토어 매출은 `tb_naver_orders`를 primary 후보로 두고 PlayAuto와 차이를 설명한다.
+- 스마트스토어 매출은 운영DB `tb_playauto_orders shop_name='스마트스토어'`를 primary 후보로 두고, `tb_naver_orders`는 바이오컴 상품명이 섞인 conflict source로 분리한다.
 - 쿠팡은 TEAMKETO/coffee source가 현재 fresh한지 확인하고, 불충분하면 리포트에서 `source pending`으로 표시한다.
+
+### Phase 1-1. 더클린커피 제품별 매출 연결
+
+무엇을 하는가: 채널별 총매출 옆에 잘 팔린 상품 TOP3를 붙인다.
+
+왜 하는가: 총매출이 늘거나 줄었을 때 어느 상품이 원인인지 바로 봐야 다음 광고비와 재고 판단이 가능하다.
+
+어떻게 하는가:
+
+- 스마트스토어는 운영DB PlayAuto 상품명 기준으로 집계한다. PlayAuto는 여러 판매 채널 주문을 한 테이블로 모아 둔 수집 원천이다.
+- 쿠팡은 TeamKeto ordersheets API 기준으로 집계한다. ordersheets API는 쿠팡 판매자 주문서에서 상품명, 수량, 금액을 읽는 공식 통로다.
+- 자사몰은 VM Cloud Imweb order items 기준으로 집계한다. Imweb order items는 한 주문 안에 들어 있는 상품별 행이다.
+
+성공 기준:
+
+- 주간·월간 Slack no-send preview에 자사몰, 스마트스토어, 쿠팡 TOP 상품 3개가 붙는다.
+- 상품별 금액 합계가 채널 총매출을 초과하지 않는다.
+- 자사몰 상품 라인 freshness가 부족하면 TOP 상품을 확정값이 아니라 cross-check 또는 pending으로 표시한다.
+- raw 주문번호, 결제키, 전화번호, 이메일, 회원코드, 클릭 ID 출력 0건을 유지한다.
+
+상세 설계: [[reportcoffee-product-sales-design-20260522]]
+스마트스토어 dry-run: [[reportcoffee-smartstore-product-sales-20260522]]
 
 ### Phase 2. 더클린커피 광고비 source 확정
 
@@ -212,12 +236,12 @@ Slack 발송 전에는 아래를 no-send preview로 먼저 만든다.
 
 | Track | 이름 | 이전 | 현재 | 증감 |
 |---|---|---:|---:|---:|
-| A | 정본 문서/source rule 정렬 | 48% | 52% | +4% |
-| B | 더클린커피 매출 source 확인 | 84% | 88% | +4% |
-| C | 더클린커피 광고비 source 확인 | 35% | 35% | +0% |
-| D | 바이오컴 리포트 source map | 10% | 10% | +0% |
-| E | Slack no-send 메시지 설계 | 50% | 70% | +20% |
-| F | 자동화/배포 readiness | 34% | 40% | +6% |
+| A | 정본 문서/source rule 정렬 | 62% | 64% | +2% |
+| B | 더클린커피 매출 source 확인 | 93% | 95% | +2% |
+| C | 더클린커피 광고비 source 확인 | 63% | 63% | +0% |
+| D | 바이오컴 리포트 source map | 23% | 23% | +0% |
+| E | Slack no-send 메시지 설계 | 91% | 92% | +1% |
+| F | 자동화/배포 readiness | 76% | 79% | +3% |
 
 ## 하지 않은 것
 
@@ -254,6 +278,14 @@ Slack 발송 전에는 아래를 no-send preview로 먼저 만든다.
    방법: 현재 캐시/운영DB로 가능한 부분과 API가 필요한 부분을 분리한다.
    성공 기준: `HOLD`가 아니라 `source pending: 이유/필요 액션/대체값`으로 표시된다.
    추천 점수/자신감: 82%.
+
+4. 더클린커피 제품별 매출을 Slack preview에 붙인다.
+   Lane: Green.
+   의존성: 스마트스토어 dry-run은 완료. 쿠팡은 기존 JSON 있음. 자사몰은 VM Cloud `imweb_order_items` freshness 확인 후.
+   방법: 스마트스토어는 PlayAuto 상품명, 쿠팡은 TeamKeto ordersheets TOP 상품, 자사몰은 Imweb order items를 사용한다.
+   성공 기준: 채널별 총매출 옆 TOP 상품 3개가 보이고, 상품별 합계가 채널 총매출을 초과하지 않는다.
+   참고 문서: [[reportcoffee-product-sales-design-20260522]], [[reportcoffee-smartstore-product-sales-20260522]]
+   추천 점수/자신감: 92%.
 
 ### TJ님이 할 일
 

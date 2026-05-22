@@ -1,0 +1,349 @@
+{
+  "generated_at_kst": "2026-05-22T14:16:46",
+  "run_id": "20260522T051604Z",
+  "mode": "gtm_preview_only_no_submit_no_create_version_no_publish",
+  "lane": "Yellow approved by TJ님 for GTM Preview execution",
+  "no_send_verified_by_design": true,
+  "no_write_verified_by_design": true,
+  "no_publish_verified": true,
+  "no_platform_send_verified": true,
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "91608400",
+    "public_id": "GTM-5M33GC4",
+    "live_version_before": {
+      "id": "21",
+      "name": "AGENTSOS GA4 begin_checkout rename - 2026-05-18",
+      "fingerprint": "1779050226918"
+    },
+    "live_version_after": {
+      "id": "21",
+      "name": "AGENTSOS GA4 begin_checkout rename - 2026-05-18",
+      "fingerprint": "1779050226918"
+    },
+    "live_version_unchanged": true
+  },
+  "workspace": {
+    "workspace_id": "27",
+    "name": "codex_coffee_subscribe_intent_preview_20260522T051604Z",
+    "path": "accounts/4703003246/containers/91608400/workspaces/27",
+    "workspace_count_before": 1,
+    "workspace_count_after": 1,
+    "still_open_after_cleanup": false
+  },
+  "tag": {
+    "tag_id": "89",
+    "name": "AGENTOS - [no-send] coffee_subscribe_intent_preview_listener 20260522T051604Z",
+    "type": "html",
+    "firingTriggerId": [
+      "88"
+    ]
+  },
+  "trigger": {
+    "trigger_id": "88",
+    "name": "AGENTOS - [preview] coffee subscription path DOM Ready 20260522T051604Z",
+    "type": "domReady",
+    "filter": [
+      {
+        "type": "equals",
+        "parameter": [
+          {
+            "type": "template",
+            "key": "arg0",
+            "value": "{{Page Hostname}}"
+          },
+          {
+            "type": "template",
+            "key": "arg1",
+            "value": "thecleancoffee.com"
+          }
+        ]
+      },
+      {
+        "type": "matchRegex",
+        "parameter": [
+          {
+            "type": "template",
+            "key": "arg0",
+            "value": "{{Page Path}}"
+          },
+          {
+            "type": "template",
+            "key": "arg1",
+            "value": "^/subscription/?$"
+          },
+          {
+            "type": "boolean",
+            "key": "ignore_case",
+            "value": "true"
+          }
+        ]
+      }
+    ]
+  },
+  "quick_preview": {
+    "sync_status": null,
+    "compiler_error": null,
+    "container_version_id": "0",
+    "container_version_name": null,
+    "environment_id": "90",
+    "authorization_code_present": true
+  },
+  "status_before_cleanup": {
+    "workspaceChangeCount": 2,
+    "mergeConflictCount": 0,
+    "changes": [
+      {
+        "changeStatus": "added",
+        "tag": {
+          "tagId": "89",
+          "name": "AGENTOS - [no-send] coffee_subscribe_intent_preview_listener 20260522T051604Z",
+          "type": "html",
+          "firingTriggerId": [
+            "88"
+          ]
+        },
+        "trigger": null
+      },
+      {
+        "changeStatus": "added",
+        "tag": null,
+        "trigger": {
+          "triggerId": "88",
+          "name": "AGENTOS - [preview] coffee subscription path DOM Ready 20260522T051604Z",
+          "type": "domReady"
+        }
+      }
+    ]
+  },
+  "backup_path": "/Users/vibetj/coding/seo/data/coffee-subscribe-intent-gtm-preview-workspace-backup-20260522T051604Z.json",
+  "cleanup": [
+    {
+      "deleted": true,
+      "workspaceId": "27",
+      "name": "codex_coffee_subscribe_intent_preview_20260522T051604Z",
+      "reason": "approved_gtm_preview_cleanup"
+    }
+  ],
+  "smoke_error": "",
+  "workspaces_before": [
+    {
+      "workspaceId": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "workspaces_after": [
+    {
+      "workspaceId": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "smoke_results": [
+    {
+      "kind": "subscription_valid",
+      "previewUrl": "https://thecleancoffee.com/subscription/?idx=74&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "pageLoaded": true,
+      "installed": "2026-05-22-coffee-subscribe-intent-gtm-preview-v1",
+      "gtmLoaded": true,
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+      ],
+      "consoleMarkers": [
+        "[coffee-subscribe-intent-gtm-preview] installed {snippetVersion: 2026-05-22-coffee-subscribe-intent-gtm-preview-v1}",
+        "[coffee-subscribe-intent-gtm-preview] preview {event: coffee_subscribe_intent_preview, eventName: SubscribeIntentPreview, eventID: SubscribeIntentPreview.67475134, noSend: true, noFbq: true}",
+        "[coffee-subscribe-intent-gtm-preview] blocked {reason: deduped, windowMs: 1500}"
+      ],
+      "networkErrors": [],
+      "measurementRequestsAfterClick": [],
+      "screenshotPath": "/Users/vibetj/coding/seo/data/screenshots/coffee-subscribe-intent-gtm-preview-20260522T051604Z-subscription_valid.png",
+      "actionResult": {
+        "action": "valid_subscribe_click",
+        "historyBefore": 0,
+        "historyAfter": 1,
+        "historyDelta": 1,
+        "dataLayerBefore": 0,
+        "dataLayerAfter": 1,
+        "dataLayerDelta": 1,
+        "syntheticButtonRemoved": true
+      },
+      "pageState": {
+        "href": "https://thecleancoffee.com/subscription/?idx=74&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+        "installed": "2026-05-22-coffee-subscribe-intent-gtm-preview-v1",
+        "historyLength": 1,
+        "last": {
+          "event": "coffee_subscribe_intent_preview",
+          "eventName": "SubscribeIntentPreview",
+          "eventID": "SubscribeIntentPreview.67475134",
+          "noSend": true,
+          "noFbq": true,
+          "noPixelRequest": true,
+          "noNetwork": true,
+          "gtmPreviewOnly": true,
+          "snippetVersion": "2026-05-22-coffee-subscribe-intent-gtm-preview-v1",
+          "pagePath": "/subscription/",
+          "customData": {
+            "intent_type": "subscription_application",
+            "currency": "KRW",
+            "value": null,
+            "value_status": "missing",
+            "value_selector": "",
+            "product_idx": "74",
+            "product_code_present": true,
+            "product_code_hash": "384cf88d",
+            "product_type": "regularly",
+            "where": "detail",
+            "payment_button_type": "imweb_payment",
+            "is_regularly_prod": true,
+            "button_text_class": "subscribe_apply",
+            "element_class_hash": "5af447a5",
+            "subscription_path": true
+          },
+          "gtm.uniqueEventId": 96
+        },
+        "dataLayerEventCount": 1,
+        "dataLayerEvents": [
+          {
+            "event": "coffee_subscribe_intent_preview",
+            "eventName": "SubscribeIntentPreview",
+            "eventID": "SubscribeIntentPreview.67475134",
+            "noSend": true,
+            "noFbq": true,
+            "noPixelRequest": true,
+            "noNetwork": true,
+            "gtmPreviewOnly": true,
+            "snippetVersion": "2026-05-22-coffee-subscribe-intent-gtm-preview-v1",
+            "pagePath": "/subscription/",
+            "customData": {
+              "intent_type": "subscription_application",
+              "currency": "KRW",
+              "value": null,
+              "value_status": "missing",
+              "value_selector": "",
+              "product_idx": "74",
+              "product_code_present": true,
+              "product_code_hash": "384cf88d",
+              "product_type": "regularly",
+              "where": "detail",
+              "payment_button_type": "imweb_payment",
+              "is_regularly_prod": true,
+              "button_text_class": "subscribe_apply",
+              "element_class_hash": "5af447a5",
+              "subscription_path": true
+            },
+            "gtm.uniqueEventId": 96
+          }
+        ],
+        "gtmLoaded": true
+      },
+      "pass": true,
+      "passReasons": {
+        "pageLoaded": true,
+        "expectedInstallState": true,
+        "expectedEventDelta": true,
+        "noMeasurementDeltaAfterClick": true,
+        "gtmScriptLoadedViaPreview": true
+      }
+    },
+    {
+      "kind": "subscription_option_like",
+      "previewUrl": "https://thecleancoffee.com/subscription/?idx=74&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "pageLoaded": true,
+      "installed": "2026-05-22-coffee-subscribe-intent-gtm-preview-v1",
+      "gtmLoaded": true,
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+        "https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4&is_td=1&v=3&t=t&pid=577671448&gtm=45He65k1h1v891608400za200zd891608400&seq=1&exp=0%7E115938466%7E115938469&dl=thecleancoffee.com%2Fsubscription%2F&tdp=GTM-5M33GC4%3B91608400%3B0%3B0%3B0&frm=0&rtg=91608400&slo=101&hlo=15&lst=1&bt=0&ct=3&mde=AW-10965703590%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+      ],
+      "consoleMarkers": [
+        "[coffee-subscribe-intent-gtm-preview] installed {snippetVersion: 2026-05-22-coffee-subscribe-intent-gtm-preview-v1}",
+        "[coffee-subscribe-intent-gtm-preview] blocked {reason: not_subscribe_intent_button}"
+      ],
+      "networkErrors": [],
+      "measurementRequestsAfterClick": [],
+      "screenshotPath": "/Users/vibetj/coding/seo/data/screenshots/coffee-subscribe-intent-gtm-preview-20260522T051604Z-subscription_option_like.png",
+      "actionResult": {
+        "action": "option_like_click",
+        "historyBefore": 0,
+        "historyAfter": 0,
+        "historyDelta": 0,
+        "dataLayerBefore": 0,
+        "dataLayerAfter": 0,
+        "dataLayerDelta": 0,
+        "syntheticButtonRemoved": true
+      },
+      "pageState": {
+        "href": "https://thecleancoffee.com/subscription/?idx=74&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+        "installed": "2026-05-22-coffee-subscribe-intent-gtm-preview-v1",
+        "historyLength": 0,
+        "last": null,
+        "dataLayerEventCount": 0,
+        "dataLayerEvents": [],
+        "gtmLoaded": true
+      },
+      "pass": true,
+      "passReasons": {
+        "pageLoaded": true,
+        "expectedInstallState": true,
+        "expectedEventDelta": true,
+        "noMeasurementDeltaAfterClick": true,
+        "gtmScriptLoadedViaPreview": true
+      }
+    },
+    {
+      "kind": "normal_product_ignored",
+      "previewUrl": "https://thecleancoffee.com/thecleancoffee/?idx=75&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "pageLoaded": true,
+      "installed": null,
+      "gtmLoaded": true,
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+        "https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4&is_td=1&v=3&t=t&pid=1008730169&gtm=45He65k1v891608400za200zd891608400&seq=1&exp=0%7E115938466%7E115938468%7E118128923&dl=thecleancoffee.com%2Fthecleancoffee%2F&tdp=GTM-5M33GC4%3B91608400%3B0%3B0%3B0&frm=0&rtg=91608400&slo=100&hlo=15&lst=1&bt=0&ct=3&mde=AW-10965703590%3B0_1&z=0&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+      ],
+      "consoleMarkers": [],
+      "networkErrors": [],
+      "measurementRequestsAfterClick": [],
+      "screenshotPath": "/Users/vibetj/coding/seo/data/screenshots/coffee-subscribe-intent-gtm-preview-20260522T051604Z-normal_product_ignored.png",
+      "actionResult": {
+        "action": "valid_subscribe_click",
+        "historyBefore": 0,
+        "historyAfter": 0,
+        "historyDelta": 0,
+        "dataLayerBefore": 0,
+        "dataLayerAfter": 0,
+        "dataLayerDelta": 0,
+        "syntheticButtonRemoved": true
+      },
+      "pageState": {
+        "href": "https://thecleancoffee.com/thecleancoffee/?idx=75&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+        "installed": null,
+        "historyLength": 0,
+        "last": null,
+        "dataLayerEventCount": 0,
+        "dataLayerEvents": [],
+        "gtmLoaded": true
+      },
+      "pass": true,
+      "passReasons": {
+        "pageLoaded": true,
+        "expectedInstallState": true,
+        "expectedEventDelta": true,
+        "noMeasurementDeltaAfterClick": true,
+        "gtmScriptLoadedViaPreview": true
+      }
+    }
+  ],
+  "overall": {
+    "quickPreviewCompilerErrorAbsent": true,
+    "quickPreviewEnvironmentPresent": true,
+    "workspaceChangeCountExpected": true,
+    "mergeConflictCountZero": true,
+    "allSmokeCasesPassed": true,
+    "noMeasurementDeltaAllCases": true,
+    "smokeCompletedWithoutException": true,
+    "workspaceDeleted": true,
+    "liveVersionUnchanged": true
+  },
+  "verdict": "PASS_GTM_PREVIEW_NO_SEND_CLEANED"
+}
