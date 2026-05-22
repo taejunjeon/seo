@@ -216,20 +216,75 @@ confidence: high
 - 첫 자동 실행은 2026-05-22 07:20 KST이고, 성공하면 `last_date_in_cache`가 2026-05-21로 갱신될 가능성이 높다.
 - Naver Ads 전환 upload가 아니라 광고비 cache upsert다.
 
+## 첫 실행 확인 및 timezone 교정 결과
+
+source: VM Cloud crontab + VM Cloud cron log + public campaign-summary API + local browser smoke
+window: VM Cloud API default 2026-04-22~2026-05-21, 7일 API 2026-05-15~2026-05-21
+freshness: 2026-05-22 14:18 KST
+confidence: high
+
+2026-05-22 14:08 KST에 첫 실행을 확인했다. VM Cloud 시스템 시간은 UTC라서 기존 crontab `20 7 * * *`는 KST 07:20이 아니라 KST 16:20 실행이었다. 따라서 2026-05-22 07:20 KST 첫 자동 실행은 아직 발생하지 않은 상태였고, `/home/biocomkr_sns/seo/logs/naver-ads-daily-sync.log`도 없었다.
+
+승인된 daily cron 범위 안에서 crontab을 UTC 기준으로 교정했다.
+
+```cron
+20 22 * * * /home/biocomkr_sns/seo/repo/backend/scripts/naver-ads-daily-sync.sh >> /home/biocomkr_sns/seo/logs/naver-ads-daily-sync.log 2>&1
+```
+
+의미: VM Cloud UTC 22:20 = KST 다음날 07:20.
+
+교정 backup:
+
+```text
+/home/biocomkr_sns/seo/repo/.deploy-backups/naver-ads-cron-tz-fix-20260522T051137Z
+```
+
+오늘 누락분은 같은 wrapper로 1회 수동 catch-up 했다. 실행 window는 KST 기준 최근 30일 rolling window인 2026-04-22~2026-05-21이다.
+
+manual catch-up 결과:
+
+| 항목 | 값 |
+|---|---:|
+| mode | write |
+| rows written | 1,110 |
+| campaigns success | 37 |
+| campaigns failed | 0 |
+| spend | 7,305,482원 |
+| external send count | 0 |
+| Naver Ads state change | 0 |
+| raw secret logged | false |
+
+public API smoke:
+
+| endpoint | status | cache status | first date | last date | rows | spend | 내부 기준 ROAS |
+|---|---:|---|---|---|---:|---:|---:|
+| `/api/ads/naver/campaign-summary?site=biocom` | 200 | ready | 2026-04-22 | 2026-05-21 | 1,110 | 7,305,482원 | 2.0 |
+| `/api/ads/naver/campaign-summary?site=biocom&since=2026-05-15&until=2026-05-21` | 200 | ready | 2026-05-15 | 2026-05-21 | 259 | 2,044,044원 | 5.03 |
+
+로컬 화면 smoke:
+
+- URL: `http://localhost:7010/ads/naver`
+- 결과: fetch error 없음.
+- source 구분 표시 확인:
+  - `현재 화면이 읽는 곳: 로컬 backend / 로컬DB`
+  - `운영 판단 기준: VM Cloud API`
+  - `광고비 cache 상태` 카드 표시.
+- 주의: 로컬DB는 2026-05-20까지라 로컬 화면의 cache status는 `stale_or_out_of_window`로 보인다. 운영 기준은 VM Cloud API 결과를 사용한다.
+
 ## 다음 할일
 
 ### 실제 필요한 작업 순서
 
-1. crontab 등록 후 첫 자동 실행을 확인한다.
+1. 다음 cron 자동 실행을 확인한다.
    - 담당: Codex.
-   - 이유: 수동 실행과 cron 실행은 PATH/TZ/env 차이가 날 수 있다.
-   - 성공 기준: 2026-05-22 07:20 KST 이후 log에 성공 row가 있고 API `last_date_in_cache=2026-05-21`.
+   - 이유: timezone 교정 후 첫 자동 실행은 2026-05-23 07:20 KST다. 수동 catch-up은 성공했지만, crontab이 실제로 자동 실행되는지 한 번 더 닫아야 한다.
+   - 성공 기준: 2026-05-23 07:20 KST 이후 log에 성공 row가 있고 API `last_date_in_cache=2026-05-22`.
    - 승인 필요 여부: 등록은 완료. 확인은 read-only라 불필요.
-   - 의존성: cron 등록 완료.
-   - 추천 점수/자신감: 86%.
+   - 의존성: timezone 교정 완료. 다음 자동 실행 시각 도달 필요.
+   - 추천 점수/자신감: 94%.
 
 ## Auditor verdict
 
 PASS_WITH_NOTES.
 
-cron 설계와 등록은 승인 범위 안에서 완료했다. 남은 것은 첫 자동 실행의 read-only 확인이다.
+cron 설계, 등록, timezone 교정, 수동 catch-up은 승인 범위 안에서 완료했다. 남은 것은 timezone 교정 후 첫 자동 실행의 read-only 확인이다.

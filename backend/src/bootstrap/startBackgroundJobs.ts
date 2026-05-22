@@ -32,6 +32,7 @@ import { startLeadingIndicatorsPrecomputeWorker } from "../leadingIndicators";
 import { startAcquisitionPrecomputeWorker } from "../acquisitionPrecompute";
 import { fetchRemoteLedgerEntriesForAcquisition } from "../routes/attribution";
 import { startCallpricePrecomputeWorker } from "../callpricePrecompute";
+import { startNaverAdsSummaryPrecomputeWorker } from "../naverAdsSummaryPrecompute";
 
 export const startBackgroundJobs = () => {
   if (!env.BACKGROUND_JOBS_ENABLED) {
@@ -447,6 +448,29 @@ export const startBackgroundJobs = () => {
   } else {
     // eslint-disable-next-line no-console
     console.log("[callprice precompute] disabled by CALLPRICE_PRECOMPUTE_ENABLED=0 또는 interval<60s");
+  }
+
+  // Naver Ads campaign-summary precompute:
+  // /ads/naver 첫 화면에서 evidence join 을 매번 돌리지 않도록 7/30/90일 기본 조합을 미리 계산한다.
+  // self-fetch 로 route lazy cache 만 채우며, 광고 플랫폼 send/write 는 없다.
+  // 환경변수: NAVER_ADS_SUMMARY_PRECOMPUTE_ENABLED=0 / NAVER_ADS_SUMMARY_PRECOMPUTE_INTERVAL_MS
+  const naverAdsSummaryPrecomputeEnabled = process.env.NAVER_ADS_SUMMARY_PRECOMPUTE_ENABLED !== "0";
+  const naverAdsSummaryPrecomputeIntervalMs = Number(
+    process.env.NAVER_ADS_SUMMARY_PRECOMPUTE_INTERVAL_MS ?? "900000",
+  );
+  if (
+    naverAdsSummaryPrecomputeEnabled
+    && Number.isFinite(naverAdsSummaryPrecomputeIntervalMs)
+    && naverAdsSummaryPrecomputeIntervalMs >= 60000
+  ) {
+    startNaverAdsSummaryPrecomputeWorker(naverAdsSummaryPrecomputeIntervalMs);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[Naver Ads summary precompute] 활성화 — ${Math.round(naverAdsSummaryPrecomputeIntervalMs / 60000)}분 주기 (site×7/30/90d 기본 조합)`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[Naver Ads summary precompute] disabled by NAVER_ADS_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s");
   }
 
   // ROAS summary precompute:

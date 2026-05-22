@@ -13,12 +13,50 @@ import { Router, type Request, type Response } from "express";
 import { summarizeNaverAdsDaily } from "../naverAdsLocalDb";
 import { isNaverAdsConfigured } from "../naverAdsClient";
 import { getCrmDb } from "../crmLocalDb";
+import {
+  buildLazyCacheMeta,
+  getLazyCached,
+  getLazyCachedStale,
+  setLazyCached,
+  type LazyCacheEntry,
+  type LazyCacheSource,
+} from "../lib/lazyCache";
 
 const execFileAsync = promisify(execFile);
 const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
 const TSX_BIN = path.resolve(BACKEND_ROOT, "node_modules", ".bin", "tsx");
 const EVIDENCE_SCRIPT = "scripts/monthly-evidence-join-dry-run.ts";
 const EVIDENCE_TIMEOUT_MS = 90_000;
+const NAVER_ADS_SUMMARY_CACHE_TTL_MS = Number.parseInt(
+  process.env.NAVER_ADS_SUMMARY_CACHE_TTL_MS ?? `${15 * 60 * 1000}`,
+  10,
+);
+const NAVER_ADS_SUMMARY_STALE_MAX_AGE_MS = Number.parseInt(
+  process.env.NAVER_ADS_SUMMARY_STALE_MAX_AGE_MS ?? `${2 * 60 * 60 * 1000}`,
+  10,
+);
+
+type NaverAdsSite = "biocom" | "thecleancoffee";
+type NaverAdsCampaignSummaryResponse = {
+  ok: true;
+  mode: "read_only";
+  site: NaverAdsSite;
+  window: { since: string; until: string };
+  configured: boolean;
+  cache_info: ReturnType<typeof buildNaverAdsCacheInfo>;
+  totals: Record<string, unknown>;
+  campaigns_by_spend_desc: Array<Record<string, unknown>>;
+  guardrails: Record<string, unknown>;
+  invariants_held: Record<string, unknown>;
+};
+type NaverAdsSummaryCachePayload = ReturnType<typeof buildLazyCacheMeta> & {
+  key_scope: string;
+  generation_ms: number | null;
+  request_ms: number;
+  stale?: boolean;
+  stale_reason?: string;
+  precompute?: boolean;
+};
 
 type EvidencePayload = {
   metadata: { dateStart: string; dateEndExclusive: string; month: string };
@@ -201,165 +239,274 @@ const fmtKrw = (n: number): string => {
   return `${sign}₩${abs.toLocaleString("ko-KR")}`;
 };
 
+const makeNaverAdsSummaryCacheKey = (site: NaverAdsSite, since: string, until: string): string => (
+  `naver-ads:campaign-summary:v1:${site}:${since}:${until}`
+);
+
+const parseNaverAdsSite = (siteRaw: unknown): NaverAdsSite => (
+  siteRaw === "thecleancoffee" ? "thecleancoffee" : "biocom"
+);
+
+const attachSummaryCacheMeta = (
+  body: NaverAdsCampaignSummaryResponse,
+  entry: LazyCacheEntry | null,
+  source: LazyCacheSource,
+  options: {
+    keyScope: string;
+    generationMs: number | null;
+    requestMs: number;
+    stale?: boolean;
+    staleReason?: string;
+    precompute?: boolean;
+  },
+): NaverAdsCampaignSummaryResponse & { summary_cache: NaverAdsSummaryCachePayload } => ({
+  ...body,
+  summary_cache: {
+    ...buildLazyCacheMeta(entry, source),
+    key_scope: options.keyScope,
+    generation_ms: options.generationMs,
+    request_ms: options.requestMs,
+    stale: options.stale,
+    stale_reason: options.staleReason,
+    precompute: options.precompute,
+  },
+});
+
+const naverAdsSummaryInflight = new Map<
+  string,
+  Promise<{ body: NaverAdsCampaignSummaryResponse; entry: LazyCacheEntry; generationMs: number }>
+>();
+
+const buildNaverAdsCampaignSummary = async (
+  site: NaverAdsSite,
+  since: string,
+  until: string,
+): Promise<NaverAdsCampaignSummaryResponse> => {
+  const naverAdsConfigured = isNaverAdsConfigured();
+
+  let naverAdsCacheAvailable = true;
+  let naverAdsCacheWarning: string | null = null;
+  let summary: ReturnType<typeof summarizeNaverAdsDaily>;
+
+  try {
+    summary = summarizeNaverAdsDaily({ site, since, until });
+  } catch (error) {
+    if (!isMissingNaverAdsDailyTableError(error)) throw error;
+    naverAdsCacheAvailable = false;
+    naverAdsCacheWarning = "naver_ads_daily 테이블이 없어 광고비 cache를 읽지 못했습니다.";
+    summary = buildEmptyNaverAdsSummary();
+  }
+
+  let lastCachedRow: {
+    last_cached: string | null;
+    first_date: string | null;
+    last_date: string | null;
+  } = {
+    last_cached: null,
+    first_date: null,
+    last_date: null,
+  };
+  if (naverAdsCacheAvailable) {
+    try {
+      lastCachedRow = getCrmDb()
+        .prepare(
+          `SELECT MAX(cached_at) AS last_cached, MIN(date) AS first_date, MAX(date) AS last_date
+           FROM naver_ads_daily WHERE site = ? AND date >= ? AND date <= ?`,
+        )
+        .get(site, since, until) as {
+        last_cached: string | null;
+        first_date: string | null;
+        last_date: string | null;
+      };
+    } catch (error) {
+      if (!isMissingNaverAdsDailyTableError(error)) throw error;
+      naverAdsCacheAvailable = false;
+      naverAdsCacheWarning = "naver_ads_daily 테이블이 없어 광고비 cache freshness를 읽지 못했습니다.";
+    }
+  }
+
+  let internalRevenue = 0;
+  let internalOrders = 0;
+  const internalRevenueSource =
+    "evidence-join paid_naver channel (NaPm/paid UTM/search referrer · 광고비와 동일 since~until 윈도우)";
+  let internalRevenueWarning: string | null = null;
+  let internalWindow: { since: string; until: string } | null = null;
+  try {
+    const evidence = await runEvidenceJoin(site, since, until);
+    internalWindow = { since, until };
+    const paidNaver = (evidence.channelSummary || []).find(
+      (r) => r.primaryChannel === "paid_naver",
+    );
+    if (paidNaver) {
+      internalRevenue = paidNaver.revenue;
+      internalOrders = paidNaver.orders;
+    } else {
+      internalRevenueWarning = `paid_naver 채널 0건 (${since}~${until})`;
+    }
+  } catch (e) {
+    internalRevenueWarning = e instanceof Error ? e.message.slice(0, 140) : "evidence-join 실패";
+  }
+
+  const totalSpend = summary.total_sales_amt_krw;
+  const totalConv = summary.total_conv_amt_krw;
+  const naverClaimRoas = totalSpend > 0 ? round2(totalConv / totalSpend) : null;
+  const internalRoas = totalSpend > 0 ? round2(internalRevenue / totalSpend) : null;
+
+  const campaigns = summary.by_campaign.map((c) => ({
+    ncc_campaign_id: c.nccCampaignId,
+    campaign_name: c.campaignName,
+    campaign_tp: c.campaignTp,
+    status: c.campaignStatus,
+    days: c.days,
+    imp_cnt: c.impCnt,
+    clk_cnt: c.clkCnt,
+    ctr: c.impCnt > 0 ? round2((c.clkCnt / c.impCnt) * 100) : null,
+    spend_krw: c.salesAmtKrw,
+    spend_korean: fmtKrw(c.salesAmtKrw),
+    naver_claim_revenue_krw: c.convAmtKrw,
+    naver_claim_revenue_korean: fmtKrw(c.convAmtKrw),
+    naver_claim_roas: c.roasNaverClaim != null ? round2(c.roasNaverClaim) : null,
+  }));
+
+  const cacheInfo = buildNaverAdsCacheInfo({
+    site,
+    since,
+    until,
+    configured: naverAdsConfigured,
+    available: naverAdsCacheAvailable,
+    warning: naverAdsCacheWarning,
+    lastCachedAt: lastCachedRow.last_cached,
+    firstDateInCache: lastCachedRow.first_date,
+    lastDateInCache: lastCachedRow.last_date,
+    rowsInWindow: summary.total_rows,
+  });
+
+  return {
+    ok: true,
+    mode: "read_only",
+    site,
+    window: { since, until },
+    configured: naverAdsConfigured,
+    cache_info: cacheInfo,
+    totals: {
+      campaigns_total: campaigns.length,
+      campaigns_with_spend: campaigns.filter((c) => c.spend_krw > 0).length,
+      total_imp: summary.total_imp,
+      total_clk: summary.total_clk,
+      total_spend_krw: totalSpend,
+      total_spend_korean: fmtKrw(totalSpend),
+      naver_claim_total_revenue_krw: totalConv,
+      naver_claim_total_revenue_korean: fmtKrw(totalConv),
+      naver_claim_total_roas: naverClaimRoas,
+      internal_paid_naver_revenue_krw: internalRevenue,
+      internal_paid_naver_revenue_korean: fmtKrw(internalRevenue),
+      internal_paid_naver_orders: internalOrders,
+      internal_real_roas: internalRoas,
+      internal_revenue_source: internalRevenueSource,
+      internal_revenue_warning: internalRevenueWarning,
+      internal_revenue_window: internalWindow,
+      over_claim_krw: internalRevenue > 0 ? totalConv - internalRevenue : null,
+      over_claim_korean: internalRevenue > 0 ? fmtKrw(totalConv - internalRevenue) : null,
+    },
+    campaigns_by_spend_desc: campaigns,
+    guardrails: {
+      source: "Naver Search Ad API (HMAC + X-Customer 인증) → 로컬DB naver_ads_daily 캐시",
+      conv_amt_is_naver_claim_not_internal_revenue: true,
+      add_to_internal_confirmed_revenue: false,
+      attribution_window: "네이버 자체 attribution (보통 7일 클릭, 1일 view)",
+      recommended_use: "광고비 (spend_krw) 는 광고비 정본. naver_claim_roas 는 참고용 — 운영자 진짜 ROAS 는 /total 페이지의 paid_naver 채널 매출 ÷ spend_krw 사용.",
+      campaign_id_to_utm_join_status: "두 ID 형식 다름 (cmp-a001-... vs sometag) — 광고 destination URL utm_campaign 정정 필요",
+    },
+    invariants_held: {
+      operational_db_write: 0,
+      external_send_count: 0,
+      raw_secret_logged: false,
+      naver_ads_state_change: 0,
+    },
+  };
+};
+
+const computeAndCacheNaverAdsSummary = async (
+  cacheKey: string,
+  site: NaverAdsSite,
+  since: string,
+  until: string,
+): Promise<{ body: NaverAdsCampaignSummaryResponse; entry: LazyCacheEntry; generationMs: number }> => {
+  const startedAt = Date.now();
+  const body = await buildNaverAdsCampaignSummary(site, since, until);
+  const entry = setLazyCached(cacheKey, body, NAVER_ADS_SUMMARY_CACHE_TTL_MS);
+  return { body, entry, generationMs: Date.now() - startedAt };
+};
+
 export const createNaverAdsRouter = () => {
   const router = Router();
 
   router.get("/api/ads/naver/campaign-summary", async (req: Request, res: Response) => {
+    const requestStartedAt = Date.now();
+    const site = parseNaverAdsSite(typeof req.query.site === "string" ? req.query.site : "biocom");
+    const sinceQuery = typeof req.query.since === "string" ? req.query.since : null;
+    const untilQuery = typeof req.query.until === "string" ? req.query.until : null;
+    const since = sinceQuery || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const until = untilQuery || new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const forceRefresh = req.query.force === "1" || req.query.force === "true";
+    const isPrecomputeRequest = req.query.precompute === "1" || req.query.precompute === "true";
+    const cacheKey = makeNaverAdsSummaryCacheKey(site, since, until);
+    const keyScope = `${site}:${since}:${until}`;
+
     try {
-      const siteRaw = typeof req.query.site === "string" ? req.query.site : "biocom";
-      const site = siteRaw === "thecleancoffee" ? "thecleancoffee" : "biocom";
-      const sinceQuery = typeof req.query.since === "string" ? req.query.since : null;
-      const untilQuery = typeof req.query.until === "string" ? req.query.until : null;
-      const since = sinceQuery || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-      const until = untilQuery || new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      const naverAdsConfigured = isNaverAdsConfigured();
-
-      let naverAdsCacheAvailable = true;
-      let naverAdsCacheWarning: string | null = null;
-      let summary: ReturnType<typeof summarizeNaverAdsDaily>;
-
-      try {
-        summary = summarizeNaverAdsDaily({ site, since, until });
-      } catch (error) {
-        if (!isMissingNaverAdsDailyTableError(error)) throw error;
-        naverAdsCacheAvailable = false;
-        naverAdsCacheWarning = "naver_ads_daily 테이블이 없어 광고비 cache를 읽지 못했습니다.";
-        summary = buildEmptyNaverAdsSummary();
-      }
-
-      // 마지막 캐시 시점
-      let lastCachedRow: {
-        last_cached: string | null;
-        first_date: string | null;
-        last_date: string | null;
-      } = {
-        last_cached: null,
-        first_date: null,
-        last_date: null,
-      };
-      if (naverAdsCacheAvailable) {
-        try {
-          lastCachedRow = getCrmDb()
-            .prepare(
-              `SELECT MAX(cached_at) AS last_cached, MIN(date) AS first_date, MAX(date) AS last_date
-               FROM naver_ads_daily WHERE site = ? AND date >= ? AND date <= ?`,
-            )
-            .get(site, since, until) as {
-            last_cached: string | null;
-            first_date: string | null;
-            last_date: string | null;
-          };
-        } catch (error) {
-          if (!isMissingNaverAdsDailyTableError(error)) throw error;
-          naverAdsCacheAvailable = false;
-          naverAdsCacheWarning = "naver_ads_daily 테이블이 없어 광고비 cache freshness를 읽지 못했습니다.";
+      if (!forceRefresh) {
+        const cached = getLazyCached(cacheKey);
+        if (cached) {
+          res.json(attachSummaryCacheMeta(
+            cached.result as NaverAdsCampaignSummaryResponse,
+            cached,
+            "lazy_cache_hit",
+            {
+              keyScope,
+              generationMs: 0,
+              requestMs: Date.now() - requestStartedAt,
+              precompute: isPrecomputeRequest,
+            },
+          ));
+          return;
         }
       }
 
-      // gpt0508-50: 진짜 ROAS = 광고비 vs 내부 paid_naver 채널 매출, **광고비와 같은 since~until 윈도우**.
-      // evidence-join script (NaPm/paid UTM/search referrer 분류) 를 since/until 직접 전달해 실행 → window mismatch 제거.
-      let internalRevenue = 0;
-      let internalOrders = 0;
-      const internalRevenueSource =
-        "evidence-join paid_naver channel (NaPm/paid UTM/search referrer · 광고비와 동일 since~until 윈도우)";
-      let internalRevenueWarning: string | null = null;
-      let internalWindow: { since: string; until: string } | null = null;
-      try {
-        const evidence = await runEvidenceJoin(site, since, until);
-        internalWindow = { since, until };
-        const paidNaver = (evidence.channelSummary || []).find(
-          (r) => r.primaryChannel === "paid_naver",
-        );
-        if (paidNaver) {
-          internalRevenue = paidNaver.revenue;
-          internalOrders = paidNaver.orders;
-        } else {
-          internalRevenueWarning = `paid_naver 채널 0건 (${since}~${until})`;
+      let promise = forceRefresh ? null : naverAdsSummaryInflight.get(cacheKey);
+      if (!promise) {
+        promise = computeAndCacheNaverAdsSummary(cacheKey, site, since, until);
+        if (!forceRefresh) {
+          naverAdsSummaryInflight.set(cacheKey, promise);
+          promise.finally(() => naverAdsSummaryInflight.delete(cacheKey)).catch(() => {});
         }
-      } catch (e) {
-        internalRevenueWarning = e instanceof Error ? e.message.slice(0, 140) : "evidence-join 실패";
       }
 
-      const totalSpend = summary.total_sales_amt_krw;
-      const totalConv = summary.total_conv_amt_krw;
-      const naverClaimRoas = totalSpend > 0 ? round2(totalConv / totalSpend) : null;
-      const internalRoas = totalSpend > 0 ? round2(internalRevenue / totalSpend) : null;
-
-      const campaigns = summary.by_campaign.map((c) => ({
-        ncc_campaign_id: c.nccCampaignId,
-        campaign_name: c.campaignName,
-        campaign_tp: c.campaignTp,
-        status: c.campaignStatus,
-        days: c.days,
-        imp_cnt: c.impCnt,
-        clk_cnt: c.clkCnt,
-        ctr: c.impCnt > 0 ? round2((c.clkCnt / c.impCnt) * 100) : null,
-        spend_krw: c.salesAmtKrw,
-        spend_korean: fmtKrw(c.salesAmtKrw),
-        naver_claim_revenue_krw: c.convAmtKrw,
-        naver_claim_revenue_korean: fmtKrw(c.convAmtKrw),
-        naver_claim_roas: c.roasNaverClaim != null ? round2(c.roasNaverClaim) : null,
+      const result = await promise;
+      res.json(attachSummaryCacheMeta(result.body, result.entry, forceRefresh ? "live_force" : "live_cache_miss", {
+        keyScope,
+        generationMs: result.generationMs,
+        requestMs: Date.now() - requestStartedAt,
+        precompute: isPrecomputeRequest,
       }));
-
-      const cacheInfo = buildNaverAdsCacheInfo({
-        site,
-        since,
-        until,
-        configured: naverAdsConfigured,
-        available: naverAdsCacheAvailable,
-        warning: naverAdsCacheWarning,
-        lastCachedAt: lastCachedRow.last_cached,
-        firstDateInCache: lastCachedRow.first_date,
-        lastDateInCache: lastCachedRow.last_date,
-        rowsInWindow: summary.total_rows,
-      });
-
-      res.json({
-        ok: true,
-        mode: "read_only",
-        site,
-        window: { since, until },
-        configured: naverAdsConfigured,
-        cache_info: cacheInfo,
-        totals: {
-          campaigns_total: campaigns.length,
-          campaigns_with_spend: campaigns.filter((c) => c.spend_krw > 0).length,
-          total_imp: summary.total_imp,
-          total_clk: summary.total_clk,
-          total_spend_krw: totalSpend,
-          total_spend_korean: fmtKrw(totalSpend),
-          naver_claim_total_revenue_krw: totalConv,
-          naver_claim_total_revenue_korean: fmtKrw(totalConv),
-          naver_claim_total_roas: naverClaimRoas,
-          // 진짜 ROAS (내부 결제완료 매출 기준)
-          internal_paid_naver_revenue_krw: internalRevenue,
-          internal_paid_naver_revenue_korean: fmtKrw(internalRevenue),
-          internal_paid_naver_orders: internalOrders,
-          internal_real_roas: internalRoas,
-          internal_revenue_source: internalRevenueSource,
-          internal_revenue_warning: internalRevenueWarning,
-          internal_revenue_window: internalWindow,
-          over_claim_krw: internalRevenue > 0 ? totalConv - internalRevenue : null,
-          over_claim_korean: internalRevenue > 0 ? fmtKrw(totalConv - internalRevenue) : null,
-        },
-        campaigns_by_spend_desc: campaigns,
-        guardrails: {
-          source: "Naver Search Ad API (HMAC + X-Customer 인증) → 로컬DB naver_ads_daily 캐시",
-          conv_amt_is_naver_claim_not_internal_revenue: true,
-          add_to_internal_confirmed_revenue: false,
-          attribution_window: "네이버 자체 attribution (보통 7일 클릭, 1일 view)",
-          recommended_use: "광고비 (spend_krw) 는 광고비 정본. naver_claim_roas 는 참고용 — 운영자 진짜 ROAS 는 /total 페이지의 paid_naver 채널 매출 ÷ spend_krw 사용.",
-          campaign_id_to_utm_join_status: "두 ID 형식 다름 (cmp-a001-... vs sometag) — 광고 destination URL utm_campaign 정정 필요",
-        },
-        invariants_held: {
-          operational_db_write: 0,
-          external_send_count: 0,
-          raw_secret_logged: false,
-          naver_ads_state_change: 0,
-        },
-      });
     } catch (error) {
       const msg = error instanceof Error ? error.message : "naver ads summary failed";
+      const stale = getLazyCachedStale(cacheKey, NAVER_ADS_SUMMARY_STALE_MAX_AGE_MS);
+      if (stale) {
+        res.json(attachSummaryCacheMeta(
+          stale.result as NaverAdsCampaignSummaryResponse,
+          stale,
+          "lazy_cache_hit",
+          {
+            keyScope,
+            generationMs: null,
+            requestMs: Date.now() - requestStartedAt,
+            stale: true,
+            staleReason: msg,
+            precompute: isPrecomputeRequest,
+          },
+        ));
+        return;
+      }
       res.status(500).json({ ok: false, error: "naver_ads_summary_error", message: msg });
     }
   });
