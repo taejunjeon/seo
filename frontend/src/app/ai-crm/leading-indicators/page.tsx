@@ -10,6 +10,7 @@ import {
   COHORT_SUMMARY,
   CohortRow,
   DRY_RUN_META,
+  GA4_LIVE_API_BEHAVIOR_GAP,
   PAGE_LONG_THRESHOLD_FIT,
   PageLongThresholdRow,
   READINESS,
@@ -308,6 +309,24 @@ const dwellDeltaSeconds = (row: CohortRow): number | null => {
   return Number((row.buyerP50DwellSeconds - row.leaverP50DwellSeconds).toFixed(1));
 };
 
+const signedSeconds = (value: number | null): string => {
+  if (value === null || Number.isNaN(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}초`;
+};
+
+const dwellDeltaReading = (row: CohortRow): string => {
+  const delta = dwellDeltaSeconds(row);
+  if (delta === null) return "체류시간 비교에 필요한 GA4 행동 데이터가 부족합니다.";
+  if (delta >= 0) {
+    return `결제자가 비결제자보다 중앙 체류시간이 ${delta.toFixed(
+      1
+    )}초 더 깁니다.`;
+  }
+  return `비결제자가 결제자보다 중앙 체류시간이 ${Math.abs(delta).toFixed(
+    1
+  )}초 더 깁니다. 체류시간만으로 구매 의도를 판단하면 오판할 수 있습니다.`;
+};
+
 const findCoffeeChannel = (channel: ChannelKey): CohortRow | null => {
   if (channel === "all") return null;
   return COFFEE_CHANNEL_TRUTH.find((r) => r.channel === channel) ?? null;
@@ -344,6 +363,14 @@ export default function LeadingIndicatorsPage() {
 
   const biocomReadiness = READINESS.find((r) => r.site === "biocom")!;
   const coffeeReadiness = READINESS.find((r) => r.site === "thecleancoffee")!;
+  const biocomBehaviorGap = GA4_LIVE_API_BEHAVIOR_GAP.find((r) => r.site === "biocom")!;
+  const coffeeBehaviorGap = GA4_LIVE_API_BEHAVIOR_GAP.find(
+    (r) => r.site === "thecleancoffee"
+  )!;
+  const biocomMetaDwellDelta =
+    biocomBehaviorGap.dryRunBuyerP50Seconds - biocomBehaviorGap.dryRunNonBuyerP50Seconds;
+  const coffeeMetaDwellDelta =
+    coffeeBehaviorGap.dryRunBuyerP50Seconds - coffeeBehaviorGap.dryRunNonBuyerP50Seconds;
 
   // dry-run 모드에서 13d/14d/30d 는 동일한 7d snapshot 만 보유
   const windowHint =
@@ -479,35 +506,37 @@ export default function LeadingIndicatorsPage() {
         {/* 상단 판단 카드 3종 */}
         <div className={styles.headlineGrid}>
           <div className={`${styles.headlineCard} ${styles.green}`}>
-            <span className={styles.headlineKicker}>오늘 가장 강한 구매 예고 신호</span>
+            <span className={styles.headlineKicker}>바이오컴 Meta 행동 신호</span>
             <h2 className={styles.headlineTitle}>
-              Meta 유입 결제자는 비결제자보다 약 48초 더 오래 봅니다
+              GA4 기준 결제자가 약 {biocomMetaDwellDelta.toFixed(0)}초 더 오래 봅니다
             </h2>
             <p className={styles.headlineBody}>
-              더클린커피 · 최근 7일 · safe session 기준 · 결제자 중앙{" "}
-              {fmtSeconds(coffeeMetaRow.buyerP50DwellSeconds)} vs 비결제자{" "}
-              {fmtSeconds(coffeeMetaRow.leaverP50DwellSeconds)} (+
-              {dwellDeltaSeconds(coffeeMetaRow)?.toFixed(1)}초)
+              바이오컴 Meta · 최근 7일 · GA4 BigQuery 기준 · 결제자 중앙{" "}
+              {fmtSeconds(biocomBehaviorGap.dryRunBuyerP50Seconds)} vs 비결제자{" "}
+              {fmtSeconds(biocomBehaviorGap.dryRunNonBuyerP50Seconds)} (
+              {signedSeconds(biocomMetaDwellDelta)})
             </p>
           </div>
           <div className={`${styles.headlineCard} ${styles.yellow}`}>
-            <span className={styles.headlineKicker}>주의할 신호</span>
-            <h2 className={styles.headlineTitle}>장바구니는 단독 KPI 로 쓰지 마세요</h2>
+            <span className={styles.headlineKicker}>더클린커피 Meta 주의점</span>
+            <h2 className={styles.headlineTitle}>체류시간만으로 구매 의도를 판단하지 마세요</h2>
             <p className={styles.headlineBody}>
-              더클린커피 Meta · 결제자 장바구니/장바구니 페이지 신호{" "}
-              {fmtPct(coffeeMetaRow.buyerCartSignalPct)} vs 비결제자{" "}
-              {fmtPct(coffeeMetaRow.leaverCartSignalPct)} — 비결제자 쪽이 오히려 높습니다.
+              더클린커피 Meta · 결제자 {fmtSeconds(coffeeBehaviorGap.dryRunBuyerP50Seconds)}
+              {" "}vs 비결제자 {fmtSeconds(coffeeBehaviorGap.dryRunNonBuyerP50Seconds)} (
+              {signedSeconds(coffeeMetaDwellDelta)}). 랜딩/장바구니/결제시작을 같이 봐야 합니다.
             </p>
           </div>
           <div className={`${styles.headlineCard} ${styles.blue}`}>
-            <span className={styles.headlineKicker}>데이터 신뢰도</span>
+            <span className={styles.headlineKicker}>live API 보강 필요</span>
             <h2 className={styles.headlineTitle}>
-              더클린커피 high / 바이오컴 보강 필요
+              짧아진 체류시간은 행동 급락이 아니라 source 차이입니다
             </h2>
             <p className={styles.headlineBody}>
-              더클린커피 GA4 join {fmtPct(coffeeMetaRow.joinRatePct)}, 바이오컴 row-level
-              join {fmtPct(biocomConfirmed.joinRatePct, 0)}. 바이오컴 Meta-only 비교는
-              방향성으로만 봅니다.
+              live API 바이오컴 Meta는 VM 원장값 {fmtSeconds(
+                biocomBehaviorGap.liveApiBuyerP50Seconds
+              )}/{fmtSeconds(biocomBehaviorGap.liveApiNonBuyerP50Seconds)}로 보입니다. GA4 행동 join을
+              붙이면 {fmtSeconds(biocomBehaviorGap.dryRunBuyerP50Seconds)}/
+              {fmtSeconds(biocomBehaviorGap.dryRunNonBuyerP50Seconds)}입니다.
             </p>
           </div>
         </div>
@@ -520,6 +549,17 @@ export default function LeadingIndicatorsPage() {
             5분, 7분 기준에서 결제자와 비결제자가 얼마나 남는지 비교합니다.
           </p>
           <PageLongThresholdPanel rows={pageLongRows} site={site} channel={channel} />
+        </section>
+
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>GA4 행동 데이터 최신 7일 · live API와 왜 다른가</h2>
+          <p className={styles.sectionDesc}>
+            체류시간은 “페이지에 실제로 머문 시간”입니다. 지금 화면의 최신 dry-run은 GA4
+            BigQuery 행동값을 VM Cloud 결제 원장과 safe session으로 맞춘 값입니다. 로컬
+            leadingIndicators API에는 이 GA4 행동 snapshot을 붙였고, 운영 배포 전 화면은
+            dry-run 기준으로 live API와 왜 다르게 보였는지 설명합니다.
+          </p>
+          <BehaviorSourceGapPanel />
         </section>
 
         <GooglePaidFinalUrlAuditPanel
@@ -642,9 +682,8 @@ export default function LeadingIndicatorsPage() {
               GA4 연결 <strong>{coffeeMetaRow.ga4JoinedSessions}</strong> ({fmtPct(coffeeMetaRow.joinRatePct)}).{" "}
               결제 세션 <strong>{coffeeMetaRow.confirmedPurchaseSessions}</strong>,{" "}
               비결제 세션 <strong>{coffeeMetaRow.droppedCheckoutSessions}</strong>,{" "}
-              결제금액 <strong>{fmtKRW(coffeeMetaRow.confirmedAmountKrw)}</strong>. 결제자가
-              비결제자보다 중앙 체류시간이{" "}
-              <strong>+{dwellDeltaSeconds(coffeeMetaRow)?.toFixed(1)}초</strong> 깁니다.
+              결제금액 <strong>{fmtKRW(coffeeMetaRow.confirmedAmountKrw)}</strong>.{" "}
+              {dwellDeltaReading(coffeeMetaRow)}
             </p>
             <CoffeeChannelCompare row={coffeeMetaRow} />
           </div>
@@ -709,14 +748,14 @@ export default function LeadingIndicatorsPage() {
             <div className={styles.queueCard}>
               <span className={styles.queueOwner}>Codex read-only 재조회</span>
               <h3 className={styles.queueTitle}>
-                더클린커피: AGENTSOS begin_checkout export 반영 후 재분석
+                더클린커피: add_payment_info 공백 원인 분해
               </h3>
               <p className={styles.queueDetail}>
-                현재 더클린커피 GA4 begin_checkout/add_payment_info 가 0% 로 잡혀 있다.
-                GTM Preview 검증 후 BigQuery export 가 들어오면 결제 페이지 도달도 사람말
-                숫자로 채울 수 있다.
+                최신 GA4 export에서는 begin_checkout은 보입니다. 하지만 add_payment_info는
+                결제자와 비결제자 모두 0%라 결제수단 선택 단계가 비어 있습니다. 다음 재조회는
+                결제수단 선택이 실제로 없는지, GTM/아임웹에서 이벤트가 빠지는지 분리합니다.
               </p>
-              <span className={styles.queueMeta}>의존성: GA4 BigQuery daily export 적재</span>
+              <span className={styles.queueMeta}>의존성: GA4 BigQuery daily export + GTM Preview evidence</span>
             </div>
             <div className={styles.queueCard}>
               <span className={styles.queueOwner}>Codex 설계 + TJ 승인</span>
@@ -1266,6 +1305,241 @@ function MissingCoffeeChannelCompare({ channel }: { channel: ChannelKey }) {
   );
 }
 
+function BehaviorSourceGapPanel() {
+  const sourceMeaningRows = [
+    {
+      title: "GA4 행동값",
+      subtitle: "방문자가 실제 페이지에서 한 행동을 재는 값",
+      body:
+        "GA4 BigQuery의 engagement_time, scroll, view_item, begin_checkout 같은 이벤트를 VM Cloud 주문/세션과 safe key로 맞춘 값입니다. 콘텐츠와 랜딩이 얼마나 읽혔는지 판단할 때 더 적합합니다.",
+      useFor: "선행지표, 상세페이지 품질, 채널별 구매자/비결제자 행동 비교",
+    },
+    {
+      title: "VM 원장 metadata 값",
+      subtitle: "우리 서버가 전환 단계마다 받은 스냅샷 값",
+      body:
+        "VM Cloud attribution ledger에 landing, payment_page_seen, payment_success 같은 row가 쌓일 때 함께 들어온 보조 필드입니다. 결제 단계가 어디까지 왔는지 빠르게 보는 데 좋지만, GA4처럼 전체 페이지 체류 행동을 계속 측정한 값은 아닙니다.",
+      useFor: "실시간 전환 단계, CAPI 전송 상태, 결제완료/누락 큐 감시",
+    },
+  ];
+
+  const sourceGapReasons = [
+    {
+      reason: "측정 목적이 다릅니다",
+      detail:
+        "GA4는 사용자가 페이지를 보는 동안 행동 이벤트를 계속 모읍니다. VM 원장은 전환 row가 생기는 순간의 payload를 저장하므로, 방문 전체 체류시간을 대표하지 않을 수 있습니다.",
+    },
+    {
+      reason: "분모가 다를 수 있습니다",
+      detail:
+        "GA4 dry-run은 GA4와 VM이 같은 safe session으로 붙은 세션만 비교합니다. live API는 아직 VM 원장 row 중심이라 같은 사람/같은 주문 단위로 완전히 닫힌 모집단이 아닐 수 있습니다.",
+    },
+    {
+      reason: "더클린커피는 live API에 GA4 행동 join이 아직 없습니다",
+      detail:
+        "그래서 live 화면에서는 체류시간이 비어 보이지만, 최신 GA4 dry-run에서는 더클린커피도 96~99% 수준으로 행동 데이터가 붙습니다.",
+    },
+    {
+      reason: "업데이트 주기가 다릅니다",
+      detail:
+        "GA4 BigQuery 행동값은 별도 조회 또는 사전 계산이 필요합니다. VM 원장은 실시간에 가깝지만 행동 분석용으로 정제된 값은 아닙니다.",
+    },
+  ];
+
+  const summaryRows = [
+    {
+      site: "바이오컴",
+      confirmed: COHORT_SUMMARY.find(
+        (row) => row.site === "biocom" && row.cohort === "confirmed_purchase"
+      )!,
+      dropped: COHORT_SUMMARY.find(
+        (row) => row.site === "biocom" && row.cohort === "dropped_checkout"
+      )!,
+      liveGap: GA4_LIVE_API_BEHAVIOR_GAP.find((row) => row.site === "biocom")!,
+    },
+    {
+      site: "더클린커피",
+      confirmed: COHORT_SUMMARY.find(
+        (row) => row.site === "thecleancoffee" && row.cohort === "confirmed_purchase"
+      )!,
+      dropped: COHORT_SUMMARY.find(
+        (row) => row.site === "thecleancoffee" && row.cohort === "dropped_checkout"
+      )!,
+      liveGap: GA4_LIVE_API_BEHAVIOR_GAP.find((row) => row.site === "thecleancoffee")!,
+    },
+  ];
+
+  return (
+    <div className={styles.compareCard}>
+      <div className={styles.compareHeader}>
+        <p className={styles.compareSummary}>
+          <strong>이번 재조회 결론</strong> · GA4 행동값을 붙이면 바이오컴과 더클린커피 모두
+          safe session 연결률이 95% 이상입니다. 로컬 API 응답에는 이제 이 GA4 행동 snapshot을
+          붙였고, 운영 배포 전 화면은 dry-run 기준 숫자로 보여줍니다.
+        </p>
+        <span className={`${styles.trustBadge} ${styles.high}`}>로컬 API 보강 완료</span>
+      </div>
+
+      <div className={styles.auditSubsection}>
+        <div className={styles.compareHeader}>
+          <p className={styles.compareSummary}>
+            <strong>두 숫자의 뜻부터 다릅니다</strong> · GA4 행동값은 “사람이 페이지에서
+            실제로 무엇을 했는가”이고, VM 원장 metadata는 “우리 서버가 전환 단계에서 받은
+            기록”입니다. 이름이 비슷해도 예산/콘텐츠 판단에 쓰는 값은 GA4 쪽입니다.
+          </p>
+          <span className={`${styles.trustBadge} ${styles.high}`}>용어 정리</span>
+        </div>
+        <div className={styles.headlineGrid}>
+          {sourceMeaningRows.map((row) => (
+            <div className={`${styles.headlineCard} ${styles.blue}`} key={row.title}>
+              <span className={styles.headlineKicker}>{row.title}</span>
+              <h3 className={styles.headlineTitle}>{row.subtitle}</h3>
+              <p className={styles.headlineBody}>{row.body}</p>
+              <p className={styles.headlineBody}>
+                <strong>주로 볼 때:</strong> {row.useFor}
+              </p>
+            </div>
+          ))}
+          <div className={`${styles.headlineCard} ${styles.yellow}`}>
+            <span className={styles.headlineKicker}>판단 원칙</span>
+            <h3 className={styles.headlineTitle}>행동 분석은 GA4, 전송 감시는 VM</h3>
+            <p className={styles.headlineBody}>
+              “광고 유입자가 왜 사고/안 사는가”는 GA4 행동값으로 봅니다. “구매가 실제로
+              Meta CAPI로 갔는가”는 VM 원장과 CAPI 로그로 봅니다.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.auditSubsection}>
+        <div className={styles.compareHeader}>
+          <p className={styles.compareSummary}>
+            <strong>왜 숫자가 다르게 보였나</strong> · 바이오컴 체류시간이 짧아진 것처럼
+            보인 것은 구매 행동이 급락해서가 아니라, 기존 화면이 VM 원장 metadata를 먼저
+            읽고 GA4 행동 snapshot을 직접 읽지 않았기 때문입니다.
+          </p>
+          <span className={`${styles.trustBadge} ${styles.mid}`}>원인 분해</span>
+        </div>
+        <table className={styles.channelTable}>
+          <thead>
+            <tr>
+              <th>원인</th>
+              <th>사람 말로 풀면</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sourceGapReasons.map((row) => (
+              <tr key={row.reason}>
+                <td className={styles.metricLabel}>{row.reason}</td>
+                <td>{row.detail}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <table className={styles.channelTable}>
+        <thead>
+          <tr>
+            <th>사이트</th>
+            <th>live API 현재 값</th>
+            <th>GA4 dry-run 값</th>
+            <th>왜 다른가</th>
+          </tr>
+        </thead>
+        <tbody>
+          {summaryRows.map((row) => (
+            <tr key={row.site}>
+              <td className={styles.metricLabel}>
+                {row.site}
+                <span className={styles.metricHint}>
+                  GA4 연결 {fmtPct(row.confirmed.joinRatePct)} / {fmtPct(row.dropped.joinRatePct)}
+                </span>
+              </td>
+              <td>
+                결제자 {fmtSeconds(row.liveGap.liveApiBuyerP50Seconds)} · 비결제자{" "}
+                {fmtSeconds(row.liveGap.liveApiNonBuyerP50Seconds)}
+                <span className={styles.metricHint}>
+                  source: {row.liveGap.liveApiBehaviorSource}
+                </span>
+              </td>
+              <td>
+                결제자 {fmtSeconds(row.liveGap.dryRunBuyerP50Seconds)} · 비결제자{" "}
+                {fmtSeconds(row.liveGap.dryRunNonBuyerP50Seconds)}
+                <span className={styles.metricHint}>
+                  GA4 BigQuery engagement_time 기준
+                </span>
+              </td>
+              <td>{row.liveGap.interpretationKo}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className={styles.auditSubsection}>
+        <div className={styles.compareHeader}>
+          <p className={styles.compareSummary}>
+            <strong>사이트별 최신 7일 핵심 행동값</strong> · 실제 결제완료는 VM Cloud
+            confirmed purchase, 행동은 GA4 BigQuery safe bridge 기준입니다.
+          </p>
+          <span className={`${styles.trustBadge} ${styles.high}`}>read-only dry-run</span>
+        </div>
+        <table className={styles.channelTable}>
+          <thead>
+            <tr>
+              <th>사이트</th>
+              <th>cohort</th>
+              <th>safe session</th>
+              <th>중앙 체류시간</th>
+              <th>90% 스크롤</th>
+              <th>긴 조회</th>
+              <th>장바구니</th>
+              <th>결제 시작</th>
+              <th>결제수단 선택</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summaryRows.flatMap((row) => [
+              { site: row.site, label: "결제자", data: row.confirmed },
+              { site: row.site, label: "비결제자", data: row.dropped },
+            ]).map((row) => (
+              <tr key={`${row.site}-${row.label}`}>
+                <td className={styles.metricLabel}>{row.site}</td>
+                <td>{row.label}</td>
+                <td>{fmtCount(row.data.ga4JoinedSessions)}</td>
+                <td>{fmtSeconds(row.data.p50EngagementSeconds)}</td>
+                <td>{fmtPct(row.data.scroll90RatePct)}</td>
+                <td>{fmtPct(row.data.pageViewLongRatePct)}</td>
+                <td>{fmtPct(row.data.addToCartRatePct)}</td>
+                <td>{fmtPct(row.data.beginCheckoutRatePct)}</td>
+                <td>{fmtPct(row.data.addPaymentInfoRatePct)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <ul className={styles.caveatList}>
+        <li>
+          바이오컴 체류시간이 예전보다 확 짧아진 것처럼 보인 원인은 행동 변화가 아니라
+          live API source 차이입니다. 최신 GA4 dry-run은 여전히 결제자 중앙 193.9초,
+          비결제자 124.3초입니다.
+        </li>
+        <li>
+          더클린커피는 GA4 행동 연결률이 높지만 Meta에서는 비결제자 체류시간이 더 길게
+          나옵니다. 그래서 체류시간 단독보다 장바구니, 결제 시작, 랜딩 bucket을 함께 봐야
+          합니다.
+        </li>
+        <li>
+          다음 API 보강은 BigQuery를 요청마다 직접 치지 않고, 4시간 또는 1일 단위로
+          site × window × channel별 GA4 행동 snapshot을 미리 계산해 live API에 붙이는 방식이
+          안전합니다.
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 // 더클린커피 채널 1개를 buyer vs leaver 비교표로
 function CoffeeChannelCompare({ row }: { row: CohortRow }) {
   return (
@@ -1363,11 +1637,40 @@ function CoffeeChannelCompare({ row }: { row: CohortRow }) {
             <td className={styles.metricLabel}>
               결제 시작 · 결제수단 선택
               <span className={styles.metricHint}>
-                더클린커피 GA4 begin_checkout 은 현재 비어 있음
+                begin_checkout은 보이고, add_payment_info는 아직 0%
               </span>
             </td>
-            <td colSpan={2}>현재 0% · AGENTSOS export 후 재분석 필요</td>
-            <td className={styles.deltaNeutral}>—</td>
+            <td>
+              결제 시작 {fmtPct(row.buyerBeginCheckoutRatePct)}
+              <span className={styles.metricHint}>
+                결제수단 {fmtPct(row.buyerAddPaymentInfoRatePct)}
+              </span>
+            </td>
+            <td>
+              결제 시작 {fmtPct(row.leaverBeginCheckoutRatePct)}
+              <span className={styles.metricHint}>
+                결제수단 {fmtPct(row.leaverAddPaymentInfoRatePct)}
+              </span>
+            </td>
+            <td>
+              {row.buyerBeginCheckoutRatePct !== null &&
+              row.leaverBeginCheckoutRatePct !== null ? (
+                <span
+                  className={
+                    row.buyerBeginCheckoutRatePct - row.leaverBeginCheckoutRatePct >= 0
+                      ? styles.deltaPos
+                      : styles.deltaNeg
+                  }
+                >
+                  {row.buyerBeginCheckoutRatePct - row.leaverBeginCheckoutRatePct >= 0
+                    ? "+"
+                    : ""}
+                  {(row.buyerBeginCheckoutRatePct - row.leaverBeginCheckoutRatePct).toFixed(1)}p
+                </span>
+              ) : (
+                <span className={styles.deltaNeutral}>—</span>
+              )}
+            </td>
           </tr>
           <tr>
             <td className={styles.metricLabel}>
@@ -1610,6 +1913,8 @@ function CohortMetricsTable({
 }
 
 function IndicatorRanking({ row }: { row: CohortRow }) {
+  const dwellDelta = dwellDeltaSeconds(row);
+  const dwellPositive = dwellDelta !== null && dwellDelta >= 0;
   const cards: Array<{
     name: string;
     status: "candidate" | "caution" | "parked" | "shortage";
@@ -1620,15 +1925,17 @@ function IndicatorRanking({ row }: { row: CohortRow }) {
   }> = [
     {
       name: "체류시간 3분 이상",
-      status: "candidate",
-      statusLabel: "관리 후보",
-      why:
-        "Meta 결제자가 비결제자보다 중앙 체류시간이 깁니다. 광고/랜딩이 충분히 읽혔다는 신호입니다.",
+      status: dwellPositive ? "candidate" : "caution",
+      statusLabel: dwellPositive ? "관리 후보" : "단독 사용 금지",
+      why: dwellPositive
+        ? "Meta 결제자가 비결제자보다 중앙 체류시간이 깁니다. 광고/랜딩이 충분히 읽혔다는 신호입니다."
+        : "Meta 비결제자가 결제자보다 더 오래 머뭅니다. 더클린커피 Meta에서는 체류시간만으로 구매 의도를 판단하면 오판할 수 있습니다.",
       number: `결제자 ${fmtSeconds(row.buyerP50DwellSeconds)} · 비결제자 ${fmtSeconds(
         row.leaverP50DwellSeconds
-      )} · 차이 +${dwellDeltaSeconds(row)?.toFixed(1)}초`,
-      action:
-        "3분 이상 머무는 Meta 유입을 늘리세요. 랜딩에서 리뷰/구매평 영역 진입을 더 빠르게 만들어 페이지에 머무는 시간을 늘립니다.",
+      )} · 차이 ${signedSeconds(dwellDelta)}`,
+      action: dwellPositive
+        ? "3분 이상 머무는 Meta 유입을 늘리세요. 랜딩에서 리뷰/구매평 영역 진입을 더 빠르게 만들어 페이지에 머무는 시간을 늘립니다."
+        : "체류시간은 보조로 두고, 결제 시작·장바구니·랜딩 bucket을 함께 보세요. 특히 비결제자가 오래 머문 페이지는 설득 실패 구간일 수 있습니다.",
     },
     {
       name: "결제 페이지 도달",
@@ -1636,10 +1943,13 @@ function IndicatorRanking({ row }: { row: CohortRow }) {
       statusLabel: "관리 후보",
       why:
         "결제 페이지 도달은 구매 직전 행동입니다. 단, 결제완료와 절대 혼동하면 안 됩니다.",
-      number:
-        "현재 더클린커피 GA4 begin_checkout 0% · AGENTSOS export 적재 후 재분석",
+      number: `결제자 ${fmtPct(row.buyerBeginCheckoutRatePct)} · 비결제자 ${fmtPct(
+        row.leaverBeginCheckoutRatePct
+      )} · 결제수단 선택 ${fmtPct(row.buyerAddPaymentInfoRatePct)} / ${fmtPct(
+        row.leaverAddPaymentInfoRatePct
+      )}`,
       action:
-        "결제 페이지 도달은 좋은 신호지만 구매완료는 아닙니다. 결제완료는 VM Cloud confirmed purchase 로만 봅니다.",
+        "begin_checkout은 이미 보입니다. 다음은 add_payment_info가 0%인 원인을 분해해 결제수단 선택 단계가 실제로 비는지 확인합니다.",
     },
     {
       name: "장바구니 신호",
@@ -1707,15 +2017,20 @@ function CoffeeChannelTable({ rows }: { rows: CohortRow[] }) {
       <tbody>
         {rows.map((r) => {
           const delta = dwellDeltaSeconds(r);
-          let read = "—";
-          if (r.channel === "youtube") read = "체류시간 우위, 강한 후보";
-          else if (r.channel === "meta") read = "체류시간 우위, 장바구니는 주의";
-          else if (r.channel === "naver_paid_or_brand")
-            read = "결제율 낮지만 체류시간 우위 — 랜딩/결제 개선 후보";
-          else if (r.channel === "direct_or_unknown")
-            read = "결제 수 큼, 유입 분류 attribution 보강 후보";
-          else if (r.channel === "naver_other") read = "표본 작음, 방향성만";
-          else if (r.channel === "other") read = "결제자 체류시간이 오히려 짧음, 보류";
+          let read = "체류시간 차이 작음 — 결제 시작/장바구니 같이 보기";
+          if (r.channel === "google_paid" && r.confirmedPurchaseSessions === 0) {
+            read = "Google 유료 표본 부족 — 추적은 보류";
+          } else if (delta !== null && delta < 0) {
+            read = "비결제자가 더 오래 봄 — 체류시간 단독 KPI 금지";
+          } else if (delta !== null && delta >= 100) {
+            read = "결제자가 훨씬 오래 봄 — 랜딩/리뷰 후보";
+          } else if (delta !== null && delta >= 30) {
+            read = "결제자 체류시간 우위 — 보조 후보";
+          } else if (r.channel === "direct_or_unknown") {
+            read = "결제 수 큼 — 유입 분류 attribution 보강 후보";
+          } else if (r.channel === "naver_other") {
+            read = "표본 작음 — 방향성만";
+          }
           return (
             <tr key={r.channel}>
               <td className={styles.metricLabel}>{r.channelLabel}</td>

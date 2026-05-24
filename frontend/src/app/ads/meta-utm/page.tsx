@@ -26,6 +26,99 @@ const PERIOD_SUMMARY_PRESETS = [
   { value: "last_30d", label: "최근 30일" },
 ] as const;
 
+const GROWTH_HANDOFF_STATS = [
+  { label: "Meta API 광고", value: "1,012개", detail: "2026-05-23 12:32 KST read-only" },
+  { label: "ACTIVE/WITH_ISSUES", value: "71개", detail: "현재 API status 기준" },
+  { label: "URL Parameters 있음", value: "52개", detail: "active placeholder 25개" },
+  { label: "실제 link_url", value: "1개", detail: "대부분 Instagram permalink만 노출" },
+] as const;
+
+const GROWTH_CONTEXT_CARDS = [
+  {
+    title: "왜 확인이 필요한가",
+    body: "현재 내부 매출 원장은 Meta에서 들어온 주문을 잡고 있지만, 일부 주문에는 캠페인 숫자 ID가 아니라 {{campaign.id}} 같은 치환 전 문구나 공통 광고별칭만 남아 있습니다. 이 상태에서는 매출이 어느 캠페인·광고세트·광고에서 발생했는지 확정할 수 없어 ROAS가 미맵핑으로 남습니다.",
+    action: "그로스팀이 실제 광고 화면의 URL과 숫자 ID를 확인해 주면, 같은 주문 매출을 광고 구조에 안전하게 붙일 수 있습니다.",
+  },
+  {
+    title: "어떻게 확인하면 되는가",
+    body: "Meta 광고 관리자에서 캠페인 > 광고세트 > 광고 소재까지 들어간 뒤, 해당 광고의 웹사이트 URL 또는 랜딩 URL과 URL Parameters 값을 그대로 복사해 주세요. 화면에 보이는 캠페인명만으로는 부족하고, campaign_id, adset_id, ad_id 숫자 값이 같이 있어야 확정도가 올라갑니다.",
+    action: "체크리스트 CSV의 빈 칸에 실제 랜딩 URL, URL Parameters 원문, 숫자 ID 3종, 확인자와 확인 시각을 채우면 됩니다.",
+  },
+  {
+    title: "무엇을 조심해야 하는가",
+    body: "이미 잘 돌아가는 광고 소재의 랜딩 URL을 바로 바꾸면 학습 상태에 영향을 줄 수 있습니다. 이번 요청의 1차 목적은 광고를 수정하는 것이 아니라, 지금 설정되어 있는 값을 읽어서 매출 매핑 근거를 보강하는 것입니다.",
+    action: "운영 중 소재는 먼저 읽기 전용 확인만 하고, 실제 URL 수정은 신규 소재나 수정이 필요한 소재에 한해 별도 판단합니다.",
+  },
+] as const;
+
+const GROWTH_REQUIRED_FIELDS = [
+  {
+    label: "실제 광고 랜딩 URL 또는 웹사이트 URL",
+    detail: "고객이 광고를 눌렀을 때 도착하는 최종 주소입니다. `/songyuul07`처럼 주문 원장에 남은 경로와 같은지 확인하는 핵심 근거입니다.",
+  },
+  {
+    label: "URL Parameters 원문",
+    detail: "Meta 광고 소재에 붙어 있는 UTM 설정값입니다. `utm_campaign={{campaign.id}}`가 실제 클릭에서 숫자로 바뀌는지, `campaign_alias`가 고유값인지 확인해야 합니다.",
+  },
+  {
+    label: "campaign_id / adset_id / ad_id 숫자 ID",
+    detail: "ROAS를 캠페인·광고세트·광고 단위로 나눌 때 가장 강한 증거입니다. 숫자 ID가 있으면 A급 또는 B급 매핑으로 올릴 수 있습니다.",
+  },
+  {
+    label: "광고명 / 광고세트명 / 캠페인명",
+    detail: "숫자 ID를 사람이 읽을 수 있는 이름과 짝지어 검토하기 위한 값입니다. 이름만으로는 확정하지 않고, 숫자 ID와 함께 봅니다.",
+  },
+  {
+    label: "현재 게재 상태와 수정 가능 여부",
+    detail: "ACTIVE 또는 WITH_ISSUES 상태의 소재는 바로 URL을 바꾸지 않습니다. 먼저 읽기 전용 확인 후, 수정이 필요한지 따로 판단합니다.",
+  },
+  {
+    label: "확인자 / 확인 시각 / 변경 여부",
+    detail: "나중에 매핑을 반영할 때 누가 언제 어떤 화면에서 확인했는지 남겨야 합니다. 실제 광고 설정 변경이 있었는지도 구분합니다.",
+  },
+] as const;
+
+const GROWTH_PRIORITY_CASES = [
+  {
+    title: "/songyuul07",
+    grade: "B+ · 광고세트 단위 수동 확정",
+    detail: "TJ님이 캠페인 ID `120245003319500396`, 광고세트 ID `120245370784880396`를 제공했고, 현재 `/songyuul07` 유입은 `meta_biocom_influencer_260506` 캠페인의 `meta_biocom_songyuul_260512` 광고세트로 반영되어 있습니다. 최근 7일 기준 Section A ready에서 23건, 8,790,450원, 광고세트 단위 ROAS 34.21배로 잡힙니다.",
+    action: "캠페인·광고세트 단위 예산 판단에는 이미 사용합니다. 다만 광고 ID가 아직 전체 제공된 것은 아니므로, 소재별 ROAS를 끝까지 나누려면 그로스팀에서 ad_id 또는 실제 광고 URL을 추가 확인합니다.",
+  },
+  {
+    title: "/hwajung01",
+    grade: "B+ · 광고세트 단위 수동 확정",
+    detail: "TJ님이 캠페인 ID `120245003319500396`, 광고세트 ID `120245498758680396`를 제공했고, 현재 `/hwajung01` 유입은 `meta_biocom_influencer_260506` 캠페인의 `meta_biocom_hwajung_260514` 광고세트로 반영되어 있습니다. 최근 7일 기준 Section A ready에서 3건, 975,000원, 광고세트 단위 ROAS 17.60배로 잡힙니다.",
+    action: "캠페인·광고세트 단위 매핑은 반영 완료입니다. 소재별로 더 나누려면 광고 ID가 필요하므로, ad_id 확인 전까지는 광고세트 단위 매출로 보는 것이 안전합니다.",
+  },
+  {
+    title: "/iiary02",
+    grade: "B · 캠페인 단위 승인",
+    detail: "TJ님 승인 기준으로 `/iiary02` 유입은 `meta_biocom_influencer_260506` 캠페인에 붙입니다. 다만 Meta API 안에는 iiari 이름을 가진 광고가 여러 개 있어, 광고세트나 광고 단위까지 자동 확정하기에는 아직 근거가 부족합니다.",
+    action: "현재는 캠페인 단위 매핑으로 사용하고, 그로스팀이 실제 광고 URL이나 ad_id를 주면 광고세트·광고 단위로 승급합니다.",
+  },
+  {
+    title: "/nanabebe05",
+    grade: "B · 그로스팀 ID 확인",
+    detail: "그로스팀에서 캠페인 ID `120245003319500396`, 광고세트 ID `120245143376260396`를 제공했습니다. 다만 현재 UTM 후보 사전에는 `/nanabebe05` 행이 없어, 앞으로 같은 값이 들어와도 자동 매핑 사전에 걸리지 않을 수 있습니다.",
+    action: "UTM 관리 원장에 `/nanabebe05` 행을 추가하고, 실제 광고 ID와 URL Parameters를 채워 재발 방지용 사전으로 만듭니다.",
+  },
+  {
+    title: "/hangzassi01",
+    grade: "B · 그로스팀 ID 확인",
+    detail: "그로스팀에서 캠페인 ID `120242626179290396`, 광고세트 ID `120242626179270396`를 제공했습니다. 이 정도면 캠페인·광고세트 단위 매핑은 준확정으로 볼 수 있지만, 광고 단위 매출까지 나누려면 ad_id가 더 필요합니다.",
+    action: "광고 ID까지 받으면 ad-level 확정으로 올리고, 광고별 ROAS 표에서도 사용할 수 있게 만듭니다.",
+  },
+  {
+    title: "inpork_biocom_igg",
+    grade: "제외 · 광고 아님",
+    detail: "이 값은 Meta 광고 소재가 아니라 인스타그램 프로필 링크의 인포크 기능을 구분하려고 붙인 UTM입니다. fb/ig 유입처럼 보일 수 있지만 광고비가 붙은 Meta 캠페인 매출로 넣으면 ROAS가 왜곡됩니다.",
+    action: "Meta ROAS 캠페인 매핑에서 제외하고, non_meta 또는 inpork 채널 매출로 분리합니다.",
+  },
+] as const;
+
+const RECOMMENDED_META_URL_PARAMS = "utm_source=meta&utm_medium=paid_social&utm_campaign={{campaign.id}}&utm_term={{adset.id}}&utm_content={{ad.id}}&utm_id={{campaign.id}}&campaign_alias=meta_biocom_songyuul07_igg&meta_campaign_id={{campaign.id}}&meta_adset_id={{adset.id}}&meta_ad_id={{ad.id}}&meta_site_source={{site_source_name}}&meta_placement={{placement}}";
+
 type MetaUtmLevel = "campaign" | "adset" | "ad";
 type MetaUtmSection = "ready" | "blocked" | "unmapped";
 type PeriodPreset = (typeof PERIOD_SUMMARY_PRESETS)[number]["value"];
@@ -107,6 +200,88 @@ type MetaUtmUnmappedOrderSample = {
   utmContent: string;
   landingPath: string | null;
   reason: string;
+  dryRun?: MetaUtmUnmappedDryRunDecision;
+};
+
+type MetaUtmDryRunExcludeDecision = "YES" | "NO" | "REVIEW";
+
+type MetaUtmUnmappedDryRunDecision = {
+  bucket: string;
+  label: string;
+  excludeFromMetaUnmapped: MetaUtmDryRunExcludeDecision;
+  canCampaignMatch: "NO" | "PROPOSAL_ONLY";
+  confidence: number;
+  matchedUtmAlias: string;
+  matchedChannelBucket: string;
+  matchedManagementMemo: string;
+  recommendation: string;
+  evidence: string[];
+};
+
+type MetaUtmUnmappedDryRunSummary = {
+  rulesVersion: string;
+  mode: "dry_run_only" | "approved_exclusion_applied";
+  source: string;
+  original: { orders: number; revenue: number };
+  excludedIfApplied: { orders: number; revenue: number };
+  reviewBeforeApply: { orders: number; revenue: number };
+  retainedUnmapped: { orders: number; revenue: number };
+  adjustedIfApplied: { orders: number; revenue: number };
+  buckets: Array<{
+    bucket: string;
+    label: string;
+    orders: number;
+    revenue: number;
+    excludeFromMetaUnmapped: MetaUtmDryRunExcludeDecision;
+    confidenceAvg: number;
+    recommendation: string;
+  }>;
+  samples: MetaUtmUnmappedOrderSample[];
+  limitations: string[];
+};
+
+type MetaUtmBGradeProposalRow = {
+  aliasKey: string;
+  proposalGrade: string;
+  proposalStatus: string;
+  proposedCampaignId: string;
+  proposedCampaignName: string;
+  sourceRow: string;
+  managementMemo: string;
+  landingPath: string;
+  ledgerPathCandidates: string;
+  utmSource: string;
+  utmCampaign: string;
+  utmContent: string;
+  channelBucket: string;
+  productFamilyHint: string;
+  auditRange: string;
+  confidence: number;
+  whyNotAutoConfirm: string;
+  nextAction: string;
+};
+
+type MetaUtmBGradeProposal = {
+  ok: boolean;
+  status: "loaded" | "missing" | "not_applicable" | "error";
+  mode: "proposal_only_do_not_auto_confirm";
+  source: {
+    dictionaryPath: string | null;
+    summaryPath: string | null;
+    generatedAtKst: string | null;
+  };
+  stats: {
+    uniqueMetaishAliases: number;
+    alreadyInManualSeed: number;
+    proposalSingleCampaign: number;
+    multiCampaignKeepSplit: number;
+    noCurrentAuditMatch: number;
+    proposalRows: number;
+    auditGeneratedAt: string | null;
+    auditRange: { startDate: string; endDate: string } | null;
+  };
+  rows: MetaUtmBGradeProposalRow[];
+  limitations: string[];
 };
 
 type MetaUtmDiagnostics = {
@@ -128,7 +303,10 @@ type MetaUtmDiagnostics = {
     orders: number;
     revenue: number;
     samples: MetaUtmUnmappedOrderSample[];
+    dryRun?: MetaUtmUnmappedDryRunSummary;
   };
+  unmappedDryRun?: MetaUtmUnmappedDryRunSummary;
+  bgradeProposal?: MetaUtmBGradeProposal;
   summary: {
     total?: { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number };
     ready: { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number };
@@ -506,6 +684,222 @@ function UnmappedOrdersPanel({ summary }: { summary?: MetaUtmDiagnostics["unmapp
   );
 }
 
+const DRY_RUN_DECISION_LABEL: Record<MetaUtmDryRunExcludeDecision, string> = {
+  YES: "Meta 미맵핑에서 제외 적용",
+  REVIEW: "raw 원장 확인 후 결정",
+  NO: "계속 미맵핑 보류",
+};
+
+function DryRunExclusionPanel({ summary }: { summary?: MetaUtmUnmappedDryRunSummary }) {
+  if (!summary || summary.original.orders === 0) return null;
+  const sampleRows = summary.samples.slice(0, 10);
+  return (
+    <section className="dryRunPanel">
+      <div className="sectionHeader">
+        <div>
+          <h2>비Meta 오분류 제외 적용 현황</h2>
+          <p>
+            승인된 제외 원칙에 따라 현재 미맵핑 주문 중 Meta 광고 캠페인 매출로 보면 안 되는 값을 분리했습니다.
+            YES는 집계에서 제외하고, REVIEW는 raw 원장 확인 전까지 보류로 남깁니다.
+          </p>
+        </div>
+        <div className="sectionStats">
+          <span>기존 {fmtNum(summary.original.orders)}건</span>
+          <span>{fmtKRW(summary.original.revenue)}</span>
+          <span>approved rule</span>
+        </div>
+      </div>
+      <div className="dryRunImpactGrid">
+        <article>
+          <span>제외 적용</span>
+          <strong>{fmtNum(summary.excludedIfApplied.orders)}건 · {fmtKRW(summary.excludedIfApplied.revenue)}</strong>
+          <small>Google Ads, 쿠폰, 인포크처럼 Meta 광고 ROAS에 넣으면 왜곡되는 후보</small>
+        </article>
+        <article>
+          <span>확인 후 결정</span>
+          <strong>{fmtNum(summary.reviewBeforeApply.orders)}건 · {fmtKRW(summary.reviewBeforeApply.revenue)}</strong>
+          <small>IG 프로필 링크 또는 fbclid only 가능성이 있어 raw 원장 확인 필요</small>
+        </article>
+        <article>
+          <span>계속 미맵핑 보류</span>
+          <strong>{fmtNum(summary.retainedUnmapped.orders)}건 · {fmtKRW(summary.retainedUnmapped.revenue)}</strong>
+          <small>Meta placeholder 또는 UTM/랜딩 부재로 캠페인 특정 불가</small>
+        </article>
+        <article>
+          <span>제외만 적용한 뒤</span>
+          <strong>{fmtNum(summary.adjustedIfApplied.orders)}건 · {fmtKRW(summary.adjustedIfApplied.revenue)}</strong>
+          <small>현재 로컬 백엔드 집계에 반영된 Meta 미맵핑 기준</small>
+        </article>
+      </div>
+      <div className="dryRunBucketGrid">
+        {summary.buckets.map((bucket) => (
+          <article key={bucket.bucket} className={`dryRunBucket ${bucket.excludeFromMetaUnmapped.toLowerCase()}`}>
+            <div>
+              <strong>{bucket.label}</strong>
+              <span>{DRY_RUN_DECISION_LABEL[bucket.excludeFromMetaUnmapped]}</span>
+            </div>
+            <p>{bucket.recommendation}</p>
+            <small>{fmtNum(bucket.orders)}건 · {fmtKRW(bucket.revenue)} · 신뢰도 {Math.round(bucket.confidenceAvg * 100)}%</small>
+          </article>
+        ))}
+      </div>
+      <div className="dryRunSampleList">
+        {sampleRows.map((sample, index) => (
+          <article key={`${sample.approvedDate ?? "date"}:${index}`}>
+            <div>
+              <strong>{fmtKRW(sample.amount)}</strong>
+              <span>{sample.dryRun ? DRY_RUN_DECISION_LABEL[sample.dryRun.excludeFromMetaUnmapped] : "분류 대기"}</span>
+            </div>
+            <p>{sample.dryRun?.recommendation ?? sample.reason}</p>
+            <small>source {sample.utmSource} · campaign {sample.utmCampaign} · content {sample.utmContent} · landing {sample.landingPath ?? "미확인"}</small>
+          </article>
+        ))}
+      </div>
+      <div className="dryRunFootnote">
+        {summary.limitations.map((item) => <span key={item}>{item}</span>)}
+      </div>
+    </section>
+  );
+}
+
+function BGradeProposalPanel({
+  proposal,
+  query,
+}: {
+  proposal?: MetaUtmBGradeProposal;
+  query: string;
+}) {
+  if (!proposal || proposal.status === "not_applicable") return null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const rows = proposal.rows.filter((row) => {
+    if (!normalizedQuery) return true;
+    return [
+      row.aliasKey,
+      row.proposedCampaignName,
+      row.proposedCampaignId,
+      row.managementMemo,
+      row.landingPath,
+      row.utmCampaign,
+      row.productFamilyHint,
+    ].some((value) => value.toLowerCase().includes(normalizedQuery));
+  });
+  const visibleRows = rows.slice(0, 30);
+  const auditRange = proposal.stats.auditRange
+    ? `${proposal.stats.auditRange.startDate}~${proposal.stats.auditRange.endDate}`
+    : "audit range 미확인";
+
+  return (
+    <section className="bgradePanel">
+      <div className="sectionHeader">
+        <div>
+          <h2>B급 제안 사전</h2>
+          <p>
+            UTM 관리 파일과 과거 Meta URL 감사에서 단일 캠페인으로만 보이는 alias입니다.
+            자동 확정이 아니라, 주문에 같은 alias가 들어왔을 때 “이 캠페인 후보부터 보라”고 띄우는 검토 사전입니다.
+          </p>
+        </div>
+        <div className="sectionStats">
+          <span>{proposal.status === "loaded" ? "로딩 완료" : "준비 필요"}</span>
+          <span>{fmtNum(proposal.stats.proposalRows)}개 제안</span>
+          <span>{auditRange}</span>
+        </div>
+      </div>
+
+      {proposal.status !== "loaded" ? (
+        <div className="emptyState">{proposal.limitations[0] ?? "B급 제안 사전을 아직 읽지 못했습니다."}</div>
+      ) : (
+        <>
+          <div className="bgradeStatsGrid">
+            <article>
+              <span>Meta 성격 alias</span>
+              <strong>{fmtNum(proposal.stats.uniqueMetaishAliases)}개</strong>
+              <small>UTM 파일에서 Meta 후보로 분류된 값</small>
+            </article>
+            <article>
+              <span>B급 제안</span>
+              <strong>{fmtNum(proposal.stats.proposalSingleCampaign)}개</strong>
+              <small>과거 URL audit에서 단일 캠페인으로만 보인 후보</small>
+            </article>
+            <article>
+              <span>이미 수동 seed</span>
+              <strong>{fmtNum(proposal.stats.alreadyInManualSeed)}개</strong>
+              <small>이미 manual_verified 또는 split_required로 관리 중</small>
+            </article>
+            <article>
+              <span>split 유지</span>
+              <strong>{fmtNum(proposal.stats.multiCampaignKeepSplit)}개</strong>
+              <small>여러 캠페인에 걸려 자동 제안 금지</small>
+            </article>
+            <article>
+              <span>audit 미확인</span>
+              <strong>{fmtNum(proposal.stats.noCurrentAuditMatch)}개</strong>
+              <small>최신 Ads Manager 확인 전 후보로도 올리지 않음</small>
+            </article>
+          </div>
+          <div className="bgradeRuleBox">
+            <strong>화면에서 이 사전을 쓰는 방식</strong>
+            <span>
+              주문 원장에 같은 alias가 들어오면 바로 확정하지 않고 B급 후보로만 보여줍니다.
+              그 다음 최신 Meta API URL, 그로스팀 Ads Manager export, campaign/adset/ad 숫자 ID 중 하나로 확인되면 A급 또는 manual_verified로 승급합니다.
+            </span>
+          </div>
+          <div className="bgradeTableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th className="aliasCol">검토 alias</th>
+                  <th>제안 캠페인</th>
+                  <th>랜딩/상품 힌트</th>
+                  <th>상태</th>
+                  <th>다음 액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRows.map((row) => (
+                  <tr key={`${row.aliasKey}:${row.proposedCampaignId}:${row.sourceRow}`}>
+                    <td className="aliasCol">
+                      <div className="bgradeAliasCell">
+                        <strong>{row.aliasKey}</strong>
+                        <small>UTM campaign {row.utmCampaign || "미확인"} · source row {row.sourceRow || "—"}</small>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="bgradeCampaignCell">
+                        <strong>{row.proposedCampaignName}</strong>
+                        <small>campaign id {row.proposedCampaignId}</small>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="bgradeCampaignCell">
+                        <strong>{row.managementMemo || row.productFamilyHint || "운영 메모 없음"}</strong>
+                        <small>{row.landingPath || row.ledgerPathCandidates || "랜딩 후보 없음"}</small>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="bgradeStatus">자동확정 금지 · {Math.round(row.confidence * 100)}%</span>
+                    </td>
+                    <td>
+                      <div className="bgradeActionCell">
+                        <span>{row.nextAction || "최신 Meta URL evidence 확인 후 승급"}</span>
+                        <small>{row.whyNotAutoConfirm}</small>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="bgradeFootnote">
+            <span>{fmtNum(visibleRows.length)}개 표시 / 검색 후 {fmtNum(rows.length)}개 / 전체 {fmtNum(proposal.rows.length)}개</span>
+            <span>Source: {proposal.source.dictionaryPath ?? "CSV 없음"} · {proposal.source.generatedAtKst ?? "생성 시각 미확인"}</span>
+            {proposal.limitations.map((item) => <span key={item}>{item}</span>)}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function PeriodRoasCards({
   data,
   loading,
@@ -563,6 +957,108 @@ function PeriodRoasCards({
             </article>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+function GrowthTeamHandoffPanel() {
+  return (
+    <section className="growthHandoffPanel">
+      <div className="growthHandoffHead">
+        <div>
+          <h2>그로스팀에 무엇을 왜 확인해 달라고 요청해야 하는가</h2>
+          <p>
+            지금 문제는 매출이 없는 것이 아니라, 일부 Meta 유입 주문이 어느 캠페인·광고세트·광고에서 왔는지
+            확정할 증거가 부족하다는 점입니다. 그로스팀에는 광고를 바로 수정해 달라고 요청하는 것이 아니라,
+            현재 광고 소재에 실제로 설정된 URL과 숫자 ID를 확인해 달라고 요청해야 합니다.
+          </p>
+        </div>
+        <div className="growthHandoffSource">
+          <strong>Source confidence A</strong>
+          <span>UTM 후보 사전 2026-05-22 + Meta API /ads 2026-05-23 12:32 KST</span>
+        </div>
+      </div>
+
+      <div className="growthHandoffStats">
+        {GROWTH_HANDOFF_STATS.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+            <small>{item.detail}</small>
+          </article>
+        ))}
+      </div>
+
+      <div className="growthNarrativeGrid">
+        {GROWTH_CONTEXT_CARDS.map((item) => (
+          <article key={item.title}>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+            <strong>{item.action}</strong>
+          </article>
+        ))}
+      </div>
+
+      <div className="growthHandoffBody">
+        <div className="growthHandoffBlock">
+          <h3>그로스팀이 체크리스트에 채워야 하는 값</h3>
+          <p>
+            아래 값은 광고 화면에서 그대로 복사해야 합니다. 사람이 보는 캠페인명만으로는 후보는 만들 수 있지만,
+            예산 판단에 쓸 ROAS로 확정하려면 숫자 ID와 실제 URL evidence가 필요합니다.
+          </p>
+          <div className="growthFieldList">
+            {GROWTH_REQUIRED_FIELDS.map((item) => (
+              <article key={item.label}>
+                <strong>{item.label}</strong>
+                <span>{item.detail}</span>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="growthHandoffBlock">
+          <h3>신규 소재나 수정 대상 소재에 넣을 URL Parameters 표준</h3>
+          <p>
+            아래 형식은 앞으로 새로 만드는 소재나 어차피 수정해야 하는 소재에 적용할 기준입니다.
+            `utm_campaign`, `utm_term`, `utm_content`는 Meta가 클릭 시점에 숫자 ID로 바꿔 주는 값이고,
+            `campaign_alias`는 사람이 읽고 검토하기 쉬운 고유 별칭입니다.
+          </p>
+          <code>{RECOMMENDED_META_URL_PARAMS}</code>
+          <p>
+            중요한 점은 이미 학습이 안정된 광고의 URL을 일괄 수정하지 않는 것입니다.
+            현재 소재는 먼저 읽기 전용으로 확인하고, 신규·복제·수정 예정 소재부터 이 형식을 적용합니다.
+            `campaign_alias=meta_biocom_광고별칭`처럼 공통 placeholder가 남아 있으면 매핑 근거로 사용할 수 없습니다.
+          </p>
+        </div>
+      </div>
+
+      <div className="growthRankingGuide">
+        <strong>매핑 등급을 이렇게 올립니다</strong>
+        <span>A급은 숫자 campaign/adset/ad ID가 주문이나 실제 클릭 URL에 남은 경우입니다.</span>
+        <span>B급은 고유 alias나 그로스팀 제공 ID로 단일 캠페인·세트를 특정할 수 있는 경우입니다.</span>
+        <span>C급은 랜딩 경로와 이름만으로 후보를 만든 상태라 자동 반영하지 않습니다.</span>
+        <span>D급은 fbclid only 또는 placeholder만 있는 상태라 수동 확인 없이 ROAS에 붙이지 않습니다.</span>
+      </div>
+
+      <div className="growthCaseGrid">
+        {GROWTH_PRIORITY_CASES.map((item) => (
+          <article key={item.title}>
+            <div>
+              <strong>{item.title}</strong>
+              <span>{item.grade}</span>
+            </div>
+            <p>{item.detail}</p>
+            <small>다음 요청: {item.action}</small>
+          </article>
+        ))}
+      </div>
+
+      <div className="growthHandoffFooter">
+        <strong>전달 파일</strong>
+        <span>
+          그로스팀에는 `utm/growth-team-meta-url-checklist-20260523.csv`를 채워 달라고 전달합니다.
+          근거를 더 보고 싶을 때는 `utm/biocom-utm-meta-api-url-join-20260523.csv`를 함께 확인합니다.
+        </span>
       </div>
     </section>
   );
@@ -719,6 +1215,10 @@ export default function MetaUtmPage() {
 
         <PeriodRoasCards data={periodSummary} loading={periodLoading} error={periodError} />
 
+        <GrowthTeamHandoffPanel />
+
+        <BGradeProposalPanel proposal={data?.bgradeProposal} query={query} />
+
         <div className={`decisionBanner ${error && !data ? "needsFix" : blockedSpendShare >= 0.9 ? "needsFix" : "balanced"}`}>
           <div>
             <strong>{currentDecision}</strong>
@@ -792,6 +1292,7 @@ export default function MetaUtmPage() {
             <SectionPanel title="Section A · 매칭율 85% 이상, ROAS 산정 후보" tone="ready" rows={readyRows} level={level} levelSpend={levelSummary.spend} />
             <SectionPanel title="Section B · 1~84%, 보완 후 판단" tone="blocked" rows={blockedRows} level={level} levelSpend={levelSummary.spend} />
             <SectionPanel title="Section C · 미맵핑, 별도 확인" tone="unmapped" rows={unmappedRows} level={level} levelSpend={levelSummary.spend} />
+            <DryRunExclusionPanel summary={data?.unmappedDryRun ?? data?.unmapped?.dryRun} />
             <UnmappedOrdersPanel summary={data?.unmapped} />
           </>
         )}
@@ -1467,6 +1968,486 @@ export default function MetaUtmPage() {
           font-style: normal;
           font-weight: 800;
         }
+        .metaUtmPage .growthHandoffPanel {
+          max-width: 1760px;
+          margin: 0 auto 12px;
+          background: #ffffff;
+          border: 1px solid #d8e0ea;
+          border-left: 4px solid #2563eb;
+          border-radius: 8px;
+          padding: 14px;
+        }
+        .metaUtmPage .growthHandoffHead {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 14px;
+          align-items: start;
+          margin-bottom: 12px;
+        }
+        .metaUtmPage .growthHandoffHead h2,
+        .metaUtmPage .growthNarrativeGrid h3,
+        .metaUtmPage .growthHandoffBlock h3 {
+          margin: 0;
+          color: #111827;
+          font-size: 0.98rem;
+          line-height: 1.35;
+          letter-spacing: 0;
+        }
+        .metaUtmPage .growthHandoffHead p,
+        .metaUtmPage .growthNarrativeGrid p,
+        .metaUtmPage .growthHandoffBlock p {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 0.76rem;
+          line-height: 1.55;
+        }
+        .metaUtmPage .growthHandoffSource {
+          display: grid;
+          gap: 3px;
+          text-align: right;
+          color: #64748b;
+          font-size: 0.72rem;
+          font-weight: 800;
+        }
+        .metaUtmPage .growthHandoffSource strong {
+          color: #111827;
+          font-size: 0.8rem;
+        }
+        .metaUtmPage .growthHandoffStats {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .growthHandoffStats article {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 11px;
+          display: grid;
+          gap: 4px;
+        }
+        .metaUtmPage .growthHandoffStats span {
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .growthHandoffStats strong {
+          color: #111827;
+          font-size: 1.02rem;
+          font-variant-numeric: tabular-nums;
+        }
+        .metaUtmPage .growthHandoffStats small {
+          color: #64748b;
+          font-size: 0.66rem;
+          font-weight: 700;
+          line-height: 1.4;
+        }
+        .metaUtmPage .growthNarrativeGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .growthNarrativeGrid article {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 12px;
+          display: grid;
+          gap: 7px;
+          align-content: start;
+        }
+        .metaUtmPage .growthNarrativeGrid strong {
+          color: #9a3412;
+          font-size: 0.72rem;
+          line-height: 1.5;
+        }
+        .metaUtmPage .growthHandoffBody {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .growthHandoffBlock {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 12px;
+        }
+        .metaUtmPage .growthFieldList {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+          margin-top: 10px;
+        }
+        .metaUtmPage .growthFieldList article {
+          border: 1px solid #edf2f7;
+          border-radius: 6px;
+          background: #f8fafc;
+          padding: 8px 9px;
+          display: grid;
+          gap: 4px;
+        }
+        .metaUtmPage .growthFieldList strong {
+          color: #111827;
+          font-size: 0.7rem;
+          line-height: 1.35;
+        }
+        .metaUtmPage .growthFieldList span {
+          color: #64748b;
+          font-size: 0.66rem;
+          line-height: 1.5;
+        }
+        .metaUtmPage .growthHandoffBlock ul {
+          margin: 8px 0 0;
+          padding-left: 18px;
+          color: #334155;
+          font-size: 0.74rem;
+          font-weight: 800;
+          line-height: 1.75;
+        }
+        .metaUtmPage .growthHandoffBlock code {
+          display: block;
+          margin-top: 8px;
+          padding: 9px 10px;
+          border: 1px solid #dbeafe;
+          border-radius: 6px;
+          background: #eff6ff;
+          color: #1e3a8a;
+          font-size: 0.68rem;
+          line-height: 1.55;
+          white-space: normal;
+          overflow-wrap: anywhere;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .metaUtmPage .growthRankingGuide {
+          display: grid;
+          grid-template-columns: auto repeat(4, minmax(0, 1fr));
+          gap: 7px;
+          align-items: stretch;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .growthRankingGuide strong,
+        .metaUtmPage .growthRankingGuide span {
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          padding: 8px 9px;
+          line-height: 1.45;
+        }
+        .metaUtmPage .growthRankingGuide strong {
+          background: #111827;
+          color: #ffffff;
+          font-size: 0.72rem;
+          display: flex;
+          align-items: center;
+        }
+        .metaUtmPage .growthRankingGuide span {
+          background: #f8fafc;
+          color: #475569;
+          font-size: 0.66rem;
+          font-weight: 800;
+        }
+        .metaUtmPage .growthCaseGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .growthCaseGrid article {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 10px;
+          display: grid;
+          gap: 6px;
+          align-content: start;
+        }
+        .metaUtmPage .growthCaseGrid article div {
+          display: grid;
+          gap: 2px;
+        }
+        .metaUtmPage .growthCaseGrid strong {
+          color: #111827;
+          font-size: 0.78rem;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .growthCaseGrid span {
+          width: fit-content;
+          border: 1px solid #bfdbfe;
+          border-radius: 999px;
+          background: #eff6ff;
+          color: #1d4ed8;
+          padding: 3px 7px;
+          font-size: 0.66rem;
+          font-weight: 900;
+          line-height: 1.35;
+        }
+        .metaUtmPage .growthCaseGrid p {
+          margin: 0;
+          color: #475569;
+          font-size: 0.7rem;
+          line-height: 1.6;
+        }
+        .metaUtmPage .growthCaseGrid small {
+          color: #9a3412;
+          font-size: 0.68rem;
+          font-weight: 800;
+          line-height: 1.55;
+        }
+        .metaUtmPage .growthHandoffFooter {
+          display: grid;
+          gap: 4px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #f8fafc;
+          padding: 8px 10px;
+        }
+        .metaUtmPage .growthHandoffFooter strong {
+          color: #111827;
+          font-size: 0.72rem;
+        }
+        .metaUtmPage .growthHandoffFooter span {
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 800;
+          overflow-wrap: anywhere;
+          line-height: 1.5;
+        }
+        .metaUtmPage .dryRunPanel,
+        .metaUtmPage .bgradePanel {
+          max-width: 1760px;
+          margin: 0 auto 14px;
+          background: #ffffff;
+          border: 1px solid #d8e0ea;
+          border-radius: 8px;
+          padding: 14px;
+        }
+        .metaUtmPage .dryRunPanel {
+          border-left: 4px solid #0f766e;
+        }
+        .metaUtmPage .bgradePanel {
+          border-left: 4px solid #7c3aed;
+        }
+        .metaUtmPage .dryRunImpactGrid,
+        .metaUtmPage .bgradeStatsGrid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .bgradeStatsGrid {
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+        .metaUtmPage .dryRunImpactGrid article,
+        .metaUtmPage .bgradeStatsGrid article {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 11px;
+          display: grid;
+          gap: 5px;
+          align-content: start;
+        }
+        .metaUtmPage .dryRunImpactGrid span,
+        .metaUtmPage .bgradeStatsGrid span {
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .dryRunImpactGrid strong,
+        .metaUtmPage .bgradeStatsGrid strong {
+          color: #111827;
+          font-size: 0.92rem;
+          line-height: 1.35;
+          font-variant-numeric: tabular-nums;
+        }
+        .metaUtmPage .dryRunImpactGrid small,
+        .metaUtmPage .bgradeStatsGrid small {
+          color: #64748b;
+          font-size: 0.66rem;
+          line-height: 1.45;
+          font-weight: 700;
+        }
+        .metaUtmPage .dryRunBucketGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .dryRunBucket {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 10px;
+          display: grid;
+          gap: 6px;
+        }
+        .metaUtmPage .dryRunBucket.yes {
+          border-color: #bbf7d0;
+          background: #f7fef9;
+        }
+        .metaUtmPage .dryRunBucket.review {
+          border-color: #fed7aa;
+          background: #fff7ed;
+        }
+        .metaUtmPage .dryRunBucket.no {
+          border-color: #e2e8f0;
+          background: #f8fafc;
+        }
+        .metaUtmPage .dryRunBucket div {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          align-items: baseline;
+        }
+        .metaUtmPage .dryRunBucket strong {
+          color: #111827;
+          font-size: 0.76rem;
+          line-height: 1.35;
+        }
+        .metaUtmPage .dryRunBucket span {
+          color: #0f766e;
+          font-size: 0.64rem;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .metaUtmPage .dryRunBucket.review span {
+          color: #c2410c;
+        }
+        .metaUtmPage .dryRunBucket.no span {
+          color: #64748b;
+        }
+        .metaUtmPage .dryRunBucket p {
+          margin: 0;
+          color: #475569;
+          font-size: 0.68rem;
+          line-height: 1.55;
+        }
+        .metaUtmPage .dryRunBucket small {
+          color: #64748b;
+          font-size: 0.66rem;
+          font-weight: 800;
+        }
+        .metaUtmPage .dryRunSampleList {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .dryRunSampleList article {
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #ffffff;
+          padding: 9px 10px;
+          display: grid;
+          gap: 5px;
+        }
+        .metaUtmPage .dryRunSampleList div {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          align-items: baseline;
+        }
+        .metaUtmPage .dryRunSampleList strong {
+          color: #111827;
+          font-size: 0.82rem;
+        }
+        .metaUtmPage .dryRunSampleList span {
+          color: #0f766e;
+          font-size: 0.66rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .dryRunSampleList p {
+          margin: 0;
+          color: #475569;
+          font-size: 0.7rem;
+          line-height: 1.5;
+        }
+        .metaUtmPage .dryRunSampleList small {
+          color: #64748b;
+          font-size: 0.66rem;
+          line-height: 1.45;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .dryRunFootnote,
+        .metaUtmPage .bgradeFootnote,
+        .metaUtmPage .bgradeRuleBox {
+          display: grid;
+          gap: 4px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #f8fafc;
+          padding: 8px 10px;
+          color: #64748b;
+          font-size: 0.68rem;
+          font-weight: 800;
+          line-height: 1.5;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .bgradeRuleBox {
+          margin-bottom: 10px;
+          background: #f5f3ff;
+          border-color: #ddd6fe;
+        }
+        .metaUtmPage .bgradeRuleBox strong {
+          color: #4c1d95;
+          font-size: 0.74rem;
+        }
+        .metaUtmPage .bgradeTableWrap {
+          overflow-x: auto;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .bgradeTableWrap table {
+          min-width: 1280px;
+        }
+        .metaUtmPage .aliasCol {
+          width: 260px;
+          min-width: 260px;
+        }
+        .metaUtmPage .bgradeAliasCell,
+        .metaUtmPage .bgradeCampaignCell,
+        .metaUtmPage .bgradeActionCell {
+          display: grid;
+          gap: 3px;
+          min-width: 0;
+        }
+        .metaUtmPage .bgradeAliasCell strong,
+        .metaUtmPage .bgradeCampaignCell strong {
+          color: #111827;
+          font-size: 0.74rem;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .bgradeAliasCell small,
+        .metaUtmPage .bgradeCampaignCell small,
+        .metaUtmPage .bgradeActionCell small {
+          color: #64748b;
+          font-size: 0.64rem;
+          line-height: 1.45;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .bgradeStatus {
+          display: inline-flex;
+          width: fit-content;
+          border: 1px solid #ddd6fe;
+          border-radius: 999px;
+          background: #f5f3ff;
+          color: #6d28d9;
+          padding: 4px 8px;
+          font-size: 0.66rem;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .metaUtmPage .bgradeActionCell span {
+          color: #475569;
+          font-size: 0.68rem;
+          line-height: 1.45;
+          font-weight: 800;
+        }
         .metaUtmPage .sectionPanel {
           max-width: 1760px;
           margin: 0 auto 14px;
@@ -1784,16 +2765,28 @@ export default function MetaUtmPage() {
         @media (max-width: 980px) {
           .metaUtmPage .decisionBanner,
           .metaUtmPage .periodRoasHead,
+          .metaUtmPage .growthHandoffHead,
+          .metaUtmPage .growthNarrativeGrid,
+          .metaUtmPage .growthHandoffBody,
+          .metaUtmPage .growthRankingGuide,
+          .metaUtmPage .dryRunImpactGrid,
+          .metaUtmPage .dryRunBucketGrid,
+          .metaUtmPage .bgradeStatsGrid,
           .metaUtmPage .sectionHeader {
             grid-template-columns: 1fr;
           }
           .metaUtmPage .decisionBanner div:last-child,
           .metaUtmPage .periodRoasStatus,
+          .metaUtmPage .growthHandoffSource,
           .metaUtmPage .sectionStats {
             text-align: left;
             justify-content: flex-start;
           }
-          .metaUtmPage .periodRoasGrid {
+          .metaUtmPage .periodRoasGrid,
+          .metaUtmPage .growthHandoffStats,
+          .metaUtmPage .growthFieldList,
+          .metaUtmPage .growthCaseGrid,
+          .metaUtmPage .dryRunSampleList {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
           .metaUtmPage .unmappedList {
@@ -1801,7 +2794,11 @@ export default function MetaUtmPage() {
           }
         }
         @media (max-width: 640px) {
-          .metaUtmPage .periodRoasGrid {
+          .metaUtmPage .periodRoasGrid,
+          .metaUtmPage .growthHandoffStats,
+          .metaUtmPage .growthFieldList,
+          .metaUtmPage .growthCaseGrid,
+          .metaUtmPage .dryRunSampleList {
             grid-template-columns: 1fr;
           }
         }

@@ -1,0 +1,35 @@
+{
+  "generated_at_kst": "2026-05-24T16:40:58",
+  "source": "GTM API read-only after Production publish",
+  "container_path": "accounts/4703003246/containers/91608400",
+  "live_version_id": "22",
+  "live_version_name": "Coffee Meta InitiateCheckout shop_payment - 20260524T073809Z",
+  "tag_count": 34,
+  "trigger_count": 25,
+  "variable_count": 13,
+  "target_tag_count": 1,
+  "target_trigger_count": 1,
+  "target_tag_id": "99",
+  "target_trigger_ids": [
+    "98"
+  ],
+  "workspace_count": 1,
+  "workspaces": [
+    {
+      "id": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "html_guards": {
+    "has_snippet_version": true,
+    "has_fbq_track": true,
+    "has_shop_payment_guard": true,
+    "has_missing_value_guard": true,
+    "has_facebook_image_fallback": false,
+    "has_fetch": false,
+    "has_sendBeacon": false,
+    "has_subscription_literal": false
+  },
+  "verdict": "PASS_READONLY_POST_PUBLISH"
+}

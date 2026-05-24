@@ -1,0 +1,357 @@
+.page {
+  --bg: #f5f8fb;
+  --panel: #ffffff;
+  --ink: #111827;
+  --muted: #64748b;
+  --line: rgba(148, 163, 184, 0.28);
+  --blue: #3154d4;
+  --green: #0f8a5f;
+  --yellow: #b7791f;
+  --red: #c2413b;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 24px 88px;
+  color: var(--ink);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+
+.hero > div,
+.metaBox,
+.questionPanel,
+.sharePanel,
+.section,
+.pathPanel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
+}
+
+.hero > div {
+  padding: 30px;
+}
+
+.kicker,
+.questionPanel span,
+.sharePanel span,
+.sectionHeader p,
+.pathPanel span,
+.metaBox span,
+.cardTop span,
+.reviewCard span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.hero h1 {
+  margin: 10px 0 14px;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.hero p,
+.questionPanel p,
+.sharePanel p,
+.sectionHeader p,
+.pathPanel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.72;
+  font-size: 0.98rem;
+}
+
+.metaBox {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.metaBox strong {
+  font-size: 1.35rem;
+}
+
+.questionPanel {
+  padding: 22px 26px;
+  margin-bottom: 18px;
+}
+
+.questionPanel strong {
+  display: block;
+  margin: 8px 0;
+  font-size: 1.18rem;
+}
+
+.sharePanel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(420px, 1fr);
+  gap: 20px;
+  align-items: stretch;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.sharePanel h2,
+.sectionHeader h2,
+.pathPanel h2 {
+  margin: 8px 0 10px;
+  font-size: 1.42rem;
+  letter-spacing: 0;
+}
+
+.sharePanel pre {
+  margin: 0;
+  padding: 18px;
+  min-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: #172554;
+  background: #eef4ff;
+  border: 1px solid rgba(49, 84, 212, 0.22);
+  border-radius: 14px;
+  line-height: 1.62;
+  font-size: 0.9rem;
+}
+
+.section {
+  padding: 26px;
+  margin-bottom: 20px;
+}
+
+.sectionHeader {
+  margin-bottom: 18px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.guideCard,
+.stepCard,
+.reviewCard {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
+.guideCard {
+  padding: 20px;
+}
+
+.cardTop {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cardTop h3,
+.stepTitle h3,
+.reviewCard h3 {
+  margin: 0;
+  font-size: 1.04rem;
+}
+
+.guideCard p,
+.guideCard li,
+.stepCard dd,
+.reviewCard dd {
+  color: var(--muted);
+  line-height: 1.64;
+}
+
+.guideCard p {
+  margin: 0 0 12px;
+}
+
+.guideCard ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.stepList {
+  display: grid;
+  gap: 12px;
+}
+
+.stepCard {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 16px;
+  padding: 18px;
+}
+
+.stepNumber {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #ffffff;
+  background: var(--blue);
+  font-weight: 900;
+}
+
+.stepTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.stepTitle span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.laneGreen {
+  color: #047857;
+  background: #dff8ed;
+}
+
+.laneYellow {
+  color: #92400e;
+  background: #fff2c7;
+}
+
+.laneRed {
+  color: #b91c1c;
+  background: #ffe2e0;
+}
+
+.stepCard dl,
+.reviewCard dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.stepCard dt,
+.reviewCard dt {
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.stepCard dd,
+.reviewCard dd {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+}
+
+.pathPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 0.82fr);
+  gap: 18px;
+  align-items: center;
+  padding: 24px;
+  margin-bottom: 20px;
+  border-color: rgba(15, 138, 95, 0.22);
+  background: linear-gradient(180deg, #ffffff, #f4fff9);
+}
+
+.pathPanel code {
+  display: block;
+  padding: 16px;
+  overflow-wrap: anywhere;
+  color: #14532d;
+  background: #eafff2;
+  border: 1px solid rgba(15, 138, 95, 0.2);
+  border-radius: 14px;
+  line-height: 1.55;
+}
+
+.reviewGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.reviewCard {
+  padding: 18px;
+}
+
+.reviewCard h3 {
+  margin: 8px 0 14px;
+}
+
+.reviewCard dl {
+  grid-template-columns: 1fr;
+}
+
+.related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.related a {
+  padding: 10px 14px;
+  color: #1d4ed8;
+  text-decoration: none;
+  background: #eff6ff;
+  border: 1px solid rgba(49, 84, 212, 0.2);
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+@media (max-width: 980px) {
+  .page {
+    padding: 22px 16px 72px;
+  }
+
+  .hero,
+  .sharePanel,
+  .cardGrid,
+  .pathPanel,
+  .reviewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .stepCard dl {
+    grid-template-columns: 1fr;
+  }
+
+  .sharePanel pre {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero > div,
+  .metaBox,
+  .questionPanel,
+  .sharePanel,
+  .section,
+  .pathPanel {
+    border-radius: 14px;
+  }
+
+  .stepCard {
+    grid-template-columns: 1fr;
+  }
+
+  .stepTitle {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

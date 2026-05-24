@@ -1,8 +1,8 @@
 # Coffee Data Lessons
 
-작성 시각: 2026-05-01 15:23 KST  
-상태: v0 observation log  
-목적: 더클린커피 정합성 작업에서 나온 예외와 교훈을 규칙 후보로 모은다  
+작성 시각: 2026-05-01 15:23 KST
+상태: v0 observation log
+목적: 더클린커피 정합성 작업에서 나온 예외와 교훈을 규칙 후보로 모은다
 관련 문서: [[harness/coffee-data/README|Coffee Data Harness]], [[harness/coffee-data/RULES|Coffee Rules]], [[harness/npay-recovery/LESSONS_TO_RULES_SCHEMA|NPay Lessons-to-Rules Schema]]
 
 ## 10초 요약
@@ -31,6 +31,7 @@
 | coffee-lesson-010 | observation | monitoring script (`backend/scripts/coffee-npay-intent-monitoring-report.ts`) 의 test row 필터는 process scope reject_counters 와 ledger row scope 를 분리 못 함. Codex sim 을 enforce_inserted/deduped 카운터에서 제외 안 함 → sprint 안에서 의도된 dedup test 가 EG-3 FAIL 로 보임. 향후 monitoring script 의 sprint scope 분리 필요 | 2026-05-02 sprint 19.2 monitoring 결과 (M-5 50%, EG-3 FAIL) | A-4 publish 후 운영 monitoring 시점에 sprint scope reject_counters 분리 보강. 단 본 lesson 의 publish 전 영향은 작음 (dispatcher chrome 검증 결과로 평가하므로 reject_counters 는 sub) | 0.7 | Codex |
 | coffee-lesson-011 | observation | Coffee Data Harness 의 `AUTONOMY_POLICY.md` (Green/Yellow/Red Lane) 는 sprint 19.2 에서 첫 적용. Yellow Lane 안에서 Codex 가 backend prep + GTM 등록 + Codex sim + cleanup + 보고서 + commit/push 까지 자율 완료 가능. chrome 부분 은 lane 분류 외 (agent 능력 한계) — Yellow Lane 정의 자체에는 영향 없음 | [[harness/coffee-data/AUTONOMY_POLICY]] + 2026-05-02 sprint 19.2 | Yellow Lane sprint 시작 시 agent 능력 (chrome 자동화 불가) 을 사전 확인하고, chrome 단계가 필요하면 partial sprint 명시 + 별도 sprint 분리 | 0.85 | Codex |
 | coffee-lesson-016 | candidate_rule | 정본 가이드라인 사전 read 누락 시 fork 작성 위험. 본 agent (Claude Code) 가 sprint 19~22 진행 시 [[harness/!공통하네스_가이드라인]] (cross-codex 정본 v1) 의 존재 인지 못함 — `harness/coffee-data/AUTONOMY_POLICY.md` 작성이 본 가이드라인의 무자각 fork. lessons schema 도 임의 명명 (`resolved` vs 정본의 `approved_rule`). sprint 23 진입 시점 (2026-05-03) 에 TJ 가 가이드라인 참조 명시 후 발견 | 2026-05-03 sprint 23 진입 시점 — Sprint 22 까지 의 !menu/!aiosagent/!function 작성 시 정본 가이드라인 참조 0 | 신규 sprint 진입 시 가이드라인 §4 Required Context Documents (AGENTS.md / CLAUDE.md / harness/!공통하네스_가이드라인.md / harness/common/) 모두 read 후 진입. AGENTS.md/CLAUDE.md 에 "신규 sprint 진입 시 정본 read 절차" 명시 (별도 Yellow Lane sprint 23.1 후속) | 0.95 | Claude Code |
+| coffee-lesson-017 | candidate_rule | GTM no-send Preview가 `PASS_FINAL_NO_SEND`로 닫힌 뒤 Codex가 운영 반영 승인안과 workspace cleanup 판단을 즉시 작성하지 않고 다음 단계로 남김. 이는 하네스 원칙의 빈틈이 아니라 Execution Momentum Rule / Yellow Lane Sprint Rule 준수 미흡이다 | [[project/coffee-meta-initiatecheckout-gtm-preview-create-result-20260524]] + [[project/coffee-meta-initiatecheckout-production-approval-20260524]] + `data/project/coffee-meta-initiatecheckout-gtm-preview-workspace30-cleanup-20260524T072654Z.json` | Coffee GTM Preview sprint에서 no-send PASS가 나오면 같은 턴에서 (1) Red 운영 승인안, (2) workspace 유지/삭제 판단, (3) backup 후 cleanup, (4) live version unchanged 검증, (5) 다음 승인 문구까지 자동 작성한다. 공통 하네스 변경은 필요 없고, Coffee project-local checklist로 적용한다 | 0.9 | Codex |
 
 ## 승격 기준
 

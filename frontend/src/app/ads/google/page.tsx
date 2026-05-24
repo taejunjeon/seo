@@ -17,6 +17,7 @@ import {
 import GlobalNav from "@/components/common/GlobalNav";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
+const EVIDENCE_JOIN_DISABLED = "internal_real_roas_evidence_join_disabled";
 
 type GoogleAdsRow = {
   date: string;
@@ -829,6 +830,7 @@ export default function GoogleAdsPerformancePage() {
   } | null>(null);
   const [realRoasLoading, setRealRoasLoading] = useState(false);
   const [realRoasError, setRealRoasError] = useState<string | null>(null);
+  const liveSummaryCost = liveData?.summary?.cost ?? 0;
 
   const loadLiveData = useCallback(async () => {
     // gpt0508-53: progress bar — 옛 liveData 는 유지 (0 으로 리셋 금지) · creep 7→92%
@@ -870,8 +872,7 @@ export default function GoogleAdsPerformancePage() {
   // gpt0508-52: evidence-join same-window 진짜 ROAS (paid_google channel)
   useEffect(() => {
     if (parsed) return; // CSV mode 에선 skip
-    const summary = liveData?.summary;
-    if (!summary || summary.cost <= 0) return;
+    if (liveSummaryCost <= 0) return;
     const days = datePreset === "last_7d" ? 7 : datePreset === "last_14d" ? 14 : datePreset === "last_90d" ? 90 : 30;
     const today = new Date();
     const kst = new Date(today.getTime() + 9 * 60 * 60 * 1000);
@@ -881,7 +882,7 @@ export default function GoogleAdsPerformancePage() {
     let cancelled = false;
     setRealRoasLoading(true);
     setRealRoasError(null);
-    fetch(`${API_BASE}/api/ads/internal-real-roas?platform=paid_google&since=${since}&until=${until}&spend_krw=${Math.round(summary.cost)}`)
+    fetch(`${API_BASE}/api/ads/internal-real-roas?platform=paid_google&since=${since}&until=${until}&spend_krw=${Math.round(liveSummaryCost)}`)
       .then(async (r) => {
         const j = (await r.json()) as {
           ok?: boolean;
@@ -909,9 +910,9 @@ export default function GoogleAdsPerformancePage() {
       })
       .finally(() => {
         if (!cancelled) setRealRoasLoading(false);
-      });
+    });
     return () => { cancelled = true; };
-  }, [parsed, liveData?.summary?.cost, datePreset]);
+  }, [parsed, liveSummaryCost, datePreset]);
 
   const csvSummary = useMemo(() => sumRows(parsed?.rows ?? []), [parsed]);
   const csvCampaigns = useMemo(() => groupCampaigns(parsed?.rows ?? []), [parsed]);
@@ -982,6 +983,7 @@ export default function GoogleAdsPerformancePage() {
     : liveRiskyActions.map((row) => ({ action: row.name }));
   const hasPerformanceData = campaigns.length > 0 || daily.length > 0;
   const sourceLabel = parsed ? "CSV 합계" : liveData ? "Google Ads API live" : liveLoading ? "API 조회 중" : "대기";
+  const realRoasJoinDisabled = realRoasError === EVIDENCE_JOIN_DISABLED;
 
   const handleFile = async (file: File | null) => {
     if (!file) return;
@@ -1335,12 +1337,22 @@ export default function GoogleAdsPerformancePage() {
         {!parsed && (
           <div style={{
             marginBottom: 16, padding: "12px 16px",
-            background: realRoasError ? "#fef2f2" : realRoas ? "#ecfdf5" : "#f1f5f9",
-            border: realRoasError ? "1px solid #fecaca" : realRoas ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
-            borderRadius: 10, fontSize: "0.78rem", color: realRoasError ? "#991b1b" : realRoas ? "#065f46" : "#475569",
+            background: realRoasJoinDisabled ? "#eff6ff" : realRoasError ? "#fef2f2" : realRoas ? "#ecfdf5" : "#f1f5f9",
+            border: realRoasJoinDisabled ? "1px solid #bfdbfe" : realRoasError ? "1px solid #fecaca" : realRoas ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
+            borderRadius: 10, fontSize: "0.78rem", color: realRoasJoinDisabled ? "#1e40af" : realRoasError ? "#991b1b" : realRoas ? "#065f46" : "#475569",
           }}>
-            {realRoasLoading ? "evidence-join 동일 윈도우 paid_google 매출 산출 중… (최대 90초)" :
-              realRoasError ? `⚠️ evidence-join 실패: ${realRoasError}` :
+            {realRoasLoading ? "주문별 Google 클릭 연결을 계산하는 중… (최대 90초)" :
+              realRoasJoinDisabled ? (
+                <>
+                  <strong>주문별 세부 연결 계산은 실시간 화면에서 꺼져 있습니다.</strong>{" "}
+                  이 상태는 장애가 아닙니다. 요청이 느려지는 것을 막기 위해 무거운 주문-클릭 연결 계산만 막아두었고,
+                  위의 내부 확정매출과 내부 ROAS는 가벼운 요약 원장 기준으로 정상 표시 중입니다.
+                  <span style={{ display: "block", marginTop: 4, fontSize: "0.7rem", color: "#2563eb" }}>
+                    주문번호별 클릭 증거 확인은 별도 진단 화면이나 read-only 조회로 진행합니다.
+                  </span>
+                </>
+              ) :
+              realRoasError ? `⚠️ 주문별 연결 계산 조회 실패: ${realRoasError}` :
               realRoas ? (
                 <>
                   <strong>✓ 진짜 ROAS (evidence-join · 동일 윈도우)</strong>{" "}
@@ -1500,8 +1512,8 @@ export default function GoogleAdsPerformancePage() {
           <div style={{ display: "grid", gap: 16 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 16 }}>
               <Panel title="일별 ROAS">
-                <div style={{ height: 280 }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                <div style={{ width: "100%", minWidth: 0, minHeight: 280, height: 280 }}>
+                  <ResponsiveContainer width="100%" height={280} minWidth={1} minHeight={1}>
                     <LineChart data={daily}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} />
@@ -1513,8 +1525,8 @@ export default function GoogleAdsPerformancePage() {
                 </div>
               </Panel>
               <Panel title="캠페인별 비용">
-                <div style={{ height: 280 }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                <div style={{ width: "100%", minWidth: 0, minHeight: 280, height: 280 }}>
+                  <ResponsiveContainer width="100%" height={280} minWidth={1} minHeight={1}>
                     <BarChart data={campaigns.slice(0, 8)}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                       <XAxis dataKey="campaignName" tick={{ fontSize: 10 }} interval={0} height={64} />

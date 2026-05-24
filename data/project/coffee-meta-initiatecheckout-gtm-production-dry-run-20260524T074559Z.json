@@ -1,0 +1,50 @@
+{
+  "generated_at_kst": "2026-05-24T16:46:03",
+  "run_id": "20260524T074559Z",
+  "mode": "dry_run",
+  "approval": {
+    "approved_by": "TJ",
+    "approved_scope": "Coffee GTM-5M33GC4 /shop_payment/ Meta browser InitiateCheckout fresh workspace Preview then Production publish"
+  },
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "91608400",
+    "public_id": "GTM-5M33GC4",
+    "path": "accounts/4703003246/containers/91608400"
+  },
+  "live_before": {
+    "container_version_id": "22",
+    "name": "Coffee Meta InitiateCheckout shop_payment - 20260524T073809Z"
+  },
+  "expected_live_version_id": "22",
+  "workspace_before_count": 1,
+  "workspaces_before": [
+    {
+      "id": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "default_workspace_status": {
+    "workspace_change_count": 0,
+    "merge_conflict_count": 0,
+    "changes": [],
+    "conflicts": []
+  },
+  "duplicate_live_tag_count": 1,
+  "planned": {
+    "workspace_name": "codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T074559Z",
+    "tag_name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+    "trigger_name": "AGENTSOS - [DOM Ready] shop_payment order only",
+    "version_name": "Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074559Z",
+    "excludes_subscription": true,
+    "update_existing": true,
+    "excludes_complete_pages": true,
+    "no_purchase": true,
+    "no_meta_capi_enable": true,
+    "no_ga4_mp": true,
+    "no_google_ads": true,
+    "no_naver_tiktok": true,
+    "no_db_write": true
+  }
+}

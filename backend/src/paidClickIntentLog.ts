@@ -147,7 +147,11 @@ export type PaidClickIntentPreview = {
   ga_session_id: string;
   local_session_id: string;
   sanitized_landing_url: string;
+  sanitized_current_url?: string;
   sanitized_referrer: string;
+  google_campaign_id?: string;
+  gad_campaignid?: string;
+  gad_source?: string;
   member_code?: string;
 };
 
@@ -191,12 +195,19 @@ const normalizeGoogleCampaignId = (value: string) => {
   return /^\d{6,}$/.test(trimmed) ? trimmed.slice(0, 32) : "";
 };
 
-const buildAllowedQueryJson = (preview: PaidClickIntentPreview) => {
+export const buildPaidClickIntentAllowedQueryJson = (preview: PaidClickIntentPreview) => {
   const allowed: Record<string, string> = {};
   const googleCampaignId = normalizeGoogleCampaignId(
-    extractUrlParam(preview.sanitized_landing_url, "gad_campaignid"),
+    preview.gad_campaignid
+      || preview.google_campaign_id
+      || extractUrlParam(preview.sanitized_landing_url, "gad_campaignid")
+      || extractUrlParam(preview.sanitized_current_url ?? "", "gad_campaignid"),
   );
-  const gadSource = extractUrlParam(preview.sanitized_landing_url, "gad_source").slice(0, 32);
+  const gadSource = (
+    preview.gad_source
+      || extractUrlParam(preview.sanitized_landing_url, "gad_source")
+      || extractUrlParam(preview.sanitized_current_url ?? "", "gad_source")
+  ).slice(0, 32);
   if (googleCampaignId) allowed.gad_campaignid = googleCampaignId;
   if (gadSource) allowed.gad_source = gadSource;
   if (preview.utm.source) allowed.utm_source = preview.utm.source;
@@ -313,7 +324,7 @@ export const recordPaidClickIntent = (
   const landingPath = extractPath(preview.sanitized_landing_url);
   const referrerHost = extractHost(preview.sanitized_referrer);
   const expiresAt = computeExpiresAt(preview.captured_at);
-  const allowedQueryJson = buildAllowedQueryJson(preview);
+  const allowedQueryJson = buildPaidClickIntentAllowedQueryJson(preview);
 
   const existing = selectByDedupeKey(db, preview.dedupe_key);
   if (existing) {

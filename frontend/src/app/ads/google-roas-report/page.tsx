@@ -184,10 +184,42 @@ type GoogleAdsDashboardResponse = {
   googleCampaignMatchHealth?: GoogleCampaignMatchHealth;
   conversionActionSegments?: {
     summary: {
+      primaryConversionValue: number;
+      allConversionValue: number;
+      platformMinusInternalConfirmed: number;
       primaryKnownNpayConversionValue: number;
       primaryKnownNpayShareOfPlatform: number | null;
       allConversionValueMinusInternalConfirmed: number;
+      knownNpayAllOnlyConversionValue?: number;
+      nonPurchasePrimaryConversionValue?: number;
+      gapAfterRemovingKnownNpayPrimary?: number;
     };
+    actions: Array<{
+      conversionActionId: string | null;
+      conversionActionName: string;
+      conversions: number;
+      conversionValue: number;
+      allConversions: number;
+      allConversionValue: number;
+      viewThroughConversions: number;
+      status: string;
+      category: string;
+      primaryForGoal: boolean;
+      countingType: string;
+      classification: string;
+      riskFlags: string[];
+      campaignCount: number;
+      shareOfPlatformConversionValue: number | null;
+    }>;
+    gapDrivers: Array<{
+      key: string;
+      label: string;
+      value: number;
+      shareOfPlatformConversionValue: number | null;
+      confidence: "high" | "medium-high" | "medium";
+      evidence: string;
+      nextAction: string;
+    }>;
   };
 };
 
@@ -235,30 +267,30 @@ const fallbackSnapshots: Record<DatePreset, {
 }> = {
   last_7d: {
     label: "최근 7일",
-    platformRoas: 7.53,
-    internalRoas: 0.26,
-    internalWithNpayRoas: 1.85,
-    platformValue: 36893320,
+    platformRoas: 10.04,
+    internalRoas: 0.37,
+    internalWithNpayRoas: 2.58,
+    platformValue: 35268162,
     internalRevenue: 1285627,
     npayRevenue: 7771000,
-    cost: 4900565,
-    source: "VM Cloud live API snapshot, 2026-05-20 16:13 KST",
+    cost: 3512212,
+    source: "VM Cloud live API snapshot, 2026-05-24 00:59 KST",
     clickIdHealth: {
-      generatedAt: "2026-05-20 18:40 KST",
-      orderCount: 475,
-      withGoogleClickId: 9,
-      missingGoogleClickId: 466,
-      preservationRate: 0.0189,
+      generatedAt: "2026-05-23T13:55:31.117Z",
+      orderCount: 464,
+      withGoogleClickId: 5,
+      missingGoogleClickId: 459,
+      preservationRate: 0.0108,
       uploadCandidateCount: 0,
-      source: "VM Cloud SQLite + 운영DB no-send dry-run snapshot",
+      source: "VM Cloud public dashboard API snapshot",
       blockReasonCounts: {
-        missingAttributionVmEvidence: 90,
+        missingAttributionVmEvidence: 107,
       },
       paymentMethodBreakdown: [
-        { paymentMethod: "homepage", orders: 445, withGoogleClickId: 6, missingGoogleClickId: 439, preservationRate: 0.0135 },
-        { paymentMethod: "npay", orders: 30, withGoogleClickId: 3, missingGoogleClickId: 27, preservationRate: 0.1 },
+        { paymentMethod: "homepage", orders: 439, withGoogleClickId: 5, missingGoogleClickId: 434, preservationRate: 0.0114 },
+        { paymentMethod: "npay", orders: 25, withGoogleClickId: 0, missingGoogleClickId: 25, preservationRate: 0 },
       ],
-      clickIdBreakdown: { gclid: 9, gbraid: 4, wbraid: 1 },
+      clickIdBreakdown: { gclid: 5, gbraid: 2, wbraid: 0 },
     },
   },
   last_30d: {
@@ -270,23 +302,23 @@ const fallbackSnapshots: Record<DatePreset, {
     internalRevenue: 5899827,
     npayRevenue: 41297700,
     cost: 21265019,
-    source: "VM Cloud live API snapshot, 2026-05-20 16:13 KST",
+    source: "VM Cloud live API snapshot, 2026-05-23 22:55 KST",
     clickIdHealth: {
-      generatedAt: "2026-05-20 18:40 KST",
-      orderCount: 2260,
-      withGoogleClickId: 39,
-      missingGoogleClickId: 2221,
-      preservationRate: 0.0173,
+      generatedAt: "2026-05-23T13:55:54.559Z",
+      orderCount: 2244,
+      withGoogleClickId: 16,
+      missingGoogleClickId: 2228,
+      preservationRate: 0.0071,
       uploadCandidateCount: 0,
-      source: "VM Cloud SQLite + 운영DB no-send dry-run snapshot",
+      source: "VM Cloud public dashboard API snapshot",
       blockReasonCounts: {
-        missingAttributionVmEvidence: 472,
+        missingAttributionVmEvidence: 592,
       },
       paymentMethodBreakdown: [
-        { paymentMethod: "homepage", orders: 2089, withGoogleClickId: 21, missingGoogleClickId: 2068, preservationRate: 0.0101 },
-        { paymentMethod: "npay", orders: 171, withGoogleClickId: 18, missingGoogleClickId: 153, preservationRate: 0.1053 },
+        { paymentMethod: "homepage", orders: 2079, withGoogleClickId: 16, missingGoogleClickId: 2063, preservationRate: 0.0077 },
+        { paymentMethod: "npay", orders: 165, withGoogleClickId: 0, missingGoogleClickId: 165, preservationRate: 0 },
       ],
-      clickIdBreakdown: { gclid: 39, gbraid: 15, wbraid: 1 },
+      clickIdBreakdown: { gclid: 16, gbraid: 11, wbraid: 1 },
     },
   },
 };
@@ -429,21 +461,22 @@ const phasePlan = [
     phase: "Phase 1",
     sprint: "Sprint 1",
     title: "신규 Google 클릭 row가 어떤 파라미터를 들고 들어오는지 확인",
-    status: "기준 분리 완료",
-    progress: 70,
+    status: "클릭 단계 수집 확인",
+    progress: 86,
     tone: "warn",
-    why: "백엔드 allowlist를 배포했더라도 실제 Google 클릭 URL에 gad_campaignid가 붙지 않으면 캠페인별 ROAS를 정확히 나눌 수 없습니다.",
-    cadence: "신규 배포 또는 실제 광고 클릭 후 T+30분, T+2시간, T+24시간에만 재조회합니다. 24시간 동안 0건이면 단순 대기 종료입니다.",
+    why: "이 일은 Google 광고 클릭이 실제로 어떤 증거를 남기는지 보는 단계입니다. gclid/gbraid/wbraid는 Google Ads에 다시 붙일 수 있는 클릭 식별자이고, gad_campaignid는 어느 캠페인에서 온 클릭인지 나누는 번호입니다. 둘이 같은 row에 남아야 캠페인별 내부 ROAS를 믿고 쪼갤 수 있습니다.",
+    cadence: "배포나 실제 광고 클릭 후 T+30분, T+2시간, T+24시간에만 재조회합니다. 계속 감시하려는 것이 아니라 `클릭 URL 파라미터가 들어오나`, `그 값이 결제 단계까지 이어지나`, `캠페인 ID가 Google Ads 캠페인 목록과 맞나`를 순서대로 판정하기 위해서입니다.",
     steps: [
-      "VM Cloud site_landing_ledger와 paid_click_intent_ledger에서 배포 이후 Google 클릭 row 수를 셉니다.",
-      "각 row의 raw_url/query_params에 gclid, gbraid, wbraid, gad_campaignid가 함께 남았는지 봅니다.",
-      "대시보드 API last_7d, last_30d를 다시 불러 campaign id coverage가 올라갔는지 확인합니다.",
+      "고객 유입 장부(site_landing_ledger)에서 실제 랜딩 URL에 gclid/gbraid/wbraid와 gad_campaignid/gad_source가 함께 남는지 셉니다. 이것은 광고 클릭이 사이트 첫 진입에서 보존되는지 보는 지표입니다.",
+      "유료 클릭 의도 장부(paid_click_intent_ledger)에서 같은 파라미터가 allowed query로 저장되는지 봅니다. 이것은 GTM/아임웹 태그가 클릭 직후 파라미터를 놓치지 않는지 보는 지표입니다.",
+      "결제완료 장부(attribution_ledger payment_success confirmed)에서 같은 캠페인 ID가 주문까지 남는지 봅니다. 이것은 예산 판단용 ROAS에 쓸 수 있는 주문 단계 증거입니다.",
+      "Google Ads 캠페인 목록과 gad_campaignid를 대조해 `번호는 있는데 캠페인명을 못 찾는 row`를 분리합니다. 이름이 안 붙는 row는 예산 증액 근거가 아니라 매핑 보강 대상입니다.",
     ],
-    success: "배포 이후 신규 Google 클릭 중 gad_campaignidRows가 1건 이상이고, 같은 row에 gclid 또는 gbraid/wbraid가 함께 남습니다.",
-    currentResult: "2026-05-21 13:16 KST 실클릭 확인: site_landing과 attribution에는 campaign id와 click id가 남았습니다. paid_click_intent exact row만 별도 miss입니다.",
-    nextDecision: "예산 판단용 ROAS는 site_landing + attribution 기준으로 보고, paid_click_intent는 태그 진단 health로 분리합니다.",
+    success: "클릭 단계에서는 신규 Google click id row의 85% 이상이 gad_campaignid를 함께 가져오고, 주문 단계에서는 confirmed payment_success row에도 같은 증거가 남아야 합니다. 클릭 단계만 통과하면 수집은 성공이지만 ROAS 전송 후보는 아닙니다.",
+    currentResult: "2026-05-23 23:02 KST read-only 확인: 5월 21일 21:15 이후 고객 유입 장부는 Google click id 2,857건 중 gad_campaignid 2,751건(96.29%), 유료 클릭 의도 장부는 2,927건 중 2,901건(99.11%)입니다. 클릭 단계 수집은 정상으로 봅니다.",
+    nextDecision: "다음 병목은 주문 단계입니다. 같은 기간 결제완료 129건 중 주문 기준 click id 보존은 0건이라, Google Ads upload 후보는 계속 0건으로 두고 payment_success exact evidence 연결을 먼저 보강해야 합니다.",
     owner: "Codex",
-    evidence: "VM Cloud SQLite read-only + /api/google-ads/dashboard",
+    evidence: "VM Cloud SQLite read-only + /api/google-ads/dashboard · raw click id/order id 미출력",
   },
   {
     phase: "Phase 1",
@@ -548,18 +581,19 @@ const keyResults = [
     id: "KR3",
     title: "실제 결제완료 전환 후보가 no-send로 검증된다",
     targetPct: 60,
-    currentPct: 15,
-    status: "재실행 완료",
+    currentPct: 35,
+    status: "A급 후보 확인",
     owner: "Codex",
-    actionPlan: "ConfirmedPurchasePrep을 click id 보존 개선 뒤 반복하고, structurally eligible 후보가 생기는지 봅니다.",
+    actionPlan: "NPay A급 match 13건을 영구 exact evidence snapshot으로 고정하고, 그 뒤 observed conversion payload preview로 넘어갑니다.",
     conditions: [
       "후보 정의: 홈페이지와 NPay 실제 결제완료 주문만 포함해야 합니다.",
       "연결 근거: 각 후보에 gclid/gbraid/wbraid 또는 Google Ads가 인정할 click id가 있어야 합니다.",
       "중복 방지: order_id, 결제완료 시각, 금액 기반 dedupe key가 안정적이어야 합니다.",
+      "영구 evidence: matcher version, 기준 window, GA4 guard status, block reason이 append-only snapshot에 남아야 합니다.",
       "전송 전제: conversion action 생성, upload 승인, consent 정책 확인 전 send_candidate는 0건이어야 합니다.",
     ],
-    why: "실제 결제완료 주문만 Google Ads에 보낼 후보로 삼으려면 주문마다 click id와 중복 방지 근거가 있어야 합니다. no-send 재실행은 외부 전송 없이 후보 품질을 먼저 검증해, 보낼 수 없는 주문과 보낼 수 있는 주문을 안전하게 가릅니다.",
-    evidence: "2026-05-21 no-send: payment_complete_candidates 623, with_google_click_id 5, structurally_eligible 0",
+    why: "실제 결제완료 주문만 Google Ads에 보낼 후보로 삼으려면 주문마다 click id, 주문 연결, GA4 중복 방지 근거가 있어야 합니다. A급 후보가 생겼더라도 영구 장부에 고정되기 전에는 운영 기준 전환으로 쓰면 안 됩니다.",
+    evidence: "2026-05-23 matcher: A급 13건, GA4 present 0 / robust_absent 26, 영구 snapshot 0건",
     tone: "warn",
   },
   {
@@ -672,6 +706,280 @@ const activeReadOnlyWork = [
   },
 ] as const;
 
+const exactEvidenceReadiness = {
+  checkedAtKst: "2026-05-23 21:50 KST",
+  source: "VM Cloud SQLite read-only matcher + 운영DB 주문 read-only + GA4 BigQuery robust guard",
+  window: "2026-05-16부터 2026-05-23까지",
+  statusLabel: "영구 반영 전",
+  statusTone: "hold",
+  plainDecision:
+    "실제 NPay 결제완료 주문과 Google 클릭 의도가 붙는 강한 후보는 생겼습니다. 하지만 아직 내부 장부에 영구 evidence로 고정하지 않았기 때문에 Google Ads 전송이나 Primary 전환 판단에는 쓰지 않습니다.",
+  npayIntentRows: 340,
+  npayConfirmedOrders: 25,
+  strongMatch: 19,
+  gradeAMatch: 13,
+  gradeBMatch: 6,
+  ambiguous: 6,
+  clickedNoPurchase: 296,
+  gradeAAmountKrw: 1956900,
+  ga4CheckedIds: 26,
+  ga4Present: 0,
+  ga4RobustAbsent: 26,
+  permanentSnapshotRows: 0,
+  uploadCandidateCount: 0,
+  nextAction:
+    "다음 단계는 A급 13건만 append-only exact evidence snapshot으로 남기는 것입니다. 이 작업은 VM Cloud schema/write라 TJ님 승인 전 실행하지 않습니다.",
+  interpretationSteps: [
+    {
+      label: "클릭",
+      state: "Google 클릭은 들어오고 있음",
+      detail: "clicked no purchase 296건 중 다수는 gclid+fbp 조합입니다. 클릭 유입 자체는 존재합니다.",
+    },
+    {
+      label: "결제 완료",
+      state: "NPay 실제 결제완료 주문이 있음",
+      detail: "7일 기준 NPay 실제 결제완료 주문 25건이 확인됐습니다. NPay actual은 실제 매출로 포함해야 합니다.",
+    },
+    {
+      label: "주문 연결",
+      state: "A급 exact 후보 13건",
+      detail: "임시 matcher 기준으로 강한 후보 13건, 금액 1,956,900원이 잡혔습니다. B급 6건과 ambiguous 6건은 보류합니다.",
+    },
+    {
+      label: "중복 방지",
+      state: "GA4 중복 흔적 없음",
+      detail: "주문 ID 후보 26개를 GA4 raw에서 조회했고 present 0, robust_absent 26입니다.",
+    },
+    {
+      label: "운영 반영",
+      state: "아직 장부 고정 전",
+      detail: "영구 snapshot row는 0건입니다. 승인 전 Google Ads upload 후보도 0건으로 유지합니다.",
+    },
+  ],
+} as const;
+
+const postPatchClickIdHealth = {
+  checkedAtKst: "2026-05-24 13:09 KST",
+  patchStartedAtKst: "2026-05-21 21:15 KST",
+  source: "VM Cloud SQLite + 운영DB tb_iamweb_users read-only",
+  confidence: "클릭 row 수집은 높음, payment_success confirmed 직접 보존은 0건입니다. same GA session 후보는 upload 후보가 아니라 진단용으로만 봅니다.",
+  clickStage: {
+    siteLanding: {
+      label: "고객 유입 장부",
+      googleClickIdRows: 2865,
+      gadCampaignIdRows: 2759,
+      gadSourceRows: 2759,
+      gclidRows: 2863,
+      gbraidRows: 152,
+      wbraidRows: 2,
+      coverageRate: 0.9630,
+      why: "광고 클릭 직후 URL 파라미터가 사이트 첫 진입에서 사라지지 않는지 확인합니다.",
+    },
+    paidClickIntent: {
+      label: "유료 클릭 의도 장부",
+      googleClickIdRows: 2935,
+      gadCampaignIdRows: 2909,
+      gadSourceRows: 2909,
+      gclidRows: 2933,
+      gbraidRows: 1,
+      wbraidRows: 1,
+      coverageRate: 0.9911,
+      why: "GTM/아임웹 태그가 클릭 직후 허용 파라미터를 저장했는지 확인합니다.",
+    },
+    attributionLedger: {
+      label: "결제완료 장부",
+      googleClickIdEvidenceRows: 0,
+      gadCampaignIdRows: 0,
+      confirmedPaymentSuccessRows: 141,
+      confirmedRowsWithGadCampaignId: 0,
+      why: "실제 결제완료 신호에 click id가 직접 남는지 확인합니다. 여기서 0이면 Google Ads upload 후보가 아닙니다.",
+    },
+  },
+  orderStage: {
+    orderCount: 141,
+    totalValueKrw: null,
+    withGoogleClickId: 0,
+    missingGoogleClickId: 141,
+    preservationRate: 0,
+    priorSameGaSessionRows: 1,
+    strictSameSessionAndClientRows: 0,
+    invalidAfterSameClientRows: 1,
+    uploadCandidateCount: 0,
+    clickIdBreakdown: { gclid: 0, gbraid: 0, wbraid: 0 },
+    evidenceCounts: {
+      ledgerEvidence: 107,
+      intentEvidence: 0,
+      missingAttributionVmEvidence: 34,
+    },
+    paymentMethodBreakdown: [
+      { paymentMethod: "homepage" as const, orders: 138, withGoogleClickId: 0, preservationRate: 0 },
+      { paymentMethod: "npay" as const, orders: 3, withGoogleClickId: 0, preservationRate: 0 },
+    ],
+  },
+  evidenceGrades: [
+    {
+      grade: "A",
+      label: "직접 보존",
+      count: 0,
+      description: "confirmed 결제완료 row에 gclid/gbraid/wbraid가 직접 남은 경우입니다. Google Ads upload 가능 후보의 최소 출발점입니다.",
+      upload: "가능 후보",
+    },
+    {
+      grade: "B",
+      label: "같은 GA 세션 + 같은 client id",
+      count: 0,
+      description: "결제 전 click과 결제완료가 같은 GA 세션과 client id로 동시에 붙은 경우입니다. 내부 분석용 강한 후보지만 upload는 보류합니다.",
+      upload: "보류",
+    },
+    {
+      grade: "C",
+      label: "같은 GA 세션만 일치",
+      count: 1,
+      description: "결제 1.3분 전 같은 GA 세션에서 gclid가 보인 경우입니다. client id 엄격 일치가 없어 원인 진단용으로만 씁니다.",
+      upload: "불가",
+    },
+  ],
+  decision:
+    "5월 21일 밤 보강 이후 클릭 단계는 정상화됐지만, confirmed 결제완료 직접 보존률은 아직 0%입니다. 같은 GA 세션 후보 1건은 원인 진단에는 쓰되 Google Ads upload 후보로 승격하지 않습니다.",
+} as const;
+
+const googlePurchaseClaimAudit = {
+  checkedAtKst: "2026-05-24 KST",
+  googleAdsAction: {
+    actionId: "7130249515",
+    actionName: "구매완료",
+    simpleName: "Google Ads 주장 구매",
+    primaryMeaning: "Primary 전환=Google Ads가 입찰 학습에 쓰는 핵심 구매 신호",
+    sendTo: "AW-304339096/r0vuCKvy-8caEJixj5EB",
+    type: "WEBPAGE / WEBPAGE_ONCLICK",
+    category: "PURCHASE",
+  },
+  siteEvidence: [
+    {
+      label: "아임웹 live HTML",
+      finding:
+        "상품 상세 페이지 HTML에 `GOOGLE_ADWORDS_TRACE.setUseNpayCount(true, ...)`가 있고, 이 값이 Google Ads `구매완료` send_to 라벨과 일치합니다.",
+    },
+    {
+      label: "GTM live v145",
+      finding:
+        "GTM live에는 `r0vu...` Primary 라벨 태그가 아니라, NPay 링크 클릭용 `TechSol - [GAds]NPAY구매` Secondary 태그와 NPay/GA4 관련 태그가 보입니다.",
+    },
+    {
+      label: "운영 원장",
+      finding:
+        "2026-05-21 21:15 KST 보강 이후 confirmed 결제완료 114건 중 Google click id가 직접 남은 주문은 0건입니다.",
+    },
+  ],
+  decision:
+    "`구매완료`라는 이름만 보고 실제 구매로 읽으면 안 됩니다. 현재 보고서에서는 Google Ads 주장 구매로 분리하고, 내부 실제 결제완료와 따로 비교합니다.",
+  confirmedOnlyPlan:
+    "기존 `구매완료` Primary는 바로 건드리지 않고, 실제 결제완료 주문만 후보로 세는 no-send dry-run 통로를 계속 준비합니다.",
+} as const;
+
+const fallbackConversionActionSegments: Record<DatePreset, NonNullable<GoogleAdsDashboardResponse["conversionActionSegments"]>> = {
+  last_7d: {
+    summary: {
+      primaryConversionValue: 35268162.06,
+      allConversionValue: 70877550.13,
+      platformMinusInternalConfirmed: 35268162.06,
+      primaryKnownNpayConversionValue: 35268160.06,
+      primaryKnownNpayShareOfPlatform: 1,
+      allConversionValueMinusInternalConfirmed: 70877550.13,
+      knownNpayAllOnlyConversionValue: 35601091.99,
+      nonPurchasePrimaryConversionValue: 2,
+      gapAfterRemovingKnownNpayPrimary: 2,
+    },
+    actions: [
+      {
+        conversionActionId: "7130249515",
+        conversionActionName: "구매완료",
+        conversions: 228.45,
+        conversionValue: 35268160.06,
+        allConversions: 229.45,
+        allConversionValue: 35513160.06,
+        viewThroughConversions: 1,
+        status: "ENABLED",
+        category: "PURCHASE",
+        primaryForGoal: true,
+        countingType: "MANY_PER_CLICK",
+        classification: "primary_known_npay",
+        riskFlags: ["known_npay_label", "primary_bid_signal_is_npay"],
+        campaignCount: 4,
+        shareOfPlatformConversionValue: 1,
+      },
+      {
+        conversionActionId: "995043268",
+        conversionActionName: "[G4] biocom.kr (web) sign_up",
+        conversions: 2,
+        conversionValue: 2,
+        allConversions: 3,
+        allConversionValue: 3,
+        viewThroughConversions: 0,
+        status: "ENABLED",
+        category: "SIGNUP",
+        primaryForGoal: true,
+        countingType: "UNKNOWN",
+        classification: "non_revenue_action",
+        riskFlags: ["non_revenue_primary_value"],
+        campaignCount: 2,
+        shareOfPlatformConversionValue: 0,
+      },
+    ],
+    gapDrivers: [],
+  },
+  last_30d: {
+    summary: {
+      primaryConversionValue: 219547012.62,
+      allConversionValue: 423132609.16,
+      platformMinusInternalConfirmed: 218218012.62,
+      primaryKnownNpayConversionValue: 219546992.2,
+      primaryKnownNpayShareOfPlatform: 1,
+      allConversionValueMinusInternalConfirmed: 421803609.16,
+      knownNpayAllOnlyConversionValue: 203541536.49,
+      nonPurchasePrimaryConversionValue: 20.42,
+      gapAfterRemovingKnownNpayPrimary: -1328979.58,
+    },
+    actions: [
+      {
+        conversionActionId: "7130249515",
+        conversionActionName: "구매완료",
+        conversions: 2105.34,
+        conversionValue: 219546992.2,
+        allConversions: 2119.34,
+        allConversionValue: 222397999.2,
+        viewThroughConversions: 15,
+        status: "ENABLED",
+        category: "PURCHASE",
+        primaryForGoal: true,
+        countingType: "UNKNOWN",
+        classification: "primary_known_npay",
+        riskFlags: ["known_npay_label", "primary_bid_signal_is_npay"],
+        campaignCount: 6,
+        shareOfPlatformConversionValue: 1,
+      },
+      {
+        conversionActionId: "7564830949",
+        conversionActionName: "TechSol - NPAY구매 50739",
+        conversions: 0,
+        conversionValue: 0,
+        allConversions: 1942.93,
+        allConversionValue: 200690529.49,
+        viewThroughConversions: 0,
+        status: "ENABLED",
+        category: "PURCHASE",
+        primaryForGoal: false,
+        countingType: "UNKNOWN",
+        classification: "secondary_known_npay",
+        riskFlags: ["known_npay_label", "all_conversions_only_value"],
+        campaignCount: 6,
+        shareOfPlatformConversionValue: 0,
+      },
+    ],
+    gapDrivers: [],
+  },
+};
+
 const formatKrw = (value: number | null | undefined) => {
   if (typeof value !== "number" || !Number.isFinite(value)) return "-";
   const rounded = Math.round(value);
@@ -699,6 +1007,24 @@ const paymentMethodLabel = (value: "homepage" | "npay" | "unknown") => {
   if (value === "homepage") return "자사몰";
   if (value === "npay") return "NPay";
   return "미분류";
+};
+
+const conversionClassificationLabel = (value: string) => {
+  if (value === "primary_known_npay") return "Primary NPay 의심";
+  if (value === "secondary_known_npay") return "Secondary NPay";
+  if (value === "primary_purchase") return "Primary 구매";
+  if (value === "secondary_purchase") return "Secondary 구매";
+  if (value === "non_revenue_action") return "비매출 행동";
+  if (value === "other_primary") return "기타 Primary";
+  return "기타 Secondary";
+};
+
+const riskFlagLabel = (value: string) => {
+  if (value === "known_npay_label") return "NPay label";
+  if (value === "primary_bid_signal_is_npay") return "입찰 학습 신호";
+  if (value === "all_conversions_only_value") return "All conv. 전용";
+  if (value === "non_revenue_primary_value") return "비매출 Primary";
+  return value;
 };
 
 const campaignMatchStatusLabel = (status: GoogleCampaignMatchHealth["summary"]["status"]) => {
@@ -852,12 +1178,31 @@ function makeSnapshot(preset: DatePreset, response: GoogleAdsDashboardResponse |
   };
 }
 
+const shouldUseClickIdHealthFallback = (health?: GoogleAdsDashboardResponse["clickIdHealth"]) => {
+  if (!health) return true;
+  const isLocalBackend = API_BASE.includes("localhost") || API_BASE.includes("127.0.0.1");
+
+  /*
+    Local backend can have the operational order denominator without the VM Cloud
+    SQLite evidence rows. In that case it returns a false 0% card while the public
+    VM Cloud dashboard has current evidence. Use the verified VM Cloud snapshot
+    only for that local evidence-gap shape.
+  */
+  return Boolean(
+    isLocalBackend
+      && health.orderCount > 0
+      && health.withGoogleClickId === 0
+      && health.blockReasonCounts.missingAttributionVmEvidence >= health.orderCount,
+  );
+};
+
 function snapshotMetrics(snapshot: Snapshot) {
   const fallback = fallbackSnapshots[snapshot.preset];
   const response = snapshot.response;
   const googleCampaignMatchHealth = shouldUseCampaignMatchFallback(response?.googleCampaignMatchHealth)
     ? fallbackCampaignMatchHealth[snapshot.preset]
     : response?.googleCampaignMatchHealth ?? fallbackCampaignMatchHealth[snapshot.preset];
+  const useClickIdFallback = shouldUseClickIdHealthFallback(response?.clickIdHealth);
   return {
     label: snapshot.label,
     fetchedAt: response?.fetchedAt,
@@ -871,10 +1216,11 @@ function snapshotMetrics(snapshot: Snapshot) {
     npayCount: response?.npayActualCorrection?.npayActualConfirmedPgCount,
     uploadCandidateCount: response?.npayActualCorrection?.uploadCandidateCount ?? 0,
     nPayShare: response?.conversionActionSegments?.summary.primaryKnownNpayShareOfPlatform ?? 1,
+    conversionActionSegments: response?.conversionActionSegments ?? fallbackConversionActionSegments[snapshot.preset],
     campaignCoverage: response?.internal?.summary.campaignIdCoverage,
     unknownCampaignOrders: response?.internal?.summary.unknownCampaignOrders,
     source: response ? "VM Cloud live API" : fallback.source,
-    clickIdHealth: response?.clickIdHealth
+    clickIdHealth: response?.clickIdHealth && !useClickIdFallback
       ? {
           generatedAt: response.clickIdHealth.generatedAt,
           orderCount: response.clickIdHealth.orderCount,
@@ -936,6 +1282,37 @@ export default function GoogleRoasProjectReportPage() {
   const last30 = metrics[1];
   const maxRoas = Math.max(10, last7.platformRoas, last30.platformRoas, last7.internalWithNpayRoas, last30.internalWithNpayRoas);
   const currentGap = last30.platformRoas - last30.internalWithNpayRoas;
+  const exactEvidenceStatusClass = exactEvidenceReadiness.statusTone === "hold"
+    ? `${styles.status} ${styles.statusHold}`
+    : styles.status;
+  const conversionSummary7d = last7.conversionActionSegments.summary;
+  const conversionSummary30d = last30.conversionActionSegments.summary;
+  const conversionActions7d = last7.conversionActionSegments.actions.slice(0, 6);
+  const last7InternalActualRevenue = last7.internalRevenue + last7.npayRevenue;
+  const postPatchClickIdCard = {
+    label: "5/21 21:15 이후",
+    clickIdHealth: {
+      generatedAt: postPatchClickIdHealth.checkedAtKst,
+      orderCount: postPatchClickIdHealth.orderStage.orderCount,
+      withGoogleClickId: postPatchClickIdHealth.orderStage.withGoogleClickId,
+      missingGoogleClickId: postPatchClickIdHealth.orderStage.missingGoogleClickId,
+      preservationRate: postPatchClickIdHealth.orderStage.preservationRate,
+      uploadCandidateCount: postPatchClickIdHealth.orderStage.uploadCandidateCount,
+      source: postPatchClickIdHealth.source,
+      blockReasonCounts: {
+        missingAttributionVmEvidence: postPatchClickIdHealth.orderStage.evidenceCounts.missingAttributionVmEvidence,
+      },
+      paymentMethodBreakdown: postPatchClickIdHealth.orderStage.paymentMethodBreakdown.map((row) => ({
+        paymentMethod: row.paymentMethod,
+        orders: row.orders,
+        withGoogleClickId: row.withGoogleClickId,
+        missingGoogleClickId: row.orders - row.withGoogleClickId,
+        preservationRate: row.preservationRate,
+      })),
+      clickIdBreakdown: postPatchClickIdHealth.orderStage.clickIdBreakdown,
+    },
+  };
+  const clickIdHealthCards = [postPatchClickIdCard, last7, last30];
 
   return (
     <div className={styles.page}>
@@ -963,21 +1340,21 @@ export default function GoogleRoasProjectReportPage() {
         <section className={styles.decisionBand}>
           <div>
             <p className={styles.decisionLabel}>현재 운영 판단</p>
-            <h2>Google platform ROAS는 참고값, 내부 confirmed ROAS가 예산 판단 후보입니다.</h2>
+            <h2>Google Ads ROAS는 아직 참고값입니다. 예산 판단은 내부 결제완료 매출을 기준으로 봅니다.</h2>
             <p>
-              `구매완료`라는 이름의 Google Ads Primary 전환값은 실제 결제완료만 뜻하지 않을 수 있습니다.
-              그래서 광고비 증액 판단은 Google Ads 화면의 큰 ROAS가 아니라, 내부 원장에서 확인된 결제완료 매출과
-              NPay actual 보정값을 함께 본 뒤 내려야 합니다.
+              Google Ads가 보여주는 큰 ROAS에는 기존 NPay `구매완료` 전환값이 많이 섞여 있습니다.
+              NPay 실제 결제완료 매출은 내부 매출에 포함해야 하지만, NPay 클릭이나 결제 시작 count를 구매완료로 보면 안 됩니다.
+              지금은 내부 confirmed 매출, NPay actual, click id 보존, exact evidence를 분리해서 판단합니다.
             </p>
           </div>
           <div className={styles.decisionAside}>
             <div className={styles.guardPill}>
-              <strong>지금 사람 액션</strong>
-              <span>Google Ads 증액 판단에는 이 화면의 내부 기준값을 먼저 확인합니다.</span>
+              <strong>지금 결론</strong>
+              <span>증액 판단은 보류하고, 내부 confirmed + NPay actual ROAS를 기준으로 봅니다.</span>
             </div>
             <div className={styles.guardPill}>
-              <strong>Codex 액션</strong>
-              <span>read-only 재조회, no-send 후보 분석, campaign id coverage 개선은 계속 진행 가능합니다.</span>
+              <strong>진전된 부분</strong>
+              <span>A급 exact 후보 13건과 GA4 중복 guard 통과를 확인했습니다. 다음은 영구 evidence 반영입니다.</span>
             </div>
           </div>
         </section>
@@ -1005,6 +1382,251 @@ export default function GoogleRoasProjectReportPage() {
           </div>
         </section>
 
+        <section className={`${styles.section} ${styles.truthSection}`}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>“구매완료”라는 이름을 실제 구매와 분리해서 봅니다</h2>
+              <p>
+                Google Ads 화면의 `구매완료`는 광고 플랫폼이 구매라고 세는 값입니다.
+                내부 주문 장부에서 돈이 실제로 결제완료됐다는 뜻과 같지 않아서, 여기서는 이름을 바꿔 읽습니다.
+              </p>
+            </div>
+            <span className={styles.metaText}>source: Google Ads API + GTM live + 아임웹 live HTML · 기준 {googlePurchaseClaimAudit.checkedAtKst}</span>
+          </div>
+
+          <div className={styles.truthSplitGrid}>
+            <article className={styles.truthCard}>
+              <span>Google Ads 주장 구매</span>
+              <strong>{formatKrw(conversionSummary7d.primaryConversionValue)}</strong>
+              <p>
+                최근 7일 Google Ads가 `구매완료`라고 부른 전환값입니다.
+                이 값은 예산 판단용 정답이 아니라, 플랫폼이 주장하는 구매 금액으로 따로 둡니다.
+              </p>
+            </article>
+            <article className={styles.truthCard}>
+              <span>내부 실제 결제완료</span>
+              <strong>{formatKrw(last7InternalActualRevenue)}</strong>
+              <p>
+                내부 confirmed 매출에 NPay actual 결제완료 보정값을 합쳐 보는 값입니다.
+                예산을 실제 매출 기준으로 볼 때 우선 참고할 쪽입니다.
+              </p>
+            </article>
+            <article className={styles.truthCard}>
+              <span>Google 증거 있는 실제 결제완료</span>
+              <strong className={styles.danger}>
+                {formatCount(postPatchClickIdHealth.orderStage.withGoogleClickId)} / {formatCount(postPatchClickIdHealth.orderStage.orderCount)}건
+              </strong>
+              <p>
+                5월 21일 밤 보강 이후 실제 결제완료 주문에 gclid/gbraid/wbraid가 직접 남은 건수입니다.
+                0건이므로 Google Ads upload 후보도 0건으로 유지합니다.
+              </p>
+            </article>
+            <article className={styles.truthCard}>
+              <span>실제 구매 전환 통로</span>
+              <strong>준비 중 · no-send</strong>
+              <p>
+                기존 Primary를 바로 바꾸지 않고, 실제 결제완료 주문만 따로 모으는 전환 통로를 dry-run으로 준비합니다.
+                전송과 Primary 변경은 별도 승인 전까지 하지 않습니다.
+              </p>
+            </article>
+          </div>
+
+          <div className={styles.truthEvidenceBox}>
+            <strong>{googlePurchaseClaimAudit.googleAdsAction.actionName} 액션을 지금 이렇게 읽습니다</strong>
+            <p>
+              Google Ads action {googlePurchaseClaimAudit.googleAdsAction.actionId}는 {googlePurchaseClaimAudit.googleAdsAction.primaryMeaning}입니다.
+              send_to 라벨은 {googlePurchaseClaimAudit.googleAdsAction.sendTo}이고, 아임웹 live HTML의 NPay count 코드와 일치합니다.
+            </p>
+            <div className={styles.truthEvidenceGrid}>
+              {googlePurchaseClaimAudit.siteEvidence.map((item) => (
+                <div key={item.label}>
+                  <span>{item.label}</span>
+                  <p>{item.finding}</p>
+                </div>
+              ))}
+            </div>
+            <em>{googlePurchaseClaimAudit.decision}</em>
+          </div>
+        </section>
+
+        <section className={`${styles.section} ${styles.conversionActionSection}`}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Google이 무엇을 구매로 세는지 먼저 분해</h2>
+              <p>
+                Primary 전환은 Google Ads가 입찰 학습에 쓰는 핵심 구매 신호입니다.
+                여기서 실제 결제완료가 아닌 NPay 클릭/count 성격이 섞이면 Google ROAS가 내부 매출보다 크게 부풀 수 있습니다.
+              </p>
+            </div>
+            <span className={styles.metaText}>source: Google Ads API live · 기준 {formatFetchedAt(last7.fetchedAt)}</span>
+          </div>
+
+          <div className={styles.conversionSummaryGrid}>
+            <div className={styles.conversionSummaryCard}>
+              <span>최근 7일 Google 주장 구매값</span>
+              <strong>{formatKrw(conversionSummary7d.primaryConversionValue)}</strong>
+              <p>
+                그중 known NPay label 전환값이 {formatKrw(conversionSummary7d.primaryKnownNpayConversionValue)}입니다.
+                비중은 {formatPct(conversionSummary7d.primaryKnownNpayShareOfPlatform)}입니다.
+              </p>
+            </div>
+            <div className={styles.conversionSummaryCard}>
+              <span>최근 7일 내부 confirmed와의 차이</span>
+              <strong className={styles.danger}>{formatKrw(conversionSummary7d.platformMinusInternalConfirmed)}</strong>
+              <p>
+                같은 기간 실제 결제완료 원장으로 검증된 매출과 Google 주장값의 차이입니다.
+                이 차이를 줄이려면 전환 액션 오염과 click id 유실을 따로 봐야 합니다.
+              </p>
+            </div>
+            <div className={styles.conversionSummaryCard}>
+              <span>최근 30일 Google 주장 구매값</span>
+              <strong>{formatKrw(conversionSummary30d.primaryConversionValue)}</strong>
+              <p>
+                30일 기준으로도 known NPay label 비중은 {formatPct(conversionSummary30d.primaryKnownNpayShareOfPlatform)}입니다.
+                즉 구조적 오염 가능성이 7일 일시 현상으로 보이지 않습니다.
+              </p>
+            </div>
+          </div>
+
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>전환 액션</th>
+                  <th>입찰 사용</th>
+                  <th>전환값</th>
+                  <th>All conv. 값</th>
+                  <th>위험 해석</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conversionActions7d.map((action) => (
+                  <tr key={`${action.conversionActionId}-${action.conversionActionName}`}>
+                    <td>
+                      <strong className={styles.conversionActionName}>{action.conversionActionName}</strong>
+                      <span>action id {action.conversionActionId ?? "unknown"} · {action.category}</span>
+                    </td>
+                    <td>
+                      <strong>{action.primaryForGoal ? "Primary" : "Secondary"}</strong>
+                      <span>{conversionClassificationLabel(action.classification)}</span>
+                    </td>
+                    <td>
+                      <strong>{formatKrw(action.conversionValue)}</strong>
+                      <span>{formatCount(action.conversions)} conv.</span>
+                    </td>
+                    <td>
+                      <strong>{formatKrw(action.allConversionValue)}</strong>
+                      <span>{formatCount(action.allConversions)} all conv.</span>
+                    </td>
+                    <td>
+                      <div className={styles.riskBadgeList}>
+                        {(action.riskFlags.length ? action.riskFlags : ["risk_not_flagged"]).map((flag) => (
+                          <span key={flag} className={styles.riskBadge}>{riskFlagLabel(flag)}</span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className={styles.postPatchDecision}>
+            현재 가장 큰 갭 원인은 Google Ads의 `구매완료` Primary 전환값 대부분이 known NPay label에서 발생한다는 점입니다.
+            NPay 실제 결제완료는 매출로 포함해야 하지만, NPay 클릭/count를 구매완료로 학습시키면 예산 판단 ROAS가 부풀 수 있습니다.
+          </p>
+        </section>
+
+        <section className={`${styles.section} ${styles.exactEvidenceSection}`}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>실제 주문으로 이어진 Google 클릭 증거</h2>
+              <p>
+                exact evidence는 광고 클릭과 실제 결제완료 주문이 주문 단위로 붙는 증거입니다.
+                Google Ads에 실제 구매만 알려주려면 이 증거가 먼저 내부 장부에 고정되어야 합니다.
+              </p>
+            </div>
+            <span className={styles.metaText}>
+              source: {exactEvidenceReadiness.source} · 기준 {exactEvidenceReadiness.checkedAtKst}
+            </span>
+          </div>
+          <div className={styles.exactEvidenceGrid}>
+            <article className={styles.exactDecisionCard}>
+              <div className={styles.requestTop}>
+                <span className={exactEvidenceStatusClass}>{exactEvidenceReadiness.statusLabel}</span>
+                <span>{exactEvidenceReadiness.window}</span>
+              </div>
+              <h3>강한 후보는 생겼지만 아직 Google Ads로 보내지 않습니다.</h3>
+              <p>{exactEvidenceReadiness.plainDecision}</p>
+              <div className={styles.exactMetricGrid}>
+                <div>
+                  <span>A급 후보</span>
+                  <strong>{formatCount(exactEvidenceReadiness.gradeAMatch)}건</strong>
+                  <em>{formatKrw(exactEvidenceReadiness.gradeAAmountKrw)}</em>
+                </div>
+                <div>
+                  <span>GA4 중복 발견</span>
+                  <strong>{formatCount(exactEvidenceReadiness.ga4Present)}건</strong>
+                  <em>present</em>
+                </div>
+                <div>
+                  <span>GA4 중복 없음</span>
+                  <strong>{formatCount(exactEvidenceReadiness.ga4RobustAbsent)}개 ID</strong>
+                  <em>robust_absent</em>
+                </div>
+                <div>
+                  <span>Google Ads 전송 후보</span>
+                  <strong>{formatCount(exactEvidenceReadiness.uploadCandidateCount)}건</strong>
+                  <em>승인 전 0 유지</em>
+                </div>
+              </div>
+              <div className={styles.exactNextBox}>
+                <strong>다음 액션</strong>
+                <span>{exactEvidenceReadiness.nextAction}</span>
+              </div>
+            </article>
+            <article className={styles.exactDetailCard}>
+              <h3>왜 “거의 다 된 것”이 아니라 “영구 반영 전”인가</h3>
+              <div className={styles.exactFlow}>
+                {exactEvidenceReadiness.interpretationSteps.map((step, index) => (
+                  <div key={step.label} className={styles.exactFlowStep}>
+                    <span>{index + 1}</span>
+                    <div>
+                      <strong>{step.label}: {step.state}</strong>
+                      <p>{step.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </div>
+          <div className={styles.exactSummaryRow}>
+            <div>
+              <span>NPay click intent</span>
+              <strong>{formatCount(exactEvidenceReadiness.npayIntentRows)}건</strong>
+            </div>
+            <div>
+              <span>NPay 실제 결제완료</span>
+              <strong>{formatCount(exactEvidenceReadiness.npayConfirmedOrders)}건</strong>
+            </div>
+            <div>
+              <span>strong match</span>
+              <strong>{formatCount(exactEvidenceReadiness.strongMatch)}건</strong>
+            </div>
+            <div>
+              <span>B급 보류</span>
+              <strong>{formatCount(exactEvidenceReadiness.gradeBMatch)}건</strong>
+            </div>
+            <div>
+              <span>ambiguous 보류</span>
+              <strong>{formatCount(exactEvidenceReadiness.ambiguous)}건</strong>
+            </div>
+            <div>
+              <span>영구 snapshot</span>
+              <strong>{formatCount(exactEvidenceReadiness.permanentSnapshotRows)}건</strong>
+            </div>
+          </div>
+        </section>
+
         <section className={`${styles.section} ${styles.clickHealthSection}`}>
           <div className={styles.sectionHeader}>
             <div>
@@ -1015,8 +1637,26 @@ export default function GoogleRoasProjectReportPage() {
               source: {last30.clickIdHealth.source} · 기준 {formatFetchedAt(last30.clickIdHealth.generatedAt)}
             </span>
           </div>
+          <div className={styles.clickBaselineBanner}>
+            <div>
+              <span>click id 알고리즘 업데이트 기준일</span>
+              <strong>{postPatchClickIdHealth.patchStartedAtKst}</strong>
+              <p>
+                이 시각에 아임웹 헤더/푸터의 Google click id 보존 로직을 교체했습니다.
+                최근 7일/30일 숫자는 보강 전 주문이 섞이므로, 개선 여부는 이 기준일 이후 주문만 따로 봐야 합니다.
+              </p>
+            </div>
+            <div>
+              <span>보강 이후 실제 결제완료 주문</span>
+              <strong>{formatRatePct(postPatchClickIdHealth.orderStage.preservationRate)}</strong>
+              <p>
+                {formatCount(postPatchClickIdHealth.orderStage.withGoogleClickId)} / {formatCount(postPatchClickIdHealth.orderStage.orderCount)}건만
+                Google click id가 직접 남았습니다. upload 후보는 {formatCount(postPatchClickIdHealth.orderStage.uploadCandidateCount)}건입니다.
+              </p>
+            </div>
+          </div>
           <div className={styles.healthGrid}>
-            {[last7, last30].map((item) => (
+            {clickIdHealthCards.map((item) => (
               <article key={item.label} className={styles.healthCard}>
                 <div className={styles.healthTop}>
                   <div>
@@ -1063,6 +1703,123 @@ export default function GoogleRoasProjectReportPage() {
               </article>
             ))}
           </div>
+          <article className={styles.postPatchHealthCard}>
+            <div className={styles.postPatchHeader}>
+              <div>
+                <span>별도 기준점 재계산</span>
+                <h3>5월 21일 밤 아임웹 헤더/푸터 보강 이후</h3>
+                <p>
+                  기준점은 {postPatchClickIdHealth.patchStartedAtKst}입니다. 최근 7일 카드는 보강 전/후가 섞이므로,
+                  여기서는 보강 이후 결제완료 주문만 따로 잘라 click id 보존률을 봅니다.
+                </p>
+              </div>
+              <em>{postPatchClickIdHealth.checkedAtKst} · {postPatchClickIdHealth.source}</em>
+            </div>
+
+            <div className={styles.postPatchGrid}>
+              <div className={styles.postPatchMetric}>
+                <span>직접 보존률</span>
+                <strong className={styles.danger}>{formatRatePct(postPatchClickIdHealth.orderStage.preservationRate)}</strong>
+                <p>
+                  confirmed 결제완료 신호 {formatCount(postPatchClickIdHealth.orderStage.orderCount)}건 중 gclid/gbraid/wbraid가 직접 남은 건은
+                  {" "}{formatCount(postPatchClickIdHealth.orderStage.withGoogleClickId)}건입니다.
+                </p>
+              </div>
+              <div className={styles.postPatchMetric}>
+                <span>진단용 세션 bridge</span>
+                <strong className={styles.warn}>{formatCount(postPatchClickIdHealth.orderStage.priorSameGaSessionRows)}건</strong>
+                <p>
+                  같은 GA 세션에서 결제 직전 gclid가 보인 후보입니다.
+                  client id까지 일치한 후보는 {formatCount(postPatchClickIdHealth.orderStage.strictSameSessionAndClientRows)}건이라 upload 후보는 아닙니다.
+                </p>
+              </div>
+              <div className={styles.postPatchMetric}>
+                <span>Google Ads upload 후보</span>
+                <strong className={styles.danger}>{formatCount(postPatchClickIdHealth.orderStage.uploadCandidateCount)}건</strong>
+                <p>
+                  same-session, same-client, time-window 후보는 Google Ads에 보내지 않습니다.
+                  직접 click id가 있는 confirmed 주문만 후보로 올립니다.
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.postPatchDetailGrid}>
+              {[
+                postPatchClickIdHealth.clickStage.siteLanding,
+                postPatchClickIdHealth.clickStage.paidClickIntent,
+              ].map((stage) => (
+                <div key={stage.label}>
+                  <strong>{stage.label}</strong>
+                  <p>{stage.why}</p>
+                  <dl>
+                    <div><dt>gclid</dt><dd>{formatCount(stage.gclidRows)}</dd></div>
+                    <div><dt>gbraid</dt><dd>{formatCount(stage.gbraidRows)}</dd></div>
+                    <div><dt>wbraid</dt><dd>{formatCount(stage.wbraidRows)}</dd></div>
+                    <div><dt>gad_source</dt><dd>{formatCount(stage.gadSourceRows)}</dd></div>
+                  </dl>
+                </div>
+              ))}
+              <div>
+                <strong>{postPatchClickIdHealth.clickStage.attributionLedger.label}</strong>
+                <p>{postPatchClickIdHealth.clickStage.attributionLedger.why}</p>
+                <dl>
+                  <div><dt>click 증거</dt><dd>{formatCount(postPatchClickIdHealth.clickStage.attributionLedger.googleClickIdEvidenceRows)}</dd></div>
+                  <div><dt>campaign ID</dt><dd>{formatCount(postPatchClickIdHealth.clickStage.attributionLedger.gadCampaignIdRows)}</dd></div>
+                  <div><dt>결제완료</dt><dd>{formatCount(postPatchClickIdHealth.clickStage.attributionLedger.confirmedPaymentSuccessRows)}</dd></div>
+                  <div><dt>주문+campaign</dt><dd>{formatCount(postPatchClickIdHealth.clickStage.attributionLedger.confirmedRowsWithGadCampaignId)}</dd></div>
+                </dl>
+              </div>
+            </div>
+
+            <div className={styles.postPatchOrderRows}>
+              <div>
+                <span>클릭 URL 파라미터</span>
+                <strong>{formatRatePct(postPatchClickIdHealth.clickStage.siteLanding.coverageRate)}</strong>
+                <em>
+                  고객 유입 장부 {formatCount(postPatchClickIdHealth.clickStage.siteLanding.googleClickIdRows)}건 중
+                  campaign id {formatCount(postPatchClickIdHealth.clickStage.siteLanding.gadCampaignIdRows)}건
+                </em>
+              </div>
+              <div>
+                <span>태그 저장 파라미터</span>
+                <strong>{formatRatePct(postPatchClickIdHealth.clickStage.paidClickIntent.coverageRate)}</strong>
+                <em>
+                  유료 클릭 의도 장부 {formatCount(postPatchClickIdHealth.clickStage.paidClickIntent.googleClickIdRows)}건 중
+                  campaign id {formatCount(postPatchClickIdHealth.clickStage.paidClickIntent.gadCampaignIdRows)}건
+                </em>
+              </div>
+              <div>
+                <span>결제 후 click 오인 방지</span>
+                <strong>{formatCount(postPatchClickIdHealth.orderStage.invalidAfterSameClientRows)}건 제외</strong>
+                <em>결제 이후 click은 confirmed 주문 근거로 쓰지 않습니다.</em>
+              </div>
+              {postPatchClickIdHealth.orderStage.paymentMethodBreakdown.map((row) => (
+                <div key={`post-patch-${row.paymentMethod}`}>
+                  <span>{paymentMethodLabel(row.paymentMethod)}</span>
+                  <strong>{formatRatePct(row.preservationRate)}</strong>
+                  <em>{formatCount(row.withGoogleClickId)} / {formatCount(row.orders)}건</em>
+                </div>
+              ))}
+              <div>
+                <span>VM evidence 없음</span>
+                <strong>{formatCount(postPatchClickIdHealth.orderStage.evidenceCounts.missingAttributionVmEvidence)}건</strong>
+                <em>confirmed 결제완료 {formatCount(postPatchClickIdHealth.orderStage.orderCount)}건 중 결제완료 ledger/intent exact 증거가 없는 주문</em>
+              </div>
+            </div>
+
+            <div className={styles.evidenceGradeGrid}>
+              {postPatchClickIdHealth.evidenceGrades.map((grade) => (
+                <div key={grade.grade} className={styles.evidenceGradeCard}>
+                  <span>{grade.grade}등급 · {grade.label}</span>
+                  <strong>{formatCount(grade.count)}건</strong>
+                  <p>{grade.description}</p>
+                  <em>Google Ads upload: {grade.upload}</em>
+                </div>
+              ))}
+            </div>
+
+            <p className={styles.postPatchDecision}>{postPatchClickIdHealth.decision}</p>
+          </article>
           <p className={styles.healthNote}>
             보존률이 10% 미만이면 Google Ads upload를 열기보다 landing, checkout, payment_success 사이에서 click id가 사라지는 지점을 먼저 고치는 것이 맞습니다.
           </p>
@@ -1217,7 +1974,7 @@ export default function GoogleRoasProjectReportPage() {
               <h2>KR과 연결 액션플랜</h2>
               <p>KR은 Key Result, 즉 이번 프로젝트가 실제로 성공했다고 말할 수 있는 측정 결과입니다. 현재%는 문서 기준 진행률과 화면 구현 상태를 함께 반영했습니다.</p>
             </div>
-            <span className={styles.metaText}>plan source: gdn/!gdnplan_new, 화면 갱신: {formatFetchedAt(last30.fetchedAt)}</span>
+            <span className={styles.metaText}>plan source: gdn/!gdnplan_new + 2026-05-23 exact evidence guard, 화면 갱신: {formatFetchedAt(last30.fetchedAt)}</span>
           </div>
           <div className={styles.krGrid}>
             {keyResults.map((item) => (
@@ -1300,7 +2057,7 @@ export default function GoogleRoasProjectReportPage() {
               ))}
             </div>
             <div className={styles.findingCard}>
-              <strong>왜 Google ROAS가 높게 보이는가</strong>
+              <strong>현재 Google ROAS 정합성 상태</strong>
               <p>
                 최근 live API 기준으로도 Primary known NPay 전환값 비중은 {formatPct(last30.nPayShare)}입니다.
                 즉 Google Ads가 잡은 큰 전환값 대부분은 실제 결제완료 원장으로 검증된 매출과 아직 분리해서 봐야 합니다.
@@ -1312,6 +2069,11 @@ export default function GoogleRoasProjectReportPage() {
               <p>
                 campaign id coverage는 {formatPct(last30.campaignCoverage)}이고 미확인 주문은 {last30.unknownCampaignOrders ?? "-"}건입니다.
                 캠페인별 증액은 이 커버리지가 더 닫힌 뒤 판단하는 편이 안전합니다.
+              </p>
+              <p>
+                다만 진전도 있습니다. NPay 실제 결제완료 중 A급 exact 후보 {exactEvidenceReadiness.gradeAMatch}건을 찾았고,
+                GA4 중복 guard도 {exactEvidenceReadiness.ga4CheckedIds}개 ID 모두 중복 없음으로 통과했습니다.
+                남은 병목은 이 결과를 영구 evidence snapshot으로 고정하는 것입니다.
               </p>
             </div>
           </div>
@@ -1422,6 +2184,11 @@ export default function GoogleRoasProjectReportPage() {
               <p>Google Ads API와 내부 원장 값을 같은 화면에서 읽습니다. 쓰기나 전송은 없습니다.</p>
               <code>/api/google-ads/dashboard?date_preset=last_7d,last_30d</code>
             </div>
+            <div className={styles.evidenceCard}>
+              <strong>exact evidence 설계안</strong>
+              <p>NPay matcher 결과를 영구 evidence로 고정하는 다음 단계 설계입니다. 실행은 승인 전 보류합니다.</p>
+              <code>project/google-roas-npay-exact-evidence-design-20260523.md</code>
+            </div>
           </div>
         </section>
 
@@ -1496,7 +2263,7 @@ export default function GoogleRoasProjectReportPage() {
         <p className={styles.footerNote}>
           Source / window / freshness / confidence: primary source는 Google Ads API customer 2149990943와 VM Cloud attribution ledger입니다.
           live KPI window는 Google Ads `LAST_7_DAYS`, `LAST_30_DAYS`이고 기준 시각은 {formatFetchedAt(last30.fetchedAt)}입니다.
-          문서 근거는 `gdn/!gdnplan_new.md`, `harness/gdn/RULES.md`, `gdn/google-ads-option3-gap-after-npay-actual-correction-20260511.md`이며 confidence는 0.88-0.93 범위입니다.
+          문서 근거는 `gdn/!gdnplan_new.md`, `harness/gdn/RULES.md`, `project/google-ads-confirmed-primary-npay-check-20260523.md`, `project/google-roas-npay-exact-evidence-design-20260523.md`이며 confidence는 0.88-0.93 범위입니다.
           {last7.error || last30.error ? ` 일부 live 조회 실패 시 문서 fallback을 표시했습니다: ${last7.error ?? last30.error}` : ""}
         </p>
       </main>

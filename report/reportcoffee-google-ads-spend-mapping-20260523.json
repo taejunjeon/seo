@@ -1,0 +1,92 @@
+{
+  "report": "reportcoffee_google_ads_spend_mapping_v1",
+  "generated_at_kst": "2026-05-23 17:26:12 KST",
+  "site": "thecleancoffee",
+  "mode": "green_read_only_no_send_no_write",
+  "source": {
+    "vm_cloud_google_ads_status": "https://att.ainativeos.net/api/google-ads/status",
+    "vm_cloud_google_ads_dashboard_last_7d": "https://att.ainativeos.net/api/google-ads/dashboard?date_preset=last_7d&campaign_limit=200",
+    "vm_cloud_google_ads_dashboard_last_30d": "https://att.ainativeos.net/api/google-ads/dashboard?date_preset=last_30d&campaign_limit=200",
+    "vm_cloud_google_ads_final_url_audit": "https://att.ainativeos.net/api/google-ads/final-url-audit",
+    "fetched_at": "2026-05-23T08:25:05.713Z",
+    "timezone": "Asia/Seoul"
+  },
+  "decision": {
+    "google_ads_spend_for_thecleancoffee": "0_candidate_included_with_warning",
+    "slack_label": "Google: 0원 확인 후보",
+    "reason": "last_7d and last_30d Google Ads dashboard returned no coffee-named campaign metric rows; final-url audit found the coffee search campaign paused, while VM Cloud landing rows still show 3 Google click-id evidence rows in the last 7 days.",
+    "budget_denominator_use": "include_as_zero_with_warning",
+    "not_purchase_source": true,
+    "follow_up_linkage_report": "report/reportcoffee-google-click-id-campaign-id-linkage-20260523.md",
+    "click_id_3_campaign_id_linkage_status": "not_exact_joinable_from_current_public_aggregate_api"
+  },
+  "dashboard_metrics": {
+    "last_7d": {
+      "account_total_cost_krw": 3911182.88,
+      "coffee_keyword_campaign_metric_rows": 0,
+      "coffee_keyword_campaign_cost_krw": 0,
+      "campaigns_returned": 4,
+      "campaigns_returned_interpretation": "All metric rows are biocom-named campaigns."
+    },
+    "last_30d": {
+      "account_total_cost_krw": 19620103.09,
+      "coffee_keyword_campaign_metric_rows": 0,
+      "coffee_keyword_campaign_cost_krw": 0,
+      "campaigns_returned": 6,
+      "campaigns_returned_interpretation": "All metric rows are biocom-named campaigns."
+    }
+  },
+  "final_url_audit": {
+    "total_rows": 136,
+    "thecleancoffee_site_summary": {
+      "rows": 1,
+      "final_urls": 1,
+      "manual_utm_rows": 0,
+      "google_click_param_rows": 0,
+      "tracking_template_rows": 0,
+      "final_url_suffix_rows": 0,
+      "readiness": "verify_click_id_capture"
+    },
+    "thecleancoffee_route": {
+      "decision": "actual_google_paid_click_confirmed",
+      "confidence": "high",
+      "account_current_domain_final_url_rows": 1,
+      "account_enabled_rows": 0,
+      "account_paused_or_removed_rows": 1,
+      "legacy_or_other_rows": 12,
+      "legacy_needs_mapping_rows": 4,
+      "landing_total_rows_last_7d": 559,
+      "landing_google_click_id_rows_last_7d": 3,
+      "landing_google_evidence_rows_last_7d": 3,
+      "landing_non_google_paid_search_rows_last_7d": 76,
+      "latest_landing_at": "2026-05-23T06:59:06.693Z"
+    },
+    "coffee_named_campaign_candidates": [
+      {
+        "campaign_id": "14643928073",
+        "campaign_name": "[SA]더클린커피",
+        "campaign_status": "PAUSED",
+        "channel": "SEARCH",
+        "rows": 6,
+        "enabled_entity_rows": 2,
+        "spend_metric_row_present_last_7d": false,
+        "spend_metric_row_present_last_30d": false,
+        "decision": "legacy_or_paused_mapping_candidate_not_included_as_spend"
+      }
+    ]
+  },
+  "slack_preview_update": {
+    "weekly_google": "0_candidate_google_ads_dashboard_no_coffee_metric_rows_legacy_paused_campaign_click_evidence_present",
+    "rolling_30d_google": "0_candidate_google_ads_dashboard_no_coffee_metric_rows_legacy_paused_campaign_click_evidence_present",
+    "tiktok": "0_user_confirmed_not_running_ads"
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "google_ads_upload": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  }
+}

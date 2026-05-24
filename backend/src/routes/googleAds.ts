@@ -32,6 +32,8 @@ const KST_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
 });
 
 const DATE_PRESETS = {
+  today: "TODAY",
+  last_1d: "YESTERDAY",
   last_7d: "LAST_7_DAYS",
   last_14d: "LAST_14_DAYS",
   last_30d: "LAST_30_DAYS",
@@ -49,6 +51,22 @@ type DateRange = {
   timezone: typeof KST_TIME_ZONE;
   basis?: "payment_complete_time" | "paid_at_fallback";
 };
+
+type GoogleAdsDateSelection = {
+  mode: "preset" | "custom";
+  datePreset: DatePreset;
+  dateRangeLiteral: string;
+  dateRangeCondition: string;
+  dateRange: DateRange;
+  windowDays: number;
+  requestedStartDate: string | null;
+  requestedEndDate: string | null;
+  warnings: string[];
+};
+
+class GoogleAdsDateRangeError extends Error {
+  statusCode = 400;
+}
 
 type GoogleAdsClickIdHealthWindowKey = "last_1d" | "rolling_24h" | "last_7d" | "last_30d";
 
@@ -312,6 +330,39 @@ type GoogleAdsClickIdHealth = {
   };
   sourceFreshness: OperationalDbFreshness;
   caveats: string[];
+};
+
+type GoogleAdsClickIdHealthOrderDiagnostic = {
+  orderNumber: string;
+  channelOrderNo: string | null;
+  paidAt: string | Date | null;
+  paymentMethod: string;
+  paymentStatus: string;
+  orderAmount: number;
+  refundAmount: number;
+  hasCancel: boolean;
+  hasReturn: boolean;
+  isNpay: boolean;
+  evidenceSource: "payment_success_ledger" | "npay_intent" | "both" | "none";
+  evidenceAt: {
+    paymentSuccessLoggedAt: string | null;
+    paymentSuccessApprovedAt: string | null;
+    npayIntentCapturedAt: string | null;
+  };
+  googleClickIds: {
+    gclid: string;
+    gbraid: string;
+    wbraid: string;
+  };
+  hasGoogleClickId: boolean;
+  clickIdTypes: {
+    gclid: boolean;
+    gbraid: boolean;
+    wbraid: boolean;
+  };
+  uploadCandidateCount: 0;
+  sendCandidateCount: 0;
+  blockReasons: string[];
 };
 
 type GoogleCampaignMatchHealth = {
@@ -652,6 +703,21 @@ const shiftIsoDate = (date: string, days: number) => {
   return utc.toISOString().slice(0, 10);
 };
 
+const dateToUtcMs = (date: string) => {
+  const [year, month, day] = date.split("-").map((part) => Number.parseInt(part, 10));
+  return Date.UTC(year, month - 1, day);
+};
+
+const isValidIsoDateOnly = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map((part) => Number.parseInt(part, 10));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.toISOString().slice(0, 10) === value;
+};
+
+const inclusiveDateWindowDays = (startDate: string, endDate: string) =>
+  Math.floor((dateToUtcMs(endDate) - dateToUtcMs(startDate)) / 86_400_000) + 1;
+
 const toKstIsoWithOffset = (date: Date) =>
   new Date(date.getTime() + 9 * 60 * 60 * 1000)
     .toISOString()
@@ -661,7 +727,28 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const resolvePresetDateRange = (preset: DatePreset): DateRange => {
   const today = kstDate(new Date());
-  const days = preset === "last_7d" ? 7 : preset === "last_14d" ? 14 : preset === "last_90d" ? 90 : 30;
+  if (preset === "today") {
+    return {
+      startDate: today,
+      endDate: today,
+      startAt: `${today}T00:00:00.000+09:00`,
+      endAt: `${today}T23:59:59.999+09:00`,
+      endExclusiveAt: `${shiftIsoDate(today, 1)}T00:00:00.000+09:00`,
+      timezone: KST_TIME_ZONE,
+      basis: "paid_at_fallback",
+    };
+  }
+
+  const days =
+    preset === "last_1d"
+      ? 1
+      : preset === "last_7d"
+        ? 7
+        : preset === "last_14d"
+          ? 14
+          : preset === "last_90d"
+            ? 90
+            : 30;
   const startDate = shiftIsoDate(today, -days);
   const endDate = shiftIsoDate(today, -1);
   return {
@@ -672,6 +759,69 @@ const resolvePresetDateRange = (preset: DatePreset): DateRange => {
     endExclusiveAt: `${shiftIsoDate(endDate, 1)}T00:00:00.000+09:00`,
     timezone: KST_TIME_ZONE,
     basis: "paid_at_fallback",
+  };
+};
+
+const resolveCustomDateRange = (startDate: string, endDate: string): DateRange => ({
+  startDate,
+  endDate,
+  startAt: `${startDate}T00:00:00.000+09:00`,
+  endAt: `${endDate}T23:59:59.999+09:00`,
+  endExclusiveAt: `${shiftIsoDate(endDate, 1)}T00:00:00.000+09:00`,
+  timezone: KST_TIME_ZONE,
+  basis: "paid_at_fallback",
+});
+
+const parseGoogleAdsDateSelection = (query: Record<string, unknown>): GoogleAdsDateSelection => {
+  const startDate = toStringValue(query.start_date ?? query.startDate ?? query.since).trim();
+  const endDate = toStringValue(query.end_date ?? query.endDate ?? query.until).trim();
+  const hasCustomRange = Boolean(startDate || endDate);
+
+  if (hasCustomRange) {
+    if (!startDate || !endDate) {
+      throw new GoogleAdsDateRangeError("custom date range requires both start_date and end_date");
+    }
+    if (!isValidIsoDateOnly(startDate) || !isValidIsoDateOnly(endDate)) {
+      throw new GoogleAdsDateRangeError("custom date range must use YYYY-MM-DD dates");
+    }
+    if (dateToUtcMs(endDate) < dateToUtcMs(startDate)) {
+      throw new GoogleAdsDateRangeError("custom date range end_date must be on or after start_date");
+    }
+
+    const windowDays = inclusiveDateWindowDays(startDate, endDate);
+    if (windowDays > 366) {
+      throw new GoogleAdsDateRangeError("custom date range is limited to 366 days");
+    }
+
+    return {
+      mode: "custom",
+      datePreset: "last_30d",
+      dateRangeLiteral: `${startDate}..${endDate}`,
+      dateRangeCondition: `segments.date BETWEEN '${startDate}' AND '${endDate}'`,
+      dateRange: resolveCustomDateRange(startDate, endDate),
+      windowDays,
+      requestedStartDate: startDate,
+      requestedEndDate: endDate,
+      warnings: [
+        "Google Ads API metrics use the exact custom range. Some auxiliary health cards that rely on rolling snapshots may still be interpreted as reference-only.",
+      ],
+    };
+  }
+
+  const datePreset = parseDatePreset(query.date_preset ?? query.preset);
+  const dateRangeLiteral = DATE_PRESETS[datePreset];
+  const dateRange = resolvePresetDateRange(datePreset);
+
+  return {
+    mode: "preset",
+    datePreset,
+    dateRangeLiteral,
+    dateRangeCondition: `segments.date DURING ${dateRangeLiteral}`,
+    dateRange,
+    windowDays: datePresetWindowDays(datePreset),
+    requestedStartDate: null,
+    requestedEndDate: null,
+    warnings: [],
   };
 };
 
@@ -1034,7 +1184,7 @@ const buildConversionActionsQuery = (limit: number) => `
   LIMIT ${limit}
 `;
 
-const buildCampaignMetricsQuery = (dateRangeLiteral: string, limit: number) => `
+const buildCampaignMetricsQuery = (dateRangeCondition: string, limit: number) => `
   SELECT
     campaign.id,
     campaign.name,
@@ -1049,13 +1199,13 @@ const buildCampaignMetricsQuery = (dateRangeLiteral: string, limit: number) => `
     metrics.all_conversions_value,
     metrics.view_through_conversions
   FROM campaign
-  WHERE segments.date DURING ${dateRangeLiteral}
+  WHERE ${dateRangeCondition}
     AND metrics.cost_micros > 0
   ORDER BY metrics.cost_micros DESC
   LIMIT ${limit}
 `;
 
-const buildDailyMetricsQuery = (dateRangeLiteral: string) => `
+const buildDailyMetricsQuery = (dateRangeCondition: string) => `
   SELECT
     segments.date,
     campaign.id,
@@ -1068,13 +1218,13 @@ const buildDailyMetricsQuery = (dateRangeLiteral: string) => `
     metrics.all_conversions_value,
     metrics.view_through_conversions
   FROM campaign
-  WHERE segments.date DURING ${dateRangeLiteral}
+  WHERE ${dateRangeCondition}
     AND metrics.cost_micros > 0
   ORDER BY segments.date ASC
   LIMIT 10000
 `;
 
-const buildConversionActionMetricsQuery = (dateRangeLiteral: string) => `
+const buildConversionActionMetricsQuery = (dateRangeCondition: string) => `
   SELECT
     segments.conversion_action,
     segments.conversion_action_name,
@@ -1087,7 +1237,7 @@ const buildConversionActionMetricsQuery = (dateRangeLiteral: string) => `
     metrics.all_conversions_value,
     metrics.view_through_conversions
   FROM campaign
-  WHERE segments.date DURING ${dateRangeLiteral}
+  WHERE ${dateRangeCondition}
     AND metrics.all_conversions > 0
   ORDER BY metrics.all_conversions_value DESC
   LIMIT 10000
@@ -2648,12 +2798,13 @@ const summarizeConversionActionSegments = (params: {
 };
 
 const buildInternalReconciliation = async (params: {
-  datePreset: DatePreset;
+  datePreset?: DatePreset;
+  dateRange?: DateRange;
   campaigns: CampaignMetricRow[];
   daily: DailyMetricRow[];
   summary: MetricTotals & { roas: number | null };
 }) => {
-  const dateRange = resolvePresetDateRange(params.datePreset);
+  const dateRange = params.dateRange ?? resolvePresetDateRange(params.datePreset ?? "last_30d");
   const ledger = await loadInternalLedgerEntries(dateRange);
   const orders = buildInternalOrders(ledger.entries, dateRange);
   const totals = emptyInternalTotals();
@@ -2773,6 +2924,10 @@ const buildInternalReconciliation = async (params: {
 
 const datePresetWindowDays = (preset: DatePreset): number => {
   switch (preset) {
+    case "today":
+      return 1;
+    case "last_1d":
+      return 1;
     case "last_7d":
       return 7;
     case "last_14d":
@@ -2804,13 +2959,12 @@ export type NpayActualCorrectionResponse = {
   warnings: string[];
 };
 
-const buildNpayActualCorrection = async (
-  datePreset: DatePreset,
+const buildNpayActualCorrectionForWindowDays = async (
+  windowDays: number,
   internalConfirmedRevenueKrw: number,
   platformCostKrw: number,
   internalConfirmedOrders: number,
 ): Promise<NpayActualCorrectionResponse> => {
-  const windowDays = datePresetWindowDays(datePreset);
   let snapshot: NpayActualConfirmedSnapshot | null = null;
   let errorMessage: string | null = null;
   try {
@@ -2877,6 +3031,19 @@ const buildNpayActualCorrection = async (
     ],
   };
 };
+
+const buildNpayActualCorrection = async (
+  datePreset: DatePreset,
+  internalConfirmedRevenueKrw: number,
+  platformCostKrw: number,
+  internalConfirmedOrders: number,
+): Promise<NpayActualCorrectionResponse> =>
+  buildNpayActualCorrectionForWindowDays(
+    datePresetWindowDays(datePreset),
+    internalConfirmedRevenueKrw,
+    platformCostKrw,
+    internalConfirmedOrders,
+  );
 
 const round2safe = (value: number) => (Number.isFinite(value) ? Math.round(value * 100) / 100 : 0);
 const round4 = (value: number) => Math.round(value * 10000) / 10000;
@@ -3192,6 +3359,7 @@ const extractGoogleClickIdsFromEvidence = (
   return {
     hasAny: Boolean(direct.gclid || direct.gbraid || direct.wbraid),
     hasEvidence: Boolean(ledger || intent),
+    values: direct,
     types: {
       gclid: Boolean(direct.gclid),
       gbraid: Boolean(direct.gbraid),
@@ -3297,6 +3465,101 @@ const summarizeGoogleAdsClickIdHealth = (params: {
   };
 };
 
+const buildGoogleAdsClickIdOrderDiagnostics = async (
+  window: GoogleAdsClickIdHealthWindow,
+  params: {
+    limit: number;
+    only: "all" | "with_click_id" | "missing_click_id";
+  },
+): Promise<{
+  window: GoogleAdsClickIdHealthWindow;
+  orders: GoogleAdsClickIdHealthOrderDiagnostic[];
+  summary: {
+    orderCount: number;
+    returnedCount: number;
+    withGoogleClickId: number;
+    missingGoogleClickId: number;
+    uploadCandidateCount: 0;
+    sendCandidateCount: 0;
+  };
+}> => {
+  const orders = await readGoogleClickIdHealthOrdersForWindow(window);
+  const ledger = buildGoogleClickIdLedgerIndex();
+  const intents = buildGoogleClickIdIntentIndex();
+  const diagnostics = orders.map((order): GoogleAdsClickIdHealthOrderDiagnostic => {
+    const orderNumber = toStringValue(order.orderNumber);
+    const channelOrderNo = toStringValue(order.channelOrderNo);
+    const keys = [orderNumber, channelOrderNo].filter(Boolean);
+    const ledgerRow = keys.map((key) => ledger.byKey.get(key)).find(Boolean) ?? null;
+    const intentRow = intents.byOrder.get(orderNumber) ?? null;
+    const evidence = extractGoogleClickIdsFromEvidence(ledgerRow, intentRow);
+    const evidenceSource = ledgerRow && intentRow
+      ? "both"
+      : ledgerRow
+        ? "payment_success_ledger"
+        : intentRow
+          ? "npay_intent"
+          : "none";
+    const blockReasons = [
+      "read_only_phase",
+      "approval_required",
+      "google_ads_conversion_upload_not_run",
+    ];
+    if (!evidence.hasAny) blockReasons.push("missing_google_click_id");
+    if (!evidence.hasEvidence) blockReasons.push("missing_attribution_vm_evidence");
+    if (toNumber(order.orderAmount) <= 0) blockReasons.push("invalid_order_amount");
+    if (order.hasCancel) blockReasons.push("order_has_cancel");
+    if (order.hasReturn) blockReasons.push("order_has_return");
+
+    return {
+      orderNumber,
+      channelOrderNo: channelOrderNo || null,
+      paidAt: order.paidAt,
+      paymentMethod: toStringValue(order.paymentMethod),
+      paymentStatus: toStringValue(order.paymentStatus),
+      orderAmount: Math.round(toNumber(order.orderAmount)),
+      refundAmount: Math.round(toNumber(order.refundAmount)),
+      hasCancel: Boolean(order.hasCancel),
+      hasReturn: Boolean(order.hasReturn),
+      isNpay: Boolean(order.isNpay),
+      evidenceSource,
+      evidenceAt: {
+        paymentSuccessLoggedAt: toStringValue(ledgerRow?.logged_at) || null,
+        paymentSuccessApprovedAt: toStringValue(ledgerRow?.approved_at) || null,
+        npayIntentCapturedAt: toStringValue(intentRow?.captured_at) || null,
+      },
+      googleClickIds: {
+        gclid: evidence.values.gclid,
+        gbraid: evidence.values.gbraid,
+        wbraid: evidence.values.wbraid,
+      },
+      hasGoogleClickId: evidence.hasAny,
+      clickIdTypes: evidence.types,
+      uploadCandidateCount: 0,
+      sendCandidateCount: 0,
+      blockReasons,
+    };
+  });
+  const filtered = diagnostics.filter((row) => {
+    if (params.only === "with_click_id") return row.hasGoogleClickId;
+    if (params.only === "missing_click_id") return !row.hasGoogleClickId;
+    return true;
+  });
+  const limited = filtered.slice(0, params.limit);
+  return {
+    window,
+    orders: limited,
+    summary: {
+      orderCount: diagnostics.length,
+      returnedCount: limited.length,
+      withGoogleClickId: diagnostics.filter((row) => row.hasGoogleClickId).length,
+      missingGoogleClickId: diagnostics.filter((row) => !row.hasGoogleClickId).length,
+      uploadCandidateCount: 0,
+      sendCandidateCount: 0,
+    },
+  };
+};
+
 const buildGoogleAdsClickIdHealth = async (
   datePreset: DatePreset,
   sourceFreshness: OperationalDbFreshness,
@@ -3308,6 +3571,26 @@ const buildGoogleAdsClickIdHealth = async (
     dateRange,
     sourceFreshness,
     windowDays: datePresetWindowDays(datePreset),
+  });
+};
+
+const buildGoogleAdsClickIdHealthForDateRange = async (
+  dateRange: DateRange,
+  sourceFreshness: OperationalDbFreshness,
+  windowDays: number,
+): Promise<GoogleAdsClickIdHealth> => {
+  const orders = await readGoogleClickIdHealthOrders(dateRange);
+  return summarizeGoogleAdsClickIdHealth({
+    orders,
+    dateRange,
+    sourceFreshness,
+    windowDays,
+    caveats: [
+      "no-send/read-only 집계다. Google Ads conversion upload 후보가 아니다.",
+      "분모는 운영DB tb_iamweb_users payment_complete_time 기준 실제 결제완료 주문이다.",
+      "분자는 VM Cloud attribution/intent 원장의 exact Google click id evidence만 센다. fuzzy time-window 매칭은 제외한다.",
+      "custom range 조회는 start_date/end_date 기준으로 자른다.",
+    ],
   });
 };
 
@@ -3333,11 +3616,10 @@ const buildGoogleAdsClickIdHealthForWindow = async (
 };
 
 const emptyGoogleCampaignMatchHealth = (
-  datePreset: DatePreset,
+  windowDays: number,
   status: GoogleCampaignMatchHealth["summary"]["status"],
   interpretation: string,
 ): GoogleCampaignMatchHealth => {
-  const windowDays = datePresetWindowDays(datePreset);
   const siteLanding = {
     rows: 0,
     googleClickIdRows: 0,
@@ -3507,12 +3789,17 @@ const buildGoogleCampaignHealthSplit = ({
   };
 };
 
-const buildGoogleCampaignMatchHealth = (
-  datePreset: DatePreset,
-  campaigns: CampaignMetricRow[],
-): GoogleCampaignMatchHealth => {
-  const windowDays = datePresetWindowDays(datePreset);
-  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+const buildGoogleCampaignMatchHealth = ({
+  campaigns,
+  dateRange,
+  windowDays,
+}: {
+  campaigns: CampaignMetricRow[];
+  dateRange?: DateRange;
+  windowDays: number;
+}): GoogleCampaignMatchHealth => {
+  const since = dateRange?.startAt ?? new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const untilExclusive = dateRange?.endExclusiveAt ?? null;
   const campaignById = new Map(campaigns.map((campaign) => [campaign.campaignId, campaign.campaignName]));
 
   try {
@@ -3523,7 +3810,7 @@ const buildGoogleCampaignMatchHealth = (
       || !sqliteTableExists(db, "attribution_ledger")
     ) {
       return emptyGoogleCampaignMatchHealth(
-        datePreset,
+        windowDays,
         "table_unavailable",
         "VM Cloud 캠페인 매칭 health에 필요한 SQLite 원장 테이블이 없습니다.",
       );
@@ -3549,7 +3836,8 @@ const buildGoogleCampaignMatchHealth = (
       FROM site_landing_ledger
       WHERE site = 'biocom'
         AND landed_at >= ?
-    `).get(since) as Record<string, unknown>;
+        AND (? IS NULL OR landed_at < ?)
+    `).get(since, untilExclusive, untilExclusive) as Record<string, unknown>;
 
     const paidClickIntent = db.prepare(`
       SELECT
@@ -3571,7 +3859,8 @@ const buildGoogleCampaignMatchHealth = (
       FROM paid_click_intent_ledger
       WHERE site = 'biocom'
         AND captured_at >= ?
-    `).get(since) as Record<string, unknown>;
+        AND (? IS NULL OR captured_at < ?)
+    `).get(since, untilExclusive, untilExclusive) as Record<string, unknown>;
 
     const attributionLedger = db.prepare(`
       SELECT
@@ -3594,17 +3883,19 @@ const buildGoogleCampaignMatchHealth = (
       FROM attribution_ledger
       WHERE source = ?
         AND logged_at >= ?
-    `).get(INTERNAL_LEDGER_SOURCE, since) as Record<string, unknown>;
+        AND (? IS NULL OR logged_at < ?)
+    `).get(INTERNAL_LEDGER_SOURCE, since, untilExclusive, untilExclusive) as Record<string, unknown>;
 
     const topRows = db.prepare(`
       SELECT logged_at, touchpoint, payment_status, landing, metadata_json
       FROM attribution_ledger
       WHERE source = ?
         AND logged_at >= ?
+        AND (? IS NULL OR logged_at < ?)
         AND (landing LIKE '%gad_campaignid=%' OR metadata_json LIKE '%gad_campaignid%')
       ORDER BY logged_at DESC
       LIMIT 5000
-    `).all(INTERNAL_LEDGER_SOURCE, since) as Array<Record<string, unknown>>;
+    `).all(INTERNAL_LEDGER_SOURCE, since, untilExclusive, untilExclusive) as Array<Record<string, unknown>>;
 
     const topCounts = new Map<string, { rows: number; confirmedRows: number }>();
     for (const row of topRows) {
@@ -3733,7 +4024,7 @@ const buildGoogleCampaignMatchHealth = (
     };
   } catch (error) {
     return emptyGoogleCampaignMatchHealth(
-      datePreset,
+      windowDays,
       "table_unavailable",
       `Google 캠페인 매칭 health 조회 실패: ${error instanceof Error ? error.message : "unknown error"}`,
     );
@@ -3823,6 +4114,71 @@ export const createGoogleAdsRouter = () => {
         ok: false,
         error: "google_ads_click_id_health_error",
         message: error instanceof Error ? error.message : "Google Ads click id health failed",
+      });
+    }
+  });
+
+  router.get("/api/google-ads/click-id-health/orders", async (req: Request, res: Response) => {
+    try {
+      const site = typeof req.query.site === "string" && req.query.site.trim()
+        ? req.query.site.trim()
+        : "biocom";
+      if (site !== "biocom") {
+        res.status(400).json({
+          ok: false,
+          error: "unsupported_site",
+          allowedSites: ["biocom"],
+        });
+        return;
+      }
+
+      const windowKey = parseClickIdHealthWindowKey(req.query.window);
+      if (!windowKey) {
+        res.status(400).json({
+          ok: false,
+          error: "unsupported_window",
+          allowedWindows: ALLOWED_CLICK_ID_HEALTH_WINDOWS,
+        });
+        return;
+      }
+
+      const onlyRaw = typeof req.query.only === "string" ? req.query.only : "all";
+      const only = onlyRaw === "with_click_id" || onlyRaw === "missing_click_id" ? onlyRaw : "all";
+      const limit = parsePositiveInt(req.query.limit, 200, 10000);
+      const window = resolveClickIdHealthWindow(windowKey);
+      const diagnostics = await buildGoogleAdsClickIdOrderDiagnostics(window, { limit, only });
+
+      res.json({
+        ok: true,
+        fetchedAt: new Date().toISOString(),
+        site,
+        mode: "read_only_order_level_diagnostics",
+        filter: {
+          window: windowKey,
+          only,
+          limit,
+        },
+        ...diagnostics,
+        invariants: {
+          uploadCandidateCount: 0,
+          sendCandidateCount: 0,
+          externalSendCount: 0,
+          operationalDbWrite: 0,
+          vmCloudWrite: 0,
+          rawOrderIdInResponse: true,
+          rawClickIdInResponse: true,
+        },
+        caveats: [
+          "이 endpoint는 주문번호와 raw Google click id를 그대로 노출하는 진단용이다. 공개 배포 전에는 접근 제한/마스킹/암호화가 필요하다.",
+          "Google Ads conversion upload는 실행하지 않는다. 모든 row는 sendCandidateCount=0이다.",
+          "주문 정본은 운영DB tb_iamweb_users, click id evidence는 VM Cloud SQLite payment_success/npay_intent 원장에서 읽는다.",
+        ],
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: "google_ads_click_id_order_diagnostics_error",
+        message: error instanceof Error ? error.message : "Google Ads click id order diagnostics failed",
       });
     }
   });
@@ -3979,8 +4335,9 @@ export const createGoogleAdsRouter = () => {
 
   router.get("/api/google-ads/dashboard", async (req: Request, res: Response) => {
     try {
-      const datePreset = parseDatePreset(req.query.date_preset);
-      const dateRangeLiteral = DATE_PRESETS[datePreset];
+      const dateSelection = parseGoogleAdsDateSelection(req.query as Record<string, unknown>);
+      const datePreset = dateSelection.datePreset;
+      const dateRangeLiteral = dateSelection.dateRangeLiteral;
       const campaignLimit = parsePositiveInt(req.query.campaign_limit, 50, 200);
       const conversionActionLimit = parsePositiveInt(req.query.conversion_action_limit, 100, 200);
       const context = await createGoogleAdsContext(req.query.customer_id);
@@ -3988,9 +4345,9 @@ export const createGoogleAdsRouter = () => {
       const [customerResult, conversionResult, campaignResult, dailyResult, actionMetricResult] = await Promise.all([
         googleAdsSearch(context, buildCustomerQuery()),
         googleAdsSearch(context, buildConversionActionsQuery(conversionActionLimit)),
-        googleAdsSearch(context, buildCampaignMetricsQuery(dateRangeLiteral, campaignLimit)),
-        googleAdsSearch(context, buildDailyMetricsQuery(dateRangeLiteral)),
-        googleAdsSearch(context, buildConversionActionMetricsQuery(dateRangeLiteral)),
+        googleAdsSearch(context, buildCampaignMetricsQuery(dateSelection.dateRangeCondition, campaignLimit)),
+        googleAdsSearch(context, buildDailyMetricsQuery(dateSelection.dateRangeCondition)),
+        googleAdsSearch(context, buildConversionActionMetricsQuery(dateSelection.dateRangeCondition)),
       ]);
 
       const errors = {
@@ -4009,8 +4366,11 @@ export const createGoogleAdsRouter = () => {
           fetchedAt: new Date().toISOString(),
           apiVersion: context.apiVersion,
           customerId: context.customerId,
-          datePreset,
+          datePreset: dateSelection.mode === "custom" ? "custom" : datePreset,
+          dateMode: dateSelection.mode,
           dateRangeLiteral,
+          dateRangeCondition: dateSelection.dateRangeCondition,
+          dateRange: dateSelection.dateRange,
           errors,
         });
         return;
@@ -4029,6 +4389,7 @@ export const createGoogleAdsRouter = () => {
       );
       const internal = await buildInternalReconciliation({
         datePreset,
+        dateRange: dateSelection.dateRange,
         campaigns,
         daily,
         summary,
@@ -4038,23 +4399,49 @@ export const createGoogleAdsRouter = () => {
         platformSummary: summary,
         internalConfirmedRevenue: internal.summary.confirmedRevenue,
       });
-      const npayActualCorrection = await buildNpayActualCorrection(
-        datePreset,
-        internal.summary.confirmedRevenue,
-        Number(internal.summary.platformCost ?? summary.cost ?? 0),
-        Number(internal.summary.confirmedOrders ?? 0),
-      );
+      const npayActualCorrection = dateSelection.mode === "custom"
+        ? await buildNpayActualCorrectionForWindowDays(
+          dateSelection.windowDays,
+          internal.summary.confirmedRevenue,
+          Number(internal.summary.platformCost ?? summary.cost ?? 0),
+          Number(internal.summary.confirmedOrders ?? 0),
+        )
+        : await buildNpayActualCorrection(
+          datePreset,
+          internal.summary.confirmedRevenue,
+          Number(internal.summary.platformCost ?? summary.cost ?? 0),
+          Number(internal.summary.confirmedOrders ?? 0),
+        );
+      if (dateSelection.mode === "custom") {
+        npayActualCorrection.warnings.push(
+          "custom range에서는 NPay actual snapshot이 exact date가 아니라 같은 일수 window 기준 참고값일 수 있다.",
+        );
+      }
       const operationalDbFreshness = await buildOperationalDbFreshness();
-      const clickIdHealth = await buildGoogleAdsClickIdHealth(datePreset, operationalDbFreshness);
-      const googleCampaignMatchHealth = buildGoogleCampaignMatchHealth(datePreset, campaigns);
+      const clickIdHealth = dateSelection.mode === "custom"
+        ? await buildGoogleAdsClickIdHealthForDateRange(
+          dateSelection.dateRange,
+          operationalDbFreshness,
+          dateSelection.windowDays,
+        )
+        : await buildGoogleAdsClickIdHealth(datePreset, operationalDbFreshness);
+      const googleCampaignMatchHealth = buildGoogleCampaignMatchHealth({
+        campaigns,
+        dateRange: dateSelection.dateRange,
+        windowDays: dateSelection.windowDays,
+      });
 
       res.json({
         ok: true,
         fetchedAt: new Date().toISOString(),
         apiVersion: context.apiVersion,
         customerId: context.customerId,
-        datePreset,
+        datePreset: dateSelection.mode === "custom" ? "custom" : datePreset,
+        dateMode: dateSelection.mode,
         dateRangeLiteral,
+        dateRangeCondition: dateSelection.dateRangeCondition,
+        dateRange: dateSelection.dateRange,
+        dateWarnings: dateSelection.warnings,
         serviceAccount: {
           clientEmail: context.clientEmail,
           projectId: context.projectId,
@@ -4089,7 +4476,8 @@ export const createGoogleAdsRouter = () => {
         },
       });
     } catch (error) {
-      res.status(500).json({
+      const status = error instanceof GoogleAdsDateRangeError ? error.statusCode : 500;
+      res.status(status).json({
         ok: false,
         error: error instanceof Error ? error.message : "Google Ads dashboard query failed",
       });

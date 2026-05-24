@@ -1,15 +1,18 @@
 # reportbiocom — 바이오컴 매출액/광고비 비중 리포트
 
-작성 시각: 2026-05-21 23:35 KST
-기준일: 2026-05-21
+작성 시각: 2026-05-23 12:45 KST
+기준일: 2026-05-23
 문서 성격: 바이오컴 Slack 주간/월간 리포트 후속 계획
 상위 문서: [[!report]]
+최신 source map: [[reportbiocom-source-map-20260523]]
+공통 다음 임팩트 계획: [[report-v0.1-readiness-and-next-impact-plan-20260523]]
+광고비 source gap 계획: [[report-ad-spend-source-gap-plan-20260523]]
 
 ## 10초 요약
 
 바이오컴은 더클린커피보다 광고 ROAS 정합성 작업이 많이 진행돼 있다.
 
-하지만 Google Ads, Meta, Naver, TikTok 플랫폼 값은 내부 결제완료 매출과 계속 분리해야 한다. 이 문서는 더클린커피 리포트 구조가 닫힌 뒤 바이오컴에 같은 형식을 적용하기 위한 후속 문서다.
+하지만 Google Ads, Meta, Naver, TikTok 플랫폼 값은 내부 결제완료 매출과 계속 분리해야 한다. 이 문서는 더클린커피 v0.1 구조를 바이오컴에 적용하기 위한 후속 문서이고, 실제 숫자 산출 전 source map은 [[reportbiocom-source-map-20260523]]에 둔다.
 
 ## 현재 사용할 source 후보
 
@@ -37,10 +40,11 @@
 
 ## 더클린커피 이후 적용 순서
 
-1. 더클린커피 `reportcoffee`에서 Slack 메시지 형식을 확정한다.
-2. 바이오컴에 같은 필드를 적용한다.
+1. 더클린커피 `reportcoffee`에서 Slack 메시지 형식을 v0.1로 확정한다.
+2. 바이오컴 source map을 기준으로 매출 분모와 광고비 분자를 분리한다.
 3. Google Ads/Meta/Naver/TikTok별 spend source freshness를 붙인다.
 4. 내부 confirmed 매출과 플랫폼 주장 매출의 gap을 함께 표시한다.
+5. 첫 no-send preview를 만든다.
 
 ## 첫 리포트 성공 기준
 
@@ -51,10 +55,20 @@
 
 ## 다음 할일
 
-1. 더클린커피 리포트 v0.1을 먼저 닫는다.
-   의존성: 있음.
-   추천 점수/자신감: 90%.
+1. 운영DB 결제완료 기준 바이오컴 매출 분모를 산출한다.
+   의존성: 운영DB read-only 접근.
+   방법: `tb_iamweb_users PAYMENT_COMPLETE` 기준으로 주간·월간 매출과 NPay actual을 분리한다.
+   승인 필요 여부: NO for read-only.
+   추천 점수/자신감: 88%.
 
-2. 바이오컴용 source map을 최신 2026-05-21 Google/Naver/Meta 상태로 갱신한다.
-   의존성: 더클린커피 구조 확정 후 병렬 가능.
+2. 바이오컴 광고비 분자를 산출한다.
+   의존성: Google/Meta/Naver/TikTok API 또는 cache read-only 접근.
+   방법: 플랫폼별 spend를 KST 주간·월간 window로 맞춘다.
+   승인 필요 여부: NO for read-only, platform send/upload는 금지.
+   추천 점수/자신감: 84%.
+
+3. 바이오컴 no-send preview를 만든다.
+   의존성: 1번과 2번 결과.
+   방법: 더클린커피 v0.1 문구를 복사하되, Google Ads 플랫폼 ROAS와 내부 confirmed ROAS를 분리한다.
+   승인 필요 여부: preview는 NO, 실제 Slack send는 YES.
    추천 점수/자신감: 82%.

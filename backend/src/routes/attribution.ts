@@ -70,7 +70,10 @@ import {
   isPaidClickIntentWriteEnabled,
   recordPaidClickIntent,
 } from "../paidClickIntentLog";
-import { buildNpayRoasDryRunReport } from "../npayRoasDryRun";
+import {
+  buildNpayIntentRematchDryRunReport,
+  buildNpayRoasDryRunReport,
+} from "../npayRoasDryRun";
 import {
   fetchNpayActualConfirmedSiteLandingSummary,
   type NpayActualConfirmedSiteLandingSummary,
@@ -1519,7 +1522,7 @@ const CONFIRMED_PURCHASE_REJECT_KEYS = new Set([
   "token",
   "password",
 ]);
-const PAID_CLICK_INTENT_ALLOWED_SITES = new Set(["biocom"]);
+const PAID_CLICK_INTENT_ALLOWED_SITES = new Set(["biocom", "thecleancoffee"]);
 const PAID_CLICK_INTENT_ALLOWED_STAGES = new Set([
   "landing",
   "page_view",
@@ -1932,11 +1935,16 @@ export const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>)
   const currentUrlRaw = textField(body, "current_url") || textField(body, "currentUrl") || landingUrlRaw;
   const referrerRaw = textField(body, "referrer") || textField(body, "page_referrer") || textField(body, "pageReferrer");
   const googleCampaignId = normalizeGoogleCampaignId(
-    urlParamFromRaw(landingUrlRaw, "gad_campaignid")
+    textField(body, "gad_campaignid")
+    || textField(body, "google_campaign_id")
+    || textField(body, "googleCampaignId")
+    || urlParamFromRaw(landingUrlRaw, "gad_campaignid")
     || urlParamFromRaw(currentUrlRaw, "gad_campaignid"),
   );
   const gadSource = (
-    urlParamFromRaw(landingUrlRaw, "gad_source")
+    textField(body, "gad_source")
+    || textField(body, "gadSource")
+    || urlParamFromRaw(landingUrlRaw, "gad_source")
     || urlParamFromRaw(currentUrlRaw, "gad_source")
   ).slice(0, 32);
   const eventId = textField(body, "event_id") || textField(body, "eventId") || `PaidClickIntent_${captureStage}_${Date.now()}`;
@@ -4188,6 +4196,34 @@ export const createAttributionRouter = () => {
     }
   });
 
+  router.get("/api/attribution/npay-intent-rematch-dry-run", async (req: Request, res: Response) => {
+    try {
+      if (!requireNpayIntentReadAccess(req, res)) return;
+
+      const report = await buildNpayIntentRematchDryRunReport({
+        start: readOne(req.query.start),
+        end: readOne(req.query.end),
+        site: readOne(req.query.site) || "biocom",
+        ga4PresentOrderNumbers: readCsvList(req.query.ga4PresentOrderNumbers || req.query.ga4Present),
+        ga4RobustAbsentOrderNumbers: readCsvList(
+          req.query.ga4RobustAbsentOrderNumbers || req.query.ga4RobustAbsent,
+        ),
+        ga4AbsentOrderNumbers: readCsvList(req.query.ga4AbsentOrderNumbers || req.query.ga4Absent),
+        testOrderNumbers: readCsvList(req.query.testOrderNumbers || req.query.testOrders),
+        testOrderLabel: readOne(req.query.testOrderLabel),
+        orderNumbers: readCsvList(req.query.orderNumbers || req.query.orderNumber),
+        includeOnlyPending: parseBooleanish(req.query.includeOnlyPending || req.query.onlyPending, true),
+        includeRawClickIds: parseBooleanish(req.query.includeRawClickIds || req.query.rawClickIds, true),
+        limit: parsePositiveInt(readOne(req.query.limit), 100, 500),
+      });
+
+      res.json(report);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "npay intent rematch dry-run failed";
+      res.status(500).json({ ok: false, error: "npay_intent_rematch_dry_run_error", message });
+    }
+  });
+
   router.post("/api/attribution/engagement-intent", (req: Request, res: Response) => {
     try {
       const body = parseBody(req.body);
@@ -4545,7 +4581,11 @@ export const createAttributionRouter = () => {
                 ga_session_id: preview.ga_session_id,
                 local_session_id: preview.local_session_id,
                 sanitized_landing_url: preview.sanitized_landing_url,
+                sanitized_current_url: preview.sanitized_current_url,
                 sanitized_referrer: preview.sanitized_referrer,
+                google_campaign_id: preview.google_campaign_id,
+                gad_campaignid: preview.gad_campaignid,
+                gad_source: preview.gad_source,
                 member_code: preview.member_code,
               },
               body,

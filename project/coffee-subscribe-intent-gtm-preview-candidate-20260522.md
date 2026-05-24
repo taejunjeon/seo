@@ -441,23 +441,50 @@ Smoke 결과:
 - 옵션/드롭다운류 클릭은 event로 잡히지 않았다.
 - 일반 상품 path에서는 같은 형태의 버튼을 만들어도 event가 생기지 않았다.
 - Preview click 이후 Meta/GA4/Google Ads/Naver/VM Cloud attribution 신규 전송은 관측되지 않았다.
-- 다만 synthetic click은 실제 Imweb 정기구독 버튼 클릭을 대체한 1차 smoke다. 운영 publish 전에는 Tag Assistant UI에서 실제 버튼 1회 클릭으로 같은 결과를 한 번 더 확인해야 한다.
+- 다만 synthetic click은 실제 Imweb 정기구독 버튼 클릭을 대체한 1차 smoke였다. 2026-05-24 실제 UI 수동 확인 결과를 아래에 추가했다.
+
+### 2026-05-24 실제 UI 수동 확인: begin_checkout 발화 확인
+
+출처: TJ님 Tag Assistant 캡처와 dataLayer payload 공유
+기준 시각: 2026-05-24 11:39 KST 전후
+site: `thecleancoffee`
+window: 실제 브라우저 1회 테스트, `/subscription/?idx=74` 상품상세에서 옵션 드롭다운 2개 선택 후 `정기구독 신청` 클릭
+freshness: same-session 수동 캡처
+confidence: 높음. Tag Assistant event timeline과 dataLayer payload가 일치한다.
+
+확인된 것:
+
+- 버튼 클릭 전에는 `begin_checkout`이 없다.
+- `정기구독 신청` 클릭 후 event timeline 23번에 `begin_checkout`이 생긴다.
+- firing chain에는 `AGENTSOS - [begin_checkout] 주문서작성`과 `AGENTSOS - [GA4 이벤트전송] begin_checkout`이 보인다.
+- payload 값은 `currency=KRW`, `value=18900`, `item_id=74`, `quantity=1`, `item_brand=thecleancoffee`다.
+- 상품명은 `[더클린 정기구독] 파푸아뉴기니 마라와카 AA 유기농 블루마운틴`으로 들어왔다.
+
+판단:
+
+- 구독 신청 버튼 클릭 시점은 이미 표준 `begin_checkout`으로 잡힌다.
+- 따라서 같은 순간을 잡기 위해 별도 `coffee_subscribe_intent_preview` 운영 publish를 추가하는 것은 현재 기준 중복 가능성이 있다.
+- 구독 intent가 필요하면 새 click listener보다 기존 `begin_checkout`의 `item_id=74`, 상품명, `/subscription` path, `event_source=agentsos`를 근거로 분류하는 쪽이 우선이다.
+- 별도 이벤트를 추가해야 하는 경우는 `begin_checkout`과 다른 의미의 구독 전용 선행지표가 필요할 때다. 예: 옵션 선택 완료 전 관심, 정기구독 CTA 노출/클릭만 별도로 보고 싶은 경우.
+- 현재 남은 더 큰 gap은 `add_payment_info` 또는 NPay/카드 결제수단 선택 intent다.
 
 ## 운영 반영 판단
 
-Preview가 통과해도 운영 반영은 자동이 아니다.
+Preview와 실제 UI 확인이 통과해도 운영 반영은 자동이 아니다.
 
-운영 반영 선택지는 두 개다.
+2026-05-24 기준 운영 반영 판단은 변경됐다.
 
-1. GTM Production publish
-   - 장점: version rollback이 쉽고 Tag Assistant로 추적하기 좋다.
-   - 단점: 사이트 전체 tracking layer 변경이므로 Red Lane이다.
+1. 구독 신청 버튼만을 위한 별도 GTM Production publish는 보류한다.
+   - 이유: 실제 버튼 클릭이 이미 `begin_checkout`으로 잡히고, 상품/금액도 정상이다.
+   - 하지 않을 때 남는 문제: 구독 intent 전용 event name은 없다.
+   - 그래도 가능한 분석: `begin_checkout` + item_id/item_name/path로 구독 checkout을 분류한다.
 
-2. Imweb footer 통합
-   - 장점: 기존 Coffee footer attribution 코드와 한 파일에서 관리된다.
-   - 단점: 전체 custom code 저장이 필요하고 rollback 범위가 크다.
+2. Imweb footer 통합도 보류한다.
+   - 이유: 같은 시점의 신호가 이미 GTM/GA4 체인에 존재하므로 footer에 click listener를 추가하면 유지보수 부담과 중복 위험이 생긴다.
 
-현재 추천은 GTM Preview로 조건을 먼저 검증한 뒤, 운영 반영은 GTM publish와 Imweb footer 중 하나만 선택하는 것이다.
+3. 다음 설계 우선순위는 `add_payment_info` 또는 결제수단 intent다.
+   - 이유: 클릭, 결제 시작, 결제수단 선택, 결제 완료 중 현재 보강된 것은 결제 시작이다.
+   - NPay 클릭이나 결제수단 선택을 구매완료로 세면 안 되며, 결제수단 intent로 분리해야 한다.
 
 ## Auditor verdict
 
@@ -473,5 +500,6 @@ Numbers current: N/A
 Notes:
 - GTM Preview 실행은 수행했고 2차 실행에서 `PASS_GTM_PREVIEW_NO_SEND_CLEANED`를 받았다.
 - Preview workspace는 cleanup됐고 GTM live version은 unchanged다.
-- 실제 Imweb UI 버튼 클릭은 아직 Tag Assistant 수동 확인이 필요하다. synthetic smoke는 DOM 조건/경로 guard/no-send를 검증한 단계다.
+- 2026-05-24 실제 Imweb UI 버튼 클릭에서 `begin_checkout` 발화를 확인했다.
+- 별도 subscription intent publish는 현재 보류가 맞다. 기존 `begin_checkout`을 구독 checkout 분류 근거로 우선 사용한다.
 ```

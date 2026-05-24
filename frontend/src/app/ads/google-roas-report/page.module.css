@@ -214,6 +214,21 @@
   background: #f8fbff;
 }
 
+.exactEvidenceSection {
+  border-color: #fed7aa;
+  background: #fffaf3;
+}
+
+.conversionActionSection {
+  border-color: #c7d2fe;
+  background: #f8faff;
+}
+
+.truthSection {
+  border-color: #bae6fd;
+  background: #f8fcff;
+}
+
 .sectionHeader {
   display: flex;
   justify-content: space-between;
@@ -247,14 +262,206 @@
 
 .healthGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+.clickBaselineBanner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.clickBaselineBanner > div {
+  padding: 13px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fff7ed;
+}
+
+.clickBaselineBanner span {
+  display: block;
+  color: #9a3412;
+  font-size: 0.68rem;
+  font-weight: 920;
+}
+
+.clickBaselineBanner strong {
+  display: block;
+  margin-top: 5px;
+  color: #0f172a;
+  font-size: 1.08rem;
+  font-weight: 940;
+  line-height: 1.18;
+}
+
+.clickBaselineBanner p {
+  margin: 7px 0 0;
+  color: #475569;
+  font-size: 0.74rem;
+  line-height: 1.55;
 }
 
 .campaignMatchGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.exactEvidenceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 12px;
+}
+
+.exactDecisionCard,
+.exactDetailCard {
+  padding: 16px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.exactDecisionCard h3,
+.exactDetailCard h3 {
+  margin: 12px 0 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 930;
+  line-height: 1.38;
+  letter-spacing: 0;
+}
+
+.exactDecisionCard p {
+  margin: 9px 0 0;
+  color: #475569;
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.exactMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.exactMetricGrid div {
+  min-height: 94px;
+  padding: 11px;
+  border: 1px solid #ffedd5;
+  border-radius: 10px;
+  background: #fff7ed;
+}
+
+.exactMetricGrid span,
+.exactSummaryRow span {
+  display: block;
+  color: #9a3412;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.exactMetricGrid strong,
+.exactSummaryRow strong {
+  display: block;
+  margin-top: 5px;
+  color: #0f172a;
+  font-size: 1.04rem;
+  font-weight: 930;
+  line-height: 1.16;
+}
+
+.exactMetricGrid em {
+  display: block;
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.exactNextBox {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+}
+
+.exactNextBox strong {
+  color: #b91c1c;
+  font-size: 0.72rem;
+  font-weight: 920;
+}
+
+.exactNextBox span {
+  color: #334155;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.exactFlow {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.exactFlowStep {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.exactFlowStep > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #ffedd5;
+  color: #9a3412;
+  font-size: 0.72rem;
+  font-weight: 930;
+}
+
+.exactFlowStep strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 920;
+  line-height: 1.38;
+}
+
+.exactFlowStep p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.48;
+}
+
+.exactSummaryRow {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.exactSummaryRow div {
+  padding: 11px;
+  border: 1px solid #ffedd5;
+  border-radius: 10px;
+  background: #ffffff;
 }
 
 .healthStandardGrid {
@@ -269,6 +476,293 @@
   border: 1px solid #fee2e2;
   border-radius: 12px;
   background: #ffffff;
+}
+
+.postPatchHealthCard {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fffdf8;
+}
+
+.postPatchHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.postPatchHeader span {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.66rem;
+  font-weight: 920;
+}
+
+.postPatchHeader h3 {
+  margin: 10px 0 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 930;
+  letter-spacing: 0;
+}
+
+.postPatchHeader p {
+  max-width: 880px;
+  margin: 7px 0 0;
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.58;
+}
+
+.postPatchHeader em {
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 850;
+  text-align: right;
+}
+
+.postPatchGrid,
+.postPatchDetailGrid,
+.postPatchOrderRows,
+.evidenceGradeGrid,
+.conversionSummaryGrid,
+.truthSplitGrid,
+.truthEvidenceGrid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.postPatchGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.conversionSummaryGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.truthSplitGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.truthEvidenceGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.postPatchDetailGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.postPatchOrderRows {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.evidenceGradeGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.postPatchMetric,
+.postPatchDetailGrid > div,
+.postPatchOrderRows > div,
+.evidenceGradeCard,
+.conversionSummaryCard,
+.truthCard,
+.truthEvidenceGrid > div {
+  padding: 12px;
+  border: 1px solid #ffedd5;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.conversionSummaryCard {
+  border-color: #dbeafe;
+}
+
+.truthCard,
+.truthEvidenceGrid > div {
+  border-color: #bae6fd;
+}
+
+.truthCard {
+  min-height: 166px;
+}
+
+.postPatchMetric span,
+.postPatchOrderRows span,
+.evidenceGradeCard span,
+.conversionSummaryCard span,
+.truthCard span,
+.truthEvidenceGrid span {
+  display: block;
+  color: #9a3412;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.conversionSummaryCard span,
+.truthCard span,
+.truthEvidenceGrid span {
+  color: #3730a3;
+}
+
+.postPatchMetric strong {
+  display: block;
+  margin-top: 6px;
+  color: #0f172a;
+  font-size: 1.24rem;
+  font-weight: 930;
+  line-height: 1.1;
+}
+
+.postPatchMetric p,
+.postPatchDetailGrid p,
+.evidenceGradeCard p,
+.conversionSummaryCard p,
+.truthCard p,
+.truthEvidenceGrid p,
+.truthEvidenceBox p {
+  margin: 7px 0 0;
+  color: #475569;
+  font-size: 0.72rem;
+  line-height: 1.48;
+}
+
+.postPatchDetailGrid strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 920;
+}
+
+.postPatchDetailGrid dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0 0;
+}
+
+.postPatchDetailGrid dl div {
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff7ed;
+}
+
+.postPatchDetailGrid dt {
+  color: #9a3412;
+  font-size: 0.64rem;
+  font-weight: 880;
+}
+
+.postPatchDetailGrid dd {
+  margin: 4px 0 0;
+  color: #0f172a;
+  font-size: 0.86rem;
+  font-weight: 930;
+}
+
+.postPatchOrderRows strong {
+  display: block;
+  margin-top: 4px;
+  color: #b91c1c;
+  font-size: 0.9rem;
+  font-weight: 930;
+}
+
+.postPatchOrderRows em {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.66rem;
+  font-style: normal;
+  line-height: 1.4;
+}
+
+.evidenceGradeCard strong,
+.conversionSummaryCard strong,
+.truthCard strong {
+  display: block;
+  margin-top: 6px;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 930;
+}
+
+.truthEvidenceBox {
+  margin-top: 12px;
+  padding: 13px;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.truthEvidenceBox > strong {
+  color: #0f172a;
+  font-size: 0.86rem;
+  font-weight: 930;
+}
+
+.truthEvidenceBox em {
+  display: block;
+  margin-top: 10px;
+  padding: 10px 11px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.48;
+}
+
+.evidenceGradeCard em {
+  display: block;
+  margin-top: 8px;
+  color: #334155;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.riskBadgeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.riskBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.66rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.conversionActionName {
+  max-width: 280px;
+}
+
+.postPatchDecision {
+  margin: 12px 0 0;
+  padding: 11px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #7f1d1d;
+  font-size: 0.76rem;
+  font-weight: 780;
+  line-height: 1.55;
 }
 
 .healthStandardCard {
@@ -1015,8 +1509,21 @@
   }
 
   .healthGrid,
-  .healthStandardGrid {
+  .clickBaselineBanner,
+  .healthStandardGrid,
+  .postPatchGrid,
+  .postPatchDetailGrid,
+  .postPatchOrderRows,
+  .evidenceGradeGrid,
+  .conversionSummaryGrid,
+  .truthSplitGrid,
+  .truthEvidenceGrid,
+  .exactEvidenceGrid {
     grid-template-columns: 1fr;
+  }
+
+  .exactSummaryRow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .campaignMatchGrid {
@@ -1039,11 +1546,18 @@
   .roadmap,
   .evidenceGrid,
   .actionGrid,
-  .requestGrid {
+  .requestGrid,
+  .truthSplitGrid,
+  .truthEvidenceGrid {
     grid-template-columns: 1fr;
   }
 
   .healthStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exactMetricGrid,
+  .exactSummaryRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

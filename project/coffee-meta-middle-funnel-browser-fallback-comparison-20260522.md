@@ -244,6 +244,66 @@ preview payload 필수 항목:
 - 금액을 못 읽으면 `value=0`으로 속이지 않고 `value_status=missing`으로 남긴다.
 - raw order code, raw member code, raw click id는 preview result에 출력하지 않는다.
 
+### 2026-05-24 재검증
+
+사용한 파일:
+
+- `scripts/coffee-meta-middle-funnel-browser-fallback-nosend-snippet.js`
+- `scripts/coffee-meta-middle-funnel-browser-fallback-fixture.mjs`
+
+실행:
+
+```text
+node --check scripts/coffee-meta-middle-funnel-browser-fallback-nosend-snippet.js
+node --check scripts/coffee-meta-middle-funnel-browser-fallback-fixture.mjs
+node scripts/coffee-meta-middle-funnel-browser-fallback-fixture.mjs
+```
+
+결과:
+
+```text
+5/5 cases passed
+```
+
+해석:
+
+결제 진입 `InitiateCheckout` no-send 후보는 로컬 기준으로 쓸 수 있다. 이 후보는 `fbq`, `gtag`, `fetch`, `sendBeacon`, `Image`, `facebook.com/tr`, `att.ainativeos.net`를 호출하지 않고 `dataLayer` debug event만 만든다.
+
+GTM Preview에 올릴 때도 event 이름은 실제 Meta event가 아니라 `coffee_meta_middle_funnel_preview`로 둔다. payload 안의 `eventName: InitiateCheckout`은 "운영 전송 후보 이름"일 뿐이며, Preview 단계에서는 Meta로 보내지 않는다.
+
+## 2026-05-24 추가 판정
+
+### 왜 Coffee에서는 InitiateCheckout이 안 뜨는가
+
+Meta `InitiateCheckout`은 "기본 이벤트"이지만, 브라우저가 결제 페이지에 들어갔다고 자동으로 생기는 것은 아니다. 아래 중 하나가 명시적으로 실행되어야 한다.
+
+- Imweb/FBE native pixel이 `fbq('track', 'InitiateCheckout', ...)`를 호출한다.
+- GTM의 Meta/Facebook Pixel 태그가 `InitiateCheckout`을 호출한다.
+- 우리 footer/browser fallback이 `InitiateCheckout`을 호출한다.
+
+Coffee는 현재 상품상세 `ViewContent`는 살아 있지만, `/shop_payment/`에서 native/FBE가 `InitiateCheckout`을 만들지 않는다. Phase9는 이미 있는 `fbq('track', ...)` 호출에 eventID를 붙이는 wrapper라서, 원 이벤트가 없으면 새 이벤트를 만들지 않는다.
+
+따라서 원인은 VM Cloud나 CAPI가 막는 것이 아니라, Coffee 결제 페이지에서 `InitiateCheckout` 원천이 없다는 쪽이 유력하다.
+
+### VM Cloud나 CAPI가 막는가
+
+아니다.
+
+- `enableServerCapi=false`는 서버 CAPI mirror만 끈다. browser Pixel event 자체를 막지 않는다.
+- 같은 설정에서 Coffee 상품상세 `ViewContent`는 발화되고 eventID도 붙었다.
+- Purchase Guard는 `Purchase`만 감싼다. `InitiateCheckout`과 `AddPaymentInfo`를 차단하지 않는다.
+- VM Cloud는 `facebook.com/tr` 요청 경로 중간에 없다.
+
+### Biocom은 바로 뜨는가
+
+Biocom은 과거 실측 기준으로 결제 페이지에서 `InitiateCheckout`이 보였다.
+
+- `capivm/capi4reply.md`의 2026-04-12 가상계좌 테스트에서 Pixel Helper에 `/shop_payment/`의 `InitiateCheckout`이 확인됐다.
+- `gdn/biocom-fbe-browser-server-event-health-20260514.md` 기준 2026-05-14 당일 Meta browser/FBE `InitiateCheckout` 45건이 있었다.
+- 같은 문서에서 최근 7일 `AddPaymentInfo` 182건도 있었다.
+
+즉 Biocom은 Imweb/FBE 또는 footer fallback 계열이 중간 이벤트를 만들고 있고, Coffee는 그 원천이 결제 페이지에서 비어 있는 차이다.
+
 ## 승인 경계
 
 Green:
@@ -269,7 +329,6 @@ Red:
 
 ## 다음 액션
 
-1. Coffee browser fallback no-send snippet을 로컬 fixture로 만든다.
-2. `/shop_payment/` HTML/DOM에서 value/currency 후보 selector를 read-only로 조사한다.
-3. no-send preview가 안정적이면 Imweb footer 후보와 GTM Preview 후보를 다시 비교한다.
-4. 실제 운영 event 전송 전에는 승인안을 별도 작성한다.
+1. GTM Preview에서 `coffee_meta_middle_funnel_preview` no-send tag를 올려 `/shop_payment/`에서 1회 생성되는지 확인한다.
+2. Preview 통과 후 운영 반영 경로를 고른다. 우선순위는 GTM Production publish보다 Coffee footer browser fallback 승인안이다.
+3. 실제 `fbq('track', 'InitiateCheckout')` 또는 image fallback 전송은 Red Lane으로 별도 승인 전 금지한다.

@@ -41,7 +41,10 @@ import { buildTikTokRoasComparison } from "../tiktokRoasComparison";
 import { queryGA4PaidTrafficQuality, queryGA4SourceConversion } from "../ga4";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
-const DATA_DIR = path.resolve(__dirname, "..", "..", "data");
+const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
+const REPO_ROOT = path.resolve(BACKEND_ROOT, "..");
+const DATA_DIR = path.join(BACKEND_ROOT, "data");
+const UTM_DIR = path.join(REPO_ROOT, "utm");
 const KST_TIMEZONE = "Asia/Seoul";
 const KST_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: KST_TIMEZONE,
@@ -1938,6 +1941,33 @@ export const buildNormalizedLedgerOrders = (
 
 const normalizeSource = (value: string) => value.trim().toLowerCase();
 
+const normalizeMetaRoasExclusionText = (value: string | null | undefined): string => {
+  const trimmed = (value ?? "").trim().toLowerCase();
+  if (!trimmed || trimmed === "—" || trimmed === "-" || trimmed === "null" || trimmed === "undefined") return "";
+  return trimmed;
+};
+
+const isApprovedNonMetaForMetaRoas = (order: NormalizedLedgerOrder): boolean => {
+  const values = [
+    order.utmSource,
+    order.utmCampaign,
+    order.utmTerm,
+    order.utmContent,
+    ...order.landingPaths,
+  ].map(normalizeMetaRoasExclusionText).filter(Boolean);
+  return values.some((value) => (
+    value === "google"
+    || value.startsWith("googleads")
+    || value.startsWith("google_")
+    || value.includes("googleads_")
+    || value === "newmember_coupon"
+    || value.startsWith("inpork_")
+    || value.includes("_inpork_")
+    || value.includes("instagram_inpork")
+    || value.includes("teamketo_instagram_inpork")
+  ));
+};
+
 const inDateRange = (date: string | null, range: DateRange) =>
   Boolean(date && date >= range.startDate && date <= range.endDate);
 
@@ -1955,6 +1985,10 @@ const isMetaAttributedOrder = (order: NormalizedLedgerOrder) => {
     || Boolean(order.adIdHint.trim())
   );
 };
+
+const isMetaAttributedOrderForRoas = (order: NormalizedLedgerOrder) => (
+  isMetaAttributedOrder(order) && !isApprovedNonMetaForMetaRoas(order)
+);
 
 const isGoogleAttributedOrder = (order: NormalizedLedgerOrder) => {
   const source = normalizeSource(order.utmSource);
@@ -2302,7 +2336,7 @@ export const buildCampaignRoasRows = (params: {
   let unmappedRevenue = 0;
   let unmappedOrders = 0;
 
-  for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
+  for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrderForRoas)) {
     const matchedCampaignId = matchCampaignIdForOrder(
       order,
       campaigns,
@@ -2494,7 +2528,7 @@ const buildCampaignOrderMap = (params: {
   landingPathCampaignMap?: LandingPathCampaignMap;
 }) => {
   const matched = new Map<string, NormalizedLedgerOrder[]>();
-  for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
+  for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrderForRoas)) {
     const campaignId = matchCampaignIdForOrder(
       order,
       params.campaigns,
@@ -2702,7 +2736,7 @@ export const buildDailyRoasRows = (params: {
   const confirmedRevenueByDate = new Map<string, number>();
   const pendingRevenueByDate = new Map<string, number>();
   const officialRevenueByDate = new Map<string, number>();
-  for (const order of params.orders.filter(isMetaAttributedOrder)) {
+  for (const order of params.orders.filter(isMetaAttributedOrderForRoas)) {
     if (!order.approvedDate) continue;
     if (order.businessConfirmed) {
       officialRevenueByDate.set(
@@ -3427,12 +3461,121 @@ type MetaUtmUnmappedOrderSample = {
   utmContent: string;
   landingPath: string | null;
   reason: string;
+  dryRun?: MetaUtmUnmappedDryRunDecision;
+};
+
+type MetaUtmDryRunExcludeDecision = "YES" | "NO" | "REVIEW";
+
+type MetaUtmUnmappedDryRunDecision = {
+  bucket: string;
+  label: string;
+  excludeFromMetaUnmapped: MetaUtmDryRunExcludeDecision;
+  canCampaignMatch: "NO" | "PROPOSAL_ONLY";
+  confidence: number;
+  matchedUtmAlias: string;
+  matchedChannelBucket: string;
+  matchedManagementMemo: string;
+  recommendation: string;
+  evidence: string[];
+};
+
+type MetaUtmUnmappedDryRunBucketSummary = {
+  bucket: string;
+  label: string;
+  orders: number;
+  revenue: number;
+  excludeFromMetaUnmapped: MetaUtmDryRunExcludeDecision;
+  confidenceAvg: number;
+  recommendation: string;
+};
+
+type MetaUtmUnmappedDryRunSummary = {
+  rulesVersion: "meta_utm_unmapped_dry_run_v1";
+  mode: "dry_run_only" | "approved_exclusion_applied";
+  source: string;
+  original: {
+    orders: number;
+    revenue: number;
+  };
+  excludedIfApplied: {
+    orders: number;
+    revenue: number;
+  };
+  reviewBeforeApply: {
+    orders: number;
+    revenue: number;
+  };
+  retainedUnmapped: {
+    orders: number;
+    revenue: number;
+  };
+  adjustedIfApplied: {
+    orders: number;
+    revenue: number;
+  };
+  buckets: MetaUtmUnmappedDryRunBucketSummary[];
+  samples: MetaUtmUnmappedOrderSample[];
+  limitations: string[];
 };
 
 type MetaUtmUnmappedOrderSummary = {
   orders: number;
   revenue: number;
   samples: MetaUtmUnmappedOrderSample[];
+  dryRun?: MetaUtmUnmappedDryRunSummary;
+};
+
+const META_UTM_APPROVED_EXCLUSION_SOURCE =
+  "backend local classifier based on approved UTM exclusion rules; no DB write, no Meta Ads write";
+
+const META_UTM_APPROVED_EXCLUSION_LIMITATIONS = [
+  "approved policy applied locally: excludeFromMetaUnmapped=YES는 Meta 미매칭/ROAS용 집계에서 제외한다.",
+  "DB 원장, Meta 광고 계정, 외부 플랫폼 전송은 바꾸지 않는다.",
+  "REVIEW는 profile/link-in-bio 또는 fbclid only 가능성이 있어 raw 원장 재확인 전 자동 제외하지 않는다.",
+];
+
+type MetaUtmBGradeProposalRow = {
+  aliasKey: string;
+  proposalGrade: string;
+  proposalStatus: string;
+  proposedCampaignId: string;
+  proposedCampaignName: string;
+  sourceRow: string;
+  managementMemo: string;
+  landingPath: string;
+  ledgerPathCandidates: string;
+  utmSource: string;
+  utmCampaign: string;
+  utmContent: string;
+  channelBucket: string;
+  productFamilyHint: string;
+  auditRange: string;
+  confidence: number;
+  whyNotAutoConfirm: string;
+  nextAction: string;
+};
+
+type MetaUtmBGradeProposal = {
+  ok: boolean;
+  status: "loaded" | "missing" | "not_applicable" | "error";
+  mode: "proposal_only_do_not_auto_confirm";
+  source: {
+    dictionaryPath: string | null;
+    summaryPath: string | null;
+    generatedAtKst: string | null;
+  };
+  stats: {
+    uniqueMetaishAliases: number;
+    alreadyInManualSeed: number;
+    proposalSingleCampaign: number;
+    multiCampaignKeepSplit: number;
+    noCurrentAuditMatch: number;
+    proposalRows: number;
+    auditGeneratedAt: string | null;
+    auditRange: { startDate: string; endDate: string } | null;
+  };
+  rows: MetaUtmBGradeProposalRow[];
+  limitations: string[];
 };
 
 const META_UTM_DIAGNOSTICS_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -3496,10 +3639,7 @@ const getMetaUtmDiagnosticsDiskCached = async (
   const diskCache = await loadMetaUtmDiagnosticsDiskCache();
   const entry = diskCache.entries[key];
   if (!entry) return null;
-  if (Date.now() - entry.cachedAtMs > maxAgeMs) {
-    delete diskCache.entries[key];
-    return null;
-  }
+  if (Date.now() - entry.cachedAtMs > maxAgeMs) return null;
   adsLazyCache.set(key, entry);
   return entry;
 };
@@ -3858,6 +3998,258 @@ const compactMetaUtmSampleText = (value: string, maxLength = 96): string => {
   return `${trimmed.slice(0, maxLength - 1)}…`;
 };
 
+const normalizeMetaUtmDryRunText = (value: string | null | undefined): string => {
+  const trimmed = (value ?? "").trim().toLowerCase();
+  if (!trimmed || trimmed === "—" || trimmed === "-" || trimmed === "null" || trimmed === "undefined") return "";
+  return trimmed;
+};
+
+const hasLiteralMetaMacro = (value: string | null | undefined): boolean => (
+  /\{\{\s*(campaign|adset|ad)[._]?id\s*\}\}/i.test(value ?? "")
+);
+
+const hasGoogleAdsUtmValue = (values: string[]): boolean => values.some((value) => (
+  value === "google"
+  || value.startsWith("googleads")
+  || value.startsWith("google_")
+  || value.includes("googleads_")
+));
+
+const hasInPorkOrProfileLinkValue = (values: string[]): boolean => values.some((value) => (
+  value.startsWith("inpork_")
+  || value.includes("_inpork_")
+  || value.includes("instagram_inpork")
+  || value.includes("teamketo_instagram_inpork")
+));
+
+const buildMetaUtmDryRunDecision = (params: {
+  bucket: string;
+  label: string;
+  excludeFromMetaUnmapped: MetaUtmDryRunExcludeDecision;
+  canCampaignMatch?: "NO" | "PROPOSAL_ONLY";
+  confidence: number;
+  recommendation: string;
+  evidence: string[];
+  matchedUtmAlias?: string;
+  matchedChannelBucket?: string;
+  matchedManagementMemo?: string;
+}): MetaUtmUnmappedDryRunDecision => ({
+  bucket: params.bucket,
+  label: params.label,
+  excludeFromMetaUnmapped: params.excludeFromMetaUnmapped,
+  canCampaignMatch: params.canCampaignMatch ?? "NO",
+  confidence: params.confidence,
+  matchedUtmAlias: params.matchedUtmAlias ?? "",
+  matchedChannelBucket: params.matchedChannelBucket ?? "",
+  matchedManagementMemo: params.matchedManagementMemo ?? "",
+  recommendation: params.recommendation,
+  evidence: params.evidence,
+});
+
+const classifyMetaUtmUnmappedOrderDryRun = (order: NormalizedLedgerOrder): MetaUtmUnmappedDryRunDecision => {
+  const source = normalizeMetaUtmDryRunText(order.utmSource);
+  const campaign = normalizeMetaUtmDryRunText(order.utmCampaign);
+  const term = normalizeMetaUtmDryRunText(order.utmTerm);
+  const content = normalizeMetaUtmDryRunText(order.utmContent);
+  const landingPath = normalizeMetaUtmDryRunText(order.landingPaths[0]);
+  const trackingValues = [source, campaign, term, content].filter(Boolean);
+  const allValues = [...trackingValues, landingPath].filter(Boolean);
+  const evidence = [
+    source ? `utm_source=${source}` : "",
+    campaign ? `utm_campaign=${campaign}` : "",
+    content ? `utm_content=${content}` : "",
+    landingPath ? `landing=${landingPath}` : "",
+    order.fbclid.trim() ? "fbclid 있음" : "",
+  ].filter(Boolean);
+
+  if (hasGoogleAdsUtmValue(trackingValues)) {
+    return buildMetaUtmDryRunDecision({
+      bucket: "exclude_from_meta_google_ads_by_utm_file",
+      label: "Google Ads/검색광고 UTM",
+      excludeFromMetaUnmapped: "YES",
+      confidence: 0.94,
+      matchedUtmAlias: campaign || source || content,
+      matchedChannelBucket: "google_ads_or_content",
+      matchedManagementMemo: "UTM 관리 파일의 googleads_* 계열과 같은 패턴",
+      recommendation: "Meta 미매칭에서 제외하고 Google Ads/검색광고 유입으로 분리한다.",
+      evidence,
+    });
+  }
+
+  if (trackingValues.includes("newmember_coupon")) {
+    return buildMetaUtmDryRunDecision({
+      bucket: "exclude_from_meta_coupon_by_utm_file",
+      label: "신규가입 쿠폰/CRM성 내부 유입",
+      excludeFromMetaUnmapped: "YES",
+      confidence: 0.93,
+      matchedUtmAlias: "newmember_coupon",
+      matchedChannelBucket: "other_utm",
+      matchedManagementMemo: "UTM 관리 파일의 신규가입쿠폰",
+      recommendation: "Meta 미매칭에서 제외하고 쿠폰/CRM성 내부 유입으로 분리한다.",
+      evidence,
+    });
+  }
+
+  if (hasInPorkOrProfileLinkValue(allValues)) {
+    return buildMetaUtmDryRunDecision({
+      bucket: "exclude_from_meta_profile_link_by_utm_file",
+      label: "인포크/프로필 링크 UTM",
+      excludeFromMetaUnmapped: "YES",
+      confidence: 0.9,
+      matchedUtmAlias: campaign || source || content,
+      matchedChannelBucket: "profile_link_or_inpork",
+      matchedManagementMemo: "UTM 관리 파일의 인포크/프로필 링크 계열",
+      recommendation: "광고비가 붙은 Meta 캠페인 ROAS에는 넣지 않고 profile/link-in-bio 유입으로 분리한다.",
+      evidence,
+    });
+  }
+
+  if ([order.utmSource, order.utmCampaign, order.utmTerm, order.utmContent].some(hasLiteralMetaMacro)) {
+    return buildMetaUtmDryRunDecision({
+      bucket: "real_meta_placeholder_no_alias",
+      label: "Meta dynamic macro가 치환되지 않음",
+      excludeFromMetaUnmapped: "NO",
+      confidence: 0.78,
+      recommendation: "Meta 흔적은 있으나 숫자 ID·고유 alias·랜딩 경로가 없어 캠페인 매핑은 보류한다.",
+      evidence,
+    });
+  }
+
+  if (source === "ig" || content === "link_in_bio") {
+    return buildMetaUtmDryRunDecision({
+      bucket: "quarantine_or_exclude_ig_profile_link",
+      label: "IG 프로필/링크 인 바이오 후보",
+      excludeFromMetaUnmapped: "REVIEW",
+      confidence: 0.82,
+      recommendation: "광고 캠페인 확정 금지. fbclid와 원장 raw row를 재확인해 assisted/social 또는 제외로 분리한다.",
+      evidence,
+    });
+  }
+
+  if (trackingValues.length === 0 && !landingPath) {
+    return buildMetaUtmDryRunDecision({
+      bucket: "no_utm_no_landing_not_matchable",
+      label: "UTM/랜딩 경로 없음",
+      excludeFromMetaUnmapped: "NO",
+      confidence: 0.7,
+      recommendation: "UTM 파일로는 매칭할 수 없다. fbclid only인지 원장 raw evidence를 재확인한다.",
+      evidence,
+    });
+  }
+
+  if (trackingValues.some((value) => value.startsWith("meta_") || value.startsWith("meat_"))) {
+    return buildMetaUtmDryRunDecision({
+      bucket: "potential_meta_alias_needs_meta_id",
+      label: "Meta alias 후보",
+      excludeFromMetaUnmapped: "NO",
+      canCampaignMatch: "PROPOSAL_ONLY",
+      confidence: 0.74,
+      matchedUtmAlias: campaign || source || content,
+      matchedChannelBucket: "meta_paid_or_meta_candidate",
+      recommendation: "Meta alias 후보지만 숫자 ID 또는 최신 Meta API URL evidence 확인 전에는 B급 제안으로만 유지한다.",
+      evidence,
+    });
+  }
+
+  return buildMetaUtmDryRunDecision({
+    bucket: "other_unmapped_no_utm_file_match",
+    label: "기타 미매칭",
+    excludeFromMetaUnmapped: "NO",
+    confidence: 0.62,
+    recommendation: "UTM 파일 후보가 없다. 원장 raw evidence 또는 그로스팀 실제 광고 URL 확인이 필요하다.",
+    evidence,
+  });
+};
+
+const emptyMetaUtmAmount = () => ({ orders: 0, revenue: 0 });
+
+const addMetaUtmAmount = (target: { orders: number; revenue: number }, amount: number) => {
+  target.orders += 1;
+  target.revenue += amount;
+};
+
+const buildMetaUtmUnmappedDryRunSummary = (params: {
+  orders: number;
+  revenue: number;
+  classified: Array<{ amount: number; dryRun: MetaUtmUnmappedDryRunDecision }>;
+  samples: MetaUtmUnmappedOrderSample[];
+}): MetaUtmUnmappedDryRunSummary => {
+  const excludedIfApplied = emptyMetaUtmAmount();
+  const reviewBeforeApply = emptyMetaUtmAmount();
+  const retainedUnmapped = emptyMetaUtmAmount();
+  const bucketMap = new Map<string, {
+    label: string;
+    orders: number;
+    revenue: number;
+    excludeFromMetaUnmapped: MetaUtmDryRunExcludeDecision;
+    confidenceTotal: number;
+    recommendation: string;
+  }>();
+
+  for (const row of params.classified) {
+    const amount = row.amount;
+    if (row.dryRun.excludeFromMetaUnmapped === "YES") {
+      addMetaUtmAmount(excludedIfApplied, amount);
+    } else if (row.dryRun.excludeFromMetaUnmapped === "REVIEW") {
+      addMetaUtmAmount(reviewBeforeApply, amount);
+    } else {
+      addMetaUtmAmount(retainedUnmapped, amount);
+    }
+
+    const existing = bucketMap.get(row.dryRun.bucket) ?? {
+      label: row.dryRun.label,
+      orders: 0,
+      revenue: 0,
+      excludeFromMetaUnmapped: row.dryRun.excludeFromMetaUnmapped,
+      confidenceTotal: 0,
+      recommendation: row.dryRun.recommendation,
+    };
+    existing.orders += 1;
+    existing.revenue += amount;
+    existing.confidenceTotal += row.dryRun.confidence;
+    bucketMap.set(row.dryRun.bucket, existing);
+  }
+
+  const adjustedOrders = Math.max(0, params.orders - excludedIfApplied.orders);
+  const adjustedRevenue = Math.max(0, params.revenue - excludedIfApplied.revenue);
+  return {
+    rulesVersion: "meta_utm_unmapped_dry_run_v1",
+    mode: "approved_exclusion_applied",
+    source: META_UTM_APPROVED_EXCLUSION_SOURCE,
+    original: {
+      orders: params.orders,
+      revenue: round2(params.revenue),
+    },
+    excludedIfApplied: {
+      orders: excludedIfApplied.orders,
+      revenue: round2(excludedIfApplied.revenue),
+    },
+    reviewBeforeApply: {
+      orders: reviewBeforeApply.orders,
+      revenue: round2(reviewBeforeApply.revenue),
+    },
+    retainedUnmapped: {
+      orders: retainedUnmapped.orders,
+      revenue: round2(retainedUnmapped.revenue),
+    },
+    adjustedIfApplied: {
+      orders: adjustedOrders,
+      revenue: round2(adjustedRevenue),
+    },
+    buckets: [...bucketMap.entries()].map(([bucket, value]) => ({
+      bucket,
+      label: value.label,
+      orders: value.orders,
+      revenue: round2(value.revenue),
+      excludeFromMetaUnmapped: value.excludeFromMetaUnmapped,
+      confidenceAvg: value.orders > 0 ? round2(value.confidenceTotal / value.orders) : 0,
+      recommendation: value.recommendation,
+    })).sort((a, b) => b.revenue - a.revenue || a.bucket.localeCompare(b.bucket)),
+    samples: params.samples,
+    limitations: META_UTM_APPROVED_EXCLUSION_LIMITATIONS,
+  };
+};
+
 const buildMetaUtmUnmappedOrderSummary = (params: {
   orders: NormalizedLedgerOrder[];
   campaigns: MetaCampaignAggregate[];
@@ -3868,7 +4260,11 @@ const buildMetaUtmUnmappedOrderSummary = (params: {
 }): MetaUtmUnmappedOrderSummary => {
   let orders = 0;
   let revenue = 0;
+  let originalOrders = 0;
+  let originalRevenue = 0;
   const samples: MetaUtmUnmappedOrderSample[] = [];
+  const dryRunSamples: MetaUtmUnmappedOrderSample[] = [];
+  const classified: Array<{ amount: number; dryRun: MetaUtmUnmappedDryRunDecision }> = [];
 
   for (const order of params.orders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
     const matchedCampaignId = matchCampaignIdForOrder(
@@ -3881,19 +4277,33 @@ const buildMetaUtmUnmappedOrderSummary = (params: {
     );
     if (matchedCampaignId) continue;
 
+    const amount = order.amount ?? 0;
+    const dryRun = classifyMetaUtmUnmappedOrderDryRun(order);
+    classified.push({ amount, dryRun });
+    originalOrders += 1;
+    originalRevenue += amount;
+    const sample = {
+      approvedDate: order.approvedDate,
+      amount: round2(amount),
+      utmSource: compactMetaUtmSampleText(order.utmSource || "—", 72),
+      utmCampaign: compactMetaUtmSampleText(order.utmCampaign || "—"),
+      utmTerm: compactMetaUtmSampleText(order.utmTerm || "—"),
+      utmContent: compactMetaUtmSampleText(order.utmContent || "—"),
+      landingPath: order.landingPaths[0] ? compactMetaUtmSampleText(order.landingPaths[0], 120) : null,
+      reason: "현재 campaign id/adset id/ad id/alias/landing path 기준으로 단일 캠페인 확정 실패",
+      dryRun,
+    };
+    if (dryRunSamples.length < 20) {
+      dryRunSamples.push(sample);
+    }
+    if (dryRun.excludeFromMetaUnmapped === "YES") {
+      continue;
+    }
+
     orders += 1;
-    revenue += order.amount ?? 0;
+    revenue += amount;
     if (samples.length < 20) {
-      samples.push({
-        approvedDate: order.approvedDate,
-        amount: round2(order.amount ?? 0),
-        utmSource: compactMetaUtmSampleText(order.utmSource || "—", 72),
-        utmCampaign: compactMetaUtmSampleText(order.utmCampaign || "—"),
-        utmTerm: compactMetaUtmSampleText(order.utmTerm || "—"),
-        utmContent: compactMetaUtmSampleText(order.utmContent || "—"),
-        landingPath: order.landingPaths[0] ? compactMetaUtmSampleText(order.landingPaths[0], 120) : null,
-        reason: "현재 campaign id/adset id/ad id/alias/landing path 기준으로 단일 캠페인 확정 실패",
-      });
+      samples.push(sample);
     }
   }
 
@@ -3901,6 +4311,331 @@ const buildMetaUtmUnmappedOrderSummary = (params: {
     orders,
     revenue: round2(revenue),
     samples,
+    dryRun: buildMetaUtmUnmappedDryRunSummary({
+      orders: originalOrders,
+      revenue: originalRevenue,
+      classified,
+      samples: dryRunSamples,
+    }),
+  };
+};
+
+const META_UTM_BGRADE_CACHE_TTL_MS = 5 * 60 * 1000;
+let metaUtmBGradeProposalCache: { loadedAtMs: number; value: MetaUtmBGradeProposal } | null = null;
+
+const findLatestGeneratedFile = async (
+  dir: string,
+  prefix: string,
+  suffix: string,
+): Promise<string | null> => {
+  const files = await fs.readdir(dir).catch(() => []);
+  const matched = files
+    .filter((name) => name.startsWith(prefix) && name.endsWith(suffix))
+    .sort((a, b) => a.localeCompare(b));
+  const latest = matched[matched.length - 1];
+  return latest ? path.join(dir, latest) : null;
+};
+
+const parseMetaUtmCsvTable = (content: string): string[][] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuote = false;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+    const next = content[index + 1];
+
+    if (char === '"') {
+      if (inQuote && next === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        inQuote = !inQuote;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuote) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuote) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell);
+      if (row.some((value) => value.trim())) rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.trim())) rows.push(row);
+  return rows;
+};
+
+const parseMetaUtmCsvRecords = (content: string): Record<string, string>[] => {
+  const rows = parseMetaUtmCsvTable(content);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map((header, index) => (index === 0 ? header.replace(/^\uFEFF/, "") : header).trim());
+  return rows.slice(1).map((cells) => {
+    const record: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      record[header] = cells[index] ?? "";
+    });
+    return record;
+  });
+};
+
+const toMetaUtmBGradeNumber = (value: unknown): number => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const buildMetaUtmBGradeMissingProposal = (
+  status: MetaUtmBGradeProposal["status"],
+  message: string,
+): MetaUtmBGradeProposal => ({
+  ok: false,
+  status,
+  mode: "proposal_only_do_not_auto_confirm",
+  source: {
+    dictionaryPath: null,
+    summaryPath: null,
+    generatedAtKst: null,
+  },
+  stats: {
+    uniqueMetaishAliases: 0,
+    alreadyInManualSeed: 0,
+    proposalSingleCampaign: 0,
+    multiCampaignKeepSplit: 0,
+    noCurrentAuditMatch: 0,
+    proposalRows: 0,
+    auditGeneratedAt: null,
+    auditRange: null,
+  },
+  rows: [],
+  limitations: [message],
+});
+
+const loadMetaUtmBGradeProposal = async (): Promise<MetaUtmBGradeProposal> => {
+  if (
+    metaUtmBGradeProposalCache
+    && Date.now() - metaUtmBGradeProposalCache.loadedAtMs <= META_UTM_BGRADE_CACHE_TTL_MS
+  ) {
+    return metaUtmBGradeProposalCache.value;
+  }
+
+  try {
+    const dictionaryPath = await findLatestGeneratedFile(
+      UTM_DIR,
+      "biocom-meta-bgrade-alias-proposal-dictionary-",
+      ".csv",
+    );
+    const summaryPath = await findLatestGeneratedFile(
+      UTM_DIR,
+      "biocom-meta-bgrade-alias-proposal-summary-",
+      ".json",
+    );
+
+    if (!dictionaryPath || !summaryPath) {
+      const missing = buildMetaUtmBGradeMissingProposal(
+        "missing",
+        "B급 제안 사전 CSV/JSON 산출물이 아직 없어 화면에는 요약을 표시하지 않는다.",
+      );
+      metaUtmBGradeProposalCache = { loadedAtMs: Date.now(), value: missing };
+      return missing;
+    }
+
+    const [csvRaw, summaryRaw] = await Promise.all([
+      fs.readFile(dictionaryPath, "utf-8"),
+      fs.readFile(summaryPath, "utf-8"),
+    ]);
+    const summary = JSON.parse(summaryRaw) as {
+      run_at_kst?: unknown;
+      stats?: Record<string, unknown>;
+    };
+    const stats = summary.stats ?? {};
+    const records = parseMetaUtmCsvRecords(csvRaw);
+    const rows: MetaUtmBGradeProposalRow[] = records.map((record) => ({
+      aliasKey: record.alias_key ?? "",
+      proposalGrade: record.proposal_grade ?? "",
+      proposalStatus: record.proposal_status ?? "",
+      proposedCampaignId: record.proposed_campaign_id ?? "",
+      proposedCampaignName: record.proposed_campaign_name ?? "",
+      sourceRow: record.source_row ?? "",
+      managementMemo: record.management_memo ?? "",
+      landingPath: record.landing_path ?? "",
+      ledgerPathCandidates: record.ledger_path_candidates ?? "",
+      utmSource: record.utm_source ?? "",
+      utmCampaign: record.utm_campaign ?? "",
+      utmContent: record.utm_content ?? "",
+      channelBucket: record.channel_bucket ?? "",
+      productFamilyHint: record.product_family_hint ?? "",
+      auditRange: record.audit_range ?? "",
+      confidence: toMetaUtmBGradeNumber(record.confidence),
+      whyNotAutoConfirm: record.why_not_auto_confirm ?? "",
+      nextAction: record.next_action ?? "",
+    }));
+    const auditRange = stats.audit_range && typeof stats.audit_range === "object"
+      ? stats.audit_range as { startDate?: unknown; endDate?: unknown }
+      : null;
+    const proposal: MetaUtmBGradeProposal = {
+      ok: true,
+      status: "loaded",
+      mode: "proposal_only_do_not_auto_confirm",
+      source: {
+        dictionaryPath,
+        summaryPath,
+        generatedAtKst: typeof summary.run_at_kst === "string" ? summary.run_at_kst : null,
+      },
+      stats: {
+        uniqueMetaishAliases: toMetaUtmBGradeNumber(stats.unique_metaish_aliases),
+        alreadyInManualSeed: toMetaUtmBGradeNumber(stats.already_in_manual_seed),
+        proposalSingleCampaign: toMetaUtmBGradeNumber(stats.b_grade_proposal_single_campaign),
+        multiCampaignKeepSplit: toMetaUtmBGradeNumber(stats.multi_campaign_keep_split),
+        noCurrentAuditMatch: toMetaUtmBGradeNumber(stats.no_current_audit_match),
+        proposalRows: toMetaUtmBGradeNumber(stats.b_grade_proposal_rows || rows.length),
+        auditGeneratedAt: typeof stats.audit_generated_at === "string" ? stats.audit_generated_at : null,
+        auditRange: auditRange
+          ? {
+              startDate: typeof auditRange.startDate === "string" ? auditRange.startDate : "",
+              endDate: typeof auditRange.endDate === "string" ? auditRange.endDate : "",
+            }
+          : null,
+      },
+      rows,
+      limitations: [
+        "자동 확정 금지: UTM 파일과 과거 Meta URL audit에서 단일 캠페인으로 보이는 후보일 뿐이다.",
+        "최신 Meta API URL evidence 또는 그로스팀 Ads Manager export로 숫자 ID 확인 후 manual_verified로 승급한다.",
+      ],
+    };
+    metaUtmBGradeProposalCache = { loadedAtMs: Date.now(), value: proposal };
+    return proposal;
+  } catch (error) {
+    const failed = buildMetaUtmBGradeMissingProposal(
+      "error",
+      error instanceof Error ? error.message : "B급 제안 사전 로딩 실패",
+    );
+    metaUtmBGradeProposalCache = { loadedAtMs: Date.now(), value: failed };
+    return failed;
+  }
+};
+
+const buildMetaUtmDryRunFromCachedSamples = (
+  summary: MetaUtmUnmappedOrderSummary | undefined,
+): MetaUtmUnmappedDryRunSummary | undefined => {
+  if (!summary) return undefined;
+  const classified = summary.samples.map((sample) => {
+    const dryRun = sample.dryRun ?? classifyMetaUtmUnmappedOrderDryRun({
+      key: "",
+      orderId: "",
+      paymentKey: "",
+      approvedDate: sample.approvedDate,
+      amount: sample.amount,
+      site: null,
+      customerKey: "",
+      utmSource: sample.utmSource === "—" ? "" : sample.utmSource,
+      utmCampaign: sample.utmCampaign === "—" ? "" : sample.utmCampaign,
+      utmTerm: sample.utmTerm === "—" ? "" : sample.utmTerm,
+      utmContent: sample.utmContent === "—" ? "" : sample.utmContent,
+      fbclid: "",
+      gclid: "",
+      ttclid: "",
+      campaignIdHint: "",
+      adsetIdHint: "",
+      adIdHint: "",
+      landingPaths: sample.landingPath ? [sample.landingPath] : [],
+      captureMode: "live",
+      paymentStatus: "confirmed",
+      status: "CONFIRMED",
+      completed: true,
+      businessConfirmed: true,
+      businessConfirmedDate: sample.approvedDate,
+      businessConfirmedAmount: sample.amount,
+      entryCount: 1,
+    });
+    return { amount: sample.amount, dryRun };
+  });
+  const samples = summary.samples.map((sample, index) => ({
+    ...sample,
+    dryRun: classified[index]?.dryRun,
+  }));
+  return buildMetaUtmUnmappedDryRunSummary({
+    orders: summary.orders,
+    revenue: summary.revenue,
+    classified,
+    samples,
+  });
+};
+
+const applyApprovedMetaUtmExclusionSummaryMode = (
+  summary: MetaUtmUnmappedDryRunSummary | undefined,
+): MetaUtmUnmappedDryRunSummary | undefined => {
+  if (!summary) return undefined;
+  const retainedLimitations = summary.limitations.filter((item) => !(
+    item.includes("dry-run only")
+    || item.includes("dry-run 초안")
+    || item.includes("아직 실제 집계")
+    || item.includes("직접 바꾸지 않는다")
+    || item.includes("실제 운영 반영")
+    || item.includes("적용 시 Meta 미매칭 목록")
+  ));
+  return {
+    ...summary,
+    mode: "approved_exclusion_applied",
+    source: META_UTM_APPROVED_EXCLUSION_SOURCE,
+    limitations: [...new Set([...retainedLimitations, ...META_UTM_APPROVED_EXCLUSION_LIMITATIONS])],
+  };
+};
+
+const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<string, unknown>> => {
+  if (!body || typeof body !== "object") return {};
+  const record = body as Record<string, unknown>;
+  const unmapped = record.unmapped as MetaUtmUnmappedOrderSummary | undefined;
+  const accountId = typeof record.account_id === "string" ? record.account_id : "";
+  const site = findSiteAccountByAccountId(accountId)?.site ?? null;
+  const bGradeProposal = site === "biocom"
+    ? await loadMetaUtmBGradeProposal()
+    : buildMetaUtmBGradeMissingProposal("not_applicable", "B급 제안 사전은 현재 biocom 계정 전용이다.");
+  const unmappedDryRun = applyApprovedMetaUtmExclusionSummaryMode(
+    unmapped?.dryRun ?? buildMetaUtmDryRunFromCachedSamples(unmapped),
+  );
+  const augmentedUnmapped = unmapped && unmappedDryRun
+    ? {
+        ...unmapped,
+        orders: unmappedDryRun.adjustedIfApplied.orders,
+        revenue: unmappedDryRun.adjustedIfApplied.revenue,
+        samples: unmappedDryRun.samples.filter((sample) => sample.dryRun?.excludeFromMetaUnmapped !== "YES"),
+        dryRun: unmappedDryRun,
+      }
+    : unmapped;
+  const existingDiagnostics = record.diagnostics && typeof record.diagnostics === "object"
+    ? record.diagnostics as Record<string, unknown>
+    : {};
+  const existingLimitations = Array.isArray(existingDiagnostics.limitations)
+    ? existingDiagnostics.limitations.filter((item): item is string => typeof item === "string")
+    : [];
+  const nextLimitations = [
+    ...existingLimitations,
+    "승인된 비Meta 오분류 제외 규칙은 Meta 미매칭/ROAS용 집계에 적용한다. REVIEW bucket은 제외하지 않는다.",
+    "B급 제안 사전은 자동 확정이 아니라 후보 사전이다. 최신 URL/숫자 ID evidence 확인 전 manual_verified로 승격하지 않는다.",
+  ];
+
+  return {
+    ...record,
+    unmapped: augmentedUnmapped,
+    unmappedDryRun,
+    bgradeProposal: bGradeProposal,
+    diagnostics: {
+      ...existingDiagnostics,
+      limitations: [...new Set(nextLimitations)],
+    },
   };
 };
 
@@ -4074,7 +4809,7 @@ const buildMetaUtmDiagnostics = async (params: {
   const exactAdsetRevenue = new Map<string, { revenue: number; orders: number }>();
   const exactAdRevenue = new Map<string, { revenue: number; orders: number }>();
   const landingPathAdsetEvidence = new Set<string>();
-  for (const order of baseContext.filteredOrders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrder)) {
+  for (const order of baseContext.filteredOrders.filter((candidate) => candidate.completed).filter(isMetaAttributedOrderForRoas)) {
     const amount = order.amount ?? 0;
     const adId = order.adIdHint.trim();
     if (adId) {
@@ -6917,12 +7652,14 @@ export const createAdsRouter = () => {
       if (!forceRefresh) {
         const cached = getAdsLazyCached(cacheKey);
         if (cached) {
-          res.json({ ...(cached.result as object), cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
+          const body = await withMetaUtmDiagnosticsLocalDrafts(cached.result);
+          res.json({ ...body, cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
           return;
         }
         const diskCached = await getMetaUtmDiagnosticsDiskCached(cacheKey, META_UTM_DIAGNOSTICS_CACHE_TTL_MS);
         if (diskCached) {
-          res.json({ ...(diskCached.result as object), cache: buildAdsCacheMeta(diskCached, "disk_cache_hit") });
+          const body = await withMetaUtmDiagnosticsLocalDrafts(diskCached.result);
+          res.json({ ...body, cache: buildAdsCacheMeta(diskCached, "disk_cache_hit") });
           return;
         }
       }
@@ -6937,23 +7674,26 @@ export const createAdsRouter = () => {
       });
       const cached = setAdsLazyCached(cacheKey, responseBody, META_UTM_DIAGNOSTICS_CACHE_TTL_MS);
       await setMetaUtmDiagnosticsDiskCached(cacheKey, cached);
-      res.json({ ...responseBody, cache: buildAdsCacheMeta(cached, forceRefresh ? "live_force" : "live_cache_miss") });
+      const body = await withMetaUtmDiagnosticsLocalDrafts(responseBody);
+      res.json({ ...body, cache: buildAdsCacheMeta(cached, forceRefresh ? "live_force" : "live_cache_miss") });
     } catch (error) {
       const message = error instanceof Error ? error.message : "meta utm diagnostics failed";
       const status = message.includes("YYYY-MM-DD") || message.includes("start_date") ? 400 : 500;
       if (status === 500 && cacheKey) {
         const stale = getAdsLazyCachedStale(cacheKey);
         if (stale) {
+          const body = await withMetaUtmDiagnosticsLocalDrafts(stale.result);
           res.json({
-            ...(stale.result as object),
+            ...body,
             cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
           });
           return;
         }
         const diskStale = await getMetaUtmDiagnosticsDiskCached(cacheKey, META_UTM_DIAGNOSTICS_DISK_STALE_MAX_MS);
         if (diskStale) {
+          const body = await withMetaUtmDiagnosticsLocalDrafts(diskStale.result);
           res.json({
-            ...(diskStale.result as object),
+            ...body,
             cache: { ...buildAdsCacheMeta(diskStale, "disk_cache_hit"), stale: true, stale_reason: message },
           });
           return;
@@ -7193,7 +7933,7 @@ export const createAdsRouter = () => {
       const totalRevenue = round2(rows.reduce((sum, row) => sum + row.revenue, 0));
       const totalPotentialRevenue = round2(rows.reduce((sum, row) => sum + row.potentialRevenue, 0));
       const totalMetaPurchaseValue = round2(rows.reduce((sum, row) => sum + row.metaPurchaseValue, 0));
-      const totalOfficialRevenue = sumOfficialRevenue(dailyOrders.filter(isMetaAttributedOrder));
+      const totalOfficialRevenue = sumOfficialRevenue(dailyOrders.filter(isMetaAttributedOrderForRoas));
       const totalConfirmedRoas = computeRoas(totalRevenue, totalSpend, ledger.entries.length > 0);
       const totalOfficialRoas = computeRoas(totalOfficialRevenue, totalSpend, ledger.entries.length > 0);
 
@@ -7277,7 +8017,7 @@ export const createAdsRouter = () => {
       ]);
 
       const filteredOrders = filterOrdersByRange(ledger.orders, range);
-      const metaOrders = filteredOrders.filter(isMetaAttributedOrder);
+      const metaOrders = filteredOrders.filter(isMetaAttributedOrderForRoas);
       const googleOrders = filteredOrders.filter(isGoogleAttributedOrder);
       const daangnOrders = filteredOrders.filter(isDaangnAttributedOrder);
       const metaTotals = siteResults.reduce<MetaTotals>((sum, site) => ({
@@ -7388,16 +8128,16 @@ export const createAdsRouter = () => {
       ]);
 
       const ledgerAvailable = ledger.entries.length > 0;
-      const filteredOrders = filterOrdersByRange(ledger.orders, range).filter(isMetaAttributedOrder);
+      const filteredOrders = filterOrdersByRange(ledger.orders, range).filter(isMetaAttributedOrderForRoas);
       const datedOrders = filterOrdersByDateRange(ledger.orders, range);
       const sites: SiteRoasSummary[] = siteResults.map((site) => {
         const siteOrders = filteredOrders.filter((order) => order.site === site.site);
         const sitePendingOrders = datedOrders.filter((order) =>
-          order.site === site.site && isMetaAttributedOrder(order) && order.paymentStatus === "pending");
+          order.site === site.site && isMetaAttributedOrderForRoas(order) && order.paymentStatus === "pending");
         const siteAllConfirmedOrders = datedOrders.filter((order) =>
           order.site === site.site && order.paymentStatus === "confirmed");
         const siteOfficialOrders = datedOrders.filter((order) =>
-          order.site === site.site && isMetaAttributedOrder(order) && order.businessConfirmed);
+          order.site === site.site && isMetaAttributedOrderForRoas(order) && order.businessConfirmed);
         const revenue = sumRevenue(siteOrders);
         const pendingRevenue = sumRevenue(sitePendingOrders);
         const potentialRevenue = round2(revenue + pendingRevenue);
@@ -7445,7 +8185,7 @@ export const createAdsRouter = () => {
       const totalPotentialRevenue = round2(sites.reduce((sum, site) => sum + site.potentialRevenue, 0));
       const totalMetaPurchaseValue = round2(sites.reduce((sum, site) => sum + site.metaPurchaseValue, 0));
       const totalOfficialRevenue = sumOfficialRevenue(
-        datedOrders.filter((order) => isMetaAttributedOrder(order) && order.businessConfirmed),
+        datedOrders.filter((order) => isMetaAttributedOrderForRoas(order) && order.businessConfirmed),
       );
       const totalConfirmedRoas = computeRoas(totalRevenue, totalSpend, ledgerAvailable);
       const totalOfficialRoas = computeRoas(totalOfficialRevenue, totalSpend, ledgerAvailable);

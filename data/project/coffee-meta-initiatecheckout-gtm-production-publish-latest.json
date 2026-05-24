@@ -1,0 +1,132 @@
+{
+  "generated_at_kst": "2026-05-24T16:46:36",
+  "run_id": "20260524T074633Z",
+  "mode": "apply_publish",
+  "approval": {
+    "approved_by": "TJ",
+    "approved_scope": "Coffee GTM-5M33GC4 /shop_payment/ Meta browser InitiateCheckout fresh workspace Preview then Production publish"
+  },
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "91608400",
+    "public_id": "GTM-5M33GC4",
+    "path": "accounts/4703003246/containers/91608400"
+  },
+  "live_before": {
+    "container_version_id": "22",
+    "name": "Coffee Meta InitiateCheckout shop_payment - 20260524T073809Z"
+  },
+  "expected_live_version_id": "22",
+  "workspace_before_count": 1,
+  "workspaces_before": [
+    {
+      "id": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "default_workspace_status": {
+    "workspace_change_count": 0,
+    "merge_conflict_count": 0,
+    "changes": [],
+    "conflicts": []
+  },
+  "duplicate_live_tag_count": 1,
+  "planned": {
+    "workspace_name": "codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T074633Z",
+    "tag_name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+    "trigger_name": "AGENTSOS - [DOM Ready] shop_payment order only",
+    "version_name": "Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z",
+    "excludes_subscription": true,
+    "update_existing": true,
+    "excludes_complete_pages": true,
+    "no_purchase": true,
+    "no_meta_capi_enable": true,
+    "no_ga4_mp": true,
+    "no_google_ads": true,
+    "no_naver_tiktok": true,
+    "no_db_write": true
+  },
+  "prepublish_backup_path": "/Users/vibetj/coding/seo/data/project/coffee-meta-initiatecheckout-gtm-production-prepublish-backup-20260524T074633Z.json",
+  "workspace": {
+    "workspace_id": "32",
+    "name": "codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T074633Z",
+    "path": "accounts/4703003246/containers/91608400/workspaces/32",
+    "present_after_publish": false
+  },
+  "trigger": {
+    "trigger_id": "98",
+    "name": "AGENTSOS - [DOM Ready] shop_payment order only",
+    "type": "domReady"
+  },
+  "tag": {
+    "tag_id": "99",
+    "name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+    "type": "html",
+    "firing_trigger_id": [
+      "98"
+    ]
+  },
+  "quick_preview": {
+    "compiler_error": false,
+    "sync_status": null
+  },
+  "workspace_status": {
+    "workspace_change_count": 1,
+    "merge_conflict_count": 0,
+    "changes": [
+      {
+        "change_status": "updated",
+        "tag": {
+          "tag_id": "99",
+          "name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+          "type": "html",
+          "firing_trigger_id": [
+            "98"
+          ]
+        },
+        "trigger": null
+      }
+    ],
+    "conflicts": []
+  },
+  "created_version": {
+    "container_version_id": "23",
+    "name": "Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z",
+    "path": "accounts/4703003246/containers/91608400/versions/23",
+    "compiler_error": false
+  },
+  "publish": {
+    "compiler_error": false
+  },
+  "live_after": {
+    "container_version_id": "23",
+    "name": "Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z",
+    "matches_created_version": true
+  },
+  "workspace_after_count": 1,
+  "workspaces_after": [
+    {
+      "id": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "live_published_matching_tag_count": 1,
+  "invariants": {
+    "fresh_workspace_used": true,
+    "default_workspace_used": false,
+    "quick_preview_before_publish": true,
+    "only_expected_changes_published": true,
+    "no_merge_conflict": true,
+    "live_version_advanced": true,
+    "live_matches_created_version": true,
+    "no_purchase": true,
+    "no_meta_capi_enable": true,
+    "no_ga4_mp": true,
+    "no_google_ads": true,
+    "no_naver_tiktok": true,
+    "no_db_write": true
+  },
+  "verdict": "PASS_PRODUCTION_PUBLISH"
+}

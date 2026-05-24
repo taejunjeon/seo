@@ -345,6 +345,74 @@ export type NpayRoasDryRunReport = {
   notes: string[];
 };
 
+export type NpayIntentRematchDryRunClickIds = {
+  gclid: string;
+  gbraid: string;
+  wbraid: string;
+  googleClickIdTypes: Array<"gclid" | "gbraid" | "wbraid">;
+  hasGoogleClickId: boolean;
+};
+
+export type NpayIntentRematchDryRunCandidate = {
+  orderNumber: string;
+  channelOrderNo: string;
+  paidAt: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  orderAmount: number | null;
+  intentId: string;
+  intentKey: string;
+  intentCapturedAt: string;
+  currentIntentMatchStatus: string;
+  nextIntentMatchStatusPreview: "matched";
+  matchedOrderNoPreview: string;
+  matchedChannelOrderNoPreview: string;
+  score: number;
+  scoreGap: number | null;
+  strongGrade: NpayRoasDryRunStrongGrade | null;
+  amountMatchType: NpayRoasDryRunAmountMatchType;
+  amountReconcileReason: string;
+  timeGapMinutes: number;
+  productIdx: string;
+  productName: string;
+  clickIds: NpayIntentRematchDryRunClickIds;
+  recommendedAction:
+    | "safe_apply_candidate_after_write_approval"
+    | "manual_review_before_apply"
+    | "review_but_no_google_click_id"
+    | "skip_non_pending_intent";
+  blockReasons: string[];
+};
+
+export type NpayIntentRematchDryRunReport = {
+  ok: true;
+  mode: "npay_intent_rematch_dry_run_read_only";
+  generatedAt: string;
+  source: NpayRoasDryRunReport["source"];
+  window: NpayRoasDryRunReport["window"];
+  thresholds: NpayRoasDryRunReport["thresholds"];
+  noWrite: true;
+  noSend: true;
+  rawIdentifierOutput: boolean;
+  summary: {
+    liveIntentCount: number;
+    confirmedNpayOrderCount: number;
+    strongMatch: number;
+    pendingStrongMatch: number;
+    pendingStrongMatchWithGoogleClickId: number;
+    pendingGradeA: number;
+    pendingGradeB: number;
+    blockedNonPendingIntent: number;
+    ambiguous: number;
+    purchaseWithoutIntent: number;
+    uploadCandidateCount: 0;
+    platformSendCandidateCount: 0;
+  };
+  candidates: NpayIntentRematchDryRunCandidate[];
+  blocked: NpayIntentRematchDryRunCandidate[];
+  notes: string[];
+};
+
 export type NpayRoasDryRunOptions = {
   start?: string;
   end?: string;
@@ -366,6 +434,12 @@ export type NpayRoasDryRunOptions = {
   testOrderLabel?: string;
   orderNumbers?: string[];
   manualOrders?: NpayRoasDryRunManualOrderInput[];
+};
+
+export type NpayIntentRematchDryRunOptions = NpayRoasDryRunOptions & {
+  includeOnlyPending?: boolean;
+  includeRawClickIds?: boolean;
+  limit?: number;
 };
 
 const numberValue = (value: unknown): number | null => {
@@ -1407,6 +1481,145 @@ export const buildNpayRoasDryRunReport = async (
       "Only A-grade strong matches with already_in_ga4=robust_absent or absent are future dispatcher dry-run candidates; B-grade strong, ambiguous, purchase_without_intent, test orders, and already_in_ga4 rows are blocked.",
       "Manual orders are dry-run inputs only and are not written to any database.",
       "product_idx_match is null because tb_iamweb_users does not expose an order-level product_idx in this read model.",
+    ],
+  };
+};
+
+const buildClickIdPreview = (
+  intent: NpayRoasDryRunIntent,
+  includeRawClickIds: boolean,
+): NpayIntentRematchDryRunClickIds => {
+  const googleClickIdTypes: Array<"gclid" | "gbraid" | "wbraid"> = [];
+  if (intent.gclid) googleClickIdTypes.push("gclid");
+  if (intent.gbraid) googleClickIdTypes.push("gbraid");
+  if (intent.wbraid) googleClickIdTypes.push("wbraid");
+
+  return {
+    gclid: includeRawClickIds ? intent.gclid : intent.gclid ? "[present]" : "",
+    gbraid: includeRawClickIds ? intent.gbraid : intent.gbraid ? "[present]" : "",
+    wbraid: includeRawClickIds ? intent.wbraid : intent.wbraid ? "[present]" : "",
+    googleClickIdTypes,
+    hasGoogleClickId: googleClickIdTypes.length > 0,
+  };
+};
+
+const buildRematchRecommendedAction = (
+  result: NpayRoasDryRunOrderResult,
+  intent: NpayRoasDryRunIntent,
+  clickIds: NpayIntentRematchDryRunClickIds,
+): NpayIntentRematchDryRunCandidate["recommendedAction"] => {
+  if (intent.matchStatus && intent.matchStatus !== "pending") return "skip_non_pending_intent";
+  if (!clickIds.hasGoogleClickId) return "review_but_no_google_click_id";
+  if (result.strongGrade === "A") return "safe_apply_candidate_after_write_approval";
+  return "manual_review_before_apply";
+};
+
+const buildRematchBlockReasons = (
+  result: NpayRoasDryRunOrderResult,
+  intent: NpayRoasDryRunIntent,
+  clickIds: NpayIntentRematchDryRunClickIds,
+) => {
+  const reasons: string[] = [];
+  if (intent.matchStatus && intent.matchStatus !== "pending") reasons.push("intent_not_pending");
+  if (!clickIds.hasGoogleClickId) reasons.push("missing_google_click_id");
+  if (result.strongGrade !== "A") reasons.push("not_grade_a_auto_apply");
+  if (result.status !== "strong_match") reasons.push(`order_status_${result.status}`);
+  return reasons;
+};
+
+const buildRematchCandidate = (
+  result: NpayRoasDryRunOrderResult,
+  intent: NpayRoasDryRunIntent,
+  includeRawClickIds: boolean,
+): NpayIntentRematchDryRunCandidate | null => {
+  const candidate = result.bestCandidate;
+  if (!candidate) return null;
+  const clickIds = buildClickIdPreview(intent, includeRawClickIds);
+  return {
+    orderNumber: result.order.orderNumber,
+    channelOrderNo: result.order.channelOrderNo,
+    paidAt: result.order.paidAt,
+    paymentMethod: result.order.paymentMethod,
+    paymentStatus: result.order.paymentStatus,
+    orderAmount: result.order.orderAmount,
+    intentId: intent.id,
+    intentKey: intent.intentKey,
+    intentCapturedAt: intent.capturedAt,
+    currentIntentMatchStatus: intent.matchStatus,
+    nextIntentMatchStatusPreview: "matched",
+    matchedOrderNoPreview: result.order.orderNumber,
+    matchedChannelOrderNoPreview: result.order.channelOrderNo,
+    score: candidate.score,
+    scoreGap: result.scoreGap,
+    strongGrade: result.strongGrade,
+    amountMatchType: candidate.amountMatchType,
+    amountReconcileReason: candidate.amountReconcileReason,
+    timeGapMinutes: candidate.timeGapMinutes,
+    productIdx: candidate.productIdx,
+    productName: candidate.productName,
+    clickIds,
+    recommendedAction: buildRematchRecommendedAction(result, intent, clickIds),
+    blockReasons: buildRematchBlockReasons(result, intent, clickIds),
+  };
+};
+
+export const buildNpayIntentRematchDryRunReport = async (
+  options: NpayIntentRematchDryRunOptions = {},
+): Promise<NpayIntentRematchDryRunReport> => {
+  const includeOnlyPending = options.includeOnlyPending !== false;
+  const includeRawClickIds = options.includeRawClickIds !== false;
+  const limit = Math.max(1, Math.min(options.limit ?? 100, 500));
+  const baseReport = await buildNpayRoasDryRunReport(options);
+  const intentById = new Map(baseReport.intentResults.map((result) => [result.intent.id, result.intent]));
+  const rows = baseReport.orderResults
+    .filter((result) => result.status === "strong_match" && result.bestCandidate)
+    .flatMap((result) => {
+      const intentId = result.bestCandidate?.intentId ?? "";
+      const intent = intentById.get(intentId);
+      if (!intent) return [];
+      const row = buildRematchCandidate(result, intent, includeRawClickIds);
+      return row ? [row] : [];
+    })
+    .sort((a, b) =>
+      Date.parse(b.paidAt) - Date.parse(a.paidAt)
+      || b.score - a.score
+      || a.orderNumber.localeCompare(b.orderNumber),
+    );
+  const pendingRows = rows.filter((row) => row.currentIntentMatchStatus === "pending" || !row.currentIntentMatchStatus);
+  const nonPendingRows = rows.filter((row) => row.currentIntentMatchStatus && row.currentIntentMatchStatus !== "pending");
+  const candidateRows = includeOnlyPending ? pendingRows : rows;
+
+  return {
+    ok: true,
+    mode: "npay_intent_rematch_dry_run_read_only",
+    generatedAt: new Date().toISOString(),
+    source: baseReport.source,
+    window: baseReport.window,
+    thresholds: baseReport.thresholds,
+    noWrite: true,
+    noSend: true,
+    rawIdentifierOutput: includeRawClickIds,
+    summary: {
+      liveIntentCount: baseReport.summary.liveIntentCount,
+      confirmedNpayOrderCount: baseReport.summary.confirmedNpayOrderCount,
+      strongMatch: baseReport.summary.strongMatch,
+      pendingStrongMatch: pendingRows.length,
+      pendingStrongMatchWithGoogleClickId: pendingRows.filter((row) => row.clickIds.hasGoogleClickId).length,
+      pendingGradeA: pendingRows.filter((row) => row.strongGrade === "A").length,
+      pendingGradeB: pendingRows.filter((row) => row.strongGrade === "B").length,
+      blockedNonPendingIntent: nonPendingRows.length,
+      ambiguous: baseReport.summary.ambiguous,
+      purchaseWithoutIntent: baseReport.summary.purchaseWithoutIntent,
+      uploadCandidateCount: 0,
+      platformSendCandidateCount: 0,
+    },
+    candidates: candidateRows.slice(0, limit),
+    blocked: nonPendingRows.slice(0, limit),
+    notes: [
+      "read-only dry-run only: npay_intent_log.match_status, matched_order_no, matched_at are not updated.",
+      "This does not send GA4, Meta, TikTok, or Google Ads conversions.",
+      "recommendedAction=safe_apply_candidate_after_write_approval still means DB write approval is required before applying.",
+      "Grade B rows are useful for diagnosis and manual review, not automatic write/apply.",
     ],
   };
 };

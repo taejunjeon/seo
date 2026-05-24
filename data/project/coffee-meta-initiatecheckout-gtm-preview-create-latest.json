@@ -1,0 +1,64 @@
+{
+  "generated_at_kst": "2026-05-24T13:29:42",
+  "run_id": "20260524T042930Z",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "91608400",
+    "public_id": "GTM-5M33GC4",
+    "path": "accounts/4703003246/containers/91608400"
+  },
+  "live_version_before": {
+    "id": "21",
+    "name": "AGENTSOS GA4 begin_checkout rename - 2026-05-18"
+  },
+  "live_version_after": {
+    "id": "21",
+    "name": "AGENTSOS GA4 begin_checkout rename - 2026-05-18"
+  },
+  "live_version_unchanged": true,
+  "workspace_before_count": 1,
+  "workspace_after_count": 2,
+  "workspace": {
+    "workspace_id": "30",
+    "name": "codex_coffee_meta_initiatecheckout_nosend_preview_20260524T042930Z",
+    "path": "accounts/4703003246/containers/91608400/workspaces/30"
+  },
+  "trigger": {
+    "trigger_id": "95",
+    "name": "codex_coffee_shop_payment_domready_nosend_20260524T042930Z",
+    "type": "domReady"
+  },
+  "tag": {
+    "tag_id": "96",
+    "name": "codex_coffee_meta_initiatecheckout_nosend_preview_20260524T042930Z",
+    "type": "html",
+    "firing_trigger_id": [
+      "95"
+    ]
+  },
+  "quick_preview": {
+    "compiler_error": false,
+    "sync_status": null
+  },
+  "environment": {
+    "environment_id": "97",
+    "workspace_id": "30",
+    "authorization_code_present": true
+  },
+  "preview_url_template_redacted": "https://thecleancoffee.com/shop_payment/?order_code=USE_REAL_ORDER_CODE&order_no=USE_REAL_ORDER_NO&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=env-97&gtm_cookies_win=x",
+  "workspace_status": {
+    "workspace_change_count": 2,
+    "merge_conflict_count": 0,
+    "error": ""
+  },
+  "guards": {
+    "existing_live_tags_modified": false,
+    "submit_create_version_publish_taken": false,
+    "platform_send_taken": false,
+    "production_publish_taken": false,
+    "tag_event_name": "coffee_meta_middle_funnel_preview",
+    "preview_candidate_event_name": "InitiateCheckout",
+    "no_send_snippet_path": "scripts/coffee-meta-middle-funnel-browser-fallback-nosend-snippet.js"
+  },
+  "verdict": "PASS_PREVIEW_WORKSPACE_READY"
+}

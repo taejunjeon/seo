@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.seo.frontend-7010</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>export PATH="/Users/vibetj/.nvm/versions/node/v20.19.2/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"; cd /Users/vibetj/coding/seo/frontend &amp;&amp; exec npm run dev -- --hostname 127.0.0.1</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/vibetj/coding/seo/frontend</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/vibetj/coding/seo/frontend/logs/frontend-7010.launchd.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/vibetj/coding/seo/frontend/logs/frontend-7010.launchd.err.log</string>
+</dict>
+</plist>
