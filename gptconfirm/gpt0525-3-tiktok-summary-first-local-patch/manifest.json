@@ -1,0 +1,19 @@
+{
+  "package": "gpt0525-3-tiktok-summary-first-local-patch",
+  "created_at_kst": "2026-05-25",
+  "lane": "Yellow",
+  "scope": "TikTok summary-first implementation, tiktok-pixel-events hard guard, VM Cloud deploy/post-check, Meta/Google ROAS large endpoint monitoring scope",
+  "files": [
+    "00-result-report.md",
+    "01-local-code-patch.md",
+    "02-tiktok-pixel-events-hard-guard.md",
+    "03-meta-google-roas-monitoring-scope.md",
+    "04-vm-deploy-result.md",
+    "manifest.json"
+  ],
+  "external_send": false,
+  "vm_deploy_restart": true,
+  "production_db_write": false,
+  "gtm_publish": false,
+  "raw_identifier_output": false
+}

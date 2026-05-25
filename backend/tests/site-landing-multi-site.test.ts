@@ -6,6 +6,7 @@ import test from "node:test";
 
 const TEST_DB_PATH = path.join(os.tmpdir(), `multisite-${process.pid}.sqlite3`);
 process.env.CRM_LOCAL_DB_PATH = TEST_DB_PATH;
+const TEST_LANDED_AT = new Date().toISOString();
 
 let fanout: typeof import("../src/siteLandingFanout");
 let ledger: typeof import("../src/siteLandingLedger");
@@ -83,7 +84,7 @@ test("fanout: thecleancoffee landing URL → site=thecleancoffee 로 저장", ()
     touchpoint: "payment_success",
     captureMode: "live",
     paymentStatus: null,
-    loggedAt: "2026-05-11T09:00:00.000Z",
+    loggedAt: TEST_LANDED_AT,
     orderId: "",
     paymentKey: "",
     approvedAt: "",
@@ -119,7 +120,7 @@ test("fanout: biocom landing URL → site=biocom 로 저장 + paid_search (naver
     touchpoint: "payment_success",
     captureMode: "live",
     paymentStatus: null,
-    loggedAt: "2026-05-11T09:10:00.000Z",
+    loggedAt: TEST_LANDED_AT,
     orderId: "",
     paymentKey: "",
     approvedAt: "",

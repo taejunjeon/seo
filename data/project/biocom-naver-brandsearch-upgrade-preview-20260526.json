@@ -1,0 +1,93 @@
+{
+  "ok": true,
+  "schema_version": "biocom-naver-brandsearch-upgrade-preview-v1-20260526",
+  "generated_at": "2026-05-25T16:00:12.999Z",
+  "mode": "local_preview_no_write_no_send",
+  "site": "biocom",
+  "window": {
+    "since": "2026-05-22",
+    "until": "2026-05-25",
+    "timezone": "KST"
+  },
+  "source_policy": {
+    "cost_source": "VM Cloud naver_brandsearch_manual_cost_daily manual period allocation cache",
+    "conservative_revenue_source": "운영DB public.tb_iamweb_users exact order bridge",
+    "upgrade_candidate_revenue_source": "VM Cloud imweb_orders exact order-key cross-check for previously unresolved marker rows",
+    "internal_budget_rule": "Do not replace the conservative value silently. Show conservative and upgrade candidate as separate lines until source policy is approved.",
+    "platform_send_rule": "Never use this preview for Naver/Meta/GA4/Google Ads conversion send."
+  },
+  "source_freshness": {
+    "bridge_generated_at": "2026-05-25T14:08:57.043Z",
+    "narrowing_generated_at": "2026-05-25T15:45:32.059Z",
+    "narrowing_freshness": {
+      "landing_max_landed_at": "2026-05-25T15:44:02.326Z",
+      "attribution_max_logged_at": "2026-05-25T15:25:23.974Z",
+      "vm_imweb_orders_max_complete_or_order_time": "2026-05-25T15:11:46.000Z",
+      "operating_db_max_source_date": "2026-05-25"
+    },
+    "bridge_file": "data/project/naver-brandsearch-order-bridge-preview-20260525.json",
+    "narrowing_file": "data/project/biocom-naver-brandsearch-unresolved-narrowing-20260526.json"
+  },
+  "scenarios": [
+    {
+      "scenario_id": "conservative_operating_db_exact",
+      "plain_label": "예산 화면에 현재 바로 쓸 수 있는 보수 기준",
+      "cost_krw": 205336,
+      "revenue_krw": 3364432,
+      "roas": 16.39,
+      "order_bridge_rows": 13,
+      "included_sources": [
+        "operating_db_exact"
+      ],
+      "confidence": "medium_high",
+      "budget_use": "current_reporting_primary"
+    },
+    {
+      "scenario_id": "vm_exact_crosscheck_upgrade_candidate",
+      "plain_label": "주문 source 정책 승인 후 올릴 수 있는 후보 기준",
+      "cost_krw": 205336,
+      "revenue_krw": 5257616,
+      "roas": 25.6,
+      "order_bridge_rows": 19,
+      "added_rows": 6,
+      "added_revenue_krw": 1893184,
+      "included_sources": [
+        "operating_db_exact",
+        "vm_cloud_imweb_orders_exact_cross_check"
+      ],
+      "confidence": "medium_high",
+      "budget_use": "recommended_conditional_candidate_not_primary_until_approved"
+    }
+  ],
+  "delta_if_accepted": {
+    "added_rows": 6,
+    "added_revenue_krw": 1893184,
+    "roas_delta": 9.21,
+    "revenue_lift_percent": 56.27
+  },
+  "recommendation": {
+    "codex_recommendation": "accept_vm_cloud_imweb_orders_exact_as_cross_check_for_internal_brandsearch_roas_preview",
+    "stance": "conditional_accept_not_primary_replacement",
+    "confidence_percent": 88,
+    "reason": [
+      "기존 미해결 6건 모두 VM Cloud imweb_orders에서 주문키 exact match가 났다.",
+      "6건 모두 금액 합계가 marker total gap과 맞아 결제완료 주문 후보로 해석할 근거가 충분하다.",
+      "운영DB exact가 0인 이유는 주문 부재보다 운영DB sync/key 기준 차이일 가능성이 높다.",
+      "다만 운영DB를 정본에서 제외하는 결정은 아니므로 화면에서는 보수 기준과 후보 기준을 분리해야 한다."
+    ],
+    "guardrails": [
+      "광고 플랫폼 전환 전송에는 쓰지 않는다.",
+      "운영DB 값을 수정하지 않는다.",
+      "최종 보고에는 conservative와 upgrade candidate를 동시에 표시한다.",
+      "추후 운영DB sync/key gap 원인을 닫으면 candidate를 primary로 승격한다."
+    ]
+  },
+  "invariants_held": {
+    "local_json_read_only": true,
+    "operating_db_write": 0,
+    "vm_cloud_write": 0,
+    "backend_deploy_or_restart": 0,
+    "platform_send": 0,
+    "raw_identifier_output": 0
+  }
+}

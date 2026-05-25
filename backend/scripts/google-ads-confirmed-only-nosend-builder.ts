@@ -164,8 +164,10 @@ const markdownOutput = path.resolve(
     path.join(REPO_ROOT, "project", `google-ads-confirmed-only-nosend-builder-${outputDate}.md`),
 );
 
-const dashboardUrl = (preset: DatePreset) =>
-  `${apiBase}/api/google-ads/dashboard?date_preset=${encodeURIComponent(preset)}`;
+const dashboardUrls = (preset: DatePreset) => [
+  `${apiBase}/api/google-ads/dashboard-summary?date_preset=${encodeURIComponent(preset)}&campaign_limit=20`,
+  `${apiBase}/api/google-ads/dashboard?date_preset=${encodeURIComponent(preset)}`,
+];
 
 const fetchJson = async (url: string): Promise<DashboardResponse> => {
   const fetchFn = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
@@ -173,6 +175,21 @@ const fetchJson = async (url: string): Promise<DashboardResponse> => {
   const response = await fetchFn(url);
   if (!response.ok) throw new Error(`fetch failed ${response.status}: ${url}`);
   return (await response.json()) as DashboardResponse;
+};
+
+const fetchDashboardJson = async (preset: DatePreset): Promise<DashboardResponse> => {
+  const urls = dashboardUrls(preset);
+  const errors: string[] = [];
+
+  for (const url of urls) {
+    try {
+      return await fetchJson(url);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  throw new Error(`all dashboard endpoints failed for ${preset}: ${errors.join(" | ")}`);
 };
 
 const buildWindowFromDashboard = (
@@ -204,7 +221,7 @@ const buildWindowFromDashboard = (
     blockReasonCounts: {
       read_only_phase: orderCount,
       approval_required: orderCount,
-      google_ads_conversion_action_not_created_or_selected: orderCount,
+      google_ads_conversion_action_not_selected_or_dispatch_closed: orderCount,
       conversion_upload_not_approved: orderCount,
       exact_order_level_payload_not_exported_from_public_endpoint: withClick,
       missing_google_click_id: missingClick,
@@ -248,7 +265,7 @@ const postPatchSnapshot: NoSendWindow = {
   blockReasonCounts: {
     read_only_phase: 114,
     approval_required: 114,
-    google_ads_conversion_action_not_created_or_selected: 114,
+    google_ads_conversion_action_not_selected_or_dispatch_closed: 114,
     conversion_upload_not_approved: 114,
     missing_google_click_id: 114,
   },
@@ -307,8 +324,8 @@ const clickStageSnapshot = {
 
 const buildPayload = async () => {
   const [last7, last30] = await Promise.all([
-    fetchJson(dashboardUrl("last_7d")),
-    fetchJson(dashboardUrl("last_30d")),
+    fetchDashboardJson("last_7d"),
+    fetchDashboardJson("last_30d"),
   ]);
 
   const windows = [
@@ -316,6 +333,7 @@ const buildPayload = async () => {
     buildWindowFromDashboard("last_30d", last30),
     postPatchSnapshot,
   ];
+  const liveLast7 = windows[0];
 
   return {
     ok: true,
@@ -350,9 +368,9 @@ const buildPayload = async () => {
         "gtm_publish",
       ],
       source_window_freshness_confidence: {
-        source: "VM Cloud public dashboard aggregate + frontend post-patch report snapshot",
+        source: "VM Cloud public dashboard-summary aggregate + frontend post-patch report snapshot",
         window: "last_7d, last_30d, post_patch_20260521_2115",
-        freshness: "last_7d/last_30d from live public API; post_patch snapshot from current frontend report constants",
+        freshness: "last_7d/last_30d from live public dashboard-summary API; post_patch snapshot from current frontend report constants",
         confidence: "medium-high for aggregate counts, medium for exact loss point until order-level endpoint is added",
       },
     },
@@ -369,7 +387,7 @@ const buildPayload = async () => {
       plainKorean:
         "Google Ads가 자동입찰을 할 때 '어떤 클릭이 실제 매출을 만들었는지'를 배웁니다. 지금 Google Ads의 구매완료 숫자는 NPay 클릭/결제시작 같은 넓은 신호가 섞였을 가능성이 커서, 나중에는 내부 장부에서 실제 결제완료로 확인된 주문만 별도 전환으로 알려주는 것이 목적입니다.",
       currentDecision:
-        "지금은 보내지 않습니다. 실제 결제완료 주문에 Google click id와 주문 payload가 안전하게 붙는 후보가 부족하고, conversion action/업로드 승인도 열지 않았습니다.",
+        "지금은 보내지 않습니다. Google Ads 계정에는 관찰용 offline 전환 액션이 보이지만, 실제 결제완료 주문 후보를 그 액션으로 보내는 전송 승인과 dispatcher는 열지 않았습니다.",
     },
     noSendWindows: windows,
     lastLossPoint: {
@@ -393,7 +411,7 @@ const buildPayload = async () => {
         {
           step: "실제 결제완료",
           observed:
-            "같은 기간 confirmed payment_success 114건 중 직접 Google click id 보존은 0건입니다. live 최근 7일 전체로 넓히면 466건 중 5건만 직접 보존입니다.",
+            `같은 기간 confirmed payment_success 114건 중 직접 Google click id 보존은 0건입니다. live 최근 7일 dashboard-summary 기준으로 넓히면 ${liveLast7.actualConfirmedOrders.toLocaleString("ko-KR")}건 중 ${liveLast7.directGoogleClickEvidenceOrders.toLocaleString("ko-KR")}건만 직접 보존입니다.`,
           interpretation:
             "결제완료 주문에 붙는 최종 evidence가 부족합니다. Google Ads upload 후보로 올릴 수 없습니다.",
         },
@@ -475,6 +493,7 @@ const renderMarkdown = (payload: Awaited<ReturnType<typeof buildPayload>>) => {
     "- `send_candidate=0`: 이 스크립트는 실제 Google Ads 전송 코드를 호출하지 않습니다.",
     "- `read_only_phase`: 지금은 후보 판정만 합니다.",
     "- `approval_required`: 실제 전송은 TJ님이 별도 승인해야 합니다.",
+    "- `google_ads_conversion_action_not_selected_or_dispatch_closed`: 계정에 관찰용 offline 전환 액션은 보이지만, 이 no-send 결과를 실제 전송 대상으로 연결하지 않았습니다.",
     "- `missing_google_click_id`: 대부분의 실제 결제완료 주문에 gclid/gbraid/wbraid가 직접 남지 않았습니다.",
     "- `exact_order_level_payload_not_exported_from_public_endpoint`: 공개 API는 aggregate라서 실제 전송 payload를 만들 주문 단위 데이터가 없습니다.",
     "",

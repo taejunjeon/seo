@@ -23,6 +23,7 @@ type ChannelKey =
   | "meta"
   | "youtube"
   | "google_paid"
+  | "organic"
   | "naver_paid_or_brand"
   | "direct_or_unknown"
   | "all";
@@ -195,10 +196,30 @@ const CHANNEL_OPTIONS: { value: ChannelKey; label: string }[] = [
   { value: "meta", label: "Meta" },
   { value: "youtube", label: "YouTube" },
   { value: "google_paid", label: "Google 유료" },
+  { value: "organic", label: "오가닉" },
   { value: "naver_paid_or_brand", label: "네이버 paid/brand" },
   { value: "direct_or_unknown", label: "직접/불명" },
   { value: "all", label: "전체" },
 ];
+
+const LEADING_INDICATOR_CACHE_AUDIT = {
+  checkedAtKst: "2026-05-25 22:30 KST",
+  decision: "운영 숫자는 VM 보고서를 기준으로 보고, 로컬 보고서는 화면/문구 개발 확인용으로만 봅니다.",
+  reason:
+    "로컬 API는 개발용 DB라 safe session이 0으로 나올 수 있습니다. VM API는 실제 수집 원장으로 숫자가 나오지만, 현재 선행지표 precompute cache가 꺼져 있어 요청 때마다 즉석 계산합니다.",
+  vmCacheStatus:
+    "VM Cloud env: LEADING_INDICATORS_PRECOMPUTE_ENABLED=0, LEADING_INDICATORS_PRECOMPUTE_INTERVAL_MS=0",
+  vmResponseStatus:
+    "VM API 8개 조합 모두 200 OK, cache=false/live_cache_miss, 응답 약 1.4~2.9초",
+};
+
+const ORGANIC_PAGE_LONG_STATUS: Record<
+  SiteKey,
+  { safeSessions: number; ga4JoinedSessions: number; joinRatePct: number }
+> = {
+  biocom: { safeSessions: 244, ga4JoinedSessions: 189, joinRatePct: 77.1 },
+  thecleancoffee: { safeSessions: 29, ga4JoinedSessions: 26, joinRatePct: 89.7 },
+};
 
 const DIMENSION_OPTIONS: { value: DimensionKey; label: string }[] = [
   { value: "buyer_vs_leaver", label: "3개 cohort" },
@@ -243,14 +264,14 @@ const pageLongStatusLabel = (row: PageLongThresholdRow): string => {
   if (row.vmSafeSessions === 0) return "유입 0 또는 미매핑";
   if (row.confirmedGa4JoinedSessions < 20) return "표본 부족";
   if (row.recommendationStatus === "shorter_threshold_better_for_primary_indicator") {
-    return "3분 기준 우선";
+    return "2분 기준 우선";
   }
-  return "7분은 보조 기준";
+  return "2분 기본 · 7분 보조";
 };
 
 const pageLongInterpretation = (row: PageLongThresholdRow): string => {
   if (row.vmSafeSessions === 0) {
-    return "현재 VM Cloud가 Google 유료로 분류한 세션이 없습니다. 실제 유입이 없었는지, gclid/utm 값이 다른 bucket으로 들어갔는지 source 미매핑 점검이 필요합니다.";
+    return "현재 VM Cloud가 이 유입으로 분류한 세션이 없습니다. 실제 유입이 없었는지, 광고 클릭 ID나 UTM 값이 다른 bucket으로 들어갔는지 source 미매핑 점검이 필요합니다.";
   }
   if (row.confirmedGa4JoinedSessions < 20) {
     const stepPct =
@@ -260,9 +281,9 @@ const pageLongInterpretation = (row: PageLongThresholdRow): string => {
     } 움직입니다. 그래서 60%, 40%, 20%처럼 딱 떨어지는 숫자는 방향만 봐야 합니다.`;
   }
   if (row.current7Min.liftPct !== null && row.current7Min.liftPct < 3) {
-    return "7분까지 오래 읽은 사람만 보면 구매자와 비결제자의 차이가 거의 사라집니다. 7분은 초고의도 보조 신호로 두고, 2~3분을 기본 관심 신호로 보는 편이 낫습니다.";
+    return "7분까지 오래 읽은 사람만 보면 구매자와 비결제자의 차이가 거의 사라집니다. 운영 주 기준은 2분으로 두고, 7분은 초고의도 보조 신호로만 봅니다.";
   }
-  return `7분도 차이는 있지만 도달자가 줄어듭니다. 기본 선행지표는 ${row.recommendedThresholdLabel ?? "2~3분"} 기준, 7분은 강한 관심 방문 보조 지표로 보는 것이 안전합니다.`;
+  return `7분도 차이는 있지만 도달자가 줄어듭니다. 기본 선행지표는 ${row.recommendedThresholdLabel ?? "2분"} 기준, 7분은 강한 관심 방문 보조 지표로 보는 것이 안전합니다.`;
 };
 
 const SCROLL_DENOMINATOR_AUDIT = [
@@ -439,6 +460,28 @@ export default function LeadingIndicatorsPage() {
           화면입니다.
         </p>
 
+        <div className={styles.runtimeNotice}>
+          <div>
+            <span className={styles.headlineKicker}>보고서 기준</span>
+            <strong>{LEADING_INDICATOR_CACHE_AUDIT.decision}</strong>
+            <p>{LEADING_INDICATOR_CACHE_AUDIT.reason}</p>
+          </div>
+          <dl>
+            <div>
+              <dt>점검 시각</dt>
+              <dd>{LEADING_INDICATOR_CACHE_AUDIT.checkedAtKst}</dd>
+            </div>
+            <div>
+              <dt>VM cache</dt>
+              <dd>꺼짐 · live 계산</dd>
+            </div>
+            <div>
+              <dt>근거</dt>
+              <dd>{LEADING_INDICATOR_CACHE_AUDIT.vmResponseStatus}</dd>
+            </div>
+          </dl>
+        </div>
+
         {/* 필터 */}
         <div className={styles.filterBar}>
           <div className={styles.filterGroup}>
@@ -542,11 +585,14 @@ export default function LeadingIndicatorsPage() {
         </div>
 
         <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>페이지 롱 뷰 기준 시간 · 7분이 맞는가?</h2>
+          <h2 className={styles.sectionTitle}>페이지 롱 뷰 기준 시간 · 기본은 2분으로 봅니다</h2>
           <p className={styles.sectionDesc}>
-            페이지 롱 뷰는 “방문자가 페이지에 오래 머물렀다”는 신호입니다. 현재 7분은
-            너무 강한 기준이라 많은 방문자를 놓칠 수 있습니다. 아래 표는 1분, 2분, 3분,
-            5분, 7분 기준에서 결제자와 비결제자가 얼마나 남는지 비교합니다.
+            페이지 롱 뷰는 “방문자가 페이지에 오래 머물렀다”는 신호입니다. 운영에서 볼
+            기본 기준은 2분으로 고정합니다. 3분은 2분보다 표본을 더 많이 잃고, 7분은
+            너무 강한 기준이라 구매 직전의 아주 강한 관심 신호로만 둡니다. 아래 표는
+            왜 2분을 고르는지 확인하기 위한 근거표이며, 바이오컴과 더클린커피의
+            Meta/Google 유료/YouTube/오가닉을 모두 포함합니다. 단, Google 유료·YouTube·오가닉은
+            표본이 작으면 “방향성 참고”로만 봅니다.
           </p>
           <PageLongThresholdPanel rows={pageLongRows} site={site} channel={channel} />
         </section>
@@ -737,7 +783,7 @@ export default function LeadingIndicatorsPage() {
             <div className={styles.queueCard}>
               <span className={styles.queueOwner}>Codex 데이터 / Claude Code 화면</span>
               <h3 className={styles.queueTitle}>
-                더클린커피 Meta: 3분 이상 체류 비율을 캠페인/랜딩별로 비교
+                더클린커피 Meta: 2분 이상 체류 비율을 캠페인/랜딩별로 비교
               </h3>
               <p className={styles.queueDetail}>
                 현재 화면은 채널 단위까지만 본다. P2 에서 캠페인/랜딩별 체류시간 분포를 분해해
@@ -800,16 +846,33 @@ function PageLongThresholdPanel({
   channel: ChannelKey;
 }) {
   if (rows.length === 0) {
+    const organicStatus = channel === "organic" ? ORGANIC_PAGE_LONG_STATUS[site] : null;
+
     return (
       <div className={styles.pageLongEmpty}>
         <strong>
           {siteLabelKo(site)} · {channel === "all" ? "전체" : channelLabelKo(channel)} 기준은
           아직 page long view 비교표가 없습니다.
         </strong>
-        <p>
-          현재 dry-run은 Meta, Google 유료, YouTube만 우선 비교했습니다. 네이버/직접/기타는
-          P1 live endpoint가 붙으면 같은 방식으로 채울 수 있습니다.
-        </p>
+        {organicStatus ? (
+          <>
+            <p>
+              운영 VM API에서는 오가닉 유입 자체는 잡힙니다. 최근 7일 기준{" "}
+              {fmtCount(organicStatus.safeSessions)}개 후보 세션 중 GA4 행동 데이터가 붙은
+              세션은 {fmtCount(organicStatus.ga4JoinedSessions)}개 (
+              {fmtPct(organicStatus.joinRatePct)})입니다.
+            </p>
+            <p>
+              다만 이 조합은 표본이 부족하면 추천 시간을 확정하지 않습니다. 즉 오가닉은
+              유입 자체는 보되, 결제자를 예고하는 기준 시간은 표본이 쌓일 때까지 보류합니다.
+            </p>
+          </>
+        ) : (
+          <p>
+            현재 dry-run은 Meta, Google 유료, YouTube, 오가닉을 우선 비교했습니다.
+            네이버/직접/기타는 P1 live endpoint가 붙으면 같은 방식으로 채울 수 있습니다.
+          </p>
+        )}
       </div>
     );
   }
@@ -858,7 +921,7 @@ function PageLongThresholdPanel({
           </div>
 
           <div className={styles.pageLongSevenMinute}>
-            <span>현재 7분 기준</span>
+            <span>7분 보조 기준</span>
             <strong>
               구매자{" "}
               {fmtRateFraction(
@@ -1756,6 +1819,21 @@ function BiocomCompare({
           신뢰도 보강 필요 (row-level join {fmtPct(confirmed.joinRatePct, 0)})
         </span>
       </div>
+      <div className={styles.joinExplainBox}>
+        <strong>row-level join {fmtPct(confirmed.joinRatePct, 0)}가 무슨 뜻인가?</strong>
+        <p>
+          VM Cloud가 “이 사람은 결제 완료/비결제”라고 분류한 방문 기록 100개 중 약{" "}
+          {fmtPct(confirmed.joinRatePct, 0)}는 GA4의 행동 기록과 같은 방문으로 맞붙었다는
+          뜻입니다. 쉽게 말해, 주문 장부와 행동 관찰 일지를 같은 사람 단위로 대조했을 때
+          대부분은 짝을 찾았다는 의미입니다.
+        </p>
+        <p>
+          그래도 “보강 필요”라고 쓰는 이유는 남은 약{" "}
+          {fmtPct(100 - confirmed.joinRatePct, 0)}가 아직 못 붙었고, 채널별 표본이 작으면
+          1~2명 차이만으로 비율이 크게 흔들릴 수 있기 때문입니다. 예산 판단은 VM 운영
+          보고서를 기준으로 보고, 이 로컬 화면은 해석과 UI 확인용으로 보세요.
+        </p>
+      </div>
       {isMetaOnly && (
         <BiocomMetaThreeCohort />
       )}
@@ -1924,7 +2002,7 @@ function IndicatorRanking({ row }: { row: CohortRow }) {
     action: string;
   }> = [
     {
-      name: "체류시간 3분 이상",
+      name: "체류시간 2분 이상",
       status: dwellPositive ? "candidate" : "caution",
       statusLabel: dwellPositive ? "관리 후보" : "단독 사용 금지",
       why: dwellPositive
@@ -1934,7 +2012,7 @@ function IndicatorRanking({ row }: { row: CohortRow }) {
         row.leaverP50DwellSeconds
       )} · 차이 ${signedSeconds(dwellDelta)}`,
       action: dwellPositive
-        ? "3분 이상 머무는 Meta 유입을 늘리세요. 랜딩에서 리뷰/구매평 영역 진입을 더 빠르게 만들어 페이지에 머무는 시간을 늘립니다."
+        ? "2분 이상 머무는 Meta 유입을 늘리세요. 랜딩에서 리뷰/구매평 영역 진입을 더 빠르게 만들어 페이지에 머무는 시간을 늘립니다."
         : "체류시간은 보조로 두고, 결제 시작·장바구니·랜딩 bucket을 함께 보세요. 특히 비결제자가 오래 머문 페이지는 설득 실패 구간일 수 있습니다.",
     },
     {

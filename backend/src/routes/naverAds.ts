@@ -5,6 +5,7 @@
  */
 
 import { execFile } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -24,6 +25,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
+const REPO_ROOT = path.resolve(BACKEND_ROOT, "..");
 const TSX_BIN = path.resolve(BACKEND_ROOT, "node_modules", ".bin", "tsx");
 const EVIDENCE_SCRIPT = "scripts/monthly-evidence-join-dry-run.ts";
 const EVIDENCE_TIMEOUT_MS = 90_000;
@@ -272,6 +274,171 @@ const attachSummaryCacheMeta = (
   },
 });
 
+const readJsonArtifact = (relativePath: string): Record<string, unknown> | null => {
+  const fullPath = path.resolve(REPO_ROOT, relativePath);
+  if (!existsSync(fullPath)) return null;
+  try {
+    return JSON.parse(readFileSync(fullPath, "utf8")) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const asRecord = (value: unknown): Record<string, unknown> => (
+  value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}
+);
+
+const asArray = (value: unknown): Array<Record<string, unknown>> => (
+  Array.isArray(value) ? value.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>> : []
+);
+
+const numberValue = (value: unknown): number => (
+  typeof value === "number" && Number.isFinite(value) ? value : 0
+);
+
+const pickSiteRow = (
+  rows: Array<Record<string, unknown>>,
+  site: "biocom" | "thecleancoffee",
+): Record<string, unknown> => (
+  rows.find((row) => row.site === site) ?? {}
+);
+
+const buildNaverRoasDashboardSkeleton = (site: "all" | NaverAdsSite) => {
+  const brandsearchRoas = readJsonArtifact("data/project/naver-brandsearch-roas-preview-20260525.json");
+  const brandsearchBridge = readJsonArtifact("data/project/naver-brandsearch-order-bridge-preview-20260525.json");
+  const brandsearchNarrowing = readJsonArtifact("data/project/biocom-naver-brandsearch-unresolved-narrowing-20260526.json")
+    ?? readJsonArtifact("data/project/biocom-naver-brandsearch-unresolved-breakdown-20260525.json");
+  const displayCoffee = readJsonArtifact("report/reportcoffee-naver-display-hermes-export-result-20260525.json");
+
+  const brandRows = asArray(brandsearchRoas?.by_site);
+  const bridgeRows = asArray(brandsearchBridge?.by_site ?? brandsearchBridge);
+  const biocomBrand = pickSiteRow(brandRows, "biocom");
+  const coffeeBrand = pickSiteRow(brandRows, "thecleancoffee");
+  const biocomBridge = pickSiteRow(bridgeRows, "biocom");
+  const coffeeBridge = pickSiteRow(bridgeRows, "thecleancoffee");
+  const displayCampaign = asRecord(displayCoffee?.display_campaign);
+  const narrowing = asRecord(brandsearchNarrowing?.narrowing);
+  const narrowedRows = asArray(narrowing.narrowed_safe_rows);
+  const biocomVmExactUpgradeRevenue = narrowedRows.reduce((sum, row) => {
+    const sourceSums = asRecord(row.source_amount_sums);
+    const exactBySource = asRecord(sourceSums.exact_key_match_krw_by_source);
+    return sum + numberValue(exactBySource.vm_cloud_imweb_orders);
+  }, 0);
+  const biocomBrandCost = numberValue(asRecord(biocomBrand.cost).total_cost_krw ?? biocomBridge.cost_krw);
+  const biocomExistingExactRevenue = numberValue(asRecord(biocomBridge.bridge).exact_marker_amount_krw);
+
+  return {
+    ok: true,
+    mode: "local_skeleton_read_only",
+    generated_at: new Date().toISOString(),
+    requested_site: site,
+    source_policy: {
+      internal_confirmed_roas:
+        "실제 결제완료 주문 정본 매출을 광고비로 나눈 값. 예산 판단에 우선 사용.",
+      naver_claim_roas:
+        "네이버 광고 플랫폼이 주장하는 전환매출 기반 값. 참고용이며 내부 confirmed 매출에 합산하지 않음.",
+      channel_split_required: true,
+      do_not_mix_windows: true,
+    },
+    channels: {
+      search_ads: {
+        status: "api_cache_partial",
+        endpoint_reference: "/api/ads/naver/campaign-summary?site=biocom",
+        source: "Naver Search Ad API -> local/VM naver_ads_daily cache",
+        current_known: {
+          biocom_window: "2026-04-21~2026-05-20",
+          biocom_spend_krw: 7276795,
+          biocom_clicks: 12443,
+          thecleancoffee_recent_spend_krw: 440,
+          warning: "검색광고 API에는 브랜드검색/성과 디스플레이가 포함되지 않는다.",
+        },
+        next_action: "검색광고 cache freshness를 daily로 고정하고 내부 결제완료 주문 bridge와 같은 window로 조회",
+      },
+      brandsearch: {
+        status: "manual_cost_cache_ready_order_bridge_partial_upgrade_candidate",
+        source: "TJ-confirmed manual contract daily allocation cache + VM Cloud brandsearch payment marker",
+        totals: {
+          cost_krw: numberValue(asRecord(brandsearchRoas?.totals).total_cost_krw),
+          vm_marker_revenue_krw: numberValue(asRecord(brandsearchRoas?.totals).total_vm_confirmed_payment_success_amount_krw),
+          landing_rows: numberValue(asRecord(brandsearchRoas?.totals).total_landing_rows),
+        },
+        biocom: {
+          effective_window: biocomBrand.effective_window ?? asRecord(biocomBridge.window),
+          cost_krw: biocomBrandCost,
+          exact_order_bridge_roas: numberValue(asRecord(biocomBridge.roas).exact_order_bridge_roas),
+          marker_rows: numberValue(asRecord(brandsearchNarrowing?.source_summary).marker_rows)
+            || numberValue(asRecord(biocomBridge.bridge).total_marker_rows),
+          exact_rows: numberValue(asRecord(biocomBridge.bridge).exact_rows),
+          previous_unresolved_rows: numberValue(asRecord(brandsearchNarrowing?.source_summary).previous_unresolved_rows),
+          latest_narrowing: narrowing.classification_counts ?? null,
+          existing_exact_revenue_krw: biocomExistingExactRevenue,
+          vm_exact_upgrade_candidate_revenue_krw: biocomVmExactUpgradeRevenue,
+          upgraded_candidate_revenue_krw: biocomExistingExactRevenue + biocomVmExactUpgradeRevenue,
+          upgraded_candidate_roas: biocomBrandCost > 0
+            ? round2((biocomExistingExactRevenue + biocomVmExactUpgradeRevenue) / biocomBrandCost)
+            : null,
+          interpretation:
+            "기존 운영DB 기준 미해결 6건은 VM Cloud imweb_orders에서는 exact match라 주문 source 정책 결정 후 upgraded bridge 후보.",
+        },
+        thecleancoffee: {
+          effective_window: coffeeBrand.effective_window ?? asRecord(coffeeBridge.window),
+          cost_krw: numberValue(asRecord(coffeeBrand.cost).total_cost_krw ?? coffeeBridge.cost_krw),
+          exact_order_bridge_roas: numberValue(asRecord(coffeeBridge.roas).exact_order_bridge_roas),
+          marker_rows: numberValue(asRecord(coffeeBridge.bridge).total_marker_rows),
+          exact_rows: numberValue(asRecord(coffeeBridge.bridge).exact_rows),
+          interpretation: "현재 marker row는 모두 주문 정본과 주문키로 연결됨.",
+        },
+        next_action: "biocom 6건 upgrade preview와 브랜드검색 주문 source policy 문서화",
+      },
+      display: {
+        status: "manual_hermes_required",
+        source: "Hermes Chrome CDP read-only XLSX export from Naver Ads UI",
+        thecleancoffee_weekly_reference: {
+          window: "2026-05-18~2026-05-24",
+          campaign_name: displayCampaign.campaign_name ?? "[ADVoost] 쇼핑",
+          spend_krw: numberValue(displayCampaign.spend_krw),
+          clicks: numberValue(displayCampaign.clicks),
+          naver_claim_conversion_revenue_krw: numberValue(displayCampaign.conversion_revenue_krw),
+          naver_claim_roas: numberValue(displayCampaign.spend_krw) > 0
+            ? round2(numberValue(displayCampaign.conversion_revenue_krw) / numberValue(displayCampaign.spend_krw))
+            : null,
+        },
+        april_request_status: "prompt_prepared_needed",
+        next_action: "Hermes에게 2026-04-01~2026-04-30 성과 디스플레이 비용/전환금액/클릭/ROAS export 지시",
+      },
+    },
+    okr_progress: [
+      {
+        kr: "KR1 네이버 광고 비용 source를 채널별로 분리",
+        progress_percent: 72,
+        current: "검색광고 API cache, 브랜드검색 수동 cache, coffee display Hermes 주간 원본이 분리됨.",
+      },
+      {
+        kr: "KR2 내부 confirmed ROAS와 네이버 주장 ROAS를 분리",
+        progress_percent: 61,
+        current: "브랜드검색 주문 bridge는 구축, display 내부 confirmed order bridge는 미완.",
+      },
+      {
+        kr: "KR3 운영 화면/API로 반복 조회",
+        progress_percent: 54,
+        current: "프론트 정적 화면과 local API skeleton 단계.",
+      },
+    ],
+    action_plan: [
+      "biocom 브랜드검색 6건 upgrade preview 작성",
+      "Hermes 4월 성과 디스플레이 원본 export",
+      "프론트 /ads/naver-roas를 local API 응답으로 연결하는 Yellow 승인안 확정",
+    ],
+    invariants_held: {
+      read_only: true,
+      operating_db_write: 0,
+      vm_cloud_write: 0,
+      platform_send: 0,
+      naver_ads_state_change: 0,
+    },
+  };
+};
+
 const naverAdsSummaryInflight = new Map<
   string,
   Promise<{ body: NaverAdsCampaignSummaryResponse; entry: LazyCacheEntry; generationMs: number }>
@@ -440,6 +607,13 @@ const computeAndCacheNaverAdsSummary = async (
 
 export const createNaverAdsRouter = () => {
   const router = Router();
+
+  router.get("/api/ads/naver-roas/dashboard", (req: Request, res: Response) => {
+    const siteRaw = typeof req.query.site === "string" ? req.query.site : "all";
+    const site: "all" | NaverAdsSite =
+      siteRaw === "biocom" || siteRaw === "thecleancoffee" ? siteRaw : "all";
+    res.json(buildNaverRoasDashboardSkeleton(site));
+  });
 
   router.get("/api/ads/naver/campaign-summary", async (req: Request, res: Response) => {
     const requestStartedAt = Date.now();

@@ -50,9 +50,9 @@ source_window_freshness_confidence:
 | site | GTM | live version | live tags | GA4 source | GA4 export window | GA4 event_names |
 | --- | --- | --- | --- | --- | --- | --- |
 | biocom | GTM-W2Z6PHN | 143 (AGENT_OS Path B identity-first canary 20260509T121717Z) | 60 | project-dadba7dd-0229-4ff6-81c.analytics_304759974.events_* | 2026-05-07~2026-05-16 (10 tables) | 23 |
-| thecleancoffee | GTM-5M33GC4 | 23 (Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z; 2026-05-24 TJ님 승인 publish + subscription guard) | 34 | project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_* | 2026-04-07~2026-05-16 (40 tables) | 16 |
+| thecleancoffee | GTM-5M33GC4 | 24 (Coffee Meta InitiateCheckout shop_payment value retry guard - 20260524T210252Z; 2026-05-24 TJ님 승인 publish + 2026-05-25 value retry hotfix) | 34 | project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_* | 2026-04-07~2026-05-16 (40 tables) | 16 |
 
-더클린커피 GTM은 2026-05-24 16:47 KST read-only 재조회에서 live version 23, tags 34, triggers 25, variables 13으로 확인했다. version 23은 TJ님 승인에 따라 일반 주문서 `/shop_payment/` 전용 Meta browser `InitiateCheckout` 태그를 추가하고, 정기구독 checkout 중복 방지 guard를 보강한 게시다. Default Workspace만 남아 있고, `add_payment_info` 태그는 live GTM에 없다. 상세 판단은 [더클린커피 GTM/GA4 인벤토리](gtm-thecleancoffee.md)를 따른다.
+더클린커피 GTM은 2026-05-25 06:03 KST read-only 재확인에서 live version 24, tags 34, triggers 25, variables 13으로 확인했다. version 24는 TJ님 승인에 따라 일반 주문서 `/shop_payment/` 전용 Meta browser `InitiateCheckout` 태그를 추가한 뒤, 실제 주문서 smoke의 `missing_value` 차단을 반영해 주문금액 렌더링 재시도 guard를 보강한 게시다. Default Workspace만 남아 있고, `add_payment_info` 태그는 live GTM에 없다. 상세 판단은 [더클린커피 GTM/GA4 인벤토리](gtm-thecleancoffee.md)를 따른다.
 
 ## 운영 원칙
 

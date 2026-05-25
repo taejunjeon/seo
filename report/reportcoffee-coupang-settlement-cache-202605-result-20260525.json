@@ -1,0 +1,151 @@
+{
+  "report": "reportcoffee_coupang_settlement_cache_202605_result_20260525",
+  "generated_at_kst": "2026-05-25 06:09 KST",
+  "mode": "approved_local_apply",
+  "approval_document": "report/reportcoffee-coupang-settlement-cache-202605-approval-20260525.md",
+  "target": {
+    "db": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "table": "coupang_settlements_api",
+    "recognition_year_month": "2026-05",
+    "write_scope": "local SQLite only"
+  },
+  "backup": {
+    "path": "/Users/vibetj/coding/seo/backend/data/backups/crm.sqlite3.before-coupang-settlements-202605-20260525T060826.bak",
+    "pre_hash_sha256": "890c8d3ce7a82c9fb11890d14af92b1e697f7bbc75759ec386cdfa7fa754d0e1",
+    "post_hash_sha256_after_wal_checkpoint": "7d3d0e43eaa520fdd8730efa7e48ea00978f90ea348e6b5927b10aa20da9a62d"
+  },
+  "pre_snapshot": {
+    "local_2026_05_rows": 0
+  },
+  "api_preview_before_apply": {
+    "checked_at_kst": "2026-05-25 06:08:26 KST",
+    "teamketo": {
+      "rows": 4,
+      "total_sale_krw": 7222000,
+      "final_amount_krw": 2289310,
+      "settlement_target_amount_krw": 6380478,
+      "settlement_amount_krw": 4466336,
+      "status_breakdown": {
+        "PENDING": 4
+      }
+    },
+    "biocom": {
+      "rows": 4,
+      "total_sale_krw": 1019400,
+      "final_amount_krw": 256524,
+      "settlement_target_amount_krw": 902080,
+      "settlement_amount_krw": 631456,
+      "status_breakdown": {
+        "DONE": 1,
+        "SUBJECT": 3
+      }
+    }
+  },
+  "apply_result": {
+    "command": "cd /Users/vibetj/coding/seo/backend && node scripts/coupang-backfill-settlements.cjs 2026-05 2026-05",
+    "exit_code": 0,
+    "api_calls": 2,
+    "inserted_or_updated_rows": 8,
+    "by_account": {
+      "teamketo": {
+        "rows": 4,
+        "total_sale_krw": 7222000,
+        "final_amount_krw": 2289310
+      },
+      "biocom": {
+        "rows": 4,
+        "total_sale_krw": 1019400,
+        "final_amount_krw": 256524
+      }
+    }
+  },
+  "post_verify": {
+    "total_rows_2026_05": 8,
+    "distinct_settlement_ids_2026_05": 8,
+    "duplicate_count_2026_05": 0,
+    "total_sale_krw": 8241400,
+    "final_amount_krw": 2545834,
+    "by_vendor": {
+      "A00668577": {
+        "rows": 4,
+        "total_sale_krw": 1019400,
+        "final_amount_krw": 256524,
+        "recognition_date_from": "2026-05-01",
+        "recognition_date_to": "2026-05-17",
+        "max_settlement_date": "2026-07-01",
+        "distinct_ids": 4
+      },
+      "A00963878": {
+        "rows": 4,
+        "total_sale_krw": 7222000,
+        "final_amount_krw": 2289310,
+        "recognition_date_from": "2026-05-01",
+        "recognition_date_to": "2026-05-17",
+        "max_settlement_date": "2026-07-01",
+        "distinct_ids": 4
+      }
+    },
+    "sqlite_journal_mode": "wal",
+    "wal_checkpoint": "TRUNCATE PASS",
+    "wal_size_after_checkpoint": "0B"
+  },
+  "no_send_json_regenerated": {
+    "file": "report/reportcoffee-sales-summary-no-send-20260524.json",
+    "generated_at_utc": "2026-05-24T21:12:06.745Z",
+    "local_settlement_cache_status": "ok_local_read_only",
+    "teamketo_latest_month": {
+      "recognition_year_month": "2026-05",
+      "rows": 4,
+      "total_sale_krw": 7222000,
+      "final_amount_krw": 2289310,
+      "recognition_date_to": "2026-05-17"
+    },
+    "window_status": {
+      "weekly": "comparison_available_with_warning",
+      "month_to_date": "comparison_available_with_warning",
+      "rolling_30d": "comparison_available_with_warning"
+    }
+  },
+  "guardrails": {
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "slack_send": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "cron_registration": 0,
+    "raw_identifier_output": 0
+  },
+  "track_progress": {
+    "A_source_rule_docs": {
+      "previous_percent": 75,
+      "current_percent": 76,
+      "delta_percent": 1
+    },
+    "B_coffee_sales_source": {
+      "previous_percent": 100,
+      "current_percent": 100,
+      "delta_percent": 0
+    },
+    "C_coffee_ad_spend_source": {
+      "previous_percent": 82,
+      "current_percent": 82,
+      "delta_percent": 0
+    },
+    "D_biocom_report_source_map": {
+      "previous_percent": 36,
+      "current_percent": 36,
+      "delta_percent": 0
+    },
+    "E_slack_no_send_design": {
+      "previous_percent": 99,
+      "current_percent": 99,
+      "delta_percent": 0
+    },
+    "F_automation_readiness": {
+      "previous_percent": 97,
+      "current_percent": 98,
+      "delta_percent": 1
+    }
+  },
+  "confidence_percent": 90
+}

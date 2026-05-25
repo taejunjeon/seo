@@ -1,0 +1,210 @@
+{
+  "ok": true,
+  "schema_version": "naver-brandsearch-order-bridge-preview-v1-20260525",
+  "generated_at": "2026-05-25T14:08:57.043Z",
+  "mode": "read_only_no_send_no_write",
+  "source_policy": {
+    "plain_summary": "브랜드검색 유입 marker가 붙은 결제완료 row를 주문 정본과 주문키 hash로 비교한다.",
+    "caveats": [
+      "exact_order_bridge_roas is the only metric that can be promoted toward internal confirmed ROAS.",
+      "probable rows require human/data review before budget decisions.",
+      "same-window order-source ROAS is a sanity check, not brandsearch-attributed revenue.",
+      "Raw identifiers are not written to output artifacts."
+    ]
+  },
+  "freshness": {
+    "cost_cached_at_max": "2026-05-25 12:52:49",
+    "landing_max_landed_at": "2026-05-25T14:04:42.381Z",
+    "attribution_max_logged_at": "2026-05-25T14:04:42.381Z",
+    "coffee_imweb_max_order_time": "2026-05-25T13:32:47.000Z",
+    "coffee_imweb_max_synced_at": "2026-05-25 13:54:56",
+    "coffee_imweb_max_status_synced_at": "2026-05-25 12:10:47",
+    "biocom_operating_db_max_source_date": "2026-05-25"
+  },
+  "by_site": [
+    {
+      "site": "biocom",
+      "window": {
+        "since": "2026-05-22",
+        "until": "2026-05-25",
+        "timezone": "KST"
+      },
+      "source": {
+        "cost_source": "VM Cloud naver_brandsearch_manual_cost_daily",
+        "marker_source": "VM Cloud attribution_ledger payment_success confirmed with brandsearch marker",
+        "order_source": "운영DB PostgreSQL public.tb_iamweb_users PAYMENT_COMPLETE"
+      },
+      "cost_krw": 205336,
+      "brandsearch_landing_rows": 132,
+      "order_source_window": {
+        "order_count": 199,
+        "revenue_krw": 47306484,
+        "npay_order_count": 9,
+        "npay_revenue_krw": 1355600
+      },
+      "bridge": {
+        "total_marker_rows": 18,
+        "total_marker_amount_krw": 4786416,
+        "marker_rows_with_order_key_candidate": 18,
+        "marker_rows_with_session_bridge": 18,
+        "exact_rows": 13,
+        "exact_marker_amount_krw": 3364432,
+        "exact_unique_order_count": 13,
+        "exact_unique_order_revenue_krw": 3364432,
+        "exact_amount_match_rows": 13,
+        "exact_amount_mismatch_rows": 0,
+        "probable_rows": 0,
+        "probable_marker_amount_krw": 0,
+        "ambiguous_rows": 2,
+        "ambiguous_marker_amount_krw": 729500,
+        "no_bridge_rows": 3,
+        "no_bridge_marker_amount_krw": 692484,
+        "exact_npay_rows": 0,
+        "exact_non_npay_rows": 13
+      },
+      "roas": {
+        "marker_roas": 23.31,
+        "exact_order_bridge_roas": 16.39,
+        "probable_included_roas": 16.39,
+        "order_source_same_window_reference_roas": 230.39
+      },
+      "interpretation": {
+        "decision": "일부 marker row는 주문키가 없거나 금액/날짜 후보만 있어 exact ROAS 승격 전 보강이 필요하다.",
+        "budget_use": "exact_order_bridge_roas만 내부 confirmed 후보로 승격 가능하다. probable은 검토용, same-window order source ROAS는 sanity check다.",
+        "next_bottleneck": "브랜드검색 비용을 리포트 API에 붙이기 전 exact/probable/ambiguous 분류를 화면에서 분리해야 한다.",
+        "confidence": "low"
+      },
+      "warnings": [
+        "marker_rows_without_order_bridge",
+        "amount_time_ambiguous_rows_present"
+      ]
+    },
+    {
+      "site": "thecleancoffee",
+      "window": {
+        "since": "2026-05-11",
+        "until": "2026-05-25",
+        "timezone": "KST"
+      },
+      "source": {
+        "cost_source": "VM Cloud naver_brandsearch_manual_cost_daily",
+        "marker_source": "VM Cloud attribution_ledger payment_success confirmed with brandsearch marker",
+        "order_source": "VM Cloud SQLite imweb_orders(site='thecleancoffee') positive orders"
+      },
+      "cost_krw": 770005,
+      "brandsearch_landing_rows": 15,
+      "order_source_window": {
+        "order_count": 780,
+        "revenue_krw": 45621317,
+        "npay_order_count": 230,
+        "npay_revenue_krw": 12830000
+      },
+      "bridge": {
+        "total_marker_rows": 11,
+        "total_marker_amount_krw": 352564,
+        "marker_rows_with_order_key_candidate": 11,
+        "marker_rows_with_session_bridge": 0,
+        "exact_rows": 11,
+        "exact_marker_amount_krw": 352564,
+        "exact_unique_order_count": 11,
+        "exact_unique_order_revenue_krw": 352564,
+        "exact_amount_match_rows": 11,
+        "exact_amount_mismatch_rows": 0,
+        "probable_rows": 0,
+        "probable_marker_amount_krw": 0,
+        "ambiguous_rows": 0,
+        "ambiguous_marker_amount_krw": 0,
+        "no_bridge_rows": 0,
+        "no_bridge_marker_amount_krw": 0,
+        "exact_npay_rows": 0,
+        "exact_non_npay_rows": 11
+      },
+      "roas": {
+        "marker_roas": 0.46,
+        "exact_order_bridge_roas": 0.46,
+        "probable_included_roas": 0.46,
+        "order_source_same_window_reference_roas": 59.25
+      },
+      "interpretation": {
+        "decision": "현재 marker row는 모두 주문 정본과 주문키로 연결된다.",
+        "budget_use": "exact_order_bridge_roas만 내부 confirmed 후보로 승격 가능하다. probable은 검토용, same-window order source ROAS는 sanity check다.",
+        "next_bottleneck": "브랜드검색 비용을 리포트 API에 붙이기 전 exact/probable/ambiguous 분류를 화면에서 분리해야 한다.",
+        "confidence": "medium_high"
+      },
+      "warnings": [
+        "coffee_bridge_uses_vm_cloud_imweb_orders_primary_candidate"
+      ]
+    }
+  ],
+  "okr_progress": [
+    {
+      "objective": "Naver 브랜드검색을 비용과 실제 주문 기준으로 분리해 예산 판단 가능 상태로 만든다.",
+      "key_result": "KR1 비용 source를 수동 계약 기간 배분 cache로 고정",
+      "progress_pct": 100,
+      "status": "done",
+      "evidence": "manual cost cache 적재 및 reader preview 완료"
+    },
+    {
+      "objective": "Naver 브랜드검색을 비용과 실제 주문 기준으로 분리해 예산 판단 가능 상태로 만든다.",
+      "key_result": "KR2 브랜드검색 marker ROAS를 site/window별로 산출",
+      "progress_pct": 90,
+      "status": "on_track",
+      "evidence": "biocom/thecleancoffee marker ROAS 산출 완료"
+    },
+    {
+      "objective": "Naver 브랜드검색을 비용과 실제 주문 기준으로 분리해 예산 판단 가능 상태로 만든다.",
+      "key_result": "KR3 주문 정본과 marker를 주문 단위로 bridge",
+      "progress_pct": 83,
+      "status": "needs_work",
+      "evidence": "exact/probable/ambiguous/no_bridge preview 생성"
+    },
+    {
+      "objective": "Naver 브랜드검색을 비용과 실제 주문 기준으로 분리해 예산 판단 가능 상태로 만든다.",
+      "key_result": "KR4 운영자가 볼 수 있는 Naver ROAS 화면 제공",
+      "progress_pct": 90,
+      "status": "on_track",
+      "evidence": "frontend report page local 구현 완료, 검증 단계"
+    }
+  ],
+  "action_plan": [
+    {
+      "priority": "P0",
+      "owner": "Codex",
+      "action": "Naver ROAS 프론트엔드에 marker ROAS, exact bridge ROAS, 주문 정본 sanity check를 분리 표시",
+      "why": "플랫폼 주장값과 내부 주문 정본을 섞지 않기 위해서다.",
+      "lane": "Green",
+      "approval_required": false,
+      "success_criteria": "브랜드검색 ROAS 화면에서 site별 비용, exact bridge, warning, OKR, 액션플랜을 한 번에 본다."
+    },
+    {
+      "priority": "P1",
+      "owner": "Codex",
+      "action": "리포트 API 연결 승인안 작성",
+      "why": "로컬 JSON이 아니라 운영 dashboard에서 자동 갱신하려면 backend route 연결이 필요하다.",
+      "lane": "Yellow",
+      "approval_required": true,
+      "success_criteria": "배포 전/후 snapshot, rollback, no-send 검증이 문서화된다."
+    },
+    {
+      "priority": "P2",
+      "owner": "TJ님",
+      "action": "다음 브랜드검색 계약 갱신 금액 확인",
+      "why": "현재 다음 기간은 동일 가격/기간 갱신 가정이므로 실제 계약이 바뀌면 비용 cache가 달라진다.",
+      "lane": "Green",
+      "approval_required": false,
+      "success_criteria": "다음 기간 모바일/PC 금액과 기간이 확인된다."
+    }
+  ],
+  "invariants_held": {
+    "sqlite_mode": "read_only",
+    "sqlite_write": 0,
+    "backend_deploy_or_restart": 0,
+    "platform_send": 0,
+    "raw_identifier_output": 0,
+    "order_key_hash_mode": "sha256_one_way",
+    "operating_db_mode": "read_only",
+    "operating_db_write": 0,
+    "vm_cloud_write": 0,
+    "conversion_upload": 0
+  }
+}

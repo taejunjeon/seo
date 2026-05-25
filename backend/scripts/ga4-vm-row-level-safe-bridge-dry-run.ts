@@ -942,13 +942,14 @@ const behaviorRates = (joined: Array<{ vm: VmSafeSessionRow; ga4: Ga4SessionRow;
 type JoinedVmGa4 = { vm: VmSafeSessionRow; ga4: Ga4SessionRow; join_method: string };
 
 const PAGE_LONG_THRESHOLD_SECONDS = [60, 120, 180, 240, 300, 360, 420, 600] as const;
-const PAGE_LONG_SOURCE_GROUPS = ["meta", "google_paid", "youtube"] as const;
+const PAGE_LONG_SOURCE_GROUPS = ["meta", "google_paid", "youtube", "organic"] as const;
 
 const sourceGroupLabel = (sourceGroup: string) => {
   const labels: Record<string, string> = {
     meta: "Meta 광고",
     google_paid: "Google 유료",
     youtube: "YouTube",
+    organic: "오가닉",
   };
   return labels[sourceGroup] ?? sourceGroup;
 };

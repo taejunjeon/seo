@@ -1,0 +1,339 @@
+{
+  "schema_version": "reportcoffee-weekly-xlsx-vs-codex-diff-v1-20260525",
+  "mode": "read_only_no_send_no_write",
+  "generated_at_kst": "2026-05-25 18:10 KST",
+  "site": "thecleancoffee",
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-04-25",
+    "end_date_inclusive": "2026-05-01"
+  },
+  "purpose": "Compare the attached weekly brand performance workbook with Codex read-only sources for the same coffee reporting window and classify causes of differences.",
+  "sources": {
+    "attachment_workbook": {
+      "path": "/Users/vibetj/Downloads/[주간]브랜드 성과보고서_팀키토&더클린커피.xlsx",
+      "sheet": "1주차",
+      "range": "G1:L31",
+      "role": "comparison_reference_from_existing_weekly_report",
+      "confidence": "medium_high_for_values_as_displayed"
+    },
+    "codex_best_available_composite": {
+      "role": "diagnostic_comparison_only",
+      "selfmall_source": "VM Cloud NPay read-only + operating DB Toss read-only",
+      "smartstore_source": "operating DB public.tb_playauto_orders read-only",
+      "coupang_source": "Coupang revenue-history read-only when available; ordersheets only as reference",
+      "ad_spend_source": "VM Cloud Meta site-summary read-only; Naver/Coupang ad spend not yet attached for this historical window",
+      "temp_outputs": [
+        "/tmp/reportcoffee-sales-summary-no-send-20260501-check.json",
+        "/tmp/reportcoffee-sales-summary-no-send-20260501-vm-npay-check.json"
+      ],
+      "confidence": "medium_for_gap_diagnosis_not_final_reporting"
+    }
+  },
+  "attachment_values": {
+    "sales": {
+      "naver_or_smartstore": {
+        "amount_krw": 1905140,
+        "orders": 55,
+        "average_order_value_krw": 34638.90909
+      },
+      "selfmall": {
+        "amount_krw": 5334362,
+        "orders": 128,
+        "average_order_value_krw": 41674.70313
+      },
+      "coupang": {
+        "amount_krw": 2100400,
+        "orders": 56,
+        "average_order_value_krw": 37507.14286
+      },
+      "total": {
+        "amount_krw": 9339902,
+        "orders": 239,
+        "average_order_value_krw": 39079.08787
+      }
+    },
+    "ad": {
+      "naver": {
+        "spend_krw": 602890,
+        "conversion_revenue_krw": 2537525,
+        "roas": 4.208935295,
+        "clicks": 360,
+        "cpc_krw": 1674.694444,
+        "formula": "217890 + (1540000 / 4)"
+      },
+      "selfmall_meta": {
+        "spend_krw": 343985,
+        "conversion_revenue_krw": 1564156,
+        "roas": 4.547163394,
+        "clicks": 312,
+        "cpc_krw": 1102.516026
+      },
+      "coupang": {
+        "spend_krw": 514712,
+        "conversion_revenue_krw": 1769200,
+        "roas": 3.437262003,
+        "clicks": 681,
+        "cpc_krw": 755.8179148,
+        "formula": "533164 - teamketo_side_18452"
+      },
+      "total": {
+        "spend_krw": 1461587,
+        "conversion_revenue_krw": 5870881,
+        "roas": 4.016785179,
+        "clicks": 1353,
+        "cpc_krw": 1080.256467
+      }
+    },
+    "customer_mix": {
+      "naver": {
+        "customers": 47,
+        "new_customers": 16,
+        "repeat_customers": 31,
+        "new_share": 0.3404255319,
+        "repeat_share": 0.6595744681
+      },
+      "selfmall": {
+        "customers": 123,
+        "new_customers": 28,
+        "repeat_customers": 95,
+        "new_share": 0.2276422764,
+        "repeat_share": 0.7723577236
+      },
+      "coupang": {
+        "customers": 28,
+        "new_customers": 4,
+        "repeat_customers": 24,
+        "new_share": 0.1428571429,
+        "repeat_share": 0.8571428571
+      },
+      "total": {
+        "customers": 198,
+        "new_customers": 48,
+        "repeat_customers": 150,
+        "new_share": 0.2424242424,
+        "repeat_share": 0.7575757576
+      }
+    }
+  },
+  "codex_values": {
+    "sales_best_available_composite": {
+      "naver_or_smartstore": {
+        "amount_krw": 1839340,
+        "rows": 53,
+        "quantity": 64,
+        "source": "operating DB public.tb_playauto_orders, shop_name='스마트스토어', amount pay_amt",
+        "date_rule": "COALESCE(pay_time, ord_time) in 2026-04-25 - 2026-05-01"
+      },
+      "selfmall": {
+        "amount_krw": 5215298,
+        "components": {
+          "toss_net_amount_krw": 2679898,
+          "vm_cloud_npay_actual_amount_krw": 2535400,
+          "vm_cloud_npay_actual_count": 60
+        },
+        "source": "operating DB public.tb_sales_toss + VM Cloud SQLite imweb_orders NPay read-only"
+      },
+      "coupang": {
+        "amount_krw": 1117300,
+        "rows": 33,
+        "quantity": 34,
+        "settlement_amount_krw": 987041,
+        "source": "Coupang revenue-history coffee_hint saleAmount",
+        "ordersheets_reference_amount_krw": 806600,
+        "account_total_revenue_history_amount_krw": 1390500,
+        "teamketo_reference_amount_krw": 273200
+      },
+      "total": {
+        "amount_krw": 8171938
+      }
+    },
+    "ad_spend_current_no_send": {
+      "naver": {
+        "spend_krw": 0,
+        "status": "missing_for_this_window",
+        "reason": "Naver Search Ad API/Display Hermes source is not attached for 2026-04-25 - 2026-05-01."
+      },
+      "selfmall_meta": {
+        "spend_krw": 343985,
+        "conversion_revenue_krw": 1564156,
+        "clicks": 312,
+        "source": "VM Cloud /api/ads/site-summary read-only"
+      },
+      "coupang": {
+        "spend_krw": 0,
+        "status": "missing_for_this_window",
+        "reason": "Coupang Ads source is not attached to the no-send generator."
+      },
+      "total": {
+        "spend_krw": 343985
+      }
+    },
+    "customer_mix": {
+      "status": "not_implemented_in_current_no_send_json",
+      "reason": "Current reporting JSON does not output repeat/new customer metrics yet."
+    }
+  },
+  "sales_difference_table": [
+    {
+      "channel": "네이버/스마트스토어 매출",
+      "attachment_amount_krw": 1905140,
+      "codex_amount_krw": 1839340,
+      "codex_minus_attachment_krw": -65800,
+      "codex_minus_attachment_percent": -3.45,
+      "count_or_rows_gap": "attachment 55 orders vs Codex 53 rows",
+      "cause_category": "source_rule_or_status_gap",
+      "cause_summary": "Codex uses PlayAuto pay_amt with COALESCE(pay_time, ord_time). The workbook likely includes two additional Naver rows or a different adjustment basis worth 65,800 KRW.",
+      "confidence": "medium"
+    },
+    {
+      "channel": "자사몰 매출",
+      "attachment_amount_krw": 5334362,
+      "codex_amount_krw": 5215298,
+      "codex_minus_attachment_krw": -119064,
+      "codex_minus_attachment_percent": -2.23,
+      "count_or_rows_gap": "attachment 128 orders vs Codex Toss 62 rows + VM NPay 60 rows",
+      "cause_category": "source_definition_gap",
+      "cause_summary": "Codex combines Toss net amount and VM Cloud NPay actual. The workbook likely uses a fuller selfmall order sheet or includes another payment/adjustment bucket not represented by Toss+NPay split.",
+      "confidence": "medium_high"
+    },
+    {
+      "channel": "쿠팡 매출",
+      "attachment_amount_krw": 2100400,
+      "codex_amount_krw": 1117300,
+      "codex_minus_attachment_krw": -983100,
+      "codex_minus_attachment_percent": -46.8,
+      "count_or_rows_gap": "attachment 56 orders vs Codex revenue-history 33 coffee rows / 34 quantity",
+      "cause_category": "source_definition_and_product_classification_gap",
+      "cause_summary": "Codex strict source uses Coupang revenue-history coffee_hint saleAmount by recognition date. The workbook appears to use a different Coupang sales source or manual channel total. This is the largest sales gap.",
+      "confidence": "medium"
+    },
+    {
+      "channel": "합계",
+      "attachment_amount_krw": 9339902,
+      "codex_amount_krw": 8171938,
+      "codex_minus_attachment_krw": -1167964,
+      "codex_minus_attachment_percent": -12.51,
+      "cause_category": "mostly_coupang_gap",
+      "cause_summary": "84.2% of the total sales gap comes from Coupang, 10.2% from selfmall, and 5.6% from Smartstore/Naver.",
+      "confidence": "medium_high"
+    }
+  ],
+  "ad_difference_table": [
+    {
+      "channel": "네이버 광고비",
+      "attachment_spend_krw": 602890,
+      "codex_spend_krw": 0,
+      "codex_minus_attachment_krw": -602890,
+      "cause_category": "missing_ad_source_and_manual_allocation",
+      "cause_summary": "Workbook uses formula 217,890 + 1,540,000/4. Codex does not yet have a Naver ad source/export for 2026-04-25 - 2026-05-01.",
+      "confidence": "high"
+    },
+    {
+      "channel": "자사몰 Meta 광고비",
+      "attachment_spend_krw": 343985,
+      "codex_spend_krw": 343985,
+      "codex_minus_attachment_krw": 0,
+      "attachment_conversion_revenue_krw": 1564156,
+      "codex_conversion_revenue_krw": 1564156,
+      "attachment_clicks": 312,
+      "codex_clicks": 312,
+      "cause_category": "matched",
+      "cause_summary": "Meta/selfmall ad spend, platform conversion revenue, and clicks match exactly.",
+      "confidence": "high"
+    },
+    {
+      "channel": "쿠팡 광고비",
+      "attachment_spend_krw": 514712,
+      "codex_spend_krw": 0,
+      "codex_minus_attachment_krw": -514712,
+      "cause_category": "missing_coupang_ads_source_and_manual_subtraction",
+      "cause_summary": "Workbook subtracts TeamKeto-side 18,452 KRW from account-level 533,164 KRW. Codex no-send generator has no Coupang Ads source attached.",
+      "confidence": "high"
+    },
+    {
+      "channel": "합계",
+      "attachment_spend_krw": 1461587,
+      "codex_spend_krw": 343985,
+      "codex_minus_attachment_krw": -1117602,
+      "cause_category": "naver_and_coupang_ad_sources_missing",
+      "cause_summary": "The entire spend gap is explained by Naver 602,890 KRW and Coupang 514,712 KRW missing from current Codex no-send input.",
+      "confidence": "high"
+    }
+  ],
+  "customer_mix_difference": {
+    "attachment_status": "available_in_workbook",
+    "codex_status": "not_available_in_current_no_send_json",
+    "cause_category": "metric_not_implemented",
+    "cause_summary": "The workbook has channel-level new/repeat customer counts. Codex currently does not output comparable customer-level repeat metrics in the Slack no-send JSON."
+  },
+  "recommended_next_actions": [
+    {
+      "priority": "P0",
+      "owner": "Codex",
+      "action": "Create a matching-source reconciliation for Coupang 2026-04-25 - 2026-05-01.",
+      "why": "Coupang explains 84.2% of the sales gap.",
+      "lane": "Green",
+      "success_criteria": "Identify whether the workbook's 2,100,400 KRW comes from ordersheets, revenue-history, settlement, ad conversion report, or manual upload."
+    },
+    {
+      "priority": "P1",
+      "owner": "Codex/Hermes",
+      "action": "Acquire Naver display/search export for 2026-04-25 - 2026-05-01 if the workbook rule should be automated.",
+      "why": "Current Codex report has Naver ad spend 0 KRW while workbook uses 602,890 KRW.",
+      "lane": "Green read-only download once Hermes runs it",
+      "success_criteria": "Naver spend, conversion revenue, and clicks can be reproduced without manual formula."
+    },
+    {
+      "priority": "P2",
+      "owner": "Codex",
+      "action": "Add a report input layer for manual allocation rules only after TJ approves the rule.",
+      "why": "Workbook has formulas that allocate or subtract values. These should be explicit inputs, not hidden code assumptions.",
+      "lane": "Green design, Yellow only if cache/write is requested",
+      "success_criteria": "Naver 1540000/4 and Coupang account-minus-teamketo rules are visible in JSON as named assumptions."
+    }
+  ],
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "ad_account_change": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0,
+    "raw_click_identifier_output": 0
+  },
+  "track_progress": {
+    "track_a": {
+      "before_percent": 81,
+      "after_percent": 81,
+      "delta_percent": 0
+    },
+    "track_b": {
+      "before_percent": 100,
+      "after_percent": 100,
+      "delta_percent": 0
+    },
+    "track_c": {
+      "before_percent": 100,
+      "after_percent": 100,
+      "delta_percent": 0
+    },
+    "track_d": {
+      "before_percent": 61,
+      "after_percent": 63,
+      "delta_percent": 2
+    },
+    "track_e": {
+      "before_percent": 100,
+      "after_percent": 100,
+      "delta_percent": 0
+    },
+    "track_f": {
+      "before_percent": 100,
+      "after_percent": 100,
+      "delta_percent": 0
+    }
+  }
+}

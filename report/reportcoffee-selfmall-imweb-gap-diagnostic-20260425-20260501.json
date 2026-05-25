@@ -1,0 +1,245 @@
+{
+  "report": "reportcoffee_selfmall_imweb_gap_diagnostic_v1",
+  "generated_at": "2026-05-25T13:39:28.418Z",
+  "site": "thecleancoffee",
+  "mode": "read_only_no_send_no_write",
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-04-25",
+    "end_date_inclusive": "2026-05-01"
+  },
+  "attachment_excel": {
+    "selfmall_amount_krw": 5334362,
+    "selfmall_order_count": 128
+  },
+  "imweb_api": {
+    "system": "imweb_v2_shop_orders_readonly",
+    "total_count": 2552,
+    "total_page": 26,
+    "stop_reason": "window_covered",
+    "pages_seen": 11,
+    "page_oldest_newest": [
+      {
+        "page": 1,
+        "rows": 100,
+        "oldest_paid_at_kst": "2026-05-22 15:03:10",
+        "newest_paid_at_kst": "2026-05-25 22:34:31"
+      },
+      {
+        "page": 2,
+        "rows": 100,
+        "oldest_paid_at_kst": "2026-05-19 23:31:18",
+        "newest_paid_at_kst": "2026-05-22 14:00:55"
+      },
+      {
+        "page": 3,
+        "rows": 100,
+        "oldest_paid_at_kst": "2026-05-17 00:43:34",
+        "newest_paid_at_kst": "2026-05-19 23:09:05"
+      },
+      {
+        "page": 9,
+        "rows": 100,
+        "oldest_paid_at_kst": "2026-05-04 14:19:09",
+        "newest_paid_at_kst": "2026-05-09 15:38:05"
+      },
+      {
+        "page": 10,
+        "rows": 100,
+        "oldest_paid_at_kst": "2026-04-28 23:32:56",
+        "newest_paid_at_kst": "2026-05-04 13:15:55"
+      },
+      {
+        "page": 11,
+        "rows": 100,
+        "oldest_paid_at_kst": "2026-04-22 15:10:05",
+        "newest_paid_at_kst": "2026-04-28 22:33:07"
+      }
+    ],
+    "errors": [],
+    "all_non_cancel_nonzero": {
+      "orders": 130,
+      "amount_krw": 5518188,
+      "diff_vs_attachment_krw": 183826,
+      "order_count_diff_vs_attachment": 2
+    },
+    "npay_detected": {
+      "orders": 64,
+      "amount_krw": 2677300
+    },
+    "non_npay_detected": {
+      "orders": 66,
+      "amount_krw": 2840888
+    },
+    "complete_time_present": {
+      "orders": 125,
+      "amount_krw": 5334362,
+      "by_pay_type": {
+        "npay": {
+          "orders": 60,
+          "amount_krw": 2535400
+        },
+        "card": {
+          "orders": 59,
+          "amount_krw": 2628013
+        },
+        "virtual": {
+          "orders": 2,
+          "amount_krw": 51885
+        },
+        "etc": {
+          "orders": 4,
+          "amount_krw": 119064
+        }
+      },
+      "by_pg_type": {
+        "(blank)": {
+          "orders": 60,
+          "amount_krw": 2535400
+        },
+        "tosspayments": {
+          "orders": 61,
+          "amount_krw": 2679898
+        },
+        "nicepay": {
+          "orders": 4,
+          "amount_krw": 119064
+        }
+      }
+    },
+    "complete_time_blank": {
+      "orders": 5,
+      "amount_krw": 183826,
+      "by_pay_type": {
+        "npay": {
+          "orders": 4,
+          "amount_krw": 141900
+        },
+        "card": {
+          "orders": 1,
+          "amount_krw": 41926
+        }
+      },
+      "by_pg_type": {
+        "(blank)": {
+          "orders": 4,
+          "amount_krw": 141900
+        },
+        "tosspayments": {
+          "orders": 1,
+          "amount_krw": 41926
+        }
+      }
+    },
+    "by_pay_type": {
+      "npay": {
+        "orders": 64,
+        "amount_krw": 2677300
+      },
+      "card": {
+        "orders": 60,
+        "amount_krw": 2669939
+      },
+      "virtual": {
+        "orders": 2,
+        "amount_krw": 51885
+      },
+      "etc": {
+        "orders": 4,
+        "amount_krw": 119064
+      }
+    },
+    "by_pg_type": {
+      "(blank)": {
+        "orders": 64,
+        "amount_krw": 2677300
+      },
+      "tosspayments": {
+        "orders": 62,
+        "amount_krw": 2721824
+      },
+      "nicepay": {
+        "orders": 4,
+        "amount_krw": 119064
+      }
+    },
+    "by_paid_date_kst": {
+      "2026-04-25": {
+        "orders": 10,
+        "amount_krw": 444056
+      },
+      "2026-04-26": {
+        "orders": 12,
+        "amount_krw": 470722
+      },
+      "2026-04-27": {
+        "orders": 26,
+        "amount_krw": 1095285
+      },
+      "2026-04-28": {
+        "orders": 19,
+        "amount_krw": 877360
+      },
+      "2026-04-29": {
+        "orders": 19,
+        "amount_krw": 689231
+      },
+      "2026-04-30": {
+        "orders": 18,
+        "amount_krw": 862995
+      },
+      "2026-05-01": {
+        "orders": 26,
+        "amount_krw": 1078539
+      }
+    },
+    "raw_order_output": 0
+  },
+  "toss_operational_db": {
+    "source": "operating_db_public_tb_sales_toss_readonly",
+    "store": "coffee",
+    "rows": 62,
+    "orders": 62,
+    "gross_amount_krw": 2721824,
+    "cancel_amount_krw": 41926,
+    "net_amount_krw": 2679898,
+    "min_approved_at": "2026-04-25 10:32:44",
+    "max_approved_at": "2026-05-01 22:18:33"
+  },
+  "reconstruction": {
+    "toss_net_plus_imweb_api_npay": {
+      "orders_reference": 126,
+      "amount_krw": 5357198,
+      "diff_vs_attachment_krw": 22836,
+      "note": "Toss order count plus Imweb NPay count may double-count if payment method definitions overlap; amount is diagnostic only."
+    },
+    "imweb_api_all_vs_attachment": {
+      "orders": 130,
+      "amount_krw": 5518188,
+      "diff_vs_attachment_krw": 183826,
+      "verdict": "different_source_or_adjustment"
+    }
+  },
+  "narrowed_candidates": [
+    {
+      "category": "imweb_api_near_match",
+      "amount_gap_krw": 183826,
+      "meaning": "Imweb API 전체 비취소 유상 주문 기준이 첨부 자사몰 값과 가까운지 확인한다."
+    },
+    {
+      "category": "toss_plus_npay_split_gap",
+      "amount_gap_krw": 22836,
+      "meaning": "기존 Toss net + NPay split 방식과 첨부 자사몰 값의 차이를 확인한다."
+    }
+  ],
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "imweb_write": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0
+  }
+}

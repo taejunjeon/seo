@@ -1,9 +1,9 @@
 // P0 정적 fallback 데이터.
 // 최신 재조회 기준:
-//   data/project/ga4-vm-row-level-safe-bridge-dry-run-20260524.json
-//   data/project/coffee-channel-cohort-truth-table-20260524.json
-//   data/project/page-long-threshold-fit-dry-run-20260524.json
-//   data/project/biocom-meta-only-buyer-leaver-truth-table-20260524.json
+//   data/project/ga4-vm-row-level-safe-bridge-dry-run-20260525.json
+//   data/project/coffee-channel-cohort-truth-table-20260525.json
+//   data/project/page-long-threshold-fit-dry-run-20260525.json
+//   data/project/biocom-meta-only-buyer-leaver-truth-table-20260525.json
 // 운영 endpoint 가 GA4 행동 join 을 직접 내려주기 전까지 화면에는
 // "샘플/최근 dry-run 기준" 배지를 노출한다.
 
@@ -59,7 +59,7 @@ export type ReadinessRow = {
 export type PageLongThresholdRow = {
   site: "biocom" | "thecleancoffee";
   siteLabel: string;
-  sourceGroup: "meta" | "google_paid" | "youtube";
+  sourceGroup: "meta" | "google_paid" | "youtube" | "organic";
   sourceLabel: string;
   vmSafeSessions: number;
   confirmedGa4JoinedSessions: number;
@@ -69,7 +69,9 @@ export type PageLongThresholdRow = {
   recommendationStatus:
     | "seven_minutes_too_strict_for_primary_indicator"
     | "seven_minutes_usable_as_high_intent_indicator"
+    | "seven_minutes_candidate"
     | "shorter_threshold_better_for_primary_indicator"
+    | "no_threshold_available"
     | "insufficient_sample";
   current7Min: {
     confirmedAboveSessions: number;
@@ -108,7 +110,7 @@ const CHANNEL_LABEL_KO: Record<string, string> = {
   naver_other: "네이버 기타",
   direct_or_unknown: "직접/불명",
   organic: "오가닉",
-  google_paid: "Google paid",
+  google_paid: "Google 유료",
   other: "기타",
 };
 
@@ -116,7 +118,7 @@ export function channelLabelKo(key: string): string {
   return CHANNEL_LABEL_KO[key] ?? key;
 }
 
-// page-long threshold fit dry-run · rolling latest 7d (2026-05-24 11:50 KST)
+// page-long threshold fit dry-run · rolling latest 7d (2026-05-26 00:13 KST)
 // "페이지 롱 뷰"는 방문자가 몇 분 이상 머물렀는지 보는 선행지표 후보이다.
 export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
   {
@@ -124,25 +126,28 @@ export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
     siteLabel: "바이오컴",
     sourceGroup: "meta",
     sourceLabel: "Meta 광고",
-    vmSafeSessions: 204,
-    confirmedGa4JoinedSessions: 125,
-    droppedGa4JoinedSessions: 69,
-    joinRatePct: 95.1,
+    vmSafeSessions: 225,
+    confirmedGa4JoinedSessions: 112,
+    droppedGa4JoinedSessions: 65,
+    joinRatePct: 78.67,
     recommendedThresholdLabel: "2분",
     recommendationStatus: "seven_minutes_too_strict_for_primary_indicator",
     current7Min: {
-      confirmedAboveSessions: 23,
+      confirmedAboveSessions: 19,
       droppedAboveSessions: 4,
-      confirmedRatePct: 18.4,
-      droppedRatePct: 5.8,
-      liftPct: 12.6,
+      confirmedRatePct: 16.96,
+      droppedRatePct: 6.15,
+      liftPct: 10.81,
     },
     thresholdRows: [
-      { label: "1분", confirmedAboveSessions: 110, droppedAboveSessions: 45, confirmedRatePct: 88, droppedRatePct: 65.22, liftPct: 22.78 },
-      { label: "2분", confirmedAboveSessions: 95, droppedAboveSessions: 36, confirmedRatePct: 76, droppedRatePct: 52.17, liftPct: 23.83 },
-      { label: "3분", confirmedAboveSessions: 68, droppedAboveSessions: 23, confirmedRatePct: 54.4, droppedRatePct: 33.33, liftPct: 21.07 },
-      { label: "5분", confirmedAboveSessions: 36, droppedAboveSessions: 14, confirmedRatePct: 28.8, droppedRatePct: 20.29, liftPct: 8.51 },
-      { label: "7분", confirmedAboveSessions: 23, droppedAboveSessions: 4, confirmedRatePct: 18.4, droppedRatePct: 5.8, liftPct: 12.6 },
+      { label: "1분", confirmedAboveSessions: 99, droppedAboveSessions: 45, confirmedRatePct: 88.39, droppedRatePct: 69.23, liftPct: 19.16 },
+      { label: "2분", confirmedAboveSessions: 87, droppedAboveSessions: 33, confirmedRatePct: 77.68, droppedRatePct: 50.77, liftPct: 26.91 },
+      { label: "3분", confirmedAboveSessions: 62, droppedAboveSessions: 20, confirmedRatePct: 55.36, droppedRatePct: 30.77, liftPct: 24.59 },
+      { label: "4분", confirmedAboveSessions: 47, droppedAboveSessions: 17, confirmedRatePct: 41.96, droppedRatePct: 26.15, liftPct: 15.81 },
+      { label: "5분", confirmedAboveSessions: 33, droppedAboveSessions: 13, confirmedRatePct: 29.46, droppedRatePct: 20, liftPct: 9.46 },
+      { label: "6분", confirmedAboveSessions: 24, droppedAboveSessions: 8, confirmedRatePct: 21.43, droppedRatePct: 12.31, liftPct: 9.12 },
+      { label: "7분", confirmedAboveSessions: 19, droppedAboveSessions: 4, confirmedRatePct: 16.96, droppedRatePct: 6.15, liftPct: 10.81 },
+      { label: "10분", confirmedAboveSessions: 10, droppedAboveSessions: 2, confirmedRatePct: 8.93, droppedRatePct: 3.08, liftPct: 5.85 },
     ],
   },
   {
@@ -150,25 +155,28 @@ export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
     siteLabel: "바이오컴",
     sourceGroup: "google_paid",
     sourceLabel: "Google 유료",
-    vmSafeSessions: 9,
+    vmSafeSessions: 11,
     confirmedGa4JoinedSessions: 2,
-    droppedGa4JoinedSessions: 7,
+    droppedGa4JoinedSessions: 9,
     joinRatePct: 100,
-    recommendedThresholdLabel: "1분",
+    recommendedThresholdLabel: "2분",
     recommendationStatus: "insufficient_sample",
     current7Min: {
       confirmedAboveSessions: 1,
-      droppedAboveSessions: 0,
+      droppedAboveSessions: 1,
       confirmedRatePct: 50,
-      droppedRatePct: 0,
-      liftPct: 50,
+      droppedRatePct: 11.11,
+      liftPct: 38.89,
     },
     thresholdRows: [
-      { label: "1분", confirmedAboveSessions: 2, droppedAboveSessions: 1, confirmedRatePct: 100, droppedRatePct: 14.29, liftPct: 85.71 },
-      { label: "2분", confirmedAboveSessions: 2, droppedAboveSessions: 1, confirmedRatePct: 100, droppedRatePct: 14.29, liftPct: 85.71 },
-      { label: "3분", confirmedAboveSessions: 2, droppedAboveSessions: 1, confirmedRatePct: 100, droppedRatePct: 14.29, liftPct: 85.71 },
-      { label: "5분", confirmedAboveSessions: 1, droppedAboveSessions: 1, confirmedRatePct: 50, droppedRatePct: 14.29, liftPct: 35.71 },
-      { label: "7분", confirmedAboveSessions: 1, droppedAboveSessions: 0, confirmedRatePct: 50, droppedRatePct: 0, liftPct: 50 },
+      { label: "1분", confirmedAboveSessions: 2, droppedAboveSessions: 3, confirmedRatePct: 100, droppedRatePct: 33.33, liftPct: 66.67 },
+      { label: "2분", confirmedAboveSessions: 2, droppedAboveSessions: 2, confirmedRatePct: 100, droppedRatePct: 22.22, liftPct: 77.78 },
+      { label: "3분", confirmedAboveSessions: 2, droppedAboveSessions: 2, confirmedRatePct: 100, droppedRatePct: 22.22, liftPct: 77.78 },
+      { label: "4분", confirmedAboveSessions: 1, droppedAboveSessions: 2, confirmedRatePct: 50, droppedRatePct: 22.22, liftPct: 27.78 },
+      { label: "5분", confirmedAboveSessions: 1, droppedAboveSessions: 2, confirmedRatePct: 50, droppedRatePct: 22.22, liftPct: 27.78 },
+      { label: "6분", confirmedAboveSessions: 1, droppedAboveSessions: 1, confirmedRatePct: 50, droppedRatePct: 11.11, liftPct: 38.89 },
+      { label: "7분", confirmedAboveSessions: 1, droppedAboveSessions: 1, confirmedRatePct: 50, droppedRatePct: 11.11, liftPct: 38.89 },
+      { label: "10분", confirmedAboveSessions: 1, droppedAboveSessions: 1, confirmedRatePct: 50, droppedRatePct: 11.11, liftPct: 38.89 },
     ],
   },
   {
@@ -176,25 +184,57 @@ export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
     siteLabel: "바이오컴",
     sourceGroup: "youtube",
     sourceLabel: "YouTube",
-    vmSafeSessions: 12,
-    confirmedGa4JoinedSessions: 5,
-    droppedGa4JoinedSessions: 6,
-    joinRatePct: 91.67,
-    recommendedThresholdLabel: "7분",
-    recommendationStatus: "seven_minutes_usable_as_high_intent_indicator",
+    vmSafeSessions: 11,
+    confirmedGa4JoinedSessions: 3,
+    droppedGa4JoinedSessions: 8,
+    joinRatePct: 100,
+    recommendedThresholdLabel: "10분",
+    recommendationStatus: "insufficient_sample",
     current7Min: {
-      confirmedAboveSessions: 4,
-      droppedAboveSessions: 3,
-      confirmedRatePct: 80,
+      confirmedAboveSessions: 2,
+      droppedAboveSessions: 4,
+      confirmedRatePct: 66.67,
       droppedRatePct: 50,
-      liftPct: 30,
+      liftPct: 16.67,
     },
     thresholdRows: [
-      { label: "1분", confirmedAboveSessions: 5, droppedAboveSessions: 5, confirmedRatePct: 100, droppedRatePct: 83.33, liftPct: 16.67 },
-      { label: "2분", confirmedAboveSessions: 5, droppedAboveSessions: 5, confirmedRatePct: 100, droppedRatePct: 83.33, liftPct: 16.67 },
-      { label: "3분", confirmedAboveSessions: 5, droppedAboveSessions: 5, confirmedRatePct: 100, droppedRatePct: 83.33, liftPct: 16.67 },
-      { label: "5분", confirmedAboveSessions: 4, droppedAboveSessions: 4, confirmedRatePct: 80, droppedRatePct: 66.67, liftPct: 13.33 },
-      { label: "7분", confirmedAboveSessions: 4, droppedAboveSessions: 3, confirmedRatePct: 80, droppedRatePct: 50, liftPct: 30 },
+      { label: "1분", confirmedAboveSessions: 3, droppedAboveSessions: 7, confirmedRatePct: 100, droppedRatePct: 87.5, liftPct: 12.5 },
+      { label: "2분", confirmedAboveSessions: 3, droppedAboveSessions: 7, confirmedRatePct: 100, droppedRatePct: 87.5, liftPct: 12.5 },
+      { label: "3분", confirmedAboveSessions: 3, droppedAboveSessions: 6, confirmedRatePct: 100, droppedRatePct: 75, liftPct: 25 },
+      { label: "4분", confirmedAboveSessions: 3, droppedAboveSessions: 6, confirmedRatePct: 100, droppedRatePct: 75, liftPct: 25 },
+      { label: "5분", confirmedAboveSessions: 2, droppedAboveSessions: 5, confirmedRatePct: 66.67, droppedRatePct: 62.5, liftPct: 4.17 },
+      { label: "6분", confirmedAboveSessions: 2, droppedAboveSessions: 5, confirmedRatePct: 66.67, droppedRatePct: 62.5, liftPct: 4.17 },
+      { label: "7분", confirmedAboveSessions: 2, droppedAboveSessions: 4, confirmedRatePct: 66.67, droppedRatePct: 50, liftPct: 16.67 },
+      { label: "10분", confirmedAboveSessions: 2, droppedAboveSessions: 2, confirmedRatePct: 66.67, droppedRatePct: 25, liftPct: 41.67 },
+    ],
+  },
+  {
+    site: "biocom",
+    siteLabel: "바이오컴",
+    sourceGroup: "organic",
+    sourceLabel: "오가닉",
+    vmSafeSessions: 3,
+    confirmedGa4JoinedSessions: 0,
+    droppedGa4JoinedSessions: 3,
+    joinRatePct: 100,
+    recommendedThresholdLabel: null,
+    recommendationStatus: "insufficient_sample",
+    current7Min: {
+      confirmedAboveSessions: 0,
+      droppedAboveSessions: 1,
+      confirmedRatePct: null,
+      droppedRatePct: 33.33,
+      liftPct: null,
+    },
+    thresholdRows: [
+      { label: "1분", confirmedAboveSessions: 0, droppedAboveSessions: 3, confirmedRatePct: null, droppedRatePct: 100, liftPct: null },
+      { label: "2분", confirmedAboveSessions: 0, droppedAboveSessions: 2, confirmedRatePct: null, droppedRatePct: 66.67, liftPct: null },
+      { label: "3분", confirmedAboveSessions: 0, droppedAboveSessions: 2, confirmedRatePct: null, droppedRatePct: 66.67, liftPct: null },
+      { label: "4분", confirmedAboveSessions: 0, droppedAboveSessions: 2, confirmedRatePct: null, droppedRatePct: 66.67, liftPct: null },
+      { label: "5분", confirmedAboveSessions: 0, droppedAboveSessions: 1, confirmedRatePct: null, droppedRatePct: 33.33, liftPct: null },
+      { label: "6분", confirmedAboveSessions: 0, droppedAboveSessions: 1, confirmedRatePct: null, droppedRatePct: 33.33, liftPct: null },
+      { label: "7분", confirmedAboveSessions: 0, droppedAboveSessions: 1, confirmedRatePct: null, droppedRatePct: 33.33, liftPct: null },
+      { label: "10분", confirmedAboveSessions: 0, droppedAboveSessions: 1, confirmedRatePct: null, droppedRatePct: 33.33, liftPct: null },
     ],
   },
   {
@@ -202,25 +242,28 @@ export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
     siteLabel: "더클린커피",
     sourceGroup: "meta",
     sourceLabel: "Meta 광고",
-    vmSafeSessions: 88,
-    confirmedGa4JoinedSessions: 39,
-    droppedGa4JoinedSessions: 47,
-    joinRatePct: 97.73,
+    vmSafeSessions: 97,
+    confirmedGa4JoinedSessions: 35,
+    droppedGa4JoinedSessions: 46,
+    joinRatePct: 83.51,
     recommendedThresholdLabel: "2분",
     recommendationStatus: "seven_minutes_too_strict_for_primary_indicator",
     current7Min: {
       confirmedAboveSessions: 8,
-      droppedAboveSessions: 5,
-      confirmedRatePct: 20.51,
-      droppedRatePct: 10.64,
-      liftPct: 9.87,
+      droppedAboveSessions: 6,
+      confirmedRatePct: 22.86,
+      droppedRatePct: 13.04,
+      liftPct: 9.82,
     },
     thresholdRows: [
-      { label: "1분", confirmedAboveSessions: 35, droppedAboveSessions: 42, confirmedRatePct: 89.74, droppedRatePct: 89.36, liftPct: 0.38 },
-      { label: "2분", confirmedAboveSessions: 29, droppedAboveSessions: 29, confirmedRatePct: 74.36, droppedRatePct: 61.7, liftPct: 12.66 },
-      { label: "3분", confirmedAboveSessions: 23, droppedAboveSessions: 27, confirmedRatePct: 58.97, droppedRatePct: 57.45, liftPct: 1.52 },
-      { label: "5분", confirmedAboveSessions: 14, droppedAboveSessions: 14, confirmedRatePct: 35.9, droppedRatePct: 29.79, liftPct: 6.11 },
-      { label: "7분", confirmedAboveSessions: 8, droppedAboveSessions: 5, confirmedRatePct: 20.51, droppedRatePct: 10.64, liftPct: 9.87 },
+      { label: "1분", confirmedAboveSessions: 31, droppedAboveSessions: 39, confirmedRatePct: 88.57, droppedRatePct: 84.78, liftPct: 3.79 },
+      { label: "2분", confirmedAboveSessions: 25, droppedAboveSessions: 27, confirmedRatePct: 71.43, droppedRatePct: 58.7, liftPct: 12.73 },
+      { label: "3분", confirmedAboveSessions: 20, droppedAboveSessions: 26, confirmedRatePct: 57.14, droppedRatePct: 56.52, liftPct: 0.62 },
+      { label: "4분", confirmedAboveSessions: 15, droppedAboveSessions: 20, confirmedRatePct: 42.86, droppedRatePct: 43.48, liftPct: -0.62 },
+      { label: "5분", confirmedAboveSessions: 13, droppedAboveSessions: 16, confirmedRatePct: 37.14, droppedRatePct: 34.78, liftPct: 2.36 },
+      { label: "6분", confirmedAboveSessions: 11, droppedAboveSessions: 11, confirmedRatePct: 31.43, droppedRatePct: 23.91, liftPct: 7.52 },
+      { label: "7분", confirmedAboveSessions: 8, droppedAboveSessions: 6, confirmedRatePct: 22.86, droppedRatePct: 13.04, liftPct: 9.82 },
+      { label: "10분", confirmedAboveSessions: 5, droppedAboveSessions: 3, confirmedRatePct: 14.29, droppedRatePct: 6.52, liftPct: 7.77 },
     ],
   },
   {
@@ -228,9 +271,9 @@ export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
     siteLabel: "더클린커피",
     sourceGroup: "google_paid",
     sourceLabel: "Google 유료",
-    vmSafeSessions: 3,
+    vmSafeSessions: 4,
     confirmedGa4JoinedSessions: 0,
-    droppedGa4JoinedSessions: 3,
+    droppedGa4JoinedSessions: 4,
     joinRatePct: 100,
     recommendedThresholdLabel: null,
     recommendationStatus: "insufficient_sample",
@@ -242,11 +285,14 @@ export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
       liftPct: null,
     },
     thresholdRows: [
-      { label: "1분", confirmedAboveSessions: 0, droppedAboveSessions: 1, confirmedRatePct: null, droppedRatePct: 33.33, liftPct: null },
+      { label: "1분", confirmedAboveSessions: 0, droppedAboveSessions: 1, confirmedRatePct: null, droppedRatePct: 25, liftPct: null },
       { label: "2분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: 0, liftPct: null },
       { label: "3분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: 0, liftPct: null },
+      { label: "4분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: 0, liftPct: null },
       { label: "5분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: 0, liftPct: null },
+      { label: "6분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: 0, liftPct: null },
       { label: "7분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: 0, liftPct: null },
+      { label: "10분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: 0, liftPct: null },
     ],
   },
   {
@@ -254,27 +300,59 @@ export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
     siteLabel: "더클린커피",
     sourceGroup: "youtube",
     sourceLabel: "YouTube",
-    vmSafeSessions: 24,
-    confirmedGa4JoinedSessions: 14,
-    droppedGa4JoinedSessions: 10,
-    joinRatePct: 100,
-    recommendedThresholdLabel: "6분",
+    vmSafeSessions: 13,
+    confirmedGa4JoinedSessions: 7,
+    droppedGa4JoinedSessions: 5,
+    joinRatePct: 92.31,
+    recommendedThresholdLabel: "2분",
     recommendationStatus: "seven_minutes_too_strict_for_primary_indicator",
     current7Min: {
-      confirmedAboveSessions: 3,
+      confirmedAboveSessions: 1,
       droppedAboveSessions: 0,
-      confirmedRatePct: 21.43,
+      confirmedRatePct: 14.29,
       droppedRatePct: 0,
-      liftPct: 21.43,
+      liftPct: 14.29,
     },
     thresholdRows: [
-      { label: "1분", confirmedAboveSessions: 14, droppedAboveSessions: 10, confirmedRatePct: 100, droppedRatePct: 100, liftPct: 0 },
-      { label: "2분", confirmedAboveSessions: 11, droppedAboveSessions: 7, confirmedRatePct: 78.57, droppedRatePct: 70, liftPct: 8.57 },
-      { label: "3분", confirmedAboveSessions: 6, droppedAboveSessions: 5, confirmedRatePct: 42.86, droppedRatePct: 50, liftPct: -7.14 },
-      { label: "5분", confirmedAboveSessions: 3, droppedAboveSessions: 2, confirmedRatePct: 21.43, droppedRatePct: 20, liftPct: 1.43 },
-      { label: "7분", confirmedAboveSessions: 3, droppedAboveSessions: 0, confirmedRatePct: 21.43, droppedRatePct: 0, liftPct: 21.43 },
+      { label: "1분", confirmedAboveSessions: 7, droppedAboveSessions: 5, confirmedRatePct: 100, droppedRatePct: 100, liftPct: 0 },
+      { label: "2분", confirmedAboveSessions: 5, droppedAboveSessions: 3, confirmedRatePct: 71.43, droppedRatePct: 60, liftPct: 11.43 },
+      { label: "3분", confirmedAboveSessions: 2, droppedAboveSessions: 2, confirmedRatePct: 28.57, droppedRatePct: 40, liftPct: -11.43 },
+      { label: "4분", confirmedAboveSessions: 1, droppedAboveSessions: 2, confirmedRatePct: 14.29, droppedRatePct: 40, liftPct: -25.71 },
+      { label: "5분", confirmedAboveSessions: 1, droppedAboveSessions: 1, confirmedRatePct: 14.29, droppedRatePct: 20, liftPct: -5.71 },
+      { label: "6분", confirmedAboveSessions: 1, droppedAboveSessions: 0, confirmedRatePct: 14.29, droppedRatePct: 0, liftPct: 14.29 },
+      { label: "7분", confirmedAboveSessions: 1, droppedAboveSessions: 0, confirmedRatePct: 14.29, droppedRatePct: 0, liftPct: 14.29 },
+      { label: "10분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: 0, droppedRatePct: 0, liftPct: 0 },
     ],
   },
+  {
+    site: "thecleancoffee",
+    siteLabel: "더클린커피",
+    sourceGroup: "organic",
+    sourceLabel: "오가닉",
+    vmSafeSessions: 0,
+    confirmedGa4JoinedSessions: 0,
+    droppedGa4JoinedSessions: 0,
+    joinRatePct: null,
+    recommendedThresholdLabel: null,
+    recommendationStatus: "insufficient_sample",
+    current7Min: {
+      confirmedAboveSessions: 0,
+      droppedAboveSessions: 0,
+      confirmedRatePct: null,
+      droppedRatePct: null,
+      liftPct: null,
+    },
+    thresholdRows: [
+      { label: "1분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: null, liftPct: null },
+      { label: "2분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: null, liftPct: null },
+      { label: "3분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: null, liftPct: null },
+      { label: "4분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: null, liftPct: null },
+      { label: "5분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: null, liftPct: null },
+      { label: "6분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: null, liftPct: null },
+      { label: "7분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: null, liftPct: null },
+      { label: "10분", confirmedAboveSessions: 0, droppedAboveSessions: 0, confirmedRatePct: null, droppedRatePct: null, liftPct: null },
+    ],
+  }
 ];
 
 // 더클린커피 최근 7d · channel_truth_table (2026-05-24 11:50 KST 기준)

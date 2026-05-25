@@ -274,19 +274,28 @@ TJ님이 2026-05-24 KST에 운영 반영을 승인했고, 같은 날 fresh works
 - prepublish backup: `data/project/coffee-meta-initiatecheckout-gtm-production-prepublish-backup-20260524T073809Z.json`
 - subscription guard publish JSON: `data/project/coffee-meta-initiatecheckout-gtm-production-publish-20260524T074633Z.json`
 - final post-publish read-only JSON: `data/project/coffee-meta-initiatecheckout-gtm-production-postpublish-readonly-20260524T074650Z.json`
-- live version before/final after: `21` -> `23`
+- value retry dry-run JSON: `data/project/coffee-meta-initiatecheckout-gtm-production-dry-run-20260524T210228Z.json`
+- value retry publish JSON: `data/project/coffee-meta-initiatecheckout-gtm-production-publish-20260524T210252Z.json`
+- value retry post-publish dry-run JSON: `data/project/coffee-meta-initiatecheckout-gtm-production-dry-run-20260524T210340Z.json`
+- live version before/final after: `21` -> `24`
 - created versions:
   - `22` / `Coffee Meta InitiateCheckout shop_payment - 20260524T073809Z`
   - `23` / `Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z`
+  - `24` / `Coffee Meta InitiateCheckout shop_payment value retry guard - 20260524T210252Z`
 - workspace: id `31` / `codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T073809Z`
 - guard workspace: id `32` / `codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T074633Z`
+- value retry workspace: id `33` / `codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T210252Z`
 - workspace present after publish: `false`
 - tag: id `99` / `AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment`
 - trigger: id `98` / `AGENTSOS - [DOM Ready] shop_payment order only`
 - target live tag count: `1`
 - target live trigger count: `1`
 - live 구성 수 after publish: tags `34` / triggers `25` / variables `13`
-- final guard: `subscription_checkout_excluded` 확인됨
+- final guard: `subscription_checkout_excluded` + `waiting_value` 확인됨
+
+2026-05-25 05:57 KST 실제 주문서 smoke에서 v23 태그가 `missing_value`로 안전 차단됐다. 이는 태그 미실행이 아니라 주문서 React DOM의 주문금액 렌더링이 `DOM Ready`보다 늦은 문제로 판단했다. 같은 승인 범위 안에서 tag id `99`만 v24로 hotfix했고, 최대 8초 value retry를 추가했다.
+
+2026-05-25 06:12 KST v24 실제 주문서 재-smoke는 PASS다. Meta Pixel Helper에서 `InitiateCheckout` 활성, value `33900`, currency `KRW`, value_status `present`가 확인됐고, 콘솔의 `window.__THECLEANCOFFEE_META_INITIATECHECKOUT_LAST__`도 `sent` 상태였다.
 
 유지된 금지선:
 
@@ -299,7 +308,6 @@ TJ님이 2026-05-24 KST에 운영 반영을 승인했고, 같은 날 fresh works
 
 ## 다음 액션
 
-1. 실제 주문서에서 Tag Assistant/Pixel Helper smoke.
-2. `/subscription/` 중복 없음 확인.
-3. `/shop_payment_complete` 발화 없음 확인.
+1. `/subscription/` 중복 없음 확인.
+2. `/shop_payment_complete` 발화 없음 확인.
 4. 24h 모니터링.

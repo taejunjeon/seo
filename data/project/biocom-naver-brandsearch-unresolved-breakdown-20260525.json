@@ -1,0 +1,160 @@
+{
+  "ok": true,
+  "schema_version": "biocom-naver-brandsearch-unresolved-breakdown-v1-20260525",
+  "generated_at": "2026-05-25T14:51:10.316Z",
+  "mode": "read_only_no_send_no_write",
+  "site": "biocom",
+  "window": {
+    "since": "2026-05-22",
+    "until": "2026-05-25",
+    "timezone": "KST"
+  },
+  "freshness": {
+    "landing_max_landed_at": "2026-05-25T14:40:16.106Z",
+    "attribution_max_logged_at": "2026-05-25T14:40:16.106Z",
+    "operating_db_max_source_date": "2026-05-25"
+  },
+  "marker_summary": {
+    "total_marker_rows": 19,
+    "total_marker_amount_krw": 5257616
+  },
+  "order_source_summary": {
+    "order_rows": 199,
+    "order_amount_krw": 47306484,
+    "npay_order_rows": 9,
+    "npay_amount_krw": 1355600
+  },
+  "breakdown": {
+    "exact_rows": 13,
+    "exact_amount_krw": 3364432,
+    "unresolved_rows": 6,
+    "ambiguous_rows": 2,
+    "ambiguous_amount_krw": 729500,
+    "no_bridge_rows": 3,
+    "no_bridge_amount_krw": 692484,
+    "reason_counts": {
+      "order_key_not_found_in_operating_db_with_session_bridge": {
+        "rows": 3,
+        "ambiguous_rows": 0,
+        "no_bridge_rows": 3
+      },
+      "amount_date_duplicate_needs_order_key_review": {
+        "rows": 2,
+        "ambiguous_rows": 2,
+        "no_bridge_rows": 0
+      },
+      "date_window_mismatch_candidate": {
+        "rows": 1,
+        "ambiguous_rows": 0,
+        "no_bridge_rows": 0
+      }
+    },
+    "unresolved_safe_rows": [
+      {
+        "safe_row_no": 13,
+        "previous_classification": "no_bridge",
+        "recommended_reason": "order_key_not_found_in_operating_db_with_session_bridge",
+        "marker_date": "2026-05-24",
+        "amount_bucket": "100k_to_299k",
+        "has_order_key_candidate": true,
+        "session_bridge_present": true,
+        "same_amount_same_date_count": 0,
+        "same_amount_within_1d_count": 0,
+        "same_amount_within_3d_count": 0,
+        "same_amount_any_window_count": 0,
+        "same_date_any_amount_count": 44,
+        "near_amount_within_1d_count": 0
+      },
+      {
+        "safe_row_no": 14,
+        "previous_classification": "no_bridge",
+        "recommended_reason": "order_key_not_found_in_operating_db_with_session_bridge",
+        "marker_date": "2026-05-24",
+        "amount_bucket": "300k_to_499k",
+        "has_order_key_candidate": true,
+        "session_bridge_present": true,
+        "same_amount_same_date_count": 0,
+        "same_amount_within_1d_count": 0,
+        "same_amount_within_3d_count": 0,
+        "same_amount_any_window_count": 0,
+        "same_date_any_amount_count": 44,
+        "near_amount_within_1d_count": 0
+      },
+      {
+        "safe_row_no": 16,
+        "previous_classification": "ambiguous",
+        "recommended_reason": "amount_date_duplicate_needs_order_key_review",
+        "marker_date": "2026-05-24",
+        "amount_bucket": "100k_to_299k",
+        "has_order_key_candidate": true,
+        "session_bridge_present": true,
+        "same_amount_same_date_count": 12,
+        "same_amount_within_1d_count": 26,
+        "same_amount_within_3d_count": 39,
+        "same_amount_any_window_count": 39,
+        "same_date_any_amount_count": 44,
+        "near_amount_within_1d_count": 26
+      },
+      {
+        "safe_row_no": 17,
+        "previous_classification": "ambiguous",
+        "recommended_reason": "amount_date_duplicate_needs_order_key_review",
+        "marker_date": "2026-05-25",
+        "amount_bucket": "300k_to_499k",
+        "has_order_key_candidate": true,
+        "session_bridge_present": true,
+        "same_amount_same_date_count": 1,
+        "same_amount_within_1d_count": 2,
+        "same_amount_within_3d_count": 6,
+        "same_amount_any_window_count": 6,
+        "same_date_any_amount_count": 28,
+        "near_amount_within_1d_count": 3
+      },
+      {
+        "safe_row_no": 18,
+        "previous_classification": "no_bridge",
+        "recommended_reason": "order_key_not_found_in_operating_db_with_session_bridge",
+        "marker_date": "2026-05-25",
+        "amount_bucket": "100k_to_299k",
+        "has_order_key_candidate": true,
+        "session_bridge_present": true,
+        "same_amount_same_date_count": 0,
+        "same_amount_within_1d_count": 0,
+        "same_amount_within_3d_count": 0,
+        "same_amount_any_window_count": 0,
+        "same_date_any_amount_count": 28,
+        "near_amount_within_1d_count": 0
+      },
+      {
+        "safe_row_no": 19,
+        "previous_classification": "probable",
+        "recommended_reason": "date_window_mismatch_candidate",
+        "marker_date": "2026-05-25",
+        "amount_bucket": "300k_to_499k",
+        "has_order_key_candidate": true,
+        "session_bridge_present": true,
+        "same_amount_same_date_count": 0,
+        "same_amount_within_1d_count": 1,
+        "same_amount_within_3d_count": 3,
+        "same_amount_any_window_count": 3,
+        "same_date_any_amount_count": 28,
+        "near_amount_within_1d_count": 1
+      }
+    ]
+  },
+  "interpretation": {
+    "plain_summary": "Biocom 브랜드검색 unresolved 5건은 주문키 후보가 있지만 운영DB 주문 정본과 직접 일치하지 않는 row다.",
+    "budget_use": "unresolved row는 예산 판단값에서 제외하고 exact bridge ROAS를 보수값으로 사용한다.",
+    "next_action": "order_key_not_found 계열 row는 VM Cloud marker 주문키 후보와 운영DB order_number 형식 차이를 raw 노출 없이 hash 비교로 좁힌다."
+  },
+  "invariants_held": {
+    "sqlite_mode": "read_only",
+    "sqlite_write": 0,
+    "raw_identifier_output": 0,
+    "order_key_hash_mode": "sha256_one_way",
+    "operating_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "backend_deploy_or_restart": 0,
+    "platform_send": 0
+  }
+}

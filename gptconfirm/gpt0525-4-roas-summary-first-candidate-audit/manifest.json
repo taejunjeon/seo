@@ -1,0 +1,27 @@
+{
+  "id": "gpt0525-4-roas-summary-first-candidate-audit",
+  "created_at_kst": "2026-05-25 17:26",
+  "lane": "Green",
+  "scope": "Meta/Google ROAS summary-first candidate audit",
+  "source": [
+    "frontend/src/app/ai-crm/conversion-funnel/page.tsx",
+    "frontend/src/app/ads/roas/page.tsx",
+    "frontend/src/app/ads/google/page.tsx",
+    "frontend/src/app/ads/google-roas-report/page.tsx",
+    "frontend/src/app/ads/tiktok/page.tsx",
+    "backend/src/routes/ads.ts",
+    "backend/src/routes/googleAds.ts",
+    "backend/src/bootstrap/startBackgroundJobs.ts"
+  ],
+  "artifacts": [
+    "00-result-report.md",
+    "01-meta-roas-screen-audit.md",
+    "02-google-roas-screen-audit.md",
+    "03-next-actions.md",
+    "manifest.json"
+  ],
+  "external_send": false,
+  "vm_deploy": false,
+  "production_db_write": false,
+  "confidence": 0.91
+}

@@ -276,7 +276,15 @@ type GoogleAdsDashboardResponse = {
   customerId: string;
   datePreset: GoogleAdsDatePreset;
   dateRangeLiteral: string;
-  source: "google_ads_api";
+  source: "google_ads_api" | "google_ads_dashboard_summary";
+  cache?: {
+    cached?: boolean;
+    source?: string;
+    cached_at_kst?: string | null;
+    next_refresh_at_kst?: string | null;
+    generation_ms?: number | null;
+    staleness_ms?: number | null;
+  };
   customer: {
     id?: string;
     descriptiveName?: string;
@@ -848,7 +856,7 @@ export default function GoogleAdsPerformancePage() {
       }, 650);
     }
     try {
-      const res = await fetch(`${API_BASE}/api/google-ads/dashboard?date_preset=${datePreset}`, {
+      const res = await fetch(`${API_BASE}/api/google-ads/dashboard-summary?date_preset=${datePreset}`, {
         cache: "no-store",
       });
       const data = await res.json() as GoogleAdsDashboardResponse | { ok: false; error?: unknown; errors?: unknown };
@@ -858,7 +866,7 @@ export default function GoogleAdsPerformancePage() {
       setLiveData(data);
       setLoadingProgress(100);
     } catch (error) {
-      setLiveError(error instanceof Error ? error.message : "Google Ads live API 조회 실패");
+      setLiveError(error instanceof Error ? error.message : "Google Ads 요약 API 조회 실패");
     } finally {
       if (progressTimer != null) window.clearInterval(progressTimer);
       window.setTimeout(() => setLiveLoading(false), 160);
@@ -982,7 +990,13 @@ export default function GoogleAdsPerformancePage() {
     ? conversionActions.filter((row) => /npay|네이버|naver|click|클릭/i.test(row.action))
     : liveRiskyActions.map((row) => ({ action: row.name }));
   const hasPerformanceData = campaigns.length > 0 || daily.length > 0;
-  const sourceLabel = parsed ? "CSV 합계" : liveData ? "Google Ads API live" : liveLoading ? "API 조회 중" : "대기";
+  const sourceLabel = parsed
+    ? "CSV 합계"
+    : liveData
+      ? (liveData.cache?.cached ? "Google Ads 요약 캐시" : "Google Ads 요약 계산")
+      : liveLoading
+        ? "요약 조회 중"
+        : "대기";
   const realRoasJoinDisabled = realRoasError === EVIDENCE_JOIN_DISABLED;
 
   const handleFile = async (file: File | null) => {
@@ -1046,7 +1060,7 @@ export default function GoogleAdsPerformancePage() {
             fontSize: "0.76rem",
             fontWeight: 800,
           }}>
-            <span>{liveLoading ? "API 조회 중" : liveError ? "API 오류" : "API live"}</span>
+            <span>{liveLoading ? "요약 조회 중" : liveError ? "요약 오류" : "요약 우선"}</span>
             <span style={{ fontWeight: 600, color: liveError ? "#b91c1c" : "#15803d" }}>
               {liveError ? liveError : liveData ? `${liveData.customer?.descriptiveName ?? liveData.customerId} · ${liveData.dateRangeLiteral}` : "대기"}
             </span>
@@ -1676,8 +1690,8 @@ export default function GoogleAdsPerformancePage() {
                     {riskyActions.length > 0
                       ? riskyActions.map((row) => row.action).join(", ")
                       : parsed
-                        ? "CSV에 전환 액션 열이 없으면 live API의 conversion_action 목록으로 primary/secondary 여부를 확인한다."
-                        : "live API에서 전환 액션 목록을 읽고 있다. NPay/클릭 계열은 발견되면 여기서 경고한다."}
+                        ? "CSV에 전환 액션 열이 없으면 요약 API의 conversion_action 목록으로 primary/secondary 여부를 확인한다."
+                        : "요약 API에서 전환 액션 목록을 읽고 있다. NPay/클릭 계열은 발견되면 여기서 경고한다."}
                   </div>
                 </div>
               </div>

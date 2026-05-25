@@ -36,6 +36,12 @@ type CliOptions = {
   adSpendForce: boolean;
   coupangSettlementDbPath: string;
   coupangSettlementSource: "local" | "skip";
+  coupangRgAggregateDbPath: string;
+  coupangRgAggregateSource: "local" | "skip";
+  selfmallSource: "imweb_complete_time" | "legacy_split";
+  imwebMaxPages: number;
+  imwebLimit: number;
+  imwebDelayMs: number;
   coupangSource: "snapshot" | "api" | "skip";
   coupangRevenueHistorySource: "api" | "skip";
   coupangAccount: CoupangAccount;
@@ -105,6 +111,23 @@ type SmartstoreStatusRow = {
   amount_krw: string;
   min_time: string | null;
   max_time: string | null;
+};
+
+type SmartstoreExcelGapReference = {
+  status: "matched_reference" | "known_gap_reference";
+  workbook_window: {
+    start_date: string;
+    end_date_inclusive: string;
+  };
+  excel_amount_krw: number;
+  excel_rows: number;
+  playauto_amount_krw: number;
+  playauto_rows: number;
+  diff_amount_krw: number;
+  diff_rows: number;
+  diff_percent: number;
+  interpretation: string;
+  source_document: string;
 };
 
 type ProductBucket = {
@@ -252,9 +275,46 @@ type OperationalCoupangMonthRow = {
   max_uploaded_at: string | null;
 };
 
+type LocalCoupangRgAggregateRow = {
+  product_class: string;
+  rows: number;
+  order_count: number;
+  item_count: number;
+  quantity: number;
+  gross_amount_krw: number;
+  min_fetched_at: string | null;
+  max_fetched_at: string | null;
+  max_api_call_count: number | null;
+  covered_days: number;
+};
+
+type ImwebApiOrder = {
+  order_no: string;
+  order_time_unix: number;
+  paid_at_unix: number;
+  complete_time_unix: number;
+  pay_type: string;
+  pg_type: string;
+  payment_amount_krw: number;
+  status_text: string;
+};
+
+type ImwebApiPage = {
+  list: Array<Record<string, unknown>>;
+  totalCount: number;
+  totalPage: number;
+  error: string | null;
+};
+
+type ImwebAggregate = {
+  orders: number;
+  amount_krw: number;
+};
+
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const EXCLUDED_IMWEB_STATUS = ["CANCEL", "RETURN", "EXCHANGE"];
+const EXCLUDED_IMWEB_API_STATUS_PATTERN = /(CANCEL|RETURN|EXCHANGE|취소|반품|교환)/i;
 const DEFAULT_COUPANG_STATUSES = [
   "ACCEPT",
   "INSTRUCT",
@@ -268,6 +328,12 @@ const COUPANG_SNAPSHOT_FILES: Record<WindowKey, string> = {
   month_to_date: "reportcoffee-coupang-teamketo-ordersheets-month-to-date-20260522.json",
   rolling_30d: "reportcoffee-coupang-teamketo-ordersheets-rolling-30d-20260522.json",
 };
+const SMARTSTORE_PLAYAUTO_POLICY_WARNINGS = [
+  "스마트스토어는 PlayAuto 기준으로 먼저 운영하되, 정산/Excel 기준과 완전 일치 전까지 source warning을 유지",
+  "2026-04-25 - 2026-05-01 대조에서 Excel보다 PlayAuto가 65,800원 / 2 rows 낮음",
+  "네이버 커머스API 직접 조회는 더클린커피 권한/IP/스토어 scope가 검증되기 전까지 primary로 쓰지 않음",
+  "운영DB tb_naver_orders/tb_sales_naver_vat는 더클린커피 상품 기준 primary로 쓰지 않음",
+];
 
 function parseArgs(argv: string[]): Record<string, string | boolean> {
   const args: Record<string, string | boolean> = {};
@@ -387,6 +453,14 @@ function getOptions(): CliOptions {
   if (coupangSettlementSourceRaw !== "local" && coupangSettlementSourceRaw !== "skip") {
     throw new Error("--coupang-settlement-source must be local or skip");
   }
+  const coupangRgAggregateSourceRaw = String(args["coupang-rg-aggregate-source"] ?? "local");
+  if (coupangRgAggregateSourceRaw !== "local" && coupangRgAggregateSourceRaw !== "skip") {
+    throw new Error("--coupang-rg-aggregate-source must be local or skip");
+  }
+  const selfmallSourceRaw = String(args["selfmall-source"] ?? "imweb_complete_time");
+  if (selfmallSourceRaw !== "imweb_complete_time" && selfmallSourceRaw !== "legacy_split") {
+    throw new Error("--selfmall-source must be imweb_complete_time or legacy_split");
+  }
   const coupangSourceRaw = String(args["coupang-source"] ?? "snapshot");
   if (coupangSourceRaw !== "snapshot" && coupangSourceRaw !== "api" && coupangSourceRaw !== "skip") {
     throw new Error("--coupang-source must be snapshot, api, or skip");
@@ -432,6 +506,19 @@ function getOptions(): CliOptions {
         path.join(backendRoot, "data", "crm.sqlite3"),
     ),
     coupangSettlementSource: coupangSettlementSourceRaw,
+    coupangRgAggregateDbPath: String(
+      args["coupang-rg-aggregate-db"] ??
+        args["coupang-settlement-db"] ??
+        args["npay-db"] ??
+        args.db ??
+        process.env.CRM_LOCAL_DB_PATH ??
+        path.join(backendRoot, "data", "crm.sqlite3"),
+    ),
+    coupangRgAggregateSource: coupangRgAggregateSourceRaw,
+    selfmallSource: selfmallSourceRaw,
+    imwebMaxPages: Math.max(1, Math.min(160, asInt(args["imweb-max-pages"], 80))),
+    imwebLimit: Math.max(1, Math.min(100, asInt(args["imweb-limit"], 100))),
+    imwebDelayMs: asNonNegativeInt(args["imweb-delay-ms"], 350),
     coupangSource: coupangSourceRaw,
     coupangRevenueHistorySource: coupangRevenueHistorySourceRaw,
     coupangAccount,
@@ -453,6 +540,10 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
 }
 
+function toCleanString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function krw(value: number): string {
   return `${value.toLocaleString("ko-KR")}원`;
 }
@@ -460,6 +551,25 @@ function krw(value: number): string {
 function percent(numerator: number, denominator: number): number | null {
   if (denominator <= 0) return null;
   return Math.round((numerator / denominator) * 10000) / 100;
+}
+
+function kstWindowToUnix(startDate: string, endDateExclusive: string) {
+  const start = new Date(`${startDate}T00:00:00+09:00`);
+  const end = new Date(`${endDateExclusive}T00:00:00+09:00`);
+  return {
+    startUnix: Math.floor(start.getTime() / 1000),
+    endUnix: Math.floor(end.getTime() / 1000),
+  };
+}
+
+function unixToKstDate(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  return new Date(seconds * 1000 + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function unixToKstText(seconds: number): string | null {
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return new Date(seconds * 1000 + KST_OFFSET_MS).toISOString().replace("T", " ").slice(0, 19);
 }
 
 function tableExists(db: Database.Database, tableName: string): boolean {
@@ -790,6 +900,323 @@ function buildNpayWindows(options: CliOptions, windows: WindowSpec[]) {
   }
 }
 
+function emptyImwebAggregate(): ImwebAggregate {
+  return { orders: 0, amount_krw: 0 };
+}
+
+function addImwebAggregate(target: ImwebAggregate, amount: number) {
+  target.orders += 1;
+  target.amount_krw += amount;
+}
+
+function aggregateImwebBy(
+  rows: ImwebApiOrder[],
+  pick: (row: ImwebApiOrder) => string,
+): Record<string, ImwebAggregate> {
+  const result: Record<string, ImwebAggregate> = {};
+  for (const row of rows) {
+    const key = pick(row) || "(blank)";
+    result[key] ??= emptyImwebAggregate();
+    addImwebAggregate(result[key], row.payment_amount_krw);
+  }
+  return result;
+}
+
+async function fetchImwebToken(): Promise<string> {
+  const key = process.env.IMWEB_API_KEY_COFFEE?.trim() ?? "";
+  const secret = process.env.IMWEB_SECRET_KEY_COFFEE?.trim() ?? "";
+  if (!key || !secret) throw new Error("IMWEB_API_KEY_COFFEE / IMWEB_SECRET_KEY_COFFEE missing");
+
+  const response = await fetch("https://api.imweb.me/v2/auth", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ key, secret }),
+  });
+  const data = await response.json() as { code?: number; msg?: string; access_token?: string };
+  if (!data.access_token) {
+    throw new Error(`Imweb auth failed: ${response.status} ${data.code ?? ""} ${data.msg ?? ""}`.trim());
+  }
+  return data.access_token;
+}
+
+async function fetchImwebOrdersPage(token: string, page: number, limit: number): Promise<ImwebApiPage> {
+  const params = new URLSearchParams({ offset: String(page), limit: String(limit) });
+  const response = await fetch(`https://api.imweb.me/v2/shop/orders?${params.toString()}`, {
+    headers: { "content-type": "application/json", "access-token": token },
+  });
+  const data = await response.json() as {
+    code?: number;
+    msg?: string;
+    data?: {
+      list?: Array<Record<string, unknown>>;
+      pagenation?: { data_count?: string | number; total_page?: string | number };
+    };
+  };
+  return {
+    list: data.data?.list ?? [],
+    totalCount: toNumber(data.data?.pagenation?.data_count),
+    totalPage: toNumber(data.data?.pagenation?.total_page),
+    error: response.ok && data.code === 200 ? null : data.msg ?? `Imweb API ${response.status} code ${data.code}`,
+  };
+}
+
+async function fetchImwebOrdersPageWithRetry(
+  token: string,
+  page: number,
+  limit: number,
+  delayMs: number,
+): Promise<ImwebApiPage> {
+  let lastResult: ImwebApiPage | null = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const result = await fetchImwebOrdersPage(token, page, limit);
+    lastResult = result;
+    const error = result.error?.toUpperCase() ?? "";
+    if (!error.includes("TOO MANY REQUEST") && !error.includes("429")) return result;
+    await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 2)));
+  }
+  return lastResult ?? fetchImwebOrdersPage(token, page, limit);
+}
+
+function toImwebApiOrder(row: Record<string, unknown>): ImwebApiOrder {
+  const payment = (row.payment ?? {}) as Record<string, unknown>;
+  const orderTimeUnix = toNumber(row.order_time);
+  const completeTimeUnix = toNumber(row.complete_time);
+  const paymentTimeUnix = toNumber(payment.payment_time);
+  const paidAtUnix = paymentTimeUnix || completeTimeUnix || orderTimeUnix;
+  const statusText = [
+    toCleanString(row.status),
+    toCleanString(row.order_status),
+    toCleanString(row.status_text),
+    toCleanString(row.status_name),
+    toCleanString(row.imweb_status),
+  ].filter(Boolean).join("|") || "(blank)";
+
+  return {
+    order_no: toCleanString(row.order_no),
+    order_time_unix: orderTimeUnix,
+    paid_at_unix: paidAtUnix,
+    complete_time_unix: completeTimeUnix,
+    pay_type: toCleanString(payment.pay_type) || "(blank)",
+    pg_type: toCleanString(payment.pg_type) || "(blank)",
+    payment_amount_krw: toNumber(payment.payment_amount),
+    status_text: statusText,
+  };
+}
+
+async function fetchImwebOrdersForWindows(options: CliOptions, windows: WindowSpec[]) {
+  const token = await fetchImwebToken();
+  const windowRanges = windows.map((window) => kstWindowToUnix(window.startDate, window.endDateExclusive));
+  const minStartUnix = Math.min(...windowRanges.map((range) => range.startUnix));
+  const maxEndUnix = Math.max(...windowRanges.map((range) => range.endUnix));
+  const orders = new Map<string, ImwebApiOrder>();
+  let totalCount = 0;
+  let totalPage = 0;
+  let stopReason = "max_pages";
+  const errors: string[] = [];
+  const pageOldestNewest: Array<{
+    page: number;
+    rows: number;
+    oldest_observed_at_kst: string | null;
+    newest_observed_at_kst: string | null;
+  }> = [];
+
+  for (let page = 1; page <= options.imwebMaxPages; page += 1) {
+    const result = await fetchImwebOrdersPageWithRetry(token, page, options.imwebLimit, options.imwebDelayMs);
+    if (result.error) {
+      errors.push(`page=${page}: ${result.error}`);
+      stopReason = "api_error";
+      break;
+    }
+    totalCount = result.totalCount || totalCount;
+    totalPage = result.totalPage || totalPage;
+    if (result.list.length === 0) {
+      stopReason = "empty_page";
+      break;
+    }
+
+    const normalized = result.list.map(toImwebApiOrder).filter((order) => order.order_no);
+    const observedTimes = normalized
+      .flatMap((order) => [order.paid_at_unix, order.complete_time_unix])
+      .filter((value) => value > 0);
+    const newest = Math.max(...observedTimes);
+    const oldest = Math.min(...observedTimes);
+    pageOldestNewest.push({
+      page,
+      rows: normalized.length,
+      oldest_observed_at_kst: Number.isFinite(oldest) ? unixToKstText(oldest) : null,
+      newest_observed_at_kst: Number.isFinite(newest) ? unixToKstText(newest) : null,
+    });
+
+    for (const order of normalized) {
+      const inWindow =
+        (order.paid_at_unix >= minStartUnix && order.paid_at_unix < maxEndUnix) ||
+        (order.complete_time_unix >= minStartUnix && order.complete_time_unix < maxEndUnix);
+      if (inWindow) orders.set(order.order_no, order);
+    }
+
+    if (Number.isFinite(oldest) && oldest < minStartUnix && orders.size > 0) {
+      stopReason = "window_covered";
+      break;
+    }
+    if (page >= totalPage) {
+      stopReason = "total_page_reached";
+      break;
+    }
+    if (options.imwebDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, options.imwebDelayMs));
+    }
+  }
+
+  return {
+    orders: [...orders.values()],
+    source: {
+      system: "imweb_v2_shop_orders_readonly",
+      total_count: totalCount,
+      total_page: totalPage,
+      stop_reason: stopReason,
+      pages_seen: pageOldestNewest.length,
+      page_oldest_newest: pageOldestNewest.slice(0, 3).concat(pageOldestNewest.slice(-3)),
+      errors,
+      raw_order_output: 0,
+    },
+  };
+}
+
+async function buildImwebCompleteTimeSelfmallWindows(options: CliOptions, windows: WindowSpec[]) {
+  if (options.selfmallSource !== "imweb_complete_time") {
+    return {
+      status: "skipped",
+      source: {
+        system: "imweb_v2_shop_orders_readonly",
+        reason: "selfmall-source=legacy_split",
+      },
+      windows: Object.fromEntries(windows.map((window) => [
+        window.key,
+        {
+          status: "skipped",
+          amount_krw: 0,
+          order_count: 0,
+          warnings: ["selfmall complete_time source skipped by CLI"],
+        },
+      ])),
+    };
+  }
+
+  try {
+    const imweb = await fetchImwebOrdersForWindows(options, windows);
+    const usableOrders = imweb.orders.filter((order) => (
+      order.payment_amount_krw > 0 &&
+      !EXCLUDED_IMWEB_API_STATUS_PATTERN.test(order.status_text)
+    ));
+
+    const windowResults: Record<string, unknown> = {};
+    for (const window of windows) {
+      const { startUnix, endUnix } = kstWindowToUnix(window.startDate, window.endDateExclusive);
+      const paidAtWindowOrders = usableOrders.filter((order) => (
+        order.paid_at_unix >= startUnix &&
+        order.paid_at_unix < endUnix
+      ));
+      const completeTimeOrders = paidAtWindowOrders.filter((order) => order.complete_time_unix > 0);
+      const directCompleteTimeWindowOrders = usableOrders.filter((order) => (
+        order.complete_time_unix >= startUnix &&
+        order.complete_time_unix < endUnix
+      ));
+      const completeTimeBlankInPaidAtWindow = paidAtWindowOrders.filter((order) => order.complete_time_unix <= 0);
+      const completeTimeAmount = completeTimeOrders.reduce((sum, order) => sum + order.payment_amount_krw, 0);
+      const directCompleteTimeWindowAmount = directCompleteTimeWindowOrders
+        .reduce((sum, order) => sum + order.payment_amount_krw, 0);
+      const blankAmount = completeTimeBlankInPaidAtWindow.reduce((sum, order) => sum + order.payment_amount_krw, 0);
+      const byPaidDate = Object.fromEntries(dateRange(window.startDate, window.endDateInclusive).map((date) => [
+        date,
+        emptyImwebAggregate(),
+      ]));
+      for (const order of completeTimeOrders) {
+        const date = unixToKstDate(order.paid_at_unix);
+        byPaidDate[date] ??= emptyImwebAggregate();
+        addImwebAggregate(byPaidDate[date], order.payment_amount_krw);
+      }
+      const warnings = [
+        "자사몰 order_count는 첨부 Excel과 건수 정의가 다를 수 있어 amount primary, count pending으로 표시",
+        "기간은 아임웹 paid/order window로 맞추고 complete_time 존재 주문만 포함한다; complete_time 날짜 자체 window는 diagnostic",
+        "complete_time blank는 미결제 증거가 아니라 보고 기준 제외/진단값",
+      ];
+      if (imweb.source.errors.length > 0) warnings.push("imweb_api_errors_present");
+      if (imweb.source.stop_reason !== "window_covered" && imweb.source.stop_reason !== "total_page_reached") {
+        warnings.push(`imweb_window_coverage_warning: ${imweb.source.stop_reason}`);
+      }
+
+      windowResults[window.key] = {
+        status: "included_amount_primary_count_pending",
+        source_basis: "imweb_paid_at_window_complete_time_present_v1",
+        amount_krw: completeTimeAmount,
+        amount_krw_korean: krw(completeTimeAmount),
+        order_count: completeTimeOrders.length,
+        count_definition_status: "pending_fnb_confirmation",
+        min_complete_time_kst: completeTimeOrders.length
+          ? unixToKstText(Math.min(...completeTimeOrders.map((order) => order.complete_time_unix)))
+          : null,
+        max_complete_time_kst: completeTimeOrders.length
+          ? unixToKstText(Math.max(...completeTimeOrders.map((order) => order.complete_time_unix)))
+          : null,
+        payment_breakdown: {
+          by_pay_type: aggregateImwebBy(completeTimeOrders, (order) => order.pay_type),
+          by_pg_type: aggregateImwebBy(completeTimeOrders, (order) => order.pg_type),
+        },
+        diagnostics: {
+          all_non_cancel_nonzero_by_paid_at_window: {
+            orders: paidAtWindowOrders.length,
+            amount_krw: paidAtWindowOrders.reduce((sum, order) => sum + order.payment_amount_krw, 0),
+          },
+          complete_time_blank_by_paid_at_window: {
+            orders: completeTimeBlankInPaidAtWindow.length,
+            amount_krw: blankAmount,
+            interpretation: "report_alignment_excluded_not_unpaid_proof",
+          },
+          direct_complete_time_date_window: {
+            orders: directCompleteTimeWindowOrders.length,
+            amount_krw: directCompleteTimeWindowAmount,
+            interpretation:
+              "This is not used for the Slack no-send selfmall primary because it does not reproduce the existing weekly report basis.",
+          },
+          by_paid_date_kst: byPaidDate,
+        },
+        warnings,
+      };
+    }
+
+    return {
+      status: "ok_imweb_api_read_only",
+      source: {
+        ...imweb.source,
+        primary_rule:
+          "payment_amount>0 + non cancel/return/exchange + paid/order KST window + complete_time present",
+        diagnostic_rule:
+          "complete_time date-window is exposed separately because it differs from the existing weekly report basis",
+        imweb_write_operations: 0,
+      },
+      windows: windowResults,
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      source: {
+        system: "imweb_v2_shop_orders_readonly",
+        imweb_write_operations: 0,
+      },
+      error: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240),
+      windows: Object.fromEntries(windows.map((window) => [
+        window.key,
+        {
+          status: "failed",
+          amount_krw: 0,
+          order_count: 0,
+          warnings: ["imweb_complete_time_api_failed; selfmall falls back to legacy Toss+NPay split"],
+        },
+      ])),
+    };
+  }
+}
+
 async function buildTossWindows(windows: WindowSpec[]) {
   const { isDatabaseConfigured, queryPg } = await import("../src/postgres");
   if (!isDatabaseConfigured()) {
@@ -876,6 +1303,33 @@ function normalizeOptionName(value: string): string {
 
 function isExcludedSmartstoreStatus(status: string): boolean {
   return /취소|반품|환불|교환/.test(status);
+}
+
+function buildSmartstoreExcelGapReference(window: WindowSpec): SmartstoreExcelGapReference | null {
+  if (window.startDate !== "2026-04-25" || window.endDateInclusive !== "2026-05-01") {
+    return null;
+  }
+
+  const excelAmount = 1_905_140;
+  const playautoAmount = 1_839_340;
+  const diffAmount = playautoAmount - excelAmount;
+  return {
+    status: "known_gap_reference",
+    workbook_window: {
+      start_date: "2026-04-25",
+      end_date_inclusive: "2026-05-01",
+    },
+    excel_amount_krw: excelAmount,
+    excel_rows: 55,
+    playauto_amount_krw: playautoAmount,
+    playauto_rows: 53,
+    diff_amount_krw: diffAmount,
+    diff_rows: 53 - 55,
+    diff_percent: percent(Math.abs(diffAmount), excelAmount) ?? 0,
+    interpretation:
+      "PlayAuto 자동 집계는 Excel보다 65,800원 / 2 rows 낮다. 원본 추가 2건, 정산 조정, 날짜 기준 차이 중 하나가 확인되기 전까지 경고를 유지한다.",
+    source_document: "report/reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525.md",
+  };
 }
 
 async function buildSmartstoreWindows(windows: WindowSpec[], topProductsLimit: number) {
@@ -989,9 +1443,16 @@ async function buildSmartstoreWindows(windows: WindowSpec[], topProductsLimit: n
         rank: index + 1,
         ...row,
       }));
+    const excelGapReference = buildSmartstoreExcelGapReference(window);
 
     windowResults[window.key] = {
       status: "included_with_warning",
+      source_basis: "playauto_smartstore_pay_amt_v1",
+      source_status: "operating_with_playauto_warning",
+      warning_level: "source_warning",
+      operation_policy:
+        "Use PlayAuto for SmartStore Slack no-send sales until Naver Commerce API direct coffee store access or F&B settlement source closes the Excel gap.",
+      confidence: excelGapReference ? "medium_high_with_known_excel_gap" : "medium_high_playauto_operating_candidate",
       amount_krw: includedAmount,
       rows: includedRows,
       quantity: includedQuantity,
@@ -1010,9 +1471,10 @@ async function buildSmartstoreWindows(windows: WindowSpec[], topProductsLimit: n
       reconciliation: {
         top_product_source_total_krw: [...buckets.values()].reduce((sum, row) => sum + row.amount_krw, 0),
         matches_included_total: [...buckets.values()].reduce((sum, row) => sum + row.amount_krw, 0) === includedAmount,
+        excel_gap_reference: excelGapReference,
       },
       warnings: [
-        "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning",
+        ...SMARTSTORE_PLAYAUTO_POLICY_WARNINGS,
       ],
     };
   }
@@ -1026,6 +1488,10 @@ async function buildSmartstoreWindows(windows: WindowSpec[], topProductsLimit: n
       amount_field: "pay_amt",
       product_fields: ["shop_sale_name", "shop_opt_name"],
       time_rule: "COALESCE(pay_time, ord_time) KST date window",
+      operation_policy:
+        "PlayAuto is the current best available SmartStore sales source for TheCleanCoffee, but reports must keep a visible warning until direct Commerce API or settlement/excel reconciliation is closed.",
+      direct_naver_commerce_api_status:
+        "official_order_api_exists_but_thecleancoffee_credentials_ip_and_store_scope_not_validated",
     },
     windows: windowResults,
   };
@@ -1630,6 +2096,216 @@ function buildCoupangReportingWindows(
   };
 }
 
+function emptyLocalRgAggregateBucket() {
+  return {
+    rows: 0,
+    order_count: 0,
+    item_count: 0,
+    quantity: 0,
+    gross_amount_krw: 0,
+    min_fetched_at: null as string | null,
+    max_fetched_at: null as string | null,
+    max_api_call_count: null as number | null,
+    covered_days: 0,
+  };
+}
+
+function maybeBuildCoupangAttachmentReconstruction(
+  window: WindowSpec,
+  coupangWindow: Record<string, unknown>,
+  rgWindow: Record<string, unknown>,
+) {
+  if (window.startDate !== "2026-04-25" || window.endDateInclusive !== "2026-05-01") {
+    return null;
+  }
+
+  const ordersheetsReference = coupangWindow.ordersheets_reference as Record<string, unknown> | undefined;
+  const revenueHistoryCoffee = toNumber(coupangWindow.coffee_amount_krw);
+  const ordersheetsCoffee = toNumber(ordersheetsReference?.coffee_amount_krw);
+  const rgCoffee = toNumber(rgWindow.coffee_amount_krw);
+  const target = 2_100_400;
+  const ordersheetsPlusRg = ordersheetsCoffee + rgCoffee;
+  const revenueHistoryPlusRg = revenueHistoryCoffee + rgCoffee;
+
+  return {
+    target_attachment_coupang_amount_krw: target,
+    target_attachment_coupang_amount_krw_korean: krw(target),
+    revenue_history_plus_rg_amount_krw: revenueHistoryPlusRg,
+    revenue_history_plus_rg_amount_krw_korean: krw(revenueHistoryPlusRg),
+    ordersheets_plus_rg_amount_krw: ordersheetsPlusRg,
+    ordersheets_plus_rg_amount_krw_korean: krw(ordersheetsPlusRg),
+    remaining_gap_vs_ordersheets_plus_rg_krw: target - ordersheetsPlusRg,
+    remaining_gap_vs_ordersheets_plus_rg_krw_korean: krw(target - ordersheetsPlusRg),
+    remaining_gap_vs_revenue_history_plus_rg_krw: target - revenueHistoryPlusRg,
+    remaining_gap_vs_revenue_history_plus_rg_krw_korean: krw(target - revenueHistoryPlusRg),
+    remaining_gap_orders_hint: 2,
+    verdict:
+      target - ordersheetsPlusRg === 60_700
+        ? "ordersheets_general_delivery_plus_rg_reproduces_all_but_60700_krw_2_orders"
+        : "attachment_reconstruction_still_pending",
+  };
+}
+
+function readLocalCoupangRgAggregate(options: CliOptions, windows: WindowSpec[]) {
+  if (options.coupangRgAggregateSource === "skip") {
+    return {
+      status: "skipped",
+      source: {
+        system: "local_coupang_rg_aggregate_skipped_by_cli",
+      },
+      windows: Object.fromEntries(windows.map((window) => [
+        window.key,
+        {
+          status: "skipped",
+          coffee_amount_krw: 0,
+          warnings: ["coupang-rg-aggregate-source=skip"],
+        },
+      ])),
+    };
+  }
+
+  let db: Database.Database | null = null;
+  try {
+    db = new Database(options.coupangRgAggregateDbPath, { readonly: true, fileMustExist: true });
+    if (!tableExists(db, "coupang_rg_daily_aggregate_api")) {
+      return {
+        status: "source_missing",
+        source: {
+          system: "local_sqlite_coupang_rg_daily_aggregate_api",
+          db_path: options.coupangRgAggregateDbPath,
+        },
+        windows: Object.fromEntries(windows.map((window) => [
+          window.key,
+          {
+            status: "source_missing",
+            coffee_amount_krw: 0,
+            warnings: ["coupang_rg_daily_aggregate_api table not found"],
+          },
+        ])),
+      };
+    }
+
+    const windowResults: Record<string, unknown> = {};
+    for (const window of windows) {
+      const rows = db.prepare(`
+        SELECT
+          product_class,
+          COUNT(*) AS rows,
+          COALESCE(SUM(order_count), 0) AS order_count,
+          COALESCE(SUM(item_count), 0) AS item_count,
+          COALESCE(SUM(quantity), 0) AS quantity,
+          COALESCE(SUM(gross_amount_krw), 0) AS gross_amount_krw,
+          MIN(fetched_at_kst) AS min_fetched_at,
+          MAX(fetched_at_kst) AS max_fetched_at,
+          MAX(api_call_count) AS max_api_call_count,
+          COUNT(DISTINCT paid_date_kst) AS covered_days
+        FROM coupang_rg_daily_aggregate_api
+        WHERE account_name = @account
+          AND paid_date_kst >= @start
+          AND paid_date_kst <= @end
+        GROUP BY product_class
+      `).all({
+        account: options.coupangAccount,
+        start: window.startDate,
+        end: window.endDateInclusive,
+      }) as LocalCoupangRgAggregateRow[];
+
+      const byProductClass: Record<string, ReturnType<typeof emptyLocalRgAggregateBucket>> = {
+        coffee_hint: emptyLocalRgAggregateBucket(),
+        teamketo_hint: emptyLocalRgAggregateBucket(),
+        other_hint: emptyLocalRgAggregateBucket(),
+      };
+      for (const row of rows) {
+        byProductClass[row.product_class] = {
+          rows: toNumber(row.rows),
+          order_count: toNumber(row.order_count),
+          item_count: toNumber(row.item_count),
+          quantity: toNumber(row.quantity),
+          gross_amount_krw: toNumber(row.gross_amount_krw),
+          min_fetched_at: row.min_fetched_at,
+          max_fetched_at: row.max_fetched_at,
+          max_api_call_count: row.max_api_call_count === null ? null : toNumber(row.max_api_call_count),
+          covered_days: toNumber(row.covered_days),
+        };
+      }
+      const expectedDays = dateRange(window.startDate, window.endDateInclusive).length;
+      const coveredDays = Math.max(
+        ...Object.values(byProductClass).map((bucket) => bucket.covered_days),
+        0,
+      );
+      const coffeeBucket = byProductClass.coffee_hint;
+      const warnings = [
+        "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+        "Keep RG as reference until general delivery/RG/dedupe policy is finalized",
+      ];
+      if (coveredDays < expectedDays) {
+        warnings.push(`rg_aggregate_partial_coverage: covered ${coveredDays}/${expectedDays} days`);
+      }
+
+      windowResults[window.key] = {
+        status: coveredDays === 0
+          ? "source_missing_for_window"
+          : coveredDays < expectedDays
+            ? "included_local_rg_aggregate_with_partial_coverage"
+            : "included_local_rg_aggregate",
+        basis: "local_coupang_rg_daily_aggregate_api_paid_date_kst",
+        coffee_amount_krw: coffeeBucket.gross_amount_krw,
+        coffee_amount_krw_korean: krw(coffeeBucket.gross_amount_krw),
+        coffee_order_count: coffeeBucket.order_count,
+        coffee_item_count: coffeeBucket.item_count,
+        coffee_quantity: coffeeBucket.quantity,
+        by_product_class: byProductClass,
+        coverage: {
+          expected_days: expectedDays,
+          covered_days: coveredDays,
+          min_fetched_at: rows.map((row) => row.min_fetched_at).filter(Boolean).sort()[0] ?? null,
+          max_fetched_at: rows.map((row) => row.max_fetched_at).filter(Boolean).sort().at(-1) ?? null,
+        },
+        source_table: "coupang_rg_daily_aggregate_api",
+        raw_order_output: 0,
+        raw_json_storage: 0,
+        warnings,
+        confidence:
+          coveredDays === expectedDays
+            ? "high_local_rg_aggregate"
+            : "medium_local_rg_aggregate_partial_window",
+      };
+    }
+
+    return {
+      status: "ok_local_rg_aggregate",
+      source: {
+        system: "local_sqlite_coupang_rg_daily_aggregate_api",
+        db_path: options.coupangRgAggregateDbPath,
+        source_mode: options.coupangRgAggregateSource,
+        account: options.coupangAccount,
+        date_rule: "paid_date_kst",
+        raw_order_output: 0,
+        raw_json_storage: 0,
+      },
+      windows: windowResults,
+    };
+  } catch (error) {
+    return {
+      status: "source_error",
+      source: {
+        system: "local_sqlite_coupang_rg_daily_aggregate_api",
+        db_path: options.coupangRgAggregateDbPath,
+      },
+      windows: Object.fromEntries(windows.map((window) => [
+        window.key,
+        {
+          status: "source_error",
+          coffee_amount_krw: 0,
+          warnings: [`local RG aggregate failed: ${String(error instanceof Error ? error.message : error).slice(0, 160)}`],
+        },
+      ])),
+    };
+  } finally {
+    db?.close();
+  }
+}
+
 async function fetchMetaAdSpendWindow(options: CliOptions, window: WindowSpec) {
   if (options.adSpendSource === "skip") {
     return {
@@ -2089,9 +2765,10 @@ async function run() {
   const options = getOptions();
   const windows = buildWindows(options.asOfDate);
 
-  const [toss, smartstore] = await Promise.all([
+  const [toss, smartstore, imwebCompleteTime] = await Promise.all([
     buildTossWindows(windows),
     buildSmartstoreWindows(windows, options.topProducts),
+    buildImwebCompleteTimeSelfmallWindows(options, windows),
   ]);
   const npay = buildNpayWindows(options, windows);
   const coupangOrdersheets = await buildCoupangWindows(options, windows);
@@ -2105,6 +2782,7 @@ async function run() {
     coupangOrdersheets as Record<string, unknown>,
     coupangRevenueHistory as Record<string, unknown>,
   );
+  const coupangRgAggregate = readLocalCoupangRgAggregate(options, windows);
   const adSpend = await buildAdSpendWindows(options, windows);
   const coupangSettlementComparison = await buildCoupangSettlementComparison(
     options,
@@ -2116,18 +2794,39 @@ async function run() {
   for (const window of windows) {
     const npayAmount = pickWindowAmount(npay as Record<string, unknown>, window.key);
     const tossAmount = pickWindowAmount(toss as Record<string, unknown>, window.key);
+    const legacySelfmallAmount = npayAmount + tossAmount;
+    const imwebCompleteWindow = pickWindowObject(imwebCompleteTime as Record<string, unknown>, window.key);
+    const useImwebCompleteTime =
+      options.selfmallSource === "imweb_complete_time" &&
+      imwebCompleteWindow.status === "included_amount_primary_count_pending";
+    const selfmallAmount = useImwebCompleteTime
+      ? toNumber(imwebCompleteWindow.amount_krw)
+      : legacySelfmallAmount;
     const smartstoreAmount = pickWindowAmount(smartstore as Record<string, unknown>, window.key);
     const coupangCoffeeAmount = pickWindowAmount(coupang as Record<string, unknown>, window.key, "coffee_amount_krw");
+    const coupangWindow = pickWindowObject(coupang as Record<string, unknown>, window.key);
+    const coupangRgWindow = pickWindowObject(coupangRgAggregate as Record<string, unknown>, window.key);
+    const coupangRgCoffeeAmount = toNumber(coupangRgWindow.coffee_amount_krw);
+    const coupangOrdersheetsReference = coupangWindow.ordersheets_reference as Record<string, unknown> | undefined;
+    const coupangOrdersheetsCoffeeAmount = toNumber(coupangOrdersheetsReference?.coffee_amount_krw);
     const coupangAccountTotal = pickWindowAmount(
       coupang as Record<string, unknown>,
       window.key,
       "account_total_amount_krw",
     );
-    const selfmallAmount = npayAmount + tossAmount;
     const totalStrict = selfmallAmount + smartstoreAmount + coupangCoffeeAmount;
     const totalWithCoupangAccountReference = selfmallAmount + smartstoreAmount + coupangAccountTotal;
+    const totalWithCoupangRevenueHistoryPlusRgReference =
+      selfmallAmount + smartstoreAmount + coupangCoffeeAmount + coupangRgCoffeeAmount;
+    const totalWithCoupangOrdersheetsPlusRgReference =
+      selfmallAmount + smartstoreAmount + coupangOrdersheetsCoffeeAmount + coupangRgCoffeeAmount;
     const adSpendWindow = pickWindowObject(adSpend as Record<string, unknown>, window.key);
     const includedAdSpend = toNumber(adSpendWindow.included_ad_spend_krw);
+    const attachmentReconstructionReference = maybeBuildCoupangAttachmentReconstruction(
+      window,
+      coupangWindow,
+      coupangRgWindow,
+    );
 
     channelsByWindow[window.key] = {
       window: {
@@ -2142,18 +2841,50 @@ async function run() {
         total_strict_amount_krw_korean: krw(totalStrict),
         total_with_coupang_account_reference_krw: totalWithCoupangAccountReference,
         total_with_coupang_account_reference_krw_korean: krw(totalWithCoupangAccountReference),
+        reference_totals: {
+          total_with_coupang_revenue_history_plus_rg_reference_krw:
+            totalWithCoupangRevenueHistoryPlusRgReference,
+          total_with_coupang_revenue_history_plus_rg_reference_krw_korean:
+            krw(totalWithCoupangRevenueHistoryPlusRgReference),
+          total_with_coupang_ordersheets_plus_rg_reference_krw:
+            totalWithCoupangOrdersheetsPlusRgReference,
+          total_with_coupang_ordersheets_plus_rg_reference_krw_korean:
+            krw(totalWithCoupangOrdersheetsPlusRgReference),
+          note:
+            "Reference totals are not strict sales until Coupang general delivery/RG dedupe and attachment gap are closed.",
+        },
         channels: {
           selfmall: {
             amount_krw: selfmallAmount,
             amount_krw_korean: krw(selfmallAmount),
-            status: "included_with_warning",
+            status: useImwebCompleteTime ? "included_amount_primary_count_pending" : "included_with_warning",
+            source_basis: useImwebCompleteTime
+              ? "imweb_paid_at_window_complete_time_present_v1"
+              : "legacy_toss_plus_npay_split_v1",
+            source_status: useImwebCompleteTime
+              ? "imweb_complete_time_primary"
+              : "legacy_split_fallback_or_cli_selected",
+            order_count: useImwebCompleteTime ? toNumber(imwebCompleteWindow.order_count) : null,
+            count_definition_status: useImwebCompleteTime ? "pending_fnb_confirmation" : "legacy_component_count_only",
+            payment_breakdown: useImwebCompleteTime ? imwebCompleteWindow.payment_breakdown ?? null : null,
+            diagnostics: useImwebCompleteTime ? imwebCompleteWindow.diagnostics ?? null : null,
+            complete_time_source: useImwebCompleteTime ? imwebCompleteWindow : null,
             components: {
               toss: pickWindowObject(toss as Record<string, unknown>, window.key),
               npay_actual: pickWindowObject(npay as Record<string, unknown>, window.key),
             },
+            legacy_split_reference: {
+              amount_krw: legacySelfmallAmount,
+              amount_krw_korean: krw(legacySelfmallAmount),
+              note: "기존 Toss+NPay 합산값은 비교/진단용으로 유지하고 자사몰 총액 primary에는 쓰지 않음",
+            },
           },
           smartstore: pickWindowObject(smartstore as Record<string, unknown>, window.key),
-          coupang: pickWindowObject(coupang as Record<string, unknown>, window.key),
+          coupang: {
+            ...coupangWindow,
+            rg_aggregate_reference: coupangRgWindow,
+            attachment_reconstruction_reference: attachmentReconstructionReference,
+          },
         },
       },
       ad_spend: adSpendWindow,
@@ -2168,8 +2899,10 @@ async function run() {
       warnings: [
         ...((pickWindowObject(npay as Record<string, unknown>, window.key).warnings as string[] | undefined) ?? []),
         ...((pickWindowObject(toss as Record<string, unknown>, window.key).warnings as string[] | undefined) ?? []),
+        ...((imwebCompleteWindow.warnings as string[] | undefined) ?? []),
         ...((pickWindowObject(smartstore as Record<string, unknown>, window.key).warnings as string[] | undefined) ?? []),
         ...((pickWindowObject(coupang as Record<string, unknown>, window.key).warnings as string[] | undefined) ?? []),
+        ...((coupangRgWindow.warnings as string[] | undefined) ?? []),
         ...((adSpendWindow.warnings as string[] | undefined) ?? []),
       ],
     };
@@ -2195,16 +2928,24 @@ async function run() {
       coupang_delay_ms: options.coupangDelayMs,
       coupang_settlement_source: options.coupangSettlementSource,
       coupang_settlement_db_path: options.coupangSettlementDbPath,
+      coupang_rg_aggregate_source: options.coupangRgAggregateSource,
+      coupang_rg_aggregate_db_path: options.coupangRgAggregateDbPath,
+      selfmall_source: options.selfmallSource,
+      imweb_max_pages: options.imwebMaxPages,
+      imweb_limit: options.imwebLimit,
+      imweb_delay_ms: options.imwebDelayMs,
       ad_spend_source: options.adSpendSource,
       ad_spend_api_base: options.adSpendApiBase,
       ad_spend_force: options.adSpendForce,
       report_dir: options.reportDir,
     },
     source_policy: {
-      selfmall: "Toss store=coffee + NPay actual; raw Toss/Imweb samples are not exposed",
-      smartstore: "operational PG tb_playauto_orders shop_name='스마트스토어'",
+      selfmall:
+        "Imweb paid/order window rows with complete_time present are the selfmall amount primary; Toss and NPay actual remain diagnostic payment-method references. Raw Toss/Imweb samples are not exposed.",
+      smartstore:
+        "operational PG tb_playauto_orders shop_name='스마트스토어' is used first with a visible PlayAuto warning. Direct Naver Commerce API is not promoted until TheCleanCoffee credential, IP allowlist, and store scope are verified.",
       coupang:
-        "TeamKeto revenue-history coffee_hint saleAmount is strict sales when available; ordersheets is order-created reference only.",
+        "TeamKeto revenue-history coffee_hint saleAmount is strict sales when available; ordersheets and local RG aggregate are references until dedupe/gap is closed.",
       ad_spend:
         "included spend is Meta API spend + Naver/Google/TikTok 0원 후보. Platform purchase values are reference only and are not added to internal sales.",
     },
@@ -2212,10 +2953,12 @@ async function run() {
     source_details: {
       npay,
       toss,
+      imweb_complete_time_selfmall: imwebCompleteTime,
       smartstore,
       coupang,
       coupang_revenue_history: coupangRevenueHistory,
       coupang_ordersheets: coupangOrdersheets,
+      coupang_rg_aggregate: coupangRgAggregate,
       ad_spend: adSpend,
       coupang_settlement_comparison: coupangSettlementComparison,
     },

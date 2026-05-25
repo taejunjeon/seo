@@ -1,0 +1,206 @@
+{
+  "generated_at_kst": "2026-05-25T06:02:55",
+  "run_id": "20260524T210252Z",
+  "mode": "apply_publish",
+  "approval": {
+    "approved_by": "TJ",
+    "approved_scope": "Coffee GTM-5M33GC4 /shop_payment/ Meta browser InitiateCheckout fresh workspace Preview then Production publish"
+  },
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "91608400",
+    "public_id": "GTM-5M33GC4",
+    "path": "accounts/4703003246/containers/91608400"
+  },
+  "live_before": {
+    "container_version_id": "23",
+    "name": "Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z"
+  },
+  "expected_live_version_id": "23",
+  "workspace_before_count": 1,
+  "workspaces_before": [
+    {
+      "id": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "default_workspace_status": {
+    "workspace_change_count": 0,
+    "merge_conflict_count": 0,
+    "changes": [],
+    "conflicts": []
+  },
+  "duplicate_live_tag_count": 1,
+  "planned": {
+    "workspace_name": "codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T210252Z",
+    "tag_name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+    "trigger_name": "AGENTSOS - [DOM Ready] shop_payment order only",
+    "version_name": "Coffee Meta InitiateCheckout shop_payment value retry guard - 20260524T210252Z",
+    "excludes_subscription": true,
+    "update_existing": true,
+    "excludes_complete_pages": true,
+    "no_purchase": true,
+    "no_meta_capi_enable": true,
+    "no_ga4_mp": true,
+    "no_google_ads": true,
+    "no_naver_tiktok": true,
+    "no_db_write": true
+  },
+  "workspace": {
+    "workspace_id": "33",
+    "name": "codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T210252Z",
+    "path": "accounts/4703003246/containers/91608400/workspaces/33"
+  },
+  "trigger": {
+    "trigger_id": "98",
+    "name": "AGENTSOS - [DOM Ready] shop_payment order only",
+    "type": "domReady"
+  },
+  "tag": {
+    "tag_id": "99",
+    "name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+    "type": "html",
+    "firing_trigger_id": [
+      "98"
+    ],
+    "update_existing": true
+  },
+  "quick_preview": {
+    "compiler_error": false,
+    "sync_status": null
+  },
+  "workspace_status": {
+    "workspace_change_count": 1,
+    "merge_conflict_count": 0,
+    "changes": [
+      {
+        "change_status": "updated",
+        "tag": {
+          "tag_id": "99",
+          "name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+          "type": "html",
+          "firing_trigger_id": [
+            "98"
+          ]
+        },
+        "trigger": null
+      }
+    ],
+    "conflicts": []
+  },
+  "pre_publish": {
+    "ok": true,
+    "problems": [],
+    "status_summary": {
+      "workspace_change_count": 1,
+      "merge_conflict_count": 0,
+      "changes": [
+        {
+          "change_status": "updated",
+          "tag": {
+            "tag_id": "99",
+            "name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+            "type": "html",
+            "firing_trigger_id": [
+              "98"
+            ]
+          },
+          "trigger": null
+        }
+      ],
+      "conflicts": []
+    }
+  },
+  "tag_backup": {
+    "path": "accounts/4703003246/containers/91608400/workspaces/33/tags/99",
+    "accountId": "4703003246",
+    "containerId": "91608400",
+    "workspaceId": "33",
+    "tagId": "99",
+    "name": "AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment",
+    "type": "html",
+    "notes": "TJ approved. Sends Meta browser InitiateCheckout only on Coffee /shop_payment/ when order hints and value are present. No Purchase, no Meta CAPI, no GA4/Google Ads/Naver/TikTok send, no DB write.",
+    "parameter": [
+      {
+        "type": "template",
+        "key": "html",
+        "value": "<script>\n(function () {\n  'use strict';\n\n  var CONFIG = {\n    snippetVersion: '2026-05-24-coffee-meta-initiatecheckout-shop-payment-v3-value-retry',\n    pixelId: '1186437633687388',\n    debugQueryKey: '__seo_attribution_debug',\n    checkoutContextKey: '__seo_checkout_context',\n    sentKeyPrefix: '__thecleancoffee_meta_initiatecheckout_sent__:',\n    eventName: 'InitiateCheckout',\n    logPrefix: '[coffee-meta-initiatecheckout-shop-payment]',\n    valueRetryMs: [0, 100, 250, 500, 1000, 2000, 3500, 5000, 8000],\n    fbqRetryMs: [0, 100, 250, 500, 1000, 2000, 3500, 5000],\n    valueSelectors: [\n      '[data-payment-total]',\n      '[data-order-total]',\n      '[data-total-price]',\n      '._payment_total_price',\n      '.total_price',\n      '._cart_main_total_price',\n      '.im-price-result',\n      '.im-order-price',\n      '.shop-table > tfoot .payment-info',\n      '.payment-total',\n      '.order-total',\n      '.total-price',\n      '.pay_total .price',\n      '.order_price .price'\n    ]\n  };\n\n  if (window.__THECLEANCOFFEE_META_INITIATECHECKOUT_SHOP_PAYMENT__ === CONFIG.snippetVersion) return;\n  window.__THECLEANCOFFEE_META_INITIATECHECKOUT_SHOP_PAYMENT__ = CONFIG.snippetVersion;\n\n  function trim(value) {\n    if (value === null || value === undefined) return '';\n    return String(value).trim();\n  }\n\n  function safeParse(raw) {\n    if (!raw) return {};\n    try {\n      var parsed = JSON.parse(raw);\n      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};\n    } catch (error) {\n      return {};\n    }\n  }\n\n  function readSessionJson(key) {\n    try {\n      return safeParse(window.sessionStorage && window.sessionStorage.getItem(key));\n    } catch (error) {\n      return {};\n    }\n  }\n\n  function readSessionText(key) {\n    try {\n      return trim(window.sessionStorage && window.sessionStorage.getItem(key));\n    } catch (error) {\n      return '';\n    }\n  }\n\n  function writeSessionText(key, value) {\n    try {\n      if (!window.sessionStorage) return false;\n      window.sessionStorage.setItem(key, value);\n      return true;\n    } catch (error) {\n      return false;\n    }\n  }\n\n  function firstNonEmpty(values) {\n    for (var i = 0; i < values.length; i += 1) {\n      var value = trim(values[i]);\n      if (value) return value;\n    }\n    return '';\n  }\n\n  function normalizeText(value) {\n    return trim(value).replace(/\\s+/g, ' ');\n  }\n\n  function isDebugMode() {\n    try {\n      return new URLSearchParams(window.location.search).get(CONFIG.debugQueryKey) === '1';\n    } catch (error) {\n      return false;\n    }\n  }\n\n  function debugLog(label, fields) {\n    if (!isDebugMode()) return;\n    try {\n      console.info(CONFIG.logPrefix, label, fields || {});\n    } catch (error) {}\n  }\n\n  function getSearchParam(keys) {\n    try {\n      var params = new URLSearchParams(window.location.search);\n      for (var i = 0; i < keys.length; i += 1) {\n        var value = trim(params.get(keys[i]));\n        if (value) return value;\n      }\n    } catch (error) {}\n    return '';\n  }\n\n  function isShopPaymentPage() {\n    var path = trim(window.location.pathname).toLowerCase();\n    return path === '/shop_payment' || path === '/shop_payment/';\n  }\n\n  function isSubscriptionCheckout() {\n    var root = null;\n    try {\n      root = document.querySelector('#oms-shop-payment');\n    } catch (error) {\n      root = null;\n    }\n    if (!root) {\n      try {\n        root = document.body;\n      } catch (error) {\n        root = null;\n      }\n    }\n    if (!root) return false;\n\n    var text = normalizeText(root.innerText || root.textContent || '');\n    return text.indexOf('[더클린 정기구독]') >= 0 ||\n      text.indexOf('정기구독 신청') >= 0 ||\n      text.indexOf('subscription') >= 0;\n  }\n\n  function stableHash(value) {\n    var text = trim(value);\n    var hash = 2166136261;\n    for (var i = 0; i < text.length; i += 1) {\n      hash ^= text.charCodeAt(i);\n      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);\n    }\n    return ('00000000' + (hash >>> 0).toString(16)).slice(-8);\n  }\n\n  function getOrderHints() {\n    var checkoutContext = readSessionJson(CONFIG.checkoutContextKey);\n    return {\n      orderCode: firstNonEmpty([\n        getSearchParam(['order_code', 'orderCode']),\n        checkoutContext.orderCode,\n        checkoutContext.order_code\n      ]),\n      orderNo: firstNonEmpty([\n        getSearchParam(['order_no', 'orderNo']),\n        checkoutContext.orderNo,\n        checkoutContext.order_no\n      ]),\n      orderMember: firstNonEmpty([\n        getSearchParam(['order_member', 'orderMember']),\n        checkoutContext.orderMember,\n        checkoutContext.order_member\n      ]),\n      checkoutId: firstNonEmpty([\n        checkoutContext.checkoutId,\n        checkoutContext.checkout_id,\n        getSearchParam(['checkoutId', 'checkout_id'])\n      ])\n    };\n  }\n\n  function hasOrderHint(hints) {\n    return Boolean(hints.orderCode || hints.orderNo || hints.checkoutId);\n  }\n\n  function parsePriceFromText(raw) {\n    var text = trim(raw).replace(/,/g, '');\n    if (!text) return null;\n    var matches = text.match(/[0-9]+(?:\\.[0-9]+)?/g);\n    if (!matches || !matches.length) return null;\n    var best = 0;\n    for (var i = 0; i < matches.length; i += 1) {\n      var value = Number(matches[i]);\n      if (Number.isFinite(value) && value > best) best = value;\n    }\n    return best > 0 ? best : null;\n  }\n\n  function parsePriceAfterLabel(raw, label) {\n    var text = trim(raw).replace(/\\s+/g, ' ');\n    var index = text.indexOf(label);\n    if (index < 0) return null;\n    var rest = text.slice(index + label.length);\n    var wonMatch = rest.match(/([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*원/);\n    if (wonMatch && wonMatch[1]) {\n      var wonValue = Number(wonMatch[1].replace(/,/g, ''));\n      if (Number.isFinite(wonValue) && wonValue > 0) return wonValue;\n    }\n    return parsePriceFromText(rest);\n  }\n\n  function isVisible(node) {\n    try {\n      if (!node) return false;\n      var style = window.getComputedStyle ? window.getComputedStyle(node) : null;\n      if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;\n      var rect = node.getBoundingClientRect ? node.getBoundingClientRect() : null;\n      return !rect || (rect.width > 0 && rect.height > 0);\n    } catch (error) {\n      return true;\n    }\n  }\n\n  function readOrderSummaryValue() {\n    var selectors = ['#oms-shop-payment', 'main', 'body'];\n    for (var i = 0; i < selectors.length; i += 1) {\n      var node = null;\n      try {\n        node = document.querySelector(selectors[i]);\n      } catch (error) {\n        node = null;\n      }\n      if (!node) continue;\n      var text = node.innerText || node.textContent || '';\n      if (text.indexOf('총 주문금액') < 0) continue;\n      var value = parsePriceAfterLabel(text, '총 주문금액');\n      if (value) {\n        return {\n          value: value,\n          valueStatus: 'present',\n          selector: selectors[i] + ' text:total_order_price'\n        };\n      }\n    }\n    return null;\n  }\n\n  function readValueCandidate() {\n    var orderSummaryValue = readOrderSummaryValue();\n    if (orderSummaryValue) return orderSummaryValue;\n\n    for (var i = 0; i < CONFIG.valueSelectors.length; i += 1) {\n      var selector = CONFIG.valueSelectors[i];\n      var nodes = [];\n      try {\n        nodes = Array.prototype.slice.call(document.querySelectorAll(selector));\n      } catch (error) {\n        nodes = [];\n      }\n      for (var j = 0; j < nodes.length; j += 1) {\n        if (!isVisible(nodes[j])) continue;\n        var value = parsePriceFromText(nodes[j].getAttribute('data-payment-total') ||\n          nodes[j].getAttribute('data-order-total') ||\n          nodes[j].getAttribute('data-total-price') ||\n          nodes[j].textContent);\n        if (value) {\n          return { value: value, valueStatus: 'present', selector: selector };\n        }\n      }\n    }\n    return { value: null, valueStatus: 'missing', selector: '' };\n  }\n\n  function getValueDiagnostics() {\n    var root = null;\n    var bodyText = '';\n    var rootText = '';\n    try {\n      root = document.querySelector('#oms-shop-payment');\n    } catch (error) {\n      root = null;\n    }\n    try {\n      rootText = root ? normalizeText(root.innerText || root.textContent || '') : '';\n    } catch (error) {\n      rootText = '';\n    }\n    try {\n      bodyText = document.body ? normalizeText(document.body.innerText || document.body.textContent || '') : '';\n    } catch (error) {\n      bodyText = '';\n    }\n    return {\n      rootPresent: Boolean(root),\n      rootHasTotalLabel: rootText.indexOf('총 주문금액') >= 0,\n      bodyHasTotalLabel: bodyText.indexOf('총 주문금액') >= 0\n    };\n  }\n\n  function buildEventId(hints) {\n    var basis = firstNonEmpty([\n      hints.checkoutId,\n      hints.orderCode,\n      hints.orderNo,\n      window.location.pathname + '|' + window.location.search\n    ]);\n    return CONFIG.eventName + '.' + stableHash('thecleancoffee|' + basis);\n  }\n\n  function rememberStatus(status, fields) {\n    var payload = fields || {};\n    payload.status = status;\n    payload.snippetVersion = CONFIG.snippetVersion;\n    payload.updatedAt = new Date().toISOString();\n    try {\n      window.__THECLEANCOFFEE_META_INITIATECHECKOUT_LAST__ = payload;\n    } catch (error) {}\n    debugLog(status, payload);\n  }\n\n  function buildCustomData(valueResult, hints) {\n    return {\n      value: Number(valueResult.value),\n      currency: 'KRW',\n      content_type: 'product',\n      order_code_present: Boolean(hints.orderCode),\n      order_no_present: Boolean(hints.orderNo),\n      checkout_id_present: Boolean(hints.checkoutId),\n      value_status: valueResult.valueStatus,\n      value_selector: valueResult.selector,\n      snippet_version: CONFIG.snippetVersion\n    };\n  }\n\n  function runWithFbq(callback) {\n    var done = false;\n    CONFIG.fbqRetryMs.forEach(function (delayMs, index) {\n      window.setTimeout(function () {\n        if (done) return;\n        if (typeof window.fbq === 'function') {\n          done = true;\n          callback(window.fbq);\n          return;\n        }\n        if (index === CONFIG.fbqRetryMs.length - 1) {\n          done = true;\n          callback(null);\n        }\n      }, delayMs);\n    });\n  }\n\n  function tryRun(attemptIndex, isFinalAttempt) {\n    if (!isShopPaymentPage()) {\n      rememberStatus('blocked', { reason: 'not_shop_payment_page', path: window.location.pathname });\n      return true;\n    }\n\n    if (isSubscriptionCheckout()) {\n      rememberStatus('blocked', { reason: 'subscription_checkout_excluded' });\n      return true;\n    }\n\n    var hints = getOrderHints();\n    if (!hasOrderHint(hints)) {\n      rememberStatus('blocked', { reason: 'missing_order_hint' });\n      return true;\n    }\n\n    var valueResult = readValueCandidate();\n    if (!valueResult.value) {\n      var diagnostics = getValueDiagnostics();\n      if (!isFinalAttempt) {\n        rememberStatus('waiting', {\n          reason: 'waiting_value',\n          valueStatus: valueResult.valueStatus,\n          attemptIndex: attemptIndex,\n          nextRetryMs: CONFIG.valueRetryMs[attemptIndex + 1],\n          rootPresent: diagnostics.rootPresent,\n          rootHasTotalLabel: diagnostics.rootHasTotalLabel,\n          bodyHasTotalLabel: diagnostics.bodyHasTotalLabel\n        });\n        return false;\n      }\n      rememberStatus('blocked', {\n        reason: 'missing_value',\n        valueStatus: valueResult.valueStatus,\n        attemptIndex: attemptIndex,\n        rootPresent: diagnostics.rootPresent,\n        rootHasTotalLabel: diagnostics.rootHasTotalLabel,\n        bodyHasTotalLabel: diagnostics.bodyHasTotalLabel\n      });\n      return true;\n    }\n\n    var eventId = buildEventId(hints);\n    var sentKey = CONFIG.sentKeyPrefix + eventId;\n    if (readSessionText(sentKey)) {\n      rememberStatus('blocked', { reason: 'deduped', eventID: eventId });\n      return true;\n    }\n\n    runWithFbq(function (fbq) {\n      if (typeof fbq !== 'function') {\n        rememberStatus('blocked', { reason: 'fbq_unavailable', eventID: eventId });\n        return;\n      }\n      var customData = buildCustomData(valueResult, hints);\n      try {\n        fbq('track', CONFIG.eventName, customData, { eventID: eventId });\n        writeSessionText(sentKey, new Date().toISOString());\n        rememberStatus('sent', {\n          eventName: CONFIG.eventName,\n          eventID: eventId,\n          value: customData.value,\n          currency: customData.currency,\n          valueSelector: valueResult.selector\n        });\n      } catch (error) {\n        rememberStatus('blocked', {\n          reason: 'fbq_throw',\n          eventID: eventId,\n          message: error && error.message ? error.message : String(error)\n        });\n      }\n    });\n    return true;\n  }\n\n  function run() {\n    var finished = false;\n    CONFIG.valueRetryMs.forEach(function (delayMs, index) {\n      window.setTimeout(function () {\n        if (finished) return;\n        finished = tryRun(index, index === CONFIG.valueRetryMs.length - 1);\n      }, delayMs);\n    });\n  }\n\n  if (document.readyState === 'loading') {\n    document.addEventListener('DOMContentLoaded', run, { once: true });\n  } else {\n    run();\n  }\n})();\n</script>"
+      },
+      {
+        "type": "boolean",
+        "key": "supportDocumentWrite",
+        "value": "false"
+      }
+    ],
+    "fingerprint": "1779656578396",
+    "firingTriggerId": [
+      "98"
+    ],
+    "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/33/tags/99?apiLink=tag",
+    "consentSettings": {
+      "consentStatus": "notSet"
+    }
+  },
+  "trigger_backup": {
+    "accountId": "4703003246",
+    "containerId": "91608400",
+    "triggerId": "98",
+    "name": "AGENTSOS - [DOM Ready] shop_payment order only",
+    "type": "domReady",
+    "filter": [
+      {
+        "type": "equals",
+        "parameter": [
+          {
+            "type": "template",
+            "key": "arg0",
+            "value": "{{Page Hostname}}"
+          },
+          {
+            "type": "template",
+            "key": "arg1",
+            "value": "thecleancoffee.com"
+          }
+        ]
+      },
+      {
+        "type": "matchRegex",
+        "parameter": [
+          {
+            "type": "template",
+            "key": "arg0",
+            "value": "{{Page URL}}"
+          },
+          {
+            "type": "template",
+            "key": "arg1",
+            "value": "\\/shop_payment\\/?\\?.*(order_code|order_no|orderCode|orderNo)="
+          },
+          {
+            "type": "boolean",
+            "key": "ignore_case",
+            "value": "true"
+          }
+        ]
+      },
+      {
+        "type": "equals",
+        "parameter": [
+          {
+            "type": "template",
+            "key": "arg0",
+            "value": "{{HURDLERS - Iframe}}"
+          },
+          {
+            "type": "template",
+            "key": "arg1",
+            "value": "false"
+          }
+        ]
+      }
+    ],
+    "fingerprint": "1779608295679",
+    "notes": "Coffee Meta InitiateCheckout production trigger. /shop_payment/ order pages only."
+  }
+}

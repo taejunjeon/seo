@@ -386,7 +386,14 @@ const getClientIpForGuard = (req: Request) => {
   return (firstForwarded || req.ip || req.socket.remoteAddress || "unknown").split(",")[0].trim();
 };
 
-const isTrustedLedgerReadCaller = (req: Request) => ATTRIBUTION_LEDGER_TRUSTED_READ_IPS.has(getClientIpForGuard(req));
+const hasForwardedClientIpForGuard = (req: Request) => Boolean(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"]);
+
+const getDirectClientIpForGuard = (req: Request) => (req.ip || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+
+const isTrustedLedgerReadCaller = (req: Request) => {
+  if (hasForwardedClientIpForGuard(req)) return false;
+  return ATTRIBUTION_LEDGER_TRUSTED_READ_IPS.has(getDirectClientIpForGuard(req));
+};
 
 const checkAttributionLedgerReadRateLimit = (req: Request) => {
   if (isTrustedLedgerReadCaller(req)) {
@@ -5084,31 +5091,85 @@ export const createAttributionRouter = () => {
 
   router.get("/api/attribution/tiktok-pixel-events", async (req: Request, res: Response) => {
     try {
-      const items = listTikTokPixelEvents({
-        startAt: readOne(req.query.startAt),
-        endAt: readOne(req.query.endAt),
+      const startAt = readOne(req.query.startAt);
+      const endAt = readOne(req.query.endAt);
+      const requestedLimit = parsePositiveInt(req.query.limit, 100, 10000);
+      const summaryOnly = parseBooleanish(req.query.summaryOnly ?? req.query.summary_only, false);
+      const startMs = Date.parse(startAt);
+      const endMs = Date.parse(endAt);
+      const rangeDays = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs
+        ? Math.ceil((endMs - startMs) / 86_400_000)
+        : null;
+      const trustedInternalCaller = isTrustedLedgerReadCaller(req);
+      const publicMaxLimit = rangeDays !== null && rangeDays > ATTRIBUTION_LEDGER_LONG_RANGE_DAYS
+        ? ATTRIBUTION_LEDGER_PUBLIC_LONG_RANGE_MAX_LIMIT
+        : ATTRIBUTION_LEDGER_PUBLIC_MAX_LIMIT;
+      const rateLimit = trustedInternalCaller
+        ? { allowed: true, retryAfterSeconds: 0 }
+        : checkAttributionLedgerReadRateLimit(req);
+
+      if (!rateLimit.allowed) {
+        res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+        res.status(429).json({
+          ok: false,
+          error: "tiktok_pixel_events_read_rate_limited",
+          retryAfterSeconds: rateLimit.retryAfterSeconds,
+        });
+        return;
+      }
+
+      const summaryReadLimit = trustedInternalCaller
+        ? requestedLimit
+        : Math.min(requestedLimit, publicMaxLimit);
+      const effectiveItemLimit = summaryOnly ? 0 : summaryReadLimit;
+      const rawItems = listTikTokPixelEvents({
+        startAt,
+        endAt,
         siteSource: readOne(req.query.siteSource),
         eventName: readOne(req.query.eventName),
         action: readOne(req.query.action),
         orderCode: readOne(req.query.orderCode),
         orderNo: readOne(req.query.orderNo),
-        limit: parsePositiveInt(req.query.limit, 100, 10000),
+        limit: summaryReadLimit,
       });
+      const items = effectiveItemLimit > 0 ? rawItems.slice(0, effectiveItemLimit) : [];
+
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("X-Attribution-TikTok-Pixel-Guard", summaryOnly ? "summary-only" : "guarded");
 
       res.json({
         ok: true,
         dataSource: "operational_or_local_sqlite_tiktok_pixel_events",
         storage: "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
         filters: {
-          startAt: readOne(req.query.startAt) || null,
-          endAt: readOne(req.query.endAt) || null,
+          startAt: startAt || null,
+          endAt: endAt || null,
           siteSource: readOne(req.query.siteSource) || null,
           eventName: readOne(req.query.eventName) || null,
           action: readOne(req.query.action) || null,
           orderCode: readOne(req.query.orderCode) || null,
           orderNo: readOne(req.query.orderNo) || null,
+          requestedLimit,
+          effectiveItemLimit,
+          summaryReadLimit,
+          summaryOnly,
         },
-        summary: buildTikTokPixelEventSummary(items),
+        guard: {
+          applied: true,
+          summaryOnly,
+          trustedInternalCaller,
+          requestedLimit,
+          effectiveItemLimit,
+          summaryReadLimit,
+          publicMaxLimit,
+          rangeDays,
+          rateLimitPerWindow: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_PUBLIC_RATE_LIMIT,
+          rateWindowMs: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_RATE_WINDOW_MS,
+          note: summaryOnly
+            ? "summaryOnly=true 요청은 원본 items를 내려주지 않는다."
+            : "공개/장거리 조회는 raw items 반환 수를 제한한다.",
+        },
+        summary: buildTikTokPixelEventSummary(rawItems),
         items,
       });
     } catch (error) {
@@ -5418,7 +5479,6 @@ export const createAttributionRouter = () => {
         return;
       }
 
-      const allEntries = await readLedgerEntries();
       const source = typeof req.query.source === "string" ? req.query.source.trim() : "";
       const captureMode = typeof req.query.captureMode === "string" ? req.query.captureMode.trim() : "";
       const requestedLimit = parsePositiveInt(req.query.limit, 50, 10000);
@@ -5446,6 +5506,14 @@ export const createAttributionRouter = () => {
       if (guardApplied) {
         res.setHeader("X-Attribution-Ledger-Guard", summaryOnly ? "summary-only" : "limit-capped");
       }
+
+      const useIndexedRangeRead = !trustedInternalCaller && (hasStartFilter || hasEndFilter);
+      const allEntries = useIndexedRangeRead
+        ? await readLedgerEntriesInRange({
+            loggedAtFromIso: hasStartFilter ? new Date(startMs).toISOString() : undefined,
+            loggedAtToIso: hasEndFilter ? new Date(endMs).toISOString() : undefined,
+          })
+        : await readLedgerEntries();
 
       const withinRange = (entry: AttributionLedgerEntry) => {
         if (!hasStartFilter && !hasEndFilter) return true;
@@ -5477,7 +5545,9 @@ export const createAttributionRouter = () => {
           rangeDays,
         },
         summary: buildLedgerSummary(filtered),
-        allEntriesSummary: (source || captureMode || hasStartFilter || hasEndFilter) ? buildLedgerSummary(allEntries) : undefined,
+        allEntriesSummary: trustedInternalCaller && (source || captureMode || hasStartFilter || hasEndFilter)
+          ? buildLedgerSummary(allEntries)
+          : undefined,
         items: effectiveLimit > 0 ? filtered.slice(0, effectiveLimit) : [],
         guard: {
           applied: guardApplied,
@@ -5485,6 +5555,7 @@ export const createAttributionRouter = () => {
           publicMaxLimit,
           rateLimitPerWindow: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_PUBLIC_RATE_LIMIT,
           rateLimitWindowMs: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_RATE_WINDOW_MS,
+          readStrategy: useIndexedRangeRead ? "indexed_range_read" : "full_ledger_read",
           note: guardApplied
             ? "Large public item responses are capped. Use summaryOnly=true or aggregate endpoints for dashboards."
             : "No ledger guard cap was applied.",

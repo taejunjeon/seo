@@ -140,6 +140,55 @@
   text-decoration: underline;
 }
 
+.runtimeNotice {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 14px;
+  align-items: stretch;
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  background: var(--primary-bg);
+  padding: 14px 16px;
+  margin: 0 0 18px;
+}
+.runtimeNotice strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 14px;
+}
+.runtimeNotice p {
+  margin: 6px 0 0;
+  color: var(--slate);
+  font-size: 12px;
+}
+.runtimeNotice dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.runtimeNotice dl div {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 7px 9px;
+}
+.runtimeNotice dt {
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.runtimeNotice dd {
+  margin: 0;
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .headlineGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -228,6 +277,25 @@
 }
 .compareSummary strong {
   color: var(--ink);
+}
+.joinExplainBox {
+  border: 1px solid var(--primary-border);
+  border-radius: 10px;
+  background: var(--primary-bg);
+  padding: 12px 14px;
+  margin: 0 0 14px;
+}
+.joinExplainBox strong {
+  display: block;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.joinExplainBox p {
+  margin: 6px 0 0;
+  color: var(--slate);
+  font-size: 12px;
 }
 .auditSubsection {
   margin-top: 16px;
@@ -737,6 +805,7 @@
 
 @media (max-width: 960px) {
   .headlineGrid { grid-template-columns: 1fr; }
+  .runtimeNotice { grid-template-columns: 1fr; }
   .cohortSplitGrid { grid-template-columns: 1fr; }
   .pageLongGrid { grid-template-columns: 1fr; }
   .denominatorGrid { grid-template-columns: 1fr; }

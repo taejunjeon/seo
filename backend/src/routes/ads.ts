@@ -37,7 +37,7 @@ import { metaCampaignAliasAuditPathForSite } from "../metaCampaignAliasPaths";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import { categorizeProductName, normalizePhone } from "../consultation";
 import { normalizeOrderIdBase } from "../orderKeys";
-import { buildTikTokRoasComparison } from "../tiktokRoasComparison";
+import { buildTikTokRoasComparison, buildTikTokRoasSummary } from "../tiktokRoasComparison";
 import { queryGA4PaidTrafficQuality, queryGA4SourceConversion } from "../ga4";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
@@ -1948,19 +1948,23 @@ const normalizeMetaRoasExclusionText = (value: string | null | undefined): strin
 };
 
 const isApprovedNonMetaForMetaRoas = (order: NormalizedLedgerOrder): boolean => {
+  const source = normalizeMetaRoasExclusionText(order.utmSource);
+  const content = normalizeMetaRoasExclusionText(order.utmContent);
   const values = [
-    order.utmSource,
+    source,
     order.utmCampaign,
     order.utmTerm,
-    order.utmContent,
+    content,
     ...order.landingPaths,
   ].map(normalizeMetaRoasExclusionText).filter(Boolean);
-  return values.some((value) => (
+  return (source === "ig" && content === "link_in_bio")
+    || values.some((value) => (
     value === "google"
     || value.startsWith("googleads")
     || value.startsWith("google_")
     || value.includes("googleads_")
     || value === "newmember_coupon"
+    || value === "topbanner_mo"
     || value.startsWith("inpork_")
     || value.includes("_inpork_")
     || value.includes("instagram_inpork")
@@ -3531,7 +3535,7 @@ const META_UTM_APPROVED_EXCLUSION_SOURCE =
 const META_UTM_APPROVED_EXCLUSION_LIMITATIONS = [
   "approved policy applied locally: excludeFromMetaUnmapped=YES는 Meta 미매칭/ROAS용 집계에서 제외한다.",
   "DB 원장, Meta 광고 계정, 외부 플랫폼 전송은 바꾸지 않는다.",
-  "REVIEW는 profile/link-in-bio 또는 fbclid only 가능성이 있어 raw 원장 재확인 전 자동 제외하지 않는다.",
+  "REVIEW는 부분 UTM 또는 fbclid only 가능성이 있어 raw 원장 재확인 전 자동 제외하지 않는다.",
 ];
 
 type MetaUtmBGradeProposalRow = {
@@ -3578,9 +3582,65 @@ type MetaUtmBGradeProposal = {
   limitations: string[];
 };
 
+type MetaUtmOriginalLandingBridge = {
+  ok: boolean;
+  status: "loaded" | "missing" | "not_applicable" | "error";
+  mode: "read_only_draft_not_roas_applied";
+  source: {
+    jsonPath: string | null;
+    reportPath: string | null;
+    generatedAtKst: string | null;
+    targetPath: string | null;
+    windowUtc: { start: string; end: string } | null;
+    site: string | null;
+  };
+  ledgerGap: {
+    siteLandingExactPathRows: number | null;
+    metadataTextMentions: number;
+    originalLandingBridgeRows: number;
+    textMentionsWithoutUsableOriginalUrl: number;
+  };
+  totals: {
+    rowsWithUtm: number;
+    rowsWithFbclid: number;
+    numericIdRows: number;
+    templatePhraseRows: number;
+    checkoutStartedRows: number;
+    confirmedPaymentRows: number;
+    confirmedRevenueKrw: number;
+  };
+  confidenceRollup: Array<{
+    grade: string;
+    meaning: string;
+    rows: number;
+    checkoutStartedRows: number;
+    confirmedPaymentRows: number;
+    confirmedRevenueKrw: number;
+  }>;
+  campaignRollup: Array<{
+    campaignEvidence: string;
+    rows: number;
+    checkoutStartedRows: number;
+    confirmedPaymentRows: number;
+    confirmedRevenueKrw: number;
+    topTerms: Array<{ value: string; rows: number }>;
+    topContents: Array<{ value: string; rows: number }>;
+  }>;
+  recommendations: string[];
+  limitations: string[];
+};
+
 const META_UTM_DIAGNOSTICS_CACHE_TTL_MS = 15 * 60 * 1000;
 const META_UTM_DIAGNOSTICS_DISK_STALE_MAX_MS = 24 * 60 * 60 * 1000;
 const META_UTM_DIAGNOSTICS_DISK_CACHE_PATH = path.join(DATA_DIR, "runtime-cache", "meta-utm-diagnostics-cache.json");
+const META_UTM_ORIGINAL_LANDING_BRIDGE_JSON_PATH = path.join(
+  REPO_ROOT,
+  "data/project/vm-original-landing-bridge-readonly-20260525.json",
+);
+const META_UTM_ORIGINAL_LANDING_BRIDGE_REPORT_PATH = path.join(
+  REPO_ROOT,
+  "project/vm-original-landing-bridge-readonly-20260525.md",
+);
 type MetaUtmDiagnosticsDiskCache = {
   version: 1;
   saved_at: string;
@@ -4022,6 +4082,10 @@ const hasInPorkOrProfileLinkValue = (values: string[]): boolean => values.some((
   || value.includes("teamketo_instagram_inpork")
 ));
 
+const hasInternalSiteBannerValue = (values: string[]): boolean => values.some((value) => (
+  value === "topbanner_mo"
+));
+
 const buildMetaUtmDryRunDecision = (params: {
   bucket: string;
   label: string;
@@ -4090,6 +4154,20 @@ const classifyMetaUtmUnmappedOrderDryRun = (order: NormalizedLedgerOrder): MetaU
     });
   }
 
+  if (hasInternalSiteBannerValue(trackingValues)) {
+    return buildMetaUtmDryRunDecision({
+      bucket: "exclude_from_meta_internal_site_banner_by_utm_file",
+      label: "자사몰 내부 상단띠배너 UTM",
+      excludeFromMetaUnmapped: "YES",
+      confidence: 0.91,
+      matchedUtmAlias: campaign || source || content,
+      matchedChannelBucket: "internal_site_banner",
+      matchedManagementMemo: "UTM 관리 파일의 자사몰_회원가입_상단띠배너_MO",
+      recommendation: "Meta 미매칭에서 제외하고 자사몰 내부 배너 유입으로 분리한다.",
+      evidence,
+    });
+  }
+
   if (hasInPorkOrProfileLinkValue(allValues)) {
     return buildMetaUtmDryRunDecision({
       bucket: "exclude_from_meta_profile_link_by_utm_file",
@@ -4100,6 +4178,20 @@ const classifyMetaUtmUnmappedOrderDryRun = (order: NormalizedLedgerOrder): MetaU
       matchedChannelBucket: "profile_link_or_inpork",
       matchedManagementMemo: "UTM 관리 파일의 인포크/프로필 링크 계열",
       recommendation: "광고비가 붙은 Meta 캠페인 ROAS에는 넣지 않고 profile/link-in-bio 유입으로 분리한다.",
+      evidence,
+    });
+  }
+
+  if (source === "ig" && content === "link_in_bio") {
+    return buildMetaUtmDryRunDecision({
+      bucket: "exclude_from_meta_ig_profile_link_by_approval",
+      label: "IG 프로필/링크 인 바이오 승인 제외",
+      excludeFromMetaUnmapped: "YES",
+      confidence: 0.88,
+      matchedUtmAlias: "ig/link_in_bio",
+      matchedChannelBucket: "assisted_social_profile_link",
+      matchedManagementMemo: "TJ님 승인: 별도 소셜 보조 유입",
+      recommendation: "Meta 캠페인 ROAS에는 넣지 않고 별도 소셜 보조 유입으로 분리한다.",
       evidence,
     });
   }
@@ -4117,11 +4209,11 @@ const classifyMetaUtmUnmappedOrderDryRun = (order: NormalizedLedgerOrder): MetaU
 
   if (source === "ig" || content === "link_in_bio") {
     return buildMetaUtmDryRunDecision({
-      bucket: "quarantine_or_exclude_ig_profile_link",
-      label: "IG 프로필/링크 인 바이오 후보",
+      bucket: "quarantine_partial_ig_profile_link",
+      label: "IG 프로필/링크 인 바이오 부분 후보",
       excludeFromMetaUnmapped: "REVIEW",
       confidence: 0.82,
-      recommendation: "광고 캠페인 확정 금지. fbclid와 원장 raw row를 재확인해 assisted/social 또는 제외로 분리한다.",
+      recommendation: "source=ig와 content=link_in_bio가 같이 확인되지 않은 부분 후보라 raw 원장 재확인 전 자동 제외하지 않는다.",
       evidence,
     });
   }
@@ -4322,6 +4414,10 @@ const buildMetaUtmUnmappedOrderSummary = (params: {
 
 const META_UTM_BGRADE_CACHE_TTL_MS = 5 * 60 * 1000;
 let metaUtmBGradeProposalCache: { loadedAtMs: number; value: MetaUtmBGradeProposal } | null = null;
+let metaUtmOriginalLandingBridgeCache: {
+  loadedAtMs: number;
+  value: MetaUtmOriginalLandingBridge;
+} | null = null;
 
 const findLatestGeneratedFile = async (
   dir: string,
@@ -4527,6 +4623,174 @@ const loadMetaUtmBGradeProposal = async (): Promise<MetaUtmBGradeProposal> => {
   }
 };
 
+const toMetaUtmString = (value: unknown): string => (typeof value === "string" ? value : "");
+
+const toMetaUtmNumber = (value: unknown): number => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const toMetaUtmNullableNumber = (value: unknown): number | null => {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildMetaUtmOriginalLandingBridgeMissing = (
+  status: MetaUtmOriginalLandingBridge["status"],
+  message: string,
+): MetaUtmOriginalLandingBridge => ({
+  ok: false,
+  status,
+  mode: "read_only_draft_not_roas_applied",
+  source: {
+    jsonPath: status === "not_applicable" ? null : META_UTM_ORIGINAL_LANDING_BRIDGE_JSON_PATH,
+    reportPath: status === "not_applicable" ? null : META_UTM_ORIGINAL_LANDING_BRIDGE_REPORT_PATH,
+    generatedAtKst: null,
+    targetPath: null,
+    windowUtc: null,
+    site: null,
+  },
+  ledgerGap: {
+    siteLandingExactPathRows: null,
+    metadataTextMentions: 0,
+    originalLandingBridgeRows: 0,
+    textMentionsWithoutUsableOriginalUrl: 0,
+  },
+  totals: {
+    rowsWithUtm: 0,
+    rowsWithFbclid: 0,
+    numericIdRows: 0,
+    templatePhraseRows: 0,
+    checkoutStartedRows: 0,
+    confirmedPaymentRows: 0,
+    confirmedRevenueKrw: 0,
+  },
+  confidenceRollup: [],
+  campaignRollup: [],
+  recommendations: [message],
+  limitations: [message],
+});
+
+const loadMetaUtmOriginalLandingBridge = async (site: SiteKey | null): Promise<MetaUtmOriginalLandingBridge> => {
+  if (site !== "biocom") {
+    return buildMetaUtmOriginalLandingBridgeMissing("not_applicable", "원본 랜딩 bridge 초안은 현재 biocom /iiary02 전용이다.");
+  }
+  if (
+    metaUtmOriginalLandingBridgeCache
+    && Date.now() - metaUtmOriginalLandingBridgeCache.loadedAtMs <= META_UTM_BGRADE_CACHE_TTL_MS
+  ) {
+    return metaUtmOriginalLandingBridgeCache.value;
+  }
+
+  try {
+    const raw = await fs.readFile(META_UTM_ORIGINAL_LANDING_BRIDGE_JSON_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as {
+      generated_at_kst?: unknown;
+      source?: {
+        target_path?: unknown;
+        logged_at_window_utc?: { start?: unknown; end?: unknown };
+        site?: unknown;
+      };
+      site_landing_exact_path_rows?: unknown;
+      attribution_bridge?: Record<string, unknown>;
+      confidence_rollup?: Array<Record<string, unknown>>;
+      campaign_rollup?: Array<Record<string, unknown>>;
+      bridge_rule_draft?: { proposed_use?: unknown; forbidden_use?: unknown };
+    };
+    const source = parsed.source ?? {};
+    const bridge = parsed.attribution_bridge ?? {};
+    const confidenceRollup = (parsed.confidence_rollup ?? []).map((row) => ({
+      grade: toMetaUtmString(row.grade),
+      meaning: toMetaUtmString(row.meaning),
+      rows: toMetaUtmNumber(row.rows),
+      checkoutStartedRows: toMetaUtmNumber(row.checkout_started_rows),
+      confirmedPaymentRows: toMetaUtmNumber(row.confirmed_payment_rows),
+      confirmedRevenueKrw: toMetaUtmNumber(row.confirmed_revenue_krw),
+    }));
+    const campaignRollup = (parsed.campaign_rollup ?? []).slice(0, 10).map((row) => ({
+      campaignEvidence: toMetaUtmString(row.campaign_evidence),
+      rows: toMetaUtmNumber(row.rows),
+      checkoutStartedRows: toMetaUtmNumber(row.checkout_started_rows),
+      confirmedPaymentRows: toMetaUtmNumber(row.confirmed_payment_rows),
+      confirmedRevenueKrw: toMetaUtmNumber(row.confirmed_revenue_krw),
+      topTerms: Array.isArray(row.top_terms)
+        ? row.top_terms.slice(0, 5).map((item) => ({
+            value: toMetaUtmString((item as Record<string, unknown>).value),
+            rows: toMetaUtmNumber((item as Record<string, unknown>).rows),
+          }))
+        : [],
+      topContents: Array.isArray(row.top_contents)
+        ? row.top_contents.slice(0, 5).map((item) => ({
+            value: toMetaUtmString((item as Record<string, unknown>).value),
+            rows: toMetaUtmNumber((item as Record<string, unknown>).rows),
+          }))
+        : [],
+    }));
+    const proposedUse = Array.isArray(parsed.bridge_rule_draft?.proposed_use)
+      ? parsed.bridge_rule_draft.proposed_use.filter((item): item is string => typeof item === "string")
+      : [];
+    const forbiddenUse = Array.isArray(parsed.bridge_rule_draft?.forbidden_use)
+      ? parsed.bridge_rule_draft.forbidden_use.filter((item): item is string => typeof item === "string")
+      : [];
+    const loaded: MetaUtmOriginalLandingBridge = {
+      ok: true,
+      status: "loaded",
+      mode: "read_only_draft_not_roas_applied",
+      source: {
+        jsonPath: META_UTM_ORIGINAL_LANDING_BRIDGE_JSON_PATH,
+        reportPath: META_UTM_ORIGINAL_LANDING_BRIDGE_REPORT_PATH,
+        generatedAtKst: toMetaUtmString(parsed.generated_at_kst) || null,
+        targetPath: toMetaUtmString(source.target_path) || null,
+        windowUtc: source.logged_at_window_utc
+          ? {
+              start: toMetaUtmString(source.logged_at_window_utc.start),
+              end: toMetaUtmString(source.logged_at_window_utc.end),
+            }
+          : null,
+        site: toMetaUtmString(source.site) || "biocom",
+      },
+      ledgerGap: {
+        siteLandingExactPathRows: toMetaUtmNullableNumber(parsed.site_landing_exact_path_rows),
+        metadataTextMentions: toMetaUtmNumber(bridge.metadata_text_mentions),
+        originalLandingBridgeRows: toMetaUtmNumber(bridge.source_rows),
+        textMentionsWithoutUsableOriginalUrl: toMetaUtmNumber(bridge.metadata_text_mentions_without_usable_imweb_landing_url),
+      },
+      totals: {
+        rowsWithUtm: toMetaUtmNumber(bridge.rows_with_utm),
+        rowsWithFbclid: toMetaUtmNumber(bridge.rows_with_fbclid),
+        numericIdRows: toMetaUtmNumber(bridge.numeric_id_rows),
+        templatePhraseRows: toMetaUtmNumber(bridge.template_phrase_rows),
+        checkoutStartedRows: toMetaUtmNumber(bridge.checkout_started_rows),
+        confirmedPaymentRows: toMetaUtmNumber(bridge.confirmed_payment_rows),
+        confirmedRevenueKrw: toMetaUtmNumber(bridge.confirmed_revenue_krw),
+      },
+      confidenceRollup,
+      campaignRollup,
+      recommendations: [
+        "고객 유입 장부에 원본 랜딩 path가 없을 때 결제/체크아웃 원장의 imweb_landing_url을 보조 증거로 보여준다.",
+        "숫자 campaign/adset/ad ID가 있는 row는 A급 매칭 재료로 표시한다.",
+        "템플릿 문구가 그대로 남은 row는 Meta 유료 유입 보조 매출로만 보고 campaign/adset/ad 자동 배정은 금지한다.",
+        ...proposedUse,
+      ],
+      limitations: [
+        "read-only 초안이다. 현재 API 응답에 붙여 보여주지만 ROAS 산식에는 아직 반영하지 않는다.",
+        "원본 랜딩 bridge row를 새 방문 수로 중복 가산하지 않는다.",
+        ...forbiddenUse,
+      ],
+    };
+    metaUtmOriginalLandingBridgeCache = { loadedAtMs: Date.now(), value: loaded };
+    return loaded;
+  } catch (error) {
+    const failed = buildMetaUtmOriginalLandingBridgeMissing(
+      "error",
+      error instanceof Error ? error.message : "원본 랜딩 bridge 초안 로딩 실패",
+    );
+    metaUtmOriginalLandingBridgeCache = { loadedAtMs: Date.now(), value: failed };
+    return failed;
+  }
+};
+
 const buildMetaUtmDryRunFromCachedSamples = (
   summary: MetaUtmUnmappedOrderSummary | undefined,
 ): MetaUtmUnmappedDryRunSummary | undefined => {
@@ -4603,6 +4867,7 @@ const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<
   const bGradeProposal = site === "biocom"
     ? await loadMetaUtmBGradeProposal()
     : buildMetaUtmBGradeMissingProposal("not_applicable", "B급 제안 사전은 현재 biocom 계정 전용이다.");
+  const originalLandingBridge = await loadMetaUtmOriginalLandingBridge(site);
   const unmappedDryRun = applyApprovedMetaUtmExclusionSummaryMode(
     unmapped?.dryRun ?? buildMetaUtmDryRunFromCachedSamples(unmapped),
   );
@@ -4625,6 +4890,7 @@ const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<
     ...existingLimitations,
     "승인된 비Meta 오분류 제외 규칙은 Meta 미매칭/ROAS용 집계에 적용한다. REVIEW bucket은 제외하지 않는다.",
     "B급 제안 사전은 자동 확정이 아니라 후보 사전이다. 최신 URL/숫자 ID evidence 확인 전 manual_verified로 승격하지 않는다.",
+    "원본 랜딩 bridge는 고객 유입 장부가 놓친 원본 랜딩 후보를 화면에 보이는 read-only 보조 증거다. 현재 ROAS 산식에는 직접 반영하지 않는다.",
   ];
 
   return {
@@ -4632,6 +4898,7 @@ const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<
     unmapped: augmentedUnmapped,
     unmappedDryRun,
     bgradeProposal: bGradeProposal,
+    originalLandingBridge,
     diagnostics: {
       ...existingDiagnostics,
       limitations: [...new Set(nextLimitations)],
@@ -6730,6 +6997,32 @@ const buildTikTokPaymentEvidenceSummary = (
 export const createAdsRouter = () => {
   startMetaMappingWarmupOnce();
   const router = express.Router();
+
+  router.get("/api/ads/tiktok/roas-summary", async (req: Request, res: Response) => {
+    try {
+      const startDate = typeof req.query.start_date === "string" ? req.query.start_date.trim() : undefined;
+      const endDate = typeof req.query.end_date === "string" ? req.query.end_date.trim() : undefined;
+      const invalidRange =
+        (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate))
+        || (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))
+        || Boolean((startDate && !endDate) || (!startDate && endDate));
+
+      if (invalidRange) {
+        res.status(400).json({
+          ok: false,
+          error: "start_date/end_date는 둘 다 YYYY-MM-DD 형식으로 전달해야 한다.",
+        });
+        return;
+      }
+
+      const payload = await buildTikTokRoasSummary({ startDate, endDate });
+      res.setHeader("Cache-Control", "no-store");
+      res.json(payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "tiktok roas summary failed";
+      res.status(500).json({ ok: false, error: message });
+    }
+  });
 
   router.get("/api/ads/tiktok/roas-comparison", async (req: Request, res: Response) => {
     try {

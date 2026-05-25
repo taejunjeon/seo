@@ -114,6 +114,7 @@ export type SiteLandingChannelClassified =
   | "self_internal"
   | "organic_search"
   | "organic_social"
+  | "naver_brandsearch"
   | "paid_search"
   | "paid_social"
   | "referral"
@@ -844,7 +845,9 @@ export const summarizeSiteLanding = (
 
   const total = Number(totalRow.n);
   const paidHint =
-    (channel_distribution["paid_search"] ?? 0) + (channel_distribution["paid_social"] ?? 0);
+    (channel_distribution["paid_search"] ?? 0) +
+    (channel_distribution["paid_social"] ?? 0) +
+    (channel_distribution["naver_brandsearch"] ?? 0);
   const organic =
     (channel_distribution["organic_search"] ?? 0) + (channel_distribution["organic_social"] ?? 0);
   const direct = (channel_distribution["direct"] ?? 0) + (channel_distribution["self_internal"] ?? 0);

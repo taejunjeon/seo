@@ -1,0 +1,304 @@
+{
+  "ok": true,
+  "schema_version": "naver-brandsearch-roas-preview-v1-20260525",
+  "generated_at": "2026-05-25T13:14:30.147Z",
+  "mode": "read_only_no_send",
+  "requested_window": {
+    "since": "2026-05-11",
+    "until": "2026-05-25",
+    "timezone": "KST"
+  },
+  "source": {
+    "cost_primary": "VM Cloud SQLite naver_brandsearch_manual_cost_daily",
+    "revenue_preview": "VM Cloud SQLite attribution_ledger confirmed payment_success with Naver brandsearch marker",
+    "landing_evidence": "VM Cloud SQLite site_landing_ledger channel_classified=naver_brandsearch",
+    "caveats": [
+      "This is a no-send preview reader, not a deployed report API.",
+      "VM Cloud payment_success marker revenue is separated from final operating/order-source revenue.",
+      "Naver Ads claimed conversion value is not mixed into internal confirmed revenue."
+    ]
+  },
+  "freshness": {
+    "cost_table_exists": true,
+    "cost_min_date": "2026-05-11",
+    "cost_max_date": "2026-07-20",
+    "cost_rows": 262,
+    "cost_cached_at_max": "2026-05-25 12:52:49",
+    "landing_max_landed_at": "2026-05-25T13:14:24.359Z",
+    "attribution_max_logged_at": "2026-05-25T13:14:24.359Z"
+  },
+  "totals": {
+    "total_cost_krw": 975341,
+    "total_vm_confirmed_payment_success_amount_krw": 5138980,
+    "total_landing_rows": 146
+  },
+  "by_site": [
+    {
+      "site": "biocom",
+      "effective_window": {
+        "since": "2026-05-22",
+        "until": "2026-05-25",
+        "timezone": "KST"
+      },
+      "cost": {
+        "total_cost_krw": 205336,
+        "confirmed_contract_cost_krw": 205336,
+        "renewal_assumption_cost_krw": 0,
+        "devices": [
+          {
+            "site": "biocom",
+            "device": "mobile",
+            "min_date": "2026-05-22",
+            "max_date": "2026-05-25",
+            "row_count": 4,
+            "cost_krw": 117336,
+            "confirmed_cost_krw": 117336,
+            "renewal_assumption_cost_krw": 0
+          },
+          {
+            "site": "biocom",
+            "device": "pc",
+            "min_date": "2026-05-22",
+            "max_date": "2026-05-25",
+            "row_count": 4,
+            "cost_krw": 88000,
+            "confirmed_cost_krw": 88000,
+            "renewal_assumption_cost_krw": 0
+          }
+        ]
+      },
+      "evidence": {
+        "brandsearch_landing_rows": 132,
+        "vm_confirmed_payment_success_rows": 18,
+        "vm_confirmed_payment_success_amount_krw": 4786416
+      },
+      "roas": {
+        "internal_vm_payment_success_roas": 23.31,
+        "interpretation": "VM Cloud 결제완료 marker 기준 참고 ROAS다. 예산 최종 판단에는 운영DB/Imweb 주문 정본 cross-check가 필요하다."
+      },
+      "source_status": {
+        "cost_source": "VM Cloud naver_brandsearch_manual_cost_daily manual period allocation cache",
+        "revenue_source": "VM Cloud attribution_ledger payment_success confirmed rows with Naver brandsearch marker",
+        "confidence": "medium_high",
+        "warnings": []
+      }
+    },
+    {
+      "site": "thecleancoffee",
+      "effective_window": {
+        "since": "2026-05-11",
+        "until": "2026-05-25",
+        "timezone": "KST"
+      },
+      "cost": {
+        "total_cost_krw": 770005,
+        "confirmed_contract_cost_krw": 770005,
+        "renewal_assumption_cost_krw": 0,
+        "devices": [
+          {
+            "site": "thecleancoffee",
+            "device": "mobile",
+            "min_date": "2026-05-11",
+            "max_date": "2026-05-25",
+            "row_count": 15,
+            "cost_krw": 440005,
+            "confirmed_cost_krw": 440005,
+            "renewal_assumption_cost_krw": 0
+          },
+          {
+            "site": "thecleancoffee",
+            "device": "pc",
+            "min_date": "2026-05-11",
+            "max_date": "2026-05-25",
+            "row_count": 15,
+            "cost_krw": 330000,
+            "confirmed_cost_krw": 330000,
+            "renewal_assumption_cost_krw": 0
+          }
+        ]
+      },
+      "evidence": {
+        "brandsearch_landing_rows": 14,
+        "vm_confirmed_payment_success_rows": 11,
+        "vm_confirmed_payment_success_amount_krw": 352564
+      },
+      "roas": {
+        "internal_vm_payment_success_roas": 0.46,
+        "interpretation": "VM Cloud 결제완료 marker 기준 참고 ROAS다. 예산 최종 판단에는 운영DB/Imweb 주문 정본 cross-check가 필요하다."
+      },
+      "source_status": {
+        "cost_source": "VM Cloud naver_brandsearch_manual_cost_daily manual period allocation cache",
+        "revenue_source": "VM Cloud attribution_ledger payment_success confirmed rows with Naver brandsearch marker",
+        "confidence": "medium",
+        "warnings": [
+          "thecleancoffee_landing_capture_is_recent; older site_landing rows may undercount brandsearch landings"
+        ]
+      }
+    }
+  ],
+  "daily_rows": [
+    {
+      "site": "biocom",
+      "date": "2026-05-22",
+      "cost_krw": 51334,
+      "landing_rows": 39,
+      "vm_confirmed_payment_success_rows": 5,
+      "vm_confirmed_payment_success_amount_krw": 767924
+    },
+    {
+      "site": "biocom",
+      "date": "2026-05-23",
+      "cost_krw": 51334,
+      "landing_rows": 30,
+      "vm_confirmed_payment_success_rows": 5,
+      "vm_confirmed_payment_success_amount_krw": 2003560
+    },
+    {
+      "site": "biocom",
+      "date": "2026-05-24",
+      "cost_krw": 51334,
+      "landing_rows": 39,
+      "vm_confirmed_payment_success_rows": 6,
+      "vm_confirmed_payment_success_amount_krw": 1429666
+    },
+    {
+      "site": "biocom",
+      "date": "2026-05-25",
+      "cost_krw": 51334,
+      "landing_rows": 24,
+      "vm_confirmed_payment_success_rows": 2,
+      "vm_confirmed_payment_success_amount_krw": 585266
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-11",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 1,
+      "vm_confirmed_payment_success_amount_krw": 28900
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-12",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 1,
+      "vm_confirmed_payment_success_amount_krw": 28900
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-13",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 0,
+      "vm_confirmed_payment_success_amount_krw": 0
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-14",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 0,
+      "vm_confirmed_payment_success_amount_krw": 0
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-15",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 0,
+      "vm_confirmed_payment_success_amount_krw": 0
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-16",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 1,
+      "vm_confirmed_payment_success_amount_krw": 42240
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-17",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 1,
+      "vm_confirmed_payment_success_amount_krw": 28900
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-18",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 0,
+      "vm_confirmed_payment_success_amount_krw": 0
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-19",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 2,
+      "vm_confirmed_payment_success_amount_krw": 75977
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-20",
+      "cost_krw": 51334,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 2,
+      "vm_confirmed_payment_success_amount_krw": 62656
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-21",
+      "cost_krw": 51333,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 0,
+      "vm_confirmed_payment_success_amount_krw": 0
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-22",
+      "cost_krw": 51333,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 1,
+      "vm_confirmed_payment_success_amount_krw": 28900
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-23",
+      "cost_krw": 51333,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 1,
+      "vm_confirmed_payment_success_amount_krw": 27191
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-24",
+      "cost_krw": 51333,
+      "landing_rows": 0,
+      "vm_confirmed_payment_success_rows": 1,
+      "vm_confirmed_payment_success_amount_krw": 28900
+    },
+    {
+      "site": "thecleancoffee",
+      "date": "2026-05-25",
+      "cost_krw": 51333,
+      "landing_rows": 14,
+      "vm_confirmed_payment_success_rows": 0,
+      "vm_confirmed_payment_success_amount_krw": 0
+    }
+  ],
+  "invariants_held": {
+    "sqlite_mode": "read_only",
+    "sqlite_write": 0,
+    "backend_deploy_or_restart": 0,
+    "platform_send": 0,
+    "raw_identifier_selected": 0,
+    "report_mode": "read_only_no_send",
+    "operating_db_write": 0,
+    "naver_ads_setting_change": 0,
+    "conversion_upload": 0
+  }
+}

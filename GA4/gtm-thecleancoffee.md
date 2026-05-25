@@ -39,6 +39,8 @@ source_window_freshness_confidence:
 - 2026-05-18 05:37 KST에 TJ님 승인 범위로 `begin_checkout` GA4 전송 태그 이름만 `AGENTSOS`로 바꿔 GTM version 21을 게시했다.
 - 2026-05-24 16:38 KST에 TJ님 승인 범위로 일반 주문서 `/shop_payment/` 전용 Meta browser `InitiateCheckout` 태그를 추가해 GTM version 22를 게시했다.
 - 2026-05-24 16:46 KST에 같은 태그에 정기구독 checkout 중복 방지 guard를 추가해 GTM version 23을 게시했다.
+- 2026-05-25 06:02 KST에 실제 주문서 smoke의 `missing_value` 차단을 반영해 같은 태그에 주문금액 렌더링 재시도 guard를 추가하고 GTM version 24를 게시했다.
+- 2026-05-25 06:12 KST 실제 일반 주문서 재-smoke에서 Meta Pixel Helper `InitiateCheckout` 활성, value `33900`, currency `KRW`, value_status `present`, console `sent`를 확인했다.
 - GA4 이벤트는 현재 BigQuery에 적재된 전체 export 기간(`2026-04-07~2026-05-16`)을 read-only로 집계했다. 2026-05-18 Preview/Publish 결과는 아직 BigQuery daily export에 들어오지 않았다.
 - 이 문서 작성 과정에서 GA4/Meta/Google/TikTok/Naver 전송, 운영DB write, VM Cloud deploy는 하지 않았다.
 
@@ -47,7 +49,7 @@ source_window_freshness_confidence:
 | 항목 | 값 |
 | --- | --- |
 | site | thecleancoffee (thecleancoffee.com) |
-| GTM container | GTM-5M33GC4 / live version 23 (Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z) |
+| GTM container | GTM-5M33GC4 / live version 24 (Coffee Meta InitiateCheckout shop_payment value retry guard - 20260524T210252Z) |
 | GA4 measurement ID | G-JLSBXX7300 |
 | GA4 BigQuery source | project-dadba7dd-0229-4ff6-81c.analytics_326949178.events_* |
 | GA4 export window | 2026-04-07~2026-05-16 (40 daily tables) |
@@ -76,7 +78,7 @@ GTM API read-only로 `GTM-5M33GC4`의 live version을 다시 조회했다.
 - 기존 tag 35/51은 GA4 `begin_checkout` 정본 체인이므로 유지한다.
 - 새 Preview 후보는 기존 `begin_checkout` 트리거를 재사용하지 말고, `/shop_payment/` DOM Ready + 완료 URL 제외 조건의 별도 Custom HTML no-send 태그로 분리한다.
 
-### 2026-05-24 16:38~16:46 KST GTM Production publish — Meta InitiateCheckout shop_payment
+### 2026-05-24 16:38~2026-05-25 06:03 KST GTM Production publish — Meta InitiateCheckout shop_payment
 
 TJ님 승인에 따라 일반 주문서 `/shop_payment/` 전용 Meta browser `InitiateCheckout` 운영 태그를 게시했다.
 
@@ -84,22 +86,25 @@ TJ님 승인에 따라 일반 주문서 `/shop_payment/` 전용 Meta browser `In
 
 - 이전 live version: `21` / `AGENTSOS GA4 begin_checkout rename - 2026-05-18`
 - 1차 live version: `22` / `Coffee Meta InitiateCheckout shop_payment - 20260524T073809Z`
-- 최종 live version: `23` / `Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z`
+- subscription guard live version: `23` / `Coffee Meta InitiateCheckout shop_payment subscription guard - 20260524T074633Z`
+- 최종 live version: `24` / `Coffee Meta InitiateCheckout shop_payment value retry guard - 20260524T210252Z`
 - 1차 workspace: `codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T073809Z` / id `31`
 - guard 보강 workspace: `codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T074633Z` / id `32`
+- value retry workspace: `codex_coffee_meta_initiatecheckout_shop_payment_prod_20260524T210252Z` / id `33`
 - workspace after publish: 삭제됨 / Default Workspace만 남음
 - tag: id `99` / `AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment`
 - trigger: id `98` / `AGENTSOS - [DOM Ready] shop_payment order only`
 - quick preview compiler error: `false`
 - post-publish read-only: target tag 1건 / target trigger 1건
 - live 구성 수: tags 34 / triggers 25 / variables 13
-- 최종 tag guard: `subscription_checkout_excluded` 포함
+- 최종 tag guard: `subscription_checkout_excluded` + `waiting_value` 포함
+- v24 browser smoke: PASS (`InitiateCheckout.f4c64d08`, value `33900`, value selector `#oms-shop-payment text:total_order_price`)
 
 운영 태그 조건:
 
 - path가 `/shop_payment` 또는 `/shop_payment/`일 때만 실행한다.
 - query 또는 checkout context에 `order_code`, `order_no`, `checkoutId` 중 하나가 있어야 한다.
-- 주문 요약의 `총 주문금액` 등에서 value를 읽지 못하면 전송하지 않는다.
+- 주문 요약의 `총 주문금액` 등에서 value를 읽지 못하면 최대 8초까지 재시도하고, 그래도 실패하면 전송하지 않는다.
 - sessionStorage dedupe로 같은 eventID는 1회만 전송한다.
 - eventID는 raw order code가 아니라 hash 형식이다.
 - `/subscription/`, 정기구독 checkout, `/shop_payment_complete`, `/shop_order_done`에는 발화하지 않는다.
@@ -149,7 +154,7 @@ TJ님 승인에 따라 일반 주문서 `/shop_payment/` 전용 Meta browser `In
 | 76 | active | cvt_MQDKZ | Microsoft Clarity - Official | cvt_MQDKZ | - | trigger 2147479553 | - | custom/template/기타 태그 |
 | 85 | active | html | Coffee NPay Intent Dispatcher v2.1 | Custom HTML | 브라우저 실행 스크립트 | A-4 Coffee NPay Intent Dispatcher Trigger (All Pages) | - | NPay intent/dataLayer 후보. 실제 결제완료 아님 |
 | 87 | active | html | Coffee NPay Intent Snippet Installer v1 | Custom HTML | 브라우저 실행 스크립트 | A-4 Coffee Snippet Installer Trigger (Window Loaded) | - | NPay intent/dataLayer 후보. 실제 결제완료 아님 |
-| 99 | active | html | AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment | Meta browser event: InitiateCheckout | Meta Pixel 1186437633687388 | AGENTSOS - [DOM Ready] shop_payment order only | - | 일반 주문서 `/shop_payment/` 전용. `/subscription/`/완료 페이지 제외. Meta CAPI/Purchase 아님 |
+| 99 | active | html | AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment | Meta browser event: InitiateCheckout | Meta Pixel 1186437633687388 | AGENTSOS - [DOM Ready] shop_payment order only | - | 일반 주문서 `/shop_payment/` 전용. `/subscription/`/완료 페이지 제외. value 최대 8초 재시도. Meta CAPI/Purchase 아님 |
 
 ## GA4 표준 퍼널 이벤트 빠른 상태
 

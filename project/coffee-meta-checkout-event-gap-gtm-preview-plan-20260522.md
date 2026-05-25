@@ -190,12 +190,25 @@ TJ님 승인 후 fresh workspace에서 실제 운영 태그를 만들고 Product
 - publish result: `data/project/coffee-meta-initiatecheckout-gtm-production-publish-20260524T073809Z.json`
 - subscription guard publish result: `data/project/coffee-meta-initiatecheckout-gtm-production-publish-20260524T074633Z.json`
 - final post-publish read-only result: `data/project/coffee-meta-initiatecheckout-gtm-production-postpublish-readonly-20260524T074650Z.json`
-- live version: `21` -> `23`
+- value retry hotfix publish result: `data/project/coffee-meta-initiatecheckout-gtm-production-publish-20260524T210252Z.json`
+- value retry post-publish dry-run result: `data/project/coffee-meta-initiatecheckout-gtm-production-dry-run-20260524T210340Z.json`
+- live version: `21` -> `24`
 - tag: id `99` / `AGENTSOS - [Meta Browser] InitiateCheckout - shop_payment`
 - trigger: id `98` / `AGENTSOS - [DOM Ready] shop_payment order only`
 - live target tag count: `1`
 - live target trigger count: `1`
-- workspace id `31`과 `32`는 publish 후 남아 있지 않고, Default Workspace만 남았다.
-- 최종 tag에는 `subscription_checkout_excluded` guard가 포함된다.
+- workspace id `31`, `32`, `33`은 publish 후 남아 있지 않고, Default Workspace만 남았다.
+- 최종 tag에는 `subscription_checkout_excluded` guard와 `waiting_value` retry guard가 포함된다.
 
-다음은 실제 주문서 브라우저에서 Pixel Helper smoke를 보는 단계다.
+2026-05-25 05:57 KST 실제 주문서 smoke에서 v23 태그가 `missing_value`로 안전 차단됐다. 2026-05-25 06:02 KST v24에서 주문금액 렌더링 재시도 guard를 추가했다.
+
+2026-05-25 06:12 KST v24 기준 실제 주문서 브라우저 재-smoke는 PASS다.
+
+- Meta Pixel Helper: `InitiateCheckout` 활성
+- value/currency: `33900` / `KRW`
+- value_status: `present`
+- value_selector: `#oms-shop-payment text:total_order_price`
+- eventID: `InitiateCheckout.f4c64d08`
+- console: `sent`
+
+다음은 `/subscription/` 중복 없음과 `/shop_payment_complete` 제외 guard를 확인하는 단계다.

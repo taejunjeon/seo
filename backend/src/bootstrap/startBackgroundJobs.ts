@@ -580,6 +580,105 @@ export const startBackgroundJobs = () => {
     console.log("[ROAS summary precompute] disabled by ROAS_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s 또는 targets/presetGroups empty");
   }
 
+  // Google Ads dashboard summary precompute:
+  // Google ROAS 화면도 Meta ROAS처럼 사전 계산 cache 를 먼저 읽게 해 Google Ads API 직접 호출을 줄인다.
+  const googleAdsDashboardSummaryPrecomputeEnabled = process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_ENABLED !== "0";
+  const googleAdsDashboardSummaryPrecomputeIntervalMs = Number(
+    process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_INTERVAL_MS ?? "14400000",
+  );
+  const googleAdsDashboardSummaryPrecomputeStartDelayMs = Number(
+    process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_START_DELAY_MS ?? "120000",
+  );
+  const googleAdsDashboardSummaryPrecomputeTimeoutMs = Number(
+    process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_TIMEOUT_MS ?? "120000",
+  );
+  const googleAdsDashboardSummaryPresets = (
+    process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_PRESETS ?? "yesterday,last_7d,last_30d"
+  )
+    .split(",")
+    .map((preset) => preset.trim())
+    .filter(Boolean);
+  if (
+    googleAdsDashboardSummaryPrecomputeEnabled &&
+    Number.isFinite(googleAdsDashboardSummaryPrecomputeIntervalMs) &&
+    googleAdsDashboardSummaryPrecomputeIntervalMs >= 60000 &&
+    googleAdsDashboardSummaryPresets.length > 0
+  ) {
+    let googleAdsSummaryRunning = false;
+    const runGoogleAdsDashboardSummaryPrecompute = async () => {
+      if (googleAdsSummaryRunning) {
+        // eslint-disable-next-line no-console
+        console.log("[Google Ads dashboard summary precompute] skip — previous tick still running");
+        return;
+      }
+      googleAdsSummaryRunning = true;
+      let ok = 0;
+      let failed = 0;
+      try {
+        for (const preset of googleAdsDashboardSummaryPresets) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), googleAdsDashboardSummaryPrecomputeTimeoutMs);
+          try {
+            const url = new URL(`${selfBaseUrl}/api/google-ads/dashboard-summary`);
+            url.searchParams.set("date_preset", preset);
+            url.searchParams.set("force", "1");
+            url.searchParams.set("cache_write", "1");
+            url.searchParams.set("precompute", "1");
+            const startedAt = Date.now();
+            const response = await fetch(url.toString(), {
+              method: "GET",
+              signal: controller.signal,
+              cache: "no-store",
+            });
+            clearTimeout(timer);
+            const body = (await response.json().catch(() => null)) as
+              | { ok?: boolean; cache?: { source?: string; generation_ms?: number | null } }
+              | null;
+            if (response.ok && body?.ok) {
+              ok += 1;
+              // eslint-disable-next-line no-console
+              console.log(
+                `[Google Ads dashboard summary precompute] ok preset=${preset} source=${body.cache?.source ?? "?"} generationMs=${body.cache?.generation_ms ?? Date.now() - startedAt}`,
+              );
+            } else {
+              failed += 1;
+              // eslint-disable-next-line no-console
+              console.error(`[Google Ads dashboard summary precompute] fail preset=${preset} HTTP ${response.status}`);
+            }
+          } catch (error) {
+            failed += 1;
+            // eslint-disable-next-line no-console
+            console.error(
+              `[Google Ads dashboard summary precompute] error preset=${preset}`,
+              error instanceof Error ? error.message : error,
+            );
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+      } finally {
+        googleAdsSummaryRunning = false;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Google Ads dashboard summary precompute] tick — ok=${ok} failed=${failed} next=${Math.round(googleAdsDashboardSummaryPrecomputeIntervalMs / 1000)}s`,
+        );
+      }
+    };
+    setTimeout(() => {
+      void runGoogleAdsDashboardSummaryPrecompute();
+      setInterval(() => { void runGoogleAdsDashboardSummaryPrecompute(); }, googleAdsDashboardSummaryPrecomputeIntervalMs);
+    }, Number.isFinite(googleAdsDashboardSummaryPrecomputeStartDelayMs)
+      ? googleAdsDashboardSummaryPrecomputeStartDelayMs
+      : 120_000);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[Google Ads dashboard summary precompute] 활성화 — ${Math.round(googleAdsDashboardSummaryPrecomputeIntervalMs / 60000)}분 주기 (${googleAdsDashboardSummaryPresets.join(",")})`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[Google Ads dashboard summary precompute] disabled by GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s 또는 presets empty");
+  }
+
   // Meta UTM diagnostics precompute:
   // /ads/meta-utm 기본 화면은 Meta campaigns/adsets/ads + 3개 insights call 을 동시에 읽어 첫 miss 가 길다.
   // 가장 많이 보는 biocom last_7d 조합을 먼저 warm 해 두고, 사용자는 lazy cache hit 를 받게 한다.

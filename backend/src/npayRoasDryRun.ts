@@ -73,6 +73,16 @@ type PgNpayOrderRow = {
   lineProductCount: string | number | null;
 };
 
+type SqliteImwebOrderBridgeRow = {
+  order_no: string;
+  channel_order_no: string | null;
+  order_time: string | null;
+  payment_amount: number | null;
+  total_price: number | null;
+  pay_type: string | null;
+  synced_at: string | null;
+};
+
 export type NpayRoasDryRunIntent = {
   id: string;
   intentKey: string;
@@ -108,6 +118,9 @@ export type NpayRoasDryRunIntent = {
 export type NpayRoasDryRunOrder = {
   orderNumber: string;
   channelOrderNo: string;
+  orderCreatedAt: string;
+  orderBridgeSource: "vm_imweb_orders" | "none";
+  orderBridgePaymentAmount: number | null;
   paidAt: string;
   paymentMethod: string;
   paymentStatus: string;
@@ -140,10 +153,13 @@ export type NpayRoasDryRunAmountMatchType =
   | "shipping_reconciled"
   | "discount_reconciled"
   | "quantity_reconciled"
+  | "bundle_multiple_reconciled"
   | "cart_contains_item"
   | "near"
   | "none"
   | "unknown";
+
+export type NpayRoasDryRunOrderCreateTimeBridge = "exact" | "near" | "weak" | "none" | "missing";
 
 const AMOUNT_MATCH_TYPES: NpayRoasDryRunAmountMatchType[] = [
   "final_exact",
@@ -151,6 +167,7 @@ const AMOUNT_MATCH_TYPES: NpayRoasDryRunAmountMatchType[] = [
   "shipping_reconciled",
   "discount_reconciled",
   "quantity_reconciled",
+  "bundle_multiple_reconciled",
   "cart_contains_item",
   "near",
   "none",
@@ -162,6 +179,7 @@ const GRADE_A_AMOUNT_MATCH_TYPES = new Set<NpayRoasDryRunAmountMatchType>([
   "shipping_reconciled",
   "discount_reconciled",
   "quantity_reconciled",
+  "bundle_multiple_reconciled",
 ]);
 
 export type NpayRoasDryRunBreakdownRow = {
@@ -187,12 +205,16 @@ export type NpayRoasDryRunCandidate = {
   score: number;
   scoreComponents: {
     time: number;
+    orderCreateTime: number;
     productName: number;
     amount: number;
     identity: number;
     session: number;
     adKey: number;
   };
+  orderCreatedAt: string;
+  orderCreatedGapMinutes: number | null;
+  orderCreateTimeBridge: NpayRoasDryRunOrderCreateTimeBridge;
   productIdx: string;
   orderProductIdx: null;
   productIdxMatch: null;
@@ -328,6 +350,9 @@ export type NpayRoasDryRunReport = {
     amountMatchTypeCounts: Record<NpayRoasDryRunAmountMatchType, number>;
     shippingReconciledCount: number;
     shippingReconciledNotGradeACount: number;
+    orderCreateBridgeExact: number;
+    orderCreateBridgeExactWithGoogleClickId: number;
+    orderCreateBridgeMissing: number;
     clickedPurchasedCandidate: number;
     clickedNoPurchase: number;
     intentPending: number;
@@ -373,8 +398,20 @@ export type NpayIntentRematchDryRunCandidate = {
   amountMatchType: NpayRoasDryRunAmountMatchType;
   amountReconcileReason: string;
   timeGapMinutes: number;
+  orderCreatedAt: string;
+  orderCreatedGapMinutes: number | null;
+  orderCreateTimeBridge: NpayRoasDryRunOrderCreateTimeBridge;
   productIdx: string;
   productName: string;
+  clientId: string;
+  gaSessionId: string;
+  pageLocation: string;
+  gadCampaignId: string;
+  utm: {
+    source: string;
+    medium: string;
+    campaign: string;
+  };
   clickIds: NpayIntentRematchDryRunClickIds;
   recommendedAction:
     | "safe_apply_candidate_after_write_approval"
@@ -402,6 +439,8 @@ export type NpayIntentRematchDryRunReport = {
     pendingStrongMatchWithGoogleClickId: number;
     pendingGradeA: number;
     pendingGradeB: number;
+    pendingOrderCreateBridgeExact: number;
+    pendingOrderCreateBridgeExactWithGoogleClickId: number;
     blockedNonPendingIntent: number;
     ambiguous: number;
     purchaseWithoutIntent: number;
@@ -505,6 +544,24 @@ const normalizeOrderNumberSet = (values: string[] | undefined) =>
 
 const uniqueNonEmpty = (values: string[]) =>
   Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+
+const queryParamFromUrlLike = (urlLike: string, key: string) => {
+  if (!urlLike) return "";
+  try {
+    return new URL(urlLike, "https://biocom.kr").searchParams.get(key)?.trim() || "";
+  } catch {
+    const match = urlLike.match(new RegExp(`[?&]${key}=([^&#]+)`, "i"));
+    if (!match?.[1]) return "";
+    try {
+      return decodeURIComponent(match[1]).trim();
+    } catch {
+      return match[1].trim();
+    }
+  }
+};
+
+const extractGadCampaignIdFromUrlLike = (urlLike: string) =>
+  queryParamFromUrlLike(urlLike, "gad_campaignid").replace(/[^\d]/g, "");
 
 const buildGa4LookupIds = (order: NpayRoasDryRunOrder) =>
   uniqueNonEmpty([order.orderNumber, order.channelOrderNo]);
@@ -703,6 +760,9 @@ const toIntent = (row: SqliteIntentRow): NpayRoasDryRunIntent => ({
 const toOrder = (row: PgNpayOrderRow): NpayRoasDryRunOrder => ({
   orderNumber: row.orderNumber,
   channelOrderNo: row.channelOrderNo?.trim() || "",
+  orderCreatedAt: "",
+  orderBridgeSource: "none",
+  orderBridgePaymentAmount: null,
   paidAt: new Date(row.paidAt).toISOString(),
   paymentMethod: row.paymentMethod,
   paymentStatus: row.paymentStatus,
@@ -723,6 +783,9 @@ const toManualOrder = (input: NpayRoasDryRunManualOrderInput): NpayRoasDryRunOrd
   return {
     orderNumber: input.orderNumber.trim(),
     channelOrderNo: input.channelOrderNo?.trim() || "",
+    orderCreatedAt: "",
+    orderBridgeSource: "none",
+    orderBridgePaymentAmount: null,
     paidAt: paidAt.toISOString(),
     paymentMethod: input.paymentMethod?.trim() || "NAVERPAY_ORDER",
     paymentStatus: input.paymentStatus?.trim() || "PAYMENT_COMPLETE",
@@ -743,6 +806,59 @@ const scoreTimeGap = (timeGapMinutes: number) => {
   if (timeGapMinutes <= 60) return 10;
   if (timeGapMinutes <= 24 * 60) return 2;
   return 0;
+};
+
+const scoreOrderCreateTimeBridge = (orderCreatedAt: string, capturedAt: string) => {
+  if (!orderCreatedAt) {
+    return {
+      type: "missing" as const,
+      score: 0,
+      gapMinutes: null,
+    };
+  }
+
+  const orderCreatedAtMs = Date.parse(orderCreatedAt);
+  const capturedAtMs = Date.parse(capturedAt);
+  if (!Number.isFinite(orderCreatedAtMs) || !Number.isFinite(capturedAtMs)) {
+    return {
+      type: "missing" as const,
+      score: 0,
+      gapMinutes: null,
+    };
+  }
+
+  const gapMinutes = roundOne((orderCreatedAtMs - capturedAtMs) / 60_000);
+  const absoluteGap = Math.abs(gapMinutes);
+
+  if (absoluteGap <= 1) {
+    return {
+      type: "exact" as const,
+      score: 35,
+      gapMinutes,
+    };
+  }
+
+  if (absoluteGap <= 5) {
+    return {
+      type: "near" as const,
+      score: 25,
+      gapMinutes,
+    };
+  }
+
+  if (absoluteGap <= 15) {
+    return {
+      type: "weak" as const,
+      score: 15,
+      gapMinutes,
+    };
+  }
+
+  return {
+    type: "none" as const,
+    score: 0,
+    gapMinutes,
+  };
 };
 
 const productNameMatch = (intentName: string, orderNames: string[]) => {
@@ -854,6 +970,23 @@ const amountMatch = (
     };
   }
 
+  if (productMatched && intentPrice > 0 && order.lineProductCount <= 1) {
+    const itemTotalMultiple = orderItemTotal !== null ? orderItemTotal / intentPrice : 0;
+    const paymentAmountMultiple = orderPaymentAmount / intentPrice;
+    const isReasonableIntegerMultiple = (value: number) =>
+      Number.isFinite(value) && Number.isInteger(value) && value >= 2 && value <= 6;
+
+    if (isReasonableIntegerMultiple(itemTotalMultiple) || isReasonableIntegerMultiple(paymentAmountMultiple)) {
+      return {
+        type: "bundle_multiple_reconciled" as const,
+        score: 18,
+        matched: true,
+        amountDelta,
+        reason: "product exact match; order amount reconciles with intent_product_price as a small integer bundle multiple",
+      };
+    }
+  }
+
   if (
     productMatched &&
     order.lineProductCount > 1 &&
@@ -898,6 +1031,7 @@ const buildCandidate = (
   const capturedAtMs = Date.parse(intent.capturedAt);
   const timeGapMinutes = roundOne((paidAtMs - capturedAtMs) / 60_000);
   const timeScore = scoreTimeGap(timeGapMinutes);
+  const orderCreateTime = scoreOrderCreateTimeBridge(order.orderCreatedAt, intent.capturedAt);
   const productMatch = productNameMatch(intent.productName, order.productNames);
   const amount = amountMatch(intent.productPrice, order, productMatch.matched);
   const adClickKeys = [
@@ -911,6 +1045,7 @@ const buildCandidate = (
   const memberKeyPresent = hasAny(intent.memberCode, intent.memberHash, intent.phoneHash, intent.emailHash);
   const scoreComponents = {
     time: timeScore,
+    orderCreateTime: orderCreateTime.score,
     productName: productMatch.score,
     amount: amount.score,
     identity: 0,
@@ -925,12 +1060,16 @@ const buildCandidate = (
     timeGapMinutes,
     score:
       scoreComponents.time +
+      scoreComponents.orderCreateTime +
       scoreComponents.productName +
       scoreComponents.amount +
       scoreComponents.identity +
       scoreComponents.session +
       scoreComponents.adKey,
     scoreComponents,
+    orderCreatedAt: order.orderCreatedAt,
+    orderCreatedGapMinutes: orderCreateTime.gapMinutes,
+    orderCreateTimeBridge: orderCreateTime.type,
     productIdx: intent.productIdx,
     orderProductIdx: null,
     productIdxMatch: null,
@@ -1168,6 +1307,86 @@ const readConfirmedNpayOrders = async (start: Date, end: Date): Promise<NpayRoas
   return result.rows.map(toOrder);
 };
 
+const normalizeBridgeTime = (value: string | null | undefined) => {
+  if (!value) return "";
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
+};
+
+const readVmImwebOrderBridgeRows = (
+  sqlitePath: string,
+  site: string,
+  orders: NpayRoasDryRunOrder[],
+) => {
+  const keys = Array.from(
+    new Set(
+      orders
+        .flatMap((order) => [order.orderNumber, order.channelOrderNo])
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  if (keys.length === 0) return new Map<string, SqliteImwebOrderBridgeRow>();
+
+  const placeholders = keys.map(() => "?").join(", ");
+  const db = new Database(sqlitePath, { readonly: true, fileMustExist: true });
+
+  try {
+    const rows = db
+      .prepare(
+        `
+        SELECT
+          order_no,
+          channel_order_no,
+          order_time,
+          payment_amount,
+          total_price,
+          pay_type,
+          synced_at
+        FROM imweb_orders
+        WHERE site = ?
+          AND (
+            order_no IN (${placeholders})
+            OR channel_order_no IN (${placeholders})
+          )
+      `,
+      )
+      .all(site, ...keys, ...keys) as SqliteImwebOrderBridgeRow[];
+
+    const bridgeByKey = new Map<string, SqliteImwebOrderBridgeRow>();
+    for (const row of rows) {
+      if (row.order_no) bridgeByKey.set(row.order_no, row);
+      if (row.channel_order_no) bridgeByKey.set(row.channel_order_no, row);
+    }
+    return bridgeByKey;
+  } finally {
+    db.close();
+  }
+};
+
+const enrichOrdersWithVmImwebOrderBridge = (
+  sqlitePath: string,
+  site: string,
+  orders: NpayRoasDryRunOrder[],
+) => {
+  if (orders.length === 0) return orders;
+
+  const bridgeByKey = readVmImwebOrderBridgeRows(sqlitePath, site, orders);
+
+  return orders.map<NpayRoasDryRunOrder>((order) => {
+    const bridge = bridgeByKey.get(order.orderNumber) || bridgeByKey.get(order.channelOrderNo);
+    if (!bridge) return order;
+
+    return {
+      ...order,
+      orderCreatedAt: normalizeBridgeTime(bridge.order_time),
+      orderBridgeSource: "vm_imweb_orders",
+      orderBridgePaymentAmount: numberValue(bridge.payment_amount) ?? numberValue(bridge.total_price),
+    };
+  });
+};
+
 export const buildNpayRoasDryRunReport = async (
   options: NpayRoasDryRunOptions = {},
 ): Promise<NpayRoasDryRunReport> => {
@@ -1196,7 +1415,11 @@ export const buildNpayRoasDryRunReport = async (
   const manualOrderNumbers = new Set(manualOrders.map((order) => order.orderNumber));
 
   const intents = readLiveIntents(sqlitePath, site, start, end);
-  const pgOrders = await readConfirmedNpayOrders(start, end);
+  const pgOrders = enrichOrdersWithVmImwebOrderBridge(
+    sqlitePath,
+    site,
+    await readConfirmedNpayOrders(start, end),
+  );
   const orderMap = new Map(pgOrders.map((order) => [order.orderNumber, order]));
   for (const manualOrder of manualOrders) {
     if (!orderMap.has(manualOrder.orderNumber)) orderMap.set(manualOrder.orderNumber, manualOrder);
@@ -1362,6 +1585,13 @@ export const buildNpayRoasDryRunReport = async (
         acc.shippingReconciledCount += 1;
         if (result.strongGrade !== "A") acc.shippingReconciledNotGradeACount += 1;
       }
+      if (!result.order.orderCreatedAt) acc.orderCreateBridgeMissing += 1;
+      if (result.bestCandidate?.orderCreateTimeBridge === "exact") {
+        acc.orderCreateBridgeExact += 1;
+        if (result.bestCandidate.adClickKeys.some((key) => key === "gclid" || key === "gbraid" || key === "wbraid")) {
+          acc.orderCreateBridgeExactWithGoogleClickId += 1;
+        }
+      }
       return acc;
     },
     {
@@ -1385,6 +1615,9 @@ export const buildNpayRoasDryRunReport = async (
       ) as Record<NpayRoasDryRunAmountMatchType, number>,
       shippingReconciledCount: 0,
       shippingReconciledNotGradeACount: 0,
+      orderCreateBridgeExact: 0,
+      orderCreateBridgeExactWithGoogleClickId: 0,
+      orderCreateBridgeMissing: 0,
     } as Record<NpayRoasDryRunOrderStatus, number> & {
       strongMatchA: number;
       strongMatchB: number;
@@ -1401,6 +1634,9 @@ export const buildNpayRoasDryRunReport = async (
       amountMatchTypeCounts: Record<NpayRoasDryRunAmountMatchType, number>;
       shippingReconciledCount: number;
       shippingReconciledNotGradeACount: number;
+      orderCreateBridgeExact: number;
+      orderCreateBridgeExactWithGoogleClickId: number;
+      orderCreateBridgeMissing: number;
     },
   );
   const intentSummary = intentResults.reduce(
@@ -1466,6 +1702,9 @@ export const buildNpayRoasDryRunReport = async (
       amountMatchTypeCounts: orderSummary.amountMatchTypeCounts,
       shippingReconciledCount: orderSummary.shippingReconciledCount,
       shippingReconciledNotGradeACount: orderSummary.shippingReconciledNotGradeACount,
+      orderCreateBridgeExact: orderSummary.orderCreateBridgeExact,
+      orderCreateBridgeExactWithGoogleClickId: orderSummary.orderCreateBridgeExactWithGoogleClickId,
+      orderCreateBridgeMissing: orderSummary.orderCreateBridgeMissing,
       clickedPurchasedCandidate: intentSummary.clicked_purchased_candidate,
       clickedNoPurchase: intentSummary.clicked_no_purchase,
       intentPending: intentSummary.intent_pending,
@@ -1481,6 +1720,7 @@ export const buildNpayRoasDryRunReport = async (
       "Only A-grade strong matches with already_in_ga4=robust_absent or absent are future dispatcher dry-run candidates; B-grade strong, ambiguous, purchase_without_intent, test orders, and already_in_ga4 rows are blocked.",
       "Manual orders are dry-run inputs only and are not written to any database.",
       "product_idx_match is null because tb_iamweb_users does not expose an order-level product_idx in this read model.",
+      "order_create_time_bridge is internal analysis evidence only. It narrows NPay external order matching but does not make a Google Ads upload candidate.",
     ],
   };
 };
@@ -1555,8 +1795,16 @@ const buildRematchCandidate = (
     amountMatchType: candidate.amountMatchType,
     amountReconcileReason: candidate.amountReconcileReason,
     timeGapMinutes: candidate.timeGapMinutes,
+    orderCreatedAt: candidate.orderCreatedAt,
+    orderCreatedGapMinutes: candidate.orderCreatedGapMinutes,
+    orderCreateTimeBridge: candidate.orderCreateTimeBridge,
     productIdx: candidate.productIdx,
     productName: candidate.productName,
+    clientId: intent.clientId,
+    gaSessionId: intent.gaSessionId,
+    pageLocation: candidate.pageLocation,
+    gadCampaignId: extractGadCampaignIdFromUrlLike(candidate.pageLocation),
+    utm: candidate.utm,
     clickIds,
     recommendedAction: buildRematchRecommendedAction(result, intent, clickIds),
     blockReasons: buildRematchBlockReasons(result, intent, clickIds),
@@ -1607,6 +1855,10 @@ export const buildNpayIntentRematchDryRunReport = async (
       pendingStrongMatchWithGoogleClickId: pendingRows.filter((row) => row.clickIds.hasGoogleClickId).length,
       pendingGradeA: pendingRows.filter((row) => row.strongGrade === "A").length,
       pendingGradeB: pendingRows.filter((row) => row.strongGrade === "B").length,
+      pendingOrderCreateBridgeExact: pendingRows.filter((row) => row.orderCreateTimeBridge === "exact").length,
+      pendingOrderCreateBridgeExactWithGoogleClickId: pendingRows.filter(
+        (row) => row.orderCreateTimeBridge === "exact" && row.clickIds.hasGoogleClickId,
+      ).length,
       blockedNonPendingIntent: nonPendingRows.length,
       ambiguous: baseReport.summary.ambiguous,
       purchaseWithoutIntent: baseReport.summary.purchaseWithoutIntent,
@@ -1620,6 +1872,7 @@ export const buildNpayIntentRematchDryRunReport = async (
       "This does not send GA4, Meta, TikTok, or Google Ads conversions.",
       "recommendedAction=safe_apply_candidate_after_write_approval still means DB write approval is required before applying.",
       "Grade B rows are useful for diagnosis and manual review, not automatic write/apply.",
+      "order_create_time_bridge=exact is internal bridge evidence only. It does not bypass Grade A or platform-send guards.",
     ],
   };
 };
@@ -1691,6 +1944,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     result.order.channelOrderNo,
     result.orderLabel,
     result.order.paidAt,
+    result.order.orderCreatedAt,
     result.order.orderAmount,
     result.order.productNames.join(" + "),
     result.status,
@@ -1700,6 +1954,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
     result.secondScore,
     result.scoreGap,
     result.bestCandidate?.timeGapMinutes ?? null,
+    result.bestCandidate?.orderCreatedGapMinutes ?? null,
+    result.bestCandidate?.orderCreateTimeBridge ?? null,
     result.bestCandidate?.productNameMatchType ?? null,
     result.bestCandidate?.intentProductPrice ?? null,
     result.bestCandidate?.orderItemTotal ?? null,
@@ -1725,8 +1981,10 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
       candidate.intentId,
       candidate.capturedAt,
       candidate.timeGapMinutes,
+      candidate.orderCreatedGapMinutes,
+      candidate.orderCreateTimeBridge,
       candidate.score,
-      `time:${candidate.scoreComponents.time}, product:${candidate.scoreComponents.productName}, amount:${candidate.scoreComponents.amount}`,
+      `paidTime:${candidate.scoreComponents.time}, orderCreate:${candidate.scoreComponents.orderCreateTime}, product:${candidate.scoreComponents.productName}, amount:${candidate.scoreComponents.amount}`,
       candidate.productIdx,
       "N/A",
       candidate.productNameMatchType,
@@ -1797,6 +2055,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         result.secondScore,
         result.scoreGap,
         best?.timeGapMinutes ?? null,
+        best?.orderCreatedGapMinutes ?? null,
+        best?.orderCreateTimeBridge ?? null,
         best?.amountMatchType ?? null,
         why,
         "전송 금지",
@@ -1887,6 +2147,9 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         ["manual_order_count", report.summary.manualOrderCount],
         ["shipping_reconciled_count", report.summary.shippingReconciledCount],
         ["shipping_reconciled_not_grade_a_count", report.summary.shippingReconciledNotGradeACount],
+        ["order_create_bridge_exact", report.summary.orderCreateBridgeExact],
+        ["order_create_bridge_exact_with_google_click_id", report.summary.orderCreateBridgeExactWithGoogleClickId],
+        ["order_create_bridge_missing", report.summary.orderCreateBridgeMissing],
         ["clicked_purchased_candidate", report.summary.clickedPurchasedCandidate],
         ["clicked_no_purchase", report.summary.clickedNoPurchase],
         ["intent_pending", report.summary.intentPending],
@@ -1910,6 +2173,7 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "channel_order_no",
         "order_label",
         "paid_at",
+        "order_created_at",
         "amount",
         "product",
         "status",
@@ -1919,6 +2183,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "second_score",
         "score_gap",
         "time_gap_min",
+        "order_create_gap_min",
+        "order_create_bridge",
         "product_name_match",
         "intent_product_price",
         "order_item_total",
@@ -1960,6 +2226,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "second_score",
         "score_gap",
         "time_gap_min",
+        "order_create_gap_min",
+        "order_create_bridge",
         "amount_match",
         "why_review",
         "dispatch_decision",
@@ -2101,6 +2369,8 @@ export const renderNpayRoasDryRunMarkdown = (report: NpayRoasDryRunReport) => {
         "intent_id",
         "captured_at",
         "time_gap_min",
+        "order_create_gap_min",
+        "order_create_bridge",
         "score",
         "score_components",
         "product_idx",

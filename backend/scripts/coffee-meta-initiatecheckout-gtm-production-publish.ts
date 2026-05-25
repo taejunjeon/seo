@@ -26,7 +26,7 @@ const TRIGGER_NAME = "AGENTSOS - [DOM Ready] shop_payment order only";
 const args = new Set(process.argv.slice(2));
 const SHOULD_UPDATE_EXISTING = args.has("--update-existing");
 const VERSION_NAME = SHOULD_UPDATE_EXISTING
-  ? `Coffee Meta InitiateCheckout shop_payment subscription guard - ${RUN_ID}`
+  ? `Coffee Meta InitiateCheckout shop_payment value retry guard - ${RUN_ID}`
   : `Coffee Meta InitiateCheckout shop_payment - ${RUN_ID}`;
 const VERSION_NOTES = [
   "TJ approved Production publish in Codex chat.",
@@ -34,13 +34,13 @@ const VERSION_NOTES = [
   "Excludes /subscription/, payment complete pages, Purchase, Meta CAPI, GA4 MP, Google Ads, Naver, TikTok, DB writes.",
   "Adds a Meta browser InitiateCheckout call only when value and order hints are present.",
   SHOULD_UPDATE_EXISTING
-    ? "Update mode: narrows existing tag with subscription checkout text guard."
+    ? "Update mode: keeps subscription checkout text guard and retries until the React order total is rendered."
     : "Create mode: creates one new tag and one new trigger.",
   "Rollback: restore previous live GTM version.",
 ].join("\n");
 
 const EXPECTED_LIVE_VERSION_ID =
-  process.env.COFFEE_META_INITIATECHECKOUT_EXPECTED_LIVE_VERSION?.trim() || "21";
+  process.env.COFFEE_META_INITIATECHECKOUT_EXPECTED_LIVE_VERSION?.trim() || "23";
 
 const SHOULD_APPLY = args.has("--apply");
 const SHOULD_PUBLISH = args.has("--publish");
@@ -159,13 +159,14 @@ const buildTagHtml = () => `<script>
   'use strict';
 
   var CONFIG = {
-    snippetVersion: '2026-05-24-coffee-meta-initiatecheckout-shop-payment-v2-subscription-exclusion',
+    snippetVersion: '2026-05-24-coffee-meta-initiatecheckout-shop-payment-v3-value-retry',
     pixelId: '1186437633687388',
     debugQueryKey: '__seo_attribution_debug',
     checkoutContextKey: '__seo_checkout_context',
     sentKeyPrefix: '__thecleancoffee_meta_initiatecheckout_sent__:',
     eventName: 'InitiateCheckout',
     logPrefix: '[coffee-meta-initiatecheckout-shop-payment]',
+    valueRetryMs: [0, 100, 250, 500, 1000, 2000, 3500, 5000, 8000],
     fbqRetryMs: [0, 100, 250, 500, 1000, 2000, 3500, 5000],
     valueSelectors: [
       '[data-payment-total]',
@@ -279,6 +280,13 @@ const buildTagHtml = () => `<script>
     } catch (error) {
       root = null;
     }
+    if (!root) {
+      try {
+        root = document.body;
+      } catch (error) {
+        root = null;
+      }
+    }
     if (!root) return false;
 
     var text = normalizeText(root.innerText || root.textContent || '');
@@ -376,7 +384,7 @@ const buildTagHtml = () => `<script>
       }
       if (!node) continue;
       var text = node.innerText || node.textContent || '';
-      if (text.indexOf('주문 요약') < 0 || text.indexOf('총 주문금액') < 0) continue;
+      if (text.indexOf('총 주문금액') < 0) continue;
       var value = parsePriceAfterLabel(text, '총 주문금액');
       if (value) {
         return {
@@ -413,6 +421,32 @@ const buildTagHtml = () => `<script>
       }
     }
     return { value: null, valueStatus: 'missing', selector: '' };
+  }
+
+  function getValueDiagnostics() {
+    var root = null;
+    var bodyText = '';
+    var rootText = '';
+    try {
+      root = document.querySelector('#oms-shop-payment');
+    } catch (error) {
+      root = null;
+    }
+    try {
+      rootText = root ? normalizeText(root.innerText || root.textContent || '') : '';
+    } catch (error) {
+      rootText = '';
+    }
+    try {
+      bodyText = document.body ? normalizeText(document.body.innerText || document.body.textContent || '') : '';
+    } catch (error) {
+      bodyText = '';
+    }
+    return {
+      rootPresent: Boolean(root),
+      rootHasTotalLabel: rootText.indexOf('총 주문금액') >= 0,
+      bodyHasTotalLabel: bodyText.indexOf('총 주문금액') >= 0
+    };
   }
 
   function buildEventId(hints) {
@@ -468,34 +502,54 @@ const buildTagHtml = () => `<script>
     });
   }
 
-  function run() {
+  function tryRun(attemptIndex, isFinalAttempt) {
     if (!isShopPaymentPage()) {
       rememberStatus('blocked', { reason: 'not_shop_payment_page', path: window.location.pathname });
-      return;
+      return true;
     }
 
     if (isSubscriptionCheckout()) {
       rememberStatus('blocked', { reason: 'subscription_checkout_excluded' });
-      return;
+      return true;
     }
 
     var hints = getOrderHints();
     if (!hasOrderHint(hints)) {
       rememberStatus('blocked', { reason: 'missing_order_hint' });
-      return;
+      return true;
     }
 
     var valueResult = readValueCandidate();
     if (!valueResult.value) {
-      rememberStatus('blocked', { reason: 'missing_value', valueStatus: valueResult.valueStatus });
-      return;
+      var diagnostics = getValueDiagnostics();
+      if (!isFinalAttempt) {
+        rememberStatus('waiting', {
+          reason: 'waiting_value',
+          valueStatus: valueResult.valueStatus,
+          attemptIndex: attemptIndex,
+          nextRetryMs: CONFIG.valueRetryMs[attemptIndex + 1],
+          rootPresent: diagnostics.rootPresent,
+          rootHasTotalLabel: diagnostics.rootHasTotalLabel,
+          bodyHasTotalLabel: diagnostics.bodyHasTotalLabel
+        });
+        return false;
+      }
+      rememberStatus('blocked', {
+        reason: 'missing_value',
+        valueStatus: valueResult.valueStatus,
+        attemptIndex: attemptIndex,
+        rootPresent: diagnostics.rootPresent,
+        rootHasTotalLabel: diagnostics.rootHasTotalLabel,
+        bodyHasTotalLabel: diagnostics.bodyHasTotalLabel
+      });
+      return true;
     }
 
     var eventId = buildEventId(hints);
     var sentKey = CONFIG.sentKeyPrefix + eventId;
     if (readSessionText(sentKey)) {
       rememberStatus('blocked', { reason: 'deduped', eventID: eventId });
-      return;
+      return true;
     }
 
     runWithFbq(function (fbq) {
@@ -521,6 +575,17 @@ const buildTagHtml = () => `<script>
           message: error && error.message ? error.message : String(error)
         });
       }
+    });
+    return true;
+  }
+
+  function run() {
+    var finished = false;
+    CONFIG.valueRetryMs.forEach(function (delayMs, index) {
+      window.setTimeout(function () {
+        if (finished) return;
+        finished = tryRun(index, index === CONFIG.valueRetryMs.length - 1);
+      }, delayMs);
     });
   }
 
@@ -578,7 +643,8 @@ const tagHasDuplicateIntent = (tag: any) => {
   const html = getHtmlParam(tag);
   return tag.name === TAG_NAME
     || html.includes("2026-05-24-coffee-meta-initiatecheckout-shop-payment-v1")
-    || html.includes("2026-05-24-coffee-meta-initiatecheckout-shop-payment-v2-subscription-exclusion");
+    || html.includes("2026-05-24-coffee-meta-initiatecheckout-shop-payment-v2-subscription-exclusion")
+    || html.includes("2026-05-24-coffee-meta-initiatecheckout-shop-payment-v3-value-retry");
 };
 
 const validatePrePublish = (params: {
@@ -611,7 +677,7 @@ const validatePrePublish = (params: {
   if (params.tag.name !== TAG_NAME) problems.push(`tag name ${params.tag.name}, expected ${TAG_NAME}`);
   if (params.trigger.name !== TRIGGER_NAME) problems.push(`trigger name ${params.trigger.name}, expected ${TRIGGER_NAME}`);
   if (!html.includes("fbq('track', CONFIG.eventName")) problems.push("tag html missing fbq track call");
-  if (!html.includes("2026-05-24-coffee-meta-initiatecheckout-shop-payment-v2-subscription-exclusion")) {
+  if (!html.includes("2026-05-24-coffee-meta-initiatecheckout-shop-payment-v3-value-retry")) {
     problems.push("tag html missing snippet version");
   }
   if (html.includes("facebook.com/tr")) problems.push("tag html should not use image fallback");
@@ -619,6 +685,7 @@ const validatePrePublish = (params: {
   if (!html.includes("isShopPaymentPage")) problems.push("tag html missing shop payment guard");
   if (!html.includes("subscription_checkout_excluded")) problems.push("tag html missing subscription checkout guard");
   if (!html.includes("missing_value")) problems.push("tag html missing value guard");
+  if (!html.includes("waiting_value")) problems.push("tag html missing value retry guard");
 
   return {
     ok: problems.length === 0,

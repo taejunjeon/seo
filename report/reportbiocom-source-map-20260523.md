@@ -1,11 +1,13 @@
 # reportbiocom source map 20260523
 
-작성 시각: 2026-05-23 12:45 KST
-기준일: 2026-05-23
+작성 시각: 2026-05-25 21:40 KST
+기준일: 2026-05-25
 문서 성격: 바이오컴 Slack 주간·월간 매출액/광고비 비중 리포트 source map
 담당: Codex
 상위 문서: [[reportbiocom]], [[!report]]
 관련 문서: [[report-v0.1-readiness-and-next-impact-plan-20260523]], [[report-ad-spend-source-gap-plan-20260523]]
+Naver 브랜드검색 수동 비용 source: [[naver-brandsearch-manual-cost-source-policy-20260525]]
+Naver 브랜드검색 수동 비용 cache 결과: [[naver-brandsearch-manual-cost-cache-write-result-20260525]]
 
 ```yaml
 harness_preflight:
@@ -36,8 +38,8 @@ harness_preflight:
   source_window_freshness_confidence:
     source: reportbiocom current doc + attribution source guide + existing Google/Naver/Meta project evidence docs
     window: next weekly and monthly KST report windows, exact numeric dry-run pending
-    freshness: source map reviewed 2026-05-23 12:45 KST
-    confidence: medium for design, numeric confidence pending first dry-run
+    freshness: source map reviewed and Naver manual cost source updated 2026-05-25 21:40 KST
+    confidence: medium_high for Naver brandsearch first contract cost, medium for full numeric report pending first dry-run
 ```
 
 ## 10초 요약
@@ -122,10 +124,18 @@ harness_preflight:
 
 판정: `candidate_included_with_warning`
 
-- source: Naver Search Ads API 또는 `naver_ads_daily` cache.
-- 현재 근거: biocom cache는 더클린커피보다 준비도가 높다.
+- source: 일반 검색 광고는 Naver Search Ads API 또는 `naver_ads_daily` cache, 브랜드검색 총액 검증은 Bizmoney API, 리포트 계산은 TJ님 수동 확인 계약 금액의 기간 배분 cache.
+- 현재 근거: biocom cache는 더클린커피보다 준비도가 높고, 브랜드검색은 TJ님 확인 수동 금액과 Bizmoney API cross-check가 2,420,000원으로 일치한다.
 - 사용처: 광고비 분자.
-- 남은 일: KST 주간·월간 window로 재산출하고 paid/organic 분류를 점검한다.
+- 남은 일: KST 주간·월간 window로 재산출하고 paid/organic 분류와 수동 비용 daily cache reader를 붙인다. cache write는 완료됐고, 리포트 반영은 no-send reader 검증 후 진행한다.
+
+브랜드검색 수동 source:
+
+- 모바일: 1,760,000원, 2026-05-22..2026-07-20, 60일, 계약 가능 검색수 8,000.
+- PC: 660,000원, 2026-05-22..2026-06-20, 30일, 계약 가능 검색수 8,000.
+- 다음 기간: 새 정보가 없으면 같은 가격/기간 반복으로 가정.
+- Bizmoney API cross-check: 2026-04-21..2026-05-24 KST 기준 브랜드검색 총액 2,420,000원 / raw rows 2건 / 수동 계약 총액과 일치.
+- confidence: first contract high, Bizmoney total cross-check high, projected renewal medium.
 
 ### TikTok
 

@@ -1,0 +1,73 @@
+{
+  "schema_version": "hermes-command-v0-proposal",
+  "command_id": "naver-display-april-export-20260526",
+  "created_at": "2026-05-26T00:40:00+09:00",
+  "mode": "read_only_download_only",
+  "platform": "naver_ads",
+  "task": "performance_display_april_export",
+  "window": {
+    "since": "2026-04-01",
+    "until": "2026-04-30",
+    "timezone": "KST"
+  },
+  "target_accounts": [
+    "biocom",
+    "thecleancoffee"
+  ],
+  "campaign_filters": [
+    "성과 디스플레이",
+    "ADVoost",
+    "쇼핑형 디스플레이",
+    "Performance Display"
+  ],
+  "required_metrics": [
+    "spend_krw",
+    "conversion_revenue_krw",
+    "clicks",
+    "roas",
+    "impressions",
+    "ctr_percent",
+    "average_cpc_krw",
+    "conversions",
+    "campaign_name",
+    "campaign_id",
+    "campaign_type"
+  ],
+  "allowed_actions": [
+    "open_dashboard",
+    "select_date_range",
+    "view_campaign_report",
+    "download_xlsx_or_csv",
+    "capture_screenshot"
+  ],
+  "forbidden_actions": [
+    "create_ad",
+    "edit_ad",
+    "delete_ad",
+    "change_budget",
+    "change_bid",
+    "charge_balance",
+    "publish_or_apply_changes",
+    "change_conversion_tracking",
+    "send_conversion_event"
+  ],
+  "stop_conditions": [
+    "login_or_2fa_required",
+    "account_identity_unclear",
+    "permission_denied",
+    "no_download_only_path",
+    "mutation_ui_required"
+  ],
+  "outputs": {
+    "download_template": "hermes/downloads/naver-display-april-20260401-20260430-{account}.xlsx",
+    "screenshot_template": "hermes/screenshots/naver-display-april-20260401-20260430-{account}.png",
+    "result_file": "hermes/results/naver-display-april-20260401-20260430.result.json"
+  },
+  "invariants_required": {
+    "ad_state_change": 0,
+    "budget_or_charge_change": 0,
+    "conversion_send": 0,
+    "raw_identifier_output": 0
+  },
+  "operator_prompt_file": "project/hermes-naver-display-april-export-prompt-20260526.md"
+}

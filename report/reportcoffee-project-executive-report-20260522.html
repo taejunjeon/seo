@@ -65,7 +65,7 @@
     h1 {
       margin: 0;
       max-width: 900px;
-      font-size: clamp(30px, 4vw, 52px);
+      font-size: 44px;
       line-height: 1.08;
       letter-spacing: 0;
     }
@@ -342,6 +342,143 @@
       margin-bottom: 4px;
     }
 
+    .lead-decision {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 18px;
+      align-items: start;
+      margin-top: 22px;
+    }
+
+    .decision-copy {
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .decision-copy strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #fff;
+      font-size: 18px;
+    }
+
+    .decision-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .decision-list li {
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #eef6ff;
+      font-size: 14px;
+    }
+
+    .source-line {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .card-kicker {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .metric-small {
+      margin-top: 2px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .plain-list {
+      margin: 10px 0 0;
+      padding-left: 20px;
+    }
+
+    .plain-list li {
+      margin-bottom: 8px;
+    }
+
+    .callout {
+      border-left: 4px solid var(--blue);
+      padding: 12px 14px;
+      background: #f1f5fb;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .callout.gold {
+      border-left-color: var(--gold);
+      background: var(--soft-gold);
+    }
+
+    .callout.green {
+      border-left-color: var(--green);
+      background: var(--soft-green);
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: #eef2f5;
+      color: #27323c;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    details {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px 14px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 12px 0 0;
+      padding: 14px;
+      border-radius: 8px;
+      background: #17202a;
+      color: #eaf2f8;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
     footer {
       margin-top: 36px;
       color: var(--muted);
@@ -351,6 +488,9 @@
     @media (max-width: 860px) {
       .hero {
         padding: 24px;
+      }
+      h1 {
+        font-size: 30px;
       }
       .span-4, .span-6, .span-8 {
         grid-column: span 12;
@@ -362,6 +502,9 @@
       .term-list {
         grid-template-columns: 1fr;
       }
+      .lead-decision {
+        grid-template-columns: 1fr;
+      }
       .two-col {
         columns: 1;
       }
@@ -371,85 +514,223 @@
 <body>
   <main class="page">
     <header class="hero">
-      <p class="eyebrow">작성 시각: 2026-05-22 13:40 KST · 문서 성격: 매출/광고비 보고 프로젝트 실행 보고서</p>
-      <h1>매주·매월 “얼마 벌고, 광고비를 얼마나 썼는지” 자동 보고하는 체계</h1>
+      <p class="eyebrow">업데이트: 2026-05-26 00:23 KST · 문서 성격: 매출/광고비 보고 프로젝트 실행 보고서</p>
+      <h1>더클린커피 자동 매출보고는 이제 v0.1 운영 미리보기 단계입니다.</h1>
       <p>
-        이 프로젝트의 목표는 더클린커피와 바이오컴의 매출, 광고비, 매출 대비 광고비 비중을 같은 기준으로 보고받는 것입니다.
-        광고 플랫폼이 주장하는 구매값이 아니라, 실제 결제완료 매출을 기준으로 봅니다.
+        이 화면의 질문은 단순합니다. “자사몰·스마트스토어·쿠팡 매출과 광고비를 같은 기간으로 묶어 Slack에 보고해도 되는가?”입니다.
+        현재 답은 “가능하지만, 스마트스토어는 PlayAuto 경고 포함 운영, 쿠팡 잔여 차이는 경고 유지”입니다.
       </p>
+      <div class="lead-decision">
+        <div class="decision-copy">
+          <strong>지금 운영자가 판단할 일</strong>
+          더클린커피는 주간·월간 숫자를 만들 수 있습니다. 자사몰 금액은 no-send JSON에 연결됐고, 스마트스토어는 PlayAuto 기준으로 자동 집계됩니다. 다만 스마트스토어는 Excel 차이와 네이버 커머스API(스마트스토어 주문을 직접 읽는 공식 API) 미검증을 경고로 보여줘야 합니다.
+        </div>
+        <ul class="decision-list" aria-label="첫 화면 판단 요약">
+          <li>자사몰 금액: no-send JSON에서 아임웹 complete_time 존재 주문 기준으로 기존 Excel 금액과 일치</li>
+          <li>스마트스토어: PlayAuto 경고 포함 운영, Excel 대비 65,800원 / 2건 차이 있음</li>
+          <li>쿠팡 매출: 매출인식 기준으로 자동 집계 가능, 로켓그로스는 참고값 유지</li>
+          <li>네이버 광고비: 검색광고 API만으로 부족, Hermes 브라우저 원본으로 디스플레이 확인</li>
+          <li>Slack: 실제 발송 전 미리보기와 예약 메시지 운영 경로 확보</li>
+        </ul>
+      </div>
       <div class="meta-row" aria-label="운영 기준">
-        <span class="pill">Green Lane(안전 작업): 읽기·미리보기만</span>
-        <span class="pill">Slack 실제 발송: 아직 0</span>
+        <span class="pill">Green Lane: 로컬 HTML 업데이트</span>
+        <span class="pill">Slack 실제 보고 발송: 0</span>
         <span class="pill">운영DB 쓰기: 0</span>
-        <span class="pill">광고 플랫폼 전송: 0</span>
+        <span class="pill">광고 플랫폼 전환 전송: 0</span>
       </div>
     </header>
 
     <section class="grid" aria-label="핵심 결론">
       <article class="panel span-4">
-        <span class="status ok">가능해진 것</span>
-        <h2>더클린커피 Naver 광고비를 0원 후보로 분리</h2>
+        <span class="status ok">거의 닫힘</span>
+        <h2>자사몰 매출 금액</h2>
         <p>
-          VM Cloud(보고 서버)에서 Naver Ads API(네이버 광고 데이터를 읽는 공식 연결 통로)를 읽었고, 더클린커피 후보 캠페인 6개가 모두 멈춰 있으며 최근 30일 광고비가 0원임을 확인했습니다.
+          아임웹 API(아임웹 주문을 프로그램으로 읽는 통로)에서 결제/주문 기간 안에 있고 complete_time(결제완료 확인 시각)이 있는 주문만 합산하도록
+          no-send JSON을 바꿨습니다. 2026-04-25 - 2026-05-01 기준 <strong>5,334,362원</strong>으로 기존 주간 Excel 금액과 정확히 맞습니다.
         </p>
+        <div class="source-line">no-send 125건 vs Excel 128건 · 남은 질문: 주문 기준인지, 상품 행 기준인지, 결제 행 기준인지 확인 필요</div>
       </article>
       <article class="panel span-4">
-        <span class="status hold">아직 막힌 것</span>
-        <h2>DB 캐시 저장은 허용 목록 안전장치 전까지 보류</h2>
+        <span class="status hold">경고 유지</span>
+        <h2>쿠팡 매출 기준</h2>
         <p>
-          `site=thecleancoffee`는 저장 라벨일 뿐 네이버 API 필터가 아닙니다. 허용 목록 안전장치(allowlist guard: 지정한 더클린커피 캠페인만 통과시키는 조건) 없이 저장하면 바이오컴 캠페인이 섞일 수 있습니다.
+          쿠팡은 revenue-history(쿠팡이 매출로 인정한 상품별 금액)를 strict 기준으로 잡았습니다.
+          2026-04-25 - 2026-05-01 Excel과의 차이는 일반배송+로켓그로스로 대부분 좁혔고, <strong>60,700원 / 2건</strong>만 남았습니다.
         </p>
+        <div class="source-line">남은 질문: 로켓그로스 API 날짜 경계 민감도와 F&B팀 집계 기준</div>
       </article>
       <article class="panel span-4">
-        <span class="status info">다음 결정</span>
-        <h2>주간 Slack 보고 기준을 확정</h2>
+        <span class="status hold">차이 확인</span>
+        <h2>스마트스토어 매출</h2>
         <p>
-          더클린커피는 자사몰, 스마트스토어, 쿠팡, Meta, Naver를 우선 묶습니다. Google/TikTok은 캠페인 매핑(mapping: 광고 캠페인을 어느 브랜드 매출과 연결할지 정하는 표) 전까지 보류(pending: 숫자에 넣지 않고 대기)로 둡니다.
+          스마트스토어는 PlayAuto(여러 판매 채널 주문을 모아 둔 운영DB 수집 원천) 기준으로 먼저 운영합니다.
+          네이버 스마트스토어 직접 API(네이버 판매자 주문을 바로 읽는 공식 통로)나 VM Cloud 주문 원장은 아직 더클린커피 매출 primary로 쓰기 어렵습니다.
+          운영DB PlayAuto(멀티채널 주문 수집 원장)는 <strong>1,839,340원 / 53 rows</strong>이고 Excel은 1,905,140원 / 55건입니다.
         </p>
+        <div class="source-line">차이: -65,800원 / -2 rows · no-send JSON에 source warning과 네이버 커머스API 미검증 경고 반영</div>
       </article>
     </section>
 
     <section class="grid" aria-label="숫자 요약">
       <article class="panel span-4">
-        <div class="label">더클린커피 주간 확정 기준 매출</div>
-        <div class="metric">16,647,142원</div>
-        <div class="note">2026-05-15 - 2026-05-21 KST · 자사몰 + 스마트스토어 + 쿠팡 coffee hint(커피 상품명 단서)</div>
+        <div class="label">현재 no-send 주간 매출</div>
+        <div class="metric">10,932,869원</div>
+        <div class="note">2026-05-18 - 2026-05-24 KST · 자사몰 + 스마트스토어 + 쿠팡 revenue-history 기준</div>
       </article>
       <article class="panel span-4">
-        <div class="label">포함 가능한 주간 광고비</div>
-        <div class="metric">1,952,104원</div>
-        <div class="note">Meta 포함 · Naver 0원 후보 · Google/TikTok 보류</div>
+        <div class="label">현재 no-send 포함 광고비</div>
+        <div class="metric">2,168,266원</div>
+        <div class="note">Meta 포함 · Naver 디스플레이는 같은 주간 기준으로 재생성 필요</div>
       </article>
       <article class="panel span-4">
-        <div class="label">주간 매출 대비 광고비</div>
-        <div class="metric">11.73%</div>
-        <div class="note">포함 가능한 광고비 / 확정 기준 매출</div>
+        <div class="label">현재 no-send 광고비 비중</div>
+        <div class="metric">19.83%</div>
+        <div class="note">광고비 / 내부 결제완료 기준 매출 · Slack 발송 전 미리보기 값</div>
       </article>
     </section>
 
-    <section class="panel">
-      <h2>프로젝트를 왜 하는가</h2>
-      <p>
-        지금 필요한 것은 “광고 플랫폼별로 좋아 보이는 숫자”가 아니라, 실제 결제완료 매출을 기준으로 광고비 비중을 보는 운영 보고입니다.
-        NPay 클릭, GA4 purchase, 플랫폼 주장 매출은 참고값일 수 있지만 실제 매출 합계로 바로 쓰면 안 됩니다.
-      </p>
-      <div class="flow" aria-label="보고 흐름">
-        <div class="flow-step">
-          <strong>1. 매출 원장 분리</strong>
-          자사몰, 스마트스토어, 쿠팡을 한 줄로 합치지 않고 데이터 출처(source: 숫자가 나온 원천)별로 확인합니다.
+    <section class="grid" aria-label="운영 판단">
+      <article class="panel span-6">
+        <h2>그래서 “완성되어 가는가?”</h2>
+        <div class="callout green">
+          <strong>네. 더클린커피 자사몰과 쿠팡은 자동 매출 집계 v0.1로 볼 수 있습니다.</strong>
+          자사몰은 금액 기준이 닫혔고, 쿠팡은 자동 집계 경로가 닫혔습니다. 다만 자동 발송 메시지에는 “건수 기준 확인 중”, “쿠팡 로켓그로스 참고값” 같은 경고를 같이 보여줘야 합니다.
         </div>
-        <div class="flow-step">
-          <strong>2. 광고비 출처 확인</strong>
-          Meta, Naver, Google, TikTok spend를 사이트 기준으로 분리합니다.
-        </div>
-        <div class="flow-step">
-          <strong>3. 발송 전 미리보기</strong>
-          Slack으로 보내기 전에 발송 전 미리보기(no-send preview: 실제 발송 없이 문구와 숫자만 확인)를 먼저 검증합니다.
-        </div>
-        <div class="flow-step">
-          <strong>4. 정기 보고</strong>
-          주간·월간 매출, 광고비, 광고비 비중을 자동 보고합니다.
-        </div>
+      </article>
+      <article class="panel span-6">
+        <h2>운영에 바로 쓰면 안 되는 값</h2>
+        <ul class="plain-list">
+          <li>네이버·Meta·Google이 주장하는 전환매출은 내부 매출 합계에 더하지 않습니다.</li>
+          <li>NPay 클릭이나 결제 시작은 구매완료가 아닙니다. 실제 결제완료 NPay 매출만 포함합니다.</li>
+          <li>쿠팡 계정 전체 금액은 더클린커피 매출이 아닙니다. TeamKeto 계정 안에서 coffee 상품만 분리합니다.</li>
+          <li>자사몰 complete_time blank는 미결제 증거가 아닙니다. 보고서 기준에서 제외된 진단값으로만 둡니다.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section>
+      <h2>2026-04-25 - 2026-05-01 Excel 대조 결과</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>항목</th>
+              <th>Excel 값</th>
+              <th>자동 조회 값</th>
+              <th>차이</th>
+              <th>해석</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>자사몰</strong><br>아임웹 complete_time 존재 주문</td>
+              <td class="money">5,334,362원<br><span class="note">128건</span></td>
+              <td class="money">5,334,362원<br><span class="note">125건</span></td>
+              <td class="money">0원<br><span class="note">-3건</span></td>
+              <td>금액은 일치합니다. 건수는 주문/상품행/결제행 정의 차이로 보고 경고를 유지합니다.</td>
+            </tr>
+            <tr>
+              <td><strong>자사몰 legacy</strong><br>Toss+NPay 합산</td>
+              <td class="money">5,334,362원</td>
+              <td class="money">5,215,298원</td>
+              <td class="money">-119,064원</td>
+              <td>더 이상 자사몰 primary로 쓰지 않고, 결제수단 breakdown 참고값으로만 둡니다.</td>
+            </tr>
+            <tr>
+              <td><strong>complete_time 날짜 window</strong><br>진단값</td>
+              <td class="money">5,334,362원</td>
+              <td class="money">4,557,236원<br><span class="note">109건</span></td>
+              <td class="money">-777,126원</td>
+              <td>complete_time 날짜 자체로 기간을 자르면 Excel 기준을 재현하지 못하므로 primary가 아닙니다.</td>
+            </tr>
+            <tr>
+              <td><strong>스마트스토어</strong><br>PlayAuto 운영DB</td>
+              <td class="money">1,905,140원<br><span class="note">55건</span></td>
+              <td class="money">1,839,340원<br><span class="note">53 rows</span></td>
+              <td class="money">-65,800원<br><span class="note">-2 rows</span></td>
+              <td>자동 조회는 가능하지만 Excel과 완전 일치하지 않습니다. Slack에는 source warning을 붙여야 합니다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout gold" style="margin-top:12px">
+        네이버 직접 주문 원장 후보도 확인했습니다. VM Cloud에는 스마트스토어 주문/매출 원장이 없고, 운영DB `tb_naver_orders`와 `tb_sales_naver_vat`는 바이오컴 상품·정산 쪽으로 확인되어 더클린커피 primary로 쓰지 않습니다. 네이버 커머스API는 주문 조회 공식 경로가 있지만, 현재 MacBook 호출은 IP 허용 문제로 막혔고 더클린커피 앱 키와 스토어 권한이 확인되지 않았습니다.
+      </div>
+    </section>
+
+    <section class="grid" aria-label="네이버 커머스 API 검토">
+      <article class="panel span-6">
+        <span class="status info">API 가능성 있음</span>
+        <h2>네이버 스마트스토어 직접 API</h2>
+        <p>
+          네이버 커머스API(스마트스토어 주문·상품·정산을 프로그램으로 읽는 공식 API)에는 변경 주문 목록 조회, 상품 주문 상세 조회, 건별 정산 조회가 있습니다.
+          즉 API 자체는 있습니다. 문제는 우리 계정과 호출 위치가 아직 더클린커피용으로 확인되지 않았다는 점입니다.
+        </p>
+        <div class="source-line">공식 경로: 변경 주문 목록 → 상품 주문 상세 → 정산 조회 순서</div>
+      </article>
+      <article class="panel span-6">
+        <span class="status hold">아직 primary 아님</span>
+        <h2>현재 막힌 지점</h2>
+        <ul class="plain-list">
+          <li>repo에는 더클린커피 커머스API 앱 ID/시크릿이 확인되지 않았습니다.</li>
+          <li>현재 MacBook에서 토큰 발급은 `GW.IP_NOT_ALLOWED`로 막혔습니다.</li>
+          <li>`NAVER_COFFEE_*` 키는 광고비 조회용 키로 보이며, 스마트스토어 주문 조회용 키로 확인되지 않았습니다.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section>
+      <h2>채널별 현재 상태</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>채널</th>
+              <th>지금 쓰는 기준</th>
+              <th class="money">최근 확인 숫자</th>
+              <th>판정</th>
+              <th>남은 일</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>자사몰</strong><br>아임웹·NPay·Toss·NicePay</td>
+              <td>아임웹 결제/주문 기간 안의 complete_time 존재 주문을 primary로 연결</td>
+              <td class="money">5,334,362원<br><span class="note">2026-04-25 - 2026-05-01</span></td>
+              <td>금액 일치, 건수 확인 중</td>
+              <td>Slack no-send JSON 연결 완료. 건수 정의만 F&B팀 확인 전까지 경고로 둔다.</td>
+            </tr>
+            <tr>
+              <td><strong>스마트스토어</strong><br>PlayAuto</td>
+              <td>운영DB PlayAuto 주문 중 스마트스토어 shop 기준</td>
+              <td class="money">1,839,340원<br><span class="note">2026-04-25 - 2026-05-01</span></td>
+              <td>PlayAuto 경고 포함 운영, Excel 대비 65,800원 낮음</td>
+              <td>Excel 1,905,140원 / 55건의 추가 2건 또는 조정 기준을 확인하고, 네이버 커머스API 권한/IP를 별도 검증한다.</td>
+            </tr>
+            <tr>
+              <td><strong>쿠팡</strong><br>TeamKeto 계정</td>
+              <td>revenue-history 매출인식 기준, coffee 상품만 포함</td>
+              <td class="money">858,400원<br><span class="note">2026-05-17 - 2026-05-23</span></td>
+              <td>자동 집계 가능, 정산표와 분리</td>
+              <td>로켓그로스 경계일 차이와 60,700원 / 2건 잔여 원인을 계속 좁힌다.</td>
+            </tr>
+            <tr>
+              <td><strong>네이버 광고비</strong><br>검색광고 + 디스플레이</td>
+              <td>검색광고 API + Hermes XLSX 원본</td>
+              <td class="money">350,538원<br><span class="note">2026-05-18 - 2026-05-24</span></td>
+              <td>주간 증거 확보, 기간 정렬 필요</td>
+              <td>no-send를 같은 기간으로 재생성하거나 Hermes에 2026-05-17 - 2026-05-23 파일을 다시 요청한다.</td>
+            </tr>
+            <tr>
+              <td><strong>Meta 광고비</strong></td>
+              <td>VM Cloud 광고 요약 API의 live read-only 값</td>
+              <td class="money">2,099,737원<br><span class="note">2026-05-17 - 2026-05-23</span></td>
+              <td>포함 가능</td>
+              <td>플랫폼 주장 매출과 내부 주문 원장 매출을 계속 분리한다.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -458,41 +739,46 @@
         <h2>현재 Track(작업 축) 진척률</h2>
         <div class="bar-list">
           <div class="bar-item">
-            <div class="bar-top"><span>A. Source rule</span><span>58%</span></div>
-            <div class="bar green"><span style="width:58%"></span></div>
+            <div class="bar-top"><span>A. 정본 문서/source rule 정렬</span><span>87%</span></div>
+            <div class="bar green"><span style="width:87%"></span></div>
           </div>
           <div class="bar-item">
-            <div class="bar-top"><span>B. Coffee revenue source</span><span>89%</span></div>
-            <div class="bar green"><span style="width:89%"></span></div>
+            <div class="bar-top"><span>B. 더클린커피 매출 source 확인</span><span>100%</span></div>
+            <div class="bar green"><span style="width:100%"></span></div>
           </div>
           <div class="bar-item">
-            <div class="bar-top"><span>C. Coffee ad spend source</span><span>62%</span></div>
-            <div class="bar gold"><span style="width:62%"></span></div>
+            <div class="bar-top"><span>C. 더클린커피 광고비 source 확인</span><span>100%</span></div>
+            <div class="bar green"><span style="width:100%"></span></div>
           </div>
           <div class="bar-item">
-            <div class="bar-top"><span>D. Biocom report source map</span><span>20%</span></div>
-            <div class="bar"><span style="width:20%"></span></div>
+            <div class="bar-top"><span>D. 바이오컴 리포트 source map</span><span>74%</span></div>
+            <div class="bar gold"><span style="width:74%"></span></div>
           </div>
           <div class="bar-item">
-            <div class="bar-top"><span>E. Slack reporting</span><span>89%</span></div>
-            <div class="bar teal"><span style="width:89%"></span></div>
+            <div class="bar-top"><span>E. Slack no-send·예약 운영</span><span>100%</span></div>
+            <div class="bar teal"><span style="width:100%"></span></div>
           </div>
           <div class="bar-item">
-            <div class="bar-top"><span>F. Automation readiness</span><span>72%</span></div>
-            <div class="bar teal"><span style="width:72%"></span></div>
+            <div class="bar-top"><span>F. 자동화·가드 readiness</span><span>100%</span></div>
+            <div class="bar teal"><span style="width:100%"></span></div>
           </div>
         </div>
       </article>
       <article class="panel span-6">
-        <h2>진척률을 올리는 핵심 병목</h2>
-        <p>
-          가장 낮은 Track은 D와 C입니다. D는 바이오컴도 같은 보고 구조로 확장해야 올라가고, C는 더클린커피 Google/TikTok 광고비 매핑과 Naver DB 캐시 저장 안전장치가 남아 있습니다.
-        </p>
-        <ul>
-          <li><strong>C를 올리는 일:</strong> 네이버 광고비 수집 스크립트에 “더클린커피 캠페인 6개만 읽는 조건”을 넣고, Google/TikTok 캠페인도 브랜드별로 분리한다.</li>
-          <li><strong>D를 올리는 일:</strong> 바이오컴도 같은 주간/월간 매출·광고비 양식으로 데이터 출처 지도를 만든다.</li>
-          <li><strong>F를 올리는 일:</strong> Slack 발송 전 미리보기를 정기 실행 가능한 스크립트로 묶고, 발송 전 숫자 검증을 자동화한다.</li>
+        <h2>지금 Track을 더 올리는 병목</h2>
+        <ul class="plain-list">
+          <li><strong>A:</strong> 자사몰 금액 기준은 no-send 집계기에 연결됐습니다. 남은 병목은 Excel 128건과 no-send 125건의 건수 정의입니다.</li>
+          <li><strong>D:</strong> 바이오컴도 더클린커피와 같은 채널별 매출·광고비 구조로 확장해야 합니다.</li>
+          <li><strong>스마트스토어:</strong> PlayAuto 경고 포함 운영으로 전환했습니다. 경고 제거는 Excel 65,800원 / 2건 차이 또는 네이버 커머스API 직접 원장이 닫힌 뒤 진행합니다.</li>
+          <li><strong>운영 안정성:</strong> 네이버 디스플레이 광고비는 API가 아니라 Hermes 파일 원본이므로 기간별 export 운영 절차가 필요합니다.</li>
         </ul>
+        <div class="tag-row" aria-label="이번 업데이트에서 반영한 최신 근거">
+          <span class="tag">자사몰 no-send 연결</span>
+          <span class="tag">스마트스토어 65,800원 차이</span>
+          <span class="tag">쿠팡 RG aggregate</span>
+          <span class="tag">Naver ADVoost XLSX</span>
+          <span class="tag">Slack 예약 경로</span>
+        </div>
       </article>
     </section>
 
@@ -513,34 +799,34 @@
           <tbody>
             <tr>
               <td><strong>O1. 실제 매출 기준 고정</strong></td>
-              <td>채널별 매출을 실제 결제완료 기준으로 분리한다.</td>
-              <td>NPay 클릭이나 플랫폼 주장값이 매출로 섞이면 광고비 비중이 왜곡된다.</td>
-              <td>자사몰, 스마트스토어, 쿠팡을 데이터 출처별로 나누고 중복 제거 규칙을 문서화한다.</td>
-              <td>더클린커피 89%</td>
-              <td>주간·월간 확정 기준 매출이 출처 경고와 함께 자동 산출된다.</td>
+              <td>채널별 매출을 실제 결제완료 또는 매출인식 기준으로 분리한다.</td>
+              <td>클릭, 결제 시작, 플랫폼 주장값이 섞이면 광고비 비중이 틀어진다.</td>
+              <td>자사몰은 Imweb complete_time 존재 주문, 스마트스토어는 PlayAuto, 쿠팡은 revenue-history와 로켓그로스 참고값으로 분리한다.</td>
+              <td>더클린커피 100%</td>
+              <td>주간·월간 매출이 source warning과 함께 자동 산출된다.</td>
             </tr>
             <tr>
               <td><strong>O2. 광고비 출처 분리</strong></td>
-              <td>Meta/Naver/Google/TikTok 광고비를 사이트 기준으로 나눈다.</td>
-              <td>바이오컴 광고비가 더클린커피에 섞이면 ROAS와 광고비 비중이 무너진다.</td>
-              <td>Meta는 포함하고, Naver는 더클린커피 캠페인 허용 목록을 적용한다. Google/TikTok은 브랜드별 캠페인 매핑 후 포함한다.</td>
-              <td>더클린커피 62%</td>
-              <td>각 플랫폼 광고비가 포함, 보류, 제외로 자동 분류된다.</td>
+              <td>Meta/Naver/Google/TikTok 광고비를 브랜드 기준으로 나눈다.</td>
+              <td>브랜드가 섞이면 ROAS와 매출 대비 광고비 비중이 바로 무너진다.</td>
+              <td>Meta는 API, Naver 검색광고는 API, Naver 디스플레이는 Hermes 원본 파일, Google/TikTok은 현재 0원 또는 보류로 둔다.</td>
+              <td>더클린커피 100%</td>
+              <td>플랫폼별 광고비가 포함, 보류, 제외로 자동 분류된다.</td>
             </tr>
             <tr>
               <td><strong>O3. Slack 정기 보고</strong></td>
               <td>매주·매월 매출, 광고비, 광고비 비중을 Slack으로 받는다.</td>
-              <td>사람이 매번 DB/API를 보지 않아도 사업 판단을 반복할 수 있어야 한다.</td>
-              <td>발송 전 미리보기 -> 승인 -> 실제 채널 발송 -> 로그 확인 순서로 간다.</td>
-              <td>89%</td>
-              <td>정상/경고 메시지가 지정 채널에 정해진 시간에 들어온다.</td>
+              <td>매번 DB/API를 열지 않고도 운영 판단을 반복해야 한다.</td>
+              <td>no-send JSON -> 사람이 읽는 preview -> 예약 발송 -> 예약 ID 확인 순서로 간다.</td>
+              <td>100%</td>
+              <td>정상/경고 메시지가 지정 채널에 정해진 시간에 들어오고, 예약 ID가 기록된다.</td>
             </tr>
             <tr>
-              <td><strong>O4. 바이오컴으로 확장</strong></td>
+              <td><strong>O4. 바이오컴 확장</strong></td>
               <td>더클린커피에서 검증한 보고 구조를 바이오컴에도 적용한다.</td>
-              <td>두 브랜드를 같은 숫자 언어로 봐야 예산 배분 판단이 가능하다.</td>
-              <td>reportbiocom에 같은 채널, 데이터 출처, 최신성 구조를 붙인다.</td>
-              <td>20%</td>
+              <td>두 브랜드를 같은 숫자 언어로 봐야 예산 배분을 할 수 있다.</td>
+              <td>reportbiocom에 자사몰, NPay, Google, Meta, Naver 데이터 출처와 freshness를 붙인다.</td>
+              <td>74%</td>
               <td>바이오컴도 주간·월간 매출, 광고비, 광고비 비중이 같은 포맷으로 나온다.</td>
             </tr>
           </tbody>
@@ -548,65 +834,24 @@
       </div>
     </section>
 
-    <section class="grid" aria-label="Naver allowlist 결과">
-      <article class="panel span-8">
-        <h2>Naver 광고 캠페인 허용 목록 미리보기 결과</h2>
-        <p>
-          Naver Ads API(네이버 광고 데이터를 읽는 공식 연결 통로)는 연결돼 있습니다. 계정 전체 37개 캠페인 중 더클린커피 이름이 들어간 후보는 6개입니다.
-          6개 모두 PAUSED(캠페인이 꺼진 상태)이고, 최근 30일 광고비와 클릭이 0입니다.
-        </p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>후보 캠페인</th>
-                <th>상태</th>
-                <th class="money">클릭</th>
-                <th class="money">광고비</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>[쇼핑검색] 04_더클린커피 아임웹</td><td>PAUSED</td><td class="money">0</td><td class="money">0원</td></tr>
-              <tr><td>[쇼핑검색] 04_더클린커피 아임웹 커피</td><td>PAUSED</td><td class="money">0</td><td class="money">0원</td></tr>
-              <tr><td>[파워링크] 07-1_더클린커피_아임웹</td><td>PAUSED</td><td class="money">0</td><td class="money">0원</td></tr>
-              <tr><td>[파워링크] 07-3_더클린커피_록하트</td><td>PAUSED</td><td class="money">0</td><td class="money">0원</td></tr>
-              <tr><td>[파워링크] 더클린커피_아임웹/NXL</td><td>PAUSED</td><td class="money">0</td><td class="money">0원</td></tr>
-              <tr><td>브랜드검색03_더클린커피</td><td>PAUSED</td><td class="money">0</td><td class="money">0원</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
-      <article class="panel span-4">
-        <span class="status hold">판단</span>
-        <h2>보고에는 0원 후보, 캐시 저장은 보류</h2>
-        <p>
-          Slack 보고에서는 Naver를 0원 후보로 표시할 수 있습니다. 하지만 DB 캐시 저장(cache write: 화면이 빠르게 읽도록 내부 SQLite 테이블에 저장)은 “더클린커피 캠페인 6개만 저장하는 안전장치”를 광고비 수집 스크립트에 넣은 뒤 별도 승인으로 진행해야 합니다.
-        </p>
-      </article>
-    </section>
-
-    <section class="panel">
-      <h2>정확히 어디를 고치는가</h2>
-      <p>
-        다음 작업은 네이버 광고 계정 자체를 바꾸는 일이 아닙니다. 광고를 켜거나 끄지 않고, 광고비를 읽는 내부 수집 경로에 안전장치를 붙이는 일입니다.
-      </p>
-      <div class="term-list">
-        <div class="term">
-          <strong>1. Naver Ads API</strong>
-          네이버 광고 계정에서 캠페인 이름, 상태, 광고비를 읽는 공식 통로입니다. 여기에는 쓰기나 상태 변경을 하지 않습니다.
-        </div>
-        <div class="term">
-          <strong>2. 광고비 수집 스크립트</strong>
-          `backend/scripts/naver-ads-collect-7d-20260513.ts`가 네이버 광고비를 읽어 내부 DB에 저장할 수 있는 프로그램입니다. 여기에 “더클린커피 후보 6개만 통과” 조건을 넣어야 합니다.
-        </div>
-        <div class="term">
-          <strong>3. DB 캐시 테이블</strong>
-          `naver_ads_daily`는 화면과 보고 API가 빠르게 읽는 내부 SQLite 테이블입니다. 지금은 여기에 더클린커피 row를 저장하지 않았습니다.
-        </div>
-        <div class="term">
-          <strong>4. Slack 보고 문구</strong>
-          실제 저장 전까지는 `Naver: 0원 확인 후보`와 `DB 캐시 저장 전` 경고를 같이 보여줍니다.
-        </div>
+    <section>
+      <h2>프론트엔드 보고서 개선 체크</h2>
+      <div class="grid">
+        <article class="panel span-4">
+          <div class="card-kicker">사람 말 우선</div>
+          <div class="metric-small">첫 화면 질문을 명확히 변경</div>
+          <p>기술 구조보다 “자동 보고를 운영 미리보기로 봐도 되는가”를 먼저 보여주도록 바꿨습니다.</p>
+        </article>
+        <article class="panel span-4">
+          <div class="card-kicker">용어 설명</div>
+          <div class="metric-small">영어·내부 용어 풀이 추가</div>
+          <p>Imweb API, revenue-history, Hermes, no-send, complete_time 같은 용어를 처음 나오는 자리에서 풀어 썼습니다.</p>
+        </article>
+        <article class="panel span-4">
+          <div class="card-kicker">숫자 기준</div>
+          <div class="metric-small">source/window/freshness 표시</div>
+          <p>각 숫자 옆에 기간, 출처, 신뢰 상태를 붙여 플랫폼 주장값과 내부 매출값이 섞이지 않게 했습니다.</p>
+        </article>
       </div>
     </section>
 
@@ -614,79 +859,126 @@
       <h2>단계별 추진계획</h2>
       <ol class="timeline">
         <li data-step="1">
-          <strong>더클린커피 광고비를 먼저 닫는다.</strong>
-          무엇을 하는가: 네이버 광고비 수집 스크립트에 더클린커피 후보 캠페인 6개만 읽는 조건을 넣습니다. 왜 하는가: 조건 없이 저장하면 바이오컴 광고비가 더클린커피 광고비처럼 섞일 수 있기 때문입니다. 어떻게 하는가: DB 저장 없이 미리보기 실행(preview: 저장하지 않고 결과만 보는 실행)을 돌려 후보 6개만 남는지 확인합니다.
+          <strong>자사몰 기준을 Imweb complete_time 존재 주문으로 전환했다.</strong>
+          무엇을 했는가: Slack no-send JSON의 자사몰 매출 금액을 아임웹 결제/주문 기간 안의 complete_time 존재 주문 기준으로 계산합니다.
+          왜 하는가: 이 기준이 기존 Excel 금액 5,334,362원과 정확히 맞았기 때문입니다.
+          어떻게 하는가: Toss+NPay 조합은 결제수단 breakdown 참고값으로 남기고, 자사몰 총액은 Imweb aggregate를 primary로 둡니다.
         </li>
         <li data-step="2">
-          <strong>Slack 발송 전 미리보기를 주간·월간 정본으로 고정한다.</strong>
-          무엇을 하는가: Slack 발송 전 미리보기 문구를 주간/월간 기준으로 고정합니다. 왜 하는가: 실제 발송 전에 숫자와 경고 문구가 맞는지 확인해야 하기 때문입니다. 어떻게 하는가: 매출, 광고비, 매출 대비 광고비, 데이터 출처 경고, 보류 플랫폼을 한 메시지에 넣습니다.
+          <strong>스마트스토어는 PlayAuto 경고 포함으로 운영한다.</strong>
+          무엇을 하는가: PlayAuto 1,839,340원 / 53 rows와 Excel 1,905,140원 / 55건의 차이를 Slack no-send에 경고로 표시합니다.
+          왜 하는가: 운영은 시작해야 하지만, 65,800원 / 2건 차이가 닫히지 않은 숫자를 완전 확정값처럼 보내면 안 되기 때문입니다.
+          어떻게 하는가: 네이버 직접 API 원장 확보 전까지 PlayAuto를 best available source로 두고, 커머스API 키·IP·스토어 권한이 열리면 no-raw 집계기로 대조합니다.
         </li>
         <li data-step="3">
-          <strong>제품별 매출을 붙인다.</strong>
-          무엇을 하는가: 채널별 총매출 옆에 잘 팔린 제품 TOP3를 붙입니다. 왜 하는가: 매출이 늘거나 줄었을 때 어느 상품이 원인인지 바로 알아야 광고비와 재고 판단을 할 수 있기 때문입니다. 어떻게 하는가: 스마트스토어는 PlayAuto(여러 판매 채널 주문을 한 운영DB 테이블에 모아 둔 수집 원천) 상품명, 쿠팡은 TeamKeto ordersheets(쿠팡 판매자 주문서 API, 상품명·수량·금액을 읽는 공식 통로), 자사몰은 Imweb order items(아임웹 주문 안의 상품별 행)를 봅니다.
+          <strong>네이버 광고비 기간을 매출 기간과 맞춘다.</strong>
+          무엇을 하는가: 2026-05-18 - 2026-05-24 기준 no-send를 새로 만들거나, Hermes에 2026-05-17 - 2026-05-23 XLSX를 다시 요청합니다.
+          왜 하는가: 광고비와 매출 기간이 하루라도 어긋나면 매출 대비 광고비 비중이 틀어지기 때문입니다.
+          어떻게 하는가: 검색광고 API 440원과 ADVoost XLSX 350,098원을 같은 기간에서 합칩니다.
         </li>
         <li data-step="4">
-          <strong>바이오컴을 같은 구조로 확장한다.</strong>
-          무엇을 하는가: 더클린커피에서 만든 보고 구조를 바이오컴에도 적용합니다. 왜 하는가: 두 브랜드를 같은 방식으로 봐야 광고비 배분 판단이 가능하기 때문입니다. 어떻게 하는가: 바이오컴의 자사몰, NPay, Google, Meta, Naver 데이터 출처를 별도로 정리합니다.
+          <strong>쿠팡 60,700원 / 2건 잔여 차이를 계속 좁힌다.</strong>
+          무엇을 하는가: 일반배송, 로켓그로스, Excel 수동 기준을 같은 기간으로 비교합니다.
+          왜 하는가: 쿠팡 strict 매출을 한 숫자로 고정하려면 남은 차이의 성격을 알아야 합니다.
+          어떻게 하는가: 로켓그로스 API는 앞뒤 하루를 더 읽고 KST 결제일로 다시 자르는 guard day 방식을 검토합니다.
         </li>
         <li data-step="5">
-          <strong>실제 Slack 발송을 승인받아 운영에 올린다.</strong>
-          무엇을 하는가: 승인 후 정해진 Slack 채널에 자동 보고를 보냅니다. 왜 하는가: 매주 사람이 같은 조회를 반복하지 않게 하기 위해서입니다. 어떻게 하는가: 발송 채널, 주기, 실패 알림, 로그 보관 위치를 정한 뒤 켭니다. 광고 플랫폼 전환 전송과는 무관합니다.
+          <strong>제품별 TOP 매출을 보고서에 고정한다.</strong>
+          무엇을 하는가: 채널별 총매출 옆에 잘 팔린 상품 TOP3를 붙입니다.
+          왜 하는가: 매출이 늘거나 줄었을 때 어느 상품 때문인지 바로 봐야 재고와 광고비 판단이 됩니다.
+          어떻게 하는가: 스마트스토어는 PlayAuto, 쿠팡은 TeamKeto ordersheets, 자사몰은 Imweb order items를 보조 source로 사용합니다.
+        </li>
+        <li data-step="6">
+          <strong>바이오컴을 같은 포맷으로 확장한다.</strong>
+          무엇을 하는가: 더클린커피에서 검증한 보고 구조를 바이오컴에 복사합니다.
+          왜 하는가: 브랜드별 매출과 광고비를 같은 언어로 봐야 예산 배분이 됩니다.
+          어떻게 하는가: reportbiocom에 source map, no-send JSON, 프론트엔드 보고서를 순서대로 붙입니다.
         </li>
       </ol>
     </section>
 
-    <section class="panel">
-      <h2>제품별 매출은 이렇게 붙입니다</h2>
-      <p>
-        채널별 매출 보고가 “어디에서 팔렸는지”를 보여준다면, 제품별 매출은 “무엇이 팔렸는지”를 보여줍니다.
-        Slack 메시지에는 자사몰, 스마트스토어, 쿠팡 총매출 아래에 각 채널의 TOP 상품 3개를 붙입니다.
-      </p>
-      <div class="term-list">
-        <div class="term">
-          <strong>자사몰</strong>
-          Imweb order items(아임웹 주문 안의 상품별 행)를 주문 총액과 맞춰 봅니다. NPay와 Toss가 같은 주문을 두 번 세지 않도록 먼저 주문 단위로 중복을 제거하고, 상품 라인이 최신이 아니면 TOP 상품은 참고값으로만 표시합니다.
-        </div>
-        <div class="term">
-          <strong>스마트스토어</strong>
-          운영DB `tb_playauto_orders shop_name='스마트스토어'`에서 상품명, 옵션명, 수량, 금액을 읽습니다. PlayAuto는 여러 판매 채널 주문을 한 테이블에 모아 둔 수집 원천입니다.
-        </div>
-        <div class="term">
-          <strong>쿠팡</strong>
-          TeamKeto ordersheets(쿠팡 판매자 주문서 API)에서 상품명, 수량, 금액만 읽습니다. TeamKeto 계정에는 커피와 팀키토 상품이 섞여 있으므로 coffee 상품은 더클린커피 매출로, teamketo 상품은 참고값으로 나눠 보여줍니다.
-        </div>
+    <section>
+      <h2>근거 문서와 화면</h2>
+      <div class="grid">
+        <article class="panel span-6">
+          <h3>운영용 매출 대시보드</h3>
+          <p>
+            기간 선택, 채널별 매출, 매출 추이, 광고비 분석, 스마트스토어/쿠팡 TOP 상품을 보는 화면입니다.
+          </p>
+          <p><a href="reportcoffee-sales-dashboard-20260525.html">reportcoffee-sales-dashboard-20260525.html 열기</a></p>
+        </article>
+        <article class="panel span-6">
+          <h3>정본 계획 문서</h3>
+          <p>
+            report/!report.md에는 매출액, 광고비, 매출 대비 광고비 비중의 정의와 더클린커피·바이오컴 분리 계획이 들어 있습니다.
+          </p>
+          <p><code>report/!report.md</code></p>
+        </article>
+        <article class="panel span-6">
+          <h3>자사몰·스마트스토어 대조 문서</h3>
+          <p>
+            2026-04-25 - 2026-05-01 기준으로 no-send JSON, Excel, PlayAuto, VM Cloud, 네이버 원장 후보를 비교한 문서입니다.
+          </p>
+          <p><code>report/reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525.md</code></p>
+        </article>
+        <article class="panel span-6">
+          <h3>스마트스토어 API 검토 문서</h3>
+          <p>
+            PlayAuto 경고 포함 운영 기준과 네이버 커머스API 직접 조회 가능성, 현재 IP/권한 blocker를 정리한 문서입니다.
+          </p>
+          <p><code>report/reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526.md</code></p>
+        </article>
       </div>
     </section>
 
-    <section class="panel">
+    <section>
       <h2>보고서가 지키는 안전선</h2>
       <ul class="two-col">
         <li>NPay 클릭을 구매완료로 세지 않는다.</li>
         <li>광고 플랫폼 주장 매출을 내부 매출 합계에 더하지 않는다.</li>
-        <li>Naver `convAmt`는 네이버 주장값이므로 내부 매출이 아니다.</li>
+        <li>Naver 전환매출은 네이버 주장값이므로 내부 매출이 아니다.</li>
         <li>운영DB 쓰기 없이 읽기와 미리보기만 한다.</li>
-        <li>Slack 실제 발송 전에는 발송 전 미리보기로 문구와 숫자를 확인한다.</li>
+        <li>Slack 실제 발송 전에는 no-send preview로 문구와 숫자를 확인한다.</li>
         <li>Google/GA4/Meta/TikTok/Naver 전환 전송은 하지 않는다.</li>
         <li>캠페인 ID, 클릭 ID, 주문/결제/회원 식별자를 외부 보고에 노출하지 않는다.</li>
-        <li>VM Cloud는 보조 원장이고 운영DB와 구분한다.</li>
+        <li>VM Cloud는 TJ님이 관리하는 보조 원장 환경이며 운영DB와 구분한다.</li>
       </ul>
-    </section>
-
-    <section class="panel">
-      <h2>다음에 가장 중요한 일</h2>
-      <p>
-        다음 한 단계는 네이버 광고비 수집 스크립트에 “더클린커피 캠페인 6개만 읽는 조건”을 넣고, DB 저장 없이 다시 미리보기로 확인하는 것입니다.
-        이 작업은 API를 바꾸는 일이 아니라 내부 수집 스크립트를 고치는 일입니다.
-        이 작업이 끝나면 더클린커피 광고비 출처가 `Meta 포함 + Naver 0원 후보 + Google/TikTok 보류`로 안정화됩니다.
-      </p>
-      <p>
-        그 다음은 Slack 발송 전 미리보기를 승인 가능한 최종 문구로 만들고, 바이오컴 보고서에도 같은 구조를 적용하는 것입니다.
-      </p>
+      <details>
+        <summary>작업 시작 전 하네스 확인 기록</summary>
+        <pre>harness_preflight:
+  common_harness_read:
+    - harness/common/HARNESS_GUIDELINES.md
+    - harness/common/AUTONOMY_POLICY.md
+    - harness/common/REPORTING_TEMPLATE.md
+  project_harness_read:
+    - harness/coffee-data/README.md
+  lane: Green
+  allowed_actions:
+    - local_html_update
+    - read_only_source_review
+    - local_validation
+  forbidden_actions:
+    - slack_send
+    - operating_db_write
+    - vm_deploy_or_restart
+    - platform_conversion_send
+    - gtm_publish
+  source_window_freshness_confidence:
+    source: report/!report.md, reportcoffee-sales-summary-no-send-20260501-imweb-complete-time.json, reportcoffee-sales-summary-no-send-20260524.json, reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525.md, reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526.md, Hermes Naver XLSX result, Imweb/Coupang diagnostic docs
+    window: 2026-04-25 - 2026-05-01, 2026-05-17 - 2026-05-23, 2026-05-18 - 2026-05-24
+    freshness: 2026-05-26 00:23 KST local report artifacts
+    confidence: high for selfmall amount and Naver display export, medium_high for SmartStore PlayAuto source with warning, medium for Naver Commerce API readiness, medium_high for Coupang strict path, medium for remaining Coupang gap</pre>
+      </details>
     </section>
 
     <footer>
       <p>
-        근거 문서: reportcoffee, reportcoffee-slack-preview-20260522, reportcoffee-naver-ads-campaign-allowlist-dry-run-20260522.
+        근거 문서: report/!report.md, report/reportcoffee-sales-summary-no-send-20260524.json,
+        report/reportcoffee-selfmall-imweb-complete-time-source-design-20260525.md,
+        report/reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525.md,
+        report/reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526.md,
+        report/reportcoffee-coupang-rg-slack-nosend-gap-narrowing-20260525.md,
+        report/reportcoffee-naver-display-hermes-export-result-20260525.md.
         이 HTML은 정적 보고서이며 외부 API 호출, Slack 발송, DB 쓰기를 수행하지 않습니다.
       </p>
     </footer>

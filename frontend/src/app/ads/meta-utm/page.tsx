@@ -284,6 +284,54 @@ type MetaUtmBGradeProposal = {
   limitations: string[];
 };
 
+type MetaUtmOriginalLandingBridge = {
+  ok: boolean;
+  status: "loaded" | "missing" | "not_applicable" | "error";
+  mode: "read_only_draft_not_roas_applied";
+  source: {
+    jsonPath: string | null;
+    reportPath: string | null;
+    generatedAtKst: string | null;
+    targetPath: string | null;
+    windowUtc: { start: string; end: string } | null;
+    site: string | null;
+  };
+  ledgerGap: {
+    siteLandingExactPathRows: number | null;
+    metadataTextMentions: number;
+    originalLandingBridgeRows: number;
+    textMentionsWithoutUsableOriginalUrl: number;
+  };
+  totals: {
+    rowsWithUtm: number;
+    rowsWithFbclid: number;
+    numericIdRows: number;
+    templatePhraseRows: number;
+    checkoutStartedRows: number;
+    confirmedPaymentRows: number;
+    confirmedRevenueKrw: number;
+  };
+  confidenceRollup: Array<{
+    grade: string;
+    meaning: string;
+    rows: number;
+    checkoutStartedRows: number;
+    confirmedPaymentRows: number;
+    confirmedRevenueKrw: number;
+  }>;
+  campaignRollup: Array<{
+    campaignEvidence: string;
+    rows: number;
+    checkoutStartedRows: number;
+    confirmedPaymentRows: number;
+    confirmedRevenueKrw: number;
+    topTerms: Array<{ value: string; rows: number }>;
+    topContents: Array<{ value: string; rows: number }>;
+  }>;
+  recommendations: string[];
+  limitations: string[];
+};
+
 type MetaUtmDiagnostics = {
   ok: boolean;
   account_id: string;
@@ -307,6 +355,7 @@ type MetaUtmDiagnostics = {
   };
   unmappedDryRun?: MetaUtmUnmappedDryRunSummary;
   bgradeProposal?: MetaUtmBGradeProposal;
+  originalLandingBridge?: MetaUtmOriginalLandingBridge;
   summary: {
     total?: { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number };
     ready: { rows: number; spend: number; purchases: number; attRevenue: number; attOrders: number };
@@ -900,6 +949,139 @@ function BGradeProposalPanel({
   );
 }
 
+function OriginalLandingBridgePanel({ bridge }: { bridge?: MetaUtmOriginalLandingBridge }) {
+  if (!bridge || bridge.status === "not_applicable") return null;
+  const gradeRows = bridge.confidenceRollup.filter((row) => row.rows > 0);
+  const campaignRows = bridge.campaignRollup.slice(0, 5);
+  const targetPath = bridge.source.targetPath ?? "원본 랜딩";
+
+  return (
+    <section className="originalBridgePanel">
+      <div className="sectionHeader">
+        <div>
+          <h2>원본 랜딩 bridge</h2>
+          <p>
+            고객 유입 장부에는 보이지 않지만 결제/체크아웃 원장 안에 남은 최초 랜딩 URL을 읽어,
+            랜딩별 Meta 매출 근거가 사라진 것처럼 보이는 문제를 보정해서 보여줍니다. 이 패널의 A급 근거는
+            `utm_campaign`만이 아니라 `meta_campaign_id`, `meta_adset_id`, `meta_ad_id`에 남은 숫자 ID까지 포함합니다.
+          </p>
+        </div>
+        <div className="sectionStats">
+          <span>{bridge.status === "loaded" ? "read-only bridge" : "준비 필요"}</span>
+          <span>{targetPath}</span>
+          <span>{bridge.source.generatedAtKst ?? "생성 시각 미확인"}</span>
+        </div>
+      </div>
+
+      {bridge.status !== "loaded" ? (
+        <div className="emptyState">{bridge.limitations[0] ?? "원본 랜딩 bridge 초안을 아직 읽지 못했습니다."}</div>
+      ) : (
+        <>
+          <div className="originalBridgeNarrative">
+            <article>
+              <span>고객 유입 장부에서 보이는 값</span>
+              <strong>{fmtNum(bridge.ledgerGap.siteLandingExactPathRows ?? 0)}건</strong>
+              <small>첫 랜딩 장부만 보면 {targetPath} 유입이 없는 것처럼 보입니다.</small>
+            </article>
+            <article>
+              <span>결제/체크아웃 원장에서 복구한 값</span>
+              <strong>{fmtNum(bridge.ledgerGap.originalLandingBridgeRows)}건</strong>
+              <small>아임웹 원본 랜딩 URL에 {targetPath}가 남아 있는 row입니다.</small>
+            </article>
+            <article>
+              <span>A급 meta_* 숫자 ID</span>
+              <strong>{fmtNum(bridge.totals.numericIdRows)}건</strong>
+              <small>`utm_campaign`이 비어 있어도 `meta_campaign_id` 계열 숫자가 있으면 광고 계층 매칭 재료입니다.</small>
+            </article>
+            <article>
+              <span>확정 결제 매출</span>
+              <strong>{fmtKRW(bridge.totals.confirmedRevenueKrw)}</strong>
+              <small>{fmtNum(bridge.totals.confirmedPaymentRows)}건 · 내부 결제완료 원장 기준</small>
+            </article>
+          </div>
+
+          <div className="originalBridgeDecision">
+            <strong>현재 판단</strong>
+            <span>
+              {targetPath}는 UTM이 없는 광고로 보면 안 됩니다. 원본 랜딩 bridge 기준으로는 대부분 `meta_*` 숫자 ID가 남아 있고,
+              숫자로 바뀌지 않은 템플릿 문구 {fmtNum(bridge.totals.templatePhraseRows)}건만 D급 수동확인으로 남겨야 합니다.
+              최근 날짜 비교상 D급은 과거 설정 한 번의 흔적만으로 보기 어렵기 때문에 특정 광고에 임의 배정하지 않습니다.
+            </span>
+          </div>
+
+          <div className="originalBridgeEvidenceGuide">
+            <article>
+              <strong>A급으로 보는 기준</strong>
+              <span>
+                주문 또는 원본 랜딩 URL에 `meta_campaign_id`, `meta_adset_id`, `meta_ad_id` 같은 숫자 ID가 남아 있으면
+                캠페인·광고세트·광고 단위 매칭 재료로 봅니다.
+              </span>
+            </article>
+            <article>
+              <strong>D급으로 격리하는 기준</strong>
+              <span>
+                Meta가 숫자나 실제 placement로 바꿔야 할 템플릿 문구가 그대로 남으면 자동 ROAS 배정에서 제외합니다.
+                예: {"{{campaign.id}}"}, {"{{adset.id}}"}, {"{{ad.id}}"}, {"{{placement}}"}.
+              </span>
+            </article>
+            <article>
+              <strong>그로스팀 확인 포인트</strong>
+              <span>
+                광고를 바로 수정하지 말고 Ads Manager의 웹사이트 URL, URL Parameters, campaign/adset/ad 숫자 ID,
+                원본과 사본 광고세트 운영 목적을 먼저 확인합니다.
+              </span>
+            </article>
+          </div>
+
+          <div className="originalBridgeGrid">
+            <div className="originalBridgeBlock">
+              <h3>등급별 근거</h3>
+              <div className="originalBridgeRows">
+                {gradeRows.map((row) => (
+                  <article key={row.grade}>
+                    <div>
+                      <strong>{row.grade}급</strong>
+                      <span>{fmtNum(row.rows)}건</span>
+                    </div>
+                    <p>{row.meaning}</p>
+                    <small>결제 {fmtNum(row.confirmedPaymentRows)}건 · {fmtKRW(row.confirmedRevenueKrw)}</small>
+                  </article>
+                ))}
+              </div>
+            </div>
+            <div className="originalBridgeBlock">
+              <h3>숫자 ID rollup</h3>
+              <div className="originalBridgeRows">
+                {campaignRows.map((row) => (
+                  <article key={row.campaignEvidence}>
+                    <div>
+                      <strong>{row.campaignEvidence}</strong>
+                      <span>{fmtNum(row.rows)}건</span>
+                    </div>
+                    <p>결제 {fmtNum(row.confirmedPaymentRows)}건 · {fmtKRW(row.confirmedRevenueKrw)}</p>
+                    <small>
+                      term {row.topTerms.map((item) => `${item.value} ${item.rows}건`).join(", ") || "없음"}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="originalBridgeFootnote">
+            <span>
+              넓은 텍스트 검색 관련 row {fmtNum(bridge.ledgerGap.metadataTextMentions)}건 중
+              실제 원본 랜딩 URL로 파싱 가능한 row만 {fmtNum(bridge.ledgerGap.originalLandingBridgeRows)}건으로 사용합니다.
+              차이 {fmtNum(bridge.ledgerGap.textMentionsWithoutUsableOriginalUrl)}건은 직접 재료에서 제외합니다.
+            </span>
+            {bridge.limitations.map((item) => <span key={item}>{item}</span>)}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function PeriodRoasCards({
   data,
   loading,
@@ -1175,7 +1357,7 @@ export default function MetaUtmPage() {
             <div className="eyebrow">Meta UTM 진단</div>
             <h1>매출을 어느 Meta 광고 구조에 붙일 수 있는지 계층별로 확인합니다</h1>
             <p>
-              UTM이 완벽하지 않아도 campaign/adset/ad ID, dynamic macro, 내부 주문 evidence를 합쳐 85% 이상이면 ROAS 산정 후보로 봅니다.
+              UTM이 완벽하지 않아도 Meta 숫자 ID, 광고 URL 근거, 내부 결제완료 원장 evidence를 합쳐 85% 이상이면 ROAS 산정 후보로 봅니다.
               낮은 확률과 미맵핑은 따로 모아 보완 우선순위를 정합니다.
             </p>
           </div>
@@ -1216,6 +1398,8 @@ export default function MetaUtmPage() {
         <PeriodRoasCards data={periodSummary} loading={periodLoading} error={periodError} />
 
         <GrowthTeamHandoffPanel />
+
+        <OriginalLandingBridgePanel bridge={data?.originalLandingBridge} />
 
         <BGradeProposalPanel proposal={data?.bgradeProposal} query={query} />
 
@@ -1304,6 +1488,7 @@ export default function MetaUtmPage() {
             85% 이상이면 예산 판단 후보로 보고, 1~84%는 보완/샘플 검토, 0%는 미맵핑으로 분리합니다.
             캠페인 단위 ROAS는 기존 내부 attribution 계산과 같고, 광고세트/광고 단위 ROAS는 주문 원장에 해당 ID가 남은 경우 정확도가 높습니다.
             상세 표의 구매 전환 금액은 내부 attribution 원장에 해당 광고 구조로 매칭된 결제완료 매출입니다.
+            Meta 원본 랜딩 bridge에서는 `utm_campaign`이 비어 있어도 `meta_campaign_id`, `meta_adset_id`, `meta_ad_id`가 숫자로 남으면 A급 근거로 봅니다.
             상단 Meta 기준 구매전환값은 Meta Ads Insights의 action_values[purchase]라 최근 Meta 데이터 제한 영향으로 낮거나 비어 있을 수 있습니다.
           </p>
           {data?.diagnostics?.limitations?.map((item) => <span key={item}>{item}</span>)}
@@ -1319,7 +1504,7 @@ export default function MetaUtmPage() {
           padding: 96px 18px 36px;
           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
-        .topBar, .toolbar, .periodRoasPanel, .summaryGrid, .levelTabs, .sectionPanel, .unmappedOrdersPanel, .notes, .errorBox, .loadingBox {
+        .topBar, .toolbar, .periodRoasPanel, .summaryGrid, .levelTabs, .sectionPanel, .unmappedOrdersPanel, .originalBridgePanel, .notes, .errorBox, .loadingBox {
           max-width: 1760px;
           margin-left: auto;
           margin-right: auto;
@@ -2215,6 +2400,149 @@ export default function MetaUtmPage() {
           overflow-wrap: anywhere;
           line-height: 1.5;
         }
+        .metaUtmPage .originalBridgePanel {
+          max-width: 1760px;
+          margin: 0 auto 14px;
+          background: #ffffff;
+          border: 1px solid #d8e0ea;
+          border-left: 4px solid #0891b2;
+          border-radius: 8px;
+          padding: 14px;
+        }
+        .metaUtmPage .originalBridgeNarrative {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .originalBridgeNarrative article,
+        .metaUtmPage .originalBridgeRows article {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 11px;
+          display: grid;
+          gap: 5px;
+          align-content: start;
+        }
+        .metaUtmPage .originalBridgeNarrative span,
+        .metaUtmPage .originalBridgeRows span {
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .originalBridgeNarrative strong {
+          color: #0f172a;
+          font-size: 1.05rem;
+          line-height: 1.35;
+          font-variant-numeric: tabular-nums;
+        }
+        .metaUtmPage .originalBridgeNarrative small,
+        .metaUtmPage .originalBridgeRows small {
+          color: #64748b;
+          font-size: 0.66rem;
+          font-weight: 700;
+          line-height: 1.45;
+        }
+        .metaUtmPage .originalBridgeDecision {
+          display: grid;
+          gap: 4px;
+          border: 1px solid #bae6fd;
+          border-radius: 8px;
+          background: #f0f9ff;
+          padding: 11px 12px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .originalBridgeDecision strong {
+          color: #0c4a6e;
+          font-size: 0.8rem;
+        }
+        .metaUtmPage .originalBridgeDecision span {
+          color: #155e75;
+          font-size: 0.74rem;
+          font-weight: 800;
+          line-height: 1.55;
+        }
+        .metaUtmPage .originalBridgeEvidenceGuide {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .originalBridgeEvidenceGuide article {
+          border: 1px solid #e0f2fe;
+          border-radius: 8px;
+          background: #f8fbff;
+          padding: 10px 11px;
+          display: grid;
+          gap: 5px;
+          align-content: start;
+        }
+        .metaUtmPage .originalBridgeEvidenceGuide strong {
+          color: #0f172a;
+          font-size: 0.76rem;
+          line-height: 1.35;
+        }
+        .metaUtmPage .originalBridgeEvidenceGuide span {
+          color: #475569;
+          font-size: 0.68rem;
+          font-weight: 800;
+          line-height: 1.55;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .originalBridgeGrid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .originalBridgeBlock {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 12px;
+        }
+        .metaUtmPage .originalBridgeBlock h3 {
+          margin: 0 0 8px;
+          color: #111827;
+          font-size: 0.82rem;
+        }
+        .metaUtmPage .originalBridgeRows {
+          display: grid;
+          gap: 8px;
+        }
+        .metaUtmPage .originalBridgeRows article div {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          align-items: baseline;
+        }
+        .metaUtmPage .originalBridgeRows strong {
+          color: #111827;
+          font-size: 0.76rem;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .originalBridgeRows p {
+          margin: 0;
+          color: #475569;
+          font-size: 0.7rem;
+          line-height: 1.5;
+        }
+        .metaUtmPage .originalBridgeFootnote {
+          display: grid;
+          gap: 4px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #f8fafc;
+          padding: 8px 10px;
+        }
+        .metaUtmPage .originalBridgeFootnote span {
+          color: #64748b;
+          font-size: 0.68rem;
+          font-weight: 800;
+          line-height: 1.5;
+        }
         .metaUtmPage .dryRunPanel,
         .metaUtmPage .bgradePanel {
           max-width: 1760px;
@@ -2769,6 +3097,8 @@ export default function MetaUtmPage() {
           .metaUtmPage .growthNarrativeGrid,
           .metaUtmPage .growthHandoffBody,
           .metaUtmPage .growthRankingGuide,
+          .metaUtmPage .originalBridgeEvidenceGuide,
+          .metaUtmPage .originalBridgeGrid,
           .metaUtmPage .dryRunImpactGrid,
           .metaUtmPage .dryRunBucketGrid,
           .metaUtmPage .bgradeStatsGrid,
@@ -2786,6 +3116,7 @@ export default function MetaUtmPage() {
           .metaUtmPage .growthHandoffStats,
           .metaUtmPage .growthFieldList,
           .metaUtmPage .growthCaseGrid,
+          .metaUtmPage .originalBridgeNarrative,
           .metaUtmPage .dryRunSampleList {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
@@ -2798,6 +3129,7 @@ export default function MetaUtmPage() {
           .metaUtmPage .growthHandoffStats,
           .metaUtmPage .growthFieldList,
           .metaUtmPage .growthCaseGrid,
+          .metaUtmPage .originalBridgeNarrative,
           .metaUtmPage .dryRunSampleList {
             grid-template-columns: 1fr;
           }

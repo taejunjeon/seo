@@ -1,0 +1,125 @@
+{
+  "schema_version": "reportcoffee-advoost-shopping-api-source-plan-v1-20260525",
+  "generated_at_kst": "2026-05-25 10:45:00 KST",
+  "mode": "green_research_no_send_no_write",
+  "site": "thecleancoffee",
+  "target_campaign": {
+    "ui_name": "[ADVoost] 쇼핑",
+    "ui_campaign_id_candidate": "1261102",
+    "ui_window": "2026-05-18 - 2026-05-24 KST",
+    "ui_spend_krw": 350097,
+    "ui_clicks": 194,
+    "ui_impressions": 25303
+  },
+  "conclusion": {
+    "api_family": "Naver Performance DA API",
+    "not_api_family": "Naver Search Ad API",
+    "reason": "The existing Search Ad API returned cmp-a style search campaigns and missed numeric display campaign 1261102 shown in the Naver Ads UI.",
+    "current_readiness": "blocked_by_missing_performance_da_oauth_and_ad_account_no"
+  },
+  "official_sources": [
+    {
+      "label": "Naver Performance DA Getting Started",
+      "url": "https://naver-ad-api.github.io/developers/en/docs/intro",
+      "used_for": "beta/official partner access requirement and OAuth setup direction"
+    },
+    {
+      "label": "Call API with access token",
+      "url": "https://naver-ad-api.github.io/openapi-guide/docs/prepare/api-call-with-access-token",
+      "used_for": "Authorization Bearer token call shape"
+    },
+    {
+      "label": "Basic request",
+      "url": "https://naver-ad-api.github.io/openapi-guide/docs/basic-concept/basic-request",
+      "used_for": "base URL and AccessManagerAccountNo manager-account header"
+    },
+    {
+      "label": "Ad API",
+      "url": "https://naver-ad-api.github.io/developers/en/api/ad",
+      "used_for": "campaign list endpoint and SHOPPING objective filter"
+    },
+    {
+      "label": "Performance API",
+      "url": "https://naver-ad-api.github.io/developers/en/api/performance",
+      "used_for": "past performance endpoint and metrics fields"
+    }
+  ],
+  "required_credentials_or_ids": [
+    "performance_da_oauth_access_credential",
+    "performance_da_ad_account_no",
+    "performance_da_manager_account_no_if_applicable",
+    "campaign_no_confirmed_from_live_list"
+  ],
+  "local_env_presence_check": {
+    "search_ads_env_present": [
+      "NAVER_COFFEE_ACEESS",
+      "NAVER_COFFEE_SECREY_KEY",
+      "NAVER_COFFEE_CUSTOMER_ID"
+    ],
+    "performance_da_env_present": [],
+    "note": "Only variable names were checked and recorded. Secret values were not output."
+  },
+  "planned_read_sequence": [
+    {
+      "step": 1,
+      "name": "list_ad_accounts",
+      "method": "GET",
+      "url_template": "https://openapi.naver.com/v1/ad-api/1.0/adAccounts?page=0&size=100",
+      "purpose": "Find the Performance DA adAccountNo for TheCleanCoffee."
+    },
+    {
+      "step": 2,
+      "name": "list_manager_accounts",
+      "method": "GET",
+      "url_template": "https://openapi.naver.com/v1/ad-api/1.0/managerAccounts?page=0&size=100",
+      "purpose": "Find AccessManagerAccountNo if the ad account is under a manager account."
+    },
+    {
+      "step": 3,
+      "name": "list_shopping_campaigns",
+      "method": "GET",
+      "url_template": "https://openapi.naver.com/v1/ad-api/1.0/adAccounts/{AD_ACCOUNT_NO}/campaigns?objectives=SHOPPING&page=0&size=100",
+      "purpose": "Locate [ADVoost] 쇼핑 and confirm whether campaignNo is 1261102."
+    },
+    {
+      "step": 4,
+      "name": "past_campaign_performance",
+      "method": "GET",
+      "url_template": "https://openapi.naver.com/v1/ad-api/1.0/adAccounts/{AD_ACCOUNT_NO}/performance/past/campaigns?startDate=2026-05-18&endDate=2026-05-24&timeUnit=daily&limit=1000",
+      "purpose": "Filter campaignNo=1261102 and sum sales, clickCount, impCount."
+    }
+  ],
+  "field_mapping": {
+    "sales": "ad_spend_krw",
+    "impCount": "impressions",
+    "clickCount": "clicks",
+    "convCount": "naver_claim_conversion_count",
+    "convSales": "naver_claim_conversion_sales",
+    "updatedAt": "source_updated_at"
+  },
+  "success_criteria": {
+    "campaign_found": "campaign row name matches [ADVoost] 쇼핑 and campaignNo matches or is safely mapped to UI id 1261102",
+    "weekly_reconciliation": "2026-05-18 - 2026-05-24 summed sales is close to 350097 KRW, clicks close to 194, impressions close to 25303",
+    "reporting_ready": "weekly and monthly Naver spend can include Search Ads + Performance DA without UI screenshot fallback"
+  },
+  "blockers": [
+    {
+      "category": "blocked_access",
+      "name": "performance_da_oauth_missing",
+      "detail": "A valid NAVER Login OAuth access token with Performance DA API permission is not present locally."
+    },
+    {
+      "category": "blocked_data",
+      "name": "ad_account_no_unknown",
+      "detail": "Search Ads customer id 2424664 must not be assumed as Performance DA adAccountNo."
+    }
+  ],
+  "invariants_held": {
+    "naver_ads_state_change": 0,
+    "cache_write": 0,
+    "slack_send": 0,
+    "deploy": 0,
+    "platform_conversion_send": 0,
+    "sensitive_credential_value_output": 0
+  }
+}

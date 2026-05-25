@@ -1270,7 +1270,7 @@ const findPageLongThresholdRow = (
   site: LeadingIndicatorSite,
   channel: LeadingIndicatorChannel,
 ): Record<string, unknown> | null => {
-  const raw = asRecord(readProjectJson("page-long-threshold-fit-dry-run-20260524.json"));
+  const raw = asRecord(readProjectJson("page-long-threshold-fit-dry-run-20260525.json"));
   const rows = arrayFrom(raw, "threshold_fit");
   const lookupChannel = channel === "all" ? "meta" : channel;
   const row = rows
@@ -1307,11 +1307,11 @@ const buildGa4BehaviorSnapshot = (input: {
 }): Ga4BehaviorSnapshot => {
   const checkedAt =
     stringValue(
-      asRecord(readProjectJson("ga4-vm-row-level-safe-bridge-dry-run-20260524.json")) ?? undefined,
+      asRecord(readProjectJson("ga4-vm-row-level-safe-bridge-dry-run-20260525.json")) ?? undefined,
       ["checked_at_kst"],
     ) ||
     stringValue(
-      asRecord(readProjectJson("coffee-channel-cohort-truth-table-20260524.json")) ?? undefined,
+      asRecord(readProjectJson("coffee-channel-cohort-truth-table-20260525.json")) ?? undefined,
       ["checked_at_kst"],
     ) ||
     null;
@@ -1321,13 +1321,13 @@ const buildGa4BehaviorSnapshot = (input: {
   let confidence: Ga4BehaviorSnapshot["confidence"] = "low";
 
   if (input.site === "biocom" && input.channel === "meta") {
-    const raw = asRecord(readProjectJson("biocom-meta-only-buyer-leaver-truth-table-20260524.json"));
+    const raw = asRecord(readProjectJson("biocom-meta-only-buyer-leaver-truth-table-20260525.json"));
     const truthTable = asRecord(raw?.truth_table);
     buyer = snapshotMetric(truthTable, "buyer");
     nonBuyer = snapshotMetric(truthTable, "non_buyer");
     confidence = stringValue(truthTable ?? undefined, ["confidence"]) === "high" ? "high" : "medium";
   } else if (input.site === "thecleancoffee" && input.channel !== "all") {
-    const raw = asRecord(readProjectJson("coffee-channel-cohort-truth-table-20260524.json"));
+    const raw = asRecord(readProjectJson("coffee-channel-cohort-truth-table-20260525.json"));
     const row = arrayFrom(raw, "channel_truth_table")
       .map(asRecord)
       .find((candidate): candidate is Record<string, unknown> =>
@@ -1342,7 +1342,7 @@ const buildGa4BehaviorSnapshot = (input: {
     const rowConfidence = stringValue(row ?? undefined, ["confidence"]);
     confidence = rowConfidence === "high" || rowConfidence === "medium" ? rowConfidence : "low";
   } else {
-    const raw = asRecord(readProjectJson("ga4-vm-row-level-safe-bridge-dry-run-20260524.json"));
+    const raw = asRecord(readProjectJson("ga4-vm-row-level-safe-bridge-dry-run-20260525.json"));
     const rows = arrayFrom(raw, "cohort_summary").map(asRecord);
     const buyerRow = rows.find((candidate): candidate is Record<string, unknown> =>
       Boolean(
@@ -1600,17 +1600,42 @@ export const getPrecomputedLeadingIndicators = (
   };
 };
 
+const PRECOMPUTE_SITES: LeadingIndicatorSite[] = ["biocom", "thecleancoffee"];
+const PRECOMPUTE_WINDOWS: LeadingIndicatorWindow[] = ["1d", "7d", "14d", "30d"];
+const PRECOMPUTE_BUYER_CHANNELS: LeadingIndicatorChannel[] = [
+  "meta",
+  "google_paid",
+  "youtube",
+  "organic",
+];
+
 const PRECOMPUTE_TARGETS: Array<Omit<LeadingIndicatorQuery, "freshness">> = [
-  { site: "biocom", window: "1d", channel: "meta", dimension: "buyer_vs_leaver" },
-  { site: "biocom", window: "7d", channel: "meta", dimension: "buyer_vs_leaver" },
-  { site: "biocom", window: "7d", channel: "meta", dimension: "landing_bucket" },
-  { site: "biocom", window: "7d", channel: "google_paid", dimension: "buyer_vs_leaver" },
-  { site: "biocom", window: "7d", channel: "all", dimension: "channel" },
-  { site: "thecleancoffee", window: "1d", channel: "meta", dimension: "buyer_vs_leaver" },
-  { site: "thecleancoffee", window: "7d", channel: "meta", dimension: "buyer_vs_leaver" },
-  { site: "thecleancoffee", window: "7d", channel: "meta", dimension: "landing_bucket" },
-  { site: "thecleancoffee", window: "7d", channel: "google_paid", dimension: "buyer_vs_leaver" },
-  { site: "thecleancoffee", window: "7d", channel: "all", dimension: "channel" },
+  ...PRECOMPUTE_SITES.flatMap((site) =>
+    PRECOMPUTE_WINDOWS.flatMap((window) =>
+      PRECOMPUTE_BUYER_CHANNELS.map((channel) => ({
+        site,
+        window,
+        channel,
+        dimension: "buyer_vs_leaver" as const,
+      })),
+    ),
+  ),
+  ...PRECOMPUTE_SITES.flatMap((site) =>
+    PRECOMPUTE_WINDOWS.filter((window) => window !== "1d").map((window) => ({
+      site,
+      window,
+      channel: "all" as const,
+      dimension: "channel" as const,
+    })),
+  ),
+  ...PRECOMPUTE_SITES.flatMap((site) =>
+    PRECOMPUTE_WINDOWS.filter((window) => window !== "1d").map((window) => ({
+      site,
+      window,
+      channel: "meta" as const,
+      dimension: "landing_bucket" as const,
+    })),
+  ),
 ];
 
 export const runLeadingIndicatorsPrecomputeOnce = async (

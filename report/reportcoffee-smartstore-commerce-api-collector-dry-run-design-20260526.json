@@ -1,0 +1,236 @@
+{
+  "report": "reportcoffee_smartstore_commerce_api_collector_dry_run_design_v1",
+  "generated_at_kst": "2026-05-26 00:50 KST",
+  "mode": "read_only_no_send_no_write",
+  "site": "thecleancoffee",
+  "harness_preflight": {
+    "common_harness_read": [
+      "AGENTS.md",
+      "harness/common/HARNESS_GUIDELINES.md",
+      "harness/common/AUTONOMY_POLICY.md"
+    ],
+    "project_harness_read": [
+      "harness/coffee-data/README.md",
+      "report/reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526.md"
+    ],
+    "lane": "Green",
+    "allowed_actions": [
+      "vm_cloud_read_only_api_probe",
+      "local_no_raw_design",
+      "local_json_markdown_output"
+    ],
+    "forbidden_actions": [
+      "slack_send",
+      "operating_db_write",
+      "vm_cloud_write_or_deploy",
+      "platform_send_or_upload",
+      "gtm_publish",
+      "raw_identifier_output",
+      "secret_or_token_output"
+    ],
+    "source_window_freshness_confidence": {
+      "source": "VM Cloud API probe + local env key-shape check + official Naver Commerce API docs + PlayAuto/Excel reconciliation docs",
+      "window": "2026-04-25 - 2026-05-01 KST",
+      "freshness": "2026-05-26 00:50 KST",
+      "confidence": "high for VM probe result, medium for final coffee readiness because coffee Commerce credentials are missing"
+    }
+  },
+  "success_criteria": {
+    "token_issue_from_vm": "PASS for BIOCOM_STORE_APP_candidate, FAIL for coffee ads-key-shaped candidate",
+    "thecleancoffee_store_scope": "FAIL_NOT_PROVEN",
+    "raw_identifier_output": 0,
+    "collector_design_ready": true
+  },
+  "vm_cloud_probe_result": {
+    "checked_from": "vm_cloud_34.64.104.94",
+    "window": {
+      "start_date": "2026-04-25",
+      "end_date": "2026-05-01",
+      "timezone": "Asia/Seoul"
+    },
+    "vm_env_key_scan": {
+      "seo_backend_env_contains": [
+        "BIOCOM_NAVER_ADS_*",
+        "PLAYAUTO_*"
+      ],
+      "seo_backend_env_missing": [
+        "THECLEANCOFFEE_NAVER_COMMERCE_*",
+        "NAVER_COMMERCE_COFFEE_*",
+        "NAVER_SMARTSTORE_COFFEE_*"
+      ],
+      "ceoboard_env_contains": [
+        "NAVER_WORKS_*"
+      ],
+      "interpretation": "VM Cloud에는 더클린커피 스마트스토어 주문 조회용 커머스API 키가 보이지 않는다."
+    },
+    "profiles": [
+      {
+        "label": "BIOCOM_STORE_APP_candidate",
+        "token_ok": true,
+        "http_status": 200,
+        "changed_rows": 52,
+        "unique_product_order_ids": 52,
+        "detail_rows": 52,
+        "orders_distinct_count": 52,
+        "gross_amount_krw": 5540740,
+        "status_counts": {
+          "PURCHASE_DECIDED": 49,
+          "CANCELED": 3
+        },
+        "safe_product_scope_signal": [
+          "바이오컴 지연성 알러지 검사",
+          "구아검가수분해물",
+          "바이오컴 뉴로마스터"
+        ],
+        "store_scope_verdict": "BIOCOM_NOT_THECLEANCOFFEE",
+        "use_for_coffee_primary": false,
+        "notes": [
+          "VM Cloud IP can call Commerce API for this candidate.",
+          "Returned products are Biocom products, not TheCleanCoffee products.",
+          "One daily changed-status request returned 429 rate limit; detail query for collected IDs succeeded."
+        ]
+      },
+      {
+        "label": "NAVER_COFFEE_ADS_KEYS_not_commerce_candidate",
+        "token_ok": false,
+        "stage": "local_signature",
+        "safe_error": "Invalid salt",
+        "store_scope_verdict": "ADS_KEY_SHAPE_NOT_COMMERCE",
+        "use_for_coffee_primary": false,
+        "notes": [
+          "The available NAVER_COFFEE_* values have Naver Ads credential shape, not Commerce API client secret shape."
+        ]
+      }
+    ]
+  },
+  "current_verdict": {
+    "can_query_thecleancoffee_smartstore_sales_from_vm_now": false,
+    "why": [
+      "VM Cloud has no TheCleanCoffee Commerce API app credential.",
+      "The Commerce credential candidate that works from VM returns Biocom product scope.",
+      "The NAVER_COFFEE_* values are ad-spend API credentials and cannot sign Commerce API token requests."
+    ],
+    "blocker_category": "blocked_access",
+    "remaining_blocker": "TheCleanCoffee Commerce API app credential and store scope are missing."
+  },
+  "collector_dry_run_design": {
+    "purpose": "Compare TheCleanCoffee SmartStore sales from Naver Commerce API against PlayAuto and Excel without exposing raw order identifiers.",
+    "input_env_candidates": [
+      "THECLEANCOFFEE_NAVER_COMMERCE_CLIENT_ID",
+      "THECLEANCOFFEE_NAVER_COMMERCE_CLIENT_SECRET",
+      "NAVER_COMMERCE_COFFEE_CLIENT_ID",
+      "NAVER_COMMERCE_COFFEE_CLIENT_SECRET",
+      "NAVER_SMARTSTORE_COFFEE_CLIENT_ID",
+      "NAVER_SMARTSTORE_COFFEE_CLIENT_SECRET"
+    ],
+    "runtime_location_preference": "VM Cloud",
+    "why_vm_cloud": "The VM Cloud IP successfully issued a token for the existing Biocom Commerce candidate, while local MacBook returned IP_NOT_ALLOWED earlier.",
+    "no_raw_output_schema": {
+      "window": "start_date/end_date/timezone",
+      "token_check": "ok/http_status/safe_code only",
+      "changed_status_summary": "changed_rows, unique_product_order_ids, status counts",
+      "detail_aggregate": "orders_distinct_count, detail_rows, gross_amount_krw, status counts, top product buckets",
+      "reconciliation": "naver_vs_playauto_amount_diff, naver_vs_excel_amount_diff, confidence",
+      "guardrails": "raw identifiers, customer fields, tokens, secrets all zero"
+    },
+    "steps": [
+      {
+        "step": 1,
+        "name": "credential preflight",
+        "what": "Check presence and shape of TheCleanCoffee Commerce API credential names without printing values.",
+        "success": "client id and client secret present; token endpoint returns 200 from VM Cloud."
+      },
+      {
+        "step": 2,
+        "name": "changed-status fetch",
+        "what": "Call last-changed product order list with cursor/pagination.",
+        "success": "changed_rows and unique product order ids are non-zero with no raw ids printed."
+      },
+      {
+        "step": 3,
+        "name": "detail aggregate",
+        "what": "Call product-order detail query in memory and aggregate by payment date, status, and product name.",
+        "success": "gross amount, order count, status counts, and top product buckets are produced without raw buyer/order fields."
+      },
+      {
+        "step": 4,
+        "name": "scope guard",
+        "what": "Classify returned products as coffee scope or non-coffee scope.",
+        "success": "Coffee product names dominate; otherwise fail closed and keep PlayAuto warning."
+      },
+      {
+        "step": 5,
+        "name": "reconciliation",
+        "what": "Compare Naver Commerce aggregate to PlayAuto and Excel for the same KST window.",
+        "success": "differences are explained or marked as source warning."
+      }
+    ],
+    "important_design_warning": "last-changed-status API is best for incremental collection. For historical weekly reporting, a cache/backfill policy is needed; otherwise old paid orders with no changed event in the queried range can be missed.",
+    "cache_policy_when_approved": {
+      "green_dry_run": "no cache write",
+      "yellow_future_option": "local or VM SQLite cache write only after approval",
+      "red_never_without_approval": "operating DB write or external send"
+    }
+  },
+  "comparison_to_existing_sources": {
+    "playauto_excel_window": {
+      "playauto_amount_krw": 1839340,
+      "playauto_rows": 53,
+      "excel_amount_krw": 1905140,
+      "excel_rows": 55,
+      "diff_amount_krw": -65800,
+      "diff_rows": -2,
+      "current_policy": "Use PlayAuto with warning."
+    },
+    "naver_commerce_vm_probe": {
+      "working_candidate_amount_krw": 5540740,
+      "working_candidate_scope": "Biocom",
+      "coffee_scope": "not proven",
+      "current_policy": "Do not use for TheCleanCoffee."
+    }
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0,
+    "raw_click_identifier_output": 0,
+    "secret_or_token_output": 0
+  },
+  "track_progress": {
+    "A_source_rule": {
+      "before": 87,
+      "after": 88,
+      "delta": 1
+    },
+    "B_coffee_sales_source": {
+      "before": 100,
+      "after": 100,
+      "delta": 0
+    },
+    "C_coffee_ad_spend_source": {
+      "before": 100,
+      "after": 100,
+      "delta": 0
+    },
+    "D_biocom_report_source_map": {
+      "before": 74,
+      "after": 74,
+      "delta": 0
+    },
+    "E_slack_no_send_and_schedule": {
+      "before": 100,
+      "after": 100,
+      "delta": 0
+    },
+    "F_automation_guard": {
+      "before": 100,
+      "after": 100,
+      "delta": 0
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "schema_version": "naver-brandsearch-manual-contracts-v1-20260525",
+  "created_at_kst": "2026-05-25 21:23 KST",
+  "source": "manual_contract_values_confirmed_by_TJ",
+  "source_note": "Naver brandsearch cost is currently hard to verify through the connected API scope. Until API access is rechecked, use TJ-confirmed manual contract values as the reporting primary source.",
+  "api_status": "brandsearch_api_source_gap_pending_recheck",
+  "renewal_assumption": "Until updated, assume the next brandsearch contract period renews at the same amount and same period length per site/device.",
+  "currency": "KRW",
+  "contracts": [
+    {
+      "site": "thecleancoffee",
+      "brand": "thecleancoffee",
+      "channel": "naver_brandsearch",
+      "device": "mobile",
+      "amount_krw": 880000,
+      "period_start": "2026-05-11",
+      "period_end": "2026-06-09",
+      "period_days": 30,
+      "renewal_period_days": 30,
+      "contract_possible_searches": null,
+      "confirmed_by": "TJ",
+      "source_confidence": "manual_confirmed"
+    },
+    {
+      "site": "thecleancoffee",
+      "brand": "thecleancoffee",
+      "channel": "naver_brandsearch",
+      "device": "pc",
+      "amount_krw": 660000,
+      "period_start": "2026-05-11",
+      "period_end": "2026-06-09",
+      "period_days": 30,
+      "renewal_period_days": 30,
+      "contract_possible_searches": null,
+      "confirmed_by": "TJ",
+      "source_confidence": "manual_confirmed"
+    },
+    {
+      "site": "biocom",
+      "brand": "biocom",
+      "channel": "naver_brandsearch",
+      "device": "mobile",
+      "amount_krw": 1760000,
+      "period_start": "2026-05-22",
+      "period_end": "2026-07-20",
+      "period_days": 60,
+      "renewal_period_days": 60,
+      "contract_possible_searches": 8000,
+      "confirmed_by": "TJ",
+      "source_confidence": "manual_confirmed"
+    },
+    {
+      "site": "biocom",
+      "brand": "biocom",
+      "channel": "naver_brandsearch",
+      "device": "pc",
+      "amount_krw": 660000,
+      "period_start": "2026-05-22",
+      "period_end": "2026-06-20",
+      "period_days": 30,
+      "renewal_period_days": 30,
+      "contract_possible_searches": 8000,
+      "confirmed_by": "TJ",
+      "source_confidence": "manual_confirmed"
+    }
+  ],
+  "invariants_held": {
+    "api_call": 0,
+    "sqlite_write": 0,
+    "naver_ads_state_change": 0,
+    "platform_send": 0,
+    "raw_identifier_output": 0
+  }
+}

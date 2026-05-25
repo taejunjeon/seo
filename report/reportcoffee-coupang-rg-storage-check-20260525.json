@@ -1,0 +1,203 @@
+{
+  "schema_version": "1.0",
+  "generated_at_kst": "2026-05-25 18:58:00 KST",
+  "document": "reportcoffee-coupang-rg-storage-check-20260525",
+  "mode": "green_read_only_storage_check",
+  "question": "VM Cloud 혹은 운영DB 쪽에는 더클린커피 로켓그로스 매출자료가 저장되고 있는가?",
+  "site": "thecleancoffee",
+  "target_window": {
+    "start_date_kst": "2026-04-25",
+    "end_date_kst": "2026-05-01",
+    "reason": "attached weekly workbook Coupang 2,100,400 source trace"
+  },
+  "summary": {
+    "short_answer": "저장 source는 둘 다 있으나 더클린커피 2026-04-25 - 2026-05-01 로켓그로스 매출을 바로 확인할 수 있는 fresh 저장본은 없다.",
+    "vm_cloud": "VM Cloud coupang_rg_orders_api has TeamKeto coffee RG history but stops at 2026-04-23, so target window rows are 0.",
+    "operating_db": "운영DB has fresh RG tables through 2026-05-25, but target window rows classify as non-coffee/other and do not explain 더클린커피 RG coffee.",
+    "local_db": "로컬DB mirrors VM Cloud RG cache and also stops at 2026-04-23."
+  },
+  "vm_cloud_sqlite": {
+    "source": "VM Cloud SQLite /home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+    "tables_present": [
+      "coupang_ordersheets_api",
+      "coupang_settlements_api",
+      "coupang_rg_orders_api"
+    ],
+    "rg_table": "coupang_rg_orders_api",
+    "overall": {
+      "row_count": 11078,
+      "account_count": 2,
+      "min_paid_date": "2025-01-01",
+      "max_paid_date": "2026-04-23",
+      "max_last_synced_at": "2026-04-24 12:27:12",
+      "gross_amount_krw": 382705000,
+      "coffee_hint_gross_krw": 151773130,
+      "coffee_hint_rows": 5633,
+      "coffee_hint_quantity": 5939
+    },
+    "by_account": [
+      {
+        "account_name": "biocom",
+        "row_count": 10642,
+        "min_paid_date": "2025-01-01",
+        "max_paid_date": "2026-01-30",
+        "gross_amount_krw": 368466100,
+        "coffee_hint_gross_krw": 137534230,
+        "coffee_hint_quantity": 5490,
+        "note": "historical mixed source; not target coffee weekly source"
+      },
+      {
+        "account_name": "teamketo",
+        "row_count": 436,
+        "min_paid_date": "2026-01-22",
+        "max_paid_date": "2026-04-23",
+        "gross_amount_krw": 14238900,
+        "coffee_hint_gross_krw": 14238900,
+        "coffee_hint_quantity": 449,
+        "note": "thecleancoffee RG history candidate, stale before target window"
+      }
+    ],
+    "target_window": {
+      "row_count": 0,
+      "account_count": 0,
+      "gross_amount_krw": 0,
+      "coffee_hint_gross_krw": 0,
+      "coffee_hint_rows": 0,
+      "coffee_hint_quantity": 0,
+      "verdict": "stale_source_no_target_window_rows"
+    }
+  },
+  "local_sqlite": {
+    "source": "local SQLite /Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "tables_present": [
+      "coupang_ordersheets_api",
+      "coupang_settlements_api",
+      "coupang_rg_orders_api"
+    ],
+    "overall": {
+      "row_count": 11078,
+      "account_count": 2,
+      "min_paid_date": "2025-01-01",
+      "max_paid_date": "2026-04-23",
+      "max_last_synced_at": "2026-04-24 12:27:12",
+      "gross_amount_krw": 382705000,
+      "coffee_hint_gross_krw": 151773130,
+      "coffee_hint_rows": 5633,
+      "coffee_hint_quantity": 5939
+    },
+    "target_window": {
+      "row_count": 0,
+      "account_count": 0,
+      "gross_amount_krw": 0,
+      "coffee_hint_gross_krw": 0,
+      "coffee_hint_rows": 0,
+      "coffee_hint_quantity": 0,
+      "verdict": "mirrors_vm_cloud_stale_cache"
+    }
+  },
+  "operating_db": {
+    "source": "운영DB dashboard.public",
+    "tables_present": [
+      "tb_coupang_orders_rg",
+      "tb_sales_coupang",
+      "tb_coupang_orders_mp",
+      "tb_coupang_inventory"
+    ],
+    "tb_coupang_orders_rg": {
+      "role": "fresh RG order item table",
+      "columns_checked": [
+        "paid_at",
+        "product_name",
+        "sales_quantity",
+        "unit_sales_price",
+        "synced_at"
+      ],
+      "overall": {
+        "row_count": 2017,
+        "vendor_count": 1,
+        "min_paid_date_kst": "2026-02-19",
+        "max_paid_date_kst": "2026-05-25",
+        "max_synced_at": "2026-05-25 08:05:02.221522",
+        "gross_amount_krw": 102315900,
+        "coffee_hint_gross_krw": 32880,
+        "coffee_hint_rows": 1
+      },
+      "target_window": {
+        "row_count": 165,
+        "vendor_count": 1,
+        "min_paid_date_kst": "2026-04-25",
+        "max_paid_date_kst": "2026-05-01",
+        "gross_amount_krw": 9209580,
+        "coffee_hint_gross_krw": 0,
+        "coffee_hint_rows": 0,
+        "coffee_hint_quantity": 0,
+        "product_class_breakdown": [
+          {
+            "product_class": "other_hint",
+            "rows": 165,
+            "quantity": 166,
+            "gross_amount_krw": 9209580
+          }
+        ],
+        "verdict": "fresh_rg_exists_but_not_thecleancoffee_coffee"
+      }
+    },
+    "tb_sales_coupang": {
+      "role": "settlement/upload-style Coupang sales table",
+      "channel": "coupang_rg",
+      "overall": {
+        "row_count": 14485,
+        "recognition_nonnull": 0,
+        "payment_complete_nonnull": 14485,
+        "min_payment_complete": "2025-01-01",
+        "max_payment_complete": "2026-04-30",
+        "min_sales_month": "2025-01",
+        "max_sales_month": "2026-04",
+        "max_uploaded_at": "2026-05-11 03:34:11.329873",
+        "gross_amount_krw": 494230130
+      },
+      "target_window_by_project": [
+        {
+          "project": "영양제",
+          "rows": 144,
+          "net_amount_krw": 8082140,
+          "gross_amount_krw": 7995140,
+          "min_date": "2026-04-25",
+          "max_date": "2026-04-30"
+        },
+        {
+          "project": "미분류",
+          "rows": 1,
+          "net_amount_krw": 103220,
+          "gross_amount_krw": 103220,
+          "min_date": "2026-04-26",
+          "max_date": "2026-04-26"
+        }
+      ],
+      "verdict": "stored_but_not_coffee_site_source"
+    }
+  },
+  "answer": {
+    "vm_cloud_has_rg_sales_data": true,
+    "vm_cloud_has_target_window_thecleancoffee_rg": false,
+    "operating_db_has_rg_sales_data": true,
+    "operating_db_has_target_window_thecleancoffee_rg": false,
+    "why_907000_still_needs_export_or_api_refresh": "The 907,000 KRW candidate came from a fresh API range query, while persisted VM/local cache has no 2026-04-25 - 2026-05-01 TeamKeto RG rows and operating DB fresh RG rows are not coffee-classified."
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_restart_deploy": 0,
+    "ad_account_mutation": 0,
+    "platform_send_upload": 0,
+    "raw_customer_order_payment_click_identifier_output": 0
+  },
+  "track_progress": {
+    "track_a": { "previous": 81, "current": 81, "delta": 0 },
+    "track_b": { "previous": 100, "current": 100, "delta": 0 },
+    "track_c": { "previous": 100, "current": 100, "delta": 0 },
+    "track_d": { "previous": 65, "current": 66, "delta": 1 },
+    "track_e": { "previous": 100, "current": 100, "delta": 0 },
+    "track_f": { "previous": 100, "current": 100, "delta": 0 }
+  }
+}

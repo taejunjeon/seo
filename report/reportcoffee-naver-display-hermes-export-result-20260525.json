@@ -1,0 +1,114 @@
+{
+  "schema_version": "reportcoffee-naver-display-hermes-export-result-v1-20260525",
+  "mode": "read_only_no_write_no_send",
+  "generated_at_kst": "2026-05-25 17:46 KST",
+  "site": "thecleancoffee",
+  "purpose": "Confirm Naver display ad spend for the weekly coffee Slack/report pipeline using Hermes browser-export evidence.",
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-05-18",
+    "end_date_inclusive": "2026-05-24"
+  },
+  "source": {
+    "primary": "Hermes Chrome CDP XLSX export from Naver Ads all-campaigns page",
+    "primary_reason": "Naver Performance DA API is partner-gated, and Naver Search Ad API does not include [ADVoost] display campaigns.",
+    "github_repo": "https://github.com/taejunjeon/hermes-codex-repo",
+    "github_commit": "536c20c",
+    "result_file": "results/naver-display-export-campaign-report-20260525.result.json",
+    "xlsx_file": "downloads/naver-display-campaign-report-20260518-20260524.xlsx",
+    "screenshot_file": "screenshots/naver-display-export-campaign-report-20260525.png",
+    "hermes_status": "DOWNLOAD_VERIFIED_WITH_SPEND_DELTA_1KRW",
+    "freshness": "Hermes result pushed before 2026-05-25 17:46 KST"
+  },
+  "display_campaign": {
+    "campaign_name": "[ADVoost] 쇼핑",
+    "campaign_id": "1261102",
+    "campaign_group": "display_ad",
+    "campaign_type": "ADVoost 쇼핑",
+    "impressions": 25303,
+    "clicks": 194,
+    "ctr_percent": 0.77,
+    "average_cpc_krw": 1805,
+    "spend_krw": 350098,
+    "conversions": 55,
+    "conversion_revenue_krw": 3463700,
+    "source_confidence": "high"
+  },
+  "dashboard_discrepancy": {
+    "dashboard_card_spend_krw": 350097,
+    "xlsx_and_all_campaigns_spend_krw": 350098,
+    "delta_krw": 1,
+    "interpretation": "Treat as Naver UI card/report rounding or aggregation display difference. Use XLSX/all-campaigns row for reporting."
+  },
+  "search_ads_same_window_reference": {
+    "source_file": "report/reportcoffee-naver-ads-customer-2424664-readonly-20260525.json",
+    "source_system": "Naver Search Ad API",
+    "customer_id": "2424664",
+    "spend_krw": 440,
+    "impressions": 936,
+    "clicks": 180,
+    "coverage": "search/brand/shopping-search campaigns only"
+  },
+  "reconciled_weekly_naver": {
+    "spend_krw": 350538,
+    "formula": "search_ads_same_window_reference.spend_krw 440 + display_campaign.spend_krw 350098",
+    "reporting_status": "included_with_warning",
+    "warning": "Display spend is covered by Hermes XLSX export for this weekly window only. Month-to-date and rolling-30 display spend remain pending until matching exports or partner API access are available."
+  },
+  "existing_no_send_application": {
+    "target_file": "report/reportcoffee-sales-summary-no-send-20260524.json",
+    "target_weekly_window": {
+      "start_date": "2026-05-17",
+      "end_date_inclusive": "2026-05-23"
+    },
+    "applied_to_existing_no_send": false,
+    "reason": "window_mismatch",
+    "safe_next_options": [
+      "Regenerate no-send summary for 2026-05-18 - 2026-05-24.",
+      "Request a matching Hermes XLSX export for 2026-05-17 - 2026-05-23 before patching the existing 20260524 no-send file."
+    ]
+  },
+  "guardrails": {
+    "naver_ads_state_change": 0,
+    "ad_create_or_edit": 0,
+    "budget_change": 0,
+    "charge_or_payment_action": 0,
+    "slack_send": 0,
+    "cache_write": 0,
+    "operating_db_write": 0,
+    "platform_conversion_send": 0,
+    "raw_secret_or_pii_output": 0
+  },
+  "track_progress_after_this_evidence": {
+    "track_a": {
+      "before_percent": 81,
+      "after_percent": 81,
+      "delta_percent": 0
+    },
+    "track_b": {
+      "before_percent": 100,
+      "after_percent": 100,
+      "delta_percent": 0
+    },
+    "track_c": {
+      "before_percent": 99,
+      "after_percent": 100,
+      "delta_percent": 1
+    },
+    "track_d": {
+      "before_percent": 56,
+      "after_percent": 60,
+      "delta_percent": 4
+    },
+    "track_e": {
+      "before_percent": 100,
+      "after_percent": 100,
+      "delta_percent": 0
+    },
+    "track_f": {
+      "before_percent": 100,
+      "after_percent": 100,
+      "delta_percent": 0
+    }
+  }
+}

@@ -1,0 +1,1446 @@
+{
+  "ok": true,
+  "schema_version": "naver-bizmoney-cost-preview-v1-20260525",
+  "generated_at": "2026-05-25T06:48:14.115Z",
+  "site": "biocom",
+  "env_prefix": "BIOCOM_NAVER_ADS",
+  "source": "Naver Search Ad API /billing/bizmoney/histories/exhaust",
+  "window": {
+    "since": "2026-04-21",
+    "until": "2026-05-24",
+    "timezone": "KST"
+  },
+  "freshness": "live_api_read",
+  "confidence": "medium_high",
+  "row_count": 375,
+  "totals": {
+    "total_cost_krw": 26698927,
+    "brand_search_cost_krw": 2420000,
+    "search_ads_ncc_cost_krw": 10640600
+  },
+  "by_campaign_type": [
+    {
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 4609233,
+      "raw_rows": 34
+    },
+    {
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 11449094,
+      "raw_rows": 86
+    },
+    {
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 6986711,
+      "raw_rows": 149
+    },
+    {
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 940431,
+      "raw_rows": 60
+    },
+    {
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 293458,
+      "raw_rows": 44
+    },
+    {
+      "campaign_tp": 4,
+      "campaign_type_label": "BRAND_SEARCH",
+      "product_code": "NCC",
+      "cost_krw": 2420000,
+      "raw_rows": 2
+    }
+  ],
+  "by_date_campaign_type": [
+    {
+      "date": "2026-04-21",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 141352,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-21",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 342490,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-21",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 200280,
+      "raw_rows": 5
+    },
+    {
+      "date": "2026-04-21",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 2435,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-21",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 8052,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-22",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 125913,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-22",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 337897,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-22",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 211837,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-04-22",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 19314,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-22",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5236,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-23",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 145331,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-23",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 351156,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-23",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 212160,
+      "raw_rows": 6
+    },
+    {
+      "date": "2026-04-23",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 4649,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-04-23",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5038,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-24",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 139845,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-24",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 352783,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-24",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 180969,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-04-24",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 23732,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-24",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 3784,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-25",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 141969,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-25",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 348778,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-25",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 151254,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-04-25",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 25041,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-25",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 4730,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-26",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 148850,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-26",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 331275,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-04-26",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 174592,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-04-26",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 19950,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-26",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5731,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-27",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 151580,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-27",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 354677,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-27",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 262033,
+      "raw_rows": 5
+    },
+    {
+      "date": "2026-04-27",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 27126,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-27",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 8085,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-28",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 63368,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-28",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 354330,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-04-28",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 230295,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-04-28",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 29635,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-04-28",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5181,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-29",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 81045,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-29",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 312617,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-29",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 206442,
+      "raw_rows": 6
+    },
+    {
+      "date": "2026-04-29",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 32222,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-29",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5544,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-30",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 105282,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-30",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 351881,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-04-30",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 178813,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-04-30",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 20968,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-04-30",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 3520,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-01",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 153098,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-01",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 343023,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-01",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 145257,
+      "raw_rows": 5
+    },
+    {
+      "date": "2026-05-01",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 11192,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-01",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 3674,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-02",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 145025,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-02",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 352381,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-02",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 150891,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-02",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 16710,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-02",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5159,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-03",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 104994,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-03",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 326471,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-03",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 153351,
+      "raw_rows": 5
+    },
+    {
+      "date": "2026-05-03",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 21034,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-03",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 4136,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-04",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 148559,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-04",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 350776,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-04",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 191142,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-04",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 19910,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-04",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 4741,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-05",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 123033,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-05",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 346074,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-05",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 150634,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-05",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 16692,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-05",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 4224,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-06",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 147944,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-06",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 311697,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-06",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 168643,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-06",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 48588,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-06",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5544,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-07",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 141692,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-07",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 333003,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-07",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 168974,
+      "raw_rows": 7
+    },
+    {
+      "date": "2026-05-07",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 26193,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-07",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5016,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-08",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 146301,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-08",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 345302,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-08",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 140046,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-08",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 33015,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-08",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 3960,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-09",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 149700,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-09",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 350794,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-09",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 141848,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-09",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 20146,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-09",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 3146,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-10",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 147505,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-10",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 349899,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-10",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 161373,
+      "raw_rows": 5
+    },
+    {
+      "date": "2026-05-10",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 36178,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-10",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 4048,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-11",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 143055,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-11",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 335869,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-11",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 229007,
+      "raw_rows": 5
+    },
+    {
+      "date": "2026-05-11",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 33130,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-11",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 4708,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-12",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 128991,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-12",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 338926,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-12",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 376097,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-12",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 55344,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-12",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 33924,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-13",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 149305,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-13",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 353949,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-13",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 284862,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-13",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 50561,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-13",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 12243,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-14",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 135795,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-14",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 349921,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-14",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 208403,
+      "raw_rows": 7
+    },
+    {
+      "date": "2026-05-14",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 41606,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-14",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 8206,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-15",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 123888,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-15",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 344498,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-15",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 204821,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-15",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 31330,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-15",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 4521,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-16",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 148124,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-16",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 318059,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-16",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 152312,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-16",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 6882,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-16",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 6545,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-17",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 135212,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-17",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 346898,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-17",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 303768,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-17",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 24480,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-17",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 17699,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-18",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 147838,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-18",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 352127,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-18",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 242684,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-18",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 38210,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-18",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 9735,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-19",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 145292,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-19",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 352577,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-19",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 372283,
+      "raw_rows": 5
+    },
+    {
+      "date": "2026-05-19",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 35172,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-19",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 38280,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-20",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 121948,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-20",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 346159,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-20",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 260959,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-20",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 38771,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-20",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 16137,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-21",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 147334,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-21",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 327633,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-21",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 208540,
+      "raw_rows": 6
+    },
+    {
+      "date": "2026-05-21",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 25063,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-21",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5852,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-21",
+      "campaign_tp": 4,
+      "campaign_type_label": "BRAND_SEARCH",
+      "product_code": "NCC",
+      "cost_krw": 2420000,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-22",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 148505,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-22",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 266596,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-22",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 159280,
+      "raw_rows": 6
+    },
+    {
+      "date": "2026-05-22",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 33437,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-22",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 5808,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-23",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 138372,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-23",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 223128,
+      "raw_rows": 2
+    },
+    {
+      "date": "2026-05-23",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 136885,
+      "raw_rows": 5
+    },
+    {
+      "date": "2026-05-23",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 29524,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-23",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 4785,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-24",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "GFA",
+      "cost_krw": 143188,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-24",
+      "campaign_tp": 0,
+      "campaign_type_label": "NON_SEARCH_OR_OTHER",
+      "product_code": "PMAX",
+      "cost_krw": 345450,
+      "raw_rows": 3
+    },
+    {
+      "date": "2026-05-24",
+      "campaign_tp": 1,
+      "campaign_type_label": "WEB_SITE",
+      "product_code": "NCC",
+      "cost_krw": 265974,
+      "raw_rows": 4
+    },
+    {
+      "date": "2026-05-24",
+      "campaign_tp": 2,
+      "campaign_type_label": "SHOPPING",
+      "product_code": "NCC",
+      "cost_krw": 42195,
+      "raw_rows": 1
+    },
+    {
+      "date": "2026-05-24",
+      "campaign_tp": 3,
+      "campaign_type_label": "POWER_CONTENTS",
+      "product_code": "NCC",
+      "cost_krw": 26466,
+      "raw_rows": 1
+    }
+  ],
+  "invariants_held": {
+    "sqlite_write": 0,
+    "naver_ads_state_change": 0,
+    "external_platform_send": 0,
+    "raw_secret_logged": false
+  },
+  "notes": [
+    "Cost is calculated as -(useRefundableAmt + useNonrefundableAmt).",
+    "campaignTp=4 means Brand Search in the Naver Search Ad billing model.",
+    "This is a cash deduction source, not yet an amortized reporting source."
+  ]
+}
