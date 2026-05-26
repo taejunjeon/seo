@@ -292,6 +292,10 @@ const asArray = (value: unknown): Array<Record<string, unknown>> => (
   Array.isArray(value) ? value.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>> : []
 );
 
+const asStringArray = (value: unknown): string[] => (
+  Array.isArray(value) ? value.map((item) => String(item)) : []
+);
+
 const numberValue = (value: unknown): number => (
   typeof value === "number" && Number.isFinite(value) ? value : 0
 );
@@ -309,14 +313,20 @@ const buildNaverRoasDashboardSkeleton = (site: "all" | NaverAdsSite) => {
   const brandsearchNarrowing = readJsonArtifact("data/project/biocom-naver-brandsearch-unresolved-narrowing-20260526.json")
     ?? readJsonArtifact("data/project/biocom-naver-brandsearch-unresolved-breakdown-20260525.json");
   const displayCoffee = readJsonArtifact("report/reportcoffee-naver-display-hermes-export-result-20260525.json");
+  const displayApril = readJsonArtifact("data/project/naver-display-april-hermes-result-20260526.json");
 
   const brandRows = asArray(brandsearchRoas?.by_site);
   const bridgeRows = asArray(brandsearchBridge?.by_site ?? brandsearchBridge);
+  const displayRows = asArray(displayApril?.by_site);
   const biocomBrand = pickSiteRow(brandRows, "biocom");
   const coffeeBrand = pickSiteRow(brandRows, "thecleancoffee");
   const biocomBridge = pickSiteRow(bridgeRows, "biocom");
   const coffeeBridge = pickSiteRow(bridgeRows, "thecleancoffee");
+  const biocomDisplayApril = pickSiteRow(displayRows, "biocom");
+  const coffeeDisplayApril = pickSiteRow(displayRows, "thecleancoffee");
   const displayCampaign = asRecord(displayCoffee?.display_campaign);
+  const displayTotals = asRecord(asRecord(displayApril?.totals).all_display);
+  const displayValidation = asRecord(displayApril?.validation);
   const narrowing = asRecord(brandsearchNarrowing?.narrowing);
   const narrowedRows = asArray(narrowing.narrowed_safe_rows);
   const biocomVmExactUpgradeRevenue = narrowedRows.reduce((sum, row) => {
@@ -391,8 +401,51 @@ const buildNaverRoasDashboardSkeleton = (site: "all" | NaverAdsSite) => {
         next_action: "biocom 6건 upgrade preview와 브랜드검색 주문 source policy 문서화",
       },
       display: {
-        status: "manual_hermes_required",
+        status: displayApril
+          ? "hermes_april_source_ready_internal_bridge_pending"
+          : "manual_hermes_required",
         source: "Hermes Chrome CDP read-only XLSX export from Naver Ads UI",
+        april_2026: displayApril ? {
+          window: displayApril.requested_window ?? { since: "2026-04-01", until: "2026-04-30", timezone: "KST" },
+          metric_primary: asRecord(displayApril.source).metric_primary,
+          safety_cross_check: asRecord(displayApril.source).safety_cross_check,
+          validation: {
+            result_json_rows: numberValue(displayValidation.result_json_rows),
+            xlsx_rows_total: numberValue(displayValidation.xlsx_rows_total),
+            row_count_match: displayValidation.row_count_match === true,
+            forbidden_actions_triggered_count: asArray(displayValidation.forbidden_actions_triggered).length,
+            no_write_verified: displayValidation.no_write_verified === true,
+            no_ad_state_change_verified: displayValidation.no_ad_state_change_verified === true,
+            warning: asStringArray(displayValidation.warnings),
+          },
+          totals: {
+            spend_krw: numberValue(displayTotals.spend_krw),
+            naver_claim_conversion_revenue_krw: numberValue(displayTotals.naver_claim_conversion_revenue_krw),
+            clicks: numberValue(displayTotals.clicks),
+            naver_claim_roas_percent: numberValue(displayTotals.naver_claim_roas_percent),
+            active_campaigns: numberValue(displayTotals.active_campaigns),
+            zero_spend_campaigns: numberValue(displayTotals.zero_spend_campaigns),
+          },
+          biocom: {
+            accounts: biocomDisplayApril.accounts ?? [],
+            no_display_campaign_accounts: biocomDisplayApril.no_display_campaign_accounts ?? [],
+            spend_krw: numberValue(biocomDisplayApril.spend_krw),
+            naver_claim_conversion_revenue_krw: numberValue(biocomDisplayApril.naver_claim_conversion_revenue_krw),
+            clicks: numberValue(biocomDisplayApril.clicks),
+            naver_claim_roas_percent: numberValue(biocomDisplayApril.naver_claim_roas_percent),
+            active_campaigns: numberValue(biocomDisplayApril.active_campaigns),
+            interpretation: biocomDisplayApril.interpretation ?? "",
+          },
+          thecleancoffee: {
+            accounts: coffeeDisplayApril.accounts ?? [],
+            spend_krw: numberValue(coffeeDisplayApril.spend_krw),
+            naver_claim_conversion_revenue_krw: numberValue(coffeeDisplayApril.naver_claim_conversion_revenue_krw),
+            clicks: numberValue(coffeeDisplayApril.clicks),
+            naver_claim_roas_percent: numberValue(coffeeDisplayApril.naver_claim_roas_percent),
+            active_campaigns: numberValue(coffeeDisplayApril.active_campaigns),
+            interpretation: coffeeDisplayApril.interpretation ?? "",
+          },
+        } : null,
         thecleancoffee_weekly_reference: {
           window: "2026-05-18~2026-05-24",
           campaign_name: displayCampaign.campaign_name ?? "[ADVoost] 쇼핑",
@@ -403,15 +456,19 @@ const buildNaverRoasDashboardSkeleton = (site: "all" | NaverAdsSite) => {
             ? round2(numberValue(displayCampaign.conversion_revenue_krw) / numberValue(displayCampaign.spend_krw))
             : null,
         },
-        april_request_status: "prompt_prepared_needed",
-        next_action: "Hermes에게 2026-04-01~2026-04-30 성과 디스플레이 비용/전환금액/클릭/ROAS export 지시",
+        april_request_status: displayApril ? "source_ready" : "prompt_prepared_needed",
+        next_action: displayApril
+          ? "2026년 4월 성과 디스플레이 광고비 source는 채웠으므로, 같은 window 내부 결제완료 주문 bridge preview를 진행"
+          : "Hermes에게 2026-04-01~2026-04-30 성과 디스플레이 비용/전환금액/클릭/ROAS export 지시",
       },
     },
     okr_progress: [
       {
         kr: "KR1 네이버 광고 비용 source를 채널별로 분리",
-        progress_percent: 72,
-        current: "검색광고 API cache, 브랜드검색 수동 cache, coffee display Hermes 주간 원본이 분리됨.",
+        progress_percent: displayApril ? 78 : 72,
+        current: displayApril
+          ? "검색광고 API cache, 브랜드검색 수동 cache, 2026년 4월 성과 디스플레이 Hermes XLSX 원본이 분리됨."
+          : "검색광고 API cache, 브랜드검색 수동 cache, coffee display Hermes 주간 원본이 분리됨.",
       },
       {
         kr: "KR2 내부 confirmed ROAS와 네이버 주장 ROAS를 분리",
@@ -426,7 +483,9 @@ const buildNaverRoasDashboardSkeleton = (site: "all" | NaverAdsSite) => {
     ],
     action_plan: [
       "biocom 브랜드검색 6건 upgrade preview 작성",
-      "Hermes 4월 성과 디스플레이 원본 export",
+      displayApril
+        ? "성과 디스플레이 2026년 4월 내부 결제완료 주문 bridge preview"
+        : "Hermes 4월 성과 디스플레이 원본 export",
       "프론트 /ads/naver-roas를 local API 응답으로 연결하는 Yellow 승인안 확정",
     ],
     invariants_held: {

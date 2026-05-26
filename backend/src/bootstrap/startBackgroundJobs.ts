@@ -687,7 +687,7 @@ export const startBackgroundJobs = () => {
     process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_INTERVAL_MS ?? "720000",
   );
   const metaUtmPrecomputeStartDelayMs = Number(
-    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_START_DELAY_MS ?? "30000",
+    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_START_DELAY_MS ?? "180000",
   );
   const metaUtmPrecomputeTimeoutMs = Number(
     process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_TIMEOUT_MS ?? "120000",
@@ -732,7 +732,6 @@ export const startBackgroundJobs = () => {
               const url = new URL(`${selfBaseUrl}/api/ads/meta-utm-diagnostics`);
               url.searchParams.set("account_id", accountId);
               url.searchParams.set("date_preset", preset);
-              url.searchParams.set("force", "1");
               url.searchParams.set("precompute", "1");
               const startedAt = Date.now();
               const response = await fetch(url.toString(), {

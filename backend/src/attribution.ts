@@ -165,6 +165,44 @@ export type AttributionFirstTouchMatchMetadata = {
   tiktokMatchReasons: string[];
 };
 
+export type PaidTouchBeforeCheckoutGrade = "A" | "B" | "C" | "D";
+
+export type PaidTouchBeforeCheckoutSnapshot = {
+  schemaVersion: string;
+  capturedAt: string;
+  source: string;
+  medium: string;
+  campaign: string;
+  term: string;
+  content: string;
+  metaCampaignId: string;
+  metaAdsetId: string;
+  metaAdId: string;
+  campaignAlias: string;
+  metaSiteSource: string;
+  metaPlacement: string;
+  landing: string;
+  landingPath: string;
+  referrer: string;
+  referrerHost: string;
+  clickIdType: string;
+  clickIdHash: string;
+  grade: PaidTouchBeforeCheckoutGrade;
+  confidence: number;
+  evidence: string[];
+};
+
+export type PaidTouchBeforeCheckoutMatchMetadata = {
+  schemaVersion: string;
+  source: "payload_metadata";
+  matchedAt: string;
+  matchedBy: string[];
+  storage: "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.paidTouchBeforeCheckout";
+  grade: PaidTouchBeforeCheckoutGrade;
+  confidence: number;
+  evidence: string[];
+};
+
 export type TossReplayPlan = {
   summary: {
     tossRows: number;
@@ -630,6 +668,11 @@ const FIRST_TOUCH_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
 const TIKTOK_MARKETING_INTENT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const FIRST_TOUCH_FUTURE_TOLERANCE_MS = 10 * 60 * 1000;
 const FIRST_TOUCH_STORAGE_REF = "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.firstTouch" as const;
+const PAID_TOUCH_BEFORE_CHECKOUT_SCHEMA_VERSION = "2026-05-26.paid-touch-before-checkout.v1";
+const PAID_TOUCH_BEFORE_CHECKOUT_STORAGE_REF =
+  "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.paidTouchBeforeCheckout" as const;
+const META_ID_PATTERN = /^\d{8,}$/;
+const META_MACRO_PATTERN = /\{\{\s*(campaign|adset|ad)\.id\s*\}\}/i;
 
 const metadataString = (entry: AttributionLedgerEntry, key: string) => {
   const value = entry.metadata[key];
@@ -641,6 +684,365 @@ const entrySource = (entry: AttributionLedgerEntry) => metadataString(entry, "so
 const hasStoredFirstTouch = (entry: AttributionLedgerEntry) => {
   const existing = entry.metadata.firstTouch;
   return Boolean(existing) && typeof existing === "object" && !Array.isArray(existing);
+};
+
+const isAttributionRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const readAttributionString = (record: Record<string, unknown>, keys: readonly string[]) => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
+  }
+  return "";
+};
+
+const safeAttributionUrl = (value: string) => {
+  if (!value.trim()) return null;
+  try {
+    return new URL(value, "https://biocom.kr");
+  } catch {
+    return null;
+  }
+};
+
+const readUrlParam = (urlLike: string, param: string) => {
+  const parsed = safeAttributionUrl(urlLike);
+  if (!parsed) return "";
+  return parsed.searchParams.get(param)?.trim() ?? "";
+};
+
+const firstUrlParam = (urls: readonly string[], params: readonly string[]) => {
+  for (const url of urls) {
+    for (const param of params) {
+      const value = readUrlParam(url, param);
+      if (value) return value;
+    }
+  }
+  return "";
+};
+
+const normalizeMetaId = (value: string) => {
+  const trimmed = value.trim();
+  return META_ID_PATTERN.test(trimmed) ? trimmed : "";
+};
+
+const hasMetaMacro = (...values: string[]) => values.some((value) => META_MACRO_PATTERN.test(value));
+
+const deriveLandingPath = (landing: string, explicitPath: string) => {
+  const explicit = explicitPath.trim();
+  if (explicit) {
+    const parsed = safeAttributionUrl(explicit);
+    if (parsed) return parsed.pathname || "/";
+    return explicit.startsWith("/") ? explicit : "";
+  }
+
+  const parsed = safeAttributionUrl(landing);
+  if (parsed) return parsed.pathname || "/";
+  return landing.startsWith("/") ? landing.split("?")[0] ?? landing : "";
+};
+
+const deriveReferrerHost = (referrer: string) => safeAttributionUrl(referrer)?.hostname.toLowerCase() ?? "";
+
+const isPaymentProgressPath = (pathOrUrl: string) => {
+  const parsed = safeAttributionUrl(pathOrUrl);
+  const pathname = (parsed?.pathname ?? pathOrUrl).toLowerCase();
+  return pathname.includes("/shop_payment");
+};
+
+const isCommonMetaCampaignAlias = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized === "meta_biocom_광고별칭" ||
+    normalized.includes("광고별칭") ||
+    normalized === "meta_biocom_ad_alias" ||
+    normalized === "meta_biocom_campaign_alias";
+};
+
+const isUniqueMetaAlias = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized || isCommonMetaCampaignAlias(value) || META_MACRO_PATTERN.test(value)) return false;
+  return normalized.startsWith("meta_") || normalized.startsWith("meta-biocom") || normalized.includes("biocom_");
+};
+
+const textLooksMeta = (value: string) => attributionTextIncludesMeta(value);
+
+const textLooksMetaChannel = (value: string) => {
+  const text = value.trim().toLowerCase();
+  if (!text) return false;
+  if (
+    text.includes("facebook.com") ||
+    text.includes("instagram.com") ||
+    text.includes("utm_source=meta") ||
+    text.includes("utm_source=facebook") ||
+    text.includes("utm_source=instagram")
+  ) {
+    return true;
+  }
+
+  const tokens = text.split(/[^a-z0-9]+/).filter(Boolean);
+  return tokens.some((token) =>
+    token === "meta" || token === "facebook" || token === "instagram" || token === "fb" || token === "ig"
+  );
+};
+
+const clickIdTypeFromCandidate = (record: Record<string, unknown>, landing: string, referrer: string) => {
+  const candidates: Array<[string, string]> = [
+    ["fbclid", readAttributionString(record, ["fbclid", "fbClickId"])],
+    ["gclid", readAttributionString(record, ["gclid", "googleClickId"])],
+    ["ttclid", readAttributionString(record, ["ttclid", "tiktokClickId"])],
+  ];
+  for (const [type, value] of candidates) {
+    if (value) return type;
+    if (readUrlParam(landing, type) || readUrlParam(referrer, type)) return type;
+  }
+  if (readAttributionString(record, ["fbc", "_fbc"])) return "fbc";
+  if (readAttributionString(record, ["fbp", "_fbp"])) return "fbp";
+  return "";
+};
+
+const paidTouchEvidence = (snapshot: Omit<PaidTouchBeforeCheckoutSnapshot, "grade" | "confidence" | "evidence">) => {
+  const evidence = new Set<string>();
+
+  if (snapshot.metaCampaignId) evidence.add("numeric_meta_campaign_id");
+  if (snapshot.metaAdsetId) evidence.add("numeric_meta_adset_id");
+  if (snapshot.metaAdId) evidence.add("numeric_meta_ad_id");
+  if (snapshot.campaignAlias) {
+    evidence.add(isCommonMetaCampaignAlias(snapshot.campaignAlias) ? "common_campaign_alias" : "campaign_alias");
+  }
+  if (isUniqueMetaAlias(snapshot.campaignAlias)) evidence.add("unique_campaign_alias");
+  if (isUniqueMetaAlias(snapshot.campaign)) evidence.add("unique_utm_campaign_alias");
+  if (textLooksMeta(snapshot.source)) evidence.add("utm_source_meta");
+  if (textLooksMeta(snapshot.medium)) evidence.add("utm_medium_meta");
+  if (textLooksMeta(snapshot.campaign)) evidence.add("utm_campaign_meta");
+  if (textLooksMeta(snapshot.term)) evidence.add("utm_term_meta");
+  if (textLooksMeta(snapshot.content)) evidence.add("utm_content_meta");
+  if (textLooksMetaChannel(snapshot.landing)) evidence.add("landing_meta");
+  if (textLooksMeta(snapshot.referrer) || textLooksMeta(snapshot.referrerHost)) evidence.add("referrer_meta");
+  if (snapshot.clickIdType) evidence.add(`click_id_present_${snapshot.clickIdType}`);
+  if (snapshot.landingPath && !isPaymentProgressPath(snapshot.landingPath)) evidence.add("landing_path_non_payment");
+  if (hasMetaMacro(
+    snapshot.campaign,
+    snapshot.term,
+    snapshot.content,
+    snapshot.metaCampaignId,
+    snapshot.metaAdsetId,
+    snapshot.metaAdId,
+    snapshot.landing,
+  )) {
+    evidence.add("meta_macro_placeholder");
+  }
+
+  return [...evidence].sort();
+};
+
+const gradePaidTouch = (
+  snapshot: Omit<PaidTouchBeforeCheckoutSnapshot, "grade" | "confidence" | "evidence">,
+  evidence: string[],
+): Pick<PaidTouchBeforeCheckoutSnapshot, "grade" | "confidence"> => {
+  const hasCampaignId = Boolean(snapshot.metaCampaignId);
+  const hasAdsetOrAdId = Boolean(snapshot.metaAdsetId || snapshot.metaAdId);
+  if (hasCampaignId && hasAdsetOrAdId) {
+    return {
+      grade: "A",
+      confidence: snapshot.metaCampaignId && snapshot.metaAdsetId && snapshot.metaAdId ? 0.96 : 0.9,
+    };
+  }
+
+  if (evidence.includes("unique_campaign_alias") || evidence.includes("unique_utm_campaign_alias")) {
+    return { grade: "B", confidence: 0.74 };
+  }
+
+  if (evidence.includes("meta_macro_placeholder")) return { grade: "D", confidence: 0.2 };
+
+  const onlyWeakMetaClick =
+    evidence.some((item) => item.startsWith("click_id_present_")) &&
+    !evidence.some((item) =>
+      item.startsWith("numeric_") ||
+      item === "unique_campaign_alias" ||
+      item === "unique_utm_campaign_alias" ||
+      item.startsWith("utm_") ||
+      item === "landing_meta" ||
+      item === "referrer_meta"
+    );
+  if (onlyWeakMetaClick) return { grade: "D", confidence: 0.35 };
+
+  if (
+    evidence.includes("landing_path_non_payment") &&
+    evidence.some((item) => item.startsWith("utm_") || item === "landing_meta" || item === "referrer_meta")
+  ) {
+    return { grade: "C", confidence: 0.58 };
+  }
+
+  return { grade: "D", confidence: 0.3 };
+};
+
+export const buildPaidTouchBeforeCheckoutSnapshot = (
+  input: unknown,
+  capturedAtFallback = new Date().toISOString(),
+): PaidTouchBeforeCheckoutSnapshot | null => {
+  if (!isAttributionRecord(input)) return null;
+
+  const landing = readAttributionString(input, ["landing", "landingUrl", "landing_url", "url", "currentUrl", "pageLocation"]);
+  const landingPath = deriveLandingPath(
+    landing,
+    readAttributionString(input, ["landingPath", "landing_path", "path", "pagePath"]),
+  );
+  if (isPaymentProgressPath(landing) || isPaymentProgressPath(landingPath)) return null;
+
+  const referrer = readAttributionString(input, ["referrer", "initialReferrer", "initial_referrer", "originalReferrer"]);
+  const urlSources = [landing, referrer].filter(Boolean);
+  const source =
+    readAttributionString(input, ["utmSource", "utm_source", "source"]) ||
+    firstUrlParam(urlSources, ["utm_source"]);
+  const medium =
+    readAttributionString(input, ["utmMedium", "utm_medium", "medium"]) ||
+    firstUrlParam(urlSources, ["utm_medium"]);
+  const campaign =
+    readAttributionString(input, ["utmCampaign", "utm_campaign", "campaign"]) ||
+    firstUrlParam(urlSources, ["utm_campaign"]);
+  const term =
+    readAttributionString(input, ["utmTerm", "utm_term", "term"]) ||
+    firstUrlParam(urlSources, ["utm_term"]);
+  const content =
+    readAttributionString(input, ["utmContent", "utm_content", "content"]) ||
+    firstUrlParam(urlSources, ["utm_content"]);
+
+  const campaignAlias =
+    readAttributionString(input, ["campaignAlias", "campaign_alias"]) ||
+    firstUrlParam(urlSources, ["campaign_alias"]);
+  const clickIdType = clickIdTypeFromCandidate(input, landing, referrer);
+  const directMetaCampaignId = normalizeMetaId(
+    readAttributionString(input, ["metaCampaignId", "meta_campaign_id"]) ||
+      firstUrlParam(urlSources, ["meta_campaign_id"]),
+  );
+  const directMetaAdsetId = normalizeMetaId(
+    readAttributionString(input, ["metaAdsetId", "meta_adset_id"]) ||
+      firstUrlParam(urlSources, ["meta_adset_id"]),
+  );
+  const directMetaAdId = normalizeMetaId(
+    readAttributionString(input, ["metaAdId", "meta_ad_id"]) ||
+      firstUrlParam(urlSources, ["meta_ad_id"]),
+  );
+  const hasMetaContextForUtmIds = Boolean(
+    directMetaCampaignId ||
+      directMetaAdsetId ||
+      directMetaAdId ||
+      textLooksMetaChannel(source) ||
+      textLooksMetaChannel(medium) ||
+      textLooksMetaChannel(campaign) ||
+      textLooksMetaChannel(campaignAlias) ||
+      textLooksMetaChannel(landing) ||
+      textLooksMetaChannel(referrer) ||
+      ["fbclid", "fbc", "fbp"].includes(clickIdType),
+  );
+  const metaCampaignId = directMetaCampaignId || (hasMetaContextForUtmIds
+    ? normalizeMetaId(
+      readAttributionString(input, ["campaignId", "campaign_id"]) ||
+        firstUrlParam(urlSources, ["utm_campaign", "utm_id"]),
+    )
+    : "");
+  const metaAdsetId = directMetaAdsetId || (hasMetaContextForUtmIds
+    ? normalizeMetaId(readAttributionString(input, ["adsetId", "adset_id"]) || firstUrlParam(urlSources, ["utm_term"]))
+    : "");
+  const metaAdId = directMetaAdId || (hasMetaContextForUtmIds
+    ? normalizeMetaId(readAttributionString(input, ["adId", "ad_id"]) || firstUrlParam(urlSources, ["utm_content"]))
+    : "");
+
+  const baseSnapshot: Omit<PaidTouchBeforeCheckoutSnapshot, "grade" | "confidence" | "evidence"> = {
+    schemaVersion: PAID_TOUCH_BEFORE_CHECKOUT_SCHEMA_VERSION,
+    capturedAt: readAttributionString(input, ["capturedAt", "captured_at", "loggedAt", "createdAt"]) || capturedAtFallback,
+    source,
+    medium,
+    campaign,
+    term,
+    content,
+    metaCampaignId,
+    metaAdsetId,
+    metaAdId,
+    campaignAlias,
+    metaSiteSource:
+      readAttributionString(input, ["metaSiteSource", "meta_site_source"]) ||
+      firstUrlParam(urlSources, ["meta_site_source"]),
+    metaPlacement:
+      readAttributionString(input, ["metaPlacement", "meta_placement"]) ||
+      firstUrlParam(urlSources, ["meta_placement"]),
+    landing,
+    landingPath,
+    referrer,
+    referrerHost: deriveReferrerHost(referrer),
+    clickIdType,
+    clickIdHash: readAttributionString(input, ["clickIdHash", "click_id_hash"]),
+  };
+  const evidence = paidTouchEvidence(baseSnapshot);
+  if (evidence.length === 0) return null;
+
+  const grade = gradePaidTouch(baseSnapshot, evidence);
+  return {
+    ...baseSnapshot,
+    ...grade,
+    evidence,
+  };
+};
+
+export const shouldReplacePaidTouchBeforeCheckout = (
+  existing: PaidTouchBeforeCheckoutSnapshot,
+  candidate: PaidTouchBeforeCheckoutSnapshot,
+) => {
+  const gradeRank: Record<PaidTouchBeforeCheckoutGrade, number> = { A: 4, B: 3, C: 2, D: 1 };
+  return gradeRank[candidate.grade] > gradeRank[existing.grade] ||
+    (gradeRank[candidate.grade] === gradeRank[existing.grade] && candidate.confidence > existing.confidence);
+};
+
+export const mergePaidTouchBeforeCheckoutSnapshot = (
+  existingValue: unknown,
+  candidateValue: unknown,
+  capturedAtFallback = new Date().toISOString(),
+) => {
+  const existing = buildPaidTouchBeforeCheckoutSnapshot(existingValue, capturedAtFallback);
+  const candidate = buildPaidTouchBeforeCheckoutSnapshot(candidateValue, capturedAtFallback);
+  if (!existing) return candidate;
+  if (!candidate) return existing;
+  return shouldReplacePaidTouchBeforeCheckout(existing, candidate) ? candidate : existing;
+};
+
+const attachPaidTouchBeforeCheckoutMetadata = (
+  entry: AttributionLedgerEntry,
+  snapshot: PaidTouchBeforeCheckoutSnapshot,
+  nowIso: string,
+): AttributionLedgerEntry => ({
+  ...entry,
+  metadata: {
+    ...entry.metadata,
+    paidTouchBeforeCheckout: snapshot,
+    paidTouchBeforeCheckoutMatch: {
+      schemaVersion: PAID_TOUCH_BEFORE_CHECKOUT_SCHEMA_VERSION,
+      source: "payload_metadata",
+      matchedAt: nowIso,
+      matchedBy: ["payload_metadata.paidTouchBeforeCheckout"],
+      storage: PAID_TOUCH_BEFORE_CHECKOUT_STORAGE_REF,
+      grade: snapshot.grade,
+      confidence: snapshot.confidence,
+      evidence: snapshot.evidence,
+    } satisfies PaidTouchBeforeCheckoutMatchMetadata,
+  },
+});
+
+export const enrichPaidTouchBeforeCheckout = (
+  entry: AttributionLedgerEntry,
+  nowIso = new Date().toISOString(),
+): AttributionLedgerEntry => {
+  if (entry.touchpoint !== "checkout_started" && entry.touchpoint !== "payment_success") return entry;
+
+  const candidate = mergePaidTouchBeforeCheckoutSnapshot(
+    entry.metadata.paidTouchBeforeCheckout,
+    entry.metadata.paidTouchBeforeCheckout,
+    entry.loggedAt || nowIso,
+  );
+  if (!candidate) return entry;
+
+  return attachPaidTouchBeforeCheckoutMetadata(entry, candidate, nowIso);
 };
 
 const attributionTextIncludesTikTok = (value: unknown) =>
@@ -916,16 +1318,19 @@ export const enrichCheckoutStartedFirstTouch = (
   entry: AttributionLedgerEntry,
   nowIso = new Date().toISOString(),
 ): AttributionLedgerEntry => {
-  if (entry.touchpoint !== "checkout_started" || hasStoredFirstTouch(entry)) return entry;
+  const entryWithPaidTouch = enrichPaidTouchBeforeCheckout(entry, nowIso);
+  if (entryWithPaidTouch.touchpoint !== "checkout_started" || hasStoredFirstTouch(entryWithPaidTouch)) {
+    return entryWithPaidTouch;
+  }
 
-  const snapshot = buildAttributionFirstTouchSnapshot(entry);
-  return attachFirstTouchMetadata(entry, snapshot, {
+  const snapshot = buildAttributionFirstTouchSnapshot(entryWithPaidTouch);
+  return attachFirstTouchMetadata(entryWithPaidTouch, snapshot, {
     schemaVersion: FIRST_TOUCH_SCHEMA_VERSION,
     source: "checkout_started",
     matchedAt: nowIso,
     matchedBy: ["self_checkout_started"],
     matchScore: 1000,
-    checkoutLoggedAt: entry.loggedAt,
+    checkoutLoggedAt: entryWithPaidTouch.loggedAt,
     storage: FIRST_TOUCH_STORAGE_REF,
     metaMatchReasons: snapshot.metaMatchReasons,
     tiktokMatchReasons: snapshot.tiktokMatchReasons,
@@ -937,13 +1342,16 @@ export const enrichPaymentSuccessFirstTouch = (
   existingEntries: AttributionLedgerEntry[],
   nowIso = new Date().toISOString(),
 ): AttributionLedgerEntry => {
-  if (entry.touchpoint !== "payment_success" || hasStoredFirstTouch(entry)) return entry;
+  const entryWithPaidTouch = enrichPaidTouchBeforeCheckout(entry, nowIso);
+  if (entryWithPaidTouch.touchpoint !== "payment_success" || hasStoredFirstTouch(entryWithPaidTouch)) {
+    return entryWithPaidTouch;
+  }
 
-  const candidate = selectFirstTouchCheckoutCandidate(entry, existingEntries);
-  if (!candidate) return entry;
+  const candidate = selectFirstTouchCheckoutCandidate(entryWithPaidTouch, existingEntries);
+  if (!candidate) return entryWithPaidTouch;
 
   return attachFirstTouchMetadata(
-    entry,
+    entryWithPaidTouch,
     buildAttributionFirstTouchSnapshot(candidate.entry),
     buildFirstTouchMatchMetadata(nowIso, candidate),
   );

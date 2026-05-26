@@ -1,0 +1,36 @@
+{
+  "generated_at": "2026-05-27 01:22:44 KST",
+  "source": "Naver Ads 전체 캠페인 API + 오버뷰 API",
+  "date_ranges": [
+    {"week":"1주차","startDate":"2026-04-25","endDate":"2026-05-01"},
+    {"week":"2주차","startDate":"2026-05-02","endDate":"2026-05-08"},
+    {"week":"3주차","startDate":"2026-05-09","endDate":"2026-05-15"},
+    {"week":"4주차","startDate":"2026-05-16","endDate":"2026-05-22"}
+  ],
+  "accounts": [
+    {
+      "account": "더클린커피",
+      "accountId": "2424664",
+      "notes": "광고비는 네이버 전체 캠페인 원 집계 비용에 브랜드검색 월 정액 1,540,000원의 4주 배분액 385,000원/주를 더한 값. ROAS는 브랜드검색 배분 포함 광고비 기준 재계산.",
+      "brandSearchWeeklyAllocation": 385000,
+      "rows": [
+        {"week":"1주차","startDate":"2026-04-25","endDate":"2026-05-01","rawCost":217890,"brandSearchWeeklyAllocation":385000,"cost":602890,"clicks":360,"conversions":178,"conversionRevenue":4269425,"roas":708.16,"platformRoas":1959.44},
+        {"week":"2주차","startDate":"2026-05-02","endDate":"2026-05-08","rawCost":352804,"brandSearchWeeklyAllocation":385000,"cost":737804,"clicks":352,"conversions":183,"conversionRevenue":4230589,"roas":573.40,"platformRoas":1199.13},
+        {"week":"3주차","startDate":"2026-05-09","endDate":"2026-05-15","rawCost":365226,"brandSearchWeeklyAllocation":385000,"cost":750226,"clicks":448,"conversions":249,"conversionRevenue":7888267,"roas":1051.45,"platformRoas":2159.83},
+        {"week":"4주차","startDate":"2026-05-16","endDate":"2026-05-22","rawCost":352722,"brandSearchWeeklyAllocation":385000,"cost":737722,"clicks":395,"conversions":236,"conversionRevenue":8127428,"roas":1101.69,"platformRoas":2304.20}
+      ]
+    },
+    {
+      "account": "TEAM KETO",
+      "accountId": "2415522",
+      "notes": "광고비는 네이버 전체 캠페인 원 집계 비용. 별도 브랜드검색 정액비 배분 없음.",
+      "brandSearchWeeklyAllocation": 0,
+      "rows": [
+        {"week":"1주차","startDate":"2026-04-25","endDate":"2026-05-01","cost":926415,"clicks":820,"conversions":165,"conversionRevenue":11026900,"roas":1190.28},
+        {"week":"2주차","startDate":"2026-05-02","endDate":"2026-05-08","cost":988437,"clicks":861,"conversions":181,"conversionRevenue":12957400,"roas":1310.90},
+        {"week":"3주차","startDate":"2026-05-09","endDate":"2026-05-15","cost":1119453,"clicks":890,"conversions":214,"conversionRevenue":12441300,"roas":1111.37},
+        {"week":"4주차","startDate":"2026-05-16","endDate":"2026-05-22","cost":975494,"clicks":763,"conversions":190,"conversionRevenue":13967700,"roas":1431.86}
+      ]
+    }
+  ]
+}

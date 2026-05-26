@@ -206,6 +206,44 @@ type GoogleClickIdDropoffHealth = {
   };
 };
 
+type GoogleNpayBridgeReviewRow = {
+  orderNumber: string;
+  channelOrderNo: string;
+  paidAt: string;
+  orderAmount: number | null;
+  productName: string;
+  strongGrade: "A" | "B" | null;
+  score: number;
+  scoreGap: number | null;
+  timeGapMinutes: number;
+  orderCreatedAt: string;
+  orderCreatedGapMinutes: number | null;
+  orderCreateTimeBridge: string;
+  amountMatchType: string;
+  hasGoogleClickId: boolean;
+  googleClickIdTypes: Array<"gclid" | "gbraid" | "wbraid">;
+  gadCampaignId: string | null;
+  campaignIdEvidenceSource:
+    | "intent_page_location"
+    | "paid_click_intent_same_client_session"
+    | "site_landing_same_client_session"
+    | "none";
+  utmCampaign: string;
+  recommendedAction: string;
+  blockReasons: string[];
+  gradePlainReason?: string;
+  gradeAUpgradeDecision?:
+    | "already_grade_a"
+    | "blocked_time_gap"
+    | "blocked_amount_mismatch"
+    | "blocked_score_gap"
+    | "blocked_missing_click_id"
+    | "manual_review_only";
+  gradeAUpgradePlain?: string;
+  internalBridgeDecision: "strong_bridge_candidate" | "manual_review_candidate";
+  googleAdsSendDecision: "blocked_no_send";
+};
+
 type GoogleNpayBridgeReview = {
   generatedAt: string;
   source: "npay_intent_rematch_dry_run";
@@ -240,43 +278,8 @@ type GoogleNpayBridgeReview = {
     vmCloudWrite: 0;
     operationalDbWrite: 0;
   };
-  rows: Array<{
-    orderNumber: string;
-    channelOrderNo: string;
-    paidAt: string;
-    orderAmount: number | null;
-    productName: string;
-    strongGrade: "A" | "B" | null;
-    score: number;
-    scoreGap: number | null;
-    timeGapMinutes: number;
-    orderCreatedAt: string;
-    orderCreatedGapMinutes: number | null;
-    orderCreateTimeBridge: string;
-    amountMatchType: string;
-  hasGoogleClickId: boolean;
-  googleClickIdTypes: Array<"gclid" | "gbraid" | "wbraid">;
-  gadCampaignId: string | null;
-  campaignIdEvidenceSource:
-    | "intent_page_location"
-    | "paid_click_intent_same_client_session"
-    | "site_landing_same_client_session"
-    | "none";
-  utmCampaign: string;
-    recommendedAction: string;
-    blockReasons: string[];
-    gradePlainReason?: string;
-    gradeAUpgradeDecision?:
-      | "already_grade_a"
-      | "blocked_time_gap"
-      | "blocked_amount_mismatch"
-      | "blocked_score_gap"
-      | "blocked_missing_click_id"
-      | "manual_review_only";
-    gradeAUpgradePlain?: string;
-    internalBridgeDecision: "strong_bridge_candidate" | "manual_review_candidate";
-    googleAdsSendDecision: "blocked_no_send";
-  }>;
+  rows: GoogleNpayBridgeReviewRow[];
+  gradeBRows?: GoogleNpayBridgeReviewRow[];
   campaignSummary: Array<{
     campaignId: string | null;
     campaignName: string;
@@ -289,6 +292,114 @@ type GoogleNpayBridgeReview = {
   }>;
   plainMeaning: string;
   noWritePolicy: string;
+  caveats: string[];
+};
+
+type GoogleAdsPrivatePayloadPreviewCheck = {
+  key:
+    | "actual_purchase_guard"
+    | "exact_order_identifier"
+    | "exact_gclid"
+    | "conversion_time"
+    | "conversion_value"
+    | "currency"
+    | "cancel_refund_return_guard"
+    | "duplicate_key_material"
+    | "conversion_action"
+    | "send_approval"
+    | "upload_ledger";
+  label: string;
+  passed: boolean;
+  publicSummary: string;
+  rawValueExposed: false;
+  blockerReason: string | null;
+};
+
+type GoogleAdsPrivatePayloadPreviewCandidate = {
+  candidateRank: number;
+  safeRef: string;
+  maskedOrderRef: string;
+  payment: {
+    amountKrw: number;
+    currencyCode: "KRW";
+    paymentMethod: string;
+    paymentStatus: string;
+    isNpay: boolean;
+    paidDateKst: string;
+    actualPurchaseGuardPassed: boolean;
+    cancelRefundReturnGuardPassed: boolean;
+  };
+  evidence: {
+    source: string;
+    exactClickIdType: "gclid";
+    hasGclid: true;
+    hasGbraid: false;
+    hasWbraid: false;
+    rawClickIdExposed: false;
+    clickIdDigestPrefix: string;
+  };
+  noSendPayloadShape: {
+    conversionActionId: string;
+    conversionActionName: string;
+    conversionActionResourceName: string;
+    orderIdPresent: boolean;
+    gclidPresent: boolean;
+    conversionTimePresent: boolean;
+    conversionValuePresent: boolean;
+    currencyPresent: boolean;
+    duplicateSendKeyHash: string;
+    externalSendMode: "blocked_no_send_preview";
+  };
+  checks: GoogleAdsPrivatePayloadPreviewCheck[];
+  readiness: {
+    privateRawValueChecksPassed: boolean;
+    privatePreviewProgressPct: number;
+    googleAdsSendReady: false;
+    uploadCandidateCount: 0;
+    sendCandidateCount: 0;
+    blockReasons: string[];
+  };
+};
+
+type GoogleAdsPrivatePayloadPreview = {
+  ok: true;
+  fetchedAt: string;
+  generatedAt: string;
+  site: "biocom";
+  mode: "private_no_send_payload_preview";
+  goal: string;
+  progress: {
+    privatePreviewProgressPct: number;
+    overallPrimaryConversionReadinessPct: number;
+    plain: string;
+  };
+  window: {
+    key: string;
+    label: string;
+    startAt: string;
+    endAt: string;
+    timezone: "Asia/Seoul";
+  };
+  requestedLimit: number;
+  summary: {
+    sourceOrderRows: number;
+    exactGclidActualPurchaseRows: number;
+    returnedCandidates: number;
+    privateRawValueChecksPassed: number;
+    uploadCandidateCount: 0;
+    sendCandidateCount: 0;
+  };
+  candidates: GoogleAdsPrivatePayloadPreviewCandidate[];
+  invariants: {
+    rawOrderIdInResponse: false;
+    rawClickIdInResponse: false;
+    uploadCandidateCount: 0;
+    sendCandidateCount: 0;
+    externalSendCount: 0;
+    operationalDbWrite: 0;
+    vmCloudWrite: 0;
+    googleAdsWrite: 0;
+  };
   caveats: string[];
 };
 
@@ -1971,6 +2082,179 @@ const readyButNotSentReview = {
   ],
 } as const;
 
+const fallbackPrivatePayloadPreview: GoogleAdsPrivatePayloadPreview = {
+  ok: true,
+  fetchedAt: "2026-05-26T11:32:10.000Z",
+  generatedAt: "2026-05-26T11:32:10.000Z",
+  site: "biocom",
+  mode: "private_no_send_payload_preview",
+  goal: "Google Ads에 실제 결제완료 주문만 구매로 알려주기 전, 원문 주문번호와 원문 gclid가 서버 내부에 있는지만 안전하게 확인한다.",
+  progress: {
+    privatePreviewProgressPct: 100,
+    overallPrimaryConversionReadinessPct: 82,
+    plain: "원문값 확인 장치는 준비됐지만, 실제 Google Ads 전송과 중복 전송 장부 연결은 아직 하지 않았습니다.",
+  },
+  window: {
+    key: "last_7d",
+    label: "최근 7일",
+    startAt: "2026-05-19T00:00:00.000+09:00",
+    endAt: "2026-05-26T23:59:59.999+09:00",
+    timezone: "Asia/Seoul",
+  },
+  requestedLimit: 2,
+  summary: {
+    sourceOrderRows: 458,
+    exactGclidActualPurchaseRows: 2,
+    returnedCandidates: 2,
+    privateRawValueChecksPassed: 2,
+    uploadCandidateCount: 0,
+    sendCandidateCount: 0,
+  },
+  candidates: [
+    {
+      candidateRank: 1,
+      safeRef: "gads_private_bb913bed8f4fd5",
+      maskedOrderRef: "masked",
+      payment: {
+        amountKrw: 36900,
+        currencyCode: "KRW",
+        paymentMethod: "CARD",
+        paymentStatus: "PAYMENT_COMPLETE",
+        isNpay: false,
+        paidDateKst: "2026-05-20",
+        actualPurchaseGuardPassed: true,
+        cancelRefundReturnGuardPassed: true,
+      },
+      evidence: {
+        source: "payment_success_ledger",
+        exactClickIdType: "gclid",
+        hasGclid: true,
+        hasGbraid: false,
+        hasWbraid: false,
+        rawClickIdExposed: false,
+        clickIdDigestPrefix: "private",
+      },
+      noSendPayloadShape: {
+        conversionActionId: "7609289411",
+        conversionActionName: "BI confirmed_purchase_offline",
+        conversionActionResourceName: "customers/2149990943/conversionActions/7609289411",
+        orderIdPresent: true,
+        gclidPresent: true,
+        conversionTimePresent: true,
+        conversionValuePresent: true,
+        currencyPresent: true,
+        duplicateSendKeyHash: "private_preview",
+        externalSendMode: "blocked_no_send_preview",
+      },
+      checks: [],
+      readiness: {
+        privateRawValueChecksPassed: true,
+        privatePreviewProgressPct: 100,
+        googleAdsSendReady: false,
+        uploadCandidateCount: 0,
+        sendCandidateCount: 0,
+        blockReasons: ["google_ads_conversion_upload_not_approved", "google_ads_upload_ledger_not_connected"],
+      },
+    },
+    {
+      candidateRank: 2,
+      safeRef: "gads_private_31670cbdcef49b",
+      maskedOrderRef: "masked",
+      payment: {
+        amountKrw: 234000,
+        currencyCode: "KRW",
+        paymentMethod: "CARD",
+        paymentStatus: "PAYMENT_COMPLETE",
+        isNpay: false,
+        paidDateKst: "2026-05-24",
+        actualPurchaseGuardPassed: true,
+        cancelRefundReturnGuardPassed: true,
+      },
+      evidence: {
+        source: "payment_success_ledger",
+        exactClickIdType: "gclid",
+        hasGclid: true,
+        hasGbraid: false,
+        hasWbraid: false,
+        rawClickIdExposed: false,
+        clickIdDigestPrefix: "private",
+      },
+      noSendPayloadShape: {
+        conversionActionId: "7609289411",
+        conversionActionName: "BI confirmed_purchase_offline",
+        conversionActionResourceName: "customers/2149990943/conversionActions/7609289411",
+        orderIdPresent: true,
+        gclidPresent: true,
+        conversionTimePresent: true,
+        conversionValuePresent: true,
+        currencyPresent: true,
+        duplicateSendKeyHash: "private_preview",
+        externalSendMode: "blocked_no_send_preview",
+      },
+      checks: [],
+      readiness: {
+        privateRawValueChecksPassed: true,
+        privatePreviewProgressPct: 100,
+        googleAdsSendReady: false,
+        uploadCandidateCount: 0,
+        sendCandidateCount: 0,
+        blockReasons: ["google_ads_conversion_upload_not_approved", "google_ads_upload_ledger_not_connected"],
+      },
+    },
+  ],
+  invariants: {
+    rawOrderIdInResponse: false,
+    rawClickIdInResponse: false,
+    uploadCandidateCount: 0,
+    sendCandidateCount: 0,
+    externalSendCount: 0,
+    operationalDbWrite: 0,
+    vmCloudWrite: 0,
+    googleAdsWrite: 0,
+  },
+  caveats: [
+    "Fallback is the VM Cloud deployment smoke snapshot. Live API is preferred when reachable.",
+  ],
+};
+
+const primaryConversionReadinessSteps = [
+  {
+    label: "1. 실제 구매 후보를 서버 내부에서 확인",
+    status: "done",
+    progress: 100,
+    plain:
+      "실제 결제완료이고, 금액이 있고, 취소/환불이 없고, 원문 gclid가 서버 안에 있는 후보 2건을 no-send로 확인했습니다.",
+  },
+  {
+    label: "2. 중복 전송 방지 장부 설계",
+    status: "in_progress",
+    progress: 70,
+    plain:
+      "같은 주문을 Google Ads에 두 번 보내지 않도록 order safe ref, 전환 액션, 전송 시각, payload hash를 남기는 장부가 필요합니다.",
+  },
+  {
+    label: "3. 제한 전송 승인안",
+    status: "blocked_red",
+    progress: 0,
+    plain:
+      "Google Ads에 실제 전환을 보내는 일은 광고 플랫폼 숫자와 자동입찰 학습을 바꾸므로 TJ님 별도 승인 전 실행하지 않습니다.",
+  },
+  {
+    label: "4. 전송 후 검증과 중단 기준",
+    status: "not_started",
+    progress: 0,
+    plain:
+      "전송 직후 Google Ads 수신 여부, 중복 여부, 환불/취소 후속 처리 기준을 확인해야 주 전환으로 올릴 수 있습니다.",
+  },
+  {
+    label: "5. Primary 전환 전환 판단",
+    status: "not_started",
+    progress: 0,
+    plain:
+      "Secondary로 관찰한 실제 구매 신호가 안정되면 Google Ads가 입찰 학습에 쓰는 Primary 후보로 올릴지 결정합니다.",
+  },
+] as const;
+
 const fallbackConversionActionSegments: Record<DatePreset, NonNullable<GoogleAdsDashboardResponse["conversionActionSegments"]>> = {
   last_7d: {
     summary: {
@@ -2097,6 +2381,40 @@ const formatRatePct = (value: number | null | undefined) =>
 const formatCount = (value: number | null | undefined) =>
   typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("ko-KR") : "-";
 
+const loadGoogleAdsPrivatePayloadPreview = async (): Promise<GoogleAdsPrivatePayloadPreview | null> => {
+  const localUrl = `${API_BASE}/api/google-ads/confirmed-purchase/private-payload-preview?site=biocom&window=last_7d&limit=2`;
+  const urls = [];
+
+  if (API_BASE.includes("localhost") || API_BASE.includes("127.0.0.1")) {
+    urls.push("/api/google-ads/private-payload-preview?site=biocom&window=last_7d&limit=2");
+    urls.push(localUrl);
+    urls.push("https://att.ainativeos.net/api/google-ads/confirmed-purchase/private-payload-preview?site=biocom&window=last_7d&limit=2");
+  } else {
+    urls.push(localUrl);
+  }
+
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      const data = await response.json() as GoogleAdsPrivatePayloadPreview | { ok?: false };
+
+      if (response.ok && data.ok && "summary" in data) {
+        if (
+          data.summary.returnedCandidates > 0
+          || !url.includes("localhost")
+          || !urls.some((candidateUrl) => candidateUrl.includes("att.ainativeos.net"))
+        ) {
+          return data;
+        }
+      }
+    } catch {
+      // Try the next source. The report has a VM Cloud smoke fallback below.
+    }
+  }
+
+  return null;
+};
+
 const maskIdentifier = (value: string | null | undefined) => {
   const text = String(value ?? "").trim();
   if (!text) return "없음";
@@ -2159,6 +2477,35 @@ const riskFlagLabel = (value: string) => {
   if (value === "all_conversions_only_value") return "All conv. 전용";
   if (value === "non_revenue_primary_value") return "비매출 Primary";
   return value;
+};
+
+const privatePreviewCheckLabel = (value: GoogleAdsPrivatePayloadPreviewCheck["key"]) => {
+  if (value === "actual_purchase_guard") return "실제 결제완료";
+  if (value === "exact_order_identifier") return "원문 주문 식별자";
+  if (value === "exact_gclid") return "원문 gclid";
+  if (value === "conversion_time") return "결제완료 시각";
+  if (value === "conversion_value") return "결제금액";
+  if (value === "currency") return "통화";
+  if (value === "cancel_refund_return_guard") return "취소/환불 제외";
+  if (value === "duplicate_key_material") return "중복 방지 key 재료";
+  if (value === "conversion_action") return "전환 액션";
+  if (value === "send_approval") return "전송 승인";
+  if (value === "upload_ledger") return "전송 장부";
+  return value;
+};
+
+const readinessStepStatusLabel = (value: (typeof primaryConversionReadinessSteps)[number]["status"]) => {
+  if (value === "done") return "완료";
+  if (value === "in_progress") return "진행 중";
+  if (value === "blocked_red") return "승인 전 중지";
+  return "대기";
+};
+
+const readinessStepStatusClass = (value: (typeof primaryConversionReadinessSteps)[number]["status"]) => {
+  if (value === "done") return styles.status;
+  if (value === "in_progress") return `${styles.status} ${styles.statusWarn}`;
+  if (value === "blocked_red") return `${styles.status} ${styles.statusHold}`;
+  return `${styles.status} ${styles.statusWarn}`;
 };
 
 const campaignMatchStatusLabel = (status: GoogleCampaignMatchHealth["summary"]["status"]) => {
@@ -2402,12 +2749,13 @@ export default function GoogleRoasProjectReportPage() {
     makeSnapshot("last_30d", null, null),
   ]);
   const [analysisV2DropoffHealth, setAnalysisV2DropoffHealth] = useState<GoogleClickIdDropoffHealth | null>(null);
+  const [privatePayloadPreview, setPrivatePayloadPreview] = useState<GoogleAdsPrivatePayloadPreview | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadSnapshots = useCallback(async () => {
     setLoading(true);
     const presets: DatePreset[] = ["last_7d", "last_30d"];
-    const [next, analysisDropoff] = await Promise.all([
+    const [next, analysisDropoff, privatePreview] = await Promise.all([
       Promise.all(presets.map(async (preset) => {
         try {
           const response = await fetch(
@@ -2430,9 +2778,11 @@ export default function GoogleRoasProjectReportPage() {
           return data.health;
         })
         .catch(() => null),
+      loadGoogleAdsPrivatePayloadPreview(),
     ]);
     setSnapshots(next);
     setAnalysisV2DropoffHealth(analysisDropoff);
+    setPrivatePayloadPreview(privatePreview);
     setLoading(false);
   }, []);
 
@@ -2452,6 +2802,12 @@ export default function GoogleRoasProjectReportPage() {
   const conversionSummary30d = last30.conversionActionSegments.summary;
   const conversionActions7d = last7.conversionActionSegments.actions.slice(0, 6);
   const last7InternalActualRevenue = last7.internalRevenue + last7.npayRevenue;
+  const privatePreview = privatePayloadPreview ?? fallbackPrivatePayloadPreview;
+  const privatePreviewSource = privatePayloadPreview
+    ? "VM Cloud live private preview API"
+    : "VM Cloud deploy smoke fallback";
+  const privatePreviewNeedsLiveRefresh = privatePayloadPreview === null;
+  const primaryReadiness = privatePreview.progress.overallPrimaryConversionReadinessPct;
   const postPatchClickIdCard = {
     label: "5/21 21:15 이후",
     clickIdHealth: {
@@ -2487,6 +2843,9 @@ export default function GoogleRoasProjectReportPage() {
     analysisV2Health.stages.paymentSuccessConfirmedDirect,
   ];
   const npayBridgeReview = last7.npayBridgeReview;
+  const npayBridgeGradeBRows = (npayBridgeReview.gradeBRows?.length
+    ? npayBridgeReview.gradeBRows
+    : npayBridgeReview.rows.filter((row) => row.strongGrade === "B"));
   const last7Response = snapshots[0]?.response;
   const internalCampaignRows = [
     ...(last7Response?.internal?.campaigns ?? []),
@@ -3174,6 +3533,60 @@ export default function GoogleRoasProjectReportPage() {
             <em>{npayGradeBWithClickIdReview.nextAction}</em>
           </div>
 
+          <div className={styles.bridgeExplainBox}>
+            <strong>B급 후보를 더 좁혀보는 표</strong>
+            <p>
+              이 표는 “구매는 맞아 보이지만 자동으로 Google Ads에 보내기에는 아직 부족한 주문”만 따로 모읍니다.
+              백엔드가 B급 전용 목록을 내려주면 전체 B급을 보여주고, 아직 배포 전이면 현재 API가 노출하는 B급만 보여줍니다.
+            </p>
+            <em>
+              현재 화면 표시 {formatCount(npayBridgeGradeBRows.length)}건 ·
+              전체 B급 {formatCount(npayBridgeReview.summary.gradeB)}건 ·
+              Google click id 있는 B급 {formatCount(npayBridgeReview.summary.gradeBWithGoogleClickId)}건 ·
+              A급 승격 가능 {formatCount(npayBridgeReview.summary.gradeBPromotableToGradeANow)}건
+            </em>
+          </div>
+
+          {npayBridgeGradeBRows.length > 0 ? (
+            <div className={styles.tableWrap}>
+              <table className={`${styles.table} ${styles.bridgeReviewTable}`}>
+                <thead>
+                  <tr>
+                    <th>B급 주문</th>
+                    <th>왜 B급인가</th>
+                    <th>Google click id</th>
+                    <th>지금 결정</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {npayBridgeGradeBRows.map((row) => (
+                    <tr key={`grade-b-${row.orderNumber}-${row.channelOrderNo}`}>
+                      <td>
+                        <strong>{formatKrw(row.orderAmount)} · {row.productName}</strong>
+                        <span>내부 {maskIdentifier(row.orderNumber)} · NPay {maskIdentifier(row.channelOrderNo)}</span>
+                      </td>
+                      <td>
+                        <strong>
+                          결제까지 {row.timeGapMinutes}분 · score {row.score}
+                          {row.scoreGap !== null ? ` · score gap ${row.scoreGap}` : ""}
+                        </strong>
+                        <span>{row.gradeAUpgradePlain ?? row.gradePlainReason ?? "A급 자동 반영 전 수동 검토가 필요합니다."}</span>
+                      </td>
+                      <td>
+                        <strong>{row.hasGoogleClickId ? row.googleClickIdTypes.join("+") : "없음"}</strong>
+                        <span>campaign {row.gadCampaignId ?? "없음"}</span>
+                      </td>
+                      <td>
+                        <strong>Google Ads 전송 후보 아님</strong>
+                        <span>{row.blockReasons.length ? row.blockReasons.join(", ") : "no-write/no-send 유지"}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
           <div className={styles.signalFlowGrid}>
             {gradeBCurrentRead.map((item) => (
               <article key={item.label} className={styles.signalFlowCard}>
@@ -3281,6 +3694,138 @@ export default function GoogleRoasProjectReportPage() {
                 현재는 내부 분석 후보와 Google Ads 전송 후보를 분리하는 단계입니다.
               </p>
             </article>
+          </div>
+
+          <div className={styles.privatePreviewPanel}>
+            <div className={styles.privatePreviewHeader}>
+              <div>
+                <span>private preview · 원문값 비노출</span>
+                <h3>Google Ads에 보내기 전, 서버 안에서만 원문값을 점검한 실제 구매 후보</h3>
+                <p>
+                  원문 주문번호와 원문 gclid는 화면에 나오지 않습니다.
+                  대신 실제 결제완료인지, gclid가 서버 안에 있는지, 금액과 취소/환불 guard가 맞는지만 안전하게 보여줍니다.
+                </p>
+              </div>
+              <em>
+                {privatePreviewSource} · {formatFetchedAt(privatePreview.fetchedAt)}
+                {privatePreviewNeedsLiveRefresh ? " · live API fallback" : ""}
+              </em>
+            </div>
+
+            <div className={styles.privatePreviewSummary}>
+              <article>
+                <span>실제 구매 후보</span>
+                <strong>{formatCount(privatePreview.summary.returnedCandidates)}건</strong>
+                <p>
+                  최근 7일 실제 결제완료 {formatCount(privatePreview.summary.sourceOrderRows)}건 중
+                  서버 내부에서 원문 gclid까지 확인된 후보입니다.
+                </p>
+              </article>
+              <article>
+                <span>원문값 내부 확인</span>
+                <strong>{formatCount(privatePreview.summary.privateRawValueChecksPassed)} / {formatCount(privatePreview.summary.returnedCandidates)}건</strong>
+                <p>
+                  원문 주문번호와 원문 gclid는 서버 내부에서만 확인하고, 화면에는 safe ref와 통과 여부만 표시합니다.
+                </p>
+              </article>
+              <article>
+                <span>Google Ads 전송</span>
+                <strong>{formatCount(privatePreview.invariants.externalSendCount)}건</strong>
+                <p>
+                  send, upload, DB write는 모두 0건입니다. 이 카드는 전송 전 점검표입니다.
+                </p>
+              </article>
+              <article>
+                <span>주 전환 준비도</span>
+                <strong>{formatCount(primaryReadiness)}%</strong>
+                <p>{privatePreview.progress.plain}</p>
+              </article>
+            </div>
+
+            <div className={styles.privateCandidateGrid}>
+              {privatePreview.candidates.map((candidate) => (
+                <article key={candidate.safeRef} className={styles.privateCandidateCard}>
+                  <div className={styles.privateCandidateTop}>
+                    <span>후보 {candidate.candidateRank}</span>
+                    <strong>{candidate.safeRef}</strong>
+                  </div>
+                  <dl>
+                    <div><dt>결제</dt><dd>{candidate.payment.paymentMethod} · {formatKrw(candidate.payment.amountKrw)}</dd></div>
+                    <div><dt>완료일</dt><dd>{candidate.payment.paidDateKst}</dd></div>
+                    <div><dt>click id</dt><dd>{candidate.evidence.exactClickIdType}</dd></div>
+                    <div><dt>원문 노출</dt><dd>{candidate.evidence.rawClickIdExposed ? "위험" : "없음"}</dd></div>
+                  </dl>
+                  <div className={styles.privateCheckList}>
+                    {(candidate.checks.length > 0 ? candidate.checks : [
+                      {
+                        key: "actual_purchase_guard" as const,
+                        label: "실제 결제완료",
+                        passed: candidate.payment.actualPurchaseGuardPassed,
+                        publicSummary: "",
+                        rawValueExposed: false as const,
+                        blockerReason: null,
+                      },
+                      {
+                        key: "exact_gclid" as const,
+                        label: "원문 gclid 내부 확인",
+                        passed: candidate.evidence.hasGclid,
+                        publicSummary: "",
+                        rawValueExposed: false as const,
+                        blockerReason: null,
+                      },
+                      {
+                        key: "send_approval" as const,
+                        label: "전송 승인",
+                        passed: false,
+                        publicSummary: "",
+                        rawValueExposed: false as const,
+                        blockerReason: "google_ads_conversion_upload_not_approved",
+                      },
+                      {
+                        key: "upload_ledger" as const,
+                        label: "전송 장부",
+                        passed: false,
+                        publicSummary: "",
+                        rawValueExposed: false as const,
+                        blockerReason: "google_ads_upload_ledger_not_connected",
+                      },
+                    ]).map((check) => (
+                      <span key={`${candidate.safeRef}-${check.key}`} className={check.passed ? styles.checkPass : styles.checkHold}>
+                        {check.passed ? "통과" : "대기"} · {check.label || privatePreviewCheckLabel(check.key)}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className={styles.readinessPanel}>
+              <div>
+                <span>82%에서 100%까지 남은 것</span>
+                <h3>후보는 생겼고, 이제 “한 번만 안전하게 보내는 장치”가 남았습니다</h3>
+                <p>
+                  82%는 원문값 확인 장치까지 준비됐다는 뜻입니다.
+                  100%는 Google Ads 전송 전 중복 방지 장부, 제한 전송 승인안, 전송 후 검증 기준까지 준비된 상태입니다.
+                </p>
+              </div>
+              <div className={styles.readinessStepGrid}>
+                {primaryConversionReadinessSteps.map((step) => (
+                  <article key={step.label} className={styles.readinessStepCard}>
+                    <span className={readinessStepStatusClass(step.status)}>
+                      {readinessStepStatusLabel(step.status)}
+                    </span>
+                    <strong>{step.label}</strong>
+                    <p>{step.plain}</p>
+                    <div className={styles.progressTrack} aria-label={`${step.label} ${step.progress}%`}>
+                      <div
+                        className={`${styles.progressFill} ${step.progress < 100 ? styles.progressFillWarn : ""}`}
+                        style={{ width: `${step.progress}%` }}
+                      />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className={styles.bridgeExplainBox}>

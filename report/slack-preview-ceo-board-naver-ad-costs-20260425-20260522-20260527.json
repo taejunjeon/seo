@@ -1,0 +1,91 @@
+{
+  "schema_version": "ceo_board_naver_ad_cost_no_send_preview_v1",
+  "generated_at": "2026-05-27 01:36 KST",
+  "mode": "no_send_preview",
+  "target_channel": "sentia_ai",
+  "target_channel_status": "not_verified_in_this_run",
+  "source": {
+    "primary": "Hermes GitHub result JSON from Naver Ads UI/API export",
+    "remote_repo": "https://github.com/taejunjeon/hermes-codex-repo",
+    "remote_commit": "706d5fd058bccfef46c79c5fae8a4f9350093235",
+    "remote_json": "results/naver-ad-costs-teamketo-thecleancoffee-20260425-20260522.json",
+    "remote_markdown": "results/naver-ad-costs-teamketo-thecleancoffee-20260425-20260522.md",
+    "local_json": "hermes/results/naver-ad-costs-teamketo-thecleancoffee-20260425-20260522.json",
+    "local_markdown": "hermes/results/naver-ad-costs-teamketo-thecleancoffee-20260425-20260522.md",
+    "source_generated_at": "2026-05-27 01:22:44 KST"
+  },
+  "window": {
+    "start": "2026-04-25",
+    "end": "2026-05-22",
+    "timezone": "Asia/Seoul",
+    "weeks": [
+      {"label": "1주차", "start": "2026-04-25", "end": "2026-05-01"},
+      {"label": "2주차", "start": "2026-05-02", "end": "2026-05-08"},
+      {"label": "3주차", "start": "2026-05-09", "end": "2026-05-15"},
+      {"label": "4주차", "start": "2026-05-16", "end": "2026-05-22"}
+    ]
+  },
+  "important_warning": [
+    "conversionRevenue is Naver platform-reported conversion revenue, not internal confirmed sales.",
+    "roas is platform_conversion_revenue divided by included Naver ad cost.",
+    "Internal sales ROAS must be calculated only after matching each brand's internal sales source for the same window.",
+    "This preview does not send or schedule a Slack message."
+  ],
+  "accounts": [
+    {
+      "brand": "thecleancoffee",
+      "display_name": "더클린커피",
+      "naver_account_id": "2424664",
+      "brand_search_weekly_allocation_krw": 385000,
+      "total": {
+        "raw_naver_cost_krw": 1288642,
+        "brand_search_allocation_krw": 1540000,
+        "included_ad_cost_krw": 2828642,
+        "clicks": 1555,
+        "platform_conversions": 846,
+        "platform_conversion_revenue_krw": 24515709,
+        "platform_roas_after_brandsearch_allocation_pct": 866.7
+      },
+      "weekly_rows": [
+        {"week": "1주차", "start": "2026-04-25", "end": "2026-05-01", "raw_cost_krw": 217890, "brand_search_allocation_krw": 385000, "included_ad_cost_krw": 602890, "clicks": 360, "platform_conversions": 178, "platform_conversion_revenue_krw": 4269425, "platform_roas_pct": 708.16, "naver_original_roas_pct": 1959.44},
+        {"week": "2주차", "start": "2026-05-02", "end": "2026-05-08", "raw_cost_krw": 352804, "brand_search_allocation_krw": 385000, "included_ad_cost_krw": 737804, "clicks": 352, "platform_conversions": 183, "platform_conversion_revenue_krw": 4230589, "platform_roas_pct": 573.4, "naver_original_roas_pct": 1199.13},
+        {"week": "3주차", "start": "2026-05-09", "end": "2026-05-15", "raw_cost_krw": 365226, "brand_search_allocation_krw": 385000, "included_ad_cost_krw": 750226, "clicks": 448, "platform_conversions": 249, "platform_conversion_revenue_krw": 7888267, "platform_roas_pct": 1051.45, "naver_original_roas_pct": 2159.83},
+        {"week": "4주차", "start": "2026-05-16", "end": "2026-05-22", "raw_cost_krw": 352722, "brand_search_allocation_krw": 385000, "included_ad_cost_krw": 737722, "clicks": 395, "platform_conversions": 236, "platform_conversion_revenue_krw": 8127428, "platform_roas_pct": 1101.69, "naver_original_roas_pct": 2304.2}
+      ],
+      "internal_sales_status": "not_joined_in_this_preview",
+      "next_join_needed": "Match this ad-cost window with TheCleanCoffee internal sales by selfmall, SmartStore, Coupang, and settlement rules."
+    },
+    {
+      "brand": "teamketo",
+      "display_name": "TEAM KETO",
+      "naver_account_id": "2415522",
+      "brand_search_weekly_allocation_krw": 0,
+      "total": {
+        "raw_naver_cost_krw": 4009799,
+        "brand_search_allocation_krw": 0,
+        "included_ad_cost_krw": 4009799,
+        "clicks": 3334,
+        "platform_conversions": 750,
+        "platform_conversion_revenue_krw": 50393300,
+        "platform_roas_pct": 1256.75
+      },
+      "weekly_rows": [
+        {"week": "1주차", "start": "2026-04-25", "end": "2026-05-01", "included_ad_cost_krw": 926415, "clicks": 820, "platform_conversions": 165, "platform_conversion_revenue_krw": 11026900, "platform_roas_pct": 1190.28},
+        {"week": "2주차", "start": "2026-05-02", "end": "2026-05-08", "included_ad_cost_krw": 988437, "clicks": 861, "platform_conversions": 181, "platform_conversion_revenue_krw": 12957400, "platform_roas_pct": 1310.9},
+        {"week": "3주차", "start": "2026-05-09", "end": "2026-05-15", "included_ad_cost_krw": 1119453, "clicks": 890, "platform_conversions": 214, "platform_conversion_revenue_krw": 12441300, "platform_roas_pct": 1111.37},
+        {"week": "4주차", "start": "2026-05-16", "end": "2026-05-22", "included_ad_cost_krw": 975494, "clicks": 763, "platform_conversions": 190, "platform_conversion_revenue_krw": 13967700, "platform_roas_pct": 1431.86}
+      ],
+      "internal_sales_status": "not_joined_in_this_preview",
+      "next_join_needed": "Match TeamKeto internal sales source for the same four weekly windows before calling this internal ROAS."
+    }
+  ],
+  "slack_text_preview": "[CEO Board] 네이버 광고비 원본 확인\\n기간: 2026-04-25 - 2026-05-22 KST\\n\\n더클린커피: 광고비 2,828,642원, 클릭 1,555, 네이버 전환수 846, 네이버 주장 전환매출 24,515,709원, 네이버 기준 ROAS 866.70%\\n- 포함: 전체 캠페인 원 집계 1,288,642원 + 브랜드검색 배분 1,540,000원\\n\\nTEAM KETO: 광고비 4,009,799원, 클릭 3,334, 네이버 전환수 750, 네이버 주장 전환매출 50,393,300원, 네이버 기준 ROAS 1,256.75%\\n\\n주의: 위 ROAS는 네이버가 주장하는 전환매출 기준입니다. 내부 결제완료 매출 ROAS는 같은 기간 매출 원장과 조인한 뒤 별도로 계산합니다.",
+  "send_status": {
+    "slack_sent": false,
+    "slack_scheduled": false,
+    "operating_db_write": false,
+    "vm_cloud_write_or_deploy": false,
+    "naver_ads_state_change": false,
+    "platform_send_or_upload": false
+  }
+}

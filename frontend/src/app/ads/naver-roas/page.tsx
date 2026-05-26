@@ -34,6 +34,31 @@ type ChannelReport = {
   whyItMatters: string;
   nextAction: string;
   evidence: string[];
+  roasSplit?: {
+    campaign: string;
+    period: string;
+    spend: string;
+    source: string;
+    total: {
+      label: string;
+      revenue: string;
+      roas: string;
+      usage: string;
+    };
+    purchaseComplete: {
+      label: string;
+      revenue: string;
+      roas: string;
+      usage: string;
+    };
+    gap: {
+      revenue: string;
+      roasPoint: string;
+      purchaseShare: string;
+      ratio: string;
+      meaning: string;
+    };
+  };
 };
 
 type BrandsearchSite = {
@@ -83,7 +108,7 @@ type ActionItem = {
   confidence: string;
 };
 
-const generatedAt = "2026-05-25 23:52 KST";
+const generatedAt = "2026-05-26 21:34 KST";
 
 const kpis: Kpi[] = [
   {
@@ -96,11 +121,11 @@ const kpis: Kpi[] = [
   },
   {
     label: "비용 source 준비도",
-    value: "70%",
-    basis: "검색광고는 biocom ready, 브랜드검색은 수동 cache ready, 디스플레이는 coffee Hermes 1회 확인.",
-    source: "2026-05-25 문서/JSON 기준",
-    caution: "성과 디스플레이는 Hermes 수동 export가 필요합니다.",
-    tone: "warn",
+    value: "78%",
+    basis: "검색광고는 biocom ready, 브랜드검색은 수동 cache ready, 성과 디스플레이는 2026년 4월 Hermes XLSX 원본 확인. 더클린커피 쇼핑검색/ADVoost는 스마트스토어 랜딩입니다.",
+    source: "2026-05-26 Hermes JSON/XLSX 검증 기준",
+    caution: "더클린커피 쇼핑검색/ADVoost는 자사몰 주문 원장이 아니라 스마트스토어 주문 source가 필요합니다.",
+    tone: "info",
   },
   {
     label: "내부 주문 연결 준비도",
@@ -127,17 +152,18 @@ const channels: ChannelReport[] = [
     status: "partial",
     statusLabel: "부분 준비",
     spend: "biocom 7,276,795원 / coffee 440원 확인",
-    revenueBasis: "내부 paid_naver 매출과 같은 window로 나눠야 합니다.",
-    decision: "검색광고비는 API/cache를 우선 source로 쓰되, site별 cache freshness를 먼저 보여줍니다.",
+    revenueBasis: "자사몰 검색광고는 내부 paid_naver 매출과 같은 window로 나눕니다. 쇼핑검색이 스마트스토어로 가는 경우는 별도 분리합니다.",
+    decision: "검색광고비는 API/cache를 우선 source로 쓰되, 쇼핑검색 스마트스토어 랜딩은 자사몰 ROAS와 섞지 않습니다.",
     source: "Naver Search Ad API -> VM Cloud naver_ads_daily cache",
     window: "biocom 2026-04-21~2026-05-20, coffee 2026-05-18~2026-05-24",
     freshness: "biocom cache 2026-05-22 승인 실행, coffee read-only 2026-05-25",
     confidence: "biocom high, coffee medium",
     whyItMatters: "이 비용이 빠지면 네이버 ROAS가 과대평가됩니다. 반대로 네이버 주장 전환매출을 내부 매출로 쓰면 ROAS가 부풀 수 있습니다.",
-    nextAction: "화면 API에서 검색광고 cache status와 내부 confirmed 매출을 같은 window로 내려줍니다.",
+    nextAction: "화면 API에서 일반 검색광고와 스마트스토어 쇼핑검색을 분리해 내려줍니다.",
     evidence: [
       "biocom 최근 30일 cache는 1,110 rows, 클릭 12,443건, 광고비 7,276,795원입니다.",
       "coffee 같은 주간 검색광고 API 광고비는 440원입니다.",
+      "더클린커피 쇼핑검색 링크는 smartstore.naver.com/lockhart로 확인되어 자사몰 주문 bridge 대상이 아닙니다.",
       "Naver claim conversion value는 네이버 플랫폼 주장값이라 예산 판단 매출과 분리합니다.",
     ],
   },
@@ -164,22 +190,49 @@ const channels: ChannelReport[] = [
   {
     channel: "성과 디스플레이",
     subtitle: "ADVoost 같은 네이버 디스플레이 광고 영역",
-    status: "manual",
-    statusLabel: "Hermes 수동 원본 필요",
-    spend: "coffee 350,098원 확인",
-    revenueBasis: "현재는 네이버 주장 전환값 3,463,700원만 있고 내부 confirmed join은 미완료입니다.",
-    decision: "성과 디스플레이는 공식 검색광고 API에 안 들어오므로 Hermes export를 비용 원천으로 분리합니다.",
+    status: "partial",
+    statusLabel: "4월 원본 확보",
+    spend: "coffee 1,171,829원 / biocom 12,772,245원 / coffee ADVoost 쇼핑 최근 7일 341,043원",
+    revenueBasis: "더클린커피 ADVoost 쇼핑은 총 전환매출 3,548,500원 기준 ROAS 1040.48%와 구매완료 전환매출 1,093,000원 기준 ROAS 320.49%를 분리합니다. 예산 판단에는 구매완료 ROAS를 우선 사용합니다.",
+    decision: "성과 디스플레이는 검색광고 API 밖에 있으므로 Hermes XLSX를 비용 원천으로 분리합니다. 더클린커피 ADVoost 쇼핑은 총 ROAS와 구매완료 ROAS를 같이 보여주되, 구매완료 320.49%를 예산 판단 우선값으로 둡니다.",
     source: "Hermes Chrome CDP XLSX export + Naver 화면 증거",
-    window: "coffee 2026-05-18~2026-05-24",
-    freshness: "Hermes result 2026-05-25 17:46",
-    confidence: "weekly coffee spend high, rolling/biocom display low",
-    whyItMatters: "검색광고 API만 보면 coffee 네이버 광고비가 440원처럼 보이지만, 실제 같은 주간 디스플레이 광고비는 350,098원입니다.",
-    nextAction: "Hermes export를 반복 가능한 수동 source로 두고, 내부 결제완료 주문 연결은 별도 preview로 설계합니다.",
+    window: "Hermes 2026-04-01~2026-04-30 KST, ADVoost 화면 최근 7일(오늘 제외)",
+    freshness: "Hermes queried_at 2026-05-26 01:03 KST, Codex import 2026-05-26 17:50 KST, SmartStore destination update 2026-05-26 21:13 KST, ROAS split capture 2026-05-26 21:34 KST",
+    confidence: "cost source high, coffee smartstore revenue source pending",
+    whyItMatters: "검색광고 API만 보면 성과 디스플레이 광고비가 빠집니다. 2026년 4월 기준 누락될 수 있었던 성과 디스플레이 광고비는 합계 13,944,074원입니다.",
+    nextAction: "coffee는 스마트스토어 주문/정산 source를 먼저 정하고, biocom은 self-mall display bridge를 계속 좁힙니다.",
     evidence: [
-      "Hermes XLSX 원본에서 [ADVoost] 쇼핑 광고비 350,098원, 클릭 194건을 확인했습니다.",
-      "같은 기간 검색광고 440원을 더하면 coffee 네이버 광고비는 350,538원입니다.",
-      "성과 디스플레이 API 접근은 아직 partner-gated로 보고, Hermes를 manual source로 둡니다.",
+      "Hermes XLSX 원본 3개에서 총 12개 캠페인 row를 확인했습니다.",
+      "실집행 캠페인은 더클린커피 1개, 바이오컴 2개입니다.",
+      "더클린커피 [ADVoost] 쇼핑은 smartstore.naver.com/lockhart 랜딩으로 확인됐습니다.",
+      "더클린커피 [ADVoost] 쇼핑 최근 7일 화면 기준 총 전환매출 3,548,500원 중 구매완료 전환매출은 1,093,000원입니다.",
+      "Hermes JSON은 행 수/안전성 확인용이고, 광고비·전환금액·ROAS는 XLSX를 primary로 씁니다.",
     ],
+    roasSplit: {
+      campaign: "더클린커피 [ADVoost] 쇼핑 1261102",
+      period: "최근 7일(오늘 제외)",
+      spend: "341,043원",
+      source: "TJ님 네이버 성과보고서 화면 캡처",
+      total: {
+        label: "총 광고수익률",
+        revenue: "3,548,500원",
+        roas: "1040.48%",
+        usage: "전환 페이지 안의 모든 전환 행동 매출을 포함한 플랫폼 참고값입니다.",
+      },
+      purchaseComplete: {
+        label: "구매완료 광고수익률",
+        revenue: "1,093,000원",
+        roas: "320.49%",
+        usage: "구매완료 전환매출만 비용으로 나눈 값입니다. 예산 판단 우선값입니다.",
+      },
+      gap: {
+        revenue: "2,455,500원",
+        roasPoint: "719.99%p",
+        purchaseShare: "30.8%",
+        ratio: "총 ROAS가 구매완료 ROAS의 약 3.25배",
+        meaning: "비구매완료 전환매출이 총 ROAS를 크게 끌어올립니다. 그래서 총 ROAS만 보면 ADVoost 쇼핑 성과를 과대평가할 수 있습니다.",
+      },
+    },
   },
 ];
 
@@ -248,17 +301,17 @@ const okrs: Okr[] = [
     progress: 70,
     status: "needs_work",
     why: "검색광고 API만 보면 디스플레이와 브랜드검색 비용이 빠져 전체 네이버 ROAS가 왜곡됩니다.",
-    current: "검색광고는 biocom ready, 브랜드검색은 수동 cache ready, coffee 디스플레이는 Hermes 1회 원본 확인입니다.",
-    action: "검색광고 API, 브랜드검색 수동 cache, Hermes 디스플레이 export를 한 화면 API의 channel별 source로 묶습니다.",
+    current: "검색광고는 biocom ready, 브랜드검색은 수동 cache ready, 성과 디스플레이는 2026년 4월 Hermes 원본 확인입니다. coffee 쇼핑/ADVoost는 스마트스토어 source가 필요합니다.",
+    action: "검색광고 API, 브랜드검색 수동 cache, Hermes 디스플레이 원본, 스마트스토어 주문 source를 한 화면 API의 channel별 source로 묶습니다.",
     success: "각 site/window에서 광고상품별 비용 누락 여부가 화면에 표시됩니다.",
     failure: "네이버 광고비가 작게 보여 ROAS가 과대평가됩니다.",
   },
   {
     keyResult: "KR2. 내부 confirmed ROAS와 플랫폼 주장 ROAS를 100% 분리한다.",
-    progress: 62,
+    progress: 64,
     status: "on_track",
     why: "네이버 화면의 전환매출은 플랫폼 주장값이고, 예산 판단에는 실제 결제완료 주문 기준값이 필요합니다.",
-    current: "브랜드검색은 exact/order source 분리가 됐고, 검색광고·디스플레이는 같은 window 주문 연결이 남았습니다.",
+    current: "브랜드검색은 exact/order source 분리가 됐고, 성과 디스플레이는 비용 source 확보 후 coffee 스마트스토어 주문 source와 biocom self-mall 주문 연결이 남았습니다.",
     action: "화면 API 응답에 internal_confirmed, naver_claim, reference_only 필드를 분리합니다.",
     success: "TJ님이 예산에 쓸 값과 참고만 볼 값을 한눈에 구분합니다.",
     failure: "네이버 주장 전환매출이 내부 매출처럼 섞입니다.",
@@ -278,7 +331,7 @@ const okrs: Okr[] = [
     progress: 45,
     status: "needs_work",
     why: "지금은 문서/JSON 스냅샷 기반이라 날짜가 바뀌면 직접 갱신해야 합니다.",
-    current: "프론트 정적 화면은 준비됐고, API 연결 승인안이 필요합니다.",
+    current: "프론트 정적 화면과 local API skeleton은 준비됐고, VM Cloud 배포 승인안이 필요합니다.",
     action: "읽기 전용 API 응답 shape, 배포 전후 smoke, rollback을 승인안으로 고정합니다.",
     success: "localhost와 VM Cloud에서 같은 endpoint로 최신 네이버 ROAS 상태를 읽습니다.",
     failure: "운영자가 문서와 화면을 번갈아 확인해야 합니다.",
@@ -318,15 +371,15 @@ const actions: ActionItem[] = [
     priority: "P1",
     owner: "Codex + TJ님",
     lane: "Yellow",
-    title: "Hermes 성과 디스플레이 export를 반복 source로 만듭니다.",
-    what: "더클린커피와 바이오컴 성과 디스플레이 광고 원본을 주간 window로 반복 수집합니다.",
-    why: "성과 디스플레이는 현재 검색광고 API에 안 들어와 비용 누락이 큽니다.",
-    how: "Codex가 Hermes command JSON을 만들고, Hermes가 read-only/download-only로 XLSX와 screenshot을 남깁니다.",
-    dependency: "Hermes Chrome 세션/로그인 상태 필요",
-    success: "각 주간 window마다 display spend 원본과 화면 증거가 남습니다.",
-    failure: "로그인/2FA/권한 blocker면 TJ님이 세션만 복구하고 Codex는 결과 parser를 유지합니다.",
-    approval: "read-only command는 Green/Yellow 경계, 광고 변경은 금지",
-    confidence: "84%",
+    title: "스마트스토어 매출 source를 정한 뒤 성과 디스플레이 bridge를 나눕니다.",
+    what: "coffee 스마트스토어 주문/정산 source와 biocom self-mall 주문 bridge를 분리합니다.",
+    why: "네이버 주장 전환금액은 참고값이고, coffee 쇼핑/ADVoost는 자사몰 주문 원장에 남지 않기 때문입니다.",
+    how: "Codex가 스마트스토어 source 후보를 조사하고, biocom은 운영DB/VM Cloud read-only 집계를 유지합니다.",
+    dependency: "Hermes 2026년 4월 원본 확보 완료",
+    success: "coffee 스마트스토어 ROAS와 biocom self-mall display ROAS가 서로 다른 source로 표시됩니다.",
+    failure: "스마트스토어 주문 source가 없으면 coffee는 네이버 claim ROAS만 참고값으로 유지합니다.",
+    approval: "read-only preview는 승인 불필요, 운영DB write나 광고 전송은 금지",
+    confidence: "87%",
   },
   {
     priority: "P2",
@@ -487,6 +540,14 @@ export default function NaverRoasReportPage() {
               body="네이버가 자체 attribution으로 주장하는 전환매출 기준입니다. 참고값이며 내부 매출에 더하지 않습니다."
             />
             <RuleItem
+              title="구매완료 광고수익률"
+              body="네이버 화면 안에서도 구매완료 전환매출만 비용으로 나눈 값입니다. ADVoost 쇼핑 예산 판단 우선값입니다."
+            />
+            <RuleItem
+              title="총 광고수익률"
+              body="전환 페이지 안의 여러 전환 행동 매출을 모두 포함한 값입니다. 구매완료 ROAS보다 높으면 참고값으로만 봅니다."
+            />
+            <RuleItem
               title="브랜드검색 별도 라인"
               body="오가닉 수요를 일부 포함할 수 있어도 광고상품 비용이 있으므로 organic에 묶지 않고 별도 라인으로 봅니다."
             />
@@ -506,7 +567,7 @@ export default function NaverRoasReportPage() {
           <div className={styles.evidenceList}>
             <EvidenceItem label="브랜드검색 주문 bridge preview" path="data/project/naver-brandsearch-order-bridge-preview-20260525.json" />
             <EvidenceItem label="biocom 미해결 분해 JSON" path="data/project/biocom-naver-brandsearch-unresolved-breakdown-20260525.json" />
-            <EvidenceItem label="coffee 성과 디스플레이 Hermes 결과" path="report/reportcoffee-naver-display-hermes-export-result-20260525.md" />
+            <EvidenceItem label="성과 디스플레이 4월 Hermes 검증 결과" path="project/naver-display-april-hermes-result-20260526.md" />
           </div>
         </section>
       </main>
@@ -580,6 +641,7 @@ function ChannelCard({ channel }: { channel: ChannelReport }) {
           <dd>{channel.confidence}</dd>
         </div>
       </dl>
+      {channel.roasSplit ? <RoasSplitPanel split={channel.roasSplit} /> : null}
       <ul className={styles.evidenceBullets}>
         {channel.evidence.map((item) => (
           <li key={item}>{item}</li>
@@ -595,6 +657,42 @@ function ChannelCard({ channel }: { channel: ChannelReport }) {
         <p>{channel.freshness}</p>
       </details>
     </article>
+  );
+}
+
+function RoasSplitPanel({ split }: { split: NonNullable<ChannelReport["roasSplit"]> }) {
+  return (
+    <section className={styles.roasSplit} aria-label={`${split.campaign} ROAS 분리`}>
+      <div className={styles.roasSplitHeader}>
+        <div>
+          <span>ROAS 분리</span>
+          <strong>{split.campaign}</strong>
+          <p>{split.period} / 광고비 {split.spend}</p>
+        </div>
+        <small>{split.source}</small>
+      </div>
+      <div className={styles.roasSplitGrid}>
+        <article className={styles.roasReference}>
+          <span>{split.total.label}</span>
+          <strong>{split.total.roas}</strong>
+          <p>전환매출 {split.total.revenue}</p>
+          <em>{split.total.usage}</em>
+        </article>
+        <article className={styles.roasBudget}>
+          <span>{split.purchaseComplete.label}</span>
+          <strong>{split.purchaseComplete.roas}</strong>
+          <p>전환매출 {split.purchaseComplete.revenue}</p>
+          <em>{split.purchaseComplete.usage}</em>
+        </article>
+      </div>
+      <div className={styles.roasGap}>
+        <span>차이 해석</span>
+        <strong>{split.gap.revenue} / {split.gap.roasPoint}</strong>
+        <p>
+          구매완료 매출 비중 {split.gap.purchaseShare}. {split.gap.ratio}. {split.gap.meaning}
+        </p>
+      </div>
+    </section>
   );
 }
 

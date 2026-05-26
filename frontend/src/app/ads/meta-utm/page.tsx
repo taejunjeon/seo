@@ -26,13 +26,6 @@ const PERIOD_SUMMARY_PRESETS = [
   { value: "last_30d", label: "최근 30일" },
 ] as const;
 
-const GROWTH_HANDOFF_STATS = [
-  { label: "Meta API 광고", value: "1,012개", detail: "2026-05-23 12:32 KST read-only" },
-  { label: "ACTIVE/WITH_ISSUES", value: "71개", detail: "현재 API status 기준" },
-  { label: "URL Parameters 있음", value: "52개", detail: "active placeholder 25개" },
-  { label: "실제 link_url", value: "1개", detail: "대부분 Instagram permalink만 노출" },
-] as const;
-
 const GROWTH_CONTEXT_CARDS = [
   {
     title: "왜 확인이 필요한가",
@@ -82,26 +75,26 @@ const GROWTH_PRIORITY_CASES = [
   {
     title: "/songyuul07",
     grade: "B+ · 광고세트 단위 수동 확정",
-    detail: "TJ님이 캠페인 ID `120245003319500396`, 광고세트 ID `120245370784880396`를 제공했고, 현재 `/songyuul07` 유입은 `meta_biocom_influencer_260506` 캠페인의 `meta_biocom_songyuul_260512` 광고세트로 반영되어 있습니다. 최근 7일 기준 Section A ready에서 23건, 8,790,450원, 광고세트 단위 ROAS 34.21배로 잡힙니다.",
-    action: "캠페인·광고세트 단위 예산 판단에는 이미 사용합니다. 다만 광고 ID가 아직 전체 제공된 것은 아니므로, 소재별 ROAS를 끝까지 나누려면 그로스팀에서 ad_id 또는 실제 광고 URL을 추가 확인합니다.",
+    detail: "TJ님이 캠페인 ID `120245003319500396`, 광고세트 ID `120245370784880396`를 제공했고, 현재 `/songyuul07` 유입은 `meta_biocom_influencer_260506` 캠페인의 `meta_biocom_songyuul_260512` 광고세트로 수동 확정 관리합니다.",
+    action: "캠페인·광고세트 단위 예산 판단에는 사용합니다. 최신 주문 수, 매출, ROAS는 이 화면의 광고세트 탭 Section A에서 확인하고, 소재별 ROAS까지 나누려면 ad_id 또는 실제 광고 URL을 추가 확인합니다.",
   },
   {
     title: "/hwajung01",
     grade: "B+ · 광고세트 단위 수동 확정",
-    detail: "TJ님이 캠페인 ID `120245003319500396`, 광고세트 ID `120245498758680396`를 제공했고, 현재 `/hwajung01` 유입은 `meta_biocom_influencer_260506` 캠페인의 `meta_biocom_hwajung_260514` 광고세트로 반영되어 있습니다. 최근 7일 기준 Section A ready에서 3건, 975,000원, 광고세트 단위 ROAS 17.60배로 잡힙니다.",
-    action: "캠페인·광고세트 단위 매핑은 반영 완료입니다. 소재별로 더 나누려면 광고 ID가 필요하므로, ad_id 확인 전까지는 광고세트 단위 매출로 보는 것이 안전합니다.",
+    detail: "TJ님이 캠페인 ID `120245003319500396`, 광고세트 ID `120245498758680396`를 제공했고, 현재 `/hwajung01` 유입은 `meta_biocom_influencer_260506` 캠페인의 `meta_biocom_hwajung_260514` 광고세트로 수동 확정 관리합니다.",
+    action: "캠페인·광고세트 단위 매핑은 반영 완료입니다. 최신 주문 수, 매출, ROAS는 이 화면의 광고세트 탭 Section A에서 확인하고, ad_id 확인 전까지는 광고세트 단위 매출로 보는 것이 안전합니다.",
   },
   {
     title: "/iiary02",
-    grade: "B · 캠페인 단위 승인",
-    detail: "TJ님 승인 기준으로 `/iiary02` 유입은 `meta_biocom_influencer_260506` 캠페인에 붙입니다. 다만 Meta API 안에는 iiari 이름을 가진 광고가 여러 개 있어, 광고세트나 광고 단위까지 자동 확정하기에는 아직 근거가 부족합니다.",
-    action: "현재는 캠페인 단위 매핑으로 사용하고, 그로스팀이 실제 광고 URL이나 ad_id를 주면 광고세트·광고 단위로 승급합니다.",
+    grade: "A/B mix · 캠페인 확정 + 소재 구분 확인",
+    detail: "TJ님 승인 기준으로 `/iiary02` 유입은 `meta_biocom_influencer_260506` 캠페인에 붙입니다. 그로스팀 파트장 정정 기준으로 `meta_biocom_iiari_260518 - 종대사`는 종합대사기능분석(종대사) 소재이며 활성 광고는 `meta_biocom_iiari_acid_260518`입니다. 사본 아닌 `meta_biocom_iiari_260518`은 음식물과민증분석(음과검) 소재로 보고, 활성 광고는 `meta_biocom_iiari_Igg_260518`입니다.",
+    action: "숫자 ID가 있는 A급 row는 광고세트 단위까지 해석할 수 있습니다. 다만 숫자 ID 없이 템플릿 문구만 남은 D급 16건은 종대사/음과검 어느 쪽으로도 자동 배정하지 않고, 숫자 ID가 있는 row만 소재별 ROAS로 읽습니다.",
   },
   {
     title: "/nanabebe05",
     grade: "B · 그로스팀 ID 확인",
-    detail: "그로스팀에서 캠페인 ID `120245003319500396`, 광고세트 ID `120245143376260396`를 제공했습니다. 다만 현재 UTM 후보 사전에는 `/nanabebe05` 행이 없어, 앞으로 같은 값이 들어와도 자동 매핑 사전에 걸리지 않을 수 있습니다.",
-    action: "UTM 관리 원장에 `/nanabebe05` 행을 추가하고, 실제 광고 ID와 URL Parameters를 채워 재발 방지용 사전으로 만듭니다.",
+    detail: "그로스팀에서 캠페인 ID `120245003319500396`, 광고세트 ID `120245143376260396`를 제공했습니다. 캠페인·광고세트 단위로는 B급 확인 재료이며, 광고 단위까지 확정하려면 ad_id와 실제 URL Parameters가 더 필요합니다.",
+    action: "UTM 관리 원장에 `/nanabebe05` 행, 실제 광고 ID, URL Parameters를 채워 재발 방지용 사전으로 만듭니다.",
   },
   {
     title: "/hangzassi01",
@@ -121,6 +114,7 @@ const RECOMMENDED_META_URL_PARAMS = "utm_source=meta&utm_medium=paid_social&utm_
 
 type MetaUtmLevel = "campaign" | "adset" | "ad";
 type MetaUtmSection = "ready" | "blocked" | "unmapped";
+type MetaUtmLifecycle = "spending" | "issue" | "stopped" | "no_spend" | "other";
 type PeriodPreset = (typeof PERIOD_SUMMARY_PRESETS)[number]["value"];
 
 type MetaUtmMatch = {
@@ -422,6 +416,14 @@ const LEVEL_LABEL: Record<MetaUtmLevel, string> = {
   ad: "광고",
 };
 
+const LIFECYCLE_LABEL: Record<MetaUtmLifecycle, string> = {
+  spending: "지출 있음",
+  issue: "게재 오류·제한",
+  stopped: "중단·최근 게재",
+  no_spend: "최근 7일 지출 없음",
+  other: "상태 확인 필요",
+};
+
 const fmtNum = (value: number) => Math.round(value).toLocaleString("ko-KR");
 const fmtKRW = (value: number | null | undefined) => (
   value == null ? "—" : `₩${Math.round(value).toLocaleString("ko-KR")}`
@@ -479,6 +481,10 @@ const summarize = (rows: MetaUtmRow[]) => ({
   attOrders: rows.reduce((sum, row) => sum + row.att.orders, 0),
 });
 
+const getLevelRows = (data: MetaUtmDiagnostics | null | undefined, level: MetaUtmLevel) => (
+  (data?.rows ?? []).filter((row) => row.level === level)
+);
+
 const MATCH_THRESHOLD = 85;
 
 const estimateLegacyMatchRate = (row: MetaUtmRow) => {
@@ -511,6 +517,81 @@ const getRowSection = (row: MetaUtmRow): MetaUtmSection => {
   if (rate >= MATCH_THRESHOLD) return "ready";
   if (rate > 0) return "blocked";
   return "unmapped";
+};
+
+const getLevelUtmRollup = (data: MetaUtmDiagnostics | null | undefined, level: MetaUtmLevel) => {
+  const rows = getLevelRows(data, level);
+  const ready = rows.filter((row) => getRowSection(row) === "ready");
+  const blocked = rows.filter((row) => getRowSection(row) === "blocked");
+  const unmapped = rows.filter((row) => getRowSection(row) === "unmapped");
+  const stats = summarize(rows);
+  return {
+    rows,
+    ready,
+    blocked,
+    unmapped,
+    stats,
+    readyStats: summarize(ready),
+    blockedStats: summarize(blocked),
+    unmappedStats: summarize(unmapped),
+  };
+};
+
+const getGrowthHandoffStats = (data: MetaUtmDiagnostics | null) => {
+  const ad = getLevelUtmRollup(data, "ad");
+  const adset = getLevelUtmRollup(data, "adset");
+  return [
+    {
+      label: "Meta API 광고 소재",
+      value: data ? `${fmtNum(data.summary.rawCounts.ads)}개` : "조회 전",
+      detail: data?.generated_at ? `read-only ${formatDateTime(data.generated_at)} 기준` : "Meta API /ads inventory",
+    },
+    {
+      label: "최근 진단 대상 광고",
+      value: data ? `${fmtNum(ad.rows.length)}개` : "조회 전",
+      detail: "최근 기간 지출·게재·insights evidence 기준",
+    },
+    {
+      label: "UTM 정상 광고",
+      value: data ? `${fmtNum(ad.ready.length)}개` : "조회 전",
+      detail: "Section A · 매칭율 85% 이상",
+    },
+    {
+      label: "보완/미맵핑 광고세트",
+      value: data ? `${fmtNum(adset.blocked.length + adset.unmapped.length)}개` : "조회 전",
+      detail: "광고세트 단위 Section B/C",
+    },
+  ];
+};
+
+const getRowLifecycle = (row: MetaUtmRow): MetaUtmLifecycle => {
+  const status = (row.effectiveStatus || row.status || "").trim().toUpperCase();
+  if (row.metrics.spend <= 0) return "no_spend";
+  if (["ACTIVE", "IN_PROCESS", "PENDING_REVIEW", "PREAPPROVED"].includes(status)) return "spending";
+  if (status === "WITH_ISSUES") return "issue";
+  if (status.includes("PAUSED") || status.includes("DELETED") || status.includes("ARCHIVED")) return "stopped";
+  if (row.deliveryLabel.includes("최근 게재") || row.deliveryLabel.includes("꺼짐")) return "stopped";
+  if (row.deliveryLabel.includes("광고 오류")) return "issue";
+  return "other";
+};
+
+const getOperationalDeliveryLabel = (row: MetaUtmRow) => (
+  row.metrics.spend <= 0 ? LIFECYCLE_LABEL.no_spend : row.deliveryLabel
+);
+
+const getLifecycleRows = (rows: MetaUtmRow[]) => {
+  const grouped: Record<MetaUtmLifecycle, MetaUtmRow[]> = {
+    spending: [],
+    issue: [],
+    stopped: [],
+    no_spend: [],
+    other: [],
+  };
+  rows.forEach((row) => grouped[getRowLifecycle(row)].push(row));
+  (Object.keys(grouped) as MetaUtmLifecycle[]).forEach((key) => {
+    grouped[key].sort((a, b) => b.metrics.spend - a.metrics.spend || a.name.localeCompare(b.name));
+  });
+  return grouped;
 };
 
 const matchTone = (rate: number) => {
@@ -631,7 +712,7 @@ function MetricTable({ rows, section, level }: { rows: MetaUtmRow[]; section: Me
           {rows.map((row) => (
             <tr key={row.rowKey}>
               <td className="nameCol"><NameCell row={row} /></td>
-              <td><StatusPill label={row.deliveryLabel} /></td>
+              <td><StatusPill label={getOperationalDeliveryLabel(row)} /></td>
               <td><MatchRateCell row={row} /></td>
               <td><IdStack row={row} /></td>
               <td>
@@ -1025,10 +1106,10 @@ function OriginalLandingBridgePanel({ bridge }: { bridge?: MetaUtmOriginalLandin
               </span>
             </article>
             <article>
-              <strong>그로스팀 확인 포인트</strong>
+              <strong>그로스팀 회신 반영 완료</strong>
               <span>
-                광고를 바로 수정하지 말고 Ads Manager의 웹사이트 URL, URL Parameters, campaign/adset/ad 숫자 ID,
-                원본과 사본 광고세트 운영 목적을 먼저 확인합니다.
+                정정 기준은 사본 붙었던 광고세트=종합대사기능분석(종대사)/acid, 사본 아닌 광고세트=음식물과민증분석(음과검)/Igg입니다.
+                D급 16건은 숫자 ID가 없으므로 제품 소재별로 자동 배정하지 않습니다.
               </span>
             </article>
           </div>
@@ -1144,7 +1225,208 @@ function PeriodRoasCards({
   );
 }
 
-function GrowthTeamHandoffPanel() {
+function UtmCoveragePanel({ data }: { data: MetaUtmDiagnostics | null }) {
+  const levelItems = (["campaign", "adset", "ad"] as const).map((item) => ({
+    level: item,
+    label: LEVEL_LABEL[item],
+    rollup: getLevelUtmRollup(data, item),
+  }));
+  const unmappedLifecycleItems = (["adset", "ad"] as const).map((item) => {
+    const rollup = getLevelUtmRollup(data, item);
+    const spendingRows = rollup.unmapped.filter((row) => row.metrics.spend > 0);
+    return {
+      level: item,
+      label: item === "adset" ? "미맵핑 광고세트" : "미맵핑 광고",
+      rows: rollup.unmapped,
+      spendingRows,
+      groups: getLifecycleRows(rollup.unmapped),
+    };
+  });
+  const bridge = data?.originalLandingBridge;
+  const dryRun = data?.unmappedDryRun ?? data?.unmapped?.dryRun;
+  const dateRange = data?.date_range
+    ? `${data.date_range.start_date}~${data.date_range.end_date} ${data.date_range.timezone}`
+    : data?.date_preset ?? "조회 전";
+  const sourceText = data?.cache?.cached_at_kst
+    ? `${data.cache.stale ? "지난 계산값" : "캐시"} ${data.cache.cached_at_kst}`
+    : data?.generated_at
+      ? `계산 ${formatDateTime(data.generated_at)}`
+      : "진단 API 대기";
+
+  return (
+    <section className="utmCoveragePanel">
+      <div className="utmCoverageHead">
+        <div>
+          <h2>Meta UTM 설정 상태: 정상 / 보완 / 미맵핑</h2>
+          <p>
+            “UTM이 달려 있다”를 단순히 URL 글자 유무로 보지 않고, 주문 매출을 캠페인·광고세트·광고에 붙일 수 있는지로 나눕니다.
+            Section A는 예산 판단 후보, Section B는 보완 필요, Section C는 아직 캠페인 배정 금지입니다.
+          </p>
+        </div>
+        <div className="utmCoverageSource">
+          <strong>{dateRange}</strong>
+          <span>{sourceText}</span>
+          <span>confidence {data?.source_confidence ?? "미확인"}</span>
+        </div>
+      </div>
+
+      <div className="utmCoverageGrid">
+        {levelItems.map(({ level: itemLevel, label, rollup }) => {
+          const total = rollup.stats.rows;
+          const readyRate = total > 0 ? (rollup.ready.length / total) * 100 : 0;
+          const attentionRows = rollup.blocked.length + rollup.unmapped.length;
+          const attentionRevenue = rollup.blockedStats.attRevenue + rollup.unmappedStats.attRevenue;
+          return (
+            <article key={itemLevel} className="utmCoverageCard">
+              <div className="utmCoverageCardTitle">
+                <strong>{label}</strong>
+                <span>정상 {fmtRatio(readyRate)}</span>
+              </div>
+              <div className="utmCoverageNumbers">
+                <div className="ready">
+                  <span>정상</span>
+                  <strong>{fmtNum(rollup.ready.length)}개</strong>
+                  <small>내부매출 {fmtKRW(rollup.readyStats.attRevenue)} · {fmtNum(rollup.readyStats.attOrders)}건</small>
+                </div>
+                <div className="blocked">
+                  <span>보완</span>
+                  <strong>{fmtNum(rollup.blocked.length)}개</strong>
+                  <small>근거 일부 있음 · 매칭율 1~84%</small>
+                </div>
+                <div className="unmapped">
+                  <span>미맵핑</span>
+                  <strong>{fmtNum(rollup.unmapped.length)}개</strong>
+                  <small>캠페인 배정 금지 · 0%</small>
+                </div>
+              </div>
+              <div className="utmCoverageFoot">
+                <span>진단 대상 {fmtNum(total)}개 · 광고비 {fmtKRW(rollup.stats.spend)}</span>
+                <span>추가 확인 {fmtNum(attentionRows)}개 · 내부매출 {fmtKRW(attentionRevenue)}</span>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="utmEvidenceGrid">
+        <article>
+          <strong>원본 랜딩 bridge</strong>
+          <span>
+            {bridge?.status === "loaded"
+              ? `${fmtNum(bridge.totals.rowsWithUtm)}건 UTM 복구 · ${fmtNum(bridge.totals.numericIdRows)}건 숫자 ID · ${fmtNum(bridge.totals.templatePhraseRows)}건 D급`
+              : "결제/체크아웃 원장 원본 랜딩 복구 대기"}
+          </span>
+          <small>결제완료 매출 {fmtKRW(bridge?.totals.confirmedRevenueKrw)} · ROAS 직접 반영 전 read-only 근거</small>
+        </article>
+        <article>
+          <strong>비Meta 제외 후 남은 미맵핑</strong>
+          <span>
+            {dryRun
+              ? `${fmtNum(dryRun.retainedUnmapped.orders)}건 · ${fmtKRW(dryRun.retainedUnmapped.revenue)}`
+              : `${fmtNum(data?.unmapped?.orders ?? 0)}건 · ${fmtKRW(data?.unmapped?.revenue ?? 0)}`}
+          </span>
+          <small>인포크/프로필 링크/비Meta 유입은 Meta 광고 ROAS에서 제외</small>
+        </article>
+        <article>
+          <strong>B급 제안 사전</strong>
+          <span>
+            {data?.bgradeProposal?.status === "loaded"
+              ? `${fmtNum(data.bgradeProposal.stats.proposalRows)}개 제안 · 자동 확정 금지`
+              : "UTM 관리 파일 기반 후보 사전 대기"}
+          </span>
+          <small>고유 alias가 단일 캠페인으로만 보일 때 검토 후보로 띄웁니다.</small>
+        </article>
+      </div>
+
+      <div className="utmRoasExplanation">
+        <strong>미맵핑 row의 ATT ROAS가 0 또는 계산불가로 보이는 이유</strong>
+        <span>
+          ATT 기준은 내부 결제완료 매출을 특정 캠페인·광고세트·광고 ID에 붙인 값입니다.
+          Section C는 아직 그 연결 근거가 0%라서 Meta 구매값이 있어도 내부 매출을 임의 배정하지 않습니다.
+          따라서 로컬이라서 0인 것이 아니라, 안전하게 “아직 광고 구조에 붙이지 않음”으로 둔 상태입니다.
+          VM Cloud에 같은 코드만 배포해도 이 값이 자동으로 살아나지는 않고, 숫자 ID/원본 랜딩 bridge를 실제 ROAS 집계에 적용하는 별도 승인 작업이 필요합니다.
+        </span>
+      </div>
+
+      <div className="utmLifecyclePanel">
+        <div className="utmLifecycleHead">
+          <h3>Section C 미맵핑의 운영 상태 분해</h3>
+          <p>
+            최근 7일 지출이 0원이면 Meta가 ACTIVE로 보여도 실제 라이브 운영으로 세지 않습니다.
+            TJ님이 먼저 확인할 대상은 최근 7일 지출이 있는데 UTM/ID 매칭 근거가 0%인 항목입니다.
+          </p>
+        </div>
+        <div className="utmCheckPriorityGrid">
+          {unmappedLifecycleItems.map((item) => {
+            const spend = item.spendingRows.reduce((sum, row) => sum + row.metrics.spend, 0);
+            const metaValue = item.spendingRows.reduce((sum, row) => sum + row.metrics.purchaseValue, 0);
+            return (
+              <article key={`${item.level}:priority`}>
+                <span>{item.label} 중 TJ님 확인 후보</span>
+                <strong>{fmtNum(item.spendingRows.length)}개</strong>
+                <small>최근 7일 지출 {fmtKRW(spend)} · Meta 구매값 {fmtKRW(metaValue)}</small>
+              </article>
+            );
+          })}
+        </div>
+        <div className="utmLifecycleGrid">
+          {unmappedLifecycleItems.map((item) => (
+            <article key={item.level} className="utmLifecycleCard">
+              <div className="utmLifecycleTitle">
+                <strong>{item.label}</strong>
+                <span>{fmtNum(item.rows.length)}개</span>
+              </div>
+              <div className="utmLifecycleCounts">
+                {(["spending", "issue", "stopped", "no_spend", "other"] as const).map((bucket) => (
+                  <div key={bucket} className={bucket}>
+                    <span>{LIFECYCLE_LABEL[bucket]}</span>
+                    <strong>{fmtNum(item.groups[bucket].length)}개</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="utmLifecycleDetails">
+                {(["spending", "issue", "stopped", "no_spend", "other"] as const).map((bucket) => {
+                  const rows = item.groups[bucket];
+                  if (rows.length === 0) return null;
+                  const bucketSpend = rows.reduce((sum, row) => sum + row.metrics.spend, 0);
+                  const bucketMetaValue = rows.reduce((sum, row) => sum + row.metrics.purchaseValue, 0);
+                  return (
+                    <details key={bucket} open={bucket === "spending" || bucket === "issue" || bucket === "stopped"}>
+                      <summary>
+                        {LIFECYCLE_LABEL[bucket]} {fmtNum(rows.length)}개 · 지출 {fmtKRW(bucketSpend)} · Meta 구매값 {fmtKRW(bucketMetaValue)}
+                      </summary>
+                      <ul>
+                        {rows.map((row) => (
+                          <li key={row.rowKey}>
+                            <strong>{row.name}</strong>
+                            <span>{getOperationalDeliveryLabel(row)} · Meta 상태 {row.effectiveStatus || row.status || "상태 미확인"} · 지출 {fmtKRW(row.metrics.spend)} · Meta 구매값 {fmtKRW(row.metrics.purchaseValue)}</span>
+                            <small>
+                              {row.level === "ad"
+                                ? `${row.campaignName} / ${row.adsetName ?? "광고세트 미확인"} · ad_id ${row.adId ?? "없음"}`
+                                : `${row.campaignName} · adset_id ${row.adsetId ?? "없음"}`}
+                            </small>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  );
+                })}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GrowthTeamHandoffPanel({ data }: { data: MetaUtmDiagnostics | null }) {
+  const stats = getGrowthHandoffStats(data);
+  const sourceTitle = data?.source_confidence ? `Source confidence ${data.source_confidence}` : "Source confidence 미확인";
+  const sourceDetail = data?.date_range
+    ? `${data.date_range.start_date}~${data.date_range.end_date} KST · ${data.cache?.cached_at_kst ?? formatDateTime(data.generated_at)}`
+    : "진단 API 결과를 불러오면 자동 업데이트됩니다.";
+
   return (
     <section className="growthHandoffPanel">
       <div className="growthHandoffHead">
@@ -1157,13 +1439,13 @@ function GrowthTeamHandoffPanel() {
           </p>
         </div>
         <div className="growthHandoffSource">
-          <strong>Source confidence A</strong>
-          <span>UTM 후보 사전 2026-05-22 + Meta API /ads 2026-05-23 12:32 KST</span>
+          <strong>{sourceTitle}</strong>
+          <span>{sourceDetail}</span>
         </div>
       </div>
 
       <div className="growthHandoffStats">
-        {GROWTH_HANDOFF_STATS.map((item) => (
+        {stats.map((item) => (
           <article key={item.label}>
             <span>{item.label}</span>
             <strong>{item.value}</strong>
@@ -1265,7 +1547,11 @@ export default function MetaUtmPage() {
       account_id: selectedSite.account_id,
       date_preset: datePreset,
     });
-    if (force) params.set("force", "1");
+    if (force) {
+      params.set("force", "1");
+    } else {
+      params.set("prefer_stale", "1");
+    }
     fetch(`${API_BASE}/api/ads/meta-utm-diagnostics?${params.toString()}`)
       .then(async (response) => {
         const body = await response.json();
@@ -1397,7 +1683,9 @@ export default function MetaUtmPage() {
 
         <PeriodRoasCards data={periodSummary} loading={periodLoading} error={periodError} />
 
-        <GrowthTeamHandoffPanel />
+        <UtmCoveragePanel data={data} />
+
+        <GrowthTeamHandoffPanel data={data} />
 
         <OriginalLandingBridgePanel bridge={data?.originalLandingBridge} />
 
@@ -1504,7 +1792,7 @@ export default function MetaUtmPage() {
           padding: 96px 18px 36px;
           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
-        .topBar, .toolbar, .periodRoasPanel, .summaryGrid, .levelTabs, .sectionPanel, .unmappedOrdersPanel, .originalBridgePanel, .notes, .errorBox, .loadingBox {
+        .topBar, .toolbar, .periodRoasPanel, .utmCoveragePanel, .summaryGrid, .levelTabs, .sectionPanel, .unmappedOrdersPanel, .originalBridgePanel, .notes, .errorBox, .loadingBox {
           max-width: 1760px;
           margin-left: auto;
           margin-right: auto;
@@ -2152,6 +2440,363 @@ export default function MetaUtmPage() {
           font-size: 0.66rem;
           font-style: normal;
           font-weight: 800;
+        }
+        .metaUtmPage .utmCoveragePanel {
+          max-width: 1760px;
+          margin: 0 auto 12px;
+          background: #ffffff;
+          border: 1px solid #d8e0ea;
+          border-left: 4px solid #0f766e;
+          border-radius: 8px;
+          padding: 14px;
+        }
+        .metaUtmPage .utmCoverageHead {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 14px;
+          align-items: start;
+          margin-bottom: 12px;
+        }
+        .metaUtmPage .utmCoverageHead h2 {
+          margin: 0;
+          color: #111827;
+          font-size: 0.98rem;
+          line-height: 1.35;
+          letter-spacing: 0;
+        }
+        .metaUtmPage .utmCoverageHead p {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 0.76rem;
+          line-height: 1.55;
+        }
+        .metaUtmPage .utmCoverageSource {
+          display: grid;
+          gap: 3px;
+          text-align: right;
+          color: #64748b;
+          font-size: 0.72rem;
+          font-weight: 800;
+        }
+        .metaUtmPage .utmCoverageSource strong {
+          color: #111827;
+          font-size: 0.8rem;
+        }
+        .metaUtmPage .utmCoverageGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .utmCoverageCard,
+        .metaUtmPage .utmEvidenceGrid article {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 11px;
+          display: grid;
+          gap: 9px;
+          align-content: start;
+        }
+        .metaUtmPage .utmCoverageCardTitle {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          align-items: baseline;
+        }
+        .metaUtmPage .utmCoverageCardTitle strong,
+        .metaUtmPage .utmEvidenceGrid strong {
+          color: #111827;
+          font-size: 0.82rem;
+          line-height: 1.35;
+        }
+        .metaUtmPage .utmCoverageCardTitle span {
+          border: 1px solid #bbf7d0;
+          border-radius: 999px;
+          background: #ecfdf5;
+          color: #047857;
+          padding: 3px 7px;
+          font-size: 0.66rem;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .metaUtmPage .utmCoverageNumbers {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 7px;
+        }
+        .metaUtmPage .utmCoverageNumbers div {
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #ffffff;
+          padding: 8px;
+          display: grid;
+          gap: 3px;
+          min-width: 0;
+        }
+        .metaUtmPage .utmCoverageNumbers span {
+          color: #64748b;
+          font-size: 0.66rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .utmCoverageNumbers strong {
+          color: #111827;
+          font-size: 0.92rem;
+          line-height: 1.25;
+          font-variant-numeric: tabular-nums;
+        }
+        .metaUtmPage .utmCoverageNumbers small {
+          color: #64748b;
+          font-size: 0.62rem;
+          line-height: 1.4;
+          font-weight: 700;
+        }
+        .metaUtmPage .utmCoverageNumbers .ready {
+          border-color: #bbf7d0;
+          background: #f7fef9;
+        }
+        .metaUtmPage .utmCoverageNumbers .ready strong {
+          color: #047857;
+        }
+        .metaUtmPage .utmCoverageNumbers .blocked {
+          border-color: #fed7aa;
+          background: #fff7ed;
+        }
+        .metaUtmPage .utmCoverageNumbers .blocked strong {
+          color: #c2410c;
+        }
+        .metaUtmPage .utmCoverageNumbers .unmapped strong {
+          color: #64748b;
+        }
+        .metaUtmPage .utmCoverageFoot {
+          display: grid;
+          gap: 3px;
+          color: #64748b;
+          font-size: 0.66rem;
+          font-weight: 800;
+          line-height: 1.45;
+        }
+        .metaUtmPage .utmEvidenceGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .metaUtmPage .utmEvidenceGrid article {
+          background: #ffffff;
+          gap: 5px;
+        }
+        .metaUtmPage .utmEvidenceGrid span {
+          color: #334155;
+          font-size: 0.74rem;
+          line-height: 1.45;
+          font-weight: 900;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .utmEvidenceGrid small {
+          color: #64748b;
+          font-size: 0.66rem;
+          line-height: 1.45;
+          font-weight: 700;
+        }
+        .metaUtmPage .utmRoasExplanation {
+          display: grid;
+          gap: 4px;
+          margin-top: 10px;
+          border: 1px solid #fed7aa;
+          border-radius: 8px;
+          background: #fff7ed;
+          padding: 10px 11px;
+        }
+        .metaUtmPage .utmRoasExplanation strong {
+          color: #9a3412;
+          font-size: 0.76rem;
+          line-height: 1.35;
+        }
+        .metaUtmPage .utmRoasExplanation span {
+          color: #7c2d12;
+          font-size: 0.7rem;
+          font-weight: 800;
+          line-height: 1.55;
+        }
+        .metaUtmPage .utmLifecyclePanel {
+          margin-top: 10px;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #ffffff;
+          padding: 12px;
+        }
+        .metaUtmPage .utmLifecycleHead {
+          display: grid;
+          gap: 4px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .utmLifecycleHead h3 {
+          margin: 0;
+          color: #111827;
+          font-size: 0.86rem;
+          line-height: 1.35;
+          letter-spacing: 0;
+        }
+        .metaUtmPage .utmLifecycleHead p {
+          margin: 0;
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 800;
+          line-height: 1.55;
+        }
+        .metaUtmPage .utmCheckPriorityGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .metaUtmPage .utmCheckPriorityGrid article {
+          border: 1px solid #bfdbfe;
+          border-radius: 8px;
+          background: #eff6ff;
+          padding: 10px 11px;
+          display: grid;
+          gap: 4px;
+        }
+        .metaUtmPage .utmCheckPriorityGrid span {
+          color: #1e3a8a;
+          font-size: 0.7rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .utmCheckPriorityGrid strong {
+          color: #1d4ed8;
+          font-size: 1rem;
+          font-variant-numeric: tabular-nums;
+        }
+        .metaUtmPage .utmCheckPriorityGrid small {
+          color: #334155;
+          font-size: 0.66rem;
+          font-weight: 800;
+          line-height: 1.45;
+        }
+        .metaUtmPage .utmLifecycleGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .metaUtmPage .utmLifecycleCard {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          padding: 10px;
+          display: grid;
+          gap: 9px;
+          min-width: 0;
+        }
+        .metaUtmPage .utmLifecycleTitle {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          align-items: baseline;
+        }
+        .metaUtmPage .utmLifecycleTitle strong {
+          color: #111827;
+          font-size: 0.78rem;
+        }
+        .metaUtmPage .utmLifecycleTitle span {
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 900;
+        }
+        .metaUtmPage .utmLifecycleCounts {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 6px;
+        }
+        .metaUtmPage .utmLifecycleCounts div {
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #ffffff;
+          padding: 7px;
+          display: grid;
+          gap: 2px;
+        }
+        .metaUtmPage .utmLifecycleCounts span {
+          color: #64748b;
+          font-size: 0.62rem;
+          font-weight: 900;
+          line-height: 1.25;
+        }
+        .metaUtmPage .utmLifecycleCounts strong {
+          color: #111827;
+          font-size: 0.82rem;
+          line-height: 1.25;
+        }
+        .metaUtmPage .utmLifecycleCounts .spending {
+          border-color: #bbf7d0;
+          background: #f7fef9;
+        }
+        .metaUtmPage .utmLifecycleCounts .spending strong {
+          color: #047857;
+        }
+        .metaUtmPage .utmLifecycleCounts .issue {
+          border-color: #fecaca;
+          background: #fff5f5;
+        }
+        .metaUtmPage .utmLifecycleCounts .issue strong {
+          color: #b91c1c;
+        }
+        .metaUtmPage .utmLifecycleCounts .stopped strong {
+          color: #64748b;
+        }
+        .metaUtmPage .utmLifecycleCounts .no_spend strong {
+          color: #94a3b8;
+        }
+        .metaUtmPage .utmLifecycleDetails {
+          display: grid;
+          gap: 7px;
+          max-height: 430px;
+          overflow: auto;
+          padding-right: 2px;
+        }
+        .metaUtmPage .utmLifecycleDetails details {
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          background: #ffffff;
+          padding: 7px 8px;
+        }
+        .metaUtmPage .utmLifecycleDetails summary {
+          cursor: pointer;
+          color: #334155;
+          font-size: 0.68rem;
+          font-weight: 900;
+          line-height: 1.45;
+        }
+        .metaUtmPage .utmLifecycleDetails ul {
+          margin: 7px 0 0;
+          padding: 0;
+          list-style: none;
+          display: grid;
+          gap: 6px;
+        }
+        .metaUtmPage .utmLifecycleDetails li {
+          display: grid;
+          gap: 2px;
+          border-top: 1px solid #edf2f7;
+          padding-top: 6px;
+        }
+        .metaUtmPage .utmLifecycleDetails li:first-child {
+          border-top: 0;
+          padding-top: 0;
+        }
+        .metaUtmPage .utmLifecycleDetails li strong {
+          color: #111827;
+          font-size: 0.68rem;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+        }
+        .metaUtmPage .utmLifecycleDetails li span,
+        .metaUtmPage .utmLifecycleDetails li small {
+          color: #64748b;
+          font-size: 0.62rem;
+          line-height: 1.4;
+          font-weight: 700;
+          overflow-wrap: anywhere;
         }
         .metaUtmPage .growthHandoffPanel {
           max-width: 1760px;
@@ -3093,6 +3738,10 @@ export default function MetaUtmPage() {
         @media (max-width: 980px) {
           .metaUtmPage .decisionBanner,
           .metaUtmPage .periodRoasHead,
+          .metaUtmPage .utmCoverageHead,
+          .metaUtmPage .utmCoverageGrid,
+          .metaUtmPage .utmEvidenceGrid,
+          .metaUtmPage .utmLifecycleGrid,
           .metaUtmPage .growthHandoffHead,
           .metaUtmPage .growthNarrativeGrid,
           .metaUtmPage .growthHandoffBody,
@@ -3107,6 +3756,7 @@ export default function MetaUtmPage() {
           }
           .metaUtmPage .decisionBanner div:last-child,
           .metaUtmPage .periodRoasStatus,
+          .metaUtmPage .utmCoverageSource,
           .metaUtmPage .growthHandoffSource,
           .metaUtmPage .sectionStats {
             text-align: left;
@@ -3114,6 +3764,9 @@ export default function MetaUtmPage() {
           }
           .metaUtmPage .periodRoasGrid,
           .metaUtmPage .growthHandoffStats,
+          .metaUtmPage .utmCoverageNumbers,
+          .metaUtmPage .utmLifecycleCounts,
+          .metaUtmPage .utmCheckPriorityGrid,
           .metaUtmPage .growthFieldList,
           .metaUtmPage .growthCaseGrid,
           .metaUtmPage .originalBridgeNarrative,
@@ -3127,6 +3780,9 @@ export default function MetaUtmPage() {
         @media (max-width: 640px) {
           .metaUtmPage .periodRoasGrid,
           .metaUtmPage .growthHandoffStats,
+          .metaUtmPage .utmCoverageNumbers,
+          .metaUtmPage .utmLifecycleCounts,
+          .metaUtmPage .utmCheckPriorityGrid,
           .metaUtmPage .growthFieldList,
           .metaUtmPage .growthCaseGrid,
           .metaUtmPage .originalBridgeNarrative,

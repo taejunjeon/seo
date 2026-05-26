@@ -9,11 +9,15 @@ import {
   COFFEE_CHANNEL_TRUTH,
   COHORT_SUMMARY,
   CohortRow,
+  CohortSummary,
   DRY_RUN_META,
   GA4_LIVE_API_BEHAVIOR_GAP,
   PAGE_LONG_THRESHOLD_FIT,
+  PAGE_LONG_THRESHOLD_FIT_30D_FOCUSED,
   PageLongThresholdRow,
   READINESS,
+  SAFE_BRIDGE_COVERAGE_AUDIT,
+  SafeBridgeCoverageAuditRow,
   channelLabelKo,
 } from "./dry-run";
 
@@ -178,6 +182,57 @@ type GoogleAdsFinalUrlAuditResponse = {
   error?: unknown;
 };
 
+type LeadingIndicatorItem = {
+  id: string;
+  label: string;
+  status: string;
+  score: number | null;
+  score_grade?: string | null;
+  buyer_value: number | null;
+  non_buyer_value: number | null;
+  delta: number | null;
+  unit: string;
+  sample_sessions: number;
+  known_coverage_pct: number | null;
+  score_components?: {
+    lift?: number | null;
+    volume?: number | null;
+    confidence?: number | null;
+    controllability?: number | null;
+    risk_penalty?: number | null;
+  } | null;
+  interpretation_ko?: string;
+  next_action_ko?: string;
+  data_quality_note_ko?: string;
+  rank?: number;
+};
+
+type KpiRole = "lever" | "management" | "diagnostic";
+
+type IndicatorPlaybook = {
+  what: string;
+  how: string;
+  why: string;
+  successCriteria: string;
+};
+
+type LeadingIndicatorsApiResponse = {
+  ok: boolean;
+  indicators?: LeadingIndicatorItem[];
+  cache?: {
+    cached?: boolean;
+    cached_at_kst?: string;
+    next_refresh_at_kst?: string;
+    generation_ms?: number;
+    source?: string;
+  };
+  source?: {
+    freshness_kst?: string;
+    confidence?: string;
+  };
+  error?: unknown;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020";
 
 const SITE_OPTIONS: { value: SiteKey; label: string }[] = [
@@ -203,15 +258,47 @@ const CHANNEL_OPTIONS: { value: ChannelKey; label: string }[] = [
 ];
 
 const LEADING_INDICATOR_CACHE_AUDIT = {
-  checkedAtKst: "2026-05-25 22:30 KST",
+  checkedAtKst: "2026-05-26 13:00 KST",
   decision: "운영 숫자는 VM 보고서를 기준으로 보고, 로컬 보고서는 화면/문구 개발 확인용으로만 봅니다.",
   reason:
-    "로컬 API는 개발용 DB라 safe session이 0으로 나올 수 있습니다. VM API는 실제 수집 원장으로 숫자가 나오지만, 현재 선행지표 precompute cache가 꺼져 있어 요청 때마다 즉석 계산합니다.",
+    "로컬 API는 개발용 DB라 safe session이 0으로 나올 수 있습니다. VM API는 실제 수집 원장 기준이며, 선행지표 precompute cache가 켜져 있어 화면은 미리 계산된 값을 빠르게 읽습니다.",
   vmCacheStatus:
-    "VM Cloud env: LEADING_INDICATORS_PRECOMPUTE_ENABLED=0, LEADING_INDICATORS_PRECOMPUTE_INTERVAL_MS=0",
+    "VM Cloud env: LEADING_INDICATORS_PRECOMPUTE_ENABLED=1, LEADING_INDICATORS_PRECOMPUTE_INTERVAL_MS=1800000",
   vmResponseStatus:
-    "VM API 8개 조합 모두 200 OK, cache=false/live_cache_miss, 응답 약 1.4~2.9초",
+    "VM API 44개 조합 사전 계산, cache=true/in_memory_precompute, 최근 응답 generation 약 151ms",
 };
+
+const PROJECT_OKR_SUMMARY = {
+  objective:
+    "구매 전에 매출을 예고하는 행동을 찾아, 광고와 랜딩 운영자가 매일 바꿀 수 있는 1~2개 레버지표로 만든다.",
+  progressPct: 77,
+  reading:
+    "수집/조인은 운영 화면에 올릴 수준까지 왔고, 이제 핵심은 지표를 행동 공략집과 연결해 실제 실험으로 넘기는 단계입니다.",
+};
+
+const PROJECT_ACTION_PLAN = [
+  {
+    title: "레버지표 확정",
+    progressPct: 82,
+    what: "2분 이상 체류, 주문서 진입, 리뷰/깊은 스크롤 중 실제 구매와 가장 잘 붙는 행동을 고릅니다.",
+    why: "매출은 직접 움직일 수 없지만, 광고 문구·랜딩 첫 화면·CTA는 오늘 바로 바꿀 수 있습니다.",
+    next: "채널별 Top 5 카드에서 표본 충분한 후보만 주간 실험 후보로 승격합니다.",
+  },
+  {
+    title: "관리지표 보강",
+    progressPct: 70,
+    what: "GA4와 VM Cloud가 같은 방문으로 붙지 않는 비율, 더클린커피 스크롤/결제수단 공백을 매주 줄입니다.",
+    why: "데이터가 덜 붙으면 좋은 행동과 나쁜 행동을 잘못 비교해 잘못된 KPI를 만들 수 있습니다.",
+    next: "join rate, 수집 공백, 표본 부족 카드는 레버가 아니라 품질 점검 카드로 분리합니다.",
+  },
+  {
+    title: "실험 공략집 연결",
+    progressPct: 58,
+    what: "선행지표 후보마다 광고·랜딩·리뷰·구매 버튼에서 무엇을 바꿀지 실행안을 붙입니다.",
+    why: "KPI만 있으면 압박이고, 공략집이 붙어야 팀이 내일 아침 실제 행동을 바꿀 수 있습니다.",
+    next: "Top 5 카드의 공략집을 Claude Code 프론트/운영 실험 backlog로 넘깁니다.",
+  },
+];
 
 const ORGANIC_PAGE_LONG_STATUS: Record<
   SiteKey,
@@ -260,6 +347,136 @@ const fmtRateFraction = (
   return `${numerator}/${denominator}명 · ${fmtPct(rate)}`;
 };
 
+const fmtPoint = (value: number | null, digits = 1): string => {
+  if (value === null || Number.isNaN(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}%p`;
+};
+
+const fmtScore = (value: number | null): string => {
+  if (value === null || Number.isNaN(value)) return "—";
+  return `${value.toFixed(1)}점`;
+};
+
+const fmtIndicatorValue = (value: number | null, unit: string): string => {
+  if (value === null || Number.isNaN(value)) return "—";
+  if (unit === "pct") return fmtPct(value);
+  if (unit === "seconds" || unit === "sec") return fmtSeconds(value);
+  if (unit === "count" || unit === "sessions") return fmtCount(value);
+  return Number.isInteger(value) ? fmtCount(value) : value.toFixed(1);
+};
+
+const fmtIndicatorDelta = (value: number | null, unit: string): string => {
+  if (value === null || Number.isNaN(value)) return "—";
+  if (unit === "pct") return fmtPoint(value);
+  if (unit === "seconds" || unit === "sec") return signedSeconds(value);
+  return `${value >= 0 ? "+" : ""}${Number.isInteger(value) ? fmtCount(value) : value.toFixed(1)}`;
+};
+
+const indicatorStatusLabel = (status: string): string => {
+  if (status === "strong_candidate") return "우선 실험";
+  if (status === "candidate") return "관리 후보";
+  if (status === "watch") return "관찰";
+  if (status === "insufficient_data") return "표본 부족";
+  return "후보";
+};
+
+const indicatorStatusClass = (
+  status: string
+): "candidate" | "caution" | "parked" | "shortage" => {
+  if (status === "strong_candidate" || status === "candidate") return "candidate";
+  if (status === "watch") return "caution";
+  if (status === "insufficient_data") return "shortage";
+  return "parked";
+};
+
+const indicatorKpiRole = (item: LeadingIndicatorItem): KpiRole => {
+  const text = `${item.id} ${item.label}`.toLowerCase();
+  if (
+    item.status === "insufficient_data" ||
+    text.includes("coverage") ||
+    text.includes("join") ||
+    text.includes("source") ||
+    text.includes("capi") ||
+    text.includes("add_payment")
+  ) {
+    return "management";
+  }
+  if (
+    text.includes("dwell") ||
+    text.includes("long") ||
+    text.includes("begin_checkout") ||
+    text.includes("checkout") ||
+    text.includes("cart") ||
+    text.includes("scroll") ||
+    text.includes("review")
+  ) {
+    return "lever";
+  }
+  return item.status === "watch" ? "diagnostic" : "lever";
+};
+
+const indicatorKpiRoleLabel = (role: KpiRole): string => {
+  if (role === "lever") return "레버지표";
+  if (role === "management") return "관리지표";
+  return "진단지표";
+};
+
+const indicatorKpiRoleClass = (role: KpiRole): string => {
+  if (role === "lever") return styles.kpiRoleLever;
+  if (role === "management") return styles.kpiRoleManagement;
+  return styles.kpiRoleDiagnostic;
+};
+
+const indicatorPlaybook = (item: LeadingIndicatorItem): IndicatorPlaybook => {
+  const text = `${item.id} ${item.label}`.toLowerCase();
+  if (text.includes("dwell") || text.includes("long") || text.includes("체류")) {
+    return {
+      what: "2분 이상 머무는 방문자 비율을 올립니다.",
+      how: "광고 문구와 첫 화면 메시지를 맞추고, 첫 5초 안에 상품 이유·가격·리뷰 진입점을 보이게 합니다.",
+      why: "구매자는 보통 더 오래 읽습니다. 오래 읽는 비율이 올라가면 랜딩이 설득하고 있다는 신호입니다.",
+      successCriteria: "같은 채널에서 2분 이상 비율과 주문서 진입률이 함께 오르면 성공입니다.",
+    };
+  }
+  if (text.includes("begin_checkout") || text.includes("checkout") || text.includes("주문서")) {
+    return {
+      what: "상품 상세에서 주문서까지 도착하는 비율을 올립니다.",
+      how: "구매 버튼 위치, 옵션 선택, 배송/혜택 문구, 가격 불안을 줄이는 문구를 우선 점검합니다.",
+      why: "주문서 진입은 구매 직전 행동이라 광고/랜딩 개선 효과가 빠르게 드러납니다.",
+      successCriteria: "주문서 진입률이 오르면서 confirmed purchase도 같이 오르면 레버로 유지합니다.",
+    };
+  }
+  if (text.includes("scroll") || text.includes("review") || text.includes("스크롤")) {
+    return {
+      what: "리뷰와 핵심 설명 구간까지 도달하는 방문자를 늘립니다.",
+      how: "첫 화면에 리뷰 앵커, 핵심 후기 요약, 구매 전 불안 해소 블록으로 이동하는 길을 만듭니다.",
+      why: "깊게 읽는 행동은 관심 신호지만 수집 방식 영향을 많이 받아 체류시간과 함께 봐야 합니다.",
+      successCriteria: "리뷰 도달률·2분 체류·주문서 진입이 같은 방향으로 오르면 성공입니다.",
+    };
+  }
+  if (text.includes("cart") || text.includes("장바구니")) {
+    return {
+      what: "장바구니 이후 주문서 진입까지 이어지는 흐름을 줄줄 새지 않게 만듭니다.",
+      how: "장바구니 페이지의 혜택, 배송비, 쿠폰 적용, 바로 결제 버튼을 먼저 점검합니다.",
+      why: "장바구니는 관심 신호지만 구매자가 아닌 사람도 많이 누르므로 단독 KPI로 쓰면 오판합니다.",
+      successCriteria: "장바구니율보다 장바구니 후 주문서 진입률이 개선되면 성공입니다.",
+    };
+  }
+  if (text.includes("add_payment") || text.includes("결제수단")) {
+    return {
+      what: "결제수단 선택 이벤트가 실제로 비어 있는지, 수집이 빠진 것인지 먼저 닫습니다.",
+      how: "GTM/아임웹/VM 원장에서 결제수단 선택 위치와 저장 여부를 read-only로 비교합니다.",
+      why: "구매하기 버튼 뒤에서 고르는 행동이라, 의미는 있지만 수집 공백이면 KPI로 쓸 수 없습니다.",
+      successCriteria: "결제수단 이벤트가 실제 결제 흐름과 80% 이상 맞으면 후보로 승격합니다.",
+    };
+  }
+  return {
+    what: "구매자와 비결제자 차이가 있는 행동을 주간 후보로 관리합니다.",
+    how: "표본 수, 데이터 연결률, 채널별 차이를 확인한 뒤 작은 실험으로 검증합니다.",
+    why: "선행지표는 결과가 아니라 원인이 되는 행동이어야 운영자가 직접 바꿀 수 있습니다.",
+    successCriteria: "다음 주 같은 조건에서 같은 방향의 차이가 반복되면 후보로 유지합니다.",
+  };
+};
+
 const pageLongStatusLabel = (row: PageLongThresholdRow): string => {
   if (row.vmSafeSessions === 0) return "유입 0 또는 미매핑";
   if (row.confirmedGa4JoinedSessions < 20) return "표본 부족";
@@ -284,6 +501,25 @@ const pageLongInterpretation = (row: PageLongThresholdRow): string => {
     return "7분까지 오래 읽은 사람만 보면 구매자와 비결제자의 차이가 거의 사라집니다. 운영 주 기준은 2분으로 두고, 7분은 초고의도 보조 신호로만 봅니다.";
   }
   return `7분도 차이는 있지만 도달자가 줄어듭니다. 기본 선행지표는 ${row.recommendedThresholdLabel ?? "2분"} 기준, 7분은 강한 관심 방문 보조 지표로 보는 것이 안전합니다.`;
+};
+
+const findThresholdRow = (row: PageLongThresholdRow, label: string) =>
+  row.thresholdRows.find((threshold) => threshold.label === label) ?? null;
+
+const focusedPageLongReading = (row: PageLongThresholdRow): string => {
+  if (row.vmSafeSessions === 0) {
+    return "VM 원장에 이 유입군 세션이 없어 판단을 보류합니다.";
+  }
+  if (row.confirmedGa4JoinedSessions === 0) {
+    return "구매자 표본이 없어 결제자를 예고하는 기준 시간을 고를 수 없습니다.";
+  }
+  if (row.confirmedGa4JoinedSessions < 20) {
+    return "표본이 작아 퍼센트가 딱 떨어집니다. 방향성만 보고 예산 판단에는 쓰지 않습니다.";
+  }
+  if (row.site === "thecleancoffee" && row.sourceGroup === "meta") {
+    return "2분은 결제자와 비결제자 차이가 보이고, 3분은 차이가 거의 없습니다. 그래서 기본 기준은 2분이 더 낫습니다.";
+  }
+  return "2분은 표본을 덜 잃으면서 구매 전 관심을 잡는 기준입니다. 7분은 매우 강한 관심 신호로만 보조 사용합니다.";
 };
 
 const SCROLL_DENOMINATOR_AUDIT = [
@@ -348,6 +584,106 @@ const dwellDeltaReading = (row: CohortRow): string => {
   )}초 더 깁니다. 체류시간만으로 구매 의도를 판단하면 오판할 수 있습니다.`;
 };
 
+const buildSummaryFallbackIndicators = (
+  confirmed: CohortSummary,
+  dropped: CohortSummary
+): LeadingIndicatorItem[] => {
+  const sampleSessions = confirmed.ga4JoinedSessions + dropped.ga4JoinedSessions;
+  const rows: LeadingIndicatorItem[] = [
+    {
+      id: "begin_checkout_rate_fallback",
+      label: "주문서 진입 비율",
+      status: "candidate",
+      score: 60,
+      buyer_value: confirmed.beginCheckoutRatePct,
+      non_buyer_value: dropped.beginCheckoutRatePct,
+      delta: confirmed.beginCheckoutRatePct - dropped.beginCheckoutRatePct,
+      unit: "pct",
+      sample_sessions: sampleSessions,
+      known_coverage_pct: Math.min(confirmed.joinRatePct, dropped.joinRatePct),
+      interpretation_ko:
+        "주문서 진입은 결제 직전 행동입니다. 구매 완료와는 다르지만, 구매 의도가 가장 강하게 드러나는 앞단 신호입니다.",
+      next_action_ko:
+        "구매 버튼 클릭 후 주문서까지 잘 도착하는지 랜딩/상품/결제 흐름별로 나눠 봅니다.",
+      data_quality_note_ko: "운영 API를 못 읽을 때 쓰는 정적 dry-run fallback입니다.",
+      rank: 1,
+    },
+    {
+      id: "scroll90_rate_fallback",
+      label: "90% 이상 스크롤 비율",
+      status: "watch",
+      score: 55,
+      buyer_value: confirmed.scroll90RatePct,
+      non_buyer_value: dropped.scroll90RatePct,
+      delta: confirmed.scroll90RatePct - dropped.scroll90RatePct,
+      unit: "pct",
+      sample_sessions: sampleSessions,
+      known_coverage_pct: Math.min(confirmed.joinRatePct, dropped.joinRatePct),
+      interpretation_ko:
+        "깊게 읽은 방문자는 구매 가능성이 높을 수 있지만, 사이트마다 스크롤 수집 방식이 달라 보조 지표로 봅니다.",
+      next_action_ko:
+        "스크롤만 보지 말고 체류시간, 리뷰 구간 도달, 주문서 진입을 함께 묶어 판단합니다.",
+      data_quality_note_ko: "운영 API를 못 읽을 때 쓰는 정적 dry-run fallback입니다.",
+      rank: 2,
+    },
+    {
+      id: "page_view_long_rate_fallback",
+      label: "2분 이상 오래 본 비율",
+      status: "watch",
+      score: 54,
+      buyer_value: confirmed.pageViewLongRatePct,
+      non_buyer_value: dropped.pageViewLongRatePct,
+      delta: confirmed.pageViewLongRatePct - dropped.pageViewLongRatePct,
+      unit: "pct",
+      sample_sessions: sampleSessions,
+      known_coverage_pct: Math.min(confirmed.joinRatePct, dropped.joinRatePct),
+      interpretation_ko:
+        "2분 이상 머문 방문자는 상품 설명을 읽었을 가능성이 큽니다. 구매를 바로 뜻하지는 않지만 랜딩 품질 판단에 유용합니다.",
+      next_action_ko:
+        "2분 이상 체류 비율을 캠페인/랜딩별로 나눠 어떤 유입이 잘 읽히는지 봅니다.",
+      data_quality_note_ko: "운영 API를 못 읽을 때 쓰는 정적 dry-run fallback입니다.",
+      rank: 3,
+    },
+    {
+      id: "cart_signal_rate_fallback",
+      label: "장바구니 신호 비율",
+      status: "watch",
+      score: 52,
+      buyer_value: confirmed.addToCartRatePct,
+      non_buyer_value: dropped.addToCartRatePct,
+      delta: confirmed.addToCartRatePct - dropped.addToCartRatePct,
+      unit: "pct",
+      sample_sessions: sampleSessions,
+      known_coverage_pct: Math.min(confirmed.joinRatePct, dropped.joinRatePct),
+      interpretation_ko:
+        "장바구니는 관심 신호지만 단독으로는 약합니다. 주문서 진입과 같이 볼 때 의미가 커집니다.",
+      next_action_ko:
+        "장바구니 후 결제 시작으로 이어지지 않는 상품/랜딩을 따로 봅니다.",
+      data_quality_note_ko: "운영 API를 못 읽을 때 쓰는 정적 dry-run fallback입니다.",
+      rank: 4,
+    },
+    {
+      id: "add_payment_info_rate_fallback",
+      label: "결제수단 선택 비율",
+      status: "insufficient_data",
+      score: 40,
+      buyer_value: confirmed.addPaymentInfoRatePct,
+      non_buyer_value: dropped.addPaymentInfoRatePct,
+      delta: confirmed.addPaymentInfoRatePct - dropped.addPaymentInfoRatePct,
+      unit: "pct",
+      sample_sessions: sampleSessions,
+      known_coverage_pct: Math.min(confirmed.joinRatePct, dropped.joinRatePct),
+      interpretation_ko:
+        "결제수단 선택은 좋은 중간 신호지만, 현재 일부 사이트에서는 이벤트가 비어 있어 먼저 수집 공백을 닫아야 합니다.",
+      next_action_ko:
+        "add_payment_info가 실제 행동 부재인지 GTM/아임웹 수집 누락인지 분리합니다.",
+      data_quality_note_ko: "운영 API를 못 읽을 때 쓰는 정적 dry-run fallback입니다.",
+      rank: 5,
+    },
+  ];
+  return rows;
+};
+
 const findCoffeeChannel = (channel: ChannelKey): CohortRow | null => {
   if (channel === "all") return null;
   return COFFEE_CHANNEL_TRUTH.find((r) => r.channel === channel) ?? null;
@@ -360,6 +696,12 @@ export default function LeadingIndicatorsPage() {
   const [dimension, setDimension] = useState<DimensionKey>("buyer_vs_leaver");
   const [googleAdsAudit, setGoogleAdsAudit] = useState<GoogleAdsFinalUrlAuditResponse | null>(null);
   const [googleAdsAuditError, setGoogleAdsAuditError] = useState<string | null>(null);
+  const [leadingIndicators, setLeadingIndicators] = useState<LeadingIndicatorItem[]>([]);
+  const [leadingIndicatorsCache, setLeadingIndicatorsCache] = useState<
+    LeadingIndicatorsApiResponse["cache"] | null
+  >(null);
+  const [leadingIndicatorsLoading, setLeadingIndicatorsLoading] = useState(false);
+  const [leadingIndicatorsError, setLeadingIndicatorsError] = useState<string | null>(null);
 
   const coffeeMetaRow = useMemo(() => findCoffeeChannel("meta")!, []);
   const selectedCoffeeRow = useMemo(() => findCoffeeChannel(channel), [channel]);
@@ -368,6 +710,22 @@ export default function LeadingIndicatorsPage() {
     if (channel === "all") return siteRows;
     return siteRows.filter((row) => row.sourceGroup === channel);
   }, [channel, site]);
+  const focusedPageLongRows = useMemo(() => {
+    const targets: Array<[SiteKey, PageLongThresholdRow["sourceGroup"]]> = [
+      ["biocom", "google_paid"],
+      ["biocom", "youtube"],
+      ["biocom", "organic"],
+      ["thecleancoffee", "meta"],
+    ];
+    return targets
+      .map(([targetSite, targetChannel]) =>
+        PAGE_LONG_THRESHOLD_FIT.find(
+          (row) => row.site === targetSite && row.sourceGroup === targetChannel
+        )
+      )
+      .filter((row): row is PageLongThresholdRow => Boolean(row));
+  }, []);
+  const focusedPageLong30dRows = useMemo(() => PAGE_LONG_THRESHOLD_FIT_30D_FOCUSED, []);
 
   const biocomConfirmed = COHORT_SUMMARY.find(
     (r) => r.site === "biocom" && r.cohort === "confirmed_purchase"
@@ -381,6 +739,13 @@ export default function LeadingIndicatorsPage() {
   const coffeeDropped = COHORT_SUMMARY.find(
     (r) => r.site === "thecleancoffee" && r.cohort === "dropped_checkout"
   )!;
+  const fallbackIndicators = useMemo(
+    () =>
+      site === "thecleancoffee"
+        ? buildSummaryFallbackIndicators(coffeeConfirmed, coffeeDropped)
+        : buildSummaryFallbackIndicators(biocomConfirmed, biocomDropped),
+    [biocomConfirmed, biocomDropped, coffeeConfirmed, coffeeDropped, site]
+  );
 
   const biocomReadiness = READINESS.find((r) => r.site === "biocom")!;
   const coffeeReadiness = READINESS.find((r) => r.site === "thecleancoffee")!;
@@ -433,6 +798,57 @@ export default function LeadingIndicatorsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12_000);
+    const params = new URLSearchParams({
+      site,
+      window: windowKey,
+      channel,
+      dimension,
+    });
+
+    const loadingTimer = window.setTimeout(() => {
+      setLeadingIndicatorsLoading(true);
+    }, 0);
+    fetch(`${API_BASE}/api/attribution/leading-indicators?${params.toString()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json() as Promise<LeadingIndicatorsApiResponse>;
+      })
+      .then((body) => {
+        if (!body.ok) {
+          throw new Error("leading indicators API failed");
+        }
+        setLeadingIndicators(body.indicators ?? []);
+        setLeadingIndicatorsCache(body.cache ?? null);
+        setLeadingIndicatorsError(null);
+      })
+      .catch((error) => {
+        if ((error as Error).name !== "AbortError") {
+          setLeadingIndicators([]);
+          setLeadingIndicatorsCache(null);
+          setLeadingIndicatorsError(error instanceof Error ? error.message : "leading indicators fetch failed");
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeout);
+        window.clearTimeout(loadingTimer);
+        setLeadingIndicatorsLoading(false);
+      });
+
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearTimeout(loadingTimer);
+      controller.abort();
+    };
+  }, [channel, dimension, site, windowKey]);
+
   return (
     <>
       <GlobalNav activeSlug="ai-crm" />
@@ -440,7 +856,7 @@ export default function LeadingIndicatorsPage() {
         <div className={styles.headerBar}>
           <h1 className={styles.title}>
             오늘 구매를 예고하는 행동은 무엇인가?
-            <span className={styles.sampleBadge}>샘플 / 최근 dry-run 기준</span>
+            <span className={styles.sampleBadge}>VM live API + GA4 dry-run</span>
           </h1>
           <span className={styles.freshness}>
             데이터 기준 {DRY_RUN_META.checkedAtKst} · {DRY_RUN_META.window} · source{" "}
@@ -473,7 +889,7 @@ export default function LeadingIndicatorsPage() {
             </div>
             <div>
               <dt>VM cache</dt>
-              <dd>꺼짐 · live 계산</dd>
+              <dd>켜짐 · 30분 사전 계산</dd>
             </div>
             <div>
               <dt>근거</dt>
@@ -481,6 +897,8 @@ export default function LeadingIndicatorsPage() {
             </div>
           </dl>
         </div>
+
+        <ProjectOkrPanel />
 
         {/* 필터 */}
         <div className={styles.filterBar}>
@@ -588,12 +1006,24 @@ export default function LeadingIndicatorsPage() {
           <h2 className={styles.sectionTitle}>페이지 롱 뷰 기준 시간 · 기본은 2분으로 봅니다</h2>
           <p className={styles.sectionDesc}>
             페이지 롱 뷰는 “방문자가 페이지에 오래 머물렀다”는 신호입니다. 운영에서 볼
-            기본 기준은 2분으로 고정합니다. 3분은 2분보다 표본을 더 많이 잃고, 7분은
-            너무 강한 기준이라 구매 직전의 아주 강한 관심 신호로만 둡니다. 아래 표는
-            왜 2분을 고르는지 확인하기 위한 근거표이며, 바이오컴과 더클린커피의
-            Meta/Google 유료/YouTube/오가닉을 모두 포함합니다. 단, Google 유료·YouTube·오가닉은
-            표본이 작으면 “방향성 참고”로만 봅니다.
+            기본 기준은 2분으로 고정합니다. 3분은 “2분보다 오래 본 사람만 남겼을 때
+            신호가 더 좋아지는지” 확인하는 비교값이고, 7분은 구매 직전의 아주 강한 관심
+            보조 신호입니다. 아래 표는 TJ님이 요청한 바이오컴 Google 유료/YouTube/오가닉과
+            더클린커피 Meta를 2분/3분/7분으로 고정 비교합니다.
           </p>
+          <div className={styles.focusedPageLongStack}>
+            <FocusedPageLongComparison
+              rows={focusedPageLongRows}
+              title="최근 7일 · 빠른 변화 감지용"
+              description="현재 화면에 보이던 표입니다. 7일은 빠르게 이상 징후를 잡는 데 좋지만, Google 유료·YouTube·오가닉처럼 유입이 적은 채널은 구매자 표본이 0~3명까지 줄어 퍼센트가 딱 떨어집니다."
+            />
+            <FocusedPageLongComparison
+              rows={focusedPageLong30dRows}
+              title="최근 30일 · 기준 시간 판단용"
+              description="표본을 넓혀 같은 기준을 다시 봅니다. 바이오컴 Google 유료는 구매자 15명까지 늘고, 더클린커피 Meta는 구매자 95명까지 늘어 2분 기준이 더 안정적으로 보입니다. 그래도 오가닉처럼 구매자 표본이 3명인 row는 아직 방향만 봅니다."
+            />
+          </div>
+          <h3 className={styles.subsectionTitle}>현재 선택한 필터 상세</h3>
           <PageLongThresholdPanel rows={pageLongRows} site={site} channel={channel} />
         </section>
 
@@ -647,9 +1077,16 @@ export default function LeadingIndicatorsPage() {
           <h2 className={styles.sectionTitle}>선행지표 후보 랭킹</h2>
           <p className={styles.sectionDesc}>
             분석 결과를 오늘 운영/광고/랜딩에서 무엇을 바꿀지 결정하는 카드로 정리했습니다.
-            현재 숫자는 더클린커피 Meta · 최근 7일 기준입니다.
+            Top 5는 운영 API가 미리 계산한 점수입니다. 점수는 차이 크기, 표본 수, 신뢰도,
+            우리가 실제로 바꿀 수 있는지, 오판 위험을 함께 반영합니다.
           </p>
-          <IndicatorRanking row={coffeeMetaRow} />
+          <IndicatorRanking
+            indicators={leadingIndicators}
+            fallbackIndicators={fallbackIndicators}
+            loading={leadingIndicatorsLoading}
+            error={leadingIndicatorsError}
+            cache={leadingIndicatorsCache}
+          />
         </section>
 
         <section className={styles.section}>
@@ -836,6 +1273,49 @@ export default function LeadingIndicatorsPage() {
   );
 }
 
+function ProjectOkrPanel() {
+  return (
+    <section className={styles.okrPanel}>
+      <div className={styles.okrHeader}>
+        <div>
+          <span className={styles.headlineKicker}>프로젝트 OKR</span>
+          <h2>{PROJECT_OKR_SUMMARY.objective}</h2>
+          <p>{PROJECT_OKR_SUMMARY.reading}</p>
+        </div>
+        <div className={styles.okrProgress}>
+          <span>종합 진척률</span>
+          <strong>{PROJECT_OKR_SUMMARY.progressPct}%</strong>
+          <div className={styles.progressTrack} aria-hidden="true">
+            <span style={{ width: `${PROJECT_OKR_SUMMARY.progressPct}%` }} />
+          </div>
+        </div>
+      </div>
+      <div className={styles.okrActionGrid}>
+        {PROJECT_ACTION_PLAN.map((item) => (
+          <article key={item.title} className={styles.okrActionCard}>
+            <div className={styles.okrActionTop}>
+              <h3>{item.title}</h3>
+              <strong>{item.progressPct}%</strong>
+            </div>
+            <div className={styles.progressTrack} aria-hidden="true">
+              <span style={{ width: `${item.progressPct}%` }} />
+            </div>
+            <p>
+              <strong>무엇:</strong> {item.what}
+            </p>
+            <p>
+              <strong>왜:</strong> {item.why}
+            </p>
+            <p>
+              <strong>다음:</strong> {item.next}
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function PageLongThresholdPanel({
   rows,
   site,
@@ -952,7 +1432,14 @@ function PageLongThresholdPanel({
               </tr>
             </thead>
             <tbody>
-              {row.thresholdRows.map((threshold) => (
+              {row.thresholdRows
+                .filter(
+                  (threshold) =>
+                    threshold.label === "2분" ||
+                    threshold.label === "3분" ||
+                    threshold.label === "7분"
+                )
+                .map((threshold) => (
                 <tr key={threshold.label}>
                   <td>{threshold.label} 이상</td>
                   <td>
@@ -976,6 +1463,71 @@ function PageLongThresholdPanel({
           </table>
         </article>
       ))}
+    </div>
+  );
+}
+
+function FocusedPageLongComparison({
+  rows,
+  title = "고정 비교: 기본 2분 · 비교 3분 · 보조 7분",
+  description = "아래 4개 유입은 필터 선택과 무관하게 항상 보여줍니다. 숫자가 60%, 40%, 20%처럼 딱 떨어지는 row는 표본이 작다는 뜻이라 “확정”이 아니라 “방향”으로만 읽습니다. 2분은 기본 선행지표, 3분은 비교값, 7분은 강한 관심 보조 신호로 분리해 봅니다.",
+}: {
+  rows: PageLongThresholdRow[];
+  title?: string;
+  description?: string;
+}) {
+  const thresholdLabels = ["2분", "3분", "7분"];
+  return (
+    <div className={styles.focusedPageLongBox}>
+      <div className={styles.focusedPageLongIntro}>
+        <strong>{title}</strong>
+        <p>{description}</p>
+      </div>
+      <table className={styles.focusedPageLongTable}>
+        <thead>
+          <tr>
+            <th>유입</th>
+            <th>표본</th>
+            {thresholdLabels.map((label) => (
+              <th key={label}>{label} 이상</th>
+            ))}
+            <th>판정</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={`${row.site}-${row.sourceGroup}-focused`}>
+              <td>
+                <strong>{row.siteLabel}</strong>
+                <span>{row.sourceLabel}</span>
+              </td>
+              <td>
+                구매자 {fmtCount(row.confirmedGa4JoinedSessions)}명 / 비결제자{" "}
+                {fmtCount(row.droppedGa4JoinedSessions)}명
+              </td>
+              {thresholdLabels.map((label) => {
+                const threshold = findThresholdRow(row, label);
+                return (
+                  <td key={`${row.site}-${row.sourceGroup}-${label}`}>
+                    {threshold ? (
+                      <>
+                        <strong>
+                          {fmtPct(threshold.confirmedRatePct)} /{" "}
+                          {fmtPct(threshold.droppedRatePct)}
+                        </strong>
+                        <span>차이 {fmtPoint(threshold.liftPct)}</span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                );
+              })}
+              <td>{focusedPageLongReading(row)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -1432,13 +1984,20 @@ function BehaviorSourceGapPanel() {
     },
   ];
 
+  const coverageRows = SAFE_BRIDGE_COVERAGE_AUDIT;
+  const latestCoverageRows = coverageRows.filter((row) => row.windowLabel === "최근 7일");
+  const stableCoverageRows = coverageRows.filter((row) => row.windowLabel === "최근 30일");
+
   return (
     <div className={styles.compareCard}>
       <div className={styles.compareHeader}>
         <p className={styles.compareSummary}>
-          <strong>이번 재조회 결론</strong> · GA4 행동값을 붙이면 바이오컴과 더클린커피 모두
-          safe session 연결률이 95% 이상입니다. 로컬 API 응답에는 이제 이 GA4 행동 snapshot을
-          붙였고, 운영 배포 전 화면은 dry-run 기준 숫자로 보여줍니다.
+          <strong>이번 재조회 결론</strong> · 최신 7일만 보면 GA4와 VM이 안 붙은 세션이
+          바이오컴 {fmtPct(latestCoverageRows[0]?.notJoinedRatePct ?? null)}, 더클린커피{" "}
+          {fmtPct(latestCoverageRows[1]?.notJoinedRatePct ?? null)}입니다. 다만 GA4 daily export가
+          전일까지만 반영되어 생긴 신선도 차이가 크고, 최근 30일 안정 구간에서는 미연결이
+          바이오컴 {fmtPct(stableCoverageRows[0]?.notJoinedRatePct ?? null)}, 더클린커피{" "}
+          {fmtPct(stableCoverageRows[1]?.notJoinedRatePct ?? null)}까지 줄어듭니다.
         </p>
         <span className={`${styles.trustBadge} ${styles.high}`}>로컬 API 보강 완료</span>
       </div>
@@ -1472,6 +2031,80 @@ function BehaviorSourceGapPanel() {
             </p>
           </div>
         </div>
+      </div>
+
+      <div className={styles.auditSubsection}>
+        <div className={styles.compareHeader}>
+          <p className={styles.compareSummary}>
+            <strong>GA4와 VM이 같은 세션으로 안 붙는 비율</strong> · 여기서 “안 붙음”은
+            VM Cloud에는 결제 시작/결제완료 기록이 있는데, GA4 행동 기록과 같은 safe session
+            key로 연결되지 않아 행동 분석에서 빠지는 세션이라는 뜻입니다. 결제 자체가 없다는
+            뜻은 아닙니다.
+          </p>
+          <span className={`${styles.trustBadge} ${styles.mid}`}>bridge coverage</span>
+        </div>
+        <table className={styles.channelTable}>
+          <thead>
+            <tr>
+              <th>사이트/기간</th>
+              <th>VM 세션</th>
+              <th>GA4 연결</th>
+              <th>안 붙은 세션</th>
+              <th>해석</th>
+              <th>줄이는 방법</th>
+            </tr>
+          </thead>
+          <tbody>
+            {coverageRows.map((row: SafeBridgeCoverageAuditRow) => (
+              <tr key={`${row.site}-${row.windowLabel}`}>
+                <td className={styles.metricLabel}>
+                  {row.siteLabel}
+                  <span className={styles.metricHint}>
+                    {row.windowLabel} · {row.checkedAtKst}
+                  </span>
+                </td>
+                <td>
+                  {fmtCount(row.vmSafeSessions)}
+                  <span className={styles.metricHint}>
+                    safe session 기준
+                  </span>
+                </td>
+                <td>
+                  {fmtCount(row.ga4JoinedSessions)} · {fmtPct(row.joinRatePct)}
+                  <span className={styles.metricHint}>
+                    결제자 {fmtPct(row.confirmedJoinRatePct)} / 비결제자{" "}
+                    {fmtPct(row.droppedJoinRatePct)}
+                  </span>
+                </td>
+                <td>
+                  {fmtCount(row.notJoinedSessions)} · {fmtPct(row.notJoinedRatePct)}
+                  <span className={styles.metricHint}>
+                    GA4 latest {row.ga4LatestDailyTable}
+                  </span>
+                </td>
+                <td>{row.interpretationKo}</td>
+                <td>{row.nextActionKo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ul className={styles.caveatList}>
+          <li>
+            <strong>가장 큰 원인:</strong> 최신 7일은 VM Cloud가 오늘 row까지 갖고 있지만,
+            GA4 BigQuery daily export는 전일 테이블까지만 있어 오늘 행동이 아직 못 붙습니다.
+          </li>
+          <li>
+            <strong>구조적으로 남는 gap:</strong> 최근 30일 기준 미연결은 바이오컴 3.16%,
+            더클린커피 2.91%입니다. 이 구간은 safe key 누락, 외부 결제 리다이렉트,
+            동의/차단, source/window 차이로 더 쪼개야 합니다.
+          </li>
+          <li>
+            <strong>추가 blind spot:</strong> VM row 자체에 safe key가 없어 세션 집계에
+            못 들어간 row도 있습니다. 바이오컴은 7일 {fmtCount(latestCoverageRows[0]?.missingHashRows ?? 0)}
+            row, 더클린커피는 7일 {fmtCount(latestCoverageRows[1]?.missingHashRows ?? 0)}
+            row입니다. 이 값은 row 단위라 세션 미연결률과 직접 더하면 안 됩니다.
+          </li>
+        </ul>
       </div>
 
       <div className={styles.auditSubsection}>
@@ -1585,18 +2218,18 @@ function BehaviorSourceGapPanel() {
       <ul className={styles.caveatList}>
         <li>
           바이오컴 체류시간이 예전보다 확 짧아진 것처럼 보인 원인은 행동 변화가 아니라
-          live API source 차이입니다. 최신 GA4 dry-run은 여전히 결제자 중앙 193.9초,
-          비결제자 124.3초입니다.
+          live API source 차이입니다. 최신 GA4 dry-run은 결제자 중앙 205.9초,
+          비결제자 101.5초입니다.
         </li>
         <li>
-          더클린커피는 GA4 행동 연결률이 높지만 Meta에서는 비결제자 체류시간이 더 길게
-          나옵니다. 그래서 체류시간 단독보다 장바구니, 결제 시작, 랜딩 bucket을 함께 봐야
-          합니다.
+          더클린커피 행동 공백은 “데이터가 없다”가 아니라 live API contract에 GA4 behavior
+          snapshot이 아직 안 붙은 문제입니다. 최신 GA4 dry-run 값은 결제자 중앙 213.3초,
+          비결제자 150.7초입니다.
         </li>
         <li>
           다음 API 보강은 BigQuery를 요청마다 직접 치지 않고, 4시간 또는 1일 단위로
           site × window × channel별 GA4 행동 snapshot을 미리 계산해 live API에 붙이는 방식이
-          안전합니다.
+          안전합니다. 최신 7일 화면은 GA4 export 지연을 별도로 표시해야 합니다.
         </li>
       </ul>
     </div>
@@ -1990,89 +2623,156 @@ function CohortMetricsTable({
   );
 }
 
-function IndicatorRanking({ row }: { row: CohortRow }) {
-  const dwellDelta = dwellDeltaSeconds(row);
-  const dwellPositive = dwellDelta !== null && dwellDelta >= 0;
-  const cards: Array<{
-    name: string;
-    status: "candidate" | "caution" | "parked" | "shortage";
-    statusLabel: string;
-    why: string;
-    number: string;
-    action: string;
-  }> = [
-    {
-      name: "체류시간 2분 이상",
-      status: dwellPositive ? "candidate" : "caution",
-      statusLabel: dwellPositive ? "관리 후보" : "단독 사용 금지",
-      why: dwellPositive
-        ? "Meta 결제자가 비결제자보다 중앙 체류시간이 깁니다. 광고/랜딩이 충분히 읽혔다는 신호입니다."
-        : "Meta 비결제자가 결제자보다 더 오래 머뭅니다. 더클린커피 Meta에서는 체류시간만으로 구매 의도를 판단하면 오판할 수 있습니다.",
-      number: `결제자 ${fmtSeconds(row.buyerP50DwellSeconds)} · 비결제자 ${fmtSeconds(
-        row.leaverP50DwellSeconds
-      )} · 차이 ${signedSeconds(dwellDelta)}`,
-      action: dwellPositive
-        ? "2분 이상 머무는 Meta 유입을 늘리세요. 랜딩에서 리뷰/구매평 영역 진입을 더 빠르게 만들어 페이지에 머무는 시간을 늘립니다."
-        : "체류시간은 보조로 두고, 결제 시작·장바구니·랜딩 bucket을 함께 보세요. 특히 비결제자가 오래 머문 페이지는 설득 실패 구간일 수 있습니다.",
-    },
-    {
-      name: "결제 페이지 도달",
-      status: "candidate",
-      statusLabel: "관리 후보",
-      why:
-        "결제 페이지 도달은 구매 직전 행동입니다. 단, 결제완료와 절대 혼동하면 안 됩니다.",
-      number: `결제자 ${fmtPct(row.buyerBeginCheckoutRatePct)} · 비결제자 ${fmtPct(
-        row.leaverBeginCheckoutRatePct
-      )} · 결제수단 선택 ${fmtPct(row.buyerAddPaymentInfoRatePct)} / ${fmtPct(
-        row.leaverAddPaymentInfoRatePct
-      )}`,
-      action:
-        "begin_checkout은 이미 보입니다. 다음은 add_payment_info가 0%인 원인을 분해해 결제수단 선택 단계가 실제로 비는지 확인합니다.",
-    },
-    {
-      name: "장바구니 신호",
-      status: "caution",
-      statusLabel: "주의",
-      why:
-        "더클린커피 Meta 에서는 비결제자의 장바구니 신호가 결제자보다 높게 잡힙니다. 단독으로 보면 오판할 수 있습니다.",
-      number: `결제자 ${fmtPct(row.buyerCartSignalPct)} · 비결제자 ${fmtPct(
-        row.leaverCartSignalPct
-      )}`,
-      action: "장바구니는 결제 페이지 도달 또는 체류시간과 같이 볼 때만 의미가 있습니다.",
-    },
-    {
-      name: "90% 스크롤",
-      status: "parked",
-      statusLabel: "보류",
-      why:
-        "더클린커피 Meta 에서는 결제자와 비결제자가 모두 100% 라 구분력이 없습니다.",
-      number: `결제자 ${fmtPct(row.buyerScroll90RatePct)} · 비결제자 ${fmtPct(
-        row.leaverScroll90RatePct
-      )}`,
-      action:
-        "90% 스크롤 대신 50% 스크롤, 긴 조회 이벤트(page_view_long), 특정 리뷰 영역 도달 같은 더 앞단 지표가 필요합니다.",
-    },
-  ];
-  return (
-    <div className={styles.indicatorGrid}>
-      {cards.map((c) => (
-        <div key={c.name} className={styles.indicatorCard}>
+function IndicatorRanking({
+  indicators,
+  fallbackIndicators,
+  loading,
+  error,
+  cache,
+}: {
+  indicators: LeadingIndicatorItem[];
+  fallbackIndicators: LeadingIndicatorItem[];
+  loading: boolean;
+  error: string | null;
+  cache: LeadingIndicatorsApiResponse["cache"] | null;
+}) {
+  const cards = indicators.length > 0 ? indicators.slice(0, 5) : fallbackIndicators.slice(0, 5);
+  const sourceLine =
+    indicators.length > 0
+      ? `VM Cloud live API 기준 · ${cache?.cached ? "사전 계산 cache" : "실시간 계산"}${
+          cache?.cached_at_kst ? ` · 데이터 기준 ${cache.cached_at_kst}` : ""
+        }${cache?.generation_ms ? ` · 계산 ${cache.generation_ms}ms` : ""}`
+      : "API 응답이 없을 때만 쓰는 화면 내 예비 계산값입니다. 운영 판단은 VM Cloud live API 값을 우선합니다.";
+
+  if (loading && cards.length === 0) {
+    return (
+      <div className={styles.indicatorGrid}>
+        <div className={styles.indicatorCard}>
           <div className={styles.indicatorHeader}>
-            <h3 className={styles.indicatorName}>{c.name}</h3>
-            <span className={`${styles.statusBadge} ${styles[c.status]}`}>
-              {c.statusLabel}
-            </span>
+            <h3 className={styles.indicatorName}>선행지표 점수 계산 중</h3>
+            <span className={`${styles.statusBadge} ${styles.parked}`}>조회 중</span>
           </div>
           <p className={styles.indicatorWhy}>
-            <strong>왜:</strong> {c.why}
-          </p>
-          <div className={styles.indicatorNumber}>{c.number}</div>
-          <p className={styles.indicatorAction}>
-            <strong>액션:</strong> {c.action}
+            VM Cloud가 구매자와 비결제자의 행동 차이를 점수화한 Top 5를 읽고 있습니다.
           </p>
         </div>
-      ))}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className={styles.indicatorSourceLine}>
+        <span>{sourceLine}</span>
+        {loading && <strong>새로고침 중</strong>}
+        {error && <strong className={styles.indicatorError}>API 확인 실패: {error}</strong>}
+      </div>
+      {indicators.length === 0 && !error && (
+        <p className={styles.indicatorFallbackNote}>
+          아직 live API 값이 비어 있어 현재 화면의 cohort summary로 임시 Top 5를 계산했습니다.
+        </p>
+      )}
+      <div className={styles.indicatorGrid}>
+        {cards.map((item, index) => {
+          const statusClass = indicatorStatusClass(item.status);
+          const kpiRole = indicatorKpiRole(item);
+          const playbook = indicatorPlaybook(item);
+          const components = item.score_components ?? {};
+          return (
+            <div key={item.id || item.label} className={styles.indicatorCard}>
+              <div className={styles.indicatorHeader}>
+                <div className={styles.indicatorTitleBlock}>
+                  <span className={styles.indicatorRank}>
+                    #{item.rank ?? index + 1}
+                  </span>
+                  <h3 className={styles.indicatorName}>{item.label}</h3>
+                </div>
+                <div className={styles.indicatorScore}>
+                  <strong>{fmtScore(item.score)}</strong>
+                  <span>점</span>
+                </div>
+              </div>
+              <div className={styles.indicatorMetaLine}>
+                <span className={`${styles.kpiRole} ${indicatorKpiRoleClass(kpiRole)}`}>
+                  {indicatorKpiRoleLabel(kpiRole)}
+                </span>
+                <span className={`${styles.statusBadge} ${styles[statusClass]}`}>
+                  {indicatorStatusLabel(item.status)}
+                </span>
+                {item.score_grade && <span>등급 {item.score_grade}</span>}
+                <span>표본 {fmtCount(item.sample_sessions)}명</span>
+                {item.known_coverage_pct !== null && (
+                  <span>확인 가능 {fmtPct(item.known_coverage_pct)}</span>
+                )}
+              </div>
+              <div className={styles.indicatorNumberGrid}>
+                <div>
+                  <span>구매자</span>
+                  <strong>{fmtIndicatorValue(item.buyer_value, item.unit)}</strong>
+                </div>
+                <div>
+                  <span>비결제자</span>
+                  <strong>{fmtIndicatorValue(item.non_buyer_value, item.unit)}</strong>
+                </div>
+                <div>
+                  <span>차이</span>
+                  <strong>{fmtIndicatorDelta(item.delta, item.unit)}</strong>
+                </div>
+              </div>
+              <p className={styles.indicatorWhy}>
+                <strong>왜:</strong>{" "}
+                {item.interpretation_ko ||
+                  "구매자와 비결제자 사이에 차이가 있어 선행지표 후보로 관리할 수 있습니다."}
+              </p>
+              <p className={styles.indicatorAction}>
+                <strong>다음 액션:</strong>{" "}
+                {item.next_action_ko ||
+                  "이 지표를 단독 목표로 쓰기 전에 표본 수와 다른 행동 지표를 함께 확인합니다."}
+              </p>
+              <div className={styles.indicatorPlaybook}>
+                <strong>공략집</strong>
+                <ul>
+                  <li>
+                    <span>무엇</span>
+                    {playbook.what}
+                  </li>
+                  <li>
+                    <span>어떻게</span>
+                    {playbook.how}
+                  </li>
+                  <li>
+                    <span>왜</span>
+                    {playbook.why}
+                  </li>
+                  <li>
+                    <span>성공 기준</span>
+                    {playbook.successCriteria}
+                  </li>
+                </ul>
+              </div>
+              {item.data_quality_note_ko && (
+                <p className={styles.indicatorQuality}>
+                  <strong>주의:</strong> {item.data_quality_note_ko}
+                </p>
+              )}
+              <div className={styles.indicatorComponents}>
+                {[
+                  ["구분력", components.lift],
+                  ["표본", components.volume],
+                  ["신뢰도", components.confidence],
+                  ["관리 가능성", components.controllability],
+                  ["감점", components.risk_penalty],
+                ].map(([label, value]) => (
+                  <span key={label as string} className={styles.indicatorComponent}>
+                    {label}: {typeof value === "number" ? value.toFixed(1) : "—"}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

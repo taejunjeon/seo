@@ -1,10 +1,10 @@
 # 더클린커피 Imweb Custom Code Rule
 
-작성 시각: 2026-05-21 23:05 KST
-기준일: 2026-05-21
+작성 시각: 2026-05-26 22:16 KST
+기준일: 2026-05-26
 문서 성격: 더클린커피 Imweb 헤더/바디/푸터 코드 운영 규칙 초안
 Lane: Green 문서화 / read-only 기준 정리
-정본 입력: TJ님 제공 live 코드, `coffee/!imwebcoffee_code_latest_0501.md`, `GA4/gtm-thecleancoffee.md`, `data/!coffeedata.md`, `harness/coffee-data/LIVE_TAG_INVENTORY.md`
+정본 입력: TJ님 제공 live 코드, `coffee/!imwebcoffee_code_latest_0501.md`, `GA4/gtm-thecleancoffee.md`, `data/!coffeedata.md`, `harness/coffee-data/LIVE_TAG_INVENTORY.md`, `imweb/!coderule.md`
 
 ```yaml
 harness_preflight:
@@ -21,6 +21,8 @@ harness_preflight:
     - imweb/!coderule.md
     - GA4/gtm-thecleancoffee.md
     - data/!coffeedata.md
+    - coffee/!imwebcoffee_code_latest_0501.md
+    - harness/coffee-data/LIVE_TAG_INVENTORY.md
   lane: Green
   allowed_actions:
     - document
@@ -35,17 +37,19 @@ harness_preflight:
     - GA4/Meta/Google Ads production send toggle
     - production DB write
   source_window_freshness_confidence:
-    source: TJ provided Imweb code + local docs + read-only inventory
-    window: current live code snapshot as of 2026-05-21
-    freshness: live code provided by TJ; repo snapshots may be older
-    confidence: 0.86
+    source: TJ provided Imweb code + local docs + read-only inventory + Biocom v4.4.5 learning
+    window: current Coffee live code snapshot as of 2026-05-21, reviewed again on 2026-05-26
+    freshness: Coffee live code snapshot is stale by 5 days; design judgment refreshed 2026-05-26 22:16 KST
+    confidence: 0.82
 ```
 
 ## 10초 요약
 
 더클린커피 코드는 바이오컴 Imweb 규칙을 그대로 복사하면 안 된다. 현재 Coffee는 결제완료 Purchase Guard, checkout/payment-success attribution, Meta middle-funnel mirror, GTM live v21 begin_checkout가 이미 얽혀 있으므로, 전체 교체가 아니라 슬롯별 불변조건을 지키면서 GTM Preview 후보를 하나씩 올리는 방식이 정답이다.
 
-현재 바로 바꿀 대상은 없다. 먼저 Google Ads 장바구니 전환은 read-only로 action/label/primary 여부를 감사하고, add_payment_info는 GTM Preview 후보 설계까지가 Green Lane이다.
+2026-05-26 바이오컴 v4.4.5에서 확인한 교훈은 더클린커피에도 필요하다. 결제완료 URL에서 원래 광고 UTM이 사라질 수 있으므로, 결제 직전의 유료 유입값을 별도 snapshot으로 보존해야 한다. 다만 Coffee는 site, GA4 ID, Meta Pixel ID, payment decision branch, GTM container가 다르기 때문에 바이오컴 푸터 전체를 복사하면 안 된다.
+
+현재 판단은 `필요하지만 즉시 저장은 금지`다. Coffee live snapshot이 2026-05-21 기준이라 최신성은 5일 지난 상태다. 먼저 live inventory를 새로 확인하고, Coffee 전용 paid touch 보존 패치를 no-publish 문서로 만든 뒤, TJ님이 아임웹 입력칸에서 저장할지 별도 판단한다.
 
 ## 슬롯별 현재 역할
 
@@ -141,6 +145,8 @@ harness_preflight:
 
 - 현재 footer click id persistence는 `gclid/fbclid/ttclid` 중심이다. Google Ads 테스트에서는 `gbraid/wbraid` 보존 여부도 함께 확인한다.
 - add_payment_info는 footer에서 새로 만들기보다 GTM Preview 후보로 설계해 기존 GTM live v21 begin_checkout 흐름과 충돌 여부를 먼저 확인한다.
+- 바이오컴 v4.4.5의 `paidTouchBeforeCheckout` 개념은 Coffee에도 이식 후보로 본다. 목적은 결제완료 화면에서 UTM이 사라져도 결제 직전 유료 유입값을 payment_success evidence에 붙이는 것이다.
+- 단, Coffee에는 이미 `2026-04-15-thecleancoffee-funnel-capi-v3`, Coffee 전용 GA4 `G-JLSBXX7300`, Coffee 전용 source `thecleancoffee_imweb`가 있으므로 key 이름, source 값, endpoint payload를 Coffee 기준으로 다시 작성해야 한다.
 
 ## GTM과 역할 분리
 
@@ -153,6 +159,30 @@ GTM Preview 후보로 올릴 수 있는 항목:
 3. coupon/download/scroll 계열: Coffee middle-funnel 보강 후보지만, ROAS 정합성 우선순위에서는 뒤로 둔다.
 
 GTM Production publish는 Red Lane이다. Preview, workspace diff, JSON backup, live version unchanged 확인까지만 Green/Yellow 범위로 본다.
+
+## 2026-05-26 paid touch 보존 판단
+
+더클린커피 푸터 코드도 업데이트 필요성은 있다.
+
+필요한 이유:
+
+- 결제완료 페이지 URL은 원래 광고 랜딩 URL이 아니다.
+- 따라서 완료 페이지에서만 UTM을 읽으면 Google/Meta 유입값이 비거나 오래된 값으로 보일 수 있다.
+- Coffee도 ROAS를 주문 기준으로 보려면 `광고 클릭 → 결제 시작 → 결제완료 후보` 사이의 유료 유입 증거가 끊기지 않아야 한다.
+
+그대로 복사하면 안 되는 이유:
+
+- 바이오컴은 `biocom_imweb`, Coffee는 `thecleancoffee_imweb` source를 쓴다.
+- 바이오컴 GA4/Pixel/GTM 값과 Coffee GA4/Pixel/GTM 값이 다르다.
+- Coffee에는 이미 funnel-capi v3와 GTM live v21 begin_checkout 흐름이 있으므로, 같은 이벤트를 푸터에서 또 만들면 중복 추적 위험이 있다.
+- Coffee live inventory가 2026-05-21 기준이라, 저장 전 최신 live wrapper/session/eid 상태를 다시 확인해야 한다.
+
+권장 순서:
+
+1. Coffee live inventory를 2026-05-26 이후 기준으로 다시 확인한다.
+2. Coffee 전용 `paidTouchBeforeCheckout` 저장/전달 패치 문서를 no-publish로 만든다.
+3. 기존 `_p1s1a_last_touch`, `__seo_funnel_session`, funnel-capi `eventId/eid`와 충돌하지 않는지 로컬 fixture로 확인한다.
+4. TJ님 승인 전에는 아임웹 저장, GTM Production publish, Meta/Google 전환 전송을 하지 않는다.
 
 ## 절대 금지선
 
@@ -173,7 +203,7 @@ GTM Production publish는 Red Lane이다. Preview, workspace diff, JSON backup, 
 
 - Coffee 코드에는 Coffee 전용 pixel id, GA4 id, payment-decision branch, Naver wcs, Keepgrow, GTM live v21 상태가 있다.
 - 바이오컴 최신 코드와 구조가 비슷해 보여도 payment/payment_success/orderCode/eid 계약이 다르다.
-- 지금 필요한 것은 전체 교체가 아니라 Google Ads 장바구니 전환 감사, click id 저장 smoke, add_payment_info Preview 설계 순서다.
+- 지금 필요한 것은 전체 교체가 아니라 Coffee 전용 paid touch 보존 설계, live inventory refresh, click id 저장 smoke, add_payment_info Preview 설계 순서다.
 
 ## 최소 검증 체크리스트
 

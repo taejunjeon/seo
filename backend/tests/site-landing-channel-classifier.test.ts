@@ -111,6 +111,40 @@ test("Naver powerlink marker remains generic paid_search", () => {
   assert.equal(r.reason, "utm_naver_paid_search_marker");
 });
 
+test("Naver shopping search ad click URL is naver_shopping_ad", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "search.naver.com",
+    referrerFullUrl: "https://ader.naver.com/v1/test?c=naver.search.pc.npla&NaPm=1&ui=GUIDE",
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "naver_shopping_ad");
+  assert.equal(r.reason, "naver_shopping_ad_marker");
+});
+
+test("Naver ADVoost display UTM is naver_display", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "m.search.naver.com",
+    utm: {
+      source: "naver",
+      medium: "display",
+      campaign: "advoost_shopping_april",
+    },
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "naver_display");
+  assert.equal(r.reason, "naver_display_marker");
+});
+
+test("Naver SmartStore referrer remains referral, not self-mall shopping ad", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "smartstore.naver.com",
+    referrerFullUrl: "https://smartstore.naver.com/lockhart",
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "referral");
+  assert.equal(r.reason, "naver_commerce_referrer");
+});
+
 test("UTM medium=cpc source=instagram → paid_social", () => {
   const r = classifySiteLandingChannel({
     utm: { source: "instagram", medium: "cpc", campaign: "meta_biocom" },

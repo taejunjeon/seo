@@ -397,6 +397,126 @@
   line-height: 1.5;
 }
 
+.roasSplit {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.roasSplitHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.roasSplitHeader span,
+.roasReference span,
+.roasBudget span,
+.roasGap span {
+  display: block;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 930;
+}
+
+.roasSplitHeader strong {
+  display: block;
+  margin-top: 4px;
+  color: #111827;
+  font-size: 0.88rem;
+  font-weight: 930;
+  line-height: 1.35;
+}
+
+.roasSplitHeader p,
+.roasSplitHeader small {
+  margin: 5px 0 0;
+  color: #475569;
+  font-size: 0.7rem;
+  line-height: 1.42;
+}
+
+.roasSplitHeader small {
+  max-width: 150px;
+  text-align: right;
+}
+
+.roasSplitGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.roasReference,
+.roasBudget {
+  display: grid;
+  gap: 6px;
+  min-height: 156px;
+  padding: 12px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.roasReference {
+  border-color: #fed7aa;
+  background: #fffaf3;
+}
+
+.roasBudget {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.roasReference strong,
+.roasBudget strong {
+  color: #111827;
+  font-size: 1.42rem;
+  font-weight: 940;
+  line-height: 1.08;
+}
+
+.roasReference p,
+.roasBudget p {
+  margin: 0;
+  color: #273244;
+  font-size: 0.76rem;
+  font-weight: 880;
+}
+
+.roasReference em,
+.roasBudget em {
+  color: #475569;
+  font-size: 0.7rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.roasGap {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border-left: 4px solid #2563eb;
+  background: #eef6ff;
+}
+
+.roasGap strong {
+  color: #111827;
+  font-size: 0.82rem;
+  font-weight: 930;
+}
+
+.roasGap p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.72rem;
+  line-height: 1.48;
+}
+
 .evidenceBullets {
   display: grid;
   gap: 7px;
@@ -702,11 +822,18 @@
   }
 
   .sectionHeader,
-  .evidenceItem {
+  .evidenceItem,
+  .roasSplitHeader,
+  .roasSplitGrid {
     grid-template-columns: 1fr;
   }
 
   .metaText {
+    max-width: none;
+    text-align: left;
+  }
+
+  .roasSplitHeader small {
     max-width: none;
     text-align: left;
   }

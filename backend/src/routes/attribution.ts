@@ -3928,6 +3928,8 @@ export const findDuplicateFormSubmitEntry = (
 type NaverEvidenceClass =
   | "paid_naver"
   | "naver_brandsearch"
+  | "naver_shopping_ad"
+  | "naver_display"
   | "naver_shopping_search_candidate"
   | "organic_naver_candidate"
   | "naver_referrer_or_utm_only";
@@ -3946,6 +3948,8 @@ type NaverEvidenceAggregateRow = {
 const NAVER_EVIDENCE_CLASSES: NaverEvidenceClass[] = [
   "paid_naver",
   "naver_brandsearch",
+  "naver_shopping_ad",
+  "naver_display",
   "naver_shopping_search_candidate",
   "organic_naver_candidate",
   "naver_referrer_or_utm_only",
@@ -4021,9 +4025,38 @@ const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
   ]);
   const hasPowerlink = lowerIncludesAny(text, ["powerlink"]);
   const hasPaidMarker = Boolean(paidUtm || hasNaverParam || hasPowerlink || napmTrCodes.includes("sa"));
+  const hasShoppingAd = Boolean(
+    lowerIncludesAny(`${directReferrer} ${firstReferrer} ${text}`, [
+      "ader.naver.com",
+      "naver.search.pc.npla",
+      "naver.search.mobile.npla",
+      "npla",
+    ]),
+  );
+  const hasDisplayAd = Boolean(
+    /^(display|gfa|advoost|adboost|performance_display|performance-display)$/i.test(
+      readText(entry.utmMedium) || readText(firstTouch.utmMedium),
+    ) ||
+    lowerIncludesAny(text, [
+      "advoost",
+      "adboost",
+      "gfa",
+      "naver_display",
+      "naver-display",
+      "performance_display",
+      "performance-display",
+      "naver_da",
+      "naverda",
+    ]),
+  );
   const hasShoppingSearch = Boolean(
     napmTrCodes.includes("slsl") ||
-    lowerIncludesAny(`${directReferrer} ${firstReferrer} ${text}`, ["shopping.naver.com", "m.shopping.naver.com", "shoppingsearch"]),
+    lowerIncludesAny(`${directReferrer} ${firstReferrer} ${text}`, [
+      "shopping.naver.com",
+      "m.shopping.naver.com",
+      "shoppingsearch",
+      "tr=slsl",
+    ]),
   );
   const hasOrganicSearchMarker = Boolean(
     napmTrCodes.includes("ds") ||
@@ -4039,6 +4072,8 @@ const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
     hasNaverReferrer,
     hasBrandsearch,
     hasPaidMarker,
+    hasShoppingAd,
+    hasDisplayAd,
     hasShoppingSearch,
     hasOrganicSearchMarker,
   };
@@ -4048,6 +4083,8 @@ const classifyNaverEvidence = (entry: AttributionLedgerEntry): NaverEvidenceClas
   const profile = naverEvidenceProfile(entry);
   if (!profile.hasNaverAny) return null;
   if (profile.hasBrandsearch) return "naver_brandsearch";
+  if (profile.hasShoppingAd) return "naver_shopping_ad";
+  if (profile.hasDisplayAd) return "naver_display";
   if (profile.hasPaidMarker) return "paid_naver";
   if (profile.hasShoppingSearch) return "naver_shopping_search_candidate";
   if (profile.hasOrganicSearchMarker) return "organic_naver_candidate";
@@ -4058,6 +4095,8 @@ const classifyNaverEvidence = (entry: AttributionLedgerEntry): NaverEvidenceClas
 const naverEvidenceNote = (classification: NaverEvidenceClass) => {
   if (classification === "paid_naver") return "n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다. NaPm 단독은 paid 근거로 쓰지 않는다.";
   if (classification === "naver_brandsearch") return "brandsearch marker가 있어 네이버 브랜드검색 후보로만 둔다.";
+  if (classification === "naver_shopping_ad") return "ader/npla/NaPm shopping marker가 있어 네이버 쇼핑검색/가격비교 광고 후보로 둔다.";
+  if (classification === "naver_display") return "GFA/ADVoost/display marker가 있어 네이버 성과 디스플레이 광고 후보로 둔다.";
   if (classification === "naver_shopping_search_candidate") return "shopping.naver 또는 NaPm shopping marker가 있어 네이버 쇼핑검색 후보로만 둔다.";
   if (classification === "organic_naver_candidate") return "네이버 검색 referrer는 있으나 paid marker가 없어 자연검색 후보로 둔다.";
   return "네이버 흔적은 있으나 paid/brandsearch/organic 확정 조건을 충족하지 않는다.";

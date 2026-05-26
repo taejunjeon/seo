@@ -1,6 +1,7 @@
 // P0 정적 fallback 데이터.
 // 최신 재조회 기준:
-//   data/project/ga4-vm-row-level-safe-bridge-dry-run-20260525.json
+//   data/project/ga4-vm-row-level-safe-bridge-dry-run-20260526-7d.json
+//   data/project/ga4-vm-row-level-safe-bridge-dry-run-20260526-30d.json
 //   data/project/coffee-channel-cohort-truth-table-20260525.json
 //   data/project/page-long-threshold-fit-dry-run-20260525.json
 //   data/project/biocom-meta-only-buyer-leaver-truth-table-20260525.json
@@ -101,6 +102,25 @@ export type LiveApiBehaviorGapRow = {
   dryRunJoinRatePct: number;
   liveApiBehaviorSource: "vm_ledger_metadata" | "missing_ga4_behavior";
   interpretationKo: string;
+};
+
+export type SafeBridgeCoverageAuditRow = {
+  site: "biocom" | "thecleancoffee";
+  siteLabel: string;
+  windowLabel: "최근 7일" | "최근 30일";
+  checkedAtKst: string;
+  ga4LatestDailyTable: string;
+  vmSafeSessions: number;
+  ga4JoinedSessions: number;
+  notJoinedSessions: number;
+  joinRatePct: number;
+  notJoinedRatePct: number;
+  confirmedJoinRatePct: number;
+  droppedJoinRatePct: number;
+  missingHashRows: number;
+  stableBaselineNotJoinedRatePct: number | null;
+  interpretationKo: string;
+  nextActionKo: string;
 };
 
 const CHANNEL_LABEL_KO: Record<string, string> = {
@@ -355,6 +375,107 @@ export const PAGE_LONG_THRESHOLD_FIT: PageLongThresholdRow[] = [
   }
 ];
 
+// page-long threshold fit dry-run · rolling latest 30d (2026-05-26 17:42 KST)
+// 최근 7일 표본이 작은 유입의 방향성을 장기 관점으로 확인하기 위한 고정 비교값이다.
+export const PAGE_LONG_THRESHOLD_FIT_30D_FOCUSED: PageLongThresholdRow[] = [
+  {
+    site: "biocom",
+    siteLabel: "바이오컴",
+    sourceGroup: "google_paid",
+    sourceLabel: "Google 유료",
+    vmSafeSessions: 371,
+    confirmedGa4JoinedSessions: 15,
+    droppedGa4JoinedSessions: 355,
+    joinRatePct: 99.73,
+    recommendedThresholdLabel: "1분",
+    recommendationStatus: "seven_minutes_too_strict_for_primary_indicator",
+    current7Min: {
+      confirmedAboveSessions: 2,
+      droppedAboveSessions: 21,
+      confirmedRatePct: 13.33,
+      droppedRatePct: 5.92,
+      liftPct: 7.41,
+    },
+    thresholdRows: [
+      { label: "2분", confirmedAboveSessions: 10, droppedAboveSessions: 63, confirmedRatePct: 66.67, droppedRatePct: 17.75, liftPct: 48.92 },
+      { label: "3분", confirmedAboveSessions: 7, droppedAboveSessions: 43, confirmedRatePct: 46.67, droppedRatePct: 12.11, liftPct: 34.56 },
+      { label: "7분", confirmedAboveSessions: 2, droppedAboveSessions: 21, confirmedRatePct: 13.33, droppedRatePct: 5.92, liftPct: 7.41 },
+    ],
+  },
+  {
+    site: "biocom",
+    siteLabel: "바이오컴",
+    sourceGroup: "youtube",
+    sourceLabel: "YouTube",
+    vmSafeSessions: 58,
+    confirmedGa4JoinedSessions: 29,
+    droppedGa4JoinedSessions: 27,
+    joinRatePct: 96.55,
+    recommendedThresholdLabel: "2분",
+    recommendationStatus: "shorter_threshold_better_for_primary_indicator",
+    current7Min: {
+      confirmedAboveSessions: 10,
+      droppedAboveSessions: 9,
+      confirmedRatePct: 34.48,
+      droppedRatePct: 33.33,
+      liftPct: 1.15,
+    },
+    thresholdRows: [
+      { label: "2분", confirmedAboveSessions: 27, droppedAboveSessions: 20, confirmedRatePct: 93.1, droppedRatePct: 74.07, liftPct: 19.03 },
+      { label: "3분", confirmedAboveSessions: 24, droppedAboveSessions: 19, confirmedRatePct: 82.76, droppedRatePct: 70.37, liftPct: 12.39 },
+      { label: "7분", confirmedAboveSessions: 10, droppedAboveSessions: 9, confirmedRatePct: 34.48, droppedRatePct: 33.33, liftPct: 1.15 },
+    ],
+  },
+  {
+    site: "biocom",
+    siteLabel: "바이오컴",
+    sourceGroup: "organic",
+    sourceLabel: "오가닉",
+    vmSafeSessions: 17,
+    confirmedGa4JoinedSessions: 3,
+    droppedGa4JoinedSessions: 13,
+    joinRatePct: 94.12,
+    recommendedThresholdLabel: "1분",
+    recommendationStatus: "insufficient_sample",
+    current7Min: {
+      confirmedAboveSessions: 0,
+      droppedAboveSessions: 3,
+      confirmedRatePct: 0,
+      droppedRatePct: 23.08,
+      liftPct: -23.08,
+    },
+    thresholdRows: [
+      { label: "2분", confirmedAboveSessions: 1, droppedAboveSessions: 7, confirmedRatePct: 33.33, droppedRatePct: 53.85, liftPct: -20.52 },
+      { label: "3분", confirmedAboveSessions: 1, droppedAboveSessions: 6, confirmedRatePct: 33.33, droppedRatePct: 46.15, liftPct: -12.82 },
+      { label: "7분", confirmedAboveSessions: 0, droppedAboveSessions: 3, confirmedRatePct: 0, droppedRatePct: 23.08, liftPct: -23.08 },
+    ],
+  },
+  {
+    site: "thecleancoffee",
+    siteLabel: "더클린커피",
+    sourceGroup: "meta",
+    sourceLabel: "Meta 광고",
+    vmSafeSessions: 205,
+    confirmedGa4JoinedSessions: 95,
+    droppedGa4JoinedSessions: 105,
+    joinRatePct: 97.56,
+    recommendedThresholdLabel: "2분",
+    recommendationStatus: "seven_minutes_too_strict_for_primary_indicator",
+    current7Min: {
+      confirmedAboveSessions: 16,
+      droppedAboveSessions: 17,
+      confirmedRatePct: 16.84,
+      droppedRatePct: 16.19,
+      liftPct: 0.65,
+    },
+    thresholdRows: [
+      { label: "2분", confirmedAboveSessions: 74, droppedAboveSessions: 66, confirmedRatePct: 77.89, droppedRatePct: 62.86, liftPct: 15.03 },
+      { label: "3분", confirmedAboveSessions: 58, droppedAboveSessions: 57, confirmedRatePct: 61.05, droppedRatePct: 54.29, liftPct: 6.76 },
+      { label: "7분", confirmedAboveSessions: 16, droppedAboveSessions: 17, confirmedRatePct: 16.84, droppedRatePct: 16.19, liftPct: 0.65 },
+    ],
+  },
+];
+
 // 더클린커피 최근 7d · channel_truth_table (2026-05-24 11:50 KST 기준)
 export const COFFEE_CHANNEL_TRUTH: CohortRow[] = [
   {
@@ -525,70 +646,70 @@ export const COHORT_SUMMARY: CohortSummary[] = [
   {
     site: "biocom",
     cohort: "confirmed_purchase",
-    vmSafeSessions: 371,
-    ga4JoinedSessions: 356,
-    joinRatePct: 95.96,
-    amountKrw: 111177580,
-    p50EngagementSeconds: 206.57,
-    p75EngagementSeconds: 372.87,
-    scroll90RatePct: 91.85,
-    pageViewLongRatePct: 22.47,
-    viewItemRatePct: 52.81,
-    addToCartRatePct: 14.89,
-    beginCheckoutRatePct: 99.16,
-    addPaymentInfoRatePct: 4.21,
-    ga4PurchaseEventRatePct: 99.44,
+    vmSafeSessions: 402,
+    ga4JoinedSessions: 353,
+    joinRatePct: 87.81,
+    amountKrw: 117478734,
+    p50EngagementSeconds: 205.94,
+    p75EngagementSeconds: 343.46,
+    scroll90RatePct: 90.93,
+    pageViewLongRatePct: 22.95,
+    viewItemRatePct: 49.58,
+    addToCartRatePct: 14.16,
+    beginCheckoutRatePct: 99.15,
+    addPaymentInfoRatePct: 4.25,
+    ga4PurchaseEventRatePct: 99.72,
   },
   {
     site: "biocom",
     cohort: "dropped_checkout",
-    vmSafeSessions: 721,
-    ga4JoinedSessions: 689,
-    joinRatePct: 95.56,
+    vmSafeSessions: 686,
+    ga4JoinedSessions: 598,
+    joinRatePct: 87.17,
     amountKrw: 0,
-    p50EngagementSeconds: 88.57,
-    p75EngagementSeconds: 214.39,
-    scroll90RatePct: 69.67,
-    pageViewLongRatePct: 19.74,
-    viewItemRatePct: 30.33,
-    addToCartRatePct: 8.85,
-    beginCheckoutRatePct: 44.56,
-    addPaymentInfoRatePct: 2.61,
-    ga4PurchaseEventRatePct: 3.05,
+    p50EngagementSeconds: 101.45,
+    p75EngagementSeconds: 233.99,
+    scroll90RatePct: 72.58,
+    pageViewLongRatePct: 22.07,
+    viewItemRatePct: 31.94,
+    addToCartRatePct: 10.87,
+    beginCheckoutRatePct: 52.51,
+    addPaymentInfoRatePct: 3.34,
+    ga4PurchaseEventRatePct: 4.35,
   },
   {
     site: "thecleancoffee",
     cohort: "confirmed_purchase",
-    vmSafeSessions: 127,
-    ga4JoinedSessions: 126,
-    joinRatePct: 99.21,
-    amountKrw: 8277650,
-    p50EngagementSeconds: 209.61,
-    p75EngagementSeconds: 404.03,
+    vmSafeSessions: 115,
+    ga4JoinedSessions: 104,
+    joinRatePct: 90.43,
+    amountKrw: 6281853,
+    p50EngagementSeconds: 213.28,
+    p75EngagementSeconds: 375.77,
     scroll90RatePct: 100,
-    pageViewLongRatePct: 9.52,
-    viewItemRatePct: 43.65,
-    addToCartRatePct: 28.57,
-    beginCheckoutRatePct: 81.75,
+    pageViewLongRatePct: 10.58,
+    viewItemRatePct: 47.12,
+    addToCartRatePct: 29.81,
+    beginCheckoutRatePct: 100,
     addPaymentInfoRatePct: 0,
     ga4PurchaseEventRatePct: 100,
   },
   {
     site: "thecleancoffee",
     cohort: "dropped_checkout",
-    vmSafeSessions: 195,
-    ga4JoinedSessions: 188,
-    joinRatePct: 96.41,
+    vmSafeSessions: 203,
+    ga4JoinedSessions: 179,
+    joinRatePct: 88.18,
     amountKrw: 0,
-    p50EngagementSeconds: 176.93,
+    p50EngagementSeconds: 150.69,
     p75EngagementSeconds: 339.22,
-    scroll90RatePct: 90.96,
-    pageViewLongRatePct: 15.96,
-    viewItemRatePct: 38.83,
-    addToCartRatePct: 19.68,
-    beginCheckoutRatePct: 57.98,
+    scroll90RatePct: 89.94,
+    pageViewLongRatePct: 15.64,
+    viewItemRatePct: 34.64,
+    addToCartRatePct: 16.76,
+    beginCheckoutRatePct: 67.04,
     addPaymentInfoRatePct: 0,
-    ga4PurchaseEventRatePct: 20.74,
+    ga4PurchaseEventRatePct: 23.46,
   },
 ];
 
@@ -597,27 +718,110 @@ export const GA4_LIVE_API_BEHAVIOR_GAP: LiveApiBehaviorGapRow[] = [
     site: "biocom",
     siteLabel: "바이오컴",
     channel: "meta",
-    dryRunBuyerP50Seconds: 193.87,
-    dryRunNonBuyerP50Seconds: 124.27,
+    dryRunBuyerP50Seconds: 205.94,
+    dryRunNonBuyerP50Seconds: 101.45,
     liveApiBuyerP50Seconds: 48,
     liveApiNonBuyerP50Seconds: 30,
-    dryRunJoinRatePct: 95.1,
+    dryRunJoinRatePct: 87.41,
     liveApiBehaviorSource: "vm_ledger_metadata",
     interpretationKo:
-      "live API는 VM 원장의 페이지 관측값을 보고, dry-run은 GA4 BigQuery의 engagement_time을 봅니다. 숫자가 짧아진 것은 행동 급락보다 측정 기준 차이일 가능성이 큽니다.",
+      "live API는 VM 원장의 페이지 관측값을 보고, dry-run은 GA4 BigQuery의 engagement_time을 봅니다. 최신 7일 연결률은 GA4 daily export가 전일까지만 있어 낮아 보이며, 최근 30일 안정 구간은 96.84%까지 붙습니다.",
   },
   {
     site: "thecleancoffee",
     siteLabel: "더클린커피",
     channel: "meta",
-    dryRunBuyerP50Seconds: 188.81,
-    dryRunNonBuyerP50Seconds: 225.43,
+    dryRunBuyerP50Seconds: 213.28,
+    dryRunNonBuyerP50Seconds: 150.69,
     liveApiBuyerP50Seconds: null,
     liveApiNonBuyerP50Seconds: null,
-    dryRunJoinRatePct: 97.73,
+    dryRunJoinRatePct: 88.99,
     liveApiBehaviorSource: "missing_ga4_behavior",
     interpretationKo:
-      "live API에는 아직 GA4 행동 join이 붙지 않아 체류시간이 비어 있습니다. dry-run에서는 GA4와 VM safe session이 97.73% 붙으므로 API에 붙일 가치가 충분합니다.",
+      "live API에는 아직 GA4 행동 join이 붙지 않아 체류시간이 비어 있습니다. 최신 7일은 GA4 export 지연으로 88.99%이고, 최근 30일 안정 구간은 97.09%까지 붙으므로 API에 붙일 가치가 충분합니다.",
+  },
+];
+
+export const SAFE_BRIDGE_COVERAGE_AUDIT: SafeBridgeCoverageAuditRow[] = [
+  {
+    site: "biocom",
+    siteLabel: "바이오컴",
+    windowLabel: "최근 7일",
+    checkedAtKst: "2026-05-26 17:43 KST",
+    ga4LatestDailyTable: "events_20260525",
+    vmSafeSessions: 1088,
+    ga4JoinedSessions: 951,
+    notJoinedSessions: 137,
+    joinRatePct: 87.41,
+    notJoinedRatePct: 12.59,
+    confirmedJoinRatePct: 87.81,
+    droppedJoinRatePct: 87.17,
+    missingHashRows: 1102,
+    stableBaselineNotJoinedRatePct: 3.16,
+    interpretationKo:
+      "최근 7일에는 VM Cloud가 2026-05-26 오늘 row까지 갖고 있지만 GA4 daily export는 2026-05-25까지만 있어, 오늘 행동 데이터가 아직 못 붙은 비중이 크게 보입니다.",
+    nextActionKo:
+      "7일 화면은 freshness 주의를 붙이고, 예산/랜딩 판단은 최근 30일 안정 연결률 또는 전일 완료 기준으로 봅니다.",
+  },
+  {
+    site: "thecleancoffee",
+    siteLabel: "더클린커피",
+    windowLabel: "최근 7일",
+    checkedAtKst: "2026-05-26 17:43 KST",
+    ga4LatestDailyTable: "events_20260525",
+    vmSafeSessions: 318,
+    ga4JoinedSessions: 283,
+    notJoinedSessions: 35,
+    joinRatePct: 88.99,
+    notJoinedRatePct: 11.01,
+    confirmedJoinRatePct: 90.43,
+    droppedJoinRatePct: 88.18,
+    missingHashRows: 15,
+    stableBaselineNotJoinedRatePct: 2.91,
+    interpretationKo:
+      "더클린커피도 최신 7일은 오늘 VM row가 GA4 daily export보다 앞서 있어 11.01%가 안 붙어 보입니다. 구조적 미연결은 최근 30일 기준 2.91% 수준입니다.",
+    nextActionKo:
+      "오늘 데이터는 다음 GA4 export 반영 후 재계산하고, 상시 화면은 stable baseline과 freshness gap을 분리해 표시합니다.",
+  },
+  {
+    site: "biocom",
+    siteLabel: "바이오컴",
+    windowLabel: "최근 30일",
+    checkedAtKst: "2026-05-26 17:42 KST",
+    ga4LatestDailyTable: "events_20260525",
+    vmSafeSessions: 4561,
+    ga4JoinedSessions: 4417,
+    notJoinedSessions: 144,
+    joinRatePct: 96.84,
+    notJoinedRatePct: 3.16,
+    confirmedJoinRatePct: 97.07,
+    droppedJoinRatePct: 96.71,
+    missingHashRows: 1935,
+    stableBaselineNotJoinedRatePct: null,
+    interpretationKo:
+      "30일로 넓히면 freshness 영향이 희석되어 구조적인 미연결은 3.16%로 줄어듭니다. 이 값을 현재의 안정 baseline으로 보는 것이 맞습니다.",
+    nextActionKo:
+      "남은 3%대는 safe key 누락, 외부 결제 리다이렉트, 동의/차단, source window mismatch bucket으로 쪼개면 더 줄일 수 있습니다.",
+  },
+  {
+    site: "thecleancoffee",
+    siteLabel: "더클린커피",
+    windowLabel: "최근 30일",
+    checkedAtKst: "2026-05-26 17:42 KST",
+    ga4LatestDailyTable: "events_20260525",
+    vmSafeSessions: 1444,
+    ga4JoinedSessions: 1402,
+    notJoinedSessions: 42,
+    joinRatePct: 97.09,
+    notJoinedRatePct: 2.91,
+    confirmedJoinRatePct: 97.8,
+    droppedJoinRatePct: 96.6,
+    missingHashRows: 65,
+    stableBaselineNotJoinedRatePct: null,
+    interpretationKo:
+      "30일 기준 더클린커피는 97.09%가 GA4 행동과 붙습니다. 행동 공백은 대규모 추적 장애라기보다 최신일 export 지연과 일부 safe key 누락에 가깝습니다.",
+    nextActionKo:
+      "GA4 intraday 또는 전일 완료 기준을 붙이면 최신 7일 화면의 불안정성을 줄일 수 있습니다.",
   },
 ];
 
@@ -627,19 +831,19 @@ export const READINESS: ReadinessRow[] = [
     displayName: "바이오컴",
     status: "safe_bridge_usable_for_behavior_comparison",
     interpretationKo:
-      "GA4 safe bridge 연결률이 95%대까지 올라와 구매자/이탈자 행동 비교를 Green 분석으로 진행할 수 있습니다. 단 live API는 아직 GA4 행동값이 아닌 VM 원장값을 보여줍니다.",
+      "최근 7일 연결률은 87.41%로 낮아 보이지만 GA4 daily export가 전일까지만 있는 freshness 영향이 큽니다. 최근 30일 안정 구간은 96.84%라 구매자/이탈자 행동 비교를 Green 분석으로 진행할 수 있습니다.",
   },
   {
     site: "thecleancoffee",
     displayName: "더클린커피",
     status: "safe_bridge_usable_for_behavior_comparison",
     interpretationKo:
-      "GA4 safe bridge 연결률이 96~99%로 충분합니다. Meta 채널은 체류시간 단독으로 구매를 설명하지 못하므로 장바구니·결제시작·랜딩 bucket과 같이 봐야 합니다.",
+      "최근 7일 연결률은 88.99%, 최근 30일 안정 구간은 97.09%입니다. Meta 채널은 체류시간 단독으로 구매를 설명하지 못하므로 장바구니·결제시작·랜딩 bucket과 같이 봐야 합니다.",
   },
 ];
 
 export const DRY_RUN_META = {
-  checkedAtKst: "2026-05-24 11:50 KST",
+  checkedAtKst: "2026-05-26 17:43 KST",
   window: "최근 7일",
   source: "VM Cloud SQLite safe session hash + GA4 BigQuery export",
   primary: "VM Cloud confirmed purchase",
@@ -648,6 +852,7 @@ export const DRY_RUN_META = {
   confidenceBiocom: "medium_high",
   caveats: [
     "GA4 purchase 는 행동 cross-check 이고 실제 결제 정본이 아닙니다.",
+    "최신 7일은 VM Cloud가 오늘 row까지 갖고 있지만 GA4 daily export는 전일까지만 있어 연결률이 낮아 보일 수 있습니다.",
     "체류시간은 GA4 engagement_time 기준입니다. live API의 VM 원장 체류시간과 숫자가 다를 수 있습니다.",
     "dropped checkout 은 같은 safe 세션에서 결제완료가 안 된 경우라 session/window rollover 또는 늦은 결제가 섞여 있을 수 있습니다.",
     "더클린커피 Meta는 비결제자의 중앙 체류시간이 더 길게 나와, 체류시간 단독 KPI보다 결제시작·장바구니·랜딩 bucket을 같이 봐야 합니다.",

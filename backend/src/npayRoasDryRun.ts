@@ -499,7 +499,9 @@ const isPlainDateTimeWithoutZone = (value: string) =>
 const parseDateInput = (value: string | undefined, fallback: Date) => {
   if (!value) return fallback;
   const trimmed = value.trim();
-  const normalized = isPlainDateTimeWithoutZone(trimmed)
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? `${trimmed}T00:00:00+09:00`
+    : isPlainDateTimeWithoutZone(trimmed)
     ? `${trimmed.replace(" ", "T")}+09:00`
     : trimmed.replace(/\s*KST$/i, "+09:00");
   const parsed = new Date(normalized);

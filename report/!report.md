@@ -4,7 +4,7 @@
 기준일: 2026-05-25
 문서 성격: Slack 주간/월간 매출·광고비 리포트 설계 정본 초안
 담당: Codex
-상세 문서: [[reportcoffee]], [[reportbiocom]], [[reportcoffee-sales-api-readiness-20260524]], [[reportcoffee-sales-summary-no-send-20260524]], [[reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525]], [[reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526]], [[reportcoffee-smartstore-commerce-api-collector-dry-run-design-20260526]], [[reportcoffee-coupang-settlement-refresh-path-20260524]], [[reportcoffee-coupang-settlement-cache-202605-approval-20260525]], [[reportcoffee-coupang-settlement-cache-202605-result-20260525]], [[report-v0.1-readiness-and-next-impact-plan-20260523]], [[reportcoffee-v0.1-readiness-20260523]], [[report-ad-spend-source-gap-plan-20260523]], [[reportcoffee-google-ads-spend-mapping-20260523]], [[reportcoffee-google-click-id-campaign-id-linkage-20260523]], [[reportcoffee-google-click-campaign-bridge-preview-20260523]], [[reportcoffee-campaign-id-capture-hardening-design-20260524]], [[reportbiocom-source-map-20260523]], [[naver-brandsearch-manual-cost-source-policy-20260525]], [[naver-brandsearch-manual-cost-cache-write-approval-20260525]], [[reportcoffee-dry-run-20260521]], [[reportcoffee-selfmall-dedupe-rule-20260522]], [[reportcoffee-coupang-source-readiness-20260522]], [[reportcoffee-weekly-aggregate-scripts-20260522]], [[reportcoffee-okr-action-plan-20260522]], [[reportcoffee-slack-preview-20260522]], [[reportcoffee-naver-ads-campaign-allowlist-dry-run-20260522]], [[reportcoffee-product-sales-design-20260522]], [[reportcoffee-smartstore-product-sales-20260522]]
+상세 문서: [[reportcoffee]], [[reportbiocom]], [[hermes-naver-ads-ceo-board-pipeline-design-20260527]], [[slack-preview-ceo-board-naver-ad-costs-20260425-20260522-20260527]], [[reportcoffee-sales-api-readiness-20260524]], [[reportcoffee-sales-summary-no-send-20260524]], [[reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525]], [[reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526]], [[reportcoffee-smartstore-commerce-api-collector-dry-run-design-20260526]], [[reportcoffee-coupang-settlement-refresh-path-20260524]], [[reportcoffee-coupang-settlement-cache-202605-approval-20260525]], [[reportcoffee-coupang-settlement-cache-202605-result-20260525]], [[report-v0.1-readiness-and-next-impact-plan-20260523]], [[reportcoffee-v0.1-readiness-20260523]], [[report-ad-spend-source-gap-plan-20260523]], [[reportcoffee-google-ads-spend-mapping-20260523]], [[reportcoffee-google-click-id-campaign-id-linkage-20260523]], [[reportcoffee-google-click-campaign-bridge-preview-20260523]], [[reportcoffee-campaign-id-capture-hardening-design-20260524]], [[reportbiocom-source-map-20260523]], [[naver-brandsearch-manual-cost-source-policy-20260525]], [[naver-brandsearch-manual-cost-cache-write-approval-20260525]], [[reportcoffee-dry-run-20260521]], [[reportcoffee-selfmall-dedupe-rule-20260522]], [[reportcoffee-coupang-source-readiness-20260522]], [[reportcoffee-weekly-aggregate-scripts-20260522]], [[reportcoffee-okr-action-plan-20260522]], [[reportcoffee-slack-preview-20260522]], [[reportcoffee-naver-ads-campaign-allowlist-dry-run-20260522]], [[reportcoffee-product-sales-design-20260522]], [[reportcoffee-smartstore-product-sales-20260522]]
 프론트엔드 HTML 보고서: `report/reportcoffee-project-executive-report-20260522.html`
 더클린커피 매출 보고서 화면: `report/reportcoffee-sales-dashboard-20260525.html`
 
@@ -64,6 +64,10 @@ harness_preflight:
 2026-05-26 스마트스토어 운영 기준: 스마트스토어는 PlayAuto 경고 포함으로 먼저 운영한다. `reportcoffee-sales-summary-no-send-20260524.json`과 `reportcoffee-sales-summary-no-send-20260501-imweb-complete-time.json`에 `source_status=operating_with_playauto_warning`, `source_basis=playauto_smartstore_pay_amt_v1`, Excel gap reference를 반영했다. 네이버 커머스API는 공식 주문 조회/정산 조회 경로가 있지만, 현재 MacBook 토큰 발급이 `GW.IP_NOT_ALLOWED`로 막혔고 더클린커피용 커머스API 앱 키와 스토어 scope가 확인되지 않아 primary 승격은 보류한다. 상세는 [[reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526]]에 둔다.
 
 2026-05-26 VM 커머스API 테스트: VM Cloud `34.64.104.94`에서 기존 커머스API 후보 키는 토큰 발급 200과 주문 상세 집계까지 성공했지만, 반환 상품이 바이오컴 알러지 검사/구아검/뉴로마스터라 더클린커피 scope가 아니었다. `NAVER_COFFEE_*` 값은 광고 API 키 모양이라 커머스API 서명에 실패했다. 따라서 “VM IP 전체가 막힌 문제”가 아니라 “더클린커피 커머스API 앱 키/스토어 권한이 아직 없음”으로 분류한다. 상세는 [[reportcoffee-smartstore-commerce-api-collector-dry-run-design-20260526]]에 둔다.
+
+2026-05-27 Hermes/Sentia 운영 설계: 더클린커피 네이버 성과형 디스플레이 광고비는 Hermes가 네이버 광고주센터 화면에서 read-only 다운로드하고, Codex가 GitHub 원본을 읽어 매출 JSON과 합친 뒤, Sentia가 CEO Board `sentia_ai` Slack 채널에 보고하는 구조로 설계했다. GitHub는 원본/검증 기록, Telegram은 수동 실행 알림, Slack은 최종 보고 채널로 분리한다. 1분 polling은 지금 불필요하고, 수동 호출 1-2주 안정화 후 맥미니 `launchd` 주 1회·월 1회 실행을 검토한다. 상세는 [[hermes-naver-ads-ceo-board-pipeline-design-20260527]]에 둔다.
+
+2026-05-27 Hermes 결과 수신: Hermes가 `hermes-codex-repo` commit `706d5fd058bccfef46c79c5fae8a4f9350093235`로 2026-04-25 - 2026-05-22 네이버 광고비 원본을 업로드했고, Codex가 로컬 `hermes/results/`에 복사해 no-send preview를 만들었다. 4주 합산 더클린커피 광고비는 2,828,642원(네이버 원 집계 1,288,642원 + 브랜드검색 배분 1,540,000원), TEAM KETO 광고비는 4,009,799원이다. 단, 전환매출과 ROAS는 네이버 플랫폼 주장값이므로 내부 결제완료 매출 ROAS와 분리한다. 상세는 [[slack-preview-ceo-board-naver-ad-costs-20260425-20260522-20260527]]에 둔다.
 
 ## 보고서 정의
 
@@ -253,12 +257,12 @@ Slack 발송 전에는 아래를 no-send preview로 먼저 만든다.
 
 | Track | 이름 | 이전 | 현재 | 증감 |
 |---|---|---:|---:|---:|
-| A | 정본 문서/source rule 정렬 | 73% | 74% | +1% |
+| A | 정본 문서/source rule 정렬 | 75% | 76% | +1% |
 | B | 더클린커피 매출 source 확인 | 100% | 100% | +0% |
-| C | 더클린커피 광고비 source 확인 | 82% | 82% | +0% |
+| C | 더클린커피 광고비 source 확인 | 85% | 90% | +5% |
 | D | 바이오컴 리포트 source map | 36% | 36% | +0% |
-| E | Slack no-send 메시지 설계 | 98% | 99% | +1% |
-| F | 자동화/배포 readiness | 95% | 96% | +1% |
+| E | Slack no-send 메시지 설계 | 100% | 100% | +0% |
+| F | 자동화/배포 readiness | 98% | 99% | +1% |
 
 ## 하지 않은 것
 

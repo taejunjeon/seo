@@ -100,7 +100,13 @@ const setAdsLazyCached = (key: string, result: unknown, ttlMs: number = ADS_LAZY
   adsLazyCache.set(key, entry);
   return entry;
 };
-type AdsLazyCacheSource = "lazy_cache_hit" | "disk_cache_hit" | "live_force" | "live_cache_miss" | "live_error_no_cache";
+type AdsLazyCacheSource =
+  | "lazy_cache_hit"
+  | "disk_cache_hit"
+  | "force_cooldown_cache"
+  | "live_force"
+  | "live_cache_miss"
+  | "live_error_no_cache";
 const buildAdsCacheMeta = (entry: AdsCacheEntry | null, source: AdsLazyCacheSource): {
   cached: boolean;
   cached_at_kst: string | null;
@@ -108,7 +114,11 @@ const buildAdsCacheMeta = (entry: AdsCacheEntry | null, source: AdsLazyCacheSour
   ttl_seconds: number;
   source: string;
 } => ({
-  cached: (source === "lazy_cache_hit" || source === "disk_cache_hit") && Boolean(entry),
+  cached: (
+    source === "lazy_cache_hit"
+    || source === "disk_cache_hit"
+    || source === "force_cooldown_cache"
+  ) && Boolean(entry),
   cached_at_kst: entry ? toKstShortAds(entry.cachedAtMs) : null,
   next_refresh_at_kst: entry ? toKstShortAds(entry.expiresAtMs) : null,
   ttl_seconds: entry ? Math.round((entry.expiresAtMs - entry.cachedAtMs) / 1000) : 0,
@@ -611,6 +621,35 @@ const firstMetadataString = (metadata: Record<string, unknown>, keys: string[]) 
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return "";
+};
+
+const paidTouchBeforeCheckoutMetadata = (entry: AttributionLedgerEntry | undefined) =>
+  toObject(entry?.metadata?.paidTouchBeforeCheckout);
+
+const hasPaidTouchBeforeCheckoutEvidence = (entry: AttributionLedgerEntry | undefined) => {
+  const paidTouch = paidTouchBeforeCheckoutMetadata(entry);
+  return Boolean(firstMetadataString(paidTouch, [
+    "source",
+    "utmSource",
+    "utm_source",
+    "campaign",
+    "utmCampaign",
+    "utm_campaign",
+    "term",
+    "utmTerm",
+    "utm_term",
+    "content",
+    "utmContent",
+    "utm_content",
+    "metaCampaignId",
+    "meta_campaign_id",
+    "metaAdsetId",
+    "meta_adset_id",
+    "metaAdId",
+    "meta_ad_id",
+    "campaignAlias",
+    "campaign_alias",
+  ]));
 };
 
 const extractUrlParam = (value: string, key: string) => {
@@ -1275,6 +1314,19 @@ const extractMetaLandingPathsFromCreative = (creative: unknown) => (
   extractLandingPathCandidates(collectStringValuesDeep(creative))
 );
 
+const META_AD_CREATIVE_EVIDENCE_FIELDS = [
+  "id",
+  "name",
+  "thumbnail_url",
+  "image_url",
+  "url_tags",
+  "link_url",
+  "object_url",
+  "object_story_spec",
+  "asset_feed_spec",
+  "instagram_permalink_url",
+].join(",");
+
 const fetchMetaAdCreativeEvidenceMaps = async (
   accountId: string,
 ): Promise<{
@@ -1297,7 +1349,7 @@ const fetchMetaAdCreativeEvidenceMaps = async (
           "campaign_id",
           "campaign{id,name}",
           "adset{id,name}",
-          "creative{id,name,url_tags,link_url,object_url,object_story_spec,asset_feed_spec,instagram_permalink_url}",
+          `creative{${META_AD_CREATIVE_EVIDENCE_FIELDS}}`,
         ].join(","),
         limit: "200",
       },
@@ -1506,19 +1558,19 @@ const getFastMetaAdCreativeEvidenceMaps = async (accountId: string): Promise<Met
 
 const startMetaMappingWarmupOnce = () => {
   if (metaMappingWarmupStarted) return;
+  if (process.env.META_MAPPING_WARMUP_ENABLED === "0") return;
   metaMappingWarmupStarted = true;
+  const warmupDelayMs = parsePositiveMsEnv("META_MAPPING_WARMUP_DELAY_MS", 120_000, 0);
   setTimeout(() => {
     void (async () => {
       for (const account of SITE_ACCOUNTS) {
-        await Promise.all([
-          warmMetaAdsetCampaignMap(account.accountId),
-          warmMetaAdCreativeEvidenceMap(account.accountId),
-        ]);
+        await warmMetaAdsetCampaignMap(account.accountId);
+        await warmMetaAdCreativeEvidenceMap(account.accountId);
       }
     })().catch((error) => {
       console.warn("[ads] Meta mapping warmup failed", error instanceof Error ? error.message : String(error));
     });
-  }, 5000);
+  }, warmupDelayMs);
 };
 
 const buildMetaReference = (params?: {
@@ -1850,7 +1902,8 @@ export const buildNormalizedLedgerOrders = (
     const preferred = sortEntriesByPreference(group);
     const attributionCarrier = preferred.find(
       (entry) => Boolean(entry.utmSource || entry.utmCampaign || entry.fbclid || entry.gclid || entry.ttclid),
-    ) ?? preferred[0];
+    ) ?? preferred.find(hasPaidTouchBeforeCheckoutEvidence) ?? preferred[0];
+    const paidTouch = paidTouchBeforeCheckoutMetadata(attributionCarrier);
 
     const amount = preferred.map(extractLedgerAmount).find((value) => value !== null) ?? null;
     const site = preferred.map(inferSiteFromLedgerEntry).find((value) => value !== null) ?? null;
@@ -1875,11 +1928,34 @@ export const buildNormalizedLedgerOrders = (
         "original_referrer",
       ]),
     ]);
-    const campaignAlias = extractFirstUrlParam(urlCandidates, "campaign_alias");
-    const utmCampaign = firstNonEmpty([attributionCarrier?.utmCampaign ?? "", campaignAlias]);
-    const utmTerm = attributionCarrier?.utmTerm ?? "";
-    const utmContent = attributionCarrier?.utmContent ?? "";
+    const paidTouchUrlCandidates = [
+      firstMetadataString(paidTouch, ["landing"]),
+      firstMetadataString(paidTouch, ["referrer"]),
+    ];
+    const campaignAlias = firstNonEmpty([
+      firstMetadataString(paidTouch, ["campaignAlias", "campaign_alias"]),
+      extractFirstUrlParam(urlCandidates, "campaign_alias"),
+      extractFirstUrlParam(paidTouchUrlCandidates, "campaign_alias"),
+    ]);
+    const utmSource = firstNonEmpty([
+      attributionCarrier?.utmSource ?? "",
+      firstMetadataString(paidTouch, ["source", "utmSource", "utm_source"]),
+    ]);
+    const utmCampaign = firstNonEmpty([
+      attributionCarrier?.utmCampaign ?? "",
+      firstMetadataString(paidTouch, ["campaign", "utmCampaign", "utm_campaign", "metaCampaignId", "meta_campaign_id"]),
+      campaignAlias,
+    ]);
+    const utmTerm = firstNonEmpty([
+      attributionCarrier?.utmTerm ?? "",
+      firstMetadataString(paidTouch, ["term", "utmTerm", "utm_term", "metaAdsetId", "meta_adset_id"]),
+    ]);
+    const utmContent = firstNonEmpty([
+      attributionCarrier?.utmContent ?? "",
+      firstMetadataString(paidTouch, ["content", "utmContent", "utm_content", "metaAdId", "meta_ad_id"]),
+    ]);
     const campaignIdHint = firstNonEmpty([
+      firstMetadataString(paidTouch, ["metaCampaignId", "meta_campaign_id"]),
       normalizeMetaNumericId(utmCampaign),
       extractFirstNumericUrlParam(urlCandidates, [
         "meta_campaign_id",
@@ -1887,18 +1963,36 @@ export const buildNormalizedLedgerOrders = (
         "utm_id",
         "utm_campaign",
       ]),
+      extractFirstNumericUrlParam(paidTouchUrlCandidates, [
+        "meta_campaign_id",
+        "campaign_id",
+        "utm_id",
+        "utm_campaign",
+      ]),
     ]);
     const adsetIdHint = firstNonEmpty([
+      firstMetadataString(paidTouch, ["metaAdsetId", "meta_adset_id"]),
       normalizeMetaNumericId(utmTerm),
       extractFirstNumericUrlParam(urlCandidates, [
         "meta_adset_id",
         "adset_id",
         "utm_term",
       ]),
+      extractFirstNumericUrlParam(paidTouchUrlCandidates, [
+        "meta_adset_id",
+        "adset_id",
+        "utm_term",
+      ]),
     ]);
     const adIdHint = firstNonEmpty([
+      firstMetadataString(paidTouch, ["metaAdId", "meta_ad_id"]),
       normalizeMetaNumericId(utmContent),
       extractFirstNumericUrlParam(urlCandidates, [
+        "meta_ad_id",
+        "ad_id",
+        "utm_content",
+      ]),
+      extractFirstNumericUrlParam(paidTouchUrlCandidates, [
         "meta_ad_id",
         "ad_id",
         "utm_content",
@@ -1913,7 +2007,7 @@ export const buildNormalizedLedgerOrders = (
       amount,
       site,
       customerKey: firstNonEmpty(preferred.map((entry) => normalizePhone(entry.customerKey))),
-      utmSource: attributionCarrier?.utmSource ?? "",
+      utmSource,
       utmCampaign,
       utmTerm,
       utmContent,
@@ -2093,11 +2187,9 @@ const MANUAL_VERIFIED_LANDING_PATH_CAMPAIGNS: Array<{
     landingPath: "/iiary02",
     campaignId: "120245003319500396",
     campaignName: "meta_biocom_influencer_260506",
-    adsetId: "120245700952890396",
-    adsetName: "meta_biocom_iiari_260518",
-    adId: "120245700952900396",
-    adName: "meta_biocom_iiari_acid_260518",
-    confidence: "manual_verified_single_landing_path_20260518",
+    adsetName: "manual_verified_campaign_only: iiari acid/igg split confirmed",
+    adName: "manual_verified_campaign_only: adset/ad requires numeric meta_* ID",
+    confidence: "manual_verified_campaign_only_iiari_split_confirmed_20260526",
   },
   {
     site: "biocom",
@@ -3631,6 +3723,7 @@ type MetaUtmOriginalLandingBridge = {
 };
 
 const META_UTM_DIAGNOSTICS_CACHE_TTL_MS = 15 * 60 * 1000;
+const META_UTM_DIAGNOSTICS_FORCE_COOLDOWN_MS = 10 * 60 * 1000;
 const META_UTM_DIAGNOSTICS_DISK_STALE_MAX_MS = 24 * 60 * 60 * 1000;
 const META_UTM_DIAGNOSTICS_DISK_CACHE_PATH = path.join(DATA_DIR, "runtime-cache", "meta-utm-diagnostics-cache.json");
 const META_UTM_ORIGINAL_LANDING_BRIDGE_JSON_PATH = path.join(
@@ -4049,6 +4142,187 @@ const buildMetaUtmMatch = (params: {
     unmappedOrders: 0,
     unmappedRevenue: 0,
     basis: [...basis].slice(0, 5),
+  };
+};
+
+const MANUAL_META_UTM_URL_EVIDENCE: Array<{
+  site: SiteKey;
+  campaignId: string;
+  campaignName: string;
+  adsetId: string;
+  adsetName: string;
+  adId: string | null;
+  adName: string | null;
+  canonicalUrl: string;
+  checkedAtKst: string;
+  source: string;
+}> = [
+  {
+    site: "biocom",
+    campaignId: "120244876670640396",
+    campaignName: "meta_biocom_acid_260504",
+    adsetId: "120244876670660396",
+    adsetName: "meta_biocom_acid_reel_260504",
+    adId: "120244878904160396",
+    adName: "260504_종대사 임신준비 릴스1",
+    canonicalUrl: "https://biocom.kr/organicacid_store/?idx=259&utm_source=meta_biocom_acidset_pregnancyreel_acid&utm_medium=meta_biocom_acidset_pregnancyreel_acid&utm_campaign=meta_biocom_acidset_pregnancyreel_acid&utm_content=meta_biocom_acidset_pregnancyreel_acid",
+    checkedAtKst: "2026-05-27 KST",
+    source: "TJ님 Ads Manager read-only URL copy",
+  },
+];
+
+const buildManualMetaUtmEvidence = (
+  manual: (typeof MANUAL_META_UTM_URL_EVIDENCE)[number],
+  totalAdCount: number,
+): MetaUtmEvidence => {
+  const trackingValues = [manual.canonicalUrl];
+  const utmSource = extractFirstUrlParam(trackingValues, "utm_source").toLowerCase();
+  const utmMedium = extractFirstUrlParam(trackingValues, "utm_medium").toLowerCase();
+  const campaign = pickMetaUtmId(
+    trackingValues,
+    ["meta_campaign_id", "campaign_id", "utm_id", "utm_campaign"],
+    ["{{campaign.id}}", "{{campaign_id}}"],
+  );
+  const adset = pickMetaUtmId(
+    trackingValues,
+    ["meta_adset_id", "adset_id", "utm_term"],
+    ["{{adset.id}}", "{{adset_id}}"],
+  );
+  const adId = pickMetaUtmId(
+    trackingValues,
+    ["meta_ad_id", "ad_id", "utm_content"],
+    ["{{ad.id}}", "{{ad_id}}"],
+  );
+  const hasMetaSource = utmSource.includes("meta") || utmSource.includes("facebook") || utmSource.includes("instagram");
+  const hasPaidMedium = utmMedium.includes("paid") || utmMedium.includes("cpc") || utmMedium.includes("social");
+  const hasCampaignId = Boolean(campaign.id || campaign.hasMacro);
+  const hasAdsetId = Boolean(adset.id || adset.hasMacro);
+  const hasAdId = Boolean(adId.id || adId.hasMacro);
+  const hasLandingUrl = true;
+  const reasons: string[] = [
+    `${manual.source}: ${manual.checkedAtKst}`,
+    `Ads Manager URL alias 확인: utm_campaign=meta_biocom_acidset_pregnancyreel_acid`,
+  ];
+  if (hasMetaSource) reasons.push("utm_source가 Meta 계열로 확인됨");
+  if (hasPaidMedium) reasons.push("utm_medium이 유료 광고 계열로 확인됨");
+  if (hasCampaignId) reasons.push("campaign id 또는 dynamic macro 확인");
+  if (hasAdsetId) reasons.push("adset id 또는 dynamic macro 확인");
+  if (hasAdId) reasons.push("ad id 또는 dynamic macro 확인");
+  if (!hasPaidMedium) reasons.push("utm_medium=paid_social/cpc 확인 필요");
+  if (!hasCampaignId) reasons.push("utm_campaign 또는 meta_campaign_id에 campaign id 필요");
+  if (!hasAdsetId) reasons.push("utm_term 또는 meta_adset_id에 adset id 필요");
+  if (!hasAdId) reasons.push("utm_content 또는 meta_ad_id에 ad id 필요");
+
+  return {
+    hasMetaSource,
+    hasPaidMedium,
+    hasCampaignId,
+    hasAdsetId,
+    hasAdId,
+    hasCampaignMacro: campaign.hasMacro,
+    hasAdsetMacro: adset.hasMacro,
+    hasAdMacro: adId.hasMacro,
+    hasLandingUrl,
+    sampleUrl: manual.canonicalUrl,
+    sampleTags: manual.canonicalUrl.split("?")[1] ?? null,
+    readyAdCount: 0,
+    blockedAdCount: Math.max(1, totalAdCount),
+    totalAdCount: Math.max(1, totalAdCount),
+    reasons,
+  };
+};
+
+const findManualMetaUtmUrlEvidenceForRow = (
+  site: SiteKey | null,
+  row: MetaUtmRow,
+) => {
+  if (!site) return null;
+  return MANUAL_META_UTM_URL_EVIDENCE.find((manual) => (
+    manual.site === site
+    && row.campaignId === manual.campaignId
+    && row.adsetId === manual.adsetId
+    && (
+      row.level === "adset"
+      || (row.level === "ad" && (!manual.adId || row.adId === manual.adId))
+    )
+  )) ?? null;
+};
+
+const totalsForMetaUtmRows = (rows: MetaUtmRow[]) => ({
+  rows: rows.length,
+  spend: round2(rows.reduce((sum, row) => sum + row.metrics.spend, 0)),
+  purchases: rows.reduce((sum, row) => sum + row.metrics.purchases, 0),
+  attRevenue: round2(rows.reduce((sum, row) => sum + row.att.revenue, 0)),
+  attOrders: rows.reduce((sum, row) => sum + row.att.orders, 0),
+});
+
+const applyManualMetaUtmUrlEvidenceDraft = (
+  record: Record<string, unknown>,
+  site: SiteKey | null,
+): Record<string, unknown> => {
+  if (!Array.isArray(record.rows)) return record;
+  let changed = false;
+  const rows = (record.rows as MetaUtmRow[]).map((row) => {
+    if (row.level !== "adset" && row.level !== "ad") return row;
+    const manual = findManualMetaUtmUrlEvidenceForRow(site, row);
+    if (!manual) return row;
+    const evidence = buildManualMetaUtmEvidence(manual, row.evidence?.totalAdCount ?? 1);
+    const evidenceRate = scoreMetaUtmEvidenceForLevel(evidence, row.level);
+    const match = buildMetaUtmMatch({
+      level: row.level,
+      evidenceRate,
+      matchedOrders: row.att.orders,
+      matchedRevenue: row.att.revenue,
+      evidenceTotalAdCount: evidence.totalAdCount,
+      basis: [
+        ...row.match.basis,
+        "Ads Manager URL read-only evidence로 UTM alias 확인",
+        "숫자 campaign/adset/ad ID는 URL에 없어서 Section A 확정은 보류",
+      ],
+    });
+    if (match.rate <= row.match.rate) return row;
+    changed = true;
+    return {
+      ...row,
+      section: classifyMetaUtmSection(match.rate),
+      evidence,
+      match,
+      att: {
+        ...row.att,
+        calculable: match.rate >= META_UTM_MATCH_THRESHOLD,
+        roas: match.rate >= META_UTM_MATCH_THRESHOLD
+          ? computeRoas(row.att.revenue, row.metrics.spend, true)
+          : null,
+      },
+    };
+  });
+  if (!changed) return record;
+
+  const ready = rows.filter((row) => row.section === "ready");
+  const blocked = rows.filter((row) => row.section === "blocked");
+  const unmappedRows = rows.filter((row) => row.section === "unmapped");
+  const byLevel = (level: MetaUtmLevel) => rows.filter((row) => row.level === level);
+  const existingSummary = record.summary && typeof record.summary === "object"
+    ? record.summary as Record<string, unknown>
+    : {};
+  const existingRawCounts = existingSummary.rawCounts;
+  return {
+    ...record,
+    rows,
+    sections: { ready, blocked, unmapped: unmappedRows },
+    summary: {
+      ...existingSummary,
+      total: totalsForMetaUtmRows(rows),
+      ready: totalsForMetaUtmRows(ready),
+      blocked: totalsForMetaUtmRows(blocked),
+      unmapped: totalsForMetaUtmRows(unmappedRows),
+      byLevel: {
+        campaign: totalsForMetaUtmRows(byLevel("campaign")),
+        adset: totalsForMetaUtmRows(byLevel("adset")),
+        ad: totalsForMetaUtmRows(byLevel("ad")),
+      },
+      rawCounts: existingRawCounts,
+    },
   };
 };
 
@@ -4861,9 +5135,10 @@ const applyApprovedMetaUtmExclusionSummaryMode = (
 const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<string, unknown>> => {
   if (!body || typeof body !== "object") return {};
   const record = body as Record<string, unknown>;
-  const unmapped = record.unmapped as MetaUtmUnmappedOrderSummary | undefined;
   const accountId = typeof record.account_id === "string" ? record.account_id : "";
   const site = findSiteAccountByAccountId(accountId)?.site ?? null;
+  const rowAugmentedRecord = applyManualMetaUtmUrlEvidenceDraft(record, site);
+  const unmapped = rowAugmentedRecord.unmapped as MetaUtmUnmappedOrderSummary | undefined;
   const bGradeProposal = site === "biocom"
     ? await loadMetaUtmBGradeProposal()
     : buildMetaUtmBGradeMissingProposal("not_applicable", "B급 제안 사전은 현재 biocom 계정 전용이다.");
@@ -4878,10 +5153,10 @@ const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<
         revenue: unmappedDryRun.adjustedIfApplied.revenue,
         samples: unmappedDryRun.samples.filter((sample) => sample.dryRun?.excludeFromMetaUnmapped !== "YES"),
         dryRun: unmappedDryRun,
-      }
+    }
     : unmapped;
-  const existingDiagnostics = record.diagnostics && typeof record.diagnostics === "object"
-    ? record.diagnostics as Record<string, unknown>
+  const existingDiagnostics = rowAugmentedRecord.diagnostics && typeof rowAugmentedRecord.diagnostics === "object"
+    ? rowAugmentedRecord.diagnostics as Record<string, unknown>
     : {};
   const existingLimitations = Array.isArray(existingDiagnostics.limitations)
     ? existingDiagnostics.limitations.filter((item): item is string => typeof item === "string")
@@ -4891,10 +5166,11 @@ const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<
     "승인된 비Meta 오분류 제외 규칙은 Meta 미매칭/ROAS용 집계에 적용한다. REVIEW bucket은 제외하지 않는다.",
     "B급 제안 사전은 자동 확정이 아니라 후보 사전이다. 최신 URL/숫자 ID evidence 확인 전 manual_verified로 승격하지 않는다.",
     "원본 랜딩 bridge는 고객 유입 장부가 놓친 원본 랜딩 후보를 화면에 보이는 read-only 보조 증거다. 현재 ROAS 산식에는 직접 반영하지 않는다.",
+    "TJ님이 Ads Manager에서 직접 확인한 URL evidence는 UTM 있음/숫자 ID 보완 필요 판정에만 사용하며, 운영 DB와 Meta 광고 설정은 바꾸지 않는다.",
   ];
 
   return {
-    ...record,
+    ...rowAugmentedRecord,
     unmapped: augmentedUnmapped,
     unmappedDryRun,
     bgradeProposal: bGradeProposal,
@@ -4977,7 +5253,7 @@ const buildMetaUtmDiagnostics = async (params: {
           "configured_status",
           "adset{id,name}",
           "campaign{id,name}",
-          "creative{id,thumbnail_url,image_url,url_tags,link_url}",
+          `creative{${META_AD_CREATIVE_EVIDENCE_FIELDS}}`,
         ].join(","),
         limit: "100",
       },
@@ -7937,10 +8213,16 @@ export const createAdsRouter = () => {
 
       const { range, datePreset } = resolveOptionalRange(req);
       const forceRefresh = req.query.force === "true" || req.query.force === "1";
+      const preferStale = req.query.prefer_stale === "true" || req.query.prefer_stale === "1";
       const siteAccount = findSiteAccountByAccountId(accountId);
       const ledgerOptions = ledgerQueryOptions(req, range, siteAccount ? [siteAccount.site] : undefined);
       const rangeKey = datePreset ?? `${range.startDate}:${range.endDate}`;
       cacheKey = `meta-utm-diagnostics:${accountId}:${rangeKey}:${ledgerOptions.source ?? "auto"}`;
+      const forceCooldownMs = parsePositiveMsEnv(
+        "META_UTM_DIAGNOSTICS_FORCE_COOLDOWN_MS",
+        META_UTM_DIAGNOSTICS_FORCE_COOLDOWN_MS,
+        0,
+      );
 
       if (!forceRefresh) {
         const cached = getAdsLazyCached(cacheKey);
@@ -7954,6 +8236,55 @@ export const createAdsRouter = () => {
           const body = await withMetaUtmDiagnosticsLocalDrafts(diskCached.result);
           res.json({ ...body, cache: buildAdsCacheMeta(diskCached, "disk_cache_hit") });
           return;
+        }
+        if (preferStale) {
+          const stale = getAdsLazyCachedStale(cacheKey);
+          if (stale) {
+            const body = await withMetaUtmDiagnosticsLocalDrafts(stale.result);
+            res.json({
+              ...body,
+              cache: {
+                ...buildAdsCacheMeta(stale, "lazy_cache_hit"),
+                stale: true,
+                stale_reason: "fresh cache expired; prefer_stale returned previous diagnostics. Use force=1 to refresh from Meta API.",
+              },
+            });
+            return;
+          }
+          const diskStale = await getMetaUtmDiagnosticsDiskCached(cacheKey, META_UTM_DIAGNOSTICS_DISK_STALE_MAX_MS);
+          if (diskStale) {
+            const body = await withMetaUtmDiagnosticsLocalDrafts(diskStale.result);
+            res.json({
+              ...body,
+              cache: {
+                ...buildAdsCacheMeta(diskStale, "disk_cache_hit"),
+                stale: true,
+                stale_reason: "fresh cache expired; prefer_stale returned previous diagnostics. Use force=1 to refresh from Meta API.",
+              },
+            });
+            return;
+          }
+        }
+      }
+
+      if (forceRefresh && forceCooldownMs > 0) {
+        const cooldownCache = getAdsLazyCachedStale(cacheKey)
+          ?? await getMetaUtmDiagnosticsDiskCached(cacheKey, META_UTM_DIAGNOSTICS_DISK_STALE_MAX_MS);
+        if (cooldownCache) {
+          const cooldownRemainingMs = forceCooldownMs - (Date.now() - cooldownCache.cachedAtMs);
+          if (cooldownRemainingMs > 0) {
+            const body = await withMetaUtmDiagnosticsLocalDrafts(cooldownCache.result);
+            res.json({
+              ...body,
+              cache: {
+                ...buildAdsCacheMeta(cooldownCache, "force_cooldown_cache"),
+                stale: Date.now() > cooldownCache.expiresAtMs,
+                stale_reason: `force refresh cooldown active; retry live Meta refresh after ${Math.ceil(cooldownRemainingMs / 1000)}s.`,
+                force_cooldown_remaining_ms: Math.max(0, Math.round(cooldownRemainingMs)),
+              },
+            });
+            return;
+          }
         }
       }
 

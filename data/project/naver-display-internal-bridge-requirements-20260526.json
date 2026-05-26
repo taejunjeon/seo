@@ -1,0 +1,226 @@
+{
+  "ok": true,
+  "schema_version": "naver-display-internal-bridge-requirements-preview-v1-20260526",
+  "generated_at": "2026-05-26T12:13:00.000Z",
+  "mode": "read_only_no_send_no_write",
+  "requested_window": {
+    "since": "2026-04-01",
+    "until": "2026-04-30",
+    "timezone": "KST"
+  },
+  "harness_preflight": {
+    "lane": "Green",
+    "allowed_actions": [
+      "read_only_vm_cloud_sqlite_query",
+      "read_only_operating_db_query",
+      "aggregate_only_report_generation"
+    ],
+    "forbidden_actions": [
+      "operating_db_write",
+      "vm_cloud_write_or_deploy",
+      "naver_ads_state_change",
+      "platform_send",
+      "gtm_publish"
+    ]
+  },
+  "plain_summary": "Naver performance display platform claim values are source-ready, but thecleancoffee shopping/advoost traffic currently lands on SmartStore, not the self-mall. SmartStore revenue source is required before budget confirmed ROAS.",
+  "by_site": [
+    {
+      "site": "biocom",
+      "source_policy": {
+        "cost_source": "Hermes Naver Ads UI XLSX export, 2026-04 performance display",
+        "marker_source": "VM Cloud attribution_ledger payment_success confirmed with display/GFA/ADVoost marker",
+        "order_source": "운영DB PostgreSQL public.tb_iamweb_users PAYMENT_COMPLETE"
+      },
+      "window": {
+        "since": "2026-04-01",
+        "until": "2026-04-30",
+        "timezone": "KST"
+      },
+      "naver_platform_claim": {
+        "spend_krw": 12772245,
+        "conversion_revenue_krw": 141972560,
+        "roas_percent": 1111.57,
+        "clicks": 5398,
+        "active_campaigns": 2
+      },
+      "internal_bridge": {
+        "marker_rows": 3,
+        "marker_amount_krw": 927000,
+        "marker_rows_with_order_key": 3,
+        "exact_rows": 2,
+        "exact_marker_amount_krw": 693000,
+        "exact_unique_order_count": 2,
+        "exact_unique_order_revenue_krw": 693000,
+        "exact_amount_match_rows": 2,
+        "exact_amount_mismatch_rows": 0,
+        "probable_rows": 0,
+        "probable_marker_amount_krw": 0,
+        "ambiguous_rows": 1,
+        "ambiguous_marker_amount_krw": 234000,
+        "no_bridge_rows": 0,
+        "no_bridge_marker_amount_krw": 0,
+        "exact_npay_rows": 0,
+        "exact_non_npay_rows": 2
+      },
+      "internal_confirmed_roas": {
+        "exact_order_bridge_roas_multiple": 0.05,
+        "exact_order_bridge_roas_percent": 5.43,
+        "marker_amount_roas_multiple": 0.07,
+        "budget_use": "partial_not_budget_ready"
+      },
+      "gap": {
+        "naver_claim_minus_exact_bridge_revenue_krw": 141279560,
+        "exact_bridge_revenue_share_of_naver_claim_pct": 0.49
+      },
+      "interpretation": {
+        "status": "partial_bridge_candidate",
+        "plain": "일부 성과 디스플레이 결제완료 marker는 주문 정본과 exact로 연결된다. 다만 전체 예산 판단값으로 쓰려면 display 전용 유입 식별률을 더 높여야 한다.",
+        "confidence": "medium"
+      },
+      "warnings": [
+        "display_amount_time_ambiguous_rows_present"
+      ]
+    },
+    {
+      "site": "thecleancoffee",
+      "source_policy": {
+        "cost_source": "Hermes Naver Ads UI XLSX export, 2026-04 performance display",
+        "marker_source": "SmartStore destination discovered after initial preview; self-mall VM marker is not the primary source",
+        "order_source": "SmartStore order/settlement or Naver platform conversion report required before budget confirmed ROAS"
+      },
+      "window": {
+        "since": "2026-04-01",
+        "until": "2026-04-30",
+        "timezone": "KST"
+      },
+      "naver_platform_claim": {
+        "spend_krw": 1171829,
+        "conversion_revenue_krw": 10046842,
+        "roas_percent": 857.36,
+        "clicks": 884,
+        "active_campaigns": 1
+      },
+      "internal_bridge": {
+        "marker_rows": 0,
+        "marker_amount_krw": 0,
+        "marker_rows_with_order_key": 0,
+        "exact_rows": 0,
+        "exact_marker_amount_krw": 0,
+        "exact_unique_order_count": 0,
+        "exact_unique_order_revenue_krw": 0,
+        "exact_amount_match_rows": 0,
+        "exact_amount_mismatch_rows": 0,
+        "probable_rows": 0,
+        "probable_marker_amount_krw": 0,
+        "ambiguous_rows": 0,
+        "ambiguous_marker_amount_krw": 0,
+        "no_bridge_rows": 0,
+        "no_bridge_marker_amount_krw": 0,
+        "exact_npay_rows": 0,
+        "exact_non_npay_rows": 0
+      },
+      "internal_confirmed_roas": {
+        "exact_order_bridge_roas_multiple": 0,
+        "exact_order_bridge_roas_percent": 0,
+        "marker_amount_roas_multiple": 0,
+        "budget_use": "smartstore_source_required"
+      },
+      "gap": {
+        "naver_claim_minus_exact_bridge_revenue_krw": 10046842,
+        "exact_bridge_revenue_share_of_naver_claim_pct": 0
+      },
+      "interpretation": {
+        "status": "smartstore_destination_not_self_mall",
+        "plain": "성과 디스플레이 비용 원본은 있지만 더클린커피 쇼핑검색/ADVoost 랜딩은 스마트스토어로 확인됐다. 자사몰 Imweb 주문 원장으로 예산 판단용 내부 ROAS를 만들면 안 된다.",
+        "confidence": "low"
+      },
+      "warnings": [
+        "no_display_payment_success_marker_rows",
+        "coffee_smartstore_destination_confirmed",
+        "smartstore_order_or_settlement_source_required"
+      ]
+    }
+  ],
+  "totals": {
+    "spend_krw": 13944074,
+    "naver_claim_conversion_revenue_krw": 152019402,
+    "exact_order_bridge_revenue_krw": 693000,
+    "naver_claim_roas_percent": 1090.21,
+    "exact_order_bridge_roas_percent": 4.97
+  },
+  "bridge_work_required": [
+    {
+      "priority": "P0",
+      "name": "더클린커피 스마트스토어 원천 분리",
+      "what": "더클린커피 쇼핑검색/ADVoost를 자사몰 naver_display bridge가 아니라 smartstore_naver_ads 계열로 별도 분리한다.",
+      "why": "랜딩과 전환이 스마트스토어 안에서 끝나면 자사몰 Imweb/VM Cloud 주문 원장에 남지 않는다.",
+      "lane": "Green",
+      "approval_required": false,
+      "success_criteria": "대시보드와 문서에서 더클린커피 쇼핑검색/ADVoost 광고비가 자사몰 ROAS 분모로 잘못 합산되지 않는다."
+    },
+    {
+      "priority": "P0",
+      "name": "결제완료 주문키 브릿지",
+      "what": "VM Cloud 결제완료 신호의 display marker를 주문 정본의 주문키 hash와 exact로 매칭한다.",
+      "why": "플랫폼 전환금액이 아니라 실제 결제완료 주문만 내부 confirmed ROAS 분자로 써야 한다.",
+      "lane": "Green",
+      "approval_required": false,
+      "success_criteria": "site별 exact/probable/ambiguous/no_bridge가 raw 식별자 없이 산출된다."
+    },
+    {
+      "priority": "P1",
+      "name": "스마트스토어 주문/정산 source 확보",
+      "what": "smartstore.naver.com/lockhart의 주문/정산 또는 네이버 광고 전환 리포트를 더클린커피 쇼핑검색/ADVoost ROAS 분자로 쓸 수 있는지 조사한다.",
+      "why": "현재 자사몰 주문 정본으로는 스마트스토어 전환을 검증할 수 없다.",
+      "lane": "Yellow",
+      "approval_required": true,
+      "success_criteria": "더클린커피 스마트스토어 광고비와 같은 window의 실제 결제완료/취소반영 매출 source가 정해진다."
+    },
+    {
+      "priority": "P2",
+      "name": "대시보드 API 연결",
+      "what": "네이버 ROAS 화면에서 플랫폼 주장 ROAS와 내부 confirmed ROAS를 별도 필드로 내려준다.",
+      "why": "예산 판단값과 참고값을 한 화면에서 섞지 않기 위해서다.",
+      "lane": "Yellow",
+      "approval_required": true,
+      "success_criteria": "API가 display.spend, display.naver_claim, display.internal_exact_bridge를 분리 응답한다."
+    }
+  ],
+  "source_window_freshness_confidence": {
+    "source": "Hermes XLSX + VM Cloud attribution_ledger/site_landing_ledger + operating DB/VM Cloud order source",
+    "window": "2026-04-01~2026-04-30 KST",
+    "freshness": {
+      "cost_artifact_generated_at": "2026-05-26T08:55:31.642Z",
+      "vm_attribution_max_logged_at": "2026-05-26T09:35:14.546Z",
+      "vm_site_landing_max_landed_at": "2026-05-26T09:36:29.432Z",
+      "biocom_operating_db_status": "available",
+      "biocom_operating_db_max_source_date": "2026-04-30",
+      "coffee_imweb_max_order_time": "2026-05-26T05:07:08.000Z",
+      "coffee_imweb_max_synced_at": "2026-05-26 09:23:35"
+    },
+    "confidence": "medium: cost source is complete, display marker bridge is partial and classifier is not yet first-class."
+  },
+  "validation": {
+    "cost_artifact_present": true,
+    "vm_marker_rows_total": 3,
+    "vm_attribution_marker_summary_rows": 4,
+    "vm_site_landing_marker_summary_rows": 0,
+    "biocom_operating_db_status": "available",
+    "biocom_operating_db_warning": null,
+    "raw_identifier_output": 0
+  },
+  "invariants_held": {
+    "sqlite_mode": "read_only",
+    "sqlite_write": 0,
+    "backend_deploy_or_restart": 0,
+    "platform_send": 0,
+    "raw_identifier_output": 0,
+    "order_key_hash_mode": "sha256_one_way",
+    "operating_db_mode": "read_only",
+    "operating_db_write": 0,
+    "vm_cloud_write": 0,
+    "naver_ads_state_change": 0,
+    "gtm_publish": 0
+  }
+}

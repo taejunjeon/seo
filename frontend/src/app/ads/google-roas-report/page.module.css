@@ -1358,6 +1358,190 @@
   color: #9a3412;
 }
 
+.privatePreviewPanel {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #fdba74;
+  border-radius: 14px;
+  background: #fff7ed;
+}
+
+.privatePreviewHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.privatePreviewHeader span,
+.readinessPanel span {
+  display: block;
+  color: #9a3412;
+  font-size: 0.68rem;
+  font-weight: 920;
+}
+
+.privatePreviewHeader h3,
+.readinessPanel h3 {
+  margin: 6px 0 0;
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 930;
+  line-height: 1.36;
+}
+
+.privatePreviewHeader p,
+.readinessPanel p {
+  max-width: 820px;
+  margin: 7px 0 0;
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.58;
+}
+
+.privatePreviewHeader em {
+  color: #92400e;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.privatePreviewSummary,
+.privateCandidateGrid,
+.readinessStepGrid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.privatePreviewSummary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.privateCandidateGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.privatePreviewSummary article,
+.privateCandidateCard,
+.readinessStepCard {
+  padding: 13px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.privatePreviewSummary span,
+.privateCandidateTop span {
+  display: block;
+  color: #9a3412;
+  font-size: 0.66rem;
+  font-weight: 920;
+}
+
+.privatePreviewSummary strong,
+.privateCandidateTop strong {
+  display: block;
+  margin-top: 6px;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 930;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.privatePreviewSummary p {
+  margin: 7px 0 0;
+  color: #475569;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.privateCandidateCard dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.privateCandidateCard dl div {
+  padding: 8px;
+  border: 1px solid #ffedd5;
+  border-radius: 10px;
+  background: #fffaf5;
+}
+
+.privateCandidateCard dt {
+  color: #9a3412;
+  font-size: 0.64rem;
+  font-weight: 900;
+}
+
+.privateCandidateCard dd {
+  margin: 3px 0 0;
+  color: #0f172a;
+  font-size: 0.74rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.privateCheckList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.privateCheckList span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.checkPass {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.checkHold {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.readinessPanel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.readinessStepGrid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.readinessStepCard strong {
+  display: block;
+  margin-top: 8px;
+  color: #0f172a;
+  font-size: 0.8rem;
+  font-weight: 920;
+  line-height: 1.35;
+}
+
+.readinessStepCard p {
+  margin: 7px 0 0;
+  color: #475569;
+  font-size: 0.7rem;
+  line-height: 1.48;
+}
+
 .evidenceGradeCard em {
   display: block;
   margin-top: 8px;
@@ -2194,14 +2378,16 @@
   .healthGrid,
   .clickBaselineBanner,
   .healthStandardGrid,
-  .bridgeIntroGrid,
-  .signalFlowGrid,
-  .candidateGateGrid,
-  .noSendSummaryGrid,
-  .postPatchGrid,
-  .postPatchDetailGrid,
-  .postPatchOrderRows,
-  .dropoffGrid,
+    .bridgeIntroGrid,
+    .signalFlowGrid,
+    .candidateGateGrid,
+    .noSendSummaryGrid,
+  .privatePreviewSummary,
+  .privateCandidateGrid,
+    .postPatchGrid,
+    .postPatchDetailGrid,
+    .postPatchOrderRows,
+    .dropoffGrid,
   .dropoffCompareGrid,
   .paymentStatusGrid,
   .evidenceGradeGrid,
@@ -2223,6 +2409,10 @@
   }
 
   .noSendStepGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .readinessStepGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2254,6 +2444,9 @@
     .candidateGateGrid,
     .noSendSummaryGrid,
     .noSendStepGrid,
+    .privatePreviewSummary,
+    .privateCandidateGrid,
+    .readinessStepGrid,
     .truthSplitGrid,
     .truthEvidenceGrid,
   .okrResultGrid,

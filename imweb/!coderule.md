@@ -1,7 +1,7 @@
 # Biocom Imweb Custom Code Rule
 
-작성 시각: 2026-05-21 21:24 KST
-기준일: 2026-05-21
+작성 시각: 2026-05-26 22:16 KST
+기준일: 2026-05-26
 문서 성격: Biocom 아임웹 헤더/바디/푸터 코드 설계 의도와 수정 규칙
 
 ```yaml
@@ -15,6 +15,7 @@ harness_preflight:
     - project/imweb-header-top-full-v313-virtual-account-issued-20260521.md
     - project/imweb-footer-full-v445-block4-value-retry-20260521.md
     - project/virtual-account-issued-v313-live-smoke-result-20260521.md
+    - imweb/biocom_imweb_footer_paid_touch_payload_patch_v4_4_5_260526.md
   lane: Green
   allowed_actions:
     - local_documentation
@@ -28,10 +29,10 @@ harness_preflight:
     - production_db_write
     - vm_cloud_deploy
   source_window_freshness_confidence:
-    source: local generated Imweb header/footer docs + TJ님 live smoke observations
-    window: 2026-05-21 current Biocom Imweb custom code state
-    freshness: 2026-05-21 21:24 KST
-    confidence: 0.9
+    source: local generated Imweb header/footer docs + TJ님 live smoke observations + VM Cloud read-only smoke
+    window: 2026-05-21 ~ 2026-05-26 Biocom Imweb custom code state
+    freshness: 2026-05-26 22:16 KST
+    confidence: 0.93
 ```
 
 ## 10초 요약
@@ -42,6 +43,8 @@ Biocom 아임웹 코드는 광고 클릭 보존, 결제 시작 추적, 미입금
 
 1. 가상계좌 주문생성/미입금은 매출이 아니다. `Purchase`가 아니라 `VirtualAccountIssued`로만 보내며 `value=0`을 유지한다.
 2. `InitiateCheckout`은 실제 구매가 아니라 결제 시작이다. 그래도 Meta 중간 퍼널 품질을 위해 `value/currency`는 반드시 포함해야 한다.
+
+2026-05-26 기준으로 푸터 v4.4.5의 추가 목적은 하나다. 결제완료 URL에서 원래 광고 UTM이 사라져도, 결제 직전에 브라우저에 남아 있던 유료 유입값을 `paidTouchBeforeCheckout` 증거로 결제완료 기록에 같이 붙인다. 이렇게 해야 Meta 숫자 캠페인 ID가 있던 주문이 완료 페이지에서 미매칭으로 떨어지는 일을 줄일 수 있다.
 
 최근 회귀는 푸터 업데이트 중 Block4 fallback이 금액을 너무 빨리 읽어 `InitiateCheckout value`가 빠진 것이었다. 현재 기준은 Block4 v0.5에서 전송 직전 금액을 다시 읽고, 없으면 짧게 재시도한다.
 
@@ -60,6 +63,7 @@ Biocom 아임웹 코드는 광고 클릭 보존, 결제 시작 추적, 미입금
 
 - 헤더 코드 상단 전체본: `project/imweb-header-top-full-v313-virtual-account-issued-20260521.md`
 - 푸터 코드 전체본: `project/imweb-footer-full-v445-block4-value-retry-20260521.md`
+- 푸터 v4.4.5 보강 전체본: `imweb/biocom_imweb_footer_paid_touch_payload_patch_v4_4_5_260526.md`
 - 가상계좌 v3.1.3 smoke 결과: `project/virtual-account-issued-v313-live-smoke-result-20260521.md`
 
 이 문서는 실제 전체 코드를 다시 붙이는 문서가 아니다. 다음 수정자가 왜 현재 코드가 이렇게 나뉘어 있는지, 무엇을 바꾸면 안 되는지 보는 운영 규칙 문서다.
@@ -175,6 +179,8 @@ Keepgrow는 외부 서비스 초기화 코드다. GTM noscript는 JavaScript가 
 - `2026-05-21-biocom-checkout-started-click-id-v4-3`
 - `2026-05-21-biocom-payment-split-v4-4-3`
 - `2026-05-21-biocom-funnel-capi-v4-4-4`
+- `2026-05-26-biocom-payment-success-v4-4-5`
+- `2026-05-26.paid-touch-before-checkout.v1.flat-touch-fallback`
 - `2026-05-21-biocom-meta-funnel-fallback-block4-v0-5`
 - `biocom_phase9_v444`
 - `biocom_block4_v0_5`
@@ -203,6 +209,36 @@ Block 3은 `/shop_payment/`와 완료 URL을 분리한다.
 - `/shop_payment_complete` 등 완료 URL: `payment_success`
 
 여기서도 `payment_success`는 브라우저에서 Meta `Purchase`를 직접 보내는 뜻이 아니다. VM Cloud evidence에 결제 완료 후보를 남기는 역할이다.
+
+#### 2026-05-26 v4.4.5 보강 의도
+
+v4.4.5는 `payment_success` payload 안에 `metadata.paidTouchBeforeCheckout`을 붙인다.
+
+이 값은 구매완료 시점의 URL이 아니라, 고객이 결제 페이지로 넘어가기 전에 마지막으로 확인된 유료 광고 유입값이다. 아임웹 결제완료 URL에는 `utm_campaign`, `utm_term`, `utm_content`가 사라질 수 있으므로, 완료 화면에서만 값을 읽으면 Meta 캠페인 매칭이 끊긴다.
+
+보강 순서는 다음과 같다.
+
+1. 명시적으로 저장된 `biocom_paid_touch_before_checkout_v1`이 있으면 먼저 쓴다.
+2. 그 값이 없더라도 기존 `_p1s1a_last_touch` 안에 숫자형 Meta UTM이 남아 있으면 `flat_touch_numeric_meta_fallback`으로 복구한다.
+3. 숫자형 `campaign/adset/ad` ID가 모두 있으면 A급 증거로 본다.
+4. `{{campaign.id}}`처럼 템플릿 문구가 그대로 남은 값은 A급으로 올리지 않고 수동확인 대상으로 둔다.
+
+이 보강은 광고 플랫폼으로 전환을 보내는 기능이 아니다. VM Cloud 보조 원장에 결제완료 후보와 유입 증거를 같이 남기는 기능이다.
+
+#### 2026-05-26 live smoke 결과
+
+TJ님 통제 가상계좌 테스트에서 브라우저 저장값과 VM Cloud 기록이 이어지는 것을 확인했다.
+
+- source: VM Cloud attribution ledger read-only
+- window: 2026-05-26 21:20~21:32 KST
+- site/source: `biocom_imweb`
+- observed rows: 18
+- `paidTouchBeforeCheckout` 포함 row: 1
+- grade: A 1건
+- freshness: 2026-05-26 22:16 KST
+- confidence: 0.92
+
+해석: 테스트 주문 자체는 가상계좌 미입금이므로 확정 매출로 보면 안 된다. 다만 결제완료 후보 기록에 숫자 Meta ID가 붙는 경로는 정상 작동했다.
 
 ### Phase 9
 
@@ -273,6 +309,8 @@ v0.5부터 `InitiateCheckout`과 `AddPaymentInfo`는 전송 직전에 주문서 
 - URL에 새 click id가 있으면 새 값을 우선한다.
 - payment success 단계에서 stale click id를 복원하지 않도록 source를 기록한다.
 - raw click id는 문서/대화/보고서에 노출하지 않는다.
+- Meta 숫자 UTM은 결제완료 URL이 아니라 결제 직전 touch snapshot으로도 보존한다.
+- `paidTouchBeforeCheckout`은 원장 매칭 증거다. 확정 매출 여부는 payment-decision과 주문 상태가 따로 결정한다.
 
 ### Naver 유입 기준
 
@@ -336,6 +374,14 @@ Imweb 코드를 고칠 때는 아래 순서를 따른다.
 - 상품상세에서 storage에 click id presence가 남는다.
 - `/shop_payment/` 진입 후 click id presence가 유지된다.
 - VM Cloud 원장 집계에서 Google click id row가 증가한다.
+
+### Meta paid touch 보존
+
+- Meta 랜딩 URL에 숫자형 `utm_campaign`, `utm_term`, `utm_content`가 있다.
+- 결제 페이지 진입 뒤 `_p1s1a_last_touch` 또는 `biocom_paid_touch_before_checkout_v1`에 같은 숫자값이 남는다.
+- 완료 URL의 `payment_success` metadata에 `paidTouchBeforeCheckout.grade=A`가 붙는다.
+- 완료 URL top-level UTM이 비어 있어도 백엔드 ROAS 계산은 `paidTouchBeforeCheckout`을 보조 근거로 읽는다.
+- 가상계좌 pending 주문은 유입 증거가 있어도 확정 매출로 승격하지 않는다.
 
 ### 결제 시작
 
