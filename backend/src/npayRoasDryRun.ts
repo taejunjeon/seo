@@ -60,6 +60,18 @@ type SqliteIntentRow = {
   npay_bridge_host?: string | null;
   npay_bridge_path_hash?: string | null;
   npay_bridge_observed_at?: string | null;
+  npay_checkout_bridge_id_hash?: string | null;
+  imweb_order_code_hash?: string | null;
+  channel_order_no_hash?: string | null;
+  local_session_id_hash?: string | null;
+  cart_fingerprint_hash?: string | null;
+  expected_payment_amount_krw?: number | null;
+  checkout_stage?: string | null;
+  bridge_opened_at?: string | null;
+  checkout_opened_at?: string | null;
+  login_gate_observed_at?: string | null;
+  order_init_observed_at?: string | null;
+  bridge_version?: string | null;
   product_idx: string;
   product_name: string;
   product_price: number | null;
@@ -128,6 +140,18 @@ export type NpayRoasDryRunIntent = {
   npayBridgeHost: string;
   npayBridgePathHash: string;
   npayBridgeObservedAt: string;
+  npayCheckoutBridgeIdHash?: string;
+  imwebOrderCodeHash?: string;
+  channelOrderNoHash?: string;
+  localSessionIdHash?: string;
+  cartFingerprintHash?: string;
+  expectedPaymentAmountKrw?: number | null;
+  checkoutStage?: string;
+  bridgeOpenedAt?: string;
+  checkoutOpenedAt?: string;
+  loginGateObservedAt?: string;
+  orderInitObservedAt?: string;
+  bridgeVersion?: string;
   productIdx: string;
   productName: string;
   productPrice: number | null;
@@ -493,6 +517,18 @@ export type NpayIntentRematchDryRunCandidate = {
   npayBridgeHost: string;
   npayBridgePathHashPresent: boolean;
   npayBridgeObservedAt: string;
+  npayCheckoutBridgeIdHashPresent: boolean;
+  imwebOrderCodeHashPresent: boolean;
+  channelOrderNoHashPresent: boolean;
+  localSessionIdHashPresent: boolean;
+  cartFingerprintHashPresent: boolean;
+  expectedPaymentAmountKrw: number | null;
+  checkoutStage: string;
+  bridgeOpenedAt: string;
+  checkoutOpenedAt: string;
+  loginGateObservedAt: string;
+  orderInitObservedAt: string;
+  bridgeVersion: string;
   gadCampaignId: string;
   utm: {
     source: string;
@@ -960,6 +996,18 @@ const toIntent = (row: SqliteIntentRow): NpayRoasDryRunIntent => ({
   npayBridgeHost: row.npay_bridge_host ?? "",
   npayBridgePathHash: row.npay_bridge_path_hash ?? "",
   npayBridgeObservedAt: row.npay_bridge_observed_at ?? "",
+  npayCheckoutBridgeIdHash: row.npay_checkout_bridge_id_hash ?? "",
+  imwebOrderCodeHash: row.imweb_order_code_hash ?? "",
+  channelOrderNoHash: row.channel_order_no_hash ?? "",
+  localSessionIdHash: row.local_session_id_hash ?? "",
+  cartFingerprintHash: row.cart_fingerprint_hash ?? "",
+  expectedPaymentAmountKrw: row.expected_payment_amount_krw ?? null,
+  checkoutStage: row.checkout_stage ?? "",
+  bridgeOpenedAt: row.bridge_opened_at ?? "",
+  checkoutOpenedAt: row.checkout_opened_at ?? "",
+  loginGateObservedAt: row.login_gate_observed_at ?? "",
+  orderInitObservedAt: row.order_init_observed_at ?? "",
+  bridgeVersion: row.bridge_version ?? "",
   productIdx: row.product_idx,
   productName: row.product_name,
   productPrice: row.product_price,
@@ -1685,6 +1733,18 @@ const readLiveIntents = (
           ${optionalColumnSelect(columns, "npay_bridge_host")},
           ${optionalColumnSelect(columns, "npay_bridge_path_hash")},
           ${optionalColumnSelect(columns, "npay_bridge_observed_at")},
+          ${optionalColumnSelect(columns, "npay_checkout_bridge_id_hash")},
+          ${optionalColumnSelect(columns, "imweb_order_code_hash")},
+          ${optionalColumnSelect(columns, "channel_order_no_hash")},
+          ${optionalColumnSelect(columns, "local_session_id_hash")},
+          ${optionalColumnSelect(columns, "cart_fingerprint_hash")},
+          ${optionalColumnSelect(columns, "expected_payment_amount_krw")},
+          ${optionalColumnSelect(columns, "checkout_stage")},
+          ${optionalColumnSelect(columns, "bridge_opened_at")},
+          ${optionalColumnSelect(columns, "checkout_opened_at")},
+          ${optionalColumnSelect(columns, "login_gate_observed_at")},
+          ${optionalColumnSelect(columns, "order_init_observed_at")},
+          ${optionalColumnSelect(columns, "bridge_version")},
           product_idx, product_name, product_price,
           member_code, member_hash, phone_hash, email_hash, duplicate_count
         FROM npay_intent_log
@@ -2505,6 +2565,18 @@ const buildRematchCandidate = (
     npayBridgeHost: intent.npayBridgeHost,
     npayBridgePathHashPresent: Boolean(intent.npayBridgePathHash),
     npayBridgeObservedAt: intent.npayBridgeObservedAt,
+    npayCheckoutBridgeIdHashPresent: Boolean(intent.npayCheckoutBridgeIdHash),
+    imwebOrderCodeHashPresent: Boolean(intent.imwebOrderCodeHash),
+    channelOrderNoHashPresent: Boolean(intent.channelOrderNoHash),
+    localSessionIdHashPresent: Boolean(intent.localSessionIdHash),
+    cartFingerprintHashPresent: Boolean(intent.cartFingerprintHash),
+    expectedPaymentAmountKrw: intent.expectedPaymentAmountKrw ?? null,
+    checkoutStage: intent.checkoutStage ?? "",
+    bridgeOpenedAt: intent.bridgeOpenedAt ?? "",
+    checkoutOpenedAt: intent.checkoutOpenedAt ?? "",
+    loginGateObservedAt: intent.loginGateObservedAt ?? "",
+    orderInitObservedAt: intent.orderInitObservedAt ?? "",
+    bridgeVersion: intent.bridgeVersion ?? "",
     gadCampaignId: extractGadCampaignIdFromUrlLike(candidate.pageLocation),
     utm: candidate.utm,
     clickIds,
