@@ -1,0 +1,18 @@
+{
+  "package": "gpt0525-2-roas-aggregate-and-large-endpoint-audit",
+  "created_at_kst": "2026-05-25",
+  "lane": "Green",
+  "scope": "TikTok ROAS screen scope audit, large endpoint audit, aggregate-first design",
+  "files": [
+    "00-result-report.md",
+    "01-roas-screen-scope.md",
+    "02-large-endpoint-audit.md",
+    "03-tiktok-roas-aggregate-design.md",
+    "manifest.json"
+  ],
+  "external_send": false,
+  "vm_deploy_restart": false,
+  "production_db_write": false,
+  "gtm_publish": false,
+  "raw_identifier_output": false
+}

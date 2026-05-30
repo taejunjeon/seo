@@ -25,6 +25,8 @@
 9. 실행이 막히면 `승인 부족`이라고 뭉뚱그리지 말고 `접근 권한`, `브라우저/CORS`, `데이터 부족`, `계정/2FA`, `기술 실패` 중 어디서 막혔는지 특정한다.
 10. HOLD가 나오면 TJ님 승인 대기로 바로 넘기지 말고 `AUTONOMY_POLICY.md`의 HOLD Reducer Rule에 따라 Green follow-up을 먼저 수행한다.
 11. 멀티에이전트는 `조사 병렬 / 수정 통합 / 커밋 단일` 원칙을 따른다. 상세 기준은 `AUTONOMY_POLICY.md`의 Multi-Agent Worktree Rule을 따른다.
+12. Green First가 기본값이다. 문서 조사, read-only 조회, dry-run, 로컬 테스트, 설계, 승인안 작성, 스코프 내 로컬 수정은 확인 요청 없이 진행하고 결과로 보고한다.
+13. Subagent는 속도를 올리는 도구다. 코드베이스 조사, 문서 검토, QA, 프론트 smoke, 승인안 초안처럼 서로 충돌하지 않는 작업은 병렬화하고, 수정 통합과 운영 영향 작업은 parent agent가 단일 책임으로 닫는다.
 
 ## 목적
 

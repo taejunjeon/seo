@@ -1,0 +1,17 @@
+{
+  "name": "gpt0525-6-roas-summary-first-screen-audit",
+  "created_at_kst": "2026-05-25 21:21 KST",
+  "lane": "Green",
+  "summary": "Audited large ROAS frontend screens for summary-first vs live/raw endpoint usage and documented OKR/action plan.",
+  "files": [
+    "00-result-report.md",
+    "01-screen-audit.md",
+    "02-okr-action-plan.md",
+    "manifest.json"
+  ],
+  "no_send": true,
+  "no_write": true,
+  "no_deploy": true,
+  "no_publish": true,
+  "raw_identifier_output": false
+}

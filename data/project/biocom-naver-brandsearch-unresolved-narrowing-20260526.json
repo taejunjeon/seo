@@ -1,0 +1,347 @@
+{
+  "ok": true,
+  "schema_version": "biocom-naver-brandsearch-unresolved-narrowing-v1-20260526",
+  "generated_at": "2026-05-25T15:45:32.059Z",
+  "mode": "read_only_no_send_no_write",
+  "site": "biocom",
+  "window": {
+    "since": "2026-05-22",
+    "until": "2026-05-25",
+    "timezone": "KST"
+  },
+  "source_policy": {
+    "primary_marker_source": "VM Cloud attribution_ledger payment_success confirmed with naver_brandsearch marker",
+    "order_cross_checks": [
+      "operating_db public.tb_iamweb_users",
+      "VM Cloud imweb_orders cache"
+    ],
+    "raw_identifier_policy": "No raw order/payment/member/click identifiers are emitted. Hashes are internal-only and not included in output."
+  },
+  "freshness": {
+    "landing_max_landed_at": "2026-05-25T15:44:02.326Z",
+    "attribution_max_logged_at": "2026-05-25T15:25:23.974Z",
+    "vm_imweb_orders_max_complete_or_order_time": "2026-05-25T15:11:46.000Z",
+    "operating_db_max_source_date": "2026-05-25"
+  },
+  "source_summary": {
+    "marker_rows": 19,
+    "previous_unresolved_rows": 6,
+    "operating_db_order_rows_in_extended_window": 405,
+    "vm_cloud_imweb_order_rows_in_extended_window": 720
+  },
+  "narrowing": {
+    "target_rows": 6,
+    "classification_counts": {
+      "vm_cloud_order_exact_operating_db_key_gap": {
+        "rows": 6,
+        "budget_treatment": "can_review_for_upgrade_after_order_source_policy"
+      }
+    },
+    "narrowed_safe_rows": [
+      {
+        "safe_row_no": 13,
+        "marker_date": "2026-05-24",
+        "amount_bucket": "100k_to_299k",
+        "previous_classification": "no_bridge",
+        "previous_reason": "order_key_not_found_in_operating_db_with_session_bridge",
+        "narrowed_classification": "vm_cloud_order_exact_operating_db_key_gap",
+        "recommended_next_step": "VM Cloud imweb_orders exact match를 주문 정본 보조근거로 두고 운영DB sync/key 차이를 별도 확인",
+        "budget_treatment": "can_review_for_upgrade_after_order_source_policy",
+        "evidence_counts": {
+          "exact_key_match_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_same_date_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_within_1d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_within_3d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_any_window_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "near_amount_within_1d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          }
+        },
+        "source_amount_sums": {
+          "exact_key_match_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 146718
+          },
+          "same_amount_same_date_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 146718
+          }
+        },
+        "has_order_key_candidate": true,
+        "session_bridge_present": true
+      },
+      {
+        "safe_row_no": 14,
+        "marker_date": "2026-05-24",
+        "amount_bucket": "300k_to_499k",
+        "previous_classification": "no_bridge",
+        "previous_reason": "order_key_not_found_in_operating_db_with_session_bridge",
+        "narrowed_classification": "vm_cloud_order_exact_operating_db_key_gap",
+        "recommended_next_step": "VM Cloud imweb_orders exact match를 주문 정본 보조근거로 두고 운영DB sync/key 차이를 별도 확인",
+        "budget_treatment": "can_review_for_upgrade_after_order_source_policy",
+        "evidence_counts": {
+          "exact_key_match_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_same_date_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_within_1d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_within_3d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_any_window_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "near_amount_within_1d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          }
+        },
+        "source_amount_sums": {
+          "exact_key_match_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 445000
+          },
+          "same_amount_same_date_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 445000
+          }
+        },
+        "has_order_key_candidate": true,
+        "session_bridge_present": true
+      },
+      {
+        "safe_row_no": 16,
+        "marker_date": "2026-05-24",
+        "amount_bucket": "100k_to_299k",
+        "previous_classification": "ambiguous",
+        "previous_reason": "amount_date_duplicate_needs_order_key_review",
+        "narrowed_classification": "vm_cloud_order_exact_operating_db_key_gap",
+        "recommended_next_step": "VM Cloud imweb_orders exact match를 주문 정본 보조근거로 두고 운영DB sync/key 차이를 별도 확인",
+        "budget_treatment": "can_review_for_upgrade_after_order_source_policy",
+        "evidence_counts": {
+          "exact_key_match_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_same_date_by_source": {
+            "operating_db": 12,
+            "vm_cloud_imweb_orders": 17
+          },
+          "same_amount_within_1d_by_source": {
+            "operating_db": 26,
+            "vm_cloud_imweb_orders": 57
+          },
+          "same_amount_within_3d_by_source": {
+            "operating_db": 54,
+            "vm_cloud_imweb_orders": 95
+          },
+          "same_amount_any_window_by_source": {
+            "operating_db": 94,
+            "vm_cloud_imweb_orders": 161
+          },
+          "near_amount_within_1d_by_source": {
+            "operating_db": 26,
+            "vm_cloud_imweb_orders": 58
+          }
+        },
+        "source_amount_sums": {
+          "exact_key_match_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 245000
+          },
+          "same_amount_same_date_krw_by_source": {
+            "operating_db": 2940000,
+            "vm_cloud_imweb_orders": 4165000
+          }
+        },
+        "has_order_key_candidate": true,
+        "session_bridge_present": true
+      },
+      {
+        "safe_row_no": 17,
+        "marker_date": "2026-05-25",
+        "amount_bucket": "300k_to_499k",
+        "previous_classification": "ambiguous",
+        "previous_reason": "amount_date_duplicate_needs_order_key_review",
+        "narrowed_classification": "vm_cloud_order_exact_operating_db_key_gap",
+        "recommended_next_step": "VM Cloud imweb_orders exact match를 주문 정본 보조근거로 두고 운영DB sync/key 차이를 별도 확인",
+        "budget_treatment": "can_review_for_upgrade_after_order_source_policy",
+        "evidence_counts": {
+          "exact_key_match_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_same_date_by_source": {
+            "operating_db": 1,
+            "vm_cloud_imweb_orders": 3
+          },
+          "same_amount_within_1d_by_source": {
+            "operating_db": 2,
+            "vm_cloud_imweb_orders": 5
+          },
+          "same_amount_within_3d_by_source": {
+            "operating_db": 6,
+            "vm_cloud_imweb_orders": 14
+          },
+          "same_amount_any_window_by_source": {
+            "operating_db": 11,
+            "vm_cloud_imweb_orders": 18
+          },
+          "near_amount_within_1d_by_source": {
+            "operating_db": 3,
+            "vm_cloud_imweb_orders": 8
+          }
+        },
+        "source_amount_sums": {
+          "exact_key_match_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 484500
+          },
+          "same_amount_same_date_krw_by_source": {
+            "operating_db": 484500,
+            "vm_cloud_imweb_orders": 1453500
+          }
+        },
+        "has_order_key_candidate": true,
+        "session_bridge_present": true
+      },
+      {
+        "safe_row_no": 18,
+        "marker_date": "2026-05-25",
+        "amount_bucket": "100k_to_299k",
+        "previous_classification": "no_bridge",
+        "previous_reason": "order_key_not_found_in_operating_db_with_session_bridge",
+        "narrowed_classification": "vm_cloud_order_exact_operating_db_key_gap",
+        "recommended_next_step": "VM Cloud imweb_orders exact match를 주문 정본 보조근거로 두고 운영DB sync/key 차이를 별도 확인",
+        "budget_treatment": "can_review_for_upgrade_after_order_source_policy",
+        "evidence_counts": {
+          "exact_key_match_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_same_date_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_within_1d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_within_3d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_any_window_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "near_amount_within_1d_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          }
+        },
+        "source_amount_sums": {
+          "exact_key_match_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 100766
+          },
+          "same_amount_same_date_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 100766
+          }
+        },
+        "has_order_key_candidate": true,
+        "session_bridge_present": true
+      },
+      {
+        "safe_row_no": 19,
+        "marker_date": "2026-05-25",
+        "amount_bucket": "300k_to_499k",
+        "previous_classification": "probable",
+        "previous_reason": "date_window_mismatch_candidate",
+        "narrowed_classification": "vm_cloud_order_exact_operating_db_key_gap",
+        "recommended_next_step": "VM Cloud imweb_orders exact match를 주문 정본 보조근거로 두고 운영DB sync/key 차이를 별도 확인",
+        "budget_treatment": "can_review_for_upgrade_after_order_source_policy",
+        "evidence_counts": {
+          "exact_key_match_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_same_date_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 1
+          },
+          "same_amount_within_1d_by_source": {
+            "operating_db": 1,
+            "vm_cloud_imweb_orders": 2
+          },
+          "same_amount_within_3d_by_source": {
+            "operating_db": 3,
+            "vm_cloud_imweb_orders": 4
+          },
+          "same_amount_any_window_by_source": {
+            "operating_db": 3,
+            "vm_cloud_imweb_orders": 8
+          },
+          "near_amount_within_1d_by_source": {
+            "operating_db": 1,
+            "vm_cloud_imweb_orders": 2
+          }
+        },
+        "source_amount_sums": {
+          "exact_key_match_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 471200
+          },
+          "same_amount_same_date_krw_by_source": {
+            "operating_db": 0,
+            "vm_cloud_imweb_orders": 471200
+          }
+        },
+        "has_order_key_candidate": true,
+        "session_bridge_present": true
+      }
+    ]
+  },
+  "interpretation": {
+    "plain_summary": "기존 biocom 브랜드검색 미해결 6건은 VM Cloud imweb_orders 보조 주문 캐시에서는 모두 exact key match다.",
+    "one_step_narrowed": "문제는 주문 부재가 아니라 운영DB public.tb_iamweb_users와 VM Cloud imweb_orders 사이의 주문키/동기화 기준 차이로 좁혀졌다.",
+    "budget_use": "운영DB 기준 exact 13건은 보수 ROAS로 유지한다. 추가 6건은 VM Cloud exact 보조근거가 있으므로 주문 source 정책을 승인하면 upgraded bridge 후보가 된다.",
+    "next_action": "운영DB와 VM Cloud imweb_orders 중 브랜드검색 주문 단위 bridge의 primary/cross-check 정책을 정한 뒤, 6건을 upgrade preview에 반영한다."
+  },
+  "invariants_held": {
+    "sqlite_mode": "read_only",
+    "sqlite_write": 0,
+    "raw_identifier_output": 0,
+    "order_key_hash_mode": "sha256_one_way_internal_only",
+    "operating_db_write": 0,
+    "vm_cloud_sqlite_write": 0,
+    "backend_deploy_or_restart": 0,
+    "platform_send": 0
+  }
+}

@@ -1,0 +1,228 @@
+{
+  "report": "reportcoffee_smartstore_playauto_warning_and_naver_commerce_api_review_v1",
+  "generated_at_kst": "2026-05-26 00:23 KST",
+  "mode": "read_only_no_send_no_write",
+  "site": "thecleancoffee",
+  "harness_preflight": {
+    "common_harness_read": [
+      "AGENTS.md",
+      "harness/common/HARNESS_GUIDELINES.md",
+      "harness/common/AUTONOMY_POLICY.md"
+    ],
+    "project_harness_read": [
+      "harness/coffee-data/README.md",
+      "report/!report.md",
+      "report/reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525.md"
+    ],
+    "lane": "Green",
+    "allowed_actions": [
+      "read_only_operational_db_review",
+      "read_only_external_api_probe",
+      "local_json_markdown_update",
+      "no_send_json_regeneration"
+    ],
+    "forbidden_actions": [
+      "slack_send",
+      "operating_db_write",
+      "vm_cloud_write_or_deploy",
+      "platform_send_or_upload",
+      "gtm_publish",
+      "raw_identifier_output"
+    ],
+    "source_window_freshness_confidence": {
+      "source": "operational DB PlayAuto aggregate, local no-send JSON, official Naver Commerce API docs, local Commerce API token probe",
+      "window": "2026-04-25 - 2026-05-01, 2026-05-18 - 2026-05-24",
+      "freshness": "2026-05-26 00:23 KST",
+      "confidence": "medium_high for PlayAuto operating source with warning, medium for Naver Commerce API readiness because token is IP-blocked and coffee store scope is not proven"
+    }
+  },
+  "decision": {
+    "smartstore_operating_source": "operational_postgres.public.tb_playauto_orders shop_name='스마트스토어'",
+    "report_status": "included_with_warning",
+    "source_basis": "playauto_smartstore_pay_amt_v1",
+    "policy": "스마트스토어는 PlayAuto 경고 포함으로 먼저 운영한다. 네이버 커머스API 직접 조회가 더클린커피 권한/IP/스토어 범위까지 검증되기 전에는 PlayAuto를 운영 후보로 쓰고 경고를 노출한다.",
+    "do_not_use_as_primary": [
+      "operational_db.public.tb_naver_orders because current coffee product isolation is not proven",
+      "operational_db.public.tb_sales_naver_vat because observed source is Biocom/product-settlement oriented",
+      "Naver Ads API credentials because they are ad-spend credentials, not SmartStore order credentials"
+    ]
+  },
+  "known_excel_gap": {
+    "window": {
+      "start_date": "2026-04-25",
+      "end_date_inclusive": "2026-05-01",
+      "timezone": "Asia/Seoul"
+    },
+    "excel": {
+      "amount_krw": 1905140,
+      "rows": 55
+    },
+    "playauto": {
+      "amount_krw": 1839340,
+      "rows": 53,
+      "quantity": 64
+    },
+    "difference": {
+      "amount_krw": -65800,
+      "rows": -2,
+      "percent": -3.45
+    },
+    "operating_interpretation": "65,800원 / 2건 차이를 숨기지 않고 Slack no-send와 보고서에 source warning으로 노출한다. 숫자를 Excel에 맞추는 임의 보정은 하지 않는다."
+  },
+  "no_send_json_update": {
+    "files_regenerated": [
+      "report/reportcoffee-sales-summary-no-send-20260524.json",
+      "report/reportcoffee-sales-summary-no-send-20260501-imweb-complete-time.json"
+    ],
+    "current_weekly_20260518_20260524": {
+      "smartstore_amount_krw": 1526300,
+      "smartstore_rows": 42,
+      "status": "included_with_warning",
+      "source_status": "operating_with_playauto_warning",
+      "warning_count": 4
+    },
+    "excel_window_20260425_20260501": {
+      "smartstore_amount_krw": 1839340,
+      "smartstore_rows": 53,
+      "status": "included_with_warning",
+      "source_status": "operating_with_playauto_warning",
+      "excel_gap_reference_attached": true
+    },
+    "warning_messages": [
+      "스마트스토어는 PlayAuto 기준으로 먼저 운영하되, 정산/Excel 기준과 완전 일치 전까지 source warning을 유지",
+      "2026-04-25 - 2026-05-01 대조에서 Excel보다 PlayAuto가 65,800원 / 2 rows 낮음",
+      "네이버 커머스API 직접 조회는 더클린커피 권한/IP/스토어 scope가 검증되기 전까지 primary로 쓰지 않음",
+      "운영DB tb_naver_orders/tb_sales_naver_vat는 더클린커피 상품 기준 primary로 쓰지 않음"
+    ]
+  },
+  "naver_commerce_api_review": {
+    "official_api_exists": true,
+    "what_it_can_do": [
+      "changed product order list lookup",
+      "product order detail lookup",
+      "case or daily settlement lookup"
+    ],
+    "official_docs": [
+      {
+        "label": "Naver Commerce API introduction",
+        "url": "https://apicenter.commerce.naver.com/docs/introduction",
+        "finding": "커머스API는 스마트스토어 기능을 HTTP API로 호출하는 공식 API이고, API센터 가입과 애플리케이션 등록 권한이 필요하다."
+      },
+      {
+        "label": "Naver Commerce API auth",
+        "url": "https://apicenter.commerce.naver.com/docs/auth",
+        "finding": "OAuth2 Client Credentials 방식이며 토큰 발급 뒤 Authorization Bearer 헤더로 호출한다. client secret은 직접 보내지 않고 전자서명으로 처리한다."
+      },
+      {
+        "label": "Changed product order statuses",
+        "url": "https://apicenter.commerce.naver.com/docs/commerce-api/2.74.0/seller-get-last-changed-status-pay-order-seller",
+        "finding": "GET /v1/pay-order/seller/product-orders/last-changed-statuses 로 변경 일시 기준 주문 변경 목록을 최대 300개 단위로 조회한다."
+      },
+      {
+        "label": "Product order detail query",
+        "url": "https://apicenter.commerce.naver.com/docs/commerce-api/2.75.0/seller-get-product-orders-pay-order-seller",
+        "finding": "POST /v1/pay-order/seller/product-orders/query 로 상품 주문 상세를 최대 300개 ID 단위로 조회한다."
+      },
+      {
+        "label": "Case settlement query",
+        "url": "https://apicenter.commerce.naver.com/docs/commerce-api/current/find-settle-by-case-pay-settle",
+        "finding": "GET /v1/pay-settle/settle/case 로 건별 정산 내역을 조회하는 경로가 있다."
+      }
+    ],
+    "local_repo_readiness": {
+      "existing_script": "backend/scripts/reconcile-coffee-ga4-naverpay.py",
+      "existing_credential_names": [
+        "BIOCOM_STORE_APP_ID",
+        "BIOCOM_STORE_APP_SECRET"
+      ],
+      "coffee_commerce_credential_names_found": [],
+      "coffee_ads_credential_names_found": [
+        "NAVER_COFFEE_ACEESS",
+        "NAVER_COFFEE_SECREY_KEY",
+        "NAVER_COFFEE_CUSTOMER_ID"
+      ],
+      "interpretation": "현재 .env의 더클린커피 네이버 키는 광고 API 성격으로 보이며, 스마트스토어 주문 조회용 커머스API 앱 ID/시크릿으로 확인되지 않았다."
+    },
+    "local_api_probe": {
+      "attempted_from": "local MacBook",
+      "stage": "oauth_token",
+      "http_status": 403,
+      "safe_code": "GW.IP_NOT_ALLOWED",
+      "safe_message": "호출이 허용되지 않은 IP입니다.",
+      "raw_token_or_secret_output": 0,
+      "interpretation": "현재 MacBook IP에서는 네이버 커머스API 토큰 발급이 허용되지 않는다. 따라서 직접 주문 조회는 아직 검증 완료가 아니다."
+    },
+    "readiness_verdict": "api_possible_but_not_ready_for_thecleancoffee_primary",
+    "readiness_score_percent": 45,
+    "blocked_reasons": [
+      "coffee Commerce API client id/secret not found",
+      "current token probe blocked by IP allowlist",
+      "current repo script names credential as Biocom store app",
+      "coffee SmartStore scope not proven"
+    ]
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0,
+    "raw_click_identifier_output": 0,
+    "secret_or_token_output": 0
+  },
+  "track_progress": {
+    "A_source_rule": {
+      "before": 85,
+      "after": 87,
+      "delta": 2
+    },
+    "B_coffee_sales_source": {
+      "before": 100,
+      "after": 100,
+      "delta": 0
+    },
+    "C_coffee_ad_spend_source": {
+      "before": 100,
+      "after": 100,
+      "delta": 0
+    },
+    "D_biocom_report_source_map": {
+      "before": 74,
+      "after": 74,
+      "delta": 0
+    },
+    "E_slack_no_send_and_schedule": {
+      "before": 100,
+      "after": 100,
+      "delta": 0
+    },
+    "F_automation_guard_readiness": {
+      "before": 100,
+      "after": 100,
+      "delta": 0
+    }
+  },
+  "next_actions": [
+    {
+      "owner": "Codex",
+      "lane": "Green",
+      "action": "Keep SmartStore PlayAuto warning in Slack no-send previews and product TOP sections.",
+      "confidence_percent": 92
+    },
+    {
+      "owner": "TJ",
+      "lane": "Yellow",
+      "action": "If direct SmartStore API should become primary, provide or confirm TheCleanCoffee Commerce API app credentials and allowed caller IP.",
+      "confidence_percent": 78
+    },
+    {
+      "owner": "Codex",
+      "lane": "Green",
+      "action": "Prepare a no-raw Commerce API collector dry-run once credentials/IP are confirmed.",
+      "confidence_percent": 84
+    }
+  ]
+}

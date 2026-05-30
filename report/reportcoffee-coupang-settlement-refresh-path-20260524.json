@@ -1,0 +1,146 @@
+{
+  "report": "reportcoffee_coupang_settlement_refresh_path_20260524",
+  "generated_at_kst": "2026-05-24 13:55",
+  "mode": "read_only_no_send_no_write",
+  "question": "쿠팡 2026-05 정산표 최신화 경로와 API 가능 여부",
+  "answer": {
+    "coupang_api_exists": true,
+    "primary_current_month_api": "revenue-history",
+    "monthly_payout_api": "settlement-histories",
+    "local_cache_status": "stale_until_2026-04-19",
+    "recommended_path": "use revenue-history read-only aggregate for 2026-05 reporting, then update local settlement cache only after backup/dry-run approval"
+  },
+  "official_api_sources": {
+    "settlement_histories": {
+      "purpose": "매출인식월 기준 지급 확정/예정 내역",
+      "path": "/v2/providers/marketplace_openapi/apis/api/v1/settlement-histories",
+      "required_query": "revenueRecognitionYearMonth=YYYY-MM",
+      "key_fields": [
+        "settlementType",
+        "settlementDate",
+        "revenueRecognitionYearMonth",
+        "revenueRecognitionDateFrom",
+        "revenueRecognitionDateTo",
+        "totalSale",
+        "finalAmount",
+        "status"
+      ],
+      "official_doc": "https://developers.coupangcorp.com/hc/ko/articles/360034152213-%EC%A7%80%EA%B8%89%EB%82%B4%EC%97%AD%EC%A1%B0%ED%9A%8C"
+    },
+    "revenue_history": {
+      "purpose": "매출인식일 기준 상세 매출 내역",
+      "path": "/v2/providers/openapi/apis/api/v1/revenue-history",
+      "required_query": "vendorId, recognitionDateFrom, recognitionDateTo, token",
+      "limit": "recognitionDateFrom - recognitionDateTo maximum 31 days",
+      "key_fields": [
+        "saleType",
+        "saleDate",
+        "recognitionDate",
+        "settlementDate",
+        "items.productName",
+        "items.saleAmount",
+        "items.settlementAmount"
+      ],
+      "official_doc": "https://developers.coupangcorp.com/hc/ko/articles/360033922413-%EB%A7%A4%EC%B6%9C%EB%82%B4%EC%97%AD-%EC%A1%B0%ED%9A%8C"
+    }
+  },
+  "observed_read_only_results": {
+    "settlement_histories_2026_05": {
+      "teamketo": {
+        "rows": 4,
+        "total_sale_krw": 7222000,
+        "final_amount_krw": 2289310,
+        "settlement_target_amount_krw": 6380478,
+        "settlement_amount_krw": 4466336,
+        "types": {
+          "WEEKLY": 3,
+          "RESERVE": 1
+        },
+        "statuses": {
+          "PENDING": 4
+        },
+        "min_recognition_date_from": "2026-05-01",
+        "max_recognition_date_to": "2026-05-17",
+        "min_settlement_date": "2026-05-26",
+        "max_settlement_date": "2026-07-01"
+      },
+      "biocom_reference": {
+        "rows": 4,
+        "total_sale_krw": 1019400,
+        "final_amount_krw": 256524,
+        "types": {
+          "WEEKLY": 3,
+          "RESERVE": 1
+        },
+        "statuses": {
+          "DONE": 1,
+          "SUBJECT": 3
+        },
+        "min_recognition_date_from": "2026-05-01",
+        "max_recognition_date_to": "2026-05-17",
+        "min_settlement_date": "2026-05-26",
+        "max_settlement_date": "2026-07-01"
+      }
+    },
+    "revenue_history_teamketo": {
+      "weekly_2026_05_17_to_2026_05_23": {
+        "rows": 39,
+        "item_rows": 39,
+        "total_sale_amount_krw": 1781600,
+        "total_settlement_amount_krw": 1573871,
+        "coffee_hint_sale_amount_krw": 858400,
+        "coffee_hint_settlement_amount_krw": 758317,
+        "teamketo_hint_sale_amount_krw": 923200,
+        "teamketo_hint_settlement_amount_krw": 815554
+      },
+      "month_to_date_2026_05_01_to_2026_05_23": {
+        "rows": 121,
+        "item_rows": 122,
+        "total_sale_amount_krw": 5389600,
+        "total_settlement_amount_krw": 4761209,
+        "coffee_hint_sale_amount_krw": 3391900,
+        "coffee_hint_settlement_amount_krw": 2996443,
+        "teamketo_hint_sale_amount_krw": 1997700,
+        "teamketo_hint_settlement_amount_krw": 1764766
+      },
+      "rolling_30d_2026_04_24_to_2026_05_23": {
+        "rows": 164,
+        "item_rows": 165,
+        "total_sale_amount_krw": 7076500,
+        "total_settlement_amount_krw": 6251438,
+        "coffee_hint_sale_amount_krw": 4719600,
+        "coffee_hint_settlement_amount_krw": 4169355,
+        "teamketo_hint_sale_amount_krw": 2356900,
+        "teamketo_hint_settlement_amount_krw": 2082083
+      }
+    },
+    "local_sqlite_settlement_cache": {
+      "status": "stale",
+      "max_recognition_date_to": "2026-04-19",
+      "max_synced_at": "2026-04-24 09:35:35",
+      "reason": "existing local cache was not refreshed for 2026-05"
+    }
+  },
+  "implementation_notes": {
+    "existing_helper": "backend/src/coupangClient.ts getSettlementHistories(account, yearMonth)",
+    "existing_writer": "backend/scripts/coupang-backfill-settlements.cjs writes to local coupang_settlements_api",
+    "needed_patch_for_revenue_history": "coupangRequest filters empty query values, but revenue-history first page requires token parameter; add a helper that preserves token= for first page instead of using a space workaround",
+    "reporting_policy": {
+      "ordersheets": "주문 발생 기준 live 매출",
+      "revenue_history": "매출인식일 기준 상세 매출, current month reporting에 더 적합",
+      "settlement_histories": "지급 예정/확정 정산표, 월간 payout reconciliation에 적합",
+      "local_cache": "빠른 대시보드용 cache, stale이면 API read-only로 보정"
+    }
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "local_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0
+  },
+  "confidence": "high_for_api_exists_and_read_only_access"
+}

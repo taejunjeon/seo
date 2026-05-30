@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-05-28T03:53:07.313Z",
+  "run_id": "20260528T035257Z",
+  "workspace_id": "171",
+  "preview_environment_id": "309",
+  "quick_preview": {
+    "sync_status": null,
+    "compiler_error": null
+  },
+  "preview_url_redacted": "https://biocom.kr/shop_view/?idx=198&__seo_attribution_debug=1&gclid=REDACTED&utm_source=codex_gtm_preview&utm_medium=preview&utm_campaign=npay_bridge_v11_install_smoke&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+  "state": {
+    "installed_version": "",
+    "expected_version": "2026-05-28-biocom-npay-bridge-gtm-v1-1",
+    "installed": false,
+    "gtm_loaded": true,
+    "has_npay_text": true,
+    "href_path": "/shop_view/"
+  },
+  "console_lines": [],
+  "network_errors": [],
+  "no_npay_click_performed": true,
+  "no_platform_conversion_send": true,
+  "pass": false
+}

@@ -1,0 +1,344 @@
+{
+  "ok": true,
+  "checked_at_kst": "2026-05-26 17:42 KST",
+  "mode": "green_read_only_biocom_meta_only_buyer_vs_leaver_truth_table",
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud SQLite hashed in VM process + GA4 BigQuery SHA256 session hash",
+    "window": "rolling latest 30d",
+    "freshness": "queried at runtime",
+    "confidence": "high"
+  },
+  "site": "biocom",
+  "source_group": "meta",
+  "pixel_or_platform_send": 0,
+  "operating_db_write": 0,
+  "vm_cloud_write": 0,
+  "gtm_publish": 0,
+  "truth_table": {
+    "site": "biocom",
+    "source_group": "meta",
+    "scope_definition": "VM Cloud source_group=meta, then joined to GA4 by safe session hash.",
+    "vm_meta_safe_sessions": 1032,
+    "ga4_joined_sessions": 992,
+    "join_rate_pct": 96.12,
+    "buyer": {
+      "cohort": "buyer",
+      "vm_safe_sessions": 601,
+      "ga4_joined_sessions": 580,
+      "join_rate_pct": 96.51,
+      "amount_krw": 188861442,
+      "p50_dwell_seconds": 202.77,
+      "p75_dwell_seconds": 330.08,
+      "scroll50_rate_pct": 93.1,
+      "scroll90_rate_pct": 93.1,
+      "page_view_long_rate_pct": 17.93,
+      "view_item_rate_pct": 49.31,
+      "add_to_cart_or_view_cart_rate_pct": 13.97,
+      "begin_checkout_rate_pct": 98.1,
+      "add_payment_info_rate_pct": 1.72,
+      "ga4_purchase_event_rate_pct": 97.59,
+      "vm_landing_buckets": [
+        {
+          "bucket": "checkout",
+          "count": 579
+        },
+        {
+          "bucket": "cart",
+          "count": 14
+        },
+        {
+          "bucket": "home_or_other",
+          "count": 7
+        },
+        {
+          "bucket": "product",
+          "count": 1
+        }
+      ],
+      "ga4_source_groups": [
+        {
+          "bucket": "meta",
+          "count": 545
+        },
+        {
+          "bucket": "organic",
+          "count": 27
+        },
+        {
+          "bucket": "naver_paid_or_brand",
+          "count": 4
+        },
+        {
+          "bucket": "naver_other",
+          "count": 3
+        },
+        {
+          "bucket": "other",
+          "count": 1
+        }
+      ],
+      "ga4_landing_buckets": [
+        {
+          "bucket": "home_or_other",
+          "count": 425
+        },
+        {
+          "bucket": "review_or_story",
+          "count": 67
+        },
+        {
+          "bucket": "product",
+          "count": 56
+        },
+        {
+          "bucket": "content_guide",
+          "count": 25
+        },
+        {
+          "bucket": "checkout",
+          "count": 5
+        },
+        {
+          "bucket": "cart",
+          "count": 2
+        }
+      ],
+      "join_methods": [
+        {
+          "bucket": "primary_user_session_hash",
+          "count": 580
+        }
+      ]
+    },
+    "non_buyer": {
+      "cohort": "non_buyer",
+      "vm_safe_sessions": 431,
+      "ga4_joined_sessions": 412,
+      "join_rate_pct": 95.59,
+      "amount_krw": 0,
+      "p50_dwell_seconds": 148.64,
+      "p75_dwell_seconds": 277.95,
+      "scroll50_rate_pct": 84.47,
+      "scroll90_rate_pct": 84.47,
+      "page_view_long_rate_pct": 17.96,
+      "view_item_rate_pct": 54.37,
+      "add_to_cart_or_view_cart_rate_pct": 13.11,
+      "begin_checkout_rate_pct": 91.26,
+      "add_payment_info_rate_pct": 2.91,
+      "ga4_purchase_event_rate_pct": 8.01,
+      "vm_landing_buckets": [
+        {
+          "bucket": "checkout",
+          "count": 409
+        },
+        {
+          "bucket": "product",
+          "count": 11
+        },
+        {
+          "bucket": "home_or_other",
+          "count": 10
+        },
+        {
+          "bucket": "cart",
+          "count": 1
+        }
+      ],
+      "ga4_source_groups": [
+        {
+          "bucket": "meta",
+          "count": 403
+        },
+        {
+          "bucket": "organic",
+          "count": 6
+        },
+        {
+          "bucket": "other",
+          "count": 2
+        },
+        {
+          "bucket": "naver_other",
+          "count": 1
+        }
+      ],
+      "ga4_landing_buckets": [
+        {
+          "bucket": "home_or_other",
+          "count": 305
+        },
+        {
+          "bucket": "product",
+          "count": 42
+        },
+        {
+          "bucket": "review_or_story",
+          "count": 40
+        },
+        {
+          "bucket": "checkout",
+          "count": 12
+        },
+        {
+          "bucket": "content_guide",
+          "count": 10
+        },
+        {
+          "bucket": "cart",
+          "count": 3
+        }
+      ],
+      "join_methods": [
+        {
+          "bucket": "primary_user_session_hash",
+          "count": 412
+        }
+      ]
+    },
+    "deltas": {
+      "buyer_minus_non_buyer_p50_dwell_seconds": 54.13,
+      "buyer_minus_non_buyer_scroll90_rate_pct": 8.63,
+      "buyer_minus_non_buyer_view_item_rate_pct": -5.06,
+      "buyer_minus_non_buyer_add_to_cart_rate_pct": 0.86,
+      "buyer_minus_non_buyer_begin_checkout_rate_pct": 6.84,
+      "buyer_minus_non_buyer_add_payment_info_rate_pct": -1.19
+    },
+    "ga4_purchase_conflict": {
+      "definition": "VM Cloud에서는 Meta non-buyer로 남았지만, 같은 safe session hash로 붙은 GA4에는 purchase event가 있는 row.",
+      "vm_safe_sessions": 33,
+      "rate_among_non_buyer_joined_pct": 8.01,
+      "reason_buckets": [
+        {
+          "bucket": "checkout_started_only_ga4_purchase",
+          "count": 21
+        },
+        {
+          "bucket": "vm_payment_success_not_confirmed",
+          "count": 11
+        },
+        {
+          "bucket": "payment_page_seen_only_ga4_purchase",
+          "count": 1
+        }
+      ],
+      "payment_status_counts": [
+        {
+          "bucket": "blank",
+          "count": 50
+        },
+        {
+          "bucket": "canceled",
+          "count": 9
+        },
+        {
+          "bucket": "pending",
+          "count": 2
+        }
+      ],
+      "touchpoint_counts": [
+        {
+          "bucket": "checkout_started",
+          "count": 36
+        },
+        {
+          "bucket": "payment_page_seen",
+          "count": 14
+        },
+        {
+          "bucket": "payment_success",
+          "count": 11
+        }
+      ],
+      "semantic_touchpoint_counts": [
+        {
+          "bucket": "blank",
+          "count": 43
+        },
+        {
+          "bucket": "payment_page_seen",
+          "count": 14
+        },
+        {
+          "bucket": "payment_success",
+          "count": 4
+        }
+      ],
+      "page_location_class_counts": [
+        {
+          "bucket": "blank",
+          "count": 43
+        },
+        {
+          "bucket": "shop_payment",
+          "count": 14
+        },
+        {
+          "bucket": "payment_success_allowlist",
+          "count": 4
+        }
+      ],
+      "snippet_version_counts": [
+        {
+          "bucket": "2026-05-14-biocom-checkout-started-click-id-v4-2",
+          "count": 21
+        },
+        {
+          "bucket": "2026-04-15-biocom-checkout-started-v1",
+          "count": 13
+        },
+        {
+          "bucket": "2026-05-15-biocom-payment-page-seen-v4-4-2",
+          "count": 12
+        },
+        {
+          "bucket": "2026-04-15-biocom-payment-success-order-code-v1",
+          "count": 6
+        },
+        {
+          "bucket": "2026-05-15-biocom-payment-success-v4-4-2",
+          "count": 3
+        },
+        {
+          "bucket": "2026-05-21-biocom-checkout-started-click-id-v4-3",
+          "count": 2
+        },
+        {
+          "bucket": "2026-05-21-biocom-payment-page-seen-v4-4-3",
+          "count": 2
+        },
+        {
+          "bucket": "2026-05-14-biocom-payment-success-click-id-v4-3",
+          "count": 1
+        }
+      ],
+      "presence_counts": {
+        "payment_success_rows": 11,
+        "confirmed_payment_success_rows": 0,
+        "pending_or_unknown_payment_success_rows": 11,
+        "completion_url_rows": 4,
+        "order_code_present_rows": 4,
+        "order_no_present_rows": 4,
+        "payment_key_present_rows": 0,
+        "transaction_id_present_rows": 4,
+        "value_present_rows": 9
+      },
+      "interpretation": "이 row들은 순수 이탈자가 아니라 GA4와 VM Cloud의 구매 판정이 충돌한 bucket이다. 구매자/비결제자 행동 비교에서는 별도 제외하거나 보류 bucket으로 표시해야 한다."
+    },
+    "confidence": "high",
+    "classification_caveat": "비결제자 cohort 안에도 GA4 purchase event가 있어, 진짜 이탈자와 window/session/source mismatch를 한 번 더 분리해야 한다.",
+    "interpretation": "Meta-only 구매자/비결제자 행동 차이를 선행지표 후보로 비교할 수 있다. 단, 비결제자 안의 GA4 purchase 충돌 row는 별도 bucket으로 분리해야 한다."
+  },
+  "caveats": [
+    "This table filters VM Cloud source_group=meta first, then joins GA4 behavior by safe session hash.",
+    "GA4 purchase is a behavior cross-check, not actual revenue truth.",
+    "Low bridge coverage means this is a leading-indicator exploration table, not a budget or attribution truth table.",
+    "Raw-id Plan B was not executed."
+  ],
+  "safety": {
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_publish": true,
+    "raw_identifier_output": false
+  }
+}

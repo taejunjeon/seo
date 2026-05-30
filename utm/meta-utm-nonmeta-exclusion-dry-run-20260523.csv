@@ -1,0 +1,16 @@
+﻿approved_date,amount,utm_source,utm_campaign,utm_term,utm_content,landing_path,dry_run_bucket,exclude_from_meta_unmapped,can_campaign_match,confidence,matched_utm_alias,matched_channel_bucket,matched_management_memo,matched_source_row,recommendation
+2026-05-22,459000,meta,{{campaign.id}},{{adset.id}},{{ad.id}},,real_meta_placeholder_no_alias,NO,NO,0.78,,,,,Meta 흔적은 있으나 숫자 ID·고유 alias·랜딩 path가 없어 캠페인 매핑 보류
+2026-05-22,446400,—,—,—,—,,no_utm_no_landing_not_matchable,NO,NO,0.7,,,,,UTM·landing path가 없어 UTM 파일로 매칭 불가. fbclid only 여부 원장 재확인
+2026-05-22,459000,—,—,—,—,,no_utm_no_landing_not_matchable,NO,NO,0.7,,,,,UTM·landing path가 없어 UTM 파일로 매칭 불가. fbclid only 여부 원장 재확인
+2026-05-20,446400,—,—,—,—,,no_utm_no_landing_not_matchable,NO,NO,0.7,,,,,UTM·landing path가 없어 UTM 파일로 매칭 불가. fbclid only 여부 원장 재확인
+2026-05-19,446400,—,—,—,—,,no_utm_no_landing_not_matchable,NO,NO,0.7,,,,,UTM·landing path가 없어 UTM 파일로 매칭 불가. fbclid only 여부 원장 재확인
+2026-05-19,36900,googleads_biocom_pm_metadream,googleads_biocom_PM_metadream,—,googleads_biocom_PM_metadream,/HealthFood,exclude_from_meta_google_ads_by_utm_file,YES,NO,0.94,googleads_biocom_PM_metadream,google_ads_or_content,구글광고_바이오컴_PM_메타드림,1725,Meta 미매칭에서 제외하고 Google Ads/검색광고 bucket으로 분리
+2026-05-19,234000,ig,—,—,link_in_bio,/shop_view,quarantine_or_exclude_ig_profile_link,REVIEW,NO,0.82,,,,,광고 캠페인 확정 금지. profile/link-in-bio 또는 assisted social로 분리 검토
+2026-05-19,234000,—,—,—,—,,no_utm_no_landing_not_matchable,NO,NO,0.7,,,,,UTM·landing path가 없어 UTM 파일로 매칭 불가. fbclid only 여부 원장 재확인
+2026-05-19,234000,ig,—,—,link_in_bio,,quarantine_or_exclude_ig_profile_link,REVIEW,NO,0.82,,,,,광고 캠페인 확정 금지. profile/link-in-bio 또는 assisted social로 분리 검토
+2026-05-19,459000,—,—,—,—,,no_utm_no_landing_not_matchable,NO,NO,0.7,,,,,UTM·landing path가 없어 UTM 파일로 매칭 불가. fbclid only 여부 원장 재확인
+2026-05-19,234000,ig,—,—,link_in_bio,,quarantine_or_exclude_ig_profile_link,REVIEW,NO,0.82,,,,,광고 캠페인 확정 금지. profile/link-in-bio 또는 assisted social로 분리 검토
+2026-05-19,446400,newmember_coupon,newmember_coupon,—,newmember_coupon,,exclude_from_meta_coupon_by_utm_file,YES,NO,0.93,newmember_coupon,other_utm,신규가입쿠폰,488,Meta 미매칭에서 제외하고 쿠폰/CRM성 내부 유입으로 분리
+2026-05-17,234000,meta,{{campaign.id}},{{adset.id}},{{ad.id}},,real_meta_placeholder_no_alias,NO,NO,0.78,,,,,Meta 흔적은 있으나 숫자 ID·고유 alias·랜딩 path가 없어 캠페인 매핑 보류
+2026-05-17,234000,ig,—,—,link_in_bio,,quarantine_or_exclude_ig_profile_link,REVIEW,NO,0.82,,,,,광고 캠페인 확정 금지. profile/link-in-bio 또는 assisted social로 분리 검토
+2026-05-16,479500,—,—,—,—,,no_utm_no_landing_not_matchable,NO,NO,0.7,,,,,UTM·landing path가 없어 UTM 파일로 매칭 불가. fbclid only 여부 원장 재확인

@@ -1,0 +1,114 @@
+{
+  "schema_version": "reportcoffee-selfmall-smartstore-nosend-reconciliation-v1-20260525",
+  "mode": "read_only_no_send_no_write",
+  "generated_at_kst": "2026-05-25 23:43 KST",
+  "site": "thecleancoffee",
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-04-25",
+    "end_date_inclusive": "2026-05-01"
+  },
+  "purpose": "Connect the selfmall no-send JSON to the Imweb complete-time-present basis, then compare SmartStore sales against the attached weekly Excel workbook and available API/ledger sources.",
+  "selfmall_no_send": {
+    "output_path": "report/reportcoffee-sales-summary-no-send-20260501-imweb-complete-time.json",
+    "source_basis": "imweb_paid_at_window_complete_time_present_v1",
+    "definition_plain_korean": "아임웹 결제/주문 기간 안에 들어오고 complete_time이 존재하는 유상 비취소 주문만 자사몰 매출로 본다.",
+    "no_send_amount_krw": 5334362,
+    "no_send_order_count": 125,
+    "excel_amount_krw": 5334362,
+    "excel_order_count": 128,
+    "amount_diff_vs_excel_krw": 0,
+    "order_count_diff_vs_excel": -3,
+    "legacy_split_reference": {
+      "basis": "Toss net + VM Cloud NPay actual",
+      "amount_krw": 5215298,
+      "diff_vs_excel_krw": -119064
+    },
+    "direct_complete_time_date_window_diagnostic": {
+      "amount_krw": 4557236,
+      "orders": 109,
+      "interpretation": "complete_time 날짜 자체로 2026-04-25 - 2026-05-01을 자르면 기존 Excel 기준을 재현하지 못하므로 primary로 쓰지 않는다."
+    },
+    "complete_time_blank_diagnostic": {
+      "amount_krw": 183826,
+      "orders": 5,
+      "interpretation": "미결제 증거가 아니라 보고 기준 제외/진단값이다."
+    },
+    "payment_breakdown": {
+      "card": {"orders": 59, "amount_krw": 2628013},
+      "npay": {"orders": 60, "amount_krw": 2535400},
+      "etc": {"orders": 4, "amount_krw": 119064},
+      "virtual": {"orders": 2, "amount_krw": 51885}
+    },
+    "status": "amount_matched_excel_count_pending"
+  },
+  "smartstore_comparison": {
+    "excel": {
+      "source": "attached workbook sheet 1주차, 더클린커피 right-side channel table",
+      "amount_krw": 1905140,
+      "orders": 55
+    },
+    "playauto_operational_db": {
+      "source": "operational DB public.tb_playauto_orders",
+      "filter": "shop_name='스마트스토어'",
+      "date_rule": "COALESCE(pay_time, ord_time) between 2026-04-25 and 2026-05-02 KST",
+      "amount_field": "pay_amt",
+      "amount_krw": 1839340,
+      "rows": 53,
+      "quantity": 64,
+      "status_breakdown": [
+        {"status": "배송완료", "rows": 34, "quantity": 45, "amount_krw": 1179540},
+        {"status": "구매결정", "rows": 18, "quantity": 18, "amount_krw": 614800},
+        {"status": "배송중", "rows": 1, "quantity": 1, "amount_krw": 45000}
+      ],
+      "top_products_path": "report/reportcoffee-smartstore-product-sales-20260425-20260501-refresh.json"
+    },
+    "diff": {
+      "playauto_minus_excel_amount_krw": -65800,
+      "playauto_minus_excel_rows": -2,
+      "percent_diff": -3.45,
+      "cause_category": "source_rule_or_missing_rows_gap",
+      "interpretation": "PlayAuto primary candidate is close but does not fully reproduce the weekly Excel. The remaining gap is two Excel-side rows or a source adjustment worth 65,800 KRW."
+    },
+    "vm_cloud_ledger_check": {
+      "source": "VM Cloud SQLite table-name read-only scan",
+      "smartstore_order_ledger_found": false,
+      "matched_tables": ["naver_ads_daily", "naver_brandsearch_manual_cost_daily"],
+      "interpretation": "VM Cloud currently has Naver ad tables, not a SmartStore order/sales ledger for this coffee sales window."
+    },
+    "naver_api_or_operational_sources": {
+      "direct_smartstore_api_collector_found_for_coffee": false,
+      "tb_naver_orders": {
+        "role": "Naver Commerce API-like operational source, but not coffee-primary",
+        "reason_not_primary": "channel is empty and top products are Biocom/health products, so it conflicts with thecleancoffee SmartStore reporting."
+      },
+      "tb_sales_naver_vat": {
+        "role": "Naver settlement/VAT upload source",
+        "reason_not_primary": "available rows in this window are sub_channel=바이오컴 and project=영양제/검사권, not thecleancoffee."
+      },
+      "playauto": {
+        "role": "best available coffee SmartStore source",
+        "confidence": "medium_high_with_65800krw_gap"
+      }
+    },
+    "status": "available_via_playauto_with_excel_gap"
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0,
+    "raw_click_identifier_output": 0
+  },
+  "track_progress": {
+    "track_a": {"before_percent": 82, "after_percent": 85, "delta_percent": 3},
+    "track_b": {"before_percent": 100, "after_percent": 100, "delta_percent": 0},
+    "track_c": {"before_percent": 100, "after_percent": 100, "delta_percent": 0},
+    "track_d": {"before_percent": 74, "after_percent": 74, "delta_percent": 0},
+    "track_e": {"before_percent": 100, "after_percent": 100, "delta_percent": 0},
+    "track_f": {"before_percent": 100, "after_percent": 100, "delta_percent": 0}
+  }
+}

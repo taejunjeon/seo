@@ -1,0 +1,154 @@
+{
+  "report": "reportcoffee_slack_no_send_preview_20260522",
+  "generated_at_kst": "2026-05-22 20:35 KST",
+  "site": "thecleancoffee",
+  "mode": "no_send_preview",
+  "send_status": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "raw_identifier_output": 0
+  },
+  "source_policy": {
+    "sales_strict_definition": "더클린커피로 분류 가능한 자사몰 + 스마트스토어 + 쿠팡 coffee_hint 매출",
+    "teamketo_account_total_reference": "TeamKeto 쿠팡 계정 전체 합계. 팀키토 상품이 섞여 있어 더클린커피 strict 총매출과 분리 표시",
+    "ad_spend_share_formula": "included_ad_spend_krw / sales_strict_krw * 100",
+    "platform_purchase_value_policy": "Meta 플랫폼 주장 구매값은 참고값이며 내부 매출 합계에 더하지 않음",
+    "product_sales_policy": "스마트스토어 TOP 상품은 운영DB PlayAuto 상품명/수량/금액 aggregate 기준이며 raw 고객·주문 식별자는 출력하지 않음"
+  },
+  "weekly": {
+    "window": "2026-05-15 - 2026-05-21 KST",
+    "sales_strict_krw": 16913442,
+    "sales_with_teamketo_account_total_krw": 17836642,
+    "included_ad_spend_krw": 1952104,
+    "ad_spend_share_percent": 11.54,
+    "ad_spend_share_with_teamketo_account_total_percent": 10.94,
+    "channels": {
+      "self_mall": {
+        "amount_krw": 13305022,
+        "components": {
+          "toss_store_coffee_krw": 9611622,
+          "npay_actual_krw": 3693400
+        },
+        "status": "included_with_warning",
+        "warning": "NPay status blank 4건 / 141,600원은 미결제가 아니라 freshness warning"
+      },
+      "smartstore": {
+        "amount_krw": 2563520,
+        "status": "included_with_warning",
+        "source": "운영DB tb_playauto_orders shop_name=스마트스토어",
+        "rows": 61,
+        "quantity": 66,
+        "product_top3": [
+          {
+            "rank": 1,
+            "product_name": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 10개",
+            "amount_krw": 464600,
+            "quantity": 2,
+            "rows": 2
+          },
+          {
+            "rank": 2,
+            "product_name": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+            "amount_krw": 406710,
+            "quantity": 13,
+            "rows": 12
+          },
+          {
+            "rank": 3,
+            "product_name": "[오늘출발]더클린커피 초신선 에티오피아 구지 사키소 G1 원두 스페셜티 핸드드립 커피콩 방탄커피",
+            "amount_krw": 398900,
+            "quantity": 11,
+            "rows": 11
+          }
+        ],
+        "freshness": "max PlayAuto time 2026-05-21 14:15:23 KST",
+        "warning": "정산 기준 확정 전 included_with_warning. 기존 preview 대비 fresh PlayAuto row가 추가되어 금액 갱신."
+      },
+      "coupang": {
+        "coffee_hint_amount_krw": 1044900,
+        "teamketo_hint_amount_krw": 923200,
+        "account_total_amount_krw": 1968100,
+        "status": "included_candidate_split_required"
+      }
+    },
+    "ad_spend": {
+      "meta_krw": 1952104,
+      "naver": "0_candidate_api_reachable_campaigns_paused_cache_empty",
+      "google": "0_candidate_google_ads_dashboard_no_coffee_metric_rows_legacy_paused_campaign_click_evidence_present",
+      "tiktok": "0_user_confirmed_not_running_ads"
+    }
+  },
+  "rolling_30d": {
+    "window": "2026-04-22 - 2026-05-21 KST",
+    "sales_strict_krw": 60511234,
+    "sales_with_teamketo_account_total_krw": 63357934,
+    "included_ad_spend_krw": 3966919,
+    "ad_spend_share_percent": 6.56,
+    "ad_spend_share_with_teamketo_account_total_percent": 6.26,
+    "channels": {
+      "self_mall": {
+        "amount_krw": 46982864,
+        "components": {
+          "toss_store_coffee_krw": 31444064,
+          "npay_actual_krw": 15538800
+        },
+        "status": "included_with_warning"
+      },
+      "smartstore": {
+        "amount_krw": 9110570,
+        "status": "included_with_warning",
+        "source": "운영DB tb_playauto_orders shop_name=스마트스토어",
+        "rows": 274,
+        "quantity": 303,
+        "product_top3": [
+          {
+            "rank": 1,
+            "product_name": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+            "amount_krw": 2697350,
+            "quantity": 87,
+            "rows": 85
+          },
+          {
+            "rank": 2,
+            "product_name": "[오늘출발]더클린커피 초신선 에티오피아 구지 사키소 G1 원두 스페셜티 핸드드립 커피콩 방탄커피",
+            "amount_krw": 1541500,
+            "quantity": 48,
+            "rows": 47
+          },
+          {
+            "rank": 3,
+            "product_name": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+            "amount_krw": 1445920,
+            "quantity": 48,
+            "rows": 45
+          }
+        ],
+        "freshness": "max PlayAuto time 2026-05-21 14:15:23 KST",
+        "warning": "정산 기준 확정 전 included_with_warning. 기존 preview 대비 fresh PlayAuto row가 추가되어 금액 갱신."
+      },
+      "coupang": {
+        "coffee_hint_amount_krw": 4417800,
+        "teamketo_hint_amount_krw": 2846700,
+        "account_total_amount_krw": 7264500,
+        "status": "included_candidate_split_required"
+      }
+    },
+    "ad_spend": {
+      "meta_krw": 3966919,
+      "naver": "0_candidate_api_reachable_campaigns_paused_cache_empty",
+      "google": "0_candidate_google_ads_dashboard_no_coffee_metric_rows_legacy_paused_campaign_click_evidence_present",
+      "tiktok": "0_user_confirmed_not_running_ads"
+    }
+  },
+  "next_required_before_send": [
+    "TJ님 Slack 채널/주기 승인",
+    "쿠팡 TOP 상품을 같은 형식으로 연결",
+    "자사몰 상품 라인 freshness 확인 후 TOP 상품 included/cross-check 결정",
+    "Naver Ads coffee campaign allowlist 추가 또는 0원 표시 결정",
+    "Google 더클린커피 spend는 0원 후보로 표시하되 landing Google click evidence 3건은 참고 warning 유지",
+    "TikTok은 TJ님 확인 기준 현재 광고 미운영 0원 표시"
+  ]
+}

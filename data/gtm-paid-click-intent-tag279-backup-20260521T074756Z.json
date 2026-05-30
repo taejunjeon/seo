@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-05-21T07:47:58.809Z",
+  "mode": "dry_run_backup_only",
+  "container": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "publicId": "GTM-W2Z6PHN",
+    "liveVersionId": "144",
+    "liveVersionName": "paid_click_intent_v2_gad_campaignid_20260521",
+    "liveFingerprint": "1779334380367"
+  },
+  "liveTag": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "tagId": "279",
+    "name": "codex_paid_click_intent_v1_receiver_no_send",
+    "type": "html",
+    "notes": "Mode B. Stores Google click id in browser storage and calls no-write/no-send receiver only. No conversion send.\n2026-05-21 Codex Preview: preserve gad_campaignid/gad_source in paid click evidence and refresh landing_url on new Google evidence. No conversion send.",
+    "parameter": [
+      {
+        "type": "template",
+        "key": "html",
+        "value": "<script>\n(function () {\n  var VERSION = \"paid_click_intent_v2_gad_campaignid_20260521\";\n  var STORAGE_KEY = \"bi_paid_click_intent_v1\";\n  var SENT_KEY = \"bi_paid_click_intent_v1_sent\";\n  var RECEIVER_URL = \"https://att.ainativeos.net/api/attribution/paid-click-intent/no-send\";\n  var ALLOW_QUERY = {\n    gclid: true, gbraid: true, wbraid: true,\n    gad_source: true, gad_campaignid: true, utm_id: true,\n    utm_source: true, utm_medium: true, utm_campaign: true, utm_term: true, utm_content: true,\n    idx: true\n  };\n\n  function getParam(key) {\n    try { return new URLSearchParams(location.search).get(key) || \"\"; }\n    catch (e) { return \"\"; }\n  }\n\n  function getCookie(name) {\n    try {\n      var parts = (\"; \" + document.cookie).split(\"; \" + name + \"=\");\n      if (parts.length === 2) return parts.pop().split(\";\").shift() || \"\";\n    } catch (e) {}\n    return \"\";\n  }\n\n  function getClientId() {\n    var ga = getCookie(\"_ga\");\n    var match = ga.match(/^GA\\d+\\.\\d+\\.(.+)$/);\n    return match ? match[1] : \"\";\n  }\n\n  function getGaSessionId() {\n    try {\n      var cookies = document.cookie.split(\";\").map(function (v) { return v.trim(); });\n      for (var i = 0; i < cookies.length; i++) {\n        if (cookies[i].indexOf(\"_ga_\") !== 0) continue;\n        var value = cookies[i].split(\"=\").slice(1).join(\"=\");\n        var match = value.match(/(?:^|[.$])s(\\d+)/);\n        if (match) return match[1];\n      }\n    } catch (e) {}\n    return \"\";\n  }\n\n  function isBlockedPath(pathname) {\n    return /\\/admin\\b|\\/backpg\\b|\\/login\\b|\\/logout\\b|^\\/_|\\/api\\b|\\/member\\/kakao_friend\\/send|\\/admin\\/config/i.test(pathname || \"\");\n  }\n\n  function sanitizeUrl(raw) {\n    try {\n      var parsed = new URL(raw, location.origin);\n      if (!/\\.biocom\\.kr$|^biocom\\.kr$/.test(parsed.hostname)) return \"\";\n      var next = new URL(parsed.origin + parsed.pathname);\n      parsed.searchParams.forEach(function (value, key) {\n        if (ALLOW_QUERY[key]) next.searchParams.set(key, value);\n      });\n      return next.toString();\n    } catch (e) {\n      return \"\";\n    }\n  }\n\n  function readJson(key) {\n    try { return JSON.parse(sessionStorage.getItem(key) || localStorage.getItem(key) || \"{}\") || {}; }\n    catch (e) { return {}; }\n  }\n\n  function writeStored(next) {\n    var serialized = JSON.stringify(next);\n    try { localStorage.setItem(STORAGE_KEY, serialized); } catch (e) {}\n    try { sessionStorage.setItem(STORAGE_KEY, serialized); } catch (e) {}\n  }\n\n  function writeSent(key) {\n    var sent = readJson(SENT_KEY);\n    if (sent[key]) return false;\n    sent[key] = Date.now();\n    var serialized = JSON.stringify(sent);\n    try { sessionStorage.setItem(SENT_KEY, serialized); } catch (e) {}\n    return true;\n  }\n\n  function hasGoogleUtm() {\n    return /^(google|adwords)$/i.test(getParam(\"utm_source\")) && /(cpc|paid|ppc|sem)/i.test(getParam(\"utm_medium\"));\n  }\n\n  function hasIncomingGoogleEvidence(clickIdPresent, googleUtmPresent) {\n    return Boolean(\n      clickIdPresent ||\n      googleUtmPresent ||\n      getParam(\"gad_campaignid\") ||\n      getParam(\"gad_source\")\n    );\n  }\n\n  function currentEvidence() {\n    var stored = readJson(STORAGE_KEY);\n    var clickIdPresent = Boolean(getParam(\"gclid\") || getParam(\"gbraid\") || getParam(\"wbraid\"));\n    var googleUtmPresent = hasGoogleUtm();\n    var incomingGoogleEvidence = hasIncomingGoogleEvidence(clickIdPresent, googleUtmPresent);\n    var currentUrl = sanitizeUrl(location.href);\n    var currentReferrer = sanitizeUrl(document.referrer || \"\");\n    var evidence = {\n      site: \"biocom\",\n      platform_hint: \"google_ads\",\n      event_name: \"PaidClickIntent\",\n      storage_key: STORAGE_KEY,\n      gclid: getParam(\"gclid\") || stored.gclid || \"\",\n      gbraid: getParam(\"gbraid\") || stored.gbraid || \"\",\n      wbraid: getParam(\"wbraid\") || stored.wbraid || \"\",\n      fbclid: getParam(\"fbclid\") || stored.fbclid || \"\",\n      ttclid: getParam(\"ttclid\") || stored.ttclid || \"\",\n      gad_campaignid: getParam(\"gad_campaignid\") || stored.gad_campaignid || \"\",\n      gad_source: getParam(\"gad_source\") || stored.gad_source || \"\",\n      utm_id: getParam(\"utm_id\") || stored.utm_id || \"\",\n      utm_source: getParam(\"utm_source\") || stored.utm_source || \"\",\n      utm_medium: getParam(\"utm_medium\") || stored.utm_medium || \"\",\n      utm_campaign: getParam(\"utm_campaign\") || stored.utm_campaign || \"\",\n      utm_term: getParam(\"utm_term\") || stored.utm_term || \"\",\n      utm_content: getParam(\"utm_content\") || stored.utm_content || \"\",\n      landing_url: incomingGoogleEvidence ? currentUrl : (stored.landing_url || currentUrl),\n      current_url: currentUrl,\n      referrer: incomingGoogleEvidence ? currentReferrer : (stored.referrer || currentReferrer),\n      client_id: getClientId() || stored.client_id || \"\",\n      ga_session_id: getGaSessionId() || stored.ga_session_id || \"\",\n      local_session_id: stored.local_session_id || (\"pciv1_\" + Math.random().toString(36).slice(2)),\n      captured_at: new Date().toISOString()\n    };\n    if (incomingGoogleEvidence) writeStored(evidence);\n    return evidence;\n  }\n\n  function hasGoogleClickId(payload) {\n    return Boolean(payload.gclid || payload.gbraid || payload.wbraid);\n  }\n\n  function sendNoSend(stage) {\n    try {\n      if (isBlockedPath(location.pathname)) return;\n      var payload = currentEvidence();\n      if (!hasGoogleClickId(payload)) return;\n      payload.capture_stage = stage;\n      payload.event_id = \"PaidClickIntent_\" + stage + \"_\" + Date.now();\n      var clickId = payload.gclid || payload.gbraid || payload.wbraid;\n      var dedupeKey = stage + \"|\" + clickId + \"|\" + (payload.ga_session_id || payload.local_session_id);\n      if (!writeSent(dedupeKey)) return;\n      window.__seo_paid_click_intent_last_payload = payload;\n      fetch(RECEIVER_URL, {\n        method: \"POST\",\n        mode: \"cors\",\n        credentials: \"omit\",\n        keepalive: true,\n        headers: { \"Content-Type\": \"application/json\" },\n        body: JSON.stringify(payload)\n      }).then(function (res) {\n        window.__seo_paid_click_intent_last_status = res.status;\n      }).catch(function (err) {\n        window.__seo_paid_click_intent_last_error = String(err && err.message || err);\n      });\n    } catch (err) {\n      window.__seo_paid_click_intent_last_error = String(err && err.message || err);\n    }\n  }\n\n  function classifyClick(target) {\n    var node = target;\n    var text = \"\";\n    for (var depth = 0; node && depth < 5; depth++, node = node.parentElement) {\n      text += \" \" + (node.innerText || \"\") + \" \" + (node.id || \"\") + \" \" + (node.className || \"\") + \" \" + (node.href || \"\");\n    }\n    text = String(text).toLowerCase();\n    if (/npay|naverpay|naver|네이버페이/.test(text)) return \"npay_intent\";\n    if (/checkout|payment|결제|구매|주문/.test(text)) return \"checkout_start\";\n    return \"\";\n  }\n\n  try {\n    window.__seo_paid_click_intent_installed = VERSION;\n    currentEvidence();\n    sendNoSend(\"landing\");\n    document.addEventListener(\"click\", function (event) {\n      var stage = classifyClick(event.target);\n      if (stage) sendNoSend(stage);\n    }, true);\n  } catch (err) {\n    window.__seo_paid_click_intent_last_error = String(err && err.message || err);\n  }\n})();\n</script>"
+      },
+      {
+        "type": "boolean",
+        "key": "supportDocumentWrite",
+        "value": "false"
+      }
+    ],
+    "fingerprint": "1779333281031",
+    "firingTriggerId": [
+      "278"
+    ],
+    "consentSettings": {
+      "consentStatus": "notSet"
+    }
+  },
+  "liveTrigger": {
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "triggerId": "278",
+    "name": "codex_paid_click_intent_v1_all_pages_guarded",
+    "type": "pageview",
+    "fingerprint": "1778079743274",
+    "notes": "All Pages trigger. Client-side guard only sends receiver payload when Google click id exists; admin/internal paths are skipped."
+  },
+  "oldHtmlSha256": "d6f5ad8158658a75faab13ec207fe398911ecbb81172b311f128572e2bc283fe",
+  "newHtmlSha256": "7d6d97e3ff3d81a0aa3aee6c0ba8502b1601df4b46f739c3e2ce4d8a47524c43",
+  "noSubmitCreateVersionPublish": true,
+  "noPlatformSend": true
+}

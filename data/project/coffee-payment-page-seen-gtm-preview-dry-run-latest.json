@@ -1,0 +1,54 @@
+{
+  "generated_at_kst": "2026-05-28T12:47:58",
+  "run_id": "20260528T034756Z",
+  "mode": "dry_run_readonly",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "91608400",
+    "public_id": "GTM-5M33GC4",
+    "name": "thecleancoffee.com",
+    "path": "accounts/4703003246/containers/91608400"
+  },
+  "live_version_before": {
+    "id": "24",
+    "name": "Coffee Meta InitiateCheckout shop_payment value retry guard - 20260524T210252Z",
+    "path": "accounts/4703003246/containers/91608400/versions/24"
+  },
+  "workspace_before_count": 1,
+  "default_workspace": {
+    "workspace_id": "26",
+    "name": "Default Workspace",
+    "path": "accounts/4703003246/containers/91608400/workspaces/26",
+    "workspace_change_count": 0,
+    "merge_conflict_count": 0,
+    "error": ""
+  },
+  "related_workspaces_before": [],
+  "workspace_capacity": {
+    "standard_limit_assumption": 3,
+    "custom_workspace_slots_available": 2,
+    "source": "Google Tag Manager Help: non-360 containers may have up to three concurrent workspaces including Default Workspace."
+  },
+  "candidate": {
+    "doc_path": "imweb/coffee-payment-page-seen-debug-snapshot-gtm-preview-tag-20260527.md",
+    "tag_name": "codex_coffee_payment_page_seen_debug_snapshot_nosend_preview_20260528T034756Z",
+    "trigger_name": "codex_coffee_payment_page_seen_domready_nosend_20260528T034756Z",
+    "snippet_version": "2026-05-27-coffee-payment-page-seen-debug-snapshot-nosend-preview-v1",
+    "no_send_review": {
+      "pass": true,
+      "forbidden_hits": []
+    },
+    "would_create_workspace": "codex_coffee_payment_page_seen_nosend_preview_20260528T034756Z",
+    "would_call_quick_preview": false
+  },
+  "guards": {
+    "default_workspace_required_changes": 0,
+    "existing_live_tags_modified": false,
+    "submit_create_version_publish_taken": false,
+    "platform_send_taken": false,
+    "vm_cloud_write_taken": false,
+    "production_publish_taken": false
+  },
+  "verdict": "PASS_DRY_RUN_READY_FOR_APPLY",
+  "hold_reasons": []
+}

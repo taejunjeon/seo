@@ -1,0 +1,31 @@
+{
+  "id": "gpt0525-5-google-roas-summary-first-deploy",
+  "created_at_kst": "2026-05-25 18:59 KST",
+  "lane": "Yellow",
+  "status": "deployed",
+  "summary": "Google ROAS summary-first endpoint deployed and TikTok Meta/Google reference cards switched away from direct live calls.",
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud backend/frontend plus local repository",
+    "window": "current deploy, 2026-05-25 KST",
+    "freshness": "immediately after deploy smoke",
+    "confidence": "high"
+  },
+  "changed_files": [
+    "backend/src/routes/googleAds.ts",
+    "backend/src/bootstrap/startBackgroundJobs.ts",
+    "frontend/src/app/ads/google/page.tsx",
+    "frontend/src/app/ads/google-roas-report/page.tsx",
+    "frontend/src/app/ads/tiktok/page.tsx"
+  ],
+  "documents": [
+    "00-result-report.md",
+    "01-deploy-and-smoke.md",
+    "02-rollback.md",
+    "manifest.json"
+  ],
+  "external_send": false,
+  "operating_db_write": false,
+  "gtm_publish": false,
+  "schema_migration": false,
+  "commit_pushed": false
+}

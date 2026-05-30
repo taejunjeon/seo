@@ -1,0 +1,37 @@
+{
+  "run_at_kst": "2026-05-23 12:36:22 KST",
+  "account_id": "act_3138805896402376",
+  "meta_api_rows": 1012,
+  "meta_api_generated_at": "2026-05-23T03:32:24Z",
+  "meta_api_status_counts": {
+    "ACTIVE": 55,
+    "PAUSED": 844,
+    "ADSET_PAUSED": 55,
+    "CAMPAIGN_PAUSED": 42,
+    "WITH_ISSUES": 16
+  },
+  "meta_api_url_tags_rows": 52,
+  "meta_api_link_url_rows": 1,
+  "meta_api_active_or_issue_rows": 71,
+  "meta_api_active_placeholder_rows": 25,
+  "join_rows": 32,
+  "join_counts_by_grade": {
+    "A_url_alias_exact": 2,
+    "B_growth_team_id_confirmed": 1,
+    "B_growth_team_id_confirmed_missing_in_utm_file": 1,
+    "B_manual_campaign_approved": 1,
+    "C_name_family_only_needs_url_or_id": 1,
+    "D_placeholder_needs_review": 25,
+    "EXCLUDE_non_meta_ad": 1
+  },
+  "outputs": [
+    "utm/biocom-utm-meta-api-url-join-20260523.csv",
+    "utm/growth-team-meta-url-checklist-20260523.csv"
+  ],
+  "source_confidence": "A for read-only API fetch; B/C/D per row for mapping confidence",
+  "limitations": [
+    "Meta API read-only /ads returned only 1 link_url row; most current ads expose instagram_permalink_url and generic url_tags only.",
+    "campaign_alias=meta_biocom_광고별칭 is not a unique alias and must not be used alone for campaign mapping.",
+    "Dynamic macros in url_tags are intended to resolve at click time, but observed ledger rows can still contain literal {{campaign.id}}; growth team must confirm click-preview or actual URL where needed."
+  ]
+}

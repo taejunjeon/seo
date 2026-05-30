@@ -8,6 +8,8 @@
  */
 
 import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 
 import type { AttributionLedgerEntry } from "./attribution";
 import { resolveLedgerRevenueValue } from "./attribution";
@@ -87,14 +89,28 @@ type LeadingIndicatorMetrics = {
 };
 
 type LeadingIndicatorItem = {
+  rank: number;
   id: string;
   label: string;
   status: "candidate" | "watch" | "insufficient_data";
+  score: number | null;
+  score_grade: "strong_candidate" | "candidate" | "watch" | "insufficient_data";
   buyer_value: number | null;
   non_buyer_value: number | null;
   delta: number | null;
   unit: "seconds" | "pct" | "count";
+  sample_sessions: number;
+  known_coverage_pct: number | null;
+  score_components: {
+    lift: number;
+    volume: number;
+    confidence: number;
+    controllability: number;
+    risk_penalty: number;
+  } | null;
   interpretation_ko: string;
+  next_action_ko: string;
+  data_quality_note_ko: string;
 };
 
 type LeadingIndicatorSegment = {
@@ -105,6 +121,50 @@ type LeadingIndicatorSegment = {
   buyer_rate_pct: number;
   p50_dwell_seconds: number | null;
   scroll90_rate_pct: number | null;
+};
+
+type Ga4BehaviorSnapshotMetrics = {
+  safe_sessions: number;
+  ga4_joined_sessions: number;
+  join_rate_pct: number | null;
+  p50_engagement_seconds: number | null;
+  p75_engagement_seconds: number | null;
+  scroll90_rate_pct: number | null;
+  page_view_long_rate_pct: number | null;
+  view_item_rate_pct: number | null;
+  add_to_cart_rate_pct: number | null;
+  begin_checkout_rate_pct: number | null;
+  add_payment_info_rate_pct: number | null;
+  ga4_purchase_event_rate_pct: number | null;
+};
+
+type Ga4BehaviorSnapshot = {
+  status: "available" | "missing";
+  source: "ga4_bigquery_safe_bridge_dry_run_snapshot" | "not_available";
+  checked_at_kst: string | null;
+  snapshot_window: "7d";
+  requested_window: LeadingIndicatorWindow;
+  window_alignment: "matched" | "snapshot_7d_fallback";
+  site: LeadingIndicatorSite;
+  channel: LeadingIndicatorChannel;
+  confidence: "high" | "medium" | "low";
+  root_cause_ko: string;
+  recommended_usage_ko: string;
+  buyer: Ga4BehaviorSnapshotMetrics | null;
+  non_buyer: Ga4BehaviorSnapshotMetrics | null;
+  deltas: {
+    p50_engagement_seconds: number | null;
+    scroll90_rate_pct: number | null;
+    begin_checkout_rate_pct: number | null;
+    add_to_cart_rate_pct: number | null;
+    add_payment_info_rate_pct: number | null;
+  };
+  page_long_threshold: {
+    recommended_threshold_seconds: number | null;
+    recommended_threshold_label: string | null;
+    current_7min_lift_pct: number | null;
+    interpretation_ko: string | null;
+  } | null;
 };
 
 export type LeadingIndicatorsReport = {
@@ -131,6 +191,7 @@ export type LeadingIndicatorsReport = {
   };
   indicators: LeadingIndicatorItem[];
   segments: LeadingIndicatorSegment[];
+  ga4_behavior_snapshot: Ga4BehaviorSnapshot;
   caveats: string[];
   safety: {
     raw_identifier_output: false;
@@ -326,6 +387,34 @@ const numberValue = (
 
 const normalizeText = (value: string): string => value.trim().toLowerCase();
 
+const safeUrlParam = (key: string, ...values: string[]): string => {
+  for (const value of values) {
+    if (!value) continue;
+    try {
+      const parsed = new URL(value, "https://biocom.kr");
+      const found = parsed.searchParams.get(key)?.trim();
+      if (found) return found;
+    } catch {
+      // Ignore malformed attribution evidence.
+    }
+  }
+  return "";
+};
+
+const decodeTextLoose = (value: string): string => {
+  if (!value) return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const extractNapmTrCode = (napm: string): string => {
+  const decoded = decodeTextLoose(napm);
+  return decoded.match(/(?:^|\|)tr=([^|&]+)/i)?.[1]?.toLowerCase() || "";
+};
+
 const classifySite = (entry: AttributionLedgerEntry): LeadingIndicatorSite | null => {
   const metaSite = normalizeText(stringValue(entry.metadata, ["site", "store"]));
   if (metaSite === "biocom") return "biocom";
@@ -347,12 +436,17 @@ const classifySite = (entry: AttributionLedgerEntry): LeadingIndicatorSite | nul
 
 const hasPaidNaverMarker = (entry: AttributionLedgerEntry): boolean => {
   const blob = normalizeText([entry.landing, entry.referrer, entry.utmCampaign].join(" "));
+  const napmTrCode = extractNapmTrCode(safeUrlParam("NaPm", entry.landing, entry.referrer));
   return (
-    blob.includes("napm=") ||
+    napmTrCode === "sa" ||
+    napmTrCode === "brnd" ||
     blob.includes("nclid=") ||
     blob.includes("brandsearch") ||
     blob.includes("powerlink") ||
-    blob.includes("n_media=")
+    blob.includes("n_media=") ||
+    blob.includes("n_query=") ||
+    blob.includes("n_ad_group=") ||
+    blob.includes("n_ad=")
   );
 };
 
@@ -720,61 +814,257 @@ const delta = (buyer: number | null, nonBuyer: number | null): number | null => 
   return Math.round((buyer - nonBuyer) * 10) / 10;
 };
 
-const indicatorStatus = (buyer: number | null, nonBuyer: number | null): LeadingIndicatorItem["status"] => {
-  if (buyer === null || nonBuyer === null) return "insufficient_data";
-  if (buyer > nonBuyer) return "candidate";
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value));
+
+const scoreRound = (value: number): number => Math.round(value * 10) / 10;
+
+type IndicatorCandidateInput = {
+  id: string;
+  label: string;
+  buyerValue: number | null;
+  nonBuyerValue: number | null;
+  unit: LeadingIndicatorItem["unit"];
+  sampleSessions: number;
+  knownSessions: number;
+  totalSessions: number;
+  liftScale: number;
+  controllability: number;
+  riskPenalty: number;
+  interpretationKo: string;
+  nextActionKo: string;
+};
+
+const indicatorDataQualityNote = (
+  candidate: IndicatorCandidateInput,
+  knownCoveragePct: number | null,
+): string => {
+  if (candidate.buyerValue === null || candidate.nonBuyerValue === null) {
+    return "구매자 또는 비결제자 쪽에 비교할 값이 없어 아직 후보로 판단하지 않습니다.";
+  }
+  if (candidate.sampleSessions < 20) {
+    return `표본이 ${candidate.sampleSessions}개라 한두 건 변화에도 비율이 크게 움직입니다. 방향만 참고하세요.`;
+  }
+  if (knownCoveragePct !== null && knownCoveragePct < 50) {
+    return `수집된 행동값이 전체의 ${knownCoveragePct.toFixed(1)}%라 누락 가능성을 함께 봐야 합니다.`;
+  }
+  return "표본과 수집 범위가 현재 dry-run에서 비교 가능한 수준입니다.";
+};
+
+const scoreGradeFor = (
+  status: LeadingIndicatorItem["status"],
+  score: number | null,
+): LeadingIndicatorItem["score_grade"] => {
+  if (status === "insufficient_data" || score === null) return "insufficient_data";
+  if (score >= 75) return "strong_candidate";
+  if (score >= 60) return "candidate";
   return "watch";
+};
+
+const scoreIndicator = (candidate: IndicatorCandidateInput): Omit<LeadingIndicatorItem, "rank"> => {
+  const valueDelta = delta(candidate.buyerValue, candidate.nonBuyerValue);
+  const knownCoveragePct =
+    candidate.totalSessions > 0 ? pct(candidate.knownSessions, candidate.totalSessions) : null;
+  const hasEnoughData =
+    candidate.buyerValue !== null &&
+    candidate.nonBuyerValue !== null &&
+    candidate.sampleSessions >= 20 &&
+    (knownCoveragePct === null || knownCoveragePct >= 15);
+
+  if (!hasEnoughData || valueDelta === null) {
+    return {
+      id: candidate.id,
+      label: candidate.label,
+      status: "insufficient_data",
+      score: null,
+      score_grade: "insufficient_data",
+      buyer_value: candidate.buyerValue,
+      non_buyer_value: candidate.nonBuyerValue,
+      delta: valueDelta,
+      unit: candidate.unit,
+      sample_sessions: candidate.sampleSessions,
+      known_coverage_pct: knownCoveragePct,
+      score_components: null,
+      interpretation_ko: candidate.interpretationKo,
+      next_action_ko: candidate.nextActionKo,
+      data_quality_note_ko: indicatorDataQualityNote(candidate, knownCoveragePct),
+    };
+  }
+
+  const positiveLift = Math.max(0, valueDelta);
+  const lift = scoreRound(clamp((positiveLift / candidate.liftScale) * 35, 0, 35));
+  const volume = scoreRound(
+    clamp((Math.log10(candidate.sampleSessions + 1) / Math.log10(500)) * 20, 0, 20),
+  );
+  const confidence = scoreRound(clamp(((knownCoveragePct ?? 100) / 100) * 20, 0, 20));
+  const controllability = scoreRound(clamp(candidate.controllability, 0, 20));
+  const riskPenalty = scoreRound(clamp(candidate.riskPenalty, 0, 20));
+  const score = scoreRound(clamp(lift + volume + confidence + controllability - riskPenalty, 0, 100));
+  const status: LeadingIndicatorItem["status"] =
+    valueDelta > 0 && score >= 60 ? "candidate" : "watch";
+
+  return {
+    id: candidate.id,
+    label: candidate.label,
+    status,
+    score,
+    score_grade: scoreGradeFor(status, score),
+    buyer_value: candidate.buyerValue,
+    non_buyer_value: candidate.nonBuyerValue,
+    delta: valueDelta,
+    unit: candidate.unit,
+    sample_sessions: candidate.sampleSessions,
+    known_coverage_pct: knownCoveragePct,
+    score_components: {
+      lift,
+      volume,
+      confidence,
+      controllability,
+      risk_penalty: riskPenalty,
+    },
+    interpretation_ko: candidate.interpretationKo,
+    next_action_ko: candidate.nextActionKo,
+    data_quality_note_ko: indicatorDataQualityNote(candidate, knownCoveragePct),
+  };
 };
 
 const buildIndicators = (
   buyer: LeadingIndicatorMetrics,
   nonBuyer: LeadingIndicatorMetrics,
-): LeadingIndicatorItem[] => [
-  {
-    id: "dwell_p50",
-    label: "체류시간 중앙값",
-    status: indicatorStatus(buyer.p50_dwell_seconds, nonBuyer.p50_dwell_seconds),
-    buyer_value: buyer.p50_dwell_seconds,
-    non_buyer_value: nonBuyer.p50_dwell_seconds,
-    delta: delta(buyer.p50_dwell_seconds, nonBuyer.p50_dwell_seconds),
-    unit: "seconds",
-    interpretation_ko:
-      "구매자가 더 오래 머무르면 상세페이지 설득 구간을 선행지표 후보로 볼 수 있습니다.",
-  },
-  {
-    id: "scroll90_rate",
-    label: "90% 이상 스크롤 비율",
-    status: indicatorStatus(buyer.scroll90_rate_pct, nonBuyer.scroll90_rate_pct),
-    buyer_value: buyer.scroll90_rate_pct,
-    non_buyer_value: nonBuyer.scroll90_rate_pct,
-    delta: delta(buyer.scroll90_rate_pct, nonBuyer.scroll90_rate_pct),
-    unit: "pct",
-    interpretation_ko:
-      "구매자가 끝까지 읽는 비율이 높으면 콘텐츠 완독이 구매 예고 신호일 가능성이 있습니다.",
-  },
-  {
-    id: "begin_checkout_rate",
-    label: "주문서 진입 비율",
-    status: indicatorStatus(buyer.begin_checkout_rate_pct, nonBuyer.begin_checkout_rate_pct),
-    buyer_value: buyer.begin_checkout_rate_pct,
-    non_buyer_value: nonBuyer.begin_checkout_rate_pct,
-    delta: delta(buyer.begin_checkout_rate_pct, nonBuyer.begin_checkout_rate_pct),
-    unit: "pct",
-    interpretation_ko:
-      "주문서 진입은 매출 직전 행동입니다. 이 비율이 낮으면 광고보다 랜딩/상품 선택 마찰을 먼저 봐야 합니다.",
-  },
-  {
-    id: "add_to_cart_rate",
-    label: "장바구니 신호 비율",
-    status: indicatorStatus(buyer.add_to_cart_rate_pct, nonBuyer.add_to_cart_rate_pct),
-    buyer_value: buyer.add_to_cart_rate_pct,
-    non_buyer_value: nonBuyer.add_to_cart_rate_pct,
-    delta: delta(buyer.add_to_cart_rate_pct, nonBuyer.add_to_cart_rate_pct),
-    unit: "pct",
-    interpretation_ko:
-      "장바구니 페이지 진입 또는 AddToCart 이벤트가 구매자에게 더 많으면 상품 선택 의도가 강한 선행지표입니다.",
-  },
-];
+): LeadingIndicatorItem[] => {
+  const totalSessions = buyer.sessions + nonBuyer.sessions;
+  const candidates: IndicatorCandidateInput[] = [
+    {
+      id: "dwell_p50",
+      label: "상세페이지에 머문 시간 중앙값",
+      buyerValue: buyer.p50_dwell_seconds,
+      nonBuyerValue: nonBuyer.p50_dwell_seconds,
+      unit: "seconds",
+      sampleSessions: buyer.dwell_known_sessions + nonBuyer.dwell_known_sessions,
+      knownSessions: buyer.dwell_known_sessions + nonBuyer.dwell_known_sessions,
+      totalSessions,
+      liftScale: 120,
+      controllability: 16,
+      riskPenalty: 4,
+      interpretationKo:
+        "구매자가 더 오래 머문다면 상세페이지의 설득 구간을 구매 예고 행동 후보로 볼 수 있습니다.",
+      nextActionKo:
+        "결제자와 멈춘 사람의 체류시간 차이가 큰 랜딩/상품을 먼저 보고, 빠르게 이탈하는 구간의 문구와 리뷰 배치를 조정합니다.",
+    },
+    {
+      id: "page_view_long_rate",
+      label: "오래 본 방문 비율",
+      unit: "pct",
+      buyerValue: buyer.page_view_long_rate_pct,
+      nonBuyerValue: nonBuyer.page_view_long_rate_pct,
+      sampleSessions: totalSessions,
+      knownSessions: totalSessions,
+      totalSessions,
+      liftScale: 30,
+      controllability: 14,
+      riskPenalty: 5,
+      interpretationKo:
+        "일정 시간 이상 머문 방문이 구매자에게 더 많으면 콘텐츠 몰입이 구매 전 선행지표일 수 있습니다.",
+      nextActionKo:
+        "현재 7분 기준은 보조 지표로 두고, 3분/5분/7분 중 구매자와 비결제자를 가장 잘 가르는 기준을 채널별로 비교합니다.",
+    },
+    {
+      id: "review_reach_rate",
+      label: "리뷰 구간 도달 비율",
+      unit: "pct",
+      buyerValue: buyer.review_reach_rate_pct,
+      nonBuyerValue: nonBuyer.review_reach_rate_pct,
+      sampleSessions: totalSessions,
+      knownSessions: totalSessions,
+      totalSessions,
+      liftScale: 30,
+      controllability: 18,
+      riskPenalty: 6,
+      interpretationKo:
+        "구매자가 리뷰 영역까지 더 자주 도달하면 리뷰 노출이 구매를 예고하거나 설득하는 구간일 수 있습니다.",
+      nextActionKo:
+        "리뷰 도달 전 이탈이 많은 랜딩은 리뷰 위치, 요약 문구, 구매평 CTA를 위로 올리는 실험 후보로 둡니다.",
+    },
+    {
+      id: "scroll90_all_sessions_rate",
+      label: "90% 이상 스크롤 비율(전체 방문 기준)",
+      unit: "pct",
+      buyerValue: buyer.scroll90_all_sessions_rate_pct,
+      nonBuyerValue: nonBuyer.scroll90_all_sessions_rate_pct,
+      sampleSessions: totalSessions,
+      knownSessions: buyer.scroll_known_sessions + nonBuyer.scroll_known_sessions,
+      totalSessions,
+      liftScale: 30,
+      controllability: 12,
+      riskPenalty: 8,
+      interpretationKo:
+        "구매자가 페이지 하단까지 더 자주 내려가면 완독 신호일 수 있지만, 스크롤 수집 누락이 있으면 과대해석하면 안 됩니다.",
+      nextActionKo:
+        "스크롤 값이 없는 방문까지 분모에 포함한 수치를 기본으로 보고, 이전 known-only 수치와 차이가 큰지 계속 감시합니다.",
+    },
+    {
+      id: "begin_checkout_rate",
+      label: "주문서 진입 비율",
+      buyerValue: buyer.begin_checkout_rate_pct,
+      nonBuyerValue: nonBuyer.begin_checkout_rate_pct,
+      unit: "pct",
+      sampleSessions: totalSessions,
+      knownSessions: totalSessions,
+      totalSessions,
+      liftScale: 25,
+      controllability: 20,
+      riskPenalty: 7,
+      interpretationKo:
+        "주문서 진입은 매출 직전 행동입니다. 이 비율이 낮으면 광고보다 랜딩/상품 선택 마찰을 먼저 봐야 합니다.",
+      nextActionKo:
+        "구매 버튼 클릭 후 주문서 도달이 낮은 상품은 옵션 선택, 쿠폰 영역, 버튼 위치, 외부 결제 이동 지연을 먼저 점검합니다.",
+    },
+    {
+      id: "add_to_cart_rate",
+      label: "장바구니 신호 비율",
+      buyerValue: buyer.add_to_cart_rate_pct,
+      nonBuyerValue: nonBuyer.add_to_cart_rate_pct,
+      unit: "pct",
+      sampleSessions: totalSessions,
+      knownSessions: totalSessions,
+      totalSessions,
+      liftScale: 25,
+      controllability: 16,
+      riskPenalty: 7,
+      interpretationKo:
+        "장바구니 페이지 진입 또는 AddToCart 이벤트가 구매자에게 더 많으면 상품 선택 의도가 강한 선행지표입니다.",
+      nextActionKo:
+        "장바구니 단계가 낮거나 0이면 클릭 이벤트와 장바구니 페이지 진입 중 어떤 정의로 볼지 고정하고 VM 수집을 맞춥니다.",
+    },
+    {
+      id: "coupon_event_rate",
+      label: "쿠폰 반응 비율",
+      buyerValue: buyer.coupon_event_rate_pct,
+      nonBuyerValue: nonBuyer.coupon_event_rate_pct,
+      unit: "pct",
+      sampleSessions: totalSessions,
+      knownSessions: totalSessions,
+      totalSessions,
+      liftScale: 20,
+      controllability: 18,
+      riskPenalty: 9,
+      interpretationKo:
+        "구매자가 쿠폰 버튼이나 쿠폰 영역에 더 많이 반응하면 가격 장벽을 낮추는 선행 행동 후보입니다.",
+      nextActionKo:
+        "쿠폰 이벤트가 잡히는 상품과 안 잡히는 상품을 분리하고, 쿠폰 수령 후 주문서 진입률을 별도 지표로 추가합니다.",
+    },
+  ];
+
+  return candidates
+    .map(scoreIndicator)
+    .sort((a, b) => {
+      const scoreDiff = (b.score ?? -1) - (a.score ?? -1);
+      if (scoreDiff !== 0) return scoreDiff;
+      return (b.delta ?? -999) - (a.delta ?? -999);
+    })
+    .slice(0, 5)
+    .map((candidate, index) => ({ ...candidate, rank: index + 1 }));
+};
 
 const segmentBucketFor = (
   session: SessionAggregate,
@@ -843,6 +1133,282 @@ const buildHeadline = (
     decision,
     buyer_dwell_delta_seconds: dwellDelta,
     buyer_scroll90_delta_pct: scrollDelta,
+  };
+};
+
+const snapshotJsonCache = new Map<string, unknown | null>();
+
+const projectDataFile = (fileName: string): string | null => {
+  const roots = new Set<string>();
+  let cursor = process.cwd();
+  for (let i = 0; i < 6; i += 1) {
+    roots.add(cursor);
+    roots.add(path.dirname(cursor));
+    const parent = path.dirname(cursor);
+    if (parent === cursor) break;
+    cursor = parent;
+  }
+  cursor = __dirname;
+  for (let i = 0; i < 6; i += 1) {
+    roots.add(cursor);
+    roots.add(path.dirname(cursor));
+    const parent = path.dirname(cursor);
+    if (parent === cursor) break;
+    cursor = parent;
+  }
+
+  for (const root of roots) {
+    const candidate = path.join(root, "data", "project", fileName);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+};
+
+const readProjectJson = (fileName: string): unknown | null => {
+  if (snapshotJsonCache.has(fileName)) return snapshotJsonCache.get(fileName) ?? null;
+  const filePath = projectDataFile(fileName);
+  if (!filePath) {
+    snapshotJsonCache.set(fileName, null);
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
+    snapshotJsonCache.set(fileName, parsed);
+    return parsed;
+  } catch {
+    snapshotJsonCache.set(fileName, null);
+    return null;
+  }
+};
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+const arrayFrom = (obj: Record<string, unknown> | null, key: string): unknown[] => {
+  const value = obj?.[key];
+  return Array.isArray(value) ? value : [];
+};
+
+const rowMatches = (
+  row: Record<string, unknown>,
+  key: string,
+  expected: string,
+): boolean => stringValue(row, [key]) === expected;
+
+const snapshotMetric = (
+  row: Record<string, unknown> | null,
+  kind: "cohort" | "buyer" | "non_buyer" | "channel_buyer" | "channel_non_buyer",
+): Ga4BehaviorSnapshotMetrics | null => {
+  if (!row) return null;
+
+  if (kind === "cohort") {
+    return {
+      safe_sessions: numberValue(row, ["vm_safe_sessions"]) ?? 0,
+      ga4_joined_sessions: numberValue(row, ["ga4_joined_sessions"]) ?? 0,
+      join_rate_pct: numberValue(row, ["join_rate_pct"]),
+      p50_engagement_seconds: numberValue(row, ["p50_engagement_seconds"]),
+      p75_engagement_seconds: numberValue(row, ["p75_engagement_seconds"]),
+      scroll90_rate_pct: numberValue(row, ["scroll90_rate_pct"]),
+      page_view_long_rate_pct: numberValue(row, ["page_view_long_rate_pct"]),
+      view_item_rate_pct: numberValue(row, ["view_item_rate_pct"]),
+      add_to_cart_rate_pct: numberValue(row, ["add_to_cart_rate_pct"]),
+      begin_checkout_rate_pct: numberValue(row, ["begin_checkout_rate_pct"]),
+      add_payment_info_rate_pct: numberValue(row, ["add_payment_info_rate_pct"]),
+      ga4_purchase_event_rate_pct: numberValue(row, ["ga4_purchase_event_rate_pct"]),
+    };
+  }
+
+  if (kind === "channel_buyer" || kind === "channel_non_buyer") {
+    const prefix = kind === "channel_buyer" ? "buyer" : "leaver";
+    const sessions =
+      kind === "channel_buyer"
+        ? numberValue(row, ["confirmed_purchase_sessions"])
+        : numberValue(row, ["dropped_checkout_sessions"]);
+    return {
+      safe_sessions: sessions ?? 0,
+      ga4_joined_sessions: numberValue(row, ["ga4_joined_sessions"]) ?? 0,
+      join_rate_pct: numberValue(row, ["join_rate_pct"]),
+      p50_engagement_seconds: numberValue(row, [`${prefix}_p50_dwell_seconds`]),
+      p75_engagement_seconds: null,
+      scroll90_rate_pct: numberValue(row, [`${prefix}_scroll90_rate_pct`]),
+      page_view_long_rate_pct: null,
+      view_item_rate_pct: null,
+      add_to_cart_rate_pct: numberValue(row, [
+        `${prefix}_add_to_cart_or_view_cart_rate_pct`,
+        `${prefix}_cart_signal_pct`,
+      ]),
+      begin_checkout_rate_pct: numberValue(row, [`${prefix}_begin_checkout_rate_pct`]),
+      add_payment_info_rate_pct: numberValue(row, [`${prefix}_add_payment_info_rate_pct`]),
+      ga4_purchase_event_rate_pct:
+        kind === "channel_non_buyer"
+          ? numberValue(row, ["dropped_with_ga4_purchase_event_rate_pct"])
+          : null,
+    };
+  }
+
+  const source = asRecord(row[kind]);
+  if (!source) return null;
+  return {
+    safe_sessions: numberValue(source, ["vm_safe_sessions"]) ?? 0,
+    ga4_joined_sessions: numberValue(source, ["ga4_joined_sessions"]) ?? 0,
+    join_rate_pct: numberValue(source, ["join_rate_pct"]),
+    p50_engagement_seconds: numberValue(source, ["p50_dwell_seconds", "p50_engagement_seconds"]),
+    p75_engagement_seconds: numberValue(source, ["p75_dwell_seconds", "p75_engagement_seconds"]),
+    scroll90_rate_pct: numberValue(source, ["scroll90_rate_pct"]),
+    page_view_long_rate_pct: numberValue(source, ["page_view_long_rate_pct"]),
+    view_item_rate_pct: numberValue(source, ["view_item_rate_pct"]),
+    add_to_cart_rate_pct: numberValue(source, ["add_to_cart_or_view_cart_rate_pct", "add_to_cart_rate_pct"]),
+    begin_checkout_rate_pct: numberValue(source, ["begin_checkout_rate_pct"]),
+    add_payment_info_rate_pct: numberValue(source, ["add_payment_info_rate_pct"]),
+    ga4_purchase_event_rate_pct: numberValue(source, ["ga4_purchase_event_rate_pct"]),
+  };
+};
+
+const findPageLongThresholdRow = (
+  site: LeadingIndicatorSite,
+  channel: LeadingIndicatorChannel,
+): Record<string, unknown> | null => {
+  const raw = asRecord(readProjectJson("page-long-threshold-fit-dry-run-20260525.json"));
+  const rows = arrayFrom(raw, "threshold_fit");
+  const lookupChannel = channel === "all" ? "meta" : channel;
+  const row = rows
+    .map(asRecord)
+    .find((candidate): candidate is Record<string, unknown> =>
+      Boolean(
+        candidate &&
+          rowMatches(candidate, "site", site) &&
+          rowMatches(candidate, "source_group", lookupChannel),
+      ),
+    );
+  return row ?? null;
+};
+
+const pageLongSnapshot = (
+  site: LeadingIndicatorSite,
+  channel: LeadingIndicatorChannel,
+): Ga4BehaviorSnapshot["page_long_threshold"] => {
+  const row = findPageLongThresholdRow(site, channel);
+  if (!row) return null;
+  const current7Min = asRecord(row.current_7min);
+  return {
+    recommended_threshold_seconds: numberValue(row, ["recommended_threshold_seconds"]),
+    recommended_threshold_label: stringValue(row, ["recommended_threshold_label"]) || null,
+    current_7min_lift_pct: numberValue(current7Min ?? undefined, ["lift_pct"]),
+    interpretation_ko: stringValue(row, ["interpretation"]) || null,
+  };
+};
+
+const buildGa4BehaviorSnapshot = (input: {
+  site: LeadingIndicatorSite;
+  window: LeadingIndicatorWindow;
+  channel: LeadingIndicatorChannel;
+}): Ga4BehaviorSnapshot => {
+  const checkedAt =
+    stringValue(
+      asRecord(readProjectJson("ga4-vm-row-level-safe-bridge-dry-run-20260525.json")) ?? undefined,
+      ["checked_at_kst"],
+    ) ||
+    stringValue(
+      asRecord(readProjectJson("coffee-channel-cohort-truth-table-20260525.json")) ?? undefined,
+      ["checked_at_kst"],
+    ) ||
+    null;
+
+  let buyer: Ga4BehaviorSnapshotMetrics | null = null;
+  let nonBuyer: Ga4BehaviorSnapshotMetrics | null = null;
+  let confidence: Ga4BehaviorSnapshot["confidence"] = "low";
+
+  if (input.site === "biocom" && input.channel === "meta") {
+    const raw = asRecord(readProjectJson("biocom-meta-only-buyer-leaver-truth-table-20260525.json"));
+    const truthTable = asRecord(raw?.truth_table);
+    buyer = snapshotMetric(truthTable, "buyer");
+    nonBuyer = snapshotMetric(truthTable, "non_buyer");
+    confidence = stringValue(truthTable ?? undefined, ["confidence"]) === "high" ? "high" : "medium";
+  } else if (input.site === "thecleancoffee" && input.channel !== "all") {
+    const raw = asRecord(readProjectJson("coffee-channel-cohort-truth-table-20260525.json"));
+    const row = arrayFrom(raw, "channel_truth_table")
+      .map(asRecord)
+      .find((candidate): candidate is Record<string, unknown> =>
+        Boolean(
+          candidate &&
+            rowMatches(candidate, "dimension", "source_group") &&
+            rowMatches(candidate, "value", input.channel),
+        ),
+      );
+    buyer = snapshotMetric(row ?? null, "channel_buyer");
+    nonBuyer = snapshotMetric(row ?? null, "channel_non_buyer");
+    const rowConfidence = stringValue(row ?? undefined, ["confidence"]);
+    confidence = rowConfidence === "high" || rowConfidence === "medium" ? rowConfidence : "low";
+  } else {
+    const raw = asRecord(readProjectJson("ga4-vm-row-level-safe-bridge-dry-run-20260525.json"));
+    const rows = arrayFrom(raw, "cohort_summary").map(asRecord);
+    const buyerRow = rows.find((candidate): candidate is Record<string, unknown> =>
+      Boolean(
+        candidate &&
+          rowMatches(candidate, "site", input.site) &&
+          rowMatches(candidate, "cohort", "confirmed_purchase"),
+      ),
+    );
+    const nonBuyerRow = rows.find((candidate): candidate is Record<string, unknown> =>
+      Boolean(
+        candidate &&
+          rowMatches(candidate, "site", input.site) &&
+          rowMatches(candidate, "cohort", "dropped_checkout"),
+      ),
+    );
+    buyer = snapshotMetric(buyerRow ?? null, "cohort");
+    nonBuyer = snapshotMetric(nonBuyerRow ?? null, "cohort");
+    confidence = buyer && nonBuyer ? "high" : "low";
+  }
+
+  const available = Boolean(buyer && nonBuyer);
+  const rootCauseKo =
+    input.site === "thecleancoffee" && available
+      ? "더클린커피 행동 공백은 GA4 원천 데이터 부재가 아니라, 기존 live API가 VM 원장 metadata만 보여서 생긴 표시 공백입니다. GA4 safe bridge snapshot에서는 행동 연결률이 높게 확인됩니다."
+      : available
+        ? "live API의 VM 원장 행동값과 GA4 행동값은 측정 방식이 다릅니다. 이 snapshot은 GA4 BigQuery safe bridge 기준 행동 비교입니다."
+        : "요청한 site/channel 조합에 대응하는 GA4 행동 snapshot이 아직 없습니다.";
+
+  return {
+    status: available ? "available" : "missing",
+    source: available ? "ga4_bigquery_safe_bridge_dry_run_snapshot" : "not_available",
+    checked_at_kst: checkedAt,
+    snapshot_window: "7d",
+    requested_window: input.window,
+    window_alignment: input.window === "7d" ? "matched" : "snapshot_7d_fallback",
+    site: input.site,
+    channel: input.channel,
+    confidence,
+    root_cause_ko: rootCauseKo,
+    recommended_usage_ko:
+      "구매자/비결제자 행동 차이 해석에는 ga4_behavior_snapshot을 우선 보고, CAPI 전송 감시와 결제 정본 판단에는 기존 VM Cloud cohort/comparison을 보세요.",
+    buyer,
+    non_buyer: nonBuyer,
+    deltas: {
+      p50_engagement_seconds: delta(
+        buyer?.p50_engagement_seconds ?? null,
+        nonBuyer?.p50_engagement_seconds ?? null,
+      ),
+      scroll90_rate_pct: delta(
+        buyer?.scroll90_rate_pct ?? null,
+        nonBuyer?.scroll90_rate_pct ?? null,
+      ),
+      begin_checkout_rate_pct: delta(
+        buyer?.begin_checkout_rate_pct ?? null,
+        nonBuyer?.begin_checkout_rate_pct ?? null,
+      ),
+      add_to_cart_rate_pct: delta(
+        buyer?.add_to_cart_rate_pct ?? null,
+        nonBuyer?.add_to_cart_rate_pct ?? null,
+      ),
+      add_payment_info_rate_pct: delta(
+        buyer?.add_payment_info_rate_pct ?? null,
+        nonBuyer?.add_payment_info_rate_pct ?? null,
+      ),
+    },
+    page_long_threshold: pageLongSnapshot(input.site, input.channel),
   };
 };
 
@@ -949,7 +1515,7 @@ export const buildLeadingIndicatorsReport = (input: {
 
   const caveats = [
     "이 응답은 raw 주문/결제/회원/click/session id를 반환하지 않는 aggregate 전용입니다.",
-    "GA4 BigQuery row-level dwell/scroll join은 P1 skeleton에서 아직 cross-check로만 표시하며, 매출 정본은 VM Cloud confirmed payment_success입니다.",
+    "GA4 BigQuery 행동 snapshot은 ga4_behavior_snapshot에 aggregate-only로 붙입니다. 매출 정본은 VM Cloud confirmed payment_success입니다.",
     "non_buyer는 GA4 purchase 충돌과 pending/unknown/canceled payment_success 흔적이 없는 순수 비결제자입니다. GA4 purchase가 보이지만 VM confirmed purchase가 없는 세션은 ga4_purchase_conflict로 분리합니다.",
     "ga4_purchase_conflict는 GA4 purchase가 매출 정본이라는 뜻이 아니라, session/window mismatch 또는 VM confirmed bridge 누락 가능성을 따로 점검하라는 보류 bucket입니다.",
     "pending_payment_success는 VM payment_success 흔적은 있으나 confirmed로 닫히지 않은 세션입니다. 실제 미결제, 취소, sync 지연, bridge 누락 가능성이 있어 순수 비결제자 평균에 섞지 않습니다.",
@@ -998,6 +1564,11 @@ export const buildLeadingIndicatorsReport = (input: {
     },
     indicators: buildIndicators(buyerMetrics, nonBuyerMetrics),
     segments: buildSegments(sessionList, input.dimension),
+    ga4_behavior_snapshot: buildGa4BehaviorSnapshot({
+      site: input.site,
+      window: input.window,
+      channel: input.channel,
+    }),
     caveats,
     safety: {
       raw_identifier_output: false,
@@ -1029,17 +1600,42 @@ export const getPrecomputedLeadingIndicators = (
   };
 };
 
+const PRECOMPUTE_SITES: LeadingIndicatorSite[] = ["biocom", "thecleancoffee"];
+const PRECOMPUTE_WINDOWS: LeadingIndicatorWindow[] = ["1d", "7d", "14d", "30d"];
+const PRECOMPUTE_BUYER_CHANNELS: LeadingIndicatorChannel[] = [
+  "meta",
+  "google_paid",
+  "youtube",
+  "organic",
+];
+
 const PRECOMPUTE_TARGETS: Array<Omit<LeadingIndicatorQuery, "freshness">> = [
-  { site: "biocom", window: "1d", channel: "meta", dimension: "buyer_vs_leaver" },
-  { site: "biocom", window: "7d", channel: "meta", dimension: "buyer_vs_leaver" },
-  { site: "biocom", window: "7d", channel: "meta", dimension: "landing_bucket" },
-  { site: "biocom", window: "7d", channel: "google_paid", dimension: "buyer_vs_leaver" },
-  { site: "biocom", window: "7d", channel: "all", dimension: "channel" },
-  { site: "thecleancoffee", window: "1d", channel: "meta", dimension: "buyer_vs_leaver" },
-  { site: "thecleancoffee", window: "7d", channel: "meta", dimension: "buyer_vs_leaver" },
-  { site: "thecleancoffee", window: "7d", channel: "meta", dimension: "landing_bucket" },
-  { site: "thecleancoffee", window: "7d", channel: "google_paid", dimension: "buyer_vs_leaver" },
-  { site: "thecleancoffee", window: "7d", channel: "all", dimension: "channel" },
+  ...PRECOMPUTE_SITES.flatMap((site) =>
+    PRECOMPUTE_WINDOWS.flatMap((window) =>
+      PRECOMPUTE_BUYER_CHANNELS.map((channel) => ({
+        site,
+        window,
+        channel,
+        dimension: "buyer_vs_leaver" as const,
+      })),
+    ),
+  ),
+  ...PRECOMPUTE_SITES.flatMap((site) =>
+    PRECOMPUTE_WINDOWS.filter((window) => window !== "1d").map((window) => ({
+      site,
+      window,
+      channel: "all" as const,
+      dimension: "channel" as const,
+    })),
+  ),
+  ...PRECOMPUTE_SITES.flatMap((site) =>
+    PRECOMPUTE_WINDOWS.filter((window) => window !== "1d").map((window) => ({
+      site,
+      window,
+      channel: "meta" as const,
+      dimension: "landing_bucket" as const,
+    })),
+  ),
 ];
 
 export const runLeadingIndicatorsPrecomputeOnce = async (

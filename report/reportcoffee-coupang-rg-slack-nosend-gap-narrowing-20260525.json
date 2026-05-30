@@ -1,0 +1,121 @@
+{
+  "report": "reportcoffee_coupang_rg_slack_nosend_gap_narrowing_20260525",
+  "generated_at_kst": "2026-05-25 22:08 KST",
+  "lane": "Green",
+  "site": "thecleancoffee",
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-04-25",
+    "end_date_inclusive": "2026-05-01"
+  },
+  "slack_no_send_json": {
+    "path": "report/reportcoffee-sales-summary-no-send-20260501-coupang-rg.json",
+    "send_status": "not_sent",
+    "new_fields": [
+      "windows.weekly.sales.channels.coupang.rg_aggregate_reference",
+      "windows.weekly.sales.channels.coupang.attachment_reconstruction_reference",
+      "windows.weekly.sales.reference_totals.total_with_coupang_revenue_history_plus_rg_reference_krw",
+      "windows.weekly.sales.reference_totals.total_with_coupang_ordersheets_plus_rg_reference_krw",
+      "source_details.coupang_rg_aggregate"
+    ]
+  },
+  "weekly_coupang_reconstruction": {
+    "attachment_target_amount_krw": 2100400,
+    "attachment_target_order_count": 56,
+    "general_delivery_ordersheets_coffee_amount_krw": 1132700,
+    "general_delivery_ordersheets_coffee_order_count": 28,
+    "local_rocket_growth_aggregate_amount_krw": 907000,
+    "local_rocket_growth_aggregate_order_count": 26,
+    "ordersheets_plus_local_rg_amount_krw": 2039700,
+    "ordersheets_plus_local_rg_order_count": 54,
+    "remaining_gap_amount_krw": 60700,
+    "remaining_gap_order_count_hint": 2,
+    "strict_status": "reference_only_until_gap_closed"
+  },
+  "rocket_growth_api_boundary_probe": {
+    "exact_query": {
+      "api_window": "2026-04-25 - 2026-05-01",
+      "target_window_amount_krw": 907000,
+      "target_window_order_count": 26
+    },
+    "include_previous_day_query": {
+      "api_window": "2026-04-24 - 2026-05-01",
+      "target_window_amount_krw": 974800,
+      "target_window_order_count": 28,
+      "delta_vs_exact_amount_krw": 67800,
+      "delta_vs_exact_order_count": 2
+    },
+    "include_next_day_query": {
+      "api_window": "2026-04-25 - 2026-05-02",
+      "target_window_amount_krw": 1059400,
+      "target_window_order_count": 31,
+      "delta_vs_exact_amount_krw": 152400,
+      "delta_vs_exact_order_count": 5
+    },
+    "guard_day_query": {
+      "api_window": "2026-04-24 - 2026-05-02",
+      "target_window_amount_krw": 1127200,
+      "target_window_order_count": 33,
+      "delta_vs_exact_amount_krw": 220200,
+      "delta_vs_exact_order_count": 7,
+      "guard_only_by_day": {
+        "2026-04-25": {
+          "order_count": 2,
+          "amount_krw": 67800
+        },
+        "2026-05-01": {
+          "order_count": 5,
+          "amount_krw": 152400
+        }
+      },
+      "guard_only_amount_histogram_krw": {
+        "14800": 1,
+        "31900": 1,
+        "33900": 3,
+        "35900": 2
+      },
+      "raw_order_output": 0
+    },
+    "target_gap_probe": {
+      "target_gap_amount_krw": 60700,
+      "target_gap_order_count": 2,
+      "guard_only_two_order_combination_found": false,
+      "interpretation": "remaining_60700_krw_is_not_a_direct_two_order_subset_of_rg_boundary_only_orders"
+    }
+  },
+  "ordersheets_wide_probe": {
+    "api_window": "2026-04-24 - 2026-05-02",
+    "account_total_amount_krw": 1905000,
+    "coffee_hint_amount_krw": 1477600,
+    "teamketo_hint_amount_krw": 427400,
+    "raw_order_output": 0
+  },
+  "narrowed_blockers": [
+    {
+      "category": "rg_api_window_semantics_gap",
+      "meaning": "로켓그로스 API는 같은 KST 목표 기간도 요청 시작일/종료일을 넓히면 경계일 주문 집합이 달라진다.",
+      "confidence": "high"
+    },
+    {
+      "category": "remaining_two_orders_not_boundary_subset",
+      "meaning": "경계일 추가분 안에서 60,700원 / 2건 조합은 바로 나오지 않았다.",
+      "confidence": "medium_high"
+    },
+    {
+      "category": "attachment_source_definition_gap",
+      "meaning": "첨부 XLSX의 2,100,400원 셀은 직접 입력값이라 원본 source 정의가 파일 안에 남아 있지 않다.",
+      "confidence": "high"
+    }
+  ],
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "ad_account_mutation": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0,
+    "raw_click_identifier_output": 0
+  }
+}

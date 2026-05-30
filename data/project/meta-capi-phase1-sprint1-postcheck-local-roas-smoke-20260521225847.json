@@ -1,0 +1,252 @@
+{
+  "ok": true,
+  "verdict": "PASS_WITH_NOTES",
+  "run_label": "local-roas-smoke-20260521225847",
+  "generated_at_kst": "2026-05-21 22:58:51 KST",
+  "mode": "read_only",
+  "source_window_freshness_confidence": {
+    "source": "VM Cloud /health + funnel-health aggregate + Meta CAPI send log aggregate",
+    "window": "1d",
+    "site": "biocom",
+    "pixel_id": "1283400029487161",
+    "freshness": "fresh",
+    "checked_at_kst": "2026-05-21 22:58",
+    "confidence": "high_for_api_contract_medium_for_business_queue"
+  },
+  "inputs": {
+    "base_url": "https://att.ainativeos.net",
+    "site": "biocom",
+    "window": "1d",
+    "pixel_id": "1283400029487161",
+    "allow_live_smoke": false
+  },
+  "checks": [
+    {
+      "key": "health_200",
+      "label": "VM Cloud backend health 200",
+      "pass": true,
+      "observed": {
+        "http_status": 200,
+        "status": "ok"
+      },
+      "required": true
+    },
+    {
+      "key": "funnel_health_200",
+      "label": "funnel-health API 200",
+      "pass": true,
+      "observed": {
+        "http_status": 200,
+        "ok": true
+      },
+      "required": true
+    },
+    {
+      "key": "site_pixel_filter",
+      "label": "site/pixel filter applied",
+      "pass": true,
+      "observed": {
+        "site": "biocom",
+        "pixel_ids": [
+          "1283400029487161"
+        ]
+      },
+      "required": true
+    },
+    {
+      "key": "metric_contract_present",
+      "label": "metric contract exposes source/unit/window/site/pixel",
+      "pass": true,
+      "observed": {
+        "source": "Meta CAPI send log",
+        "unit": "send attempt / event_id",
+        "window": "최근 24시간",
+        "site": "biocom",
+        "pixel_id": "1283400029487161"
+      },
+      "required": true
+    },
+    {
+      "key": "raw_identifier_output_zero",
+      "label": "API contract says raw identifier output is 0",
+      "pass": true,
+      "observed": {
+        "raw_identifier_output": 0
+      },
+      "required": true
+    },
+    {
+      "key": "platform_send_from_funnel_endpoint_zero",
+      "label": "funnel-health endpoint does not send to platforms",
+      "pass": true,
+      "observed": {
+        "platform_send_from_this_endpoint": 0
+      },
+      "required": true
+    },
+    {
+      "key": "operational_db_write_zero",
+      "label": "funnel-health endpoint does not write 운영DB",
+      "pass": true,
+      "observed": {
+        "operational_db_write": 0
+      },
+      "required": true
+    },
+    {
+      "key": "capi_log_readable",
+      "label": "Meta CAPI send log aggregate is readable",
+      "pass": true,
+      "observed": {
+        "http_status": 200,
+        "total_7d": 367,
+        "success_7d": 367,
+        "failure_7d": 0
+      },
+      "required": true
+    },
+    {
+      "key": "capi_failures_zero_in_funnel_window",
+      "label": "CAPI failure count in funnel window is 0",
+      "pass": true,
+      "observed": {
+        "failed": 0
+      },
+      "required": false
+    },
+    {
+      "key": "duplicate_estimate_zero",
+      "label": "CAPI duplicate estimate is 0",
+      "pass": true,
+      "observed": {
+        "duplicate_estimate": 0
+      },
+      "required": false
+    },
+    {
+      "key": "confirmed_unsent_queue_visible",
+      "label": "confirmed but unsent queue is visible as aggregate",
+      "pass": true,
+      "observed": {
+        "count": 2,
+        "amount_krw": 479000,
+        "oldest_age_minutes": 23
+      },
+      "required": true
+    },
+    {
+      "key": "payment_page_seen_smoke",
+      "label": "optional payment_page_seen live smoke",
+      "pass": true,
+      "observed": {
+        "skipped": true,
+        "reason": "ALLOW_LIVE_SMOKE=1 not set"
+      },
+      "required": false
+    },
+    {
+      "key": "shop_payment_downgrade_smoke",
+      "label": "optional /shop_payment payment_success downgrade live smoke",
+      "pass": true,
+      "observed": {
+        "skipped": true,
+        "reason": "ALLOW_LIVE_SMOKE=1 not set"
+      },
+      "required": false
+    }
+  ],
+  "live_snapshot": {
+    "health_status": "ok",
+    "funnel_cache": {
+      "cached": false,
+      "cached_at_kst": null,
+      "next_refresh_at_kst": null,
+      "generation_ms": 210,
+      "staleness_ms": 0,
+      "source": "live_cache_miss"
+    },
+    "status": {
+      "label": "주의",
+      "main_issue": "결제 페이지까지 갔으나 완료 판단 응답이 끊긴 row 305건",
+      "next_action": "Header Guard v3.1.1 / prefetch cache 무효화 후 canceled 재발 여부를 확인하세요."
+    },
+    "risk_combo": {
+      "state": "browser_only_missing",
+      "server_capi_active": true,
+      "browser_purchase_active": false,
+      "human_label": "Server CAPI 정상 · Browser Purchase 만 누락 (보조 신호 누락)",
+      "explanation_ko": "Meta 로 가는 구매 신호는 서버가 대체 전송 중이라 치명 장애는 아닙니다. 다만 브라우저 픽셀 보조 경로가 끊겨 있어 event match quality 등 일부 지표는 약해질 수 있습니다."
+    },
+    "confirmed_purchase_count": 45,
+    "meta_capi_success_count": 46,
+    "capi_breakdown": {
+      "send_attempts": 46,
+      "events_received_count": 46,
+      "unique_orders": 46,
+      "duplicate_estimate": 0,
+      "failed": 0
+    },
+    "capi_health": {
+      "last_success_at_kst": "2026-05-21 22:35",
+      "last_1h": {
+        "attempted": 1,
+        "success": 1,
+        "events_received": 1,
+        "failed": 0
+      },
+      "today": {
+        "attempted": 42,
+        "success": 42,
+        "events_received": 42,
+        "failed": 0
+      },
+      "last_7d": {
+        "attempted": 367,
+        "success": 367,
+        "events_received": 367,
+        "failed": 0
+      },
+      "no_send_reasons": []
+    },
+    "purchase_eligibility_queue": {
+      "confirmed_eligible_unsent_count": 2,
+      "confirmed_eligible_unsent_amount_krw": 479000,
+      "oldest_age_minutes": 23
+    },
+    "confirmed_but_no_capi_action_queue": {
+      "priority": "critical",
+      "title": "결제완료가 있는데 Meta CAPI 전송 기록이 없음",
+      "count": 2,
+      "amount_krw": 479000,
+      "next_action": "5/17 이후 새 누락은 CAPI sync 사유를 분류하고, 5/14~5/15 legacy backlog는 보관만 합니다.",
+      "detail_count": 2
+    },
+    "capi_log_aggregate": {
+      "last_1d": {
+        "total": 46,
+        "success": 46,
+        "failure": 0,
+        "duplicate_event_ids": 0,
+        "duplicate_order_event_keys": 0
+      },
+      "last_7d": {
+        "total": 367,
+        "success": 367,
+        "failure": 0,
+        "duplicate_event_ids": 0,
+        "duplicate_order_event_keys": 0
+      }
+    }
+  },
+  "forbidden_actions_observed_from_this_script": {
+    "meta_capi_operational_send": 0,
+    "google_ads_upload": 0,
+    "ga4_measurement_protocol_send": 0,
+    "tiktok_or_naver_send": 0,
+    "operational_db_write": 0,
+    "gtm_publish": 0,
+    "raw_identifier_report_output": 0,
+    "live_diagnostic_insert_count": 0
+  },
+  "next_action_hint": "confirmed-but-unsent queue가 남아 있으면 current/legacy/do-not-send 사유를 분류하세요. 실제 backfill send는 Red 승인 전 금지입니다."
+}

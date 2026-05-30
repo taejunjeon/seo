@@ -1,0 +1,428 @@
+{
+  "run_at_kst": "2026-05-23 23:53:13 KST",
+  "source": {
+    "utm_candidates": "/Users/vibetj/coding/seo/utm/biocom-utm-mapping-candidates-20260522.csv",
+    "alias_seed": "/Users/vibetj/coding/seo/data/meta_campaign_aliases.biocom.json",
+    "audit": "/Users/vibetj/coding/seo/data/meta_campaign_alias_audit.biocom.json"
+  },
+  "stats": {
+    "unique_metaish_aliases": 721,
+    "already_in_manual_seed": 21,
+    "b_grade_proposal_single_campaign": 192,
+    "multi_campaign_keep_split": 27,
+    "no_current_audit_match": 481,
+    "audit_generated_at": "2026-04-11T05:31:33.717Z",
+    "audit_range": {
+      "startDate": "2026-04-04",
+      "endDate": "2026-04-10"
+    },
+    "b_grade_proposal_rows": 192
+  },
+  "multi_campaign_examples": [
+    {
+      "alias_key": "meta_IgGtest_teamekto_video_1",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "음식물과민증검사_팀키토영상_1_시도때도없이 붓는사람들"
+    },
+    {
+      "alias_key": "meta_IgGtest_teamekto_video_2",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "음식물과민증검사_팀키토영상_2_계속 부어있던 이유"
+    },
+    {
+      "alias_key": "meta_IgGtest_teamekto_video_5",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "음식물과민증검사_팀키토영상_5_검사하나로해결"
+    },
+    {
+      "alias_key": "meta_biocom_adipinsan_acid",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ],
+        [
+          "120237452088280396",
+          "[바이오컴] 종합대사기능검사 전환캠페인(11/4~) - 사본"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_지방산대사X_종대사"
+    },
+    {
+      "alias_key": "meta_biocom_blackfriday_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_블프소재_음과검"
+    },
+    {
+      "alias_key": "meta_biocom_blogreview_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_블로그후기_음과검"
+    },
+    {
+      "alias_key": "meta_biocom_chickenmuscle_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_닭가슴살근육_음과검"
+    },
+    {
+      "alias_key": "meta_biocom_christmasevent_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_크리스마스이벤트_음과검"
+    },
+    {
+      "alias_key": "meta_biocom_chuseock_igg_1",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_추석캠페인_음과검_1"
+    },
+    {
+      "alias_key": "meta_biocom_chuseock_igg_2",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_추석캠페인_음과검_2"
+    },
+    {
+      "alias_key": "meta_biocom_chuseockgift_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_추석선물추천_음과검"
+    },
+    {
+      "alias_key": "meta_biocom_gasviral_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_배에가스참_음식물과민증"
+    },
+    {
+      "alias_key": "meta_biocom_igg30000_1",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_음과검 3만_1"
+    },
+    {
+      "alias_key": "meta_biocom_iggchecklist_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_음과검체크리스트소재_음과검"
+    },
+    {
+      "alias_key": "meta_biocom_iggdietreview_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_음과검 다이어트소구 후기_음과검"
+    },
+    {
+      "alias_key": "meta_biocom_oftenfood_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_자주먹는음식무물_음과검"
+    },
+    {
+      "alias_key": "meta_biocom_seoligg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_설연휴음과검이벤트"
+    },
+    {
+      "alias_key": "meta_biocom_seoliggresetday",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_설연휴음과검이벤트_리셋데이포함"
+    },
+    {
+      "alias_key": "meta_biocom_servicecatalog_service",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ],
+        [
+          "120237452088280396",
+          "[바이오컴] 종합대사기능검사 전환캠페인(11/4~) - 사본"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_검사권카탈로그_검사권"
+    },
+    {
+      "alias_key": "meta_biocom_shakestory_igg",
+      "campaign_count": 2,
+      "campaigns": [
+        [
+          "120213362391690396",
+          "[바이오컴] 음식물 과민증 검사 전환캠페인(10/14~)"
+        ],
+        [
+          "120235591897270396",
+          "[바이오컴] 음식물 과민증 검사 어드밴티지+캠페인(251020)"
+        ]
+      ],
+      "management_memo": "메타광고_바이오컴_단쉐스토리_음과검"
+    }
+  ],
+  "no_current_audit_examples": [
+    {
+      "alias_key": "biocom_NM0",
+      "landing_path": "/supplements?idx=198",
+      "management_memo": "메타광고ㅣ뉴로마스터*"
+    },
+    {
+      "alias_key": "biocom_PB0",
+      "landing_path": "/supplements?idx=171",
+      "management_memo": "메타광고ㅣ풍성밸런스*"
+    },
+    {
+      "alias_key": "biocom_bb0",
+      "landing_path": "/supplements?idx=97",
+      "management_memo": "메타광고ㅣ바이오밸런스*"
+    },
+    {
+      "alias_key": "biocom_bb1",
+      "landing_path": "/supplements?idx=97",
+      "management_memo": "메타광고ㅣ바이오밸런스1"
+    },
+    {
+      "alias_key": "biocom_bb2",
+      "landing_path": "/supplements?idx=97",
+      "management_memo": "메타광고ㅣ바이오밸런스2"
+    },
+    {
+      "alias_key": "biocom_bb3",
+      "landing_path": "/supplements?idx=97",
+      "management_memo": "메타광고ㅣ바이오밸런스3"
+    },
+    {
+      "alias_key": "biocom_cb1",
+      "landing_path": "/supplements?idx=172",
+      "management_memo": "메타광고ㅣ클린밸런스1"
+    },
+    {
+      "alias_key": "biocom_nm1",
+      "landing_path": "/supplements?idx=198",
+      "management_memo": "메타광고ㅣ뉴로마스터1"
+    },
+    {
+      "alias_key": "biocom_pb1",
+      "landing_path": "/supplements?idx=171",
+      "management_memo": "메타광고ㅣ풍성밸런스1"
+    },
+    {
+      "alias_key": "biocom_t1-1",
+      "landing_path": "/mineraltest_store?idx=6",
+      "management_memo": "메타광고ㅣ영양 중금속 검사1"
+    },
+    {
+      "alias_key": "biocom_t1-2",
+      "landing_path": "/mineraltest_store?idx=6",
+      "management_memo": "메타광고ㅣ영양 중금속 검사2"
+    },
+    {
+      "alias_key": "biocom_t1-3",
+      "landing_path": "/mineraltest_store?idx=6",
+      "management_memo": "메타광고ㅣ영양 중금속 검사3"
+    },
+    {
+      "alias_key": "biocom_t3-1",
+      "landing_path": "/microbiome?idx=12",
+      "management_memo": "메타광고ㅣ장내세균 검사1"
+    },
+    {
+      "alias_key": "biocom_w1",
+      "landing_path": "/mineraltest_store?idx=6",
+      "management_memo": "메타광고ㅣ영양중금속검사*"
+    },
+    {
+      "alias_key": "biocom_w2",
+      "landing_path": "/igg_store?idx=85",
+      "management_memo": "메타광고ㅣ지연성알러지 검사*"
+    },
+    {
+      "alias_key": "biocom_w3",
+      "landing_path": "/microbiome?idx=12",
+      "management_memo": "메타광고ㅣ장내세균 검사*"
+    },
+    {
+      "alias_key": "bizboard",
+      "landing_path": "/HealthFood?idx=386",
+      "management_memo": "카카오광고_바이오컴_비즈보드_메타드림"
+    },
+    {
+      "alias_key": "meat_pprettysunny_acid",
+      "landing_path": "/ppretty_sunny",
+      "management_memo": "메타광고_쁘띠써니님파트너_종대사"
+    },
+    {
+      "alias_key": "meta_5star_reels1",
+      "landing_path": "/5ive__stars",
+      "management_memo": "메타광고_오성님공구_릴스1"
+    },
+    {
+      "alias_key": "meta_againg_35th",
+      "landing_path": "/aging_meta",
+      "management_memo": "메타광고_노화스트레스_35살소재"
+    }
+  ],
+  "outputs": {
+    "bgrade_csv": "/Users/vibetj/coding/seo/utm/biocom-meta-bgrade-alias-proposal-dictionary-20260523.csv"
+  }
+}

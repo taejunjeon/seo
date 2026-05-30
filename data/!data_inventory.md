@@ -103,6 +103,26 @@ harness_preflight:
 | CRM 실험 / 세그먼트 / 메시지 | 11 | `crm_experiments / crm_assignment_log / crm_consent_log / crm_consent_change_log / crm_conversion_log / crm_customer_groups / crm_customer_group_members / crm_lead_profile / crm_lead_event_log / crm_message_log / crm_saved_segments / crm_scheduled_send` |
 | refund / 메타 | 2 | `refund_dispatch_log / schema_versions` |
 
+## A1-1. 개발팀 운영DB 매출 자동화 참고 문서
+
+작성 시각: 2026-05-26 21:45 KST
+source: Notion `매출 자동화 현황` read-only fetch
+local mirror: [[operating-db-sales-automation-status-notion-20260526]]
+freshness: Notion fetch 2026-05-26 19:04 KST
+confidence: high for document capture, medium for current implementation until 개발팀 확인
+
+이 문서는 우리 솔루션이 직접 호출할 API 목록이 아니라, 개발팀 운영DB 쪽에서 매출 채널을 어떻게 자동 동기화하거나 엑셀 업로드로 처리하는지 정리한 참고 문서다.
+
+| 채널 | 개발팀 문서 기준 | 우리 매출보고에서의 사용법 |
+|---|---|---|
+| 토스 | API 자동 동기화 | 운영DB Toss 계열 매출 cross-check 후보 |
+| 네이버 스마트스토어 | API 자동 동기화, `settleBasisDate` 기준 | 더클린커피는 통합매니저 권한 확인 전까지 PlayAuto 경고 포함 유지. 운영DB 스마트스토어 API 테이블은 2026-05-27 재확인 |
+| 네이버페이 정산 내역 | 엑셀 월말 업로드 | NPay actual 매출과 정산 내역을 섞지 않는다 |
+| 쿠팡 3P / 로켓그로스 | 엑셀 월말 업로드 | 쿠팡 API 주문/매출인식 값과 회계 정산표를 계속 대조 |
+| 여신금융협회 | 검증용 데이터 | 매출 합산 제외 |
+
+주의: 개발팀 문서에서 `API`라고 적힌 것은 운영DB 자동 동기화 가능성을 뜻한다. Codex/VM Cloud가 해당 외부 API를 직접 호출할 권한, IP 허용, 더클린커피 스토어 scope를 이미 갖고 있다는 뜻이 아니다.
+
 ## A2. imweb sync (회원/주문/쿠폰)
 
 | 테이블 | 로컬DB row | VM Cloud row | source | 싱크 주기 / 트리거 | 비고 |

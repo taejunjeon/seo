@@ -1,0 +1,315 @@
+{
+  "run_id": "leading-indicator-biocom-sample-20260525-001",
+  "created_at_kst": "2026-05-25 21:44 KST",
+  "agent_name": "leading_indicator_agent",
+  "mode": "green_sample_run_packet_schema_check",
+  "site": "biocom",
+  "sample_notice": {
+    "is_sample": true,
+    "business_decision_allowed": false,
+    "reason": "이 파일은 샘플 실행 기록이다. 2026-05-17 P0 dry-run 집계 일부를 사용해 형식을 검증하며, 2026-05-25 현재 운영 판단에는 사용하지 않는다."
+  },
+  "window": {
+    "primary": "historical_7d_snapshot_from_2026-05-17",
+    "comparison": "historical_1d_snapshot_from_2026-05-17",
+    "timezone": "Asia/Seoul"
+  },
+  "context_docs": [
+    "AGENTS.md",
+    "docurule.md",
+    "harness/common/HARNESS_GUIDELINES.md",
+    "harness/common/AUTONOMY_POLICY.md",
+    "harness/leading-indicator/README.md",
+    "harness/leading-indicator/TOOL_REGISTRY.md",
+    "harness/leading-indicator/EVAL_SUITE.md",
+    "harness/leading-indicator/RUN_PACKET_SCHEMA.md",
+    "ontology/leading-indicator-ontology-extension-20260525.md",
+    "project/leading-indicator-source-matrix-20260525.md",
+    "project/leading-indicator-mini-digital-twin-plan-20260525.md",
+    "project/leading-indicator-p0-dry-run-20260517.md",
+    "data/project/leading-indicator-p0-dry-run-20260517.json"
+  ],
+  "tools_used": [
+    {
+      "tool_id": "vm_cloud_leading_indicator_read",
+      "lane": "Green",
+      "mode": "historical_snapshot_reference",
+      "allowed": [
+        "read aggregate",
+        "record source/window/freshness/confidence"
+      ],
+      "forbidden": [
+        "db write",
+        "deploy",
+        "platform send",
+        "raw identifier output"
+      ]
+    },
+    {
+      "tool_id": "run_packet_write_local",
+      "lane": "Green",
+      "mode": "local_document_write",
+      "allowed": [
+        "write sample JSON",
+        "write sample Markdown report"
+      ],
+      "forbidden": [
+        "operating DB write",
+        "external upload",
+        "automatic commit"
+      ]
+    },
+    {
+      "tool_id": "leading_indicator_eval_run",
+      "lane": "Green",
+      "mode": "schema_level_eval_only",
+      "allowed": [
+        "evaluate sample completeness",
+        "mark stale sources as HOLD"
+      ],
+      "forbidden": [
+        "approve operational change",
+        "change budget",
+        "send platform conversion"
+      ]
+    }
+  ],
+  "source_freshness": {
+    "source": "VM Cloud funnel-health cached aggregate + local P0 dry-run docs",
+    "window": "rolling 7d snapshot checked on 2026-05-17",
+    "freshness": "historical_sample_only",
+    "site": "biocom",
+    "confidence": 0.52,
+    "confidence_reason": "샘플 실행 기록의 형식 검증에는 충분하지만, 현재 운영 판단에는 stale이다."
+  },
+  "cohorts": [
+    {
+      "cohort_id": "all_visitors_vs_confirmed_purchase",
+      "label_ko": "전체 방문 대비 실제 결제완료",
+      "window": "historical_7d_snapshot_from_2026-05-17",
+      "source": "VM Cloud funnel-health aggregate from P0 dry-run",
+      "landing_count": 10720,
+      "confirmed_purchase_count": 388,
+      "purchase_rate_pct": 3.62,
+      "caveat": "같은 기간의 실제 매출과 광고비는 이 샘플에서 확인하지 않았다."
+    },
+    {
+      "cohort_id": "checkout_started_vs_confirmed_purchase",
+      "label_ko": "결제 시작 대비 실제 결제완료",
+      "window": "historical_7d_snapshot_from_2026-05-17",
+      "source": "VM Cloud attribution ledger aggregate from P0 dry-run",
+      "checkout_started_count": 2250,
+      "confirmed_purchase_count": 388,
+      "checkout_to_purchase_rate_pct": 17.24,
+      "caveat": "결제 시작은 구매완료가 아니며, 중복/재방문 가능성을 별도로 본다."
+    }
+  ],
+  "behavior_metrics": [
+    {
+      "metric_id": "landing",
+      "label_ko": "유입",
+      "value_7d": 10720,
+      "source": "VM Cloud site_landing_ledger aggregate",
+      "confidence": "medium_for_sample_high_for_source_rule"
+    },
+    {
+      "metric_id": "payment_started",
+      "label_ko": "결제 시작",
+      "value_7d": 2250,
+      "source": "VM Cloud attribution_ledger checkout_started + payment_page_seen",
+      "confidence": "medium_high_for_source_rule"
+    },
+    {
+      "metric_id": "confirmed_purchase",
+      "label_ko": "실제 결제완료",
+      "value_7d": 388,
+      "source": "VM Cloud attribution_ledger confirmed payment_success",
+      "confidence": "medium_high_for_source_rule"
+    },
+    {
+      "metric_id": "revenue",
+      "label_ko": "실제 결제완료 매출",
+      "value_7d": null,
+      "source": "not_checked_in_sample",
+      "confidence": "hold",
+      "blocker_category": "blocked_data"
+    },
+    {
+      "metric_id": "ad_spend",
+      "label_ko": "광고비",
+      "value_7d": null,
+      "source": "not_checked_in_sample",
+      "confidence": "hold",
+      "blocker_category": "blocked_data"
+    }
+  ],
+  "leading_signals": [
+    {
+      "signal_id": "checkout_dropoff_candidate",
+      "label_ko": "결제 시작 후 이탈 개선 후보",
+      "plain_language_summary": "결제 시작 2250건 중 결제완료 388건만 확인되어, 결제 시작 이후 병목을 먼저 볼 가치가 있다.",
+      "supporting_numbers": {
+        "checkout_started_7d": 2250,
+        "confirmed_purchase_7d": 388,
+        "checkout_to_purchase_rate_pct": 17.24
+      },
+      "recommended_action": "결제수단 선택 이벤트와 결제완료 원장을 같은 기간으로 다시 붙여 결제 UX 병목을 확인한다.",
+      "approval_required": false
+    },
+    {
+      "signal_id": "source_freshness_required",
+      "label_ko": "최신 source 재조회 필요",
+      "plain_language_summary": "이 샘플은 과거 dry-run이므로 현재 추천 후보로 바로 쓰면 안 된다.",
+      "supporting_numbers": {
+        "sample_checked_at_kst": "2026-05-17 15:44 KST",
+        "current_doc_time_kst": "2026-05-25 21:44 KST"
+      },
+      "recommended_action": "실제 실행 전 VM Cloud/GA4/결제 원장 최신 read-only dry-run을 다시 수행한다.",
+      "approval_required": false
+    }
+  ],
+  "simulation": {
+    "enabled": true,
+    "mode": "ai_suggested_scenarios",
+    "human_manual_slider_required": false,
+    "business_decision_allowed": false,
+    "baseline": {
+      "source": "historical P0 dry-run aggregate sample",
+      "visitors_7d": 10720,
+      "confirmed_orders_7d": 388,
+      "purchase_conversion_rate": 0.0362,
+      "revenue_krw": null,
+      "average_order_value_krw": null,
+      "ad_spend_krw": null,
+      "revenue_outputs_status": "HOLD until confirmed revenue and ad spend sources are attached"
+    },
+    "ai_suggested_scenarios": [
+      {
+        "scenario_id": "baseline_hold_current",
+        "label_ko": "현재 흐름 유지",
+        "why_this_scenario": "다른 시나리오와 비교할 기준선이 필요하다.",
+        "assumptions": {
+          "visitor_change_pct": 0,
+          "conversion_rate_change_pct": 0
+        },
+        "outputs": {
+          "expected_orders_7d": 388,
+          "expected_revenue_krw": null,
+          "confirmed_roas": null
+        },
+        "interpretation": "현재 흐름이 그대로 이어지면 7일 주문 수는 약 388건 수준으로 본다. 매출/ROAS는 source가 닫힌 뒤 계산한다."
+      },
+      {
+        "scenario_id": "checkout_friction_small_fix",
+        "label_ko": "결제 이탈 1차 개선",
+        "why_this_scenario": "결제 시작 후 실제 결제완료로 닫히는 비율이 17.24%라서 결제 단계 개선 후보가 있다.",
+        "assumptions": {
+          "visitor_change_pct": 0,
+          "checkout_to_purchase_rate_change_pp": 1
+        },
+        "outputs": {
+          "expected_orders_7d": 411,
+          "expected_order_delta": 23,
+          "expected_revenue_krw": null,
+          "confirmed_roas": null
+        },
+        "interpretation": "결제 시작 2250건 기준으로 완료율이 1%p 개선되면 약 23건의 추가 주문 가능성을 보는 샘플이다."
+      },
+      {
+        "scenario_id": "content_quality_uplift",
+        "label_ko": "콘텐츠 몰입 개선",
+        "why_this_scenario": "선행지표 온톨로지에서 콘텐츠 몰입은 구매 전 행동 후보이며, GA4 행동 join이 붙으면 검증할 수 있다.",
+        "assumptions": {
+          "visitor_change_pct": 0,
+          "purchase_conversion_rate_change_pct": 10
+        },
+        "outputs": {
+          "expected_orders_7d": 427,
+          "expected_order_delta": 39,
+          "expected_revenue_krw": null,
+          "confirmed_roas": null
+        },
+        "interpretation": "전환율이 상대적으로 10% 좋아지는 경우의 주문 수 방향성만 본다. 실제 매출은 AOV source가 닫혀야 계산한다."
+      },
+      {
+        "scenario_id": "traffic_scale_guarded",
+        "label_ko": "트래픽 확대 전 점검",
+        "why_this_scenario": "방문자를 늘릴 때 전환율이 그대로 유지된다고 가정하면 위험하므로 down-case를 같이 본다.",
+        "assumptions": {
+          "visitor_change_pct": 15,
+          "purchase_conversion_rate_change_pct": -5
+        },
+        "outputs": {
+          "expected_orders_7d": 424,
+          "expected_order_delta": 36,
+          "expected_revenue_krw": null,
+          "confirmed_roas": null
+        },
+        "interpretation": "방문자가 늘어도 유입 품질이 낮아지면 주문 증가폭이 제한될 수 있다는 방어 시나리오다."
+      }
+    ],
+    "limitations": [
+      "예측 정답이 아니라 예상 범위 확인용이다.",
+      "샘플에는 최신 매출과 광고비 source가 없다.",
+      "자동 예산 변경 금지",
+      "외부 플랫폼 전송 금지"
+    ]
+  },
+  "eval_results": [
+    {
+      "eval_id": "source_freshness",
+      "verdict": "HOLD",
+      "reason": "샘플 숫자가 2026-05-17 snapshot이라 현재 운영 판단에는 stale이다.",
+      "blocker_category": "source_freshness_gap"
+    },
+    {
+      "eval_id": "cohort_size",
+      "verdict": "PASS",
+      "reason": "샘플 7일 landing 10720건, confirmed purchase 388건으로 형식 검증에는 충분하다.",
+      "blocker_category": null
+    },
+    {
+      "eval_id": "post_purchase_leakage",
+      "verdict": "PASS_WITH_NOTES",
+      "reason": "추천 신호는 결제 시작 이후 병목 후보로 제한했고, purchase를 선행 행동으로 쓰지 않았다.",
+      "blocker_category": null
+    },
+    {
+      "eval_id": "mini_digital_twin_safety",
+      "verdict": "PASS_WITH_NOTES",
+      "reason": "AI 시나리오는 주문 수 방향성만 제안하고, 매출/ROAS는 source가 없어서 HOLD로 남겼다.",
+      "blocker_category": null
+    }
+  ],
+  "outputs": [
+    "data/project/leading-indicator-agent-run-sample-20260525.json",
+    "project/leading-indicator-agent-run-sample-20260525.md"
+  ],
+  "forbidden_actions_verified": {
+    "operating_db_write": false,
+    "vm_cloud_deploy": false,
+    "gtm_publish": false,
+    "platform_send": false,
+    "raw_identifier_output": false,
+    "auto_budget_change": false
+  },
+  "next_actions": [
+    {
+      "owner": "Codex",
+      "lane": "Green",
+      "action": "최신 source로 read-only dry-run을 실행할 수 있는 실행 명령과 결과 저장 위치를 확정한다.",
+      "why": "샘플 기록은 현재 운영 판단에 쓸 수 없으므로 실제 최신 run packet이 필요하다.",
+      "success_criteria": "source/window/freshness/confidence가 fresh 또는 warn으로 채워진 JSON/Markdown 실행 기록 생성",
+      "approval_required": false
+    },
+    {
+      "owner": "TJ",
+      "lane": "Yellow_or_Red_later",
+      "action": "시뮬레이션 결과를 운영 화면이나 예산 판단에 연결할지 별도 승인한다.",
+      "why": "시뮬레이션을 예산/플랫폼 작업으로 연결하는 순간 운영 영향이 생길 수 있다.",
+      "success_criteria": "화면 반영 범위, 자동 예산 변경 금지, 외부 전송 금지가 명시된 승인 문서",
+      "approval_required": true
+    }
+  ]
+}
+

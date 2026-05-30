@@ -64,6 +64,8 @@ jq \
     ([.funnel[]? | select(.step == $step) | .count] | add // 0 | tonumber);
   def browser_count($stage):
     ([.browser_funnel_health.stages[]? | select(.stage == $stage) | .count] | add // 0 | tonumber);
+  def checkout_split_count($path; $fallback):
+    (($path // $fallback // 0) | tonumber);
 
   def common_payload($event_name; $semantic_touchpoint):
     {
@@ -159,6 +161,12 @@ jq \
       landing_count: step_count("landing"),
       cart_page_view_count: step_count("add_to_cart"),
       payment_started_count: step_count("payment_started"),
+      vm_payment_page_reached_count:
+        checkout_split_count(.checkout_signal_split.vm_payment_page_reached.count; step_count("payment_started")),
+      meta_initiate_checkout_received_count:
+        checkout_split_count(.checkout_signal_split.meta_initiate_checkout_received.count; browser_count("InitiateCheckout")),
+      meta_capi_initiate_checkout_candidate_count:
+        checkout_split_count(.checkout_signal_split.meta_capi_initiate_checkout_candidate.count; browser_count("InitiateCheckout")),
       payment_method_selected_count: step_count("payment_method_selected"),
       confirmed_purchase_count: step_count("confirmed_purchase"),
       meta_capi_success_count: step_count("meta_capi_success"),
@@ -179,11 +187,11 @@ jq \
       event_row(
         "InitiateCheckout";
         "checkout_or_payment_page_seen";
-        (step_count("payment_started") + browser_count("InitiateCheckout"));
-        "VM Cloud attribution_ledger checkout_started/payment_page_seen + metadata.eventName=InitiateCheckout";
-        "event row";
+        checkout_split_count(.checkout_signal_split.meta_capi_initiate_checkout_candidate.count; browser_count("InitiateCheckout"));
+        "VM Cloud checkout_signal_split.meta_capi_initiate_checkout_candidate";
+        "deduped no-send candidate";
         true;
-        "결제 시작은 구매완료가 아니므로 value 없이 서버 보조 신호 후보로만 본다."
+        "결제 페이지 도달 전체가 아니라, Meta 광고 단서가 강하고 exit/completion URL을 제외한 좁은 서버 CAPI 후보만 본다. 현재는 no-send preview다."
       ),
       event_row(
         "AddPaymentInfo";
@@ -198,16 +206,16 @@ jq \
         "CompleteRegistration";
         "registration_completed";
         0;
-        "not_connected_to_VM_Cloud_for_biocom_yet";
+        "not_connected_to_VM_Cloud_for_site_yet";
         "not_available";
         false;
-        "회원가입 완료는 현재 biocom VM Cloud route에서 별도 중간 CAPI 후보로 닫히지 않았다. source 연결과 route allowlist가 먼저 필요하다."
+        "회원가입 완료는 현재 선택 site의 VM Cloud route에서 별도 중간 CAPI 후보로 닫히지 않았다. source 연결과 route allowlist가 먼저 필요하다."
       ),
       event_row(
         "Scroll50";
         "scroll_50_percent";
         0;
-        "not_connected_to_VM_Cloud_for_biocom_yet";
+        "not_connected_to_VM_Cloud_for_site_yet";
         "not_available";
         false;
         "50% 스크롤은 표준 Purchase가 아니며 health/wellness 제한과 custom event 정책 검토가 먼저 필요하다."

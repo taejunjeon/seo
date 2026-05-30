@@ -2,19 +2,24 @@
  * site_landing_ledger channel_classified 자동 분류 helper (gpt0508-41 작업5)
  *
  * 룰 (우선순위 위에서 아래로):
- *   1. click_id_type 이 광고 식별자면 paid_search / paid_social
+ *   1. Naver 브랜드검색 marker 는 naver_brandsearch 로 별도 분리
+ *      - 명시 UTM marker 가 있으면 이전 touch 에서 보존된 click_id 보다 우선
+ *   2. Naver 쇼핑검색/가격비교 광고 marker 는 naver_shopping_ad 로 별도 분리
+ *      - ader.naver.com / c=naver.search.pc.npla / shoppingsearch / NaPm tr=slsl
+ *   3. Naver 성과 디스플레이/GFA/ADVoost marker 는 naver_display 로 별도 분리
+ *   4. click_id_type 이 광고 식별자면 paid_search / paid_social
  *      - gclid / gbraid / wbraid → paid_search
  *      - ttclid / nclick_id → paid_social (network)
- *   2. UTM 있고 medium 이 cpc/cpm/paid/ads/sem → paid_search 또는 paid_social
+ *   5. UTM 있고 medium 이 cpc/cpm/paid/ads/sem → paid_search 또는 paid_social
  *      - utm_source 가 google/bing/yahoo/daum/naver/baidu → paid_search
  *      - utm_source 가 instagram/facebook/youtube/tiktok/twitter → paid_social
- *   3. UTM organic_search / organic_social medium 명시
- *   4. referrerHost 가 자기 도메인 → self_internal
- *   5. referrer 없으면 direct
- *   6. 한국/글로벌 검색 엔진 host (naver/daum/kakao/google/bing/yahoo/baidu/yandex) → organic_search
- *   7. 한국/글로벌 소셜 host (instagram/facebook/youtube/tiktok/twitter/threads/x.com) → organic_social
- *   8. 기타 외부 host → referral
- *   9. 위 매칭 없으면 unknown
+ *   6. UTM organic_search / organic_social medium 명시
+ *   7. referrerHost 가 자기 도메인 → self_internal
+ *   8. referrer 없으면 direct
+ *   9. 한국/글로벌 검색 엔진 host (naver/daum/kakao/google/bing/yahoo/baidu/yandex) → organic_search
+ *   10. 한국/글로벌 소셜 host (instagram/facebook/youtube/tiktok/twitter/threads/x.com) → organic_social
+ *   11. 기타 외부 host → referral
+ *   12. 위 매칭 없으면 unknown
  *
  * GA4 default channel grouping 과 호환하되 한국 채널 (naver, daum, kakao) 명시.
  */
@@ -106,6 +111,47 @@ const PAID_SOCIAL_UTM_SOURCES = new Set([
 
 const PAID_MEDIUMS = new Set(["cpc", "cpm", "paid", "ads", "sem", "ppc", "paid_social", "paid_search"]);
 
+const NAVER_BRANDSEARCH_MARKERS = [
+  "naver_brand_search",
+  "naverbrandsearch",
+  "naver_brandsearch",
+  "brandsearch",
+  "brand_search",
+];
+
+const NAVER_PAID_SEARCH_MARKERS = [
+  "naverad",
+  "powerlink",
+  "power-link",
+];
+
+const NAVER_SHOPPING_AD_MARKERS = [
+  "ader.naver.com",
+  "naver.search.pc.npla",
+  "naver.search.mobile.npla",
+  "npla",
+  "shoppingsearch",
+  "shopping_search",
+];
+
+const NAVER_DISPLAY_MARKERS = [
+  "advoost",
+  "adboost",
+  "gfa",
+  "naver_display",
+  "naver-display",
+  "performance_display",
+  "performance-display",
+  "naverda",
+  "naver_da",
+];
+
+const NAVER_COMMERCE_REFERRAL_HOSTS = [
+  "smartstore.naver.com",
+  "shopping.naver.com",
+  "m.shopping.naver.com",
+];
+
 export type ClassifierInput = {
   referrerHost?: string;
   referrerFullUrl?: string;
@@ -134,6 +180,9 @@ export type ClassifierChannel =
   | "self_internal"
   | "organic_search"
   | "organic_social"
+  | "naver_brandsearch"
+  | "naver_shopping_ad"
+  | "naver_display"
   | "paid_search"
   | "paid_social"
   | "referral"
@@ -169,9 +218,51 @@ export const classifySiteLandingChannel = (input: ClassifierInput): ClassifierRe
   const refHost = normalizeHost(input.referrerHost || "") || hostFromUrl(input.referrerFullUrl || "");
   const utmSource = (input.utm?.source || "").toLowerCase();
   const utmMedium = (input.utm?.medium || "").toLowerCase();
+  const utmCampaign = (input.utm?.campaign || "").toLowerCase();
   const clickIdType = (input.clickIdType || "").toLowerCase();
+  const utmText = `${utmSource} ${utmMedium} ${utmCampaign}`;
+  const refText = `${refHost} ${input.referrerFullUrl || ""}`.toLowerCase();
+  const naverText = `${utmText} ${refText}`;
 
-  // 1. click_id 기반 paid
+  // 1. Naver 브랜드검색 marker. 결제 페이지 referrer 가 자기 도메인이어도
+  // 이전 touch 에서 보존된 브랜드검색 evidence 를 self_internal 로 낮추지 않는다.
+  // 또한 이전 Google click id 가 보존된 브라우저에서 새 Naver 브랜드검색 UTM 이 들어오면
+  // 현재 landing 의 명시 UTM evidence 를 우선한다.
+  if (
+    NAVER_BRANDSEARCH_MARKERS.some((marker) => utmText.includes(marker)) ||
+    (utmText.includes("naver") && (utmText.includes("brandsearch") || utmText.includes("brand_search")))
+  ) {
+    return {
+      channel: "naver_brandsearch",
+      source_breakdown: utmSource || "naver_brandsearch",
+      reason: "utm_naver_brandsearch_marker",
+    };
+  }
+
+  // 1.5. Naver 쇼핑검색/가격비교 광고. 검색 광고와 성과 디스플레이 사이 성격이 섞여 있어
+  // paid_search 로 뭉개지지 않도록 별도 channel 로 둔다.
+  if (NAVER_SHOPPING_AD_MARKERS.some((marker) => naverText.includes(marker))) {
+    return {
+      channel: "naver_shopping_ad",
+      source_breakdown: utmSource || "naver_shopping_ad",
+      reason: "naver_shopping_ad_marker",
+    };
+  }
+
+  // 1.6. Naver 성과 디스플레이/GFA/ADVoost. display 라는 단어는 medium 에서만 직접 인정하고,
+  // campaign/source 의 display 계열은 naver marker 와 함께 있을 때만 인정한다.
+  if (
+    (utmSource.includes("naver") && utmMedium === "display") ||
+    NAVER_DISPLAY_MARKERS.some((marker) => naverText.includes(marker))
+  ) {
+    return {
+      channel: "naver_display",
+      source_breakdown: utmSource || "naver_display",
+      reason: "naver_display_marker",
+    };
+  }
+
+  // 2. click_id 기반 paid
   if (clickIdType === "gclid" || clickIdType === "gbraid" || clickIdType === "wbraid") {
     return { channel: "paid_search", source_breakdown: "google.com", reason: "click_id_type_google_paid" };
   }
@@ -180,6 +271,15 @@ export const classifySiteLandingChannel = (input: ClassifierInput): ClassifierRe
   }
   if (clickIdType === "nclick_id") {
     return { channel: "paid_search", source_breakdown: "naver.com", reason: "click_id_type_naver_paid" };
+  }
+
+  // 2.5. Naver paid marker 중 브랜드검색이 아닌 것은 기존 유료검색으로 둔다.
+  if (NAVER_PAID_SEARCH_MARKERS.some((marker) => utmText.includes(marker))) {
+    return {
+      channel: "paid_search",
+      source_breakdown: utmSource || "naver",
+      reason: "utm_naver_paid_search_marker",
+    };
   }
 
   // 2. UTM medium 기반 paid
@@ -211,6 +311,11 @@ export const classifySiteLandingChannel = (input: ClassifierInput): ClassifierRe
   // 5. referrer 없음
   if (!refHost) {
     return { channel: "direct", source_breakdown: "", reason: "no_referrer" };
+  }
+
+  // 5.5. 네이버 스마트스토어/쇼핑 탭 referrer만으로는 자사몰 paid 쇼핑광고라고 보지 않는다.
+  if (matchesHostList(refHost, NAVER_COMMERCE_REFERRAL_HOSTS)) {
+    return { channel: "referral", source_breakdown: refHost, reason: "naver_commerce_referrer" };
   }
 
   // 6. 검색 엔진

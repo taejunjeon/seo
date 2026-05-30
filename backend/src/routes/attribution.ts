@@ -70,7 +70,10 @@ import {
   isPaidClickIntentWriteEnabled,
   recordPaidClickIntent,
 } from "../paidClickIntentLog";
-import { buildNpayRoasDryRunReport } from "../npayRoasDryRun";
+import {
+  buildNpayIntentRematchDryRunReport,
+  buildNpayRoasDryRunReport,
+} from "../npayRoasDryRun";
 import {
   fetchNpayActualConfirmedSiteLandingSummary,
   type NpayActualConfirmedSiteLandingSummary,
@@ -383,7 +386,14 @@ const getClientIpForGuard = (req: Request) => {
   return (firstForwarded || req.ip || req.socket.remoteAddress || "unknown").split(",")[0].trim();
 };
 
-const isTrustedLedgerReadCaller = (req: Request) => ATTRIBUTION_LEDGER_TRUSTED_READ_IPS.has(getClientIpForGuard(req));
+const hasForwardedClientIpForGuard = (req: Request) => Boolean(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"]);
+
+const getDirectClientIpForGuard = (req: Request) => (req.ip || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+
+const isTrustedLedgerReadCaller = (req: Request) => {
+  if (hasForwardedClientIpForGuard(req)) return false;
+  return ATTRIBUTION_LEDGER_TRUSTED_READ_IPS.has(getDirectClientIpForGuard(req));
+};
 
 const checkAttributionLedgerReadRateLimit = (req: Request) => {
   if (isTrustedLedgerReadCaller(req)) {
@@ -1519,7 +1529,7 @@ const CONFIRMED_PURCHASE_REJECT_KEYS = new Set([
   "token",
   "password",
 ]);
-const PAID_CLICK_INTENT_ALLOWED_SITES = new Set(["biocom"]);
+const PAID_CLICK_INTENT_ALLOWED_SITES = new Set(["biocom", "thecleancoffee"]);
 const PAID_CLICK_INTENT_ALLOWED_STAGES = new Set([
   "landing",
   "page_view",
@@ -1822,6 +1832,30 @@ const isPreviewClickId = (value: string) => {
   return normalized.startsWith("TEST_") || normalized.startsWith("DEBUG_") || normalized.startsWith("PREVIEW_");
 };
 
+type PaidClickIntentGoogleClickType = "gclid" | "gbraid" | "wbraid";
+
+const normalizePaidClickIntentGoogleClickIds = (clickIds: Record<PaidClickIntentGoogleClickType, string>) => {
+  const entries = (Object.entries(clickIds) as Array<[PaidClickIntentGoogleClickType, string]>)
+    .filter(([, value]) => Boolean(value));
+  const liveEntries = entries.filter(([, value]) => !isPreviewClickId(value));
+  const previewEntries = entries.filter(([, value]) => isPreviewClickId(value));
+  const hasLiveEntry = liveEntries.length > 0;
+  const normalized = { ...clickIds };
+
+  if (hasLiveEntry) {
+    for (const [type] of previewEntries) {
+      normalized[type] = "";
+    }
+  }
+
+  return {
+    clickIds: normalized,
+    googleClickIds: (hasLiveEntry ? liveEntries : entries).map(([, value]) => value),
+    testClickId: !hasLiveEntry && previewEntries.length > 0,
+    ignoredPreviewClickIdTypes: hasLiveEntry ? previewEntries.map(([type]) => type) : [],
+  };
+};
+
 const uniqueNonEmpty = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
 
 const canonicalAttributionBlockReason = (reason: string) => {
@@ -1886,7 +1920,7 @@ const buildNoSendGuard = ({
   confidence,
 });
 
-const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
+export const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   const site = textField(body, "site") || "biocom";
   const eventName = textField(body, "event_name") || textField(body, "eventName") || "PaidClickIntent";
   const captureStage = (textField(body, "capture_stage") || textField(body, "captureStage") || "landing").toLowerCase();
@@ -1908,11 +1942,16 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   const currentUrlRaw = textField(body, "current_url") || textField(body, "currentUrl") || landingUrlRaw;
   const referrerRaw = textField(body, "referrer") || textField(body, "page_referrer") || textField(body, "pageReferrer");
   const googleCampaignId = normalizeGoogleCampaignId(
-    urlParamFromRaw(landingUrlRaw, "gad_campaignid")
+    textField(body, "gad_campaignid")
+    || textField(body, "google_campaign_id")
+    || textField(body, "googleCampaignId")
+    || urlParamFromRaw(landingUrlRaw, "gad_campaignid")
     || urlParamFromRaw(currentUrlRaw, "gad_campaignid"),
   );
   const gadSource = (
-    urlParamFromRaw(landingUrlRaw, "gad_source")
+    textField(body, "gad_source")
+    || textField(body, "gadSource")
+    || urlParamFromRaw(landingUrlRaw, "gad_source")
     || urlParamFromRaw(currentUrlRaw, "gad_source")
   ).slice(0, 32);
   const eventId = textField(body, "event_id") || textField(body, "eventId") || `PaidClickIntent_${captureStage}_${Date.now()}`;
@@ -1924,9 +1963,10 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
     if (v.length > 64) return "";
     return /^(m|gu)[a-z0-9]{0,62}$/i.test(v) ? v : "";
   })();
-  const googleClickIds = [gclid, gbraid, wbraid].filter(Boolean);
+  const googleClickDecision = normalizePaidClickIntentGoogleClickIds({ gclid, gbraid, wbraid });
+  const googleClickIds = googleClickDecision.googleClickIds;
   const hasGoogleClickId = googleClickIds.length > 0;
-  const testClickId = googleClickIds.some(isPreviewClickId);
+  const testClickId = googleClickDecision.testClickId;
   const sessionKey = gaSessionId || localSessionId || clientId || "missing_session";
   const blockReasons = ["read_only_phase", "approval_required"];
 
@@ -1937,7 +1977,7 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
   if (testClickId) blockReasons.push("test_click_id_rejected_for_live");
   const canonicalBlockReasons = canonicalAttributionBlockReasons(blockReasons);
   const legacyBlockReasons = legacyAttributionBlockReasons(blockReasons);
-  const clickIdentifiers = { gclid, gbraid, wbraid, fbclid, ttclid };
+  const clickIdentifiers = { ...googleClickDecision.clickIds, fbclid, ttclid };
 
   return {
     site,
@@ -1956,6 +1996,7 @@ const buildPaidClickIntentNoSendPreview = (body: Record<string, unknown>) => {
     would_send: false,
     block_reasons: canonicalBlockReasons,
     legacy_block_reasons: legacyBlockReasons,
+    ignored_preview_click_id_types: googleClickDecision.ignoredPreviewClickIdTypes,
     click_ids: clickIdentifiers,
     click_identifiers: clickIdentifiers,
     utm: {
@@ -3887,6 +3928,9 @@ export const findDuplicateFormSubmitEntry = (
 type NaverEvidenceClass =
   | "paid_naver"
   | "naver_brandsearch"
+  | "naver_shopping_ad"
+  | "naver_display"
+  | "naver_shopping_search_candidate"
   | "organic_naver_candidate"
   | "naver_referrer_or_utm_only";
 
@@ -3904,6 +3948,9 @@ type NaverEvidenceAggregateRow = {
 const NAVER_EVIDENCE_CLASSES: NaverEvidenceClass[] = [
   "paid_naver",
   "naver_brandsearch",
+  "naver_shopping_ad",
+  "naver_display",
+  "naver_shopping_search_candidate",
   "organic_naver_candidate",
   "naver_referrer_or_utm_only",
 ];
@@ -3933,6 +3980,22 @@ const naverEvidenceText = (entry: AttributionLedgerEntry) => {
   ].map((value) => readText(value).toLowerCase()).join(" ");
 };
 
+const decodeTextLoose = (value: string) => {
+  const text = readText(value);
+  if (!text) return "";
+  try {
+    return decodeURIComponent(text).toLowerCase();
+  } catch {
+    return text.toLowerCase();
+  }
+};
+
+const extractNapmTrCode = (napm: string) => {
+  const decoded = decodeTextLoose(napm);
+  const match = decoded.match(/(?:^|\|)tr=([^|&]+)/i);
+  return match?.[1]?.toLowerCase() ?? "";
+};
+
 const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
   const firstTouch = ledgerFirstTouch(entry);
   const directReferrer = readText(entry.referrer).toLowerCase();
@@ -3940,9 +4003,10 @@ const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
   const text = naverEvidenceText(entry);
   const directNapm = safeUrlParam("NaPm", entry.landing, entry.referrer);
   const firstNapm = safeUrlParam("NaPm", firstTouch.landing, firstTouch.referrer);
+  const napmTrCodes = [extractNapmTrCode(directNapm), extractNapmTrCode(firstNapm)].filter(Boolean);
   const paidUtm =
     (lowerIncludesAny(readText(entry.utmSource), ["naver"]) || lowerIncludesAny(readText(firstTouch.utmSource), ["naver"])) &&
-    /^(cpc|ppc|paid|paid_social|display|shopping|brandsearch|powerlink|sa|bs)$/i.test(
+    /^(cpc|ppc|paid|paid_social|display|powerlink|sa)$/i.test(
       readText(entry.utmMedium) || readText(firstTouch.utmMedium),
     );
   const hasNaverSearchReferrer = lowerIncludesAny(`${directReferrer} ${firstReferrer}`, NAVER_SEARCH_REFERRERS);
@@ -3959,9 +4023,48 @@ const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
     "n_keyword=",
     "n_match=",
   ]);
-  const hasPowerlink = lowerIncludesAny(text, ["powerlink", "shoppingsearch"]);
-  const hasPaidMarker = Boolean(directNapm || firstNapm || paidUtm || hasNaverParam || hasBrandsearch || hasPowerlink);
-  const hasNaverAny = hasNaverReferrer || hasPaidMarker || lowerIncludesAny(text, ["naver", "napm"]);
+  const hasPowerlink = lowerIncludesAny(text, ["powerlink"]);
+  const hasPaidMarker = Boolean(paidUtm || hasNaverParam || hasPowerlink || napmTrCodes.includes("sa"));
+  const hasShoppingAd = Boolean(
+    lowerIncludesAny(`${directReferrer} ${firstReferrer} ${text}`, [
+      "ader.naver.com",
+      "naver.search.pc.npla",
+      "naver.search.mobile.npla",
+      "npla",
+    ]),
+  );
+  const hasDisplayAd = Boolean(
+    /^(display|gfa|advoost|adboost|performance_display|performance-display)$/i.test(
+      readText(entry.utmMedium) || readText(firstTouch.utmMedium),
+    ) ||
+    lowerIncludesAny(text, [
+      "advoost",
+      "adboost",
+      "gfa",
+      "naver_display",
+      "naver-display",
+      "performance_display",
+      "performance-display",
+      "naver_da",
+      "naverda",
+    ]),
+  );
+  const hasShoppingSearch = Boolean(
+    napmTrCodes.includes("slsl") ||
+    lowerIncludesAny(`${directReferrer} ${firstReferrer} ${text}`, [
+      "shopping.naver.com",
+      "m.shopping.naver.com",
+      "shoppingsearch",
+      "tr=slsl",
+    ]),
+  );
+  const hasOrganicSearchMarker = Boolean(
+    napmTrCodes.includes("ds") ||
+    napmTrCodes.includes("nexearch") ||
+    hasNaverSearchReferrer,
+  );
+  const hasNapm = Boolean(directNapm || firstNapm || lowerIncludesAny(text, ["napm="]));
+  const hasNaverAny = hasNaverReferrer || hasPaidMarker || hasShoppingSearch || hasNapm || lowerIncludesAny(text, ["naver"]);
   return {
     text,
     hasNaverAny,
@@ -3969,6 +4072,10 @@ const naverEvidenceProfile = (entry: AttributionLedgerEntry) => {
     hasNaverReferrer,
     hasBrandsearch,
     hasPaidMarker,
+    hasShoppingAd,
+    hasDisplayAd,
+    hasShoppingSearch,
+    hasOrganicSearchMarker,
   };
 };
 
@@ -3976,20 +4083,26 @@ const classifyNaverEvidence = (entry: AttributionLedgerEntry): NaverEvidenceClas
   const profile = naverEvidenceProfile(entry);
   if (!profile.hasNaverAny) return null;
   if (profile.hasBrandsearch) return "naver_brandsearch";
+  if (profile.hasShoppingAd) return "naver_shopping_ad";
+  if (profile.hasDisplayAd) return "naver_display";
   if (profile.hasPaidMarker) return "paid_naver";
-  if (profile.hasNaverSearchReferrer) return "organic_naver_candidate";
+  if (profile.hasShoppingSearch) return "naver_shopping_search_candidate";
+  if (profile.hasOrganicSearchMarker) return "organic_naver_candidate";
   if (profile.hasNaverReferrer || lowerIncludesAny(profile.text, ["naver"])) return "naver_referrer_or_utm_only";
   return null;
 };
 
 const naverEvidenceNote = (classification: NaverEvidenceClass) => {
-  if (classification === "paid_naver") return "NaPm/n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다.";
+  if (classification === "paid_naver") return "n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다. NaPm 단독은 paid 근거로 쓰지 않는다.";
   if (classification === "naver_brandsearch") return "brandsearch marker가 있어 네이버 브랜드검색 후보로만 둔다.";
+  if (classification === "naver_shopping_ad") return "ader/npla/NaPm shopping marker가 있어 네이버 쇼핑검색/가격비교 광고 후보로 둔다.";
+  if (classification === "naver_display") return "GFA/ADVoost/display marker가 있어 네이버 성과 디스플레이 광고 후보로 둔다.";
+  if (classification === "naver_shopping_search_candidate") return "shopping.naver 또는 NaPm shopping marker가 있어 네이버 쇼핑검색 후보로만 둔다.";
   if (classification === "organic_naver_candidate") return "네이버 검색 referrer는 있으나 paid marker가 없어 자연검색 후보로 둔다.";
   return "네이버 흔적은 있으나 paid/brandsearch/organic 확정 조건을 충족하지 않는다.";
 };
 
-const buildNaverEvidenceAggregate = (
+export const buildNaverEvidenceAggregate = (
   entries: AttributionLedgerEntry[],
   filters: Record<string, unknown>,
 ) => {
@@ -4126,6 +4239,34 @@ export const createAttributionRouter = () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "npay roas dry-run failed";
       res.status(500).json({ ok: false, error: "npay_roas_dry_run_error", message });
+    }
+  });
+
+  router.get("/api/attribution/npay-intent-rematch-dry-run", async (req: Request, res: Response) => {
+    try {
+      if (!requireNpayIntentReadAccess(req, res)) return;
+
+      const report = await buildNpayIntentRematchDryRunReport({
+        start: readOne(req.query.start),
+        end: readOne(req.query.end),
+        site: readOne(req.query.site) || "biocom",
+        ga4PresentOrderNumbers: readCsvList(req.query.ga4PresentOrderNumbers || req.query.ga4Present),
+        ga4RobustAbsentOrderNumbers: readCsvList(
+          req.query.ga4RobustAbsentOrderNumbers || req.query.ga4RobustAbsent,
+        ),
+        ga4AbsentOrderNumbers: readCsvList(req.query.ga4AbsentOrderNumbers || req.query.ga4Absent),
+        testOrderNumbers: readCsvList(req.query.testOrderNumbers || req.query.testOrders),
+        testOrderLabel: readOne(req.query.testOrderLabel),
+        orderNumbers: readCsvList(req.query.orderNumbers || req.query.orderNumber),
+        includeOnlyPending: parseBooleanish(req.query.includeOnlyPending || req.query.onlyPending, true),
+        includeRawClickIds: parseBooleanish(req.query.includeRawClickIds || req.query.rawClickIds, true),
+        limit: parsePositiveInt(readOne(req.query.limit), 100, 500),
+      });
+
+      res.json(report);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "npay intent rematch dry-run failed";
+      res.status(500).json({ ok: false, error: "npay_intent_rematch_dry_run_error", message });
     }
   });
 
@@ -4486,7 +4627,11 @@ export const createAttributionRouter = () => {
                 ga_session_id: preview.ga_session_id,
                 local_session_id: preview.local_session_id,
                 sanitized_landing_url: preview.sanitized_landing_url,
+                sanitized_current_url: preview.sanitized_current_url,
                 sanitized_referrer: preview.sanitized_referrer,
+                google_campaign_id: preview.google_campaign_id,
+                gad_campaignid: preview.gad_campaignid,
+                gad_source: preview.gad_source,
                 member_code: preview.member_code,
               },
               body,
@@ -4985,31 +5130,85 @@ export const createAttributionRouter = () => {
 
   router.get("/api/attribution/tiktok-pixel-events", async (req: Request, res: Response) => {
     try {
-      const items = listTikTokPixelEvents({
-        startAt: readOne(req.query.startAt),
-        endAt: readOne(req.query.endAt),
+      const startAt = readOne(req.query.startAt);
+      const endAt = readOne(req.query.endAt);
+      const requestedLimit = parsePositiveInt(req.query.limit, 100, 10000);
+      const summaryOnly = parseBooleanish(req.query.summaryOnly ?? req.query.summary_only, false);
+      const startMs = Date.parse(startAt);
+      const endMs = Date.parse(endAt);
+      const rangeDays = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs
+        ? Math.ceil((endMs - startMs) / 86_400_000)
+        : null;
+      const trustedInternalCaller = isTrustedLedgerReadCaller(req);
+      const publicMaxLimit = rangeDays !== null && rangeDays > ATTRIBUTION_LEDGER_LONG_RANGE_DAYS
+        ? ATTRIBUTION_LEDGER_PUBLIC_LONG_RANGE_MAX_LIMIT
+        : ATTRIBUTION_LEDGER_PUBLIC_MAX_LIMIT;
+      const rateLimit = trustedInternalCaller
+        ? { allowed: true, retryAfterSeconds: 0 }
+        : checkAttributionLedgerReadRateLimit(req);
+
+      if (!rateLimit.allowed) {
+        res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+        res.status(429).json({
+          ok: false,
+          error: "tiktok_pixel_events_read_rate_limited",
+          retryAfterSeconds: rateLimit.retryAfterSeconds,
+        });
+        return;
+      }
+
+      const summaryReadLimit = trustedInternalCaller
+        ? requestedLimit
+        : Math.min(requestedLimit, publicMaxLimit);
+      const effectiveItemLimit = summaryOnly ? 0 : summaryReadLimit;
+      const rawItems = listTikTokPixelEvents({
+        startAt,
+        endAt,
         siteSource: readOne(req.query.siteSource),
         eventName: readOne(req.query.eventName),
         action: readOne(req.query.action),
         orderCode: readOne(req.query.orderCode),
         orderNo: readOne(req.query.orderNo),
-        limit: parsePositiveInt(req.query.limit, 100, 10000),
+        limit: summaryReadLimit,
       });
+      const items = effectiveItemLimit > 0 ? rawItems.slice(0, effectiveItemLimit) : [];
+
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("X-Attribution-TikTok-Pixel-Guard", summaryOnly ? "summary-only" : "guarded");
 
       res.json({
         ok: true,
         dataSource: "operational_or_local_sqlite_tiktok_pixel_events",
         storage: "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
         filters: {
-          startAt: readOne(req.query.startAt) || null,
-          endAt: readOne(req.query.endAt) || null,
+          startAt: startAt || null,
+          endAt: endAt || null,
           siteSource: readOne(req.query.siteSource) || null,
           eventName: readOne(req.query.eventName) || null,
           action: readOne(req.query.action) || null,
           orderCode: readOne(req.query.orderCode) || null,
           orderNo: readOne(req.query.orderNo) || null,
+          requestedLimit,
+          effectiveItemLimit,
+          summaryReadLimit,
+          summaryOnly,
         },
-        summary: buildTikTokPixelEventSummary(items),
+        guard: {
+          applied: true,
+          summaryOnly,
+          trustedInternalCaller,
+          requestedLimit,
+          effectiveItemLimit,
+          summaryReadLimit,
+          publicMaxLimit,
+          rangeDays,
+          rateLimitPerWindow: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_PUBLIC_RATE_LIMIT,
+          rateWindowMs: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_RATE_WINDOW_MS,
+          note: summaryOnly
+            ? "summaryOnly=true 요청은 원본 items를 내려주지 않는다."
+            : "공개/장거리 조회는 raw items 반환 수를 제한한다.",
+        },
+        summary: buildTikTokPixelEventSummary(rawItems),
         items,
       });
     } catch (error) {
@@ -5319,7 +5518,6 @@ export const createAttributionRouter = () => {
         return;
       }
 
-      const allEntries = await readLedgerEntries();
       const source = typeof req.query.source === "string" ? req.query.source.trim() : "";
       const captureMode = typeof req.query.captureMode === "string" ? req.query.captureMode.trim() : "";
       const requestedLimit = parsePositiveInt(req.query.limit, 50, 10000);
@@ -5347,6 +5545,14 @@ export const createAttributionRouter = () => {
       if (guardApplied) {
         res.setHeader("X-Attribution-Ledger-Guard", summaryOnly ? "summary-only" : "limit-capped");
       }
+
+      const useIndexedRangeRead = !trustedInternalCaller && (hasStartFilter || hasEndFilter);
+      const allEntries = useIndexedRangeRead
+        ? await readLedgerEntriesInRange({
+            loggedAtFromIso: hasStartFilter ? new Date(startMs).toISOString() : undefined,
+            loggedAtToIso: hasEndFilter ? new Date(endMs).toISOString() : undefined,
+          })
+        : await readLedgerEntries();
 
       const withinRange = (entry: AttributionLedgerEntry) => {
         if (!hasStartFilter && !hasEndFilter) return true;
@@ -5378,7 +5584,9 @@ export const createAttributionRouter = () => {
           rangeDays,
         },
         summary: buildLedgerSummary(filtered),
-        allEntriesSummary: (source || captureMode || hasStartFilter || hasEndFilter) ? buildLedgerSummary(allEntries) : undefined,
+        allEntriesSummary: trustedInternalCaller && (source || captureMode || hasStartFilter || hasEndFilter)
+          ? buildLedgerSummary(allEntries)
+          : undefined,
         items: effectiveLimit > 0 ? filtered.slice(0, effectiveLimit) : [],
         guard: {
           applied: guardApplied,
@@ -5386,6 +5594,7 @@ export const createAttributionRouter = () => {
           publicMaxLimit,
           rateLimitPerWindow: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_PUBLIC_RATE_LIMIT,
           rateLimitWindowMs: trustedInternalCaller ? null : ATTRIBUTION_LEDGER_RATE_WINDOW_MS,
+          readStrategy: useIndexedRangeRead ? "indexed_range_read" : "full_ledger_read",
           note: guardApplied
             ? "Large public item responses are capped. Use summaryOnly=true or aggregate endpoints for dashboards."
             : "No ledger guard cap was applied.",

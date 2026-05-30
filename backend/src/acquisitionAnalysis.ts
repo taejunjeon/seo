@@ -1034,6 +1034,14 @@ const resolveAcquisitionSiteConfig = (site: string): SiteConfig => {
   return config;
 };
 
+const sourceHasToken = (source: string, tokens: string[]) => {
+  const parts = source
+    .split(/[^a-z0-9]+/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return tokens.some((token) => parts.includes(token));
+};
+
 export const resolveAcquisitionChannelGroup = (
   source: string,
   medium: string,
@@ -1041,12 +1049,12 @@ export const resolveAcquisitionChannelGroup = (
   const normalizedSource = source.trim().toLowerCase();
   const normalizedMedium = medium.trim().toLowerCase();
 
+  if (normalizedSource.includes("naver")) return "Naver";
   if (
     normalizedSource.includes("meta") ||
     normalizedSource.includes("facebook") ||
-    normalizedSource.includes("fb") ||
     normalizedSource.includes("instagram") ||
-    normalizedSource.includes("ig")
+    sourceHasToken(normalizedSource, ["fb", "ig"])
   ) {
     return "Meta Ads";
   }

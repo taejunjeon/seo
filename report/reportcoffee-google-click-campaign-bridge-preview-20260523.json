@@ -1,0 +1,145 @@
+{
+  "report": "reportcoffee_google_click_campaign_bridge_preview_v1",
+  "generated_at_kst": "2026-05-23 22:46:41 KST",
+  "site": "thecleancoffee",
+  "mode": "green_read_only_no_raw_no_send_no_write",
+  "source": {
+    "primary": "VM Cloud SQLite read-only",
+    "db_path": "/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+    "query_method": "ssh + sudo -u biocomkr_sns + sqlite3 -readonly aggregate SELECT only",
+    "tables": [
+      "site_landing_ledger",
+      "paid_click_intent_ledger"
+    ],
+    "vm_utc_now": "2026-05-23 13:45:05 UTC",
+    "local_checked_at_kst": "2026-05-23 22:46:41 KST"
+  },
+  "decision": {
+    "status": "source_gap_confirmed",
+    "plain_language": "더클린커피 최근 7일 Google 클릭 ID 3건은 확인됐지만, 그 3건 안에 gad_campaignid가 0건이라 campaign_id로 연결할 수 없었다.",
+    "campaign_id_exact_or_strong_rows": 0,
+    "budget_mapping_change": "none",
+    "slack_google_spend_label": "Google: 0원 확인 후보",
+    "next_safe_action": "keep Google spend as zero candidate and keep click evidence as attribution warning; do not assign the 3 click rows to a campaign."
+  },
+  "preview": {
+    "last_7d": {
+      "site_landing_ledger": {
+        "total_rows": 549,
+        "google_click_id_rows": 3,
+        "google_click_with_gad_campaignid_rows": 0,
+        "gad_campaignid_rows": 0,
+        "gad_source_rows": 0,
+        "latest_at_utc": "2026-05-23T13:05:27.009Z",
+        "top_campaign_ids": []
+      },
+      "paid_click_intent_ledger": {
+        "total_rows": 0,
+        "google_click_id_rows": 0,
+        "google_click_with_gad_campaignid_rows": 0,
+        "gad_campaignid_rows": 0,
+        "latest_at_utc": null,
+        "top_campaign_ids": []
+      }
+    },
+    "last_30d": {
+      "site_landing_ledger": {
+        "total_rows": 1495,
+        "google_click_id_rows": 3,
+        "google_click_with_gad_campaignid_rows": 0,
+        "gad_campaignid_rows": 0,
+        "gad_source_rows": 0,
+        "latest_at_utc": "2026-05-23T13:05:27.009Z"
+      },
+      "paid_click_intent_ledger": {
+        "total_rows": 0,
+        "google_click_id_rows": 0,
+        "google_click_with_gad_campaignid_rows": 0,
+        "gad_campaignid_rows": 0,
+        "latest_at_utc": null
+      }
+    }
+  },
+  "positive_control": {
+    "why_included": "To confirm the no-raw query can detect campaign IDs when they exist, without exposing raw click IDs.",
+    "biocom_last_7d": {
+      "site_landing_ledger": {
+        "total_rows": 10635,
+        "google_click_id_rows": 7716,
+        "google_click_with_gad_campaignid_rows": 2923,
+        "gad_campaignid_rows": 2923
+      },
+      "paid_click_intent_ledger": {
+        "total_rows": 8005,
+        "google_click_id_rows": 8005,
+        "google_click_with_gad_campaignid_rows": 3088,
+        "gad_campaignid_rows": 3088
+      }
+    }
+  },
+  "legacy_campaign_candidates": [
+    {
+      "campaign_id": "14643928073",
+      "campaign_name": "[SA]더클린커피",
+      "status": "PAUSED",
+      "decision": "not_matched_to_current_3_click_rows"
+    },
+    {
+      "campaign_id": "15647876620",
+      "campaign_name": "더클린펫푸드",
+      "status": "PAUSED",
+      "decision": "not_current_thecleancoffee_store_spend_candidate"
+    },
+    {
+      "campaign_id": "17273589731",
+      "campaign_name": "[SA]clean skin adwords",
+      "status": "PAUSED",
+      "decision": "not_current_thecleancoffee_store_spend_candidate"
+    },
+    {
+      "campaign_id": "17554019723",
+      "campaign_name": "[DA.S]clean gdn",
+      "status": "PAUSED",
+      "decision": "not_current_thecleancoffee_store_spend_candidate"
+    }
+  ],
+  "interpretation": {
+    "why_not_campaign_id_linked": [
+      "site_landing_ledger has 3 Google click ID rows for thecleancoffee, but gad_campaignid rows are 0.",
+      "paid_click_intent_ledger has 0 thecleancoffee rows in the same 7d and 30d windows.",
+      "A paused legacy campaign candidate exists, but there is no row-level campaign ID evidence tying it to the 3 current click rows."
+    ],
+    "likely_root_category": "coffee_campaign_id_capture_gap",
+    "not_budget_source": true,
+    "not_upload_source": true
+  },
+  "recommended_next_actions": [
+    {
+      "lane": "Green",
+      "owner": "Codex",
+      "action": "Document the gap and keep Slack preview unchanged.",
+      "reason": "The preview confirms no campaign_id bridge for the 3 click rows.",
+      "confidence_percent": 95
+    },
+    {
+      "lane": "Yellow",
+      "owner": "Codex after TJ approval",
+      "action": "If campaign-level coffee attribution is required, add coffee gad_campaignid capture to the live paid-click intent path or a safe backend aggregate route.",
+      "reason": "The current coffee flow does not preserve gad_campaignid in the two checked ledgers.",
+      "confidence_percent": 82
+    }
+  ],
+  "guardrails": {
+    "raw_click_id_output": 0,
+    "raw_landing_url_output": 0,
+    "raw_order_output": 0,
+    "raw_email_phone_member_payment_output": 0,
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write": 0,
+    "vm_cloud_deploy_or_restart": 0,
+    "platform_send_or_upload": 0,
+    "google_ads_campaign_change": 0,
+    "gtm_publish": 0
+  }
+}

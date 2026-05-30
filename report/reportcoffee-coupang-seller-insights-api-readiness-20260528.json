@@ -1,0 +1,187 @@
+{
+  "report": "reportcoffee_coupang_seller_insights_api_readiness_20260528",
+  "generated_at_kst": "2026-05-28 13:03 KST",
+  "site": "thecleancoffee",
+  "lane": "Green",
+  "scope": "read-only Coupang API and Excel source check",
+  "guardrails": {
+    "db_write": 0,
+    "slack_send": 0,
+    "platform_send_or_upload": 0,
+    "deploy": 0,
+    "publish": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "secret_or_token_output": 0
+  },
+  "question": {
+    "can_fetch_coupang_seller_insights_dashboard_by_api": "official_open_api_not_found_for_exact_dashboard_metric",
+    "does_repo_have_coupang_api_info": true,
+    "short_answer": "TeamKeto Coupang Open API credentials and clients exist for ordersheets, revenue-history, settlement-histories, and Rocket Growth orders. The exact Seller Insights sales-analysis export is not exposed by the public Open API in the reviewed official docs."
+  },
+  "target_window": {
+    "timezone": "Asia/Seoul",
+    "from": "2026-04-25",
+    "to": "2026-05-01"
+  },
+  "fnb_reference": {
+    "source": "F&B team Coupang seller sales analysis screenshot",
+    "filter_observed": "seller_delivery_plus_rocket_growth, category_coffee_tea",
+    "orders": 56,
+    "sales_quantity": 66,
+    "revenue_krw": 2100400,
+    "confidence": "medium_high_screenshot"
+  },
+  "attached_excel": {
+    "file": "/Users/vibetj/Downloads/SELLER_INSIGHTS_DAILY_SUMMARY_METRICS_(0).xlsx",
+    "sheet": "daily summary metrics",
+    "columns": [
+      "date",
+      "visitors",
+      "views",
+      "cart",
+      "orders",
+      "conversion_rate",
+      "sales_quantity",
+      "revenue_krw"
+    ],
+    "daily_rows": [
+      {"date": "2026-04-25", "visitors": 154, "views": 214, "cart": 13, "orders": 7, "conversion_rate": "3.27%", "sales_quantity": 7, "revenue_krw": 224000},
+      {"date": "2026-04-26", "visitors": 162, "views": 223, "cart": 23, "orders": 8, "conversion_rate": "3.59%", "sales_quantity": 10, "revenue_krw": 360300},
+      {"date": "2026-04-27", "visitors": 118, "views": 161, "cart": 8, "orders": 7, "conversion_rate": "4.35%", "sales_quantity": 13, "revenue_krw": 366200},
+      {"date": "2026-04-28", "visitors": 126, "views": 170, "cart": 12, "orders": 6, "conversion_rate": "3.53%", "sales_quantity": 6, "revenue_krw": 200400},
+      {"date": "2026-04-29", "visitors": 136, "views": 189, "cart": 20, "orders": 13, "conversion_rate": "6.88%", "sales_quantity": 13, "revenue_krw": 445100},
+      {"date": "2026-04-30", "visitors": 79, "views": 118, "cart": 12, "orders": 8, "conversion_rate": "6.78%", "sales_quantity": 10, "revenue_krw": 336000},
+      {"date": "2026-05-01", "visitors": 130, "views": 191, "cart": 18, "orders": 11, "conversion_rate": "5.76%", "sales_quantity": 12, "revenue_krw": 521600}
+    ],
+    "total": {
+      "visitors": 905,
+      "views": 1266,
+      "cart": 106,
+      "orders": 60,
+      "conversion_rate": "4.74%",
+      "sales_quantity": 71,
+      "revenue_krw": 2453600
+    },
+    "finding": "The attached Excel total does not match the screenshot/report target. It is 353200 KRW higher than 2100400 KRW."
+  },
+  "api_readonly_results": {
+    "ordersheets": {
+      "source": "Coupang Open API ordersheets v4 minute",
+      "account": "teamketo",
+      "calls": 42,
+      "api_error_count": 0,
+      "status_filter": [
+        "ACCEPT",
+        "INSTRUCT",
+        "DEPARTURE",
+        "DELIVERING",
+        "FINAL_DELIVERY",
+        "NONE_TRACKING"
+      ],
+      "totals": {
+        "order_sheets": 32,
+        "items": 32,
+        "quantity": 37,
+        "amount_krw": 1485900
+      },
+      "product_classification": {
+        "coffee_hint": {
+          "items": 28,
+          "quantity": 32,
+          "amount_krw": 1132700
+        },
+        "teamketo_hint": {
+          "items": 4,
+          "quantity": 5,
+          "amount_krw": 353200
+        },
+        "other_hint": {
+          "items": 0,
+          "quantity": 0,
+          "amount_krw": 0
+        }
+      }
+    },
+    "rocket_growth_orders": {
+      "source": "Coupang Rocket Growth Order API dry-run",
+      "account": "teamketo",
+      "api_call_count": 1,
+      "api_orders_seen": 26,
+      "api_items_seen": 26,
+      "coffee_order_count": 26,
+      "coffee_quantity": 32,
+      "coffee_gross_amount_krw": 907000,
+      "local_db_write": 0
+    },
+    "revenue_history": {
+      "source": "Coupang Open API revenue-history",
+      "account": "teamketo",
+      "recognition_date_from": "2026-04-25",
+      "recognition_date_to": "2026-05-01",
+      "pages_fetched": 1,
+      "done": true,
+      "rows": 37,
+      "sale_rows": 37,
+      "refund_rows": 0,
+      "account_total_sale_amount_krw": 1390500,
+      "account_total_settlement_amount_krw": 1228387,
+      "coffee_sale_amount_krw": 1117300,
+      "coffee_settlement_amount_krw": 987041
+    }
+  },
+  "reconciliation": {
+    "coffee_ordersheets_plus_rocket_growth": {
+      "amount_krw": 2039700,
+      "orders": 54,
+      "gap_vs_fnb_reference_amount_krw": 60700,
+      "gap_vs_fnb_reference_orders": 2
+    },
+    "all_ordersheets_plus_rocket_growth": {
+      "amount_krw": 2392900,
+      "gap_vs_attached_excel_amount_krw": 60700
+    },
+    "attached_excel_minus_fnb_reference_amount_krw": 353200,
+    "teamketo_hint_ordersheets_amount_krw": 353200,
+    "interpretation": "The attached Excel likely includes the TeamKeto non-coffee seller-delivery bucket. After removing that bucket, it matches the original 2100400 reference except for the same 60700 KRW gap that also remains against API reconstruction."
+  },
+  "api_readiness": {
+    "official_open_api_ordersheets": "ready_readonly",
+    "official_open_api_revenue_history": "ready_readonly",
+    "official_open_api_settlement_histories": "implemented_not_run_in_this_check",
+    "official_open_api_rocket_growth_orders": "ready_readonly",
+    "official_open_api_seller_insights_daily_summary_metrics": "not_found_in_reviewed_official_docs",
+    "browser_export_via_hermes": "recommended_fallback_for_exact_dashboard_export",
+    "confidence": "medium_high"
+  },
+  "official_docs_reviewed": [
+    {
+      "title": "Coupang Sales Detail Query",
+      "url": "https://developers.coupangcorp.com/hc/en-us/articles/360033922413-Sales-Detail-Query",
+      "relevance": "revenue-history endpoint, sales recognition date"
+    },
+    {
+      "title": "Coupang ordersheets daily paging",
+      "url": "https://developers.coupangcorp.com/hc/ko/articles/360033919573-%EB%B0%9C%EC%A3%BC%EC%84%9C-%EB%AA%A9%EB%A1%9D-%EC%A1%B0%ED%9A%8C-%EC%9D%BC%EB%8B%A8%EC%9C%84-%ED%8E%98%EC%9D%B4%EC%A7%95",
+      "relevance": "ordersheets endpoint and statuses"
+    },
+    {
+      "title": "Coupang Rocket Growth Order API",
+      "url": "https://developers.coupangcorp.com/hc/en-us/articles/41131195825433-RG-Order-API-List-Query",
+      "relevance": "rocket growth orders endpoint"
+    }
+  ],
+  "next_decision": {
+    "recommended_primary_for_slack_until_exact_seller_insights_export_is_automated": "keep ordersheets + rocket_growth reconstruction with seller_insights_gap_warning",
+    "recommended_next_green": "Hermes read-only browser export of period and product Excel from Coupang Seller Insights, then compare exported product-level rows against ordersheets/RG APIs",
+    "recommended_yellow_or_red": "none"
+  },
+  "track_progress": {
+    "A_source_rule_alignment": {"before": 76, "after": 77, "delta": 1},
+    "B_coffee_sales_source": {"before": 100, "after": 100, "delta": 0},
+    "C_coffee_ad_spend_source": {"before": 90, "after": 90, "delta": 0},
+    "D_biocom_report_source_map": {"before": 36, "after": 36, "delta": 0},
+    "E_slack_no_send_design": {"before": 100, "after": 100, "delta": 0},
+    "F_automation_deploy_readiness": {"before": 99, "after": 99, "delta": 0}
+  }
+}

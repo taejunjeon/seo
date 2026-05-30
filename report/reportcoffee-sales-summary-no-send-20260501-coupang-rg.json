@@ -1,0 +1,3256 @@
+{
+  "report": "reportcoffee_sales_summary_no_send_v1",
+  "generated_at": "2026-05-25T12:55:59.421Z",
+  "generated_for_kst_date": "2026-05-01",
+  "mode": "read_only_no_send_no_write",
+  "site": "thecleancoffee",
+  "purpose": "Slack send 전에 더클린커피 자사몰, 스마트스토어, 쿠팡 매출을 같은 window로 한 JSON에 합치는 통합 집계기",
+  "options": {
+    "top_products": 3,
+    "npay_db_path": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "npay_ssh_host": null,
+    "npay_remote_db_path": "/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+    "coupang_source": "api",
+    "coupang_revenue_history_source": "api",
+    "coupang_account": "teamketo",
+    "coupang_statuses": [
+      "FINAL_DELIVERY"
+    ],
+    "coupang_delay_ms": 150,
+    "coupang_settlement_source": "local",
+    "coupang_settlement_db_path": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "coupang_rg_aggregate_source": "local",
+    "coupang_rg_aggregate_db_path": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "ad_spend_source": "skip",
+    "ad_spend_api_base": "https://att.ainativeos.net",
+    "ad_spend_force": true,
+    "report_dir": "/Users/vibetj/coding/seo/report"
+  },
+  "source_policy": {
+    "selfmall": "Toss store=coffee + NPay actual; raw Toss/Imweb samples are not exposed",
+    "smartstore": "operational PG tb_playauto_orders shop_name='스마트스토어'",
+    "coupang": "TeamKeto revenue-history coffee_hint saleAmount is strict sales when available; ordersheets and local RG aggregate are references until dedupe/gap is closed.",
+    "ad_spend": "included spend is Meta API spend + Naver/Google/TikTok 0원 후보. Platform purchase values are reference only and are not added to internal sales."
+  },
+  "windows": {
+    "weekly": {
+      "window": {
+        "label": "최근 완료 7일",
+        "timezone": "Asia/Seoul",
+        "start_date": "2026-04-25",
+        "end_date_inclusive": "2026-05-01",
+        "end_date_exclusive": "2026-05-02"
+      },
+      "sales": {
+        "total_strict_amount_krw": 5636538,
+        "total_strict_amount_krw_korean": "5,636,538원",
+        "total_with_coupang_account_reference_krw": 5909738,
+        "total_with_coupang_account_reference_krw_korean": "5,909,738원",
+        "reference_totals": {
+          "total_with_coupang_revenue_history_plus_rg_reference_krw": 6543538,
+          "total_with_coupang_revenue_history_plus_rg_reference_krw_korean": "6,543,538원",
+          "total_with_coupang_ordersheets_plus_rg_reference_krw": 6558938,
+          "total_with_coupang_ordersheets_plus_rg_reference_krw_korean": "6,558,938원",
+          "note": "Reference totals are not strict sales until Coupang general delivery/RG dedupe and attachment gap are closed."
+        },
+        "channels": {
+          "selfmall": {
+            "amount_krw": 2679898,
+            "amount_krw_korean": "2,679,898원",
+            "status": "included_with_warning",
+            "components": {
+              "toss": {
+                "status": "included_with_warning",
+                "amount_krw": 2679898,
+                "rows": 62,
+                "total_amount_krw": 2721824,
+                "cancel_amount_krw": 41926,
+                "balance_amount_krw": 2679898,
+                "min_approved_at": "2026-04-25 10:32:44",
+                "max_approved_at": "2026-05-01 22:18:33",
+                "warnings": [
+                  "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산"
+                ]
+              },
+              "npay_actual": {
+                "status": "included_with_warning",
+                "amount_krw": 0,
+                "count": 0,
+                "max_order_time": null,
+                "max_synced_at": null,
+                "max_status_synced_at": null,
+                "diagnostics": {
+                  "gross_before_status_exclusion": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  },
+                  "excluded_cancel_return_exchange": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  },
+                  "complete_time_legacy": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  },
+                  "bridge_pending_complete_time_blank": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  },
+                  "status_blank_freshness_warning": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  }
+                },
+                "warnings": [
+                  "source_freshness_gap: requested window보다 NPay source max_order_time이 오래됨"
+                ]
+              }
+            }
+          },
+          "smartstore": {
+            "status": "included_with_warning",
+            "amount_krw": 1839340,
+            "rows": 53,
+            "quantity": 64,
+            "excluded_rows": 0,
+            "excluded_amount_krw": 0,
+            "top_products": [
+              {
+                "rank": 1,
+                "product_name": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+                "rows": 21,
+                "quantity": 22,
+                "amount_krw": 645840,
+                "option_count": 9,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+                ]
+              },
+              {
+                "rank": 2,
+                "product_name": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+                "rows": 8,
+                "quantity": 9,
+                "amount_krw": 258800,
+                "option_count": 3,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+                ]
+              },
+              {
+                "rank": 3,
+                "product_name": "[오늘출발]더클린커피 초신선 케냐AA 캉고초 스페셜티 산미있는원두 핸드드립 커피콩 홈카페 방탄커피",
+                "rows": 7,
+                "quantity": 7,
+                "amount_krw": 257700,
+                "option_count": 4,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 500g / 분쇄도: 프렌치프레스(굵은분쇄)",
+                  "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+                ]
+              }
+            ],
+            "status_breakdown": [
+              {
+                "ord_status": "배송완료",
+                "rows": 34,
+                "quantity": 45,
+                "amount_krw": 1179540,
+                "excluded_by_rule": false,
+                "min_time": "2026-04-25 16:40:49",
+                "max_time": "2026-05-01 17:05:29"
+              },
+              {
+                "ord_status": "구매결정",
+                "rows": 18,
+                "quantity": 18,
+                "amount_krw": 614800,
+                "excluded_by_rule": false,
+                "min_time": "2026-04-26 15:43:51",
+                "max_time": "2026-05-01 14:54:58"
+              },
+              {
+                "ord_status": "배송중",
+                "rows": 1,
+                "quantity": 1,
+                "amount_krw": 45000,
+                "excluded_by_rule": false,
+                "min_time": "2026-04-28 11:00:01",
+                "max_time": "2026-04-28 11:00:01"
+              }
+            ],
+            "reconciliation": {
+              "top_product_source_total_krw": 1839340,
+              "matches_included_total": true
+            },
+            "warnings": [
+              "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning"
+            ]
+          },
+          "coupang": {
+            "status": "included_revenue_history",
+            "coffee_amount_krw": 1117300,
+            "coffee_settlement_amount_krw": 987041,
+            "account_total_amount_krw": 1390500,
+            "account_total_settlement_amount_krw": 1228387,
+            "teamketo_reference_amount_krw": 273200,
+            "teamketo_reference_settlement_amount_krw": 241346,
+            "other_reference_amount_krw": 0,
+            "other_reference_settlement_amount_krw": 0,
+            "top_products": [
+              {
+                "rank": 1,
+                "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+                "items": 12,
+                "quantity": 13,
+                "sale_amount_krw": 379200,
+                "settlement_amount_krw": 334993,
+                "amount_krw": 379200
+              },
+              {
+                "rank": 2,
+                "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+                "items": 10,
+                "quantity": 10,
+                "sale_amount_krw": 325000,
+                "settlement_amount_krw": 287110,
+                "amount_krw": 325000
+              },
+              {
+                "rank": 3,
+                "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+                "items": 9,
+                "quantity": 9,
+                "sale_amount_krw": 318100,
+                "settlement_amount_krw": 281015,
+                "amount_krw": 318100
+              }
+            ],
+            "by_product_class": {
+              "coffee_hint": {
+                "rows": 33,
+                "items": 33,
+                "quantity": 34,
+                "sale_amount_krw": 1117300,
+                "settlement_amount_krw": 987041
+              },
+              "teamketo_hint": {
+                "rows": 4,
+                "items": 4,
+                "quantity": 4,
+                "sale_amount_krw": 273200,
+                "settlement_amount_krw": 241346
+              },
+              "other_hint": {
+                "rows": 0,
+                "items": 0,
+                "quantity": 0,
+                "sale_amount_krw": 0,
+                "settlement_amount_krw": 0
+              }
+            },
+            "revenue_history": {
+              "account": "teamketo",
+              "recognition_date_from": "2026-04-25",
+              "recognition_date_to": "2026-05-01",
+              "pages_fetched": 1,
+              "done": true,
+              "rows": 37,
+              "sale_rows": 37,
+              "refund_rows": 0,
+              "item_rows": 37,
+              "min_recognition_date": "2026-04-25",
+              "max_recognition_date": "2026-05-01",
+              "raw_order_output": 0
+            },
+            "ordersheets_reference": {
+              "status": "included_live_api",
+              "coffee_amount_krw": 1132700,
+              "account_total_amount_krw": 1485900
+            },
+            "confidence": "high_revenue_history_aggregate",
+            "warnings": [
+              "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+              "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+              "ordersheets_reference_diff: coffee ordersheets 1,132,700원 vs revenue-history 1,117,300원"
+            ],
+            "basis": "revenue_history_recognition_date",
+            "rg_aggregate_reference": {
+              "status": "included_local_rg_aggregate",
+              "basis": "local_coupang_rg_daily_aggregate_api_paid_date_kst",
+              "coffee_amount_krw": 907000,
+              "coffee_amount_krw_korean": "907,000원",
+              "coffee_order_count": 26,
+              "coffee_item_count": 26,
+              "coffee_quantity": 32,
+              "by_product_class": {
+                "coffee_hint": {
+                  "rows": 7,
+                  "order_count": 26,
+                  "item_count": 26,
+                  "quantity": 32,
+                  "gross_amount_krw": 907000,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 7
+                },
+                "teamketo_hint": {
+                  "rows": 7,
+                  "order_count": 0,
+                  "item_count": 0,
+                  "quantity": 0,
+                  "gross_amount_krw": 0,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 7
+                },
+                "other_hint": {
+                  "rows": 7,
+                  "order_count": 0,
+                  "item_count": 0,
+                  "quantity": 0,
+                  "gross_amount_krw": 0,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 7
+                }
+              },
+              "coverage": {
+                "expected_days": 7,
+                "covered_days": 7,
+                "min_fetched_at": "2026-05-25 21:37:39",
+                "max_fetched_at": "2026-05-25 21:37:39"
+              },
+              "source_table": "coupang_rg_daily_aggregate_api",
+              "raw_order_output": 0,
+              "raw_json_storage": 0,
+              "warnings": [
+                "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+                "Keep RG as reference until general delivery/RG/dedupe policy is finalized"
+              ],
+              "confidence": "high_local_rg_aggregate"
+            },
+            "attachment_reconstruction_reference": {
+              "target_attachment_coupang_amount_krw": 2100400,
+              "target_attachment_coupang_amount_krw_korean": "2,100,400원",
+              "revenue_history_plus_rg_amount_krw": 2024300,
+              "revenue_history_plus_rg_amount_krw_korean": "2,024,300원",
+              "ordersheets_plus_rg_amount_krw": 2039700,
+              "ordersheets_plus_rg_amount_krw_korean": "2,039,700원",
+              "remaining_gap_vs_ordersheets_plus_rg_krw": 60700,
+              "remaining_gap_vs_ordersheets_plus_rg_krw_korean": "60,700원",
+              "remaining_gap_vs_revenue_history_plus_rg_krw": 76100,
+              "remaining_gap_vs_revenue_history_plus_rg_krw_korean": "76,100원",
+              "remaining_gap_orders_hint": 2,
+              "verdict": "ordersheets_general_delivery_plus_rg_reproduces_all_but_60700_krw_2_orders"
+            }
+          }
+        }
+      },
+      "ad_spend": {
+        "status": "skipped",
+        "included_ad_spend_krw": 0,
+        "warnings": [
+          "ad-spend-source=skip"
+        ]
+      },
+      "ratios": {
+        "ad_spend_share_percent": 0,
+        "ad_spend_share_formula": "included_ad_spend_krw / total_strict_amount_krw * 100",
+        "included_ad_spend_krw": 0,
+        "included_ad_spend_krw_korean": "0원",
+        "total_strict_amount_krw": 5636538,
+        "total_strict_amount_krw_korean": "5,636,538원"
+      },
+      "warnings": [
+        "source_freshness_gap: requested window보다 NPay source max_order_time이 오래됨",
+        "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산",
+        "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning",
+        "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+        "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+        "ordersheets_reference_diff: coffee ordersheets 1,132,700원 vs revenue-history 1,117,300원",
+        "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+        "Keep RG as reference until general delivery/RG/dedupe policy is finalized",
+        "ad-spend-source=skip"
+      ]
+    },
+    "month_to_date": {
+      "window": {
+        "label": "월초-기준일",
+        "timezone": "Asia/Seoul",
+        "start_date": "2026-05-01",
+        "end_date_inclusive": "2026-05-01",
+        "end_date_exclusive": "2026-05-02"
+      },
+      "sales": {
+        "total_strict_amount_krw": 732075,
+        "total_strict_amount_krw_korean": "732,075원",
+        "total_with_coupang_account_reference_krw": 794475,
+        "total_with_coupang_account_reference_krw_korean": "794,475원",
+        "reference_totals": {
+          "total_with_coupang_revenue_history_plus_rg_reference_krw": 763975,
+          "total_with_coupang_revenue_history_plus_rg_reference_krw_korean": "763,975원",
+          "total_with_coupang_ordersheets_plus_rg_reference_krw": 811875,
+          "total_with_coupang_ordersheets_plus_rg_reference_krw_korean": "811,875원",
+          "note": "Reference totals are not strict sales until Coupang general delivery/RG dedupe and attachment gap are closed."
+        },
+        "channels": {
+          "selfmall": {
+            "amount_krw": 449875,
+            "amount_krw_korean": "449,875원",
+            "status": "included_with_warning",
+            "components": {
+              "toss": {
+                "status": "included_with_warning",
+                "amount_krw": 449875,
+                "rows": 9,
+                "total_amount_krw": 449875,
+                "cancel_amount_krw": 0,
+                "balance_amount_krw": 449875,
+                "min_approved_at": "2026-05-01 08:40:52",
+                "max_approved_at": "2026-05-01 22:18:33",
+                "warnings": [
+                  "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산"
+                ]
+              },
+              "npay_actual": {
+                "status": "included_with_warning",
+                "amount_krw": 0,
+                "count": 0,
+                "max_order_time": null,
+                "max_synced_at": null,
+                "max_status_synced_at": null,
+                "diagnostics": {
+                  "gross_before_status_exclusion": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  },
+                  "excluded_cancel_return_exchange": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  },
+                  "complete_time_legacy": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  },
+                  "bridge_pending_complete_time_blank": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  },
+                  "status_blank_freshness_warning": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  }
+                },
+                "warnings": [
+                  "source_freshness_gap: requested window보다 NPay source max_order_time이 오래됨"
+                ]
+              }
+            }
+          },
+          "smartstore": {
+            "status": "included_with_warning",
+            "amount_krw": 221400,
+            "rows": 6,
+            "quantity": 6,
+            "excluded_rows": 0,
+            "excluded_amount_krw": 0,
+            "top_products": [
+              {
+                "rank": 1,
+                "product_name": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+                "rows": 2,
+                "quantity": 2,
+                "amount_krw": 79800,
+                "option_count": 1,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+                ]
+              },
+              {
+                "rank": 2,
+                "product_name": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+                "rows": 2,
+                "quantity": 2,
+                "amount_krw": 56800,
+                "option_count": 2,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+                ]
+              },
+              {
+                "rank": 3,
+                "product_name": "[오늘출발]더클린커피 초신선 케냐AA 캉고초 스페셜티 산미있는원두 핸드드립 커피콩 홈카페 방탄커피",
+                "rows": 1,
+                "quantity": 1,
+                "amount_krw": 42900,
+                "option_count": 1,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+                ]
+              }
+            ],
+            "status_breakdown": [
+              {
+                "ord_status": "구매결정",
+                "rows": 4,
+                "quantity": 4,
+                "amount_krw": 164600,
+                "excluded_by_rule": false,
+                "min_time": "2026-05-01 00:19:25",
+                "max_time": "2026-05-01 14:54:58"
+              },
+              {
+                "ord_status": "배송완료",
+                "rows": 2,
+                "quantity": 2,
+                "amount_krw": 56800,
+                "excluded_by_rule": false,
+                "min_time": "2026-05-01 07:38:48",
+                "max_time": "2026-05-01 17:05:29"
+              }
+            ],
+            "reconciliation": {
+              "top_product_source_total_krw": 221400,
+              "matches_included_total": true
+            },
+            "warnings": [
+              "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning"
+            ]
+          },
+          "coupang": {
+            "status": "included_revenue_history",
+            "coffee_amount_krw": 60800,
+            "coffee_settlement_amount_krw": 53712,
+            "account_total_amount_krw": 123200,
+            "account_total_settlement_amount_krw": 108837,
+            "teamketo_reference_amount_krw": 62400,
+            "teamketo_reference_settlement_amount_krw": 55125,
+            "other_reference_amount_krw": 0,
+            "other_reference_settlement_amount_krw": 0,
+            "top_products": [
+              {
+                "rank": 1,
+                "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+                "items": 1,
+                "quantity": 1,
+                "sale_amount_krw": 38900,
+                "settlement_amount_krw": 34365,
+                "amount_krw": 38900
+              },
+              {
+                "rank": 2,
+                "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+                "items": 1,
+                "quantity": 1,
+                "sale_amount_krw": 21900,
+                "settlement_amount_krw": 19347,
+                "amount_krw": 21900
+              }
+            ],
+            "by_product_class": {
+              "coffee_hint": {
+                "rows": 2,
+                "items": 2,
+                "quantity": 2,
+                "sale_amount_krw": 60800,
+                "settlement_amount_krw": 53712
+              },
+              "teamketo_hint": {
+                "rows": 1,
+                "items": 1,
+                "quantity": 1,
+                "sale_amount_krw": 62400,
+                "settlement_amount_krw": 55125
+              },
+              "other_hint": {
+                "rows": 0,
+                "items": 0,
+                "quantity": 0,
+                "sale_amount_krw": 0,
+                "settlement_amount_krw": 0
+              }
+            },
+            "revenue_history": {
+              "account": "teamketo",
+              "recognition_date_from": "2026-05-01",
+              "recognition_date_to": "2026-05-01",
+              "pages_fetched": 1,
+              "done": true,
+              "rows": 3,
+              "sale_rows": 3,
+              "refund_rows": 0,
+              "item_rows": 3,
+              "min_recognition_date": "2026-05-01",
+              "max_recognition_date": "2026-05-01",
+              "raw_order_output": 0
+            },
+            "ordersheets_reference": {
+              "status": "included_live_api",
+              "coffee_amount_krw": 108700,
+              "account_total_amount_krw": 331300
+            },
+            "confidence": "high_revenue_history_aggregate",
+            "warnings": [
+              "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+              "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+              "ordersheets_reference_diff: coffee ordersheets 108,700원 vs revenue-history 60,800원"
+            ],
+            "basis": "revenue_history_recognition_date",
+            "rg_aggregate_reference": {
+              "status": "included_local_rg_aggregate",
+              "basis": "local_coupang_rg_daily_aggregate_api_paid_date_kst",
+              "coffee_amount_krw": 31900,
+              "coffee_amount_krw_korean": "31,900원",
+              "coffee_order_count": 1,
+              "coffee_item_count": 1,
+              "coffee_quantity": 1,
+              "by_product_class": {
+                "coffee_hint": {
+                  "rows": 1,
+                  "order_count": 1,
+                  "item_count": 1,
+                  "quantity": 1,
+                  "gross_amount_krw": 31900,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 1
+                },
+                "teamketo_hint": {
+                  "rows": 1,
+                  "order_count": 0,
+                  "item_count": 0,
+                  "quantity": 0,
+                  "gross_amount_krw": 0,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 1
+                },
+                "other_hint": {
+                  "rows": 1,
+                  "order_count": 0,
+                  "item_count": 0,
+                  "quantity": 0,
+                  "gross_amount_krw": 0,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 1
+                }
+              },
+              "coverage": {
+                "expected_days": 1,
+                "covered_days": 1,
+                "min_fetched_at": "2026-05-25 21:37:39",
+                "max_fetched_at": "2026-05-25 21:37:39"
+              },
+              "source_table": "coupang_rg_daily_aggregate_api",
+              "raw_order_output": 0,
+              "raw_json_storage": 0,
+              "warnings": [
+                "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+                "Keep RG as reference until general delivery/RG/dedupe policy is finalized"
+              ],
+              "confidence": "high_local_rg_aggregate"
+            },
+            "attachment_reconstruction_reference": null
+          }
+        }
+      },
+      "ad_spend": {
+        "status": "skipped",
+        "included_ad_spend_krw": 0,
+        "warnings": [
+          "ad-spend-source=skip"
+        ]
+      },
+      "ratios": {
+        "ad_spend_share_percent": 0,
+        "ad_spend_share_formula": "included_ad_spend_krw / total_strict_amount_krw * 100",
+        "included_ad_spend_krw": 0,
+        "included_ad_spend_krw_korean": "0원",
+        "total_strict_amount_krw": 732075,
+        "total_strict_amount_krw_korean": "732,075원"
+      },
+      "warnings": [
+        "source_freshness_gap: requested window보다 NPay source max_order_time이 오래됨",
+        "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산",
+        "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning",
+        "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+        "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+        "ordersheets_reference_diff: coffee ordersheets 108,700원 vs revenue-history 60,800원",
+        "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+        "Keep RG as reference until general delivery/RG/dedupe policy is finalized",
+        "ad-spend-source=skip"
+      ]
+    },
+    "rolling_30d": {
+      "window": {
+        "label": "최근 완료 30일",
+        "timezone": "Asia/Seoul",
+        "start_date": "2026-04-02",
+        "end_date_inclusive": "2026-05-01",
+        "end_date_exclusive": "2026-05-02"
+      },
+      "sales": {
+        "total_strict_amount_krw": 32671034,
+        "total_strict_amount_krw_korean": "32,671,034원",
+        "total_with_coupang_account_reference_krw": 34962934,
+        "total_with_coupang_account_reference_krw_korean": "34,962,934원",
+        "reference_totals": {
+          "total_with_coupang_revenue_history_plus_rg_reference_krw": 33578034,
+          "total_with_coupang_revenue_history_plus_rg_reference_krw_korean": "33,578,034원",
+          "total_with_coupang_ordersheets_plus_rg_reference_krw": 33222434,
+          "total_with_coupang_ordersheets_plus_rg_reference_krw_korean": "33,222,434원",
+          "note": "Reference totals are not strict sales until Coupang general delivery/RG dedupe and attachment gap are closed."
+        },
+        "channels": {
+          "selfmall": {
+            "amount_krw": 18606984,
+            "amount_krw_korean": "18,606,984원",
+            "status": "included_with_warning",
+            "components": {
+              "toss": {
+                "status": "included_with_warning",
+                "amount_krw": 16899684,
+                "rows": 376,
+                "total_amount_krw": 17545599,
+                "cancel_amount_krw": 645915,
+                "balance_amount_krw": 16899684,
+                "min_approved_at": "2026-04-02 00:22:18",
+                "max_approved_at": "2026-05-01 22:18:33",
+                "warnings": [
+                  "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산"
+                ]
+              },
+              "npay_actual": {
+                "status": "included",
+                "amount_krw": 1707300,
+                "count": 37,
+                "max_order_time": "2026-04-04T01:32:57.000Z",
+                "max_synced_at": "2026-04-04 04:17:57",
+                "max_status_synced_at": "2026-04-19 17:34:23",
+                "diagnostics": {
+                  "gross_before_status_exclusion": {
+                    "count": 40,
+                    "amount_krw": 1840200,
+                    "max_order_time": "2026-04-04T01:32:57.000Z",
+                    "max_complete_time": "2026-04-03T04:38:30.000Z",
+                    "max_synced_at": "2026-04-04 04:17:57",
+                    "max_status_synced_at": "2026-04-19 17:34:24"
+                  },
+                  "excluded_cancel_return_exchange": {
+                    "count": 3,
+                    "amount_krw": 132900,
+                    "max_order_time": "2026-04-04T00:57:04.000Z",
+                    "max_complete_time": null,
+                    "max_synced_at": "2026-04-04 04:17:57",
+                    "max_status_synced_at": "2026-04-19 17:34:24"
+                  },
+                  "complete_time_legacy": {
+                    "count": 1,
+                    "amount_krw": 21300,
+                    "max_order_time": "2026-04-02T05:51:00.000Z",
+                    "max_complete_time": "2026-04-03T04:38:30.000Z",
+                    "max_synced_at": "2026-04-04 04:17:57",
+                    "max_status_synced_at": "2026-04-19 17:34:23"
+                  },
+                  "bridge_pending_complete_time_blank": {
+                    "count": 36,
+                    "amount_krw": 1686000,
+                    "max_order_time": "2026-04-04T01:32:57.000Z",
+                    "max_complete_time": null,
+                    "max_synced_at": "2026-04-04 04:17:57",
+                    "max_status_synced_at": "2026-04-19 17:34:23"
+                  },
+                  "status_blank_freshness_warning": {
+                    "count": 0,
+                    "amount_krw": 0,
+                    "max_order_time": null,
+                    "max_complete_time": null,
+                    "max_synced_at": null,
+                    "max_status_synced_at": null
+                  }
+                },
+                "warnings": []
+              }
+            }
+          },
+          "smartstore": {
+            "status": "included_with_warning",
+            "amount_krw": 8119350,
+            "rows": 245,
+            "quantity": 269,
+            "excluded_rows": 1,
+            "excluded_amount_krw": 0,
+            "top_products": [
+              {
+                "rank": 1,
+                "product_name": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+                "rows": 97,
+                "quantity": 103,
+                "amount_krw": 3151640,
+                "option_count": 21,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "원두: 콜롬비아 수프리모 / 중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 500g / 분쇄도: 핸드드립(일반분쇄)"
+                ]
+              },
+              {
+                "rank": 2,
+                "product_name": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+                "rows": 43,
+                "quantity": 46,
+                "amount_krw": 1450410,
+                "option_count": 10,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+                ]
+              },
+              {
+                "rank": 3,
+                "product_name": "[오늘출발]더클린커피 초신선 에티오피아 구지 사키소 G1 원두 스페셜티 핸드드립 커피콩 방탄커피",
+                "rows": 37,
+                "quantity": 39,
+                "amount_krw": 1363500,
+                "option_count": 8,
+                "option_examples": [
+                  "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                  "중량: 500g / 분쇄도: 핸드드립(일반분쇄)",
+                  "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+                ]
+              }
+            ],
+            "status_breakdown": [
+              {
+                "ord_status": "구매결정",
+                "rows": 155,
+                "quantity": 163,
+                "amount_krw": 4978510,
+                "excluded_by_rule": false,
+                "min_time": "2026-04-02 00:26:13",
+                "max_time": "2026-05-01 14:54:58"
+              },
+              {
+                "ord_status": "배송완료",
+                "rows": 88,
+                "quantity": 104,
+                "amount_krw": 3058040,
+                "excluded_by_rule": false,
+                "min_time": "2026-04-08 06:12:46",
+                "max_time": "2026-05-01 17:05:29"
+              },
+              {
+                "ord_status": "배송중",
+                "rows": 1,
+                "quantity": 1,
+                "amount_krw": 45000,
+                "excluded_by_rule": false,
+                "min_time": "2026-04-28 11:00:01",
+                "max_time": "2026-04-28 11:00:01"
+              },
+              {
+                "ord_status": "주문재확인",
+                "rows": 1,
+                "quantity": 1,
+                "amount_krw": 37800,
+                "excluded_by_rule": false,
+                "min_time": "2026-04-02 19:34:06",
+                "max_time": "2026-04-02 19:34:06"
+              },
+              {
+                "ord_status": "취소완료",
+                "rows": 1,
+                "quantity": 0,
+                "amount_krw": 0,
+                "excluded_by_rule": true,
+                "min_time": "2026-04-13 15:51:40",
+                "max_time": "2026-04-13 15:51:40"
+              }
+            ],
+            "reconciliation": {
+              "top_product_source_total_krw": 8119350,
+              "matches_included_total": true
+            },
+            "warnings": [
+              "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning"
+            ]
+          },
+          "coupang": {
+            "status": "included_revenue_history",
+            "coffee_amount_krw": 5944700,
+            "coffee_settlement_amount_krw": 5251645,
+            "account_total_amount_krw": 8236600,
+            "account_total_settlement_amount_krw": 7276312,
+            "teamketo_reference_amount_krw": 2291900,
+            "teamketo_reference_settlement_amount_krw": 2024667,
+            "other_reference_amount_krw": 0,
+            "other_reference_settlement_amount_krw": 0,
+            "top_products": [
+              {
+                "rank": 1,
+                "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+                "items": 58,
+                "quantity": 64,
+                "sale_amount_krw": 2103600,
+                "settlement_amount_krw": 1858360,
+                "amount_krw": 2103600
+              },
+              {
+                "rank": 2,
+                "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+                "items": 26,
+                "quantity": 30,
+                "sale_amount_krw": 1087000,
+                "settlement_amount_krw": 960272,
+                "amount_krw": 1087000
+              },
+              {
+                "rank": 3,
+                "product_name": "더클린커피 콜롬비아 수프레모 독소 프리 인증 방탄커피원두",
+                "items": 21,
+                "quantity": 21,
+                "sale_amount_krw": 701400,
+                "settlement_amount_krw": 619627,
+                "amount_krw": 701400
+              }
+            ],
+            "by_product_class": {
+              "coffee_hint": {
+                "rows": 162,
+                "items": 162,
+                "quantity": 172,
+                "sale_amount_krw": 5944700,
+                "settlement_amount_krw": 5251645
+              },
+              "teamketo_hint": {
+                "rows": 31,
+                "items": 31,
+                "quantity": 33,
+                "sale_amount_krw": 2291900,
+                "settlement_amount_krw": 2024667
+              },
+              "other_hint": {
+                "rows": 0,
+                "items": 0,
+                "quantity": 0,
+                "sale_amount_krw": 0,
+                "settlement_amount_krw": 0
+              }
+            },
+            "revenue_history": {
+              "account": "teamketo",
+              "recognition_date_from": "2026-04-02",
+              "recognition_date_to": "2026-05-01",
+              "pages_fetched": 4,
+              "done": true,
+              "rows": 191,
+              "sale_rows": 190,
+              "refund_rows": 1,
+              "item_rows": 193,
+              "min_recognition_date": "2026-04-02",
+              "max_recognition_date": "2026-05-01",
+              "raw_order_output": 0
+            },
+            "ordersheets_reference": {
+              "status": "included_live_api",
+              "coffee_amount_krw": 5589100,
+              "account_total_amount_krw": 7373400
+            },
+            "confidence": "medium_high_revenue_history_aggregate_with_notes",
+            "warnings": [
+              "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+              "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+              "ordersheets_reference_diff: coffee ordersheets 5,589,100원 vs revenue-history 5,944,700원"
+            ],
+            "basis": "revenue_history_recognition_date",
+            "rg_aggregate_reference": {
+              "status": "included_local_rg_aggregate_with_partial_coverage",
+              "basis": "local_coupang_rg_daily_aggregate_api_paid_date_kst",
+              "coffee_amount_krw": 907000,
+              "coffee_amount_krw_korean": "907,000원",
+              "coffee_order_count": 26,
+              "coffee_item_count": 26,
+              "coffee_quantity": 32,
+              "by_product_class": {
+                "coffee_hint": {
+                  "rows": 7,
+                  "order_count": 26,
+                  "item_count": 26,
+                  "quantity": 32,
+                  "gross_amount_krw": 907000,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 7
+                },
+                "teamketo_hint": {
+                  "rows": 7,
+                  "order_count": 0,
+                  "item_count": 0,
+                  "quantity": 0,
+                  "gross_amount_krw": 0,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 7
+                },
+                "other_hint": {
+                  "rows": 7,
+                  "order_count": 0,
+                  "item_count": 0,
+                  "quantity": 0,
+                  "gross_amount_krw": 0,
+                  "min_fetched_at": "2026-05-25 21:37:39",
+                  "max_fetched_at": "2026-05-25 21:37:39",
+                  "max_api_call_count": 1,
+                  "covered_days": 7
+                }
+              },
+              "coverage": {
+                "expected_days": 30,
+                "covered_days": 7,
+                "min_fetched_at": "2026-05-25 21:37:39",
+                "max_fetched_at": "2026-05-25 21:37:39"
+              },
+              "source_table": "coupang_rg_daily_aggregate_api",
+              "raw_order_output": 0,
+              "raw_json_storage": 0,
+              "warnings": [
+                "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+                "Keep RG as reference until general delivery/RG/dedupe policy is finalized",
+                "rg_aggregate_partial_coverage: covered 7/30 days"
+              ],
+              "confidence": "medium_local_rg_aggregate_partial_window"
+            },
+            "attachment_reconstruction_reference": null
+          }
+        }
+      },
+      "ad_spend": {
+        "status": "skipped",
+        "included_ad_spend_krw": 0,
+        "warnings": [
+          "ad-spend-source=skip"
+        ]
+      },
+      "ratios": {
+        "ad_spend_share_percent": 0,
+        "ad_spend_share_formula": "included_ad_spend_krw / total_strict_amount_krw * 100",
+        "included_ad_spend_krw": 0,
+        "included_ad_spend_krw_korean": "0원",
+        "total_strict_amount_krw": 32671034,
+        "total_strict_amount_krw_korean": "32,671,034원"
+      },
+      "warnings": [
+        "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산",
+        "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning",
+        "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+        "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+        "ordersheets_reference_diff: coffee ordersheets 5,589,100원 vs revenue-history 5,944,700원",
+        "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+        "Keep RG as reference until general delivery/RG/dedupe policy is finalized",
+        "rg_aggregate_partial_coverage: covered 7/30 days",
+        "ad-spend-source=skip"
+      ]
+    }
+  },
+  "source_details": {
+    "npay": {
+      "status": "ok",
+      "source": {
+        "system": "sqlite_imweb_orders_read_only",
+        "db_path": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+        "table": "imweb_orders",
+        "primary_rule": "site + pay_type=npay + payment_amount>0 + KST order_time window + cancel/return/exchange excluded"
+      },
+      "source_freshness": {
+        "site_npay_rows_all_time": 855,
+        "site_npay_amount_krw_all_time": 34568500,
+        "max_order_time": "2026-04-04T01:32:57.000Z",
+        "max_synced_at": "2026-04-04 04:18:18",
+        "max_status_synced_at": "2026-04-19 17:34:24"
+      },
+      "windows": {
+        "weekly": {
+          "status": "included_with_warning",
+          "amount_krw": 0,
+          "count": 0,
+          "max_order_time": null,
+          "max_synced_at": null,
+          "max_status_synced_at": null,
+          "diagnostics": {
+            "gross_before_status_exclusion": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            },
+            "excluded_cancel_return_exchange": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            },
+            "complete_time_legacy": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            },
+            "bridge_pending_complete_time_blank": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            },
+            "status_blank_freshness_warning": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            }
+          },
+          "warnings": [
+            "source_freshness_gap: requested window보다 NPay source max_order_time이 오래됨"
+          ]
+        },
+        "month_to_date": {
+          "status": "included_with_warning",
+          "amount_krw": 0,
+          "count": 0,
+          "max_order_time": null,
+          "max_synced_at": null,
+          "max_status_synced_at": null,
+          "diagnostics": {
+            "gross_before_status_exclusion": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            },
+            "excluded_cancel_return_exchange": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            },
+            "complete_time_legacy": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            },
+            "bridge_pending_complete_time_blank": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            },
+            "status_blank_freshness_warning": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            }
+          },
+          "warnings": [
+            "source_freshness_gap: requested window보다 NPay source max_order_time이 오래됨"
+          ]
+        },
+        "rolling_30d": {
+          "status": "included",
+          "amount_krw": 1707300,
+          "count": 37,
+          "max_order_time": "2026-04-04T01:32:57.000Z",
+          "max_synced_at": "2026-04-04 04:17:57",
+          "max_status_synced_at": "2026-04-19 17:34:23",
+          "diagnostics": {
+            "gross_before_status_exclusion": {
+              "count": 40,
+              "amount_krw": 1840200,
+              "max_order_time": "2026-04-04T01:32:57.000Z",
+              "max_complete_time": "2026-04-03T04:38:30.000Z",
+              "max_synced_at": "2026-04-04 04:17:57",
+              "max_status_synced_at": "2026-04-19 17:34:24"
+            },
+            "excluded_cancel_return_exchange": {
+              "count": 3,
+              "amount_krw": 132900,
+              "max_order_time": "2026-04-04T00:57:04.000Z",
+              "max_complete_time": null,
+              "max_synced_at": "2026-04-04 04:17:57",
+              "max_status_synced_at": "2026-04-19 17:34:24"
+            },
+            "complete_time_legacy": {
+              "count": 1,
+              "amount_krw": 21300,
+              "max_order_time": "2026-04-02T05:51:00.000Z",
+              "max_complete_time": "2026-04-03T04:38:30.000Z",
+              "max_synced_at": "2026-04-04 04:17:57",
+              "max_status_synced_at": "2026-04-19 17:34:23"
+            },
+            "bridge_pending_complete_time_blank": {
+              "count": 36,
+              "amount_krw": 1686000,
+              "max_order_time": "2026-04-04T01:32:57.000Z",
+              "max_complete_time": null,
+              "max_synced_at": "2026-04-04 04:17:57",
+              "max_status_synced_at": "2026-04-19 17:34:23"
+            },
+            "status_blank_freshness_warning": {
+              "count": 0,
+              "amount_krw": 0,
+              "max_order_time": null,
+              "max_complete_time": null,
+              "max_synced_at": null,
+              "max_status_synced_at": null
+            }
+          },
+          "warnings": []
+        }
+      }
+    },
+    "toss": {
+      "status": "ok",
+      "source": {
+        "system": "operational_postgres_read_only",
+        "table": "public.tb_sales_toss",
+        "filter": "store = 'coffee'",
+        "amount_rule": "SUM(total_amount - cancel_amount)",
+        "time_rule": "approved_at KST-like timestamp window"
+      },
+      "windows": {
+        "weekly": {
+          "status": "included_with_warning",
+          "amount_krw": 2679898,
+          "rows": 62,
+          "total_amount_krw": 2721824,
+          "cancel_amount_krw": 41926,
+          "balance_amount_krw": 2679898,
+          "min_approved_at": "2026-04-25 10:32:44",
+          "max_approved_at": "2026-05-01 22:18:33",
+          "warnings": [
+            "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산"
+          ]
+        },
+        "month_to_date": {
+          "status": "included_with_warning",
+          "amount_krw": 449875,
+          "rows": 9,
+          "total_amount_krw": 449875,
+          "cancel_amount_krw": 0,
+          "balance_amount_krw": 449875,
+          "min_approved_at": "2026-05-01 08:40:52",
+          "max_approved_at": "2026-05-01 22:18:33",
+          "warnings": [
+            "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산"
+          ]
+        },
+        "rolling_30d": {
+          "status": "included_with_warning",
+          "amount_krw": 16899684,
+          "rows": 376,
+          "total_amount_krw": 17545599,
+          "cancel_amount_krw": 645915,
+          "balance_amount_krw": 16899684,
+          "min_approved_at": "2026-04-02 00:22:18",
+          "max_approved_at": "2026-05-01 22:18:33",
+          "warnings": [
+            "Toss raw API/PG 금액은 자사몰 strict 매출로 바로 쓰지 않고 NPay와 분리한 selfmall component로 합산"
+          ]
+        }
+      }
+    },
+    "smartstore": {
+      "status": "ok",
+      "source": {
+        "system": "operational_postgres_read_only",
+        "table": "public.tb_playauto_orders",
+        "filter": "shop_name = '스마트스토어'",
+        "amount_field": "pay_amt",
+        "product_fields": [
+          "shop_sale_name",
+          "shop_opt_name"
+        ],
+        "time_rule": "COALESCE(pay_time, ord_time) KST date window"
+      },
+      "windows": {
+        "weekly": {
+          "status": "included_with_warning",
+          "amount_krw": 1839340,
+          "rows": 53,
+          "quantity": 64,
+          "excluded_rows": 0,
+          "excluded_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+              "rows": 21,
+              "quantity": 22,
+              "amount_krw": 645840,
+              "option_count": 9,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+              ]
+            },
+            {
+              "rank": 2,
+              "product_name": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+              "rows": 8,
+              "quantity": 9,
+              "amount_krw": 258800,
+              "option_count": 3,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+              ]
+            },
+            {
+              "rank": 3,
+              "product_name": "[오늘출발]더클린커피 초신선 케냐AA 캉고초 스페셜티 산미있는원두 핸드드립 커피콩 홈카페 방탄커피",
+              "rows": 7,
+              "quantity": 7,
+              "amount_krw": 257700,
+              "option_count": 4,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 500g / 분쇄도: 프렌치프레스(굵은분쇄)",
+                "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+              ]
+            }
+          ],
+          "status_breakdown": [
+            {
+              "ord_status": "배송완료",
+              "rows": 34,
+              "quantity": 45,
+              "amount_krw": 1179540,
+              "excluded_by_rule": false,
+              "min_time": "2026-04-25 16:40:49",
+              "max_time": "2026-05-01 17:05:29"
+            },
+            {
+              "ord_status": "구매결정",
+              "rows": 18,
+              "quantity": 18,
+              "amount_krw": 614800,
+              "excluded_by_rule": false,
+              "min_time": "2026-04-26 15:43:51",
+              "max_time": "2026-05-01 14:54:58"
+            },
+            {
+              "ord_status": "배송중",
+              "rows": 1,
+              "quantity": 1,
+              "amount_krw": 45000,
+              "excluded_by_rule": false,
+              "min_time": "2026-04-28 11:00:01",
+              "max_time": "2026-04-28 11:00:01"
+            }
+          ],
+          "reconciliation": {
+            "top_product_source_total_krw": 1839340,
+            "matches_included_total": true
+          },
+          "warnings": [
+            "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning"
+          ]
+        },
+        "month_to_date": {
+          "status": "included_with_warning",
+          "amount_krw": 221400,
+          "rows": 6,
+          "quantity": 6,
+          "excluded_rows": 0,
+          "excluded_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+              "rows": 2,
+              "quantity": 2,
+              "amount_krw": 79800,
+              "option_count": 1,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+              ]
+            },
+            {
+              "rank": 2,
+              "product_name": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+              "rows": 2,
+              "quantity": 2,
+              "amount_krw": 56800,
+              "option_count": 2,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+              ]
+            },
+            {
+              "rank": 3,
+              "product_name": "[오늘출발]더클린커피 초신선 케냐AA 캉고초 스페셜티 산미있는원두 핸드드립 커피콩 홈카페 방탄커피",
+              "rows": 1,
+              "quantity": 1,
+              "amount_krw": 42900,
+              "option_count": 1,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+              ]
+            }
+          ],
+          "status_breakdown": [
+            {
+              "ord_status": "구매결정",
+              "rows": 4,
+              "quantity": 4,
+              "amount_krw": 164600,
+              "excluded_by_rule": false,
+              "min_time": "2026-05-01 00:19:25",
+              "max_time": "2026-05-01 14:54:58"
+            },
+            {
+              "ord_status": "배송완료",
+              "rows": 2,
+              "quantity": 2,
+              "amount_krw": 56800,
+              "excluded_by_rule": false,
+              "min_time": "2026-05-01 07:38:48",
+              "max_time": "2026-05-01 17:05:29"
+            }
+          ],
+          "reconciliation": {
+            "top_product_source_total_krw": 221400,
+            "matches_included_total": true
+          },
+          "warnings": [
+            "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning"
+          ]
+        },
+        "rolling_30d": {
+          "status": "included_with_warning",
+          "amount_krw": 8119350,
+          "rows": 245,
+          "quantity": 269,
+          "excluded_rows": 1,
+          "excluded_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+              "rows": 97,
+              "quantity": 103,
+              "amount_krw": 3151640,
+              "option_count": 21,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "원두: 콜롬비아 수프리모 / 중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 500g / 분쇄도: 핸드드립(일반분쇄)"
+              ]
+            },
+            {
+              "rank": 2,
+              "product_name": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+              "rows": 43,
+              "quantity": 46,
+              "amount_krw": 1450410,
+              "option_count": 10,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+              ]
+            },
+            {
+              "rank": 3,
+              "product_name": "[오늘출발]더클린커피 초신선 에티오피아 구지 사키소 G1 원두 스페셜티 핸드드립 커피콩 방탄커피",
+              "rows": 37,
+              "quantity": 39,
+              "amount_krw": 1363500,
+              "option_count": 8,
+              "option_examples": [
+                "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+                "중량: 500g / 분쇄도: 핸드드립(일반분쇄)",
+                "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+              ]
+            }
+          ],
+          "status_breakdown": [
+            {
+              "ord_status": "구매결정",
+              "rows": 155,
+              "quantity": 163,
+              "amount_krw": 4978510,
+              "excluded_by_rule": false,
+              "min_time": "2026-04-02 00:26:13",
+              "max_time": "2026-05-01 14:54:58"
+            },
+            {
+              "ord_status": "배송완료",
+              "rows": 88,
+              "quantity": 104,
+              "amount_krw": 3058040,
+              "excluded_by_rule": false,
+              "min_time": "2026-04-08 06:12:46",
+              "max_time": "2026-05-01 17:05:29"
+            },
+            {
+              "ord_status": "배송중",
+              "rows": 1,
+              "quantity": 1,
+              "amount_krw": 45000,
+              "excluded_by_rule": false,
+              "min_time": "2026-04-28 11:00:01",
+              "max_time": "2026-04-28 11:00:01"
+            },
+            {
+              "ord_status": "주문재확인",
+              "rows": 1,
+              "quantity": 1,
+              "amount_krw": 37800,
+              "excluded_by_rule": false,
+              "min_time": "2026-04-02 19:34:06",
+              "max_time": "2026-04-02 19:34:06"
+            },
+            {
+              "ord_status": "취소완료",
+              "rows": 1,
+              "quantity": 0,
+              "amount_krw": 0,
+              "excluded_by_rule": true,
+              "min_time": "2026-04-13 15:51:40",
+              "max_time": "2026-04-13 15:51:40"
+            }
+          ],
+          "reconciliation": {
+            "top_product_source_total_krw": 8119350,
+            "matches_included_total": true
+          },
+          "warnings": [
+            "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전 included_with_warning"
+          ]
+        }
+      }
+    },
+    "coupang": {
+      "status": "ok_reporting_basis",
+      "source": {
+        "primary": "coupang_wing_open_api_revenue_history_read_only",
+        "fallback": "coupang_wing_open_api_ordersheets_read_only",
+        "strict_sales_rule": "Use revenue-history coffee_hint saleAmount when available. Keep ordersheets as order-created reference."
+      },
+      "windows": {
+        "weekly": {
+          "status": "included_revenue_history",
+          "coffee_amount_krw": 1117300,
+          "coffee_settlement_amount_krw": 987041,
+          "account_total_amount_krw": 1390500,
+          "account_total_settlement_amount_krw": 1228387,
+          "teamketo_reference_amount_krw": 273200,
+          "teamketo_reference_settlement_amount_krw": 241346,
+          "other_reference_amount_krw": 0,
+          "other_reference_settlement_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+              "items": 12,
+              "quantity": 13,
+              "sale_amount_krw": 379200,
+              "settlement_amount_krw": 334993,
+              "amount_krw": 379200
+            },
+            {
+              "rank": 2,
+              "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+              "items": 10,
+              "quantity": 10,
+              "sale_amount_krw": 325000,
+              "settlement_amount_krw": 287110,
+              "amount_krw": 325000
+            },
+            {
+              "rank": 3,
+              "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+              "items": 9,
+              "quantity": 9,
+              "sale_amount_krw": 318100,
+              "settlement_amount_krw": 281015,
+              "amount_krw": 318100
+            }
+          ],
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 33,
+              "items": 33,
+              "quantity": 34,
+              "sale_amount_krw": 1117300,
+              "settlement_amount_krw": 987041
+            },
+            "teamketo_hint": {
+              "rows": 4,
+              "items": 4,
+              "quantity": 4,
+              "sale_amount_krw": 273200,
+              "settlement_amount_krw": 241346
+            },
+            "other_hint": {
+              "rows": 0,
+              "items": 0,
+              "quantity": 0,
+              "sale_amount_krw": 0,
+              "settlement_amount_krw": 0
+            }
+          },
+          "revenue_history": {
+            "account": "teamketo",
+            "recognition_date_from": "2026-04-25",
+            "recognition_date_to": "2026-05-01",
+            "pages_fetched": 1,
+            "done": true,
+            "rows": 37,
+            "sale_rows": 37,
+            "refund_rows": 0,
+            "item_rows": 37,
+            "min_recognition_date": "2026-04-25",
+            "max_recognition_date": "2026-05-01",
+            "raw_order_output": 0
+          },
+          "ordersheets_reference": {
+            "status": "included_live_api",
+            "coffee_amount_krw": 1132700,
+            "account_total_amount_krw": 1485900
+          },
+          "confidence": "high_revenue_history_aggregate",
+          "warnings": [
+            "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+            "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+            "ordersheets_reference_diff: coffee ordersheets 1,132,700원 vs revenue-history 1,117,300원"
+          ],
+          "basis": "revenue_history_recognition_date"
+        },
+        "month_to_date": {
+          "status": "included_revenue_history",
+          "coffee_amount_krw": 60800,
+          "coffee_settlement_amount_krw": 53712,
+          "account_total_amount_krw": 123200,
+          "account_total_settlement_amount_krw": 108837,
+          "teamketo_reference_amount_krw": 62400,
+          "teamketo_reference_settlement_amount_krw": 55125,
+          "other_reference_amount_krw": 0,
+          "other_reference_settlement_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+              "items": 1,
+              "quantity": 1,
+              "sale_amount_krw": 38900,
+              "settlement_amount_krw": 34365,
+              "amount_krw": 38900
+            },
+            {
+              "rank": 2,
+              "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+              "items": 1,
+              "quantity": 1,
+              "sale_amount_krw": 21900,
+              "settlement_amount_krw": 19347,
+              "amount_krw": 21900
+            }
+          ],
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 2,
+              "items": 2,
+              "quantity": 2,
+              "sale_amount_krw": 60800,
+              "settlement_amount_krw": 53712
+            },
+            "teamketo_hint": {
+              "rows": 1,
+              "items": 1,
+              "quantity": 1,
+              "sale_amount_krw": 62400,
+              "settlement_amount_krw": 55125
+            },
+            "other_hint": {
+              "rows": 0,
+              "items": 0,
+              "quantity": 0,
+              "sale_amount_krw": 0,
+              "settlement_amount_krw": 0
+            }
+          },
+          "revenue_history": {
+            "account": "teamketo",
+            "recognition_date_from": "2026-05-01",
+            "recognition_date_to": "2026-05-01",
+            "pages_fetched": 1,
+            "done": true,
+            "rows": 3,
+            "sale_rows": 3,
+            "refund_rows": 0,
+            "item_rows": 3,
+            "min_recognition_date": "2026-05-01",
+            "max_recognition_date": "2026-05-01",
+            "raw_order_output": 0
+          },
+          "ordersheets_reference": {
+            "status": "included_live_api",
+            "coffee_amount_krw": 108700,
+            "account_total_amount_krw": 331300
+          },
+          "confidence": "high_revenue_history_aggregate",
+          "warnings": [
+            "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+            "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+            "ordersheets_reference_diff: coffee ordersheets 108,700원 vs revenue-history 60,800원"
+          ],
+          "basis": "revenue_history_recognition_date"
+        },
+        "rolling_30d": {
+          "status": "included_revenue_history",
+          "coffee_amount_krw": 5944700,
+          "coffee_settlement_amount_krw": 5251645,
+          "account_total_amount_krw": 8236600,
+          "account_total_settlement_amount_krw": 7276312,
+          "teamketo_reference_amount_krw": 2291900,
+          "teamketo_reference_settlement_amount_krw": 2024667,
+          "other_reference_amount_krw": 0,
+          "other_reference_settlement_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+              "items": 58,
+              "quantity": 64,
+              "sale_amount_krw": 2103600,
+              "settlement_amount_krw": 1858360,
+              "amount_krw": 2103600
+            },
+            {
+              "rank": 2,
+              "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+              "items": 26,
+              "quantity": 30,
+              "sale_amount_krw": 1087000,
+              "settlement_amount_krw": 960272,
+              "amount_krw": 1087000
+            },
+            {
+              "rank": 3,
+              "product_name": "더클린커피 콜롬비아 수프레모 독소 프리 인증 방탄커피원두",
+              "items": 21,
+              "quantity": 21,
+              "sale_amount_krw": 701400,
+              "settlement_amount_krw": 619627,
+              "amount_krw": 701400
+            }
+          ],
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 162,
+              "items": 162,
+              "quantity": 172,
+              "sale_amount_krw": 5944700,
+              "settlement_amount_krw": 5251645
+            },
+            "teamketo_hint": {
+              "rows": 31,
+              "items": 31,
+              "quantity": 33,
+              "sale_amount_krw": 2291900,
+              "settlement_amount_krw": 2024667
+            },
+            "other_hint": {
+              "rows": 0,
+              "items": 0,
+              "quantity": 0,
+              "sale_amount_krw": 0,
+              "settlement_amount_krw": 0
+            }
+          },
+          "revenue_history": {
+            "account": "teamketo",
+            "recognition_date_from": "2026-04-02",
+            "recognition_date_to": "2026-05-01",
+            "pages_fetched": 4,
+            "done": true,
+            "rows": 191,
+            "sale_rows": 190,
+            "refund_rows": 1,
+            "item_rows": 193,
+            "min_recognition_date": "2026-04-02",
+            "max_recognition_date": "2026-05-01",
+            "raw_order_output": 0
+          },
+          "ordersheets_reference": {
+            "status": "included_live_api",
+            "coffee_amount_krw": 5589100,
+            "account_total_amount_krw": 7373400
+          },
+          "confidence": "medium_high_revenue_history_aggregate_with_notes",
+          "warnings": [
+            "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+            "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+            "ordersheets_reference_diff: coffee ordersheets 5,589,100원 vs revenue-history 5,944,700원"
+          ],
+          "basis": "revenue_history_recognition_date"
+        }
+      }
+    },
+    "coupang_revenue_history": {
+      "status": "ok_revenue_history_api",
+      "source": {
+        "system": "coupang_wing_open_api_revenue_history_read_only",
+        "account": "teamketo",
+        "endpoint_family": "revenue-history",
+        "date_rule": "recognitionDateFrom/recognitionDateTo",
+        "amount_rule": "coffee_hint items.saleAmount for strict sales; items.settlementAmount as settlement reference",
+        "raw_order_output": 0
+      },
+      "windows": {
+        "weekly": {
+          "status": "included_revenue_history",
+          "coffee_amount_krw": 1117300,
+          "coffee_settlement_amount_krw": 987041,
+          "account_total_amount_krw": 1390500,
+          "account_total_settlement_amount_krw": 1228387,
+          "teamketo_reference_amount_krw": 273200,
+          "teamketo_reference_settlement_amount_krw": 241346,
+          "other_reference_amount_krw": 0,
+          "other_reference_settlement_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+              "items": 12,
+              "quantity": 13,
+              "sale_amount_krw": 379200,
+              "settlement_amount_krw": 334993,
+              "amount_krw": 379200
+            },
+            {
+              "rank": 2,
+              "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+              "items": 10,
+              "quantity": 10,
+              "sale_amount_krw": 325000,
+              "settlement_amount_krw": 287110,
+              "amount_krw": 325000
+            },
+            {
+              "rank": 3,
+              "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+              "items": 9,
+              "quantity": 9,
+              "sale_amount_krw": 318100,
+              "settlement_amount_krw": 281015,
+              "amount_krw": 318100
+            }
+          ],
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 33,
+              "items": 33,
+              "quantity": 34,
+              "sale_amount_krw": 1117300,
+              "settlement_amount_krw": 987041
+            },
+            "teamketo_hint": {
+              "rows": 4,
+              "items": 4,
+              "quantity": 4,
+              "sale_amount_krw": 273200,
+              "settlement_amount_krw": 241346
+            },
+            "other_hint": {
+              "rows": 0,
+              "items": 0,
+              "quantity": 0,
+              "sale_amount_krw": 0,
+              "settlement_amount_krw": 0
+            }
+          },
+          "revenue_history": {
+            "account": "teamketo",
+            "recognition_date_from": "2026-04-25",
+            "recognition_date_to": "2026-05-01",
+            "pages_fetched": 1,
+            "done": true,
+            "rows": 37,
+            "sale_rows": 37,
+            "refund_rows": 0,
+            "item_rows": 37,
+            "min_recognition_date": "2026-04-25",
+            "max_recognition_date": "2026-05-01",
+            "raw_order_output": 0
+          },
+          "ordersheets_reference": {
+            "status": "included_live_api",
+            "coffee_amount_krw": 1132700,
+            "account_total_amount_krw": 1485900
+          },
+          "confidence": "high_revenue_history_aggregate",
+          "warnings": [
+            "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+            "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+            "ordersheets_reference_diff: coffee ordersheets 1,132,700원 vs revenue-history 1,117,300원"
+          ]
+        },
+        "month_to_date": {
+          "status": "included_revenue_history",
+          "coffee_amount_krw": 60800,
+          "coffee_settlement_amount_krw": 53712,
+          "account_total_amount_krw": 123200,
+          "account_total_settlement_amount_krw": 108837,
+          "teamketo_reference_amount_krw": 62400,
+          "teamketo_reference_settlement_amount_krw": 55125,
+          "other_reference_amount_krw": 0,
+          "other_reference_settlement_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+              "items": 1,
+              "quantity": 1,
+              "sale_amount_krw": 38900,
+              "settlement_amount_krw": 34365,
+              "amount_krw": 38900
+            },
+            {
+              "rank": 2,
+              "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+              "items": 1,
+              "quantity": 1,
+              "sale_amount_krw": 21900,
+              "settlement_amount_krw": 19347,
+              "amount_krw": 21900
+            }
+          ],
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 2,
+              "items": 2,
+              "quantity": 2,
+              "sale_amount_krw": 60800,
+              "settlement_amount_krw": 53712
+            },
+            "teamketo_hint": {
+              "rows": 1,
+              "items": 1,
+              "quantity": 1,
+              "sale_amount_krw": 62400,
+              "settlement_amount_krw": 55125
+            },
+            "other_hint": {
+              "rows": 0,
+              "items": 0,
+              "quantity": 0,
+              "sale_amount_krw": 0,
+              "settlement_amount_krw": 0
+            }
+          },
+          "revenue_history": {
+            "account": "teamketo",
+            "recognition_date_from": "2026-05-01",
+            "recognition_date_to": "2026-05-01",
+            "pages_fetched": 1,
+            "done": true,
+            "rows": 3,
+            "sale_rows": 3,
+            "refund_rows": 0,
+            "item_rows": 3,
+            "min_recognition_date": "2026-05-01",
+            "max_recognition_date": "2026-05-01",
+            "raw_order_output": 0
+          },
+          "ordersheets_reference": {
+            "status": "included_live_api",
+            "coffee_amount_krw": 108700,
+            "account_total_amount_krw": 331300
+          },
+          "confidence": "high_revenue_history_aggregate",
+          "warnings": [
+            "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+            "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+            "ordersheets_reference_diff: coffee ordersheets 108,700원 vs revenue-history 60,800원"
+          ]
+        },
+        "rolling_30d": {
+          "status": "included_revenue_history",
+          "coffee_amount_krw": 5944700,
+          "coffee_settlement_amount_krw": 5251645,
+          "account_total_amount_krw": 8236600,
+          "account_total_settlement_amount_krw": 7276312,
+          "teamketo_reference_amount_krw": 2291900,
+          "teamketo_reference_settlement_amount_krw": 2024667,
+          "other_reference_amount_krw": 0,
+          "other_reference_settlement_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+              "items": 58,
+              "quantity": 64,
+              "sale_amount_krw": 2103600,
+              "settlement_amount_krw": 1858360,
+              "amount_krw": 2103600
+            },
+            {
+              "rank": 2,
+              "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+              "items": 26,
+              "quantity": 30,
+              "sale_amount_krw": 1087000,
+              "settlement_amount_krw": 960272,
+              "amount_krw": 1087000
+            },
+            {
+              "rank": 3,
+              "product_name": "더클린커피 콜롬비아 수프레모 독소 프리 인증 방탄커피원두",
+              "items": 21,
+              "quantity": 21,
+              "sale_amount_krw": 701400,
+              "settlement_amount_krw": 619627,
+              "amount_krw": 701400
+            }
+          ],
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 162,
+              "items": 162,
+              "quantity": 172,
+              "sale_amount_krw": 5944700,
+              "settlement_amount_krw": 5251645
+            },
+            "teamketo_hint": {
+              "rows": 31,
+              "items": 31,
+              "quantity": 33,
+              "sale_amount_krw": 2291900,
+              "settlement_amount_krw": 2024667
+            },
+            "other_hint": {
+              "rows": 0,
+              "items": 0,
+              "quantity": 0,
+              "sale_amount_krw": 0,
+              "settlement_amount_krw": 0
+            }
+          },
+          "revenue_history": {
+            "account": "teamketo",
+            "recognition_date_from": "2026-04-02",
+            "recognition_date_to": "2026-05-01",
+            "pages_fetched": 4,
+            "done": true,
+            "rows": 191,
+            "sale_rows": 190,
+            "refund_rows": 1,
+            "item_rows": 193,
+            "min_recognition_date": "2026-04-02",
+            "max_recognition_date": "2026-05-01",
+            "raw_order_output": 0
+          },
+          "ordersheets_reference": {
+            "status": "included_live_api",
+            "coffee_amount_krw": 5589100,
+            "account_total_amount_krw": 7373400
+          },
+          "confidence": "medium_high_revenue_history_aggregate_with_notes",
+          "warnings": [
+            "Coupang revenue-history read-only result; strict sales use revenue recognition date, not order created date",
+            "TeamKeto account total is reference only; coffee_hint saleAmount only is included in strict sales",
+            "ordersheets_reference_diff: coffee ordersheets 5,589,100원 vs revenue-history 5,944,700원"
+          ]
+        }
+      }
+    },
+    "coupang_ordersheets": {
+      "status": "ok_live_api",
+      "source": {
+        "system": "coupang_wing_open_api_ordersheets_read_only",
+        "account": "teamketo",
+        "endpoint_family": "ordersheets_v4_minute",
+        "source_mode": "api",
+        "statuses": [
+          "FINAL_DELIVERY"
+        ],
+        "raw_order_output": 0
+      },
+      "windows": {
+        "weekly": {
+          "status": "included_live_api",
+          "coffee_amount_krw": 1132700,
+          "account_total_amount_krw": 1485900,
+          "teamketo_reference_amount_krw": 353200,
+          "other_reference_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+              "items": 11,
+              "quantity": 12,
+              "amount_krw": 440800
+            },
+            {
+              "rank": 2,
+              "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+              "items": 9,
+              "quantity": 9,
+              "amount_krw": 336100
+            },
+            {
+              "rank": 3,
+              "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+              "items": 6,
+              "quantity": 9,
+              "amount_krw": 305100
+            }
+          ],
+          "by_status": {
+            "FINAL_DELIVERY": {
+              "order_sheets": 32,
+              "items": 32,
+              "quantity": 37,
+              "amount_krw": 1485900
+            }
+          },
+          "by_day": {
+            "2026-04-25": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 5,
+              "amount_krw": 173300
+            },
+            "2026-04-26": {
+              "order_sheets": 4,
+              "items": 4,
+              "quantity": 4,
+              "amount_krw": 182000
+            },
+            "2026-04-27": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 7,
+              "amount_krw": 258300
+            },
+            "2026-04-28": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 3,
+              "amount_krw": 100700
+            },
+            "2026-04-29": {
+              "order_sheets": 9,
+              "items": 9,
+              "quantity": 9,
+              "amount_krw": 330600
+            },
+            "2026-04-30": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 3,
+              "amount_krw": 109700
+            },
+            "2026-05-01": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 6,
+              "amount_krw": 331300
+            }
+          },
+          "product_classification": {
+            "coffee_hint": {
+              "items": 28,
+              "quantity": 32,
+              "amount_krw": 1132700
+            },
+            "teamketo_hint": {
+              "items": 4,
+              "quantity": 5,
+              "amount_krw": 353200
+            },
+            "other_hint": {
+              "items": 0,
+              "quantity": 0,
+              "amount_krw": 0
+            }
+          },
+          "api": {
+            "account": "teamketo",
+            "calls": 7,
+            "error_count": 0,
+            "errors": [],
+            "delay_ms": 150
+          },
+          "confidence": "medium_high_live_api_aggregate",
+          "warnings": [
+            "Coupang live ordersheets API read-only result; settlement reconciliation is not included",
+            "TeamKeto account total is reference only; coffee_hint only is included in strict sales"
+          ]
+        },
+        "month_to_date": {
+          "status": "included_live_api",
+          "coffee_amount_krw": 108700,
+          "account_total_amount_krw": 331300,
+          "teamketo_reference_amount_krw": 222600,
+          "other_reference_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+              "items": 2,
+              "quantity": 2,
+              "amount_krw": 67800
+            },
+            {
+              "rank": 2,
+              "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+              "items": 1,
+              "quantity": 1,
+              "amount_krw": 40900
+            }
+          ],
+          "by_status": {
+            "FINAL_DELIVERY": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 6,
+              "amount_krw": 331300
+            }
+          },
+          "by_day": {
+            "2026-05-01": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 6,
+              "amount_krw": 331300
+            }
+          },
+          "product_classification": {
+            "coffee_hint": {
+              "items": 3,
+              "quantity": 3,
+              "amount_krw": 108700
+            },
+            "teamketo_hint": {
+              "items": 2,
+              "quantity": 3,
+              "amount_krw": 222600
+            },
+            "other_hint": {
+              "items": 0,
+              "quantity": 0,
+              "amount_krw": 0
+            }
+          },
+          "api": {
+            "account": "teamketo",
+            "calls": 1,
+            "error_count": 0,
+            "errors": [],
+            "delay_ms": 150
+          },
+          "confidence": "medium_high_live_api_aggregate",
+          "warnings": [
+            "Coupang live ordersheets API read-only result; settlement reconciliation is not included",
+            "TeamKeto account total is reference only; coffee_hint only is included in strict sales"
+          ]
+        },
+        "rolling_30d": {
+          "status": "included_live_api",
+          "coffee_amount_krw": 5589100,
+          "account_total_amount_krw": 7373400,
+          "teamketo_reference_amount_krw": 1784300,
+          "other_reference_amount_krw": 0,
+          "top_products": [
+            {
+              "rank": 1,
+              "product_name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+              "items": 70,
+              "quantity": 78,
+              "amount_krw": 2562200
+            },
+            {
+              "rank": 2,
+              "product_name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+              "items": 38,
+              "quantity": 43,
+              "amount_krw": 1566700
+            },
+            {
+              "rank": 3,
+              "product_name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+              "items": 28,
+              "quantity": 28,
+              "amount_krw": 947200
+            }
+          ],
+          "by_status": {
+            "FINAL_DELIVERY": {
+              "order_sheets": 172,
+              "items": 174,
+              "quantity": 188,
+              "amount_krw": 7373400
+            }
+          },
+          "by_day": {
+            "2026-04-02": {
+              "order_sheets": 10,
+              "items": 10,
+              "quantity": 10,
+              "amount_krw": 418500
+            },
+            "2026-04-03": {
+              "order_sheets": 8,
+              "items": 8,
+              "quantity": 9,
+              "amount_krw": 339500
+            },
+            "2026-04-04": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 3,
+              "amount_krw": 145000
+            },
+            "2026-04-05": {
+              "order_sheets": 7,
+              "items": 8,
+              "quantity": 9,
+              "amount_krw": 387700
+            },
+            "2026-04-06": {
+              "order_sheets": 11,
+              "items": 11,
+              "quantity": 11,
+              "amount_krw": 416800
+            },
+            "2026-04-07": {
+              "order_sheets": 6,
+              "items": 6,
+              "quantity": 6,
+              "amount_krw": 236900
+            },
+            "2026-04-08": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 5,
+              "amount_krw": 163500
+            },
+            "2026-04-09": {
+              "order_sheets": 2,
+              "items": 2,
+              "quantity": 2,
+              "amount_krw": 70800
+            },
+            "2026-04-10": {
+              "order_sheets": 6,
+              "items": 6,
+              "quantity": 8,
+              "amount_krw": 311700
+            },
+            "2026-04-11": {
+              "order_sheets": 7,
+              "items": 7,
+              "quantity": 9,
+              "amount_krw": 393200
+            },
+            "2026-04-12": {
+              "order_sheets": 2,
+              "items": 2,
+              "quantity": 2,
+              "amount_krw": 58300
+            },
+            "2026-04-13": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 6,
+              "amount_krw": 210400
+            },
+            "2026-04-14": {
+              "order_sheets": 10,
+              "items": 10,
+              "quantity": 10,
+              "amount_krw": 420600
+            },
+            "2026-04-15": {
+              "order_sheets": 13,
+              "items": 13,
+              "quantity": 14,
+              "amount_krw": 640000
+            },
+            "2026-04-16": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 5,
+              "amount_krw": 145500
+            },
+            "2026-04-17": {
+              "order_sheets": 8,
+              "items": 8,
+              "quantity": 9,
+              "amount_krw": 316100
+            },
+            "2026-04-18": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 3,
+              "amount_krw": 109700
+            },
+            "2026-04-19": {
+              "order_sheets": 8,
+              "items": 8,
+              "quantity": 8,
+              "amount_krw": 322500
+            },
+            "2026-04-20": {
+              "order_sheets": 6,
+              "items": 6,
+              "quantity": 6,
+              "amount_krw": 210400
+            },
+            "2026-04-21": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 5,
+              "amount_krw": 185000
+            },
+            "2026-04-22": {
+              "order_sheets": 2,
+              "items": 2,
+              "quantity": 2,
+              "amount_krw": 61800
+            },
+            "2026-04-23": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 3,
+              "amount_krw": 123200
+            },
+            "2026-04-24": {
+              "order_sheets": 5,
+              "items": 6,
+              "quantity": 6,
+              "amount_krw": 200400
+            },
+            "2026-04-25": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 5,
+              "amount_krw": 173300
+            },
+            "2026-04-26": {
+              "order_sheets": 4,
+              "items": 4,
+              "quantity": 4,
+              "amount_krw": 182000
+            },
+            "2026-04-27": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 7,
+              "amount_krw": 258300
+            },
+            "2026-04-28": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 3,
+              "amount_krw": 100700
+            },
+            "2026-04-29": {
+              "order_sheets": 9,
+              "items": 9,
+              "quantity": 9,
+              "amount_krw": 330600
+            },
+            "2026-04-30": {
+              "order_sheets": 3,
+              "items": 3,
+              "quantity": 3,
+              "amount_krw": 109700
+            },
+            "2026-05-01": {
+              "order_sheets": 5,
+              "items": 5,
+              "quantity": 6,
+              "amount_krw": 331300
+            }
+          },
+          "product_classification": {
+            "coffee_hint": {
+              "items": 149,
+              "quantity": 162,
+              "amount_krw": 5589100
+            },
+            "teamketo_hint": {
+              "items": 25,
+              "quantity": 26,
+              "amount_krw": 1784300
+            },
+            "other_hint": {
+              "items": 0,
+              "quantity": 0,
+              "amount_krw": 0
+            }
+          },
+          "api": {
+            "account": "teamketo",
+            "calls": 30,
+            "error_count": 0,
+            "errors": [],
+            "delay_ms": 150
+          },
+          "confidence": "medium_high_live_api_aggregate",
+          "warnings": [
+            "Coupang live ordersheets API read-only result; settlement reconciliation is not included",
+            "TeamKeto account total is reference only; coffee_hint only is included in strict sales"
+          ]
+        }
+      }
+    },
+    "coupang_rg_aggregate": {
+      "status": "ok_local_rg_aggregate",
+      "source": {
+        "system": "local_sqlite_coupang_rg_daily_aggregate_api",
+        "db_path": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+        "source_mode": "local",
+        "account": "teamketo",
+        "date_rule": "paid_date_kst",
+        "raw_order_output": 0,
+        "raw_json_storage": 0
+      },
+      "windows": {
+        "weekly": {
+          "status": "included_local_rg_aggregate",
+          "basis": "local_coupang_rg_daily_aggregate_api_paid_date_kst",
+          "coffee_amount_krw": 907000,
+          "coffee_amount_krw_korean": "907,000원",
+          "coffee_order_count": 26,
+          "coffee_item_count": 26,
+          "coffee_quantity": 32,
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 7,
+              "order_count": 26,
+              "item_count": 26,
+              "quantity": 32,
+              "gross_amount_krw": 907000,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 7
+            },
+            "teamketo_hint": {
+              "rows": 7,
+              "order_count": 0,
+              "item_count": 0,
+              "quantity": 0,
+              "gross_amount_krw": 0,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 7
+            },
+            "other_hint": {
+              "rows": 7,
+              "order_count": 0,
+              "item_count": 0,
+              "quantity": 0,
+              "gross_amount_krw": 0,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 7
+            }
+          },
+          "coverage": {
+            "expected_days": 7,
+            "covered_days": 7,
+            "min_fetched_at": "2026-05-25 21:37:39",
+            "max_fetched_at": "2026-05-25 21:37:39"
+          },
+          "source_table": "coupang_rg_daily_aggregate_api",
+          "raw_order_output": 0,
+          "raw_json_storage": 0,
+          "warnings": [
+            "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+            "Keep RG as reference until general delivery/RG/dedupe policy is finalized"
+          ],
+          "confidence": "high_local_rg_aggregate"
+        },
+        "month_to_date": {
+          "status": "included_local_rg_aggregate",
+          "basis": "local_coupang_rg_daily_aggregate_api_paid_date_kst",
+          "coffee_amount_krw": 31900,
+          "coffee_amount_krw_korean": "31,900원",
+          "coffee_order_count": 1,
+          "coffee_item_count": 1,
+          "coffee_quantity": 1,
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 1,
+              "order_count": 1,
+              "item_count": 1,
+              "quantity": 1,
+              "gross_amount_krw": 31900,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 1
+            },
+            "teamketo_hint": {
+              "rows": 1,
+              "order_count": 0,
+              "item_count": 0,
+              "quantity": 0,
+              "gross_amount_krw": 0,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 1
+            },
+            "other_hint": {
+              "rows": 1,
+              "order_count": 0,
+              "item_count": 0,
+              "quantity": 0,
+              "gross_amount_krw": 0,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 1
+            }
+          },
+          "coverage": {
+            "expected_days": 1,
+            "covered_days": 1,
+            "min_fetched_at": "2026-05-25 21:37:39",
+            "max_fetched_at": "2026-05-25 21:37:39"
+          },
+          "source_table": "coupang_rg_daily_aggregate_api",
+          "raw_order_output": 0,
+          "raw_json_storage": 0,
+          "warnings": [
+            "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+            "Keep RG as reference until general delivery/RG/dedupe policy is finalized"
+          ],
+          "confidence": "high_local_rg_aggregate"
+        },
+        "rolling_30d": {
+          "status": "included_local_rg_aggregate_with_partial_coverage",
+          "basis": "local_coupang_rg_daily_aggregate_api_paid_date_kst",
+          "coffee_amount_krw": 907000,
+          "coffee_amount_krw_korean": "907,000원",
+          "coffee_order_count": 26,
+          "coffee_item_count": 26,
+          "coffee_quantity": 32,
+          "by_product_class": {
+            "coffee_hint": {
+              "rows": 7,
+              "order_count": 26,
+              "item_count": 26,
+              "quantity": 32,
+              "gross_amount_krw": 907000,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 7
+            },
+            "teamketo_hint": {
+              "rows": 7,
+              "order_count": 0,
+              "item_count": 0,
+              "quantity": 0,
+              "gross_amount_krw": 0,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 7
+            },
+            "other_hint": {
+              "rows": 7,
+              "order_count": 0,
+              "item_count": 0,
+              "quantity": 0,
+              "gross_amount_krw": 0,
+              "min_fetched_at": "2026-05-25 21:37:39",
+              "max_fetched_at": "2026-05-25 21:37:39",
+              "max_api_call_count": 1,
+              "covered_days": 7
+            }
+          },
+          "coverage": {
+            "expected_days": 30,
+            "covered_days": 7,
+            "min_fetched_at": "2026-05-25 21:37:39",
+            "max_fetched_at": "2026-05-25 21:37:39"
+          },
+          "source_table": "coupang_rg_daily_aggregate_api",
+          "raw_order_output": 0,
+          "raw_json_storage": 0,
+          "warnings": [
+            "Coupang RG aggregate is local aggregate-only cache; raw order/customer identifiers are not stored in this table",
+            "Keep RG as reference until general delivery/RG/dedupe policy is finalized",
+            "rg_aggregate_partial_coverage: covered 7/30 days"
+          ],
+          "confidence": "medium_local_rg_aggregate_partial_window"
+        }
+      }
+    },
+    "ad_spend": {
+      "status": "skipped",
+      "source": {
+        "system": "ad_spend_skipped_by_cli"
+      },
+      "windows": {
+        "weekly": {
+          "status": "skipped",
+          "included_ad_spend_krw": 0,
+          "warnings": [
+            "ad-spend-source=skip"
+          ]
+        },
+        "month_to_date": {
+          "status": "skipped",
+          "included_ad_spend_krw": 0,
+          "warnings": [
+            "ad-spend-source=skip"
+          ]
+        },
+        "rolling_30d": {
+          "status": "skipped",
+          "included_ad_spend_krw": 0,
+          "warnings": [
+            "ad-spend-source=skip"
+          ]
+        }
+      }
+    },
+    "coupang_settlement_comparison": {
+      "status": "ok_with_freshness_gap",
+      "purpose": "쿠팡 reporting 기준 금액과 정산/업로드 source가 같은 window로 비교 가능한지 확인한다.",
+      "local_settlement_cache": {
+        "status": "ok_local_read_only",
+        "source": {
+          "system": "local_sqlite_coupang_settlements_api",
+          "db_path": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+          "vendor_id": "A00963878",
+          "raw_order_output": 0
+        },
+        "source_freshness": {
+          "rows": 19,
+          "total_sale_krw": 53154600,
+          "final_amount_krw": 18256241,
+          "min_recognition_date_from": "2026-02-02",
+          "max_recognition_date_to": "2026-05-17",
+          "max_settlement_date": "2026-07-01",
+          "max_synced_at": "2026-05-24 21:08:34"
+        },
+        "latest_months": [
+          {
+            "recognition_year_month": "2026-05",
+            "rows": 4,
+            "total_sale_krw": 7222000,
+            "final_amount_krw": 2289310,
+            "min_recognition_date_from": "2026-05-01",
+            "max_recognition_date_to": "2026-05-17",
+            "max_settlement_date": "2026-07-01"
+          },
+          {
+            "recognition_year_month": "2026-04",
+            "rows": 4,
+            "total_sale_krw": 10829400,
+            "final_amount_krw": 3633565,
+            "min_recognition_date_from": "2026-04-01",
+            "max_recognition_date_to": "2026-04-19",
+            "max_settlement_date": "2026-06-01"
+          },
+          {
+            "recognition_year_month": "2026-03",
+            "rows": 6,
+            "total_sale_krw": 21644600,
+            "final_amount_krw": 7800592,
+            "min_recognition_date_from": "2026-03-02",
+            "max_recognition_date_to": "2026-03-31",
+            "max_settlement_date": "2026-05-04"
+          },
+          {
+            "recognition_year_month": "2026-02",
+            "rows": 5,
+            "total_sale_krw": 13458600,
+            "final_amount_krw": 4532774,
+            "min_recognition_date_from": "2026-02-02",
+            "max_recognition_date_to": "2026-02-28",
+            "max_settlement_date": "2026-04-01"
+          }
+        ],
+        "windows": {
+          "weekly": {
+            "status": "comparison_available_with_warning",
+            "reporting_coupang_source": {
+              "coffee_amount_krw": 1117300,
+              "account_total_amount_krw": 1390500,
+              "status": "included_revenue_history",
+              "basis": "revenue_history_recognition_date"
+            },
+            "local_settlement_overlap": {
+              "rows": 2,
+              "total_sale_krw": 3856800,
+              "final_amount_krw": 967366,
+              "min_recognition_date_from": "2026-05-01",
+              "max_recognition_date_to": "2026-05-17"
+            },
+            "account_total_vs_settlement_total_sale_diff_krw": -2466300,
+            "interpretation": "reporting Coupang account total과 settlement total_sale을 참고 비교한다. coffee-only 금액과 정산 총판매액은 직접 같은 숫자가 아니다."
+          },
+          "month_to_date": {
+            "status": "comparison_available_with_warning",
+            "reporting_coupang_source": {
+              "coffee_amount_krw": 60800,
+              "account_total_amount_krw": 123200,
+              "status": "included_revenue_history",
+              "basis": "revenue_history_recognition_date"
+            },
+            "local_settlement_overlap": {
+              "rows": 2,
+              "total_sale_krw": 3856800,
+              "final_amount_krw": 967366,
+              "min_recognition_date_from": "2026-05-01",
+              "max_recognition_date_to": "2026-05-17"
+            },
+            "account_total_vs_settlement_total_sale_diff_krw": -3733600,
+            "interpretation": "reporting Coupang account total과 settlement total_sale을 참고 비교한다. coffee-only 금액과 정산 총판매액은 직접 같은 숫자가 아니다."
+          },
+          "rolling_30d": {
+            "status": "comparison_available_with_warning",
+            "reporting_coupang_source": {
+              "coffee_amount_krw": 5944700,
+              "account_total_amount_krw": 8236600,
+              "status": "included_revenue_history",
+              "basis": "revenue_history_recognition_date"
+            },
+            "local_settlement_overlap": {
+              "rows": 6,
+              "total_sale_krw": 14686200,
+              "final_amount_krw": 4600931,
+              "min_recognition_date_from": "2026-04-01",
+              "max_recognition_date_to": "2026-05-17"
+            },
+            "account_total_vs_settlement_total_sale_diff_krw": -6449600,
+            "interpretation": "reporting Coupang account total과 settlement total_sale을 참고 비교한다. coffee-only 금액과 정산 총판매액은 직접 같은 숫자가 아니다."
+          }
+        }
+      },
+      "operational_sales_coupang_reference": {
+        "status": "ok_read_only",
+        "source": {
+          "system": "operational_postgres_read_only",
+          "table": "public.tb_sales_coupang",
+          "raw_order_output": 0
+        },
+        "latest_month_channel_project": [
+          {
+            "sales_month": "2026-04",
+            "channel": "coupang_rg",
+            "project": "영양제",
+            "rows": 743,
+            "net_amount_krw": 37692390,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-11 03:34:11.329873"
+          },
+          {
+            "sales_month": "2026-04",
+            "channel": "coupang_rg",
+            "project": "미분류",
+            "rows": 9,
+            "net_amount_krw": 923440,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-11 03:34:11.329873"
+          },
+          {
+            "sales_month": "2026-04",
+            "channel": "coupang_3p",
+            "project": "영양제",
+            "rows": 3,
+            "net_amount_krw": 466500,
+            "min_sales_recognition_date": "2026-04-09",
+            "max_sales_recognition_date": "2026-04-21",
+            "max_uploaded_at": "2026-05-11 03:34:45.084241"
+          },
+          {
+            "sales_month": "2026-04",
+            "channel": "coupang_3p",
+            "project": "미분류",
+            "rows": 11,
+            "net_amount_krw": 455900,
+            "min_sales_recognition_date": "2026-04-04",
+            "max_sales_recognition_date": "2026-04-28",
+            "max_uploaded_at": "2026-05-11 03:34:45.084241"
+          },
+          {
+            "sales_month": "2026-03",
+            "channel": "coupang_rg",
+            "project": "영양제",
+            "rows": 688,
+            "net_amount_krw": 33459060,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-04-27 09:45:21.437587"
+          },
+          {
+            "sales_month": "2026-03",
+            "channel": "coupang_rg",
+            "project": "미분류",
+            "rows": 10,
+            "net_amount_krw": 793340,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-11 03:34:11.329873"
+          },
+          {
+            "sales_month": "2026-03",
+            "channel": "coupang_3p",
+            "project": "영양제",
+            "rows": 3,
+            "net_amount_krw": 459100,
+            "min_sales_recognition_date": "2026-03-02",
+            "max_sales_recognition_date": "2026-03-20",
+            "max_uploaded_at": "2026-04-24 08:50:54.342774"
+          },
+          {
+            "sales_month": "2026-03",
+            "channel": "coupang_3p",
+            "project": "펫_영양제 외",
+            "rows": 2,
+            "net_amount_krw": 131000,
+            "min_sales_recognition_date": "2026-03-03",
+            "max_sales_recognition_date": "2026-03-11",
+            "max_uploaded_at": "2026-04-24 08:50:54.342774"
+          },
+          {
+            "sales_month": "2026-03",
+            "channel": "coupang_3p",
+            "project": "미분류",
+            "rows": 2,
+            "net_amount_krw": 65700,
+            "min_sales_recognition_date": "2026-03-10",
+            "max_sales_recognition_date": "2026-03-10",
+            "max_uploaded_at": "2026-04-24 08:50:54.342774"
+          },
+          {
+            "sales_month": "2026-02",
+            "channel": "coupang_rg",
+            "project": "영양제",
+            "rows": 594,
+            "net_amount_krw": 27031330,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-04-27 09:45:21.437587"
+          },
+          {
+            "sales_month": "2026-02",
+            "channel": "coupang_3p",
+            "project": "커피",
+            "rows": 61,
+            "net_amount_krw": 2002400,
+            "min_sales_recognition_date": "2026-02-02",
+            "max_sales_recognition_date": "2026-02-10",
+            "max_uploaded_at": "2026-04-24 08:50:43.580094"
+          },
+          {
+            "sales_month": "2026-02",
+            "channel": "coupang_rg",
+            "project": "미분류",
+            "rows": 4,
+            "net_amount_krw": 412490,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-04-27 09:45:06.082422"
+          },
+          {
+            "sales_month": "2026-02",
+            "channel": "coupang_3p",
+            "project": "미분류",
+            "rows": 6,
+            "net_amount_krw": 333500,
+            "min_sales_recognition_date": "2026-02-03",
+            "max_sales_recognition_date": "2026-02-26",
+            "max_uploaded_at": "2026-04-24 08:50:43.580094"
+          },
+          {
+            "sales_month": "2026-02",
+            "channel": "coupang_3p",
+            "project": "영양제",
+            "rows": 1,
+            "net_amount_krw": 167100,
+            "min_sales_recognition_date": "2026-02-26",
+            "max_sales_recognition_date": "2026-02-26",
+            "max_uploaded_at": "2026-04-24 08:50:43.580094"
+          },
+          {
+            "sales_month": "2026-01",
+            "channel": "coupang_rg",
+            "project": "영양제",
+            "rows": 599,
+            "net_amount_krw": 29383410,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-08 05:28:39.800001"
+          },
+          {
+            "sales_month": "2026-01",
+            "channel": "coupang_3p",
+            "project": "커피",
+            "rows": 280,
+            "net_amount_krw": 9456800,
+            "min_sales_recognition_date": "2026-01-01",
+            "max_sales_recognition_date": "2026-01-31",
+            "max_uploaded_at": "2026-03-27 09:19:16.156455"
+          },
+          {
+            "sales_month": "2026-01",
+            "channel": "coupang_rg",
+            "project": "커피",
+            "rows": 92,
+            "net_amount_krw": 2785580,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-03-27 09:19:27.958021"
+          },
+          {
+            "sales_month": "2026-01",
+            "channel": "coupang_3p",
+            "project": "영양제",
+            "rows": 11,
+            "net_amount_krw": 1022000,
+            "min_sales_recognition_date": "2026-01-03",
+            "max_sales_recognition_date": "2026-01-21",
+            "max_uploaded_at": "2026-03-27 09:19:16.156455"
+          },
+          {
+            "sales_month": "2026-01",
+            "channel": "coupang_3p",
+            "project": "펫_영양제 외",
+            "rows": 6,
+            "net_amount_krw": 450900,
+            "min_sales_recognition_date": "2026-01-06",
+            "max_sales_recognition_date": "2026-01-29",
+            "max_uploaded_at": "2026-03-27 09:19:16.156455"
+          },
+          {
+            "sales_month": "2026-01",
+            "channel": "coupang_3p",
+            "project": "미분류",
+            "rows": 1,
+            "net_amount_krw": 0,
+            "min_sales_recognition_date": "2026-01-19",
+            "max_sales_recognition_date": "2026-01-19",
+            "max_uploaded_at": "2026-03-27 09:19:16.156455"
+          },
+          {
+            "sales_month": "2025-12",
+            "channel": "coupang_rg",
+            "project": "영양제",
+            "rows": 517,
+            "net_amount_krw": 21666560,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-08 05:28:39.800001"
+          },
+          {
+            "sales_month": "2025-12",
+            "channel": "coupang_3p",
+            "project": "커피",
+            "rows": 324,
+            "net_amount_krw": 10998200,
+            "min_sales_recognition_date": "2025-12-02",
+            "max_sales_recognition_date": "2025-12-31",
+            "max_uploaded_at": "2026-05-08 05:28:38.233887"
+          },
+          {
+            "sales_month": "2025-12",
+            "channel": "coupang_3p",
+            "project": "미분류",
+            "rows": 154,
+            "net_amount_krw": 10470670,
+            "min_sales_recognition_date": "2025-12-02",
+            "max_sales_recognition_date": "2025-12-31",
+            "max_uploaded_at": "2026-05-08 05:28:38.233887"
+          },
+          {
+            "sales_month": "2025-12",
+            "channel": "coupang_rg",
+            "project": "커피",
+            "rows": 320,
+            "net_amount_krw": 9004300,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-08 05:28:39.800001"
+          },
+          {
+            "sales_month": "2025-12",
+            "channel": "coupang_3p",
+            "project": "영양제",
+            "rows": 8,
+            "net_amount_krw": 642400,
+            "min_sales_recognition_date": "2025-12-03",
+            "max_sales_recognition_date": "2025-12-31",
+            "max_uploaded_at": "2026-05-08 05:28:38.233887"
+          },
+          {
+            "sales_month": "2025-12",
+            "channel": "coupang_rg",
+            "project": "미분류",
+            "rows": 20,
+            "net_amount_krw": 543480,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-08 05:28:39.800001"
+          },
+          {
+            "sales_month": "2025-12",
+            "channel": "coupang_3p",
+            "project": "펫_영양제 외",
+            "rows": 1,
+            "net_amount_krw": 87900,
+            "min_sales_recognition_date": "2025-12-27",
+            "max_sales_recognition_date": "2025-12-27",
+            "max_uploaded_at": "2026-05-08 05:28:38.233887"
+          },
+          {
+            "sales_month": "2025-11",
+            "channel": "coupang_rg",
+            "project": "영양제",
+            "rows": 600,
+            "net_amount_krw": 25054140,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-08 05:28:39.800001"
+          },
+          {
+            "sales_month": "2025-11",
+            "channel": "coupang_3p",
+            "project": "커피",
+            "rows": 406,
+            "net_amount_krw": 13365700,
+            "min_sales_recognition_date": "2025-11-01",
+            "max_sales_recognition_date": "2025-11-30",
+            "max_uploaded_at": "2026-05-08 05:28:32.633306"
+          },
+          {
+            "sales_month": "2025-11",
+            "channel": "coupang_rg",
+            "project": "커피",
+            "rows": 384,
+            "net_amount_krw": 11007390,
+            "min_sales_recognition_date": null,
+            "max_sales_recognition_date": null,
+            "max_uploaded_at": "2026-05-08 05:28:34.306544"
+          }
+        ],
+        "interpretation": "운영DB tb_sales_coupang은 월간 업로드/정산 성격이다. 최신 2026-04까지 보이며 2026-05 live ordersheets와 직접 같은 window 비교는 아직 어렵다."
+      },
+      "verdict": "current_window_not_reconciled: reporting Coupang source는 2026-05-23까지 fresh하지만 local settlement/operational source는 월간 업로드 성격이라 최신 current window와 직접 대조 불가"
+    }
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0,
+    "raw_click_identifier_output": 0,
+    "npay_click_promoted_to_purchase": 0
+  },
+  "readiness": {
+    "source_readiness_percent": 88,
+    "api_automation_readiness_percent": 70,
+    "next_step": "Run with --coupang-revenue-history-source=api --ad-spend-source=api, then generate Slack no-send preview from this JSON."
+  },
+  "confidence": "medium_high_for_sales_and_ad_spend_no_send_input"
+}

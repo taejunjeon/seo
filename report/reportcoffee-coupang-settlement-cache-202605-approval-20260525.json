@@ -1,0 +1,153 @@
+{
+  "report": "reportcoffee_coupang_settlement_cache_202605_approval_20260525",
+  "generated_at_kst": "2026-05-25 06:03 KST",
+  "mode": "approval_packet_no_write",
+  "approval_name": "Local Coupang settlement cache 2026-05 apply",
+  "lane": "Yellow",
+  "scope": {
+    "target_db": "/Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "target_table": "coupang_settlements_api",
+    "target_month": "2026-05",
+    "accounts": [
+      {
+        "account": "biocom",
+        "vendor_id": "A00668577"
+      },
+      {
+        "account": "teamketo",
+        "vendor_id": "A00963878"
+      }
+    ],
+    "script": "/Users/vibetj/coding/seo/backend/scripts/coupang-backfill-settlements.cjs",
+    "write_scope": "local SQLite only"
+  },
+  "why_needed": "더클린커피 Slack report JSON은 revenue-history 기준으로 최신화됐지만, local coupang_settlements_api cache는 2026-04-19까지만 있어 2026-05 정산표 대조가 pending이다.",
+  "pre_snapshot": {
+    "local_2026_05_rows": 0,
+    "teamketo_latest_cached_month": "2026-04",
+    "teamketo_latest_cached_recognition_date_to": "2026-04-19",
+    "teamketo_latest_cached_synced_at": "2026-04-24 09:35:35"
+  },
+  "api_read_only_preview_2026_05": {
+    "checked_at_kst": "2026-05-25",
+    "teamketo": {
+      "expected_rows": 4,
+      "total_sale_krw": 7222000,
+      "final_amount_krw": 2289310,
+      "settlement_target_amount_krw": 6380478,
+      "settlement_amount_krw": 4466336,
+      "types": {
+        "WEEKLY": 3,
+        "RESERVE": 1
+      },
+      "statuses": {
+        "PENDING": 4
+      },
+      "recognition_date_from": "2026-05-01",
+      "recognition_date_to": "2026-05-17",
+      "settlement_date_min": "2026-05-26",
+      "settlement_date_max": "2026-07-01"
+    },
+    "biocom": {
+      "expected_rows": 4,
+      "total_sale_krw": 1019400,
+      "final_amount_krw": 256524,
+      "settlement_target_amount_krw": 902080,
+      "settlement_amount_krw": 631456,
+      "types": {
+        "WEEKLY": 3,
+        "RESERVE": 1
+      },
+      "statuses": {
+        "DONE": 1,
+        "SUBJECT": 3
+      },
+      "recognition_date_from": "2026-05-01",
+      "recognition_date_to": "2026-05-17",
+      "settlement_date_min": "2026-05-26",
+      "settlement_date_max": "2026-07-01"
+    }
+  },
+  "approved_actions_if_yes": [
+    "create local SQLite backup",
+    "run read-only API preview again",
+    "execute local backfill script for 2026-05 only",
+    "verify local SQLite rows and sums",
+    "regenerate reportcoffee no-send JSON if needed",
+    "document result"
+  ],
+  "forbidden_actions_even_if_yes": [
+    "operating_db_write",
+    "vm_cloud_write_or_deploy",
+    "slack_send",
+    "platform_send_or_upload",
+    "gtm_publish",
+    "cron_registration",
+    "raw_customer_or_order_identifier_output"
+  ],
+  "apply_command": "cd /Users/vibetj/coding/seo/backend && node scripts/coupang-backfill-settlements.cjs 2026-05 2026-05",
+  "success_criteria": [
+    "local 2026-05 rows become 8 total",
+    "teamketo 2026-05 rows = 4, total_sale = 7222000, final_amount = 2289310",
+    "biocom 2026-05 rows = 4, total_sale = 1019400, final_amount = 256524",
+    "count(distinct settlement_id) equals count(*) for 2026-05",
+    "raw identifier output remains 0",
+    "no operating DB write, no Slack send, no platform send"
+  ],
+  "hard_fail": [
+    "backup creation fails",
+    "api preview differs materially before apply without explanation",
+    "script attempts non-local DB write",
+    "post-apply duplicate settlement_id appears",
+    "post-apply sums differ from preview",
+    "raw customer/order/payment identifiers appear in report output"
+  ],
+  "rollback": {
+    "method": "restore pre-apply SQLite backup file",
+    "command_template": "cp <backup_path> /Users/vibetj/coding/seo/backend/data/crm.sqlite3",
+    "verify_after_rollback": "2026-05 local rows return to pre-snapshot count"
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "gtm_publish": 0,
+    "local_db_write_until_approval": 0,
+    "raw_identifier_output": 0
+  },
+  "approval_copy_block": "승인합니다: reportcoffee-coupang-settlement-cache-202605 로컬 쿠팡 정산 cache 2026-05 적재 진행.\n\n범위:\n- 백업 생성\n- read-only API preview 재확인\n- 로컬 SQLite backend/data/crm.sqlite3 coupang_settlements_api에 2026-05 settlement-histories만 적재\n- post-verify\n- 실패 시 백업으로 롤백\n\n허용:\n- local DB backup\n- local DB write only to coupang_settlements_api\n- API read-only\n- local JSON/Markdown result update\n\n금지:\n- 운영DB write\n- VM Cloud write/deploy/restart\n- Slack send\n- platform send/upload\n- GTM publish\n- cron registration\n- raw customer/order/payment identifier output",
+  "track_progress": {
+    "A_source_rule_docs": {
+      "previous_percent": 74,
+      "current_percent": 75,
+      "delta_percent": 1
+    },
+    "B_coffee_sales_source": {
+      "previous_percent": 100,
+      "current_percent": 100,
+      "delta_percent": 0
+    },
+    "C_coffee_ad_spend_source": {
+      "previous_percent": 82,
+      "current_percent": 82,
+      "delta_percent": 0
+    },
+    "D_biocom_report_source_map": {
+      "previous_percent": 36,
+      "current_percent": 36,
+      "delta_percent": 0
+    },
+    "E_slack_no_send_design": {
+      "previous_percent": 99,
+      "current_percent": 99,
+      "delta_percent": 0
+    },
+    "F_automation_readiness": {
+      "previous_percent": 96,
+      "current_percent": 97,
+      "delta_percent": 1
+    }
+  },
+  "confidence_percent": 86
+}

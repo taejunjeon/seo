@@ -1,0 +1,3556 @@
+{
+  "generated_at_kst": "2026-05-24T16:27:07",
+  "run_id": "20260524T072654Z",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "91608400",
+    "public_id": "GTM-5M33GC4",
+    "path": "accounts/4703003246/containers/91608400"
+  },
+  "target_workspace_id": "30",
+  "target_workspace_path": "accounts/4703003246/containers/91608400/workspaces/30",
+  "live_version_before": {
+    "id": "21",
+    "name": "AGENTSOS GA4 begin_checkout rename - 2026-05-18"
+  },
+  "live_version_after": {
+    "id": "21",
+    "name": "AGENTSOS GA4 begin_checkout rename - 2026-05-18"
+  },
+  "live_version_unchanged": true,
+  "workspace_count_before": 2,
+  "workspace_count_after": 1,
+  "workspaces_before": [
+    {
+      "id": "30",
+      "name": "codex_coffee_meta_initiatecheckout_nosend_preview_20260524T042930Z",
+      "path": "accounts/4703003246/containers/91608400/workspaces/30"
+    },
+    {
+      "id": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "workspaces_after": [
+    {
+      "id": "26",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/91608400/workspaces/26"
+    }
+  ],
+  "target_workspace_before": {
+    "id": "30",
+    "name": "codex_coffee_meta_initiatecheckout_nosend_preview_20260524T042930Z",
+    "path": "accounts/4703003246/containers/91608400/workspaces/30"
+  },
+  "workspace30_present_after": false,
+  "cleanup_result": {
+    "deleted": true,
+    "reason": "deleted_preview_workspace_after_no_send_pass",
+    "error": ""
+  },
+  "backup": {
+    "workspace": {
+      "path": "accounts/4703003246/containers/91608400/workspaces/30",
+      "accountId": "4703003246",
+      "containerId": "91608400",
+      "workspaceId": "30",
+      "name": "codex_coffee_meta_initiatecheckout_nosend_preview_20260524T042930Z",
+      "description": "Codex Coffee Meta InitiateCheckout no-send Preview only. No submit/create version/publish/platform send.",
+      "fingerprint": "1779596973155",
+      "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30?apiLink=workspace"
+    },
+    "workspace_status": {
+      "workspaceChange": [
+        {
+          "tag": {
+            "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/96",
+            "accountId": "4703003246",
+            "containerId": "91608400",
+            "workspaceId": "30",
+            "tagId": "96",
+            "name": "codex_coffee_meta_initiatecheckout_nosend_preview_20260524T042930Z",
+            "type": "html",
+            "notes": "Preview only. Pushes coffee_meta_middle_funnel_preview dataLayer event. Does not call fbq/gtag/fetch/sendBeacon/Image or platform endpoints. Do not submit/publish.",
+            "parameter": [
+              {
+                "type": "template",
+                "key": "html",
+                "value": "<script>\n(function () {\n  'use strict';\n\n  var CONFIG = {\n    snippetVersion: '2026-05-22-coffee-meta-middle-funnel-browser-fallback-nosend-v1',\n    debugQueryKey: '__seo_attribution_debug',\n    checkoutContextKey: '__seo_checkout_context',\n    clickContextKey: '__thecleancoffee_click_id_context_v1',\n    previewSessionKey: '__coffee_meta_middle_preview_session_id',\n    dedupeKeyPrefix: '__coffee_meta_middle_preview_sent__:',\n    dataLayerEventName: 'coffee_meta_middle_funnel_preview',\n    eventName: 'InitiateCheckout',\n    logPrefix: '[coffee-meta-middle-funnel-nosend]',\n    valueSelectors: [\n      '[data-payment-total]',\n      '[data-order-total]',\n      '[data-total-price]',\n      '._payment_total_price',\n      '.total_price',\n      '._cart_main_total_price',\n      '.im-price-result',\n      '.im-order-price',\n      '.shop-table > tfoot .payment-info',\n      '.payment-total',\n      '.order-total',\n      '.total-price',\n      '.pay_total .price',\n      '.order_price .price'\n    ]\n  };\n\n  if (window.__THECLEANCOFFEE_META_MIDDLE_FUNNEL_NOSEND__ === CONFIG.snippetVersion) return;\n  window.__THECLEANCOFFEE_META_MIDDLE_FUNNEL_NOSEND__ = CONFIG.snippetVersion;\n\n  function trim(value) {\n    if (value === null || value === undefined) return '';\n    return String(value).trim();\n  }\n\n  function safeParse(raw) {\n    if (!raw) return {};\n    try {\n      var parsed = JSON.parse(raw);\n      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};\n    } catch (error) {\n      return {};\n    }\n  }\n\n  function readSessionJson(key) {\n    try {\n      return safeParse(window.sessionStorage && window.sessionStorage.getItem(key));\n    } catch (error) {\n      return {};\n    }\n  }\n\n  function readLocalJson(key) {\n    try {\n      return safeParse(window.localStorage && window.localStorage.getItem(key));\n    } catch (error) {\n      return {};\n    }\n  }\n\n  function writeSessionText(key, value) {\n    try {\n      if (!window.sessionStorage) return false;\n      window.sessionStorage.setItem(key, value);\n      return true;\n    } catch (error) {\n      return false;\n    }\n  }\n\n  function readSessionText(key) {\n    try {\n      return trim(window.sessionStorage && window.sessionStorage.getItem(key));\n    } catch (error) {\n      return '';\n    }\n  }\n\n  function firstNonEmpty(values) {\n    for (var i = 0; i < values.length; i += 1) {\n      var value = trim(values[i]);\n      if (value) return value;\n    }\n    return '';\n  }\n\n  function isDebugMode() {\n    try {\n      return new URLSearchParams(window.location.search).get(CONFIG.debugQueryKey) === '1';\n    } catch (error) {\n      return false;\n    }\n  }\n\n  function debugLog(label, fields) {\n    if (!isDebugMode()) return;\n    try {\n      console.info(CONFIG.logPrefix, label, fields || {});\n    } catch (error) {}\n  }\n\n  function getSearchParam(keys) {\n    try {\n      var params = new URLSearchParams(window.location.search);\n      for (var i = 0; i < keys.length; i += 1) {\n        var value = trim(params.get(keys[i]));\n        if (value) return value;\n      }\n    } catch (error) {}\n    return '';\n  }\n\n  function isCheckoutPage() {\n    var href = (window.location.pathname + ' ' + window.location.href).toLowerCase();\n    if (/shop_payment_complete|shop_order_done|order_complete|payment_complete/.test(href)) return false;\n    return /shop_payment|shop_order|order_form|checkout/.test(href);\n  }\n\n  function getPreviewSessionId() {\n    var current = readSessionText(CONFIG.previewSessionKey);\n    if (current) return current;\n    var created = 'mid_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);\n    writeSessionText(CONFIG.previewSessionKey, created);\n    return created;\n  }\n\n  function stableHash(value) {\n    var text = trim(value);\n    var hash = 2166136261;\n    for (var i = 0; i < text.length; i += 1) {\n      hash ^= text.charCodeAt(i);\n      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);\n    }\n    return ('00000000' + (hash >>> 0).toString(16)).slice(-8);\n  }\n\n  function getOrderHints(checkoutContext) {\n    checkoutContext = checkoutContext || {};\n    return {\n      orderCode: firstNonEmpty([\n        getSearchParam(['order_code', 'orderCode']),\n        checkoutContext.orderCode,\n        checkoutContext.order_code\n      ]),\n      orderNo: firstNonEmpty([\n        getSearchParam(['order_no', 'orderNo']),\n        checkoutContext.orderNo,\n        checkoutContext.order_no\n      ]),\n      orderMember: firstNonEmpty([\n        getSearchParam(['order_member', 'orderMember']),\n        checkoutContext.orderMember,\n        checkoutContext.order_member\n      ]),\n      checkoutId: firstNonEmpty([\n        checkoutContext.checkoutId,\n        checkoutContext.checkout_id,\n        getSearchParam(['checkoutId', 'checkout_id'])\n      ])\n    };\n  }\n\n  function hasOrderHint(hints) {\n    return Boolean(hints.orderCode || hints.orderNo || hints.checkoutId);\n  }\n\n  function buildDedupeKey(hints) {\n    var basis = firstNonEmpty([\n      hints.checkoutId,\n      hints.orderCode,\n      hints.orderNo,\n      window.location.pathname\n    ]);\n    return CONFIG.dedupeKeyPrefix + stableHash(basis);\n  }\n\n  function parsePriceFromText(raw) {\n    var text = trim(raw).replace(/,/g, '');\n    if (!text) return null;\n    var matches = text.match(/[0-9]+(?:\\.[0-9]+)?/g);\n    if (!matches || !matches.length) return null;\n    var best = 0;\n    for (var i = 0; i < matches.length; i += 1) {\n      var value = Number(matches[i]);\n      if (Number.isFinite(value) && value > best) best = value;\n    }\n    return best > 0 ? best : null;\n  }\n\n  function parsePriceAfterLabel(raw, label) {\n    var text = trim(raw).replace(/\\s+/g, ' ');\n    var index = text.indexOf(label);\n    if (index < 0) return null;\n    var rest = text.slice(index + label.length);\n    var wonMatch = rest.match(/([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*원/);\n    if (wonMatch && wonMatch[1]) {\n      var wonValue = Number(wonMatch[1].replace(/,/g, ''));\n      if (Number.isFinite(wonValue) && wonValue > 0) return wonValue;\n    }\n    return parsePriceFromText(rest);\n  }\n\n  function isVisible(node) {\n    try {\n      if (!node) return false;\n      var style = window.getComputedStyle ? window.getComputedStyle(node) : null;\n      if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;\n      var rect = node.getBoundingClientRect ? node.getBoundingClientRect() : null;\n      return !rect || (rect.width > 0 && rect.height > 0);\n    } catch (error) {\n      return true;\n    }\n  }\n\n  function readOrderSummaryValue() {\n    var selectors = ['#oms-shop-payment', 'main', 'body'];\n    for (var i = 0; i < selectors.length; i += 1) {\n      var node = null;\n      try {\n        node = document.querySelector(selectors[i]);\n      } catch (error) {\n        node = null;\n      }\n      if (!node) continue;\n      var text = node.innerText || node.textContent || '';\n      if (text.indexOf('주문 요약') < 0 || text.indexOf('총 주문금액') < 0) continue;\n      var value = parsePriceAfterLabel(text, '총 주문금액');\n      if (value) {\n        return {\n          value: value,\n          valueStatus: 'present',\n          selector: selectors[i] + ' text:총 주문금액'\n        };\n      }\n    }\n    return null;\n  }\n\n  function readValueCandidate() {\n    var orderSummaryValue = readOrderSummaryValue();\n    if (orderSummaryValue) return orderSummaryValue;\n\n    for (var i = 0; i < CONFIG.valueSelectors.length; i += 1) {\n      var selector = CONFIG.valueSelectors[i];\n      var nodes = [];\n      try {\n        nodes = Array.prototype.slice.call(document.querySelectorAll(selector));\n      } catch (error) {\n        nodes = [];\n      }\n      for (var j = 0; j < nodes.length; j += 1) {\n        if (!isVisible(nodes[j])) continue;\n        var value = parsePriceFromText(nodes[j].getAttribute('data-payment-total') ||\n          nodes[j].getAttribute('data-order-total') ||\n          nodes[j].getAttribute('data-total-price') ||\n          nodes[j].textContent);\n        if (value) {\n          return { value: value, valueStatus: 'present', selector: selector };\n        }\n      }\n    }\n    return { value: null, valueStatus: 'missing', selector: '' };\n  }\n\n  function compactPreviewPayload(hints, checkoutContext, clickContext, valueResult) {\n    var previewSessionId = getPreviewSessionId();\n    var eventIdBasis = firstNonEmpty([hints.checkoutId, previewSessionId]);\n    return {\n      event: CONFIG.dataLayerEventName,\n      eventName: CONFIG.eventName,\n      eventID: CONFIG.eventName + '.' + stableHash(eventIdBasis),\n      noSend: true,\n      noFbq: true,\n      noPixelRequest: true,\n      snippetVersion: CONFIG.snippetVersion,\n      pagePath: window.location.pathname,\n      customData: {\n        currency: 'KRW',\n        value: valueResult.value,\n        value_status: valueResult.valueStatus,\n        value_selector: valueResult.selector,\n        checkout_id_present: Boolean(hints.checkoutId),\n        order_code_present: Boolean(hints.orderCode),\n        order_no_present: Boolean(hints.orderNo),\n        order_member_present: Boolean(hints.orderMember),\n        client_id_present: Boolean(checkoutContext.clientId),\n        ga_session_id_present: Boolean(checkoutContext.gaSessionId),\n        gclid_present: Boolean(clickContext.gclid),\n        gbraid_present: Boolean(clickContext.gbraid),\n        wbraid_present: Boolean(clickContext.wbraid),\n        gad_campaignid_present: Boolean(clickContext.gad_campaignid),\n        google_click_id_source: clickContext.google_click_id_source || ''\n      }\n    };\n  }\n\n  function runPreview() {\n    if (!isCheckoutPage()) {\n      debugLog('blocked', { reason: 'not_checkout_page' });\n      return;\n    }\n\n    var checkoutContext = readSessionJson(CONFIG.checkoutContextKey);\n    var clickContext = firstNonEmpty([\n      JSON.stringify(readSessionJson(CONFIG.clickContextKey)),\n      JSON.stringify(readLocalJson(CONFIG.clickContextKey))\n    ]);\n    clickContext = safeParse(clickContext);\n    var hints = getOrderHints(checkoutContext);\n\n    if (!hasOrderHint(hints)) {\n      debugLog('blocked', { reason: 'missing_order_hint' });\n      return;\n    }\n\n    var dedupeKey = buildDedupeKey(hints);\n    if (readSessionText(dedupeKey)) {\n      debugLog('blocked', { reason: 'deduped' });\n      return;\n    }\n\n    var valueResult = readValueCandidate();\n    var payload = compactPreviewPayload(hints, checkoutContext, clickContext, valueResult);\n    writeSessionText(dedupeKey, new Date().toISOString());\n\n    window.dataLayer = window.dataLayer || [];\n    window.dataLayer.push(payload);\n    window.__THECLEANCOFFEE_META_MIDDLE_FUNNEL_PREVIEW_LAST__ = payload;\n    debugLog('preview', payload);\n  }\n\n  if (document.readyState === 'loading') {\n    document.addEventListener('DOMContentLoaded', runPreview, { once: true });\n  } else {\n    runPreview();\n  }\n})();\n</script>"
+              },
+              {
+                "type": "boolean",
+                "key": "supportDocumentWrite",
+                "value": "false"
+              }
+            ],
+            "fingerprint": "1779596976032",
+            "firingTriggerId": [
+              "95"
+            ],
+            "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/96?apiLink=tag",
+            "consentSettings": {
+              "consentStatus": "notSet"
+            }
+          },
+          "changeStatus": "added"
+        },
+        {
+          "trigger": {
+            "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/95",
+            "accountId": "4703003246",
+            "containerId": "91608400",
+            "workspaceId": "30",
+            "triggerId": "95",
+            "name": "codex_coffee_shop_payment_domready_nosend_20260524T042930Z",
+            "type": "domReady",
+            "filter": [
+              {
+                "type": "equals",
+                "parameter": [
+                  {
+                    "type": "template",
+                    "key": "arg0",
+                    "value": "{{Page Hostname}}"
+                  },
+                  {
+                    "type": "template",
+                    "key": "arg1",
+                    "value": "thecleancoffee.com"
+                  }
+                ]
+              },
+              {
+                "type": "matchRegex",
+                "parameter": [
+                  {
+                    "type": "template",
+                    "key": "arg0",
+                    "value": "{{Page URL}}"
+                  },
+                  {
+                    "type": "template",
+                    "key": "arg1",
+                    "value": "\\/shop_payment\\/?\\?.*(order_code|order_no|orderCode|orderNo)="
+                  },
+                  {
+                    "type": "boolean",
+                    "key": "ignore_case",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "type": "equals",
+                "parameter": [
+                  {
+                    "type": "template",
+                    "key": "arg0",
+                    "value": "{{HURDLERS - Iframe}}"
+                  },
+                  {
+                    "type": "template",
+                    "key": "arg1",
+                    "value": "false"
+                  }
+                ]
+              }
+            ],
+            "fingerprint": "1779596974602",
+            "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/95?apiLink=trigger",
+            "notes": "Preview only. Fires on Coffee shop_payment order pages. No submit/create version/publish."
+          },
+          "changeStatus": "added"
+        }
+      ]
+    },
+    "tags": {
+      "tag": [
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/35",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "35",
+          "name": "AGENTSOS - [GA4 이벤트전송] begin_checkout",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "sendEcommerceData",
+              "value": "false"
+            },
+            {
+              "type": "list",
+              "key": "eventSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "items"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{HURDLERS - GA4 상품정보}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "currency"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "KRW"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "begin_checkout"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1779048393095",
+          "firingTriggerId": [
+            "34"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/35?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/51",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "51",
+          "name": "AGENTSOS - [begin_checkout] 주문서작성",
+          "type": "html",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<!-- AGENTSOS Checkout EVENT v1.1 -->\n<script>\n(function () {\n  'use strict';\n\n  var CONFIG = {\n    site: 'thecleancoffee',\n    brand: 'thecleancoffee',\n    version: '2026-05-18-agentsos-begin-checkout-v1-1',\n    rootSelector: '#oms-shop-payment',\n    dedupePrefix: 'AGENTSOS_begin_checkout_sent_v1_1:',\n    itemStorageKey: 'AGENTSOS_checkout_items_v1_1',\n    maxAttempts: 12,\n    retryMs: 300,\n    debugParam: 'agentsos_debug'\n  };\n\n  function trim(value) {\n    if (value == null) return '';\n    return String(value).trim();\n  }\n\n  function isDebugMode() {\n    try {\n      return new URLSearchParams(window.location.search).get(CONFIG.debugParam) === '1';\n    } catch (error) {\n      return false;\n    }\n  }\n\n  function debugLog() {\n    if (!isDebugMode()) return;\n    try {\n      console.log.apply(console, ['[AGENTSOS begin_checkout]'].concat([].slice.call(arguments)));\n    } catch (error) {}\n  }\n\n  function debugWarn() {\n    if (!isDebugMode()) return;\n    try {\n      console.warn.apply(console, ['[AGENTSOS begin_checkout]'].concat([].slice.call(arguments)));\n    } catch (error) {}\n  }\n\n  function isCheckoutPage() {\n    return /\\/shop_payment\\/?/i.test(String(window.location.pathname || ''));\n  }\n\n  function parseNumber(value) {\n    var normalized = trim(value).replace(/[^\\d.-]/g, '');\n    if (!normalized) return 0;\n    var parsed = Number(normalized);\n    return parsed === parsed && parsed !== Infinity && parsed !== -Infinity ? parsed : 0;\n  }\n\n  function parseQuantity(value) {\n    var text = trim(value);\n    var match = text.match(/(\\d+)\\s*개/);\n    if (match) return Math.max(1, parseNumber(match[1]) || 1);\n\n    match = text.match(/수량\\s*:?\\s*(\\d+)/i);\n    if (match) return Math.max(1, parseNumber(match[1]) || 1);\n\n    return 1;\n  }\n\n  function normalizeItem(raw) {\n    raw = raw || {};\n\n    var itemName = trim(raw.item_name || raw.name);\n    var itemId = trim(raw.item_id || raw.id);\n    var price = parseNumber(raw.price);\n    var quantity = parseQuantity(raw.quantity || raw.qty || '1');\n\n    if (!itemName || price <= 0) return null;\n\n    return {\n      item_name: itemName,\n      item_id: itemId,\n      price: String(price),\n      quantity: quantity,\n      item_brand: trim(raw.item_brand || CONFIG.brand)\n    };\n  }\n\n  function getRoot() {\n    return document.querySelector(CONFIG.rootSelector) || document.body;\n  }\n\n  function collectFromLegacySelectors(root) {\n    var items = [];\n    var nodes = root.querySelectorAll('.shop_item_thumb');\n\n    nodes.forEach(function (node) {\n      try {\n        var titleNode = node.querySelector('.shop_item_title');\n        var priceNode = node.querySelector('.shop_item_pay > span');\n        var optionNode = node.querySelector('.shop_item_opt');\n        var linkNode = node.querySelector('a[href*=\"shop_view\"]');\n\n        var itemId = '';\n        if (linkNode && linkNode.href) {\n          try {\n            itemId = new URL(linkNode.href, window.location.origin).searchParams.get('idx') || '';\n          } catch (error) {}\n        }\n\n        var normalized = normalizeItem({\n          item_name: titleNode && titleNode.innerText,\n          item_id: itemId,\n          price: priceNode && priceNode.innerText,\n          quantity: optionNode && optionNode.innerText,\n          item_brand: CONFIG.brand\n        });\n\n        if (normalized) items.push(normalized);\n      } catch (error) {\n        debugLog('legacy selector item parse skipped', error && error.message ? error.message : error);\n      }\n    });\n\n    return items;\n  }\n\n  function firstMeaningfulProductLine(lines) {\n    for (var i = 0; i < lines.length; i += 1) {\n      var line = lines[i];\n      if (!line) continue;\n      if (/주문\\s*상품|상품\\s*정보|배송|주문자|결제|쿠폰|적립|포인트|총\\s*상품|합계/.test(line)) continue;\n      if (/^\\d[\\d,]*\\s*원$/.test(line)) continue;\n      if (/^\\d+\\s*개$/.test(line)) continue;\n      if (/필수|선택|옵션/.test(line) && line.length < 20) continue;\n      if (line.length >= 4) return line;\n    }\n    return '';\n  }\n\n  function collectFromOrderPageText(root) {\n    var text = trim(root.innerText || root.textContent || '');\n    if (!text) return [];\n\n    var lines = text.split(/\\n+/).map(trim).filter(Boolean);\n    var startIndex = -1;\n\n    for (var i = 0; i < lines.length; i += 1) {\n      if (/주문\\s*상품|상품\\s*정보/.test(lines[i])) {\n        startIndex = i + 1;\n        break;\n      }\n    }\n\n    var section = startIndex >= 0 ? lines.slice(startIndex) : lines;\n    var stopIndex = -1;\n\n    for (var j = 0; j < section.length; j += 1) {\n      if (/배송\\s*정보|주문자\\s*정보|결제\\s*수단|최종\\s*결제|총\\s*결제|약관/.test(section[j])) {\n        stopIndex = j;\n        break;\n      }\n    }\n\n    if (stopIndex >= 0) {\n      section = section.slice(0, stopIndex);\n    }\n\n    var itemName = firstMeaningfulProductLine(section);\n    var priceLine = '';\n    var quantityLine = '';\n\n    for (var k = 0; k < section.length; k += 1) {\n      if (!priceLine && /[\\d,]+\\s*원/.test(section[k])) priceLine = section[k];\n      if (!quantityLine && /\\d+\\s*개/.test(section[k])) quantityLine = section[k];\n    }\n\n    var itemId = '';\n    var productLink = root.querySelector('a[href*=\"shop_view\"][href*=\"idx=\"]');\n    if (productLink && productLink.href) {\n      try {\n        itemId = new URL(productLink.href, window.location.origin).searchParams.get('idx') || '';\n      } catch (error) {}\n    }\n\n    var normalized = normalizeItem({\n      item_name: itemName,\n      item_id: itemId,\n      price: priceLine,\n      quantity: quantityLine,\n      item_brand: CONFIG.brand\n    });\n\n    return normalized ? [normalized] : [];\n  }\n\n  function collectItems() {\n    var root = getRoot();\n    if (!root) return [];\n\n    var items = collectFromLegacySelectors(root);\n    if (items.length > 0) return items;\n\n    items = collectFromOrderPageText(root);\n    if (items.length > 0) return items;\n\n    return [];\n  }\n\n  function safeHash(input) {\n    var text = trim(input);\n    var hash = 0;\n    var i;\n    var chr;\n\n    if (!text) return 'h0';\n\n    for (i = 0; i < text.length; i += 1) {\n      chr = text.charCodeAt(i);\n      hash = ((hash << 5) - hash) + chr;\n      hash |= 0;\n    }\n\n    return 'h' + Math.abs(hash).toString(36);\n  }\n\n  function getDedupeKey(items) {\n    var signature = String(window.location.pathname || '') + '|' + items.map(function (item) {\n      return [\n        trim(item.item_id),\n        trim(item.item_name).slice(0, 60),\n        trim(item.price),\n        trim(item.quantity)\n      ].join(':');\n    }).join('|');\n\n    /*\n      Do not use raw order_code/order_no/order_member in sessionStorage key.\n      This key only represents the current checkout product signature.\n    */\n    return CONFIG.dedupePrefix + safeHash(signature);\n  }\n\n  function hasSent(items) {\n    try {\n      return Boolean(window.sessionStorage && window.sessionStorage.getItem(getDedupeKey(items || [])));\n    } catch (error) {\n      return false;\n    }\n  }\n\n  function rememberSent(items) {\n    try {\n      if (!window.sessionStorage) return;\n      window.sessionStorage.setItem(getDedupeKey(items || []), new Date().toISOString());\n      window.sessionStorage.setItem(CONFIG.itemStorageKey, JSON.stringify(items));\n    } catch (error) {}\n  }\n\n  function totalValue(items) {\n    var sum = 0;\n    items.forEach(function (item) {\n      sum += parseNumber(item.price) * parseQuantity(item.quantity);\n    });\n    return sum;\n  }\n\n  function pushBeginCheckout(items) {\n    if (!items || items.length === 0) return false;\n    if (hasSent(items)) {\n      debugLog('skip duplicate begin_checkout');\n      return true;\n    }\n\n    window.dataLayer = window.dataLayer || [];\n\n    var value = totalValue(items);\n    var ecommercePayload = {\n      currency: 'KRW',\n      value: value,\n      items: items\n    };\n\n    window.dataLayer.push({\n      event: 'begin_checkout',\n      event_source: 'agentsos',\n      agentsos_event_version: CONFIG.version,\n      agentsos_ga4: ecommercePayload,\n\n      /*\n        Compatibility only:\n        Existing GA4 event tag may still read hurdlers_ga4.items.\n        Remove this field after GTM variables are renamed to agentsos_ga4.\n      */\n      hurdlers_ga4: ecommercePayload,\n\n      ecommerce: ecommercePayload\n    });\n\n    rememberSent(items);\n\n    debugLog('begin_checkout pushed', {\n      item_count: items.length,\n      value: value,\n      has_agentsos_ga4: true,\n      has_compat_namespace: true\n    });\n\n    return true;\n  }\n\n  function run(attempt) {\n    attempt = attempt || 1;\n\n    try {\n      var items = collectItems();\n      if (pushBeginCheckout(items)) return;\n    } catch (error) {\n      debugLog('begin_checkout attempt failed', error && error.message ? error.message : error);\n    }\n\n    if (attempt < CONFIG.maxAttempts) {\n      window.setTimeout(function () {\n        run(attempt + 1);\n      }, CONFIG.retryMs);\n    } else {\n      debugWarn('begin_checkout not pushed: no product item found');\n    }\n  }\n\n  if (!isCheckoutPage()) return;\n\n  run(1);\n\n  if (document.readyState === 'loading') {\n    document.addEventListener('DOMContentLoaded', function () {\n      run(1);\n    });\n  } else {\n    run(1);\n  }\n\n  window.addEventListener('load', function () {\n    run(1);\n  });\n})();\n</script>\n<!-- AGENTSOS Checkout EVENT END -->"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1779045464381",
+          "firingTriggerId": [
+            "50"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/51?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/87",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "87",
+          "name": "Coffee NPay Intent Snippet Installer v1",
+          "type": "html",
+          "notes": "A-4 publish 보강. snippet installer (buffer push hook). windowLoaded trigger + outer ready retry (250ms × max 8s) + 이중 설치 방지 marker. fetch/sendBeacon/XHR 0. GA4/Meta/TikTok/Google Ads 발신 0. dispatcher v2.1 가 sweep 으로 forward.",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<script>\n/* Coffee NPay Intent Snippet Installer v1\n * Outer ready-retry wrapper + 기존 all-in-one snippet IIFE.\n * SITE_SHOP_DETAIL / window.confirmOrderWithCartItems 부재 시 250ms 간격 재시도, 최대 8초.\n * 이중 설치 방지 = 기존 snippet 의 __coffeeNpayIntentPreviewAllInOneInstalled marker.\n * fetch / sendBeacon / XHR 0 — sessionStorage buffer 만 채움. dispatcher v2.1 가 forward.\n */\n(function () {\n  if (window.__coffeeNpayIntentSnippetInstallerStarted) return;\n  window.__coffeeNpayIntentSnippetInstallerStarted = true;\n\n  var INSTALLER_TAG = \"[coffee_npay_intent_snippet_installer]\";\n  var CHECK_INTERVAL_MS = 250;\n  var MAX_WAIT_MS = 8000;\n  var startedAt = Date.now();\n\n  function isReady() {\n    var sd = window.SITE_SHOP_DETAIL;\n    var sdConfirm = sd && typeof sd.confirmOrderWithCartItems === \"function\";\n    var globalConfirm = typeof window.confirmOrderWithCartItems === \"function\";\n    return sdConfirm || globalConfirm;\n  }\n\n  function tryInstall() {\n    if (window.__coffeeNpayIntentPreviewAllInOneInstalled) {\n      try { console.info(INSTALLER_TAG, \"snippet already installed (other path) — skip\"); } catch (e) {}\n      return;\n    }\n    if (isReady()) {\n      try { console.info(INSTALLER_TAG, \"site ready — running snippet IIFE (waited \" + (Date.now() - startedAt) + \"ms)\"); } catch (e) {}\n      runSnippetIIFE();\n      return;\n    }\n    if (Date.now() - startedAt < MAX_WAIT_MS) {\n      setTimeout(tryInstall, CHECK_INTERVAL_MS);\n    } else {\n      try { console.warn(INSTALLER_TAG, \"install timeout \" + MAX_WAIT_MS + \"ms — SITE_SHOP_DETAIL/window.confirmOrderWithCartItems 둘 다 부재. snippet IIFE 실행 안 함\"); } catch (e) {}\n    }\n  }\n\n  function runSnippetIIFE() {\n    /* === 기존 all-in-one snippet IIFE 본문 통째 inline (snippet_iife.js line 3~) === */\n  if (window.__coffeeNpayIntentPreviewAllInOneInstalled) {\n    console.warn(\"[coffee_npay_intent_preview] all-in-one already installed\");\n    return;\n  }\n  window.__coffeeNpayIntentPreviewAllInOneInstalled = true;\n\n  var SITE = \"thecleancoffee\";\n  var VERSION = \"coffee_npay_intent_preview_all_in_one_20260501\";\n  var BUFFER_KEY = \"coffee_npay_intent_preview\";\n  var INTENT_SEQ_KEY = \"__coffee_intent_seq\";\n  var INTENT_UUID_PENDING_KEY = \"__coffee_intent_uuid_pending\";\n  var SESSION_UUID_KEY = \"__coffee_session_uuid\";\n  var FUNNEL_CAPI_SESSION_KEY = \"__seo_funnel_session\";\n  var FUNNEL_CAPI_SENT_PREFIX = \"funnelCapi::sent::\";\n  var WRAP_MARKER = \"__coffee_npay_v04_wrapped\";\n  var MAX_BUFFER = 50;\n  var LOG_PREFIX = \"[coffee_npay_intent_preview]\";\n  var V05_RETRY_DELAYS_MS = [100, 500, 1500];\n  var V06_RETRY_DELAYS_MS = [100, 500, 1500, 3000];\n  var SYNTHETIC_TX_PATTERN = /^NPAY\\s*-\\s*\\d+\\s*-\\s*\\d{10,}$/;\n\n  /* ── buffer ─────────────────────────────────────────────────────── */\n  function readBuffer() {\n    try { return JSON.parse(sessionStorage.getItem(BUFFER_KEY) || \"[]\"); }\n    catch (e) { return []; }\n  }\n  function writeBuffer(buf) {\n    try {\n      while (buf.length > MAX_BUFFER) buf.shift();\n      sessionStorage.setItem(BUFFER_KEY, JSON.stringify(buf));\n    } catch (e) {}\n  }\n\n  /* ── uuid / seq / session ──────────────────────────────────────── */\n  function newUuid() {\n    try {\n      if (window.crypto && typeof window.crypto.randomUUID === \"function\") {\n        return window.crypto.randomUUID();\n      }\n    } catch (e) {}\n    return \"nu-\" + Date.now().toString(36) + \"-\" + Math.random().toString(36).slice(2);\n  }\n  function safeStr(v) { return v == null ? \"\" : String(v); }\n\n  function getSessionUuid() {\n    var fromFunnel = \"\";\n    try { fromFunnel = safeStr(sessionStorage.getItem(FUNNEL_CAPI_SESSION_KEY)); } catch (e) {}\n    if (fromFunnel) return fromFunnel;\n    var fallback = \"\";\n    try { fallback = safeStr(sessionStorage.getItem(SESSION_UUID_KEY)); } catch (e) {}\n    if (fallback) return fallback;\n    var fresh = newUuid();\n    try { sessionStorage.setItem(SESSION_UUID_KEY, fresh); } catch (e) {}\n    return fresh;\n  }\n  function nextIntentSeq() {\n    var cur = 0;\n    try { cur = Number(sessionStorage.getItem(INTENT_SEQ_KEY) || \"0\") || 0; } catch (e) {}\n    var nextVal = cur + 1;\n    try { sessionStorage.setItem(INTENT_SEQ_KEY, String(nextVal)); } catch (e) {}\n    return nextVal;\n  }\n  function newIntentUuidForConfirm() {\n    var v = newUuid();\n    try { sessionStorage.setItem(INTENT_UUID_PENDING_KEY, v); } catch (e) {}\n    return v;\n  }\n  function lastPendingIntentUuid() {\n    try { return safeStr(sessionStorage.getItem(INTENT_UUID_PENDING_KEY)); }\n    catch (e) { return \"\"; }\n  }\n\n  /* ── funnel-capi observation ───────────────────────────────────── */\n  function readFunnelCapiSessionId() {\n    try { return safeStr(sessionStorage.getItem(FUNNEL_CAPI_SESSION_KEY)); }\n    catch (e) { return \"\"; }\n  }\n  function readLatestFunnelCapiEid() {\n    try {\n      var keys = [];\n      for (var i = 0; i < sessionStorage.length; i++) {\n        var k = sessionStorage.key(i);\n        if (k && k.indexOf(FUNNEL_CAPI_SENT_PREFIX) === 0) keys.push(k);\n      }\n      if (!keys.length) return \"\";\n      return keys[keys.length - 1].replace(FUNNEL_CAPI_SENT_PREFIX, \"\");\n    } catch (e) { return \"\"; }\n  }\n  function findInitiateCheckoutEid(beforeKeys) {\n    try {\n      var keys = [];\n      for (var i = 0; i < sessionStorage.length; i++) {\n        var k = sessionStorage.key(i);\n        if (!k || k.indexOf(FUNNEL_CAPI_SENT_PREFIX + \"InitiateCheckout.\") !== 0) continue;\n        if (beforeKeys.indexOf(k) >= 0) continue;\n        keys.push(k);\n      }\n      if (!keys.length) return null;\n      var lastKey = keys[keys.length - 1];\n      var eid = lastKey.replace(FUNNEL_CAPI_SENT_PREFIX, \"\");\n      var m = eid.match(/^InitiateCheckout\\.(o\\d{8}[0-9a-f]+)\\.([0-9a-z]+)$/i);\n      if (!m) return { raw_key: lastKey, eid: eid, order_code: \"\", suffix: \"\", parse_ok: false };\n      return { raw_key: lastKey, eid: eid, order_code: m[1], suffix: m[2], parse_ok: true };\n    } catch (e) { return null; }\n  }\n\n  /* ── dataLayer NPay synthetic id observation ───────────────────── */\n  function findSyntheticTxInDataLayer(beforeLength) {\n    try {\n      if (!Array.isArray(window.dataLayer)) return null;\n      var startIdx = typeof beforeLength === \"number\" ? beforeLength : 0;\n      for (var i = window.dataLayer.length - 1; i >= startIdx; i--) {\n        var item = window.dataLayer[i];\n        if (!item || typeof item !== \"object\") continue;\n        var candidates = [];\n        candidates.push(item.transaction_id);\n        if (item.ecommerce && typeof item.ecommerce === \"object\") {\n          candidates.push(item.ecommerce.transaction_id);\n          candidates.push(item.ecommerce.transactionId);\n          if (item.ecommerce.purchase && typeof item.ecommerce.purchase === \"object\") {\n            var af = item.ecommerce.purchase.actionField;\n            if (af && typeof af === \"object\") candidates.push(af.id);\n          }\n        }\n        for (var j = 0; j < candidates.length; j++) {\n          var v = candidates[j];\n          if (typeof v === \"string\" && SYNTHETIC_TX_PATTERN.test(v)) {\n            return {\n              source: \"dataLayer[\" + i + \"]\",\n              tx_id: v,\n              dl_event: typeof item.event === \"string\" ? item.event : null\n            };\n          }\n        }\n      }\n    } catch (e) {}\n    return null;\n  }\n\n  /* ── ga cookies ────────────────────────────────────────────────── */\n  function readCookies() {\n    var out = {};\n    try {\n      var pairs = (document.cookie || \"\").split(\";\");\n      for (var i = 0; i < pairs.length; i++) {\n        var s = pairs[i].trim();\n        var eq = s.indexOf(\"=\");\n        if (eq > 0) out[s.slice(0, eq)] = decodeURIComponent(s.slice(eq + 1));\n      }\n    } catch (e) {}\n    return out;\n  }\n  function readGaIds() {\n    var c = readCookies();\n    var ga = c[\"_ga\"] || \"\";\n    var cid = ga.split(\".\").slice(2).join(\".\") || \"\";\n    var gaSessionEntry = \"\";\n    for (var k in c) {\n      if (Object.prototype.hasOwnProperty.call(c, k) && k.indexOf(\"_ga_\") === 0) {\n        gaSessionEntry = c[k]; break;\n      }\n    }\n    var sessionId = (gaSessionEntry.split(\".\")[2]) || \"\";\n    return { cid: cid, sessionId: sessionId };\n  }\n\n  function detectUaClass() {\n    try {\n      if (window.matchMedia && window.matchMedia(\"(max-width: 768px)\").matches) return \"mobile\";\n      if (window.matchMedia && window.matchMedia(\"(min-width: 769px)\").matches) return \"pc\";\n    } catch (e) {}\n    return \"unknown\";\n  }\n\n  /* ── product metadata 3-step fallback ──────────────────────────── */\n  function metaFromInitDetailCache() {\n    try {\n      var cached = window.SITE_SHOP_DETAIL && window.SITE_SHOP_DETAIL._coffeeNpayInitDetailArgs;\n      if (!cached) return null;\n      if (!cached.prod_idx && !cached.prod_code && !cached.prod_price) return null;\n      return {\n        source: \"initDetail_wrap\",\n        prod_idx: Number(cached.prod_idx || 0),\n        prod_code: safeStr(cached.prod_code),\n        prod_price: Number(cached.prod_price || 0)\n      };\n    } catch (e) { return null; }\n  }\n  function metaFromInlineScript() {\n    try {\n      var nodes = document.querySelectorAll(\"script\");\n      for (var i = 0; i < nodes.length; i++) {\n        var t = nodes[i].textContent || \"\";\n        if (t.indexOf(\"SITE_SHOP_DETAIL.initDetail(\") < 0) continue;\n        var m = t.match(/SITE_SHOP_DETAIL\\.initDetail\\(\\s*(\\{[\\s\\S]*?\\})\\s*\\)/);\n        if (!m) continue;\n        var blob = m[1];\n        var idx = (blob.match(/\"prod_idx\"\\s*:\\s*(\\d+)/) || [])[1];\n        var code = (blob.match(/\"prod_code\"\\s*:\\s*\"([^\"]+)\"/) || [])[1];\n        var price = (blob.match(/\"prod_price\"\\s*:\\s*(\\d+)/) || [])[1];\n        if (idx || code || price) {\n          return {\n            source: \"inline_script_regex\",\n            prod_idx: Number(idx || 0),\n            prod_code: safeStr(code),\n            prod_price: Number(price || 0)\n          };\n        }\n      }\n    } catch (e) {}\n    return null;\n  }\n  function metaFromDom() {\n    try {\n      var codeEl = document.querySelector(\"[data-bs-prod-code]\");\n      var idxEl = document.querySelector(\"[data-prod_idx], [data-prod-idx]\");\n      var code = codeEl ? safeStr(codeEl.getAttribute(\"data-bs-prod-code\")) : \"\";\n      var idxRaw = idxEl\n        ? safeStr(idxEl.getAttribute(\"data-prod_idx\") || idxEl.getAttribute(\"data-prod-idx\"))\n        : \"\";\n      if (!code && !idxRaw) return null;\n      return { source: \"dom_fallback\", prod_idx: Number(idxRaw || 0), prod_code: code, prod_price: 0 };\n    } catch (e) { return null; }\n  }\n  function resolveMetadata() {\n    return (\n      metaFromInitDetailCache() ||\n      metaFromInlineScript() ||\n      metaFromDom() ||\n      { source: \"none\", prod_idx: 0, prod_code: \"\", prod_price: 0 }\n    );\n  }\n\n  /* ── option count / quantity (PII 차단: 숫자만) ───────────────── */\n  function readSelectedOptionCount() {\n    try {\n      return Number(document.querySelectorAll(\"#prod-form-options ._option_select_row\").length || 0);\n    } catch (e) { return 0; }\n  }\n  function readSelectedQuantity() {\n    try {\n      var nodes = document.querySelectorAll(\n        \"input.option_count, input._option_count, input[name='option_count'], input.prod-form-quantity, input[name='quantity']\"\n      );\n      for (var i = 0; i < nodes.length; i++) {\n        var v = Number(nodes[i].value || 0);\n        if (isFinite(v) && v > 0) return v;\n      }\n    } catch (e) {}\n    return 1;\n  }\n\n  /* ── payload builder ───────────────────────────────────────────── */\n  function buildPayload(intentPhase, opts) {\n    opts = opts || {};\n    var meta = resolveMetadata();\n    var quantity = readSelectedQuantity();\n    var optionCount = readSelectedOptionCount();\n    var ga = readGaIds();\n    var fcSessionId = readFunnelCapiSessionId();\n    var fcEid = readLatestFunnelCapiEid();\n    var sessionUuid = getSessionUuid();\n    var isConfirm = (intentPhase === \"confirm_to_pay\" || intentPhase === \"sanity_test\");\n    var intentUuid = isConfirm ? newIntentUuidForConfirm() : (lastPendingIntentUuid() || \"pending\");\n    var intentSeq = isConfirm ? nextIntentSeq() : Number(sessionStorage.getItem(INTENT_SEQ_KEY) || \"0\");\n    var metadataMissing = !meta.prod_code || !meta.prod_price;\n    return {\n      site: SITE,\n      version: VERSION,\n      intent_phase: intentPhase,\n      session_uuid: sessionUuid,\n      intent_uuid: intentUuid,\n      intent_seq: intentSeq,\n      prod_idx: meta.prod_idx,\n      prod_code: meta.prod_code,\n      prod_price: meta.prod_price,\n      selected_option_count: optionCount,\n      selected_quantity: quantity,\n      estimated_item_total: (Number(meta.prod_price) || 0) * (Number(quantity) || 0),\n      metadata_missing: metadataMissing,\n      metadata_source: meta.source,\n      funnel_capi_session_id: fcSessionId,\n      funnel_capi_eid_observed: fcEid,\n      ga_client_id: ga.cid,\n      ga_session_id: ga.sessionId,\n      page_url: location.href,\n      page_path: location.pathname,\n      payment_button_type: \"npay\",\n      ts_ms_kst: Date.now(),\n      ts_label_kst: new Date().toLocaleString(\"sv-SE\", { timeZone: \"Asia/Seoul\" }),\n      user_agent_class: detectUaClass(),\n      is_simulation: !!opts.isSimulation,\n      preview_only: true\n    };\n  }\n\n  function log(payload) {\n    var buf = readBuffer();\n    buf.push(payload);\n    writeBuffer(buf);\n    try { console.log(LOG_PREFIX, payload); } catch (e) {}\n  }\n\n  /* ── retry capture: imweb orderCode + GA4 synthetic tx ─────────── */\n  function scheduleRetryCaptures(beforeFcKeys, beforeDlLen) {\n    V05_RETRY_DELAYS_MS.forEach(function (delay) {\n      setTimeout(function () {\n        var hit = findInitiateCheckoutEid(beforeFcKeys);\n        if (!hit) return;\n        try {\n          var buf = readBuffer();\n          if (!buf.length) return;\n          var last = buf[buf.length - 1];\n          if (last.intent_phase !== \"confirm_to_pay\") return;\n          if (last.imweb_order_code) return;\n          last.imweb_order_code = hit.order_code;\n          last.imweb_order_code_eid = hit.eid;\n          last.imweb_order_code_capture_delay_ms = delay;\n          buf[buf.length - 1] = last;\n          writeBuffer(buf);\n          console.log(LOG_PREFIX, \"v0.5 captured orderCode @\" + delay + \"ms\", hit);\n        } catch (e) { console.warn(LOG_PREFIX, \"v0.5 capture err\", e && e.message); }\n      }, delay);\n    });\n    V06_RETRY_DELAYS_MS.forEach(function (delay) {\n      setTimeout(function () {\n        var hit = findSyntheticTxInDataLayer(beforeDlLen);\n        if (!hit) return;\n        try {\n          var buf = readBuffer();\n          if (!buf.length) return;\n          var last = buf[buf.length - 1];\n          if (last.intent_phase !== \"confirm_to_pay\") return;\n          if (last.ga4_synthetic_transaction_id) return;\n          last.ga4_synthetic_transaction_id = hit.tx_id;\n          last.ga4_synthetic_transaction_id_source = hit.source;\n          last.ga4_synthetic_transaction_id_dl_event = hit.dl_event;\n          last.ga4_synthetic_transaction_id_capture_delay_ms = delay;\n          buf[buf.length - 1] = last;\n          writeBuffer(buf);\n          console.log(LOG_PREFIX, \"v0.6 captured synthetic_tx @\" + delay + \"ms\", hit);\n        } catch (e) { console.warn(LOG_PREFIX, \"v0.6 capture err\", e && e.message); }\n      }, delay);\n    });\n  }\n\n  function snapshotBeforeStates() {\n    var fcKeys = [];\n    try {\n      for (var i = 0; i < sessionStorage.length; i++) {\n        var k = sessionStorage.key(i);\n        if (k && k.indexOf(FUNNEL_CAPI_SENT_PREFIX + \"InitiateCheckout.\") === 0) fcKeys.push(k);\n      }\n    } catch (e) {}\n    var dlLen = Array.isArray(window.dataLayer) ? window.dataLayer.length : 0;\n    return { fcKeys: fcKeys, dlLen: dlLen };\n  }\n\n  /* ── 1) initDetail wrap (remember args) ────────────────────────── */\n  try {\n    var sd = window.SITE_SHOP_DETAIL;\n    if (sd && typeof sd.initDetail === \"function\" && !sd.initDetail[WRAP_MARKER]) {\n      var origInit = sd.initDetail;\n      var wrapInit = function (args) {\n        try { sd._coffeeNpayInitDetailArgs = args; } catch (e) {}\n        return origInit.apply(this, arguments);\n      };\n      wrapInit[WRAP_MARKER] = true;\n      sd.initDetail = wrapInit;\n    }\n  } catch (e) { console.warn(LOG_PREFIX, \"initDetail wrap error\", e && e.message); }\n\n  /* ── 2) SITE_SHOP_DETAIL.confirmOrderWithCartItems wrap ────────── */\n  try {\n    var sd2 = window.SITE_SHOP_DETAIL;\n    if (sd2 && typeof sd2.confirmOrderWithCartItems === \"function\" && !sd2.confirmOrderWithCartItems[WRAP_MARKER]) {\n      var origSiteConfirm = sd2.confirmOrderWithCartItems;\n      var wrapSiteConfirm = function (kind /*, backurl, params */) {\n        var snap = snapshotBeforeStates();\n        try {\n          if (kind === \"npay\") {\n            log(buildPayload(\"confirm_to_pay\"));\n            scheduleRetryCaptures(snap.fcKeys, snap.dlLen);\n          }\n        } catch (err) { console.warn(LOG_PREFIX, \"site confirm wrap error\", err && err.message); }\n        return origSiteConfirm.apply(this, arguments);\n      };\n      wrapSiteConfirm[WRAP_MARKER] = true;\n      sd2.confirmOrderWithCartItems = wrapSiteConfirm;\n    }\n  } catch (e) { console.warn(LOG_PREFIX, \"site confirm wrap install error\", e && e.message); }\n\n  /* ── 3) global window.confirmOrderWithCartItems wrap ───────────── */\n  try {\n    if (typeof window.confirmOrderWithCartItems === \"function\" && !window.confirmOrderWithCartItems[WRAP_MARKER]) {\n      var origGlobalConfirm = window.confirmOrderWithCartItems;\n      var wrapGlobalConfirm = function (kind /*, backurl, params */) {\n        var snap = snapshotBeforeStates();\n        try {\n          if (kind === \"npay\") {\n            log(buildPayload(\"confirm_to_pay\"));\n            scheduleRetryCaptures(snap.fcKeys, snap.dlLen);\n          }\n        } catch (err) { console.warn(LOG_PREFIX, \"global confirm wrap error\", err && err.message); }\n        return origGlobalConfirm.apply(this, arguments);\n      };\n      wrapGlobalConfirm[WRAP_MARKER] = true;\n      window.confirmOrderWithCartItems = wrapGlobalConfirm;\n    }\n  } catch (e) { console.warn(LOG_PREFIX, \"global confirm wrap install error\", e && e.message); }\n\n  /* ── 4) mobile NPay button click backup ────────────────────────── */\n  try {\n    document.addEventListener(\"click\", function (event) {\n      try {\n        var t = event.target;\n        if (!(t instanceof Element)) return;\n        var el = t.closest && t.closest(\"._btn_mobile_npay\");\n        if (!el) return;\n        log(buildPayload(\"click_to_dialog\"));\n      } catch (err) { console.warn(LOG_PREFIX, \"mobile click handler error\", err && err.message); }\n    }, true);\n  } catch (e) { console.warn(LOG_PREFIX, \"mobile click listener install error\", e && e.message); }\n\n  /* ── 5) public api ─────────────────────────────────────────────── */\n  function simulateConfirmNpay() {\n    var snap = snapshotBeforeStates();\n    var payload = buildPayload(\"sanity_test\", { isSimulation: true });\n    log(payload);\n    scheduleRetryCaptures(snap.fcKeys, snap.dlLen);\n    try { console.info(LOG_PREFIX, \"simulateConfirmNpay() — original confirm function NOT called\"); } catch (e) {}\n    return payload;\n  }\n  function getBuffer() { return readBuffer(); }\n  function clearBuffer() {\n    try {\n      sessionStorage.removeItem(BUFFER_KEY);\n      sessionStorage.removeItem(INTENT_SEQ_KEY);\n      sessionStorage.removeItem(INTENT_UUID_PENDING_KEY);\n      sessionStorage.removeItem(SESSION_UUID_KEY);\n    } catch (e) {}\n    return { ok: true };\n  }\n  function status() {\n    return {\n      version: VERSION,\n      installed: true,\n      sessionUuid: getSessionUuid(),\n      funnelCapiSessionId: readFunnelCapiSessionId(),\n      funnelCapiEidObserved: readLatestFunnelCapiEid(),\n      intentSeq: Number(sessionStorage.getItem(INTENT_SEQ_KEY) || \"0\"),\n      bufferLength: readBuffer().length,\n      siteConfirmWrapped: !!(window.SITE_SHOP_DETAIL && window.SITE_SHOP_DETAIL.confirmOrderWithCartItems && window.SITE_SHOP_DETAIL.confirmOrderWithCartItems[WRAP_MARKER]),\n      globalConfirmWrapped: !!(window.confirmOrderWithCartItems && window.confirmOrderWithCartItems[WRAP_MARKER]),\n      initDetailWrapped: !!(window.SITE_SHOP_DETAIL && window.SITE_SHOP_DETAIL.initDetail && window.SITE_SHOP_DETAIL.initDetail[WRAP_MARKER]),\n      dataLayerLength: Array.isArray(window.dataLayer) ? window.dataLayer.length : 0\n    };\n  }\n\n  window.coffeeNpayIntentPreview = {\n    version: VERSION,\n    simulateConfirmNpay: simulateConfirmNpay,\n    getBuffer: getBuffer,\n    clearBuffer: clearBuffer,\n    status: status\n  };\n\n  try {\n    console.log(LOG_PREFIX, \"all-in-one installed\", VERSION,\n      \"(v0.4 wrap + v0.5 orderCode retry + v0.6 ga4 synthetic tx retry, preview only — no network send)\");\n  } catch (e) {}\n    /* === snippet IIFE 끝 === */\n  }\n\n  tryInstall();\n})();\n\n</script>"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1777705464452",
+          "firingTriggerId": [
+            "86"
+          ],
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/87?apiLink=tag",
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/85",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "85",
+          "name": "Coffee NPay Intent Dispatcher v2.1",
+          "type": "html",
+          "notes": "A-4 Production publish 2026-05-02. dispatcher v2.1: O1 in-flight Set + O2 imweb_order_code 3s wait + O3 payment_button_type fallback. backend production_mode active (daily quota 500). preview_only=true 만 forward, is_simulation=true 차단. rollback: GTM Versions revert.",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<script>\n\n(function () {\n  if (window.__coffeeNpayIntentDispatcherInstalled) return;\n  window.__coffeeNpayIntentDispatcherInstalled = true;\n\n  var BUFFER_KEY = \"coffee_npay_intent_preview\";\n  var PENDING_KEY = \"__coffee_intent_pending\";\n  var SENT_KEY = \"__coffee_intent_sent\";\n  var ENDPOINT = \"https://att.ainativeos.net/api/attribution/coffee-npay-intent?mode=enforce\";\n  var SWEEP_INTERVAL_MS = 1000;\n  var MAX_RETRY = 5;\n  var TTL_MS = 24 * 3600 * 1000;\n  var ORDER_CODE_WAIT_TIMEOUT_MS = 3000;\n\n  var inflight = new Set();\n\n  function readJsonStorage(k) {\n    try { return JSON.parse(sessionStorage.getItem(k) || \"{}\"); }\n    catch (e) { return {}; }\n  }\n  function writeJsonStorage(k, v) {\n    try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {}\n  }\n\n  function hasSent(intentUuid) {\n    return !!readJsonStorage(SENT_KEY)[intentUuid];\n  }\n  function markSent(intentUuid, status) {\n    var sent = readJsonStorage(SENT_KEY);\n    sent[intentUuid] = { sent_at_ms: Date.now(), status: status };\n    var keys = Object.keys(sent);\n    if (keys.length > 200) {\n      keys.sort(function (a, b) { return (sent[a].sent_at_ms || 0) - (sent[b].sent_at_ms || 0); });\n      for (var i = 0; i < keys.length - 200; i++) delete sent[keys[i]];\n    }\n    writeJsonStorage(SENT_KEY, sent);\n  }\n  function isPermanentFailure(e) {\n    if (!e) return false;\n    if (e.attempts >= MAX_RETRY) return true;\n    if (e.first_seen_ms && Date.now() - e.first_seen_ms > TTL_MS) return true;\n    if (e.last_status && e.last_status >= 400 && e.last_status < 500) return true;\n    return false;\n  }\n\n  function attemptDispatch(p) {\n    if (!p || p.preview_only !== true) return;\n    if (p.is_simulation === true) return;\n    if (!p.intent_uuid) return;\n    if (hasSent(p.intent_uuid)) return;\n    if (inflight.has(p.intent_uuid)) return;\n\n    var pending = readJsonStorage(PENDING_KEY);\n    var entry = pending[p.intent_uuid];\n    if (entry && isPermanentFailure(entry)) return;\n\n    // O2: imweb_order_code wait (snippet retry 시간 줌)\n    if (!p.imweb_order_code) {\n      var firstSeenMs = entry && entry.first_seen_ms ? entry.first_seen_ms : Date.now();\n      var elapsedMs = Date.now() - firstSeenMs;\n\n      if (!entry) {\n        pending[p.intent_uuid] = {\n          first_seen_ms: firstSeenMs,\n          attempts: 0,\n          last_attempt_ms: null,\n          last_status: null,\n          last_reason: \"wait_for_order_code\"\n        };\n        writeJsonStorage(PENDING_KEY, pending);\n      }\n\n      if (elapsedMs < ORDER_CODE_WAIT_TIMEOUT_MS) return;\n\n      // 3초 timeout — block (fetch 안 함)\n      markSent(p.intent_uuid, \"blocked_missing_imweb_order_code\");\n      delete pending[p.intent_uuid];\n      writeJsonStorage(PENDING_KEY, pending);\n      return;\n    }\n\n    // O3: payment_button_type fallback (snippet 우선, 안전망)\n    if (!p.payment_button_type && p.intent_phase === \"confirm_to_pay\") {\n      p.payment_button_type = \"npay\";\n    }\n\n    var nextAttempts = (entry && entry.attempts ? entry.attempts : 0) + 1;\n    pending[p.intent_uuid] = {\n      first_seen_ms: entry && entry.first_seen_ms ? entry.first_seen_ms : Date.now(),\n      attempts: nextAttempts,\n      last_attempt_ms: Date.now(),\n      last_status: null,\n      last_reason: null\n    };\n    writeJsonStorage(PENDING_KEY, pending);\n\n    var withSchema = Object.assign({}, p, { payload_schema_version: 1 });\n\n    // O1: in-flight tracking\n    inflight.add(p.intent_uuid);\n\n    fetch(ENDPOINT, {\n      method: \"POST\",\n      mode: \"cors\",\n      credentials: \"omit\",\n      headers: { \"Content-Type\": \"application/json\" },\n      body: JSON.stringify(withSchema),\n      keepalive: true\n    }).then(function (res) {\n      var pend = readJsonStorage(PENDING_KEY);\n      var e = pend[p.intent_uuid] || {};\n      e.last_status = res.status;\n      pend[p.intent_uuid] = e;\n      writeJsonStorage(PENDING_KEY, pend);\n\n      if (res.status >= 200 && res.status < 300) {\n        markSent(p.intent_uuid, \"ok_\" + res.status);\n        delete pend[p.intent_uuid];\n        writeJsonStorage(PENDING_KEY, pend);\n      } else if (res.status >= 400 && res.status < 500) {\n        markSent(p.intent_uuid, \"permanent_4xx_\" + res.status);\n        delete pend[p.intent_uuid];\n        writeJsonStorage(PENDING_KEY, pend);\n      }\n      // 5xx: pending 유지 → 다음 sweep retry\n    }).catch(function (err) {\n      var pend = readJsonStorage(PENDING_KEY);\n      var e = pend[p.intent_uuid] || {};\n      e.last_reason = err && err.message ? String(err.message).slice(0, 100) : \"fetch_failed\";\n      pend[p.intent_uuid] = e;\n      writeJsonStorage(PENDING_KEY, pend);\n    }).finally(function () {\n      inflight.delete(p.intent_uuid);\n    });\n  }\n\n  function sweep() {\n    try {\n      var buf = JSON.parse(sessionStorage.getItem(BUFFER_KEY) || \"[]\");\n      buf.forEach(attemptDispatch);\n    } catch (e) {}\n  }\n\n  setInterval(sweep, SWEEP_INTERVAL_MS);\n  window.addEventListener(\"beforeunload\", sweep);\n})();\n\n\n</script>"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1777704412897",
+          "firingTriggerId": [
+            "84"
+          ],
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/85?apiLink=tag",
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/74",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "74",
+          "name": "Google 태그 AW-10965703590",
+          "type": "googtag",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "tagId",
+              "value": "AW-10965703590"
+            }
+          ],
+          "fingerprint": "1771079985895",
+          "firingTriggerId": [
+            "2147479573"
+          ],
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/74?apiLink=tag",
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/76",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "76",
+          "name": "Microsoft Clarity - Official",
+          "type": "cvt_MQDKZ",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "sessionId",
+              "value": "{{Analytics Session ID}}"
+            },
+            {
+              "type": "template",
+              "key": "projectId",
+              "value": "w7d44mkm7u"
+            },
+            {
+              "type": "template",
+              "key": "userId",
+              "value": "{{Analytics Client ID}}"
+            }
+          ],
+          "fingerprint": "1775463901238",
+          "firingTriggerId": [
+            "2147479553"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/76?apiLink=tag",
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/72",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "72",
+          "name": "GA4_정기구독 신청 완료",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "sendEcommerceData",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enhancedUserId",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "subscription_completed"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1711954351139",
+          "firingTriggerId": [
+            "70"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/72?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/73",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "73",
+          "name": "GA4_정기구독 해지 완료",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "sendEcommerceData",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enhancedUserId",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "cancel_subscription"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1711954424929",
+          "firingTriggerId": [
+            "71"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/73?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/69",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "69",
+          "name": "채널톡_초대코드 복사하기",
+          "type": "cvt_91608400_63",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "action",
+              "value": "track"
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "referrer_code"
+            }
+          ],
+          "fingerprint": "1690191742139",
+          "firingTriggerId": [
+            "68"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/69?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/66",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "66",
+          "name": "채널톡_구매 전환",
+          "type": "cvt_91608400_63",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "action",
+              "value": "track"
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "PurchaseComplete"
+            }
+          ],
+          "fingerprint": "1686901468986",
+          "firingTriggerId": [
+            "43"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/66?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/65",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "65",
+          "name": "scroll25",
+          "type": "cvt_91608400_63",
+          "parameter": [
+            {
+              "type": "list",
+              "key": "eventProperty",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "key",
+                      "value": "url"
+                    },
+                    {
+                      "type": "template",
+                      "key": "value",
+                      "value": "{{Page URL}}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "action",
+              "value": "track"
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "scroll25"
+            }
+          ],
+          "fingerprint": "1683018233958",
+          "firingTriggerId": [
+            "64"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/65?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/7",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "7",
+          "name": "GA4 page_view_long 이벤트",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "sendEcommerceData",
+              "value": "false"
+            },
+            {
+              "type": "list",
+              "key": "eventSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "currency"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "KRW"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "value"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "100"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "page_view_long"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1663773861707",
+          "firingTriggerId": [
+            "6"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/7?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/39",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "39",
+          "name": "HURDLERS - [데이터레이어] 네이버페이구매 (장바구니)",
+          "type": "html",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<!-- HURDLE 향상된 전자상거래 네이버페이 구매 ( IN CART PAGE ) -->\n<script>\n    (function(){\n        var products = [];\n        var product_all = document.querySelectorAll('.content');\n        var product_checked = [];\n\n        // Check 된 것만 가져오기\n        for (var i = 0; i < product_all.length; i++) {\n            var temp = window.getComputedStyle(product_all[i].querySelector('span'), '::before').getPropertyValue('background').indexOf('101');\n            if (temp > 0) {\n                product_checked.push(product_all[i]);\n            }\n        }\n\n        for (var j = 0; j < product_checked.length; j++) {\n            var name = product_checked[j].querySelector('.cart-item-title').innerText,\n                id = product_checked[j].querySelector('a').href.split('=')[1],\n                price = product_checked[j].querySelector('.price').innerText.split('원')[0].replace(/[^0-9]/g, ''),\n                quantity = product_checked[j].querySelector('.amount > div ').innerText,\n                variant = product_checked[j].querySelector('.cart-item-title').innerText;\n          \n            if (quantity.indexOf('총') > 0) {\n              \n                quantity = product_checked[j].querySelector('.amount > div ').innerText.split(' ')[1].split('개')[0];\n            } else {\n              \n                quantity = product_checked[j].querySelector('.amount > div ').innerText.split('개')[0];\n            }\n        \n            quantity = parseInt(quantity);         \n            price = parseInt(price) / quantity;\n            price = price.toFixed(0);\n          \n            products.push({\n                'item_name': name,\n                'item_id': id,\n                'price': price + '',\n                'quantity': quantity,\n                'item_brand': {{HURDLERS - 브랜드명}},\n                'item_variant': variant,\n            });\n        }\n      \n        // 상품정보 없을 시\n        if (products.length == 0) {\n          \n            return;\n        }\n\n        var revenue = 0;\n      \n        // 총 상품가격 \n        revenue = document.querySelector('._cart_main_total_price').innerText.split('원')[0].replace(/[^0-9]/g, '');\n \n        if (revenue == 0) {\n          \n            return;\n        }\n\n        var item_check = sessionStorage.getItem('HURDLE_items');\n        var current_item = JSON.stringify(products);\n\n        if (item_check !== current_item && products.length > 0) {\n\n          sessionStorage.setItem('HURDLE_items', current_item);\n          \n          console.log(current_item);\n          console.log(revenue);\n          console.log({{HURDLERS - 네이버페이 구매 아이디}});\n          \n          window.dataLayer.push({\n                'event': 'ga4_purchase',\n                'hurdlers_ga4': {\n                  'transaction_id': {{HURDLERS - 네이버페이 구매 아이디}},\n                  'affiliation': {{HURDLERS - 브랜드명}},\n                  'value': revenue + '',\n                  'shipping': '0',\n                  'currency': 'KRW',\n                  'items': products\n                }\n          });\n      }\n  })()\n</script>\n\n<!-- HURDLE 향상된 전자상거래 네이버페이 구매 ( IN CART PAGE ) 끝-->"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1663575505610",
+          "firingTriggerId": [
+            "36"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/39?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/40",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "40",
+          "name": "HURDLERS - [데이터레이어] 초기화",
+          "type": "html",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<script>\n  (function(){\n    dataLayer.push({\n        'ecommerce':{\n          'purchase':undefined\n        }\n    });\n  })();  \n</script>"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1663575023271",
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/40?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/44",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "44",
+          "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "sendEcommerceData",
+              "value": "false"
+            },
+            {
+              "type": "list",
+              "key": "eventSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "items"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{HURDLERS - GA4 상품정보}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "currency"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "KRW"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "add_to_cart"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1663575070623",
+          "firingTriggerId": [
+            "41"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/44?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/49",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "49",
+          "name": "HURDLES - [이벤트전송] 구매",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "sendEcommerceData",
+              "value": "false"
+            },
+            {
+              "type": "list",
+              "key": "eventSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "items"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{HURDLERS - GA4 상품정보}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "transaction_id"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{HURDLERS - GA4 Transaction_id}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "affiliation"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{HURDLERS - GA4 Affiliation}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "value"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{HURDLERS - GA4 Value}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "shipping"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{HURDLERS - GA4 shipping}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "currency"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "KRW"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "purchase"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1663575077568",
+          "firingTriggerId": [
+            "43"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/49?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/54",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "54",
+          "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "sendEcommerceData",
+              "value": "false"
+            },
+            {
+              "type": "list",
+              "key": "eventSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "items"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{HURDLERS - GA4 상품정보}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "currency"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "KRW"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "view_item"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1663575062265",
+          "firingTriggerId": [
+            "53"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/54?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/56",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "56",
+          "name": "HURDLERS - [데이터레이어] 네이버페이구매 (제품상세)",
+          "type": "html",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<!-- HURDLE 향상된 네이버 페이 구매  In DetailPageView  -->\n\n<script>\n    (function(){\n        var products = [];\n        var option_check = document.querySelector('#prod_options').childElementCount;\n        var option_selected_products = document.querySelector('#prod_selected_options').querySelectorAll('.opt_block:not(.total)');\n        var option_selected_num = document.querySelector('#prod_selected_options').childElementCount;\n      \n        //옵션 없을 경우 \n        if (!option_check) {\n    \n            var quantity = parseInt(document.querySelector('._order_count_mobile').value);\n    \n            products.push({\n              'item_name': window.hurdlers_ga4.product_name,\n              'item_id': window.hurdlers_ga4.product_id,\n              'price': window.hurdlers_ga4.product_price,\n              'quantity': quantity,\n              'item_brand': {{HURDLERS - 브랜드명}},\n            });\n        }\n    \n        // 옵션 있는 경우 + 옵션 선택한 경우 \n        if (option_check && option_selected_num > 0) {\n    \n            var option_products = document.querySelector('#prod_selected_options').querySelectorAll('.opt_block:not(.total)');\n    \n            for (i = 0; i < option_products.length; i++) {\n                \n                var name = window.hurdlers_ga4.product_name,\n                    id = window.hurdlers_ga4.product_id,\n                    price = option_products[i].querySelector('.area_price').innerText.replace(/[^0-9]/g,''),\n                    quantity = option_products[i].querySelector('.option_btn_tools > input').value,\n                    variant = option_products[i].querySelector('.area_tit').innerText;\n              \n                price = price / quantity;        \n              \n                products.push({\n                  'item_name': name,\n                  'item_id': id,\n                  'price': price,\n                  'quantity': quantity,\n                  'item_brand': {{HURDLERS - 브랜드명}},\n                });\n            }\n        }\n      \n        // 상품정보 없을시 \n        if (products.length == 0) {\n           \n            return;\n        }\n      \n        var revenue = 0;\n      \n        // 총 구매가격\n        for (i = 0; i < products.length; i++) {\n        \n            revenue += products[i].quantity * parseInt(products[i].price);\n        }\n\n        if (revenue == 0) {\n         \n            return;\n        }\n\n        var item_check = sessionStorage.getItem('HURDLE_items');\n        var current_item = JSON.stringify(products);\n\n        if (item_check !== current_item && products.length > 0) {\n\n          sessionStorage.setItem('HURDLE_items', current_item);\n          console.log(current_item);\n          console.log(revenue);\n          console.log({{HURDLERS - 네이버페이 구매 아이디}});\n          \n          window.dataLayer.push({\n                'event': 'ga4_purchase',\n                'hurdlers_ga4': {\n                  'transaction_id': {{HURDLERS - 네이버페이 구매 아이디}},\n                  'affiliation': {{HURDLERS - 브랜드명}},\n                  'value': revenue + '',\n                  'shipping': '0',\n                  'currency': 'KRW',\n                  'items': products\n                }\n          });\n        }\n    })()\n  \n</script>\n\n<!-- HURDLE 향상된 네이버 페이 구매  In DetailPageView  끝 -->"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1663575023272",
+          "firingTriggerId": [
+            "55"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/56?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/59",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "59",
+          "name": "HURDLERS - [데이터레이어] 장바구니 담기",
+          "type": "html",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<script>\n(function () {\n    var products = [];\n    var option_check = document.querySelector('#prod_options').childElementCount;\n    var option_selected_products = document.querySelector('#prod_selected_options').querySelectorAll('.opt_block:not(.total)');\n    var option_selected_num = document.querySelector('#prod_selected_options').childElementCount;\n  \n    //옵션 없을 경우 \n    if (!option_check) {\n\n        var quantity = parseInt(document.querySelector('._order_count_mobile').value);\n\n        products.push({\n            'item_name': window.hurdlers_ga4.product_name,\n            'item_id': window.hurdlers_ga4.product_id,\n            'price': window.hurdlers_ga4.product_price,\n            'quantity': quantity,\n            'item_brand': {{HURDLERS - 브랜드명}},\n        });\n    }\n\n    // 옵션 있는 경우 + 옵션 선택한 경우 \n    if (option_check && option_selected_num > 0) {\n\n        var option_products = document.querySelector('#prod_selected_options').querySelectorAll('.opt_block:not(.total)');\n\n        for (i = 0; i < option_products.length; i++) {\n            \n            var name = window.hurdlers_ga4.product_name,\n                id = window.hurdlers_ga4.product_id,\n                price = option_products[i].querySelector('.area_price').innerText.replace(/[^0-9]/g,''),\n                quantity = option_products[i].querySelector('.option_btn_tools > input').value,\n                variant = option_products[i].querySelector('.area_tit').innerText;\n          \n            price = price / quantity;        \n          \n            products.push({\n                'item_name': name,\n                'item_id': id,\n                'price': price,\n                'quantity': quantity,\n                'item_brand': {{HURDLERS - 브랜드명}},\n            });\n        }\n    }\n\n    if (products.length > 0) {\n        dataLayer.push({\n            'event': 'add_to_cart',\n            'hurdlers_ga4': {\n                'items' : products,\n                'currency' : 'KRW'\n            }\n        });\n    }\n})()\n</script>"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1663575023273",
+          "firingTriggerId": [
+            "58"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/59?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/62",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "62",
+          "name": "HURDLERS - [데이터레이어] 상세페이지 조회",
+          "type": "html",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<script>  \n(function(){\n    var data = window.hurdlers_ga4;\n  \n    window.dataLayer.push({\n        'event': 'view_item',\n        'hurdlers_ga4': {\n            'items' : [{\n              'item_name' : data.product_name,\n              'item_id' : data.product_id,\n              'price' : parseInt(data.product_price) + '',\n              'item_brand' : {{HURDLERS - 브랜드명}},\n            }] \n        }\n    });\n})()\n</script>"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1663575023273",
+          "firingTriggerId": [
+            "60"
+          ],
+          "parentFolderId": "28",
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/62?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/24",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "24",
+          "name": "Google Ads - 전환 링커",
+          "type": "gclidw",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "enableCrossDomain",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableUrlPassthrough",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableCookieOverrides",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1660997257805",
+          "firingTriggerId": [
+            "2147479553"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/24?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/25",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "25",
+          "name": "Google Ads - 리마케팅",
+          "type": "sp",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "enableConversionLinker",
+              "value": "true"
+            },
+            {
+              "type": "boolean",
+              "key": "enableDynamicRemarketing",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "conversionCookiePrefix",
+              "value": "_gcl"
+            },
+            {
+              "type": "template",
+              "key": "conversionId",
+              "value": "10965703590"
+            },
+            {
+              "type": "template",
+              "key": "customParamsFormat",
+              "value": "NONE"
+            },
+            {
+              "type": "boolean",
+              "key": "rdp",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1660997485466",
+          "firingTriggerId": [
+            "2147479553"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/25?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/26",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "26",
+          "name": "Google Ads - 전환추적 - 1초 회원가입",
+          "type": "awct",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "enableNewCustomerReporting",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableConversionLinker",
+              "value": "true"
+            },
+            {
+              "type": "boolean",
+              "key": "enableProductReporting",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableEnhancedConversion",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "conversionCookiePrefix",
+              "value": "_gcl"
+            },
+            {
+              "type": "boolean",
+              "key": "enableShippingData",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "conversionId",
+              "value": "10965703590"
+            },
+            {
+              "type": "template",
+              "key": "conversionLabel",
+              "value": "wGc7CO7roNcDEKa37ewo"
+            },
+            {
+              "type": "boolean",
+              "key": "rdp",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1660997810307",
+          "firingTriggerId": [
+            "18"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/26?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/27",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "27",
+          "name": "Google Ads 전환 추적-카톡채널 추가 클릭",
+          "type": "awct",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "enableNewCustomerReporting",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableConversionLinker",
+              "value": "true"
+            },
+            {
+              "type": "boolean",
+              "key": "enableProductReporting",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableEnhancedConversion",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "conversionCookiePrefix",
+              "value": "_gcl"
+            },
+            {
+              "type": "boolean",
+              "key": "enableShippingData",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "conversionId",
+              "value": "10965703590"
+            },
+            {
+              "type": "template",
+              "key": "conversionLabel",
+              "value": "56d8CMuI0dcDEKa37ewo"
+            },
+            {
+              "type": "boolean",
+              "key": "rdp",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1660998076763",
+          "firingTriggerId": [
+            "21"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/27?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/19",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "19",
+          "name": "UA-이벤트-1초회원가입",
+          "type": "ua",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "nonInteraction",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "overrideGaSettings",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "eventCategory",
+              "value": "1초회원가입"
+            },
+            {
+              "type": "template",
+              "key": "trackType",
+              "value": "TRACK_EVENT"
+            },
+            {
+              "type": "template",
+              "key": "gaSettings",
+              "value": "{{UA 추적}}"
+            },
+            {
+              "type": "template",
+              "key": "eventAction",
+              "value": "클릭"
+            }
+          ],
+          "fingerprint": "1660983579438",
+          "firingTriggerId": [
+            "18"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/19?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/20",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "20",
+          "name": "GA4-이벤트-1초회원가입",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "list",
+              "key": "eventSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "jointext"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{Click Text}}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "1초회원가입"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1660984223300",
+          "firingTriggerId": [
+            "18"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/20?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/22",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "22",
+          "name": "UA-이벤트-카톡채널 버튼 클릭",
+          "type": "ua",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "nonInteraction",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "overrideGaSettings",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "eventCategory",
+              "value": "카톡채널"
+            },
+            {
+              "type": "template",
+              "key": "trackType",
+              "value": "TRACK_EVENT"
+            },
+            {
+              "type": "template",
+              "key": "gaSettings",
+              "value": "{{UA 추적}}"
+            },
+            {
+              "type": "template",
+              "key": "eventAction",
+              "value": "클릭"
+            }
+          ],
+          "fingerprint": "1660984799451",
+          "firingTriggerId": [
+            "21"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/22?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/23",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "23",
+          "name": "GA4-이벤트-카톡채널",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "kakaochannel_click"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1660984847951",
+          "firingTriggerId": [
+            "21"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/23?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/14",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "14",
+          "name": "UA - PageView",
+          "type": "ua",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "overrideGaSettings",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "trackType",
+              "value": "TRACK_PAGEVIEW"
+            },
+            {
+              "type": "template",
+              "key": "gaSettings",
+              "value": "{{UA 추적}}"
+            }
+          ],
+          "fingerprint": "1660981703465",
+          "firingTriggerId": [
+            "2147479553"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/14?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/12",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "12",
+          "name": "UA - Event -Scroll",
+          "type": "ua",
+          "parameter": [
+            {
+              "type": "boolean",
+              "key": "nonInteraction",
+              "value": "true"
+            },
+            {
+              "type": "boolean",
+              "key": "overrideGaSettings",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "eventCategory",
+              "value": "스크롤"
+            },
+            {
+              "type": "template",
+              "key": "trackType",
+              "value": "TRACK_EVENT"
+            },
+            {
+              "type": "template",
+              "key": "gaSettings",
+              "value": "{{UA 추적}}"
+            },
+            {
+              "type": "template",
+              "key": "eventAction",
+              "value": "{{Scroll Depth Threshold}} %"
+            }
+          ],
+          "fingerprint": "1660978989789",
+          "firingTriggerId": [
+            "11"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/12?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/13",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "13",
+          "name": "GA4-이벤트-스크롤",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "list",
+              "key": "eventSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "scroll_depth"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{Scroll Depth Threshold}}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "scroll"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1660979244636",
+          "firingTriggerId": [
+            "11"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/13?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/8",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "8",
+          "name": "GA4 모든 링크 클릭",
+          "type": "gaawe",
+          "parameter": [
+            {
+              "type": "list",
+              "key": "eventSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "link_classes"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{Click URL}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "link_url"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{Click URL}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "link_id"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "{{Click ID}}"
+                    }
+                  ]
+                },
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "outbound"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "false"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "template",
+              "key": "eventName",
+              "value": "click"
+            },
+            {
+              "type": "template",
+              "key": "measurementIdOverride",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1660890615598",
+          "firingTriggerId": [
+            "5"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/8?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/4",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "4",
+          "name": "GA4 구성 태그",
+          "type": "googtag",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "tagId",
+              "value": "G-JLSBXX7300"
+            },
+            {
+              "type": "list",
+              "key": "configSettingsTable",
+              "list": [
+                {
+                  "type": "map",
+                  "map": [
+                    {
+                      "type": "template",
+                      "key": "parameter",
+                      "value": "send_page_view"
+                    },
+                    {
+                      "type": "template",
+                      "key": "parameterValue",
+                      "value": "true"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1660884081843",
+          "firingTriggerId": [
+            "2147479553"
+          ],
+          "tagFiringOption": "oncePerEvent",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/4?apiLink=tag",
+          "monitoringMetadata": {
+            "type": "map"
+          },
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/tags/96",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "tagId": "96",
+          "name": "codex_coffee_meta_initiatecheckout_nosend_preview_20260524T042930Z",
+          "type": "html",
+          "notes": "Preview only. Pushes coffee_meta_middle_funnel_preview dataLayer event. Does not call fbq/gtag/fetch/sendBeacon/Image or platform endpoints. Do not submit/publish.",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "html",
+              "value": "<script>\n(function () {\n  'use strict';\n\n  var CONFIG = {\n    snippetVersion: '2026-05-22-coffee-meta-middle-funnel-browser-fallback-nosend-v1',\n    debugQueryKey: '__seo_attribution_debug',\n    checkoutContextKey: '__seo_checkout_context',\n    clickContextKey: '__thecleancoffee_click_id_context_v1',\n    previewSessionKey: '__coffee_meta_middle_preview_session_id',\n    dedupeKeyPrefix: '__coffee_meta_middle_preview_sent__:',\n    dataLayerEventName: 'coffee_meta_middle_funnel_preview',\n    eventName: 'InitiateCheckout',\n    logPrefix: '[coffee-meta-middle-funnel-nosend]',\n    valueSelectors: [\n      '[data-payment-total]',\n      '[data-order-total]',\n      '[data-total-price]',\n      '._payment_total_price',\n      '.total_price',\n      '._cart_main_total_price',\n      '.im-price-result',\n      '.im-order-price',\n      '.shop-table > tfoot .payment-info',\n      '.payment-total',\n      '.order-total',\n      '.total-price',\n      '.pay_total .price',\n      '.order_price .price'\n    ]\n  };\n\n  if (window.__THECLEANCOFFEE_META_MIDDLE_FUNNEL_NOSEND__ === CONFIG.snippetVersion) return;\n  window.__THECLEANCOFFEE_META_MIDDLE_FUNNEL_NOSEND__ = CONFIG.snippetVersion;\n\n  function trim(value) {\n    if (value === null || value === undefined) return '';\n    return String(value).trim();\n  }\n\n  function safeParse(raw) {\n    if (!raw) return {};\n    try {\n      var parsed = JSON.parse(raw);\n      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};\n    } catch (error) {\n      return {};\n    }\n  }\n\n  function readSessionJson(key) {\n    try {\n      return safeParse(window.sessionStorage && window.sessionStorage.getItem(key));\n    } catch (error) {\n      return {};\n    }\n  }\n\n  function readLocalJson(key) {\n    try {\n      return safeParse(window.localStorage && window.localStorage.getItem(key));\n    } catch (error) {\n      return {};\n    }\n  }\n\n  function writeSessionText(key, value) {\n    try {\n      if (!window.sessionStorage) return false;\n      window.sessionStorage.setItem(key, value);\n      return true;\n    } catch (error) {\n      return false;\n    }\n  }\n\n  function readSessionText(key) {\n    try {\n      return trim(window.sessionStorage && window.sessionStorage.getItem(key));\n    } catch (error) {\n      return '';\n    }\n  }\n\n  function firstNonEmpty(values) {\n    for (var i = 0; i < values.length; i += 1) {\n      var value = trim(values[i]);\n      if (value) return value;\n    }\n    return '';\n  }\n\n  function isDebugMode() {\n    try {\n      return new URLSearchParams(window.location.search).get(CONFIG.debugQueryKey) === '1';\n    } catch (error) {\n      return false;\n    }\n  }\n\n  function debugLog(label, fields) {\n    if (!isDebugMode()) return;\n    try {\n      console.info(CONFIG.logPrefix, label, fields || {});\n    } catch (error) {}\n  }\n\n  function getSearchParam(keys) {\n    try {\n      var params = new URLSearchParams(window.location.search);\n      for (var i = 0; i < keys.length; i += 1) {\n        var value = trim(params.get(keys[i]));\n        if (value) return value;\n      }\n    } catch (error) {}\n    return '';\n  }\n\n  function isCheckoutPage() {\n    var href = (window.location.pathname + ' ' + window.location.href).toLowerCase();\n    if (/shop_payment_complete|shop_order_done|order_complete|payment_complete/.test(href)) return false;\n    return /shop_payment|shop_order|order_form|checkout/.test(href);\n  }\n\n  function getPreviewSessionId() {\n    var current = readSessionText(CONFIG.previewSessionKey);\n    if (current) return current;\n    var created = 'mid_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);\n    writeSessionText(CONFIG.previewSessionKey, created);\n    return created;\n  }\n\n  function stableHash(value) {\n    var text = trim(value);\n    var hash = 2166136261;\n    for (var i = 0; i < text.length; i += 1) {\n      hash ^= text.charCodeAt(i);\n      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);\n    }\n    return ('00000000' + (hash >>> 0).toString(16)).slice(-8);\n  }\n\n  function getOrderHints(checkoutContext) {\n    checkoutContext = checkoutContext || {};\n    return {\n      orderCode: firstNonEmpty([\n        getSearchParam(['order_code', 'orderCode']),\n        checkoutContext.orderCode,\n        checkoutContext.order_code\n      ]),\n      orderNo: firstNonEmpty([\n        getSearchParam(['order_no', 'orderNo']),\n        checkoutContext.orderNo,\n        checkoutContext.order_no\n      ]),\n      orderMember: firstNonEmpty([\n        getSearchParam(['order_member', 'orderMember']),\n        checkoutContext.orderMember,\n        checkoutContext.order_member\n      ]),\n      checkoutId: firstNonEmpty([\n        checkoutContext.checkoutId,\n        checkoutContext.checkout_id,\n        getSearchParam(['checkoutId', 'checkout_id'])\n      ])\n    };\n  }\n\n  function hasOrderHint(hints) {\n    return Boolean(hints.orderCode || hints.orderNo || hints.checkoutId);\n  }\n\n  function buildDedupeKey(hints) {\n    var basis = firstNonEmpty([\n      hints.checkoutId,\n      hints.orderCode,\n      hints.orderNo,\n      window.location.pathname\n    ]);\n    return CONFIG.dedupeKeyPrefix + stableHash(basis);\n  }\n\n  function parsePriceFromText(raw) {\n    var text = trim(raw).replace(/,/g, '');\n    if (!text) return null;\n    var matches = text.match(/[0-9]+(?:\\.[0-9]+)?/g);\n    if (!matches || !matches.length) return null;\n    var best = 0;\n    for (var i = 0; i < matches.length; i += 1) {\n      var value = Number(matches[i]);\n      if (Number.isFinite(value) && value > best) best = value;\n    }\n    return best > 0 ? best : null;\n  }\n\n  function parsePriceAfterLabel(raw, label) {\n    var text = trim(raw).replace(/\\s+/g, ' ');\n    var index = text.indexOf(label);\n    if (index < 0) return null;\n    var rest = text.slice(index + label.length);\n    var wonMatch = rest.match(/([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*원/);\n    if (wonMatch && wonMatch[1]) {\n      var wonValue = Number(wonMatch[1].replace(/,/g, ''));\n      if (Number.isFinite(wonValue) && wonValue > 0) return wonValue;\n    }\n    return parsePriceFromText(rest);\n  }\n\n  function isVisible(node) {\n    try {\n      if (!node) return false;\n      var style = window.getComputedStyle ? window.getComputedStyle(node) : null;\n      if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;\n      var rect = node.getBoundingClientRect ? node.getBoundingClientRect() : null;\n      return !rect || (rect.width > 0 && rect.height > 0);\n    } catch (error) {\n      return true;\n    }\n  }\n\n  function readOrderSummaryValue() {\n    var selectors = ['#oms-shop-payment', 'main', 'body'];\n    for (var i = 0; i < selectors.length; i += 1) {\n      var node = null;\n      try {\n        node = document.querySelector(selectors[i]);\n      } catch (error) {\n        node = null;\n      }\n      if (!node) continue;\n      var text = node.innerText || node.textContent || '';\n      if (text.indexOf('주문 요약') < 0 || text.indexOf('총 주문금액') < 0) continue;\n      var value = parsePriceAfterLabel(text, '총 주문금액');\n      if (value) {\n        return {\n          value: value,\n          valueStatus: 'present',\n          selector: selectors[i] + ' text:총 주문금액'\n        };\n      }\n    }\n    return null;\n  }\n\n  function readValueCandidate() {\n    var orderSummaryValue = readOrderSummaryValue();\n    if (orderSummaryValue) return orderSummaryValue;\n\n    for (var i = 0; i < CONFIG.valueSelectors.length; i += 1) {\n      var selector = CONFIG.valueSelectors[i];\n      var nodes = [];\n      try {\n        nodes = Array.prototype.slice.call(document.querySelectorAll(selector));\n      } catch (error) {\n        nodes = [];\n      }\n      for (var j = 0; j < nodes.length; j += 1) {\n        if (!isVisible(nodes[j])) continue;\n        var value = parsePriceFromText(nodes[j].getAttribute('data-payment-total') ||\n          nodes[j].getAttribute('data-order-total') ||\n          nodes[j].getAttribute('data-total-price') ||\n          nodes[j].textContent);\n        if (value) {\n          return { value: value, valueStatus: 'present', selector: selector };\n        }\n      }\n    }\n    return { value: null, valueStatus: 'missing', selector: '' };\n  }\n\n  function compactPreviewPayload(hints, checkoutContext, clickContext, valueResult) {\n    var previewSessionId = getPreviewSessionId();\n    var eventIdBasis = firstNonEmpty([hints.checkoutId, previewSessionId]);\n    return {\n      event: CONFIG.dataLayerEventName,\n      eventName: CONFIG.eventName,\n      eventID: CONFIG.eventName + '.' + stableHash(eventIdBasis),\n      noSend: true,\n      noFbq: true,\n      noPixelRequest: true,\n      snippetVersion: CONFIG.snippetVersion,\n      pagePath: window.location.pathname,\n      customData: {\n        currency: 'KRW',\n        value: valueResult.value,\n        value_status: valueResult.valueStatus,\n        value_selector: valueResult.selector,\n        checkout_id_present: Boolean(hints.checkoutId),\n        order_code_present: Boolean(hints.orderCode),\n        order_no_present: Boolean(hints.orderNo),\n        order_member_present: Boolean(hints.orderMember),\n        client_id_present: Boolean(checkoutContext.clientId),\n        ga_session_id_present: Boolean(checkoutContext.gaSessionId),\n        gclid_present: Boolean(clickContext.gclid),\n        gbraid_present: Boolean(clickContext.gbraid),\n        wbraid_present: Boolean(clickContext.wbraid),\n        gad_campaignid_present: Boolean(clickContext.gad_campaignid),\n        google_click_id_source: clickContext.google_click_id_source || ''\n      }\n    };\n  }\n\n  function runPreview() {\n    if (!isCheckoutPage()) {\n      debugLog('blocked', { reason: 'not_checkout_page' });\n      return;\n    }\n\n    var checkoutContext = readSessionJson(CONFIG.checkoutContextKey);\n    var clickContext = firstNonEmpty([\n      JSON.stringify(readSessionJson(CONFIG.clickContextKey)),\n      JSON.stringify(readLocalJson(CONFIG.clickContextKey))\n    ]);\n    clickContext = safeParse(clickContext);\n    var hints = getOrderHints(checkoutContext);\n\n    if (!hasOrderHint(hints)) {\n      debugLog('blocked', { reason: 'missing_order_hint' });\n      return;\n    }\n\n    var dedupeKey = buildDedupeKey(hints);\n    if (readSessionText(dedupeKey)) {\n      debugLog('blocked', { reason: 'deduped' });\n      return;\n    }\n\n    var valueResult = readValueCandidate();\n    var payload = compactPreviewPayload(hints, checkoutContext, clickContext, valueResult);\n    writeSessionText(dedupeKey, new Date().toISOString());\n\n    window.dataLayer = window.dataLayer || [];\n    window.dataLayer.push(payload);\n    window.__THECLEANCOFFEE_META_MIDDLE_FUNNEL_PREVIEW_LAST__ = payload;\n    debugLog('preview', payload);\n  }\n\n  if (document.readyState === 'loading') {\n    document.addEventListener('DOMContentLoaded', runPreview, { once: true });\n  } else {\n    runPreview();\n  }\n})();\n</script>"
+            },
+            {
+              "type": "boolean",
+              "key": "supportDocumentWrite",
+              "value": "false"
+            }
+          ],
+          "fingerprint": "1779596976032",
+          "firingTriggerId": [
+            "95"
+          ],
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/tags/96?apiLink=tag",
+          "consentSettings": {
+            "consentStatus": "notSet"
+          }
+        }
+      ]
+    },
+    "triggers": {
+      "trigger": [
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/86",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "86",
+          "name": "A-4 Coffee Snippet Installer Trigger (Window Loaded)",
+          "type": "windowLoaded",
+          "fingerprint": "1777705462834",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/86?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/84",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "84",
+          "name": "A-4 Coffee NPay Intent Dispatcher Trigger (All Pages)",
+          "type": "pageview",
+          "fingerprint": "1777704411398",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/84?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/70",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "70",
+          "name": "정기구독 신청완료",
+          "type": "customEvent",
+          "customEventFilter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{_event}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "ga4_purchase"
+                }
+              ]
+            }
+          ],
+          "filter": [
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page Path}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "shop_payment_complete"
+                }
+              ]
+            },
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Classes}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "정기구독"
+                }
+              ]
+            },
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{HURDLERS - GA4 상품정보}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "item_name: \"더클린커피 초신선원두 정기구독"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1711955736449",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/70?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/71",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "71",
+          "name": "정기구독 해지 완료 클릭",
+          "type": "click",
+          "filter": [
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Text}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "확인"
+                }
+              ]
+            },
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page Path}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "shop_mypage"
+                }
+              ]
+            },
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "m2=regularly"
+                }
+              ]
+            },
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click ID}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "dialog_popup_alert_btn"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1711954290886",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/71?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/68",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "68",
+          "name": "채널톡_초대코드 복사하기",
+          "type": "linkClick",
+          "filter": [
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Text}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "복사하기"
+                }
+              ]
+            },
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Classes}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "_recommend_set"
+                }
+              ]
+            }
+          ],
+          "waitForTags": {
+            "type": "boolean",
+            "value": "false"
+          },
+          "checkValidation": {
+            "type": "boolean",
+            "value": "false"
+          },
+          "waitForTagsTimeout": {
+            "type": "template",
+            "value": "2000"
+          },
+          "uniqueTriggerId": {
+            "type": "template"
+          },
+          "fingerprint": "1690191838256",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/68?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/67",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "67",
+          "name": "채널톡_초대코드 생성하기",
+          "type": "linkClick",
+          "filter": [
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Classes}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "text-primary"
+                }
+              ]
+            },
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "/shop_mypage"
+                }
+              ]
+            },
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Text}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "생성하기"
+                }
+              ]
+            }
+          ],
+          "waitForTags": {
+            "type": "boolean",
+            "value": "false"
+          },
+          "checkValidation": {
+            "type": "boolean",
+            "value": "false"
+          },
+          "waitForTagsTimeout": {
+            "type": "template",
+            "value": "2000"
+          },
+          "uniqueTriggerId": {
+            "type": "template"
+          },
+          "fingerprint": "1690191527284",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/67?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/64",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "64",
+          "name": "scroll25",
+          "type": "scrollDepth",
+          "fingerprint": "1683018146188",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/64?apiLink=trigger",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "verticalThresholdUnits",
+              "value": "PERCENT"
+            },
+            {
+              "type": "template",
+              "key": "verticalThresholdsPercent",
+              "value": "25"
+            },
+            {
+              "type": "boolean",
+              "key": "verticalThresholdOn",
+              "value": "true"
+            },
+            {
+              "type": "template",
+              "key": "triggerStartOption",
+              "value": "WINDOW_LOAD"
+            },
+            {
+              "type": "boolean",
+              "key": "horizontalThresholdOn",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/31",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "31",
+          "name": "HURDLE - [DOM 사용 가능] 모든페이지 조회",
+          "type": "domReady",
+          "filter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{HURDLERS - Iframe}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "false"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023261",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/31?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/34",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "34",
+          "name": "HURDLE - [맞춤 이벤트] 주문서작성",
+          "type": "customEvent",
+          "customEventFilter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{_event}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "begin_checkout"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023262",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/34?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/36",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "36",
+          "name": "HURDLE - [링크클릭] 네이버페이 구매 (장바구니)",
+          "type": "click",
+          "filter": [
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Classes}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "npay_btn_pay"
+                }
+              ]
+            },
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "\\/shop_cart$"
+                },
+                {
+                  "type": "boolean",
+                  "key": "ignore_case",
+                  "value": "true"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023263",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/36?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/41",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "41",
+          "name": "HURDLE - [맞춤 이벤트] 장바구니 담기",
+          "type": "customEvent",
+          "customEventFilter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{_event}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "add_to_cart"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023263",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/41?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/43",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "43",
+          "name": "HURDLE - [맞춤 이벤트] 구매",
+          "type": "customEvent",
+          "customEventFilter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{_event}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "ga4_purchase"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023264",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/43?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/50",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "50",
+          "name": "HURDLE - [DOM 사용 가능] 주문서작성",
+          "type": "domReady",
+          "filter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{HURDLERS - Iframe}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "false"
+                }
+              ]
+            },
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "\\/shop_payment\\/\\?(order_code=)"
+                },
+                {
+                  "type": "boolean",
+                  "key": "ignore_case",
+                  "value": "true"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023266",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/50?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/52",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "52",
+          "name": "HURDLE - Event - 네이버페이 구매",
+          "type": "customEvent",
+          "customEventFilter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{_event}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "NpayPurchase"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023267",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/52?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/53",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "53",
+          "name": "HURDLE - [맞춤 이벤트] 상세페이지 조회",
+          "type": "customEvent",
+          "customEventFilter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{_event}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "view_item"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023268",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/53?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/55",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "55",
+          "name": "HURDLE - [링크클릭] 네이버페이구매(제품상세)",
+          "type": "linkClick",
+          "filter": [
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Classes}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "npay_btn_pay"
+                }
+              ]
+            },
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "\\?idx\\=([0-9]{1,3})$"
+                },
+                {
+                  "type": "boolean",
+                  "key": "ignore_case",
+                  "value": "true"
+                }
+              ]
+            }
+          ],
+          "waitForTags": {
+            "type": "boolean",
+            "value": "false"
+          },
+          "checkValidation": {
+            "type": "boolean",
+            "value": "false"
+          },
+          "waitForTagsTimeout": {
+            "type": "template",
+            "value": "2000"
+          },
+          "uniqueTriggerId": {
+            "type": "template"
+          },
+          "fingerprint": "1663575023268",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/55?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/58",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "58",
+          "name": "HURDLE - [클릭] 장바구니 담기",
+          "type": "click",
+          "filter": [
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Classes}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "_btn_cart"
+                }
+              ]
+            },
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "\\?idx\\=([0-9]{1,3})$"
+                },
+                {
+                  "type": "boolean",
+                  "key": "ignore_case",
+                  "value": "true"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023269",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/58?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/60",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "60",
+          "name": "HURDLE - [DOM 사용 가능] 상세페이지 조회",
+          "type": "domReady",
+          "filter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{HURDLERS - Iframe}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "false"
+                }
+              ]
+            },
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "\\?idx\\=([0-9]{1,3})$"
+                },
+                {
+                  "type": "boolean",
+                  "key": "ignore_case",
+                  "value": "true"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023269",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/60?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/61",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "61",
+          "name": "HURDLE - [DOM 사용 가능] 일반구매",
+          "type": "domReady",
+          "filter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{HURDLERS - Iframe}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "false"
+                }
+              ]
+            },
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "\\/shop_payment(\\_complete)\\/"
+                },
+                {
+                  "type": "boolean",
+                  "key": "ignore_case",
+                  "value": "true"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1663575023270",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/61?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/18",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "18",
+          "name": "이벤트-클릭-1초회원가입",
+          "type": "click",
+          "filter": [
+            {
+              "type": "contains",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click Text}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "카카오 1초 회원가입"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1660983598889",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/18?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/21",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "21",
+          "name": "이벤트-클릭-카톡채널",
+          "type": "linkClick",
+          "filter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Click URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "https://pf.kakao.com/_JwdMs"
+                }
+              ]
+            }
+          ],
+          "waitForTags": {
+            "type": "boolean",
+            "value": "false"
+          },
+          "checkValidation": {
+            "type": "boolean",
+            "value": "false"
+          },
+          "waitForTagsTimeout": {
+            "type": "template",
+            "value": "2000"
+          },
+          "uniqueTriggerId": {
+            "type": "template"
+          },
+          "fingerprint": "1660984690623",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/21?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/11",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "11",
+          "name": "이벤트 - 스크롤",
+          "type": "scrollDepth",
+          "fingerprint": "1660978827122",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/11?apiLink=trigger",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "verticalThresholdUnits",
+              "value": "PERCENT"
+            },
+            {
+              "type": "template",
+              "key": "verticalThresholdsPercent",
+              "value": "25,50,75,90"
+            },
+            {
+              "type": "boolean",
+              "key": "verticalThresholdOn",
+              "value": "true"
+            },
+            {
+              "type": "template",
+              "key": "triggerStartOption",
+              "value": "WINDOW_LOAD"
+            },
+            {
+              "type": "boolean",
+              "key": "horizontalThresholdOn",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/5",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "5",
+          "name": "모든 링크 클릭",
+          "type": "linkClick",
+          "autoEventFilter": [
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": ".*"
+                }
+              ]
+            }
+          ],
+          "waitForTags": {
+            "type": "boolean",
+            "value": "true"
+          },
+          "checkValidation": {
+            "type": "boolean",
+            "value": "true"
+          },
+          "waitForTagsTimeout": {
+            "type": "template",
+            "value": "2000"
+          },
+          "uniqueTriggerId": {
+            "type": "template"
+          },
+          "fingerprint": "1660278624633",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/5?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/6",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "6",
+          "name": "긴 조회 시간(page_view_long)",
+          "type": "timer",
+          "autoEventFilter": [
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": ".*"
+                }
+              ]
+            }
+          ],
+          "eventName": {
+            "type": "template",
+            "value": "gtm.timer"
+          },
+          "interval": {
+            "type": "template",
+            "value": "420000"
+          },
+          "limit": {
+            "type": "template",
+            "value": "1"
+          },
+          "fingerprint": "1660278624633",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/6?apiLink=trigger"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/triggers/95",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "triggerId": "95",
+          "name": "codex_coffee_shop_payment_domready_nosend_20260524T042930Z",
+          "type": "domReady",
+          "filter": [
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page Hostname}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "thecleancoffee.com"
+                }
+              ]
+            },
+            {
+              "type": "matchRegex",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{Page URL}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "\\/shop_payment\\/?\\?.*(order_code|order_no|orderCode|orderNo)="
+                },
+                {
+                  "type": "boolean",
+                  "key": "ignore_case",
+                  "value": "true"
+                }
+              ]
+            },
+            {
+              "type": "equals",
+              "parameter": [
+                {
+                  "type": "template",
+                  "key": "arg0",
+                  "value": "{{HURDLERS - Iframe}}"
+                },
+                {
+                  "type": "template",
+                  "key": "arg1",
+                  "value": "false"
+                }
+              ]
+            }
+          ],
+          "fingerprint": "1779596974602",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/triggers/95?apiLink=trigger",
+          "notes": "Preview only. Fires on Coffee shop_payment order pages. No submit/create version/publish."
+        }
+      ]
+    },
+    "variables": {
+      "variable": [
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/29",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "29",
+          "name": "HURDLERS - GA4 아이디",
+          "type": "c",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "value",
+              "value": "G-XXXXXXXXX"
+            }
+          ],
+          "fingerprint": "1663575120747",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/29?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/30",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "30",
+          "name": "HURDLERS - Iframe",
+          "type": "jsm",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "javascript",
+              "value": "function() {\n    try {\n      return window.top !== window.self;\n    } catch(e) {\n      return false;\n    }\n}"
+            }
+          ],
+          "fingerprint": "1663575023270",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/30?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/33",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "33",
+          "name": "HURDLERS - GA4 상품정보",
+          "type": "v",
+          "parameter": [
+            {
+              "type": "integer",
+              "key": "dataLayerVersion",
+              "value": "2"
+            },
+            {
+              "type": "boolean",
+              "key": "setDefaultValue",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "name",
+              "value": "hurdlers_ga4.items"
+            }
+          ],
+          "fingerprint": "1663575023261",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/33?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/37",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "37",
+          "name": "HURDLERS - 네이버페이 구매 아이디",
+          "type": "jsm",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "javascript",
+              "value": "function() {\n    var now = new Date();\n    var y = now.getFullYear();\n    var m = now.getMonth() + 1 < 10 ? '0' + now.getMonth() + 1: now.getMonth() + 1;\n    var d = now.getDate() < 10 ? '0' + now.getDate() : now.getDate();\n\n    return (\"NPAY - \" + y + m + d + \" - \" + now.getTime());\n}"
+            }
+          ],
+          "fingerprint": "1663575023271",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/37?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/38",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "38",
+          "name": "HURDLERS - 브랜드명",
+          "type": "c",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "value",
+              "value": "thecleancoffee"
+            }
+          ],
+          "fingerprint": "1663575559853",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/38?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/42",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "42",
+          "name": "HURDLES - [상세페이지] 상품정보",
+          "type": "jsm",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "javascript",
+              "value": "/* 아임웹 --> 전환추적/리타게팅관리 --> 상품조회 --> 서버 변수 미리세팅\n\n<!-- HURDLE 향상된 전자상거래 코드 세팅 -->\n<script>\n\tvar HURDLE_product_name = '$prod_name';\n\tvar HURDLE_product_id = '$prod_id';\n\tvar HURDLE_product_price = '$prod_price';\n</script>\n<!-- HURDLE 향상된 전자상거래 코드 세팅 끝-->\n\n*/\n\nfunction() {\n\tvar HURDLE_products = [{\n\t\t'item_name' : window.HURDLE_product_name,\n\t\t'item_id' : window.HURDLE_product_id,\n\t\t'price' : window.HURDLE_product_price\n\t}];\n  return HURDLE_products;\n}"
+            }
+          ],
+          "fingerprint": "1663575023272",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/42?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/45",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "45",
+          "name": "HURDLERS - GA4 Affiliation",
+          "type": "v",
+          "parameter": [
+            {
+              "type": "integer",
+              "key": "dataLayerVersion",
+              "value": "2"
+            },
+            {
+              "type": "boolean",
+              "key": "setDefaultValue",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "name",
+              "value": "hurdlers_ga4.affiliation"
+            }
+          ],
+          "fingerprint": "1663575023264",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/45?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/46",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "46",
+          "name": "HURDLERS - GA4 shipping",
+          "type": "v",
+          "parameter": [
+            {
+              "type": "integer",
+              "key": "dataLayerVersion",
+              "value": "2"
+            },
+            {
+              "type": "boolean",
+              "key": "setDefaultValue",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "name",
+              "value": "hurdlers_ga4.shipping"
+            }
+          ],
+          "fingerprint": "1663575023265",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/46?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/47",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "47",
+          "name": "HURDLERS - GA4 Transaction_id",
+          "type": "v",
+          "parameter": [
+            {
+              "type": "integer",
+              "key": "dataLayerVersion",
+              "value": "2"
+            },
+            {
+              "type": "boolean",
+              "key": "setDefaultValue",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "name",
+              "value": "hurdlers_ga4.transaction_id"
+            }
+          ],
+          "fingerprint": "1663575023265",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/47?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/48",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "48",
+          "name": "HURDLERS - GA4 Value",
+          "type": "v",
+          "parameter": [
+            {
+              "type": "integer",
+              "key": "dataLayerVersion",
+              "value": "2"
+            },
+            {
+              "type": "boolean",
+              "key": "setDefaultValue",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "name",
+              "value": "hurdlers_ga4.value"
+            }
+          ],
+          "fingerprint": "1663575023266",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/48?apiLink=variable",
+          "formatValue": {}
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/57",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "57",
+          "name": "HURDLES - 구글 애널리틱스 설정",
+          "type": "gas",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "cookieDomain",
+              "value": "auto"
+            },
+            {
+              "type": "boolean",
+              "key": "useEcommerceDataLayer",
+              "value": "true"
+            },
+            {
+              "type": "boolean",
+              "key": "doubleClick",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "setTrackerName",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "useDebugVersion",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "useGA4SchemaForEcommerce",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "useHashAutoLink",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "decorateFormsAutoLink",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableLinkId",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableEcommerce",
+              "value": "true"
+            },
+            {
+              "type": "template",
+              "key": "trackingId",
+              "value": "{{HURDLERS - GA4 아이디}}"
+            }
+          ],
+          "fingerprint": "1663575023269",
+          "parentFolderId": "28",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/57?apiLink=variable"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/9",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "9",
+          "name": "UA 추적",
+          "type": "gas",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "cookieDomain",
+              "value": "auto"
+            },
+            {
+              "type": "boolean",
+              "key": "doubleClick",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "setTrackerName",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "useDebugVersion",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "useHashAutoLink",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "decorateFormsAutoLink",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableLinkId",
+              "value": "false"
+            },
+            {
+              "type": "boolean",
+              "key": "enableEcommerce",
+              "value": "false"
+            },
+            {
+              "type": "template",
+              "key": "trackingId",
+              "value": "UA-147278175-3"
+            }
+          ],
+          "fingerprint": "1660884004828",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/9?apiLink=variable"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/variables/3",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "variableId": "3",
+          "name": "GA4 추적 아이디",
+          "type": "c",
+          "parameter": [
+            {
+              "type": "template",
+              "key": "value",
+              "value": "G-JLSBXX7300"
+            }
+          ],
+          "fingerprint": "1660278639899",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/variables/3?apiLink=variable",
+          "formatValue": {}
+        }
+      ]
+    },
+    "folders": {
+      "folder": [
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/folders/28",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "folderId": "28",
+          "name": "HURDLE 향상된 전자상거래",
+          "fingerprint": "1663575023259",
+          "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/91608400/workspaces/30/folders?apiLink=folder"
+        }
+      ]
+    },
+    "built_in_variables": {
+      "builtInVariable": [
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "analyticsClientId",
+          "name": "Analytics Client ID"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "analyticsSessionId",
+          "name": "Analytics Session ID"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "formElement",
+          "name": "Form Element"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "formClasses",
+          "name": "Form Classes"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "formId",
+          "name": "Form ID"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "formTarget",
+          "name": "Form Target"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "formUrl",
+          "name": "Form URL"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "formText",
+          "name": "Form Text"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "scrollDepthUnits",
+          "name": "Scroll Depth Units"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "scrollDepthDirection",
+          "name": "Scroll Direction"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "clickElement",
+          "name": "Click Element"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "clickClasses",
+          "name": "Click Classes"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "clickId",
+          "name": "Click ID"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "clickTarget",
+          "name": "Click Target"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "clickUrl",
+          "name": "Click URL"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "clickText",
+          "name": "Click Text"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "scrollDepthThreshold",
+          "name": "Scroll Depth Threshold"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "pageUrl",
+          "name": "Page URL"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "pageHostname",
+          "name": "Page Hostname"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "pagePath",
+          "name": "Page Path"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "referrer",
+          "name": "Referrer"
+        },
+        {
+          "path": "accounts/4703003246/containers/91608400/workspaces/30/built_in_variables",
+          "accountId": "4703003246",
+          "containerId": "91608400",
+          "workspaceId": "30",
+          "type": "event",
+          "name": "Event"
+        }
+      ]
+    },
+    "cleanup_eligibility": {
+      "eligible": true,
+      "reason": "exact no-send preview workspace name match and not Default Workspace"
+    }
+  },
+  "submit_create_version_publish_taken": false,
+  "existing_live_tags_modified": false,
+  "production_publish_taken": false,
+  "platform_send_taken": false,
+  "verdict": "PASS_PREVIEW_WORKSPACE30_CLEANUP"
+}

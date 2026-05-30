@@ -112,7 +112,14 @@ type UtmInvalidAuditRow = UtmAuditSignature & {
 };
 
 type NaverEvidenceAggregateRow = {
-  class: "paid_naver" | "naver_brandsearch" | "organic_naver_candidate" | "naver_referrer_or_utm_only";
+  class:
+    | "paid_naver"
+    | "naver_brandsearch"
+    | "naver_shopping_ad"
+    | "naver_display"
+    | "naver_shopping_search_candidate"
+    | "organic_naver_candidate"
+    | "naver_referrer_or_utm_only";
   touchpoint: string;
   rows: number;
   bridgeKeyPresent: number;
@@ -125,6 +132,9 @@ type NaverEvidenceAggregateRow = {
 const NAVER_EVIDENCE_CLASSES: NaverEvidenceAggregateRow["class"][] = [
   "paid_naver",
   "naver_brandsearch",
+  "naver_shopping_ad",
+  "naver_display",
+  "naver_shopping_search_candidate",
   "organic_naver_candidate",
   "naver_referrer_or_utm_only",
 ];
@@ -323,6 +333,20 @@ const safeUrlParam = (key: string, ...values: unknown[]) => {
   return "";
 };
 
+const decodeTextLoose = (value: string) => {
+  if (!value) return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const extractNapmTrCode = (napm: string) => {
+  const decoded = decodeTextLoose(napm);
+  return decoded.match(/(?:^|\|)tr=([^|&]+)/i)?.[1]?.toLowerCase() || "";
+};
+
 const paidMedium = (value: unknown) =>
   /^(cpc|ppc|paid|paid_social|social_paid|display|shopping|performance|max)$/i.test(readString(value));
 
@@ -406,6 +430,10 @@ const naverEvidenceProfile = (entry: LedgerItem | undefined) => {
       hasNaverReferrer: false,
       hasNaverSearchReferrer: false,
       hasNaverPaidMarker: false,
+      hasNaverShoppingAdMarker: false,
+      hasNaverDisplayMarker: false,
+      hasNaverBrandsearchMarker: false,
+      hasNaverShoppingMarker: false,
       hasDirectNaverSearchReferrer: false,
       hasFirstTouchNaverSearchReferrer: false,
     };
@@ -426,23 +454,71 @@ const naverEvidenceProfile = (entry: LedgerItem | undefined) => {
   const allText = `${directText} ${firstTouchText}`;
   const directNapm = safeUrlParam("NaPm", entry.landing, entry.referrer);
   const firstNapm = safeUrlParam("NaPm", firstTouch.landing, firstTouch.referrer);
-  const paidUtm =
-    (sourceIs(entry.utmSource, ["naver"]) || sourceIs(firstTouch.utmSource, ["naver"])) &&
-    (paidMedium(entry.utmMedium) || paidMedium(firstTouch.utmMedium));
-  const paidMarker = directNapm || firstNapm || paidUtm || includesAny(allText, [
+  const directNapmTr = extractNapmTrCode(directNapm);
+  const firstNapmTr = extractNapmTrCode(firstNapm);
+  const directPaidUtm = sourceIs(entry.utmSource, ["naver"]) && paidMedium(entry.utmMedium);
+  const firstPaidUtm = sourceIs(firstTouch.utmSource, ["naver"]) && paidMedium(firstTouch.utmMedium);
+  const directShoppingUtm = sourceIs(entry.utmSource, ["naver"]) && /^(shopping|shopping_search|shoppingsearch|npla)$/i.test(readString(entry.utmMedium));
+  const firstShoppingUtm = sourceIs(firstTouch.utmSource, ["naver"]) && /^(shopping|shopping_search|shoppingsearch|npla)$/i.test(readString(firstTouch.utmMedium));
+  const directDisplayUtm = sourceIs(entry.utmSource, ["naver"]) && /^(display|gfa|advoost|adboost|performance_display|performance-display)$/i.test(readString(entry.utmMedium));
+  const firstDisplayUtm = sourceIs(firstTouch.utmSource, ["naver"]) && /^(display|gfa|advoost|adboost|performance_display|performance-display)$/i.test(readString(firstTouch.utmMedium));
+  const paidMarkerTokens = [
     "powerlink",
-    "brandsearch",
     "naverad",
     "nvadid",
-    "n_media",
-    "n_query",
-  ]);
+    "n_media=",
+    "n_query=",
+    "n_rank=",
+    "n_ad_group=",
+    "n_ad=",
+    "n_campaign_type=",
+    "n_ad_group_type=",
+    "n_match=",
+  ];
+  const directPaidMarker = Boolean(directPaidUtm || directNapmTr === "sa" || includesAny(directText, paidMarkerTokens));
+  const firstPaidMarker = Boolean(firstPaidUtm || firstNapmTr === "sa" || includesAny(firstTouchText, paidMarkerTokens));
+  const brandsearchMarker = Boolean(
+    directNapmTr === "brnd" ||
+    firstNapmTr === "brnd" ||
+    includesAny(allText, ["brandsearch", "brand_search", "naverbrandsearch"]),
+  );
+  const shoppingMarker = Boolean(
+    directNapmTr === "slsl" ||
+    firstNapmTr === "slsl" ||
+    includesAny(allText, ["shopping.naver.com", "m.shopping.naver.com", "shoppingsearch", "tr=slsl"]),
+  );
+  const shoppingAdMarker = Boolean(
+    directShoppingUtm ||
+    firstShoppingUtm ||
+    includesAny(allText, ["ader.naver.com", "naver.search.pc.npla", "naver.search.mobile.npla", "npla"]),
+  );
+  const displayMarker = Boolean(
+    directDisplayUtm ||
+    firstDisplayUtm ||
+    includesAny(allText, [
+      "advoost",
+      "adboost",
+      "gfa",
+      "naver_display",
+      "naver-display",
+      "performance_display",
+      "performance-display",
+      "naver_da",
+      "naverda",
+    ]),
+  );
   const hasDirectNaverSearchReferrer = includesAny(directReferrer, NAVER_SEARCH_REFERRERS);
   const hasFirstTouchNaverSearchReferrer = includesAny(firstReferrer, NAVER_SEARCH_REFERRERS);
   return {
     hasNaverReferrer: includesAny(`${directReferrer} ${firstReferrer}`, NAVER_REFERRERS),
     hasNaverSearchReferrer: hasDirectNaverSearchReferrer || hasFirstTouchNaverSearchReferrer,
-    hasNaverPaidMarker: Boolean(paidMarker),
+    hasNaverPaidMarker: Boolean(directPaidMarker || firstPaidMarker),
+    hasDirectNaverPaidMarker: directPaidMarker,
+    hasFirstTouchNaverPaidMarker: firstPaidMarker,
+    hasNaverShoppingAdMarker: shoppingAdMarker,
+    hasNaverDisplayMarker: displayMarker,
+    hasNaverBrandsearchMarker: brandsearchMarker,
+    hasNaverShoppingMarker: shoppingMarker,
     hasDirectNaverSearchReferrer,
     hasFirstTouchNaverSearchReferrer,
   };
@@ -543,12 +619,12 @@ const classifyEvidence = (entry: LedgerItem | undefined): {
   if (directGclid) add({ channel: "paid_google", tier: "paid_google_order_click_id", confidence: "A", strength: 100 });
   if (directTtclid) add({ channel: "paid_tiktok", tier: "paid_tiktok_order_click_id", confidence: "A", strength: 100 });
   if (directFbclid || directFbc) add({ channel: "paid_meta", tier: "paid_meta_order_click_id", confidence: "A", strength: 100 });
-  if (directNapm) add({ channel: "paid_naver", tier: "paid_naver_order_click_id", confidence: "A", strength: 100 });
+  if (naverProfile.hasDirectNaverPaidMarker) add({ channel: "paid_naver", tier: "paid_naver_order_click_id", confidence: "A", strength: 100 });
 
   if (firstGclid) add({ channel: "paid_google", tier: "paid_google_checkout_first_touch", confidence: firstTouchStrong ? "B" : "C", strength: 80 });
   if (firstTtclid) add({ channel: "paid_tiktok", tier: "paid_tiktok_checkout_first_touch", confidence: firstTouchStrong ? "B" : "C", strength: 80 });
   if (firstFbclid || firstFbc) add({ channel: "paid_meta", tier: "paid_meta_checkout_first_touch", confidence: firstTouchStrong ? "B" : "C", strength: 80 });
-  if (firstNapm) add({ channel: "paid_naver", tier: "paid_naver_checkout_first_touch", confidence: firstTouchStrong ? "B" : "C", strength: 80 });
+  if (naverProfile.hasFirstTouchNaverPaidMarker) add({ channel: "paid_naver", tier: "paid_naver_checkout_first_touch", confidence: firstTouchStrong ? "B" : "C", strength: 80 });
 
   if (paidMedium(entry.utmMedium) || paidMedium(firstTouch.utmMedium)) {
     if (sourceIs(entry.utmSource, ["google"]) || sourceIs(firstTouch.utmSource, ["google"])) {
@@ -1385,16 +1461,22 @@ const classifyNaverAggregateItem = (item: LedgerItem): NaverEvidenceAggregateRow
   ].map((value) => readString(value).toLowerCase()).join(" ");
   const hasNaverAny = profile.hasNaverReferrer || profile.hasNaverPaidMarker || text.includes("naver") || text.includes("napm");
   if (!hasNaverAny) return null;
-  if (includesAny(text, ["brandsearch", "brand_search", "naverbrandsearch"])) return "naver_brandsearch";
+  if (profile.hasNaverBrandsearchMarker || includesAny(text, ["brandsearch", "brand_search", "naverbrandsearch"])) return "naver_brandsearch";
+  if (profile.hasNaverShoppingAdMarker) return "naver_shopping_ad";
+  if (profile.hasNaverDisplayMarker) return "naver_display";
   if (profile.hasNaverPaidMarker) return "paid_naver";
+  if (profile.hasNaverShoppingMarker) return "naver_shopping_search_candidate";
   if (profile.hasNaverSearchReferrer) return "organic_naver_candidate";
   if (profile.hasNaverReferrer || text.includes("naver")) return "naver_referrer_or_utm_only";
   return null;
 };
 
 const naverAggregateNote = (classification: NaverEvidenceAggregateRow["class"]) => {
-  if (classification === "paid_naver") return "NaPm/n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다.";
+  if (classification === "paid_naver") return "n_* 또는 paid UTM 계열이 있어 네이버 광고 후보로만 둔다. NaPm 단독은 paid 근거로 쓰지 않는다.";
   if (classification === "naver_brandsearch") return "brandsearch marker가 있어 네이버 브랜드검색 후보로만 둔다.";
+  if (classification === "naver_shopping_ad") return "ader/npla/NaPm shopping marker가 있어 네이버 쇼핑검색/가격비교 광고 후보로 둔다.";
+  if (classification === "naver_display") return "GFA/ADVoost/display marker가 있어 네이버 성과 디스플레이 광고 후보로 둔다.";
+  if (classification === "naver_shopping_search_candidate") return "shopping.naver 또는 NaPm shopping marker가 있어 네이버 쇼핑검색 후보로만 둔다.";
   if (classification === "organic_naver_candidate") return "네이버 검색 referrer는 있으나 paid marker가 없어 자연검색 후보로 둔다.";
   return "네이버 흔적은 있으나 paid/brandsearch/organic 확정 조건을 충족하지 않는다.";
 };

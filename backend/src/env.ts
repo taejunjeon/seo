@@ -79,6 +79,7 @@ const envSource = {
   META_PIXEL_ID_AIBIO: process.env.META_PIXEL_ID_AIBIO ?? "1068377347547682",
   META_EVENT_CODE_BIOCOM: process.env.META_EVENT_CODE_BIOCOM,
   META_EVENT_CODE_COFFEE: process.env.META_EVENT_CODE_COFFEE,
+  META_CAPI_ENABLE_IMWEB_EMAIL_HASH: process.env.META_CAPI_ENABLE_IMWEB_EMAIL_HASH,
   META_CAPI_ENABLE_IMWEB_PHONE_HASH: process.env.META_CAPI_ENABLE_IMWEB_PHONE_HASH,
   META_CAPI_ENABLE_MEMBER_EXTERNAL_ID: process.env.META_CAPI_ENABLE_MEMBER_EXTERNAL_ID,
   META_CAPI_EXTERNAL_ID_SECRET: process.env.META_CAPI_EXTERNAL_ID_SECRET,
@@ -102,6 +103,21 @@ const envSource = {
   GOOGLE_ADS_LOGIN_CUSTOMER_ID: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
   GOOGLE_ADS_API_VERSION: process.env.GOOGLE_ADS_API_VERSION ?? "v22",
   GOOGLE_ADS_DASHBOARD_LEDGER_MODE: process.env.GOOGLE_ADS_DASHBOARD_LEDGER_MODE,
+  GOOGLE_ADS_AUTH_MODE:
+    process.env.GOOGLE_ADS_AUTH_MODE
+    ?? (process.env.GOOGLE_ADS_OAUTH_REFRESH_TOKEN ? "user_oauth" : "service_account"),
+  GOOGLE_ADS_OAUTH_CLIENT_ID:
+    process.env.GOOGLE_ADS_OAUTH_CLIENT_ID
+    ?? process.env.GOOGLE_CONSOLE_Oauth_Clinet_ID
+    ?? process.env.GOOGLE_CONSOLE_OAUTH_CLIENT_ID,
+  GOOGLE_ADS_OAUTH_CLIENT_SECRET:
+    process.env.GOOGLE_ADS_OAUTH_CLIENT_SECRET
+    ?? process.env.GOOGLE_CONSOLE_Oauth_Secret_KEY
+    ?? process.env.GOOGLE_CONSOLE_OAUTH_CLIENT_SECRET,
+  GOOGLE_ADS_OAUTH_REFRESH_TOKEN:
+    process.env.GOOGLE_ADS_OAUTH_REFRESH_TOKEN
+    ?? process.env.GOOGLE_CONSOLE_Oauth_REFRESH_TOKEN
+    ?? process.env.GOOGLE_CONSOLE_OAUTH_REFRESH_TOKEN,
   ATTRIBUTION_OPERATIONAL_BASE_URL:
     process.env.ATTRIBUTION_OPERATIONAL_BASE_URL ?? "https://att.ainativeos.net",
   REFUND_DISPATCH_ENFORCE: process.env.REFUND_DISPATCH_ENFORCE,
@@ -249,6 +265,10 @@ const envSchema = z.object({
   META_PIXEL_ID_AIBIO: z.string().min(1).default("1068377347547682"),
   META_EVENT_CODE_BIOCOM: z.string().min(1).optional(),
   META_EVENT_CODE_COFFEE: z.string().min(1).optional(),
+  META_CAPI_ENABLE_IMWEB_EMAIL_HASH: z
+    .string()
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
   META_CAPI_ENABLE_IMWEB_PHONE_HASH: z
     .string()
     .optional()
@@ -275,6 +295,12 @@ const envSchema = z.object({
   GOOGLE_ADS_DASHBOARD_LEDGER_MODE: z
     .enum(["remote_first", "local_first", "local_only"])
     .default("remote_first"),
+  GOOGLE_ADS_AUTH_MODE: z
+    .enum(["service_account", "user_oauth"])
+    .default("service_account"),
+  GOOGLE_ADS_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_ADS_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
+  GOOGLE_ADS_OAUTH_REFRESH_TOKEN: z.string().min(1).optional(),
   ATTRIBUTION_OPERATIONAL_BASE_URL: z.string().url().default("https://att.ainativeos.net"),
   REFUND_DISPATCH_ENFORCE: z
     .string()

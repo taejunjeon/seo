@@ -1,0 +1,128 @@
+{
+  "report": "reportcoffee_selfmall_imweb_complete_time_source_design_20260525",
+  "generated_at_kst": "2026-05-25 23:02 KST",
+  "site": "thecleancoffee",
+  "lane": "Green",
+  "mode": "design_no_send_no_write",
+  "window_validated": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-04-25",
+    "end_date_inclusive": "2026-05-01"
+  },
+  "decision": {
+    "amount_source_candidate": "imweb_v2_shop_orders_complete_time_present",
+    "amount_source_meaning": "아임웹 API 주문 중 결제완료 시간이 있는 비취소 유상 주문 합계",
+    "amount_source_status": "ready_for_no_send_reference",
+    "count_source_status": "pending_fnb_definition_confirmation",
+    "strict_slack_send_status": "hold_until_no_send_validation_and_send_approval"
+  },
+  "validated_numbers": {
+    "attachment_excel_selfmall": {
+      "amount_krw": 5334362,
+      "orders": 128
+    },
+    "imweb_complete_time_present": {
+      "amount_krw": 5334362,
+      "orders": 125,
+      "by_pay_type": {
+        "npay": {
+          "orders": 60,
+          "amount_krw": 2535400
+        },
+        "card": {
+          "orders": 59,
+          "amount_krw": 2628013
+        },
+        "virtual": {
+          "orders": 2,
+          "amount_krw": 51885
+        },
+        "etc": {
+          "orders": 4,
+          "amount_krw": 119064
+        }
+      },
+      "by_pg_type": {
+        "blank": {
+          "orders": 60,
+          "amount_krw": 2535400
+        },
+        "tosspayments": {
+          "orders": 61,
+          "amount_krw": 2679898
+        },
+        "nicepay": {
+          "orders": 4,
+          "amount_krw": 119064
+        }
+      }
+    },
+    "imweb_complete_time_blank_diagnostic": {
+      "amount_krw": 183826,
+      "orders": 5,
+      "interpretation": "weekly_excel_amount_excludes_this_bucket_for_validated_window_but_this_is_not_an_unpaid_proof"
+    },
+    "playauto_selfmall_reference": {
+      "distinct_orders": 126,
+      "item_rows": 189,
+      "amount_source_status": "not_revenue_source_for_selfmall"
+    }
+  },
+  "proposed_no_send_contract": {
+    "path": "windows.<window>.sales.channels.selfmall",
+    "fields": {
+      "amount_krw": "Imweb complete_time present non-cancel non-zero amount",
+      "order_count": "Imweb complete_time present order count; mark count_definition_pending until F&B confirms count basis",
+      "source_basis": "imweb_complete_time_paid_orders_v1",
+      "source_status": "amount_matched_attachment_count_pending",
+      "payment_breakdown": "by_pay_type and by_pg_type aggregate only",
+      "diagnostics.complete_time_blank": "excluded from report-alignment amount, not treated as unpaid",
+      "cross_checks.toss_operational_db": "Toss net by approved_at window",
+      "cross_checks.playauto_selfmall": "item/order count reference only",
+      "legacy_reference.toss_plus_npay": "old split reference for continuity only"
+    }
+  },
+  "implementation_plan": [
+    {
+      "step": 1,
+      "action": "Add selfmall Imweb API aggregate helper with retry and max page guard",
+      "output": "source_details.selfmall_imweb_api",
+      "guardrail": "raw order/customer/payment identifiers are not written to report JSON"
+    },
+    {
+      "step": 2,
+      "action": "Add no-send option --selfmall-source=imweb_complete_time|legacy_split",
+      "output": "default can remain legacy until no-send validation is reviewed",
+      "guardrail": "Slack send remains 0"
+    },
+    {
+      "step": 3,
+      "action": "Use Imweb complete_time amount for selfmall.amount_krw in preview mode",
+      "output": "2026-04-25 - 2026-05-01 reproduces 5334362 KRW",
+      "guardrail": "complete_time blank stays diagnostic, not unpaid"
+    },
+    {
+      "step": 4,
+      "action": "Keep Toss/NPay/NicePay payment breakdown visible",
+      "output": "operator can explain why amount changed",
+      "guardrail": "platform purchase values are not mixed into internal sales"
+    },
+    {
+      "step": 5,
+      "action": "Keep selfmall count pending until F&B confirms whether 128 is order, line, or payment count",
+      "output": "count_definition_status=pending_fnb_confirmation",
+      "guardrail": "do not claim 128 from API until source is proven"
+    }
+  ],
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "imweb_write": 0,
+    "platform_send_or_upload": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0,
+    "raw_click_identifier_output": 0
+  }
+}

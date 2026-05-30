@@ -10,11 +10,13 @@ import {
   buildAttributionFirstTouchSnapshot,
   buildAttributionHourlyCompare,
   buildLedgerEntry,
+  buildPaidTouchBeforeCheckoutSnapshot,
   buildLedgerSummary,
   buildTossReplayPlan,
   buildTossJoinReport,
   enrichCheckoutStartedFirstTouch,
   enrichPaymentSuccessFirstTouch,
+  mergePaidTouchBeforeCheckoutSnapshot,
   normalizeApprovedAtToIso,
   normalizeAttributionPayload,
   readLedgerEntries,
@@ -28,10 +30,13 @@ import {
   getMetaCapiNoSendReason,
   selectMetaCapiSyncCandidates,
 } from "../src/metaCapi";
+import { buildLeadingIndicatorsReport } from "../src/leadingIndicators";
 import {
   buildAttributionPaymentDecision,
   buildAttributionPaymentStatusSyncPlan,
   buildFastLedgerPaymentDecision,
+  buildPaidClickIntentNoSendPreview,
+  buildNaverEvidenceAggregate,
   buildOperationalPaymentCompleteBridgePlan,
   findDuplicateFormSubmitEntry,
   getPaymentSuccessDowngradeReason,
@@ -82,6 +87,191 @@ test("attribution: normalizeAttributionPayload extracts Imweb order keys from la
     orderNo: "202604188765432",
     paymentCode: "pa20260418abc",
   });
+});
+
+test("attribution: Naver aggregate separates organic, paid, shopping ad, and display markers", () => {
+  const requestContext = {
+    ip: "",
+    userAgent: "",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/checkout-context",
+  };
+
+  const organic = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing: "https://biocom.kr/?NaPm=ct%3Dsample%7Cci%3Dorganic%7Ctr%3Dds%7Chk%3Dhash",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      source: "biocom_imweb",
+      checkoutId: "chk-naver-organic",
+    },
+    requestContext,
+    "2026-05-21T13:00:00.000Z",
+  );
+
+  const paid = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing:
+        "https://www.biocom.kr/mineraltest_store/?idx=6&utm_source=naver&utm_medium=cpc&n_media=27758&n_query=biocom&n_ad_group=grp-1&n_ad=nad-1&n_match=2&NaPm=ct%3Dsample%7Ctr%3Dsa%7Chk%3Dhash",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      utm_source: "naver",
+      utm_medium: "cpc",
+      source: "biocom_imweb",
+      checkoutId: "chk-naver-paid",
+    },
+    requestContext,
+    "2026-05-21T13:01:00.000Z",
+  );
+
+  const shopping = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing: "https://biocom.kr/shop_view/?idx=85&NaPm=ct%3Dsample%7Ctr%3Dslsl%7Csn%3D1043174%7Chk%3Dhash",
+      referrer: "https://shopping.naver.com/",
+      source: "biocom_imweb",
+      checkoutId: "chk-naver-shopping",
+    },
+    requestContext,
+    "2026-05-21T13:02:00.000Z",
+  );
+
+  const shoppingAd = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing: "https://biocom.kr/shop_view/?idx=85",
+      referrer: "https://ader.naver.com/v1/test?c=naver.search.pc.npla&NaPm=1&ui=GUIDE",
+      source: "biocom_imweb",
+      checkoutId: "chk-naver-shopping-ad",
+    },
+    requestContext,
+    "2026-05-21T13:03:00.000Z",
+  );
+
+  const display = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing: "https://biocom.kr/store/?utm_source=naver&utm_medium=display&utm_campaign=advoost_april",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      utm_source: "naver",
+      utm_medium: "display",
+      utm_campaign: "advoost_april",
+      source: "biocom_imweb",
+      checkoutId: "chk-naver-display",
+    },
+    requestContext,
+    "2026-05-21T13:04:00.000Z",
+  );
+
+  const aggregate = buildNaverEvidenceAggregate([organic, paid, shopping, shoppingAd, display], { fixture: "naver-split" });
+
+  assert.equal(aggregate.summary.byClass.organic_naver_candidate, 1);
+  assert.equal(aggregate.summary.byClass.paid_naver, 1);
+  assert.equal(aggregate.summary.byClass.naver_shopping_ad, 1);
+  assert.equal(aggregate.summary.byClass.naver_display, 1);
+  assert.equal(aggregate.summary.byClass.naver_shopping_search_candidate, 1);
+  assert.equal(aggregate.summary.naverAny, 5);
+});
+
+test("leading indicators: Naver NaPm-only organic does not enter paid or brand bucket", () => {
+  const requestContext = {
+    ip: "",
+    userAgent: "",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/checkout-context",
+  };
+  const asOfMs = Date.parse("2026-05-21T13:10:00.000Z");
+
+  const organic = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing: "https://biocom.kr/?NaPm=ct%3Dsample%7Cci%3Dorganic%7Ctr%3Dds%7Chk%3Dhash",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      source: "biocom_imweb",
+      checkoutId: "chk-leading-naver-organic",
+    },
+    requestContext,
+    "2026-05-21T13:00:00.000Z",
+  );
+
+  const paid = buildLedgerEntry(
+    "checkout_started",
+    {
+      landing:
+        "https://biocom.kr/mineraltest_store/?idx=6&utm_source=naver&utm_medium=cpc&n_media=27758&n_query=biocom&NaPm=ct%3Dsample%7Ctr%3Dsa%7Chk%3Dhash",
+      referrer: "https://search.naver.com/search.naver?query=biocom",
+      utm_source: "naver",
+      utm_medium: "cpc",
+      source: "biocom_imweb",
+      checkoutId: "chk-leading-naver-paid",
+    },
+    requestContext,
+    "2026-05-21T13:01:00.000Z",
+  );
+
+  const organicReport = buildLeadingIndicatorsReport({
+    ledgerEntries: [organic, paid],
+    site: "biocom",
+    window: "1d",
+    channel: "organic",
+    dimension: "channel",
+    freshness: "cached",
+    asOfMs,
+  });
+  const paidReport = buildLeadingIndicatorsReport({
+    ledgerEntries: [organic, paid],
+    site: "biocom",
+    window: "1d",
+    channel: "naver_paid_or_brand",
+    dimension: "channel",
+    freshness: "cached",
+    asOfMs,
+  });
+
+  assert.equal(organicReport.cohort.safe_sessions, 1);
+  assert.equal(paidReport.cohort.safe_sessions, 1);
+});
+
+test("paid-click-intent: stale preview secondary click id does not block live Google click", () => {
+  const preview = buildPaidClickIntentNoSendPreview({
+    site: "biocom",
+    capture_stage: "landing",
+    captured_at: "2026-05-21T04:15:25.790Z",
+    gclid: "CjwKCAjwt7XQBhBkEiwAtStpp05zLNcr6STRx_gs9wZ9ZvqhsLLSbP6Bfk68G6UEChpmeehxs8TR4hoCsUgQAvD_BwE",
+    gbraid: "0AAAAABIj2JiXX_Uuh_3-jfs4r_uy-M4B_",
+    wbraid: "test_wbraid_20260514",
+    landing_url:
+      "https://biocom.kr/mineraltest_store/?idx=6&gad_campaignid=14629255429&gclid=CjwKCAjwt7XQBhBkEiwAtStpp05zLNcr6STRx_gs9wZ9ZvqhsLLSbP6Bfk68G6UEChpmeehxs8TR4hoCsUgQAvD_BwE&gbraid=0AAAAABIj2JiXX_Uuh_3-jfs4r_uy-M4B_",
+    local_session_id: "pciv1_fbvrfte2x7q",
+  });
+
+  assert.equal(preview.test_click_id, false);
+  assert.equal(preview.live_candidate_after_approval, true);
+  assert.equal(preview.click_ids.gclid.startsWith("CjwKCA"), true);
+  assert.equal(preview.click_ids.gbraid, "0AAAAABIj2JiXX_Uuh_3-jfs4r_uy-M4B_");
+  assert.equal(preview.click_ids.wbraid, "");
+  assert.deepEqual(preview.ignored_preview_click_id_types, ["wbraid"]);
+  assert.equal(preview.block_reasons.includes("test_click_id_rejected_for_live"), false);
+});
+
+test("paid-click-intent: preview-only Google click id remains blocked", () => {
+  const preview = buildPaidClickIntentNoSendPreview({
+    site: "biocom",
+    capture_stage: "landing",
+    captured_at: "2026-05-21T04:15:25.790Z",
+    wbraid: "test_wbraid_20260514",
+    landing_url: "https://biocom.kr/mineraltest_store/?idx=6&wbraid=test_wbraid_20260514",
+    local_session_id: "pciv1_test",
+  });
+
+  assert.equal(preview.test_click_id, true);
+  assert.equal(preview.live_candidate_after_approval, false);
+  assert.equal(preview.click_ids.wbraid, "test_wbraid_20260514");
+  assert.equal(preview.block_reasons.includes("test_click_id_rejected_for_live"), true);
 });
 
 test("attribution: firstTouch snapshot preserves checkout TikTok and caller IDs", () => {
@@ -314,6 +504,143 @@ test("attribution: payment_success can carry prior Meta marketing intent firstTo
   assert.ok(metaMatchReasons.includes("fbclid_direct"));
   assert.ok(metaMatchReasons.includes("metadata_fbc"));
   assert.ok(matchedBy.includes("client_id"));
+});
+
+test("attribution: paidTouchBeforeCheckout grades numeric Meta IDs as A", () => {
+  const snapshot = buildPaidTouchBeforeCheckoutSnapshot(
+    {
+      capturedAt: "2026-05-26T01:00:00.000Z",
+      landing:
+        "https://biocom.kr/iiary02?utm_source=meta&utm_medium=paid_social&utm_campaign=120000000000000001&utm_term=120000000000000002&utm_content=120000000000000003&campaign_alias=meta_biocom_iiari_acid_260518&fbclid=test-click",
+      meta_site_source: "instagram",
+      meta_placement: "Instagram_Feed",
+    },
+    "2026-05-26T01:00:01.000Z",
+  );
+
+  assert.ok(snapshot);
+  assert.equal(snapshot.grade, "A");
+  assert.equal(snapshot.confidence, 0.96);
+  assert.equal(snapshot.metaCampaignId, "120000000000000001");
+  assert.equal(snapshot.metaAdsetId, "120000000000000002");
+  assert.equal(snapshot.metaAdId, "120000000000000003");
+  assert.equal(snapshot.clickIdType, "fbclid");
+  assert.equal(Object.hasOwn(snapshot, "fbclid"), false);
+  assert.ok(snapshot.evidence.includes("numeric_meta_campaign_id"));
+});
+
+test("attribution: paidTouchBeforeCheckout keeps existing A when shop_payment candidate appears", () => {
+  const existing = buildPaidTouchBeforeCheckoutSnapshot(
+    {
+      capturedAt: "2026-05-26T01:00:00.000Z",
+      landing:
+        "https://biocom.kr/iiary02?utm_source=meta&utm_medium=paid_social&utm_campaign=120000000000000011&utm_term=120000000000000012&utm_content=120000000000000013",
+    },
+    "2026-05-26T01:00:01.000Z",
+  );
+  assert.ok(existing);
+
+  const merged = mergePaidTouchBeforeCheckoutSnapshot(
+    existing,
+    {
+      capturedAt: "2026-05-26T01:05:00.000Z",
+      landing: "https://biocom.kr/shop_payment/?order_no=test-order&fbclid=test-click",
+      utm_source: "meta",
+    },
+    "2026-05-26T01:05:01.000Z",
+  );
+
+  assert.deepEqual(merged, existing);
+});
+
+test("attribution: paidTouchBeforeCheckout does not treat common campaign_alias as B grade", () => {
+  const snapshot = buildPaidTouchBeforeCheckoutSnapshot(
+    {
+      capturedAt: "2026-05-26T01:00:00.000Z",
+      landing: "https://biocom.kr/jiihyun01?fbclid=test-click",
+      campaign_alias: "meta_biocom_광고별칭",
+    },
+    "2026-05-26T01:00:01.000Z",
+  );
+
+  assert.ok(snapshot);
+  assert.equal(snapshot.campaignAlias, "meta_biocom_광고별칭");
+  assert.notEqual(snapshot.grade, "B");
+  assert.equal(snapshot.grade, "D");
+  assert.ok(snapshot.evidence.includes("common_campaign_alias"));
+});
+
+test("attribution: paidTouchBeforeCheckout quarantines Meta macro placeholders as D", () => {
+  const snapshot = buildPaidTouchBeforeCheckoutSnapshot(
+    {
+      capturedAt: "2026-05-26T01:00:00.000Z",
+      landing:
+        "https://biocom.kr/songyuul07?utm_source=meta&utm_medium=paid_social&utm_campaign={{campaign.id}}&utm_term={{adset.id}}&utm_content={{ad.id}}&campaign_alias=meta_biocom_광고별칭",
+    },
+    "2026-05-26T01:00:01.000Z",
+  );
+
+  assert.ok(snapshot);
+  assert.equal(snapshot.grade, "D");
+  assert.ok(snapshot.evidence.includes("meta_macro_placeholder"));
+});
+
+test("attribution: paidTouchBeforeCheckout does not promote non-Meta numeric UTM to Meta A", () => {
+  const snapshot = buildPaidTouchBeforeCheckoutSnapshot(
+    {
+      capturedAt: "2026-05-26T01:00:00.000Z",
+      landing:
+        "https://biocom.kr/mineraltest_store?utm_source=naver&utm_medium=cpc&utm_campaign=123456789&utm_term=987654321&gclid=test-click",
+    },
+    "2026-05-26T01:00:01.000Z",
+  );
+
+  assert.ok(snapshot);
+  assert.equal(snapshot.metaCampaignId, "");
+  assert.equal(snapshot.metaAdsetId, "");
+  assert.notEqual(snapshot.grade, "A");
+});
+
+test("attribution: payment_success copies paidTouchBeforeCheckout metadata snapshot", () => {
+  const requestContext = {
+    ip: "127.0.0.1",
+    userAgent: "node-test",
+    origin: "https://biocom.kr",
+    requestReferer: "",
+    method: "POST",
+    path: "/api/attribution/payment-success",
+  };
+  const payment = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "paid-touch-order-1",
+      paymentKey: "paid-touch-pay-1",
+      paymentStatus: "confirmed",
+      metadata: {
+        source: "biocom_imweb",
+        value: 459000,
+        paidTouchBeforeCheckout: {
+          capturedAt: "2026-05-26T01:00:00.000Z",
+          landing:
+            "https://biocom.kr/iiary02?utm_source=meta&utm_medium=paid_social&utm_campaign=120000000000000021&utm_term=120000000000000022&utm_content=120000000000000023&campaign_alias=meta_biocom_iiari_lgg_260518",
+        },
+      },
+    },
+    requestContext,
+    "2026-05-26T01:05:00.000Z",
+  );
+
+  const enriched = enrichPaymentSuccessFirstTouch(payment, [], "2026-05-26T01:05:01.000Z");
+  const paidTouch = enriched.metadata.paidTouchBeforeCheckout as Record<string, unknown>;
+  const paidTouchMatch = enriched.metadata.paidTouchBeforeCheckoutMatch as Record<string, unknown>;
+
+  assert.equal(paidTouch.grade, "A");
+  assert.equal(paidTouch.metaCampaignId, "120000000000000021");
+  assert.equal(paidTouch.metaAdsetId, "120000000000000022");
+  assert.equal(paidTouch.metaAdId, "120000000000000023");
+  assert.equal(paidTouchMatch.storage, "CRM_LOCAL_DB_PATH#attribution_ledger.metadata_json.paidTouchBeforeCheckout");
+  assert.equal(paidTouchMatch.grade, "A");
+  assert.equal(enriched.metadata.firstTouch, undefined);
 });
 
 test("tiktok pixel events: normalize payload keeps event-level order and decision keys", () => {

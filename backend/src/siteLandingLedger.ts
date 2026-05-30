@@ -20,6 +20,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 
 import { getCrmDb } from "./crmLocalDb";
+import { isLikelySyntheticGoogleClickId } from "./googleClickIdSanitizer";
 
 const TABLE = "site_landing_ledger";
 let tableReady = false;
@@ -107,6 +108,8 @@ const PII_FORBIDDEN_PATTERNS: ReadonlyArray<RegExp> = [
   /\b\d{4}-?\d{4}-?\d{4}-?\d{4}\b/, // 카드
 ];
 
+const GOOGLE_CLICK_ID_TYPES = new Set(["gclid", "gbraid", "wbraid"]);
+
 export type ClickIdStorageMode = "hash" | "raw" | "none";
 
 export type SiteLandingChannelClassified =
@@ -114,6 +117,9 @@ export type SiteLandingChannelClassified =
   | "self_internal"
   | "organic_search"
   | "organic_social"
+  | "naver_brandsearch"
+  | "naver_shopping_ad"
+  | "naver_display"
   | "paid_search"
   | "paid_social"
   | "referral"
@@ -384,9 +390,14 @@ export const recordSiteLanding = (input: SiteLandingInput): SiteLandingRecordRes
     return { stored: false, rejected: true, reason: "forbidden_pii_pattern" };
   }
 
-  const clickIdType = sanitize(input.clickId?.type, 32);
-  const clickIdValue = sanitize(input.clickId?.valueOrHash, 200);
-  const clickIdStorageMode: ClickIdStorageMode = input.clickId?.storageMode ?? "none";
+  let clickIdType = sanitize(input.clickId?.type, 32);
+  let clickIdValue = sanitize(input.clickId?.valueOrHash, 200);
+  let clickIdStorageMode: ClickIdStorageMode = input.clickId?.storageMode ?? "none";
+  if (GOOGLE_CLICK_ID_TYPES.has(clickIdType.toLowerCase()) && isLikelySyntheticGoogleClickId(clickIdValue)) {
+    clickIdType = "";
+    clickIdValue = "";
+    clickIdStorageMode = "none";
+  }
   if (clickIdStorageMode === "raw" && clickIdValue) {
     // raw click_id 는 PII 패턴 추가 검사로 안전망
     if (containsForbiddenPii(clickIdValue)) {
@@ -844,7 +855,11 @@ export const summarizeSiteLanding = (
 
   const total = Number(totalRow.n);
   const paidHint =
-    (channel_distribution["paid_search"] ?? 0) + (channel_distribution["paid_social"] ?? 0);
+    (channel_distribution["paid_search"] ?? 0) +
+    (channel_distribution["paid_social"] ?? 0) +
+    (channel_distribution["naver_brandsearch"] ?? 0) +
+    (channel_distribution["naver_shopping_ad"] ?? 0) +
+    (channel_distribution["naver_display"] ?? 0);
   const organic =
     (channel_distribution["organic_search"] ?? 0) + (channel_distribution["organic_social"] ?? 0);
   const direct = (channel_distribution["direct"] ?? 0) + (channel_distribution["self_internal"] ?? 0);

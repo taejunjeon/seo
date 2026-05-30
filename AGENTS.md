@@ -23,6 +23,9 @@
 ## 커밋 · PR
 - 커밋: 명령형 + 범위 명시 예) `leadership/backend: fix oauth token refresh`.
 - PR: 목적/변경점/재현/영향/스크린샷(또는 로그) 포함, 관련 이슈 링크.
+- 턴 종료 체크포인트 커밋: 작업 턴이 끝났고 기능/문서/검증 단위가 설명 가능하면 `git status --short`, `git diff --numstat | sort -nr | head -30`, untracked 파일 목록을 먼저 확인한다. 이후 테스트/typecheck/audit 중 최소 1개 이상을 실행하고 통과 또는 PASS_WITH_NOTES 근거가 있을 때만 현재 작업 브랜치에 checkpoint commit/push 한다.
+- 커밋 staging: `git add .` 또는 `git add -A`를 기본 사용하지 않는다. 파일 단위로 선별 stage 하고, 코드/문서/검증 산출물/제외 후보를 나눈다. 로그, 캐시, 빌드 산출물, DB, dump, 백업, 대용량 데이터, `.env*`, credential, secret, 임시 CSV/JSON은 명시적으로 필요한 증빙이 아니면 커밋하지 않는다.
+- 커밋 보류 기준: 테스트 실패, 변경 목적 불명확, 대량 generated 파일 포함, 시크릿 가능성, 서로 다른 목적의 변경이 과하게 섞인 경우에는 커밋하지 말고 이유와 정리 계획을 보고한다. 필요한 경우 논리 단위로 여러 checkpoint commit으로 나눈다.
 
 ## 보안 · 설정
 - 시크릿은 커밋 금지. `.env.local` 사용, `.env.example` 갱신.

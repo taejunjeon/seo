@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>선행지표 에이전트 AIP-lite 구조 보고서</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5f6e7a;
+      --paper: #f6f8fa;
+      --panel: #ffffff;
+      --line: #d8dee5;
+      --blue: #245f9f;
+      --green: #187052;
+      --gold: #966719;
+      --red: #a64235;
+      --teal: #0f6b78;
+      --slate: #30445a;
+      --blue-soft: #e9f1fb;
+      --green-soft: #e8f5ef;
+      --gold-soft: #f8f0dc;
+      --red-soft: #faece9;
+      --teal-soft: #e5f3f5;
+      --shadow: 0 1px 2px rgba(23, 32, 42, 0.08), 0 12px 30px rgba(23, 32, 42, 0.07);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      line-height: 1.55;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 750;
+    }
+
+    .page {
+      width: min(1240px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 64px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .intro,
+    .summary-box,
+    .panel,
+    .metric-card,
+    .okr-card,
+    .action-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .intro {
+      min-height: 280px;
+      padding: 28px;
+      color: #f8fbff;
+      background: #14283e;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: #b8d4ee;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 940px;
+      font-size: clamp(32px, 4vw, 54px);
+      line-height: 1.08;
+      letter-spacing: 0;
+      word-break: keep-all;
+    }
+
+    .intro p {
+      max-width: 860px;
+      margin: 16px 0 0;
+      color: #e2edf7;
+      font-size: 17px;
+      word-break: keep-all;
+    }
+
+    .summary-box {
+      padding: 20px;
+      display: grid;
+      align-content: start;
+      gap: 14px;
+    }
+
+    .summary-box h2,
+    .section-head h2,
+    .panel h2 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0;
+      word-break: keep-all;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 850;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.09);
+      color: #f4f8fc;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 28px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .status.ok { background: var(--green-soft); color: var(--green); }
+    .status.info { background: var(--blue-soft); color: var(--blue); }
+    .status.hold { background: var(--gold-soft); color: var(--gold); }
+    .status.risk { background: var(--red-soft); color: var(--red); }
+    .status.teal { background: var(--teal-soft); color: var(--teal); }
+
+    .meta-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .meta-item {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .meta-value {
+      margin-top: 4px;
+      font-size: 15px;
+      font-weight: 850;
+      word-break: keep-all;
+    }
+
+    section {
+      margin-top: 22px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .section-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      word-break: keep-all;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+
+    .panel,
+    .metric-card,
+    .okr-card,
+    .action-card {
+      padding: 18px;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      letter-spacing: 0;
+      word-break: keep-all;
+    }
+
+    .panel p,
+    .metric-card p,
+    .okr-card p,
+    .action-card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      word-break: keep-all;
+    }
+
+    .metric {
+      margin: 6px 0 0;
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .diagram-panel {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .diagram-title {
+      padding: 18px 18px 0;
+    }
+
+    .diagram-title p {
+      max-width: 920px;
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+
+    .diagram-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 8px 12px 18px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      min-width: 980px;
+      height: auto;
+    }
+
+    .svg-label {
+      font: 700 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #17202a;
+    }
+
+    .svg-small {
+      font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #536371;
+    }
+
+    .svg-title {
+      font: 850 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #17202a;
+    }
+
+    .svg-white {
+      fill: #ffffff;
+    }
+
+    .explain-list {
+      display: grid;
+      gap: 10px;
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .explain-list li {
+      padding: 12px 12px 12px 14px;
+      border-left: 4px solid var(--blue);
+      border-radius: 6px;
+      background: #fbfcfd;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #425263;
+      background: #eef2f5;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: #eef2f5;
+      color: #223143;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .okr-card {
+      display: grid;
+      gap: 10px;
+      min-height: 360px;
+    }
+
+    .kr-statement {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.38;
+      word-break: keep-all;
+    }
+
+    .kr-block {
+      display: grid;
+      gap: 6px;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+    }
+
+    .kr-block-title {
+      color: #425263;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .action-plan {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .action-plan li + li {
+      margin-top: 6px;
+    }
+
+    .action-plan .small {
+      display: block;
+      margin-top: 4px;
+    }
+
+    .progress {
+      width: 100%;
+      height: 12px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e1e7ed;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+
+    .progress.green span { background: var(--green); }
+    .progress.gold span { background: var(--gold); }
+    .progress.teal span { background: var(--teal); }
+
+    .action-card {
+      border-left: 5px solid var(--blue);
+    }
+
+    .action-card.green { border-left-color: var(--green); }
+    .action-card.gold { border-left-color: var(--gold); }
+
+    .roadmap-detail {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .roadmap-detail div {
+      padding: 10px 11px;
+      border-radius: 8px;
+      background: #fbfcfd;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .roadmap-detail strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    .footer {
+      margin-top: 24px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      background: #fff;
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .span-3,
+      .span-4,
+      .span-5,
+      .span-6,
+      .span-7,
+      .span-8,
+      .span-12 {
+        grid-column: span 12;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .intro {
+        min-height: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="intro">
+        <p class="eyebrow">AIP-lite 구조 보고서 · 2026-05-25 18:00 KST</p>
+        <h1>선행지표 에이전트를 하나의 운영 체계로 묶는 설계</h1>
+        <p>
+          이 보고서는 팔란티어 AIP 구조도를 우리 프로젝트에 맞게 줄여서 적용한 화면입니다.
+          목표는 거대한 플랫폼을 새로 만드는 것이 아니라, 기존 온톨로지와 하네스 위에
+          구매 전 행동 신호를 안전하게 분석하고 보고하는 구조를 얹는 것입니다.
+        </p>
+        <div class="badge-row">
+          <span class="badge">기존 온톨로지 재사용</span>
+          <span class="badge">선행지표 사전 추가</span>
+          <span class="badge">읽기 전용 먼저</span>
+          <span class="badge">외부 전송·운영 변경 없음</span>
+        </div>
+      </div>
+      <aside class="summary-box" aria-label="현재 판단">
+        <span class="status ok">현재 판정: 진행 추천</span>
+        <h2>새 플랫폼이 아니라, 기존 정본 위에 확장합니다.</h2>
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">이미 있는 정본</div>
+            <div class="meta-value">Attribution Ontology Lite</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">새로 필요한 것</div>
+            <div class="meta-value">행동 분석과 선행지표 확장 레이어</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">성공 기준</div>
+            <div class="meta-value">숫자, 근거, 실행 가능 여부가 한 화면에서 보임</div>
+          </div>
+        </div>
+      </aside>
+    </header>
+
+    <section aria-labelledby="question-title">
+      <div class="section-head">
+        <div>
+          <h2 id="question-title">이 화면이 답하는 질문</h2>
+          <p>운영자가 알아야 할 것은 기술 구조가 아니라, 이 구조로 무엇을 더 잘하게 되는가입니다.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="metric-card span-4">
+          <span class="status info">무엇을</span>
+          <h3>구매 전 행동 신호를 같은 언어로 정리합니다.</h3>
+          <p>
+            체류시간, 스크롤, 장바구니, 결제 시작, 결제수단 선택을
+            `구매 전 행동 지표`로 분리합니다. 실제 매출인 `PaymentCompleteOrder`와 섞지 않습니다.
+          </p>
+        </article>
+        <article class="metric-card span-4">
+          <span class="status teal">왜</span>
+          <h3>매출은 늦고, 행동은 먼저 움직입니다.</h3>
+          <p>
+            ROAS는 이미 일어난 결과입니다. 선행지표 에이전트는 매출이 꺾이기 전
+            어떤 랜딩, 콘텐츠, 결제 UX를 고쳐야 하는지 먼저 알려주는 역할입니다.
+          </p>
+        </article>
+        <article class="metric-card span-4">
+          <span class="status ok">어떻게</span>
+          <h3>온톨로지, 도구, 평가, 보고를 한 묶음으로 운영합니다.</h3>
+          <p>
+            기존 광고·매출 온톨로지를 기준으로 두고, 도구 사용 안내서와 품질 판정 기준을 붙입니다.
+            이후 매 실행은 기계용 기록과 사람용 보고서로 함께 남깁니다.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="diagram-title">
+      <div class="panel diagram-panel">
+        <div class="diagram-title">
+          <h2 id="diagram-title">AIP-lite 구조도</h2>
+          <p>
+            가운데는 기존 정본인 `Attribution Ontology Lite`입니다.
+            그 위에 `Leading Indicator Extension`을 얹고, 주변의 도구와 평가 장치가 이 중심 구조를 안전하게 사용합니다.
+          </p>
+        </div>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 1180 700" role="img" aria-labelledby="svg-title svg-desc">
+            <title id="svg-title">선행지표 에이전트 AIP-lite 구조도</title>
+            <desc id="svg-desc">기존 온톨로지를 중심으로 문맥 조립, 도구 사용 안내서, 품질 판정, 에이전트 실행 주기, 자동 점검, 보고서가 연결된 구조도</desc>
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L9,3 z" fill="#526272"></path>
+              </marker>
+              <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+                <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#17202a" flood-opacity="0.12"></feDropShadow>
+              </filter>
+            </defs>
+
+            <rect x="30" y="26" width="1120" height="638" rx="14" fill="#f9fbfc" stroke="#d8dee5"></rect>
+            <text x="60" y="66" class="svg-title">우리식 AIP-lite: 데이터, 로직, 액션을 같은 작업장으로 묶기</text>
+            <text x="60" y="92" class="svg-small">목표: 구매 전 행동 신호를 안전하게 읽고, 평가하고, 사람이 실행할 수 있는 액션으로 바꾸기</text>
+
+            <rect x="430" y="250" width="320" height="86" rx="10" fill="#14283e" filter="url(#softShadow)"></rect>
+            <text x="590" y="286" text-anchor="middle" class="svg-label svg-white">Attribution Ontology Lite</text>
+            <text x="590" y="310" text-anchor="middle" class="svg-small svg-white">결제완료, 광고 클릭, 내부 매출, 플랫폼 주장값 분리</text>
+
+            <rect x="430" y="354" width="320" height="86" rx="10" fill="#e5f3f5" stroke="#0f6b78"></rect>
+            <text x="590" y="390" text-anchor="middle" class="svg-label">Leading Indicator Extension</text>
+            <text x="590" y="414" text-anchor="middle" class="svg-small">행동 묶음, 비교 집단, 행동 숫자, 선행 신호, 실험 후보</text>
+
+            <rect x="70" y="146" width="250" height="94" rx="9" fill="#e9f1fb" stroke="#245f9f"></rect>
+            <text x="195" y="178" text-anchor="middle" class="svg-label">Context Engineering</text>
+            <text x="195" y="202" text-anchor="middle" class="svg-small">문서, source, freshness, window 조립</text>
+            <text x="195" y="222" text-anchor="middle" class="svg-small">indicatoragent + harness + ontology</text>
+
+            <rect x="70" y="292" width="250" height="94" rx="9" fill="#e8f5ef" stroke="#187052"></rect>
+            <text x="195" y="324" text-anchor="middle" class="svg-label">도구 사용 안내서</text>
+            <text x="195" y="348" text-anchor="middle" class="svg-small">VM Cloud, BigQuery, GTM, scripts</text>
+            <text x="195" y="368" text-anchor="middle" class="svg-small">읽기 / 운영 변경 / 외부 전송 위험도 표시</text>
+
+            <rect x="70" y="438" width="250" height="94" rx="9" fill="#f8f0dc" stroke="#966719"></rect>
+            <text x="195" y="470" text-anchor="middle" class="svg-label">Security & Governance</text>
+            <text x="195" y="494" text-anchor="middle" class="svg-small">Green / Yellow / Red Lane</text>
+            <text x="195" y="514" text-anchor="middle" class="svg-small">raw identifier 차단, 승인 게이트</text>
+
+            <rect x="860" y="146" width="250" height="94" rx="9" fill="#e9f1fb" stroke="#245f9f"></rect>
+            <text x="985" y="178" text-anchor="middle" class="svg-label">Agent Lifecycle</text>
+            <text x="985" y="202" text-anchor="middle" class="svg-small">Spec -> Plan -> Run -> Eval</text>
+            <text x="985" y="222" text-anchor="middle" class="svg-small">Report -> Lesson -> Promote</text>
+
+            <rect x="860" y="292" width="250" height="94" rx="9" fill="#faece9" stroke="#a64235"></rect>
+            <text x="985" y="324" text-anchor="middle" class="svg-label">Evaluation Suite</text>
+            <text x="985" y="348" text-anchor="middle" class="svg-small">데이터 최신성, 구매 후 행동 혼입 방지</text>
+            <text x="985" y="368" text-anchor="middle" class="svg-small">비교 집단 최소 크기, 전송/변경 금지</text>
+
+            <rect x="860" y="438" width="250" height="94" rx="9" fill="#e8f5ef" stroke="#187052"></rect>
+            <text x="985" y="470" text-anchor="middle" class="svg-label">Human + AI Report</text>
+            <text x="985" y="494" text-anchor="middle" class="svg-small">운영 질문, 판단 카드, 다음 액션</text>
+            <text x="985" y="514" text-anchor="middle" class="svg-small">/ai-crm/leading-indicators 후보</text>
+
+            <rect x="330" y="548" width="245" height="72" rx="9" fill="#eef2f5" stroke="#8d99a6"></rect>
+            <text x="452" y="580" text-anchor="middle" class="svg-label">Operational Automation</text>
+            <text x="452" y="604" text-anchor="middle" class="svg-small">cron, Telegram, stale alert</text>
+
+            <rect x="605" y="548" width="245" height="72" rx="9" fill="#eef2f5" stroke="#8d99a6"></rect>
+            <text x="727" y="580" text-anchor="middle" class="svg-label">Package / Release</text>
+            <text x="727" y="604" text-anchor="middle" class="svg-small">harness/leading-indicator package</text>
+
+            <path d="M320 193 H412" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M320 339 H412" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M320 485 H412 V419" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M750 293 H842" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M750 397 H842 V339" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M750 397 H820 V485 H842" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M590 440 V530" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M590 548 V505 H727 V530" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M590 336 V354" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+            <path d="M860 485 H787 V440" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+
+            <rect x="430" y="126" width="320" height="80" rx="9" fill="#ffffff" stroke="#d8dee5"></rect>
+            <text x="590" y="158" text-anchor="middle" class="svg-label">Secure LLM Integration</text>
+            <text x="590" y="182" text-anchor="middle" class="svg-small">Codex / Claude / GPT는 원본 식별자 없이 집계와 결과 양식만 사용</text>
+            <path d="M590 206 V232" stroke="#526272" stroke-width="2" fill="none" marker-end="url(#arrow)"></path>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="mapping-title">
+      <div class="section-head">
+        <div>
+          <h2 id="mapping-title">기존 정본과 새 확장의 역할 분리</h2>
+          <p>새 구조를 만들 때 가장 중요한 것은 이미 있는 온톨로지를 무시하지 않는 것입니다.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>영역</th>
+              <th>이미 있는 것</th>
+              <th>새로 더할 것</th>
+              <th>왜 필요한가</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>결제와 매출</td>
+              <td><code>PaymentCompleteOrder</code>, <code>InternalConfirmedRevenue</code></td>
+              <td>추가 없음. 기존 정본 유지</td>
+              <td>구매 전 행동을 매출로 오해하지 않게 하기 위해서입니다.</td>
+            </tr>
+            <tr>
+              <td>광고 클릭과 증거</td>
+              <td><code>AdClick</code>, <code>ClickIdentifier</code>, <code>ChannelEvidence</code></td>
+              <td>구매 전 행동 묶음과 광고 유입 증거를 연결하는 안전 규칙</td>
+              <td>광고 유입과 행동 품질을 같은 window에서 비교하기 위해서입니다.</td>
+            </tr>
+            <tr>
+              <td>구매 전 행동</td>
+              <td><code>ProductEngagementSummary</code>, <code>CheckoutIntent</code></td>
+              <td><code>BehaviorSession</code>, <code>BehaviorEvent</code>, <code>Feature</code></td>
+              <td>체류시간과 스크롤을 운영 지표로 만들기 위해서입니다.</td>
+            </tr>
+            <tr>
+              <td>선행지표 후보</td>
+              <td>문서상 개념은 있음</td>
+              <td><code>Cohort</code>, <code>LeadingSignal</code>, <code>Experiment</code></td>
+              <td>숫자에서 바로 실험 액션으로 넘어가기 위해서입니다.</td>
+            </tr>
+            <tr>
+              <td>안전장치</td>
+              <td><code>GuardDecision</code>, <code>SourceFreshness</code>, Lane 체계</td>
+              <td>구매 후 행동 혼입 방지, 비교 집단 최소 크기, 실행 가능성 판정</td>
+              <td>구매 후 이벤트를 선행지표로 잘못 쓰는 일을 막기 위해서입니다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="how-title">
+      <div class="section-head">
+        <div>
+          <h2 id="how-title">무엇을 왜 어떻게 할 것인가</h2>
+          <p>기술 구조를 운영 행동으로 번역한 실행 설명입니다.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="panel span-4">
+          <span class="status info">무엇을</span>
+          <h3>선행지표 전용 확장 사전을 만듭니다.</h3>
+          <ul class="explain-list">
+            <li><strong>행동 세션:</strong> 한 방문에서 본 페이지, 스크롤, 체류시간, 결제 진행을 묶습니다.</li>
+            <li><strong>코호트:</strong> 구매자와 이탈자를 같은 기준으로 나눕니다.</li>
+            <li><strong>신호:</strong> 구매 전에 반복되는 행동 차이를 점수화합니다.</li>
+          </ul>
+        </article>
+        <article class="panel span-4">
+          <span class="status teal">왜</span>
+          <h3>매출이 떨어진 뒤가 아니라, 떨어지기 전에 보려고 합니다.</h3>
+          <ul class="explain-list">
+            <li>ROAS는 결과라서 늦게 옵니다.</li>
+            <li>체류시간, 스크롤, 결제 시작은 먼저 움직입니다.</li>
+            <li>운영자는 이 숫자로 랜딩, 콘텐츠, 결제 UX를 고칠 수 있습니다.</li>
+          </ul>
+        </article>
+        <article class="panel span-4">
+          <span class="status ok">어떻게</span>
+          <h3>읽기, 평가, 보고만 먼저 자동화합니다.</h3>
+          <ul class="explain-list">
+            <li>도구마다 읽기 전용, 운영 변경, 외부 전송 위험도를 표시합니다.</li>
+            <li>매 실행은 JSON과 Markdown으로 남깁니다.</li>
+            <li>GTM publish나 외부 전송은 승인 전 절대 열지 않습니다.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="twin-title">
+      <div class="section-head">
+        <div>
+          <h2 id="twin-title">미니 디지털 트윈 가능성</h2>
+          <p>정확한 예언 모델이 아니라, AI가 최근 기준선을 읽고 몇 가지 운영 시나리오를 자동 제안하는 what-if 판으로 시작합니다.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="panel span-4">
+          <span class="status ok">가능</span>
+          <h3>매출과 주요 지표 시뮬레이션은 미니 버전으로 가능하다.</h3>
+          <ul class="explain-list">
+            <li><strong>기준선:</strong> 방문자 수, 광고비, 구매 전환율, 객단가, 결제 이탈률을 source matrix에서 자동으로 읽습니다.</li>
+            <li><strong>AI 제안:</strong> 현재 유지, 결제 이탈 개선, 콘텐츠 몰입 개선, 트래픽 확대 전 점검 같은 시나리오를 3-5개 제안합니다.</li>
+            <li><strong>출력값:</strong> 예상 주문 수, 예상 매출, 예상 ROAS, 결제 이탈 영향, 개선 우선순위를 보여줍니다.</li>
+            <li><strong>범위:</strong> 처음에는 biocom 또는 thecleancoffee 한 사이트, 최근 7일/28일 기준선으로 제한합니다.</li>
+          </ul>
+        </article>
+        <article class="panel span-4">
+          <span class="status hold">주의</span>
+          <h3>처음부터 자동 예산 조정이나 매출 예측 정답처럼 쓰면 안 된다.</h3>
+          <ul class="explain-list">
+            <li>광고비를 바꾸면 방문자 질도 바뀌므로 단순 곱셈만으로는 실제 매출을 맞히기 어렵습니다.</li>
+            <li>NPay, 카드, 가상계좌처럼 결제수단별 완료 시점이 달라서 결제완료 기준을 분리해야 합니다.</li>
+            <li>따라서 1차 결과는 "예상 범위"와 "어느 지표가 매출에 민감한지"를 보는 용도입니다.</li>
+          </ul>
+        </article>
+        <article class="panel span-4">
+          <span class="status teal">권장 방식</span>
+          <h3>선행지표 에이전트 뒤에 시뮬레이션 판을 붙인다.</h3>
+          <ul class="explain-list">
+            <li>먼저 실제 결제완료 주문과 구매 전 행동 지표를 안전하게 읽습니다.</li>
+            <li>그 다음 AI가 "결제 이탈을 줄이는 경우", "콘텐츠 몰입을 개선하는 경우", "트래픽을 늘리되 전환율이 떨어지는 경우"를 자동 제안합니다.</li>
+            <li>결과가 맞는지 매주 실제 매출과 비교해 오차율을 기록합니다.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="okr-title">
+      <div class="section-head">
+        <div>
+          <h2 id="okr-title">OKR</h2>
+          <p>목표는 거창한 AI 플랫폼이 아니라, 매일 쓸 수 있는 구매 전 신호 운영판입니다.</p>
+        </div>
+      </div>
+
+      <article class="panel span-12">
+        <span class="status ok">Objective</span>
+        <h3>구매 전 행동 신호를 안전하게 읽고, 운영자가 바로 고칠 수 있는 액션으로 바꾼다.</h3>
+        <p>
+          선행지표 에이전트는 매출을 직접 맞히는 도구가 아닙니다.
+          매출이 움직이기 전에 보이는 행동 변화를 찾아서, 랜딩/콘텐츠/결제 UX/광고 운영 개선으로 연결하는 도구입니다.
+        </p>
+      </article>
+
+      <div class="grid" style="margin-top: 16px;">
+        <article class="okr-card span-6">
+          <span class="status info">KR1 · 92% 추천</span>
+          <p class="kr-statement">구매 전 행동을 설명하는 온톨로지 항목 6개와 항목 간 연결 규칙 9개를 추가하고, 기존 온톨로지와 같은 뜻의 중복 용어 0건을 유지한다.</p>
+          <div class="kr-block">
+            <div class="kr-block-title">해당 KR 설정 이유</div>
+            <p>
+              온톨로지는 우리가 데이터를 부르는 공통 사전입니다.
+              기존 사전은 결제완료와 광고 클릭은 잘 설명하지만, 구매 전 행동인 체류시간, 스크롤, 결제 진행, 비교 집단, 실험 후보를 설명하는 말은 아직 부족합니다.
+            </p>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">액션플랜</div>
+            <ol class="action-plan">
+              <li><strong>구매 전 행동 항목 6개를 정의합니다.</strong> 방문 묶음, 행동 이벤트, 비교 집단, 행동 숫자, 선행 신호, 실험 후보를 뜻합니다. <span class="small">왜: 이 말들이 정해져야 보고서마다 체류시간과 결제 의도를 다르게 해석하지 않습니다.</span></li>
+              <li><strong>항목 간 연결 규칙 9개를 적습니다.</strong> 예를 들면 "방문 묶음은 여러 행동 이벤트를 가진다", "선행 신호는 특정 실험 후보로 이어진다" 같은 연결입니다. <span class="small">왜: 연결 규칙이 없으면 숫자는 있어도 어떤 액션으로 이어지는지 끊깁니다.</span></li>
+              <li><strong>기존 온톨로지와 중복되는 말이 없는지 확인합니다.</strong> 결제완료, 광고 클릭, 매출 정본은 기존 정의를 그대로 씁니다. <span class="small">왜: 같은 뜻의 말이 2개 생기면 에이전트와 사람이 서로 다른 기준으로 판단합니다.</span></li>
+            </ol>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">성공/실패 해석</div>
+            <p>성공하면 이후 모든 선행지표 분석이 같은 단어와 연결 규칙으로 쌓입니다. 실패하면 보고서마다 체류, 스크롤, 결제 의도 정의가 달라져 비교가 어려워집니다.</p>
+          </div>
+          <div class="progress green" aria-label="KR1 progress 20 percent"><span style="width: 20%;"></span></div>
+          <div class="small">현재 20%: 분석 완료, 문서 초안 필요</div>
+        </article>
+        <article class="okr-card span-6">
+          <span class="status info">KR2 · 90% 추천</span>
+          <p class="kr-statement">주요 데이터 확인 도구 12개 전부에 "읽기만 가능 / 승인 후 변경 / 자동 실행 금지" 표시와 결과 기록 양식을 붙여, 도구 사용 안내서 완성률 100%를 달성한다.</p>
+          <div class="kr-block">
+            <div class="kr-block-title">해당 KR 설정 이유</div>
+            <p>
+              지금은 script, BigQuery, VM Cloud API, GTM export가 흩어져 있어
+              어떤 도구가 읽기만 하는지, 어떤 도구가 운영 설정을 바꿀 수 있는지 한눈에 보이지 않습니다.
+            </p>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">액션플랜</div>
+            <ol class="action-plan">
+              <li><strong>자주 쓰는 확인 도구를 12개로 추립니다.</strong> VM Cloud 조회, GA4 BigQuery 조회, GTM 내보내기, 로컬 dry-run script가 후보입니다. <span class="small">왜: 도구가 많아질수록 위험도와 사용 목적을 먼저 제한해야 합니다.</span></li>
+              <li><strong>각 도구에 안전 등급을 붙입니다.</strong> 읽기만 가능, 승인 후 변경 가능, 자동 실행 금지로 나눕니다. <span class="small">왜: 에이전트가 실수로 운영 설정 변경이나 외부 전송을 실행하지 못하게 하기 위해서입니다.</span></li>
+              <li><strong>결과 기록 양식을 맞춥니다.</strong> 어떤 데이터를 읽었는지, 기준 시각은 언제인지, 실패하면 원인이 무엇인지 같은 항목을 고정합니다. <span class="small">왜: 실행 결과가 매번 다르게 남으면 다음 사람이 검증하거나 비교할 수 없습니다.</span></li>
+            </ol>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">성공/실패 해석</div>
+            <p>성공하면 에이전트가 어떤 도구를 써도 위험도가 먼저 보입니다. 실패하면 읽기 전용 분석과 운영 변경 작업이 같은 실행 경로에 섞입니다.</p>
+          </div>
+          <div class="progress" aria-label="KR2 progress 15 percent"><span style="width: 15%;"></span></div>
+          <div class="small">현재 15%: 도구 목록은 있으나 registry 없음</div>
+        </article>
+        <article class="okr-card span-6">
+          <span class="status info">KR3 · 88% 추천</span>
+          <p class="kr-statement">선행지표 에이전트가 실행될 때마다 입력값, 판단 근거, 결과, 다음 할 일이 기계용 기록 1개와 사람용 보고서 1개로 100% 남는다.</p>
+          <div class="kr-block">
+            <div class="kr-block-title">해당 KR 설정 이유</div>
+            <p>
+              에이전트가 매번 좋은 분석을 해도 어떤 입력값을 썼는지, 어떤 도구를 썼는지, 왜 그 결론이 나왔는지가 흩어지면
+              다음 실행에서 재현하거나 비교하기 어렵습니다.
+            </p>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">액션플랜</div>
+            <ol class="action-plan">
+              <li><strong>실행 기록에 꼭 남길 항목을 고정합니다.</strong> 실행한 에이전트, 사이트, 기간, 사용한 문서, 사용한 도구, 품질 판정, 결과를 남깁니다. <span class="small">왜: 같은 질문을 다시 돌렸을 때 결과가 달라지면 원인을 추적해야 하기 때문입니다.</span></li>
+              <li><strong>같은 기록에서 사람용 보고서와 화면용 데이터를 같이 만들 수 있게 합니다.</strong> <span class="small">왜: 보고서, 화면, Telegram 알림이 서로 다른 숫자를 보여주면 신뢰가 깨집니다.</span></li>
+              <li><strong>샘플 실행 기록 1개를 먼저 만듭니다.</strong> <span class="small">왜: 자동화 전에 "좋은 실행 결과는 이렇게 남아야 한다"는 기준이 필요합니다.</span></li>
+            </ol>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">성공/실패 해석</div>
+            <p>성공하면 같은 실행 결과를 HTML, Markdown, Telegram에 재사용할 수 있습니다. 실패하면 실행 맥락과 판단 근거를 다음 에이전트가 다시 추적해야 합니다.</p>
+          </div>
+          <div class="progress teal" aria-label="KR3 progress 10 percent"><span style="width: 10%;"></span></div>
+          <div class="small">현재 10%: 개념 정의 완료, 결과 기록 양식 필요</div>
+        </article>
+        <article class="okr-card span-6">
+          <span class="status hold">KR4 · 84% 추천</span>
+          <p class="kr-statement">추천 후보 100%에 "바로 사용 / 주의하고 사용 / 보류 / 실패" 판정을 붙이고, 결제 후에 생긴 행동을 구매 전 신호로 잘못 쓰는 사례 0건을 유지한다.</p>
+          <div class="kr-block">
+            <div class="kr-block-title">해당 KR 설정 이유</div>
+            <p>
+              선행지표는 결과를 예고하는 행동이어야 합니다.
+              결제완료 뒤에 발생한 이벤트를 선행지표로 쓰면 운영 판단이 뒤집힙니다.
+            </p>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">액션플랜</div>
+            <ol class="action-plan">
+              <li><strong>추천 후보마다 품질 판정 기준을 붙입니다.</strong> 데이터가 최신인지, 비교 집단이 충분한지, 구매 후 행동이 섞이지 않았는지, 사람이 바꿀 수 있는 지표인지 확인합니다. <span class="small">왜: 숫자가 커 보여도 실제로 운영에 쓸 수 없는 지표가 많기 때문입니다.</span></li>
+              <li><strong>판정 라벨을 4개로 통일합니다.</strong> 바로 사용, 주의하고 사용, 보류, 실패로 나눕니다. <span class="small">왜: 운영자가 이 신호를 지금 써도 되는지 즉시 알아야 합니다.</span></li>
+              <li><strong>보류 이유를 쉬운 말로 남깁니다.</strong> 예: 비교할 사람이 너무 적음, 데이터가 오래됨, 사람이 바꿀 수 없는 지표임. <span class="small">왜: 보류가 나와도 다음에 무엇을 확인해야 하는지 알아야 합니다.</span></li>
+            </ol>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">성공/실패 해석</div>
+            <p>성공하면 추천 신호를 운영 실험 후보로 안전하게 올릴 수 있습니다. 실패하면 결과를 원인처럼 해석하는 혼입 문제가 생겨 잘못된 개선 액션이 나옵니다.</p>
+          </div>
+          <div class="progress gold" aria-label="KR4 progress 25 percent"><span style="width: 25%;"></span></div>
+          <div class="small">현재 25%: 하네스 사전 점검은 있음, 선행지표 품질 판정은 추가 필요</div>
+        </article>
+        <article class="okr-card span-6">
+          <span class="status teal">KR5 · 82% 추천</span>
+          <p class="kr-statement">보고서 첫 화면에서 핵심 판단 카드 6개 이하로 30초 안에 현재 상태, 이유, 다음 액션을 이해하게 만든다.</p>
+          <div class="kr-block">
+            <div class="kr-block-title">해당 KR 설정 이유</div>
+            <p>
+              보고서는 데이터 창고가 아니라 의사결정판이어야 합니다.
+              카드가 많거나 액션이 없으면 운영자는 다시 원본 데이터를 해석해야 합니다.
+            </p>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">액션플랜</div>
+            <ol class="action-plan">
+              <li><strong>각 추천 카드에 근거, 다음 행동, 승인 필요 여부를 같이 표시합니다.</strong> <span class="small">왜: 좋은 숫자를 봐도 바로 할 일이 없으면 운영 개선으로 이어지지 않습니다.</span></li>
+              <li><strong>표보다 판단 카드와 도표를 먼저 배치합니다.</strong> <span class="small">왜: 처음 보는 사람은 원본 데이터보다 현재 판단과 흐름을 먼저 이해해야 합니다.</span></li>
+              <li><strong>처음 등장하는 내부 용어에는 쉬운 풀이를 붙입니다.</strong> <span class="small">왜: 작성한 에이전트만 이해하는 표현은 보고서의 의사결정 속도를 떨어뜨립니다.</span></li>
+            </ol>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">성공/실패 해석</div>
+            <p>성공하면 운영자가 원본 테이블을 열지 않고도 다음 행동을 결정합니다. 실패하면 보고서가 데이터 설명서로 남고 실제 개선 액션이 늦어집니다.</p>
+          </div>
+          <div class="progress teal" aria-label="KR5 progress 35 percent"><span style="width: 35%;"></span></div>
+          <div class="small">현재 35%: 화면 원칙과 선행지표 문서는 있음</div>
+        </article>
+        <article class="okr-card span-6">
+          <span class="status ok">KR6 · 80% 추천</span>
+          <p class="kr-statement">읽기 전용 자동 점검은 7일 연속 95% 이상 성공하고, 운영 설정 변경·외부 전송·배포는 0건으로 유지하며, 보류 알림 100%에 다음 확인 방법을 포함한다.</p>
+          <div class="kr-block">
+            <div class="kr-block-title">해당 KR 설정 이유</div>
+            <p>
+              자동화는 편하지만 위험합니다.
+              처음에는 읽기와 보고만 자동화하고, 실제 전송이나 배포는 승인 문서 없이는 열지 않아야 합니다.
+            </p>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">액션플랜</div>
+            <ol class="action-plan">
+              <li><strong>정기 실행은 읽기와 보고서 생성까지만 수행합니다.</strong> <span class="small">왜: 자동화 초기에 운영 설정까지 건드리면 실패 영향이 커집니다.</span></li>
+              <li><strong>보류가 나오면 원인과 다음 확인 방법을 Telegram에 함께 보냅니다.</strong> <span class="small">왜: "실패"만 오면 사람이 다시 로그를 뒤져야 합니다.</span></li>
+              <li><strong>운영 변경, 외부 전송, 배포가 필요하면 자동으로 멈춥니다.</strong> <span class="small">왜: 돈과 광고 계정에 영향을 주는 작업은 TJ님 승인 후 진행해야 합니다.</span></li>
+            </ol>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">성공/실패 해석</div>
+            <p>성공하면 자동화가 매일 감시하되 운영 설정은 건드리지 않습니다. 실패하면 조용한 실패나 무승인 실행 위험이 생깁니다.</p>
+          </div>
+          <div class="progress green" aria-label="KR6 progress 40 percent"><span style="width: 40%;"></span></div>
+          <div class="small">현재 40%: BigQuery cron/Telegram 패턴 존재</div>
+        </article>
+        <article class="okr-card span-6">
+          <span class="status teal">KR7 · 84% 추천</span>
+          <p class="kr-statement">선행지표 에이전트가 실행될 때마다 최근 기준선을 읽고 매출/주문 시나리오 3-5개를 자동 제안하며, 각 시나리오에 예상 주문 수, 예상 매출 범위, 내부 confirmed ROAS 가능 여부, 결제 이탈 영향, 우선 개선 지표를 100% 표시하는 미니 디지털 트윈 시뮬레이터 1개를 만든다.</p>
+          <div class="kr-block">
+            <div class="kr-block-title">해당 KR 설정 이유</div>
+            <p>
+              선행지표를 보는 이유는 결국 "무엇을 바꾸면 매출이 얼마나 달라질 수 있는가"를 빠르게 판단하기 위해서입니다.
+              다만 처음부터 정확한 매출 예측기로 만들지 말고, AI가 몇 가지 운영 시나리오를 제안하고 방향과 민감도를 보는 작은 시뮬레이터로 시작해야 안전합니다.
+            </p>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">액션플랜</div>
+            <ol class="action-plan">
+              <li><strong>기준선을 자동으로 읽습니다.</strong> 최근 7일/28일 방문자 수, 결제완료 주문 수, 매출, 객단가를 source matrix 기준으로 읽습니다. <span class="small">왜: 기준선 없이 시나리오를 만들면 시뮬레이션이 실제 운영과 떨어집니다.</span></li>
+              <li><strong>AI가 시나리오를 자동 제안합니다.</strong> 현재 유지, 결제 이탈 개선, 콘텐츠 몰입 개선, 트래픽 확대 전 점검 중 3-5개를 고릅니다. <span class="small">왜: 운영자가 숫자 슬라이더를 직접 만지는 방식은 무엇을 바꿔야 할지 부담이 큽니다.</span></li>
+              <li><strong>결과는 단일 숫자가 아니라 범위로 보여줍니다.</strong> 예상 주문, 예상 매출, 예상 ROAS, 결제 이탈 영향, 우선 개선 지표를 함께 표시합니다. <span class="small">왜: 초기 시뮬레이터는 정답 예측보다 의사결정 방향을 잡는 도구가 맞습니다.</span></li>
+            </ol>
+          </div>
+          <div class="kr-block">
+            <div class="kr-block-title">성공/실패 해석</div>
+            <p>성공하면 랜딩 개선, 결제 UX 개선, 광고비 조정의 예상 효과를 한 화면에서 비교할 수 있습니다. 실패하면 선행지표가 "좋은 숫자"로만 남고 사업 판단으로 이어지지 않습니다.</p>
+          </div>
+          <div class="progress teal" aria-label="KR7 progress 5 percent"><span style="width: 5%;"></span></div>
+          <div class="small">현재 5%: 가능성 판단 단계, 실제 모델과 화면은 아직 없음</div>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="roadmap-title">
+      <div class="section-head">
+        <div>
+          <h2 id="roadmap-title">권장 개발 순서</h2>
+          <p>문서와 결과 양식부터 시작하고, 운영 변경은 승인 문서 이후로 미룹니다.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="action-card green span-6">
+          <span class="status ok">1단계 · Green</span>
+          <h3>기존 온톨로지 위에 구매 전 행동 사전 추가</h3>
+          <div class="roadmap-detail">
+            <div><strong>무엇을 하는가</strong>파일 후보 <code>ontology/leading-indicator-ontology-extension-20260525.md</code>에 구매 전 행동 항목과 연결 규칙을 추가합니다.</div>
+            <div><strong>왜 하는가</strong>기존 결제/매출 ontology와 선행지표 분석이 같은 단어를 쓰게 해야 결과 지표와 행동 지표가 섞이지 않습니다.</div>
+            <div><strong>어떻게 하는가</strong>기존 결제완료, 광고 유입 증거, 상품 몰입 요약 정의는 그대로 두고, 방문 행동/비교 집단/선행 신호/실험 후보만 새로 추가합니다.</div>
+            <div><strong>완료 기준</strong>구매 전 행동 항목 6개, 항목 간 연결 규칙 9개, 중복 용어 0건이 문서에 남습니다.</div>
+            <div><strong>승인 필요 여부</strong>문서와 결과 양식 초안 작성이므로 Green Lane입니다. 운영DB, VM Cloud, 외부 플랫폼 변경은 없습니다.</div>
+          </div>
+        </article>
+        <article class="action-card green span-6">
+          <span class="status ok">2단계 · Green</span>
+          <h3>도구 사용 안내서와 품질 판정 기준 작성</h3>
+          <div class="roadmap-detail">
+            <div><strong>무엇을 하는가</strong>핵심 도구 12개에 안전 등급, 해도 되는 일, 금지된 일, 결과 기록 양식을 붙입니다.</div>
+            <div><strong>왜 하는가</strong>자동 실행 전에 어떤 도구가 안전한 읽기이고 어떤 도구가 운영 변경인지 구분해야 합니다.</div>
+            <div><strong>어떻게 하는가</strong><code>harness/leading-indicator/TOOL_REGISTRY.md</code>와 <code>EVAL_SUITE.md</code>를 작성하고, 데이터 최신성 확인과 구매 후 행동 혼입 방지를 필수 판정으로 둡니다.</div>
+            <div><strong>완료 기준</strong>추천 후보 100%에 사용 가능/주의/보류/실패 판정과 보류 이유가 붙습니다.</div>
+            <div><strong>승인 필요 여부</strong>문서 작업은 Green Lane입니다. 실제 정기 자동 실행 적용은 별도 Yellow 승인으로 분리합니다.</div>
+          </div>
+        </article>
+        <article class="action-card span-6">
+          <span class="status info">3단계 · Green</span>
+          <h3>실행 기록 샘플 생성</h3>
+          <div class="roadmap-detail">
+            <div><strong>무엇을 하는가</strong>선행지표 에이전트 실행 1회를 기계용 JSON 기록과 사람용 Markdown 보고서 한 쌍으로 남깁니다.</div>
+            <div><strong>왜 하는가</strong>나중에 화면, Telegram, 주간 보고가 같은 결과 기록 양식을 쓰게 만들기 위해서입니다.</div>
+            <div><strong>어떻게 하는가</strong>실행한 에이전트, 사이트, 기간, 사용 도구, 품질 판정, 결과, 다음 행동을 고정 항목으로 남깁니다.</div>
+            <div><strong>완료 기준</strong>JSON 하나만 봐도 실행 맥락, 결과, 다음 액션, 금지선 준수 여부가 확인됩니다.</div>
+            <div><strong>승인 필요 여부</strong>샘플 파일 생성은 Green Lane입니다. 실제 cron 연결이나 Telegram 발송은 별도 승인 또는 기존 승인 범위를 확인합니다.</div>
+          </div>
+        </article>
+        <article class="action-card gold span-6">
+          <span class="status hold">4단계 · Yellow/Red 전 게이트</span>
+          <h3>화면, 자동화, 외부 전송은 분리해서 승인</h3>
+          <div class="roadmap-detail">
+            <div><strong>무엇을 하는가</strong>정적 보고서, 앱 화면, 정기 자동 점검, 외부 전송을 각각 다른 안전 등급으로 분리합니다.</div>
+            <div><strong>왜 하는가</strong>보기 좋은 화면이 생겼다고 해서 운영 배포나 광고 플랫폼 전송까지 자동 허용되면 위험합니다.</div>
+            <div><strong>어떻게 하는가</strong>HTML/Markdown 보고서는 문서 작업, VM Cloud 서버 반영과 GTM 미리보기는 승인 후 작업, GTM 운영 게시와 광고 플랫폼 전송은 별도 최종 승인 작업으로 고정합니다.</div>
+            <div><strong>완료 기준</strong>화면은 읽기/보고만 수행하고, 운영 변경/외부 전송/배포가 필요한 순간 승인 문서 없이는 중단합니다.</div>
+            <div><strong>승인 필요 여부</strong>Green 산출물은 바로 가능하지만, 배포와 외부 전송은 TJ님 승인 없이는 진행하지 않습니다.</div>
+          </div>
+        </article>
+        <article class="action-card span-6">
+          <span class="status teal">5단계 · Green 후보</span>
+          <h3>미니 디지털 트윈 시뮬레이터 설계</h3>
+          <div class="roadmap-detail">
+            <div><strong>무엇을 하는가</strong>최근 기준선을 읽고 AI가 시나리오 3-5개를 자동 제안하는 작은 시뮬레이터를 설계합니다.</div>
+            <div><strong>왜 하는가</strong>선행지표가 실제 운영 판단으로 이어지려면 "이 지표를 고치면 매출이 얼마나 움직일 수 있는가"를 바로 봐야 합니다.</div>
+            <div><strong>어떻게 하는가</strong>최근 7일/28일 실제 결제완료 매출을 기준선으로 두고, 현재 유지/결제 이탈 개선/콘텐츠 몰입 개선/트래픽 확대 전 점검 시나리오의 예상 범위와 오차율을 계산합니다.</div>
+            <div><strong>완료 기준</strong>AI가 제안한 시나리오마다 예상 주문, 예상 매출, 예상 ROAS, 결제 이탈 영향, 우선 개선 지표 5개가 즉시 표시됩니다.</div>
+            <div><strong>승인 필요 여부</strong>문서와 정적 화면 설계는 Green Lane입니다. 예산 자동 변경이나 외부 전송은 Red Lane이라 금지합니다.</div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="evidence-title">
+      <div class="section-head">
+        <div>
+          <h2 id="evidence-title">출처와 신뢰도</h2>
+          <p>보고서 숫자와 판단의 기준입니다.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="panel span-6">
+          <h3>Source / Window / Freshness</h3>
+          <ul class="explain-list">
+            <li><strong>source:</strong> <a href="../ontology/!ontology.md">ontology/!ontology.md</a>, <a href="../project/!indicatoragent.md">project/!indicatoragent.md</a>, <a href="../harness/!harness.md">harness/!harness.md</a>, 첨부 AIP 구조도</li>
+            <li><strong>window:</strong> 2026-05-25 기준 구조 분석</li>
+            <li><strong>freshness:</strong> 로컬 문서 확인 2026-05-25 18:00 KST</li>
+            <li><strong>confidence:</strong> 88%, 구조 판단은 충분하나 구현 전 결과 양식 검증 필요</li>
+          </ul>
+        </article>
+        <article class="panel span-6">
+          <h3>외부 전송 / 운영 변경 없음 확인</h3>
+          <ul class="explain-list">
+            <li>운영DB 변경 없음.</li>
+            <li>VM Cloud deploy 없음.</li>
+            <li>GTM publish 없음.</li>
+            <li>GA4, Meta, Google Ads, TikTok 전송 없음.</li>
+            <li>이 HTML은 정적 보고서이며 서버 실행 없이 열 수 있습니다.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <strong>검증 판정: PASS.</strong>
+      이 파일은 구조 제안용 정적 HTML 보고서입니다.
+      운영 변경, 배포, 외부 플랫폼 전송, DB 변경은 수행하지 않았습니다.
+      다음 Green 작업은 기존 온톨로지 기반 선행지표 사전과 도구 사용 안내서 초안 작성입니다.
+    </footer>
+  </main>
+</body>
+</html>

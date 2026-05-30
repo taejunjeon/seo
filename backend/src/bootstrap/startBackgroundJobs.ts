@@ -32,6 +32,7 @@ import { startLeadingIndicatorsPrecomputeWorker } from "../leadingIndicators";
 import { startAcquisitionPrecomputeWorker } from "../acquisitionPrecompute";
 import { fetchRemoteLedgerEntriesForAcquisition } from "../routes/attribution";
 import { startCallpricePrecomputeWorker } from "../callpricePrecompute";
+import { startNaverAdsSummaryPrecomputeWorker } from "../naverAdsSummaryPrecompute";
 
 export const startBackgroundJobs = () => {
   if (!env.BACKGROUND_JOBS_ENABLED) {
@@ -103,41 +104,60 @@ export const startBackgroundJobs = () => {
     }
   };
 
-  // imweb 주문 증분 sync — 15분 주기. 두 사이트(biocom, thecleancoffee) 순차 호출.
+  // imweb 주문 증분 sync — 설정 주기. 두 사이트(biocom, thecleancoffee) 순차 호출.
   // 기존 POST /api/crm-local/imweb/sync-orders 엔드포인트를 self-call 로 재사용 → 로직 중복 없음.
+  let imwebOrdersSyncRunning = false;
+
   const runImwebOrdersSync = async () => {
-    const sites = ["biocom", "thecleancoffee"] as const;
-    for (const site of sites) {
-      try {
+    if (imwebOrdersSyncRunning) {
+      // eslint-disable-next-line no-console
+      console.warn("[Imweb orders sync] skip — previous sync is still running");
+      return;
+    }
+
+    imwebOrdersSyncRunning = true;
+
+    try {
+      const sites = ["biocom", "thecleancoffee"] as const;
+      for (const site of sites) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 90_000);
-        const response = await fetch(`${selfBaseUrl}/api/crm-local/imweb/sync-orders`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ site, maxPage: imwebAutoSyncMaxPage }),
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        const body = (await response.json().catch(() => null)) as
-          | { ok?: boolean; synced?: number; sites?: Array<{ site: string; synced: number; totalCount: number; error: string | null }> }
-          | null;
-        if (response.ok && body?.ok) {
-          const siteResult = body.sites?.find((s) => s.site === site);
+        try {
+          const response = await fetch(`${selfBaseUrl}/api/crm-local/imweb/sync-orders`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ site, maxPage: imwebAutoSyncMaxPage }),
+            signal: controller.signal,
+          });
+          const body = (await response.json().catch(() => null)) as
+            | {
+                ok?: boolean;
+                synced?: number;
+                sites?: Array<{ site: string; synced: number; totalCount: number; error: string | null }>;
+              }
+            | null;
+          if (response.ok && body?.ok) {
+            const siteResult = body.sites?.find((s) => s.site === site);
+            // eslint-disable-next-line no-console
+            console.log(
+              `[Imweb orders sync] ${site} — upsert ${siteResult?.synced ?? body.synced ?? 0} (totalCount ${siteResult?.totalCount ?? "?"})`,
+            );
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(`[Imweb orders sync] ${site} 실패: HTTP ${response.status}`);
+          }
+        } catch (error) {
           // eslint-disable-next-line no-console
-          console.log(
-            `[Imweb orders sync] ${site} — upsert ${siteResult?.synced ?? body.synced ?? 0} (totalCount ${siteResult?.totalCount ?? "?"})`,
+          console.error(
+            `[Imweb orders sync] ${site} 오류:`,
+            error instanceof Error ? error.message : error,
           );
-        } else {
-          // eslint-disable-next-line no-console
-          console.error(`[Imweb orders sync] ${site} 실패: HTTP ${response.status}`);
+        } finally {
+          clearTimeout(timer);
         }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[Imweb orders sync] ${site} 오류:`,
-          error instanceof Error ? error.message : error,
-        );
       }
+    } finally {
+      imwebOrdersSyncRunning = false;
     }
   };
 
@@ -449,6 +469,29 @@ export const startBackgroundJobs = () => {
     console.log("[callprice precompute] disabled by CALLPRICE_PRECOMPUTE_ENABLED=0 또는 interval<60s");
   }
 
+  // Naver Ads campaign-summary precompute:
+  // /ads/naver 첫 화면에서 evidence join 을 매번 돌리지 않도록 7/30/90일 기본 조합을 미리 계산한다.
+  // self-fetch 로 route lazy cache 만 채우며, 광고 플랫폼 send/write 는 없다.
+  // 환경변수: NAVER_ADS_SUMMARY_PRECOMPUTE_ENABLED=0 / NAVER_ADS_SUMMARY_PRECOMPUTE_INTERVAL_MS
+  const naverAdsSummaryPrecomputeEnabled = process.env.NAVER_ADS_SUMMARY_PRECOMPUTE_ENABLED !== "0";
+  const naverAdsSummaryPrecomputeIntervalMs = Number(
+    process.env.NAVER_ADS_SUMMARY_PRECOMPUTE_INTERVAL_MS ?? "900000",
+  );
+  if (
+    naverAdsSummaryPrecomputeEnabled
+    && Number.isFinite(naverAdsSummaryPrecomputeIntervalMs)
+    && naverAdsSummaryPrecomputeIntervalMs >= 60000
+  ) {
+    startNaverAdsSummaryPrecomputeWorker(naverAdsSummaryPrecomputeIntervalMs);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[Naver Ads summary precompute] 활성화 — ${Math.round(naverAdsSummaryPrecomputeIntervalMs / 60000)}분 주기 (site×7/30/90d 기본 조합)`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[Naver Ads summary precompute] disabled by NAVER_ADS_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s");
+  }
+
   // ROAS summary precompute:
   // 기본 화면은 어제 확정 데이터를 즉시 보여주고, 당일 데이터는 4시간 단위로만 갱신한다.
   // 사용자가 버튼을 눌렀을 때도 사전 계산된 today cache 를 먼저 읽게 해 Meta API hammer 를 막는다.
@@ -556,6 +599,105 @@ export const startBackgroundJobs = () => {
     console.log("[ROAS summary precompute] disabled by ROAS_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s 또는 targets/presetGroups empty");
   }
 
+  // Google Ads dashboard summary precompute:
+  // Google ROAS 화면도 Meta ROAS처럼 사전 계산 cache 를 먼저 읽게 해 Google Ads API 직접 호출을 줄인다.
+  const googleAdsDashboardSummaryPrecomputeEnabled = process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_ENABLED !== "0";
+  const googleAdsDashboardSummaryPrecomputeIntervalMs = Number(
+    process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_INTERVAL_MS ?? "14400000",
+  );
+  const googleAdsDashboardSummaryPrecomputeStartDelayMs = Number(
+    process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_START_DELAY_MS ?? "120000",
+  );
+  const googleAdsDashboardSummaryPrecomputeTimeoutMs = Number(
+    process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_TIMEOUT_MS ?? "120000",
+  );
+  const googleAdsDashboardSummaryPresets = (
+    process.env.GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_PRESETS ?? "yesterday,last_7d,last_30d"
+  )
+    .split(",")
+    .map((preset) => preset.trim())
+    .filter(Boolean);
+  if (
+    googleAdsDashboardSummaryPrecomputeEnabled &&
+    Number.isFinite(googleAdsDashboardSummaryPrecomputeIntervalMs) &&
+    googleAdsDashboardSummaryPrecomputeIntervalMs >= 60000 &&
+    googleAdsDashboardSummaryPresets.length > 0
+  ) {
+    let googleAdsSummaryRunning = false;
+    const runGoogleAdsDashboardSummaryPrecompute = async () => {
+      if (googleAdsSummaryRunning) {
+        // eslint-disable-next-line no-console
+        console.log("[Google Ads dashboard summary precompute] skip — previous tick still running");
+        return;
+      }
+      googleAdsSummaryRunning = true;
+      let ok = 0;
+      let failed = 0;
+      try {
+        for (const preset of googleAdsDashboardSummaryPresets) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), googleAdsDashboardSummaryPrecomputeTimeoutMs);
+          try {
+            const url = new URL(`${selfBaseUrl}/api/google-ads/dashboard-summary`);
+            url.searchParams.set("date_preset", preset);
+            url.searchParams.set("force", "1");
+            url.searchParams.set("cache_write", "1");
+            url.searchParams.set("precompute", "1");
+            const startedAt = Date.now();
+            const response = await fetch(url.toString(), {
+              method: "GET",
+              signal: controller.signal,
+              cache: "no-store",
+            });
+            clearTimeout(timer);
+            const body = (await response.json().catch(() => null)) as
+              | { ok?: boolean; cache?: { source?: string; generation_ms?: number | null } }
+              | null;
+            if (response.ok && body?.ok) {
+              ok += 1;
+              // eslint-disable-next-line no-console
+              console.log(
+                `[Google Ads dashboard summary precompute] ok preset=${preset} source=${body.cache?.source ?? "?"} generationMs=${body.cache?.generation_ms ?? Date.now() - startedAt}`,
+              );
+            } else {
+              failed += 1;
+              // eslint-disable-next-line no-console
+              console.error(`[Google Ads dashboard summary precompute] fail preset=${preset} HTTP ${response.status}`);
+            }
+          } catch (error) {
+            failed += 1;
+            // eslint-disable-next-line no-console
+            console.error(
+              `[Google Ads dashboard summary precompute] error preset=${preset}`,
+              error instanceof Error ? error.message : error,
+            );
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+      } finally {
+        googleAdsSummaryRunning = false;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[Google Ads dashboard summary precompute] tick — ok=${ok} failed=${failed} next=${Math.round(googleAdsDashboardSummaryPrecomputeIntervalMs / 1000)}s`,
+        );
+      }
+    };
+    setTimeout(() => {
+      void runGoogleAdsDashboardSummaryPrecompute();
+      setInterval(() => { void runGoogleAdsDashboardSummaryPrecompute(); }, googleAdsDashboardSummaryPrecomputeIntervalMs);
+    }, Number.isFinite(googleAdsDashboardSummaryPrecomputeStartDelayMs)
+      ? googleAdsDashboardSummaryPrecomputeStartDelayMs
+      : 120_000);
+    // eslint-disable-next-line no-console
+    console.log(
+      `[Google Ads dashboard summary precompute] 활성화 — ${Math.round(googleAdsDashboardSummaryPrecomputeIntervalMs / 60000)}분 주기 (${googleAdsDashboardSummaryPresets.join(",")})`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("[Google Ads dashboard summary precompute] disabled by GOOGLE_ADS_DASHBOARD_SUMMARY_PRECOMPUTE_ENABLED=0 또는 interval<60s 또는 presets empty");
+  }
+
   // Meta UTM diagnostics precompute:
   // /ads/meta-utm 기본 화면은 Meta campaigns/adsets/ads + 3개 insights call 을 동시에 읽어 첫 miss 가 길다.
   // 가장 많이 보는 biocom last_7d 조합을 먼저 warm 해 두고, 사용자는 lazy cache hit 를 받게 한다.
@@ -564,7 +706,7 @@ export const startBackgroundJobs = () => {
     process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_INTERVAL_MS ?? "720000",
   );
   const metaUtmPrecomputeStartDelayMs = Number(
-    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_START_DELAY_MS ?? "30000",
+    process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_START_DELAY_MS ?? "180000",
   );
   const metaUtmPrecomputeTimeoutMs = Number(
     process.env.META_UTM_DIAGNOSTICS_PRECOMPUTE_TIMEOUT_MS ?? "120000",
@@ -609,7 +751,6 @@ export const startBackgroundJobs = () => {
               const url = new URL(`${selfBaseUrl}/api/ads/meta-utm-diagnostics`);
               url.searchParams.set("account_id", accountId);
               url.searchParams.set("date_preset", preset);
-              url.searchParams.set("force", "1");
               url.searchParams.set("precompute", "1");
               const startedAt = Date.now();
               const response = await fetch(url.toString(), {

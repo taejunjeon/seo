@@ -1,0 +1,142 @@
+{
+  "report": "reportcoffee_campaign_id_capture_hardening_design_v1",
+  "generated_at_kst": "2026-05-24 11:46:32 KST",
+  "site": "thecleancoffee",
+  "mode": "green_design_no_send_no_write_no_deploy",
+  "problem": {
+    "plain_language": "더클린커피에는 Google 클릭 흔적 3건이 있지만, campaign_id가 남지 않아 어느 캠페인에서 온 클릭인지 볼 수 없다.",
+    "latest_no_raw_preview": {
+      "source": "VM Cloud SQLite read-only",
+      "window": "last_7d",
+      "site_landing_total_rows": 549,
+      "google_click_id_rows": 3,
+      "google_click_with_gad_campaignid_rows": 0,
+      "paid_click_intent_rows": 0
+    },
+    "budget_impact_now": "none",
+    "slack_google_spend_label": "Google: 0원 확인 후보"
+  },
+  "root_causes": [
+    {
+      "id": "coffee_storage_gap",
+      "evidence": "2026-05-21 coffee live smoke found gclid stored, but gbraid/wbraid/gad_campaignid were not structured fields.",
+      "impact": "A campaign hint can be present in the URL string but not be available to checkout/payment payloads."
+    },
+    {
+      "id": "paid_click_intent_site_gate",
+      "evidence": "backend/src/routes/attribution.ts currently has PAID_CLICK_INTENT_ALLOWED_SITES = ['biocom'].",
+      "impact": "thecleancoffee can fan out into site_landing_ledger, but minimal paid_click_intent_ledger write is not available for coffee."
+    },
+    {
+      "id": "paid_click_intent_current_url_gap",
+      "evidence": "buildAllowedQueryJson reads gad_campaignid from sanitized_landing_url only; buildPaidClickIntentNoSendPreview can see landing/current, but recordPaidClickIntent does not receive sanitized_current_url or explicit gad fields.",
+      "impact": "If campaign id is only on current_url or explicit payload field, the ledger allowed_query_json may miss it."
+    },
+    {
+      "id": "google_ads_url_hint_gap",
+      "evidence": "final-url-audit shows thecleancoffee final URL row with no manual UTM, no tracking template, and no final URL suffix rows.",
+      "impact": "Google click IDs may arrive without gad_campaignid unless Google Ads URL suffix/tracking template supplies it."
+    }
+  ],
+  "recommended_design": {
+    "name": "thecleancoffee_campaign_id_capture_v1",
+    "principle": "Do not promote gad_campaignid to a click ID or purchase. Preserve it only as a campaign hint next to gclid/gbraid/wbraid.",
+    "phases": [
+      {
+        "phase": "P0 Green",
+        "action": "Keep no-raw aggregate preview and Slack warning.",
+        "owner": "Codex",
+        "approval_required": false,
+        "success_criteria": "Google spend remains zero candidate, click evidence warning remains explicit."
+      },
+      {
+        "phase": "P1 Yellow backend",
+        "action": "Allow site='thecleancoffee' in paid-click-intent receiver and persist gad_campaignid from explicit field, sanitized_landing_url, or sanitized_current_url into allowed_query_json.",
+        "owner": "Codex after TJ approval",
+        "approval_required": true,
+        "success_criteria": "No-send test returns no site_not_allowed for thecleancoffee, external platform sends remain 0, raw output remains 0."
+      },
+      {
+        "phase": "P2 Yellow or Red tracking",
+        "action": "Update coffee browser capture path so gclid/gbraid/wbraid/gad_source/gad_campaignid are stored as one Google click set without stale mixing.",
+        "owner": "Codex after TJ approval",
+        "approval_required": true,
+        "success_criteria": "Preview smoke shows gad_campaignid in storage/payload and no purchase/send/upload."
+      },
+      {
+        "phase": "P3 Red Google Ads setting only if ads resume",
+        "action": "Add Google Ads final URL suffix or tracking template for coffee campaigns to include gad_source=1 and gad_campaignid={campaignid}.",
+        "owner": "TJ님 + Codex support",
+        "approval_required": true,
+        "success_criteria": "Future Google clicks carry campaign id hint; no conversion action or upload changes."
+      }
+    ]
+  },
+  "backend_design": {
+    "files": [
+      "backend/src/routes/attribution.ts",
+      "backend/src/paidClickIntentLog.ts"
+    ],
+    "changes": [
+      "Add thecleancoffee to PAID_CLICK_INTENT_ALLOWED_SITES.",
+      "Pass sanitized_current_url, gad_campaignid, and gad_source into recordPaidClickIntent.",
+      "Make buildAllowedQueryJson prefer preview.gad_campaignid, then landing_url param, then current_url param.",
+      "Keep hasGoogleClickId requirement based on gclid/gbraid/wbraid only.",
+      "Keep send_candidate=false and actual_send_candidate=false."
+    ],
+    "non_goals": [
+      "No Google Ads upload.",
+      "No conversion action change.",
+      "No purchase promotion from gad_campaignid-only rows.",
+      "No raw click ID output."
+    ]
+  },
+  "client_capture_design": {
+    "source_reference": "project/coffee-google-click-id-structured-storage-plan-20260521.md",
+    "fixture": {
+      "script": "scripts/coffee-click-id-structured-storage-fixture.mjs",
+      "latest_result": "9/9 PASS"
+    },
+    "rules": [
+      "Select gclid/gbraid/wbraid as one source set.",
+      "Do not mix stale wbraid from storage into fresh gclid/gbraid URL.",
+      "Preserve gad_campaignid and gad_source as campaign hint.",
+      "Do not treat gad_campaignid-only as Google click ID.",
+      "Do not send purchase or conversion events."
+    ]
+  },
+  "approval_packet": {
+    "title": "더클린커피 campaign_id capture hardening backend + preview",
+    "lane": "Yellow for backend deploy and tracking preview; Red only for GTM Production publish or Google Ads campaign setting change",
+    "allowed_if_approved": [
+      "Backend no-send receiver patch and VM deploy/restart",
+      "GTM or Imweb preview-only smoke",
+      "No-raw VM SQLite aggregate validation"
+    ],
+    "forbidden_even_if_approved": [
+      "Google Ads conversion upload",
+      "Google Ads conversion action change",
+      "GA4/Meta/TikTok/Naver platform send",
+      "Operating DB write",
+      "Purchase promotion from NPay click/count/add_payment_info",
+      "Raw customer/click/order/payment output"
+    ],
+    "hard_fail": [
+      "summary/API 5xx after deploy",
+      "raw click ID or customer PII exposed",
+      "send/upload/platform event occurs",
+      "thecleancoffee click rows get marked as purchase",
+      "paid_click_intent duplicate spike"
+    ]
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy_executed": 0,
+    "gtm_publish": 0,
+    "google_ads_upload": 0,
+    "google_ads_campaign_change": 0,
+    "platform_send": 0,
+    "raw_identifier_output": 0
+  }
+}

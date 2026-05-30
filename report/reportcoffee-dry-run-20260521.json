@@ -1,0 +1,284 @@
+{
+  "ok": true,
+  "report": "reportcoffee_weekly_monthly_sales_ad_spend_dry_run_v0_1",
+  "site": "thecleancoffee",
+  "generated_at_kst": "2026-05-22 00:05:00",
+  "data_probe_at_kst": "2026-05-21 23:57-23:59",
+  "lane": "Green",
+  "send_status": {
+    "slack_send": 0,
+    "platform_send_or_upload": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "gtm_publish": 0
+  },
+  "source_policy": {
+    "sales_amount_definition": "광고 플랫폼 전환값이 아니라 내부 결제완료 또는 주문/정산 원장 후보 기준 금액",
+    "ad_spend_definition": "플랫폼 지출액. 플랫폼 주장 구매값은 매출에 합산하지 않는다.",
+    "ad_spend_share_formula": "included_ad_spend_krw / included_sales_krw * 100",
+    "raw_identifier_output": 0
+  },
+  "windows": {
+    "last_7d": {
+      "range_kst": {
+        "start": "2026-05-15",
+        "end": "2026-05-21",
+        "type": "rolling_last_7_calendar_days"
+      },
+      "sales": {
+        "included_sales_krw": 12868031,
+        "included_channels": [
+          {
+            "channel": "self_mall",
+            "label": "더클린커피 아임웹 자사몰",
+            "amount_krw": 10570811,
+            "orders": 165,
+            "source": "VM Cloud /api/ads/site-summary siteConfirmedRevenue",
+            "status": "included_with_warning",
+            "freshness": "2026-05-21 23:57 KST live_cache_miss",
+            "warning": "주간 window가 잡히는 자사몰 confirmed 후보로 사용한다. NPay/Toss 세부 결제수단과의 dedupe rule은 다음 단계에서 고정한다."
+          },
+          {
+            "channel": "smartstore",
+            "label": "더클린커피 스마트스토어",
+            "amount_krw": 2297220,
+            "rows": 55,
+            "quantity": 59,
+            "source": "운영DB public.tb_playauto_orders shop_name='스마트스토어'",
+            "status": "included_with_warning",
+            "freshness": "max pay/order date 2026-05-20",
+            "warning": "상품명이 더클린커피로 확인되는 PlayAuto source다. 네이버 주문 API tb_naver_orders는 바이오컴 상품명이 섞여 있어 더클린커피 primary로 쓰지 않는다."
+          }
+        ],
+        "pending_channels": [
+          {
+            "channel": "coupang",
+            "label": "더클린커피 쿠팡",
+            "amount_krw": null,
+            "source": "운영DB public.tb_playauto_orders shop_name='쿠팡'",
+            "status": "source_pending",
+            "observed_rows": 30,
+            "observed_quantity": 31,
+            "freshness": "max pay/order date 2026-05-20",
+            "reason": "상품명과 수량은 보이나 pay_amt가 0이라 매출액으로 쓸 수 없다. 쿠팡 정산/API source가 필요하다."
+          }
+        ],
+        "diagnostic_sources_not_summed": [
+          {
+            "source": "운영DB public.tb_sales_toss store='coffee'",
+            "amount_krw": 9611622,
+            "status": "cross_check_only",
+            "reason": "Toss/card/가상계좌 계열 일부 결제수단 후보. 자사몰 전체와 바로 합산하면 중복 또는 누락 가능성이 있다."
+          },
+          {
+            "source": "VM Cloud site-landing summary NPay actual",
+            "amount_krw": null,
+            "status": "window_unavailable",
+            "reason": "public summary 응답은 NPay actual 30d 필드만 제공한다. 주간 NPay는 VM SQLite 직접 집계 또는 API 확장이 필요하다."
+          }
+        ]
+      },
+      "ad_spend": {
+        "included_ad_spend_krw": 1952104,
+        "included_platforms": [
+          {
+            "platform": "meta",
+            "spend_krw": 1952104,
+            "source": "VM Cloud /api/ads/site-summary date_preset=last_7d",
+            "status": "included",
+            "platform_purchase_value_reference_krw": 7191017,
+            "internal_meta_attributed_revenue_krw": 2040491,
+            "warning": "플랫폼 주장 구매값은 참고값이며 내부 매출에 합산하지 않는다."
+          }
+        ],
+        "pending_platforms": [
+          {
+            "platform": "naver",
+            "status": "source_pending",
+            "reason": "VM Cloud naver_ads_daily 테이블 없음. API/IP 등록 또는 coffee용 캐시 필요."
+          },
+          {
+            "platform": "google",
+            "status": "mapping_pending",
+            "reason": "더클린커피 campaign/site mapping 확인 전 포함 금지."
+          },
+          {
+            "platform": "tiktok",
+            "status": "mapping_pending",
+            "reason": "더클린커피 campaign/site mapping 확인 전 포함 금지."
+          }
+        ]
+      },
+      "ad_spend_share": {
+        "included_sales_krw": 12868031,
+        "included_ad_spend_krw": 1952104,
+        "share_percent": 15.17,
+        "interpretation": "현재 자동 산출 가능한 안전 분모 기준. 쿠팡과 일부 결제수단은 pending이므로 최종 비중보다 높게 보일 수 있다."
+      }
+    },
+    "last_30d": {
+      "range_kst": {
+        "start": "2026-04-22",
+        "end": "2026-05-21",
+        "type": "rolling_last_30_calendar_days"
+      },
+      "sales": {
+        "included_sales_krw": 41505503,
+        "included_channels": [
+          {
+            "channel": "self_mall",
+            "label": "더클린커피 아임웹 자사몰",
+            "amount_krw": 32661233,
+            "orders": 553,
+            "source": "VM Cloud /api/ads/site-summary siteConfirmedRevenue",
+            "status": "included_with_warning",
+            "freshness": "2026-05-21 23:57 KST live_cache_miss",
+            "warning": "자사몰 결제수단별 세부 합산 rule 확정 전의 reportable primary 후보."
+          },
+          {
+            "channel": "smartstore",
+            "label": "더클린커피 스마트스토어",
+            "amount_krw": 8844270,
+            "rows": 268,
+            "quantity": 296,
+            "source": "운영DB public.tb_playauto_orders shop_name='스마트스토어'",
+            "status": "included_with_warning",
+            "freshness": "max pay/order date 2026-05-20",
+            "warning": "PlayAuto product hint 기준 더클린커피 상품으로 확인."
+          }
+        ],
+        "pending_channels": [
+          {
+            "channel": "coupang",
+            "label": "더클린커피 쿠팡",
+            "amount_krw": null,
+            "source": "운영DB public.tb_playauto_orders shop_name='쿠팡' + tb_sales_coupang 후보",
+            "status": "source_pending",
+            "observed_rows": 166,
+            "observed_quantity": 174,
+            "freshness": "PlayAuto max pay/order date 2026-05-20, tb_sales_coupang max 2026-04-30",
+            "reason": "PlayAuto 쿠팡은 상품/수량만 있고 금액이 0이다. tb_sales_coupang은 정산/업로드 성격이고 coffee 전용/fresh 구분이 아직 부족하다."
+          }
+        ],
+        "diagnostic_sources_not_summed": [
+          {
+            "source": "VM Cloud site-landing summary NPay actual 30d",
+            "amount_krw": 15538800,
+            "count": 304,
+            "status": "actual_payment_method_diagnostic",
+            "reason": "NPay actual은 중요하지만 자사몰 primary 후보와 중복 가능성이 있어 이번 v0.1 included total에는 별도 합산하지 않는다."
+          },
+          {
+            "source": "운영DB public.tb_sales_toss store='coffee'",
+            "amount_krw": 31444064,
+            "count": 536,
+            "status": "cross_check_only",
+            "reason": "Toss/card/가상계좌 계열 cross-check. 자사몰 primary 후보와 금액이 비슷하지만 전체/중복 rule을 확정해야 한다."
+          },
+          {
+            "source": "운영DB public.tb_naver_orders",
+            "amount_krw": 32813310,
+            "status": "source_conflict_not_coffee_primary",
+            "reason": "TOP 상품명이 바이오컴 제품이라 더클린커피 스마트스토어 source로 쓰지 않는다."
+          }
+        ]
+      },
+      "ad_spend": {
+        "included_ad_spend_krw": 3966919,
+        "included_platforms": [
+          {
+            "platform": "meta",
+            "spend_krw": 3966919,
+            "source": "VM Cloud /api/ads/site-summary date_preset=last_30d",
+            "status": "included",
+            "platform_purchase_value_reference_krw": 15361905,
+            "internal_meta_attributed_revenue_krw": 3938201,
+            "warning": "플랫폼 주장 구매값은 참고값이며 내부 매출에 합산하지 않는다."
+          }
+        ],
+        "pending_platforms": [
+          {
+            "platform": "naver",
+            "status": "source_pending",
+            "reason": "VM Cloud naver_ads_daily 테이블 없음. API/IP 등록 또는 coffee용 캐시 필요."
+          },
+          {
+            "platform": "google",
+            "status": "mapping_pending",
+            "reason": "더클린커피 campaign/site mapping 확인 전 포함 금지."
+          },
+          {
+            "platform": "tiktok",
+            "status": "mapping_pending",
+            "reason": "더클린커피 campaign/site mapping 확인 전 포함 금지."
+          }
+        ]
+      },
+      "ad_spend_share": {
+        "included_sales_krw": 41505503,
+        "included_ad_spend_krw": 3966919,
+        "share_percent": 9.56,
+        "interpretation": "현재 자동 산출 가능한 안전 분모 기준. 쿠팡과 자사몰 세부 dedupe가 닫히면 변동 가능하다."
+      },
+      "source_gap_sensitivity": {
+        "if_self_mall_toss_plus_npay_were_used_without_primary_dedupe": {
+          "self_mall_known_sources_krw": 46982864,
+          "self_mall_plus_smartstore_krw": 55827134,
+          "meta_only_ad_spend_share_percent": 7.11,
+          "warning": "이 값은 의사결정용이 아니라 source gap 크기를 보여주는 민감도다. dedupe rule 확정 전에는 Slack 정식 보고값으로 쓰지 않는다."
+        }
+      }
+    }
+  },
+  "product_highlights": {
+    "last_7d": {
+      "self_mall_toss_cross_check_top": [
+        { "product_hint": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티", "amount_krw": 6474632 },
+        { "product_hint": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 외 1개", "amount_krw": 334135 },
+        { "product_hint": "콜롬비아 스페셜티 200g / 500g", "amount_krw": 277799 }
+      ],
+      "smartstore_playauto_top": [
+        { "product_hint": "더클린 진짜 방탄커피 840ml 10개", "amount_krw": 464600 },
+        { "product_hint": "초신선 콜롬비아 스페셜티", "amount_krw": 369810 },
+        { "product_hint": "초신선 에티오피아 구지 사키소 G1", "amount_krw": 315100 }
+      ]
+    },
+    "last_30d": {
+      "self_mall_toss_cross_check_top": [
+        { "product_hint": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티", "amount_krw": 18137834 },
+        { "product_hint": "콜롬비아 스페셜티 200g / 500g", "amount_krw": 1453999 },
+        { "product_hint": "더클린 진짜 방탄커피 7스틱", "amount_krw": 926605 }
+      ],
+      "smartstore_playauto_top": [
+        { "product_hint": "초신선 콜롬비아 스페셜티", "amount_krw": 2660450 },
+        { "product_hint": "초신선 에티오피아 구지 사키소 G1", "amount_krw": 1457700 },
+        { "product_hint": "초신선 디카페인 파푸아뉴기니", "amount_krw": 1406020 }
+      ]
+    }
+  },
+  "acquisition_probe": {
+    "status": "source_conflict_hold",
+    "source": "VM Cloud /api/acquisition/channel-analysis",
+    "reason": "thecleancoffee 요청에서도 biocom 캠페인명이 섞인 행이 상위에 나왔다. 주요 유입경로는 이번 v0.1 Slack 매출 보고에 포함하지 않고, source rule을 먼저 보정한다."
+  },
+  "next_actions": [
+    {
+      "owner": "Codex",
+      "action": "자사몰 primary와 Toss/NPay 진단 source dedupe rule 확정",
+      "lane": "Green",
+      "confidence_percent": 86
+    },
+    {
+      "owner": "Codex",
+      "action": "쿠팡 coffee 전용 매출 source 찾기",
+      "lane": "Green read-only",
+      "confidence_percent": 78
+    },
+    {
+      "owner": "TJ님",
+      "action": "Slack 실제 발송 채널 결정",
+      "lane": "Yellow after no-send preview",
+      "confidence_percent": 70
+    }
+  ]
+}

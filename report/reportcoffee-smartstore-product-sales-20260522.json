@@ -1,0 +1,559 @@
+{
+  "report": "reportcoffee_smartstore_product_sales_dry_run_v1",
+  "generated_at": "2026-05-22T11:17:51.438Z",
+  "generated_for_kst_date": "2026-05-21",
+  "source": {
+    "system": "operational_postgres_read_only",
+    "table": "public.tb_playauto_orders",
+    "filter": "shop_name = '스마트스토어'",
+    "product_fields": [
+      "shop_sale_name",
+      "shop_opt_name"
+    ],
+    "amount_field": "pay_amt",
+    "quantity_field": "sale_cnt",
+    "time_rule": "COALESCE(pay_time, ord_time) KST date window"
+  },
+  "status_rule": {
+    "included": "ord_status does not contain 취소/반품/환불/교환",
+    "excluded": "ord_status contains 취소/반품/환불/교환",
+    "note": "PlayAuto 상태값은 dry-run 기준이며 정산 기준 확정 전에는 included_with_warning"
+  },
+  "windows": {
+    "weekly": {
+      "window": {
+        "label": "최근 완료 7일",
+        "timezone": "Asia/Seoul",
+        "start_date": "2026-05-15",
+        "end_date_inclusive": "2026-05-21",
+        "end_date_exclusive": "2026-05-22"
+      },
+      "totals": {
+        "included_rows": 61,
+        "included_quantity": 66,
+        "included_amount_krw": 2563520,
+        "excluded_rows": 0,
+        "excluded_amount_krw": 0,
+        "product_bucket_count": 10
+      },
+      "top_products": [
+        {
+          "rank": 1,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 10개",
+          "rows": 2,
+          "quantity": 2,
+          "amount_krw": 464600,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 2,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+          "rows": 12,
+          "quantity": 13,
+          "amount_krw": 406710,
+          "option_count": 6,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 핸드드립(일반분쇄)",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        },
+        {
+          "rank": 3,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 에티오피아 구지 사키소 G1 원두 스페셜티 핸드드립 커피콩 방탄커피",
+          "rows": 11,
+          "quantity": 11,
+          "amount_krw": 398900,
+          "option_count": 4,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+          ]
+        },
+        {
+          "rank": 4,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+          "rows": 10,
+          "quantity": 10,
+          "amount_krw": 331910,
+          "option_count": 7,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)",
+            "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        },
+        {
+          "rank": 5,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 케냐AA 캉고초 스페셜티 산미있는원두 핸드드립 커피콩 홈카페 방탄커피",
+          "rows": 6,
+          "quantity": 8,
+          "amount_krw": 323200,
+          "option_count": 4,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+          ]
+        },
+        {
+          "rank": 6,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 5개",
+          "rows": 2,
+          "quantity": 2,
+          "amount_krw": 266200,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 7,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 드립백 커피 커피티백 산미없는 고소한 답례품 드립커피 스틱커피",
+          "rows": 9,
+          "quantity": 11,
+          "amount_krw": 119900,
+          "option_count": 4,
+          "option_examples": [
+            "단품 구매하기: 콜롬비아 수프리모",
+            "단품 구매하기: 에티오피아 예가체프",
+            "단품 구매하기: 디카페인 과테말라 SHB"
+          ]
+        },
+        {
+          "rank": 8,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 1개",
+          "rows": 4,
+          "quantity": 4,
+          "amount_krw": 115600,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 9,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 파푸아뉴기니 마라와카 AA 유기농 블루마운틴 방탄커피 원두 맛있는 커피콩",
+          "rows": 3,
+          "quantity": 3,
+          "amount_krw": 76700,
+          "option_count": 3,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        },
+        {
+          "rank": 10,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 과테말라 SHB 스페셜티 방탄커피 원두 핸드드립 커피콩 홈카페",
+          "rows": 2,
+          "quantity": 2,
+          "amount_krw": 59800,
+          "option_count": 2,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+          ]
+        }
+      ],
+      "status_breakdown": [
+        {
+          "ord_status": "배송완료",
+          "rows": 45,
+          "quantity": 48,
+          "amount_krw": 1502520,
+          "excluded_by_rule": false,
+          "min_time": "2026-05-15 08:39:42",
+          "max_time": "2026-05-20 14:32:38"
+        },
+        {
+          "ord_status": "구매결정",
+          "rows": 9,
+          "quantity": 10,
+          "amount_krw": 773800,
+          "excluded_by_rule": false,
+          "min_time": "2026-05-15 13:02:17",
+          "max_time": "2026-05-19 14:14:32"
+        },
+        {
+          "ord_status": "배송중",
+          "rows": 7,
+          "quantity": 8,
+          "amount_krw": 287200,
+          "excluded_by_rule": false,
+          "min_time": "2026-05-20 09:54:29",
+          "max_time": "2026-05-21 14:15:23"
+        }
+      ],
+      "reconciliation": {
+        "all_product_amount_krw": 2563520,
+        "matches_included_total": true
+      }
+    },
+    "month_to_date": {
+      "window": {
+        "label": "월초-기준일",
+        "timezone": "Asia/Seoul",
+        "start_date": "2026-05-01",
+        "end_date_inclusive": "2026-05-21",
+        "end_date_exclusive": "2026-05-22"
+      },
+      "totals": {
+        "included_rows": 202,
+        "included_quantity": 216,
+        "included_amount_krw": 6731430,
+        "excluded_rows": 1,
+        "excluded_amount_krw": 0,
+        "product_bucket_count": 11
+      },
+      "top_products": [
+        {
+          "rank": 1,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+          "rows": 60,
+          "quantity": 61,
+          "amount_krw": 1942910,
+          "option_count": 12,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+          ]
+        },
+        {
+          "rank": 2,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 에티오피아 구지 사키소 G1 원두 스페셜티 핸드드립 커피콩 방탄커피",
+          "rows": 35,
+          "quantity": 35,
+          "amount_krw": 1128500,
+          "option_count": 8,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 에스프레소(고운분쇄)"
+          ]
+        },
+        {
+          "rank": 3,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+          "rows": 32,
+          "quantity": 33,
+          "amount_krw": 1012520,
+          "option_count": 10,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        },
+        {
+          "rank": 4,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 케냐AA 캉고초 스페셜티 산미있는원두 핸드드립 커피콩 홈카페 방탄커피",
+          "rows": 19,
+          "quantity": 22,
+          "amount_krw": 782800,
+          "option_count": 5,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+          ]
+        },
+        {
+          "rank": 5,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 10개",
+          "rows": 2,
+          "quantity": 2,
+          "amount_krw": 464600,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 6,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 드립백 커피 커피티백 산미없는 고소한 답례품 드립커피 스틱커피",
+          "rows": 24,
+          "quantity": 33,
+          "amount_krw": 358700,
+          "option_count": 8,
+          "option_examples": [
+            "단품 구매하기: 디카페인 과테말라 SHB",
+            "단품 구매하기: 콜롬비아 수프리모",
+            "단품 구매하기: 에티오피아 예가체프"
+          ]
+        },
+        {
+          "rank": 7,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 1개",
+          "rows": 12,
+          "quantity": 12,
+          "amount_krw": 346800,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 8,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 5개",
+          "rows": 2,
+          "quantity": 2,
+          "amount_krw": 266200,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 9,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 과테말라 SHB 스페셜티 방탄커피 원두 핸드드립 커피콩 홈카페",
+          "rows": 8,
+          "quantity": 8,
+          "amount_krw": 222200,
+          "option_count": 6,
+          "option_examples": [
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        },
+        {
+          "rank": 10,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 파푸아뉴기니 마라와카 AA 유기농 블루마운틴 방탄커피 원두 맛있는 커피콩",
+          "rows": 7,
+          "quantity": 7,
+          "amount_krw": 187300,
+          "option_count": 4,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        }
+      ],
+      "status_breakdown": [
+        {
+          "ord_status": "배송완료",
+          "rows": 104,
+          "quantity": 107,
+          "amount_krw": 3233530,
+          "excluded_by_rule": false,
+          "min_time": "2026-05-01 07:38:48",
+          "max_time": "2026-05-20 14:32:38"
+        },
+        {
+          "ord_status": "구매결정",
+          "rows": 91,
+          "quantity": 101,
+          "amount_krw": 3210700,
+          "excluded_by_rule": false,
+          "min_time": "2026-05-01 00:19:25",
+          "max_time": "2026-05-19 14:14:32"
+        },
+        {
+          "ord_status": "배송중",
+          "rows": 7,
+          "quantity": 8,
+          "amount_krw": 287200,
+          "excluded_by_rule": false,
+          "min_time": "2026-05-20 09:54:29",
+          "max_time": "2026-05-21 14:15:23"
+        },
+        {
+          "ord_status": "취소완료",
+          "rows": 1,
+          "quantity": 1,
+          "amount_krw": 0,
+          "excluded_by_rule": true,
+          "min_time": "2026-05-14 16:10:37",
+          "max_time": "2026-05-14 16:10:37"
+        }
+      ],
+      "reconciliation": {
+        "all_product_amount_krw": 6731430,
+        "matches_included_total": true
+      }
+    },
+    "rolling_30d": {
+      "window": {
+        "label": "최근 완료 30일",
+        "timezone": "Asia/Seoul",
+        "start_date": "2026-04-22",
+        "end_date_inclusive": "2026-05-21",
+        "end_date_exclusive": "2026-05-22"
+      },
+      "totals": {
+        "included_rows": 274,
+        "included_quantity": 303,
+        "included_amount_krw": 9110570,
+        "excluded_rows": 1,
+        "excluded_amount_krw": 0,
+        "product_bucket_count": 11
+      },
+      "top_products": [
+        {
+          "rank": 1,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 콜롬비아 스페셜티 방탄커피 원두 핸드드립 맛있는 커피콩",
+          "rows": 85,
+          "quantity": 87,
+          "amount_krw": 2697350,
+          "option_count": 14,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천"
+          ]
+        },
+        {
+          "rank": 2,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 에티오피아 구지 사키소 G1 원두 스페셜티 핸드드립 커피콩 방탄커피",
+          "rows": 47,
+          "quantity": 48,
+          "amount_krw": 1541500,
+          "option_count": 10,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        },
+        {
+          "rank": 3,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 디카페인 원두 파푸아뉴기니 유기농 스위스워터 임산부 방탄커피 커피콩 핸드드립",
+          "rows": 45,
+          "quantity": 48,
+          "amount_krw": 1445920,
+          "option_count": 10,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        },
+        {
+          "rank": 4,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 케냐AA 캉고초 스페셜티 산미있는원두 핸드드립 커피콩 홈카페 방탄커피",
+          "rows": 26,
+          "quantity": 29,
+          "amount_krw": 1018400,
+          "option_count": 6,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 프렌치프레스(굵은분쇄)"
+          ]
+        },
+        {
+          "rank": 5,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 드립백 커피 커피티백 산미없는 고소한 답례품 드립커피 스틱커피",
+          "rows": 32,
+          "quantity": 52,
+          "amount_krw": 684000,
+          "option_count": 14,
+          "option_examples": [
+            "단품/선물세트 구매하기: 디카페인 과테말라 SHB",
+            "단품 구매하기: 디카페인 과테말라 SHB",
+            "단품/선물세트 구매하기: 콜롬비아 수프리모"
+          ]
+        },
+        {
+          "rank": 6,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 10개",
+          "rows": 2,
+          "quantity": 2,
+          "amount_krw": 464600,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 7,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 과테말라 SHB 스페셜티 방탄커피 원두 핸드드립 커피콩 홈카페",
+          "rows": 15,
+          "quantity": 15,
+          "amount_krw": 439600,
+          "option_count": 6,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 500g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        },
+        {
+          "rank": 8,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 1개",
+          "rows": 12,
+          "quantity": 12,
+          "amount_krw": 346800,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 9,
+          "product_name_normalized": "더클린 진짜 방탄커피 곰팡이독소 ZERO 유기농 스페셜티 840ml, 5개",
+          "rows": 2,
+          "quantity": 2,
+          "amount_krw": 266200,
+          "option_count": 0,
+          "option_examples": []
+        },
+        {
+          "rank": 10,
+          "product_name_normalized": "[오늘출발]더클린커피 초신선 파푸아뉴기니 마라와카 AA 유기농 블루마운틴 방탄커피 원두 맛있는 커피콩",
+          "rows": 7,
+          "quantity": 7,
+          "amount_krw": 187300,
+          "option_count": 4,
+          "option_examples": [
+            "중량: 500g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 분쇄안함(홀빈)-강력추천",
+            "중량: 200g / 분쇄도: 핸드드립(일반분쇄)"
+          ]
+        }
+      ],
+      "status_breakdown": [
+        {
+          "ord_status": "배송완료",
+          "rows": 145,
+          "quantity": 160,
+          "amount_krw": 4652670,
+          "excluded_by_rule": false,
+          "min_time": "2026-04-22 00:48:12",
+          "max_time": "2026-05-20 14:32:38"
+        },
+        {
+          "ord_status": "구매결정",
+          "rows": 121,
+          "quantity": 134,
+          "amount_krw": 4125700,
+          "excluded_by_rule": false,
+          "min_time": "2026-04-22 10:23:28",
+          "max_time": "2026-05-19 14:14:32"
+        },
+        {
+          "ord_status": "배송중",
+          "rows": 8,
+          "quantity": 9,
+          "amount_krw": 332200,
+          "excluded_by_rule": false,
+          "min_time": "2026-04-28 11:00:01",
+          "max_time": "2026-05-21 14:15:23"
+        },
+        {
+          "ord_status": "취소완료",
+          "rows": 1,
+          "quantity": 1,
+          "amount_krw": 0,
+          "excluded_by_rule": true,
+          "min_time": "2026-05-14 16:10:37",
+          "max_time": "2026-05-14 16:10:37"
+        }
+      ],
+      "reconciliation": {
+        "all_product_amount_krw": 9110570,
+        "matches_included_total": true
+      }
+    }
+  },
+  "guardrails": {
+    "read_only": true,
+    "operating_db_write": 0,
+    "slack_send": 0,
+    "platform_send_or_upload": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0,
+    "raw_payment_identifier_output": 0,
+    "raw_click_identifier_output": 0
+  },
+  "confidence": "medium_high_playauto_product_amount"
+}

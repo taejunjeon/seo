@@ -21,6 +21,130 @@ test("nclick_id → paid_search naver", () => {
   assert.equal(r.source_breakdown, "naver.com");
 });
 
+test("Naver brand search UTM survives self referrer as naver_brandsearch", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "thecleancoffee.com",
+    referrerFullUrl: "https://thecleancoffee.com/thecleancoffee/?idx=75",
+    utm: { source: "naver_brand_search", medium: "naver_brand_search", campaign: "" },
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "naver_brandsearch");
+  assert.equal(r.source_breakdown, "naver_brand_search");
+  assert.equal(r.reason, "utm_naver_brandsearch_marker");
+});
+
+test("Biocom Naver brand search UTM also stays separate from paid_search", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "biocom.kr",
+    referrerFullUrl: "https://biocom.kr/",
+    utm: {
+      source: "naverbrandsearch_biocom_mo_mainhome",
+      medium: "naverbrandsearch_biocom_mo_mainhome",
+      campaign: "naverbrandsearch_biocom_MO_mainhome",
+    },
+    site: "biocom",
+  });
+  assert.equal(r.channel, "naver_brandsearch");
+  assert.equal(r.source_breakdown, "naverbrandsearch_biocom_mo_mainhome");
+  assert.equal(r.reason, "utm_naver_brandsearch_marker");
+});
+
+test("Biocom explicit Naver brandsearch UTM wins over preserved Google click id", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "",
+    referrerFullUrl: "",
+    utm: {
+      source: "naverbrandsearch_biocom_pc_mainhome",
+      medium: "naverbrandsearch_biocom_pc_mainhome",
+      campaign: "naverbrandsearch_biocom_PC_mainhome",
+    },
+    clickIdType: "gclid",
+    site: "biocom",
+  });
+  assert.equal(r.channel, "naver_brandsearch");
+  assert.equal(r.source_breakdown, "naverbrandsearch_biocom_pc_mainhome");
+  assert.equal(r.reason, "utm_naver_brandsearch_marker");
+});
+
+test("Current Google paid click remains paid_search when no Naver brandsearch marker exists", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "",
+    referrerFullUrl: "",
+    utm: {
+      source: "google_biocom_pmkit_acid",
+      medium: "google_biocom_pmkit_acid",
+      campaign: "google_biocom_pmkit_acid0512",
+    },
+    clickIdType: "gclid",
+    site: "biocom",
+  });
+  assert.equal(r.channel, "paid_search");
+  assert.equal(r.source_breakdown, "google.com");
+  assert.equal(r.reason, "click_id_type_google_paid");
+});
+
+test("Naver ad brandsearch campaign marker is naver_brandsearch", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "m.search.naver.com",
+    utm: {
+      source: "naverad_theclean_brandsearch_banatancoffeeopen",
+      medium: "naverad_theclean_brandsearch_banatancoffeeopen",
+      campaign: "naverad_theclean_brandsearch_banatancoffeeopen",
+    },
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "naver_brandsearch");
+  assert.equal(r.reason, "utm_naver_brandsearch_marker");
+});
+
+test("Naver powerlink marker remains generic paid_search", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "m.search.naver.com",
+    utm: {
+      source: "naver",
+      medium: "powerlink",
+      campaign: "coffee_nonbrand_powerlink",
+    },
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "paid_search");
+  assert.equal(r.reason, "utm_naver_paid_search_marker");
+});
+
+test("Naver shopping search ad click URL is naver_shopping_ad", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "search.naver.com",
+    referrerFullUrl: "https://ader.naver.com/v1/test?c=naver.search.pc.npla&NaPm=1&ui=GUIDE",
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "naver_shopping_ad");
+  assert.equal(r.reason, "naver_shopping_ad_marker");
+});
+
+test("Naver ADVoost display UTM is naver_display", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "m.search.naver.com",
+    utm: {
+      source: "naver",
+      medium: "display",
+      campaign: "advoost_shopping_april",
+    },
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "naver_display");
+  assert.equal(r.reason, "naver_display_marker");
+});
+
+test("Naver SmartStore referrer remains referral, not self-mall shopping ad", () => {
+  const r = classifySiteLandingChannel({
+    referrerHost: "smartstore.naver.com",
+    referrerFullUrl: "https://smartstore.naver.com/lockhart",
+    site: "thecleancoffee",
+  });
+  assert.equal(r.channel, "referral");
+  assert.equal(r.reason, "naver_commerce_referrer");
+});
+
 test("UTM medium=cpc source=instagram → paid_social", () => {
   const r = classifySiteLandingChannel({
     utm: { source: "instagram", medium: "cpc", campaign: "meta_biocom" },

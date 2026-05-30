@@ -69,6 +69,7 @@ export function buildAuthHeader(
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   query?: Record<string, string | number | undefined>;
+  preserveEmptyQueryKeys?: string[];
   body?: unknown;
   timeoutMs?: number;
 };
@@ -83,9 +84,10 @@ export async function coupangRequest<T = unknown>(
 
   // Coupang 서명 스펙: query는 URL-encoded 상태로 서명하고,
   // 실제 요청 URL에도 동일한 인코딩 상태로 들어가야 바이트 단위로 일치한다.
+  const preserveEmptyQueryKeys = new Set(opts.preserveEmptyQueryKeys ?? []);
   const queryString = opts.query
     ? Object.entries(opts.query)
-        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .filter(([k, v]) => v !== undefined && v !== null && (v !== "" || preserveEmptyQueryKeys.has(k)))
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
         .join("&")
     : "";
@@ -159,6 +161,41 @@ export type CoupangRgOrder = {
   paidAt?: string;
   orderItems?: CoupangRgOrderItem[];
   [key: string]: unknown;
+};
+
+export type CoupangRevenueHistoryItem = {
+  taxType?: string;
+  productId?: number;
+  productName?: string;
+  vendorItemId?: number;
+  vendorItemName?: string;
+  salePrice?: number;
+  quantity?: number;
+  saleAmount?: number;
+  serviceFee?: number;
+  serviceFeeVat?: number;
+  settlementAmount?: number;
+  externalSellerSkuCode?: string;
+  [key: string]: unknown;
+};
+
+export type CoupangRevenueHistoryRow = {
+  orderId?: number;
+  saleType?: "SALE" | "REFUND" | string;
+  saleDate?: string;
+  recognitionDate?: string;
+  settlementDate?: string;
+  finalSettlementDate?: string;
+  items?: CoupangRevenueHistoryItem[];
+  [key: string]: unknown;
+};
+
+type CoupangRevenueHistoryResponse = {
+  code?: number;
+  message?: string;
+  data?: CoupangRevenueHistoryRow[];
+  hasNext?: boolean;
+  nextToken?: string;
 };
 
 function normalizePaidDate(value: string): string {
@@ -249,6 +286,76 @@ export async function getSettlementHistories(
   const wrap = res as { data?: unknown };
   if (Array.isArray(wrap?.data)) return wrap.data as Array<Record<string, unknown>>;
   return [];
+}
+
+function assertIsoDate(value: string, label: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${label} must be YYYY-MM-DD`);
+  }
+  return value;
+}
+
+function inclusiveDays(from: string, to: string): number {
+  const start = Date.parse(`${from}T00:00:00.000Z`);
+  const end = Date.parse(`${to}T00:00:00.000Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    throw new Error("Invalid revenue-history date range");
+  }
+  return Math.floor((end - start) / 86400000) + 1;
+}
+
+/**
+ * 매출내역 조회 — 매출인식일 기준 상세 매출 source.
+ * 주의: 첫 페이지도 token= 파라미터가 필요하므로 빈 token query를 보존한다.
+ */
+export async function getRevenueHistory(
+  account: CoupangAccount,
+  params: {
+    recognitionDateFrom: string;
+    recognitionDateTo: string;
+    maxPerPage?: number;
+    maxPages?: number;
+  },
+): Promise<{ data: CoupangRevenueHistoryRow[]; pagesFetched: number; done: boolean }> {
+  const recognitionDateFrom = assertIsoDate(params.recognitionDateFrom, "recognitionDateFrom");
+  const recognitionDateTo = assertIsoDate(params.recognitionDateTo, "recognitionDateTo");
+  const days = inclusiveDays(recognitionDateFrom, recognitionDateTo);
+  if (days < 1) throw new Error("recognitionDateTo must be >= recognitionDateFrom");
+  if (days > 31) throw new Error("revenue-history date window must be 31 days or fewer");
+
+  const { vendorId } = getCredentials(account);
+  const maxPerPage = Math.max(1, Math.min(50, Math.trunc(params.maxPerPage ?? 50)));
+  const maxPages = Math.max(1, Math.trunc(params.maxPages ?? 100));
+  const data: CoupangRevenueHistoryRow[] = [];
+  let token = "";
+  let pagesFetched = 0;
+  let done = false;
+
+  while (pagesFetched < maxPages) {
+    const response = await coupangRequest<CoupangRevenueHistoryResponse>(
+      account,
+      "/v2/providers/openapi/apis/api/v1/revenue-history",
+      {
+        query: {
+          vendorId,
+          recognitionDateFrom,
+          recognitionDateTo,
+          token,
+          maxPerPage,
+        },
+        preserveEmptyQueryKeys: ["token"],
+      },
+    );
+    pagesFetched += 1;
+    data.push(...(response.data ?? []));
+    if (!response.hasNext || !response.nextToken) {
+      done = true;
+      break;
+    }
+    token = response.nextToken;
+  }
+
+  return { data, pagesFetched, done };
 }
 
 /**

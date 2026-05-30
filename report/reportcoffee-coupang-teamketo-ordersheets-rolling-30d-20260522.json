@@ -1,0 +1,336 @@
+{
+  "report": "reportcoffee_coupang_teamketo_ordersheets_aggregate_v1",
+  "generated_at": "2026-05-21T16:53:23.396Z",
+  "source": {
+    "system": "coupang_wing_open_api_ordersheets_read_only",
+    "account": "teamketo",
+    "endpoint_family": "ordersheets_v4_minute",
+    "raw_order_output": 0
+  },
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-04-22",
+    "end_date_inclusive": "2026-05-21",
+    "statuses": [
+      "ACCEPT",
+      "INSTRUCT",
+      "DEPARTURE",
+      "DELIVERING",
+      "FINAL_DELIVERY",
+      "NONE_TRACKING"
+    ]
+  },
+  "api": {
+    "calls": 180,
+    "error_count": 0,
+    "errors": []
+  },
+  "totals": {
+    "order_sheets": 161,
+    "items": 164,
+    "quantity": 171,
+    "amount_krw": 7264500
+  },
+  "by_status": {
+    "ACCEPT": {
+      "order_sheets": 2,
+      "items": 2,
+      "quantity": 2,
+      "amount_krw": 64800
+    },
+    "INSTRUCT": {
+      "order_sheets": 3,
+      "items": 3,
+      "quantity": 3,
+      "amount_krw": 177400
+    },
+    "DEPARTURE": {
+      "order_sheets": 0,
+      "items": 0,
+      "quantity": 0,
+      "amount_krw": 0
+    },
+    "DELIVERING": {
+      "order_sheets": 13,
+      "items": 13,
+      "quantity": 13,
+      "amount_krw": 466000
+    },
+    "FINAL_DELIVERY": {
+      "order_sheets": 143,
+      "items": 146,
+      "quantity": 153,
+      "amount_krw": 6556300
+    },
+    "NONE_TRACKING": {
+      "order_sheets": 0,
+      "items": 0,
+      "quantity": 0,
+      "amount_krw": 0
+    }
+  },
+  "by_day": {
+    "2026-04-22": {
+      "order_sheets": 2,
+      "items": 2,
+      "quantity": 2,
+      "amount_krw": 61800
+    },
+    "2026-04-23": {
+      "order_sheets": 3,
+      "items": 3,
+      "quantity": 3,
+      "amount_krw": 123200
+    },
+    "2026-04-24": {
+      "order_sheets": 5,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 200400
+    },
+    "2026-04-25": {
+      "order_sheets": 5,
+      "items": 5,
+      "quantity": 5,
+      "amount_krw": 173300
+    },
+    "2026-04-26": {
+      "order_sheets": 4,
+      "items": 4,
+      "quantity": 4,
+      "amount_krw": 182000
+    },
+    "2026-04-27": {
+      "order_sheets": 3,
+      "items": 3,
+      "quantity": 7,
+      "amount_krw": 258300
+    },
+    "2026-04-28": {
+      "order_sheets": 3,
+      "items": 3,
+      "quantity": 3,
+      "amount_krw": 100700
+    },
+    "2026-04-29": {
+      "order_sheets": 9,
+      "items": 9,
+      "quantity": 9,
+      "amount_krw": 330600
+    },
+    "2026-04-30": {
+      "order_sheets": 3,
+      "items": 3,
+      "quantity": 3,
+      "amount_krw": 109700
+    },
+    "2026-05-01": {
+      "order_sheets": 5,
+      "items": 5,
+      "quantity": 6,
+      "amount_krw": 331300
+    },
+    "2026-05-02": {
+      "order_sheets": 6,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 218700
+    },
+    "2026-05-03": {
+      "order_sheets": 4,
+      "items": 4,
+      "quantity": 4,
+      "amount_krw": 139600
+    },
+    "2026-05-04": {
+      "order_sheets": 11,
+      "items": 11,
+      "quantity": 12,
+      "amount_krw": 510700
+    },
+    "2026-05-05": {
+      "order_sheets": 5,
+      "items": 5,
+      "quantity": 5,
+      "amount_krw": 262100
+    },
+    "2026-05-06": {
+      "order_sheets": 6,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 195400
+    },
+    "2026-05-07": {
+      "order_sheets": 6,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 332400
+    },
+    "2026-05-08": {
+      "order_sheets": 5,
+      "items": 5,
+      "quantity": 5,
+      "amount_krw": 183500
+    },
+    "2026-05-09": {
+      "order_sheets": 4,
+      "items": 4,
+      "quantity": 4,
+      "amount_krw": 146600
+    },
+    "2026-05-10": {
+      "order_sheets": 7,
+      "items": 7,
+      "quantity": 7,
+      "amount_krw": 290900
+    },
+    "2026-05-11": {
+      "order_sheets": 6,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 277400
+    },
+    "2026-05-12": {
+      "order_sheets": 5,
+      "items": 5,
+      "quantity": 5,
+      "amount_krw": 272600
+    },
+    "2026-05-13": {
+      "order_sheets": 7,
+      "items": 7,
+      "quantity": 7,
+      "amount_krw": 264700
+    },
+    "2026-05-14": {
+      "order_sheets": 6,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 330500
+    },
+    "2026-05-15": {
+      "order_sheets": 6,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 288100
+    },
+    "2026-05-16": {
+      "order_sheets": 2,
+      "items": 2,
+      "quantity": 2,
+      "amount_krw": 96100
+    },
+    "2026-05-17": {
+      "order_sheets": 7,
+      "items": 8,
+      "quantity": 9,
+      "amount_krw": 421200
+    },
+    "2026-05-18": {
+      "order_sheets": 6,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 193400
+    },
+    "2026-05-19": {
+      "order_sheets": 2,
+      "items": 3,
+      "quantity": 3,
+      "amount_krw": 210800
+    },
+    "2026-05-20": {
+      "order_sheets": 6,
+      "items": 6,
+      "quantity": 6,
+      "amount_krw": 287000
+    },
+    "2026-05-21": {
+      "order_sheets": 12,
+      "items": 12,
+      "quantity": 12,
+      "amount_krw": 471500
+    }
+  },
+  "product_classification": {
+    "coffee_hint": {
+      "items": 125,
+      "quantity": 131,
+      "amount_krw": 4417800
+    },
+    "teamketo_hint": {
+      "items": 39,
+      "quantity": 40,
+      "amount_krw": 2846700
+    },
+    "other_hint": {
+      "items": 0,
+      "quantity": 0,
+      "amount_krw": 0
+    }
+  },
+  "top_products": [
+    {
+      "name": "오리지널 팀키토 도시락 8종 세트",
+      "items": 27,
+      "quantity": 28,
+      "amount_krw": 2077600
+    },
+    {
+      "name": "더클린커피 콜롬비아 스페셜티 독소 프리 인증 방탄커피원두",
+      "items": 47,
+      "quantity": 51,
+      "amount_krw": 1711900
+    },
+    {
+      "name": "케냐 AA 스페셜티 더클린 커피 곰팡이 독소 free 인증 산미있는 원두",
+      "items": 30,
+      "quantity": 32,
+      "amount_krw": 1168800
+    },
+    {
+      "name": "더클린커피 파푸아뉴기니 유기농 디카페인 스위스워터 곰팡이독소인증 건강한 원두 핸드피킹",
+      "items": 35,
+      "quantity": 35,
+      "amount_krw": 1074500
+    },
+    {
+      "name": "팀 키토 저포드맵 도시락 7종세트",
+      "items": 7,
+      "quantity": 7,
+      "amount_krw": 457100
+    },
+    {
+      "name": "더클린커피 에티오피아 스페셜티 G1 원두",
+      "items": 9,
+      "quantity": 9,
+      "amount_krw": 354100
+    },
+    {
+      "name": "팀키토 시그니처 도시락 세트 6종",
+      "items": 5,
+      "quantity": 5,
+      "amount_krw": 312000
+    },
+    {
+      "name": "더클린커피 파푸아뉴기니 유기농 블루마운틴 마라와카 AA 곰팡이독소인증 건강한 원두",
+      "items": 3,
+      "quantity": 3,
+      "amount_krw": 96700
+    },
+    {
+      "name": "더클린커피 초신선 드립백 커피 (12g X 6개입)",
+      "items": 1,
+      "quantity": 1,
+      "amount_krw": 11800
+    }
+  ],
+  "guardrails": {
+    "read_only": true,
+    "db_write": 0,
+    "slack_send": 0,
+    "platform_send_or_upload": 0,
+    "raw_customer_identifier_output": 0,
+    "raw_order_identifier_output": 0
+  },
+  "confidence": "medium_high_api_aggregate"
+}

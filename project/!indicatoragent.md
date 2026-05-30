@@ -1,8 +1,8 @@
 # Leading Indicator Agent Plan
 
 작성 시각: 2026-05-17 15:45 KST
-최근 업데이트: 2026-05-19 01:50 KST
-기준일: 2026-05-19
+최근 업데이트: 2026-05-27 09:35 KST
+기준일: 2026-05-27
 문서 성격: 구매 전 선행지표 발굴 에이전트 설계 문서
 대상 사이트: 바이오컴 우선, 더클린커피 확장 가능
 Lane: Green documentation / read-only design / local dry-run
@@ -39,10 +39,10 @@ harness_preflight:
     - 운영DB write/import
     - raw personal/order/payment/ad-click/customer identifier output
   source_window_freshness_confidence:
-    source: "local docs + VM Cloud leading-indicators live aggregate endpoint + GA4 BigQuery dry-run docs + GTM export docs"
-    window: "설계 기준 2026-05-19 KST, live smoke는 2026-05-12 ~ 2026-05-18 KST 중심"
-    freshness: "문서 업데이트 2026-05-19 01:50 KST, local leading-indicators API smoke 2026-05-19 01:40 KST"
-    confidence: 0.88
+    source: "local docs + VM Cloud leading-indicators live aggregate endpoint + GA4 BigQuery dry-run docs + GTM export docs + TJ님 제공 KPI 설계 이미지 텍스트"
+    window: "latest live refresh 기준 7d/30d, API 기준 시각 2026-05-27 09:03~09:21 KST; KPI 원칙 참고 자료 기준 2026-05-26"
+    freshness: "문서 업데이트 2026-05-27 09:35 KST, VM Cloud leading-indicators live refresh 2026-05-27 09:03~09:21 KST"
+    confidence: 0.90
 ```
 
 ## 10초 요약
@@ -52,10 +52,27 @@ harness_preflight:
 첫 후보는 `Meta 유입 구매자 vs 이탈자 체류시간`, `스크롤 깊이`, `장바구니/결제 시작`, `결제수단 선택`, `회원가입 완료`, `YouTube/오가닉 유입의 행동 차이`다.
 다만 체류시간과 스크롤은 Meta 표준 구매 이벤트가 아니므로, 처음에는 VM Cloud 내부 선행지표로 분석하고 Meta CAPI 운영 전송은 별도 승인 전까지 하지 않는다.
 
-현재 P0에서는 Codex가 read-only dry-run으로 source matrix와 aggregate funnel baseline을 만들었다.
-GA4 BigQuery dwell/scroll dry-run도 추가로 진행해, 바이오컴과 더클린커피를 서로 다른 GA4 dataset과 VM Cloud site 기준으로 분리했다.
-2026-05-19 기준으로 VM Cloud live aggregate endpoint는 배포됐고, 로컬 프론트엔드 `/ai-crm/leading-indicators`도 구현됐다.
-다만 precompute cache는 아직 OFF라 첫 live miss는 느릴 수 있고, 바이오컴 Meta 7일 local smoke는 현재 집계 cohort가 0이라 source gap 해석을 계속 분리해야 한다.
+현재 P0/P1에서는 Codex가 read-only dry-run으로 source matrix, GA4 dwell/scroll, GA4↔VM Cloud safe bridge, live aggregate API까지 만들었다.
+2026-05-24 최신 live refresh 기준으로 바이오컴 Meta 7일 세션은 422건이고, 그중 실제 결제완료는 204건, 결제 시작 후 구매로 닫히지 않은 세션은 213건, GA4와 내부 결제 판단 충돌은 0건이다.
+구매자는 상세페이지에 머문 시간 중앙값이 49.0초, 결제 시작 후 멈춘 사람은 29.5초다.
+90% 이상 스크롤 비율도 전체 방문 기준으로 구매자 50.0%, 결제 시작 후 멈춘 사람 26.8%로 차이가 유지된다.
+다만 최신 API 응답은 `live_cache_miss`였으므로, precompute cache가 항상 hit 되는지는 별도 점검이 필요하다.
+
+이번 업데이트에서 로컬 backend는 선행지표 후보를 Top 5로 점수화하는 로직을 추가했다.
+점수는 “구매자와 비결제자 차이”, “모수 크기”, “수집 범위”, “사람이 실제로 개선할 수 있는 정도”, “추적 오염 리스크”를 합산한다.
+쉽게 말하면 숫자가 좋아 보여도 표본이 작거나 수집이 불안정하면 낮은 점수를 주고, 실제 랜딩/콘텐츠/버튼/리뷰 위치 개선으로 바로 이어질 수 있는 지표를 위로 올린다.
+
+2026-05-26 업데이트: KPI 운영 기준은 [KPI 설계 7가지 교훈과 선행지표 에이전트 적용 원칙](kpi-design-seven-lessons-20260526.md)을 정본 참고 자료로 둔다.
+이 기준에 따라 선행지표 에이전트는 숫자만 보여주지 않고, 각 지표가 어떤 행동을 유도해야 하는지까지 설명해야 한다.
+특히 모든 후보 지표는 레버지표(지금 당장 바꿀 1~2개 숫자)와 관리지표(이상이 생겼을 때 점검할 숫자)로 나누고, 지표 카드에는 공략집(무엇을 어떻게 왜 바꿀지)이 붙어야 한다.
+
+2026-05-26 23:25 업데이트: 로컬 프론트 `/ai-crm/leading-indicators`는 KPI 원칙을 반영해 OKR 패널, 액션플랜 3개, 레버/관리/진단 역할 배지, 후보별 공략집(무엇을/어떻게/왜/성공 기준)을 표시한다.
+이제 선행지표 후보 카드는 단순 순위표가 아니라 “사람이 내일 무엇을 바꿔야 하는지”를 알려주는 운영 카드에 가깝게 바뀌었다.
+
+2026-05-27 업데이트: TJ님이 지적한 “비결제자의 주문서 진입률 92.8%”는 live API에 실제로 존재하는 값이다.
+다만 이것은 넓은 의미의 전체 비결제 방문자가 아니라, 현재 `checkout_non_buyer` cohort, 즉 “결제 시작 후 구매 완료로 닫히지 않은 사람”에 가까운 분모다.
+따라서 화면 문구는 `비결제자`만 쓰지 말고 `결제 시작 후 멈춤` 또는 `비결제 cohort`라고 풀어 써야 한다.
+전체 방문자 기준 주문서 진입률과 결제 흐름 근처 cohort의 주문서 진입률은 반드시 분리 표시한다.
 
 P0 산출물:
 
@@ -87,6 +104,146 @@ P0 산출물:
 - 더클린커피 GA4 `begin_checkout`, `add_payment_info`는 현재 0에 가까워 GTM Preview-only로 중간 이벤트를 먼저 검증해야 한다.
 - 바이오컴은 구매 세션 GA4 join 29.47%, 이탈 세션 28.67%라 row-level 선행지표 판단 전 key capture 보강이 먼저다.
 - raw-id Plan B는 즉시 실행하지 않는다. safe hash로 닫히지 않는 특정 safe_ref의 원인 분류가 필요할 때만 승인받아 secure evidence 내부에서 제한 실행한다.
+
+## 2026-05-24 최신 live refresh와 OKR 진척률
+
+source: VM Cloud `/api/attribution/leading-indicators` live aggregate endpoint.
+window: 최근 7일.
+freshness: 2026-05-24 00:47~00:49 KST.
+confidence: 0.90.
+주의: 이번 조회는 live refresh이며, 일부 응답은 `live_cache_miss`였다. 데이터 자체는 최신이지만 화면 응답 속도 안정성은 cache worker post-check가 남아 있다.
+
+### site/channel별 최신 관측
+
+- 바이오컴 / Meta:
+  - 전체 Meta safe session: 422.
+  - GA4와 연결된 세션: 418.
+  - 구매 완료: 204.
+  - 결제 시작 후 멈춤: 213.
+  - GA4와 내부 결제 판단 충돌: 0.
+  - 결제 확인 보류: 5.
+  - 구매자 머문 시간 중앙값: 49.0초.
+  - 결제 시작 후 멈춘 사람 머문 시간 중앙값: 29.5초.
+  - 구매자 90% 스크롤: 50.0%.
+  - 결제 시작 후 멈춘 사람 90% 스크롤: 26.8%.
+
+- 더클린커피 / Meta:
+  - 전체 Meta safe session: 131.
+  - GA4와 연결된 세션: 130.
+  - 구매 완료: 45.
+  - 결제 시작 후 멈춤: 83.
+  - GA4와 내부 결제 판단 충돌: 0.
+  - 결제 확인 보류: 3.
+  - 체류시간/스크롤 비교값: 아직 0 또는 null. 더클린커피는 중간 행동 수집 보강이 먼저다.
+
+- 바이오컴 / Google 유료:
+  - 전체 safe session: 103.
+  - 구매 완료: 2.
+  - 결제 시작 후 멈춤: 95.
+  - 결제 확인 보류: 6.
+  - 표본이 작아 구매자/비결제자 차이는 후보 관찰만 가능하다.
+
+- 더클린커피 / Google 유료:
+  - 전체 safe session: 3.
+  - 구매 완료: 0.
+  - 현재는 선행지표 후보를 만들 수 있는 표본이 아니다.
+
+### OKR 진척률 업데이트
+
+- 프로젝트 종합 진척률: 77%.
+  - 이유: source inventory, cohort, 바이오컴 행동 feature, Top 5 scoring, 로컬 프론트 카드 구조는 상당 부분 닫혔다. 남은 핵심은 더클린커피 행동 공백, live cache 안정화, 운영 화면 배포, 실제 실험 공략집 연결이다.
+- KR1. source inventory와 정본 분리: 94%.
+  - 이유: VM Cloud, GA4, GTM, 운영DB 역할은 대부분 분리됐다. 남은 것은 회원가입/쿠폰/일부 중간 이벤트 source gap이다.
+- KR2. 구매자와 이탈자 cohort 생성: 86%.
+  - 이유: 바이오컴 Meta는 7일 live 기준 4 cohort가 안정적으로 나온다. 더클린커피는 cohort count는 나오지만 체류/스크롤 행동값이 부족하다.
+- KR3. 체류시간/스크롤/중간 행동 feature 생성: 82%.
+  - 이유: 바이오컴 Meta는 체류시간과 scroll90 차이가 나온다. 더클린커피와 회원가입/쿠폰/add_payment_info gap이 남았다.
+- KR4. 선행지표 Top 5 점수화: 70%.
+  - 이유: 로컬 backend 점수화 로직과 로컬 프론트 카드 구조가 구현됐다. 각 후보에 레버/관리/진단 역할과 공략집 문구가 붙었다. 남은 것은 VM 화면 배포, live API/cache 검증, 실제 실험 backlog 연결이다.
+- KR5. Meta CAPI 중간 전환 전송 후보 분리: 58%.
+  - 이유: Purchase와 내부 관찰 지표 분리 원칙은 있다. 운영 전송은 아직 별도 capiplan Red/Yellow 절차가 필요하다.
+
+## 2026-05-27 live denominator 재점검
+
+source: VM Cloud `/api/attribution/leading-indicators` live aggregate endpoint.
+window: 최근 7일/30일.
+freshness: 2026-05-27 09:03~09:21 KST.
+confidence: 0.88.
+주의: 아래 숫자는 `leadingIndicators` live API가 반환한 aggregate 값이다. Google 클릭 ID 보존율 자체는 별도 click-id preservation audit으로 확인해야 하며, 여기서는 channel별 safe session 표본 증가만 확인했다.
+
+### “비결제자 주문서 진입 92.8%” 해석
+
+- 바이오컴 Meta 최근 7일:
+  - safe session 471.
+  - 구매 완료 242.
+  - 결제 시작 후 멈춤 222.
+  - 결제 확인 보류 7.
+  - 구매자 주문서 진입 99.2%.
+  - 비결제 cohort 주문서 진입 92.8%.
+- 바이오컴 Meta 최근 30일:
+  - safe session 2,035.
+  - 구매 완료 921.
+  - 결제 시작 후 멈춤 1,033.
+  - 결제 확인 보류 81.
+  - 구매자 주문서 진입 98.9%.
+  - 비결제 cohort 주문서 진입 92.7%.
+
+해석:
+
+`92.8%`는 오타가 아니라 실제 live API 값이다.
+하지만 이것을 “전체 비결제 방문자의 92.8%가 주문서까지 갔다”로 읽으면 안 된다.
+현재 `checkout_non_buyer`는 결제 흐름 가까이 온 세션을 강하게 포함하고 있으므로, 사람이 보는 화면에서는 “결제 시작 후 멈춤”으로 풀어 써야 한다.
+
+### 전체 방문자 기준과 cohort 기준을 분리해야 하는 이유
+
+- 바이오컴 전체 최근 7일:
+  - safe session 1,142.
+  - 구매 완료 394.
+  - 결제 시작 후 멈춤 719.
+  - 결제 확인 보류 29.
+  - 비결제 cohort 주문서 진입 93.7%.
+- 바이오컴 전체 최근 30일:
+  - safe session 23,934.
+  - 구매 완료 1,749.
+  - 결제 시작 후 멈춤 21,945.
+  - 결제 확인 보류 240.
+  - 비결제 cohort 주문서 진입 15.2%.
+
+해석:
+
+최근 7일과 30일의 비결제 cohort 주문서 진입률이 크게 다르다.
+이것은 고객 행동이 갑자기 뒤집혔다기보다, window별 cohort 구성과 분모가 달라졌다는 신호다.
+따라서 API와 화면은 다음 세 값을 분리해야 한다.
+
+1. 전체 방문 세션.
+2. 주문서/결제 시작 화면까지 도달한 세션.
+3. 주문서까지 갔지만 구매 완료로 닫히지 않은 세션.
+
+### 작은 표본과 큰 표본이 같이 보였던 이유
+
+페이지 롱 뷰 기준 시간 표의 작은 숫자는 channel-specific dry-run이다.
+예를 들어 바이오컴 Google 유료만 7일로 자르면 구매자는 2명 수준까지 줄어든다.
+반면 사이트별 핵심 행동값 표는 사이트 전체 또는 큰 cohort를 묶은 GA4-VM safe bridge 표라 356명/689명 같은 큰 표본이 나온다.
+
+최신 live API 기준 바이오컴 Google 유료 표본:
+
+- 최근 7일:
+  - safe session 74.
+  - 구매 완료 2.
+  - 결제 시작 후 멈춤 65.
+  - 결제 확인 보류 7.
+- 최근 30일:
+  - safe session 503.
+  - 구매 완료 18.
+  - 결제 시작 후 멈춤 460.
+  - 결제 확인 보류 25.
+
+해석:
+
+Google 유료는 표본이 늘었지만, 구매자 수는 여전히 작다.
+따라서 2분/3분/7분 page-long 기준은 예산 판단값이 아니라 방향 확인값으로 둔다.
+Google 클릭 ID 보존율이 좋아졌는지는 이번 표본 증가만으로 단정하지 않는다.
+별도 `click_id preservation` audit에서 payment_success까지 gclid/gbraid/wbraid가 이어지는지 확인한다.
 
 ## 이 에이전트가 필요한 이유
 
@@ -182,6 +339,37 @@ P0 산출물:
 - 50% 스크롤 사용자가 구매율이 높아도, 그 숫자를 늘렸을 때 구매가 늘지 않으면 핵심 선행 지표가 아니다.
 - 회원가입 완료자가 구매율이 높아도, 가입만 늘리고 구매가 늘지 않으면 “좋은 선행 지표”가 아니다.
 - YouTube 유입 체류시간이 길어도 결제 시작으로 안 이어지면 콘텐츠 품질 지표이지 구매 선행 지표는 아니다.
+
+## KPI 운영 원칙 반영
+
+참고 문서: [KPI 설계 7가지 교훈과 선행지표 에이전트 적용 원칙](kpi-design-seven-lessons-20260526.md)
+
+이 프로젝트에서 KPI는 “숫자를 맞히는 압박 도구”가 아니라 “사람이 내일 할 행동을 바꾸는 설계도”로 본다.
+따라서 선행지표 에이전트는 단순히 구매자와 비결제자의 차이를 보여주는 데서 멈추면 안 된다.
+각 지표가 실제 업무 행동으로 이어지는지까지 판단해야 한다.
+
+### 적용 규칙
+
+- 지표를 추가하기 전에 “이 숫자를 본 사람이 내일 무엇을 하게 되는가”를 먼저 적는다.
+- 매출, ROAS, 구매 수는 후행 지표로 분리하고, 체류시간, 리뷰 도달, 결제 시작, 결제수단 선택은 선행 지표 후보로 분리한다.
+- Top 5에는 레버지표를 우선 배치한다. 레버지표는 지금 당장 랜딩, 콘텐츠, 버튼, 리뷰 위치, 결제 흐름을 바꿔 움직일 수 있는 숫자다.
+- CAPI 성공률, GA4 join rate, 전체 PageView처럼 이상 감시에 가까운 숫자는 관리지표로 둔다.
+- 모든 지표 카드에는 공략집을 붙인다. 공략집은 “무엇을, 어떻게, 왜 바꾸는지”를 고등학생도 이해할 수 있는 문장으로 적는다.
+- 원인과 결과가 약한 지표는 Meta CAPI 전송 후보가 아니라 내부 관찰 지표로 유지한다.
+
+### 프론트엔드 표시 원칙
+
+프론트엔드 보고서는 기술명을 먼저 보여주지 않는다.
+예를 들어 `dwell_seconds`라고 쓰지 않고, “상세페이지에 머문 시간”이라고 먼저 쓴 뒤 괄호로 기술명을 보조한다.
+
+각 카드에는 다음 항목을 둔다.
+
+- 현재 숫자.
+- 구매자와 비결제자 차이.
+- 왜 중요한지.
+- 지금 바로 할 행동.
+- 이 지표가 레버지표인지 관리지표인지.
+- 데이터 신뢰도와 표본 수.
 
 따라서 에이전트는 **상관관계 → 가설 → 실험 → 재측정** 순서로 판단해야 한다.
 
@@ -559,11 +747,11 @@ Codex는 이 문서와 P0 dry-run 산출물을 기준으로 data contract와 화
 
 | Priority | Phase/Sprint | 무엇을 하는가 | 왜 하는가 | 어떻게 진행하는가 | 지금 상태 | 현재 진척률 % | 100% 조건 | 다음 단계 / 담당 | 승인 필요 여부 | Source 문서 |
 |---:|---|---|---|---|---|---:|---|---|---|---|
-| P0 | [[#Phase1-Sprint1]] | 선행지표 source inventory를 닫는다 | 어떤 신호가 어디에 있는지 모르면 분석이 흔들린다 | VM Cloud, GA4, GTM, 운영DB source를 지표별로 분리한다 | P0 dry-run + GA4 dwell/scroll + GA4↔VM Cloud key presence + row-level safe bridge 완료. 바이오컴 key 보강 남음 | 92 | source/window/freshness/confidence가 지표별로 붙음 | Codex: signup source gap | NO, Green | `project/ga4-vm-row-level-safe-bridge-dry-run-20260517.md` |
-| P0 | [[#Phase1-Sprint2]] | 구매자와 이탈자 cohort를 만든다 | 구매로 이어진 행동과 이탈 행동을 비교해야 선행지표가 보인다 | channel/session/safe key 기준으로 purchased vs dropped를 나눈다 | 더클린커피 row-level cohort 가능, 바이오컴은 strict safe hash 연결률 30%대라 key 보강/Plan B 필요 | 68 | Meta/organic/youtube별 cohort가 1d/7d로 생성됨 | Codex: channel별 cohort truth table | NO, Green | `data/project/ga4-vm-row-level-safe-bridge-dry-run-20260517.json` |
-| P1 | [[#Phase2-Sprint1]] | 체류시간/스크롤/회원가입 지표를 만든다 | 구매 전 몰입 행동을 숫자로 봐야 한다 | GA4/VM Cloud를 조합해 dwell/scroll/signup feature를 만든다 | VM Cloud live aggregate endpoint 배포 완료. 로컬 프론트 `/ai-crm/leading-indicators` 구현 완료. precompute cache는 OFF | 74 | 각 feature의 purchase lift와 모수가 계산되고 화면이 live cache hit 기준으로 빠르게 표시됨 | TJ: precompute 2시간 smoke 승인 판단 / Codex: 승인 시 cache smoke | Yellow 승인 필요 | `project/leading-indicator-p1-vm-deploy-result-20260519.md` |
-| P1 | [[#Phase2-Sprint2]] | 선행지표 점수화와 추천을 만든다 | 지표가 많으면 무엇을 바꿔야 할지 모른다 | lift, volume, controllability, risk로 score를 만든다 | 미구현 | 5 | Top 5 leading indicators와 실험 추천이 표시됨 | Codex: scoring design | NO, Green | 이 문서 |
-| P2 | [[#Phase3-Sprint1]] | Meta CAPI 중간 전환 후보를 분리한다 | 선행지표 중 일부는 Meta 학습 신호가 될 수 있다 | no-send receiver, Test Events, staged ON으로 분리한다 | 별도 capiplan 진행 중 | 52 | Purchase 오염 없이 server source 수신 검증 | Codex/TJ | Red send 전 승인 | [[capivm/!capiplan]] |
+| P0 | [[#Phase1-Sprint1]] | 선행지표 source inventory를 닫는다 | 어떤 신호가 어디에 있는지 모르면 분석이 흔들린다 | VM Cloud, GA4, GTM, 운영DB source를 지표별로 분리한다 | VM Cloud/GA4/GTM/운영DB 역할 분리 완료. 회원가입/쿠폰/일부 중간 이벤트 source gap만 남음 | 94 | source/window/freshness/confidence가 지표별로 붙음 | Codex: signup/coupon source gap closure | NO, Green | `project/ga4-vm-row-level-safe-bridge-dry-run-20260517.md` |
+| P0 | [[#Phase1-Sprint2]] | 구매자와 이탈자 cohort를 만든다 | 구매로 이어진 행동과 이탈 행동을 비교해야 선행지표가 보인다 | channel/session/safe key 기준으로 purchased vs dropped를 나눈다 | 바이오컴 Meta live 7d 4 cohort 생성 완료. 더클린커피는 count는 가능하나 행동값 수집 gap 남음 | 86 | Meta/organic/youtube별 cohort가 1d/7d로 생성됨 | Codex: 더클린커피 행동값 수집 보강 | NO, Green | `data/project/ga4-vm-row-level-safe-bridge-dry-run-20260517.json` |
+| P1 | [[#Phase2-Sprint1]] | 체류시간/스크롤/회원가입 지표를 만든다 | 구매 전 몰입 행동을 숫자로 봐야 한다 | GA4/VM Cloud를 조합해 dwell/scroll/signup feature를 만든다 | 바이오컴 Meta 7d에서 체류시간과 scroll90 차이 확인. latest response는 live_cache_miss라 cache worker post-check 필요 | 82 | 각 feature의 purchase lift와 모수가 계산되고 화면이 live cache hit 기준으로 빠르게 표시됨 | Codex: cache health + coffee dwell/scroll gap | Yellow는 VM deploy 시만 필요 | `project/leading-indicator-p1-vm-deploy-result-20260519.md` |
+| P1 | [[#Phase2-Sprint2]] | 선행지표 점수화와 추천을 만든다 | 지표가 많으면 무엇을 바꿔야 할지 모른다 | lift, volume, confidence, controllability, risk로 score를 만들고, 각 후보에 공략집을 붙인다 | 로컬 backend Top 5 scoring 구현 완료. 로컬 프론트에 OKR/액션플랜/레버지표 카드 구조 반영. VM 배포와 실험 backlog 연결 남음 | 70 | Top 5 leading indicators와 실험 추천이 live 화면에 표시됨 | Codex: VM deploy packet / Claude Code: experiment backlog UI | VM deploy는 Yellow | 이 문서 |
+| P2 | [[#Phase3-Sprint1]] | Meta CAPI 중간 전환 후보를 분리한다 | 선행지표 중 일부는 Meta 학습 신호가 될 수 있다 | no-send receiver, Test Events, staged ON으로 분리한다 | 별도 capiplan 진행 중. Purchase와 내부 관찰 지표 분리 원칙은 있음 | 58 | Purchase 오염 없이 server source 수신 검증 | Codex/TJ | Red send 전 승인 | [[capivm/!capiplan]] |
 
 ## Phase1-Sprint1
 
@@ -637,7 +825,7 @@ source가 섞이면 선행지표가 아니라 추정치가 된다.
 
 ### 현재 진척률
 
-현재 진척률: 92%.
+현재 진척률: 94%.
 
 ### 100% 조건
 
@@ -739,7 +927,7 @@ Meta 유입자가 오래 머물렀다는 사실만으로는 부족하다.
 
 ### 현재 진척률
 
-현재 진척률: 68%.
+현재 진척률: 86%.
 
 ### 100% 조건
 
@@ -816,7 +1004,7 @@ Meta 유입자가 오래 머물렀다는 사실만으로는 부족하다.
 
 ### 현재 진척률
 
-현재 진척률: 62%.
+현재 진척률: 82%.
 
 ### 100% 조건
 
@@ -855,17 +1043,50 @@ Meta 유입자가 오래 머물렀다는 사실만으로는 부족하다.
 
 ### 개발 계획
 
-1. [Codex] signal scoring formula를 로컬 script로 만든다.
+완료된 것:
+
+1. [Codex] signal scoring formula를 로컬 backend에 구현했다.
    - 무엇: 후보 지표의 우선순위를 계산한다.
    - 왜: 대표가 “오늘 무엇을 바꿀지” 볼 수 있어야 한다.
-   - 어떻게: lift, volume, controllability, implementation effort, risk를 합산한다.
-   - 산출물: ranked leading indicator list.
-   - 검증: Top 5 후보에 이유와 다음 액션이 붙는다.
+   - 어떻게: 구매자와 비결제자 차이(lift), 표본 크기(volume), 수집 범위(confidence), 사람이 실제로 바꿀 수 있는 정도(controllability), 추적 오염 리스크(risk)를 합산한다.
+   - 산출물: `backend/src/leadingIndicators.ts` Top 5 scoring 로직.
+   - 검증: backend typecheck PASS, attribution test PASS, local API smoke PASS.
    - 의존성: Phase2-Sprint1 feature table.
+
+2. [Codex] Top 5 후보에 사람이 읽을 수 있는 설명을 붙였다.
+   - 무엇: `score`, `score_grade`, `score_components`, `next_action_ko`, `data_quality_note_ko`를 API 후보 필드에 추가했다.
+   - 왜: 점수만 있으면 왜 1위인지 알기 어렵기 때문이다.
+   - 어떻게: 각 지표별로 “왜 중요한가”, “바로 무엇을 바꿀 수 있는가”, “데이터가 얼마나 믿을 만한가”를 별도 문장으로 내려준다.
+   - 검증: 로컬 smoke에서 `dwell_p50`, `scroll90_all_sessions_rate`, `begin_checkout_rate`, `review_reach_rate`, `page_view_long_rate`가 Top 5로 산출됐다.
+   - 의존성: 없음.
+
+3. [Codex] 로컬 프론트 카드 구조를 KPI 원칙에 맞게 보강했다.
+   - 무엇: `/ai-crm/leading-indicators`에 프로젝트 OKR 패널, 액션플랜 3개, 레버지표/관리지표/진단지표 역할 배지, 후보별 공략집을 추가했다.
+   - 왜: 선행지표는 숫자 자체보다 “그 숫자를 보면 사람이 어떤 행동을 해야 하는가”가 중요하기 때문이다.
+   - 어떻게: Top 5 후보별로 무엇을 바꿀지, 어떻게 바꿀지, 왜 바꾸는지, 성공 기준을 카드 안에 표시한다.
+   - 산출물: `frontend/src/app/ai-crm/leading-indicators/page.tsx`, `frontend/src/app/ai-crm/leading-indicators/page.module.css`
+   - 검증: 변경 범위 targeted eslint와 local page smoke로 확인한다. 전체 frontend lint는 기존 다른 페이지 오류가 있어 별도 정리 대상이다.
+   - 의존성: 없음.
+
+남은 것:
+
+1. [Codex] 운영 VM 화면에 KPI 카드 구조를 배포한다.
+   - 무엇: 로컬에서 보강한 OKR/액션플랜/공략집 카드 구조를 `https://biocom.ainativeos.net/ai-crm/leading-indicators`에도 반영한다.
+   - 왜: 실제 운영 판단은 VM 화면에서 보므로 로컬에서만 보이면 팀 운영 도구가 되지 못한다.
+   - 어떻게: 프론트 build 후 VM 배포, 화면 smoke, API cache 상태 확인을 묶어 Yellow Lane 배포 패킷으로 진행한다.
+   - 성공 기준: VM 화면에서 프로젝트 종합 진척률 77%, 액션플랜 3개, Top 5 공략집 카드가 보인다.
+   - 의존성: 로컬 화면 최종 확인.
+
+2. [Codex] Top 5 후보를 실제 실험 backlog와 연결한다.
+   - 무엇: 각 후보 카드의 다음 행동을 “랜딩 문구 수정”, “리뷰 위치 테스트”, “결제 시작 UX 점검” 같은 실험 항목으로 연결한다.
+   - 왜: 점수만 보고 끝나면 KPI가 행동을 바꾸지 못한다.
+   - 어떻게: 후보 id별 experiment template을 만들고, 화면에는 “실험 만들기” 또는 “공략집 보기” 형태로 연결한다.
+   - 성공 기준: Top 5 중 최소 1개가 실험 카드/문서로 이어진다.
+   - 의존성: VM 화면 배포 후 권장.
 
 ### 현재 진척률
 
-현재 진척률: 5%.
+현재 진척률: 70%.
 
 ### 100% 조건
 

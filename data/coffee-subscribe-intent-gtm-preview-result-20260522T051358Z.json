@@ -1,0 +1,296 @@
+{
+  "generated_at_kst": "2026-05-22T14:14:39",
+  "run_id": "20260522T051358Z",
+  "mode": "gtm_preview_only_no_submit_no_create_version_no_publish",
+  "lane": "Yellow approved by TJ님 for GTM Preview execution",
+  "no_send_verified_by_design": true,
+  "no_write_verified_by_design": true,
+  "no_publish_verified": true,
+  "no_platform_send_verified": true,
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "13158774",
+    "public_id": "GTM-5M33GC4",
+    "live_version_before": {
+      "id": "145",
+      "name": "paid_click_intent_v3_stale_click_id_guard_20260521",
+      "fingerprint": "1779351313570"
+    },
+    "live_version_after": {
+      "id": "145",
+      "name": "paid_click_intent_v3_stale_click_id_guard_20260521",
+      "fingerprint": "1779351313570"
+    },
+    "live_version_unchanged": true
+  },
+  "workspace": {
+    "workspace_id": "170",
+    "name": "codex_coffee_subscribe_intent_preview_20260522T051358Z",
+    "path": "accounts/4703003246/containers/13158774/workspaces/170",
+    "workspace_count_before": 2,
+    "workspace_count_after": 2,
+    "still_open_after_cleanup": false
+  },
+  "tag": {
+    "tag_id": "306",
+    "name": "AGENTOS - [no-send] coffee_subscribe_intent_preview_listener 20260522T051358Z",
+    "type": "html",
+    "firingTriggerId": [
+      "305"
+    ]
+  },
+  "trigger": {
+    "trigger_id": "305",
+    "name": "AGENTOS - [preview] coffee subscription path DOM Ready 20260522T051358Z",
+    "type": "domReady",
+    "filter": [
+      {
+        "type": "equals",
+        "parameter": [
+          {
+            "type": "template",
+            "key": "arg0",
+            "value": "{{Page Hostname}}"
+          },
+          {
+            "type": "template",
+            "key": "arg1",
+            "value": "thecleancoffee.com"
+          }
+        ]
+      },
+      {
+        "type": "matchRegex",
+        "parameter": [
+          {
+            "type": "template",
+            "key": "arg0",
+            "value": "{{Page Path}}"
+          },
+          {
+            "type": "template",
+            "key": "arg1",
+            "value": "^/subscription/?$"
+          },
+          {
+            "type": "boolean",
+            "key": "ignore_case",
+            "value": "true"
+          }
+        ]
+      }
+    ]
+  },
+  "quick_preview": {
+    "sync_status": null,
+    "compiler_error": null,
+    "container_version_id": "0",
+    "container_version_name": null,
+    "environment_id": "307",
+    "authorization_code_present": true
+  },
+  "status_before_cleanup": {
+    "workspaceChangeCount": 2,
+    "mergeConflictCount": 0,
+    "changes": [
+      {
+        "changeStatus": "added",
+        "tag": {
+          "tagId": "306",
+          "name": "AGENTOS - [no-send] coffee_subscribe_intent_preview_listener 20260522T051358Z",
+          "type": "html",
+          "firingTriggerId": [
+            "305"
+          ]
+        },
+        "trigger": null
+      },
+      {
+        "changeStatus": "added",
+        "tag": null,
+        "trigger": {
+          "triggerId": "305",
+          "name": "AGENTOS - [preview] coffee subscription path DOM Ready 20260522T051358Z",
+          "type": "domReady"
+        }
+      }
+    ]
+  },
+  "backup_path": "/Users/vibetj/coding/seo/data/coffee-subscribe-intent-gtm-preview-workspace-backup-20260522T051358Z.json",
+  "cleanup": [
+    {
+      "deleted": true,
+      "workspaceId": "170",
+      "name": "codex_coffee_subscribe_intent_preview_20260522T051358Z",
+      "reason": "approved_gtm_preview_cleanup"
+    }
+  ],
+  "smoke_error": "",
+  "workspaces_before": [
+    {
+      "workspaceId": "167",
+      "name": "AGENT_OS_path_b_controlled_traffic_preview_20260509T155435Z",
+      "path": "accounts/4703003246/containers/13158774/workspaces/167"
+    },
+    {
+      "workspaceId": "147",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/13158774/workspaces/147"
+    }
+  ],
+  "workspaces_after": [
+    {
+      "workspaceId": "167",
+      "name": "AGENT_OS_path_b_controlled_traffic_preview_20260509T155435Z",
+      "path": "accounts/4703003246/containers/13158774/workspaces/167"
+    },
+    {
+      "workspaceId": "147",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/13158774/workspaces/147"
+    }
+  ],
+  "smoke_results": [
+    {
+      "kind": "subscription_valid",
+      "previewUrl": "https://thecleancoffee.com/subscription/?idx=74&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "pageLoaded": true,
+      "installed": null,
+      "gtmLoaded": false,
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+      ],
+      "consoleMarkers": [],
+      "networkErrors": [
+        "net::ERR_ABORTED https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4"
+      ],
+      "measurementRequestsAfterClick": [],
+      "screenshotPath": "/Users/vibetj/coding/seo/data/screenshots/coffee-subscribe-intent-gtm-preview-20260522T051358Z-subscription_valid.png",
+      "actionResult": {
+        "action": "valid_subscribe_click",
+        "historyBefore": 0,
+        "historyAfter": 0,
+        "historyDelta": 0,
+        "dataLayerBefore": 0,
+        "dataLayerAfter": 0,
+        "dataLayerDelta": 0,
+        "syntheticButtonRemoved": true
+      },
+      "pageState": {
+        "href": "https://thecleancoffee.com/subscription/?idx=74&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+        "installed": null,
+        "historyLength": 0,
+        "last": null,
+        "dataLayerEventCount": 0,
+        "dataLayerEvents": [],
+        "gtmLoaded": false
+      },
+      "pass": false,
+      "passReasons": {
+        "pageLoaded": true,
+        "expectedInstallState": false,
+        "expectedEventDelta": false,
+        "noMeasurementDeltaAfterClick": true,
+        "gtmScriptLoadedViaPreview": true
+      }
+    },
+    {
+      "kind": "subscription_option_like",
+      "previewUrl": "https://thecleancoffee.com/subscription/?idx=74&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "pageLoaded": true,
+      "installed": null,
+      "gtmLoaded": false,
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+      ],
+      "consoleMarkers": [],
+      "networkErrors": [
+        "net::ERR_ABORTED https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4"
+      ],
+      "measurementRequestsAfterClick": [],
+      "screenshotPath": "/Users/vibetj/coding/seo/data/screenshots/coffee-subscribe-intent-gtm-preview-20260522T051358Z-subscription_option_like.png",
+      "actionResult": {
+        "action": "option_like_click",
+        "historyBefore": 0,
+        "historyAfter": 0,
+        "historyDelta": 0,
+        "dataLayerBefore": 0,
+        "dataLayerAfter": 0,
+        "dataLayerDelta": 0,
+        "syntheticButtonRemoved": true
+      },
+      "pageState": {
+        "href": "https://thecleancoffee.com/subscription/?idx=74&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+        "installed": null,
+        "historyLength": 0,
+        "last": null,
+        "dataLayerEventCount": 0,
+        "dataLayerEvents": [],
+        "gtmLoaded": false
+      },
+      "pass": false,
+      "passReasons": {
+        "pageLoaded": true,
+        "expectedInstallState": false,
+        "expectedEventDelta": true,
+        "noMeasurementDeltaAfterClick": true,
+        "gtmScriptLoadedViaPreview": true
+      }
+    },
+    {
+      "kind": "normal_product_ignored",
+      "previewUrl": "https://thecleancoffee.com/thecleancoffee/?idx=75&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+      "pageLoaded": true,
+      "installed": null,
+      "gtmLoaded": false,
+      "gtmScriptRoutes": [
+        "https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x"
+      ],
+      "consoleMarkers": [],
+      "networkErrors": [
+        "net::ERR_ABORTED https://www.googletagmanager.com/gtm.js?id=GTM-5M33GC4"
+      ],
+      "measurementRequestsAfterClick": [],
+      "screenshotPath": "/Users/vibetj/coding/seo/data/screenshots/coffee-subscribe-intent-gtm-preview-20260522T051358Z-normal_product_ignored.png",
+      "actionResult": {
+        "action": "valid_subscribe_click",
+        "historyBefore": 0,
+        "historyAfter": 0,
+        "historyDelta": 0,
+        "dataLayerBefore": 0,
+        "dataLayerAfter": 0,
+        "dataLayerDelta": 0,
+        "syntheticButtonRemoved": true
+      },
+      "pageState": {
+        "href": "https://thecleancoffee.com/thecleancoffee/?idx=75&__seo_attribution_debug=1&gtm_auth=REDACTED&gtm_preview=REDACTED&gtm_debug=x",
+        "installed": null,
+        "historyLength": 0,
+        "last": null,
+        "dataLayerEventCount": 0,
+        "dataLayerEvents": [],
+        "gtmLoaded": false
+      },
+      "pass": true,
+      "passReasons": {
+        "pageLoaded": true,
+        "expectedInstallState": true,
+        "expectedEventDelta": true,
+        "noMeasurementDeltaAfterClick": true,
+        "gtmScriptLoadedViaPreview": true
+      }
+    }
+  ],
+  "overall": {
+    "quickPreviewCompilerErrorAbsent": true,
+    "quickPreviewEnvironmentPresent": true,
+    "workspaceChangeCountExpected": true,
+    "mergeConflictCountZero": true,
+    "allSmokeCasesPassed": false,
+    "noMeasurementDeltaAllCases": true,
+    "smokeCompletedWithoutException": true,
+    "workspaceDeleted": true,
+    "liveVersionUnchanged": true
+  },
+  "verdict": "HOLD_GTM_PREVIEW_REVIEW_REQUIRED"
+}

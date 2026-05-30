@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -312,6 +312,43 @@ type TikTokRoasResponse = {
   notes: string[];
 };
 
+type TikTokRoasSummaryResponse = Partial<TikTokRoasResponse> & {
+  ok: boolean;
+  error?: string;
+  mode?: "summary_first";
+  start_date: string;
+  end_date: string;
+  attribution_window: TikTokRoasResponse["attribution_window"];
+  local_table: TikTokRoasResponse["local_table"];
+  ads_report: TikTokRoasResponse["ads_report"];
+  gap: TikTokRoasResponse["gap"];
+  daily_comparison: TikTokRoasResponse["daily_comparison"];
+  operational_ledger_summary?: {
+    source?: string;
+    dataSource?: string;
+    summary?: unknown;
+    guard?: unknown;
+    filters?: unknown;
+    rawItemsReturned?: number;
+    note?: string;
+  };
+  tiktok_event_log_summary?: {
+    source?: string;
+    storage?: string;
+    summary?: unknown;
+    guard?: unknown;
+    filters?: unknown;
+    rawItemsReturned?: number;
+    note?: string;
+  };
+  diagnostics?: {
+    defaultMode?: string;
+    rawComparisonEndpoint?: string;
+    rawComparisonRequiredForOperationalGap?: boolean;
+    summaryDoesNotLoadRawLedgerItems?: boolean;
+  };
+};
+
 type MetaRoasSummary = {
   spend: number;
   attributedRevenue: number;
@@ -336,11 +373,19 @@ type MetaRoasResponse = {
   ok: boolean;
   error?: string;
   summary?: MetaRoasSummary;
+  results?: Record<string, { summary?: MetaRoasSummary }>;
 };
 
 type GoogleAdsDashboardResponse = {
   ok: boolean;
   error?: string;
+  benchmark?: GoogleBenchmark;
+  cache?: {
+    cached?: boolean;
+    source?: string;
+    cached_at_kst?: string | null;
+    next_refresh_at_kst?: string | null;
+  };
   summary?: {
     cost: number;
     conversionValue: number;
@@ -762,8 +807,11 @@ export default function TikTokAdsPerformancePage() {
   const [quickRanges, setQuickRanges] = useState(() => buildQuickRanges());
   const [dailyRevenueMode, setDailyRevenueMode] = useState<"confirmed" | "potential">("potential");
   const [data, setData] = useState<TikTokRoasResponse | null>(null);
+  const [summaryData, setSummaryData] = useState<TikTokRoasSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [diagnosticLoading, setDiagnosticLoading] = useState(false);
+  const [diagnosticError, setDiagnosticError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const chartFrameRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
@@ -810,16 +858,16 @@ export default function TikTokAdsPerformancePage() {
 
       const [metaResult, googleResult] = await Promise.allSettled([
         fetch(
-          `${META_REPORTING_API_BASE}/api/ads/roas?account_id=${META_BIOCOM_ACCOUNT_ID}&date_preset=${GROWTH_STRATEGY_DATE_PRESET}`,
+          `${META_REPORTING_API_BASE}/api/ads/roas-summary?account_id=${META_BIOCOM_ACCOUNT_ID}&presets=${GROWTH_STRATEGY_DATE_PRESET}`,
           { cache: "no-store" },
         ).then(async (response) => {
           const payload = (await response.json()) as MetaRoasResponse;
           if (!response.ok || payload.ok !== true) {
             throw new Error(payload.error ?? `Meta HTTP ${response.status}`);
           }
-          return payload.summary ?? null;
+          return payload.results?.[GROWTH_STRATEGY_DATE_PRESET]?.summary ?? payload.summary ?? null;
         }),
-        fetch(`${API_BASE_URL}/api/google-ads/dashboard?date_preset=${GROWTH_STRATEGY_DATE_PRESET}`, {
+        fetch(`${API_BASE_URL}/api/google-ads/dashboard-summary?date_preset=${GROWTH_STRATEGY_DATE_PRESET}`, {
           cache: "no-store",
         }).then(async (response) => {
           const payload = (await response.json()) as GoogleAdsDashboardResponse;
@@ -842,7 +890,7 @@ export default function TikTokAdsPerformancePage() {
       if (googleResult.status === "fulfilled") {
         const payload = googleResult.value;
         const googleInternal = payload.internal?.summary ?? payload.internal;
-        google = {
+        google = payload.benchmark ?? {
           cost: googleInternal?.platformCost ?? payload.summary?.cost ?? 0,
           platformConversionValue: googleInternal?.platformConversionValue ?? payload.summary?.conversionValue ?? 0,
           platformRoas: googleInternal?.platformRoas ?? payload.summary?.roas ?? null,
@@ -900,18 +948,21 @@ export default function TikTokAdsPerformancePage() {
       setError(null);
       try {
         const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
-        const response = await fetch(`${API_BASE_URL}/api/ads/tiktok/roas-comparison?${params.toString()}`, {
+        const response = await fetch(`${API_BASE_URL}/api/ads/tiktok/roas-summary?${params.toString()}`, {
           signal: abortController.signal,
           cache: "no-store",
         });
-        const nextData = (await response.json()) as TikTokRoasResponse;
+        const nextData = (await response.json()) as TikTokRoasSummaryResponse;
         if (!response.ok || nextData.ok !== true) {
           throw new Error(nextData.error ?? `HTTP ${response.status}`);
         }
-        setData(nextData);
+        setSummaryData(nextData);
+        setData(null);
+        setDiagnosticError(null);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "TikTok ROAS API 응답을 불러오지 못했습니다.");
+        setSummaryData(null);
         setData(null);
       } finally {
         if (!abortController.signal.aborted) setLoading(false);
@@ -922,6 +973,26 @@ export default function TikTokAdsPerformancePage() {
 
     return () => abortController.abort();
   }, [startDate, endDate]);
+
+  const loadRawDiagnostic = useCallback(async () => {
+    setDiagnosticLoading(true);
+    setDiagnosticError(null);
+    try {
+      const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+      const response = await fetch(`${API_BASE_URL}/api/ads/tiktok/roas-comparison?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const nextData = (await response.json()) as TikTokRoasResponse;
+      if (!response.ok || nextData.ok !== true) {
+        throw new Error(nextData.error ?? `HTTP ${response.status}`);
+      }
+      setData(nextData);
+    } catch (err) {
+      setDiagnosticError(err instanceof Error ? err.message : "원본 진단 데이터를 불러오지 못했습니다.");
+    } finally {
+      setDiagnosticLoading(false);
+    }
+  }, [endDate, startDate]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -954,7 +1025,21 @@ export default function TikTokAdsPerformancePage() {
     return () => abortController.abort();
   }, [startDate, endDate]);
 
-  const summary = data?.ads_report.summary;
+  const activeData = data ?? summaryData;
+  const rawDiagnosticLoaded = Boolean(data);
+  const summary = activeData?.ads_report?.summary;
+  const campaignRows = activeData?.ads_report?.campaignRows ?? [];
+  const localTable = activeData?.local_table;
+  const visibleWarningsAndNotes = [...(activeData?.warnings ?? []), ...(activeData?.notes ?? [])];
+  const rawDiagnosticButtonLabel = diagnosticLoading
+    ? "원본 진단 불러오는 중"
+    : rawDiagnosticLoaded
+      ? "원본 진단 다시 불러오기"
+      : "원본 진단 불러오기";
+  const rawDiagnosticStatusText = rawDiagnosticLoaded
+    ? "원본 장부 진단 열림"
+    : "기본 화면은 요약 결과만 조회";
+  const rawDiagnosticNotice = "기본 화면은 빠른 요약 결과만 보여줍니다. 내부 confirmed, pending, 주문 샘플, 이벤트 로그 원문은 버튼을 눌렀을 때만 읽습니다.";
 
   // gpt0508-52: evidence-join same-window 진짜 ROAS (paid_tiktok).
   // TikTok roas-comparison API 응답이 늦거나 실패해도 chip 은 떠야 하므로 startDate/endDate 만으로 fire.
@@ -1011,8 +1096,8 @@ export default function TikTokAdsPerformancePage() {
     const total = confirmed.orders + pending.orders + canceled.orders;
     return total > 0 ? pending.orders / total * 100 : null;
   }, [confirmed.orders, pending.orders, canceled.orders]);
-  const dailyMaxDate = data?.local_table.daily.maxDate ?? null;
-  const dailyMinDate = data?.local_table.daily.minDate ?? null;
+  const dailyMaxDate = activeData?.local_table?.daily.maxDate ?? null;
+  const dailyMinDate = activeData?.local_table?.daily.minDate ?? null;
   const todayLabel = useMemo(() => todayKst(), []);
   const yesterdayLabel = useMemo(() => yesterdayKst(), []);
   const dailyMaxLagDays = useMemo(() => {
@@ -1021,7 +1106,7 @@ export default function TikTokAdsPerformancePage() {
     const last = new Date(`${dailyMaxDate}T00:00:00Z`).getTime();
     return Math.max(0, Math.round((end - last) / (24 * 60 * 60 * 1000)));
   }, [dailyMaxDate, yesterdayLabel]);
-  const autoIngestState = data?.local_table.daily.autoIngest;
+  const autoIngestState = activeData?.local_table?.daily.autoIngest;
   const freshnessTone: Tone = !dailyMaxDate
     ? "amber"
     : dailyMaxLagDays != null && dailyMaxLagDays <= 1
@@ -1039,9 +1124,11 @@ export default function TikTokAdsPerformancePage() {
       ? `자동 적재 ${autoIngestState.startDate}~${autoIngestState.endDate} (${fmtNum(autoIngestState.rows)}행)`
       : `자동 적재 실패: ${autoIngestState.message ?? "알 수 없음"}`
     : "자동 적재: 변동 없음";
-  const sourceReasonRows = Object.entries(data?.operational_ledger.sourceReasonSummary ?? {})
-    .sort(([, left], [, right]) => right.amount - left.amount);
-  const pendingAuditRows = data?.operational_ledger.pendingAuditTop20 ?? [];
+  const sourceReasonRows = rawDiagnosticLoaded
+    ? Object.entries(data?.operational_ledger.sourceReasonSummary ?? {})
+      .sort(([, left], [, right]) => right.amount - left.amount)
+    : [];
+  const pendingAuditRows = rawDiagnosticLoaded ? data?.operational_ledger.pendingAuditTop20 ?? [] : [];
   const pendingFateSummary = data?.operational_ledger.pendingFateSummary;
   const stillPending = pendingFateSummary?.still_pending ?? { rows: 0, orders: 0, amount: 0 };
   const expiredUnpaid = pendingFateSummary?.expired_unpaid ?? { rows: 0, orders: 0, amount: 0 };
@@ -1054,7 +1141,9 @@ export default function TikTokAdsPerformancePage() {
   const highConfidenceAmount = precisionSummary.high.amount;
   const broadAttributionAmount = precisionSummary.high.amount + precisionSummary.medium.amount + precisionSummary.low.amount;
   const lowConfidenceAmount = precisionSummary.low.amount;
-  const unexplainedGap = Math.max(0, (summary?.purchaseValue ?? 0) - (confirmed.amount + pending.amount));
+  const unexplainedGap = rawDiagnosticLoaded
+    ? Math.max(0, (summary?.purchaseValue ?? 0) - (confirmed.amount + pending.amount))
+    : 0;
   const waterfallRows = [
     {
       label: "TikTok 플랫폼 구매값",
@@ -1093,9 +1182,12 @@ export default function TikTokAdsPerformancePage() {
       tone: lowConfidenceAmount > 0 ? "red" as const : "neutral" as const,
     },
   ];
-  const dailyRows = useMemo(() => data?.daily_comparison.rows ?? [], [data?.daily_comparison.rows]);
-  const dailySummary = data?.daily_comparison.summary;
-  const dailyGuard = data?.daily_comparison.guardBreakdown;
+  const dailyRows = useMemo(
+    () => activeData?.daily_comparison?.rows ?? [],
+    [activeData?.daily_comparison?.rows],
+  );
+  const dailySummary = activeData?.daily_comparison?.summary;
+  const dailyGuard = activeData?.daily_comparison?.guardBreakdown;
   const dailyModeIsPotential = dailyRevenueMode === "potential";
   const dailySelectedRevenue = dailyModeIsPotential
     ? (dailySummary?.confirmedRevenue ?? 0) + (dailySummary?.pendingRevenue ?? 0)
@@ -1119,8 +1211,8 @@ export default function TikTokAdsPerformancePage() {
   const missingAdsDates = dailyRows
     .filter((row) => !row.hasAdsData)
     .map((row) => row.date);
-  const adsCoverageText = data?.local_table.daily.minDate && data.local_table.daily.maxDate
-    ? `${data.local_table.daily.minDate} ~ ${data.local_table.daily.maxDate}`
+  const adsCoverageText = activeData?.local_table?.daily.minDate && activeData.local_table.daily.maxDate
+    ? `${activeData.local_table.daily.minDate} ~ ${activeData.local_table.daily.maxDate}`
     : "미확인";
 
   const eventLog = data?.tiktok_event_log;
@@ -1144,32 +1236,48 @@ export default function TikTokAdsPerformancePage() {
           ? "green"
           : "blue";
 
-  const verdictTone: Tone = loading ? "neutral" : error ? "red" : guardVerified ? "green" : data?.gap.confirmedRevenue === 0 ? "red" : "amber";
+  const verdictTone: Tone = loading
+    ? "neutral"
+    : error
+      ? "red"
+      : !rawDiagnosticLoaded
+        ? "blue"
+        : guardVerified
+          ? "green"
+          : data?.gap.confirmedRevenue === 0
+            ? "red"
+            : "amber";
   const verdict = loading
     ? "Attribution VM 확인 중"
     : error
       ? "API 확인 필요"
-      : guardVerified
-        ? "v2 Guard 운영 검증 완료"
-      : data?.gap.confirmedRevenue === 0
-        ? "과거 TikTok ROAS 과대 가능성 매우 큼"
-        : "확정매출 기준 gap 검토 필요";
+      : !rawDiagnosticLoaded
+        ? "요약 먼저 표시 중"
+        : guardVerified
+          ? "v2 Guard 운영 검증 완료"
+          : data?.gap.confirmedRevenue === 0
+            ? "과거 TikTok ROAS 과대 가능성 매우 큼"
+            : "확정매출 기준 gap 검토 필요";
   const tiktokSelectedSpend = summary?.spend ?? 0;
   const tiktokPlatformPurchaseValue = summary?.purchaseValue ?? 0;
-  const tiktokInternalConfirmedRevenue = data?.gap.confirmedRevenue ?? confirmed.amount;
-  const tiktokPaymentSuccessRows = data?.operational_ledger.tiktokPaymentSuccessRows ?? 0;
+  const tiktokInternalConfirmedRevenue = rawDiagnosticLoaded ? data?.gap.confirmedRevenue ?? confirmed.amount : 0;
+  const tiktokPaymentSuccessRows = rawDiagnosticLoaded ? data?.operational_ledger.tiktokPaymentSuccessRows ?? 0 : 0;
   const tiktokHasSpend = tiktokSelectedSpend > 0;
   const tiktokHasInternalConfirmed = tiktokInternalConfirmedRevenue > 0;
-  const strategyConfidence = tiktokHasSpend && !tiktokHasInternalConfirmed && tiktokPaymentSuccessRows === 0
+  const strategyConfidence = !rawDiagnosticLoaded
+    ? 70
+    : tiktokHasSpend && !tiktokHasInternalConfirmed && tiktokPaymentSuccessRows === 0
     ? 82
     : tiktokHasInternalConfirmed
       ? 64
       : 58;
-  const strategyTone: Tone = tiktokHasInternalConfirmed ? "amber" : tiktokHasSpend ? "red" : "neutral";
+  const strategyTone: Tone = !rawDiagnosticLoaded ? "blue" : tiktokHasInternalConfirmed ? "amber" : tiktokHasSpend ? "red" : "neutral";
   const resourceRecommendation = tiktokHasInternalConfirmed
     ? "TikTok 제한 검증"
     : "Meta/Google 우선";
-  const tiktokStrategyReason = tiktokHasInternalConfirmed
+  const tiktokStrategyReason = !rawDiagnosticLoaded
+    ? "기본 화면은 TikTok 플랫폼 주장값과 일자별 요약만 빠르게 보여줍니다. 내부 원장 기반 리소스 배분 판단은 원본 진단 버튼을 누른 뒤 확정합니다."
+    : tiktokHasInternalConfirmed
     ? `TikTok 내부 confirmed가 ${fmtKRW(tiktokInternalConfirmedRevenue)} 발생했지만, 아직 소재팀 주력 채널로 올리기 전 표본 확대가 필요합니다.`
     : `TikTok은 선택 기간 광고비 ${fmtKRW(tiktokSelectedSpend)}를 쓰고 플랫폼 구매값 ${fmtKRW(tiktokPlatformPurchaseValue)}를 주장하지만, TJ 관리 Attribution VM TikTok payment_success는 ${fmtNum(tiktokPaymentSuccessRows)}행입니다.`;
   const metaTone: Tone = benchmarks.meta?.roas == null
@@ -1309,6 +1417,31 @@ export default function TikTokAdsPerformancePage() {
                 </label>
                 <StatusBadge tone={freshnessTone}>{freshnessText}</StatusBadge>
               </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={loadRawDiagnostic}
+                  disabled={loading || diagnosticLoading}
+                  style={{
+                    border: "1px solid #0f766e",
+                    borderRadius: 8,
+                    background: diagnosticLoading ? "#ccfbf1" : "#ffffff",
+                    color: "#0f766e",
+                    cursor: loading || diagnosticLoading ? "not-allowed" : "pointer",
+                    fontSize: "0.76rem",
+                    fontWeight: 900,
+                    padding: "8px 12px",
+                  }}
+                >
+                  {rawDiagnosticButtonLabel}
+                </button>
+                <StatusBadge tone={rawDiagnosticLoaded ? "green" : "blue"}>{rawDiagnosticStatusText}</StatusBadge>
+              </div>
+              {diagnosticError ? (
+                <span style={{ color: "#b91c1c", fontSize: "0.72rem", fontWeight: 800 }}>
+                  원본 진단 실패: {diagnosticError}
+                </span>
+              ) : null}
             </div>
           </header>
 
@@ -1328,7 +1461,9 @@ export default function TikTokAdsPerformancePage() {
                     ? "데이터를 가져오는 중입니다."
                     : error
                       ? error
-                      : `이 기간 동안 TikTok 광고비는 ${fmtKRW(summary?.spend)}, TikTok이 자기 기준으로 보고한 매출은 ${fmtKRW(summary?.purchaseValue)} (ROAS ${fmtRoas(summary?.platformRoas)})입니다. 그러나 TJ 관리 Attribution VM에서 TikTok 유입 근거가 남은 결제완료 매출(내부 confirmed)은 ${fmtKRW(data?.gap.confirmedRevenue)}이고, 결제 대기 중인 가상계좌까지 합쳐도 ${fmtKRW((data?.gap.confirmedRevenue ?? 0) + (data?.gap.pendingRevenue ?? 0))} 수준입니다. 이 0원은 자사몰 전체 매출 0원이 아니라 TikTok 귀속 내부 매출 0원이라는 뜻입니다. → "${verdict}".`}
+                      : rawDiagnosticLoaded
+                        ? `이 기간 동안 TikTok 광고비는 ${fmtKRW(summary?.spend)}, TikTok이 자기 기준으로 보고한 매출은 ${fmtKRW(summary?.purchaseValue)} (ROAS ${fmtRoas(summary?.platformRoas)})입니다. TJ 관리 Attribution VM에서 TikTok 유입 근거가 남은 결제완료 매출(내부 confirmed)은 ${fmtKRW(data?.gap.confirmedRevenue)}이고, 결제 대기 중인 가상계좌까지 합치면 ${fmtKRW((data?.gap.confirmedRevenue ?? 0) + (data?.gap.pendingRevenue ?? 0))}입니다. → "${verdict}".`
+                        : `이 기간 동안 TikTok 광고비는 ${fmtKRW(summary?.spend)}, TikTok이 자기 기준으로 보고한 매출은 ${fmtKRW(summary?.purchaseValue)} (ROAS ${fmtRoas(summary?.platformRoas)})입니다. ${rawDiagnosticNotice}`}
                 </p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
@@ -1398,6 +1533,8 @@ export default function TikTokAdsPerformancePage() {
                   ? error
                   : missingAdsDates.length > 0
                     ? `선택 기간 중 ${missingAdsDates.join(", ")} TikTok Ads 일별 데이터가 아직 로컬에 없습니다. 해당 날짜의 비용 0원은 실제 무집행 확정값이 아니라 미수집 표시입니다. 현재 Ads 일별 데이터 범위는 ${adsCoverageText}입니다.`
+                  : !rawDiagnosticLoaded
+                    ? `${rawDiagnosticNotice} 그래서 이 상태에서는 TikTok 주장 ROAS와 일자별 광고비만 빠르게 판단하고, 내부 원장 gap은 아직 확정하지 않습니다.`
                   : guardVerified
                     ? `TJ 관리 Attribution VM tiktok_pixel_events 기준으로 결제완료라 Purchase 전송 ${fmtNum(eventFinal?.releasedConfirmedPurchase)}건, 미입금이라 Purchase 차단 ${fmtNum(eventFinal?.blockedPendingPurchase)}건, PlaceAnOrder 대체 ${fmtNum(eventFinal?.sentReplacementPlaceAnOrder)}건이 확인됐습니다. 이 값은 TikTok 광고 귀속 구매 수가 아니라 Pixel 처리 로그입니다.`
                     : `TikTok 플랫폼은 구매값 ${fmtKRW(summary?.purchaseValue)}와 ROAS ${fmtRoas(summary?.platformRoas)}를 보고하지만, TJ 관리 Attribution VM 원장의 TikTok 귀속 confirmed 매출은 ${fmtKRW(data?.gap.confirmedRevenue)}입니다. pending ${fmtNum(pending.orders)}건 중 24시간 미만 대기는 ${fmtNum(stillPending.orders)}건이고, 24시간 초과 미입금 만료 후보는 ${fmtNum(expiredUnpaid.orders)}건 ${fmtKRW(expiredUnpaid.amount)}입니다.`}
@@ -1720,27 +1857,27 @@ export default function TikTokAdsPerformancePage() {
             }}>
               <MetricCard
                 label="이벤트 row"
-                value={loading ? "로딩 중" : fmtNum(eventLog?.fetchedEvents)}
-                detail={`${fmtNum(eventLog?.uniqueOrderKeys)}개 주문키. row 수는 구매 수가 아니라 단계 로그 수`}
+                value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtNum(eventLog?.fetchedEvents) : "진단 전"}
+                detail={rawDiagnosticLoaded ? `${fmtNum(eventLog?.uniqueOrderKeys)}개 주문키. row 수는 구매 수가 아니라 단계 로그 수` : "기본 화면은 이벤트 원문을 읽지 않습니다."}
                 tone="blue"
               />
               <MetricCard
                 label="결제완료 Purchase 전송"
-                value={loading ? "로딩 중" : fmtNum(eventFinal?.releasedConfirmedPurchase)}
-                detail="내부 결제상태가 confirmed라 TikTok Pixel Purchase를 보냄. TikTok 광고 귀속 확정이라는 뜻은 아님"
-                tone="green"
+                value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtNum(eventFinal?.releasedConfirmedPurchase) : "진단 전"}
+                detail={rawDiagnosticLoaded ? "내부 결제상태가 confirmed라 TikTok Pixel Purchase를 보냄. TikTok 광고 귀속 확정이라는 뜻은 아님" : "원본 진단 버튼을 눌렀을 때만 계산합니다."}
+                tone={rawDiagnosticLoaded ? "green" : "blue"}
               />
               <MetricCard
                 label="미입금 Purchase 차단"
-                value={loading ? "로딩 중" : fmtNum(eventFinal?.blockedPendingPurchase)}
-                detail={`PlaceAnOrder 대체 ${fmtNum(eventFinal?.sentReplacementPlaceAnOrder)}건`}
+                value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtNum(eventFinal?.blockedPendingPurchase) : "진단 전"}
+                detail={rawDiagnosticLoaded ? `PlaceAnOrder 대체 ${fmtNum(eventFinal?.sentReplacementPlaceAnOrder)}건` : "원본 진단 버튼을 눌렀을 때만 계산합니다."}
                 tone="blue"
               />
               <MetricCard
                 label="이상 신호"
-                value={loading ? "로딩 중" : fmtNum((eventFinal?.anomalyCount ?? 0) + (eventFinal?.requestError ?? 0) + (eventFinal?.releasedUnknownPurchase ?? 0))}
-                detail={`warning ${fmtNum(eventFinal?.warningCount)}, final 누락 ${fmtNum(eventFinal?.missingFinalActionOrders)}`}
-                tone={(eventFinal?.anomalyCount ?? 0) > 0 || (eventFinal?.requestError ?? 0) > 0 ? "red" : "green"}
+                value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtNum((eventFinal?.anomalyCount ?? 0) + (eventFinal?.requestError ?? 0) + (eventFinal?.releasedUnknownPurchase ?? 0)) : "진단 전"}
+                detail={rawDiagnosticLoaded ? `warning ${fmtNum(eventFinal?.warningCount)}, final 누락 ${fmtNum(eventFinal?.missingFinalActionOrders)}` : "이상 신호도 원본 진단에서만 읽습니다."}
+                tone={rawDiagnosticLoaded ? ((eventFinal?.anomalyCount ?? 0) > 0 || (eventFinal?.requestError ?? 0) > 0 ? "red" : "green") : "blue"}
               />
             </div>
 
@@ -1760,6 +1897,32 @@ export default function TikTokAdsPerformancePage() {
                   {loading ? (
                     <tr>
                       <td colSpan={6} style={{ padding: 14, color: "#64748b" }}>이벤트 원장을 조회하고 있습니다.</td>
+                    </tr>
+                  ) : !rawDiagnosticLoaded ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 14, color: "#64748b", lineHeight: 1.7 }}>
+                        기본 화면은 속도를 위해 이벤트 원문을 읽지 않습니다. 주문별 픽셀 처리 흐름이 필요할 때만
+                        {" "}
+                        <button
+                          type="button"
+                          onClick={loadRawDiagnostic}
+                          disabled={diagnosticLoading}
+                          style={{
+                            border: "1px solid #0f766e",
+                            borderRadius: 6,
+                            background: "#ffffff",
+                            color: "#0f766e",
+                            cursor: diagnosticLoading ? "not-allowed" : "pointer",
+                            fontSize: "0.72rem",
+                            fontWeight: 900,
+                            padding: "4px 8px",
+                          }}
+                        >
+                          {rawDiagnosticButtonLabel}
+                        </button>
+                        {" "}
+                        버튼을 누르세요.
+                      </td>
                     </tr>
                   ) : eventLog?.sampleOrders.length ? eventLog.sampleOrders.map((row) => (
                     <tr key={`${row.loggedAt}-${row.orderKey}`}>
@@ -1897,9 +2060,9 @@ export default function TikTokAdsPerformancePage() {
             />
             <MetricCard
               label="Attribution confirmed"
-              value={loading ? "로딩 중" : fmtKRW(data?.gap.confirmedRevenue)}
-              detail={`${fmtNum(confirmed.orders)}건. Toss DONE 기준 확정매출`}
-              tone={confirmed.amount > 0 ? "green" : "red"}
+              value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtKRW(data?.gap.confirmedRevenue) : "진단 전"}
+              detail={rawDiagnosticLoaded ? `${fmtNum(confirmed.orders)}건. Toss DONE 기준 확정매출` : "원본 진단 버튼을 누르면 TJ 관리 Attribution VM 원장 기준으로 계산합니다."}
+              tone={rawDiagnosticLoaded ? (confirmed.amount > 0 ? "green" : "red") : "blue"}
             />
             <MetricCard
               label="firstTouch 후보 confirmed"
@@ -1909,9 +2072,9 @@ export default function TikTokAdsPerformancePage() {
             />
             <MetricCard
               label="Attribution pending"
-              value={loading ? "로딩 중" : fmtKRW(data?.gap.pendingRevenue)}
-              detail={`${fmtNum(pending.orders)}건. 전체 TikTok 주문 중 ${fmtPct(pendingShare)}`}
-              tone={pending.amount > 0 ? "amber" : "neutral"}
+              value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtKRW(data?.gap.pendingRevenue) : "진단 전"}
+              detail={rawDiagnosticLoaded ? `${fmtNum(pending.orders)}건. 전체 TikTok 주문 중 ${fmtPct(pendingShare)}` : "요약 화면에서는 원본 주문 row를 읽지 않습니다."}
+              tone={rawDiagnosticLoaded ? (pending.amount > 0 ? "amber" : "neutral") : "blue"}
             />
             <MetricCard
               label="firstTouch 후보 pending"
@@ -1921,21 +2084,21 @@ export default function TikTokAdsPerformancePage() {
             />
             <MetricCard
               label="24h 미만 pending"
-              value={loading ? "로딩 중" : fmtKRW(stillPending.amount)}
-              detail={`${fmtNum(stillPending.orders)}건. pending 중 ${fmtPct(stillPendingShare)}`}
-              tone={stillPending.amount > 0 ? "amber" : "green"}
+              value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtKRW(stillPending.amount) : "진단 전"}
+              detail={rawDiagnosticLoaded ? `${fmtNum(stillPending.orders)}건. pending 중 ${fmtPct(stillPendingShare)}` : "원본 진단에서만 미입금 대기/만료를 분리합니다."}
+              tone={rawDiagnosticLoaded ? (stillPending.amount > 0 ? "amber" : "green") : "blue"}
             />
             <MetricCard
               label="미입금 만료 후보"
-              value={loading ? "로딩 중" : fmtKRW(expiredUnpaid.amount)}
-              detail={`${fmtNum(expiredUnpaid.orders)}건. 원장 write 전에는 표시 보정값`}
-              tone={expiredUnpaid.amount > 0 ? "red" : "neutral"}
+              value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtKRW(expiredUnpaid.amount) : "진단 전"}
+              detail={rawDiagnosticLoaded ? `${fmtNum(expiredUnpaid.orders)}건. 원장 write 전에는 표시 보정값` : "원본 진단에서만 24시간 초과 대기를 계산합니다."}
+              tone={rawDiagnosticLoaded ? (expiredUnpaid.amount > 0 ? "red" : "neutral") : "blue"}
             />
             <MetricCard
               label="confirmed 기준 gap"
-              value={loading ? "로딩 중" : fmtKRW(data?.gap.platformMinusConfirmed)}
-              detail={`confirmed ROAS ${fmtRoas(data?.gap.confirmedRoas)}, potential ROAS ${fmtRoas(data?.gap.potentialRoas)}`}
-              tone="red"
+              value={loading ? "로딩 중" : rawDiagnosticLoaded ? fmtKRW(data?.gap.platformMinusConfirmed) : "진단 전"}
+              detail={rawDiagnosticLoaded ? `confirmed ROAS ${fmtRoas(data?.gap.confirmedRoas)}, potential ROAS ${fmtRoas(data?.gap.potentialRoas)}` : "기본 화면은 TikTok 플랫폼 수치만 빠르게 보여줍니다."}
+              tone={rawDiagnosticLoaded ? "red" : "blue"}
             />
           </section>
 
@@ -2238,7 +2401,7 @@ export default function TikTokAdsPerformancePage() {
                     <tr>
                       <td colSpan={7} style={{ padding: 16, color: "#64748b" }}>불러오는 중입니다.</td>
                     </tr>
-                  ) : data?.ads_report.campaignRows.length ? data.ads_report.campaignRows.map((row) => (
+                  ) : campaignRows.length ? campaignRows.map((row) => (
                     <tr key={row.campaignId}>
                       <td style={{ padding: "13px 14px", borderBottom: "1px solid #e2e8f0", fontWeight: 800 }}>
                         {row.campaignName}
@@ -2285,32 +2448,32 @@ export default function TikTokAdsPerformancePage() {
             <article style={{ border: "1px solid #fecaca", borderRadius: 8, background: "#fef2f2", padding: 18 }}>
               <h3 style={{ margin: 0, color: "#991b1b", fontSize: "0.95rem", fontWeight: 900 }}>gap 판정</h3>
               <p style={{ margin: "10px 0 0", color: "#991b1b", fontSize: "0.82rem", lineHeight: 1.75 }}>
-                플랫폼 구매값에서 Attribution confirmed 매출을 빼면 {fmtKRW(data?.gap.platformMinusConfirmed)}입니다. confirmed와
-                pending을 모두 포함해도 gap은 {fmtKRW(data?.gap.platformMinusConfirmedAndPending)}입니다. 선택 기간의 VTA/미분류
-                {fmtNum(dailyPlatformOnlyAssistedCount)}건은 내부 클릭 근거가 없어 platform-only assisted로만 해석합니다.
+                {rawDiagnosticLoaded
+                  ? `플랫폼 구매값에서 Attribution confirmed 매출을 빼면 ${fmtKRW(data?.gap.platformMinusConfirmed)}입니다. confirmed와 pending을 모두 포함해도 gap은 ${fmtKRW(data?.gap.platformMinusConfirmedAndPending)}입니다. 선택 기간의 VTA/미분류 ${fmtNum(dailyPlatformOnlyAssistedCount)}건은 내부 클릭 근거가 없어 platform-only assisted로만 해석합니다.`
+                  : rawDiagnosticNotice}
               </p>
             </article>
             <article style={{ border: "1px solid #fde68a", borderRadius: 8, background: "#fffbeb", padding: 18 }}>
               <h3 style={{ margin: 0, color: "#92400e", fontSize: "0.95rem", fontWeight: 900 }}>Attribution VM 상태</h3>
               <p style={{ margin: "10px 0 0", color: "#92400e", fontSize: "0.82rem", lineHeight: 1.75 }}>
-                VM에서 {fmtNum(data?.operational_ledger.fetchedEntries)}개 원장을 읽었고, TikTok payment_success는
-                {fmtNum(data?.operational_ledger.tiktokPaymentSuccessRows)}행입니다. firstTouch 후보는
-                {fmtNum(firstTouchCandidateRows)}행이며, strict confirmed에는 합산하지 않습니다.
+                {rawDiagnosticLoaded
+                  ? `VM에서 ${fmtNum(data?.operational_ledger.fetchedEntries)}개 원장을 읽었고, TikTok payment_success는 ${fmtNum(data?.operational_ledger.tiktokPaymentSuccessRows)}행입니다. firstTouch 후보는 ${fmtNum(firstTouchCandidateRows)}행이며, strict confirmed에는 합산하지 않습니다.`
+                  : "기본 화면에서는 원본 장부를 읽지 않습니다. 원본 진단 버튼을 누르면 TikTok payment_success, firstTouch, 주문 샘플을 확인합니다."}
               </p>
             </article>
             <article style={{ border: "1px solid #bfdbfe", borderRadius: 8, background: "#eff6ff", padding: 18 }}>
               <h3 style={{ margin: 0, color: "#1d4ed8", fontSize: "0.95rem", fontWeight: 900 }}>로컬 테이블</h3>
               <p style={{ margin: "10px 0 0", color: "#1d4ed8", fontSize: "0.82rem", lineHeight: 1.75 }}>
-                `{data?.local_table.name ?? "tiktok_ads_campaign_range"}`에 XLSX 처리 CSV를 upsert했습니다.
-                현재 선택 기간 매칭 행은 {fmtNum(data?.local_table.matchedRows)}개입니다.
+                `{localTable?.name ?? "tiktok_ads_campaign_range"}`에 XLSX 처리 CSV를 upsert했습니다.
+                현재 선택 기간 매칭 행은 {fmtNum(localTable?.matchedRows)}개입니다.
               </p>
             </article>
             <article style={{ border: "1px solid #bbf7d0", borderRadius: 8, background: "#f0fdf4", padding: 18 }}>
               <h3 style={{ margin: 0, color: "#166534", fontSize: "0.95rem", fontWeight: 900 }}>일자별 export 계약</h3>
               <p style={{ margin: "10px 0 0", color: "#166534", fontSize: "0.82rem", lineHeight: 1.75 }}>
-                `{data?.local_table.daily.name ?? "tiktok_ads_daily"}`에 일자별 export를 적재했습니다.
-                현재 행은 {fmtNum(data?.local_table.daily.rows)}개이고, 이번 호출 upsert는 {fmtNum(data?.local_table.daily.importedRows)}행입니다.
-                {data?.local_table.daily.note ? ` ${data.local_table.daily.note}` : ""}
+                `{localTable?.daily.name ?? "tiktok_ads_daily"}`에 일자별 export를 적재했습니다.
+                현재 행은 {fmtNum(localTable?.daily.rows)}개이고, 이번 호출 upsert는 {fmtNum(localTable?.daily.importedRows)}행입니다.
+                {localTable?.daily.note ? ` ${localTable.daily.note}` : ""}
               </p>
             </article>
           </section>
@@ -2337,7 +2500,13 @@ export default function TikTokAdsPerformancePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sourceReasonRows.length ? sourceReasonRows.map(([reason, aggregate]) => (
+                    {!rawDiagnosticLoaded ? (
+                      <tr>
+                        <td colSpan={3} style={{ padding: 12, color: "#64748b", lineHeight: 1.7 }}>
+                          원본 진단 버튼을 누르면 TikTok 귀속으로 잡힌 이유를 원장 기준으로 분리합니다.
+                        </td>
+                      </tr>
+                    ) : sourceReasonRows.length ? sourceReasonRows.map(([reason, aggregate]) => (
                       <tr key={reason}>
                         <td style={{ padding: "10px", borderBottom: "1px solid #e2e8f0", fontWeight: 800 }}>
                           {reasonLabel(reason)}
@@ -2396,7 +2565,13 @@ export default function TikTokAdsPerformancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingAuditRows.length ? pendingAuditRows.map((row) => (
+                  {!rawDiagnosticLoaded ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: 14, color: "#64748b", lineHeight: 1.7 }}>
+                        기본 화면은 주문별 원문을 읽지 않습니다. 미입금 대기/만료 표본이 필요할 때 원본 진단 버튼을 누르세요.
+                      </td>
+                    </tr>
+                  ) : pendingAuditRows.length ? pendingAuditRows.map((row) => (
                     <tr key={`${row.loggedAt}-${row.orderId}-${row.paymentKey}`}>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>
                         {fmtKst(row.loggedAt)}
@@ -2456,7 +2631,13 @@ export default function TikTokAdsPerformancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data?.operational_ledger.sampleOrders ?? []).map((sample) => (
+                  {!rawDiagnosticLoaded ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 14, color: "#64748b", lineHeight: 1.7 }}>
+                        기본 화면은 주문 샘플을 내려받지 않습니다. 원본 진단 버튼을 누르면 내부 원장 샘플을 표시합니다.
+                      </td>
+                    </tr>
+                  ) : (data?.operational_ledger.sampleOrders ?? []).length ? (data?.operational_ledger.sampleOrders ?? []).map((sample) => (
                     <tr key={`${sample.loggedAt}-${sample.orderId}`}>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" }}>
                         {fmtKst(sample.loggedAt)}
@@ -2475,17 +2656,21 @@ export default function TikTokAdsPerformancePage() {
                         {sample.hasTtclid ? "있음" : "-"}
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 14, color: "#64748b" }}>표시할 주문 샘플이 없습니다.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </section>
 
-          {(data?.warnings.length || data?.notes.length) ? (
+          {visibleWarningsAndNotes.length ? (
             <section style={{ border: "1px solid #e2e8f0", borderRadius: 8, background: "#ffffff", padding: 18 }}>
               <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 900 }}>주의 및 기록</h2>
               <ul style={{ margin: "12px 0 0", paddingLeft: 18, color: "#475569", fontSize: "0.8rem", lineHeight: 1.75 }}>
-                {[...(data?.warnings ?? []), ...(data?.notes ?? [])].map((item) => <li key={item}>{item}</li>)}
+                {visibleWarningsAndNotes.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
           ) : null}

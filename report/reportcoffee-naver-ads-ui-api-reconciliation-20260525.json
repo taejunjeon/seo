@@ -1,0 +1,126 @@
+{
+  "schema_version": "reportcoffee-naver-ads-ui-api-reconciliation-v1-20260525",
+  "mode": "read_only_no_write_no_send",
+  "generated_at_kst": "2026-05-25 10:20 KST",
+  "updated_at_kst": "2026-05-25 17:46 KST",
+  "site": "thecleancoffee",
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-05-18",
+    "end_date_inclusive": "2026-05-24"
+  },
+  "sources": {
+    "search_ads_api": {
+      "system": "Naver Search Ad API",
+      "customer_id": "2424664",
+      "source_file": "report/reportcoffee-naver-ads-customer-2424664-readonly-20260525.json",
+      "coverage": "search ad campaigns returned by /ncc/campaigns and /stats",
+      "official_doc": "https://naver.github.io/searchad-apidoc/"
+    },
+    "ui_screenshot": {
+      "system": "Naver Ads UI screenshot provided by TJ",
+      "coverage": "all campaigns page showing search and display ads",
+      "screenshot_window": "2026.05.18 - 2026.05.24"
+    },
+    "hermes_xlsx_export": {
+      "system": "Hermes Chrome CDP read-only XLSX export",
+      "github_repo": "https://github.com/taejunjeon/hermes-codex-repo",
+      "commit": "536c20c",
+      "result_file": "results/naver-display-export-campaign-report-20260525.result.json",
+      "download_file": "downloads/naver-display-campaign-report-20260518-20260524.xlsx",
+      "screenshot_file": "screenshots/naver-display-export-campaign-report-20260525.png",
+      "coverage": "all campaigns export for 2026-05-18 - 2026-05-24, includes [ADVoost] shopping display campaign",
+      "status": "DOWNLOAD_VERIFIED_WITH_SPEND_DELTA_1KRW"
+    },
+    "display_api_doc_reference": {
+      "system": "Naver Performance DA API official docs",
+      "coverage": "display ad performance source candidate",
+      "official_doc": "https://naver-ad-api.github.io/developers/en/docs/intro",
+      "note": "Performance DA API is separate from Search Ad API and beta access is limited to official partners."
+    }
+  },
+  "observed_ui_totals": {
+    "impressions": 26239,
+    "clicks": 374,
+    "conversions": 204,
+    "average_cpc_krw": 937
+  },
+  "search_ads_api_weekly": {
+    "impressions": 936,
+    "clicks": 180,
+    "spend_krw": 440,
+    "campaigns": [
+      {
+        "campaign_name": "00.브랜드키워드",
+        "campaign_tp": "SHOPPING",
+        "impressions": 688,
+        "clicks": 8,
+        "spend_krw": 440
+      },
+      {
+        "campaign_name": "더클린커피 자사몰 브검",
+        "campaign_tp": "BRAND_SEARCH",
+        "impressions": 248,
+        "clicks": 172,
+        "spend_krw": 0
+      }
+    ]
+  },
+  "display_ui_weekly_gap": {
+    "campaign_name": "[ADVoost] 쇼핑",
+    "campaign_id_in_ui": "1261102",
+    "campaign_type_in_ui": "display_ad_advoost_shopping",
+    "impressions": 25303,
+    "clicks": 194,
+    "dashboard_card_spend_krw": 350097,
+    "xlsx_spend_krw": 350098,
+    "spend_krw": 350098,
+    "average_cpc_krw": 1805,
+    "conversions": 55,
+    "conversion_revenue_krw": 3463700,
+    "source_preference": "Use XLSX/all-campaigns row value for reporting because it is reproducible and matched the downloaded file. Keep dashboard card 350097 as a display-only discrepancy note.",
+    "reason_missing_from_search_ads_api": "Display ad campaign is not returned by Naver Search Ad API /ncc/campaigns."
+  },
+  "reconciled_weekly": {
+    "impressions": 26239,
+    "clicks": 374,
+    "spend_krw": 350538,
+    "formula": "search_ads_api_weekly.spend_krw 440 + display_ui_weekly_gap.xlsx_spend_krw 350098",
+    "confidence": "high",
+    "report_label": "Naver included_with_warning: Search Ads API + Hermes XLSX ADVoost display spend"
+  },
+  "existing_no_send_application": {
+    "target_file": "report/reportcoffee-sales-summary-no-send-20260524.json",
+    "target_weekly_window": {
+      "start_date": "2026-05-17",
+      "end_date_inclusive": "2026-05-23"
+    },
+    "hermes_export_window": {
+      "start_date": "2026-05-18",
+      "end_date_inclusive": "2026-05-24"
+    },
+    "applied_to_existing_no_send": false,
+    "reason": "window_mismatch",
+    "next_safe_action": "Regenerate the no-send summary for 2026-05-18 - 2026-05-24 or request a matching Hermes export for 2026-05-17 - 2026-05-23."
+  },
+  "prior_api_only_value": {
+    "weekly_spend_krw": 440,
+    "why_wrong": "Search Ads API covered only search/brand/shopping search campaigns and missed display ADVoost campaign spend."
+  },
+  "monthly_status": {
+    "search_ads_api_mtd_spend_krw": 3190,
+    "search_ads_api_rolling30_spend_krw": 4015,
+    "display_mtd_spend_krw": null,
+    "display_rolling30_spend_krw": null,
+    "status": "HOLD_FOR_DISPLAY_SOURCE",
+    "reason": "Screenshot only proves 2026-05-18 - 2026-05-24 display spend. MTD/rolling30 display spend needs UI export or Performance DA API access."
+  },
+  "guardrails": {
+    "naver_ads_state_change": 0,
+    "cache_write": 0,
+    "slack_send": 0,
+    "platform_conversion_send": 0,
+    "raw_secret_output": 0,
+    "naver_claim_conversion_added_to_internal_revenue": 0
+  }
+}

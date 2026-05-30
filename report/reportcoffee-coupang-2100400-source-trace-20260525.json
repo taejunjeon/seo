@@ -1,0 +1,273 @@
+{
+  "schema_version": "1.0",
+  "generated_at_kst": "2026-05-25 18:43:47 KST",
+  "document": "reportcoffee-coupang-2100400-source-trace-20260525",
+  "mode": "green_read_only_trace",
+  "site": "thecleancoffee",
+  "window": {
+    "start_date_kst": "2026-04-25",
+    "end_date_kst": "2026-05-01",
+    "label": "attached weekly workbook 1st week"
+  },
+  "target_from_attachment": {
+    "channel": "coupang",
+    "sales_amount_krw": 2100400,
+    "orders": 56,
+    "source_cell_character": "hardcoded value in attached workbook, not a formula observed by Codex"
+  },
+  "api_available": {
+    "answer": true,
+    "meaning": "쿠팡 API는 있다. 현재 코드에는 주문서, 매출인식, 정산, 로켓그로스 주문 조회 함수가 있다.",
+    "implemented_client": "backend/src/coupangClient.ts",
+    "available_readonly_paths": [
+      "ordersheets_v4_minute",
+      "ordersheets_v5_day_candidate",
+      "revenue_history",
+      "settlement_histories",
+      "rocket_growth_orders"
+    ],
+    "usable_for_this_trace": [
+      "ordersheets_v4_minute",
+      "revenue_history",
+      "settlement_histories",
+      "rocket_growth_orders"
+    ],
+    "not_reliable_in_this_trace": [
+      {
+        "path": "ordersheets_v5_day_candidate",
+        "reason": "same-window dry-run calls failed, likely endpoint or parameter mismatch"
+      },
+      {
+        "path": "ordersheets_no_status_candidate",
+        "reason": "status 없이 조회한 calls failed; status explicit FINAL_DELIVERY path is usable"
+      }
+    ]
+  },
+  "sources_checked": {
+    "attached_workbook": {
+      "coffee_block_coupang_sales_krw": 2100400,
+      "coffee_block_coupang_orders": 56,
+      "teamketo_block_coupang_sales_krw": 353200,
+      "teamketo_block_coupang_orders": 4,
+      "confidence": "high for displayed workbook value"
+    },
+    "revenue_history_recognition_date": {
+      "account": "teamketo",
+      "basis": "recognitionDate",
+      "coffee_hint_sales_krw": 1117300,
+      "coffee_hint_rows": 33,
+      "coffee_hint_quantity": 34,
+      "coffee_hint_settlement_krw": 987041,
+      "teamketo_hint_sales_krw": 273200,
+      "teamketo_hint_rows": 4,
+      "teamketo_hint_quantity": 4,
+      "account_total_sales_krw": 1390500,
+      "direct_match_to_attachment": false,
+      "confidence": "high for API aggregate, low for explaining attachment 2100400"
+    },
+    "revenue_history_sale_date": {
+      "account": "teamketo",
+      "basis": "saleDate",
+      "coffee_hint_sales_krw": 1132700,
+      "coffee_hint_rows": 28,
+      "coffee_hint_quantity": 32,
+      "coffee_hint_settlement_krw": 1000645,
+      "teamketo_hint_sales_krw": 353200,
+      "teamketo_hint_rows": 4,
+      "teamketo_hint_quantity": 5,
+      "account_total_sales_krw": 1485900,
+      "workbook_teamketo_side_match": true,
+      "direct_match_to_attachment": false,
+      "confidence": "high for API aggregate and workbook teamketo-side match"
+    },
+    "ordersheets_final_delivery_sale_date": {
+      "account": "teamketo",
+      "basis": "paid/order date by explicit FINAL_DELIVERY status",
+      "calls": 7,
+      "errors": 0,
+      "deduped_shipment_boxes": 32,
+      "coffee_hint_sales_krw": 1132700,
+      "coffee_hint_sheets": 28,
+      "coffee_hint_items": 28,
+      "coffee_hint_quantity": 32,
+      "teamketo_hint_sales_krw": 353200,
+      "teamketo_hint_sheets": 4,
+      "teamketo_hint_items": 4,
+      "teamketo_hint_quantity": 5,
+      "account_total_sales_krw": 1485900,
+      "by_day_account_total_krw": {
+        "2026-04-25": 173300,
+        "2026-04-26": 182000,
+        "2026-04-27": 258300,
+        "2026-04-28": 100700,
+        "2026-04-29": 330600,
+        "2026-04-30": 109700,
+        "2026-05-01": 331300
+      },
+      "direct_match_to_attachment": false,
+      "confidence": "high for 일반배송 aggregate"
+    },
+    "ordersheets_non_final_statuses": {
+      "account": "teamketo",
+      "statuses_checked": [
+        "ACCEPT",
+        "INSTRUCT",
+        "DEPARTURE",
+        "DELIVERING",
+        "NONE_TRACKING"
+      ],
+      "coffee_hint_sales_krw": 0,
+      "account_total_sales_krw": 0,
+      "errors": 0,
+      "direct_match_to_attachment": false,
+      "confidence": "medium_high that missing 60700 is not from these non-final statuses"
+    },
+    "rocket_growth_orders": {
+      "account": "teamketo",
+      "basis": "RG paidAt range query",
+      "coffee_hint_orders": 26,
+      "coffee_hint_quantity": 32,
+      "coffee_hint_sales_krw": 907000,
+      "by_paid_date": {
+        "2026-04-25": {
+          "orders": 4,
+          "sales_krw": 116500
+        },
+        "2026-04-26": {
+          "orders": 4,
+          "sales_krw": 178300
+        },
+        "2026-04-27": {
+          "orders": 6,
+          "sales_krw": 175700
+        },
+        "2026-04-28": {
+          "orders": 3,
+          "sales_krw": 99700
+        },
+        "2026-04-29": {
+          "orders": 4,
+          "sales_krw": 112500
+        },
+        "2026-04-30": {
+          "orders": 5,
+          "sales_krw": 224300
+        },
+        "2026-05-01": {
+          "orders": 0,
+          "sales_krw": 0
+        }
+      },
+      "direct_match_to_attachment": false,
+      "confidence": "medium; range query gave coherent aggregate but single-day RG re-probe returned zero and needs browser/export cross-check before final inclusion"
+    },
+    "settlement_histories": {
+      "account": "teamketo",
+      "basis": "settlement period buckets",
+      "overlapping_rows": [
+        {
+          "month": "2026-04",
+          "period": "2026-04-20 - 2026-04-26",
+          "total_sale_krw": 2363200,
+          "role": "period bucket, not exact 2026-04-25 - 2026-05-01 product split"
+        },
+        {
+          "month": "2026-04",
+          "period": "2026-04-27 - 2026-04-30",
+          "total_sale_krw": 951200,
+          "role": "period bucket, not exact 2026-04-25 - 2026-05-01 product split"
+        },
+        {
+          "month": "2026-05",
+          "period": "2026-05-01 - 2026-05-03",
+          "total_sale_krw": 245800,
+          "role": "period bucket, not exact 2026-04-25 - 2026-05-01 product split"
+        }
+      ],
+      "direct_match_to_attachment": false,
+      "confidence": "high that settlement API is not the direct source for the weekly sales cell"
+    },
+    "local_cache": {
+      "ordersheets_table": "coupang_ordersheets_api",
+      "ordersheets_rows": 1,
+      "rg_orders_table": "coupang_rg_orders_api",
+      "teamketo_rg_max_paid_at_kst": "2026-04-23",
+      "biocom_rg_max_paid_at_kst": "2026-01-30",
+      "assessment": "local RG cache is stale for 2026-04-25 - 2026-05-01 verification"
+    }
+  },
+  "candidate_reconstruction": {
+    "wing_general_delivery_coffee_krw": 1132700,
+    "rocket_growth_coffee_krw": 907000,
+    "combined_krw": 2039700,
+    "target_attachment_krw": 2100400,
+    "remaining_gap_krw": 60700,
+    "wing_general_delivery_orders": 28,
+    "rocket_growth_orders": 26,
+    "combined_orders": 54,
+    "target_attachment_orders": 56,
+    "remaining_orders": 2,
+    "verdict": "strong_candidate_not_exact",
+    "interpretation": "첨부 2,100,400원은 일반배송 coffee와 로켓그로스 coffee를 합친 값에 추가 60,700원/2건이 붙은 값일 가능성이 가장 크다."
+  },
+  "blocker_breakdown": [
+    {
+      "category": "source_definition_gap",
+      "meaning": "첨부 엑셀의 쿠팡 매출 셀은 수식이 아니라 직접 입력값이라 원본 정의가 파일 안에 남아 있지 않다."
+    },
+    {
+      "category": "rg_verification_gap",
+      "meaning": "로켓그로스 range query는 907,000원을 줬지만 로컬 cache가 stale이라 별도 export 대조가 필요하다."
+    },
+    {
+      "category": "remaining_two_orders_gap",
+      "meaning": "일반배송+로켓그로스 합계와 첨부값 사이에 60,700원/2건이 남는다."
+    }
+  ],
+  "verdict": {
+    "direct_match_found": false,
+    "most_likely_base_source": "TeamKeto Wing 일반배송 coffee ordersheets 또는 revenue-history saleDate + TeamKeto Rocket Growth coffee orders",
+    "strict_reporting_recommendation": "자동 Slack 매출에는 아직 2,100,400원을 확정값으로 넣지 말고, 일반배송 1,132,700원은 high confidence, RG 907,000원은 candidate, 남은 60,700원은 pending adjustment로 분리한다.",
+    "confidence": "medium_high for 일반배송+RG being the base, medium for exact attached cell source until external export/manual source is confirmed"
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_restart_deploy": 0,
+    "ad_account_mutation": 0,
+    "platform_send_upload": 0,
+    "raw_customer_order_payment_click_identifier_output": 0
+  },
+  "track_progress": {
+    "track_a": {
+      "previous": 81,
+      "current": 81,
+      "delta": 0
+    },
+    "track_b": {
+      "previous": 100,
+      "current": 100,
+      "delta": 0
+    },
+    "track_c": {
+      "previous": 100,
+      "current": 100,
+      "delta": 0
+    },
+    "track_d": {
+      "previous": 63,
+      "current": 65,
+      "delta": 2
+    },
+    "track_e": {
+      "previous": 100,
+      "current": 100,
+      "delta": 0
+    },
+    "track_f": {
+      "previous": 100,
+      "current": 100,
+      "delta": 0
+    }
+  }
+}

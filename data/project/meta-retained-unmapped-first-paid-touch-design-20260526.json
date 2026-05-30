@@ -1,0 +1,145 @@
+{
+  "generated_at_kst": "2026-05-26 17:55 KST",
+  "safety": {
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_platform_send": true,
+    "raw_order_ids_emitted": false,
+    "raw_payment_ids_emitted": false,
+    "raw_click_ids_emitted": false,
+    "raw_member_ids_emitted": false
+  },
+  "source": {
+    "meta_utm_api_local": "http://localhost:7020/api/ads/meta-utm-diagnostics?account_id=act_3138805896402376&date_preset=last_7d",
+    "vm_cloud_sqlite": "VM Cloud SQLite read-only: attribution_ledger, site_landing_ledger, paid_click_intent_ledger",
+    "ga4_bigquery": "GA4 BigQuery read-only events_20260519~20260525"
+  },
+  "window": {
+    "api_date_range_kst": "2026-05-19~2026-05-25",
+    "vm_cloud_payment_success_kst": "2026-05-19~2026-05-25",
+    "ga4_events": "events_20260519~events_20260525"
+  },
+  "freshness": {
+    "api_cache_at_kst": "2026-05-26 17:19",
+    "vm_cloud_read_at_kst": "2026-05-26 17:55",
+    "ga4_read_at_kst": "2026-05-26 17:55",
+    "meta_ads_api_freshness": "stale_due_rate_limit"
+  },
+  "confidence": {
+    "vm_cloud_retained_unmapped": "high",
+    "same_session_ledger_trace": "medium_high",
+    "ga4_session_trace": "medium",
+    "campaign_recovery_for_remaining_15": "low"
+  },
+  "api_unmapped_dry_run": {
+    "original": {
+      "orders": 23,
+      "revenue_krw": 7371900
+    },
+    "approved_excluded": {
+      "orders": 8,
+      "revenue_krw": 2099700
+    },
+    "retained_unmapped": {
+      "orders": 15,
+      "revenue_krw": 5272200
+    }
+  },
+  "retained_unmapped_vm_trace": {
+    "orders": 15,
+    "revenue_krw": 5272200,
+    "excluded_recovered_placeholder_iiary02": {
+      "orders": 5,
+      "revenue_krw": 1435000,
+      "reason": "/iiary02 original landing path rows are campaign-level recovered and not part of the retained 15"
+    },
+    "by_group": {
+      "blank_utm_fbclid_only": {
+        "orders": 14,
+        "revenue_krw": 4813200,
+        "with_fbc_fbp": 14,
+        "with_first_touch": 14,
+        "with_direct_fbclid": 14,
+        "with_original_path": 14,
+        "first_touch_has_numeric_meta_id": 0,
+        "first_touch_has_macro": 0,
+        "same_session_attribution_any": 14,
+        "same_session_attribution_utm": 0,
+        "same_session_attribution_numeric_meta_id": 0,
+        "same_session_site_landing_any": 14,
+        "same_session_site_landing_paid": 14,
+        "same_session_site_landing_numeric_meta_id": 0,
+        "same_session_site_landing_non_payment_path": 12,
+        "same_session_paid_click_intent_any": 0,
+        "auto_matchable_orders": 0
+      },
+      "macro_placeholder_no_landing": {
+        "orders": 1,
+        "revenue_krw": 459000,
+        "with_fbc_fbp": 1,
+        "with_first_touch": 1,
+        "with_direct_fbclid": 0,
+        "with_original_path": 1,
+        "first_touch_has_numeric_meta_id": 0,
+        "first_touch_has_macro": 1,
+        "same_session_attribution_any": 1,
+        "same_session_attribution_utm": 1,
+        "same_session_attribution_numeric_meta_id": 0,
+        "same_session_site_landing_any": 1,
+        "same_session_site_landing_paid": 1,
+        "same_session_site_landing_numeric_meta_id": 0,
+        "same_session_site_landing_non_payment_path": 0,
+        "same_session_paid_click_intent_any": 0,
+        "auto_matchable_orders": 0
+      }
+    },
+    "by_date": {
+      "2026-05-19": {
+        "orders": 3,
+        "revenue_krw": 1139400
+      },
+      "2026-05-20": {
+        "orders": 1,
+        "revenue_krw": 446400
+      },
+      "2026-05-22": {
+        "orders": 3,
+        "revenue_krw": 1364400
+      },
+      "2026-05-23": {
+        "orders": 4,
+        "revenue_krw": 1161000
+      },
+      "2026-05-24": {
+        "orders": 3,
+        "revenue_krw": 927000
+      },
+      "2026-05-25": {
+        "orders": 1,
+        "revenue_krw": 234000
+      }
+    },
+    "by_original_path": {
+      "/shop_payment/": {
+        "orders": 15,
+        "revenue_krw": 5272200
+      }
+    }
+  },
+  "ga4_bigquery_trace": {
+    "safe_session_keys_checked": 15,
+    "exact_session_joined": 0,
+    "ga_session_id_only_joined": 0,
+    "numeric_campaign_events": 0,
+    "numeric_adset_events": 0,
+    "numeric_ad_events": 0,
+    "metadata_table_listing_permission": "denied",
+    "interpretation": "GA4 did not recover campaign/adset/ad numeric evidence for the retained 15"
+  },
+  "decision": {
+    "remaining_15_campaign_match": "do_not_auto_match",
+    "why": "All retained rows still lack numeric campaign/adset/ad ID or unique alias after VM Cloud and GA4 read-only checks.",
+    "next_design": "Preserve paidTouchBeforeCheckout before /shop_payment so future payment_success rows keep the last paid landing evidence."
+  }
+}

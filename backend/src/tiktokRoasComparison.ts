@@ -88,6 +88,9 @@ type RemoteLedgerBody = {
   ok?: unknown;
   items?: unknown;
   summary?: unknown;
+  guard?: unknown;
+  filters?: unknown;
+  dataSource?: unknown;
 };
 
 type RemoteTikTokPixelEvent = {
@@ -114,6 +117,8 @@ type RemoteTikTokPixelEventsBody = {
   storage?: unknown;
   items?: unknown;
   summary?: unknown;
+  guard?: unknown;
+  filters?: unknown;
 };
 
 type StatusAggregate = {
@@ -441,6 +446,50 @@ export type TikTokRoasComparison = {
   };
   warnings: string[];
   notes: string[];
+};
+
+export type TikTokRoasSummary = Pick<
+  TikTokRoasComparison,
+  | "ok"
+  | "start_date"
+  | "end_date"
+  | "attribution_window"
+  | "local_table"
+  | "ads_report"
+  | "gap"
+  | "warnings"
+  | "notes"
+> & {
+  mode: "summary_first";
+  operational_ledger_summary: {
+    source: string;
+    dataSource: string;
+    summary: unknown;
+    guard: unknown;
+    filters: unknown;
+    rawItemsReturned: number;
+    note: string;
+  };
+  tiktok_event_log_summary: {
+    source: "operational_vm_tiktok_pixel_events";
+    storage: string;
+    summary: unknown;
+    guard: unknown;
+    filters: unknown;
+    rawItemsReturned: number;
+    note: string;
+  };
+  diagnostics: {
+    defaultMode: "summary_first";
+    rawComparisonEndpoint: string;
+    rawComparisonRequiredForOperationalGap: true;
+    summaryDoesNotLoadRawLedgerItems: true;
+  };
+  daily_comparison: Omit<TikTokRoasComparison["daily_comparison"], "source"> & {
+    source:
+      | TikTokRoasComparison["daily_comparison"]["source"]
+      | "tiktok_ads_daily_summary_first_without_raw_vm_ledger";
+  };
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -1361,6 +1410,31 @@ const fetchOperationalLedger = async (startDate: string, endDate: string) => {
   return body.items.filter(isRecord) as RemoteLedgerEntry[];
 };
 
+const fetchOperationalLedgerSummary = async (startDate: string, endDate: string) => {
+  const url = new URL("/api/attribution/ledger", OPERATIONAL_ATTRIBUTION_BASE_URL);
+  url.searchParams.set("source", TIKTOK_SOURCE);
+  url.searchParams.set("limit", "10000");
+  url.searchParams.set("summaryOnly", "true");
+  url.searchParams.set("startAt", toKstStartIso(startDate));
+  url.searchParams.set("endAt", toKstEndExclusiveIso(endDate));
+
+  const response = await fetch(url, {
+    headers: { "user-agent": "biocom-seo-local-tiktok-roas-summary/1.0" },
+    signal: AbortSignal.timeout(12000),
+  });
+  const body = await response.json() as RemoteLedgerBody;
+  if (!response.ok || body.ok !== true) {
+    throw new Error(`operational VM ledger summary fetch failed: HTTP ${response.status}`);
+  }
+  return {
+    dataSource: readString(body.dataSource) || "operational_vm_ledger",
+    summary: body.summary ?? null,
+    guard: body.guard ?? null,
+    filters: body.filters ?? null,
+    rawItemsReturned: Array.isArray(body.items) ? body.items.length : 0,
+  };
+};
+
 const fetchOperationalTikTokPixelEvents = async (startDate: string, endDate: string) => {
   const startAt = toKstStartIso(startDate);
   const endAt = toKstEndExclusiveIso(endDate);
@@ -1383,6 +1457,58 @@ const fetchOperationalTikTokPixelEvents = async (startDate: string, endDate: str
     endAt,
     storage: readString(body.storage) || "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
     events: body.items.filter(isRecord) as RemoteTikTokPixelEvent[],
+  };
+};
+
+const fetchOperationalTikTokPixelEventsSummary = async (startDate: string, endDate: string) => {
+  const startAt = toKstStartIso(startDate);
+  const endAt = toKstEndExclusiveIso(endDate);
+
+  const fetchSummaryBody = async (limit: number) => {
+    const url = new URL("/api/attribution/tiktok-pixel-events", OPERATIONAL_ATTRIBUTION_BASE_URL);
+    url.searchParams.set("startAt", startAt);
+    url.searchParams.set("endAt", endAt);
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("summaryOnly", "true");
+
+    const response = await fetch(url, {
+      headers: { "user-agent": "biocom-seo-local-tiktok-roas-summary/1.0" },
+      signal: AbortSignal.timeout(12000),
+    });
+    const body = await response.json() as RemoteTikTokPixelEventsBody;
+    if (!response.ok || body.ok !== true) {
+      throw new Error(`operational VM TikTok pixel event summary fetch failed: HTTP ${response.status}`);
+    }
+    return body;
+  };
+
+  const probeBody = await fetchSummaryBody(1);
+  const probeGuard = isRecord(probeBody.guard) ? probeBody.guard : {};
+  const summaryOnlySupported = probeGuard.summaryOnly === true;
+
+  if (!summaryOnlySupported) {
+    return {
+      startAt,
+      endAt,
+      storage: readString(probeBody.storage) || "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
+      summary: null,
+      guard: probeBody.guard ?? null,
+      filters: probeBody.filters ?? null,
+      rawItemsReturned: Array.isArray(probeBody.items) ? probeBody.items.length : 0,
+      summaryUnsupported: true,
+    };
+  }
+
+  const body = await fetchSummaryBody(10000);
+
+  return {
+    startAt,
+    endAt,
+    storage: readString(body.storage) || "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
+    summary: body.summary ?? null,
+    guard: body.guard ?? null,
+    filters: body.filters ?? null,
+    rawItemsReturned: Array.isArray(body.items) ? body.items.length : 0,
   };
 };
 
@@ -2171,6 +2297,202 @@ export const buildTikTokRoasComparison = async (params: {
       dailyTableState.rows > 0
         ? "일자별 export는 tiktok_ads_daily에 적재했지만, 현재 gap summary는 기간 합계 테이블 기준이다."
         : "일자별 export가 없으므로 현재 결과는 캠페인 기간 합계 기준이다.",
+    ],
+  };
+};
+
+export const buildTikTokRoasSummary = async (params: {
+  startDate?: string;
+  endDate?: string;
+  autoIngest?: boolean;
+}): Promise<TikTokRoasSummary> => {
+  const importedRows = await importProcessedCsvFiles();
+  let dailyImportedRows = await importProcessedDailyCsvFiles();
+  const selected = params.startDate && params.endDate
+    ? { start_date: params.startDate, end_date: params.endDate }
+    : defaultRange();
+  const startDate = selected.start_date;
+  const endDate = selected.end_date;
+  const autoIngestState: TikTokRoasComparison["local_table"]["daily"]["autoIngest"] = {
+    attempted: false,
+    ok: false,
+    message: null,
+    startDate: null,
+    endDate: null,
+    rows: null,
+    fetchedAt: null,
+  };
+
+  if (params.autoIngest !== false) {
+    try {
+      const { ensureTikTokDailyCovers } = await import("./tiktokAdsAutoSync");
+      const result = await ensureTikTokDailyCovers(startDate, endDate);
+      autoIngestState.attempted = result.attempted;
+      autoIngestState.ok = result.ok;
+      autoIngestState.message = result.message ?? null;
+      autoIngestState.startDate = result.startDate;
+      autoIngestState.endDate = result.endDate;
+      autoIngestState.rows = result.rows;
+      autoIngestState.fetchedAt = result.fetchedAt;
+      if (result.attempted && result.ok) {
+        dailyImportedRows += await importProcessedDailyCsvFiles();
+      }
+    } catch (error) {
+      autoIngestState.attempted = true;
+      autoIngestState.ok = false;
+      autoIngestState.message = error instanceof Error ? error.message : "auto ingest failed";
+    }
+  }
+
+  const availableRanges = listAvailableRanges();
+  const dailyTableState = getDailyTableState();
+  const rows = loadAdsRows(startDate, endDate);
+  const dailyAdsRows = loadDailyAdsRows(startDate, endDate);
+  const warnings: string[] = [];
+
+  if (rows.length === 0 && dailyAdsRows.length === 0) {
+    warnings.push(`TikTok Ads 로컬 테이블에 ${startDate} ~ ${endDate} 행이 없다.`);
+  }
+  if (rows.length === 0 && dailyAdsRows.length > 0) {
+    warnings.push(`기간 합계 테이블에는 ${startDate} ~ ${endDate} 행이 없어 일자별 TikTok Ads 테이블 합계로 상단 요약을 계산한다.`);
+  }
+  if (rows.some((row) => row.attribution_window_note.includes("assume TikTok default"))) {
+    warnings.push("TikTok export에 어트리뷰션 윈도우 컬럼이 없어 Click 7일 / View 1일 기본값으로 표기한다.");
+  }
+  if (rows.some((row) => row.all_channels_purchase_value_inferred > 0)) {
+    warnings.push("한국어 export의 중복 구매 헤더를 구매값으로 추정했다. Ads Manager 화면에서 한 번 대조 필요.");
+  }
+
+  const [ledgerSummary, pixelSummary] = await Promise.all([
+    fetchOperationalLedgerSummary(startDate, endDate).catch((error) => ({
+      dataSource: "operational_vm_ledger",
+      summary: null,
+      guard: null,
+      filters: null,
+      rawItemsReturned: 0,
+      fetchWarning: error instanceof Error ? error.message : "operational VM ledger summary fetch failed",
+    })),
+    fetchOperationalTikTokPixelEventsSummary(startDate, endDate).catch((error) => ({
+      startAt: toKstStartIso(startDate),
+      endAt: toKstEndExclusiveIso(endDate),
+      storage: "CRM_LOCAL_DB_PATH#tiktok_pixel_events",
+      summary: null,
+      guard: null,
+      filters: null,
+      rawItemsReturned: 0,
+      fetchWarning: error instanceof Error ? error.message : "operational VM TikTok pixel event summary fetch failed",
+    })),
+  ]);
+  if ("fetchWarning" in ledgerSummary && ledgerSummary.fetchWarning) warnings.push(ledgerSummary.fetchWarning);
+  if ("fetchWarning" in pixelSummary && pixelSummary.fetchWarning) warnings.push(pixelSummary.fetchWarning);
+  const pixelSummaryUnsupported =
+    "summaryUnsupported" in pixelSummary && pixelSummary.summaryUnsupported === true;
+  if (pixelSummaryUnsupported) {
+    warnings.push("운영 TikTok Pixel 이벤트 endpoint가 아직 summaryOnly guard를 지원하지 않아 기본 화면에서는 이벤트 로그 요약을 생략한다.");
+  }
+
+  const summary = rows.length > 0 ? adsSummary(rows) : dailyAdsSummary(dailyAdsRows);
+  const spend = summary.spend;
+  const platformPurchaseValue = summary.purchaseValue;
+  const dailyComparison = buildDailyComparison(startDate, endDate, dailyAdsRows, []);
+  const campaignRowsFromDailyAggregate = rows.some((row) => row.granularity === "daily_campaign_aggregate");
+
+  return {
+    ok: true,
+    mode: "summary_first",
+    start_date: startDate,
+    end_date: endDate,
+    attribution_window: {
+      source: "assumed_default",
+      click: "7d",
+      view: "1d",
+      note: "TikTok export에 어트리뷰션 윈도우 컬럼이 없어 프로젝트 기준 기본값으로 둔다.",
+    },
+    local_table: {
+      name: TIKTOK_ADS_TABLE,
+      importedRows,
+      matchedRows: rows.length,
+      daily: {
+        name: TIKTOK_ADS_DAILY_TABLE,
+        importedRows: dailyImportedRows,
+        rows: dailyTableState.rows,
+        minDate: dailyTableState.minDate,
+        maxDate: dailyTableState.maxDate,
+        readyForImport: dailyTableState.rows > 0,
+        note: dailyTableState.rows > 0
+          ? "일자별 TikTok Ads export가 적재되어 있다."
+          : "아직 Date dimension이 있는 TikTok Ads export가 없어 스키마만 준비했다.",
+        autoIngest: autoIngestState,
+      },
+      availableRanges,
+    },
+    ads_report: {
+      source: "local_sqlite_from_tiktok_xlsx",
+      campaignRows: rows.map((row) => ({
+        campaignId: row.campaign_id,
+        campaignName: row.campaign_name,
+        status: row.status,
+        spend: Math.round(row.spend),
+        purchases: row.all_channels_total_purchases,
+        purchaseValue: Math.round(row.all_channels_purchase_value_inferred),
+        platformRoas: row.spend > 0 ? round(row.all_channels_purchase_value_inferred / row.spend) : null,
+        ctaPurchaseRoas: row.website_cta_purchase_roas || null,
+        vtaPurchaseRoas: row.website_vta_purchase_roas || null,
+      })),
+      summary,
+    },
+    operational_ledger_summary: {
+      source: TIKTOK_SOURCE,
+      dataSource: ledgerSummary.dataSource,
+      summary: ledgerSummary.summary,
+      guard: ledgerSummary.guard,
+      filters: ledgerSummary.filters,
+      rawItemsReturned: ledgerSummary.rawItemsReturned,
+      note: "기본 화면은 운영 원장 row를 내려받지 않고 요약과 guard 정보만 읽는다. 주문별 진단은 버튼을 눌렀을 때만 roas-comparison을 호출한다.",
+    },
+    tiktok_event_log_summary: {
+      source: "operational_vm_tiktok_pixel_events",
+      storage: pixelSummary.storage,
+      summary: pixelSummaryUnsupported ? null : pixelSummary.summary,
+      guard: pixelSummary.guard,
+      filters: pixelSummary.filters,
+      rawItemsReturned: pixelSummary.rawItemsReturned,
+      note: pixelSummaryUnsupported
+        ? "운영 endpoint에 summaryOnly guard가 배포되기 전까지 기본 화면은 TikTok Pixel 이벤트 원문을 읽지 않는다. 이벤트 로그는 원본 진단 버튼에서만 확인한다."
+        : "기본 화면은 TikTok Pixel 이벤트 원문을 내려받지 않는다. 이벤트별 raw row는 원본 진단 버튼에서만 조회한다.",
+    },
+    gap: {
+      confirmedRevenue: 0,
+      pendingRevenue: 0,
+      canceledRevenue: 0,
+      platformPurchaseValue,
+      platformMinusConfirmed: platformPurchaseValue,
+      platformMinusConfirmedAndPending: platformPurchaseValue,
+      confirmedRoas: null,
+      potentialRoas: null,
+      overstatementVsConfirmedRatio: null,
+    },
+    daily_comparison: {
+      ...dailyComparison,
+      source: "tiktok_ads_daily_summary_first_without_raw_vm_ledger",
+    },
+    diagnostics: {
+      defaultMode: "summary_first",
+      rawComparisonEndpoint: "/api/ads/tiktok/roas-comparison",
+      rawComparisonRequiredForOperationalGap: true,
+      summaryDoesNotLoadRawLedgerItems: true,
+    },
+    warnings,
+    notes: [
+      "기본 화면은 TikTok 광고 플랫폼 요약과 VM Cloud의 요약 응답만 읽는다.",
+      "실제 주문별 차이, pending audit, Pixel event sample은 원본 진단 버튼을 눌렀을 때만 계산한다.",
+      "summary-first 응답의 confirmed/pending gap 값은 의도적으로 계산하지 않는다. 원본 주문 row가 필요하기 때문이다.",
+      campaignRowsFromDailyAggregate
+        ? "캠페인별 플랫폼 ROAS는 기간 합계 export가 없으면 일자별 campaign 테이블을 캠페인 단위로 합산해 계산한다."
+        : "캠페인별 플랫폼 ROAS는 기간 합계 export 테이블 기준이다.",
+      spend > 0
+        ? "플랫폼 ROAS는 TikTok export 기준이며 내부 결제완료 ROAS가 아니다."
+        : "선택 기간에 TikTok 광고비가 0원이거나 export row가 없어 플랫폼 ROAS를 계산하지 않았다.",
     ],
   };
 };

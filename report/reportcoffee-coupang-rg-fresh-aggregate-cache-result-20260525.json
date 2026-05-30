@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0",
+  "generated_at_kst": "2026-05-25 21:38:26 KST",
+  "document": "reportcoffee-coupang-rg-fresh-aggregate-cache-result-20260525",
+  "mode": "yellow_local_db_write_approved_by_user_message",
+  "site": "thecleancoffee",
+  "task": "Coupang Rocket Growth fresh aggregate replay and local cache insert",
+  "approval_basis": "TJ님 message: 쿠팡 로켓그로스 API fresh aggregate를 다시 재현해서 로컬 적재 해놔.",
+  "source_window": {
+    "source": "Coupang RG Orders API read-only",
+    "account": "teamketo",
+    "window_start_kst": "2026-04-25",
+    "window_end_kst": "2026-05-01",
+    "freshness": "API replay at 2026-05-25 21:37 KST",
+    "confidence": "high for aggregate replay and local aggregate insert; no raw order/customer identifiers stored in the new aggregate table"
+  },
+  "implementation": {
+    "script": "backend/scripts/reportcoffee-coupang-rg-fresh-aggregate-cache.ts",
+    "local_db": "backend/data/crm.sqlite3",
+    "backup_path": "backend/data/crm.sqlite3.bak_20260525T213426_coupang_rg_aggregate",
+    "new_table": "coupang_rg_daily_aggregate_api",
+    "table_granularity": "account_name + paid_date_kst + product_class",
+    "raw_identifier_storage": false,
+    "raw_json_storage": false,
+    "stored_columns_include": [
+      "account_name",
+      "paid_date_kst",
+      "product_class",
+      "order_count",
+      "item_count",
+      "quantity",
+      "gross_amount_krw",
+      "source_window_start_kst",
+      "source_window_end_kst",
+      "fetched_at_kst",
+      "api_call_count",
+      "classification_rule_version",
+      "source_api"
+    ]
+  },
+  "dry_run_result": {
+    "local_db_write": "not_run",
+    "api_call_count": 1,
+    "api_orders_seen": 26,
+    "api_items_seen": 26,
+    "coffee_order_count": 26,
+    "coffee_item_count": 26,
+    "coffee_quantity": 32,
+    "coffee_gross_amount_krw": 907000,
+    "raw_identifier_output": 0
+  },
+  "apply_result": {
+    "local_db_write": "applied_to_coupang_rg_daily_aggregate_api",
+    "inserted_or_upserted_rows": 21,
+    "row_shape": "7 days x 3 product classes",
+    "api_call_count": 1,
+    "api_orders_seen": 26,
+    "api_items_seen": 26,
+    "coffee_order_count": 26,
+    "coffee_item_count": 26,
+    "coffee_quantity": 32,
+    "coffee_gross_amount_krw": 907000,
+    "raw_identifier_output": 0
+  },
+  "local_db_post_verify": {
+    "target_window_rows": 21,
+    "target_window_gross_amount_krw": 907000,
+    "target_window_order_count_sum": 26,
+    "target_window_quantity_sum": 32,
+    "by_product_class": [
+      {
+        "product_class": "coffee_hint",
+        "rows": 7,
+        "order_count": 26,
+        "item_count": 26,
+        "quantity": 32,
+        "gross_amount_krw": 907000
+      },
+      {
+        "product_class": "other_hint",
+        "rows": 7,
+        "order_count": 0,
+        "item_count": 0,
+        "quantity": 0,
+        "gross_amount_krw": 0
+      },
+      {
+        "product_class": "teamketo_hint",
+        "rows": 7,
+        "order_count": 0,
+        "item_count": 0,
+        "quantity": 0,
+        "gross_amount_krw": 0
+      }
+    ],
+    "duplicate_rows": 0,
+    "sqlite_integrity_check": "ok",
+    "identifier_columns_in_new_table": 0
+  },
+  "daily_coffee_breakdown": [
+    { "paid_date_kst": "2026-04-25", "order_count": 3, "item_count": 3, "quantity": 3, "gross_amount_krw": 82600 },
+    { "paid_date_kst": "2026-04-26", "order_count": 5, "item_count": 5, "quantity": 7, "gross_amount_krw": 212200 },
+    { "paid_date_kst": "2026-04-27", "order_count": 4, "item_count": 4, "quantity": 6, "gross_amount_krw": 107900 },
+    { "paid_date_kst": "2026-04-28", "order_count": 3, "item_count": 3, "quantity": 3, "gross_amount_krw": 99700 },
+    { "paid_date_kst": "2026-04-29", "order_count": 5, "item_count": 5, "quantity": 5, "gross_amount_krw": 146400 },
+    { "paid_date_kst": "2026-04-30", "order_count": 5, "item_count": 5, "quantity": 7, "gross_amount_krw": 226300 },
+    { "paid_date_kst": "2026-05-01", "order_count": 1, "item_count": 1, "quantity": 1, "gross_amount_krw": 31900 }
+  ],
+  "impact_on_coupang_2100400_trace": {
+    "general_delivery_coffee_krw": 1132700,
+    "rocket_growth_fresh_aggregate_krw": 907000,
+    "combined_krw": 2039700,
+    "attachment_coupang_krw": 2100400,
+    "remaining_gap_krw": 60700,
+    "remaining_gap_orders": 2,
+    "verdict": "RG candidate is now locally cached as aggregate; attachment still has unresolved 60,700 KRW / 2 order gap"
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_restart_deploy": 0,
+    "ad_account_mutation": 0,
+    "platform_send_upload": 0,
+    "raw_customer_order_payment_click_identifier_output": 0
+  },
+  "track_progress": {
+    "track_a": { "previous": 81, "current": 81, "delta": 0 },
+    "track_b": { "previous": 100, "current": 100, "delta": 0 },
+    "track_c": { "previous": 100, "current": 100, "delta": 0 },
+    "track_d": { "previous": 66, "current": 68, "delta": 2 },
+    "track_e": { "previous": 100, "current": 100, "delta": 0 },
+    "track_f": { "previous": 100, "current": 100, "delta": 0 }
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "report": "reportcoffee_google_click_id_campaign_id_linkage_v1",
+  "generated_at_kst": "2026-05-23 21:52:00 KST",
+  "site": "thecleancoffee",
+  "mode": "green_read_only_no_send_no_write",
+  "question": "Can the 3 Google click ID evidence rows for thecleancoffee be linked to campaign_id?",
+  "decision": {
+    "status": "source_gap_confirmed_by_no_raw_preview",
+    "plain_language": "최근 7일 더클린커피 방문 원장에 Google 유료 클릭 증거 3건은 있지만, no-raw preview 결과 gad_campaignid가 0건이라 이 3건을 특정 campaign_id로 확정 연결하지 못했다.",
+    "spend_mapping_impact": "no_change",
+    "google_ads_spend_label": "Google: 0원 확인 후보",
+    "budget_use": "do_not_add_spend",
+    "attribution_use": "keep_as_small_google_paid_click_evidence_warning",
+    "confidence": "high",
+    "no_raw_preview_report": "report/reportcoffee-google-click-campaign-bridge-preview-20260523.md"
+  },
+  "observed_sources": {
+    "google_ads_status": {
+      "endpoint": "/api/google-ads/status",
+      "ok": true,
+      "customer_id": "2149990943",
+      "api_version": "v22",
+      "checked_at_kst": "2026-05-23 21:52:23 KST"
+    },
+    "final_url_audit": {
+      "endpoint": "/api/google-ads/final-url-audit",
+      "fetched_at_utc": "2026-05-23T12:52:04.990Z",
+      "coffee_landing_window_days": 7,
+      "coffee_total_landing_rows": 549,
+      "coffee_google_click_id_rows": 3,
+      "coffee_google_click_id_rows_by_type": {
+        "gclid": 3,
+        "gbraid": 0,
+        "wbraid": 0
+      },
+      "coffee_google_evidence_rows": 3,
+      "coffee_non_google_paid_search_rows": 73,
+      "coffee_latest_landing_at_utc": "2026-05-23T12:21:39.553Z",
+      "current_account_final_url_rows": 1,
+      "enabled_rows": 0,
+      "paused_or_removed_rows": 1,
+      "legacy_or_other_rows": 12,
+      "legacy_needs_mapping_rows": 4,
+      "route_decision": "actual_google_paid_click_confirmed",
+      "route_confidence": "high",
+      "raw_click_id_returned": false,
+      "row_level_gad_campaignid_returned": false
+    },
+    "google_ads_dashboard_last_7d": {
+      "endpoint": "/api/google-ads/dashboard?date_preset=last_7d&campaign_limit=200",
+      "fetched_at_utc": "2026-05-23T12:52:44.833Z",
+      "account_total_cost_krw": 3909208.88,
+      "coffee_named_campaign_metric_rows": 0,
+      "coffee_named_campaign_cost_krw": 0,
+      "click_id_health_scope": "account_level_biocom_default_not_coffee_order_scope",
+      "decision": "dashboard_spend_does_not_link_the_3_coffee_click_rows_to_campaign_id"
+    },
+    "click_id_health_endpoint": {
+      "endpoint": "/api/google-ads/click-id-health?window=last_7d&site=thecleancoffee",
+      "result": "not_found_or_unsupported_for_coffee_site",
+      "safe_to_use_for_coffee_linkage": false
+    },
+    "code_review": {
+      "file": "backend/src/routes/googleAds.ts",
+      "finding": "buildGoogleCampaignMatchHealth is hard-coded to site='biocom', and /api/google-ads/click-id-health only allows site='biocom'.",
+      "safe_to_use_google_campaign_match_health_for_coffee": false
+    }
+  },
+  "legacy_campaign_candidates": [
+    {
+      "campaign_id": "14643928073",
+      "campaign_name": "[SA]더클린커피",
+      "campaign_status": "PAUSED",
+      "channel": "SEARCH",
+      "observed_in_final_url_audit": true,
+      "metric_row_present_last_7d": false,
+      "metric_row_present_last_30d": false,
+      "decision": "legacy_candidate_not_exact_joined_to_the_3_click_id_rows"
+    },
+    {
+      "campaign_id": "15647876620",
+      "campaign_name": "더클린펫푸드",
+      "campaign_status": "PAUSED",
+      "channel": "SEARCH",
+      "observed_in_final_url_audit": true,
+      "decision": "not_current_thecleancoffee_store_spend_candidate"
+    },
+    {
+      "campaign_id": "17273589731",
+      "campaign_name": "[SA]clean skin adwords",
+      "campaign_status": "PAUSED",
+      "channel": "SEARCH",
+      "observed_in_final_url_audit": true,
+      "decision": "not_current_thecleancoffee_store_spend_candidate"
+    },
+    {
+      "campaign_id": "17554019723",
+      "campaign_name": "[DA.S]clean gdn",
+      "campaign_status": "PAUSED",
+      "channel": "DISPLAY",
+      "observed_in_final_url_audit": true,
+      "decision": "not_current_thecleancoffee_store_spend_candidate"
+    }
+  ],
+  "blockers": [
+    {
+      "category": "aggregate_api_gap",
+      "description": "final-url-audit returns the count of Google click ID evidence rows but intentionally does not return raw click IDs or row-level campaign IDs.",
+      "green_reduction": "Add a no-raw aggregate check that returns top gad_campaignid counts by site/window without exposing click IDs."
+    },
+    {
+      "category": "site_scope_gap",
+      "description": "googleCampaignMatchHealth and click-id-health are currently biocom-scoped, so they cannot answer thecleancoffee campaign linkage.",
+      "green_reduction": "Parameterize the read-only health calculation for site='thecleancoffee' or create a coffee-only no-raw script."
+    },
+    {
+      "category": "legacy_campaign_gap",
+      "description": "The coffee-named Google Ads campaign exists as a paused legacy candidate, but no metric row links it to last_7d spend or to the 3 current landing click rows.",
+      "green_reduction": "Compare row-level redacted gad_campaignid counts against campaign candidates."
+    }
+  ],
+  "recommended_green_next_step": {
+    "name": "coffee_google_click_campaign_bridge_preview",
+    "what": "Create a read-only no-raw aggregate preview for site_landing_ledger and paid_click_intent_ledger.",
+    "why": "It will show whether the 3 Google click evidence rows preserve gad_campaignid without exposing raw click IDs.",
+    "output_fields": [
+      "site",
+      "window_days",
+      "google_click_id_rows",
+      "gad_campaignid_rows",
+      "top_gad_campaignids_by_count",
+      "matched_campaign_name_if_dashboard_candidate_exists",
+      "raw_identifier_output_count"
+    ],
+    "success_criteria": "If gad_campaignid_rows >= 1 and the id matches a Google Ads campaign candidate, classify as campaign_id_exact_or_strong_preserved; otherwise keep source_gap.",
+    "approval_required": false,
+    "confidence_percent": 88
+  },
+  "guardrails": {
+    "slack_send": 0,
+    "operating_db_write": 0,
+    "vm_cloud_write_or_deploy": 0,
+    "platform_send_or_upload": 0,
+    "google_ads_upload": 0,
+    "google_ads_campaign_change": 0,
+    "gtm_publish": 0,
+    "raw_click_id_output": 0,
+    "raw_customer_pii_output": 0
+  }
+}

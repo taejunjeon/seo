@@ -12,6 +12,19 @@ import {
   type FunnelEventName,
   syncMetaConversionsFromLedger,
 } from "../metaCapi";
+import {
+  buildMetaAccountCircuitBreakerErrorFields,
+  getOpenMetaAccountCircuitBreaker,
+  isMetaRateLimitError,
+  normalizeMetaApiError,
+  openMetaAccountCircuitBreaker,
+  type MetaAccountCircuitBreakerSnapshot,
+  type MetaApiErrorDetail,
+} from "../metaAccountCircuitBreaker";
+import {
+  recordMetaApiUsageHeaders,
+  runMetaAccountRequest,
+} from "../metaAccountRequestQueue";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
 const META_DEFAULT_ACTION_REPORT_TIME = "conversion";
@@ -257,25 +270,29 @@ const classifyCampaignCreateError = (error: string) => {
   return { status: 503, error: "meta_api_error" };
 };
 
-type MetaApiError = {
-  message: string;
-  code?: number;
-  error_subcode?: number;
-  error_data?: string;
-  fbtrace_id?: string;
-  type?: string;
+type MetaFetchError = {
+  ok: false;
+  error: string;
+  errorDetail?: MetaApiErrorDetail;
+  rateLimited?: boolean;
+  blockedByCircuitBreaker?: boolean;
+  retryAfterMs?: number;
+  circuitBreaker?: MetaAccountCircuitBreakerSnapshot;
 };
 
 const fetchMeta = async <T>(
   path: string,
   params: Record<string, string> = {},
   method: "GET" | "POST" = "GET",
-): Promise<{ ok: true; data: T } | { ok: false; error: string; errorDetail?: MetaApiError }> => {
+): Promise<{ ok: true; data: T } | MetaFetchError> => {
+  const accountId = path.match(/^\/(act_\d+)/)?.[1];
   const token = resolveTokenFromPath(path);
   if (!token) return { ok: false, error: "META_ADMANAGER_API_KEY 미설정" };
 
-  const RATE_LIMIT_CODES = new Set([80004, 17, 32, 613]); // 80004 = ad-account rate limit
-  const performOnce = async (): Promise<{ ok: true; data: T } | { ok: false; error: string; errorDetail?: MetaApiError; rateLimited?: boolean }> => {
+  const performOnce = async (): Promise<{ ok: true; data: T } | MetaFetchError> => {
+    const breaker = getOpenMetaAccountCircuitBreaker(accountId);
+    if (breaker) return { ok: false, ...buildMetaAccountCircuitBreakerErrorFields(breaker) };
+
     const url = new URL(`${META_GRAPH_URL}${path}`);
     url.searchParams.set("access_token", token);
 
@@ -283,34 +300,45 @@ const fetchMeta = async <T>(
     if (method === "POST") {
       const formData = new URLSearchParams();
       for (const [k, v] of Object.entries(params)) formData.set(k, v);
-      fetchRes = await fetch(url.toString(), { method: "POST", body: formData, signal: AbortSignal.timeout(15000) });
+      fetchRes = await runMetaAccountRequest(
+        accountId,
+        () => fetch(url.toString(), { method: "POST", body: formData, signal: AbortSignal.timeout(15000) }),
+        { method, path },
+      );
     } else {
       for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-      fetchRes = await fetch(url.toString(), { signal: AbortSignal.timeout(15000) });
+      fetchRes = await runMetaAccountRequest(
+        accountId,
+        () => fetch(url.toString(), { signal: AbortSignal.timeout(15000) }),
+        { method, path },
+      );
     }
+    recordMetaApiUsageHeaders(accountId, fetchRes.headers, { method, path, status: fetchRes.status });
 
     const body = await fetchRes.json() as Record<string, unknown>;
     if (body.error) {
-      const err = body.error as MetaApiError;
-      const detail: MetaApiError = {
-        message: err.message ?? "Meta API error",
-        code: err.code,
-        error_subcode: err.error_subcode,
-        error_data: err.error_data,
-        fbtrace_id: err.fbtrace_id,
-        type: err.type,
-      };
-      const rateLimited = typeof err.code === "number" && RATE_LIMIT_CODES.has(err.code);
+      const detail = normalizeMetaApiError(body.error);
+      const rateLimited = isMetaRateLimitError(detail, fetchRes.status);
+      const circuitBreaker = rateLimited
+        ? openMetaAccountCircuitBreaker(accountId, detail)
+        : null;
       console.error(`[Meta API Error] ${method} ${path}`, JSON.stringify(detail));
-      return { ok: false, error: err.message ?? "Meta API error", errorDetail: detail, rateLimited };
+      return {
+        ok: false,
+        error: detail.message ?? "Meta API error",
+        errorDetail: detail,
+        rateLimited,
+        retryAfterMs: circuitBreaker?.retry_after_ms,
+        circuitBreaker: circuitBreaker ?? undefined,
+      };
     }
     return { ok: true, data: body as T };
   };
 
-  // 1회 시도 — rate limit (80004) 이면 jitter 후 1회 재시도 (Meta API 호출 늘리는 자동 재시도가 아니라 1회만)
+  // account-level rate limit은 circuit breaker가 즉시 막고, account를 특정할 수 없는 일시 제한만 1회 재시도한다.
   const first = await performOnce();
   if (first.ok) return first;
-  if ((first as { rateLimited?: boolean }).rateLimited) {
+  if (first.rateLimited && !first.circuitBreaker && !first.blockedByCircuitBreaker) {
     const jitterMs = 1500 + Math.floor(Math.random() * 1500); // 1.5~3s
     await new Promise((resolve) => setTimeout(resolve, jitterMs));
     console.log(`[Meta API retry] rate-limit 후 ${jitterMs}ms 대기 후 1회 재시도 — ${method} ${path}`);
@@ -1404,7 +1432,7 @@ export const createMetaRouter = () => {
       },
     };
 
-    const respondFailure = (status: number, error: string, message: string, errorDetail?: MetaApiError) => {
+    const respondFailure = (status: number, error: string, message: string, errorDetail?: MetaApiErrorDetail) => {
       res.status(status).json({
         ok: false,
         error,

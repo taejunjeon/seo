@@ -121,6 +121,70 @@ test("ads: buildNormalizedLedgerOrders keeps waiting for deposit orders pending"
   assert.equal(orders[0]?.amount, 91000);
 });
 
+test("ads: buildNormalizedLedgerOrders uses paidTouchBeforeCheckout numeric Meta IDs", () => {
+  const entry = buildLedgerEntry(
+    "payment_success",
+    {
+      orderId: "202605268937285",
+      paymentKey: "iw_bi20260526212718SXL00",
+      landing: "https://biocom.kr/shop_payment_complete?order_code=o20260526011e302f9a978&order_no=202605268937285",
+      referrer: "https://biocom.kr/backpg/payment/oms/OMS_confirm.cm?amount=234000",
+      metadata: {
+        status: "DONE",
+        paidTouchBeforeCheckout: {
+          source: "meta",
+          medium: "paid_social",
+          campaign: "120245003319500396",
+          term: "120245143376260396",
+          content: "12025701139440396",
+          metaCampaignId: "120245003319500396",
+          metaAdsetId: "120245143376260396",
+          metaAdId: "12025701139440396",
+          grade: "A",
+          confidence: 0.96,
+          evidence: [
+            "flat_touch_numeric_meta_fallback",
+            "numeric_utm_campaign",
+            "numeric_utm_term",
+            "numeric_utm_content",
+          ],
+        },
+      },
+    },
+    requestContext,
+    "2026-05-26T12:27:31.859Z",
+  );
+
+  const orders = buildNormalizedLedgerOrders([entry]);
+
+  assert.equal(orders.length, 1);
+  assert.equal(orders[0]?.utmSource, "meta");
+  assert.equal(orders[0]?.utmCampaign, "120245003319500396");
+  assert.equal(orders[0]?.utmTerm, "120245143376260396");
+  assert.equal(orders[0]?.utmContent, "12025701139440396");
+  assert.equal(orders[0]?.campaignIdHint, "120245003319500396");
+  assert.equal(orders[0]?.adsetIdHint, "120245143376260396");
+  assert.equal(orders[0]?.adIdHint, "12025701139440396");
+
+  const rows = buildCampaignRoasRows({
+    metaRows: [{
+      campaign_name: "meta_biocom_influencer_260506",
+      campaign_id: "120245003319500396",
+      impressions: "1000",
+      clicks: "100",
+      spend: "10000",
+      date_start: "2026-05-26",
+      date_stop: "2026-05-26",
+    }],
+    orders,
+    ledgerAvailable: true,
+  });
+  const matched = rows.find((row) => row.campaignId === "120245003319500396");
+  assert.equal(matched?.attributedRevenue, 234000);
+  assert.equal(matched?.orders, 1);
+  assert.equal(rows.some((row) => row.campaignName === "(unmapped)"), false);
+});
+
 test("ads: buildCampaignRoasRows maps campaign revenue and preserves unmapped bucket", () => {
   const orders = buildNormalizedLedgerOrders([
     buildLedgerEntry(
@@ -177,6 +241,7 @@ test("ads: buildCampaignRoasRows maps campaign revenue and preserves unmapped bu
     attributedRevenue: 300000,
     roas: 3,
     orders: 1,
+    campaignType: "general",
   });
   assert.deepEqual(rows[1], {
     campaignId: null,
@@ -185,6 +250,7 @@ test("ads: buildCampaignRoasRows maps campaign revenue and preserves unmapped bu
     attributedRevenue: 50000,
     roas: null,
     orders: 1,
+    campaignType: "general",
   });
 });
 
@@ -226,6 +292,9 @@ test("ads: buildDailyRoasRows returns null roas when ledger is empty", () => {
       potentialRevenue: 0,
       metaPurchaseValue: 0,
       confirmedRoas: null,
+      officialRoas: null,
+      fastSignalRoas: null,
+      roasGap: null,
       potentialRoas: null,
       metaPurchaseRoas: 0,
     },
@@ -239,6 +308,9 @@ test("ads: buildDailyRoasRows returns null roas when ledger is empty", () => {
       potentialRevenue: 0,
       metaPurchaseValue: 0,
       confirmedRoas: null,
+      officialRoas: null,
+      fastSignalRoas: null,
+      roasGap: null,
       potentialRoas: null,
       metaPurchaseRoas: 0,
     },

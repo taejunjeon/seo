@@ -1,0 +1,109 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-28T13:47:23",
+  "run_id": "20260528T044717Z",
+  "mode": "production_no_click_smoke",
+  "url": "https://biocom.kr/shop_view/?idx=198&__seo_attribution_debug=1",
+  "state": {
+    "href": "https://biocom.kr/shop_view/?idx=198&__seo_attribution_debug=1",
+    "version": "2026-05-28-biocom-npay-bridge-gtm-v1-1-production-ready",
+    "alreadyInstalled": true,
+    "gtmLoaded": true,
+    "dataLayerLength": 8
+  },
+  "consoleMessages": [
+    {
+      "type": "info",
+      "text": "[biocom-click-id-bootstrap] no tracking signal on current URL; existing storage untouched"
+    },
+    {
+      "type": "log",
+      "text": "[biocom-direct-meta-base] direct Meta Pixel initialized {pixelId: 1283400029487161, fires: Array(1), purchase: disabled}"
+    },
+    {
+      "type": "log",
+      "text": "[biocom-tiktok-purchase-guard] installed {version: 2026-04-23.tiktok-purchase-guard-enforce.v2-event-log, scanLimitMs: 90000, sendReplacementForPending: true, allowOnUnknown: true}"
+    },
+    {
+      "type": "info",
+      "text": "[funnel-capi-v4.4.4] installed 2026-05-21-biocom-funnel-capi-v4-4-4 pixel=1283400029487161 enableServerCapi=false testEventCode=(none) sessionId=mpp0hhc9l0ty1f"
+    },
+    {
+      "type": "log",
+      "text": "[biocom-block4-v0.5] Block4 v0.5 image beacon fallback booted"
+    },
+    {
+      "type": "info",
+      "text": "[biocom-npay-bridge-gtm-v1.1] installed {version: 2026-05-28-biocom-npay-bridge-gtm-v1-1-production-ready}"
+    },
+    {
+      "type": "table",
+      "text": "{event: h_view_item, hurdlers_ga4: Object, gtm.uniqueEventId: 37}"
+    }
+  ],
+  "counts": {
+    "google_conversion_requests": 0,
+    "receiver_requests": 0,
+    "network_errors": 13
+  },
+  "networkErrors": [
+    {
+      "url": "https://bc.ad.daum.net/bc?d=%7B%22track_id%22%3A%228351931815157058348%22%2C%22event_code%22%3A%22PageView%22%2C%22params%22%3A%7B%7D%2C%22props%22%3A%7B%22lmt%22%3A%22N%22%2C%22service_origin%22%3A%2220006%22%7D%2C%22site%22%3A%7B%22identifier%22%3A%22biocom.kr%22%7D%2C%22sdk%22%3A%7B%22type%22%3A%22WEB%22%2C%22version%22%3A%221.6.7%22%2C%22tpc%22%3A%22Y%22%7D%2C%22page%22%3A%7B%22url%22%3A%22https%3A%2F%2Fbiocom.kr%2Fshop_view%2F%3Fidx%3D198%26__seo_attribution_debug%3D1%22%2C%22is_frame_env%22%3Afalse%7D%2C%22device%22%3A%7B%22dnt%22%3A%22N%22%2C%22device_type%22%3A%22pc%22%2C%22is_mobile%22%3A%22N%22%2C%22browser%22%3A%22HeadlessChrome%22%2C%22browser_version%22%3A%22147.0.7727.15%22%2C%22os%22%3A%22macOS%22%2C%22os_version%22%3A%2226.5.0%22%7D%7D",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://bc.ad.daum.net/bc?d=%7B%22track_id%22%3A%228351931815157058348%22%2C%22event_code%22%3A%22ViewContent%22%2C%22params%22%3A%7B%22products%22%3A%5B%7B%22name%22%3A%22%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%2060%EC%A0%95%20(1%EA%B0%9C%EC%9B%94%EB%B6%84)%22%2C%22quantity%22%3A1%2C%22price%22%3A35000%2C%22brand%22%3A%22%EB%B0%94%EC%9D%B4%EC%98%A4%EC%BB%B4%22%2C%22id%22%3A%22198%22%7D%5D%2C%22currency%22%3A%22KRW%22%7D%2C%22props%22%3A%7B%22lmt%22%3A%22N%22%2C%22service_origin%22%3A%2220006%22%7D%2C%22site%22%3A%7B%22identifier%22%3A%22biocom.kr%22%7D%2C%22sdk%22%3A%7B%22type%22%3A%22WEB%22%2C%22version%22%3A%221.6.7%22%2C%22tpc%22%3A%22Y%22%7D%2C%22page%22%3A%7B%22url%22%3A%22https%3A%2F%2Fbiocom.kr%2Fshop_view%2F%3Fidx%3D198%26__seo_attribution_debug%3D1%22%2C%22is_frame_env%22%3Afalse%7D%2C%22device%22%3A%7B%22dnt%22%3A%22N%22%2C%22device_type%22%3A%22pc%22%2C%22is_mobile%22%3A%22N%22%2C%22browser%22%3A%22HeadlessChrome%22%2C%22browser_version%22%3A%22147.0.7727.15%22%2C%22os%22%3A%22macOS%22%2C%22os_version%22%3A%2226.5.0%22%7D%7D",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/rmkt/collect/304339096/?random=1779943638595&cv=11&fst=1779943638595&fmt=8&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be65q2v9115439929za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938466~115938468~116701381~118128923~118228215~118689382~119034493&u_w=1280&u_h=720&url=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F%3Fidx%3D198%26__seo_attribution_debug%3D1&rcb=12&frm=0&tiba=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1567380203.1779943639&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uamb=0&uam=&uap=macOS&uapv=26.5.0&uaw=0&data=event%3Dgtag.config&gcp=5",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/ccm/collect?rcb=12&frm=0&auid=1567380203.1779943639&dt=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5&en=page_view&dl=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F&scrsrc=www.googletagmanager.com&rnd=569957611.1779943639&navt=n&npa=0&gtm=45be65q2v9115439929za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938466~115938468~116701381~118128923~118228215~118689382~119034493&apve=1&apvf=f&apvc=1&tids=AW-304339096&tid=AW-304339096&tft=1779943638607&tfd=1205",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/rmkt/collect/304339096/?random=1779943638764&cv=11&fst=1779943638764&fmt=8&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be65q2v9115439929z8813158774za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938466~115938468~116701381~118128923~118228215~118689382~119034493&u_w=1280&u_h=720&url=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F%3Fidx%3D198%26__seo_attribution_debug%3D1&rcb=12&frm=0&tiba=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1567380203.1779943639&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uamb=0&uam=&uap=macOS&uapv=26.5.0&uaw=0&data=event%3Dgtag.config&gcp=5",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/rmkt/collect/304339096/?random=1779943638770&cv=11&fst=1779943638770&fmt=8&bg=ffffff&guid=ON&async=1&en=page_view&gtm=45be65q2v9115439929za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938466~115938468~116701381~118128923~118228215~118689382~119034493&u_w=1280&u_h=720&url=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F%3Fidx%3D198%26__seo_attribution_debug%3D1&rcb=12&frm=0&tiba=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1567380203.1779943639&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uamb=0&uam=&uap=macOS&uapv=26.5.0&uaw=0&data=event%3Dpage_view%3Bgoogle_business_vertical%3Dretail%3Bid%3Dbiocom_198&gcp=5",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/ccm/form-data/304339096?gtm=45be65q2v9115439929za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938466~115938468~116701381~118128923~118228215~118689382~119034493&rcb=12&npa=0&frm=0&pscdl=noapi&auid=1567380203.1779943639&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uamb=0&uam=&uap=macOS&uapv=26.5.0&uaw=0",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/ccm/collect?rcb=18&frm=0&ae=g&auid=1567380203.1779943639&dt=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5&en=page_view&dl=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F&scrsrc=www.googletagmanager.com&rnd=569957611.1779943639&navt=n&npa=0&ep.ads_data_redaction=0&gtm=45He65q2v813158774za200zd813158774xea&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115616986~115938466~115938469~116701381~118694324&apve=1&apvf=f&apvc=0&tft=1779943638782&tfd=1380",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/ccm/collect?rcb=12&frm=0&auid=1567380203.1779943639&dt=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5&en=page_view&dl=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F&scrsrc=www.googletagmanager.com&rnd=569957611.1779943639&navt=n&npa=0&gtm=45be65q2v9115439929z8813158774za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938466~115938468~116701381~118128923~118228215~118689382~119034493&apve=1&apvf=f&apvc=0&tids=AW-304339096&tid=AW-304339096&tft=1779943638783&tfd=1381",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/ccm/collect?rcb=12&frm=0&auid=1567380203.1779943639&dt=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5&en=page_view&dl=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F&scrsrc=www.googletagmanager.com&rnd=569957611.1779943639&navt=n&npa=0&gtm=45be65q2v9115439929za200zd9115439929xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938466~115938468~116701381~118128923~118228215~118689382~119034493&apve=1&apvf=f&apvc=0&tids=AW-304339096&tid=AW-304339096&tft=1779943638784&tfd=1382",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google.com/measurement/conversion?random=1779943638962&cv=11&tid=G-WJFXN5E2Q1&fst=1779943638962&fmt=8&en=page_view&gtm=45je65q2v885512675z8813158774za20gzb813158774zd813158774xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=0~115938466~115938468~118228215~118689382~119034492&u_w=1280&u_h=720&url=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F%3Fidx%3D198%26__seo_attribution_debug%3D1&gacid=1750560729.1779943639&frm=0&tiba=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5%EB%A0%A5%20%EC%A7%91%EC%A4%91%EB%A0%A5%20%EC%98%81%EC%96%91%EC%A0%9C&npa=0&pscdl=noapi&auid=1567380203.1779943639&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uamb=0&uam=&uap=macOS&uapv=26.5.0&uaw=0&rcb=15",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-8GZ48B1S59&gtm=45je65q2v9178646719z8813158774za20gzb813158774zd813158774&_p=1779943638182&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1750560729.1779943639&frm=0&pscdl=noapi&rcb=14&sr=1280x720&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=macOS&uapv=26.5.0&uaw=0&ul=en-us&_s=1&tag_exp=0~115616985~115938466~115938469~118228215~119034493&sid=1779943638&sct=1&seg=0&dl=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F%3Fidx%3D198%26__seo_attribution_debug%3D1&dt=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5%EB%A0%A5%20%EC%A7%91%EC%A4%91%EB%A0%A5%20%EC%98%81%EC%96%91%EC%A0%9C&en=page_view&_fv=1&_nsi=1&_ss=1&tfd=1537",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "https://analytics.google.com/g/collect?v=2&tid=G-WJFXN5E2Q1&gtm=45je65q2v885512675z8813158774za20gzb813158774zd813158774&_p=1779943638182&_gaz=1&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=EAAAAGAC&_prs=ok&are=1&cid=1750560729.1779943639&frm=0&ir=1&pscdl=noapi&rcb=15&sr=1280x720&uaa=arm&uab=64&uafvl=HeadlessChrome%3B147.0.7727.15%7CNot.A%252FBrand%3B8.0.0.0%7CChromium%3B147.0.7727.15&uam=&uamb=0&uap=macOS&uapv=26.5.0&uaw=0&ul=en-us&gaf=2&_s=1&tag_exp=0~115938466~115938468~118228215~118689382~119034492&sid=1779943638&sct=1&seg=0&dl=https%3A%2F%2Fbiocom.kr%2Fshop_view%2F%3Fidx%3D198%26__seo_attribution_debug%3D1&dt=%EB%89%B4%EB%A1%9C%EB%A7%88%EC%8A%A4%ED%84%B0%20%EC%9D%80%ED%96%89%EC%9E%8E%EC%B6%94%EC%B6%9C%EB%AC%BC%20%EC%9A%94%EC%98%A4%EB%93%9C%20%ED%99%8D%EA%B2%BD%EC%B2%9C%EC%B6%94%EC%B6%9C%EB%AC%BC%20%ED%98%88%EC%95%A1%EC%88%9C%ED%99%98%20%EA%B8%B0%EC%96%B5%EB%A0%A5%20%EC%A7%91%EC%A4%91%EB%A0%A5%20%EC%98%81%EC%96%91%EC%A0%9C&en=page_view&_fv=1&_ss=1&_c=1&tfd=1569",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "invariant": {
+    "no_npay_click": true,
+    "no_payment_test": true,
+    "no_google_ads_conversion_request": true,
+    "no_receiver_write": true
+  }
+}

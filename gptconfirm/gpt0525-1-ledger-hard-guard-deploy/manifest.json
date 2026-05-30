@@ -1,0 +1,18 @@
+{
+  "id": "gpt0525-1-ledger-hard-guard-deploy",
+  "created_at_kst": "2026-05-25",
+  "lane": "Yellow",
+  "scope": [
+    "backend/src/routes/attribution.ts",
+    "VM Cloud backend build/restart",
+    "read-only post-check"
+  ],
+  "forbidden": [
+    "operating_db_write",
+    "vm_schema_migration",
+    "external_platform_send",
+    "gtm_publish",
+    "imweb_code_edit"
+  ],
+  "status": "deployed_postcheck_pass"
+}

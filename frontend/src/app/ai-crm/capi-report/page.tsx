@@ -89,8 +89,8 @@ type BrowserCapiOption = {
   next: string;
 };
 
-const checkedAtKst = "2026-05-20 23:20 KST";
-const freshness = "Meta Events Manager 캡처 + VM Cloud read-only 진단 기준";
+const checkedAtKst = "2026-05-21 17:37 KST";
+const freshness = "Meta Events Manager 캡처 + VM Cloud canary post-check 기준";
 
 const siteMetrics: SiteMetric[] = [
   {
@@ -201,9 +201,9 @@ const krProgress: KrProgress[] = [
   {
     id: "KR7",
     title: "Events Manager 검증과 환불 보정을 준비한다",
-    progress: 70,
+    progress: 78,
     plainMeaning: "Meta UI에서 구매 수신, 매칭 품질, 취소/환불 보정 기준을 닫습니다.",
-    nextAction: "이벤트 매칭 품질 6.1/10 기준선을 만들고 email/phone/external_id는 no-send 후보율부터 확인합니다.",
+    nextAction: "biocom confirmed Purchase 한정 email/phone/external_id canary를 24시간 집계해 유지/중단 조건을 닫습니다.",
   },
   {
     id: "KR8",
@@ -239,14 +239,14 @@ const architectureSteps = [
 
 const nextActionCards = [
   {
-    title: "이벤트 매칭 품질 6.1/10 올리기",
-    summary: "Meta가 구매자를 더 정확히 알아볼 수 있게 안전한 고객정보 이름표를 보강합니다.",
-    why: "Purchase 이벤트는 회복됐지만 이벤트 매칭 품질이 낮으면 Meta가 구매를 광고 클릭과 연결하는 힘이 약합니다. Meta UI도 이메일, 전화번호, 외부 ID 추가를 권장하고 있습니다.",
-    how: "운영 전송 전에 VM Cloud와 운영DB/Imweb/Toss에서 이메일·전화·안전한 external_id 후보가 얼마나 존재하는지 no-send로 계산합니다. 그 다음 해시·동의·민감정보 기준을 통과한 항목만 Test Events에서 검증합니다.",
-    codexCanDo: "Codex 가능: read-only 후보율 audit, external_id 안전 설계, Test Events 승인안, frontend 보고서 반영까지 가능. 실제 고객정보 전송은 개인정보/동의 검토와 승인 전 하지 않습니다.",
-    success: "Purchase의 email/phone/external_id 후보율과 예상 EMQ 개선 우선순위가 숫자로 나오고, 운영 전송 전 위험 항목이 분리된다.",
-    researchScore: 92,
-    designScore: 86,
+    title: "이벤트 매칭 품질 canary 24시간 닫기",
+    summary: "biocom 실제 결제완료 Purchase에 고객정보 이름표가 안전하게 붙는지 확인합니다.",
+    why: "Purchase 이벤트는 회복됐지만 Meta가 구매를 광고 클릭과 사람에 더 잘 붙이려면 이메일, 전화번호, 외부 ID 같은 추가 이름표가 필요합니다. 지금은 후보율 계산을 지나 biocom 한정 canary 관찰 단계입니다.",
+    how: "VM Cloud CAPI send log를 read-only로 모아 success, duplicate 0, em/ph/external_id/fbc/fbp 비율을 집계합니다. Meta UI 점수는 배포 전 6.0/10, 사용자 캡처 6.3/10과 비교합니다.",
+    codexCanDo: "Codex 가능: 24시간 aggregate 집계, 중단 조건 점검, frontend/capiplan 문구 반영까지 가능. Meta UI 최종 캡처는 TJ님 로그인 화면이 필요합니다.",
+    success: "CAPI success가 유지되고 duplicate 0이며, ph/external_id는 관측 유지, em은 후보 주문에서 관측되거나 미관측 사유가 분리된다.",
+    researchScore: 96,
+    designScore: 92,
   },
   {
     title: "Meta UTM/source 미매핑 줄이기",
@@ -308,13 +308,13 @@ const glossaryTerms: GlossaryTerm[] = [
 ];
 
 const eventMatchQualitySummary = {
-  score: "6.1/10",
-  source: "Meta Events Manager Purchase 화면 · 2026-05-20 확인",
-  liveDiagnostic: "VM Cloud read-only · 최근 24시간 표본",
+  score: "6.3/10 관측 · canary 전 기준 6.0/10",
+  source: "Meta Events Manager 사용자 캡처 + VM Cloud canary post-check · 2026-05-21",
+  liveDiagnostic: "biocom confirmed Purchase 한정 canary ON · 24시간 집계 전",
   plain:
-    "구매 이벤트는 회복됐지만 Meta가 구매자를 광고 클릭과 더 정확히 맞추는 고객정보 이름표는 아직 부족합니다.",
+    "구매 이벤트는 회복됐고, 이제 Meta가 구매자를 광고 클릭과 더 정확히 맞추도록 고객정보 이름표를 일부 붙여 관찰하고 있습니다.",
   additionalParamNote:
-    "Meta UI의 ‘기타 매개변수 추가 전환’은 이메일, 전화번호, 외부 ID 같은 추가 이름표를 넣었을 때 보고 전환이 더 잡힐 수 있다는 진단입니다. 현재는 CAPI 표본/매개변수 부족으로 성과 확인이 아직 충분하지 않습니다.",
+    "Meta UI의 ‘기타 매개변수 추가 전환’은 이메일, 전화번호, 외부 ID 같은 추가 이름표를 넣었을 때 보고 전환이 더 잡힐 수 있다는 진단입니다. 현재 biocom confirmed Purchase에만 email/phone/external_id canary를 켰고, 더클린커피와 Browser Purchase는 제외했습니다.",
 };
 
 const browserCapiEventIdAudit = {
@@ -339,7 +339,7 @@ const browserCapiOptions: BrowserCapiOption[] = [
     risk:
       "Meta Pixel Helper에서 Browser Purchase가 안 보여 운영자가 불안할 수 있고, 브라우저 쪽 매칭/디버깅 단서는 적습니다.",
     next:
-      "계속 기본값으로 둡니다. 이벤트 매칭 품질은 email/phone/external_id 후보율 no-send audit으로 개선합니다.",
+      "계속 기본값으로 둡니다. 이벤트 매칭 품질은 biocom confirmed Purchase 한정 고객 식별자 canary로 관찰합니다.",
   },
   {
     label: "Browser Purchase + CAPI 혼합",
@@ -403,26 +403,26 @@ const matchQualityParameters: MatchQualityParameter[] = [
   {
     label: "이메일 주소",
     metaUi: "추가 권장",
-    liveCoverage: "Toss read-only 표본 0/44 · 0/17",
-    status: "미연동",
-    plain: "코드는 해시 전송 준비가 있지만 현재 운영 소스에서 값이 들어오지 않습니다.",
-    next: "운영DB/Imweb/회원 원장에서 해시 후보율을 no-send로 계산합니다.",
+    liveCoverage: "biocom canary ON · 7d 후보 140/475 · 24h 후보 27/75 · 배포 직후 em 0/1",
+    status: "부분",
+    plain: "회원 이메일이 있는 biocom 실제 결제완료 주문만 해시해서 보낼 수 있게 켰습니다. 배포 직후 첫 1건은 이메일 후보가 없어 아직 em=true가 보이지 않았습니다.",
+    next: "24시간 집계에서 em=true가 나타나는지 보고, 안 나타나면 회원 이메일 조인 누락인지 후보 주문 부족인지 분리합니다.",
   },
   {
     label: "전화번호",
     metaUi: "추가 권장",
-    liveCoverage: "Toss read-only 표본 0/44 · 0/17",
-    status: "미연동",
-    plain: "코드는 해시 전송 준비가 있지만 현재 Toss 응답에는 값이 없습니다.",
-    next: "동의/개인정보 기준을 먼저 세운 뒤 hashed phone 후보율을 봅니다.",
+    liveCoverage: "biocom canary ON · early ph=true 2/8 · 더클린커피 0/3",
+    status: "부분",
+    plain: "biocom 실제 결제완료 주문 중 전화번호 후보가 있는 경우 해시해서 붙이고 있습니다. 더클린커피는 allowlist로 막혀 있습니다.",
+    next: "24시간 집계에서 ph 비율, 실패 0, 중복 0을 같이 확인합니다.",
   },
   {
     label: "외부 ID(external_id)",
     metaUi: "추가 권장",
-    liveCoverage: "현재 Purchase user_data 미포함",
-    status: "미연동",
-    plain: "우리 시스템이 만든 안전한 고객 이름표입니다. 원문 주문/회원 ID를 그대로 쓰지 않고 HMAC 같은 안전한 방식이 필요합니다.",
-    next: "raw id 없는 safe external_id 설계와 no-send 후보율 audit을 진행합니다.",
+    liveCoverage: "biocom canary ON · early external_id=true 2/8 · event_id hash OFF",
+    status: "부분",
+    plain: "원문 주문/회원 ID를 그대로 쓰지 않고 안전한 고객 이름표만 biocom Purchase에 붙입니다. 중복 제거용 event_id는 아직 바꾸지 않았습니다.",
+    next: "24시간 집계에서 external_id 비율과 duplicate 0을 확인합니다. Browser Purchase eventID 설계는 별도 과제로 유지합니다.",
   },
   {
     label: "Facebook 로그인 ID",
@@ -711,8 +711,8 @@ export default function CapiReportPage() {
             </h1>
             <p className={styles.subtitle}>
               CAPI(서버가 Meta에 구매 신호를 보내는 통로)는 정상화됐고 Purchase도 다시 잡히고 있습니다.
-              다음 병목은 이벤트 매칭 품질 6.1/10입니다. 즉 Meta가 구매 이벤트를 어떤 사람과 광고 클릭에
-              붙일 수 있는지, 어떤 고객정보 이름표가 아직 부족한지를 보는 단계입니다.
+              다음 병목은 이벤트 매칭 품질입니다. biocom confirmed Purchase 한정 canary를 켰고,
+              이제 Meta가 구매 이벤트를 어떤 사람과 광고 클릭에 붙일 수 있는지 24시간 동안 관찰하는 단계입니다.
             </p>
           </div>
           <div className={styles.sourceBox}>
@@ -762,10 +762,10 @@ export default function CapiReportPage() {
           </div>
           <div className={styles.decisionItem}>
             <span className={styles.decisionStatusWatch}>개선</span>
-            <strong>이벤트 매칭 품질은 6.1/10</strong>
+            <strong>이벤트 매칭 품질은 canary 관찰 단계</strong>
             <p>
-              IP, 사용자 에이전트, fbp는 정상입니다. 다만 fbc는 부분이고 이메일·전화·external_id는 아직
-              운영 전송 전이라 Meta가 권장하는 추가 매개변수 개선 여지가 큽니다.
+              IP, 사용자 에이전트, fbp는 정상입니다. 이메일·전화·external_id는 biocom Purchase에만
+              제한적으로 켰고, 더클린커피와 Browser Purchase는 아직 제외했습니다.
             </p>
           </div>
         </section>
@@ -796,11 +796,11 @@ export default function CapiReportPage() {
                 </div>
                 <div>
                   <dt>고객정보 이름표</dt>
-                  <dd>email/phone 미연동</dd>
+                  <dd>canary ON</dd>
                 </div>
                 <div>
                   <dt>외부 ID</dt>
-                  <dd>설계 필요</dd>
+                  <dd>biocom 한정</dd>
                 </div>
               </dl>
             </article>
@@ -811,9 +811,9 @@ export default function CapiReportPage() {
               </div>
               <p>{eventMatchQualitySummary.additionalParamNote}</p>
               <p>
-                현재 backend는 이메일/전화번호가 들어오면 해시해서 보낼 준비가 있지만, 최근 표본에서는
-                Toss 응답에서 이메일·전화번호가 0건으로 관측됐습니다. external_id는 아직 Purchase
-                user_data에 넣지 않습니다.
+                no-send preview에서는 최근 7일 biocom 주문 475건 중 이메일 후보 140건, 최근 24시간
+                75건 중 27건이 확인됐습니다. 배포 직후 첫 1건은 이메일 후보가 없어 em=true가 아직
+                보이지 않았고, 이 부분은 24시간 canary 집계에서 닫습니다.
               </p>
             </article>
           </div>
@@ -846,10 +846,10 @@ export default function CapiReportPage() {
             </table>
           </div>
           <div className={styles.safetyNote}>
-            <strong>운영 전송 전 금지선</strong>
+            <strong>범위 확장 금지선</strong>
             <span>
-              이메일, 전화번호, external_id는 매칭 품질을 올릴 수 있지만 개인정보/동의/해시 기준이 필요합니다.
-              바로 운영 전송하지 않고 no-send 후보율 계산 → Test Events 검증 → 승인 후 배포 순서로 진행합니다.
+              지금 켜진 범위는 biocom confirmed Purchase 한정입니다. 더클린커피, Browser Purchase,
+              event_id hash, 수동 backfill은 아직 켜지지 않았고 24시간 집계 전에는 범위를 넓히지 않습니다.
             </span>
           </div>
         </section>

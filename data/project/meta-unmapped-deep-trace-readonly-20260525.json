@@ -1,0 +1,103 @@
+{
+  "generated_at_kst": "2026-05-25 06:58 KST",
+  "safety": {
+    "no_send": true,
+    "no_write": true,
+    "no_deploy": true,
+    "no_platform_send": true,
+    "raw_order_ids_emitted": false,
+    "raw_click_ids_emitted": false
+  },
+  "source": {
+    "vm_cloud": "attribution_ledger read-only via SSH",
+    "ga4_bigquery": "project-dadba7dd-0229-4ff6-81c.analytics_304759974* events_20260511~20260524",
+    "meta_ads_api": "/act_3138805896402376/ads read-only creative URL fields"
+  },
+  "vm_remaining": {
+    "orders": 14,
+    "revenue": 5038200,
+    "groups": {
+      "blank_utm_fbclid_only": {
+        "orders": 13,
+        "revenue": 4579200
+      },
+      "macro_placeholder_one": {
+        "orders": 1,
+        "revenue": 459000
+      }
+    },
+    "safe_session_key_candidates": 14,
+    "rows_with_client_id_fallback_candidate": 14,
+    "avg_user_key_candidates": 1,
+    "safe_ga_session_id_keys": 14
+  },
+  "ga4_error": null,
+  "ga4_summary": {
+    "blank_utm_fbclid_only": {
+      "orders": 13,
+      "revenue": 4579200,
+      "ga4Joined": 0,
+      "anyUtmCampaign": 0,
+      "anyNumericCampaign": 0,
+      "anyNumericAdset": 0,
+      "anyNumericAd": 0,
+      "anyNonPaymentLanding": 0,
+      "anyMetaTrafficSource": 0,
+      "pageClassCounts": {},
+      "referrerClassCounts": {}
+    },
+    "macro_placeholder_one": {
+      "orders": 1,
+      "revenue": 459000,
+      "ga4Joined": 0,
+      "anyUtmCampaign": 0,
+      "anyNumericCampaign": 0,
+      "anyNumericAdset": 0,
+      "anyNumericAd": 0,
+      "anyNonPaymentLanding": 0,
+      "anyMetaTrafficSource": 0,
+      "pageClassCounts": {},
+      "referrerClassCounts": {}
+    }
+  },
+  "ga4_session_id_fallback_error": null,
+  "ga4_session_id_fallback_summary": {
+    "blank_utm_fbclid_only": {
+      "orders": 13,
+      "revenue": 4579200,
+      "matchedSessionIdKeys": 0,
+      "uniqueSessionIdKeys": 0,
+      "ambiguousSessionIdKeys": 0,
+      "candidateSessionsTotal": 0,
+      "maxCandidateSessions": 0,
+      "anyUtmCampaign": 0,
+      "anyNumericCampaign": 0,
+      "anyNumericAdset": 0,
+      "anyNumericAd": 0,
+      "anyNonPaymentLanding": 0,
+      "anyMetaTrafficSource": 0
+    },
+    "macro_placeholder_one": {
+      "orders": 1,
+      "revenue": 459000,
+      "matchedSessionIdKeys": 0,
+      "uniqueSessionIdKeys": 0,
+      "ambiguousSessionIdKeys": 0,
+      "candidateSessionsTotal": 0,
+      "maxCandidateSessions": 0,
+      "anyUtmCampaign": 0,
+      "anyNumericCampaign": 0,
+      "anyNumericAdset": 0,
+      "anyNumericAd": 0,
+      "anyNonPaymentLanding": 0,
+      "anyMetaTrafficSource": 0
+    }
+  },
+  "ga4_joined_sessions": 0,
+  "ga4_session_id_fallback_rows": 0,
+  "meta_inventory_summary": {
+    "ok": false,
+    "skipped": true,
+    "reason": "SKIP_META_API=1; previous same-turn requery already hit/saturated Meta API quota"
+  }
+}

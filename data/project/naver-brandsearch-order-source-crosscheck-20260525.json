@@ -1,0 +1,196 @@
+{
+  "ok": true,
+  "schema_version": "naver-brandsearch-order-source-crosscheck-v1-20260525",
+  "generated_at": "2026-05-25T13:46:08.996Z",
+  "mode": "read_only_no_send_no_write",
+  "source_policy": {
+    "cost_source": "VM Cloud SQLite naver_brandsearch_manual_cost_daily 수동 기간 배분 cache",
+    "brandsearch_evidence_source": "VM Cloud site_landing_ledger + attribution_ledger brandsearch marker",
+    "biocom_order_source_primary": "운영DB PostgreSQL public.tb_iamweb_users PAYMENT_COMPLETE",
+    "thecleancoffee_order_source_primary_candidate": "VM Cloud SQLite imweb_orders(site='thecleancoffee') / NPay primary candidate",
+    "caveats": [
+      "브랜드검색 marker 매출은 click/order exact attribution이 아니라 유입 marker 기반 참고값이다.",
+      "주문 정본 같은-window 총액은 브랜드검색으로 온 주문만의 확정 매출이 아니라 cross-check 상한/분모 sanity check다.",
+      "운영DB write, VM Cloud write, 광고 플랫폼 전송, GTM publish는 실행하지 않는다."
+    ]
+  },
+  "freshness": {
+    "cost_cached_at_max": "2026-05-25 12:52:49",
+    "landing_max_landed_at": "2026-05-25T13:43:11.530Z",
+    "attribution_max_logged_at": "2026-05-25T13:43:11.558Z",
+    "coffee_imweb_max_order_time": "2026-05-25T13:32:47.000Z",
+    "coffee_imweb_max_synced_at": "2026-05-25 13:39:49",
+    "coffee_imweb_max_status_synced_at": "2026-05-25 12:10:47",
+    "biocom_operating_db_max_source_date": "2026-05-25"
+  },
+  "by_site": [
+    {
+      "site": "biocom",
+      "effective_window": {
+        "since": "2026-05-22",
+        "until": "2026-05-25",
+        "timezone": "KST"
+      },
+      "cost": {
+        "total_cost_krw": 205336,
+        "confirmed_contract_cost_krw": 205336,
+        "renewal_assumption_cost_krw": 0
+      },
+      "brandsearch_evidence": {
+        "landing_rows": 132,
+        "vm_marker_payment_success_rows": 18,
+        "vm_marker_payment_success_amount_krw": 4786416,
+        "marker_roas": 23.31
+      },
+      "order_source": {
+        "source": "운영DB PostgreSQL public.tb_iamweb_users",
+        "filter": "payment_status=PAYMENT_COMPLETE, cancellation/return blank, amount>0, grouped by order key",
+        "window": {
+          "since": "2026-05-22",
+          "until": "2026-05-25",
+          "timezone": "KST"
+        },
+        "order_count": 199,
+        "revenue_krw": 47306484,
+        "npay_order_count": 9,
+        "npay_revenue_krw": 1355600,
+        "non_npay_order_count": 190,
+        "non_npay_revenue_krw": 45950884,
+        "max_source_date": "2026-05-25",
+        "source_columns_used": {
+          "date_columns": [
+            "payment_complete_time",
+            "order_date"
+          ],
+          "amount_columns": [
+            "final_order_amount",
+            "paid_price",
+            "total_price"
+          ],
+          "key_columns": [
+            "order_number"
+          ]
+        },
+        "payment_method_breakdown": [
+          {
+            "payment_method_group": "CARD",
+            "order_count": 137,
+            "revenue_krw": 41944619
+          },
+          {
+            "payment_method_group": "VIRTUAL",
+            "order_count": 8,
+            "revenue_krw": 2007404
+          },
+          {
+            "payment_method_group": "OTHER",
+            "order_count": 45,
+            "revenue_krw": 1998861
+          },
+          {
+            "payment_method_group": "NAVERPAY",
+            "order_count": 9,
+            "revenue_krw": 1355600
+          }
+        ],
+        "warnings": []
+      },
+      "order_source_same_window_reference": {
+        "revenue_krw": 47306484,
+        "order_count": 199,
+        "roas_if_all_same_window_orders_are_compared_to_brandsearch_cost": 230.39,
+        "interpretation": "주문 정본 같은-window 총액이다. 브랜드검색 유입 주문만 확정한 값이 아니므로 marker 매출의 cross-check/상한 참고로만 본다."
+      },
+      "warnings": []
+    },
+    {
+      "site": "thecleancoffee",
+      "effective_window": {
+        "since": "2026-05-11",
+        "until": "2026-05-25",
+        "timezone": "KST"
+      },
+      "cost": {
+        "total_cost_krw": 770005,
+        "confirmed_contract_cost_krw": 770005,
+        "renewal_assumption_cost_krw": 0
+      },
+      "brandsearch_evidence": {
+        "landing_rows": 15,
+        "vm_marker_payment_success_rows": 11,
+        "vm_marker_payment_success_amount_krw": 352564,
+        "marker_roas": 0.46
+      },
+      "order_source": {
+        "source": "VM Cloud SQLite imweb_orders(site='thecleancoffee')",
+        "filter": "site=thecleancoffee, payment_amount/total_price>0, cancel/return/exchange/refund status excluded; status blank included with warning",
+        "window": {
+          "since": "2026-05-11",
+          "until": "2026-05-25",
+          "timezone": "KST"
+        },
+        "all_positive_orders": 780,
+        "all_positive_revenue_krw": 45621317,
+        "npay_primary_candidate_orders": 230,
+        "npay_primary_candidate_revenue_krw": 12830000,
+        "status_blank_orders": 6,
+        "status_blank_revenue_krw": 481122,
+        "max_order_time": "2026-05-25T13:32:47.000Z",
+        "max_synced_at": "2026-05-25 13:39:43",
+        "max_status_synced_at": "2026-05-25 12:10:42",
+        "pay_type_breakdown": [
+          {
+            "pay_type_group": "card",
+            "order_count": 472,
+            "revenue_krw": 29624062
+          },
+          {
+            "pay_type_group": "npay",
+            "order_count": 230,
+            "revenue_krw": 12830000
+          },
+          {
+            "pay_type_group": "etc",
+            "order_count": 48,
+            "revenue_krw": 1789294
+          },
+          {
+            "pay_type_group": "virtual",
+            "order_count": 29,
+            "revenue_krw": 1358161
+          },
+          {
+            "pay_type_group": "free",
+            "order_count": 1,
+            "revenue_krw": 19800
+          }
+        ],
+        "warnings": [
+          "coffee_imweb_status_blank_included_with_warning"
+        ]
+      },
+      "order_source_same_window_reference": {
+        "revenue_krw": 12830000,
+        "order_count": 230,
+        "roas_if_all_same_window_orders_are_compared_to_brandsearch_cost": 16.66,
+        "interpretation": "주문 정본 같은-window 총액이다. 브랜드검색 유입 주문만 확정한 값이 아니므로 marker 매출의 cross-check/상한 참고로만 본다."
+      },
+      "warnings": [
+        "coffee_imweb_status_blank_included_with_warning",
+        "coffee_order_source_reference_uses_npay_primary_candidate; all_positive_imweb_total_is_available_in_json"
+      ]
+    }
+  ],
+  "invariants_held": {
+    "sqlite_mode": "read_only",
+    "sqlite_write": 0,
+    "backend_deploy_or_restart": 0,
+    "platform_send": 0,
+    "raw_identifier_selected": 0,
+    "operating_db_mode": "read_only",
+    "operating_db_write": 0,
+    "vm_cloud_write": 0,
+    "conversion_upload": 0,
+    "raw_identifier_output": 0
+  }
+}

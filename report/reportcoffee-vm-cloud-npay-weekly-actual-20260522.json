@@ -1,0 +1,74 @@
+{
+  "report": "reportcoffee_vm_cloud_npay_weekly_actual_20260522",
+  "generated_at_utc": "2026-05-21T16:21:18Z",
+  "generated_at_kst": "2026-05-22 01:21 KST",
+  "site": "thecleancoffee",
+  "source": {
+    "system": "vm_cloud_sqlite_read_only",
+    "db_path": "/home/biocomkr_sns/seo/repo/backend/data/crm.sqlite3",
+    "table": "imweb_orders",
+    "write_operations": 0,
+    "primary_rule": "site + pay_type=npay + payment_amount>0 + KST order_time window + cancel/return/exchange excluded"
+  },
+  "window": {
+    "timezone": "Asia/Seoul",
+    "start_date": "2026-05-15",
+    "end_date_inclusive": "2026-05-21",
+    "start_utc": "2026-05-14T15:00:00.000Z",
+    "end_exclusive_utc": "2026-05-21T15:00:00.000Z"
+  },
+  "source_freshness": {
+    "all_site_npay_count": 1470,
+    "all_site_npay_amount_krw": 64237400,
+    "max_order_time": "2026-05-21T13:21:38.000Z",
+    "max_synced_at": "2026-05-21 16:11:32",
+    "max_status_synced_at": "2026-05-21 12:10:49"
+  },
+  "npay_actual": {
+    "status": "included_with_freshness_warning",
+    "count": 72,
+    "amount_krw": 3693400,
+    "max_order_time": "2026-05-21T13:21:38.000Z",
+    "max_synced_at": "2026-05-21 16:11:15",
+    "max_status_synced_at": "2026-05-21 12:10:44"
+  },
+  "diagnostics": {
+    "gross_before_status_exclusion": {
+      "count": 80,
+      "amount_krw": 4373200,
+      "max_order_time": "2026-05-21T13:21:38.000Z"
+    },
+    "excluded_cancel_return_exchange": {
+      "count": 8,
+      "amount_krw": 679800
+    },
+    "included_status_present": {
+      "count": 68,
+      "amount_krw": 3551800
+    },
+    "included_status_blank_freshness_warning": {
+      "count": 4,
+      "amount_krw": 141600
+    },
+    "complete_time_legacy": {
+      "count": 60,
+      "amount_krw": 3253700
+    },
+    "bridge_pending_complete_time_blank": {
+      "count": 12,
+      "amount_krw": 439700
+    }
+  },
+  "guardrails": {
+    "read_only": 1,
+    "db_write": 0,
+    "sync_or_import": 0,
+    "deploy_or_restart": 0,
+    "slack_send": 0,
+    "platform_send_or_upload": 0,
+    "raw_identifier_output": 0,
+    "npay_click_promoted_to_purchase": 0,
+    "complete_time_blank_is_not_unpaid": 1
+  },
+  "confidence": "medium_high_with_status_freshness_warning"
+}

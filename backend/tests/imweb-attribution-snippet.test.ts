@@ -18,6 +18,17 @@ test("renderImwebPaymentSuccessSnippet includes GA identifier collection and liv
   assert.match(snippet, /user_pseudo_id/);
   assert.match(snippet, /client_id_fallback/);
   assert.match(snippet, /CONFIG\.measurementIds/);
+  assert.match(snippet, /paidTouchBeforeCheckoutKey: 'biocom_paid_touch_before_checkout_v1'/);
+  assert.match(snippet, /readPaidTouchBeforeCheckout\(lastTouch\)/);
+  assert.match(snippet, /paidTouchBeforeCheckout: paidTouchBeforeCheckoutPresent \? paidTouchBeforeCheckout : undefined/);
+  assert.match(snippet, /paid_touch_before_checkout_present/);
+  assert.match(snippet, /paid_touch_before_checkout_grade/);
+  assert.match(snippet, /paid_touch_meta_campaign_id_present/);
+  assert.match(snippet, /localStorage\._p1s1a_last_touch\.paidTouchBeforeCheckout/);
+  assert.match(snippet, /buildPaidTouchFromFlatTouch\(lastTouch/);
+  assert.match(snippet, /localStorage\._p1s1a_last_touch\.flat_numeric_utm/);
+  assert.match(snippet, /flat_touch_numeric_meta_fallback/);
+  assert.match(snippet, /numeric_utm_campaign/);
   assert.match(snippet, /hasSentMarker\(dedupeKey\)/);
   assert.match(snippet, /rememberSent\(dedupeKey\)/);
   assert.match(snippet, /payment-success failed with/);

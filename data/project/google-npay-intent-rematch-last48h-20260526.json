@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "mode": "npay_intent_rematch_dry_run_read_only",
+  "generatedAt": "2026-05-26T01:36:11.521Z",
+  "source": {
+    "intents": "readonly sqlite npay_intent_log (/Users/vibetj/coding/seo/backend/data/crm.sqlite3)",
+    "orders": "readonly operational_postgres.public.tb_iamweb_users"
+  },
+  "window": {
+    "start": "2026-05-23T15:00:00.000Z",
+    "end": "2026-05-26T14:59:59.000Z",
+    "site": "biocom",
+    "noPurchaseGraceHours": 24,
+    "clickedNoPurchaseCutoffAt": "2026-05-25T14:59:59.000Z"
+  },
+  "thresholds": {
+    "strongScoreThreshold": 50,
+    "minScoreGap": 10,
+    "gradeA": {
+      "minScore": 70,
+      "requiredAmountMatchType": "final_or_reconciled",
+      "maxTimeGapMinutes": 2,
+      "minScoreGap": 15
+    },
+    "maxCandidateLookbackHours": 24
+  },
+  "noWrite": true,
+  "noSend": true,
+  "rawIdentifierOutput": false,
+  "summary": {
+    "liveIntentCount": 0,
+    "confirmedNpayOrderCount": 6,
+    "strongMatch": 0,
+    "pendingStrongMatch": 0,
+    "pendingStrongMatchWithGoogleClickId": 0,
+    "pendingGradeA": 0,
+    "pendingGradeB": 0,
+    "pendingOrderCreateBridgeExact": 0,
+    "pendingOrderCreateBridgeExactWithGoogleClickId": 0,
+    "blockedNonPendingIntent": 0,
+    "ambiguous": 0,
+    "purchaseWithoutIntent": 6,
+    "uploadCandidateCount": 0,
+    "platformSendCandidateCount": 0
+  },
+  "candidates": [],
+  "blocked": [],
+  "notes": [
+    "read-only dry-run only: npay_intent_log.match_status, matched_order_no, matched_at are not updated.",
+    "This does not send GA4, Meta, TikTok, or Google Ads conversions.",
+    "recommendedAction=safe_apply_candidate_after_write_approval still means DB write approval is required before applying.",
+    "Grade B rows are useful for diagnosis and manual review, not automatic write/apply.",
+    "order_create_time_bridge=exact is internal bridge evidence only. It does not bypass Grade A or platform-send guards."
+  ]
+}
