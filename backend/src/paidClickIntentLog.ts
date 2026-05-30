@@ -3,6 +3,10 @@ import { createHash, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 
 import { getCrmDb } from "./crmLocalDb";
+import {
+  hasSyntheticGoogleClickId,
+  sanitizeGoogleClickIdForStorage,
+} from "./googleClickIdSanitizer";
 
 const TABLE = "paid_click_intent_ledger";
 let tableReady = false;
@@ -156,9 +160,12 @@ export type PaidClickIntentPreview = {
 };
 
 const pickClickIdType = (clickIds: PaidClickIntentPreview["click_ids"]): { type: string; value: string } => {
-  if (clickIds.gclid) return { type: "gclid", value: clickIds.gclid };
-  if (clickIds.gbraid) return { type: "gbraid", value: clickIds.gbraid };
-  if (clickIds.wbraid) return { type: "wbraid", value: clickIds.wbraid };
+  const gclid = sanitizeGoogleClickIdForStorage(clickIds.gclid);
+  const gbraid = sanitizeGoogleClickIdForStorage(clickIds.gbraid);
+  const wbraid = sanitizeGoogleClickIdForStorage(clickIds.wbraid);
+  if (gclid) return { type: "gclid", value: gclid };
+  if (gbraid) return { type: "gbraid", value: gbraid };
+  if (wbraid) return { type: "wbraid", value: wbraid };
   return { type: "", value: "" };
 };
 
@@ -215,9 +222,9 @@ export const buildPaidClickIntentAllowedQueryJson = (preview: PaidClickIntentPre
   if (preview.utm.campaign) allowed.utm_campaign = preview.utm.campaign;
   if (preview.utm.term) allowed.utm_term = preview.utm.term;
   if (preview.utm.content) allowed.utm_content = preview.utm.content;
-  if (preview.click_ids.gclid) allowed.gclid_present = "1";
-  if (preview.click_ids.gbraid) allowed.gbraid_present = "1";
-  if (preview.click_ids.wbraid) allowed.wbraid_present = "1";
+  if (sanitizeGoogleClickIdForStorage(preview.click_ids.gclid)) allowed.gclid_present = "1";
+  if (sanitizeGoogleClickIdForStorage(preview.click_ids.gbraid)) allowed.gbraid_present = "1";
+  if (sanitizeGoogleClickIdForStorage(preview.click_ids.wbraid)) allowed.wbraid_present = "1";
   return JSON.stringify(allowed);
 };
 
@@ -308,6 +315,12 @@ export const recordPaidClickIntent = (
 ): PaidClickIntentRecordResult => {
   if (isPiiPresent(rawInput)) {
     return { stored: false, deduped: false, rejected: true, reason: "pii_or_purchase_field_detected" };
+  }
+  if (
+    preview.test_click_id
+    || hasSyntheticGoogleClickId(preview.click_ids.gclid, preview.click_ids.gbraid, preview.click_ids.wbraid)
+  ) {
+    return { stored: false, deduped: false, rejected: true, reason: "synthetic_or_test_google_click_id" };
   }
   if (!preview.live_candidate_after_approval) {
     return { stored: false, deduped: false, rejected: true, reason: preview.block_reasons.join(",") || "not_live_candidate" };

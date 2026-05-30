@@ -1,0 +1,39 @@
+{
+  "generated_at_kst": "2026-05-28T12:49:09",
+  "run_id": "20260528T034908Z",
+  "execute": false,
+  "lane": "Yellow",
+  "container_public_id": "GTM-W2Z6PHN",
+  "container_path": "accounts/4703003246/containers/13158774",
+  "live_version_before": {
+    "id": "145",
+    "name": "paid_click_intent_v3_stale_click_id_guard_20260521"
+  },
+  "workspaces_before": [
+    {
+      "workspace_id": "171",
+      "name": "biocom-npay-bridge-preview-20260528",
+      "path": "accounts/4703003246/containers/13158774/workspaces/171"
+    },
+    {
+      "workspace_id": "167",
+      "name": "AGENT_OS_path_b_controlled_traffic_preview_20260509T155435Z",
+      "path": "accounts/4703003246/containers/13158774/workspaces/167"
+    },
+    {
+      "workspace_id": "147",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/13158774/workspaces/147"
+    }
+  ],
+  "requested_workspace_id": "171",
+  "planned_workspace_name": "",
+  "planned_trigger_name": "codex_npay_bridge_v11_all_pages_preview_20260528T034908Z",
+  "planned_tag_name": "codex_npay_bridge_v11_custom_html_preview_20260528T034908Z",
+  "tag_source_file": "/Users/vibetj/coding/seo/imweb/biocom-npay-bridge-gtm-v1-1-preview.js",
+  "tag_html_bytes": 29917,
+  "no_submit": true,
+  "no_create_version": true,
+  "no_publish": true,
+  "note": "Preview workspace only. The Custom HTML tag writes to VM Cloud npay-intent only when the tester clicks/opens NPay."
+}

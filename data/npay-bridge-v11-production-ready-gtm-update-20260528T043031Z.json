@@ -1,0 +1,350 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-28T04:30:44.851Z",
+  "generated_at_kst": "2026-05-28T13:30:44",
+  "lane": "Yellow",
+  "no_submit_done": true,
+  "no_create_version_done": true,
+  "no_publish_done": true,
+  "workspace_id": "171",
+  "tag_updated": {
+    "tag_id": "311",
+    "before_name": "codex_npay_bridge_v11_custom_html_preview_20260528T034958Z",
+    "after_name": "BI - NPay Bridge Intent Capture v1.1",
+    "firing_trigger_id": [
+      "310"
+    ],
+    "html_bytes": 33529
+  },
+  "old_v1_tag": {
+    "tag_id": "308",
+    "name": "BI - NPay Bridge Intent Capture v1 [PREVIEW ONLY]",
+    "paused": true
+  },
+  "workspace_tags_after": [
+    {
+      "tag_id": "279",
+      "name": "codex_paid_click_intent_v1_receiver_no_send",
+      "paused": false
+    },
+    {
+      "tag_id": "299",
+      "name": "AGENT_OS_path_b_identity_first_hmac_write_canary_20260509T121717Z",
+      "paused": false
+    },
+    {
+      "tag_id": "200",
+      "name": "UPDE_register",
+      "paused": true
+    },
+    {
+      "tag_id": "204",
+      "name": "UPDE_purchase",
+      "paused": true
+    },
+    {
+      "tag_id": "259",
+      "name": "SEO - TikTok Marketing Intent - v1",
+      "paused": false
+    },
+    {
+      "tag_id": "118",
+      "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (제품상세)",
+      "paused": false
+    },
+    {
+      "tag_id": "43",
+      "name": "GA4_구매전환_Npay",
+      "paused": false
+    },
+    {
+      "tag_id": "48",
+      "name": "GA4_구매전환_홈피구매",
+      "paused": true
+    },
+    {
+      "tag_id": "143",
+      "name": "HURDLERS - [이벤트전송] 구매",
+      "paused": false
+    },
+    {
+      "tag_id": "154",
+      "name": "HURDLERS - [데이터레이어] 구매",
+      "paused": false
+    },
+    {
+      "tag_id": "251",
+      "name": "biocom - [데이터 준비] hurdlers_ga4 purchase 값 주입 (Claude)",
+      "paused": false
+    },
+    {
+      "tag_id": "51",
+      "name": "GA4 장바구니 담기",
+      "paused": false
+    },
+    {
+      "tag_id": "98",
+      "name": "GA4_구매전환_Npay 2",
+      "paused": true
+    },
+    {
+      "tag_id": "101",
+      "name": "GA4 장바구니 담기2",
+      "paused": true
+    },
+    {
+      "tag_id": "248",
+      "name": "TechSol - [GAds]NPAY구매 51163",
+      "paused": false
+    },
+    {
+      "tag_id": "245",
+      "name": "Microsoft Clarity - Official",
+      "paused": false
+    },
+    {
+      "tag_id": "99",
+      "name": "GA4_픽셀 2",
+      "paused": true
+    },
+    {
+      "tag_id": "210",
+      "name": "구글애즈 회원가입",
+      "paused": false
+    },
+    {
+      "tag_id": "179",
+      "name": "ga4 장바구니 이벤트",
+      "paused": false
+    },
+    {
+      "tag_id": "114",
+      "name": "HURDLERS - [데이터레이어] 네이버페이 구매 (장바구니)",
+      "paused": false
+    },
+    {
+      "tag_id": "128",
+      "name": "HURDLERS - [이벤트전송] 네이버페이 구매",
+      "paused": false
+    },
+    {
+      "tag_id": "133",
+      "name": "HURDLERS - [데이터레이어] 상세페이지 조회",
+      "paused": false
+    },
+    {
+      "tag_id": "157",
+      "name": "HURDLERS - [이벤트전송] 상세페이지 조회",
+      "paused": false
+    },
+    {
+      "tag_id": "171",
+      "name": "User_id",
+      "paused": false
+    },
+    {
+      "tag_id": "49",
+      "name": "GA4_회원가입",
+      "paused": false
+    },
+    {
+      "tag_id": "169",
+      "name": "Google 태그 AW-304339096",
+      "paused": false
+    },
+    {
+      "tag_id": "152",
+      "name": "HURDLERS - [데이터레이어] 주문서작성",
+      "paused": false
+    },
+    {
+      "tag_id": "110",
+      "name": "HURDLERS - [데이터레이어] 초기화",
+      "paused": false
+    },
+    {
+      "tag_id": "145",
+      "name": "HURDLERS - [데이터레이어] 장바구니 보기",
+      "paused": false
+    },
+    {
+      "tag_id": "146",
+      "name": "HURDLERS - [맞춤 HTML] 허들러스 플러그인",
+      "paused": false
+    },
+    {
+      "tag_id": "147",
+      "name": "HURDLERS - [이벤트전송] 장바구니 보기",
+      "paused": false
+    },
+    {
+      "tag_id": "156",
+      "name": "HURDLERS - [데이터레이어] 장바구니 담기",
+      "paused": false
+    },
+    {
+      "tag_id": "158",
+      "name": "HURDLERS - [이벤트전송] 주문서작성",
+      "paused": false
+    },
+    {
+      "tag_id": "160",
+      "name": "HURDLERS - [이벤트전송] 장바구니 담기",
+      "paused": false
+    },
+    {
+      "tag_id": "162",
+      "name": "HURDLERS - [이벤트전송] 회원가입 완료",
+      "paused": false
+    },
+    {
+      "tag_id": "165",
+      "name": "HURDLERS - [데이터레이어] 회원가입 버튼 클릭",
+      "paused": false
+    },
+    {
+      "tag_id": "167",
+      "name": "HURDLERS - [데이터레이어] 회원가입 완료",
+      "paused": false
+    },
+    {
+      "tag_id": "103",
+      "name": "GA4_정기구독 신청 완료",
+      "paused": false
+    },
+    {
+      "tag_id": "105",
+      "name": "GA4_정기구독 해지 클릭",
+      "paused": false
+    },
+    {
+      "tag_id": "97",
+      "name": "[new]Google 태그",
+      "paused": false
+    },
+    {
+      "tag_id": "100",
+      "name": "G4_주문완료_요소공개2",
+      "paused": false
+    },
+    {
+      "tag_id": "96",
+      "name": "채널톡_초대코드 복사",
+      "paused": false
+    },
+    {
+      "tag_id": "92",
+      "name": "채널톡_영양제 결제하기(3검사+썬파이버)",
+      "paused": false
+    },
+    {
+      "tag_id": "93",
+      "name": "채널톡_검사권 구매하기",
+      "paused": false
+    },
+    {
+      "tag_id": "94",
+      "name": "채널톡_상담신청완료",
+      "paused": false
+    },
+    {
+      "tag_id": "65",
+      "name": "GA4_영양제 결제하기(3밸런스+썬파이버)",
+      "paused": false
+    },
+    {
+      "tag_id": "83",
+      "name": "GA4_3검사 결제하기",
+      "paused": false
+    },
+    {
+      "tag_id": "79",
+      "name": "GA4_상담신청완료",
+      "paused": false
+    },
+    {
+      "tag_id": "70",
+      "name": "G4_주문완료_요소공개",
+      "paused": false
+    },
+    {
+      "tag_id": "63",
+      "name": "GA4_리뷰 등록 완료",
+      "paused": false
+    },
+    {
+      "tag_id": "57",
+      "name": "GA4_상담 접수 완료",
+      "paused": false
+    },
+    {
+      "tag_id": "38",
+      "name": "GA4_픽셀",
+      "paused": false
+    },
+    {
+      "tag_id": "55",
+      "name": "채널톡_구매전환",
+      "paused": false
+    },
+    {
+      "tag_id": "17",
+      "name": "tmp_바이오컴 장바구니",
+      "paused": false
+    },
+    {
+      "tag_id": "21",
+      "name": "tmp_ga4 page_view_long 이벤트",
+      "paused": false
+    },
+    {
+      "tag_id": "53",
+      "name": "구조화된 데이터_Q&A",
+      "paused": true
+    },
+    {
+      "tag_id": "26",
+      "name": "tmp_구글 Ads 동적 리마케팅 잠재고객",
+      "paused": false
+    },
+    {
+      "tag_id": "2",
+      "name": "HOTJAR",
+      "paused": false
+    },
+    {
+      "tag_id": "15",
+      "name": "AW전환링커",
+      "paused": false
+    },
+    {
+      "tag_id": "23",
+      "name": "tmp_ga4모든 링크 클릭",
+      "paused": true
+    },
+    {
+      "tag_id": "308",
+      "name": "BI - NPay Bridge Intent Capture v1 [PREVIEW ONLY]",
+      "paused": true
+    },
+    {
+      "tag_id": "311",
+      "name": "BI - NPay Bridge Intent Capture v1.1",
+      "paused": false
+    }
+  ],
+  "quick_preview": {
+    "compiler_error": null,
+    "sync_status": null,
+    "container_version_id": "0"
+  },
+  "live_version_before": {
+    "id": "145",
+    "name": "paid_click_intent_v3_stale_click_id_guard_20260521"
+  },
+  "live_version_after": {
+    "id": "145",
+    "name": "paid_click_intent_v3_stale_click_id_guard_20260521"
+  },
+  "live_version_unchanged": true
+}

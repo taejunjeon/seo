@@ -1333,6 +1333,112 @@
   line-height: 1.45;
 }
 
+.npayTagFunnel {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.npayTagFunnelStep {
+  position: relative;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.npayTagFunnelTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.npayTagFunnelTop span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.72rem;
+  font-weight: 940;
+}
+
+.npayTagFunnelTop em {
+  color: #64748b;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 860;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.npayTagFunnelStep strong {
+  display: block;
+  margin-top: 8px;
+  color: #0f172a;
+  font-size: 0.84rem;
+  font-weight: 930;
+  line-height: 1.35;
+}
+
+.npayTagFunnelStep p {
+  margin: 7px 0 0;
+  color: #475569;
+  font-size: 0.7rem;
+  line-height: 1.48;
+}
+
+.npayTagFunnelStep dl {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+
+.npayTagFunnelStep dl div {
+  min-width: 0;
+  padding: 7px;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+
+.npayTagFunnelStep dt {
+  color: #92400e;
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.npayTagFunnelStep dd {
+  margin: 4px 0 0;
+  color: #334155;
+  font-size: 0.68rem;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.npayTagFunnelStep b {
+  position: absolute;
+  right: -9px;
+  top: 50%;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.78rem;
+  line-height: 1;
+  transform: translateY(-50%) rotate(-90deg);
+}
+
 .candidateGateCard {
   border-color: #bbf7d0;
   background: #fbfffd;
@@ -2380,6 +2486,7 @@
   .healthStandardGrid,
     .bridgeIntroGrid,
     .signalFlowGrid,
+    .npayTagFunnel,
     .candidateGateGrid,
     .noSendSummaryGrid,
   .privatePreviewSummary,
@@ -2425,6 +2532,13 @@
   .orderEvidenceBox {
     grid-template-columns: 1fr;
   }
+
+  .npayTagFunnelStep b {
+    right: 50%;
+    top: auto;
+    bottom: -14px;
+    transform: translateX(50%);
+  }
 }
 
 @media (max-width: 640px) {
@@ -2441,6 +2555,7 @@
     .campaignEvidenceSummary,
     .bridgeIntroGrid,
     .signalFlowGrid,
+    .npayTagFunnel,
     .candidateGateGrid,
     .noSendSummaryGrid,
     .noSendStepGrid,

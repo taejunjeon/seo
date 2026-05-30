@@ -10,6 +10,32 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:7020"
 
 type DatePreset = "last_7d" | "last_30d";
 
+const kstDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const getKstDateString = (date = new Date()) => kstDateFormatter.format(date);
+
+const shiftIsoDate = (dateString: string, deltaDays: number) => {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + deltaDays);
+  return date.toISOString().slice(0, 10);
+};
+
+const buildDashboardSummaryUrl = (preset: DatePreset) => {
+  if (preset === "last_7d") {
+    const endDate = getKstDateString();
+    const startDate = shiftIsoDate(endDate, -6);
+    return `${API_BASE}/api/google-ads/dashboard-summary?start_date=${startDate}&end_date=${endDate}&campaign_limit=20&refresh=1`;
+  }
+
+  return `${API_BASE}/api/google-ads/dashboard-summary?date_preset=${preset}&campaign_limit=20`;
+};
+
 type GoogleCampaignMatchHealth = {
   windowDays: number;
   generatedAt: string;
@@ -222,6 +248,9 @@ type GoogleNpayBridgeReviewRow = {
   amountMatchType: string;
   hasGoogleClickId: boolean;
   googleClickIdTypes: Array<"gclid" | "gbraid" | "wbraid">;
+  googleClickIdEvidenceSource?: string;
+  googleClickIdEvidencePlain?: string;
+  googleClickIdRawValueAvailable?: boolean;
   gadCampaignId: string | null;
   campaignIdEvidenceSource:
     | "intent_page_location"
@@ -240,8 +269,108 @@ type GoogleNpayBridgeReviewRow = {
     | "blocked_missing_click_id"
     | "manual_review_only";
   gradeAUpgradePlain?: string;
+  npayBridgeUrlHashPresent?: boolean;
+  npayBridgeHost?: string;
+  npayBridgePathHashPresent?: boolean;
+  npayBridgeObservedAt?: string;
   internalBridgeDecision: "strong_bridge_candidate" | "manual_review_candidate";
   googleAdsSendDecision: "blocked_no_send";
+};
+
+type GoogleNpayFinalSourceChannel = "google" | "meta" | "naver" | "organic" | "direct" | "unknown";
+
+type GoogleNpayFinalSourceSummary = {
+  totalCompletedOrders: number;
+  classifiedCompletedOrders: number;
+  unclassifiedCompletedOrders: number;
+  googleEvidenceOrders: number;
+  googleEvidenceAmountKrw: number;
+  byChannel: Array<{
+    channel: GoogleNpayFinalSourceChannel;
+    label: string;
+    completedOrders: number;
+    amountKrw: number;
+    bridgeCandidateOrders: number;
+    directGoogleClickIdOrders: number;
+    recoveredGoogleClickIdOrders: number;
+    confidence: "high" | "medium" | "low";
+    plain: string;
+  }>;
+  unclassifiedReasons?: Array<{
+    reason: string;
+    label: string;
+    completedOrders: number;
+    sharePct: number;
+    sampleOrderCount: number;
+    plain: string;
+  }>;
+  dateDistribution?: Array<{
+    dateKst: string;
+    completedOrders: number;
+    amountKrw: number;
+    bridgeCandidateOrders: number;
+    gradeA: number;
+    gradeB: number;
+    ambiguous: number;
+    purchaseWithoutIntent: number;
+    googleEvidenceOrders: number;
+    directGoogleClickIdOrders: number;
+  }>;
+  source: "npay_intent_bridge_candidate_rows";
+  basis: string;
+  caveat: string;
+};
+
+type GoogleNpayBridgeSourceFunnelRow = {
+  channel: "google" | "meta" | "other";
+  label: string;
+  intentCount: number;
+  bridgeOpenedIntentCount: number;
+  googleClickIdIntentCount: number;
+  completedOrders: number;
+  completedAmountKrw: number;
+  completionRatePct: number;
+  plain: string;
+};
+
+type GoogleNpayBridgeUnresolvedRow = {
+  orderNumber: string;
+  channelOrderNo: string;
+  status: "strong_match" | "ambiguous" | "purchase_without_intent";
+  strongGrade: "A" | "B" | null;
+  paidAt: string;
+  paidAtBasis: string | null;
+  orderCreatedAt: string;
+  orderAmount: number | null;
+  orderItemTotal: number | null;
+  deliveryPrice: number | null;
+  discountAmount: number | null;
+  quantity: number;
+  productNames: string[];
+  bestIntentCapturedAt: string;
+  bestIntentProductPrice: number | null;
+  bestIntentSourceChannel: "google" | "meta" | "other";
+  bestIntentSourceLabel: string;
+  bestIntentHasGoogleClickId: boolean;
+  bestIntentHasNpayBridgeUrlHash: boolean;
+  bestIntentBridgeHost: string;
+  timeGapMinutes: number | null;
+  orderCreatedGapMinutes: number | null;
+  orderCreateTimeBridge: string | null;
+  amountMatchType: string;
+  amountReconcileReason: string;
+  amountMismatchCategory?: string;
+  amountMismatchLabel?: string;
+  amountMismatchPlain?: string;
+  amountMismatchConfidence?: "high" | "medium" | "low";
+  amountMismatchSignals?: string[];
+  score: number | null;
+  scoreGap: number | null;
+  candidateCount: number;
+  ambiguousReasons: string[];
+  availableFacts: string[];
+  missingFacts: string[];
+  proposedFix: string;
 };
 
 type GoogleNpayBridgeReview = {
@@ -260,18 +389,49 @@ type GoogleNpayBridgeReview = {
   };
   summary: {
     liveIntentCount: number;
+    googleLikeIntentCount: number;
+    googleLikeIntentWithGoogleClickId: number;
+    googleClickIdIntentCount: number;
+    googleClickIdIntentBreakdown: {
+      gclid: number;
+      gbraid: number;
+      wbraid: number;
+    };
+    liveIntentWithNpayBridgeUrlHash?: number;
+    googleLikeIntentWithNpayBridgeUrlHash?: number;
+    enteredNotCompletedBreakdown?: {
+      total: number;
+      pendingWindow: number;
+      loginGatePossible: number;
+      checkoutOpenedPossible: number;
+      matchingGapPossible: number;
+    };
     actualConfirmedNpayOrders: number;
     internalBridgeStrongCandidates: number;
     internalBridgeExactCandidates: number;
     internalBridgeExactWithGoogleClickId: number;
+    bridgeCandidatesWithNpayBridgeUrlHash?: number;
     bridgeCandidatesWithGoogleClickId: number;
+    bridgeCandidatesWithRecoveredGoogleClickId?: number;
     gradeA: number;
+    gradeAWithDirectGoogleClickId?: number;
+    gradeAWithRecoveredGoogleClickId?: number;
+    gradeAWithGoogleClickId?: number;
+    gradeAWithNpayBridgeUrlHash?: number;
+    gradeAWithGoogleClickIdAndNpayBridgeUrlHash?: number;
+    gradeADirectGoogleClickIdAmountKrw?: number;
+    gradeAWithGoogleClickIdAmountKrw?: number;
+    gradeARecoveredGoogleClickIdAmountKrw?: number;
+    gradeANeedsClickIdRecoveryRows?: number;
     gradeB: number;
     gradeBWithGoogleClickId: number;
     gradeBBlockedByTimeGap: number;
     gradeBBlockedByAmount: number;
     gradeBBlockedByMissingGoogleClickId: number;
     gradeBPromotableToGradeANow: number;
+    googleLikeCompletedOrders: number;
+    googleLikeCompletedAmountKrw: number;
+    googleLikeCompletedWithDirectGoogleClickId: number;
     ambiguous: number;
     purchaseWithoutIntent: number;
     googleAdsSendCandidates: 0;
@@ -290,6 +450,9 @@ type GoogleNpayBridgeReview = {
     amountKrw: number;
     googleAdsSendCandidates: 0;
   }>;
+  finalSourceSummary?: GoogleNpayFinalSourceSummary;
+  sourceFunnelComparison?: GoogleNpayBridgeSourceFunnelRow[];
+  unresolvedRows?: GoogleNpayBridgeUnresolvedRow[];
   plainMeaning: string;
   noWritePolicy: string;
   caveats: string[];
@@ -1139,18 +1302,41 @@ const fallbackNpayBridgeReview: GoogleNpayBridgeReview = {
   },
   summary: {
     liveIntentCount: 256,
+    googleLikeIntentCount: 188,
+    googleLikeIntentWithGoogleClickId: 186,
+    googleClickIdIntentCount: 186,
+    googleClickIdIntentBreakdown: {
+      gclid: 186,
+      gbraid: 0,
+      wbraid: 0,
+    },
+    liveIntentWithNpayBridgeUrlHash: 0,
+    googleLikeIntentWithNpayBridgeUrlHash: 0,
+    enteredNotCompletedBreakdown: {
+      total: 0,
+      pendingWindow: 0,
+      loginGatePossible: 0,
+      checkoutOpenedPossible: 0,
+      matchingGapPossible: 0,
+    },
     actualConfirmedNpayOrders: 23,
     internalBridgeStrongCandidates: 20,
     internalBridgeExactCandidates: 20,
     internalBridgeExactWithGoogleClickId: 1,
+    bridgeCandidatesWithNpayBridgeUrlHash: 0,
     bridgeCandidatesWithGoogleClickId: 1,
     gradeA: 13,
+    gradeAWithNpayBridgeUrlHash: 0,
+    gradeAWithGoogleClickIdAndNpayBridgeUrlHash: 0,
     gradeB: 7,
     gradeBWithGoogleClickId: 1,
     gradeBBlockedByTimeGap: 2,
     gradeBBlockedByAmount: 4,
     gradeBBlockedByMissingGoogleClickId: 6,
     gradeBPromotableToGradeANow: 0,
+    googleLikeCompletedOrders: 1,
+    googleLikeCompletedAmountKrw: 39000,
+    googleLikeCompletedWithDirectGoogleClickId: 0,
     ambiguous: 3,
     purchaseWithoutIntent: 0,
     googleAdsSendCandidates: 0,
@@ -1671,11 +1857,11 @@ const fallbackClickIdDropoffHealth: GoogleClickIdDropoffHealth = {
 
 const projectOkr = {
   objective:
-    "Google Ads가 보여주는 구매 숫자를 실제 결제완료 매출 기준으로 다시 읽고, 예산 판단에 쓸 수 있는 내부 ROAS 기준을 만든다.",
+    "진짜 병목은 네이버 외부 결제창을 지난 뒤 실제 결제완료 주문을 원래 버튼 클릭 row와 안정적으로 다시 붙이지 못하는 것을 해결하는 것입니다.",
   currentPosition:
-    "클릭 단계 수집은 정상에 가깝지만, 실제 결제완료 주문에 Google click id가 직접 남는 비율은 아직 낮습니다. 그래서 Google Ads ROAS는 참고값, 내부 confirmed + NPay actual ROAS는 예산 판단값으로 분리합니다.",
+    "NPay 버튼 클릭은 많이 잡힙니다. 문제는 네이버 외부 결제 화면을 거친 뒤 실제 결제완료 주문과 버튼 클릭 row가 충분히 자동 연결되지 않고, 연결되더라도 Google click id가 주문 근거에 같이 남지 않는다는 점입니다.",
   decision:
-    "Google Ads 전송 후보는 0건으로 유지합니다. 내부 bridge 후보는 no-write 표로 넓히되, Google Ads에 보내는 후보와 분리해서 봅니다.",
+    "보고서 예쁘게 보이는 문제가 아니라 NPay 외부 결제 흐름의 연결 장부를 닫는 일이 핵심입니다. Google Ads 전송은 실제 결제완료 주문과 click id가 같이 닫힌 후보만 씁니다.",
   baselines: [
     `클릭 보존 코드 기준점: ${postPatchClickIdHealth.patchStartedAtKst}`,
     `분석 알고리즘 v2 기준점: ${analysisAlgorithmV2Baseline.baselineAtKst}`,
@@ -1687,31 +1873,31 @@ const projectOkr = {
 const projectOkrResults = [
   {
     id: "KR1",
-    title: "Google Ads가 말하는 구매와 실제 결제완료 구매를 분리한다",
-    now: "Google Ads `구매완료`는 플랫폼이 구매라고 세는 값으로 표시하고, 내부 confirmed 매출은 별도 기준으로 표시했습니다.",
-    target: "보고서를 보는 사람이 `Google Ads 주장 구매`와 `내부 실제 결제완료`를 헷갈리지 않고 예산 판단값을 고를 수 있어야 합니다.",
-    why: "Google Ads 숫자만 보면 NPay 클릭/결제시작 성격이 실제 구매처럼 섞일 수 있어 ROAS가 과대해 보일 수 있습니다.",
+    title: "NPay 버튼 클릭 이후 어디서 이탈/유실되는지 단계별로 나눈다",
+    now: "button_clicked, bridge_opened, checkout_opened_possible, completed, entered_not_completed 단계로 나눠 보고 있습니다.",
+    target: "NPay 버튼 클릭 100건이 있으면 몇 건이 로그인에서 멈췄고, 몇 건이 결제서까지 갔고, 몇 건이 실제 결제완료가 됐는지 채널별로 설명합니다.",
+    why: "버튼 클릭은 구매가 아닙니다. 결제완료까지 가지 않은 이유를 알아야 광고 예산 문제인지 결제 UX 문제인지 분리할 수 있습니다.",
   },
   {
     id: "KR2",
-    title: "Google click id가 어디서 사라지는지 주문 흐름별로 찾는다",
-    now: "5월 21일 밤 이후 클릭 단계는 정상에 가깝지만, confirmed 결제완료 직접 보존은 0건으로 보고 있습니다.",
-    target: "랜딩, 구매하기 진입, 결제 화면, 결제완료, NPay 외부 결제 중 마지막으로 끊기는 지점을 주문 흐름별로 설명합니다.",
-    why: "Google Ads에 실제 구매를 알려주려면 주문마다 gclid/gbraid/wbraid 중 하나가 살아 있어야 합니다.",
+    title: "NPay 실제 결제완료 주문을 버튼 클릭 row와 자동으로 붙인다",
+    now: "A급은 자동 연결 가능 후보, B급은 수동 검토 후보, ambiguous는 여러 후보가 겹친 주문으로 나눕니다.",
+    target: "실제 NPay 결제완료 주문의 90% 이상을 A/B/미분류 사유로 자동 설명합니다.",
+    why: "실제 결제완료 주문이 어느 버튼 클릭에서 왔는지 모르면 Google/Meta/오가닉 중 어느 유입이 매출을 만들었는지 알 수 없습니다.",
   },
   {
     id: "KR3",
-    title: "NPay 실제 결제완료 매출은 살리고, Google 전송 후보와는 분리한다",
-    now: "최근 7일 no-write 검토에서 NPay 내부 bridge 후보 20건, Google click id 포함 후보 1건, Google Ads 전송 후보 0건입니다.",
-    target: "NPay actual은 내부 매출에 포함하되, Google click id가 없는 주문은 Google Ads 전송 후보로 올리지 않습니다.",
-    why: "NPay 실제 결제완료는 매출이 맞지만, 광고 클릭 증거가 없으면 Google Ads에 그 주문을 보내면 안 됩니다.",
+    title: "광고 클릭 증거를 주문 근거와 같이 남긴다",
+    now: "Google 광고 흔적이 있는 NPay 버튼 클릭은 많이 잡히지만, 실제 결제완료 주문으로 넘어오며 direct/미분류가 크게 남습니다.",
+    target: "Google/Meta/Naver/organic/direct/unknown 분류에서 unknown과 direct/출처 유실 비중을 꾸준히 줄입니다.",
+    why: "실제 구매가 있어도 광고 클릭 증거가 없으면 Google Ads에는 보낼 수 없고, 예산 판단도 흐려집니다.",
   },
   {
     id: "KR4",
-    title: "실제 결제완료 전용 전환 통로를 no-send로 준비한다",
-    now: "Google Ads upload 후보는 0건입니다. 실제 전송 없이 후보 조건과 차단 사유만 확인하는 단계입니다.",
-    target: "confirmed 주문, 금액, 취소/환불 제외, 중복 방지, click id 직접 증거가 모두 맞는 주문만 후보로 분리합니다.",
-    why: "바로 전송하면 Google 자동입찰 학습이 오염될 수 있으므로, 먼저 `보낼 수 있는 주문인지`만 안전하게 따져야 합니다.",
+    title: "Google Ads에는 실제 결제완료 주문만 보낸다",
+    now: "전송 가능 출발점은 실제 구매, 금액, click id, 중복 방지 key가 맞는 row만 따로 봅니다.",
+    target: "자동 전송 장부가 중복/취소/환불/테스트 click id를 막고, 실제 결제완료 후보만 소량 자동 전송합니다.",
+    why: "Google Ads가 버튼 클릭이 아니라 실제 구매 고객을 학습해야 ROAS 갭이 줄어듭니다.",
   },
 ] as const;
 
@@ -1719,44 +1905,44 @@ const projectActionPlan = [
   {
     step: "1",
     owner: "Codex",
-    title: "로컬 보고서와 live API의 기준을 맞춘다",
-    why: "화면 숫자와 서버 계산 기준이 다르면 TJ님이 어떤 숫자를 믿어야 하는지 판단하기 어렵습니다.",
-    how: "로컬 보고서에서 5월 21일 코드 기준점과 5월 25일 분석 v2 기준점을 같이 보여주고, live API도 같은 기준으로 읽게 합니다.",
+    title: "NPay 버튼 클릭부터 결제완료까지 퍼널을 매일 같은 기준으로 본다",
+    why: "버튼 클릭이 많은데 결제완료가 적은 이유가 로그인 이탈인지, 결제서 이탈인지, 주문 연결 유실인지 먼저 갈라야 합니다.",
+    how: "NPay intent, bridge URL, checkout 후보, 실제 결제완료 주문을 같은 7일 창으로 묶어 channel별 전환율을 계산합니다.",
     dependency: "로컬 구현은 독립 진행 가능. 운영 반영은 별도 배포 승인 필요.",
-    success: "보고서 상단에서 기준점, 예산 판단값, Google Ads 전송 후보 0건이 한눈에 보입니다.",
-    failureCheck: "숫자가 서로 다르면 API 응답 기준일, fallback 데이터, 브라우저 캐시를 먼저 확인합니다.",
+    success: "Google/Meta/기타별 NPay 버튼 클릭, bridge 열린 건수, 결제완료 건수, entered_not_completed 건수가 한 줄로 설명됩니다.",
+    failureCheck: "숫자가 이상하면 버튼 클릭 원장, bridge URL 저장률, NPay 주문 sync 시각을 먼저 확인합니다.",
     approval: "로컬 수정은 승인 불필요. VM Cloud/프론트 운영 배포는 승인 필요.",
     confidence: "95%",
   },
   {
     step: "2",
     owner: "Codex",
-    title: "5월 21일 이후 click id 유실 지점을 더 잘게 나눈다",
-    why: "지금은 클릭은 잡히는데 실제 결제완료 주문에는 직접 남지 않는다는 병목만 보입니다. 마지막 끊김 지점을 알아야 고칠 수 있습니다.",
-    how: "랜딩, 구매하기 진입, 결제 화면, 결제완료 신호, 내부 주문, NPay 외부 주문을 같은 기간으로 나눠 read-only 집계합니다.",
+    title: "실제 NPay 결제완료 주문을 A/B/ambiguous로 자동 분류한다",
+    why: "결제완료 주문을 어느 버튼 클릭과 붙일지 자동으로 닫아야 유입별 매출을 볼 수 있습니다.",
+    how: "order_time, complete_time, 금액, 상품명, bridge host/path, 같은 브라우저/GA 세션, click id를 점수화합니다.",
     dependency: "live API가 최신 VM Cloud/운영DB를 읽을 수 있어야 합니다. 새 주문이 쌓일수록 판단력이 올라갑니다.",
-    success: "각 단계별 Google click id 보존 건수와 다음 조치가 카드로 나옵니다.",
-    failureCheck: "단계별 row가 0이면 source 연결 문제인지, 실제 데이터가 없는지, sync 지연인지 나눠 확인합니다.",
+    success: "A급은 자동 연결, B급은 막힌 이유, ambiguous는 여러 후보가 겹친 이유가 주문별로 나옵니다.",
+    failureCheck: "B/ambiguous가 많으면 금액 보정, 상품명 정규화, bridge 원문 저장, 회원/브라우저 연결키 부족을 나눠 봅니다.",
     approval: "read-only 집계는 승인 불필요. DB write나 외부 전송은 승인 전 금지.",
     confidence: "90%",
   },
   {
     step: "3",
     owner: "Codex",
-    title: "NPay bridge 후보를 계속 no-write 표로 넓힌다",
-    why: "NPay는 외부 결제 페이지를 거치므로 내부 주문번호와 광고 클릭 증거가 직접 붙기 어렵습니다. 먼저 후보표로 안전하게 좁혀야 합니다.",
-    how: "최근 24~48시간과 7일 구간을 반복 dry-run해서 A급, B급, 애매한 후보, Google click id 포함 후보를 분리합니다.",
+    title: "Google/Meta/Naver/organic/direct/unknown 유입 분류를 주문 단위로 좁힌다",
+    why: "NPay 실제 매출은 맞지만 어떤 유입이 만든 매출인지 모르면 예산 판단이 계속 흔들립니다.",
+    how: "버튼 클릭 row의 URL/UTM/click id와 직전 paid-click/landing 원장을 같이 봐서 최종 유입을 분류합니다.",
     dependency: "NPay actual 주문과 내부 intent 로그가 쌓여야 합니다. 실제 write는 별도 승인 전 하지 않습니다.",
-    success: "내부 bridge 후보와 Google Ads 전송 후보가 화면에서 별도 숫자로 표시됩니다.",
-    failureCheck: "후보가 너무 많이 겹치면 시간창, 금액, 상품명, 주문 생성 시각 조건을 더 좁힙니다.",
+    success: "direct/unknown이 왜 생겼는지 missing intent, missing click id, multiple intents, amount mismatch로 설명됩니다.",
+    failureCheck: "direct가 높으면 실제 direct인지 외부 결제 중 출처 유실인지 NPay bridge 저장값을 먼저 봅니다.",
     approval: "no-write 검토는 승인 불필요. 영구 원장 write는 승인 필요.",
     confidence: "88%",
   },
   {
     step: "4",
     owner: "Codex",
-    title: "실제 결제완료 전용 no-send 후보 생성기를 준비한다",
-    why: "Google Ads에 보낼 수 있는 주문 후보를 미리 만들되, 실제 전송은 하지 않아야 안전합니다.",
+    title: "Google Ads 실제 구매 전송 후보를 결제완료 기준으로만 만든다",
+    why: "Google Ads가 버튼 클릭이 아니라 실제 결제완료 고객을 학습해야 ROAS 갭이 줄어듭니다.",
     how: "confirmed 주문만 대상으로 금액, 결제완료 시각, 취소/환불 제외, 중복 방지, gclid/gbraid/wbraid 존재 여부를 검사합니다.",
     dependency: "click id 직접 보존 또는 안전한 exact bridge 증거가 먼저 늘어야 합니다.",
     success: "후보마다 `보낼 수 있음`, `click id 없음`, `중복 위험`, `NPay bridge만 있음` 같은 차단 이유가 붙습니다.",
@@ -1767,12 +1953,12 @@ const projectActionPlan = [
   {
     step: "5",
     owner: "TJ님 + Codex",
-    title: "운영 반영 여부를 결정한다",
-    why: "로컬 보고서가 맞아도 실제 의사결정에는 운영 화면에서 같은 기준이 보여야 합니다.",
-    how: "TJ님이 배포를 승인하면 Codex가 VM Cloud backend/frontend 반영 후 `/ads/google-roas-report`에서 기준점, 유실 단계, bridge 후보, 전송 후보 0건을 smoke 확인합니다.",
+    title: "병목이 좁혀진 뒤에만 운영 전송/배포를 연다",
+    why: "설명되지 않은 NPay 클릭 이탈과 출처 유실을 둔 채 전송만 늘리면 Google Ads 학습이 다시 오염될 수 있습니다.",
+    how: "TJ님이 배포나 전송을 승인하면 Codex가 제한 건수, 중복 방지, 환불/취소 guard, 반영 모니터를 붙여 실행합니다.",
     dependency: "앞 단계 로컬 검증 통과와 TJ님 배포 승인 필요.",
-    success: "운영 보고서에서도 Google Ads 주장값과 내부 confirmed 기준값이 분리되어 보입니다.",
-    failureCheck: "운영에서 안 보이면 빌드 산출물, API 응답, 캐시, 배포 로그 순서로 확인합니다.",
+    success: "운영에서도 NPay 퍼널 병목과 Google Ads 전송 후보가 분리되고, 전송 후 반영/실패가 장부에 남습니다.",
+    failureCheck: "전송 실패가 늘면 click age, invalid/test click id, 전환 추적 기간, 날짜 축 불일치를 먼저 확인합니다.",
     approval: "운영 배포는 승인 필요. 외부 플랫폼 전송은 별도 승인 전 금지.",
     confidence: "82%",
   },
@@ -2079,6 +2265,77 @@ const readyButNotSentReview = {
     "전송 dispatcher 닫힘",
     "영구 safe_ref snapshot 0건",
     "중복 방지/환불 후속 반영 장부 미오픈",
+  ],
+} as const;
+
+const googleAdsLastClickAssist = {
+  checkedAtKst: "2026-05-29 13:15 KST",
+  source:
+    "VM Cloud upload ledger read-only + Google Ads API conversion/date comparison",
+  decision:
+    "Google Ads 기여 분석 모델은 데이터 기반으로 유지합니다. last-click은 설정값이 아니라 사람이 주문 흐름을 이해하기 위한 보조 카드입니다.",
+  observed: {
+    conversions: 9,
+    valueKrw: 1555827,
+    clickDateValueKrw: 1555827,
+    conversionDateValueKrw: 1555827,
+  },
+  pendingRepeated245: {
+    rows: 7,
+    valueKrw: 1715000,
+    sentWindowKst: "2026-05-29 01:18~02:59 KST",
+    elapsedAtCheck: "약 10~12시간 경과",
+    firstLikelyWindowKst: "2026-05-29 19:00~21:00 KST",
+    mostLikelyWindowKst: "2026-05-30 13:00~15:00 KST",
+    investigateAfterKst: "2026-06-01 01:00~03:00 KST",
+  },
+  cards: [
+    {
+      label: "Google Ads 실제 구매 전환",
+      value: "9건 / ₩1,555,827",
+      plain:
+        "BI confirmed_purchase_offline로 보낸 주문 중 현재 Google Ads 리포트에서 확인되는 합계입니다.",
+    },
+    {
+      label: "클릭 날짜 기준",
+      value: "₩1,555,827",
+      plain:
+        "구매가 발생한 날이 아니라, Google 광고를 클릭한 날짜에 전환값을 나눠 보는 방식입니다.",
+    },
+    {
+      label: "결제 날짜 기준",
+      value: "₩1,555,827",
+      plain:
+        "실제 결제가 일어난 날짜에 전환값을 놓고 보는 방식입니다. 내부 주문 장부와 비교할 때 더 직관적입니다.",
+    },
+    {
+      label: "아직 대기 중",
+      value: "7건 / ₩1,715,000",
+      plain:
+        "전송은 됐지만 Google Ads 리포트에서 아직 분명하게 확인되지 않은 245,000원 반복 주문 묶음입니다.",
+    },
+  ],
+  conditions: [
+    {
+      label: "click id가 Google에서 인정되는가",
+      plain:
+        "gclid/gbraid/wbraid가 실제 광고 클릭에서 온 값이어야 합니다. TEST/SMOKE 값은 후보 생성 단계에서 제외합니다.",
+    },
+    {
+      label: "30일 클릭 연결 기간 안인가",
+      plain:
+        "BI confirmed_purchase_offline은 클릭연결 전환 추적 기간이 30일입니다. 클릭이 너무 오래됐으면 전송은 성공처럼 보여도 리포트에 안 붙을 수 있습니다.",
+    },
+    {
+      label: "조회 날짜 축을 맞췄는가",
+      plain:
+        "데이터 기반 기여 분석은 구매 금액을 클릭 날짜 쪽으로 나눌 수 있습니다. 그래서 클릭 날짜 기준과 결제 날짜 기준을 같이 봐야 합니다.",
+    },
+    {
+      label: "반영 지연 구간 안인가",
+      plain:
+        "지금 대기 7건은 전송 후 약 10~12시간 지난 상태입니다. 36시간 전까지는 지연으로 보고, 72시간을 넘으면 원인 점검 대상으로 봅니다.",
+    },
   ],
 } as const;
 
@@ -2453,6 +2710,123 @@ const campaignIdEvidenceSourceLabel = (
   return "campaign id 없음";
 };
 
+const amountMismatchCategoryLabel = (value: string | null | undefined) => {
+  if (value === "quantity") return "수량";
+  if (value === "cart_multi_item") return "장바구니/복수상품";
+  if (value === "set_or_bundle") return "세트상품/묶음";
+  if (value === "coupon_shipping") return "쿠폰·배송비";
+  if (value === "insufficient_item_data") return "정보부족";
+  if (value === "matched_or_reconciled") return "금액 설명됨";
+  return "미분류 금액차";
+};
+
+const buildFallbackNpayFinalSourceSummary = (
+  review: GoogleNpayBridgeReview,
+): GoogleNpayFinalSourceSummary => {
+  const googleRows = review.campaignSummary.filter(
+    (row) => Boolean(row.campaignId) || row.bridgeCandidatesWithGoogleClickId > 0,
+  );
+  const noCampaignRows = review.campaignSummary.filter(
+    (row) => !row.campaignId && row.bridgeCandidatesWithGoogleClickId === 0,
+  );
+  const googleCompletedOrders = googleRows.reduce((sum, row) => sum + row.internalBridgeCandidates, 0);
+  const googleAmountKrw = googleRows.reduce((sum, row) => sum + row.amountKrw, 0);
+  const directOrUnknownOrders = noCampaignRows.reduce((sum, row) => sum + row.internalBridgeCandidates, 0);
+  const directOrUnknownAmountKrw = noCampaignRows.reduce((sum, row) => sum + row.amountKrw, 0);
+  const unclassifiedCompletedOrders = Math.max(
+    0,
+    review.summary.actualConfirmedNpayOrders - review.summary.internalBridgeStrongCandidates,
+  );
+
+  return {
+    totalCompletedOrders: review.summary.actualConfirmedNpayOrders,
+    classifiedCompletedOrders: review.summary.internalBridgeStrongCandidates,
+    unclassifiedCompletedOrders,
+    googleEvidenceOrders: googleCompletedOrders,
+    googleEvidenceAmountKrw: googleAmountKrw,
+    byChannel: [
+      {
+        channel: "google",
+        label: "Google 광고",
+        completedOrders: googleCompletedOrders,
+        amountKrw: googleAmountKrw,
+        bridgeCandidateOrders: googleCompletedOrders,
+        directGoogleClickIdOrders: review.summary.internalBridgeExactWithGoogleClickId,
+        recoveredGoogleClickIdOrders: Math.max(
+          0,
+          review.summary.bridgeCandidatesWithRecoveredGoogleClickId ?? 0,
+        ),
+        confidence: googleCompletedOrders > 0 ? "medium" : "low",
+        plain:
+          "campaign id 또는 Google click id가 있는 내부 bridge 후보입니다. 실제 Google Ads 전송 후보와는 별도로 봅니다.",
+      },
+      {
+        channel: "meta",
+        label: "Meta",
+        completedOrders: 0,
+        amountKrw: 0,
+        bridgeCandidateOrders: 0,
+        directGoogleClickIdOrders: 0,
+        recoveredGoogleClickIdOrders: 0,
+        confidence: "low",
+        plain: "현재 요약 API에는 Meta로 확정할 수 있는 NPay bridge 후보가 없습니다.",
+      },
+      {
+        channel: "naver",
+        label: "Naver",
+        completedOrders: 0,
+        amountKrw: 0,
+        bridgeCandidateOrders: 0,
+        directGoogleClickIdOrders: 0,
+        recoveredGoogleClickIdOrders: 0,
+        confidence: "low",
+        plain: "현재 요약 API에는 Naver로 확정할 수 있는 NPay bridge 후보가 없습니다.",
+      },
+      {
+        channel: "organic",
+        label: "Organic 검색",
+        completedOrders: 0,
+        amountKrw: 0,
+        bridgeCandidateOrders: 0,
+        directGoogleClickIdOrders: 0,
+        recoveredGoogleClickIdOrders: 0,
+        confidence: "low",
+        plain: "현재 요약 API에는 organic 검색으로 확정할 수 있는 NPay bridge 후보가 없습니다.",
+      },
+      {
+        channel: "direct",
+        label: "Direct/출처 없음",
+        completedOrders: directOrUnknownOrders,
+        amountKrw: directOrUnknownAmountKrw,
+        bridgeCandidateOrders: directOrUnknownOrders,
+        directGoogleClickIdOrders: 0,
+        recoveredGoogleClickIdOrders: 0,
+        confidence: "low",
+        plain:
+          "campaign id가 없는 내부 bridge 후보입니다. 실제 direct일 수도 있고, NPay 외부 결제 과정에서 출처가 유실됐을 수도 있습니다.",
+      },
+      {
+        channel: "unknown",
+        label: "미분류",
+        completedOrders: unclassifiedCompletedOrders,
+        amountKrw: 0,
+        bridgeCandidateOrders: 0,
+        directGoogleClickIdOrders: 0,
+        recoveredGoogleClickIdOrders: 0,
+        confidence: "low",
+        plain: "버튼 클릭 row와 강하게 붙지 않아 유입을 단정하지 않습니다.",
+      },
+	    ],
+    unclassifiedReasons: [],
+	    dateDistribution: [],
+	    source: "npay_intent_bridge_candidate_rows",
+    basis:
+      "VM Cloud NPay 버튼 클릭 원장과 실제 NPay 결제완료 주문을 먼저 붙이고, 붙은 후보의 광고/검색 흔적으로 유입을 나눕니다.",
+    caveat:
+      "이 fallback은 구버전 API를 위한 요약입니다. source별 원문 row가 배포되면 더 정확한 분류로 자동 대체됩니다.",
+  };
+};
+
 const matchStatusLabel = (value: string) => {
   if (value === "matched") return "내부 주문 연결 있음";
   if (value === "platform_only") return "Google 주장만 있음";
@@ -2759,7 +3133,7 @@ export default function GoogleRoasProjectReportPage() {
       Promise.all(presets.map(async (preset) => {
         try {
           const response = await fetch(
-            `${API_BASE}/api/google-ads/dashboard-summary?date_preset=${preset}&campaign_limit=20`,
+            buildDashboardSummaryUrl(preset),
             { cache: "no-store" },
           );
           const data = await response.json() as GoogleAdsDashboardResponse | { ok?: false; error?: unknown };
@@ -2843,9 +3217,302 @@ export default function GoogleRoasProjectReportPage() {
     analysisV2Health.stages.paymentSuccessConfirmedDirect,
   ];
   const npayBridgeReview = last7.npayBridgeReview;
+  const npayIntentStage = analysisV2Health.stages.npayIntentExact;
+  const rawNpayBridgeSummary = npayBridgeReview.summary;
+  const npayBridgeSummary = {
+    ...rawNpayBridgeSummary,
+    liveIntentCount: rawNpayBridgeSummary.liveIntentCount ?? npayIntentStage.rows ?? 0,
+    googleLikeIntentCount: rawNpayBridgeSummary.googleLikeIntentCount ?? npayIntentStage.rows ?? 0,
+    googleLikeIntentWithGoogleClickId:
+      rawNpayBridgeSummary.googleLikeIntentWithGoogleClickId ?? npayIntentStage.googleClickIdRows ?? 0,
+    googleClickIdIntentCount: rawNpayBridgeSummary.googleClickIdIntentCount ?? npayIntentStage.googleClickIdRows ?? 0,
+    googleClickIdIntentBreakdown: rawNpayBridgeSummary.googleClickIdIntentBreakdown ?? {
+      gclid: npayIntentStage.googleClickIdRows ?? 0,
+      gbraid: 0,
+      wbraid: 0,
+    },
+    liveIntentWithNpayBridgeUrlHash: rawNpayBridgeSummary.liveIntentWithNpayBridgeUrlHash ?? 0,
+    googleLikeIntentWithNpayBridgeUrlHash: rawNpayBridgeSummary.googleLikeIntentWithNpayBridgeUrlHash ?? 0,
+    bridgeCandidatesWithNpayBridgeUrlHash: rawNpayBridgeSummary.bridgeCandidatesWithNpayBridgeUrlHash ?? 0,
+    gradeAWithNpayBridgeUrlHash: rawNpayBridgeSummary.gradeAWithNpayBridgeUrlHash ?? 0,
+    gradeAWithGoogleClickIdAndNpayBridgeUrlHash:
+      rawNpayBridgeSummary.gradeAWithGoogleClickIdAndNpayBridgeUrlHash ?? 0,
+    googleLikeCompletedOrders: rawNpayBridgeSummary.googleLikeCompletedOrders ?? npayIntentStage.matchedOrderRows ?? 0,
+    googleLikeCompletedAmountKrw: rawNpayBridgeSummary.googleLikeCompletedAmountKrw ?? 0,
+    googleLikeCompletedWithDirectGoogleClickId:
+      rawNpayBridgeSummary.googleLikeCompletedWithDirectGoogleClickId
+      ?? npayIntentStage.matchedOrderGoogleClickIdRows
+      ?? 0,
+  };
+  const npayFinalSourceSummary =
+    npayBridgeReview.finalSourceSummary ?? buildFallbackNpayFinalSourceSummary(npayBridgeReview);
+  const npayFinalSourceDateDistribution = npayFinalSourceSummary.dateDistribution ?? [];
+  const npayUnclassifiedReasonRows = npayFinalSourceSummary.unclassifiedReasons ?? [];
+  const npaySourceFunnelComparison = npayBridgeReview.sourceFunnelComparison ?? [];
+  const npayUnresolvedRows = npayBridgeReview.unresolvedRows ?? [];
+  const npayAmountMismatchRows = npayUnresolvedRows.filter((row) =>
+    row.ambiguousReasons.includes("amount_not_reconciled") ||
+    row.amountReconcileReason === "amount_not_reconciled" ||
+    row.amountMatchType === "none",
+  );
+  const npayAmountMismatchCategoryCounts = npayAmountMismatchRows.reduce<Record<string, number>>((acc, row) => {
+    const key = row.amountMismatchCategory ?? "unknown";
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+  const npayAmountMismatchCategorySummary = Object.entries(npayAmountMismatchCategoryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, count]) => `${amountMismatchCategoryLabel(key)} ${formatCount(count)}건`)
+    .join(" · ");
+  const npayTimeAmbiguousRows = npayUnresolvedRows.filter((row) =>
+    row.ambiguousReasons.includes("weak_time_gap") ||
+    (row.orderCreateTimeBridge !== "exact" && (row.timeGapMinutes ?? 0) > 2),
+  );
+  const googleLikeNpayClickIdPreservationRate =
+    npayBridgeSummary.googleLikeIntentCount > 0
+      ? npayBridgeSummary.googleLikeIntentWithGoogleClickId / npayBridgeSummary.googleLikeIntentCount
+      : null;
+  const allNpayClickIdPreservationRate =
+    npayBridgeSummary.liveIntentCount > 0
+      ? npayBridgeSummary.googleClickIdIntentCount / npayBridgeSummary.liveIntentCount
+      : null;
+  const googleLikeNpayButtonToCompletedRate =
+    npayBridgeSummary.googleLikeIntentCount > 0
+      ? npayBridgeSummary.googleLikeCompletedOrders / npayBridgeSummary.googleLikeIntentCount
+      : null;
+  const allNpayButtonToCompletedRate =
+    npayBridgeSummary.liveIntentCount > 0
+      ? npayBridgeSummary.actualConfirmedNpayOrders / npayBridgeSummary.liveIntentCount
+      : null;
+  const npayGradeAToCompletedRate =
+    npayBridgeSummary.actualConfirmedNpayOrders > 0
+      ? npayBridgeSummary.gradeA / npayBridgeSummary.actualConfirmedNpayOrders
+      : null;
+  const npayGoogleAdsSendCandidateRate =
+    npayBridgeSummary.actualConfirmedNpayOrders > 0
+      ? npayBridgeSummary.googleAdsSendCandidates / npayBridgeSummary.actualConfirmedNpayOrders
+      : null;
+  const npayBridgeOpenedCount = npayBridgeSummary.liveIntentWithNpayBridgeUrlHash ?? 0;
+  const npayBridgeOpenedMatchedCount = npayBridgeSummary.bridgeCandidatesWithNpayBridgeUrlHash ?? 0;
+  const npayBridgeHashRate =
+    npayBridgeSummary.liveIntentCount > 0
+      ? npayBridgeOpenedCount / npayBridgeSummary.liveIntentCount
+      : null;
+  const googleLikeBridgeHashRate =
+    npayBridgeSummary.googleLikeIntentCount > 0
+      ? (npayBridgeSummary.googleLikeIntentWithNpayBridgeUrlHash ?? 0) / npayBridgeSummary.googleLikeIntentCount
+      : null;
+  const gradeABridgeHashRate =
+    npayBridgeSummary.gradeA > 0
+      ? (npayBridgeSummary.gradeAWithNpayBridgeUrlHash ?? 0) / npayBridgeSummary.gradeA
+      : null;
+  const gradeAGoogleBridgeHashRate =
+    npayBridgeSummary.gradeA > 0
+      ? (npayBridgeSummary.gradeAWithGoogleClickIdAndNpayBridgeUrlHash ?? 0) / npayBridgeSummary.gradeA
+      : null;
+  const rawEnteredNotCompletedBreakdown = npayBridgeSummary.enteredNotCompletedBreakdown;
+  const npayEnteredNotCompletedCount =
+    rawEnteredNotCompletedBreakdown?.total ?? Math.max(0, npayBridgeOpenedCount - npayBridgeOpenedMatchedCount);
+  const npayEnteredNotCompletedBreakdown = {
+    total: npayEnteredNotCompletedCount,
+    pendingWindow: rawEnteredNotCompletedBreakdown?.pendingWindow ?? 0,
+    loginGatePossible: rawEnteredNotCompletedBreakdown?.loginGatePossible ?? 0,
+    checkoutOpenedPossible: rawEnteredNotCompletedBreakdown?.checkoutOpenedPossible ?? npayEnteredNotCompletedCount,
+    matchingGapPossible: rawEnteredNotCompletedBreakdown?.matchingGapPossible ?? 0,
+  };
+  const npayStageLabelRows = [
+    {
+      key: "button_clicked",
+      certainty: "확정 가능",
+      countText: `${formatCount(npayBridgeSummary.liveIntentCount)}건`,
+      meaning:
+        "바이오컴 상품 페이지에서 NPay 버튼을 누른 순간입니다. 이 단계는 자사몰 안에서 직접 관찰되므로 버튼 클릭 자체는 확정할 수 있습니다.",
+      evidence:
+        "VM Cloud NPay intent row. Google click id, 상품 idx, 금액, page URL이 같이 저장됩니다.",
+    },
+    {
+      key: "bridge_opened",
+      certainty: "확정 가능",
+      countText: `${formatCount(npayBridgeOpenedCount)}건`,
+      meaning:
+        "버튼 클릭 뒤 네이버 결제 bridge URL이 열린 순간입니다. 자사몰을 떠나기 직전에 관찰되는 값이라 결제창 진입 연결고리로 쓸 수 있습니다.",
+      evidence:
+        `bridge URL hash가 남은 intent row입니다. 이 중 결제완료 후보와 붙은 row는 ${formatCount(npayBridgeOpenedMatchedCount)}건입니다.`,
+    },
+    {
+      key: "login_gate_possible",
+      certainty: "가능 후보",
+      countText: `후보군 ${formatCount(npayEnteredNotCompletedBreakdown.loginGatePossible)}건`,
+      meaning:
+        "네이버 로그인 화면에서 멈췄을 가능성이 있는 단계입니다. 로그인 화면은 네이버 도메인이라 바이오컴 GTM이 직접 볼 수 없어서 확정값이 아니라 후보로만 표시합니다.",
+      evidence:
+        "bridge URL host가 nid.naver.com으로 남았거나, 로그인 gate로 해석되는 row만 별도로 봅니다.",
+    },
+    {
+      key: "checkout_opened_possible",
+      certainty: "가능 후보",
+      countText: `후보군 ${formatCount(npayEnteredNotCompletedBreakdown.checkoutOpenedPossible)}건`,
+      meaning:
+        "네이버 결제서 화면까지 갔을 가능성이 있는 단계입니다. checkout URL 역시 네이버 도메인이라 직접 수집이 어렵고, bridge row와 이후 주문 원장으로만 추론합니다.",
+      evidence:
+        "orders.pay.naver.com 또는 pay.naver.com 계열 bridge가 열렸지만 결제완료 주문과 아직 연결되지 않은 row입니다.",
+    },
+    {
+      key: "completed",
+      certainty: "실제 주문 원장과 붙으면 확정",
+      countText: `${formatCount(npayBridgeSummary.actualConfirmedNpayOrders)}건`,
+      meaning:
+        "네이버페이 결제완료가 실제 주문 원장에 들어온 상태입니다. 이 단계부터는 매출로 봅니다.",
+      evidence:
+        `그중 버튼 클릭 row와 자동 bridge 후보로 붙은 주문은 ${formatCount(npayBridgeSummary.internalBridgeExactCandidates)}건입니다.`,
+    },
+    {
+      key: "entered_not_completed",
+      certainty: "이탈 후보",
+      countText: `${formatCount(npayEnteredNotCompletedCount)}건`,
+      meaning:
+        "네이버 결제 bridge는 열렸지만, 같은 분석 창 안에서 결제완료 주문과 붙지 않은 상태입니다. 로그인 이탈, 결제서 이탈, 나중 결제, 매칭 실패가 섞일 수 있습니다.",
+      evidence:
+        `자동 분해: 아직 대기 ${formatCount(npayEnteredNotCompletedBreakdown.pendingWindow)}건 · 로그인 이탈 후보 ${formatCount(npayEnteredNotCompletedBreakdown.loginGatePossible)}건 · 결제서 이탈 후보 ${formatCount(npayEnteredNotCompletedBreakdown.checkoutOpenedPossible)}건 · 매칭 보강 필요 ${formatCount(npayEnteredNotCompletedBreakdown.matchingGapPossible)}건`,
+    },
+  ];
+  const npayPaymentTagFunnelRows = [
+    {
+      step: "1",
+      stage: "상품 페이지 진입",
+      status: "자사몰에서 직접 확인",
+      tag: "PageView + Google click id 저장",
+      fires:
+        "헤더의 click id 보존 코드가 gclid, gbraid, wbraid를 저장하고, 기본 PageView 태그가 켜집니다.",
+      meaning:
+        "광고 클릭으로 들어왔는지 확인하는 시작점입니다. 이 단계는 구매가 아니라 방문입니다.",
+    },
+    {
+      step: "2",
+      stage: "NPay 버튼 클릭",
+      status: "자사몰에서 직접 확인",
+      tag: "BI NPay Bridge v1.1 + NPay 버튼 보조 전환",
+      fires:
+        "VM Cloud NPay intent row가 저장되고, Google Ads의 NPay 버튼 클릭/결제진입 보조 전환이 관찰용으로 켜질 수 있습니다.",
+      meaning:
+        "구매 의도는 강하지만 아직 결제완료가 아닙니다. 그래서 Google Ads 입찰 학습의 주 구매 신호로 쓰면 안 됩니다.",
+    },
+    {
+      step: "3",
+      stage: "네이버 bridge/login",
+      status: "직접 확정 대신 후보 분류",
+      tag: "bridge URL hash / host 저장",
+      fires:
+        "자사몰을 떠나기 직전 보이는 네이버 bridge 주소의 hash와 host를 저장합니다. 네이버 로그인 화면 안쪽은 자사몰 태그가 직접 볼 수 없습니다.",
+      meaning:
+        "로그인에서 멈춘 사람과 결제서까지 간 사람을 나누기 위한 연결고리입니다.",
+    },
+    {
+      step: "4",
+      stage: "네이버 결제서",
+      status: "가능 후보",
+      tag: "checkout_opened_possible",
+      fires:
+        "orders.pay.naver.com 계열 bridge가 남으면 결제서 진입 가능 후보로 표시합니다.",
+      meaning:
+        "여기서 이탈하면 entered_not_completed 중 결제서 이탈 후보로 분리합니다.",
+    },
+    {
+      step: "5",
+      stage: "실제 결제완료",
+      status: "주문 원장으로 확정",
+      tag: "BI confirmed_purchase_offline 후보",
+      fires:
+        "실제 주문 원장에 결제완료가 들어온 뒤, click id와 중복/취소/금액 guard를 통과한 주문만 Google Ads 실제 구매 후보가 됩니다.",
+      meaning:
+        "Google Ads 주 전환으로 써야 하는 단계입니다. 버튼 클릭 신호와 분리해서 봅니다.",
+    },
+    {
+      step: "6",
+      stage: "결제완료 미연결",
+      status: "이탈 또는 매칭 보강 필요",
+      tag: "entered_not_completed 자동 분해",
+      fires:
+        "bridge는 열렸지만 같은 기간 실제 결제완료 주문과 붙지 않으면 pending, login, checkout, matching gap으로 나눕니다.",
+      meaning:
+        "NPay 버튼을 눌렀지만 실제 구매까지 가지 않았거나, 아직 주문 원장과 자동 연결하지 못한 구간입니다.",
+    },
+  ];
+  const npayIntentSourceGap =
+    npayBridgeSummary.liveIntentCount === 0 && npayBridgeSummary.actualConfirmedNpayOrders > 0;
   const npayBridgeGradeBRows = (npayBridgeReview.gradeBRows?.length
     ? npayBridgeReview.gradeBRows
     : npayBridgeReview.rows.filter((row) => row.strongGrade === "B"));
+  const npayBridgeGradeBRowsWithAnyGoogleEvidence = npayBridgeGradeBRows.filter((row) =>
+    row.hasGoogleClickId ||
+    Boolean(row.gadCampaignId) ||
+    (row.googleClickIdEvidenceSource && row.googleClickIdEvidenceSource !== "none") ||
+    row.campaignIdEvidenceSource !== "none",
+  );
+  const npayBridgeGradeBRowsWithDirectIntentClickId = npayBridgeGradeBRowsWithAnyGoogleEvidence.filter((row) =>
+    row.googleClickIdEvidenceSource === "intent_direct",
+  );
+  const npayBridgeGradeBRowsWithRecoveredClickId = npayBridgeGradeBRowsWithAnyGoogleEvidence.filter((row) =>
+    row.googleClickIdEvidenceSource &&
+    row.googleClickIdEvidenceSource !== "intent_direct" &&
+    row.googleClickIdEvidenceSource !== "none",
+  );
+  const npayCoreFunnelCards = [
+    {
+      label: "NPay 버튼 클릭",
+      value: `${formatCount(npayBridgeSummary.liveIntentCount)}건`,
+      detail: `Google 흔적 ${formatCount(npayBridgeSummary.googleLikeIntentCount)}건 · Google click id 보존 ${formatRatePct(googleLikeNpayClickIdPreservationRate)}`,
+      plain:
+        "자사몰 안에서 NPay 버튼을 누른 숫자입니다. 클릭 자체는 잘 잡히지만 아직 구매완료가 아닙니다.",
+    },
+    {
+      label: "네이버 결제창 진입",
+      value: `${formatCount(npayBridgeOpenedCount)}건`,
+      detail: `Google 흔적 있는 bridge ${formatCount(npayBridgeSummary.googleLikeIntentWithNpayBridgeUrlHash ?? 0)}건`,
+      plain:
+        "네이버 외부 화면으로 넘어가기 직전까지 잡힌 연결고리입니다. 이 값이 있어야 로그인/결제서 이탈을 더 좁힐 수 있습니다.",
+    },
+    {
+      label: "실제 NPay 결제완료",
+      value: `${formatCount(npayBridgeSummary.actualConfirmedNpayOrders)}건`,
+      detail: `Google 흔적 결제완료 ${formatCount(npayBridgeSummary.googleLikeCompletedOrders)}건 · 전환율 ${formatRatePct(googleLikeNpayButtonToCompletedRate)}`,
+      plain:
+        "네이버페이에서 돈이 결제된 실제 주문입니다. 매출은 맞지만 유입 증거와 자동 연결이 별도 문제입니다.",
+    },
+    {
+      label: "자동 연결 성공",
+      value: `${formatCount(npayBridgeSummary.internalBridgeExactCandidates)}건`,
+      detail: `A급 ${formatCount(npayBridgeSummary.gradeA)}건 · B급 ${formatCount(npayBridgeSummary.gradeB)}건 · 미분류 ${formatCount(npayBridgeSummary.ambiguous)}건`,
+      plain:
+        "주문과 버튼 클릭을 내부적으로 붙인 후보입니다. A급은 강하고, B급/미분류는 왜 막혔는지 더 줄여야 합니다.",
+    },
+  ];
+  const npayRootBottleneckCards = [
+    {
+      label: "1차 병목",
+      value: "결제창 진입 후 이탈/미연결",
+      detail:
+        `bridge는 ${formatCount(npayBridgeOpenedCount)}건 열렸지만 결제완료와 붙은 bridge 후보는 ${formatCount(npayBridgeOpenedMatchedCount)}건입니다.`,
+    },
+    {
+      label: "2차 병목",
+      value: "출처 유실",
+      detail:
+        `결제완료 ${formatCount(npayFinalSourceSummary.totalCompletedOrders)}건 중 direct/unknown은 ${formatCount((npayFinalSourceSummary.byChannel.find((row) => row.channel === "direct")?.completedOrders ?? 0) + npayFinalSourceSummary.unclassifiedCompletedOrders)}건입니다.`,
+    },
+    {
+      label: "3차 병목",
+      value: "Google 전송 근거 부족",
+      detail:
+        `Google 증거 결제완료 ${formatCount(npayFinalSourceSummary.googleEvidenceOrders)}건 중 실제 Google Ads 전송 후보는 ${formatCount(npayBridgeSummary.googleAdsSendCandidates)}건입니다.`,
+    },
+    {
+      label: "Grade B Google 1건",
+      value: `${formatCount(npayBridgeGradeBRowsWithAnyGoogleEvidence.length)}건`,
+      detail:
+        `직접 intent click id ${formatCount(npayBridgeGradeBRowsWithDirectIntentClickId.length)}건 · 같은 세션 복구 ${formatCount(npayBridgeGradeBRowsWithRecoveredClickId.length)}건입니다.`,
+    },
+  ];
   const last7Response = snapshots[0]?.response;
   const internalCampaignRows = [
     ...(last7Response?.internal?.campaigns ?? []),
@@ -2931,6 +3598,9 @@ export default function GoogleRoasProjectReportPage() {
             </p>
           </div>
           <div className={styles.actions}>
+            <Link href="/ads/google-roas-report/details" className={`${styles.actionLink} ${styles.primaryAction}`}>
+              상세 진단 보기
+            </Link>
             <Link href="/ads/google" className={styles.actionLink}>실시간 성과 보기</Link>
             <Link href="/ads/roas" className={styles.actionLink}>ROAS 대시보드</Link>
             <button className={`${styles.refreshButton} ${styles.primaryAction}`} onClick={() => void loadSnapshots()} disabled={loading}>
@@ -2963,6 +3633,87 @@ export default function GoogleRoasProjectReportPage() {
                 Google Ads 전송 후보는 {formatCount(npayBridgeReview.summary.googleAdsSendCandidates)}건입니다.
               </span>
             </div>
+          </div>
+        </section>
+
+        <section className={`${styles.section} ${styles.bridgeSection}`}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>핵심 임무: NPay 클릭이 왜 결제완료와 끊기는지 찾습니다</h2>
+              <p>
+                이 화면의 첫 질문은 Google Ads 리포트 숫자가 아니라,
+                “NPay 버튼을 누른 사람이 네이버 결제창을 거쳐 실제 결제완료 주문으로 얼마나 붙는가”입니다.
+                버튼 클릭, 네이버 bridge, 결제완료, 광고 클릭 증거를 같은 줄에 놓고 병목을 봅니다.
+              </p>
+            </div>
+            <span className={styles.metaText}>
+              source: {npayBridgeReview.source} · {npayBridgeReview.windowLabel} · 기준 {formatFetchedAt(npayBridgeReview.generatedAt)}
+            </span>
+          </div>
+
+          <div className={styles.signalFlowGrid}>
+            {npayCoreFunnelCards.map((card) => (
+              <article key={card.label} className={styles.signalFlowCard}>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <p>{card.detail}</p>
+                <em>{card.plain}</em>
+              </article>
+            ))}
+          </div>
+
+          <div className={styles.bridgeExplainBox}>
+            <strong>현재 병목 판단</strong>
+            <p>
+              클릭 수집 자체가 제일 큰 문제는 아닙니다. 최근 7일 Google 흔적이 있는 NPay 버튼 클릭
+              {" "}{formatCount(npayBridgeSummary.googleLikeIntentCount)}건 중 Google click id는
+              {" "}{formatCount(npayBridgeSummary.googleLikeIntentWithGoogleClickId)}건에 남아 있습니다.
+              그런데 실제 NPay 결제완료로 붙은 Google 흔적 주문은 {formatCount(npayBridgeSummary.googleLikeCompletedOrders)}건입니다.
+            </p>
+            <p>
+              따라서 핵심 병목은 “클릭 저장”보다 “네이버 외부 결제창을 지나온 주문을 다시 우리 버튼 클릭 row와 안전하게 붙이는 일”입니다.
+              이 연결이 닫혀야 Meta와 Google 모두에서 실제 구매 기준 ROAS를 볼 수 있습니다.
+            </p>
+          </div>
+
+          <div className={styles.signalFlowGrid}>
+            {npayRootBottleneckCards.map((card) => (
+              <article key={card.label} className={styles.signalFlowCard}>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <p>{card.detail}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className={styles.plainQuestionBox}>
+            <strong>Grade B 7건 중 Google 흔적 1건이 왜 바로 전송 후보가 아닌가</strong>
+            <p>
+              현재 B급 중 Google 흔적이 있는 주문은 {formatCount(npayBridgeGradeBRowsWithAnyGoogleEvidence.length)}건입니다.
+              이 주문은 NPay intent row 자체에 Google click id가 직접 붙은 것이 아니라,
+              같은 브라우저/GA 세션의 직전 Google 클릭 원장에서 복구한 흔적입니다.
+              또한 금액 조합이 아직 A급으로 닫히지 않아 자동 전송 후보로 올리지 않습니다.
+            </p>
+            <p>
+              쉽게 말하면 “Google 광고에서 온 정황은 있다”와 “Google Ads에 실제 구매로 보내도 된다”는 다른 기준입니다.
+              전송하려면 실제 결제완료, 주문-버튼 연결, 금액 설명, 중복 방지, 원문 click id 확인이 모두 통과해야 합니다.
+            </p>
+            <Link href="/ads/google-roas-report/details" className={`${styles.actionLink} ${styles.primaryAction}`}>
+              전송 장부/후보 상세 보기
+            </Link>
+          </div>
+
+          <div className={styles.plainQuestionBox}>
+            <strong>전송 가능 출발점은 “새로 보낼 주문”과 다릅니다</strong>
+            <p>
+              상세 진단의 전송 가능 출발점은 후보 생성기가 찾은 출발점입니다.
+              같은 날짜와 금액이 이미 전송 장부에 있으면 새로 보내면 안 됩니다.
+              최신 대조에서는 출발점 5건이 모두 기존 장부와 겹쳤고, 4건은 sent, 1건은 failed 상태였습니다.
+            </p>
+            <p>
+              그래서 다음 병목은 “후보를 더 많이 찾기”보다, 실제 NPay 결제완료 주문이 어느 버튼 클릭에서 왔는지
+              장부와 중복 없이 자동으로 붙이는 기준을 닫는 일입니다.
+            </p>
           </div>
         </section>
 
@@ -3485,6 +4236,586 @@ export default function GoogleRoasProjectReportPage() {
             </article>
           </div>
 
+          <div className={styles.signalFlowGrid}>
+            <article className={styles.signalFlowCard}>
+              <span>NPay bridge URL hash 저장</span>
+              <strong>{formatCount(npayBridgeSummary.liveIntentWithNpayBridgeUrlHash)}건</strong>
+              <p>
+                네이버 외부 결제창/로그인창 주소를 원문으로 저장하지 않고 hash로 보관한 버튼 클릭 row입니다.
+                이 값이 있어야 나중에 “어느 버튼 클릭이 어느 NPay 결제로 이어졌는지”를 더 안정적으로 자동 연결할 수 있습니다.
+              </p>
+              <em>전체 NPay 버튼 클릭 {formatCount(npayBridgeSummary.liveIntentCount)}건 중 {formatRatePct(npayBridgeHashRate)} 준비</em>
+            </article>
+            <article className={styles.signalFlowCard}>
+              <span>Google 흔적 + bridge hash</span>
+              <strong>{formatCount(npayBridgeSummary.googleLikeIntentWithNpayBridgeUrlHash)}건</strong>
+              <p>
+                Google 광고 흔적이 있는 NPay 버튼 클릭 중 네이버 bridge hash까지 같이 남은 건수입니다.
+                현재 값이 낮으면 “광고 클릭은 알지만 외부 결제창 연결고리는 약한” 상태입니다.
+              </p>
+              <em>Google 흔적 NPay 클릭 {formatCount(npayBridgeSummary.googleLikeIntentCount)}건 중 {formatRatePct(googleLikeBridgeHashRate)}</em>
+            </article>
+            <article className={styles.signalFlowCard}>
+              <span>A급 bridge + hash</span>
+              <strong>{formatCount(npayBridgeSummary.gradeAWithNpayBridgeUrlHash)}건</strong>
+              <p>
+                주문-버튼 연결은 A급이고, 네이버 bridge hash도 있는 주문입니다.
+                이 값이 늘면 수동 판정 없이 결제완료 주문을 자동 연결할 수 있는 기반이 커집니다.
+              </p>
+              <em>A급 전체 {formatCount(npayBridgeSummary.gradeA)}건 중 {formatRatePct(gradeABridgeHashRate)} hash 동반</em>
+            </article>
+            <article className={styles.signalFlowCard}>
+              <span>A급 + hash + Google click id</span>
+              <strong>{formatCount(npayBridgeSummary.gradeAWithGoogleClickIdAndNpayBridgeUrlHash)}건</strong>
+              <p>
+                내부 연결도 강하고, 네이버 bridge hash도 있고, Google Ads가 요구하는 click id까지 있는 후보입니다.
+                이 숫자가 실제 구매 전용 Google 전송 후보로 올라갈 수 있는 핵심 후보군입니다.
+              </p>
+              <em>A급 전체 대비 {formatRatePct(gradeAGoogleBridgeHashRate)}. 그래도 중복/취소/금액 guard 통과 전에는 자동 전송하지 않음</em>
+            </article>
+          </div>
+
+          <div className={styles.bridgeExplainBox}>
+            <strong>NPay bridge 저장값 보강 효과를 이렇게 판정합니다</strong>
+            <p>
+              보강 전에는 버튼 클릭만 있고 네이버 외부 결제창 연결고리가 약했습니다. 이제는
+              전체 NPay 버튼 클릭 대비 bridge hash 저장률, Google 흔적 클릭 대비 bridge hash 저장률,
+              A급 주문 대비 bridge hash 동반률을 따로 봅니다.
+            </p>
+            <p>
+              이 세 숫자가 올라가면 “버튼 클릭은 봤는데 결제완료 주문과 다시 못 붙이는 문제”가 줄어든 것입니다.
+              반대로 클릭 수는 많은데 bridge hash나 A급 연결률이 낮으면 Google Ads 전송 문제가 아니라
+              네이버 외부 결제창 이후 연결 장부가 아직 약한 상태입니다.
+            </p>
+          </div>
+
+          <div className={styles.bridgeExplainBox}>
+            <strong>후보 생성기와 전송 장부의 중복 제거 기준</strong>
+            <p>
+              후보 생성기는 “보낼 수 있을지 모르는 주문을 찾는 표”이고, 전송 장부는 “이미 Google Ads에 보내려고 시도한 기록”입니다.
+              같은 주문이 두 표에 동시에 보이면 전송 장부가 우선입니다.
+            </p>
+            <p>
+              중복 방지 기준은 site, 전환 액션, 결제 날짜, 결제금액, 내부 주문 식별자 또는 private safe ref입니다.
+              원문 주문번호나 원문 click id가 화면에 없어도 서버 내부에서는 같은 후보를 한 번만 전송 대상으로 봅니다.
+              원문 식별자가 부족해 같은 주문인지 확정하지 못하면 자동 전송 후보가 아니라 “검토 필요”로 둡니다.
+            </p>
+          </div>
+
+          <div className={styles.bridgeExplainBox}>
+            <strong>자동 연결 기준을 더 좁혔습니다</strong>
+            <p>
+              NPay 버튼 클릭 row는 결제완료보다 먼저 찍힌 경우에만 주문 연결 후보로 봅니다.
+              결제 후에 같은 브라우저에서 다시 눌린 버튼이나 로그인 화면 재시도 row는 실제 구매의 원인으로 쓰지 않습니다.
+            </p>
+            <p>
+              Google Ads에 보낼 후보는 더 엄격합니다. 실제 NPay 결제완료 주문과 버튼 클릭이 강하게 붙어도,
+              그 버튼 클릭 row에 gclid, gbraid, wbraid 중 하나가 없으면 내부 분석용 후보로만 남깁니다.
+            </p>
+          </div>
+
+          <div className={styles.bridgeExplainBox}>
+            <strong>NPay 단계 라벨 읽는 법</strong>
+            <p>
+              NPay는 자사몰 버튼 클릭 뒤 네이버 도메인으로 넘어갑니다. 그래서 자사몰 안에서 직접 본 단계와,
+              네이버 화면 안에서 일어났을 가능성이 있는 단계를 섞어 말하면 안 됩니다.
+              아래 라벨은 “확정 가능”, “가능 후보”, “실제 주문 원장으로 확정”을 분리해서 보여줍니다.
+            </p>
+            <em>
+              보고서 주소: http://localhost:7010/ads/google-roas-report · source: NPay intent log + 실제 주문 원장
+            </em>
+            <em>
+              최근 7일 카드는 오늘 포함 7일 범위로 읽습니다. Google Ads 기본 last_7d와 달리 오늘 들어온
+              NPay bridge hash와 entered_not_completed 분해 결과를 바로 반영하기 위한 기준입니다.
+            </em>
+          </div>
+
+          <div className={styles.plainQuestionBox}>
+            <strong>NPay 결제 진행 단계별 태그 발화 구조</strong>
+            <p>
+              이 퍼널은 “버튼을 눌렀다”와 “실제로 결제했다”를 분리해서 보기 위한 지도입니다.
+              앞쪽 단계는 의도 신호이고, 마지막 실제 결제완료 단계만 Google Ads의 주 구매 신호 후보입니다.
+            </p>
+            <div className={styles.npayTagFunnel}>
+              {npayPaymentTagFunnelRows.map((row, index) => (
+                <article className={styles.npayTagFunnelStep} key={row.stage}>
+                  <div className={styles.npayTagFunnelTop}>
+                    <span>{row.step}</span>
+                    <em>{row.status}</em>
+                  </div>
+                  <strong>{row.stage}</strong>
+                  <p>{row.meaning}</p>
+                  <dl>
+                    <div>
+                      <dt>켜지는 신호</dt>
+                      <dd>{row.tag}</dd>
+                    </div>
+                    <div>
+                      <dt>실제 동작</dt>
+                      <dd>{row.fires}</dd>
+                    </div>
+                  </dl>
+                  {index < npayPaymentTagFunnelRows.length - 1 ? (
+                    <b aria-hidden="true">↓</b>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.signalFlowGrid}>
+            {npayStageLabelRows.map((row) => (
+              <article className={styles.signalFlowCard} key={row.key}>
+                <span>{row.key}</span>
+                <strong>{row.certainty}</strong>
+                <p>
+                  {row.countText} · {row.meaning}
+                </p>
+                <em>{row.evidence}</em>
+              </article>
+            ))}
+          </div>
+
+          <div className={styles.plainQuestionBox}>
+            <strong>entered_not_completed 자동 분해</strong>
+            <p>
+              이 값은 “네이버 결제창으로 넘어간 흔적은 있는데, 같은 기간의 실제 결제완료 주문과 아직 자동으로 붙지 않은 row”입니다.
+              한 덩어리로 보면 원인을 알기 어렵기 때문에 아래처럼 나눠 봅니다.
+            </p>
+            <div className={styles.signalFlowGrid}>
+              <article className={styles.signalFlowCard}>
+                <span>pending_window</span>
+                <strong>{formatCount(npayEnteredNotCompletedBreakdown.pendingWindow)}건</strong>
+                <p>버튼 클릭 후 아직 24시간이 지나지 않아 “이탈”로 단정하지 않는 후보입니다.</p>
+                <em>결제완료가 늦게 들어오거나 주문 원장 sync가 늦을 수 있습니다.</em>
+              </article>
+              <article className={styles.signalFlowCard}>
+                <span>login_gate_possible</span>
+                <strong>{formatCount(npayEnteredNotCompletedBreakdown.loginGatePossible)}건</strong>
+                <p>네이버 로그인 화면에서 멈췄을 가능성이 큰 후보입니다.</p>
+                <em>네이버 로그인 도메인은 자사몰 스크립트가 직접 볼 수 없어 후보로만 표시합니다.</em>
+              </article>
+              <article className={styles.signalFlowCard}>
+                <span>checkout_opened_possible</span>
+                <strong>{formatCount(npayEnteredNotCompletedBreakdown.checkoutOpenedPossible)}건</strong>
+                <p>네이버 결제서까지 열렸지만 실제 결제완료 주문과 아직 안 붙은 후보입니다.</p>
+                <em>결제서 이탈, 결제 실패, 결제완료 원장 지연이 섞일 수 있습니다.</em>
+              </article>
+              <article className={styles.signalFlowCard}>
+                <span>matching_gap_possible</span>
+                <strong>{formatCount(npayEnteredNotCompletedBreakdown.matchingGapPossible)}건</strong>
+                <p>URL 흔적은 있지만 host/시간/금액 기준만으로 자동 분류가 어려운 후보입니다.</p>
+                <em>이 숫자가 많으면 bridge 원문 저장 또는 주문번호 bridge가 더 필요합니다.</em>
+              </article>
+            </div>
+          </div>
+
+          <div className={styles.plainQuestionBox}>
+            <strong>실제 결제완료 주문과 자동 연결하는 기준</strong>
+            <p>
+              자동 연결은 “NPay 버튼 클릭이 있었다”만으로 하지 않습니다. 결제완료 주문보다 먼저 찍힌 버튼 클릭이어야 하고,
+              bridge URL hash가 있으면 더 강하게 보고, 시간 간격과 금액이 맞아야 합니다.
+              지금 화면에서는 이 조건을 통과한 주문을 A급 bridge 후보로 표시합니다.
+            </p>
+            <p>
+              Google Ads에 실제 구매로 보낼 수 있는 후보는 여기서 한 번 더 좁힙니다.
+              A급 bridge 후보라도 Google이 받아줄 gclid, gbraid, wbraid 중 하나가 전송 가능한 형태로 남아 있고,
+              중복 전송·취소·환불·금액 불일치 방어를 통과해야 합니다.
+            </p>
+            <em>
+              현재 A급 bridge 후보 {formatCount(npayBridgeSummary.gradeA)}건 ·
+              bridge hash 동반 {formatCount(npayBridgeSummary.gradeAWithNpayBridgeUrlHash)}건 ·
+              Google click id와 bridge hash 동반 {formatCount(npayBridgeSummary.gradeAWithGoogleClickIdAndNpayBridgeUrlHash)}건 ·
+              Google Ads 전송 후보 {formatCount(npayBridgeSummary.googleAdsSendCandidates)}건
+            </em>
+          </div>
+
+          {npayIntentSourceGap ? (
+            <div className={styles.bridgeExplainBox}>
+              <strong>현재 로컬 원장 주의</strong>
+              <p>
+                이 화면의 로컬 백엔드가 NPay 버튼 클릭 원장을 아직 읽지 못하고 있습니다.
+                실제 결제완료 주문은 보이지만 버튼 클릭 row가 0건이면 “버튼 클릭이 없었다”가 아니라
+                로컬 DB와 VM Cloud 수집 원장이 다른 상태로 해석해야 합니다.
+              </p>
+            </div>
+          ) : null}
+
+	          <div className={styles.signalFlowGrid}>
+	            <article className={styles.signalFlowCard}>
+	              <span>Google로 보이는 NPay 버튼 클릭</span>
+              <strong>{formatCount(npayBridgeSummary.googleLikeIntentCount)}건</strong>
+              <p>
+                Google click id가 있거나 URL/UTM에 Google 광고 흔적이 있는 NPay 버튼 클릭입니다.
+                전체 NPay 버튼 클릭은 {formatCount(npayBridgeSummary.liveIntentCount)}건입니다.
+              </p>
+              <em>source: NPay button intent log</em>
+            </article>
+            <article className={styles.signalFlowCard}>
+              <span>그중 Google click id 보존</span>
+              <strong>{formatRatePct(googleLikeNpayClickIdPreservationRate)}</strong>
+              <p>
+                {formatCount(npayBridgeSummary.googleLikeIntentWithGoogleClickId)} / {formatCount(npayBridgeSummary.googleLikeIntentCount)}건입니다.
+                전체 NPay 버튼 클릭 기준 보존률은 {formatRatePct(allNpayClickIdPreservationRate)}입니다.
+              </p>
+              <em>
+                gclid {formatCount(npayBridgeSummary.googleClickIdIntentBreakdown.gclid)} ·
+                gbraid {formatCount(npayBridgeSummary.googleClickIdIntentBreakdown.gbraid)} ·
+                wbraid {formatCount(npayBridgeSummary.googleClickIdIntentBreakdown.wbraid)}
+              </em>
+            </article>
+            <article className={styles.signalFlowCard}>
+              <span>실제 NPay 결제완료로 연결</span>
+              <strong>{formatRatePct(googleLikeNpayButtonToCompletedRate)}</strong>
+              <p>
+                Google로 보이는 버튼 클릭 {formatCount(npayBridgeSummary.googleLikeIntentCount)}건 중
+                실제 결제완료와 강하게 연결된 주문은 {formatCount(npayBridgeSummary.googleLikeCompletedOrders)}건입니다.
+                금액은 {formatKrw(npayBridgeSummary.googleLikeCompletedAmountKrw)}입니다.
+              </p>
+              <em>
+                결제완료 주문에 직접 click id가 같이 남은 건은 {formatCount(npayBridgeSummary.googleLikeCompletedWithDirectGoogleClickId)}건입니다.
+              </em>
+	            </article>
+	          </div>
+
+	          <div className={styles.signalFlowGrid}>
+	            <article className={styles.signalFlowCard}>
+	              <span>전체 NPay 버튼 클릭</span>
+	              <strong>{formatCount(npayBridgeSummary.liveIntentCount)}건</strong>
+	              <p>
+	                우리 사이트에서 NPay 버튼을 눌러 네이버 결제 화면으로 넘어간 기록입니다.
+	                이 단계는 “구매 의도”이지 “결제 완료”가 아닙니다.
+	              </p>
+	              <em>click id 보존 {formatCount(npayBridgeSummary.googleClickIdIntentCount)}건</em>
+	            </article>
+	            <article className={styles.signalFlowCard}>
+	              <span>실제 NPay 결제완료</span>
+	              <strong>{formatCount(npayBridgeSummary.actualConfirmedNpayOrders)}건</strong>
+	              <p>
+	                NPay 버튼 클릭 {formatCount(npayBridgeSummary.liveIntentCount)}건 중 결제완료 주문으로 확인된 비율은
+	                {formatRatePct(allNpayButtonToCompletedRate)}입니다.
+	              </p>
+	              <em>모든 유입 포함, Google 전용 아님</em>
+	            </article>
+	            <article className={styles.signalFlowCard}>
+	              <span>A급 내부 bridge 후보</span>
+	              <strong>{formatCount(npayBridgeSummary.gradeA)}건</strong>
+	              <p>
+	                버튼 클릭과 결제완료가 시간/금액 기준으로 강하게 붙은 주문입니다.
+	                실제 결제완료 {formatCount(npayBridgeSummary.actualConfirmedNpayOrders)}건 중 {formatRatePct(npayGradeAToCompletedRate)}입니다.
+	              </p>
+	              <em>내부 연결 후보이지 Google 전송 후보는 아님</em>
+	            </article>
+	            <article className={styles.signalFlowCard}>
+	              <span>Google Ads 전송 후보</span>
+	              <strong>{formatCount(npayBridgeSummary.googleAdsSendCandidates)}건</strong>
+	              <p>
+	                Google에 실제 구매로 다시 알려도 되는 주문만 세는 값입니다.
+	                현재 비율은 {formatRatePct(npayGoogleAdsSendCandidateRate)}입니다.
+	              </p>
+	              <em>raw click id와 중복 방지 조건을 모두 통과해야 함</em>
+	            </article>
+	          </div>
+
+	          <div className={styles.plainQuestionBox}>
+	            <strong>A급 {formatCount(npayBridgeSummary.gradeA)}건인데 왜 Google Ads 전송 후보는 {formatCount(npayBridgeSummary.googleAdsSendCandidates)}건인가</strong>
+	            <p>
+	              A급은 “이 NPay 결제완료가 우리 사이트의 NPay 버튼 클릭에서 이어진 것이 거의 맞다”는 내부 판단입니다.
+	              하지만 Google Ads에 전송하려면 한 단계가 더 필요합니다. Google이 다시 확인할 수 있는
+	              gclid, gbraid, wbraid 원문값 중 하나가 전송용 payload에 안전하게 붙어 있어야 합니다.
+	            </p>
+	            <p>
+	              현재 A급 후보는 구매 연결은 강하지만, 실제 전송에 쓸 직접 Google click id가 없거나
+	              recovered/session evidence 수준입니다. 그래서 내부 분석에는 쓰되 Google Ads 자동 전송은 막습니다.
+	              이 선을 지켜야 버튼 클릭이나 시간 추정만으로 구매를 과장해서 보내는 일을 피할 수 있습니다.
+	            </p>
+	          </div>
+
+	          <div className={styles.plainQuestionBox}>
+	            <strong>수동으로 계속 쪼개야 하나</strong>
+	            <p>
+	              계속 수동으로 볼 필요가 없게 만드는 방향이 맞습니다. 앞으로는 NPay 버튼 클릭 시점에
+	              광고 click id, 유입 URL, 상품/금액, 브라우저 세션, 네이버 bridge URL 일부를 함께 저장하고,
+	              NPay 결제완료 주문이 들어오면 서버가 자동으로 “Google/Meta/Naver/organic/direct/미분류”를 나눕니다.
+	            </p>
+	            <p>
+	              사람이 볼 것은 자동 분류에서 애매하다고 남은 주문뿐입니다. 지금 화면의 목표도
+	              “전체를 수동으로 판정”이 아니라 “자동 판정 기준을 만들고, 애매한 부분만 좁히는 것”입니다.
+	            </p>
+	          </div>
+
+	          <div className={styles.plainQuestionBox}>
+	            <strong>현재 판단: 허수와 추적 실패가 둘 다 있다</strong>
+	            <p>
+	              기존 Google Ads 구매완료는 NPay 버튼/결제진입 신호까지 구매처럼 세던 흔적이 있어 허수 가능성이 큽니다.
+	              동시에 버튼 클릭 단계에서는 Google click id가 많이 남는데, 네이버 외부 결제완료 단계로 넘어가면
+	              주문 row에 그 값이 직접 남지 않아 실제 Google 매출도 일부 놓치고 있습니다.
+	            </p>
+	            <p>
+	              그래서 지금의 해결 방향은 두 가지입니다. Google Ads에서는 버튼 클릭 신호를 보조로 낮추고,
+	              실제 결제완료만 주 전환으로 쓰는 통로를 만들며, NPay bridge 저장을 보강해 실제 Google 구매를 더 많이 찾아냅니다.
+	            </p>
+	          </div>
+
+	          <div className={styles.plainQuestionBox}>
+	            <strong>Google click id와 gclid/gbraid/wbraid 관계</strong>
+            <p>
+              Google click id는 Google 광고 클릭을 다시 알아보기 위한 식별자를 묶어 부르는 말입니다.
+              이 화면에서는 gclid, gbraid, wbraid 중 하나라도 있으면 “Google click id 보존”으로 셉니다.
+              gclid는 일반 웹 클릭 식별자, gbraid는 iOS 등 개인정보 보호 환경에서 앱/웹 전환 측정에 쓰이는 Google 식별자,
+              wbraid는 웹 전환 측정에 쓰이는 Google 식별자입니다.
+            </p>
+          </div>
+
+          <div className={styles.bridgeExplainBox}>
+            <strong>NPay 버튼 클릭에서 실제 결제완료까지, 유입별로 나눠 봅니다</strong>
+            <p>
+              이 표는 NPay 버튼을 누른 사람 중 실제 결제완료 주문과 자동으로 붙은 비율입니다.
+              Google은 Google 광고 흔적이 있는 버튼 클릭, Meta는 Meta/Facebook/Instagram 흔적이 있는 버튼 클릭,
+              기타는 Naver, organic, direct, 출처 유실을 포함합니다.
+            </p>
+            <p>
+              이 값은 “구매 의도”와 “실제 구매”를 분리하기 위한 표입니다.
+              버튼 클릭 수가 많아도 결제완료와 붙지 않으면 Google Ads 주 구매 신호로 쓰지 않습니다.
+            </p>
+          </div>
+
+          {npaySourceFunnelComparison.length > 0 ? (
+            <div className={styles.signalFlowGrid}>
+              {npaySourceFunnelComparison.map((row) => (
+                <article className={styles.signalFlowCard} key={`npay-source-funnel-${row.channel}`}>
+                  <span>{row.label}</span>
+                  <strong>{row.completionRatePct.toFixed(2)}%</strong>
+                  <p>
+                    버튼 클릭 {formatCount(row.intentCount)}건 중 실제 결제완료 연결 {formatCount(row.completedOrders)}건입니다.
+                    결제완료 금액은 {formatKrw(row.completedAmountKrw)}입니다.
+                  </p>
+                  <em>
+                    bridge 열린 클릭 {formatCount(row.bridgeOpenedIntentCount)}건 ·
+                    Google click id 있는 클릭 {formatCount(row.googleClickIdIntentCount)}건
+                  </em>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.bridgeExplainBox}>
+              <strong>NPay 유입별 버튼→결제완료 비교</strong>
+              <p>
+                현재 연결된 API는 유입별 NPay 버튼→결제완료 비교표를 아직 내려주지 않습니다.
+                백엔드 최신화 후 Google/Meta/기타별 클릭 수, 결제완료 수, 전환율이 표시됩니다.
+              </p>
+            </div>
+          )}
+
+          <div className={styles.bridgeExplainBox}>
+            <strong>자동 연결이 아직 불충분한 주문 상세</strong>
+            <p>
+              아래 표는 “실제 NPay 결제완료 주문은 있는데, 버튼 클릭 row와 자동으로 붙이기에는 증거가 부족한 주문”입니다.
+              어떤 정보가 있고 어떤 정보가 없는지 함께 보여줍니다. 원문 주문번호와 원문 click id는 화면에 노출하지 않습니다.
+            </p>
+            <p>
+              현재 표시된 보류 row {formatCount(npayUnresolvedRows.length)}건 중 금액 조합 문제가 있는 row는
+              {" "}{formatCount(npayAmountMismatchRows.length)}건, 시간 기준이 애매한 row는
+              {" "}{formatCount(npayTimeAmbiguousRows.length)}건입니다.
+            </p>
+            {npayAmountMismatchRows.length > 0 ? (
+              <p>
+                금액 조합 문제는 {npayAmountMismatchCategorySummary || "아직 세부 분류 없음"}으로 나눠 봅니다.
+                이 분류는 “왜 가격이 안 맞아 보이는지”를 먼저 좁히기 위한 no-write 진단입니다.
+              </p>
+            ) : null}
+          </div>
+
+          {npayUnresolvedRows.length > 0 ? (
+            <div className={styles.tableWrap}>
+              <table className={`${styles.table} ${styles.bridgeReviewTable}`}>
+                <thead>
+                  <tr>
+                    <th>주문</th>
+                    <th>있는 정보</th>
+                    <th>없는 정보/막힌 이유</th>
+                    <th>다음 보강</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {npayUnresolvedRows.slice(0, 10).map((row) => (
+                    <tr key={`npay-unresolved-${row.orderNumber}-${row.channelOrderNo}`}>
+                      <td>
+                        <strong>{maskIdentifier(row.orderNumber)} · {formatKrw(row.orderAmount)}</strong>
+                        <span>
+                          {row.status === "ambiguous"
+                            ? "자동 연결 애매함"
+                            : row.status === "purchase_without_intent"
+                              ? "주변 버튼 클릭 없음"
+                              : `B급 후보${row.strongGrade ? ` (${row.strongGrade})` : ""}`}
+                        </span>
+                        <span>{row.productNames.join(" + ") || "상품명 없음"}</span>
+                      </td>
+                      <td>
+                        <strong>{row.bestIntentSourceLabel}</strong>
+                        <span>{row.availableFacts.length ? row.availableFacts.join(" · ") : "사용 가능한 추가 정보 없음"}</span>
+                        <span>
+                          order_time {row.orderCreateTimeBridge ?? "없음"}
+                          {row.orderCreatedGapMinutes === null ? "" : ` · 클릭과 ${row.orderCreatedGapMinutes}분 차이`}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{row.amountMatchType} · {row.amountReconcileReason}</strong>
+                        <span>
+                          {row.amountMismatchLabel ?? amountMismatchCategoryLabel(row.amountMismatchCategory)}
+                          {row.amountMismatchConfidence ? ` · 신뢰도 ${row.amountMismatchConfidence}` : ""}
+                        </span>
+                        <span>{row.amountMismatchPlain ?? "금액 차이 원인을 아직 세부 분류하지 못했습니다."}</span>
+                        {row.amountMismatchSignals?.length ? (
+                          <span>판단 재료: {row.amountMismatchSignals.join(" · ")}</span>
+                        ) : null}
+                        <span>{row.missingFacts.length ? row.missingFacts.join(" · ") : "큰 누락 정보 없음"}</span>
+                        <span>
+                          complete/payment 기준 {row.timeGapMinutes === null ? "판단 전" : `${row.timeGapMinutes}분 차이`}
+                          {row.bestIntentHasGoogleClickId ? " · Google click id 있음" : " · Google click id 없음"}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{row.candidateCount}개 후보 중 자동 확정 보류</strong>
+                        <span>{row.proposedFix}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className={styles.bridgeExplainBox}>
+              <strong>자동 연결 불충분 상세</strong>
+              <p>현재 API가 내려준 보류 row가 없습니다. 최신 VM Cloud API 배포 후 상세 row가 표시됩니다.</p>
+            </div>
+          )}
+
+          <div className={styles.plainQuestionBox}>
+            <strong>왜 complete_time은 늦어 보이고 order_time을 같이 봐야 하나</strong>
+            <p>
+              NPay 외부 결제는 사용자가 네이버 화면에서 결제를 끝냅니다. 우리 원장에는 보통 두 시간이 남습니다.
+              order_time은 사용자가 주문을 만든 시각에 가깝고, complete_time 또는 payment_time은 아임웹/네이버 쪽에서 결제완료가 확정되어
+              우리 VM Cloud 원장으로 sync된 시각에 가깝습니다.
+            </p>
+            <p>
+              그래서 사용자는 버튼 클릭 직후 주문을 만들었지만, complete_time만 보면 몇 시간 또는 하루 뒤처럼 보일 수 있습니다.
+              자동 연결은 이제 complete_time만 보지 않고, 버튼 클릭과 order_time이 1분 이내로 맞는지를 먼저 봅니다.
+              complete_time은 “실제 결제완료가 맞는지” 확인하는 용도이고, order_time은 “어느 버튼 클릭에서 온 주문인지” 붙이는 용도입니다.
+            </p>
+          </div>
+
+          <div className={styles.bridgeExplainBox}>
+            <strong>NPay 결제완료 22건을 유입별로 나눠 봅니다</strong>
+            <p>
+              NPay 실제 결제완료는 모두 매출입니다. 다만 Google Ads 예산 판단에는
+              “그중 Google 광고에서 온 주문”만 따로 봐야 합니다.
+              이 표는 실제 결제완료 {formatCount(npayFinalSourceSummary.totalCompletedOrders)}건 중
+              버튼 클릭 row와 강하게 붙은 {formatCount(npayFinalSourceSummary.classifiedCompletedOrders)}건을 먼저 나누고,
+              아직 붙지 않은 {formatCount(npayFinalSourceSummary.unclassifiedCompletedOrders)}건은 미분류로 남깁니다.
+            </p>
+            <p>
+              현재 Google 증거가 있는 NPay 결제완료 후보는 {formatCount(npayFinalSourceSummary.googleEvidenceOrders)}건,
+              금액은 {formatKrw(npayFinalSourceSummary.googleEvidenceAmountKrw)}입니다.
+              미분류/direct는 Google 매출로 간주하지 않습니다.
+            </p>
+          </div>
+
+	          <div className={styles.signalFlowGrid}>
+	            {npayFinalSourceSummary.byChannel.map((row) => (
+	              <article className={styles.signalFlowCard} key={row.channel}>
+                <span>{row.label}</span>
+                <strong>{formatCount(row.completedOrders)}건</strong>
+                <p>
+                  금액 {formatKrw(row.amountKrw)} · 내부 bridge 후보 {formatCount(row.bridgeCandidateOrders)}건
+                </p>
+                <em>
+                  신뢰도 {row.confidence} · 직접 click id {formatCount(row.directGoogleClickIdOrders)}건 ·
+                  복구 click id {formatCount(row.recoveredGoogleClickIdOrders)}건
+                </em>
+		              </article>
+		            ))}
+		          </div>
+
+          {npayUnclassifiedReasonRows.length > 0 ? (
+            <>
+              <div className={styles.bridgeExplainBox}>
+                <strong>NPay 미분류/보류 주문을 주문당 하나의 주 사유로 다시 쪼갭니다</strong>
+                <p>
+                  예전 방식은 한 주문이 “금액 불일치”, “시간 애매함”, “click id 없음”처럼 여러 사유에 동시에 잡혀
+                  실제로 무엇부터 고쳐야 하는지 흐려졌습니다. 지금 표는 주문 1건당 가장 먼저 풀어야 할 사유 하나만 골라
+                  자동 연결 병목을 봅니다.
+                </p>
+                <p>
+                  이 숫자는 “구매가 아니다”라는 뜻이 아닙니다. 실제 NPay 결제완료는 매출이지만,
+                  아직 원래 버튼 클릭 row와 안정적으로 붙지 않았거나 광고 전송 근거가 부족하다는 뜻입니다.
+                </p>
+              </div>
+              <div className={styles.signalFlowGrid}>
+                {npayUnclassifiedReasonRows.map((row) => (
+                  <article className={styles.signalFlowCard} key={`npay-unclassified-${row.reason}`}>
+                    <span>{row.label}</span>
+                    <strong>{formatCount(row.completedOrders)}건</strong>
+                    <p>{row.plain}</p>
+                    <em>
+                      미분류/보류 내 비중 {row.sharePct.toFixed(2)}% · 샘플 주문 {formatCount(row.sampleOrderCount)}건
+                    </em>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className={styles.bridgeExplainBox}>
+              <strong>NPay 미분류 사유 분해</strong>
+              <p>
+                현재 API가 주문당 주 사유 분해를 아직 내려주지 않습니다.
+                최신 백엔드가 연결되면 미분류가 버튼 클릭 누락, bridge URL 누락, 금액 조합, 시간 차이, 후보 중복으로 자동 표시됩니다.
+              </p>
+            </div>
+          )}
+
+	          {npayFinalSourceDateDistribution.length > 0 ? (
+	            <>
+	              <div className={styles.bridgeExplainBox}>
+	                <strong>NPay 결제완료 날짜별 분포</strong>
+	                <p>
+	                  날짜별로 실제 결제완료가 언제 몰렸고, 그중 자동 bridge 후보와 Google 증거가 얼마나 있었는지 봅니다.
+	                  특정 날짜만 출처가 비는지, 전체적으로 NPay 외부 결제 흐름에서 비는지 구분하기 위한 표입니다.
+	                </p>
+	              </div>
+	              <div className={styles.signalFlowGrid}>
+	                {npayFinalSourceDateDistribution.map((row) => (
+	                  <article className={styles.signalFlowCard} key={`npay-final-source-${row.dateKst}`}>
+	                    <span>{row.dateKst}</span>
+	                    <strong>{formatCount(row.completedOrders)}건</strong>
+	                    <p>
+	                      금액 {formatKrw(row.amountKrw)} · bridge 후보 {formatCount(row.bridgeCandidateOrders)}건 ·
+	                      A급 {formatCount(row.gradeA)}건 · B급 {formatCount(row.gradeB)}건
+	                    </p>
+	                    <em>
+	                      Google 증거 {formatCount(row.googleEvidenceOrders)}건 · 직접 click id {formatCount(row.directGoogleClickIdOrders)}건 ·
+	                      미분류 {formatCount(row.ambiguous + row.purchaseWithoutIntent)}건
+	                    </em>
+	                  </article>
+	                ))}
+	              </div>
+	            </>
+	          ) : (
+	            <div className={styles.bridgeExplainBox}>
+	              <strong>NPay 결제완료 날짜별 분포</strong>
+	              <p>
+	                현재 연결된 API는 날짜별 분포를 아직 내려주지 않습니다.
+	                VM Cloud API 배포 후 이 영역에 결제완료 날짜별 건수와 Google 증거 건수가 자동으로 표시됩니다.
+	              </p>
+	            </div>
+	          )}
+
+	          <div className={styles.plainQuestionBox}>
+	            <strong>유입 분류 기준</strong>
+            <p>{npayFinalSourceSummary.basis}</p>
+            <p>{npayFinalSourceSummary.caveat}</p>
+          </div>
+
           <div className={styles.bridgeExplainBox}>
             <strong>왜 이 구분이 중요한가</strong>
             <p>{npayBridgeReview.plainMeaning}</p>
@@ -3512,8 +4843,10 @@ export default function GoogleRoasProjectReportPage() {
               Google click id 없음 {formatCount(npayBridgeReview.summary.gradeBBlockedByMissingGoogleClickId)}건으로 보류됩니다. 이 사유는 한 주문에 여러 개가 겹칠 수 있습니다.
             </p>
             <em>
-              Google click id가 있는 B급은 {formatCount(npayBridgeReview.summary.gradeBWithGoogleClickId)}건입니다.
-              이 1건은 내부 수동 검토 후보지만, Google Ads 자동 전송 후보는 아닙니다.
+              B급 중 Google 흔적이 있는 주문은 row 기준 {formatCount(npayBridgeGradeBRowsWithAnyGoogleEvidence.length)}건입니다.
+              그중 intent row에 직접 click id가 남은 것은 {formatCount(npayBridgeGradeBRowsWithDirectIntentClickId.length)}건,
+              같은 세션의 직전 Google 클릭 원장에서 복구한 것은 {formatCount(npayBridgeGradeBRowsWithRecoveredClickId.length)}건입니다.
+              복구 흔적은 내부 분석 후보이지 Google Ads 자동 전송 후보가 아닙니다.
             </em>
           </div>
 
@@ -3542,7 +4875,7 @@ export default function GoogleRoasProjectReportPage() {
             <em>
               현재 화면 표시 {formatCount(npayBridgeGradeBRows.length)}건 ·
               전체 B급 {formatCount(npayBridgeReview.summary.gradeB)}건 ·
-              Google click id 있는 B급 {formatCount(npayBridgeReview.summary.gradeBWithGoogleClickId)}건 ·
+              Google 흔적 있는 B급 {formatCount(npayBridgeGradeBRowsWithAnyGoogleEvidence.length)}건 ·
               A급 승격 가능 {formatCount(npayBridgeReview.summary.gradeBPromotableToGradeANow)}건
             </em>
           </div>
@@ -3575,6 +4908,7 @@ export default function GoogleRoasProjectReportPage() {
                       <td>
                         <strong>{row.hasGoogleClickId ? row.googleClickIdTypes.join("+") : "없음"}</strong>
                         <span>campaign {row.gadCampaignId ?? "없음"}</span>
+                        <span>{row.googleClickIdEvidencePlain ?? "주문 또는 intent row에 직접 전송 가능한 click id가 확인되지 않았습니다."}</span>
                       </td>
                       <td>
                         <strong>Google Ads 전송 후보 아님</strong>
@@ -4503,6 +5837,63 @@ export default function GoogleRoasProjectReportPage() {
           </p>
         </section>
 
+        <section className={`${styles.section} ${styles.campaignEvidenceSection}`}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Last-click 보조 관점</h2>
+              <p>
+                Last-click은 마지막으로 누른 Google 광고 하나에 구매를 붙여 보는 쉬운 해석 방식입니다.
+                Google Ads 설정은 데이터 기반 기여 분석으로 그대로 두고, 이 카드는 사람이 대기 주문을 읽기 쉽게 보는 보조 화면입니다.
+              </p>
+            </div>
+            <span className={styles.metaText}>
+              {googleAdsLastClickAssist.source} · 기준 {googleAdsLastClickAssist.checkedAtKst}
+            </span>
+          </div>
+
+          <div className={styles.campaignEvidenceSummary}>
+            {googleAdsLastClickAssist.cards.map((card) => (
+              <article key={card.label}>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <p>{card.plain}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className={styles.truthEvidenceBox}>
+            <strong>결정: Google Ads 기여 분석 모델은 last-click으로 바꾸지 않습니다</strong>
+            <p>{googleAdsLastClickAssist.decision}</p>
+            <p>
+              현재 확인된 합계는 클릭 날짜 기준과 결제 날짜 기준 모두
+              {" "}{formatKrw(googleAdsLastClickAssist.observed.valueKrw)}입니다.
+              다만 데이터 기반 기여 분석은 일부 주문 금액을 여러 클릭 날짜로 나눌 수 있으므로,
+              “어느 날 주문이 생겼나”를 볼 때는 결제 날짜 기준도 같이 확인합니다.
+            </p>
+            <em>
+              예측: 대기 {formatCount(googleAdsLastClickAssist.pendingRepeated245.rows)}건은
+              {" "}{googleAdsLastClickAssist.pendingRepeated245.firstLikelyWindowKst}부터 일부 보일 가능성이 있고,
+              대부분은 {googleAdsLastClickAssist.pendingRepeated245.mostLikelyWindowKst}까지 확인될 가능성이 큽니다.
+              {googleAdsLastClickAssist.pendingRepeated245.investigateAfterKst} 이후에도 안 보이면 지연이 아니라 원인 점검 대상으로 봅니다.
+            </em>
+          </div>
+
+          <div className={styles.signalFlowGrid}>
+            {googleAdsLastClickAssist.conditions.map((condition) => (
+              <article key={condition.label} className={styles.signalFlowCard}>
+                <span>반영 조건</span>
+                <strong>{condition.label}</strong>
+                <p>{condition.plain}</p>
+              </article>
+            ))}
+          </div>
+
+          <p className={styles.healthNote}>
+            이 예측은 Google Ads 설정을 바꾸는 판단이 아닙니다. 이미 전송된 row가 Google Ads 리포트에 언제 보일지
+            과거 반영 속도와 현재 대기 row의 전송 시각을 기준으로 나눈 read-only 시뮬레이션입니다.
+          </p>
+        </section>
+
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <div>
@@ -4716,8 +6107,8 @@ export default function GoogleRoasProjectReportPage() {
             </div>
             <div className={styles.evidenceCard}>
               <strong>현재 live 조회 API</strong>
-              <p>Google Ads API와 내부 원장 값을 같은 화면에서 읽습니다. 쓰기나 전송은 없습니다.</p>
-              <code>/api/google-ads/dashboard-summary?date_preset=last_7d,last_30d</code>
+              <p>Google Ads API와 내부 원장 값을 같은 화면에서 읽습니다. 최근 7일 카드는 오늘 포함 custom range로 읽습니다.</p>
+              <code>/api/google-ads/dashboard-summary?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD</code>
             </div>
             <div className={styles.evidenceCard}>
               <strong>exact evidence 설계안</strong>

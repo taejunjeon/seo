@@ -20,6 +20,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 
 import { getCrmDb } from "./crmLocalDb";
+import { isLikelySyntheticGoogleClickId } from "./googleClickIdSanitizer";
 
 const TABLE = "site_landing_ledger";
 let tableReady = false;
@@ -106,6 +107,8 @@ const PII_FORBIDDEN_PATTERNS: ReadonlyArray<RegExp> = [
   /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/, // email
   /\b\d{4}-?\d{4}-?\d{4}-?\d{4}\b/, // 카드
 ];
+
+const GOOGLE_CLICK_ID_TYPES = new Set(["gclid", "gbraid", "wbraid"]);
 
 export type ClickIdStorageMode = "hash" | "raw" | "none";
 
@@ -387,9 +390,14 @@ export const recordSiteLanding = (input: SiteLandingInput): SiteLandingRecordRes
     return { stored: false, rejected: true, reason: "forbidden_pii_pattern" };
   }
 
-  const clickIdType = sanitize(input.clickId?.type, 32);
-  const clickIdValue = sanitize(input.clickId?.valueOrHash, 200);
-  const clickIdStorageMode: ClickIdStorageMode = input.clickId?.storageMode ?? "none";
+  let clickIdType = sanitize(input.clickId?.type, 32);
+  let clickIdValue = sanitize(input.clickId?.valueOrHash, 200);
+  let clickIdStorageMode: ClickIdStorageMode = input.clickId?.storageMode ?? "none";
+  if (GOOGLE_CLICK_ID_TYPES.has(clickIdType.toLowerCase()) && isLikelySyntheticGoogleClickId(clickIdValue)) {
+    clickIdType = "";
+    clickIdValue = "";
+    clickIdStorageMode = "none";
+  }
   if (clickIdStorageMode === "raw" && clickIdValue) {
     // raw click_id 는 PII 패턴 추가 검사로 안전망
     if (containsForbiddenPii(clickIdValue)) {

@@ -9,7 +9,7 @@ set -euo pipefail
 BASE_URL="${GOOGLE_ADS_CONFIRMED_PURCHASE_BASE_URL:-https://att.ainativeos.net}"
 SITE="${GOOGLE_ADS_CONFIRMED_PURCHASE_SITE:-biocom}"
 WINDOW="${GOOGLE_ADS_CONFIRMED_PURCHASE_WINDOW:-rolling_24h}"
-LIMIT="${GOOGLE_ADS_CONFIRMED_PURCHASE_LIMIT:-2}"
+LIMIT="${GOOGLE_ADS_CONFIRMED_PURCHASE_LIMIT:-5}"
 
 WRITE_CONFIRM="vm_cloud_write_smoke_approved"
 SEND_CONFIRM="google_ads_limited_send_approved"

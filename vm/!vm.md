@@ -78,6 +78,84 @@ Node PATH 는 login shell 에서 자동 로딩 안 됨. 명령 실행 시 직접
 sudo -u biocomkr_sns bash -lc 'export PATH=/home/biocomkr_sns/seo/node/bin:$PATH; node --version'
 ```
 
+### 1.2B repo 권한 기준 (2026-05-28 보강)
+
+VM Cloud backend/frontend는 PM2와 Node 프로세스가 `biocomkr_sns` 사용자로 실행된다.
+따라서 소스와 빌드 경로는 `biocomkr_sns:biocomkr_sns` 소유가 기본이다.
+
+2026-05-28에 일부 소스 경로가 `501:root` 소유로 남아 `sed -i` 같은 파일 교체형 편집이 실패했다.
+이 문제는 repo 전체를 넓게 바꾸지 않고, 배포와 소스 편집에 필요한 경로만 좁게 정상화했다.
+
+현재 기준 소유권:
+
+```text
+/home/biocomkr_sns/seo/repo
+/home/biocomkr_sns/seo/repo/backend
+/home/biocomkr_sns/seo/repo/backend/src
+/home/biocomkr_sns/seo/repo/backend/src/bootstrap
+/home/biocomkr_sns/seo/repo/backend/src/routes
+/home/biocomkr_sns/seo/repo/frontend
+/home/biocomkr_sns/seo/repo/frontend/src
+/home/biocomkr_sns/seo/repo/frontend/src/app
+```
+
+배포나 hotfix 중 파일 편집이 막히면 먼저 아래처럼 확인한다.
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
+  'sudo stat -c "%U:%G %a %n" \
+    /home/biocomkr_sns/seo/repo \
+    /home/biocomkr_sns/seo/repo/backend \
+    /home/biocomkr_sns/seo/repo/backend/src \
+    /home/biocomkr_sns/seo/repo/frontend \
+    /home/biocomkr_sns/seo/repo/frontend/src'
+```
+
+서비스 사용자 기준 쓰기 가능 여부:
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
+  'sudo -u biocomkr_sns bash -lc '\''
+    set -e
+    for d in \
+      /home/biocomkr_sns/seo/repo \
+      /home/biocomkr_sns/seo/repo/backend \
+      /home/biocomkr_sns/seo/repo/backend/src \
+      /home/biocomkr_sns/seo/repo/frontend/src \
+      /home/biocomkr_sns/seo/repo/frontend/src/app
+    do
+      test -w "$d" && echo "writable=yes $d" || echo "writable=no $d"
+    done
+  '\'''
+```
+
+`sed -i`까지 필요한 경우 임시파일 교체 smoke를 확인한다.
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
+  'sudo -u biocomkr_sns bash -lc '\''
+    set -e
+    f=/home/biocomkr_sns/seo/repo/backend/src/.permission-smoke.tmp
+    printf "alpha\n" > "$f"
+    sed -i "s/alpha/beta/" "$f"
+    grep -q beta "$f"
+    rm -f "$f"
+    echo sed_i_smoke=ok
+  '\'''
+```
+
+복구가 필요할 때는 막힌 소스/빌드 경로만 좁게 `chown`한다.
+`.deploy-backups`, DB 파일, 로그, shared data 전체는 별도 승인 없이 recursive chown하지 않는다.
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes taejun@34.64.104.94 \
+  'sudo chown -R biocomkr_sns:biocomkr_sns \
+    /home/biocomkr_sns/seo/repo/backend/src \
+    /home/biocomkr_sns/seo/repo/frontend/src'
+```
+
+권한 정상화 상세 기록은 [project/vm-repo-permission-normalization-20260528.md](../project/vm-repo-permission-normalization-20260528.md)에 남겼다.
+
 ### 1.3 직접 `biocomkr_sns` SSH 복구 방법
 
 직접 운영 계정 로그인을 복구하려면 **공개키만** `/home/biocomkr_sns/.ssh/authorized_keys`에 등록한다. 개인키(`~/.ssh/id_ed25519`)는 서버나 문서에 붙여 넣지 않는다.

@@ -1,0 +1,1330 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>바이오컴 자사몰 상품 수량·세트 분배 보고서</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17212b;
+      --muted: #61707f;
+      --line: #d9e0e7;
+      --paper: #f5f7f9;
+      --panel: #ffffff;
+      --navy: #16324f;
+      --green: #1d7558;
+      --blue: #2865a8;
+      --red: #b3412f;
+      --gold: #996c16;
+      --teal: #0f6b72;
+      --soft-green: #e8f3ee;
+      --soft-blue: #e9f1fb;
+      --soft-red: #faece8;
+      --soft-gold: #f8f0dd;
+      --soft-teal: #e6f2f3;
+      --shadow: 0 1px 2px rgba(23, 33, 43, 0.08), 0 10px 26px rgba(23, 33, 43, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      line-height: 1.58;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 26px 0 64px;
+    }
+
+    .hero {
+      background: var(--navy);
+      color: #fff;
+      border-radius: 8px;
+      padding: 34px;
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #b9d6ef;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 980px;
+      font-size: clamp(30px, 5vw, 46px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 920px;
+      margin: 18px 0 0;
+      color: #e6eef6;
+      font-size: 17px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #eef6ff;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    section {
+      margin-top: 26px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+
+    .label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .metric {
+      margin-top: 4px;
+      font-size: 30px;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 850;
+      margin-bottom: 10px;
+    }
+
+    .ok { background: var(--soft-green); color: var(--green); }
+    .hold { background: var(--soft-gold); color: var(--gold); }
+    .risk { background: var(--soft-red); color: var(--red); }
+    .info { background: var(--soft-blue); color: var(--blue); }
+    .teal { background: var(--soft-teal); color: var(--teal); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #edf2f7;
+      color: #334252;
+      font-size: 13px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .num {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 25px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: #eef2f5;
+      color: #35475a;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .tag.auto-yes {
+      background: var(--soft-green);
+      color: var(--green);
+    }
+
+    .tag.auto-no {
+      background: var(--soft-blue);
+      color: var(--blue);
+    }
+
+    .tag.review {
+      background: var(--soft-gold);
+      color: var(--gold);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .step-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .step strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .bar-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .bar {
+      width: 100%;
+      height: 12px;
+      overflow: hidden;
+      background: #e2e7ed;
+      border-radius: 999px;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+
+    .bar.green span { background: var(--green); }
+    .bar.gold span { background: var(--gold); }
+    .bar.teal span { background: var(--teal); }
+
+    .callout {
+      border-left: 5px solid var(--blue);
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .flow .step {
+      min-height: 140px;
+    }
+
+    .review-board {
+      display: grid;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .proposal-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fff;
+    }
+
+    .proposal-card.auto-approve-split {
+      border-color: #b8d9cb;
+      background: linear-gradient(180deg, #fff 0%, #f8fcfa 100%);
+    }
+
+    .proposal-card.auto-no-bundle {
+      border-color: #c4d7ee;
+      background: linear-gradient(180deg, #fff 0%, #f7fbff 100%);
+    }
+
+    .proposal-card.human-review {
+      border-color: #e3cf9b;
+      background: linear-gradient(180deg, #fff 0%, #fffaf0 100%);
+    }
+
+    .proposal-title {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 850;
+    }
+
+    .proposal-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 8px 0;
+    }
+
+    .confidence {
+      display: grid;
+      gap: 6px;
+      margin: 10px 0;
+    }
+
+    .confidence-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: #334252;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .confidence-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #e2e7ed;
+    }
+
+    .confidence-track span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--green);
+    }
+
+    .confidence-track.auto-no span { background: var(--blue); }
+    .confidence-track.review span { background: var(--gold); }
+
+    .component-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .component-list li {
+      border-radius: 6px;
+      background: #eef2f5;
+      padding: 5px 8px;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .decision-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    button:hover,
+    button.active {
+      border-color: var(--blue);
+      background: var(--soft-blue);
+      color: var(--blue);
+    }
+
+    .decision {
+      min-height: 30px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 72px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      resize: vertical;
+      font: inherit;
+      font-size: 13px;
+    }
+
+    .export-box {
+      width: 100%;
+      min-height: 160px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-top: 12px;
+      padding: 12px;
+      background: #101820;
+      color: #e9f1f8;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 920px) {
+      .span-3,
+      .span-4,
+      .span-6,
+      .span-8,
+      .span-12 {
+        grid-column: span 12;
+      }
+
+      .split,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .proposal-card {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 26px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">BIOCOM SELF-MALL PRODUCT QUANTITY REPORT · 2026년 4월 결제완료 기준</p>
+      <h1>바이오컴 자사몰 상품 수량은 분석 가능하지만, 세트 상품은 “분배표”를 둬야 안전합니다.</h1>
+      <p>
+        2026년 4월 운영DB 결제완료 원장 기준으로 상품명, 주문 수량, 상품 옵션, 아임웹 상품번호까지 확인했습니다.
+        단품 수량은 바로 볼 수 있고, 2인권·3+1세트·검사 SET처럼 한 줄이 여러 실제 상품으로 풀리는 항목은
+        자동 규칙과 TJ님 수동 매핑표를 같이 써야 합니다.
+      </p>
+      <div class="meta">
+        <span class="pill">Primary source: 운영DB 결제완료 원장</span>
+        <span class="pill">Window: 2026-04-01 - 2026-04-30 KST</span>
+        <span class="pill">Mode: read-only / no-send</span>
+        <span class="pill">Raw identifier output: 0</span>
+      </div>
+    </header>
+
+    <section>
+      <div class="grid">
+        <article class="panel span-3">
+          <div class="label">4월 결제완료 주문</div>
+          <div class="metric">2,195</div>
+          <p class="note">주문번호는 보고서에 출력하지 않았습니다.</p>
+        </article>
+        <article class="panel span-3">
+          <div class="label">상품 행</div>
+          <div class="metric">2,580</div>
+          <p class="note">운영DB `tb_iamweb_users` 상품 행 기준입니다.</p>
+        </article>
+        <article class="panel span-3">
+          <div class="label">원수량</div>
+          <div class="metric">2,753</div>
+          <p class="note">세트 분배 전 `purchase_quantity` 합계입니다.</p>
+        </article>
+        <article class="panel span-3">
+          <div class="label">주문 매출</div>
+          <div class="metric">497,863,546원</div>
+          <p class="note">주문 단위 할인 반영 후 상품 행에 배분했습니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="callout">
+      <strong>결론부터 말하면</strong>
+      <p>
+        “상품별 매출”은 현재 운영DB만으로 충분히 만들 수 있습니다. “상품별 실제 수량”도 단품은 충분합니다.
+        문제는 세트입니다. 예를 들어 `종합 대사기능&음식물 과민증 검사 Set` 1개는 실제로
+        대사기능 검사 1건과 음식물 과민증 검사 1건으로 쪼개야 합니다.
+        이런 분배 기준은 데이터에서 일부 자동 추출되지만, 최종 기준은 사람이 관리하는 매핑표가 필요합니다.
+      </p>
+    </section>
+
+    <section>
+      <h2>데이터가 어디까지 준비됐나</h2>
+      <div class="grid">
+        <article class="panel span-4">
+          <span class="status ok">사용 가능</span>
+          <h3>운영DB 상품 행</h3>
+          <p>
+            결제완료 주문의 상품명, 수량, 결제상태, 상품 금액, 주문 금액을 가져올 수 있습니다.
+            `API`는 프로그램이 데이터를 받아오는 통로이고, 여기서는 백엔드가 운영DB에서 읽는 방식입니다.
+          </p>
+          <p class="note">4월 상품 행 2,580건, 상품명 70개, 아임웹 상품번호 69개 확인.</p>
+        </article>
+        <article class="panel span-4">
+          <span class="status ok">부분 사용 가능</span>
+          <h3>아임웹 옵션 구조</h3>
+          <p>
+            `raw_data.sections.sectionItems.productInfo.optionInfo`에서 옵션명을 맞출 수 있습니다.
+            예: `3+1 세트`, `2인권`, `1인 검사 SET` 같은 선택값을 집계할 수 있습니다.
+          </p>
+          <p class="note">상품 행 2,580건 모두 productInfo 매칭, 옵션 정보는 2,095건 매칭.</p>
+        </article>
+        <article class="panel span-4">
+          <span class="status hold">보조만 가능</span>
+          <h3>로컬 상품 라인 캐시</h3>
+          <p>
+            로컬 `imweb_order_items`는 2026-04-15에서 멈춰 있고 금액 컬럼이 0입니다.
+            따라서 지금은 수량 패턴을 참고하는 보조 자료로만 써야 합니다.
+          </p>
+          <p class="note">로컬 캐시 최신 주문 시각: 2026-04-15, 운영DB는 2026-05-29까지 존재.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>2026년 4월 상위 상품</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>상품</th>
+              <th class="num">수량</th>
+              <th class="num">주문수</th>
+              <th class="num">배분 매출</th>
+              <th>해석</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>음식물 과민증 분석</td>
+              <td class="num">765</td>
+              <td class="num">762</td>
+              <td class="num">221,617,012원</td>
+              <td><span class="tag">핵심 매출</span> 1인권·2인권·3인권 분리 필요</td>
+            </tr>
+            <tr>
+              <td>종합 대사기능&음식물 과민증 검사 Set</td>
+              <td class="num">107</td>
+              <td class="num">106</td>
+              <td class="num">55,525,048원</td>
+              <td><span class="tag">세트</span> 대사기능과 음식물 과민증으로 분배 필요</td>
+            </tr>
+            <tr>
+              <td>[공구] 송율 8차 음식물과민증 분석</td>
+              <td class="num">147</td>
+              <td class="num">147</td>
+              <td class="num">41,850,867원</td>
+              <td>공구 상품, 2인권·3인권 옵션 확인 필요</td>
+            </tr>
+            <tr>
+              <td>[공구] 소소한푸념 음식물과민증 분석</td>
+              <td class="num">104</td>
+              <td class="num">103</td>
+              <td class="num">32,847,000원</td>
+              <td>공구 상품, 옵션명으로 인원 수 분리 가능</td>
+            </tr>
+            <tr>
+              <td>[공구] 꾸노핑 2차 음식물과민증 분석</td>
+              <td class="num">90</td>
+              <td class="num">87</td>
+              <td class="num">27,624,450원</td>
+              <td>공구 상품, 인원 수 옵션 분리 필요</td>
+            </tr>
+            <tr>
+              <td>종합 대사기능 분석</td>
+              <td class="num">44</td>
+              <td class="num">44</td>
+              <td class="num">13,911,694원</td>
+              <td>단독 검사권, 2인권 옵션은 수량 보정 필요</td>
+            </tr>
+            <tr>
+              <td>[공구] 행자 1차 종합 대사기능 분석</td>
+              <td class="num">47</td>
+              <td class="num">47</td>
+              <td class="num">13,642,200원</td>
+              <td>공구 상품, 옵션명으로 인원 수 분리 가능</td>
+            </tr>
+            <tr>
+              <td>영양 중금속 분석</td>
+              <td class="num">64</td>
+              <td class="num">59</td>
+              <td class="num">9,963,413원</td>
+              <td>1인권·2인권·3인권 옵션 보정 필요</td>
+            </tr>
+            <tr>
+              <td>뉴로마스터 60정 (1개월분)</td>
+              <td class="num">114</td>
+              <td class="num">107</td>
+              <td class="num">6,210,942원</td>
+              <td>3+1세트는 실제 병 수 4개로 보정 필요</td>
+            </tr>
+            <tr>
+              <td>바이오밸런스 90정 (1개월분)</td>
+              <td class="num">83</td>
+              <td class="num">75</td>
+              <td class="num">4,995,449원</td>
+              <td>3+1세트와 단품을 분리해야 재고 관점이 맞음</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">배분 매출은 주문 단위 최종 금액을 상품 행 금액 비율로 나눈 값입니다. 이 방식은 할인·쿠폰이 섞여도 상품별 매출 합계가 주문 매출과 맞습니다.</p>
+    </section>
+
+    <section>
+      <h2>세트 후보와 쪼개는 방법</h2>
+      <div class="grid">
+        <article class="panel span-8">
+          <h3>우선 처리해야 할 세트·다인권 후보</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>옵션 기준</th>
+                  <th class="num">행</th>
+                  <th class="num">현재 수량</th>
+                  <th class="num">라인 금액</th>
+                  <th>권장 분배</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>음식물 과민증 분석 / 지연성알러지검사 2인권</td>
+                  <td class="num">110</td>
+                  <td class="num">110</td>
+                  <td class="num">57,994,000원</td>
+                  <td>음식물 과민증 검사 수량을 2배로 보정</td>
+                </tr>
+                <tr>
+                  <td>종합 대사기능&음식물 과민증 검사 Set / 1인 검사 SET</td>
+                  <td class="num">94</td>
+                  <td class="num">94</td>
+                  <td class="num">49,967,000원</td>
+                  <td>대사기능 1 + 음식물 과민증 1로 분배</td>
+                </tr>
+                <tr>
+                  <td>음식물 과민증 분석 / 지연성알러지검사 3인권</td>
+                  <td class="num">21</td>
+                  <td class="num">21</td>
+                  <td class="num">17,304,000원</td>
+                  <td>음식물 과민증 검사 수량을 3배로 보정</td>
+                </tr>
+                <tr>
+                  <td>종합 검사 SET / 2인 검사 SET</td>
+                  <td class="num">10</td>
+                  <td class="num">10</td>
+                  <td class="num">10,208,000원</td>
+                  <td>대사기능 2 + 음식물 과민증 2로 분배</td>
+                </tr>
+                <tr>
+                  <td>바이오밸런스 / 3+1 세트</td>
+                  <td class="num">22</td>
+                  <td class="num">23</td>
+                  <td class="num">4,841,100원</td>
+                  <td>실제 병 수를 4배로 보정</td>
+                </tr>
+                <tr>
+                  <td>클린밸런스 / 3+1세트</td>
+                  <td class="num">17</td>
+                  <td class="num">17</td>
+                  <td class="num">4,757,400원</td>
+                  <td>실제 병 수를 4배로 보정</td>
+                </tr>
+                <tr>
+                  <td>뉴로마스터 / 3+1 세트</td>
+                  <td class="num">28</td>
+                  <td class="num">29</td>
+                  <td class="num">4,398,300원</td>
+                  <td>실제 병 수를 4배로 보정</td>
+                </tr>
+                <tr>
+                  <td>혈당관리엔 당당케어 / 3개 set</td>
+                  <td class="num">10</td>
+                  <td class="num">10</td>
+                  <td class="num">2,656,400원</td>
+                  <td>실제 병 수를 3배로 보정</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+        <article class="panel span-4">
+          <h3>자동으로 할 수 있는 것</h3>
+          <div class="bar-list">
+            <div>
+              <div class="bar-top"><span>상품번호 매칭</span><span>100%</span></div>
+              <div class="bar green"><span style="width:100%"></span></div>
+              <p class="note">2,580 상품 행 모두 아임웹 상품번호를 확인했습니다.</p>
+            </div>
+            <div>
+              <div class="bar-top"><span>옵션명 매칭</span><span>81%</span></div>
+              <div class="bar teal"><span style="width:81%"></span></div>
+              <p class="note">2,095 상품 행은 옵션 선택값까지 확인됩니다.</p>
+            </div>
+            <div>
+              <div class="bar-top"><span>수동 매핑 필요</span><span>상</span></div>
+              <div class="bar gold"><span style="width:70%"></span></div>
+              <p class="note">세트 구성품은 사람이 한 번 정해줘야 이후 자동화됩니다.</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>권장 분배 방식</h2>
+      <div class="split">
+        <article class="panel">
+          <span class="status ok">추천 v0</span>
+          <h3>수량은 구성품으로 분배, 매출은 원상품에도 남긴다</h3>
+          <p>
+            첫 버전에서는 매출 보고 숫자를 흔들지 않기 위해 “세트 매출”은 기존 상품에도 유지하고,
+            운영·재고·인기상품 판단용으로만 구성품 수량을 추가 계산하는 방식이 안전합니다.
+          </p>
+          <p class="note">
+            예: `검사 SET 1` 94개는 매출은 SET 상품에 남기고, 구성품 수량에는 대사기능 94건과 음식물 과민증 94건을 추가합니다.
+          </p>
+        </article>
+        <article class="panel">
+          <span class="status hold">v1 이후</span>
+          <h3>매출도 구성품 가격 비율로 나눈다</h3>
+          <p>
+            구성품별 매출까지 필요하면 정가 또는 관리자가 정한 비율로 나눌 수 있습니다.
+            다만 이 단계는 할인·공구·구독 조건 때문에 기준이 흔들릴 수 있어, 먼저 수량 분배를 고정한 뒤 진행하는 편이 좋습니다.
+          </p>
+          <p class="note">정가 비율, 균등 분배, 수동 비율 중 하나를 상품군별로 선택해야 합니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>수동 매핑표 설계</h2>
+      <div class="grid">
+        <article class="panel span-6">
+          <h3>사람이 정해줘야 하는 최소 정보</h3>
+          <div class="step-list">
+            <div class="step">
+              <strong>1. 어떤 상품/옵션을 세트로 볼지</strong>
+              <p>상품번호, 상품명, 옵션명 패턴을 정합니다. 예: 상품번호 328 + `1인 검사 SET`.</p>
+            </div>
+            <div class="step">
+              <strong>2. 세트 1개가 어떤 구성품 몇 개로 풀리는지</strong>
+              <p>예: 대사기능 1개, 음식물 과민증 1개. 3+1 상품은 같은 제품 4개.</p>
+            </div>
+            <div class="step">
+              <strong>3. 매출을 나눌지, 수량만 나눌지</strong>
+              <p>추천은 수량 먼저입니다. 매출 분배는 다음 단계에서 가격 비율을 확정합니다.</p>
+            </div>
+          </div>
+        </article>
+        <article class="panel span-6">
+          <h3>매핑표 필드</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>필드</th>
+                  <th>의미</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>source_prod_no</td>
+                  <td>아임웹 상품번호. 상품명을 바꿔도 같은 상품을 잡는 기준입니다.</td>
+                </tr>
+                <tr>
+                  <td>option_value_pattern</td>
+                  <td>`3+1 세트`, `2인권` 같은 옵션명 매칭 기준입니다.</td>
+                </tr>
+                <tr>
+                  <td>component_prod_no</td>
+                  <td>실제로 수량을 더할 구성품 상품번호입니다.</td>
+                </tr>
+                <tr>
+                  <td>component_qty_per_bundle</td>
+                  <td>세트 1개당 구성품 개수입니다. 예: 3+1은 4.</td>
+                </tr>
+                <tr>
+                  <td>revenue_split_rule</td>
+                  <td>매출 분배 규칙입니다. v0는 `quantity_only` 권장입니다.</td>
+                </tr>
+                <tr>
+                  <td>valid_from / valid_to</td>
+                  <td>상품 구성이 바뀌는 기간을 분리하기 위한 날짜입니다.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>자동화 추진 계획</h2>
+      <div class="flow">
+        <div class="step">
+          <span class="status info">Step 1</span>
+          <strong>4월 기준 매핑표 초안 작성</strong>
+          <p>상위 세트 후보 20개를 먼저 매핑합니다. 매출 영향이 큰 검사 SET, 2인권, 3+1세트부터 처리합니다.</p>
+        </div>
+        <div class="step">
+          <span class="status info">Step 2</span>
+          <strong>dry-run 계산</strong>
+          <p>기존 상품 수량과 분배 후 구성품 수량을 나란히 보여줍니다. 실제 DB에는 쓰지 않습니다.</p>
+        </div>
+        <div class="step">
+          <span class="status info">Step 3</span>
+          <strong>프론트엔드 연결</strong>
+          <p>상품별 매출 옆에 원수량과 분배수량을 같이 표시합니다. 세트 원상품도 숨기지 않습니다.</p>
+        </div>
+        <div class="step">
+          <span class="status info">Step 4</span>
+          <strong>월간 리포트 자동화</strong>
+          <p>매월 상품별 매출, 원수량, 세트 분배수량, 미매핑 세트 후보를 Slack 보고서에 붙입니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>OKR와 액션플랜</h2>
+      <div class="grid">
+        <article class="panel span-6">
+          <h3>Objective</h3>
+          <p>바이오컴 자사몰 매출을 “얼마 팔렸나”에서 “무슨 상품이 실제로 몇 개 팔렸나”까지 볼 수 있게 만듭니다.</p>
+          <div class="step-list">
+            <div class="step">
+              <strong>KR1. 4월 결제완료 상품행 100% 조회</strong>
+              <p>현재 2,580/2,580 상품행 조회 가능. 달성 상태: PASS.</p>
+            </div>
+            <div class="step">
+              <strong>KR2. 옵션 기반 세트 후보 90% 이상 분류</strong>
+              <p>옵션 정보 81% 매칭. 상위 매출 세트는 이미 식별 가능. 달성 상태: READY.</p>
+            </div>
+            <div class="step">
+              <strong>KR3. 상위 세트 20개 수동 매핑 확정</strong>
+              <p>TJ님 또는 상품 담당자가 구성품을 확인하면 dry-run을 바로 만들 수 있습니다. 달성 상태: TODO.</p>
+            </div>
+          </div>
+        </article>
+        <article class="panel span-6">
+          <h3>Action Plan</h3>
+          <div class="step-list">
+            <div class="step">
+              <strong>1. 수량 분배 v0를 먼저 구현</strong>
+              <p>매출액은 기존 상품 기준으로 유지하고, 구성품 수량만 별도 계산합니다. 보고서 혼선을 줄이는 선택입니다.</p>
+            </div>
+            <div class="step">
+              <strong>2. 미매핑 세트 후보를 매월 표시</strong>
+              <p>새로운 세트 상품이 생기면 자동으로 “검토 필요”로 올라오게 합니다.</p>
+            </div>
+            <div class="step">
+              <strong>3. 매출 분배는 v1에서 가격 기준을 정한 뒤 진행</strong>
+              <p>정가 기준, 실판매가 기준, 수동 비율 중 무엇을 쓸지 상품군별로 결정합니다.</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>검사권 + 영양제 혼합 후보</h2>
+      <div class="grid">
+        <article class="panel span-4">
+          <span class="status ok">같은 줄 세트 없음</span>
+          <h3>진짜 혼합 세트는 아직 미발견</h3>
+          <p>
+            2026년 4월 상품명과 옵션명을 다시 조회했지만, 한 상품 줄 안에 검사권과 영양제가 함께 들어간 세트는 발견되지 않았습니다.
+          </p>
+          <p class="note">same-line mixed candidate: 0건</p>
+        </article>
+        <article class="panel span-4">
+          <span class="status hold">교차구매 5건</span>
+          <h3>같은 주문에 함께 담긴 경우</h3>
+          <p>
+            검사권과 영양제가 같은 주문에 함께 들어간 경우는 5건입니다. 같은 상품 줄에 묶인 증거가 없으므로 세트 분배 대상이 아니라 교차구매로 자동 분류하는 것이 맞습니다.
+          </p>
+          <p class="note">합산 라인 금액: 7,180,000원</p>
+        </article>
+        <article class="panel span-4">
+          <span class="status info">분리 기준</span>
+          <h3>세트와 장바구니를 구분</h3>
+          <p>
+            같은 상품 옵션 안에 묶이면 세트 후보, 같은 주문 안에 따로 담기면 교차구매 후보입니다. 자동 분배는 세트 후보에만 적용합니다.
+          </p>
+          <p class="note">교차구매는 분배 NO, 다만 같이 산 상품 분석에는 남깁니다.</p>
+        </article>
+      </div>
+      <div class="table-wrap" style="margin-top: 16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>검사권 쪽 상품</th>
+              <th>영양제 쪽 상품</th>
+              <th class="num">주문수</th>
+              <th class="num">라인 금액</th>
+              <th>AI 판단</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>[공구] 송율 8차 음식물과민증 분석</td>
+              <td>[김팀장 1차] 뉴로마스터 + 바이오밸런스</td>
+              <td class="num">1</td>
+              <td class="num">2,184,000원</td>
+              <td>같은 주문 교차구매. 세트 분배 NO 권장</td>
+            </tr>
+            <tr>
+              <td>[공구] 꾸노핑 2차 음식물과민증 분석</td>
+              <td>바이오밸런스 + 다빈치랩 효소 + 글루타민</td>
+              <td class="num">1</td>
+              <td class="num">1,547,200원</td>
+              <td>같은 주문 교차구매. 세트 분배 NO 권장</td>
+            </tr>
+            <tr>
+              <td>음식물 과민증 분석</td>
+              <td>클린밸런스 + 리셋데이</td>
+              <td class="num">1</td>
+              <td class="num">1,240,800원</td>
+              <td>같은 줄 세트 근거 없음. 자동 분배 제외</td>
+            </tr>
+            <tr>
+              <td>종합 대사기능&음식물 과민증 검사 Set</td>
+              <td>영데이즈 저속노화 SOD 효소</td>
+              <td class="num">1</td>
+              <td class="num">1,132,000원</td>
+              <td>같은 줄 세트 근거 없음. 자동 분배 제외</td>
+            </tr>
+            <tr>
+              <td>종합 대사기능&음식물 과민증 검사 Set</td>
+              <td>혈당상승 억제엔 방탄젤리</td>
+              <td class="num">1</td>
+              <td class="num">1,076,000원</td>
+              <td>같은 줄 세트 근거 없음. 자동 분배 제외</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>교차구매와 세트 후보는 AI가 어디까지 자동 분류할 수 있나</h2>
+      <div class="grid">
+        <article class="panel span-3">
+          <span class="status ok">자동 승인</span>
+          <h3>명확한 세트 46개</h3>
+          <p>3+1, 2인권, 3인권, 2개, 3개, 4개처럼 숫자와 구성품이 직접 적힌 항목입니다.</p>
+          <p class="note">기준 자신감: 96% - 99%</p>
+        </article>
+        <article class="panel span-3">
+          <span class="status info">자동 제외</span>
+          <h3>골라담기 9개</h3>
+          <p>골라담기는 고객이 고른 단품 옵션입니다. 세트 분배가 아니라 선택형 단품으로 남깁니다.</p>
+          <p class="note">기준 자신감: 92%</p>
+        </article>
+        <article class="panel span-3">
+          <span class="status hold">사람 검토</span>
+          <h3>펫 검사 세트 2개</h3>
+          <p>세트라는 단어는 있지만 “한마리/두마리”가 실제 검사권 수량인지 상품 운영 기준 확인이 필요합니다.</p>
+          <p class="note">기준 자신감: 82%</p>
+        </article>
+        <article class="panel span-3">
+          <span class="status ok">교차구매</span>
+          <h3>자동 분배 제외</h3>
+          <p>같은 주문에 함께 산 상품은 “같이 산 상품”으로 태그하고, 세트 수량 분배에는 넣지 않습니다.</p>
+          <p class="note">분배 대상은 같은 상품 줄 안의 옵션 묶음만입니다.</p>
+        </article>
+      </div>
+      <div class="callout" style="margin-top: 16px;">
+        <strong>자동 처리 원칙</strong>
+        <p>
+          AI는 “분배해도 되는 세트”와 “분배하면 안 되는 교차구매”를 구분할 수 있습니다.
+          다만 자동 승인은 숫자와 구성품이 옵션명에 직접 보이는 경우만 허용합니다.
+          분류 자신감(confidence, AI가 자기 판정을 얼마나 확실하게 보는지)은 95% 이상이면 자동 승인,
+          90% 이상이고 골라담기·교차구매인 경우는 자동 제외, 그 아래나 구성이 애매한 경우는 사람 검토로 둡니다.
+        </p>
+      </div>
+      <div class="table-wrap" style="margin-top: 16px;">
+        <table>
+          <thead>
+            <tr>
+              <th>후보 상품</th>
+              <th>옵션</th>
+              <th class="num">주문수</th>
+              <th class="num">수량</th>
+              <th class="num">라인 금액</th>
+              <th>AI 처리</th>
+              <th class="num">자신감</th>
+            </tr>
+          </thead>
+          <tbody id="candidateTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>AI 세트 구성 제안 검토 화면</h2>
+      <div class="callout">
+        <strong>사용 방법</strong>
+        <p>
+          아래 제안은 2026년 4월 결제완료 상품 행에서 잡힌 모든 세트 후보입니다. `자동 승인`은 매핑표에 바로 넣을 수 있는 항목이고,
+          `자동 제외`는 세트 수량 분배에 넣으면 안 되는 항목입니다. `사람 검토`만 YES, NO, 수정 선택이 필요합니다.
+          이 화면의 선택은 브라우저 안에서만 미리보기로 작동하며, 운영DB나 외부 시스템에 저장하지 않습니다.
+        </p>
+      </div>
+      <div id="proposalBoard" class="review-board" aria-live="polite"></div>
+      <article class="panel" style="margin-top: 16px;">
+        <h3>검토 결과 JSON 미리보기</h3>
+        <p class="note">JSON은 사람이 검토한 세트 분배 기준을 나중에 매핑 파일로 옮기기 위한 초안입니다. 지금은 저장/전송하지 않습니다.</p>
+        <button type="button" id="exportReview">현재 선택 미리보기 생성</button>
+        <pre id="reviewExport" class="export-box">아직 생성된 검토 결과가 없습니다.</pre>
+      </article>
+    </section>
+
+    <section>
+      <h2>검증과 안전 조건</h2>
+      <div class="grid">
+        <article class="panel span-4">
+          <span class="status ok">검증 완료</span>
+          <h3>식별자 노출 없음</h3>
+          <p>주문번호, 전화번호, 이메일, 결제번호, 회원코드, 클릭 ID를 보고서에 출력하지 않았습니다.</p>
+        </article>
+        <article class="panel span-4">
+          <span class="status ok">외부 전송 없음</span>
+          <h3>read-only 조사</h3>
+          <p>운영DB는 조회만 했고, Slack·광고 플랫폼·아임웹·GTM으로 전송하지 않았습니다.</p>
+        </article>
+        <article class="panel span-4">
+          <span class="status hold">남은 확인</span>
+          <h3>펫 검사 세트 2건만 확인 필요</h3>
+          <p>명확한 3+1, 다인권, 다개수 옵션은 자동 처리 후보입니다. 사람이 확인할 것은 펫 영양중금속 한마리·두마리 세트입니다.</p>
+        </article>
+      </div>
+      <p class="note">
+        용어: SKU는 같은 상품을 시스템에서 구분하는 상품 코드입니다. Bundle은 여러 상품이 한 줄로 팔리는 세트 상품입니다.
+        Dry-run은 실제 저장이나 전송 없이 계산 결과만 미리 보는 방식입니다.
+      </p>
+    </section>
+
+    <script>
+      const setSplitProposals = [{"id":"set-01","product":"음식물 과민증 분석","option":"검사권 선택:지연성알러지검사 2인권","orders":111,"rawUnits":111,"lineAmountKrw":54368787,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 2검사권"},{"id":"set-02","product":"종합 대사기능&음식물 과민증 검사 Set","option":"인기 2종 약 40% OFF:1인 검사 SET 1 (대사기능+음식물과민증)","orders":96,"rawUnits":96,"lineAmountKrw":48847004,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"종합 대사기능 분석 x 1검사권\n음식물 과민증 분석 x 1검사권"},{"id":"set-03","product":"음식물 과민증 분석","option":"검사권 선택:지연성알러지검사 3인권","orders":21,"rawUnits":21,"lineAmountKrw":16584300,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 3검사권"},{"id":"set-04","product":"[공구] 송율 8차 음식물과민증 분석","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 2인권","orders":29,"rawUnits":29,"lineAmountKrw":13311000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 2검사권"},{"id":"set-05","product":"[공구] 소소한푸념 음식물과민증 분석","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 2인권","orders":28,"rawUnits":28,"lineAmountKrw":12852000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 2검사권"},{"id":"set-06","product":"종합 대사기능&음식물 과민증 검사 Set","option":"인기 2종 약 40% OFF:2인 검사 SET 2(대사기능 2+음식물과민증 2)","orders":10,"rawUnits":10,"lineAmountKrw":10048750,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"종합 대사기능 분석 x 2검사권\n음식물 과민증 분석 x 2검사권"},{"id":"set-07","product":"[공구] 꾸노핑 2차 음식물과민증 분석","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 2인권","orders":20,"rawUnits":20,"lineAmountKrw":9855000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 2검사권"},{"id":"set-08","product":"종합 대사기능&음식물 과민증 검사 Set","option":"인기 2종 약 40% OFF:3인 검사 SET 3(대사기능 3+음식물과민증 3)","orders":3,"rawUnits":3,"lineAmountKrw":4567350,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"종합 대사기능 분석 x 3검사권\n음식물 과민증 분석 x 3검사권"},{"id":"set-09","product":"바이오밸런스 90정 (1개월분)","option":"56% OFF:3+1 세트 (4개월분 / 개당 29250원)","orders":22,"rawUnits":23,"lineAmountKrw":4467059,"aiMode":"auto_approve_split","confidence":99,"defaultDecision":"AUTO_YES","componentsText":"바이오밸런스 90정 x 4개"},{"id":"set-10","product":"종합 대사기능 분석","option":"검사권 선택:종합 대사기능 분석 2인권","orders":5,"rawUnits":5,"lineAmountKrw":4376000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"종합 대사기능 분석 x 2검사권"},{"id":"set-11","product":"뉴로마스터 60정 (1개월분)","option":"56% OFF:3+1 세트 (4개월분 / 개당 29250원)","orders":28,"rawUnits":29,"lineAmountKrw":4162509,"aiMode":"auto_approve_split","confidence":99,"defaultDecision":"AUTO_YES","componentsText":"뉴로마스터 60정 x 4개"},{"id":"set-12","product":"[공구] 꾸노핑 2차 음식물과민증 분석","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 3인권","orders":4,"rawUnits":5,"lineAmountKrw":4068000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 3검사권"},{"id":"set-13","product":"클린밸런스 120정 (1개월분)","option":"구성:3+1세트 (4개월분 / 개당 36750원)","orders":17,"rawUnits":17,"lineAmountKrw":3830124,"aiMode":"auto_approve_split","confidence":99,"defaultDecision":"AUTO_YES","componentsText":"클린밸런스 120정 x 4개"},{"id":"set-14","product":"[공구] 소소한푸념 음식물과민증 분석","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 3인권","orders":5,"rawUnits":5,"lineAmountKrw":3609000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 3검사권"},{"id":"set-15","product":"영양 중금속 분석","option":"검사권 선택:영양·중금속 검사 2인권","orders":6,"rawUnits":6,"lineAmountKrw":3377256,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"영양 중금속 분석 x 2검사권"},{"id":"set-16","product":"다빈치랩 엔자임 베네핏 (ENZYME BENEFITS) 30일분","option":"제품선택:3개","orders":14,"rawUnits":15,"lineAmountKrw":2888882,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"다빈치랩 엔자임 베네핏 x 3개"},{"id":"set-17","product":"영양 중금속 분석","option":"검사권 선택:영양·중금속 검사 3인권","orders":9,"rawUnits":9,"lineAmountKrw":2754050,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"영양 중금속 분석 x 3검사권"},{"id":"set-18","product":"혈당관리엔 당당케어 (120정)","option":"40% OFF:3개 set","orders":10,"rawUnits":10,"lineAmountKrw":2428861,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"혈당관리엔 당당케어 x 3개"},{"id":"set-19","product":"[공구] 행자 1차 종합 대사기능 분석","option":"시크릿 10% 할인가:[10%] 종합 대사기능 분석 2인권","orders":4,"rawUnits":4,"lineAmountKrw":2109600,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"종합 대사기능 분석 x 2검사권"},{"id":"set-20","product":"[공구] 송율 8차 음식물과민증 분석","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 3인권","orders":3,"rawUnits":3,"lineAmountKrw":2078000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 3검사권"},{"id":"set-21","product":"썬화이버 프리바이오틱스 식이섬유 210g","option":"약 38% OFF:3개 SET (개당 35100원 무료배송)","orders":10,"rawUnits":10,"lineAmountKrw":1704935,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"썬화이버 프리바이오틱스 식이섬유 210g x 3개"},{"id":"set-22","product":"영데이즈 저속노화 SOD 효소 (15포)","option":"구성:[22%] 2개","orders":6,"rawUnits":7,"lineAmountKrw":1694978,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"영데이즈 저속노화 SOD 효소 x 2개"},{"id":"set-23","product":"[공구] 송율 8차 종합 대사기능 분석","option":"시크릿 10% 할인가:[10%] 종합 대사기능 분석 2인권","orders":3,"rawUnits":3,"lineAmountKrw":1582200,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"종합 대사기능 분석 x 2검사권"},{"id":"set-24","product":"영데이즈 저속노화 SOD 효소 (15포)","option":"구성:[36%] 4개","orders":7,"rawUnits":7,"lineAmountKrw":1418079,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"영데이즈 저속노화 SOD 효소 x 4개"},{"id":"set-25","product":"[공구] 어니코치 음식물과민증 분석","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 2인권","orders":3,"rawUnits":3,"lineAmountKrw":1377000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 2검사권"},{"id":"set-26","product":"[공구] 소소한푸념 음식물과민증 분석 복제","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 2인권","orders":3,"rawUnits":3,"lineAmountKrw":1377000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 2검사권"},{"id":"set-27","product":"스트레스 노화 분석","option":"호르몬 분석하기:스트레스·노화 분석 2인권","orders":1,"rawUnits":1,"lineAmountKrw":1324300,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"스트레스 노화 분석 x 2검사권"},{"id":"set-28","product":"혈당상승 억제엔 방탄젤리 난소화성말토덱스트린","option":"22% OFF:2개 할인가","orders":13,"rawUnits":13,"lineAmountKrw":1038923,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"혈당상승 억제엔 방탄젤리 난소화성말토덱스트린 x 2개"},{"id":"set-29","product":"혈당관리엔 당당케어 (120정)","option":"40% OFF:2개 set","orders":6,"rawUnits":6,"lineAmountKrw":944122,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"혈당관리엔 당당케어 x 2개"},{"id":"set-30","product":"메타드림 식물성 멜라토닌 함유","option":"구성:4개 할인 세트","orders":4,"rawUnits":4,"lineAmountKrw":929497,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"메타드림 식물성 멜라토닌 함유 x 4개"},{"id":"set-31","product":"[공구] 현서쓰고그리다 1차 음식물 과민증 분석","option":"시크릿 10% 할인가:지연성알러지검사 2인권","orders":2,"rawUnits":2,"lineAmountKrw":918000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 2검사권"},{"id":"set-32","product":"[공구] 나나베베 4차 음식물과민증 분석","option":"시크릿 10% 할인가:[10%] 음식물과민증 분석 3인권","orders":1,"rawUnits":1,"lineAmountKrw":909000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 3검사권"},{"id":"set-33","product":"종합 대사기능 분석","option":"검사권 선택:종합 대사기능 분석 3인권","orders":1,"rawUnits":1,"lineAmountKrw":842000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"종합 대사기능 분석 x 3검사권"},{"id":"set-34","product":"리셋데이 글루텐분해효소 알파CD 차전자피 K-낙산균","option":"20% OFF:2개 할인가","orders":10,"rawUnits":10,"lineAmountKrw":813562,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"리셋데이 글루텐분해효소 알파CD 차전자피 K-낙산균 x 2개"},{"id":"set-35","product":"썬화이버 프리바이오틱스 식이섬유 210g","option":"약 38% OFF:2개 (무료배송)","orders":10,"rawUnits":10,"lineAmountKrw":708593,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"썬화이버 프리바이오틱스 식이섬유 210g x 2개"},{"id":"set-36","product":"풍성밸런스 90정 (1개월분)","option":"62% OFF:3+1 세트(4개월분 / 개당 29250원)","orders":2,"rawUnits":2,"lineAmountKrw":706581,"aiMode":"auto_approve_split","confidence":99,"defaultDecision":"AUTO_YES","componentsText":"풍성밸런스 90정 x 4개"},{"id":"set-37","product":"메타드림 식물성 멜라토닌 함유","option":"구성:2개 할인 세트","orders":10,"rawUnits":10,"lineAmountKrw":705136,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"메타드림 식물성 멜라토닌 함유 x 2개"},{"id":"set-38","product":"혈당상승 억제엔 방탄젤리 난소화성말토덱스트린","option":"22% OFF:4개 할인가","orders":9,"rawUnits":10,"lineAmountKrw":703130,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"혈당상승 억제엔 방탄젤리 난소화성말토덱스트린 x 4개"},{"id":"set-39","product":"[공구] 현서쓰고그리다 1차 음식물 과민증 분석","option":"시크릿 10% 할인가:지연성알러지검사 3인권","orders":1,"rawUnits":1,"lineAmountKrw":675000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 3검사권"},{"id":"set-40","product":"팀키토 오리지널 도시락 8종 골라담기","option":"오리지널 키토 도시락:수비드 통삼겹 된장덮밥","orders":8,"rawUnits":20,"lineAmountKrw":667608,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-41","product":"영양 중금속 분석","option":"[세트할인] 펫 영양중금속 검사(강아지 / 고양이):추가) 펫 영양 중금속 검사 두마리","orders":1,"rawUnits":2,"lineAmountKrw":654000,"aiMode":"human_review","confidence":82,"defaultDecision":"REVIEW","componentsText":"사람 확인 필요"},{"id":"set-42","product":"팀키토 오리지널 도시락 8종 골라담기","option":"오리지널 키토 도시락:훈제오리 들깨 크림 리조또","orders":8,"rawUnits":11,"lineAmountKrw":627872,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-43","product":"리셋데이 글루텐분해효소 알파CD 차전자피 K-낙산균","option":"20% OFF:4개 할인가","orders":4,"rawUnits":5,"lineAmountKrw":560847,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"리셋데이 글루텐분해효소 알파CD 차전자피 K-낙산균 x 4개"},{"id":"set-44","product":"팀키토 오리지널 도시락 8종 골라담기","option":"오리지널 키토 도시락:B.T.S 치킨치즈 리조또","orders":7,"rawUnits":8,"lineAmountKrw":547772,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-45","product":"팀키토 오리지널 도시락 8종 골라담기","option":"오리지널 키토 도시락:저당 두부면 라자냐","orders":5,"rawUnits":16,"lineAmountKrw":492826,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-46","product":"장내세균 분석","option":"검사권 선택:장내세균분석 3인권","orders":1,"rawUnits":1,"lineAmountKrw":486000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"장내세균 분석 x 3검사권"},{"id":"set-47","product":"팀키토 시그니처 도시락 6종 골라담기","option":"시그니처 키토 도시락:춘천 들깨 닭갈비","orders":6,"rawUnits":7,"lineAmountKrw":481572,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-48","product":"[공구] 이여영 1차 음식물 과민증 분석","option":"시크릿 10% 할인가:지연성알러지검사 2인권","orders":1,"rawUnits":1,"lineAmountKrw":459000,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"음식물 과민증 분석 x 2검사권"},{"id":"set-49","product":"종합 호르몬균형 분석","option":"검사권 선택:종합 호르몬 균형 검사 2인권","orders":1,"rawUnits":1,"lineAmountKrw":454100,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"종합 호르몬균형 분석 x 2검사권"},{"id":"set-50","product":"팀키토 오리지널 도시락 8종 골라담기","option":"오리지널 키토 도시락:소고기 버섯 들깨 덮밥","orders":5,"rawUnits":8,"lineAmountKrw":377900,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-51","product":"[공구] 어니코치 영양 중금속 분석","option":"시크릿 10% 할인가:[10%] 영양·중금속 검사 2인권","orders":2,"rawUnits":2,"lineAmountKrw":356400,"aiMode":"auto_approve_split","confidence":98,"defaultDecision":"AUTO_YES","componentsText":"영양 중금속 분석 x 2검사권"},{"id":"set-52","product":"영양 중금속 분석","option":"[세트할인] 펫 영양중금속 검사(강아지 / 고양이):추가) 펫 영양 중금속 검사 한마리","orders":1,"rawUnits":1,"lineAmountKrw":349000,"aiMode":"human_review","confidence":82,"defaultDecision":"REVIEW","componentsText":"사람 확인 필요"},{"id":"set-53","product":"다래케어 180정 (1개월분)","option":"구성:[44%] 2개 세트","orders":2,"rawUnits":2,"lineAmountKrw":338338,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"다래케어 180정 x 2개"},{"id":"set-54","product":"팀키토 시그니처 도시락 6종 골라담기","option":"시그니처 키토 도시락:수원 왕갈비통 닭목살","orders":4,"rawUnits":4,"lineAmountKrw":327692,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-55","product":"팀키토 시그니처 도시락 6종 골라담기","option":"시그니처 키토 도시락:항아리 차돌 된장","orders":4,"rawUnits":4,"lineAmountKrw":327692,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-56","product":"팀키토 시그니처 도시락 6종 골라담기","option":"시그니처 키토 도시락:기사식당 최강 제육","orders":4,"rawUnits":4,"lineAmountKrw":323954,"aiMode":"auto_no_bundle","confidence":92,"defaultDecision":"AUTO_NO","componentsText":"선택형 단품 옵션. 세트 분배 없음"},{"id":"set-57","product":"다빈치랩 메가프로바이오틱 ND50 (MEGA PROBIOTIC ND50) 30일분","option":"제품선택:3개","orders":2,"rawUnits":2,"lineAmountKrw":290728,"aiMode":"auto_approve_split","confidence":96,"defaultDecision":"AUTO_YES","componentsText":"다빈치랩 메가프로바이오틱 ND50 x 3개"}];
+
+      const reviewStateKey = "biocom-set-split-review-20260529";
+      const reviewState = JSON.parse(localStorage.getItem(reviewStateKey) || "{}");
+
+      const modeMeta = {
+        auto_approve_split: {
+          label: "자동 승인",
+          tagClass: "auto-yes",
+          cardClass: "auto-approve-split",
+          confidenceClass: "",
+          decisionText: "자동 승인: 분배표 반영 가능"
+        },
+        auto_no_bundle: {
+          label: "자동 제외",
+          tagClass: "auto-no",
+          cardClass: "auto-no-bundle",
+          confidenceClass: "auto-no",
+          decisionText: "자동 제외: 세트 분배 없음"
+        },
+        human_review: {
+          label: "사람 검토",
+          tagClass: "review",
+          cardClass: "human-review",
+          confidenceClass: "review",
+          decisionText: "사람 검토 필요"
+        }
+      };
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function formatKrw(value) {
+        return `${Number(value || 0).toLocaleString("ko-KR")}원`;
+      }
+
+      function decisionLabel(decision, proposal) {
+        if (decision === "AUTO_YES") return modeMeta[proposal.aiMode].decisionText;
+        if (decision === "AUTO_NO") return modeMeta[proposal.aiMode].decisionText;
+        if (decision === "REVIEW") return modeMeta[proposal.aiMode].decisionText;
+        if (decision === "YES") return "사람 선택: YES";
+        if (decision === "NO") return "사람 선택: NO";
+        if (decision === "수정") return "사람 선택: 수정";
+        return "미선택";
+      }
+
+      function renderCandidateTable() {
+        const tableBody = document.getElementById("candidateTableBody");
+        if (!tableBody) return;
+        tableBody.innerHTML = setSplitProposals.map((candidate) => {
+          const meta = modeMeta[candidate.aiMode] || modeMeta.human_review;
+          return `
+            <tr>
+              <td>${escapeHtml(candidate.product)}</td>
+              <td>${escapeHtml(candidate.option)}</td>
+              <td class="num">${candidate.orders.toLocaleString("ko-KR")}</td>
+              <td class="num">${candidate.rawUnits.toLocaleString("ko-KR")}</td>
+              <td class="num">${formatKrw(candidate.lineAmountKrw)}</td>
+              <td><span class="tag ${meta.tagClass}">${meta.label}</span><br><span class="small">${escapeHtml(candidate.componentsText).replaceAll("\n", "<br>")}</span></td>
+              <td class="num">${candidate.confidence}%</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function renderProposalBoard() {
+        const board = document.getElementById("proposalBoard");
+        if (!board) return;
+        board.innerHTML = setSplitProposals.map((proposal) => {
+          const saved = reviewState[proposal.id] || {};
+          const meta = modeMeta[proposal.aiMode] || modeMeta.human_review;
+          const decision = saved.decision || proposal.defaultDecision || "미선택";
+          const componentsText = saved.componentsText || proposal.componentsText;
+          const componentItems = componentsText.split("\n").map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+          const yesActive = decision === "YES" || decision === "AUTO_YES";
+          const noActive = decision === "NO" || decision === "AUTO_NO";
+          const editActive = decision === "수정";
+          return `
+            <article class="proposal-card ${meta.cardClass}" data-proposal-id="${proposal.id}">
+              <div>
+                <p class="proposal-title">${escapeHtml(proposal.product)}</p>
+                <div class="proposal-meta">
+                  <span class="tag ${meta.tagClass}">${meta.label}</span>
+                  <span class="tag">${escapeHtml(proposal.option)}</span>
+                </div>
+                <p class="note">4월 ${proposal.orders.toLocaleString("ko-KR")}주문 / 원수량 ${proposal.rawUnits.toLocaleString("ko-KR")} / 라인 금액 ${formatKrw(proposal.lineAmountKrw)}</p>
+                <ul class="component-list">${componentItems}</ul>
+                <div class="confidence">
+                  <div class="confidence-top"><span>AI 분류 자신감</span><span>${proposal.confidence}%</span></div>
+                  <div class="confidence-track ${meta.confidenceClass}"><span style="width:${proposal.confidence}%"></span></div>
+                </div>
+                <p class="note">${meta.decisionText}. 95% 이상 명확 세트는 사람이 다시 누르지 않아도 자동 처리 후보로 둡니다.</p>
+              </div>
+              <div>
+                <div class="decision-buttons">
+                  <button type="button" data-action="YES" class="${yesActive ? "active" : ""}">YES</button>
+                  <button type="button" data-action="NO" class="${noActive ? "active" : ""}">NO</button>
+                  <button type="button" data-action="수정" class="${editActive ? "active" : ""}">수정</button>
+                </div>
+                <div class="decision">현재 처리: ${decisionLabel(decision, proposal)}</div>
+                <textarea aria-label="${escapeHtml(proposal.product)} 구성 수정">${escapeHtml(componentsText)}</textarea>
+              </div>
+            </article>
+          `;
+        }).join("");
+      }
+
+      function saveReviewState() {
+        localStorage.setItem(reviewStateKey, JSON.stringify(reviewState));
+      }
+
+      function bindReviewEvents() {
+        const board = document.getElementById("proposalBoard");
+        if (!board) return;
+        board.addEventListener("click", (event) => {
+          const button = event.target.closest("button[data-action]");
+          if (!button) return;
+          const card = button.closest(".proposal-card");
+          const id = card.getAttribute("data-proposal-id");
+          const textarea = card.querySelector("textarea");
+          reviewState[id] = {
+            decision: button.getAttribute("data-action"),
+            componentsText: textarea.value
+          };
+          saveReviewState();
+          renderProposalBoard();
+        });
+        board.addEventListener("input", (event) => {
+          if (event.target.tagName !== "TEXTAREA") return;
+          const card = event.target.closest(".proposal-card");
+          const id = card.getAttribute("data-proposal-id");
+          reviewState[id] = {
+            ...(reviewState[id] || {}),
+            componentsText: event.target.value
+          };
+          saveReviewState();
+        });
+        const exportButton = document.getElementById("exportReview");
+        if (exportButton) {
+          exportButton.addEventListener("click", () => {
+            const reviewed = setSplitProposals.map((proposal) => ({
+              id: proposal.id,
+              product: proposal.product,
+              option: proposal.option,
+              ai_mode: proposal.aiMode,
+              ai_confidence_percent: proposal.confidence,
+              default_decision: proposal.defaultDecision,
+              human_decision: reviewState[proposal.id]?.decision || proposal.defaultDecision,
+              components_text: reviewState[proposal.id]?.componentsText || proposal.componentsText,
+              line_amount_krw: proposal.lineAmountKrw,
+              orders: proposal.orders,
+              raw_units: proposal.rawUnits
+            }));
+            document.getElementById("reviewExport").textContent = JSON.stringify({
+              source: "browser_local_preview_only",
+              saved_to_external_system: false,
+              reviewed_at_kst_hint: "브라우저에서 생성한 시점",
+              reviewed
+            }, null, 2);
+          });
+        }
+      }
+
+      renderCandidateTable();
+      renderProposalBoard();
+      bindReviewEvents();
+    </script>
+
+    <script type="application/json" id="report-evidence">
+{
+  "report": "reportbiocom-selfmall-product-quantity-set-split-20260529",
+  "harness_preflight": {
+    "lane": "Green",
+    "allowed_actions": ["read_only_operational_db_query", "local_html_report"],
+    "forbidden_actions": ["production_db_write", "platform_send", "deploy", "publish", "raw_identifier_export"],
+    "source_window_freshness_confidence": {
+      "source": "operational_postgres.public.tb_iamweb_users",
+      "window_kst": "2026-04-01 - 2026-04-30",
+      "freshness_checked_at_kst": "2026-05-29 17:55:28",
+      "confidence": "medium_high"
+    }
+  },
+  "april_2026_summary": {
+    "orders": 2195,
+    "item_rows": 2580,
+    "raw_units": 2753,
+    "distinct_products": 70,
+    "order_revenue_krw": 497863546,
+    "product_info_matched_rows": 2580,
+    "option_info_rows": 2095,
+    "prod_no_rows": 2580,
+    "same_line_analysis_supplement_bundle_candidates": 0,
+    "same_order_analysis_supplement_cross_sell_orders": 5,
+    "same_order_analysis_supplement_cross_sell_line_amount_krw": 7180000,
+    "all_set_candidate_count": 57,
+    "ai_auto_approve_split_count": 46,
+    "ai_auto_no_bundle_count": 9,
+    "ai_human_review_count": 2,
+    "auto_approve_confidence_range_percent": "96-99",
+    "auto_no_bundle_confidence_percent": 92,
+    "human_review_confidence_percent": 82,
+    "raw_identifier_output": false
+  },
+  "recommended_rule": "quantity_only_split_first_revenue_split_later"
+}
+    </script>
+  </main>
+</body>
+</html>

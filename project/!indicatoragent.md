@@ -1,8 +1,8 @@
 # Leading Indicator Agent Plan
 
 작성 시각: 2026-05-17 15:45 KST
-최근 업데이트: 2026-05-26 23:25 KST
-기준일: 2026-05-26
+최근 업데이트: 2026-05-27 09:35 KST
+기준일: 2026-05-27
 문서 성격: 구매 전 선행지표 발굴 에이전트 설계 문서
 대상 사이트: 바이오컴 우선, 더클린커피 확장 가능
 Lane: Green documentation / read-only design / local dry-run
@@ -40,8 +40,8 @@ harness_preflight:
     - raw personal/order/payment/ad-click/customer identifier output
   source_window_freshness_confidence:
     source: "local docs + VM Cloud leading-indicators live aggregate endpoint + GA4 BigQuery dry-run docs + GTM export docs + TJ님 제공 KPI 설계 이미지 텍스트"
-    window: "latest live refresh 기준 7d, API 기준 시각 2026-05-24 00:47~00:49 KST; KPI 원칙 참고 자료 기준 2026-05-26"
-    freshness: "문서 업데이트 2026-05-26 23:25 KST, VM Cloud leading-indicators live refresh 2026-05-24 00:47~00:49 KST"
+    window: "latest live refresh 기준 7d/30d, API 기준 시각 2026-05-27 09:03~09:21 KST; KPI 원칙 참고 자료 기준 2026-05-26"
+    freshness: "문서 업데이트 2026-05-27 09:35 KST, VM Cloud leading-indicators live refresh 2026-05-27 09:03~09:21 KST"
     confidence: 0.90
 ```
 
@@ -68,6 +68,11 @@ harness_preflight:
 
 2026-05-26 23:25 업데이트: 로컬 프론트 `/ai-crm/leading-indicators`는 KPI 원칙을 반영해 OKR 패널, 액션플랜 3개, 레버/관리/진단 역할 배지, 후보별 공략집(무엇을/어떻게/왜/성공 기준)을 표시한다.
 이제 선행지표 후보 카드는 단순 순위표가 아니라 “사람이 내일 무엇을 바꿔야 하는지”를 알려주는 운영 카드에 가깝게 바뀌었다.
+
+2026-05-27 업데이트: TJ님이 지적한 “비결제자의 주문서 진입률 92.8%”는 live API에 실제로 존재하는 값이다.
+다만 이것은 넓은 의미의 전체 비결제 방문자가 아니라, 현재 `checkout_non_buyer` cohort, 즉 “결제 시작 후 구매 완료로 닫히지 않은 사람”에 가까운 분모다.
+따라서 화면 문구는 `비결제자`만 쓰지 말고 `결제 시작 후 멈춤` 또는 `비결제 cohort`라고 풀어 써야 한다.
+전체 방문자 기준 주문서 진입률과 결제 흐름 근처 cohort의 주문서 진입률은 반드시 분리 표시한다.
 
 P0 산출물:
 
@@ -157,6 +162,88 @@ confidence: 0.90.
   - 이유: 로컬 backend 점수화 로직과 로컬 프론트 카드 구조가 구현됐다. 각 후보에 레버/관리/진단 역할과 공략집 문구가 붙었다. 남은 것은 VM 화면 배포, live API/cache 검증, 실제 실험 backlog 연결이다.
 - KR5. Meta CAPI 중간 전환 전송 후보 분리: 58%.
   - 이유: Purchase와 내부 관찰 지표 분리 원칙은 있다. 운영 전송은 아직 별도 capiplan Red/Yellow 절차가 필요하다.
+
+## 2026-05-27 live denominator 재점검
+
+source: VM Cloud `/api/attribution/leading-indicators` live aggregate endpoint.
+window: 최근 7일/30일.
+freshness: 2026-05-27 09:03~09:21 KST.
+confidence: 0.88.
+주의: 아래 숫자는 `leadingIndicators` live API가 반환한 aggregate 값이다. Google 클릭 ID 보존율 자체는 별도 click-id preservation audit으로 확인해야 하며, 여기서는 channel별 safe session 표본 증가만 확인했다.
+
+### “비결제자 주문서 진입 92.8%” 해석
+
+- 바이오컴 Meta 최근 7일:
+  - safe session 471.
+  - 구매 완료 242.
+  - 결제 시작 후 멈춤 222.
+  - 결제 확인 보류 7.
+  - 구매자 주문서 진입 99.2%.
+  - 비결제 cohort 주문서 진입 92.8%.
+- 바이오컴 Meta 최근 30일:
+  - safe session 2,035.
+  - 구매 완료 921.
+  - 결제 시작 후 멈춤 1,033.
+  - 결제 확인 보류 81.
+  - 구매자 주문서 진입 98.9%.
+  - 비결제 cohort 주문서 진입 92.7%.
+
+해석:
+
+`92.8%`는 오타가 아니라 실제 live API 값이다.
+하지만 이것을 “전체 비결제 방문자의 92.8%가 주문서까지 갔다”로 읽으면 안 된다.
+현재 `checkout_non_buyer`는 결제 흐름 가까이 온 세션을 강하게 포함하고 있으므로, 사람이 보는 화면에서는 “결제 시작 후 멈춤”으로 풀어 써야 한다.
+
+### 전체 방문자 기준과 cohort 기준을 분리해야 하는 이유
+
+- 바이오컴 전체 최근 7일:
+  - safe session 1,142.
+  - 구매 완료 394.
+  - 결제 시작 후 멈춤 719.
+  - 결제 확인 보류 29.
+  - 비결제 cohort 주문서 진입 93.7%.
+- 바이오컴 전체 최근 30일:
+  - safe session 23,934.
+  - 구매 완료 1,749.
+  - 결제 시작 후 멈춤 21,945.
+  - 결제 확인 보류 240.
+  - 비결제 cohort 주문서 진입 15.2%.
+
+해석:
+
+최근 7일과 30일의 비결제 cohort 주문서 진입률이 크게 다르다.
+이것은 고객 행동이 갑자기 뒤집혔다기보다, window별 cohort 구성과 분모가 달라졌다는 신호다.
+따라서 API와 화면은 다음 세 값을 분리해야 한다.
+
+1. 전체 방문 세션.
+2. 주문서/결제 시작 화면까지 도달한 세션.
+3. 주문서까지 갔지만 구매 완료로 닫히지 않은 세션.
+
+### 작은 표본과 큰 표본이 같이 보였던 이유
+
+페이지 롱 뷰 기준 시간 표의 작은 숫자는 channel-specific dry-run이다.
+예를 들어 바이오컴 Google 유료만 7일로 자르면 구매자는 2명 수준까지 줄어든다.
+반면 사이트별 핵심 행동값 표는 사이트 전체 또는 큰 cohort를 묶은 GA4-VM safe bridge 표라 356명/689명 같은 큰 표본이 나온다.
+
+최신 live API 기준 바이오컴 Google 유료 표본:
+
+- 최근 7일:
+  - safe session 74.
+  - 구매 완료 2.
+  - 결제 시작 후 멈춤 65.
+  - 결제 확인 보류 7.
+- 최근 30일:
+  - safe session 503.
+  - 구매 완료 18.
+  - 결제 시작 후 멈춤 460.
+  - 결제 확인 보류 25.
+
+해석:
+
+Google 유료는 표본이 늘었지만, 구매자 수는 여전히 작다.
+따라서 2분/3분/7분 page-long 기준은 예산 판단값이 아니라 방향 확인값으로 둔다.
+Google 클릭 ID 보존율이 좋아졌는지는 이번 표본 증가만으로 단정하지 않는다.
+별도 `click_id preservation` audit에서 payment_success까지 gclid/gbraid/wbraid가 이어지는지 확인한다.
 
 ## 이 에이전트가 필요한 이유
 

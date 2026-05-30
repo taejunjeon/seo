@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 
 import { getCrmDb } from "./crmLocalDb";
+import { hasSyntheticGoogleClickId, sanitizeGoogleClickIdForStorage } from "./googleClickIdSanitizer";
 
 type NpayIntentRequestContext = {
   ip: string;
@@ -39,6 +40,10 @@ export type NpayIntentRow = {
   utmTerm: string;
   pageLocation: string;
   pageReferrer: string;
+  npayBridgeUrlHash: string;
+  npayBridgeHost: string;
+  npayBridgePathHash: string;
+  npayBridgeObservedAt: string;
   productIdx: string;
   productName: string;
   productPrice: number | null;
@@ -88,6 +93,10 @@ type NpayIntentDbRow = {
   utm_term: string;
   page_location: string;
   page_referrer: string;
+  npay_bridge_url_hash?: string;
+  npay_bridge_host?: string;
+  npay_bridge_path_hash?: string;
+  npay_bridge_observed_at?: string;
   product_idx: string;
   product_name: string;
   product_price: number | null;
@@ -124,6 +133,28 @@ const FIELD_ALIASES = {
   gaSessionNumber: ["ga_session_number", "gaSessionNumber", "session_number", "sessionNumber"],
   pageLocation: ["page_location", "pageLocation", "landing", "landing_url", "url"],
   pageReferrer: ["page_referrer", "pageReferrer", "referrer", "referer"],
+  npayBridgeUrl: [
+    "npay_bridge_url",
+    "npayBridgeUrl",
+    "bridge_url",
+    "bridgeUrl",
+    "external_checkout_url",
+    "externalCheckoutUrl",
+    "checkout_url",
+    "checkoutUrl",
+    "naver_pay_url",
+    "naverPayUrl",
+    "npay_url",
+    "npayUrl",
+  ],
+  npayBridgeObservedAt: [
+    "npay_bridge_observed_at",
+    "npayBridgeObservedAt",
+    "bridge_observed_at",
+    "bridgeObservedAt",
+    "external_checkout_observed_at",
+    "externalCheckoutObservedAt",
+  ],
   productIdx: ["product_idx", "productIdx", "item_id", "itemId", "idx"],
   productName: ["product_name", "productName", "item_name", "itemName"],
   productPrice: ["product_price", "productPrice", "price", "item_price", "itemPrice"],
@@ -167,6 +198,18 @@ const SENSITIVE_RAW_KEYS = new Set([
   "ordererName",
   "token",
   "access_token",
+  "npay_bridge_url",
+  "npayBridgeUrl",
+  "bridge_url",
+  "bridgeUrl",
+  "external_checkout_url",
+  "externalCheckoutUrl",
+  "checkout_url",
+  "checkoutUrl",
+  "naver_pay_url",
+  "naverPayUrl",
+  "npay_url",
+  "npayUrl",
 ]);
 
 const SENSITIVE_RAW_KEY_NORMALIZED = new Set([
@@ -191,6 +234,12 @@ const SENSITIVE_RAW_KEY_NORMALIZED = new Set([
   "orderername",
   "token",
   "accesstoken",
+  "npaybridgeurl",
+  "bridgeurl",
+  "externalcheckouturl",
+  "checkouturl",
+  "naverpayurl",
+  "npayurl",
 ]);
 
 const URL_RAW_KEYS = new Set([
@@ -216,6 +265,14 @@ const PAGE_LOCATION_QUERY_ALLOWLIST = new Set([
   "gbraid",
   "wbraid",
   "fbclid",
+]);
+
+const ALLOWED_NPAY_BRIDGE_HOSTS = new Set([
+  "orders.pay.naver.com",
+  "new-m.pay.naver.com",
+  "m.pay.naver.com",
+  "pay.naver.com",
+  "nid.naver.com",
 ]);
 
 const DUPLICATE_LOOKBACK_MS = 30_000;
@@ -263,6 +320,10 @@ const ensureNpayIntentTables = (db: Database.Database) => {
       utm_term TEXT DEFAULT '',
       page_location TEXT DEFAULT '',
       page_referrer TEXT DEFAULT '',
+      npay_bridge_url_hash TEXT DEFAULT '',
+      npay_bridge_host TEXT DEFAULT '',
+      npay_bridge_path_hash TEXT DEFAULT '',
+      npay_bridge_observed_at TEXT DEFAULT '',
       product_idx TEXT DEFAULT '',
       product_name TEXT DEFAULT '',
       product_price INTEGER,
@@ -298,6 +359,10 @@ const ensureNpayIntentTables = (db: Database.Database) => {
   `);
 
   ensureColumn(db, "npay_intent_log", "ga_cookie_raw", "TEXT DEFAULT ''");
+  ensureColumn(db, "npay_intent_log", "npay_bridge_url_hash", "TEXT DEFAULT ''");
+  ensureColumn(db, "npay_intent_log", "npay_bridge_host", "TEXT DEFAULT ''");
+  ensureColumn(db, "npay_intent_log", "npay_bridge_path_hash", "TEXT DEFAULT ''");
+  ensureColumn(db, "npay_intent_log", "npay_bridge_observed_at", "TEXT DEFAULT ''");
 
   npayIntentTableReady = true;
 };
@@ -393,6 +458,42 @@ const parseUrl = (value: string): URL | null => {
   } catch {
     return null;
   }
+};
+
+const normalizeOptionalIso = (value: string): string => {
+  if (!value.trim()) return "";
+  const parsed = new Date(value.trim());
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : "";
+};
+
+const buildNpayBridgeUrlEvidence = (value: string) => {
+  const parsed = parseUrl(value);
+  if (!parsed) {
+    return {
+      npayBridgeUrlHash: "",
+      npayBridgeHost: "",
+      npayBridgePathHash: "",
+    };
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (!ALLOWED_NPAY_BRIDGE_HOSTS.has(host)) {
+    return {
+      npayBridgeUrlHash: "",
+      npayBridgeHost: "",
+      npayBridgePathHash: "",
+    };
+  }
+
+  parsed.hash = "";
+  const normalizedUrl = truncate(parsed.toString(), 2000);
+  const normalizedPath = `${host}${parsed.pathname}`;
+
+  return {
+    npayBridgeUrlHash: hashValue(normalizedUrl, "npay_bridge_url"),
+    npayBridgeHost: host,
+    npayBridgePathHash: hashValue(normalizedPath, "npay_bridge_path"),
+  };
 };
 
 const assertBiocomPageLocation = (pageLocation: string, requestContext: NpayIntentRequestContext) => {
@@ -519,6 +620,10 @@ const parseRow = (row: NpayIntentDbRow): NpayIntentRow => ({
   utmTerm: row.utm_term,
   pageLocation: row.page_location,
   pageReferrer: row.page_referrer,
+  npayBridgeUrlHash: row.npay_bridge_url_hash ?? "",
+  npayBridgeHost: row.npay_bridge_host ?? "",
+  npayBridgePathHash: row.npay_bridge_path_hash ?? "",
+  npayBridgeObservedAt: row.npay_bridge_observed_at ?? "",
   productIdx: row.product_idx,
   productName: row.product_name,
   productPrice: row.product_price,
@@ -610,18 +715,72 @@ const selectRecentDuplicateIntent = (
   return row ? parseRow(row) : null;
 };
 
+type NpayIntentDuplicateEnrichment = {
+  npayBridgeUrlHash: string;
+  npayBridgeHost: string;
+  npayBridgePathHash: string;
+  npayBridgeObservedAt: string;
+  gclid: string;
+  gbraid: string;
+  wbraid: string;
+  fbclid: string;
+  fbp: string;
+  fbc: string;
+  utmSource: string;
+  utmMedium: string;
+  utmCampaign: string;
+  utmContent: string;
+  utmTerm: string;
+  clientId: string;
+  gaCookieRaw: string;
+  gaSessionId: string;
+  gaSessionNumber: string;
+  productName: string;
+  productPrice: number | null;
+  buttonSelector: string;
+  gtmEventId: string;
+};
+
 const markDuplicateIntent = (
   db: Database.Database,
   intentKey: string,
   receivedAt: string,
   fallback: NpayIntentRow,
+  enrichment: NpayIntentDuplicateEnrichment,
 ): NpayIntentRow => {
   db.prepare(`
     UPDATE npay_intent_log
     SET duplicate_count = duplicate_count + 1,
-        updated_at = ?
-    WHERE intent_key = ?
-  `).run(receivedAt, intentKey);
+        npay_bridge_url_hash = CASE WHEN COALESCE(npay_bridge_url_hash, '') = '' AND @npayBridgeUrlHash <> '' THEN @npayBridgeUrlHash ELSE npay_bridge_url_hash END,
+        npay_bridge_host = CASE WHEN COALESCE(npay_bridge_host, '') = '' AND @npayBridgeHost <> '' THEN @npayBridgeHost ELSE npay_bridge_host END,
+        npay_bridge_path_hash = CASE WHEN COALESCE(npay_bridge_path_hash, '') = '' AND @npayBridgePathHash <> '' THEN @npayBridgePathHash ELSE npay_bridge_path_hash END,
+        npay_bridge_observed_at = CASE WHEN COALESCE(npay_bridge_observed_at, '') = '' AND @npayBridgeObservedAt <> '' THEN @npayBridgeObservedAt ELSE npay_bridge_observed_at END,
+        gclid = CASE WHEN COALESCE(gclid, '') = '' AND @gclid <> '' THEN @gclid ELSE gclid END,
+        gbraid = CASE WHEN COALESCE(gbraid, '') = '' AND @gbraid <> '' THEN @gbraid ELSE gbraid END,
+        wbraid = CASE WHEN COALESCE(wbraid, '') = '' AND @wbraid <> '' THEN @wbraid ELSE wbraid END,
+        fbclid = CASE WHEN COALESCE(fbclid, '') = '' AND @fbclid <> '' THEN @fbclid ELSE fbclid END,
+        fbp = CASE WHEN COALESCE(fbp, '') = '' AND @fbp <> '' THEN @fbp ELSE fbp END,
+        fbc = CASE WHEN COALESCE(fbc, '') = '' AND @fbc <> '' THEN @fbc ELSE fbc END,
+        utm_source = CASE WHEN COALESCE(utm_source, '') = '' AND @utmSource <> '' THEN @utmSource ELSE utm_source END,
+        utm_medium = CASE WHEN COALESCE(utm_medium, '') = '' AND @utmMedium <> '' THEN @utmMedium ELSE utm_medium END,
+        utm_campaign = CASE WHEN COALESCE(utm_campaign, '') = '' AND @utmCampaign <> '' THEN @utmCampaign ELSE utm_campaign END,
+        utm_content = CASE WHEN COALESCE(utm_content, '') = '' AND @utmContent <> '' THEN @utmContent ELSE utm_content END,
+        utm_term = CASE WHEN COALESCE(utm_term, '') = '' AND @utmTerm <> '' THEN @utmTerm ELSE utm_term END,
+        client_id = CASE WHEN COALESCE(client_id, '') = '' AND @clientId <> '' THEN @clientId ELSE client_id END,
+        ga_cookie_raw = CASE WHEN COALESCE(ga_cookie_raw, '') = '' AND @gaCookieRaw <> '' THEN @gaCookieRaw ELSE ga_cookie_raw END,
+        ga_session_id = CASE WHEN COALESCE(ga_session_id, '') = '' AND @gaSessionId <> '' THEN @gaSessionId ELSE ga_session_id END,
+        ga_session_number = CASE WHEN COALESCE(ga_session_number, '') = '' AND @gaSessionNumber <> '' THEN @gaSessionNumber ELSE ga_session_number END,
+        product_name = CASE WHEN COALESCE(product_name, '') = '' AND @productName <> '' THEN @productName ELSE product_name END,
+        product_price = CASE WHEN product_price IS NULL AND @productPrice IS NOT NULL THEN @productPrice ELSE product_price END,
+        button_selector = CASE WHEN COALESCE(button_selector, '') = '' AND @buttonSelector <> '' THEN @buttonSelector ELSE button_selector END,
+        gtm_event_id = CASE WHEN COALESCE(gtm_event_id, '') = '' AND @gtmEventId <> '' THEN @gtmEventId ELSE gtm_event_id END,
+        updated_at = @updatedAt
+    WHERE intent_key = @intentKey
+  `).run({
+    ...enrichment,
+    updatedAt: receivedAt,
+    intentKey,
+  });
 
   return selectByIntentKey(db, intentKey) ?? fallback;
 };
@@ -651,13 +810,23 @@ export const recordNpayIntent = (
 
   const pageLocation = sanitizeUrlForStorage(rawPageLocation);
   const pageReferrer = sanitizeUrlForStorage(rawPageReferrer);
+  const npayBridgeUrlEvidence = buildNpayBridgeUrlEvidence(
+    readString(input, FIELD_ALIASES.npayBridgeUrl, 2000),
+  );
+  const npayBridgeObservedAt = normalizeOptionalIso(
+    readString(input, FIELD_ALIASES.npayBridgeObservedAt, 120),
+  );
   const clientId = readString(input, FIELD_ALIASES.clientId, 200);
   const gaCookieRaw = readString(input, FIELD_ALIASES.gaCookieRaw, 200);
   const gaSessionId = readString(input, FIELD_ALIASES.gaSessionId, 120);
   const gaSessionNumber = readString(input, FIELD_ALIASES.gaSessionNumber, 120);
-  const gclid = readString(input, ["gclid"], 500) || extractQueryParam(rawPageLocation, "gclid");
-  const gbraid = readString(input, ["gbraid"], 500) || extractQueryParam(rawPageLocation, "gbraid");
-  const wbraid = readString(input, ["wbraid"], 500) || extractQueryParam(rawPageLocation, "wbraid");
+  const rawGclid = readString(input, ["gclid"], 500) || extractQueryParam(rawPageLocation, "gclid");
+  const rawGbraid = readString(input, ["gbraid"], 500) || extractQueryParam(rawPageLocation, "gbraid");
+  const rawWbraid = readString(input, ["wbraid"], 500) || extractQueryParam(rawPageLocation, "wbraid");
+  const syntheticGoogleClickIdQuarantined = hasSyntheticGoogleClickId(rawGclid, rawGbraid, rawWbraid);
+  const gclid = sanitizeGoogleClickIdForStorage(rawGclid);
+  const gbraid = sanitizeGoogleClickIdForStorage(rawGbraid);
+  const wbraid = sanitizeGoogleClickIdForStorage(rawWbraid);
   const fbclid = readString(input, ["fbclid"], 500) || extractQueryParam(rawPageLocation, "fbclid");
   const fbp = readString(input, ["fbp", "_fbp"], 500);
   const fbc = readString(input, ["fbc", "_fbc"], 500);
@@ -698,6 +867,11 @@ export const recordNpayIntent = (
     ga_session_id: gaSessionId,
     product_idx: productIdx,
     page_location: pageLocation,
+    npay_bridge_url_hash_present: Boolean(npayBridgeUrlEvidence.npayBridgeUrlHash),
+    npay_bridge_host: npayBridgeUrlEvidence.npayBridgeHost,
+    npay_bridge_path_hash_present: Boolean(npayBridgeUrlEvidence.npayBridgePathHash),
+    npay_bridge_observed_at: npayBridgeObservedAt,
+    synthetic_google_click_id_quarantined: syntheticGoogleClickIdQuarantined,
     gclid,
     gbraid,
     wbraid,
@@ -707,10 +881,35 @@ export const recordNpayIntent = (
     utm_campaign: utmCampaign,
   };
   const rawPayload = JSON.stringify(sanitizeRawPayload(input, normalizedRaw));
+  const duplicateEnrichment: NpayIntentDuplicateEnrichment = {
+    npayBridgeUrlHash: npayBridgeUrlEvidence.npayBridgeUrlHash,
+    npayBridgeHost: npayBridgeUrlEvidence.npayBridgeHost,
+    npayBridgePathHash: npayBridgeUrlEvidence.npayBridgePathHash,
+    npayBridgeObservedAt,
+    gclid,
+    gbraid,
+    wbraid,
+    fbclid,
+    fbp,
+    fbc,
+    utmSource,
+    utmMedium,
+    utmCampaign,
+    utmContent,
+    utmTerm,
+    clientId,
+    gaCookieRaw,
+    gaSessionId,
+    gaSessionNumber,
+    productName,
+    productPrice,
+    buttonSelector,
+    gtmEventId,
+  };
 
   const existing = selectByIntentKey(db, intentKey);
   if (existing) {
-    return { intent: markDuplicateIntent(db, existing.intentKey, receivedAt, existing), deduped: true };
+    return { intent: markDuplicateIntent(db, existing.intentKey, receivedAt, existing, duplicateEnrichment), deduped: true };
   }
 
   const recentDuplicate = selectRecentDuplicateIntent(db, {
@@ -727,7 +926,7 @@ export const recordNpayIntent = (
     ipHash,
   });
   if (recentDuplicate) {
-    return { intent: markDuplicateIntent(db, recentDuplicate.intentKey, receivedAt, recentDuplicate), deduped: true };
+    return { intent: markDuplicateIntent(db, recentDuplicate.intentKey, receivedAt, recentDuplicate, duplicateEnrichment), deduped: true };
   }
 
   const id = randomUUID();
@@ -736,7 +935,8 @@ export const recordNpayIntent = (
       id, intent_key, site, source, environment, match_status, captured_at, received_at,
       client_id, ga_cookie_raw, ga_session_id, ga_session_number, gclid, gbraid, wbraid, fbp, fbc, fbclid,
       utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-      page_location, page_referrer, product_idx, product_name, product_price,
+      page_location, page_referrer, npay_bridge_url_hash, npay_bridge_host, npay_bridge_path_hash, npay_bridge_observed_at,
+      product_idx, product_name, product_price,
       member_code, member_hash, phone_hash, email_hash, user_agent_hash, ip_hash,
       button_selector, gtm_event_id, debug_mode, raw_payload, duplicate_count, created_at, updated_at
     )
@@ -744,7 +944,8 @@ export const recordNpayIntent = (
       @id, @intentKey, @site, @source, @environment, 'pending', @capturedAt, @receivedAt,
       @clientId, @gaCookieRaw, @gaSessionId, @gaSessionNumber, @gclid, @gbraid, @wbraid, @fbp, @fbc, @fbclid,
       @utmSource, @utmMedium, @utmCampaign, @utmContent, @utmTerm,
-      @pageLocation, @pageReferrer, @productIdx, @productName, @productPrice,
+      @pageLocation, @pageReferrer, @npayBridgeUrlHash, @npayBridgeHost, @npayBridgePathHash, @npayBridgeObservedAt,
+      @productIdx, @productName, @productPrice,
       @memberCode, @memberHash, @phoneHash, @emailHash, @userAgentHash, @ipHash,
       @buttonSelector, @gtmEventId, @debugMode, @rawPayload, 0, @receivedAt, @receivedAt
     )
@@ -773,6 +974,10 @@ export const recordNpayIntent = (
     utmTerm,
     pageLocation,
     pageReferrer,
+    npayBridgeUrlHash: npayBridgeUrlEvidence.npayBridgeUrlHash,
+    npayBridgeHost: npayBridgeUrlEvidence.npayBridgeHost,
+    npayBridgePathHash: npayBridgeUrlEvidence.npayBridgePathHash,
+    npayBridgeObservedAt,
     productIdx,
     productName,
     productPrice,

@@ -514,21 +514,21 @@
 <body>
   <main class="page">
     <header class="hero">
-      <p class="eyebrow">업데이트: 2026-05-26 00:23 KST · 문서 성격: 매출/광고비 보고 프로젝트 실행 보고서</p>
+      <p class="eyebrow">업데이트: 2026-05-28 13:20 KST · 문서 성격: 매출/광고비 보고 프로젝트 실행 보고서</p>
       <h1>더클린커피 자동 매출보고는 이제 v0.1 운영 미리보기 단계입니다.</h1>
       <p>
         이 화면의 질문은 단순합니다. “자사몰·스마트스토어·쿠팡 매출과 광고비를 같은 기간으로 묶어 Slack에 보고해도 되는가?”입니다.
-        현재 답은 “가능하지만, 스마트스토어는 PlayAuto 경고 포함 운영, 쿠팡 잔여 차이는 경고 유지”입니다.
+        현재 답은 “가능하지만, 스마트스토어는 PlayAuto 경고 포함 운영, 쿠팡은 판매 분석 엑셀 원본을 Hermes로 받는 절차가 필요”입니다.
       </p>
       <div class="lead-decision">
         <div class="decision-copy">
           <strong>지금 운영자가 판단할 일</strong>
-          더클린커피는 주간·월간 숫자를 만들 수 있습니다. 자사몰 금액은 no-send JSON에 연결됐고, 스마트스토어는 PlayAuto 기준으로 자동 집계됩니다. 다만 스마트스토어는 Excel 차이와 네이버 커머스API(스마트스토어 주문을 직접 읽는 공식 API) 미검증을 경고로 보여줘야 합니다.
+          더클린커피는 주간·월간 숫자를 만들 수 있습니다. 자사몰 금액은 no-send JSON에 연결됐고, 스마트스토어는 PlayAuto 기준으로 자동 집계됩니다. 쿠팡은 Open API(쿠팡이 공식으로 제공하는 판매자 데이터 조회 통로)로 주문서와 로켓그로스 주문은 읽을 수 있지만, F&B팀이 쓰는 판매 분석 화면값은 공식 API에서 같은 항목을 찾지 못했습니다.
         </div>
         <ul class="decision-list" aria-label="첫 화면 판단 요약">
           <li>자사몰 금액: no-send JSON에서 아임웹 complete_time 존재 주문 기준으로 기존 Excel 금액과 일치</li>
           <li>스마트스토어: PlayAuto 경고 포함 운영, Excel 대비 65,800원 / 2건 차이 있음</li>
-          <li>쿠팡 매출: 매출인식 기준으로 자동 집계 가능, 로켓그로스는 참고값 유지</li>
+          <li>쿠팡 매출: 공식 API 대조는 가능, F&B 화면 기준은 Hermes 엑셀 다운로드로 고정 필요</li>
           <li>네이버 광고비: 검색광고 API만으로 부족, Hermes 브라우저 원본으로 디스플레이 확인</li>
           <li>Slack: 실제 발송 전 미리보기와 예약 메시지 운영 경로 확보</li>
         </ul>
@@ -555,10 +555,10 @@
         <span class="status hold">경고 유지</span>
         <h2>쿠팡 매출 기준</h2>
         <p>
-          쿠팡은 revenue-history(쿠팡이 매출로 인정한 상품별 금액)를 strict 기준으로 잡았습니다.
-          2026-04-25 - 2026-05-01 Excel과의 차이는 일반배송+로켓그로스로 대부분 좁혔고, <strong>60,700원 / 2건</strong>만 남았습니다.
+          쿠팡은 주문서 API와 로켓그로스 API로 자동 대조할 수 있습니다. 하지만 F&B팀이 쓴 판매 분석 화면은 방문자, 조회, 장바구니, 구매전환율까지 담긴 별도 화면입니다.
+          2026-04-25 - 2026-05-01 기준 API 재현값은 <strong>2,039,700원 / 54건</strong>이고, 기존 보고서 기준 <strong>2,100,400원 / 56건</strong>보다 60,700원 / 2건 낮습니다.
         </p>
-        <div class="source-line">남은 질문: 로켓그로스 API 날짜 경계 민감도와 F&B팀 집계 기준</div>
+        <div class="source-line">새 단서: 첨부 판매 분석 엑셀은 2,453,600원 / 60건이며, 기존 기준보다 높은 353,200원은 TeamKeto 상품 버킷과 일치</div>
       </article>
       <article class="panel span-4">
         <span class="status hold">차이 확인</span>
@@ -595,7 +595,7 @@
         <h2>그래서 “완성되어 가는가?”</h2>
         <div class="callout green">
           <strong>네. 더클린커피 자사몰과 쿠팡은 자동 매출 집계 v0.1로 볼 수 있습니다.</strong>
-          자사몰은 금액 기준이 닫혔고, 쿠팡은 자동 집계 경로가 닫혔습니다. 다만 자동 발송 메시지에는 “건수 기준 확인 중”, “쿠팡 로켓그로스 참고값” 같은 경고를 같이 보여줘야 합니다.
+          자사몰은 금액 기준이 닫혔고, 쿠팡은 API 대조 경로가 있습니다. 다만 F&B팀의 쿠팡 판매 분석 화면 기준으로 완전히 맞추려면 Hermes(맥미니 브라우저 자동화 에이전트)가 같은 필터의 엑셀 원본을 정기 다운로드해야 합니다.
         </div>
       </article>
       <article class="panel span-6">
@@ -603,7 +603,8 @@
         <ul class="plain-list">
           <li>네이버·Meta·Google이 주장하는 전환매출은 내부 매출 합계에 더하지 않습니다.</li>
           <li>NPay 클릭이나 결제 시작은 구매완료가 아닙니다. 실제 결제완료 NPay 매출만 포함합니다.</li>
-          <li>쿠팡 계정 전체 금액은 더클린커피 매출이 아닙니다. TeamKeto 계정 안에서 coffee 상품만 분리합니다.</li>
+          <li>쿠팡 계정 전체 금액은 더클린커피 매출이 아닙니다. TeamKeto 계정 안에서 coffee 상품과 TeamKeto 상품을 분리합니다.</li>
+          <li>쿠팡 판매 분석 화면값은 공식 Open API 주문서 값과 다를 수 있습니다. 화면 원본과 API 대조값을 섞지 않습니다.</li>
           <li>자사몰 complete_time blank는 미결제 증거가 아닙니다. 보고서 기준에서 제외된 진단값으로만 둡니다.</li>
         </ul>
       </article>
@@ -651,12 +652,47 @@
               <td class="money">-65,800원<br><span class="note">-2 rows</span></td>
               <td>자동 조회는 가능하지만 Excel과 완전 일치하지 않습니다. Slack에는 source warning을 붙여야 합니다.</td>
             </tr>
+            <tr>
+              <td><strong>쿠팡 기존 보고서 기준</strong><br>판매 분석 화면 캡처</td>
+              <td class="money">2,100,400원<br><span class="note">56건</span></td>
+              <td class="money">2,039,700원<br><span class="note">54건</span></td>
+              <td class="money">-60,700원<br><span class="note">-2건</span></td>
+              <td>주문서 API 커피 1,132,700원과 로켓그로스 API 907,000원을 합친 값입니다. 남은 60,700원은 판매 분석 화면의 날짜/상품/매출 집계 기준 차이로 보고 경고를 유지합니다.</td>
+            </tr>
+            <tr>
+              <td><strong>쿠팡 첨부 엑셀</strong><br>SELLER_INSIGHTS_DAILY_SUMMARY_METRICS</td>
+              <td class="money">2,453,600원<br><span class="note">60건 · 판매량 71개</span></td>
+              <td class="money">2,392,900원<br><span class="note">주문서 전체 + 로켓그로스</span></td>
+              <td class="money">-60,700원</td>
+              <td>첨부 엑셀은 기존 기준값보다 353,200원 높습니다. 이 금액은 같은 기간 주문서 API의 TeamKeto 상품 버킷과 일치해, 첨부 파일이 더클린커피 상품 필터와 다른 상태였을 가능성이 높습니다.</td>
+            </tr>
           </tbody>
         </table>
       </div>
       <div class="callout gold" style="margin-top:12px">
         네이버 직접 주문 원장 후보도 확인했습니다. VM Cloud에는 스마트스토어 주문/매출 원장이 없고, 운영DB `tb_naver_orders`와 `tb_sales_naver_vat`는 바이오컴 상품·정산 쪽으로 확인되어 더클린커피 primary로 쓰지 않습니다. 네이버 커머스API는 주문 조회 공식 경로가 있지만, 현재 MacBook 호출은 IP 허용 문제로 막혔고 더클린커피 앱 키와 스토어 권한이 확인되지 않았습니다.
       </div>
+    </section>
+
+    <section class="grid" aria-label="쿠팡 판매 분석 API 검토">
+      <article class="panel span-6">
+        <span class="status info">API 대조 가능</span>
+        <h2>쿠팡에서 자동으로 읽을 수 있는 것</h2>
+        <p>
+          저장소에는 TeamKeto 쿠팡 Open API 연결이 있습니다. 주문서 API는 판매자배송 주문을 읽고, 로켓그로스 API는 쿠팡 물류창고 판매 주문을 읽고,
+          revenue-history(쿠팡이 매출로 인정한 날짜 기준 내역)는 정산 대조용 숫자를 읽습니다.
+        </p>
+        <div class="source-line">2026-04-25 - 2026-05-01 read-only 호출 성공 · 주문서 API error 0 · 로켓그로스 API call 1 · DB write 0</div>
+      </article>
+      <article class="panel span-6">
+        <span class="status hold">화면 원본 필요</span>
+        <h2>쿠팡에서 아직 API로 못 찾은 것</h2>
+        <p>
+          F&B팀 화면은 판매 분석 화면입니다. 이 화면은 방문자, 조회, 장바구니, 주문, 구매전환율, 판매량, 매출을 한 번에 보여줍니다.
+          공식 Open API 문서에서는 이 요약 엑셀을 그대로 내려주는 항목을 찾지 못했습니다.
+        </p>
+        <div class="source-line">운영안: Hermes가 같은 필터로 기간별·상품별 엑셀을 다운로드하고, Codex가 Slack no-send JSON에 붙임</div>
+      </article>
     </section>
 
     <section class="grid" aria-label="네이버 커머스 API 검토">
@@ -710,10 +746,10 @@
             </tr>
             <tr>
               <td><strong>쿠팡</strong><br>TeamKeto 계정</td>
-              <td>revenue-history 매출인식 기준, coffee 상품만 포함</td>
-              <td class="money">858,400원<br><span class="note">2026-05-17 - 2026-05-23</span></td>
-              <td>자동 집계 가능, 정산표와 분리</td>
-              <td>로켓그로스 경계일 차이와 60,700원 / 2건 잔여 원인을 계속 좁힌다.</td>
+              <td>F&B 판매 분석 화면값은 Hermes 엑셀 원본, Open API는 주문서·로켓그로스·매출인식 대조값</td>
+              <td class="money">2,100,400원<br><span class="note">F&B 기존 기준 · 2026-04-25 - 2026-05-01</span></td>
+              <td>공식 API 대조 가능, 판매 분석 화면 원본 자동화 필요</td>
+              <td>Hermes로 같은 필터의 기간별·상품별 엑셀을 받고, 60,700원 / 2건 잔여 차이를 상품 단위로 분해한다.</td>
             </tr>
             <tr>
               <td><strong>네이버 광고비</strong><br>검색광고 + 디스플레이</td>
@@ -739,8 +775,8 @@
         <h2>현재 Track(작업 축) 진척률</h2>
         <div class="bar-list">
           <div class="bar-item">
-            <div class="bar-top"><span>A. 정본 문서/source rule 정렬</span><span>87%</span></div>
-            <div class="bar green"><span style="width:87%"></span></div>
+            <div class="bar-top"><span>A. 정본 문서/source rule 정렬</span><span>88%</span></div>
+            <div class="bar green"><span style="width:88%"></span></div>
           </div>
           <div class="bar-item">
             <div class="bar-top"><span>B. 더클린커피 매출 source 확인</span><span>100%</span></div>
@@ -770,12 +806,14 @@
           <li><strong>A:</strong> 자사몰 금액 기준은 no-send 집계기에 연결됐습니다. 남은 병목은 Excel 128건과 no-send 125건의 건수 정의입니다.</li>
           <li><strong>D:</strong> 바이오컴도 더클린커피와 같은 채널별 매출·광고비 구조로 확장해야 합니다.</li>
           <li><strong>스마트스토어:</strong> PlayAuto 경고 포함 운영으로 전환했습니다. 경고 제거는 Excel 65,800원 / 2건 차이 또는 네이버 커머스API 직접 원장이 닫힌 뒤 진행합니다.</li>
-          <li><strong>운영 안정성:</strong> 네이버 디스플레이 광고비는 API가 아니라 Hermes 파일 원본이므로 기간별 export 운영 절차가 필요합니다.</li>
+          <li><strong>쿠팡:</strong> 판매 분석 화면값은 공식 Open API에서 같은 항목을 찾지 못했습니다. Hermes 엑셀 다운로드를 운영 원본 후보로 붙여야 합니다.</li>
+          <li><strong>운영 안정성:</strong> 네이버 디스플레이 광고비와 쿠팡 판매 분석 매출은 Hermes 파일 원본이므로 기간별 export 운영 절차가 필요합니다.</li>
         </ul>
         <div class="tag-row" aria-label="이번 업데이트에서 반영한 최신 근거">
           <span class="tag">자사몰 no-send 연결</span>
           <span class="tag">스마트스토어 65,800원 차이</span>
           <span class="tag">쿠팡 RG aggregate</span>
+          <span class="tag">쿠팡 판매 분석 엑셀</span>
           <span class="tag">Naver ADVoost XLSX</span>
           <span class="tag">Slack 예약 경로</span>
         </div>
@@ -801,7 +839,7 @@
               <td><strong>O1. 실제 매출 기준 고정</strong></td>
               <td>채널별 매출을 실제 결제완료 또는 매출인식 기준으로 분리한다.</td>
               <td>클릭, 결제 시작, 플랫폼 주장값이 섞이면 광고비 비중이 틀어진다.</td>
-              <td>자사몰은 Imweb complete_time 존재 주문, 스마트스토어는 PlayAuto, 쿠팡은 revenue-history와 로켓그로스 참고값으로 분리한다.</td>
+              <td>자사몰은 Imweb complete_time 존재 주문, 스마트스토어는 PlayAuto, 쿠팡은 F&B 판매 분석 엑셀과 Open API 대조값을 분리한다.</td>
               <td>더클린커피 100%</td>
               <td>주간·월간 매출이 source warning과 함께 자동 산출된다.</td>
             </tr>
@@ -877,10 +915,10 @@
           어떻게 하는가: 검색광고 API 440원과 ADVoost XLSX 350,098원을 같은 기간에서 합칩니다.
         </li>
         <li data-step="4">
-          <strong>쿠팡 60,700원 / 2건 잔여 차이를 계속 좁힌다.</strong>
-          무엇을 하는가: 일반배송, 로켓그로스, Excel 수동 기준을 같은 기간으로 비교합니다.
-          왜 하는가: 쿠팡 strict 매출을 한 숫자로 고정하려면 남은 차이의 성격을 알아야 합니다.
-          어떻게 하는가: 로켓그로스 API는 앞뒤 하루를 더 읽고 KST 결제일로 다시 자르는 guard day 방식을 검토합니다.
+          <strong>쿠팡 판매 분석 원본을 Hermes로 고정한다.</strong>
+          무엇을 하는가: 쿠팡 판매 분석 화면에서 2026-04-25 - 2026-05-01, 판매자배송+로켓그로스, 커피/차 필터의 기간별·상품별 엑셀을 다시 받습니다.
+          왜 하는가: 첨부 엑셀은 2,453,600원으로 기존 기준 2,100,400원과 다르고, 상품별 파일이 있어야 60,700원 / 2건 차이를 좁힐 수 있습니다.
+          어떻게 하는가: Hermes가 브라우저에서 엑셀을 저장하고, Codex가 TeamKeto 상품 353,200원과 남은 60,700원을 분리합니다.
         </li>
         <li data-step="5">
           <strong>제품별 TOP 매출을 보고서에 고정한다.</strong>
@@ -928,6 +966,13 @@
           </p>
           <p><code>report/reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526.md</code></p>
         </article>
+        <article class="panel span-6">
+          <h3>쿠팡 판매 분석 API 점검 문서</h3>
+          <p>
+            F&B팀 첨부 엑셀, 기존 기준값, 쿠팡 주문서 API, 로켓그로스 API, 매출인식 API를 같은 기간으로 비교한 문서입니다.
+          </p>
+          <p><code>report/reportcoffee-coupang-seller-insights-api-readiness-20260528.md</code></p>
+        </article>
       </div>
     </section>
 
@@ -964,10 +1009,10 @@
     - platform_conversion_send
     - gtm_publish
   source_window_freshness_confidence:
-    source: report/!report.md, reportcoffee-sales-summary-no-send-20260501-imweb-complete-time.json, reportcoffee-sales-summary-no-send-20260524.json, reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525.md, reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526.md, Hermes Naver XLSX result, Imweb/Coupang diagnostic docs
+    source: report/!report.md, report/reportcoffee-coupang-seller-insights-api-readiness-20260528.md, reportcoffee-sales-summary-no-send-20260501-imweb-complete-time.json, reportcoffee-sales-summary-no-send-20260524.json, reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525.md, reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526.md, Hermes Naver XLSX result, Imweb/Coupang diagnostic docs
     window: 2026-04-25 - 2026-05-01, 2026-05-17 - 2026-05-23, 2026-05-18 - 2026-05-24
-    freshness: 2026-05-26 00:23 KST local report artifacts
-    confidence: high for selfmall amount and Naver display export, medium_high for SmartStore PlayAuto source with warning, medium for Naver Commerce API readiness, medium_high for Coupang strict path, medium for remaining Coupang gap</pre>
+    freshness: 2026-05-28 13:20 KST local report artifacts
+    confidence: high for selfmall amount and Naver display export, medium_high for SmartStore PlayAuto source with warning, medium_high for Coupang Open API read-only cross-check, medium for Coupang Seller Insights exact export until Hermes download is automated</pre>
       </details>
     </section>
 
@@ -977,6 +1022,7 @@
         report/reportcoffee-selfmall-imweb-complete-time-source-design-20260525.md,
         report/reportcoffee-selfmall-smartstore-nosend-reconciliation-20260525.md,
         report/reportcoffee-smartstore-playauto-warning-and-naver-commerce-api-review-20260526.md,
+        report/reportcoffee-coupang-seller-insights-api-readiness-20260528.md,
         report/reportcoffee-coupang-rg-slack-nosend-gap-narrowing-20260525.md,
         report/reportcoffee-naver-display-hermes-export-result-20260525.md.
         이 HTML은 정적 보고서이며 외부 API 호출, Slack 발송, DB 쓰기를 수행하지 않습니다.

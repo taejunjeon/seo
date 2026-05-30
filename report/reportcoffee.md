@@ -41,12 +41,15 @@ Google Ads spend mapping: [[reportcoffee-google-ads-spend-mapping-20260523]]
 Google click ID campaign_id linkage: [[reportcoffee-google-click-id-campaign-id-linkage-20260523]]
 Google click campaign bridge preview: [[reportcoffee-google-click-campaign-bridge-preview-20260523]]
 Google campaign_id capture hardening design: [[reportcoffee-campaign-id-capture-hardening-design-20260524]]
+쿠팡 판매 분석 API 가능성 점검: [[reportcoffee-coupang-seller-insights-api-readiness-20260528]]
 
 2026-05-24 추가 판단: 더클린커피 매출 숫자 source는 `source readiness 82%` 수준으로 열려 있지만, Slack이 한 번에 호출할 통합 조회 API는 `API automation readiness 58%`다. 상세는 [[reportcoffee-sales-api-readiness-20260524]]에 둔다.
 
 2026-05-24 실행 결과: no-send 통합 집계기 `backend/scripts/reportcoffee-sales-summary-no-send.ts`에 광고비 input과 쿠팡 정산 대조를 붙였고, 쿠팡 strict 매출 기준은 TeamKeto `revenue-history` 매출인식일 기준으로 바꿨다. 2026-05-23 기준 주간 strict 매출은 15,177,390원, 포함 광고비는 2,099,737원, 매출 대비 광고비는 13.83%다. 월초-기준일은 매출 55,877,766원 / 광고비 4,440,225원 / 광고비 비중 7.95%이고, rolling 30d는 매출 63,494,729원 / 광고비 4,784,969원 / 광고비 비중 7.54%다. 쿠팡 주문서 API 금액은 주문 발생 참고값으로 유지하고, revenue-history coffee saleAmount만 strict 매출에 포함한다. 상세는 [[reportcoffee-sales-summary-no-send-20260524]]에 둔다.
 
 2026-05-24 추가 조사: 쿠팡 API에는 `revenue-history`와 `settlement-histories`가 둘 다 있다. 2026-05 TeamKeto `settlement-histories`는 rows 4, totalSale 7,222,000원, finalAmount 2,289,310원을 반환했고, `revenue-history`는 2026-05-01 - 2026-05-23 기준 coffee_hint saleAmount 3,391,900원, settlementAmount 2,996,443원을 반환했다. 따라서 쿠팡 매출 보고는 `revenue-history`, 최종 지급 대조는 `settlement-histories`, 빠른 주문 발생 참고는 `ordersheets`로 나누는 것이 맞다. 상세는 [[reportcoffee-coupang-settlement-refresh-path-20260524]]에 둔다.
+
+2026-05-28 추가 조사: F&B팀이 공유한 쿠팡 판매 분석 엑셀은 기존 기준값 2,100,400원 / 56건이 아니라 2,453,600원 / 60건 / 판매량 71개였다. 쿠팡 Open API read-only 기준으로 같은 기간 판매자배송 커피 1,132,700원, 로켓그로스 907,000원, 합계 2,039,700원을 재현했고 기존 기준값 대비 60,700원 / 2건 gap이 남는다. 첨부 엑셀과 기존 기준값의 차이 353,200원은 같은 기간 주문서 API의 팀키토 상품 버킷과 정확히 같아, 첨부 엑셀이 더클린커피 상품 필터와 다른 상태였을 가능성이 높다. 공식 Open API에서 판매 분석 화면의 방문자/조회/장바구니/구매전환율 요약을 직접 내려주는 endpoint는 찾지 못했으므로, 정확한 F&B 기준 자동화는 Hermes 브라우저 다운로드를 primary 후보로 둔다. 상세는 [[reportcoffee-coupang-seller-insights-api-readiness-20260528]]에 둔다.
 
 2026-05-25 승인안: 로컬 SQLite `coupang_settlements_api`에 2026-05 쿠팡 정산표를 적재하는 승인안을 작성했다. 승인 전 실제 local DB write는 0건이다. 예상 적재는 TeamKeto 4건 / totalSale 7,222,000원 / finalAmount 2,289,310원, biocom 4건 / totalSale 1,019,400원 / finalAmount 256,524원이다. 상세는 [[reportcoffee-coupang-settlement-cache-202605-approval-20260525]]에 둔다.
 

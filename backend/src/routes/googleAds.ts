@@ -10,7 +10,9 @@ import {
 } from "../npayActualConfirmedPgReader";
 import {
   buildNpayIntentRematchDryRunReport,
+  buildNpayIntentUnresolvedReasonBreakdown,
   type NpayIntentRematchDryRunReport,
+  type NpayIntentRematchUnresolvedRow,
 } from "../npayRoasDryRun";
 import { isDatabaseConfigured, queryPg } from "../postgres";
 import { env } from "../env";
@@ -26,6 +28,9 @@ const GOOGLE_CLICK_ID_CAPTURE_PATCH_BASELINE_KST = "2026-05-21 21:15 KST";
 const GOOGLE_ANALYSIS_ALGORITHM_V2_BASELINE_KST = "2026-05-25 06:30 KST";
 const GOOGLE_ADS_CONFIRMED_PURCHASE_OFFLINE_ACTION_ID = "7609289411";
 const GOOGLE_ADS_CONFIRMED_PURCHASE_OFFLINE_ACTION_NAME = "BI confirmed_purchase_offline";
+const GOOGLE_ADS_CONFIRMED_PURCHASE_CLICK_LOOKBACK_DAYS = 30;
+const GOOGLE_ADS_CLICK_ID_STORAGE_DAYS = 90 as const;
+const GOOGLE_ADS_TOO_RECENT_RETRY_HOURS = 6 as const;
 const GOOGLE_ADS_CONFIRMED_PURCHASE_UPLOAD_LEDGER_TABLE = "google_ads_confirmed_purchase_upload_ledger";
 const INTERNAL_LEDGER_SOURCE = "biocom_imweb";
 const INTERNAL_LEDGER_LIMIT = 10000;
@@ -116,6 +121,7 @@ type GoogleAdsErrorSummary = {
     errorCode: unknown;
     message: string;
     fieldPath: string | null;
+    index: number | null;
   }>;
   rawPreview?: string;
 };
@@ -287,6 +293,17 @@ type GoogleNpayBridgeReviewRow = {
   amountMatchType: string;
   hasGoogleClickId: boolean;
   googleClickIdTypes: Array<"gclid" | "gbraid" | "wbraid">;
+  googleClickIdEvidenceSource:
+    | "intent_direct"
+    | "paid_click_intent_same_client_session"
+    | "site_landing_same_client_session"
+    | "none";
+  googleClickIdRawValueAvailable: boolean;
+  googleClickIdEvidencePlain: string;
+  npayBridgeUrlHashPresent?: boolean;
+  npayBridgeHost?: string;
+  npayBridgePathHashPresent?: boolean;
+  npayBridgeObservedAt?: string;
   gadCampaignId: string | null;
   campaignIdEvidenceSource:
     | "intent_page_location"
@@ -320,6 +337,65 @@ type GoogleNpayBridgeCampaignSummary = {
   googleAdsSendCandidates: 0;
 };
 
+type GoogleNpayFinalSourceChannel =
+  | "google"
+  | "meta"
+  | "naver"
+  | "organic"
+  | "direct"
+  | "unknown";
+
+type GoogleNpayFinalSourceSummaryRow = {
+  channel: GoogleNpayFinalSourceChannel;
+  label: string;
+  completedOrders: number;
+  amountKrw: number;
+  bridgeCandidateOrders: number;
+  directGoogleClickIdOrders: number;
+  recoveredGoogleClickIdOrders: number;
+  confidence: "high" | "medium" | "low";
+  plain: string;
+};
+
+type GoogleNpayFinalSourceDateDistributionRow = {
+  dateKst: string;
+  completedOrders: number;
+  amountKrw: number;
+  bridgeCandidateOrders: number;
+  gradeA: number;
+  gradeB: number;
+  ambiguous: number;
+  purchaseWithoutIntent: number;
+  googleEvidenceOrders: number;
+  directGoogleClickIdOrders: number;
+};
+
+type GoogleNpayFinalSourceUnclassifiedReasonRow = {
+  reason: string;
+  label: string;
+  completedOrders: number;
+  sharePct: number;
+  sampleOrderCount: number;
+  plain: string;
+};
+
+type GoogleNpayFinalSourceSummary = {
+  totalCompletedOrders: number;
+  classifiedCompletedOrders: number;
+  unclassifiedCompletedOrders: number;
+  googleEvidenceOrders: number;
+  googleEvidenceAmountKrw: number;
+  byChannel: GoogleNpayFinalSourceSummaryRow[];
+  unclassifiedReasons: GoogleNpayFinalSourceUnclassifiedReasonRow[];
+  dateDistribution: GoogleNpayFinalSourceDateDistributionRow[];
+  source: "npay_intent_bridge_candidate_rows";
+  basis: string;
+  caveat: string;
+};
+
+type GoogleNpayBridgeSourceFunnelRow = NpayIntentRematchDryRunReport["sourceFunnelComparison"][number];
+type GoogleNpayBridgeUnresolvedRow = NpayIntentRematchDryRunReport["unresolvedRows"][number];
+
 type GoogleNpayBridgeReview = {
   generatedAt: string;
   source: "npay_intent_rematch_dry_run";
@@ -333,18 +409,49 @@ type GoogleNpayBridgeReview = {
   };
   summary: {
     liveIntentCount: number;
+    googleLikeIntentCount: number;
+    googleLikeIntentWithGoogleClickId: number;
+    liveIntentWithNpayBridgeUrlHash: number;
+    googleLikeIntentWithNpayBridgeUrlHash: number;
+    enteredNotCompletedBreakdown: {
+      total: number;
+      pendingWindow: number;
+      loginGatePossible: number;
+      checkoutOpenedPossible: number;
+      matchingGapPossible: number;
+    };
+    googleClickIdIntentCount: number;
+    googleClickIdIntentBreakdown: {
+      gclid: number;
+      gbraid: number;
+      wbraid: number;
+    };
     actualConfirmedNpayOrders: number;
     internalBridgeStrongCandidates: number;
     internalBridgeExactCandidates: number;
     internalBridgeExactWithGoogleClickId: number;
     bridgeCandidatesWithGoogleClickId: number;
+    bridgeCandidatesWithRecoveredGoogleClickId: number;
+    bridgeCandidatesWithNpayBridgeUrlHash: number;
     gradeA: number;
+    gradeAWithDirectGoogleClickId: number;
+    gradeAWithRecoveredGoogleClickId: number;
+    gradeAWithGoogleClickId: number;
+    gradeAWithNpayBridgeUrlHash: number;
+    gradeAWithGoogleClickIdAndNpayBridgeUrlHash: number;
+    gradeADirectGoogleClickIdAmountKrw: number;
+    gradeAWithGoogleClickIdAmountKrw: number;
+    gradeARecoveredGoogleClickIdAmountKrw: number;
+    gradeANeedsClickIdRecoveryRows: number;
     gradeB: number;
     gradeBWithGoogleClickId: number;
     gradeBBlockedByTimeGap: number;
     gradeBBlockedByAmount: number;
     gradeBBlockedByMissingGoogleClickId: number;
     gradeBPromotableToGradeANow: number;
+    googleLikeCompletedOrders: number;
+    googleLikeCompletedAmountKrw: number;
+    googleLikeCompletedWithDirectGoogleClickId: number;
     ambiguous: number;
     purchaseWithoutIntent: number;
     googleAdsSendCandidates: 0;
@@ -354,6 +461,9 @@ type GoogleNpayBridgeReview = {
   rows: GoogleNpayBridgeReviewRow[];
   gradeBRows: GoogleNpayBridgeReviewRow[];
   campaignSummary: GoogleNpayBridgeCampaignSummary[];
+  finalSourceSummary: GoogleNpayFinalSourceSummary;
+  sourceFunnelComparison: GoogleNpayBridgeSourceFunnelRow[];
+  unresolvedRows: GoogleNpayBridgeUnresolvedRow[];
   plainMeaning: string;
   noWritePolicy: string;
   caveats: string[];
@@ -843,7 +953,7 @@ type GoogleAdsUploadLedgerWriteSmokePlan = {
     plain: string;
   };
   sourceDryRun: {
-    mode: GoogleAdsDuplicateLedgerDryRun["mode"];
+    mode: GoogleAdsDuplicateLedgerDryRun["mode"] | "upload_candidate_builder";
     sourceCandidateCount: number;
     uniqueDedupeKeys: number;
     simulatedReplayBlocked: number;
@@ -912,7 +1022,7 @@ type GoogleAdsUploadLedgerWriteSmokeResult = {
   goal: string;
   approval: {
     confirmation: "vm_cloud_write_smoke_approved";
-    maxReadyRows: 2;
+    maxReadyRows: 5;
     googleAdsSendApproved: false;
   };
   progress: {
@@ -972,6 +1082,8 @@ type GoogleAdsConfirmedPurchaseCandidateExpansionTier = {
     | "ready_exact_gclid"
     | "potential_one_of_gbraid_wbraid"
     | "mixed_google_click_ids"
+    | "npay_bridge_grade_a_google_click_id_no_write"
+    | "npay_bridge_grade_a_recovered_google_click_id_no_write"
     | "internal_bridge_without_google_click_id"
     | "missing_click_bridge"
     | "not_actual_purchase";
@@ -982,6 +1094,7 @@ type GoogleAdsConfirmedPurchaseCandidateExpansionTier = {
     | "no_send_ready_after_ledger_and_red_approval"
     | "no_send_needs_payload_builder"
     | "no_send_needs_manual_disambiguation"
+    | "no_send_needs_bridge_write_and_red_approval"
     | "no_send_internal_analysis_only"
     | "no_send_missing_google_click_id"
     | "no_send_not_actual_purchase";
@@ -995,6 +1108,7 @@ type GoogleAdsConfirmedPurchaseCandidateExpansion = {
   goal: string;
   progress: {
     actualPurchaseCandidateReadinessPct: number;
+    actualPurchaseCandidateDiscoveryPct: number;
     overallPrimaryConversionReadinessPct: number;
     plain: string;
   };
@@ -1006,6 +1120,11 @@ type GoogleAdsConfirmedPurchaseCandidateExpansion = {
     readyExactGclidRows: number;
     potentialOneOfBraidRows: number;
     mixedGoogleClickIdRows: number;
+    npayBridgeGradeAWithGoogleClickIdRows: number;
+    npayBridgeGradeAWithGoogleClickIdAmountKrw: number;
+    npayBridgeGradeARecoveredGoogleClickIdRows: number;
+    npayBridgeGradeARecoveredGoogleClickIdAmountKrw: number;
+    npayBridgeGradeANeedsClickIdRecoveryRows: number;
     internalBridgeWithoutGoogleClickIdRows: number;
     missingClickBridgeRows: number;
     notActualPurchaseRows: number;
@@ -1042,10 +1161,79 @@ type GoogleAdsConfirmedPurchaseCandidateExpansion = {
   caveats: string[];
 };
 
+type GoogleAdsOfflineDiagnosticClassificationKey =
+  | "ready_ledger_waiting_send"
+  | "sent_waiting_or_reflected"
+  | "failed_click_too_old_for_action"
+  | "failed_invalid_or_test_click_id"
+  | "failed_google_ads_partial_failure"
+  | "candidate_missing_google_click_id"
+  | "candidate_needs_bridge_write"
+  | "candidate_not_actual_purchase"
+  | "needs_manual_review";
+
+type GoogleAdsOfflineDiagnosticClassification = {
+  generatedAt: string;
+  site: "biocom";
+  mode: "offline_diagnostic_classification_no_send";
+  goal: string;
+  window: GoogleAdsClickIdHealthWindow;
+  sourceFreshness: OperationalDbFreshness;
+  summary: {
+    ledgerRowsInWindow: number;
+    candidateRowsInWindow: number;
+    actualPurchaseRows: number;
+    classifiedRows: number;
+    googleAdsSendCandidateRows: number;
+    googleAdsSendCandidateAmountKrw: number;
+    externalSendCount: 0;
+  };
+  classificationCounts: Array<{
+    key: GoogleAdsOfflineDiagnosticClassificationKey;
+    label: string;
+    count: number;
+    amountKrw: number;
+    plain: string;
+    sendPolicy:
+      | "diagnostic_only"
+      | "ready_after_send_approval"
+      | "do_not_send"
+      | "manual_review_before_send";
+  }>;
+  separationGuide: {
+    classificationPurpose: string;
+    sendExpansionPurpose: string;
+    plain: string;
+  };
+  recentRows: Array<{
+    safeRef: string;
+    rowSource: "upload_ledger" | "candidate_expansion";
+    classification: GoogleAdsOfflineDiagnosticClassificationKey;
+    amountKrw: number;
+    conversionDateKst: string;
+    ledgerStatus: string | null;
+    reason: string;
+    rawOrderIdExposed: false;
+    rawClickIdExposed: false;
+  }>;
+  invariants: {
+    rawOrderIdInResponse: false;
+    rawClickIdInResponse: false;
+    uploadCandidateCount: 0;
+    sendCandidateCount: 0;
+    externalSendCount: 0;
+    operationalDbWrite: 0;
+    vmCloudWrite: 0;
+    googleAdsWrite: 0;
+  };
+  caveats: string[];
+};
+
 type GoogleAdsConfirmedPurchaseUploadCandidate = {
   candidateRank: number;
   safeRef: string;
   maskedOrderRef: string;
+  candidateSource: "homepage_direct_gclid" | "npay_bridge_grade_a_gclid";
   rawOrderId: string;
   rawGclid: string;
   conversionActionId: string;
@@ -1061,6 +1249,73 @@ type GoogleAdsConfirmedPurchaseUploadCandidate = {
   ledgerStatus: string;
   sendReady: boolean;
   blockReasons: string[];
+};
+
+type GoogleAdsConfirmedPurchaseClickAgeDryRunStatus =
+  | "within_action_click_window"
+  | "click_too_old_for_action"
+  | "too_recent_for_google_retry"
+  | "click_time_unknown"
+  | "conversion_time_missing_or_invalid"
+  | "conversion_before_click"
+  | "missing_exact_gclid"
+  | "not_actual_purchase";
+
+type GoogleAdsConfirmedPurchaseClickAgeDryRun = {
+  generatedAt: string;
+  site: "biocom";
+  mode: "click_age_dry_run_no_send";
+  goal: string;
+  window: GoogleAdsClickIdHealthWindow;
+  criteria: {
+    actionClickThroughLookbackDays: number;
+    googleClickIdStorageDays: 90;
+    tooRecentRetryHours: 6;
+    tooOldRulePlain: string;
+    tooRecentRulePlain: string;
+    unknownRulePlain: string;
+  };
+  summary: {
+    actualPurchaseRows: number;
+    exactGclidRows: number;
+    knownClickTimeRows: number;
+    withinActionClickWindowRows: number;
+    clickTooOldForActionRows: number;
+    tooRecentForGoogleRetryRows: number;
+    clickTimeUnknownRows: number;
+    notActualPurchaseRows: number;
+    googleAdsSendCount: 0;
+    vmCloudWriteCount: 0;
+  };
+  statusCounts: Array<{
+    status: GoogleAdsConfirmedPurchaseClickAgeDryRunStatus;
+    count: number;
+    amountKrw: number;
+    plain: string;
+  }>;
+  rows: Array<{
+    safeRef: string;
+    status: GoogleAdsConfirmedPurchaseClickAgeDryRunStatus;
+    amountKrw: number;
+    paidDateKst: string;
+    paymentMethod: "homepage" | "npay" | "unknown";
+    evidenceSource: GoogleAdsClickIdHealthOrderDiagnostic["evidenceSource"];
+    clickAgeHours: number | null;
+    clickAgeDays: number | null;
+    clickCapturedAtKnown: boolean;
+    rawOrderIdExposed: false;
+    rawClickIdExposed: false;
+    reason: string;
+  }>;
+  invariants: {
+    rawOrderIdInResponse: false;
+    rawClickIdInResponse: false;
+    externalSendCount: 0;
+    operationalDbWrite: 0;
+    vmCloudWrite: 0;
+    googleAdsWrite: 0;
+  };
+  caveats: string[];
 };
 
 type GoogleAdsClickConversionUploadResponse = {
@@ -1667,16 +1922,32 @@ const urlParam = (value: unknown, key: string) => {
   }
 };
 
+const getGoogleAdsErrorRoot = (parsed: unknown): Record<string, unknown> => {
+  if (!isRecord(parsed)) return {};
+  if (isRecord(parsed.error)) return parsed.error;
+  if (isRecord(parsed.partialFailureError)) return parsed.partialFailureError;
+  return parsed;
+};
+
+const getGoogleAdsFailureErrors = (root: Record<string, unknown>) => {
+  const details = Array.isArray(root.details) ? root.details : [];
+  const failure = details.find((detail) => isRecord(detail) && Array.isArray(detail.errors));
+  const requestDetail = details.find((detail) => isRecord(detail) && typeof detail.requestId === "string");
+  const failureErrors = isRecord(failure) && Array.isArray(failure.errors) ? failure.errors : [];
+
+  return {
+    requestDetail,
+    failureErrors,
+  };
+};
+
 const summarizeGoogleAdsError = (text: string): GoogleAdsErrorSummary => {
   try {
     const parsed = JSON.parse(text) as unknown;
-    const root = isRecord(parsed) && isRecord(parsed.error) ? parsed.error : parsed;
+    const root = getGoogleAdsErrorRoot(parsed);
     if (!isRecord(root)) return { rawPreview: text.slice(0, 800) };
 
-    const details = Array.isArray(root.details) ? root.details : [];
-    const failure = details.find((detail) => isRecord(detail) && Array.isArray(detail.errors));
-    const requestDetail = details.find((detail) => isRecord(detail) && typeof detail.requestId === "string");
-    const failureErrors = isRecord(failure) && Array.isArray(failure.errors) ? failure.errors : [];
+    const { requestDetail, failureErrors } = getGoogleAdsFailureErrors(root);
 
     return {
       code: toOptionalNumber(root.code) ?? undefined,
@@ -1690,14 +1961,26 @@ const summarizeGoogleAdsError = (text: string): GoogleAdsErrorSummary => {
           const elements = Array.isArray(location.fieldPathElements)
             ? location.fieldPathElements
             : [];
+          const pathElements = elements.filter(isRecord).map((element) => {
+            const fieldName = toStringValue(element.fieldName);
+            const index = toOptionalNumber(element.index);
+            return {
+              fieldName,
+              index,
+              formatted: fieldName
+                ? `${fieldName}${index != null ? `[${index}]` : ""}`
+                : "",
+            };
+          });
+          const index = pathElements.find((element) => element.index != null)?.index ?? null;
           return {
             errorCode: error.errorCode,
             message: toStringValue(error.message),
-            fieldPath: elements
-              .filter(isRecord)
-              .map((element) => toStringValue(element.fieldName))
+            fieldPath: pathElements
+              .map((element) => element.formatted)
               .filter(Boolean)
               .join(".") || null,
+            index,
           };
         }),
     };
@@ -5118,32 +5401,35 @@ const buildGoogleAdsUploadLedgerWriteSmokePlan = async (
   window: GoogleAdsClickIdHealthWindow,
   requestedLimit: number,
 ): Promise<GoogleAdsUploadLedgerWriteSmokePlan> => {
-  const dryRun = await buildGoogleAdsDuplicateLedgerDryRun(window, requestedLimit);
+  const uploadCandidates = await buildGoogleAdsConfirmedPurchaseUploadCandidates(window, requestedLimit);
   const seenKeys = new Set<string>();
   let duplicateRowsBlockedInPlan = 0;
 
-  const rows = dryRun.rows.map((row): GoogleAdsUploadLedgerWriteSmokePlanRow => {
-    const alreadySeen = seenKeys.has(row.dedupeKeyHash);
-    if (alreadySeen) {
+  const rows = uploadCandidates.map((candidate): GoogleAdsUploadLedgerWriteSmokePlanRow => {
+    const alreadySeen = seenKeys.has(candidate.dedupeKeyHash);
+    const alreadyHasLedgerRow = Boolean(candidate.ledgerRowId);
+    if (alreadySeen || alreadyHasLedgerRow) {
       duplicateRowsBlockedInPlan += 1;
     } else {
-      seenKeys.add(row.dedupeKeyHash);
+      seenKeys.add(candidate.dedupeKeyHash);
     }
 
     return {
-      candidateRank: row.candidateRank,
-      safeRef: row.safeRef,
-      maskedOrderRef: row.maskedOrderRef,
+      candidateRank: candidate.candidateRank,
+      safeRef: candidate.safeRef,
+      maskedOrderRef: candidate.maskedOrderRef,
       statusToWrite: "ready",
-      dedupeKeyHash: row.dedupeKeyHash,
-      payloadHash: row.payloadHash,
-      conversionActionId: row.conversionActionId,
-      conversionActionName: row.conversionActionName,
-      clickIdType: row.evidence.clickIdType,
-      amountKrw: row.payment.amountKrw,
-      currencyCode: row.payment.currencyCode,
-      paidDateKst: row.payment.paidDateKst,
-      firstWriteDecision: alreadySeen ? "would_block_duplicate_in_same_batch" : "would_insert_ready_row",
+      dedupeKeyHash: candidate.dedupeKeyHash,
+      payloadHash: candidate.payloadHash,
+      conversionActionId: candidate.conversionActionId,
+      conversionActionName: candidate.conversionActionName,
+      clickIdType: "gclid",
+      amountKrw: candidate.conversionValue,
+      currencyCode: candidate.currencyCode,
+      paidDateKst: candidate.conversionDateTime.slice(0, 10),
+      firstWriteDecision: alreadySeen || alreadyHasLedgerRow
+        ? "would_block_duplicate_in_same_batch"
+        : "would_insert_ready_row",
       replayDecision: "would_block_duplicate_ready_row",
       sqlParamPresence: {
         safeRef: true,
@@ -5162,8 +5448,7 @@ const buildGoogleAdsUploadLedgerWriteSmokePlan = async (
 
   const replayRowsBlocked = rows.filter((row) => row.replayDecision === "would_block_duplicate_ready_row").length;
   const writeSmokePlanReady =
-    dryRun.readiness.duplicateLedgerDryRunPassed
-    && rows.length > 0
+    rows.length > 0
     && duplicateRowsBlockedInPlan === 0
     && replayRowsBlocked === rows.length;
   const blockers = [
@@ -5189,11 +5474,11 @@ const buildGoogleAdsUploadLedgerWriteSmokePlan = async (
         : "장부 write smoke 준비가 아직 막혀 있습니다. 후보 row 또는 중복 key를 먼저 확인해야 합니다.",
     },
     sourceDryRun: {
-      mode: dryRun.mode,
-      sourceCandidateCount: dryRun.summary.sourceCandidateCount,
-      uniqueDedupeKeys: dryRun.summary.uniqueDedupeKeys,
-      simulatedReplayBlocked: dryRun.summary.simulatedReplayBlocked,
-      duplicateLedgerDryRunPassed: dryRun.readiness.duplicateLedgerDryRunPassed,
+      mode: "upload_candidate_builder",
+      sourceCandidateCount: uploadCandidates.length,
+      uniqueDedupeKeys: seenKeys.size,
+      simulatedReplayBlocked: replayRowsBlocked,
+      duplicateLedgerDryRunPassed: rows.length > 0 && duplicateRowsBlockedInPlan === 0,
     },
     schemaPlan: {
       tableName: GOOGLE_ADS_CONFIRMED_PURCHASE_UPLOAD_LEDGER_TABLE,
@@ -5242,17 +5527,25 @@ const executeGoogleAdsUploadLedgerWriteSmoke = async (
   window: GoogleAdsClickIdHealthWindow,
   requestedLimit: number,
 ): Promise<GoogleAdsUploadLedgerWriteSmokeResult> => {
-  const limit = Math.min(Math.max(requestedLimit, 1), 2);
+  const limit = Math.min(Math.max(requestedLimit, 1), 5);
   const plan = await buildGoogleAdsUploadLedgerWriteSmokePlan(window, limit);
   const now = new Date().toISOString();
   const smokeRunId = `gads_write_smoke_${now.replace(/[^0-9A-Za-z]/g, "").slice(0, 14)}_${hashDiagnosticValue(now, 8)}`;
-  const plannedRows = plan.rows.filter((row) => row.firstWriteDecision === "would_insert_ready_row").slice(0, 2);
+  const plannedRows = plan.rows.filter((row) => row.firstWriteDecision === "would_insert_ready_row").slice(0, limit);
 
-  if (!plan.readiness.writeSmokePlanReady || plannedRows.length === 0 || plannedRows.length > 2) {
+  /*
+    The plan can contain older already-sent rows before a newer ready row.
+    For the smoke executor, skip those blocked rows and write only fresh
+    would_insert_ready_row entries.
+  */
+  const readyDedupeKeys = new Set(plannedRows.map((row) => row.dedupeKeyHash));
+  const plannedRowsHaveDuplicateKeys = readyDedupeKeys.size !== plannedRows.length;
+
+  if (plannedRows.length === 0 || plannedRows.length > 5 || plannedRowsHaveDuplicateKeys) {
     const blockers = [
-      plan.readiness.writeSmokePlanReady ? "" : "write_smoke_plan_not_ready",
       plannedRows.length > 0 ? "" : "no_ready_rows_to_write",
-      plannedRows.length <= 2 ? "" : "write_smoke_limit_exceeded",
+        plannedRows.length <= 5 ? "" : "write_smoke_limit_exceeded",
+      plannedRowsHaveDuplicateKeys ? "ready_rows_dedupe_key_collision" : "",
       "google_ads_conversion_upload_not_executed",
       "google_ads_dispatcher_not_enabled",
     ].filter(Boolean);
@@ -5261,10 +5554,10 @@ const executeGoogleAdsUploadLedgerWriteSmoke = async (
       generatedAt: now,
       site: "biocom",
       mode: "upload_ledger_write_smoke_executed",
-      goal: "Google Ads 실제 구매 전송 전, VM Cloud 장부에 ready 후보 최대 2건을 안전하게 기록한다.",
+      goal: "Google Ads 실제 구매 전송 전, VM Cloud 장부에 ready 후보 최대 5건을 안전하게 기록한다.",
       approval: {
         confirmation: "vm_cloud_write_smoke_approved",
-        maxReadyRows: 2,
+        maxReadyRows: 5,
         googleAdsSendApproved: false,
       },
       progress: {
@@ -5433,7 +5726,7 @@ const executeGoogleAdsUploadLedgerWriteSmoke = async (
     firstPass.insertedReadyRows + firstPass.existingDuplicateRows === plannedRows.length;
   const actualLedgerWritePassed =
     plannedRows.length > 0
-    && plannedRows.length <= 2
+    && plannedRows.length <= 5
     && allRowsAccountedFor
     && replayRowsBlocked === plannedRows.length
     && plan.invariants.rawOrderIdInResponse === false
@@ -5448,10 +5741,10 @@ const executeGoogleAdsUploadLedgerWriteSmoke = async (
     generatedAt: now,
     site: "biocom",
     mode: "upload_ledger_write_smoke_executed",
-    goal: "Google Ads 실제 구매 전송 전, VM Cloud 장부에 ready 후보 최대 2건을 안전하게 기록한다.",
+    goal: "Google Ads 실제 구매 전송 전, VM Cloud 장부에 ready 후보 최대 5건을 안전하게 기록한다.",
     approval: {
       confirmation: "vm_cloud_write_smoke_approved",
-      maxReadyRows: 2,
+      maxReadyRows: 5,
       googleAdsSendApproved: false,
     },
     progress: {
@@ -5545,19 +5838,343 @@ const buildGoogleAdsConfirmedPurchaseUploadPayloadHash = (candidate: {
   currencyCode: candidate.currencyCode,
 }), 24);
 
+const isLikelySyntheticGoogleClickId = (value: string) => {
+  const normalized = toStringValue(value).trim();
+  if (!normalized) return false;
+
+  /*
+    Google Ads upload must never use click IDs that came from our smoke URLs.
+    Real gclid values do not include these operator-created markers.
+  */
+  if (/(?:^|[_-])(TEST|SMOKE|PREVIEW|DUMMY|SAMPLE|DEBUG|CODEX|GTM)(?:[_-]|$)/i.test(normalized)) {
+    return true;
+  }
+
+  if (/^(TEST|SMOKE|PREVIEW|DUMMY|SAMPLE|DEBUG|CODEX)(?:[_-]|$)/i.test(normalized)) {
+    return true;
+  }
+
+  /*
+    The invalid rows found on 2026-05-29 were short TEST-like values, not
+    browser/URL corruption. Length alone is not used as a hard block because
+    Google does not publish a stable gclid length contract.
+  */
+  return false;
+};
+
+const hasGoogleAdsUploadPayloadFields = (candidate: GoogleAdsConfirmedPurchaseUploadCandidate) =>
+  Boolean(candidate.rawOrderId)
+  && Boolean(candidate.rawGclid)
+  && !isLikelySyntheticGoogleClickId(candidate.rawGclid)
+  && Boolean(candidate.conversionDateTime)
+  && candidate.conversionValue > 0;
+
+const GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META: Record<
+  GoogleAdsConfirmedPurchaseClickAgeDryRunStatus,
+  { plain: string }
+> = {
+  within_action_click_window: {
+    plain:
+      "Google Ads 전환 액션의 클릭 인정 기간 안에 있는 후보입니다. 다른 중복/환불/형식 검사를 통과하면 전송 가능성이 있습니다.",
+  },
+  click_too_old_for_action: {
+    plain:
+      "광고 클릭 증거가 결제완료보다 너무 오래 전입니다. 현재 BI confirmed_purchase_offline 기준 30일을 넘으면 Google Ads가 구매로 붙이지 않을 가능성이 큽니다.",
+  },
+  too_recent_for_google_retry: {
+    plain:
+      "광고 클릭이 너무 최근입니다. Google Ads는 클릭 후 6시간 미만 전환을 바로 처리하지 못할 수 있어 나중에 재시도해야 합니다.",
+  },
+  click_time_unknown: {
+    plain:
+      "gclid는 있지만 그 gclid가 언제 잡혔는지 서버가 확정하지 못합니다. 오래된 클릭인지 판단할 수 없으므로 보류가 안전합니다.",
+  },
+  conversion_time_missing_or_invalid: {
+    plain:
+      "실제 결제완료 시각이 비어 있거나 날짜로 해석되지 않습니다. Google Ads 전송 시간값을 만들 수 없습니다.",
+  },
+  conversion_before_click: {
+    plain:
+      "결제완료가 클릭 증거보다 먼저 발생한 모양입니다. 시간대나 매칭 오류 가능성이 있어 전송하면 안 됩니다.",
+  },
+  missing_exact_gclid: {
+    plain:
+      "실제 구매여도 현재 전송기는 gclid 원문이 있는 후보만 보냅니다. gbraid/wbraid 단독 후보는 별도 확장 전까지 보류합니다.",
+  },
+  not_actual_purchase: {
+    plain:
+      "결제완료, 양수 금액, 취소/환불/반품 없음 기준을 통과하지 못했습니다. 실제 구매 전환으로 보낼 수 없습니다.",
+  },
+};
+
+const parseGoogleAdsDryRunDateMs = (value: string | Date | null | undefined) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  const ms = date.getTime();
+  return Number.isFinite(ms) ? ms : null;
+};
+
+const getGoogleAdsClickEvidenceCapturedAt = (row: GoogleAdsClickIdHealthOrderDiagnostic) => {
+  /*
+    payment_success logged/approved time is purchase-side time, not the original ad-click capture time.
+    NPay intent captured_at is the closest stored point where the click id was carried into checkout.
+  */
+  return toStringValue(row.evidenceAt.npayIntentCapturedAt) || "";
+};
+
+const classifyGoogleAdsClickAgeDryRunRow = (
+  row: GoogleAdsClickIdHealthOrderDiagnostic,
+  actionClickThroughLookbackDays: number,
+  nowMs: number,
+): {
+  status: GoogleAdsConfirmedPurchaseClickAgeDryRunStatus;
+  clickAgeHours: number | null;
+  clickAgeDays: number | null;
+  clickCapturedAtKnown: boolean;
+  reason: string;
+} => {
+  if (!row.actualPurchaseEligibility.passed) {
+    return {
+      status: "not_actual_purchase",
+      clickAgeHours: null,
+      clickAgeDays: null,
+      clickCapturedAtKnown: false,
+      reason: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META.not_actual_purchase.plain,
+    };
+  }
+
+  if (!row.googleClickIds.gclid || isLikelySyntheticGoogleClickId(row.googleClickIds.gclid)) {
+    return {
+      status: "missing_exact_gclid",
+      clickAgeHours: null,
+      clickAgeDays: null,
+      clickCapturedAtKnown: false,
+      reason: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META.missing_exact_gclid.plain,
+    };
+  }
+
+  const conversionMs = parseGoogleAdsDryRunDateMs(row.paidAt);
+  if (conversionMs == null) {
+    return {
+      status: "conversion_time_missing_or_invalid",
+      clickAgeHours: null,
+      clickAgeDays: null,
+      clickCapturedAtKnown: false,
+      reason: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META.conversion_time_missing_or_invalid.plain,
+    };
+  }
+
+  const clickCapturedAt = getGoogleAdsClickEvidenceCapturedAt(row);
+  const clickMs = parseGoogleAdsDryRunDateMs(clickCapturedAt);
+  if (clickMs == null) {
+    return {
+      status: "click_time_unknown",
+      clickAgeHours: null,
+      clickAgeDays: null,
+      clickCapturedAtKnown: false,
+      reason: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META.click_time_unknown.plain,
+    };
+  }
+
+  const clickAgeHours = Math.round(((conversionMs - clickMs) / (60 * 60 * 1000)) * 10) / 10;
+  const clickAgeDays = Math.round((clickAgeHours / 24) * 10) / 10;
+
+  if (clickAgeHours < 0) {
+    return {
+      status: "conversion_before_click",
+      clickAgeHours,
+      clickAgeDays,
+      clickCapturedAtKnown: true,
+      reason: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META.conversion_before_click.plain,
+    };
+  }
+
+  const clickUploadAgeHours = (nowMs - clickMs) / (60 * 60 * 1000);
+  if (clickUploadAgeHours < GOOGLE_ADS_TOO_RECENT_RETRY_HOURS) {
+    return {
+      status: "too_recent_for_google_retry",
+      clickAgeHours,
+      clickAgeDays,
+      clickCapturedAtKnown: true,
+      reason: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META.too_recent_for_google_retry.plain,
+    };
+  }
+
+  if (clickAgeDays > actionClickThroughLookbackDays) {
+    return {
+      status: "click_too_old_for_action",
+      clickAgeHours,
+      clickAgeDays,
+      clickCapturedAtKnown: true,
+      reason: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META.click_too_old_for_action.plain,
+    };
+  }
+
+  return {
+    status: "within_action_click_window",
+    clickAgeHours,
+    clickAgeDays,
+    clickCapturedAtKnown: true,
+    reason: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META.within_action_click_window.plain,
+  };
+};
+
+const buildGoogleAdsConfirmedPurchaseClickAgeDryRun = async (
+  window: GoogleAdsClickIdHealthWindow,
+  requestedLimit: number,
+  actionClickThroughLookbackDays: number,
+): Promise<GoogleAdsConfirmedPurchaseClickAgeDryRun> => {
+  const diagnostics = await buildGoogleAdsClickIdOrderDiagnostics(window, {
+    limit: 10000,
+    only: "all",
+  });
+  const nowMs = Date.now();
+  const countMap = new Map<GoogleAdsConfirmedPurchaseClickAgeDryRunStatus, { count: number; amountKrw: number }>();
+  const addCount = (status: GoogleAdsConfirmedPurchaseClickAgeDryRunStatus, amountKrw: number) => {
+    const current = countMap.get(status) ?? { count: 0, amountKrw: 0 };
+    current.count += 1;
+    current.amountKrw += amountKrw;
+    countMap.set(status, current);
+  };
+
+  const rows = diagnostics.orders
+    .map((row) => {
+      const classification = classifyGoogleAdsClickAgeDryRunRow(
+        row,
+        actionClickThroughLookbackDays,
+        nowMs,
+      );
+      addCount(classification.status, row.orderAmount);
+      return {
+        safeRef: `gads_click_age_${hashDiagnosticValue([
+          row.orderNumber,
+          row.paidAt,
+          row.orderAmount,
+          classification.status,
+        ].join(":"), 14)}`,
+        status: classification.status,
+        amountKrw: row.orderAmount,
+        paidDateKst: kstDate(row.paidAt),
+        paymentMethod: classifyClickIdHealthPaymentMethod(row),
+        evidenceSource: row.evidenceSource,
+        clickAgeHours: classification.clickAgeHours,
+        clickAgeDays: classification.clickAgeDays,
+        clickCapturedAtKnown: classification.clickCapturedAtKnown,
+        rawOrderIdExposed: false as const,
+        rawClickIdExposed: false as const,
+        reason: classification.reason,
+      };
+    });
+
+  const limitedRows = rows
+    .sort((a, b) => {
+      const left = a.paidDateKst ? new Date(a.paidDateKst).getTime() : 0;
+      const right = b.paidDateKst ? new Date(b.paidDateKst).getTime() : 0;
+      return right - left;
+    })
+    .slice(0, requestedLimit);
+
+  const statusCounts = (Object.keys(GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META) as GoogleAdsConfirmedPurchaseClickAgeDryRunStatus[])
+    .map((status) => {
+      const current = countMap.get(status) ?? { count: 0, amountKrw: 0 };
+      return {
+        status,
+        count: current.count,
+        amountKrw: Math.round(current.amountKrw),
+        plain: GOOGLE_ADS_CLICK_AGE_DRY_RUN_STATUS_META[status].plain,
+      };
+    })
+    .filter((row) => row.count > 0);
+
+  const countOf = (status: GoogleAdsConfirmedPurchaseClickAgeDryRunStatus) =>
+    countMap.get(status)?.count ?? 0;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    site: "biocom",
+    mode: "click_age_dry_run_no_send",
+    goal:
+      "Google Ads에 실제 구매를 보내기 전, 광고 클릭 증거가 너무 오래됐거나 너무 최근인지 no-send로 먼저 가른다.",
+    window,
+    criteria: {
+      actionClickThroughLookbackDays,
+      googleClickIdStorageDays: GOOGLE_ADS_CLICK_ID_STORAGE_DAYS,
+      tooRecentRetryHours: GOOGLE_ADS_TOO_RECENT_RETRY_HOURS,
+      tooOldRulePlain:
+        `현재 BI confirmed_purchase_offline 기준은 클릭일부터 결제완료일까지 ${actionClickThroughLookbackDays}일 이내입니다. 90일은 click id 보관의 바깥 한계이고, 이 전환 액션에는 ${actionClickThroughLookbackDays}일 기준이 먼저 적용됩니다.`,
+      tooRecentRulePlain:
+        `Google Ads는 클릭 후 ${GOOGLE_ADS_TOO_RECENT_RETRY_HOURS}시간이 지나지 않은 전환을 바로 처리하지 못할 수 있으므로 대기 후 재시도 대상으로 봅니다.`,
+      unknownRulePlain:
+        "gclid는 있지만 click id가 언제 포착됐는지 모르면 오래된 클릭인지 판단할 수 없어서 전송 보류로 보는 것이 안전합니다.",
+    },
+    summary: {
+      actualPurchaseRows: diagnostics.orders.filter((row) => row.actualPurchaseEligibility.passed).length,
+      exactGclidRows: diagnostics.orders.filter((row) =>
+        row.actualPurchaseEligibility.passed
+        && Boolean(row.googleClickIds.gclid)
+        && !isLikelySyntheticGoogleClickId(row.googleClickIds.gclid)
+      ).length,
+      knownClickTimeRows: rows.filter((row) => row.clickCapturedAtKnown).length,
+      withinActionClickWindowRows: countOf("within_action_click_window"),
+      clickTooOldForActionRows: countOf("click_too_old_for_action"),
+      tooRecentForGoogleRetryRows: countOf("too_recent_for_google_retry"),
+      clickTimeUnknownRows: countOf("click_time_unknown"),
+      notActualPurchaseRows: countOf("not_actual_purchase"),
+      googleAdsSendCount: 0,
+      vmCloudWriteCount: 0,
+    },
+    statusCounts,
+    rows: limitedRows,
+    invariants: {
+      rawOrderIdInResponse: false,
+      rawClickIdInResponse: false,
+      externalSendCount: 0,
+      operationalDbWrite: 0,
+      vmCloudWrite: 0,
+      googleAdsWrite: 0,
+    },
+    caveats: [
+      "이 endpoint는 no-send dry-run이다. Google Ads conversion upload를 실행하지 않는다.",
+      "운영DB나 VM Cloud SQLite에는 아무것도 쓰지 않는다.",
+      "원문 주문번호와 원문 click id는 응답에 포함하지 않는다.",
+      "payment_success 시각은 구매 시각이지 광고 클릭 포착 시각이 아니므로, NPay intent captured_at이 없으면 click_time_unknown으로 보수 분류한다.",
+      "gbraid/wbraid 단독 후보는 현재 실제 전송기에서 아직 one-of click id로 보내지 않으므로 missing_exact_gclid에 포함될 수 있다.",
+    ],
+  };
+};
+
 const buildGoogleAdsConfirmedPurchaseUploadCandidates = async (
   window: GoogleAdsClickIdHealthWindow,
   requestedLimit: number,
 ): Promise<GoogleAdsConfirmedPurchaseUploadCandidate[]> => {
-  const limit = Math.min(Math.max(requestedLimit, 1), 2);
+  const sendLimit = Math.min(Math.max(requestedLimit, 1), 20);
+  const scanLimit = Math.max(sendLimit * 25, 50);
   const diagnostics = await buildGoogleAdsClickIdOrderDiagnostics(window, {
     limit: 10000,
     only: "with_click_id",
   });
-  const rows = diagnostics.orders.filter((row) =>
+  const directRows = diagnostics.orders.filter((row) =>
     row.actualPurchaseEligibility.passed
     && Boolean(row.googleClickIds.gclid)
-  ).slice(0, limit);
+  );
+
+  const npayReport = await buildNpayIntentRematchDryRunReport({
+    start: window.startAt,
+    end: window.endExclusiveAt ?? window.endAt,
+    site: "biocom",
+    includeOnlyPending: false,
+    includeRawClickIds: true,
+    limit: 500,
+  });
+  const npayRows = npayReport.candidates.filter((row) =>
+    row.strongGrade === "A"
+    && row.recommendedAction === "safe_apply_candidate_after_write_approval"
+    && row.orderCreateTimeBridge === "exact"
+    && row.npayBridgeUrlHashPresent
+    && Boolean(row.clickIds.gclid)
+    && (row.orderAmount ?? 0) > 0
+  );
+
   const db = getCrmDb();
   db.exec(GOOGLE_ADS_CONFIRMED_PURCHASE_UPLOAD_LEDGER_SCHEMA_SQL);
   const ledgerLookup = db.prepare(`
@@ -5569,15 +6186,31 @@ const buildGoogleAdsConfirmedPurchaseUploadCandidates = async (
     LIMIT 1
   `);
 
-  return rows.map((row, index): GoogleAdsConfirmedPurchaseUploadCandidate => {
-    const orderNumber = toStringValue(row.orderNumber);
-    const conversionDateTime = toGoogleAdsConversionDateTime(row.paidAt);
-    const paidDateKst = kstDate(row.paidAt);
+  const buildCandidate = ({
+    rank,
+    candidateSource,
+    orderNumber,
+    rawGclid,
+    paidAt,
+    amountKrw,
+    paymentKind,
+  }: {
+    rank: number;
+    candidateSource: GoogleAdsConfirmedPurchaseUploadCandidate["candidateSource"];
+    orderNumber: string;
+    rawGclid: string;
+    paidAt: string | Date | null;
+    amountKrw: number;
+    paymentKind: "confirmed_purchase" | "confirmed_purchase_npay_bridge";
+  }): GoogleAdsConfirmedPurchaseUploadCandidate => {
+    const normalizedOrderNumber = toStringValue(orderNumber);
+    const conversionDateTime = toGoogleAdsConversionDateTime(paidAt);
+    const paidDateKst = kstDate(paidAt);
     const duplicateSendKeyHash = hashDiagnosticValue(
       [
         GOOGLE_ADS_CONFIRMED_PURCHASE_OFFLINE_ACTION_ID,
-        orderNumber,
-        "confirmed_purchase",
+        normalizedOrderNumber,
+        paymentKind,
       ].join(":"),
       24,
     );
@@ -5585,23 +6218,24 @@ const buildGoogleAdsConfirmedPurchaseUploadCandidates = async (
       site: "biocom",
       conversionActionId: GOOGLE_ADS_CONFIRMED_PURCHASE_OFFLINE_ACTION_ID,
       duplicateSendKeyHash,
-      amountKrw: row.orderAmount,
+      amountKrw,
       currencyCode: "KRW",
       paidDateKst,
     }), 24);
-    const maskedOrderRef = `order_${hashDiagnosticValue(orderNumber, 12)}`;
+    const maskedOrderRef = `order_${hashDiagnosticValue(normalizedOrderNumber, 12)}`;
     const safeRef = `gads_private_${hashDiagnosticValue([
-      orderNumber,
-      row.googleClickIds.gclid,
-      row.paidAt,
+      normalizedOrderNumber,
+      rawGclid,
+      paidAt,
+      paymentKind,
     ].join(":"), 14)}`;
     const conversionActionResourceName = getConfirmedPurchaseConversionActionResourceName();
     const payloadHash = buildGoogleAdsConfirmedPurchaseUploadPayloadHash({
       conversionActionResourceName,
-      clickIdDigestPrefix: hashDiagnosticValue(row.googleClickIds.gclid, 12),
+      clickIdDigestPrefix: hashDiagnosticValue(rawGclid, 12),
       maskedOrderRef,
       conversionDateTime,
-      conversionValue: row.orderAmount,
+      conversionValue: amountKrw,
       currencyCode: "KRW",
     });
     const ledgerRow = ledgerLookup.get(
@@ -5610,26 +6244,28 @@ const buildGoogleAdsConfirmedPurchaseUploadCandidates = async (
     ) as { id?: unknown; status?: unknown; sent_at?: unknown } | undefined;
     const ledgerStatus = toStringValue(ledgerRow?.status);
     const blockReasons = [
-      orderNumber ? "" : "missing_original_order_id",
-      row.googleClickIds.gclid ? "" : "missing_gclid",
+      normalizedOrderNumber ? "" : "missing_original_order_id",
+      rawGclid ? "" : "missing_gclid",
+      isLikelySyntheticGoogleClickId(rawGclid) ? "synthetic_or_test_gclid" : "",
       conversionDateTime ? "" : "missing_conversion_date_time",
-      row.orderAmount > 0 ? "" : "non_positive_conversion_value",
+      amountKrw > 0 ? "" : "non_positive_conversion_value",
       ledgerRow ? "" : "missing_ready_ledger_row",
       ledgerStatus === "ready" ? "" : `ledger_status_not_ready:${ledgerStatus || "none"}`,
       toStringValue(ledgerRow?.sent_at) ? "already_sent" : "",
     ].filter(Boolean);
 
     return {
-      candidateRank: index + 1,
+      candidateRank: rank,
       safeRef,
       maskedOrderRef,
-      rawOrderId: orderNumber,
-      rawGclid: row.googleClickIds.gclid,
+      candidateSource,
+      rawOrderId: normalizedOrderNumber,
+      rawGclid,
       conversionActionId: GOOGLE_ADS_CONFIRMED_PURCHASE_OFFLINE_ACTION_ID,
       conversionActionName: GOOGLE_ADS_CONFIRMED_PURCHASE_OFFLINE_ACTION_NAME,
       conversionActionResourceName,
       conversionDateTime,
-      conversionValue: row.orderAmount,
+      conversionValue: amountKrw,
       currencyCode: "KRW",
       duplicateSendKeyHash,
       dedupeKeyHash,
@@ -5639,25 +6275,104 @@ const buildGoogleAdsConfirmedPurchaseUploadCandidates = async (
       sendReady: blockReasons.length === 0,
       blockReasons,
     };
+  };
+
+  const rawCandidates = [
+    ...npayRows.map((row) => ({
+      candidateSource: "npay_bridge_grade_a_gclid" as const,
+      orderNumber: toStringValue(row.orderNumber) || toStringValue(row.channelOrderNo),
+      rawGclid: row.clickIds.gclid,
+      paidAt: row.paidAt,
+      amountKrw: row.orderAmount ?? 0,
+      paymentKind: "confirmed_purchase_npay_bridge" as const,
+    })),
+    ...directRows.map((row) => ({
+      candidateSource: "homepage_direct_gclid" as const,
+      orderNumber: toStringValue(row.orderNumber),
+      rawGclid: row.googleClickIds.gclid,
+      paidAt: row.paidAt,
+      amountKrw: row.orderAmount,
+      paymentKind: "confirmed_purchase" as const,
+    })),
+  ].filter((candidate) => !isLikelySyntheticGoogleClickId(candidate.rawGclid));
+
+  const seen = new Set<string>();
+  const uniqueCandidates = rawCandidates.filter((candidate) => {
+    const key = [
+      candidate.candidateSource,
+      candidate.orderNumber,
+      candidate.rawGclid ? hashDiagnosticValue(candidate.rawGclid, 12) : "",
+      candidate.amountKrw,
+    ].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
+
+  return uniqueCandidates.slice(0, scanLimit).map((candidate, index) => buildCandidate({
+    ...candidate,
+    rank: index + 1,
+  }));
 };
 
 const extractPartialFailureIndexes = (body: unknown) => {
   const indexes = new Set<number>();
-  const root = isRecord(body) && isRecord(body.partialFailureError) ? body.partialFailureError : {};
-  const details = Array.isArray(root.details) ? root.details : [];
-  details.filter(isRecord).forEach((detail) => {
-    const errors = Array.isArray(detail.errors) ? detail.errors : [];
-    errors.filter(isRecord).forEach((error) => {
-      const location = isRecord(error.location) ? error.location : {};
-      const elements = Array.isArray(location.fieldPathElements) ? location.fieldPathElements : [];
-      elements.filter(isRecord).forEach((element) => {
-        const index = toOptionalNumber(element.index);
-        if (index != null) indexes.add(index);
-      });
+  const root = getGoogleAdsErrorRoot(body);
+  const { failureErrors } = getGoogleAdsFailureErrors(root);
+  failureErrors.filter(isRecord).forEach((error) => {
+    const location = isRecord(error.location) ? error.location : {};
+    const elements = Array.isArray(location.fieldPathElements) ? location.fieldPathElements : [];
+    elements.filter(isRecord).forEach((element) => {
+      const index = toOptionalNumber(element.index);
+      if (index != null) indexes.add(index);
     });
   });
   return indexes;
+};
+
+const redactGoogleAdsUploadErrorText = (
+  value: string,
+  candidate: GoogleAdsConfirmedPurchaseUploadCandidate,
+) => {
+  let next = value;
+  if (candidate.rawGclid) {
+    next = next.split(candidate.rawGclid).join("[redacted_click_id]");
+  }
+  if (candidate.rawOrderId) {
+    next = next.split(candidate.rawOrderId).join("[redacted_order_id]");
+  }
+  return next;
+};
+
+const buildGoogleAdsUploadFailureLastError = (
+  upload: GoogleAdsClickConversionUploadResponse,
+  candidate: GoogleAdsConfirmedPurchaseUploadCandidate,
+  index: number,
+) => {
+  const summary = upload.errorSummary;
+  const errors = summary?.googleAdsErrors ?? [];
+  const matchingErrors = errors.filter((error) => error.index == null || error.index === index);
+  const selectedErrors = matchingErrors.length > 0 ? matchingErrors : errors;
+  const errorText = selectedErrors.slice(0, 3).map((error) => {
+    const code = JSON.stringify(error.errorCode ?? {});
+    const message = error.message || "no_message";
+    const fieldPath = error.fieldPath || "unknown_field";
+    return `${fieldPath}:${message || code}`;
+  }).join(" | ");
+  const fallbackText = [
+    summary?.status ? `status=${summary.status}` : "",
+    summary?.message ? `message=${summary.message}` : "",
+    summary?.rawPreview ? `preview=${summary.rawPreview}` : "",
+  ].filter(Boolean).join(" | ");
+  const detail = redactGoogleAdsUploadErrorText(errorText || fallbackText || "details_unparsed", candidate);
+  return [
+    "google_ads_upload_partial_failure",
+    `hash=${upload.responseHash}`,
+    `http=${upload.status}`,
+    `request_id=${upload.requestId ? "present" : "missing"}`,
+    `index=${index}`,
+    `detail=${detail}`,
+  ].join(";").slice(0, 900);
 };
 
 const uploadGoogleAdsClickConversions = async (
@@ -5713,12 +6428,12 @@ const uploadGoogleAdsClickConversions = async (
   const results = isRecord(body) && Array.isArray(body.results) ? body.results : [];
   const failedIndexes = extractPartialFailureIndexes(body);
   const sentIndexes = new Set<number>();
-  results.forEach((result, index) => {
-    if (!failedIndexes.has(index) && isRecord(result) && Object.keys(result).length > 0) {
+  results.forEach((_, index) => {
+    if (!failedIndexes.has(index)) {
       sentIndexes.add(index);
     }
   });
-  const partialFailure = isRecord(body) && isRecord(body.partialFailureError);
+  const partialFailure = failedIndexes.size > 0;
   return {
     ok: true,
     status: response.status,
@@ -5754,20 +6469,23 @@ const markGoogleAdsUploadLedgerRows = (
   `);
 
   return db.transaction(() => candidates.map((candidate, index) => {
-    const sent = upload.ok && upload.sentIndexes.has(index);
-    const failed = !sent;
-    const changes = candidate.ledgerRowId
-      ? mark.run({
-        id: candidate.ledgerRowId,
-        status: sent ? "sent" : "failed",
-        requestId: upload.requestId,
-        responseCode: String(upload.status),
-        responseHash: upload.responseHash,
-        sentAt: sent ? now : null,
-        updatedAt: now,
-        lastError: failed ? `google_ads_upload_error_hash:${upload.responseHash}` : "",
-      }).changes
-      : 0;
+      const sent = upload.ok && upload.sentIndexes.has(index);
+      const failed = !sent;
+      const lastError = failed
+        ? buildGoogleAdsUploadFailureLastError(upload, candidate, index)
+        : "";
+      const changes = candidate.ledgerRowId
+        ? mark.run({
+          id: candidate.ledgerRowId,
+          status: sent ? "sent" : "failed",
+          requestId: upload.requestId,
+          responseCode: String(upload.status),
+          responseHash: upload.responseHash,
+          sentAt: sent ? now : null,
+          updatedAt: now,
+          lastError,
+        }).changes
+        : 0;
 
     return {
       candidateRank: candidate.candidateRank,
@@ -5777,6 +6495,7 @@ const markGoogleAdsUploadLedgerRows = (
       conversionDateTime: candidate.conversionDateTime.slice(0, 10),
       ledgerRowUpdated: changes > 0,
       statusAfter: sent ? "sent" : "failed",
+      failureSummary: failed ? lastError : "",
       rawOrderIdExposed: false,
       rawClickIdExposed: false,
     };
@@ -5894,6 +6613,19 @@ const buildGoogleAdsConfirmedPurchaseCandidateExpansion = async (
   ];
 
   const actualPurchaseRows = diagnostics.orders.filter((row) => row.actualPurchaseEligibility.passed);
+  const npayBridgeReview = await buildGoogleNpayBridgeReview({
+    dateRange: window,
+    campaigns: [],
+  });
+  const npayBridgeGradeAWithGoogleClickIdRows = npayBridgeReview.summary.gradeAWithDirectGoogleClickId;
+  const npayBridgeGradeAWithGoogleClickIdAmountKrw =
+    npayBridgeReview.summary.gradeADirectGoogleClickIdAmountKrw;
+  const npayBridgeGradeARecoveredGoogleClickIdRows =
+    npayBridgeReview.summary.gradeAWithRecoveredGoogleClickId;
+  const npayBridgeGradeARecoveredGoogleClickIdAmountKrw =
+    npayBridgeReview.summary.gradeARecoveredGoogleClickIdAmountKrw;
+  const npayBridgeGradeANeedsClickIdRecoveryRows =
+    npayBridgeReview.summary.gradeANeedsClickIdRecoveryRows;
   const sampleRows = tiers
     .flatMap((tierItem) =>
       (tierRows.get(tierItem.key) ?? []).slice(0, Math.max(1, Math.ceil(limit / tiers.length))).map((row) => {
@@ -5933,6 +6665,16 @@ const buildGoogleAdsConfirmedPurchaseCandidateExpansion = async (
     actualPurchaseRows.length > 0
       ? Math.round(((readyExactGclidRows + potentialOneOfBraidRows) / actualPurchaseRows.length) * 1000) / 10
       : 0;
+  const actualPurchaseCandidateDiscoveryPct =
+    actualPurchaseRows.length > 0
+      ? Math.round(
+        ((readyExactGclidRows
+          + potentialOneOfBraidRows
+          + npayBridgeGradeAWithGoogleClickIdRows
+          + npayBridgeGradeARecoveredGoogleClickIdRows)
+          / actualPurchaseRows.length) * 1000,
+      ) / 10
+      : 0;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -5942,9 +6684,10 @@ const buildGoogleAdsConfirmedPurchaseCandidateExpansion = async (
       "실제 구매완료 주문 중 Google Ads 주 전환으로 보낼 수 있는 후보와 아직 못 보내는 후보를 주문 단위로 넓게 분류한다.",
     progress: {
       actualPurchaseCandidateReadinessPct,
+      actualPurchaseCandidateDiscoveryPct,
       overallPrimaryConversionReadinessPct: readyExactGclidRows > 0 ? 88 : 84,
       plain:
-        "실제 구매 주문을 Google Ads 전송 가능성별로 나눴습니다. 전송은 하지 않았고, 후보 확대와 차단 사유만 계산합니다.",
+        "실제 구매 주문을 Google Ads 전송 가능성별로 나눴습니다. NPay bridge A급 후보도 별도로 세지만, 영구 bridge 장부와 Red 승인 전에는 전송하지 않습니다.",
     },
     window,
     sourceFreshness,
@@ -5954,13 +6697,39 @@ const buildGoogleAdsConfirmedPurchaseCandidateExpansion = async (
       readyExactGclidRows,
       potentialOneOfBraidRows,
       mixedGoogleClickIdRows: tierRows.get("mixed_google_click_ids")?.length ?? 0,
+      npayBridgeGradeAWithGoogleClickIdRows,
+      npayBridgeGradeAWithGoogleClickIdAmountKrw,
+      npayBridgeGradeARecoveredGoogleClickIdRows,
+      npayBridgeGradeARecoveredGoogleClickIdAmountKrw,
+      npayBridgeGradeANeedsClickIdRecoveryRows,
       internalBridgeWithoutGoogleClickIdRows: tierRows.get("internal_bridge_without_google_click_id")?.length ?? 0,
       missingClickBridgeRows: tierRows.get("missing_click_bridge")?.length ?? 0,
       notActualPurchaseRows: tierRows.get("not_actual_purchase")?.length ?? 0,
       uploadCandidateCount: 0,
       sendCandidateCount: 0,
     },
-    tiers,
+    tiers: [
+      ...tiers.slice(0, 3),
+      {
+        key: "npay_bridge_grade_a_google_click_id_no_write",
+        label: "확대 후보: NPay 실제 결제완료 + 내부 bridge A급 + 직접 Google click id",
+        count: npayBridgeGradeAWithGoogleClickIdRows,
+        amountKrw: npayBridgeGradeAWithGoogleClickIdAmountKrw,
+        googleAdsSendPolicy: "no_send_needs_bridge_write_and_red_approval",
+        plain:
+          "NPay 외부 결제라 결제완료 row에 click id가 직접 남기 어렵지만, 내부 bridge가 A급으로 연결한 후보입니다. 영구 bridge 장부 write와 중복/환불 guard 전까지 Google Ads에 보내지 않습니다.",
+      },
+      {
+        key: "npay_bridge_grade_a_recovered_google_click_id_no_write",
+        label: "확대 후보: NPay bridge A급 + 같은 세션 Google click id 복구",
+        count: npayBridgeGradeARecoveredGoogleClickIdRows,
+        amountKrw: npayBridgeGradeARecoveredGoogleClickIdAmountKrw,
+        googleAdsSendPolicy: "no_send_needs_bridge_write_and_red_approval",
+        plain:
+          "NPay intent row 자체에는 click id가 없지만 같은 브라우저/GA 세션의 직전 Google 클릭 원장에서 click id 흔적을 찾은 후보입니다. 원문값 보관 여부와 중복 방지 장부 검증 전에는 전송하지 않습니다.",
+      },
+      ...tiers.slice(3),
+    ],
     sampleRows,
     invariants: {
       rawOrderIdInResponse: false,
@@ -5976,7 +6745,276 @@ const buildGoogleAdsConfirmedPurchaseCandidateExpansion = async (
       "이 endpoint는 no-send/read-only다. Google Ads conversion upload를 실행하지 않는다.",
       "응답에는 원문 주문번호와 원문 click id를 포함하지 않는다.",
       "gbraid/wbraid 단독 후보는 Google Ads payload builder가 one-of click id를 지원하도록 확장된 뒤 별도 검증이 필요하다.",
+      "NPay bridge A급 후보는 no-write discovery다. 실제 Google Ads 전송 후보가 되려면 영구 bridge 장부, 중복/환불 guard, Red 승인이 추가로 필요하다.",
+      "같은 세션/클라이언트에서 복구한 click id는 후보율 확대 진단용이다. 원문값 보관 여부와 주문별 private preview 검증 전까지 Google Ads 전송 후보로 세지 않는다.",
       "내부 bridge 후보는 예산 판단 보조에는 쓸 수 있지만 Google Ads 전송 후보로 자동 승격하지 않는다.",
+    ],
+  };
+};
+
+const GOOGLE_ADS_OFFLINE_CLASSIFICATION_META: Record<
+  GoogleAdsOfflineDiagnosticClassificationKey,
+  {
+    label: string;
+    plain: string;
+    sendPolicy: GoogleAdsOfflineDiagnosticClassification["classificationCounts"][number]["sendPolicy"];
+  }
+> = {
+  ready_ledger_waiting_send: {
+    label: "전송 가능 출발점",
+    plain:
+      "실제 구매, Google click id, 금액, 중복 방지 key가 준비된 row입니다. 장부 status가 ready이거나 ready로 올릴 수 있는 출발점이며, 별도 전송 승인 또는 자동 전송 조건이 맞으면 보낼 수 있습니다.",
+    sendPolicy: "ready_after_send_approval",
+  },
+  sent_waiting_or_reflected: {
+    label: "이미 전송됨 또는 반영 대기",
+    plain:
+      "Google Ads API로 전송한 row입니다. 리포트 반영 여부는 별도 Google Ads 조회와 맞춰야 하므로, 이 분류 자체는 추가 전송 후보가 아닙니다.",
+    sendPolicy: "diagnostic_only",
+  },
+  failed_click_too_old_for_action: {
+    label: "클릭 연결 기간 초과",
+    plain:
+      "전환 액션의 클릭 연결 기간보다 오래된 click id로 보입니다. 현재 BI confirmed_purchase_offline은 30일 기준이므로, 클릭일부터 결제완료일까지 30일을 넘은 row는 Google Ads가 구매로 붙이지 않을 수 있습니다.",
+    sendPolicy: "do_not_send",
+  },
+  failed_invalid_or_test_click_id: {
+    label: "테스트/잘못된 click id",
+    plain:
+      "TEST, SMOKE, GTM preview처럼 운영 광고 클릭이 아닌 값이거나 형식이 의심되는 click id입니다. 실제 구매 전환으로 보내면 안 됩니다.",
+    sendPolicy: "do_not_send",
+  },
+  failed_google_ads_partial_failure: {
+    label: "Google Ads 부분 실패",
+    plain:
+      "Google Ads API가 row 일부를 실패로 돌려준 상태입니다. 실패 원문 요약을 보고 재전송 가능 여부를 따로 판단해야 합니다.",
+    sendPolicy: "manual_review_before_send",
+  },
+  candidate_missing_google_click_id: {
+    label: "실제 구매지만 Google click id 없음",
+    plain:
+      "실제 결제완료 주문은 맞지만 gclid/gbraid/wbraid가 없어 Google Ads에 광고 클릭 구매로 되돌려 보낼 근거가 없습니다.",
+    sendPolicy: "do_not_send",
+  },
+  candidate_needs_bridge_write: {
+    label: "bridge 장부 필요",
+    plain:
+      "NPay처럼 외부 결제에서 내부 연결은 강하지만, 영구 bridge 장부와 중복/환불 guard가 아직 닫히지 않은 후보입니다.",
+    sendPolicy: "manual_review_before_send",
+  },
+  candidate_not_actual_purchase: {
+    label: "실제 구매 아님",
+    plain:
+      "결제완료, 양수 금액, 취소/환불 제외 기준을 통과하지 못했습니다. Google Ads 실제 구매 전환으로 보내면 안 됩니다.",
+    sendPolicy: "do_not_send",
+  },
+  needs_manual_review: {
+    label: "수동 검토 필요",
+    plain:
+      "자동 규칙으로 확정하기 어려운 상태입니다. 실패 메시지, 장부 status, 후보 tier를 함께 봐야 합니다.",
+    sendPolicy: "manual_review_before_send",
+  },
+};
+
+const classifyGoogleAdsOfflineDiagnosticLedgerRow = (row: {
+  status?: unknown;
+  last_error?: unknown;
+  block_reason?: unknown;
+}): GoogleAdsOfflineDiagnosticClassificationKey => {
+  const status = toStringValue(row.status).toLowerCase();
+  const lastError = toStringValue(row.last_error).toLowerCase();
+  const blockReason = toStringValue(row.block_reason).toLowerCase();
+  const material = `${status} ${lastError} ${blockReason}`;
+
+  if (status === "ready") return "ready_ledger_waiting_send";
+  if (status === "sent") return "sent_waiting_or_reflected";
+  const clickTooOldForAction =
+    material.includes("too old")
+    || material.includes("older than")
+    || material.includes("expired_event")
+    || material.includes("click-through window")
+    || material.includes("click through window")
+    || material.includes("conversion click-through window")
+    || material.includes("click occurred before")
+    || ((material.includes("identifier") || material.includes("ios url")) && material.includes("old"))
+    || (material.includes("click") && material.includes("window") && material.includes("before"))
+    || (material.includes("click") && material.includes("period") && material.includes("before"));
+
+  if (clickTooOldForAction) {
+    return "failed_click_too_old_for_action";
+  }
+  if (
+    material.includes("synthetic")
+    || material.includes("test_gclid")
+    || material.includes("test click")
+    || material.includes("smoke")
+    || material.includes("preview")
+    || material.includes("gtm")
+  ) {
+    return "failed_invalid_or_test_click_id";
+  }
+  if (status === "failed") return "failed_google_ads_partial_failure";
+  return "needs_manual_review";
+};
+
+const classifyGoogleAdsCandidateExpansionTier = (
+  key: GoogleAdsConfirmedPurchaseCandidateExpansionTier["key"],
+): GoogleAdsOfflineDiagnosticClassificationKey => {
+  if (key === "ready_exact_gclid") return "ready_ledger_waiting_send";
+  if (
+    key === "npay_bridge_grade_a_google_click_id_no_write"
+    || key === "npay_bridge_grade_a_recovered_google_click_id_no_write"
+  ) {
+    return "candidate_needs_bridge_write";
+  }
+  if (key === "internal_bridge_without_google_click_id" || key === "missing_click_bridge") {
+    return "candidate_missing_google_click_id";
+  }
+  if (key === "not_actual_purchase") return "candidate_not_actual_purchase";
+  return "needs_manual_review";
+};
+
+const buildGoogleAdsOfflineDiagnosticClassification = async (
+  window: GoogleAdsClickIdHealthWindow,
+  limit: number,
+  sourceFreshness: OperationalDbFreshness,
+): Promise<GoogleAdsOfflineDiagnosticClassification> => {
+  const db = getCrmDb();
+  db.exec(GOOGLE_ADS_CONFIRMED_PURCHASE_UPLOAD_LEDGER_SCHEMA_SQL);
+  const ledgerRows = db.prepare(`
+    SELECT
+      id,
+      safe_ref,
+      conversion_time_kst,
+      conversion_value_krw,
+      status,
+      block_reason,
+      sent_at,
+      last_error
+    FROM ${GOOGLE_ADS_CONFIRMED_PURCHASE_UPLOAD_LEDGER_TABLE}
+    WHERE site = 'biocom'
+      AND conversion_action_id = ?
+      AND substr(conversion_time_kst, 1, 10) >= ?
+      AND substr(conversion_time_kst, 1, 10) <= ?
+    ORDER BY datetime(COALESCE(sent_at, updated_at, created_at)) DESC, id DESC
+    LIMIT ?
+  `).all(
+    GOOGLE_ADS_CONFIRMED_PURCHASE_OFFLINE_ACTION_ID,
+    window.startDate,
+    window.endDate,
+    Math.max(limit, 80),
+  ) as Array<Record<string, unknown>>;
+
+  const candidateExpansion = await buildGoogleAdsConfirmedPurchaseCandidateExpansion(window, limit, sourceFreshness);
+  const countMap = new Map<GoogleAdsOfflineDiagnosticClassificationKey, { count: number; amountKrw: number }>();
+  const addCount = (key: GoogleAdsOfflineDiagnosticClassificationKey, count: number, amountKrw: number) => {
+    const current = countMap.get(key) ?? { count: 0, amountKrw: 0 };
+    current.count += count;
+    current.amountKrw += amountKrw;
+    countMap.set(key, current);
+  };
+
+  const ledgerRecentRows = ledgerRows.map((row) => {
+    const classification = classifyGoogleAdsOfflineDiagnosticLedgerRow(row);
+    const amountKrw = toNumber(row.conversion_value_krw);
+    addCount(classification, 1, amountKrw);
+    return {
+      safeRef: `ledger_${hashDiagnosticValue(String(row.id ?? row.safe_ref ?? ""), 12)}`,
+      rowSource: "upload_ledger" as const,
+      classification,
+      amountKrw,
+      conversionDateKst: toStringValue(row.conversion_time_kst).slice(0, 10),
+      ledgerStatus: toStringValue(row.status) || null,
+      reason: toStringValue(row.last_error) || toStringValue(row.block_reason) || GOOGLE_ADS_OFFLINE_CLASSIFICATION_META[classification].plain,
+      rawOrderIdExposed: false as const,
+      rawClickIdExposed: false as const,
+    };
+  });
+
+  for (const tier of candidateExpansion.tiers) {
+    const classification = classifyGoogleAdsCandidateExpansionTier(tier.key);
+    addCount(classification, tier.count, tier.amountKrw);
+  }
+
+  const candidateRecentRows = candidateExpansion.sampleRows.slice(0, Math.max(0, limit - ledgerRecentRows.length)).map((row) => {
+    const classification = classifyGoogleAdsCandidateExpansionTier(row.tier);
+    return {
+      safeRef: row.safeRef,
+      rowSource: "candidate_expansion" as const,
+      classification,
+      amountKrw: row.amountKrw,
+      conversionDateKst: row.paidDateKst,
+      ledgerStatus: null,
+      reason: row.whyNotSendYet,
+      rawOrderIdExposed: false as const,
+      rawClickIdExposed: false as const,
+    };
+  });
+
+  const classificationCounts = (Object.keys(GOOGLE_ADS_OFFLINE_CLASSIFICATION_META) as GoogleAdsOfflineDiagnosticClassificationKey[])
+    .map((key) => {
+      const current = countMap.get(key) ?? { count: 0, amountKrw: 0 };
+      const meta = GOOGLE_ADS_OFFLINE_CLASSIFICATION_META[key];
+      return {
+        key,
+        label: meta.label,
+        count: current.count,
+        amountKrw: Math.round(current.amountKrw),
+        plain: meta.plain,
+        sendPolicy: meta.sendPolicy,
+      };
+    })
+    .filter((row) => row.count > 0);
+
+  const googleAdsSendCandidateRows = classificationCounts
+    .filter((row) => row.sendPolicy === "ready_after_send_approval")
+    .reduce((sum, row) => sum + row.count, 0);
+  const googleAdsSendCandidateAmountKrw = classificationCounts
+    .filter((row) => row.sendPolicy === "ready_after_send_approval")
+    .reduce((sum, row) => sum + row.amountKrw, 0);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    site: "biocom",
+    mode: "offline_diagnostic_classification_no_send",
+    goal:
+      "Google Ads 오프라인 전환 진단에서 보이는 오류/대기 row와 실제 구매 후보 확장 규칙을 섞지 않고 분리해서 설명한다.",
+    window,
+    sourceFreshness,
+    summary: {
+      ledgerRowsInWindow: ledgerRows.length,
+      candidateRowsInWindow: candidateExpansion.summary.actualPurchaseRows,
+      actualPurchaseRows: candidateExpansion.summary.actualPurchaseRows,
+      classifiedRows: classificationCounts.reduce((sum, row) => sum + row.count, 0),
+      googleAdsSendCandidateRows,
+      googleAdsSendCandidateAmountKrw,
+      externalSendCount: 0,
+    },
+    classificationCounts,
+    separationGuide: {
+      classificationPurpose:
+        "분류 결과는 이미 보낸 row 또는 후보 row가 왜 반영/전송되지 않는지 설명하는 진단표입니다.",
+      sendExpansionPurpose:
+        "전송 후보 확장 규칙은 앞으로 Google Ads에 실제 구매로 보낼 수 있는 주문을 고르는 별도 기준입니다.",
+      plain:
+        "즉, '클릭 기간 초과 1건' 같은 진단 숫자가 곧바로 '보낼 수 있는 주문 1건'이라는 뜻은 아닙니다. 진단표와 전송 후보표를 분리해서 봐야 과전송을 막을 수 있습니다.",
+    },
+    recentRows: [...ledgerRecentRows, ...candidateRecentRows].slice(0, limit),
+    invariants: {
+      rawOrderIdInResponse: false,
+      rawClickIdInResponse: false,
+      uploadCandidateCount: 0,
+      sendCandidateCount: 0,
+      externalSendCount: 0,
+      operationalDbWrite: 0,
+      vmCloudWrite: 0,
+      googleAdsWrite: 0,
+    },
+    caveats: [
+      "이 endpoint는 no-send/read-only다. Google Ads 전송을 실행하지 않는다.",
+      "ledger row는 실제 전송 장부 상태를 설명하고, candidate row는 아직 장부에 안 오른 후보를 설명한다.",
+      "분류 결과는 Google Ads 전송 승인이나 자동 전송 실행을 의미하지 않는다.",
+      "응답에는 원문 주문번호와 원문 click id를 포함하지 않는다.",
     ],
   };
 };
@@ -6573,6 +7611,14 @@ type GoogleNpayBridgeCampaignEvidence = {
   source: GoogleNpayBridgeReviewRow["campaignIdEvidenceSource"];
 };
 
+type GoogleNpayBridgeClickIdEvidence = {
+  hasGoogleClickId: boolean;
+  googleClickIdTypes: Array<"gclid" | "gbraid" | "wbraid">;
+  source: GoogleNpayBridgeReviewRow["googleClickIdEvidenceSource"];
+  rawValueAvailable: boolean;
+  plain: string;
+};
+
 const buildNpayBridgeCampaignEvidenceLookupWindow = (capturedAt: string) => {
   const capturedMs = Date.parse(capturedAt);
   if (!Number.isFinite(capturedMs)) {
@@ -6585,6 +7631,167 @@ const buildNpayBridgeCampaignEvidenceLookupWindow = (capturedAt: string) => {
   return {
     since: new Date(capturedMs - 24 * 60 * 60 * 1000).toISOString(),
     until: new Date(capturedMs + 5 * 60 * 1000).toISOString(),
+  };
+};
+
+const normalizeGoogleClickIdType = (value: unknown): "gclid" | "gbraid" | "wbraid" | "" => {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  return normalized === "gclid" || normalized === "gbraid" || normalized === "wbraid"
+    ? normalized
+    : "";
+};
+
+const extractGoogleClickIdTypesFromText = (value: unknown): Array<"gclid" | "gbraid" | "wbraid"> => {
+  const raw = toStringValue(value);
+  const types = new Set<"gclid" | "gbraid" | "wbraid">();
+  if (!raw) return [];
+  if (/[?&"]gclid(?:=|"\s*:)/i.test(raw) || /gclid_present/i.test(raw)) types.add("gclid");
+  if (/[?&"]gbraid(?:=|"\s*:)/i.test(raw) || /gbraid_present/i.test(raw)) types.add("gbraid");
+  if (/[?&"]wbraid(?:=|"\s*:)/i.test(raw) || /wbraid_present/i.test(raw)) types.add("wbraid");
+  return Array.from(types);
+};
+
+const uniqueGoogleClickIdTypes = (
+  values: Array<"gclid" | "gbraid" | "wbraid" | "">,
+): Array<"gclid" | "gbraid" | "wbraid"> =>
+  Array.from(new Set(values.filter((value): value is "gclid" | "gbraid" | "wbraid" => Boolean(value))));
+
+const resolveNpayBridgeClickIdEvidence = (
+  row: NpayIntentRematchDryRunReport["candidates"][number],
+): GoogleNpayBridgeClickIdEvidence => {
+  if (row.clickIds.hasGoogleClickId) {
+    return {
+      hasGoogleClickId: true,
+      googleClickIdTypes: row.clickIds.googleClickIdTypes,
+      source: "intent_direct",
+      rawValueAvailable: true,
+      plain:
+        "NPay 버튼 클릭 intent row 자체에 Google click id가 남아 있습니다. 그래도 영구 bridge 장부와 중복/환불 guard 전에는 Google Ads에 보내지 않습니다.",
+    };
+  }
+
+  const clientId = toStringValue(row.clientId);
+  const gaSessionId = toStringValue(row.gaSessionId);
+  if (!clientId && !gaSessionId) {
+    return {
+      hasGoogleClickId: false,
+      googleClickIdTypes: [],
+      source: "none",
+      rawValueAvailable: false,
+      plain: "같은 브라우저나 GA 세션을 찾을 키가 없어 직전 Google 클릭 원장을 붙일 수 없습니다.",
+    };
+  }
+
+  try {
+    const db = getCrmDb();
+    const { since, until } = buildNpayBridgeCampaignEvidenceLookupWindow(row.intentCapturedAt);
+    const clientLookup = clientId || "__none__";
+    const sessionLookup = gaSessionId || "__none__";
+
+    if (sqliteTableExists(db, "paid_click_intent_ledger")) {
+      const paidClick = db.prepare(`
+        SELECT click_id_type, click_id_value, allowed_query_json
+        FROM paid_click_intent_ledger
+        WHERE site = 'biocom'
+          AND captured_at >= ?
+          AND captured_at <= ?
+          AND (
+            (? <> '__none__' AND client_id = ?)
+            OR (? <> '__none__' AND ga_session_id = ?)
+          )
+          AND (
+            LOWER(COALESCE(click_id_type, '')) IN ('gclid','gbraid','wbraid')
+            OR allowed_query_json LIKE '%gclid%'
+            OR allowed_query_json LIKE '%gbraid%'
+            OR allowed_query_json LIKE '%wbraid%'
+          )
+        ORDER BY captured_at DESC
+        LIMIT 1
+      `).get(since, until, clientLookup, clientLookup, sessionLookup, sessionLookup) as
+        | {
+            click_id_type?: unknown;
+            click_id_value?: unknown;
+            allowed_query_json?: unknown;
+          }
+        | undefined;
+
+      const types = uniqueGoogleClickIdTypes([
+        normalizeGoogleClickIdType(paidClick?.click_id_type),
+        ...extractGoogleClickIdTypesFromText(paidClick?.allowed_query_json),
+      ]);
+      if (types.length > 0) {
+        return {
+          hasGoogleClickId: true,
+          googleClickIdTypes: types,
+          source: "paid_click_intent_same_client_session",
+          rawValueAvailable: Boolean(toStringValue(paidClick?.click_id_value)),
+          plain:
+            "NPay intent row에는 click id가 없지만, 같은 브라우저/GA 세션의 직전 Google 클릭 원장에서 click id 흔적을 찾았습니다. 전송 전에는 원문값 보관 여부와 중복 guard를 별도로 확인해야 합니다.",
+        };
+      }
+    }
+
+    if (sqliteTableExists(db, "site_landing_ledger")) {
+      const landing = db.prepare(`
+        SELECT click_id_type, click_id_value_or_hash, click_id_storage_mode, landing_url
+        FROM site_landing_ledger
+        WHERE site = 'biocom'
+          AND landed_at >= ?
+          AND landed_at <= ?
+          AND (
+            (? <> '__none__' AND client_id = ?)
+            OR (? <> '__none__' AND ga_session_id = ?)
+          )
+          AND (
+            LOWER(COALESCE(click_id_type, '')) IN ('gclid','gbraid','wbraid')
+            OR landing_url LIKE '%gclid=%'
+            OR landing_url LIKE '%gbraid=%'
+            OR landing_url LIKE '%wbraid=%'
+          )
+        ORDER BY landed_at DESC
+        LIMIT 1
+      `).get(since, until, clientLookup, clientLookup, sessionLookup, sessionLookup) as
+        | {
+            click_id_type?: unknown;
+            click_id_value_or_hash?: unknown;
+            click_id_storage_mode?: unknown;
+            landing_url?: unknown;
+          }
+        | undefined;
+
+      const types = uniqueGoogleClickIdTypes([
+        normalizeGoogleClickIdType(landing?.click_id_type),
+        ...extractGoogleClickIdTypesFromText(landing?.landing_url),
+      ]);
+      if (types.length > 0) {
+        const storageMode = toStringValue(landing?.click_id_storage_mode).toLowerCase();
+        return {
+          hasGoogleClickId: true,
+          googleClickIdTypes: types,
+          source: "site_landing_same_client_session",
+          rawValueAvailable:
+            storageMode === "raw" || /[?&](?:gclid|gbraid|wbraid)=/i.test(toStringValue(landing?.landing_url)),
+          plain:
+            "NPay intent row에는 click id가 없지만, 같은 브라우저/GA 세션의 랜딩 기록에서 Google click id 흔적을 찾았습니다. 이 증거는 no-send 후보 확장용이며 바로 전송하지 않습니다.",
+        };
+      }
+    }
+  } catch {
+    return {
+      hasGoogleClickId: false,
+      googleClickIdTypes: [],
+      source: "none",
+      rawValueAvailable: false,
+      plain: "직전 Google 클릭 원장 조회 중 오류가 나서 복구 증거를 확정하지 못했습니다.",
+    };
+  }
+
+  return {
+    hasGoogleClickId: false,
+    googleClickIdTypes: [],
+    source: "none",
+    rawValueAvailable: false,
+    plain: "같은 브라우저/GA 세션의 직전 Google 클릭 원장에서도 click id를 찾지 못했습니다.",
   };
 };
 
@@ -6684,9 +7891,17 @@ const buildNpayBridgeGradeReview = (
   const score = toNumber(row.score);
   const scoreGap = row.scoreGap == null ? null : toNumber(row.scoreGap);
   const timeGap = toNumber(row.timeGapMinutes);
+  const orderCreatedGap =
+    row.orderCreatedGapMinutes === null || row.orderCreatedGapMinutes === undefined
+      ? null
+      : toNumber(row.orderCreatedGapMinutes);
   const amountType = toStringValue(row.amountMatchType);
   const amountOk = GOOGLE_NPAY_BRIDGE_GRADE_A_AMOUNT_TYPES.has(amountType);
-  const timeOk = timeGap <= 2;
+  const orderCreateTimeOk =
+    row.orderCreateTimeBridge === "exact" &&
+    orderCreatedGap !== null &&
+    Math.abs(orderCreatedGap) <= 1;
+  const timeOk = timeGap <= 2 || orderCreateTimeOk;
   const scoreOk = score >= 70;
   const scoreGapOk = scoreGap !== null && scoreGap >= 15;
   const hasClickId = Boolean(row.clickIds.hasGoogleClickId);
@@ -6694,7 +7909,9 @@ const buildNpayBridgeGradeReview = (
   if (row.strongGrade === "A") {
     return {
       gradePlainReason:
-        "A급은 결제 시각이 매우 가깝고, 주문 생성 시각과 금액도 맞아서 내부 보고서에서 같은 주문으로 봐도 되는 강한 후보입니다. 그래도 Google click id가 없으면 Google Ads 전송 후보는 아닙니다.",
+        orderCreateTimeOk && timeGap > 2
+          ? "A급입니다. NPay의 결제완료 시각은 늦게 잡혔지만, 실제 주문 생성 시각(order_time)이 버튼 클릭과 1분 이내로 맞고 금액도 맞아 같은 주문으로 보는 강한 후보입니다. 그래도 Google click id가 없으면 Google Ads 전송 후보는 아닙니다."
+          : "A급은 결제 시각이 매우 가깝거나 주문 생성 시각이 버튼 클릭과 거의 같고, 금액도 맞아서 내부 보고서에서 같은 주문으로 봐도 되는 강한 후보입니다. 그래도 Google click id가 없으면 Google Ads 전송 후보는 아닙니다.",
       gradeAUpgradeDecision: "already_grade_a",
       gradeAUpgradePlain: hasClickId
         ? "이미 A급입니다. 다만 실제 Google Ads 전송은 별도 no-send 후보 생성기와 중복 방지 검증을 통과해야 합니다."
@@ -6716,11 +7933,11 @@ const buildNpayBridgeGradeReview = (
   if (!timeOk) {
     return {
       gradePlainReason:
-        `B급입니다. 주문 생성 시각과 금액은 맞지만 NPay 클릭 후 결제완료까지 ${timeGap}분이 걸렸습니다. A급 기준은 2분 이내라, 중간에 다른 행동이 끼었을 가능성을 보수적으로 남깁니다.`,
+        `B급입니다. 결제완료 시각 기준으로는 NPay 클릭 후 ${timeGap}분이 걸렸고, order_time도 1분 이내 exact로 맞지 않습니다. 결제완료 시각은 네이버/아임웹 sync 때문에 늦게 보일 수 있어 order_time을 우선 보지만, 이 주문은 그 기준도 부족합니다.`,
       gradeAUpgradeDecision: "blocked_time_gap",
       gradeAUpgradePlain: hasClickId
-        ? "Google click id는 있지만 시간 간격이 길어 자동 A로 올리지 않습니다. 이 1건은 수동 검토 후보이지 Google Ads 자동 전송 후보가 아닙니다."
-        : "시간 간격이 A 기준을 넘고 Google click id도 없어 A 승격 대상이 아닙니다.",
+        ? "Google click id는 있지만 order_time 기준도 exact가 아니어서 자동 A로 올리지 않습니다. 이 1건은 수동 검토 후보이지 Google Ads 자동 전송 후보가 아닙니다."
+        : "order_time/complete_time 기준이 모두 약하고 Google click id도 없어 A 승격 대상이 아닙니다.",
     };
   }
 
@@ -6750,6 +7967,292 @@ const buildNpayBridgeGradeReview = (
   };
 };
 
+const GOOGLE_NPAY_FINAL_SOURCE_LABELS: Record<GoogleNpayFinalSourceChannel, string> = {
+  google: "Google 광고",
+  meta: "Meta",
+  naver: "Naver",
+  organic: "Organic 검색",
+  direct: "Direct/출처 없음",
+  unknown: "미분류",
+};
+
+const GOOGLE_NPAY_UNCLASSIFIED_REASON_LABELS: Record<string, { label: string; plain: string }> = {
+  multiple_intents_same_product: {
+    label: "같은 상품 클릭 후보가 여러 개",
+    plain:
+      "같은 상품의 NPay 버튼 클릭 후보가 여러 개라서, 결제완료 1건을 어느 클릭에 붙일지 자동 확정하지 않습니다.",
+  },
+  same_product_multiple_clicks: {
+    label: "짧은 시간 안에 같은 상품을 여러 번 클릭",
+    plain:
+      "15분 안에 같은 상품 클릭이 여러 번 있어, 마지막 클릭인지 이전 클릭인지 더 좁혀야 합니다.",
+  },
+  weak_time_gap: {
+    label: "클릭과 결제완료 시각 간격이 큼",
+    plain:
+      "버튼 클릭과 결제완료 시각이 충분히 가깝지 않습니다. NPay는 결제완료가 나중에 확정되는 주문이 있어 order_time 기준 보강이 필요합니다.",
+  },
+  amount_not_reconciled: {
+    label: "금액이 상품가/배송비 조합과 맞지 않음",
+    plain:
+      "버튼 클릭 상품 가격과 실제 결제금액이 깔끔하게 맞지 않아 장바구니, 수량, 쿠폰, 다른 상품이 섞였을 가능성을 남깁니다.",
+  },
+  no_member_key: {
+    label: "회원/브라우저 연결키 부족",
+    plain:
+      "클릭 row에 회원 또는 브라우저를 확정할 키가 부족해 다른 후보와 구분하기 어렵습니다.",
+  },
+  product_name_variant: {
+    label: "상품명이 정확히 일치하지 않음",
+    plain:
+      "상품명이 비슷하지만 완전히 같지 않아, 자동 연결 전에 상품명 정규화가 더 필요합니다.",
+  },
+  low_score_gap: {
+    label: "1등 후보와 2등 후보 차이가 작음",
+    plain:
+      "가장 유력한 클릭 후보와 다음 후보의 점수 차이가 작습니다. 잘못 붙이는 것을 막기 위해 자동 확정하지 않습니다.",
+  },
+  cart_multi_item_possible: {
+    label: "장바구니/복수 상품 가능성",
+    plain:
+      "결제금액이 단일 상품 클릭보다 커서 장바구니나 복수 상품 결제일 수 있습니다.",
+  },
+  no_candidate_intent: {
+    label: "주문 근처 NPay 클릭 row 없음",
+    plain:
+      "해당 주문 주변에서 NPay 버튼 클릭 row를 찾지 못했습니다. 외부 결제 흐름에서 저장이 빠졌거나 보관 기간 밖일 수 있습니다.",
+  },
+};
+
+const buildNpayUnclassifiedReasons = (
+  ambiguousReasons: NpayIntentRematchDryRunReport["ambiguousReasonBreakdown"],
+  purchaseWithoutIntent: number,
+): GoogleNpayFinalSourceUnclassifiedReasonRow[] => {
+  const rows = ambiguousReasons.map<GoogleNpayFinalSourceUnclassifiedReasonRow>((row) => {
+    const mapped = GOOGLE_NPAY_UNCLASSIFIED_REASON_LABELS[row.key] ?? {
+      label: row.key,
+      plain: "자동 분류 규칙에 잡힌 미분류 사유입니다. 원장 샘플을 보며 추가 라벨링이 필요합니다.",
+    };
+
+    return {
+      reason: row.key,
+      label: mapped.label,
+      completedOrders: row.count,
+      sharePct: row.sharePct,
+      sampleOrderCount: row.orderNumbers.length,
+      plain: mapped.plain,
+    };
+  });
+
+  if (purchaseWithoutIntent > 0) {
+    const mapped = GOOGLE_NPAY_UNCLASSIFIED_REASON_LABELS.no_candidate_intent;
+    rows.push({
+      reason: "purchase_without_intent",
+      label: "결제완료 주문은 있으나 버튼 클릭 row 없음",
+      completedOrders: purchaseWithoutIntent,
+      sharePct: 0,
+      sampleOrderCount: 0,
+      plain: mapped.plain,
+    });
+  }
+
+  return rows.sort((a, b) => b.completedOrders - a.completedOrders || a.reason.localeCompare(b.reason));
+};
+
+const emptyNpayFinalSourceSummary = (totalCompletedOrders = 0): GoogleNpayFinalSourceSummary => ({
+  totalCompletedOrders,
+  classifiedCompletedOrders: 0,
+  unclassifiedCompletedOrders: totalCompletedOrders,
+  googleEvidenceOrders: 0,
+  googleEvidenceAmountKrw: 0,
+  byChannel: (Object.keys(GOOGLE_NPAY_FINAL_SOURCE_LABELS) as GoogleNpayFinalSourceChannel[]).map((channel) => ({
+    channel,
+    label: GOOGLE_NPAY_FINAL_SOURCE_LABELS[channel],
+    completedOrders: channel === "unknown" ? totalCompletedOrders : 0,
+    amountKrw: 0,
+    bridgeCandidateOrders: 0,
+    directGoogleClickIdOrders: 0,
+    recoveredGoogleClickIdOrders: 0,
+    confidence: "low",
+    plain: channel === "unknown"
+      ? "아직 NPay 버튼 클릭 row와 강하게 붙지 않아 유입을 단정하지 않습니다."
+	      : "해당 유입으로 분류된 NPay 결제완료가 없습니다.",
+	  })),
+  unclassifiedReasons: [],
+  dateDistribution: [],
+  source: "npay_intent_bridge_candidate_rows",
+  basis:
+    "NPay 결제완료 주문과 NPay 버튼 클릭 row를 먼저 붙이고, 그 버튼 클릭 row의 URL/UTM/Google click id/campaign id 증거로 유입을 나눕니다.",
+  caveat:
+    "NPay 결제완료 전체 22건 중 버튼 클릭 row와 강하게 연결되지 않은 주문은 direct로 단정하지 않고 미분류로 남깁니다.",
+});
+
+const includesAnyNeedle = (haystack: string, needles: string[]) =>
+  needles.some((needle) => haystack.includes(needle));
+
+const classifyNpayFinalSourceCandidate = ({
+  row,
+  campaignEvidence,
+  clickIdEvidence,
+}: {
+  row: NpayIntentRematchDryRunReport["candidates"][number];
+  campaignEvidence: GoogleNpayBridgeCampaignEvidence;
+  clickIdEvidence: GoogleNpayBridgeClickIdEvidence;
+}): { channel: GoogleNpayFinalSourceChannel; confidence: "high" | "medium" | "low"; plain: string } => {
+  const sourceText = [
+    row.pageLocation,
+    row.utm.source,
+    row.utm.medium,
+    row.utm.campaign,
+    row.gadCampaignId,
+    campaignEvidence.campaignId,
+  ].map((value) => toStringValue(value).toLowerCase()).join(" ");
+
+  if (
+    clickIdEvidence.hasGoogleClickId ||
+    campaignEvidence.campaignId ||
+    includesAnyNeedle(sourceText, ["gclid=", "gbraid=", "wbraid=", "gad_campaignid", "googleads", "google_ads"])
+  ) {
+    return {
+      channel: "google",
+      confidence: clickIdEvidence.hasGoogleClickId ? "high" : "medium",
+      plain: clickIdEvidence.hasGoogleClickId
+        ? "NPay 버튼 클릭 또는 같은 브라우저/GA 세션의 직전 Google 클릭 원장에서 Google click id를 확인했습니다."
+        : "Google campaign id 또는 Google 광고 URL 파라미터가 있어 Google 유입 후보로 봅니다.",
+    };
+  }
+
+  if (includesAnyNeedle(sourceText, ["fbclid", "facebook", "instagram", "meta", "fb_", "ig_"])) {
+    return {
+      channel: "meta",
+      confidence: "medium",
+      plain: "NPay 버튼 클릭 row의 URL/UTM에서 Meta 계열 흔적을 확인했습니다.",
+    };
+  }
+
+  if (includesAnyNeedle(sourceText, ["napm=", "n_media", "n_query", "naver", "n_rank", "n_ad"])) {
+    return {
+      channel: "naver",
+      confidence: "medium",
+      plain: "NPay 버튼 클릭 row의 URL/UTM에서 Naver 계열 흔적을 확인했습니다.",
+    };
+  }
+
+  if (includesAnyNeedle(sourceText, ["organic", "search", "google / organic", "naver / organic"])) {
+    return {
+      channel: "organic",
+      confidence: "low",
+      plain: "NPay 버튼 클릭 row에 organic/search 힌트가 있습니다. 검색엔진 referrer 원장과 함께 봐야 확정할 수 있습니다.",
+    };
+  }
+
+  return {
+    channel: "direct",
+    confidence: "low",
+    plain: "NPay 버튼 클릭 row에 광고/검색/소셜 파라미터가 없어 direct 또는 출처 유실로 봅니다. 이 값은 예산 판단용 확정값이 아닙니다.",
+  };
+};
+
+const buildNpayFinalSourceSummary = ({
+  enrichedCandidates,
+  totalCompletedOrders,
+  ambiguousOrders,
+  purchaseWithoutIntent,
+  ambiguousReasonBreakdown,
+  unresolvedReasonBreakdown,
+  dateDistribution,
+}: {
+  enrichedCandidates: Array<{
+    row: NpayIntentRematchDryRunReport["candidates"][number];
+    campaignEvidence: GoogleNpayBridgeCampaignEvidence;
+    clickIdEvidence: GoogleNpayBridgeClickIdEvidence;
+  }>;
+  totalCompletedOrders: number;
+  ambiguousOrders: number;
+  purchaseWithoutIntent: number;
+  ambiguousReasonBreakdown: NpayIntentRematchDryRunReport["ambiguousReasonBreakdown"];
+  unresolvedReasonBreakdown?: NpayIntentRematchDryRunReport["unresolvedReasonBreakdown"];
+  dateDistribution: NpayIntentRematchDryRunReport["dateDistribution"];
+}): GoogleNpayFinalSourceSummary => {
+  const baseRows = new Map<GoogleNpayFinalSourceChannel, GoogleNpayFinalSourceSummaryRow>(
+    emptyNpayFinalSourceSummary(0).byChannel.map((row) => [row.channel, { ...row }]),
+  );
+
+  let googleEvidenceAmountKrw = 0;
+  let googleEvidenceOrders = 0;
+
+  for (const item of enrichedCandidates) {
+    const classification = classifyNpayFinalSourceCandidate(item);
+    const current = baseRows.get(classification.channel);
+    if (!current) continue;
+    const amount = item.row.orderAmount ?? 0;
+
+    current.completedOrders += 1;
+    current.bridgeCandidateOrders += 1;
+    current.amountKrw += amount;
+    current.confidence = current.confidence === "high" || classification.confidence === "high"
+      ? "high"
+      : current.confidence === "medium" || classification.confidence === "medium"
+        ? "medium"
+        : "low";
+    current.plain = classification.plain;
+
+    if (classification.channel === "google") {
+      googleEvidenceOrders += 1;
+      googleEvidenceAmountKrw += amount;
+      if (item.row.clickIds.hasGoogleClickId) current.directGoogleClickIdOrders += 1;
+      if (!item.row.clickIds.hasGoogleClickId && item.clickIdEvidence.hasGoogleClickId) {
+        current.recoveredGoogleClickIdOrders += 1;
+      }
+    }
+  }
+
+  const classifiedCompletedOrders = enrichedCandidates.length;
+  const unclassifiedCompletedOrders = Math.max(0, totalCompletedOrders - classifiedCompletedOrders);
+  const unknownRow = baseRows.get("unknown");
+  if (unknownRow) {
+    unknownRow.completedOrders = unclassifiedCompletedOrders;
+    unknownRow.bridgeCandidateOrders = 0;
+    unknownRow.amountKrw = 0;
+    unknownRow.confidence = "low";
+    unknownRow.plain = unclassifiedCompletedOrders > 0
+      ? `NPay 결제완료 ${unclassifiedCompletedOrders}건은 버튼 클릭 row와 강하게 붙지 않았습니다. ambiguous ${ambiguousOrders}건, purchase_without_intent ${purchaseWithoutIntent}건을 포함합니다.`
+      : "모든 NPay 결제완료가 버튼 클릭 row와 연결되었습니다.";
+  }
+
+  return {
+    totalCompletedOrders,
+    classifiedCompletedOrders,
+    unclassifiedCompletedOrders,
+    googleEvidenceOrders,
+    googleEvidenceAmountKrw: round2(googleEvidenceAmountKrw),
+    byChannel: Array.from(baseRows.values()).map((row) => ({
+      ...row,
+      amountKrw: round2(row.amountKrw),
+    })),
+    unclassifiedReasons: unresolvedReasonBreakdown?.length
+      ? unresolvedReasonBreakdown
+      : buildNpayUnclassifiedReasons(ambiguousReasonBreakdown, purchaseWithoutIntent),
+    dateDistribution: dateDistribution.map((row) => ({
+      dateKst: row.dateKst,
+      completedOrders: row.completedOrders,
+      amountKrw: row.amountKrw,
+      bridgeCandidateOrders: row.strongMatch,
+      gradeA: row.gradeA,
+      gradeB: row.gradeB,
+      ambiguous: row.ambiguous,
+      purchaseWithoutIntent: row.purchaseWithoutIntent,
+      googleEvidenceOrders: row.googleLikeCompletedOrders,
+      directGoogleClickIdOrders: row.googleClickIdCompletedOrders,
+    })),
+    source: "npay_intent_bridge_candidate_rows",
+    basis:
+      "NPay 결제완료 주문과 NPay 버튼 클릭 row를 먼저 붙이고, 그 버튼 클릭 row의 URL/UTM/Google click id/campaign id 증거로 유입을 나눕니다.",
+    caveat:
+      "이 표는 결제완료 전체를 Google 매출로 보지 않기 위한 분리표입니다. 미분류와 direct는 광고 예산 판단용 Google 매출로 쓰지 않습니다.",
+  };
+};
+
 const buildEmptyGoogleNpayBridgeReview = (
   dateRange: DateRange,
   plainMeaning: string,
@@ -6767,18 +8270,49 @@ const buildEmptyGoogleNpayBridgeReview = (
   },
   summary: {
     liveIntentCount: 0,
+    googleLikeIntentCount: 0,
+    googleLikeIntentWithGoogleClickId: 0,
+    liveIntentWithNpayBridgeUrlHash: 0,
+    googleLikeIntentWithNpayBridgeUrlHash: 0,
+    enteredNotCompletedBreakdown: {
+      total: 0,
+      pendingWindow: 0,
+      loginGatePossible: 0,
+      checkoutOpenedPossible: 0,
+      matchingGapPossible: 0,
+    },
+    googleClickIdIntentCount: 0,
+    googleClickIdIntentBreakdown: {
+      gclid: 0,
+      gbraid: 0,
+      wbraid: 0,
+    },
     actualConfirmedNpayOrders: 0,
     internalBridgeStrongCandidates: 0,
     internalBridgeExactCandidates: 0,
     internalBridgeExactWithGoogleClickId: 0,
     bridgeCandidatesWithGoogleClickId: 0,
+    bridgeCandidatesWithRecoveredGoogleClickId: 0,
+    bridgeCandidatesWithNpayBridgeUrlHash: 0,
     gradeA: 0,
+    gradeAWithDirectGoogleClickId: 0,
+    gradeAWithRecoveredGoogleClickId: 0,
+    gradeAWithGoogleClickId: 0,
+    gradeAWithNpayBridgeUrlHash: 0,
+    gradeAWithGoogleClickIdAndNpayBridgeUrlHash: 0,
+    gradeADirectGoogleClickIdAmountKrw: 0,
+    gradeAWithGoogleClickIdAmountKrw: 0,
+    gradeARecoveredGoogleClickIdAmountKrw: 0,
+    gradeANeedsClickIdRecoveryRows: 0,
     gradeB: 0,
     gradeBWithGoogleClickId: 0,
     gradeBBlockedByTimeGap: 0,
     gradeBBlockedByAmount: 0,
     gradeBBlockedByMissingGoogleClickId: 0,
     gradeBPromotableToGradeANow: 0,
+    googleLikeCompletedOrders: 0,
+    googleLikeCompletedAmountKrw: 0,
+    googleLikeCompletedWithDirectGoogleClickId: 0,
     ambiguous: 0,
     purchaseWithoutIntent: 0,
     googleAdsSendCandidates: 0,
@@ -6788,6 +8322,9 @@ const buildEmptyGoogleNpayBridgeReview = (
   rows: [],
   gradeBRows: [],
   campaignSummary: [],
+  finalSourceSummary: emptyNpayFinalSourceSummary(0),
+  sourceFunnelComparison: [],
+  unresolvedRows: [],
   plainMeaning,
   noWritePolicy:
     "이 표는 내부 검토용입니다. NPay intent row, 주문 원장, Google Ads에는 아무것도 쓰거나 보내지 않습니다.",
@@ -6821,6 +8358,16 @@ const buildGoogleNpayBridgeReview = async ({
     const exactCandidates = candidates.filter((row) => row.orderCreateTimeBridge === "exact");
     const exactWithGoogleClickId = exactCandidates.filter((row) => row.clickIds.hasGoogleClickId);
     const withGoogleClickId = candidates.filter((row) => row.clickIds.hasGoogleClickId);
+    const withNpayBridgeUrlHash = candidates.filter((row) => row.npayBridgeUrlHashPresent);
+    const gradeAWithDirectGoogleClickId = candidates.filter(
+      (row) => row.strongGrade === "A" && row.clickIds.hasGoogleClickId,
+    );
+    const gradeAWithNpayBridgeUrlHash = candidates.filter(
+      (row) => row.strongGrade === "A" && row.npayBridgeUrlHashPresent,
+    );
+    const gradeAWithGoogleClickIdAndNpayBridgeUrlHash = candidates.filter(
+      (row) => row.strongGrade === "A" && row.clickIds.hasGoogleClickId && row.npayBridgeUrlHashPresent,
+    );
     const gradeBRows = candidates.filter((row) => row.strongGrade === "B");
     const gradeBReviewRows = gradeBRows.map((row) => ({
       row,
@@ -6829,11 +8376,34 @@ const buildGoogleNpayBridgeReview = async ({
     const enrichedCandidates = candidates.map((row) => ({
       row,
       campaignEvidence: resolveNpayBridgeCampaignEvidence(row),
+      clickIdEvidence: resolveNpayBridgeClickIdEvidence(row),
       gradeReview: buildNpayBridgeGradeReview(row),
     }));
+    const withRecoveredGoogleClickId = enrichedCandidates.filter(
+      (item) => !item.row.clickIds.hasGoogleClickId && item.clickIdEvidence.hasGoogleClickId,
+    );
+    const gradeAWithRecoveredGoogleClickId = withRecoveredGoogleClickId.filter(
+      (item) => item.row.strongGrade === "A",
+    );
+    const gradeAWithAnyGoogleClickId = enrichedCandidates.filter(
+      (item) => item.row.strongGrade === "A" && item.clickIdEvidence.hasGoogleClickId,
+    );
+    const gradeANeedsClickIdRecoveryRows = candidates.filter(
+      (row) => row.strongGrade === "A" && !row.clickIds.hasGoogleClickId,
+    );
+    const finalSourceSummary = buildNpayFinalSourceSummary({
+      enrichedCandidates,
+      totalCompletedOrders: report.summary.confirmedNpayOrderCount,
+      ambiguousOrders: report.summary.ambiguous,
+      purchaseWithoutIntent: report.summary.purchaseWithoutIntent,
+      ambiguousReasonBreakdown: report.ambiguousReasonBreakdown,
+      unresolvedReasonBreakdown: report.unresolvedReasonBreakdown,
+      dateDistribution: report.dateDistribution,
+    });
     const toBridgeReviewRow = ({
       row,
       campaignEvidence,
+      clickIdEvidence,
       gradeReview,
     }: (typeof enrichedCandidates)[number]): GoogleNpayBridgeReviewRow => ({
       orderNumber: row.orderNumber,
@@ -6849,8 +8419,15 @@ const buildGoogleNpayBridgeReview = async ({
       orderCreatedGapMinutes: row.orderCreatedGapMinutes,
       orderCreateTimeBridge: row.orderCreateTimeBridge,
       amountMatchType: row.amountMatchType,
-      hasGoogleClickId: row.clickIds.hasGoogleClickId,
-      googleClickIdTypes: row.clickIds.googleClickIdTypes,
+      hasGoogleClickId: clickIdEvidence.hasGoogleClickId,
+      googleClickIdTypes: clickIdEvidence.googleClickIdTypes,
+      googleClickIdEvidenceSource: clickIdEvidence.source,
+      googleClickIdRawValueAvailable: clickIdEvidence.rawValueAvailable,
+      googleClickIdEvidencePlain: clickIdEvidence.plain,
+      npayBridgeUrlHashPresent: row.npayBridgeUrlHashPresent,
+      npayBridgeHost: row.npayBridgeHost,
+      npayBridgePathHashPresent: row.npayBridgePathHashPresent,
+      npayBridgeObservedAt: row.npayBridgeObservedAt,
       gadCampaignId: campaignEvidence.campaignId || null,
       campaignIdEvidenceSource: campaignEvidence.source,
       utmCampaign: row.utm.campaign,
@@ -6858,7 +8435,10 @@ const buildGoogleNpayBridgeReview = async ({
       blockReasons: row.blockReasons,
       gradePlainReason: gradeReview.gradePlainReason,
       gradeAUpgradeDecision: gradeReview.gradeAUpgradeDecision,
-      gradeAUpgradePlain: gradeReview.gradeAUpgradePlain,
+      gradeAUpgradePlain:
+        !row.clickIds.hasGoogleClickId && clickIdEvidence.hasGoogleClickId
+          ? "NPay intent row 자체에는 click id가 없지만 같은 브라우저/GA 세션의 직전 Google 클릭 원장에서 복구 증거를 찾았습니다. 실제 전송 전에는 원문값 보관 여부와 중복 방지 장부를 확인해야 합니다."
+          : gradeReview.gradeAUpgradePlain,
       internalBridgeDecision: row.strongGrade === "A"
         ? "strong_bridge_candidate"
         : "manual_review_candidate",
@@ -6902,18 +8482,45 @@ const buildGoogleNpayBridgeReview = async ({
       },
       summary: {
         liveIntentCount: report.summary.liveIntentCount,
+        googleLikeIntentCount: report.summary.googleLikeIntentCount,
+        googleLikeIntentWithGoogleClickId: report.summary.googleLikeIntentWithGoogleClickId,
+        liveIntentWithNpayBridgeUrlHash: report.summary.liveIntentWithNpayBridgeUrlHash,
+        googleLikeIntentWithNpayBridgeUrlHash: report.summary.googleLikeIntentWithNpayBridgeUrlHash,
+        enteredNotCompletedBreakdown: report.summary.enteredNotCompletedBreakdown,
+        googleClickIdIntentCount: report.summary.googleClickIdIntentCount,
+        googleClickIdIntentBreakdown: report.summary.googleClickIdIntentBreakdown,
         actualConfirmedNpayOrders: report.summary.confirmedNpayOrderCount,
         internalBridgeStrongCandidates: report.summary.strongMatch,
         internalBridgeExactCandidates: exactCandidates.length,
         internalBridgeExactWithGoogleClickId: exactWithGoogleClickId.length,
         bridgeCandidatesWithGoogleClickId: withGoogleClickId.length,
+        bridgeCandidatesWithRecoveredGoogleClickId: withRecoveredGoogleClickId.length,
+        bridgeCandidatesWithNpayBridgeUrlHash: withNpayBridgeUrlHash.length,
         gradeA: candidates.filter((row) => row.strongGrade === "A").length,
+        gradeAWithDirectGoogleClickId: gradeAWithDirectGoogleClickId.length,
+        gradeAWithRecoveredGoogleClickId: gradeAWithRecoveredGoogleClickId.length,
+        gradeAWithGoogleClickId: gradeAWithAnyGoogleClickId.length,
+        gradeAWithNpayBridgeUrlHash: gradeAWithNpayBridgeUrlHash.length,
+        gradeAWithGoogleClickIdAndNpayBridgeUrlHash: gradeAWithGoogleClickIdAndNpayBridgeUrlHash.length,
+        gradeADirectGoogleClickIdAmountKrw: round2(
+          gradeAWithDirectGoogleClickId.reduce((sum, row) => sum + (row.orderAmount ?? 0), 0),
+        ),
+        gradeAWithGoogleClickIdAmountKrw: round2(
+          gradeAWithAnyGoogleClickId.reduce((sum, item) => sum + (item.row.orderAmount ?? 0), 0),
+        ),
+        gradeARecoveredGoogleClickIdAmountKrw: round2(
+          gradeAWithRecoveredGoogleClickId.reduce((sum, item) => sum + (item.row.orderAmount ?? 0), 0),
+        ),
+        gradeANeedsClickIdRecoveryRows: gradeANeedsClickIdRecoveryRows.length,
         gradeB: candidates.filter((row) => row.strongGrade === "B").length,
         gradeBWithGoogleClickId: gradeBRows.filter((row) => row.clickIds.hasGoogleClickId).length,
         gradeBBlockedByTimeGap: gradeBReviewRows.filter((item) => item.review.gradeAUpgradeDecision === "blocked_time_gap").length,
         gradeBBlockedByAmount: gradeBReviewRows.filter((item) => item.review.gradeAUpgradeDecision === "blocked_amount_mismatch").length,
         gradeBBlockedByMissingGoogleClickId: gradeBReviewRows.filter((item) => item.review.gradeAUpgradeDecision === "blocked_missing_click_id").length,
         gradeBPromotableToGradeANow: 0,
+        googleLikeCompletedOrders: report.summary.googleLikeCompletedOrders,
+        googleLikeCompletedAmountKrw: report.summary.googleLikeCompletedAmountKrw,
+        googleLikeCompletedWithDirectGoogleClickId: report.summary.googleLikeCompletedWithDirectGoogleClickId,
         ambiguous: report.summary.ambiguous,
         purchaseWithoutIntent: report.summary.purchaseWithoutIntent,
         googleAdsSendCandidates: 0,
@@ -6923,7 +8530,7 @@ const buildGoogleNpayBridgeReview = async ({
       rows: enrichedCandidates
         .slice()
         .sort((a, b) =>
-          Number(b.row.clickIds.hasGoogleClickId) - Number(a.row.clickIds.hasGoogleClickId)
+          Number(b.clickIdEvidence.hasGoogleClickId) - Number(a.clickIdEvidence.hasGoogleClickId)
           || (b.row.strongGrade === "A" ? 1 : 0) - (a.row.strongGrade === "A" ? 1 : 0)
           || Date.parse(b.row.paidAt) - Date.parse(a.row.paidAt),
         )
@@ -6932,7 +8539,7 @@ const buildGoogleNpayBridgeReview = async ({
       gradeBRows: enrichedCandidates
         .filter((item) => item.row.strongGrade === "B")
         .sort((a, b) =>
-          Number(b.row.clickIds.hasGoogleClickId) - Number(a.row.clickIds.hasGoogleClickId)
+          Number(b.clickIdEvidence.hasGoogleClickId) - Number(a.clickIdEvidence.hasGoogleClickId)
           || Date.parse(b.row.paidAt) - Date.parse(a.row.paidAt),
         )
         .slice(0, 20)
@@ -6948,6 +8555,9 @@ const buildGoogleNpayBridgeReview = async ({
           ...row,
           amountKrw: round2(row.amountKrw),
         })),
+      finalSourceSummary,
+      sourceFunnelComparison: report.sourceFunnelComparison,
+      unresolvedRows: report.unresolvedRows,
       plainMeaning:
         "NPay 외부 결제완료는 네이버 화면에서 끝나므로 우리 결제완료 row에 click id가 직접 남기 어렵다. 그래서 내부 후보와 Google Ads 전송 후보를 분리한다.",
       noWritePolicy:
@@ -6965,6 +8575,260 @@ const buildGoogleNpayBridgeReview = async ({
       [error instanceof Error ? error.message : "unknown_npay_bridge_review_error"],
     );
   }
+};
+
+const readRecordNumber = (root: unknown, path: string[]): number => {
+  let cursor: unknown = root;
+  for (const key of path) {
+    if (!isRecord(cursor)) return 0;
+    cursor = cursor[key];
+  }
+  return toNumber(cursor);
+};
+
+const buildCoarseNpayFinalSourceSummaryFromReviewRecord = (
+  review: Record<string, unknown>,
+): GoogleNpayFinalSourceSummary => {
+  const summary = isRecord(review.summary) ? review.summary : {};
+  const campaignSummary = Array.isArray(review.campaignSummary) ? review.campaignSummary : [];
+  const totalCompletedOrders = readRecordNumber(review, ["summary", "actualConfirmedNpayOrders"]);
+  const classifiedCompletedOrders = readRecordNumber(review, ["summary", "internalBridgeStrongCandidates"]);
+  const unclassifiedCompletedOrders = Math.max(0, totalCompletedOrders - classifiedCompletedOrders);
+
+  const channelRows = emptyNpayFinalSourceSummary(0).byChannel.map((row) => ({ ...row }));
+  const byChannel = new Map(channelRows.map((row) => [row.channel, row]));
+  const googleRow = byChannel.get("google");
+  const directRow = byChannel.get("direct");
+  const unknownRow = byChannel.get("unknown");
+
+  for (const rawRow of campaignSummary) {
+    if (!isRecord(rawRow)) continue;
+    const campaignId = toStringValue(rawRow.campaignId).trim();
+    const bridgeCandidates = toNumber(rawRow.internalBridgeCandidates);
+    const amountKrw = toNumber(rawRow.amountKrw);
+    const clickIdCandidates = toNumber(rawRow.bridgeCandidatesWithGoogleClickId);
+    const target = campaignId || clickIdCandidates > 0 ? googleRow : directRow;
+    if (!target) continue;
+
+    target.completedOrders += bridgeCandidates;
+    target.bridgeCandidateOrders += bridgeCandidates;
+    target.amountKrw += amountKrw;
+    target.directGoogleClickIdOrders += campaignId || clickIdCandidates > 0 ? clickIdCandidates : 0;
+    target.confidence = campaignId || clickIdCandidates > 0 ? "medium" : "low";
+    target.plain = campaignId || clickIdCandidates > 0
+      ? "원격 VM Cloud 요약에서 campaign id 또는 Google click id가 있는 내부 bridge 후보입니다."
+      : "원격 VM Cloud 요약에서 campaign id가 없는 내부 bridge 후보입니다. direct 또는 출처 유실로 봅니다.";
+  }
+
+  if (unknownRow) {
+    unknownRow.completedOrders = unclassifiedCompletedOrders;
+    unknownRow.bridgeCandidateOrders = 0;
+    unknownRow.confidence = "low";
+    unknownRow.plain = unclassifiedCompletedOrders > 0
+      ? `버튼 클릭 row와 강하게 붙지 않은 NPay 결제완료입니다. ambiguous ${toNumber(summary.ambiguous)}건, purchase_without_intent ${toNumber(summary.purchaseWithoutIntent)}건을 포함합니다.`
+      : "모든 NPay 결제완료가 버튼 클릭 row와 연결되었습니다.";
+  }
+
+  const finalRows = Array.from(byChannel.values()).map((row) => ({
+    ...row,
+    amountKrw: round2(row.amountKrw),
+  }));
+  const googleEvidenceAmountKrw = round2(googleRow?.amountKrw ?? 0);
+
+  return {
+    totalCompletedOrders,
+    classifiedCompletedOrders,
+    unclassifiedCompletedOrders,
+    googleEvidenceOrders: googleRow?.completedOrders ?? 0,
+    googleEvidenceAmountKrw,
+    byChannel: finalRows,
+    unclassifiedReasons: buildNpayUnclassifiedReasons([], toNumber(summary.purchaseWithoutIntent)),
+    dateDistribution: [],
+    source: "npay_intent_bridge_candidate_rows",
+    basis:
+      "로컬 보고서가 VM Cloud 최신 요약을 가져온 뒤, campaign id/click id가 있는 bridge 후보와 없는 후보를 나눠 만든 fallback 분류입니다.",
+    caveat:
+      "원격 API가 row-level source 필드를 아직 제공하지 않을 때 쓰는 요약입니다. Google/Direct 외 Meta/Naver/Organic 세부 분류는 원문 intent source 필드 배포 후 더 정확해집니다.",
+  };
+};
+
+const setDashboardRemoteFallbackDiagnostic = <T extends Record<string, unknown>>(
+  payload: T,
+  diagnostic: Record<string, unknown>,
+) => {
+  const mutablePayload = payload as Record<string, unknown>;
+  const previousDiagnostics = isRecord(mutablePayload["diagnostics"]) ? mutablePayload["diagnostics"] : {};
+  mutablePayload["diagnostics"] = {
+    ...previousDiagnostics,
+    npayIntentRemoteFallback: diagnostic,
+  };
+};
+
+const shouldUseRemoteNpayIntentFallback = (payload: Record<string, unknown>) => {
+  const localIntentRows = readRecordNumber(payload, ["npayBridgeReview", "summary", "liveIntentCount"]);
+  const localNpayCompletedRows = readRecordNumber(payload, ["npayBridgeReview", "summary", "actualConfirmedNpayOrders"]);
+  const localDropoffIntentRows = readRecordNumber(payload, [
+    "clickIdDropoffHealth",
+    "stages",
+    "npayIntentExact",
+    "rows",
+  ]);
+
+  return localNpayCompletedRows > 0 && localIntentRows === 0 && localDropoffIntentRows === 0;
+};
+
+const shouldSkipRemoteNpayIntentFallback = (query: Record<string, unknown>) => {
+  const value = toStringValue(query.remote_fallback).trim().toLowerCase();
+  return value === "0" || value === "false" || value === "off";
+};
+
+const buildRemoteGoogleAdsDashboardSummaryUrl = (query: Record<string, unknown>) => {
+  const url = new URL("/api/google-ads/dashboard-summary", env.ATTRIBUTION_OPERATIONAL_BASE_URL);
+  [
+    "date_preset",
+    "start_date",
+    "end_date",
+    "campaign_limit",
+    "conversion_action_limit",
+    "customer_id",
+  ].forEach((key) => {
+    const value = toStringValue(query[key]).trim();
+    if (value) url.searchParams.set(key, value);
+  });
+  url.searchParams.set("remote_fallback", "0");
+  return url;
+};
+
+const fetchRemoteGoogleAdsDashboardSummary = async (
+  query: Record<string, unknown>,
+): Promise<{ body: Record<string, unknown> | null; diagnostic?: Record<string, unknown> }> => {
+  const url = buildRemoteGoogleAdsDashboardSummaryUrl(query);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return {
+        body: null,
+        diagnostic: {
+          reason: "remote_http_not_ok",
+          status: response.status,
+          url: url.toString(),
+        },
+      };
+    }
+    const body = await response.json();
+    return {
+      body: isRecord(body) ? body : null,
+      diagnostic: isRecord(body)
+        ? undefined
+        : {
+          reason: "remote_body_not_object",
+          url: url.toString(),
+        },
+    };
+  } catch (error) {
+    return {
+      body: null,
+      diagnostic: {
+        reason: "remote_fetch_exception",
+        errorName: error instanceof Error ? error.name : "unknown",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        url: url.toString(),
+      },
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+const maybeApplyRemoteNpayIntentFallback = async <T extends Record<string, unknown>>(
+  payload: T,
+  query: Record<string, unknown>,
+): Promise<T> => {
+  if (shouldSkipRemoteNpayIntentFallback(query) || !shouldUseRemoteNpayIntentFallback(payload)) {
+    return payload;
+  }
+
+  const remoteResult = await fetchRemoteGoogleAdsDashboardSummary(query);
+  const remote = remoteResult.body;
+  if (!remote) {
+    setDashboardRemoteFallbackDiagnostic(payload, {
+      applied: false,
+      reason: remoteResult.diagnostic?.reason ?? "remote_fetch_failed",
+      source: env.ATTRIBUTION_OPERATIONAL_BASE_URL,
+      diagnostic: remoteResult.diagnostic,
+      plain:
+        "로컬 DB에는 NPay 버튼 클릭 원장이 없어서 VM Cloud 보강을 시도했지만, 원격 요약 API를 읽지 못했습니다.",
+    });
+    return payload;
+  }
+
+  const remoteIntentRows = readRecordNumber(remote, ["npayBridgeReview", "summary", "liveIntentCount"]);
+  const remoteDropoffRows = readRecordNumber(remote, [
+    "clickIdDropoffHealth",
+    "stages",
+    "npayIntentExact",
+    "rows",
+  ]);
+  if (remoteIntentRows <= 0 && remoteDropoffRows <= 0) {
+    setDashboardRemoteFallbackDiagnostic(payload, {
+      applied: false,
+      reason: "remote_has_no_npay_intent_rows",
+      source: env.ATTRIBUTION_OPERATIONAL_BASE_URL,
+      plain:
+        "VM Cloud 요약 API에도 해당 window의 NPay 버튼 클릭 row가 없어 로컬 값을 유지했습니다.",
+    });
+    return payload;
+  }
+
+  const mutablePayload = payload as Record<string, unknown>;
+  if (isRecord(remote.npayBridgeReview)) {
+    const remoteNpayBridgeReview: Record<string, unknown> = { ...remote.npayBridgeReview };
+    if (!isRecord(remoteNpayBridgeReview.finalSourceSummary)) {
+      remoteNpayBridgeReview.finalSourceSummary = buildCoarseNpayFinalSourceSummaryFromReviewRecord(
+        remoteNpayBridgeReview,
+      );
+    }
+    if (
+      Array.isArray(remoteNpayBridgeReview.unresolvedRows) &&
+      remoteNpayBridgeReview.unresolvedRows.length > 0 &&
+      isRecord(remoteNpayBridgeReview.finalSourceSummary)
+    ) {
+      remoteNpayBridgeReview.finalSourceSummary = {
+        ...remoteNpayBridgeReview.finalSourceSummary,
+        unclassifiedReasons: buildNpayIntentUnresolvedReasonBreakdown(
+          remoteNpayBridgeReview.unresolvedRows as NpayIntentRematchUnresolvedRow[],
+        ),
+      };
+    }
+    mutablePayload["npayBridgeReview"] = remoteNpayBridgeReview;
+  }
+  if (isRecord(remote.clickIdDropoffHealth)) {
+    mutablePayload["clickIdDropoffHealth"] = remote.clickIdDropoffHealth;
+  }
+
+  setDashboardRemoteFallbackDiagnostic(payload, {
+    applied: true,
+    source: env.ATTRIBUTION_OPERATIONAL_BASE_URL,
+    remoteFetchedAt: toStringValue(remote.fetchedAt),
+    remoteGeneratedAt: toStringValue(remote.npayBridgeReview && isRecord(remote.npayBridgeReview)
+      ? remote.npayBridgeReview.generatedAt
+      : ""),
+    remoteNpayIntentRows: remoteIntentRows,
+    remoteNpayIntentGoogleClickIdRows:
+      readRecordNumber(remote, ["npayBridgeReview", "summary", "googleClickIdIntentCount"]) ||
+      readRecordNumber(remote, ["clickIdDropoffHealth", "stages", "npayIntentExact", "googleClickIdRows"]),
+    plain:
+      "로컬 보고서의 Google Ads 비용/캠페인 값은 그대로 두고, 로컬 DB에 없는 NPay 버튼 클릭 원장만 VM Cloud 최신 요약으로 보강했습니다.",
+  });
+
+  return payload;
 };
 
 const campaignSignalRate = (matched: number, denominator: number) =>
@@ -7459,7 +9323,7 @@ export const createGoogleAdsRouter = () => {
       clickIdHealth,
     });
 
-    return {
+    const payload = {
       ok: true,
       fetchedAt: new Date().toISOString(),
       apiVersion: context.apiVersion,
@@ -7518,6 +9382,7 @@ export const createGoogleAdsRouter = () => {
         },
       },
     };
+    return maybeApplyRemoteNpayIntentFallback(payload, query);
   };
 
   router.get("/api/google-ads/status", async (req: Request, res: Response) => {
@@ -7800,6 +9665,57 @@ export const createGoogleAdsRouter = () => {
     }
   });
 
+  router.get("/api/google-ads/confirmed-purchase/click-age-dry-run", async (req: Request, res: Response) => {
+    try {
+      const site = typeof req.query.site === "string" && req.query.site.trim()
+        ? req.query.site.trim()
+        : "biocom";
+      if (site !== "biocom") {
+        res.status(400).json({
+          ok: false,
+          error: "unsupported_site",
+          allowedSites: ["biocom"],
+        });
+        return;
+      }
+
+      const windowKey = parseClickIdHealthWindowKey(req.query.window);
+      if (!windowKey) {
+        res.status(400).json({
+          ok: false,
+          error: "unsupported_window",
+          allowedWindows: ALLOWED_CLICK_ID_HEALTH_WINDOWS,
+        });
+        return;
+      }
+
+      const limit = parsePositiveInt(req.query.limit, 24, 200);
+      const actionClickThroughLookbackDays = parsePositiveInt(
+        req.query.lookback_days ?? req.query.lookbackDays,
+        GOOGLE_ADS_CONFIRMED_PURCHASE_CLICK_LOOKBACK_DAYS,
+        GOOGLE_ADS_CLICK_ID_STORAGE_DAYS,
+      );
+      const window = resolveClickIdHealthWindow(windowKey);
+      const dryRun = await buildGoogleAdsConfirmedPurchaseClickAgeDryRun(
+        window,
+        limit,
+        actionClickThroughLookbackDays,
+      );
+
+      res.json({
+        ok: true,
+        fetchedAt: new Date().toISOString(),
+        ...dryRun,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: "google_ads_confirmed_purchase_click_age_dry_run_error",
+        message: error instanceof Error ? error.message : "Google Ads click age dry-run failed",
+      });
+    }
+  });
+
   router.get("/api/google-ads/confirmed-purchase/duplicate-ledger-dry-run", async (req: Request, res: Response) => {
     try {
       const site = typeof req.query.site === "string" && req.query.site.trim()
@@ -7924,7 +9840,7 @@ export const createGoogleAdsRouter = () => {
         return;
       }
 
-      const limit = Math.min(parsePositiveInt(req.query.limit, 2, 20), 2);
+      const limit = Math.min(parsePositiveInt(req.query.limit, 2, 20), 5);
       const window = resolveClickIdHealthWindow(windowKey);
       const smoke = await executeGoogleAdsUploadLedgerWriteSmoke(window, limit);
 
@@ -7982,11 +9898,39 @@ export const createGoogleAdsRouter = () => {
         return;
       }
 
-      const limit = Math.min(parsePositiveInt(req.query.limit, 2, 20), 2);
       const validateOnly = req.query.validate_only === "1" || req.query.validateOnly === "true";
+      const allowUnwrittenValidateOnly =
+        validateOnly
+        && (req.query.allow_unwritten === "1" || req.query.allowUnwritten === "true");
+      const includeFailedValidateOnly =
+        validateOnly
+        && (req.query.include_failed === "1" || req.query.includeFailed === "true");
+      const requestedDedupeKeyHash = typeof req.query.dedupe_key_hash === "string"
+        ? req.query.dedupe_key_hash.trim()
+        : typeof req.query.dedupeKeyHash === "string"
+          ? req.query.dedupeKeyHash.trim()
+          : "";
+      const requestedAmountKrw = toOptionalNumber(req.query.amount_krw ?? req.query.amountKrw);
+      const limit = validateOnly && allowUnwrittenValidateOnly
+        ? Math.min(parsePositiveInt(req.query.limit, 2, 50), 20)
+        : Math.min(parsePositiveInt(req.query.limit, 2, 20), 5);
       const window = resolveClickIdHealthWindow(windowKey);
       const candidates = await buildGoogleAdsConfirmedPurchaseUploadCandidates(window, limit);
-      const readyCandidates = candidates.filter((candidate) => candidate.sendReady).slice(0, 2);
+      const readyCandidates = (
+        validateOnly && includeFailedValidateOnly
+          ? candidates.filter((candidate) =>
+            hasGoogleAdsUploadPayloadFields(candidate)
+            && candidate.ledgerStatus === "failed"
+            && (!requestedDedupeKeyHash || candidate.dedupeKeyHash === requestedDedupeKeyHash)
+            && (requestedAmountKrw == null || candidate.conversionValue === requestedAmountKrw)
+          )
+          : validateOnly && allowUnwrittenValidateOnly
+            ? candidates.filter((candidate) =>
+              hasGoogleAdsUploadPayloadFields(candidate)
+              && !candidate.ledgerRowId
+            )
+            : candidates.filter((candidate) => candidate.sendReady)
+      ).slice(0, limit);
 
       if (readyCandidates.length === 0) {
         res.status(409).json({
@@ -7999,6 +9943,11 @@ export const createGoogleAdsRouter = () => {
             readyCandidates: 0,
             externalSendCount: 0,
             ledgerSentRows: 0,
+            validationScope: includeFailedValidateOnly
+              ? "failed_ledger_row"
+              : allowUnwrittenValidateOnly
+                ? "unwritten_candidates"
+                : "ready_ledger_rows",
           },
           candidates: candidates.map((candidate) => ({
             candidateRank: candidate.candidateRank,
@@ -8018,6 +9967,9 @@ export const createGoogleAdsRouter = () => {
       const upload = await uploadGoogleAdsClickConversions(context, readyCandidates, validateOnly);
       const ledgerUpdates = validateOnly ? [] : markGoogleAdsUploadLedgerRows(readyCandidates, upload);
       const sentCount = validateOnly ? 0 : upload.sentIndexes.size;
+      const validatedCount = validateOnly && upload.ok
+        ? readyCandidates.filter((_, index) => !upload.failedIndexes.has(index)).length
+        : 0;
 
       res.json({
         ok: upload.ok,
@@ -8051,22 +10003,31 @@ export const createGoogleAdsRouter = () => {
           sourceCandidates: candidates.length,
           readyCandidates: readyCandidates.length,
           attemptedConversions: readyCandidates.length,
-          validatedConversions: validateOnly && upload.ok && !upload.partialFailure ? readyCandidates.length : 0,
+          validatedConversions: validatedCount,
           externalSendCount: sentCount,
           ledgerSentRows: ledgerUpdates.filter((row) => row.statusAfter === "sent" && row.ledgerRowUpdated).length,
           ledgerFailedRows: ledgerUpdates.filter((row) => row.statusAfter === "failed" && row.ledgerRowUpdated).length,
+          validationScope: includeFailedValidateOnly
+            ? "failed_ledger_row"
+            : allowUnwrittenValidateOnly
+              ? "unwritten_candidates"
+              : "ready_ledger_rows",
         },
         rows: readyCandidates.map((candidate, index) => ({
           candidateRank: candidate.candidateRank,
           safeRef: candidate.safeRef,
           maskedOrderRef: candidate.maskedOrderRef,
+          ledgerStatus: candidate.ledgerStatus,
           amountKrw: candidate.conversionValue,
           conversionDate: candidate.conversionDateTime.slice(0, 10),
           uploadResult: validateOnly
-            ? (upload.ok && !upload.partialFailure ? "validated" : "validation_failed")
+            ? (upload.ok && !upload.failedIndexes.has(index) ? "validated" : "validation_failed")
             : upload.sentIndexes.has(index)
               ? "sent"
               : "failed",
+          failureSummary: upload.failedIndexes.has(index)
+            ? buildGoogleAdsUploadFailureLastError(upload, candidate, index)
+            : "",
           rawOrderIdExposed: false,
           rawClickIdExposed: false,
         })),
@@ -8086,7 +10047,9 @@ export const createGoogleAdsRouter = () => {
         caveats: [
           "응답에는 원문 주문번호와 원문 gclid를 포함하지 않는다.",
           "validate_only=1이면 Google Ads 구매 수치와 장부 sent 상태를 바꾸지 않는다.",
-          "실제 전송은 ready 장부 row가 있는 후보 최대 2건만 허용한다.",
+          "실제 전송은 ready 장부 row가 있는 후보 최대 5건만 허용한다.",
+          "allow_unwritten=1은 validate_only에서만 장부 미작성 후보를 검증한다.",
+          "include_failed=1은 validate_only에서만 기존 failed row를 재검증한다.",
         ],
       });
     } catch (error) {
@@ -8137,6 +10100,49 @@ export const createGoogleAdsRouter = () => {
         ok: false,
         error: "google_ads_confirmed_purchase_candidate_expansion_error",
         message: error instanceof Error ? error.message : "Google Ads confirmed purchase candidate expansion failed",
+      });
+    }
+  });
+
+  router.get("/api/google-ads/confirmed-purchase/offline-diagnostic-classification", async (req: Request, res: Response) => {
+    try {
+      const site = typeof req.query.site === "string" && req.query.site.trim()
+        ? req.query.site.trim()
+        : "biocom";
+      if (site !== "biocom") {
+        res.status(400).json({
+          ok: false,
+          error: "unsupported_site",
+          allowedSites: ["biocom"],
+        });
+        return;
+      }
+
+      const windowKey = parseClickIdHealthWindowKey(req.query.window);
+      if (!windowKey) {
+        res.status(400).json({
+          ok: false,
+          error: "unsupported_window",
+          allowedWindows: ALLOWED_CLICK_ID_HEALTH_WINDOWS,
+        });
+        return;
+      }
+
+      const limit = parsePositiveInt(req.query.limit, 24, 120);
+      const window = resolveClickIdHealthWindow(windowKey);
+      const sourceFreshness = await buildOperationalDbFreshness();
+      const classification = await buildGoogleAdsOfflineDiagnosticClassification(window, limit, sourceFreshness);
+
+      res.json({
+        ok: true,
+        fetchedAt: new Date().toISOString(),
+        ...classification,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: "google_ads_offline_diagnostic_classification_error",
+        message: error instanceof Error ? error.message : "Google Ads offline diagnostic classification failed",
       });
     }
   });

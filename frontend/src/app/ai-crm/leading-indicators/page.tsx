@@ -268,6 +268,80 @@ const LEADING_INDICATOR_CACHE_AUDIT = {
     "VM API 44개 조합 사전 계산, cache=true/in_memory_precompute, 최근 응답 generation 약 151ms",
 };
 
+const LIVE_CHECKOUT_DENOMINATOR_AUDIT = [
+  {
+    label: "바이오컴 Meta · 최근 7일",
+    freshness: "2026-05-27 09:03 KST",
+    safeSessions: 471,
+    buyerSessions: 242,
+    checkoutNonBuyerSessions: 222,
+    pendingSessions: 7,
+    buyerBeginCheckoutRatePct: 99.2,
+    nonBuyerBeginCheckoutRatePct: 92.8,
+    interpretation:
+      "TJ님이 본 92.8%의 원본입니다. 숫자는 실제 live API 값이지만, 전체 방문자가 아니라 ‘결제 시작 후 구매로 닫히지 않은 cohort’ 기준입니다.",
+  },
+  {
+    label: "바이오컴 Meta · 최근 30일",
+    freshness: "2026-05-27 09:03 KST",
+    safeSessions: 2035,
+    buyerSessions: 921,
+    checkoutNonBuyerSessions: 1033,
+    pendingSessions: 81,
+    buyerBeginCheckoutRatePct: 98.9,
+    nonBuyerBeginCheckoutRatePct: 92.7,
+    interpretation:
+      "30일로 늘려도 Meta 비결제 cohort의 주문서 진입률은 92%대입니다. 그래서 단순 오타보다는 cohort 정의 문제로 보는 것이 맞습니다.",
+  },
+  {
+    label: "바이오컴 전체 · 최근 7일",
+    freshness: "2026-05-27 09:21 KST",
+    safeSessions: 1142,
+    buyerSessions: 394,
+    checkoutNonBuyerSessions: 719,
+    pendingSessions: 29,
+    buyerBeginCheckoutRatePct: 99.5,
+    nonBuyerBeginCheckoutRatePct: 93.7,
+    interpretation:
+      "전체 7일도 93.7%로 높습니다. 현재 7일 cohort가 주문서/결제 흐름 근처 세션을 강하게 포함하고 있다는 신호입니다.",
+  },
+  {
+    label: "바이오컴 전체 · 최근 30일",
+    freshness: "2026-05-27 09:21 KST",
+    safeSessions: 23934,
+    buyerSessions: 1749,
+    checkoutNonBuyerSessions: 21945,
+    pendingSessions: 240,
+    buyerBeginCheckoutRatePct: 98.9,
+    nonBuyerBeginCheckoutRatePct: 15.2,
+    interpretation:
+      "30일 전체로 넓히면 비결제 cohort 주문서 진입률이 15.2%로 내려갑니다. 즉 ‘전체 방문자 기준 주문서 진입률’과 ‘결제 흐름 근처 비결제 cohort’는 분리 표시해야 합니다.",
+  },
+];
+
+const GOOGLE_PAID_LIVE_SAMPLE_AUDIT = [
+  {
+    label: "바이오컴 Google 유료 · 최근 7일",
+    freshness: "2026-05-27 09:03 KST",
+    safeSessions: 74,
+    buyerSessions: 2,
+    checkoutNonBuyerSessions: 65,
+    pendingSessions: 7,
+    interpretation:
+      "화면의 작은 표본(구매자 2명 수준)이 나온 이유입니다. 7일 Google 유료는 아직 예산 판단용이 아니라 방향 확인용입니다.",
+  },
+  {
+    label: "바이오컴 Google 유료 · 최근 30일",
+    freshness: "2026-05-27 09:03 KST",
+    safeSessions: 503,
+    buyerSessions: 18,
+    checkoutNonBuyerSessions: 460,
+    pendingSessions: 25,
+    interpretation:
+      "30일로 넓히면 Google 유료 표본은 커집니다. 다만 클릭 ID 보존율이 실제로 얼마나 개선됐는지는 별도 click-id preservation audit으로 봐야 합니다.",
+  },
+];
+
 const PROJECT_OKR_SUMMARY = {
   objective:
     "구매 전에 매출을 예고하는 행동을 찾아, 광고와 랜딩 운영자가 매일 바꿀 수 있는 1~2개 레버지표로 만든다.",
@@ -1003,6 +1077,49 @@ export default function LeadingIndicatorsPage() {
         </div>
 
         <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            비결제자 주문서 진입 92.8%는 실제지만, 전체 방문자 기준이 아닙니다
+          </h2>
+          <p className={styles.sectionDesc}>
+            지금 화면의 “비결제자”는 넓은 의미의 모든 이탈자가 아니라, VM Cloud가 결제 흐름
+            근처까지 추적한 뒤 구매 완료로 닫히지 않은 cohort입니다. 그래서 주문서 진입률이
+            높게 나옵니다. 사람이 읽는 이름은 “결제 시작 후 멈춤”에 가깝고, 전체 방문자 기준
+            주문서 진입률은 별도 분모로 표시해야 합니다.
+          </p>
+          <div className={styles.denominatorGrid}>
+            {LIVE_CHECKOUT_DENOMINATOR_AUDIT.map((row) => (
+              <article key={row.label} className={styles.denominatorCard}>
+                <h3>{row.label}</h3>
+                <dl>
+                  <dt>전체 safe session</dt>
+                  <dd>{fmtCount(row.safeSessions)}</dd>
+                  <dt>결제자</dt>
+                  <dd>{fmtCount(row.buyerSessions)}</dd>
+                  <dt>결제 시작 후 멈춤</dt>
+                  <dd>{fmtCount(row.checkoutNonBuyerSessions)}</dd>
+                  <dt>결제 확인 보류</dt>
+                  <dd>{fmtCount(row.pendingSessions)}</dd>
+                  <dt>결제자 주문서 진입</dt>
+                  <dd>{fmtPct(row.buyerBeginCheckoutRatePct)}</dd>
+                  <dt>비결제 cohort 주문서 진입</dt>
+                  <dd>{fmtPct(row.nonBuyerBeginCheckoutRatePct)}</dd>
+                </dl>
+                <p>{row.interpretation}</p>
+                <p>source: VM Cloud live API · 기준 {row.freshness}</p>
+              </article>
+            ))}
+          </div>
+          <div className={styles.joinExplainBox}>
+            <strong>화면 보강 결론</strong>
+            <p>
+              앞으로 API와 화면은 “전체 방문자 중 주문서까지 간 비율”과 “주문서까지 갔지만
+              구매 완료로 닫히지 않은 사람의 행동”을 분리해야 합니다. 92.8%는 후자에 가까운
+              값이라, 그대로 “전체 비결제자 주문서 진입”으로 읽으면 과장됩니다.
+            </p>
+          </div>
+        </section>
+
+        <section className={styles.section}>
           <h2 className={styles.sectionTitle}>페이지 롱 뷰 기준 시간 · 기본은 2분으로 봅니다</h2>
           <p className={styles.sectionDesc}>
             페이지 롱 뷰는 “방문자가 페이지에 오래 머물렀다”는 신호입니다. 운영에서 볼
@@ -1011,16 +1128,50 @@ export default function LeadingIndicatorsPage() {
             보조 신호입니다. 아래 표는 TJ님이 요청한 바이오컴 Google 유료/YouTube/오가닉과
             더클린커피 Meta를 2분/3분/7분으로 고정 비교합니다.
           </p>
+          <div className={styles.joinExplainBox}>
+            <strong>왜 어떤 표는 구매자 2명/비결제자 9명이고, 아래 표는 356명/689명인가?</strong>
+            <p>
+              작은 표는 “바이오컴 Google 유료”처럼 특정 유입 채널만 잘라서 2분/3분/7분 기준을
+              고르는 dry-run입니다. 큰 표는 사이트 전체 또는 Meta 전체를 묶은 GA4-VM 행동
+              비교입니다. 즉 같은 사람이 빠진 것이 아니라, 질문의 분모가 다릅니다.
+            </p>
+            <p>
+              최신 live API 기준 바이오컴 Google 유료 표본은 최근 7일 safe session{" "}
+              {fmtCount(GOOGLE_PAID_LIVE_SAMPLE_AUDIT[0].safeSessions)}건, 최근 30일{" "}
+              {fmtCount(GOOGLE_PAID_LIVE_SAMPLE_AUDIT[1].safeSessions)}건입니다. 표본은
+              늘었지만 구매자 수는 아직 작기 때문에 Google 유료의 page-long 기준은 예산 판단이
+              아니라 “방향 확인”으로만 봅니다.
+            </p>
+          </div>
+          <div className={styles.denominatorGrid}>
+            {GOOGLE_PAID_LIVE_SAMPLE_AUDIT.map((row) => (
+              <article key={row.label} className={styles.denominatorCard}>
+                <h3>{row.label}</h3>
+                <dl>
+                  <dt>safe session</dt>
+                  <dd>{fmtCount(row.safeSessions)}</dd>
+                  <dt>구매 완료</dt>
+                  <dd>{fmtCount(row.buyerSessions)}</dd>
+                  <dt>결제 시작 후 멈춤</dt>
+                  <dd>{fmtCount(row.checkoutNonBuyerSessions)}</dd>
+                  <dt>결제 확인 보류</dt>
+                  <dd>{fmtCount(row.pendingSessions)}</dd>
+                </dl>
+                <p>{row.interpretation}</p>
+                <p>source: VM Cloud live API · 기준 {row.freshness}</p>
+              </article>
+            ))}
+          </div>
           <div className={styles.focusedPageLongStack}>
             <FocusedPageLongComparison
               rows={focusedPageLongRows}
               title="최근 7일 · 빠른 변화 감지용"
-              description="현재 화면에 보이던 표입니다. 7일은 빠르게 이상 징후를 잡는 데 좋지만, Google 유료·YouTube·오가닉처럼 유입이 적은 채널은 구매자 표본이 0~3명까지 줄어 퍼센트가 딱 떨어집니다."
+              description="2026-05-26 정적 dry-run snapshot입니다. 7일은 빠르게 이상 징후를 잡는 데 좋지만, Google 유료·YouTube·오가닉처럼 유입이 적은 채널은 구매자 표본이 0~3명까지 줄어 퍼센트가 딱 떨어집니다."
             />
             <FocusedPageLongComparison
               rows={focusedPageLong30dRows}
               title="최근 30일 · 기준 시간 판단용"
-              description="표본을 넓혀 같은 기준을 다시 봅니다. 바이오컴 Google 유료는 구매자 15명까지 늘고, 더클린커피 Meta는 구매자 95명까지 늘어 2분 기준이 더 안정적으로 보입니다. 그래도 오가닉처럼 구매자 표본이 3명인 row는 아직 방향만 봅니다."
+              description="2026-05-26 정적 dry-run snapshot에서 표본을 넓혀 같은 기준을 다시 본 값입니다. 바이오컴 Google 유료는 구매자 15명까지 늘고, 더클린커피 Meta는 구매자 95명까지 늘어 2분 기준이 더 안정적으로 보입니다. 그래도 오가닉처럼 구매자 표본이 3명인 row는 아직 방향만 봅니다."
             />
           </div>
           <h3 className={styles.subsectionTitle}>현재 선택한 필터 상세</h3>
@@ -2461,10 +2612,11 @@ function BiocomCompare({
           대부분은 짝을 찾았다는 의미입니다.
         </p>
         <p>
-          그래도 “보강 필요”라고 쓰는 이유는 남은 약{" "}
-          {fmtPct(100 - confirmed.joinRatePct, 0)}가 아직 못 붙었고, 채널별 표본이 작으면
-          1~2명 차이만으로 비율이 크게 흔들릴 수 있기 때문입니다. 예산 판단은 VM 운영
-          보고서를 기준으로 보고, 이 로컬 화면은 해석과 UI 확인용으로 보세요.
+          반대로 남은 약 {fmtPct(100 - confirmed.joinRatePct, 0)}는 주문 장부와 행동 관찰
+          일지의 짝을 아직 못 찾았다는 뜻입니다. 이 방문들은 체류시간·스크롤 비교에서 빠지기
+          때문에, 채널별 표본이 작으면 1~2명 차이만으로 비율이 크게 흔들릴 수 있습니다.
+          예산 판단은 VM 운영 보고서를 기준으로 보고, 이 화면은 “어떤 행동이 구매를 예고하는지”
+          찾는 진단 화면으로 보세요.
         </p>
       </div>
       {isMetaOnly && (
@@ -2573,7 +2725,8 @@ function CohortMetricsTable({
     },
     {
       label: "결제 시작 (begin_checkout)",
-      hint: "더클린커피는 GA4 export 적재 후 채워짐",
+      hint:
+        "현재 비결제 cohort는 결제 흐름 근처 세션이 많아 전체 방문자 기준 주문서 진입률로 읽으면 안 됨",
       buyer: fmtPct(confirmed.beginCheckoutRatePct),
       leaver: fmtPct(dropped.beginCheckoutRatePct),
       delta: `${(confirmed.beginCheckoutRatePct - dropped.beginCheckoutRatePct).toFixed(1)}p`,

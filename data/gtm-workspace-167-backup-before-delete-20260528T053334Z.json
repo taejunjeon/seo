@@ -1,0 +1,65 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-28T14:33:36",
+  "run_id": "20260528T053334Z",
+  "action": "backup_before_delete",
+  "approval": "workspace 167 삭제 승인",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "13158774",
+    "public_id": "GTM-W2Z6PHN"
+  },
+  "workspace": {
+    "path": "accounts/4703003246/containers/13158774/workspaces/167",
+    "accountId": "4703003246",
+    "containerId": "13158774",
+    "workspaceId": "167",
+    "name": "AGENT_OS_path_b_controlled_traffic_preview_20260509T155435Z",
+    "description": "AGENT_OS Path B controlled traffic Preview only. No submit, no publish, no platform send.",
+    "fingerprint": "1778342077798",
+    "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/4703003246/containers/13158774/workspaces/167?apiLink=workspace"
+  },
+  "live_before": {
+    "id": "146",
+    "name": "BI NPay Bridge v1.1 production 20260528T044617Z",
+    "path": "accounts/4703003246/containers/13158774/versions/146"
+  },
+  "workspace_changes": [
+    {
+      "changeStatus": "added",
+      "kind": "tag",
+      "id": "301",
+      "name": "AGENT_OS_path_b_controlled_traffic_hmac_write_preview_20260509T155435Z",
+      "type": "html",
+      "paused": false,
+      "firingTriggerId": [
+        "300"
+      ],
+      "notes": "Preview only. Uses existing legacy user_id variable as transient email source for Path B HMAC endpoint. No submit/publish/platform send."
+    },
+    {
+      "changeStatus": "added",
+      "kind": "trigger",
+      "id": "300",
+      "name": "AGENT_OS_path_b_order_confirm_controlled_traffic_20260509T155435Z",
+      "type": "pageview",
+      "paused": false,
+      "firingTriggerId": [],
+      "notes": "Preview only. Fires only on order confirmation paths. Do not submit/publish."
+    }
+  ],
+  "workspace_count_before": 2,
+  "workspaces_before": [
+    {
+      "id": "167",
+      "name": "AGENT_OS_path_b_controlled_traffic_preview_20260509T155435Z",
+      "path": "accounts/4703003246/containers/13158774/workspaces/167"
+    },
+    {
+      "id": "147",
+      "name": "Default Workspace",
+      "path": "accounts/4703003246/containers/13158774/workspaces/147"
+    }
+  ],
+  "delete_taken": false
+}

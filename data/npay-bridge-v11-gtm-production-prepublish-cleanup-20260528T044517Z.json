@@ -1,0 +1,110 @@
+{
+  "ok": true,
+  "generated_at_kst": "2026-05-28T13:45:25",
+  "run_id": "20260528T044517Z",
+  "lane": "Red-approved cleanup before GTM Production publish",
+  "container": {
+    "account_id": "4703003246",
+    "container_id": "13158774",
+    "public_id": "GTM-W2Z6PHN"
+  },
+  "workspace": {
+    "id": "171",
+    "path": "accounts/4703003246/containers/13158774/workspaces/171"
+  },
+  "cleanup": {
+    "deleted": [
+      {
+        "kind": "tag",
+        "id": "308",
+        "name": "BI - NPay Bridge Intent Capture v1 [PREVIEW ONLY]"
+      }
+    ],
+    "updated": [
+      {
+        "kind": "trigger",
+        "id": "310",
+        "previousName": "codex_npay_bridge_v11_all_pages_preview_20260528T034958Z",
+        "nextName": "BI - NPay Bridge Intent Capture v1.1 - All Pages"
+      }
+    ]
+  },
+  "before": {
+    "live": {
+      "id": "145",
+      "name": "paid_click_intent_v3_stale_click_id_guard_20260521"
+    },
+    "quick_preview": {
+      "compiler_error": false,
+      "sync_status": null
+    },
+    "workspace_change_count": 3,
+    "summary": [
+      {
+        "changeStatus": "added",
+        "kind": "tag",
+        "id": "308",
+        "name": "BI - NPay Bridge Intent Capture v1 [PREVIEW ONLY]",
+        "type": "html",
+        "paused": true,
+        "firingTriggerId": [
+          "2147479553"
+        ]
+      },
+      {
+        "changeStatus": "added",
+        "kind": "tag",
+        "id": "311",
+        "name": "BI - NPay Bridge Intent Capture v1.1",
+        "type": "html",
+        "paused": false,
+        "firingTriggerId": [
+          "310"
+        ]
+      },
+      {
+        "changeStatus": "added",
+        "kind": "trigger",
+        "id": "310",
+        "name": "codex_npay_bridge_v11_all_pages_preview_20260528T034958Z",
+        "type": "pageview",
+        "paused": false,
+        "firingTriggerId": []
+      }
+    ]
+  },
+  "after": {
+    "live": {
+      "id": "145",
+      "name": "paid_click_intent_v3_stale_click_id_guard_20260521"
+    },
+    "quick_preview": {
+      "compiler_error": false,
+      "sync_status": null
+    },
+    "workspace_change_count": 2,
+    "summary": [
+      {
+        "changeStatus": "added",
+        "kind": "tag",
+        "id": "311",
+        "name": "BI - NPay Bridge Intent Capture v1.1",
+        "type": "html",
+        "paused": false,
+        "firingTriggerId": [
+          "310"
+        ]
+      },
+      {
+        "changeStatus": "added",
+        "kind": "trigger",
+        "id": "310",
+        "name": "BI - NPay Bridge Intent Capture v1.1 - All Pages",
+        "type": "pageview",
+        "paused": false,
+        "firingTriggerId": []
+      }
+    ]
+  },
+  "publish_taken": false
+}

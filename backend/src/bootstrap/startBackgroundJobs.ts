@@ -104,41 +104,60 @@ export const startBackgroundJobs = () => {
     }
   };
 
-  // imweb 주문 증분 sync — 15분 주기. 두 사이트(biocom, thecleancoffee) 순차 호출.
+  // imweb 주문 증분 sync — 설정 주기. 두 사이트(biocom, thecleancoffee) 순차 호출.
   // 기존 POST /api/crm-local/imweb/sync-orders 엔드포인트를 self-call 로 재사용 → 로직 중복 없음.
+  let imwebOrdersSyncRunning = false;
+
   const runImwebOrdersSync = async () => {
-    const sites = ["biocom", "thecleancoffee"] as const;
-    for (const site of sites) {
-      try {
+    if (imwebOrdersSyncRunning) {
+      // eslint-disable-next-line no-console
+      console.warn("[Imweb orders sync] skip — previous sync is still running");
+      return;
+    }
+
+    imwebOrdersSyncRunning = true;
+
+    try {
+      const sites = ["biocom", "thecleancoffee"] as const;
+      for (const site of sites) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 90_000);
-        const response = await fetch(`${selfBaseUrl}/api/crm-local/imweb/sync-orders`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ site, maxPage: imwebAutoSyncMaxPage }),
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        const body = (await response.json().catch(() => null)) as
-          | { ok?: boolean; synced?: number; sites?: Array<{ site: string; synced: number; totalCount: number; error: string | null }> }
-          | null;
-        if (response.ok && body?.ok) {
-          const siteResult = body.sites?.find((s) => s.site === site);
+        try {
+          const response = await fetch(`${selfBaseUrl}/api/crm-local/imweb/sync-orders`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ site, maxPage: imwebAutoSyncMaxPage }),
+            signal: controller.signal,
+          });
+          const body = (await response.json().catch(() => null)) as
+            | {
+                ok?: boolean;
+                synced?: number;
+                sites?: Array<{ site: string; synced: number; totalCount: number; error: string | null }>;
+              }
+            | null;
+          if (response.ok && body?.ok) {
+            const siteResult = body.sites?.find((s) => s.site === site);
+            // eslint-disable-next-line no-console
+            console.log(
+              `[Imweb orders sync] ${site} — upsert ${siteResult?.synced ?? body.synced ?? 0} (totalCount ${siteResult?.totalCount ?? "?"})`,
+            );
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(`[Imweb orders sync] ${site} 실패: HTTP ${response.status}`);
+          }
+        } catch (error) {
           // eslint-disable-next-line no-console
-          console.log(
-            `[Imweb orders sync] ${site} — upsert ${siteResult?.synced ?? body.synced ?? 0} (totalCount ${siteResult?.totalCount ?? "?"})`,
+          console.error(
+            `[Imweb orders sync] ${site} 오류:`,
+            error instanceof Error ? error.message : error,
           );
-        } else {
-          // eslint-disable-next-line no-console
-          console.error(`[Imweb orders sync] ${site} 실패: HTTP ${response.status}`);
+        } finally {
+          clearTimeout(timer);
         }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[Imweb orders sync] ${site} 오류:`,
-          error instanceof Error ? error.message : error,
-        );
       }
+    } finally {
+      imwebOrdersSyncRunning = false;
     }
   };
 

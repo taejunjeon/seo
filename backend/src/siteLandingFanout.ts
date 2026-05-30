@@ -23,6 +23,7 @@ import {
   type SiteLandingRecordResult,
 } from "./siteLandingLedger";
 import { classifySiteLandingChannel } from "./siteLandingChannelClassifier";
+import { sanitizeGoogleClickIdForStorage } from "./googleClickIdSanitizer";
 
 const sha256Hex = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
@@ -39,7 +40,8 @@ const extractHost = (url: string): string => {
 const pickClickId = (
   entry: AttributionLedgerEntry,
 ): { type: "gclid" | "fbclid" | "ttclid" | "nclick_id"; value: string } | null => {
-  if (entry.gclid) return { type: "gclid", value: entry.gclid };
+  const gclid = sanitizeGoogleClickIdForStorage(entry.gclid);
+  if (gclid) return { type: "gclid", value: gclid };
   if (entry.fbclid) return { type: "fbclid", value: entry.fbclid };
   if (entry.ttclid) return { type: "ttclid", value: entry.ttclid };
   const meta = entry.metadata as Record<string, unknown> | undefined;
@@ -157,15 +159,18 @@ export const fanOutPaidClickIntentPreviewToSiteLanding = (input: {
 
   let clickType: "gclid" | "gbraid" | "wbraid" | "ttclid" | "fbclid" | "" = "";
   let clickValue = "";
-  if (input.clickIds.gclid) {
+  const gclid = sanitizeGoogleClickIdForStorage(input.clickIds.gclid);
+  const gbraid = sanitizeGoogleClickIdForStorage(input.clickIds.gbraid);
+  const wbraid = sanitizeGoogleClickIdForStorage(input.clickIds.wbraid);
+  if (gclid) {
     clickType = "gclid";
-    clickValue = input.clickIds.gclid;
-  } else if (input.clickIds.gbraid) {
+    clickValue = gclid;
+  } else if (gbraid) {
     clickType = "gbraid";
-    clickValue = input.clickIds.gbraid;
-  } else if (input.clickIds.wbraid) {
+    clickValue = gbraid;
+  } else if (wbraid) {
     clickType = "wbraid";
-    clickValue = input.clickIds.wbraid;
+    clickValue = wbraid;
   } else if (input.clickIds.ttclid) {
     clickType = "ttclid";
     clickValue = input.clickIds.ttclid;

@@ -1,6 +1,7 @@
 작성 시각: 2026-05-27 02:12 KST
 기준일: 2026-05-27
 문서 성격: Google Ads 실제 결제완료 전용 전환 API 진단 결과
+최근 업데이트: 2026-05-27 10:20 KST
 
 ```yaml
 harness_preflight:
@@ -41,6 +42,8 @@ harness_preflight:
 Google Ads에 실제 결제완료 주문만 알려주는 새 전환 통로는 API 기준으로 연결되어 있다.
 
 VM Cloud 전송 장부에는 `sent` 3건이 있고, 모두 Google Ads API 응답 코드 `200`을 받았다. Google Ads API 리포트에서도 `BI confirmed_purchase_offline` 2건이 이미 전환으로 조회된다. 다만 오프라인 데이터 진단 요약 테이블은 아직 빈 결과라, UI의 `데이터 소스 연결` 안내는 현재만 보면 전송 실패 증거가 아니라 Google Ads 진단/화면 갱신 지연 또는 UI 안내 문구로 보는 것이 맞다.
+
+2026-05-27 09:10 KST 재조회에서는 2026-05-26 전송분 35,000원도 Google Ads API 리포트에 반영된 것을 확인했다. 2026-05-27 10:20 KST 재조회에서도 같은 결과가 유지됐다. 따라서 현재 `BI confirmed_purchase_offline`은 Google Ads API 리포트 기준 총 3건, 305,900원이다.
 
 ## 확인한 것
 
@@ -86,11 +89,13 @@ VM Cloud 전송 장부에는 `sent` 3건이 있고, 모두 Google Ads API 응답
 |---|---:|---:|
 | 2026-05-20 | 1 | 36,900원 |
 | 2026-05-24 | 1 | 234,000원 |
+| 2026-05-26 | 1 | 35,000원 |
 
 해석:
 
-- Google Ads API 리포트는 이미 2건을 전환으로 인식하고 있다.
-- 2026-05-26 전송분 35,000원은 아직 리포트에 안 보인다. 전송 시각이 2026-05-27 01:06 KST라서 Google Ads 집계 지연으로 보는 것이 자연스럽다.
+- Google Ads API 리포트는 3건을 전환으로 인식하고 있다.
+- 2026-05-26 전송분 35,000원은 2026-05-27 09:10 KST 재조회에서 반영 확인됐다.
+- 첨부 화면에서 `BI confirmed_purchase_offline` 상태가 `운영중`으로 바뀐 것도 이 API 리포트 반영과 일관된다.
 
 ### 4. 오프라인 전환 진단 요약
 
@@ -109,6 +114,22 @@ Google Ads API의 아래 두 진단 리소스를 조회했다.
 - API 권한/인증 실패가 아니다.
 - 전환 액션 ID 불일치도 아니다.
 - 다만 Google Ads의 오프라인 데이터 진단 요약 테이블은 아직 이 계정/액션에 대한 row를 만들지 않았다.
+- 2026-05-27 09:10 KST 및 10:20 KST 재조회에서도 진단 row는 0건이다. 실제 전환 리포트에는 반영됐으므로, 현재 판단 기준은 진단 summary보다 conversion action metrics를 우선한다.
+
+### 5. 자동 전송 cron 상태
+
+2026-05-27 09:10 KST 기준 최근 cron 로그:
+
+- `sourceCandidates`: 1
+- `readyCandidates`: 0
+- `externalSendCount`: 0
+- 차단 이유: `ledger_status_not_ready:sent`, `already_sent`
+
+해석:
+
+- 자동 전송기는 계속 돌고 있다.
+- 같은 주문을 다시 보내지 않도록 중복 차단이 작동한다.
+- 2026-05-26 35,000원 이후 추가 전송건은 없다.
 
 ## 현재 판단
 
@@ -118,7 +139,7 @@ Google Ads API의 아래 두 진단 리소스를 조회했다.
 
 이유:
 
-1. Google Ads API 리포트에서 이미 `BI confirmed_purchase_offline` 2건이 조회된다.
+1. Google Ads API 리포트에서 이미 `BI confirmed_purchase_offline` 3건이 조회된다.
 2. VM Cloud 전송 장부도 3건 모두 `sent`, Google 응답 `200`이다.
 3. 공식 문서상 API 전환 가져오기 상태는 오프라인 데이터 진단 리소스로 조회할 수 있고, 제품 데이터 소스 연결 화면은 별도 연결 옵션이다.
 
@@ -140,9 +161,9 @@ Google Ads API의 아래 두 진단 리소스를 조회했다.
 
 - `BI confirmed_purchase_offline` 리포트에 2026-05-26 또는 2026-05-27 날짜로 35,000원 전환이 잡힌다.
 
-실패 시 해석:
+결과:
 
-- 24시간 이상 안 보이면 업로드 시각, conversion time timezone, click id match, conversion action resource, consent 필드를 다시 분해한다.
+- 완료. 2026-05-27 09:10 KST 재조회에서 2026-05-26 날짜 35,000원 전환으로 확인됐다.
 
 ### 2. 오프라인 데이터 진단 row가 생기는지 확인
 
@@ -169,4 +190,3 @@ Google Ads API의 아래 두 진단 리소스를 조회했다.
 
 - 이 진단은 첫 전송 직후 Codex가 먼저 했어야 했다.
 - Google Ads UI가 빨간 배너를 보여줄 때, 단순 화면 해석에 머물지 말고 즉시 `offline conversion upload summary`와 conversion action metrics를 같이 조회했어야 한다.
-

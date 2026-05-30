@@ -39,6 +39,21 @@ import { categorizeProductName, normalizePhone } from "../consultation";
 import { normalizeOrderIdBase } from "../orderKeys";
 import { buildTikTokRoasComparison, buildTikTokRoasSummary } from "../tiktokRoasComparison";
 import { queryGA4PaidTrafficQuality, queryGA4SourceConversion } from "../ga4";
+import {
+  buildMetaAccountCircuitBreakerErrorFields,
+  getOpenMetaAccountCircuitBreaker,
+  isMetaRateLimitError,
+  normalizeMetaApiError,
+  openMetaAccountCircuitBreaker,
+  type MetaAccountCircuitBreakerSnapshot,
+  type MetaApiErrorDetail,
+} from "../metaAccountCircuitBreaker";
+import {
+  getMetaAccountRequestQueueSnapshot,
+  getMetaApiUsageSnapshots,
+  recordMetaApiUsageHeaders,
+  runMetaAccountRequest,
+} from "../metaAccountRequestQueue";
 
 const META_GRAPH_URL = "https://graph.facebook.com/v22.0";
 const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
@@ -183,7 +198,15 @@ type MetaInsightRow = {
 
 type MetaFetchResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      errorDetail?: MetaApiErrorDetail;
+      rateLimited?: boolean;
+      blockedByCircuitBreaker?: boolean;
+      retryAfterMs?: number;
+      circuitBreaker?: MetaAccountCircuitBreakerSnapshot;
+    };
 
 type RoasSummaryBody = Record<string, unknown> & {
   batch?: Record<string, unknown>;
@@ -1035,18 +1058,37 @@ const fetchMeta = async <T>(
   const token = getMetaToken(accountId);
   if (!token) return { ok: false, error: "META_ADMANAGER_API_KEY 미설정" };
 
+  const breaker = getOpenMetaAccountCircuitBreaker(accountId);
+  if (breaker) return { ok: false, ...buildMetaAccountCircuitBreakerErrorFields(breaker) };
+
   const url = new URL(`${META_GRAPH_URL}${path}`);
   url.searchParams.set("access_token", token);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
 
-  const response = await fetch(url.toString(), { signal: AbortSignal.timeout(15_000) });
+  const response = await runMetaAccountRequest(
+    accountId,
+    () => fetch(url.toString(), { signal: AbortSignal.timeout(15_000) }),
+    { method: "GET", path },
+  );
+  recordMetaApiUsageHeaders(accountId, response.headers, { method: "GET", path, status: response.status });
   const body = await response.json() as Record<string, unknown>;
 
   if (body.error) {
-    const error = body.error as { message?: string };
-    return { ok: false, error: error.message ?? "Meta API error" };
+    const errorDetail = normalizeMetaApiError(body.error);
+    const rateLimited = isMetaRateLimitError(errorDetail, response.status);
+    const circuitBreaker = rateLimited
+      ? openMetaAccountCircuitBreaker(accountId, errorDetail)
+      : null;
+    return {
+      ok: false,
+      error: errorDetail.message ?? "Meta API error",
+      errorDetail,
+      rateLimited,
+      retryAfterMs: circuitBreaker?.retry_after_ms,
+      circuitBreaker: circuitBreaker ?? undefined,
+    };
   }
 
   return { ok: true, data: body as T };
@@ -1255,6 +1297,9 @@ const fetchMetaPaged = async <T>(
   const token = getMetaToken(accountId);
   if (!token) return { ok: false, error: "META_ADMANAGER_API_KEY 미설정" };
 
+  const breaker = getOpenMetaAccountCircuitBreaker(accountId);
+  if (breaker) return { ok: false, ...buildMetaAccountCircuitBreakerErrorFields(breaker) };
+
   const firstUrl = new URL(`${META_GRAPH_URL}${path}`);
   firstUrl.searchParams.set("access_token", token);
   for (const [key, value] of Object.entries(params)) {
@@ -1264,10 +1309,30 @@ const fetchMetaPaged = async <T>(
   const rows: T[] = [];
   let nextUrl: string | null = firstUrl.toString();
   while (nextUrl && rows.length < maxRows) {
-    const response = await fetch(nextUrl, { signal: AbortSignal.timeout(15_000) });
+    const activeBreaker = getOpenMetaAccountCircuitBreaker(accountId);
+    if (activeBreaker) return { ok: false, ...buildMetaAccountCircuitBreakerErrorFields(activeBreaker) };
+    const requestUrl = nextUrl;
+    const response = await runMetaAccountRequest(
+      accountId,
+      () => fetch(requestUrl, { signal: AbortSignal.timeout(15_000) }),
+      { method: "GET", path },
+    );
+    recordMetaApiUsageHeaders(accountId, response.headers, { method: "GET", path, status: response.status });
     const body = await response.json() as MetaPagedResponse<T> & { error?: { message?: string } };
     if (body.error) {
-      return { ok: false, error: body.error.message ?? "Meta API error" };
+      const errorDetail = normalizeMetaApiError(body.error);
+      const rateLimited = isMetaRateLimitError(errorDetail, response.status);
+      const circuitBreaker = rateLimited
+        ? openMetaAccountCircuitBreaker(accountId, errorDetail)
+        : null;
+      return {
+        ok: false,
+        error: errorDetail.message ?? "Meta API error",
+        errorDetail,
+        rateLimited,
+        retryAfterMs: circuitBreaker?.retry_after_ms,
+        circuitBreaker: circuitBreaker ?? undefined,
+      };
     }
     rows.push(...(body.data ?? []));
     nextUrl = body.paging?.next ?? null;
@@ -1319,6 +1384,16 @@ const META_AD_CREATIVE_EVIDENCE_FIELDS = [
   "name",
   "thumbnail_url",
   "image_url",
+  "url_tags",
+  "link_url",
+  "object_url",
+  "object_story_spec",
+  "asset_feed_spec",
+  "instagram_permalink_url",
+].join(",");
+const META_AD_CREATIVE_URL_INVENTORY_FIELDS = [
+  "id",
+  "name",
   "url_tags",
   "link_url",
   "object_url",
@@ -3460,6 +3535,8 @@ type MetaUtmAdEntity = {
   status?: string;
   effective_status?: string;
   configured_status?: string;
+  updated_time?: string;
+  created_time?: string;
   creative?: MetaUtmCreative;
 };
 
@@ -3823,6 +3900,22 @@ const isMetaActiveLike = (status: string, spend: number): boolean => {
   ].includes(normalized);
 };
 
+const isMetaConfiguredOn = (entity: {
+  status?: string;
+  effective_status?: string;
+  configured_status?: string;
+}): boolean => {
+  const configured = (entity.configured_status || entity.status || "").trim().toUpperCase();
+  const effective = (entity.effective_status || entity.status || "").trim().toUpperCase();
+  return configured === "ACTIVE" && [
+    "ACTIVE",
+    "IN_PROCESS",
+    "PENDING_REVIEW",
+    "PREAPPROVED",
+    "WITH_ISSUES",
+  ].includes(effective);
+};
+
 const parseMetaUtmBudget = (
   entity: { daily_budget?: string; lifetime_budget?: string } | undefined,
   source: MetaUtmBudget["source"],
@@ -3886,6 +3979,35 @@ const collectCreativeTrackingValues = (creative: MetaUtmCreative | undefined): s
     instagram_permalink_url: creative?.instagram_permalink_url,
   })
 );
+
+const creativeValuesText = (ad: Pick<MetaUtmAdEntity, "creative">): string => (
+  collectCreativeTrackingValues(ad.creative).join("\n")
+);
+
+const hasAnyMetaUtmTrackingValue = (ad: Pick<MetaUtmAdEntity, "creative">): boolean => {
+  const text = creativeValuesText(ad);
+  return /\butm_(source|medium|campaign|term|content|id)=/i.test(text)
+    || /\b(campaign_alias|meta_campaign_id|meta_adset_id|meta_ad_id)=/i.test(text);
+};
+
+const hasStandardMetaDynamicUtmTemplate = (ad: Pick<MetaUtmAdEntity, "creative">): boolean => {
+  const text = creativeValuesText(ad);
+  return /utm_source=meta/i.test(text)
+    && /utm_medium=paid_social/i.test(text)
+    && /\{\{campaign\.id\}\}/.test(text)
+    && /\{\{adset\.id\}\}/.test(text)
+    && /\{\{ad\.id\}\}/.test(text);
+};
+
+const hasStaticMetaAliasUtmTemplate = (ad: Pick<MetaUtmAdEntity, "creative">): boolean => (
+  /utm_(source|medium|campaign|content)=meta_biocom_/i.test(creativeValuesText(ad))
+  || /campaign_alias=meta_biocom_/i.test(creativeValuesText(ad))
+);
+
+const isMetaCdnOnlyCreative = (ad: Pick<MetaUtmAdEntity, "creative">): boolean => {
+  const text = creativeValuesText(ad);
+  return /fbcdn\.net|cdninstagram\.com/i.test(text) && !/biocom\.kr|utm_/i.test(text);
+};
 
 const buildAdUtmEvidence = (
   ad: MetaUtmAdEntity,
@@ -3965,14 +4087,14 @@ const aggregateUtmEvidence = (evidences: MetaUtmEvidence[]): MetaUtmEvidence => 
   const hasCampaignId = evidences.length > 0 && evidences.every((item) => item.hasCampaignId);
   const hasAdsetId = evidences.length > 0 && evidences.every((item) => item.hasAdsetId);
   const hasAdId = evidences.length > 0 && evidences.every((item) => item.hasAdId);
-  if (readyAdCount > 0) reasons.add(`UTM 준비 광고 ${readyAdCount}개`);
-  if (blockedAdCount > 0) reasons.add(`UTM 보완 필요 광고 ${blockedAdCount}개`);
+  if (readyAdCount > 0) reasons.add(`A 확정 가능 광고 ${readyAdCount}개`);
+  if (blockedAdCount > 0) reasons.add(`B/C 확인 필요 광고 ${blockedAdCount}개`);
   addMissing(evidences.length > 0, "하위 광고 URL evidence 없음");
-  addMissing(hasMetaSource, "일부 광고의 utm_source 보완 필요");
-  addMissing(hasPaidMedium, "일부 광고의 utm_medium 보완 필요");
-  addMissing(hasCampaignId, "일부 광고의 campaign id 보완 필요");
-  addMissing(hasAdsetId, "일부 광고의 adset id 보완 필요");
-  addMissing(hasAdId, "일부 광고의 ad id 보완 필요");
+  addMissing(hasMetaSource, "일부 광고의 utm_source 확인 필요");
+  addMissing(hasPaidMedium, "일부 광고의 utm_medium 확인 필요");
+  addMissing(hasCampaignId, "일부 광고의 campaign id 확인 필요");
+  addMissing(hasAdsetId, "일부 광고의 adset id 확인 필요");
+  addMissing(hasAdId, "일부 광고의 ad id 확인 필요");
 
   return {
     hasMetaSource,
@@ -4039,6 +4161,148 @@ const buildMetaUtmAtt = (params: {
   scope: params.scope,
   calculable: params.calculable,
 });
+
+type MetaUtmLiveInventoryAdRow = {
+  adId: string;
+  adName: string;
+  adsetId: string;
+  adsetName: string;
+  campaignId: string;
+  campaignName: string;
+  status: string;
+  effectiveStatus: string;
+  updatedTime: string | null;
+  urlTags: string | null;
+  sampleUrl: string | null;
+  evidenceReasons: string[];
+};
+
+const toMetaUtmLiveInventoryAdRow = (
+  ad: MetaUtmAdEntity,
+  adsetById: Map<string, MetaUtmAdsetEntity>,
+): MetaUtmLiveInventoryAdRow => {
+  const evidence = buildAdUtmEvidence(ad);
+  const adset = adsetById.get(ad.adset_id ?? "");
+  return {
+    adId: ad.id,
+    adName: ad.name ?? ad.id,
+    adsetId: ad.adset_id ?? ad.adset?.id ?? "",
+    adsetName: adset?.name ?? ad.adset?.name ?? "",
+    campaignId: ad.campaign_id ?? ad.campaign?.id ?? "",
+    campaignName: ad.campaign?.name ?? adset?.campaign?.name ?? "",
+    status: ad.status ?? ad.configured_status ?? "",
+    effectiveStatus: ad.effective_status ?? "",
+    updatedTime: ad.updated_time ?? null,
+    urlTags: ad.creative?.url_tags ?? null,
+    sampleUrl: evidence.sampleUrl,
+    evidenceReasons: evidence.reasons,
+  };
+};
+
+const buildMetaUtmLiveInventory = async (accountId: string) => {
+  const [adsetResult, adResult] = await Promise.all([
+    fetchMetaPaged<MetaUtmAdsetEntity>(
+      `/${accountId}/adsets`,
+      {
+        fields: [
+          "id",
+          "name",
+          "campaign_id",
+          "campaign{id,name}",
+          "status",
+          "effective_status",
+          "configured_status",
+          "updated_time",
+          "created_time",
+        ].join(","),
+        limit: "200",
+      },
+      1000,
+    ),
+    fetchMetaPaged<MetaUtmAdEntity>(
+      `/${accountId}/ads`,
+      {
+        fields: [
+          "id",
+          "name",
+          "adset_id",
+          "campaign_id",
+          "status",
+          "effective_status",
+          "configured_status",
+          "updated_time",
+          "created_time",
+          `creative{${META_AD_CREATIVE_URL_INVENTORY_FIELDS}}`,
+        ].join(","),
+        effective_status: JSON.stringify(["ACTIVE", "IN_PROCESS", "PENDING_REVIEW", "PREAPPROVED", "WITH_ISSUES"]),
+        limit: "200",
+      },
+      500,
+    ),
+  ]);
+
+  if (!adsetResult.ok || !adResult.ok) {
+    throw new Error([
+      adsetResult.ok ? null : `adsets: ${adsetResult.error}`,
+      adResult.ok ? null : `ads: ${adResult.error}`,
+    ].filter(Boolean).join(" / "));
+  }
+
+  const adsets = adsetResult.data;
+  const ads = adResult.data;
+  const adsetById = new Map(adsets.map((adset) => [adset.id, adset]));
+  const onAds = ads.filter(isMetaConfiguredOn);
+  const offAds = ads.filter((ad) => !isMetaConfiguredOn(ad));
+  const activeAdsetIds = new Set(onAds.map((ad) => ad.adset_id ?? "").filter(Boolean));
+  const activeAdsets = adsets.filter((adset) => activeAdsetIds.has(adset.id) || isMetaConfiguredOn(adset));
+  const missingTrackingAds = onAds.filter((ad) => !hasAnyMetaUtmTrackingValue(ad));
+  const standardDynamicAds = onAds.filter(hasStandardMetaDynamicUtmTemplate);
+  const staticAliasAds = onAds.filter((ad) => (
+    !hasStandardMetaDynamicUtmTemplate(ad) && hasStaticMetaAliasUtmTemplate(ad)
+  ));
+  const cdnOnlyAds = onAds.filter(isMetaCdnOnlyCreative);
+  const adsetsWithMissingTracking = [...new Set(missingTrackingAds.map((ad) => ad.adset_id ?? "").filter(Boolean))]
+    .map((adsetId) => {
+      const adset = adsetById.get(adsetId);
+      return {
+        adsetId,
+        adsetName: adset?.name ?? "",
+        campaignId: adset?.campaign_id ?? adset?.campaign?.id ?? "",
+        campaignName: adset?.campaign?.name ?? "",
+        missingAds: missingTrackingAds.filter((ad) => ad.adset_id === adsetId).length,
+      };
+    });
+
+  return {
+    ok: true,
+    account_id: accountId,
+    checked_at: new Date().toISOString(),
+    source: "Meta Marketing API live read-only /ads + /adsets creative URL inventory only; no spend/ROAS insights",
+    decision_note: "광고 OFF 상태는 status/configured_status가 ACTIVE가 아닌 광고로 보아 제외했다. 이 점검은 URL/URL Parameters 등록 여부만 빠르게 확인하며, ROAS 수치는 별도 diagnostics cache를 사용한다.",
+    summary: {
+      adsetsTotal: adsets.length,
+      adsTotal: ads.length,
+      onAds: onAds.length,
+      offOrNotActiveAds: offAds.length,
+      activeAdsets: activeAdsets.length,
+      onAdsWithAnyUtmOrMetaParam: onAds.length - missingTrackingAds.length,
+      onAdsWithoutAnyUtmOrMetaParam: missingTrackingAds.length,
+      onAdsStandardDynamicTemplate: standardDynamicAds.length,
+      onAdsStaticAliasTemplate: staticAliasAds.length,
+      onAdsCdnOnly: cdnOnlyAds.length,
+      adsetsWithOnAdsMissingTracking: adsetsWithMissingTracking.length,
+    },
+    adsetsWithMissingTracking,
+    missingTrackingAds: missingTrackingAds.slice(0, 50).map((ad) => toMetaUtmLiveInventoryAdRow(ad, adsetById)),
+    staticAliasAds: staticAliasAds.slice(0, 25).map((ad) => toMetaUtmLiveInventoryAdRow(ad, adsetById)),
+    cdnOnlyAds: cdnOnlyAds.slice(0, 25).map((ad) => toMetaUtmLiveInventoryAdRow(ad, adsetById)),
+    limitations: [
+      "이 응답은 광고 설정값 확인용이다. 최근 7일 지출/구매값/ATT ROAS는 포함하지 않는다.",
+      "status가 ACTIVE인 오래된 상시 광고도 포함될 수 있으므로, 최근 7일 지출 여부는 전체 UTM 진단 표와 함께 본다.",
+      "정적 alias UTM은 유입 구분에는 도움이 되지만 숫자 campaign/adset/ad ID가 아니면 A 확정으로 자동 승급하지 않는다.",
+    ],
+  };
+};
 
 const META_UTM_MATCH_THRESHOLD = 85;
 
@@ -4277,7 +4541,7 @@ const applyManualMetaUtmUrlEvidenceDraft = (
       basis: [
         ...row.match.basis,
         "Ads Manager URL read-only evidence로 UTM alias 확인",
-        "숫자 campaign/adset/ad ID는 URL에 없어서 Section A 확정은 보류",
+        "숫자 campaign/adset/ad ID는 URL에 없어서 A 확정은 보류",
       ],
     });
     if (match.rate <= row.match.rate) return row;
@@ -4512,7 +4776,7 @@ const classifyMetaUtmUnmappedOrderDryRun = (order: NormalizedLedgerOrder): MetaU
       confidence: 0.74,
       matchedUtmAlias: campaign || source || content,
       matchedChannelBucket: "meta_paid_or_meta_candidate",
-      recommendation: "Meta alias 후보지만 숫자 ID 또는 최신 Meta API URL evidence 확인 전에는 B급 제안으로만 유지한다.",
+      recommendation: "Meta alias 후보지만 숫자 ID 또는 최신 Meta API URL evidence 확인 전에는 B 준확정 제안으로만 유지한다.",
       evidence,
     });
   }
@@ -4687,7 +4951,15 @@ const buildMetaUtmUnmappedOrderSummary = (params: {
 };
 
 const META_UTM_BGRADE_CACHE_TTL_MS = 5 * 60 * 1000;
+const META_UTM_ALIAS_SUMMARY_CACHE_TTL_MS = 10 * 60 * 1000;
+const META_UTM_CDN_ONLY_SUPPLEMENT_MIN_SCORE = 92;
+const META_UTM_CDN_ONLY_SUPPLEMENT_MIN_GAP = 15;
 let metaUtmBGradeProposalCache: { loadedAtMs: number; value: MetaUtmBGradeProposal } | null = null;
+let metaUtmAliasSummaryCache: {
+  loadedAtMs: number;
+  sourcePath: string | null;
+  records: Record<string, string>[];
+} | null = null;
 let metaUtmOriginalLandingBridgeCache: {
   loadedAtMs: number;
   value: MetaUtmOriginalLandingBridge;
@@ -4762,9 +5034,245 @@ const parseMetaUtmCsvRecords = (content: string): Record<string, string>[] => {
   });
 };
 
+const mergeMetaUtmBGradeRecords = (...recordGroups: Record<string, string>[][]): Record<string, string>[] => {
+  const merged = new Map<string, Record<string, string>>();
+  for (const records of recordGroups) {
+    for (const record of records) {
+      const aliasKey = (record.alias_key ?? "").trim();
+      if (!aliasKey) continue;
+      merged.set(aliasKey, record);
+    }
+  }
+  return [...merged.values()];
+};
+
 const toMetaUtmBGradeNumber = (value: unknown): number => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const loadMetaUtmAliasSummaryRecords = async (): Promise<{
+  sourcePath: string | null;
+  records: Record<string, string>[];
+}> => {
+  if (
+    metaUtmAliasSummaryCache
+    && Date.now() - metaUtmAliasSummaryCache.loadedAtMs <= META_UTM_ALIAS_SUMMARY_CACHE_TTL_MS
+  ) {
+    return {
+      sourcePath: metaUtmAliasSummaryCache.sourcePath,
+      records: metaUtmAliasSummaryCache.records,
+    };
+  }
+
+  const sourcePath = await findLatestGeneratedFile(
+    UTM_DIR,
+    "biocom-utm-alias-summary-",
+    ".csv",
+  );
+  if (!sourcePath) {
+    metaUtmAliasSummaryCache = { loadedAtMs: Date.now(), sourcePath: null, records: [] };
+    return { sourcePath: null, records: [] };
+  }
+
+  const raw = await fs.readFile(sourcePath, "utf-8");
+  const records = parseMetaUtmCsvRecords(raw);
+  metaUtmAliasSummaryCache = { loadedAtMs: Date.now(), sourcePath, records };
+  return { sourcePath, records };
+};
+
+const normalizeMetaUtmCandidateText = (value: string | null | undefined) => (
+  (value ?? "").toLowerCase().replace(/[^a-z0-9가-힣]+/g, " ")
+);
+
+const isMetaCdnCreativeUrl = (value: string | null | undefined): boolean => {
+  if (!value) return false;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host.includes("fbcdn.net") || host.startsWith("scontent.");
+  } catch {
+    const lowered = value.toLowerCase();
+    return lowered.includes("fbcdn.net") || lowered.includes("scontent-");
+  }
+};
+
+const isCdnOnlySpendAdsetRow = (row: MetaUtmRow): boolean => (
+  row.level === "adset"
+  && row.metrics.spend > 0
+  && row.section !== "ready"
+  && isMetaCdnCreativeUrl(row.evidence.sampleUrl)
+  && !row.evidence.sampleTags
+  && !row.evidence.hasCampaignId
+  && !row.evidence.hasAdsetId
+  && !row.evidence.hasAdId
+);
+
+const scoreCdnOnlyAliasCandidate = (
+  row: MetaUtmRow,
+  record: Record<string, string>,
+): { score: number; reasons: string[] } => {
+  const alias = record.primary_alias_key ?? "";
+  const sourceText = normalizeMetaUtmCandidateText([
+    alias,
+    record.example_management_memo,
+    record.example_generated_url,
+    record.product_family_top,
+    record.suggested_grade_top,
+    record.landing_paths,
+  ].join(" "));
+  const metaText = normalizeMetaUtmCandidateText(`${row.name} ${row.campaignName}`);
+  const reasons: string[] = [];
+  let score = 0;
+
+  if ((record.channel_bucket_top ?? "").includes("meta")) {
+    score += 10;
+    reasons.push("UTM 파일에서 Meta 후보");
+  }
+  if ((record.suggested_grade_top ?? "").includes("B_alias_candidate")) {
+    score += 10;
+    reasons.push("UTM 파일상 B alias 후보");
+  }
+  if (Number(record.row_count) === 1) {
+    score += 5;
+    reasons.push("UTM 파일에서 고유 alias 1건");
+  }
+  if (metaText.includes("acid") && sourceText.includes("acid")) {
+    score += 20;
+    reasons.push("acid 키워드 일치");
+  }
+  if (metaText.includes("reel") && sourceText.includes("reel")) {
+    score += 18;
+    reasons.push("reel 키워드 일치");
+  }
+  if (metaText.includes("pregnancy") && sourceText.includes("pregnancy")) {
+    score += 12;
+    reasons.push("pregnancy 키워드 일치");
+  }
+  if (metaText.includes("acid") && record.product_family_top === "organicacid") {
+    score += 18;
+    reasons.push("상품군 organicacid 일치");
+  }
+  if (row.name.includes("acid_reel") && sourceText.includes("pregnancyreel")) {
+    score += 20;
+    reasons.push("acid_reel과 pregnancyreel 강한 일치");
+  }
+
+  return { score, reasons };
+};
+
+const buildMetaUtmCdnOnlyBGradeSupplements = async (
+  record: Record<string, unknown>,
+  existingAliasKeys: Set<string>,
+): Promise<{
+  sourcePath: string | null;
+  rows: MetaUtmBGradeProposalRow[];
+  detected: number;
+  duplicateAliases: string[];
+}> => {
+  if (!Array.isArray(record.rows)) {
+    return { sourcePath: null, rows: [], detected: 0, duplicateAliases: [] };
+  }
+  const { sourcePath, records } = await loadMetaUtmAliasSummaryRecords();
+  if (records.length === 0) return { sourcePath, rows: [], detected: 0, duplicateAliases: [] };
+
+  const metaAliasRecords = records.filter((item) => (
+    (item.channel_bucket_top ?? "").includes("meta")
+    && (item.suggested_grade_top ?? "").includes("B_alias_candidate")
+    && Number(item.row_count) === 1
+  ));
+  const supplementRows: MetaUtmBGradeProposalRow[] = [];
+  const duplicateAliases: string[] = [];
+  let detected = 0;
+
+  for (const rawRow of record.rows as MetaUtmRow[]) {
+    if (!isCdnOnlySpendAdsetRow(rawRow)) continue;
+    const scored = metaAliasRecords
+      .map((candidate) => ({ candidate, ...scoreCdnOnlyAliasCandidate(rawRow, candidate) }))
+      .filter((candidate) => candidate.score >= META_UTM_CDN_ONLY_SUPPLEMENT_MIN_SCORE)
+      .sort((a, b) => b.score - a.score);
+    const best = scored[0];
+    if (!best) continue;
+    const secondScore = scored[1]?.score ?? 0;
+    if (best.score - secondScore < META_UTM_CDN_ONLY_SUPPLEMENT_MIN_GAP) continue;
+
+    const aliasKey = best.candidate.primary_alias_key ?? "";
+    if (!aliasKey) continue;
+    detected += 1;
+    if (existingAliasKeys.has(aliasKey)) {
+      duplicateAliases.push(aliasKey);
+      continue;
+    }
+
+    supplementRows.push({
+      aliasKey,
+      proposalGrade: "B_alias_cdn_only_spend_adset_supplement",
+      proposalStatus: "proposal_only_do_not_auto_confirm",
+      proposedCampaignId: rawRow.campaignId,
+      proposedCampaignName: rawRow.campaignName,
+      sourceRow: `auto_cdn_only_adset:${rawRow.adsetId ?? rawRow.rowKey}`,
+      managementMemo: best.candidate.example_management_memo ?? rawRow.name,
+      landingPath: best.candidate.landing_paths ?? "",
+      ledgerPathCandidates: best.candidate.ledger_path_candidates ?? "",
+      utmSource: aliasKey,
+      utmCampaign: aliasKey,
+      utmContent: aliasKey,
+      channelBucket: best.candidate.channel_bucket_top ?? "meta_paid_or_meta_candidate",
+      productFamilyHint: best.candidate.product_family_top ?? "",
+      auditRange: "current_meta_utm_diagnostics",
+      confidence: Math.min(0.84, Math.max(0.76, best.score / 120)),
+      whyNotAutoConfirm: [
+        "Meta API가 실제 랜딩 URL 대신 CDN 이미지 URL만 반환한 지출 광고세트다.",
+        "UTM 파일의 고유 alias와 광고세트명이 강하게 일치하지만 숫자 campaign/adset/ad ID 증거가 없어 자동 확정하지 않는다.",
+        `근거: ${best.reasons.join(", ")}`,
+      ].join(" "),
+      nextAction: "Ads Manager 실제 웹사이트 URL/URL Parameters 또는 export로 숫자 ID 확인 후 A 확정/수동확정 승급",
+    });
+    existingAliasKeys.add(aliasKey);
+  }
+
+  return { sourcePath, rows: supplementRows, detected, duplicateAliases };
+};
+
+const augmentMetaUtmBGradeProposalWithCdnOnlySupplements = async (
+  proposal: MetaUtmBGradeProposal,
+  record: Record<string, unknown>,
+): Promise<MetaUtmBGradeProposal> => {
+  if (proposal.status !== "loaded") return proposal;
+  const existingAliasKeys = new Set(proposal.rows.map((row) => row.aliasKey).filter(Boolean));
+  const supplements = await buildMetaUtmCdnOnlyBGradeSupplements(record, existingAliasKeys);
+  if (supplements.detected === 0 && supplements.rows.length === 0) return proposal;
+
+  const mergedRows = [...proposal.rows, ...supplements.rows];
+  const supplementSummary = [
+    `CDN-only 보강 룰: 현재 지출 있고 API가 CDN 이미지만 준 광고세트에서 후보 ${supplements.detected}개 감지`,
+    supplements.rows.length > 0 ? `신규 B 준확정 보강 후보 ${supplements.rows.length}개 추가` : "",
+    supplements.duplicateAliases.length > 0 ? `기존 사전과 중복 ${supplements.duplicateAliases.length}개(${supplements.duplicateAliases.join(", ")})는 기존 근거 유지` : "",
+  ].filter(Boolean).join(" · ");
+
+  return {
+    ...proposal,
+    source: {
+      ...proposal.source,
+      dictionaryPath: supplements.sourcePath
+        ? `${proposal.source.dictionaryPath ?? "B 준확정 사전"} + ${supplements.sourcePath}`
+        : proposal.source.dictionaryPath,
+    },
+    stats: {
+      ...proposal.stats,
+      proposalSingleCampaign: mergedRows.filter((row) => (
+        row.proposalGrade.includes("single_campaign")
+        || row.proposalGrade.includes("supplement")
+      )).length,
+      proposalRows: mergedRows.length,
+      noCurrentAuditMatch: Math.max(0, proposal.stats.noCurrentAuditMatch - supplements.rows.length),
+    },
+    rows: mergedRows,
+    limitations: [...new Set([
+      ...proposal.limitations,
+      supplementSummary,
+      "CDN-only 보강 후보는 광고세트/캠페인 후보를 빠르게 찾기 위한 보조 신호이며 ATT ROAS에는 자동 반영하지 않는다.",
+    ].filter(Boolean))],
+  };
 };
 
 const buildMetaUtmBGradeMissingProposal = (
@@ -4812,11 +5320,16 @@ const loadMetaUtmBGradeProposal = async (): Promise<MetaUtmBGradeProposal> => {
       "biocom-meta-bgrade-alias-proposal-summary-",
       ".json",
     );
+    const manualOverridePath = await findLatestGeneratedFile(
+      UTM_DIR,
+      "biocom-meta-bgrade-alias-proposal-manual-overrides-",
+      ".csv",
+    );
 
     if (!dictionaryPath || !summaryPath) {
       const missing = buildMetaUtmBGradeMissingProposal(
         "missing",
-        "B급 제안 사전 CSV/JSON 산출물이 아직 없어 화면에는 요약을 표시하지 않는다.",
+        "B 준확정 제안 사전 CSV/JSON 산출물이 아직 없어 화면에는 요약을 표시하지 않는다.",
       );
       metaUtmBGradeProposalCache = { loadedAtMs: Date.now(), value: missing };
       return missing;
@@ -4826,12 +5339,17 @@ const loadMetaUtmBGradeProposal = async (): Promise<MetaUtmBGradeProposal> => {
       fs.readFile(dictionaryPath, "utf-8"),
       fs.readFile(summaryPath, "utf-8"),
     ]);
+    const manualOverrideRaw = manualOverridePath
+      ? await fs.readFile(manualOverridePath, "utf-8")
+      : "";
     const summary = JSON.parse(summaryRaw) as {
       run_at_kst?: unknown;
       stats?: Record<string, unknown>;
     };
     const stats = summary.stats ?? {};
-    const records = parseMetaUtmCsvRecords(csvRaw);
+    const baseRecords = parseMetaUtmCsvRecords(csvRaw);
+    const manualOverrideRecords = manualOverrideRaw ? parseMetaUtmCsvRecords(manualOverrideRaw) : [];
+    const records = mergeMetaUtmBGradeRecords(baseRecords, manualOverrideRecords);
     const rows: MetaUtmBGradeProposalRow[] = records.map((record) => ({
       aliasKey: record.alias_key ?? "",
       proposalGrade: record.proposal_grade ?? "",
@@ -4860,17 +5378,20 @@ const loadMetaUtmBGradeProposal = async (): Promise<MetaUtmBGradeProposal> => {
       status: "loaded",
       mode: "proposal_only_do_not_auto_confirm",
       source: {
-        dictionaryPath,
+        dictionaryPath: manualOverridePath ? `${dictionaryPath} + ${manualOverridePath}` : dictionaryPath,
         summaryPath,
         generatedAtKst: typeof summary.run_at_kst === "string" ? summary.run_at_kst : null,
       },
       stats: {
         uniqueMetaishAliases: toMetaUtmBGradeNumber(stats.unique_metaish_aliases),
         alreadyInManualSeed: toMetaUtmBGradeNumber(stats.already_in_manual_seed),
-        proposalSingleCampaign: toMetaUtmBGradeNumber(stats.b_grade_proposal_single_campaign),
+        proposalSingleCampaign: rows.filter((row) => row.proposalGrade.includes("single_campaign")).length,
         multiCampaignKeepSplit: toMetaUtmBGradeNumber(stats.multi_campaign_keep_split),
-        noCurrentAuditMatch: toMetaUtmBGradeNumber(stats.no_current_audit_match),
-        proposalRows: toMetaUtmBGradeNumber(stats.b_grade_proposal_rows || rows.length),
+        noCurrentAuditMatch: Math.max(
+          0,
+          toMetaUtmBGradeNumber(stats.no_current_audit_match) - manualOverrideRecords.length,
+        ),
+        proposalRows: rows.length,
         auditGeneratedAt: typeof stats.audit_generated_at === "string" ? stats.audit_generated_at : null,
         auditRange: auditRange
           ? {
@@ -4882,7 +5403,10 @@ const loadMetaUtmBGradeProposal = async (): Promise<MetaUtmBGradeProposal> => {
       rows,
       limitations: [
         "자동 확정 금지: UTM 파일과 과거 Meta URL audit에서 단일 캠페인으로 보이는 후보일 뿐이다.",
-        "최신 Meta API URL evidence 또는 그로스팀 Ads Manager export로 숫자 ID 확인 후 manual_verified로 승급한다.",
+        manualOverridePath
+          ? "수동 보강 포함: TJ님 Ads Manager read-only 확인값은 별도 overlay CSV로 합쳐 보여준다."
+          : "수동 보강 없음: 현재는 자동 생성 CSV만 표시한다.",
+        "최신 Meta API URL evidence 또는 그로스팀 Ads Manager export로 숫자 ID 확인 후 A 확정 또는 manual_verified로 승급한다.",
       ],
     };
     metaUtmBGradeProposalCache = { loadedAtMs: Date.now(), value: proposal };
@@ -4890,7 +5414,7 @@ const loadMetaUtmBGradeProposal = async (): Promise<MetaUtmBGradeProposal> => {
   } catch (error) {
     const failed = buildMetaUtmBGradeMissingProposal(
       "error",
-      error instanceof Error ? error.message : "B급 제안 사전 로딩 실패",
+      error instanceof Error ? error.message : "B 준확정 제안 사전 로딩 실패",
     );
     metaUtmBGradeProposalCache = { loadedAtMs: Date.now(), value: failed };
     return failed;
@@ -5043,7 +5567,7 @@ const loadMetaUtmOriginalLandingBridge = async (site: SiteKey | null): Promise<M
       campaignRollup,
       recommendations: [
         "고객 유입 장부에 원본 랜딩 path가 없을 때 결제/체크아웃 원장의 imweb_landing_url을 보조 증거로 보여준다.",
-        "숫자 campaign/adset/ad ID가 있는 row는 A급 매칭 재료로 표시한다.",
+        "숫자 campaign/adset/ad ID가 있는 row는 A 확정 매칭 재료로 표시한다.",
         "템플릿 문구가 그대로 남은 row는 Meta 유료 유입 보조 매출로만 보고 campaign/adset/ad 자동 배정은 금지한다.",
         ...proposedUse,
       ],
@@ -5139,9 +5663,12 @@ const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<
   const site = findSiteAccountByAccountId(accountId)?.site ?? null;
   const rowAugmentedRecord = applyManualMetaUtmUrlEvidenceDraft(record, site);
   const unmapped = rowAugmentedRecord.unmapped as MetaUtmUnmappedOrderSummary | undefined;
-  const bGradeProposal = site === "biocom"
+  const bGradeProposalBase = site === "biocom"
     ? await loadMetaUtmBGradeProposal()
-    : buildMetaUtmBGradeMissingProposal("not_applicable", "B급 제안 사전은 현재 biocom 계정 전용이다.");
+    : buildMetaUtmBGradeMissingProposal("not_applicable", "B 준확정 제안 사전은 현재 biocom 계정 전용이다.");
+  const bGradeProposal = site === "biocom"
+    ? await augmentMetaUtmBGradeProposalWithCdnOnlySupplements(bGradeProposalBase, record)
+    : bGradeProposalBase;
   const originalLandingBridge = await loadMetaUtmOriginalLandingBridge(site);
   const unmappedDryRun = applyApprovedMetaUtmExclusionSummaryMode(
     unmapped?.dryRun ?? buildMetaUtmDryRunFromCachedSamples(unmapped),
@@ -5164,9 +5691,9 @@ const withMetaUtmDiagnosticsLocalDrafts = async (body: unknown): Promise<Record<
   const nextLimitations = [
     ...existingLimitations,
     "승인된 비Meta 오분류 제외 규칙은 Meta 미매칭/ROAS용 집계에 적용한다. REVIEW bucket은 제외하지 않는다.",
-    "B급 제안 사전은 자동 확정이 아니라 후보 사전이다. 최신 URL/숫자 ID evidence 확인 전 manual_verified로 승격하지 않는다.",
+    "B 준확정 제안 사전은 자동 확정이 아니라 후보 사전이다. 최신 URL/숫자 ID evidence 확인 전 manual_verified로 승격하지 않는다.",
     "원본 랜딩 bridge는 고객 유입 장부가 놓친 원본 랜딩 후보를 화면에 보이는 read-only 보조 증거다. 현재 ROAS 산식에는 직접 반영하지 않는다.",
-    "TJ님이 Ads Manager에서 직접 확인한 URL evidence는 UTM 있음/숫자 ID 보완 필요 판정에만 사용하며, 운영 DB와 Meta 광고 설정은 바꾸지 않는다.",
+    "TJ님이 Ads Manager에서 직접 확인한 URL evidence는 UTM 있음/B 준확정 또는 C 후보 판정에만 사용하며, 운영 DB와 Meta 광고 설정은 바꾸지 않는다.",
   ];
 
   return {
@@ -5645,8 +6172,8 @@ const buildMetaUtmDiagnostics = async (params: {
         "Ads Manager의 게재 문구는 Meta API effective_status와 adset learning_stage_info를 기준으로 근사한다.",
         "광고세트/광고 단위 ATT ROAS는 주문 원장에 adset id 또는 ad id가 남은 경우에만 정확히 계산한다.",
         "campaign 단위 ATT ROAS는 기존 /api/ads/roas와 같은 VM Cloud attribution ledger + Meta evidence 기준이다.",
-        `Section A는 매칭율 ${META_UTM_MATCH_THRESHOLD}% 이상이다. UTM 완전성만 보지 않고 내부 주문 ID evidence와 광고 URL의 campaign/adset/ad ID 또는 dynamic macro를 함께 본다.`,
-        "Section C 미맵핑 주문은 결제완료 Meta evidence는 있으나 campaign id/adset id/ad id/alias/landing path 기준으로 단일 캠페인 확정에 실패한 건이다.",
+        `A 확정은 매칭율 ${META_UTM_MATCH_THRESHOLD}% 이상이다. UTM 완전성만 보지 않고 내부 주문 ID evidence와 광고 URL의 campaign/adset/ad ID 또는 dynamic macro를 함께 본다.`,
+        "D 미맵핑 주문은 결제완료 Meta evidence는 있으나 campaign id/adset id/ad id/alias/landing path 기준으로 단일 캠페인 확정에 실패한 건이다.",
       ],
     },
     performance: {
@@ -7273,6 +7800,57 @@ const buildTikTokPaymentEvidenceSummary = (
 export const createAdsRouter = () => {
   startMetaMappingWarmupOnce();
   const router = express.Router();
+
+  router.get("/api/ads/meta-api-health", (_req: Request, res: Response) => {
+    res.json({
+      ok: true,
+      queue: getMetaAccountRequestQueueSnapshot(),
+      usage_headers: getMetaApiUsageSnapshots(),
+      note: "queue counters are local-process live Meta calls only; Meta usage headers appear only when Meta includes them in responses.",
+    });
+  });
+
+  router.get("/api/ads/meta-utm-live-inventory", async (req: Request, res: Response) => {
+    let cacheKey = "";
+    try {
+      const accountId = typeof req.query.account_id === "string" ? req.query.account_id.trim() : "";
+      if (!accountId) {
+        res.status(400).json({ ok: false, error: "account_id 필요" });
+        return;
+      }
+      const forceRefresh = req.query.force === "true" || req.query.force === "1";
+      cacheKey = `meta-utm-live-inventory:${accountId}`;
+      if (!forceRefresh) {
+        const cached = getAdsLazyCached(cacheKey);
+        if (cached) {
+          res.json({ ...(cached.result as object), cache: buildAdsCacheMeta(cached, "lazy_cache_hit") });
+          return;
+        }
+      }
+
+      const responseBody = await buildMetaUtmLiveInventory(accountId);
+      const cached = setAdsLazyCached(cacheKey, responseBody, 5 * 60 * 1000);
+      res.json({ ...responseBody, cache: buildAdsCacheMeta(cached, forceRefresh ? "live_force" : "live_cache_miss") });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "meta utm live inventory failed";
+      if (cacheKey) {
+        const stale = getAdsLazyCachedStale(cacheKey);
+        if (stale) {
+          res.json({
+            ...(stale.result as object),
+            cache: { ...buildAdsCacheMeta(stale, "lazy_cache_hit"), stale: true, stale_reason: message },
+          });
+          return;
+        }
+      }
+      res.json({
+        ok: false,
+        degraded: true,
+        error: message,
+        cache: { ...buildAdsCacheMeta(null, "live_error_no_cache"), stale: true, stale_reason: message },
+      });
+    }
+  });
 
   router.get("/api/ads/tiktok/roas-summary", async (req: Request, res: Response) => {
     try {
